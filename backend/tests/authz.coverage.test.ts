@@ -89,6 +89,11 @@ const GOVERNED_BY: Record<string, Resource> = {
   MarketplaceOrderInvoice: "marketplaceOrder",
   /* 2S4-BE-13 — money owed back to a sponsor: Finance's "Refunds to send". */
   RefundDue: "refundDue",
+  /* 2S5-INT-02 — the payment provider's events: written by the signed webhook and the worker, read by BTG admin and Finance. */
+  PaymentEvent: "paymentEvent",
+  /* 2S5-BE-03 — a refund the provider reported: its record, read with the events. A dispute: BTG support's. */
+  PaymentRefund: "paymentEvent",
+  PaymentDispute: "paymentDispute",
   /* 2S4-BE-11 — a delivery problem's exchange is part of its line's delivery. */
   DeliveryIssue: "orderDelivery",
   /* 2S2-BE-05 — a team's invitation to an athlete already on SponsorX. */
@@ -138,6 +143,11 @@ const GOVERNED_BY: Record<string, Resource> = {
   AccountClosure: "accountClosure",
   GuardianHandoff: "guardianHandoff",
   GuardianHandoffDocument: "guardianHandoff",
+  /* 2S1-BE-16 — written by the public contact form; 2S0-SEC-01 — read by
+     BTG's support desk, which opens each attachment through an audited link
+     instead of receiving it by email. */
+  SupportMessage: "supportMessage",
+  SupportAttachment: "supportMessage",
 };
 
 /** Models no API path reads or writes, and why. */
@@ -146,10 +156,6 @@ const SYSTEM_INTERNAL: Record<string, string> = {
   EmailSendLog: "the worker's idempotency ledger for sent email",
   ListingDigest: "the worker's record of the daily auto-published listings summary sent to each BTG tenant (2S3-BE-06) — no route reads it",
   OrderApprovalDigest: "the worker's record of the daily summary of orders approved automatically, sent to each BTG tenant (2S4-BE-09) — no route reads it",
-  /* 2S1-BE-16 — written by the public contact form, read only by the worker
-     that mails it; BTG reads the messages in the support mailbox, not here. */
-  SupportMessage: "a contact-form message — written by the public form, mailed by the worker; read in the support mailbox",
-  SupportAttachment: "a contact-form attachment — uploaded to the private bucket, attached by the worker; no API route reads it",
 };
 
 describe("P8-SEC-01 · every model is governed by the matrix", () => {

@@ -82,6 +82,7 @@ export async function recordSocials(
           (a.avgViews === undefined || a.avgViews === b.avgViews),
       );
 
+    /* tenant-scope: athleteId is the athlete loaded above through whereFor(athlete, write). */
     await tx.athleteSocial.deleteMany({ where: { athleteId } });
     if (accounts.length > 0) {
       await tx.athleteSocial.createMany({

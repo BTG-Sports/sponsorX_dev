@@ -83,7 +83,7 @@ class Digest(unittest.TestCase):
 
 
 class SheetOnlyNotify(unittest.TestCase):
-    """Daytime pushes update the Sheet but post nothing — Slack gets the 8 pm digest."""
+    """notify --no-slack updates the Sheet only; without it, a merge is announced in Slack as it lands."""
 
     def setUp(self):
         self.saved = (ts.board_at, ts.post_slack, ts.sync_sheet)
@@ -110,6 +110,42 @@ class SheetOnlyNotify(unittest.TestCase):
         self.assertEqual(row[0], "2026-09-25")
         self.assertEqual(row[1:11], [1, 0, 0, 0, 0, 0, 0, 0, 0, 1])
         self.assertEqual(row[11:], [2, 5])
+
+
+class DigestOnlyOnQuietDays(unittest.TestCase):
+    """Merges that change tasks are announced as they land; the 8 pm post covers days with none."""
+
+    def setUp(self):
+        self.saved = (ts.board_at, ts.post_slack, ts.ref_before)
+        self.posted = []
+        self.boards = {"head": board(task("A", "Done")), "yesterday": board(task("A", "Ready"))}
+        ts.board_at = lambda ref, repo=".": self.boards.get(ref)
+        ts.ref_before = lambda ref, since: "yesterday"
+        ts.post_slack = lambda text, hook, dry: self.posted.append(text)
+
+    def tearDown(self):
+        ts.board_at, ts.post_slack, ts.ref_before = self.saved
+
+    def digest(self, *flags):
+        ts.main(["digest", "--ref", "head", "--date", "2026-10-07", "--dry-run", *flags])
+
+    def test_a_day_with_announced_merges_posts_nothing_at_8pm(self):
+        self.digest("--skip-if-announced")
+        self.assertEqual(self.posted, [])
+
+    def test_a_day_with_no_task_changes_still_gets_the_8pm_post(self):
+        self.boards["yesterday"] = self.boards["head"]
+        self.digest("--skip-if-announced")
+        self.assertEqual(len(self.posted), 1)
+
+    def test_no_history_before_the_window_still_posts(self):
+        ts.ref_before = lambda ref, since: ""
+        self.digest("--skip-if-announced")
+        self.assertEqual(len(self.posted), 1)
+
+    def test_without_the_flag_it_always_posts(self):
+        self.digest()
+        self.assertEqual(len(self.posted), 1)
 
 
 class SheetPlan(unittest.TestCase):

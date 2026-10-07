@@ -174,8 +174,12 @@ test("an accepted invite becomes a signed order, a reviewed and revised delivera
   });
   await athlete.getByRole("button", { name: "Upload new version" }).click();
   await expect.poll(deliverable, { timeout: 30_000 }).toMatchObject({ state: "DRAFT_SUBMITTED", versions: 2 });
-  await athlete.goto(`/athlete/deliverables/${first!.id}`);
-  await expect(athlete.getByText("Changes requested"), "a new version answers the revision").toHaveCount(0);
+  /* The version is recorded a moment before its submission answers the
+     revision (two calls), so read the page until the answer has landed. */
+  await expect.poll(async () => {
+    await athlete.goto(`/athlete/deliverables/${first!.id}`);
+    return athlete.getByText("Changes requested").count();
+  }, { timeout: 30_000, message: "a new version answers the revision" }).toBe(0);
 
   // 6. REVIEW AGAIN → SPONSOR → APPROVED.
   review = await reviewDrawer(desk, title);

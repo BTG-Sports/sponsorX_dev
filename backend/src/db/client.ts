@@ -15,8 +15,17 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client";
 import { env } from "../config/env";
 
+/**
+ * 2S8-OPS-02 — every session the API opens runs in UTC, whatever the
+ * database's own setting. Timestamp columns hold UTC as `timestamp without
+ * time zone`, so a column default of CURRENT_TIMESTAMP (or any bare `now()`)
+ * writes the SESSION's wall-clock time. The database is pinned to UTC too
+ * (migration 20261005100000); this makes the API right even on one that is not.
+ */
+const UTC_SESSION = "-c TimeZone=UTC";
+
 function createClient() {
-  const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
+  const adapter = new PrismaPg({ connectionString: env.DATABASE_URL, options: UTC_SESSION });
   return new PrismaClient({ adapter });
 }
 

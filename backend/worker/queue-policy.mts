@@ -18,6 +18,16 @@ export type RetryPolicy = { retryLimit: number; retryDelay: number; retryBackoff
 
 export const QUEUE_POLICY: Readonly<Record<string, RetryPolicy>> = {
   "notify.email": { retryLimit: 6, retryDelay: 30, retryBackoff: true },
+  /* 2S5-INT-02 / 2S8-QA-02 — the payment provider's side. A handler that
+     throws (the database briefly away, the provider timing out) has written
+     nothing — one transaction — so every retry is safe; backing off rides out
+     an outage of minutes instead of failing three times in a second.
+     payments.event lines up with MAX_ERRORS (payment-events.ts): after the
+     last try the event is FAILED and BTG's. */
+  "payments.event": { retryLimit: 5, retryDelay: 30, retryBackoff: true },
+  "payments.confirm": { retryLimit: 5, retryDelay: 30, retryBackoff: true },
+  "payouts.send": { retryLimit: 5, retryDelay: 60, retryBackoff: true },
+  "refunds.send": { retryLimit: 6, retryDelay: 60, retryBackoff: true },
 };
 
 type QueueAdmin = {

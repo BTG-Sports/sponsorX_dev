@@ -245,16 +245,45 @@ export async function postPayout(
   payoutId: string,
   payee: { payeeType: "ATHLETE" | "PROPERTY"; payeeId: string; payeeTenantId: string },
   lines: Array<{ orderId: string; amountCents: number }>,
+  /** 2S5-BE-05 — how many times the bank returned it before: a payout paid again posts journals of its own. */
+  returned = 0,
 ) {
   const account = payee.payeeType === "ATHLETE" ? "ATHLETE_PAYABLE" : "PROPERTY_PAYABLE";
   for (const l of lines) {
-    await post(tx, books, `${payoutId}:${l.orderId}:payout`, "PAYOUT", { orderId: l.orderId }, [
+    await post(tx, books, `${payoutId}:${l.orderId}:payout${returned ? `:${returned}` : ""}`, "PAYOUT", { orderId: l.orderId }, [
       { account, partyType: payee.payeeType, partyId: payee.payeeId, partyTenantId: payee.payeeTenantId, debitCents: l.amountCents, status: "PAID" },
       { account: "PAYOUT_CLEARING", partyType: "PROCESSOR", partyId: "processor", partyTenantId: books, creditCents: l.amountCents, status: "PAID" },
     ]);
   }
   await audit(tx, { userId: null, tenantId: books }, "ledger.payout", "Payout", payoutId, {
     after: { orders: lines.length, paidCents: lines.reduce((s, l) => s + l.amountCents, 0) },
+  });
+}
+
+/**
+ * 2S5-BE-05 — the bank returned a paid payout: one balanced PAYOUT journal per
+ * order it covered, the mirror of its payment — the payee's payable credited
+ * back (that money is theirs again, AVAILABLE), the provider's clearing
+ * account debited. The paid entries are never touched (a correction is a new
+ * journal). Paid earnings read net of it: PAYOUT debits less PAYOUT credits.
+ */
+export async function postPayoutReturn(
+  tx: Tx,
+  books: string,
+  payoutId: string,
+  payee: { payeeType: "ATHLETE" | "PROPERTY"; payeeId: string; payeeTenantId: string },
+  lines: Array<{ orderId: string; amountCents: number }>,
+  returnCount: number,
+) {
+  const account = payee.payeeType === "ATHLETE" ? "ATHLETE_PAYABLE" : "PROPERTY_PAYABLE";
+  for (const l of lines) {
+    await post(tx, books, `${payoutId}:${l.orderId}:returned:${returnCount}`, "PAYOUT", { orderId: l.orderId }, [
+      { account, partyType: payee.payeeType, partyId: payee.payeeId, partyTenantId: payee.payeeTenantId, creditCents: l.amountCents, status: "AVAILABLE" },
+      { account: "PAYOUT_CLEARING", partyType: "PROCESSOR", partyId: "processor", partyTenantId: books, debitCents: l.amountCents, status: "AVAILABLE" },
+    ]);
+  }
+  await audit(tx, { userId: null, tenantId: books }, "ledger.payoutReturned", "Payout", payoutId, {
+    after: { orders: lines.length, returnedCents: lines.reduce((s, l) => s + l.amountCents, 0), returnCount },
   });
 }
 
@@ -295,7 +324,8 @@ export function summarise(entries: Array<{ entryType: string; account: string; s
   const sum = (f: (e: (typeof entries)[number]) => number) => entries.reduce((s, e) => s + f(e), 0);
   const bookedRevenueCents = sum((e) => (e.entryType === "BOOKING" ? e.creditCents : 0));
   const reversedCents = sum((e) => (e.entryType === "REVERSAL" ? e.debitCents - e.creditCents : 0));
-  const paidEarningsCents = sum((e) => (e.entryType === "PAYOUT" ? e.debitCents : 0));
+  /* 2S5-BE-05 — net of payouts the bank returned (a PAYOUT credit to the payable). */
+  const paidEarningsCents = sum((e) => (e.entryType === "PAYOUT" ? e.debitCents - e.creditCents : 0));
   const ledgerBalanceCents = sum((e) => e.creditCents - e.debitCents);
   const reservedCents = sum((e) => (e.account === "RESERVE_HELD" ? e.creditCents - e.debitCents : 0));
   const payable = entries.filter((e) => e.account !== "RESERVE_HELD");

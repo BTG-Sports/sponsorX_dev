@@ -37,16 +37,12 @@ export type EmailJob = {
   idempotencyKey: string;
   /** Fan emails only (P6-SEC-03): the claim whose consent this send relies on. */
   fanEventId?: string;
-  /** 2S1-BE-16 — a support message replies to its sender, keeps its thread,
-   *  and carries its private attachments (read here, at send time). */
+  /** 2S1-BE-16 — a support message replies to its sender and keeps its thread.
+   *  2S0-SEC-01 — it no longer carries its attachments: no email does. A job
+   *  queued before that change may still name some; they are not read. */
   replyTo?: string;
   headers?: Record<string, string>;
-  attachments?: { filename: string; key: string; contentType: string }[];
 };
-
-/** Reads a private-bucket object for an attachment. Injected so the handler
- *  stays testable without storage; the worker passes getPrivateObject. */
-export type AttachmentLoader = (key: string) => Promise<Buffer>;
 
 /**
  * Subject and body per template. Data, not code, so adding a message is a
@@ -121,6 +117,20 @@ ${d.portalUrl ?? ""}
     subject: `Refund the sponsor: a card payment of ${d.amount ?? ""} for order ${d.orderRef ?? ""}, which is ${d.orderState ?? "no longer waiting for payment"}`,
     text: `${d.why ?? "A card payment was confirmed for an order that was no longer waiting for payment"} (order ${d.orderRef ?? ""}, ${d.amount ?? ""}). The order has not been reopened — refund the sponsor's payment with the payment provider${d.providerRef ? ` (payment ${d.providerRef})` : ""}.\n\n${d.orderUrl ?? ""}\n\n— SponsorX`,
   }),
+  /* 2S5-INT-02 — a provider event SponsorX held for BTG instead of applying it. */
+  "payment.heldForBtg": (d) => ({
+    subject: `Payment provider event held for you: ${d.type ?? "an event"}${d.orderRef ? ` (order ${d.orderRef})` : ""}`,
+    text: `SponsorX received this from the payment provider and did not act on it by itself:\n\n${d.type ?? ""}${d.subject ? ` — ${d.subject}` : ""}\n\nWhy: ${d.reason ?? ""}\n\nCheck it with the provider, put it right in SponsorX (record the payment, refund it, or leave it), then mark it dealt with:\n\n${d.eventsUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* 2S5-BE-03 — a sponsor disputed a card payment: BTG support's review item. Never resolved automatically. */
+  "dispute.opened": (d) => ({
+    subject: `Payment disputed: order ${d.orderRef ?? ""} — ${d.amount ?? ""}`,
+    text: `The sponsor has disputed their card payment for order ${d.orderRef ?? ""} (${d.amount ?? ""}) with their bank.\n\nReason given: ${d.reason ?? "not given"}\n\nThe order's money is frozen: no payout covering it is approved or sent, and it can't be refunded. Take the dispute for review, send the provider your evidence, and resolve it once the provider decides:\n\n${d.disputeUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "dispute.providerClosed": (d) => ({
+    subject: `The payment provider decided the dispute on order ${d.orderRef ?? ""}: ${d.outcome ?? ""}`,
+    text: `The payment provider closed the dispute on order ${d.orderRef ?? ""} (${d.amount ?? ""}) — ${d.outcome === "lost" ? "lost: the bank returned the money to the sponsor" : "won: the money stays with BTG"}.\n\nNothing has been changed yet. Resolve it in SponsorX: ${d.outcome === "lost" ? "the order's books are then reversed and payouts not yet sent are sent back" : "the order's money then unfreezes and waiting payouts are sent"}.\n\n${d.disputeUrl ?? ""}\n\n— SponsorX`,
+  }),
   /* 2S4-BE-09 — the seller's step. */
   "sale.approvalRequested": (d) => ({
     subject: `${d.sponsorName ?? "A sponsor"} wants to order from you — please answer by ${d.answerBy ?? "the time shown"}`,
@@ -180,6 +190,16 @@ ${d.portalUrl ?? ""}
   "payout.accountNeedsFix": (d) => ({
     subject: `Your payout of ${d.amount ?? ""} couldn't be sent — please fix your payout account`,
     text: `Hi ${d.firstName ?? "there"},\n\nWe tried to send your payout of ${d.amount ?? ""}, but our payment provider says your payout account needs attention first.\n\nOpen your money page and update your payout account on the provider's secure page. As soon as it's ready again, we'll send the payout automatically — you don't need to request it again.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* 2S5-BE-05 — a failed payout that is BTG's now. */
+  "payout.failedForBtg": (d) => ({
+    subject: `A payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"} couldn't be sent — it's yours to look at`,
+    text: `The payment provider couldn't send a payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"}, and SponsorX won't retry it by itself.\n\nWhy: ${d.reason ?? ""}\n\nCheck it with the provider, then retry it — or send it back to the payee with a note:\n\n${d.payoutUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* 2S5-INT-01 — Stripe refused a queued card refund; it is Finance's to send by hand. */
+  "refund.providerRefused": (d) => ({
+    subject: `A refund of ${d.amount ?? ""} on order ${d.orderRef ?? ""} couldn't be sent to the card`,
+    text: `SponsorX tried to refund ${d.amount ?? ""} on order ${d.orderRef ?? ""} to the sponsor's card through Stripe, and it didn't go.\n\nWhy: ${d.why ?? ""}\n\nIt is back on "Refunds to send" — send it another way and mark it sent:\n\n${d.refundsUrl ?? ""}\n\n— SponsorX`,
   }),
   /* P4-BE-09 — campaigns move on their own: ready for BTG to launch; the
      sponsor's final report is ready. */
@@ -615,11 +635,23 @@ ${d.portalUrl ?? ""}
   /* 2S1-BE-13 — closing an account and coming back. */
   "account.closed": (d) => ({
     subject: "Your SponsorX account is closed",
-    text: `Hi ${d.name ?? "there"},\n\nYour SponsorX account is closed. You can't sign in, and your listings have stopped.\n\nYour documents are kept until ${d.retainUntil ?? "30 days from today"}, then deleted for good. Changed your mind? Reactivate before then and everything comes back:\n\n${d.reactivateUrl ?? ""}\n\nMoney you already earned is still paid out to your payout account.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
+    text: `Hi ${d.name ?? "there"},\n\nYour SponsorX account is closed. You can't sign in, and your listings have stopped.\n\nYour documents are kept until ${d.retainUntil ?? "30 days from today"}, then deleted for good. Changed your mind? Reactivate before then and everything comes back:\n\n${d.reactivateUrl ?? ""}\n\nThis link works for 14 days. If it has expired, contact ${d.supportEmail ?? "BTG support"} and we'll send you a new one.\n\nMoney you already earned is still paid out to your payout account.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
   }),
   "account.reactivationLink": (d) => ({
     subject: "Your link to reactivate your SponsorX account",
     text: `Hi ${d.name ?? "there"},\n\nHere is the link you asked for. It works for 24 hours:\n\n${d.reactivateUrl ?? ""}\n\nIf you didn't ask for it, you can ignore this email — nothing changes.\n\n— BTG SponsorX`,
+  }),
+  /* 2S8-PMO-02 — a fresh link for one that expired. Same words for every kind;
+     `what` names the thing the link opens. */
+  "link.fresh": (d) => ({
+    subject: "Your new SponsorX link",
+    text: `Hi ${d.name ?? "there"},\n\nYour earlier link to ${d.what ?? "continue on SponsorX"} has expired. Here is a fresh one. It works for ${d.days ?? "14"} days:\n\n${d.url ?? ""}\n\nIf you didn't ask for it, you can ignore this email — nothing changes.\n\n— BTG SponsorX`,
+  }),
+  /* 2S8-PMO-02 — "that's me" on a featured profile: the claim reaches the
+     school only once this link is opened. */
+  "athleteClaim.confirmEmail": (d) => ({
+    subject: "Confirm your email to claim your SponsorX profile",
+    text: `Hi ${d.firstName ?? "there"},\n\nYou said a SponsorX profile is yours${d.profileUrl ? ` (${d.profileUrl})` : ""}. Confirm this is your email address and we'll pass your claim to your school:\n\n${d.confirmUrl ?? ""}\n\nThe link works for ${d.days ?? "14"} days. If you didn't make this claim, ignore this email — nothing happens without it.\n\n— BTG SponsorX`,
   }),
   "account.reactivated": (d) => ({
     subject: "Your SponsorX account is back",
@@ -690,14 +722,21 @@ ${d.portalUrl ?? ""}
   }),
 
   /* 2S1-BE-16 — the contact form. The support mailbox (Zoho Desk or a shared
-     inbox) receives the message with Reply-To set to the sender. */
+     inbox) receives the message with Reply-To set to the sender.
+     2S0-SEC-01 — attachments are NAMED, never attached: BTG opens them on
+     the signed-in support page, each through a five-minute, audited link. */
   "support.message": (d) => ({
     subject: `[${d.topic ?? "Other"}] ${d.name ?? "Someone"} — SponsorX contact form`,
-    text: `From: ${d.name ?? ""} <${d.email ?? ""}>\nTopic: ${d.topic ?? ""}\nSent: ${d.sentAt ?? ""}\nReference: ${d.reference ?? ""}\nAttachments: ${d.attachments || "none"}\n\n${d.message ?? ""}\n\n— Reply to this email to answer ${d.name ?? "them"} directly.`,
+    text: `From: ${d.name ?? ""} <${d.email ?? ""}>\nTopic: ${d.topic ?? ""}\nSent: ${d.sentAt ?? ""}\nReference: ${d.reference ?? ""}\nAttachments: ${d.attachments ? `${d.attachments} — not attached to this email. Open them in SponsorX (BTG sign-in required): ${d.attachmentsUrl || `the support page, reference ${d.reference ?? ""}`}` : "none"}\n\n${d.message ?? ""}\n\n— Reply to this email to answer ${d.name ?? "them"} directly.`,
   }),
+  /* 2S8-SEC-02 — this goes to an address nobody has confirmed, from the
+     public contact form, so it carries nothing the sender typed: echoing the
+     name and message let anyone send their own text (a phishing link) from
+     SponsorX's domain to any inbox. The topic is one of our own words and the
+     reference is ours. */
   "support.copy": (d) => ({
     subject: "We have your message — BTG SponsorX",
-    text: `Hi ${d.name ?? "there"},\n\nThanks — your message reached BTG and a person reads every one. We'll reply to this email address.\n\nTopic: ${d.topic ?? ""}\nReference: ${d.reference ?? ""}\n\nYour message:\n\n${d.message ?? ""}\n\n— BTG SponsorX`,
+    text: `Hi,\n\nThanks — your message reached BTG and a person reads every one. We'll reply to this email address.\n\nTopic: ${d.topic ?? ""}\nReference: ${d.reference ?? ""}\n\nIf you did not write to us, you can ignore this email.\n\n— BTG SponsorX`,
   }),
 };
 
@@ -747,7 +786,6 @@ export async function mutedFor(pool: pg.Pool, job: Pick<EmailJob, "tenantId" | "
 export async function handleSendEmail(
   pool: pg.Pool,
   job: EmailJob,
-  loadAttachment?: AttachmentLoader,
 ): Promise<"sent" | "duplicate" | "withdrawn" | "muted"> {
   const build = TEMPLATES[job.template];
   if (!build) {
@@ -798,15 +836,7 @@ export async function handleSendEmail(
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) throw new Error("RESEND_API_KEY is not set.");
 
-    /* 2S1-BE-16 — attachments are read from the private bucket now, not
-       stored in the queue. A read that fails throws, so the job retries. */
-    let attachments: { filename: string; content: Buffer; contentType: string }[] | undefined;
-    if (job.attachments?.length) {
-      if (!loadAttachment) throw new Error(`${job.template} carries attachments but no attachment loader was given.`);
-      attachments = [];
-      for (const a of job.attachments) attachments.push({ filename: a.filename, content: await loadAttachment(a.key), contentType: a.contentType });
-    }
-
+    /* 2S0-SEC-01 — no email carries a file: nothing is read from the private bucket here. */
     const resend = new Resend(apiKey);
     const result = await resend.emails.send({
       from: FROM,
@@ -814,7 +844,6 @@ export async function handleSendEmail(
       subject,
       text,
       ...(job.replyTo ? { replyTo: job.replyTo } : {}),
-      ...(attachments ? { attachments } : {}),
       /* RFC 8058 one-click: mail clients show their own "Unsubscribe" button
          and POST to this URL, which the web app forwards to the API. */
       ...(fan

@@ -66,6 +66,12 @@ describe("suite isolation · static", () => {
     "sweepAutoStaffing", "sweepCampaignLaunches",
     /* P9-BE-17 / P9-BE-18 */
     "sweepEditionStages", "sweepHeldSales",
+    /* P4-BE-05 (2S8-OPS-02 gave it tenantIds) */
+    "expireInvitations",
+    /* 2S5-INT-02 */
+    "retryDeferredPaymentEvents",
+    /* 2S0-SEC-01 — the support-attachment and Zoho-body retention sweeps */
+    "purgeSupportAttachments", "trimZohoWebhookBodies",
   ];
 
   it("every platform-wide sweep a test runs is narrowed to that test's tenant", () => {

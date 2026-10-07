@@ -34,7 +34,7 @@ vi.mock("../src/lib/rate-limit", () => ({ limit: async () => {} }));
 const { uploaded } = vi.hoisted(() => ({ uploaded: new Set<string>() }));
 vi.mock("../src/lib/storage", async (importOriginal) => {
   const real = await importOriginal<typeof import("../src/lib/storage")>();
-  return { ...real, privateObjectSize: async (key: string) => (uploaded.has(key) ? 52_000 : null) };
+  return { ...real, checkPrivateUpload: async (_actor: unknown, key: string) => (uploaded.has(key) ? { ok: true as const, bytes: 52_000 } : { ok: false as const, problem: "missing" as const }) };
 });
 vi.mock("../src/auth/clerk", () => ({
   authenticateClerkRequest: async (req: { get: (h: string) => string | undefined }) => {

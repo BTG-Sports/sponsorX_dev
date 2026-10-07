@@ -54,6 +54,7 @@ import { ForbiddenError } from "../auth/errors";
 import { issuePurposeToken, readPurposeToken } from "../lib/purpose-token";
 import { issueComingOfAgeToken } from "../lib/signup-token";
 import { deletePrivateObject } from "../lib/storage";
+import { ABANDONED_SUPPORT_DRAFT_DAYS, SUPPORT_ATTACHMENT_RETENTION_DAYS } from "../contracts/support";
 import { mayParticipate } from "./guardian-rules";
 import { relistAfterReactivation } from "./listing";
 import {
@@ -214,6 +215,7 @@ export async function closeOwnAccount(actor: Actor, input: CloseInput) {
     if (s.kind === "PROPERTY") {
       const p = await tx.property.findFirst({ where: { tenantId: actor.tenantId, id: s.id }, select: { listingAccessAt: true } });
       if (p?.listingAccessAt) {
+        /* tenant-scope: the closing organisation's own property, loaded just above within actor.tenantId. */
         await tx.property.update({ where: { id: s.id }, data: { listingAccessAt: null }, select: { id: true } });
         listingAccessWithdrawn = true;
       }
@@ -499,6 +501,7 @@ async function recheck(tx: Tx, c: ClosureRow, by: AuditActor): Promise<{ notes: 
       mayList = false;
       notes.push("Your organization's documents are missing, so listing access waits until they are uploaded.");
     } else if (c.listingAccessWithdrawn) {
+      /* tenant-scope: the closure's own property, loaded just above within the closure's tenant. */
       await tx.property.update({ where: { id: c.subjectId }, data: { listingAccessAt: new Date() }, select: { id: true } });
     }
   }
@@ -908,5 +911,49 @@ export async function purgeExpiredClosures(
       await audit(tx, SYSTEM(d.tenantId), "guardianHandoff.documentPurged", "GuardianHandoff", d.handoffId, { after: { documentId: d.id } });
     });
   }
-  return { closures: due.length, files, handoffDocuments: stale.length };
+  const supportAttachments = await purgeSupportAttachments(db, now, del, onlyTenantId);
+  return { closures: due.length, files, handoffDocuments: stale.length, supportAttachments };
+}
+
+/**
+ * 2S0-SEC-01 (the owner's decision on O2, 2026-10-06) — a contact-form
+ * attachment is often a guardianship proof or an ID, and nothing used to
+ * delete it. It goes, object first and then its row (audited, by name
+ * count), in the same hourly sweep and the same way as a declined handoff's
+ * documents:
+ *
+ *   - SUPPORT_ATTACHMENT_RETENTION_DAYS (90) after its message was SENT to
+ *     the desk (`queuedAt`) — long enough for BTG to work the case, which
+ *     reads it through a five-minute link;
+ *   - ABANDONED_SUPPORT_DRAFT_DAYS (30) after a message that was never sent
+ *     was started (its files never all arrived; the sender's link to finish
+ *     it expired after an hour), like the other 30-day rules.
+ *
+ * The message itself stays (BTG's record that it was contacted); its page
+ * then lists no attachments. A failed delete leaves the row for the next run.
+ */
+export async function purgeSupportAttachments(
+  db: typeof prisma = prisma,
+  now = new Date(),
+  del: (key: string) => Promise<void> = deletePrivateObject,
+  onlyTenantId?: string,
+) {
+  const sentBefore = new Date(now.getTime() - SUPPORT_ATTACHMENT_RETENTION_DAYS * 86_400_000);
+  const draftBefore = new Date(now.getTime() - ABANDONED_SUPPORT_DRAFT_DAYS * 86_400_000);
+  const due = await db.supportAttachment.findMany({
+    /* tenant-scope: the worker's sweep across every tenant; each row is deleted by its own id, in its own tenant. */
+    where: {
+      message: { is: { OR: [{ state: "QUEUED", queuedAt: { lte: sentBefore } }, { state: "DRAFT", createdAt: { lte: draftBefore } }] } },
+      ...(onlyTenantId ? { tenantId: onlyTenantId } : {}),
+    },
+    select: { id: true, tenantId: true, messageId: true, r2Key: true }, take: 500,
+  });
+  for (const a of due) {
+    await del(a.r2Key);
+    await db.$transaction(async (tx) => {
+      await tx.supportAttachment.deleteMany({ where: { tenantId: a.tenantId, id: a.id } });
+      await audit(tx, SYSTEM(a.tenantId), "support.attachmentPurged", "SupportMessage", a.messageId, { after: { attachmentId: a.id } });
+    });
+  }
+  return due.length;
 }

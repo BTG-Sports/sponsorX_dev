@@ -29,6 +29,7 @@ import {
   type BackfillModule,
   type SyncCtx,
 } from "../../src/domain/zoho-sync.ts";
+import { logError } from "../../src/lib/redact.ts";
 
 export type Deps = { db: PrismaClient; zoho: () => ZohoClient };
 
@@ -46,7 +47,7 @@ async function tolerateRecordErrors<T>(label: string, run: () => Promise<T>): Pr
     return await run();
   } catch (error) {
     if (error instanceof ZohoRecordError) {
-      console.error(`[worker] ${label} refused by Zoho — not retried: ${error.message}`);
+      logError(`[worker] ${label} refused by Zoho — not retried: ${error.message}`);
       return { status: "refused", reason: error.message };
     }
     throw error;

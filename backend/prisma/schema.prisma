@@ -2149,10 +2149,14 @@ model AthleteClaim {
   birthDate     DateTime?
   ageBand       String?
   rosterMatched Boolean    @default(false)
-  state         ClaimState @default(SUBMITTED)
-  verifiedBy    String?
-  verifiedAt    DateTime?
-  createdAt     DateTime   @default(now())
+  /// 2S8-PMO-02: PENDING_EMAIL until the claimant opens the emailed link;
+  /// only then SUBMITTED, which the advisor sees and may verify (CHECK
+  /// AthleteClaim_confirmed_before_review, migration 20261006100100).
+  state            ClaimState @default(PENDING_EMAIL)
+  emailConfirmedAt DateTime?
+  verifiedBy       String?
+  verifiedAt       DateTime?
+  createdAt        DateTime   @default(now())
 
   athlete Athlete @relation(fields: [athleteId], references: [id])
 
@@ -2160,6 +2164,7 @@ model AthleteClaim {
 }
 
 enum ClaimState {
+  PENDING_EMAIL
   SUBMITTED
   VERIFIED
   REJECTED
@@ -3005,7 +3010,11 @@ model PaymentAttempt {
   provider      String
   providerRef   String?
   /// PENDING (sent to the provider) | PROCESSING (back, awaiting confirmation) | SUCCEEDED | FAILED
+  /// | PARTIALLY_REFUNDED | REFUNDED (2S5-INT-02 — moved only forward, only on the provider's word:
+  /// payment-events.ts; a late "processing" never undoes "succeeded").
   state         String   @default("PENDING")
+  /// 2S5-INT-02 — how much of it the provider says it refunded (never more than amountCents).
+  refundedCents Int      @default(0)
   failureReason String?
   createdBy     String?
   createdAt     DateTime @default(now())
@@ -3013,6 +3022,113 @@ model PaymentAttempt {
 
   @@index([tenantId, orderId])
   @@index([orderId, createdAt])
+}
+
+/// 2S5-INT-02 — one event from the payment provider, in SponsorX's own
+/// provider-neutral words (`type`: payment.processing | payment.succeeded |
+/// payment.failed | payment.refunded | dispute.opened | dispute.closed |
+/// payout.paid | payout.failed | payout.returned — a provider's own event names
+/// are mapped onto these in lib/payment-provider.ts). Unique per (provider,
+/// providerEventId): a duplicate delivery writes nothing. The webhook writes
+/// it RECEIVED and queues `payments.event`; the worker applies it
+/// (payment-events.ts) and records the outcome: APPLIED, IGNORED (nothing
+/// left to do — a late or repeated word), DEFERRED (it arrived before what it
+/// follows; tried again at `nextAttemptAt`), HELD (BTG's, with the reason in
+/// `outcome`) or FAILED (deferred too long — BTG's). In the books of what it
+/// is about; until that is known, the platform's BTG tenant.
+model PaymentEvent {
+  id              String    @id @default(cuid())
+  tenantId        String
+  provider        String
+  providerEventId String
+  type            String
+  occurredAt      DateTime
+  payload         Json
+  /// The payment attempt, payout or dispute it names, as the provider gave it.
+  subjectRef      String?
+  status          String    @default("RECEIVED")
+  outcome         String?
+  attempts        Int       @default(0)
+  nextAttemptAt   DateTime?
+  receivedAt      DateTime  @default(now())
+  appliedAt       DateTime?
+  /// A HELD or FAILED event BTG has dealt with: who, when, and what they did.
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  resolutionNote  String?
+  updatedAt       DateTime  @default(now()) @updatedAt
+
+  @@unique([provider, providerEventId])
+  @@index([tenantId, status])
+  @@index([status, nextAttemptAt])
+}
+
+/// 2S5-BE-03 — a refund the provider reported (`payment.refunded`), once per
+/// provider refund reference. CONFIRMED: it confirms a refund SponsorX sent
+/// (`refundDueId`). APPLIED: SponsorX refunded the order because of it — the
+/// whole payment refunded at the provider, every check passed — or BTG did,
+/// later (`refundDueId`). HELD: BTG's (a part refund, a payout in progress, an
+/// order that can't be refunded): the order's payouts wait until BTG refunds it
+/// in SponsorX or closes the event without (DISMISSED). In the order's books.
+model PaymentRefund {
+  id                String   @id @default(cuid())
+  tenantId          String
+  attemptId         String
+  orderId           String
+  provider          String
+  providerRefundRef String
+  amountCents       Int
+  refundDueId       String?
+  /// CONFIRMED | APPLIED | HELD | DISMISSED
+  outcome           String
+  createdAt         DateTime @default(now())
+
+  @@unique([provider, providerRefundRef])
+  @@index([tenantId, orderId])
+}
+
+/// 2S5-BE-03 — the sponsor disputed a card payment with their bank
+/// (state machines §7). OPEN → UNDER_REVIEW → WON | LOST, never decided by the
+/// system: the provider's `dispute.closed` records its outcome
+/// (`providerOutcome`), and a BTG person resolves the dispute to it. While it
+/// is OPEN or UNDER_REVIEW the order's money is frozen — no payout covering it
+/// is approved or sent, nothing of it can be requested, and the order can't be
+/// refunded. LOST reverses the order's books (the whole order, or `lineIds`)
+/// and cancels payouts not yet sent; money already paid out is owed back
+/// (`owedBackCents`, as GET /payouts/me counts it). In the order's books.
+model PaymentDispute {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  orderId            String
+  attemptId          String?
+  sponsorId          String
+  provider           String
+  providerDisputeRef String
+  amountCents        Int
+  reason             String?
+  /// OPEN | UNDER_REVIEW | WON | LOST
+  state              String    @default("OPEN")
+  /// WON | LOST — the provider's decision; null until it closes the dispute.
+  providerOutcome    String?
+  providerClosedAt   DateTime?
+  openedAt           DateTime
+  reviewStartedAt    DateTime?
+  reviewedBy         String?
+  reviewNote         String?
+  resolvedAt         DateTime?
+  resolvedBy         String?
+  resolutionNote     String?
+  /// LOST on part of the order: the lines whose books were reversed.
+  lineIds            String[]  @default([])
+  ledgerReversed     Boolean   @default(false)
+  /// LOST after money was paid out: what the payees owe back, when it was resolved.
+  owedBackCents      Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
+
+  @@unique([provider, providerDisputeRef])
+  @@index([tenantId, state])
+  @@index([orderId, state])
 }
 
 /// 2S5-BE-04 / 2S5-BE-05 — a payee asks to be paid its available balance; BTG
@@ -3056,6 +3172,14 @@ model Payout {
   nextRetryAt           DateTime?
   /// The one automatic retry after the payee fixed their account was used.
   accountRetryUsed      Boolean   @default(false)
+  /// 2S5-BE-05 — each hand-over to the provider (APPROVED → SENDING). The
+  /// provider is sent `<id>:<n>` as its idempotency key, so a hand-over
+  /// retried after a crash is the same payout to the provider, never two.
+  sendAttempts          Int       @default(0)
+  /// 2S5-BE-05 — the bank returned it after it was paid (`payout.returned`):
+  /// PAID → FAILED, its PAYOUT journals mirrored, retried like an account failure.
+  returnedAt            DateTime?
+  returnCount           Int       @default(0)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @default(now()) @updatedAt
 
@@ -3303,6 +3427,7 @@ model RefundDue {
   /// SPONSOR_CANCELLED | SELLER_CANCELLED | CANCELLATION_AGREED | PROBLEM_AGREED | BTG_DECIDED | BTG_REFUNDED_ORDER
   /// | PAID_AFTER_CANCELLATION (a card payment confirmed after the order was cancelled)
   /// | EDITION_CANCELLED (P9-BE-19 — a paid ad sale in an edition BTG cancelled)
+  /// | PROVIDER_REFUNDED (2S5-BE-03 — the provider refunded the whole payment itself: written SENT, never refunded again)
   /// | PAID_AFTER_EDITION_CANCELLED (P9-BE-19 — Zoho marked an invoice paid after that edition was cancelled)
   cause       String
   /// Copied from the order: CARD | BANK_TRANSFER | CHEQUE | OTHER | ZOHO_INVOICE.

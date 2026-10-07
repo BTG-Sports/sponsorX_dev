@@ -1,5 +1,39 @@
 # 2026-10-07
 
+- **The SponsorX repository moved to the BTG-Sports organization** (GitHub Team plan, owner `rcarr-crypto`; `infinex1` is also an owner). It is now `github.com/BTG-Sports/sponsorX_dev`, and the old `infinex1/sponsorX_dev` links redirect.
+  - Issues, pull requests, Actions secrets and variables, and collaborators moved with it. CI runs on the new repository.
+  - **Railway:** the Railway GitHub app is installed on BTG-Sports (only this repository). All four services (staging and production, api and web) now point at `BTG-Sports/sponsorX_dev` on the `release` branch. Railway's API refuses repository changes from the CLI (NotAuthorized), so they were made in the dashboard by the owner.
+  - **Deploys:** staging was redeployed from `main` (acbb23a). Production rebuilt the same commit (499e0b5).
+  - This Mac's `origin` and `documentation/SponsorX-Developer-Handoff.md` now use the new address.
+  - **Still to update by hand:** the Vercel test deployment's GitHub connection (HeckerCreatives).
+- **The "SponsorX received this from the payment provider" emails** were noise from the 2026-10-06 Stripe sandbox tests. Sandbox events for test accounts and payments created from this Mac reached staging, failed after 7 tries and emailed BTG admins: 59 events.
+  - The fix that ignores foreign accounts (7105256) is now on staging (PRs #160 → #166, deployed).
+  - The 59 FAILED rows are still on staging's exceptions list; clearing them is offered, not yet done.
+- **Slack tracker broadcast (owner's decision):**
+  - each merge to `main` that changes tasks now posts one Slack message listing them (`tracker-notify.yml`; `--no-slack` removed);
+  - the 8 pm digest posts only on days with none (`tracker_sync.py digest --skip-if-announced`);
+  - the Stage Progress row is still appended every day.
+  - Tests: 23/23 (`DigestOnlyOnQuietDays`).
+- **PR #167** (the release of 2S8-PMO-02 to `main`) is open. #165 merged into main_development just after #166 went to `main`.
+- **Code review rows checked against acceptance.**
+  - **Done:** 2S8-PMO-02, plus 2S3-FE-02, 2S5-FE-03 and 2S5-FE-04 after browser verification on the local stack. The team page equals the ledger: $151.05 booked, $135.64 paid, $15.41 reserve.
+  - **Still in review:**
+    - 2S5-FE-05: no receipt has been delivered on staging, because Resend rejects `@example.com`. Also, the receipt goes to the signed-in user, not the billing contact the checkout copy names.
+    - 2S7-FE-02: the console lacks disputes, payment events, REQUESTED payouts, refunds to send and delivery issues.
+- **2S0-OPS-01 · Done.** The owner agreed RPO ≤ 1 h and RTO ≤ 4 h. PITR on both environments already meets them: `archive_timeout` = 60 s, so a segment is archived every minute.
+- **2S8-OPS-01 · In progress.**
+  - A staging PITR restore into `pg-restore-check-1007` matched live exactly and was queryable in about 9.5 minutes. The service was then deleted.
+  - Rollback took 41 s and roll-forward 51 s. Rollback is code-only across migrations.
+  - **Alerting is built:**
+    - `GET /health/full`, with db, redis, storage and backups (stale after 60 minutes);
+    - the web path `/api/v1/public/health`;
+    - `.github/workflows/health-monitor.yml`, every 15 minutes, with per-environment state, posting to Slack only on change.
+  - **Done after deploy and a test alert:** `gh workflow run health-monitor.yml -f simulate_failure=true`.
+- **2S8-PMO-01 · In progress.** The sign-off record is `documentation/SponsorX-Phase2-Acceptance-Signoff.md`: 12/14 demonstrated, #13 Zoho partly, #11 wallet not built. It still needs real external users on staging, through its 18-step plan, and the owner's sign-off.
+- **The wallet rows' notes are corrected.** They wait on Apple and Google wallet accounts, not on the payment provider.
+- **2S1-OPS-01 is waiting on the owner** to name the inbox `support@sponsorx.net` should forward to. Today `sponsorx.net`, on Cloudflare, has no MX records. Zoho Desk exists (department "iCARRe Foundation") but has no email channel.
+- **Local note:** the scratchpad was wiped. The verification agent left a throwaway embedded Postgres running on 55432 (`scratchpad/pg`), and its worktree is still locked.
+
 ## HeckerCreatives — P1-ART-18: the whole admin portal on the stage (Code review)
 
 The owner asked for the whole admin portal in the Mission Control language, components included, without check-ins. Spec: `docs/superpowers/specs/2026-10-07-admin-portal-stage-design.md`. Branch `feature/P1-ART-18-admin-portal-stage`, stacked on P1-ART-17.
@@ -64,3 +98,7 @@ The owner: "restructure the navigation buttons in the side, its too many, if its
 - **Follow-up (owner: "showing takes to long when you collapse"):** a group's desks were staggered from the top of the whole nav (`80 + i × 40 ms` over a 0.5 s fade), so the last group took over a second to appear. Now a group's desks are timed from their own first row — 25 ms apart, a quarter-second fade — and only the top items and the group headers stagger down the column on arrival.
 - **Follow-up (owner: "redesign the visual, too plain"):** group headers now read like desk rows — a glyph tile per group (`groupIcon` on one item; `NavGroup.icon`), the name, a count chip, a caret; the group you are in gets the accent rail, wash and a glowing tile; an open group brightens and its desks hang off a cyan track line; hover sweeps a light. The group name is 10px / 0.12em so "Marketplace" fits the 224px rail.
 - **Follow-up (owner: an x scrollbar on the nav when hovering):** the header's hover sweep slides a full-width light past the header's right edge, and the sidebar's scroller only said `overflow-y-auto` — which gives `overflow-x: auto` with it — so the moment of overflow drew a horizontal scrollbar. The header now clips (`overflow-hidden`) and the scroller is `overflow-x-hidden`; the walk hovers a header and pins zero horizontal overflow.
+
+## HeckerCreatives — merge of `main_development` (rcfworks' Sprint 8 close-out) into the admin-portal stack
+
+Nine conflicts, all kept both sides: `auth/clerk.ts`, `config/env.ts` and `frontend/src/proxy.ts` (rcfworks' Clerk `authorizedParties` plus my optional `CLERK_CLOCK_SKEW_MS`); `domain/delivery.ts` and `domain/payouts.ts` (both imports); `contracts/registry.ts` (both imports; `/payouts` summary carries rcfworks' 2S5-BE-05 sentence and my paging sentence); the two Memory logs (theirs then mine). **The tracker was merged three ways by cell** (scratchpad `xlmerge/merge_board.py`): rcfworks' workbook as the base, my nine Phase 1 rows (P1-ART-14…21, P1-FE-31) appended at 290–298 with ranges extended, no cell changed on both sides, and the 2026-10-07 snapshot recomputed (their 2026-10-05 row kept as theirs). Two tests adjusted to the merge: `security-review.test.ts`'s proxy regex now allows the skew option after the parties list; `commission-live.test.ts` mocks the rules desk's server actions, which the rule dialog's ComboBox reaches and which now import `server-only`. After the merge: `npm install` (stripe), `prisma generate` and `migrate deploy` were needed before the backend typechecked (memory: backend-errors-after-pull). `origin` now points at `BTG-Sports/sponsorX_dev` (the repository moved on 2026-10-07).

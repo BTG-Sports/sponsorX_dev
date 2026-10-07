@@ -25,7 +25,10 @@
  * adapter (lib/payment-provider.ts `refundCard`) and the row marked SENT at
  * once: the stand-in on staging does it inline, labelled a test; with no
  * provider ("none", production until one is chosen) it stays OPEN for
- * Finance. Everything else — bank transfer, cheque, other, a Zoho invoice —
+ * Finance. With Stripe (2S5-INT-01) the refund is a network call, so it is
+ * QUEUED: the row stays OPEN, marked with the provider, and a `refunds.send`
+ * job (`sendRefund`, the worker) refunds it through Stripe and marks it SENT
+ * with Stripe's reference — or, if Stripe refuses, hands it back to Finance. Everything else — bank transfer, cheque, other, a Zoho invoice —
  * Finance sends by hand and marks sent with the method, a reference and the
  * day (`markRefundSent`, BTG admin and Finance only). A Zoho-invoiced order
  * also needs a credit note in Zoho Books, which the row says.
@@ -37,9 +40,10 @@ import { prisma } from "../db/client";
 import { audit, type AuditActor } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertTenantWide, whereFor } from "../auth/scope";
-import { refundCard } from "../lib/payment-provider";
-import { looksLikeCardNumber } from "./marketplace-order-rules";
-import { appUrl, orderRef, sponsorRecipient, tell, usd } from "./order-mail";
+import { enqueue } from "../db/outbox";
+import { ProviderRefusedError, ProviderUnavailableError, refundCard, sendCardRefund } from "../lib/payment-provider";
+import { containsCardNumber } from "./marketplace-order-rules";
+import { appUrl, btgAdmins, orderRef, sponsorRecipient, tell, usd } from "./order-mail";
 import { lockCampaign } from "./campaign-stages";
 import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
 
@@ -63,6 +67,8 @@ export const REFUND_CAUSES = [
   "EDITION_CANCELLED",
   /* P9-BE-19 — Zoho marked the sale's invoice paid after the edition was cancelled (`refundPaymentAfterEditionCancel`). */
   "PAID_AFTER_EDITION_CANCELLED",
+  /* 2S5-BE-03 — the provider refunded the whole payment itself (payment-exceptions.ts): recorded SENT, never refunded again. */
+  "PROVIDER_REFUNDED",
 ] as const;
 /** The two causes that refund a cancelled edition's ad sale — capped together. */
 export const EDITION_REFUND_CAUSES = ["EDITION_CANCELLED", "PAID_AFTER_EDITION_CANCELLED"] as const;
@@ -83,6 +89,7 @@ export const CAUSE_WORDS: Record<RefundCause, string> = {
   PAID_AFTER_CANCELLATION: "Paid after the order was cancelled",
   EDITION_CANCELLED: "BTG cancelled the edition the ad was sold in",
   PAID_AFTER_EDITION_CANCELLED: "Paid after BTG cancelled the edition the ad was sold in",
+  PROVIDER_REFUNDED: "Refunded at the payment provider",
 };
 
 const PAID_VIA_WORDS: Record<string, string> = {
@@ -98,12 +105,17 @@ export const ZOHO_NOTE = "Issue a credit note in Zoho Books for this invoice";
  * cancelling (BTG's REFUND of an escalated cancellation too) — which does
  * not stop the sponsor's spending limit rising (spending-limit.ts).
  */
-export type RefundContext = { cause: RefundCause; lineId: string | null; cancellation: boolean };
+export type RefundContext = {
+  cause: RefundCause; lineId: string | null; cancellation: boolean;
+  /** 2S5-BE-03 — the money already went back at the provider (its refund reference): the row is written SENT and nothing is refunded again. */
+  returned?: { provider: string; reference: string };
+};
 
 /** The order's refundCause for a whole-order refund. Pure. */
 export function orderRefundCause(ctx: Pick<RefundContext, "cause" | "cancellation">): "CANCELLATION" | "PROBLEM" | "BTG" {
   if (ctx.cancellation) return "CANCELLATION";
-  return ctx.cause === "BTG_REFUNDED_ORDER" ? "BTG" : "PROBLEM";
+  /* A refund made at the provider is BTG's act there — it stops the sponsor's limit rising, as BTG's refund here does. */
+  return ctx.cause === "BTG_REFUNDED_ORDER" || ctx.cause === "PROVIDER_REFUNDED" ? "BTG" : "PROBLEM";
 }
 
 const dayOf = (d: Date) => d.toISOString().slice(0, 10);
@@ -115,7 +127,7 @@ export function refundSentProblems(p: { method?: string | null; reference?: stri
   const ref = p?.reference?.trim() ?? "";
   if (!ref) out.push("the refund's reference");
   else if (ref.length > 200) out.push("a reference of at most 200 characters");
-  else if (looksLikeCardNumber(ref)) out.push("a reference that is not a card number — SponsorX never takes card or bank numbers");
+  else if (containsCardNumber(ref)) out.push("a reference that is not a card number — SponsorX never takes card or bank numbers");
   const day = p?.sentOn ?? "";
   const when = /^\d{4}-\d{2}-\d{2}$/.test(day) ? new Date(`${day}T00:00:00.000Z`) : null;
   if (!when || Number.isNaN(when.getTime()) || dayOf(when) !== day) out.push("the date it was sent");
@@ -198,9 +210,60 @@ export async function recordRefund(
     after: { refundId: row.id, lineId: ctx.lineId, amountCents, cause: ctx.cause, paidVia, whole: opts.whole, ...(opts.received ? { attemptId: opts.received.attemptId } : {}) },
   });
 
-  /* A card payment the provider can refund goes back at once; with no provider it waits for Finance. */
+  /* A card payment the provider can refund goes back at once; with no provider it waits for Finance.
+     2S5-BE-03 — unless the money already went back at the provider: the
+     provider's own refund (ctx.returned), or one it reported earlier that BTG
+     was holding for this amount (a HELD PaymentRefund). Then the row is SENT
+     with the provider's reference and nothing is refunded twice. */
   if (paidVia === "CARD") {
-    const refunded = refundCard({ paymentReference, amountCents });
+    const already = ctx.returned ?? (await takeHeldProviderRefund(tx, orderId, row.id, amountCents));
+    if (already) {
+      await tx.refundDue.updateMany({
+        /* tenant-scope: the row just written, by id, only while still on its way. */
+        where: { id: row.id, state: "OPEN" },
+        data: { state: "SENT", sentAt: now, sentBy: "system", method: "CARD", reference: already.reference, sentOn: new Date(`${dayOf(now)}T00:00:00.000Z`), provider: already.provider },
+      });
+      await audit(tx, actor, "refundDue.sent", "MarketplaceOrder", orderId, {
+        before: { refundId: row.id, state: "OPEN" },
+        after: { refundId: row.id, state: "SENT", method: "CARD", provider: already.provider, reference: already.reference, alreadyRefundedAtProvider: true },
+      });
+      await tellRefundSent(tx, order, row.id, amountCents, now);
+      return { ...row, state: "SENT" };
+    }
+    /* The provider already returned some of this payment, for another amount:
+       refunding the card again could pay the sponsor twice. Left OPEN for
+       Finance, who sends only what is still owed. */
+    const unmatched = await tx.paymentRefund.aggregate({
+      /* tenant-scope: this order's own provider refunds, named by its id. */
+      where: { orderId, outcome: "HELD" }, _sum: { amountCents: true },
+    });
+    if ((unmatched._sum.amountCents ?? 0) > 0) {
+      await audit(tx, actor, "refundDue.heldForProviderRefund", "MarketplaceOrder", orderId, {
+        after: { refundId: row.id, amountCents, alreadyRefundedAtProviderCents: unmatched._sum.amountCents },
+      });
+      return row;
+    }
+    /* 2S8-QA-02 — the provider down: the refund (and everything it was part
+       of — the cancel, the books reversed) still stands; the money waits on
+       Finance's list, OPEN, to be sent when the provider is back. */
+    let refunded: ReturnType<typeof refundCard>;
+    try {
+      refunded = refundCard({ paymentReference, amountCents });
+    } catch (error) {
+      if (!(error instanceof ProviderUnavailableError)) throw error;
+      await audit(tx, actor, "refundDue.providerUnavailable", "MarketplaceOrder", orderId, { after: { refundId: row.id, amountCents, error: error.message } });
+      return row;
+    }
+    if (refunded && "queued" in refunded) {
+      /* 2S5-INT-01 — Stripe: the worker sends it (sendRefund). Marked with the provider while it waits. */
+      await tx.refundDue.updateMany({
+        /* tenant-scope: the row just written, by id, only while still on its way. */
+        where: { id: row.id, state: "OPEN" }, data: { provider: refunded.provider },
+      });
+      await enqueue(tx, order.tenantId, "refunds.send", { refundDueId: row.id });
+      await audit(tx, actor, "refundDue.queuedToProvider", "MarketplaceOrder", orderId, { after: { refundId: row.id, amountCents, provider: refunded.provider } });
+      return row;
+    }
     if (refunded) {
       const sent = await tx.refundDue.updateMany({
         /* tenant-scope: the row just written, by id, only while still on its way. */
@@ -218,6 +281,93 @@ export async function recordRefund(
     }
   }
   return row;
+}
+
+/**
+ * 2S5-INT-01 — the `refunds.send` job: refund a queued card refund through
+ * Stripe, and mark it SENT with Stripe's reference. Under the row's lock for
+ * the whole call, so Finance marking it sent by hand at the same moment waits
+ * and then finds it sent — the card is never refunded twice. Only a row still
+ * OPEN and still queued to this provider is sent. Stripe down: thrown, the
+ * queue retries (the key makes a retry the same refund). Stripe refusing:
+ * the row goes back to Finance's list (provider cleared), with Stripe's
+ * reason on the record, and BTG's admins are told.
+ */
+export async function sendRefund(refundDueId: string, now = new Date()): Promise<{ sent: boolean; refused?: boolean }> {
+  return prisma.$transaction(async (tx) => {
+    const locked = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM "RefundDue" WHERE id = ${refundDueId} FOR UPDATE`;
+    if (!locked.length) return { sent: false };
+    const row = await tx.refundDue.findUniqueOrThrow({
+      /* tenant-scope: the refund this server queued, by id, just locked. */
+      where: { id: refundDueId }, select: { id: true, tenantId: true, orderId: true, state: true, provider: true, paidVia: true, amountCents: true, attemptId: true },
+    });
+    if (row.state !== "OPEN" || row.provider !== "stripe" || row.paidVia !== "CARD" || !row.orderId) return { sent: false };
+    const order = await tx.marketplaceOrder.findUniqueOrThrow({
+      /* tenant-scope: the order of the refund just locked. */
+      where: { id: row.orderId }, select: { id: true, tenantId: true, paymentReference: true, createdBy: true, billingEmail: true, billingName: true },
+    });
+    /* The card payment refunded: the attempt the row names (money received after a cancellation), else the one that paid the order. */
+    const attempt = row.attemptId
+      ? await tx.paymentAttempt.findUnique({ /* tenant-scope: the card attempt the refund names. */ where: { id: row.attemptId }, select: { id: true, providerRef: true } })
+      : order.paymentReference
+        ? await tx.paymentAttempt.findFirst({ /* tenant-scope: this order's own attempt, by the reference that paid it. */ where: { orderId: order.id, providerRef: order.paymentReference }, select: { id: true, providerRef: true } })
+        : null;
+    const paymentReference = row.attemptId ? attempt?.providerRef ?? null : order.paymentReference;
+    const backToFinance = async (why: string) => {
+      await tx.refundDue.updateMany({ /* tenant-scope: the row just locked. */ where: { id: row.id, state: "OPEN" }, data: { provider: null } });
+      await audit(tx, { userId: null, tenantId: row.tenantId }, "refundDue.providerRefused", "MarketplaceOrder", order.id, { after: { refundId: row.id, amountCents: row.amountCents, why } });
+      for (const u of await btgAdmins(tx, row.tenantId)) {
+        await tell(tx, { tenantId: row.tenantId, email: u.email }, "refund.providerRefused", row.id, {
+          orderRef: orderRef(order.id), amount: usd(row.amountCents), why, refundsUrl: appUrl("/admin/refunds"),
+        });
+      }
+      return { sent: false, refused: true };
+    };
+    if (!paymentReference) return backToFinance("SponsorX has no Stripe reference for the card payment, so it can't be refunded automatically — send it by hand.");
+    let refunded: { provider: string; reference: string };
+    try {
+      refunded = await sendCardRefund({ refundDueId: row.id, orderId: order.id, attemptId: attempt?.id ?? null, paymentReference, amountCents: row.amountCents });
+    } catch (error) {
+      if (error instanceof ProviderRefusedError) return backToFinance(`Stripe refused the refund: ${error.providerMessage}`.slice(0, 500));
+      throw error;
+    }
+    const sent = await tx.refundDue.updateMany({
+      /* tenant-scope: the row just locked, only while still on its way. */
+      where: { id: row.id, state: "OPEN" },
+      data: { state: "SENT", sentAt: now, sentBy: "system", method: "CARD", reference: refunded.reference, sentOn: new Date(`${dayOf(now)}T00:00:00.000Z`), provider: refunded.provider },
+    });
+    if (!sent.count) return { sent: false };
+    await audit(tx, { userId: null, tenantId: row.tenantId }, "refundDue.sent", "MarketplaceOrder", order.id, {
+      before: { refundId: row.id, state: "OPEN" },
+      after: { refundId: row.id, state: "SENT", method: "CARD", provider: refunded.provider, reference: refunded.reference },
+    });
+    await tellRefundSent(tx, order, row.id, row.amountCents, now);
+    return { sent: true };
+  }, { timeout: 60_000, maxWait: 10_000 });
+}
+
+/**
+ * 2S5-BE-03 — a refund the provider reported for this order that BTG was
+ * holding (a part refund, or one under a payout), for exactly this amount:
+ * BTG has now refunded it in SponsorX, so it is this refund. Claimed once
+ * (conditional on HELD) and linked to the row; the hold on the order's
+ * payouts lifts with it.
+ */
+async function takeHeldProviderRefund(tx: Tx, orderId: string, refundDueId: string, amountCents: number) {
+  const heldRefund = await tx.paymentRefund.findFirst({
+    /* tenant-scope: this order's own provider refunds, named by its id. */
+    where: { orderId, outcome: "HELD", amountCents }, select: { id: true, tenantId: true, provider: true, providerRefundRef: true }, orderBy: { createdAt: "asc" },
+  });
+  if (!heldRefund) return null;
+  const taken = await tx.paymentRefund.updateMany({
+    /* tenant-scope: the row just found for this order; conditional, so one refund takes it once. */
+    where: { id: heldRefund.id, outcome: "HELD" }, data: { outcome: "APPLIED", refundDueId },
+  });
+  if (!taken.count) return null;
+  await audit(tx, { userId: null, tenantId: heldRefund.tenantId }, "paymentRefund.applied", "MarketplaceOrder", orderId, {
+    before: { outcome: "HELD" }, after: { paymentRefundId: heldRefund.id, refundDueId, outcome: "APPLIED", amountCents },
+  });
+  return { provider: heldRefund.provider, reference: heldRefund.providerRefundRef };
 }
 
 /**

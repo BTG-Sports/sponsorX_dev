@@ -75,8 +75,12 @@ export type JobName =
      confirming it arrived. The stand-in provider on staging runs these; a
      real provider's webhooks will land on the same jobs. */
   | "payments.confirm"
+  /* 2S5-INT-02 — one provider event (PaymentEvent), recorded by the signed webhook, applied by the worker. */
+  | "payments.event"
   | "payouts.send"
-  | "payouts.confirm";
+  | "payouts.confirm"
+  /* 2S5-INT-01 — a card refund sent to Stripe by the worker, never on a request path (refunds.ts `sendRefund`). */
+  | "refunds.send";
 
 /**
  * Write a job into the outbox, inside the caller's transaction.

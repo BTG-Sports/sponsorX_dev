@@ -38,6 +38,12 @@ const MONEY_MODULES = [
   /* P9-BE-18 — a masthead's rate card (pricing); P9-BE-19 — Finance's split lock. */
   "edition-rate-card.ts",
   "edition-split-lock.ts",
+  /* 2S5-INT-02 — the payment provider's events: a payment's state moves only here (and in payouts.ts). */
+  "payment-events.ts",
+  /* 2S5-BE-03 — refunds the provider reports, and disputes: they reverse the books and send payouts back. */
+  "payment-exceptions.ts",
+  /* 2S5-BE-05 — payouts: every status a payout moves through, and card payments' confirmation. */
+  "payouts.ts",
 ] as const;
 
 /**
@@ -80,6 +86,39 @@ const READ_ONLY = new Set([
   "splitLockOf",
   /* A guard a future payout calls: it refuses, it writes nothing. */
   "assertSplitLocked",
+  /* 2S5-INT-02 — reads in payment-events.ts. */
+  "findAttempt",
+  "listPaymentEvents",
+  /* 2S0-SEC-01 — pure: what is kept of a refused delivery's body. */
+  "rejectedDeliveryRecord",
+  /* 2S5-INT-02 — delegates: each writes only through acceptPaymentWebhook or
+     processPaymentEvent, which audit every row they write (checked above). */
+  "retryDeferredPaymentEvents",
+  "emitStandinEvent",
+  "standinConfirmPayment",
+  "standinDecline",
+  /* 2S5-BE-03 — reads, guards and the handler table in payment-exceptions.ts. */
+  "moneyHoldsOn",
+  "assertRefundable",
+  "listDisputes",
+  "getDispute",
+  "exceptionHandlerFor",
+  /* 2S5-BE-05 — reads and pure functions in payouts.ts. */
+  "safeReturnPath",
+  "myPayoutAccount",
+  "orderPayment",
+  "latestFailedAttempts",
+  "failedPayments",
+  "standinDetails",
+  "lineReleasable",
+  "myPayouts",
+  "payoutChecks",
+  "listPayouts",
+  "getPayout",
+  "payoutHandlerFor",
+  /* A delegate: completeStandinPayout writes only through the provider
+     event's own path (processPaymentEvent, which audits). */
+  "completeStandinPayout",
 ]);
 
 function sourceOf(file: string): string {

@@ -157,6 +157,7 @@ export async function linkGuardian(
       select: { id: true },
     });
 
+    /* tenant-scope: the athlete loaded above through whereFor(athlete, read), after guardian.write was asserted: a guardian's reach is their ward. */
     await tx.athlete.update({
       where: { id: athleteId },
       /* The guardian waits for THIS athlete — proof naming them and the agreement
@@ -235,6 +236,7 @@ export async function verifyGuardian(
     if (guardian.verifiedAt) throw new AlreadyVerifiedError(guardianId);
 
     const verifiedAt = new Date();
+    /* tenant-scope: the row loaded above through whereFor(guardian, write). */
     await tx.guardian.update({
       where: { id: guardianId },
       data: { verifiedAt },

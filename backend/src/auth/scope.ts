@@ -242,8 +242,12 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
         return { id: actor.userId };
       case "own-sponsor":
         /* A sponsor admin reaches the users of their own sponsor org. The
-           column exists on User, so this one is expressible today. */
-        return { tenantId: actor.tenantId, sponsorId: { not: null } };
+           column exists on User, so this one is expressible today.
+           2S8-SEC-02: it used to be `sponsorId: { not: null }` — every
+           sponsor's users in the tenant. Only a BTG route used it, so
+           nothing leaked; pinned to the actor's own sponsor before a
+           sponsor-facing route could. */
+        return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
       default:
         return MATCHES_NOTHING;
     }
@@ -894,6 +898,12 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   },
   /* 2S1-BE-10 / -12 — the age table and the staff-confirmation setting: tenant rows, kept by BTG admins. */
   signupRules: tenantScoped,
+  /* 2S5-INT-02 — provider events live in the books of what they are about. */
+  paymentEvent: tenantScoped,
+  /* 2S5-BE-03 — disputes live in the order's books. */
+  paymentDispute: tenantScoped,
+  /* 2S0-SEC-01 — a support message lives in the tenant whose form it came through (PUBLIC_INTAKE_TENANT_ID). */
+  supportMessage: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

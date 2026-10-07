@@ -1,5 +1,12 @@
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+/* 2S8-SEC-03 — registering a creative or artwork upload HEADs the object.
+   There is no bucket here, so the file stands in as arrived exactly as its
+   grant pinned it; tests/private-upload-pins.test.ts checks the real thing. */
+vi.mock("../src/lib/storage", async (original) => ({
+  ...(await original<typeof import("../src/lib/storage")>()),
+  checkPrivateUpload: async (_actor: unknown, _key: string, expected: { bytes?: number | null }) => ({ ok: true as const, bytes: expected.bytes ?? 1 }),
+}));
 
 /* --------------------------------------------------------------------------
    P5-BE-10 — BTG's content review skipped for trusted drafts, against a real
@@ -146,7 +153,7 @@ describe.skipIf(!hasDatabase)("P5-BE-10 · trusted drafts skip BTG's content rev
   /** Upload a file and submit, the way the athlete's page does. */
   async function submit(who: string, id: string, opts: { file?: boolean } = {}) {
     if (opts.file !== false) {
-      const pre = await call("POST", `/deliverables/${id}/uploads`, who, { contentType: "image/png" });
+      const pre = await call("POST", `/deliverables/${id}/uploads`, who, { contentType: "image/png", bytes: 4_096 });
       expect(pre.status).toBe(201);
       expect((await call("POST", `/deliverables/${id}/assets`, who, { r2Key: pre.json.key })).status).toBe(201);
     }
@@ -253,7 +260,7 @@ describe.skipIf(!hasDatabase)("P5-BE-10 · trusted drafts skip BTG's content rev
     expect(await stateOf(skipped.pro!)).toBe("SPONSOR_REVIEW");
 
     const id = await deliverable(T, "c_plain", "pro");
-    const pre = await call("POST", `/deliverables/${id}/uploads`, A("pro"), { contentType: "image/jpeg" });
+    const pre = await call("POST", `/deliverables/${id}/uploads`, A("pro"), { contentType: "image/jpeg", bytes: 4_096 });
     await call("POST", `/deliverables/${id}/assets`, A("pro"), { r2Key: pre.json.key });
     const both = await Promise.all([
       call("POST", `/deliverables/${id}/submit`, A("pro"), {}),
@@ -397,7 +404,7 @@ describe.skipIf(!hasDatabase)("P5-BE-10 · trusted drafts skip BTG's content rev
     const x = await deliverable(T, "c_plain", "racer");
     expect((await submit(A("racer"), x)).json.btgReviewSkipped).toBe(true);
     const y = await deliverable(T, "c_plain", "racer");
-    const pre = await call("POST", `/deliverables/${y}/uploads`, A("racer"), { contentType: "image/png" });
+    const pre = await call("POST", `/deliverables/${y}/uploads`, A("racer"), { contentType: "image/png", bytes: 4_096 });
     await call("POST", `/deliverables/${y}/assets`, A("racer"), { r2Key: pre.json.key });
 
     /* Hold the athlete's lock, queue the revision on it, then the submission. */

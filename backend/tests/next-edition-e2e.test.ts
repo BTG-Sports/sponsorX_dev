@@ -1,5 +1,12 @@
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+/* 2S8-SEC-03 — registering a creative or artwork upload HEADs the object.
+   There is no bucket here, so the file stands in as arrived exactly as its
+   grant pinned it; tests/private-upload-pins.test.ts checks the real thing. */
+vi.mock("../src/lib/storage", async (original) => ({
+  ...(await original<typeof import("../src/lib/storage")>()),
+  checkPrivateUpload: async (_actor: unknown, _key: string, expected: { bytes?: number | null }) => ({ ok: true as const, bytes: expected.bytes ?? 1 }),
+}));
 
 /* --------------------------------------------------------------------------
    SponsorX NEXT — P9-QA-01, "E2E: edition sells once, a student code
@@ -26,9 +33,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
       (resolveStudentCode, P9-BE-07), the sponsor's own POST /briefs carrying
       the code, then the sale writes SalesAttribution (attributeSale) in the
       sale's transaction; GET /students/:id/sales reads it back.
-   4. Artwork clears — an AD_CREATIVE EditionAsset is refused by the
-      production gate (rightsGap) and by campaign use until a ContentRight
-      (POST /edition-assets/:id/rights) covers it; the clearance queue
+   4. Artwork clears — the sponsor's AD_CREATIVE upload (P9-BE-16; checked
+      on upload, P9-BE-22) is refused by the production gate (rightsGap) and
+      by campaign use until a ContentRight covers it; BTG sends it on, the
+      buying sponsor approves, and that approval records the licence
+      (recordAdLicenceIn); the clearance queue
       (GET /editions/:id/rights-ledger) flips with it.
    5. QR_SCAN and LINK_CLICK apart — POST /public/editions/:id/events, counted
       per type in EditionEvent and folded print vs digital in the sponsor's
@@ -281,8 +290,15 @@ describe.skipIf(!hasDatabase)("P9-QA-01 · one edition, end to end: sold once, a
   });
 
   it("4 · the sponsor's artwork clears the board only with a ContentRight covering its use", async () => {
-    const art = await call("POST", `/editions/${editionId}/assets`, STAFF, { kind: "AD_CREATIVE", title: "Rosa's back cover artwork", sourceKind: "THIRD_PARTY" });
+    /* P9-BE-16 / P9-BE-22 — the buying sponsor uploads to its sold slot
+       (type and size signed into the PUT), the automatic checks pass, and —
+       Rosa has no clean record yet, so no trusted skip — it lands on BTG's desk. */
+    const signed = await call("POST", `/ad-slots/${backSlotId}/artwork/uploads`, SPONSOR_USER, { contentType: "image/png", bytes: 48_213 });
+    expect(signed.status, signed.text).toBe(201);
+    const art = await call("POST", `/ad-slots/${backSlotId}/artwork`, SPONSOR_USER, { r2Key: signed.json.key, title: "Rosa's back cover artwork" });
     expect(art.status, art.text).toBe(201);
+    expect(art.json).toEqual(expect.objectContaining({ state: "BTG_REVIEW", route: "BTG_REVIEW", btgReviewSkipped: false }));
+    expect((art.json.checks as Array<{ ok: boolean }>).every((c) => c.ok)).toBe(true);
     artworkId = art.json.id;
     expect((await call("POST", `/editions/${editionId}/conditions`, STAFF, { contentReady: true })).status).toBe(200);
 
@@ -295,18 +311,37 @@ describe.skipIf(!hasDatabase)("P9-QA-01 · one edition, end to end: sold once, a
     expect(refused.text).toMatch(/rightsCleared/);
     expect((await call("POST", `/edition-assets/${artworkId}/campaign`, STAFF, { campaignId })).status).toBe(409);
 
-    /* The sponsor's licence for its own artwork: this edition, digital and print, in its own campaign. */
-    const grant = await call("POST", `/edition-assets/${artworkId}/rights`, STAFF, {
-      grantorKind: "THIRD_PARTY", grantorRef: "Rosa's Bakery", mayPublishDigital: true, mayPublishPrint: true,
-      mayReuseCommercially: true, startsAt: new Date().toISOString(), licenseRef: "nxe2e-IO-0001",
-    });
-    expect(grant.status, grant.text).toBe(201);
+    /* BTG sends it on; only the buying sponsor signs it off, and that
+       sign-off records the sponsor's licence for its own artwork: this
+       edition, digital and print, in its own campaign. */
+    expect((await call("POST", `/edition-artwork/${artworkId}/approve`, SPONSOR_USER)).status).toBe(409);
+    expect((await call("POST", `/edition-artwork/${artworkId}/sponsor-review`, STAFF)).json.state).toBe("SPONSOR_REVIEW");
+    expect((await call("GET", `/editions/${editionId}/rights-ledger`, STAFF)).json.assets[0].rights).toEqual([]);
+    expect((await call("POST", `/edition-artwork/${artworkId}/approve`, RIVAL_USER)).status).toBe(403);
+    const approved = await call("POST", `/edition-artwork/${artworkId}/approve`, SPONSOR_USER);
+    expect(approved.status, approved.text).toBe(200);
+    expect(approved.json.state).toBe("APPROVED");
 
+    const grant = await prisma.contentRight.findMany({ where: { tenantId: T, assetId: artworkId }, select: { id: true } });
+    expect(grant).toHaveLength(1);
     const cleared = (await call("GET", `/editions/${editionId}/rights-ledger`, STAFF)).json.assets;
     expect(cleared).toEqual([expect.objectContaining({
       id: artworkId, clearedDigital: true, clearedPrint: true,
-      rights: [expect.objectContaining({ id: grant.json.id, grantorKind: "THIRD_PARTY", mayPublishDigital: true, licenseRef: "nxe2e-IO-0001" })],
+      rights: [expect.objectContaining({
+        id: grant[0].id, grantorKind: "THIRD_PARTY", grantorRef: "Rosa's Bakery", mayPublishDigital: true, mayPublishPrint: true,
+        licenseRef: `ad-approval:campaign/${campaignId}/slot/${backSlotId}/v1`, mayReuseCommercially: false,
+      })],
     })]);
+
+    /* The approval licenses the ad's publication, not its reuse: using the
+       artwork in the sponsor's campaign still needs a right that covers that
+       use — the sponsor's IO, recorded by BTG. */
+    expect((await call("POST", `/edition-assets/${artworkId}/campaign`, STAFF, { campaignId })).status).toBe(409);
+    const reuse = await call("POST", `/edition-assets/${artworkId}/rights`, STAFF, {
+      grantorKind: "THIRD_PARTY", grantorRef: "Rosa's Bakery", mayPublishDigital: true, mayPublishPrint: true,
+      mayReuseCommercially: true, startsAt: new Date().toISOString(), licenseRef: "nxe2e-IO-0001",
+    });
+    expect(reuse.status, reuse.text).toBe(201);
     expect((await call("POST", `/edition-assets/${artworkId}/campaign`, STAFF, { campaignId })).json).toEqual({ assetId: artworkId, campaignId });
 
     expect((await call("POST", `/editions/${editionId}/transition`, STAFF, { to: "IN_PRODUCTION" })).json.state).toBe("IN_PRODUCTION");

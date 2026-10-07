@@ -15,8 +15,17 @@
  *
  * ATTACHMENTS stay private: each gets a presigned PUT to the private bucket
  * (an audited grant), the browser uploads it directly, and the message is
- * queued only once every declared file has arrived. The worker reads them
- * at send time and attaches them; nobody is ever handed a link to them.
+ * queued only once every declared file has arrived.
+ *
+ * 2S0-SEC-01 (the owner's decision on O1, 2026-10-06): the desk's email
+ * NAMES the files and links to BTG's signed-in support page
+ * (APP_URL/admin/support/<id>); it no longer carries them. A guardianship
+ * dispute's attachment is a birth certificate or a court order, and once
+ * mailed it lived in the desk's mailbox, outside the private bucket, its
+ * audit and its retention. BTG opens each file through
+ * GET /support-messages/:id/attachments/:attachmentId — a five-minute,
+ * audited link, like every other ID document. And (O2) the retention sweep
+ * deletes them (account-closure.ts `purgeSupportAttachments`).
  */
 import { randomBytes } from "node:crypto";
 
@@ -24,8 +33,11 @@ import { prisma } from "../db/client";
 import { audit, type AuditActor } from "../db/audit";
 import { send } from "../lib/email";
 import { env } from "../config/env";
+import type { Actor } from "../auth/actor";
+import { ForbiddenError } from "../auth/errors";
+import { assertTenantWide, whereFor } from "../auth/scope";
 import { issuePurposeToken, readPurposeToken } from "../lib/purpose-token";
-import { presignPrivateUpload, privateObjectSize } from "../lib/storage";
+import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, SENSITIVE_DOCUMENT_TTL_SECONDS, uploadRefusal } from "../lib/storage";
 import { safeFilename } from "./onboarding-documents";
 import { MAX_SUPPORT_ATTACHMENT_BYTES, SUPPORT_TOPICS } from "../contracts/support";
 import type { Prisma } from "../generated/prisma/client";
@@ -63,6 +75,9 @@ export type SupportInput = {
   attachments?: { filename: string; contentType: string; bytes: number }[];
 };
 
+/** BTG's signed-in page for one message, where its attachments are opened (2S0-SEC-01). */
+export const supportPageUrl = (id: string) => `${env.APP_URL.replace(/\/+$/, "")}/admin/support/${encodeURIComponent(id)}`;
+
 /** A stable id for the thread: the desk's reply references it. */
 const messageIdOf = (id: string) => `<support-${id}@sponsorx.net>`;
 
@@ -70,16 +85,17 @@ const messageIdOf = (id: string) => `<support-${id}@sponsorx.net>`;
 async function queue(tx: Tx, m: { id: string; tenantId: string; name: string; email: string; topic: string; message: string; createdAt: Date }) {
   const files = await tx.supportAttachment.findMany({
     where: { tenantId: m.tenantId, messageId: m.id, uploadedAt: { not: null } },
-    select: { filename: true, r2Key: true, contentType: true },
+    select: { filename: true },
   });
   const data = {
     name: m.name, email: m.email, topic: TOPIC_WORDS[m.topic as SupportTopic] ?? m.topic, message: m.message,
     reference: m.id, sentAt: m.createdAt.toISOString(), attachments: files.map((f) => f.filename).join(", "),
   };
+  /* 2S0-SEC-01 — the desk's copy names the files and links to the signed-in page; it never carries them. */
   await send(tx, m.tenantId, {
-    template: "support.message", to: env.SUPPORT_EMAIL, idempotencyKey: `support.message:${m.id}`, data,
+    template: "support.message", to: env.SUPPORT_EMAIL, idempotencyKey: `support.message:${m.id}`,
+    data: { ...data, attachmentsUrl: files.length ? supportPageUrl(m.id) : "" },
     replyTo: m.email, headers: { "Message-ID": messageIdOf(m.id) },
-    attachments: files.map((f) => ({ filename: f.filename, key: f.r2Key, contentType: f.contentType })),
   });
   await send(tx, m.tenantId, {
     template: "support.copy", to: m.email, idempotencyKey: `support.copy:${m.id}`, data,
@@ -112,7 +128,7 @@ export async function submitSupportMessage(input: SupportInput) {
       const r2Key = `support/${m.id}/${id}/${filename}`;
       files.push(await tx.supportAttachment.create({
         data: { id, tenantId, messageId: m.id, filename, contentType: a.contentType, bytes: a.bytes, r2Key },
-        select: { id: true, filename: true, contentType: true, r2Key: true },
+        select: { id: true, filename: true, contentType: true, bytes: true, r2Key: true },
       }));
     }
     if (!declared.length) await queue(tx, m);
@@ -122,7 +138,10 @@ export async function submitSupportMessage(input: SupportInput) {
   for (const f of created.files) {
     uploads.push({
       attachmentId: f.id, filename: f.filename, contentType: f.contentType,
-      uploadUrl: await presignPrivateUpload(SYSTEM(tenantId), f.r2Key, f.contentType, { entity: "SupportAttachment", entityId: f.id }),
+      /* 2S8-SEC-03 — each PUT is signed for exactly its file's type and size. */
+      uploadUrl: await presignPrivateUpload(SYSTEM(tenantId), f.r2Key, f.contentType, { entity: "SupportAttachment", entityId: f.id }, {
+        signContentType: true, contentLength: f.bytes,
+      }),
     });
   }
   return {
@@ -146,11 +165,14 @@ export async function sendSupportMessage(token: string) {
     });
     if (!m) throw new SupportError("This message no longer exists.", 404);
     if (m.state === "QUEUED") return { id: m.id, queued: true, supportEmail: env.SUPPORT_EMAIL };
-    const files = await tx.supportAttachment.findMany({ where: { tenantId: m.tenantId, messageId: m.id }, select: { id: true, r2Key: true, filename: true } });
+    const files = await tx.supportAttachment.findMany({ where: { tenantId: m.tenantId, messageId: m.id }, select: { id: true, r2Key: true, filename: true, contentType: true, bytes: true } });
     for (const f of files) {
-      const size = await privateObjectSize(f.r2Key);
-      if (size === null) throw new SupportError(`${f.filename} hasn't arrived yet — upload it again, or send without it.`);
-      if (size > MAX_SUPPORT_ATTACHMENT_BYTES) throw new SupportError(`${f.filename} is over 10 MB.`, 422);
+      /* 2S8-SEC-03 — what arrived must be what the grant pinned; anything else is deleted. */
+      const arrived = await checkPrivateUpload(SYSTEM(m.tenantId), f.r2Key,
+        { contentType: f.contentType, bytes: f.bytes, maxBytes: MAX_SUPPORT_ATTACHMENT_BYTES }, { entity: "SupportAttachment", entityId: f.id });
+      if (!arrived.ok && arrived.problem === "missing") throw new SupportError(`${f.filename} hasn't arrived yet — upload it again, or send without it.`);
+      if (!arrived.ok) throw new SupportError(uploadRefusal(arrived.problem, f.filename), 422);
+      const size = arrived.bytes;
       await tx.supportAttachment.update({
         /* tenant-scope: this message's own attachment. */
         where: { id: f.id }, data: { uploadedAt: new Date(), bytes: size },
@@ -174,4 +196,42 @@ export async function dropSupportAttachment(token: string, attachmentId: string)
   const gone = await prisma.supportAttachment.deleteMany({ where: { tenantId: m.tenantId, messageId: m.id, id: attachmentId } });
   if (!gone.count) throw new SupportError("That file isn't part of this message.", 404);
   return { dropped: attachmentId };
+}
+
+/* ── BTG's support desk — 2S0-SEC-01 ──────────────────────────────────── */
+
+/**
+ * GET /support-messages/:id — one message as BTG's support page shows it:
+ * who sent it, the topic and text, and its attachments (name, type, size,
+ * whether it arrived). No file and no link: each file is opened separately,
+ * through its own audited grant. BTG admin only.
+ */
+export async function getSupportMessage(actor: Actor, id: string) {
+  assertTenantWide(actor, "supportMessage", "read");
+  const m = await prisma.supportMessage.findFirst({
+    where: { ...whereFor(actor, "supportMessage", "read"), id },
+    select: { id: true, name: true, email: true, topic: true, message: true, state: true, createdAt: true, queuedAt: true },
+  });
+  if (!m) throw new ForbiddenError("supportMessage", "read");
+  const files = await prisma.supportAttachment.findMany({
+    /* tenant-scope: the message was found through whereFor(supportMessage, read); its attachments are named by its id. */
+    where: { messageId: m.id }, select: { id: true, filename: true, contentType: true, bytes: true, uploadedAt: true }, orderBy: { createdAt: "asc" },
+  });
+  return {
+    ...m,
+    topicLabel: TOPIC_WORDS[m.topic as SupportTopic] ?? m.topic,
+    attachments: files.map((f) => ({ ...f, arrived: f.uploadedAt !== null })),
+  };
+}
+
+/** GET /support-messages/:id/attachments/:attachmentId — BTG opens one attachment through a five-minute, audited link. */
+export async function viewSupportAttachment(actor: Actor, id: string, attachmentId: string) {
+  assertTenantWide(actor, "supportMessage", "read");
+  const m = await prisma.supportMessage.findFirst({ where: { ...whereFor(actor, "supportMessage", "read"), id }, select: { id: true, tenantId: true } });
+  if (!m) throw new ForbiddenError("supportMessage", "read");
+  const f = await prisma.supportAttachment.findFirst({ where: { tenantId: m.tenantId, messageId: m.id, id: attachmentId }, select: { id: true, r2Key: true, uploadedAt: true } });
+  if (!f) throw new ForbiddenError("supportMessage", "read");
+  if (!f.uploadedAt) throw new SupportError("That file never finished uploading.");
+  const url = await presignPrivateDownload(actor, f.r2Key, { entity: "SupportAttachment", entityId: f.id }, SENSITIVE_DOCUMENT_TTL_SECONDS);
+  return { url, expiresInSeconds: SENSITIVE_DOCUMENT_TTL_SECONDS };
 }

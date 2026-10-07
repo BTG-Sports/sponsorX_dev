@@ -1,149 +1,100 @@
-# 2026-10-05
+# 2026-10-07
 
-## rcfworks — tester facility and walkthrough presentation (separate projects, outside this repo)
+- **The SponsorX repository moved to the BTG-Sports organization** (GitHub Team plan, owner `rcarr-crypto`; `infinex1` is also an owner). It is now `github.com/BTG-Sports/sponsorX_dev`, and the old `infinex1/sponsorX_dev` links redirect.
+  - Issues, pull requests, Actions secrets and variables, and collaborators moved with it. CI runs on the new repository.
+  - **Railway:** the Railway GitHub app is installed on BTG-Sports (only this repository). All four services (staging and production, api and web) now point at `BTG-Sports/sponsorX_dev` on the `release` branch. Railway's API refuses repository changes from the CLI (NotAuthorized), so they were made in the dashboard by the owner.
+  - **Deploys:** staging was redeployed from `main` (acbb23a). Production rebuilt the same commit (499e0b5).
+  - This Mac's `origin` and `documentation/SponsorX-Developer-Handoff.md` now use the new address.
+  - **Still to update by hand:** the Vercel test deployment's GitHub connection (HeckerCreatives).
+- **The "SponsorX received this from the payment provider" emails** were noise from the 2026-10-06 Stripe sandbox tests. Sandbox events for test accounts and payments created from this Mac reached staging, failed after 7 tries and emailed BTG admins: 59 events.
+  - The fix that ignores foreign accounts (7105256) is now on staging (PRs #160 → #166, deployed).
+  - The 59 FAILED rows are still on staging's exceptions list; clearing them is offered, not yet done.
+- **Slack tracker broadcast (owner's decision):**
+  - each merge to `main` that changes tasks now posts one Slack message listing them (`tracker-notify.yml`; `--no-slack` removed);
+  - the 8 pm digest posts only on days with none (`tracker_sync.py digest --skip-if-announced`);
+  - the Stage Progress row is still appended every day.
+  - Tests: 23/23 (`DigestOnlyOnQuietDays`).
+- **PR #167** (the release of 2S8-PMO-02 to `main`) is open. #165 merged into main_development just after #166 went to `main`.
+- **Code review rows checked against acceptance.**
+  - **Done:** 2S8-PMO-02, plus 2S3-FE-02, 2S5-FE-03 and 2S5-FE-04 after browser verification on the local stack. The team page equals the ledger: $151.05 booked, $135.64 paid, $15.41 reserve.
+  - **Still in review:**
+    - 2S5-FE-05: no receipt has been delivered on staging, because Resend rejects `@example.com`. Also, the receipt goes to the signed-in user, not the billing contact the checkout copy names.
+    - 2S7-FE-02: the console lacks disputes, payment events, REQUESTED payouts, refunds to send and delivery issues.
+- **2S0-OPS-01 · Done.** The owner agreed RPO ≤ 1 h and RTO ≤ 4 h. PITR on both environments already meets them: `archive_timeout` = 60 s, so a segment is archived every minute.
+- **2S8-OPS-01 · In progress.**
+  - A staging PITR restore into `pg-restore-check-1007` matched live exactly and was queryable in about 9.5 minutes. The service was then deleted.
+  - Rollback took 41 s and roll-forward 51 s. Rollback is code-only across migrations.
+  - **Alerting is built:**
+    - `GET /health/full`, with db, redis, storage and backups (stale after 60 minutes);
+    - the web path `/api/v1/public/health`;
+    - `.github/workflows/health-monitor.yml`, every 15 minutes, with per-environment state, posting to Slack only on change.
+  - **Done after deploy and a test alert:** `gh workflow run health-monitor.yml -f simulate_failure=true`.
+- **2S8-PMO-01 · In progress.** The sign-off record is `documentation/SponsorX-Phase2-Acceptance-Signoff.md`: 12/14 demonstrated, #13 Zoho partly, #11 wallet not built. It still needs real external users on staging, through its 18-step plan, and the owner's sign-off.
+- **The wallet rows' notes are corrected.** They wait on Apple and Google wallet accounts, not on the payment provider.
+- **2S1-OPS-01 is waiting on the owner** to name the inbox `support@sponsorx.net` should forward to. Today `sponsorx.net`, on Cloudflare, has no MX records. Zoho Desk exists (department "iCARRe Foundation") but has no email channel.
+- **Local note:** the scratchpad was wiped. The verification agent left a throwaway embedded Postgres running on 55432 (`scratchpad/pg`), and its worktree is still locked.
 
-- **Tester facility:** `../sponsorX_tester_facility`, its own git repo, local only, with no remote. It is an admin page plus a small backend that create SponsorX test accounts directly in an environment's database and Clerk, the owner's choice of option (b). That means no app change: accounts skip Zoho sync, and app emails to them will bounce.
-  - **Hosted on Railway staging:** the `tester` service, at https://tester-staging-8074.up.railway.app.
-    - Per-person logins (`TESTER_USERS`) for infinex1, infinex2, rcarr and chantelleicarre.
-    - Passwords are in the staging `tester` service variables (`TESTER_PW_*`); they were generated straight into Railway and never shown.
-    - A `/data` volume holds the registry and log. Every action is logged with the operator's email, and writes `testAccount.*` audit rows.
-  - **Sign-in:** "Sign in as" uses one-time Clerk sign-in tokens, so no inbox is needed.
-  - **Kinds:** BTG staff, sponsor, adult athlete, minor athlete with guardian, team, advisor, student, and a story set.
-  - **Production is not connected.** The production DB is unreachable from the staging service, and opening it to the internet was blocked by the safety system. The owner decided staging-only is fine for now. The options, if it's ever needed: a second tester service inside production, or public networking on Postgres-production.
-- **Walkthrough presentation:** `../sponsorX_presentation`, local git only.
-  - A client-only animated deck that plays over the REAL SponsorX pages, captured as static HTML (scripts stripped) from a local stack seeded with the story data. The capture can be re-run from `capture/`.
-  - Part 1 "Everyone joins" is trimmed to 21 slides. Next pulses and glows once a slide's animation finishes.
-  - **Findings for the app:**
-    - "Coffee" isn't a business type (it's filed as Other, then Restaurant).
-    - Stale copy: "BTG verifies every organisation…" on the application page, and "BTG has opened a sponsor account" in the account email.
-    - An overlap on the athlete home ("Coming up" over "Offers waiting").
+## HeckerCreatives — P1-ART-18: the whole admin portal on the stage (Code review)
 
-## HeckerCreatives — P1-ART-14: /admin as the "Mission Control" stage (Code review)
+The owner asked for the whole admin portal in the Mission Control language, components included, without check-ins. Spec: `docs/superpowers/specs/2026-10-07-admin-portal-stage-design.md`. Branch `feature/P1-ART-18-admin-portal-stage`, stacked on P1-ART-17.
 
-The owner asked for the admin dashboard to get the landing's wow factor. Scope is `/admin` only: the shell and the other desks are unchanged. Picked in the visual companion: direction A "Mission Control", full bleed. Spec: `docs/superpowers/specs/2026-10-05-admin-ops-stage-design.md`. Branch `feature/P1-ART-14-admin-ops-stage`.
-
-- **What it is:** a fixed-dark HUD stage in both themes, bled to the edges of the content column (negative margins cancel PortalShell's `<main>` padding).
-  - Ground: reuses /login's light, depth, motes and ping, plus /packages' floor and outlined word ("OPS").
-  - Hero: a scrambled eyebrow with the Postgres pill, the headline "N things need / BTG's hand today.", and an action ring (each queue's share).
-  - Chamfered glass queue cards with count-ups, lit brackets and a pointer spotlight.
-  - Campaign progress bars and Systems status lights.
-- **Files:**
-  - `components/ops-stage.tsx` (server) and `components/ops-fx.tsx` (OpsStage pointer vars, OpsCount).
-  - CSS in the `.sx-ops` block at the end of `globals.css`.
-  - The page moved to `app/(app)/admin/(board)/page.tsx`, a route group, so it has its own dark `loading.tsx`. The URL is still /admin.
-- **No new figures.** New pure helpers in `lib/ops-board-live.ts`: `boardHeadline`, `ringSegments`, `QUEUE_TONE`, `CampaignLine.pct`. All are tested in `tests/gap-screens-live.test.ts`.
-  - A role with no card of its own gets no ring and no count, rather than "All clear".
-  - Links to desks the role can't use are hidden.
-- **Entrance is plain CSS animation**, not `html[data-sx-loaded]`: the portal has no boot screen, so the landing's transition rules would never release. `ScrambleText` gained `immediate`.
+- **The stage is now the admin shell's.** `PortalShell` takes `stage`; the admin layout sets it. The root carries `.sx-ops`, `<main>` is an `OpsStage` with `OpsGround` (no word), the house padding and 1440px column, no overflow clip (the matching studio's sticky bars need it). The theme toggle is hidden there.
+  - `StagePortals` adds `.sx-ops` to `<body>` while mounted, so drawers, dialogs and menus portaled to the body are on the stage even for Frost users.
+  - The four desks from P1-ART-14…17 drop their own stage wrappers. `/admin`'s hero is now a dashboard header (`OpsHeader`: title + tiles, with a compact ring tile by queue).
+- **A shared skin** in `globals.css` under `.sx-ops`, keyed on marker classes added to the primitives (`sx-card`, `sx-badge`, `sx-section-title`, `sx-hero-band`, `sx-stat`, `sx-btn-*`, `sx-tabs`, `sx-notice`, `sx-page-title`). It also matches `role=tablist/tab`, the `rounded-lg border border-line bg-surface p-1` link-strip idiom, native `select` / `input` / `textarea`, `button.bg-primary` / `button.border-line`, `.sx-drawer`, and `[role=dialog] > div > .sx-pop`.
+  - 52 identical `<h1 className="text-xl font-semibold tracking-tight">` swept to `sx-page-title` across 38 files.
+  - Cards get bracket corners from pseudo-elements, not clip-path, so a dropdown inside a Card isn't cut off.
+  - 24 files still use native `<select>`; they're skinned, not replaced.
+- **Environment, two findings:**
+  1. **Docker Desktop was off.** Started it, `npm run docker:up`, then the API.
+  2. **The PC clock is ~10 minutes behind Clerk's.** Every session token was "not active yet" (API 401; Next's Clerk middleware handshake-looped /login → /portal). `w32tm /resync` needs admin. Added an optional `CLERK_CLOCK_SKEW_MS` to the API (`backend/src/config/env.ts`, `auth/clerk.ts`) and to `frontend/src/proxy.ts`; both servers were started with it for the walk only. The owner should sync the clock. Saved as Claude memory "clock-skew-breaks-clerk".
 - **Verified:**
-  - Frontend tests 1147/1147, eslint clean, `next build` green in a detached worktree.
-  - Playwright walk as BTG_ADMIN and FINANCE (e2e keys p7.admin / p7.finance): dark, light, 1440 and 390, reduced motion. No console errors, no x-overflow.
-  - The phone ring label wrapped after a fix.
-- **Environment gotcha:** `node_modules/rimraf` in the main checkout was EMPTY (since 2026-10-02). That broke `next build` ("Can't resolve 'rimraf'" via exceljs) and `/athlete/earnings` on dev. It was restored from `rimraf@2.7.1`, the lockfile's version. The worktree teardown emptied it again, and it was restored again. Check it after any worktree build.
+  - Frontend 1167 tests, eslint, tsc (frontend and backend).
+  - Playwright sampler as BTG_ADMIN: 27 desks on the stage, `body.sx-ops` true on each, no console errors, overflow 0; the applications drawer and the rules dialog dark; light theme identical; 390px on three pages.
+  - `next build` in a detached worktree: green, all 45 `/admin` routes.
+- **Tracker:** P1-ART-18 is Phase 1 row 294 (Order 32.996, Code review); ranges extended to 294; a 2026-10-07 snapshot row added.
 
-## HeckerCreatives — P1-ART-14 follow-ups
+## HeckerCreatives — P1-FE-31: the admin desks' lists as server-paged tables (Code review)
 
-- The board lists 5 live campaigns, down from 8.
-- A "See all N live campaigns" row closes the panel. Only roles that may open the Campaigns desk see it.
+The owner asked whether the admin desks' tables page "based on our rules and memory", then: "convert them to tables with pagination … IF only its needed to be converted to be a table to make it optimized and make it easy on the eyes of the user". Spec: `docs/superpowers/specs/2026-10-07-admin-lists-paged-tables-design.md`. Branch `feature/P1-FE-31-admin-lists-paged`, stacked on P1-ART-18.
 
-## HeckerCreatives — P1-ART-15: New sign-ups as the "Intake Stream" (Code review)
+- **The audit.** Already server-paged: board, applications, approvals, campaigns, matching studio, finance reconciliation, marketplace, network, new sign-ups (+ sensitive edits), rewards, NEXT prospects; the rules panel pages its places in the browser by the owner's choice. **Not paged — ten desks** reading a whole list (or the API's silent cap of 100–500) and some counting tabs from the rows in view: audit log, briefs, sponsor requests, property verification (eight whole-table reads to count its tabs), payouts, refunds, delivery issues, guardian handoffs, closed accounts, offers.
+- **Nine become one shared stage table** — `frontend/src/components/stage-table.tsx` (`StageTable`, `Tr`, `Td`, `Primary`, `PagedTable`, `TabStrip`/`TabLink`) and `.sx-table` in `globals.css`: a real `<table>`, the house pager above and below, rows rising in on the stage, stacked into cards with `data-label` headers below `md`. **Briefs stays rows** (reasons, checklist, detail panel) but is paged, with tab / search / sport on the server.
+- **The API** gains the house pager (`lib/paging.ts`) on `/sponsor-requests`, `/onboarding` (`reviewQueuePage`, every tab's count), `/payouts`, `/refunds`, `/delivery-issues` (`deliveryIssuesPage`: one tab, counts for all three — `problems`/`settled` page the issues themselves), `/guardian-handoffs`, `/account-closures`, `/offers` (`listOffersPage`: the desk's tab rules moved to WHEREs, `counts` + `tabs`), `/audit-log` (a counted page beside the cursor) and `/briefs` (`?sport=`, `counts`, `facets.sports`). Every new read carries its `tenant-scope:` note.
+  - Found in review (subagent): the audit route's first cut clamped the page before counting, so `?page=2` answered page 1. Fixed: count, clamp, then read.
+- **Verified:** backend tsc + static scope tests + nine endpoint tests (`?page=1&size=1`: one row, the page, counts equal to the unpaged call, no `page` key without `?page`); frontend tsc, eslint, 1167 unit tests; Playwright `e2e/admin-lists-paged.spec.ts` as BTG_ADMIN — ten desks on the stage, table/rows with the pager or an empty state, no console errors, no overflow, `?size=24` honoured, a tab link resets `?page`; `next build` in a detached worktree.
+- **Tracker:** P1-FE-31 is Phase 1 row 295 (Order 32.997, Code review); ranges extended to 295; the 2026-10-07 snapshot row recomputed.
+- **Note for the dev API:** `combined.mts` doesn't watch — it was restarted for the walk. Both servers still run with `CLERK_CLOCK_SKEW_MS=1200000` until the owner syncs the clock.
 
-The owner asked for /admin/new-signups to get the same wow-factor redesign, with every list paged by the house rule (memory: pagination-pattern). The layout was picked in the visual companion: A, "Intake Stream". Spec: `docs/superpowers/specs/2026-10-05-new-signups-intake-stream-design.md`. Branch `feature/P1-ART-15-new-signups-stream`, stacked on P1-ART-14.
+## HeckerCreatives — P1-ART-19: the commission desk (Code review)
 
-- **Backend: `GET /signups/stream` and `/signups/stream/summary`** (`domain/signups-stream.ts`, pure merge in `signups-stream-rules.ts`).
-  - There are six sources, each a Prisma query under `whereFor` with one real sort column:
-    - athletes, by `createdAt`;
-    - verified guardians by `verifiedAt`, and rejected ones by `rejectedAt`;
-    - approved sponsors by `decidedAt`, and held ones by `createdAt`;
-    - organisations, by `submittedAt`.
-  - For page p: count everything, clamp, read p·size keys per source, merge newest first, slice, then load only that page's ids with the desks' own row builders. Those builders are now exported from `signups-desk.ts`, `sponsor-requests.ts` and `onboarding-profile.ts`. The old endpoints are unchanged.
-  - No raw SQL, so every read stays under the P8-SEC-02 static check (`tenant-scope:` notes inside each call).
-  - The filters run in the database: `kind`, `review=1` (the desks' own held rules) and `q`.
-- **Tenant isolation flagged `/signups/stream`.** It shows tenant A's admin the outside organisation's onboarding row. That row is tenant A's own, already shown on `/onboarding/signups`, so the test's allowlist now includes the stream, with that reason written beside it.
-- **Test gotcha:** test tenant AND row/user ids must be unique across test files. My first `ss_btg` / `ss_admin` / `ath_held` collided with `phase2-seller-summary.test.ts`, and `suite-isolation.static` caught it. Everything is now prefixed `sst_`.
-- **Test DB was stale (`ColumnNotFound`).** `npm run db:test` rebuilt it.
-  - Full backend suite: 161/165 files.
-  - Remaining failures, not caused by this work: `next-edition-e2e` fails the same with these changes stashed, and `sql-rules-in-migrations` hits Windows `spawnSync npx ENOENT`.
-- **Frontend:**
-  - `components/intake-stage.tsx` (hero, rows) and `intake-fx.tsx` (KindChips, ReviewToggle on `useListNav`).
-  - The house `PagerRow` / `ListSearch` / `PendingList`.
-  - `lib/new-signups-live.ts`: `streamParams` (maps legacy `?tab=`), `streamApiQuery`, `streamRowView`, `intakeHeadline`, all tested.
-  - The page moved to `(stream)/` for a dark loading screen.
-  - Sensitive edits are paged on `epage` / `esize`.
-  - `OpsGround` takes a `word` (INTAKE).
-  - `.sx-ops` now re-pins `--sx-admin` and the status colours, because the house pager's admin tone was light-theme slate on the dark stage.
-- **Restarted the dev API on :4000.** The owner's `npm start` (combined.mts) doesn't watch, so the new routes 404'd until it was restarted with the same command.
-- **Verified:**
-  - Frontend 1152 tests, eslint, `next build` (worktree).
-  - Backend stream tests 8/8, tenant-isolation, tenant-scope.static and openapi.coverage.
-  - Playwright walk as BTG_ADMIN: chips, toggle, legacy `?tab=review`, search, size; dark, light and 390; no console errors, no overflow.
-  - rimraf was emptied again by the worktree teardown and restored.
+The owner: "/admin/commission page visual design looks shit, too much space, redesign or restructure the page itself to make it easier for the eyes of the user". Spec: `docs/superpowers/specs/2026-10-07-commission-desk-design.md`. Branch `feature/P1-ART-19-commission-desk`, stacked on P1-FE-31.
 
-## HeckerCreatives — P1-ART-16: /admin/applications as the "Scouting Board" (Code review)
+- **Before:** six tall cards (one per rule kind, most "No rule"), a whole add-rule form always open, the sample order under it — a screen and a half at 1440, four screens on a phone.
+- **Now:** the **split strip** (six tiles in the ledger's order, each headlining the rate for everyone — `kindSummary` in `lib/commission-live.ts`, unit-tested), the **picked kind's rules as a stage table** (earlier versions unfold under a row), the **sample order beside it** (sticky; the split as a waterfall), and **add / revise in a dialog** (`commission-rule-dialog.tsx`, the P1-ART-17 shape; `ComboBox` now exported from `place-dialog.tsx` with `showCode`) that previews the unsaved rule against the sample order.
+- Visuals and structure only — the API contract and actions are unchanged.
+- **Verified:** tsc, eslint, 10 unit tests in `commission-live.test.ts` (render test rewritten for the desk, three `kindSummary` cases added); Playwright pass as BTG_ADMIN at 1440 and 390 (strip, split, dialog with preview and dropdown, Escape closes, no console error, no overflow).
+- **Tracker:** P1-ART-19 is Phase 1 row 296 (Order 32.998, Code review); ranges extended to 296; the 2026-10-07 snapshot row recomputed.
 
-The owner asked for the review desk to get the same treatment. Direction A, "Scouting Board", was picked from three mockups (`.superpowers/brainstorm/applications/`). Spec: `docs/superpowers/specs/2026-10-05-applications-scouting-board-design.md`. Branch `feature/P1-ART-16-applications-scouting-board`, stacked on P1-ART-15.
+## HeckerCreatives — P1-ART-20: the marketplace desk (Code review)
 
-- **Visual only.** `applications-desk.tsx` had markup and classes changed; its logic, server paging and review actions are untouched.
-  - Tabs became stage pills.
-  - The list became a grid of glass player cards: score ring, safeguard chips, and a 48-hour bar (`waitMeter`, tested) that turns orange past 48h.
-  - `OpsStage` now writes `--rx` / `--ry` on `[data-tilt]` cards, so they tilt toward the pointer.
-  - The drawer's portaled root pins `.sx-ops`, so it stays dark for Frost users. It also got a glowing factor bar (role=meter) and restyled buttons.
-- **OWNER FEEDBACK, mid-build:** "don't make the design like a landing page or a hero section, this is a dashboard."
-  - The 64px headline and the dek were replaced by a compact title row plus four KPI tiles (`KpiTile`, now shared in `ops-stage.tsx`).
-  - The same was then applied to /admin/new-signups at the owner's request (`IntakeHeader`; `intakeHeadline` removed).
-  - `OpsGround word=""` drops the outlined word.
-  - Saved as Claude memory "admin-desks-are-dashboards". /admin itself still has its hero, so ask the owner before changing it.
-- **The e2e contract held:** each card is still the row `<button>`, named with the athlete's name, and the `Minor` text is exact. The dialog's label and button names are unchanged.
-  - `loop-p3-application`: the adult path (desk → drawer → start review → approve → activate) passes.
-  - The minor path fails at line 223, on the public join page ("Waiting on your guardian"), before it reaches the desk. Not caused by this work.
-- **Verified:**
-  - Frontend 1153 tests, eslint, `next build` (worktree).
-  - Walk as BTG_ADMIN: 12 cards, tilt, drawer dark in light theme, 390 with no overflow, no console errors.
-  - rimraf restored again after the teardown.
-- **Tracker:** P1-ART-16 is Phase 1 row 292 (Order 32.99, Code review); ranges extended to 292; today's snapshot recomputed.
+The owner: "same in /admin/marketplace, the structure looks shit". Spec: `docs/superpowers/specs/2026-10-07-marketplace-desk-design.md`. Branch `feature/P1-ART-20-marketplace-desk`, stacked on P1-ART-19.
 
-## HeckerCreatives — P1-ART-17: sign-up rules as the "Control Panel" (Code review)
+- **Before:** six stat tiles, then six stacked full-width cards (applications, listings, orders, failed payments, payout problems, disputes), each mostly a hint and "nothing here" — the same number twice, two screens.
+- **Now:** the **queue strip** — five tiles, one per queue, each with its count, one line of context and a tone for work waiting; a tile is the navigation (`?queue=`, written in place), the desk opens on the first queue with work — and **one panel** under it: a stage table for applications, orders, failed payments and payout problems, or the listing desks' inline-action rows under their three tabs (`components/marketplace-desk.tsx`). Disputes are one line. The listing emails' `?listings=…#listing-…` links still land on the right row.
+- Reads unchanged in substance (one parallel pass; switching reads nothing); `/onboarding` and `/payouts` now read with the house pager so the tiles' counts are the API's.
+- **Verified:** tsc, eslint, 25 unit tests across the two marketplace test files (two `queueKey` / `firstBusyQueue` cases added); Playwright `e2e/admin-marketplace-desk.spec.ts` as BTG_ADMIN at 1440 and 390.
+- **Tracker:** P1-ART-20 is Phase 1 row 297 (Order 32.999, Code review); ranges extended to 297; the 2026-10-07 snapshot row recomputed.
 
-The owner asked for /admin/new-signups/rules in the same structure. Direction A, "Control Panel", was picked (`.superpowers/brainstorm/rules/`). Spec: `docs/superpowers/specs/2026-10-05-signup-rules-control-panel-design.md`. Branch `feature/P1-ART-17-signup-rules-control-panel`, stacked on P1-ART-16.
+## HeckerCreatives — P1-ART-21: the admin sidebar in collapsible groups, sorted (Code review)
 
-- **Dashboard header:** a back link, the title and four tiles. The minors rule became a designed `role="switch"`. The place form got mono-caps codes, an age stepper (14–25, arrow keys), and Remove with a confirm.
-- **Owner feedback during the build:**
-  1. "put a highlight on the edit panel… you're just scrolling up", then "the hint is still not noticeable". The fix has six parts:
-     - a glow on a wrapper, because the panel's chamfer clip-path cuts its own box-shadow;
-     - a two-beat pulse (`.sx-ops-flash`);
-     - a bold callout, "Editing Alabama, United States — adult at 19", with numbered steps and a Cancel;
-     - a ringed age stepper;
-     - the picked tile or chip kept lit (`aria-pressed`);
-     - a live region.
+The owner: "restructure the navigation buttons in the side, its too many, if its possible to have a collapsable please do so" and "sort them orderly". Spec: `docs/superpowers/specs/2026-10-07-admin-sidebar-groups-design.md`. Branch `feature/P1-ART-21-admin-sidebar-groups`, stacked on P1-ART-20.
 
-     Saved as Claude memory "scroll-to-needs-a-loud-cue".
-  2. "what if there are more countries and more state/provinces?" The first cut tiled every place: 3,786px tall with 85 places, growing without bound. It now has:
-     - a search across every country, by code or name. Country names come from `Intl.DisplayNames`; `lib/region-names.ts` names the US, CA, MX, AU, BR and IN subdivisions.
-     - a country rail that scrolls inside its own panel;
-     - one country at a time: exceptions as tiles, places that follow the default as chips, capped at 40 with Show all.
-
-     The page now stays about 1,345px whatever the count.
-- **Data note:** PR (Puerto Rico) appears both as a US region and as its own country row in the dev table. Both are shown as they are.
-- **Verified:**
-  - Frontend 1162 tests, eslint, `next build` (worktree).
-  - Walk as BTG_ADMIN: search → Enter → callout; Remove armed then kept; rail switch and the Not 18 filter; chip → form; saving MD unchanged ("Saved. 0 athletes worked out again."); 390 with no overflow; no console errors.
-  - Two React key warnings were found and fixed during the walks: a server element passed into a client slot needs a key, and sibling elements were sharing `key={pulse}`.
-  - rimraf restored after the teardown.
-- **Tracker:** P1-ART-17 is Phase 1 row 293 (Order 32.995, Code review); ranges extended to 293; today's snapshot recomputed.
-- **P1-ART-17 follow-up (owner):** "why do you still have that show all 48, what if you did is list the items 20 items per page, make the items large, add more detail on each items?"
-  - The exceptions tiles and the following chips are now ONE list of large cards: code badge, name, age, a status line against the default, and a history line ("Default table" / "BTG staff" · date, from `updatedBy` / `updatedAt`).
-  - Exceptions come first, then All / Exceptions / Follow the default tabs.
-  - The list shows 20 per page with the house `Pagination` above (with "Showing x–y of n") and below. It is client-side, because the table is bounded. The fixed 20 is the owner's number, not the usual 12/24/60.
-  - The bottom pager scrolls back to the top of the list.
-  - New helpers `placeList`, `placePage`, `statusWords`, `changedWords`, with tests. Frontend 1164 tests.
-- **P1-ART-17 follow-ups (owner):**
-  - **Equal heights:** "make the item list panel and the country list panel have the same height". From lg the rail is pinned (absolute, inset 0) to its grid cell, so the country panel sets the row height (34rem floor) and the rail's list scrolls inside. Measured 958/958 (US), 544/544 (BR), 713/713 (CA).
-  - **The editor is a popup with real places:** "this is better if this is a popup… what if I put xyz since this is a free input, it should be dropdown and listing all of the available countries in the world".
-    - `components/place-dialog.tsx` replaces the inline form: one modal for adding and changing, with the house `useDialogFocus` contract, portaled with `.sx-ops`.
-    - Country is a designed searchable `ComboBox` over all ISO 3166-1 codes (`COUNTRY_CODES` in `lib/region-names.ts`, named by `Intl.DisplayNames`).
-    - State is "Whole country" plus the known subdivisions (US/CA/MX/AU/BR/IN), else whole country only.
-    - Options already in the table say "in table · N", and choosing one switches the dialog to changing it.
-    - A change closes the dialog and is announced on the board.
-    - The minors switch is now a full-width panel.
-    - Walk: Add → "germ" → Germany (already in table) → Mexico/Jalisco → "Add JAL, MX" (not saved); Esc closes; a card opens "Alabama, United States"; focus returns to the card; saving Maryland via search worked; 390 fine; no console errors.
-    - New helpers `countryOptions`, `regionOptions`, `filterOptions`, with tests. Frontend 1167 tests.
+- **Before:** 29 links in one flat column, in build order.
+- **Now:** Dashboard on top, then seven collapsible groups in the order BTG works — Intake, Campaigns, Marketplace, Money, Accounts, NEXT, System — each A → Z inside. The group holding the open page opens on arrival; the viewer's other choices are remembered per browser (`localStorage` read through `useSyncExternalStore`, so no hydration mismatch and no state set in an effect — the lint rule `react-hooks/set-state-in-effect` refused the first cut). The phone drawer lists the groups with their desks two to a row.
+- `NavItem.group` + `lib/nav-groups.ts` (pure); a nav without groups renders flat, so the other portals are untouched. The per-role filter and the commission-only rule are as before (the commission test's regex on the layout still holds).
+- **Verified:** tsc, eslint, `tests/nav-groups.test.ts` (3; one pins the admin groups' order and sorting from the layout source), Playwright `e2e/admin-sidebar-groups.spec.ts` as BTG_ADMIN.
+- **Tracker:** P1-ART-21 is Phase 1 row 298 (Order 32.9995, Code review); ranges extended to 298; the 2026-10-07 snapshot row recomputed.
+- **Follow-up (owner: "showing takes to long when you collapse"):** a group's desks were staggered from the top of the whole nav (`80 + i × 40 ms` over a 0.5 s fade), so the last group took over a second to appear. Now a group's desks are timed from their own first row — 25 ms apart, a quarter-second fade — and only the top items and the group headers stagger down the column on arrival.
+- **Follow-up (owner: "redesign the visual, too plain"):** group headers now read like desk rows — a glyph tile per group (`groupIcon` on one item; `NavGroup.icon`), the name, a count chip, a caret; the group you are in gets the accent rail, wash and a glowing tile; an open group brightens and its desks hang off a cyan track line; hover sweeps a light. The group name is 10px / 0.12em so "Marketplace" fits the 224px rail.
+- **Follow-up (owner: an x scrollbar on the nav when hovering):** the header's hover sweep slides a full-width light past the header's right edge, and the sidebar's scroller only said `overflow-y-auto` — which gives `overflow-x: auto` with it — so the moment of overflow drew a horizontal scrollbar. The header now clips (`overflow-hidden`) and the scroller is `overflow-x-hidden`; the walk hovers a header and pins zero horizontal overflow.

@@ -42,6 +42,8 @@ import { audit } from "../db/audit";
 import { cancelOrderAsSystem, lockOrder, OrderStateConflictError, payOrderIn } from "./marketplace-order";
 import { remindersDue, usd, zohoInvoicePaid } from "./marketplace-order-rules";
 import { appUrl, orderRef, sellerRecipients, sponsorRecipient, tell, utc } from "./order-mail";
+import { refuseIfBackwards } from "./invoice-replay";
+import { logError } from "../lib/redact";
 
 type Tx = Prisma.TransactionClient;
 
@@ -67,7 +69,7 @@ export type OrderInvoicePayload = {
 
 export type OrderInvoiceOutcome =
   | { applied: true; invoiceId: string; status: string; orderId: string; orderPaid: boolean; note?: string }
-  | { applied: false; reason: string };
+  | { applied: false; reason: string; stale?: true };
 
 /**
  * Apply a Zoho invoice to the marketplace order whose Deal it names — in the
@@ -86,16 +88,20 @@ export async function ingestOrderInvoice(
 ): Promise<OrderInvoiceOutcome> {
   const existing = await tx.marketplaceOrderInvoice.findUnique({
     /* tenant-scope: worker-side ingest; the order was resolved from the Zoho Deal it carries. */
-    where: { zohoInvoiceId: payload.invoiceId }, select: { id: true, lastSyncHash: true, orderId: true },
+    where: { zohoInvoiceId: payload.invoiceId }, select: { id: true, lastSyncHash: true, orderId: true, status: true, balance: true },
   });
   if (existing?.lastSyncHash === hash) return { applied: false, reason: "identical payload already applied" };
   if (existing && existing.orderId !== order.id) return { applied: false, reason: "this invoice is already attached to another order" };
+  /* 2S8-SEC-04 — a replayed older delivery never rolls the invoice back: paid never returns to sent. */
+  const refused = await refuseIfBackwards(tx, order.tenantId, "MarketplaceOrderInvoice", existing, payload);
+  if (refused) return refused;
   const data = {
     tenantId: order.tenantId, orderId: order.id, number: payload.number ?? null, status: payload.status, amount: payload.amount,
     balance: payload.balance ?? null, currency: payload.currency ?? "USD",
     issuedAt: payload.issuedAt ? new Date(payload.issuedAt) : null, dueAt: payload.dueAt ? new Date(payload.dueAt) : null,
     paidAt: payload.paidAt ? new Date(payload.paidAt) : null, lastSyncHash: hash, syncedAt: now,
   };
+  /* tenant-scope: worker-side ingest; the invoice of the order resolved from its Zoho deal, and `data` carries that order's tenantId. */
   const row = await tx.marketplaceOrderInvoice.upsert({
     where: { zohoInvoiceId: payload.invoiceId },
     create: { zohoInvoiceId: payload.invoiceId, ...data },
@@ -240,7 +246,7 @@ export async function sweepUnpaidOrders(now = new Date(), opts: { tenantIds?: st
       }
     }).catch((error: unknown) => {
       failed++;
-      console.error(`[unpaid orders] order ${id} failed, will retry next pass:`, error);
+      logError(`[unpaid orders] order ${id} failed, will retry next pass:`, error);
     });
   }
   return { reminded, cancelled, deferred, failed, skipped };

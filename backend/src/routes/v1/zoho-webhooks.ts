@@ -28,8 +28,6 @@
  * accepting unsigned payloads, on the same reasoning as the intake token: a
  * warning gets missed, and the damage is silent.
  */
-import { createHmac, timingSafeEqual } from "node:crypto";
-
 import { Router, type RequestHandler } from "express";
 
 import type { Prisma } from "../../generated/prisma/client";
@@ -37,6 +35,7 @@ import { prisma } from "../../db/client";
 import { enqueue } from "../../db/outbox";
 import { env } from "../../config/env";
 import { limit } from "../../lib/rate-limit";
+import { acceptedSecrets, hmacMatchesAny, matchesAny } from "../../lib/rotating-secret";
 import { ZohoInvoiceWebhook } from "../../contracts/invoice";
 import { ZohoCrmNotification } from "../../contracts/zoho";
 
@@ -51,24 +50,25 @@ export class WebhookUnsignedError extends Error {
 }
 
 /**
- * Constant-time comparison of the HMAC.
+ * Constant-time comparison of the HMAC (lib/rotating-secret.ts).
  *
- * `timingSafeEqual` throws on a length mismatch, which is itself a timing
- * signal of sorts — so the lengths are compared first and both paths return
- * the same way.
+ * 2S8-SEC-02: takes every ACCEPTED secret — ZOHO_WEBHOOK_SECRET and, during
+ * a rotation, ZOHO_WEBHOOK_SECRET_PREVIOUS — so the secret can be changed
+ * here first and in Zoho second with no delivery refused in between.
  */
 export function signatureMatches(
   rawBody: string,
   provided: string | undefined,
-  secret: string,
+  secrets: string | readonly string[],
 ): boolean {
   if (!provided) return false;
-  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
-  const a = Buffer.from(expected, "utf8");
-  const b = Buffer.from(provided, "utf8");
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+  return hmacMatchesAny(typeof secrets === "string" ? [secrets] : secrets, rawBody, provided, "hex");
 }
+
+/** The secrets the invoice webhook accepts right now, current first. */
+export const invoiceSecrets = () => acceptedSecrets(env.ZOHO_WEBHOOK_SECRET, env.ZOHO_WEBHOOK_SECRET_PREVIOUS);
+/** The CRM channel tokens accepted right now, current first. */
+export const notifyTokens = () => acceptedSecrets(env.ZOHO_NOTIFY_TOKEN, env.ZOHO_NOTIFY_TOKEN_PREVIOUS);
 
 export class WebhookBodyError extends Error {
   readonly status = 400;
@@ -78,13 +78,11 @@ export class WebhookBodyError extends Error {
   }
 }
 
-/** Constant-time string equality for the CRM channel token. */
-export function tokenMatches(provided: unknown, expected: string | undefined): boolean {
-  if (!expected || typeof provided !== "string") return false;
-  const a = Buffer.from(provided, "utf8");
-  const b = Buffer.from(expected, "utf8");
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+/** Constant-time equality for the CRM channel token, against every accepted
+ *  token (ZOHO_NOTIFY_TOKEN and, mid-rotation, ZOHO_NOTIFY_TOKEN_PREVIOUS). */
+export function tokenMatches(provided: unknown, expected: string | readonly string[] | undefined): boolean {
+  const accepted = expected === undefined ? [] : typeof expected === "string" ? [expected] : expected;
+  return matchesAny(provided, accepted);
 }
 
 /**
@@ -122,15 +120,26 @@ async function recordRejected(
  * exists here, and retrying it forever would not make the campaign appear.
  */
 export const invoiceHook: RequestHandler = async (req, res) => {
-  await limit("zoho:invoice", req.ip, 120, 60);
+  const secrets = invoiceSecrets();
+  const provided = req.get("x-zoho-signature") ?? undefined;
+  /* 2S8-SEC-02: the signature is checked over the bytes Zoho actually sent
+     (captured by express.json's verify hook in app.ts) — re-serialising the
+     parsed body can change key order or number format and fail a genuine
+     delivery. The re-serialised form is still accepted, as before, for a
+     caller (or test) that reaches the handler without the raw bytes. */
+  const rawBody = (req as { rawBody?: Buffer }).rawBody;
+  const signatureOk =
+    secrets.length > 0 &&
+    ((rawBody !== undefined && signatureMatches(rawBody.toString("utf8"), provided, secrets)) ||
+      signatureMatches(JSON.stringify(req.body ?? {}), provided, secrets));
 
-  const secret = env.ZOHO_WEBHOOK_SECRET;
-  const raw = JSON.stringify(req.body ?? {});
-  const signatureOk = secret
-    ? signatureMatches(raw, req.get("x-zoho-signature") ?? undefined, secret)
-    : false;
+  /* 2S8-SEC-02: only UNVERIFIED attempts are rate-limited. `req.ip` here is
+     the platform edge, so one bucket is shared by every caller — limiting
+     everything let a stranger's junk crowd Zoho's real, signed deliveries
+     out with 429s. A verified delivery is Zoho; it is never throttled. */
+  if (!signatureOk) await limit("zoho:invoice", req.ip, 120, 60);
 
-  if (secret && !signatureOk) {
+  if (secrets.length > 0 && !signatureOk) {
     await recordRejected("zoho", req.body, false, "signature did not verify");
     throw new WebhookUnsignedError();
   }
@@ -183,15 +192,15 @@ export const invoiceHook: RequestHandler = async (req, res) => {
  * names record ids; fetching and applying them is the worker's job.
  */
 export const crmHook: RequestHandler = async (req, res) => {
-  await limit("zoho:crm", req.ip, 600, 60);
-
   const body = (req.body ?? {}) as Record<string, unknown>;
   const verified =
-    tokenMatches(body.token, env.ZOHO_NOTIFY_TOKEN) &&
+    tokenMatches(body.token, notifyTokens()) &&
     env.ZOHO_NOTIFY_CHANNEL_ID !== undefined &&
     String(body.channel_id ?? "") === env.ZOHO_NOTIFY_CHANNEL_ID;
 
   if (!verified) {
+    /* Unverified attempts only — see invoiceHook (2S8-SEC-02). */
+    await limit("zoho:crm", req.ip, 600, 60);
     await recordRejected("zoho-crm", body, false, "channel token did not verify");
     throw new WebhookUnsignedError();
   }

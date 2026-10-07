@@ -7,30 +7,25 @@
  * finish in one sitting; the token is how it comes back to its own draft and
  * to nothing else. Not authentication: it grants no role and reaches no
  * other record.
+ *
+ * 2S8-PMO-02, owner decision 4: both tokens expire 14 days after issue
+ * (lib/signed-link.ts has the format and the transition for links already
+ * sent).
  */
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { issueLink, linkSubject, readLink, verifyLinkSignature, linkTimeOk, LinkExpiredError, type LinkSpec } from "./signed-link";
 
-import { env } from "../config/env";
+export const ONBOARDING_LINK: LinkSpec = {
+  kind: "onboarding",
+  purpose: "property-onboarding:",
+  legacy: (id) => `property-onboarding:${id}`,
+};
 
-const PURPOSE = "property-onboarding:";
-
-export function issueOnboardingToken(onboardingId: string): string {
-  return `${onboardingId}.${sign(onboardingId)}`;
+export function issueOnboardingToken(onboardingId: string, now?: Date): string {
+  return issueLink(ONBOARDING_LINK, onboardingId, { now });
 }
 
-export function readOnboardingToken(token: string | undefined | null): string | null {
-  if (!token) return null;
-  const cut = token.lastIndexOf(".");
-  if (cut <= 0) return null;
-  const id = token.slice(0, cut);
-  const provided = Buffer.from(token.slice(cut + 1), "utf8");
-  const expected = Buffer.from(sign(id), "utf8");
-  if (provided.length !== expected.length) return null;
-  return timingSafeEqual(provided, expected) ? id : null;
-}
-
-function sign(id: string): string {
-  return createHmac("sha256", env.INTAKE_TOKEN_SECRET).update(PURPOSE + id).digest("base64url");
+export function readOnboardingToken(token: string | undefined | null, now?: Date): string | null {
+  return readLink(ONBOARDING_LINK, token, { now });
 }
 
 /* 2S1-BE-06 — the EMAIL token travels only inside the confirmation email,
@@ -38,27 +33,30 @@ function sign(id: string): string {
    over the application AND the address: a link sent to an earlier contact
    confirms nothing once the primary contact changes. The resume token can
    never confirm an email, and this one never resumes an application. */
-const EMAIL_PURPOSE = "property-onboarding-email:";
+const normal = (email: string) => email.trim().toLowerCase();
 
-const signEmail = (id: string, email: string) =>
-  createHmac("sha256", env.INTAKE_TOKEN_SECRET).update(`${EMAIL_PURPOSE}${id}:${email.trim().toLowerCase()}`).digest("base64url");
+export const ONBOARDING_EMAIL_LINK: LinkSpec = {
+  kind: "onboarding-email",
+  purpose: "property-onboarding-email:",
+  legacy: (id, email) => `property-onboarding-email:${id}:${email ?? ""}`,
+};
 
-export function issueOnboardingEmailToken(onboardingId: string, email: string): string {
-  return `${onboardingId}.${signEmail(onboardingId, email)}`;
+export function issueOnboardingEmailToken(onboardingId: string, email: string, now?: Date): string {
+  return issueLink(ONBOARDING_EMAIL_LINK, onboardingId, { now, bound: normal(email) });
 }
 
 /** The application an email token names — not yet checked against an address. */
 export function onboardingIdOfEmailToken(token: string | undefined | null): string | null {
-  if (!token) return null;
-  const cut = token.lastIndexOf(".");
-  return cut > 0 ? token.slice(0, cut) : null;
+  return linkSubject(token);
 }
 
-/** Was this token issued for this application and this address? */
-export function emailTokenMatches(token: string, onboardingId: string, email: string): boolean {
-  const cut = token.lastIndexOf(".");
-  if (cut <= 0 || token.slice(0, cut) !== onboardingId) return false;
-  const provided = Buffer.from(token.slice(cut + 1), "utf8");
-  const expected = Buffer.from(signEmail(onboardingId, email), "utf8");
-  return provided.length === expected.length && timingSafeEqual(provided, expected);
+/**
+ * Was this token issued for this application and this address? False for a
+ * bad one; LinkExpiredError for a genuine one past its 14 days.
+ */
+export function emailTokenMatches(token: string, onboardingId: string, email: string, now?: Date): boolean {
+  const v = verifyLinkSignature(ONBOARDING_EMAIL_LINK, token, normal(email));
+  if (!v || v.subject !== onboardingId) return false;
+  if (!linkTimeOk(v.exp, now)) throw new LinkExpiredError("onboarding-email");
+  return true;
 }

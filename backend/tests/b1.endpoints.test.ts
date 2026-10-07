@@ -220,7 +220,8 @@ describe("an athlete must be complete to activate (decision 3)", () => {
 describe("a transition is conditional on the state it was read in (QA-05)", () => {
   it("writes WHERE state = the state it read", async () => {
     await activateAthlete(actor(["NETWORK_MGR"]), "ath_1");
-    expect(updateWhere).toEqual({ id: "ath_1", state: "APPROVED" });
+    /* 2S8-QA-07 — and in the tenant it was read in. */
+    expect(updateWhere).toEqual({ id: "ath_1", tenantId: "tenant_btg", state: "APPROVED" });
   });
 
   it("the loser of a race gets a 409, not a second activation", async () => {

@@ -71,8 +71,11 @@ const HANDLED_JOBS = new Set<string>([
   "report.render",
   /* 2S5-INT-02 / 2S5-BE-05 — the payment provider's side (stand-in on staging). */
   "payments.confirm",
+  "payments.event",
   "payouts.send",
   "payouts.confirm",
+  /* 2S5-INT-01 — a card refund, sent through Stripe. */
+  "refunds.send",
 ]);
 import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
 import { handleGenerateQr, type QrJob } from "./jobs/generate-qr.mts";
@@ -98,6 +101,7 @@ import { STUDENT_DIGEST_HOUR_UTC, sendStudentApprovalDigests, sweepStudentAutoma
 import { sweepEditionStages } from "../src/domain/edition-automation.ts";
 import { sweepHeldSales } from "../src/domain/ad-sale-auto.ts";
 import { purgeExpiredClosures } from "../src/domain/account-closure.ts";
+import { trimZohoWebhookBodies } from "../src/domain/webhook-retention.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
 import { LISTING_DIGEST_HOUR_UTC, sendListingDigests } from "../src/domain/listing.ts";
 import { ORDER_DIGEST_HOUR_UTC, sendOrderApprovalDigests, sweepSellerApprovals } from "../src/domain/order-approval.ts";
@@ -106,7 +110,9 @@ import type { RenderReportJob } from "../src/domain/report-files.ts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
 import { importCohort, type CohortImportJob } from "../src/domain/cohort-import.ts";
-import { completeStandinPayout, confirmPayment, confirmPayoutPaid, sendPayout, sweepPayoutRetries } from "../src/domain/payouts.ts";
+import { completeStandinPayout, confirmPayoutPaid, sendPayout, sweepPayoutRetries } from "../src/domain/payouts.ts";
+import { sendRefund } from "../src/domain/refunds.ts";
+import { processPaymentEvent, retryDeferredPaymentEvents, standinConfirmPayment } from "../src/domain/payment-events.ts";
 import { providerName } from "../src/lib/payment-provider.ts";
 import { redis } from "../src/lib/redis.ts";
 import { zohoConfigFromEnv, zohoFromEnv } from "../src/lib/zoho.ts";
@@ -115,11 +121,23 @@ import {
   handlePushTask, renewWatch, runReconciliation, dispatchableJobs,
   type BackfillJob, type DealJob, type IngestCrmJob, type LeadJob, type MarketplaceOrderJob, type RenewalJob, type SponsorJob, type TaskJob,
 } from "./jobs/zoho-sync.mts";
+import { logError, maskEmail, redactEmails } from "../src/lib/redact.ts";
+
+/**
+ * 2S8-SEC-05 — every line this worker logs goes through here, so no email
+ * address reaches the log in full (security review §A09): recipients are
+ * named by their domain only. Errors go through `logError` (2S0-SEC-01):
+ * their messages are not only our own words — a database or provider error
+ * can quote the value it refused — so they are redacted too.
+ */
+function log(line: string): void {
+  console.log(redactEmails(line));
+}
 
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  console.error(
+  logError(
     "[worker] DATABASE_URL is not set — refusing to start. A worker that " +
       "cannot reach the database is not a worker, and failing here makes the " +
       "deploy fail loudly instead of draining nothing in silence.",
@@ -148,7 +166,9 @@ const DRAIN_BATCH = 100;
 
 type OutboxRow = { id: string; tenantId: string; name: string; payload: unknown };
 
-const pool = new pg.Pool({ connectionString });
+/* 2S8-OPS-02 — the worker's sessions run in UTC, as the API's do
+   (src/db/client.ts): column defaults and any bare now() then write UTC. */
+const pool = new pg.Pool({ connectionString, options: "-c TimeZone=UTC" });
 const boss = new PgBoss({ connectionString });
 
 /** Queues pg-boss already knows about. Creating one is required before a send
@@ -187,7 +207,7 @@ async function reportWaiting(): Promise<void> {
   );
   if (rows.length > 0) {
     const summary = rows.map((r) => `${r.name} x${r.n}`).join(", ");
-    console.log(`[worker] outbox waiting for a handler: ${summary}`);
+    log(`[worker] outbox waiting for a handler: ${summary}`);
   }
 }
 
@@ -237,7 +257,7 @@ async function drainOnce(): Promise<number> {
     }
 
     await client.query(
-      `UPDATE "OutboxJob" SET "dispatchedAt" = now() WHERE id = ANY($1::text[])`,
+      `UPDATE "OutboxJob" SET "dispatchedAt" = (now() AT TIME ZONE 'UTC') WHERE id = ANY($1::text[])`,
       [rows.map((r) => r.id)],
     );
 
@@ -310,6 +330,9 @@ let orderTimer: ReturnType<typeof setInterval> | undefined;
    for a temporary reason goes back to it about 1, 6 and 24 hours later. */
 let payoutRetryTimer: ReturnType<typeof setInterval> | undefined;
 const PAYOUT_RETRY_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
+/* 2S5-INT-02 — the shortest deferral is 30 seconds. */
+let paymentEventTimer: ReturnType<typeof setInterval> | undefined;
+const PAYMENT_EVENT_SWEEP_INTERVAL_MS = 30 * 1000;
 let orderDigestTimer: ReturnType<typeof setInterval> | undefined;
 const ORDER_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 /* P4-BE-09 — campaign stages that move by themselves. Each move is made by
@@ -357,12 +380,12 @@ async function tick(): Promise<void> {
   draining = true;
   try {
     const sent = await drainOnce();
-    if (sent > 0) console.log(`[worker] drained ${sent} outbox job(s)`);
+    if (sent > 0) log(`[worker] drained ${sent} outbox job(s)`);
   } catch (error) {
     // Log and keep going. A failed sweep leaves its rows undispatched, so the
     // next tick retries them; exiting here would turn a transient database
     // blip into a stopped queue.
-    console.error("[worker] drain failed:", error);
+    logError("[worker] drain failed:", error);
   } finally {
     draining = false;
   }
@@ -385,20 +408,20 @@ async function seedOnBoot(): Promise<void> {
      a worker that cannot seed must still drain. */
   try {
     const catalogue = await seedCatalogue(pool, TENANT_ID);
-    console.log(
+    log(
       `[worker] catalogue seeded — ${catalogue.nilJobs} NIL jobs, ` +
         `${catalogue.sponsorPackages} sponsor packages`,
     );
   } catch (error) {
-    console.error("[worker] catalogue seed failed, continuing to drain anyway:", error);
+    logError("[worker] catalogue seed failed, continuing to drain anyway:", error);
   }
 
   try {
     const outcome = await seedEnvironment(pool);
     if (outcome.skipped) {
-      console.log(`[worker] seed skipped — ${outcome.reason}`);
+      log(`[worker] seed skipped — ${outcome.reason}`);
     } else {
-      console.log(
+      log(
         `[worker] seed complete — ${outcome.athletesCreated ?? 0} athlete(s), ` +
           `${outcome.sponsorsCreated ?? 0} sponsor(s), ` +
           `${outcome.tenantsCreated} tenant(s) and ` +
@@ -408,7 +431,7 @@ async function seedOnBoot(): Promise<void> {
       );
     }
   } catch (error) {
-    console.error("[worker] seed failed, continuing to drain anyway:", error);
+    logError("[worker] seed failed, continuing to drain anyway:", error);
   }
 }
 
@@ -416,9 +439,9 @@ async function main(): Promise<void> {
   await seedOnBoot();
 
   await boss.start(); // installs pg-boss's own schema — worker only
-  console.log("[worker] pg-boss started; outbox drain every " + DRAIN_INTERVAL_MS + "ms");
+  log("[worker] pg-boss started; outbox drain every " + DRAIN_INTERVAL_MS + "ms");
 
-  boss.on("error", (error) => console.error("[worker] pg-boss error:", error));
+  boss.on("error", (error) => logError("[worker] pg-boss error:", error));
 
   /* Handlers land with the feature that needs them. The first is email
      (P3-INT-01); zoho.pushCampaign arrives with the Zoho integration and
@@ -433,16 +456,17 @@ async function main(): Promise<void> {
   await ensureQueue("notify.email");
 
   await boss.work<EmailJob>("notify.email", async ([job]) => {
-    /* 2S1-BE-16 — a support message's attachments are read from the private bucket at send time. */
-    const outcome = await handleSendEmail(pool, job.data, getPrivateObject);
+    /* 2S0-SEC-01 — no email carries a private-bucket file (a support message links to BTG's signed-in page). */
+    const outcome = await handleSendEmail(pool, job.data);
     /* Logged because a duplicate is not a failure — it means the message had
        already gone once, which is what was asked for. Silence here would
        make an at-least-once delivery look like a lost email. */
     /* A fan's address stays out of the log (P6-SEC-02/03): their consent
-       covers the voucher email, not our log retention. Staff and athletes
-       have accounts and are logged as before. */
-    const to = job.data.fanEventId ? `fan claim ${job.data.fanEventId}` : job.data.to;
-    console.log(`[worker] notify.email ${outcome}: ${job.data.template} -> ${to}`);
+       covers the voucher email, not our log retention. 2S8-SEC-05 — and
+       nobody else's is logged in full either: staff, athletes and
+       applicants are named by their address's domain only. */
+    const recipient = job.data.fanEventId ? `fan claim ${job.data.fanEventId}` : maskEmail(job.data.to);
+    log(`[worker] notify.email ${outcome}: ${job.data.template} -> ${recipient}`);
   });
 
   /* P4-INT-01. It resolves the invitation at send time and enqueues a
@@ -451,9 +475,9 @@ async function main(): Promise<void> {
   await boss.work<InvitationJob>("notify.invitationSent", async ([job]) => {
     const outcome = await handleInvitationSent(
       pool, job.data, process.env.APP_URL ?? "http://localhost:3000");
-    console.log(
+    log(
       outcome.sent
-        ? `[worker] notify.invitationSent queued mail to ${outcome.to}`
+        ? `[worker] notify.invitationSent queued mail to ${maskEmail(outcome.to)}`
         : `[worker] notify.invitationSent skipped: ${outcome.reason}`,
     );
   });
@@ -469,10 +493,10 @@ async function main(): Promise<void> {
           const result = await ingestZohoInvoice(tx, payload as ZohoInvoicePayload);
           return result.applied
             ? { applied: true, invoiceId: result.invoiceId }
-            : { applied: false, reason: result.reason };
+            : { applied: false, reason: result.reason, rejected: result.stale === true };
         }),
     });
-    console.log(`[worker] zoho.ingestInvoice ${outcome.status}`);
+    log(`[worker] zoho.ingestInvoice ${outcome.status}`);
   });
 
   /* P3-DATA-01 — the pilot cohort. Queued by `npm run cohort:import`, which
@@ -481,7 +505,7 @@ async function main(): Promise<void> {
   await ensureQueue("athlete.importCohort");
   await boss.work<CohortImportJob>("athlete.importCohort", async ([job]) => {
     const outcome = await importCohort(job.data);
-    console.log(
+    log(
       `[worker] athlete.importCohort ${job.data.source} (${job.data.sha256.slice(0, 12)}): ` +
         `${outcome.created} created, ${outcome.skipped.length} skipped`,
     );
@@ -497,7 +521,7 @@ async function main(): Promise<void> {
      API (src/combined.mts names this as the signal to split them). */
   await ensureQueue("report.render");
   await boss.work<RenderReportJob & { tenantId: string }>("report.render", { localConcurrency: 1 }, async ([job]) =>
-    console.log(`[worker] report.render ${JSON.stringify(await handleRenderReport({ db: prisma, put: putPrivateObject, logo: getPublicObject }, job.data))}`));
+    log(`[worker] report.render ${JSON.stringify(await handleRenderReport({ db: prisma, put: putPrivateObject, logo: getPublicObject }, job.data))}`));
 
   /* 2S5-INT-02 / 2S5-BE-05 — the provider's side of payments and payouts.
      The stand-in provider answers after a few seconds, the way a real
@@ -507,25 +531,37 @@ async function main(): Promise<void> {
   await ensureQueue("payments.confirm");
   await boss.work<{ attemptId: string }>("payments.confirm", async ([job]) => {
     await providerDelay();
-    console.log(`[worker] payments.confirm ${JSON.stringify(await confirmPayment(job.data.attemptId))}`);
+    /* 2S5-INT-02 — the stand-in confirms as a provider does: a signed
+       payment.succeeded event, through the webhook's own door. */
+    log(`[worker] payments.confirm ${JSON.stringify(await standinConfirmPayment(job.data.attemptId))}`);
   });
+  /* 2S5-INT-02 — one provider event, recorded by the webhook. A throw leaves
+     nothing written and the queue retries it (queue-policy.mts). */
+  await ensureQueue("payments.event");
+  await boss.work<{ eventId: string }>("payments.event", async ([job]) =>
+    log(`[worker] payments.event ${JSON.stringify(await processPaymentEvent(job.data.eventId))}`));
   await ensureQueue("payouts.send");
   await boss.work<{ payoutId: string }>("payouts.send", async ([job]) => {
     const sent = await sendPayout(job.data.payoutId);
-    console.log(`[worker] payouts.send ${JSON.stringify(sent)}`);
+    log(`[worker] payouts.send ${JSON.stringify(sent)}`);
     if (sent.sent && providerName() === "standin") {
       await providerDelay();
       /* Paid — or, with STANDIN_PAYOUT_FAILURE set, failed that way (2S5-BE-07). */
-      console.log(`[worker] payouts.standin ${JSON.stringify(await completeStandinPayout(job.data.payoutId))}`);
+      log(`[worker] payouts.standin ${JSON.stringify(await completeStandinPayout(job.data.payoutId))}`);
     }
   });
   await ensureQueue("payouts.confirm");
   await boss.work<{ payoutId: string }>("payouts.confirm", async ([job]) =>
-    console.log(`[worker] payouts.confirm ${JSON.stringify(await confirmPayoutPaid(job.data.payoutId))}`));
+    log(`[worker] payouts.confirm ${JSON.stringify(await confirmPayoutPaid(job.data.payoutId))}`));
+  /* 2S5-INT-01 — a queued card refund, through Stripe. A throw (Stripe down)
+     has written nothing; the queue retries with the same idempotency key. */
+  await ensureQueue("refunds.send");
+  await boss.work<{ refundDueId: string }>("refunds.send", async ([job]) =>
+    log(`[worker] refunds.send ${JSON.stringify(await sendRefund(job.data.refundDueId))}`));
 
   const zohoDeps = { db: prisma, zoho: zohoFromEnv };
   const zohoLog = (name: string, outcome: unknown) =>
-    console.log(`[worker] ${name} ${JSON.stringify(outcome)}`);
+    log(`[worker] ${name} ${JSON.stringify(outcome)}`);
   await ensureQueue("zoho.pushDeal");
   await boss.work<DealJob>("zoho.pushDeal", async ([job]) =>
     zohoLog("zoho.pushDeal", await handlePushDeal(zohoDeps, job.data)));
@@ -565,7 +601,7 @@ async function main(): Promise<void> {
     if (Date.now() - lastWatchRenewal > WATCH_RENEW_EVERY_MS) {
       await renewWatch(zoho)
         .then((r) => { lastWatchRenewal = Date.now(); zohoLog("zoho.watch", r); })
-        .catch((error: unknown) => console.error("[worker] zoho.watch renewal failed:", error));
+        .catch((error: unknown) => logError("[worker] zoho.watch renewal failed:", error));
     }
     await runReconciliation(zohoDeps)
       .then((runs) => runs.forEach((run) => run.reports.forEach((r) => zohoLog("zoho.reconcile", {
@@ -573,10 +609,10 @@ async function main(): Promise<void> {
         missingInZoho: r.missingInZoho.length, unknownInSponsorX: r.unknownInSponsorX.length,
         diverged: r.diverged.length,
       }))))
-      .catch((error: unknown) => console.error("[worker] zoho.reconcile failed:", error));
+      .catch((error: unknown) => logError("[worker] zoho.reconcile failed:", error));
   };
   if (!process.env.ZOHO_CLIENT_ID) {
-    console.log("[worker] Zoho is not configured — CRM sync jobs wait in the outbox; no reconcile or watch.");
+    log("[worker] Zoho is not configured — CRM sync jobs wait in the outbox; no reconcile or watch.");
   }
   zohoTimer = setInterval(() => void zohoSweep(), ZOHO_SWEEP_INTERVAL_MS);
   setTimeout(() => void zohoSweep(), 60_000).unref();
@@ -592,16 +628,16 @@ async function main(): Promise<void> {
     try {
       const { open } = await import("maxmind");
       geoLookup = cityReaderToLookup(await open(geoPath));
-      console.log(`[worker] GeoLite2 loaded from ${geoPath}`);
+      log(`[worker] GeoLite2 loaded from ${geoPath}`);
     } catch (error) {
-      console.error(
+      logError(
         `[worker] GEOLITE2_CITY_PATH is set to ${geoPath} but the database ` +
           `could not be opened — clicks will record without a location. ` +
           `${(error as Error).message}`,
       );
     }
   } else {
-    console.log(
+    log(
       "[worker] GEOLITE2_CITY_PATH is not set — clicks record without a " +
         "location. Set it to a GeoLite2-City.mmdb to enable geo resolution.",
     );
@@ -610,7 +646,7 @@ async function main(): Promise<void> {
   await ensureQueue("tracking.resolveGeo");
   await boss.work<GeoJob>("tracking.resolveGeo", async ([job]) => {
     const outcome = await handleResolveGeo(pool, job.data, { lookup: geoLookup });
-    console.log(
+    log(
       outcome.resolved
         ? `[worker] tracking.resolveGeo ${outcome.region ?? "?"}/${outcome.city ?? "?"}`
         : `[worker] tracking.resolveGeo skipped: ${outcome.reason}`,
@@ -626,7 +662,7 @@ async function main(): Promise<void> {
       appUrl: process.env.APP_URL ?? "http://localhost:3000",
       putObject: putPrivateObject,
     });
-    console.log(
+    log(
       outcome.generated
         ? `[worker] reward.generateQr wrote ${outcome.key} (${outcome.bytes}b)`
         : `[worker] reward.generateQr skipped: ${outcome.reason}`,
@@ -640,7 +676,7 @@ async function main(): Promise<void> {
       getObject: getPrivateObject,
       putObject: putPrivateObject,
     });
-    console.log(
+    log(
       outcome.derived
         ? `[worker] image.derive wrote ${Object.keys(outcome.keys).join("/")}`
         : `[worker] image.derive skipped: ${outcome.reason}`,
@@ -664,14 +700,14 @@ async function main(): Promise<void> {
     void remindDueDeliverables(pool, process.env.APP_URL ?? "http://localhost:3000")
       .then(({ queued, windows }) => {
         if (queued > 0) {
-          console.log(
+          log(
             `[worker] deliverable reminders — queued ${queued} ` +
               `(${Object.entries(windows).map(([d, n]) => `${d}d x${n}`).join(", ")})`,
           );
         }
       })
       .catch((error: unknown) => {
-        console.error("[worker] deliverable reminders failed:", error);
+        logError("[worker] deliverable reminders failed:", error);
       });
   }, REMINDER_INTERVAL_MS);
 
@@ -685,14 +721,14 @@ async function main(): Promise<void> {
     })
       .then(({ campaigns, athletes, cached }) => {
         if (cached > 0) {
-          console.log(
+          log(
             `[worker] rollup-metrics — ${campaigns} campaigns, ${athletes} athletes cached`,
           );
         }
       })
       .catch((error: unknown) => {
         /* A failed rollup costs a cache miss, nothing more. */
-        console.error("[worker] rollup-metrics failed:", error);
+        logError("[worker] rollup-metrics failed:", error);
       });
   }, ROLLUP_INTERVAL_MS);
 
@@ -711,23 +747,23 @@ async function main(): Promise<void> {
      this keeps the record true. Every minute: a hold lasts fifteen. */
   holdTimer = setInterval(() => {
     void expireReservations(prisma)
-      .then(({ expired }) => { if (expired) console.log(`[worker] reservations — expired ${expired}`); })
-      .catch((error: unknown) => console.error("[worker] reservation expiry failed, will retry next minute:", error));
+      .then(({ expired }) => { if (expired) log(`[worker] reservations — expired ${expired}`); })
+      .catch((error: unknown) => logError("[worker] reservation expiry failed, will retry next minute:", error));
   }, 60_000);
 
   const deliverySweep = () =>
     void sweepDeliveries()
       /* 2S4-BE-07/-08/-11 — silence confirms, a side silent 72 hours hands a problem to BTG, reminders at 1 and 3 days, BTG at 7, auto-close. */
-      .then((r) => { if (Object.values(r).some((n) => n > 0)) console.log(`[worker] deliveries ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] delivery sweep failed, will retry:", error));
+      .then((r) => { if (Object.values(r).some((n) => n > 0)) log(`[worker] deliveries ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => logError("[worker] delivery sweep failed, will retry:", error));
   deliveryTimer = setInterval(deliverySweep, DELIVERY_SWEEP_INTERVAL_MS);
   setTimeout(deliverySweep, 30_000).unref();
 
   /* P5-BE-09 — a draft waiting over 48 hours reminds its reviewer, once. */
   const reviewReminderSweep = () =>
     void sweepReviewReminders()
-      .then((r) => { if (r.btg || r.sponsor || r.failed) console.log(`[worker] review reminders ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] review reminder sweep failed, will retry:", error));
+      .then((r) => { if (r.btg || r.sponsor || r.failed) log(`[worker] review reminders ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => logError("[worker] review reminder sweep failed, will retry:", error));
   reviewReminderTimer = setInterval(reviewReminderSweep, REVIEW_REMINDER_SWEEP_INTERVAL_MS);
   setTimeout(reviewReminderSweep, 35_000).unref();
 
@@ -738,9 +774,9 @@ async function main(): Promise<void> {
   comingOfAgeTimer = setInterval(() => {
     void sweepComingOfAge()
       .then(({ started, reminded, terminated }) => {
-        if (started || reminded || terminated) console.log(`[worker] coming of age — started ${started}, reminded ${reminded}, terminated ${terminated}`);
+        if (started || reminded || terminated) log(`[worker] coming of age — started ${started}, reminded ${reminded}, terminated ${terminated}`);
       })
-      .catch((error: unknown) => console.error("[worker] coming-of-age sweep failed, will retry next hour:", error));
+      .catch((error: unknown) => logError("[worker] coming-of-age sweep failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
   /* 2S3-BE-06 — BTG's daily summary of the listings that went live on their
@@ -750,8 +786,8 @@ async function main(): Promise<void> {
   listingDigestTimer = setInterval(() => {
     if (new Date().getUTCHours() < LISTING_DIGEST_HOUR_UTC) return;
     void sendListingDigests()
-      .then(({ tenants, listings }) => { if (tenants) console.log(`[worker] listing digests — ${tenants} sent, ${listings} listing(s)`); })
-      .catch((error: unknown) => console.error("[worker] listing digest failed, will retry next hour:", error));
+      .then(({ tenants, listings }) => { if (tenants) log(`[worker] listing digests — ${tenants} sent, ${listings} listing(s)`); })
+      .catch((error: unknown) => logError("[worker] listing digest failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
   /* 2S4-BE-09 — a seller who never answered declines; 2S4-BE-10 — unpaid
@@ -759,10 +795,10 @@ async function main(): Promise<void> {
   const orderSweep = () =>
     void Promise.all([sweepSellerApprovals(), sweepUnpaidOrders()])
       .then(([sellers, unpaid]) => {
-        if (sellers.expired || sellers.failed) console.log(`[worker] seller approvals ${JSON.stringify(sellers)}`);
-        if (unpaid.reminded || unpaid.cancelled || unpaid.failed) console.log(`[worker] unpaid orders ${JSON.stringify(unpaid)}`);
+        if (sellers.expired || sellers.failed) log(`[worker] seller approvals ${JSON.stringify(sellers)}`);
+        if (unpaid.reminded || unpaid.cancelled || unpaid.failed) log(`[worker] unpaid orders ${JSON.stringify(unpaid)}`);
       })
-      .catch((error: unknown) => console.error("[worker] order sweep failed, will retry:", error));
+      .catch((error: unknown) => logError("[worker] order sweep failed, will retry:", error));
   orderTimer = setInterval(orderSweep, ORDER_SWEEP_INTERVAL_MS);
   setTimeout(orderSweep, 45_000).unref();
 
@@ -771,25 +807,34 @@ async function main(): Promise<void> {
      and each retry is conditional on the row, so overlapping runs retry once. */
   const payoutRetrySweep = () =>
     void sweepPayoutRetries()
-      .then((r) => { if (r.retried || r.failed) console.log(`[worker] payout retries ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] payout retry sweep failed, will retry:", error));
+      .then((r) => { if (r.retried || r.failed) log(`[worker] payout retries ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => logError("[worker] payout retry sweep failed, will retry:", error));
   payoutRetryTimer = setInterval(payoutRetrySweep, PAYOUT_RETRY_SWEEP_INTERVAL_MS);
   setTimeout(payoutRetrySweep, 50_000).unref();
+
+  /* 2S5-INT-02 — a provider event that arrived before what it follows
+     (DEFERRED) is applied again when its back-off is due. */
+  const deferredEventSweep = () =>
+    void retryDeferredPaymentEvents()
+      .then((r) => { if (r.retried || r.failed) log(`[worker] deferred payment events ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => logError("[worker] deferred payment event sweep failed, will retry:", error));
+  paymentEventTimer = setInterval(deferredEventSweep, PAYMENT_EVENT_SWEEP_INTERVAL_MS);
+  setTimeout(deferredEventSweep, 20_000).unref();
 
   /* P4-BE-09 — the campaign stage sweep: STAFFING → APPROVAL, ACTIVE →
      REPORTING, REPORTING → COMPLETED, whichever a missed event left due. */
   const campaignStageSweep = () =>
     void sweepCampaignStages()
-      .then((r) => { if (r.moved || r.failed) console.log(`[worker] campaign stages ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] campaign stage sweep failed, will retry:", error));
+      .then((r) => { if (r.moved || r.failed) log(`[worker] campaign stages ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => logError("[worker] campaign stage sweep failed, will retry:", error));
   campaignStageTimer = setInterval(campaignStageSweep, CAMPAIGN_STAGE_SWEEP_INTERVAL_MS);
   setTimeout(campaignStageSweep, 55_000).unref();
 
   /* P4-BE-11 — briefs held only for too few athletes, re-checked daily. */
   const briefRecheck = () =>
     void recheckHeldBriefs()
-      .then((r) => { if (r.approved || r.failed) console.log(`[worker] held briefs ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] held-brief re-check failed, will retry tomorrow:", error));
+      .then((r) => { if (r.approved || r.failed) log(`[worker] held briefs ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => logError("[worker] held-brief re-check failed, will retry tomorrow:", error));
   briefRecheckTimer = setInterval(briefRecheck, BRIEF_RECHECK_INTERVAL_MS);
   setTimeout(briefRecheck, 60_000).unref();
   /* P4-BE-12 — automatic staffing's safety net: a missed decline's
@@ -797,16 +842,16 @@ async function main(): Promise<void> {
      could not start. */
   const autoStaffingSweep = () =>
     void sweepAutoStaffing()
-      .then((r) => { if (r.sent || r.skipped || r.stopped || r.failed) console.log(`[worker] auto staffing ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] auto staffing sweep failed, will retry:", error));
+      .then((r) => { if (r.sent || r.skipped || r.stopped || r.failed) log(`[worker] auto staffing ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => logError("[worker] auto staffing sweep failed, will retry:", error));
   autoStaffingTimer = setInterval(autoStaffingSweep, AUTO_CAMPAIGN_SWEEP_INTERVAL_MS);
   setTimeout(autoStaffingSweep, 60_000).unref();
 
   /* P4-BE-13 — APPROVAL campaigns whose start day has come launch, as the system. */
   const campaignLaunchSweep = () =>
     void sweepCampaignLaunches()
-      .then((r) => { if (r.launched || r.failed) console.log(`[worker] campaign launches ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] campaign launch sweep failed, will retry:", error));
+      .then((r) => { if (r.launched || r.failed) log(`[worker] campaign launches ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => logError("[worker] campaign launch sweep failed, will retry:", error));
   campaignLaunchTimer = setInterval(campaignLaunchSweep, AUTO_CAMPAIGN_SWEEP_INTERVAL_MS);
   setTimeout(campaignLaunchSweep, 65_000).unref();
 
@@ -815,15 +860,15 @@ async function main(): Promise<void> {
      school by the data, so the hourly passes after the first send nothing. */
   const studentSweep = () =>
     void sweepStudentAutomation()
-      .then((r) => { if (r.approved || r.held || r.activated || r.coded || r.failed) console.log(`[worker] students ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] student sweep failed, will retry:", error));
+      .then((r) => { if (r.approved || r.held || r.activated || r.coded || r.failed) log(`[worker] students ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => logError("[worker] student sweep failed, will retry:", error));
   studentSweepTimer = setInterval(studentSweep, AUTO_CAMPAIGN_SWEEP_INTERVAL_MS);
   setTimeout(studentSweep, 70_000).unref();
   studentDigestTimer = setInterval(() => {
     if (new Date().getUTCHours() < STUDENT_DIGEST_HOUR_UTC) return;
     void sendStudentApprovalDigests()
-      .then(({ schools, students }) => { if (schools) console.log(`[worker] student digests — ${schools} school(s), ${students} student(s)`); })
-      .catch((error: unknown) => console.error("[worker] student digest failed, will retry next hour:", error));
+      .then(({ schools, students }) => { if (schools) log(`[worker] student digests — ${schools} school(s), ${students} student(s)`); })
+      .catch((error: unknown) => logError("[worker] student digest failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
   /* P9-BE-17 / -18 — editions first (an edition opening for sale is what a
      held sale may be waiting for), then the held sales. */
@@ -832,10 +877,10 @@ async function main(): Promise<void> {
       .then(async (stages) => {
         const sales = await sweepHeldSales();
         if (stages.moved || stages.failed || sales.sold || sales.failed) {
-          console.log(`[worker] editions ${JSON.stringify(stages)} held sales ${JSON.stringify(sales)}`);
+          log(`[worker] editions ${JSON.stringify(stages)} held sales ${JSON.stringify(sales)}`);
         }
       })
-      .catch((error: unknown) => console.error("[worker] edition sweep failed, will retry:", error));
+      .catch((error: unknown) => logError("[worker] edition sweep failed, will retry:", error));
   editionTimer = setInterval(editionSweep, EDITION_SWEEP_INTERVAL_MS);
   setTimeout(editionSweep, 70_000).unref();
 
@@ -846,14 +891,14 @@ async function main(): Promise<void> {
   orderDigestTimer = setInterval(() => {
     if (new Date().getUTCHours() < ORDER_DIGEST_HOUR_UTC) return;
     void sendOrderApprovalDigests()
-      .then(({ tenants, orders }) => { if (tenants) console.log(`[worker] order digests — ${tenants} sent, ${orders} order(s)`); })
-      .catch((error: unknown) => console.error("[worker] order digest failed, will retry next hour:", error));
+      .then(({ tenants, orders }) => { if (tenants) log(`[worker] order digests — ${tenants} sent, ${orders} order(s)`); })
+      .catch((error: unknown) => logError("[worker] order digest failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
   cartTimer = setInterval(() => {
     void expireCarts(prisma)
-      .then(({ expired }) => { if (expired) console.log(`[worker] carts — expired ${expired}`); })
-      .catch((error: unknown) => console.error("[worker] cart expiry failed, will retry next hour:", error));
+      .then(({ expired }) => { if (expired) log(`[worker] carts — expired ${expired}`); })
+      .catch((error: unknown) => logError("[worker] cart expiry failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
   /* 2S1-BE-13 — the retention job. Hourly, though the window is whole days:
@@ -861,24 +906,32 @@ async function main(): Promise<void> {
      one is never picked up again, so the extra passes cost nothing. */
   retentionTimer = setInterval(() => {
     void purgeExpiredClosures(prisma)
-      .then(({ closures, files, handoffDocuments }) => {
-        if (closures || handoffDocuments) console.log(`[worker] retention — ${closures} closed account(s) purged, ${files + handoffDocuments} file(s) deleted`);
+      .then(({ closures, files, handoffDocuments, supportAttachments }) => {
+        if (closures || handoffDocuments || supportAttachments) {
+          log(`[worker] retention — ${closures} closed account(s) purged, ${files + handoffDocuments + supportAttachments} file(s) deleted (${supportAttachments} support attachment(s))`);
+        }
       })
-      .catch((error: unknown) => console.error("[worker] retention sweep failed, will retry next hour:", error));
+      .catch((error: unknown) => logError("[worker] retention sweep failed, will retry next hour:", error));
+    /* 2S0-SEC-01 (O4) — finished Zoho webhook bodies older than 90 days, trimmed to their ids. */
+    void trimZohoWebhookBodies()
+      .then(({ trimmed }) => {
+        if (trimmed) log(`[worker] retention — ${trimmed} Zoho webhook bod(ies) trimmed to ids`);
+      })
+      .catch((error: unknown) => logError("[worker] Zoho webhook trim failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
   expiryTimer = setInterval(() => {
     void expireInvitations(pool, process.env.APP_URL ?? "http://localhost:3000")
       .then(({ expired, reminded, warned }) => {
         if (expired || reminded || warned) {
-          console.log(
+          log(
             `[worker] invitations — expired ${expired}, reminded ${reminded}, ` +
               `expiry-warned ${warned}`,
           );
         }
       })
       .catch((error: unknown) => {
-        console.error("[worker] invitation expiry failed, will retry next hour:", error);
+        logError("[worker] invitation expiry failed, will retry next hour:", error);
       });
   }, EXPIRY_INTERVAL_MS);
 }
@@ -904,6 +957,7 @@ export async function stopWorker(): Promise<void> {
   if (listingDigestTimer) clearInterval(listingDigestTimer);
   if (orderTimer) clearInterval(orderTimer);
   if (payoutRetryTimer) clearInterval(payoutRetryTimer);
+  if (paymentEventTimer) clearInterval(paymentEventTimer);
   if (orderDigestTimer) clearInterval(orderDigestTimer);
   if (campaignStageTimer) clearInterval(campaignStageTimer);
   if (briefRecheckTimer) clearInterval(briefRecheckTimer);
@@ -936,7 +990,7 @@ const isEntrypoint =
 if (isEntrypoint) {
   for (const signal of ["SIGTERM", "SIGINT"] as const) {
     process.on(signal, () => {
-      console.log(`[worker] ${signal} received — shutting down.`);
+      log(`[worker] ${signal} received — shutting down.`);
       void stopWorker().then(() => process.exit(0));
     });
   }
@@ -944,7 +998,7 @@ if (isEntrypoint) {
 
 if (isEntrypoint) {
   main().catch((error) => {
-    console.error("[worker] failed to start:", error);
+    logError("[worker] failed to start:", error);
     process.exit(1);
   });
 }

@@ -115,9 +115,9 @@ The single most important design decision in Phase 2. Order revenue must become 
 - **Done when:** Ledger design reviewed and signed off; the sequential rule order is documented and a worked example reconciles to the cent
 - **Reference:** Spec §7.4
 
-### ⏸ `2S0-PMO-03` · Select the marketplace payment provider
+### ✅ `2S0-PMO-03` · Select the marketplace payment provider
 
-**Order** 3 · **PMO** · **Where:** Vendor console · **3d** · **Blocked**
+**Order** 3 · **PMO** · **Where:** Vendor console · **3d** · **Done**
 
 Choose the provider that handles checkout, connected-account onboarding, platform fees, transfers, refunds and disputes. This decision shapes onboarding, payouts and compliance. Use a hosted or embedded flow so you never touch card data.
 
@@ -149,9 +149,9 @@ Phase 1 collected no tax IDs because money moved outside the system. Phase 2 mov
 - **Done when:** Written position on tax ID collection, withholding and 1099 reporting, and which system of record owns each
 - **Reference:** Spec §9, §10
 
-### ⏸ `2S0-SEC-01` · Payments and PII security review
+### ✅ `2S0-SEC-01` · Payments and PII security review
 
-**Order** 6 · **SEC** · **Where:** Code · **3d** · **Blocked**
+**Order** 6 · **SEC** · **Where:** Code · **3d** · **Done**
 
 Review the design before build: card data never touches your servers, payout account data stays at the provider, verification documents are in private storage, PII is masked in logs.
 
@@ -169,9 +169,9 @@ Fourteen new screens across onboarding, athlete and team portals, listing editor
 - **Done when:** All 14 Phase 2 screens designed, with the onboarding wizard and checkout flows walked end to end
 - **Reference:** Spec §6
 
-### ⏸ `2S0-OPS-01` · Define RPO and RTO targets
+### ✅ `2S0-OPS-01` · Define RPO and RTO targets
 
-**Order** 8 · **OPS** · **Where:** Document · **1d** · **Blocked**
+**Order** 8 · **OPS** · **Where:** Document · **1d** · **Done**
 
 Once real money moves, 'we restore from last night's backup' stops being acceptable. The spec suggests RPO ≤ 1 hour and RTO ≤ 4 hours as an early target.
 
@@ -361,6 +361,20 @@ A way to reach BTG for things that must never be automated, starting with disput
 - **Depends on:** 2S1-OPS-01
 - **Done when:** Anyone can send BTG a message with an attachment from the contact page; it reaches the support mailbox through the queue even when the mail service is briefly down; the support address appears on the guardian request page and in decline and rejection emails; the form is rate-limited and stores attachments privately
 - **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-14` · BTG admin page for a support message and its attachments
+
+**Order** 12.98 · **FE** · **Where:** Code · **1d** · **Ready**
+
+Support-desk emails no longer carry attachments (2S0-SEC-01, finding O1). Instead they link to `/admin/support/<id>`. Build that page:
+- show the sender, topic, text, and each attachment's name, type and size, from `GET /support-messages/:id`;
+- give each file an **Open** button, which fetches `GET /support-messages/:id/attachments/:attachmentId` (a five-minute, audited link).
+
+BTG admin only.
+
+- **Depends on:** 2S0-SEC-01
+- **Done when:** A BTG admin following the support email's link sees the message and opens each attachment; nobody else can
+- **Reference:** `documentation/SponsorX-Payments-PII-Review-2026-10.md` (frontend follow-ups); raised 2026-10-06
 
 ### ⏸ `2S1-OPS-01` · Set up the BTG support mailbox
 
@@ -776,9 +790,9 @@ Listing data, pricing, package builder, preview, approval status and visibility 
 - **Done when:** A property can build, preview and submit a listing for approval
 - **Reference:** Spec §6 P2-07
 
-### ⏸ `2S3-FE-02` · Listing screen for independent athletes
+### ✅ `2S3-FE-02` · Listing screen for independent athletes
 
-**Order** 28.5 · **FE** · **Where:** Code · **3d** · **Blocked**
+**Order** 28.5 · **FE** · **Where:** Code · **3d** · **Done**
 
 The athlete-side "put it on sale" step: from their inventory, an athlete with no team writes what the sponsor gets, sees the same checklist of what BTG checks, and submits for approval; they can then follow the listing's state, pause it and take it down. An athlete on a team is told their team lists it.
 
@@ -1088,9 +1102,9 @@ Built from the Claude Design file OrderCancellations.
 
 *14 tasks · 58 person-days*
 
-### ⏸ `2S5-INT-01` · Payment provider checkout integration
+### ✅ `2S5-INT-01` · Payment provider checkout integration
 
-**Order** 37 · **INT** · **Where:** Code + console · **5d** · **Blocked**
+**Order** 37 · **INT** · **Where:** Code + console · **5d** · **Done**
 
 Hosted or embedded checkout session creation. Card data never reaches your servers.
 
@@ -1098,9 +1112,9 @@ Hosted or embedded checkout session creation. Card data never reaches your serve
 - **Done when:** Sponsor can pay through the provider and the order reflects the result
 - **Reference:** Spec §8
 
-### ⏸ `2S5-INT-02` · Payment webhook handling with idempotency
+### ✅ `2S5-INT-02` · Payment webhook handling with idempotency
 
-**Order** 38 · **INT** · **Where:** Code · **5d** · **Blocked**
+**Order** 38 · **INT** · **Where:** Code · **5d** · **Done**
 
 Providers retry webhooks and deliver out of order. Every handler must be safe to run twice. This is the single most common source of financial bugs in a marketplace.
 
@@ -1108,9 +1122,9 @@ Providers retry webhooks and deliver out of order. Every handler must be safe to
 - **Done when:** Payment webhooks are idempotent and correctly update order and payment state under duplicate and out-of-order delivery
 - **Reference:** Spec §3, §12
 
-### ⏸ `2S5-INT-03` · Connected payout account onboarding
+### ✅ `2S5-INT-03` · Connected payout account onboarding
 
-**Order** 39 · **INT** · **Where:** Code + console · **5d** · **Blocked**
+**Order** 39 · **INT** · **Where:** Code + console · **5d** · **Done**
 
 Properties and athletes onboard with the payment provider to receive funds, through the provider's hosted flow. SponsorX stores status only, never credentials.
 
@@ -1138,9 +1152,9 @@ Every financial movement becomes a ledger entry with debit, credit, type and sta
 - **Done when:** Property dashboard reconciles booked revenue, ledger balance, paid earnings and pending earnings exactly
 - **Reference:** Spec §7.4, §12
 
-### ⏸ `2S5-BE-03` · Refunds and disputes
+### ✅ `2S5-BE-03` · Refunds and disputes
 
-**Order** 42 · **BE** · **Where:** Code · **3d** · **Blocked**
+**Order** 42 · **BE** · **Where:** Code · **3d** · **Done**
 
 Exceptions have to exist from day one, because they block payouts. An open dispute freezes the associated funds.
 
@@ -1148,9 +1162,9 @@ Exceptions have to exist from day one, because they block payouts. An open dispu
 - **Done when:** A refund or dispute correctly reverses ledger entries and blocks the related payout
 - **Reference:** Spec §9
 
-### ⏸ `2S5-BE-04` · Payout eligibility and request flow
+### ✅ `2S5-BE-04` · Payout eligibility and request flow
 
-**Order** 43 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 43 · **BE** · **Where:** Code · **5d** · **Done**
 
 Payout depends on payment clearance, deliverable completion, dispute status, provider readiness and the configured holding period. All five, every time.
 
@@ -1158,9 +1172,9 @@ Payout depends on payment clearance, deliverable completion, dispute status, pro
 - **Done when:** Payout cannot be released if payment is unsettled, deliverables are incomplete, onboarding is incomplete, or a dispute is open
 - **Reference:** Spec §7.4, §12
 
-### ⏸ `2S5-BE-05` · Payout approval and execution jobs
+### ✅ `2S5-BE-05` · Payout approval and execution jobs
 
-**Order** 44 · **BE** · **Where:** Code · **3d** · **Blocked**
+**Order** 44 · **BE** · **Where:** Code · **3d** · **Done**
 
 Admin approves, the worker sends funds or marks the payout ready through the provider adapter, and exceptions are surfaced.
 
@@ -1262,9 +1276,9 @@ Gross revenue, fees, available balance, pending balance, payout history and exce
 - **Done when:** Dashboard reconciles to the ledger to the cent
 - **Reference:** Spec §6 P2-11
 
-### ⏸ `2S5-FE-03` · Athlete and team payout screens
+### ✅ `2S5-FE-03` · Athlete and team payout screens
 
-**Order** 46.3 · **FE** · **Where:** Code · **4d** · **Blocked**
+**Order** 46.3 · **FE** · **Where:** Code · **4d** · **Done**
 
 Where an athlete (and a team) gets paid. First the payout account: until it is ready the page says plainly that a Stripe account is needed and links out to Stripe to set one up (and back again if Stripe needs more information); SponsorX never sees bank details. Then the money: available, held in reserve and paid out; a Request payout button for the available balance, disabled with the reason when a rule isn't met; and a payout history whose status moves Requested → Approved by BTG → Sent → Paid, confirmed by the payment provider. Stripe itself stays invisible after set-up — the payee sees SponsorX's statuses and an email when it's paid. Raised 2026-09-30 from the walkthrough (steps 5, 14, 15).
 
@@ -1272,9 +1286,9 @@ Where an athlete (and a team) gets paid. First the payout account: until it is r
 - **Done when:** An athlete can set up their payout account from SponsorX, request their available balance, and follow it to Paid; the team does the same from its Earnings page; the figures reconcile to the ledger
 - **Reference:** Spec §6 P2-11, §7.4; walkthrough 2026-09-30
 
-### ⏸ `2S5-FE-04` · BTG payout approval screen
+### ✅ `2S5-FE-04` · BTG payout approval screen
 
-**Order** 46.6 · **FE** · **Where:** Code · **3d** · **Blocked**
+**Order** 46.6 · **FE** · **Where:** Code · **3d** · **Done**
 
 BTG's queue of payout requests: waiting, sending, paid and problems, each with the payee, amount, orders, how long it has waited and the result of every payout rule. The detail shows the frozen split behind it and lets BTG approve (handing it to the payment provider) or send it back with a note, then follow it to Paid or to a problem it can act on.
 
@@ -1291,6 +1305,72 @@ Once BTG approves an order, the sponsor's order page shows "payment due" and a p
 - **Depends on:** 2S5-INT-01, 2S0-ART-01
 - **Done when:** A sponsor can pay an approved order from its SponsorX page via Stripe and see it confirmed paid (or retry a failed payment); a sponsor email confirms the payment
 - **Reference:** Spec §8; walkthrough 2026-09-30 (step 11)
+
+### ⏸ `2S5-FE-07` · BTG's payment exceptions page
+
+**Order** 47.7 · **FE** · **Where:** Code · **1d** · **Ready**
+
+A page at `/admin/payments/events` listing the provider events that need BTG, with the reason for each. BTG closes each with a note.
+- **HELD:** a payment that succeeds after a recorded failure, a wrong amount, or a partial refund.
+- **FAILED:** an event deferred for too long.
+
+The API already serves `GET /payment-events` and `POST /payment-events/{id}/resolve`, and the emails link here.
+
+- **Depends on:** 2S5-INT-02
+- **Done when:** BTG sees every held or failed payment event with its reason and can close it with a note; the list shows only their tenant
+- **Reference:** raised 2026-10-05 by 2S5-INT-02 (API built, screen not)
+
+### ⏸ `2S5-FE-08` · Dispute list and resolve pages for BTG
+
+**Order** 47.8 · **FE** · **Where:** Code · **2d** · **Ready**
+
+`/admin/payments/disputes` lists disputes (OPEN, UNDER_REVIEW, WON, LOST) with the frozen order and amount. `/admin/payments/disputes/{id}` lets a BTG admin move one to review with a note and resolve it to the provider's outcome. For a partial loss, BTG names the lines. Finance can see disputes but not resolve them.
+
+The API already serves `/disputes`, and the dispute emails link to the detail page.
+
+- **Depends on:** 2S5-BE-03
+- **Done when:** BTG reviews and resolves a dispute on screen to the provider's outcome; Finance sees the dispute but has no resolve button
+- **Reference:** `documentation/SponsorX-Phase2-State-Machines.md`; raised 2026-10-05 by 2S5-BE-03
+
+### ⏸ `2S5-FE-09` · Frozen money on the payee's payout page
+
+**Order** 47.9 · **FE** · **Where:** Code · **1d** · **Ready**
+
+While a dispute is open, `GET /payouts/me` marks the order frozen, and the payout checks include a fifth rule, `dispute`. On the athlete and property money pages, show the frozen order apart from the balance that can be requested, with only this text: "BTG is reviewing a problem with the sponsor's payment".
+
+- **Depends on:** 2S5-BE-04
+- **Done when:** A payee with a disputed order sees it frozen with that sentence, and can request only the other orders' money
+- **Reference:** raised 2026-10-05 by 2S5-BE-04
+
+### ⏸ `2S5-FE-10` · Payout send attempts and returns on screen
+
+**Order** 47.91 · **FE** · **Where:** Code · **1d** · **Ready**
+
+Payouts now carry `sendAttempts`, `returnedAt` and `returnCount`. Show them on BTG's payout detail and on the payee's payout history. A returned payout reads: "Returned by your bank: fix your payout account".
+
+- **Depends on:** 2S5-BE-05
+- **Done when:** BTG sees each payout's attempts and any return; a payee whose payout was returned is told to fix their account
+- **Reference:** raised 2026-10-05 by 2S5-BE-05
+
+### ⏸ `2S5-FE-11` · Checkout says "busy, try again" when the provider is down
+
+**Order** 47.92 · **FE** · **Where:** Code · **1d** · **Ready**
+
+When the payment provider is down, opening checkout answers 503 with the code `busy`, and nothing is recorded. The sponsor's pay-by-card button should show "The payment service is busy. Try again in a minute." instead of a generic error.
+
+- **Depends on:** 2S8-QA-02
+- **Done when:** With the provider down, the sponsor sees the busy message and can retry; the order is unchanged
+- **Reference:** raised 2026-10-05 by 2S8-QA-02
+
+### ⏸ `2S5-FE-12` · Provider refunds on Finance's refund list
+
+**Order** 47.93 · **FE** · **Where:** Code · **1d** · **Ready**
+
+Finance's refund list gains the cause `PROVIDER_REFUNDED`: a refund the provider made directly, which is already sent. Show it as "Refunded by the payment provider", with the provider's reference and no "send refund" action.
+
+- **Depends on:** 2S5-BE-03
+- **Done when:** A provider-made refund shows on Finance's list with its reference and cannot be sent again
+- **Reference:** raised 2026-10-05 by 2S5-BE-03
 
 ### ⏸ `2S5-SEC-01` · Financial audit coverage
 
@@ -1378,6 +1458,16 @@ Send fan leads to Zoho only where the fan ticked the sponsor-contact option. No 
 - **Done when:** Claims with sponsor-contact consent enqueue zoho.pushLead; claims without it, or withdrawn (P6-SEC-03), never do — excluded at query level
 - **Reference:** §18
 
+### ⏸ `2S6-QA-01` · Wallet provider outage testing
+
+**Order** 52.3 · **QA** · **Where:** Code · **1d** · **Blocked**
+
+Split from 2S8-QA-02, whose other failure modes are done; no wallet adapter exists yet. Once the wallet pass adapters exist, break them: Apple or Google Wallet down, or timing out, while a pass is issued or updated. Nothing may be half-written, the queue retries, and the reward ledger stays consistent.
+
+- **Depends on:** 2S6-INT-01, 2S6-INT-02
+- **Done when:** A wallet provider outage during issue or update leaves no half-written pass or reward, and the retry completes it once
+- **Reference:** split from 2S8-QA-02, 2026-10-05
+
 ## Sprint 7 · Analytics & governance
 
 *Property dashboards, the operations console and expanded Zoho sync.*
@@ -1461,9 +1551,9 @@ The property portal's frame shows the signed-in tenant's own logo and colours, r
 
 *7 tasks · 31 person-days*
 
-### ⏸ `2S8-QA-01` · End-to-end marketplace test suite
+### ✅ `2S8-QA-01` · End-to-end marketplace test suite
 
-**Order** 58 · **QA** · **Where:** Code · **5d** · **Blocked**
+**Order** 58 · **QA** · **Where:** Code · **5d** · **Done**
 
 Onboarding through listing, purchase, fulfilment, earnings and payout, as one automated run.
 
@@ -1471,15 +1561,16 @@ Onboarding through listing, purchase, fulfilment, earnings and payout, as one au
 - **Done when:** The full marketplace path runs green in CI
 - **Reference:** Spec §11
 
-### ⏸ `2S8-QA-02` · Payment and reward failure testing
+### ✅ `2S8-QA-02` · Payment and reward failure testing
 
-**Order** 59 · **QA** · **Where:** Code · **5d** · **Blocked**
+**Order** 59 · **QA** · **Where:** Code · **5d** · **Done**
 
 Deliberately break things: duplicate webhooks, out-of-order delivery, declined cards, expired reservations, failed payouts, wallet provider outages.
 
 - **Depends on:** 2S5-INT-02
 - **Done when:** Every failure mode is handled without financial inconsistency
 - **Reference:** Spec §11, §38
+- **Split:** wallet provider outages moved to 2S6-QA-01 on 2026-10-05, because no wallet adapter exists yet
 
 ### ⏸ `2S8-QA-03` · Financial reconciliation testing
 
@@ -1508,9 +1599,9 @@ This task finds which suite or sweep touches another suite's rows, and isolates 
 - **Done when:** Five consecutive full backend runs pass with only known, tracked failures; the interfering suite or sweep is identified and isolated
 - **Reference:** seen 2026-10-01 and 2026-10-02
 
-### ⏸ `2S8-OPS-02` · Pin the database time zone to UTC
+### ✅ `2S8-OPS-02` · Pin the database time zone to UTC
 
-**QA/OPS** · **1d** · **Ready**
+**QA/OPS** · **1d** · **Done** — staging and production deployed 2026-10-05; both databases report UTC
 
 Timestamp columns hold UTC as timestamp-without-time-zone, but some SQL compares them with `now()` in the session's time zone:
 - `worker/jobs/expire-invitations.mts`;
@@ -1525,9 +1616,9 @@ Two fixes:
 - **Done when:** Every environment's database runs in UTC, and no SQL depends on the session time zone; a test running under a non-UTC session passes
 - **Reference:** found by 2S8-QA-04, 2026-10-02
 
-### ⏸ `2S8-QA-05` · Three robustness gaps found while isolating the suite
+### ✅ `2S8-QA-05` · Three robustness gaps found while isolating the suite
 
-**QA** · **1d** · **Ready**
+**Order** 60.7 · **QA** · **Where:** Code · **1d** · **Done**
 
 1. **Same-name applicants can collide.** Two applicants with the same display name at the same moment can collide on the athlete slug: `uniqueSlug` checks first and then inserts. One of them gets a 500.
 2. **The walkthrough seed can fail on a non-empty database.** `seed-personas.mts` only skips rows whose id already exists, so a real applicant who already took the slug `riley-carter` would make it fail.
@@ -1547,6 +1638,18 @@ Two fixes:
 - **Done when:** A database built only by migrations has every rule in prisma/sql; the guard fails on any drift
 - **Reference:** Found 2026-10-03 by a failing phase2-orders test on a fresh database
 
+### ✅ `2S8-QA-08` · private-upload-pins test fails intermittently in the full suite
+
+**Order** 60.9 · **QA** · **Where:** Code · **1d** · **Done**
+
+`backend/tests/private-upload-pins.test.ts` passes on its own, but has failed in about one in six full parallel runs. The failure is in its setup: a duplicate key on a fixed `pu_` id, after which its 11 tests are skipped. Its cleanup deletes by tenant and ignores errors, so a row that couldn't be deleted survives into the next run.
+
+Make its ids unique per run, or make the cleanup report what it couldn't delete.
+
+- **Depends on:** 2S8-SEC-03
+- **Done when:** The full backend suite passes 5 runs in a row with this file included
+- **Reference:** raised 2026-10-06; seen twice
+
 ### ⏸ `2S8-SEC-01` · Cross-tenant isolation tests for external parties
 
 **Order** 61 · **SEC** · **Where:** Code · **5d** · **Blocked**
@@ -1557,15 +1660,120 @@ Phase 1 tested BTG's own roles. Phase 2 has outside organisations, which is a di
 - **Done when:** Cross-tenant data access tests pass for sponsor, athlete/property and admin roles
 - **Reference:** Spec §12
 
-### ⏸ `2S8-SEC-02` · OWASP review and dependency scanning
+### ✅ `2S8-SEC-02` · OWASP review and dependency scanning
 
-**Order** 62 · **SEC** · **Where:** Code · **3d** · **Blocked**
+**Order** 62 · **SEC** · **Where:** Code · **3d** · **Done**
 
 External users, money movement and file uploads all raise the stakes.
 
 - **Depends on:** 2S8-QA-01
 - **Done when:** OWASP testing complete, dependency scan clean, secrets rotation in place
 - **Reference:** Spec §38
+
+### ✅ `2S8-SEC-03` · Pin type and size on every private upload
+
+**Order** 62.1 · **SEC** · **Where:** Code · **1d** · **Done**
+
+The private-bucket upload URLs don't pin content type or length: account, onboarding, organisation, sponsor-request, hand-off, support and profile-change documents. Their confirm step checks size but not type, and does not delete an oversized object.
+
+Pin `{signContentType, contentLength}` at each presign. On confirm, compare the object's type and size, and delete it on a mismatch.
+
+- **Depends on:** 2S8-SEC-02
+- **Done when:** Every private upload URL is signed for one type and size; a mismatched object is refused and deleted on confirm, proven end to end
+- **Reference:** Security review 2026-10, §A04 (Open, Medium); raised 2026-10-05 by 2S8-SEC-02
+
+### ✅ `2S8-SEC-04` · A replayed invoice webhook can't roll an invoice back
+
+**Order** 62.2 · **SEC** · **Where:** Code · **1d** · **Done**
+
+Zoho Books sends no timestamp, so replaying an old, correctly signed invoice webhook could roll an invoice's status back. The ingest should refuse a payload that would move the stored state backwards: paid never goes back to sent.
+
+- **Depends on:** 2S8-SEC-02
+- **Done when:** A replayed older invoice webhook leaves the stored status unchanged; paid never returns to sent
+- **Reference:** Security review 2026-10, §A04 (Open, Low); raised 2026-10-05 by 2S8-SEC-02
+
+### ✅ `2S8-SEC-05` · Small hardening items from the security review
+
+**Order** 62.3 · **SEC** · **Where:** Code · **1d** · **Done**
+
+1. `GET /athletes/:id/rates` answers `200 []` for a real athlete but 403 for a missing id, which reveals which ids exist.
+2. Restrict the Zoho CRM notification `module` and `ids` to an enum and digits.
+3. Turn off JavaScript in the PDF renderer, once the report is confirmed to need none.
+4. Stop the worker logging non-fan email addresses.
+5. Add `import "server-only"` to `frontend/src/server/{api,edge,payouts}.ts`.
+6. Run one git-history secret scan, for example gitleaks.
+
+- **Depends on:** 2S8-SEC-02
+- **Done when:** Each item is fixed with a test, or recorded as declined with a reason in the security review
+- **Reference:** Security review 2026-10, §A01, §A09, §A10 and Follow-ups; raised 2026-10-05 by 2S8-SEC-02
+
+### ✅ `2S8-QA-07` · Guard tests cover writes and same-tenant access
+
+**Order** 62.4 · **QA** · **Where:** Code · **2d** · **Done**
+
+`tenant-scope.static` checks reads only. `tenant-isolation` sweeps across tenants but not within one, so sponsor vs sponsor and athlete vs athlete are untested. Extend both, so that an unscoped write or a same-tenant read of another account fails the suite.
+
+- **Depends on:** 2S8-SEC-02
+- **Done when:** The guard tests fail on an unscoped write and on a same-tenant cross-account read, shown by a deliberately broken route
+- **Reference:** Security review 2026-10, Other checks (Open, Info); raised 2026-10-05 by 2S8-SEC-02
+
+### ✅ `2S8-SEC-06` · Replace the full-access live Stripe key with a restricted key
+
+**Order** 62.6 · **SEC** · **Where:** Code · **1d** · **Done**
+
+Production's live Stripe secret key was created on 2026-10-06 with **full access**, because it wasn't clear which restricted-key permissions Accounts v2 payout accounts need. It is stored only in Railway production (`api`).
+
+1. In the sandbox, work out the minimal set: Checkout Sessions, Charges and Refunds, Transfers, Webhook Endpoints, plus whichever Accounts v2 configuration permissions creating a recipient account needs.
+2. Prove the smoke script passes with that set.
+3. The owner creates the restricted live key.
+4. Swap it into Railway production (see the rotation runbook).
+5. Delete the full-access key in Stripe.
+
+- **Depends on:** 2S5-INT-03
+- **Done when:** Production uses a restricted live key that the sandbox smoke run proved sufficient; the full-access live key is deleted in Stripe
+- **Reference:** `documentation/SponsorX-Stripe-Integration.md`, `documentation/SponsorX-Secrets-Rotation.md`; raised 2026-10-06
+
+### ✅ `2S8-PMO-02` · Security settings the owner decides
+
+**Order** 62.5 · **PMO** · **Where:** Document · **1d** · **Done**
+
+The security review leaves seven decisions to the owner:
+1. A full CSP, in report-only mode first.
+2. HSTS `includeSubDomains` / `preload`.
+3. Clerk `authorizedParties`, after listing every web origin that signs people in.
+4. How long intake, onboarding, sign-up and sponsor-request links last.
+5. Whether a profile claimant confirms their email before an advisor verifies the claim.
+6. Setting `PAYMENT_PROVIDER=none` explicitly on Railway production.
+7. Setting `STANDIN_PROVIDER_SECRET` explicitly on staging.
+
+- **Depends on:** 2S8-SEC-02
+- **Done when:** Each of the seven decisions is recorded in the security review, and every setting chosen is applied on Railway
+- **Reference:** Security review 2026-10, Decisions for the owner; raised 2026-10-05 by 2S8-SEC-02
+
+### ⏸ `2S8-FE-01` · Expired emailed links: show why and offer a fresh link
+
+**Order** 62.51 · **FE** · **Where:** Code · **2d** · **Ready**
+
+Emailed links now expire after 14 days (2S8-PMO-02, decision 4). When a link page gets `410 link_expired` from the API, show the plain message and a **Send me a fresh link** button, which calls `POST /api/v1/public/links/renew {kind, token}`.
+
+The pages: `/join`, `/join/confirm`, `/guardian/setup`, `/coming-of-age`, `/onboarding/[token]`, `/onboarding/confirm`, `/sponsor-request/[token]`, `/sponsor-request/confirm` and `/guardian/handoff`. Reactivation already has its own page.
+
+- **Depends on:** 2S8-PMO-02
+- **Done when:** Every emailed-link page shows the expired message and can request a fresh link; a fresh link arrives by email
+- **Reference:** Security review 2026-10, decision 4; raised 2026-10-06
+
+### ⏸ `2S8-FE-02` · Profile claim: confirm-your-email screens
+
+**Order** 62.52 · **FE** · **Where:** Code · **1d** · **Ready**
+
+Claimants now confirm their email before the school can verify the claim (2S8-PMO-02, decision 5).
+1. After **That's me** on the claim form, say "check your email". The claim's state is now `PENDING_EMAIL`.
+2. `/athletes/[slug]` reads the `claim=` flag (`confirmed`, `expired-resent`, `closed` or `invalid`) and shows a message.
+3. Build a proper confirmation page that sends the token only when the claimant presses a button (`POST /public/athlete-claims/confirm-email`), so a mail client's link scanner can't confirm a claim by opening the link in advance. Then point the email at that page.
+
+- **Depends on:** 2S8-PMO-02
+- **Done when:** A claimant is told to check their email, confirms on a page with a button, and sees the outcome on the profile
+- **Reference:** Security review 2026-10, decision 5; raised 2026-10-06
 
 ### ⏸ `2S8-OPS-01` · Production readiness and restore test
 

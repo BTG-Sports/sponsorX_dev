@@ -209,6 +209,7 @@ export async function setEditionConditions(
     /* P9-BE-17 — the lock the sweep's moves take: content marked not ready
        while the sweep is publishing waits for it, or stops it. */
     await lockEdition(tx, editionId, edition.tenantId);
+    /* tenant-scope: the row loaded above through whereFor(edition, approve), and locked. */
     const updated = await tx.edition.update({
       where: { id: editionId },
       data: { ...(input.contentReady === undefined ? {} : { contentReady: input.contentReady }) },

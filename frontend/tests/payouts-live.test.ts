@@ -310,3 +310,36 @@ describe("2S5-FE-06 · approved automatically, the reasons, and the retry status
     expect(L.auditTrail({ ...auto, payeeName: "Riley Carter", decisionNote: null, failureReason: null })[1]!.what).toBe("Approved automatically — every check passed");
   });
 });
+
+/* 2S8-QA-05 — a refund after a payout leaves the order's figure negative. The
+   money page used to round it up to $0, hiding what the payee owes back. */
+describe("2S8-QA-05 · money owed back after a refund", () => {
+  /* Paid out $542.58, then refunded: the reversal takes the payable to −$542.58. */
+  const refunded = order({ state: "REFUNDED", availableCents: -54258, heldCents: 0, requestableCents: 0, balanceCents: -54258, owedBackCents: 54258 });
+
+  it("an order's Available cell shows the real negative figure and says it is owed back", () => {
+    expect(L.orderAvailable(refunded)).toEqual({ value: "−$542.58", owedBack: "You owe $542.58 back from a refund" });
+    /* An older read without balanceCents: computed the same way, never clamped. */
+    const older = { ...refunded, balanceCents: undefined, owedBackCents: undefined };
+    expect(L.orderAvailable(older)).toEqual({ value: "−$542.58", owedBack: "You owe $542.58 back from a refund" });
+  });
+
+  it("an ordinary order is unchanged — available less what is already requested, nothing owed", () => {
+    expect(L.orderAvailable(order({ availableCents: 45000, inFlightCents: 5000, balanceCents: 40000 }))).toEqual({ value: "$400.00", owedBack: null });
+    expect(L.orderAvailable(order({ availableCents: 0, inFlightCents: 0, balanceCents: 0 }))).toEqual({ value: "$0.00", owedBack: null });
+  });
+
+  it("the page notice totals what is owed back, from the API's figure", () => {
+    expect(L.owedBackNotice({ totals: totals({ owedBackCents: 54258 }), orders: [refunded, order()] })).toBe("You owe $542.58 back from a refund");
+    expect(L.owedBackNotice({ totals: totals({ owedBackCents: 0 }), orders: [order()] })).toBeNull();
+    /* Older read: summed over the orders. */
+    expect(L.owedBackNotice({ totals: totals(), orders: [refunded, order({ availableCents: -1000, inFlightCents: 0, requestableCents: 0 })] }))
+      .toBe("You owe $552.58 back from a refund");
+  });
+
+  it("owedBackLine is null for nothing owed, never \"You owe $0.00\"", () => {
+    expect(L.owedBackLine(0)).toBeNull();
+    expect(L.owedBackLine(-5)).toBeNull();
+    expect(L.owedBackLine(1)).toBe("You owe $0.01 back from a refund");
+  });
+});

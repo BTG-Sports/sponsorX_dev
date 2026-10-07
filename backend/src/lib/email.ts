@@ -135,6 +135,11 @@ export type EmailTemplate =
   | "account.reactivated"
   | "account.reactivationRequested"
   | "account.reactivationDeclined"
+  /* 2S8-PMO-02 — a link that expired (14 days), exchanged for a fresh one
+     emailed to the address on file. */
+  | "link.fresh"
+  /* 2S8-PMO-02 — a profile claimant confirms their email before the school sees the claim. */
+  | "athleteClaim.confirmEmail"
   /* 2S1-BE-14 — BTG admins are told about sensitive profile edits only. */
   | "athlete.sensitiveEdit"
   /* 2S1-BE-15 — the guardian handoff: the new guardian confirms their email;
@@ -219,6 +224,11 @@ export type EmailTemplate =
   | "payment.received"
   /* 2S4-BE-10 — a card payment confirmed for an order no longer waiting for it: BTG's admins refund the sponsor. */
   | "payment.refundNeeded"
+  /* 2S5-INT-02 — a provider event SponsorX would not apply on its own (it names nothing SponsorX knows, the amounts disagree, it contradicts what was recorded): BTG's admins, with the reason. */
+  | "payment.heldForBtg"
+  /* 2S5-BE-03 — a dispute opened (the support mailbox and BTG's admins: the review item), and the provider's decision on it (BTG resolves it). */
+  | "dispute.opened"
+  | "dispute.providerClosed"
   /* P9-BE-16 — a sold ad slot's artwork on the approval board, each step
      emailed to the other party: a new version is in; it is ready for the
      sponsor's sign-off; a reviewer asked for changes; the sponsor approved. */
@@ -232,6 +242,10 @@ export type EmailTemplate =
      payee's payout account needs attention: fix it (on the provider's page,
      from the money page) and it is sent again on its own. */
   | "payout.accountNeedsFix"
+  /* 2S5-BE-05 — a payout the provider couldn't send (or the bank returned) that now waits on BTG: its admins, with the reason. */
+  | "payout.failedForBtg"
+  /* 2S5-INT-01 — Stripe refused a card refund SponsorX queued: it is back on Finance's "Refunds to send" list. BTG's admins, with Stripe's reason. */
+  | "refund.providerRefused"
   /* P4-BE-09 — campaigns move on their own: BTG's campaign managers hear a
      campaign is ready to launch; the sponsor hears their final report is ready. */
   | "campaign.readyToLaunch"
@@ -268,9 +282,9 @@ export type EmailMessage = {
   /** 2S1-BE-16 — threading headers (Message-ID, In-Reply-To, References), so a
    *  reply from the support desk continues the sender's thread. */
   headers?: Record<string, string>;
-  /** 2S1-BE-16 — private-bucket objects the worker attaches. Keys only: the
-   *  bytes are read by the worker at send time, never stored in the outbox. */
-  attachments?: { filename: string; key: string; contentType: string }[];
+  /* 2S0-SEC-01 — no `attachments`: no email carries a private-bucket file.
+     A support message's files are named in the text and opened on BTG's
+     signed-in page, through a five-minute, audited link (domain/support.ts). */
 };
 
 /**
@@ -302,7 +316,6 @@ export async function send(
     idempotencyKey: message.idempotencyKey,
     ...(message.replyTo ? { replyTo: message.replyTo } : {}),
     ...(message.headers ? { headers: message.headers } : {}),
-    ...(message.attachments?.length ? { attachments: message.attachments } : {}),
   });
 }
 
@@ -314,4 +327,17 @@ export function athleteNotificationKey(
   occurrence: string | number,
 ): string {
   return `${template}:${athleteId}:${occurrence}`;
+}
+
+/**
+ * Has a message with this key already been queued for this tenant? For a
+ * caller that must do something else exactly once alongside the email (the
+ * audit row of a link renewal, 2S8-PMO-02): `send()` always queues, and the
+ * duplicate is dropped later, in the worker.
+ */
+export async function alreadyQueued(tx: Prisma.TransactionClient, tenantId: string, idempotencyKey: string): Promise<boolean> {
+  const n = await tx.outboxJob.count({
+    where: { tenantId, name: "notify.email", payload: { path: ["idempotencyKey"], equals: idempotencyKey } },
+  });
+  return n > 0;
 }

@@ -71,6 +71,7 @@ export async function liveCart(tx: Prisma.TransactionClient, actor: Actor, actio
   const cart = await tx.cart.findFirst({ where: { ...whereFor(actor, "cart", action), state: "ACTIVE" }, select: SELECT });
   if (!cart) return null;
   if (cart.expiresAt <= now) {
+    /* tenant-scope: the caller's own cart, loaded just above through whereFor(cart). */
     await tx.cart.updateMany({ where: { id: cart.id, state: "ACTIVE" }, data: { state: "EXPIRED", expiredAt: now } });
     return null;
   }

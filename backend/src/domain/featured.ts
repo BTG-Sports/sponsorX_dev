@@ -8,7 +8,10 @@
  * invitations and no matching (both require ACTIVE).
  *
  * THE CLAIM needs three assertions:
- *   1. the athlete: "that's me" — `submitClaim`, public, no login;
+ *   1. the athlete: "that's me" — `submitClaim`, public, no login — and,
+ *      since 2S8-PMO-02 (owner decision 5, 2026-10-06), proof they read the
+ *      address they gave: the claim is PENDING_EMAIL, invisible to the school,
+ *      until the emailed link is opened (`confirmClaimEmail`);
  *   2. the school: roster match plus the advisor's verification —
  *      `verifyClaim`, which takes the profile into ordinary review;
  *   3. a guardian, for a minor: their COMMERCIAL authorisation, recorded as
@@ -21,8 +24,13 @@
  */
 import { randomBytes } from "node:crypto";
 
+import { env } from "../config/env";
 import { prisma } from "../db/client";
-import { audit } from "../db/audit";
+import { audit, type AuditActor } from "../db/audit";
+import type { Prisma } from "../generated/prisma/client";
+import { issueClaimEmailToken, readClaimEmailToken, verifyClaimEmailToken } from "../lib/claim-token";
+import { alreadyQueued, send } from "../lib/email";
+import { LinkExpiredError, linkTtlDays } from "../lib/signed-link";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { scopeFor } from "../auth/policy";
@@ -114,7 +122,7 @@ export async function publicProfile(slug: string) {
 export async function submitClaim(
   slug: string,
   input: { claimantName: string; claimantEmail: string; birthDate?: Date | null; ageBand?: string | null },
-): Promise<{ id: string; state: "SUBMITTED" }> {
+): Promise<{ id: string; state: "PENDING_EMAIL" }> {
   return prisma.$transaction(async (tx) => {
     const athlete = await tx.athlete.findFirst({
       /* tenant-scope: public claim — the athlete's own tenant is stamped onto the claim. */
@@ -129,26 +137,148 @@ export async function submitClaim(
         })
       : [];
     const rosterMatched = roster.some((r) => norm(r.legalName) === norm(input.claimantName));
+    const claimantEmail = input.claimantEmail.trim().toLowerCase();
     const claim = await tx.athleteClaim.create({
       data: {
         tenantId: athlete.tenantId, athleteId: athlete.id, claimantName: input.claimantName,
-        claimantEmail: input.claimantEmail.toLowerCase(), birthDate: input.birthDate ?? null,
+        claimantEmail, birthDate: input.birthDate ?? null,
         ageBand: input.ageBand ?? null, rosterMatched,
+        /* 2S8-PMO-02, owner decision 5: nothing reaches the school until the
+           claimant proves they read this address. */
+        state: "PENDING_EMAIL",
       },
       select: { id: true },
     });
-    return { id: claim.id, state: "SUBMITTED" };
+    await audit(tx, SYSTEM(athlete.tenantId), "athleteClaim.submit", "AthleteClaim", claim.id, {
+      after: { athleteId: athlete.id, state: "PENDING_EMAIL" },
+    });
+    await sendClaimConfirmation(tx, athlete.tenantId, { id: claim.id, claimantName: input.claimantName, claimantEmail }, slug, 0);
+    return { id: claim.id, state: "PENDING_EMAIL" };
+  });
+}
+
+/* ── the claimant's email — 2S8-PMO-02, owner decision 5 ─────────────────── */
+
+type Tx = Prisma.TransactionClient;
+const SYSTEM = (tenantId: string): AuditActor => ({ userId: null, tenantId });
+const appUrl = () => env.APP_URL.replace(/\/+$/, "");
+const firstWord = (s: string) => s.trim().split(/\s+/)[0] || "there";
+
+/**
+ * Where the emailed link points: the web app, which forwards this one path
+ * to the API (frontend/next.config.ts `rewrites`), so the link is on the same
+ * host as every other link we send. The API answers with a redirect to the
+ * public profile (`confirmClaimFromLink`).
+ */
+export const claimConfirmUrl = (claimId: string) =>
+  `${appUrl()}/api/v1/public/athlete-claims/confirm?t=${encodeURIComponent(issueClaimEmailToken(claimId))}`;
+
+/** The confirmation email. `attempt` keys a re-send (renewal), so it really sends. */
+export async function sendClaimConfirmation(
+  tx: Tx, tenantId: string, claim: { id: string; claimantName: string; claimantEmail: string }, slug: string | null, attempt: number | string,
+) {
+  await send(tx, tenantId, {
+    template: "athleteClaim.confirmEmail", to: claim.claimantEmail,
+    idempotencyKey: `athleteClaim.confirmEmail:${claim.id}:${attempt}`,
+    data: {
+      firstName: firstWord(claim.claimantName), confirmUrl: claimConfirmUrl(claim.id), days: String(linkTtlDays()),
+      ...(slug ? { profileUrl: `${appUrl()}/athletes/${encodeURIComponent(slug)}` } : {}),
+    },
+  });
+}
+
+/**
+ * The emailed link, opened: PENDING_EMAIL → SUBMITTED (the advisor now sees
+ * it). Idempotent — opening it twice, or after the school decided, changes
+ * nothing. Null for a link that isn't ours; LinkExpiredError (410) for one
+ * past its 14 days.
+ */
+export async function confirmClaimEmail(token: string): Promise<{ id: string; state: ClaimStateWithPending; slug: string | null }> {
+  const id = readClaimEmailToken(token);
+  if (!id) throw new FeaturedError("This confirmation link is not valid. Open the whole link from the email.", 400);
+  return prisma.$transaction(async (tx) => {
+    const claim = await tx.athleteClaim.findFirst({
+      /* tenant-scope: found by the id inside a signed link mailed only to the claimant; its tenant is on the row. */
+      where: { id },
+      select: { id: true, tenantId: true, state: true, athleteId: true, athlete: { select: { slug: true } } },
+    });
+    if (!claim) throw new FeaturedError("This claim no longer exists.", 404);
+    if (claim.state === "PENDING_EMAIL") {
+      /* tenant-scope: the row just loaded by its signed id, in its own tenant. */
+      const moved = await tx.athleteClaim.updateMany({
+        where: { id: claim.id, tenantId: claim.tenantId, state: "PENDING_EMAIL" },
+        data: { state: "SUBMITTED", emailConfirmedAt: new Date() },
+      });
+      if (moved.count) {
+        await audit(tx, SYSTEM(claim.tenantId), "athleteClaim.emailConfirmed", "AthleteClaim", claim.id, {
+          before: { state: "PENDING_EMAIL" }, after: { state: "SUBMITTED", athleteId: claim.athleteId },
+        });
+      }
+      return { id: claim.id, state: "SUBMITTED", slug: claim.athlete.slug };
+    }
+    return { id: claim.id, state: claim.state, slug: claim.athlete.slug };
+  });
+}
+
+/**
+ * GET /public/athlete-claims/confirm?t= — the link as it is clicked. Always a
+ * redirect to a public page with a `claim=` flag, never JSON (a person is
+ * looking at it). An expired link sends a fresh one to the claimant's own
+ * address first, so the person is never stuck: the flag says so.
+ */
+export async function confirmClaimFromLink(token: string): Promise<string> {
+  const profile = (slug: string | null | undefined, flag: string) =>
+    slug ? `${appUrl()}/athletes/${encodeURIComponent(slug)}?claim=${flag}` : `${appUrl()}/?claim=${flag}`;
+  try {
+    const r = await confirmClaimEmail(token);
+    return profile(r.slug, r.state === "REJECTED" ? "closed" : "confirmed");
+  } catch (e) {
+    if (e instanceof LinkExpiredError) {
+      const slug = await renewClaimLink(token);
+      return profile(slug, "expired-resent");
+    }
+    if (e instanceof FeaturedError) return profile(null, "invalid");
+    throw e;
+  }
+}
+
+/**
+ * A fresh confirmation for a genuine claim link of any age, to the claimant's
+ * own address; one per claim per hour. Returns the profile's slug, or null
+ * when nothing was sent (not ours, gone, or no longer waiting for its email).
+ */
+export async function renewClaimLink(token: string): Promise<string | null> {
+  const id = verifyClaimEmailToken(token)?.subject;
+  if (!id) return null;
+  return prisma.$transaction(async (tx) => {
+    const c = await tx.athleteClaim.findFirst({
+      /* tenant-scope: found by the id inside a signed link mailed only to the claimant. */
+      where: { id, state: "PENDING_EMAIL" },
+      select: { id: true, tenantId: true, claimantName: true, claimantEmail: true, athlete: { select: { slug: true } } },
+    });
+    if (!c) return null;
+    const attempt = `renew-${Math.floor(Date.now() / 3_600_000)}`;
+    /* One per claim per hour, and one audit row with it. */
+    if (!(await alreadyQueued(tx, c.tenantId, `athleteClaim.confirmEmail:${c.id}:${attempt}`))) {
+      await sendClaimConfirmation(tx, c.tenantId, c, c.athlete.slug, attempt);
+      await audit(tx, SYSTEM(c.tenantId), "link.renewed", "AthleteClaim", c.id, { after: { kind: "claim-email" } });
+    }
+    return c.athlete.slug;
   });
 }
 
 const CLAIM_SELECT = { id: true, athleteId: true, claimantName: true, claimantEmail: true, rosterMatched: true, state: true, createdAt: true } as const;
+/** The states an advisor sees. PENDING_EMAIL is not one: an unconfirmed claim is invisible to the school. */
 export const CLAIM_STATES = ["SUBMITTED", "VERIFIED", "REJECTED"] as const;
 export type ClaimStateName = (typeof CLAIM_STATES)[number];
+type ClaimStateWithPending = ClaimStateName | "PENDING_EMAIL";
+/** Every advisor read and decision leaves unconfirmed claims out (2S8-PMO-02). */
+const CONFIRMED = { state: { not: "PENDING_EMAIL" as const } };
 
 export async function listClaims(actor: Actor) {
   assertAllowed(actor, "athleteClaim", "read");
   return prisma.athleteClaim.findMany({
-    where: { ...whereFor(actor, "athleteClaim", "read") },
+    where: { ...whereFor(actor, "athleteClaim", "read"), ...CONFIRMED },
     select: CLAIM_SELECT,
     orderBy: { createdAt: "desc" },
   });
@@ -163,7 +293,7 @@ export async function listClaimsPage(actor: Actor, req: PageRequest, opts: { sta
   assertAllowed(actor, "athleteClaim", "read");
   const where = opts.states?.length
     ? { ...whereFor(actor, "athleteClaim", "read"), state: { in: opts.states } }
-    : { ...whereFor(actor, "athleteClaim", "read") };
+    : { ...whereFor(actor, "athleteClaim", "read"), ...CONFIRMED };
   const [{ rows, page }, open, all] = await Promise.all([
     readPage(
       req,
@@ -172,7 +302,7 @@ export async function listClaimsPage(actor: Actor, req: PageRequest, opts: { sta
         prisma.athleteClaim.findMany({ where: { ...where }, select: CLAIM_SELECT, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip, take }),
     ),
     prisma.athleteClaim.count({ where: { ...whereFor(actor, "athleteClaim", "read"), state: "SUBMITTED" } }),
-    prisma.athleteClaim.count({ where: { ...whereFor(actor, "athleteClaim", "read") } }),
+    prisma.athleteClaim.count({ where: { ...whereFor(actor, "athleteClaim", "read"), ...CONFIRMED } }),
   ]);
   return { claims: rows, page, summary: { open, all } };
 }
@@ -188,13 +318,14 @@ export async function verifyClaim(actor: Actor, claimId: string): Promise<{ athl
   assertAllowed(actor, "athleteClaim", "approve");
   return prisma.$transaction(async (tx) => {
     const claim = await tx.athleteClaim.findFirst({
-      where: { ...whereFor(actor, "athleteClaim", "approve"), id: claimId },
+      where: { ...whereFor(actor, "athleteClaim", "approve"), id: claimId, ...CONFIRMED },
       select: { id: true, state: true, athleteId: true, rosterMatched: true, claimantName: true, claimantEmail: true, birthDate: true, ageBand: true },
     });
     if (!claim) throw new ForbiddenError("athleteClaim", "approve");
     if (claim.state !== "SUBMITTED") throw new FeaturedError(`This claim was already ${claim.state.toLowerCase()}.`);
     if (!claim.rosterMatched) throw new FeaturedError("The claimant is not on the school's roster; the school cannot verify this claim.");
 
+    /* tenant-scope: the claimed athlete; the claim was loaded above through whereFor(athleteClaim, approve), in the same tenant. */
     await tx.athlete.update({
       where: { id: claim.athleteId },
       data: { legalName: claim.claimantName, email: claim.claimantEmail, birthDate: claim.birthDate, ageBand: claim.ageBand },
@@ -204,12 +335,13 @@ export async function verifyClaim(actor: Actor, claimId: string): Promise<{ athl
        the move itself goes through the one function that changes an
        athlete's state, as a system transition — which can never activate. */
     await transitionAthleteIn(tx, { system: true, tenantId: actor.tenantId, userId: null }, claim.athleteId, "UNDER_REVIEW");
+    /* tenant-scope: the row loaded above through whereFor(athleteClaim, approve). */
     await tx.athleteClaim.update({
       where: { id: claimId }, data: { state: "VERIFIED", verifiedBy: actor.userId, verifiedAt: new Date() }, select: { id: true },
     });
     /* Only one claim can succeed on a profile. */
     await tx.athleteClaim.updateMany({
-      where: { tenantId: actor.tenantId, athleteId: claim.athleteId, state: "SUBMITTED", id: { not: claimId } },
+      where: { tenantId: actor.tenantId, athleteId: claim.athleteId, state: { in: ["SUBMITTED", "PENDING_EMAIL"] }, id: { not: claimId } },
       data: { state: "REJECTED" },
     });
     await audit(tx, actor, "athleteClaim.verify", "Athlete", claim.athleteId, { after: { claimId } });
@@ -221,10 +353,11 @@ export async function rejectClaim(actor: Actor, claimId: string): Promise<{ id: 
   assertAllowed(actor, "athleteClaim", "approve");
   return prisma.$transaction(async (tx) => {
     const claim = await tx.athleteClaim.findFirst({
-      where: { ...whereFor(actor, "athleteClaim", "approve"), id: claimId }, select: { id: true, state: true, athleteId: true },
+      where: { ...whereFor(actor, "athleteClaim", "approve"), id: claimId, ...CONFIRMED }, select: { id: true, state: true, athleteId: true },
     });
     if (!claim) throw new ForbiddenError("athleteClaim", "approve");
     if (claim.state !== "SUBMITTED") throw new FeaturedError(`This claim was already ${claim.state.toLowerCase()}.`);
+    /* tenant-scope: the row loaded above through whereFor(athleteClaim, approve). */
     await tx.athleteClaim.update({ where: { id: claimId }, data: { state: "REJECTED" }, select: { id: true } });
     await audit(tx, actor, "athleteClaim.reject", "Athlete", claim.athleteId, { after: { claimId } });
     return { id: claimId, state: "REJECTED" };

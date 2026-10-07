@@ -1,6 +1,13 @@
 import { readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+/* 2S8-SEC-03 — registering a creative or artwork upload HEADs the object.
+   There is no bucket here, so the file stands in as arrived exactly as its
+   grant pinned it; tests/private-upload-pins.test.ts checks the real thing. */
+vi.mock("../src/lib/storage", async (original) => ({
+  ...(await original<typeof import("../src/lib/storage")>()),
+  checkPrivateUpload: async (_actor: unknown, _key: string, expected: { bytes?: number | null }) => ({ ok: true as const, bytes: expected.bytes ?? 1 }),
+}));
 
 /* --------------------------------------------------------------------------
    SponsorX NEXT, Stage 9 Batch C — P9-BE-10, -11, -14.
@@ -256,9 +263,14 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT rights, featured athletes and the D
       /* 1. The athlete: "that's me". Not on the roster → the school cannot verify. */
       const stranger = await call("POST", `/public/athletes/${slug}/claim`, null, { claimantName: "Someone Else", claimantEmail: "x@x.invalid", birthDate: "2010-02-02" });
       expect(Object.keys(stranger.json).sort()).toEqual(["id", "state"]); // the roster answer is never returned
+      /* 2S8-PMO-02: a claim reaches the school only once its email is confirmed. */
+      const { issueClaimEmailToken } = await import("../src/lib/claim-token");
+      const confirmEmail = (id: string) => call("POST", "/public/athlete-claims/confirm-email", null, { token: issueClaimEmailToken(id) });
+      expect((await confirmEmail(stranger.json.id)).json).toEqual({ state: "SUBMITTED", slug });
       expect((await call("POST", `/claims/${stranger.json.id}/verify`, "nx4_advisor")).status).toBe(409);
 
       const mine = await call("POST", `/public/athletes/${slug}/claim`, null, { claimantName: "Maya Thompson", claimantEmail: "maya@family.invalid", birthDate: "2010-02-02" });
+      await confirmEmail(mine.json.id);
       /* 2. The school: only THIS school's advisor verifies. */
       expect((await call("POST", `/claims/${mine.json.id}/verify`, "nx4_advisor_b")).status).toBe(403);
       expect((await call("POST", `/claims/${mine.json.id}/verify`, "nx4_advisor")).json).toEqual({ athleteId, state: "UNDER_REVIEW" });

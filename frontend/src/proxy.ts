@@ -31,12 +31,46 @@
 
 import { clerkMiddleware } from "@clerk/nextjs/server";
 
+/* 2S8-PMO-02, owner decision 3 (2026-10-06) — Clerk `authorizedParties`.
+   A session token names the origin that minted it (`azp`); Clerk treats one
+   from any origin not listed here as signed out. The same variable and the
+   same rule as the API (backend/src/config/authorized-parties.ts):
+   CLERK_AUTHORIZED_PARTIES, comma-separated origins; unset, APP_URL's origin
+   if this service has one, plus the local web origins outside production
+   (`next dev` on 3000, the e2e harness on 127.0.0.1:3100). Unset with no
+   APP_URL in production: no list, which is Clerk's own default — the API
+   still enforces its list on every call, so set the variable on the web
+   service to have the web app check too. Read at server start, not build. */
+const LOCAL_WEB_ORIGINS = ["http://127.0.0.1:3100", "http://localhost:3100", "http://localhost:3000"];
+
+const originOf = (value: string): string | null => {
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:" || url.protocol === "http:" ? url.origin : null;
+  } catch {
+    return null;
+  }
+};
+
+export function webAuthorizedParties(env: Record<string, string | undefined>): string[] | undefined {
+  const listed = (env.CLERK_AUTHORIZED_PARTIES ?? "").split(",").filter((s) => s.trim());
+  const origins = listed.length
+    ? listed.map(originOf)
+    : [env.APP_URL ? originOf(env.APP_URL) : null, ...(env.NODE_ENV === "production" ? [] : LOCAL_WEB_ORIGINS)];
+  const kept = [...new Set(origins.filter((o): o is string => Boolean(o)))];
+  return kept.length ? kept : undefined;
+}
+
 /* A developer's drifted PC clock makes every session "not active yet" under
    Clerk's 5 s default (seen 2026-10-07, ten minutes behind): the cookie fails
    here and Clerk handshakes forever. The API reads the same variable
    (backend/src/config/env.ts). Unset, nothing changes. */
 const skew = Number(process.env.CLERK_CLOCK_SKEW_MS);
-export const proxy = clerkMiddleware(Number.isFinite(skew) && skew > 0 ? { clockSkewInMs: skew } : {});
+
+export const proxy = clerkMiddleware({
+  authorizedParties: webAuthorizedParties(process.env),
+  ...(Number.isFinite(skew) && skew > 0 ? { clockSkewInMs: skew } : {}),
+});
 
 export const config = {
   /* Skip Next internals and static assets, then run on everything else. Without

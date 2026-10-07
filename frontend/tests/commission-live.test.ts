@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }));
+/* The rule dialog's ComboBox lives in place-dialog.tsx, whose server actions reach
+   server/api (server-only) — mocked, as the editor's own actions are. */
+vi.mock("../src/app/(app)/admin/new-signups/rules/actions", () => ({ setAgeRowAction: async () => ({ ok: false, message: "n/a" }), removeAgeRowAction: async () => ({ ok: false, message: "n/a" }) }));
 
 import {
   groupRules, isCommissionAdmin, kindSummary, parseDollars, parsePercent, rateLabel, scopeLabel, toPreviewLines, toRuleInput, type ApiRule,

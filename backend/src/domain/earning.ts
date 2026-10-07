@@ -30,6 +30,7 @@ import {
   type EarningState,
 } from "./earning-state";
 import { payoutHoldReason } from "./payout-holds";
+import { refuseCardNumber } from "./marketplace-order-rules";
 import { autoApprovalReasons, autoApproveSettings, autoApprovedByTenant, autoWindowFor, lockPayee, SYSTEM, windowStart } from "./payout-auto";
 
 export class EarningImmutableError extends Error {
@@ -191,6 +192,8 @@ export async function transitionEarning(
      recording one are both `approve`. */
   const action = to === "APPROVED_FOR_PAYOUT" || to === "PAID" ? "approve" : "write";
   assertTenantWide(actor, "earning", action);
+  /* 2S0-SEC-01 (O5) — "a Zoho or bank reference", never a card number (§26). */
+  refuseCardNumber(detail.reference, "reference");
 
   return prisma.$transaction(async (tx) => {
     const earning = await tx.earning.findFirst({
@@ -202,6 +205,7 @@ export async function transitionEarning(
     const from = earning.state as EarningState;
     if (!canTransitionEarning(from, to)) throw new IllegalEarningTransitionError(from, to);
 
+    /* tenant-scope: the row loaded above through whereFor(earning). */
     const updated = await tx.earning.update({
       where: { id: earningId },
       data: {
@@ -238,6 +242,7 @@ export async function adjustEarning(
   reason: string,
 ): Promise<EarningBreakdown & { id: string }> {
   assertTenantWide(actor, "earning", "write");
+  refuseCardNumber(reason, "reason"); // 2S0-SEC-01 (O5)
 
   return prisma.$transaction(async (tx) => {
     const earning = await tx.earning.findFirst({
@@ -252,6 +257,7 @@ export async function adjustEarning(
     const state = earning.state as EarningState;
     if (!isEarningMutable(state)) throw new EarningImmutableError(state);
 
+    /* tenant-scope: the row loaded above through whereFor(earning, write). */
     const updated = await tx.earning.update({
       where: { id: earningId },
       data: { adjustment },
@@ -347,6 +353,7 @@ export async function maybeMakeEligible(
      landing — that decision is Finance's to reverse, not this function's. */
   if (from !== "PENDING") return null;
 
+  /* tenant-scope: the order's earning found above; orderId is unique and comes from a deliverable the caller loaded through whereFor. */
   const updated = await tx.earning.update({
     where: { id: earning.id },
     data: { state: "ELIGIBLE" },

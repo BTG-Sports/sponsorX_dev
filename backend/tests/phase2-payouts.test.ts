@@ -45,7 +45,7 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
   const { confirmPayment, confirmPayoutPaid, sendPayout, failPayout, latestFailedAttempts } = await import("../src/domain/payouts");
 
   const T = "po_btg";
-  const E = { tenant: "", property: "", riley: "", order: "", listing: "" };
+  const E = { tenant: "", property: "", riley: "", order: "", listing: "", second: "" };
   let server: ReturnType<ReturnType<typeof createApp>["listen"]>;
   let base = "";
   /* 2S5-BE-06 — this file walks BTG's own approval: nothing is approved
@@ -349,6 +349,7 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
       const hold = (await call("POST", "/cart/reserve", "po_buyer")).json;
       const o = (await call("POST", "/marketplace-orders", "po_buyer", placeOrderBody(hold.id, `${T}_order_terms`))).json;
       expect(o.state).toBe("AWAITING_PAYMENT");
+      E.second = o.id;
       await walk(o.id, ["PAID", "IN_DELIVERY", "FULFILLED"]);
       const p = (await call("POST", "/payouts", "po_riley")).json.payouts[0];
       await call("POST", `/payouts/${p.id}/decision`, "po_admin", { decision: "APPROVE" });
@@ -378,6 +379,46 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
       } finally {
         (env as { PAYMENT_PROVIDER?: string }).PAYMENT_PROVIDER = was;
       }
+    });
+  });
+
+  /* 2S8-QA-05 — the reversal of a refund debits a payable the payout already
+     emptied, so the order's figure goes negative; the payout page rounded it
+     up to $0 and the money owed back was invisible. */
+  describe("2S8-QA-05 · a refund after a payout shows as money owed back", () => {
+    it("before the refund, nothing is owed", async () => {
+      const waiting = (await call("GET", "/payouts?state=APPROVED", "po_admin")).json.payouts[0];
+      expect(waiting.lines).toEqual([expect.objectContaining({ orderId: E.second })]);
+      expect(await sendPayout(waiting.id)).toEqual({ sent: true });
+      expect(await confirmPayoutPaid(waiting.id)).toEqual({ paid: true });
+      const me = (await call("GET", "/payouts/me", "po_riley")).json;
+      expect(me.orders.find((o: { orderId: string }) => o.orderId === E.second)).toMatchObject({ balanceCents: 0, owedBackCents: 0 });
+      expect(me.totals.owedBackCents).toBe(0);
+      expect(me.owedBackNote).toBeNull();
+    });
+
+    it("refunded after it was paid out, Riley's page shows the real negative figure and says he owes it back", async () => {
+      const paid = (await call("GET", "/payouts/me", "po_riley")).json.payouts
+        .find((p: { state: string; lines: Array<{ orderId: string }> }) => p.state === "PAID" && p.lines.some((l) => l.orderId === E.second));
+      const owed = paid.amountCents as number;
+      expect(owed).toBeGreaterThan(0);
+      const refunded = await call("POST", `/marketplace-orders/${E.second}/transition`, "po_finance", { to: "REFUNDED" });
+      expect(refunded.status, refunded.text).toBe(200);
+
+      const me = (await call("GET", "/payouts/me", "po_riley")).json;
+      const order = me.orders.find((o: { orderId: string }) => o.orderId === E.second);
+      expect(order).toMatchObject({ state: "REFUNDED", availableCents: -owed, balanceCents: -owed, owedBackCents: owed, requestableCents: 0, heldCents: 0 });
+      expect(me.totals.owedBackCents).toBe(owed);
+      expect(me.owedBackNote).toBe(`You owe $${(owed / 100).toFixed(2)} back from a refund`);
+      /* The refund owed back is not something to request. */
+      expect(me.totals.requestableCents).toBe(0);
+    });
+
+    it("the team was never paid on that order, so it owes nothing back", async () => {
+      const team = (await call("GET", "/payouts/me", "po_mgr")).json;
+      expect(team.orders.find((o: { orderId: string }) => o.orderId === E.second)).toMatchObject({ balanceCents: 0, owedBackCents: 0 });
+      expect(team.totals.owedBackCents).toBe(0);
+      expect(team.owedBackNote).toBeNull();
     });
   });
 });

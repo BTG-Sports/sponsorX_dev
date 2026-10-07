@@ -227,6 +227,7 @@ export async function transitionInvite(
     /* 2S1-BE-11 / -12 — accepting is an agreement: a minor's comes from their guardian, and none during coming of age. */
     if (to === "ACCEPTED") await assertMayCommit(tx, actor, "accept");
 
+    /* tenant-scope: the row loaded above through whereFor(invitation, write). */
     const updated = await tx.campaignInvite.update({
       where: { id: inviteId },
       data: {

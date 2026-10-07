@@ -104,6 +104,7 @@ import {
 } from "./student";
 import {
   AssetCampaignInput,
+  ClaimConfirmInput,
   ClaimInput,
   ContentRightInput,
   ContributionInput,
@@ -128,8 +129,12 @@ import {
 } from "./delivery";
 import { PayoutAccountLinkInput, PayoutDecisionInput, PayoutListQuery, StandinAccountInput, StandinCheckoutInput } from "./payouts";
 import { RefundSentInput, RefundsQuery } from "./refunds";
+import {
+  DisputeResolveInput, DisputeReviewInput, DisputesQuery, PaymentEventResolveInput, PaymentEventsQuery, ProviderWebhookEnvelope, StandinEventInput,
+} from "./payment-events";
 import { SponsorDocumentInput, SponsorEmailConfirmInput, SponsorRequestDecisionInput, SponsorRequestListQuery } from "./sponsor-requests";
 import { RestrictedTextInput, RestrictedWordInput } from "./restricted-words";
+import { LinkRenewInput, LinkRenewReceipt } from "./links";
 import {
   OnboardingConfirmEmailInput, OnboardingDecisionInput, OnboardingDocumentInput, OnboardingStartInput, OnboardingStepInput, OrganizationDocumentInput,
 } from "./onboarding";
@@ -499,14 +504,16 @@ const PATHS: Row[] = [
   { method: "post", path: "/edition-assets/{id}/campaign", tag: "Rights", summary: "Use content in a sponsor's campaign — only with a commercial grant (P9-BE-10).", body: AssetCampaignInput },
   { method: "post", path: "/consents", tag: "Rights", summary: "Record consent for a subject with no login — a featured athlete, or a minor via their verified guardian (P9-BE-11). P9-BE-23: the subject's existing edition assets get the consent right it gives, recorded by the system in the same transaction (`autoBasis: CONSENT`), once.", body: SubjectConsentInput, status: 201 },
   { method: "post", path: "/featured-athletes", tag: "Rights", summary: "Editorial features an athlete: FEATURED, read-only, no rates, no invitations (P9-BE-11).", body: FeaturedAthleteInput, status: 201 },
-  { method: "get", path: "/claims", tag: "Rights", summary: "Claims on featured profiles the caller may review. ?page ?size ?state (comma list) → one page, `page`, and `summary: { open, all }` (counts) (2026-09-29)." },
-  { method: "post", path: "/claims/{id}/verify", tag: "Rights", summary: "The school verifies a claim (roster match + advisor) — the profile enters review (P9-BE-11)." },
-  { method: "post", path: "/claims/{id}/reject", tag: "Rights", summary: "Reject a claim." },
+  { method: "get", path: "/claims", tag: "Rights", summary: "Claims on featured profiles the caller may review. ?page ?size ?state (comma list) → one page, `page`, and `summary: { open, all }` (counts) (2026-09-29). A claim whose claimant has not confirmed their email (PENDING_EMAIL) is never listed or counted (2S8-PMO-02)." },
+  { method: "post", path: "/claims/{id}/verify", tag: "Rights", summary: "The school verifies a claim (roster match + advisor) — the profile enters review (P9-BE-11). An unconfirmed (PENDING_EMAIL) claim is refused like one that doesn't exist (2S8-PMO-02)." },
+  { method: "post", path: "/claims/{id}/reject", tag: "Rights", summary: "Reject a claim. Not an unconfirmed (PENDING_EMAIL) one (2S8-PMO-02)." },
   { method: "post", path: "/properties/{id}/roster", tag: "Rights", summary: "A school supplies its roster: names and graduation years (P9-BE-11).", body: RosterInput, status: 201 },
   { method: "post", path: "/editions/{id}/contributions", tag: "Rights", summary: "Record a student's content contribution in units (P9-BE-14).", body: ContributionInput, status: 201 },
   { method: "get", path: "/editions/{id}/school-pools", tag: "Rights", summary: "A regional edition's SALES and CONTENT school pools, resolved by formula (P9-BE-14)." },
   { method: "get", path: "/public/athletes/{slug}", tag: "Public", summary: "A featured or active athlete's public profile — no legal name, contact, age or GPA (P9-BE-11).", auth: false },
-  { method: "post", path: "/public/athletes/{slug}/claim", tag: "Public", summary: "'That's me' — claim a featured profile (P9-BE-11).", auth: false, body: ClaimInput, status: 201 },
+  { method: "post", path: "/public/athletes/{slug}/claim", tag: "Public", summary: "'That's me' — claim a featured profile (P9-BE-11). The claim starts PENDING_EMAIL and a confirmation link (14 days) is emailed to the claimant; the school sees it only once that link is opened (2S8-PMO-02). Answers `{ id, state: \"PENDING_EMAIL\" }`.", auth: false, body: ClaimInput, status: 201 },
+  { method: "get", path: "/public/athlete-claims/confirm", tag: "Public", summary: "The claim confirmation link as clicked (`?t=`), reached through the web app's same path. Answers 302 to the public profile with `?claim=confirmed` (now SUBMITTED, with the school), `closed` (already decided), `expired-resent` (the link was past its 14 days; a fresh one was emailed to the claimant) or, for a link that isn't ours, the home page with `?claim=invalid`. Audited (2S8-PMO-02).", auth: false },
+  { method: "post", path: "/public/athlete-claims/confirm-email", tag: "Public", summary: "The same confirmation as JSON, for a page that calls it: `{ state, slug }`; 400 for a bad link, 410 `link_expired` (kind `claim-email`) for an old one (2S8-PMO-02).", auth: false, body: ClaimConfirmInput },
   // Phase 2 Sprint 1 — external property onboarding
   { method: "post", path: "/public/onboarding", tag: "Public", summary: "An organisation starts onboarding; returns its resume token (2S1-BE-01).", auth: false, body: OnboardingStartInput, status: 201 },
   { method: "get", path: "/public/onboarding/{token}", tag: "Public", summary: "The application so far, what is still missing, and the terms to accept.", auth: false },
@@ -607,7 +614,7 @@ const PATHS: Row[] = [
   { method: "get", path: "/coming-of-age/mine", tag: "Athletes", summary: "The coming-of-age reminder for the athlete's own portal, or the guardian acting for them: age, the 90-day deadline, and (the athlete's own login) where to upload the government ID (2S1-BE-12)." },
   { method: "post", path: "/coming-of-age/send-link", tag: "Athletes", summary: "The guardian sends the athlete the link to upload their government ID (2S1-BE-12)." },
   { method: "post", path: "/payouts", tag: "Payouts", summary: "Request the whole requestable balance as a payout (one per set of books). 2S5-BE-06 — approved automatically, as the system, when every check passes, it is under $2,000, the payout account didn't change in the last 7 days and the payee's automatic approvals in the last 7 days (with Phase 1 earnings) stay under $5,000; otherwise REQUESTED for BTG. Each payout says `approvedAutomatically` and `waitingOn`, never the reasons.", status: 201 },
-  { method: "get", path: "/payouts", tag: "Payouts", summary: "BTG admin / Finance: payout requests by state (?state=), optionally by who they wait on (?waitingOn=BTG|SYSTEM_RETRY|PAYEE_ACCOUNT), with counts by state and `waiting` counts. Each payout carries approvedAutomatically, reviewReasons, failureKind, retryCount, nextRetryAt and waitingOn (2S5-BE-06 / -07). Paged with ?page (P1-FE-31): ?size (default 12, max 100) → one page and `page: { page, size, total, pages }`.", query: PayoutListQuery },
+  { method: "get", path: "/payouts", tag: "Payouts", summary: "BTG admin / Finance: payout requests by state (?state=), optionally by who they wait on (?waitingOn=BTG|SYSTEM_RETRY|PAYEE_ACCOUNT), with counts by state and `waiting` counts. Each payout carries approvedAutomatically, reviewReasons, failureKind, retryCount, nextRetryAt and waitingOn (2S5-BE-06 / -07), and sendAttempts, returnedAt and returnCount (2S5-BE-05 — its hand-overs to the provider, and a return by the bank). Paged with ?page (P1-FE-31): ?size (default 12, max 100) → one page and `page: { page, size, total, pages }`.", query: PayoutListQuery },
   { method: "get", path: "/payouts/{id}", tag: "Payouts", summary: "One payout: payee, orders, the payout rules checked now, the payee's account status; for BTG also approvedAutomatically, reviewReasons and the retry status. A payee reading its own payout gets approvedAutomatically and waitingOn only." },
   { method: "post", path: "/payouts/{id}/decision", tag: "Payouts", summary: "Approve (hands it to the payment provider) or send back with a note.", body: PayoutDecisionInput },
   { method: "post", path: "/payouts/{id}/retry", tag: "Payouts", summary: "Send a payout the provider couldn't send back to the provider." },
@@ -709,6 +716,18 @@ const PATHS: Row[] = [
   { method: "get", path: "/operations/network-metrics", tag: "Operations", summary: "Network-wide metrics." },
   { method: "get", path: "/operations/job-economics", tag: "Operations", summary: "Economics by NIL job." },
 
+  // 2S5-INT-02 — the payment provider's events
+  { method: "post", path: "/webhooks/payments/{provider}", tag: "Webhooks", summary: "The payment provider's webhook (`stripe`, or `standin` on staging). Signature checked over the raw body (Stripe: `Stripe-Signature`, verified by its SDK against STRIPE_WEBHOOK_SECRET or the Connect endpoint's secret, each with its _PREVIOUS; the stand-in: `x-standin-signature: t=…,v1=…`; a timestamp outside PAYMENT_WEBHOOK_TOLERANCE_SECONDS is a replay, 401); each event recorded once by (provider, event id) — a duplicate delivery is a no-op — and queued for the worker, which applies it forward-only. Answers `{ received, events: [{ id, type, duplicate }] }`. 404 for a provider not connected here; 400 for a body that isn't one of its events.", auth: false, body: ProviderWebhookEnvelope, status: 202 },
+  { method: "get", path: "/payment-events", tag: "Payments", summary: "BTG admin and Finance, in their own books: the provider's events as SponsorX applied them — by default the exceptions not yet closed (HELD and FAILED for BTG, DEFERRED waiting for what they follow). `{ counts: { RECEIVED, APPLIED, IGNORED, DEFERRED, HELD, FAILED }, waitingOnBtg, events: [{ id, provider, providerEventId, type, occurredAt, subjectRef, status, outcome (in words), attempts, nextAttemptAt, receivedAt, appliedAt, resolvedAt, resolvedBy, resolutionNote }] }`. ?status= narrows (comma-separated).", query: PaymentEventsQuery },
+  { method: "post", path: "/payment-events/{id}/resolve", tag: "Payments", summary: "BTG admin closes a HELD or FAILED provider event with a note saying what was done. Once only (409 after); audited.", body: PaymentEventResolveInput },
+  { method: "post", path: "/payment-events/test-provider", tag: "Payments", summary: "Staging only, BTG admin: have the stand-in provider send an event about an order's latest card payment or a payout in your books — once or up to three times (a provider retrying), in any order. The queue applies it as it would a real delivery. 400 where the stand-in is off.", body: StandinEventInput, status: 202 },
+
+  // 2S5-BE-03 — disputes (BTG support; never resolved by the system)
+  { method: "get", path: "/disputes", tag: "Payments", summary: "BTG admin and Finance, in their own books: sponsors' disputes of card payments, open ones first, with counts by state. Each: `{ id, orderId, orderRef, sponsorName, amountCents, reason, state: OPEN|UNDER_REVIEW|WON|LOST, providerOutcome: WON|LOST|null (the provider's decision), frozen (its order's money can't move), canResolve, reviewNote, resolutionNote, lineIds, ledgerReversed, owedBackCents, lines, payouts: [{ id, state, payeeType, payeeId, amountCents }] }`.", query: DisputesQuery },
+  { method: "get", path: "/disputes/{id}", tag: "Payments", summary: "One dispute, as GET /disputes shows it. 404 outside the caller's books." },
+  { method: "post", path: "/disputes/{id}/review", tag: "Payments", summary: "BTG admin or Finance takes a dispute for review (OPEN → UNDER_REVIEW), saying what was sent to the provider. 409 if it isn't open.", body: DisputeReviewInput },
+  { method: "post", path: "/disputes/{id}/resolve", tag: "Payments", summary: "A BTG admin resolves a dispute under review to the outcome the provider reported — 409 before the provider has decided, or straight from OPEN. WON: the money unfreezes and an approved payout waiting on it is sent. LOST: the order's books are reversed (the whole order, or `lineIds` for a part dispute), payouts not yet sent are sent back, and what was already paid out is owed back (`owedBackCents`; GET /payouts/me shows the payee's).", body: DisputeResolveInput },
+
   // Zoho inbound (P7-BE-04)
   { method: "post", path: "/webhooks/zoho/invoice", tag: "Webhooks", summary: "Zoho Books invoice webhook — shared-secret signed, queued.", auth: false, body: ZohoInvoiceWebhook, status: 202 },
   { method: "post", path: "/webhooks/zoho/crm", tag: "Webhooks", summary: "Zoho CRM Notifications API callback — channel-token verified, recorded, queued; never calls Zoho (P8-INT-03).", auth: false, body: ZohoCrmNotification, status: 202 },
@@ -742,8 +761,14 @@ const PATHS: Row[] = [
   // 2S1-BE-16 — contacting BTG support
   { method: "get", path: "/public/support", tag: "Public", summary: "The support address (SUPPORT_EMAIL), whether the mailbox is set up yet, and the topics (2S1-BE-16).", auth: false },
   { method: "post", path: "/public/support/messages", tag: "Public", summary: "A message to BTG support. Queued through the worker to the support mailbox (Reply-To the sender) with a copy to the sender; with attachments, each gets a private-bucket PUT and the message is queued by /send. Rate-limited (2S1-BE-16).", auth: false, body: SupportMessageInput, status: 201 },
-  { method: "post", path: "/public/support/messages/{token}/send", tag: "Public", summary: "Every attachment has uploaded: queue the message (2S1-BE-16).", auth: false },
+  { method: "post", path: "/public/support/messages/{token}/send", tag: "Public", summary: "Every attachment has uploaded: queue the message. The support mailbox's email names the attachments and links to BTG's signed-in support page; it never carries the files (2S1-BE-16, 2S0-SEC-01).", auth: false },
+  { method: "get", path: "/support-messages/{id}", tag: "Support", summary: "BTG admin only: one contact-form message — sender, topic, text — and its attachments' names, types, sizes and whether each arrived. No file content and no link (2S0-SEC-01)." },
+  { method: "get", path: "/support-messages/{id}/attachments/{attachmentId}", tag: "Support", summary: "BTG admin only: a five-minute, audited link to one attachment in the private bucket — how the support desk opens a guardianship proof or an ID (2S0-SEC-01)." },
   { method: "post", path: "/public/support/messages/{token}/attachments/{attachmentId}/drop", tag: "Public", summary: "Send without an attachment that won't upload (2S1-BE-16).", auth: false },
+
+  // 2S8-PMO-02 — security decisions of 2026-10-06
+  { method: "post", path: "/public/csp-report", tag: "Public", summary: "A browser's Content-Security-Policy violation report — `report-uri` (application/csp-report) or `report-to` (application/reports+json). The web app forwards its same-origin /api/v1/public/csp-report here. Nothing is stored: each violation is logged as one redacted line (origin and path only, token-like path segments masked, no samples). Rate-limited; the answer is the same whatever arrives.", auth: false, status: 202 },
+  { method: "post", path: "/public/links/renew", tag: "Public", summary: "A link past its 14 days answers 410 `link_expired` with its `kind`. Send that kind and the expired token here: if the token's signature is ours (its age doesn't matter), a fresh link is EMAILED to the address on file for that record — never returned. At most one email per record and kind per hour; audited `link.renewed`. Always `{ sent: true }`. Rate-limited. Kinds: intake, athlete-email, guardian-setup, coming-of-age, onboarding, onboarding-email, sponsor-request, sponsor-request-email, handoff, handoff-email, claim-email (a reactivation link uses /public/account/reactivation-link).", auth: false, body: LinkRenewInput, status: 202, response: LinkRenewReceipt },
 ];
 
 for (const row of PATHS) {

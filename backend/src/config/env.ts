@@ -1,4 +1,10 @@
+import { createHmac } from "node:crypto";
+
 import { z } from "zod";
+
+import { authorizedPartiesFrom } from "./authorized-parties";
+import { DEFAULT_LEGACY_LINKS_ACCEPTED_UNTIL, DEFAULT_LINK_TTL_DAYS } from "../lib/link-kinds";
+import { stripeConfigProblem } from "./stripe-guard";
 
 /**
  * Environment, validated once at boot. Anything that reads configuration goes
@@ -53,6 +59,20 @@ const schema = z.object({
      and production must set it — see the refinement below. */
   PUBLIC_INTAKE_TENANT_ID: z.string().default("seed_tenant_btg"),
   INTAKE_TOKEN_SECRET: z.string().default("dev-intake-secret-not-for-production"),
+  /* 2S8-SEC-02 — every `*_PREVIOUS` below is the rotation overlap: the old
+     value, still ACCEPTED (never used to sign) until it is deleted. Comma
+     list allowed. See lib/rotating-secret.ts and
+     documentation/SponsorX-Secrets-Rotation.md. */
+  INTAKE_TOKEN_SECRET_PREVIOUS: z.string().optional(),
+  /* 2S8-PMO-02, owner decision 4 (2026-10-06) — how long an emailed or
+     handed-out link lives: intake, onboarding, sign-up, sponsor-request,
+     hand-off and reactivation links (lib/signed-link.ts).
+     Unsubscribe links never expire. */
+  LINK_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(DEFAULT_LINK_TTL_DAYS),
+  /* Links issued before the decision carry no date. They are accepted until
+     this instant and refused after it, so none outlives the rule by more
+     than its own lifetime: the default is the decision date plus 14 days. */
+  LEGACY_LINKS_ACCEPTED_UNTIL: z.coerce.date().default(new Date(DEFAULT_LEGACY_LINKS_ACCEPTED_UNTIL)),
 
   CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is not set"),
   CLERK_PUBLISHABLE_KEY: z.string().min(1, "CLERK_PUBLISHABLE_KEY is not set"),
@@ -60,6 +80,11 @@ const schema = z.object({
      refused as "not active yet" (Clerk's own default is 5 s). A developer
      whose PC clock drifts can set this for a local run; unset elsewhere. */
   CLERK_CLOCK_SKEW_MS: z.coerce.number().int().nonnegative().optional(),
+  /* 2S8-PMO-02, owner decision 3 — the web origins whose Clerk sessions this
+     API accepts (the token's `azp`), comma-separated. Unset: APP_URL's
+     origin, plus the local web origins outside production
+     (config/authorized-parties.ts). A malformed entry refuses to boot. */
+  CLERK_AUTHORIZED_PARTIES: z.string().optional(),
 
   // Local dev talks to MinIO (docker-compose.yml); staging/production talk to
   // Cloudflare R2 with the same S3 API. Only the endpoint and credentials
@@ -101,6 +126,7 @@ const schema = z.object({
      below refuses to boot without it: the invoice webhook is a public route,
      and an unsigned one is an unauthenticated write into the finance mirror. */
   ZOHO_WEBHOOK_SECRET: z.string().optional(),
+  ZOHO_WEBHOOK_SECRET_PREVIOUS: z.string().optional(),
 
   /* The Zoho CRM sync — P8-INT-01..07, field-mapping §8.2.
 
@@ -121,6 +147,7 @@ const schema = z.object({
      callback where either is wrong — or where they are not configured. The
      worker keeps the channel subscribed when NOTIFY_URL is set. */
   ZOHO_NOTIFY_TOKEN: z.string().min(16).optional(),
+  ZOHO_NOTIFY_TOKEN_PREVIOUS: z.string().optional(),
   ZOHO_NOTIFY_CHANNEL_ID: z.string().regex(/^\d+$/).optional(),
   ZOHO_NOTIFY_URL: z.string().url().optional(),
 
@@ -128,6 +155,7 @@ const schema = z.object({
      (P8-SEC-03, lib/client-ip.ts). Unset: forwarded addresses are ignored
      and the socket address is used. Set the same value on web and api. */
   SPONSORX_EDGE_KEY: z.string().min(24).optional(),
+  SPONSORX_EDGE_KEY_PREVIOUS: z.string().optional(),
 
   /* Which Railway environment this is (P3-DATA-01). Railway injects it; a
      developer machine has none. Needed because NODE_ENV cannot tell staging
@@ -145,11 +173,36 @@ const schema = z.object({
      SponsorX's own, clearly labelled, and it moves no money. "none" means no
      provider is connected yet — the buttons say so and nothing is charged or
      sent. Unset: "none" in Railway production, "standin" everywhere else.
-     Stripe joins this list when 2S0-PMO-03 is decided. */
-  PAYMENT_PROVIDER: z.enum(["standin", "none"]).optional(),
+     "stripe" (2S5-INT-01 / -03, Stripe chosen under 2S0-PMO-03) is the real
+     one: hosted Checkout, Connect Express payout accounts, transfers. */
+  PAYMENT_PROVIDER: z.enum(["standin", "none", "stripe"]).optional(),
+  /* 2S5-INT-01 — Stripe. Required when PAYMENT_PROVIDER=stripe; a live key is
+     refused outside Railway production and a test key inside it
+     (config/stripe-guard.ts). Never logged. */
+  STRIPE_SECRET_KEY: z.string().optional(),
+  /* The signing secret of the platform webhook endpoint (checkout, refunds,
+     disputes, transfers) — and, mid-rotation, the old one (2S8-SEC-02). */
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET_PREVIOUS: z.string().optional(),
+  /* 2S5-INT-03 — payees' accounts are Accounts v2, whose changes Stripe
+     sends as THIN events to an event destination with its own signing
+     secret (v2.core.account…). Optional at boot, but without it a payee's
+     payout account never turns READY. Same URL as the platform endpoint. */
+  STRIPE_THIN_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_THIN_WEBHOOK_SECRET_PREVIOUS: z.string().optional(),
+  /* The signing secret of the CONNECT snapshot endpoint (events on payees'
+     connected accounts: capability.updated, payout.failed). Optional. Stripe
+     signs each endpoint with its own secret; all may point at the same URL. */
+  STRIPE_CONNECT_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS: z.string().optional(),
+  /* On api and web for completeness; hosted Checkout does not need it. */
+  STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  /* The country new payout accounts are opened in (ISO 3166-1 alpha-2). */
+  STRIPE_CONNECT_COUNTRY: z.string().length(2).default("US"),
   /* Signs the stand-in provider's links. Development default is fine: the
      stand-in is refused in production (below). */
   STANDIN_PROVIDER_SECRET: z.string().default("dev-standin-provider-secret"),
+  STANDIN_PROVIDER_SECRET_PREVIOUS: z.string().optional(),
   /* Days after an order is fulfilled before its money can be requested as a
      payout (2S5-BE-04's "configured holding period"). */
   PAYOUT_HOLD_DAYS: z.coerce.number().int().min(0).max(90).default(0),
@@ -166,6 +219,17 @@ const schema = z.object({
      it sends, with one failure kind, so the retry story can be run end to
      end. Unset: it pays. Ignored by any other provider. */
   STANDIN_PAYOUT_FAILURE: z.enum(["TEMPORARY", "ACCOUNT", "OTHER"]).optional(),
+  /* 2S5-INT-02 — a provider webhook is refused when its signed timestamp is
+     further than this from now: a replayed delivery, even correctly signed,
+     is turned away (its event id would make it a no-op anyway). */
+  PAYMENT_WEBHOOK_TOLERANCE_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
+  /* 2S8-QA-02 — how long a call to the payment provider may take before it
+     is given up on (and rolled back, for the queue to retry). */
+  PAYMENT_PROVIDER_TIMEOUT_MS: z.coerce.number().int().min(10).max(120_000).default(15_000),
+  /* 2S8-QA-02 — the stand-in pretends to be down, for outage testing on
+     staging: a comma list of checkout | payout | refund, each optionally
+     ":timeout" (hang until PAYMENT_PROVIDER_TIMEOUT_MS). Unset: it is up. */
+  STANDIN_OUTAGE: z.string().max(200).optional(),
 
   /* 2S1-BE-16 / 2S1-OPS-01 — BTG's support mailbox. The contact form's
      messages are queued to this address, and it is shown wherever a person
@@ -188,6 +252,33 @@ if (parsed.MARKETPLACE_SPENDING_LIMIT_CAP_CENTS < parsed.MARKETPLACE_SPENDING_LI
       "A sponsor's limit starts at the start figure and only rises to the cap, so the cap must be at least the start.",
   );
 }
+/* 2S0-SEC-01 — the two buckets are the whole of the separation between files
+   the world may read (the public CDN bucket: logos, published assets) and
+   files nobody may read without a signed, audited link (the private bucket:
+   ID documents, guardianship proof, agreements, support attachments). Both
+   are plain variables, so one copied into the other would publish every
+   verification document at R2_PUBLIC_BASE_URL. Refused everywhere. */
+if (parsed.S3_BUCKET_PUBLIC.trim().toLowerCase() === parsed.S3_BUCKET_PRIVATE.trim().toLowerCase()) {
+  throw new Error(
+    "S3_BUCKET_PUBLIC and S3_BUCKET_PRIVATE name the same bucket. The public bucket is world-readable, " +
+      "so verification documents would be served to anyone. Refusing to boot.",
+  );
+}
+const privateBucketIn = (base: string, bucket: string) => {
+  try {
+    const u = new URL(base);
+    const b = bucket.trim().toLowerCase();
+    /* Path style (…/<bucket>, as MinIO serves it) or virtual-hosted style (<bucket>.<host>). */
+    return u.pathname.toLowerCase().split("/").includes(b) || u.hostname.toLowerCase().startsWith(`${b}.`);
+  } catch {
+    return false;
+  }
+};
+if (privateBucketIn(parsed.R2_PUBLIC_BASE_URL, parsed.S3_BUCKET_PRIVATE)) {
+  throw new Error(
+    "R2_PUBLIC_BASE_URL points at the private bucket. Public URLs are built from it without a signature. Refusing to boot.",
+  );
+}
 if (parsed.RAILWAY_ENVIRONMENT_NAME?.toLowerCase() === "production" && parsed.PAYMENT_PROVIDER === "standin") {
   throw new Error(
     "PAYMENT_PROVIDER=standin in production. The stand-in provider marks cards " +
@@ -195,6 +286,10 @@ if (parsed.RAILWAY_ENVIRONMENT_NAME?.toLowerCase() === "production" && parsed.PA
       "only. Refusing to boot.",
   );
 }
+/* 2S5-INT-01 — Stripe's keys: present when Stripe is the provider, and the
+   right mode for the environment (a live key only in production). */
+const stripeProblem = stripeConfigProblem(parsed);
+if (stripeProblem) throw new Error(stripeProblem);
 if (parsed.NODE_ENV === "production" && !parsed.ZOHO_WEBHOOK_SECRET) {
   throw new Error(
     "ZOHO_WEBHOOK_SECRET is not set. The Zoho invoice webhook is a public " +
@@ -213,5 +308,35 @@ if (
       "must be a real secret.",
   );
 }
+/* 2S8-SEC-02 — a rotation overlap must not quietly re-admit the public
+   development default. */
+if (
+  parsed.NODE_ENV === "production" &&
+  (parsed.INTAKE_TOKEN_SECRET_PREVIOUS ?? "").split(",").some((s) => s.trim() === "dev-intake-secret-not-for-production")
+) {
+  throw new Error(
+    "INTAKE_TOKEN_SECRET_PREVIOUS contains the development default. The previous " +
+      "value is still accepted, so in production it must be the real old secret.",
+  );
+}
 
-export const env = parsed;
+/* 2S8-SEC-02 — the stand-in provider on STAGING (NODE_ENV=production, not
+   Railway "production") signed its links with the development default unless
+   someone set STANDIN_PROVIDER_SECRET, so anyone who had read this repository
+   could forge a link that marks a payout account ready or a checkout paid.
+   Rather than refuse to boot a staging that may never have set it, an unset
+   secret is DERIVED from INTAKE_TOKEN_SECRET — already guaranteed real in
+   production — under its own label, so it is unguessable with no Railway
+   change. Setting STANDIN_PROVIDER_SECRET explicitly still wins (runbook). */
+const STANDIN_DEV_DEFAULT = "dev-standin-provider-secret";
+const standinSecret =
+  parsed.NODE_ENV === "production" && parsed.STANDIN_PROVIDER_SECRET === STANDIN_DEV_DEFAULT
+    ? createHmac("sha256", parsed.INTAKE_TOKEN_SECRET).update("sponsorx:standin-provider-secret:v1").digest("base64url")
+    : parsed.STANDIN_PROVIDER_SECRET;
+
+export const env = {
+  ...parsed,
+  STANDIN_PROVIDER_SECRET: standinSecret,
+  /* 2S8-PMO-02 — resolved once, so a malformed list fails here, at boot. */
+  clerkAuthorizedParties: authorizedPartiesFrom(parsed.CLERK_AUTHORIZED_PARTIES, parsed.APP_URL, parsed.NODE_ENV),
+};

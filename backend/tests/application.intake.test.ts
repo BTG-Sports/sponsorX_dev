@@ -47,7 +47,11 @@ vi.mock("../src/db/client", () => ({
         (w.id === undefined || r.id === w.id) &&
         (w.tenantId === undefined || r.tenantId === w.tenantId);
       const tx = {
+        /* 2S8-QA-05 — the slug insert runs under a savepoint; nothing to model here. */
+        $executeRawUnsafe: () => Promise.resolve(0),
         athlete: {
+          count: ({ where }: { where: { slug?: string } }) =>
+            Promise.resolve(sa.filter((r) => where.slug === undefined || r.slug === where.slug).length),
           create: ({ data }: { data: Record<string, unknown> }) => {
             const row = { ...data, id: `ath_${nextId++}`, state: "DRAFT" } as Row;
             sa.push(row);

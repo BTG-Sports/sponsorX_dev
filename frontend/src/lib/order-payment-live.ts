@@ -8,6 +8,7 @@
    shop-live's `usd` so the order page's figures all read the same.
    -------------------------------------------------------------------------- */
 
+import { isSafeLocalPath } from "@/lib/safe-path";
 import { fmtDay, fmtStamp, usd, type OrderState } from "@/lib/shop-live";
 
 /* ------------------------------------------------------------------ shapes */
@@ -269,8 +270,7 @@ export const STANDIN_BANNER = "Test payment provider — staging only. This page
  * against a malformed answer — "//evil.example" and "https://…" become "/".
  */
 export function safeReturnPath(p: unknown): string {
-  if (typeof p !== "string" || !p.startsWith("/") || p.startsWith("//") || p.includes("\\")) return "/";
-  return p;
+  return isSafeLocalPath(p) ? p : "/";
 }
 
 /** The stand-in's details answer, checked — anything else is treated as a bad link. */

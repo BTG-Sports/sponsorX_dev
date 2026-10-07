@@ -9,6 +9,8 @@
    own socket, exactly as before.
    -------------------------------------------------------------------------- */
 
+import "server-only";
+
 export function edgeHeaders(req: Request): Record<string, string> {
   return edgeHeadersFrom(req.headers);
 }

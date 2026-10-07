@@ -30,7 +30,7 @@ import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
-import { presignPrivateUpload } from "../lib/storage";
+import { checkPrivateUpload, presignPrivateUpload, uploadRefusal } from "../lib/storage";
 import { notifyGuardianOfUpload } from "./guardian-acts";
 import {
   canTransitionDeliverable,
@@ -111,6 +111,36 @@ export class DraftInReviewError extends Error {
     this.name = "DraftInReviewError";
   }
 }
+
+/**
+ * 2S8-SEC-02 — the key names a file outside this deliverable's own folder.
+ * The asset's download link is presigned from the stored key, so accepting
+ * any key let an athlete point their deliverable at another tenant's QR
+ * image or a sponsor report and read it back (OWASP A01).
+ */
+export class CreativeKeyError extends Error {
+  readonly status = 422;
+  constructor() {
+    super("That file was not uploaded for this deliverable. Start the upload again from this deliverable.");
+    this.name = "CreativeKeyError";
+  }
+}
+
+/** 2S8-SEC-03 — the uploaded file is not what its grant pinned (it has been deleted), or has not arrived. */
+export class CreativeUploadError extends Error {
+  readonly status: number;
+  constructor(message: string, status = 422) {
+    super(message);
+    this.name = "CreativeUploadError";
+    this.status = status;
+  }
+}
+
+/** The largest creative file a grant can be for (CreativeUploadInput's ceiling). */
+export const CREATIVE_MAX_BYTES = 2 * 1024 ** 3;
+
+/** The folder presignCreativeUpload puts every one of a deliverable's files in. */
+export const creativeKeyPrefix = (tenantId: string, deliverableId: string) => `t/${tenantId}/deliverable/${deliverableId}/`;
 
 /** P5-BE-10 — a sponsor approves once BTG has sent the draft to them. */
 export class BtgReviewFirstError extends Error {
@@ -750,7 +780,7 @@ export async function presignCreativeUpload(
   actor: Actor,
   deliverableId: string,
   contentType: string,
-  bytes?: number,
+  bytes: number,
 ): Promise<{ url: string; key: string }> {
   assertAllowed(actor, "creativeAsset", "write");
 
@@ -764,15 +794,16 @@ export async function presignCreativeUpload(
   /* No credential for a file that could not be recorded (P5-BE-09). */
   await assertMayAddVersion(prisma, deliverable);
 
-  const key = `t/${deliverable.tenantId}/deliverable/${deliverable.id}/${crypto.randomUUID()}`;
+  const key = `${creativeKeyPrefix(deliverable.tenantId, deliverable.id)}${crypto.randomUUID()}`;
 
   /* P5-BE-09 — the file-type check reads the type from this grant, so the
      PUT is pinned to it: the bucket refuses another Content-Type (the SDK
-     leaves it unsigned unless asked). The size too, when the client gave it. */
+     leaves it unsigned unless asked). 2S8-SEC-03 — and to its exact size,
+     always: every private upload URL is signed for one type and one size. */
   const url = await presignPrivateUpload(actor, key, contentType, {
     entity: "Deliverable",
     entityId: deliverable.id,
-  }, { signContentType: true, ...(bytes !== undefined ? { contentLength: bytes } : {}) });
+  }, { signContentType: true, contentLength: bytes });
 
   return { url, key };
 }
@@ -799,6 +830,19 @@ export async function registerCreativeAsset(
     });
     if (!deliverable) throw new ForbiddenError("creativeAsset", "write");
 
+    /* 2S8-SEC-02 — only a key in this deliverable's own folder, which is
+       where presignCreativeUpload puts every file and nowhere else. */
+    const prefix = creativeKeyPrefix(deliverable.tenantId, deliverable.id);
+    if (
+      typeof r2Key !== "string" ||
+      !r2Key.startsWith(prefix) ||
+      r2Key.length === prefix.length ||
+      r2Key.split("/").some((part) => part === ".." || part === ".") ||
+      r2Key.includes("\\")
+    ) {
+      throw new CreativeKeyError();
+    }
+
     await assertMayAddVersion(tx, deliverable);
 
     /* P5-BE-09 — the file's type is the one its upload was presigned for:
@@ -818,8 +862,21 @@ export async function registerCreativeAsset(
       select: { after: true },
       orderBy: { at: "desc" },
     });
-    const granted = (grant?.after as { contentType?: unknown } | null)?.contentType;
+    const pinned = (grant?.after ?? null) as { contentType?: unknown; bytes?: unknown } | null;
+    const granted = pinned?.contentType;
     const contentType = normalizeContentType(typeof granted === "string" ? granted : null);
+
+    /* 2S8-SEC-03 — registering is this upload's confirm step: what arrived
+       must be what the grant pinned (its type and exact size), or it is
+       deleted, audited and refused. A key with no grant has nothing to
+       compare against; the file-type check refuses it, as before. */
+    if (typeof granted === "string") {
+      const arrived = await checkPrivateUpload(actor, r2Key,
+        { contentType: granted, bytes: typeof pinned?.bytes === "number" ? pinned.bytes : null, maxBytes: CREATIVE_MAX_BYTES },
+        { entity: "Deliverable", entityId: deliverable.id });
+      if (!arrived.ok && arrived.problem === "missing") throw new CreativeUploadError("That file hasn't arrived yet — upload it, then record it.", 409);
+      if (!arrived.ok) throw new CreativeUploadError(uploadRefusal(arrived.problem));
+    }
 
     const highest = await tx.creativeAsset.aggregate({
       /* tenant-scope: keyed by the deliverable loaded above through whereFor. */

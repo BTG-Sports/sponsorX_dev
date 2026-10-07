@@ -52,7 +52,7 @@ import { assertAllowed, assertTenantWide, scopeOf, whereFor } from "../auth/scop
 import { ForbiddenError } from "../auth/errors";
 import type { HANDOFF_GROUPS } from "../contracts/guardian-handoff";
 import { issuePurposeToken, readPurposeToken } from "../lib/purpose-token";
-import { presignPrivateDownload, presignPrivateUpload, privateObjectSize, SENSITIVE_DOCUMENT_TTL_SECONDS } from "../lib/storage";
+import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, SENSITIVE_DOCUMENT_TTL_SECONDS, uploadRefusal } from "../lib/storage";
 import { provisionGuardianLoginIn } from "./athlete-login";
 import { requiresGuardian } from "./guardian-rules";
 import { safeFilename } from "./onboarding-documents";
@@ -275,18 +275,24 @@ export async function requestHandoffDocumentUpload(token: string, input: { kind:
     },
     select: { id: true, kind: true, proofKind: true, filename: true },
   });
-  const uploadUrl = await presignPrivateUpload(SYSTEM(r.tenantId), r2Key, input.contentType, { entity: "GuardianHandoffDocument", entityId: id });
+  /* 2S8-SEC-03 — the PUT is signed for exactly this type and size. */
+  const uploadUrl = await presignPrivateUpload(SYSTEM(r.tenantId), r2Key, input.contentType, { entity: "GuardianHandoffDocument", entityId: id }, {
+    signContentType: true, contentLength: input.bytes,
+  });
   return { document: doc, uploadUrl, contentType: input.contentType };
 }
 
 /** Step two: counted only if the file is really in the bucket. */
 export async function confirmHandoffDocumentUpload(token: string, documentId: string) {
   const r = await rowById(prisma, idFrom(token));
-  const doc = await prisma.guardianHandoffDocument.findFirst({ where: { tenantId: r.tenantId, handoffId: r.id, id: documentId }, select: { id: true, r2Key: true } });
+  const doc = await prisma.guardianHandoffDocument.findFirst({ where: { tenantId: r.tenantId, handoffId: r.id, id: documentId }, select: { id: true, r2Key: true, contentType: true, bytes: true } });
   if (!doc) throw new HandoffError("That file isn't part of this request.", 404);
-  const size = await privateObjectSize(doc.r2Key);
-  if (size === null) throw new HandoffError("That file hasn't arrived yet — upload it, then confirm.");
-  if (size > MAX_ID_BYTES) throw new HandoffError("That file is over 10 MB.", 422);
+  /* 2S8-SEC-03 — what arrived must be what the grant pinned; anything else is deleted. */
+  const arrived = await checkPrivateUpload(SYSTEM(r.tenantId), doc.r2Key,
+    { contentType: doc.contentType, bytes: doc.bytes, maxBytes: MAX_ID_BYTES }, { entity: "GuardianHandoffDocument", entityId: doc.id });
+  if (!arrived.ok && arrived.problem === "missing") throw new HandoffError("That file hasn't arrived yet — upload it, then confirm.");
+  if (!arrived.ok) throw new HandoffError(uploadRefusal(arrived.problem), 422);
+  const size = arrived.bytes;
   await prisma.$transaction(async (tx) => {
     await tx.guardianHandoffDocument.update({
       /* tenant-scope: the document loaded above, within this request. */
@@ -636,6 +642,7 @@ async function handOff(tx: Tx, actor: Actor, r: Row) {
       select: { id: true },
     })).id;
   if (existing && !existing.verifiedAt) {
+    /* tenant-scope: the guardian found above by email within this request's own tenant (r.tenantId). */
     await tx.guardian.update({ where: { id: existing.id }, data: { verifiedAt: at }, select: { id: true } });
   }
   /* The evidence 2S1-BE-10 records for a guardian approved by the system. */

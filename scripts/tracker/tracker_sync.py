@@ -412,13 +412,25 @@ def cmd_notify(a) -> int:
     return 0
 
 
+def ref_before(ref: str, since: str) -> str:
+    """The last commit on `ref` older than `since` ("24 hours ago"), or "" if none."""
+    return subprocess.run(["git", "rev-list", "-1", f"--before={since}", ref],
+                          capture_output=True, text=True).stdout.strip()
+
+
 def cmd_digest(a) -> int:
     today = a.date or dt.datetime.now(MANILA).strftime("%Y-%m-%d")
     now = board_at(a.ref)
-    since = subprocess.run(["git", "rev-list", "-1", f"--before={a.since}", a.ref],
-                           capture_output=True, text=True).stdout.strip()
+    since = ref_before(a.ref, a.since)
     day_ago = board_at(since) if since else None
-    post_slack(render_digest(now, day_ago, today), os.environ.get("SLACK_WEBHOOK_URL"), a.dry_run)
+    # Each merge to main that changes tasks is announced as it lands
+    # (tracker-notify.yml). The 8 pm post is for the days with none: when
+    # tasks changed in the window, Slack has already heard, so it stays quiet.
+    # The Stage Progress row below is appended every day either way.
+    if a.skip_if_announced and day_ago is not None and diff(day_ago, now):
+        print("Task changes reached main in the window and were announced as they merged — no 8 pm Slack post.")
+    else:
+        post_slack(render_digest(now, day_ago, today), os.environ.get("SLACK_WEBHOOK_URL"), a.dry_run)
     row = stage_snapshot(now, today)
     sheet = None if a.dry_run else open_sheet()
     if sheet is None:
@@ -464,6 +476,8 @@ def main(argv=None) -> int:
     d.add_argument("--since", default="24 hours ago")
     d.add_argument("--date", default="")
     d.add_argument("--dry-run", action="store_true")
+    d.add_argument("--skip-if-announced", action="store_true",
+                   help="skip the Slack post when tasks changed on main in the window (each merge was announced)")
     f = sub.add_parser("sync-all", help="one-off: bring the Sheet level with the tracker")
     f.add_argument("--ref", default="HEAD")
     f.add_argument("--dry-run", action="store_true")
