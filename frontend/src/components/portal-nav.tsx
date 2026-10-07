@@ -29,6 +29,8 @@ export type NavItem = {
   pending?: boolean;
   /** P1-ART-21 — the collapsible section this item sits in (none: at the top). */
   group?: string;
+  /** The group's glyph, set on one of its items. */
+  groupIcon?: NavIcon;
 };
 
 function Glyph({ icon }: { icon: NavIcon }) {
@@ -124,26 +126,53 @@ function GroupedNav({
         const headDelay = 80 + (top.length + gi) * 40;
         return (
           <section key={g.key} className="mt-1.5">
+            {/* The header: a glyph tile like the desks', the name, a lit count,
+                a caret. The group you are in gets the accent rail and wash
+                the active desk gets; an open group a brighter tile. */}
             <button
               type="button"
               onClick={() => toggle(g.key)}
               aria-expanded={isOpen}
               aria-controls={id}
+              data-holds={holds ? "" : undefined}
+              data-open={isOpen ? "" : undefined}
               style={{ animationDelay: `${headDelay}ms` } as CSSProperties}
-              className={`sx-animate group/head flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.18em] transition-colors ${
-                holds ? accent.accentText : "text-faint hover:text-text"
+              className={`sx-animate sx-nav-head group/head relative flex w-full items-center gap-3 rounded-xl px-2.5 py-1.5 text-left transition-all duration-300 ${
+                holds ? `bg-gradient-to-r ${accent.accentWash} to-transparent` : "hover:bg-surface-2/70"
               }`}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-                className={`size-3 shrink-0 transition-transform duration-300 ${isOpen ? "rotate-90" : ""}`}>
-                <path d="m9 6 6 6-6 6" />
-              </svg>
-              <span className="truncate">{g.label}</span>
-              <span className={`ml-auto rounded-full px-1.5 py-px text-[9px] font-medium tabular-nums tracking-normal ${holds && !isOpen ? `${accent.accentBg} ${accent.accentText}` : "bg-surface-2/70 text-faint"}`}>
+              <span
+                aria-hidden="true"
+                className={`absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full ${accent.accentDot} transition-all duration-300 ${holds ? "scale-y-100 opacity-100" : "scale-y-0 opacity-0"}`}
+              />
+              <span
+                className={`sx-nav-tile grid size-7 shrink-0 place-items-center rounded-lg border transition-all duration-300 ${
+                  holds
+                    ? `${accent.accentBg} ${accent.accentText} border-transparent`
+                    : isOpen
+                      ? "border-line bg-surface-2 text-text"
+                      : "border-line/60 text-faint group-hover/head:border-line group-hover/head:bg-surface-2 group-hover/head:text-text"
+                }`}
+              >
+                <Glyph icon={(g.icon as NavIcon | undefined) ?? "grid"} />
+              </span>
+              <span className={`min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors ${
+                holds ? accent.accentText : isOpen ? "text-text" : "text-muted group-hover/head:text-text"
+              }`}>
+                {g.label}
+              </span>
+              <span className={`rounded-full px-1.5 py-px text-[9px] font-semibold tabular-nums transition-colors ${
+                holds ? `${accent.accentBg} ${accent.accentText}` : "border border-line/70 text-faint group-hover/head:text-muted"
+              }`}>
                 {g.items.length}
               </span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                className={`size-3 shrink-0 transition-transform duration-300 ${isOpen ? `rotate-90 ${holds ? accent.accentText : "text-text"}` : "text-faint"}`}>
+                <path d="m9 6 6 6-6 6" />
+              </svg>
             </button>
-            <div id={id} hidden={!isOpen} className="space-y-1 pb-1">
+            {/* The desks hang off a track line from the tile. */}
+            <div id={id} hidden={!isOpen} className="sx-nav-track relative ml-[1.3rem] mt-0.5 space-y-0.5 border-l border-line/70 pb-1.5 pl-1.5">
               {g.items.map((item, k) => <Item key={item.pending ? item.label : item.href} item={item} delayMs={k * 25} quick pathname={pathname} rootHref={rootHref} {...accent} />)}
             </div>
           </section>

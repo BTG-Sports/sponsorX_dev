@@ -37,7 +37,7 @@ describe("P1-ART-21 · sidebar groups", () => {
 
   it("the admin nav: Dashboard on top, every other desk in a group, each group sorted A → Z", () => {
     const src = readFileSync(new URL("../src/app/(app)/admin/layout.tsx", import.meta.url), "utf8");
-    const items = [...src.matchAll(/\{ href: "([^"]+)", label: "([^"]+)", icon: "[a-z]+"(?:, group: "([^"]+)")? \}/g)].map((m) => ({ href: m[1]!, label: m[2]!, group: m[3] }));
+    const items = [...src.matchAll(/\{ href: "([^"]+)", label: "([^"]+)", icon: "[a-z]+"(?:, group: "([^"]+)")?(?:, groupIcon: "[a-z]+")? \}/g)].map((m) => ({ href: m[1]!, label: m[2]!, group: m[3] }));
     expect(items.length).toBeGreaterThan(25);
     const { top, groups } = groupNav(items);
     expect(top.map((i) => i.label)).toEqual(["Dashboard"]);

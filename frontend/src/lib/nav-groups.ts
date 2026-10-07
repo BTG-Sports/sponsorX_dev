@@ -12,9 +12,9 @@
    Pure: used by the sidebar, the phone drawer and the tests.
    -------------------------------------------------------------------------- */
 
-export type GroupedItem = { href: string; label: string; group?: string; pending?: boolean };
+export type GroupedItem = { href: string; label: string; group?: string; pending?: boolean; /** The group's glyph — set on one item of the group. */ groupIcon?: string };
 
-export type NavGroup<T extends GroupedItem> = { key: string; label: string; items: T[] };
+export type NavGroup<T extends GroupedItem> = { key: string; label: string; items: T[]; icon?: string };
 
 export function groupNav<T extends GroupedItem>(nav: readonly T[]): { top: T[]; groups: NavGroup<T>[] } {
   const top: T[] = [];
@@ -29,6 +29,7 @@ export function groupNav<T extends GroupedItem>(nav: readonly T[]): { top: T[]; 
       g = { key: item.group.toLowerCase().replace(/[^a-z0-9]+/g, "-"), label: item.group, items: [] };
       groups.push(g);
     }
+    if (item.groupIcon && !g.icon) g.icon = item.groupIcon;
     g.items.push(item);
   }
   return { top, groups };

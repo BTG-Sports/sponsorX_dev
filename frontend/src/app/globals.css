@@ -2784,3 +2784,19 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
 @media (prefers-reduced-motion: reduce) {
   .sx-ops .sx-table tbody tr { animation: none; }
 }
+
+/* P1-ART-21 — the sidebar's groups on the stage: the group you are in glows
+   at its tile; an open group's track line is cyan; a header's hover sweeps. */
+.sx-ops .sx-nav-head[data-holds] .sx-nav-tile { box-shadow: 0 0 16px rgba(46, 155, 245, 0.45); }
+.sx-ops .sx-nav-head[data-open]:not([data-holds]) .sx-nav-tile { border-color: rgba(99, 180, 248, 0.45); color: #cfe9ff; }
+.sx-ops .sx-nav-track { border-color: rgba(99, 180, 248, 0.28); }
+.sx-ops .sx-nav-head::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, rgba(94, 224, 255, 0.08), transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+.sx-ops .sx-nav-head:hover::after { animation: sx-row-sweep 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }

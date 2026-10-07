@@ -47,6 +47,18 @@ group with no desks for a role doesn't appear.
 - The phone drawer lists the groups by name with their desks two to a row,
   scrolling; before, 29 lines of large type had to fit one screen.
 
+## The look (owner: "redesign the visual, too plain")
+
+A group header reads like a desk row: a glyph tile (inbox, megaphone,
+store, wallet, users, book, gear — `groupIcon` on one item of the group),
+the name, a count chip and a caret. The group you are in gets what the
+active desk gets — the accent rail, the gradient wash, a lit tile that
+glows on the stage, a lit count. An open group's tile and name brighten
+and its desks hang off a track line from the tile; on the stage the line
+is cyan. Hover sweeps a light across the header. A group's desks appear
+at once when it opens — timed from the group's own first row, not the top
+of the whole nav (the first cut made the last group wait over a second).
+
 ## Mechanics
 
 `NavItem` gains `group?: string`. `lib/nav-groups.ts` (pure, unit-tested)
