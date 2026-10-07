@@ -169,9 +169,9 @@ Fourteen new screens across onboarding, athlete and team portals, listing editor
 - **Done when:** All 14 Phase 2 screens designed, with the onboarding wizard and checkout flows walked end to end
 - **Reference:** Spec §6
 
-### ⏸ `2S0-OPS-01` · Define RPO and RTO targets
+### ✅ `2S0-OPS-01` · Define RPO and RTO targets
 
-**Order** 8 · **OPS** · **Where:** Document · **1d** · **Blocked**
+**Order** 8 · **OPS** · **Where:** Document · **1d** · **Done**
 
 Once real money moves, 'we restore from last night's backup' stops being acceptable. The spec suggests RPO ≤ 1 hour and RTO ≤ 4 hours as an early target.
 
@@ -790,9 +790,9 @@ Listing data, pricing, package builder, preview, approval status and visibility 
 - **Done when:** A property can build, preview and submit a listing for approval
 - **Reference:** Spec §6 P2-07
 
-### ⏸ `2S3-FE-02` · Listing screen for independent athletes
+### ✅ `2S3-FE-02` · Listing screen for independent athletes
 
-**Order** 28.5 · **FE** · **Where:** Code · **3d** · **Blocked**
+**Order** 28.5 · **FE** · **Where:** Code · **3d** · **Done**
 
 The athlete-side "put it on sale" step: from their inventory, an athlete with no team writes what the sponsor gets, sees the same checklist of what BTG checks, and submits for approval; they can then follow the listing's state, pause it and take it down. An athlete on a team is told their team lists it.
 
@@ -1276,9 +1276,9 @@ Gross revenue, fees, available balance, pending balance, payout history and exce
 - **Done when:** Dashboard reconciles to the ledger to the cent
 - **Reference:** Spec §6 P2-11
 
-### ⏸ `2S5-FE-03` · Athlete and team payout screens
+### ✅ `2S5-FE-03` · Athlete and team payout screens
 
-**Order** 46.3 · **FE** · **Where:** Code · **4d** · **Blocked**
+**Order** 46.3 · **FE** · **Where:** Code · **4d** · **Done**
 
 Where an athlete (and a team) gets paid. First the payout account: until it is ready the page says plainly that a Stripe account is needed and links out to Stripe to set one up (and back again if Stripe needs more information); SponsorX never sees bank details. Then the money: available, held in reserve and paid out; a Request payout button for the available balance, disabled with the reason when a rule isn't met; and a payout history whose status moves Requested → Approved by BTG → Sent → Paid, confirmed by the payment provider. Stripe itself stays invisible after set-up — the payee sees SponsorX's statuses and an email when it's paid. Raised 2026-09-30 from the walkthrough (steps 5, 14, 15).
 
@@ -1286,9 +1286,9 @@ Where an athlete (and a team) gets paid. First the payout account: until it is r
 - **Done when:** An athlete can set up their payout account from SponsorX, request their available balance, and follow it to Paid; the team does the same from its Earnings page; the figures reconcile to the ledger
 - **Reference:** Spec §6 P2-11, §7.4; walkthrough 2026-09-30
 
-### ⏸ `2S5-FE-04` · BTG payout approval screen
+### ✅ `2S5-FE-04` · BTG payout approval screen
 
-**Order** 46.6 · **FE** · **Where:** Code · **3d** · **Blocked**
+**Order** 46.6 · **FE** · **Where:** Code · **3d** · **Done**
 
 BTG's queue of payout requests: waiting, sending, paid and problems, each with the payee, amount, orders, how long it has waited and the result of every payout rule. The detail shows the frozen split behind it and lets BTG approve (handing it to the payment provider) or send it back with a note, then follow it to Paid or to a problem it can act on.
 
@@ -1733,9 +1733,9 @@ Production's live Stripe secret key was created on 2026-10-06 with **full access
 - **Done when:** Production uses a restricted live key that the sandbox smoke run proved sufficient; the full-access live key is deleted in Stripe
 - **Reference:** `documentation/SponsorX-Stripe-Integration.md`, `documentation/SponsorX-Secrets-Rotation.md`; raised 2026-10-06
 
-### ⏸ `2S8-PMO-02` · Security settings the owner decides
+### ✅ `2S8-PMO-02` · Security settings the owner decides
 
-**Order** 62.5 · **PMO** · **Where:** Document · **1d** · **Code review**: all seven decided 2026-10-06; Done once deployed to staging and production
+**Order** 62.5 · **PMO** · **Where:** Document · **1d** · **Done**
 
 The security review leaves seven decisions to the owner:
 1. A full CSP, in report-only mode first.

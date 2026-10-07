@@ -151,13 +151,30 @@ describe("2S8-PMO-02 decision 1 · the full CSP, report-only", async () => {
     expect(dev["connect-src"]).toEqual(expect.arrayContaining(["ws:", "http://127.0.0.1:9100", "http://localhost:9000"]));
   });
 
-  it("reports (and the claim confirmation link, decision 5) go to the API through the web server — those two exact paths only", () => {
+  it("reports (and the claim confirmation link, decision 5, and the health check, 2S8-OPS-01) go to the API through the web server — those three exact paths only", () => {
     expect(apiRewrites(PROD)).toEqual([
       { source: CSP_REPORT_PATH, destination: "http://api.railway.internal:8080/api/v1/public/csp-report" },
       { source: "/api/v1/public/athlete-claims/confirm", destination: "http://api.railway.internal:8080/api/v1/public/athlete-claims/confirm" },
+      { source: "/api/v1/public/health", destination: "http://api.railway.internal:8080/health/full" },
     ]);
     expect(apiRewrites({})[0]!.destination).toBe("http://localhost:4000/api/v1/public/csp-report");
     for (const r of apiRewrites(PROD)) expect(r.source).not.toMatch(/[:*(]/);
+  });
+});
+
+describe("2S8-OPS-01 · the public health check", async () => {
+  const { apiRewrites, PUBLIC_HEALTH_PATH } = await import("../next.config");
+
+  it("the exact path /api/v1/public/health forwards to the API's /health/full over API_URL", () => {
+    expect(PUBLIC_HEALTH_PATH).toBe("/api/v1/public/health");
+    const health = apiRewrites({ API_URL: "http://api.railway.internal:8080/" }).filter((r) => r.source === PUBLIC_HEALTH_PATH);
+    expect(health).toEqual([{ source: "/api/v1/public/health", destination: "http://api.railway.internal:8080/health/full" }]);
+    expect(apiRewrites({}).find((r) => r.source === PUBLIC_HEALTH_PATH)!.destination).toBe("http://localhost:4000/health/full");
+  });
+
+  it("forwards nothing else of /health — not /ready, not liveness, no wildcard", () => {
+    const destinations = apiRewrites({ API_URL: "http://api:8080" }).map((r) => r.destination);
+    expect(destinations.filter((d) => d.includes("/health"))).toEqual(["http://api:8080/health/full"]);
   });
 });
 

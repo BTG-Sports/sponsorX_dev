@@ -60,10 +60,20 @@ export const CSP_REPORT_PATH = "/api/v1/public/csp-report";
    screen: a page of its own is a frontend follow-up. */
 export const CLAIM_CONFIRM_PATH = "/api/v1/public/athlete-claims/confirm";
 
+/* 2S8-OPS-01 — the whole chain's health, for the uptime monitor
+   (.github/workflows/health-monitor.yml). Production's API has no public
+   address, so this is the only way to ask it from outside: through this web
+   server, over API_URL, to the API's GET /health/full (dependencies and
+   backup freshness — booleans and minutes, no hosts, rate-limited there). */
+export const PUBLIC_HEALTH_PATH = "/api/v1/public/health";
+
 /** The only paths the web server forwards to the API. Exact paths, no wildcards. */
 export function apiRewrites(env: Env) {
   const api = (env.API_URL ?? "http://localhost:4000").replace(/\/+$/, "");
-  return [CSP_REPORT_PATH, CLAIM_CONFIRM_PATH].map((path) => ({ source: path, destination: `${api}${path}` }));
+  return [
+    ...[CSP_REPORT_PATH, CLAIM_CONFIRM_PATH].map((path) => ({ source: path, destination: `${api}${path}` })),
+    { source: PUBLIC_HEALTH_PATH, destination: `${api}/health/full` },
+  ];
 }
 
 /** `pk_test_<base64("host$")>` → `https://host`, or null for a key that isn't one. */

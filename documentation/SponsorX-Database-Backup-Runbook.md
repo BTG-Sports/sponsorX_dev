@@ -9,6 +9,26 @@ first attempt.
 
 ---
 
+## Recovery targets (2S0-OPS-01): agreed 2026-10-07
+
+The programme owner agreed these targets on 2026-10-07:
+
+| Target | Agreed | What it means |
+|---|---|---|
+| **RPO**: the most data we may lose | **≤ 1 hour** | After a disaster, the database comes back to a moment no more than an hour before it. |
+| **RTO**: the longest we may be down | **≤ 4 hours** | SponsorX is back serving requests within four hours of deciding to restore. |
+
+**The current backup setup meets both targets, so no change was needed.** Checked on 2026-10-07 with `railway postgres pitr status`:
+- **RPO:** point-in-time recovery is on in both environments. The write-ahead log is archived continuously; the last archive was minutes before the check on both. A restore can therefore target any moment in the window, so the real loss is minutes, well inside 1 hour.
+- **Backup schedule:** daily, weekly and, in production, monthly backups give fallbacks if the log were ever damaged. Their retention, in the order `pitr schedule list` printed it:
+  - staging: daily 6 days, weekly 27 days;
+  - production: weekly 27 days, monthly 89 days, daily 6 days.
+- **RTO:** a point-in-time restore goes into a **new** service beside the live one (see *Restoring*), followed by a check and a `DATABASE_URL` cutover. 2S8-OPS-01 times this end to end against the 4-hour target.
+
+**What keeps the RPO true:** the WAL archiver must keep running. If `Last archived at` in `pitr status` is ever more than an hour old, the RPO is already at risk. 2S8-OPS-01 covers watching this.
+
+---
+
 ## What exists today
 
 | | Staging | Production |
@@ -120,17 +140,92 @@ mistake.
 
 ---
 
+## Restore and rollback test, 2026-10-07 (2S8-OPS-01)
+
+This test was run on staging, with its real schema and data: 608 audit rows, 26 users, an order and 65 payment events.
+
+**Point-in-time restore (non-destructive):**
+1. A read-only fingerprint of live staging was taken at 05:29:50 UTC: the row counts above, plus the newest audit time, 2026-10-06 14:05:44.
+2. Then this ran at 05:29:58:
+   ```
+   railway postgres pitr restore --service Postgres --environment staging --at 10m --new-service-name pg-restore-check-1007 --yes
+   ```
+   The target was 05:19:58.
+3. The new service deployed at 05:30:21. It then replayed the archived WAL and **accepted queries at 05:39:31, about 9.5 minutes after the restore began**. `pg_is_in_recovery() = false`.
+4. **The fingerprint of the restored copy matched live exactly:** 608 / 26 / 1 / 65, with the same newest audit time. It was read inside the restored service's own container: `railway ssh --service pg-restore-check-1007 -- psql -U postgres -d railway …`.
+5. The temporary service was deleted afterwards.
+
+**Against the targets:**
+- **RPO ≤ 1 hour:** met. The restore landed on the chosen moment, and the WAL was archived minutes before it.
+- **RTO ≤ 4 hours:** met with a wide margin. The steps are a restore of about 10 minutes, a check of a few minutes, and the `DATABASE_URL` cutover plus a redeploy of about a minute, which is a little over 15 minutes in all. Allow more as the database grows, and re-time this yearly or after a big data change.
+
+**Rolling back the app (staging, 05:32):**
+- Rolling the api and web back to the previous deployment (`deploymentRollback`) took **41 seconds**. Staging served normally: web 200, `/health/ready` 200.
+- Rolling forward again took **51 seconds**.
+- **Rollback is code-only.** Migrations only move forward. Code rolled back past a migration runs against the newer schema, so for example a profile claim made during that window would fail the PENDING_EMAIL CHECK. Before rolling back across a migration, check that the older code tolerates the newer schema. If it doesn't, roll forward with a fix instead.
+
+## Alerts (2S8-OPS-01)
+
+**What is watched.** Every 15 minutes, `.github/workflows/health-monitor.yml`
+checks staging (`https://web-staging-904a.up.railway.app`) and production
+(`https://sponsorx.net`) from outside, through the public web address:
+
+| Check | Passes when |
+|---|---|
+| `GET /` | the web server answers 200 |
+| `GET /api/v1/public/health` | 200 with `"status":"ok"`. The web server forwards it to the API's `GET /health/full`, which checks Postgres, Redis and storage (as `/health/ready` does) **and the backups** |
+
+**Thresholds.**
+
+- **Backups: 60 minutes,** the RPO. The API reads `pg_stat_archiver`: the
+  check fails when the last successful WAL archive is more than 60 minutes old,
+  or when the archiver's last failure is newer than its last success. On Railway,
+  an archiver that has never archived also fails. Off Railway (local, CI), that
+  case reports `configured: false` and passes.
+- **Each check is tried 3 times** (curl, 2 retries, 10 s to connect, 20 s per
+  attempt). A check counts as failed only when all three attempts fail, so a
+  single blip does not page anyone.
+
+**Where alerts go.** Slack, through the repository secret `SLACK_WEBHOOK_URL`
+(the same webhook as the tracker messages). Messages are sent only when the
+state changes, separately for each environment:
+
+- **SponsorX health alert:** an environment went from healthy to failing. The
+  message names the environment, each failing check with what it saw (for
+  example `answered 503 degraded — failing: backups`), and links the run.
+- **SponsorX recovered:** it is healthy again.
+
+While an environment stays down, the monitor posts nothing more; the run stays
+red in the Actions tab. To see the live detail yourself:
+`curl -s https://sponsorx.net/api/v1/public/health`.
+
+**Send a test alert** (after the workflow is on `main`):
+
+```bash
+gh workflow run health-monitor.yml -f simulate_failure=true
+```
+
+Slack receives one message headed **"[TEST] SponsorX health alert"**, which
+also shows the live status of both environments. A test does not change the
+monitor's state, so it causes no false "recovered" message afterwards.
+
+**If backups alert:** run `railway postgres pitr status --service <Postgres
+service> --environment <env>` and compare `Last archived at`. A quiet database
+cannot cause a false alert here. On 2026-10-07 both databases showed
+`archive_mode = on` and `archive_timeout = 60` (seconds) in `pg_settings`, so a
+segment is archived at least every minute even with no writes, and
+`pg_stat_archiver` reported the last archive at most 1 minute old. If that
+setting ever changes, revisit the 60-minute threshold.
+
+---
+
 ## What is not proven
 
-- **No restore has been tested with real data in it.** The staging database was
-  empty. The mechanism is proven; the fidelity of a restore is not, and cannot be
-  until `P2-BE-02` creates a schema and something writes rows.
 - **Production's restore has never been exercised**, only staging's. The
   mechanism is identical and the commands are above, but the first production
   restore will still be somebody's first production restore.
-- **Nobody has timed a restore of a realistic database.** Sixteen megabytes came
-  back in about a minute. That number tells you nothing about a real one, and the
-  recovery-time figure `2S0-OPS-01` asks for in Phase 2 needs a real measurement.
+- **Large databases:** staging restored in about 10 minutes at its current size. A
+  much larger production database will take longer; re-time it as data grows.
 
 ---
 
