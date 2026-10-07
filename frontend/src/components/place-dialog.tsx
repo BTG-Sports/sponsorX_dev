@@ -236,8 +236,8 @@ export function PlaceDialog({
 /** A designed, searchable dropdown (no native <select>): a trigger showing
  *  the choice, and a popover with a filter box and a listbox — ↑ ↓ ⏎, Esc
  *  closes the list (not the dialog). */
-function ComboBox({
-  label, placeholder, options, value, onPick, note, disabled = false, autoFocus = false,
+export function ComboBox({
+  label, placeholder, options, value, onPick, note, disabled = false, autoFocus = false, showCode = true,
 }: {
   label: string;
   placeholder: string;
@@ -247,6 +247,8 @@ function ComboBox({
   note?: (o: Option) => string | null;
   disabled?: boolean;
   autoFocus?: boolean;
+  /** Print each option's code before its name (country codes); off for named choices. */
+  showCode?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -298,7 +300,7 @@ function ComboBox({
         <span id={`${id}-value`} className="flex min-w-0 flex-1 items-center gap-2">
           {chosen ? (
             <>
-              {chosen.code && <span className="font-mono text-xs font-semibold text-[#9be0ff]">{chosen.code}</span>}
+              {showCode && chosen.code && <span className="font-mono text-xs font-semibold text-[#9be0ff]">{chosen.code}</span>}
               <span className="truncate font-medium text-white">{chosen.name}</span>
             </>
           ) : (
@@ -334,7 +336,7 @@ function ComboBox({
                     onClick={() => choose(o)}
                     className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs ${i === active ? "bg-[#2e9bf5]/22" : ""} ${o.code === value ? "text-white" : "text-[#cfe9ff]"}`}
                   >
-                    <span className="w-9 shrink-0 font-mono font-semibold text-[#9be0ff]">{o.code || "—"}</span>
+                    {showCode && <span className="w-9 shrink-0 font-mono font-semibold text-[#9be0ff]">{o.code || "—"}</span>}
                     <span className="min-w-0 flex-1 truncate">{o.name}</span>
                     {n && <span className="shrink-0 rounded-full border border-[#63b4f8]/30 px-1.5 text-[10px] text-[#9aa4b2]">{n}</span>}
                     {o.code === value && <span aria-hidden="true" className="text-[#9be0ff]">✓</span>}

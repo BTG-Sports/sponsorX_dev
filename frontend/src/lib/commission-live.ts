@@ -91,6 +91,28 @@ export function groupRules(rules: ApiRule[]): RuleGroup[] {
   });
 }
 
+/** "Sep 12, 2026" */
+export function sinceLabel(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** What one kind's tile on the split strip says (P1-ART-19): the rate for
+ *  everyone as the headline, and one line under it. */
+export type KindSummary = { everyone: ApiRule | null; overrides: number; headline: string; caption: string; empty: boolean };
+export function kindSummary(g: Pick<RuleGroup, "current">): KindSummary {
+  const everyone = g.current.find((r) => r.scope === "GLOBAL") ?? null;
+  const overrides = g.current.filter((r) => r.scope !== "GLOBAL").length;
+  const n = (k: number, w: string) => `${k} ${w}${k === 1 ? "" : "s"}`;
+  if (everyone) {
+    return {
+      everyone, overrides, empty: false, headline: rateLabel(everyone),
+      caption: overrides ? `everyone · ${n(overrides, "override")}` : `everyone · since ${sinceLabel(everyone.effectiveFrom)}`,
+    };
+  }
+  if (overrides) return { everyone, overrides, empty: false, headline: "—", caption: `${n(overrides, "scoped rule")} · none for everyone` };
+  return { everyone, overrides, empty: true, headline: "—", caption: "no rule · adds nothing" };
+}
+
 export type NewRuleForm = { kind: RuleKind; scope: RuleScope; scopeRef: string; percent: string; fixed: string; priority: string; note: string };
 
 /** What the admin typed, as the API's rule — or the first thing wrong with it, in words. */

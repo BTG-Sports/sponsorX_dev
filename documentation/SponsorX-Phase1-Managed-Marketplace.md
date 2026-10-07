@@ -815,6 +815,22 @@ Raised 2026-10-07 by the programme owner: the admin desks that still list whole 
 - **Done when:** none of the ten desks reads a whole list; every count on them is the API's; each renders a table (or the briefs' rows) with the pager above and below, or an empty state; no console error, no horizontal overflow; backend static scope tests and one paged-shape test per endpoint green; frontend tests, lint, build green
 - **Reference:** `docs/superpowers/specs/2026-10-07-admin-lists-paged-tables-design.md`; `frontend/src/components/stage-table.tsx`; `backend/src/lib/paging.ts`; `e2e/admin-lists-paged.spec.ts`
 
+### ▶ `P1-ART-19` · Commission desk — the split strip, one kind's rules as a table, add / revise in a dialog
+
+**Order** 32.998 · **ART** · **Where:** Code · **1d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-07 by the programme owner: `/admin/commission` had too much space — six tall cards, most saying "No rule", an always-open add-rule form, the sample order under it all. Restructure it to be easier on the eyes.
+
+- **The split strip.** Six tiles in one row, in the order money comes off a sale, each headlining the rate for everyone with one line under it (overrides, since when, or "no rule"). The strip answers "how is a sale split?"; a tile picks a kind.
+- **The kind's rules as one table** (the P1-FE-31 stage table): applies to, rate, priority, since, version — highest priority first, earlier versions unfolding under a row.
+- **The sample order beside it**, sticky on a wide screen, the split drawn as a waterfall.
+- **Add and revise in a dialog** in the sign-up rules dialog's shape: named dropdowns, nothing typed that isn't a choice, and "Preview with this rule" against the sample order before saving.
+- Structure and visuals only: the API still decides which rule applies, versions and the split.
+
+- **Depends on:** `P1-ART-18` (the stage), `P1-FE-31` (the stage table)
+- **Done when:** one screen at 1440 for a desk with rules; the strip headlines every kind's rate for everyone; add and revise open a dialog with a preview against the sample order; no console error, no horizontal overflow at 390; unit tests, lint, tsc and build green
+- **Reference:** `docs/superpowers/specs/2026-10-07-commission-desk-design.md`; `frontend/src/components/commission-editor.tsx`, `commission-preview.tsx`, `commission-rule-dialog.tsx`
+
 ### ▶ `P1-FE-18` · Apply the SponsorX NEXT UI requirement across the existing pages
 
 **Order** 37.02 · **FE** · **Where:** Code · **2d** · **Ready** · **Unblocks** 5

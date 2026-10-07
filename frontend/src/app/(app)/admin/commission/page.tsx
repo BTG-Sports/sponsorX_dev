@@ -9,6 +9,10 @@ import { createRuleAction, previewAction, reviseRuleAction } from "./actions";
    Commission rules — 2S5-FE-01. "Rules can be created, versioned and
    previewed against a sample order."
 
+   P1-ART-19 (2026-10-07): restructured as the commission desk — the split
+   strip, one kind's rules as a table, the sample order beside it, add /
+   revise in a dialog (components/commission-editor.tsx).
+
    BTG ADMIN ONLY (programme owner, 2026-09-28). The admin workspace admits
    Finance, Sales and the other staff roles too, so this page checks the role
    itself, before anything is fetched; the API refuses them independently
@@ -23,8 +27,7 @@ export default async function CommissionPage() {
     <div>
       <h1 className="sx-page-title">Commission rules</h1>
       <p className="mt-1 text-xs text-muted">
-        How each marketplace sale is split — BTG&rsquo;s fees, processing, referral, the reserve, and what the property keeps.
-        A change applies to orders approved from then on; approved orders keep the split they were approved with.
+        How each marketplace sale is split. A change applies to orders approved from then on; approved orders keep the split they were approved with.
       </p>
     </div>
   );
