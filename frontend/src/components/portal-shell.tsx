@@ -194,6 +194,7 @@ export function PortalShell({
             accentDot={accent.dot}
             accentWash={accent.wash}
             rootHref={rootHref}
+            portal={portal}
           />
         </div>
 

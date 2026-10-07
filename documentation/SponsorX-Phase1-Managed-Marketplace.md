@@ -846,6 +846,21 @@ Raised 2026-10-07 by the programme owner: `/admin/marketplace` had six stat tile
 - **Done when:** one screen at 1440; every tile's count is the API's; a tile switches the panel in place and writes the URL; the listing emails' links still work; no console error, no horizontal overflow at 390; unit tests, lint, tsc and build green
 - **Reference:** `docs/superpowers/specs/2026-10-07-marketplace-desk-design.md`; `frontend/src/components/marketplace-desk.tsx`
 
+### ▶ `P1-ART-21` · Admin sidebar — the desks in collapsible groups, sorted
+
+**Order** 32.9995 · **ART** · **Where:** Code · **0.5d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-07 by the programme owner: the admin sidebar's 29 links were too many, in build order, and needed collapsing and sorting.
+
+- **Seven groups** in the order BTG works — Intake, Campaigns, Marketplace, Money, Accounts, NEXT, System — Dashboard on top, each group's desks in alphabetical order. The per-role filter is unchanged.
+- **Collapsible.** A group header (caret, name, count) opens and closes its desks. The group holding the open page is open on arrival; the viewer's other choices are remembered per browser, with no hydration mismatch.
+- **The phone drawer** lists the groups with their desks two to a row.
+- Mechanics in `lib/nav-groups.ts` (pure, unit-tested; `NavItem.group`); a nav with no groups renders flat, so the other portals are untouched. A test pins the admin groups' order and A → Z inside each.
+
+- **Depends on:** `P1-ART-18` (the stage)
+- **Done when:** the dashboard shows Dashboard and seven closed groups; a desk opens only its own group; a header toggles and the choice survives a reload; every desk still reachable by every role it's for; tests, lint, tsc and build green
+- **Reference:** `docs/superpowers/specs/2026-10-07-admin-sidebar-groups-design.md`; `frontend/src/lib/nav-groups.ts`; `frontend/src/components/portal-nav.tsx`
+
 ### ▶ `P1-FE-18` · Apply the SponsorX NEXT UI requirement across the existing pages
 
 **Order** 37.02 · **FE** · **Where:** Code · **2d** · **Ready** · **Unblocks** 5

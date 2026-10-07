@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Logo } from "./logo";
 import type { NavItem } from "./portal-nav";
+import { groupNav, isActiveHref, type NavGroup } from "@/lib/nav-groups";
 
 /* --------------------------------------------------------------------------
    Mobile portal navigation: the sidebar is hidden below `md`, so the top-bar
@@ -34,6 +35,7 @@ export function MobileNav({
 }) {
   const [phase, setPhase] = useState<Phase>("closed");
   const pathname = usePathname();
+  const grouped = groupNav(nav);
   const visible = phase !== "closed";
 
   function close() {
@@ -147,8 +149,10 @@ export function MobileNav({
           </div>
 
           {/* ----------------------------------------------------- links */}
-          <nav className="relative flex min-h-0 flex-1 flex-col justify-center px-6 py-[clamp(0.5rem,2vh,1.5rem)]">
-            {nav.map((item, i) => {
+          <nav className={`relative flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-[clamp(0.5rem,2vh,1.5rem)] ${grouped.groups.length ? "justify-start" : "justify-center"}`}>
+            {grouped.groups.length > 0 ? (
+              <GroupedLinks grouped={grouped} pathname={pathname} rootHref={rootHref} accentText={accentText} accentDot={accentDot} />
+            ) : nav.map((item, i) => {
               const delay = { animationDelay: `${140 + i * 50}ms` };
               const index = String(i + 1).padStart(2, "0");
 
@@ -224,5 +228,43 @@ export function MobileNav({
           document.body,
         )}
     </div>
+  );
+}
+
+/* P1-ART-21 — the drawer, grouped like the sidebar: each group's name, then
+   its desks two to a row so the whole admin nav fits a phone without
+   scrolling past the fold for the first groups. */
+function GroupedLinks({
+  grouped, pathname, rootHref, accentText, accentDot,
+}: { grouped: ReturnType<typeof groupNav<NavItem>>; pathname: string; rootHref: string; accentText: string; accentDot: string }) {
+  /* Staggered by group, not by item — 29 desks one after another took a second to settle. */
+  const renderLink = (item: NavItem, gi: number) => {
+    const delay = { animationDelay: `${140 + gi * 60}ms` };
+    if (item.pending) {
+      return (
+        <span key={item.label} title="Not built yet" style={delay} className="sx-animate py-1 text-[15px] font-semibold leading-tight text-faint">
+          {item.label} <span className="rounded-full border border-line px-1.5 text-[9px] uppercase tracking-wider">soon</span>
+        </span>
+      );
+    }
+    const active = isActiveHref(item.href, pathname, rootHref);
+    return (
+      <Link key={item.href} href={item.href} style={delay} className={`sx-animate flex items-center gap-2 py-1 text-[15px] font-semibold leading-tight tracking-tight ${active ? accentText : "text-text"}`}>
+        {item.label}
+        {active && <span className={`size-1.5 rounded-full ${accentDot}`} />}
+      </Link>
+    );
+  };
+  const groups: NavGroup<NavItem>[] = grouped.groups;
+  return (
+    <>
+      <div className="flex flex-col">{grouped.top.map((item) => renderLink(item, 0))}</div>
+      {groups.map((g, n) => (
+        <section key={g.key} className="mt-3">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-faint">{g.label}</p>
+          <div className="grid grid-cols-2 gap-x-4">{g.items.map((item) => renderLink(item, n + 1))}</div>
+        </section>
+      ))}
+    </>
   );
 }

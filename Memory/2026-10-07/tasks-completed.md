@@ -51,3 +51,13 @@ The owner: "same in /admin/marketplace, the structure looks shit". Spec: `docs/s
 - Reads unchanged in substance (one parallel pass; switching reads nothing); `/onboarding` and `/payouts` now read with the house pager so the tiles' counts are the API's.
 - **Verified:** tsc, eslint, 25 unit tests across the two marketplace test files (two `queueKey` / `firstBusyQueue` cases added); Playwright `e2e/admin-marketplace-desk.spec.ts` as BTG_ADMIN at 1440 and 390.
 - **Tracker:** P1-ART-20 is Phase 1 row 297 (Order 32.999, Code review); ranges extended to 297; the 2026-10-07 snapshot row recomputed.
+
+## HeckerCreatives — P1-ART-21: the admin sidebar in collapsible groups, sorted (Code review)
+
+The owner: "restructure the navigation buttons in the side, its too many, if its possible to have a collapsable please do so" and "sort them orderly". Spec: `docs/superpowers/specs/2026-10-07-admin-sidebar-groups-design.md`. Branch `feature/P1-ART-21-admin-sidebar-groups`, stacked on P1-ART-20.
+
+- **Before:** 29 links in one flat column, in build order.
+- **Now:** Dashboard on top, then seven collapsible groups in the order BTG works — Intake, Campaigns, Marketplace, Money, Accounts, NEXT, System — each A → Z inside. The group holding the open page opens on arrival; the viewer's other choices are remembered per browser (`localStorage` read through `useSyncExternalStore`, so no hydration mismatch and no state set in an effect — the lint rule `react-hooks/set-state-in-effect` refused the first cut). The phone drawer lists the groups with their desks two to a row.
+- `NavItem.group` + `lib/nav-groups.ts` (pure); a nav without groups renders flat, so the other portals are untouched. The per-role filter and the commission-only rule are as before (the commission test's regex on the layout still holds).
+- **Verified:** tsc, eslint, `tests/nav-groups.test.ts` (3; one pins the admin groups' order and sorting from the layout source), Playwright `e2e/admin-sidebar-groups.spec.ts` as BTG_ADMIN.
+- **Tracker:** P1-ART-21 is Phase 1 row 298 (Order 32.9995, Code review); ranges extended to 298; the 2026-10-07 snapshot row recomputed.
