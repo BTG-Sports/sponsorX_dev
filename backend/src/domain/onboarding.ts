@@ -66,7 +66,7 @@ import {
   type OnboardingState,
   type OrgType,
 } from "./onboarding-rules";
-import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
+import { readPage, type PageRequest } from "../lib/paging";
 
 type Tx = Prisma.TransactionClient;
 const SYSTEM = (tenantId: string): AuditActor => ({ userId: null, tenantId });
