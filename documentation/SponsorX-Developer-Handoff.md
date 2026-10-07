@@ -74,7 +74,7 @@ limits only. The full reasoning is in `.claude/stack-decision.md`.
 
 **Access** — ask the programme owner for:
 
-- The GitHub repository (`infinex1/sponsorX_dev`).
+- The GitHub repository (`BTG-Sports/sponsorX_dev`).
 - The **Clerk development instance** keys (`pk_test_…`, `sk_test_…`). Without
   them nothing that needs a sign-in works locally.
 - Later, for deploys only: the Railway project. Not needed to build or test.
@@ -84,7 +84,7 @@ limits only. The full reasoning is in `.claude/stack-decision.md`.
 ## 3 · First run — about fifteen minutes
 
 ```bash
-git clone https://github.com/infinex1/sponsorX_dev.git
+git clone https://github.com/BTG-Sports/sponsorX_dev.git
 cd sponsorX_dev
 npm ci                                  # one install for both workspaces
 ```

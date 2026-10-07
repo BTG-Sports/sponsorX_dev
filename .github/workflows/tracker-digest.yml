@@ -1,8 +1,10 @@
-# The day's one Slack broadcast, at 8 pm Manila: phase progress, every task
-# change since the last broadcast, what finished today, what waits in Code
-# review, what is newly blocked — and the day's Stage Progress row appended to
-# the published Sheet. (The Sheet itself is kept current all day by
-# tracker-notify.yml.) Reads the repo only — never commits.
+# The 8 pm Manila Slack broadcast, for days when nothing reached main.
+# Since 2026-10-07 (owner's decision) each merge to main that changes tasks is
+# announced as it lands (tracker-notify.yml), so this post is SKIPPED when tasks
+# changed on main in the last 24 hours (--skip-if-announced). When it runs it
+# carries phase progress, Code review and newly blocked. Either way, the day's
+# Stage Progress row is appended to the published Sheet.
+# Reads the repo only — never commits.
 name: Tracker digest
 
 on:
@@ -26,10 +28,10 @@ jobs:
       - name: Install
         run: pip install openpyxl==3.1.5
 
-      - name: Post the digest and append the snapshot row
+      - name: Post the digest (quiet days only) and append the snapshot row
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SHEET_ENDPOINT_URL: ${{ secrets.SHEET_ENDPOINT_URL }}
           SHEET_ENDPOINT_SECRET: ${{ secrets.SHEET_ENDPOINT_SECRET }}
           TZ: Asia/Manila
-        run: python scripts/tracker/tracker_sync.py digest --since "24 hours ago"
+        run: python scripts/tracker/tracker_sync.py digest --since "24 hours ago" --skip-if-announced
