@@ -232,6 +232,33 @@ if (parsed.MARKETPLACE_SPENDING_LIMIT_CAP_CENTS < parsed.MARKETPLACE_SPENDING_LI
       "A sponsor's limit starts at the start figure and only rises to the cap, so the cap must be at least the start.",
   );
 }
+/* 2S0-SEC-01 — the two buckets are the whole of the separation between files
+   the world may read (the public CDN bucket: logos, published assets) and
+   files nobody may read without a signed, audited link (the private bucket:
+   ID documents, guardianship proof, agreements, support attachments). Both
+   are plain variables, so one copied into the other would publish every
+   verification document at R2_PUBLIC_BASE_URL. Refused everywhere. */
+if (parsed.S3_BUCKET_PUBLIC.trim().toLowerCase() === parsed.S3_BUCKET_PRIVATE.trim().toLowerCase()) {
+  throw new Error(
+    "S3_BUCKET_PUBLIC and S3_BUCKET_PRIVATE name the same bucket. The public bucket is world-readable, " +
+      "so verification documents would be served to anyone. Refusing to boot.",
+  );
+}
+const privateBucketIn = (base: string, bucket: string) => {
+  try {
+    const u = new URL(base);
+    const b = bucket.trim().toLowerCase();
+    /* Path style (…/<bucket>, as MinIO serves it) or virtual-hosted style (<bucket>.<host>). */
+    return u.pathname.toLowerCase().split("/").includes(b) || u.hostname.toLowerCase().startsWith(`${b}.`);
+  } catch {
+    return false;
+  }
+};
+if (privateBucketIn(parsed.R2_PUBLIC_BASE_URL, parsed.S3_BUCKET_PRIVATE)) {
+  throw new Error(
+    "R2_PUBLIC_BASE_URL points at the private bucket. Public URLs are built from it without a signature. Refusing to boot.",
+  );
+}
 if (parsed.RAILWAY_ENVIRONMENT_NAME?.toLowerCase() === "production" && parsed.PAYMENT_PROVIDER === "standin") {
   throw new Error(
     "PAYMENT_PROVIDER=standin in production. The stand-in provider marks cards " +

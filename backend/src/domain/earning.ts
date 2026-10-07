@@ -30,6 +30,7 @@ import {
   type EarningState,
 } from "./earning-state";
 import { payoutHoldReason } from "./payout-holds";
+import { refuseCardNumber } from "./marketplace-order-rules";
 import { autoApprovalReasons, autoApproveSettings, autoApprovedByTenant, autoWindowFor, lockPayee, SYSTEM, windowStart } from "./payout-auto";
 
 export class EarningImmutableError extends Error {
@@ -191,6 +192,8 @@ export async function transitionEarning(
      recording one are both `approve`. */
   const action = to === "APPROVED_FOR_PAYOUT" || to === "PAID" ? "approve" : "write";
   assertTenantWide(actor, "earning", action);
+  /* 2S0-SEC-01 (O5) — "a Zoho or bank reference", never a card number (§26). */
+  refuseCardNumber(detail.reference, "reference");
 
   return prisma.$transaction(async (tx) => {
     const earning = await tx.earning.findFirst({
@@ -239,6 +242,7 @@ export async function adjustEarning(
   reason: string,
 ): Promise<EarningBreakdown & { id: string }> {
   assertTenantWide(actor, "earning", "write");
+  refuseCardNumber(reason, "reason"); // 2S0-SEC-01 (O5)
 
   return prisma.$transaction(async (tx) => {
     const earning = await tx.earning.findFirst({

@@ -115,9 +115,9 @@ The single most important design decision in Phase 2. Order revenue must become 
 - **Done when:** Ledger design reviewed and signed off; the sequential rule order is documented and a worked example reconciles to the cent
 - **Reference:** Spec §7.4
 
-### ⏸ `2S0-PMO-03` · Select the marketplace payment provider
+### ✅ `2S0-PMO-03` · Select the marketplace payment provider
 
-**Order** 3 · **PMO** · **Where:** Vendor console · **3d** · **Blocked**
+**Order** 3 · **PMO** · **Where:** Vendor console · **3d** · **Done**
 
 Choose the provider that handles checkout, connected-account onboarding, platform fees, transfers, refunds and disputes. This decision shapes onboarding, payouts and compliance. Use a hosted or embedded flow so you never touch card data.
 
@@ -149,9 +149,9 @@ Phase 1 collected no tax IDs because money moved outside the system. Phase 2 mov
 - **Done when:** Written position on tax ID collection, withholding and 1099 reporting, and which system of record owns each
 - **Reference:** Spec §9, §10
 
-### ⏸ `2S0-SEC-01` · Payments and PII security review
+### ✅ `2S0-SEC-01` · Payments and PII security review
 
-**Order** 6 · **SEC** · **Where:** Code · **3d** · **Blocked**
+**Order** 6 · **SEC** · **Where:** Code · **3d** · **Done**
 
 Review the design before build: card data never touches your servers, payout account data stays at the provider, verification documents are in private storage, PII is masked in logs.
 
@@ -361,6 +361,20 @@ A way to reach BTG for things that must never be automated, starting with disput
 - **Depends on:** 2S1-OPS-01
 - **Done when:** Anyone can send BTG a message with an attachment from the contact page; it reaches the support mailbox through the queue even when the mail service is briefly down; the support address appears on the guardian request page and in decline and rejection emails; the form is rate-limited and stores attachments privately
 - **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-14` · BTG admin page for a support message and its attachments
+
+**Order** 12.98 · **FE** · **Where:** Code · **1d** · **Ready**
+
+Support-desk emails no longer carry attachments (2S0-SEC-01, finding O1). Instead they link to `/admin/support/<id>`. Build that page:
+- show the sender, topic, text, and each attachment's name, type and size, from `GET /support-messages/:id`;
+- give each file an **Open** button, which fetches `GET /support-messages/:id/attachments/:attachmentId` (a five-minute, audited link).
+
+BTG admin only.
+
+- **Depends on:** 2S0-SEC-01
+- **Done when:** A BTG admin following the support email's link sees the message and opens each attachment; nobody else can
+- **Reference:** `documentation/SponsorX-Payments-PII-Review-2026-10.md` (frontend follow-ups); raised 2026-10-06
 
 ### ⏸ `2S1-OPS-01` · Set up the BTG support mailbox
 
@@ -1088,9 +1102,9 @@ Built from the Claude Design file OrderCancellations.
 
 *14 tasks · 58 person-days*
 
-### ⏸ `2S5-INT-01` · Payment provider checkout integration
+### ✅ `2S5-INT-01` · Payment provider checkout integration
 
-**Order** 37 · **INT** · **Where:** Code + console · **5d** · **Blocked**
+**Order** 37 · **INT** · **Where:** Code + console · **5d** · **Done**
 
 Hosted or embedded checkout session creation. Card data never reaches your servers.
 
@@ -1108,9 +1122,9 @@ Providers retry webhooks and deliver out of order. Every handler must be safe to
 - **Done when:** Payment webhooks are idempotent and correctly update order and payment state under duplicate and out-of-order delivery
 - **Reference:** Spec §3, §12
 
-### ⏸ `2S5-INT-03` · Connected payout account onboarding
+### ✅ `2S5-INT-03` · Connected payout account onboarding
 
-**Order** 39 · **INT** · **Where:** Code + console · **5d** · **Blocked**
+**Order** 39 · **INT** · **Where:** Code + console · **5d** · **Done**
 
 Properties and athletes onboard with the payment provider to receive funds, through the provider's hosted flow. SponsorX stores status only, never credentials.
 
@@ -1624,6 +1638,18 @@ Two fixes:
 - **Done when:** A database built only by migrations has every rule in prisma/sql; the guard fails on any drift
 - **Reference:** Found 2026-10-03 by a failing phase2-orders test on a fresh database
 
+### ✅ `2S8-QA-08` · private-upload-pins test fails intermittently in the full suite
+
+**Order** 60.9 · **QA** · **Where:** Code · **1d** · **Done**
+
+`backend/tests/private-upload-pins.test.ts` passes on its own, but has failed in about one in six full parallel runs. The failure is in its setup: a duplicate key on a fixed `pu_` id, after which its 11 tests are skipped. Its cleanup deletes by tenant and ignores errors, so a row that couldn't be deleted survives into the next run.
+
+Make its ids unique per run, or make the cleanup report what it couldn't delete.
+
+- **Depends on:** 2S8-SEC-03
+- **Done when:** The full backend suite passes 5 runs in a row with this file included
+- **Reference:** raised 2026-10-06; seen twice
+
 ### ⏸ `2S8-SEC-01` · Cross-tenant isolation tests for external parties
 
 **Order** 61 · **SEC** · **Where:** Code · **5d** · **Blocked**
@@ -1690,6 +1716,22 @@ Zoho Books sends no timestamp, so replaying an old, correctly signed invoice web
 - **Depends on:** 2S8-SEC-02
 - **Done when:** The guard tests fail on an unscoped write and on a same-tenant cross-account read, shown by a deliberately broken route
 - **Reference:** Security review 2026-10, Other checks (Open, Info); raised 2026-10-05 by 2S8-SEC-02
+
+### ✅ `2S8-SEC-06` · Replace the full-access live Stripe key with a restricted key
+
+**Order** 62.6 · **SEC** · **Where:** Code · **1d** · **Done**
+
+Production's live Stripe secret key was created on 2026-10-06 with **full access**, because it wasn't clear which restricted-key permissions Accounts v2 payout accounts need. It is stored only in Railway production (`api`).
+
+1. In the sandbox, work out the minimal set: Checkout Sessions, Charges and Refunds, Transfers, Webhook Endpoints, plus whichever Accounts v2 configuration permissions creating a recipient account needs.
+2. Prove the smoke script passes with that set.
+3. The owner creates the restricted live key.
+4. Swap it into Railway production (see the rotation runbook).
+5. Delete the full-access key in Stripe.
+
+- **Depends on:** 2S5-INT-03
+- **Done when:** Production uses a restricted live key that the sandbox smoke run proved sufficient; the full-access live key is deleted in Stripe
+- **Reference:** `documentation/SponsorX-Stripe-Integration.md`, `documentation/SponsorX-Secrets-Rotation.md`; raised 2026-10-06
 
 ### ⏸ `2S8-PMO-02` · Security settings the owner decides
 

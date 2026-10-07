@@ -60,9 +60,11 @@ import {
   PAYMENT_EVENT_STATUSES, STANDIN_EVENT_TYPES, type NeutralPaymentEvent, type PaymentEventStatus, type PaymentEventType,
 } from "../contracts/payment-events";
 import { lockOrder } from "./marketplace-order";
+import { refuseCardNumber } from "./marketplace-order-rules";
 import { appUrl, btgAdmins, orderRef, tell, usd } from "./order-mail";
 import { paymentSucceededIn, payoutHandlerFor } from "./payouts";
 import { dismissHeldRefund, exceptionHandlerFor } from "./payment-exceptions";
+import { logError } from "../lib/redact";
 
 type Tx = Prisma.TransactionClient;
 
@@ -96,19 +98,48 @@ export const MAX_ERRORS = 6;
 
 /* ── receiving ────────────────────────────────────────────────────────── */
 
-function forTheRecord(rawBody: string): object {
+/**
+ * 2S0-SEC-01 — what is kept of a REFUSED delivery: which event it claimed to
+ * be, never what it carried. A real Stripe event refused here (a stale
+ * replay, a secret mid-rotation set wrong, Stripe's endpoint switched on
+ * before PAYMENT_PROVIDER is) is the whole event: a Checkout Session's
+ * `customer_details` (the sponsor's name, email, phone and billing address),
+ * a charge's `billing_details` and `payment_method_details` (card brand,
+ * last 4, expiry, country), a dispute's evidence. None of it is needed to see
+ * why a delivery was refused or to find the event in Stripe's dashboard; the
+ * event id, type and the object's id are. Only short scalars are copied.
+ */
+const scalar = (v: unknown) => (typeof v === "string" ? v.slice(0, 200) : typeof v === "number" || typeof v === "boolean" ? v : undefined);
+export function rejectedDeliveryRecord(rawBody: string): Prisma.InputJsonObject {
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(rawBody) as unknown;
-    const text = JSON.stringify(parsed);
-    return text.length <= 4000 && parsed && typeof parsed === "object" ? (parsed as object) : { truncated: text.slice(0, 4000) };
+    parsed = JSON.parse(rawBody);
   } catch {
-    return { truncated: rawBody.slice(0, 4000) };
+    return { unparseable: true, bytes: rawBody.length };
   }
+  const e = (parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {}) as Record<string, unknown>;
+  const o = ((e.data as Record<string, unknown> | null)?.object ?? null) as Record<string, unknown> | null;
+  const related = (e.related_object ?? null) as Record<string, unknown> | null;
+  const out: Record<string, string | number | boolean> = {};
+  const keep = (key: string, value: unknown) => {
+    const v = scalar(value);
+    if (v !== undefined) out[key] = v;
+  };
+  keep("id", e.id);
+  keep("object", e.object);
+  keep("type", e.type);
+  keep("created", e.created);
+  keep("account", e.account);
+  keep("livemode", e.livemode);
+  keep("subjectObject", o && typeof o === "object" ? o.object : related?.type);
+  keep("subjectId", o && typeof o === "object" ? o.id : related?.id);
+  out.bytes = rawBody.length;
+  return out;
 }
 
 async function recordRejected(provider: string, rawBody: string, signatureOk: boolean, error: string) {
   await prisma.webhookDelivery.create({
-    data: { source: `payments:${provider.slice(0, 40)}`, signatureOk, payload: forTheRecord(rawBody), status: "REJECTED", error },
+    data: { source: `payments:${provider.slice(0, 40)}`, signatureOk, payload: rejectedDeliveryRecord(rawBody), status: "REJECTED", error },
     select: { id: true },
   });
 }
@@ -410,7 +441,7 @@ async function noteError(eventId: string, error: unknown, now: Date) {
     if (!moved.count) return;
     await audit(tx, { userId: null, tenantId: ev.tenantId }, giveUp ? "paymentEvent.failed" : "paymentEvent.error", "PaymentEvent", ev.id, { after: { attempts, error: message.slice(0, 500) } });
     if (giveUp) await tellBtg(tx, ev, ev.tenantId, `It couldn't be applied after ${attempts} tries (${message.slice(0, 200)})`, undefined);
-  }).catch((e: unknown) => console.error(`[payments] could not note the failure of event ${eventId}:`, e));
+  }).catch((e: unknown) => logError(`[payments] could not note the failure of event ${eventId}:`, e));
 }
 
 /**
@@ -431,7 +462,7 @@ export async function retryDeferredPaymentEvents(now = new Date(), opts: { tenan
       if (r.status === "APPLIED") out.applied++;
     } catch (error) {
       out.failed++;
-      console.error(`[payments] deferred event ${id} failed, will retry next sweep:`, error);
+      logError(`[payments] deferred event ${id} failed, will retry next sweep:`, error);
     }
   }
   return out;
@@ -476,6 +507,7 @@ export async function resolvePaymentEvent(actor: Actor, id: string, note: string
   assertTenantWide(actor, "paymentEvent", "write");
   const text = note.trim();
   if (!text) throw new PaymentEventError("Say what you did about it — the next person reads this.", 422);
+  refuseCardNumber(text); // 2S0-SEC-01 (O5)
   return prisma.$transaction(async (tx) => {
     const ev = await tx.paymentEvent.findFirst({ where: { ...whereFor(actor, "paymentEvent", "write"), id }, select: LIST });
     if (!ev) throw new PaymentEventError("No such event.", 404);

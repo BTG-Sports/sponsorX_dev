@@ -7,6 +7,7 @@ import {
   accountReadinessV2, classifyStripeError, failureKindFor, mapStripeEvent, stripeClient, verifyStripeWebhook, type AccountReadiness, type FailureKind,
   type StripeIncoming,
 } from "./stripe";
+import { logError } from "./redact";
 
 /**
  * The payment-provider adapter (2S5-INT-01 / -03, 2S5-BE-05).
@@ -236,7 +237,7 @@ async function stripeCall<T>(op: StandinOperation, call: () => Promise<T>): Prom
     } catch (error) {
       if (error instanceof ProviderRefusedError || error instanceof ProviderUnavailableError) throw error;
       const f = classifyStripeError(error);
-      console.error(`[stripe] ${op} ${f.kind}${f.kind === "refused" && f.code ? ` (${f.code})` : ""}: ${f.message}`);
+      logError(`[stripe] ${op} ${f.kind}${f.kind === "refused" && f.code ? ` (${f.code})` : ""}: ${f.message}`);
       if (f.kind === "unavailable") throw new ProviderUnavailableError(op);
       throw new ProviderRefusedError(op, f.code, f.message, failureKindFor(f.code));
     }
@@ -351,6 +352,24 @@ export async function payoutAccountStatus(accountRef: string): Promise<AccountRe
   if (providerName() !== "stripe") throw new Error("Only Stripe reads payout accounts this way.");
   const account = await stripeCall("account", () => stripeClient().v2.core.accounts.retrieve(accountRef, { include: ["configuration.recipient", "requirements"] }));
   return accountReadinessV2(account);
+}
+
+/**
+ * Stripe: whether an account the provider names is one SponsorX opened — the
+ * `sponsorx` tag `createPayoutAccount` puts on every payout account. BTG's
+ * Stripe account can hold other connected accounts; their events are not
+ * SponsorX's to wait for. An account Stripe doesn't have is not ours either.
+ * Stripe down still throws, so the queue retries. Worker only.
+ */
+export async function isSponsorXPayoutAccount(accountRef: string): Promise<boolean> {
+  if (providerName() !== "stripe") return true;
+  try {
+    const account = await stripeCall("account", () => stripeClient().v2.core.accounts.retrieve(accountRef));
+    return (account.metadata as Record<string, string> | null | undefined)?.sponsorx === "payout-account";
+  } catch (error) {
+    if (error instanceof ProviderRefusedError && error.providerCode === "resource_missing") return false;
+    throw error;
+  }
 }
 
 /**

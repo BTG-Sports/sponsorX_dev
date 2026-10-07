@@ -147,26 +147,33 @@ describe.skipIf(!hasDatabase)("2S1-BE-16 · contacting BTG support", { timeout: 
     const done = await call("POST", `/public/support/messages/${encodeURIComponent(withFile.token)}/send`);
     expect(done.json).toMatchObject({ queued: true });
     const desk = (await jobs()).find((j) => j.template === "support.message" && j.replyTo === "dana@sp-test.invalid")!;
-    expect(desk.attachments).toEqual([{ filename: "license.pdf", key: att.r2Key, contentType: "application/pdf" }]);
+    /* 2S0-SEC-01 (O1) — the desk's job names the file and links to BTG's signed-in page; it carries no file and no key. */
+    const { env } = await import("../src/config/env");
+    expect(desk.attachments).toBeUndefined();
+    expect(JSON.stringify(desk)).not.toContain(att.r2Key);
     expect(desk.data.attachments).toBe("license.pdf");
+    expect(desk.data.attachmentsUrl).toBe(`${env.APP_URL.replace(/\/+$/, "")}/admin/support/${withFile.id}`);
     expect((await call("POST", `/public/support/messages/${encodeURIComponent(withFile.token)}x/send`)).status).toBe(400);
   });
 
-  it("the worker sends it with the file read from the private bucket — and when the mail service is briefly down, the retry still delivers it, once", async () => {
+  it("the worker sends it naming the file and linking to BTG's signed-in page, never attaching it — and when the mail service is briefly down, the retry still delivers it, once", async () => {
     process.env.RESEND_API_KEY = "re_test";
     const desk = (await jobs()).find((j) => j.template === "support.message" && j.replyTo === "dana@sp-test.invalid")!;
-    const reads: string[] = [];
-    const load = async (key: string) => { reads.push(key); return Buffer.from("%PDF-1.4"); };
-    await expect(handleSendEmail(pool, desk, load)).rejects.toThrow(/503/);
+    await expect(handleSendEmail(pool, desk)).rejects.toThrow(/503/);
     expect(await prisma.emailSendLog.count({ where: { idempotencyKey: desk.idempotencyKey } })).toBe(0);
-    await expect(handleSendEmail(pool, desk, load)).resolves.toBe("sent");
-    await expect(handleSendEmail(pool, desk, load)).resolves.toBe("duplicate");
+    await expect(handleSendEmail(pool, desk)).resolves.toBe("sent");
+    await expect(handleSendEmail(pool, desk)).resolves.toBe("duplicate");
     expect(sent).toHaveLength(2);
     expect(sent[1]).toMatchObject({
       to: "help@btg-support.invalid", replyTo: "dana@sp-test.invalid",
-      attachments: [{ filename: "license.pdf", contentType: "application/pdf", content: Buffer.from("%PDF-1.4") }],
       headers: { "Message-ID": `<support-${withFile.id}@sponsorx.net>` },
     });
-    expect(reads).toEqual([desk.attachments![0]!.key, desk.attachments![0]!.key]);
+    expect(sent[1]).not.toHaveProperty("attachments");
+    expect(sent[1]!.text).toContain(`Attachments: license.pdf — not attached to this email. Open them in SponsorX (BTG sign-in required): ${desk.data.attachmentsUrl}`);
+    /* A job queued before the change, still naming a key, is sent without reading it. */
+    const old = { ...desk, idempotencyKey: `${desk.idempotencyKey}:old`, attachments: [{ filename: "license.pdf", key: "support/x/y/license.pdf", contentType: "application/pdf" }] };
+    await expect(handleSendEmail(pool, old)).resolves.toBe("sent");
+    expect(sent[2]).not.toHaveProperty("attachments");
+    await prisma.emailSendLog.deleteMany({ where: { idempotencyKey: old.idempotencyKey } });
   });
 });

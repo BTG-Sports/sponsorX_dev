@@ -51,12 +51,13 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, can, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import {
-  createPayoutAccount, openCheckout, payoutAccountLinkUrl, payoutAccountStatus, ProviderRefusedError, providerName, readStandinToken, sendPayoutToProvider, standinLink, standinRef,
+  createPayoutAccount, isSponsorXPayoutAccount, openCheckout, payoutAccountLinkUrl, payoutAccountStatus, ProviderRefusedError, providerName, readStandinToken, sendPayoutToProvider, standinLink, standinRef,
   StandinTokenError,
 } from "../lib/payment-provider";
 import { postPayout, postPayoutReturn } from "./ledger";
 import { recordRefund } from "./refunds";
 import { lockOrder, moveOrderAsSystem, payOrderIn } from "./marketplace-order";
+import { refuseCardNumber } from "./marketplace-order-rules";
 import { appUrl, btgAdmins, tell } from "./order-mail";
 import { assertMayCommit } from "./guardian-acts";
 import { payoutHoldReason } from "./payout-holds";
@@ -66,6 +67,7 @@ import {
   autoApprovalReasons, autoApproveSettings, autoApprovedByTenant, autoWindowFor, claimsMoney, lockPayee, nextChangedAt, planFailure,
   SYSTEM, waitingOnOf, waitingOnWhere, windowStart, type FailureKind, type WaitingOn,
 } from "./payout-auto";
+import { logError } from "../lib/redact";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -990,6 +992,7 @@ export async function decidePayout(actor: Actor, id: string, decision: "APPROVE"
   assertAllowed(actor, "payout", "approve");
   const trimmed = note?.trim() || null;
   if (decision === "REJECT" && !trimmed) throw new PayoutError("Say why it's being sent back — the payee reads this note.", 422);
+  refuseCardNumber(trimmed); // 2S0-SEC-01 (O5)
   return prisma.$transaction(async (tx) => {
     const row = await tx.payout.findFirst({ where: { ...whereFor(actor, "payout", "approve"), id }, select: PAYOUT_SELECT });
     if (!row) throw new ForbiddenError("payout", "approve");
@@ -1337,7 +1340,7 @@ export async function sweepPayoutRetries(now = new Date(), opts: { tenantIds?: s
       if (await prisma.$transaction((tx) => autoRetry(tx, id, "SCHEDULE", now))) out.retried++;
     } catch (error) {
       out.failed++;
-      console.error(`[payouts] automatic retry of ${id} failed, will retry next sweep:`, error);
+      logError(`[payouts] automatic retry of ${id} failed, will retry next sweep:`, error);
     }
   }
   return out;
@@ -1471,7 +1474,11 @@ export const onAccountUpdated: Handler = async (tx, ev, data, now) => {
     /* tenant-scope: the payout account a verified provider event names, by the provider's own account id. */
     where: { provider: ev.provider, providerAccountId: accountRef }, select: { tenantId: true, payeeType: true, payeeId: true, status: true },
   });
-  if (!row) return deferred("No payout account in SponsorX matches this provider account yet — tried again shortly");
+  if (!row) {
+    /* Not tagged as SponsorX's: another account on BTG's Stripe — nothing to wait for. */
+    if (!(await isSponsorXPayoutAccount(accountRef))) return ignored("Not a SponsorX payout account — another account on the payment provider; nothing to do");
+    return deferred("No payout account in SponsorX matches this provider account yet — tried again shortly");
+  }
   /* A thin event only said it changed: the account is read afresh from the provider (the worker, never a request path). */
   const fresh = data.status === undefined ? await payoutAccountStatus(accountRef) : null;
   const status = (fresh?.status ?? data.status) === "READY" ? "READY" : "NEEDS_INFO";

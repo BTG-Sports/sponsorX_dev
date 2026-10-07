@@ -42,6 +42,7 @@ import { startAutoSale } from "./ad-sale-auto";
 import { lowestJobFloor, sponsorStanding } from "./brief-readiness-rules";
 import { athleteFit } from "./matching";
 import { autoApprovalHolds, holdKeys, type Hold } from "./brief-auto-rules";
+import { logError } from "../lib/redact";
 
 type Tx = Prisma.TransactionClient;
 
@@ -282,7 +283,7 @@ export async function recheckHeldBriefs(now = new Date(), opts: { tenantIds?: st
       else if (r.outcome === "HELD") out.held++;
     } catch (error) {
       out.failed++;
-      console.error(`[briefs] re-checking ${id} failed, will retry tomorrow:`, error);
+      logError(`[briefs] re-checking ${id} failed, will retry tomorrow:`, error);
     }
   }
   return out;

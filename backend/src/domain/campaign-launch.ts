@@ -28,6 +28,7 @@ import type { AuditActor } from "../db/audit";
 import { lockCampaign } from "./campaign-stages";
 import { launchIn } from "./campaign";
 import { dueBefore, launchDay, launchDue } from "./auto-staffing-rules";
+import { logError } from "../lib/redact";
 
 const SYSTEM = (tenantId: string): AuditActor => ({ userId: null, tenantId });
 
@@ -71,7 +72,7 @@ export async function sweepCampaignLaunches(now = new Date(), opts: { tenantIds?
         if (await launchIfDue(c.tenantId, c.id, now)) out.launched++;
       } catch (error) {
         out.failed++;
-        console.error(`[campaign-launch] launching ${c.id} failed, will retry:`, error);
+        logError(`[campaign-launch] launching ${c.id} failed, will retry:`, error);
       }
     }
   }

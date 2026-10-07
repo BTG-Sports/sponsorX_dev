@@ -68,6 +68,7 @@ import {
   standingReasons,
   type ListingState,
 } from "./listing-rules";
+import { logError } from "../lib/redact";
 
 export class ListingError extends Error {
   readonly status: number;
@@ -780,7 +781,7 @@ export async function sendListingDigests(now = new Date(), only?: readonly strin
       return fresh.length;
     }).catch((error: unknown) => {
       failed++;
-      console.error(`[listing digest] tenant ${btg} failed, will retry next hour:`, error);
+      logError(`[listing digest] tenant ${btg} failed, will retry next hour:`, error);
       return 0;
     });
     if (sent) { tenants++; listings += sent; }

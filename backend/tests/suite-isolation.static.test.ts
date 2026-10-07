@@ -70,6 +70,8 @@ describe("suite isolation · static", () => {
     "expireInvitations",
     /* 2S5-INT-02 */
     "retryDeferredPaymentEvents",
+    /* 2S0-SEC-01 — the support-attachment and Zoho-body retention sweeps */
+    "purgeSupportAttachments", "trimZohoWebhookBodies",
   ];
 
   it("every platform-wide sweep a test runs is narrowed to that test's tenant", () => {

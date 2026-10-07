@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 /* --------------------------------------------------------------------------
@@ -25,7 +26,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 process.env.CLERK_SECRET_KEY ??= "sk_test_x";
 process.env.CLERK_PUBLISHABLE_KEY ??= "pk_test_x";
-const T = "pu_tenant";
+/* 2S8-QA-08 — every id, slug and email is unique to this run, so a row an
+   earlier run failed to clean up can never collide with this one. */
+const R = randomBytes(3).toString("hex");
+const T = `pu_tenant_${R}`;
 const previousIntake = process.env.PUBLIC_INTAKE_TENANT_ID;
 const previousEndpoint = process.env.S3_ENDPOINT;
 process.env.PUBLIC_INTAKE_TENANT_ID = T;
@@ -63,9 +67,9 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
   store.verifyWith(storage.s3);
 
   const BUCKET = storage.BUCKETS.private;
-  const athlete = { userId: "pu_athlete_user", tenantId: T, roles: ["ATHLETE" as const], sponsorId: null, athleteId: "pu_athlete", guardianId: null, propertyId: null };
-  const manager = { userId: "pu_pm_user", tenantId: T, roles: ["PROPERTY_MGR" as const], sponsorId: null, athleteId: null, guardianId: null, propertyId: "pu_prop" };
-  const sponsorAdmin = { userId: "pu_sp_user", tenantId: T, roles: ["SPONSOR_ADMIN" as const], sponsorId: "pu_sponsor", athleteId: null, guardianId: null, propertyId: null };
+  const athlete = { userId: `pu_athlete_user_${R}`, tenantId: T, roles: ["ATHLETE" as const], sponsorId: null, athleteId: `pu_athlete_${R}`, guardianId: null, propertyId: null };
+  const manager = { userId: `pu_pm_user_${R}`, tenantId: T, roles: ["PROPERTY_MGR" as const], sponsorId: null, athleteId: null, guardianId: null, propertyId: `pu_prop_${R}` };
+  const sponsorAdmin = { userId: `pu_sp_user_${R}`, tenantId: T, roles: ["SPONSOR_ADMIN" as const], sponsorId: `pu_sponsor_${R}`, athleteId: null, guardianId: null, propertyId: null };
 
   async function wipe() {
     const tables = await prisma.$queryRawUnsafe<{ table_name: string }[]>(
@@ -76,67 +80,74 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
         await prisma.$executeRawUnsafe(`DELETE FROM "${table_name}" WHERE "tenantId" = $1`, T).catch(() => {});
       }
     }
-    await prisma.tenant.deleteMany({ where: { id: T } });
+    /* 2S8-QA-08 — say what couldn't be cleaned up instead of leaving it silently. */
+    const left: string[] = [];
+    for (const { table_name } of tables) {
+      const [row] = await prisma.$queryRawUnsafe<{ n: bigint }[]>(`SELECT count(*) AS n FROM "${table_name}" WHERE "tenantId" = $1`, T);
+      if (row && row.n > 0n) left.push(`${table_name} (${row.n})`);
+    }
+    if (left.length) console.warn(`[private-upload-pins] rows left for ${T}: ${left.join(", ")}`);
+    await prisma.tenant.deleteMany({ where: { id: T } }).catch((e: unknown) => console.warn(`[private-upload-pins] tenant ${T} not deleted:`, e instanceof Error ? e.message.slice(0, 200) : e));
   }
 
   beforeAll(async () => {
     await wipe();
     const far = new Date(Date.now() + 3650 * 864e5);
     await prisma.tenant.create({ data: { id: T, name: "PU Tenant" } });
-    await prisma.guardian.create({ data: { id: "pu_guardian", tenantId: T, legalName: "PU Guardian", email: "pu-guardian@pu.invalid", relationship: "PARENT" } });
+    await prisma.guardian.create({ data: { id: `pu_guardian_${R}`, tenantId: T, legalName: "PU Guardian", email: `pu-guardian-${R}@pu.invalid`, relationship: "PARENT" } });
     await prisma.athlete.create({ data: {
-      id: "pu_athlete", tenantId: T, slug: "pu-athlete", legalName: "PU Athlete", displayName: "PUA", email: "pu-athlete@pu.invalid",
+      id: `pu_athlete_${R}`, tenantId: T, slug: `pu-athlete-${R}`, legalName: "PU Athlete", displayName: "PUA", email: `pu-athlete-${R}@pu.invalid`,
       sport: "Soccer", stateCode: "MD", ageBand: "18_PLUS", state: "ACTIVE",
     } });
-    await prisma.sponsor.create({ data: { id: "pu_sponsor", tenantId: T, name: "PU Sponsor" } });
-    await prisma.property.create({ data: { id: "pu_prop", tenantId: T, slug: "pu-prop", name: "PU School", kind: "SCHOOL" } });
+    await prisma.sponsor.create({ data: { id: `pu_sponsor_${R}`, tenantId: T, name: "PU Sponsor" } });
+    await prisma.property.create({ data: { id: `pu_prop_${R}`, tenantId: T, slug: `pu-prop-${R}`, name: "PU School", kind: "SCHOOL" } });
     await prisma.user.createMany({ data: [
-      { id: athlete.userId, tenantId: T, clerkId: athlete.userId, email: "pu-athlete@pu.invalid", roles: ["ATHLETE"], athleteId: "pu_athlete" },
-      { id: manager.userId, tenantId: T, clerkId: manager.userId, email: "pu-pm@pu.invalid", roles: ["PROPERTY_MGR"], propertyId: "pu_prop" },
-      { id: sponsorAdmin.userId, tenantId: T, clerkId: sponsorAdmin.userId, email: "pu-sp@pu.invalid", roles: ["SPONSOR_ADMIN"], sponsorId: "pu_sponsor" },
+      { id: athlete.userId, tenantId: T, clerkId: athlete.userId, email: `pu-athlete-${R}@pu.invalid`, roles: ["ATHLETE"], athleteId: `pu_athlete_${R}` },
+      { id: manager.userId, tenantId: T, clerkId: manager.userId, email: `pu-pm-${R}@pu.invalid`, roles: ["PROPERTY_MGR"], propertyId: `pu_prop_${R}` },
+      { id: sponsorAdmin.userId, tenantId: T, clerkId: sponsorAdmin.userId, email: `pu-sp-${R}@pu.invalid`, roles: ["SPONSOR_ADMIN"], sponsorId: `pu_sponsor_${R}` },
     ] });
     await prisma.propertyOnboarding.createMany({ data: [
-      { id: "pu_onb_draft", tenantId: T, orgType: "TEAM", orgName: "PU Applicant", state: "DRAFT" },
-      { id: "pu_onb_org", tenantId: T, orgType: "SCHOOL", orgName: "PU School", state: "APPROVED", propertyId: "pu_prop" },
+      { id: `pu_onb_draft_${R}`, tenantId: T, orgType: "TEAM", orgName: "PU Applicant", state: "DRAFT" },
+      { id: `pu_onb_org_${R}`, tenantId: T, orgType: "SCHOOL", orgName: "PU School", state: "APPROVED", propertyId: `pu_prop_${R}` },
     ] });
-    await prisma.inquiry.create({ data: { id: "pu_inquiry", tenantId: T, companyName: "PU Café", lastName: "PU Requester", email: "pu-req@pu.invalid", source: "web-form" } });
+    await prisma.inquiry.create({ data: { id: `pu_inquiry_${R}`, tenantId: T, companyName: "PU Café", lastName: "PU Requester", email: `pu-req-${R}@pu.invalid`, source: "web-form" } });
     await prisma.guardianHandoff.create({ data: {
-      id: "pu_handoff", tenantId: T, athleteId: "pu_athlete", fromGuardianId: "pu_guardian", requesterName: "PU New Guardian",
-      requesterEmail: "pu-newg@pu.invalid", relationship: "PARENT", state: "REQUESTED",
+      id: `pu_handoff_${R}`, tenantId: T, athleteId: `pu_athlete_${R}`, fromGuardianId: `pu_guardian_${R}`, requesterName: "PU New Guardian",
+      requesterEmail: `pu-newg-${R}@pu.invalid`, relationship: "PARENT", state: "REQUESTED",
     } });
     /* A sold line the school is delivering, for the delivery proof. */
-    await prisma.inventoryItem.create({ data: { id: "pu_item", tenantId: T, propertyId: "pu_prop", title: "PU Banner", kind: "SIGNAGE", priceCents: 9000 } });
-    await prisma.listing.create({ data: { id: "pu_listing", tenantId: T, propertyId: "pu_prop", inventoryItemId: "pu_item", title: "PU Banner", description: "A banner", state: "PUBLISHED", publishedAt: new Date() } });
-    await prisma.cart.create({ data: { id: "pu_cart", tenantId: T, sponsorId: "pu_sponsor", expiresAt: far } });
-    await prisma.reservation.create({ data: { id: "pu_res", tenantId: T, sponsorId: "pu_sponsor", cartId: "pu_cart", state: "CONVERTED", convertedAt: new Date(), expiresAt: far } });
+    await prisma.inventoryItem.create({ data: { id: `pu_item_${R}`, tenantId: T, propertyId: `pu_prop_${R}`, title: "PU Banner", kind: "SIGNAGE", priceCents: 9000 } });
+    await prisma.listing.create({ data: { id: `pu_listing_${R}`, tenantId: T, propertyId: `pu_prop_${R}`, inventoryItemId: `pu_item_${R}`, title: "PU Banner", description: "A banner", state: "PUBLISHED", publishedAt: new Date() } });
+    await prisma.cart.create({ data: { id: `pu_cart_${R}`, tenantId: T, sponsorId: `pu_sponsor_${R}`, expiresAt: far } });
+    await prisma.reservation.create({ data: { id: `pu_res_${R}`, tenantId: T, sponsorId: `pu_sponsor_${R}`, cartId: `pu_cart_${R}`, state: "CONVERTED", convertedAt: new Date(), expiresAt: far } });
     await prisma.marketplaceOrder.create({ data: {
-      id: "pu_order", tenantId: T, sponsorId: "pu_sponsor", reservationId: "pu_res", state: "IN_DELIVERY",
+      id: `pu_order_${R}`, tenantId: T, sponsorId: `pu_sponsor_${R}`, reservationId: `pu_res_${R}`, state: "IN_DELIVERY",
       subtotalCents: 9000, feesCents: 0, totalCents: 9000, requiresApproval: false, approvalReasons: [],
       lines: { create: [{
-        id: "pu_line", tenantId: T, listingId: "pu_listing", inventoryItemId: "pu_item", itemTenantId: T, propertyId: "pu_prop", title: "PU Banner",
+        id: `pu_line_${R}`, tenantId: T, listingId: `pu_listing_${R}`, inventoryItemId: `pu_item_${R}`, itemTenantId: T, propertyId: `pu_prop_${R}`, title: "PU Banner",
         quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 9000, lineTotalCents: 9000,
       }] },
     } });
     await prisma.orderLineDelivery.create({ data: {
-      id: "pu_delivery", tenantId: T, orderId: "pu_order", lineId: "pu_line", sponsorId: "pu_sponsor", propertyId: "pu_prop", propertyTenantId: T, state: "IN_DELIVERY",
+      id: `pu_delivery_${R}`, tenantId: T, orderId: `pu_order_${R}`, lineId: `pu_line_${R}`, sponsorId: `pu_sponsor_${R}`, propertyId: `pu_prop_${R}`, propertyTenantId: T, state: "IN_DELIVERY",
     } });
     /* A campaign: the athlete's deliverable for its creative, and an ad slot sold to it for its artwork. */
     await prisma.campaign.create({ data: {
-      id: "pu_campaign", tenantId: T, sponsorId: "pu_sponsor", name: "PU Campaign", budget: 500000,
+      id: `pu_campaign_${R}`, tenantId: T, sponsorId: `pu_sponsor_${R}`, name: "PU Campaign", budget: 500000,
       startDate: new Date("2026-10-01"), endDate: new Date("2026-12-31"), state: "ACTIVE",
     } });
-    await prisma.nilJob.create({ data: { id: "pu_job", tenantId: T, name: "PU Job", baseLow: 10000, baseHigh: 20000, sellLow: 20000, sellHigh: 40000, sellFloorEmerging: 15000, sellFloorCreator: 20000, sellFloorPremium: 30000 } });
+    await prisma.nilJob.create({ data: { id: `pu_job_${R}`, tenantId: T, name: "PU Job", baseLow: 10000, baseHigh: 20000, sellLow: 20000, sellHigh: 40000, sellFloorEmerging: 15000, sellFloorCreator: 20000, sellFloorPremium: 30000 } });
     await prisma.campaignOrder.create({ data: {
-      id: "pu_corder", tenantId: T, campaignId: "pu_campaign", athleteId: "pu_athlete", jobId: "pu_job", compensation: 20000, sellPrice: 40000,
+      id: `pu_corder_${R}`, tenantId: T, campaignId: `pu_campaign_${R}`, athleteId: `pu_athlete_${R}`, jobId: `pu_job_${R}`, compensation: 20000, sellPrice: 40000,
       usageRights: "90 days", dueDate: new Date("2026-12-15"), state: "ACTIVE",
     } });
-    await prisma.deliverable.create({ data: { id: "pu_deliverable", tenantId: T, orderId: "pu_corder", title: "PU post", dueDate: new Date("2026-12-15") } });
-    await prisma.publication.create({ data: { id: "pu_pub", tenantId: T, name: "PU Masthead" } });
+    await prisma.deliverable.create({ data: { id: `pu_deliverable_${R}`, tenantId: T, orderId: `pu_corder_${R}`, title: "PU post", dueDate: new Date("2026-12-15") } });
+    await prisma.publication.create({ data: { id: `pu_pub_${R}`, tenantId: T, name: "PU Masthead" } });
     await prisma.edition.create({ data: {
-      id: "pu_edition", tenantId: T, publicationId: "pu_pub", label: "PU Edition", closeDate: far, publishTarget: far, thresholdCents: 100000, state: "SELLING",
+      id: `pu_edition_${R}`, tenantId: T, publicationId: `pu_pub_${R}`, label: "PU Edition", closeDate: far, publishTarget: far, thresholdCents: 100000, state: "SELLING",
     } });
     await prisma.adSlot.create({ data: {
-      id: "pu_slot", tenantId: T, editionId: "pu_edition", slotCode: "PU-FULL", kind: "FULL", priceCents: 80000, campaignId: "pu_campaign", soldCents: 80000, soldAt: new Date(),
+      id: `pu_slot_${R}`, tenantId: T, editionId: `pu_edition_${R}`, slotCode: "PU-FULL", kind: "FULL", priceCents: 80000, campaignId: `pu_campaign_${R}`, soldCents: 80000, soldAt: new Date(),
     } });
   });
 
@@ -168,21 +179,21 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
     {
       name: "account document (sign-up, guardian set-up and coming-of-age IDs)", type: "application/pdf", bytes: 2_345,
       grant: async () => {
-        const g = await startAccountDocument({ tenantId: T, athleteId: "pu_athlete" }, { kind: "GOVERNMENT_ID", filename: "id.pdf", contentType: "application/pdf", bytes: 2_345 });
+        const g = await startAccountDocument({ tenantId: T, athleteId: `pu_athlete_${R}` }, { kind: "GOVERNMENT_ID", filename: "id.pdf", contentType: "application/pdf", bytes: 2_345 });
         ctx.account = g.document.id;
         return g.uploadUrl;
       },
-      confirm: () => finishAccountDocument({ tenantId: T, athleteId: "pu_athlete" }, ctx.account!),
+      confirm: () => finishAccountDocument({ tenantId: T, athleteId: `pu_athlete_${R}` }, ctx.account!),
       confirmed: async () => Boolean((await prisma.accountDocument.findUniqueOrThrow({ where: { id: ctx.account! }, select: { uploadedAt: true } })).uploadedAt),
     },
     {
       name: "onboarding document (the public wizard)", type: "application/pdf", bytes: 3_210,
       grant: async () => {
-        const g = await requestDocumentUpload(issueOnboardingToken("pu_onb_draft"), { kind: "BUSINESS_REGISTRATION", filename: "reg.pdf", contentType: "application/pdf", bytes: 3_210 });
+        const g = await requestDocumentUpload(issueOnboardingToken(`pu_onb_draft_${R}`), { kind: "BUSINESS_REGISTRATION", filename: "reg.pdf", contentType: "application/pdf", bytes: 3_210 });
         ctx.onboarding = g.document.id;
         return g.uploadUrl;
       },
-      confirm: () => confirmDocumentUpload(issueOnboardingToken("pu_onb_draft"), ctx.onboarding!),
+      confirm: () => confirmDocumentUpload(issueOnboardingToken(`pu_onb_draft_${R}`), ctx.onboarding!),
       confirmed: async () => Boolean((await prisma.onboardingDocument.findUniqueOrThrow({ where: { id: ctx.onboarding! }, select: { uploadedAt: true } })).uploadedAt),
     },
     {
@@ -198,27 +209,27 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
     {
       name: "sponsor-request proof of business", type: "application/pdf", bytes: 5_432,
       grant: async () => {
-        const g = await requestSponsorDocumentUpload(issueSponsorRequestToken("pu_inquiry"), { filename: "licence.pdf", contentType: "application/pdf", bytes: 5_432 });
+        const g = await requestSponsorDocumentUpload(issueSponsorRequestToken(`pu_inquiry_${R}`), { filename: "licence.pdf", contentType: "application/pdf", bytes: 5_432 });
         ctx.inquiry = g.document.id;
         return g.uploadUrl;
       },
-      confirm: () => confirmSponsorDocumentUpload(issueSponsorRequestToken("pu_inquiry"), ctx.inquiry!),
+      confirm: () => confirmSponsorDocumentUpload(issueSponsorRequestToken(`pu_inquiry_${R}`), ctx.inquiry!),
       confirmed: async () => Boolean((await prisma.inquiryDocument.findUniqueOrThrow({ where: { id: ctx.inquiry! }, select: { uploadedAt: true } })).uploadedAt),
     },
     {
       name: "guardian hand-off document", type: "image/jpeg", bytes: 6_543,
       grant: async () => {
-        const g = await requestHandoffDocumentUpload(issuePurposeToken("handoff", "pu_handoff"), { kind: "GUARDIAN_ID", filename: "id.jpg", contentType: "image/jpeg", bytes: 6_543 });
+        const g = await requestHandoffDocumentUpload(issuePurposeToken("handoff", `pu_handoff_${R}`), { kind: "GUARDIAN_ID", filename: "id.jpg", contentType: "image/jpeg", bytes: 6_543 });
         ctx.handoff = g.document.id;
         return g.uploadUrl;
       },
-      confirm: () => confirmHandoffDocumentUpload(issuePurposeToken("handoff", "pu_handoff"), ctx.handoff!),
+      confirm: () => confirmHandoffDocumentUpload(issuePurposeToken("handoff", `pu_handoff_${R}`), ctx.handoff!),
       confirmed: async () => Boolean((await prisma.guardianHandoffDocument.findUniqueOrThrow({ where: { id: ctx.handoff! }, select: { uploadedAt: true } })).uploadedAt),
     },
     {
       name: "support attachment", type: "image/png", bytes: 7_654,
       grant: async () => {
-        const g = await submitSupportMessage({ name: "PU Person", email: "pu-person@pu.invalid", topic: "ACCOUNT", message: "Help with my account", attachments: [{ filename: "screen.png", contentType: "image/png", bytes: 7_654 }] });
+        const g = await submitSupportMessage({ name: "PU Person", email: `pu-person-${R}@pu.invalid`, topic: "ACCOUNT", message: "Help with my account", attachments: [{ filename: "screen.png", contentType: "image/png", bytes: 7_654 }] });
         ctx.supportToken = g.token!;
         ctx.support = g.uploads[0]!.attachmentId;
         return g.uploads[0]!.uploadUrl;
@@ -229,7 +240,7 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
     {
       name: "profile-change ID (a new legal name)", type: "application/pdf", bytes: 8_765,
       grant: async () => {
-        const g = await submitProfileChange(athlete, "pu_athlete", {
+        const g = await submitProfileChange(athlete, `pu_athlete_${R}`, {
           identity: { legalName: "PU Athlete Renamed" }, idDocument: { filename: "passport.pdf", contentType: "application/pdf", bytes: 8_765 },
         });
         ctx.change = g.idUpload!.changeId;
@@ -241,32 +252,32 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
     {
       name: "delivery proof (the seller marking a line delivered)", type: "image/jpeg", bytes: 9_876,
       grant: async () => {
-        const g = await requestProofUpload(manager, "pu_line", { contentType: "image/jpeg", bytes: 9_876 });
+        const g = await requestProofUpload(manager, `pu_line_${R}`, { contentType: "image/jpeg", bytes: 9_876 });
         ctx.proof = g.key;
         return g.uploadUrl;
       },
-      confirm: () => markDelivered(manager, "pu_line", { note: "Hung at the home game.", proofKey: ctx.proof! }),
-      confirmed: async () => (await prisma.orderLineDelivery.findUniqueOrThrow({ where: { id: "pu_delivery" }, select: { state: true } })).state === "DELIVERED",
+      confirm: () => markDelivered(manager, `pu_line_${R}`, { note: "Hung at the home game.", proofKey: ctx.proof! }),
+      confirmed: async () => (await prisma.orderLineDelivery.findUniqueOrThrow({ where: { id: `pu_delivery_${R}` }, select: { state: true } })).state === "DELIVERED",
     },
     {
       name: "deliverable creative (registering the upload is its confirm)", type: "image/png", bytes: 12_345,
       grant: async () => {
-        const g = await presignCreativeUpload(athlete, "pu_deliverable", "image/png", 12_345);
+        const g = await presignCreativeUpload(athlete, `pu_deliverable_${R}`, "image/png", 12_345);
         ctx.creative = g.key;
         return g.url;
       },
-      confirm: () => registerCreativeAsset(athlete, "pu_deliverable", ctx.creative!),
-      confirmed: async () => (await prisma.creativeAsset.count({ where: { tenantId: T, deliverableId: "pu_deliverable", r2Key: ctx.creative! } })) === 1,
+      confirm: () => registerCreativeAsset(athlete, `pu_deliverable_${R}`, ctx.creative!),
+      confirmed: async () => (await prisma.creativeAsset.count({ where: { tenantId: T, deliverableId: `pu_deliverable_${R}`, r2Key: ctx.creative! } })) === 1,
     },
     {
       name: "ad artwork (registering the upload is its confirm)", type: "image/png", bytes: 23_456,
       grant: async () => {
-        const g = await presignArtworkUpload(sponsorAdmin, "pu_slot", "image/png", 23_456);
+        const g = await presignArtworkUpload(sponsorAdmin, `pu_slot_${R}`, "image/png", 23_456);
         ctx.artwork = g.key;
         return g.url;
       },
-      confirm: () => registerArtwork(sponsorAdmin, "pu_slot", { r2Key: ctx.artwork! }),
-      confirmed: async () => (await prisma.editionAsset.count({ where: { tenantId: T, adSlotId: "pu_slot", r2Key: ctx.artwork! } })) === 1,
+      confirm: () => registerArtwork(sponsorAdmin, `pu_slot_${R}`, { r2Key: ctx.artwork! }),
+      confirmed: async () => (await prisma.editionAsset.count({ where: { tenantId: T, adSlotId: `pu_slot_${R}`, r2Key: ctx.artwork! } })) === 1,
     },
   ];
 

@@ -172,7 +172,8 @@ export type Resource =
   | "guardianHandoff"
   | "signupRules"
   | "paymentEvent"
-  | "paymentDispute";
+  | "paymentDispute"
+  | "supportMessage";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -253,6 +254,7 @@ export const RESOURCES: readonly Resource[] = [
   "signupRules",
   "paymentEvent",
   "paymentDispute",
+  "supportMessage",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -1063,6 +1065,17 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any", "any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
     FINANCE: rwa("own-tenant", "own-tenant"),
+  },
+
+  /* 2S0-SEC-01 (matrix §27) — a contact-form message and its attachments,
+     as BTG's support desk opens them. The desk's email names the files and
+     links here; it no longer carries them, so a guardianship proof or an ID
+     is read only through a five-minute, audited link. Written by the public
+     form (no actor) and the worker, never through this matrix. BTG admin
+     reads; nobody else. */
+  supportMessage: {
+    SUPER_ADMIN: rwa("any"),
+    BTG_ADMIN: rwa("own-tenant"),
   },
 };
 

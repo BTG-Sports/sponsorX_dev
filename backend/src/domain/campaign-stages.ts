@@ -49,6 +49,7 @@ import { staffsAthletes, tallyStaffing, type StaffingRows } from "./auto-staffin
 import { OPEN_INVITE_STATES } from "./invite-state";
 import { notReadyToGoLive, type RewardState } from "./reward-state";
 import { raiseSyncTask } from "./sync-tasks";
+import { logError } from "../lib/redact";
 
 type Tx = Prisma.TransactionClient;
 
@@ -473,7 +474,7 @@ export async function sweepCampaignStages(now = new Date(), opts: { tenantIds?: 
         out.moved += moved.length;
       } catch (error) {
         out.failed++;
-        console.error(`[campaign-stages] advancing ${c.id} failed, will retry:`, error);
+        logError(`[campaign-stages] advancing ${c.id} failed, will retry:`, error);
       }
     }
   }

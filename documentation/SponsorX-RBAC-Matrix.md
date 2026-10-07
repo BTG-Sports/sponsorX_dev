@@ -1574,6 +1574,24 @@ Never resolved by the system: it goes to BTG support.
   the order's refund refused while it is open, a payout waiting or sent back,
   money owed back — never the dispute.
 
+## 27 · BTG's support desk *(added 2026-10-06)*
+
+### `supportMessage` (2S1-BE-16, 2S0-SEC-01)
+A message sent through the public contact form, and its attachments (often a
+guardianship proof or an ID), in the tenant whose form it came through.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | — | — |
+| `BTG_ADMIN` | own-tenant (the message, and each attachment through a five-minute, audited link) | — | — |
+
+- **Written by the public form only** (no actor), and queued by the worker.
+  No role writes a message through this matrix.
+- **The desk's email names the files and links to the signed-in page; it
+  never carries them** (the owner's decision O1, 2026-10-06, in
+  `SponsorX-Payments-PII-Review-2026-10.md`).
+- **Nobody else reaches it**, the sender included: they get a copy that
+  carries only the topic and the reference.
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at
