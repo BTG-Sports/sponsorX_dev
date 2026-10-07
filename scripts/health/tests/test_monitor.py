@@ -55,6 +55,22 @@ class Checks(unittest.TestCase):
         rs = m.check_environment(BASE, fetcher(health=(503, STALE_BODY)))
         self.assertEqual(rs[1].detail, "answered 503 degraded — failing: backups")
 
+    def test_healthy_reports_queue_and_error_rate(self):
+        body = json.dumps({"status": "ok", "checks": {"queue": {"ok": True, "depth": 3, "oldestWaitMinutes": 1, "failedLast24h": 7}},
+                           "traffic": {"windowMinutes": 15, "requests": 120, "status5xx": 2, "rate": 0.0167}})
+        rs = m.check_environment(BASE, fetcher(health=(200, body)))
+        self.assertTrue(rs[1].ok)
+        self.assertEqual(rs[1].detail, "200 ok — queue 3 waiting, oldest 1 min, 7 failed jobs in 24 h · API 5xx 2 of 120 in 15 min")
+
+    def test_queue_failure_says_the_worker_is_not_draining(self):
+        body = json.dumps({"status": "degraded", "failed": ["queue"],
+                           "checks": {"queue": {"ok": False, "depth": 4, "oldestWaitMinutes": 22, "failedLast24h": 0}},
+                           "traffic": {"windowMinutes": 15, "requests": 0, "status5xx": 0, "rate": None}})
+        rs = m.check_environment(BASE, fetcher(health=(503, body)))
+        self.assertFalse(rs[1].ok)
+        self.assertEqual(rs[1].detail, "answered 503 degraded — failing: queue (worker not draining: oldest job waiting 22 min)"
+                                       " — queue 4 waiting, oldest 22 min, 0 failed jobs in 24 h · API 5xx 0 of 0 in 15 min")
+
     def test_no_answer_and_non_json(self):
         rs = m.check_environment(BASE, fetcher(web=0, health=(502, "<html>Bad gateway</html>")))
         self.assertIn("no answer", rs[0].detail)
