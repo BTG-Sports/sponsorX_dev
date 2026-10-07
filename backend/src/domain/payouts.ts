@@ -53,6 +53,7 @@ import {
   autoApprovalReasons, autoApproveSettings, autoApprovedByTenant, autoWindowFor, claimsMoney, lockPayee, nextChangedAt, planFailure,
   SYSTEM, waitingOnOf, waitingOnWhere, windowStart, type FailureKind, type WaitingOn,
 } from "./payout-auto";
+import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -765,14 +766,18 @@ async function withPayee(db: Db, rows: PayoutRow[], view: (p: PayoutRow) => Retu
  * waiting on BTG (REQUESTED, and FAILED left for BTG), on the system's
  * retry, or on the payee's account; BTG's screen defaults to BTG.
  */
-export async function listPayouts(actor: Actor, states?: PayoutState[], waitingOn?: WaitingOn) {
+/** `page` (the house pager, lib/paging.ts): one page of the tab and its count instead of the oldest 200. */
+export async function listPayouts(actor: Actor, states?: PayoutState[], waitingOn?: WaitingOn, page?: PageRequest) {
   assertAllowed(actor, "payout", "approve");
   const scope = whereFor(actor, "payout", "read");
-  const rows = await prisma.payout.findMany({
-    /* tenant-scope: `scope` is whereFor(payout, read); every filter only narrows it. */
-    where: { AND: [scope, ...(states?.length ? [{ state: { in: states } }] : []), ...(waitingOn ? [waitingOnWhere(waitingOn)] : [])] },
-    select: PAYOUT_SELECT, orderBy: { requestedAt: "asc" }, take: 200,
-  });
+  /* `scope` is whereFor(payout, read); every filter only narrows it. */
+  const where = { AND: [scope, ...(states?.length ? [{ state: { in: states } }] : []), ...(waitingOn ? [waitingOnWhere(waitingOn)] : [])] };
+  const read = (skip: number, take: number) =>
+    prisma.payout.findMany({ where /* tenant-scope: whereFor(payout, read) in scope */, select: PAYOUT_SELECT, orderBy: { requestedAt: "asc" }, skip, take });
+  const paged = page
+    ? await readPage(page, () => prisma.payout.count({ where /* tenant-scope: whereFor(payout, read) in scope */ }), read)
+    : { rows: await read(0, 200), page: null as PageInfo | null };
+  const rows = paged.rows;
   const counts = await prisma.payout.groupBy({ /* tenant-scope: whereFor(payout, read). */ by: ["state"], where: scope, _count: { _all: true } });
   const failed = await prisma.payout.groupBy({ /* tenant-scope: whereFor(payout, read). */ by: ["waitingOn"], where: { AND: [scope, { state: "FAILED" }] }, _count: { _all: true } });
   const failedOn = (w: WaitingOn) => failed.filter((f) => (f.waitingOn ?? "BTG") === w).reduce((n, f) => n + f._count._all, 0);
@@ -787,6 +792,7 @@ export async function listPayouts(actor: Actor, states?: PayoutState[], waitingO
       /* FAILED only, by who it waits on — the Failed tab's filter. */
       failed: { BTG: failedOn("BTG"), SYSTEM_RETRY: failedOn("SYSTEM_RETRY"), PAYEE_ACCOUNT: failedOn("PAYEE_ACCOUNT") },
     },
+    ...(paged.page ? { page: paged.page } : {}),
   };
 }
 

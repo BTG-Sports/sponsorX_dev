@@ -9,6 +9,8 @@
    for is refused), so the bodies built here carry exactly the keys each
    organisation type allows and nothing else — never a bank or tax field.
    -------------------------------------------------------------------------- */
+import type { PageInfo } from "@/lib/list-query";
+
 
 export const ORG_TYPES = ["TEAM", "SCHOOL", "EVENT", "MEDIA", "VIRTUAL", "AGENCY"] as const;
 export type OrgType = (typeof ORG_TYPES)[number];
@@ -27,6 +29,14 @@ export const isOrgType = (v: unknown): v is OrgType => typeof v === "string" && 
 
 export const ONBOARDING_STATES = ["DRAFT", "PENDING_REVIEW", "CHANGES_REQUESTED", "APPROVED", "REJECTED", "SUSPENDED"] as const;
 export type OnboardingState = (typeof ONBOARDING_STATES)[number];
+
+/** P1-FE-31 — GET /onboarding?page=: one tab's page, with every tab's count
+ *  (each state, plus the "approved automatically" and "flagged" lists). */
+export type ApiOnboardingPage = {
+  onboardings: ApiOnboarding[];
+  page: PageInfo;
+  counts: Partial<Record<OnboardingState, number>> & { auto: number; flagged: number };
+};
 export const isOnboardingState = (v: unknown): v is OnboardingState =>
   typeof v === "string" && (ONBOARDING_STATES as readonly string[]).includes(v);
 

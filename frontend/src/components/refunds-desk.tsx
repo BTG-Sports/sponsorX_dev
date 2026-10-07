@@ -22,7 +22,7 @@ export function MarkRefunded({ refund }: { refund: ApiRefund }) {
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} aria-label={`Mark the ${refundRef(refund)} refund sent`}
-        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-3.5 text-sm font-semibold text-cta-ink hover:bg-primary-soft xl:min-h-9 xl:w-auto xl:text-xs">
+        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-3.5 text-sm font-semibold text-cta-ink hover:bg-primary-soft md:min-h-9 md:w-auto md:text-xs">
         Mark refunded
       </button>
       {open && <MarkDialog refund={refund} onClose={() => setOpen(false)} />}

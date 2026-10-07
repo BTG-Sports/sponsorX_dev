@@ -2,7 +2,8 @@ import Link from "next/link";
 
 import { BriefsDesk } from "@/components/briefs-desk";
 import { EmptyState } from "@/components/states";
-import { TABS, mergeBriefs, toBriefRow, type ApiBrief, type TabKey } from "@/lib/briefs-live";
+import { apiListQuery, textParam } from "@/lib/list-query";
+import { TABS, briefTabQuery, toBriefRow, type ApiBriefPage, type TabKey } from "@/lib/briefs-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 
@@ -12,6 +13,13 @@ import { requirePortalAccess } from "@/server/portal";
    brief that passes every safety check is approved automatically, so the
    desk opens on "Held for BTG" — the exceptions, each with its reasons.
 
+   P1-FE-31 (2026-10-07): SERVER-PAGED. The tab, the search and the sport
+   filter live in the URL and go to the API, which answers one page of
+   that tab plus every tab's count and the sports in scope — the desk used
+   to read the newest 100 and filter them in the browser. The brief rows
+   keep their card shape (each carries reasons, a checklist and a detail
+   panel beside it): this is not a table.
+
    Live only. GET /briefs is the tenant's briefs for BTG staff (own scope for
    a sponsor, who never reaches this workspace). A 403 is a role that doesn't
    read briefs (finance), shown as out of scope; any other failure is the
@@ -19,6 +27,8 @@ import { requirePortalAccess } from "@/server/portal";
    campaignBrief.approve (BTG admin, campaign manager); closing is .write,
    which sales also holds — the buttons follow the same rule, and the API
    enforces it regardless.
+
+   Reads  GET /briefs?page&size&sort=newest&q&sport&(held=true|state=…)   { briefs, page, counts, facets }
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -33,7 +43,9 @@ export default async function BriefsPage({ searchParams }: PageProps<"/admin/bri
      check passes is approved automatically (P4-BE-11), so what is left for
      BTG is the DRAFT briefs held for it, each with its reasons. */
   const tabParam = typeof sp.tab === "string" ? sp.tab : "held";
-  const initialTab = (TABS.some((t) => t.key === tabParam) ? tabParam : "held") as TabKey;
+  const tab = (TABS.some((t) => t.key === tabParam) ? tabParam : "held") as TabKey;
+  const q = textParam(sp, "q");
+  const sport = textParam(sp, "sport");
 
   const heading = (
     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -49,9 +61,7 @@ export default async function BriefsPage({ searchParams }: PageProps<"/admin/bri
     </div>
   );
 
-  /* The newest briefs, and — so none is cut off by that first page — every
-     held one (P4-BE-11's ?held=true). */
-  const [res, heldRes] = await Promise.all([apiFetch("/briefs"), apiFetch("/briefs?held=true")]);
+  const res = await apiFetch(`/briefs${apiListQuery(sp, { sort: "newest", q, sport, ...briefTabQuery(tab) })}`);
   if (res.status === 403) {
     return (
       <div className="space-y-6">
@@ -61,13 +71,9 @@ export default async function BriefsPage({ searchParams }: PageProps<"/admin/bri
     );
   }
   if (!res.ok) throw new Error(`Briefs unavailable (${res.status}).`);
-  if (!heldRes.ok) throw new Error(`Briefs unavailable (${heldRes.status}).`);
-  const briefs = mergeBriefs(
-    ((await res.json()) as { briefs: ApiBrief[] }).briefs,
-    ((await heldRes.json()) as { briefs: ApiBrief[] }).briefs,
-  );
+  const data = (await res.json()) as ApiBriefPage;
 
-  if (briefs.length === 0) {
+  if (data.counts.all === 0) {
     return (
       <div className="space-y-6">
         {heading}
@@ -84,8 +90,13 @@ export default async function BriefsPage({ searchParams }: PageProps<"/admin/bri
     <div className="space-y-6">
       {heading}
       <BriefsDesk
-        rows={briefs.map(toBriefRow)}
-        initialTab={initialTab}
+        rows={data.briefs.map(toBriefRow)}
+        page={data.page}
+        counts={data.counts}
+        sports={data.facets.sports}
+        tab={tab}
+        q={q}
+        sport={sport}
         canApprove={actor.roles.some((r) => APPROVERS.includes(r))}
         canClose={actor.roles.some((r) => CLOSERS.includes(r))}
       />

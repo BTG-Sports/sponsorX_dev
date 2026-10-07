@@ -56,6 +56,7 @@ import { presignPrivateDownload, presignPrivateUpload, privateObjectSize, SENSIT
 import { provisionGuardianLoginIn } from "./athlete-login";
 import { requiresGuardian } from "./guardian-rules";
 import { safeFilename } from "./onboarding-documents";
+import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
 
 type Tx = Prisma.TransactionClient;
 
@@ -348,18 +349,22 @@ export async function submitHandoff(token: string) {
  * (staffDetails) and every group's count; a guardian's or athlete's answer is
  * unchanged.
  */
-export async function listHandoffs(actor: Actor, q: { group?: HandoffGroup } = {}) {
+/** `page` (the house pager, lib/paging.ts): one page of the group and its count instead of the newest 100. */
+export async function listHandoffs(actor: Actor, q: { group?: HandoffGroup; page?: PageRequest } = {}) {
   assertAllowed(actor, "guardianHandoff", "read");
   const staff = staffReads(actor);
   /* A guardian or an athlete never sees a request before it is sent. (whereFor's own `AND` is the scope: never overwrite it.) */
   const states = q.group ? GROUP_STATES[q.group].filter((st) => staff || st !== "REQUESTED") : null;
-  const rows = await prisma.guardianHandoff.findMany({
-    where: { ...whereFor(actor, "guardianHandoff", "read"), ...(states ? { state: { in: states } } : staff ? {} : { state: { not: "REQUESTED" } }) },
-    select: SELECT, orderBy: { createdAt: "desc" }, take: staff ? 100 : 25,
-  });
+  const where = { ...whereFor(actor, "guardianHandoff", "read"), ...(states ? { state: { in: states } } : staff ? {} : { state: { not: "REQUESTED" } }) };
+  const read = (skip: number, take: number) =>
+    prisma.guardianHandoff.findMany({ where /* tenant-scope: whereFor(guardianHandoff) above */, select: SELECT, orderBy: { createdAt: "desc" }, skip, take });
+  const paged = q.page
+    ? await readPage(q.page, () => prisma.guardianHandoff.count({ where /* tenant-scope: whereFor(guardianHandoff) above */ }), read)
+    : { rows: await read(0, staff ? 100 : 25), page: null as PageInfo | null };
+  const rows = paged.rows;
   const out = [];
   for (const r of rows) out.push(await view(prisma, r, true));
-  if (!staff) return { handoffs: out };
+  if (!staff) return { handoffs: out, ...(paged.page ? { page: paged.page } : {}) };
   const [details, byState] = await Promise.all([
     staffDetails(rows),
     prisma.guardianHandoff.groupBy({ by: ["state"], where: whereFor(actor, "guardianHandoff", "read"), _count: { _all: true } }),
@@ -368,6 +373,7 @@ export async function listHandoffs(actor: Actor, q: { group?: HandoffGroup } = {
   return {
     handoffs: out.map((h) => ({ ...h, staff: details.get(h.id)! })),
     counts: Object.fromEntries(Object.entries(GROUP_STATES).map(([g, states]) => [g, n(states)])) as Record<HandoffGroup, number>,
+    ...(paged.page ? { page: paged.page } : {}),
   };
 }
 

@@ -104,6 +104,7 @@ import { usd } from "./marketplace-order-rules";
 import { recordRefund, refundsForOrders, type RefundCause, type RefundContext, type SponsorRefund } from "./refunds";
 import { SELLER_CANCELLATION_LIMIT, SELLER_CANCELLATION_WINDOW_DAYS } from "./listing-rules";
 import { sellerCancellationCount, sellerOfLine } from "./seller-standing";
+import { readPage, type PageRequest } from "../lib/paging";
 
 type Tx = Prisma.TransactionClient;
 
@@ -2114,6 +2115,64 @@ export async function deliveryIssues(actor: Actor, now = new Date()) {
     problems: escalated.sort((a, b) => escalatedAt(a) - escalatedAt(b)).map((r) => issueView(r, names, now, hold.get(r.lineId))),
     settled,
     overdue: overdue.map((r) => issueView(r, names, now)),
+  };
+}
+
+export type DeliveryIssueTab = "problems" | "settled" | "overdue";
+export const DELIVERY_ISSUE_TABS: readonly DeliveryIssueTab[] = ["problems", "settled", "overdue"];
+
+/**
+ * One tab of the delivery-issues desk as a page (the house pager,
+ * lib/paging.ts), with every tab's count. `problems` and `settled` page the
+ * issues themselves (oldest escalation first; latest settlement first — one
+ * entry per settled problem, as deliveryIssues() lists them); `overdue`
+ * pages the unmarked lines, oldest first. Only the asked tab's list is
+ * filled; the other two keys stay absent.
+ */
+export async function deliveryIssuesPage(actor: Actor, tab: DeliveryIssueTab, page: PageRequest, now = new Date()) {
+  assertDesk(actor);
+  const where = whereFor(actor, "orderDelivery", "approve");
+  const overdueWhere = { ...where, state: "IN_DELIVERY" as const, overdueEscalatedAt: null, ...noOpenIssue, OR: [{ redeliverOn: null, line: { endsOn: { lt: now } } }, { redeliverOn: { lt: now } }] };
+  const issueWhere = (stage: "ESCALATED" | "SETTLED") => ({ stage, delivery: { ...where } });
+  const counts = {
+    problems: await prisma.deliveryIssue.count({ where: issueWhere("ESCALATED") /* tenant-scope: delivery is whereFor(orderDelivery) */ }),
+    settled: await prisma.deliveryIssue.count({ where: issueWhere("SETTLED") /* tenant-scope: delivery is whereFor(orderDelivery) */ }),
+    overdue: await prisma.orderLineDelivery.count({ where: overdueWhere /* tenant-scope: whereFor(orderDelivery) in where */ }),
+  };
+  const base = { confirmWindowHours: CONFIRM_WINDOW_HOURS, answerWindowHours: ANSWER_WINDOW_HOURS, tab, counts };
+  if (tab === "overdue") {
+    const paged = await readPage(
+      page,
+      async () => counts.overdue,
+      (skip, take) => prisma.orderLineDelivery.findMany({ where: overdueWhere /* tenant-scope: whereFor(orderDelivery) in where */, select: SALE_SELECT, orderBy: { createdAt: "asc" }, skip, take }),
+    );
+    const names = await namesFor(paged.rows);
+    return { ...base, page: paged.page, overdue: paged.rows.map((r) => issueView(r, names, now)) };
+  }
+  const stage = tab === "problems" ? "ESCALATED" : "SETTLED";
+  const paged = await readPage(
+    page,
+    async () => counts[tab],
+    (skip, take) => prisma.deliveryIssue.findMany({
+      where: issueWhere(stage) /* tenant-scope: delivery is whereFor(orderDelivery) */,
+      select: { ...ISSUE_SELECT, delivery: { select: SALE_SELECT } },
+      orderBy: stage === "ESCALATED" ? { escalatedAt: "asc" } : { closedAt: "desc" },
+      skip, take,
+    }),
+  );
+  const deliveries = paged.rows.map((i) => i.delivery);
+  const names = await namesFor(deliveries);
+  if (tab === "problems") {
+    const hold = await holdFor(actor, deliveries.map((d) => d.lineId));
+    return { ...base, page: paged.page, problems: deliveries.map((r) => issueView(r, names, now, hold.get(r.lineId))) };
+  }
+  return {
+    ...base,
+    page: paged.page,
+    settled: paged.rows.map((i) => ({
+      ...issueView(i.delivery, names, now),
+      settlement: { issueId: i.id, kind: i.kind as IssueKind, outcome: i.outcome as IssueOutcome, at: i.closedAt, text: settledWords(i), answer: i.sellerAnswer as SellerAnswer },
+    })),
   };
 }
 

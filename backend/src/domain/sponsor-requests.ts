@@ -49,6 +49,7 @@ import { DOCUMENT_TYPES, MAX_DOCUMENT_BYTES, safeFilename } from "./onboarding-d
 import {
   briefAnswers, sponsorApprovalVerdict, sponsorNameFor, suggestCategories, type SponsorRequestState,
 } from "./sponsor-request-rules";
+import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
 
 type Tx = Prisma.TransactionClient;
 
@@ -86,15 +87,21 @@ export function summary(r: Row) {
 }
 
 /** BTG's queue: one tab at a time, newest first, with every tab's count. */
-export async function listSponsorRequests(actor: Actor, state: SponsorRequestState = "NEW") {
+/** `page` (the house pager, lib/paging.ts): one page of the tab and its count instead of the first 200. */
+export async function listSponsorRequests(actor: Actor, state: SponsorRequestState = "NEW", page?: PageRequest) {
   const where = whereFor(actor, "inquiry", "read");
-  const [rows, grouped] = await Promise.all([
-    prisma.inquiry.findMany({ where: { ...where, state }, select: SELECT, orderBy: { createdAt: state === "NEW" ? "asc" : "desc" }, take: 200 }),
+  const tabWhere = { ...where, state };
+  const read = (skip: number, take: number) =>
+    prisma.inquiry.findMany({ where: tabWhere /* tenant-scope: whereFor(inquiry) in where */, select: SELECT, orderBy: { createdAt: state === "NEW" ? "asc" : "desc" }, skip, take });
+  const [paged, grouped] = await Promise.all([
+    page
+      ? readPage(page, () => prisma.inquiry.count({ where: tabWhere /* tenant-scope: whereFor(inquiry) in where */ }), read)
+      : read(0, 200).then((rows) => ({ rows, page: null as PageInfo | null })),
     prisma.inquiry.groupBy({ where: { ...where }, by: ["state"], _count: { _all: true } }),
   ]);
   const counts = { NEW: 0, APPROVED: 0, DECLINED: 0, REJECTED: 0 } as Record<SponsorRequestState, number>;
   for (const g of grouped) counts[g.state as SponsorRequestState] = g._count._all;
-  return { requests: rows.map(summary), counts };
+  return { requests: paged.rows.map(summary), counts, ...(paged.page ? { page: paged.page } : {}) };
 }
 
 /** Sponsors in this tenant with the same business name, by the one name rule. */

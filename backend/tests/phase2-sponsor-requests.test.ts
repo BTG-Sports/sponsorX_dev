@@ -161,6 +161,20 @@ describe.skipIf(!hasDatabase)("2S1-BE-05 · BTG reviews a sponsor's request and 
       expect((await call("GET", `/sponsor-requests/${E.taken}`, "sr_admin")).json.checks.emailInUse).toBe(true);
     });
 
+    it("P1-FE-31 · ?page=1&size=1 answers one row with the page and the same counts; without ?page the old shape", async () => {
+      const whole = await call("GET", "/sponsor-requests", "sr_admin");
+      expect(whole.status, whole.text).toBe(200);
+      expect(whole.json.page).toBeUndefined();
+      const paged = await call("GET", "/sponsor-requests?page=1&size=1", "sr_admin");
+      expect(paged.status, paged.text).toBe(200);
+      const total = whole.json.requests.length;
+      expect(total).toBeGreaterThanOrEqual(1);
+      expect(paged.json.page).toEqual({ page: 1, size: 1, total, pages: total });
+      expect(paged.json.requests).toHaveLength(1);
+      expect(paged.json.requests[0].id).toBe(whole.json.requests[0].id);
+      expect(paged.json.counts).toEqual(whole.json.counts);
+    });
+
     it("nobody else can see it, and another tenant's BTG can't reach it", async () => {
       for (const who of ["sr_cm", "sr_finance", "sr_sponsor_user"]) {
         expect((await call("GET", "/sponsor-requests", who)).status, who).toBe(403);

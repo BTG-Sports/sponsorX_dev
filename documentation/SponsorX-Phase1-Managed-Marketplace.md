@@ -801,6 +801,20 @@ Raised 2026-10-07 by the programme owner: redesign the whole admin portal in the
 - **Done when:** every `/admin` route renders on the stage (27 desks walked, no console errors, no horizontal overflow at 390px); drawers and dialogs are dark in both themes; no read, write or role rule changes; frontend tests, lint and build green
 - **Reference:** `docs/superpowers/specs/2026-10-07-admin-portal-stage-design.md`; `frontend/src/components/portal-shell.tsx`; `frontend/src/components/stage-portals.tsx`; the `.sx-ops` skin in `frontend/src/app/globals.css`
 
+### ▶ `P1-FE-31` · Admin desks — every list a server-paged table
+
+**Order** 32.997 · **FE** · **Where:** Code · **2d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-07 by the programme owner: the admin desks that still list whole tables should page "based on our rules and memory", converted to tables only where a table makes the list easier on the eyes.
+
+- **Ten desks** were reading a whole list (or the API's silent cap of 100–500 rows), some counting their tabs from the rows in view: the audit log, briefs, sponsor requests, property verification (eight whole-table reads to count its tabs), payout approvals, refunds, delivery issues, guardian handoffs, closed accounts and offers.
+- **Nine become one shared stage table** (`StageTable` / `PagedTable`): a real `<table>` with the house pager above and below (12 / 24 / 60 a page), stacked into cards on a phone, rows rising in on the stage. **Briefs stays rows** — each carries reasons, a checklist and a detail panel — but is paged like the rest, with its tab, search and sport filter on the server.
+- **The API** gains the house pager on every one of those lists (`?page`, `?size`, `page: {…}`), with tab counts from counts over the whole scope. Offers' tab rules and delivery issues' three lists move to the server; `/onboarding` answers every tab's count in one read; the audit log gets a counted page beside its cursor; `/briefs` gains `?sport=`, counts and a sports facet.
+
+- **Depends on:** `P1-ART-18` (the stage the tables sit on)
+- **Done when:** none of the ten desks reads a whole list; every count on them is the API's; each renders a table (or the briefs' rows) with the pager above and below, or an empty state; no console error, no horizontal overflow; backend static scope tests and one paged-shape test per endpoint green; frontend tests, lint, build green
+- **Reference:** `docs/superpowers/specs/2026-10-07-admin-lists-paged-tables-design.md`; `frontend/src/components/stage-table.tsx`; `backend/src/lib/paging.ts`; `e2e/admin-lists-paged.spec.ts`
+
 ### ▶ `P1-FE-18` · Apply the SponsorX NEXT UI requirement across the existing pages
 
 **Order** 37.02 · **FE** · **Where:** Code · **2d** · **Ready** · **Unblocks** 5

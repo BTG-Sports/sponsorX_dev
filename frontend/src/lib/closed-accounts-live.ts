@@ -14,6 +14,8 @@
 
    Pure: shapes, tabs and the words the screens derive. `now` is a parameter.
    -------------------------------------------------------------------------- */
+import type { PageInfo } from "@/lib/list-query";
+
 
 export type ClosureKind = "ATHLETE" | "GUARDIAN" | "PROPERTY" | "SPONSOR" | "ONBOARDING" | "INQUIRY";
 export type ClosureCause = "SELF" | "REJECTED" | "TERMINATED";
@@ -45,7 +47,7 @@ export type ApiClosureRow = {
 };
 
 export type ClosureTabKey = "asking" | "btg" | "owner" | "age" | "deleted";
-export type ApiClosureList = { closures: ApiClosureRow[]; counts: Record<ClosureTabKey, number> };
+export type ApiClosureList = { closures: ApiClosureRow[]; counts: Record<ClosureTabKey, number>; /** P1-FE-31 — present on a paged read. */ page?: PageInfo };
 
 /** GET /account-closures/:id. */
 export type ApiClosure = ApiClosureRow & {

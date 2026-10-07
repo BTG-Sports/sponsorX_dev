@@ -1,8 +1,10 @@
 import Link from "next/link";
 
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
-import { Badge, Card } from "@/components/ui";
+import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
+import { Badge } from "@/components/ui";
 import { EmptyState } from "@/components/states";
+import { apiListQuery } from "@/lib/list-query";
 import {
   REQUEST_TABS, askedAgo, emptyTitle, requestTab, stampOf, stateBadge, zohoLabel, type ApiSponsorRequestList,
 } from "@/lib/sponsor-requests-live";
@@ -13,7 +15,10 @@ import { apiFetch } from "@/server/api";
    SR-1). BTG admin and Sales: businesses asking to sponsor. Approving opens
    their account and emails them a sign-in link (on the request's own page).
 
-   Reads  GET /sponsor-requests?state=NEW|APPROVED|DECLINED|REJECTED   the tab + every count
+   P1-FE-31 (2026-10-07): one SERVER-PAGED table per tab (the house pager,
+   12 / 24 / 60 a page); the tab counts are the API's, never the rows in view.
+
+   Reads  GET /sponsor-requests?state=NEW|APPROVED|DECLINED|REJECTED&page&size   the tab's page + every count
           (Rejected: approved accounts BTG rejected afterwards — Reinstate is on each one's page)
    -------------------------------------------------------------------------- */
 
@@ -24,12 +29,24 @@ const TITLE = "Sponsor requests";
 export default async function SponsorRequestsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const lacking = await staffWithoutAccess(PATH);
   if (lacking) return <NotInRole path={PATH} title={TITLE} roles={lacking} />;
-  const tab = requestTab((await searchParams).tab);
-  const res = await apiFetch(`/sponsor-requests?state=${tab.state}`);
+  const sp = await searchParams;
+  const tab = requestTab(sp.tab);
+  const res = await apiFetch(`/sponsor-requests${apiListQuery(sp, { state: tab.state })}`);
   if (res.status === 403) return <NotInRole path={PATH} title={TITLE} roles={["BTG_ADMIN", "SALES"]} />;
   if (!res.ok) throw new Error(`Sponsor requests unavailable (${res.status}).`);
   const list = (await res.json()) as ApiSponsorRequestList;
+  const page = list.page ?? { page: 1, size: list.requests.length || 12, total: list.requests.length, pages: 1 };
   const now = new Date();
+  const fresh = tab.state === "NEW";
+
+  const columns: Column[] = [
+    { key: "business", label: "Business" },
+    { key: "category", label: "Their category (their words)" },
+    { key: "budget", label: "Budget" },
+    { key: "when", label: fresh ? "Asked" : "Decided" },
+    { key: "status", label: fresh ? "Zoho" : "Status" },
+    { key: "action", label: "Action", srOnly: true },
+  ];
 
   return (
     <div className="space-y-6">
@@ -38,62 +55,44 @@ export default async function SponsorRequestsPage({ searchParams }: { searchPara
         <p className="mt-1 text-xs text-muted">Businesses asking to sponsor on SponsorX. Approving opens their account and emails them a sign-in link.</p>
       </div>
 
-      <nav aria-label="Request state" className="flex flex-wrap gap-2">
-        {REQUEST_TABS.map((t) => {
-          const on = t.key === tab.key;
-          return (
-            <Link key={t.key} href={`${PATH}?tab=${t.key}`} aria-current={on ? "page" : undefined}
-              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs ${on ? "border-primary/60 text-primary" : "border-line text-muted hover:text-text"}`}>
-              {t.label}
-              <span className={`rounded-full px-1.5 text-[10px] tabular-nums ${t.state === "NEW" && list.counts.NEW ? "bg-warn/15 text-warn" : "bg-surface-2"}`}>{list.counts[t.state]}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      <TabStrip label="Request state">
+        {REQUEST_TABS.map((t) => (
+          <TabLink key={t.key} href={`${PATH}?tab=${t.key}`} on={t.key === tab.key} count={list.counts[t.state]} hot={t.state === "NEW"}>
+            {t.label}
+          </TabLink>
+        ))}
+      </TabStrip>
 
       {list.requests.length === 0 ? (
         <EmptyState
           mark="inbox"
           title={emptyTitle(tab.state)}
-          hint={tab.state === "NEW" ? "New ones appear here as businesses ask to sponsor." : ""}
+          hint={fresh ? "New ones appear here as businesses ask to sponsor." : ""}
         />
       ) : (
-        <Card className="p-0">
-          <div className="hidden grid-cols-[1.4fr_1.2fr_8rem_7rem_8rem_6rem] gap-x-3 border-b border-line-soft px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-faint md:grid">
-            <span>Business</span>
-            <span>Their category (their words)</span>
-            <span>Budget</span>
-            <span>{tab.state === "NEW" ? "Asked" : "Decided"}</span>
-            <span>{tab.state === "NEW" ? "Zoho" : "Status"}</span>
-            <span className="text-right">Action</span>
-          </div>
-          <ul className="divide-y divide-line-soft">
-            {list.requests.map((r) => {
-              const badge = stateBadge(r.state);
-              return (
-                <li key={r.id} className="grid gap-x-3 gap-y-1 px-4 py-3 text-xs md:grid-cols-[1.4fr_1.2fr_8rem_7rem_8rem_6rem] md:items-center">
-                  <span className="min-w-0">
-                    <span className="block font-medium">{r.businessName}</span>
-                    <span className="block text-[11px] text-muted">{r.contactName}</span>
-                  </span>
-                  <span className="text-muted">{r.categoryText ?? "—"}</span>
-                  <span className="tabular-nums text-muted">{r.budget ?? "—"}</span>
-                  <span className="text-muted">{tab.state === "NEW" ? askedAgo(r.createdAt, now) : stampOf(r.decidedAt)}</span>
-                  <span>
-                    {tab.state === "NEW"
-                      ? <Badge tone={r.zoho === "LEAD" ? "accent" : "neutral"}>{zohoLabel(r)}</Badge>
-                      : <Badge tone={badge.tone}>{badge.label}</Badge>}
-                  </span>
-                  <span className="md:text-right">
-                    <Link href={`${PATH}/${r.id}`} aria-label={`${tab.state === "NEW" ? "Review" : "Open"} ${r.businessName}`} className="font-medium text-primary hover:underline">
-                      {tab.state === "NEW" ? "Review →" : "Open →"}
-                    </Link>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
+        <PagedTable page={page} noun="Requests" label={`${tab.label} sponsor requests`} columns={columns}>
+          {list.requests.map((r, i) => {
+            const badge = stateBadge(r.state);
+            return (
+              <Tr key={r.id} i={i}>
+                <Td><Primary sub={r.contactName}>{r.businessName}</Primary></Td>
+                <Td label="Category" muted>{r.categoryText ?? "—"}</Td>
+                <Td label="Budget" muted className="tabular-nums">{r.budget ?? "—"}</Td>
+                <Td label={fresh ? "Asked" : "Decided"} muted>{fresh ? askedAgo(r.createdAt, now) : stampOf(r.decidedAt)}</Td>
+                <Td label={fresh ? "Zoho" : "Status"}>
+                  {fresh
+                    ? <Badge tone={r.zoho === "LEAD" ? "accent" : "neutral"}>{zohoLabel(r)}</Badge>
+                    : <Badge tone={badge.tone}>{badge.label}</Badge>}
+                </Td>
+                <Td act>
+                  <Link href={`${PATH}/${r.id}`} aria-label={`${fresh ? "Review" : "Open"} ${r.businessName}`} className="font-medium text-primary hover:underline">
+                    {fresh ? "Review →" : "Open →"}
+                  </Link>
+                </Td>
+              </Tr>
+            );
+          })}
+        </PagedTable>
       )}
     </div>
   );

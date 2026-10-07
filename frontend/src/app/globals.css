@@ -2709,3 +2709,78 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
   color: #fff;
   box-shadow: 0 0 18px rgba(46, 155, 245, 0.35);
 }
+
+/* --------------------------------------------------------------------------
+   The stage table — P1-FE-31 (components/stage-table.tsx). A real <table>
+   for every admin desk that lists records in columns, server-paged. Below
+   md it stacks: each row a card, each cell printing its header first from
+   `data-label`. Rows rise in one after another on arrival (`--i`).
+   -------------------------------------------------------------------------- */
+.sx-table-wrap { padding: 0; }
+.sx-table-scroll { overflow-x: auto; border-radius: inherit; }
+.sx-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.sx-table th {
+  padding: 0.6rem 0.9rem;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-faint, var(--sx-text-faint));
+  border-bottom: 1px solid var(--color-line-soft, var(--sx-line-soft));
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+.sx-table th .normal-case { letter-spacing: normal; }
+.sx-table td {
+  padding: 0.8rem 0.9rem;
+  vertical-align: top;
+  border-top: 1px solid var(--color-line-soft, var(--sx-line-soft));
+}
+.sx-table tbody tr:first-child td { border-top: 0; }
+.sx-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sx-table .act { text-align: right; white-space: nowrap; }
+.sx-table .act > a,
+.sx-table .act > button,
+.sx-table .act > span > button,
+.sx-table .act > span > a { display: inline-flex; min-height: 2.25rem; align-items: center; justify-content: center; }
+.sx-table tbody tr { transition: background-color 0.25s ease; }
+.sx-table tbody tr:hover { background: rgba(99, 180, 248, 0.06); }
+.sx-table tbody tr[data-tone="warn"] { box-shadow: inset 3px 0 0 var(--sx-warn, #f0a42a); }
+.sx-table tbody tr[data-tone="danger"] { box-shadow: inset 3px 0 0 var(--sx-danger, #ff6b6b); }
+.sx-table tbody tr[data-tone="accent"] { box-shadow: inset 3px 0 0 var(--sx-accent, #5ee0ff); }
+.sx-table tbody tr[data-open] { background: rgba(99, 180, 248, 0.08); }
+.sx-table tbody tr.sx-table-detail > td { padding-top: 0; border-top: 0; background: rgba(4, 8, 15, 0.35); }
+
+/* the stage: rows rise in, staggered by --i */
+.sx-ops .sx-table tbody tr { animation: sx-ops-rise 0.55s var(--sx-ease) calc(var(--i, 0) * 35ms) backwards; }
+.sx-ops .sx-table th { color: #8fb6d9; border-bottom-color: rgba(99, 180, 248, 0.22); }
+.sx-ops .sx-table td { border-top-color: rgba(99, 180, 248, 0.12); }
+
+/* a phone: stacked cards, each cell with its own header */
+@media (max-width: 767px) {
+  .sx-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .sx-table, .sx-table tbody, .sx-table tr, .sx-table td { display: block; }
+  .sx-table tr { padding: 0.75rem 0.9rem; border-top: 1px solid var(--color-line-soft, var(--sx-line-soft)); }
+  .sx-table tbody tr:first-child { border-top: 0; }
+  .sx-table td { padding: 0.15rem 0; border-top: 0; }
+  .sx-table td.num, .sx-table td.act { text-align: left; white-space: normal; }
+  .sx-table td.act { padding-top: 0.6rem; }
+  .sx-table td.act > a, .sx-table td.act > button { width: 100%; min-height: 2.75rem; }
+  .sx-table td[data-label]:not([data-label=""])::before {
+    content: attr(data-label) ": ";
+    font-size: 11px;
+    color: var(--color-muted, var(--sx-text-muted));
+  }
+  .sx-table td[data-label]:not([data-label=""]) > * { display: inline; }
+  .sx-table tbody tr[data-tone] { box-shadow: none; }
+  .sx-table tbody tr.sx-table-detail { padding-top: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sx-ops .sx-table tbody tr { animation: none; }
+}

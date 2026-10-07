@@ -66,6 +66,7 @@ import {
   type OnboardingState,
   type OrgType,
 } from "./onboarding-rules";
+import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
 
 type Tx = Prisma.TransactionClient;
 const SYSTEM = (tenantId: string): AuditActor => ({ userId: null, tenantId });
@@ -631,6 +632,32 @@ export async function reviewQueue(actor: Actor, state: OnboardingState = "PENDIN
     ...(list ? { take: 200 } : {}),
   });
   return rows.map(view);
+}
+
+/** The desk's page of one tab (the house pager, lib/paging.ts), with every
+ *  tab's count: each state, plus the "approved automatically" and "flagged" lists. */
+export async function reviewQueuePage(actor: Actor, page: PageRequest, state: OnboardingState = "PENDING_REVIEW", list?: "auto" | "flagged") {
+  assertTenantWide(actor, "propertyOnboarding", "read");
+  const scope = whereFor(actor, "propertyOnboarding", "read");
+  const where = list === "auto" ? { ...scope, autoApproved: true }
+    : list === "flagged" ? { ...scope, flaggedAt: { not: null } }
+    : { ...scope, state: state as Prisma.EnumOnboardingStateFilter["equals"] };
+  const orderBy = list ? { decidedAt: "desc" as const } : { submittedAt: "asc" as const };
+  const [paged, byState, auto, flagged] = await Promise.all([
+    readPage(
+      page,
+      () => prisma.propertyOnboarding.count({ where /* tenant-scope: whereFor(propertyOnboarding) in scope */ }),
+      (skip, take) => prisma.propertyOnboarding.findMany({ where /* tenant-scope: whereFor(propertyOnboarding) in scope */, select: SELECT, orderBy, skip, take }),
+    ),
+    prisma.propertyOnboarding.groupBy({ by: ["state"], where: scope /* tenant-scope: whereFor(propertyOnboarding) */, _count: { _all: true } }),
+    prisma.propertyOnboarding.count({ where: { ...scope, autoApproved: true } /* tenant-scope: whereFor(propertyOnboarding) in scope */ }),
+    prisma.propertyOnboarding.count({ where: { ...scope, flaggedAt: { not: null } } /* tenant-scope: whereFor(propertyOnboarding) in scope */ }),
+  ]);
+  return {
+    onboardings: paged.rows.map(view),
+    page: paged.page,
+    counts: { ...(Object.fromEntries(byState.map((s) => [s.state, s._count._all])) as Record<string, number>), auto, flagged },
+  };
 }
 
 export async function getOnboarding(actor: Actor, id: string) {

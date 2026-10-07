@@ -60,6 +60,7 @@ import {
   CLOSURE_TABS, closureMarker, dayWords, reactivationStanding, retainUntilFrom, retentionDaysLeft,
   type ClosureCause, type ClosureSubject, type ClosureTab,
 } from "./account-closure-rules";
+import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -671,22 +672,25 @@ function deskRow(c: ClosureRow, names: Map<string, string>) {
  * ?requested=true, the same as tab=asking) — closed accounts, newest first,
  * with every tab's count.
  */
-export async function listClosures(actor: Actor, opts: { requested?: boolean; tab?: ClosureTab } = {}) {
+/** `page` (the house pager, lib/paging.ts): one page of the tab and its
+ *  count instead of the newest 100; the tab counts come with it either way. */
+export async function listClosures(actor: Actor, opts: { requested?: boolean; tab?: ClosureTab; page?: PageRequest } = {}) {
   assertAllowed(actor, "accountClosure", "read");
   const tab: ClosureTab | null = opts.tab ?? (opts.requested ? "asking" : null);
-  const [rows, ...n] = await Promise.all([
-    prisma.accountClosure.findMany({
-      where: { ...whereFor(actor, "accountClosure", "read"), ...(tab ? TAB_WHERE[tab] : {}) },
-      select: CLOSURE_SELECT,
-      orderBy: { closedAt: "desc" },
-      take: 100,
-    }),
+  const where = { ...whereFor(actor, "accountClosure", "read"), ...(tab ? TAB_WHERE[tab] : {}) };
+  const read = (skip: number, take: number) =>
+    prisma.accountClosure.findMany({ where /* tenant-scope: whereFor(accountClosure) above */, select: CLOSURE_SELECT, orderBy: { closedAt: "desc" }, skip, take });
+  const [paged, ...n] = await Promise.all([
+    opts.page
+      ? readPage(opts.page, () => prisma.accountClosure.count({ where /* tenant-scope: whereFor(accountClosure) above */ }), read)
+      : read(0, 100).then((rows) => ({ rows, page: null as PageInfo | null })),
     ...CLOSURE_TABS.map((t) => prisma.accountClosure.count({ where: { ...whereFor(actor, "accountClosure", "read"), ...TAB_WHERE[t] } })),
   ]);
-  const names = await subjectNames(prisma, rows);
+  const names = await subjectNames(prisma, paged.rows);
   return {
-    closures: rows.map((c) => deskRow(c, names)),
+    closures: paged.rows.map((c) => deskRow(c, names)),
     counts: Object.fromEntries(CLOSURE_TABS.map((t, i) => [t, n[i] as number])) as Record<ClosureTab, number>,
+    ...(paged.page ? { page: paged.page } : {}),
   };
 }
 

@@ -12,6 +12,8 @@
    "confirmed by the payment provider". Where the user must act on Stripe the
    CTA names Stripe, ends in "↗" and its aria-label says it leaves SponsorX.
    -------------------------------------------------------------------------- */
+import type { PageInfo } from "@/lib/list-query";
+
 
 export type PayoutAccountStatus = "NOT_SET_UP" | "NEEDS_INFO" | "READY";
 
@@ -420,6 +422,8 @@ export type ApiAdminPayout = ApiPayout & {
 };
 export type ApiPayoutList = {
   payouts: ApiAdminPayout[];
+  /** P1-FE-31 — present on a paged read. */
+  page?: PageInfo;
   counts: Record<string, number>;
   /** 2S5-BE-07 — how many wait on whom; `failed` is the FAILED ones only. Optional: older reads. */
   waiting?: Record<WaitingOn, number> & { failed: Record<WaitingOn, number> };

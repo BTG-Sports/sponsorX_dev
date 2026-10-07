@@ -33,7 +33,7 @@ import {
   autoPublishedListings, btgActOnListing, liveListings, createListing, decideListing, getListing, listListings, submitListing, transitionListing, updateListing,
 } from "../../domain/listing";
 import {
-  createOffer, getOffer, keepOffer, listOffers, respondToOffer, reviseOffer, sendOffer, updateOffer, withdrawOffer,
+  createOffer, getOffer, keepOffer, listOffers, listOffersPage, OFFER_DESK_TABS, respondToOffer, reviseOffer, sendOffer, updateOffer, withdrawOffer,
 } from "../../domain/offer";
 import { offerAthletes, offerChecks } from "../../domain/offer-desk";
 import { offerDraft } from "../../domain/offer-draft";
@@ -46,7 +46,7 @@ import {
 } from "../../contracts/delivery";
 import { RefundSentInput, RefundsQuery } from "../../contracts/refunds";
 import {
-  answerCancellation, answerProblem, answerReply, cancelLine, cancellationFor, confirmDelivery, deliveryExchange, deliveryIssue, deliveryIssues, markDelivered,
+  answerCancellation, answerProblem, answerReply, cancelLine, cancellationFor, confirmDelivery, deliveryExchange, deliveryIssue, deliveryIssues, deliveryIssuesPage, DELIVERY_ISSUE_TABS, markDelivered,
   mySale, mySales, orderDeliveries, proofLink, remindSeller, reportProblem, requestProofUpload, resolveIssue, sellerCancel,
 } from "../../domain/delivery";
 import { listRefunds, markRefundSent } from "../../domain/refunds";
@@ -131,7 +131,13 @@ marketplaceRouter.post("/listings/:id/decision", requireActor, decide);
 marketplaceRouter.post("/listings/:id/btg-action", requireActor, btgAct);
 
 /* ── formal offers ──────────────────────────────────────────────────────── */
-const offers: RequestHandler = async (req, res) => { res.json({ offers: await listOffers(req.actor!) }); };
+const offers: RequestHandler = async (req, res) => {
+  /* ?page= turns on the house pager (lib/paging.ts), newest first with state counts; without it the old whole list. */
+  const page = pageRequest(req.query as Record<string, unknown>);
+  const state = typeof req.query.state === "string" && /^[A-Z_]{1,32}$/.test(req.query.state) ? req.query.state : undefined;
+  const tab = OFFER_DESK_TABS.find((t) => t === req.query.tab);
+  res.json(page ? await listOffersPage(req.actor!, page, state, tab) : { offers: await listOffers(req.actor!) });
+};
 const offer: RequestHandler<Id> = async (req, res) => { res.json(await getOffer(req.actor!, req.params.id)); };
 const newOffer: RequestHandler = async (req, res) => { res.status(201).json(await createOffer(req.actor!, OfferInput.parse(req.body))); };
 const editOffer: RequestHandler<Id> = async (req, res) => { res.json(await updateOffer(req.actor!, req.params.id, OfferPatch.parse(req.body))); };
@@ -297,7 +303,12 @@ marketplaceRouter.post("/deliveries/:id/problem-answer", requireActor, (async (r
   res.json(await answerReply(req.actor!, req.params.id, ReplyAnswerInput.parse(req.body)));
 }) as RequestHandler<Id>);
 marketplaceRouter.get("/deliveries/:id/exchange", requireActor, (async (req, res) => { res.json(await deliveryExchange(req.actor!, req.params.id)); }) as RequestHandler<Id>);
-marketplaceRouter.get("/delivery-issues", requireActor, (async (req, res) => { res.json(await deliveryIssues(req.actor!)); }) as RequestHandler);
+marketplaceRouter.get("/delivery-issues", requireActor, (async (req, res) => {
+  /* ?page= (with ?tab=problems|settled|overdue, default problems) turns on the house pager (lib/paging.ts); without it the old three lists. */
+  const page = pageRequest(req.query as Record<string, unknown>);
+  const tab = DELIVERY_ISSUE_TABS.find((t) => t === req.query.tab) ?? "problems";
+  res.json(page ? await deliveryIssuesPage(req.actor!, tab, page) : await deliveryIssues(req.actor!));
+}) as RequestHandler);
 marketplaceRouter.get("/delivery-issues/:id", requireActor, (async (req, res) => { res.json(await deliveryIssue(req.actor!, req.params.id)); }) as RequestHandler<Id>);
 marketplaceRouter.post("/delivery-issues/:id/resolve", requireActor, (async (req, res) => {
   const b = DeliveryResolutionInput.parse(req.body);
@@ -316,7 +327,10 @@ marketplaceRouter.post("/sales/:id/cancellation-answer", requireActor, (async (r
   res.json(await answerCancellation(req.actor!, req.params.id, CancellationAnswerInput.parse(req.body)));
 }) as RequestHandler<Id>);
 /* 2S4-BE-13 — refunds to send (BTG admin and Finance). */
-marketplaceRouter.get("/refunds", requireActor, (async (req, res) => { res.json(await listRefunds(req.actor!, RefundsQuery.parse(req.query).state)); }) as RequestHandler);
+marketplaceRouter.get("/refunds", requireActor, (async (req, res) => {
+  /* ?page= turns on the house pager (lib/paging.ts); without it the old whole list. */
+  res.json(await listRefunds(req.actor!, RefundsQuery.parse(req.query).state, pageRequest(req.query as Record<string, unknown>) ?? undefined));
+}) as RequestHandler);
 marketplaceRouter.post("/refunds/:id/sent", requireActor, (async (req, res) => {
   res.json(await markRefundSent(req.actor!, req.params.id, RefundSentInput.parse(req.body)));
 }) as RequestHandler<Id>);

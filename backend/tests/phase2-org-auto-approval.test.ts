@@ -297,6 +297,28 @@ describe.skipIf(!hasDatabase)("organisations over the API", async () => {
       expect(r.json.state).toBe("PENDING_REVIEW");
       expect(r.json.reviewReasons).toEqual([expect.stringMatching(/already has a SponsorX login/)]);
     });
+
+    it("P1-FE-31 · ?page=1&size=1 answers one row with the page and every tab's count; without ?page the old shape", async () => {
+      const whole = await call("GET", "/onboarding", undefined, ADMIN);
+      expect(whole.status, whole.text).toBe(200);
+      expect(Object.keys(whole.json)).toEqual(["onboardings"]);
+      const paged = await call("GET", "/onboarding?page=1&size=1", undefined, ADMIN);
+      expect(paged.status, paged.text).toBe(200);
+      const total = whole.json.onboardings.length;
+      expect(total).toBeGreaterThanOrEqual(1);
+      expect(paged.json.page).toEqual({ page: 1, size: 1, total, pages: total });
+      expect(paged.json.onboardings).toHaveLength(1);
+      expect(paged.json.onboardings[0].id).toBe(whole.json.onboardings[0].id);
+      /* The counts: one per state the tenant has, plus the two spot-check lists. */
+      const autoWhole = await call("GET", "/onboarding?list=auto", undefined, ADMIN);
+      const flaggedWhole = await call("GET", "/onboarding?list=flagged", undefined, ADMIN);
+      expect(paged.json.counts).toMatchObject({ PENDING_REVIEW: total, auto: autoWhole.json.onboardings.length, flagged: flaggedWhole.json.onboardings.length });
+      expect(paged.json.counts.auto).toBeGreaterThanOrEqual(1);
+      const autoPaged = await call("GET", "/onboarding?list=auto&page=1&size=1", undefined, ADMIN);
+      expect(autoPaged.json.page).toEqual({ page: 1, size: 1, total: autoWhole.json.onboardings.length, pages: autoWhole.json.onboardings.length });
+      expect(autoPaged.json.onboardings).toHaveLength(1);
+      expect(autoPaged.json.counts).toEqual(paged.json.counts);
+    });
   });
 
   describe("2S1-BE-06 · one name, platform-wide", () => {
