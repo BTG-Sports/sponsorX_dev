@@ -105,8 +105,13 @@ export const ProviderWebhookEnvelope = z
 export const PaymentEventsQuery = z
   .object({
     status: z.string().max(80).optional().describe("Comma-separated: RECEIVED, APPLIED, IGNORED, DEFERRED, HELD, FAILED. Omitted: the exceptions — HELD, FAILED and DEFERRED — not yet resolved."),
+    /* 2S5-FE-07 — the desk's Resolved tab: only events a person closed (true), or only those nobody has (false). */
+    resolved: z.enum(["true", "false"]).optional().describe("true: only events BTG has marked dealt with; false: only those not yet. Omitted: both (or, with no ?status, the unresolved exceptions)."),
+    /* 2S5-FE-07 — the house pager; without ?page the list is unpaged (capped at 200). */
+    page: z.coerce.number().int().optional(),
+    size: z.coerce.number().int().optional(),
   })
-  .meta({ id: "PaymentEventsQuery", description: "Which provider events to list." });
+  .meta({ id: "PaymentEventsQuery", description: "Which provider events to list, and which page of them." });
 
 export const StandinEventInput = z
   .object({
@@ -126,8 +131,13 @@ export const StandinEventInput = z
 
 /* 2S5-BE-03 — disputes, on BTG's side. */
 export const DisputesQuery = z
-  .object({ state: z.enum(["OPEN", "UNDER_REVIEW", "WON", "LOST"]).optional() })
-  .meta({ id: "DisputesQuery", description: "Which disputes: by state. Omitted: all, the open ones first." });
+  .object({
+    state: z.enum(["OPEN", "UNDER_REVIEW", "WON", "LOST"]).optional(),
+    /* 2S5-FE-08 — the house pager; without ?page the list is unpaged (capped at 200, open ones first). */
+    page: z.coerce.number().int().optional(),
+    size: z.coerce.number().int().optional(),
+  })
+  .meta({ id: "DisputesQuery", description: "Which disputes: by state, and which page of them. Omitted: all, the open ones first." });
 
 export const DisputeReviewInput = z
   .object({ note: z.string().trim().min(1).max(2000).describe("What BTG sent the provider (the evidence), or is gathering") })

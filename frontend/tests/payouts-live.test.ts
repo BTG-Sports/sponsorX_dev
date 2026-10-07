@@ -343,3 +343,89 @@ describe("2S8-QA-05 · money owed back after a refund", () => {
     expect(L.owedBackLine(1)).toBe("You owe $0.01 back from a refund");
   });
 });
+
+/* 2S5-FE-09 — a dispute (or a provider refund BTG is checking) freezes an
+   order's money: the API marks it `frozen`, leaves it out of requestableCents
+   and adds the `dispute` check. */
+describe("2S5-FE-09 · frozen money on the payee's pages", () => {
+  /* $450 available, $50 of it already requested — the freeze holds the $400 balance; nothing is requestable. */
+  const frozen = order({ orderId: "o9", orderRef: "SX-9", frozen: true, availableCents: 45000, inFlightCents: 5000, balanceCents: 40000, requestableCents: 0 });
+
+  it("names the frozen orders with the balance the freeze holds, never requestableCents ($0) or shareCents (paid-out money)", () => {
+    expect(L.frozenOrders({ orders: [order(), frozen] })).toEqual([
+      { orderId: "o9", orderRef: "SX-9", title: "Acme · Jersey patch", cents: 40000, amount: "$400.00" },
+    ]);
+    /* An older read without balanceCents computes the same figure; a negative balance is owed back, not frozen money. */
+    expect(L.frozenOrders({ orders: [{ ...frozen, balanceCents: undefined }] })[0]!.cents).toBe(40000);
+    expect(L.frozenOrders({ orders: [{ ...frozen, availableCents: -100, inFlightCents: 0, balanceCents: -100 }] })[0]!.cents).toBe(0);
+    expect(L.frozenOrders({ orders: [order(), order({ frozen: false })] })).toEqual([]);
+  });
+
+  it("the property page's notice: the order(s), the amount and the one sentence", () => {
+    expect(L.frozenNotice({ orders: [order(), frozen] })).toBe("Order SX-9 ($400.00) is held. BTG is reviewing a problem with the sponsor's payment.");
+    expect(L.frozenNotice({ orders: [frozen, order({ orderId: "o10", orderRef: "SX-10", frozen: true, availableCents: 1000, inFlightCents: 0, balanceCents: 1000, requestableCents: 0 })] }))
+      .toBe("Orders SX-9 ($400.00), SX-10 ($10.00) are held — $410.00 in all. BTG is reviewing a problem with the sponsor's payment.");
+    expect(L.frozenNotice({ orders: [order()] })).toBeNull();
+    expect(L.FROZEN_LINE).toBe("BTG is reviewing a problem with the sponsor's payment");
+  });
+
+  it("the API's dispute check is the first unmet one on the request button, and the checklist shows", () => {
+    const dispute = { key: "dispute", label: "1 order held — BTG is reviewing a problem with the sponsor's payment", ok: false };
+    const me = { canRequest: false, checks: [...checks(), dispute], totals: totals({ requestableCents: 0, notYetReleasableCents: 40000 }) };
+    expect(requestButton(me).reason).toBe("Waiting on: 1 order held — BTG is reviewing a problem with the sponsor's payment");
+    expect(showChecklist(me)).toBe(true);
+    /* And the request excludes the frozen order, as the API's requestableCents says. */
+    expect(requestOrders([order(), frozen]).map((o) => o.orderRef)).toEqual(["SX-AAAA0001"]);
+  });
+});
+
+/* 2S5-FE-10 — hand-overs to the provider and a return by the payee's bank are
+   integers on the payout (sendAttempts, returnedAt, returnCount). */
+describe("2S5-FE-10 · send attempts and bank returns", () => {
+  const returned = payout({
+    state: "FAILED", waitingOn: "PAYEE_ACCOUNT", decidedAt: "2026-10-01T10:00:00Z", sentAt: "2026-10-01T10:05:00Z", paidAt: null,
+    failureReason: "The payee's bank returned the payout.", sendAttempts: 2, returnedAt: "2026-10-03T09:00:00Z", returnCount: 1,
+  });
+
+  it("attempts in words; null when never handed over", () => {
+    expect(L.attemptsWords({ sendAttempts: 1 })).toBe("Handed to the provider 1 time");
+    expect(L.attemptsWords({ sendAttempts: 3 })).toBe("Handed to the provider 3 times");
+    expect(L.attemptsWords({ sendAttempts: 0 })).toBeNull();
+    expect(L.attemptsWords({})).toBeNull();
+  });
+
+  it("the payee's return words, and BTG's dated line", () => {
+    expect(L.returnWords(returned)).toBe("Returned by your bank: fix your payout account");
+    expect(L.returnWords(payout())).toBeNull();
+    expect(L.returnWords({ returnedAt: null })).toBeNull();
+    expect(L.returnedLine(returned)).toBe("Returned by the bank on Oct 3, 2026 (1 time)");
+    expect(L.returnedLine({ returnedAt: "2026-10-03T09:00:00Z", returnCount: 2 })).toBe("Returned by the bank on Oct 3, 2026 (2 times)");
+    expect(L.returnedLine(payout())).toBeNull();
+  });
+
+  it("a returned payout reads the return sentence in the history, with the fix link", () => {
+    expect(payoutStatus(returned)).toEqual({ label: "Returned by your bank: fix your payout account", tone: "warn" });
+    const fix = L.payeeFixPrompt(returned, "/athlete/money#payout-account");
+    expect(fix).toMatchObject({ label: "Fix your payout account", href: "/athlete/money#payout-account" });
+    expect(fix!.note).toMatch(/^Your bank sent this payout back/);
+    /* Returned but (an older read) without waitingOn: still the fix link. */
+    expect(L.payeeFixPrompt({ state: "FAILED", returnedAt: "2026-10-03T09:00:00Z" }, "/x")).not.toBeNull();
+    /* Not returned: unchanged. */
+    expect(payoutStatus(payout({ state: "FAILED", waitingOn: "PAYEE_ACCOUNT" })).label).toBe(L.PAYEE_FIX_LABEL);
+  });
+
+  it("the audit trail lists the hand-overs and the return", () => {
+    const trail = L.auditTrail({ ...returned, payeeName: "Riley Carter" });
+    expect(trail.map((t) => t.what)).toEqual([
+      "Requested by Riley Carter",
+      "Approved by BTG",
+      "Handed to the payment provider (2 times — latest)",
+      "Returned by the payee's bank",
+      "Couldn't send: The payee's bank returned the payout.",
+    ]);
+    expect(trail[3]!.when).toBe("Oct 3, 09:00");
+    expect(L.auditTrail({ ...returned, payeeName: "R", returnCount: 2 })[3]!.what).toBe("Returned by the payee's bank (2 times)");
+    /* One hand-over reads as before. */
+    expect(L.auditTrail({ ...returned, payeeName: "R", sendAttempts: 1, returnedAt: null })[2]!.what).toBe("Handed to the payment provider");
+  });
+});

@@ -2,7 +2,9 @@
 
 import type { IntakePayload } from "@/lib/join-flow";
 import type { ApiSignupStatus } from "@/lib/join-signup";
-import { fileArgs, publicCall, requestUpload, type Answer, type UploadGrant } from "@/server/id-upload-actions";
+import { linkExpiredFrom } from "@/lib/link-expired";
+import { fileArgs, refusal, requestUpload, type Answer, type UploadGrant } from "@/server/id-upload-actions";
+import { publicApi } from "../onboarding/public-api";
 
 /* --------------------------------------------------------------------------
    P3-FE-01 — the submit path. A server action, not a browser fetch, because
@@ -141,9 +143,31 @@ const q = (token: string) => `?token=${encodeURIComponent(token)}`;
 const BAD = { ok: false as const, status: 404, message: "No application matches that link." };
 const okToken = (t: unknown): t is string => typeof t === "string" && t.length > 0 && t.length < 500;
 
-export async function signupStatusAction(token: string): Promise<Answer<ApiSignupStatus>> {
+/** 2S8-FE-01: the intake link is older than 14 days. The checklist swaps
+ *  itself for the "send me a fresh link" notice (components/link-expired.tsx). */
+export type Expired = { ok: false; status: 410; message: string; expired: { kind: string } };
+export type JoinAnswer<T> = Answer<T> | Expired;
+
+/** publicCall, with the API's 410 link_expired told apart from a refusal. */
+async function joinCall<T>(path: string, init: RequestInit = {}): Promise<JoinAnswer<T>> {
+  let res: Response;
+  try {
+    res = await publicApi(path, init);
+  } catch {
+    return { ok: false, status: 0, message: "We couldn't reach SponsorX. Nothing was lost — check your connection and try again." };
+  }
+  if (res.status === 410) {
+    const gone = linkExpiredFrom(410, await res.json().catch(() => null), "intake");
+    if (gone) return { ok: false, status: 410, message: gone.message, expired: { kind: gone.kind } };
+    return { ok: false, status: 410, message: "This link no longer works." };
+  }
+  if (!res.ok) return refusal(res);
+  return { ok: true, data: (await res.json()) as T };
+}
+
+export async function signupStatusAction(token: string): Promise<JoinAnswer<ApiSignupStatus>> {
   if (!okToken(token)) return BAD;
-  return publicCall<ApiSignupStatus>(`/applications/intake/status${q(token)}`);
+  return joinCall<ApiSignupStatus>(`/applications/intake/status${q(token)}`);
 }
 
 export async function requestIdAction(token: string, kind: "GOVERNMENT_ID" | "SCHOOL_ID", file: unknown): Promise<UploadGrant> {
@@ -153,25 +177,25 @@ export async function requestIdAction(token: string, kind: "GOVERNMENT_ID" | "SC
   return requestUpload(`/applications/intake/documents${q(token)}`, { kind, ...f });
 }
 
-export async function confirmIdAction(token: string, documentId: string): Promise<Answer<ApiSignupStatus>> {
+export async function confirmIdAction(token: string, documentId: string): Promise<JoinAnswer<ApiSignupStatus>> {
   if (!okToken(token) || typeof documentId !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(documentId)) return BAD;
-  return publicCall<ApiSignupStatus>(`/applications/intake/documents/${encodeURIComponent(documentId)}/confirm${q(token)}`, { method: "POST" });
+  return joinCall<ApiSignupStatus>(`/applications/intake/documents/${encodeURIComponent(documentId)}/confirm${q(token)}`, { method: "POST" });
 }
 
 export async function nameGuardianAction(
   token: string, input: { legalName: string; email: string; relationship: "PARENT" | "LEGAL_GUARDIAN" | "AUTHORIZED_REP" },
-): Promise<Answer<ApiSignupStatus>> {
+): Promise<JoinAnswer<ApiSignupStatus>> {
   if (!okToken(token) || !input) return BAD;
   if (typeof input.legalName !== "string" || !input.legalName.trim()) return { ok: false, status: 422, message: "Enter your guardian's legal name." };
   if (typeof input.email !== "string" || !input.email.includes("@")) return { ok: false, status: 422, message: "Enter your guardian's email." };
   if (!["PARENT", "LEGAL_GUARDIAN", "AUTHORIZED_REP"].includes(input.relationship)) return { ok: false, status: 422, message: "Choose how they're related to you." };
-  return publicCall<ApiSignupStatus>(`/applications/intake/guardian${q(token)}`, {
+  return joinCall<ApiSignupStatus>(`/applications/intake/guardian${q(token)}`, {
     method: "POST",
     body: JSON.stringify({ legalName: input.legalName.trim().slice(0, 120), email: input.email.trim().slice(0, 200), relationship: input.relationship }),
   });
 }
 
-export async function resendAction(token: string, which: "email" | "guardian"): Promise<Answer<ApiSignupStatus>> {
+export async function resendAction(token: string, which: "email" | "guardian"): Promise<JoinAnswer<ApiSignupStatus>> {
   if (!okToken(token) || (which !== "email" && which !== "guardian")) return BAD;
-  return publicCall<ApiSignupStatus>(`/applications/intake/${which === "email" ? "confirm-email" : "guardian"}/resend${q(token)}`, { method: "POST" });
+  return joinCall<ApiSignupStatus>(`/applications/intake/${which === "email" ? "confirm-email" : "guardian"}/resend${q(token)}`, { method: "POST" });
 }

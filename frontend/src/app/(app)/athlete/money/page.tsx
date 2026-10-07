@@ -1,10 +1,10 @@
-import { Card, SectionHeading } from "@/components/ui";
+import { Badge, Card, SectionHeading } from "@/components/ui";
 import { EmptyState } from "@/components/states";
 import { PayoutAccountPanel, StripeLinkButton } from "@/components/payout-account-panel";
 import { PayoutHistory } from "@/components/payout-history";
 import { PayoutRequest } from "@/components/payout-request";
 import {
-  accountPanel, orderAvailable, orderStatusLabel, owedBackNotice, payoutTiles, requestButton, requestOrders, usd, type ApiMyPayouts,
+  FROZEN_LINE, accountPanel, orderAvailable, orderStatusLabel, owedBackNotice, payoutTiles, requestButton, requestOrders, usd, type ApiMyPayouts,
 } from "@/lib/payouts-live";
 import { apiFetch } from "@/server/api";
 import { moneyAccountLinkAction, moneyRequestAction } from "./actions";
@@ -25,6 +25,12 @@ import { moneyAccountLinkAction, moneyRequestAction } from "./actions";
    403 (a guardian's login, or an athlete with no marketplace money yet
    reachable) shows a plain explanation; other failures throw to the error
    page. Phase 1 campaign earnings stay on /athlete/earnings.
+
+   2S5-FE-09 — an order whose money a dispute froze (`frozen`) carries a
+   "Frozen" badge, its Available cell reads as frozen rather than available
+   (the API already leaves it out of the requestable balance), and one line
+   under the row says BTG is reviewing a problem with the sponsor's payment.
+   The API's `dispute` check renders in the checklist with the others.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -127,20 +133,25 @@ export default async function MyMoneyPage() {
               {me.orders.map((o) => {
                 /* 2S8-QA-05 — the real figure, negative when a refund came after the payout. */
                 const available = orderAvailable(o);
+                /* 2S5-FE-09 — frozen by a dispute: the figure is held, not available. */
+                const frozen = o.frozen === true;
                 return (
                   <li key={o.orderId} className="grid gap-x-3 gap-y-1 px-4 py-3 text-xs md:grid-cols-[7rem_1fr_6rem_6rem_6rem_8rem] md:items-center">
                     <span className="font-medium tabular-nums">{o.orderRef}</span>
                     <span className="min-w-0 text-muted">
                       <span className="text-text">{o.sponsorName}</span>
+                      {frozen && <span className="ml-2 inline-block align-middle"><Badge tone="warn">Frozen</Badge></span>}
                       {o.title && <span className="block truncate text-[11px]">{o.title}</span>}
                     </span>
                     <span className="tabular-nums md:text-right"><span className="text-muted md:hidden">Your share </span>{usd(o.shareCents)}</span>
-                    <span className={`tabular-nums md:text-right ${available.owedBack ? "text-warn" : ""}`}>
-                      <span className="text-muted md:hidden">Available </span>{available.value}
+                    <span className={`tabular-nums md:text-right ${available.owedBack || frozen ? "text-warn" : ""}`}>
+                      <span className="text-muted md:hidden">{frozen ? "Frozen " : "Available "}</span>{available.value}
+                      {frozen && <span className="block text-[11px]">frozen, not available</span>}
                       {available.owedBack && <span className="block text-[11px]">{available.owedBack}</span>}
                     </span>
                     <span className="tabular-nums md:text-right"><span className="text-muted md:hidden">Held </span>{usd(o.heldCents)}</span>
                     <span className="text-muted md:text-right">{orderStatusLabel(o.state)}</span>
+                    {frozen && <p className="text-[11px] text-warn md:col-span-6">{FROZEN_LINE}</p>}
                   </li>
                 );
               })}

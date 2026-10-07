@@ -3,7 +3,9 @@ import Link from "next/link";
 import { OnboardingPending } from "@/components/onboarding-pending";
 import { OnboardingRemember } from "@/components/onboarding-remember";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
+import { LinkExpired } from "@/components/link-expired";
 import { Badge } from "@/components/ui";
+import { linkExpiredFrom } from "@/lib/link-expired";
 import {
   EDITABLE_STATES,
   ORG_TYPE_COPY,
@@ -51,6 +53,19 @@ export default async function OnboardingResumePage({ params }: { params: Promise
   const { token } = await params;
   const res = await publicApi(`/public/onboarding/${encodeURIComponent(token)}`);
 
+  if (res.status === 410) {
+    /* 2S8-FE-01: older than 14 days — a fresh one can be emailed. */
+    const gone = linkExpiredFrom(410, await res.json().catch(() => null), "onboarding");
+    if (gone) {
+      return (
+        <Shell>
+          <div className="mx-auto max-w-xl">
+            <LinkExpired kind={gone.kind} token={token} what="the link to your application" />
+          </div>
+        </Shell>
+      );
+    }
+  }
   if (res.status === 404) {
     return (
       <Plain title="This link doesn't match an application">

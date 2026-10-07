@@ -1,8 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { useDialogFocus } from "./use-dialog-focus";
+import { useMounted } from "./use-mounted";
 
 /* --------------------------------------------------------------------------
    2S4-FE-05 — the confirm dialog the order screens open (accept, decline,
@@ -11,6 +13,12 @@ import { useDialogFocus } from "./use-dialog-focus";
    phone and a centred card from sm up.
    -------------------------------------------------------------------------- */
 
+/* PORTALED TO <body> (QA 2026-10-07): a `position: fixed` box is laid out
+   against the nearest ancestor with a transform or a filter, and the stage
+   tables' cards carry `backdrop-filter` — so a dialog opened from a table
+   row was confined to the card and clipped. On the body it covers the
+   viewport again; StagePortals keeps `.sx-ops` on the body, so it stays on
+   the night stage. */
 export function OrderDialog({ id, title, onClose, onSubmit, children }: {
   id: string;
   title: string;
@@ -19,7 +27,9 @@ export function OrderDialog({ id, title, onClose, onSubmit, children }: {
   children: ReactNode;
 }) {
   const ref = useDialogFocus<HTMLDivElement>(onClose);
-  return (
+  const mounted = useMounted();
+  if (!mounted) return null;
+  return createPortal(
     <div ref={ref} className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby={`${id}-title`}>
       <button type="button" tabIndex={-1} aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-black/65" />
       <div className="absolute inset-0 flex items-end justify-center overflow-y-auto p-4 sm:items-start sm:pt-32">
@@ -34,7 +44,8 @@ export function OrderDialog({ id, title, onClose, onSubmit, children }: {
           {children}
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

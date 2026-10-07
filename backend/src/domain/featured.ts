@@ -165,13 +165,16 @@ const appUrl = () => env.APP_URL.replace(/\/+$/, "");
 const firstWord = (s: string) => s.trim().split(/\s+/)[0] || "there";
 
 /**
- * Where the emailed link points: the web app, which forwards this one path
- * to the API (frontend/next.config.ts `rewrites`), so the link is on the same
- * host as every other link we send. The API answers with a redirect to the
- * public profile (`confirmClaimFromLink`).
+ * Where the emailed link points: the web app's own page (2S8-FE-02,
+ * /athletes/claim/confirm), whose "Confirm my email" button POSTs
+ * /public/athlete-claims/confirm-email — opening the link confirms nothing,
+ * so a mail scanner's GET cannot move a claim on. Emails sent before that
+ * page carry /api/v1/public/athlete-claims/confirm, which the web app still
+ * forwards here (frontend/next.config.ts `rewrites`) for the
+ * `confirmClaimFromLink` redirect.
  */
 export const claimConfirmUrl = (claimId: string) =>
-  `${appUrl()}/api/v1/public/athlete-claims/confirm?t=${encodeURIComponent(issueClaimEmailToken(claimId))}`;
+  `${appUrl()}/athletes/claim/confirm?t=${encodeURIComponent(issueClaimEmailToken(claimId))}`;
 
 /** The confirmation email. `attempt` keys a re-send (renewal), so it really sends. */
 export async function sendClaimConfirmation(

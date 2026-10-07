@@ -256,6 +256,24 @@ export function orderTracker(o: TrackerOrder, view: PaymentView, payment: ApiOrd
 export const POLL_MS = 3000;
 export const POLL_LIMIT = 100; // ~5 minutes, then the page asks for a manual refresh
 
+/* ---------------------------------------------- paying: refusals (2S5-FE-11) */
+
+export const PAYMENT_BUSY = "The payment service is busy. Try again in a minute.";
+export const PAY_NOT_ALLOWED = "Your role can't pay for orders — a Sponsor Admin pays for your organisation.";
+
+/**
+ * What the sponsor reads when POST /marketplace-orders/:id/pay is refused.
+ * A 503 with code `busy` is the provider being down — nothing was recorded,
+ * so the sponsor is told to try again (the button stays enabled). A 403 is
+ * the role rule in words; anything else is the API's own message (a 409 says
+ * exactly why — including "provider not connected", which is NOT busy).
+ */
+export function payRefusal(r: { status: number; code?: string | null; message: string }): string {
+  if (r.status === 503 && r.code === "busy") return PAYMENT_BUSY;
+  if (r.status === 403) return PAY_NOT_ALLOWED;
+  return r.message;
+}
+
 /* ------------------------------------------------- the stand-in's pages */
 
 export type StandinDetails =

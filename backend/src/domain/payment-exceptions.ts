@@ -44,6 +44,7 @@
  */
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
+import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
 import { audit, type AuditActor } from "../db/audit";
 import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
@@ -363,18 +364,29 @@ async function disputeViews(rows: DisputeRow[]) {
   }));
 }
 
-/** GET /disputes — BTG admin and Finance, in their own books: the open ones first. */
-export async function listDisputes(actor: Actor, state?: DisputeState) {
+/**
+ * GET /disputes — BTG admin and Finance, in their own books: the open ones
+ * first. 2S5-FE-08 — `page` turns on the house pager (`page: {…}` in the
+ * answer), newest opened first; without it the list stays unpaged, by state
+ * then oldest first, capped at 200.
+ */
+export async function listDisputes(actor: Actor, state?: DisputeState, page?: PageRequest) {
   assertTenantWide(actor, "paymentDispute", "read");
   const scope = whereFor(actor, "paymentDispute", "read");
-  const rows = await prisma.paymentDispute.findMany({
-    /* tenant-scope: `scope` is whereFor(paymentDispute, read); the state only narrows it. */
-    where: { ...scope, ...(state ? { state } : {}) }, select: DISPUTE, orderBy: [{ state: "asc" }, { openedAt: "asc" }], take: 200,
-  });
+  const where = { ...scope, ...(state ? { state } : {}) };
+  const read = (skip: number, take: number) =>
+    prisma.paymentDispute.findMany({
+      /* tenant-scope: `scope` is whereFor(paymentDispute, read) inside `where`; the state only narrows it. */
+      where, select: DISPUTE, orderBy: page ? [{ openedAt: "desc" }] : [{ state: "asc" }, { openedAt: "asc" }], skip, take,
+    });
+  const paged = page
+    ? await readPage(page, () => prisma.paymentDispute.count({ where /* tenant-scope: whereFor(paymentDispute) in where */ }), read)
+    : { rows: await read(0, 200), page: null as PageInfo | null };
   const grouped = await prisma.paymentDispute.groupBy({ /* tenant-scope: whereFor(paymentDispute, read). */ by: ["state"], where: scope, _count: { _all: true } });
   return {
     counts: Object.fromEntries(DISPUTE_STATES.map((s) => [s, grouped.find((g) => g.state === s)?._count._all ?? 0])),
-    disputes: await disputeViews(rows),
+    disputes: await disputeViews(paged.rows),
+    ...(paged.page ? { page: paged.page } : {}),
   };
 }
 
