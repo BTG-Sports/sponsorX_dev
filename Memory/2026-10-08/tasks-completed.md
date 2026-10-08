@@ -27,3 +27,13 @@
   - on `/admin/marketplace` (`marketplace-desk.tsx`), replace the stale "Disputes aren't counted yet" line with a Disputes tile (open disputes also cover frozen payouts);
   - add tiles for payment events waiting on BTG, refunds to send, delivery issues and payouts awaiting approval, each with its count and a link to its existing desk;
   - update the desk's tests.
+- **2S5-FE-05 · Done.** Release #176 (`6669472`) was deployed to staging (`npm run deploy staging`). The new `npm run smoke:receipt` (`backend/scripts/smoke-receipt.mjs`) proved the last clause with no person involved:
+  - order **SX-KLNH17FX** was placed by the test sponsor (harbor.coffee) with billing contact `delivered+smoke-20261008041202@resend.dev`, and Finance marked it paid by cheque;
+  - the `payment.received` job to the billing contact **completed**, so Resend accepted it. The sponsor's copy went to `@example.com`, which Resend refuses (expected).
+  - An earlier run left one more paid test order, **SX-MQLLNKE5**, whose receipt also completed.
+  - **How the script works:**
+    - It signs in through staging's real `/login` with a one-time Clerk ticket in headless Chromium, like `e2e/support/auth.ts`. Tokens from Clerk's Backend API carry no `azp` and are refused by the 2S8-PMO-02 authorized-parties rule.
+    - It reads the email queue over `railway ssh`, because staging's `RESEND_API_KEY` is send-only (`restricted_api_key` on `GET /emails`) and should stay that way.
+    - It refuses a non-`sk_test_` Clerk key.
+  - **Run:** `railway run --environment staging --service api -- npm run smoke:receipt -w @sponsorx/backend`.
+  - **Note:** every staging order's other emails (order approved, the sellers' sale notices) fail at Resend, because the test accounts use `@example.com`. That is pre-existing staging noise.
