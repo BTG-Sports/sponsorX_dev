@@ -42,6 +42,9 @@
    sale notices) end as failed notify.email jobs — expected noise on staging.
    -------------------------------------------------------------------------- */
 
+/* A plain Node script, plus `window` inside the page.evaluate() callbacks, which run in the browser. */
+/* global process, console, fetch, setTimeout, Buffer, window */
+
 import { execFileSync } from "node:child_process";
 
 import { chromium } from "playwright";
