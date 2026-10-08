@@ -37,3 +37,10 @@
     - It refuses a non-`sk_test_` Clerk key.
   - **Run:** `railway run --environment staging --service api -- npm run smoke:receipt -w @sponsorx/backend`.
   - **Note:** every staging order's other emails (order approved, the sellers' sale notices) fail at Resend, because the test accounts use `@example.com`. That is pre-existing staging noise.
+- **P2-OPS-11 · Done.**
+  - **Production deployed by the user** at `6669472` (`npm run deploy production`). The script's "yes" gate needs a real terminal, so it refused my piped answer. That is by design; staging redeployed first.
+  - `sponsorx.net/api/v1/public/health` now shows `checks.queue` and `traffic`.
+  - **Reliable 15-minute monitor:** a new Railway service, **monitor-trigger**, in staging (image `curlimages/curl:8.10.1`, cron `*/15 * * * *`, restart NEVER), set through Railway's GraphQL API with the CLI login. It POSTs a `workflow_dispatch` for `health-monitor.yml` on `main`.
+    - Its token, `GH_DISPATCH_TOKEN`, is a fine-grained PAT: BTG-Sports/sponsorX_dev only, Actions read/write, 1 year. **Renew it before 2027-10.** It went from the user's clipboard straight into Railway and was never printed, and the clipboard was cleared afterwards.
+    - First cron-started run: 07:02 UTC, success. GitHub's own schedule stays as a backup. The monitor counts runs from any trigger.
+  - The production deploy also shipped the admin redesign (P1-ART-14…21, P1-FE-31; still in Code review) and the nine Phase 2 screens. That was the user's choice; there were no database changes.
