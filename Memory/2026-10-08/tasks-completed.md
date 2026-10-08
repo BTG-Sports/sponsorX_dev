@@ -23,3 +23,7 @@
   - Tests: the new same-address case in `phase2-order-automation` is mutation-checked; three tests that assumed a single receipt were updated. Full backend suite 3,008/3,008 against a local `sponsorx_test`.
   - **Local:** this Mac has no Docker. Postgres 18 runs from `scratchpad/pgtool` (`embedded-postgres`, port 5432, sponsorx/sponsorx); `npm run db:test` builds `sponsorx_test` on it.
   - **Next:** PR → main_development → release to `main` → `npm run deploy staging` → one staging payment with a real billing email → Done.
+- **2S7-FE-02 handed to HeckerCreatives** (the user's decision; it is frontend work). The Owner is now HeckerCreatives and the Status stays Code review. The tracker note holds the brief, about half a day to a day of frontend only, since the API already serves every count:
+  - on `/admin/marketplace` (`marketplace-desk.tsx`), replace the stale "Disputes aren't counted yet" line with a Disputes tile (open disputes also cover frozen payouts);
+  - add tiles for payment events waiting on BTG, refunds to send, delivery issues and payouts awaiting approval, each with its count and a link to its existing desk;
+  - update the desk's tests.
