@@ -215,7 +215,7 @@ describe.skipIf(!hasDatabase)("2S4-BE-09 / 2S4-BE-10 over the API", { timeout: 9
     expect((await call("POST", `/listings/${L[key]}/submit`, owner)).json.state).toBe("PUBLISHED");
   }
   /** A sponsor places an order for these lines — each order on its own dates, so stock never collides. */
-  async function order(sponsor: string, lines: Array<{ key: string; quantity: number }>) {
+  async function order(sponsor: string, lines: Array<{ key: string; quantity: number }>, billing?: Record<string, unknown>) {
     const d = (day += 2);
     await call("POST", "/cart", sponsor);
     for (const l of lines) {
@@ -224,7 +224,7 @@ describe.skipIf(!hasDatabase)("2S4-BE-09 / 2S4-BE-10 over the API", { timeout: 9
     }
     const hold = await call("POST", "/cart/reserve", sponsor);
     expect(hold.status, hold.text).toBe(201);
-    const placed = await call("POST", "/marketplace-orders", sponsor, placeOrderBody(hold.json.id, TERMS));
+    const placed = await call("POST", "/marketplace-orders", sponsor, placeOrderBody(hold.json.id, TERMS, billing));
     expect(placed.status, placed.text).toBe(201);
     return placed.json;
   }
@@ -577,8 +577,12 @@ describe.skipIf(!hasDatabase)("2S4-BE-09 / 2S4-BE-10 over the API", { timeout: 9
       expect(await prisma.marketplaceOrder.findUniqueOrThrow({ where: { id: O.manual }, select: { paymentRecordedBy: true } })).toEqual({ paymentRecordedBy: "ox_finance" });
       const audit = await prisma.auditLog.findFirstOrThrow({ where: { entityId: O.manual, action: "marketplaceOrder.paymentRecorded" }, select: { actorId: true, after: true } });
       expect(audit).toMatchObject({ actorId: "ox_finance", after: { via: "CHEQUE", reference: "CHQ-20441", amountCents: 10_000 } });
-      const receipt = (await mails("payment.received")).find((m) => m.data.orderRef === ref(O.manual))!;
-      expect(receipt).toMatchObject({ to: "ox_s1_admin@ox-test.invalid", data: { amount: "$100.00" } });
+      /* 2S5-FE-05 — checkout says "Invoices and receipts for this order go to this contact": the billing contact gets
+         the receipt, and the sponsor who placed the order (a different address here) gets a copy. */
+      const receipts = (await mails("payment.received")).filter((m) => m.data.orderRef === ref(O.manual));
+      expect(receipts.map((m) => m.to).sort()).toEqual(["billing@sponsor-test.invalid", "ox_s1_admin@ox-test.invalid"]);
+      const receipt = receipts.find((m) => m.to === "billing@sponsor-test.invalid")!;
+      expect(receipt).toMatchObject({ data: { amount: "$100.00" } });
       expect(receipt.data.paidHow).toMatch(/BTG has recorded your payment .*cheque, reference CHQ-20441/);
       expect((await mails("sale.paid")).find((m) => m.data.orderRef === ref(O.manual))).toMatchObject({ to: "ox_mgr@ox-test.invalid" });
       /* The database refuses a hand-recorded payment without its record. */
@@ -597,7 +601,19 @@ describe.skipIf(!hasDatabase)("2S4-BE-09 / 2S4-BE-10 over the API", { timeout: 9
       const attempt = await prisma.paymentAttempt.findFirstOrThrow({ where: { orderId: o.id, state: "PROCESSING" }, select: { id: true } });
       expect(await confirmPayment(attempt.id)).toEqual({ confirmed: true });
       expect((await call("GET", `/marketplace-orders/${o.id}`, "ox_s1_admin")).json).toMatchObject({ state: "PAID", paidVia: "CARD" });
-      expect((await mails("payment.received")).filter((m) => m.data.orderRef === ref(o.id))).toEqual([expect.objectContaining({ data: expect.objectContaining({ card: "yes" }) })]);
+      const receipts = (await mails("payment.received")).filter((m) => m.data.orderRef === ref(o.id));
+      expect(receipts.map((m) => m.to).sort()).toEqual(["billing@sponsor-test.invalid", "ox_s1_admin@ox-test.invalid"]);
+      expect(receipts.every((m) => m.data.card === "yes")).toBe(true);
+    });
+
+    it("2S5-FE-05 · a billing contact who is the sponsor themselves gets one receipt, not a copy as well", async () => {
+      const o = await order("ox_s1_admin", [{ key: "poster", quantity: 1 }], { name: "Sam Sponsor", email: "OX_S1_ADMIN@ox-test.invalid", reference: "PO-1002" });
+      const pay = await call("POST", `/marketplace-orders/${o.id}/pay`, "ox_s1_admin");
+      expect(pay.status, pay.text).toBe(200);
+      await call("POST", "/public/test-provider/checkout", undefined, { token: new URL(pay.json.url).searchParams.get("t")!, outcome: "SUCCEED" });
+      const attempt = await prisma.paymentAttempt.findFirstOrThrow({ where: { orderId: o.id, state: "PROCESSING" }, select: { id: true } });
+      expect(await confirmPayment(attempt.id)).toEqual({ confirmed: true });
+      expect((await mails("payment.received")).filter((m) => m.data.orderRef === ref(o.id)).map((m) => m.to)).toEqual(["OX_S1_ADMIN@ox-test.invalid"]);
     });
   });
 
@@ -656,7 +672,7 @@ describe.skipIf(!hasDatabase)("2S4-BE-09 / 2S4-BE-10 over the API", { timeout: 9
       await hook({ ...again, status: "Paid" });
       expect(await prisma.auditLog.count({ where: { entityId: O.zoho, action: "marketplaceOrder.paymentRecorded" } })).toBe(1);
       expect(await prisma.auditLog.count({ where: { entityId: O.zoho, action: "marketplaceOrder.paid" } })).toBe(1);
-      expect((await mails("payment.received")).filter((m) => m.data.orderRef === ref(O.zoho))).toHaveLength(1);
+      expect((await mails("payment.received")).filter((m) => m.data.orderRef === ref(O.zoho)).map((m) => m.to).sort()).toEqual(["billing@sponsor-test.invalid", "ox_s2_admin@ox-test.invalid"]);
       expect((await prisma.marketplaceOrder.findUniqueOrThrow({ where: { id: O.zoho }, select: { state: true } })).state).toBe("PAID");
     });
 

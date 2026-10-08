@@ -1388,9 +1388,9 @@ Every pricing override, commission edit, payout approval and dispute action writ
 
 *5 tasks · 17 person-days*
 
-### ⏸ `2S6-INT-01` · Apple Wallet pass adapter
+### ⏸ `2S6-INT-01` · Apple Wallet pass adapter — **PARKED 2026-10-08**
 
-**Order** 48 · **INT** · **Where:** Code + console · **5d** · **Blocked**
+**Order** 48 · **INT** · **Where:** Code + console · **5d** · **Parked** — optional; out of Phase 2 sign-off until the owner confirms (fans redeem through the QR web page meanwhile)
 
 Issue, update and expire offer passes. Behind an adapter interface so Google Wallet is a second implementation, not a rewrite.
 
@@ -1398,9 +1398,9 @@ Issue, update and expire offer passes. Behind an adapter interface so Google Wal
 - **Done when:** A wallet pass can be issued and updated from SponsorX
 - **Reference:** Spec §6 P2-12
 
-### ⏸ `2S6-INT-02` · Google Wallet pass adapter
+### ⏸ `2S6-INT-02` · Google Wallet pass adapter — **PARKED 2026-10-08**
 
-**Order** 49 · **INT** · **Where:** Code + console · **3d** · **Blocked**
+**Order** 49 · **INT** · **Where:** Code + console · **3d** · **Parked** — optional; out of Phase 2 sign-off until the owner confirms (fans redeem through the QR web page meanwhile)
 
 The second implementation of the same interface.
 
@@ -1408,9 +1408,9 @@ The second implementation of the same interface.
 - **Done when:** Google Wallet passes issue and update through the same adapter interface
 - **Reference:** Spec §10
 
-### ⏸ `2S6-BE-01` · Wallet pass lifecycle and device registrations
+### ⏸ `2S6-BE-01` · Wallet pass lifecycle and device registrations — **PARKED 2026-10-08**
 
-**Order** 50 · **BE** · **Where:** Code · **3d** · **Blocked**
+**Order** 50 · **BE** · **Where:** Code · **3d** · **Parked** — optional; out of Phase 2 sign-off until the owner confirms (fans redeem through the QR web page meanwhile)
 
 Track provider template, device registrations and last update so a pass can be revoked or changed after a fan has installed it.
 
@@ -1428,9 +1428,9 @@ Users choose which events reach them and on which channel. Marketplace volume ma
 - **Done when:** A user can mute a channel per event type and the worker honours it
 - **Reference:** Spec §9
 
-### ⏸ `2S6-FE-01` · Build the wallet reward manager
+### ⏸ `2S6-FE-01` · Build the wallet reward manager — **PARKED 2026-10-08**
 
-**Order** 52 · **FE** · **Where:** Code · **3d** · **Blocked**
+**Order** 52 · **FE** · **Where:** Code · **3d** · **Parked** — optional; out of Phase 2 sign-off until the owner confirms (fans redeem through the QR web page meanwhile)
 
 Issue, update and deactivate passes; claim links; provider status.
 
@@ -1458,9 +1458,9 @@ Send fan leads to Zoho only where the fan ticked the sponsor-contact option. No 
 - **Done when:** Claims with sponsor-contact consent enqueue zoho.pushLead; claims without it, or withdrawn (P6-SEC-03), never do — excluded at query level
 - **Reference:** §18
 
-### ⏸ `2S6-QA-01` · Wallet provider outage testing
+### ⏸ `2S6-QA-01` · Wallet provider outage testing — **PARKED 2026-10-08**
 
-**Order** 52.3 · **QA** · **Where:** Code · **1d** · **Blocked**
+**Order** 52.3 · **QA** · **Where:** Code · **1d** · **Parked** — optional; out of Phase 2 sign-off until the owner confirms (fans redeem through the QR web page meanwhile)
 
 Split from 2S8-QA-02, whose other failure modes are done; no wallet adapter exists yet. Once the wallet pass adapters exist, break them: Apple or Google Wallet down, or timing out, while a pass is issued or updated. Nothing may be half-written, the queue retries, and the reward ledger stays consistent.
 

@@ -139,6 +139,11 @@ export async function tellSponsorApproved(tx: Tx, o: OrderForMail, how: "AUTOMAT
  * The sponsor's receipt — the same for a card the provider confirmed, an
  * invoice Zoho marked paid, and a payment BTG recorded by hand. Keyed by the
  * order: an order is paid once.
+ *
+ * 2S5-FE-05 — checkout tells the sponsor "Invoices and receipts for this order
+ * go to this contact", so the billing contact confirmed there gets it; the
+ * sponsor user who placed (or paid) the order gets a copy when that is a
+ * different address. An order without a billing contact falls back to them.
  */
 export async function tellSponsorPaid(
   tx: Tx,
@@ -146,14 +151,16 @@ export async function tellSponsorPaid(
   p: { via: string; reference?: string | null; receivedOn?: string | null; invoiceNumber?: string | null },
   userId?: string | null,
 ) {
-  const to = await sponsorRecipient(tx, o, userId);
+  const placer = await sponsorRecipient(tx, o, userId);
+  const billing = o.billingEmail?.trim() || null;
+  const to = billing ?? placer?.email;
   if (!to) return;
+  const copy = billing && placer && placer.email.toLowerCase() !== billing.toLowerCase() ? placer.email : null;
   const how =
     p.via === "CARD" ? `Your card payment for order ${orderRef(o.id)} has been confirmed by our payment provider.`
     : p.via === "ZOHO_INVOICE" ? `Your invoice${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} for order ${orderRef(o.id)} is paid in full in our accounts.`
     : `BTG has recorded your payment for order ${orderRef(o.id)} (${p.via === "BANK_TRANSFER" ? "bank transfer" : p.via === "CHEQUE" ? "cheque" : "paid another way"}, reference ${p.reference ?? ""}, received ${p.receivedOn ?? ""}).`;
-  await send(tx, to.tenantId, {
-    template: "payment.received", to: to.email, idempotencyKey: `payment.received:${o.id}`,
-    data: { orderRef: orderRef(o.id), amount: usd(o.totalCents), lines: o.lines.map((l) => `${l.title} — ${usd(l.lineTotalCents)}`).join("\n"), paidHow: how, card: p.via === "CARD" ? "yes" : "", orderUrl: appUrl(`/sponsor/orders/${o.id}`) },
-  });
+  const data = { orderRef: orderRef(o.id), amount: usd(o.totalCents), lines: o.lines.map((l) => `${l.title} — ${usd(l.lineTotalCents)}`).join("\n"), paidHow: how, card: p.via === "CARD" ? "yes" : "", orderUrl: appUrl(`/sponsor/orders/${o.id}`) };
+  await send(tx, o.tenantId, { template: "payment.received", to, idempotencyKey: `payment.received:${o.id}`, data });
+  if (copy) await send(tx, o.tenantId, { template: "payment.received", to: copy, idempotencyKey: `payment.received:${o.id}:placer`, data });
 }
