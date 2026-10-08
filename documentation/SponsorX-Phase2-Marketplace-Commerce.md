@@ -352,9 +352,9 @@ Every request, decision and switch is audited. BTG admins are emailed with a lin
 - **Done when:** A handoff can happen only after the new guardian's request and the current guardian's Hand off; the current guardian keeps control until the switch, which is atomic; agreed work and earned money stay where they were; a guardian's other children are unaffected; a declined or disputed request goes to BTG support and is never automated; every step is audited
 - **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
 
-### ⏸ `2S1-BE-16` · Contacting BTG support
+### ✅ `2S1-BE-16` · Contacting BTG support
 
-**Order** 12.97 · **BE** · **Where:** Code · **2d** · **Ready**
+**Order** 12.97 · **BE** · **Where:** Code · **2d** · **Done**
 
 A way to reach BTG for things that must never be automated, starting with disputed guardianship. A contact form (public, rate-limited) takes a name, an email, the topic (guardianship, account, payment, other), a message and optional attachments. Attachments go to the private storage bucket. Each message is queued through the worker, never sent on the request path, and delivered to the support mailbox (2S1-OPS-01), with the sender's message ID so a reply can continue the thread. The support email address is shown wherever a person might be stuck: the guardian request page, a declined-handoff email, a rejection email, and account pages. Raised 2026-10-01 from the BTG admin review.
 
@@ -376,9 +376,9 @@ BTG admin only.
 - **Done when:** A BTG admin following the support email's link sees the message and opens each attachment; nobody else can
 - **Reference:** `documentation/SponsorX-Payments-PII-Review-2026-10.md` (frontend follow-ups); raised 2026-10-06
 
-### ⏸ `2S1-OPS-01` · Set up the BTG support mailbox
+### ✅ `2S1-OPS-01` · Set up the BTG support mailbox
 
-**Order** 12.98 · **OPS** · **Where:** Vendor console · **1d** · **Ready**
+**Order** 12.98 · **OPS** · **Where:** Vendor console · **1d** · **Done**
 
 Create the support address, for example support@sponsorx.net, and where its mail lands. **Option A, Zoho Desk (recommended):** BTG already runs on Zoho, and Desk turns each email into a tracked ticket with an owner and a status, so the one BTG reviewer sees what's waiting. **Option B:** a plain shared mailbox. Set it up in sandbox or staging first, then production. The sender domain must be verified once the transactional email provider is chosen.
 
@@ -1388,9 +1388,9 @@ Every pricing override, commission edit, payout approval and dispute action writ
 
 *5 tasks · 17 person-days*
 
-### ⏸ `2S6-INT-01` · Apple Wallet pass adapter
+### ⏸ `2S6-INT-01` · Apple Wallet pass adapter — **PARKED 2026-10-08**
 
-**Order** 48 · **INT** · **Where:** Code + console · **5d** · **Blocked**
+**Order** 48 · **INT** · **Where:** Code + console · **5d** · **Parked** — optional; out of Phase 2 sign-off until the owner confirms (fans redeem through the QR web page meanwhile)
 
 Issue, update and expire offer passes. Behind an adapter interface so Google Wallet is a second implementation, not a rewrite.
 
@@ -1398,9 +1398,9 @@ Issue, update and expire offer passes. Behind an adapter interface so Google Wal
 - **Done when:** A wallet pass can be issued and updated from SponsorX
 - **Reference:** Spec §6 P2-12
 
-### ⏸ `2S6-INT-02` · Google Wallet pass adapter
+### ⏸ `2S6-INT-02` · Google Wallet pass adapter — **PARKED 2026-10-08**
 
-**Order** 49 · **INT** · **Where:** Code + console · **3d** · **Blocked**
+**Order** 49 · **INT** · **Where:** Code + console · **3d** · **Parked** — optional; out of Phase 2 sign-off until the owner confirms (fans redeem through the QR web page meanwhile)
 
 The second implementation of the same interface.
 
@@ -1408,9 +1408,9 @@ The second implementation of the same interface.
 - **Done when:** Google Wallet passes issue and update through the same adapter interface
 - **Reference:** Spec §10
 
-### ⏸ `2S6-BE-01` · Wallet pass lifecycle and device registrations
+### ⏸ `2S6-BE-01` · Wallet pass lifecycle and device registrations — **PARKED 2026-10-08**
 
-**Order** 50 · **BE** · **Where:** Code · **3d** · **Blocked**
+**Order** 50 · **BE** · **Where:** Code · **3d** · **Parked** — optional; out of Phase 2 sign-off until the owner confirms (fans redeem through the QR web page meanwhile)
 
 Track provider template, device registrations and last update so a pass can be revoked or changed after a fan has installed it.
 
@@ -1428,9 +1428,9 @@ Users choose which events reach them and on which channel. Marketplace volume ma
 - **Done when:** A user can mute a channel per event type and the worker honours it
 - **Reference:** Spec §9
 
-### ⏸ `2S6-FE-01` · Build the wallet reward manager
+### ⏸ `2S6-FE-01` · Build the wallet reward manager — **PARKED 2026-10-08**
 
-**Order** 52 · **FE** · **Where:** Code · **3d** · **Blocked**
+**Order** 52 · **FE** · **Where:** Code · **3d** · **Parked** — optional; out of Phase 2 sign-off until the owner confirms (fans redeem through the QR web page meanwhile)
 
 Issue, update and deactivate passes; claim links; provider status.
 
@@ -1458,9 +1458,9 @@ Send fan leads to Zoho only where the fan ticked the sponsor-contact option. No 
 - **Done when:** Claims with sponsor-contact consent enqueue zoho.pushLead; claims without it, or withdrawn (P6-SEC-03), never do — excluded at query level
 - **Reference:** §18
 
-### ⏸ `2S6-QA-01` · Wallet provider outage testing
+### ⏸ `2S6-QA-01` · Wallet provider outage testing — **PARKED 2026-10-08**
 
-**Order** 52.3 · **QA** · **Where:** Code · **1d** · **Blocked**
+**Order** 52.3 · **QA** · **Where:** Code · **1d** · **Parked** — optional; out of Phase 2 sign-off until the owner confirms (fans redeem through the QR web page meanwhile)
 
 Split from 2S8-QA-02, whose other failure modes are done; no wallet adapter exists yet. Once the wallet pass adapters exist, break them: Apple or Google Wallet down, or timing out, while a pass is issued or updated. Nothing may be half-written, the queue retries, and the reward ledger stays consistent.
 
@@ -1775,9 +1775,9 @@ Claimants now confirm their email before the school can verify the claim (2S8-PM
 - **Done when:** A claimant is told to check their email, confirms on a page with a button, and sees the outcome on the profile
 - **Reference:** Security review 2026-10, decision 5; raised 2026-10-06
 
-### ⏸ `2S8-OPS-01` · Production readiness and restore test
+### ✅ `2S8-OPS-01` · Production readiness and restore test
 
-**Order** 63 · **OPS** · **Where:** Vendor console · **3d** · **Blocked**
+**Order** 63 · **OPS** · **Where:** Vendor console · **3d** · **Done**
 
 Verify backups by restoring, test alerts, exercise rollback, confirm RPO/RTO targets are actually met.
 

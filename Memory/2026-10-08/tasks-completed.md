@@ -1,5 +1,50 @@
 # 2026-10-08
 
+- **P2-OPS-07 · Done in the tracker, committed** (`8d38c2c`, pushed to `development/bob/be_batch_0924`). main_development had nothing new to pull.
+- **P2-OPS-11 is live on staging, not yet on production.** Staging's `/api/v1/public/health` shows `checks.queue` and `traffic`; `sponsorx.net` doesn't. The row stays in Code review until a production release.
+- **Staging test noise:**
+  - Failed `notify.email` jobs: none left. The health check reports 0 failed jobs in 24 h; the 196 from 2026-10-06 have aged out.
+  - Failed payment events: **56** open (not 59), all Stripe sandbox events from 2026-10-06 that matched nothing: 39 `account.updated`, 9 `payment.refunded`, 3 `payment.failed`, 3 `dispute.opened`, 2 `payout.paid`. **All 56 resolved** over `railway ssh --environment staging`, in one transaction, the same way `resolvePaymentEvent` does it: `resolvedAt`, `resolvedBy` = "rcfworks (staging cleanup)", a note naming the sandbox tests and fix 7105256, and one `paymentEvent.resolve` audit row each (56). No refund was held for these, so the refund-dismiss step had nothing to do. Afterwards no HELD or FAILED event is open on staging, and none has arrived since the fix went out on 2026-10-07.
+  - Permissions: the owner added the allow rule `Bash(railway ssh --environment staging:*)` in local settings. It is limited to staging; production commands still ask.
+- **PR #173** (this branch → main_development) is open.
+- **Code review rows checked against acceptance; none moved to Done.** Only the user's own four rows were checked; HeckerCreatives' ten (P8-PMO-05, P1-ART-14…21, P1-FE-31) are theirs to close. Findings are in each row's Notes.
+  - **P2-OPS-11:** the code meets the clause (a job waiting over 15 min turns `/health/full` to `degraded`; the monitor alerts on anything but `ok`), and staging shows it. **Production is still on `aae0ca2`**, without the queue or traffic numbers, so it needs the production release. **New finding:** `health-monitor.yml` is set to every 15 min, but GitHub ran it only every 4–6 h on 2026-10-07, so a stalled worker could go unreported for hours.
+  - **2S7-FE-02:** the backend serves every exception and each has its own desk, but `/admin/marketplace` still says "Disputes aren't counted yet" and doesn't surface payment events, refunds to send, delivery issues, payouts awaiting approval or frozen payouts. This is frontend work.
+  - **2S5-FE-05:** no `payment.received` receipt has ever been delivered on staging (the only one, on 2026-10-06, went to `@example.com` and failed). It needs one staging payment by a sponsor with a real inbox.
+  - **4S0-ART-01:** all 10 planned screens are designed, and the creative limits per placement type are specified. Two screens from blueprint §34 are missing, **virtual campaign extension** and **virtual pricing**; those two make up the "12".
+- **Wallet parked (the user's decision, pending Rodney's confirmation).** The wallet is optional: fans already claim and redeem through the QR web page, and the Apple Developer fee plus Apple's company verification cost time and money.
+  - Sign-off record: #11 is **Parked**, out of Phase 2's sign-off for now, so 12 demonstrated, 1 partly (Zoho) and 1 parked.
+  - Phase 2 plan: 2S6-INT-01, 2S6-INT-02, 2S6-BE-01, 2S6-FE-01 and 2S6-QA-01 are marked **PARKED 2026-10-08**.
+  - Tracker: those five rows keep **Blocked** (Phase 2's Status list has no Parked or Dropped value, and adding one would make the Dashboard undercount) and carry a PARKED note.
+  - Set-up guide for when it resumes: the doc "Apple & Google Wallet Issuer Setup" (https://claude.ai/artifact/7CG3x59P99VC5tNxnx1idi), with screenshots of the public Apple and Google pages; the screens behind sign-in are described in words.
+  - Email to Rodney drafted (wallet explained simply, optional, parked, asking for his go-ahead to resume).
+- **2S5-FE-05 · receipt recipient fixed (still Code review).** Checkout says "Invoices and receipts for this order go to this contact", but `tellSponsorPaid` sent the receipt to the signed-in sponsor and used the billing contact only as a fallback.
+  - Now the billing contact gets it (`payment.received:<order>`), and the placer gets a copy (`payment.received:<order>:placer`) when their address differs, compared case-insensitively.
+  - Tests: the new same-address case in `phase2-order-automation` is mutation-checked; three tests that assumed a single receipt were updated. Full backend suite 3,008/3,008 against a local `sponsorx_test`.
+  - **Local:** this Mac has no Docker. Postgres 18 runs from `scratchpad/pgtool` (`embedded-postgres`, port 5432, sponsorx/sponsorx); `npm run db:test` builds `sponsorx_test` on it.
+  - **Next:** PR → main_development → release to `main` → `npm run deploy staging` → one staging payment with a real billing email → Done.
+- **2S7-FE-02 handed to HeckerCreatives** (the user's decision; it is frontend work). The Owner is now HeckerCreatives and the Status stays Code review. The tracker note holds the brief, about half a day to a day of frontend only, since the API already serves every count:
+  - on `/admin/marketplace` (`marketplace-desk.tsx`), replace the stale "Disputes aren't counted yet" line with a Disputes tile (open disputes also cover frozen payouts);
+  - add tiles for payment events waiting on BTG, refunds to send, delivery issues and payouts awaiting approval, each with its count and a link to its existing desk;
+  - update the desk's tests.
+- **2S5-FE-05 · Done.** Release #176 (`6669472`) was deployed to staging (`npm run deploy staging`). The new `npm run smoke:receipt` (`backend/scripts/smoke-receipt.mjs`) proved the last clause with no person involved:
+  - order **SX-KLNH17FX** was placed by the test sponsor (harbor.coffee) with billing contact `delivered+smoke-20261008041202@resend.dev`, and Finance marked it paid by cheque;
+  - the `payment.received` job to the billing contact **completed**, so Resend accepted it. The sponsor's copy went to `@example.com`, which Resend refuses (expected).
+  - An earlier run left one more paid test order, **SX-MQLLNKE5**, whose receipt also completed.
+  - **How the script works:**
+    - It signs in through staging's real `/login` with a one-time Clerk ticket in headless Chromium, like `e2e/support/auth.ts`. Tokens from Clerk's Backend API carry no `azp` and are refused by the 2S8-PMO-02 authorized-parties rule.
+    - It reads the email queue over `railway ssh`, because staging's `RESEND_API_KEY` is send-only (`restricted_api_key` on `GET /emails`) and should stay that way.
+    - It refuses a non-`sk_test_` Clerk key.
+  - **Run:** `railway run --environment staging --service api -- npm run smoke:receipt -w @sponsorx/backend`.
+  - **Note:** every staging order's other emails (order approved, the sellers' sale notices) fail at Resend, because the test accounts use `@example.com`. That is pre-existing staging noise.
+- **P2-OPS-11 · Done.**
+  - **Production deployed by the user** at `6669472` (`npm run deploy production`). The script's "yes" gate needs a real terminal, so it refused my piped answer. That is by design; staging redeployed first.
+  - `sponsorx.net/api/v1/public/health` now shows `checks.queue` and `traffic`.
+  - **Reliable 15-minute monitor:** a new Railway service, **monitor-trigger**, in staging (image `curlimages/curl:8.10.1`, cron `*/15 * * * *`, restart NEVER), set through Railway's GraphQL API with the CLI login. It POSTs a `workflow_dispatch` for `health-monitor.yml` on `main`.
+    - Its token, `GH_DISPATCH_TOKEN`, is a fine-grained PAT: BTG-Sports/sponsorX_dev only, Actions read/write, 1 year. **Renew it before 2027-10.** It went from the user's clipboard straight into Railway and was never printed, and the clipboard was cleared afterwards.
+    - First cron-started run: 07:02 UTC, success. GitHub's own schedule stays as a backup. The monitor counts runs from any trigger.
+  - The production deploy also shipped the admin redesign (P1-ART-14…21, P1-FE-31; still in Code review) and the nine Phase 2 screens. That was the user's choice; there were no database changes.
+
 ## HeckerCreatives — tracker: every Phase 1 task in Code review moved to Done
 
 The owner, after QA: "anything in the phase 1 in code review make it done now". Ten rows: P8-PMO-05 (the developer handoff documentation) and the admin-portal work of 2026-10-05 to 07 — P1-ART-14 (the Operations Board stage), P1-ART-15 (New sign-ups), P1-ART-16 (Applications), P1-ART-17 (Sign-up rules), P1-ART-18 (the whole admin portal on the stage), P1-FE-31 (every list a server-paged table), P1-ART-19 (the commission desk), P1-ART-20 (the marketplace desk), P1-ART-21 (the sidebar groups). Date Done 2026-10-08; the 2026-10-08 snapshot row appended. Phase 1 now has no Code review rows.
