@@ -202,3 +202,30 @@ describe("P1-ART-20 · the marketplace desk's queue strip", async () => {
     expect(firstBusyQueue({ applications: null, listings: 0, orders: 0, payments: 0, payouts: 0 })).toBe("applications");
   });
 });
+
+describe("2S7-FE-02 · the exceptions on other desks, as link tiles", async () => {
+  const { linkTiles } = await import("../src/lib/marketplace-ops-live");
+  it("counts what each desk actions and names the money frozen or owed", () => {
+    const t = linkTiles({
+      disputes: { OPEN: 2, UNDER_REVIEW: 1, WON: 4, LOST: 3 },
+      events: { waitingOnBtg: 3, deferred: 1 },
+      refunds: { open: 2, openCents: 150_000 },
+      delivery: { problems: 1, settled: 9, overdue: 2 },
+      payoutsRequested: 4,
+    });
+    expect(t.map((x) => [x.key, x.count, x.href])).toEqual([
+      ["disputes", 3, "/admin/payments/disputes"], ["events", 3, "/admin/payments/events"], ["refunds", 2, "/admin/refunds"],
+      ["delivery", 1, "/admin/delivery-issues"], ["approvals", 4, "/admin/payouts"],
+    ]);
+    expect(t[0]!.caption).toBe("2 open · 1 under review · money frozen");
+    expect(t[2]!.caption).toBe("$1,500.00 owed back");
+    expect(t[3]!.caption).toBe("2 overdue delivery");
+    expect(t.map((x) => x.tone)).toEqual(["danger", "warn", "warn", "danger", "warn"]);
+  });
+  it("is quiet when every desk is clear, and honest when a desk could not be read", () => {
+    const t = linkTiles({ disputes: { OPEN: 0, UNDER_REVIEW: 0, WON: 1, LOST: 0 }, events: { waitingOnBtg: 0, deferred: 2 }, refunds: { open: 0, openCents: 0 }, delivery: null, payoutsRequested: 0 });
+    expect(t.map((x) => [x.count, x.tone])).toEqual([[0, "quiet"], [0, "quiet"], [0, "quiet"], [null, "quiet"], [0, "quiet"]]);
+    expect(t[1]!.caption).toBe("2 deferred");
+    expect(t[3]!.caption).toBe("—");
+  });
+});

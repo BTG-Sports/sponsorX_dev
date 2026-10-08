@@ -8,8 +8,8 @@ import { MopsAutoPublishedList, MopsListingQueue } from "@/components/mops-listi
 import { PayoutRetry } from "@/components/payout-decision";
 import { Primary, StageTable, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
 import {
-  LISTING_TABS, QUEUES, agoLabel, failedTriesLabel, failureCopy, isOverdue, payoutProblemSince, shortId, usd, waitLabel,
-  type ApiFailedPayment, type ApiListing, type ApiMarketplaceOrder, type ApiPage, type ListingTab, type QueueKey,
+  LISTING_TABS, QUEUES, agoLabel, failedTriesLabel, failureCopy, isOverdue, linkTiles, payoutProblemSince, shortId, usd, waitLabel,
+  type ApiDeskCounts, type ApiFailedPayment, type ApiListing, type ApiMarketplaceOrder, type ApiPage, type ListingTab, type QueueKey,
 } from "@/lib/marketplace-ops-live";
 import { ORG_TYPE_COPY, type ApiOnboarding } from "@/lib/onboarding-live";
 import { payeeKind, type ApiAdminPayout } from "@/lib/payouts-live";
@@ -57,7 +57,7 @@ export type DeskData = {
 const count = (q: Queue<unknown> | LiveQueue): number | null => ("forbidden" in q ? null : "page" in q ? q.page.total : q.total);
 const n = (v: number | null) => (v === null ? "—" : String(v));
 
-export function MarketplaceDesk({ data, queue: initialQueue, tab: initialTab, now }: { data: DeskData; queue: QueueKey; tab: ListingTab; now: number }) {
+export function MarketplaceDesk({ data, links, queue: initialQueue, tab: initialTab, now }: { data: DeskData; links: ApiDeskCounts; queue: QueueKey; tab: ListingTab; now: number }) {
   const router = useRouter();
   const pathname = usePathname();
   const [queue, setQueue] = useState<QueueKey>(initialQueue);
@@ -135,9 +135,33 @@ export function MarketplaceDesk({ data, queue: initialQueue, tab: initialTab, no
             );
           })}
         </ol>
-        <p className="mt-2 text-[11px] text-muted">
-          Disputes aren&rsquo;t counted yet — they arrive with refunds and disputes (2S5-BE-03), which waits on the payment provider&rsquo;s live webhooks. A refund is marked by hand today: open the order and choose Mark refunded.
-        </p>
+      </section>
+
+      {/* 2S7-FE-02 — the exceptions that live on other desks: the API's count and the desk that actions it. */}
+      <section aria-label="On other desks">
+        <ol className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+          {linkTiles(links).map((t, i) => {
+            const tone = t.tone === "danger" ? "text-[#fdba74]" : t.tone === "warn" ? "text-[#93c5fd]" : "text-[#5b6b7d]";
+            const edge = t.tone === "danger" ? "bg-[#f97a1f]" : t.tone === "warn" ? "bg-[#2e9bf5]" : "bg-white/10";
+            return (
+              <li key={t.key} className="sx-ops-in min-w-0" style={{ "--sx-reveal-delay": `${0.3 + i * 0.06}s` } as CSSProperties}>
+                <Link
+                  href={t.href}
+                  aria-label={`${t.label}: ${n(t.count)}, ${t.caption} — open the desk`}
+                  className="group relative block w-full min-w-0 rounded-md border border-[#63b4f8]/22 bg-[#0a1424]/50 px-3.5 pb-3 pt-3 text-left transition-all duration-300 hover:border-[#63b4f8]/60 hover:bg-[#0c1829]/90"
+                >
+                  <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-[2px] ${edge}`} />
+                  <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a96a3]">
+                    <span className="truncate">{t.label}</span>
+                    <span aria-hidden="true" className="ml-auto shrink-0 text-[#9be0ff]/70 transition-transform group-hover:translate-x-0.5">→</span>
+                  </span>
+                  <span className={`mt-1.5 block text-[26px] font-bold leading-none tracking-tight tabular-nums ${t.count ? tone : "text-[#5b6b7d]"}`}>{n(t.count)}</span>
+                  <span className="mt-1.5 block truncate text-[11px] text-[#7e88a0]">{t.caption}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ol>
       </section>
 
       <div key={queue} className="sx-ops-in">

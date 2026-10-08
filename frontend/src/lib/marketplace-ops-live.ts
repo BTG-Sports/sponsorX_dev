@@ -121,6 +121,50 @@ export function queueKey(v: unknown, listings?: unknown): QueueKey | null {
   if (typeof listings === "string" && listings) return "listings";
   return null;
 }
+/**
+ * 2S7-FE-02 — the exceptions that live on other desks, as link tiles under
+ * the queue strip: each with the API's own count and a link to the desk that
+ * actions it. `null` counts mean the role couldn't read that desk.
+ */
+export type ApiDeskCounts = {
+  disputes: { OPEN: number; UNDER_REVIEW: number; WON: number; LOST: number } | null;
+  events: { waitingOnBtg: number; deferred: number } | null;
+  refunds: { open: number; openCents: number } | null;
+  delivery: { problems: number; settled: number; overdue: number } | null;
+  payoutsRequested: number | null;
+};
+export type LinkTile = { key: string; label: string; href: string; count: number | null; caption: string; tone: "warn" | "danger" | "quiet" };
+export function linkTiles(c: ApiDeskCounts): LinkTile[] {
+  const disputesOpen = c.disputes ? c.disputes.OPEN + c.disputes.UNDER_REVIEW : null;
+  return [
+    {
+      key: "disputes", label: "Disputes", href: "/admin/payments/disputes", count: disputesOpen,
+      caption: disputesOpen ? `${c.disputes!.OPEN} open · ${c.disputes!.UNDER_REVIEW} under review · money frozen` : "none open",
+      tone: disputesOpen ? "danger" : "quiet",
+    },
+    {
+      key: "events", label: "Payment events", href: "/admin/payments/events", count: c.events?.waitingOnBtg ?? null,
+      caption: c.events?.waitingOnBtg ? "held or failed, waiting for BTG" : c.events?.deferred ? `${c.events.deferred} deferred` : "nothing waiting",
+      tone: c.events?.waitingOnBtg ? "warn" : "quiet",
+    },
+    {
+      key: "refunds", label: "Refunds to send", href: "/admin/refunds", count: c.refunds?.open ?? null,
+      caption: c.refunds?.open ? `${usd(c.refunds.openCents)} owed back` : "nothing to send",
+      tone: c.refunds?.open ? "warn" : "quiet",
+    },
+    {
+      key: "delivery", label: "Delivery issues", href: "/admin/delivery-issues", count: c.delivery?.problems ?? null,
+      caption: c.delivery ? (c.delivery.overdue ? `${c.delivery.overdue} overdue delivery` : c.delivery.problems ? "need BTG" : "none") : "—",
+      tone: c.delivery?.problems ? "danger" : c.delivery?.overdue ? "warn" : "quiet",
+    },
+    {
+      key: "approvals", label: "Payouts to approve", href: "/admin/payouts", count: c.payoutsRequested,
+      caption: c.payoutsRequested ? "waiting for approval" : "none waiting",
+      tone: c.payoutsRequested ? "warn" : "quiet",
+    },
+  ];
+}
+
 /** The queue the desk opens on when the URL names none: the first with work in it, else applications. */
 export function firstBusyQueue(counts: Record<QueueKey, number | null>): QueueKey {
   return QUEUES.find((q) => (counts[q.key] ?? 0) > 0)?.key ?? "applications";

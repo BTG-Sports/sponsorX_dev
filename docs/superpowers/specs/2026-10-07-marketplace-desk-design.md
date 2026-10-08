@@ -57,3 +57,16 @@ tsc, eslint, unit tests (`queueKey`, `firstBusyQueue`); a Playwright pass
 as BTG_ADMIN at 1440 and 390 — the five tiles, a tile switching the panel
 and writing `?queue=`, the listings tabs, an old `?listings=auto` link
 landing on the right tab, no console error, no overflow.
+
+## 2S7-FE-02 follow-up (2026-10-08) — the exceptions on other desks
+
+rcfworks' review of the console listed what it still lacked: disputes
+(and the payout money they freeze), payment events held or failed for BTG,
+refunds to send, delivery issues, payouts awaiting approval. A second row
+of five **link tiles** under the queue strip now carries each one — the
+API's own count (`GET /disputes`, `/payment-events`, `/refunds`,
+`/delivery-issues`, `/payouts`, one row each, counts only) and a link to
+the desk that actions it — and the stale "disputes aren't counted yet"
+line is gone. `linkTiles(counts)` in `lib/marketplace-ops-live.ts` is pure
+and unit-tested; the walk reads the same five endpoints as the signed-in
+admin and asserts each tile's number and link.
