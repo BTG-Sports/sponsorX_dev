@@ -1,0 +1,14 @@
+# 2026-10-08
+
+- **P2-OPS-07 · Done in the tracker, committed** (`8d38c2c`, pushed to `development/bob/be_batch_0924`). main_development had nothing new to pull.
+- **P2-OPS-11 is live on staging, not yet on production.** Staging's `/api/v1/public/health` shows `checks.queue` and `traffic`; `sponsorx.net` doesn't. The row stays in Code review until a production release.
+- **Staging test noise:**
+  - Failed `notify.email` jobs: none left. The health check reports 0 failed jobs in 24 h; the 196 from 2026-10-06 have aged out.
+  - Failed payment events: **56** open (not 59), all Stripe sandbox events from 2026-10-06 that matched nothing: 39 `account.updated`, 9 `payment.refunded`, 3 `payment.failed`, 3 `dispute.opened`, 2 `payout.paid`. **All 56 resolved** over `railway ssh --environment staging`, in one transaction, the same way `resolvePaymentEvent` does it: `resolvedAt`, `resolvedBy` = "rcfworks (staging cleanup)", a note naming the sandbox tests and fix 7105256, and one `paymentEvent.resolve` audit row each (56). No refund was held for these, so the refund-dismiss step had nothing to do. Afterwards no HELD or FAILED event is open on staging, and none has arrived since the fix went out on 2026-10-07.
+  - Permissions: the owner added the allow rule `Bash(railway ssh --environment staging:*)` in local settings. It is limited to staging; production commands still ask.
+- **PR #173** (this branch → main_development) is open.
+- **Code review rows checked against acceptance; none moved to Done.** Only the user's own four rows were checked; HeckerCreatives' ten (P8-PMO-05, P1-ART-14…21, P1-FE-31) are theirs to close. Findings are in each row's Notes.
+  - **P2-OPS-11:** the code meets the clause (a job waiting over 15 min turns `/health/full` to `degraded`; the monitor alerts on anything but `ok`), and staging shows it. **Production is still on `aae0ca2`**, without the queue or traffic numbers, so it needs the production release. **New finding:** `health-monitor.yml` is set to every 15 min, but GitHub ran it only every 4–6 h on 2026-10-07, so a stalled worker could go unreported for hours.
+  - **2S7-FE-02:** the backend serves every exception and each has its own desk, but `/admin/marketplace` still says "Disputes aren't counted yet" and doesn't surface payment events, refunds to send, delivery issues, payouts awaiting approval or frozen payouts. This is frontend work.
+  - **2S5-FE-05:** no `payment.received` receipt has ever been delivered on staging (the only one, on 2026-10-06, went to `@example.com` and failed). It needs one staging payment by a sponsor with a real inbox.
+  - **4S0-ART-01:** all 10 planned screens are designed, and the creative limits per placement type are specified. Two screens from blueprint §34 are missing, **virtual campaign extension** and **virtual pricing**; those two make up the "12".
