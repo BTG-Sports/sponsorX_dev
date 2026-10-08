@@ -8,14 +8,17 @@
 ## Summary
 
 Of the 14 Phase 2 acceptance criteria, **12 are demonstrated**, **1 is partly
-demonstrated** and **1 is not demonstrated**. The 12 are proven by automated
+demonstrated** and **1 is parked** (the optional wallet, #11). The 12 are proven by automated
 tests that run in CI. The marketplace path (`e2e/marketplace-path.spec.ts`) ran
 green in CI run 37281259338 on 2026-10-05. Payment (#6, #7) and payout
 onboarding (#10) were also shown on staging with real Stripe sandbox
-transactions. Three things block sign-off:
+transactions. Two things block sign-off:
 
-- **#11, the wallet reward pass, is not built.** All four wallet tasks are
-  still Blocked, and no wallet code exists.
+- **#11, the wallet reward pass, is parked (2026-10-08).** The wallet is
+  optional: fans already claim and redeem rewards through the QR web page.
+  Because the Apple Developer fee and Apple's company verification cost time
+  and money, the wallet is taken out of Phase 2's sign-off for now. Its tasks
+  stay on the tracker and resume when the owner confirms.
 - **#13, Zoho, is proven only against a simulated Zoho.** Nobody has checked a
   marketplace order arriving in the real Zoho sandbox.
 - **The task's own bar is not met yet.** It says "Real external properties
@@ -23,9 +26,7 @@ transactions. Three things block sign-off:
   far only internal test accounts have done this. Those accounts were created
   by the tester facility directly in the database, not through sign-up.
 
-The real-user test below closes the third point and can close the second. The
-first needs the wallet tasks built, or the owner's written decision to move #11
-to a later phase.
+The real-user test below closes the last point and can close the Zoho one.
 
 ## How to read this
 
@@ -51,7 +52,7 @@ to a later phase.
 | 8 | Commission snapshot is fixed at contract time | **Demonstrated** | [phase2-ledger.test.ts](../backend/tests/phase2-ledger.test.ts), [phase2-marketplace.test.ts](../backend/tests/phase2-marketplace.test.ts), e2e step 5 |
 | 9 | Athlete accepts an offer, delivers and sees earnings | **Demonstrated** | [phase2-marketplace.test.ts](../backend/tests/phase2-marketplace.test.ts) (2S2-BE-03), [phase2-delivery.test.ts](../backend/tests/phase2-delivery.test.ts), [earnings.list.test.ts](../backend/tests/earnings.list.test.ts), e2e steps 7–8 and the loop-p4/p5/p7 specs |
 | 10 | Payout blocked on unsettled payment, incomplete delivery, incomplete onboarding or an open dispute | **Demonstrated** | [payout-eligibility.test.ts](../backend/tests/payout-eligibility.test.ts), [phase2-payouts.test.ts](../backend/tests/phase2-payouts.test.ts), staging Stripe onboarding to READY ([Memory 2026-10-06](../Memory/2026-10-06/tasks-completed.md)) |
-| 11 | Wallet reward pass issued and updated from SponsorX | **Not demonstrated** | Not built: 2S6-INT-01, 2S6-INT-02, 2S6-BE-01 and 2S6-FE-01 are Blocked |
+| 11 | Wallet reward pass issued and updated from SponsorX | **Parked 2026-10-08** | Optional, out of Phase 2 sign-off for now; 2S6-INT-01, 2S6-INT-02, 2S6-BE-01, 2S6-FE-01 and 2S6-QA-01 resume when the owner confirms |
 | 12 | Property dashboard reconciles booked, ledger, paid and pending | **Demonstrated** | [phase2-ledger.test.ts](../backend/tests/phase2-ledger.test.ts), [phase2-reconciliation.test.ts](../backend/tests/phase2-reconciliation.test.ts), [phase2-payouts.test.ts](../backend/tests/phase2-payouts.test.ts), browser check 2026-10-07 (team page = ledger) |
 | 13 | Zoho holds linked Account/Contact/Deal for marketplace sales | **Partly demonstrated** | [phase2-orders.test.ts](../backend/tests/phase2-orders.test.ts) (2S7-INT-01), against a simulated Zoho only |
 | 14 | Cross-tenant access tests pass for sponsor, athlete/property and admin | **Demonstrated** | [tenant-isolation.test.ts](../backend/tests/tenant-isolation.test.ts), [authz.matrix.test.ts](../backend/tests/authz.matrix.test.ts), [tenant-scope.static.test.ts](../backend/tests/tenant-scope.static.test.ts) |
@@ -225,7 +226,14 @@ More evidence:
 
 ### 11 · Wallet reward pass can be issued and updated from SponsorX.
 
-**Not demonstrated, because it is not built.** No Apple or Google Wallet code
+**Parked on 2026-10-08, out of Phase 2's sign-off for now.** The wallet is
+optional: the QR web page below already covers claim and redemption. Setting it
+up needs a paid Apple Developer account (US$99 a year), Apple's company
+verification and a Google Wallet issuer account, so the work waits for the
+owner's confirmation. The set-up guide is the doc "Apple & Google Wallet Issuer
+Setup". The rest of this entry is the state it was parked in.
+
+**Not built.** No Apple or Google Wallet code
 exists in `backend/src` or `frontend/src`. All four tasks that make up this
 criterion are **Blocked** in the tracker:
 

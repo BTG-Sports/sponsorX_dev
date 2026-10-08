@@ -86,7 +86,10 @@ describe.skipIf(!hasDatabase)("2S5-INT-02 · payment webhooks", { timeout: 120_0
       expect(await w.orderState(orderId)).toBe("PAID");
       expect(await auditCount("marketplaceOrder.paid", orderId)).toBe(1);
       expect(await auditCount("payment.confirm", orderId)).toBe(1);
-      expect((await w.emails()).filter((m) => m.template === "payment.received" && m.data.orderRef === `SX-${orderId.slice(-8).toUpperCase()}`)).toHaveLength(1);
+      /* One receipt to the billing contact and one copy to the buyer (2S5-FE-05) — each once, however often delivered. */
+      const receipts = (await w.emails()).filter((m) => m.template === "payment.received" && m.data.orderRef === `SX-${orderId.slice(-8).toUpperCase()}`);
+      expect(receipts).toHaveLength(2);
+      expect(receipts.filter((m) => m.to === "billing@sponsor-test.invalid")).toHaveLength(1);
       await w.assertConsistent();
     });
 
