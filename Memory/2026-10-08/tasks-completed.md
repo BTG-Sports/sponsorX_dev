@@ -12,3 +12,9 @@
   - **2S7-FE-02:** the backend serves every exception and each has its own desk, but `/admin/marketplace` still says "Disputes aren't counted yet" and doesn't surface payment events, refunds to send, delivery issues, payouts awaiting approval or frozen payouts. This is frontend work.
   - **2S5-FE-05:** no `payment.received` receipt has ever been delivered on staging (the only one, on 2026-10-06, went to `@example.com` and failed). It needs one staging payment by a sponsor with a real inbox.
   - **4S0-ART-01:** all 10 planned screens are designed, and the creative limits per placement type are specified. Two screens from blueprint §34 are missing, **virtual campaign extension** and **virtual pricing**; those two make up the "12".
+- **Wallet parked (the user's decision, pending Rodney's confirmation).** The wallet is optional: fans already claim and redeem through the QR web page, and the Apple Developer fee plus Apple's company verification cost time and money.
+  - Sign-off record: #11 is **Parked**, out of Phase 2's sign-off for now, so 12 demonstrated, 1 partly (Zoho) and 1 parked.
+  - Phase 2 plan: 2S6-INT-01, 2S6-INT-02, 2S6-BE-01, 2S6-FE-01 and 2S6-QA-01 are marked **PARKED 2026-10-08**.
+  - Tracker: those five rows keep **Blocked** (Phase 2's Status list has no Parked or Dropped value, and adding one would make the Dashboard undercount) and carry a PARKED note.
+  - Set-up guide for when it resumes: the doc "Apple & Google Wallet Issuer Setup" (https://claude.ai/artifact/7CG3x59P99VC5tNxnx1idi), with screenshots of the public Apple and Google pages; the screens behind sign-in are described in words.
+  - Email to Rodney drafted (wallet explained simply, optional, parked, asking for his go-ahead to resume).
