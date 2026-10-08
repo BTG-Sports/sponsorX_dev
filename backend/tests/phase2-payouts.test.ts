@@ -187,8 +187,9 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
       expect(await confirmPayment(processing.id)).toEqual({ confirmed: false }); // idempotent
       expect((await call("GET", `/marketplace-orders/${E.order}`, "po_buyer")).json.state).toBe("PAID");
       expect((await call("GET", `/marketplace-orders/${E.order}/payment`, "po_buyer")).json.latest.state).toBe("SUCCEEDED");
-      const receipt = (await jobs("notify.email")).map((j) => j.payload as { template: string; to: string; data: Record<string, string> }).find((p) => p.template === "payment.received");
-      expect(receipt).toMatchObject({ to: "po_buyer@po-test.invalid", data: { amount: "$1,000.00" } });
+      const receipts = (await jobs("notify.email")).map((j) => j.payload as { template: string; to: string; data: Record<string, string> }).filter((p) => p.template === "payment.received");
+      expect(receipts.map((p) => p.to).sort()).toEqual(["billing@sponsor-test.invalid", "po_buyer@po-test.invalid"]);
+      expect(receipts.every((p) => p.data.amount === "$1,000.00")).toBe(true);
     });
 
     it("2S7-FE-02 · the console counts an order once, by its latest try, with every failed try", () => {

@@ -18,3 +18,8 @@
   - Tracker: those five rows keep **Blocked** (Phase 2's Status list has no Parked or Dropped value, and adding one would make the Dashboard undercount) and carry a PARKED note.
   - Set-up guide for when it resumes: the doc "Apple & Google Wallet Issuer Setup" (https://claude.ai/artifact/7CG3x59P99VC5tNxnx1idi), with screenshots of the public Apple and Google pages; the screens behind sign-in are described in words.
   - Email to Rodney drafted (wallet explained simply, optional, parked, asking for his go-ahead to resume).
+- **2S5-FE-05 · receipt recipient fixed (still Code review).** Checkout says "Invoices and receipts for this order go to this contact", but `tellSponsorPaid` sent the receipt to the signed-in sponsor and used the billing contact only as a fallback.
+  - Now the billing contact gets it (`payment.received:<order>`), and the placer gets a copy (`payment.received:<order>:placer`) when their address differs, compared case-insensitively.
+  - Tests: the new same-address case in `phase2-order-automation` is mutation-checked; three tests that assumed a single receipt were updated. Full backend suite 3,008/3,008 against a local `sponsorx_test`.
+  - **Local:** this Mac has no Docker. Postgres 18 runs from `scratchpad/pgtool` (`embedded-postgres`, port 5432, sponsorx/sponsorx); `npm run db:test` builds `sponsorx_test` on it.
+  - **Next:** PR → main_development → release to `main` → `npm run deploy staging` → one staging payment with a real billing email → Done.
