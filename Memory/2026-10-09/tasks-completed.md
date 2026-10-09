@@ -35,3 +35,4 @@
   - The tracker row is Done, with Date Done 2026-10-09; the Phase 2 plan shows ✅.
   - 2S8-PMO-03 stays Blocked until go-live.
   - Run 2610090617's four Clerk test users can now be removed whenever the instance needs the room.
+- **P0-OPS-06 · Done (domain `sponsorx.net`).** The row had been left In progress. Every clause was met on 2026-09-23 and recorded in `.claude/stack-decision.md`; whois, DNS and the site were re-checked today. Date Done is 2026-09-23. The other 12 open Phase 1 rows may be stale the same way and haven't been checked yet.

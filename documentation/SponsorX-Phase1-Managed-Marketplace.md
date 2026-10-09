@@ -157,9 +157,9 @@ A table of authorization rules: each of the 12 user roles against every Phase 1 
 - **Done when:** All 12 roles × every Phase 1 resource × ownership × action, in a table, agreed — this becomes the authz test suite
 - **Reference:** §8 (the twelve roles, as a table in the original document — note that the copy converted into `graphify-out/` has lost it), §38, and §09 of [`SponsorX-Implementation-Guide-V2.md`](./SponsorX-Implementation-Guide-V2.md) for the twenty starter rows and the target test format
 
-### ▶ `P0-OPS-06` · Register the SponsorX domain and hold the DNS
+### ✅ `P0-OPS-06` · Register the SponsorX domain and hold the DNS
 
-**Order** 2.5 · **OPS** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 3
+**Order** 2.5 · **OPS** · **Where:** Vendor console · **1d** · **Done** — `sponsorx.net`, met 2026-09-23 · **Unblocks** 3
 
 Buy the domain the whole product is addressed at, and keep control of its DNS. Nothing in the programme registers one, yet three separate threads assume it exists — a Clerk production instance, a publicly reachable `web`, and the short-link domain the fan QR and tracking routes need.
 
