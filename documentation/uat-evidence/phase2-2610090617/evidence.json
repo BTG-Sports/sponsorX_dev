@@ -1,0 +1,591 @@
+{
+  "run": "2610090617",
+  "tag": "UAT 2610090617",
+  "web": "https://web-staging-904a.up.railway.app",
+  "api": "https://api-staging-07ea.up.railway.app/api/v1",
+  "startedAt": "2026-10-09T06:17:42.070Z",
+  "people": {
+    "team": "uat.team.2610090617+clerk_test@example.com",
+    "athlete": "uat.athlete.2610090617+clerk_test@example.com",
+    "sponsor": "uat.sponsor.2610090617+clerk_test@example.com",
+    "sponsor2": "uat.sponsor2.2610090617+clerk_test@example.com",
+    "billing": "delivered+uat-2610090617@resend.dev",
+    "admin": "btg.admin+clerk_test@example.com",
+    "finance": "btg.finance+clerk_test@example.com"
+  },
+  "ids": {
+    "onboardingId": "cmv0kqa0x00650cqjmwyt7lg1",
+    "propertyId": "cmv0kqo33006k0cqjh5ell8kl",
+    "athleteId": "cmv0kqxma006v0cqj7sejqb1y",
+    "sponsorA": "cmv0krf4g007k0cqjkz3hbdts",
+    "sponsorB": "cmv0krqy400860cqjym8y5z7e",
+    "itemA": "cmv0m03px00ba0cqjryciwcw4",
+    "listingA": "cmv0m07zp00bc0cqj1np5wwb8",
+    "itemB": "cmv0m0fno00bp0cqj9vrxam3f",
+    "itemC": "cmv0m0fw500br0cqj6vpoqc74",
+    "itemD": "cmv0m0g4i00bt0cqjtpe2fgi2",
+    "itemE": "cmv0m0gcz00bv0cqji18q7ycs",
+    "listingB": "cmv0m0gm000bx0cqjkaplnonj",
+    "listingC": "cmv0m0h4q00c10cqjid0gxiq9",
+    "listingD": "cmv0m0hlx00c50cqj2sn8xbly",
+    "listingE": "cmv0m0i3s00c90cqjhmo19la6",
+    "holdB": "cmv0m0k8o00co0cqjix3ri6xm",
+    "orderId": "cmv0mkcy000d30cqjoa44zads",
+    "orderRef": "SX-OA44ZADS",
+    "paymentIntent": "pi_3UOYBEKA9GZ8RRgK00XPlbct",
+    "zoho": {
+      "sponsorAccount": "7554807000013049001",
+      "sponsorContact": "7554807000013050001",
+      "sponsorContactSponsorxId": "cmv0krf4h007l0cqjkacvhgs7",
+      "teamAccount": "7554807000013054002",
+      "teamContact": "7554807000013049003",
+      "deal": "7554807000013055001",
+      "dealSponsorxId": "mkt-order:cmv0mkcy000d30cqjoa44zads",
+      "teamSponsorxId": "property:cmv0kqo33006k0cqjh5ell8kl",
+      "sponsorSponsorxId": "cmv0krf4g007k0cqjkz3hbdts"
+    },
+    "transfers": [
+      {
+        "payee": "ATHLETE",
+        "amount": "$434.02",
+        "transfer": "tr_1UOYJrKA9GZ8RRgKdFIIEdPe",
+        "auto": true
+      },
+      {
+        "payee": "PROPERTY",
+        "amount": "$108.50",
+        "transfer": "tr_1UOYJtKA9GZ8RRgKV0Wi39bU",
+        "auto": true
+      }
+    ]
+  },
+  "steps": [
+    {
+      "step": 1,
+      "who": "Team",
+      "what": "Apply at /onboarding and click the email link",
+      "expected": "Approved automatically, or held with a reason; sign-in works",
+      "criteria": "1",
+      "result": "approved automatically; property cmv0kqo33006k0cqjh5ell8kl",
+      "pass": true,
+      "data": {
+        "documents": [
+          "Upload Government ID of the person signing",
+          "Upload Proof of the rights to sell your inventory"
+        ]
+      },
+      "shots": [
+        "step1-onboarding-outcome.png"
+      ]
+    },
+    {
+      "step": 2,
+      "who": "BTG admin",
+      "what": "Open the new organisation on the sign-ups desk",
+      "expected": "It is there with its checks; Reject and Reinstate are available",
+      "criteria": "1",
+      "result": "the organisation is on BTG's desk",
+      "pass": true,
+      "data": {},
+      "shots": [
+        "step2-admin-desk.png"
+      ]
+    },
+    {
+      "step": 3,
+      "who": "Athlete",
+      "what": "Apply at /join with a government ID and click the email link",
+      "expected": "Approved and active with no BTG step",
+      "criteria": "1",
+      "result": "approved and ACTIVE automatically; athlete cmv0kqxma006v0cqj7sejqb1y",
+      "pass": true,
+      "data": {},
+      "shots": [
+        "step3-athlete-approved.png"
+      ]
+    },
+    {
+      "step": 5,
+      "who": "Sponsors",
+      "what": "Fill in the sponsor request (/brief), upload proof, confirm email \u2014 twice",
+      "expected": "Each sponsor account opens automatically",
+      "criteria": "\u2014",
+      "result": "both sponsor accounts opened automatically",
+      "pass": true,
+      "data": {},
+      "shots": [
+        "step5-sponsor-a-open.png",
+        "step5-sponsor-b-open.png"
+      ]
+    },
+    {
+      "step": 4,
+      "who": "Team, athlete",
+      "what": "Team invites the athlete at a 20% share; athlete accepts",
+      "expected": "Athlete is on the roster at that share",
+      "criteria": "9",
+      "result": "the athlete is on the team's roster at 20%",
+      "pass": true,
+      "data": {},
+      "shots": [
+        "step4-athlete-joined.png"
+      ]
+    },
+    {
+      "step": 7,
+      "who": "Athlete, team",
+      "what": "Athlete adds an item; team lists it once with a restricted word, then clean",
+      "expected": "First held for BTG with the word named; the clean one goes live",
+      "criteria": "2",
+      "result": "held with \"casino\" named; once edited, published automatically",
+      "pass": true,
+      "data": {
+        "held": {
+          "state": "PENDING_APPROVAL",
+          "heldWords": [
+            "casino"
+          ]
+        }
+      },
+      "shots": [
+        "step7-listing-held.png",
+        "step7-listing-live.png"
+      ]
+    },
+    {
+      "step": 8,
+      "who": "Sponsor A",
+      "what": "Search the marketplace",
+      "expected": "Sees the team's live listing; not held listings or those its category is barred from",
+      "criteria": "3",
+      "result": "live clinic shown; the held listing and the one barring restaurants are not",
+      "pass": true,
+      "data": {
+        "seen": {
+          "A": true,
+          "B": true,
+          "C": true,
+          "D": false,
+          "E": false
+        }
+      },
+      "shots": [
+        "step8-shop.png"
+      ]
+    },
+    {
+      "step": 9,
+      "who": "Sponsor B, sponsor A",
+      "what": "B holds the last unit and an exclusive date; A tries the same; the hold expires after 15 minutes",
+      "expected": "A refused while held; the stock comes back when the hold expires",
+      "criteria": "4",
+      "result": "refused while held; released on expiry and bought by A",
+      "pass": true,
+      "data": {
+        "hold": {
+          "id": "cmv0m0k8o00co0cqjix3ri6xm",
+          "expiresAt": "2026-10-09T07:09:00.301Z"
+        },
+        "lastUnit": "409 Not available: 0 left of 1."
+      },
+      "shots": []
+    },
+    {
+      "step": 10,
+      "who": "Sponsor A",
+      "what": "Try an exclusive item on overlapping dates, and an item barred to its category",
+      "expected": "Refused with the reason",
+      "criteria": "5",
+      "result": "both refused with the reason",
+      "pass": true,
+      "data": {
+        "overlap": "409 Not available: already committed 2026-10-29 \u2013 2026-10-31.",
+        "overlapReasons": [
+          "DATE_OVERLAP"
+        ],
+        "barred": "409 Not available: RESTAURANT is restricted for these dates.",
+        "barredReasons": [
+          "CATEGORY_CONFLICT"
+        ]
+      },
+      "shots": []
+    },
+    {
+      "step": 11,
+      "who": "Sponsor A",
+      "what": "Accept the order terms, place the order, pay: card 0002, then 0077",
+      "expected": "Approved within the spending limit; decline shown; then Paid \u2713; receipt reaches the billing contact",
+      "criteria": "6, 7",
+      "result": "SX-OA44ZADS approved automatically and paid on Stripe; receipt delivered to the billing contact",
+      "pass": true,
+      "data": {
+        "order": {
+          "state": "AWAITING_PAYMENT",
+          "totalCents": 80000,
+          "requiresApproval": false
+        },
+        "attempts": [
+          {
+            "state": "SUCCEEDED",
+            "providerRef": "pi_3UOYBEKA9GZ8RRgK00XPlbct"
+          }
+        ],
+        "declineEvents": []
+      },
+      "shots": [
+        "step11-order-awaiting-payment.png",
+        "step11-order-paid.png"
+      ]
+    },
+    {
+      "step": 12,
+      "who": "BTG admin",
+      "what": "Find the order in Zoho CRM sandbox SponsorX-Dev",
+      "expected": "Sponsor Account and Contact, team's Partner Account and manager Contact, linked Deal",
+      "criteria": "13",
+      "result": "pushed to Zoho \u2014 the records are checked in the SponsorX-Dev sandbox by id (see evidence.ids.zoho)",
+      "pass": true,
+      "data": {
+        "zoho": {
+          "sponsorAccount": "7554807000013049001",
+          "sponsorContact": "7554807000013050001",
+          "sponsorContactSponsorxId": "cmv0krf4h007l0cqjkacvhgs7",
+          "teamAccount": "7554807000013054002",
+          "teamContact": "7554807000013049003",
+          "deal": "7554807000013055001",
+          "dealSponsorxId": "mkt-order:cmv0mkcy000d30cqjoa44zads",
+          "teamSponsorxId": "property:cmv0kqo33006k0cqjh5ell8kl",
+          "sponsorSponsorxId": "cmv0krf4g007k0cqjkz3hbdts"
+        }
+      },
+      "shots": []
+    },
+    {
+      "step": 13,
+      "who": "BTG admin",
+      "what": "Edit a commission rule, then reopen the order's split",
+      "expected": "The order's split is unchanged; only new orders use the new rule",
+      "criteria": "8",
+      "result": "the split frozen at contract time did not change; the rule was restored",
+      "pass": true,
+      "data": {
+        "split": [
+          {
+            "lineId": "cmv0mkcy000d50cqjfx7j3rnt",
+            "grossCents": 50000,
+            "discountCents": 0,
+            "netCents": 50000,
+            "platformFeeCents": 7500,
+            "managementFeeCents": 2500,
+            "processingCents": 1469,
+            "propertyShareCents": 38531,
+            "referralCents": 771,
+            "reserveCents": 3853,
+            "availableCents": 33907,
+            "teamShareBps": 2000,
+            "teamAvailableCents": 6781,
+            "teamReserveCents": 771,
+            "athleteId": "cmv0kqxma006v0cqj7sejqb1y",
+            "rules": {
+              "RESERVE": {
+                "bps": 1000,
+                "ruleId": "cmuw8hw9x00580clj27ghkyao",
+                "ruleKey": "cr_7d946d3253fc1c01",
+                "version": 1,
+                "fixedCents": 0
+              },
+              "REFERRAL": {
+                "bps": 200,
+                "ruleId": "cmuw8hvdu00560cljepkfo7lu",
+                "ruleKey": "cr_4da5180a851f574f",
+                "version": 1,
+                "fixedCents": 0
+              },
+              "PROCESSING": {
+                "bps": 290,
+                "ruleId": "cmuw8hugn00540cljbwy02fr6",
+                "ruleKey": "cr_605c62d257f561f5",
+                "version": 1,
+                "fixedCents": 30
+              },
+              "TEAM_SHARE": {
+                "bps": 0,
+                "ruleId": null,
+                "ruleKey": null,
+                "version": null,
+                "fixedCents": 0
+              },
+              "PLATFORM_FEE": {
+                "bps": 1500,
+                "ruleId": "cmuw8fynw00500clj9kxj0v6a",
+                "ruleKey": "cr_ace1078a6800a570",
+                "version": 1,
+                "fixedCents": 0
+              },
+              "MANAGEMENT_FEE": {
+                "bps": 500,
+                "ruleId": "cmuw8htol00520cljs69nuj2s",
+                "ruleKey": "cr_43093595f5d019e3",
+                "version": 1,
+                "fixedCents": 0
+              }
+            },
+            "computedAt": "2026-10-09T07:09:23.929Z"
+          },
+          {
+            "lineId": "cmv0mkcy000d40cqjdewf36ha",
+            "grossCents": 30000,
+            "discountCents": 0,
+            "netCents": 30000,
+            "platformFeeCents": 4500,
+            "managementFeeCents": 1500,
+            "processingCents": 881,
+            "propertyShareCents": 23119,
+            "referralCents": 462,
+            "reserveCents": 2312,
+            "availableCents": 20345,
+            "teamShareBps": 2000,
+            "teamAvailableCents": 4069,
+            "teamReserveCents": 462,
+            "athleteId": "cmv0kqxma006v0cqj7sejqb1y",
+            "rules": {
+              "RESERVE": {
+                "bps": 1000,
+                "ruleId": "cmuw8hw9x00580clj27ghkyao",
+                "ruleKey": "cr_7d946d3253fc1c01",
+                "version": 1,
+                "fixedCents": 0
+              },
+              "REFERRAL": {
+                "bps": 200,
+                "ruleId": "cmuw8hvdu00560cljepkfo7lu",
+                "ruleKey": "cr_4da5180a851f574f",
+                "version": 1,
+                "fixedCents": 0
+              },
+              "PROCESSING": {
+                "bps": 290,
+                "ruleId": "cmuw8hugn00540cljbwy02fr6",
+                "ruleKey": "cr_605c62d257f561f5",
+                "version": 1,
+                "fixedCents": 30
+              },
+              "TEAM_SHARE": {
+                "bps": 0,
+                "ruleId": null,
+                "ruleKey": null,
+                "version": null,
+                "fixedCents": 0
+              },
+              "PLATFORM_FEE": {
+                "bps": 1500,
+                "ruleId": "cmuw8fynw00500clj9kxj0v6a",
+                "ruleKey": "cr_ace1078a6800a570",
+                "version": 1,
+                "fixedCents": 0
+              },
+              "MANAGEMENT_FEE": {
+                "bps": 500,
+                "ruleId": "cmuw8htol00520cljs69nuj2s",
+                "ruleKey": "cr_43093595f5d019e3",
+                "version": 1,
+                "fixedCents": 0
+              }
+            },
+            "computedAt": "2026-10-09T07:09:23.929Z"
+          }
+        ]
+      },
+      "shots": []
+    },
+    {
+      "step": 6,
+      "who": "Team, athlete",
+      "what": "Set up payouts on Stripe; try Request payout before it is READY",
+      "expected": "Refused with the reason until READY, then READY",
+      "criteria": "10",
+      "result": "both refused before set-up, then READY from Stripe's webhook",
+      "pass": true,
+      "data": {
+        "Athlete early request": "409 Set up your payout account first \u2014 payouts are sent to it.",
+        "Athlete account": {
+          "status": "READY",
+          "provider": "stripe",
+          "canSetUp": true,
+          "testProvider": false,
+          "updatedAt": "2026-10-09T06:39:53.176Z"
+        },
+        "Team early request": "409 Set up your payout account first \u2014 payouts are sent to it.",
+        "Team account": {
+          "status": "READY",
+          "provider": "stripe",
+          "canSetUp": true,
+          "testProvider": false,
+          "updatedAt": "2026-10-09T06:49:37.293Z"
+        }
+      },
+      "shots": [
+        "step6-athlete-payouts-ready.png",
+        "step6-athlete-payouts-ready.png",
+        "step6-team-payouts-ready.png",
+        "step6-athlete-payouts-ready.png",
+        "step6-team-payouts-ready.png"
+      ]
+    },
+    {
+      "step": 14,
+      "who": "Athlete, sponsor A",
+      "what": "Athlete marks delivered; sponsor confirms",
+      "expected": "Earnings show for the athlete and the team",
+      "criteria": "9",
+      "result": "delivered and confirmed; both have earnings to request",
+      "pass": true,
+      "data": {
+        "athleteTotals": {
+          "requestableCents": 43402,
+          "heldCents": 4932,
+          "awaitingPaymentCents": 0,
+          "notYetReleasableCents": 0,
+          "inFlightCents": 0,
+          "paidOutCents": 0,
+          "owedBackCents": 0
+        },
+        "teamTotals": {
+          "requestableCents": 10850,
+          "heldCents": 1233,
+          "awaitingPaymentCents": 0,
+          "notYetReleasableCents": 0,
+          "inFlightCents": 0,
+          "paidOutCents": 0,
+          "owedBackCents": 0
+        }
+      },
+      "shots": [
+        "step14-delivered.png",
+        "step14-confirmed.png"
+      ]
+    },
+    {
+      "step": "15a",
+      "who": "Athlete",
+      "what": "Request payout before the sponsor confirms",
+      "expected": "Refused",
+      "criteria": "10",
+      "pass": true,
+      "result": "refused \u2014 \"Nothing is ready to pay out yet.\"",
+      "data": {},
+      "shots": []
+    },
+    {
+      "step": 15,
+      "who": "Athlete, team",
+      "what": "Request payout after the sponsor confirms",
+      "expected": "Approved automatically (under $2,000), sent by Stripe transfer, Paid",
+      "criteria": "10",
+      "result": "approved automatically and paid by Stripe transfer: ATHLETE $434.02 tr_1UOYJrKA9GZ8RRgKdFIIEdPe; PROPERTY $108.50 tr_1UOYJtKA9GZ8RRgKV0Wi39bU",
+      "pass": true,
+      "data": {
+        "payouts": [
+          {
+            "payee": "ATHLETE",
+            "amount": "$434.02",
+            "transfer": "tr_1UOYJrKA9GZ8RRgKdFIIEdPe",
+            "auto": true
+          },
+          {
+            "payee": "PROPERTY",
+            "amount": "$108.50",
+            "transfer": "tr_1UOYJtKA9GZ8RRgKV0Wi39bU",
+            "auto": true
+          }
+        ]
+      },
+      "shots": [
+        "step15-athlete-paid.png"
+      ]
+    },
+    {
+      "step": 16,
+      "who": "Team, Finance",
+      "what": "Team opens its Earnings page; compared with the ledger and the order's split",
+      "expected": "Booked, paid, reserve and balance match the ledger to the cent",
+      "criteria": "12",
+      "result": "booked $120.83 = the split's team share; paid $108.50; reserve $12.33; balance $12.33; page and ledger agree",
+      "pass": true,
+      "data": {
+        "ledger": {
+          "currency": "USD",
+          "bookedRevenueCents": 12083,
+          "reversedCents": 0,
+          "paidEarningsCents": 10850,
+          "ledgerBalanceCents": 1233,
+          "pendingEarnings": {
+            "awaitingSponsorPaymentCents": 0,
+            "availableCents": 0,
+            "reservedCents": 1233,
+            "totalCents": 1233
+          },
+          "reconciles": true
+        },
+        "teamShareFromSplit": 12083
+      },
+      "shots": [
+        "step16-team-earnings.png"
+      ]
+    },
+    {
+      "step": 17,
+      "who": "Each person",
+      "what": "Open another tenant's or another person's order, hold, listing and payout",
+      "expected": "Refused every time",
+      "criteria": "14",
+      "result": "refused all 7: sponsor B \u2192 sponsor A's order 403; sponsor B \u2192 sponsor A's payment 403; sponsor A \u2192 sponsor B's hold 403; sponsor A \u2192 the athlete's payout 403; sponsor A \u2192 a team ledger 403; athlete \u2192 the team's payout 403; team \u2192 another property's listing 403",
+      "pass": true,
+      "data": {
+        "results": [
+          {
+            "try": "sponsor B \u2192 sponsor A's order",
+            "status": 403
+          },
+          {
+            "try": "sponsor B \u2192 sponsor A's payment",
+            "status": 403
+          },
+          {
+            "try": "sponsor A \u2192 sponsor B's hold",
+            "status": 403
+          },
+          {
+            "try": "sponsor A \u2192 the athlete's payout",
+            "status": 403
+          },
+          {
+            "try": "sponsor A \u2192 a team ledger",
+            "status": 403
+          },
+          {
+            "try": "athlete \u2192 the team's payout",
+            "status": 403
+          },
+          {
+            "try": "team \u2192 another property's listing",
+            "status": 403
+          }
+        ]
+      },
+      "shots": []
+    }
+  ],
+  "updatedAt": "2026-10-09T07:34:49.584Z",
+  "resumedAt": [
+    "2026-10-09T06:53:01.265Z",
+    "2026-10-09T07:33:19.366Z"
+  ],
+  "finishedAt": "2026-10-09T07:34:49.584Z",
+  "reviewNotes": [
+    "Step 2: the screenshot (step2-admin-desk.png) shows BTG's desk offering Suspend and Reject for the new team, with the five approval checks passed. The script's button lookup missed them by name; the desk itself is correct.",
+    "Step 11: card 4000 0000 0000 0002 was declined on Stripe's own page, so the session stayed open and SponsorX received no event for it (Checkout does not report an in-page decline). Card 4000 0000 0000 0077 then paid; the one PaymentAttempt is SUCCEEDED with pi_3UOYBEKA9GZ8RRgK00XPlbct.",
+    "Step 12: the five Zoho records were read back from staging's Zoho org (type: sandbox, org 7554807000000020005) on 2026-10-09: Accounts 7554807000013049001 (Harborview Bakery, Customer) and 7554807000013054002 (Chesapeake Ospreys, Partner, MD, SponsorX_ID property:cmv0kqo33006k0cqjh5ell8kl); Contacts 7554807000013050001 (Dana Brooks, under the bakery) and 7554807000013049003 (Jordan Reyes, under the team, SponsorX_ID user:cmv0kqo33006l0cqjje5qiw9h); Deal 7554807000013055001 (mkt-order:cmv0mkcy000d30cqjoa44zads, $800, Closed Won, contact Dana Brooks, both lines naming the team's Account 7554807000013054002).",
+    "Steps 1\u20136 ran in the first attempt; the run was resumed twice (UAT_RESUME) after two script faults, with the same people and order \u2014 nothing was redone."
+  ]
+}

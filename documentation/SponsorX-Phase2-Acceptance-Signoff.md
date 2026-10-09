@@ -3,12 +3,20 @@
 **Task:** `2S8-PMO-01` · Phase 2 UAT and production rollout
 **Done when:** All 14 Phase 2 acceptance criteria demonstrated and signed off
 **Prepared:** 2026-10-07, from `main_development` at `0f5d66a`
-**Status:** waiting for the real-user test and the programme owner's signature
+**Status:** **Signed off 2026-10-09** — Phase 2 accepted: 13 criteria demonstrated, #11 (wallet) deferred, and the simulated-user test passed on staging (all 17 steps). Signed by rcfworks with Rodney's delegated authority.
 
 ## Summary
 
-Of the 14 Phase 2 acceptance criteria, **12 are demonstrated**, **1 is partly
-demonstrated** and **1 is parked** (the optional wallet, #11). The 12 are proven by automated
+Of the 14 Phase 2 acceptance criteria, **13 are demonstrated** and **1 is
+deferred** (the optional wallet, #11, parked until further notice with
+Rodney's approval). On 2026-10-09 the simulated-user test ran on staging and
+passed every step: new people signed up through the normal pages, bought,
+paid on Stripe, delivered and were paid out by Stripe transfer. Its evidence
+is in [uat-evidence/phase2-2610090617](uat-evidence/phase2-2610090617/evidence.md),
+and it closed Zoho (#13). What follows below "The UAT result" is the record
+as it stood before the test.
+
+Before the test: The 12 are proven by automated
 tests that run in CI. The marketplace path (`e2e/marketplace-path.spec.ts`) ran
 green in CI run 37281259338 on 2026-10-05. Payment (#6, #7) and payout
 onboarding (#10) were also shown on staging with real Stripe sandbox
@@ -52,9 +60,9 @@ The real-user test below closes the last point and can close the Zoho one.
 | 8 | Commission snapshot is fixed at contract time | **Demonstrated** | [phase2-ledger.test.ts](../backend/tests/phase2-ledger.test.ts), [phase2-marketplace.test.ts](../backend/tests/phase2-marketplace.test.ts), e2e step 5 |
 | 9 | Athlete accepts an offer, delivers and sees earnings | **Demonstrated** | [phase2-marketplace.test.ts](../backend/tests/phase2-marketplace.test.ts) (2S2-BE-03), [phase2-delivery.test.ts](../backend/tests/phase2-delivery.test.ts), [earnings.list.test.ts](../backend/tests/earnings.list.test.ts), e2e steps 7–8 and the loop-p4/p5/p7 specs |
 | 10 | Payout blocked on unsettled payment, incomplete delivery, incomplete onboarding or an open dispute | **Demonstrated** | [payout-eligibility.test.ts](../backend/tests/payout-eligibility.test.ts), [phase2-payouts.test.ts](../backend/tests/phase2-payouts.test.ts), staging Stripe onboarding to READY ([Memory 2026-10-06](../Memory/2026-10-06/tasks-completed.md)) |
-| 11 | Wallet reward pass issued and updated from SponsorX | **Parked 2026-10-08** | Optional, out of Phase 2 sign-off for now; 2S6-INT-01, 2S6-INT-02, 2S6-BE-01, 2S6-FE-01 and 2S6-QA-01 resume when the owner confirms |
+| 11 | Wallet reward pass issued and updated from SponsorX | **Deferred** (parked until further notice, approved by Rodney 2026-10-09) | Optional, out of Phase 2 sign-off; 2S6-INT-01, 2S6-INT-02, 2S6-BE-01, 2S6-FE-01 and 2S6-QA-01 resume when the owner says so |
 | 12 | Property dashboard reconciles booked, ledger, paid and pending | **Demonstrated** | [phase2-ledger.test.ts](../backend/tests/phase2-ledger.test.ts), [phase2-reconciliation.test.ts](../backend/tests/phase2-reconciliation.test.ts), [phase2-payouts.test.ts](../backend/tests/phase2-payouts.test.ts), browser check 2026-10-07 (team page = ledger) |
-| 13 | Zoho holds linked Account/Contact/Deal for marketplace sales | **Partly demonstrated** | [phase2-orders.test.ts](../backend/tests/phase2-orders.test.ts) (2S7-INT-01), against a simulated Zoho only |
+| 13 | Zoho holds linked Account/Contact/Deal for marketplace sales | **Demonstrated** (2026-10-09) | [phase2-orders.test.ts](../backend/tests/phase2-orders.test.ts) (2S7-INT-01); UAT step 12: order SX-OA44ZADS's five linked records read back from the Zoho sandbox |
 | 14 | Cross-tenant access tests pass for sponsor, athlete/property and admin | **Demonstrated** | [tenant-isolation.test.ts](../backend/tests/tenant-isolation.test.ts), [authz.matrix.test.ts](../backend/tests/authz.matrix.test.ts), [tenant-scope.static.test.ts](../backend/tests/tenant-scope.static.test.ts) |
 
 ## Evidence, criterion by criterion
@@ -226,7 +234,8 @@ More evidence:
 
 ### 11 · Wallet reward pass can be issued and updated from SponsorX.
 
-**Parked on 2026-10-08, out of Phase 2's sign-off for now.** The wallet is
+**Parked until further notice, approved by Rodney on 2026-10-09; out of
+Phase 2's sign-off.** Parked on 2026-10-08 pending his word. The wallet is
 optional: the QR web page below already covers claim and redemption. Setting it
 up needs a paid Apple Developer account (US$99 a year), Apple's company
 verification and a Google Wallet issuer account, so the work waits for the
@@ -273,6 +282,11 @@ or the owner records in writing that #11 moves to a later phase and signs Phase
 - **Tasks Done:** 2S5-BE-02, 2S5-FE-02, 2S5-FE-03, 2S7-DATA-01, 2S7-FE-01, 2S8-QA-03.
 
 ### 13 · Zoho contains linked Account/Contact/Deal data for external marketplace transactions.
+
+**Demonstrated on 2026-10-09** by UAT step 12 (see "The UAT result"): staging
+order SX-OA44ZADS, from a sponsor and team who signed up themselves, reached
+the Zoho sandbox as five linked records, read back by id. Before the test it
+was:
 
 **Partly demonstrated.**
 
@@ -326,12 +340,45 @@ there. Record the Zoho record ids. UAT step 12 does this.
   - › "finds no unscoped write — update, delete, upsert or raw SQL (2S8-QA-07)".
 - **Tasks Done:** 2S3-SEC-01, 2S8-SEC-01, 2S8-QA-07.
 
+## The UAT result · 2026-10-09
+
+**Passed, all 17 steps**, run `2610090617` of `npm run uat:phase2`
+([evidence](uat-evidence/phase2-2610090617/evidence.md), with screenshots).
+The task's bar changed on 2026-10-09, with the owner's authority, from "real
+external properties" to **simulated outside users**. These are new people who
+sign up through the normal pages (`/onboarding`, `/join`, `/brief`), never the
+tester facility. The first real outside team is checked at go-live instead, as
+`2S8-PMO-03`.
+
+| Step | Shown on staging | Criteria |
+|---|---|---|
+| 1–3, 5 | The team, the athlete and two sponsors signed up themselves; each was approved automatically. BTG's desk shows the team with its five checks passed. | 1 |
+| 4 | The team invited the athlete at 20%; the athlete accepted. | 9 |
+| 6 | Payouts refused before set-up ("Set up your payout account first"); both accounts READY from Stripe's webhook after Stripe's hosted onboarding. | 10 |
+| 7 | A listing with "casino" was held for BTG with the word named; edited, it went live automatically. | 2 |
+| 8 | The sponsor's search showed the live clinic, but neither the held listing nor one that won't sell to restaurants. | 3 |
+| 9 | Sponsor B held the last unit; sponsor A was refused ("0 left of 1"); the hold expired after 15 minutes and A bought the unit. | 4 |
+| 10 | An exclusive item on overlapping dates and an item barred to the sponsor's category were both refused with the reason. | 5 |
+| 11 | Order **SX-OA44ZADS**, $800, approved automatically within the spending limit. Card 0002 was declined on Stripe's page; card 0077 paid (PaymentIntent `pi_3UOYBEKA9GZ8RRgK00XPlbct`). The receipt went to the billing contact. | 6, 7 |
+| 12 | In the Zoho sandbox: the sponsor's Account `7554807000013049001` and Contact `7554807000013050001`; the team's Partner Account `7554807000013054002` (MD) and manager Contact `7554807000013049003`; Deal `7554807000013055001`, `mkt-order:…`, $800, Closed Won, linked to the sponsor and naming the team's Account. | 13 |
+| 13 | The platform fee was raised 1% and put back; the order's split did not move. | 8 |
+| 14–15 | Payout refused before the sponsor confirmed ("Nothing is ready to pay out yet"). After delivery and confirmation, both payouts were approved automatically and paid by Stripe transfer: athlete $434.02 `tr_1UOYJrKA9GZ8RRgKdFIIEdPe`, team $108.50 `tr_1UOYJtKA9GZ8RRgKV0Wi39bU`. | 9, 10 |
+| 16 | The team's Earnings page equals its ledger: booked $120.83 (its share in the split), paid $108.50, reserve $12.33, balance $12.33, "Reconciles". | 12 |
+| 17 | Seven reads across people and tenants (orders, payment, hold, payouts, ledger, another team's listing): all refused, 403. | 14 |
+
+The decline and the payouts used Stripe's sandbox, so no real money moved. The
+30-day reserve release stays proven by the automated tests.
+
 ## The task's own bar: real external users on staging
 
 `2S8-PMO-01` asks for more than the 14 criteria: "Real external properties
 onboard on staging, transact, and get paid, before anything goes live."
 
-**Plain fact: this has not happened.** Every staging run so far used internal
+*Superseded on 2026-10-09: the bar is now simulated outside users, met by
+the UAT result above; real outside users move to `2S8-PMO-03` at go-live.
+The rest of this section is the record before the test.*
+
+**Plain fact (2026-10-07): this has not happened.** Every staging run so far used internal
 test accounts. They are the "Stripe Test" admin, team, athlete and sponsor,
 created by the tester facility directly in the staging database and Clerk
 ([Memory 2026-10-05](../Memory/2026-10-05/tasks-completed.md),
@@ -415,23 +462,24 @@ signing.
 
 ## Sign-off
 
-To be completed by the programme owner. Each line confirms the criterion was
+To be completed by the programme owner, or by the user signing with Rodney's
+delegated authority (2026-10-09). Each line confirms the criterion was
 demonstrated, or was explicitly accepted as deferred, with the reason written
 next to it.
 
-1. External property onboards and is approved without database work. Signed: ____ Date: ____
-2. Inventory not publishable until governance passes. Signed: ____ Date: ____
-3. Search returns only what the sponsor/tenant may see. Signed: ____ Date: ____
-4. Reservations prevent overselling and release on expiry. Signed: ____ Date: ____
-5. Exclusivity and date conflicts block purchases. Signed: ____ Date: ____
-6. Sponsor completes a purchase through the payment/order flow. Signed: ____ Date: ____
-7. Payment webhooks idempotent and update state correctly. Signed: ____ Date: ____
-8. Commission snapshot fixed at contract time. Signed: ____ Date: ____
-9. Athlete accepts an offer, delivers and views earnings. Signed: ____ Date: ____
-10. Payout blocked on the four conditions. Signed: ____ Date: ____
-11. Wallet reward pass issued and updated from SponsorX. Signed: ____ Date: ____
-12. Property dashboard reconciles to the ledger. Signed: ____ Date: ____
-13. Zoho holds linked Account/Contact/Deal for marketplace sales. Signed: ____ Date: ____
-14. Cross-tenant access tests pass for every role. Signed: ____ Date: ____
+1. External property onboards and is approved without database work. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+2. Inventory not publishable until governance passes. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+3. Search returns only what the sponsor/tenant may see. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+4. Reservations prevent overselling and release on expiry. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+5. Exclusivity and date conflicts block purchases. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+6. Sponsor completes a purchase through the payment/order flow. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+7. Payment webhooks idempotent and update state correctly. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+8. Commission snapshot fixed at contract time. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+9. Athlete accepts an offer, delivers and views earnings. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+10. Payout blocked on the four conditions. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+11. Wallet reward pass issued and updated from SponsorX. **Deferred** — parked until further notice, approved by Rodney 2026-10-09; out of Phase 2's sign-off. Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+12. Property dashboard reconciles to the ledger. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+13. Zoho holds linked Account/Contact/Deal for marketplace sales. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+14. Cross-tenant access tests pass for every role. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
 
-**Overall: Phase 2 accepted (all 14 criteria demonstrated or explicitly deferred, and the real-user test completed on staging).** Signed: ____ Date: ____
+**Overall: Phase 2 accepted (all 14 criteria demonstrated or explicitly deferred, and the simulated-user test completed on staging).** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09

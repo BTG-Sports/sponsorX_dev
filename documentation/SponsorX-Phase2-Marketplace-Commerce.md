@@ -1390,7 +1390,7 @@ Every pricing override, commission edit, payout approval and dispute action writ
 
 ### ⏸ `2S6-INT-01` · Apple Wallet pass adapter — **PARKED 2026-10-08**
 
-**Order** 48 · **INT** · **Where:** Code + console · **5d** · **Parked** — optional; out of Phase 2 sign-off until the owner confirms (fans redeem through the QR web page meanwhile)
+**Order** 48 · **INT** · **Where:** Code + console · **5d** · **Parked** — optional; parked until further notice, approved by Rodney on 2026-10-09, and out of Phase 2 sign-off (fans redeem through the QR web page meanwhile)
 
 Issue, update and expire offer passes. Behind an adapter interface so Google Wallet is a second implementation, not a rewrite.
 
@@ -1400,7 +1400,7 @@ Issue, update and expire offer passes. Behind an adapter interface so Google Wal
 
 ### ⏸ `2S6-INT-02` · Google Wallet pass adapter — **PARKED 2026-10-08**
 
-**Order** 49 · **INT** · **Where:** Code + console · **3d** · **Parked** — optional; out of Phase 2 sign-off until the owner confirms (fans redeem through the QR web page meanwhile)
+**Order** 49 · **INT** · **Where:** Code + console · **3d** · **Parked** — optional; parked until further notice, approved by Rodney on 2026-10-09, and out of Phase 2 sign-off (fans redeem through the QR web page meanwhile)
 
 The second implementation of the same interface.
 
@@ -1410,7 +1410,7 @@ The second implementation of the same interface.
 
 ### ⏸ `2S6-BE-01` · Wallet pass lifecycle and device registrations — **PARKED 2026-10-08**
 
-**Order** 50 · **BE** · **Where:** Code · **3d** · **Parked** — optional; out of Phase 2 sign-off until the owner confirms (fans redeem through the QR web page meanwhile)
+**Order** 50 · **BE** · **Where:** Code · **3d** · **Parked** — optional; parked until further notice, approved by Rodney on 2026-10-09, and out of Phase 2 sign-off (fans redeem through the QR web page meanwhile)
 
 Track provider template, device registrations and last update so a pass can be revoked or changed after a fan has installed it.
 
@@ -1430,7 +1430,7 @@ Users choose which events reach them and on which channel. Marketplace volume ma
 
 ### ⏸ `2S6-FE-01` · Build the wallet reward manager — **PARKED 2026-10-08**
 
-**Order** 52 · **FE** · **Where:** Code · **3d** · **Parked** — optional; out of Phase 2 sign-off until the owner confirms (fans redeem through the QR web page meanwhile)
+**Order** 52 · **FE** · **Where:** Code · **3d** · **Parked** — optional; parked until further notice, approved by Rodney on 2026-10-09, and out of Phase 2 sign-off (fans redeem through the QR web page meanwhile)
 
 Issue, update and deactivate passes; claim links; provider status.
 
@@ -1460,7 +1460,7 @@ Send fan leads to Zoho only where the fan ticked the sponsor-contact option. No 
 
 ### ⏸ `2S6-QA-01` · Wallet provider outage testing — **PARKED 2026-10-08**
 
-**Order** 52.3 · **QA** · **Where:** Code · **1d** · **Parked** — optional; out of Phase 2 sign-off until the owner confirms (fans redeem through the QR web page meanwhile)
+**Order** 52.3 · **QA** · **Where:** Code · **1d** · **Parked** — optional; parked until further notice, approved by Rodney on 2026-10-09, and out of Phase 2 sign-off (fans redeem through the QR web page meanwhile)
 
 Split from 2S8-QA-02, whose other failure modes are done; no wallet adapter exists yet. Once the wallet pass adapters exist, break them: Apple or Google Wallet down, or timing out, while a pass is issued or updated. Nothing may be half-written, the queue retries, and the reward ledger stays consistent.
 
@@ -1785,15 +1785,27 @@ Verify backups by restoring, test alerts, exercise rollback, confirm RPO/RTO tar
 - **Done when:** Documented restore test passes and meets the agreed RPO/RTO
 - **Reference:** Spec §38
 
-### ⏸ `2S8-PMO-01` · Phase 2 UAT and production rollout
+### ✅ `2S8-PMO-01` · Phase 2 UAT and production rollout
 
-**Order** 64 · **PMO** · **Where:** Document · **5d** · **Blocked**
+**Order** 64 · **PMO** · **Where:** Document · **5d** · **Done** — signed off 2026-10-09
 
-Real external properties onboard on staging, transact, and get paid, before anything goes live.
+Simulated outside users onboard on staging, transact, and get paid, before anything goes live. They are new people every run, and each signs up through the normal pages (`/onboarding`, `/join`, `/brief`), never the tester facility. `npm run uat:phase2` plays them, and a person completes only Stripe's hosted steps. The first **real** outside team is checked at go-live instead: `2S8-PMO-03`.
+
+*Changed 2026-10-09 with the owner's authority: "Real external properties" became "simulated outside users". A two-person team cannot recruit real participants for a week, and production takes no payments until the owner's go-live.*
 
 - **Depends on:** 2S8-QA-01
-- **Done when:** All 14 Phase 2 acceptance criteria demonstrated and signed off
-- **Reference:** Spec §12
+- **Done when:** All 14 Phase 2 acceptance criteria demonstrated, or explicitly deferred with the reason (#11, wallet, parked until further notice), and signed off; the simulated-user run passes on staging with its evidence recorded
+- **Reference:** Spec §12; `documentation/SponsorX-Phase2-Acceptance-Signoff.md`
+
+### ⏸ `2S8-PMO-03` · First real outside team at go-live
+
+**Order** 64.5 · **PMO** · **Where:** Document · **1d** · **Blocked**
+
+Split from `2S8-PMO-01` on 2026-10-09. The first real outside team, its athlete and a real sponsor onboard, transact and get paid on production. This is the real-person check the simulated UAT can't give, for example whether a person gets stuck in sign-up or payout set-up. It waits for the owner's go-live decision, since production takes no payments until then. It is not part of Phase 2's sign-off.
+
+- **Depends on:** 2S8-PMO-01, and the owner's go-live (payments on in production)
+- **Done when:** A real outside team, athlete and sponsor complete sign-up, a paid order and a payout on production; anything they got stuck on is recorded and raised as a task
+- **Reference:** `documentation/SponsorX-Phase2-Acceptance-Signoff.md`, "The task's own bar"
 
 ---
 

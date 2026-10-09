@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui";
 import { Dropdown, FilterChip } from "@/components/filter-kit";
 import { ListSearch, PagerRow, PendingList, ServerList, useListNav } from "@/components/server-pager";
 import { StageTable, Td, Tr, type Column } from "@/components/stage-table";
+import { EmptyState } from "@/components/states";
 import type { PageInfo } from "@/lib/list-query";
 
 /* --------------------------------------------------------------------------
@@ -136,9 +137,11 @@ function Explorer({ page, filters }: { page: AuditPage; filters: Filters }) {
 
       <PendingList>
         {rows.length === 0 ? (
-          <div className="sx-card rounded-lg border border-line">
-            <p className="px-4 py-10 text-center text-xs text-muted">{filtered ? "Nothing matches these filters." : "No audited changes yet."}</p>
-          </div>
+          filtered ? (
+            <EmptyState mark="clock" title="Nothing matches these filters" hint="Clear a filter above to widen the search." />
+          ) : (
+            <EmptyState mark="clock" title="No audited changes yet" hint="Every critical change lands here, written in the same transaction as the change." />
+          )
         ) : (
           <StageTable label="Audited changes, newest first" columns={COLUMNS}>
             {rows.flatMap((r, i) => {
