@@ -3,7 +3,7 @@
 **Task:** `2S8-PMO-01` · Phase 2 UAT and production rollout
 **Done when:** All 14 Phase 2 acceptance criteria demonstrated and signed off
 **Prepared:** 2026-10-07, from `main_development` at `0f5d66a`
-**Status:** the simulated-user test passed on staging on 2026-10-09 (all 17 steps); waiting for the sign-off below
+**Status:** **Signed off 2026-10-09** — Phase 2 accepted: 13 criteria demonstrated, #11 (wallet) deferred, and the simulated-user test passed on staging (all 17 steps). Signed by rcfworks with Rodney's delegated authority.
 
 ## Summary
 
@@ -467,19 +467,19 @@ delegated authority (2026-10-09). Each line confirms the criterion was
 demonstrated, or was explicitly accepted as deferred, with the reason written
 next to it.
 
-1. External property onboards and is approved without database work. Signed: ____ Date: ____
-2. Inventory not publishable until governance passes. Signed: ____ Date: ____
-3. Search returns only what the sponsor/tenant may see. Signed: ____ Date: ____
-4. Reservations prevent overselling and release on expiry. Signed: ____ Date: ____
-5. Exclusivity and date conflicts block purchases. Signed: ____ Date: ____
-6. Sponsor completes a purchase through the payment/order flow. Signed: ____ Date: ____
-7. Payment webhooks idempotent and update state correctly. Signed: ____ Date: ____
-8. Commission snapshot fixed at contract time. Signed: ____ Date: ____
-9. Athlete accepts an offer, delivers and views earnings. Signed: ____ Date: ____
-10. Payout blocked on the four conditions. Signed: ____ Date: ____
-11. Wallet reward pass issued and updated from SponsorX. Signed: ____ Date: ____
-12. Property dashboard reconciles to the ledger. Signed: ____ Date: ____
-13. Zoho holds linked Account/Contact/Deal for marketplace sales. Signed: ____ Date: ____
-14. Cross-tenant access tests pass for every role. Signed: ____ Date: ____
+1. External property onboards and is approved without database work. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+2. Inventory not publishable until governance passes. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+3. Search returns only what the sponsor/tenant may see. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+4. Reservations prevent overselling and release on expiry. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+5. Exclusivity and date conflicts block purchases. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+6. Sponsor completes a purchase through the payment/order flow. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+7. Payment webhooks idempotent and update state correctly. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+8. Commission snapshot fixed at contract time. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+9. Athlete accepts an offer, delivers and views earnings. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+10. Payout blocked on the four conditions. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+11. Wallet reward pass issued and updated from SponsorX. **Deferred** — parked until further notice, approved by Rodney 2026-10-09; out of Phase 2's sign-off. Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+12. Property dashboard reconciles to the ledger. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+13. Zoho holds linked Account/Contact/Deal for marketplace sales. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
+14. Cross-tenant access tests pass for every role. **Demonstrated.** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09
 
-**Overall: Phase 2 accepted (all 14 criteria demonstrated or explicitly deferred, and the simulated-user test completed on staging).** Signed: ____ Date: ____
+**Overall: Phase 2 accepted (all 14 criteria demonstrated or explicitly deferred, and the simulated-user test completed on staging).** Signed: rcfworks, with Rodney's delegated authority · Date: 2026-10-09

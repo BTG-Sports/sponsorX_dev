@@ -31,3 +31,7 @@
   - The 2026-10-09 Stage Progress row is appended. Its figures equal 2026-10-08's, since Phase 1 didn't change today.
   - HeckerCreatives' 46 tracker cells from `feature/P2-FE-screens` were copied in unchanged, so the two copies agree: ten Phase 1 rows and 2S7-FE-02 Done, plus their 2026-10-08 snapshot. None overlapped this branch's rows.
 - **PR #180's e2e check fails** on `/admin/audit lists a paged table`. It is a P1-FE-31 frontend fault, already failing on main_development since e0187f0, and not caused by this PR. The user chose not to raise it.
+- **2S8-PMO-01 · Done — Phase 2 signed off.** All 15 lines of `documentation/SponsorX-Phase2-Acceptance-Signoff.md` are signed "rcfworks, with Rodney's delegated authority", dated 2026-10-09: 13 criteria demonstrated, #11 deferred.
+  - The tracker row is Done, with Date Done 2026-10-09; the Phase 2 plan shows ✅.
+  - 2S8-PMO-03 stays Blocked until go-live.
+  - Run 2610090617's four Clerk test users can now be removed whenever the instance needs the room.

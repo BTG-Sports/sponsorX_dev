@@ -1785,9 +1785,9 @@ Verify backups by restoring, test alerts, exercise rollback, confirm RPO/RTO tar
 - **Done when:** Documented restore test passes and meets the agreed RPO/RTO
 - **Reference:** Spec §38
 
-### ⏸ `2S8-PMO-01` · Phase 2 UAT and production rollout
+### ✅ `2S8-PMO-01` · Phase 2 UAT and production rollout
 
-**Order** 64 · **PMO** · **Where:** Document · **5d** · **In progress**
+**Order** 64 · **PMO** · **Where:** Document · **5d** · **Done** — signed off 2026-10-09
 
 Simulated outside users onboard on staging, transact, and get paid, before anything goes live. They are new people every run, and each signs up through the normal pages (`/onboarding`, `/join`, `/brief`), never the tester facility. `npm run uat:phase2` plays them, and a person completes only Stripe's hosted steps. The first **real** outside team is checked at go-live instead: `2S8-PMO-03`.
 
