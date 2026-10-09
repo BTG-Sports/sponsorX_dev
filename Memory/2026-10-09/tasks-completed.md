@@ -59,3 +59,7 @@
     - Web was then redeployed with `railway redeploy`, because deleting the variable alone started no new deployment.
   - Result: production api and web are on 9c3246f, health is ok (db, redis, storage, backups, queue), and the pages load.
   - P2-OPS-04 stays open for `GEOLITE2_CITY_PATH` and the go-live secrets.
+- **P1-FE-31 follow-up · `/admin/audit` empty state fixed (frontend, at the user's request).**
+  - With no audit rows (CI's fresh database), the page drew a one-off grey line instead of the house `EmptyState`. `e2e/admin-lists-paged.spec.ts` found neither a table nor the empty state and timed out. That has held `release` back since 2026-10-06.
+  - `components/audit-explorer.tsx` now uses `EmptyState` for both "no changes yet" and "nothing matches these filters".
+  - The frontend build is clean and all 1,238 unit tests pass; CI's e2e is the proof.
