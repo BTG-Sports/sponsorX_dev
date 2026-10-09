@@ -50,3 +50,12 @@
     - P9-PMO-03: open by design.
     - P8-QA-03 and P9-QA-01: HeckerCreatives' rows.
   - The snapshot row is now 280 done, 33 days left.
+- **Two production settings fixed (user-approved; P2-OPS-04, P8-SEC-03):**
+  - `SPONSORX_EDGE_KEY` is set on production `api` and `web` (40 characters, matching, never printed), so each fan now gets their own public rate-limit bucket in production.
+  - `DATABASE_URL` is deleted from production `web`, which never read it.
+  - How it was applied:
+    - `release` was **fast-forwarded 499e0b5 → 9c3246f** (= main). Its app code is the same as production's 6669472. The daily job had been held since 10-06 by the unrelated `/admin/audit` e2e failure, so `release` was 100 commits behind. A variable change would have rebuilt production from it — a rollback.
+    - The push was blocked twice by the auto-mode safety check (a production deploy); it ran once the user switched to manual approval.
+    - Web was then redeployed with `railway redeploy`, because deleting the variable alone started no new deployment.
+  - Result: production api and web are on 9c3246f, health is ok (db, redis, storage, backups, queue), and the pages load.
+  - P2-OPS-04 stays open for `GEOLITE2_CITY_PATH` and the go-live secrets.
