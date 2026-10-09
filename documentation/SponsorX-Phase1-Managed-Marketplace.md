@@ -2684,9 +2684,9 @@ Stop the loop where your write triggers Zoho's webhook which triggers your write
 - **Done when:** A write that originated in Zoho and whose hash is unchanged is dropped as an echo — the ping-pong loop cannot start
 - **Reference:** Guide §07
 
-### ⏸ `P8-OPS-01` · Production readiness review
+### ✅ `P8-OPS-01` · Production readiness review
 
-**Order** 161 · **OPS** · **Where:** Vendor console · **3d** · **Blocked** · **Unblocks** 1
+**Order** 161 · **OPS** · **Where:** Vendor console · **3d** · **Done** — met by 2S8-OPS-01, 2026-10-07 · **Unblocks** 1
 
 Actually restore a backup. Actually trigger an alert. Actually roll back once. Untested recovery is not recovery.
 

@@ -36,3 +36,17 @@
   - 2S8-PMO-03 stays Blocked until go-live.
   - Run 2610090617's four Clerk test users can now be removed whenever the instance needs the room.
 - **P0-OPS-06 · Done (domain `sponsorx.net`).** The row had been left In progress. Every clause was met on 2026-09-23 and recorded in `.claude/stack-decision.md`; whois, DNS and the site were re-checked today. Date Done is 2026-09-23. The other 12 open Phase 1 rows may be stale the same way and haven't been checked yet.
+- **Phase 1 open-row audit (the user asked to close what meets its acceptance):**
+  - **P8-OPS-01 · Done.** It was met by 2S8-OPS-01 on 2026-10-07: restore ~9.5 min, test alert in Slack, rollback 41 s. The $50 Railway hard-limit note moved to P8-PMO-06.
+  - **Still open, with findings written on each row:**
+    - P0-OPS-03 and P2-INT-02: production Clerk has no MFA enabled (read from `clerk.sponsorx.net/v1/environment`). Needs Clerk Pro, deferred to launch.
+    - P2-OPS-04: production web still carries an unused `DATABASE_URL`, and production lacks `SPONSORX_EDGE_KEY` (deferred to go-live by P8-SEC-03, so fans share one rate-limit bucket until set). `GEOLITE2_CITY_PATH` is unset in both environments.
+    - P2-OPS-08: no PR environments exist.
+    - P8-QA-01: there is no Phase 1 §30 acceptance record.
+  - **Left alone:**
+    - P8-QA-02: needs real pilot users and a fan journey.
+    - P8-PMO-06: go/no-go.
+    - P9-DATA-01: the edition-one sale.
+    - P9-PMO-03: open by design.
+    - P8-QA-03 and P9-QA-01: HeckerCreatives' rows.
+  - The snapshot row is now 280 done, 33 days left.
