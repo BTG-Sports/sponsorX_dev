@@ -1,0 +1,28 @@
+# 2026-10-09
+
+- **Wallet parked until further notice, approved by Rodney.** The five wallet rows (2S6-INT-01, 2S6-INT-02, 2S6-BE-01, 2S6-FE-01, 2S6-QA-01) say so in the Phase 2 plan and the tracker. #11 is **Deferred** in the sign-off record.
+- **2S8-PMO-01 reworded (the user, with Rodney's delegated authority).**
+  - "Real external properties" became **simulated outside users**: new people each run who sign up through the normal pages, never the tester facility. A two-person team can't recruit real participants for a week.
+  - The real-team check moved to the new **2S8-PMO-03** (Order 64.5, Blocked, waits for go-live; not part of Phase 2's sign-off). It is tracker row 144; the Phase 2 Dashboard ranges, autofilter, conditional formatting and Status list were extended to 144.
+  - The user signs the sign-off record.
+- **`npm run uat:phase2` (`backend/scripts/uat-phase2.mjs`)** runs the sign-off record's UAT script (steps 1–17) on staging with those people.
+  - It reads staging's database read-only over `railway ssh`, to get email links and evidence.
+  - Clerk logins are `uat.<who>.<run>+clerk_test@example.com`.
+  - `UAT_RESUME=<run>` picks up a stopped run with the same people and order.
+  - **Stripe refuses a script-driven browser** (captcha, then "User not found"). The person does the three Stripe steps in their own browser, signed in as the test person with code 424242. The script notifies them and polls staging.
+  - Stripe test answers that worked:
+    - payout set-up: bank "Test (Non-OAuth)" → the **••••6789** account (the default ••••2227 fails); team as Company → Single-member LLC;
+    - payment: card **0077**, whose money is available at once, so the transfer works (4242's money stays pending).
+- **The UAT passed: all 17 steps, run 2610090617, order SX-OA44ZADS ($800).**
+  - Evidence: `documentation/uat-evidence/phase2-2610090617/` (`evidence.md`, json, screenshots).
+  - Payouts by real Stripe sandbox transfer: athlete $434.02 `tr_1UOYJrKA9GZ8RRgKdFIIEdPe`, team $108.50 `tr_1UOYJtKA9GZ8RRgKV0Wi39bU`.
+  - The team's page equals its ledger: booked $120.83, paid $108.50, reserve $12.33.
+  - All 7 cross-tenant reads were refused with 403.
+- **#13 Zoho is now Demonstrated.**
+  - The five records were read back from staging's Zoho org (`type: sandbox`, org 7554807000000020005): Accounts …049001 and …054002 (Partner, MD), Contacts …050001 and …049003, Deal …055001 (`mkt-order:…`, $800, Closed Won).
+  - **The claude.ai Zoho CRM connector points at PRODUCTION** (org 4857533000000020005, iCARRe Foundation), not the sandbox. Don't use it for sandbox checks.
+- **Two script faults on the way, both fixed:**
+  - a Clerk name with digits;
+  - a token asked for mid-navigation; and the delivery loop clicking a disabled "Mark delivered".
+- **Staging test data:** the abandoned runs 2610090352/2610090354 left tagged rows on staging, and their 5 Clerk users were deleted (the instance now holds 47 of 100). Run 2610090617's four people stay until sign-off.
+- **Left:** the user signs `documentation/SponsorX-Phase2-Acceptance-Signoff.md`; then 2S8-PMO-01 → Done.
