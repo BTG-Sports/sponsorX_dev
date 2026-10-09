@@ -1,0 +1,65 @@
+# 2026-10-09
+
+- **Wallet parked until further notice, approved by Rodney.** The five wallet rows (2S6-INT-01, 2S6-INT-02, 2S6-BE-01, 2S6-FE-01, 2S6-QA-01) say so in the Phase 2 plan and the tracker. #11 is **Deferred** in the sign-off record.
+- **2S8-PMO-01 reworded (the user, with Rodney's delegated authority).**
+  - "Real external properties" became **simulated outside users**: new people each run who sign up through the normal pages, never the tester facility. A two-person team can't recruit real participants for a week.
+  - The real-team check moved to the new **2S8-PMO-03** (Order 64.5, Blocked, waits for go-live; not part of Phase 2's sign-off). It is tracker row 144; the Phase 2 Dashboard ranges, autofilter, conditional formatting and Status list were extended to 144.
+  - The user signs the sign-off record.
+- **`npm run uat:phase2` (`backend/scripts/uat-phase2.mjs`)** runs the sign-off record's UAT script (steps 1–17) on staging with those people.
+  - It reads staging's database read-only over `railway ssh`, to get email links and evidence.
+  - Clerk logins are `uat.<who>.<run>+clerk_test@example.com`.
+  - `UAT_RESUME=<run>` picks up a stopped run with the same people and order.
+  - **Stripe refuses a script-driven browser** (captcha, then "User not found"). The person does the three Stripe steps in their own browser, signed in as the test person with code 424242. The script notifies them and polls staging.
+  - Stripe test answers that worked:
+    - payout set-up: bank "Test (Non-OAuth)" → the **••••6789** account (the default ••••2227 fails); team as Company → Single-member LLC;
+    - payment: card **0077**, whose money is available at once, so the transfer works (4242's money stays pending).
+- **The UAT passed: all 17 steps, run 2610090617, order SX-OA44ZADS ($800).**
+  - Evidence: `documentation/uat-evidence/phase2-2610090617/` (`evidence.md`, json, screenshots).
+  - Payouts by real Stripe sandbox transfer: athlete $434.02 `tr_1UOYJrKA9GZ8RRgKdFIIEdPe`, team $108.50 `tr_1UOYJtKA9GZ8RRgKV0Wi39bU`.
+  - The team's page equals its ledger: booked $120.83, paid $108.50, reserve $12.33.
+  - All 7 cross-tenant reads were refused with 403.
+- **#13 Zoho is now Demonstrated.**
+  - The five records were read back from staging's Zoho org (`type: sandbox`, org 7554807000000020005): Accounts …049001 and …054002 (Partner, MD), Contacts …050001 and …049003, Deal …055001 (`mkt-order:…`, $800, Closed Won).
+  - **The claude.ai Zoho CRM connector points at PRODUCTION** (org 4857533000000020005, iCARRe Foundation), not the sandbox. Don't use it for sandbox checks.
+- **Two script faults on the way, both fixed:**
+  - a Clerk name with digits;
+  - a token asked for mid-navigation; and the delivery loop clicking a disabled "Mark delivered".
+- **Staging test data:** the abandoned runs 2610090352/2610090354 left tagged rows on staging, and their 5 Clerk users were deleted (the instance now holds 47 of 100). Run 2610090617's four people stay until sign-off.
+- **Left:** the user signs `documentation/SponsorX-Phase2-Acceptance-Signoff.md`; then 2S8-PMO-01 → Done.
+- **Tracker:**
+  - 2S8-PMO-01 is now **Code review** (PR #180); it becomes Done when the sign-off is signed.
+  - The 2026-10-09 Stage Progress row is appended. Its figures equal 2026-10-08's, since Phase 1 didn't change today.
+  - HeckerCreatives' 46 tracker cells from `feature/P2-FE-screens` were copied in unchanged, so the two copies agree: ten Phase 1 rows and 2S7-FE-02 Done, plus their 2026-10-08 snapshot. None overlapped this branch's rows.
+- **PR #180's e2e check fails** on `/admin/audit lists a paged table`. It is a P1-FE-31 frontend fault, already failing on main_development since e0187f0, and not caused by this PR. The user chose not to raise it.
+- **2S8-PMO-01 · Done — Phase 2 signed off.** All 15 lines of `documentation/SponsorX-Phase2-Acceptance-Signoff.md` are signed "rcfworks, with Rodney's delegated authority", dated 2026-10-09: 13 criteria demonstrated, #11 deferred.
+  - The tracker row is Done, with Date Done 2026-10-09; the Phase 2 plan shows ✅.
+  - 2S8-PMO-03 stays Blocked until go-live.
+  - Run 2610090617's four Clerk test users can now be removed whenever the instance needs the room.
+- **P0-OPS-06 · Done (domain `sponsorx.net`).** The row had been left In progress. Every clause was met on 2026-09-23 and recorded in `.claude/stack-decision.md`; whois, DNS and the site were re-checked today. Date Done is 2026-09-23. The other 12 open Phase 1 rows may be stale the same way and haven't been checked yet.
+- **Phase 1 open-row audit (the user asked to close what meets its acceptance):**
+  - **P8-OPS-01 · Done.** It was met by 2S8-OPS-01 on 2026-10-07: restore ~9.5 min, test alert in Slack, rollback 41 s. The $50 Railway hard-limit note moved to P8-PMO-06.
+  - **Still open, with findings written on each row:**
+    - P0-OPS-03 and P2-INT-02: production Clerk has no MFA enabled (read from `clerk.sponsorx.net/v1/environment`). Needs Clerk Pro, deferred to launch.
+    - P2-OPS-04: production web still carries an unused `DATABASE_URL`, and production lacks `SPONSORX_EDGE_KEY` (deferred to go-live by P8-SEC-03, so fans share one rate-limit bucket until set). `GEOLITE2_CITY_PATH` is unset in both environments.
+    - P2-OPS-08: no PR environments exist.
+    - P8-QA-01: there is no Phase 1 §30 acceptance record.
+  - **Left alone:**
+    - P8-QA-02: needs real pilot users and a fan journey.
+    - P8-PMO-06: go/no-go.
+    - P9-DATA-01: the edition-one sale.
+    - P9-PMO-03: open by design.
+    - P8-QA-03 and P9-QA-01: HeckerCreatives' rows.
+  - The snapshot row is now 280 done, 33 days left.
+- **Two production settings fixed (user-approved; P2-OPS-04, P8-SEC-03):**
+  - `SPONSORX_EDGE_KEY` is set on production `api` and `web` (40 characters, matching, never printed), so each fan now gets their own public rate-limit bucket in production.
+  - `DATABASE_URL` is deleted from production `web`, which never read it.
+  - How it was applied:
+    - `release` was **fast-forwarded 499e0b5 → 9c3246f** (= main). Its app code is the same as production's 6669472. The daily job had been held since 10-06 by the unrelated `/admin/audit` e2e failure, so `release` was 100 commits behind. A variable change would have rebuilt production from it — a rollback.
+    - The push was blocked twice by the auto-mode safety check (a production deploy); it ran once the user switched to manual approval.
+    - Web was then redeployed with `railway redeploy`, because deleting the variable alone started no new deployment.
+  - Result: production api and web are on 9c3246f, health is ok (db, redis, storage, backups, queue), and the pages load.
+  - P2-OPS-04 stays open for `GEOLITE2_CITY_PATH` and the go-live secrets.
+- **P1-FE-31 follow-up · `/admin/audit` empty state fixed (frontend, at the user's request).**
+  - With no audit rows (CI's fresh database), the page drew a one-off grey line instead of the house `EmptyState`. `e2e/admin-lists-paged.spec.ts` found neither a table nor the empty state and timed out. That has held `release` back since 2026-10-06.
+  - `components/audit-explorer.tsx` now uses `EmptyState` for both "no changes yet" and "nothing matches these filters".
+  - The frontend build is clean and all 1,238 unit tests pass; CI's e2e is the proof.
