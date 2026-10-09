@@ -26,3 +26,8 @@
   - a token asked for mid-navigation; and the delivery loop clicking a disabled "Mark delivered".
 - **Staging test data:** the abandoned runs 2610090352/2610090354 left tagged rows on staging, and their 5 Clerk users were deleted (the instance now holds 47 of 100). Run 2610090617's four people stay until sign-off.
 - **Left:** the user signs `documentation/SponsorX-Phase2-Acceptance-Signoff.md`; then 2S8-PMO-01 → Done.
+- **Tracker:**
+  - 2S8-PMO-01 is now **Code review** (PR #180); it becomes Done when the sign-off is signed.
+  - The 2026-10-09 Stage Progress row is appended. Its figures equal 2026-10-08's, since Phase 1 didn't change today.
+  - HeckerCreatives' 46 tracker cells from `feature/P2-FE-screens` were copied in unchanged, so the two copies agree: ten Phase 1 rows and 2S7-FE-02 Done, plus their 2026-10-08 snapshot. None overlapped this branch's rows.
+- **PR #180's e2e check fails** on `/admin/audit lists a paged table`. It is a P1-FE-31 frontend fault, already failing on main_development since e0187f0, and not caused by this PR. The user chose not to raise it.
