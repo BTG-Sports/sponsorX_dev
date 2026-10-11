@@ -14,6 +14,8 @@ import type { PageInfo, SearchParams } from "@/lib/list-query";
 import type { ApiCampaignArtworkSlot } from "@/lib/edition-artwork-live";
 import type { ApiDeliverable } from "@/lib/deliverables-live";
 import { openRequests, type ApiSponsorRequest } from "@/lib/brief-status";
+import type { RangeKey, SponsorOverview } from "@/lib/sponsor-overview-live";
+import { fetchSponsorOverview } from "@/server/sponsor-overview";
 
 async function isSponsor(): Promise<boolean> {
   const who = await fetchActor();
@@ -31,14 +33,17 @@ export async function liveSponsorCampaignPage(
   return { rows: pg?.campaigns ?? [], page: pg?.page ?? { page: 1, size: 12, total: 0, pages: 1 }, summary: summary ?? EMPTY_SUMMARY };
 }
 
-/** The dashboard: the DB-side summary for the KPIs, plus one five-row server
- *  page of the portfolio (?page). Null for the demo. */
+/** The dashboard (P1-ART-23): the overview read for the window (every tile,
+ *  the trend, needs-you, the funnel, top athletes and cities), plus one
+ *  server page of the campaigns (?page ?size ?q ?state ?sort). `overview`
+ *  is null when the role has no metric reads (403). Null for the demo. */
 export async function liveSponsorDashboard(
   sp: SearchParams,
-): Promise<{ summary: CampaignSummary; rows: ApiCampaign[]; page: PageInfo } | null> {
+  range: RangeKey,
+): Promise<{ overview: SponsorOverview | null; rows: ApiCampaign[]; page: PageInfo } | null> {
   if (!(await isSponsor())) return null;
-  const [pg, summary] = await Promise.all([fetchCampaignPage(sp, 5), fetchCampaignSummary()]);
-  return { summary: summary ?? EMPTY_SUMMARY, rows: pg?.campaigns ?? [], page: pg?.page ?? { page: 1, size: 5, total: 0, pages: 1 } };
+  const [overview, pg] = await Promise.all([fetchSponsorOverview(range), fetchCampaignPage(sp)]);
+  return { overview, rows: pg?.campaigns ?? [], page: pg?.page ?? { page: 1, size: 12, total: 0, pages: 1 } };
 }
 
 /**

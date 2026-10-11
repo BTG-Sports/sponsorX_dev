@@ -194,7 +194,7 @@ test("a verified post releases the earning, shows in finance, and lands in the s
   // 6. THE SPONSOR'S REPORT — from their dashboard.
   const sponsor = await pageAs(browser, testInfo, { key: "p7.sponsor", roles: ["SPONSOR_ADMIN"], sponsorId: SPONSOR });
   await sponsor.goto("/sponsor");
-  await sponsor.getByRole("link", { name: `${CAMPAIGN_NAME} →` }).click();
+  await sponsor.getByRole("link", { name: `See results for ${CAMPAIGN_NAME}` }).click();
   await expect(sponsor).toHaveURL(new RegExp(`/sponsor/campaigns/${CAMPAIGN}/report`));
   await expect(sponsor.getByRole("heading", { level: 1, name: "Campaign ROI Report" })).toBeVisible();
   // Reach, layer by layer — 4,200 verified and 900 self-reported, never 5,100.
