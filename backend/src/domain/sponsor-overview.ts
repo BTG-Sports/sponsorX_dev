@@ -18,19 +18,29 @@
  */
 import { prisma } from "../db/client";
 import type { Actor } from "../auth/actor";
-import { assertAllowed, can, whereFor } from "../auth/scope";
+import { assertAllowed, can, scopeOf, whereFor } from "../auth/scope";
 import { canReadField } from "../auth/fields";
 import { ForbiddenError } from "../auth/errors";
 import { mediaValueFor } from "./sponsor-report";
 import { METRIC_SOURCES, type MetricSource } from "./metric-source";
+import type { DeliverableState } from "./deliverable-state";
+import type { OrderState } from "./order-state";
 
 export const RANGES = ["7d", "30d", "90d", "all"] as const;
 export type RangeKey = (typeof RANGES)[number];
 
 const DAY = 86_400_000;
 const VERIFIED: readonly string[] = ["VERIFIED_API", "VERIFIED_MANUAL"];
-const DELIVERED = ["PUBLISHED", "VERIFIED"];
-const LIVE_ORDER = { state: { notIn: ["CANCELLED", "REJECTED"] } } as const;
+/* Mutable element types, not `readonly` — Prisma's generated `notIn` filters
+   (EnumDeliverableStateFilter, EnumOrderStateFilter) want DeliverableState[] /
+   OrderState[] exactly, and a readonly array is not assignable to that. */
+const DELIVERED: DeliverableState[] = ["PUBLISHED", "VERIFIED"];
+const LIVE_ORDER_STATES: OrderState[] = ["CANCELLED", "REJECTED"];
+const LIVE_ORDER = { state: { notIn: LIVE_ORDER_STATES } };
+/** Scopes that reach every campaign of a tenant BTG runs: the staff side of
+ *  the gate below. `operated` is included for parity with other resources'
+ *  tenant-wide reach, though `campaign`'s own builder does not use it today. */
+const TENANT_WIDE_SCOPES = new Set(["any", "own-tenant", "operated"]);
 
 export type Window = { key: RangeKey; from: Date; to: Date; days: number; bucket: "day" | "week"; prevFrom: Date | null };
 export type DailyPoint = { day: string; views: number; clicks: number; redeems: number };
@@ -52,7 +62,7 @@ export type SponsorOverview = {
   delivery: { due: number; delivered: number; late: number; nextDueAt: string | null };
   topAthletes: { athleteId: string; name: string; sport: string | null; views: number }[];
   topCities: { city: string; region: string | null; redeems: number }[];
-  money?: { contractedCents: number; invoicedCents: number; paidCents: number };
+  money?: { contractedCents: number; invoicedCents?: number; paidCents?: number };
   costPer1000Cents: number | null;
   needsYou: { postsToReview: number; ordersToPay: number; invoicesUnpaid?: number };
   campaigns: { total: number; running: number };
@@ -100,6 +110,18 @@ export async function sponsorOverview(
   now = new Date(),
 ): Promise<SponsorOverview> {
   assertAllowed(actor, "metricAggregate", "read");
+
+  /* Refused for any caller that is neither a sponsor (reading its own
+     campaigns) nor tenant-wide BTG staff. `assertAllowed` above only checks
+     metricAggregate; an ATHLETE or PROPERTY_MGR holds a real (if narrow)
+     campaign scope — "assigned" / "own-property" — and whereFor would quietly
+     hand back MATCHES_NOTHING rather than refuse. This dashboard is the
+     sponsor's and BTG's, not every role that can see a campaign at all. */
+  const campaignScope = scopeOf(actor, "campaign", "read");
+  const isSponsorCaller = campaignScope === "own" && !!actor.sponsorId;
+  const isTenantWideStaff = TENANT_WIDE_SCOPES.has(campaignScope);
+  if (!isSponsorCaller && !isTenantWideStaff) throw new ForbiddenError("campaign", "read");
+
   const campaigns = await prisma.campaign.findMany({
     /* tenant-scope: whereFor(actor, "campaign", "read") is the first AND term; campaignId only narrows it. */
     where: { AND: [whereFor(actor, "campaign", "read"), ...(opts.campaignId ? [{ id: opts.campaignId }] : [])] },
@@ -138,7 +160,7 @@ export async function sponsorOverview(
             JOIN "TrackingLink" l ON l."id" = e."linkId"
             JOIN "Deliverable" d ON d."id" = l."deliverableId"
             JOIN "CampaignOrder" o ON o."id" = d."orderId"
-            WHERE o."campaignId" = ANY(${ids}) AND e."at" >= ${since} AND e."at" < ${w.to}
+            WHERE o."campaignId" = ANY(${ids}::text[]) AND e."at" >= ${since} AND e."at" < ${w.to}
             GROUP BY 1`
         : Promise.resolve([] as DayCount[]),
       has
@@ -148,17 +170,17 @@ export async function sponsorOverview(
             FROM "RewardEvent" e
             JOIN "RewardToken" t ON t."id" = e."tokenId"
             JOIN "Reward" r ON r."id" = t."rewardId"
-            WHERE r."campaignId" = ANY(${ids}) AND e."at" >= ${since} AND e."at" < ${w.to}
+            WHERE r."campaignId" = ANY(${ids}::text[]) AND e."at" >= ${since} AND e."at" < ${w.to}
             GROUP BY 1, 2`
         : Promise.resolve([] as DayTypeCount[]),
       has
         ? prisma.$queryRaw<{ id: string; views: number }[]>`
             /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */
-            SELECT o."athleteId" AS id, SUM(m."views")::int AS views
+            SELECT o."athleteId" AS id, SUM(m."views")::float8 AS views
             FROM "MetricDaily" m
             JOIN "Deliverable" d ON d."id" = m."deliverableId"
             JOIN "CampaignOrder" o ON o."id" = d."orderId"
-            WHERE o."campaignId" = ANY(${ids}) AND m."source"::text IN ('VERIFIED_API', 'VERIFIED_MANUAL')
+            WHERE o."campaignId" = ANY(${ids}::text[]) AND m."source"::text IN ('VERIFIED_API', 'VERIFIED_MANUAL')
               AND m."day" >= ${w.from} AND m."day" < ${w.to}
             GROUP BY 1 ORDER BY 2 DESC LIMIT 5`
         : Promise.resolve([] as { id: string; views: number }[]),
@@ -167,19 +189,24 @@ export async function sponsorOverview(
         by: ["city", "region"],
         where: { type: "REDEEM", city: { not: null }, at: { gte: w.from, lt: w.to }, token: { reward: { campaignId: { in: ids } } } },
         _count: { _all: true },
-        orderBy: { _count: { city: "desc" } },
+        /* Only the orderBy needs the escape hatch: it orders by `_count.city`,
+           a field outside `by`, which groupBy's generic typing cannot model —
+           the where, select and take above all check normally. */
+        orderBy: { _count: { city: "desc" } } as never,
         take: 5,
-      } as never),
-      prisma.deliverable.groupBy({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ by: ["state"], where: liveScope as never, _count: { _all: true } }),
-      prisma.deliverable.count({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ where: { ...liveScope, state: { notIn: DELIVERED as never }, dueDate: { lt: now } } as never }),
-      prisma.deliverable.findFirst({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ where: { ...liveScope, state: { notIn: DELIVERED as never }, dueDate: { gte: now } } as never, orderBy: { dueDate: "asc" }, select: { dueDate: true } }),
+      }),
+      prisma.deliverable.groupBy({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ by: ["state"], where: liveScope, _count: { _all: true } }),
+      prisma.deliverable.count({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ where: { ...liveScope, state: { notIn: DELIVERED }, dueDate: { lt: now } } }),
+      prisma.deliverable.findFirst({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ where: { ...liveScope, state: { notIn: DELIVERED }, dueDate: { gte: now } }, orderBy: { dueDate: "asc" }, select: { dueDate: true } }),
       seeValue
-        ? prisma.campaignOrder.aggregate({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ where: { campaignId: { in: ids }, ...LIVE_ORDER } as never, _sum: { sellPrice: true } })
+        ? prisma.campaignOrder.aggregate({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ where: { campaignId: { in: ids }, ...LIVE_ORDER }, _sum: { sellPrice: true } })
         : Promise.resolve(null),
       seeInvoices
         ? prisma.campaignInvoice.groupBy({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ by: ["status"], where: { campaignId: { in: ids } }, _sum: { amount: true }, _count: { _all: true } })
         : Promise.resolve(null),
-      prisma.deliverable.count({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ where: { ...inScope, state: "SPONSOR_REVIEW" } }),
+      /* posts waiting on the sponsor — liveScope, not inScope: a post on a
+         cancelled or rejected order should not sit in anyone's review queue. */
+      prisma.deliverable.count({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ where: { ...liveScope, state: "SPONSOR_REVIEW" } }),
       seeOrders
         ? prisma.marketplaceOrder.count({ where: { AND: [whereFor(actor, "marketplaceOrder", "read"), { state: "AWAITING_PAYMENT" }] } })
         : Promise.resolve(0),
@@ -259,18 +286,24 @@ export async function sponsorOverview(
     delivery: { due, delivered, late, nextDueAt: nextDue?.dueDate.toISOString() ?? null },
     topAthletes: athleteRows.map((a) => ({ athleteId: a.id, name: name.get(a.id)?.displayName ?? "Athlete", sport: name.get(a.id)?.sport ?? null, views: a.views })),
     topCities: cityRows.map((c) => {
-      /* The `as never` on rewardEvent.groupBy's args above (needed for its
-         orderBy/take typing) widens its result; the shape is still exactly
-         what was asked for. */
+      /* The `as never` on rewardEvent.groupBy's orderBy above widens this
+         result's inferred type; the shape is still exactly what was asked for. */
       const row = c as unknown as { city: string | null; region: string | null; _count: { _all: number } };
       return { city: row.city!, region: row.region, redeems: row._count._all };
     }),
+    /* Money follows the /campaigns/summary gate exactly: `money` (with
+       `contractedCents`) only if `seeValue`; `invoicedCents`/`paidCents` only
+       if `seeInvoices` too — never a 0 standing in for "can't read this". */
     ...(seeValue
       ? {
           money: {
             contractedCents,
-            invoicedCents: live.reduce((n, i) => n + (i._sum.amount ?? 0), 0),
-            paidCents: live.filter((i) => i.status.toLowerCase() === "paid").reduce((n, i) => n + (i._sum.amount ?? 0), 0),
+            ...(seeInvoices
+              ? {
+                  invoicedCents: live.reduce((n, i) => n + (i._sum.amount ?? 0), 0),
+                  paidCents: live.filter((i) => i.status.toLowerCase() === "paid").reduce((n, i) => n + (i._sum.amount ?? 0), 0),
+                }
+              : {}),
           },
         }
       : {}),

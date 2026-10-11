@@ -42,7 +42,7 @@ vi.mock("../src/db/client", () => {
 });
 
 const { windowFor, zeroFill, sponsorOverview } = await import("../src/domain/sponsor-overview");
-const { whereFor } = await import("../src/auth/scope");
+const { whereFor, can } = await import("../src/auth/scope");
 const { canReadField } = await import("../src/auth/fields");
 const { ForbiddenError } = await import("../src/auth/errors");
 
@@ -149,10 +149,80 @@ describe("sponsorOverview", () => {
     expect("money" in o).toBe(sees);
   });
 
+  it("money is gated exactly like /campaigns/summary: value and invoices are separate gates", async () => {
+    impl["campaign.findMany"] = () => [{ id: "c_spo1", state: "ACTIVE", startDate: new Date("2026-09-01") }];
+
+    /* CAMPAIGN_MGR: can read campaign.value and campaignOrder.sellPrice, but
+       holds no scope on `invoice` at all (policy.ts) — sees the contracted
+       figure, never invoiced/paid. Verified against the policy, not assumed. */
+    const campaignMgr = { ...base, roles: ["CAMPAIGN_MGR"], sponsorId: null } as unknown as Actor;
+    expect(canReadField(campaignMgr.roles, "campaign.value")).toBe(true);
+    expect(canReadField(campaignMgr.roles, "campaignOrder.sellPrice")).toBe(true);
+    expect(can(campaignMgr, "invoice", "read")).toBe(false);
+
+    const withValue = await sponsorOverview(campaignMgr, { range: "7d" }, NOW);
+    expect(withValue.money).toBeDefined();
+    expect(withValue.money).toHaveProperty("contractedCents");
+    expect("invoicedCents" in (withValue.money as object)).toBe(false);
+    expect("paidCents" in (withValue.money as object)).toBe(false);
+
+    /* A role denied campaign.value (matrix §7.1) holding BTG_ADMIN too, so it
+       still clears the tenant-wide access gate — canReadField denies on ANY
+       role held, so money must be absent even though BTG_ADMIN alone would
+       see it. */
+    const noValue = { ...base, roles: ["BTG_ADMIN", "PROPERTY_MGR"], sponsorId: null } as unknown as Actor;
+    expect(canReadField(noValue.roles, "campaign.value")).toBe(false);
+    const o = await sponsorOverview(noValue, { range: "7d" }, NOW);
+    expect("money" in o).toBe(false);
+  });
+
   it("no campaigns: zeros and an empty series, no raw reads with an empty list", async () => {
     const o = await sponsorOverview(sponsor, { range: "7d" }, NOW);
     expect(o.reach.verifiedViews).toBe(0);
     expect(o.daily).toHaveLength(7);
     expect(raws).toHaveLength(0);
+  });
+});
+
+describe("sponsorOverview — who may call it", () => {
+  it("refuses an ATHLETE — a real campaign scope (assigned) is not sponsor or staff", async () => {
+    const athlete = { ...base, roles: ["ATHLETE"], athleteId: "ath_spo1", sponsorId: null } as unknown as Actor;
+    await expect(sponsorOverview(athlete, { range: "30d" }, NOW)).rejects.toBeInstanceOf(ForbiddenError);
+    expect(of("campaign", "findMany")).toHaveLength(0);
+  });
+
+  it("refuses a PROPERTY_MGR — own-property is not tenant-wide", async () => {
+    const propertyMgr = { ...base, roles: ["PROPERTY_MGR"], propertyId: "prop_spo1", sponsorId: null } as unknown as Actor;
+    await expect(sponsorOverview(propertyMgr, { range: "30d" }, NOW)).rejects.toBeInstanceOf(ForbiddenError);
+    expect(of("campaign", "findMany")).toHaveLength(0);
+  });
+
+  it("allows tenant-wide BTG staff (BTG_ADMIN: own-tenant)", async () => {
+    impl["campaign.findMany"] = () => [];
+    const admin = { ...base, roles: ["BTG_ADMIN"], sponsorId: null } as unknown as Actor;
+    await sponsorOverview(admin, { range: "30d" }, NOW);
+    expect(of("campaign", "findMany")).toHaveLength(1);
+  });
+
+  it("allows the sponsor itself (SPONSOR_ADMIN: own, with sponsorId)", async () => {
+    impl["campaign.findMany"] = () => [];
+    await sponsorOverview(sponsor, { range: "30d" }, NOW);
+    expect(of("campaign", "findMany")).toHaveLength(1);
+  });
+});
+
+describe("sponsorOverview — cross-sponsor / cross-tenant (§30)", () => {
+  it("the campaign scope carries the caller's own tenant and sponsor — a different sponsor gets a different filter", async () => {
+    impl["campaign.findMany"] = () => [{ id: "c_spo1", state: "ACTIVE", startDate: new Date("2026-09-01") }];
+    await sponsorOverview(sponsor, { range: "30d" }, NOW);
+    const whereA = of("campaign", "findMany")[0]!.args.where.AND[0];
+    expect(whereA).toEqual(whereFor(sponsor, "campaign", "read"));
+
+    calls = [];
+    const sponsorB = { ...base, tenantId: "t_spo2", roles: ["SPONSOR_ADMIN"], sponsorId: "sp_spo2" } as unknown as Actor;
+    await sponsorOverview(sponsorB, { range: "30d" }, NOW);
+    const whereB = of("campaign", "findMany")[0]!.args.where.AND[0];
+    expect(whereB).toEqual(whereFor(sponsorB, "campaign", "read"));
+    expect(whereB).not.toEqual(whereA);
   });
 });
