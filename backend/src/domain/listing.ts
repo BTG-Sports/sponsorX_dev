@@ -69,6 +69,7 @@ import {
   type ListingState,
 } from "./listing-rules";
 import { logError } from "../lib/redact";
+import { readPage, type PageRequest } from "../lib/paging";
 
 export class ListingError extends Error {
   readonly status: number;
@@ -171,6 +172,58 @@ export async function listListings(actor: Actor, state?: ListingState) {
     select: SELECT, orderBy: { createdAt: "asc" },
   });
   return rows.map((r) => view(r, actor));
+}
+
+/** The athlete arena's listing scopes: `own` — listings the caller's athlete sells themselves; `team` — a team's listings of the caller's items. */
+export const LISTING_SCOPES = ["own", "team"] as const;
+export type ListingScope = (typeof LISTING_SCOPES)[number];
+
+/**
+ * The athlete arena's Listings page (P1-ART-22): one page of the listings in
+ * the caller's read scope (the house pager, lib/paging.ts), newest first,
+ * narrowed in the database by `scope` (own | team), one `state`, and `q`
+ * (the listing's or its item's title) — with counts over the WHOLE read
+ * scope: how many the caller sells themselves (`own`), how many a team sells
+ * of their items (`team`), and how many stand in each state (`byState`).
+ */
+export async function listListingsPage(actor: Actor, req: PageRequest, f: { scope?: ListingScope; state?: ListingState; q?: string }) {
+  const base = whereFor(actor, "listing", "read");
+  /* A caller with no athlete of their own (a team's manager) sells nothing "themselves" here. */
+  const own: Prisma.ListingWhereInput = actor.athleteId ? { sellerAthleteId: actor.athleteId } : { id: { in: [] } };
+  const team: Prisma.ListingWhereInput = { propertyId: { not: null } };
+  const where: Prisma.ListingWhereInput = {
+    AND: [
+      base,
+      ...(f.scope === "own" ? [own] : f.scope === "team" ? [team] : []),
+      ...(f.state ? [{ state: f.state }] : []),
+      ...(f.q
+        ? [{ OR: [{ title: { contains: f.q, mode: "insensitive" as const } }, { item: { title: { contains: f.q, mode: "insensitive" as const } } }] }]
+        : []),
+    ],
+  };
+  const [paged, ownN, teamN, byState] = await Promise.all([
+    readPage(
+      req,
+      () => prisma.listing.count({ /* tenant-scope: `where`/`base` are whereFor(actor, listing, "read") above; only filters are added. */ where }),
+      (skip, take) =>
+        prisma.listing.findMany({
+          /* tenant-scope: `where`/`base` are whereFor(actor, listing, "read") above; only filters are added. */
+          where,
+          select: SELECT,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          skip,
+          take,
+        }),
+    ),
+    prisma.listing.count({ /* tenant-scope: `where`/`base` are whereFor(actor, listing, "read") above; only filters are added. */ where: { AND: [base, own] } }),
+    prisma.listing.count({ /* tenant-scope: `where`/`base` are whereFor(actor, listing, "read") above; only filters are added. */ where: { AND: [base, team] } }),
+    prisma.listing.groupBy({ /* tenant-scope: `where`/`base` are whereFor(actor, listing, "read") above; only filters are added. */ by: ["state"], where: base, _count: { _all: true } }),
+  ]);
+  return {
+    listings: paged.rows.map((r) => view(r, actor)),
+    page: paged.page,
+    counts: { own: ownN, team: teamN, byState: Object.fromEntries(byState.map((s) => [s.state, s._count._all])) as Record<string, number> },
+  };
 }
 
 export async function getListing(actor: Actor, id: string) {

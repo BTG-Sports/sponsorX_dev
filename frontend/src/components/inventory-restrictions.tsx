@@ -96,7 +96,7 @@ export function InventoryRestrictions({
             <option key={c} value={c}>{categoryLabel(c)}</option>
           ))}
         </select>
-        <input aria-label="Reason (optional)" className={`${INPUT} min-w-0 flex-1`} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (optional)" />
+        <input aria-label="Reason (optional)" className={`${INPUT} min-w-0 flex-1 basis-40`} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (optional)" />
         <button
           type="submit"
           disabled={!category || busy !== null}

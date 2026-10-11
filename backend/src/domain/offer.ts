@@ -238,21 +238,44 @@ function deskTabWhere(tab: OfferDeskTab, now: Date): Prisma.OfferWhereInput {
   }
 }
 
+/** The athlete's own two tabs (P1-ART-22): `open` — SENT and not yet expired
+ *  (a pending change request leaves it open), soonest expiry first; `closed`
+ *  — everything else (accepted, declined, withdrawn, or lapsed unanswered),
+ *  newest first. */
+export const OFFER_OWN_TABS = ["open", "closed"] as const;
+export type OfferOwnTab = (typeof OFFER_OWN_TABS)[number];
+export const OFFER_TABS = [...OFFER_DESK_TABS, ...OFFER_OWN_TABS] as const;
+export type OfferTab = (typeof OFFER_TABS)[number];
+const isOwnTab = (tab: OfferTab | undefined): tab is OfferOwnTab => tab === "open" || tab === "closed";
+function ownTabWhere(tab: OfferOwnTab, now: Date): Prisma.OfferWhereInput {
+  return tab === "open" ? { state: "SENT", expiresAt: { gt: now } } : { OR: [{ state: { not: "SENT" } }, { expiresAt: { lte: now } }] };
+}
+
 /** The desk's page of offers (the house pager, lib/paging.ts): one state
- *  (`state`) or one desk tab (`tab`), newest first — change requests the
- *  longest-waiting first on "needs" — with its count, how many stand in
- *  each state (`counts`) and in each desk tab (`tabs`). */
-export async function listOffersPage(actor: Actor, page: PageRequest, state?: string, tab?: OfferDeskTab, now = new Date()) {
+ *  (`state`) or one tab (`tab` — a desk tab, or the athlete's open | closed),
+ *  newest first — change requests the longest-waiting first on "needs",
+ *  soonest expiry first on "open" — with its count, how many stand in each
+ *  state (`counts`) and in each desk tab (`tabs`). For the athlete's own
+ *  scope `counts` is `{ open, closed }` and the states move to `byState`. */
+export async function listOffersPage(actor: Actor, page: PageRequest, state?: string, tab?: OfferTab, now = new Date()) {
   const scope = visibleWhere(actor);
-  const where = { AND: [scope, ...(state ? [{ state: state as Prisma.OfferWhereInput["state"] }] : []), ...(tab ? [deskTabWhere(tab, now)] : [])] };
-  const orderBy: Prisma.OfferOrderByWithRelationInput[] = [{ createdAt: "desc" }];
-  const [paged, byState, ...byTab] = await Promise.all([
+  const own = scopeFor(actor.roles, "offer", "read") === "own";
+  const where = {
+    AND: [
+      scope,
+      ...(state ? [{ state: state as Prisma.OfferWhereInput["state"] }] : []),
+      ...(tab ? [isOwnTab(tab) ? ownTabWhere(tab, now) : deskTabWhere(tab, now)] : []),
+    ],
+  };
+  const orderBy: Prisma.OfferOrderByWithRelationInput[] = tab === "open" ? [{ expiresAt: "asc" }, { id: "asc" }] : tab === "closed" ? [{ createdAt: "desc" }, { id: "desc" }] : [{ createdAt: "desc" }];
+  const [paged, byState, open, closed, ...byTab] = await Promise.all([
     readPage(
       page,
       () => prisma.offer.count({ where /* tenant-scope: visibleWhere is whereFor(offer, read), narrowed. */ }),
       (skip, take) => prisma.offer.findMany({ where /* tenant-scope: visibleWhere is whereFor(offer, read), narrowed. */, select: SELECT, orderBy, skip, take }),
     ),
     prisma.offer.groupBy({ by: ["state"], where: scope /* tenant-scope: visibleWhere is whereFor(offer, read), narrowed. */, _count: { _all: true } }),
+    ...OFFER_OWN_TABS.map((t) => prisma.offer.count({ where: { AND: [scope, ownTabWhere(t, now)] } /* tenant-scope: visibleWhere is whereFor(offer, read), narrowed. */ })),
     ...OFFER_DESK_TABS.map((t) => prisma.offer.count({ where: { AND: [scope, deskTabWhere(t, now)] } /* tenant-scope: visibleWhere is whereFor(offer, read), narrowed. */ })),
   ]);
   const rows = [...paged.rows];
@@ -266,10 +289,12 @@ export async function listOffersPage(actor: Actor, page: PageRequest, state?: st
       return b.createdAt.getTime() - a.createdAt.getTime();
     });
   }
+  const states = Object.fromEntries(byState.map((s) => [s.state, s._count._all])) as Record<string, number>;
   return {
     offers: rows.map((r) => view(actor, r)),
     page: paged.page,
-    counts: Object.fromEntries(byState.map((s) => [s.state, s._count._all])) as Record<string, number>,
+    /* The desk reads `counts` by state (its tests pin it); the athlete's own scope reads its two tabs there, the states beside them. */
+    ...(own ? { counts: { open: open as number, closed: closed as number }, byState: states } : { counts: states }),
     tabs: Object.fromEntries(OFFER_DESK_TABS.map((t, i) => [t, byTab[i] as number])) as Record<OfferDeskTab, number>,
   };
 }

@@ -67,7 +67,7 @@ import {
   autoApprovalReasons, autoApproveSettings, autoApprovedByTenant, autoWindowFor, claimsMoney, lockPayee, nextChangedAt, planFailure,
   SYSTEM, waitingOnOf, waitingOnWhere, windowStart, type FailureKind, type WaitingOn,
 } from "./payout-auto";
-import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
+import { clampPage, pageInfo, readPage, type PageInfo, type PageRequest } from "../lib/paging";
 import { logError } from "../lib/redact";
 
 type Tx = Prisma.TransactionClient;
@@ -636,10 +636,16 @@ export function lineReleasable(d: LineRelease | undefined, holdMs: number, now: 
   return !!d && d.state === "CONFIRMED" && !!d.confirmedAt && d.confirmedAt.getTime() + holdMs <= now.getTime();
 }
 
-async function balanceOf(db: Db, payee: Payee, now: Date) {
+/** The payee's own money entries — its tenant, type and id, exactly as ledgerEntry's own scope reads them — on orders. */
+function payeeEntriesWhere(payee: Payee): Prisma.LedgerEntryWhereInput {
+  return { partyTenantId: payee.payeeTenantId, partyType: payee.payeeType, partyId: payee.payeeId, account: { in: [PAYABLE[payee.payeeType], "RESERVE_HELD"] }, orderId: { not: null } };
+}
+
+/** `orderIds` (P1-ART-22): only these orders' money — one page of them. */
+async function balanceOf(db: Db, payee: Payee, now: Date, orderIds?: string[]) {
   const entries = await db.ledgerEntry.findMany({
-    /* tenant-scope: the payee's own entries — its tenant, type and id, exactly as ledgerEntry's own scope reads them. */
-    where: { partyTenantId: payee.payeeTenantId, partyType: payee.payeeType, partyId: payee.payeeId, account: { in: [PAYABLE[payee.payeeType], "RESERVE_HELD"] }, orderId: { not: null } },
+    /* tenant-scope: the payee's own entries — its tenant, type and id, exactly as ledgerEntry's own scope reads them (payeeEntriesWhere). */
+    where: { AND: [payeeEntriesWhere(payee), ...(orderIds ? [{ orderId: { in: orderIds } }] : [])] },
     select: { tenantId: true, orderId: true, lineId: true, account: true, entryType: true, status: true, debitCents: true, creditCents: true },
   });
   const inFlight = await db.payoutLine.findMany({
@@ -647,10 +653,10 @@ async function balanceOf(db: Db, payee: Payee, now: Date) {
     where: { payout: { payeeTenantId: payee.payeeTenantId, payeeType: payee.payeeType, payeeId: payee.payeeId, ...claimsMoney } },
     select: { orderId: true, amountCents: true },
   });
-  const orderIds = [...new Set(entries.map((e) => e.orderId!))];
+  const entryOrderIds = [...new Set(entries.map((e) => e.orderId!))];
   const orders = await db.marketplaceOrder.findMany({
     /* tenant-scope: the orders the payee's own ledger entries name. */
-    where: { id: { in: orderIds } },
+    where: { id: { in: entryOrderIds } },
     select: { id: true, state: true, fulfilledAt: true, sponsorId: true, lines: { select: { title: true }, orderBy: { startsOn: "asc" } } },
   });
   const sponsors = await db.sponsor.findMany({
@@ -801,8 +807,68 @@ export async function myPayouts(actor: Actor, now = new Date()) {
     byState,
     canRequest: account.status === "READY" && requestableCents > 0,
     checks,
-    orders: orders.map(({ books: _books, frozenReason: _why, ...o }) => ({ ...o, orderRef: orderRef(o.orderId) })),
+    orders: orders.map(payeeOrderView),
     payouts: payouts.map(payeePayoutView),
+  };
+}
+
+/** One order's money as the payee reads it (never which books, never BTG's words on a frozen order). */
+function payeeOrderView({ books: _books, frozenReason: _why, ...o }: OrderMoney) {
+  return { ...o, orderRef: orderRef(o.orderId) };
+}
+
+/**
+ * GET /payouts/me/orders (P1-ART-22): the per-order balances /payouts/me
+ * carries, one page at a time (the house pager, lib/paging.ts). The orders
+ * are counted and paged in the database over the payee's own ledger entries
+ * (one group per order, the most recent money movement first); only that
+ * page's orders are then balanced.
+ */
+export async function myPayoutOrdersPage(actor: Actor, req: PageRequest, now = new Date()) {
+  const payee = payeeOf(actor, "payout", "read");
+  const where = payeeEntriesWhere(payee);
+  const groups = await prisma.ledgerEntry.groupBy({ /* tenant-scope: the payee's own entries (payeeEntriesWhere) — one row per order, to count them. */ by: ["orderId"], where });
+  const total = groups.length;
+  const at = clampPage(req, total);
+  const page = total === 0
+    ? []
+    : await prisma.ledgerEntry.groupBy({
+        /* tenant-scope: the payee's own entries (payeeEntriesWhere) — this page's orders. */
+        by: ["orderId"], where, _max: { createdAt: true }, orderBy: [{ _max: { createdAt: "desc" } }, { orderId: "desc" }], skip: at.skip, take: at.take,
+      });
+  const ids = page.map((g) => g.orderId).filter((id): id is string => id !== null);
+  const rank = new Map(ids.map((id, i) => [id, i]));
+  const orders = ids.length ? await balanceOf(prisma, payee, now, ids) : [];
+  orders.sort((a, b) => (rank.get(a.orderId) ?? 0) - (rank.get(b.orderId) ?? 0));
+  return { orders: orders.map(payeeOrderView), page: pageInfo(at, total) };
+}
+
+/**
+ * GET /payouts/me/history (P1-ART-22): the payee's payouts as /payouts/me
+ * lists them, one page at a time (the house pager), newest request first,
+ * optionally one `state`; `counts` says how many stand in each state over
+ * every payout of the payee's (the amounts stay on /payouts/me.byState).
+ */
+export async function myPayoutHistoryPage(actor: Actor, req: PageRequest, state?: PayoutState) {
+  payeeOf(actor, "payout", "read");
+  const scope = whereFor(actor, "payout", "read");
+  const where = { AND: [scope, ...(state ? [{ state }] : [])] };
+  const [paged, grouped] = await Promise.all([
+    readPage(
+      req,
+      () => prisma.payout.count({ /* tenant-scope: `where`/`scope` are whereFor(actor, payout, "read") above; only the state is added. */ where }),
+      (skip, take) =>
+        prisma.payout.findMany({
+          /* tenant-scope: `where`/`scope` are whereFor(actor, payout, "read") above; only the state is added. */
+          where, select: PAYOUT_SELECT, orderBy: [{ requestedAt: "desc" }, { id: "desc" }], skip, take,
+        }),
+    ),
+    prisma.payout.groupBy({ /* tenant-scope: `where`/`scope` are whereFor(actor, payout, "read") above; only the state is added. */ by: ["state"], where: scope, _count: { _all: true } }),
+  ]);
+  return {
+    payouts: paged.rows.map(payeePayoutView),
+    page: paged.page,
+    counts: Object.fromEntries(STATES.map((st) => [st, grouped.find((g) => g.state === st)?._count._all ?? 0])) as Record<PayoutState, number>,
   };
 }
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Card } from "@/components/ui";
 import { EmptyState } from "@/components/states";
+import { OrdersHead } from "@/components/seller-orders";
 import { SellerApprovalAnswer } from "@/components/seller-approval-answer";
 import { DeadlineChip, DeliveryTrack, StatePill, StatusBox } from "@/components/order-bits";
 import {
@@ -25,48 +26,12 @@ import { SELLER, type SellerKind } from "@/lib/seller-orders-live";
 
    No share is shown here: it is booked only once the order is approved, so
    the card shows the line's value instead of the design's "Your share".
+
+   P1-ART-22 (2026-10-11) — the Orders page's "Waiting for your answer" list
+   now lives in seller-orders.tsx (paged, on the Arena); this file keeps the
+   one-approval view and takes its title row from OrdersHead there, so the
+   athlete's page opens under the same head as the list. Visual only.
    -------------------------------------------------------------------------- */
-
-const approvalPath = (kind: SellerKind, id: string) => `${SELLER[kind].basePath}/approvals/${id}`;
-
-/** The Orders page's "Waiting for your approval" list — every approval not yet a sale. */
-export function SellerApprovalsPanel({ kind, approvals, now }: { kind: SellerKind; approvals: ApiSellerApproval[]; now: Date }) {
-  if (!approvals.length) return null;
-  const open = approvals.filter((a) => a.canAnswer).length;
-  return (
-    <section aria-label="Orders to approve" className="space-y-2">
-      <h2 className="text-sm font-semibold tracking-tight">
-        {open ? `Waiting for your approval · ${open}` : "Orders you were asked to approve"}
-      </h2>
-      <Card className="p-0">
-        <ul className="divide-y divide-line-soft">
-          {approvals.map((a) => {
-            const d = a.canAnswer ? deadline("Answer by", a.dueAt, now) : null;
-            return (
-              <li key={a.id} className="flex flex-col gap-2 px-4 py-3.5 text-xs sm:flex-row sm:items-start sm:justify-between">
-                <span className="min-w-0 space-y-1.5">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <strong className="text-sm font-semibold">{a.orderRef}</strong>
-                    <StatePill p={approvalBadge(a)} />
-                  </span>
-                  <span className="block text-[13px] leading-relaxed">{approvalAsk(a)}</span>
-                  {d && <DeadlineChip d={d} />}
-                </span>
-                <Link
-                  href={approvalPath(kind, a.id)}
-                  aria-label={`${a.canAnswer ? "Answer" : "Open"} order ${a.orderRef}`}
-                  className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-4 text-sm font-semibold sm:min-h-9 sm:text-xs ${a.canAnswer ? "bg-primary text-cta-ink hover:bg-primary-soft" : "border border-line text-text hover:bg-surface-2"}`}
-                >
-                  {a.canAnswer ? "Answer →" : "Open →"}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </Card>
-    </section>
-  );
-}
 
 /** One approval: the ask, the 48 hours, Accept / Decline — or what came of the answer. */
 export function SellerApprovalDetail({ kind, approval: a, now }: { kind: SellerKind; approval: ApiSellerApproval; now: Date }) {
@@ -74,10 +39,7 @@ export function SellerApprovalDetail({ kind, approval: a, now }: { kind: SellerK
   const outcome = approvalOutcome(a);
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Orders</h1>
-        <p className="mt-1 text-xs text-muted">Every sale of your items. You see your own share only.</p>
-      </div>
+      <OrdersHead kind={kind} now={now} />
       <div className="space-y-4">
         <Link href={SELLER[kind].basePath} className="text-xs text-muted hover:text-text">← Orders</Link>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -138,6 +100,7 @@ export function SellerApprovalDetail({ kind, approval: a, now }: { kind: SellerK
 export function SellerApprovalMissing({ kind }: { kind: SellerKind }) {
   return (
     <div className="space-y-6">
+      <OrdersHead kind={kind} />
       <Link href={SELLER[kind].basePath} className="text-xs text-muted hover:text-text">← Orders</Link>
       <EmptyState mark="inbox" title="No order matches this link" hint="It may be for another seller, or the link is wrong." action={{ label: "Your orders", href: SELLER[kind].basePath }} />
     </div>

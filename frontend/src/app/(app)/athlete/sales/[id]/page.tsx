@@ -12,6 +12,11 @@ import { requirePortalAccess } from "@/server/portal";
    Reads  GET  /sales/:lineId              (own line, own share — 2S4-BE-06)
    Writes POST /sales/:lineId/proof        (photo grant — seller-sales-actions.ts)
           POST /sales/:lineId/delivered    (note, photo, link — 2S4-BE-07)
+
+   P1-ART-22 (2026-10-11) — the title row is the Arena's (OrdersHead in
+   seller-orders.tsx: ArenaHead with the provenance pill), the order's ref
+   and share in jersey numerals. Visual only — the reads and writes above
+   are unchanged.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";

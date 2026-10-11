@@ -11,6 +11,8 @@
    Pure: shapes, fixtures, and every word the screens derive rather than read.
    -------------------------------------------------------------------------- */
 
+import type { PageInfo } from "@/lib/list-query";
+
 /* ------------------------------------------------------------ shared rules */
 
 /** Agreed 2026-10-01: an ID upload is a PDF, JPEG or PNG of at most 10 MB. */
@@ -394,6 +396,40 @@ export function handoffReady(r: Pick<ApiHandoffRequest, "emailConfirmed" | "idUp
 export function handoffDemo(raw: string | string[] | undefined): "status" | "declined" | null {
   const v = first(raw);
   return v === "status" || v === "declined" ? v : null;
+}
+
+/* ------------------------------------- the paged requests page (P1-ART-22) */
+
+/* P1-ART-22 (2026-10-11) — /athlete/guardian-requests is SERVER-PAGED:
+     GET /guardian-handoffs?page&size&group=waiting|past
+       → { handoffs, page, counts: { waiting, past } }
+   `waiting` is the one bounded group (a request per would-be guardian), read
+   whole; `past` is paged with the house pager. Until the backend lands, the
+   route answers every request unfiltered and without `page`/`counts`: then
+   the group is cut here by state and counted from what came back. */
+
+export type HandoffGroup = "waiting" | "past";
+export type ApiHandoffList = { handoffs: ApiHandoffRequest[]; page?: PageInfo; counts?: { waiting: number; past: number } };
+
+/** Still open: waiting for the current guardian (WAITING) or for BTG's check after a hand-off (HANDED_OFF) —
+ *  the backend's `waiting` group for a guardian or an athlete. Only WAITING carries Hand off / Decline. */
+export const isWaitingHandoff = (h: Pick<ApiHandoffRequest, "state">) => h.state === "WAITING" || h.state === "HANDED_OFF";
+
+/** The rows of one group: the API's page when it paged, else the legacy list cut by state. */
+export function handoffGroupRows(list: Pick<ApiHandoffList, "handoffs" | "page">, group: HandoffGroup): ApiHandoffRequest[] {
+  if (list.page) return list.handoffs;
+  return list.handoffs.filter((h) => (group === "waiting" ? isWaitingHandoff(h) : !isWaitingHandoff(h)));
+}
+
+/** The two figures on the plates: the API's `counts` from either read; else
+ *  each group's `page.total`; else (the legacy unpaged answer) counted here. */
+export function handoffCounts(
+  waiting: Pick<ApiHandoffList, "handoffs" | "page" | "counts"> | null,
+  past: Pick<ApiHandoffList, "handoffs" | "page" | "counts"> | null,
+): { waiting: number; past: number } {
+  for (const l of [waiting, past]) if (l?.counts) return { waiting: l.counts.waiting ?? 0, past: l.counts.past ?? 0 };
+  const total = (l: typeof waiting, group: HandoffGroup) => (l ? (l.page ? l.page.total : handoffGroupRows(l, group).length) : 0);
+  return { waiting: total(waiting, "waiting"), past: total(past, "past") };
 }
 
 /* --------------------------------------------------- contact (2S1-BE-16) */

@@ -18,9 +18,17 @@
    Money on the wire is integer cents; the form speaks dollars. Every figure
    a row shows is a field of the item (no "sold" count: the API returns raw
    stock only — a named gap).
+
+   P1-ART-22 (2026-10-11) — the athlete's inventory is SERVER-PAGED: GET
+   /inventory?page&size&q&active=true|false answers { items, page, counts:
+   { total, active, paused, unlisted } }. The paged shape's helpers live
+   here: the ?active param, the counts a KPI row shows (derived from the
+   rows only while the API still answers the legacy unpaged shape), and
+   the page info fallback for that same window.
    -------------------------------------------------------------------------- */
 
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "./brand-categories";
+import { textParam, type PageInfo, type SearchParams } from "./list-query";
 
 export { BRAND_CATEGORIES, categoryLabel, type BrandCategory };
 
@@ -206,6 +214,41 @@ export function componentOptions(items: ApiInventoryItem[], excludeId?: string):
     .filter((i) => i.kind !== "PACKAGE" && i.id !== excludeId)
     .map((i) => ({ id: i.id, label: `${i.title} · ${usd(i.priceCents)}` }));
 }
+
+/* ── the paged list (P1-ART-22) ────────────────────────────────────────── */
+
+/** GET /inventory?page… — `page` and `counts` arrive once the API pages
+ *  (until then it answers the legacy { items } and the fallbacks below
+ *  stand in). */
+export type ApiInventoryList = {
+  items: ApiInventoryItem[];
+  page?: PageInfo;
+  counts?: { total: number; active: number; paused: number; unlisted: number };
+};
+
+/** The KPI row's figures. `unlisted` is null while the API doesn't count
+ *  it — the page then leaves that plate out rather than invent a number. */
+export type InventoryCounts = { total: number; active: number; paused: number; unlisted: number | null };
+
+export const ACTIVE_OPTIONS = [
+  { value: "true", label: "Active" },
+  { value: "false", label: "Paused" },
+] as const;
+
+/** ?active=true|false from the URL, "" for "all". */
+export function activeParam(sp: SearchParams): "" | "true" | "false" {
+  return textParam(sp, "active", ["true", "false"]) as "" | "true" | "false";
+}
+
+/** The counts the API sent, or — legacy shape — counted from the rows. */
+export function inventoryCounts(list: Pick<ApiInventoryList, "items" | "counts">): InventoryCounts {
+  if (list.counts) return { ...list.counts };
+  const active = list.items.filter((i) => i.active).length;
+  return { total: list.items.length, active, paused: list.items.length - active, unlisted: null };
+}
+
+/** The page info the API sent, or one page holding every row it did send — the shared helper in list-query. */
+export { pageOrAll } from "./list-query";
 
 /* ── the form ──────────────────────────────────────────────────────────── */
 

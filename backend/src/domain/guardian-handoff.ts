@@ -50,7 +50,7 @@ import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, scopeOf, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
-import type { HANDOFF_GROUPS } from "../contracts/guardian-handoff";
+import type { ARENA_HANDOFF_GROUPS, HANDOFF_GROUPS } from "../contracts/guardian-handoff";
 import { issuePurposeToken, readPurposeToken } from "../lib/purpose-token";
 import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, SENSITIVE_DOCUMENT_TTL_SECONDS, uploadRefusal } from "../lib/storage";
 import { provisionGuardianLoginIn } from "./athlete-login";
@@ -355,12 +355,15 @@ export async function submitHandoff(token: string) {
  * (staffDetails) and every group's count; a guardian's or athlete's answer is
  * unchanged.
  */
-/** `page` (the house pager, lib/paging.ts): one page of the group and its count instead of the newest 100. */
-export async function listHandoffs(actor: Actor, q: { group?: HandoffGroup; page?: PageRequest } = {}) {
+/** `page` (the house pager, lib/paging.ts): one page of the group and its count instead of the newest 100.
+ *  P1-ART-22 — `group` may also be the arena's `waiting` | `past`; a guardian's or an athlete's PAGED answer
+ *  carries `counts: { waiting, past }` over their whole scope (their unpaged answer is unchanged). */
+export async function listHandoffs(actor: Actor, q: { group?: HandoffGroup | ArenaHandoffGroup; page?: PageRequest } = {}) {
   assertAllowed(actor, "guardianHandoff", "read");
   const staff = staffReads(actor);
   /* A guardian or an athlete never sees a request before it is sent. (whereFor's own `AND` is the scope: never overwrite it.) */
-  const states = q.group ? GROUP_STATES[q.group].filter((st) => staff || st !== "REQUESTED") : null;
+  const grouped = q.group ? (isArenaGroup(q.group) ? ARENA_GROUP_STATES[q.group] : GROUP_STATES[q.group]) : null;
+  const states = grouped ? grouped.filter((st) => staff || st !== "REQUESTED") : null;
   const where = { ...whereFor(actor, "guardianHandoff", "read"), ...(states ? { state: { in: states } } : staff ? {} : { state: { not: "REQUESTED" } }) };
   const read = (skip: number, take: number) =>
     prisma.guardianHandoff.findMany({ where /* tenant-scope: whereFor(guardianHandoff) above */, select: SELECT, orderBy: { createdAt: "desc" }, skip, take });
@@ -370,15 +373,23 @@ export async function listHandoffs(actor: Actor, q: { group?: HandoffGroup; page
   const rows = paged.rows;
   const out = [];
   for (const r of rows) out.push(await view(prisma, r, true));
-  if (!staff) return { handoffs: out, ...(paged.page ? { page: paged.page } : {}) };
+  const n = (byState: Array<{ state: string; _count: { _all: number } }>, states: readonly string[]) =>
+    byState.filter((s) => states.includes(s.state)).reduce((sum, s) => sum + s._count._all, 0);
+  if (!staff) {
+    if (!paged.page) return { handoffs: out };
+    const mine = await prisma.guardianHandoff.groupBy({
+      /* tenant-scope: whereFor(guardianHandoff) — the caller's own requests, never one before it is sent. */
+      by: ["state"], where: { ...whereFor(actor, "guardianHandoff", "read"), state: { not: "REQUESTED" } }, _count: { _all: true },
+    });
+    return { handoffs: out, counts: { waiting: n(mine, ARENA_GROUP_STATES.waiting), past: n(mine, ARENA_GROUP_STATES.past) }, page: paged.page };
+  }
   const [details, byState] = await Promise.all([
     staffDetails(rows),
     prisma.guardianHandoff.groupBy({ by: ["state"], where: whereFor(actor, "guardianHandoff", "read"), _count: { _all: true } }),
   ]);
-  const n = (states: string[]) => byState.filter((s) => states.includes(s.state)).reduce((sum, s) => sum + s._count._all, 0);
   return {
     handoffs: out.map((h) => ({ ...h, staff: details.get(h.id)! })),
-    counts: Object.fromEntries(Object.entries(GROUP_STATES).map(([g, states]) => [g, n(states)])) as Record<HandoffGroup, number>,
+    counts: Object.fromEntries(Object.entries(GROUP_STATES).map(([g, states]) => [g, n(byState, states)])) as Record<HandoffGroup, number>,
     ...(paged.page ? { page: paged.page } : {}),
   };
 }
@@ -397,10 +408,16 @@ export async function getHandoff(actor: Actor, id: string) {
 /* ═══════════════════════ BTG's Guardian handoffs desk ═══════════════════ */
 
 type HandoffGroup = (typeof HANDOFF_GROUPS)[number];
+type ArenaHandoffGroup = (typeof ARENA_HANDOFF_GROUPS)[number];
 /** The desk's tabs. IN_PROGRESS holds REQUESTED only for BTG — a guardian never sees a request before it is sent. */
 const GROUP_STATES: Record<HandoffGroup, string[]> = {
   WAITING_FOR_BTG: ["HANDED_OFF"], IN_PROGRESS: ["REQUESTED", "WAITING"], SWITCHED: ["SWITCHED"], DECLINED: ["DECLINED"], CANCELLED: ["CANCELLED"],
 };
+/** P1-ART-22 — the arena's two groups: still open (for the guardian's answer, or BTG's confirmation; REQUESTED for BTG only), or over. */
+const ARENA_GROUP_STATES: Record<ArenaHandoffGroup, string[]> = {
+  waiting: ["REQUESTED", "WAITING", "HANDED_OFF"], past: ["SWITCHED", "DECLINED", "CANCELLED"],
+};
+const isArenaGroup = (g: HandoffGroup | ArenaHandoffGroup): g is ArenaHandoffGroup => g === "waiting" || g === "past";
 const DOCUMENT_WORDS: Record<string, string> = { GUARDIAN_ID: "Government ID", GUARDIANSHIP_PROOF: "Proof of guardianship" };
 const PROOF_WORDS: Record<string, string> = { BIRTH_CERTIFICATE: "Birth certificate", COURT_ORDER: "Court order", SCHOOL_RECORD: "School record" };
 

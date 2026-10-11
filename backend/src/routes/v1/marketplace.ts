@@ -23,17 +23,17 @@ import {
   decideMarketplaceOrder, getMarketplaceOrder, listMarketplaceOrders, placeOrder, transitionMarketplaceOrder,
 } from "../../domain/marketplace-order";
 import { createRestriction, deleteRestriction, listRestrictions, setSponsorCategories } from "../../domain/restrictions";
-import { decideSellerApproval, mySellerApproval, mySellerApprovals } from "../../domain/order-approval";
+import { decideSellerApproval, mySellerApproval, mySellerApprovals, mySellerApprovalsPage } from "../../domain/order-approval";
 import { sponsorSpendingLimit } from "../../domain/spending-limit";
 import { searchMarketplace } from "../../domain/marketplace-search";
 import { addLine, currentCart, openCart, removeLine, updateLine } from "../../domain/cart";
-import { createInventoryItem, getInventoryItem, listInventory, updateInventoryItem } from "../../domain/inventory";
+import { createInventoryItem, getInventoryItem, listInventory, listInventoryPage, updateInventoryItem } from "../../domain/inventory";
 import { addRosterAthlete, setTeamShare, teamAthletesPage, teamInventoryPage, teamRoster } from "../../domain/team";
 import {
-  autoPublishedListings, btgActOnListing, liveListings, createListing, decideListing, getListing, listListings, submitListing, transitionListing, updateListing,
+  autoPublishedListings, btgActOnListing, liveListings, createListing, decideListing, getListing, LISTING_SCOPES, listListings, listListingsPage, submitListing, transitionListing, updateListing,
 } from "../../domain/listing";
 import {
-  createOffer, getOffer, keepOffer, listOffers, listOffersPage, OFFER_DESK_TABS, respondToOffer, reviseOffer, sendOffer, updateOffer, withdrawOffer,
+  createOffer, getOffer, keepOffer, listOffers, listOffersPage, OFFER_TABS, respondToOffer, reviseOffer, sendOffer, updateOffer, withdrawOffer,
 } from "../../domain/offer";
 import { offerAthletes, offerChecks } from "../../domain/offer-desk";
 import { offerDraft } from "../../domain/offer-draft";
@@ -47,7 +47,7 @@ import {
 import { RefundSentInput, RefundsQuery } from "../../contracts/refunds";
 import {
   answerCancellation, answerProblem, answerReply, cancelLine, cancellationFor, confirmDelivery, deliveryExchange, deliveryIssue, deliveryIssues, deliveryIssuesPage, DELIVERY_ISSUE_TABS, markDelivered,
-  mySale, mySales, orderDeliveries, proofLink, remindSeller, reportProblem, requestProofUpload, resolveIssue, sellerCancel,
+  mySale, mySales, mySalesPage, orderDeliveries, proofLink, remindSeller, reportProblem, requestProofUpload, resolveIssue, SALE_TABS, sellerCancel,
 } from "../../domain/delivery";
 import { listRefunds, markRefundSent } from "../../domain/refunds";
 import { sellerSummary } from "../../domain/seller-summary";
@@ -60,7 +60,18 @@ export const marketplaceRouter = Router();
 type Id = { id: string };
 
 /* ── inventory ──────────────────────────────────────────────────────────── */
-const inventory: RequestHandler = async (req, res) => { res.json({ items: await listInventory(req.actor!) }); };
+/* P1-ART-22 — ?page= turns on the house pager (lib/paging.ts) with ?q ?active=true|false ?unlisted=true and counts; without it the old whole list. */
+export const inventory: RequestHandler = async (req, res) => {
+  const q = req.query as Record<string, unknown>;
+  const page = pageRequest(q);
+  res.json(page
+    ? await listInventoryPage(req.actor!, page, {
+        q: searchTerm(q),
+        active: q.active === "true" ? true : q.active === "false" ? false : undefined,
+        unlisted: q.unlisted === "true",
+      })
+    : { items: await listInventory(req.actor!) });
+};
 const item: RequestHandler<Id> = async (req, res) => { res.json(await getInventoryItem(req.actor!, req.params.id)); };
 const newItem: RequestHandler = async (req, res) => { res.status(201).json(await createInventoryItem(req.actor!, InventoryItemInput.parse(req.body))); };
 const editItem: RequestHandler<Id> = async (req, res) => { res.json(await updateInventoryItem(req.actor!, req.params.id, InventoryItemPatch.parse(req.body))); };
@@ -98,9 +109,14 @@ marketplaceRouter.post("/team/roster", requireActor, addAthlete);
 marketplaceRouter.patch("/team/roster/:id", requireActor, share);
 
 /* ── listings ───────────────────────────────────────────────────────────── */
-const listings: RequestHandler = async (req, res) => {
+/* P1-ART-22 — ?page= turns on the house pager (lib/paging.ts) with ?scope=own|team ?state ?q and counts; without it the old whole list. */
+export const listings: RequestHandler = async (req, res) => {
+  const q = req.query as Record<string, unknown>;
   const state = req.query.state ? ListingState.parse(req.query.state) : undefined;
-  res.json({ listings: await listListings(req.actor!, state) });
+  const page = pageRequest(q);
+  res.json(page
+    ? await listListingsPage(req.actor!, page, { scope: LISTING_SCOPES.find((s) => s === q.scope), state, q: searchTerm(q) })
+    : { listings: await listListings(req.actor!, state) });
 };
 const listing: RequestHandler<Id> = async (req, res) => { res.json(await getListing(req.actor!, req.params.id)); };
 const newListing: RequestHandler = async (req, res) => { res.status(201).json(await createListing(req.actor!, ListingInput.parse(req.body))); };
@@ -131,11 +147,12 @@ marketplaceRouter.post("/listings/:id/decision", requireActor, decide);
 marketplaceRouter.post("/listings/:id/btg-action", requireActor, btgAct);
 
 /* ── formal offers ──────────────────────────────────────────────────────── */
-const offers: RequestHandler = async (req, res) => {
-  /* ?page= turns on the house pager (lib/paging.ts), newest first with state counts; without it the old whole list. */
+export const offers: RequestHandler = async (req, res) => {
+  /* ?page= turns on the house pager (lib/paging.ts), newest first with state counts; without it the old whole list.
+     ?tab= is a desk tab, or (P1-ART-22) the athlete's open | closed. */
   const page = pageRequest(req.query as Record<string, unknown>);
   const state = typeof req.query.state === "string" && /^[A-Z_]{1,32}$/.test(req.query.state) ? req.query.state : undefined;
-  const tab = OFFER_DESK_TABS.find((t) => t === req.query.tab);
+  const tab = OFFER_TABS.find((t) => t === req.query.tab);
   res.json(page ? await listOffersPage(req.actor!, page, state, tab) : { offers: await listOffers(req.actor!) });
 };
 const offer: RequestHandler<Id> = async (req, res) => { res.json(await getOffer(req.actor!, req.params.id)); };
@@ -247,7 +264,12 @@ marketplaceRouter.post("/marketplace-orders/:id/transition", requireActor, moveO
 /* ── 2S4-BE-09 — the seller's answer to an order a listing asks to approve
    (the seller's own, in their own tenant, like /sales), and BTG's read of a
    sponsor's spending limit ───────────────────────────────────────────────── */
-marketplaceRouter.get("/seller-approvals", requireActor, (async (req, res) => { res.json(await mySellerApprovals(req.actor!)); }) as RequestHandler);
+/* P1-ART-22 — ?page= turns on the house pager (lib/paging.ts) with counts; without it the old whole list. */
+export const sellerApprovals: RequestHandler = async (req, res) => {
+  const page = pageRequest(req.query as Record<string, unknown>);
+  res.json(page ? await mySellerApprovalsPage(req.actor!, page) : await mySellerApprovals(req.actor!));
+};
+marketplaceRouter.get("/seller-approvals", requireActor, sellerApprovals);
 marketplaceRouter.get("/seller-approvals/:id", requireActor, (async (req, res) => { res.json(await mySellerApproval(req.actor!, req.params.id)); }) as RequestHandler<Id>);
 marketplaceRouter.post("/seller-approvals/:id/decision", requireActor, (async (req, res) => {
   const b = SellerApprovalDecisionInput.parse(req.body);
@@ -277,7 +299,13 @@ marketplaceRouter.get("/team/analytics", requireActor, analytics);
    /sales is the seller's (the team's manager, the athlete): their own sold
    lines, their own share. /deliveries/{lineId} is the buying sponsor's answer;
    /delivery-issues is BTG's desk. The id is always the order line's. */
-marketplaceRouter.get("/sales", requireActor, (async (req, res) => { res.json(await mySales(req.actor!)); }) as RequestHandler);
+/* P1-ART-22 — ?page= turns on the house pager (lib/paging.ts) with ?tab ?q and the tabs' counts; without it the old whole list (200 newest). */
+export const sales: RequestHandler = async (req, res) => {
+  const q = req.query as Record<string, unknown>;
+  const page = pageRequest(q);
+  res.json(page ? await mySalesPage(req.actor!, page, { tab: SALE_TABS.find((t) => t === q.tab), q: searchTerm(q) }) : await mySales(req.actor!));
+};
+marketplaceRouter.get("/sales", requireActor, sales);
 /* 2S2-FE-01 — before /sales/:id, which would take "summary" for an id. */
 marketplaceRouter.get("/sales/summary", requireActor, (async (req, res) => { res.json(await sellerSummary(req.actor!)); }) as RequestHandler);
 marketplaceRouter.get("/sales/:id", requireActor, (async (req, res) => { res.json(await mySale(req.actor!, req.params.id)); }) as RequestHandler<Id>);

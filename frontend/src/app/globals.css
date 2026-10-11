@@ -2800,3 +2800,404 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
   pointer-events: none;
 }
 .sx-ops .sx-nav-head:hover::after { animation: sx-row-sweep 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/* --------------------------------------------------------------------------
+   The athlete portal — "the Arena" (P1-ART-22, 2026-10-11). The admin board
+   owns the fixed-dark Mission Control HUD (steel + cyan, chamfers, corner
+   brackets, a floor grid). The athlete's portal is the other side of the
+   programme — the player, not the control room — so it reads as match day:
+
+   - THEME-AWARE, unlike .sx-ops: Frost stays light, dark stays dark. Every
+     colour below is a themed token or a color-mix of one, so both themes
+     keep AA. The glows take the athlete blue; the flare, the brand orange.
+   - Shape language: rounded plates (18px), a slanted "speed" bar on every
+     plate's left edge and before every title, striped lane fills, pill
+     buttons — never a chamfer or a bracket (those are the admin's).
+   - Numerals: bold italic, tight — jersey numbers, not the admin's mono.
+   - Ground: two floodlight cones from the top, track lanes curving in from
+     the bottom-right, a pack of slanted stripes top-right, a horizontal
+     sprint streak (the admin's sweep is vertical), a light that follows the
+     pointer (OpsStage writes --px / --py; reused as the generic stage root).
+   - Entrance `.sx-arena-in`: pieces slide in from the LEFT, staggered by
+     `--sx-reveal-delay`; table rows the same. Plain CSS, no boot screen.
+   Same dashboard structure as the admin desks (memory:
+   admin-desks-are-dashboards): a small title, a provenance pill, the KPI
+   row, then the work. Reduced motion: the still arena.
+   -------------------------------------------------------------------------- */
+.sx-arena {
+  --ar: var(--sx-athlete);
+  --ar-soft: var(--sx-primary-soft);
+  --ar-flare: var(--sx-accent);
+  --ar-ink: var(--sx-text);
+  --ar-glow: color-mix(in srgb, var(--sx-primary) 45%, transparent);
+  --ar-line: color-mix(in srgb, var(--sx-athlete) 22%, var(--sx-line));
+  --ar-wash: color-mix(in srgb, var(--sx-athlete) 9%, transparent);
+  --ar-plate: color-mix(in srgb, var(--sx-surface) 84%, transparent);
+  --ar-plate-2: color-mix(in srgb, var(--sx-surface-2) 70%, transparent);
+  --ar-ease: var(--sx-ease, cubic-bezier(0.2, 0.8, 0.2, 1));
+}
+
+/* ground ------------------------------------------------------------------ */
+.sx-arena-stage {
+  background:
+    radial-gradient(70% 45% at 8% 0%, color-mix(in srgb, var(--sx-primary) 18%, transparent), transparent 62%),
+    radial-gradient(50% 40% at 100% 100%, color-mix(in srgb, var(--sx-accent) 12%, transparent), transparent 60%),
+    var(--sx-bg);
+}
+.sx-arena-light {
+  background: radial-gradient(560px circle at var(--px, -999px) var(--py, -999px), color-mix(in srgb, var(--sx-primary) 12%, transparent), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+[data-sx-ops][data-lit] > .sx-arena-ground .sx-arena-light { opacity: 1; }
+/* floodlights: two cones from the top edge, crossing over the KPI row */
+.sx-arena-flood {
+  position: absolute;
+  top: -12%;
+  width: 46%;
+  height: 90%;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--sx-primary) 22%, transparent), transparent 70%);
+  clip-path: polygon(44% 0, 56% 0, 100% 100%, 0 100%);
+  filter: blur(18px);
+  opacity: 0.55;
+  animation: sx-arena-flood 11s ease-in-out infinite alternate;
+}
+.sx-arena-flood-a { left: -6%; --sx-flood-a: -6deg; --sx-flood-b: 4deg; }
+.sx-arena-flood-b { right: -4%; --sx-flood-a: 7deg; --sx-flood-b: -3deg; animation-delay: -5s; animation-duration: 14s; }
+@keyframes sx-arena-flood {
+  from { transform: rotate(var(--sx-flood-a)); opacity: 0.4; }
+  to { transform: rotate(var(--sx-flood-b)); opacity: 0.65; }
+}
+/* track lanes: concentric arcs curving in from the bottom-right corner */
+.sx-arena-lanes {
+  position: absolute;
+  right: -18%;
+  bottom: -40%;
+  width: 70%;
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  background: repeating-radial-gradient(circle at center, transparent 0 46px, color-mix(in srgb, var(--sx-athlete) 16%, transparent) 46px 47px);
+  -webkit-mask-image: radial-gradient(circle at center, transparent 30%, #000 45%, #000 70%, transparent 86%);
+  mask-image: radial-gradient(circle at center, transparent 30%, #000 45%, #000 70%, transparent 86%);
+}
+/* the stripe pack: slanted speed lines, top-right */
+.sx-arena-stripes {
+  position: absolute;
+  right: 2%;
+  top: 0;
+  width: 34%;
+  height: 22rem;
+  background: repeating-linear-gradient(-68deg, transparent 0 22px, color-mix(in srgb, var(--sx-athlete) 10%, transparent) 22px 24px);
+  -webkit-mask-image: linear-gradient(200deg, #000, transparent 70%);
+  mask-image: linear-gradient(200deg, #000, transparent 70%);
+}
+/* the sprint streak: a horizontal band crossing the stage now and then */
+.sx-arena-streak {
+  position: absolute;
+  top: 18%;
+  width: 38%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--sx-primary-soft) 70%, transparent) 50%, transparent);
+  filter: drop-shadow(0 0 8px var(--ar-glow));
+  animation: sx-arena-streak 7s cubic-bezier(0.6, 0, 0.2, 1) 1.4s infinite backwards;
+}
+@keyframes sx-arena-streak {
+  from { transform: translate3d(-60%, 0, 0); opacity: 0; }
+  12% { opacity: 1; }
+  40%, to { transform: translate3d(320%, 0, 0); opacity: 0; }
+}
+[data-theme="light"] .sx-arena-flood { opacity: 0.35; }
+[data-theme="light"] .sx-arena-stripes,
+[data-theme="light"] .sx-arena-lanes { opacity: 0.7; }
+
+/* entrance ---------------------------------------------------------------- */
+@keyframes sx-arena-slide {
+  from { opacity: 0; transform: translate3d(-18px, 0, 0); }
+}
+.sx-arena-in { animation: sx-arena-slide 0.75s var(--ar-ease) var(--sx-reveal-delay, 0s) backwards; }
+@keyframes sx-arena-grow { from { transform: scaleX(0); } }
+.sx-arena-grow { transform-origin: left; animation: sx-arena-grow 1s var(--ar-ease) var(--sx-reveal-delay, 0s) backwards; }
+
+/* plates — the KPI tiles, cards and panels -------------------------------- */
+.sx-arena-plate {
+  --tone: var(--ar);
+  --spot: 0;
+  position: relative;
+  border-radius: 18px;
+  border: 1px solid var(--ar-line);
+  background: linear-gradient(150deg, var(--ar-plate), var(--ar-plate-2));
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  transition: transform 0.4s var(--ar-ease), border-color 0.3s ease, box-shadow 0.4s ease;
+}
+/* the speed bar: a slanted accent along the left edge */
+.sx-arena-plate::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, var(--tone), color-mix(in srgb, var(--tone) 30%, transparent));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--tone) 60%, transparent);
+  transform: skewX(-14deg);
+  pointer-events: none;
+}
+/* a spotlight that follows the pointer (OpsStage writes --mx / --my) and a
+   diagonal shine that crosses the plate on hover */
+.sx-arena-plate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 0%), color-mix(in srgb, var(--tone) 18%, transparent), transparent 70%);
+  opacity: var(--spot);
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.sx-arena-plate[data-spot]:hover,
+.sx-arena-plate[data-spot]:focus-within,
+a.sx-arena-plate:hover,
+a.sx-arena-plate:focus-visible {
+  --spot: 1;
+  transform: translate3d(0, -3px, 0);
+  border-color: color-mix(in srgb, var(--tone) 55%, var(--sx-line));
+  box-shadow: 0 18px 40px -22px color-mix(in srgb, var(--tone) 65%, transparent);
+}
+a.sx-arena-plate:focus-visible { outline: none; }
+.sx-arena-shine {
+  position: absolute;
+  inset: -40% -60%;
+  background: linear-gradient(115deg, transparent 42%, color-mix(in srgb, #fff 22%, transparent) 50%, transparent 58%);
+  transform: translate3d(-60%, 0, 0);
+  pointer-events: none;
+}
+.sx-arena-plate:hover .sx-arena-shine { animation: sx-arena-shine 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes sx-arena-shine { to { transform: translate3d(60%, 0, 0); } }
+[data-theme="light"] .sx-arena-shine { background: linear-gradient(115deg, transparent 42%, color-mix(in srgb, var(--sx-athlete) 10%, transparent) 50%, transparent 58%); }
+
+/* words ------------------------------------------------------------------- */
+.sx-arena-num {
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}
+.sx-arena .sx-page-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--sx-text);
+}
+@media (min-width: 40rem) { .sx-arena .sx-page-title { font-size: 1.5rem; } }
+.sx-arena .sx-page-title::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 22px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--ar-soft), var(--ar));
+  box-shadow: 0 0 12px var(--ar-glow);
+  transform: skewX(-14deg);
+}
+.sx-arena .sx-section-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sx-text-muted);
+}
+.sx-arena .sx-section-title::before {
+  content: "";
+  flex: none;
+  width: 14px;
+  height: 8px;
+  background: repeating-linear-gradient(-60deg, var(--ar) 0 3px, transparent 3px 6px);
+  opacity: 0.9;
+}
+/* the provenance / live pill beside a title */
+.sx-arena-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 9999px;
+  border: 1px solid var(--ar-line);
+  background: var(--ar-wash);
+  padding: 0.25rem 0.65rem;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--sx-text-muted);
+}
+.sx-arena-pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--sx-success);
+  box-shadow: 0 0 8px var(--sx-success);
+}
+
+/* lane progress: a track with a striped fill ----------------------------- */
+.sx-arena-lane {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--sx-text) 8%, transparent);
+}
+.sx-arena-lane-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 9999px;
+  background:
+    repeating-linear-gradient(-60deg, transparent 0 6px, color-mix(in srgb, #fff 22%, transparent) 6px 9px),
+    linear-gradient(90deg, var(--ar), var(--ar-soft));
+  box-shadow: 0 0 12px var(--ar-glow);
+}
+.sx-arena-lane-fill[data-tone="flare"] { background: repeating-linear-gradient(-60deg, transparent 0 6px, color-mix(in srgb, #fff 22%, transparent) 6px 9px), linear-gradient(90deg, var(--ar-flare), var(--sx-accent-soft)); box-shadow: 0 0 12px color-mix(in srgb, var(--ar-flare) 50%, transparent); }
+.sx-arena-lane-fill[data-tone="win"] { background: repeating-linear-gradient(-60deg, transparent 0 6px, color-mix(in srgb, #fff 22%, transparent) 6px 9px), linear-gradient(90deg, var(--sx-success), color-mix(in srgb, var(--sx-success) 60%, #fff)); box-shadow: 0 0 12px color-mix(in srgb, var(--sx-success) 50%, transparent); }
+
+/* the shared primitives on the arena ------------------------------------- */
+.sx-arena .sx-card {
+  position: relative;
+  border-radius: 18px;
+  border-color: var(--ar-line);
+  background: linear-gradient(150deg, var(--ar-plate), var(--ar-plate-2));
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.sx-arena .sx-card .sx-card { background: color-mix(in srgb, var(--sx-surface-2) 55%, transparent); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.sx-arena .sx-stat { overflow: hidden; }
+.sx-arena .sx-stat::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 9999px;
+  background: var(--ar);
+  box-shadow: 0 0 10px var(--ar-glow);
+  transform: skewX(-14deg);
+}
+.sx-arena .sx-stat-label { letter-spacing: 0.2em; font-size: 10px; }
+.sx-arena .sx-badge { box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 28%, transparent); }
+.sx-arena .sx-notice { border-radius: 14px; }
+.sx-arena .sx-tabs { border: 0; background: transparent; padding: 0; gap: 0.375rem; }
+.sx-arena .sx-tab,
+.sx-arena [role="tab"],
+.sx-arena .rounded-lg.border.border-line.bg-surface.p-1 > a,
+.sx-arena .rounded-lg.border.border-line.bg-surface.p-1 > button,
+.sx-arena .rounded-lg.border.border-line.bg-surface.p-1 > span {
+  border: 1px solid var(--ar-line);
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--sx-surface) 70%, transparent);
+  color: var(--sx-text-muted);
+  padding: 0.4rem 0.875rem;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+.sx-arena [role="tablist"],
+.sx-arena .rounded-lg.border.border-line.bg-surface.p-1 { border: 0; background: transparent; padding: 0; gap: 0.375rem; }
+.sx-arena .sx-tab:hover,
+.sx-arena [role="tab"]:hover,
+.sx-arena .rounded-lg.border.border-line.bg-surface.p-1 > a:hover,
+.sx-arena .rounded-lg.border.border-line.bg-surface.p-1 > button:hover { border-color: color-mix(in srgb, var(--ar) 55%, var(--sx-line)); color: var(--sx-text); }
+.sx-arena .sx-tab[data-active],
+.sx-arena [role="tab"][aria-selected="true"],
+.sx-arena .rounded-lg.border.border-line.bg-surface.p-1 > [aria-current],
+.sx-arena .rounded-lg.border.border-line.bg-surface.p-1 > .bg-primary\/15,
+.sx-arena .rounded-lg.border.border-line.bg-surface.p-1 > .bg-athlete\/15 {
+  border-color: color-mix(in srgb, var(--ar) 70%, var(--sx-line));
+  background: color-mix(in srgb, var(--ar) 16%, var(--sx-surface));
+  color: var(--sx-text);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--ar) 28%, transparent);
+}
+/* buttons: pills with a glow — the admin's are chamfered */
+.sx-arena .sx-btn-primary,
+.sx-arena button.bg-primary,
+.sx-arena a.bg-primary {
+  position: relative;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--ar-soft), var(--ar));
+  box-shadow: 0 8px 24px -10px var(--ar-glow);
+  transition: box-shadow 0.3s ease, transform 0.3s var(--ar-ease), filter 0.3s ease;
+}
+.sx-arena .sx-btn-primary:hover,
+.sx-arena button.bg-primary:hover,
+.sx-arena a.bg-primary:hover { background: linear-gradient(90deg, var(--ar-soft), var(--ar)); box-shadow: 0 12px 30px -10px var(--ar-glow); transform: translate3d(0, -1px, 0); filter: brightness(1.05); }
+.sx-arena button.bg-primary:disabled { box-shadow: none; transform: none; filter: none; }
+.sx-arena .sx-btn-secondary,
+.sx-arena button.border-line,
+.sx-arena a.border-line { border-radius: 9999px; border-color: var(--ar-line); transition: border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease; }
+.sx-arena .sx-btn-secondary:hover,
+.sx-arena button.border-line:hover,
+.sx-arena a.border-line:hover { border-color: color-mix(in srgb, var(--ar) 60%, var(--sx-line)); background-color: var(--ar-wash); }
+/* drawers and dialogs: the themed panel with a blue edge glow */
+.sx-arena .sx-drawer,
+.sx-arena .sx-drawer-out {
+  border-left-color: transparent;
+  box-shadow:
+    inset 1px 0 0 color-mix(in srgb, var(--ar) 55%, transparent),
+    -30px 0 60px rgba(0, 0, 0, 0.35),
+    inset 3px 0 18px -6px var(--ar-glow);
+}
+.sx-arena [role="dialog"] > div > .sx-pop,
+.sx-arena [role="dialog"] > .sx-pop { border-color: var(--ar-line); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35), 0 0 60px color-mix(in srgb, var(--ar) 14%, transparent); }
+/* the shell: a blue hairline and a brighter bloom; the themed surfaces stay */
+.sx-arena .sx-shell-aside { border-right-color: var(--ar-line); }
+.sx-arena .sx-shell-header { background: color-mix(in srgb, var(--sx-surface) 72%, transparent); }
+.sx-arena .sx-nav-head[data-holds] .sx-nav-tile { box-shadow: 0 0 16px var(--ar-glow); }
+.sx-arena .sx-nav-head[data-open]:not([data-holds]) .sx-nav-tile { border-color: color-mix(in srgb, var(--ar) 45%, var(--sx-line)); color: var(--sx-text); }
+.sx-arena .sx-nav-track { border-color: color-mix(in srgb, var(--ar) 30%, var(--sx-line)); }
+.sx-arena .sx-nav-head::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ar) 10%, transparent), transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+.sx-arena .sx-nav-head:hover::after { animation: sx-row-sweep 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+/* tables: rows slide in from the left; the hover tint is the athlete blue */
+.sx-arena .sx-table-wrap { border-radius: 18px; }
+.sx-arena .sx-table tbody tr { animation: sx-arena-slide 0.5s var(--ar-ease) calc(var(--i, 0) * 35ms) backwards; }
+.sx-arena .sx-table th { color: var(--sx-text-muted); border-bottom-color: var(--ar-line); }
+.sx-arena .sx-table td { border-top-color: color-mix(in srgb, var(--ar) 10%, var(--sx-line-soft)); }
+.sx-arena .sx-table tbody tr:hover { background: var(--ar-wash); }
+.sx-arena .sx-table tbody tr[data-open] { background: color-mix(in srgb, var(--ar) 12%, transparent); }
+.sx-arena .sx-table tbody tr.sx-table-detail > td { background: color-mix(in srgb, var(--sx-surface-2) 55%, transparent); }
+/* the loading ghost */
+.sx-arena-ghost {
+  background: linear-gradient(100deg, color-mix(in srgb, var(--sx-athlete) 7%, transparent) 30%, color-mix(in srgb, var(--sx-athlete) 16%, transparent) 50%, color-mix(in srgb, var(--sx-athlete) 7%, transparent) 70%) 0 0 / 250% 100%;
+  animation: sx-ops-ghost 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-arena-in,
+  .sx-arena-grow,
+  .sx-arena-flood,
+  .sx-arena-ghost,
+  .sx-arena .sx-table tbody tr,
+  .sx-arena-plate:hover .sx-arena-shine { animation: none; }
+  .sx-arena-streak { display: none; }
+  .sx-arena-plate,
+  .sx-arena-light { transition: none; }
+  .sx-arena-plate[data-spot]:hover,
+  a.sx-arena-plate:hover,
+  a.sx-arena-plate:focus-visible { transform: none; }
+  .sx-arena .sx-btn-primary:hover,
+  .sx-arena button.bg-primary:hover,
+  .sx-arena a.bg-primary:hover { transform: none; }
+}

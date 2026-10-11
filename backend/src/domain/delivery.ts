@@ -902,6 +902,72 @@ export async function mySales(actor: Actor, now = new Date()) {
   return { sales: rows.map((r) => saleView(r, names, shares.get(r.lineId) ?? 0, now, counts(r), refundOf(r))) };
 }
 
+/**
+ * The seller's Orders page's tabs (P1-ART-22): `all`, then one per group of
+ * line states — what they still have to deliver, what waits for the sponsor's
+ * payment, what is delivered and waiting for the sponsor's confirmation,
+ * what a reported problem holds, what the sponsor confirmed, and what was
+ * cancelled (or refunded). `key` is the `?tab=` value; `label` the words.
+ */
+export const SALE_TAB_STATES = {
+  to_deliver: ["IN_DELIVERY"],
+  awaiting_payment: ["UNPAID"],
+  delivered: ["DELIVERED"],
+  problems: ["PROBLEM"],
+  confirmed: ["CONFIRMED"],
+  cancelled: ["CANCELLED", "REFUNDED"],
+} as const satisfies Record<string, readonly string[]>;
+export const SALE_TABS = ["all", "to_deliver", "awaiting_payment", "delivered", "problems", "confirmed", "cancelled"] as const;
+export type SaleTab = (typeof SALE_TABS)[number];
+const SALE_TAB_LABELS: Record<SaleTab, string> = {
+  all: "All", to_deliver: "To deliver", awaiting_payment: "Awaiting payment", delivered: "Delivered", problems: "Problems", confirmed: "Confirmed", cancelled: "Cancelled",
+};
+
+/**
+ * The seller's Orders page, SERVER-PAGED (P1-ART-22, the house pager): one
+ * page of the lines they sell, newest first, narrowed in the database by one
+ * tab (an unknown tab is `all`) and `q` (the line's title); the page is the
+ * only cap. `tabs` carries every tab with its count over the seller's WHOLE
+ * scope — never over the page, the tab or the search.
+ */
+export async function mySalesPage(actor: Actor, req: PageRequest, f: { tab?: SaleTab; q?: string }, now = new Date()) {
+  sellerScope(actor, "read");
+  const scope = whereFor(actor, "orderDelivery", "read");
+  const states = f.tab && f.tab !== "all" ? SALE_TAB_STATES[f.tab] : null;
+  const where: Prisma.OrderLineDeliveryWhereInput = {
+    AND: [
+      scope,
+      ...(states ? [{ state: { in: [...states] } }] : []),
+      ...(f.q ? [{ line: { title: { contains: f.q, mode: "insensitive" as const } } }] : []),
+    ],
+  };
+  const [paged, byState] = await Promise.all([
+    readPage(
+      req,
+      () => prisma.orderLineDelivery.count({ /* tenant-scope: `where`/`scope` are whereFor(actor, orderDelivery, "read") above; only filters are added. */ where }),
+      (skip, take) =>
+        prisma.orderLineDelivery.findMany({
+          /* tenant-scope: `where`/`scope` are whereFor(actor, orderDelivery, "read") above; only filters are added. */
+          where,
+          select: SALE_SELECT,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          skip,
+          take,
+        }),
+    ),
+    prisma.orderLineDelivery.groupBy({ /* tenant-scope: `where`/`scope` are whereFor(actor, orderDelivery, "read") above; only filters are added. */ by: ["state"], where: scope, _count: { _all: true } }),
+  ]);
+  const rows = paged.rows;
+  const [names, shares, counts, refundOf] = await Promise.all([namesFor(rows), sharesFor(actor, rows.map((r) => r.lineId)), cancellationCounts(rows, now), refundBases(rows)]);
+  const n = (sts: readonly string[]) => byState.filter((s) => sts.includes(s.state)).reduce((sum, s) => sum + s._count._all, 0);
+  const all = byState.reduce((sum, s) => sum + s._count._all, 0);
+  return {
+    sales: rows.map((r) => saleView(r, names, shares.get(r.lineId) ?? 0, now, counts(r), refundOf(r))),
+    page: paged.page,
+    tabs: SALE_TABS.map((key) => ({ key, label: SALE_TAB_LABELS[key], count: key === "all" ? all : n(SALE_TAB_STATES[key]) })),
+  };
+}
+
 export async function mySale(actor: Actor, lineId: string, now = new Date()) {
   sellerScope(actor, "read");
   const row = await prisma.orderLineDelivery.findFirst({ where: { ...whereFor(actor, "orderDelivery", "read"), lineId }, select: SALE_SELECT });

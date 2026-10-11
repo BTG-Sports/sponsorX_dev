@@ -27,9 +27,19 @@
    BTG takes a look only when something flags it (restricted words, the
    account's standing, a BTG pause). Pure: shapes and every derived word;
    figures are API fields.
+
+   P1-ART-22 (2026-10-11) — /athlete/listings is two SERVER-PAGED lists:
+   GET /listings?page&size&scope=own|team&state&q → { listings, page,
+   counts: { own, team, byState } } and GET /inventory?page&size&unlisted=
+   true → { items, page, counts }. The helpers at the end shape them: which
+   tab opens, the KPI plates from `counts`, whether the athlete is rostered,
+   and — only while the API still answers the legacy unpaged shapes — the
+   same in-memory derivation the page did before (scope, state, ready to
+   list), so the page stays right in both worlds.
    -------------------------------------------------------------------------- */
 
 import { kindLabel } from "@/lib/inventory-live";
+import type { PageInfo } from "@/lib/list-query";
 import type { ListingHold } from "@/lib/listing-outcome";
 
 export type ListingState = "DRAFT" | "PENDING_APPROVAL" | "PUBLISHED" | "PAUSED" | "ARCHIVED";
@@ -312,4 +322,82 @@ export function validateDescription(text: string): { ok: true; value: string } |
 /** A starting sentence for the textarea, from the item itself. */
 export function suggestedDescription(item: Pick<ListableItem, "description">): string {
   return item.description?.trim() ?? "";
+}
+
+/* ------------------------------------------------ the paged page (P1-ART-22) */
+
+export type ListingScope = "own" | "team";
+export const LISTING_STATES: readonly ListingState[] = ["DRAFT", "PENDING_APPROVAL", "PUBLISHED", "PAUSED", "ARCHIVED"];
+
+/** The state filter's rows, in the design's words (listingBadge). */
+export const LISTING_STATE_OPTIONS: ReadonlyArray<{ value: ListingState; label: string }> = [
+  { value: "PUBLISHED", label: "Live" },
+  { value: "PENDING_APPROVAL", label: "BTG is taking a look" },
+  { value: "DRAFT", label: "Not listed yet" },
+  { value: "PAUSED", label: "Paused" },
+  { value: "ARCHIVED", label: "Ended" },
+];
+
+export type ListingCounts = { own: number; team: number; byState: Partial<Record<ListingState, number>> };
+
+/** GET /listings?page… — `page` and `counts` arrive once the API pages. */
+export type ApiListingsPage = { listings: ApiAthleteListing[]; page?: PageInfo; counts?: ListingCounts };
+
+/** Which tab opens: the asked one, else "Your listings" — unless the athlete
+ *  has none of their own and their team has some, which is a roster athlete
+ *  whose only listings are the team's. */
+export function listingScope(raw: string, counts: Pick<ListingCounts, "own" | "team">): ListingScope {
+  if (raw === "own" || raw === "team") return raw;
+  return counts.own === 0 && counts.team > 0 ? "team" : "own";
+}
+
+/**
+ * One tab's rows, page and counts. With `counts` on the response the API
+ * did the work (scope, state, paging) and the rows are shown as sent. The
+ * legacy shape carries every listing: the same derivation the page did
+ * before — own first with ended ones last, the team's live ones, by state.
+ */
+export function listingsView(res: ApiListingsPage, scope: ListingScope, state: string): { rows: ApiAthleteListing[]; page: PageInfo; counts: ListingCounts; paged: boolean } {
+  if (res.counts) {
+    return { rows: res.listings, page: res.page ?? { page: 1, size: res.listings.length || 12, total: res.listings.length, pages: 1 }, counts: res.counts, paged: true };
+  }
+  const own = res.listings.filter(isOwn).sort((a, b) => Number(a.state === "ARCHIVED") - Number(b.state === "ARCHIVED"));
+  const team = res.listings.filter((l) => !isOwn(l) && l.state !== "ARCHIVED");
+  const byState: Partial<Record<ListingState, number>> = {};
+  for (const l of [...own, ...team]) byState[l.state] = (byState[l.state] ?? 0) + 1;
+  const all = scope === "own" ? own : team;
+  const rows = state ? all.filter((l) => l.state === state) : all;
+  return { rows, page: { page: 1, size: rows.length || 12, total: rows.length, pages: 1 }, counts: { own: own.length, team: team.length, byState }, paged: false };
+}
+
+/** Rostered, from the counts (their team lists, they don't) or from what the
+ *  rows say (a team's listing, or an own listing's "on a team" blocker). */
+export function rosterFrom(counts: Pick<ListingCounts, "own" | "team">, rows: readonly ApiAthleteListing[]): { onTeam: boolean; teamName: string | null } {
+  const fromRows = teamFromListings(rows);
+  if (fromRows.onTeam) return fromRows;
+  return { onTeam: counts.team > 0 && counts.own === 0, teamName: null };
+}
+
+export type ListingTile = { key: string; label: string; value: number; caption: string; tone: "blue" | "flare" | "win" | "warn" | "ink" };
+
+/** The KPI row: live, held for BTG, drafts + paused, ready to list — every
+ *  figure a count the API sent (`unlisted` null → that plate is left out). */
+export function listingTiles(byState: Partial<Record<ListingState, number>>, unlisted: number | null): ListingTile[] {
+  const n = (s: ListingState) => byState[s] ?? 0;
+  const live = n("PUBLISHED");
+  const held = n("PENDING_APPROVAL");
+  const idle = n("DRAFT") + n("PAUSED");
+  const tiles: ListingTile[] = [
+    { key: "live", label: "Live", value: live, caption: live ? "on the marketplace now" : "nothing on sale yet", tone: live ? "win" : "ink" },
+    { key: "held", label: "Held for BTG", value: held, caption: held ? "BTG is taking a look · we email you" : "nothing waiting on BTG", tone: held ? "warn" : "ink" },
+    { key: "idle", label: "Drafts & paused", value: idle, caption: idle ? "yours to finish or resume" : "no drafts, nothing paused", tone: idle ? "blue" : "ink" },
+  ];
+  if (unlisted !== null) tiles.push({ key: "ready", label: "Ready to list", value: unlisted, caption: unlisted ? "items with no listing yet" : "every item has a listing", tone: unlisted ? "flare" : "ink" });
+  return tiles;
+}
+
+/** The "ready to list" rows: the API's own `unlisted` page when it pages,
+ *  else (legacy, every item) the ones with no live listing. */
+export function readyRows<T extends ListableItem>(items: readonly T[], listings: readonly ApiAthleteListing[], paged: boolean): T[] {
+  return paged ? [...items] : itemsToList(items, listings);
 }

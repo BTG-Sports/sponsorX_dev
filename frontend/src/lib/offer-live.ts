@@ -24,6 +24,7 @@
    -------------------------------------------------------------------------- */
 
 import { fmtDay, refusalMessage, usd } from "./inventory-live";
+import { apiListQuery, textParam, type PageInfo, type SearchParams } from "./list-query";
 
 export { usd, fmtDay };
 
@@ -152,6 +153,75 @@ export function groupOffers(offers: ApiOffer[], now: Date = new Date()): { open:
     .sort((a, b) => (b.respondedAt ?? b.expiresAt).localeCompare(a.respondedAt ?? a.expiresAt))
     .map((o) => toOfferRow(o, now));
   return { open, answered };
+}
+
+/* ------------------------------------------------- the server-paged list */
+
+/**
+ * P1-ART-22 (2026-10-11) — the athlete's list is SERVER-PAGED: one tab's
+ * page of GET /offers?page=&size=&tab=, with both tabs' counts. The tab rule
+ * groupOffers applied in the browser now runs on the API: `open` is SENT and
+ * not expired (a pending change request included), soonest expiry first;
+ * `closed` is everything answered, withdrawn or lapsed, newest first.
+ */
+export const OFFER_TABS = [
+  { key: "open", label: "Open" },
+  { key: "closed", label: "Closed" },
+] as const;
+export type OfferTabKey = (typeof OFFER_TABS)[number]["key"];
+
+/** `?tab` from the URL — open unless it says closed. */
+export function offerTab(sp: SearchParams): OfferTabKey {
+  return textParam(sp, "tab", OFFER_TABS.map((t) => t.key)) === "closed" ? "closed" : "open";
+}
+
+/** The URL → GET /offers' paged query (`?page=&size=&tab=`). */
+export function offersApiQuery(sp: SearchParams): string {
+  return apiListQuery(sp, { tab: offerTab(sp) });
+}
+
+export type OfferCounts = { open: number; closed: number };
+
+/** GET /offers with `?page`: one tab's rows, the page and both counts. An
+ *  API still answering the legacy shape carries the rows alone. */
+export type ApiOfferPage = {
+  offers: ApiOffer[];
+  page?: PageInfo;
+  counts?: OfferCounts;
+};
+
+/**
+ * The page as the list draws it. Until the API answers the paged shape, the
+ * rows in hand are shown as one page and counted by the same rule the API
+ * applies — the only figures there are; nothing is invented beyond them.
+ */
+export function offerPage(
+  body: ApiOfferPage,
+  now: Date = new Date(),
+): { rows: ApiOffer[]; page: PageInfo; counts: OfferCounts } {
+  const rows = body.offers ?? [];
+  const page = body.page ?? { page: 1, size: rows.length || 12, total: rows.length, pages: 1 };
+  const counts =
+    body.counts ??
+    rows.reduce<OfferCounts>(
+      (c, o) => (offerStatus(o, now) === "open" ? { ...c, open: c.open + 1 } : { ...c, closed: c.closed + 1 }),
+      { open: 0, closed: 0 },
+    );
+  return { rows, page, counts };
+}
+
+/** An open offer this close to its expiry is drawn as needing you now. */
+export const EXPIRY_SOON_HOURS = 48;
+
+/** Whole hours until the offer expires (negative once past). */
+export function hoursToExpiry(o: Pick<ApiOffer, "expiresAt">, now: Date = new Date()): number {
+  return Math.floor((new Date(o.expiresAt).getTime() - now.getTime()) / 3_600_000);
+}
+
+/** Open and expiring within EXPIRY_SOON_HOURS. */
+export function expiresSoon(o: Pick<ApiOffer, "state" | "expiresAt">, now: Date = new Date()): boolean {
+  if (offerStatus(o, now) !== "open") return false;
+  return hoursToExpiry(o, now) < EXPIRY_SOON_HOURS;
 }
 
 /** Deliverables in due order, for the schedule. */
