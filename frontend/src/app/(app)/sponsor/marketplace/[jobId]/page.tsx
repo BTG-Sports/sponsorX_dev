@@ -28,7 +28,7 @@ export default async function InventoryDetailPage({
   params: Promise<{ jobId: string }>;
   searchParams: Promise<{ from?: string }>;
 }) {
-  const { jobId } = await params;
+  await params;
   const { from } = await searchParams;
   const back = resolveBack(from, "mk-media");
   const it = inventoryItem;
@@ -36,7 +36,7 @@ export default async function InventoryDetailPage({
   const requestThis = (
     <button
       type="button"
-      title="Creates a CampaignBrief in DRAFT — not wired"
+      title="Your request goes to BTG, who match athletes and agree the price"
       className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-cta-ink"
     >
       Request this
@@ -61,10 +61,9 @@ export default async function InventoryDetailPage({
         <div className="sx-stadium-in flex flex-wrap items-center gap-2" style={at(0.04)}>
           {it.exclusive && (
             <MiniChip kind="neutral">
-              EXCLUSIVE · {it.durationWeeks} WEEKS
+              Exclusive · {it.durationWeeks} weeks
             </MiniChip>
           )}
-          <MiniChip kind="neutral">{it.jobId}</MiniChip>
           <span className="text-xs text-muted">
             {it.property} · {it.formats.join(" · ")}
           </span>
@@ -80,7 +79,7 @@ export default async function InventoryDetailPage({
             label="What you pay per 1,000 people reached"
             value={it.cpm * 100}
             format="usd0"
-            hint="The estimated reach divided into the price, times 1,000 — a quick way to compare listings. Stored for learning (§15), not a guarantee."
+            hint="The estimated reach divided into the price, times 1,000 — a quick way to compare listings. Stored for learning, not a guarantee."
             delay={0.16}
           />
           <StadiumTile
@@ -158,7 +157,7 @@ export default async function InventoryDetailPage({
             <div className="mt-4 space-y-2">
               <button
                 type="button"
-                title="Creates a CampaignBrief in DRAFT — not wired"
+                title="Your request goes to BTG, who match athletes and agree the price"
                 className="w-full rounded-lg bg-primary py-2.5 text-xs font-semibold text-cta-ink transition-colors hover:bg-primary-soft"
               >
                 Request this
@@ -176,9 +175,8 @@ export default async function InventoryDetailPage({
       </div>
 
       <p className="text-[10px] text-faint">
-        Fixture data — requested job{" "}
-        <code className="font-mono">{jobId}</code>. The athlete&rsquo;s base
-        rate does not appear on this page (guide §04).
+        Fixture data. The athlete&rsquo;s base rate does not appear on this
+        page (guide §04).
       </p>
     </div>
   );

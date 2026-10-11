@@ -14,7 +14,7 @@ import {
 } from "@/components/stadium-stage";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
 import { demoState } from "@/lib/demo";
-import { demoCampaignPage, demoCampaignSummary } from "@/lib/fixtures/sponsor-overview";
+import { DEMO_NOW, demoCampaignPage, demoCampaignSummary, demoRequestPage } from "@/lib/fixtures/sponsor-overview";
 import { textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
 import { isBehind, windowLabel, type ApiCampaign } from "@/lib/sponsor-live";
 import { campaignWord } from "@/lib/sponsor-words";
@@ -71,9 +71,9 @@ export default async function SponsorCampaignsPage({ searchParams }: { searchPar
     review: textParam(sp, "review", ["1"]),
   };
 
-  const now = new Date();
   const live = demo === null ? await liveSponsorCampaignPage(sp) : null;
   if (live) {
+    const now = new Date();
     return (
       <Campaigns
         sp={sp}
@@ -92,16 +92,22 @@ export default async function SponsorCampaignsPage({ searchParams }: { searchPar
   const empty = demo === "empty";
   const list = empty ? { campaigns: [], page: { page: 1, size: 12, total: 0, pages: 1 } } : demoCampaignPage(sp, filters);
   const summary = demoCampaignSummary();
+  /* The same open-request count the demo Requests page's own tiles show
+     (DRAFT + QUALIFIED + APPROVED), not a number invented for this page. */
+  const requestsOpen = empty ? 0 : (() => {
+    const { counts } = demoRequestPage(sp, { q: "", state: "" });
+    return (counts.DRAFT ?? 0) + (counts.QUALIFIED ?? 0) + (counts.APPROVED ?? 0);
+  })();
   return (
     <Campaigns
       sp={sp}
       filters={filters}
       summary={empty ? { ...summary, total: 0, byState: {}, active: 0, behind: 0 } : summary}
-      requestsOpen={empty ? 0 : 3}
+      requestsOpen={requestsOpen}
       rows={list.campaigns}
       page={list.page}
-      now={now}
-      updatedAt={now.toISOString()}
+      now={DEMO_NOW}
+      updatedAt={DEMO_NOW.toISOString()}
       sample
     />
   );
@@ -139,6 +145,13 @@ function Campaigns({
           <p className="mx-auto mt-1.5 max-w-md text-sm text-muted">
             Pick a package, tell us what you&rsquo;re after, and BTG will match you with athletes. Your campaigns show up here as soon as the first one is staffed.
           </p>
+          {requestsOpen ? (
+            <p className="mt-3 text-sm">
+              <Link href="/sponsor/requests" className="font-medium text-sponsor hover:underline">
+                You have {requestsOpen} {requestsOpen === 1 ? "request" : "requests"} being matched → See requests
+              </Link>
+            </p>
+          ) : null}
           <Link href="/sponsor/marketplace" className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-xs font-semibold">
             Browse packages to start one →
           </Link>
@@ -183,7 +196,7 @@ function Campaigns({
               value={summary.budget}
               format="usd0"
               share={share}
-              caption={summary.contracted !== undefined ? `${usd(summary.contracted)} contracted` : undefined}
+              caption={summary.contracted !== undefined ? `${usd(summary.contracted)} agreed` : undefined}
               hint="What your campaigns are budgeted for, and how much of it is contracted so far."
               delay={0.28}
             />
@@ -191,7 +204,7 @@ function Campaigns({
             <StadiumTile
               label="Athletes"
               value={summary.athletes}
-              hint="Athletes delivering across your running campaigns."
+              hint="Athletes on your campaigns."
               delay={0.28}
             />
           )}

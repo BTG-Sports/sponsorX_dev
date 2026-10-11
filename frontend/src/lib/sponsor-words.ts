@@ -25,7 +25,11 @@ const CAMPAIGN: Record<string, Word> = {
   CANCELLED: { text: "Cancelled", tone: "done" },
 };
 const BRIEF: Record<string, Word> = {
-  DRAFT: { text: "Draft", tone: "info" },
+  /* Every new request starts life as DRAFT in the backend the instant it's
+     sent — it was never left unfinished by the sponsor, so "Draft" reads as
+     a stalled request. A sponsor sees the same "Being matched by BTG" for
+     DRAFT and QUALIFIED; the distinction is BTG's to track, not theirs. */
+  DRAFT: { text: "Being matched by BTG", tone: "info" },
   QUALIFIED: { text: "Being matched by BTG", tone: "info" },
   APPROVED: { text: "Ready for you", tone: "you" },
   CAMPAIGN_CREATED: { text: "Became a campaign", tone: "live" },

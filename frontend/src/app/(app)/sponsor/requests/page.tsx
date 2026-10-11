@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { ListSearch, PendingList, ServerList } from "@/components/server-pager";
 import {
   StadiumChip,
+  StadiumDate,
   StadiumGhost,
   StadiumHead,
   StadiumPanel,
@@ -40,7 +41,6 @@ import { BRIEF_STATE_FILTERS, liveSponsorRequestPage, type BriefCounts } from "@
 
 const PATH = "/sponsor/requests";
 const usd = (cents: number) => (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 
 const TABS = [
   { key: "all", label: "All", state: "" },
@@ -160,7 +160,7 @@ function Requests({
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <TabStrip label="Request status">
             {TABS.map((t) => (
-              <TabLink key={t.key} href={tabHref(sp, t.state)} on={filters.state === t.state} count={t.key === "all" ? counts.all : t.key === "matching" ? matching : t.key === "ready" ? counts.APPROVED : t.key === "became" ? counts.CAMPAIGN_CREATED : counts.CLOSED}>
+              <TabLink key={t.key} href={tabHref(sp, t.state)} on={filters.state === t.state} count={t.key === "all" ? counts.all : t.key === "matching" ? matching : t.key === "ready" ? (counts.APPROVED ?? 0) : t.key === "became" ? (counts.CAMPAIGN_CREATED ?? 0) : (counts.CLOSED ?? 0)}>
                 {t.label}
               </TabLink>
             ))}
@@ -189,7 +189,7 @@ function Requests({
                   <Td label="Status">
                     <StadiumChip tone={word.tone}>{word.text}</StadiumChip>
                   </Td>
-                  <Td label="Sent" muted>{shortDate(r.createdAt)}</Td>
+                  <Td label="Sent" muted><StadiumDate iso={r.createdAt} format="date" /></Td>
                   <Td label="Budget" num>{usd(r.budget)}</Td>
                   <Td label="Progress">
                     {now >= 0 ? (

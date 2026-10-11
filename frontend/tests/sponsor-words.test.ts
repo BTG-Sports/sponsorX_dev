@@ -13,6 +13,7 @@ describe("sponsor words — plain language, never an enum", () => {
     expect(orderWord("AWAITING_PAYMENT")).toEqual({ text: "Ready to pay", tone: "you" });
     expect(orderWord("IN_DELIVERY").text).toBe("In progress");
     expect(briefWord("QUALIFIED").text).toBe("Being matched by BTG");
+    expect(briefWord("DRAFT").text).toBe("Being matched by BTG");
     expect(deliverableWord("SPONSOR_REVIEW")).toEqual({ text: "Waiting for your OK", tone: "you" });
     expect(sourceWord("VERIFIED_API", "Instagram")).toBe("Checked with Instagram");
     expect(sourceWord("SELF_REPORTED")).toBe("Reported by the athlete");

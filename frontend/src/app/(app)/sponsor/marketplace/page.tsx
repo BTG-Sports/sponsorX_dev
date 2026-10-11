@@ -6,11 +6,11 @@ import {
   JobsCatalog,
   MediaCatalog,
   PackagesCatalog,
-  parseAmount,
   type CatalogInitial,
   type LiveJob,
   type Pkg,
 } from "@/components/marketplace-catalog";
+import { parseAmount } from "@/lib/amount";
 import { apiFetch, fetchActor } from "@/server/api";
 import { toJob, toPkg, type ApiJob, type ApiPackage } from "@/lib/marketplace-live";
 import { submitBrief } from "./actions";
@@ -18,7 +18,6 @@ import {
   athleteInv,
   marketplacePackages,
   mediaInv,
-  rates,
 } from "@/lib/fixtures";
 import { StadiumGhost, StadiumHead, StadiumTile, StadiumTiles, StadiumUpdated } from "@/components/stadium-stage";
 import { TabLink, TabStrip } from "@/components/stage-table";
@@ -52,7 +51,7 @@ import { TabLink, TabStrip } from "@/components/stage-table";
    -------------------------------------------------------------------------- */
 
 /** Real catalogue for a signed-in sponsor, or null for the fixture demo. */
-async function liveCatalogue(): Promise<{ packages: Pkg[]; jobs: LiveJob[] } | null> {
+async function liveCatalogue(): Promise<{ packages: Pkg[]; jobs: LiveJob[]; fromCents: number } | null> {
   /* No catch: fetchActor answers anonymous/unprovisioned as VALUES and throws
      only when the API itself is broken. Swallowing that throw dropped a real
      signed-in sponsor into the fixture demo on any API blip — and the demo
@@ -68,7 +67,12 @@ async function liveCatalogue(): Promise<{ packages: Pkg[]; jobs: LiveJob[] } | n
   if (!p.ok || !j.ok) throw new Error(`Catalogue unavailable (${p.status}/${j.status}).`);
   const { packages } = (await p.json()) as { packages: ApiPackage[] };
   const { jobs } = (await j.json()) as { jobs: ApiJob[] };
-  return { packages: packages.map(toPkg), jobs: jobs.map(toJob) };
+  /* The live "From" tile reads the API's own numeric priceLow (whole
+     dollars → cents) directly, rather than re-parsing the display string
+     `toPkg` builds for the card — a round trip through text that can only
+     lose precision. */
+  const fromCents = packages.length ? Math.min(...packages.map((pk) => pk.priceLow)) * 100 : 0;
+  return { packages: packages.map(toPkg), jobs: jobs.map(toJob), fromCents };
 }
 
 const TABS = [
@@ -156,11 +160,15 @@ export default async function MarketplacePage({
     ).toString()}`;
 
   const fromCents = Math.round(Math.min(...marketplacePackages.map((p) => parseAmount(p.price))) * 100);
+  /* "Job types" counts what the Athlete inventory tab actually shows: the
+     distinct jobs its cards carry — not an unrelated master rate list the
+     demo page never renders. */
+  const jobTypes = new Set(athleteInv.map((a) => a.jobId)).size;
 
   return (
     <div className="space-y-6">
       <StadiumHead title="Packages" pill="Sample data">
-        <MarketTiles packagesCount={marketplacePackages.length} jobTypes={rates.length} fromCents={fromCents} />
+        <MarketTiles packagesCount={marketplacePackages.length} jobTypes={jobTypes} fromCents={fromCents} />
       </StadiumHead>
 
       {/* ---------------------------------------------------------- tabs */}
@@ -217,17 +225,17 @@ export default async function MarketplacePage({
 }
 
 /** The signed-in sponsor's marketplace — real packages, real jobs, real briefs. */
-function LiveMarketplace({ live }: { live: { packages: Pkg[]; jobs: LiveJob[] } }) {
-  const fromCents = live.packages.length
-    ? Math.round(Math.min(...live.packages.map((p) => parseAmount(p.price))) * 100)
-    : 0;
+function LiveMarketplace({ live }: { live: { packages: Pkg[]; jobs: LiveJob[]; fromCents: number } }) {
   return (
     <div className="space-y-6">
       <StadiumHead title="Packages" pill={<StadiumUpdated iso={new Date().toISOString()} />}>
-        <MarketTiles packagesCount={live.packages.length} jobTypes={live.jobs.length} fromCents={fromCents} />
+        <MarketTiles packagesCount={live.packages.length} jobTypes={live.jobs.length} fromCents={live.fromCents} />
       </StadiumHead>
       <section className="space-y-3">
-        <h2 className="sx-section-title">Packages</h2>
+        {/* A distinct name from the page's own "Packages" h1 — a sponsor's
+            screen reader (and this page's own e2e) shouldn't hit two
+            same-named headings. */}
+        <h2 className="sx-section-title">Ready-made packages</h2>
         <PackagesCatalog items={live.packages} submit={submitBrief} />
       </section>
       <section className="space-y-3">

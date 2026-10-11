@@ -8,6 +8,7 @@ import { compact } from "@/components/charts";
 import { Dropdown, FilterChip, SearchInput } from "@/components/filter-kit";
 import { Pagination } from "@/components/pagination";
 import { BriefRequestDrawer, type BriefSeed, type BriefSubmit } from "@/components/brief-request-drawer";
+import { parseAmount } from "@/lib/amount";
 import {
   INVENTORY_COPY,
   athleteInv,
@@ -50,19 +51,6 @@ const STATE_TONE: Record<InventoryState, "accent" | "warn" | "neutral"> = {
 export type CatalogInitial = Partial<Record<string, string>>;
 
 /* ------------------------------------------------------------ helpers */
-
-/** Parse a display amount to a sortable number: "$1,500–$3,000" → 1500,
-    "~$2,500" → 2500, "1.2M" → 1200000, "$15K–$30K+" → 15000. Non-numeric
-    ("Recurring") → 0, so it sorts to the bottom of a low→high order. */
-export function parseAmount(s: string): number {
-  const m = s.replace(/[,$~\s]/g, "").match(/([\d.]+)\s*([KM])?/i);
-  if (!m) return 0;
-  let n = parseFloat(m[1]);
-  const suf = m[2]?.toUpperCase();
-  if (suf === "K") n *= 1e3;
-  else if (suf === "M") n *= 1e6;
-  return n;
-}
 
 const distinct = <T,>(arr: readonly T[], pick: (x: T) => string) =>
   [...new Set(arr.map(pick))];
@@ -725,7 +713,6 @@ export function AthleteCatalog({
                   </div>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-3">
-                  <Badge tone="neutral">{a.jobId}</Badge>
                   <span className="min-w-0 flex-1 truncate text-[11px] text-muted">
                     {a.jobName}
                   </span>
@@ -935,18 +922,74 @@ export type LiveJob = { id: string; name: string; price: string };
  * sponsor's own campaign, so the real inventory is the job catalogue at
  * sponsor prices. Requesting one opens the same brief drawer.
  */
+/** Job types per page, above and below the list — the same house pager the
+ *  packages/athletes/media catalogues use (client-paged, bounded), so a
+ *  catalogue bigger than a dozen rows doesn't render as one long list. */
+function JobsPageBar({
+  pageSize,
+  totalPages,
+  safePage,
+  rangeStart,
+  rangeEnd,
+  total,
+  onPage,
+  onSize,
+  placement,
+}: {
+  pageSize: number;
+  totalPages: number;
+  safePage: number;
+  rangeStart: number;
+  rangeEnd: number;
+  total: number;
+  onPage: (p: number) => void;
+  onSize: (v: string) => void;
+  placement: "down" | "up";
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-3">
+      <p className="mr-auto text-[11px] text-muted" aria-live="polite">
+        Showing {rangeStart}–{rangeEnd} of {total}
+      </p>
+      <Dropdown
+        label="Job types per page"
+        allLabel={`${pageSize} / page`}
+        value={String(pageSize)}
+        options={SIZE_OPTIONS}
+        onChange={onSize}
+        tone="sponsor"
+        includeAll={false}
+        placement={placement}
+      />
+      <Pagination page={safePage} count={totalPages} onChange={onPage} tone="sponsor" alwaysShow />
+    </div>
+  );
+}
+
 export function JobsCatalog({ jobs, submit }: { jobs: LiveJob[]; submit?: BriefSubmit }) {
   const [seed, setSeed] = useState<BriefSeed | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   if (jobs.length === 0) {
     return <p className="text-xs text-muted">BTG hasn&rsquo;t published any job types yet.</p>;
   }
+  const totalPages = Math.max(1, Math.ceil(jobs.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const paged = jobs.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const rangeStart = (safePage - 1) * pageSize + 1;
+  const rangeEnd = Math.min(safePage * pageSize, jobs.length);
+  const changeSize = (v: string) => {
+    setPageSize(Number(v));
+    setPage(1);
+  };
+  const barProps = { pageSize, totalPages, safePage, rangeStart, rangeEnd, total: jobs.length, onPage: setPage, onSize: changeSize };
   return (
     <>
+      <JobsPageBar {...barProps} placement="down" />
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {jobs.map((j) => (
+        {paged.map((j) => (
           <li key={j.id} data-spot="" className="sx-stadium-panel p-4">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-faint">{j.id}</p>
-            <p className="mt-1 text-sm font-semibold tracking-tight">{j.name}</p>
+            <p className="text-sm font-semibold tracking-tight">{j.name}</p>
             <p className="mt-1 text-xs tabular-nums text-accent">{j.price} per athlete</p>
             <button
               type="button"
@@ -958,6 +1001,9 @@ export function JobsCatalog({ jobs, submit }: { jobs: LiveJob[]; submit?: BriefS
           </li>
         ))}
       </ul>
+      <div className="pt-2">
+        <JobsPageBar {...barProps} placement="up" />
+      </div>
       <BriefRequestDrawer seed={seed} onClose={() => setSeed(null)} submit={submit} />
     </>
   );
