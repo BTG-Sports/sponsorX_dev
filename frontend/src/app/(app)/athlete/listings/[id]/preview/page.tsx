@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ArenaHead } from "@/components/arena-stage";
 import { EmptyState } from "@/components/states";
 import { ListingShopPreview } from "@/components/listing-shop-preview";
 import type { ApiAthleteListing } from "@/lib/athlete-listings-live";
@@ -29,6 +30,11 @@ import { requirePortalAccess } from "@/server/portal";
    An independent athlete's listing has no property: the shop names them
    as the seller (sellerLine). A team's listing of the athlete's item shows
    the team by name only — the athlete can't read the team's place.
+
+   P1-ART-22 (2026-10-11) — on the Arena: ListingShopPreview `arena` draws
+   the title row as an ArenaHead (back link as its action) and the preview
+   banner on a plate; the not-found answer sits under the same head. Visual
+   only — same reads, still no writes.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -50,9 +56,14 @@ export default async function AthleteListingPreviewPage({ params }: { params: Pr
   if (res.status === 403 || res.status === 404) {
     return (
       <div className="space-y-6">
-        <Link href="/athlete/listings" className="text-xs text-muted hover:text-text">
-          ← List my item
-        </Link>
+        <ArenaHead
+          title="Preview"
+          actions={
+            <Link href="/athlete/listings" className="rounded-md text-xs font-medium text-muted outline-none transition-colors hover:text-text focus-visible:ring-2 focus-visible:ring-athlete/50">
+              ← Listings
+            </Link>
+          }
+        />
         <EmptyState mark="inbox" title="No listing of yours matches this link" hint="It may be someone else’s listing, or the link is wrong." action={{ label: "Your listings", href: "/athlete/listings" }} />
       </div>
     );
@@ -80,6 +91,7 @@ export default async function AthleteListingPreviewPage({ params }: { params: Pr
       notes={previewNotes(listing, nowMs)}
       gaps={previewGaps(listing, src, false)}
       back={{ href: `/athlete/listings/${encodeURIComponent(id)}`, label: "Back to your listing" }}
+      arena
     />
   );
 }

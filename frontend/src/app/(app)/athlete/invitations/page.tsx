@@ -1,4 +1,7 @@
-import { BlockedNotice, StatTile } from "@/components/ui";
+import type { CSSProperties, ReactNode } from "react";
+
+import { ArenaHead, ArenaTile, ArenaTiles, at } from "@/components/arena-stage";
+import { BlockedNotice } from "@/components/ui";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { InvitationsInbox, type InboxInitial } from "@/components/invitations-inbox";
 import { demoState } from "@/lib/demo";
@@ -42,6 +45,13 @@ import { respondToInvite } from "./actions";
    not signing: the Campaign Order BTG drafts afterwards is what gets hashed
    (P5-FE-01), so the counsel block on order acceptance does not apply here.
    Anyone else, or any ?demo= state, keeps the fixture demo.
+
+   P1-ART-22 (2026-10-11) — redrawn on the Arena (components/arena-stage.tsx)
+   as a dashboard: a small title with the provenance pill and one lede line,
+   then four KPI plates — the same four figures as before, every one from
+   GET /invitations/summary (the fixture strip in demo mode) — then the
+   island, whose cards are now arena plates. The reads, the server action
+   and the island's behaviour are unchanged.
    -------------------------------------------------------------------------- */
 
 /* SERVER-PAGED (2026-09-29). The live inbox is ONE page of GET
@@ -51,6 +61,8 @@ import { respondToInvite } from "./actions";
    not the current filter. "Open" is the API's: answerable and not past its
    expiry; a lapsed invite the sweep hasn't reached counts as expired. */
 type LiveInbox = { list: ApiInvitationPage; summary: ApiInvitationSummary };
+
+const TITLE = "Campaign invitations";
 
 /** The signed-in athlete's real inbox page, or null for the demo. */
 async function liveInbox(sp: SearchParams): Promise<LiveInbox | null> {
@@ -72,6 +84,21 @@ async function liveInbox(sp: SearchParams): Promise<LiveInbox | null> {
   };
 }
 
+/** A KPI plate whose figure is words, not a number ("2 days" to the next
+ *  expiry) — the same plate as ArenaTile, without the count-up. */
+function TextPlate({ label, value, caption, hot = false, delay }: { label: string; value: string; caption: ReactNode; hot?: boolean; delay: number }) {
+  return (
+    <div data-spot="" className="sx-arena-plate sx-arena-in relative px-4 pb-4 pt-3.5" style={at(delay, { "--tone": hot ? "var(--ar-flare)" : "var(--ar)" } as CSSProperties)}>
+      <span aria-hidden="true" className="sx-arena-shine" />
+      <dt className="pl-4 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">{label}</dt>
+      <dd className="mt-1.5 pl-4">
+        <span className={`sx-arena-num block truncate text-[28px] leading-none ${hot ? "text-accent" : "text-text"}`}>{value}</span>
+        <span className="mt-1.5 block truncate text-[11px] text-faint">{caption}</span>
+      </dd>
+    </div>
+  );
+}
+
 export default async function InvitationsPage({
   searchParams,
 }: {
@@ -84,6 +111,8 @@ export default async function InvitationsPage({
   const sp = await searchParams;
   const live = demo === null ? await liveInbox(sp) : null;
   const now = new Date();
+  const readAt = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const pill = live ? `Postgres · read ${readAt}` : "Sample inbox";
   const rows: InboxRow[] = live
     ? live.list.invitations.map((r) => toInboxRow(r, now))
     : invitations.map(fixtureInboxRow);
@@ -94,14 +123,7 @@ export default async function InvitationsPage({
   if (demo === "empty" || (live && live.summary.total === 0)) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            Campaign invitations
-          </h1>
-          <p className="mt-1 text-xs text-muted">
-            When a sponsor invites you to a campaign, it lands here.
-          </p>
-        </div>
+        <ArenaHead title={TITLE} pill={pill} lede="When a sponsor invites you to a campaign, it lands here." />
         <EmptyState
           mark="inbox"
           title="No invitations yet"
@@ -139,19 +161,49 @@ export default async function InvitationsPage({
         resolved: live.summary.resolved,
       }
     : fixtureStats(rows);
+  const nextHot = Boolean(stats.next && /hour|expired/.test(stats.next.in));
 
   return (
     <div className="space-y-6">
       {/* -------------------------------------------------------- headline */}
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">
-          Campaign invitations
-        </h1>
-        <p className="mt-1 text-xs text-muted">
-          Sponsors have invited you to these campaigns — review the terms and
-          respond before an invitation expires.
-        </p>
-      </div>
+      <ArenaHead
+        title={TITLE}
+        pill={pill}
+        lede="Sponsors have invited you to these campaigns — review the terms and respond before an invitation expires."
+      >
+        {/* ---------------------------------------------------- KPI plates */}
+        <ArenaTiles>
+          <ArenaTile
+            label="Awaiting response"
+            value={stats.open}
+            caption={`of ${stats.total} total invitation${stats.total === 1 ? "" : "s"}`}
+            tone={stats.open ? "flare" : "ink"}
+            delay={0.1}
+          />
+          <ArenaTile
+            label="Offers on the table"
+            value={stats.openValue}
+            format="usd"
+            caption="across open invitations"
+            tone={stats.openValue ? "blue" : "ink"}
+            delay={0.16}
+          />
+          <TextPlate
+            label="Next expiry"
+            value={stats.next ? stats.next.in : "—"}
+            caption={stats.next ? stats.next.sub : "nothing expiring"}
+            hot={nextHot}
+            delay={0.22}
+          />
+          <ArenaTile
+            label="Accepted"
+            value={stats.accepted}
+            caption={`of ${stats.resolved} resolved`}
+            tone={stats.accepted ? "win" : "ink"}
+            delay={0.28}
+          />
+        </ArenaTiles>
+      </ArenaHead>
 
       {/* C-2 (check pass): a signed-in non-athlete here — a guardian, or staff
           previewing — gets the sample inbox, so say so; it must never read as
@@ -170,30 +222,6 @@ export default async function InvitationsPage({
           verified.
         </BlockedNotice>
       )}
-
-      {/* ------------------------------------------------------ stat strip */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile
-          label="Awaiting response"
-          value={String(stats.open)}
-          sub={`of ${stats.total} total invitations`}
-        />
-        <StatTile
-          label="Offers on the table"
-          value={money(stats.openValue)}
-          sub="across open invitations"
-        />
-        <StatTile
-          label="Next expiry"
-          value={stats.next ? stats.next.in : "—"}
-          sub={stats.next ? stats.next.sub : "nothing expiring"}
-        />
-        <StatTile
-          label="Accepted"
-          value={String(stats.accepted)}
-          sub={`of ${stats.resolved} resolved`}
-        />
-      </div>
 
       {/* --------------------------------------------------- inbox (island) */}
       <InvitationsInbox

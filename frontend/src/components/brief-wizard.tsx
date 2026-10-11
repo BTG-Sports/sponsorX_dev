@@ -46,7 +46,7 @@ import type { ApiSponsorRequestStatus } from "@/lib/sponsor-request-live";
 
 const TIMELINE = [
   { key: "received", title: "Received", tone: "success" as const },
-  { key: "matching", title: "Matching", sub: "BTG staff filter eligible athletes and check conflicts (§13, §26).", tone: "warn" as const },
+  { key: "matching", title: "Matching", sub: "BTG staff filter eligible athletes and check for competitor conflicts.", tone: "warn" as const },
   { key: "proposal", title: "Proposal", sub: "A priced shortlist to react to — no card, no commitment.", tone: "muted" as const },
 ];
 

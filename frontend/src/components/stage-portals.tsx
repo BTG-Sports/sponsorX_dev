@@ -11,10 +11,10 @@ import { useEffect } from "react";
    portals are untouched.
    -------------------------------------------------------------------------- */
 
-export function StagePortals() {
+export function StagePortals({ className = "sx-ops" }: { /** The stage's class — `sx-ops` (admin), `sx-arena` (athlete, P1-ART-22) or `sx-stadium` (sponsor, P1-ART-23). */ className?: string }) {
   useEffect(() => {
-    document.body.classList.add("sx-ops");
-    return () => document.body.classList.remove("sx-ops");
-  }, []);
+    document.body.classList.add(className);
+    return () => document.body.classList.remove(className);
+  }, [className]);
   return null;
 }

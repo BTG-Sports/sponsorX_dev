@@ -2,7 +2,8 @@ import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 
 import { PagerRow, PendingList, ServerList } from "@/components/server-pager";
-import type { PageInfo } from "@/lib/list-query";
+import type { FilterTone } from "@/components/filter-kit";
+import type { ListKeys, PageInfo } from "@/lib/list-query";
 
 /* --------------------------------------------------------------------------
    The stage table — P1-FE-31 (2026-10-07). One real <table> for every admin
@@ -142,6 +143,8 @@ export function PagedTable({
   columns,
   children,
   foot,
+  tone = "admin",
+  keys,
 }: {
   page: PageInfo;
   /** "Refunds" → "Refunds per page". */
@@ -153,17 +156,21 @@ export function PagedTable({
   children: ReactNode;
   /** A note under the table (a rule the desk follows). */
   foot?: ReactNode;
+  /** The portal's tint on the pager and size menu (P1-ART-22: the athlete desks pass "athlete"). */
+  tone?: FilterTone;
+  /** A second paged list on the same page gets its own URL keys. */
+  keys?: ListKeys;
 }) {
   const body = (
     <div className="space-y-3">
-      <PagerRow page={page} noun={noun} tone="admin" position="top" filtered={filtered} />
+      <PagerRow page={page} noun={noun} tone={tone} position="top" filtered={filtered} keys={keys} />
       <PendingList>
         <StageTable label={label} columns={columns}>
           {children}
         </StageTable>
       </PendingList>
       {foot}
-      <PagerRow page={page} noun={noun} tone="admin" position="bottom" />
+      <PagerRow page={page} noun={noun} tone={tone} position="bottom" keys={keys} />
     </div>
   );
   return bare ? body : <ServerList>{body}</ServerList>;

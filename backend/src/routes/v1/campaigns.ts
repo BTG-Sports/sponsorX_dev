@@ -14,8 +14,8 @@ import { Router, type RequestHandler } from "express";
 
 import { requireActor, type Actor } from "../../auth/actor";
 import {
-  allowedList, clampPage, pageInfo, pageRequest, readPage, searchTerm,
-  type PageInfo, type PageRequest,
+  allowedList, pageRequest, readPage, readSegments, searchTerm,
+  type PageInfo, type Segment,
 } from "../../lib/paging";
 import { can, scopeOf, whereFor } from "../../auth/scope";
 import { canReadField } from "../../auth/fields";
@@ -156,34 +156,8 @@ function briefOut(b: BriefRow, readiness?: Readiness, holds = false) {
   };
 }
 
-/* Offset reads over ORDERED SEGMENTS (2026-09-29). Some list orders are "this
-   group first, then that one" — the matching desk's APPROVED → CREATED →
-   QUALIFIED, the inbox's open-first urgency — which no single ORDER BY on a
-   column expresses. Each segment is its own WHERE + ORDER BY; the page is the
-   concatenation, sliced by offset, with the true total. Counts are passed in
-   (callers usually have them already, as tab counts); segments must be
-   disjoint. */
-type Segment<T> = { count: number; read: (skip: number, take: number) => Promise<T[]> };
-
-async function readSegments<T>(req: PageRequest, segments: Segment<T>[]): Promise<{ rows: T[]; page: PageInfo }> {
-  const total = segments.reduce((n, s) => n + s.count, 0);
-  const at = clampPage(req, total);
-  const rows: T[] = [];
-  let skip = at.skip;
-  let take = at.take;
-  for (const s of segments) {
-    if (take <= 0) break;
-    if (skip >= s.count) {
-      skip -= s.count;
-      continue;
-    }
-    const got = await s.read(skip, Math.min(take, s.count - skip));
-    rows.push(...got);
-    take -= got.length;
-    skip = 0;
-  }
-  return { rows, page: pageInfo(at, total) };
-}
+/* Offset reads over ORDERED SEGMENTS live in lib/paging.ts (readSegments)
+   since the athlete arena's lists needed them too (2026-10-11). */
 
 const BRIEF_STATES = ["DRAFT", "QUALIFIED", "APPROVED", "CAMPAIGN_CREATED", "CLOSED"] as const;
 /** The matching desk's order: what can send now, then what's live, then
@@ -541,6 +515,11 @@ const listCampaigns: RequestHandler = async (req, res) => {
   if (paged) {
     const q = searchTerm(req.query as Record<string, unknown>);
     const states = allowedList(req.query.state, CAMPAIGN_STATES);
+    /* ?review=true — the sponsor dashboard's "Posts waiting for your OK"
+       link (P1-ART-23): campaigns with at least one deliverable in
+       SPONSOR_REVIEW on a live order. liveScope-style (orders, not inScope):
+       a post on a cancelled or rejected order isn't waiting on anyone. */
+    const review = req.query.review === "true";
     const sortKey = typeof req.query.sort === "string" && req.query.sort in CAMPAIGN_SORTS ? (req.query.sort as keyof typeof CAMPAIGN_SORTS) : "newest";
     /* Delivery health (the admin desk, 2026-09-29). `?health=true` attaches
        each row's under-delivery flags; `?attention=true|false` keeps only
@@ -566,6 +545,7 @@ const listCampaigns: RequestHandler = async (req, res) => {
         whereFor(actor, "campaign", "read"),
         ...(q ? [{ name: { contains: q, mode: "insensitive" as const } }] : []),
         ...(states.length ? [{ state: { in: [...states] } }] : []),
+        ...(review ? [{ orders: { some: { ...LIVE_ORDER, deliverables: { some: { state: "SPONSOR_REVIEW" } } } } }] : []),
         ...(attention === true ? [{ id: { in: flagged } }] : attention === false ? [{ id: { notIn: flagged } }] : []),
       ],
     };

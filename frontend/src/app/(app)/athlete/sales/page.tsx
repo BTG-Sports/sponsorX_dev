@@ -1,8 +1,10 @@
+import { ArenaHead } from "@/components/arena-stage";
 import { SellerOrdersList } from "@/components/seller-orders";
 import { EmptyState } from "@/components/states";
 import { demoState } from "@/lib/demo";
-import { approvalsToList, type ApiSellerApproval } from "@/lib/order-automation-live";
-import type { ApiSellerOrder } from "@/lib/seller-orders-live";
+import { apiListQuery, apiListQueryFor, pageOrAll, textParam } from "@/lib/list-query";
+import { approvalsToList } from "@/lib/order-automation-live";
+import { APPROVAL_KEYS, salesTab, salesTabParam, salesTabs, type ApiApprovalList, type ApiSalesList } from "@/lib/seller-orders-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 
@@ -19,6 +21,17 @@ import { requirePortalAccess } from "@/server/portal";
           GET /sales   the caller's own sold lines and own share; the
                        sponsor's contact only once paid (2S4-BE-06)
    ?demo=loading|empty|error renders the branded states.
+
+   P1-ART-22 (2026-10-11) — SERVER-PAGED (memory: pagination-pattern), on
+   the Arena. The two reads now ask for one page each:
+     GET /sales?page&size[&tab=<key>][&q=]   → { sales, page, tabs }
+     GET /seller-approvals?page&size         → { approvals, page, counts }
+   The approvals keep their own URL keys (?apage / ?asize) so paging one
+   list never moves the other. The backend is being paged in parallel: an
+   answer without `page` / `tabs` / `counts` is taken as one page of what
+   came back (pageOrAll, salesTabs), and the legacy approvals list is still
+   trimmed by approvalsToList. The KPI plates and the tab counts are the
+   API's figures, never the rows on screen.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -27,13 +40,41 @@ export default async function AthleteSalesPage({ searchParams }: { searchParams:
   await requirePortalAccess("athlete");
   const demo = await demoState(searchParams);
   if (demo) return <SellerOrdersList kind="athlete" orders={[]} demo={demo} />;
-  const [res, appRes] = await Promise.all([apiFetch("/sales"), apiFetch("/seller-approvals").catch(() => null)]);
+  const sp = await searchParams;
+  const q = textParam(sp, "q");
+  const tabKey = salesTabParam(sp.tab);
+  const [res, appRes] = await Promise.all([
+    apiFetch(`/sales${apiListQuery(sp, { tab: tabKey, q })}`),
+    apiFetch(`/seller-approvals${apiListQueryFor(sp, APPROVAL_KEYS)}`).catch(() => null),
+  ]);
   if (res.status === 403) {
-    return <EmptyState mark="inbox" title="No athlete profile is linked to this login" hint="Your sales show here once your login is linked to your athlete profile." />;
+    return (
+      <div className="space-y-6">
+        <ArenaHead title="Orders" />
+        <EmptyState mark="inbox" title="No athlete profile is linked to this login" hint="Your sales show here once your login is linked to your athlete profile." />
+      </div>
+    );
   }
   if (!res.ok) return <SellerOrdersList kind="athlete" orders={[]} demo="error" />;
-  const { sales } = (await res.json()) as { sales: ApiSellerOrder[] };
+  const list = (await res.json()) as ApiSalesList;
+  const tabs = salesTabs(list);
+  const tab = salesTab(sp.tab, tabs);
   /* 2S4-FE-05 — a failed approvals read hides that list, never the page. */
-  const approvals = appRes?.ok ? approvalsToList(((await appRes.json()) as { approvals: ApiSellerApproval[] }).approvals) : [];
-  return <SellerOrdersList kind="athlete" orders={sales} approvals={approvals} now={new Date()} demo={null} />;
+  const app = appRes?.ok ? ((await appRes.json()) as ApiApprovalList) : null;
+  const approvals = app ? (app.page ? app.approvals : approvalsToList(app.approvals)) : [];
+  return (
+    <SellerOrdersList
+      kind="athlete"
+      orders={list.sales}
+      page={pageOrAll(list.sales, list.page)}
+      tabs={tabs}
+      tab={tab.key}
+      q={q}
+      approvals={approvals}
+      approvalsPage={app ? pageOrAll(approvals, app.page) : undefined}
+      approvalCounts={app?.counts}
+      now={new Date()}
+      demo={null}
+    />
+  );
 }

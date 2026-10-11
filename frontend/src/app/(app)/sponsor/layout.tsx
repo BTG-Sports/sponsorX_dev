@@ -1,24 +1,13 @@
 import { currentUser } from "@clerk/nextjs/server";
 
 import { requirePortalAccess } from "@/server/portal";
-import { PortalShell, type NavItem } from "@/components/portal-shell";
+import { PortalShell } from "@/components/portal-shell";
+import { SPONSOR_NAV } from "@/lib/sponsor-nav";
 
-/* Sidebar matches the mockup's nine items. Those without a route yet are
-   flagged `pending` and render as inert text rather than dead links. */
-const NAV: NavItem[] = [
-  { href: "/sponsor", label: "Dashboard", icon: "grid" },
-  { href: "/sponsor/marketplace", label: "Marketplace", icon: "store" },
-  { href: "/sponsor/campaigns", label: "Campaigns", icon: "megaphone" },
-  { href: "/sponsor/shop", label: "Shop", icon: "gift" },
-  { href: "/sponsor/cart", label: "Cart", icon: "card" },
-  { href: "/sponsor/orders", label: "Orders", icon: "file" },
-  { href: "#", label: "Analytics", icon: "chart", pending: true },
-  { href: "#", label: "Rewards", icon: "gift", pending: true },
-  { href: "#", label: "Leads", icon: "users", pending: true },
-  { href: "#", label: "Billing", icon: "card", pending: true },
-  { href: "#", label: "Messages", icon: "mail", pending: true },
-  { href: "#", label: "Settings", icon: "gear", pending: true },
-];
+import "./stadium.css";
+
+/* The sidebar takes the admin/athlete structure (P1-ART-23, lib/sponsor-nav.ts):
+   Dashboard alone on top, every other desk in a collapsible group. */
 
 /* Authorisation, not merely authentication (P2-BE-04). requirePortalAccess()
    resolves the Clerk identity to its Postgres tenant and roles and admits only
@@ -45,10 +34,12 @@ export default async function SponsorLayout({ children }: LayoutProps<"/sponsor"
   return (
     <PortalShell
       portal="sponsor"
-      nav={NAV}
+      nav={SPONSOR_NAV}
       rootHref="/sponsor"
       userName={clerkName || user?.primaryEmailAddress?.emailAddress || "Sponsor"}
       userRole={role}
+      /* P1-ART-23 — the whole sponsor portal on the Stadium Board. */
+      stage="stadium"
     >
       {children}
     </PortalShell>

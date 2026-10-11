@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ArenaHead } from "@/components/arena-stage";
 import { AthleteListCompose } from "@/components/athlete-listing-form";
 import { ListingItemCard, RosteredPanel } from "@/components/athlete-listing-bits";
 import { EmptyState } from "@/components/states";
@@ -24,6 +25,10 @@ import { sellerContext } from "../load";
    won't work with, and the payout account on Stripe (with its button). The
    design's "No restricted words" row is left out — BTG's restricted-words
    check doesn't run on listings yet (agreed 2026-10-01: listings follow).
+
+   P1-ART-22 (2026-10-11) — on the Arena: the title row is an ArenaHead with
+   the back link as its action; the compose island slides in under it.
+   Visual only — same reads, same writes.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -35,10 +40,19 @@ export default async function NewAthleteListingPage({ searchParams }: { searchPa
   if (!itemId) redirect("/athlete/listings");
 
   const heading = (
-    <div>
-      <Link href="/athlete/listings" className="text-xs text-muted hover:text-text">← List my item</Link>
-      <h1 className="mt-2 text-xl font-semibold tracking-tight">List my item</h1>
-      <p className="mt-1 text-xs text-muted">Put an item from your inventory on the marketplace. It goes live as soon as the checks pass.</p>
+    <ArenaHead
+      title="List my item"
+      lede="Put an item from your inventory on the marketplace. It goes live as soon as the checks pass."
+      actions={
+        <Link href="/athlete/listings" className="rounded-md text-xs font-medium text-muted outline-none transition-colors hover:text-text focus-visible:ring-2 focus-visible:ring-athlete/50">
+          ← Listings
+        </Link>
+      }
+    />
+  );
+  const body = (children: React.ReactNode) => (
+    <div className="sx-arena-in" style={{ "--sx-reveal-delay": "0.12s" } as React.CSSProperties}>
+      {children}
     </div>
   );
 
@@ -47,7 +61,7 @@ export default async function NewAthleteListingPage({ searchParams }: { searchPa
     return (
       <div className="space-y-6">
         {heading}
-        <EmptyState mark="inbox" title="That item isn’t yours to list" hint="Only items in your own Inventory can be listed." action={{ label: "Choose an item", href: "/athlete/listings" }} />
+        {body(<EmptyState mark="inbox" title="That item isn’t yours to list" hint="Only items in your own Inventory can be listed." action={{ label: "Choose an item", href: "/athlete/listings" }} />)}
       </div>
     );
   }
@@ -61,7 +75,7 @@ export default async function NewAthleteListingPage({ searchParams }: { searchPa
     return (
       <div className="space-y-6">
         {heading}
-        <RosteredPanel teamName={team.teamName} />
+        {body(<RosteredPanel teamName={team.teamName} />)}
       </div>
     );
   }
@@ -71,7 +85,7 @@ export default async function NewAthleteListingPage({ searchParams }: { searchPa
     return (
       <div className="space-y-6">
         {heading}
-        <EmptyState mark="inbox" title="This item already has a listing" hint="One listing per item. Open it to see where it stands." action={{ label: "Open the listing", href: `/athlete/listings/${existing.id}` }} />
+        {body(<EmptyState mark="inbox" title="This item already has a listing" hint="One listing per item. Open it to see where it stands." action={{ label: "Open the listing", href: `/athlete/listings/${existing.id}` }} />)}
       </div>
     );
   }
@@ -83,13 +97,15 @@ export default async function NewAthleteListingPage({ searchParams }: { searchPa
   return (
     <div className="space-y-6">
       {heading}
-      <AthleteListCompose
-        itemId={item.id}
-        itemTitle={item.title}
-        initial={initial}
-        checks={checks}
-        itemCard={<ListingItemCard item={item} owner={ctx.displayName ?? item.title} listing={null} />}
-      />
+      {body(
+        <AthleteListCompose
+          itemId={item.id}
+          itemTitle={item.title}
+          initial={initial}
+          checks={checks}
+          itemCard={<ListingItemCard item={item} owner={ctx.displayName ?? item.title} listing={null} />}
+        />,
+      )}
     </div>
   );
 }

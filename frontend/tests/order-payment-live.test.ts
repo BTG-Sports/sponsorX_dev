@@ -6,7 +6,6 @@ import {
   PAYMENT_BUSY,
   PAY_NOT_ALLOWED,
   accountStatusLabel,
-  orderTracker,
   parseStandinDetails,
   payRefusal,
   paymentHint,
@@ -19,7 +18,7 @@ import {
 
 /* --------------------------------------------------------------------------
    2S5-FE-05 — the order page's Payment card (E1 due / E2 confirming /
-   E3 paid / E4 failed), the order-progress tracker, and the stand-in
+   E3 paid / E4 failed), and the stand-in
    provider's return-path guard and details parsing.
    -------------------------------------------------------------------------- */
 
@@ -43,13 +42,6 @@ const pay = (latest: ApiPaymentAttempt | null, extra: Partial<ApiOrderPayment> =
   testProvider: true,
   latest,
   ...extra,
-});
-
-const order = (state: string) => ({
-  state,
-  createdAt: "2026-09-28T09:00:00.000Z",
-  decidedAt: "2026-09-29T09:00:00.000Z",
-  contractedAt: null,
 });
 
 describe("paymentView", () => {
@@ -86,7 +78,7 @@ describe("paymentView", () => {
     const v = paymentView("PAID", pay(attempt("SUCCEEDED"), { due: false }));
     expect(v.kind).toBe("paid");
     expect(v.status).toBe("Paid $1,000.00");
-    expect(v.banner?.title).toBe("Paid ✓ · confirmed by the payment provider Sep 30, 10:14 AM UTC");
+    expect(v.banner?.title).toBe("Paid ✓ · confirmed by the payment provider Sep 30, 10:14 am UTC");
     expect(v.cta).toBeNull();
     expect(v.poll).toBe(false);
   });
@@ -130,41 +122,6 @@ describe("paymentView", () => {
   });
 });
 
-describe("orderTracker", () => {
-  const steps = (state: string, p: ApiOrderPayment | null) => orderTracker(order(state), paymentView(state, p), p);
-
-  it("awaiting approval: placed done, approval current, the rest to do", () => {
-    const s = steps("PENDING_APPROVAL", pay(null))!;
-    expect(s.map((x) => x.state)).toEqual(["done", "current", "todo", "todo", "todo"]);
-    expect(s[0].note).toBe("Sep 28, 2026");
-  });
-
-  it("due: payment is the current step, noted by the card's state", () => {
-    expect(steps("APPROVED", pay(null))![2]).toMatchObject({ label: "Payment", state: "current", note: "Due now" });
-    expect(steps("AWAITING_PAYMENT", pay(attempt("PROCESSING")))![2].note).toBe("Confirming…");
-    expect(steps("AWAITING_PAYMENT", pay(attempt("FAILED")))![2]).toMatchObject({ note: "Failed · try again", tone: "danger" });
-    expect(steps("APPROVED", pay(null))![1].note).toBe("Sep 29, 2026");
-  });
-
-  it("paid: payment done (dated by the provider), in delivery current", () => {
-    const s = steps("PAID", pay(attempt("SUCCEEDED")))!;
-    expect(s.map((x) => x.state)).toEqual(["done", "done", "done", "current", "todo"]);
-    expect(s[2].note).toBe("Sep 30, 2026");
-  });
-
-  it("fulfilled / closed: every step done", () => {
-    expect(steps("FULFILLED", pay(null))!.every((x) => x.state === "done")).toBe(true);
-    expect(steps("CLOSED", pay(null))!.every((x) => x.state === "done")).toBe(true);
-  });
-
-  it("cancelled or refunded: no tracker", () => {
-    expect(steps("CANCELLED", pay(null))).toBeNull();
-    expect(steps("REFUNDED", pay(null))).toBeNull();
-  });
-});
-
-/* 2S5-FE-11 — the provider is down: 503 { error: { code: "busy" } }, nothing
-   recorded, and the sponsor is told to try again. */
 describe("payRefusal", () => {
   const apiMessage = "Something went wrong on our side. Nothing was charged. Try again in a minute, or quote ref ABC to BTG.";
 

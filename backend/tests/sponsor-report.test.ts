@@ -19,7 +19,7 @@ vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://sponsorx.example"
 vi.mock("../src/db/client", () => ({ prisma: {} }));
 
 const {
-  mediaValueFor, observationsFor,
+  mediaValueFor, observationsFor, sponsorSpendCents, buildSponsorReport,
 } = await import("../src/domain/sponsor-report");
 type SponsorReport = Awaited<
   ReturnType<typeof import("../src/domain/sponsor-report").assembleSponsorReport>
@@ -161,5 +161,38 @@ describe("nothing is invented", () => {
 
   it("returns the funnel as four counts, not one", () => {
     expect(source).toMatch(/funnel:\s*Record<RewardEventType, number>/);
+  });
+});
+
+/* P1-ART-23 — ONE spend rule for cost per 1,000, shared with the sponsor
+   overview (sponsor-overview.test.ts pins the overview's side over the same
+   rows): live orders' sell price plus NEXT ad placements' sold cents. */
+describe("the report's spend is the shared rule", () => {
+  const orders = [
+    { id: "o1", state: "ACTIVE", jobId: "SX-1", athleteId: "a1", compensation: 150000, sellPrice: 200000, athlete: { displayName: "A" }, deliverables: [] },
+    { id: "o2", state: "COMPLETED", jobId: "SX-1", athleteId: "a2", compensation: 70000, sellPrice: 100000, athlete: { displayName: "B" }, deliverables: [] },
+    { id: "o3", state: "CANCELLED", jobId: "SX-1", athleteId: "a3", compensation: 40000, sellPrice: 50000, athlete: { displayName: "C" }, deliverables: [] },
+    { id: "o4", state: "REJECTED", jobId: "SX-1", athleteId: "a4", compensation: 8000, sellPrice: 10000, athlete: { displayName: "D" }, deliverables: [] },
+  ];
+  const adSlots = [
+    { id: "s1", slotCode: "P04-QTR", kind: "QUARTER_PAGE", editionId: "e1", soldCents: 100000 },
+    { id: "s2", slotCode: "P05-QTR", kind: "QUARTER_PAGE", editionId: "e1", soldCents: null },
+  ];
+
+  it("excludes CANCELLED and REJECTED orders, adds ad placements, never uses compensation", () => {
+    expect(sponsorSpendCents({ orders, adSlots })).toBe(400000);
+    expect(sponsorSpendCents({ orders: [], adSlots: [] })).toBe(0);
+  });
+
+  it("buildSponsorReport's media value is computed on exactly that spend", async () => {
+    const { prisma } = await import("../src/db/client");
+    Object.assign(prisma as object, {
+      campaign: { findFirst: async () => ({ id: "c1", name: "Autumn", state: "ACTIVE", startDate: new Date("2026-09-01"), endDate: null, budget: 500000, brief: null, orders, adSlots, rewards: [] }) },
+      metricDaily: { findMany: async () => [{ source: "VERIFIED_API", views: 200000, engagements: 0 }] },
+      editionEvent: { groupBy: async () => [] },
+    });
+    const report = await buildSponsorReport({ id: "c1", tenantId: "t1" });
+    expect(report!.mediaValue).toEqual(mediaValueFor({ spend: 400000, verifiedViews: 200000 }));
+    expect(report!.mediaValue.amount).toBe(2000);
   });
 });

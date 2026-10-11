@@ -34,9 +34,56 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { foldRows, type MetricBreakdown } from "./metric";
 import { type RewardEventType } from "./reward-state";
-import { breakdown as moneyBreakdown } from "./earning";
 import { foldEngagement, type EditionEngagement } from "./edition";
 import { brandingView, type Branding } from "./branding";
+import type { OrderState } from "./order-state";
+
+/** Orders that never went ahead — no spend, and no deliverables owed. Mutable
+ *  for Prisma's generated `notIn` filter type. */
+export const NOT_LIVE_ORDER_STATES: OrderState[] = ["CANCELLED", "REJECTED"];
+
+/**
+ * THE spend rule behind every cost per 1,000 — the report's media value
+ * (buildSponsorReport) and the sponsor overview's all-time figure
+ * (sponsor-overview.ts) both use it, so the two cannot disagree.
+ *
+ * Spend is what the SPONSOR is paying: the sell price of every LIVE order
+ * (not CANCELLED or REJECTED — an order that never went ahead bought
+ * nothing), plus any NEXT ad placements at their frozen sale value
+ * (P9-BE-12). Never athlete compensation: a media value computed against
+ * athlete cost would flatter the number by exactly BTG's margin. Pure.
+ */
+export function sponsorSpendCents(input: {
+  orders: readonly { state: string; sellPrice: number }[];
+  adSlots: readonly { soldCents: number | null }[];
+}): number {
+  const notLive: readonly string[] = NOT_LIVE_ORDER_STATES;
+  const orders = input.orders.filter((o) => !notLive.includes(o.state)).reduce((n, o) => n + o.sellPrice, 0);
+  return input.adSlots.reduce((n, s) => n + (s.soldCents ?? 0), orders);
+}
+
+/**
+ * `sponsorSpendCents` summed in the database over campaigns the CALLER has
+ * already scoped (the overview passes ids from whereFor(actor, "campaign")).
+ * `ordersCents` is the live orders' sell price alone — the overview's
+ * `money.contractedCents`; `spendCents` adds the ad placements.
+ */
+export async function sponsorSpendFor(campaignIds: string[]): Promise<{ ordersCents: number; adSlotCents: number; spendCents: number }> {
+  if (!campaignIds.length) return { ordersCents: 0, adSlotCents: 0, spendCents: 0 };
+  const [orders, slots] = await Promise.all([
+    prisma.campaignOrder.aggregate({
+      /* tenant-scope: keyed by campaign ids the caller scoped through whereFor. */
+      where: { campaignId: { in: campaignIds }, state: { notIn: NOT_LIVE_ORDER_STATES } }, _sum: { sellPrice: true },
+    }),
+    prisma.adSlot.aggregate({
+      /* tenant-scope: keyed by campaign ids the caller scoped through whereFor. */
+      where: { campaignId: { in: campaignIds } }, _sum: { soldCents: true },
+    }),
+  ]);
+  const ordersCents = orders._sum?.sellPrice ?? 0;
+  const adSlotCents = slots._sum?.soldCents ?? 0;
+  return { ordersCents, adSlotCents, spendCents: ordersCents + adSlotCents };
+}
 
 export class ReportNotAvailableError extends Error {
   readonly status = 409;
@@ -299,16 +346,8 @@ export async function buildSponsorReport(
         _count: true,
       })
     : [];
-  const adSpend = campaign.adSlots.reduce((sum, s) => sum + (s.soldCents ?? 0), 0);
-
-  /* Spend is what the SPONSOR paid — including any NEXT ad placements, at
-     their frozen sale value (P9-BE-12) — the sell price of every line, not what
-     the athletes were paid. A media value computed against athlete cost would
-     flatter the number by exactly BTG's margin. */
-  const spend = campaign.orders.reduce(
-    (sum, o) => sum + moneyBreakdown({ compensation: o.compensation, sellPrice: o.sellPrice }).sellPrice,
-    adSpend,
-  );
+  /* Spend: THE rule (sponsorSpendCents), shared with the sponsor overview. */
+  const spend = sponsorSpendCents({ orders: campaign.orders, adSlots: campaign.adSlots });
 
   const withoutObservations: Omit<SponsorReport, "observations"> = {
     campaign: {

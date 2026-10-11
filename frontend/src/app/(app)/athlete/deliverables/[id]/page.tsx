@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BackLink } from "@/components/back-link";
-import { Badge, Card, SectionHeading } from "@/components/ui";
+import { ArenaChip, ArenaHead, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, type ArenaTone } from "@/components/arena-stage";
+import { Badge } from "@/components/ui";
 import { MiniChip } from "@/components/hero";
 import { DeliverableUpload, PublishProof } from "@/components/deliverable-upload";
 import {
+  daysUntil,
   dueLabel,
   isOverdue,
   nextStep,
@@ -23,26 +25,49 @@ import { markPublished, presignUpload, registerUpload, submitDraft } from "./act
    offers follows §21 exactly: upload while NOT_STARTED (which also submits),
    upload a new version while a revision is open, publish once APPROVED, and
    otherwise say whose move it is.
+
+   P1-ART-22 (2026-10-11) — visual only, on the Arena: ArenaHead (the title,
+   the step as a chip, campaign · sponsor · job as the lede, the back link
+   as a pill), a KPI row from this same read (days left or overdue,
+   versions uploaded, automatic checks passed), the revision notice and the
+   versions list as plates, the action rail as a plate lit under the
+   pointer. Every read, action and island (DeliverableUpload, PublishProof)
+   is unchanged.
    -------------------------------------------------------------------------- */
 
 const fmt = (iso: string) =>
   new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 
+const TONE: Record<"primary" | "warn" | "accent" | "neutral" | "danger", ArenaTone> = {
+  primary: "blue", warn: "warn", accent: "win", neutral: "ink", danger: "danger",
+};
+
+function BackPill() {
+  return (
+    <Link
+      href="/athlete/deliverables"
+      className="sx-btn-secondary inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-xs font-medium text-text outline-none focus-visible:ring-2 focus-visible:ring-athlete focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+    >
+      <span aria-hidden="true">←</span>
+      Deliverables
+    </Link>
+  );
+}
+
 export default async function DeliverablePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const back = { href: "/athlete/deliverables", label: "Back to deliverables" };
 
   const who = await fetchActor();
   const isAthlete = who.status === "linked" && who.actor.roles.includes("ATHLETE");
   const isGuardian = who.status === "linked" && who.actor.roles.includes("GUARDIAN");
   if (!isAthlete && !isGuardian) {
     return (
-      <div className="space-y-4">
-        <BackLink target={back} />
-        <Card>
+      <div className="space-y-6">
+        <ArenaHead title="Deliverable" actions={<BackPill />} />
+        <ArenaPanel delay={0.1}>
           <p className="text-sm font-medium">Sign in as the athlete to open a deliverable</p>
           <p className="mt-1 text-xs text-muted">The calendar shows a demo in the meantime.</p>
-        </Card>
+        </ArenaPanel>
       </div>
     );
   }
@@ -57,35 +82,58 @@ export default async function DeliverablePage({ params }: { params: Promise<{ id
   const route = submittedRoute(d);
   const overdue = isOverdue(d, today);
   const canUpload = isAthlete && (d.state === "NOT_STARTED" || Boolean(d.revision));
+  const days = daysUntil(d.dueDate, today);
+  const done = step.on === "done";
+  const checksOk = d.checks ? d.checks.filter((c) => c.ok).length : 0;
+  const readAt = today.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
   return (
     <div className="space-y-6">
-      <BackLink target={back} />
-
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight">{d.title}</h1>
+      <ArenaHead
+        title={d.title}
+        pill={`Postgres · read ${readAt}`}
+        lede={
+          <span className="flex flex-wrap items-center gap-2">
+            <ArenaChip tone={TONE[step.tone]}>{step.label}</ArenaChip>
             {d.appearance && <MiniChip kind="warn">APPEARANCE</MiniChip>}
-            <Badge tone={step.tone}>{step.label}</Badge>
-          </div>
-          <p className="mt-1 text-xs text-muted">
-            {d.campaign.name} · {d.campaign.sponsorName} · {d.jobId} {d.jobName}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-[11px] text-muted">Due</p>
-          <p className="text-sm font-semibold">{fmt(d.dueDate)}</p>
-          <p className={`text-[11px] ${overdue ? "font-medium text-danger" : "text-faint"}`}>
-            {step.on === "done" ? "complete" : dueLabel(d.dueDate, today)}
-          </p>
-        </div>
-      </div>
+            <span>{d.campaign.name} · {d.campaign.sponsorName} · {d.jobId} {d.jobName}</span>
+          </span>
+        }
+        actions={<BackPill />}
+      >
+        {/* The figures, all from this one read: the clock, the versions, the checks. */}
+        <ArenaTiles cols={d.checks ? 3 : 2}>
+          {done ? (
+            <ArenaTile label="Complete" value={d.assets.length} caption={`verified · was due ${fmt(d.dueDate)}`} tone="win" delay={0.1} />
+          ) : days < 0 ? (
+            <ArenaTile label="Days overdue" value={-days} caption={`was due ${fmt(d.dueDate)}`} tone={overdue ? "danger" : "warn"} delay={0.1} />
+          ) : (
+            <ArenaTile label="Days left" value={days} caption={`${dueLabel(d.dueDate, today)} · ${fmt(d.dueDate)}`} tone={days <= 2 ? "flare" : "blue"} delay={0.1} />
+          )}
+          <ArenaTile
+            label="Versions uploaded"
+            value={d.assets.length}
+            caption={d.assets.length ? "BTG reviews the latest" : "nothing uploaded yet"}
+            tone={d.assets.length ? "blue" : "ink"}
+            delay={0.16}
+          />
+          {d.checks && (
+            <ArenaTile
+              label="Checks passed"
+              value={checksOk}
+              caption={`of ${d.checks.length} automatic checks`}
+              tone={checksOk === d.checks.length ? "win" : "warn"}
+              share={d.checks.length ? checksOk / d.checks.length : undefined}
+              delay={0.22}
+            />
+          )}
+        </ArenaTiles>
+      </ArenaHead>
 
       {d.revision && d.revision.by === "SYSTEM" ? (
         /* P5-BE-09 — the automatic checks sent it back: each failure in
            words. It hasn't gone to BTG; fixing these and resubmitting does. */
-        <Card className="border-danger/30 bg-danger/5">
+        <ArenaPanel tone="danger" delay={0.28}>
           <p className="text-xs font-semibold text-danger">Fix before review</p>
           <p className="mt-1 text-xs leading-relaxed text-text">
             Your draft didn&rsquo;t pass our automatic checks, so it hasn&rsquo;t gone to BTG yet:
@@ -101,44 +149,50 @@ export default async function DeliverablePage({ params }: { params: Promise<{ id
           <p className="mt-2 text-[10px] text-faint">
             Checked {fmt(d.revision.at)} · fix these and submit again below
           </p>
-        </Card>
+        </ArenaPanel>
       ) : d.revision ? (
-        <Card className="border-danger/30 bg-danger/5">
+        <ArenaPanel tone="danger" delay={0.28}>
           <p className="text-xs font-semibold text-danger">Changes requested</p>
           <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-text">{d.revision.reason}</p>
           <p className="mt-2 text-[10px] text-faint">
             Asked {fmt(d.revision.at)} · {d.checks ? "make the change and resubmit below" : "upload a new version to answer it"}
           </p>
-        </Card>
+        </ArenaPanel>
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
         <section className="min-w-0">
-          <SectionHeading
+          <ArenaSection
             title="Versions"
             hint={d.assets.length ? `${d.assets.length} uploaded — BTG reviews the latest` : "nothing uploaded yet"}
+            delay={0.32}
           />
-          <Card className="p-0">
+          <ArenaPanel flush delay={0.36} className="pl-2">
             {d.assets.length === 0 ? (
-              <p className="px-4 py-6 text-center text-xs text-muted">
+              <p className="px-5 py-6 text-center text-xs text-muted">
                 {d.appearance
                   ? "Upload a photo or short video from the appearance as proof."
                   : "Your first upload goes to BTG for review."}
               </p>
             ) : (
-              <ul className="divide-y divide-line-soft">
+              <ul>
                 {d.assets.map((a, i) => (
-                  <li key={a.version} className="flex items-center justify-between px-4 py-3 text-xs">
-                    <span className="font-medium">
-                      Version {a.version}
-                      {i === 0 && <span className="ml-2 text-[10px] font-normal text-athlete">latest</span>}
+                  <li key={a.version} className="flex items-center justify-between gap-3 border-b border-line-soft px-5 py-3.5 text-xs last:border-0">
+                    <span className="flex items-center gap-3">
+                      <span className="grid size-9 shrink-0 place-items-center rounded-xl border border-athlete/25 bg-athlete/10">
+                        <span className="sx-arena-num text-sm text-athlete">v{a.version}</span>
+                      </span>
+                      <span className="font-medium">
+                        Version {a.version}
+                        {i === 0 && <ArenaChip tone="blue">latest</ArenaChip>}
+                      </span>
                     </span>
                     <span className="text-[11px] text-faint">{fmt(a.uploadedAt)}</span>
                   </li>
                 ))}
               </ul>
             )}
-          </Card>
+          </ArenaPanel>
           {d.publishedUrl && (
             <p className="mt-3 text-[11px] text-muted">
               Live at{" "}
@@ -149,10 +203,10 @@ export default async function DeliverablePage({ params }: { params: Promise<{ id
           )}
         </section>
 
-        <Card>
+        <ArenaPanel tone={canUpload ? "flare" : d.state === "APPROVED" && isAthlete ? "win" : "blue"} delay={0.4} spot>
           {canUpload ? (
             <>
-              <SectionHeading title={d.revision ? "Upload the revised version" : d.appearance ? "Upload proof" : "Upload your draft"} />
+              <ArenaSection title={d.revision ? "Upload the revised version" : d.appearance ? "Upload proof" : "Upload your draft"} />
               <DeliverableUpload
                 deliverableId={d.id}
                 firstUpload={d.state === "NOT_STARTED"}
@@ -168,7 +222,7 @@ export default async function DeliverablePage({ params }: { params: Promise<{ id
             </>
           ) : d.state === "APPROVED" && isAthlete ? (
             <>
-              <SectionHeading title="Publish it" />
+              <ArenaSection title="Publish it" />
               <p className="mb-3 text-[11px] leading-relaxed text-muted">
                 Approved — post it with the disclosure BTG gave you, then paste
                 the link here.
@@ -177,7 +231,7 @@ export default async function DeliverablePage({ params }: { params: Promise<{ id
             </>
           ) : (
             <>
-              <SectionHeading title="Where it stands" />
+              <ArenaSection title="Where it stands" />
               {/* P5-BE-10 — where the submitted draft went: straight to the
                   sponsor (it skipped BTG's review), or to BTG first. */}
               {route && (
@@ -194,7 +248,7 @@ export default async function DeliverablePage({ params }: { params: Promise<{ id
               </p>
               {/* P5-BE-09 — what was submitted, and that it passed the checks. */}
               {d.caption && (
-                <p className="mt-3 whitespace-pre-wrap break-words rounded-lg border border-line bg-surface-2/60 px-3 py-2 text-[11px] leading-relaxed text-text">
+                <p className="mt-3 whitespace-pre-wrap break-words rounded-xl border border-line bg-surface-2/60 px-3 py-2 text-[11px] leading-relaxed text-text">
                   {d.caption}
                 </p>
               )}
@@ -203,7 +257,7 @@ export default async function DeliverablePage({ params }: { params: Promise<{ id
               )}
             </>
           )}
-        </Card>
+        </ArenaPanel>
       </div>
     </div>
   );

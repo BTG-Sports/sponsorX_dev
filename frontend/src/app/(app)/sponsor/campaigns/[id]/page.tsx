@@ -1,34 +1,39 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
+
 import { BackLink } from "@/components/back-link";
-import { Badge, BlockedNotice, Card, Meter, SectionHeading } from "@/components/ui";
-import { AreaChart, HBarList, RadialGauge, compact } from "@/components/charts";
-import { HeroBand, MiniChip, Monogram, initials } from "@/components/hero";
-import { EmptyState, SkeletonPage } from "@/components/states";
-import { resolveBack } from "@/lib/back";
-import {
-  FLAG_HINTS,
-  ORDER_COPY,
-  ORDER_TONE,
-  PACE_COPY,
-  fmtRate,
-  paceFor,
-  paceProjection,
-} from "@/lib/campaign-ui";
-import { demoState } from "@/lib/demo";
-import {
-  campaignDetailX,
-  money,
-  sponsor,
-  sponsorCampaigns,
-  sponsorCampaignsX,
-} from "@/lib/fixtures";
-import { daysRemaining, reachPct, verifiedPct } from "@/lib/ops-live";
-import { isBehind, monogramOf, windowLabel } from "@/lib/sponsor-live";
-import { launchLine, sponsorNextStep, sponsorStaffing } from "@/lib/campaign-stage";
-import { campaignApprovalLine } from "@/lib/brief-status";
-import { liveSponsorCampaign, type LiveCampaignDetail } from "@/server/sponsor";
+import { EmptyState } from "@/components/states";
 import { SponsorArtwork } from "@/components/edition-artwork";
+import { PendingList, ServerList } from "@/components/server-pager";
+import {
+  StadiumBar,
+  StadiumChip,
+  StadiumDate,
+  StadiumGhost,
+  StadiumHead,
+  StadiumPanel,
+  StadiumSection,
+  StadiumSteps,
+  StadiumTile,
+  StadiumTiles,
+  StadiumUpdated,
+  at,
+} from "@/components/stadium-stage";
+import { PagedTable, Primary, StageTable, Td, Tr, type Column } from "@/components/stage-table";
 import { SponsorContentReview } from "@/components/sponsor-content-review";
+import { campaignApprovalLine } from "@/lib/brief-status";
+import { launchLine, sponsorNextStep, sponsorStaffing } from "@/lib/campaign-stage";
+import { FLAG_HINTS, ORDER_COPY } from "@/lib/campaign-ui";
+import { demoState } from "@/lib/demo";
+import { formatCount } from "@/lib/format-count";
+import type { ApiDeliverable } from "@/lib/deliverables-live";
+import { campaignDetailX, sponsor, sponsorCampaigns, sponsorCampaignsX } from "@/lib/fixtures";
+import type { PageInfo, SearchParams } from "@/lib/list-query";
+import { daysRemaining } from "@/lib/ops-live";
+import { resolveBack } from "@/lib/back";
+import { isBehind, windowLabel } from "@/lib/sponsor-live";
+import { campaignWord, compactNumber, deliverableWord, type Word, type WordTone } from "@/lib/sponsor-words";
+import { CAMPAIGN_POST_KEYS, liveSponsorCampaign, type LiveCampaignDetail } from "@/server/sponsor";
 import {
   presignArtwork,
   registerArtwork,
@@ -39,46 +44,70 @@ import {
 } from "./actions";
 
 /* --------------------------------------------------------------------------
-   Sponsor Campaign detail — §9, sponsor portal (2026-09-15). The screen that
-   sits between the campaigns list and the ROI report.
+   Sponsor Campaign detail — on the Stadium Board (P1-ART-23 Task 10, spec
+   2026-10-11 §7.4). The screen that sits between the campaigns list and the
+   ROI report: name, status, where it stands in plain steps, four headline
+   tiles, what's waiting for the sponsor's OK first, then artwork, the
+   athlete roster and every post, oldest due first.
 
-   Owner-framed: the sponsor sees the state of their own campaign — pacing,
-   delivery, roster, top content — and a link into the ROI report. It is NOT
-   the /admin operations workspace: no order-action drawer, no "re-match the
-   slot" verbs. Issues are shown as status with the reassurance that the BTG
-   campaign manager owns the fix (§9.9).
+   Every figure is a read (memory: stats-must-be-retrievable):
+     GET /campaigns/:id              name, state, package, window, money
+     GET /campaigns/:id/ops          delivery health + the roster
+     GET /campaigns/:id/artwork      SponsorX NEXT ad slots (P9-BE-16)
+     GET /deliverables?campaignId=   content waiting for sign-off (unpaged,
+       state=SPONSOR_REVIEW          this campaign's own queue), and —
+     GET /deliverables?campaignId=   server-paged — every post the campaign
+       &page&size                    includes, oldest due first.
+   Nothing is summed from rows on screen. Money is in cents, and a figure
+   the role can't read is absent, never shown as zero.
 
-   Data is tiered. c1/c3 carry rich fixtures (campaignDetailX: series, roster,
-   top content, notice) and render the full dashboard. c2/c4/c5 only have
-   portfolio-summary fixtures (sponsorCampaigns/X), so they render an honest
-   lighter detail — different campaign states legitimately carry different
-   depth. No campaign is faked with data it doesn't have.
+   Owner-framed: read-only, no order-action drawer, no "re-match the slot"
+   verbs — issues are shown as status with the reassurance that the BTG
+   campaign manager owns the fix. The content-review and artwork islands
+   keep their existing approve / ask-for-changes behaviour unchanged.
 
-   LIVE (P2-FE-01). A signed-in sponsor gets their own campaign: the portfolio
-   row from GET /campaigns (package, window, contracted spend — column-gated)
-   and the delivery board from GET /campaigns/:id/ops (orders scoped by
-   whereFor; a sponsor gets no invitations and no athlete pay). The views
-   series, engagement and top content are the ROI report's (P7-FE-03), so the
-   live page links there instead of drawing them. Someone else's campaign id
-   is "not found", never a sample.
+   LIVE vs DEMO. A signed-in sponsor gets their own campaign. Anyone else,
+   and ?demo=empty|loading|error, gets the fixture deck under a "Sample
+   data" pill — the same anatomy, minus the content a fixture can't honestly
+   carry (there is no sample review queue, artwork or per-post list).
    -------------------------------------------------------------------------- */
 
-const STATE_TONE = {
-  ACTIVE: "accent",
-  REPORTING: "primary",
-  STAFFING: "warn",
-  COMPLETED: "neutral",
-} as const;
+const CAMPAIGN_STEPS = ["Planned", "Athletes signed", "Posting", "Finished"];
+
+/** Where a campaign stands on the Stadium Board's mini steps. CANCELLED
+ *  reads as finished (nothing left to track) rather than guess a step. */
+function campaignStepNow(state: string): number {
+  switch (state) {
+    case "DRAFT":
+      return 0;
+    case "STAFFING":
+    case "APPROVAL":
+      return 1;
+    case "ACTIVE":
+      return 2;
+    case "REPORTING":
+      return 3;
+    case "COMPLETED":
+    case "CANCELLED":
+      return 4;
+    default:
+      return 0;
+  }
+}
+
+
+/** No delivery has started before these — the report has nothing to show. */
+const PRE_DELIVERY = new Set(["DRAFT", "STAFFING", "APPROVAL"]);
 
 export default async function SponsorCampaignDetailPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<SearchParams>;
 }) {
   const demo = await demoState(searchParams);
-  if (demo === "loading") return <SkeletonPage />;
+  if (demo === "loading") return <StadiumGhost label="Loading your campaign" tiles={4} />;
   if (demo === "error") throw new Error("Demo error state");
 
   const { id } = await params;
@@ -86,7 +115,7 @@ export default async function SponsorCampaignDetailPage({
   const fromParam = Array.isArray(sp.from) ? sp.from[0] : sp.from;
   const back = resolveBack(fromParam, "sponsor-campaigns");
 
-  const live = demo === null ? await liveSponsorCampaign(id) : null;
+  const live = demo === null ? await liveSponsorCampaign(id, sp) : null;
   if (live) {
     if (live.status === "missing") {
       return (
@@ -137,279 +166,78 @@ export default async function SponsorCampaignDetailPage({
   const behind = x.pacing === "BEHIND";
   const hasReport = base.state !== "STAFFING";
 
-  const reportCta = hasReport ? (
-    <Link
-      href={`/sponsor/campaigns/${id}/report?from=sponsor-campaign`}
-      className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
-    >
-      View ROI report
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="size-3.5"
-        aria-hidden="true"
-      >
-        <path d="m9 5 7 7-7 7" />
-      </svg>
-    </Link>
-  ) : (
-    <span className="rounded-lg border border-line bg-surface px-3.5 py-2 text-[11px] font-medium text-faint">
-      ROI report available once delivery begins
-    </span>
-  );
-
-  const header = (
-    <div className="sx-animate flex flex-wrap items-start justify-between gap-3">
-      <div className="flex items-start gap-3">
-        <Monogram text={x.monogram} tone={behind ? "accent" : "primary"} className="size-11 text-xs" />
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight">{base.name}</h1>
-            {behind ? (
-              <Badge tone="warn">Pacing behind</Badge>
-            ) : (
-              <Badge tone={STATE_TONE[base.state]}>{base.state.toLowerCase()}</Badge>
-            )}
-          </div>
-          <p className="mt-0.5 text-xs text-muted">
-            Presented by {sponsor.name} · {base.pkg} · {x.endsIn}
-          </p>
-        </div>
-      </div>
-      {reportCta}
-      {/* P7-QA-02: fixture-only page (live read is P2-FE-01) — say so to a
-          signed-in sponsor before any chip below reads as their own data. */}
-      {!demo && (
-        <div className="w-full">
-          <BlockedNotice>
-            Demo data — this is a sample campaign, not yours. Your own
-            campaigns&rsquo; figures are on the Dashboard and in each ROI report.
-          </BlockedNotice>
-        </div>
-      )}
-    </div>
-  );
-
-  /* ---------------------------------------------------- lean tier (c2/c4/c5) */
-  if (!rich) {
-    const pct = total ? Math.round((done / total) * 100) : 0;
-    return (
-      <div className="space-y-6">
-        <BackLink target={back} />
-        {header}
-
-        <div className="sx-animate sx-delay-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatTile label="Views delivered" value={x.views.toLocaleString()} chip={<MiniChip kind="ver">METRICDAILY</MiniChip>} />
-          <StatTile
-            label="Deliverables"
-            value={`${done}/${total}`}
-            hint={`${pct}% complete`}
-            chip={<MiniChip kind="est">COMPUTED</MiniChip>}
-            meter={pct}
-          />
-          <StatTile label="Spend" value={money(base.spend)} chip={<MiniChip kind="manual">ZOHO BOOKS</MiniChip>} />
-          <StatTile label="Athletes" value={String(base.athletes)} hint="on this campaign" />
-        </div>
-
-        <Card className="sx-animate sx-delay-2">
-          <p className="text-xs leading-relaxed text-muted">
-            {base.state === "COMPLETED"
-              ? "This campaign has wrapped. The ROI report is your full read on what it returned."
-              : base.state === "REPORTING"
-                ? "Delivery is done and the numbers are being finalised — the ROI report has the details."
-                : "This campaign is still being staffed. Delivery metrics and the ROI report open up once athletes accept their Campaign Orders."}
-          </p>
-        </Card>
-
-        <p className="sx-animate sx-delay-2 text-[10px] text-faint">
-          Campaign <code className="font-mono">{id}</code> · fixture data.
-        </p>
-      </div>
-    );
-  }
-
-  /* ---------------------------------------------------- rich tier (c1/c3) */
-  const c = rich.campaign;
-  const pace = paceFor(c, rich.series);
-  const paceCopy = PACE_COPY[pace.band];
-  const projection = paceProjection(c, pace.recentPerDay);
-  const issues = rich.roster.filter((r) => r.flag);
-
   return (
     <div className="space-y-6">
       <BackLink target={back} />
-      {header}
+      <Head
+        name={base.name}
+        sub={`Presented by ${sponsor.name} · ${base.pkg} · ${x.endsIn}`}
+        word={campaignWord(base.state)}
+        behind={behind}
+        hasReport={hasReport}
+        reportHref={`/sponsor/campaigns/${id}/report?from=sponsor-campaign`}
+        pill="Sample data"
+      />
+      <StadiumSteps steps={CAMPAIGN_STEPS} now={campaignStepNow(base.state)} label="Where this campaign stands" />
+      <Tiles done={done} total={total} athletes={base.athletes} money={{ amountCents: base.spend, captioned: "Agreed" }} nextDue={undefined} />
 
-      {/* ------------------------------------------------------- pacing hero */}
-      <HeroBand className="sx-animate sx-delay-1">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_11rem] lg:items-center">
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
-              Delivery pacing
+      {!rich ? (
+        <>
+          <StadiumPanel delay={0.3}>
+            <p className="text-sm leading-relaxed text-muted">
+              {base.state === "COMPLETED"
+                ? "This campaign has wrapped. The ROI report is your full read on what it returned."
+                : base.state === "REPORTING"
+                  ? "Delivery is done and the numbers are being finalised — the ROI report has the details."
+                  : "This campaign is still being staffed. Delivery metrics and the ROI report open up once athletes accept their Campaign Orders."}
             </p>
-            <p className="mt-1 flex flex-wrap items-baseline gap-2">
-              <span className="sx-gradient-text text-4xl font-bold tabular-nums tracking-tight sm:text-5xl">
-                {pace.pct}%
-              </span>
-              <span className="text-sm text-muted">of the views target delivered</span>
-              <MiniChip kind="manual">VERIFIED · MANUAL</MiniChip>
-            </p>
-            <p className="mt-4 text-xs leading-relaxed text-muted">
-              <strong className="font-semibold text-text">{paceCopy.label}</strong> —
-              publishing ~{fmtRate(pace.recentPerDay)} views a day; the campaign is
-              on track for about {compact(pace.projectedTotal)} of the{" "}
-              {compact(c.viewsTarget)} target with {c.daysRemaining} days left.
-            </p>
-          </div>
-          <div className="justify-self-center">
-            <RadialGauge
-              display={`${pace.pct}%`}
-              sweep={pace.pct / 100}
-              caption="views target"
-              sub={`${compact(c.viewsDelivered)} of ${compact(c.viewsTarget)}`}
-            />
-          </div>
-        </div>
-      </HeroBand>
-
-      {/* --------------------------------------------- attention notice */}
-      {rich.notice && issues.length > 0 && (
-        <div className="sx-animate flex items-start gap-3 rounded-xl border border-warn/30 bg-warn/8 px-4 py-3">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="var(--sx-warn)"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="mt-0.5 size-4 shrink-0"
-            aria-hidden="true"
-          >
-            <path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-          </svg>
-          <p className="text-xs leading-relaxed text-muted">
-            {issues.length} athlete{issues.length === 1 ? "" : "s"} on this campaign
-            need{issues.length === 1 ? "s" : ""} attention — your BTG campaign
-            manager is handling the re-match and follow-up (§9.9). Nothing for you
-            to action here.
+          </StadiumPanel>
+          <p className="text-[10px] text-faint">
+            Campaign <code className="font-mono">{id}</code> · fixture data.
           </p>
-        </div>
+        </>
+      ) : (
+        <DemoRich rich={rich} id={id} />
       )}
-
-      {/* ----------------------------------------------------- stat tiles */}
-      <div className="sx-animate sx-delay-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile
-          label="Views delivered"
-          value={c.viewsDelivered.toLocaleString()}
-          hint={`of ${compact(c.viewsTarget)} target`}
-          chip={<MiniChip kind="manual">VERIFIED · MANUAL</MiniChip>}
-          meter={pace.pct}
-        />
-        <StatTile
-          label="Engagements"
-          value={c.engagements.toLocaleString()}
-          hint="likes, comments, shares"
-          chip={<MiniChip kind="manual">METRICDAILY</MiniChip>}
-        />
-        <StatTile
-          label="Rewards redeemed"
-          value={c.rewardsRedeemed.toLocaleString()}
-          hint="fan QR redemptions"
-          chip={<MiniChip kind="ver">POSTGRES</MiniChip>}
-        />
-        <StatTile
-          label="Days remaining"
-          value={String(c.daysRemaining)}
-          hint={`~${fmtRate(pace.neededPerDay)} views/day to target`}
-          chip={<MiniChip kind="est">COMPUTED</MiniChip>}
-        />
-      </div>
-
-      {/* ------------------------------------ performance + top content */}
-      <div className="sx-animate sx-delay-3 grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <section className="min-w-0">
-          <SectionHeading
-            title="Performance over time"
-            hint="Solid lines are verified history; the dashed tail projects the recent rate forward."
-          />
-          <Card>
-            <AreaChart points={rich.series} aName="Views" bName="Engagements" projection={projection} />
-          </Card>
-        </section>
-        <section className="min-w-0">
-          <SectionHeading title="Top content" hint="Ranked by verified views" />
-          <Card>
-            <HBarList
-              rows={rich.topContent.map((t) => ({
-                label: t.title,
-                sub: t.athlete,
-                value: t.views,
-                display: compact(t.views),
-              }))}
-            />
-          </Card>
-        </section>
-      </div>
-
-      {/* --------------------------------------------- athlete roster */}
-      <section className="sx-animate sx-delay-4">
-        <SectionHeading
-          title="Athlete roster"
-          hint="Who's delivering on your campaign. Read-only — your BTG manager runs the orders."
-        />
-        <Card className="p-0">
-          <ul className="divide-y divide-line-soft">
-            {rich.roster.map((r) => {
-              const rpct = r.planned ? Math.round((r.delivered / r.planned) * 100) : 0;
-              return (
-                <li key={r.slug} className="px-4 py-3.5">
-                  <div className="flex items-center gap-3">
-                    <Monogram text={initials(r.name)} shape="circle" tone="neutral" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="truncate text-xs font-semibold tracking-tight">
-                          {r.name}
-                        </span>
-                        <Badge tone={ORDER_TONE[r.order] ?? "neutral"}>
-                          {ORDER_COPY[r.order] ?? r.order}
-                        </Badge>
-                        {r.flag && <Badge tone="warn">{r.flag}</Badge>}
-                      </div>
-                      {r.flag && (
-                        <p className="mt-0.5 text-[10px] text-faint">
-                          {FLAG_HINTS[r.flag] ?? ""}
-                        </p>
-                      )}
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-xs font-semibold tabular-nums">
-                        {compact(r.views)}{" "}
-                        <span className="font-normal text-faint">views</span>
-                      </p>
-                      <p className="mt-0.5 text-[11px] tabular-nums text-muted">
-                        {r.delivered}/{r.planned} delivered
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-2.5 pl-11">
-                    <Meter value={rpct} tone={r.flag ? "primary" : "accent"} />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
-      </section>
-
-      <p className="sx-animate sx-delay-4 text-[10px] leading-relaxed text-faint">
-        Campaign <code className="font-mono">{id}</code> · fixture data. Every
-        figure traces to MetricDaily, RewardEvent, Deliverable or Zoho Books (§22).
-      </p>
     </div>
+  );
+}
+
+type DemoRichData = NonNullable<(typeof campaignDetailX)[keyof typeof campaignDetailX]>;
+
+function DemoRich({ rich, id }: { rich: DemoRichData; id: string }) {
+  const issues = rich.roster.filter((r) => r.flag);
+  const rows = rich.roster.map((r) => ({
+    id: r.slug,
+    name: r.name,
+    chip: (
+      <span className="flex flex-wrap gap-1.5">
+        <StadiumChip tone={DEMO_ORDER_TONE[r.order] ?? "info"}>{ORDER_COPY[r.order] ?? r.order}</StadiumChip>
+        {r.flag && <StadiumChip tone="late">{r.flag}</StadiumChip>}
+      </span>
+    ),
+    sub: r.flag ? FLAG_HINTS[r.flag] : undefined,
+    delivered: r.delivered,
+    planned: r.planned,
+    views: r.views,
+  }));
+  return (
+    <>
+      {rich.notice && issues.length > 0 && (
+        <StadiumPanel tone="late" delay={0.3}>
+          <p className="text-sm leading-relaxed text-muted">
+            {issues.length} athlete{issues.length === 1 ? "" : "s"} on this campaign need
+            {issues.length === 1 ? "s" : ""} attention — your BTG campaign manager is handling
+            the re-match and follow-up. Nothing for you to action here.
+          </p>
+        </StadiumPanel>
+      )}
+      <RosterSection rows={rows} viewsLabel="Views" />
+      <p className="text-[10px] leading-relaxed text-faint">
+        Campaign <code className="font-mono">{id}</code> · sample data. Every figure comes from
+        your campaign&rsquo;s posts, fan rewards and invoices.
+      </p>
+    </>
   );
 }
 
@@ -423,25 +251,15 @@ const LIVE_ORDER_COPY: Record<string, string> = {
   REJECTED: "Declined",
   CANCELLED: "Cancelled",
 };
-const LIVE_ORDER_TONE: Record<string, "accent" | "primary" | "warn" | "neutral" | "danger"> = {
-  SENT: "warn",
-  ACCEPTED: "primary",
-  ACTIVE: "accent",
-  COMPLETED: "neutral",
-  REJECTED: "danger",
-  CANCELLED: "danger",
+const LIVE_ORDER_TONE: Record<string, WordTone> = {
+  SENT: "info",
+  ACCEPTED: "live",
+  ACTIVE: "live",
+  COMPLETED: "done",
+  REJECTED: "late",
+  CANCELLED: "late",
 };
-const LIVE_STATE_TONE: Record<string, "accent" | "primary" | "warn" | "neutral" | "danger"> = {
-  ACTIVE: "accent",
-  REPORTING: "primary",
-  STAFFING: "warn",
-  APPROVAL: "warn",
-  DRAFT: "neutral",
-  COMPLETED: "neutral",
-  CANCELLED: "danger",
-};
-/** No delivery has started before these — the report has nothing to show. */
-const PRE_DELIVERY = new Set(["DRAFT", "STAFFING", "APPROVAL"]);
+const DEMO_ORDER_TONE: Record<string, WordTone> = { ACCEPTED: "live", SENT: "info", DECLINED: "late" };
 
 function LiveDetail({
   detail,
@@ -452,11 +270,7 @@ function LiveDetail({
 }) {
   const { campaign: c, ops } = detail;
   const now = new Date();
-  const h = ops.health;
   const behind = isBehind(c, now);
-  const vPct = verifiedPct(h);
-  const rPct = reachPct(h);
-  const days = daysRemaining(c.endDate, now);
   const hasReport = !PRE_DELIVERY.has(c.state);
   /* Only rows with an order: a sponsor sees who is delivering, not who BTG
      is still negotiating with (the API sends no invitations here anyway). */
@@ -471,123 +285,111 @@ function LiveDetail({
   const staffing = c.state === "STAFFING" ? sponsorStaffing(c.staffing) : null;
   const nextLine = next ?? staffing?.line ?? (c.state === "APPROVAL" ? launchLine(c.startDate, now) : null);
 
+  /* Only when a spend figure is visible — a budget alone would read "$0 of
+     $X", a zero the role simply can't see past. */
+  const money =
+    c.contracted !== undefined || c.invoiced !== undefined
+      ? {
+          amountCents: c.invoiced ?? c.contracted ?? 0,
+          budgetCents: c.budget,
+          captioned: c.budget === undefined && c.invoiced === undefined ? "Agreed, not yet invoiced" : undefined,
+        }
+      : null;
+  const nextDue = roster.reduce<string | null>((min, r) => (r.nextDue && (!min || r.nextDue < min) ? r.nextDue : min), null);
+
+  const rows = roster.map((r) => ({
+    id: r.athleteId,
+    name: r.name,
+    chip: (
+      <span className="flex flex-wrap gap-1.5">
+        <StadiumChip tone={LIVE_ORDER_TONE[r.order!.state] ?? "info"}>{LIVE_ORDER_COPY[r.order!.state] ?? "In progress"}</StadiumChip>
+        {r.overdue > 0 && <StadiumChip tone="late">{r.overdue} overdue</StadiumChip>}
+        {r.inReview > 0 && <StadiumChip tone="info">{r.inReview} in review</StadiumChip>}
+      </span>
+    ),
+    sub: r.nextDue ? `Next due ${new Date(r.nextDue).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}` : undefined,
+    delivered: r.delivered,
+    planned: r.planned,
+    views: r.verifiedViews,
+  }));
+
   return (
     <div className="space-y-6">
       <BackLink target={back} />
 
-      <div className="sx-animate flex flex-wrap items-start justify-between gap-3">
-        {/* min-w-0 + break-words: one long unbroken word in a campaign name
-            ran 23px past a 390px phone (QA pass 8, F-11). */}
-        <div className="flex min-w-0 items-start gap-3">
-          <Monogram text={monogramOf(c.name)} tone={behind ? "accent" : "primary"} className="size-11 shrink-0 text-xs" />
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="min-w-0 break-words text-xl font-semibold tracking-tight [overflow-wrap:anywhere]">{c.name}</h1>
-              {behind ? (
-                <Badge tone="warn">Pacing behind</Badge>
-              ) : (
-                <Badge tone={LIVE_STATE_TONE[c.state] ?? "neutral"}>{c.state.toLowerCase()}</Badge>
-              )}
-            </div>
-            <p className="mt-0.5 text-xs text-muted">
-              Presented by {c.sponsorName} · {c.package?.name ?? "Custom"} · {windowLabel(c, now)}
-            </p>
-          </div>
-        </div>
-        {hasReport ? (
-          <Link
-            href={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report?from=sponsor-campaign`}
-            className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
-          >
-            View ROI report
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3.5" aria-hidden="true">
-              <path d="m9 5 7 7-7 7" />
-            </svg>
-          </Link>
-        ) : (
-          <span className="rounded-lg border border-line bg-surface px-3.5 py-2 text-[11px] font-medium text-faint">
-            ROI report available once delivery begins
-          </span>
-        )}
-      </div>
+      <Head
+        name={c.name}
+        sub={`Presented by ${c.sponsorName} · ${c.package?.name ?? "Custom"} · ${windowLabel(c, now)}`}
+        word={campaignWord(c.state)}
+        behind={behind}
+        hasReport={hasReport}
+        reportHref={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report?from=sponsor-campaign`}
+        pill={<StadiumUpdated iso={detail.readAt} />}
+      />
+
+      <StadiumSteps steps={CAMPAIGN_STEPS} now={campaignStepNow(c.state)} label="Where this campaign stands" />
+
+      <Tiles done={c.deliverables.done} total={c.deliverables.total} athletes={c.athletes} money={money} nextDue={nextDue} now={now} />
 
       {approved && (
-        <div className="sx-animate flex min-w-0 items-center gap-3 rounded-xl border border-accent/30 bg-accent/8 px-4 py-3">
-          <Badge tone="accent">Approved</Badge>
-          <p className="min-w-0 text-xs font-medium text-text [overflow-wrap:anywhere]">{approved}</p>
-        </div>
+        <StadiumPanel delay={0.3} className="sx-stadium-in">
+          <div className="flex min-w-0 items-center gap-3">
+            <StadiumChip tone="live">Approved</StadiumChip>
+            <p className="min-w-0 text-xs font-medium text-text [overflow-wrap:anywhere]">{approved}</p>
+          </div>
+        </StadiumPanel>
       )}
 
       {nextLine && (
-        <div className="sx-animate rounded-xl border border-line bg-surface px-4 py-3">
+        <StadiumPanel delay={0.34}>
           <div className="flex min-w-0 items-center gap-3">
             <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.2em] text-muted">What&apos;s next</span>
             <p className="min-w-0 text-xs font-medium text-text [overflow-wrap:anywhere]">{nextLine}</p>
           </div>
           {staffing && (
             <div className="mt-2.5" aria-label={staffing.line}>
-              <Meter value={staffing.pct} tone="accent" />
+              <StadiumBar value={staffing.pct / 100} />
             </div>
           )}
-        </div>
+        </StadiumPanel>
       )}
 
       {attention.length > 0 && (
-        <div className="sx-animate flex items-start gap-3 rounded-xl border border-warn/30 bg-warn/8 px-4 py-3">
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--sx-warn)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 size-4 shrink-0" aria-hidden="true">
-            <path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-          </svg>
-          <p className="text-xs leading-relaxed text-muted">
-            {attention.length} athlete{attention.length === 1 ? "" : "s"} on this campaign
-            need{attention.length === 1 ? "s" : ""} attention — your BTG campaign
-            manager is handling the follow-up (§9.9). Nothing for you to action here.
+        <StadiumPanel tone="late" delay={0.38}>
+          <p className="text-sm leading-relaxed text-muted">
+            {attention.length} athlete{attention.length === 1 ? "" : "s"} on this campaign need
+            {attention.length === 1 ? "s" : ""} attention — your BTG campaign manager is handling
+            the follow-up. Nothing for you to action here.
           </p>
-        </div>
+        </StadiumPanel>
       )}
 
-      <div className="sx-animate sx-delay-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile
-          label="Deliverables verified"
-          value={`${h.deliverablesVerified}/${h.deliverablesTotal}`}
-          hint={vPct === null ? "nothing scheduled yet" : `${vPct}% verified`}
-          chip={<MiniChip kind="ver">POSTGRES</MiniChip>}
-          meter={vPct ?? undefined}
-        />
-        <StatTile
-          label="Verified impressions"
-          value={h.verifiedImpressions.toLocaleString()}
-          hint={
-            rPct === null
-              ? "no projection on the Campaign Orders"
-              : `${rPct}% of ${compact(h.projectedImpressions ?? 0)} projected`
-          }
-          chip={<MiniChip kind="manual">VERIFIED · MANUAL</MiniChip>}
-          meter={rPct ?? undefined}
-        />
-        <StatTile
-          label="Spend"
-          value={typeof c.contracted === "number" ? money(c.contracted) : "—"}
-          hint="contracted across Campaign Orders"
-          chip={<MiniChip kind="ver">POSTGRES</MiniChip>}
-        />
-        <StatTile
-          label={c.state === "ACTIVE" ? "Days remaining" : "Overdue"}
-          value={c.state === "ACTIVE" ? String(days) : String(h.deliverablesOverdue)}
-          hint={
-            c.state === "ACTIVE"
-              ? `${h.deliverablesOverdue} deliverable${h.deliverablesOverdue === 1 ? "" : "s"} overdue`
-              : "deliverables past due"
-          }
-          chip={<MiniChip kind="est">COMPUTED</MiniChip>}
-        />
-      </div>
+      {/* P4-FE-08 (P5-BE-09) — athlete content BTG sent for the sponsor's
+          sign-off: the caption it will go out with and how long it has
+          waited. First, because it is the one thing on this page that can
+          wait on the sponsor. Hidden when nothing is waiting. */}
+      {detail.review.length > 0 && (
+        <StadiumPanel tone="you" delay={0.42}>
+          <StadiumSection
+            title="Waiting for your OK"
+            hint={`${detail.review.length} waiting · BTG has reviewed ${detail.review.length === 1 ? "it" : "each one"}; the athlete posts once you approve.`}
+          />
+          <SponsorContentReview
+            items={detail.review}
+            now={now.getTime()}
+            canDecide={detail.canDecideContent}
+            act={sponsorContentAction}
+            link={sponsorContentLink}
+          />
+        </StadiumPanel>
+      )}
 
       {/* P9-BE-16 — the SponsorX NEXT ad slots this campaign bought: upload
           the artwork, then approve it (or ask for changes) once BTG has
           reviewed it. The edition can't go to print until it's approved. */}
       {detail.artwork.length > 0 && (
-        <section className="sx-animate sx-delay-2">
-          <SectionHeading
+        <section className="sx-stadium-in" style={at(0.46)}>
+          <StadiumSection
             title="Your ad artwork"
             hint="Each file is checked as soon as it lands, goes through BTG's review — or, once your recent ads were approved without changes, straight to you — and you approve it. The edition prints only once every ad is approved."
           />
@@ -603,114 +405,249 @@ function LiveDetail({
         </section>
       )}
 
-      {/* P4-FE-08 (P5-BE-09) — athlete content BTG sent for the sponsor's
-          sign-off: the caption it will go out with and how long it has
-          waited. Hidden when nothing is waiting. */}
-      {detail.review.length > 0 && (
-        <section className="sx-animate sx-delay-2">
-          <SectionHeading
-            title="Content for your approval"
-            hint={`${detail.review.length} waiting · BTG has reviewed ${detail.review.length === 1 ? "it" : "each one"}; the athlete posts once you approve.`}
-          />
-          <SponsorContentReview
-            items={detail.review}
-            now={now.getTime()}
-            canDecide={detail.canDecideContent}
-            act={sponsorContentAction}
-            link={sponsorContentLink}
-          />
-        </section>
-      )}
+      <RosterSection rows={rows} viewsLabel="Verified views" delay={0.5} />
 
-      <section className="sx-animate sx-delay-2">
-        <SectionHeading
-          title="Athlete roster"
-          hint="Who's delivering on your campaign. Read-only — your BTG manager runs the orders."
-        />
-        {roster.length === 0 ? (
-          <Card>
-            <p className="text-xs leading-relaxed text-muted">
-              No Campaign Orders yet — BTG is still staffing this campaign.
-              Athletes appear here once their orders go out.
-            </p>
-          </Card>
-        ) : (
-          <Card className="p-0">
-            <ul className="divide-y divide-line-soft">
-              {roster.map((r) => {
-                const rpct = r.planned ? Math.round((r.delivered / r.planned) * 100) : 0;
-                const state = r.order!.state;
-                return (
-                  <li key={r.athleteId} className="px-4 py-3.5">
-                    <div className="flex items-center gap-3">
-                      <Monogram text={initials(r.name)} shape="circle" tone="neutral" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="truncate text-xs font-semibold tracking-tight">{r.name}</span>
-                          <Badge tone={LIVE_ORDER_TONE[state] ?? "neutral"}>{LIVE_ORDER_COPY[state] ?? state}</Badge>
-                          {r.overdue > 0 && <Badge tone="warn">{r.overdue} overdue</Badge>}
-                          {r.inReview > 0 && <Badge tone="primary">{r.inReview} in review</Badge>}
-                        </div>
-                        {r.nextDue && (
-                          <p className="mt-0.5 text-[10px] text-faint">
-                            Next due{" "}
-                            {new Date(r.nextDue).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
-                          </p>
-                        )}
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-xs font-semibold tabular-nums">
-                          {compact(r.verifiedViews)} <span className="font-normal text-faint">verified views</span>
-                        </p>
-                        <p className="mt-0.5 text-[11px] tabular-nums text-muted">
-                          {r.delivered}/{r.planned} delivered
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-2.5 pl-11">
-                      <Meter value={rpct} tone={r.overdue > 0 ? "primary" : "accent"} />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
-        )}
-      </section>
+      <PostsSection posts={detail.posts} page={detail.postsPage} unavailable={detail.postsUnavailable} />
 
-      <p className="sx-animate sx-delay-3 text-[10px] leading-relaxed text-faint">
-        Delivery, roster and spend are from Postgres; verified impressions are
-        staff-checked metrics on published deliverables. The views series,
+      <p className="text-[10px] leading-relaxed text-faint">
+        Delivery, roster and spend are from Postgres; verified views are
+        staff-checked metrics on published deliverables. People reached,
         engagement, rewards and top content are in the ROI report.
       </p>
     </div>
   );
 }
 
-function StatTile({
-  label,
-  value,
-  hint,
-  chip,
-  meter,
+/* --------------------------------------------------------------- the head */
+
+function Head({
+  name,
+  sub,
+  word,
+  behind,
+  hasReport,
+  reportHref,
+  pill,
 }: {
-  label: string;
-  value: string;
-  hint?: string;
-  chip?: React.ReactNode;
-  meter?: number;
+  name: string;
+  sub: string;
+  word: Word;
+  behind: boolean;
+  hasReport: boolean;
+  reportHref: string;
+  pill?: ReactNode;
 }) {
+  const action = hasReport ? (
+    <Link
+      href={reportHref}
+      className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
+    >
+      See results
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="size-3.5"
+        aria-hidden="true"
+      >
+        <path d="m9 5 7 7-7 7" />
+      </svg>
+    </Link>
+  ) : (
+    <span className="rounded-lg border border-line bg-surface px-3.5 py-2 text-[11px] font-medium text-faint">
+      Results available once delivery begins
+    </span>
+  );
   return (
-    <Card className="p-4">
-      <p className="text-[11px] font-medium text-muted">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">{value}</p>
-      {hint && <p className="mt-1 text-[10px] text-faint">{hint}</p>}
-      {typeof meter === "number" && (
-        <div className="mt-2">
-          <Meter value={meter} tone={meter >= 90 ? "accent" : "primary"} />
-        </div>
+    <StadiumHead title={name} pill={pill} actions={action}>
+      <p className="mt-1 min-w-0 text-xs text-muted [overflow-wrap:anywhere]">{sub}</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <StadiumChip tone={word.tone}>{word.text}</StadiumChip>
+        {behind && <StadiumChip tone="late">Behind</StadiumChip>}
+      </div>
+    </StadiumHead>
+  );
+}
+
+/* -------------------------------------------------------------- the tiles */
+
+function Tiles({
+  done,
+  total,
+  athletes,
+  money,
+  nextDue,
+  now,
+}: {
+  done: number;
+  total: number;
+  athletes: number;
+  money: { amountCents: number; budgetCents?: number; captioned?: string } | null;
+  /** undefined — the data this tile needs isn't available (demo fixtures
+   *  carry no due dates), so the tile is left out rather than guessed. */
+  nextDue: string | null | undefined;
+  now?: Date;
+}) {
+  const tiles: ReactNode[] = [
+    <StadiumTile
+      key="posts"
+      label="Posts delivered"
+      value={done}
+      share={total ? done / total : undefined}
+      caption={total ? `of ${total.toLocaleString("en-US")} planned` : "None planned yet"}
+      hint="Posts the athletes have put up, out of every post this campaign includes."
+      delay={0.1}
+    />,
+    <StadiumTile key="athletes" label="Athletes" value={athletes} hint="Athletes delivering on this campaign." delay={0.16} />,
+  ];
+  if (money) {
+    const label = money.budgetCents !== undefined ? "Spent of budget" : "Spent";
+    const caption = money.budgetCents !== undefined ? `of ${formatCount(money.budgetCents, "usd0")} budget` : money.captioned;
+    tiles.push(
+      <StadiumTile
+        key="money"
+        label={label}
+        value={money.amountCents}
+        format="usd0"
+        share={money.budgetCents ? money.amountCents / money.budgetCents : undefined}
+        caption={caption}
+        hint="What this campaign has been invoiced (or agreed), and how much of its budget that is."
+        delay={0.22}
+      />,
+    );
+  }
+  if (nextDue !== undefined) {
+    const days = nextDue && now ? daysRemaining(nextDue, now) : 0;
+    tiles.push(
+      <StadiumTile
+        key="next"
+        label="Next post due"
+        value={days}
+        caption={nextDue ? <>on <StadiumDate iso={nextDue} format="weekday" utc /></> : "Nothing scheduled right now"}
+        hint="Days until the next post this campaign owes is due."
+        delay={0.28}
+      />,
+    );
+  }
+  return <StadiumTiles cols={tiles.length >= 4 ? 4 : 3}>{tiles}</StadiumTiles>;
+}
+
+/* ------------------------------------------------------------- the roster */
+
+type RosterRowView = { id: string; name: string; chip: ReactNode; sub?: string; delivered: number; planned: number; views: number };
+
+function RosterSection({ rows, viewsLabel, delay = 0.3 }: { rows: RosterRowView[]; viewsLabel: string; delay?: number }) {
+  return (
+    <section className="sx-stadium-in" style={at(delay)}>
+      <StadiumSection title="Athlete roster" hint="Who's delivering on your campaign. Read-only — your BTG manager runs the orders." />
+      {rows.length === 0 ? (
+        <StadiumPanel>
+          <p className="text-sm text-muted">No Campaign Orders yet — BTG is still staffing this campaign. Athletes appear here once their orders go out.</p>
+        </StadiumPanel>
+      ) : (
+        <StageTable
+          label="Athlete roster"
+          columns={[
+            { key: "athlete", label: "Athlete" },
+            { key: "status", label: "Status" },
+            { key: "posts", label: "Posts delivered" },
+            { key: "views", label: viewsLabel, num: true },
+          ]}
+        >
+          {rows.map((r, i) => {
+            const pct = r.planned ? r.delivered / r.planned : 0;
+            return (
+              <Tr key={r.id} i={i}>
+                <Td>
+                  <Primary sub={r.sub}>{r.name}</Primary>
+                </Td>
+                <Td label="Status">{r.chip}</Td>
+                <Td label="Posts delivered">
+                  {r.planned ? (
+                    <span className="flex items-center gap-2">
+                      <span className="block w-20">
+                        <StadiumBar value={pct} />
+                      </span>
+                      <span className="text-xs tabular-nums text-muted">
+                        {r.delivered}/{r.planned}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted">None planned yet</span>
+                  )}
+                </Td>
+                <Td label={viewsLabel} num>
+                  {compactNumber(r.views)}
+                </Td>
+              </Tr>
+            );
+          })}
+        </StageTable>
       )}
-      {chip && <div className="mt-2">{chip}</div>}
-    </Card>
+    </section>
+  );
+}
+
+/* -------------------------------------------------------------- the posts */
+
+const POSTS_COLUMNS: Column[] = [
+  { key: "post", label: "Post" },
+  { key: "status", label: "Status" },
+  { key: "due", label: "Due" },
+];
+
+function PostsSection({
+  posts,
+  page,
+  unavailable,
+}: {
+  posts: ApiDeliverable[] | null;
+  page: PageInfo;
+  unavailable?: "error" | "forbidden";
+}) {
+  /* A role that can't read posts doesn't get the section at all. */
+  if (unavailable === "forbidden") return null;
+  return (
+    <section className="min-w-0 sx-stadium-in" style={at(0.56)}>
+      <StadiumSection title="Posts" hint="Every post this campaign includes, oldest due first." />
+      {posts === null ? (
+        /* The read failed — the rest of the page is still good. */
+        <StadiumPanel tone="late">
+          <p className="text-sm text-muted">Posts couldn&apos;t load — refresh to try again.</p>
+        </StadiumPanel>
+      ) : (
+        <ServerList>
+          {page.total === 0 ? (
+            <PendingList>
+              <StadiumPanel>
+                <p className="text-sm text-muted">No posts scheduled yet. They show here once BTG staffs athletes onto this campaign.</p>
+              </StadiumPanel>
+            </PendingList>
+          ) : (
+            <PagedTable bare tone="sponsor" page={page} noun="Posts" label="Campaign posts" keys={CAMPAIGN_POST_KEYS} columns={POSTS_COLUMNS}>
+              {posts.map((d, i) => {
+                const w = deliverableWord(d.state);
+                return (
+                  <Tr key={d.id} i={i}>
+                    <Td>
+                      <Primary sub={d.athlete.displayName}>{d.title}</Primary>
+                    </Td>
+                    <Td label="Status">
+                      <StadiumChip tone={w.tone}>{w.text}</StadiumChip>
+                    </Td>
+                    <Td label="Due" muted>
+                      <StadiumDate iso={d.dueDate} format="date" utc />
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </PagedTable>
+          )}
+        </ServerList>
+      )}
+    </section>
   );
 }

@@ -204,6 +204,31 @@ describe("GET /campaigns · delivery health (admin desk)", () => {
   });
 });
 
+/* -------------------------------------------- campaigns · review filter */
+
+describe("GET /campaigns · ?review=true (sponsor dashboard's \"Posts waiting for your OK\", P1-ART-23)", () => {
+  beforeEach(() => {
+    impl["campaign.findMany"] = (a) => (isHealthRead(a) ? HEALTH_ROWS : [CAMPAIGN("c1")]);
+    impl["campaign.count"] = () => 1;
+  });
+
+  it("is an AND term after the scope, alongside the other filters", async () => {
+    await run(listCampaigns, sponsor, { page: "1", review: "true", state: "ACTIVE" });
+    const list = of("campaign", "findMany").find((c) => !isHealthRead(c.args))!;
+    expect(list.args.where.AND[0]).toEqual(whereFor(sponsor, "campaign", "read"));
+    expect(list.args.where.AND).toContainEqual({
+      orders: { some: { state: { notIn: ["CANCELLED", "REJECTED"] }, deliverables: { some: { state: "SPONSOR_REVIEW" } } } },
+    });
+    expect(list.args.where.AND).toContainEqual({ state: { in: ["ACTIVE"] } });
+  });
+
+  it("is absent without ?review=true", async () => {
+    await run(listCampaigns, sponsor, { page: "1" });
+    const list = of("campaign", "findMany").find((c) => !isHealthRead(c.args))!;
+    expect(JSON.stringify(list.args.where.AND)).not.toContain("SPONSOR_REVIEW");
+  });
+});
+
 /* ------------------------------------------------------------ invitations */
 
 const INVITE = (id: string, state = "INVITED") => ({

@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui";
@@ -40,10 +41,15 @@ export function ComingOfAgeReminder({ view, seat, uploadPath }: { view: AgeView;
   );
 }
 
-export function PausedActions({ view }: { view: AgeView }) {
+/** P1-ART-22 — `plate` draws the two sections as arena plates (the
+ *  athlete portal); without it the plain cards stay for the public page. */
+export function PausedActions({ view, plate = false }: { view: AgeView; plate?: boolean }) {
+  const frame = plate ? "sx-arena-plate sx-arena-in px-5 py-4 pl-7" : "rounded-xl border border-line bg-surface px-4.5 py-4";
+  const spot = plate ? "" : undefined;
+  const skin = (delay: string) => (plate ? ({ "--tone": "var(--sx-warn)", "--sx-reveal-delay": delay } as CSSProperties) : undefined);
   return (
     <div className="grid gap-3.5 sm:grid-cols-2">
-      <section aria-label="Items" className="flex flex-col gap-2.5 rounded-xl border border-line bg-surface px-4.5 py-4">
+      <section aria-label="Items" data-spot={spot} style={skin("0.2s")} className={`flex flex-col gap-2.5 ${frame}`}>
         <h2 className="text-sm font-semibold">Items</h2>
         <button type="button" disabled aria-describedby="age-why" title={view.pausedItems}
           className="min-h-11 cursor-not-allowed self-start rounded-lg border border-line px-4 text-xs font-medium text-text opacity-45">
@@ -52,7 +58,7 @@ export function PausedActions({ view }: { view: AgeView }) {
         <p id="age-why" className="text-xs leading-relaxed text-warn"><span aria-hidden="true">! </span>{view.pausedItems}</p>
         <p className="text-xs leading-relaxed text-muted">Items already on sale stay on sale.</p>
       </section>
-      <section aria-label="Deals" className="flex flex-col gap-2.5 rounded-xl border border-line bg-surface px-4.5 py-4">
+      <section aria-label="Deals" data-spot={spot} style={skin("0.26s")} className={`flex flex-col gap-2.5 ${frame}`}>
         <h2 className="text-sm font-semibold">New deals</h2>
         <p><Badge tone="warn"><span aria-hidden="true" className="mr-1">Ⅱ</span>Paused</Badge></p>
         <p className="text-xs leading-relaxed text-warn"><span aria-hidden="true">! </span>{view.pausedDeals}</p>

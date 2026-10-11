@@ -4,6 +4,8 @@ import { Logo } from "./logo";
 import { MobileNav } from "./mobile-nav";
 import { OpsStage } from "./ops-fx";
 import { OpsGround } from "./ops-stage";
+import { ArenaGround } from "./arena-stage";
+import { StadiumGround } from "./stadium-stage";
 import { StagePortals } from "./stage-portals";
 import { PortalNav, type NavItem } from "./portal-nav";
 import { ThemeToggle } from "./theme-toggle";
@@ -139,15 +141,20 @@ export function PortalShell({
   userName: string;
   userRole: string;
   /** P1-ART-18 — the admin portal: the whole shell on the Mission Control
-   *  stage (fixed-dark in both themes), with every page as content on it. */
-  stage?: boolean;
+   *  stage (fixed-dark in both themes), with every page as content on it.
+   *  P1-ART-22 — `"arena"`: the athlete portal's theme-aware stage. `true`
+   *  still means the admin's `"ops"`.
+   *  P1-ART-23 — `"stadium"`: the sponsor's fixed-dark Stadium Board. */
+  stage?: boolean | "ops" | "arena" | "stadium";
   children: ReactNode;
 }) {
   const accent = ACCENT[portal];
+  const kind = stage === true ? "ops" : stage || null;
+  const stageCls = kind === "ops" ? "sx-ops" : kind === "arena" ? "sx-arena" : kind === "stadium" ? "sx-stadium" : "";
 
   return (
-    <div className={`flex min-h-screen ${stage ? "sx-ops" : ""}`}>
-      {stage && <StagePortals />}
+    <div className={`flex min-h-screen ${stageCls}`}>
+      {kind && <StagePortals className={stageCls} />}
       {/* ------------------------------------------------------- sidebar */}
       <aside className="sx-shell-aside sticky top-0 hidden h-screen w-56 shrink-0 overflow-hidden border-r border-line/70 bg-gradient-to-b from-surface via-surface to-bg md:flex md:flex-col">
         {/* atmosphere: accent bloom, gradient edge, portal watermark */}
@@ -260,8 +267,9 @@ export function PortalShell({
           </div>
 
           <div className="flex items-center gap-3">
-            {/* the stage is dark in both themes — no toggle to offer there */}
-            {!stage && <ThemeToggle />}
+            {/* the admin and stadium stages are dark in both themes — no
+                toggle to offer there; the arena is theme-aware and keeps it */}
+            {kind !== "ops" && kind !== "stadium" && <ThemeToggle />}
             {/* Both inert until their features ship — on a phone they only
                crowd the actor's name out of the header, so they wait for sm. */}
             <div className="hidden items-center gap-3 sm:flex">
@@ -284,13 +292,27 @@ export function PortalShell({
           </div>
         </header>
 
-        {stage ? (
+        {kind === "ops" ? (
           /* The stage: the ground behind every admin page, the house padding
              and column. No overflow clip here — the ground clips itself, and
              the desks' sticky toolbars (the matching studio) need the main
              column unclipped. */
           <OpsStage className="sx-stage relative isolate flex min-w-0 flex-1 flex-col px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10">
             <OpsGround word="" />
+            <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
+          </OpsStage>
+        ) : kind === "arena" ? (
+          /* The arena (P1-ART-22): the same root island for the pointer light,
+             the athlete ground, the same column. */
+          <OpsStage className="sx-arena-stage relative isolate flex min-w-0 flex-1 flex-col px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10">
+            <ArenaGround />
+            <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
+          </OpsStage>
+        ) : kind === "stadium" ? (
+          /* The Stadium Board (P1-ART-23): the same root island for the pointer
+             light, the sponsor ground, the same column. */
+          <OpsStage className="sx-stadium-stage relative isolate flex min-w-0 flex-1 flex-col px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10">
+            <StadiumGround />
             <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
           </OpsStage>
         ) : (

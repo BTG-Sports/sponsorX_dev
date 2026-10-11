@@ -1,13 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  EXPIRY_SOON_HOURS,
   acceptBlocker,
   deliverableRows,
   exclusivityLabel,
+  expiresSoon,
   expiryLabel,
   explainOfferRefusal,
   groupOffers,
+  hoursToExpiry,
+  offerPage,
   offerStatus,
+  offerTab,
+  offersApiQuery,
   toOfferRow,
   type ApiOffer,
 } from "../src/lib/offer-live";
@@ -135,5 +141,62 @@ describe("refusals", () => {
     expect(explainOfferRefusal(403, null).message).toMatch(/athlete named on this offer/);
     expect(explainOfferRefusal(422, { error: { message: "Acceptance needs the agreement shown and the signer's evidence." } }).message).toMatch(/signer/);
     expect(explainOfferRefusal(500, null).message).toMatch(/HTTP 500/);
+  });
+});
+
+/* --------------------------------------------------------------------------
+   P1-ART-22 — the athlete list is SERVER-PAGED: the URL → GET /offers'
+   query, the page the API answers (or the legacy unpaged shape, tolerated),
+   and the 48-hour "needs you now" rule a row is toned by.
+   -------------------------------------------------------------------------- */
+
+describe("the server-paged list", () => {
+  it("reads ?tab — open unless it says closed", () => {
+    expect(offerTab({})).toBe("open");
+    expect(offerTab({ tab: "closed" })).toBe("closed");
+    expect(offerTab({ tab: "bogus" })).toBe("open");
+    expect(offerTab({ tab: ["closed", "open"] })).toBe("closed");
+  });
+
+  it("builds one page's query: page + size always, then the tab", () => {
+    expect(offersApiQuery({})).toBe("?page=1&size=12&tab=open");
+    expect(offersApiQuery({ tab: "closed", page: "3", size: "24" })).toBe("?page=3&size=24&tab=closed");
+    /* An unknown size falls back to the house default; a bad page to 1. */
+    expect(offersApiQuery({ page: "0", size: "7" })).toBe("?page=1&size=12&tab=open");
+  });
+
+  it("takes the API's page and counts as given", () => {
+    const page = { page: 2, size: 12, total: 30, pages: 3 };
+    const counts = { open: 4, closed: 26 };
+    const r = offerPage({ offers: [offer()], page, counts }, NOW);
+    expect(r.page).toEqual(page);
+    expect(r.counts).toEqual(counts);
+    expect(r.rows).toHaveLength(1);
+  });
+
+  it("tolerates the legacy unpaged shape: one page, counted by the API's own rule", () => {
+    const r = offerPage(
+      {
+        offers: [
+          offer({ id: "soon", expiresAt: "2026-10-03T00:00:00.000Z" }),
+          offer({ id: "lapsed", expiresAt: "2026-09-25T00:00:00.000Z" }),
+          offer({ id: "done", state: "ACCEPTED" }),
+        ],
+      },
+      NOW,
+    );
+    expect(r.page).toEqual({ page: 1, size: 3, total: 3, pages: 1 });
+    expect(r.counts).toEqual({ open: 1, closed: 2 });
+    expect(offerPage({ offers: [] }, NOW).page).toEqual({ page: 1, size: 12, total: 0, pages: 1 });
+  });
+
+  it("an open offer within 48 hours of expiry needs you now; a closed one never does", () => {
+    expect(EXPIRY_SOON_HOURS).toBe(48);
+    expect(hoursToExpiry(offer({ expiresAt: "2026-10-02T12:00:00.000Z" }), NOW)).toBe(24);
+    expect(expiresSoon(offer({ expiresAt: "2026-10-02T12:00:00.000Z" }), NOW)).toBe(true);
+    expect(expiresSoon(offer({ expiresAt: "2026-10-03T12:00:00.000Z" }), NOW)).toBe(false);
+    expect(expiresSoon(offer({ expiresAt: "2026-10-03T11:59:00.000Z" }), NOW)).toBe(true);
+    expect(expiresSoon(offer({ expiresAt: "2026-09-30T00:00:00.000Z" }), NOW)).toBe(false);
+    expect(expiresSoon(offer({ state: "ACCEPTED", expiresAt: "2026-10-02T12:00:00.000Z" }), NOW)).toBe(false);
   });
 });

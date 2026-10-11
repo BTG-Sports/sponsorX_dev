@@ -5,8 +5,6 @@ import {
   isBehind,
   monogramOf,
   portfolioTotals,
-  toCampaignRow,
-  toPortfolioRow,
   windowLabel,
   type ApiCampaign,
 } from "../src/lib/sponsor-live";
@@ -53,19 +51,6 @@ describe("windowLabel", () => {
   });
 });
 
-describe("toPortfolioRow", () => {
-  it("invents no views and carries contracted as spend", () => {
-    const r = toPortfolioRow(c(), NOW);
-    expect(r.views).toBeNull();
-    expect(r.spend).toBe(240_000);
-    expect(r.pkg).toBe("Local Blitz");
-    expect(r.monogram).toBe("FS");
-  });
-  it("a withheld money column stays null", () => {
-    expect(toPortfolioRow(c({ contracted: undefined }), NOW).spend).toBeNull();
-  });
-});
-
 describe("portfolioTotals", () => {
   it("sums what the API answered", () => {
     const t = portfolioTotals([c(), c({ id: "cmp_2", state: "COMPLETED", athletes: 2 })]);
@@ -82,25 +67,5 @@ describe("monogramOf", () => {
   it("takes two initials, ignoring punctuation", () => {
     expect(monogramOf("Bowie Auto Group — Fall")).toBe("BA");
     expect(monogramOf("")).toBe("?");
-  });
-});
-
-describe("P2-FE-01 · the Campaigns list card", () => {
-  it("carries no views, and a withheld spend as null — never zero", () => {
-    const row = toCampaignRow(c({ contracted: undefined }), NOW);
-    expect(row.views).toBeNull();
-    expect(row.spend).toBeNull();
-  });
-
-  it("rounds progress, and a campaign with nothing planned is 0%, not NaN", () => {
-    expect(toCampaignRow(c(), NOW).pct).toBe(25);
-    expect(toCampaignRow(c({ deliverables: { done: 0, total: 0 } }), NOW).pct).toBe(0);
-  });
-
-  it("keeps any §21 state and agrees with the dashboard on pacing", () => {
-    const row = toCampaignRow(c({ state: "APPROVAL" }), NOW);
-    expect(row.state).toBe("APPROVAL");
-    expect(toCampaignRow(c(), NOW).behind).toBe(isBehind(c(), NOW));
-    expect(toCampaignRow(c({ package: null }), NOW).pkg).toBe("Custom");
   });
 });

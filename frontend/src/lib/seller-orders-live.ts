@@ -26,9 +26,10 @@
    -------------------------------------------------------------------------- */
 
 import { cancelMarkWhy, sellerCancelBadge, sellerCancelBanner, type SellerCancellation } from "@/lib/cancellations-live";
+import type { ListKeys, PageInfo } from "@/lib/list-query";
 import {
   ANSWER_WINDOW_HOURS, OVERDUE_HANDOVER_DAYS, answerQuote, datesText, dayOf, inWords, money, stamp,
-  type ApiIssue, type ApiTimelineItem,
+  type ApiIssue, type ApiSellerApproval, type ApiTimelineItem,
 } from "@/lib/order-automation-live";
 
 export type SellerKind = "athlete" | "team";
@@ -363,3 +364,85 @@ export const SELLER = {
   athlete: { basePath: "/athlete/sales", moneyHref: "/athlete/money", moneyLabel: "Go to My money" },
   team: { basePath: "/property/sales", moneyHref: "/property/earnings", moneyLabel: "Go to Earnings" },
 } as const;
+
+/* ------------------------------------------------ the paged list (P1-ART-22) */
+
+/* P1-ART-22 (2026-10-11) — the Orders page is SERVER-PAGED:
+     GET /sales?page&size&tab&q        → { sales, page, tabs: [{ key, label, count }] }
+     GET /seller-approvals?page&size   → { approvals, page, counts: { waiting, total } }
+   `tabs` comes with `all` first, then one per state group the API finds
+   meaningful (to_deliver, awaiting_payment, delivered, cancelled …);
+   `?tab=<key>` filters. Every count on the page is one of these — never the
+   rows on screen. The backend lands in parallel: a read that still answers
+   the legacy shape (no page / tabs / counts) falls back to one page of what
+   it returned and an "All" tab counting it. */
+
+export type ApiSalesTab = { key: string; label: string; count: number };
+export type ApiSalesList = { sales: ApiSellerOrder[]; page?: PageInfo; tabs?: ApiSalesTab[] };
+export type ApiApprovalList = { approvals: ApiSellerApproval[]; page?: PageInfo; counts?: { waiting: number; total: number } };
+
+/** The second paged list on the Orders page (the approvals) keeps its own URL keys. */
+export const APPROVAL_KEYS: ListKeys = { page: "apage", size: "asize" };
+
+/** The tab strip: the API's tabs, `all` first — or one "All" tab counting an unpaged answer. */
+export function salesTabs(list: Pick<ApiSalesList, "sales" | "tabs">): ApiSalesTab[] {
+  const tabs = list.tabs?.filter((t) => t && typeof t.key === "string") ?? [];
+  if (tabs.length === 0) return [{ key: "all", label: "All", count: list.sales.length }];
+  const all = tabs.find((t) => t.key === "all");
+  return all ? [all, ...tabs.filter((t) => t !== all)] : [{ key: "all", label: "All", count: tabs.reduce((s, t) => s + t.count, 0) }, ...tabs];
+}
+
+/** ?tab= as the URL carries it, cleaned to a key the API can take ("" = all). */
+export function salesTabParam(raw: string | string[] | undefined): string {
+  const v = (Array.isArray(raw) ? raw[0] : raw) ?? "";
+  const key = v.trim().toLowerCase().slice(0, 40);
+  return /^[a-z][a-z0-9_]*$/.test(key) && key !== "all" ? key : "";
+}
+
+/** The tab that is on: the URL's key when the API knows it, else `all`. */
+export function salesTab(raw: string | string[] | undefined, tabs: readonly ApiSalesTab[]): ApiSalesTab {
+  const key = salesTabParam(raw);
+  return tabs.find((t) => t.key === key) ?? tabs.find((t) => t.key === "all") ?? tabs[0]!;
+}
+
+export type SalesTile = { key: string; label: string; value: number; caption: string; tone: "blue" | "ink" | "win" | "warn" | "flare"; href?: string };
+
+const TAB_TONE: Record<string, SalesTile["tone"]> = { to_deliver: "blue", awaiting_payment: "ink", delivered: "win", confirmed: "win", problem: "warn", cancelled: "ink" };
+const TAB_CAPTION: Record<string, string> = {
+  to_deliver: "paid · yours to deliver",
+  awaiting_payment: "sold · the sponsor hasn't paid yet",
+  delivered: "waiting for the sponsor, or confirmed",
+  confirmed: "confirmed by the sponsor",
+  problem: "a problem the sponsor reported",
+  cancelled: "cancelled or refunded",
+};
+
+/**
+ * The KPI plates: the leading tabs after `all` (up to three), then the
+ * approvals waiting for the seller's answer. Figures are the API's tab counts
+ * and `counts.waiting` (memory: stats-must-be-retrievable).
+ */
+export function salesTiles(tabs: readonly ApiSalesTab[], waiting: number, basePath: string): SalesTile[] {
+  const lead = tabs.filter((t) => t.key !== "all").slice(0, 3).map<SalesTile>((t) => ({
+    key: t.key,
+    label: t.label,
+    value: t.count,
+    caption: TAB_CAPTION[t.key] ?? `${t.label.toLowerCase()} order lines`,
+    tone: t.count === 0 ? "ink" : (TAB_TONE[t.key] ?? "blue"),
+    href: `${basePath}?tab=${encodeURIComponent(t.key)}`,
+  }));
+  if (lead.length === 0) {
+    const all = tabs.find((t) => t.key === "all");
+    lead.push({ key: "all", label: "Order lines", value: all?.count ?? 0, caption: "every sale of your items", tone: all?.count ? "blue" : "ink", href: basePath });
+  }
+  return [
+    ...lead,
+    {
+      key: "waiting",
+      label: "Waiting for your answer",
+      value: waiting,
+      caption: waiting ? "accept or decline within 48 hours" : "no order needs your approval",
+      tone: waiting ? "warn" : "ink",
+    },
+  ];
+}
