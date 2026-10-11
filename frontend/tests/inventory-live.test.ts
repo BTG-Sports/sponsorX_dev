@@ -6,11 +6,14 @@ import {
   BRAND_CATEGORIES,
   EMPTY_DRAFT,
   INVENTORY_KINDS,
+  activeParam,
   centsFromUsd,
   componentOptions,
   draftFromItem,
   explainInventoryRefusal,
+  inventoryCounts,
   isoFromDate,
+  pageOrAll,
   patchFrom,
   refusalMessage,
   teamItemRow,
@@ -28,6 +31,10 @@ import {
    the API's InventoryItemInput + inventoryProblems; these pin that mirror
    so the form never lets through what the API refuses, nor refuses what it
    takes.
+
+   P1-ART-22 — the server-paged list's helpers: the ?active param, the KPI
+   counts (the API's, or counted from the rows while it answers the legacy
+   shape — with no invented "unlisted"), and the page-info fallback.
    -------------------------------------------------------------------------- */
 
 const item = (over: Partial<ApiInventoryItem> = {}): ApiInventoryItem => ({
@@ -210,6 +217,28 @@ describe("rows", () => {
     const r = { id: "r", athleteId: "a1", propertyId: null, category: "ENERGY_DRINK", startsOn: null, endsOn: null, reason: null, sourceOfferId: null, createdAt: "" };
     expect(toRestrictionRow({ ...r, type: "PROHIBITED" })).toMatchObject({ category: "Energy drink", removable: true, window: null });
     expect(toRestrictionRow({ ...r, type: "EXCLUSIVITY", sourceOfferId: "o1" }).removable).toBe(false);
+  });
+});
+
+describe("the paged list (P1-ART-22)", () => {
+  it("?active is true, false or nothing", () => {
+    expect(activeParam({ active: "true" })).toBe("true");
+    expect(activeParam({ active: "false" })).toBe("false");
+    expect(activeParam({ active: "yes" })).toBe("");
+    expect(activeParam({})).toBe("");
+  });
+  it("takes the API's counts when it sends them", () => {
+    expect(inventoryCounts({ items: [item()], counts: { total: 40, active: 30, paused: 10, unlisted: 7 } })).toEqual({ total: 40, active: 30, paused: 10, unlisted: 7 });
+  });
+  it("counts the rows while the API is still unpaged — and never invents the unlisted figure", () => {
+    const c = inventoryCounts({ items: [item(), item({ id: "i2", active: false }), item({ id: "i3" })] });
+    expect(c).toEqual({ total: 3, active: 2, paused: 1, unlisted: null });
+  });
+  it("one page of every row until the API pages", () => {
+    expect(pageOrAll([1, 2, 3], undefined)).toEqual({ page: 1, size: 3, total: 3, pages: 1 });
+    expect(pageOrAll([], undefined)).toEqual({ page: 1, size: 12, total: 0, pages: 1 });
+    const p = { page: 2, size: 12, total: 30, pages: 3 };
+    expect(pageOrAll([1], p)).toBe(p);
   });
 });
 

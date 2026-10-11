@@ -64,14 +64,17 @@ export const HandoffStaffDecisionInput = z
 /** 2S1-FE-12 — the groups of BTG's Guardian handoffs desk, one tab each. */
 export const HANDOFF_GROUPS = ["WAITING_FOR_BTG", "IN_PROGRESS", "SWITCHED", "DECLINED", "CANCELLED"] as const;
 
+/** P1-ART-22 — the athlete arena's two groups (a guardian's or an athlete's page): still open, or over. */
+export const ARENA_HANDOFF_GROUPS = ["waiting", "past"] as const;
+
 export const HandoffListQuery = z
   .object({
-    group: z.enum(HANDOFF_GROUPS).optional(),
+    group: z.enum([...HANDOFF_GROUPS, ...ARENA_HANDOFF_GROUPS]).optional(),
     /* The house pager (lib/paging.ts): present → one page and its count. */
     page: z.coerce.number().int().optional(),
     size: z.coerce.number().int().optional(),
   })
   .meta({
     id: "HandoffListQuery",
-    description: "One group of requests: WAITING_FOR_BTG (HANDED_OFF), IN_PROGRESS (REQUESTED — BTG only — and WAITING), SWITCHED, DECLINED or CANCELLED. Omitted: every group.",
+    description: "One group of requests: WAITING_FOR_BTG (HANDED_OFF), IN_PROGRESS (REQUESTED — BTG only — and WAITING), SWITCHED, DECLINED or CANCELLED; or the arena's `waiting` (WAITING and HANDED_OFF — and REQUESTED for BTG) and `past` (SWITCHED, DECLINED, CANCELLED). Omitted: every group.",
   });

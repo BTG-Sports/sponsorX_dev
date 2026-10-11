@@ -91,3 +91,22 @@ export function nextQuery(
 export function pageParamsFor(sp: SearchParams, keys: ListKeys): { page: number; size: number } {
   return pageParams({ page: sp[keys.page], size: sp[keys.size] });
 }
+
+/** The API query for a list with its own keys: `?page=&size=` from that
+ *  list's URL keys (the API's names stay page/size), then the extras. */
+export function apiListQueryFor(sp: SearchParams, keys: ListKeys, extras: Record<string, string> = {}): string {
+  const { page, size } = pageParamsFor(sp, keys);
+  const u = new URLSearchParams({ page: String(page), size: String(size) });
+  for (const [k, v] of Object.entries(extras)) if (v) u.set(k, v);
+  return `?${u}`;
+}
+
+/**
+ * P1-ART-22 — a route that is being paged in parallel may still answer the
+ * legacy unpaged shape (no `page`). Then the rows ARE the whole list: one
+ * page holding them all, so the pager still renders and the counts stay
+ * honest. Never used to slice rows in the browser.
+ */
+export function pageOrAll(rows: readonly unknown[], page?: PageInfo | null): PageInfo {
+  return page ?? { page: 1, size: rows.length || DEFAULT_SIZE, total: rows.length, pages: 1 };
+}

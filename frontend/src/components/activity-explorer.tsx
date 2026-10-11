@@ -6,14 +6,12 @@ import { Badge, Card } from "@/components/ui";
 import { Monogram, initials } from "@/components/hero";
 import {
   CalendarIcon,
-  ChevronDown,
   Dropdown,
   FilterChip,
-  PANEL_CLS,
   SearchInput,
-  triggerCls,
-  useOutsideClose,
 } from "@/components/filter-kit";
+import { DateRangePicker as SharedDateRangePicker } from "@/components/date-range-picker";
+import { dayOf, partsOf } from "@/lib/day-range";
 import { ListSearch, PagerRow, PendingList, ServerList, useListNav } from "@/components/server-pager";
 import type { PageInfo } from "@/lib/list-query";
 import { EARNING_COPY, earningItems, heldNote, money } from "@/lib/fixtures";
@@ -41,7 +39,9 @@ import {
    - DateRangePicker — a calendar popover, not a month <select>: days that
      have activity carry an accent dot, first click starts a range, second
      completes it (one click = that single day), "All dates" clears. The
-     fixture world is 2026, so the calendar is pinned to 2026.
+     fixture world is 2026, so the calendar is pinned to 2026. Since
+     2026-10-12 it is the shared components/date-range-picker.tsx, adapted
+     below to this explorer's year-less day codes.
    - Reset is an icon button (broom ✕), not a text link.
 
    Filter state lives in the URL (history.replaceState, no navigation) as
@@ -81,9 +81,22 @@ const rangeLabel = (from: number | null, to: number | null) =>
 
 /* -------------------------------------------------------- DateRangePicker */
 
-const DOW = ["S", "M", "T", "W", "T", "F", "S"];
 const YEAR = 2026; // the fixture world's year — updatedAt strings carry no year
 
+/** Day code (month*100 + day) in `year` → "YYYY-MM-DD". */
+const codeToDay = (code: number, year: number) => dayOf(year, Math.floor(code / 100) - 1, code % 100);
+/** "YYYY-MM-DD" → day code (the year is the picker's, pinned by min / max). */
+const dayToCode = (day: string) => {
+  const p = partsOf(day);
+  return (p.month + 1) * 100 + p.day;
+};
+
+/**
+ * This explorer's dates are year-less day codes ("May 16" fixtures), so the
+ * shared calendar (components/date-range-picker.tsx) is adapted here: codes
+ * ↔ ISO days in `year`, the calendar pinned to that one year by min / max,
+ * and the trigger keeps its year-less "May 14 – May 16" words.
+ */
 function DateRangePicker({
   from,
   to,
@@ -99,162 +112,20 @@ function DateRangePicker({
    *  says otherwise. */
   year?: number;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useOutsideClose(ref, () => setOpen(false), open);
-
-  /* Open on the month being filtered, else the first month with activity. */
-  const firstMarker = markers.size
-    ? Math.min(...markers, 1231)
-    : (new Date().getUTCMonth() + 1) * 100 + 1;
-  const [view, setView] = useState(
-    Math.floor((from ?? firstMarker) / 100) - 1,
-  );
-
-  const label = rangeLabel(from, to);
-
-  const pick = (code: number) => {
-    if (from !== null && to === null && code !== from) {
-      const [a, b] = code < from ? [code, from] : [from, code];
-      onChange(a, b);
-    } else {
-      onChange(code, null); // start a new range; alone it filters that day
-    }
-  };
-
-  const startDow = new Date(year, view, 1).getDay();
-  const daysInMonth = new Date(year, view + 1, 0).getDate();
-  const end = to ?? from;
-
+  const dayMarkers = useMemo(() => new Set([...markers].filter((c) => c >= 101 && c <= 1231).map((c) => codeToDay(c, year))), [markers, year]);
   return (
-    <div
-      ref={ref}
-      className="relative"
-      onKeyDown={(e) => {
-        if (e.key === "Escape") setOpen(false);
-      }}
-    >
-      <button
-        type="button"
-        aria-label="Filter by date"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className={triggerCls(from !== null, open)}
-      >
-        <CalendarIcon />
-        {label}
-        <ChevronDown open={open} />
-      </button>
-
-      {open && (
-        <div className={`${PANEL_CLS} w-64 p-3`} role="dialog" aria-label="Choose a date range">
-          {/* month header */}
-          <div className="flex items-center justify-between">
-            <NavBtn dir={-1} disabled={view === 0} onClick={() => setView((v) => v - 1)} />
-            <p className="text-xs font-semibold tracking-tight">
-              {MONTH_NAMES[view]} {year}
-            </p>
-            <NavBtn dir={1} disabled={view === 11} onClick={() => setView((v) => v + 1)} />
-          </div>
-
-          {/* day-of-week row */}
-          <div className="mt-2 grid grid-cols-7 text-center">
-            {DOW.map((d, i) => (
-              <span key={i} className="py-1 text-[9px] font-medium uppercase text-faint">
-                {d}
-              </span>
-            ))}
-          </div>
-
-          {/* days */}
-          <div className="grid grid-cols-7">
-            {Array.from({ length: startDow }, (_, i) => (
-              <span key={`b${i}`} />
-            ))}
-            {Array.from({ length: daysInMonth }, (_, i) => {
-              const day = i + 1;
-              const code = (view + 1) * 100 + day;
-              const isEdge = code === from || code === end;
-              const inRange =
-                from !== null && end !== null && code > from && code < end;
-              const hasActivity = markers.has(code);
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  aria-label={`${MONTH_NAMES[view]} ${day}`}
-                  aria-pressed={isEdge || inRange}
-                  onClick={() => pick(code)}
-                  className={[
-                    "relative mx-auto grid size-8 place-items-center rounded-full text-[11px] tabular-nums transition-colors",
-                    isEdge
-                      ? "bg-primary font-semibold text-cta-ink"
-                      : inRange
-                        ? "bg-primary/15 text-text"
-                        : "text-muted hover:bg-surface-2 hover:text-text",
-                  ].join(" ")}
-                >
-                  {day}
-                  {hasActivity && (
-                    <span
-                      aria-hidden="true"
-                      className={[
-                        "absolute bottom-1 size-1 rounded-full",
-                        isEdge ? "bg-cta-ink" : "bg-accent",
-                      ].join(" ")}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* footer */}
-          <div className="mt-2 flex items-center justify-between border-t border-line-soft pt-2">
-            <p className="text-[10px] text-faint">
-              {from !== null && to === null
-                ? "Pick another day to make it a range"
-                : markers.size
-                  ? "Dots mark days with activity"
-                  : "Pick a day, or two for a range"}
-            </p>
-            <button
-              type="button"
-              onClick={() => onChange(null, null)}
-              disabled={from === null}
-              className="text-[11px] font-medium text-accent transition-colors hover:text-accent-soft disabled:pointer-events-none disabled:opacity-40"
-            >
-              All dates
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NavBtn({
-  dir,
-  disabled,
-  onClick,
-}: {
-  dir: -1 | 1;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={dir === 1 ? "Next month" : "Previous month"}
-      disabled={disabled}
-      onClick={onClick}
-      className="grid size-7 place-items-center rounded-full border border-line text-muted transition-colors hover:bg-surface-2 hover:text-text disabled:pointer-events-none disabled:opacity-30"
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="size-3" aria-hidden="true">
-        <path d={dir === 1 ? "m9 5 7 7-7 7" : "m15 5-7 7 7 7"} />
-      </svg>
-    </button>
+    <SharedDateRangePicker
+      from={from === null ? null : codeToDay(from, year)}
+      to={to === null ? null : codeToDay(to, year)}
+      onChange={(f, t) => onChange(f === null ? null : dayToCode(f), t === null ? null : dayToCode(t))}
+      markers={dayMarkers}
+      min={`${year}-01-01`}
+      max={`${year}-12-31`}
+      tone="athlete"
+      label="Filter by date"
+      allLabel="All dates"
+      triggerText={rangeLabel(from, to)}
+    />
   );
 }
 

@@ -11,6 +11,10 @@ import { requirePortalAccess } from "@/server/portal";
 
    Reads  GET  /seller-approvals/:id            (own approval only)
    Writes POST /seller-approvals/:id/decision   (seller-sales-actions.ts)
+
+   P1-ART-22 (2026-10-11) — the title row is the Arena's (OrdersHead in
+   seller-orders.tsx, through SellerApprovalDetail / SellerApprovalMissing).
+   Visual only — the read and the write above are unchanged.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";

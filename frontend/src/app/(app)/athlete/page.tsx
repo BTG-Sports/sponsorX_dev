@@ -1,7 +1,18 @@
 import Link from "next/link";
 
-import { Badge, Card, SectionHeading } from "@/components/ui";
-import { Monogram } from "@/components/hero";
+import {
+  ArenaChip,
+  ArenaHead,
+  ArenaLane,
+  ArenaLink,
+  ArenaPanel,
+  ArenaRow,
+  ArenaSection,
+  ArenaTile,
+  ArenaTiles,
+  type ArenaTone,
+} from "@/components/arena-stage";
+import { ArenaCount } from "@/components/arena-fx";
 import {
   DUE_STATES, buildHome, openOffers, payoutStatusTiles, shopTiles, upcomingSales, type ApiSellerSummary, type HomeTile,
 } from "@/lib/athlete-home-live";
@@ -60,6 +71,15 @@ import { comingOfAgeView, type ApiComingOfAge } from "@/lib/account-live";
    A 403/404 on one of these — a login that has no offers, sells nothing or
    has no payee (a guardian's own) — leaves that block out; any other
    failure throws to the error page. Nothing is estimated.
+
+   P1-ART-22 (2026-10-11) — redrawn on the Arena (components/arena-stage.tsx)
+   as a dashboard, the admin desks' anatomy in the athlete's hand: a small
+   title with the provenance pill and the athlete's status, four KPI plates
+   (what needs their move; each opens its page), the notices, then "coming
+   up" as four plates of rows, profile completion as a lane, and the shop,
+   payouts and earnings as plate rows. Visual only — the reads above and
+   their helpers are unchanged; every figure on a plate is still one of
+   them.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -77,21 +97,65 @@ async function optional<T>(res: Response | null, path: string): Promise<T | null
   return (await res.json()) as T;
 }
 
-const TILE_TONE: Record<HomeTile["tone"], string> = { neutral: "", primary: "text-primary", accent: "text-accent", warn: "text-warn" };
+const TILE_TONE: Record<HomeTile["tone"], ArenaTone> = { neutral: "ink", primary: "blue", accent: "win", warn: "warn" };
+const STATUS_TONE: Record<"accent" | "primary" | "warn" | "neutral", ArenaTone> = { accent: "win", primary: "blue", warn: "warn", neutral: "ink" };
 
-function Tiles({ tiles, label }: { tiles: HomeTile[]; label: string }) {
+/** A row of the home's helper tiles (the shop, the payouts), as arena plates. */
+function Tiles({ tiles, label, from }: { tiles: HomeTile[]; label: string; from: number }) {
   return (
-    <ul aria-label={label} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {tiles.map((t) => (
-        <li key={t.key}>
-          <Link href={t.href} className="block h-full rounded-xl border border-line bg-surface p-4 hover:border-primary/40">
-            <p className="text-[11px] font-medium text-muted">{t.label}</p>
-            <p className={`mt-1 text-xl font-semibold tabular-nums ${TILE_TONE[t.tone]}`}>{t.value}</p>
-            <p className="mt-0.5 text-[11px] text-faint">{t.sub}</p>
-          </Link>
-        </li>
+    <dl aria-label={label} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {tiles.map((t, i) => (
+        <ArenaTile key={t.key} label={t.label} value={t.n} format={t.format} caption={t.sub} tone={TILE_TONE[t.tone]} href={t.href} delay={from + i * 0.06} />
       ))}
-    </ul>
+    </dl>
+  );
+}
+
+function Mono({ text, tone = "blue" }: { text: string; tone?: "blue" | "flare" }) {
+  return (
+    <span className={`grid size-10 shrink-0 place-items-center rounded-xl border text-[12px] font-bold ${tone === "flare" ? "border-accent/30 bg-accent/10 text-accent" : "border-athlete/25 bg-athlete/10 text-athlete"}`}>
+      {text}
+    </span>
+  );
+}
+
+function DayMark({ mon, day, hot = false }: { mon: string; day: string; hot?: boolean }) {
+  return (
+    <span className={`grid w-11 shrink-0 rounded-xl border py-1 text-center ${hot ? "border-warn/40 bg-warn/10" : "border-athlete/25 bg-athlete/10"}`}>
+      <span className={`text-[9px] font-semibold tracking-[0.18em] ${hot ? "text-warn" : "text-athlete"}`}>{mon}</span>
+      <span className="sx-arena-num text-lg leading-none text-text">{day}</span>
+    </span>
+  );
+}
+
+/** One "coming up" plate: an eyebrow with the count, the rows or a quiet line. */
+function UpPanel({
+  title, count, extra, href, hrefLabel, empty, children, delay,
+}: {
+  title: string;
+  count: number;
+  /** A note after the count ("2 overdue"). */
+  extra?: string;
+  href: string;
+  hrefLabel: string;
+  empty: { title: string; hint: string };
+  children: React.ReactNode;
+  delay: number;
+}) {
+  return (
+    <section>
+      <ArenaSection title={`${title} · ${count}${extra ? ` · ${extra}` : ""}`} action={<ArenaLink href={href}>{hrefLabel}</ArenaLink>} delay={delay} />
+      {count === 0 ? (
+        <ArenaPanel delay={delay + 0.05}>
+          <p className="text-sm font-semibold">{empty.title}</p>
+          <p className="mt-1 text-xs text-muted">{empty.hint}</p>
+        </ArenaPanel>
+      ) : (
+        <ArenaPanel flush delay={delay + 0.05} className="pl-2">
+          {children}
+        </ArenaPanel>
+      )}
+    </section>
   );
 }
 
@@ -131,7 +195,7 @@ export default async function AthleteHomePage() {
   if (me && (me.status === 403 || me.status === 404)) {
     return (
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold tracking-tight">Your dashboard</h1>
+        <ArenaHead title="Dashboard" />
         <EmptyState
           mark="users"
           title="Your account isn't linked to an athlete profile yet"
@@ -166,258 +230,285 @@ export default async function AthleteHomePage() {
   const sales = shop ? upcomingSales(shop) : [];
   const overdueCount = overdue.page.total;
   const waiting = shop?.approvalsWaiting ?? 0;
+  const readAt = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const paid = h.earnings.find((e) => e.label === "Paid");
+  const eligible = h.earnings.find((e) => e.label === "Eligible");
+  const approved = h.earnings.find((e) => e.label === "Approved");
+  const owedCents = (eligible?.cents ?? 0) + (approved?.cents ?? 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-faint">Your dashboard</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{h.firstName ? `Hi, ${h.firstName}` : "Hi there"}</h1>
-          {h.subtitle && <p className="mt-1 text-xs text-muted">{h.subtitle}</p>}
-
-        </div>
-        {h.status && (
-          <div className="max-w-xs text-right">
-            <Badge tone={h.status.tone}>{h.status.label}</Badge>
-            {h.status.line && <p className="mt-1 text-[11px] text-muted">{h.status.line}</p>}
-          </div>
-        )}
-      </div>
+    <div className="space-y-8">
+      <ArenaHead
+        title="Dashboard"
+        pill={`Postgres · read ${readAt}`}
+        lede={
+          <span className="flex flex-wrap items-center gap-2">
+            <span>{h.firstName ? `Hi, ${h.firstName}` : "Hi there"}{h.subtitle ? ` · ${h.subtitle}` : ""}</span>
+            {h.status && <ArenaChip tone={STATUS_TONE[h.status.tone]}>{h.status.label}</ArenaChip>}
+          </span>
+        }
+      >
+        {/* The KPI row: what needs the athlete's move, each plate the door to its page. */}
+        <ArenaTiles>
+          <ArenaTile
+            label="Invitations open"
+            value={h.inviteCount}
+            caption={h.inviteCount ? "waiting for your answer · soonest expiry first" : "BTG invites you once your profile is live"}
+            tone={h.inviteCount ? "flare" : "ink"}
+            href="/athlete/invitations"
+            delay={0.1}
+          />
+          {offers && (
+            <ArenaTile
+              label="Offers waiting"
+              value={offers.count}
+              caption={offers.count ? "full terms to accept or decline" : "nothing waiting for you"}
+              tone={offers.count ? "flare" : "ink"}
+              href="/athlete/offers"
+              delay={0.16}
+            />
+          )}
+          <ArenaTile
+            label="Deliverables due"
+            value={h.dueCount}
+            caption={overdueCount ? `${overdueCount} overdue · shown first` : h.dueCount ? "on schedule" : "nothing due"}
+            tone={overdueCount ? "warn" : h.dueCount ? "blue" : "ink"}
+            share={h.dueCount ? overdueCount / h.dueCount : undefined}
+            href="/athlete/deliverables"
+            delay={0.22}
+          />
+          <ArenaTile
+            label={`Paid in ${now.getUTCFullYear()}`}
+            value={paid?.cents ?? 0}
+            format="usd"
+            caption={owedCents > 0 ? `${eligible?.amount ?? "$0"} eligible · ${approved?.amount ?? "$0"} approved` : h.hasEarnings ? "nothing waiting to be paid" : "earnings start with your first Campaign Order"}
+            tone={paid?.cents ? "win" : "ink"}
+            href="/athlete/earnings"
+            delay={0.28}
+          />
+        </ArenaTiles>
+      </ArenaHead>
 
       {ageView && coming && <ComingOfAgeReminder view={ageView} seat={coming.seat ?? "athlete"} uploadPath={coming.uploadPath ?? null} />}
       <GuardianControlNotice actor={actor} />
 
-      {payout?.show && (
-        <section
-          aria-label="Payout account"
-          className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-primary/40 bg-primary/5 px-5 py-4"
-        >
-          <div className="min-w-0 max-w-xl">
-            <p className="text-sm font-semibold">{payout.title}</p>
-            <p className="mt-1 text-xs leading-relaxed text-muted">{payout.body}</p>
-            {payout.minorLine && <p className="mt-1 text-xs leading-relaxed text-muted">{payout.minorLine}</p>}
-          </div>
-          <StripeLinkButton cta={payout.cta} action={athletePayoutLinkAction} testBadge={payout.testBadge} />
-        </section>
-      )}
-      {payout && !payout.show && <p className="text-[11px] text-muted">{payout.readyLine}</p>}
-
-      {h.profile && (
-        <Card>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-medium text-muted">Profile completion</p>
-              <p className="text-2xl font-semibold tabular-nums">{h.profile.percent}%</p>
-            </div>
-            <Link href="/athlete/profile/edit" className="text-xs font-semibold text-primary hover:underline">
-              Finish profile →
+      {(payout?.show || waiting > 0) && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {payout?.show && (
+            <ArenaPanel tone="flare" delay={0.32} spot>
+              <section aria-label="Payout account" className="flex flex-wrap items-center justify-between gap-4">
+                <div className="min-w-0 max-w-xl">
+                  <p className="text-sm font-semibold">{payout.title}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">{payout.body}</p>
+                  {payout.minorLine && <p className="mt-1 text-xs leading-relaxed text-muted">{payout.minorLine}</p>}
+                </div>
+                <StripeLinkButton cta={payout.cta} action={athletePayoutLinkAction} testBadge={payout.testBadge} />
+              </section>
+            </ArenaPanel>
+          )}
+          {waiting > 0 && (
+            <Link href="/athlete/sales" data-spot="" className="sx-arena-plate sx-arena-in group relative block px-5 pb-5 pt-4 pl-7" style={{ "--tone": "var(--sx-warn)", "--sx-reveal-delay": "0.36s" } as React.CSSProperties}>
+              <span aria-hidden="true" className="sx-arena-shine" />
+              <span className="flex flex-wrap items-center justify-between gap-3">
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold">
+                    {waiting === 1 ? "1 order is waiting for your answer" : `${waiting} orders are waiting for your answer`}
+                  </span>
+                  <span className="mt-1 block text-xs text-muted">A sponsor ordered something you asked to approve first. Accept or decline within 48 hours, or the order is cancelled.</span>
+                </span>
+                <span className="text-xs font-semibold text-athlete transition-transform duration-300 group-hover:translate-x-1">Answer →</span>
+              </span>
             </Link>
-          </div>
-          <div
-            role="progressbar"
-            aria-label="Profile completion"
-            aria-valuenow={h.profile.percent}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            className="mt-3 h-2 overflow-hidden rounded-full bg-surface-2"
-          >
-            <div className="h-full rounded-full bg-primary" style={{ width: `${h.profile.percent}%` }} />
-          </div>
-          <p className="mt-2 text-[11px] text-muted">
-            {h.profile.done} of {h.profile.total} sections done
-            {h.profile.missing.length > 0 && ` · still missing: ${h.profile.missing.join(", ")}`}
-          </p>
-        </Card>
+          )}
+        </div>
       )}
+      {payout && !payout.show && <p className="-mt-4 text-[11px] text-muted">{payout.readyLine}</p>}
 
-      {waiting > 0 && (
-        <Link
-          href="/athlete/sales"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warn/40 bg-warn/5 px-5 py-4 hover:border-warn/70"
-        >
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold">
-              {waiting === 1 ? "1 order is waiting for your answer" : `${waiting} orders are waiting for your answer`}
-            </span>
-            <span className="mt-1 block text-xs text-muted">A sponsor ordered something you asked to approve first. Accept or decline within 48 hours, or the order is cancelled.</span>
-          </span>
-          <span className="text-xs font-semibold text-primary">Answer →</span>
-        </Link>
-      )}
-
-      <h2 className="-mb-3 text-sm font-semibold tracking-tight">Coming up</h2>
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* ----------------------------------------------------- coming up */}
+      {/* min-w-0 on the cells: a section's header row (title + link) would
+          otherwise set the phone column's min-content past the viewport */}
+      <div className="grid gap-6 lg:grid-cols-2 [&>section]:min-w-0">
         {offers && (
-          <section>
-            <SectionHeading
-              title={`Offers waiting for your answer · ${offers.count}`}
-              action={<Link href="/athlete/offers" className="text-xs text-primary hover:underline">All offers →</Link>}
-            />
-            {offers.rows.length === 0 ? (
-              <Card>
-                <p className="text-sm font-semibold">No offers waiting</p>
-                <p className="mt-1 text-xs text-muted">BTG sends a formal offer with the full terms when a sponsor wants you for a campaign.</p>
-              </Card>
-            ) : (
-              <ul className="space-y-2">
-                {offers.rows.map((o) => (
-                  <li key={o.id}>
-                    <Link href={`/athlete/offers/${encodeURIComponent(o.id)}`} className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 hover:border-primary/40">
-                      <Monogram text={o.mono} tone="primary" className="size-9 text-[11px]" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">{o.sponsor}</span>
-                        <span className="block truncate text-[11px] text-muted">{o.campaign}</span>
-                      </span>
-                      <span className="text-right">
-                        <span className="block text-sm font-semibold tabular-nums">{o.pay}</span>
-                        <span className="block text-[11px] text-muted">{o.when}</span>
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <UpPanel
+            title="Offers waiting for your answer"
+            count={offers.count}
+            href="/athlete/offers"
+            hrefLabel="All offers"
+            empty={{ title: "No offers waiting", hint: "BTG sends a formal offer with the full terms when a sponsor wants you for a campaign." }}
+            delay={0.4}
+          >
+            {offers.rows.map((o, i) => (
+              <ArenaRow
+                key={o.id}
+                i={i}
+                href={`/athlete/offers/${encodeURIComponent(o.id)}`}
+                lead={<Mono text={o.mono} />}
+                title={o.sponsor}
+                sub={o.campaign}
+                right={
+                  <>
+                    <span className="sx-arena-num block text-sm text-text">{o.pay}</span>
+                    <span className="block text-[11px] text-muted">{o.when}</span>
+                  </>
+                }
+              />
+            ))}
+          </UpPanel>
         )}
 
-        <section>
-          <SectionHeading
-            title={`Open invitations · ${h.inviteCount}`}
-            action={<Link href="/athlete/invitations" className="text-xs text-primary hover:underline">All invitations →</Link>}
-          />
-          {h.invites.length === 0 ? (
-            <Card>
-              <p className="text-sm font-semibold">No invitations yet</p>
-              <p className="mt-1 text-xs text-muted">BTG invites you to campaigns once your profile is live. A complete profile gets matched sooner.</p>
-            </Card>
-          ) : (
-            <ul className="space-y-2">
-              {h.invites.map((i) => (
-                <li key={i.id}>
-                  <Link href="/athlete/invitations" className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 hover:border-primary/40">
-                    <Monogram text={i.mono} tone="accent" className="size-9 text-[11px]" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">{i.sponsor}</span>
-                      <span className="block truncate text-[11px] text-muted">{i.campaign}</span>
-                    </span>
-                    <span className="text-right">
-                      <span className="block text-sm font-semibold tabular-nums">{i.offer}</span>
-                      <span className={`block text-[11px] ${i.urgent ? "text-warn" : "text-muted"}`}>{i.expires}</span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <UpPanel
+          title="Open invitations"
+          count={h.inviteCount}
+          href="/athlete/invitations"
+          hrefLabel="All invitations"
+          empty={{ title: "No invitations yet", hint: "BTG invites you to campaigns once your profile is live. A complete profile gets matched sooner." }}
+          delay={0.44}
+        >
+          {h.invites.map((inv, i) => (
+            <ArenaRow
+              key={inv.id}
+              i={i}
+              href="/athlete/invitations"
+              lead={<Mono text={inv.mono} tone="flare" />}
+              title={inv.sponsor}
+              sub={inv.campaign}
+              right={
+                <>
+                  <span className="sx-arena-num block text-sm text-text">{inv.offer}</span>
+                  <span className={`block text-[11px] ${inv.urgent ? "text-warn" : "text-muted"}`}>{inv.expires}</span>
+                </>
+              }
+            />
+          ))}
+        </UpPanel>
 
-        <section>
-          <SectionHeading
-            title={`Deliverables due · ${h.dueCount}${overdueCount > 0 ? ` · ${overdueCount} overdue` : ""}`}
-            action={<Link href="/athlete/deliverables" className="text-xs text-primary hover:underline">All deliverables →</Link>}
-          />
-          {h.deliverables.length === 0 ? (
-            <Card>
-              <p className="text-sm font-semibold">Nothing due</p>
-              <p className="mt-1 text-xs text-muted">Deliverables show up here after you accept an invitation.</p>
-            </Card>
-          ) : (
-            <ul className="space-y-2">
-              {h.deliverables.map((d) => (
-                <li key={d.id}>
-                  <Link href={`/athlete/deliverables/${encodeURIComponent(d.id)}`} className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 hover:border-primary/40">
-                    <span className="grid w-10 shrink-0 text-center">
-                      <span className="text-[10px] font-medium text-muted">{d.mon}</span>
-                      <span className="text-lg font-semibold tabular-nums">{d.day}</span>
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">{d.title}</span>
-                      <span className={`block truncate text-[11px] ${d.overdue ? "text-warn" : "text-muted"}`}>
-                        {d.campaign} · {d.due}
-                      </span>
-                    </span>
-                    <Badge tone={d.review === "Not started" ? "neutral" : "primary"}>{d.review}</Badge>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <UpPanel
+          title="Deliverables due"
+          count={h.dueCount}
+          extra={overdueCount > 0 ? `${overdueCount} overdue` : undefined}
+          href="/athlete/deliverables"
+          hrefLabel="All deliverables"
+          empty={{ title: "Nothing due", hint: "Deliverables show up here after you accept an invitation." }}
+          delay={0.48}
+        >
+          {h.deliverables.map((d, i) => (
+            <ArenaRow
+              key={d.id}
+              i={i}
+              href={`/athlete/deliverables/${encodeURIComponent(d.id)}`}
+              lead={<DayMark mon={d.mon} day={d.day} hot={d.overdue} />}
+              title={d.title}
+              sub={<span className={d.overdue ? "text-warn" : undefined}>{d.campaign} · {d.due}</span>}
+              right={<ArenaChip tone={d.review === "Not started" ? "ink" : "blue"}>{d.review}</ArenaChip>}
+            />
+          ))}
+        </UpPanel>
 
         {shop && (
+          <UpPanel
+            title="Marketplace sales coming up"
+            count={shop.upcoming.total}
+            href="/athlete/sales"
+            hrefLabel="All orders"
+            empty={{ title: "No sales coming up", hint: "When a sponsor buys one of your listings, its dates show here until you've delivered it." }}
+            delay={0.52}
+          >
+            {sales.map((x, i) => (
+              <ArenaRow
+                key={x.id}
+                i={i}
+                href={`/athlete/sales/${encodeURIComponent(x.id)}`}
+                lead={<DayMark mon={x.mon} day={x.day} />}
+                title={x.title}
+                sub={`${x.sponsor} · ${x.when} · ${x.quantity}`}
+                right={<ArenaChip tone={x.badge === "To deliver" ? "blue" : "ink"}>{x.badge}</ArenaChip>}
+              />
+            ))}
+          </UpPanel>
+        )}
+      </div>
+
+      {/* ------------------------------------------- profile + earnings */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] [&>section]:min-w-0">
+        {h.profile && (
           <section>
-            <SectionHeading
-              title={`Marketplace sales coming up · ${shop.upcoming.total}`}
-              action={<Link href="/athlete/sales" className="text-xs text-primary hover:underline">All sales →</Link>}
-            />
-            {sales.length === 0 ? (
-              <Card>
-                <p className="text-sm font-semibold">No sales coming up</p>
-                <p className="mt-1 text-xs text-muted">When a sponsor buys one of your listings, its dates show here until you&rsquo;ve delivered it.</p>
-              </Card>
-            ) : (
-              <ul className="space-y-2">
-                {sales.map((x) => (
-                  <li key={x.id}>
-                    <Link href={`/athlete/sales/${encodeURIComponent(x.id)}`} className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 hover:border-primary/40">
-                      <span className="grid w-10 shrink-0 text-center">
-                        <span className="text-[10px] font-medium text-muted">{x.mon}</span>
-                        <span className="text-lg font-semibold tabular-nums">{x.day}</span>
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">{x.title}</span>
-                        <span className="block truncate text-[11px] text-muted">
-                          {x.sponsor} · {x.when} · {x.quantity}
-                        </span>
-                      </span>
-                      <Badge tone={x.badge === "To deliver" ? "primary" : "neutral"}>{x.badge}</Badge>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <ArenaSection title="Profile" action={<ArenaLink href="/athlete/profile/edit">Finish profile</ArenaLink>} delay={0.56} />
+            <ArenaPanel delay={0.6} spot>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">Completion</p>
+              <ArenaCount value={h.profile.percent} format="pct" delay={0.6} className={`sx-arena-num mt-1.5 block text-[34px] leading-none ${h.profile.percent === 100 ? "text-success" : "text-athlete"}`} />
+              <div
+                role="progressbar"
+                aria-label="Profile completion"
+                aria-valuenow={h.profile.percent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                className="mt-3"
+              >
+                <ArenaLane value={h.profile.percent / 100} tone={h.profile.percent === 100 ? "win" : "blue"} delay={0.8} />
+              </div>
+              <p className="mt-2.5 text-[11px] text-muted">
+                {h.profile.done} of {h.profile.total} sections done
+              </p>
+              {h.profile.missing.length > 0 && (
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  {h.profile.missing.map((m) => (
+                    <li key={m}>
+                      <ArenaChip tone="ink">{m}</ArenaChip>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </ArenaPanel>
           </section>
         )}
+
+        <section>
+          <ArenaSection
+            title="Earnings"
+            hint={h.hasEarnings ? "By status, from your Campaign Orders." : "Earnings appear once you accept a Campaign Order."}
+            action={<ArenaLink href="/athlete/earnings">Earnings</ArenaLink>}
+            delay={0.58}
+          />
+          <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            {h.earnings.map((e, i) => (
+              <ArenaTile
+                key={e.label}
+                label={e.label}
+                value={e.cents}
+                format="usd"
+                caption={e.hint}
+                tone={e.tone === "accent" ? "win" : e.tone === "primary" ? "blue" : "ink"}
+                href="/athlete/earnings"
+                delay={0.62 + i * 0.06}
+              />
+            ))}
+          </dl>
+        </section>
       </div>
 
       {shop && (
         <section>
-          <SectionHeading
+          <ArenaSection
             title="Your shop"
             hint="What you sell on the marketplace, counted from your own items, listings and orders."
-            action={<Link href="/athlete/listings" className="text-xs text-primary hover:underline">Listings →</Link>}
+            action={<ArenaLink href="/athlete/listings">Listings</ArenaLink>}
+            delay={0.7}
           />
-          <Tiles tiles={shopTiles(shop)} label="Your shop" />
+          <Tiles tiles={shopTiles(shop)} label="Your shop" from={0.74} />
         </section>
       )}
 
       {money && (
         <section>
-          <SectionHeading
+          <ArenaSection
             title="Payouts"
             hint="Your marketplace money, from the ledger."
-            action={<Link href="/athlete/money" className="text-xs text-primary hover:underline">My money →</Link>}
+            action={<ArenaLink href="/athlete/money">Payouts</ArenaLink>}
+            delay={0.8}
           />
-          <Tiles tiles={payoutStatusTiles(money)} label="Payouts" />
+          <Tiles tiles={payoutStatusTiles(money)} label="Payouts" from={0.84} />
         </section>
       )}
-
-      <section>
-        <SectionHeading
-          title="Earnings"
-          hint={h.hasEarnings ? "By status, from your Campaign Orders." : "Earnings appear once you accept a Campaign Order."}
-          action={<Link href="/athlete/earnings" className="text-xs text-primary hover:underline">Earnings →</Link>}
-        />
-        <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {h.earnings.map((e) => (
-            <li key={e.label} className="rounded-xl border border-line bg-surface p-4">
-              <p className="text-[11px] font-medium text-muted">{e.label}</p>
-              <p className={`mt-1 text-xl font-semibold tabular-nums ${e.tone === "accent" ? "text-accent" : ""}`}>{e.amount}</p>
-              <p className="mt-0.5 text-[11px] text-faint">{e.hint}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
     </div>
   );
 }

@@ -23,6 +23,7 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { assertMayCommit } from "./guardian-acts";
 import { BRAND_CATEGORIES } from "./brand-categories";
+import { readPage, type PageRequest } from "../lib/paging";
 
 export const INVENTORY_KINDS = ["SOCIAL_POST", "VIDEO", "APPEARANCE", "AUTOGRAPH", "CAMP", "SIGNAGE", "TICKETS", "OTHER", "PACKAGE"] as const;
 export type InventoryKind = (typeof INVENTORY_KINDS)[number];
@@ -130,6 +131,46 @@ export async function listInventory(actor: Actor) {
   return prisma.inventoryItem.findMany({
     where: whereFor(actor, "inventoryItem", "read"), select: SELECT, orderBy: { createdAt: "asc" },
   });
+}
+
+/**
+ * The athlete arena's Inventory page (P1-ART-22): one page of the caller's
+ * items (the house pager, lib/paging.ts), newest first, with the filters in
+ * the database — `q` on the title, `active`, and `unlisted` (an item with no
+ * listing in any state but ARCHIVED) — and counts over the caller's WHOLE
+ * scope, never over the page or the filter: total, active, paused (inactive)
+ * and unlisted.
+ */
+export async function listInventoryPage(actor: Actor, req: PageRequest, f: { q?: string; active?: boolean; unlisted?: boolean }) {
+  const base = whereFor(actor, "inventoryItem", "read");
+  const unlisted: Prisma.InventoryItemWhereInput = { listings: { none: { state: { not: "ARCHIVED" } } } };
+  const where: Prisma.InventoryItemWhereInput = {
+    AND: [
+      base,
+      ...(f.q ? [{ title: { contains: f.q, mode: "insensitive" as const } }] : []),
+      ...(f.active === undefined ? [] : [{ active: f.active }]),
+      ...(f.unlisted ? [unlisted] : []),
+    ],
+  };
+  const [paged, total, active, unlistedN] = await Promise.all([
+    readPage(
+      req,
+      () => prisma.inventoryItem.count({ /* tenant-scope: `where`/`base` are whereFor(actor, inventoryItem, "read") above; only filters are added. */ where }),
+      (skip, take) =>
+        prisma.inventoryItem.findMany({
+          /* tenant-scope: `where`/`base` are whereFor(actor, inventoryItem, "read") above; only filters are added. */
+          where,
+          select: SELECT,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          skip,
+          take,
+        }),
+    ),
+    prisma.inventoryItem.count({ /* tenant-scope: `where`/`base` are whereFor(actor, inventoryItem, "read") above; only filters are added. */ where: base }),
+    prisma.inventoryItem.count({ /* tenant-scope: `where`/`base` are whereFor(actor, inventoryItem, "read") above; only filters are added. */ where: { AND: [base, { active: true }] } }),
+    prisma.inventoryItem.count({ /* tenant-scope: `where`/`base` are whereFor(actor, inventoryItem, "read") above; only filters are added. */ where: { AND: [base, unlisted] } }),
+  ]);
+  return { items: paged.rows, page: paged.page, counts: { total, active, paused: total - active, unlisted: unlistedN } };
 }
 
 export async function getInventoryItem(actor: Actor, id: string) {

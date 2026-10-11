@@ -60,6 +60,35 @@ export async function readPage<T>(
   return { rows, page: pageInfo(at, total) };
 }
 
+/* Offset reads over ORDERED SEGMENTS (2026-09-29). Some list orders are "this
+   group first, then that one" — the matching desk's APPROVED → CREATED →
+   QUALIFIED, the inbox's open-first urgency, the seller's open approvals
+   before the answered ones — which no single ORDER BY on a column expresses.
+   Each segment is its own WHERE + ORDER BY; the page is the concatenation,
+   sliced by offset, with the true total. Counts are passed in (callers
+   usually have them already, as tab counts); segments must be disjoint. */
+export type Segment<T> = { count: number; read: (skip: number, take: number) => Promise<T[]> };
+
+export async function readSegments<T>(req: PageRequest, segments: Segment<T>[]): Promise<{ rows: T[]; page: PageInfo }> {
+  const total = segments.reduce((n, s) => n + s.count, 0);
+  const at = clampPage(req, total);
+  const rows: T[] = [];
+  let skip = at.skip;
+  let take = at.take;
+  for (const s of segments) {
+    if (take <= 0) break;
+    if (skip >= s.count) {
+      skip -= s.count;
+      continue;
+    }
+    const got = await s.read(skip, Math.min(take, s.count - skip));
+    rows.push(...got);
+    take -= got.length;
+    skip = 0;
+  }
+  return { rows, page: pageInfo(at, total) };
+}
+
 /** `?q=` as a trimmed, bounded search string, or undefined. */
 export function searchTerm(query: Record<string, unknown>): string | undefined {
   const q = typeof query.q === "string" ? query.q.trim().replace(/\0/g, "") : "";

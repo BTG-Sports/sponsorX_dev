@@ -146,7 +146,7 @@ test.describe("2S5-FE-09/10 · the payee's money and BTG's payout detail", () =>
     const athlete = await pageAs(browser, testInfo, ATHLETE_GRANT);
     watch(athlete);
     await athlete.goto("/athlete/money");
-    await expect(athlete.getByRole("heading", { name: "My money", level: 1 })).toBeVisible();
+    await expect(athlete.getByRole("heading", { name: "Payouts", level: 1 })).toBeVisible();
     /* A fresh athlete has no marketplace order: the By-order section's empty state. */
     const empty = athlete.getByText("No orders yet");
     const byOrder = athlete.getByRole("heading", { name: "By order" });

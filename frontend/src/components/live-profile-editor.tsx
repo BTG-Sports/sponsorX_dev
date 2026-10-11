@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Badge, Card } from "@/components/ui";
+import { Badge } from "@/components/ui";
 import { SECTIONS, type SectionKey } from "@/lib/profile-sections";
 import type { SectionState } from "@/lib/profile-live";
 import { BRAND_CATEGORIES, categoryLabel } from "@/lib/brand-categories";
@@ -39,6 +39,8 @@ import {
        and returns what the checks found, shown in the banner.
 
    Rates, payment and agreements stay read-only: BTG's, or not collected.
+   P1-ART-22 (2026-10-11): the section card is an arena plate lit under
+   the pointer (`sx-arena-plate` + data-spot); nothing else here changed.
    -------------------------------------------------------------------------- */
 
 const PLATFORMS: SocialInput["platform"][] = ["INSTAGRAM", "TIKTOK", "YOUTUBE", "X"];
@@ -461,7 +463,7 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
           ))}
         </nav>
 
-        <Card className="min-w-0">
+        <div data-spot="" className="sx-arena-plate min-w-0 px-5 pb-5 pt-4 pl-7">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold tracking-tight">{section.label}</h2>
             <div className="flex items-center gap-1.5">
@@ -584,7 +586,7 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
               </p>
             </div>
           )}
-        </Card>
+        </div>
       </div>
     </div>
   );

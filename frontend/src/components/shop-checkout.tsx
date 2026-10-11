@@ -6,7 +6,8 @@ import { useState, useTransition, type ChangeEvent, type ReactNode } from "react
 import { reserveAction } from "@/app/(app)/sponsor/cart/actions";
 import { placeOrderAction, releaseHoldAction } from "@/app/(app)/sponsor/checkout/actions";
 import { cancelOrderAction } from "@/app/(app)/sponsor/orders/[id]/actions";
-import { ShopRefusal, ShopSteps } from "@/components/shop-bits";
+import { ShopRefusal } from "@/components/shop-bits";
+import { StadiumSteps } from "@/components/stadium-stage";
 import {
   acceptLabel,
   APPROVAL_CONDITION,
@@ -66,6 +67,11 @@ export function ShopReserveButton({ label = "Reserve & check out", disabled }: {
 const fieldCls =
   "mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-text placeholder:text-faint focus:border-primary/60 focus:outline-none";
 
+/** The four checkout steps on the Stadium Board (spec §7.9); "Hold your
+ *  spots" reads as already underway once this gate renders at all. */
+export const CHECKOUT_STEPS = ["Hold your spots", "Billing contact", "Terms", "Place order"];
+const CHECKOUT_STEP_NOW: Record<"billing" | "terms" | "place", number> = { billing: 1, terms: 2, place: 3 };
+
 /**
  * The checkout's contract gate (2S4-FE-02): billing contact → order terms →
  * Place order. Place order stays disabled until the billing contact is
@@ -103,7 +109,7 @@ export function ShopCheckoutGate({
 
   return (
     <div className="space-y-6">
-      <ShopSteps active={step} />
+      <StadiumSteps steps={CHECKOUT_STEPS} now={CHECKOUT_STEP_NOW[step]} label="Where checkout stands" />
       {children}
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5">
         <div className="space-y-4">

@@ -19,6 +19,10 @@ import { athleteCloseAccountAction, athleteSettingsLinkAction } from "./actions"
    the public /reactivate page (2S1-BE-13); its two cases and the
    coming-of-age reminder (2S1-BE-12) are previews reached from the notice.
    ?demo=loading|error renders the branded states.
+
+   P1-ART-22 (2026-10-11): rendered on the Arena through AccountSettings'
+   `stage="arena"` — the title row with the provenance pill and the rows as
+   plates; the property portal's copy keeps its look.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -33,6 +37,7 @@ export default async function AthleteSettingsPage({ searchParams }: { searchPara
 
   return (
     <AccountSettings
+      stage="arena"
       seat={guardian ? "guardian" : "athlete"}
       accountWords={guardian ? "guardian account" : "athlete account"}
       linkAction={athleteSettingsLinkAction}

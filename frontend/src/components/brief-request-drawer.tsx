@@ -265,8 +265,8 @@ function BriefForm({
             ) : (
               <>
                 BTG will match eligible athletes, price the campaign, run conflict
-                checks and follow up. Phase 1 is managed — there&rsquo;s no
-                self-service checkout (§17).
+                checks and follow up. Nothing is charged now — BTG agrees the
+                price with you first.
               </>
             )}
           </p>
@@ -387,7 +387,7 @@ function BriefForm({
 
         <Field
           label="Your category"
-          hint="So BTG can screen out competitor conflicts (§26)."
+          hint="So BTG can screen out competitor conflicts."
         >
           <Dropdown
             label="Your brand category"

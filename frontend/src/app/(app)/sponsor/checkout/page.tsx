@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { Badge, Card } from "@/components/ui";
+import { Badge } from "@/components/ui";
 import { EmptyState } from "@/components/states";
-import { ShopLineRow, ShopPaymentNote, ShopSteps } from "@/components/shop-bits";
-import { ShopCheckoutGate, ShopReserveButton } from "@/components/shop-checkout";
-import { ShopCountdown } from "@/components/shop-countdown";
+import { ShopLineRow, ShopPaymentNote } from "@/components/shop-bits";
+import { CHECKOUT_STEPS, ShopCheckoutGate, ShopReserveButton } from "@/components/shop-checkout";
+import { StadiumHead, StadiumPanel, StadiumSteps } from "@/components/stadium-stage";
+import { StadiumHoldCountdown } from "@/components/stadium-hold-countdown";
 import {
   fmtStamp,
   lineSummary,
@@ -18,9 +19,10 @@ import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 
 /* --------------------------------------------------------------------------
-   Checkout and contract gate — 2S4-FE-02. /sponsor/checkout?reservation=<id>:
-   the 15-minute hold, reviewed, the billing contact confirmed, the order
-   terms accepted, then placed as an order.
+   Checkout and contract gate — on the Stadium Board (P1-ART-23 Task 14, spec
+   2026-10-11 §7.9, 2S4-FE-02). /sponsor/checkout?reservation=<id>: the
+   15-minute hold, reviewed, the billing contact confirmed, the order terms
+   accepted, then placed as an order.
 
    Reads  GET /reservations/:id   state HELD | RELEASED | EXPIRED | CONVERTED
                                   (EXPIRED once past expiresAt), expiresAt;
@@ -37,14 +39,17 @@ import { requirePortalAccess } from "@/server/portal";
           POST /reservations/:id/release             → /sponsor/cart
           POST /cart/reserve ("hold again" after a hold ends)
 
-   Steps (Commerce.dc): 1 Review hold (countdown, lines, summary) → 2 Billing
-   contact → 3 Order terms (scrollable text, "I accept the order terms on
-   behalf of <sponsor>") → 4 Place order, disabled until 2 and 3 are
+   Steps (Commerce.dc): Hold your spots (countdown, lines, summary) → Billing
+   contact → Order terms (scrollable text, "I accept the order terms on
+   behalf of <sponsor>") → Place order, disabled until billing and terms are
    complete → Confirmation (the order page). The API refuses an order
    without the acceptance or the billing contact (422) and re-checks the
    terms' fingerprint itself (409 on a mismatch). Payment is full payment by
    card on the order page, after BTG approves — the approval condition is
-   stated here; no card or bank details are asked at checkout.
+   stated here; no card or bank details are asked at checkout. The step bar
+   and hold countdown are drawn by the Stadium kit; the gate itself (billing,
+   terms, place) keeps its exact logic, markup and accessible names —
+   shop-checkout.tsx is shared with the order page and carries the e2e path.
    Honest gap: no fee or total preview — the fee rate and approval threshold
    are not exposed, so the cart total is shown as the subtotal, fees added
    when the order is placed. The order terms are placeholder wording pending
@@ -64,19 +69,12 @@ export default async function CheckoutPage({
   const sp = await searchParams;
   const reservationId = typeof sp.reservation === "string" && sp.reservation ? sp.reservation : null;
 
-  const heading = (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Checkout</h1>
-        <p className="mt-1 text-xs text-muted">Review what&rsquo;s held for you, confirm the billing contact, accept the order terms, then place the order.</p>
-      </div>
-    </div>
-  );
+  const head = <StadiumHead title="Checkout" />;
 
   if (!reservationId) {
     return (
       <div className="space-y-6">
-        {heading}
+        {head}
         <EmptyState
           mark="clock"
           title="Nothing is held for checkout"
@@ -91,7 +89,7 @@ export default async function CheckoutPage({
   if (rRes.status === 403 || rRes.status === 404) {
     return (
       <div className="space-y-6">
-        {heading}
+        {head}
         <EmptyState
           mark="clock"
           title="This hold isn't available"
@@ -109,7 +107,7 @@ export default async function CheckoutPage({
     if (hold.orderId) redirect(`/sponsor/orders/${encodeURIComponent(hold.orderId)}`);
     return (
       <div className="space-y-6">
-        {heading}
+        {head}
         <EmptyState
           mark="inbox"
           title="This hold became an order"
@@ -134,39 +132,41 @@ export default async function CheckoutPage({
   const review = (
     <>
       {hold.state === "HELD" && (
-        <Card className="border-accent/30 bg-accent/8">
-          <p className="text-xs text-accent">
-            Held for you until {fmtStamp(hold.expiresAt)} · <ShopCountdown expiresAt={hold.expiresAt} serverNow={serverNow} />{" "}
-            left · nobody else can buy these while the hold lasts.
+        <StadiumPanel tone="you" delay={0.08}>
+          <p className="text-sm text-text">
+            <StadiumHoldCountdown expiresAt={hold.expiresAt} serverNow={serverNow} />
           </p>
-        </Card>
+        </StadiumPanel>
       )}
       {hold.state === "EXPIRED" && (
-        <Card className="space-y-3 border-warn/30 bg-warn/8">
-          <p className="text-xs text-warn">
+        <StadiumPanel tone="late" delay={0.08} className="space-y-3">
+          <p className="text-sm text-text">
             Your hold ended at {fmtStamp(hold.expiresAt)}. The items went back on sale, but your cart is still here.
-            Nothing was charged.
+            Nothing was charged.{" "}
+            <Link href="/sponsor/cart" className="font-semibold underline">
+              Go back to your cart →
+            </Link>
           </p>
           {canWrite && lines && <ShopReserveButton label="Hold again for 15 minutes" />}
-        </Card>
+        </StadiumPanel>
       )}
       {hold.state === "RELEASED" && (
-        <Card className="border-line bg-surface-2">
-          <p className="text-xs text-muted">
+        <StadiumPanel delay={0.08}>
+          <p className="text-sm text-muted">
             This hold was released{hold.releasedAt ? ` at ${fmtStamp(hold.releasedAt)}` : ""} and the items went back on
             sale. Your cart is editable again.{" "}
-            <Link href="/sponsor/cart" className="font-medium text-primary underline">
+            <Link href="/sponsor/cart" className="font-semibold text-text underline">
               Back to the cart →
             </Link>
           </p>
-        </Card>
+        </StadiumPanel>
       )}
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5">
         <section className="space-y-3" aria-labelledby="checkout-review">
           <div className="flex items-center gap-2">
-            <h2 id="checkout-review" className="text-sm font-semibold tracking-tight">
-              1 · What you&rsquo;re buying
+            <h2 id="checkout-review" className="sx-section-title">
+              What you&rsquo;re buying
             </h2>
             <Badge tone={copy.tone}>{copy.label}</Badge>
           </div>
@@ -193,16 +193,27 @@ export default async function CheckoutPage({
 
         <aside className="mt-5 space-y-3 lg:mt-0">
           {lines && (
-            <Card className="space-y-3">
+            <StadiumPanel delay={0.16}>
               <p className="text-[11px] uppercase tracking-wide text-muted">Summary</p>
-              <p className="text-xs text-muted">{lineSummary(lines.lines)}</p>
-              <div className="flex items-baseline justify-between">
-                <span className="text-xs text-muted">Subtotal</span>
-                <span className="text-lg font-semibold tabular-nums">{usd(lines.totalCents)}</span>
+              <p className="mt-1 text-xs text-muted">{lineSummary(lines.lines)}</p>
+              <div className="mt-3 space-y-1.5 border-t border-line-soft pt-3">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs text-muted">Subtotal</span>
+                  <span className="text-sm font-semibold tabular-nums text-text">{usd(lines.totalCents)}</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs text-muted">Fees</span>
+                  <span className="text-[11px] text-faint">Added when the order is placed</span>
+                </div>
+                <div className="flex items-baseline justify-between border-t border-line-soft pt-1.5">
+                  <span className="text-xs font-semibold text-text">Total so far</span>
+                  <span className="text-lg font-semibold tabular-nums text-text">{usd(lines.totalCents)}</span>
+                </div>
               </div>
-              <p className="text-[11px] text-faint">Fees are added when the order is placed.</p>
-              {hold.state === "HELD" && !canWrite && <p className="text-[11px] text-muted">A Sponsor Admin places the order.</p>}
-            </Card>
+              {hold.state === "HELD" && !canWrite && (
+                <p className="mt-2 text-[11px] text-muted">A Sponsor Admin places the order.</p>
+              )}
+            </StadiumPanel>
           )}
           <ShopPaymentNote />
         </aside>
@@ -212,14 +223,14 @@ export default async function CheckoutPage({
 
   return (
     <div className="space-y-6">
-      {heading}
+      {head}
       {gate && lines ? (
         <ShopCheckoutGate reservationId={hold.id} checkout={gate} subtotalCents={lines.totalCents}>
           {review}
         </ShopCheckoutGate>
       ) : (
         <>
-          <ShopSteps active="review" />
+          <StadiumSteps steps={CHECKOUT_STEPS} now={0} label="Where checkout stands" />
           {review}
         </>
       )}

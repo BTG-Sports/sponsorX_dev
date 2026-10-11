@@ -1,5 +1,3 @@
-import type { PortfolioRow } from "@/components/sponsor-portfolio-list";
-import type { CampaignRow } from "@/components/sponsor-campaigns-list";
 import type { CampaignStaffing, NextStep, SponsorStaffing, StageChange } from "@/lib/campaign-stage";
 
 /* --------------------------------------------------------------------------
@@ -88,43 +86,6 @@ export function windowLabel(c: ApiCampaign, now: Date): string {
 export function monogramOf(name: string): string {
   const words = name.replace(/[^\p{L}\p{N} ]/gu, " ").split(/\s+/).filter(Boolean);
   return (words.slice(0, 2).map((w) => w[0]).join("") || "?").toUpperCase();
-}
-
-export function toPortfolioRow(c: ApiCampaign, now: Date): PortfolioRow {
-  return {
-    id: c.id,
-    name: c.name,
-    pkg: c.package?.name ?? "Custom",
-    athletes: c.athletes,
-    endsIn: windowLabel(c, now),
-    monogram: monogramOf(c.name),
-    views: null,
-    spend: c.contracted ?? null,
-    done: c.deliverables.done,
-    total: c.deliverables.total,
-    behind: isBehind(c, now),
-    state: c.state,
-  };
-}
-
-/** The same campaign, as a card on the Campaigns list (P2-FE-01). */
-export function toCampaignRow(c: ApiCampaign, now: Date): CampaignRow {
-  const { done, total } = c.deliverables;
-  return {
-    id: c.id,
-    name: c.name,
-    pkg: c.package?.name ?? "Custom",
-    athletes: c.athletes,
-    done,
-    total,
-    pct: total ? Math.round((done / total) * 100) : 0,
-    spend: c.contracted ?? null,
-    views: null,
-    monogram: monogramOf(c.name),
-    endsIn: windowLabel(c, now),
-    state: c.state,
-    behind: isBehind(c, now),
-  };
 }
 
 /** The headline numbers, over every campaign returned. Money totals are

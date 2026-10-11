@@ -12,7 +12,7 @@
    "confirmed by the payment provider". Where the user must act on Stripe the
    CTA names Stripe, ends in "↗" and its aria-label says it leaves SponsorX.
    -------------------------------------------------------------------------- */
-import type { PageInfo } from "@/lib/list-query";
+import type { ListKeys, PageInfo } from "@/lib/list-query";
 
 
 import { isSafeLocalPath } from "@/lib/safe-path";
@@ -409,6 +409,71 @@ export function payoutTiles(me: Pick<ApiMyPayouts, "totals">) {
     },
     { key: "held", label: "Held in reserve", value: usd(t.heldCents), sub: "Released when each order closes" },
     { key: "paid", label: "Paid out", value: usd(t.paidOutCents), sub: "Confirmed by the payment provider" },
+  ];
+}
+
+/* ------------------------------------------- the paged money page (P1-ART-22) */
+
+/* P1-ART-22 (2026-10-11) — /athlete/money keeps GET /payouts/me for the
+   totals, checks, account and byState, and pages its two lists:
+     GET /payouts/me/orders?page&size          → { orders, page }
+     GET /payouts/me/history?page&size&state   → { payouts, page, counts: byState }
+   The history list keeps its own URL keys (hpage / hsize / hstate). A route
+   not yet paged (404, or no `page`) falls back to the blob's own list as one
+   page. */
+
+export type ApiMyPayoutOrders = { orders: ApiPayoutOrder[]; page?: PageInfo };
+export type ApiMyPayoutHistory = { payouts: ApiPayout[]; page?: PageInfo; counts?: Partial<Record<PayoutState, number>> };
+
+export const HISTORY_KEYS: ListKeys = { page: "hpage", size: "hsize" };
+export const HISTORY_STATE_PARAM = "hstate";
+
+export const HISTORY_STATES: ReadonlyArray<{ value: PayoutState; label: string }> = [
+  { value: "REQUESTED", label: "Requested" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "SENDING", label: "Sending" },
+  { value: "PAID", label: "Paid" },
+  { value: "REJECTED", label: "Sent back" },
+  { value: "FAILED", label: "Failed" },
+];
+
+/** ?hstate= as a payout state the API knows, or "" (every state). */
+export function historyState(raw: string | string[] | undefined): PayoutState | "" {
+  const v = ((Array.isArray(raw) ? raw[0] : raw) ?? "").trim().toUpperCase();
+  return HISTORY_STATES.some((s) => s.value === v) ? (v as PayoutState) : "";
+}
+
+export type MoneyTile = {
+  key: "requestable" | "held" | "inFlight" | "paid";
+  label: string;
+  /** Cents — the plate prints it as dollars. */
+  cents: number;
+  caption: string;
+  tone: "win" | "blue" | "ink" | "warn";
+};
+
+/**
+ * The KPI plates, all from GET /payouts/me: available (lit "win" the moment
+ * it can be requested), held in reserve, on its way (in flight — counted by
+ * payout from byState when the API sends it), and paid out.
+ */
+export function moneyTiles(me: Pick<ApiMyPayouts, "totals" | "canRequest"> & Partial<Pick<ApiMyPayouts, "byState">>): MoneyTile[] {
+  const t = me.totals;
+  const [avail, held, paid] = payoutTiles(me);
+  const by = me.byState;
+  const moving = by ? (by.REQUESTED?.count ?? 0) + (by.APPROVED?.count ?? 0) + (by.SENDING?.count ?? 0) : null;
+  const paidCount = by?.PAID?.count ?? null;
+  return [
+    { key: "requestable", label: avail!.label, cents: t.requestableCents, caption: avail!.sub, tone: me.canRequest && t.requestableCents > 0 ? "win" : t.requestableCents > 0 ? "blue" : "ink" },
+    { key: "held", label: held!.label, cents: t.heldCents, caption: held!.sub, tone: t.heldCents > 0 ? "blue" : "ink" },
+    {
+      key: "inFlight",
+      label: "On its way",
+      cents: t.inFlightCents,
+      caption: moving === null ? "requested, not yet confirmed paid" : moving === 1 ? "1 payout requested or sending" : `${moving} payouts requested or sending`,
+      tone: t.inFlightCents > 0 ? "blue" : "ink",
+    },
+    { key: "paid", label: paid!.label, cents: t.paidOutCents, caption: paidCount === null ? paid!.sub : paidCount === 1 ? "1 payout confirmed by the payment provider" : `${paidCount} payouts confirmed by the payment provider`, tone: t.paidOutCents > 0 ? "win" : "ink" },
   ];
 }
 

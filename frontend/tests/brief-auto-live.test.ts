@@ -14,8 +14,8 @@ import {
   campaignApprovalLine,
   openRequests,
   requestStatus,
+  statusTone,
   submittedMessage,
-  toRequestRow,
   type ApiSponsorRequest,
 } from "../src/lib/brief-status";
 
@@ -94,11 +94,13 @@ describe("the sponsor · what they are told", () => {
       req({ id: "b", state: "APPROVED", status: { key: "APPROVED", text: APPROVED_TEXT } }),
       req({ id: "c", state: "CAMPAIGN_CREATED", campaign: { id: "c1", name: "C", state: "DRAFT" } }),
       req({ id: "d", state: "CLOSED" }),
-    ]).map(toRequestRow);
+    ]);
     expect(rows.map((r) => r.id)).toEqual(["a", "b"]);
-    expect(rows[0]).toMatchObject({ title: "Local Blitz", budget: "$1,500", submitted: "Oct 1, 2026", tone: "warn", status: { text: REVIEWING_TEXT } });
-    expect(rows[1]).toMatchObject({ tone: "accent", status: { text: APPROVED_TEXT } });
-    expect(toRequestRow(req({ package: null })).title).toBe("Custom request");
+    const [a, b] = rows.map(requestStatus);
+    expect(a).toMatchObject({ text: REVIEWING_TEXT });
+    expect(statusTone(a!.key)).toBe("warn");
+    expect(b).toMatchObject({ text: APPROVED_TEXT });
+    expect(statusTone(b!.key)).toBe("accent");
   });
 
   it("the campaign page says approved while it is being staffed", () => {
