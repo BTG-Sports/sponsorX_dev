@@ -28,7 +28,7 @@ import type { SearchParams } from "@/lib/list-query";
 import type { ApiSponsorReport, Sourced } from "@/lib/report-live";
 import { monogramOf } from "@/lib/sponsor-live";
 import { rangeParam, type DailyPoint, type RangeKey, type SponsorOverview } from "@/lib/sponsor-overview-live";
-import { FUNNEL_WORDS, campaignWord, compactNumber, deliverableWord, sourceWord } from "@/lib/sponsor-words";
+import { FUNNEL_WORDS, campaignWord, compactNumber, deliverableWord, orderWord, sourceWord } from "@/lib/sponsor-words";
 import { apiFetch, fetchActor } from "@/server/api";
 import { fetchSponsorOverview } from "@/server/sponsor-overview";
 
@@ -58,18 +58,33 @@ const REPORT_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "SALES", "SPON
 
 type ReportOverview = { daily: DailyPoint[]; bucket: "day" | "week"; topAthletes: SponsorOverview["topAthletes"]; readAt?: string };
 
-async function liveReport(id: string, range: RangeKey): Promise<{ report: ApiSponsorReport; overview: SponsorOverview | null } | "missing" | null> {
+/** The overview is secondary to the report (the trend chart and best
+ *  athletes, not the headline numbers) — a 5xx here degrades to the trend
+ *  panel's own "couldn't load" text, never the whole report page. */
+async function safeOverview(range: RangeKey, id: string): Promise<SponsorOverview | null | "error"> {
+  try {
+    return await fetchSponsorOverview(range, id);
+  } catch {
+    return "error";
+  }
+}
+
+async function liveReport(
+  id: string,
+  range: RangeKey,
+): Promise<{ report: ApiSponsorReport; overview: SponsorOverview | null; overviewUnavailable?: "error" } | "missing" | null> {
   /* No catch — an outage is an error page, never fixtures dressed as the
      sponsor's real results (QA pass 4 rule). */
   const who = await fetchActor();
   if (who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => REPORT_ROLES.includes(r))) return null;
-  const res = await apiFetch(`/campaigns/${encodeURIComponent(id)}/report`);
+  /* The report and the overview are independent reads — one round trip, not two in series. */
+  const [res, overviewResult] = await Promise.all([apiFetch(`/campaigns/${encodeURIComponent(id)}/report`), safeOverview(range, id)]);
   if (res.status === 403) return "missing";
   if (!res.ok) throw new Error(`Report unavailable (${res.status}).`);
   const report = (await res.json()) as ApiSponsorReport;
-  const overview = await fetchSponsorOverview(range, id);
-  return { report, overview };
+  const overview = overviewResult === "error" ? null : overviewResult;
+  return { report, overview, overviewUnavailable: overviewResult === "error" ? "error" : undefined };
 }
 
 const fmtDay = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
@@ -100,7 +115,17 @@ export default async function CampaignResultsPage({
     const overview: ReportOverview | null = live.overview
       ? { daily: live.overview.daily, bucket: live.overview.range.bucket, topAthletes: live.overview.topAthletes, readAt: live.overview.readAt }
       : null;
-    return <Report r={live.report} overview={overview} back={back} sample={false} range={range} sp={sp} />;
+    return (
+      <Report
+        r={live.report}
+        overview={overview}
+        overviewUnavailable={live.overviewUnavailable}
+        back={back}
+        sample={false}
+        range={range}
+        sp={sp}
+      />
+    );
   }
 
   /* Results build from verified deliverables and rolled-up metrics —
@@ -137,10 +162,11 @@ export default async function CampaignResultsPage({
 /* -------------------------------------------------------------- the report */
 
 function Report({
-  r, overview, back, sample, range, sp,
+  r, overview, overviewUnavailable, back, sample, range, sp,
 }: {
   r: ApiSponsorReport;
   overview: ReportOverview | null;
+  overviewUnavailable?: "error";
   back: { href: string; label: string };
   sample: boolean;
   range: RangeKey;
@@ -181,7 +207,9 @@ function Report({
             <StadiumTrend points={overview.daily} bucket={overview.bucket} />
           ) : (
             <Quiet>
-              {overview
+              {overviewUnavailable === "error"
+                ? "This window's trend couldn't load — refresh to try again."
+                : overview
                 ? "Nothing recorded in this window yet."
                 : "Your login can see this campaign's headline numbers but not the day-by-day trend. Ask the person who runs your account for access."}
             </Quiet>
@@ -194,6 +222,8 @@ function Report({
         <FunnelPanel r={r} />
         <BestAthletes overview={overview} />
       </div>
+
+      <Athletes roster={r.roster} />
 
       <ClicksByPost assets={r.deliveredAssets} />
 
@@ -256,18 +286,39 @@ function QuietTile({ label, hint, text, delay = 0.1 }: { label: string; hint?: s
   );
 }
 
+/** What was computed from the report's own numbers, not the backend's
+ *  jargon-laden basis sentence (that one stays as-is for the PDF render) —
+ *  a sponsor reads "what you've spent ÷ people reached, × 1,000", not
+ *  "VERIFIED impressions … platform APIs". */
+function mediaValueHint(r: ApiSponsorReport): string {
+  const views = r.performance.verifiedViews;
+  if (views <= 0) {
+    return "What you've spent divided by the people your posts reached that we could check, times 1,000. Numbers athletes reported themselves aren't counted.";
+  }
+  const spendCents = Math.round((r.mediaValue.amount * views) / 1000);
+  return `What you've spent (${usdWhole(spendCents)}) divided by the people your posts reached that we could check (${views.toLocaleString("en-US")}), times 1,000. Numbers athletes reported themselves aren't counted.`;
+}
+
 function Tiles({ r }: { r: ApiSponsorReport }) {
   const views = r.performance.verifiedViews;
-  const otherViews = r.performance.views.SELF_REPORTED + r.performance.views.ESTIMATED;
+  const selfReported = r.performance.views.SELF_REPORTED;
+  const estimated = r.performance.views.ESTIMATED;
+  const otherViews = selfReported + estimated;
+  /* "reported by athletes" only when that's really the whole of it — once a
+     second non-checked source (ESTIMATED) is mixed in, naming just athletes
+     would be wrong, so the caption goes generic instead of misattributing. */
+  const otherCaption =
+    otherViews === 0 ? "All time" : estimated > 0 ? `+${otherViews.toLocaleString("en-US")} more from other sources · All time` : `+${otherViews.toLocaleString("en-US")} more reported by athletes · All time`;
   const engagements = r.performance.verifiedEngagements;
   const redeemed = r.redemption.redeemed;
   const issued = r.redemption.issued;
+  const hint = mediaValueHint(r);
   return (
     <StadiumTiles cols={4}>
       <StadiumTile
         label="People reached"
         value={views}
-        caption={otherViews > 0 ? `+${otherViews.toLocaleString("en-US")} more reported by athletes · All time` : "All time"}
+        caption={otherCaption}
         hint="People who saw your sponsored posts, checked by the platform or by BTG. Numbers the athletes reported themselves are shown apart, never added in."
         delay={0.1}
       />
@@ -291,13 +342,13 @@ function Tiles({ r }: { r: ApiSponsorReport }) {
           value={r.mediaValue.amount}
           format="usd"
           caption="All time"
-          hint={r.mediaValue.basis}
+          hint={hint}
           delay={0.28}
         />
       ) : (
         <QuietTile
           label="What you pay per 1,000 people reached"
-          hint={r.mediaValue.basis}
+          hint={hint}
           text="No checked reach yet — figures appear once posts are live and checked."
           delay={0.28}
         />
@@ -377,7 +428,7 @@ function BestAthletes({ overview }: { overview: ReportOverview | null }) {
   return (
     <StadiumPanel flush delay={0.58} className="min-w-0">
       <div className="px-5 pt-5">
-        <Title hint="The athletes whose posts for you reached the most people, counting checked figures only.">Best athletes</Title>
+        <Title hint="The athletes whose posts for you reached the most people, counting checked figures only, over the period you've chosen above.">Best athletes</Title>
       </div>
       {!overview || overview.topAthletes.length === 0 ? (
         <div className="px-5 pb-3">
@@ -404,6 +455,51 @@ function BestAthletes({ overview }: { overview: ReportOverview | null }) {
               }
             />
           ))}
+        </div>
+      )}
+    </StadiumPanel>
+  );
+}
+
+/** Every athlete on this campaign and their delivery, from the report's own
+ *  roster — never dependent on the overview window, so this stays populated
+ *  even when the overview read is degraded or the role can't see it. Bounded
+ *  so one campaign's long roster can't run the panel off the page. */
+const ATHLETES_SHOWN = 20;
+
+function Athletes({ roster }: { roster: ApiSponsorReport["roster"] }) {
+  const rows = roster.slice(0, ATHLETES_SHOWN);
+  return (
+    <StadiumPanel flush delay={0.6} className="min-w-0">
+      <div className="px-5 pt-5">
+        <Title hint="Every athlete staffed on this campaign and how many of their posts are checked and counted.">Athletes</Title>
+      </div>
+      {rows.length === 0 ? (
+        <div className="px-5 pb-3">
+          <Quiet>No athletes staffed yet.</Quiet>
+        </div>
+      ) : (
+        <div className="pb-1">
+          {rows.map((a, i) => (
+            <StadiumRow
+              key={a.athleteId}
+              i={i}
+              lead={monogramOf(a.athleteName)}
+              title={a.athleteName}
+              sub={orderWord(a.orderState).text}
+              right={
+                <span className="block">
+                  <span className="block text-[13px] font-bold tabular-nums text-text">
+                    {a.deliverablesVerified}/{a.deliverablesTotal}
+                  </span>
+                  <span className="block text-[11px] text-muted">posts checked</span>
+                </span>
+              }
+            />
+          ))}
+          {roster.length > ATHLETES_SHOWN && (
+            <p className="px-5 pb-3 pt-1 text-[11px] text-muted">+{roster.length - ATHLETES_SHOWN} more athletes not shown.</p>
+          )}
         </div>
       )}
     </StadiumPanel>

@@ -347,7 +347,7 @@ function Delivered({ o }: { o: SponsorOverview }) {
   const d = o.delivery;
   const next = d.nextDueAt ? (
     <>
-      next one due <StadiumDate iso={d.nextDueAt} format="weekday" />
+      next one due <StadiumDate iso={d.nextDueAt} format="weekday" utc />
     </>
   ) : (
     "nothing else due"

@@ -14,9 +14,9 @@ import {
 } from "@/components/stadium-stage";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
 import { orderRef, usd, type ApiOrder } from "@/lib/shop-live";
-import type { PageInfo, SearchParams } from "@/lib/list-query";
+import { textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
 import { orderWord } from "@/lib/sponsor-words";
-import { liveSponsorOrderPage, type OrderTab } from "@/server/sponsor";
+import { liveSponsorOrderPage, ORDER_TAB_FILTERS, type OrderTab } from "@/server/sponsor";
 
 /* --------------------------------------------------------------------------
    Sponsor Orders — on the Stadium Board (P1-ART-23 Task 15, spec
@@ -60,9 +60,13 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
 
   const now = new Date();
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
-  const tab = typeof sp.tab === "string" ? sp.tab : "";
+  /* The validated tab — an unrecognised `?tab=` drops out here exactly as it
+     does from the API query, so the tab strip and the "filtered" state agree
+     with what was actually asked for, not with whatever junk sat in the URL. */
+  const tab = textParam(sp, "tab", ORDER_TAB_FILTERS);
   const filtered = Boolean(q || (tab && tab !== "all"));
-  const byTab = live.summary.byTab;
+  const summary = live.summary;
+  const byTab = summary?.byTab ?? {};
   const waiting = byTab.waiting ?? 0;
   const inProgress = byTab.in_progress ?? 0;
   const delivered = byTab.delivered ?? 0;
@@ -70,49 +74,51 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   return (
     <div className="space-y-6">
       <StadiumHead title="Your orders" pill={<StadiumUpdated iso={now.toISOString()} />}>
-        <StadiumTiles cols={4}>
-          <StadiumTile
-            label="Waiting for approval"
-            value={waiting}
-            tone={waiting > 0 ? "you" : undefined}
-            href={tabHref(sp, "waiting")}
-            hint="Orders the seller or BTG still has to approve. Nothing is charged yet."
-            delay={0.1}
-          />
-          <StadiumTile
-            label="In progress"
-            value={inProgress}
-            href={tabHref(sp, "in_progress")}
-            hint="Paid orders whose items are being delivered."
-            delay={0.16}
-          />
-          <StadiumTile
-            label="Delivered"
-            value={delivered}
-            href={tabHref(sp, "delivered")}
-            hint="Orders whose items are done."
-            delay={0.22}
-          />
-          <StadiumTile
-            label="Total spent"
-            value={live.summary.spentCents}
-            format="usd0"
-            hint="What you've paid across every order, once it's approved or further along."
-            delay={0.28}
-          />
-        </StadiumTiles>
+        {summary && (
+          <StadiumTiles cols={4}>
+            <StadiumTile
+              label="Waiting for approval"
+              value={waiting}
+              href={tabHref(sp, "waiting")}
+              hint="Orders the seller or BTG still has to approve. Nothing is charged yet."
+              delay={0.1}
+            />
+            <StadiumTile
+              label="In progress"
+              value={inProgress}
+              href={tabHref(sp, "in_progress")}
+              hint="Paid orders whose items are being delivered."
+              delay={0.16}
+            />
+            <StadiumTile
+              label="Delivered"
+              value={delivered}
+              href={tabHref(sp, "delivered")}
+              hint="Orders whose items are done."
+              delay={0.22}
+            />
+            <StadiumTile
+              label="Total spent"
+              value={summary.spentCents}
+              format="usd0"
+              hint="What you've paid across every order, once it's approved or further along."
+              delay={0.28}
+            />
+          </StadiumTiles>
+        )}
       </StadiumHead>
 
-      <OrderList sp={sp} q={q} filtered={filtered} rows={live.rows} page={live.page} tabs={live.tabs} />
+      <OrderList sp={sp} q={q} tab={tab} filtered={filtered} rows={live.rows} page={live.page} tabs={live.tabs} />
     </div>
   );
 }
 
 function OrderList({
-  sp, q, filtered, rows, page, tabs,
+  sp, q, tab, filtered, rows, page, tabs,
 }: {
   sp: SearchParams;
   q: string;
+  tab: string;
   filtered: boolean;
   rows: ApiOrder[];
   page: PageInfo;
@@ -139,8 +145,6 @@ function OrderList({
     { key: "total", label: "Total", num: true },
   ];
 
-  const onTab = typeof sp.tab === "string" ? sp.tab : "";
-
   return (
     <section className="min-w-0" aria-labelledby="sx-your-orders">
       <h2 id="sx-your-orders" className="sx-section-title mb-3">Your orders</h2>
@@ -148,7 +152,7 @@ function OrderList({
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <TabStrip label="Order status">
             {tabs.map((t) => (
-              <TabLink key={t.key} href={tabHref(sp, t.key === "all" ? "" : t.key)} on={t.key === "all" ? !onTab : onTab === t.key} count={t.count} hot={t.key === "to_pay"}>
+              <TabLink key={t.key} href={tabHref(sp, t.key === "all" ? "" : t.key)} on={t.key === "all" ? !tab : tab === t.key} count={t.count} hot={t.key === "to_pay"}>
                 {t.label}
               </TabLink>
             ))}

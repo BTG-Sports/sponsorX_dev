@@ -182,13 +182,17 @@ export function StadiumBar({ value, tone, delay = 0 }: { value: number; tone?: "
 }
 
 /** Where something stands: `now` is the index of the current step (-1 = none
- *  yet, steps.length = all done). */
+ *  yet, steps.length = all done). The colour-and-position cue (`data-done`
+ *  / `data-now`) is sighted-only — a screen reader gets the same state as
+ *  visually-hidden text appended to each step's name. */
 export function StadiumSteps({ steps, now, label }: { steps: string[]; now: number; label: string }) {
   return (
     <ol aria-label={label} className="sx-stadium-steps">
       {steps.map((s, i) => (
         <li key={`${i}-${s}`} data-done={i < now ? "" : undefined} data-now={i === now ? "" : undefined} aria-current={i === now ? "step" : undefined}>
           {s}
+          {i < now && <span className="sr-only"> (done)</span>}
+          {i === now && <span className="sr-only"> (current step)</span>}
         </li>
       ))}
     </ol>

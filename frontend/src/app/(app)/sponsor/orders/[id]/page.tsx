@@ -4,12 +4,12 @@ import { Badge, Card } from "@/components/ui";
 import { EmptyState } from "@/components/states";
 import { OrderGateRecordCard } from "@/components/order-gate-record";
 import { OrderPayButton, PaymentRefresher } from "@/components/order-payment";
-import { ShopLineRow, ShopSteps } from "@/components/shop-bits";
+import { ShopLineRow } from "@/components/shop-bits";
 import { ShopCancelOrder } from "@/components/shop-checkout";
 import { SponsorOrderDelivery } from "@/components/sponsor-order-delivery";
 import { SponsorOrderStatus } from "@/components/sponsor-order-status";
 import { StatePill, StatusBox } from "@/components/order-bits";
-import { StadiumChip, StadiumHead, StadiumSteps, StadiumTile, StadiumTiles } from "@/components/stadium-stage";
+import { StadiumChip, StadiumHead, StadiumPanel, StadiumSteps, StadiumTile, StadiumTiles } from "@/components/stadium-stage";
 import { sellerCancelledBanner } from "@/lib/cancellations-live";
 import { sponsorBadge, sponsorStatus } from "@/lib/order-automation-live";
 import { refundWords } from "@/lib/refunds-live";
@@ -132,7 +132,6 @@ export default async function OrderPage({
   return (
     <div className="space-y-6">
       {back}
-      {placed && <ShopSteps active="confirmed" />}
 
       <StadiumHead title={`Order ${orderRef(o.id)}`}>
         <p className="mt-1 text-xs text-muted">
@@ -145,13 +144,17 @@ export default async function OrderPage({
         </div>
       </StadiumHead>
 
-      {cancelledLike ? (
-        <StadiumChip tone="late">{word.text}</StadiumChip>
-      ) : (
-        <StadiumSteps steps={ORDER_STEPS} now={orderStepNow(o.state)} label="Order progress" />
-      )}
+      {/* cancelledLike already has its state chip in the head above — one
+          chip, not a duplicate here. */}
+      {!cancelledLike && <StadiumSteps steps={ORDER_STEPS} now={orderStepNow(o.state)} label="Order progress" />}
 
       <OrderTiles order={o} pay={pay} payment={payment} deliveries={deliveries} />
+
+      {placed && (
+        <StadiumPanel tone="you" delay={0.06}>
+          <p className="text-sm font-semibold text-text">Order placed ✓</p>
+        </StadiumPanel>
+      )}
 
       {placed && (
         <Card className="border-accent/30 bg-accent/8">
@@ -317,7 +320,7 @@ function OrderTiles({
         key="payment"
         label="Payment"
         value={payment?.amountCents ?? order.totalCents}
-        format="usd0"
+        format="usd"
         tone={pay.kind === "failed" ? "late" : pay.kind === "due" ? "you" : undefined}
         caption={pay.status}
         hint="Whether payment is due, confirming, or already paid."
@@ -325,7 +328,10 @@ function OrderTiles({
       />,
     );
   }
-  const lines = deliveries?.lines ?? [];
+  /* A cancelled line never delivers — out of the denominator entirely, not
+     just excluded from the "done" count, or a partly-cancelled order reads
+     as worse than it is. */
+  const lines = (deliveries?.lines ?? []).filter((l) => l.state !== "CANCELLED");
   if (lines.length > 0) {
     const done = lines.filter((l) => l.state === "CONFIRMED").length;
     tiles.push(

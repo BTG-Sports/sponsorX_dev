@@ -134,9 +134,7 @@ export default async function CheckoutPage({
       {hold.state === "HELD" && (
         <StadiumPanel tone="you" delay={0.08}>
           <p className="text-sm text-text">
-            Held for you until {fmtStamp(hold.expiresAt)} ·{" "}
-            <StadiumHoldCountdown expiresAt={hold.expiresAt} serverNow={serverNow} /> · nobody else can buy these while
-            the hold lasts.
+            <StadiumHoldCountdown expiresAt={hold.expiresAt} serverNow={serverNow} />
           </p>
         </StadiumPanel>
       )}

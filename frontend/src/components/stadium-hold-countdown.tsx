@@ -4,15 +4,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
 
-import { countdown } from "@/lib/shop-live";
+import { countdown, fmtStamp } from "@/lib/shop-live";
 
 /* --------------------------------------------------------------------------
-   The checkout hold countdown (P1-ART-23 Task 14, spec §7.9) — "Spots held
-   for mm:ss", ticking once a second from the reservation's `expiresAt`. At
-   zero it reads "Hold expired. Go back to your cart" straight away, and also
-   asks the page to refresh once so the server's own EXPIRED read (and "hold
-   again") take over — the clock itself never decides anything, same
-   contract as shop-countdown.tsx's ShopCountdown.
+   The checkout hold countdown (P1-ART-23 Task 14, spec §7.9) — owns the
+   WHOLE hold sentence, not just the "mm:ss" clock inside it: ticking once a
+   second from the reservation's `expiresAt`, it reads "Held for you until
+   X · spots held for mm:ss · nobody else can buy these while the hold
+   lasts." At zero it replaces itself entirely with "Hold expired. Go back to
+   your cart" — never leaving a static "Held for you until X" sitting next to
+   it saying the opposite — and also asks the page to refresh once so the
+   server's own EXPIRED read (and "hold again") take over. The clock itself
+   never decides anything, same contract as shop-countdown.tsx's
+   ShopCountdown.
    -------------------------------------------------------------------------- */
 
 function subscribe(tick: () => void) {
@@ -43,7 +47,8 @@ export function StadiumHoldCountdown({ expiresAt, serverNow }: { expiresAt: stri
 
   return (
     <span role="timer" aria-live="off">
-      Spots held for <span className="font-semibold tabular-nums">{left.label}</span>
+      Held for you until {fmtStamp(expiresAt)} · spots held for <span className="font-semibold tabular-nums">{left.label}</span> ·
+      nobody else can buy these while the hold lasts.
     </span>
   );
 }

@@ -229,10 +229,12 @@ export const ORDER_TAB_FILTERS = ["waiting", "to_pay", "in_progress", "delivered
  *  ?page ?size ?tab ?q from the URL, plus the unfiltered summary for the
  *  header tiles — two independent reads, not one derived from the other.
  *  Null when orders aren't open to this account (403): a signed-in sponsor
- *  role with no sponsor tenant linked, same gap the page always had. */
+ *  role with no sponsor tenant linked, same gap the page always had.
+ *  `summary` is null on its own 403 (a role that can read orders but not
+ *  the summary) — the header tiles then hide rather than show false zeros. */
 export async function liveSponsorOrderPage(
   sp: SearchParams,
-): Promise<{ rows: ApiOrder[]; page: PageInfo; tabs: OrderTab[]; summary: OrderSummary } | null> {
+): Promise<{ rows: ApiOrder[]; page: PageInfo; tabs: OrderTab[]; summary: OrderSummary | null } | null> {
   const query = apiListQuery(sp, {
     tab: textParam(sp, "tab", ORDER_TAB_FILTERS),
     q: textParam(sp, "q"),
@@ -242,6 +244,6 @@ export async function liveSponsorOrderPage(
   if (!res.ok) throw new Error(`Orders unavailable (${res.status}).`);
   const data = (await res.json()) as { orders: ApiOrder[]; page: PageInfo; tabs: OrderTab[] };
   if (!summaryRes.ok && summaryRes.status !== 403) throw new Error(`Order summary unavailable (${summaryRes.status}).`);
-  const summary = summaryRes.ok ? ((await summaryRes.json()) as { summary: OrderSummary }).summary : { byTab: {}, spentCents: 0 };
+  const summary = summaryRes.ok ? ((await summaryRes.json()) as { summary: OrderSummary }).summary : null;
   return { rows: data.orders, page: data.page, tabs: data.tabs, summary };
 }

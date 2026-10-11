@@ -61,7 +61,7 @@ export function ShopCartLine({ line, editable, i = 0 }: { line: ApiCartLine; edi
             {lineSeller(line)} · {usd(line.unitPriceCents)} each
           </p>
           <p className="mt-0.5 text-[11px] text-faint">
-            Qty {line.quantity} · <StadiumDate iso={line.startsOn} format="date" /> – <StadiumDate iso={line.endsOn} format="date" />
+            Qty {line.quantity} · <StadiumDate iso={line.startsOn} format="date" utc /> – <StadiumDate iso={line.endsOn} format="date" utc />
           </p>
         </div>
         <p className="text-sm font-semibold tabular-nums text-text">{usd(line.lineTotalCents)}</p>
