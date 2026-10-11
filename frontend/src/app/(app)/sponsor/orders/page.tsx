@@ -1,122 +1,212 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 
-import { Badge } from "@/components/ui";
+import { ListSearch, PendingList, ServerList } from "@/components/server-pager";
 import { EmptyState } from "@/components/states";
 import {
-  ORDER_STATES,
-  fmtStamp,
-  orderCopy,
-  orderRef,
-  orderStateParam,
-  usd,
-  type ApiOrder,
-} from "@/lib/shop-live";
-import { apiFetch } from "@/server/api";
-import { requirePortalAccess } from "@/server/portal";
+  StadiumChip,
+  StadiumDate,
+  StadiumHead,
+  StadiumPanel,
+  StadiumTile,
+  StadiumTiles,
+  StadiumUpdated,
+} from "@/components/stadium-stage";
+import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
+import { orderRef, usd, type ApiOrder } from "@/lib/shop-live";
+import type { PageInfo, SearchParams } from "@/lib/list-query";
+import { orderWord } from "@/lib/sponsor-words";
+import { liveSponsorOrderPage, type OrderTab } from "@/server/sponsor";
 
 /* --------------------------------------------------------------------------
-   Orders — 2S4-FE-02. The sponsor's marketplace orders (Phase 2 self-service
-   buying), newest first. Distinct from Campaigns, which are BTG-managed
+   Sponsor Orders — on the Stadium Board (P1-ART-23 Task 15, spec
+   2026-10-11 §7.10, §8.2). What the sponsor has bought in the shop
+   (Phase 2 self-service buying), searchable, tabbed by where each order
+   stands, and server-paged. Distinct from Campaigns, which are BTG-managed
    Phase 1 campaign orders.
 
-   Reads  GET /marketplace-orders[?state=]   own-sponsor scope, both sponsor
-                                             roles. `?state` is only sent when
-                                             it is one of the nine order states
-                                             — the API does not validate it.
+   Every tile and tab count is the API's own (memory: stats-must-be-retrievable):
+     GET /marketplace-orders/summary          Waiting, In progress, Delivered,
+                                               Total spent
+     GET /marketplace-orders?page&size&tab&q  the paged table and its tabs
+   Nothing is summed from the rows on screen. Money is in cents.
 
-   Honest gap: no paging or counts in the API; the list is whatever it returns.
+   Honest gap: orders aren't open to every signed-in sponsor role — a role
+   admitted to the portal but not linked to a sponsor tenant gets a 403 here,
+   same as before paging landed. There is no demo deck for this page (the
+   plan doesn't ask for one): that account sees why, not fixtures dressed as
+   its own spend.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
+const PATH = "/sponsor/orders";
 
-export default async function OrdersPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  await requirePortalAccess("sponsor");
+export default async function OrdersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const sp = await searchParams;
-  const state = orderStateParam(sp.state);
+  const live = await liveSponsorOrderPage(sp);
 
-  const heading = (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Orders</h1>
-        <p className="mt-1 text-xs text-muted">What you&rsquo;ve bought in the shop, and where each order stands.</p>
-      </div>
-      <Link href="/sponsor/shop" className="text-xs text-primary hover:underline">
-        Shop →
-      </Link>
-    </div>
-  );
-
-  const res = await apiFetch(`/marketplace-orders${state ? `?state=${state}` : ""}`);
-  if (res.status === 403) {
+  if (!live) {
     return (
       <div className="space-y-6">
-        {heading}
-        <EmptyState mark="users" title="Orders aren't open to this account" hint="Orders belong to a sponsor organisation. Ask BTG to link your account." />
+        <StadiumHead title="Your orders" />
+        <EmptyState
+          mark="users"
+          title="Orders aren't open to this account"
+          hint="Orders belong to a sponsor organisation. Ask BTG to link your account."
+        />
       </div>
     );
   }
-  if (!res.ok) throw new Error(`Orders unavailable (${res.status}).`);
-  const orders = [...((await res.json()) as { orders: ApiOrder[] }).orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-  const chip = (key: string | null, label: string) => (
-    <Link
-      key={key ?? "all"}
-      href={key ? `/sponsor/orders?state=${key}` : "/sponsor/orders"}
-      className={[
-        "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-        state === key ? "bg-surface-2 text-text" : "text-muted hover:text-text",
-      ].join(" ")}
-    >
-      {label}
-    </Link>
-  );
+  const now = new Date();
+  const q = typeof sp.q === "string" ? sp.q.trim() : "";
+  const tab = typeof sp.tab === "string" ? sp.tab : "";
+  const filtered = Boolean(q || (tab && tab !== "all"));
+  const byTab = live.summary.byTab;
+  const waiting = byTab.waiting ?? 0;
+  const inProgress = byTab.in_progress ?? 0;
+  const delivered = byTab.delivered ?? 0;
 
   return (
     <div className="space-y-6">
-      {heading}
-      <nav aria-label="Order state" className="flex flex-wrap gap-1 rounded-xl border border-line bg-surface p-1">
-        {chip(null, "All")}
-        {ORDER_STATES.map((s) => chip(s, orderCopy(s).label))}
-      </nav>
+      <StadiumHead title="Your orders" pill={<StadiumUpdated iso={now.toISOString()} />}>
+        <StadiumTiles cols={4}>
+          <StadiumTile
+            label="Waiting for approval"
+            value={waiting}
+            tone={waiting > 0 ? "you" : undefined}
+            href={tabHref(sp, "waiting")}
+            hint="Orders the seller or BTG still has to approve. Nothing is charged yet."
+            delay={0.1}
+          />
+          <StadiumTile
+            label="In progress"
+            value={inProgress}
+            href={tabHref(sp, "in_progress")}
+            hint="Paid orders whose items are being delivered."
+            delay={0.16}
+          />
+          <StadiumTile
+            label="Delivered"
+            value={delivered}
+            href={tabHref(sp, "delivered")}
+            hint="Orders whose items are done."
+            delay={0.22}
+          />
+          <StadiumTile
+            label="Total spent"
+            value={live.summary.spentCents}
+            format="usd0"
+            hint="What you've paid across every order, once it's approved or further along."
+            delay={0.28}
+          />
+        </StadiumTiles>
+      </StadiumHead>
 
-      {orders.length === 0 ? (
-        <EmptyState
-          mark="inbox"
-          title={state ? `No orders ${orderCopy(state).label.toLowerCase()}` : "No orders yet"}
-          hint={state ? "Try All, or another state." : "Orders appear here once you check out from the cart."}
-          action={state ? { label: "Show all orders", href: "/sponsor/orders" } : { label: "Go to the shop", href: "/sponsor/shop" }}
-        />
-      ) : (
-        <ul className="space-y-2">
-          {orders.map((o) => {
-            const c = orderCopy(o.state);
-            return (
-              <li key={o.id}>
-                <Link
-                  href={`/sponsor/orders/${encodeURIComponent(o.id)}`}
-                  className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 transition-colors hover:border-line-soft hover:bg-surface-2"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-xs font-semibold">{orderRef(o.id)}</span>
-                      <Badge tone={c.tone}>{c.label}</Badge>
-                    </span>
-                    <span className="mt-0.5 block truncate text-[11px] text-muted">
-                      {o.lines.map((l) => l.title).join(" · ") || "No lines"}
-                    </span>
-                    <span className="mt-0.5 block text-[11px] text-faint">Placed {fmtStamp(o.createdAt)}</span>
-                  </span>
-                  <span className="text-sm font-semibold tabular-nums">{usd(o.totalCents)}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <OrderList sp={sp} q={q} filtered={filtered} rows={live.rows} page={live.page} tabs={live.tabs} />
     </div>
   );
+}
+
+function OrderList({
+  sp, q, filtered, rows, page, tabs,
+}: {
+  sp: SearchParams;
+  q: string;
+  filtered: boolean;
+  rows: ApiOrder[];
+  page: PageInfo;
+  tabs: OrderTab[];
+}) {
+  const outOfRange = page.page > page.pages;
+  const empty: ReactNode = outOfRange ? (
+    "No orders on this page. Go back to the first page to see them."
+  ) : filtered ? (
+    "No orders match."
+  ) : (
+    <>
+      No orders yet.{" "}
+      <Link href="/sponsor/shop" className="font-medium text-sponsor hover:underline">
+        Browse the shop →
+      </Link>
+    </>
+  );
+
+  const columns: Column[] = [
+    { key: "order", label: "Order" },
+    { key: "status", label: "Status" },
+    { key: "placed", label: "Placed" },
+    { key: "total", label: "Total", num: true },
+  ];
+
+  const onTab = typeof sp.tab === "string" ? sp.tab : "";
+
+  return (
+    <section className="min-w-0" aria-labelledby="sx-your-orders">
+      <h2 id="sx-your-orders" className="sx-section-title mb-3">Your orders</h2>
+      <ServerList>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <TabStrip label="Order status">
+            {tabs.map((t) => (
+              <TabLink key={t.key} href={tabHref(sp, t.key === "all" ? "" : t.key)} on={t.key === "all" ? !onTab : onTab === t.key} count={t.count} hot={t.key === "to_pay"}>
+                {t.label}
+              </TabLink>
+            ))}
+          </TabStrip>
+        </div>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="w-full sm:w-64">
+            <ListSearch initial={q} label="Search your orders" placeholder="Search by order or item" tone="sponsor" />
+          </div>
+        </div>
+        {rows.length === 0 ? (
+          <PendingList>
+            <StadiumPanel>
+              <p className="text-sm text-muted">{empty}</p>
+            </StadiumPanel>
+          </PendingList>
+        ) : (
+          <PagedTable bare tone="sponsor" page={page} noun="Orders" filtered={filtered} label="Your orders" columns={columns}>
+            {rows.map((o, i) => {
+              const word = orderWord(o.state);
+              return (
+                <Tr key={o.id} i={i}>
+                  <Td>
+                    <Link
+                      href={`/sponsor/orders/${encodeURIComponent(o.id)}`}
+                      className="block rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sponsor"
+                    >
+                      <Primary sub={o.lines.map((l) => l.title).join(" · ") || "No lines"}>{orderRef(o.id)}</Primary>
+                    </Link>
+                  </Td>
+                  <Td label="Status">
+                    <StadiumChip tone={word.tone}>{word.text}</StadiumChip>
+                  </Td>
+                  <Td label="Placed" muted>
+                    <StadiumDate iso={o.createdAt} format="date" />
+                  </Td>
+                  <Td label="Total" num>
+                    {usd(o.totalCents)}
+                  </Td>
+                </Tr>
+              );
+            })}
+          </PagedTable>
+        )}
+      </ServerList>
+    </section>
+  );
+}
+
+/** A tab's href: keep every other param, drop the page, set `tab`. */
+function tabHref(sp: SearchParams, tab: string): string {
+  const u = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) {
+    if (k === "page" || k === "tab") continue;
+    const val = Array.isArray(v) ? v[0] : v;
+    if (typeof val === "string" && val) u.set(k, val);
+  }
+  if (tab) u.set("tab", tab);
+  const s = u.toString();
+  return s ? `${PATH}?${s}` : PATH;
 }

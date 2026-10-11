@@ -16,6 +16,7 @@ import type { ApiDeliverable } from "@/lib/deliverables-live";
 import { openRequests, type ApiSponsorRequest } from "@/lib/brief-status";
 import type { RangeKey, SponsorOverview } from "@/lib/sponsor-overview-live";
 import { fetchSponsorOverview } from "@/server/sponsor-overview";
+import type { ApiOrder } from "@/lib/shop-live";
 
 async function isSponsor(): Promise<boolean> {
   const who = await fetchActor();
@@ -209,4 +210,38 @@ async function readPosts(
   } catch {
     return none("error");
   }
+}
+
+/* ------------------------------------------------------------ orders */
+
+/** GET /marketplace-orders's tab strip, in plain words already (the API
+ *  sends "Waiting for approval", not PENDING_SELLER — P1-ART-23 Task 15). */
+export type OrderTab = { key: string; label: string; count: number };
+
+/** GET /marketplace-orders/summary's counts, for the Orders desk's tiles. */
+export type OrderSummary = { byTab: Record<string, number>; spentCents: number };
+
+/** The Orders page's tab strip sets `?tab=` to one of the API's own tab
+ *  keys (never `all`, which is the default / omitted). */
+export const ORDER_TAB_FILTERS = ["waiting", "to_pay", "in_progress", "delivered", "cancelled"] as const;
+
+/** One SERVER page of the sponsor's marketplace orders (P1-ART-23 Task 15):
+ *  ?page ?size ?tab ?q from the URL, plus the unfiltered summary for the
+ *  header tiles — two independent reads, not one derived from the other.
+ *  Null when orders aren't open to this account (403): a signed-in sponsor
+ *  role with no sponsor tenant linked, same gap the page always had. */
+export async function liveSponsorOrderPage(
+  sp: SearchParams,
+): Promise<{ rows: ApiOrder[]; page: PageInfo; tabs: OrderTab[]; summary: OrderSummary } | null> {
+  const query = apiListQuery(sp, {
+    tab: textParam(sp, "tab", ORDER_TAB_FILTERS),
+    q: textParam(sp, "q"),
+  });
+  const [res, summaryRes] = await Promise.all([apiFetch(`/marketplace-orders${query}`), apiFetch("/marketplace-orders/summary")]);
+  if (res.status === 403) return null;
+  if (!res.ok) throw new Error(`Orders unavailable (${res.status}).`);
+  const data = (await res.json()) as { orders: ApiOrder[]; page: PageInfo; tabs: OrderTab[] };
+  if (!summaryRes.ok && summaryRes.status !== 403) throw new Error(`Order summary unavailable (${summaryRes.status}).`);
+  const summary = summaryRes.ok ? ((await summaryRes.json()) as { summary: OrderSummary }).summary : { byTab: {}, spentCents: 0 };
+  return { rows: data.orders, page: data.page, tabs: data.tabs, summary };
 }

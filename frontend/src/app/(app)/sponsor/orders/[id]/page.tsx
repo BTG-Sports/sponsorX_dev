@@ -9,20 +9,14 @@ import { ShopCancelOrder } from "@/components/shop-checkout";
 import { SponsorOrderDelivery } from "@/components/sponsor-order-delivery";
 import { SponsorOrderStatus } from "@/components/sponsor-order-status";
 import { StatePill, StatusBox } from "@/components/order-bits";
+import { StadiumChip, StadiumHead, StadiumSteps, StadiumTile, StadiumTiles } from "@/components/stadium-stage";
 import { sellerCancelledBanner } from "@/lib/cancellations-live";
 import { sponsorBadge, sponsorStatus } from "@/lib/order-automation-live";
 import { refundWords } from "@/lib/refunds-live";
 import type { ApiOrderDeliveries } from "@/lib/sponsor-delivery-live";
-import {
-  TEST_PROVIDER_BADGE,
-  orderTracker,
-  paymentHint,
-  paymentView,
-  type ApiOrderPayment,
-  type PaymentView,
-  type TrackerStep,
-} from "@/lib/order-payment-live";
+import { TEST_PROVIDER_BADGE, paymentHint, paymentView, type ApiOrderPayment, type PaymentView } from "@/lib/order-payment-live";
 import { canCancel, fmtStamp, orderCopy, orderRef, usd, type ApiOrder } from "@/lib/shop-live";
+import { orderWord } from "@/lib/sponsor-words";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 
@@ -115,12 +109,13 @@ export default async function OrderPage({
   if (!res.ok) throw new Error(`Order unavailable (${res.status}).`);
   const o = (await res.json()) as ApiOrder;
   const c = orderCopy(o.state);
+  const word = orderWord(o.state);
+  const cancelledLike = o.state === "CANCELLED" || o.state === "REFUNDED";
   /* A failed payment read degrades the card to "couldn't be loaded", never the page. */
   const payment = payRes?.ok ? ((await payRes.json()) as ApiOrderPayment) : null;
   const pay = paymentView(o.state, payment);
   /* Delivery rows exist from contract time; a failed read hides the section, never the page. */
   const deliveries = deliveryRes?.ok ? ((await deliveryRes.json()) as ApiOrderDeliveries) : null;
-  const steps = orderTracker(o, pay, payment);
   const now = new Date();
   const status = sponsorStatus(o, pay.kind, now);
   const badge = sponsorBadge(o, pay.kind, now);
@@ -139,18 +134,24 @@ export default async function OrderPage({
       {back}
       {placed && <ShopSteps active="confirmed" />}
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="flex flex-wrap items-center gap-2 text-xl font-semibold tracking-tight">
-            Order <span className="font-mono">{orderRef(o.id)}</span>
-            {badge ? <StatePill p={badge} /> : <Badge tone={c.tone}>{c.label}</Badge>}
-          </h1>
-          <p className="mt-1 text-xs text-muted">
-            Placed {fmtStamp(o.createdAt)}
-            {o.contractedAt ? ` · confirmed ${fmtStamp(o.contractedAt)}` : ""}
-          </p>
+      <StadiumHead title={`Order ${orderRef(o.id)}`}>
+        <p className="mt-1 text-xs text-muted">
+          Placed {fmtStamp(o.createdAt)}
+          {o.contractedAt ? ` · confirmed ${fmtStamp(o.contractedAt)}` : ""}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <StadiumChip tone={word.tone}>{word.text}</StadiumChip>
+          {badge && <StatePill p={badge} />}
         </div>
-      </div>
+      </StadiumHead>
+
+      {cancelledLike ? (
+        <StadiumChip tone="late">{word.text}</StadiumChip>
+      ) : (
+        <StadiumSteps steps={ORDER_STEPS} now={orderStepNow(o.state)} label="Order progress" />
+      )}
+
+      <OrderTiles order={o} pay={pay} payment={payment} deliveries={deliveries} />
 
       {placed && (
         <Card className="border-accent/30 bg-accent/8">
@@ -168,8 +169,6 @@ export default async function OrderPage({
           </p>
         </Card>
       )}
-
-      {steps && <OrderTracker steps={steps} />}
 
       {status && (
         <SponsorOrderStatus card={status} orderId={o.id} amount={usd(payment?.amountCents ?? o.totalCents)} canWrite={canWrite} canPay={Boolean(payment?.canPay)} unavailable={!payment} />
@@ -270,48 +269,78 @@ export default async function OrderPage({
   );
 }
 
-/* ------------------------------------------------------------ the tracker */
+/* ------------------------------------------------------------ the steps */
 
-const STEP_DOT: Record<TrackerStep["tone"], string> = {
-  accent: "border-accent/40 bg-accent/12 text-accent",
-  primary: "border-primary/60 bg-primary/12 text-primary-soft",
-  warn: "border-warn/60 bg-warn/12 text-warn",
-  danger: "border-danger/60 bg-danger/12 text-danger",
-  neutral: "border-line text-faint",
-};
-const STEP_NOTE: Record<TrackerStep["tone"], string> = {
-  accent: "text-muted",
-  primary: "text-primary-soft",
-  warn: "text-warn",
-  danger: "text-danger",
-  neutral: "text-faint",
-};
+/** Where the order stands on the Stadium Board's mini steps (P1-ART-23 Task
+ *  15). CANCELLED / REFUNDED never reach here — the page shows a `late` chip
+ *  instead, since none of these four steps describes "it didn't happen". */
+const ORDER_STEPS = ["Placed", "Approved", "Paid", "Delivered"];
+function orderStepNow(state: string): number {
+  switch (state) {
+    case "PENDING_SELLER":
+    case "PENDING_APPROVAL":
+      return 0;
+    case "APPROVED":
+    case "AWAITING_PAYMENT":
+      return 1;
+    case "PAID":
+    case "IN_DELIVERY":
+      return 2;
+    case "FULFILLED":
+    case "CLOSED":
+      return 4;
+    default:
+      return 0;
+  }
+}
 
-function OrderTracker({ steps }: { steps: TrackerStep[] }) {
-  return (
-    <Card className="p-4">
-      <p className="mb-3 text-[11px] uppercase tracking-wide text-muted">Order progress</p>
-      <ol className="grid gap-3 sm:grid-cols-5">
-        {steps.map((s, i) => {
-          const tone = s.state === "todo" ? "neutral" : s.state === "done" ? "accent" : s.tone;
-          return (
-            <li key={s.label} aria-current={s.state === "current" ? "step" : undefined} className="flex items-center gap-2.5 sm:flex-col sm:items-start">
-              <span className={`flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold ${STEP_DOT[tone]}`} aria-hidden="true">
-                {s.state === "done" ? "✓" : s.state === "current" && s.tone === "danger" ? "!" : i + 1}
-              </span>
-              <span className="min-w-0">
-                <span className={`block text-xs ${s.state === "todo" ? "text-faint" : s.state === "current" ? "font-semibold" : "font-medium"}`}>
-                  {s.label}
-                  <span className="sr-only">{s.state === "done" ? " — done" : s.state === "current" ? " — current step" : " — not yet"}</span>
-                </span>
-                {s.note && <span className={`block text-[11px] ${STEP_NOTE[s.state === "done" ? "accent" : tone]}`}>{s.note}</span>}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-    </Card>
-  );
+/* ------------------------------------------------------------ the tiles */
+
+/** Total, Payment and Delivered x/y — every figure the order itself already
+ *  carries (memory: stats-must-be-retrievable), never guessed when a read
+ *  degraded (payment / deliveries both tolerate a failed fetch elsewhere on
+ *  this page; a tile is simply left out rather than show a wrong number). */
+function OrderTiles({
+  order, pay, payment, deliveries,
+}: {
+  order: ApiOrder;
+  pay: PaymentView;
+  payment: ApiOrderPayment | null;
+  deliveries: ApiOrderDeliveries | null;
+}) {
+  const tiles = [
+    <StadiumTile key="total" label="Total" value={order.totalCents} format="usd" hint="What this order comes to, fees included." delay={0.1} />,
+  ];
+  if (pay.kind !== "none") {
+    tiles.push(
+      <StadiumTile
+        key="payment"
+        label="Payment"
+        value={payment?.amountCents ?? order.totalCents}
+        format="usd0"
+        tone={pay.kind === "failed" ? "late" : pay.kind === "due" ? "you" : undefined}
+        caption={pay.status}
+        hint="Whether payment is due, confirming, or already paid."
+        delay={0.16}
+      />,
+    );
+  }
+  const lines = deliveries?.lines ?? [];
+  if (lines.length > 0) {
+    const done = lines.filter((l) => l.state === "CONFIRMED").length;
+    tiles.push(
+      <StadiumTile
+        key="delivered"
+        label="Delivered"
+        value={done}
+        caption={`of ${lines.length} ${lines.length === 1 ? "item" : "items"}`}
+        share={done / lines.length}
+        hint="Lines you've confirmed as delivered, out of every line on this order."
+        delay={0.22}
+      />,
+    );
+  }
+  return <StadiumTiles cols={tiles.length >= 3 ? 3 : 2}>{tiles}</StadiumTiles>;
 }
 
 /* ------------------------------------------------------------ the payment */
