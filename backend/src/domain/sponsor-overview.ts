@@ -207,8 +207,11 @@ export async function sponsorOverview(
       /* posts waiting on the sponsor — liveScope, not inScope: a post on a
          cancelled or rejected order should not sit in anyone's review queue. */
       prisma.deliverable.count({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ where: { ...liveScope, state: "SPONSOR_REVIEW" } }),
+      /* "Orders to pay" (needsYou.ordersToPay) matches the Orders page's own
+         "To pay" tab (marketplace-order.ts's ORDER_TABS): APPROVED and
+         AWAITING_PAYMENT both wait on the sponsor's payment. */
       seeOrders
-        ? prisma.marketplaceOrder.count({ where: { AND: [whereFor(actor, "marketplaceOrder", "read"), { state: "AWAITING_PAYMENT" }] } })
+        ? prisma.marketplaceOrder.count({ where: { AND: [whereFor(actor, "marketplaceOrder", "read"), { state: { in: ["APPROVED", "AWAITING_PAYMENT"] } }] } })
         : Promise.resolve(0),
     ]);
 

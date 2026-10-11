@@ -22,19 +22,18 @@ export const CAMPAIGN_SORTS = ["name", "ending"] as const;
 
 /** One SERVER page of campaigns (2026-09-29): ?page ?size ?q ?state ?sort
  *  from the URL go to the API, which searches, filters, orders and counts in
- *  the database. Null on a 403. */
+ *  the database. ?review=1 (the sponsor dashboard's "Posts waiting for your
+ *  OK" link, P1-ART-23) becomes the API's ?review=true. Null on a 403. */
 export async function fetchCampaignPage(
   sp: SearchParams,
-  /** A fixed page size for a summary section (the dashboard's 5), instead of
-   *  the URL's 12 / 24 / 60. */
-  fixedSize?: number,
 ): Promise<{ campaigns: ApiCampaign[]; page: PageInfo } | null> {
   const query = apiListQuery(sp, {
     q: textParam(sp, "q"),
     state: textParam(sp, "state", CAMPAIGN_STATES),
     sort: textParam(sp, "sort", CAMPAIGN_SORTS),
+    review: textParam(sp, "review", ["1"]) === "1" ? "true" : "",
   });
-  const res = await apiFetch(`/campaigns${fixedSize ? query.replace(/size=\d+/, `size=${fixedSize}`) : query}`);
+  const res = await apiFetch(`/campaigns${query}`);
   if (res.status === 403) return null;
   if (!res.ok) throw new Error(`Campaigns unavailable (${res.status}).`);
   return (await res.json()) as { campaigns: ApiCampaign[]; page: PageInfo };

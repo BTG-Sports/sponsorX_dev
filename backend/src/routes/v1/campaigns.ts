@@ -515,6 +515,11 @@ const listCampaigns: RequestHandler = async (req, res) => {
   if (paged) {
     const q = searchTerm(req.query as Record<string, unknown>);
     const states = allowedList(req.query.state, CAMPAIGN_STATES);
+    /* ?review=true — the sponsor dashboard's "Posts waiting for your OK"
+       link (P1-ART-23): campaigns with at least one deliverable in
+       SPONSOR_REVIEW on a live order. liveScope-style (orders, not inScope):
+       a post on a cancelled or rejected order isn't waiting on anyone. */
+    const review = req.query.review === "true";
     const sortKey = typeof req.query.sort === "string" && req.query.sort in CAMPAIGN_SORTS ? (req.query.sort as keyof typeof CAMPAIGN_SORTS) : "newest";
     /* Delivery health (the admin desk, 2026-09-29). `?health=true` attaches
        each row's under-delivery flags; `?attention=true|false` keeps only
@@ -540,6 +545,7 @@ const listCampaigns: RequestHandler = async (req, res) => {
         whereFor(actor, "campaign", "read"),
         ...(q ? [{ name: { contains: q, mode: "insensitive" as const } }] : []),
         ...(states.length ? [{ state: { in: [...states] } }] : []),
+        ...(review ? [{ orders: { some: { ...LIVE_ORDER, deliverables: { some: { state: "SPONSOR_REVIEW" } } } } }] : []),
         ...(attention === true ? [{ id: { in: flagged } }] : attention === false ? [{ id: { notIn: flagged } }] : []),
       ],
     };

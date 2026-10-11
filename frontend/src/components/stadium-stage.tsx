@@ -30,10 +30,11 @@ import type { CSSProperties, ReactNode } from "react";
 
 import { ArenaCount, type CountFormat } from "./arena-fx";
 import { StadiumHint } from "./stadium-hint";
+import type { RangeKey } from "@/lib/sponsor-overview-live";
 import type { WordTone } from "@/lib/sponsor-words";
 
 export { StadiumTicker } from "./stadium-ticker";
-export { StadiumUpdated } from "./stadium-time";
+export { StadiumDate, StadiumUpdated } from "./stadium-time";
 
 export const at = (seconds: number, extra?: CSSProperties) => ({ "--sx-reveal-delay": `${seconds}s`, ...extra }) as CSSProperties;
 
@@ -218,13 +219,12 @@ export function StadiumRow({ href, lead, title, sub, right, i = 0 }: { href?: st
   );
 }
 
-export const RANGE_OPTIONS = [
+export const RANGE_OPTIONS: { key: RangeKey; label: string }[] = [
   { key: "7d", label: "7 days" },
   { key: "30d", label: "30 days" },
   { key: "90d", label: "90 days" },
   { key: "all", label: "All time" },
-] as const;
-export type RangeKey = (typeof RANGE_OPTIONS)[number]["key"];
+];
 
 /** The window switch — links that keep the other params, drop the pages, and omit the default. */
 export function StadiumRange({ current, path, params }: { current: RangeKey; path: string; params: Record<string, string | string[] | undefined> }) {

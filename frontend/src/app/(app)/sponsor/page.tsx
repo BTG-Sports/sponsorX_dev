@@ -9,6 +9,7 @@ import {
   StadiumBadge,
   StadiumBar,
   StadiumChip,
+  StadiumDate,
   StadiumGhost,
   StadiumHead,
   StadiumPanel,
@@ -55,7 +56,6 @@ const usd = (cents: number) => (cents / 100).toLocaleString("en-US", { style: "c
 const PERIOD: Record<RangeKey, string> = { "7d": "vs the 7 days before", "30d": "vs the 30 days before", "90d": "vs the 90 days before", all: "" };
 const SORT_WORDS: Record<(typeof CAMPAIGN_SORTS)[number], string> = { name: "Name A–Z", ending: "Ending soonest" };
 const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const dueDay = (iso: string) => new Date(iso).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
 
 export default async function SponsorDashboardPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const demo = await demoState(searchParams);
@@ -231,9 +231,9 @@ function Tiles({ o, range }: { o: SponsorOverview; range: RangeKey }) {
         <StadiumTile
           label="Money spent"
           value={money.invoicedCents}
-          format="usd"
+          format="usd0"
           share={money.share}
-          caption={money.invoicedCents ? `${usd(money.paidCents)} paid · ${usd(money.owedCents)} still to pay` : "No invoices yet"}
+          caption={money.invoicedCents ? `All time · ${usd(money.paidCents)} paid · ${usd(money.owedCents)} still to pay` : "No invoices yet · all time"}
           hint="What you've been invoiced so far (all time, not just this period), and how much of it is paid."
           delay={0.34}
         />
@@ -273,7 +273,7 @@ function Quiet({ children }: { children: ReactNode }) {
 function NeedsYou({ o }: { o: SponsorOverview }) {
   const n = o.needsYou;
   const items = [
-    { key: "posts", title: "Posts waiting for your OK", sub: "Open a running campaign to look at them", count: n.postsToReview, href: "/sponsor/campaigns?state=ACTIVE" },
+    { key: "posts", title: "Posts waiting for your OK", sub: "Open a running campaign to look at them", count: n.postsToReview, href: "/sponsor/campaigns?review=1" },
     { key: "orders", title: "Orders to pay", sub: "Approved and ready for payment", count: n.ordersToPay, href: "/sponsor/orders?tab=to_pay" },
     ...(n.invoicesUnpaid !== undefined ? [{ key: "invoices", title: "Invoices to pay", sub: "Sent to you by BTG", count: n.invoicesUnpaid, href: undefined }] : []),
   ];
@@ -345,7 +345,13 @@ function CostPer1000({ o }: { o: SponsorOverview }) {
 
 function Delivered({ o }: { o: SponsorOverview }) {
   const d = o.delivery;
-  const next = d.nextDueAt ? `next one due ${dueDay(d.nextDueAt)}` : "nothing else due";
+  const next = d.nextDueAt ? (
+    <>
+      next one due <StadiumDate iso={d.nextDueAt} format="weekday" />
+    </>
+  ) : (
+    "nothing else due"
+  );
   return (
     <StadiumPanel delay={0.64} tone={d.late ? "late" : undefined} className="min-w-0">
       <Title hint="Posts the athletes have put up, out of every post your campaigns include. Late means its due date has passed." note="All time">
@@ -437,12 +443,27 @@ function Campaigns({
   total?: number;
 }) {
   const filtered = Boolean(filters.q || filters.state);
+  const outOfRange = page.page > page.pages;
+  const empty: ReactNode = outOfRange ? (
+    "No campaigns on this page. Go back to the first page to see them."
+  ) : filtered ? (
+    "No campaigns match. Clear the search or filter."
+  ) : total === 0 ? (
+    <>
+      No campaigns yet.{" "}
+      <Link href="/sponsor/marketplace" className="font-medium text-sponsor hover:underline">
+        Browse packages to start one →
+      </Link>
+    </>
+  ) : (
+    "No campaigns match. Clear the search or filter."
+  );
   const showMoney = rows.some((r) => r.contracted !== undefined);
   const columns: Column[] = [
     { key: "campaign", label: "Campaign" },
     { key: "status", label: "Status" },
     { key: "posts", label: "Posts delivered" },
-    ...(showMoney ? [{ key: "cost", label: "Cost", num: true }] : []),
+    ...(showMoney ? [{ key: "spent", label: "Spent", num: true }] : []),
     { key: "ends", label: "Dates" },
     { key: "act", label: "Results", srOnly: true },
   ];
@@ -477,9 +498,7 @@ function Campaigns({
         {rows.length === 0 ? (
           <PendingList>
             <StadiumPanel>
-              <p className="text-sm text-muted">
-                {filtered ? "No campaigns match. Try another name, or set the status back to “Any status”." : "No campaigns on this page. Go back to the first page to see them."}
-              </p>
+              <p className="text-sm text-muted">{empty}</p>
             </StadiumPanel>
           </PendingList>
         ) : (
@@ -516,8 +535,16 @@ function Campaigns({
                     )}
                   </Td>
                   {showMoney && (
-                    <Td label="Cost" num>
-                      {c.contracted !== undefined ? usd(c.contracted) : "—"}
+                    <Td label="Spent" num>
+                      {c.invoiced !== undefined ? (
+                        usd(c.invoiced)
+                      ) : c.contracted !== undefined ? (
+                        <>
+                          {usd(c.contracted)} <span className="text-[10px] text-faint">Agreed</span>
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </Td>
                   )}
                   <Td label="Dates" muted>

@@ -36,8 +36,17 @@ describe("fetchCampaignPage", () => {
     const r = await fetchCampaignPage({ page: "2", size: "24", q: "show", state: "BOGUS", sort: "name" });
     expect(calls.at(-1)).toBe("/campaigns?page=2&size=24&q=show&sort=name");
     expect(r?.page.total).toBe(30);
-    expect((await fetchCampaignPage({}, 5)) && calls.at(-1)).toBe("/campaigns?page=1&size=5");
     responder = () => new Response("{}", { status: 403 });
     expect(await fetchCampaignPage({})).toBeNull();
+  });
+
+  it("?review=1 becomes the API's ?review=true (the dashboard's \"Posts waiting for your OK\" link, P1-ART-23); anything else is dropped", async () => {
+    responder = () => new Response(JSON.stringify({ campaigns: [], page: { page: 1, size: 12, total: 0, pages: 1 } }), { status: 200 });
+    await fetchCampaignPage({ review: "1" });
+    expect(calls.at(-1)).toBe("/campaigns?page=1&size=12&review=true");
+    await fetchCampaignPage({ review: "true" });
+    expect(calls.at(-1)).toBe("/campaigns?page=1&size=12");
+    await fetchCampaignPage({});
+    expect(calls.at(-1)).toBe("/campaigns?page=1&size=12");
   });
 });

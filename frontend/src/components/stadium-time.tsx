@@ -24,3 +24,25 @@ export function StadiumUpdated({ iso }: { iso: string }) {
     </time>
   );
 }
+
+/* A due date, in the viewer's own timezone (not the server's / UTC) — the
+   same hydration-safe approach as StadiumUpdated above. "weekday" reads
+   "Tuesday, Oct 14"; "date" reads "Oct 14, 2026". */
+const DATE_FORMAT: Record<"weekday" | "date", Intl.DateTimeFormatOptions> = {
+  weekday: { weekday: "long", month: "short", day: "numeric" },
+  date: { month: "short", day: "numeric", year: "numeric" },
+};
+
+export function StadiumDate({ iso, format }: { iso: string; format: "weekday" | "date" }) {
+  const text = useSyncExternalStore(
+    subscribe,
+    () => new Date(iso).toLocaleDateString("en-US", DATE_FORMAT[format]),
+    () => "",
+  );
+
+  return (
+    <time dateTime={iso} suppressHydrationWarning>
+      {text}
+    </time>
+  );
+}

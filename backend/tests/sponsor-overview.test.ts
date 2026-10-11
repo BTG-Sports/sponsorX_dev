@@ -182,6 +182,16 @@ describe("sponsorOverview", () => {
     expect(o.daily).toHaveLength(7);
     expect(raws).toHaveLength(0);
   });
+
+  it("needsYou.ordersToPay counts APPROVED and AWAITING_PAYMENT — the Orders page's own \"To pay\" tab", async () => {
+    impl["campaign.findMany"] = () => [{ id: "c_spo1", state: "ACTIVE", startDate: new Date("2026-09-01") }];
+    impl["marketplaceOrder.count"] = () => 4;
+    const o = await sponsorOverview(sponsor, { range: "7d" }, NOW);
+    expect(o.needsYou.ordersToPay).toBe(4);
+    const [count] = of("marketplaceOrder", "count");
+    expect(count!.args.where.AND[0]).toEqual(whereFor(sponsor, "marketplaceOrder", "read"));
+    expect(count!.args.where.AND[1]).toEqual({ state: { in: ["APPROVED", "AWAITING_PAYMENT"] } });
+  });
 });
 
 describe("sponsorOverview — who may call it", () => {
