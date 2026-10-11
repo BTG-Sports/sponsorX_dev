@@ -635,7 +635,7 @@ const PATHS: Row[] = [
   { method: "post", path: "/restrictions", tag: "Marketplace", summary: "A category an athlete or team will not be sold to, for a date range.", body: RestrictionInput, status: 201 },
   { method: "delete", path: "/restrictions/{id}", tag: "Marketplace", summary: "Remove a restriction — never one an accepted offer's exclusivity wrote." },
   { method: "put", path: "/sponsors/{id}/categories", tag: "Marketplace", summary: "BTG sets the brand categories a sponsor sells in — what every restriction is checked against.", body: SponsorCategoriesInput },
-  { method: "get", path: "/marketplace/search", tag: "Marketplace", summary: "Live listings visible to this sponsor, filtered — two sponsors see different catalogues (2S3-BE-04)." },
+  { method: "get", path: "/marketplace/search", tag: "Marketplace", summary: "Live listings visible to this sponsor, filtered — two sponsors see different catalogues (2S3-BE-04). Paged with ?page (P1-ART-23): ?size → `page` with the total after the sponsor's restrictions; without ?page the old capped list." },
   { method: "get", path: "/cart", tag: "Marketplace", summary: "The sponsor's open cart, or null once it has expired (2S4-BE-01)." },
   { method: "post", path: "/cart", tag: "Marketplace", summary: "Open the sponsor's cart, or return the open one.", status: 201 },
   { method: "post", path: "/cart/lines", tag: "Marketplace", summary: "Add a listing — refused with reasons unless available, unconflicted and at its price (2S3-BE-03).", body: CartLineInput, status: 201 },

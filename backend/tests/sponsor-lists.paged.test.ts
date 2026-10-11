@@ -40,7 +40,7 @@ vi.mock("../src/db/client", () => {
   return { prisma: new Proxy({}, { get: (_t, name: string) => (made[name] ??= model(name)) }) };
 });
 
-const { orders, ordersSummary } = await import("../src/routes/v1/marketplace");
+const { orders, ordersSummary, search } = await import("../src/routes/v1/marketplace");
 const { whereFor } = await import("../src/auth/scope");
 
 async function run(handler: unknown, actor: Actor, query: Record<string, string> = {}) {
@@ -109,5 +109,24 @@ describe("GET /marketplace-orders/summary", () => {
     expect(agg.AND[0]).toEqual(whereFor(sponsor, "marketplaceOrder", "read"));
     expect(agg.AND[1]).toEqual({ state: { in: ["PAID", "IN_DELIVERY", "FULFILLED", "CLOSED"] } });
     expect(body.summary).toEqual({ byTab: { all: 4, waiting: 1, to_pay: 0, in_progress: 0, delivered: 3, cancelled: 0 }, spentCents: 52000 });
+  });
+});
+
+describe("GET /marketplace/search · paged", () => {
+  it("without ?page the old capped list, no page", async () => {
+    const body = await run(search, sponsor);
+    expect(body.page).toBeUndefined();
+    expect(Array.isArray(body.results)).toBe(true);
+  });
+
+  it("pages the visible ids: total is after the sponsor's restrictions, the page reads only its ids, in order", async () => {
+    impl["sponsor.findFirst"] = () => ({ categories: [] });
+    impl["listing.findMany"] = (a) =>
+      a.select?.item?.select?.priceCents
+        ? a.where.id.in.map((id: string) => ({ id, title: id, description: "", publishedAt: null, tenantId: "t_slp1", property: null, sellerAthleteId: "ath1", item: { id: "i", kind: "SOCIAL", priceCents: 1, quantity: 1, availableFrom: null, availableUntil: null, categories: [], packageRules: null, athleteId: "ath1", propertyId: null, restrictedCategories: [], athlete: null } })).reverse()
+        : Array.from({ length: 30 }, (_, i) => ({ id: `l${i}`, tenantId: "t_slp1", item: { athleteId: null, propertyId: null, athlete: null } }));
+    const body = await run(search, sponsor, { page: "2", size: "12" });
+    expect(body.page).toEqual({ page: 2, size: 12, total: 30, pages: 3 });
+    expect(body.results.map((r: { id: string }) => r.id)).toEqual(Array.from({ length: 12 }, (_, i) => `l${12 + i}`));
   });
 });

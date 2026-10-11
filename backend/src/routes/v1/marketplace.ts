@@ -25,7 +25,7 @@ import {
 import { createRestriction, deleteRestriction, listRestrictions, setSponsorCategories } from "../../domain/restrictions";
 import { decideSellerApproval, mySellerApproval, mySellerApprovals, mySellerApprovalsPage } from "../../domain/order-approval";
 import { sponsorSpendingLimit } from "../../domain/spending-limit";
-import { searchMarketplace } from "../../domain/marketplace-search";
+import { searchMarketplace, searchMarketplacePage } from "../../domain/marketplace-search";
 import { addLine, currentCart, openCart, removeLine, updateLine } from "../../domain/cart";
 import { createInventoryItem, getInventoryItem, listInventory, listInventoryPage, updateInventoryItem } from "../../domain/inventory";
 import { addRosterAthlete, setTeamShare, teamAthletesPage, teamInventoryPage, teamRoster } from "../../domain/team";
@@ -216,7 +216,12 @@ marketplaceRouter.post("/restrictions", requireActor, newRestriction);
 marketplaceRouter.delete("/restrictions/:id", requireActor, dropRestriction);
 marketplaceRouter.put("/sponsors/:id/categories", requireActor, sponsorCategories);
 
-const search: RequestHandler = async (req, res) => { res.json({ results: await searchMarketplace(req.actor!, SearchQuery.parse(req.query)) }); };
+/* P1-ART-23 — ?page= turns on the house pager (lib/paging.ts): the total after the sponsor's restrictions; without it the old capped list. */
+export const search: RequestHandler = async (req, res) => {
+  const pg = pageRequest(req.query as Record<string, unknown>);
+  const f = SearchQuery.parse(req.query);
+  res.json(pg ? await searchMarketplacePage(req.actor!, f, pg) : { results: await searchMarketplace(req.actor!, f) });
+};
 marketplaceRouter.get("/marketplace/search", requireActor, search);
 
 const cart: RequestHandler = async (req, res) => { res.json({ cart: await currentCart(req.actor!) }); };

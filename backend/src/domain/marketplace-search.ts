@@ -27,6 +27,7 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { overlaps } from "./restrictions";
 import { sellerCanSell } from "./listing-rules";
+import { clampPage, pageInfo, type PageRequest } from "../lib/paging";
 
 export type SearchFilters = {
   q?: string; kind?: string; category?: string; sport?: string; stateCode?: string;
@@ -72,10 +73,12 @@ function filtersWhere(f: SearchFilters): Prisma.ListingWhereInput[] {
   return and;
 }
 
-export async function searchMarketplace(actor: Actor, f: SearchFilters = {}) {
+/** The caller's catalogue: its scope check, its restricted categories (sponsors
+ *  only), and the WHERE those two facts admit — everything but the caller's
+ *  own filters, so both the capped read and the paged read share it. */
+async function catalogueScope(actor: Actor, now: Date): Promise<{ categories: string[]; where: Prisma.ListingWhereInput[] }> {
   const scope = assertAllowed(actor, "listing", "read");
   if (scope !== "catalog" && scope !== "operated" && scope !== "any") throw new ForbiddenError("listing", "read");
-  const now = new Date();
 
   /* The sponsor's categories: what it may not be sold, today. */
   let categories: string[] = [];
@@ -85,40 +88,39 @@ export async function searchMarketplace(actor: Actor, f: SearchFilters = {}) {
     categories = sponsor?.categories ?? [];
   }
 
-  const rows = await prisma.listing.findMany({
+  const where: Prisma.ListingWhereInput[] = [
+    whereFor(actor, "listing", "read"), live(now),
+    ...(categories.length ? [{ item: { NOT: { restrictedCategories: { hasSome: categories } } } }] : []),
+  ];
+  return { categories, where };
+}
+
+type Restrictable = { id: string; tenantId: string; item: { athleteId: string | null; propertyId: string | null; athlete: { propertyId: string | null } | null } };
+
+/** The owners' restrictions in force now, for this sponsor — one query for
+ *  whatever rows were already admitted by the catalogue scope. */
+async function hiddenIds(rows: Restrictable[], categories: string[], now: Date): Promise<Set<string>> {
+  if (!categories.length || !rows.length) return new Set();
+  const athleteIds = rows.map((r) => r.item.athleteId).filter((x): x is string => Boolean(x));
+  const propertyIds = [...new Set(rows.flatMap((r) => [r.item.propertyId, r.item.athlete?.propertyId]).filter((x): x is string => Boolean(x)))];
+  const restrictions = await prisma.brandRestriction.findMany({
     where: {
-      AND: [
-        whereFor(actor, "listing", "read"), live(now), ...filtersWhere(f),
-        ...(categories.length ? [{ item: { NOT: { restrictedCategories: { hasSome: categories } } } }] : []),
-      ],
+      /* tenant-scope: the owners of listings already admitted by the catalogue scope above; tenants come from those rows. */
+      tenantId: { in: [...new Set(rows.map((r) => r.tenantId))] },
+      category: { in: categories },
+      OR: [{ athleteId: { in: athleteIds } }, { propertyId: { in: propertyIds } }],
     },
-    select: SELECT,
-    orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
-    take: Math.min(Math.max(f.limit ?? 50, 1), 100),
+    select: { athleteId: true, propertyId: true, startsOn: true, endsOn: true },
   });
+  const today = { startsOn: now, endsOn: now };
+  const blocked = restrictions.filter((r) => overlaps(r, today));
+  return new Set(rows.filter((row) => blocked.some((b) =>
+    (b.athleteId && b.athleteId === row.item.athleteId)
+    || (b.propertyId && (b.propertyId === row.item.propertyId || b.propertyId === row.item.athlete?.propertyId)))).map((r) => r.id));
+}
 
-  /* The owners' restrictions in force now, for this sponsor — one query for the page. */
-  let hidden = new Set<string>();
-  if (categories.length && rows.length) {
-    const athleteIds = rows.map((r) => r.item.athleteId).filter((x): x is string => Boolean(x));
-    const propertyIds = [...new Set(rows.flatMap((r) => [r.item.propertyId, r.item.athlete?.propertyId]).filter((x): x is string => Boolean(x)))];
-    const restrictions = await prisma.brandRestriction.findMany({
-      where: {
-        /* tenant-scope: the owners of listings already admitted by the catalogue scope above; tenants come from those rows. */
-        tenantId: { in: [...new Set(rows.map((r) => r.tenantId))] },
-        category: { in: categories },
-        OR: [{ athleteId: { in: athleteIds } }, { propertyId: { in: propertyIds } }],
-      },
-      select: { athleteId: true, propertyId: true, startsOn: true, endsOn: true },
-    });
-    const today = { startsOn: now, endsOn: now };
-    const blocked = restrictions.filter((r) => overlaps(r, today));
-    hidden = new Set(rows.filter((row) => blocked.some((b) =>
-      (b.athleteId && b.athleteId === row.item.athleteId)
-      || (b.propertyId && (b.propertyId === row.item.propertyId || b.propertyId === row.item.athlete?.propertyId)))).map((r) => r.id));
-  }
-
-  return rows.filter((r) => !hidden.has(r.id)).map((r) => ({
+function toResult(r: Prisma.ListingGetPayload<{ select: typeof SELECT }>) {
+  return {
     id: r.id, title: r.title, description: r.description, publishedAt: r.publishedAt,
     property: r.property,
     seller: r.property
@@ -129,5 +131,47 @@ export async function searchMarketplace(actor: Actor, f: SearchFilters = {}) {
       id: r.item.id, kind: r.item.kind, priceCents: r.item.priceCents, quantity: r.item.quantity,
       availableFrom: r.item.availableFrom, availableUntil: r.item.availableUntil, categories: r.item.categories, packageRules: r.item.packageRules,
     },
-  }));
+  };
+}
+
+export async function searchMarketplace(actor: Actor, f: SearchFilters = {}) {
+  const now = new Date();
+  const { categories, where } = await catalogueScope(actor, now);
+
+  const rows = await prisma.listing.findMany({
+    /* tenant-scope: whereFor(actor, "listing", "read") leads `where` (catalogueScope). */
+    where: { AND: [...where, ...filtersWhere(f)] },
+    select: SELECT,
+    orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
+    take: Math.min(Math.max(f.limit ?? 50, 1), 100),
+  });
+
+  const hidden = await hiddenIds(rows, categories, now);
+  return rows.filter((r) => !hidden.has(r.id)).map(toResult);
+}
+
+const THIN = { id: true, tenantId: true, item: { select: { athleteId: true, propertyId: true, athlete: { select: { propertyId: true } } } } } as const;
+
+/** P1-ART-23 — the shop, server-paged: the visible ids are counted and sliced
+ *  in order, then only the page's rows are read in full. */
+export async function searchMarketplacePage(actor: Actor, f: SearchFilters, req: PageRequest) {
+  const now = new Date();
+  const { categories, where } = await catalogueScope(actor, now);
+  const order = [{ publishedAt: "desc" as const }, { id: "asc" as const }];
+  const thin = await prisma.listing.findMany({
+    /* tenant-scope: whereFor(actor, "listing", "read") leads `where` (catalogueScope). */
+    where: { AND: [...where, ...filtersWhere(f)] }, select: THIN, orderBy: order,
+  });
+  const hidden = await hiddenIds(thin, categories, now);
+  const visible = thin.filter((r) => !hidden.has(r.id)).map((r) => r.id);
+  const at = clampPage(req, visible.length);
+  const ids = visible.slice(at.skip, at.skip + at.take);
+  const rows = ids.length
+    ? await prisma.listing.findMany({
+        /* tenant-scope: ids admitted by the scoped read above. */
+        where: { id: { in: ids } }, select: SELECT,
+      })
+    : [];
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return { results: ids.map((id) => byId.get(id)).filter((r): r is NonNullable<typeof r> => Boolean(r)).map(toResult), page: pageInfo(at, visible.length) };
 }
