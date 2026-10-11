@@ -20,7 +20,7 @@ import { orderFinancials, propertyLedger } from "../../domain/ledger";
 import { propertyAnalytics } from "../../domain/property-analytics";
 import { getReservation, releaseReservation, reserveCart } from "../../domain/reservation";
 import {
-  decideMarketplaceOrder, getMarketplaceOrder, listMarketplaceOrders, placeOrder, transitionMarketplaceOrder,
+  decideMarketplaceOrder, getMarketplaceOrder, listMarketplaceOrders, marketplaceOrderSummary, pageMarketplaceOrders, placeOrder, transitionMarketplaceOrder,
 } from "../../domain/marketplace-order";
 import { createRestriction, deleteRestriction, listRestrictions, setSponsorCategories } from "../../domain/restrictions";
 import { decideSellerApproval, mySellerApproval, mySellerApprovals, mySellerApprovalsPage } from "../../domain/order-approval";
@@ -238,10 +238,18 @@ marketplaceRouter.post("/cart/reserve", requireActor, reserve);
 marketplaceRouter.get("/reservations/:id", requireActor, reservation);
 marketplaceRouter.post("/reservations/:id/release", requireActor, release);
 
-const orders: RequestHandler = async (req, res) => {
+/* P1-ART-23 — ?page= turns on the house pager (lib/paging.ts) with tabs and a total; without it the old whole list. */
+export const orders: RequestHandler = async (req, res) => {
+  const q = req.query as Record<string, unknown>;
+  const pg = pageRequest(q);
+  if (pg) {
+    res.json(await pageMarketplaceOrders(req.actor!, pg, { tab: typeof q.tab === "string" ? q.tab : undefined, q: searchTerm(q) }));
+    return;
+  }
   const state = typeof req.query.state === "string" ? (req.query.state as Parameters<typeof listMarketplaceOrders>[1]) : undefined;
   res.json({ orders: await listMarketplaceOrders(req.actor!, state) });
 };
+export const ordersSummary: RequestHandler = async (req, res) => { res.json({ summary: await marketplaceOrderSummary(req.actor!) }); };
 const order: RequestHandler<Id> = async (req, res) => { res.json(await getMarketplaceOrder(req.actor!, req.params.id)); };
 const place: RequestHandler = async (req, res) => {
   /* 2S4-FE-02 — the acceptance's evidence comes through the web server's forward, like every acceptance. */
@@ -257,6 +265,7 @@ const moveOrder: RequestHandler<Id> = async (req, res) => {
 };
 marketplaceRouter.get("/marketplace-orders", requireActor, orders);
 marketplaceRouter.post("/marketplace-orders", requireActor, place);
+marketplaceRouter.get("/marketplace-orders/summary", requireActor, ordersSummary);
 marketplaceRouter.get("/marketplace-orders/:id", requireActor, order);
 marketplaceRouter.post("/marketplace-orders/:id/decision", requireActor, decideOrder);
 marketplaceRouter.post("/marketplace-orders/:id/transition", requireActor, moveOrder);
