@@ -189,13 +189,6 @@ export function usd(cents: number): string {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
-/** "$12.50" → 1250; "" or junk → null. Filters are typed in dollars. */
-export function dollarsToCents(v: string): number | null {
-  const t = v.trim().replace(/[$,]/g, "");
-  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
-  return Math.round(Number(t) * 100);
-}
-
 /* ------------------------------------------------------------------ days */
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -246,14 +239,16 @@ export function windowLabel(from: string | null, until: string | null): string {
 type SearchParams = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v.trim() : "");
 
-/** The filter form's values, exactly as typed — what the GET form re-renders. */
+/** The filter form's values, exactly as typed — what the shop's instant
+ *  filters read back from the URL. `maxPrice` is a preset band's cents value
+ *  (Under $500 / $1,000 / $5,000), not typed by hand (P1-ART-23 Task 13 —
+ *  it replaces the old separate min/max dollar inputs). */
 export type ShopFilters = {
   q: string;
   kind: string;
   category: string;
   sport: string;
   stateCode: string;
-  minPrice: string;
   maxPrice: string;
   availableFrom: string;
   availableUntil: string;
@@ -265,7 +260,6 @@ export const FILTER_KEYS: (keyof ShopFilters)[] = [
   "category",
   "sport",
   "stateCode",
-  "minPrice",
   "maxPrice",
   "availableFrom",
   "availableUntil",
@@ -275,44 +269,46 @@ export function shopFilters(sp: SearchParams): ShopFilters {
   return Object.fromEntries(FILTER_KEYS.map((k) => [k, one(sp[k])])) as ShopFilters;
 }
 
-/** How many results one search asks for. The API has no paging (limit ≤ 100). */
-export const SEARCH_LIMIT = 50;
+/** The shop's price filter: three bands, each a `maxPrice` already in cents
+ *  — the wire's own unit, so picking one needs no conversion. */
+export const PRICE_BANDS = [
+  { value: "50000", label: "Under $500" },
+  { value: "100000", label: "Under $1,000" },
+  { value: "500000", label: "Under $5,000" },
+];
 
 /**
- * The URL's filters → `GET /marketplace/search` query string. Only values the
+ * The URL's filters → `GET /marketplace/search`'s extra query params (its
+ * `?page` / `?size` are added separately, by `apiListQuery`). Only values the
  * contract accepts are sent (SearchQuery in backend/src/contracts/marketplace.ts):
  * a kind or category outside its list, a state code that isn't two letters, a
- * price that isn't a number or a day that isn't a day is dropped and named in
- * `ignored`, so a typo narrows nothing instead of failing the page with a 400.
- * Prices are typed in dollars and sent in cents; days are sent as midnight UTC.
+ * price band that isn't a positive whole number of cents, or a day that isn't
+ * a day, is dropped and named in `ignored`, so a typo narrows nothing instead
+ * of failing the page with a 400. Days are sent as midnight UTC.
  */
-export function searchApiQuery(sp: SearchParams): { query: string; ignored: string[] } {
+export function shopSearchExtras(sp: SearchParams): { filters: ShopFilters; extras: Record<string, string>; ignored: string[] } {
   const f = shopFilters(sp);
-  const out = new URLSearchParams();
+  const extras: Record<string, string> = {};
   const ignored: string[] = [];
 
-  if (f.q) out.set("q", f.q.slice(0, 200));
+  if (f.q) extras.q = f.q.slice(0, 200);
   if (f.kind) {
-    if ((INVENTORY_KINDS as readonly string[]).includes(f.kind)) out.set("kind", f.kind);
+    if ((INVENTORY_KINDS as readonly string[]).includes(f.kind)) extras.kind = f.kind;
     else ignored.push("type");
   }
   if (f.category) {
-    if ((BRAND_CATEGORIES as readonly string[]).includes(f.category)) out.set("category", f.category);
+    if ((BRAND_CATEGORIES as readonly string[]).includes(f.category)) extras.category = f.category;
     else ignored.push("category");
   }
-  if (f.sport) out.set("sport", f.sport.slice(0, 60));
+  if (f.sport) extras.sport = f.sport.slice(0, 60);
   if (f.stateCode) {
-    if (/^[A-Za-z]{2}$/.test(f.stateCode)) out.set("stateCode", f.stateCode.toUpperCase());
+    if (/^[A-Za-z]{2}$/.test(f.stateCode)) extras.stateCode = f.stateCode.toUpperCase();
     else ignored.push("state");
   }
-  for (const [key, label] of [
-    ["minPrice", "minimum price"],
-    ["maxPrice", "maximum price"],
-  ] as const) {
-    if (!f[key]) continue;
-    const cents = dollarsToCents(f[key]);
-    if (cents === null) ignored.push(label);
-    else out.set(key, String(cents));
+  if (f.maxPrice) {
+    const cents = Number(f.maxPrice);
+    if (Number.isInteger(cents) && cents > 0) extras.maxPrice = String(cents);
+    else ignored.push("price");
   }
   for (const [key, label] of [
     ["availableFrom", "available from"],
@@ -321,15 +317,121 @@ export function searchApiQuery(sp: SearchParams): { query: string; ignored: stri
     if (!f[key]) continue;
     const iso = dayToIso(f[key]);
     if (iso === null) ignored.push(label);
-    else out.set(key, iso);
+    else extras[key] = iso;
   }
-  out.set("limit", String(SEARCH_LIMIT));
-  return { query: `?${out.toString()}`, ignored };
+  return { filters: f, extras, ignored };
 }
 
-/** True when any filter is set — the empty state then says "loosen them". */
+/** True when any filter is set — the empty state then offers to clear them. */
 export function hasFilters(f: ShopFilters): boolean {
   return FILTER_KEYS.some((k) => f[k] !== "");
+}
+
+/* --------------------------------------------------------------- demo data */
+
+/** A handful of sample listings, in the shape `GET /marketplace/search`
+ *  answers with — the shop's demo deck for an account not yet linked to a
+ *  sponsor, or `?demo=`. Filtered and paged in memory below, the same rules
+ *  the API applies, so the instant filters behave identically in both modes. */
+export const DEMO_LISTINGS: ApiSearchResult[] = [
+  {
+    id: "demo-1", title: "Game day social post",
+    description: "One sponsored post on the athlete's main feed, tagged and pinned for game week.",
+    publishedAt: "2026-09-20T00:00:00.000Z",
+    property: { id: "demo-p1", name: "Westfield Hawks", kind: "SCHOOL", stateCode: "MD", city: "Laurel" },
+    athlete: { displayName: "Jordan Lee", sport: "Basketball", position: "Guard" },
+    item: { id: "demo-i1", kind: "SOCIAL_POST", priceCents: 35_000, quantity: 4, availableFrom: "2026-10-15T00:00:00.000Z", availableUntil: "2026-11-15T00:00:00.000Z", categories: [], packageRules: null },
+  },
+  {
+    id: "demo-2", title: "Training day video feature",
+    description: "A short behind-the-scenes video from one training session, posted and linked back to you.",
+    publishedAt: "2026-09-18T00:00:00.000Z",
+    property: { id: "demo-p1", name: "Westfield Hawks", kind: "SCHOOL", stateCode: "MD", city: "Laurel" },
+    athlete: { displayName: "Riley Carter", sport: "Basketball", position: "Forward" },
+    item: { id: "demo-i2", kind: "VIDEO", priceCents: 85_000, quantity: 2, availableFrom: "2026-10-01T00:00:00.000Z", availableUntil: "2026-12-01T00:00:00.000Z", categories: [], packageRules: null },
+  },
+  {
+    id: "demo-3", title: "Meet & greet appearance",
+    description: "A 30-minute appearance at your event, with photos.",
+    publishedAt: "2026-09-10T00:00:00.000Z",
+    property: { id: "demo-p2", name: "Eastbrook Eagles", kind: "CLUB", stateCode: "VA", city: "Alexandria" },
+    athlete: { displayName: "Amara Okafor", sport: "Track & Field", position: null },
+    item: { id: "demo-i3", kind: "APPEARANCE", priceCents: 150_000, quantity: 1, availableFrom: "2026-11-01T00:00:00.000Z", availableUntil: "2026-11-30T00:00:00.000Z", categories: [], packageRules: null },
+  },
+  {
+    id: "demo-4", title: "Signed jersey",
+    description: "One autographed jersey, shipped to your office.",
+    publishedAt: "2026-09-05T00:00:00.000Z",
+    property: null,
+    seller: { type: "ATHLETE", id: "demo-a1", name: "Marcus Reed" },
+    athlete: { displayName: "Marcus Reed", sport: "Basketball", position: "Center" },
+    item: { id: "demo-i4", kind: "AUTOGRAPH", priceCents: 45_000, quantity: 10, availableFrom: null, availableUntil: null, categories: [], packageRules: null },
+  },
+  {
+    id: "demo-5", title: "Summer skills camp slot",
+    description: "One child's spot at the summer skills camp, run by the team.",
+    publishedAt: "2026-08-28T00:00:00.000Z",
+    property: { id: "demo-p2", name: "Eastbrook Eagles", kind: "CLUB", stateCode: "VA", city: "Alexandria" },
+    athlete: null,
+    item: { id: "demo-i5", kind: "CAMP", priceCents: 120_000, quantity: 20, availableFrom: "2026-12-10T00:00:00.000Z", availableUntil: "2026-12-14T00:00:00.000Z", categories: [], packageRules: { minQuantity: 1, maxQuantity: 20 } },
+  },
+  {
+    id: "demo-6", title: "Scoreboard signage — one season",
+    description: "Your logo on the scoreboard for the whole season.",
+    publishedAt: "2026-08-20T00:00:00.000Z",
+    property: { id: "demo-p3", name: "Riverside Prep", kind: "SCHOOL", stateCode: "DC", city: "Washington" },
+    athlete: null,
+    item: { id: "demo-i6", kind: "SIGNAGE", priceCents: 400_000, quantity: 1, availableFrom: "2027-01-01T00:00:00.000Z", availableUntil: "2027-06-01T00:00:00.000Z", categories: [], packageRules: { exclusive: true } },
+  },
+  {
+    id: "demo-7", title: "Season ticket bundle (4 seats)",
+    description: "Four season tickets, courtside, for every home game.",
+    publishedAt: "2026-08-15T00:00:00.000Z",
+    property: { id: "demo-p3", name: "Riverside Prep", kind: "SCHOOL", stateCode: "DC", city: "Washington" },
+    athlete: null,
+    item: { id: "demo-i7", kind: "TICKETS", priceCents: 60_000, quantity: 8, availableFrom: "2026-11-01T00:00:00.000Z", availableUntil: "2027-03-01T00:00:00.000Z", categories: [], packageRules: null },
+  },
+  {
+    id: "demo-8", title: "Launch week bundle",
+    description: "A social post, a video feature and one appearance, bundled for a product launch.",
+    publishedAt: "2026-08-10T00:00:00.000Z",
+    property: { id: "demo-p1", name: "Westfield Hawks", kind: "SCHOOL", stateCode: "MD", city: "Laurel" },
+    athlete: { displayName: "Nia Mutesi", sport: "Volleyball", position: "Setter" },
+    item: { id: "demo-i8", kind: "PACKAGE", priceCents: 275_000, quantity: 3, availableFrom: "2026-10-20T00:00:00.000Z", availableUntil: "2026-12-20T00:00:00.000Z", categories: [], packageRules: { bundleOnly: true, requiresApproval: true } },
+  },
+];
+
+/** `GET /marketplace/search`'s paged shape, computed in memory over the demo
+ *  deck with the filter semantics above — no network call, same page info
+ *  shape (`page`, `size`, `total`, `pages`) the live read answers with. */
+export function demoShopSearch(
+  filters: ShopFilters,
+  page: { page: number; size: number },
+): { results: ApiSearchResult[]; page: { page: number; size: number; total: number; pages: number } } {
+  const q = filters.q.toLowerCase();
+  const sport = filters.sport.toLowerCase();
+  const stateCode = filters.stateCode.toUpperCase();
+  const maxPrice = filters.maxPrice ? Number(filters.maxPrice) : null;
+  const from = filters.availableFrom ? dayToIso(filters.availableFrom) : null;
+  const until = filters.availableUntil ? dayToIso(filters.availableUntil) : null;
+
+  const matches = DEMO_LISTINGS.filter((r) => {
+    if (q && !(r.title.toLowerCase().includes(q) || (r.description ?? "").toLowerCase().includes(q))) return false;
+    if (filters.kind && r.item.kind !== filters.kind) return false;
+    if (filters.category && !r.item.categories.includes(filters.category)) return false;
+    if (sport && !(r.athlete?.sport ?? "").toLowerCase().includes(sport)) return false;
+    if (stateCode && (r.property?.stateCode ?? "") !== stateCode) return false;
+    if (maxPrice !== null && r.item.priceCents > maxPrice) return false;
+    if (from && r.item.availableUntil && r.item.availableUntil < from) return false;
+    if (until && r.item.availableFrom && r.item.availableFrom > until) return false;
+    return true;
+  });
+
+  const total = matches.length;
+  const pages = Math.max(1, Math.ceil(total / page.size));
+  const at = Math.min(Math.max(1, page.page), pages);
+  const start = (at - 1) * page.size;
+  return { results: matches.slice(start, start + page.size), page: { page: at, size: page.size, total, pages } };
 }
 
 export function kindLabel(kind: string): string {

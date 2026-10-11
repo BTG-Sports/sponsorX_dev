@@ -6,14 +6,14 @@ import {
   dayToIso,
   defaultQuantity,
   defaultWindow,
-  dollarsToCents,
+  demoShopSearch,
   lineSummary,
   orderCopy,
   orderRef,
   orderStateParam,
   refusalFrom,
   ruleNotes,
-  searchApiQuery,
+  shopSearchExtras,
   shopFilters,
   hasFilters,
   usd,
@@ -28,45 +28,42 @@ import {
    and the hold's countdown.
    -------------------------------------------------------------------------- */
 
-describe("searchApiQuery", () => {
-  it("sends only what the contract accepts, prices in cents and days as midnight UTC", () => {
-    const { query, ignored } = searchApiQuery({
+describe("shopSearchExtras", () => {
+  it("sends only what the contract accepts, the price band already in cents and days as midnight UTC", () => {
+    const { extras, ignored } = shopSearchExtras({
       q: " jersey ",
       kind: "SOCIAL_POST",
       category: "RESTAURANT",
       sport: "Basketball",
       stateCode: "md",
-      minPrice: "12.50",
-      maxPrice: "1,000",
+      maxPrice: "100000",
       availableFrom: "2026-10-01",
       availableUntil: "2026-10-31",
     });
-    const p = new URLSearchParams(query.slice(1));
-    expect(p.get("q")).toBe("jersey");
-    expect(p.get("kind")).toBe("SOCIAL_POST");
-    expect(p.get("category")).toBe("RESTAURANT");
-    expect(p.get("sport")).toBe("Basketball");
-    expect(p.get("stateCode")).toBe("MD");
-    expect(p.get("minPrice")).toBe("1250");
-    expect(p.get("maxPrice")).toBe("100000");
-    expect(p.get("availableFrom")).toBe("2026-10-01T00:00:00.000Z");
-    expect(p.get("availableUntil")).toBe("2026-10-31T00:00:00.000Z");
-    expect(p.get("limit")).toBe("50");
+    expect(extras).toEqual({
+      q: "jersey",
+      kind: "SOCIAL_POST",
+      category: "RESTAURANT",
+      sport: "Basketball",
+      stateCode: "MD",
+      maxPrice: "100000",
+      availableFrom: "2026-10-01T00:00:00.000Z",
+      availableUntil: "2026-10-31T00:00:00.000Z",
+    });
     expect(ignored).toEqual([]);
   });
 
   it("drops invalid values and names them instead of letting the API 400", () => {
-    const { query, ignored } = searchApiQuery({
+    const { extras, ignored } = shopSearchExtras({
       kind: "BILLBOARD",
       category: "SNACKS",
       stateCode: "Maryland",
-      minPrice: "-3",
+      maxPrice: "-3",
       availableFrom: "2026-02-30",
       q: ["a", "b"],
     });
-    const p = new URLSearchParams(query.slice(1));
-    expect([...p.keys()]).toEqual(["limit"]);
-    expect(ignored).toEqual(["type", "category", "state", "minimum price", "available from"]);
+    expect(extras).toEqual({});
+    expect(ignored).toEqual(["type", "category", "state", "price", "available from"]);
   });
 
   it("knows when any filter is set", () => {
@@ -76,15 +73,27 @@ describe("searchApiQuery", () => {
   });
 });
 
+describe("demoShopSearch", () => {
+  it("filters and pages the demo deck the same way the API does", () => {
+    const all = demoShopSearch(shopFilters({}), { page: 1, size: 12 });
+    expect(all.page.total).toBeGreaterThan(0);
+    expect(all.results.length).toBe(all.page.total);
+
+    const narrowed = demoShopSearch(shopFilters({ kind: "VIDEO" }), { page: 1, size: 12 });
+    expect(narrowed.results.every((r) => r.item.kind === "VIDEO")).toBe(true);
+    expect(narrowed.page.total).toBeLessThan(all.page.total);
+  });
+
+  it("clamps an out-of-range page to the last one, like the API", () => {
+    const { page } = demoShopSearch(shopFilters({}), { page: 99, size: 1 });
+    expect(page.page).toBe(page.pages);
+  });
+});
+
 describe("money and days", () => {
   it("formats cents as USD with cents", () => {
     expect(usd(123450)).toBe("$1,234.50");
     expect(usd(0)).toBe("$0.00");
-  });
-  it("parses dollar filters", () => {
-    expect(dollarsToCents("$1,234.5")).toBe(123450);
-    expect(dollarsToCents("abc")).toBeNull();
-    expect(dollarsToCents("1.234")).toBeNull();
   });
   it("accepts only real calendar days", () => {
     expect(dayToIso("2026-10-01")).toBe("2026-10-01T00:00:00.000Z");
