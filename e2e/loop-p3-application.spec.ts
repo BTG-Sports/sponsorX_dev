@@ -211,7 +211,7 @@ test("an adult applies, is approved and activated, and signs in ACTIVE", async (
   const own = await pageAs(browser, testInfo, { key: "p3.athlete", roles: ["ATHLETE"], athleteId: id });
   await expect(own).toHaveURL(/\/athlete/);
   await own.goto("/athlete/profile");
-  await expect(own.getByRole("heading", { level: 1, name: "Your profile" })).toBeVisible();
+  await expect(own.getByRole("heading", { level: 1, name: "Public profile" })).toBeVisible();
   await expect(own.getByText(name).first()).toBeVisible();
   await expect(own.getByText("Active", { exact: true }).first()).toBeVisible();
 

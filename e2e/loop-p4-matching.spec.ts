@@ -97,7 +97,7 @@ test("a sponsor brief is approved, staffs itself, and is answered — accept, de
   //    check passes, so it is approved there and then.
   const sponsor = await pageAs(browser, testInfo, { key: "p4.sponsor", roles: ["SPONSOR_ADMIN"], sponsorId: SPONSOR });
   await sponsor.goto("/sponsor/marketplace");
-  await expect(sponsor.getByRole("heading", { name: "Packages" })).toBeVisible();
+  await expect(sponsor.getByRole("heading", { level: 1, name: "Packages" })).toBeVisible();
   await sponsor
     .locator(`xpath=//*[normalize-space()='SponsorX Test Drive']/ancestor::*[.//button[normalize-space()='Request this']][1]`)
     .getByRole("button", { name: "Request this" })
