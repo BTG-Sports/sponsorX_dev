@@ -85,11 +85,22 @@ order's lines, one campaign's athlete roster.
   buttons, tabs, drawers, tables, nav, the power-on entrance and the reduced-motion overrides.
   It also overrides `.sx-card` / `.sx-stat` so detail islands that are not rewritten still pick
   up the skin.
-- `frontend/src/components/stadium-stage.tsx`: `StadiumGround`, `StadiumTicker` (server:
-  takes `facts: string[]`, duplicates them for a seamless loop, `aria-hidden` with an `sr-only`
-  list), `StadiumHead`, `StadiumTiles`, `StadiumTile` (`format`, `delta`, `spark`, `share`,
+- `frontend/src/components/stadium-stage.tsx`: `StadiumGround`, `StadiumHead`, `StadiumTiles`, `StadiumTile` (`format`, `delta`, `spark`, `share`,
   `href`, `hint`), `StadiumPanel`, `StadiumSection`, `StadiumChip`, `StadiumBadge`,
-  `StadiumSteps`, `StadiumRow`, `StadiumGhost`.
+  `StadiumSteps`, `StadiumBar`, `StadiumRow`, `StadiumRange`, `StadiumGhost`; it re-exports the
+  client pieces below.
+- `frontend/src/components/stadium-ticker.tsx` (client): `StadiumTicker` — `facts: string[]`,
+  duplicated for a seamless loop, `aria-hidden` with an `sr-only` list, a pause button (WCAG 2.2.2).
+- `frontend/src/components/stadium-time.tsx` (client): `StadiumUpdated` ("Updated 9:41 AM" in the
+  viewer's time zone) and `StadiumDate` (`utc` for date-only values so a day never shifts).
+- `frontend/src/components/stadium-hold-countdown.tsx` (client): checkout's hold countdown.
+- `frontend/src/components/date-range-picker.tsx` + `lib/day-range.ts`: the house calendar range
+  popover, extracted from `activity-explorer.tsx` (ISO days, month/year navigation, `tone`).
+- `frontend/src/components/sponsor-campaign-table.tsx`: the campaigns table the dashboard and
+  the Campaigns page share. `shop-stadium-card.tsx`, `shop-date-filter.tsx`: the shop's cards and
+  date filter.
+- `frontend/src/lib/format-count.ts`: `formatCount` (`int | usd | usd0 | pct`, money in cents),
+  re-exported by `arena-fx.tsx`. `lib/amount.ts`: `parseAmount` (server-safe).
 - `frontend/src/components/stadium-hint.tsx`: the `?` popover (client).
 - `frontend/src/components/stadium-trend.tsx`: client island, the large chart. A metric switch
   (People reached / Clicks / Redeemed), an SVG area chart with a glowing line, and a hover/focus
@@ -102,7 +113,7 @@ order's lines, one campaign's athlete roster.
   `StadiumGround`, ThemeToggle hidden). `StagePortals` puts the class on `<body>` for drawers.
 - `sponsor/loading.tsx` → `StadiumGhost`.
 
-## 6. Sidebar (`sponsor/layout.tsx`, via `lib/nav-groups.ts`, pinned in `tests/nav-groups.test.ts`)
+## 6. Sidebar (`lib/sponsor-nav.ts` `SPONSOR_NAV`, grouped by `lib/nav-groups.ts`, pinned in `tests/nav-groups.test.ts`)
 
 - **Dashboard**, alone on top.
 - **Campaigns** (megaphone): Campaigns, Requests.
@@ -127,26 +138,30 @@ stadium components; demo keeps its fixtures and its "Sample data" pill.
   time, `?range=`, default 30d)** that drives every number below, and "+ New request".
 - **Five tiles:** People reached (checked figures only; caption "+n more reported by athletes" when
   `otherViews` > 0) · Likes, comments & shares (with "x% of people reached") · Link
-  clicks · Fans who redeemed · Money spent (invoiced, with a paid share bar and "$x paid · $y
-  still to pay"). The first four carry a sparkline and a change against the previous period of
-  equal length; "All time" shows no change.
+  clicks · Fans who redeemed · Money spent (invoiced, all time, with a paid share bar and "$x paid ·
+  $y still to pay"; a role that can't read invoices sees Posts delivered there instead). Reach,
+  clicks and redeemed carry a sparkline (the daily series has no engagements); the first four
+  carry a change against the previous period of equal length; "All time" shows no change.
 - **Row:** `StadiumTrend` (2/3) + **Needs you** (1/3): posts waiting for your OK → the campaigns
-  list filtered to them; orders to pay → Orders "To pay" tab; invoices to pay. Each row has a count
+  list filtered to them (`/sponsor/campaigns?review=1` → `GET /campaigns?review=true`); orders to
+  pay → Orders "To pay" tab; invoices to pay. Each row has a count
   badge. (Artwork approval is BTG's step, not the sponsor's, so it is not listed.)
-- **Row:** From scan to redeemed (`FunnelSteps`) · What you pay per 1,000 people reached (paid ÷
-  views; **no benchmark is shown**, because Phase 1 holds none: `sponsor-report.ts` L111) · Posts
+- **Row:** From scan to redeemed (`FunnelSteps`) · What you pay per 1,000 people reached (spend ÷
+  all-time checked views × 1,000 — the report's own rule, §8.1; **no benchmark is shown**, because Phase 1 holds none: `sponsor-report.ts` L111) · Posts
   delivered (x of y, late count, next due).
 - **Row:** Your top athletes by people reached (top 5) · Where fans redeemed (top 5 cities,
   `HBarList`).
 - **Your campaigns:** `PagedTable` (Campaign + athlete count, Status chip, Posts delivered with a
-  mini bar, People reached, Redeemed, Spent, Next due), with search, a status filter and sort.
-  This replaces the old portfolio list and the duplicate report-links list. Each row links to the
-  campaign, and the row menu offers "See results".
+  mini bar, Spent — invoiced, else "Agreed" — Dates, and a "See results" link), with search, a
+  status filter and sort. Per-campaign reach, redeemed and next-due columns are left out: the
+  campaign rows don't carry them, and a number with no read behind it isn't shown. This replaces
+  the old portfolio list and the duplicate report-links list.
 
 ### 7.2 Campaigns — `/sponsor/campaigns`
-Tiles: Running · Needs your OK · Behind schedule · Total budget (with a share-spent bar), plus a
-"Your requests: n in progress →" link tile. Tab strip with counts (All / Running / Needs your OK
-/ Finished) from `/campaigns/summary.byState`, plus search and sort. Server-paged (already). It
+Tiles: Running · Needs your OK · Behind schedule · Total budget (with an agreed-of-budget bar) ·
+Athletes, plus a "Your requests: n in progress →" link tile. Tab strip with counts (All / Running
+/ Needs your OK / Finished = COMPLETED + CANCELLED) from `/campaigns/summary.byState`, and a
+"Posts to review" tab (`?review=1`, no count), plus search and sort. Server-paged (already). It
 gets the new look and plain words.
 
 ### 7.3 Requests — `/sponsor/requests` (new route)
@@ -171,7 +186,7 @@ published posts as a gallery, and edition placements. It is all the existing `/r
 except the daily series.
 
 ### 7.6 Packages — `/sponsor/marketplace`
-Tiles: Ready-made packages · Job types · Price range ("from $x"). These are computed from the
+Tiles: Ready-made packages · Job types · From (the lowest package price). These are computed from the
 catalogue itself, which is a **bounded, curated price list** (§7 packages and the NIL job
 catalogue), so under memory `pagination-pattern` it stays client-paged with the house pager
 (12/24/60, above and below). It gets the stadium look and plain words; picking a card still opens
@@ -183,7 +198,7 @@ Restyle only (Head with "Request this", three tiles, details). It stays on fixtu
 ### 7.8 Shop — `/sponsor/shop`
 Tiles: Spots for sale (search total) · In your cart · Cart total (from `/cart`). The GET form,
 native selects and **Apply** button are replaced by instant `ListSearch` + `ListFilter`s (Type,
-Sport, Price, Dates). A server-paged card grid; "Add to cart" posts in place with a toast and
+Brand category, Sport, State, Price from, Price up to) and the calendar range picker for Dates. A server-paged card grid; "Add to cart" posts in place with a toast and
 the cart badge updating. The 50-item cap goes.
 
 ### 7.9 Cart — `/sponsor/cart` and Checkout — `/sponsor/checkout`
@@ -248,11 +263,20 @@ REFUNDED). Newest first; `q` matches the order id or a line title. Summary: `{ b
 spentCents }`, where spent = totalCents over paid-or-later states.
 
 ### 8.3 `GET /marketplace/search` paging
-`?page size` (plus the existing filters) → `{ results, page }` with `total`; the legacy `limit`
-path is unchanged.
+`?page size` (plus the existing filters) → `{ results, page }` with `total`. The sponsor's brand
+restrictions in force today are part of the WHERE (`restrictionHiddenWhere`), so count, skip and
+take all run in the database and the total is what the sponsor can actually buy. The legacy
+`limit` path is unchanged.
+
+Cost per 1,000 (overview and report alike) uses one spend rule, `sponsorSpendCents` in
+`sponsor-report.ts`: live orders' sell price (not CANCELLED / REJECTED) plus sold NEXT ad slots.
+
+### 8.4 `GET /campaigns?review=true`
+Paged mode: narrows to campaigns with a live-order deliverable in `SPONSOR_REVIEW` (the
+dashboard's "Posts waiting for your OK"). An AND term after the scope.
 
 ### 8.5 Already sufficient
-`/campaigns` + `/campaigns/summary`, `/briefs` (paged, `counts`), `/deliverables?campaignId&page`,
+`/campaigns/summary`, `/briefs` (paged, `counts`), `/deliverables?campaignId&page`,
 `/campaigns/:id/report`, `/cart`, `/reservations/:id`, `/catalogue/packages`, `/catalogue/jobs`
 (bounded).
 
