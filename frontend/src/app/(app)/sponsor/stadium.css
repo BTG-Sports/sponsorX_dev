@@ -1,0 +1,294 @@
+/* --------------------------------------------------------------------------
+   The Stadium Board — the sponsor portal's stage (P1-ART-23, 2026-10-11).
+
+   Admin is Mission Control (steel HUD, chamfers), the athlete is the Arena
+   (blue, rounded plates, speed bars). The sponsor's stage is the LED board
+   round a stadium — where a sponsor's logo actually appears: fixed dark,
+   sponsor orange as LIGHT, 6px LED panels with a hairline and faint
+   scan-lines, glowing upright numerals, a scrolling ticker, a dot-matrix band
+   along the bottom, and a "power on" entrance (a panel flicks on).
+   Attention is a FILLED, pulsing badge — orange already means the brand.
+   Never a chamfer, bracket, grid, speed bar or lane here.
+   Reduced motion: the board is lit and still; the ticker stops and wraps.
+   Kept out of globals.css on purpose (other work in flight there).
+   -------------------------------------------------------------------------- */
+
+.sx-stadium {
+  /* pinned dark, like .sx-ops — a night stadium for every theme */
+  --sx-bg: #0b0a09;
+  --sx-surface: #15110e;
+  --sx-surface-2: #1c1511;
+  --sx-line: #33251b;
+  --sx-line-soft: #241a13;
+  --sx-text: #f7f2ed;
+  --sx-text-muted: #aaa29a;
+  --sx-text-faint: #8c847b;
+  --sx-primary: #f97a1f;
+  --sx-primary-soft: #ffb27a;
+  --sx-accent: #f97a1f;
+  --sx-accent-soft: #ffb27a;
+  --sx-sponsor: #f97a1f;
+  --sx-cta-ink: #1a0d03;
+  --sx-danger: #ff5a5f;
+  --sx-warn: #facc15;
+  --sx-success: #3ddc97;
+  color-scheme: dark;
+  color: #f7f2ed;
+
+  --st: #f97a1f;
+  --st-hot: #ffb27a;
+  --st-glow: color-mix(in srgb, #f97a1f 55%, transparent);
+  --st-line: color-mix(in srgb, #f97a1f 24%, #33251b);
+  --st-wash: color-mix(in srgb, #f97a1f 9%, transparent);
+  --st-plate: linear-gradient(180deg, #18120d, #0f0c0a);
+  --st-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ground ------------------------------------------------------------------ */
+.sx-stadium-stage {
+  background:
+    radial-gradient(60% 42% at 10% 0%, color-mix(in srgb, #f97a1f 20%, transparent), transparent 62%),
+    radial-gradient(40% 30% at 100% 100%, color-mix(in srgb, #f97a1f 9%, transparent), transparent 60%),
+    var(--sx-bg);
+}
+.sx-stadium-light {
+  background: radial-gradient(520px circle at var(--px, -999px) var(--py, -999px), color-mix(in srgb, #f97a1f 10%, transparent), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+[data-sx-ops][data-lit] > .sx-stadium-ground .sx-stadium-light { opacity: 1; }
+/* the dot-matrix band — an LED board's pixels along the bottom edge */
+.sx-stadium-dots {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 120px;
+  background: radial-gradient(circle, color-mix(in srgb, #f97a1f 38%, transparent) 1.1px, transparent 1.6px) 0 0 / 9px 9px;
+  mask-image: linear-gradient(180deg, transparent, #000 70%);
+  opacity: 0.35;
+}
+.sx-stadium-hum {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--st), transparent);
+  box-shadow: 0 0 18px var(--st);
+  opacity: 0.6;
+}
+
+/* the ticker -------------------------------------------------------------- */
+.sx-stadium-ticker {
+  position: relative;
+  overflow: hidden;
+  border-block: 1px solid color-mix(in srgb, #f97a1f 38%, transparent);
+  background: repeating-linear-gradient(90deg, color-mix(in srgb, #f97a1f 8%, transparent) 0 2px, transparent 2px 4px), #120c07;
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.sx-stadium-ticker-track {
+  display: inline-flex;
+  gap: 2.5rem;
+  white-space: nowrap;
+  padding: 0.55rem 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--st-hot);
+  text-shadow: 0 0 8px color-mix(in srgb, #f97a1f 80%, transparent);
+  animation: sx-stadium-tick var(--sx-tick, 32s) linear infinite;
+}
+.sx-stadium-ticker:hover .sx-stadium-ticker-track { animation-play-state: paused; }
+.sx-stadium-ticker-track > span::before { content: "●"; margin-right: 0.6rem; color: var(--st); }
+@keyframes sx-stadium-tick { to { transform: translate3d(-50%, 0, 0); } }
+
+/* entrance: power on ------------------------------------------------------ */
+@keyframes sx-stadium-on {
+  0% { opacity: 0; filter: brightness(0.4); transform: translate3d(0, 6px, 0); }
+  40% { opacity: 1; filter: brightness(1.6); }
+  55% { filter: brightness(0.8); }
+  70% { filter: brightness(1.25); }
+  100% { opacity: 1; filter: none; transform: none; }
+}
+@keyframes sx-stadium-drop { from { opacity: 0; transform: translate3d(0, -6px, 0); } }
+@keyframes sx-stadium-grow { from { transform: scaleX(0); } }
+.sx-stadium-in { animation: sx-stadium-on 0.85s var(--st-ease) var(--sx-reveal-delay, 0s) backwards; }
+.sx-stadium-row { animation: sx-stadium-drop 0.45s var(--st-ease) var(--sx-reveal-delay, 0s) backwards; }
+.sx-stadium-grow { transform-origin: left; animation: sx-stadium-grow 1s var(--st-ease) var(--sx-reveal-delay, 0s) backwards; }
+
+/* LED panels -------------------------------------------------------------- */
+.sx-stadium-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid var(--st-line);
+  background: var(--st-plate);
+  box-shadow: 0 1px 0 color-mix(in srgb, #fff 4%, transparent) inset, 0 18px 40px -24px rgba(0, 0, 0, 0.8);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s var(--st-ease);
+}
+.sx-stadium-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, color-mix(in srgb, #fff 2.5%, transparent) 0 1px, transparent 1px 3px);
+}
+.sx-stadium-panel[data-spot]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(260px circle at var(--mx, -999px) var(--my, -999px), color-mix(in srgb, #f97a1f 14%, transparent), transparent 70%);
+}
+a.sx-stadium-panel:hover,
+.sx-stadium-panel:has(> a.sx-stadium-cover:hover),
+.sx-stadium-panel:has(> a.sx-stadium-cover:focus-visible) {
+  border-color: color-mix(in srgb, #f97a1f 60%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #f97a1f 30%, transparent), 0 0 28px -6px var(--st-glow);
+  transform: translate3d(0, -2px, 0);
+}
+.sx-stadium-panel[data-tone="you"] { border-color: color-mix(in srgb, #f97a1f 55%, transparent); }
+.sx-stadium-panel[data-tone="late"] { border-color: color-mix(in srgb, #ff5a5f 45%, transparent); }
+/* a link that covers a whole tile, so hints inside it stay real buttons */
+.sx-stadium-cover { position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
+.sx-stadium-cover:focus-visible { outline: 2px solid var(--st); outline-offset: 2px; }
+
+/* numerals: lit */
+.sx-stadium-num {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: #fff4ea;
+  text-shadow: 0 0 14px color-mix(in srgb, #f97a1f 55%, transparent), 0 0 2px color-mix(in srgb, #f97a1f 40%, transparent);
+}
+
+/* titles */
+.sx-stadium .sx-page-title { font-size: 1.375rem; font-weight: 800; letter-spacing: -0.01em; }
+.sx-stadium .sx-section-title { display: inline-flex; align-items: center; gap: 0.55rem; font-size: 0.95rem; font-weight: 700; }
+.sx-stadium .sx-section-title::before { content: ""; width: 6px; height: 6px; border-radius: 1px; background: var(--st); box-shadow: 0 0 10px var(--st); }
+
+/* the "Updated" pill, with a live dot */
+.sx-stadium-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, #f97a1f 40%, transparent);
+  background: color-mix(in srgb, #f97a1f 12%, transparent);
+  padding: 0.15rem 0.6rem;
+  font-size: 11px;
+  color: var(--st-hot);
+}
+.sx-stadium-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #3ddc97; box-shadow: 0 0 8px #3ddc97; animation: sx-stadium-blink 2.4s ease-in-out infinite; }
+@keyframes sx-stadium-blink { 50% { opacity: 0.35; } }
+
+/* the share bar */
+.sx-stadium-bar { display: block; height: 6px; overflow: hidden; border-radius: 3px; background: #2a1a0e; }
+.sx-stadium-bar > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f97a1f, #ffc98f); box-shadow: 0 0 10px #f97a1f; }
+.sx-stadium-bar > span[data-tone="live"] { background: linear-gradient(90deg, #3ddc97, #a7f3d0); box-shadow: 0 0 10px #3ddc97; }
+.sx-stadium-bar > span[data-tone="late"] { background: linear-gradient(90deg, #ff5a5f, #fca5a5); box-shadow: 0 0 10px #ff5a5f; }
+
+/* attention: the filled, pulsing badge */
+.sx-stadium-badge {
+  display: inline-grid;
+  min-width: 1.5rem;
+  place-items: center;
+  border-radius: 9999px;
+  background: var(--st);
+  padding: 0 0.45rem;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #1a0d03;
+  box-shadow: 0 0 12px var(--st-glow);
+  animation: sx-stadium-pulse 2.2s ease-in-out infinite;
+}
+.sx-stadium-badge[data-zero] { background: color-mix(in srgb, #fff 8%, transparent); color: var(--sx-text-muted); box-shadow: none; animation: none; }
+@keyframes sx-stadium-pulse { 50% { box-shadow: 0 0 22px var(--st), 0 0 2px var(--st); } }
+
+/* the "?" explainer */
+.sx-stadium-q {
+  position: relative;
+  z-index: 2;
+  display: inline-grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, #fff 22%, transparent);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--sx-text-muted);
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.sx-stadium-q:hover, .sx-stadium-q:focus-visible, .sx-stadium-q[aria-expanded="true"] { border-color: var(--st); color: #fff; outline: none; }
+.sx-stadium-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 40;
+  width: max-content;
+  max-width: 15rem;
+  transform: translateX(-50%);
+  border-radius: 8px;
+  border: 1px solid var(--st-line);
+  background: #1c1511;
+  padding: 0.5rem 0.65rem;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.4;
+  text-transform: none;
+  color: var(--sx-text);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55), 0 0 24px -8px var(--st-glow);
+}
+
+/* status steps */
+.sx-stadium-steps { display: flex; gap: 0.35rem; }
+.sx-stadium-steps > li { flex: 1; min-width: 0; font-size: 11px; color: var(--sx-text-faint); }
+.sx-stadium-steps > li::before { content: ""; display: block; height: 5px; margin-bottom: 0.4rem; border-radius: 3px; background: #2a1a0e; }
+.sx-stadium-steps > li[data-done]::before { background: var(--st); box-shadow: 0 0 8px var(--st); }
+.sx-stadium-steps > li[data-now] { color: #fff; font-weight: 600; }
+.sx-stadium-steps > li[data-now]::before { background: linear-gradient(90deg, var(--st), #ffc98f); box-shadow: 0 0 12px var(--st); animation: sx-stadium-blink 2.4s ease-in-out infinite; }
+
+/* the trend chart */
+.sx-stadium-trend-line { filter: drop-shadow(0 0 6px #f97a1f); }
+
+/* shared components, re-skinned ------------------------------------------- */
+.sx-stadium .sx-card { border-radius: 6px; border-color: var(--st-line); background: linear-gradient(180deg, #18120d, #0f0c0a); }
+.sx-stadium .sx-stat { border-radius: 6px; border-color: var(--st-line); }
+.sx-stadium .sx-table-wrap { border-radius: 6px; border-color: var(--st-line); background: linear-gradient(180deg, #18120d, #0f0c0a); }
+.sx-stadium .sx-table th { color: var(--sx-text-muted); border-bottom-color: color-mix(in srgb, #f97a1f 28%, transparent); }
+.sx-stadium .sx-table td { border-top-color: var(--sx-line-soft); }
+.sx-stadium .sx-table tbody tr { animation: sx-stadium-drop 0.45s var(--st-ease) calc(var(--i, 0) * 35ms) backwards; }
+.sx-stadium .sx-table tbody tr:hover { background: var(--st-wash); }
+.sx-stadium a.bg-primary, .sx-stadium button.bg-primary {
+  color: #1a0d03;
+  font-weight: 700;
+  box-shadow: 0 0 18px -2px var(--st-glow);
+  transition: box-shadow 0.25s ease, transform 0.25s var(--st-ease), filter 0.25s ease;
+}
+.sx-stadium a.bg-primary:hover, .sx-stadium button.bg-primary:not(:disabled):hover { box-shadow: 0 0 28px var(--st-glow); transform: translate3d(0, -1px, 0); filter: brightness(1.06); }
+.sx-stadium .rounded-lg.border.border-line.bg-surface.p-1 { border-color: var(--st-line); background: #120c07; }
+.sx-stadium .rounded-lg.border.border-line.bg-surface.p-1 > a[aria-current="page"] { background: color-mix(in srgb, #f97a1f 20%, transparent); color: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, #f97a1f 45%, transparent); }
+.sx-stadium .sx-drawer-out, .sx-stadium [role="dialog"] > .sx-pop { border-color: var(--st-line); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 60px color-mix(in srgb, #f97a1f 12%, transparent); }
+.sx-stadium .sx-shell-aside { border-right-color: var(--st-line); }
+.sx-stadium .sx-shell-header { background: color-mix(in srgb, #15110e 78%, transparent); }
+.sx-stadium .sx-nav-head[data-holds] .sx-nav-tile { box-shadow: 0 0 16px var(--st-glow); }
+.sx-stadium .sx-nav-track { border-color: color-mix(in srgb, #f97a1f 30%, var(--sx-line)); }
+
+/* loading */
+.sx-stadium-ghost { position: relative; overflow: hidden; background: #15110e; }
+.sx-stadium-ghost::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, #f97a1f 10%, transparent), transparent);
+  animation: sx-stadium-sweep 1.4s ease-in-out infinite;
+}
+@keyframes sx-stadium-sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-stadium-in, .sx-stadium-row, .sx-stadium-grow, .sx-stadium .sx-table tbody tr { animation: none; }
+  .sx-stadium-ticker-track { animation: none; flex-wrap: wrap; white-space: normal; row-gap: 0.25rem; }
+  .sx-stadium-ticker-track > [data-dup] { display: none; }
+  .sx-stadium-badge, .sx-stadium-pill::before, .sx-stadium-steps > li[data-now]::before, .sx-stadium-ghost::after { animation: none; }
+  a.sx-stadium-panel:hover, .sx-stadium-panel:has(> a.sx-stadium-cover:hover) { transform: none; }
+}
