@@ -8,7 +8,11 @@
    stats-must-be-retrievable); every word is plain (lib/sponsor-words.ts).
 
    - StadiumGround   the glow, the dot-matrix band, the pointer light.
-   - StadiumTicker   the scrolling LED strip of live facts (dashboard).
+   - StadiumTicker   the scrolling LED strip of live facts, pausable
+                     (stadium-ticker.tsx — a client island for the button).
+   - StadiumUpdated  "Updated 9:41 AM" in the viewer's own timezone
+                     (stadium-time.tsx — a client island; the server can't
+                     know that zone).
    - StadiumHead     title, pill, actions; the KPI row as children.
    - StadiumTiles / StadiumTile   KPI panels: count-up, change, sparkline,
                      share bar, "?" hint; a covering link when `href`.
@@ -28,6 +32,9 @@ import { ArenaCount, type CountFormat } from "./arena-fx";
 import { StadiumHint } from "./stadium-hint";
 import type { WordTone } from "@/lib/sponsor-words";
 
+export { StadiumTicker } from "./stadium-ticker";
+export { StadiumUpdated } from "./stadium-time";
+
 export const at = (seconds: number, extra?: CSSProperties) => ({ "--sx-reveal-delay": `${seconds}s`, ...extra }) as CSSProperties;
 
 export function StadiumGround() {
@@ -39,34 +46,6 @@ export function StadiumGround() {
     </div>
   );
 }
-
-/** The LED strip. `facts` already in plain words; empty → nothing rendered. */
-export function StadiumTicker({ facts }: { facts: string[] }) {
-  if (!facts.length) return null;
-  const seconds = Math.max(18, facts.join(" ").length * 0.22);
-  return (
-    <section aria-label="Live now" className="sx-stadium-ticker -mx-5 -mt-8 mb-6 sm:-mx-8 lg:-mx-10 lg:-mt-10">
-      <ul className="sr-only">
-        {facts.map((f) => (
-          <li key={f}>{f}</li>
-        ))}
-      </ul>
-      <div aria-hidden="true" className="sx-stadium-ticker-track" style={{ "--sx-tick": `${seconds}s` } as CSSProperties}>
-        {facts.map((f, i) => (
-          <span key={`a${i}`}>{f}</span>
-        ))}
-        {facts.map((f, i) => (
-          <span key={`b${i}`} data-dup="">
-            {f}
-          </span>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/** "Updated 9:41 AM" from an ISO read time. */
-export const updatedAt = (iso: string) => `Updated ${new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
 
 export function StadiumHead({ title, pill, actions, children }: { title: string; pill?: ReactNode; actions?: ReactNode; children?: ReactNode }) {
   return (
@@ -116,20 +95,25 @@ export function StadiumTile({
   delay?: number;
 }) {
   const up = delta !== undefined && delta !== null && delta >= 0;
+  const flat = delta !== undefined && delta !== null && Math.round(delta * 100) === 0;
   return (
     <div data-spot="" data-tone={tone} className="sx-stadium-panel sx-stadium-in group px-4 pb-3.5 pt-3.5" style={at(delay)}>
-      {href && <Link href={href} className="sx-stadium-cover" aria-label={`${label} — open`} />}
       <dt className="flex items-center gap-1.5 text-[12px] text-muted">
         {label}
         {hint && <StadiumHint label={label} text={hint} />}
       </dt>
       <dd className="mt-1">
+        {href && <Link href={href} className="sx-stadium-cover" aria-label={`${label} — open`} />}
         <ArenaCount value={value} format={format} delay={delay} className="sx-stadium-num block text-[28px] leading-tight" />
         {delta !== undefined && delta !== null && (
           <span className="mt-1 block text-[11.5px] text-faint">
-            <span className={up ? "text-success" : "text-danger"}>
-              {up ? "▲" : "▼"} {Math.abs(Math.round(delta * 100))}%
-            </span>{" "}
+            {flat ? (
+              <span>— 0%</span>
+            ) : (
+              <span className={up ? "text-success" : "text-danger"}>
+                {up ? "▲" : "▼"} {Math.abs(Math.round(delta * 100))}%
+              </span>
+            )}{" "}
             {deltaLabel}
           </span>
         )}
@@ -140,12 +124,12 @@ export function StadiumTile({
           </span>
         )}
         {spark && <Spark values={spark} />}
+        {href && (
+          <span aria-hidden="true" className="absolute right-3.5 top-3 text-sponsor opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100">
+            →
+          </span>
+        )}
       </dd>
-      {href && (
-        <span aria-hidden="true" className="absolute right-3.5 top-3 text-sponsor opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100">
-          →
-        </span>
-      )}
     </div>
   );
 }
@@ -202,7 +186,7 @@ export function StadiumSteps({ steps, now, label }: { steps: string[]; now: numb
   return (
     <ol aria-label={label} className="sx-stadium-steps">
       {steps.map((s, i) => (
-        <li key={s} data-done={i < now ? "" : undefined} data-now={i === now ? "" : undefined} aria-current={i === now ? "step" : undefined}>
+        <li key={`${i}-${s}`} data-done={i < now ? "" : undefined} data-now={i === now ? "" : undefined} aria-current={i === now ? "step" : undefined}>
           {s}
         </li>
       ))}
@@ -246,7 +230,11 @@ export type RangeKey = (typeof RANGE_OPTIONS)[number]["key"];
 export function StadiumRange({ current, path, params }: { current: RangeKey; path: string; params: Record<string, string | string[] | undefined> }) {
   const href = (key: RangeKey) => {
     const u = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) if (typeof v === "string" && v && k !== "range" && !/page$/.test(k)) u.set(k, v);
+    for (const [k, v] of Object.entries(params)) {
+      if (k === "range" || /page$/.test(k)) continue;
+      const val = Array.isArray(v) ? v[0] : v;
+      if (typeof val === "string" && val) u.set(k, val);
+    }
     if (key !== "30d") u.set("range", key);
     const s = u.toString();
     return s ? `${path}?${s}` : path;

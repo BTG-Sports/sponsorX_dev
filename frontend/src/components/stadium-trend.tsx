@@ -54,11 +54,13 @@ export function StadiumTrend({ points, bucket }: { points: TrendPoint[]; bucket:
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     e.preventDefault();
     setAt((i) => {
-      const cur = i ?? points.length - 1;
-      return Math.max(0, Math.min(points.length - 1, cur + (e.key === "ArrowLeft" ? -1 : 1)));
+      // nothing selected yet: either arrow starts at the last (most recent) point
+      if (i === null) return points.length - 1;
+      return Math.max(0, Math.min(points.length - 1, i + (e.key === "ArrowLeft" ? -1 : 1)));
     });
   };
   const p = at !== null ? points[at] : null;
+  const announce = p && at !== null ? `${fmtDay(p.day, bucket === "week")}: ${values[at]!.toLocaleString("en-US")} ${m.unit}` : "";
 
   return (
     <div>
@@ -102,17 +104,21 @@ export function StadiumTrend({ points, bucket }: { points: TrendPoint[]; bucket:
             ))}
             {area && <path d={area} fill={`url(#${gid})`} />}
             <path d={line} fill="none" stroke="#f97a1f" strokeWidth="2.4" vectorEffect="non-scaling-stroke" className="sx-stadium-trend-line" />
-            {p && at !== null && (
-              <>
-                <line x1={x(at)} x2={x(at)} y1="0" y2={H} stroke="rgba(255,178,122,.45)" vectorEffect="non-scaling-stroke" />
-                <circle cx={x(at)} cy={y(values[at]!)} r="5" fill="#fff" stroke="#f97a1f" strokeWidth="3" vectorEffect="non-scaling-stroke" />
-              </>
-            )}
+            {p && at !== null && <line x1={x(at)} x2={x(at)} y1="0" y2={H} stroke="rgba(255,178,122,.45)" vectorEffect="non-scaling-stroke" />}
           </svg>
+          {/* the dot: an HTML element, not an SVG circle — the chart's
+              `preserveAspectRatio="none"` stretches the SVG to fill the box,
+              which would stretch a circle into an oval */}
+          {p && at !== null && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute block size-[10px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#f97a1f] bg-white shadow-[0_0_6px_#f97a1f]"
+              style={{ left: `${(x(at) / W) * 100}%`, top: `${(y(values[at]!) / H) * 100}%` }}
+            />
+          )}
           {p && at !== null && (
             <div
-              aria-live="polite"
-              className="pointer-events-none absolute top-1 rounded-md border border-[color:var(--st-line)] bg-[#1c1511] px-2.5 py-1.5 text-[11px] shadow-lg"
+              className="pointer-events-none absolute top-1 w-[130px] rounded-md border border-[color:var(--st-line)] bg-[#1c1511] px-2.5 py-1.5 text-[11px] shadow-lg"
               style={{ left: `clamp(0px, calc(${(x(at) / W) * 100}% - 60px), calc(100% - 130px))` }}
             >
               <span className="block text-muted">{fmtDay(p.day, bucket === "week")}</span>
@@ -123,6 +129,12 @@ export function StadiumTrend({ points, bucket }: { points: TrendPoint[]; bucket:
           )}
         </div>
       )}
+      {/* always mounted (not just while a point is selected) so a screen
+          reader has already registered the live region before it has
+          anything to announce */}
+      <p className="sr-only" aria-live="polite">
+        {announce}
+      </p>
     </div>
   );
 }

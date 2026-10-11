@@ -76,16 +76,14 @@
 }
 
 /* the ticker -------------------------------------------------------------- */
-.sx-stadium-ticker {
-  position: relative;
+.sx-stadium-ticker { position: relative; border-block: 1px solid color-mix(in srgb, #f97a1f 38%, transparent); }
+.sx-stadium-ticker-mask {
   overflow: hidden;
-  border-block: 1px solid color-mix(in srgb, #f97a1f 38%, transparent);
   background: repeating-linear-gradient(90deg, color-mix(in srgb, #f97a1f 8%, transparent) 0 2px, transparent 2px 4px), #120c07;
   mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
 }
 .sx-stadium-ticker-track {
   display: inline-flex;
-  gap: 2.5rem;
   white-space: nowrap;
   padding: 0.55rem 0;
   font-size: 11.5px;
@@ -96,9 +94,32 @@
   text-shadow: 0 0 8px color-mix(in srgb, #f97a1f 80%, transparent);
   animation: sx-stadium-tick var(--sx-tick, 32s) linear infinite;
 }
-.sx-stadium-ticker:hover .sx-stadium-ticker-track { animation-play-state: paused; }
+.sx-stadium-ticker:hover .sx-stadium-ticker-track,
+.sx-stadium-ticker[data-paused] .sx-stadium-ticker-track { animation-play-state: paused; }
+.sx-stadium-ticker-track > span { padding-right: 2.5rem; }
 .sx-stadium-ticker-track > span::before { content: "●"; margin-right: 0.6rem; color: var(--st); }
 @keyframes sx-stadium-tick { to { transform: translate3d(-50%, 0, 0); } }
+
+/* the pause/play button — outside the masked strip so it never fades out */
+.sx-stadium-ticker-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.4rem;
+  z-index: 2;
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  translate: 0 -50%;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, #f97a1f 45%, transparent);
+  background: #120c07;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--st-hot);
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.sx-stadium-ticker-toggle:hover, .sx-stadium-ticker-toggle:focus-visible { border-color: var(--st); color: #fff; outline: none; }
 
 /* entrance: power on ------------------------------------------------------ */
 @keyframes sx-stadium-on {
@@ -117,17 +138,20 @@
 /* LED panels -------------------------------------------------------------- */
 .sx-stadium-panel {
   position: relative;
-  overflow: hidden;
   border-radius: 6px;
   border: 1px solid var(--st-line);
   background: var(--st-plate);
   box-shadow: 0 1px 0 color-mix(in srgb, #fff 4%, transparent) inset, 0 18px 40px -24px rgba(0, 0, 0, 0.8);
   transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s var(--st-ease);
 }
+/* the "?" tip can overhang the panel now that it isn't clipped; a ghost
+   (loading) panel has no tip and keeps its sweep clipped to the rounded box */
+.sx-stadium-panel.sx-stadium-ghost { overflow: hidden; }
 .sx-stadium-panel::after {
   content: "";
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   pointer-events: none;
   background: repeating-linear-gradient(0deg, color-mix(in srgb, #fff 2.5%, transparent) 0 1px, transparent 1px 3px);
 }
@@ -135,12 +159,16 @@
   content: "";
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   pointer-events: none;
+  opacity: 0;
   background: radial-gradient(260px circle at var(--mx, -999px) var(--my, -999px), color-mix(in srgb, #f97a1f 14%, transparent), transparent 70%);
+  transition: opacity 0.4s ease;
 }
+.sx-stadium-panel[data-spot]:hover::before { opacity: 1; }
 a.sx-stadium-panel:hover,
-.sx-stadium-panel:has(> a.sx-stadium-cover:hover),
-.sx-stadium-panel:has(> a.sx-stadium-cover:focus-visible) {
+.sx-stadium-panel:has(a.sx-stadium-cover:hover),
+.sx-stadium-panel:has(a.sx-stadium-cover:focus-visible) {
   border-color: color-mix(in srgb, #f97a1f 60%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, #f97a1f 30%, transparent), 0 0 28px -6px var(--st-glow);
   transform: translate3d(0, -2px, 0);
@@ -149,7 +177,7 @@ a.sx-stadium-panel:hover,
 .sx-stadium-panel[data-tone="late"] { border-color: color-mix(in srgb, #ff5a5f 45%, transparent); }
 /* a link that covers a whole tile, so hints inside it stay real buttons */
 .sx-stadium-cover { position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
-.sx-stadium-cover:focus-visible { outline: 2px solid var(--st); outline-offset: 2px; }
+.sx-stadium-cover:focus-visible { outline: 2px solid var(--st); outline-offset: -2px; }
 
 /* numerals: lit */
 .sx-stadium-num {
@@ -226,7 +254,11 @@ a.sx-stadium-panel:hover,
   z-index: 40;
   width: max-content;
   max-width: 15rem;
-  transform: translateX(-50%);
+  /* not `transform: translateX(-50%)` — .sx-pop's own keyframes animate
+     `transform` (translateY + scale) with `animation-fill-mode: both`, so a
+     transform set here would be overwritten the moment the animation runs;
+     `translate` is a separate property the animation never touches. */
+  translate: -50% 0;
   border-radius: 8px;
   border: 1px solid var(--st-line);
   background: #1c1511;
@@ -289,6 +321,11 @@ a.sx-stadium-panel:hover,
   .sx-stadium-in, .sx-stadium-row, .sx-stadium-grow, .sx-stadium .sx-table tbody tr { animation: none; }
   .sx-stadium-ticker-track { animation: none; flex-wrap: wrap; white-space: normal; row-gap: 0.25rem; }
   .sx-stadium-ticker-track > [data-dup] { display: none; }
+  /* the ticker is already static — nothing to pause */
+  .sx-stadium-ticker-toggle { display: none; }
   .sx-stadium-badge, .sx-stadium-pill::before, .sx-stadium-steps > li[data-now]::before, .sx-stadium-ghost::after { animation: none; }
-  a.sx-stadium-panel:hover, .sx-stadium-panel:has(> a.sx-stadium-cover:hover) { transform: none; }
+  a.sx-stadium-panel:hover,
+  .sx-stadium-panel:has(a.sx-stadium-cover:hover),
+  .sx-stadium-panel:has(a.sx-stadium-cover:focus-visible) { transform: none; }
+  .sx-stadium a.bg-primary:hover, .sx-stadium button.bg-primary:hover { transform: none; }
 }

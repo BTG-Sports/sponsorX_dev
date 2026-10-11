@@ -81,10 +81,17 @@ export function delta(now: number, prev: number | null | undefined): number | nu
   return (now - prev) / prev;
 }
 
-/** 54100 → "54.1k"; for tiles where the full figure is in the tooltip / sr text. */
+/** 54100 → "54.1k"; for tiles where the full figure is in the tooltip / sr text.
+ *  Rounds first, then picks the unit — 999_950 rounds to 1000.0k, which
+ *  belongs in the next unit up, so it reads "1M", not "1000k". */
 export function compactNumber(n: number): string {
-  const f = (v: number, s: string) => `${(Math.round(v * 10) / 10).toLocaleString("en-US")}${s}`;
-  if (Math.abs(n) >= 1_000_000) return f(n / 1_000_000, "M");
-  if (Math.abs(n) >= 10_000) return f(n / 1_000, "k");
-  return Math.round(n).toLocaleString("en-US");
+  const round1 = (v: number) => Math.round(v * 10) / 10;
+  if (Math.abs(n) < 10_000) return Math.round(n).toLocaleString("en-US");
+  let value = round1(n / 1_000);
+  let suffix = "k";
+  if (Math.abs(value) >= 1_000) {
+    value = round1(n / 1_000_000);
+    suffix = "M";
+  }
+  return `${value.toLocaleString("en-US")}${suffix}`;
 }

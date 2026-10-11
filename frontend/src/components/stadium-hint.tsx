@@ -2,9 +2,13 @@
 
 /* The "?" explainer (P1-ART-23): one plain sentence about a number, on
    hover, focus or tap. A real button (never inside a link — tiles that link
-   use a covering <a> beside it). Escape and a tap elsewhere close it. */
+   use a covering <a> beside it). Tap/click always opens (never toggles
+   closed — a second tap on a touch screen must not look like it did
+   nothing); hover only opens it for a real mouse, never for a touch
+   "hover" simulation. Escape, a tap/click elsewhere, a mouse pointer
+   leaving, or blur all close it. */
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 export function StadiumHint({ label, text }: { /** What the number is called ("People reached"). */ label: string; text: string }) {
   const [open, setOpen] = useState(false);
@@ -27,15 +31,22 @@ export function StadiumHint({ label, text }: { /** What the number is called ("P
     };
   }, [open]);
 
+  const onPointerEnter = (e: ReactPointerEvent<HTMLSpanElement>) => {
+    if (e.pointerType === "mouse") setOpen(true);
+  };
+  const onPointerLeave = (e: ReactPointerEvent<HTMLSpanElement>) => {
+    if (e.pointerType === "mouse") setOpen(false);
+  };
+
   return (
-    <span ref={ref} className="relative inline-flex align-middle" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+    <span ref={ref} className="relative inline-flex align-middle" onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave}>
       <button
         type="button"
         className="sx-stadium-q"
         aria-label={`What is “${label}”?`}
         aria-expanded={open}
         aria-describedby={open ? id : undefined}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(true)}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
       >

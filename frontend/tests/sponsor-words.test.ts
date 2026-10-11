@@ -27,4 +27,9 @@ describe("sponsor words — plain language, never an enum", () => {
     expect(compactNumber(54_100)).toBe("54.1k");
     expect(compactNumber(2_400_000)).toBe("2.4M");
   });
+  it("rounds before choosing the unit, so a rollover lands in the next one", () => {
+    expect(compactNumber(999_950)).toBe("1M");
+    expect(compactNumber(9_999)).toBe("9,999");
+    expect(compactNumber(10_000)).toBe("10k");
+  });
 });
