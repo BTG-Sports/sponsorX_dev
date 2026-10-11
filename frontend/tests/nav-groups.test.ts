@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { activeGroup, groupNav, isActiveHref } from "../src/lib/nav-groups";
+import { SPONSOR_NAV } from "../src/lib/sponsor-nav";
 
 /* P1-ART-21 — the sidebar's collapsible groups (owner: "too many …
    collapsable … sort them orderly"). */
@@ -65,5 +66,17 @@ describe("P1-ART-21 · sidebar groups", () => {
     /* Every group keeps its glyph for an athlete too, whose nav drops Guardian requests. */
     const athleteGroups = groupNav(items.filter((i) => i.href !== "/athlete/guardian-requests")).groups;
     expect(athleteGroups.every((g) => g.icon)).toBe(true);
+  });
+
+  describe("sponsor nav (P1-ART-23)", () => {
+    it("Dashboard alone on top; Campaigns, Marketplace, Account in work order, desks A to Z", () => {
+      const { top, groups } = groupNav(SPONSOR_NAV);
+      expect(top.map((i) => i.label)).toEqual(["Dashboard"]);
+      expect(groups.map((g) => [g.label, g.items.map((i) => i.label)])).toEqual([
+        ["Campaigns", ["Campaigns", "Requests"]],
+        ["Marketplace", ["Cart", "Orders", "Packages", "Shop"]],
+        ["Account", ["Billing", "Messages", "Settings"]],
+      ]);
+    });
   });
 });

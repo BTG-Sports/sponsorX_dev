@@ -5,6 +5,7 @@ import { MobileNav } from "./mobile-nav";
 import { OpsStage } from "./ops-fx";
 import { OpsGround } from "./ops-stage";
 import { ArenaGround } from "./arena-stage";
+import { StadiumGround } from "./stadium-stage";
 import { StagePortals } from "./stage-portals";
 import { PortalNav, type NavItem } from "./portal-nav";
 import { ThemeToggle } from "./theme-toggle";
@@ -142,13 +143,14 @@ export function PortalShell({
   /** P1-ART-18 — the admin portal: the whole shell on the Mission Control
    *  stage (fixed-dark in both themes), with every page as content on it.
    *  P1-ART-22 — `"arena"`: the athlete portal's theme-aware stage. `true`
-   *  still means the admin's `"ops"`. */
-  stage?: boolean | "ops" | "arena";
+   *  still means the admin's `"ops"`.
+   *  P1-ART-23 — `"stadium"`: the sponsor's fixed-dark Stadium Board. */
+  stage?: boolean | "ops" | "arena" | "stadium";
   children: ReactNode;
 }) {
   const accent = ACCENT[portal];
   const kind = stage === true ? "ops" : stage || null;
-  const stageCls = kind === "ops" ? "sx-ops" : kind === "arena" ? "sx-arena" : "";
+  const stageCls = kind === "ops" ? "sx-ops" : kind === "arena" ? "sx-arena" : kind === "stadium" ? "sx-stadium" : "";
 
   return (
     <div className={`flex min-h-screen ${stageCls}`}>
@@ -265,9 +267,9 @@ export function PortalShell({
           </div>
 
           <div className="flex items-center gap-3">
-            {/* the admin stage is dark in both themes — no toggle to offer there;
-                the arena is theme-aware and keeps it */}
-            {kind !== "ops" && <ThemeToggle />}
+            {/* the admin and stadium stages are dark in both themes — no
+                toggle to offer there; the arena is theme-aware and keeps it */}
+            {kind !== "ops" && kind !== "stadium" && <ThemeToggle />}
             {/* Both inert until their features ship — on a phone they only
                crowd the actor's name out of the header, so they wait for sm. */}
             <div className="hidden items-center gap-3 sm:flex">
@@ -304,6 +306,13 @@ export function PortalShell({
              the athlete ground, the same column. */
           <OpsStage className="sx-arena-stage relative isolate flex min-w-0 flex-1 flex-col px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10">
             <ArenaGround />
+            <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
+          </OpsStage>
+        ) : kind === "stadium" ? (
+          /* The Stadium Board (P1-ART-23): the same root island for the pointer
+             light, the sponsor ground, the same column. */
+          <OpsStage className="sx-stadium-stage relative isolate flex min-w-0 flex-1 flex-col px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10">
+            <StadiumGround />
             <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
           </OpsStage>
         ) : (
