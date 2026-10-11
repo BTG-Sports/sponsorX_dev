@@ -2,35 +2,38 @@ import { requirePortalAccess } from "@/server/portal";
 import { PortalShell, type NavItem } from "@/components/portal-shell";
 import { roleLabel, viewerName } from "@/server/viewer";
 
-/* The athlete portal's sidebar — P1-ART-22 (2026-10-11): the desks fold
-   into the same collapsible groups the admin sidebar got in P1-ART-21
-   (lib/nav-groups.ts), in the order an athlete's week runs rather than
-   alphabetically: the work BTG sends, the money it earns, the shop they
-   run, their account. Dashboard stays on top; the group holding the open
-   page is open on arrival. A desk's own notes stay with it. */
+/* The athlete portal's sidebar — P1-ART-22 (2026-10-11; owner: "make it the
+   structure same as in the admin"): the admin sidebar's structure exactly
+   (P1-ART-21, lib/nav-groups.ts) — Dashboard alone on top, every other desk
+   in a collapsible group, the groups in the order the work runs, each
+   group's desks in alphabetical order, one glyph per group. Campaigns and
+   Marketplace keep the admin's names for the same areas. The group holding
+   the open page is open on arrival. A desk's own notes stay with it. */
 const NAV: NavItem[] = [
   { href: "/athlete", label: "Dashboard", icon: "grid" },
 
   /* What BTG sends and what the athlete owes back. */
-  { href: "/athlete/invitations", label: "Invitations", icon: "inbox", group: "Campaigns", groupIcon: "megaphone" },
+  { href: "/athlete/deliverables", label: "Deliverables", icon: "calendar", group: "Campaigns", groupIcon: "megaphone" },
+  { href: "/athlete/invitations", label: "Invitations", icon: "inbox", group: "Campaigns" },
   { href: "/athlete/offers", label: "Offers", icon: "mail", group: "Campaigns" },
-  { href: "/athlete/deliverables", label: "Deliverables", icon: "calendar", group: "Campaigns" },
+
+  /* Phase 2 seller screens (2026-10-01): a no-team athlete lists their own
+     items (2S3-FE-02); every seller's sold lines (2S4-FE-03); the team they
+     sell through (2S2-FE-05). */
+  { href: "/athlete/inventory", label: "Inventory", icon: "box", group: "Marketplace", groupIcon: "store" },
+  { href: "/athlete/listings", label: "Listings", icon: "megaphone", group: "Marketplace" },
+  { href: "/athlete/sales", label: "Orders", icon: "store", group: "Marketplace" },
+  { href: "/athlete/team", label: "Team", icon: "users", group: "Marketplace" },
 
   /* Earned, paid and where it lands. */
   { href: "/athlete/earnings", label: "Earnings", icon: "wallet", group: "Money", groupIcon: "wallet" },
   { href: "/athlete/money", label: "Payouts", icon: "card", group: "Money" },
 
-  /* Phase 2 seller screens (2026-10-01): a no-team athlete lists their own
-     items (2S3-FE-02); every seller's sold lines (2S4-FE-03); the team they
-     sell through (2S2-FE-05). */
-  { href: "/athlete/inventory", label: "Inventory", icon: "box", group: "Shop", groupIcon: "store" },
-  { href: "/athlete/listings", label: "Listings", icon: "megaphone", group: "Shop" },
-  { href: "/athlete/sales", label: "Orders", icon: "store", group: "Shop" },
-  { href: "/athlete/team", label: "Team", icon: "users", group: "Shop" },
-
-  { href: "/athlete/profile", label: "Public profile", icon: "user", group: "Account", groupIcon: "user" },
+  /* The athlete's own account. (The group's glyph sits on Public profile:
+     Guardian requests is filtered out for every login but a guardian's.) */
   /* 2S1-FE-10 — requests to take over as guardian; GUARDIAN only (below). */
   { href: "/athlete/guardian-requests", label: "Guardian requests", icon: "shield", group: "Account" },
+  { href: "/athlete/profile", label: "Public profile", icon: "user", group: "Account", groupIcon: "user" },
   /* 2S1-FE-08 — sign-in, payouts, closing and reactivating the account. */
   { href: "/athlete/settings", label: "Settings", icon: "gear", group: "Account" },
 ];

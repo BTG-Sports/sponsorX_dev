@@ -47,4 +47,23 @@ describe("P1-ART-21 · sidebar groups", () => {
       expect(labels, g.label).toEqual([...labels].sort((a, b) => a.localeCompare(b)));
     }
   });
+
+  /* P1-ART-22 (owner, 2026-10-11: "make it the structure same as in the admin"). */
+  it("the athlete nav has the admin's structure: Dashboard on top, every other desk in a group, each sorted A → Z, each with a glyph", () => {
+    const src = readFileSync(new URL("../src/app/(app)/athlete/layout.tsx", import.meta.url), "utf8");
+    const items = [...src.matchAll(/\{ href: "([^"]+)", label: "([^"]+)", icon: "[a-z]+"(?:, group: "([^"]+)")?(?:, groupIcon: "([a-z]+)")? \}/g)].map((m) => ({
+      href: m[1]!, label: m[2]!, group: m[3], groupIcon: m[4],
+    }));
+    expect(items.length).toBe(13);
+    const { top, groups } = groupNav(items);
+    expect(top.map((i) => i.label)).toEqual(["Dashboard"]);
+    expect(groups.map((g) => g.label)).toEqual(["Campaigns", "Marketplace", "Money", "Account"]);
+    for (const g of groups) {
+      const labels = g.items.map((i) => i.label);
+      expect(labels, g.label).toEqual([...labels].sort((a, b) => a.localeCompare(b)));
+    }
+    /* Every group keeps its glyph for an athlete too, whose nav drops Guardian requests. */
+    const athleteGroups = groupNav(items.filter((i) => i.href !== "/athlete/guardian-requests")).groups;
+    expect(athleteGroups.every((g) => g.icon)).toBe(true);
+  });
 });
