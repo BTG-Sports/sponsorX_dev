@@ -211,32 +211,31 @@ every legacy response stays byte-for-byte the same.
 
 ### 8.1 NEW `GET /sponsor/overview?range=7d|30d|90d|all[&campaignId=]`
 Read-only, for SPONSOR_ADMIN / SPONSOR_ANALYST (and BTG preview), scoped to the actor's sponsor
-campaigns (with `campaignId`, one campaign, 404 if out of scope). Response:
+campaigns (with `campaignId`, one campaign, 403 if out of scope). Refused (403) for any caller that is neither a sponsor (`actor.sponsorId`) nor tenant-wide BTG staff — an athlete or property manager's campaign scope must not open campaign-wide figures. Response:
 
 ```ts
 {
   readAt: string,
-  range: { key, from: string|null, to: string, days: number|null, bucket: "day" | "week" },
+  range: { key, from: string, to: string, days: number, bucket: "day" | "week" },
   reach:   { verifiedViews, verifiedEngagements, otherViews,              // MetricDaily — never blended:
              prev: { verifiedViews, verifiedEngagements } | null,       // "People reached" is VERIFIED_API +
              bySource: Record<MetricSource, number> },                 // VERIFIED_MANUAL; the rest shown apart
   clicks:  { total, prev: number | null },                                // LinkEvent
-  fans:    { scan, landing, claim, redeem, prevRedeem: number | null,
-             events: number },                                            // RewardEvent by type
+  fans:    { scan, landing, claim, redeem, prevRedeem: number | null },  // RewardEvent by type
   daily:   { day: string, views, clicks, redeems }[],                     // zero-filled; views = verified
   today:   { views, redeems },                                            // ticker
   delivery:{ due, delivered, late, nextDueAt: string | null },            // Deliverable
   topAthletes: { athleteId, name, sport, views }[],                       // ≤5, by views
   topCities:   { city, region, redeems }[],                               // ≤5, REDEEM with a city
-  money?:  { contractedCents, invoicedCents, paidCents },                 // same permission gate as /campaigns/summary
+  money?:  { contractedCents, invoicedCents?, paidCents? },               // same gates as /campaigns/summary: value, then invoices
   costPer1000Cents: number | null,                                        // mediaValueFor(contracted, all-time verified views); null when 0 views or money hidden
   needsYou:{ postsToReview, ordersToPay, invoicesUnpaid? },
   campaigns: { running }
 }
 ```
 
-`all` starts at the earliest MetricDaily / RewardEvent / LinkEvent day in scope, and buckets by
-week once the span is over 120 days. `prev` covers the equal-length window just before; it is
+`all` starts at the earliest start date of a campaign in scope (nothing is measured before a
+campaign starts), and buckets by week once the span is over 120 days. `prev` covers the equal-length window just before; it is
 null for `all`. Joins: MetricDaily → Deliverable → Order → Campaign (and the athlete);
 RewardEvent → token → Reward → Campaign; LinkEvent → TrackingLink → its campaign/deliverable.
 Use `groupBy` / raw aggregate SQL. Never load rows to sum in JS.
