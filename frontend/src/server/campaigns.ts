@@ -20,6 +20,12 @@ export async function fetchCampaign(id: string): Promise<ApiCampaign | null> {
 export const CAMPAIGN_STATES = ["DRAFT", "STAFFING", "APPROVAL", "ACTIVE", "REPORTING", "COMPLETED", "CANCELLED"] as const;
 export const CAMPAIGN_SORTS = ["name", "ending"] as const;
 
+/** The Campaigns page's tab strip (P1-ART-23 Task 9) sets `?state=` to a
+ *  single state or, for "Finished", a comma combo — the API already splits
+ *  `?state=A,B` (`allowedList`), so the combo is just one more value this
+ *  side accepts before forwarding it on. */
+export const CAMPAIGN_STATE_FILTERS = [...CAMPAIGN_STATES, "COMPLETED,CANCELLED"] as const;
+
 /** One SERVER page of campaigns (2026-09-29): ?page ?size ?q ?state ?sort
  *  from the URL go to the API, which searches, filters, orders and counts in
  *  the database. ?review=1 (the sponsor dashboard's "Posts waiting for your
@@ -29,7 +35,7 @@ export async function fetchCampaignPage(
 ): Promise<{ campaigns: ApiCampaign[]; page: PageInfo } | null> {
   const query = apiListQuery(sp, {
     q: textParam(sp, "q"),
-    state: textParam(sp, "state", CAMPAIGN_STATES),
+    state: textParam(sp, "state", CAMPAIGN_STATE_FILTERS),
     sort: textParam(sp, "sort", CAMPAIGN_SORTS),
     review: textParam(sp, "review", ["1"]) === "1" ? "true" : "",
   });

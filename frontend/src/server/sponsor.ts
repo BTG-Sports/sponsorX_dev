@@ -10,7 +10,7 @@ import { SPONSOR_ROLES, type ApiCampaign } from "@/lib/sponsor-live";
 import type { ApiOps } from "@/lib/ops-live";
 import { apiFetch, fetchActor } from "@/server/api";
 import { fetchCampaign, fetchCampaignPage, fetchCampaignSummary, type CampaignSummary } from "@/server/campaigns";
-import type { PageInfo, SearchParams } from "@/lib/list-query";
+import { apiListQuery, textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
 import type { ApiCampaignArtworkSlot } from "@/lib/edition-artwork-live";
 import type { ApiDeliverable } from "@/lib/deliverables-live";
 import { openRequests, type ApiSponsorRequest } from "@/lib/brief-status";
@@ -24,13 +24,31 @@ async function isSponsor(): Promise<boolean> {
 
 /** One page of the sponsor's campaigns, searched / filtered / sorted by the
  *  API (?page ?size ?q ?state ?sort), plus the unfiltered summary for the
- *  header. Null for the demo. */
+ *  header and (P1-ART-23) the open-request count for the "Your requests"
+ *  link tile — a minimal `/briefs?size=1` read just for its `counts`, never
+ *  the capped `liveSponsorRequests` list (that would undercount past 20).
+ *  `requestsOpen` is undefined when the role can't read briefs at all. Null
+ *  for the demo. */
 export async function liveSponsorCampaignPage(
   sp: SearchParams,
-): Promise<{ rows: ApiCampaign[]; page: PageInfo; summary: CampaignSummary } | null> {
+): Promise<{ rows: ApiCampaign[]; page: PageInfo; summary: CampaignSummary; requestsOpen?: number } | null> {
   if (!(await isSponsor())) return null;
-  const [pg, summary] = await Promise.all([fetchCampaignPage(sp), fetchCampaignSummary()]);
-  return { rows: pg?.campaigns ?? [], page: pg?.page ?? { page: 1, size: 12, total: 0, pages: 1 }, summary: summary ?? EMPTY_SUMMARY };
+  const [pg, summary, briefsRes] = await Promise.all([
+    fetchCampaignPage(sp),
+    fetchCampaignSummary(),
+    apiFetch("/briefs?page=1&size=1"),
+  ]);
+  let requestsOpen: number | undefined;
+  if (briefsRes.ok) {
+    const { counts } = (await briefsRes.json()) as { counts: BriefCounts };
+    requestsOpen = (counts.DRAFT ?? 0) + (counts.QUALIFIED ?? 0) + (counts.APPROVED ?? 0);
+  }
+  return {
+    rows: pg?.campaigns ?? [],
+    page: pg?.page ?? { page: 1, size: 12, total: 0, pages: 1 },
+    summary: summary ?? EMPTY_SUMMARY,
+    requestsOpen,
+  };
 }
 
 /** The dashboard (P1-ART-23): the overview read for the window (every tile,
@@ -57,6 +75,37 @@ export async function liveSponsorRequests(): Promise<ApiSponsorRequest[]> {
   if (res.status === 403) return [];
   if (!res.ok) throw new Error(`Requests unavailable (${res.status}).`);
   return openRequests(((await res.json()) as { briefs: ApiSponsorRequest[] }).briefs);
+}
+
+/** GET /briefs's tab counts, over the caller's whole scope — never the page
+ *  or the search. A state key is absent rather than 0 when no brief of
+ *  that state exists in scope. */
+export type BriefCounts = { all: number; held: number } & Partial<Record<"DRAFT" | "QUALIFIED" | "APPROVED" | "CAMPAIGN_CREATED" | "CLOSED", number>>;
+
+/** The Requests page's tab strip sets `?state=` to one brief state or, for
+ *  "Being matched by BTG", the combo "DRAFT,QUALIFIED" — the API splits
+ *  `?state=A,B` itself (`allowedList`). */
+export const BRIEF_STATE_FILTERS = ["DRAFT", "QUALIFIED", "APPROVED", "CAMPAIGN_CREATED", "CLOSED", "DRAFT,QUALIFIED"] as const;
+
+/** One SERVER page of the sponsor's own requests (P1-ART-23 Task 9): ?page
+ *  ?size ?q ?state from the URL, sort fixed to newest (the page has no sort
+ *  control). Null for the demo; a role that can't read briefs also answers
+ *  null, which is this page's cue to fall back to the fixture deck rather
+ *  than show an empty "no requests" a sponsor would mistake for the truth. */
+export async function liveSponsorRequestPage(
+  sp: SearchParams,
+): Promise<{ rows: ApiSponsorRequest[]; page: PageInfo; counts: BriefCounts } | null> {
+  if (!(await isSponsor())) return null;
+  const query = apiListQuery(sp, {
+    q: textParam(sp, "q"),
+    state: textParam(sp, "state", BRIEF_STATE_FILTERS),
+    sort: "newest",
+  });
+  const res = await apiFetch(`/briefs${query}`);
+  if (res.status === 403) return null;
+  if (!res.ok) throw new Error(`Requests unavailable (${res.status}).`);
+  const data = (await res.json()) as { briefs: ApiSponsorRequest[]; page: PageInfo; counts: BriefCounts };
+  return { rows: data.briefs, page: data.page, counts: data.counts };
 }
 
 const EMPTY_SUMMARY: CampaignSummary = { total: 0, byState: {}, active: 0, athletes: 0, behind: 0, pacing: [] };

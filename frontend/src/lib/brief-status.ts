@@ -70,6 +70,24 @@ export function openRequests(rows: ApiSponsorRequest[]): ApiSponsorRequest[] {
   return rows.filter((b) => !b.campaign && b.state !== "CLOSED" && b.state !== "CAMPAIGN_CREATED");
 }
 
+/** P1-ART-23 — the Requests page's mini `StadiumSteps`: where a request
+ *  stands in plain steps. -1 (CLOSED, or anything unrecognised) shows no
+ *  step lit rather than guess one. */
+export const REQUEST_STEPS = ["Sent", "Matching athletes", "Price agreed", "Campaign live"];
+export function requestStepNow(state: string): number {
+  switch (state) {
+    case "DRAFT":
+    case "QUALIFIED":
+      return 1;
+    case "APPROVED":
+      return 2;
+    case "CAMPAIGN_CREATED":
+      return 4;
+    default:
+      return -1;
+  }
+}
+
 /** The campaign page's line while it is being staffed: it was approved. */
 export function campaignApprovalLine(campaignState: string): string | null {
   return campaignState === "DRAFT" || campaignState === "STAFFING" ? APPROVED_TEXT : null;

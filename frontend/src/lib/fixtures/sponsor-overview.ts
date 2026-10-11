@@ -11,8 +11,24 @@
 
 import { sponsorCampaigns } from "@/lib/fixtures";
 import { pageParams, type PageInfo, type SearchParams } from "@/lib/list-query";
-import type { ApiCampaign } from "@/lib/sponsor-live";
+import { isBehind, type ApiCampaign } from "@/lib/sponsor-live";
 import type { DailyPoint, RangeKey, SponsorOverview } from "@/lib/sponsor-overview-live";
+import type { ApiSponsorRequest } from "@/lib/brief-status";
+
+/** The shape of `/campaigns/summary` and `/briefs`'s `counts` — copied here
+ *  (not imported from `server/`, a server-only layer) rather than shared, so
+ *  the demo stays a plain, client-safe data module. */
+type DemoCampaignSummary = {
+  total: number;
+  byState: Record<string, number>;
+  active: number;
+  athletes: number;
+  behind: number;
+  pacing: never[];
+  contracted?: number;
+  budget?: number;
+};
+type DemoBriefCounts = { all: number; held: number } & Partial<Record<"DRAFT" | "QUALIFIED" | "APPROVED" | "CAMPAIGN_CREATED" | "CLOSED", number>>;
 
 const DAY = 86_400_000;
 /** "Now" for the demo: a fixed instant, so every render agrees. */
@@ -104,10 +120,10 @@ const WINDOWS: Record<string, [string, string]> = {
 };
 const DEMO_ORDER = { newest: (a: ApiCampaign, b: ApiCampaign) => b.startDate.localeCompare(a.startDate), name: (a: ApiCampaign, b: ApiCampaign) => a.name.localeCompare(b.name), ending: (a: ApiCampaign, b: ApiCampaign) => a.endDate.localeCompare(b.endDate) };
 
-/** The demo campaigns as GET /campaigns rows, searched, filtered, ordered and
- *  paged the way the API does it — so the demo table behaves like the live one. */
-export function demoCampaignPage(sp: SearchParams, f: { q: string; state: string; sort: string }): { campaigns: ApiCampaign[]; page: PageInfo } {
-  const all: ApiCampaign[] = sponsorCampaigns.map((c) => ({
+/** `sponsorCampaigns` as GET /campaigns rows — shared by `demoCampaignPage`
+ *  and `demoCampaignSummary` so the Dashboard and the Campaigns page agree. */
+function demoCampaignRows(): ApiCampaign[] {
+  return sponsorCampaigns.map((c) => ({
     id: c.id,
     name: c.name,
     state: c.state,
@@ -119,12 +135,71 @@ export function demoCampaignPage(sp: SearchParams, f: { q: string; state: string
     deliverables: { done: c.deliverables[0], total: c.deliverables[1] },
     contracted: c.spend,
   }));
+}
+
+/** The demo campaigns as GET /campaigns rows, searched, filtered, ordered and
+ *  paged the way the API does it — so the demo table behaves like the live
+ *  one. `f.state` may be one state or, as the Campaigns page tab for
+ *  "Finished" sends, a comma combo — the API's own `?state=A,B` shape. */
+export function demoCampaignPage(sp: SearchParams, f: { q: string; state: string; sort: string }): { campaigns: ApiCampaign[]; page: PageInfo } {
+  const states = f.state ? f.state.split(",") : [];
   const q = f.q.toLowerCase();
-  const hits = all
-    .filter((c) => (!q || c.name.toLowerCase().includes(q)) && (!f.state || c.state === f.state))
+  const hits = demoCampaignRows()
+    .filter((c) => (!q || c.name.toLowerCase().includes(q)) && (!states.length || states.includes(c.state)))
     .sort(DEMO_ORDER[f.sort as keyof typeof DEMO_ORDER] ?? DEMO_ORDER.newest);
   const { page, size } = pageParams(sp);
   const pages = Math.max(1, Math.ceil(hits.length / size));
   const at = Math.min(page, pages);
   return { campaigns: hits.slice((at - 1) * size, at * size), page: { page: at, size, total: hits.length, pages } };
+}
+
+/** The Campaigns page's tile+tab counts (P1-ART-23 Task 9), shaped like
+ *  `GET /campaigns/summary` — computed from the same fixture rows as
+ *  `demoCampaignPage`, so a demo tile and a demo tab count always agree.
+ *  Budget is a demo-only construct (Phase 1 fixtures hold no real budget
+ *  figure): 18% of headroom over the contracted total, just to show the
+ *  "Total budget" tile with a believable spent share. */
+export function demoCampaignSummary(): DemoCampaignSummary {
+  const rows = demoCampaignRows();
+  const byState: Record<string, number> = {};
+  for (const r of rows) byState[r.state] = (byState[r.state] ?? 0) + 1;
+  const contracted = rows.reduce((n, r) => n + (r.contracted ?? 0), 0);
+  return {
+    total: rows.length,
+    byState,
+    active: byState.ACTIVE ?? 0,
+    athletes: rows.reduce((n, r) => n + r.athletes, 0),
+    behind: rows.filter((r) => isBehind(r, DEMO_NOW)).length,
+    pacing: [],
+    contracted,
+    budget: Math.round(contracted * 1.18),
+  };
+}
+
+/** Each demo request's created date, around DEMO_NOW. */
+const REQUEST_ROWS: ApiSponsorRequest[] = [
+  { id: "req1", state: "QUALIFIED", objective: "Spring footwear launch across DMV high schools", budget: 320_000, createdAt: iso(TODAY - 2 * DAY), package: null, campaign: null },
+  { id: "req2", state: "DRAFT", objective: "Holiday gift-card push with five athletes", budget: 150_000, createdAt: iso(TODAY - DAY), package: null, campaign: null },
+  { id: "req3", state: "APPROVED", objective: "Community Campaign refresh — fall semester", budget: 500_000, createdAt: iso(TODAY - 6 * DAY), package: { name: "Community Campaign" }, campaign: null },
+  { id: "req4", state: "CAMPAIGN_CREATED", objective: "Player of the Week renewal", budget: 1_920_000, createdAt: iso(TODAY - 40 * DAY), package: { name: "Season Partner" }, campaign: { id: "c1", name: "Player of the Week", state: "ACTIVE" } },
+  { id: "req5", state: "CAMPAIGN_CREATED", objective: "Skills Lab Series", budget: 250_000, createdAt: iso(TODAY - 70 * DAY), package: { name: "10-Athlete Blitz" }, campaign: { id: "c4", name: "Skills Lab Series", state: "COMPLETED" } },
+  { id: "req6", state: "CLOSED", objective: "Winter pop-up tour", budget: 90_000, createdAt: iso(TODAY - 95 * DAY), package: null, campaign: null },
+];
+
+/** The demo requests as GET /briefs rows — searched, filtered to one state
+ *  or a comma combo ("DRAFT,QUALIFIED" for "Being matched by BTG"), newest
+ *  first and paged like the API; `counts` are always over every fixture
+ *  row, never the filtered page, matching the API's own tab counts. */
+export function demoRequestPage(sp: SearchParams, f: { q: string; state: string }): { requests: ApiSponsorRequest[]; page: PageInfo; counts: DemoBriefCounts } {
+  const states = f.state ? f.state.split(",") : [];
+  const q = f.q.toLowerCase();
+  const hits = REQUEST_ROWS
+    .filter((r) => (!q || r.objective.toLowerCase().includes(q)) && (!states.length || states.includes(r.state)))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const { page, size } = pageParams(sp);
+  const pages = Math.max(1, Math.ceil(hits.length / size));
+  const at = Math.min(page, pages);
+  const counts: DemoBriefCounts = { all: REQUEST_ROWS.length, held: 0 };
+  for (const r of REQUEST_ROWS) counts[r.state as keyof DemoBriefCounts] = (counts[r.state as keyof DemoBriefCounts] ?? 0) + 1;
+  return { requests: hits.slice((at - 1) * size, at * size), page: { page: at, size, total: hits.length, pages }, counts };
 }
