@@ -10,7 +10,7 @@ import { SPONSOR_ROLES, type ApiCampaign } from "@/lib/sponsor-live";
 import type { ApiOps } from "@/lib/ops-live";
 import { apiFetch, fetchActor } from "@/server/api";
 import { fetchCampaign, fetchCampaignPage, fetchCampaignSummary, type CampaignSummary } from "@/server/campaigns";
-import { apiListQuery, textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
+import { apiListQuery, apiListQueryFor, textParam, type ListKeys, type PageInfo, type SearchParams } from "@/lib/list-query";
 import type { ApiCampaignArtworkSlot } from "@/lib/edition-artwork-live";
 import type { ApiDeliverable } from "@/lib/deliverables-live";
 import { openRequests, type ApiSponsorRequest } from "@/lib/brief-status";
@@ -124,26 +124,36 @@ export type LiveCampaignDetail =
       review: ApiDeliverable[];
       /** SPONSOR_ADMIN approves or asks for changes; an analyst only sees it. */
       canDecideContent: boolean;
+      /** P1-ART-23 — every post this campaign includes, oldest due first,
+       *  server-paged (own URL keys: a second paged read on this page). */
+      posts: ApiDeliverable[];
+      postsPage: PageInfo;
     }
   /** Not theirs, or not a campaign — the API answers both the same (403). */
   | { status: "missing" };
 
+/** P1-ART-23 — the one-campaign page's "Posts" list keeps its own URL keys
+ *  (this page has no other paged list, but the spec fixes these names). */
+export const CAMPAIGN_POST_KEYS: ListKeys = { page: "ppage", size: "psize" };
+
 /**
- * One campaign: its portfolio row (package, money — column-gated by the API)
- * and its delivery board (GET /campaigns/:id/ops, orders scoped by whereFor,
- * no invitations for a sponsor). Null for the demo.
+ * One campaign: its portfolio row (package, money — column-gated by the API),
+ * its delivery board (GET /campaigns/:id/ops, orders scoped by whereFor, no
+ * invitations for a sponsor), and one server page of its posts. Null for the
+ * demo.
  */
-export async function liveSponsorCampaign(id: string): Promise<LiveCampaignDetail | null> {
+export async function liveSponsorCampaign(id: string, sp: SearchParams): Promise<LiveCampaignDetail | null> {
   const who = await fetchActor();
   if (who.status !== "linked" || !who.actor.roles.some((r) => SPONSOR_ROLES.includes(r))) return null;
   /* GET /campaigns/:id, not a search of the list — the 101st campaign is as
      findable as the first (QA pass 7, F-5). */
-  /* The reads are independent — one round trip, not three (QA pass 9). */
-  const [campaign, res, art, rev] = await Promise.all([
+  /* The reads are independent — one round trip, not four (QA pass 9). */
+  const [campaign, res, art, rev, postsRes] = await Promise.all([
     fetchCampaign(id),
     apiFetch(`/campaigns/${encodeURIComponent(id)}/ops`),
     apiFetch(`/campaigns/${encodeURIComponent(id)}/artwork`),
     apiFetch(`/deliverables?state=SPONSOR_REVIEW&campaignId=${encodeURIComponent(id)}`),
+    apiFetch(`/deliverables${apiListQueryFor(sp, CAMPAIGN_POST_KEYS, { campaignId: id })}`),
   ]);
   if (!campaign) return { status: "missing" };
   if (res.status === 403 || res.status === 404) return { status: "missing" };
@@ -154,6 +164,9 @@ export async function liveSponsorCampaign(id: string): Promise<LiveCampaignDetai
   /* Content for sign-off: a role that can't read it gets none, not an error. */
   if (!rev.ok && rev.status !== 403) throw new Error(`Content review unavailable (${rev.status}).`);
   const review = rev.ok ? ((await rev.json()) as { deliverables: ApiDeliverable[] }).deliverables : [];
+  /* The post log: same gate as the review read above — none rather than an error. */
+  if (!postsRes.ok && postsRes.status !== 403) throw new Error(`Campaign posts unavailable (${postsRes.status}).`);
+  const postsBody = postsRes.ok ? ((await postsRes.json()) as { deliverables: ApiDeliverable[]; page: PageInfo }) : null;
   return {
     status: "found",
     campaign,
@@ -162,5 +175,7 @@ export async function liveSponsorCampaign(id: string): Promise<LiveCampaignDetai
     canDecideArtwork: who.actor.roles.includes("SPONSOR_ADMIN"),
     review,
     canDecideContent: who.actor.roles.includes("SPONSOR_ADMIN"),
+    posts: postsBody?.deliverables ?? [],
+    postsPage: postsBody?.page ?? { page: 1, size: 12, total: 0, pages: 1 },
   };
 }
