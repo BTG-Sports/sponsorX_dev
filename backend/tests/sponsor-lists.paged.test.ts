@@ -42,6 +42,8 @@ vi.mock("../src/db/client", () => {
 
 const { orders, ordersSummary, search } = await import("../src/routes/v1/marketplace");
 const { whereFor } = await import("../src/auth/scope");
+const { restrictionHiddenWhere, inForceBounds } = await import("../src/domain/marketplace-search");
+const { overlaps } = await import("../src/domain/restrictions");
 
 async function run(handler: unknown, actor: Actor, query: Record<string, string> = {}) {
   let body: any;
@@ -119,14 +121,56 @@ describe("GET /marketplace/search · paged", () => {
     expect(Array.isArray(body.results)).toBe(true);
   });
 
-  it("pages the visible ids: total is after the sponsor's restrictions, the page reads only its ids, in order", async () => {
+  const row = (id: string) => ({ id, title: id, description: "", publishedAt: null, tenantId: "t_slp1", property: null, sellerAthleteId: "ath1", item: { id: "i", kind: "SOCIAL", priceCents: 1, quantity: 1, availableFrom: null, availableUntil: null, categories: [], packageRules: null, athleteId: "ath1", propertyId: null, restrictedCategories: [], athlete: null } });
+
+  it("pages in the database: count and findMany share one WHERE, skip/take on the read, no unbounded read", async () => {
     impl["sponsor.findFirst"] = () => ({ categories: [] });
-    impl["listing.findMany"] = (a) =>
-      a.select?.item?.select?.priceCents
-        ? a.where.id.in.map((id: string) => ({ id, title: id, description: "", publishedAt: null, tenantId: "t_slp1", property: null, sellerAthleteId: "ath1", item: { id: "i", kind: "SOCIAL", priceCents: 1, quantity: 1, availableFrom: null, availableUntil: null, categories: [], packageRules: null, athleteId: "ath1", propertyId: null, restrictedCategories: [], athlete: null } })).reverse()
-        : Array.from({ length: 30 }, (_, i) => ({ id: `l${i}`, tenantId: "t_slp1", item: { athleteId: null, propertyId: null, athlete: null } }));
+    impl["listing.count"] = () => 30;
+    impl["listing.findMany"] = (a) => Array.from({ length: a.take }, (_, i) => row(`l${a.skip + i}`));
     const body = await run(search, sponsor, { page: "2", size: "12" });
     expect(body.page).toEqual({ page: 2, size: 12, total: 30, pages: 3 });
     expect(body.results.map((r: { id: string }) => r.id)).toEqual(Array.from({ length: 12 }, (_, i) => `l${12 + i}`));
+    const [count] = of("listing", "count");
+    const reads = of("listing", "findMany");
+    expect(reads).toHaveLength(1);
+    expect(reads[0]!.args.where).toEqual(count!.args.where);
+    /* the scope leads — its publishAt term carries its own `new Date()`, so compare without it */
+    const strip = (w: unknown) => JSON.stringify(w).replace(/"lte":"[^"]+"/g, '"lte":"<now>"');
+    expect(strip(reads[0]!.args.where.AND[0])).toBe(strip(whereFor(sponsor, "listing", "read")));
+    expect(reads[0]!.args).toMatchObject({ skip: 12, take: 12, orderBy: [{ publishedAt: "desc" }, { id: "asc" }] });
+    /* no categories → no restriction term, and no restriction lookup in JS */
+    expect(JSON.stringify(count!.args.where)).not.toContain("restrictions");
+    expect(of("brandRestriction", "findMany")).toHaveLength(0);
+  });
+
+  it("a sponsor with categories: the restriction term is in the WHERE — athlete, team, athlete's team, in force today", async () => {
+    impl["sponsor.findFirst"] = () => ({ categories: ["ALCOHOL"] });
+    impl["listing.count"] = () => 1;
+    impl["listing.findMany"] = () => [row("l0")];
+    await run(search, sponsor, { page: "1", size: "12" });
+    const where = of("listing", "count")[0]!.args.where;
+    expect(of("listing", "findMany")[0]!.args.where).toEqual(where);
+    const hidden = restrictionHiddenWhere(sponsor, ["ALCOHOL"], new Date());
+    expect(where.AND).toContainEqual(hidden);
+    const some = hidden!.NOT.item.OR[0].athlete.restrictions.some;
+    expect(hidden!.NOT.item.OR).toEqual([
+      { athlete: { restrictions: { some } } }, { property: { restrictions: { some } } }, { athlete: { property: { restrictions: { some } } } },
+    ]);
+    expect(some.category).toEqual({ in: ["ALCOHOL"] });
+    expect(some.OR).toEqual([{ tenantId: "t_slp1" }, { tenant: { operatorTenantId: "t_slp1" } }]);
+    expect(of("brandRestriction", "findMany")).toHaveLength(0);
+  });
+
+  it("the in-force bounds are overlaps(r, today) exactly, at every day edge and with open ends", () => {
+    const now = new Date("2026-10-11T15:30:00Z");
+    const { from, before } = inForceBounds(now);
+    const edges = [
+      null, "2026-10-09T12:00:00Z", "2026-10-10T23:59:59.999Z", "2026-10-11T00:00:00Z", "2026-10-11T15:30:00Z",
+      "2026-10-11T23:59:59.999Z", "2026-10-12T00:00:00Z", "2026-10-13T08:00:00Z",
+    ].map((d) => (d ? new Date(d) : null));
+    for (const startsOn of edges) for (const endsOn of edges) {
+      const sql = (startsOn === null || startsOn < before) && (endsOn === null || endsOn >= from);
+      expect(sql, `${startsOn?.toISOString()}..${endsOn?.toISOString()}`).toBe(overlaps({ startsOn, endsOn }, { startsOn: now, endsOn: now }));
+    }
   });
 });

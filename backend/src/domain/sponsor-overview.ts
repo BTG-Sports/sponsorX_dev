@@ -12,8 +12,9 @@
  * NEVER BLENDED (metric.ts, §22): "people reached" is VERIFIED_API +
  * VERIFIED_MANUAL only; self-reported, estimated and attributed views are
  * returned beside it, by source, and are never added in. The cost per 1,000
- * is the report's own mediaValueFor over ALL-TIME spend and verified views, so
- * the dashboard and the report cannot disagree. No benchmark — Phase 1 holds
+ * is the report's own mediaValueFor over ALL-TIME spend (the report's own
+ * spend rule, sponsorSpendCents / sponsorSpendFor) and verified views, so the
+ * dashboard and the report cannot disagree. No benchmark — Phase 1 holds
  * none (sponsor-report.ts).
  */
 import { prisma } from "../db/client";
@@ -21,10 +22,9 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, can, scopeOf, whereFor } from "../auth/scope";
 import { canReadField } from "../auth/fields";
 import { ForbiddenError } from "../auth/errors";
-import { mediaValueFor } from "./sponsor-report";
+import { mediaValueFor, NOT_LIVE_ORDER_STATES, sponsorSpendFor } from "./sponsor-report";
 import { METRIC_SOURCES, type MetricSource } from "./metric-source";
 import type { DeliverableState } from "./deliverable-state";
-import type { OrderState } from "./order-state";
 
 export const RANGES = ["7d", "30d", "90d", "all"] as const;
 export type RangeKey = (typeof RANGES)[number];
@@ -33,10 +33,10 @@ const DAY = 86_400_000;
 const VERIFIED: readonly string[] = ["VERIFIED_API", "VERIFIED_MANUAL"];
 /* Mutable element types, not `readonly` — Prisma's generated `notIn` filters
    (EnumDeliverableStateFilter, EnumOrderStateFilter) want DeliverableState[] /
-   OrderState[] exactly, and a readonly array is not assignable to that. */
+   OrderState[] exactly, and a readonly array is not assignable to that
+   (NOT_LIVE_ORDER_STATES, sponsor-report.ts, is typed the same way). */
 const DELIVERED: DeliverableState[] = ["PUBLISHED", "VERIFIED"];
-const LIVE_ORDER_STATES: OrderState[] = ["CANCELLED", "REJECTED"];
-const LIVE_ORDER = { state: { notIn: LIVE_ORDER_STATES } };
+const LIVE_ORDER = { state: { notIn: NOT_LIVE_ORDER_STATES } };
 /** Scopes that reach every campaign of a tenant BTG runs: the staff side of
  *  the gate below. `operated` is included for parity with other resources'
  *  tenant-wide reach, though `campaign`'s own builder does not use it today. */
@@ -64,6 +64,9 @@ export type SponsorOverview = {
   topCities: { city: string; region: string | null; redeems: number }[];
   money?: { contractedCents: number; invoicedCents?: number; paidCents?: number };
   costPer1000Cents: number | null;
+  /** `ordersToPay` counts the sponsor's marketplace orders waiting on payment.
+   *  Marketplace orders are not per-campaign, so it is always 0 when the
+   *  overview is read for one campaign (`campaignId`). */
   needsYou: { postsToReview: number; ordersToPay: number; invoicesUnpaid?: number };
   campaigns: { total: number; running: number };
 };
@@ -198,9 +201,9 @@ export async function sponsorOverview(
       prisma.deliverable.groupBy({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ by: ["state"], where: liveScope, _count: { _all: true } }),
       prisma.deliverable.count({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ where: { ...liveScope, state: { notIn: DELIVERED }, dueDate: { lt: now } } }),
       prisma.deliverable.findFirst({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ where: { ...liveScope, state: { notIn: DELIVERED }, dueDate: { gte: now } }, orderBy: { dueDate: "asc" }, select: { dueDate: true } }),
-      seeValue
-        ? prisma.campaignOrder.aggregate({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ where: { campaignId: { in: ids }, ...LIVE_ORDER }, _sum: { sellPrice: true } })
-        : Promise.resolve(null),
+      /* THE spend rule (sponsor-report.ts sponsorSpendCents), summed over the
+         whereFor-scoped campaign ids above: live orders + ad placements. */
+      seeValue ? sponsorSpendFor(ids) : Promise.resolve(null),
       seeInvoices
         ? prisma.campaignInvoice.groupBy({ /* tenant-scope: keyed by the whereFor-scoped campaign ids above. */ by: ["status"], where: { campaignId: { in: ids } }, _sum: { amount: true }, _count: { _all: true } })
         : Promise.resolve(null),
@@ -210,7 +213,9 @@ export async function sponsorOverview(
       /* "Orders to pay" (needsYou.ordersToPay) matches the Orders page's own
          "To pay" tab (marketplace-order.ts's ORDER_TABS): APPROVED and
          AWAITING_PAYMENT both wait on the sponsor's payment. */
-      seeOrders
+      /* Marketplace orders are not per-campaign, so a single-campaign read
+         answers 0 rather than the sponsor's whole queue under one campaign. */
+      seeOrders && !opts.campaignId
         ? prisma.marketplaceOrder.count({ where: { AND: [whereFor(actor, "marketplaceOrder", "read"), { state: { in: ["APPROVED", "AWAITING_PAYMENT"] } }] } })
         : Promise.resolve(0),
     ]);
@@ -275,7 +280,11 @@ export async function sponsorOverview(
 
   /* money — the /campaigns/summary gate: a figure the role can't read is absent */
   const live = (invoices ?? []).filter((i) => i.status.toLowerCase() !== "void");
-  const contractedCents = contracted?._sum?.sellPrice ?? 0;
+  /* contractedCents keeps its meaning — the live orders' sell price alone;
+     the cost per 1,000 uses the whole spend (orders + ad placements), the
+     same figure the report's media value uses. */
+  const contractedCents = contracted?.ordersCents ?? 0;
+  const spendCents = contracted?.spendCents ?? 0;
   const allTimeVerified = allVerified._sum.views ?? 0;
 
   return {
@@ -310,7 +319,7 @@ export async function sponsorOverview(
           },
         }
       : {}),
-    costPer1000Cents: seeValue && allTimeVerified > 0 ? mediaValueFor({ spend: contractedCents, verifiedViews: allTimeVerified }).amount : null,
+    costPer1000Cents: seeValue && allTimeVerified > 0 ? mediaValueFor({ spend: spendCents, verifiedViews: allTimeVerified }).amount : null,
     needsYou: {
       postsToReview: toReview,
       ordersToPay: toPay,

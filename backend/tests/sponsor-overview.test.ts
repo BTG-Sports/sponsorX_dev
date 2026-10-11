@@ -42,6 +42,7 @@ vi.mock("../src/db/client", () => {
 });
 
 const { windowFor, zeroFill, sponsorOverview } = await import("../src/domain/sponsor-overview");
+const { mediaValueFor, sponsorSpendCents, NOT_LIVE_ORDER_STATES } = await import("../src/domain/sponsor-report");
 const { whereFor, can } = await import("../src/auth/scope");
 const { canReadField } = await import("../src/auth/fields");
 const { ForbiddenError } = await import("../src/auth/errors");
@@ -191,6 +192,59 @@ describe("sponsorOverview", () => {
     const [count] = of("marketplaceOrder", "count");
     expect(count!.args.where.AND[0]).toEqual(whereFor(sponsor, "marketplaceOrder", "read"));
     expect(count!.args.where.AND[1]).toEqual({ state: { in: ["APPROVED", "AWAITING_PAYMENT"] } });
+  });
+
+  it("needsYou.ordersToPay is 0 for one campaign — marketplace orders are not per-campaign", async () => {
+    impl["campaign.findMany"] = () => [{ id: "c_spo1", state: "ACTIVE", startDate: new Date("2026-09-01") }];
+    impl["marketplaceOrder.count"] = () => 4;
+    const o = await sponsorOverview(sponsor, { range: "7d", campaignId: "c_spo1" }, NOW);
+    expect(o.needsYou.ordersToPay).toBe(0);
+    expect(of("marketplaceOrder", "count")).toHaveLength(0);
+  });
+});
+
+describe("one spend rule for cost per 1,000 — the overview and the report", () => {
+  const mgr = { ...base, roles: ["CAMPAIGN_MGR"], sponsorId: null } as unknown as Actor;
+  /* One campaign's lines, as the report reads them and as the database holds them. */
+  const orders = [
+    { state: "ACTIVE", sellPrice: 200000 }, { state: "COMPLETED", sellPrice: 100000 },
+    { state: "CANCELLED", sellPrice: 50000 }, { state: "REJECTED", sellPrice: 10000 },
+  ];
+  const adSlots = [{ soldCents: 100000 }, { soldCents: null }];
+  const VIEWS = 200000;
+
+  beforeEach(() => {
+    impl["campaign.findMany"] = () => [{ id: "c_spo1", state: "ACTIVE", startDate: new Date("2026-09-01") }];
+    impl["metricDaily.aggregate"] = () => ({ _sum: { views: VIEWS } });
+    /* The overview's aggregates, answered by evaluating their WHERE over the same rows. */
+    impl["campaignOrder.aggregate"] = (a) => ({
+      _sum: { sellPrice: orders.filter((o) => !(a.where.state?.notIn ?? []).includes(o.state)).reduce((n, o) => n + o.sellPrice, 0) },
+    });
+    impl["adSlot.aggregate"] = () => ({ _sum: { soldCents: adSlots.reduce((n, s) => n + (s.soldCents ?? 0), 0) } });
+  });
+
+  it("the rule: live orders' sell price (not CANCELLED / REJECTED) plus ad placements' sold cents", () => {
+    expect(NOT_LIVE_ORDER_STATES).toEqual(["CANCELLED", "REJECTED"]);
+    expect(sponsorSpendCents({ orders, adSlots })).toBe(400000);
+  });
+
+  it("the overview's cost per 1,000 equals the report's media value over the same rows", async () => {
+    const o = await sponsorOverview(mgr, { range: "7d" }, NOW);
+    const report = mediaValueFor({ spend: sponsorSpendCents({ orders, adSlots }), verifiedViews: VIEWS });
+    expect(o.costPer1000Cents).toBe(report.amount);
+    expect(o.costPer1000Cents).toBe(2000);
+    /* contractedCents keeps its meaning: the live orders' sell price alone */
+    expect(o.money!.contractedCents).toBe(300000);
+    expect(of("campaignOrder", "aggregate")[0]!.args.where).toEqual({ campaignId: { in: ["c_spo1"] }, state: { notIn: NOT_LIVE_ORDER_STATES } });
+    expect(of("adSlot", "aggregate")[0]!.args.where).toEqual({ campaignId: { in: ["c_spo1"] } });
+  });
+
+  it("no campaigns: no spend reads, no cost per 1,000", async () => {
+    impl["campaign.findMany"] = () => [];
+    const o = await sponsorOverview(mgr, { range: "7d" }, NOW);
+    expect(o.costPer1000Cents).toBe(0);
+    expect(of("campaignOrder", "aggregate")).toHaveLength(0);
+    expect(of("adSlot", "aggregate")).toHaveLength(0);
   });
 });
 
