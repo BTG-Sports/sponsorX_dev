@@ -25,6 +25,7 @@ import { campaignApprovalLine } from "@/lib/brief-status";
 import { launchLine, sponsorNextStep, sponsorStaffing } from "@/lib/campaign-stage";
 import { FLAG_HINTS, ORDER_COPY } from "@/lib/campaign-ui";
 import { demoState } from "@/lib/demo";
+import { formatCount } from "@/lib/format-count";
 import type { ApiDeliverable } from "@/lib/deliverables-live";
 import { campaignDetailX, sponsor, sponsorCampaigns, sponsorCampaignsX } from "@/lib/fixtures";
 import type { PageInfo, SearchParams } from "@/lib/list-query";
@@ -94,7 +95,6 @@ function campaignStepNow(state: string): number {
   }
 }
 
-const usd = (cents: number) => `$${Math.round(cents / 100).toLocaleString("en-US")}`;
 
 /** No delivery has started before these — the report has nothing to show. */
 const PRE_DELIVERY = new Set(["DRAFT", "STAFFING", "APPROVAL"]);
@@ -234,8 +234,8 @@ function DemoRich({ rich, id }: { rich: DemoRichData; id: string }) {
       )}
       <RosterSection rows={rows} viewsLabel="Views" />
       <p className="text-[10px] leading-relaxed text-faint">
-        Campaign <code className="font-mono">{id}</code> · fixture data. Every figure traces to
-        MetricDaily, RewardEvent, Deliverable or Zoho Books (§22).
+        Campaign <code className="font-mono">{id}</code> · sample data. Every figure comes from
+        your campaign&rsquo;s posts, fan rewards and invoices.
       </p>
     </>
   );
@@ -505,7 +505,7 @@ function Tiles({
   ];
   if (money) {
     const label = money.budgetCents !== undefined ? "Spent of budget" : "Spent";
-    const caption = money.budgetCents !== undefined ? `of ${usd(money.budgetCents)} budget` : money.captioned;
+    const caption = money.budgetCents !== undefined ? `of ${formatCount(money.budgetCents, "usd0")} budget` : money.captioned;
     tiles.push(
       <StadiumTile
         key="money"

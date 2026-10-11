@@ -15,16 +15,11 @@
 
 import { useEffect, useRef } from "react";
 
-export type CountFormat = "int" | "usd" | "usd0" | "pct";
+import { formatCount, type CountFormat } from "@/lib/format-count";
 
-/** cents → "$1,234.56"; "usd0" cents → "$1,234" (rounded, no decimals);
- *  integers → "1,234"; pct → "73%". */
-export function formatCount(value: number, format: CountFormat): string {
-  if (format === "usd") return `$${(value / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  if (format === "usd0") return `$${Math.round(value / 100).toLocaleString("en-US")}`;
-  if (format === "pct") return `${Math.round(value)}%`;
-  return Math.round(value).toLocaleString("en-US");
-}
+/* The formatter lives in a plain module so server components can call it;
+   re-exported here so existing imports keep working. */
+export { formatCount, type CountFormat };
 
 export function ArenaCount({
   value,

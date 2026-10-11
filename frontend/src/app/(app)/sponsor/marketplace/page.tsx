@@ -122,8 +122,19 @@ export default async function MarketplacePage({
   if (demo === "loading") return <StadiumGhost label="Loading packages" tiles={3} />;
   if (demo === "error") throw new Error("Demo error state");
 
+  const sp = await searchParams;
+  /* Flatten to string-only params for the client islands to seed from — the
+     live catalogue too, so a shared ?page=2&size=24 link opens on that page
+     instead of being rewritten back to page one (P1-ART-23 QA). */
+  const initial: CatalogInitial = Object.fromEntries(
+    Object.entries(sp).filter(([, v]) => typeof v === "string") as [
+      string,
+      string,
+    ][],
+  );
+
   const live = demo === null ? await liveCatalogue() : null;
-  if (live) return <LiveMarketplace live={live} />;
+  if (live) return <LiveMarketplace live={live} initial={initial} />;
 
   /* A brand-new sponsor can legitimately have an empty catalogue — the empty
      state says so instead of rendering three blank tabs. */
@@ -140,20 +151,12 @@ export default async function MarketplacePage({
     );
   }
 
-  const sp = await searchParams;
   const active: TabKey = TABS.some((t) => t.key === sp.tab)
     ? (sp.tab as TabKey)
     : "packages";
 
-  /* Flatten to string-only params for the client island to seed from, and
-     preserve the demo param across tab navigation. */
+  /* Preserve the demo param across tab navigation. */
   const demoParam = typeof sp.demo === "string" ? sp.demo : undefined;
-  const initial: CatalogInitial = Object.fromEntries(
-    Object.entries(sp).filter(([, v]) => typeof v === "string") as [
-      string,
-      string,
-    ][],
-  );
   const tabHref = (key: string) =>
     `/sponsor/marketplace?${new URLSearchParams(
       demoParam ? { tab: key, demo: demoParam } : { tab: key },
@@ -185,8 +188,8 @@ export default async function MarketplacePage({
         <>
           <PackagesCatalog initial={initial} demoParam={demoParam} />
           <p className="text-[10px] text-faint">
-            §7&rsquo;s six packages. Phase 1 sponsors request or reserve — there
-            is no self-service checkout until Phase 2 (§17).
+            Our ready-made packages. Pick one and request it — BTG confirms the
+            athletes and the price with you before anything is booked.
           </p>
         </>
       )}
@@ -196,11 +199,8 @@ export default async function MarketplacePage({
         <>
           <AthleteCatalog initial={initial} demoParam={demoParam} />
           <p className="text-[10px] leading-relaxed text-faint">
-            Sponsor prices only. The athlete&rsquo;s own rate
-            (<code className="font-mono">AthleteRate.amount</code>) never reaches
-            this page — that is the field-level rule in guide §04, and it is a
-            §30 acceptance test, not a convention. Follower counts carry their
-            source until accounts are connected (§22).
+            The prices shown are what you pay. Follower counts show where they
+            came from until each athlete connects their accounts.
           </p>
         </>
       )}
@@ -211,11 +211,10 @@ export default async function MarketplacePage({
           <MediaCatalog initial={initial} demoParam={demoParam} />
           <Card className="border-warn/30 bg-warn/8">
             <p className="text-[11px] leading-relaxed text-warn">
-              These are BTG&rsquo;s own media properties, priced on CPM — the
-              pre-v2.0 model. Blueprint v2.0 §1 replaced the owned-audience
-              launch with the micro-NIL athlete network, and §15 says fixed job
-              pricing is what Phase 1 sells while implied CPM is stored for
-              learning. Kept as inventory; no longer the lead product.
+              These are BTG&rsquo;s own media channels, priced per 1,000 people
+              reached. They are still available, but our athlete packages are
+              now the main way to sponsor — each job there has one fixed
+              price.
             </p>
           </Card>
         </>
@@ -225,7 +224,7 @@ export default async function MarketplacePage({
 }
 
 /** The signed-in sponsor's marketplace — real packages, real jobs, real briefs. */
-function LiveMarketplace({ live }: { live: { packages: Pkg[]; jobs: LiveJob[]; fromCents: number } }) {
+function LiveMarketplace({ live, initial }: { live: { packages: Pkg[]; jobs: LiveJob[]; fromCents: number }; initial: CatalogInitial }) {
   return (
     <div className="space-y-6">
       <StadiumHead title="Packages" pill={<StadiumUpdated iso={new Date().toISOString()} />}>
@@ -236,7 +235,7 @@ function LiveMarketplace({ live }: { live: { packages: Pkg[]; jobs: LiveJob[]; f
             screen reader (and this page's own e2e) shouldn't hit two
             same-named headings. */}
         <h2 className="sx-section-title">Ready-made packages</h2>
-        <PackagesCatalog items={live.packages} submit={submitBrief} />
+        <PackagesCatalog items={live.packages} initial={initial} submit={submitBrief} />
       </section>
       <section className="space-y-3">
         <h2 className="sx-section-title">Job types</h2>
@@ -244,7 +243,7 @@ function LiveMarketplace({ live }: { live: { packages: Pkg[]; jobs: LiveJob[]; f
       </section>
       <p className="text-[10px] leading-relaxed text-faint">
         Sponsor prices. A request, not a purchase — BTG matches athletes, checks
-        category conflicts and prices the campaign, then follows up (§17).
+        category conflicts and prices the campaign, then follows up.
       </p>
     </div>
   );

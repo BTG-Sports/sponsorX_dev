@@ -1,10 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { ListSearch, ListFilter, PendingList, ServerList } from "@/components/server-pager";
+import { ListSearch, ListFilter, ServerList } from "@/components/server-pager";
+import { SponsorCampaignTable } from "@/components/sponsor-campaign-table";
 import {
-  StadiumBar,
-  StadiumChip,
   StadiumGhost,
   StadiumHead,
   StadiumPanel,
@@ -12,12 +11,12 @@ import {
   StadiumTiles,
   StadiumUpdated,
 } from "@/components/stadium-stage";
-import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
+import { TabLink, TabStrip } from "@/components/stage-table";
 import { demoState } from "@/lib/demo";
+import { formatCount } from "@/lib/format-count";
 import { DEMO_NOW, demoCampaignPage, demoCampaignSummary, demoRequestPage } from "@/lib/fixtures/sponsor-overview";
 import { textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
-import { isBehind, windowLabel, type ApiCampaign } from "@/lib/sponsor-live";
-import { campaignWord } from "@/lib/sponsor-words";
+import type { ApiCampaign } from "@/lib/sponsor-live";
 import { CAMPAIGN_SORTS, CAMPAIGN_STATE_FILTERS, type CampaignSummary } from "@/server/campaigns";
 import { liveSponsorCampaignPage } from "@/server/sponsor";
 
@@ -47,9 +46,7 @@ import { liveSponsorCampaignPage } from "@/server/sponsor";
    -------------------------------------------------------------------------- */
 
 const PATH = "/sponsor/campaigns";
-const usd = (cents: number) => (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const SORT_WORDS: Record<(typeof CAMPAIGN_SORTS)[number], string> = { name: "Name A–Z", ending: "Ending soonest" };
-const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const STATE_TABS = [
   { key: "all", label: "All", state: "" },
@@ -196,7 +193,7 @@ function Campaigns({
               value={summary.budget}
               format="usd0"
               share={share}
-              caption={summary.contracted !== undefined ? `${usd(summary.contracted)} agreed` : undefined}
+              caption={summary.contracted !== undefined ? `${formatCount(summary.contracted, "usd0")} agreed` : undefined}
               hint="What your campaigns are budgeted for, and how much of it is contracted so far."
               delay={0.28}
             />
@@ -265,15 +262,6 @@ function CampaignList({
       </Link>
     </>
   );
-  const showMoney = rows.some((r) => r.contracted !== undefined);
-  const columns: Column[] = [
-    { key: "campaign", label: "Campaign" },
-    { key: "status", label: "Status" },
-    { key: "posts", label: "Posts delivered" },
-    ...(showMoney ? [{ key: "spent", label: "Spent", num: true }] : []),
-    { key: "ends", label: "Dates" },
-    { key: "act", label: "Results", srOnly: true },
-  ];
 
   const onReview = filters.review === "1";
   const onState = (s: string) => !onReview && filters.state === s;
@@ -315,71 +303,7 @@ function CampaignList({
             tone="sponsor"
           />
         </div>
-        {rows.length === 0 ? (
-          <PendingList>
-            <StadiumPanel>
-              <p className="text-sm text-muted">{empty}</p>
-            </StadiumPanel>
-          </PendingList>
-        ) : (
-          <PagedTable bare tone="sponsor" page={page} noun="Campaigns" filtered={filtered} label="Your campaigns" columns={columns}>
-            {rows.map((c, i) => {
-              const word = campaignWord(c.state);
-              const { done, total: due } = c.deliverables;
-              const behind = isBehind(c, now);
-              return (
-                <Tr key={c.id} i={i}>
-                  <Td>
-                    <Link href={`/sponsor/campaigns/${encodeURIComponent(c.id)}`} className="block rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sponsor">
-                      <Primary sub={`${c.athletes} ${c.athletes === 1 ? "athlete" : "athletes"} · ${c.package?.name ?? "Custom package"}`}>{c.name}</Primary>
-                    </Link>
-                  </Td>
-                  <Td label="Status">
-                    <span className="flex flex-wrap gap-1.5">
-                      <StadiumChip tone={word.tone}>{word.text}</StadiumChip>
-                      {behind && <StadiumChip tone="late">Behind</StadiumChip>}
-                    </span>
-                  </Td>
-                  <Td label="Posts delivered">
-                    {due ? (
-                      <span className="flex items-center gap-2">
-                        <span className="block w-20">
-                          <StadiumBar value={done / due} tone={behind ? "late" : undefined} delay={0.1 + i * 0.03} />
-                        </span>
-                        <span className="text-xs tabular-nums text-muted">
-                          {done}/{due}
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted">None planned yet</span>
-                    )}
-                  </Td>
-                  {showMoney && (
-                    <Td label="Spent" num>
-                      {c.invoiced !== undefined ? (
-                        usd(c.invoiced)
-                      ) : c.contracted !== undefined ? (
-                        <>
-                          {usd(c.contracted)} <span className="text-[10px] text-faint">Agreed</span>
-                        </>
-                      ) : (
-                        "—"
-                      )}
-                    </Td>
-                  )}
-                  <Td label="Dates" muted>
-                    {upper(windowLabel(c, now))}
-                  </Td>
-                  <Td act>
-                    <Link href={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report`} aria-label={`See results for ${c.name}`} className="text-xs font-medium text-sponsor hover:underline">
-                      See results →
-                    </Link>
-                  </Td>
-                </Tr>
-              );
-            })}
-          </PagedTable>
-        )}
+        <SponsorCampaignTable rows={rows} page={page} now={now} filtered={filtered} empty={empty} />
       </ServerList>
     </section>
   );

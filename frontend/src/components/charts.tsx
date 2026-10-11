@@ -692,7 +692,7 @@ export function FunnelSteps({
   return (
     <Reveal className="space-y-0.5">
       {stages.map((s, i) => {
-        const pct = Math.max((s.value / max) * 100, 14);
+        const pct = Math.max((s.value / max) * 100, 2);
         /* A conversion from an empty stage is undefined, not a number — a
            live funnel with no scans yet printed "↓ NaN%" (found by P7-QA-01). */
         const conv = i === 0 ? null : stepConversion(stages[i - 1].value, s.value);
@@ -713,18 +713,34 @@ export function FunnelSteps({
                 )}
               </p>
             )}
-            <div className="flex items-center gap-2">
-              <div
-                className={[
-                  "sx-viz-wipe sx-viz-glint flex h-6 items-center rounded-md px-2.5 text-[10px] font-medium text-cta-ink",
-                  i === last ? "bg-accent" : "bg-primary",
-                ].join(" ")}
-                style={{ width: `${pct}%`, ...vizDelay(i * 0.11) }}
-              >
-                <span className="truncate">
-                  {s.label} · {s.value.toLocaleString("en-US")}
-                </span>
+            {/* The words sit outside the bar: inside it, a short last stage
+                ("Redeemed · 1") was clipped to "Re…" (P1-ART-23 QA). Label
+                above, then the bar with its count at the row's end. */}
+            <p
+              className="sx-viz-fade text-[11px] leading-tight text-muted"
+              style={vizDelay(i * 0.11)}
+            >
+              {s.label}
+            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <div
+                  className={[
+                    "sx-viz-wipe sx-viz-glint h-4 rounded-md",
+                    i === last ? "bg-accent" : "bg-primary",
+                  ].join(" ")}
+                  style={{ width: `${pct}%`, ...vizDelay(i * 0.11) }}
+                />
               </div>
+              <span
+                className={[
+                  "sx-viz-fade shrink-0 text-right text-[11px] font-semibold tabular-nums",
+                  i === last ? "text-accent" : "text-text",
+                ].join(" ")}
+                style={vizDelay(i * 0.11 + 0.15)}
+              >
+                {s.value.toLocaleString("en-US")}
+              </span>
             </div>
           </div>
         );

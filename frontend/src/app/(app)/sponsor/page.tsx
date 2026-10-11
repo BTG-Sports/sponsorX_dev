@@ -3,12 +3,12 @@ import type { ReactNode } from "react";
 
 import { FunnelSteps, HBarList } from "@/components/charts";
 import { ArenaCount } from "@/components/arena-fx";
-import { ListFilter, ListSearch, PendingList, ServerList } from "@/components/server-pager";
+import { ListFilter, ListSearch, ServerList } from "@/components/server-pager";
+import { SponsorCampaignTable } from "@/components/sponsor-campaign-table";
 import { StadiumHint } from "@/components/stadium-hint";
 import {
   StadiumBadge,
   StadiumBar,
-  StadiumChip,
   StadiumDate,
   StadiumGhost,
   StadiumHead,
@@ -22,11 +22,11 @@ import {
   at,
 } from "@/components/stadium-stage";
 import { StadiumTrend } from "@/components/stadium-trend";
-import { PagedTable, Primary, Td, Tr, type Column } from "@/components/stage-table";
 import { demoState } from "@/lib/demo";
+import { formatCount } from "@/lib/format-count";
 import { DEMO_NOW, demoCampaignPage, demoOverview } from "@/lib/fixtures/sponsor-overview";
 import { textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
-import { isBehind, monogramOf, windowLabel, type ApiCampaign } from "@/lib/sponsor-live";
+import { monogramOf, type ApiCampaign } from "@/lib/sponsor-live";
 import { campaignMoney, rangeParam, tickerFacts, type RangeKey, type SponsorOverview } from "@/lib/sponsor-overview-live";
 import { FUNNEL_WORDS, campaignWord, compactNumber, delta } from "@/lib/sponsor-words";
 import { CAMPAIGN_SORTS, CAMPAIGN_STATES } from "@/server/campaigns";
@@ -52,10 +52,8 @@ import { liveSponsorDashboard } from "@/server/sponsor";
    -------------------------------------------------------------------------- */
 
 const PATH = "/sponsor";
-const usd = (cents: number) => (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const PERIOD: Record<RangeKey, string> = { "7d": "vs the 7 days before", "30d": "vs the 30 days before", "90d": "vs the 90 days before", all: "" };
 const SORT_WORDS: Record<(typeof CAMPAIGN_SORTS)[number], string> = { name: "Name A–Z", ending: "Ending soonest" };
-const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default async function SponsorDashboardPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const demo = await demoState(searchParams);
@@ -233,7 +231,7 @@ function Tiles({ o, range }: { o: SponsorOverview; range: RangeKey }) {
           value={money.invoicedCents}
           format="usd0"
           share={money.share}
-          caption={money.invoicedCents ? `All time · ${usd(money.paidCents)} paid · ${usd(money.owedCents)} still to pay` : "No invoices yet · all time"}
+          caption={money.invoicedCents ? `All time · ${formatCount(money.paidCents, "usd0")} paid · ${formatCount(money.owedCents, "usd0")} still to pay` : "No invoices yet · all time"}
           hint="What you've been invoiced so far (all time, not just this period), and how much of it is paid."
           delay={0.34}
         />
@@ -458,15 +456,6 @@ function Campaigns({
   ) : (
     "No campaigns match. Clear the search or filter."
   );
-  const showMoney = rows.some((r) => r.contracted !== undefined);
-  const columns: Column[] = [
-    { key: "campaign", label: "Campaign" },
-    { key: "status", label: "Status" },
-    { key: "posts", label: "Posts delivered" },
-    ...(showMoney ? [{ key: "spent", label: "Spent", num: true }] : []),
-    { key: "ends", label: "Dates" },
-    { key: "act", label: "Results", srOnly: true },
-  ];
   return (
     <section className="sx-stadium-in min-w-0" style={at(0.82)} aria-labelledby="sx-your-campaigns">
       <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -495,71 +484,7 @@ function Campaigns({
             tone="sponsor"
           />
         </div>
-        {rows.length === 0 ? (
-          <PendingList>
-            <StadiumPanel>
-              <p className="text-sm text-muted">{empty}</p>
-            </StadiumPanel>
-          </PendingList>
-        ) : (
-          <PagedTable bare tone="sponsor" page={page} noun="Campaigns" filtered={filtered} label="Your campaigns" columns={columns}>
-            {rows.map((c, i) => {
-              const word = campaignWord(c.state);
-              const { done, total: due } = c.deliverables;
-              const behind = isBehind(c, now);
-              return (
-                <Tr key={c.id} i={i}>
-                  <Td>
-                    <Link href={`/sponsor/campaigns/${encodeURIComponent(c.id)}`} className="block rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sponsor">
-                      <Primary sub={`${c.athletes} ${c.athletes === 1 ? "athlete" : "athletes"} · ${c.package?.name ?? "Custom package"}`}>{c.name}</Primary>
-                    </Link>
-                  </Td>
-                  <Td label="Status">
-                    <span className="flex flex-wrap gap-1.5">
-                      <StadiumChip tone={word.tone}>{word.text}</StadiumChip>
-                      {behind && <StadiumChip tone="late">Behind</StadiumChip>}
-                    </span>
-                  </Td>
-                  <Td label="Posts delivered">
-                    {due ? (
-                      <span className="flex items-center gap-2">
-                        <span className="block w-20">
-                          <StadiumBar value={done / due} tone={behind ? "late" : undefined} delay={0.1 + i * 0.03} />
-                        </span>
-                        <span className="text-xs tabular-nums text-muted">
-                          {done}/{due}
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted">None planned yet</span>
-                    )}
-                  </Td>
-                  {showMoney && (
-                    <Td label="Spent" num>
-                      {c.invoiced !== undefined ? (
-                        usd(c.invoiced)
-                      ) : c.contracted !== undefined ? (
-                        <>
-                          {usd(c.contracted)} <span className="text-[10px] text-faint">Agreed</span>
-                        </>
-                      ) : (
-                        "—"
-                      )}
-                    </Td>
-                  )}
-                  <Td label="Dates" muted>
-                    {upper(windowLabel(c, now))}
-                  </Td>
-                  <Td act>
-                    <Link href={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report`} aria-label={`See results for ${c.name}`} className="text-xs font-medium text-sponsor hover:underline">
-                      See results →
-                    </Link>
-                  </Td>
-                </Tr>
-              );
-            })}
-          </PagedTable>
-        )}
+        <SponsorCampaignTable rows={rows} page={page} now={now} filtered={filtered} empty={empty} />
       </ServerList>
     </section>
   );

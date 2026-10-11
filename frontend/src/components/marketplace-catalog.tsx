@@ -103,6 +103,9 @@ function useCatalog<T>({
       ? Number(initial!.size)
       : DEFAULT_PAGE_SIZE,
   );
+  /* A size the visitor asked for stays in the URL even when it is the
+     default — a shared "?size=12" link shouldn't be rewritten away. */
+  const [sizeAsked, setSizeAsked] = useState(() => SIZE_OPTIONS.some((o) => o.value === initial?.size));
 
   /* Any filter/sort/search change resets to page one — page 4 of a set is
      meaningless once a filter narrows it to two pages. */
@@ -152,13 +155,18 @@ function useCatalog<T>({
   const paged = shown.slice((safePage - 1) * pageSize, safePage * pageSize);
   const changeSize = (v: string) => {
     setPageSize(Number(v));
+    setSizeAsked(true);
     setPage(1);
   };
 
   /* Filters, page and size live in the URL (no navigation) so the view is
-     shareable and survives reload; the active tab is preserved alongside. */
+     shareable and survives reload; the active tab is preserved alongside.
+     Params this catalogue doesn't own are kept as they are — it rewrites
+     only its own keys (P1-ART-23 QA: ?page=2&size=12 came back as
+     ?tab=packages). */
   useEffect(() => {
-    const p = new URLSearchParams();
+    const p = new URLSearchParams(window.location.search);
+    for (const k of ["demo", "tab", "q", "sort", "page", "size", ...filters.map((f) => f.key)]) p.delete(k);
     if (demoParam) p.set("demo", demoParam);
     p.set("tab", tab);
     if (q) p.set("q", q);
@@ -167,7 +175,7 @@ function useCatalog<T>({
     }
     if (sort) p.set("sort", sort);
     if (safePage > 1) p.set("page", String(safePage));
-    if (pageSize !== DEFAULT_PAGE_SIZE) p.set("size", String(pageSize));
+    if (pageSize !== DEFAULT_PAGE_SIZE || sizeAsked) p.set("size", String(pageSize));
     const qs = p.toString();
     const next = qs ? `?${qs}` : "";
     if (next !== window.location.search) {
@@ -178,7 +186,7 @@ function useCatalog<T>({
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, values, sort, safePage, pageSize, demoParam, tab]);
+  }, [q, values, sort, safePage, pageSize, sizeAsked, demoParam, tab]);
 
   const rangeStart = shown.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
   const rangeEnd = Math.min(safePage * pageSize, shown.length);
@@ -693,7 +701,7 @@ export function AthleteCatalog({
                     <p className="mt-0.5 flex items-center gap-1 text-[10px] text-faint">
                       followers{" "}
                       <MiniChip kind={a.verified ? "ver" : "warn"}>
-                        {a.verified ? "VER" : "SELF"}
+                        {a.verified ? "Checked" : "Self-reported"}
                       </MiniChip>
                     </p>
                   </div>
@@ -708,7 +716,7 @@ export function AthleteCatalog({
                       {a.onTimeRate}%
                     </p>
                     <p className="mt-0.5 flex items-center gap-1 text-[10px] text-faint">
-                      on-time <MiniChip kind="ver">VER</MiniChip>
+                      on-time <MiniChip kind="ver">Checked</MiniChip>
                     </p>
                   </div>
                 </div>
@@ -789,7 +797,7 @@ const MEDIA_FILTERS: CatalogFilter<Media>[] = [
 
 const MEDIA_SORTS = [
   { value: "views", label: "Est. views · high to low" },
-  { value: "cpm", label: "CPM · low to high" },
+  { value: "cpm", label: "Cost per 1,000 reached · low to high" },
   { value: "priceAsc", label: "Price · low to high" },
   { value: "priceDesc", label: "Price · high to low" },
   { value: "name", label: "Name · A–Z" },
@@ -861,14 +869,14 @@ export function MediaCatalog({
                       {m.estViews}
                     </p>
                     <p className="mt-0.5 flex items-center gap-1 text-[10px] text-faint">
-                      est. views <MiniChip kind="est" />
+                      est. views <MiniChip kind="est">Estimate</MiniChip>
                     </p>
                   </div>
                   <div className="px-3 py-2.5">
                     <p className="text-sm font-semibold tabular-nums tracking-tight">
                       ${m.cpm}
                     </p>
-                    <p className="mt-0.5 text-[10px] text-faint">CPM</p>
+                    <p className="mt-0.5 text-[10px] text-faint">per 1,000 people reached</p>
                   </div>
                   <div className="px-3 py-2.5">
                     <p className="text-sm font-semibold tabular-nums tracking-tight">

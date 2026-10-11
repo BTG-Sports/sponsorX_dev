@@ -8,6 +8,7 @@ import { FunnelSteps } from "@/components/charts";
 import { StadiumHint } from "@/components/stadium-hint";
 import {
   StadiumChip,
+  StadiumDate,
   StadiumGhost,
   StadiumHead,
   StadiumPanel,
@@ -23,6 +24,7 @@ import { StadiumTrend } from "@/components/stadium-trend";
 import { resolveBack } from "@/lib/back";
 import { buildCampaignRoiReport } from "@/lib/campaign-report-data";
 import { demoState } from "@/lib/demo";
+import { formatCount } from "@/lib/format-count";
 import { campaignDetailX, sponsorCampaigns } from "@/lib/fixtures";
 import type { SearchParams } from "@/lib/list-query";
 import type { ApiSponsorReport, Sourced } from "@/lib/report-live";
@@ -88,7 +90,6 @@ async function liveReport(
 }
 
 const fmtDay = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-const usdWhole = (cents: number) => `$${Math.round(cents / 100).toLocaleString("en-US")}`;
 
 /* ---------------------------------------------------------- the page shell */
 
@@ -296,7 +297,7 @@ function mediaValueHint(r: ApiSponsorReport): string {
     return "What you've spent divided by the people your posts reached that we could check, times 1,000. Numbers athletes reported themselves aren't counted.";
   }
   const spendCents = Math.round((r.mediaValue.amount * views) / 1000);
-  return `What you've spent (${usdWhole(spendCents)}) divided by the people your posts reached that we could check (${views.toLocaleString("en-US")}), times 1,000. Numbers athletes reported themselves aren't counted.`;
+  return `What you've spent (${formatCount(spendCents, "usd0")}) divided by the people your posts reached that we could check (${views.toLocaleString("en-US")}), times 1,000. Numbers athletes reported themselves aren't counted.`;
 }
 
 function Tiles({ r }: { r: ApiSponsorReport }) {
@@ -567,7 +568,7 @@ function PostsGallery({ assets }: { assets: ApiSponsorReport["deliveredAssets"] 
           {published.map((a) => (
             <StadiumPanel key={a.deliverableId} className="min-w-0">
               <p className="truncate text-[13px] font-semibold text-text">{a.title}</p>
-              {a.publishedAt && <p className="mt-1 text-[11px] text-muted">{fmtDay(a.publishedAt)}</p>}
+              {a.publishedAt && <p className="mt-1 text-[11px] text-muted"><StadiumDate iso={a.publishedAt} format="date" /></p>}
               <a href={a.publishedUrl!} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-[11px] font-medium text-sponsor hover:underline">
                 Open post ↗
               </a>
@@ -656,7 +657,7 @@ function demoReportFor(id: string): { report: ApiSponsorReport; overview: Report
   const amount = verifiedViews > 0 ? Math.round((base.spend / verifiedViews) * 1000) : 0;
   const basis =
     verifiedViews > 0
-      ? `${usdWhole(base.spend)} of spend against ${verifiedViews.toLocaleString("en-US")} people reached from checked sources only. Self-reported figures are excluded.`
+      ? `${formatCount(base.spend, "usd0")} of spend against ${verifiedViews.toLocaleString("en-US")} people reached from checked sources only. Self-reported figures are excluded.`
       : "No checked reach was recorded, so this can't be worked out. Self-reported and estimated figures are shown separately above and are deliberately not used here.";
 
   const deliveredAssets = rich.topContent.map((c, i) => ({

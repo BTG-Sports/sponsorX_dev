@@ -9,7 +9,7 @@ import { ShopCancelOrder } from "@/components/shop-checkout";
 import { SponsorOrderDelivery } from "@/components/sponsor-order-delivery";
 import { SponsorOrderStatus } from "@/components/sponsor-order-status";
 import { StatePill, StatusBox } from "@/components/order-bits";
-import { StadiumChip, StadiumHead, StadiumPanel, StadiumSteps, StadiumTile, StadiumTiles } from "@/components/stadium-stage";
+import { StadiumChip, StadiumHead, StadiumPanel, StadiumSteps, StadiumTile, StadiumTiles, StadiumUpdated } from "@/components/stadium-stage";
 import { sellerCancelledBanner } from "@/lib/cancellations-live";
 import { sponsorBadge, sponsorStatus } from "@/lib/order-automation-live";
 import { refundWords } from "@/lib/refunds-live";
@@ -133,7 +133,9 @@ export default async function OrderPage({
     <div className="space-y-6">
       {back}
 
-      <StadiumHead title={`Order ${orderRef(o.id)}`}>
+      {/* Read time = this render: the order, payment and deliveries were all
+          read just above, the same "Updated" the other sponsor pages show. */}
+      <StadiumHead title={`Order ${orderRef(o.id)}`} pill={<StadiumUpdated iso={now.toISOString()} />}>
         <p className="mt-1 text-xs text-muted">
           Placed {fmtStamp(o.createdAt)}
           {o.contractedAt ? ` · confirmed ${fmtStamp(o.contractedAt)}` : ""}

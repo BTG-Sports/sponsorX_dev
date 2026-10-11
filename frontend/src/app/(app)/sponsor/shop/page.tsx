@@ -201,7 +201,7 @@ function Shop({
             <StadiumTile
               label="Cart total"
               value={cart.totalCents}
-              format="usd0"
+              format="usd"
               href="/sponsor/cart"
               hint="What everything in your cart adds up to, before fees."
               delay={0.22}

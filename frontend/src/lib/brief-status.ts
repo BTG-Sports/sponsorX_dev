@@ -40,31 +40,6 @@ export type ApiSponsorRequest = {
   status?: BriefStatus;
 };
 
-export type RequestRow = {
-  id: string;
-  title: string;
-  submitted: string;
-  budget: string;
-  status: BriefStatus;
-  tone: ReturnType<typeof statusTone>;
-};
-
-const shortDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-
-export function toRequestRow(b: ApiSponsorRequest): RequestRow {
-  const status = requestStatus(b);
-  const whole = b.budget % 100 === 0;
-  return {
-    id: b.id,
-    title: b.package?.name ?? "Custom request",
-    submitted: shortDate(b.createdAt),
-    budget: `$${(b.budget / 100).toLocaleString("en-US", { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 })}`,
-    status,
-    tone: statusTone(status.key),
-  };
-}
-
 /** The requests still waiting to become a campaign — the campaign list shows the rest. */
 export function openRequests(rows: ApiSponsorRequest[]): ApiSponsorRequest[] {
   return rows.filter((b) => !b.campaign && b.state !== "CLOSED" && b.state !== "CAMPAIGN_CREATED");

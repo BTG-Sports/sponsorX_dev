@@ -15,6 +15,7 @@ import {
 } from "@/components/stadium-stage";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
 import { demoState } from "@/lib/demo";
+import { formatCount } from "@/lib/format-count";
 import { demoRequestPage } from "@/lib/fixtures/sponsor-overview";
 import { textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
 import { REQUEST_STEPS, requestStepNow, type ApiSponsorRequest } from "@/lib/brief-status";
@@ -40,7 +41,6 @@ import { BRIEF_STATE_FILTERS, liveSponsorRequestPage, type BriefCounts } from "@
    -------------------------------------------------------------------------- */
 
 const PATH = "/sponsor/requests";
-const usd = (cents: number) => (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 const TABS = [
   { key: "all", label: "All", state: "" },
@@ -190,7 +190,7 @@ function Requests({
                     <StadiumChip tone={word.tone}>{word.text}</StadiumChip>
                   </Td>
                   <Td label="Sent" muted><StadiumDate iso={r.createdAt} format="date" /></Td>
-                  <Td label="Budget" num>{usd(r.budget)}</Td>
+                  <Td label="Budget" num>{formatCount(r.budget, "usd0")}</Td>
                   <Td label="Progress">
                     {now >= 0 ? (
                       <StadiumSteps steps={REQUEST_STEPS} now={now} label={`Where ${r.objective} stands`} />

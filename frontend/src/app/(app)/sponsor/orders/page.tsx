@@ -100,8 +100,8 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
             <StadiumTile
               label="Total spent"
               value={summary.spentCents}
-              format="usd0"
-              hint="What you've paid across every order, once it's approved or further along."
+              format="usd"
+              hint="What you've paid across every order, once it's paid."
               delay={0.28}
             />
           </StadiumTiles>

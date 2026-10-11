@@ -9,7 +9,7 @@
    -------------------------------------------------------------------------- */
 
 import { isSafeLocalPath } from "@/lib/safe-path";
-import { fmtDay, fmtStamp, usd, type OrderState } from "@/lib/shop-live";
+import { fmtStamp, usd } from "@/lib/shop-live";
 
 /* ------------------------------------------------------------------ shapes */
 
@@ -217,40 +217,6 @@ export type TrackerStep = {
   note: string;
   tone: Tone;
 };
-
-type TrackerOrder = { state: OrderState | string; createdAt: string; decidedAt: string | null; contractedAt: string | null };
-
-/**
- * Order placed → Approved → Payment → In delivery → Complete, from the
- * order's own state and dates. Null for a cancelled or refunded order — the
- * tracker would claim a path the order left.
- */
-export function orderTracker(o: TrackerOrder, view: PaymentView, payment: ApiOrderPayment | null): TrackerStep[] | null {
-  if (o.state === "CANCELLED" || o.state === "REFUNDED") return null;
-  const approvedAt = o.decidedAt ?? o.contractedAt;
-  const latest = payment?.latest ?? null;
-  const paidAt = latest?.state === "SUCCEEDED" ? latest.updatedAt : null;
-  const pending = o.state === "PENDING_APPROVAL" || o.state === "PENDING_SELLER";
-  const paid = PAID_OR_LATER.has(o.state);
-  const complete = o.state === "FULFILLED" || o.state === "CLOSED";
-
-  const done = (label: TrackerStep["label"], at: string | null): TrackerStep => ({ label, state: "done", note: at ? fmtDay(at) : "", tone: "accent" });
-  const todo = (label: TrackerStep["label"]): TrackerStep => ({ label, state: "todo", note: "", tone: "neutral" });
-
-  const payNote = view.kind === "processing" ? "Confirming…" : view.kind === "failed" ? "Failed · try again" : "Due now";
-  const payTone: Tone = view.kind === "processing" ? "primary" : view.kind === "failed" ? "danger" : "warn";
-
-  return [
-    done("Order placed", o.createdAt),
-    /* 2S4-BE-09 — the seller answers first when a listing asks; BTG only above the sponsor's limit; else policy approves it at once. */
-    pending
-      ? { label: "Approved", state: "current", note: o.state === "PENDING_SELLER" ? "Waiting for the seller" : "Waiting for BTG", tone: "warn" }
-      : done("Approved", approvedAt),
-    paid ? done("Payment", paidAt) : pending ? todo("Payment") : { label: "Payment", state: "current", note: payNote, tone: payTone },
-    complete ? done("In delivery", null) : paid ? { label: "In delivery", state: "current", note: "Now", tone: "accent" } : todo("In delivery"),
-    complete ? done("Complete", null) : todo("Complete"),
-  ];
-}
 
 /** How long the page keeps refreshing itself while the provider confirms. */
 export const POLL_MS = 3000;

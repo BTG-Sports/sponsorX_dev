@@ -13,7 +13,7 @@ import { fetchCampaign, fetchCampaignPage, fetchCampaignSummary, type CampaignSu
 import { apiListQuery, apiListQueryFor, pageOrAll, textParam, type ListKeys, type PageInfo, type SearchParams } from "@/lib/list-query";
 import type { ApiCampaignArtworkSlot } from "@/lib/edition-artwork-live";
 import type { ApiDeliverable } from "@/lib/deliverables-live";
-import { openRequests, type ApiSponsorRequest } from "@/lib/brief-status";
+import type { ApiSponsorRequest } from "@/lib/brief-status";
 import type { RangeKey, SponsorOverview } from "@/lib/sponsor-overview-live";
 import { fetchSponsorOverview } from "@/server/sponsor-overview";
 import type { ApiOrder } from "@/lib/shop-live";
@@ -27,7 +27,7 @@ async function isSponsor(): Promise<boolean> {
  *  API (?page ?size ?q ?state ?sort), plus the unfiltered summary for the
  *  header and (P1-ART-23) the open-request count for the "Your requests"
  *  link tile — a minimal `/briefs?size=1` read just for its `counts`, never
- *  the capped `liveSponsorRequests` list (that would undercount past 20).
+ *  a capped list of briefs (that would undercount past 20).
  *  `requestsOpen` is undefined when the role can't read briefs at all. Null
  *  for the demo. */
 export async function liveSponsorCampaignPage(
@@ -63,19 +63,6 @@ export async function liveSponsorDashboard(
   if (!(await isSponsor())) return null;
   const [overview, pg] = await Promise.all([fetchSponsorOverview(range), fetchCampaignPage(sp)]);
   return { overview, rows: pg?.campaigns ?? [], page: pg?.page ?? { page: 1, size: 12, total: 0, pages: 1 } };
-}
-
-/**
- * P4-FE-09 — the sponsor's own requests still waiting to become a campaign
- * (GET /briefs, own scope, newest first), each with the API's sponsor-safe
- * status. Never the reasons a request is held: the API doesn't send them to
- * a sponsor. A role that can't read briefs gets none, not an error.
- */
-export async function liveSponsorRequests(): Promise<ApiSponsorRequest[]> {
-  const res = await apiFetch("/briefs?page=1&size=20&state=DRAFT,QUALIFIED,APPROVED&sort=newest");
-  if (res.status === 403) return [];
-  if (!res.ok) throw new Error(`Requests unavailable (${res.status}).`);
-  return openRequests(((await res.json()) as { briefs: ApiSponsorRequest[] }).briefs);
 }
 
 /** GET /briefs's tab counts, over the caller's whole scope — never the page

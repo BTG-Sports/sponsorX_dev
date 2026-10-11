@@ -17,14 +17,56 @@ const METRICS: { key: Metric; label: string; unit: string }[] = [
   { key: "redeems", label: "Fans who redeemed", unit: "redeemed" },
 ];
 
-/** Pure: the line and area paths for `values` in a w×h box, `pad` at the top. */
+const r1 = (n: number) => Math.round(n * 10) / 10;
+
+/**
+ * Pure: the line and area paths for `values` in a w×h box, `pad` at the top.
+ * The line is a monotone cubic (Fritsch–Carlson): smooth through every
+ * point, but each segment stays between its two endpoints — it never dips
+ * below zero or bumps above the day's real peak, which a plain smooth curve
+ * would invent.
+ */
 export function trendPath(values: number[], w: number, h: number, pad: number) {
   const max = Math.max(0, ...values);
   const x = (i: number) => (values.length === 1 ? w / 2 : Math.round((i / (values.length - 1)) * w));
   const y = (v: number) => (max === 0 ? h : Math.round(h - (v / max) * (h - pad)));
-  const pts = values.map((v, i) => `${x(i)},${y(v)}`);
-  const line = pts.map((p, i) => `${i ? "L" : "M"}${p}`).join(" ");
-  const area = values.length > 1 ? `${line} L${x(values.length - 1)},${h} L0,${h} Z` : "";
+  const px = values.map((_, i) => x(i));
+  const py = values.map((v) => y(v));
+  const n = values.length;
+
+  // secant slopes, then tangents: zero at a peak/valley, averaged elsewhere
+  const d = px.slice(0, -1).map((_, k) => (py[k + 1]! - py[k]!) / (px[k + 1]! - px[k]! || 1));
+  const m = py.map((_, k) => {
+    if (k === 0) return d[0] ?? 0;
+    if (k === n - 1) return d[n - 2] ?? 0;
+    return d[k - 1]! * d[k]! <= 0 ? 0 : (d[k - 1]! + d[k]!) / 2;
+  });
+  // Fritsch–Carlson: cap the tangents so no segment overshoots
+  d.forEach((dk, k) => {
+    if (dk === 0) {
+      m[k] = 0;
+      m[k + 1] = 0;
+      return;
+    }
+    const a = m[k]! / dk;
+    const b = m[k + 1]! / dk;
+    const s = a * a + b * b;
+    if (s > 9) {
+      const t = 3 / Math.sqrt(s);
+      m[k] = t * a * dk;
+      m[k + 1] = t * b * dk;
+    }
+  });
+
+  let line = n ? `M${px[0]},${py[0]}` : "";
+  for (let k = 0; k < n - 1; k++) {
+    const third = (px[k + 1]! - px[k]!) / 3;
+    line +=
+      ` C${r1(px[k]! + third)},${r1(py[k]! + m[k]! * third)}` +
+      ` ${r1(px[k + 1]! - third)},${r1(py[k + 1]! - m[k + 1]! * third)}` +
+      ` ${px[k + 1]},${py[k + 1]}`;
+  }
+  const area = n > 1 ? `${line} L${px[n - 1]},${h} L0,${h} Z` : "";
   return { line, area, max, x, y };
 }
 

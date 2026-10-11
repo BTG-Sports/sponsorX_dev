@@ -222,9 +222,12 @@ export function fmtDay(iso: string): string {
   return DAY_FMT.format(new Date(iso));
 }
 
-/** "Oct 1, 3:42 PM UTC" — a moment (expiry, placed, decided). */
+/** "Oct 1, 3:42 pm UTC" — a moment (expiry, placed, decided). Lowercase
+ *  am/pm, the house style of every other timestamp a sponsor reads (the
+ *  order's own "Pay by Oct 14, 11:41 am UTC" comes from order-automation's
+ *  `stamp`) — one order page printed both "AM" and "am" (P1-ART-23 QA). */
 export function fmtStamp(iso: string): string {
-  return STAMP_FMT.format(new Date(iso));
+  return STAMP_FMT.format(new Date(iso)).replace(/\s[AP]M\s/, (m) => m.toLowerCase());
 }
 
 /** "Oct 1 – Oct 31, 2026", "from Oct 1, 2026", "any dates". */

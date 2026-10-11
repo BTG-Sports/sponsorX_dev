@@ -17,7 +17,7 @@ import { resolveBack } from "@/lib/back";
    dates, usage, approval, status and availability — all on the page. Base
    rate — what the athlete is paid — is absent by design (guide §04). The
    "implied CPM" figure is kept (§15 stores it for learning) but in plain
-   words — "What you pay per 1,000 people reached" — with the jargon and the
+   words — "Estimated cost per 1,000 people reached" — with the jargon and the
    §15 note behind a hint instead of printed on screen.
    -------------------------------------------------------------------------- */
 
@@ -52,7 +52,7 @@ export default async function InventoryDetailPage({
           it must say what it is to a signed-in sponsor. */}
       <BlockedNotice>
         Demo data — a sample media-property listing. BTG&rsquo;s own media
-        properties aren&rsquo;t bookable in Phase 1; browse the packages and
+        properties aren&rsquo;t bookable yet; browse the packages and
         job types on the{" "}
         <Link href="/sponsor/marketplace" className="underline">marketplace</Link>.
       </BlockedNotice>
@@ -76,10 +76,10 @@ export default async function InventoryDetailPage({
             delay={0.1}
           />
           <StadiumTile
-            label="What you pay per 1,000 people reached"
+            label="Estimated cost per 1,000 people reached"
             value={it.cpm * 100}
             format="usd0"
-            hint="The estimated reach divided into the price, times 1,000 — a quick way to compare listings. Stored for learning, not a guarantee."
+            hint="The estimated reach divided into the price, times 1,000 — a quick way to compare listings. An estimate, not a guarantee."
             delay={0.16}
           />
           <StadiumTile
@@ -151,8 +151,8 @@ export default async function InventoryDetailPage({
             </p>
             <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
               Request this and BTG matches the athletes, checks category
-              conflicts and sends one invoice. No checkout — Phase 1 is a
-              managed marketplace (§17).
+              conflicts and sends one invoice. There is no checkout — BTG
+              handles the booking with you.
             </p>
             <div className="mt-4 space-y-2">
               <button
@@ -164,7 +164,7 @@ export default async function InventoryDetailPage({
               </button>
               <button
                 type="button"
-                title="Opens a conversation with BTG — not wired"
+                title="Coming soon: a conversation with BTG"
                 className="w-full rounded-lg border border-line py-2.5 text-xs font-medium text-text transition-colors hover:bg-surface-2"
               >
                 Talk to BTG
@@ -175,8 +175,7 @@ export default async function InventoryDetailPage({
       </div>
 
       <p className="text-[10px] text-faint">
-        Fixture data. The athlete&rsquo;s base rate does not appear on this
-        page (guide §04).
+        Sample data. The prices shown are what you pay.
       </p>
     </div>
   );
