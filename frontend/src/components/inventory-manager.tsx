@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { ArenaChip, ArenaPanel, ArenaSection, at } from "@/components/arena-stage";
 import { InventoryPauseToggle } from "@/components/inventory-controls";
 import { EmptyState } from "@/components/states";
 import { Badge, Card } from "@/components/ui";
@@ -17,6 +18,13 @@ import type { InventoryRow } from "@/lib/inventory-live";
    the team view) shows its owner and no pause control; the API refuses the
    write regardless. There is no delete: the API has no delete route, so an
    item is paused instead.
+
+   P1-ART-22 (2026-10-11) — `stage="arena"` draws the athlete's list on the
+   Arena (components/arena-stage.tsx): the page owns the title row (an
+   ArenaHead with the KPI plates), so the manager renders no <h1>; the list
+   is a section eyebrow and one plate per item, sliding in one after the
+   other and lit under the pointer. The property portal's view, without the
+   flag, is unchanged. Visual only — same rows, same slots, same actions.
    -------------------------------------------------------------------------- */
 
 type Result = { ok: true; id: string } | { ok: false; message: string };
@@ -33,6 +41,7 @@ export function InventoryManager({
   empty,
   pagerTop,
   pagerBottom,
+  stage,
   children,
 }: {
   title: string;
@@ -49,48 +58,67 @@ export function InventoryManager({
   empty: { title: string; hint: string };
   pagerTop?: ReactNode;
   pagerBottom?: ReactNode;
+  /** "arena": the athlete portal's skin — the page draws the title row; the
+   *  rows are plates. Omitted: the plain card list (the property portal). */
+  stage?: "arena";
   /** Sections after the list (e.g. restrictions). */
   children?: ReactNode;
 }) {
+  const arena = stage === "arena";
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-          <p className="mt-1 text-xs text-muted">{intro}</p>
-          {note && <p className="mt-1 text-[11px] text-faint">{note}</p>}
+      {!arena && (
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+            <p className="mt-1 text-xs text-muted">{intro}</p>
+            {note && <p className="mt-1 text-[11px] text-faint">{note}</p>}
+          </div>
         </div>
-      </div>
+      )}
 
       {create}
 
       {rows.length === 0 && !pagerTop ? (
         <EmptyState mark="inbox" title={empty.title} hint={empty.hint} />
       ) : (
-        <section>
-          {pagerTop}
+        <section aria-label={title}>
+          {arena && <ArenaSection title={title} hint={note} delay={0.32} />}
+          {pagerTop && <div className="sx-arena-in" style={at(0.34)}>{pagerTop}</div>}
           {pagerTop && <div className="mt-3" />}
-          <Card className="p-0">
-            {rows.length === 0 ? (
-              <p className="px-4 py-6 text-center text-xs text-muted">{empty.title}</p>
+          {arena ? (
+            rows.length === 0 ? (
+              <ArenaPanel tone="ink" delay={0.36}>
+                <p className="text-sm font-semibold">{empty.title}</p>
+                <p className="mt-1 text-xs text-muted">{empty.hint}</p>
+              </ArenaPanel>
             ) : (
-              <ul className="divide-y divide-line-soft">
-                {rows.map((r) => (
-                  <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs">
-                    <Link href={`${hrefBase}/${encodeURIComponent(r.id)}`} className="group min-w-0 flex-1">
+              <ul className="grid gap-2.5">
+                {rows.map((r, i) => (
+                  <li
+                    key={r.id}
+                    data-spot=""
+                    className="sx-arena-plate sx-arena-in flex flex-wrap items-center gap-x-4 gap-y-2 py-3.5 pl-7 pr-4"
+                    style={at(0.38 + i * 0.04, { "--tone": r.active ? "var(--ar)" : "var(--sx-text-faint, var(--sx-line))" } as React.CSSProperties)}
+                  >
+                    <span aria-hidden="true" className="sx-arena-shine" />
+                    <Link
+                      href={`${hrefBase}/${encodeURIComponent(r.id)}`}
+                      className="group relative min-w-0 flex-1 basis-56 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-athlete/50"
+                    >
                       <span className="flex flex-wrap items-center gap-2">
-                        <span className="truncate font-medium group-hover:underline">{r.title}</span>
-                        {r.isPackage && <Badge tone="primary">Package</Badge>}
-                        {showOwner && r.owner && <Badge tone="neutral">{r.owner}</Badge>}
+                        <span className="truncate text-[13px] font-semibold text-text transition-colors group-hover:text-athlete">{r.title}</span>
+                        {r.isPackage && <ArenaChip tone="blue">Package</ArenaChip>}
+                        {showOwner && r.owner && <ArenaChip>{r.owner}</ArenaChip>}
                       </span>
                       <span className="mt-0.5 block text-[11px] text-muted">
                         {r.kind} · {r.qty}
                         {r.window ? ` · ${r.window}` : ""}
                       </span>
                     </Link>
-                    <span className="flex items-center gap-3">
-                      <span className="font-semibold tabular-nums">{r.price}</span>
-                      <Badge tone={r.active ? "accent" : "neutral"}>{r.status}</Badge>
+                    <span className="relative ml-auto flex flex-wrap items-center justify-end gap-3">
+                      <span className={`sx-arena-num text-base leading-none ${r.active ? "text-text" : "text-muted"}`}>{r.price}</span>
+                      <ArenaChip tone={r.active ? "win" : "ink"}>{r.status}</ArenaChip>
                       {r.writable ? (
                         <InventoryPauseToggle id={r.id} active={r.active} setActive={setActive} compact />
                       ) : (
@@ -100,8 +128,41 @@ export function InventoryManager({
                   </li>
                 ))}
               </ul>
-            )}
-          </Card>
+            )
+          ) : (
+            <Card className="p-0">
+              {rows.length === 0 ? (
+                <p className="px-4 py-6 text-center text-xs text-muted">{empty.title}</p>
+              ) : (
+                <ul className="divide-y divide-line-soft">
+                  {rows.map((r) => (
+                    <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs">
+                      <Link href={`${hrefBase}/${encodeURIComponent(r.id)}`} className="group min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="truncate font-medium group-hover:underline">{r.title}</span>
+                          {r.isPackage && <Badge tone="primary">Package</Badge>}
+                          {showOwner && r.owner && <Badge tone="neutral">{r.owner}</Badge>}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] text-muted">
+                          {r.kind} · {r.qty}
+                          {r.window ? ` · ${r.window}` : ""}
+                        </span>
+                      </Link>
+                      <span className="flex items-center gap-3">
+                        <span className="font-semibold tabular-nums">{r.price}</span>
+                        <Badge tone={r.active ? "accent" : "neutral"}>{r.status}</Badge>
+                        {r.writable ? (
+                          <InventoryPauseToggle id={r.id} active={r.active} setActive={setActive} compact />
+                        ) : (
+                          <span className="text-[10px] text-faint">Read only</span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )}
           {pagerBottom}
         </section>
       )}

@@ -87,6 +87,7 @@ import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
+import { readPage, type PageRequest } from "../lib/paging";
 import { unitsTaken } from "./availability";
 import { convertReservation, lockItems } from "./reservation";
 import { acceptAgreementIn, AgreementTextChangedError } from "./agreement";
@@ -267,6 +268,65 @@ export async function listMarketplaceOrders(actor: Actor, state?: MarketplaceOrd
     select: SELECT, orderBy: { createdAt: "asc" },
   });
   return views(rows);
+}
+
+/* P1-ART-23 — the sponsor's Orders desk: tabs in plain words, each a group of
+   states. `all` first; the counts are over the caller's scope under ?q. */
+export const ORDER_TABS = [
+  { key: "all", label: "All", states: null },
+  { key: "waiting", label: "Waiting for approval", states: ["PENDING_SELLER", "PENDING_APPROVAL"] },
+  { key: "to_pay", label: "To pay", states: ["APPROVED", "AWAITING_PAYMENT"] },
+  { key: "in_progress", label: "In progress", states: ["PAID", "IN_DELIVERY"] },
+  { key: "delivered", label: "Delivered", states: ["FULFILLED", "CLOSED"] },
+  { key: "cancelled", label: "Cancelled", states: ["CANCELLED", "REFUNDED"] },
+] as const satisfies readonly { key: string; label: string; states: readonly MarketplaceOrderState[] | null }[];
+const SPENT_STATES: MarketplaceOrderState[] = ["PAID", "IN_DELIVERY", "FULFILLED", "CLOSED"];
+
+function tabCounts(byState: { state: string; _count: { _all: number } }[]) {
+  return ORDER_TABS.map((t) => ({
+    key: t.key,
+    label: t.label,
+    count: byState.filter((r) => !t.states || (t.states as readonly string[]).includes(r.state)).reduce((n, r) => n + r._count._all, 0),
+  }));
+}
+
+export async function pageMarketplaceOrders(actor: Actor, req: PageRequest, opts: { tab?: string; q?: string }) {
+  const scope = whereFor(actor, "marketplaceOrder", "read");
+  const search: Prisma.MarketplaceOrderWhereInput[] = opts.q
+    ? [{ OR: [{ id: { contains: opts.q, mode: "insensitive" } }, { lines: { some: { title: { contains: opts.q, mode: "insensitive" } } } }] }]
+    : [];
+  const base: Prisma.MarketplaceOrderWhereInput[] = [scope, ...search];
+  const byState = await prisma.marketplaceOrder.groupBy({
+    /* tenant-scope: whereFor(actor, "marketplaceOrder", "read") is the first AND term. */
+    by: ["state"], where: { AND: base }, _count: { _all: true },
+  });
+  const tab = ORDER_TABS.find((t) => t.key === opts.tab) ?? ORDER_TABS[0];
+  const where: Prisma.MarketplaceOrderWhereInput = { AND: [...base, ...(tab.states ? [{ state: { in: [...tab.states] } }] : [])] };
+  const { rows, page } = await readPage(
+    req,
+    () => prisma.marketplaceOrder.count({ /* tenant-scope: whereFor(actor, "marketplaceOrder", "read") is the first AND term. */ where }),
+    (skip, take) =>
+      prisma.marketplaceOrder.findMany({
+        /* tenant-scope: whereFor(actor, "marketplaceOrder", "read") is the first AND term. */
+        where, select: SELECT, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip, take,
+      }),
+  );
+  return { orders: await views(rows), page, tabs: tabCounts(byState) };
+}
+
+export async function marketplaceOrderSummary(actor: Actor) {
+  const scope = whereFor(actor, "marketplaceOrder", "read");
+  const [byState, spent] = await Promise.all([
+    prisma.marketplaceOrder.groupBy({
+      /* tenant-scope: whereFor(actor, "marketplaceOrder", "read") is the first AND term. */
+      by: ["state"], where: { AND: [scope] }, _count: { _all: true },
+    }),
+    prisma.marketplaceOrder.aggregate({
+      /* tenant-scope: whereFor(actor, "marketplaceOrder", "read") is the first AND term. */
+      where: { AND: [scope, { state: { in: SPENT_STATES } }] }, _sum: { totalCents: true },
+    }),
+  ]);
+  return { byTab: Object.fromEntries(tabCounts(byState).map((t) => [t.key, t.count])), spentCents: spent._sum.totalCents ?? 0 };
 }
 
 export async function getMarketplaceOrder(actor: Actor, id: string) {

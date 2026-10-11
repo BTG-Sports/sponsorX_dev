@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type CSSProperties } from "react";
 
 import { CLOSE_DIALOG } from "@/lib/account-live";
 import { useDialogFocus } from "./use-dialog-focus";
@@ -15,21 +15,28 @@ import { useDialogFocus } from "./use-dialog-focus";
    person to the public reactivation page (their login no longer works, so
    the way back is the emailed link); a refusal comes back as words under
    the buttons and nothing has changed.
+
+   P1-ART-22 (2026-10-11): an optional `skin` lets the athlete's settings
+   page draw the row as an arena plate (classes, a style, the pointer
+   spotlight flag); without it the row is unchanged for the other portals.
    -------------------------------------------------------------------------- */
 
 export type CloseResult = { ok: false; message: string };
 type CloseAction = () => Promise<CloseResult>;
 
-export function CloseAccount({ line, action }: { line: string; action: CloseAction }) {
+export type PlateSkin = { className: string; style?: CSSProperties; spot?: boolean };
+
+export function CloseAccount({ line, action, skin }: { line: string; action: CloseAction; skin?: PlateSkin }) {
   const [open, setOpen] = useState(false);
+  const frame = skin?.className ?? "rounded-xl border border-danger/35 bg-surface px-4.5 py-4";
   return (
-    <section aria-label="Close account" className="flex flex-wrap items-center gap-3 rounded-xl border border-danger/35 bg-surface px-4.5 py-4">
+    <section aria-label="Close account" data-spot={skin?.spot ? "" : undefined} style={skin?.style} className={`flex flex-wrap items-center gap-3 ${frame}`}>
       <span className="min-w-0 grow basis-56">
         <strong className="block text-sm font-semibold">Close account</strong>
         <span className="text-xs leading-relaxed text-muted">{line}</span>
       </span>
       <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog"
-        className="min-h-11 rounded-lg border border-danger/50 px-4 text-xs font-semibold text-danger outline-none hover:bg-danger/10 focus-visible:ring-2 focus-visible:ring-danger">
+        className={`min-h-11 border border-danger/50 px-4 text-xs font-semibold text-danger outline-none hover:bg-danger/10 focus-visible:ring-2 focus-visible:ring-danger ${skin ? "rounded-full" : "rounded-lg"}`}>
         Close account
       </button>
       {open && <CloseDialog onClose={() => setOpen(false)} action={action} />}

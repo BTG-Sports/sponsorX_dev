@@ -86,7 +86,8 @@ export function InventoryNewItem({
     );
   }
   return (
-    <div className="rounded-xl border border-line bg-surface p-5">
+    /* P1-ART-22: w-full so the open form spans its slot wherever the page puts it. */
+    <div className="w-full rounded-xl border border-line bg-surface p-5 text-left">
       <h2 className="mb-3 text-sm font-semibold tracking-tight">New item</h2>
       <InventoryForm mode="create" create={create} components={components} savedHref={savedHref} onCancel={() => setOpen(false)} />
     </div>

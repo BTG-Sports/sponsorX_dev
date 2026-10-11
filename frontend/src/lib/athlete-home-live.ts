@@ -81,7 +81,8 @@ export type AthleteHome = {
   invites: HomeInvite[];
   dueCount: number;
   deliverables: HomeDeliverable[];
-  earnings: { label: string; amount: string; hint: string; tone: "neutral" | "primary" | "accent" }[];
+  /** `cents` is the figure itself (P1-ART-22: the arena's tiles count it up); `amount` the words. */
+  earnings: { label: string; amount: string; cents: number; hint: string; tone: "neutral" | "primary" | "accent" }[];
   hasEarnings: boolean;
 };
 
@@ -162,10 +163,10 @@ export function buildHome(input: {
       };
     }),
     earnings: [
-      { label: "Pending", amount: usd(b.PENDING.amount), hint: "Work in progress", tone: "neutral" },
-      { label: "Eligible", amount: usd(b.ELIGIBLE.amount), hint: "Deliverable verified", tone: "primary" },
-      { label: "Approved", amount: usd(b.APPROVED_FOR_PAYOUT.amount), hint: "Approved for payout", tone: "primary" },
-      { label: "Paid", amount: usd(b.PAID.amount), hint: "Paid by BTG Finance", tone: "accent" },
+      { label: "Pending", amount: usd(b.PENDING.amount), cents: b.PENDING.amount, hint: "Work in progress", tone: "neutral" },
+      { label: "Eligible", amount: usd(b.ELIGIBLE.amount), cents: b.ELIGIBLE.amount, hint: "Deliverable verified", tone: "primary" },
+      { label: "Approved", amount: usd(b.APPROVED_FOR_PAYOUT.amount), cents: b.APPROVED_FOR_PAYOUT.amount, hint: "Approved for payout", tone: "primary" },
+      { label: "Paid", amount: usd(b.PAID.amount), cents: b.PAID.amount, hint: "Paid by BTG Finance", tone: "accent" },
     ],
     hasEarnings: input.earningsSummary ? input.earningsSummary.count > 0 : input.earnings.length > 0,
   };
@@ -187,7 +188,8 @@ export type ApiSellerSummary = {
   };
 };
 
-export type HomeTile = { key: string; label: string; value: string; sub: string; href: string; tone: "neutral" | "primary" | "accent" | "warn" };
+/** `n` + `format` are the figure itself (P1-ART-22: the arena counts it up); `value` the words. */
+export type HomeTile = { key: string; label: string; value: string; n: number; format: "int" | "usd"; sub: string; href: string; tone: "neutral" | "primary" | "accent" | "warn" };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -195,19 +197,19 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 export function shopTiles(s: ApiSellerSummary): HomeTile[] {
   return [
     {
-      key: "items", label: "Items for sale", value: String(s.items.active), href: "/athlete/inventory", tone: "neutral",
+      key: "items", label: "Items for sale", value: String(s.items.active), n: s.items.active, format: "int", href: "/athlete/inventory", tone: "neutral",
       sub: s.items.total === 0 ? "No items yet" : s.items.total === s.items.active ? `${plural(s.items.total, "item")} in all` : `${s.items.total} in all · ${s.items.total - s.items.active} switched off`,
     },
     {
-      key: "live", label: "Listings live", value: String(s.listings.live), href: "/athlete/listings", tone: s.listings.live > 0 ? "accent" : "neutral",
+      key: "live", label: "Listings live", value: String(s.listings.live), n: s.listings.live, format: "int", href: "/athlete/listings", tone: s.listings.live > 0 ? "accent" : "neutral",
       sub: s.listings.total === 0 ? "No listings yet" : `${plural(s.listings.draft, "draft")} · ${s.listings.paused} paused`,
     },
     {
-      key: "held", label: "Held for BTG", value: String(s.listings.held), href: "/athlete/listings", tone: s.listings.held > 0 ? "warn" : "neutral",
+      key: "held", label: "Held for BTG", value: String(s.listings.held), n: s.listings.held, format: "int", href: "/athlete/listings", tone: s.listings.held > 0 ? "warn" : "neutral",
       sub: s.listings.held > 0 ? "BTG is taking a look" : "Nothing waiting on BTG",
     },
     {
-      key: "sold", label: "Units sold", value: String(s.sold.units), href: "/athlete/sales", tone: s.sold.units > 0 ? "primary" : "neutral",
+      key: "sold", label: "Units sold", value: String(s.sold.units), n: s.sold.units, format: "int", href: "/athlete/sales", tone: s.sold.units > 0 ? "primary" : "neutral",
       sub: s.awaitingPayment.lines > 0
         ? `${plural(s.sold.lines, "order line")} paid · ${plural(s.awaitingPayment.units, "unit")} awaiting payment`
         : `${plural(s.sold.lines, "order line")} paid for`,
@@ -253,17 +255,17 @@ export function openOffers(offers: ApiOffer[], now: Date): { count: number; rows
 export function payoutStatusTiles(me: Pick<ApiMyPayouts, "totals" | "byState" | "canRequest">): HomeTile[] {
   const tiles: HomeTile[] = [
     {
-      key: "available", label: "Available to pay out", value: cents(me.totals.requestableCents), href: "/athlete/money", tone: me.canRequest ? "accent" : "neutral",
-      sub: me.canRequest ? "Ready to request" : me.totals.requestableCents > 0 ? "See My money for what's left to do" : "Nothing ready yet",
+      key: "available", label: "Available to pay out", value: cents(me.totals.requestableCents), n: me.totals.requestableCents, format: "usd", href: "/athlete/money", tone: me.canRequest ? "accent" : "neutral",
+      sub: me.canRequest ? "Ready to request" : me.totals.requestableCents > 0 ? "See Payouts for what's left to do" : "Nothing ready yet",
     },
   ];
   const b = me.byState;
   if (!b) return tiles;
   const onTheWay = { count: b.APPROVED.count + b.SENDING.count, amountCents: b.APPROVED.amountCents + b.SENDING.amountCents };
   tiles.push(
-    { key: "requested", label: "Requested", value: cents(b.REQUESTED.amountCents), href: "/athlete/money", tone: b.REQUESTED.count > 0 ? "primary" : "neutral", sub: b.REQUESTED.count > 0 ? `${plural(b.REQUESTED.count, "payout")} waiting for BTG` : "None waiting for BTG" },
-    { key: "approved", label: "Approved", value: cents(onTheWay.amountCents), href: "/athlete/money", tone: onTheWay.count > 0 ? "primary" : "neutral", sub: onTheWay.count > 0 ? `${plural(onTheWay.count, "payout")} on the way` : "None on the way" },
-    { key: "paid", label: "Paid out", value: cents(b.PAID.amountCents), href: "/athlete/money", tone: b.PAID.count > 0 ? "accent" : "neutral", sub: b.PAID.count > 0 ? `${plural(b.PAID.count, "payout")} · confirmed by the payment provider` : "No payouts yet" },
+    { key: "requested", label: "Requested", value: cents(b.REQUESTED.amountCents), n: b.REQUESTED.amountCents, format: "usd", href: "/athlete/money", tone: b.REQUESTED.count > 0 ? "primary" : "neutral", sub: b.REQUESTED.count > 0 ? `${plural(b.REQUESTED.count, "payout")} waiting for BTG` : "None waiting for BTG" },
+    { key: "approved", label: "Approved", value: cents(onTheWay.amountCents), n: onTheWay.amountCents, format: "usd", href: "/athlete/money", tone: onTheWay.count > 0 ? "primary" : "neutral", sub: onTheWay.count > 0 ? `${plural(onTheWay.count, "payout")} on the way` : "None on the way" },
+    { key: "paid", label: "Paid out", value: cents(b.PAID.amountCents), n: b.PAID.amountCents, format: "usd", href: "/athlete/money", tone: b.PAID.count > 0 ? "accent" : "neutral", sub: b.PAID.count > 0 ? `${plural(b.PAID.count, "payout")} · confirmed by the payment provider` : "No payouts yet" },
   );
   return tiles;
 }

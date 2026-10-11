@@ -1,204 +1,324 @@
-import { Badge, BlockedNotice, SectionHeading } from "@/components/ui";
-import { toRequestRow } from "@/lib/brief-status";
-import { EmptyState, SkeletonPage } from "@/components/states";
+import Link from "next/link";
+import type { ReactNode } from "react";
+
+import { ListSearch, ListFilter, ServerList } from "@/components/server-pager";
+import { SponsorCampaignTable } from "@/components/sponsor-campaign-table";
 import {
-  SponsorCampaignsList,
-  type CampaignRow,
-} from "@/components/sponsor-campaigns-list";
+  StadiumGhost,
+  StadiumHead,
+  StadiumPanel,
+  StadiumTile,
+  StadiumTiles,
+  StadiumUpdated,
+} from "@/components/stadium-stage";
+import { TabLink, TabStrip } from "@/components/stage-table";
 import { demoState } from "@/lib/demo";
-import { sponsor, sponsorCampaigns, sponsorCampaignsX } from "@/lib/fixtures";
-import { toCampaignRow } from "@/lib/sponsor-live";
-import { textParam } from "@/lib/list-query";
-import { SponsorCampaignsServer } from "@/components/sponsor-campaigns-server";
-import { CAMPAIGN_SORTS, CAMPAIGN_STATES } from "@/server/campaigns";
-import { liveSponsorCampaignPage, liveSponsorRequests } from "@/server/sponsor";
+import { formatCount } from "@/lib/format-count";
+import { DEMO_NOW, demoCampaignPage, demoCampaignSummary, demoRequestPage } from "@/lib/fixtures/sponsor-overview";
+import { textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
+import type { ApiCampaign } from "@/lib/sponsor-live";
+import { CAMPAIGN_SORTS, CAMPAIGN_STATE_FILTERS, type CampaignSummary } from "@/server/campaigns";
+import { liveSponsorCampaignPage } from "@/server/sponsor";
 
 /* --------------------------------------------------------------------------
-   Sponsor Campaigns list — §9, sponsor portal (2026-09-15).
+   Sponsor Campaigns — §9, on the Stadium Board (P1-ART-23 Task 9, spec
+   2026-10-11 §7.2). The sponsor's whole portfolio: every campaign BTG has
+   staffed from an approved request, searchable, filterable by tab and
+   server-paged.
 
-   The nav's "Campaigns" item lands here, on the sponsor's own portfolio,
-   rather than jumping straight into one campaign's ROI report. Each card opens
-   that campaign's dashboard at /sponsor/campaigns/[id], which links on to the
-   ROI report. Owner-framed: this is the sponsor's roster of campaigns, not an
-   operator's workspace — no "New campaign" launcher (Phase 1 is managed; BTG
-   staff create campaigns from submitted briefs).
+   Every tile and tab count is the API's (memory: stats-must-be-retrievable):
+     GET /campaigns/summary                 Running, Needs your OK, Behind
+                                             schedule, Total budget, the tab
+                                             counts
+     GET /briefs?page=1&size=1              the "Your requests" open count
+     GET /campaigns?page&size&q&state&sort  the paged table (one page)
+   Nothing is summed from the rows on screen. Money is in cents.
 
-   The server page shapes the rows (source of truth sponsorCampaigns c1–c5, so
-   the list agrees with the dashboard's "N campaigns") and hands them to the
-   SponsorCampaignsList client island, which owns instant search / status /
-   pacing filters / sort, seeded from and synced to the URL.
+   The "Posts to review" 5th tab (extra to the spec, P1-ART-23 Task 9: the
+   dashboard's "Posts waiting for your OK" link lands here) sets ?review=1,
+   which fetchCampaignPage already forwards as the API's ?review=true. It
+   carries no count — that would need its own /sponsor/overview read, which
+   this page has no other reason to make.
 
-   LIVE (P2-FE-01). A signed-in sponsor gets their own campaigns from
-   GET /campaigns — the same read, scope and money gating as the dashboard —
-   as the same island. Views stay the ROI report's, so a live card shows "—"
-   rather than a number nobody measured. Anyone else, or any ?demo= state,
-   keeps the fixture portfolio.
-
-   SERVER-PAGED (2026-09-29). The live list is one page from GET /campaigns
-   (?page ?size ?q ?state ?sort, done in the database) plus the summary's
-   unfiltered total for the header — the browser never holds the portfolio.
+   LIVE vs DEMO. A signed-in sponsor sees their own campaigns. Anyone else,
+   and ?demo=empty|loading|error, gets the fixture deck under a "Sample
+   data" pill — the same components, the same layout.
    -------------------------------------------------------------------------- */
 
-export default async function SponsorCampaignsPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+const PATH = "/sponsor/campaigns";
+const SORT_WORDS: Record<(typeof CAMPAIGN_SORTS)[number], string> = { name: "Name A–Z", ending: "Ending soonest" };
+
+const STATE_TABS = [
+  { key: "all", label: "All", state: "" },
+  { key: "running", label: "Running", state: "ACTIVE" },
+  { key: "approval", label: "Needs your OK", state: "APPROVAL" },
+  { key: "finished", label: "Finished", state: "COMPLETED,CANCELLED" },
+] as const;
+
+export default async function SponsorCampaignsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const demo = await demoState(searchParams);
-  if (demo === "loading") return <SkeletonPage />;
+  if (demo === "loading") return <StadiumGhost label="Loading your campaigns" tiles={5} />;
   if (demo === "error") throw new Error("Demo error state");
 
   const sp = await searchParams;
-  const one = (v: string | string[] | undefined) =>
-    typeof v === "string" ? v : "";
-  const initial = {
-    q: one(sp.q),
-    status: one(sp.status),
-    pace: one(sp.pace),
-    sort: one(sp.sort),
-    page: one(sp.page),
-    size: one(sp.size),
+  const filters = {
+    q: textParam(sp, "q"),
+    state: textParam(sp, "state", CAMPAIGN_STATE_FILTERS),
+    sort: textParam(sp, "sort", CAMPAIGN_SORTS),
+    review: textParam(sp, "review", ["1"]),
   };
 
   const live = demo === null ? await liveSponsorCampaignPage(sp) : null;
   if (live) {
     const now = new Date();
-    const liveRows = live.rows.map((c) => toCampaignRow(c, now));
-    const total = live.summary.total;
-    /* P4-FE-09 — requests not yet a campaign, each with its plain status. */
-    const requests = (await liveSponsorRequests()).map(toRequestRow);
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Campaigns</h1>
-          <p className="mt-1 text-xs text-muted">
-            {live.rows[0]?.sponsorName ? `${live.rows[0].sponsorName} · ` : ""}
-            {total} {total === 1 ? "campaign" : "campaigns"} · pick
-            one for delivery, roster and its ROI report
-          </p>
-        </div>
-        {requests.length > 0 && (
-          <section aria-label="Your requests">
-            <SectionHeading title="Your requests" hint="Requests that aren't a campaign yet." />
-            <ul className="space-y-2">
-              {requests.map((r) => (
-                <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line bg-surface px-4 py-3">
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold">{r.title}</span>
-                    <span className="block text-[11px] text-muted">
-                      {r.budget} · sent {r.submitted}
-                    </span>
-                  </span>
-                  <span className="flex min-w-0 basis-full items-center gap-2 sm:basis-auto">
-                    <Badge tone={r.tone}>{r.status.key === "APPROVED" ? "Approved" : "In review"}</Badge>
-                    <span className="min-w-0 text-xs text-text [overflow-wrap:anywhere]">{r.status.text}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-        {total === 0 ? (
-          <EmptyState
-            mark="chart"
-            title="No campaigns yet"
-            hint="Your campaigns appear here as soon as your first request is approved."
-            action={{ label: "Browse the marketplace", href: "/sponsor/marketplace" }}
-          />
-        ) : (
-          <SponsorCampaignsServer
-            rows={liveRows}
-            page={live.page}
-            q={textParam(sp, "q")}
-            state={textParam(sp, "state", CAMPAIGN_STATES)}
-            sort={textParam(sp, "sort", CAMPAIGN_SORTS)}
-          />
-        )}
-        <p className="text-[10px] text-faint">
-          Campaign state, package, athletes and delivery are from Postgres;
-          spend is your contracted Campaign Orders. Views and engagement are in
-          each campaign&rsquo;s ROI report. Pacing compares delivery progress
-          against elapsed campaign time — flagging under-delivery is your BTG
-          campaign manager&rsquo;s job (§9.9).
-        </p>
-      </div>
+      <Campaigns
+        sp={sp}
+        filters={filters}
+        summary={live.summary}
+        requestsOpen={live.requestsOpen}
+        rows={live.rows}
+        page={live.page}
+        now={now}
+        updatedAt={now.toISOString()}
+        sample={false}
+      />
     );
   }
 
-  const heading = (
-    <div>
-      <h1 className="text-xl font-semibold tracking-tight">Campaigns</h1>
-      {demo === "empty" ? (
-        <p className="mt-1 text-xs text-muted">{sponsor.name}</p>
-      ) : (
-        <p className="mt-1 text-xs text-muted">
-          {sponsor.name} · {sponsorCampaigns.length} campaigns · pick one for
-          delivery, roster and its ROI report
-        </p>
-      )}
-    </div>
+  const empty = demo === "empty";
+  const list = empty ? { campaigns: [], page: { page: 1, size: 12, total: 0, pages: 1 } } : demoCampaignPage(sp, filters);
+  const summary = demoCampaignSummary();
+  /* The same open-request count the demo Requests page's own tiles show
+     (DRAFT + QUALIFIED + APPROVED), not a number invented for this page. */
+  const requestsOpen = empty ? 0 : (() => {
+    const { counts } = demoRequestPage(sp, { q: "", state: "" });
+    return (counts.DRAFT ?? 0) + (counts.QUALIFIED ?? 0) + (counts.APPROVED ?? 0);
+  })();
+  return (
+    <Campaigns
+      sp={sp}
+      filters={filters}
+      summary={empty ? { ...summary, total: 0, byState: {}, active: 0, behind: 0 } : summary}
+      requestsOpen={requestsOpen}
+      rows={list.campaigns}
+      page={list.page}
+      now={DEMO_NOW}
+      updatedAt={DEMO_NOW.toISOString()}
+      sample
+    />
+  );
+}
+
+/* ------------------------------------------------------------- the page */
+
+function Campaigns({
+  sp, filters, summary, requestsOpen, rows, page, now, updatedAt, sample,
+}: {
+  sp: SearchParams;
+  filters: { q: string; state: string; sort: string; review: string };
+  summary: CampaignSummary;
+  requestsOpen?: number;
+  rows: ApiCampaign[];
+  page: PageInfo;
+  now: Date;
+  updatedAt: string;
+  sample: boolean;
+}) {
+  const pill = sample ? "Sample data" : <StadiumUpdated iso={updatedAt} />;
+  const newRequest = (
+    <Link href="/sponsor/marketplace" className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold">
+      + New request
+    </Link>
   );
 
-  /* Brand-new sponsor tenant: no brief matched yet — no portfolio to list. */
-  if (demo === "empty") {
+  /* A brand-new sponsor: no campaign yet — the next step, not a wall of zeros. */
+  if (summary.total === 0) {
     return (
-      <div className="space-y-5">
-        {heading}
-        <EmptyState
-          mark="chart"
-          title="No campaigns yet"
-          hint="Your campaigns appear here once BTG matches your first brief."
-          action={{ label: "Browse the marketplace", href: "/sponsor/marketplace" }}
-        />
+      <div className="space-y-6">
+        <StadiumHead title="Your campaigns" pill={pill} actions={newRequest} />
+        <StadiumPanel delay={0.1} className="text-center">
+          <p className="text-base font-semibold text-text">No campaigns yet</p>
+          <p className="mx-auto mt-1.5 max-w-md text-sm text-muted">
+            Pick a package, tell us what you&rsquo;re after, and BTG will match you with athletes. Your campaigns show up here as soon as the first one is staffed.
+          </p>
+          {requestsOpen ? (
+            <p className="mt-3 text-sm">
+              <Link href="/sponsor/requests" className="font-medium text-sponsor hover:underline">
+                You have {requestsOpen} {requestsOpen === 1 ? "request" : "requests"} being matched → See requests
+              </Link>
+            </p>
+          ) : null}
+          <Link href="/sponsor/marketplace" className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-xs font-semibold">
+            Browse packages to start one →
+          </Link>
+        </StadiumPanel>
       </div>
     );
   }
 
-  const rows: CampaignRow[] = sponsorCampaigns.map((c) => {
-    const x = sponsorCampaignsX[c.id];
-    const [done, total] = c.deliverables;
-    return {
-      id: c.id,
-      name: c.name,
-      pkg: c.pkg,
-      athletes: c.athletes,
-      done,
-      total,
-      pct: total ? Math.round((done / total) * 100) : 0,
-      spend: c.spend,
-      views: x.views,
-      monogram: x.monogram,
-      endsIn: x.endsIn,
-      state: c.state,
-      behind: x.pacing === "BEHIND",
-    };
-  });
+  const approval = summary.byState.APPROVAL ?? 0;
+  const finished = (summary.byState.COMPLETED ?? 0) + (summary.byState.CANCELLED ?? 0);
+  const share = summary.budget && summary.contracted !== undefined && summary.budget > 0 ? summary.contracted / summary.budget : undefined;
 
   return (
     <div className="space-y-6">
-      {heading}
+      <StadiumHead title="Your campaigns" pill={pill} actions={newRequest}>
+        <StadiumTiles cols={5}>
+          <StadiumTile
+            label="Running"
+            value={summary.active}
+            href={tabHref(sp, "ACTIVE")}
+            hint="Campaigns currently live."
+            delay={0.1}
+          />
+          <StadiumTile
+            label="Needs your OK"
+            value={approval}
+            tone={approval > 0 ? "you" : undefined}
+            href={tabHref(sp, "APPROVAL")}
+            hint="Campaigns waiting for a decision from you."
+            delay={0.16}
+          />
+          <StadiumTile
+            label="Behind schedule"
+            value={summary.behind}
+            tone={summary.behind > 0 ? "late" : undefined}
+            hint="Active campaigns whose posting has fallen behind their own calendar."
+            delay={0.22}
+          />
+          {summary.budget !== undefined ? (
+            <StadiumTile
+              label="Total budget"
+              value={summary.budget}
+              format="usd0"
+              share={share}
+              caption={summary.contracted !== undefined ? `${formatCount(summary.contracted, "usd0")} agreed` : undefined}
+              hint="What your campaigns are budgeted for, and how much of it is contracted so far."
+              delay={0.28}
+            />
+          ) : (
+            <StadiumTile
+              label="Athletes"
+              value={summary.athletes}
+              hint="Athletes on your campaigns."
+              delay={0.28}
+            />
+          )}
+          {requestsOpen !== undefined && (
+            <StadiumTile
+              label="Your requests"
+              value={requestsOpen}
+              caption="in progress"
+              href="/sponsor/requests"
+              hint="Requests BTG is still matching or pricing — not a campaign yet."
+              delay={0.34}
+            />
+          )}
+        </StadiumTiles>
+      </StadiumHead>
 
-      {/* P7-QA-02: no live read here yet (P2-FE-01) — a signed-in sponsor
-          would otherwise take this sample portfolio for their own. */}
-      {!demo && (
-        <BlockedNotice>
-          Demo data — this list is a sample portfolio, not your campaigns. Your
-          real campaigns, spend and invoices are on the{" "}
-          <a href="/sponsor" className="underline">Dashboard</a>.
-        </BlockedNotice>
-      )}
-
-      <SponsorCampaignsList
+      <CampaignList
+        sp={sp}
+        filters={filters}
+        running={summary.active}
+        approval={approval}
+        finished={finished}
         rows={rows}
-        demoParam={one(sp.demo) || undefined}
-        initial={initial}
+        page={page}
+        now={now}
+        total={summary.total}
       />
-
-      <p className="text-[10px] text-faint">
-        Fixture data. Pacing compares delivery progress against elapsed campaign
-        time — flagging under-delivery is your BTG campaign manager&rsquo;s job
-        (§9.9), surfaced here so you never have to discover it.
-      </p>
     </div>
   );
+}
+
+/* ------------------------------------------------------------ campaigns */
+
+function CampaignList({
+  sp, filters, running, approval, finished, rows, page, now, total,
+}: {
+  sp: SearchParams;
+  filters: { q: string; state: string; sort: string; review: string };
+  running: number;
+  approval: number;
+  finished: number;
+  rows: ApiCampaign[];
+  page: PageInfo;
+  now: Date;
+  total: number;
+}) {
+  const filtered = Boolean(filters.q || filters.state || filters.review);
+  const outOfRange = page.page > page.pages;
+  const empty: ReactNode = outOfRange ? (
+    "No campaigns on this page. Go back to the first page to see them."
+  ) : filtered ? (
+    "No campaigns match. Clear the search or try another tab."
+  ) : (
+    <>
+      No campaigns yet.{" "}
+      <Link href="/sponsor/marketplace" className="font-medium text-sponsor hover:underline">
+        Browse packages to start one →
+      </Link>
+    </>
+  );
+
+  const onReview = filters.review === "1";
+  const onState = (s: string) => !onReview && filters.state === s;
+
+  return (
+    <section className="min-w-0" aria-labelledby="sx-your-campaigns">
+      <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 id="sx-your-campaigns" className="sx-section-title">Your campaigns</h2>
+        <span className="text-xs text-muted">{total.toLocaleString("en-US")} in all</span>
+      </div>
+      <ServerList>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <TabStrip label="Campaign status">
+            {STATE_TABS.map((t) => (
+              <TabLink
+                key={t.key}
+                href={tabHref(sp, t.state)}
+                on={onState(t.state)}
+                count={t.key === "all" ? total : t.key === "running" ? running : t.key === "approval" ? approval : finished}
+              >
+                {t.label}
+              </TabLink>
+            ))}
+            <TabLink href={tabHref(sp, "", "1")} on={onReview}>
+              Posts to review
+            </TabLink>
+          </TabStrip>
+        </div>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="w-full sm:w-64">
+            <ListSearch initial={filters.q} label="Search your campaigns" placeholder="Search by campaign name" tone="sponsor" />
+          </div>
+          <ListFilter
+            param="sort"
+            value={filters.sort}
+            label="Order"
+            allLabel="Newest first"
+            options={CAMPAIGN_SORTS.map((s) => ({ value: s, label: SORT_WORDS[s] }))}
+            tone="sponsor"
+          />
+        </div>
+        <SponsorCampaignTable rows={rows} page={page} now={now} filtered={filtered} empty={empty} />
+      </ServerList>
+    </section>
+  );
+}
+
+/** A tab's href: keep every other param, drop the page, set `state` / `review`. */
+function tabHref(sp: SearchParams, state: string, review?: string): string {
+  const u = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) {
+    if (k === "page" || k === "state" || k === "review") continue;
+    const val = Array.isArray(v) ? v[0] : v;
+    if (typeof val === "string" && val) u.set(k, val);
+  }
+  if (state) u.set("state", state);
+  if (review) u.set("review", review);
+  const s = u.toString();
+  return s ? `${PATH}?${s}` : PATH;
 }

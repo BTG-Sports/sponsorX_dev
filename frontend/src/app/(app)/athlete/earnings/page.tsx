@@ -1,6 +1,8 @@
-import { Card, SectionHeading, Badge } from "@/components/ui";
+import type { CSSProperties } from "react";
+
+import { ArenaChip, ArenaHead, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
 import { AreaChart } from "@/components/charts";
-import { HeroBand, MiniChip } from "@/components/hero";
+import { MiniChip } from "@/components/hero";
 import { ActivityExplorer, ServerActivityExplorer } from "@/components/activity-explorer";
 import { ExportReport } from "@/components/export-report";
 import { EmptyState, SkeletonPage } from "@/components/states";
@@ -17,6 +19,7 @@ import {
   type ApiEarningsSummary,
   type ApiPage,
 } from "@/lib/earnings-live";
+import type { EarningState } from "@/lib/fixtures";
 import { pageParams, type SearchParams } from "@/lib/list-query";
 import { apiFetch, fetchActor } from "@/server/api";
 import {
@@ -73,6 +76,17 @@ import {
    GET /earnings/summary (aggregated in Postgres over the athlete's whole
    scope), and Recent activity is one page of GET /earnings?page= with the
    explorer's search / status / type / date filters applied in the query.
+
+   P1-ART-22 (2026-10-11) — redrawn on the Arena (components/arena-stage.tsx)
+   as a dashboard, the hero gone: a small title with the provenance pill and
+   one lede, then the money journey as KPI plates — career (when the summary
+   carries it; the fixture's canonical total in demo mode), in review,
+   cleared, payout approved, paid — in cents with `format="usd"`, each from
+   the summary's byState. The paid-by-month AreaChart stays (real data) on a
+   plate beside the "on the way" and verified-deliverables lines; the held
+   strip is a danger plate; Recent activity and the trust bar are unchanged
+   in substance. The reads, the demo/fixture branches and the export are as
+   they were.
    -------------------------------------------------------------------------- */
 
 type LiveEarnings = { summary: ApiEarningsSummary; rows: ApiEarning[]; page: ApiPage; year: number };
@@ -109,6 +123,24 @@ const fmtUsd = (c: number) => {
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+const TITLE = "Earnings";
+const LEDE = "Every dollar from delivered work to payout — reviewed, cleared, approved, paid.";
+
+/** Each journey plate's tone once it holds money; empty plates stay ink. */
+const STAGE_TONE: Partial<Record<EarningState, ArenaTone>> = {
+  PENDING: "ink",
+  ELIGIBLE: "blue",
+  APPROVED_FOR_PAYOUT: "blue",
+  PAID: "win",
+};
+/** The plate caption's second half — JOURNEY's blurb, short enough for one line. */
+const STAGE_SHORT: Partial<Record<EarningState, string>> = {
+  PENDING: "proof being checked",
+  ELIGIBLE: "queued for finance",
+  APPROVED_FOR_PAYOUT: "next payout run",
+  PAID: "already sent your way",
+};
+
 export default async function AthleteEarningsPage({
   searchParams,
 }: {
@@ -118,22 +150,16 @@ export default async function AthleteEarningsPage({
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
 
-  const heading = (
-    <div>
-      <h1 className="text-xl font-semibold tracking-tight">Earnings</h1>
-      <p className="mt-1 text-xs text-muted">
-        Every dollar from delivered work to payout — in one place.
-      </p>
-    </div>
-  );
-
   const sp = await searchParams;
   const live = demo === null ? await liveEarnings(sp) : null;
+  const now = new Date();
+  const readAt = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const pill = live ? `Postgres · read ${readAt}` : "Sample statement";
 
   if (demo === "empty" || (live && live.summary.count === 0)) {
     return (
       <div className="space-y-6">
-        {heading}
+        <ArenaHead title={TITLE} pill={pill} lede={LEDE} />
         <EmptyState
           mark="clock"
           title="No earnings yet"
@@ -152,11 +178,15 @@ export default async function AthleteEarningsPage({
     : earningItems
         .filter((e) => e.athlete === athlete.displayName)
         .sort((a, b) => when(b.updatedAt) - when(a.updatedAt));
-  const liveCareer = live
-    ? (live.summary.career ?? { raised: 0, paid: 0, onTheWay: 0 })
-    : null;
+  /* Career: the summary's own figure when it carries one; the fixture's
+     canonical total in demo mode; otherwise no plate — nothing is invented. */
+  const liveCareer = live ? (live.summary.career ?? null) : null;
+  const career = live
+    ? liveCareer && { cents: liveCareer.raised, caption: `${money(liveCareer.paid)} already paid` }
+    : { cents: athleteCareer.careerEarningsCents, caption: "across campaigns, to date" };
+  const onTheWay = live ? (liveCareer?.onTheWay ?? null) : athleteCareer.approvedCents;
   const liveBuckets = live ? summaryBuckets(live.summary) : null;
-  const year = live?.year ?? new Date().getUTCFullYear();
+  const year = live?.year ?? now.getUTCFullYear();
   const verifiedDeliverables = live?.summary.deliverables.verified ?? 0;
   const totalDeliverables = live?.summary.deliverables.total ?? 0;
 
@@ -173,253 +203,206 @@ export default async function AthleteEarningsPage({
   // Monthly earnings trend (Σ Earning by month — Postgres). Live: payouts
   // by the month they were PAID, this year, through this month.
   const series = live
-    ? (live.summary.paidByMonth?.months ?? Array.from({ length: 12 }, () => 0)).slice(0, new Date().getUTCMonth() + 1)
+    ? (live.summary.paidByMonth?.months ?? Array.from({ length: 12 }, () => 0)).slice(0, now.getUTCMonth() + 1)
     : athleteEarningsTrend;
   const trendPoints = series.map((a, i) => ({
     label: MONTH_LABELS[i] ?? "",
     a,
   }));
   const trendAvgCents = Math.round(series.reduce((s, v) => s + v, 0) / Math.max(1, series.length));
+  const orders = (n: number) => `${n} ${n === 1 ? "order" : "orders"}`;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* -------------------------------------------------------- headline */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {heading}
-        {/* Client-side export of the athlete's own statement — same model
-            the page draws; §19's render worker takes over generation later. */}
-        {!live && (
-          <ExportReport
-            payload={{
-              kind: "athlete-earnings",
-              report: buildAthleteEarningsReport(),
-            }}
-          />
-        )}
-      </div>
+      <ArenaHead
+        title={TITLE}
+        pill={pill}
+        lede={LEDE}
+        actions={
+          /* Client-side export of the athlete's own statement — same model
+             the page draws; §19's render worker takes over generation later. */
+          !live ? (
+            <ExportReport
+              payload={{
+                kind: "athlete-earnings",
+                report: buildAthleteEarningsReport(),
+              }}
+            />
+          ) : undefined
+        }
+      >
+        {/* The money journey as KPI plates: career, then the four §21 stages
+            left to right. Cents in, dollars out; every figure is the summary's. */}
+        <ArenaTiles cols={career ? 5 : 4}>
+          {career && (
+            <ArenaTile
+              label="Career"
+              value={career.cents}
+              format="usd"
+              caption={career.caption}
+              tone={career.cents ? "win" : "ink"}
+              delay={0.1}
+            />
+          )}
+          {JOURNEY.map((stage, i) => {
+            const bucket = byState[stage.state];
+            const amount = bucket?.amount ?? 0;
+            const count = bucket?.count ?? 0;
+            return (
+              <ArenaTile
+                key={stage.state}
+                label={stage.title}
+                value={amount}
+                format="usd"
+                caption={`${orders(count)} · ${STAGE_SHORT[stage.state] ?? stage.blurb}`}
+                tone={count ? (STAGE_TONE[stage.state] ?? "blue") : "ink"}
+                delay={0.16 + i * 0.06}
+              />
+            );
+          })}
+        </ArenaTiles>
+      </ArenaHead>
 
-      {/* -------------------------------------------------- career hero */}
-      <HeroBand border="border-athlete/30" className="sx-animate">
-        <div className="grid gap-6 lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-center">
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
-              Career earnings
-            </p>
-            <p className="mt-1 flex flex-wrap items-baseline gap-2">
-              <span className="bg-[linear-gradient(90deg,var(--sx-primary),var(--sx-accent))] bg-clip-text text-4xl font-bold tabular-nums tracking-tight text-transparent sm:text-5xl">
-                {money(liveCareer ? liveCareer.raised : athleteCareer.careerEarningsCents)}
-              </span>
-              <MiniChip kind="ver">POSTGRES</MiniChip>
-            </p>
-            <p className="mt-1 text-[11px] text-faint">
-              {liveCareer
-                ? `what your signed orders are worth — ${money(liveCareer.paid)} already paid`
-                : "everything you’ve earned across campaigns, to date"}
-            </p>
-
-            <div className="mt-5 space-y-2.5 text-xs text-muted">
-              <p className="flex items-center gap-2">
-                <span className="relative inline-flex size-2 shrink-0" aria-hidden="true">
-                  <span className="sx-viz-pulse absolute inset-0 rounded-full bg-success" />
-                  <span className="relative inline-flex size-2 rounded-full bg-success" />
+      {/* ------------------------------------------------------- the trend */}
+      <section>
+        <ArenaSection
+          title={live ? `Paid by month · ${year}` : "Monthly earnings · 2026"}
+          hint={live ? "What landed with you, by the month it was paid." : "Everything you’ve earned across campaigns, by month."}
+          delay={0.42}
+        />
+        <ArenaPanel delay={0.46} spot>
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-center">
+            <div className="min-w-0">
+              <AreaChart
+                points={trendPoints}
+                aName="Monthly earnings"
+                fmtA={fmtUsd}
+                xTicks={5}
+                height={200}
+              />
+              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-0.5 w-3 rounded bg-primary" />{" "}
+                  {live ? `Paid, by month, ${year}` : "Monthly earnings, 2026"}
                 </span>
                 <span>
-                  <strong className="font-semibold text-text">
-                    {money(liveCareer ? liveCareer.onTheWay : athleteCareer.approvedCents)}
-                  </strong>{" "}
-                  {liveCareer ? "approved and on the way with BTG’s next payout run" : `on the way — payout ${athleteCareer.nextPayout}`}
+                  avg{" "}
+                  <strong className="sx-arena-num font-semibold text-text">
+                    {money(trendAvgCents)}
+                  </strong>
+                  /month
                 </span>
-              </p>
-              <p className="flex items-center gap-2">
-                <span
-                  className="inline-flex size-2 shrink-0 rounded-full bg-primary"
-                  aria-hidden="true"
-                />
+                <MiniChip kind="ver">POSTGRES</MiniChip>
+              </div>
+            </div>
+
+            {/* What's arriving next, and the work behind it. */}
+            <div className="space-y-3 text-xs text-muted lg:border-l lg:border-line-soft lg:pl-6">
+              {onTheWay !== null && (
+                <p className="flex items-start gap-2">
+                  <span className="relative mt-1 inline-flex size-2 shrink-0" aria-hidden="true">
+                    <span className="sx-viz-pulse absolute inset-0 rounded-full bg-success" />
+                    <span className="relative inline-flex size-2 rounded-full bg-success" />
+                  </span>
+                  <span>
+                    <strong className="sx-arena-num text-sm text-text">{money(onTheWay)}</strong>{" "}
+                    {live ? "approved and on the way with BTG’s next payout run" : `on the way — payout ${athleteCareer.nextPayout}`}
+                  </span>
+                </p>
+              )}
+              <p className="flex items-start gap-2">
+                <span className="mt-1 inline-flex size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />
                 <span>
-                  {liveCareer ? (
+                  {live ? (
                     <>
-                      <strong className="font-semibold text-text">
+                      <strong className="sx-arena-num text-sm text-text">
                         {verifiedDeliverables} of {totalDeliverables}
                       </strong>{" "}
                       deliverables verified across your orders
                     </>
                   ) : (
                     <>
-                      <strong className="font-semibold text-text">
-                        {athleteCareer.onTimeRatePct}%
-                      </strong>{" "}
+                      <strong className="sx-arena-num text-sm text-text">{athleteCareer.onTimeRatePct}%</strong>{" "}
                       on-time delivery — sponsors notice
                     </>
                   )}
                 </span>
               </p>
+              <p className="text-[11px] leading-relaxed text-faint">
+                {/* P7-QA-02: live buckets() spans every earning ever, not a cycle. */}
+                {live
+                  ? "The plates above cover all your orders, by where each one is now."
+                  : "The plates above are this cycle, not your career total."}
+              </p>
             </div>
           </div>
+        </ArenaPanel>
+      </section>
 
-          <div className="min-w-0">
-            <AreaChart
-              points={trendPoints}
-              aName="Monthly earnings"
-              fmtA={fmtUsd}
-              xTicks={5}
-              height={200}
-            />
-            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted">
-              <span className="flex items-center gap-1.5">
-                <span className="h-0.5 w-3 rounded bg-primary" />{" "}
-                {live ? `Paid, by month, ${year}` : "Monthly earnings, 2026"}
-              </span>
-              <span>
-                avg{" "}
-                <strong className="font-semibold text-text">
-                  {money(trendAvgCents)}
-                </strong>
-                /month
-              </span>
-              <MiniChip kind="ver">POSTGRES</MiniChip>
-            </div>
-          </div>
-        </div>
-      </HeroBand>
-
-      {/* ------------------------------------------------- the money journey */}
-      <section className="sx-animate sx-delay-1">
-        <SectionHeading
-          title="Where your money is"
-          hint={
-            /* P7-QA-02: live buckets() spans every earning ever, not a cycle. */
-            live
-              ? "Every order moves left to right — reviewed, cleared, approved, paid. All your orders, by where each one is now."
-              : "Every order moves left to right — reviewed, cleared, approved, paid. This cycle, not your career total."
-          }
-        />
-        <Card className="overflow-hidden p-0">
-          <div
-            className="h-1 w-full bg-gradient-to-r from-primary/40 via-primary to-accent"
-            aria-hidden="true"
-          />
-          <div className="grid grid-cols-2 gap-px bg-line-soft lg:grid-cols-4">
-            {JOURNEY.map((stage, i) => {
-              const bucket = byState[stage.state];
-              const last = i === JOURNEY.length - 1;
-              return (
-                <div
-                  key={stage.state}
-                  className={[
-                    "p-4 sm:p-5",
-                    `sx-animate sx-delay-${i + 1}`,
-                    last
-                      ? "bg-gradient-to-br from-accent/12 to-surface"
-                      : "bg-surface",
-                  ].join(" ")}
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={[
-                        "grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-bold",
-                        stage.dot,
-                      ].join(" ")}
-                    >
-                      {i + 1}
-                    </span>
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
-                      {stage.title}
-                    </p>
-                    {!last && (
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="ml-auto hidden size-3 text-faint lg:block"
-                        aria-hidden="true"
-                      >
-                        <path d="m9 18 6-6-6-6" />
-                      </svg>
-                    )}
-                  </div>
-                  <p
-                    className={[
-                      "mt-2.5 text-2xl font-semibold tabular-nums tracking-tight",
-                      last ? "text-accent" : "",
-                    ].join(" ")}
-                  >
-                    {money(bucket?.amount ?? 0)}
-                  </p>
-                  <p className="mt-0.5 text-[11px] tabular-nums text-faint">
-                    {bucket?.count ?? 0}{" "}
-                    {(bucket?.count ?? 0) === 1 ? "order" : "orders"}
-                  </p>
-                  <p className="mt-2 text-[11px] leading-relaxed text-muted">
-                    {live && stage.state === "APPROVED_FOR_PAYOUT"
-                      ? "Lands with BTG’s next payout run."
-                      : stage.blurb}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        {held && (
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-danger/25 bg-danger/8 px-4 py-3">
-            <Badge tone="danger">On hold</Badge>
-            <span className="text-xs font-semibold tabular-nums">
-              {money(held.amount)}
-            </span>
+      {/* ------------------------------------------------------- held money */}
+      {held && (
+        <ArenaPanel tone="danger" delay={0.52} spot>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <ArenaChip tone="danger">On hold</ArenaChip>
+            <span className="sx-arena-num text-sm text-text">{money(held.amount)}</span>
             <span className="min-w-0 flex-1 text-xs leading-relaxed text-muted">
               {live
                 ? `${held.count === 1 ? "One earning is" : `${held.count} earnings are`} on hold while BTG Finance checks the work behind ${held.count === 1 ? "it" : "them"} — nothing is lost; it moves again once cleared.`
                 : heldNote.replace(" (§21)", "")}
             </span>
           </div>
-        )}
-      </section>
+        </ArenaPanel>
+      )}
 
       {/* ------------------------------------------------------ recent orders */}
-      <section id="activity" className="sx-animate sx-delay-2">
-        <SectionHeading
+      <section id="activity">
+        <ArenaSection
           title="Recent activity"
           hint={
             live
               ? "Every earning, most recent first — search or filter, click one for the full story."
               : "Search or filter your orders — click one for the full story. A sample of the cycle, not the career total."
           }
+          delay={0.56}
         />
-        {live ? (
-          <ServerActivityExplorer
-            items={mine}
-            page={live.page}
-            year={year}
-            statusOptions={STATES.filter((s) => live.summary.byState[s]?.count)}
-            typeOptions={live.summary.jobNames}
-            initial={{
-              q: one(sp.q),
-              from: one(sp.from),
-              to: one(sp.to),
-              status: one(sp.status),
-              type: one(sp.type),
-            }}
-          />
-        ) : (
-          <ActivityExplorer
-            items={mine}
-            demoParam={one(sp.demo) || undefined}
-            initial={{
-              q: one(sp.q),
-              from: one(sp.from),
-              to: one(sp.to),
-              status: one(sp.status),
-              type: one(sp.type),
-            }}
-          />
-        )}
+        <div className="sx-arena-in" style={at(0.6)}>
+          {live ? (
+            <ServerActivityExplorer
+              items={mine}
+              page={live.page}
+              year={year}
+              statusOptions={STATES.filter((s) => live.summary.byState[s]?.count)}
+              typeOptions={live.summary.jobNames}
+              initial={{
+                q: one(sp.q),
+                from: one(sp.from),
+                to: one(sp.to),
+                status: one(sp.status),
+                type: one(sp.type),
+              }}
+            />
+          ) : (
+            <ActivityExplorer
+              items={mine}
+              demoParam={one(sp.demo) || undefined}
+              initial={{
+                q: one(sp.q),
+                from: one(sp.from),
+                to: one(sp.to),
+                status: one(sp.status),
+                type: one(sp.type),
+              }}
+            />
+          )}
+        </div>
       </section>
 
       {/* ---------------------------------------------------------- trust bar */}
-      <div className="sx-animate sx-delay-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-line bg-surface/60 px-4 py-3">
+      <div
+        className="sx-arena-plate sx-arena-in flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 pl-7"
+        style={at(0.66, { "--tone": "var(--sx-line)" } as CSSProperties)}
+      >
         <svg
           viewBox="0 0 24 24"
           fill="none"

@@ -48,6 +48,7 @@ import { afterSellersAccepted, cancelOrderAsSystem, lockOrder } from "./marketpl
 import { SELLER_APPROVAL_HOURS, usd } from "./marketplace-order-rules";
 import { appUrl, btgAdmins, orderRef, sellerRecipients, sponsorRecipient, tell, utc, type SellerParty } from "./order-mail";
 import { logError } from "../lib/redact";
+import { readSegments, type PageRequest } from "../lib/paging";
 
 type Tx = Prisma.TransactionClient;
 const HOUR = 3_600_000;
@@ -227,6 +228,43 @@ export async function mySellerApprovals(actor: Actor, now = new Date()) {
   });
   const views = await sellerViews(rows, now);
   return { approvals: [...views.filter((v) => v.canAnswer).sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime()), ...views.filter((v) => !v.canAnswer)] };
+}
+
+/**
+ * GET /seller-approvals, SERVER-PAGED (P1-ART-22, the house pager): the same
+ * order as the whole list — the ones still open to answer first, soonest due,
+ * then the answered ones newest first — read as two ordered segments in the
+ * database (lib/paging.ts readSegments), with `counts` over the seller's
+ * WHOLE scope: how many wait for their answer, and how many there are.
+ */
+export async function mySellerApprovalsPage(actor: Actor, req: PageRequest, now = new Date()) {
+  sellerScope(actor, "read");
+  const scope = whereFor(actor, "orderSellerApproval", "read");
+  /* Open to answer, as sellerViews' `canAnswer` reads it: pending, inside the 48 hours, the order still waiting on sellers. */
+  const waiting: Prisma.OrderSellerApprovalWhereInput = { state: "PENDING", dueAt: { gt: now }, order: { state: "PENDING_SELLER" } };
+  const [waitingN, total] = await Promise.all([
+    prisma.orderSellerApproval.count({ /* tenant-scope: `scope` is whereFor(actor, orderSellerApproval, "read") above; only filters are added. */ where: { AND: [scope, waiting] } }),
+    prisma.orderSellerApproval.count({ /* tenant-scope: `scope` is whereFor(actor, orderSellerApproval, "read") above; only filters are added. */ where: scope }),
+  ]);
+  const paged = await readSegments(req, [
+    {
+      count: waitingN,
+      read: (skip, take) =>
+        prisma.orderSellerApproval.findMany({
+          /* tenant-scope: `scope` is whereFor(actor, orderSellerApproval, "read") above; only filters are added. */
+          where: { AND: [scope, waiting] }, select: SELECT, orderBy: [{ dueAt: "asc" }, { id: "asc" }], skip, take,
+        }),
+    },
+    {
+      count: total - waitingN,
+      read: (skip, take) =>
+        prisma.orderSellerApproval.findMany({
+          /* tenant-scope: `scope` is whereFor(actor, orderSellerApproval, "read") above; only filters are added. */
+          where: { AND: [scope, { NOT: waiting }] }, select: SELECT, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip, take,
+        }),
+    },
+  ]);
+  return { approvals: await sellerViews(paged.rows, now), page: paged.page, counts: { waiting: waitingN, total } };
 }
 
 /** GET /seller-approvals/:id — one of the seller's own. */

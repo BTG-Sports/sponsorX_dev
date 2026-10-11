@@ -1,4 +1,5 @@
-import { BlockedNotice, StatTile } from "@/components/ui";
+import { ArenaHead, ArenaTile, ArenaTiles } from "@/components/arena-stage";
+import { BlockedNotice } from "@/components/ui";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { DeliverableCalendar } from "@/components/deliverable-calendar";
 import { demoState } from "@/lib/demo";
@@ -37,6 +38,14 @@ import { apiFetch, fetchActor } from "@/server/api";
    the agenda; GET /deliverables/summary — the tiles and the tab counts,
    counted in the database. The fixture mode runs the same shapes through
    the pure helpers in deliverables-live.
+
+   P1-ART-22 (2026-10-11) — redrawn on the Arena (components/arena-stage.tsx)
+   as a dashboard: a small title with the provenance pill and one lede line,
+   then four KPI plates — your move, overdue (with its share of what is
+   still open as a lane), revisions, in review — every figure from GET
+   /deliverables/summary through athleteHeadline, as before. The calendar
+   island keeps its reads and controls; its month grid and agenda rows are
+   now arena plates.
    -------------------------------------------------------------------------- */
 
 type View = {
@@ -45,6 +54,9 @@ type View = {
   agenda: { rows: ApiDeliverable[]; page: PageInfo };
 };
 type Ask = { month: string; day: string; tab: TabKey; page: number; size: number };
+
+const TITLE = "Deliverables";
+const LEDE = "Everything your Campaign Orders ask for, by due date — open one to upload your draft or mark it published.";
 
 async function liveView(ask: Ask): Promise<View | null> {
   /* No catch — an outage is an error page, never fixtures dressed as the
@@ -97,25 +109,48 @@ export default async function DeliverablesPage({
   const view =
     live ?? fixtureView(demo === "empty" ? [] : fixtureDeliverables(fixtureRows, today), ask, today);
   const head = athleteHeadline(view.summary);
+  /* Overdue as a share of everything not yet done — both from the summary. */
+  const stillOpen = view.summary.total - head.tabs.done;
+  const readAt = today.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const pill = live ? `Postgres · read ${readAt}` : "Sample data";
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Deliverables</h1>
-        <p className="mt-1 text-xs text-muted">
-          Everything your Campaign Orders ask for, by due date — open one to
-          upload your draft or mark it published.
-        </p>
-      </div>
-
-      {view.summary.total > 0 && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-          <StatTile label="Your move" value={String(head.yourMove)} sub="to upload or publish" />
-          <StatTile label="Overdue" value={String(head.overdue)} sub={head.overdue ? "past due and still yours" : "nothing late"} />
-          <StatTile label="Revisions" value={String(head.revisions)} sub="asked for changes" />
-          <StatTile label="In review" value={String(head.inReview)} sub="with BTG or the sponsor" />
-        </div>
-      )}
+      <ArenaHead title={TITLE} pill={pill} lede={LEDE}>
+        {view.summary.total > 0 && (
+          <ArenaTiles>
+            <ArenaTile
+              label="Your move"
+              value={head.yourMove}
+              caption={head.yourMove ? "to upload or publish" : "nothing waiting on you"}
+              tone={head.yourMove ? "flare" : "ink"}
+              delay={0.1}
+            />
+            <ArenaTile
+              label="Overdue"
+              value={head.overdue}
+              caption={head.overdue ? `past due and still yours · of ${stillOpen} open` : "nothing late"}
+              tone={head.overdue ? "warn" : "ink"}
+              share={head.overdue && stillOpen > 0 ? head.overdue / stillOpen : undefined}
+              delay={0.16}
+            />
+            <ArenaTile
+              label="Revisions"
+              value={head.revisions}
+              caption={head.revisions ? "asked for changes" : "no changes asked for"}
+              tone={head.revisions ? "danger" : "ink"}
+              delay={0.22}
+            />
+            <ArenaTile
+              label="In review"
+              value={head.inReview}
+              caption="with BTG or the sponsor"
+              tone={head.inReview ? "blue" : "ink"}
+              delay={0.28}
+            />
+          </ArenaTiles>
+        )}
+      </ArenaHead>
 
       {!live && demo !== "empty" && (
         <BlockedNotice>

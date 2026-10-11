@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ArenaHead } from "@/components/arena-stage";
 import { BlockedNotice } from "@/components/ui";
 import { ComingOfAgeReminder, PausedActions } from "@/components/coming-of-age-reminder";
 import { EmptyState } from "@/components/states";
@@ -23,10 +24,27 @@ import { requirePortalAccess } from "@/server/portal";
 
    ?demo=athlete|guardian (or the scaffold's ?as=) previews either side on
    the sample athlete, and never reaches the API.
+
+   P1-ART-22 (2026-10-11): the Arena's title row (ArenaHead with the
+   provenance pill and the view's greeting as the lede, a back pill to
+   Settings) and the two paused-action cards as plates. The reminder, its
+   send-link island and every line are unchanged.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
 const PATH = "/athlete/settings/coming-of-age";
+
+function BackPill() {
+  return (
+    <Link
+      href="/athlete/settings"
+      className="sx-btn-secondary inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-xs font-medium text-text outline-none focus-visible:ring-2 focus-visible:ring-athlete focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+    >
+      <span aria-hidden="true">←</span>
+      Settings
+    </Link>
+  );
+}
 
 export default async function ComingOfAgePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requirePortalAccess("athlete");
@@ -38,7 +56,8 @@ export default async function ComingOfAgePage({ searchParams }: { searchParams: 
   if (demo === "athlete" || demo === "guardian") {
     const view = comingOfAgeView(sampleComingOfAge(), demo)!;
     return (
-      <div className="space-y-3.5">
+      <div className="space-y-5">
+        <ArenaHead title="Coming of age" lede={view.heading} actions={<BackPill />} />
         <BlockedNotice>
           Preview — the sample athlete, from the {demo}&rsquo;s side.{" "}
           <Link href={`${PATH}?demo=${demo === "guardian" ? "athlete" : "guardian"}`} className="underline underline-offset-2 hover:text-text">
@@ -50,8 +69,7 @@ export default async function ComingOfAgePage({ searchParams }: { searchParams: 
           <strong className="block text-sm text-warn">{view.title}</strong>
           <span className="mt-1 block text-sm leading-relaxed">{view.line}</span>
         </section>
-        <h1 className="text-xl font-semibold tracking-tight">{view.heading}</h1>
-        <PausedActions view={view} />
+        <PausedActions view={view} plate />
       </div>
     );
   }
@@ -60,11 +78,12 @@ export default async function ComingOfAgePage({ searchParams }: { searchParams: 
   if (!res.ok) throw new Error(`The coming-of-age allowance couldn't be read (${res.status}).`);
   const { comingOfAge: c } = (await res.json()) as { comingOfAge: ApiComingOfAge | null };
   const view = c ? comingOfAgeView(c, c.seat ?? "athlete") : null;
+  const readAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
   if (!c || !view) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-xl font-semibold tracking-tight">Coming of age</h1>
+      <div className="space-y-5">
+        <ArenaHead title="Coming of age" pill={`Postgres · read ${readAt}`} actions={<BackPill />} />
         <EmptyState
           mark="users"
           title="Nothing to do here"
@@ -75,10 +94,10 @@ export default async function ComingOfAgePage({ searchParams }: { searchParams: 
   }
 
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-5">
+      <ArenaHead title="Coming of age" pill={`Postgres · read ${readAt}`} lede={view.heading} actions={<BackPill />} />
       <ComingOfAgeReminder view={view} seat={c.seat ?? "athlete"} uploadPath={c.uploadPath ?? null} />
-      <h1 className="text-xl font-semibold tracking-tight">{view.heading}</h1>
-      <PausedActions view={view} />
+      <PausedActions view={view} plate />
     </div>
   );
 }

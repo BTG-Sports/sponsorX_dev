@@ -59,6 +59,8 @@ const READ_ONLY = new Set([
   "clearsFloor",
   /* 2S5-SEC-01 — reads and pure functions in the Phase 2 money modules. */
   "listInventory",
+  /* P1-ART-22 — the arena's paged inventory read: counts and a page, nothing written. */
+  "listInventoryPage",
   "getInventoryItem",
   "inventoryProblems",
   "listOffers",
@@ -69,6 +71,9 @@ const READ_ONLY = new Set([
   "termsHashOf",
   "listMarketplaceOrders",
   "getMarketplaceOrder",
+  /* P1-ART-23 — the sponsor's Orders desk: the paged read and its summary. */
+  "pageMarketplaceOrders",
+  "marketplaceOrderSummary",
   /* 2S4-BE-09/-10 review — takes the order's row lock (SELECT … FOR UPDATE); the move that follows audits. */
   "lockOrder",
   "listRules",
@@ -114,6 +119,9 @@ const READ_ONLY = new Set([
   "standinDetails",
   "lineReleasable",
   "myPayouts",
+  /* P1-ART-22 — the arena's paged reads of what myPayouts carries whole. */
+  "myPayoutOrdersPage",
+  "myPayoutHistoryPage",
   "payoutChecks",
   "listPayouts",
   "getPayout",

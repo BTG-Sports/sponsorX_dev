@@ -16,7 +16,7 @@ import { clientIp } from "../../lib/client-ip";
 import { PayoutAccountLinkInput, PayoutDecisionInput, PayoutListQuery, StandinAccountInput, StandinCheckoutInput } from "../../contracts/payouts";
 import {
   completeStandinAccount, completeStandinCheckout, decidePayout, failedPayments, getPayout, isPayoutState, listPayouts, myPayoutAccount,
-  myPayouts, orderPayment, payoutAccountLink, requestPayout, retryPayout, standinDetails, startCardPayment, type PayoutState,
+  myPayoutHistoryPage, myPayoutOrdersPage, myPayouts, orderPayment, payoutAccountLink, requestPayout, retryPayout, standinDetails, startCardPayment, type PayoutState,
 } from "../../domain/payouts";
 
 export const payoutsRouter = Router();
@@ -28,6 +28,17 @@ payoutsRouter.post("/payouts/account/link", requireActor, (async (req, res) => {
   res.json(await payoutAccountLink(req.actor!, PayoutAccountLinkInput.parse(req.body ?? {}).returnPath));
 }) as RequestHandler);
 payoutsRouter.get("/payouts/me", requireActor, (async (req, res) => { res.json(await myPayouts(req.actor!)); }) as RequestHandler);
+/* P1-ART-22 — the arena's paged reads of what /payouts/me carries whole (always paged: ?page defaults to 1).
+   Mounted before /payouts/:id. */
+payoutsRouter.get("/payouts/me/orders", requireActor, (async (req, res) => {
+  const q = req.query as Record<string, unknown>;
+  res.json(await myPayoutOrdersPage(req.actor!, pageRequest({ page: 1, ...q }) as NonNullable<ReturnType<typeof pageRequest>>));
+}) as RequestHandler);
+payoutsRouter.get("/payouts/me/history", requireActor, (async (req, res) => {
+  const q = req.query as Record<string, unknown>;
+  const state = isPayoutState(q.state) ? q.state : undefined;
+  res.json(await myPayoutHistoryPage(req.actor!, pageRequest({ page: 1, ...q }) as NonNullable<ReturnType<typeof pageRequest>>, state));
+}) as RequestHandler);
 payoutsRouter.post("/payouts", requireActor, (async (req, res) => { res.status(201).json(await requestPayout(req.actor!)); }) as RequestHandler);
 
 /* BTG's side. */

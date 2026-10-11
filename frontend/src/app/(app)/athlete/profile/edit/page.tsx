@@ -1,4 +1,6 @@
-import { BackLink } from "@/components/back-link";
+import Link from "next/link";
+
+import { ArenaHead } from "@/components/arena-stage";
 import { ProfileEditor } from "@/components/profile-editor";
 import { BlockedNotice } from "@/components/ui";
 import { EmptyState } from "@/components/states";
@@ -24,7 +26,25 @@ const POST_APPROVAL = ["APPROVED", "ACTIVE", "SUSPENDED"];
    (POST /athletes/:id/profile-changes, 2S1-BE-14). A legal name, date of
    birth or guardian is sensitive: BTG is told and the checks run again.
    Anyone else keeps the prototype.
+
+   P1-ART-22 (2026-10-11) — the header is the Arena's: ArenaHead with the
+   provenance pill, the one-line lede and the back link as a pill action.
+   The LiveProfileEditor island is unchanged apart from its section card
+   taking the plate skin; every read and write above is as it was.
    -------------------------------------------------------------------------- */
+
+/** The back link, as the arena's secondary pill. */
+function BackPill({ href, children }: { href: string; children: string }) {
+  return (
+    <Link
+      href={href}
+      className="sx-btn-secondary inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-xs font-medium text-text outline-none focus-visible:ring-2 focus-visible:ring-athlete focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+    >
+      <span aria-hidden="true">←</span>
+      {children}
+    </Link>
+  );
+}
 
 /** The athlete's own profile, or null for the prototype. No catch: an
  *  outage is an error page, never a sample profile shown as theirs. */
@@ -79,8 +99,7 @@ export default async function ProfileEditPage({
   if (me === "unlinked") {
     return (
       <div className="mx-auto w-full max-w-5xl">
-        <BackLink target={{ href: "/athlete", label: "Back to your dashboard" }} />
-        <h1 className="mt-4 text-xl font-semibold tracking-tight">Edit profile</h1>
+        <ArenaHead title="Edit profile" actions={<BackPill href="/athlete">Back to your dashboard</BackPill>} />
         <div className="mt-4">
           <EmptyState
             mark="users"
@@ -99,17 +118,20 @@ export default async function ProfileEditPage({
     if (!chRes.ok) throw new Error(`Profile changes unavailable (${chRes.status}).`);
     const { changes } = (await chRes.json()) as { changes: ApiProfileChange[] };
     const editable = POST_APPROVAL.includes(me.state);
+    const readAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
     return (
       <div className="mx-auto w-full max-w-5xl">
-        <BackLink target={{ href: "/athlete/profile", label: "Back to your profile" }} />
-        <div className="mt-4">
-          <h1 className="text-xl font-semibold tracking-tight">Edit profile</h1>
-          <p className="mt-1 text-xs text-muted">
+        <ArenaHead
+          title="Edit profile"
+          pill={`Postgres · read ${readAt}`}
+          actions={<BackPill href="/athlete/profile">Back to your profile</BackPill>}
+        >
+          <p className="sx-arena-in mt-3 max-w-2xl text-xs leading-relaxed text-muted" style={{ "--sx-reveal-delay": "0.1s" } as React.CSSProperties}>
             Nine sections make up your profile. Five are public, four stay
             between you and BTG — each one says which.
             {editable ? " Changes save straight away. A legal name, date of birth or guardian is sensitive: BTG is told and the checks run again." : ""}
           </p>
-        </div>
+        </ArenaHead>
         <LiveProfileEditor
           athleteId={me.id}
           initialSection={section}
@@ -134,19 +156,13 @@ export default async function ProfileEditPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <BackLink target={{ href: "/athlete/profile", label: "Back to your profile" }} />
+      <ArenaHead
+        title="Edit profile"
+        lede="Nine sections make up your profile. Five are public, four stay between you and BTG — each one says which."
+        actions={<BackPill href="/athlete/profile">Back to your profile</BackPill>}
+      />
 
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Edit profile</h1>
-          <p className="mt-1 text-xs text-muted">
-            Nine sections make up your profile. Five are public, four stay
-            between you and BTG — each one says which.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-athlete/30 bg-athlete/8 px-3 py-2">
+      <div className="sx-arena-plate mt-4 flex flex-wrap items-center gap-2 px-4 py-2.5 pl-6">
         <svg
           viewBox="0 0 24 24"
           fill="none"

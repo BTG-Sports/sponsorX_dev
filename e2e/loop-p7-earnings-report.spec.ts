@@ -191,25 +191,29 @@ test("a verified post releases the earning, shows in finance, and lands in the s
   await expect(rowWith(finance, ATHLETE.name, CAMPAIGN_NAME)).toContainText("Approved for payout");
   await expect(finance.getByText("INV-E2E-P7")).toHaveCount(0);
 
-  // 6. THE SPONSOR'S REPORT — from their dashboard.
+  // 6. THE SPONSOR'S REPORT — from their dashboard, on the Stadium Board
+  //    (P1-ART-23 Task 11): plain words, statistics first.
   const sponsor = await pageAs(browser, testInfo, { key: "p7.sponsor", roles: ["SPONSOR_ADMIN"], sponsorId: SPONSOR });
   await sponsor.goto("/sponsor");
-  await sponsor.getByRole("link", { name: `${CAMPAIGN_NAME} →` }).click();
+  await sponsor.getByRole("link", { name: `See results for ${CAMPAIGN_NAME}` }).click();
   await expect(sponsor).toHaveURL(new RegExp(`/sponsor/campaigns/${CAMPAIGN}/report`));
-  await expect(sponsor.getByRole("heading", { level: 1, name: "Campaign ROI Report" })).toBeVisible();
-  // Reach, layer by layer — 4,200 verified and 900 self-reported, never 5,100.
+  await expect(sponsor.getByRole("heading", { level: 1, name: `Results · ${CAMPAIGN_NAME}` })).toBeVisible();
+  // Reach, layer by layer — 4,200 checked (by BTG) and 900 self-reported,
+  // never blended into 5,100.
   await expect(sponsor.getByText("4,200").first()).toBeVisible();
+  await expect(sponsor.getByText("Checked by BTG")).toBeVisible();
+  await expect(sponsor.getByText("Reported by the athlete")).toBeVisible();
   await expect(sponsor.getByText("900").first()).toBeVisible();
-  await expect(sponsor.getByText("Self-reported views")).toBeVisible();
   await expect(sponsor.getByText("5,100")).toHaveCount(0);
-  // Media value is ESTIMATED, on verified views only: $80 of spend / 4,200 × 1,000.
-  await expect(sponsor.getByText("Cost per 1,000 verified views")).toBeVisible();
+  // The per-1,000 figure is ESTIMATED, on checked reach only: $80 of spend / 4,200 × 1,000.
+  await expect(sponsor.getByText("What you pay per 1,000 people reached")).toBeVisible();
   await expect(sponsor.getByText("$19.05")).toBeVisible();
-  await expect(sponsor.getByText(/1\s*of 1 verified/).first()).toBeVisible();
-  const clicks = sponsor.locator("div").filter({ hasText: /^Link clicks/ }).filter({ hasText: "counted on our own tracking links" }).last();
-  await expect(clicks).toContainText("1");
+  // The deliverable that was just verified reads as plain words, not an enum.
+  await expect(sponsor.getByText("Posted & checked").first()).toBeVisible();
+  const clickRow = sponsor.locator("li").filter({ hasText: TITLE });
+  await expect(clickRow).toContainText("1");
   await expect(sponsor.getByText(/NaN/), "an empty fan funnel reads as words, not NaN").toHaveCount(0);
-  await expect(sponsor.getByRole("link", { name: "view post" })).toHaveAttribute("href", POST_URL);
+  await expect(sponsor.getByRole("link", { name: /Open post/ }).first()).toHaveAttribute("href", POST_URL);
   await expect(sponsor.getByText(ATHLETE.name).first()).toBeVisible();
   await expect(sponsor.getByText("$30"), "the athlete's pay stays off the sponsor's report").toHaveCount(0);
 

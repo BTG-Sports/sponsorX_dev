@@ -25,6 +25,13 @@ import { INVENTORY_COPY, athletePublic } from "@/lib/fixtures";
    The active tab lives in the URL (?tab=, history.replaceState — the
    activity-explorer idiom) so a tabbed view survives refresh and can be
    shared; `initialTab` seeds it back from the server page.
+
+   P1-ART-22 (2026-10-11) — the owner variant sits on the Arena: the page's
+   ArenaHead carries the h1, so the name becomes an h2 here; the stat band
+   is four plates with jersey numerals (each keeping its §22 SourceLabel);
+   section eyebrows take the arena's section-title mark; the Invitations
+   pointer is a plate. The public variant is untouched — those classes only
+   resolve inside `.sx-arena`, so they are set on `owner` alone.
    -------------------------------------------------------------------------- */
 
 const TABS = [
@@ -128,6 +135,9 @@ export function AthleteProfileView({
 }) {
   const a = athletePublic; // fixtures: one athlete, any slug resolves to it
   const owner = variant === "owner";
+  /* The owner page's ArenaHead holds the h1; the name is an h2 there. */
+  const NameTag = owner ? "h2" : "h1";
+  const h2 = owner ? "sx-section-title" : "text-sm font-semibold tracking-tight";
 
   const [tab, setTab] = useState<TabKey>(isTab(initialTab) ? initialTab : "overview");
   const [following, setFollowing] = useState(false);
@@ -166,7 +176,7 @@ export function AthleteProfileView({
      where that CTA's requests end up instead of a button aimed at herself. */
   const inventoryFooter = owner ? (
     <>
-      <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2.5">
+      <div data-spot="" className="sx-arena-plate mt-4 flex flex-wrap items-center gap-2 px-4 py-3 pl-6" style={{ "--tone": "var(--ar-flare)" } as React.CSSProperties}>
         <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-muted">
           Sponsors see a <span className="font-medium text-text">Request
           Partnership</span> button here — every request lands in your
@@ -174,9 +184,9 @@ export function AthleteProfileView({
         </p>
         <Link
           href="/athlete/invitations"
-          className="text-[11px] font-medium text-accent transition-colors hover:text-accent-soft"
+          className="group inline-flex items-center gap-1 text-[11px] font-medium text-athlete transition-colors hover:text-primary-soft"
         >
-          Go to Invitations →
+          Go to Invitations <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-0.5">→</span>
         </Link>
       </div>
       <p className="mt-3 text-[10px] leading-relaxed text-faint">
@@ -225,9 +235,9 @@ export function AthleteProfileView({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="truncate text-2xl font-bold tracking-tight">
+                <NameTag className="truncate text-2xl font-bold tracking-tight">
                   {a.name}
-                </h1>
+                </NameTag>
                 {a.verified && <VerifiedTick />}
               </div>
               <p className="mt-1 text-xs text-muted">
@@ -271,6 +281,22 @@ export function AthleteProfileView({
           </div>
 
           {/* ------------------------------------------------ stat band */}
+          {owner ? (
+            <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {a.stats.map((s, i) => (
+                <div key={s.label} data-spot="" className="sx-arena-plate sx-arena-in relative flex flex-col px-4 pb-4 pt-3.5" style={{ "--sx-reveal-delay": `${0.4 + i * 0.06}s` } as React.CSSProperties}>
+                  <span aria-hidden="true" className="sx-arena-shine" />
+                  <dt className="order-2 mt-1 pl-4 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">{s.label}</dt>
+                  <dd className="order-1 pl-4">
+                    <span className="sx-arena-num block text-[26px] leading-none text-athlete">{s.value}</span>
+                  </dd>
+                  <dd className="order-3 mt-2 pl-4">
+                    <SourceLabel source={s.source} />
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
           <HeroBand border="border-athlete/30" className="mt-5 sx-animate">
             <dl className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
               {a.stats.map((s, i) => (
@@ -295,6 +321,7 @@ export function AthleteProfileView({
               ))}
             </dl>
           </HeroBand>
+          )}
         </div>
       </div>
 
@@ -344,13 +371,13 @@ export function AthleteProfileView({
                 widens past 360 (P1-QA-03). */}
             <section className="min-w-0">
               <div className="mb-3 flex items-baseline justify-between gap-3">
-                <h2 className="text-sm font-semibold tracking-tight">
+                <h2 className={h2}>
                   Available Inventory
                 </h2>
                 <button
                   type="button"
                   onClick={() => setTab("inventory")}
-                  className="text-[11px] font-medium text-accent transition-colors hover:text-accent-soft"
+                  className={owner ? "text-[11px] font-medium text-athlete transition-colors hover:text-primary-soft" : "text-[11px] font-medium text-accent transition-colors hover:text-accent-soft"}
                 >
                   View all {a.inventory.length} →
                 </button>
@@ -363,7 +390,7 @@ export function AthleteProfileView({
 
             <div className="min-w-0 space-y-5">
               <section>
-                <h2 className="mb-3 text-sm font-semibold tracking-tight">
+                <h2 className={`mb-3 ${h2}`}>
                   About
                 </h2>
                 <Card>
@@ -372,14 +399,14 @@ export function AthleteProfileView({
               </section>
 
               <section>
-                <h2 className="mb-3 text-sm font-semibold tracking-tight">
+                <h2 className={`mb-3 ${h2}`}>
                   Interests
                 </h2>
                 <div className="flex flex-wrap gap-1.5">
                   {a.interests.map((i) => (
                     <span
                       key={i}
-                      className="rounded-full border border-line bg-surface px-2.5 py-1 text-[11px] text-muted"
+                      className={owner ? "rounded-full border border-athlete/35 bg-athlete/12 px-2.5 py-1 text-[11px] font-medium text-athlete" : "rounded-full border border-line bg-surface px-2.5 py-1 text-[11px] text-muted"}
                     >
                       {i}
                     </span>
@@ -388,7 +415,7 @@ export function AthleteProfileView({
               </section>
 
               <section>
-                <h2 className="mb-3 text-sm font-semibold tracking-tight">
+                <h2 className={`mb-3 ${h2}`}>
                   Restrictions
                 </h2>
                 <Card>
@@ -405,7 +432,7 @@ export function AthleteProfileView({
         {/* ----------------------------------------------------- Inventory */}
         {tab === "inventory" && (
           <section className="min-w-0 lg:max-w-2xl">
-            <h2 className="mb-3 text-sm font-semibold tracking-tight">
+            <h2 className={`mb-3 ${h2}`}>
               Available Inventory
             </h2>
             <Card className="p-0">
@@ -430,14 +457,14 @@ export function AthleteProfileView({
         {/* --------------------------------------------------- Performance */}
         {tab === "performance" && (
           <section className="min-w-0 lg:max-w-2xl">
-            <h2 className="mb-3 text-sm font-semibold tracking-tight">
+            <h2 className={`mb-3 ${h2}`}>
               Audience &amp; provenance
             </h2>
             <Card className="p-0">
               <ul className="divide-y divide-line-soft">
                 {a.stats.map((s) => (
                   <li key={s.label} className="flex items-start gap-4 px-4 py-3">
-                    <span className="w-20 shrink-0 text-lg font-bold tabular-nums tracking-tight">
+                    <span className={owner ? "sx-arena-num w-20 shrink-0 text-lg text-athlete" : "w-20 shrink-0 text-lg font-bold tabular-nums tracking-tight"}>
                       {s.value}
                     </span>
                     <span className="min-w-0 flex-1">

@@ -1,5 +1,5 @@
-import { SkeletonPage } from "@/components/states";
+import { StadiumGhost } from "@/components/stadium-stage";
 
 export default function Loading() {
-  return <SkeletonPage />;
+  return <StadiumGhost label="Loading your sponsorships" />;
 }

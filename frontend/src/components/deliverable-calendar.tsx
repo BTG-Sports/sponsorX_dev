@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import Link from "next/link";
-import { Badge, Card } from "@/components/ui";
+import { at } from "@/components/arena-stage";
+import { Badge } from "@/components/ui";
 import { MiniChip } from "@/components/hero";
 import { PagerRow, PendingList, ServerList, useListNav } from "@/components/server-pager";
 import type { PageInfo } from "@/lib/list-query";
@@ -38,7 +39,20 @@ import {
    range), the tab counts come from the summary. Every control writes the
    URL (?month ?day ?tab ?page ?size) and the server page re-reads it; the
    agenda pages with the house pager (12/24/60, above and below).
+
+   P1-ART-22 (2026-10-11): visual only — the month grid and each agenda row
+   are arena plates (`.sx-arena-plate`: the speed bar toned by whose move it
+   is, lit under the pointer), sliding in from the left; the "nothing here"
+   box is a plate too. The pager already carried the athlete tone.
    -------------------------------------------------------------------------- */
+
+/** The speed bar's colour for a row: whose move it is. */
+const ROW_TONE: Record<string, string> = {
+  you: "var(--ar-flare)",
+  btg: "var(--ar)",
+  sponsor: "var(--ar)",
+  done: "var(--sx-success)",
+};
 
 const DOT: Record<string, string> = {
   you: "bg-athlete",
@@ -94,7 +108,7 @@ function Calendar({ gridRows, agenda, counts, month, day, tab, todayIso, linked 
   return (
     <div className="grid gap-5 lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start">
       {/* ------------------------------------------------------ month grid */}
-      <Card className="p-4 lg:sticky lg:top-6">
+      <div className="sx-arena-plate sx-arena-in p-4 pl-6 lg:sticky lg:top-6" style={at(0.3)}>
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -161,7 +175,7 @@ function Calendar({ gridRows, agenda, counts, month, day, tab, todayIso, linked 
           <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-danger" />overdue</span>
           <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-success" />done</span>
         </div>
-      </Card>
+      </div>
 
       {/* ---------------------------------------------------------- agenda */}
       <div className="min-w-0 space-y-4">
@@ -196,7 +210,7 @@ function Calendar({ gridRows, agenda, counts, month, day, tab, todayIso, linked 
         </div>
 
         {agenda.page.total === 0 ? (
-          <div className="rounded-xl border border-line bg-surface px-5 py-10 text-center">
+          <div className="sx-arena-plate sx-arena-in px-5 py-10 text-center" style={at(0.35)}>
             <p className="text-sm font-semibold">Nothing here</p>
             <p className="mx-auto mt-1 max-w-xs text-xs text-muted">
               {day ? "Nothing is due that day in this tab." : "Nothing in this tab right now."}
@@ -213,12 +227,16 @@ function Calendar({ gridRows, agenda, counts, month, day, tab, todayIso, linked 
                     {g.day === todayKey && <span className="ml-1.5 text-athlete">· today</span>}
                   </p>
                   <ul className="space-y-2">
-                    {g.items.map((d) => {
+                    {g.items.map((d, j) => {
                       const step = nextStep(d);
                       const overdue = isOverdue(d, today);
                       const href = linked ? `/athlete/deliverables/${encodeURIComponent(d.id)}` : null;
                       const inner = (
-                        <Card className="flex items-center gap-3 p-3.5 transition-colors hover:bg-surface-2/40">
+                        <div
+                          data-spot=""
+                          className="sx-arena-plate flex items-center gap-3 p-3.5 pl-6"
+                          style={{ "--tone": overdue ? "var(--sx-danger)" : ROW_TONE[step.on] } as CSSProperties}
+                        >
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <p className="truncate text-xs font-semibold tracking-tight">{d.title}</p>
@@ -239,12 +257,12 @@ function Calendar({ gridRows, agenda, counts, month, day, tab, todayIso, linked 
                               {step.on === "done" ? "complete" : dueLabel(d.dueDate, today)}
                             </p>
                           </div>
-                        </Card>
+                        </div>
                       );
                       return (
-                        <li key={d.id}>
+                        <li key={d.id} className="sx-arena-in" style={at(0.35 + Math.min(j, 11) * 0.04)}>
                           {href ? (
-                            <Link href={href} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-athlete">
+                            <Link href={href} className="block rounded-[18px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-athlete">
                               {inner}
                             </Link>
                           ) : (

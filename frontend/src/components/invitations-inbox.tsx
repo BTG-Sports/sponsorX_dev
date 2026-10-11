@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
-import { Badge, Button, Card } from "@/components/ui";
+import { at } from "@/components/arena-stage";
+import { Badge, Button } from "@/components/ui";
 import { MiniChip, Monogram, initials } from "@/components/hero";
 import { EmptyState } from "@/components/states";
 import { Dropdown, FilterChip, SearchInput } from "@/components/filter-kit";
@@ -37,6 +38,11 @@ import {
    terminal) and Decline. Without it the fixture demo keeps its inert,
    explained controls. Live answers land in their own override map; there is
    no Undo, because a real answer cannot be taken back.
+
+   P1-ART-22 (2026-10-11): visual only — each card is an arena plate
+   (`.sx-arena-plate`: the slanted speed bar, flare-toned while the invite is
+   open, lit under the pointer) sliding in from the left; the "no match" box
+   is a plate too. Every control already carried the athlete tone.
    -------------------------------------------------------------------------- */
 
 type Invite = InboxRow;
@@ -426,7 +432,7 @@ function Inbox({
       {/* ------------------------------------------------------------- list */}
       {total === 0 ? (
         filtered ? (
-          <div className="rounded-xl border border-line bg-surface px-5 py-12 text-center">
+          <div className="sx-arena-plate sx-arena-in px-5 py-12 text-center" style={at(0.1)}>
             <p className="text-sm font-semibold">No invitations match</p>
             <p className="mx-auto mt-1 max-w-xs text-xs text-muted">
               Try a sponsor name, a campaign, or a job ID like SX-03 — or clear
@@ -463,19 +469,24 @@ function Inbox({
               return (
                 <div
                   key={inv.id}
-                  className={`min-w-0 sx-animate sx-delay-${Math.min(idx + 1, 5)}`}
+                  className="sx-arena-in min-w-0"
+                  style={at(0.1 + Math.min(idx, 11) * 0.05)}
                 >
-                  <Card
+                  <div
+                    data-spot=""
                     className={[
-                      "flex h-full flex-col overflow-hidden p-0",
-                      /* settled invites step back through a quieter surface
+                      /* an arena plate: the speed bar at the left edge keeps
+                         the content padded 12px further in. */
+                      "sx-arena-plate flex h-full flex-col pl-3",
+                      /* settled invites step back through a quieter speed bar
                          and desaturated colour, not opacity: opacity-80 took
                          every line of text on the card under 4.5:1 (frontend
                          audit). The state badge still says which it is. */
-                      !actionable && "bg-surface-2/40 saturate-50",
+                      !actionable && "saturate-50",
                     ]
                       .filter(Boolean)
                       .join(" ")}
+                    style={{ "--tone": !actionable ? "var(--sx-text-faint)" : urgent ? "var(--ar-flare)" : "var(--ar)" } as CSSProperties}
                   >
                     {/* identity band — who is asking, in what state */}
                     <div className="flex items-center gap-3 bg-gradient-to-br from-athlete/15 to-transparent p-4">
@@ -681,7 +692,7 @@ function Inbox({
                         </Link>
                       )}
                     </div>
-                  </Card>
+                  </div>
                 </div>
               );
             })}

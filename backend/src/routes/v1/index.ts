@@ -19,6 +19,7 @@ import { metricsRouter } from "./metrics";
 import { zohoWebhooksRouter } from "./zoho-webhooks";
 import { inquiriesRouter } from "./inquiries";
 import { catalogueRouter } from "./catalogue";
+import { sponsorOverviewRouter } from "./sponsor-overview";
 import { rewardsRouter } from "./rewards";
 import { meRouter } from "./me";
 import { signupsRouter } from "./signups";
@@ -111,6 +112,10 @@ v1Router.use("/", inquiriesRouter);
 /* B3 — the sponsor marketplace's catalogue reads (P4-FE-01). Sponsor prices
    only; athlete pay is not selected (P4-SEC-02). */
 v1Router.use("/", catalogueRouter);
+
+/* P1-ART-23 — the sponsor's Stadium Board dashboard: one scoped read over
+   the caller's own campaigns, computed in the database. */
+v1Router.use("/", sponsorOverviewRouter);
 
 /* Stage 9 — the property portal's own property (P9-OPS-01). A NEXT school
    is a Property with kind SCHOOL; its advisor is that property's manager. */
