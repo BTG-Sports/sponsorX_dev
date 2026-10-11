@@ -1,12 +1,12 @@
-import Link from "next/link";
 import { Card } from "@/components/ui";
-import { EmptyState, SkeletonPage } from "@/components/states";
+import { EmptyState } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import {
   AthleteCatalog,
   JobsCatalog,
   MediaCatalog,
   PackagesCatalog,
+  parseAmount,
   type CatalogInitial,
   type LiveJob,
   type Pkg,
@@ -18,14 +18,23 @@ import {
   athleteInv,
   marketplacePackages,
   mediaInv,
+  rates,
 } from "@/lib/fixtures";
+import { StadiumGhost, StadiumHead, StadiumTile, StadiumTiles, StadiumUpdated } from "@/components/stadium-stage";
+import { TabLink, TabStrip } from "@/components/stage-table";
 
 /* --------------------------------------------------------------------------
-   Sponsor Marketplace — §9 screen 4, redesigned per spec 2026-09-11 and wired
-   for real client-side filtering 2026-09-15.
+   Sponsor Marketplace — §9 screen 4, on the Stadium Board (P1-ART-23, spec
+   2026-10-11 §7.6): "Packages" first — statistics first, plain words, for a
+   non-technical sponsor. Three tiles above the catalogue (Ready-made
+   packages, Job types, From), computed from the catalogue arrays themselves
+   (memory: stats-must-be-retrievable) — this is a bounded, curated price
+   list (§7 packages + the NIL job catalogue), so per memory
+   pagination-pattern it stays client-paged with the house pager, not server
+   paged.
 
    Three tabs (packages first, §17 managed marketplace — "Request" and "Add to
-   brief", never checkout). Each tab is now a live client island
+   brief", never checkout). Each tab is a live client island
    (marketplace-catalog): instant search, filter dropdowns and sort, active
    filters as dismissible chips, page-size + numbered pager, all URL-synced.
    The tab strip stays a server-rendered nav (?tab=), preserving the demo param.
@@ -70,40 +79,54 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
+/** The three stats a non-technical sponsor reads before anything else:
+ *  how many ready-made bundles, how many kinds of jobs, and the cheapest way
+ *  in — every figure read straight off the catalogue arrays themselves
+ *  (memory: stats-must-be-retrievable), never invented. */
+function MarketTiles({ packagesCount, jobTypes, fromCents }: { packagesCount: number; jobTypes: number; fromCents: number }) {
+  return (
+    <StadiumTiles cols={3}>
+      <StadiumTile
+        label="Ready-made packages"
+        value={packagesCount}
+        hint="Bundles BTG has already put together and priced. Pick one and request it — no need to build your own."
+        delay={0.1}
+      />
+      <StadiumTile
+        label="Job types"
+        value={jobTypes}
+        hint="The kinds of posts and appearances athletes can do for you, each already priced by BTG."
+        delay={0.16}
+      />
+      <StadiumTile
+        label="From"
+        value={fromCents}
+        format="usd0"
+        hint="The lowest price among our ready-made packages."
+        delay={0.22}
+      />
+    </StadiumTiles>
+  );
+}
+
 export default async function MarketplacePage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const demo = await demoState(searchParams);
-  if (demo === "loading") return <SkeletonPage />;
+  if (demo === "loading") return <StadiumGhost label="Loading packages" tiles={3} />;
   if (demo === "error") throw new Error("Demo error state");
 
   const live = demo === null ? await liveCatalogue() : null;
   if (live) return <LiveMarketplace live={live} />;
 
-  const heading = (
-    <div>
-      <h1 className="text-xl font-semibold tracking-tight">Marketplace</h1>
-      {demo === "empty" ? (
-        <p className="mt-1 text-xs text-muted">curated by BTG</p>
-      ) : (
-        <p className="mt-1 text-xs text-muted">
-          {athleteInv.length} athletes · {marketplacePackages.length} packages
-          · curated by BTG
-        </p>
-      )}
-    </div>
-  );
-
   /* A brand-new sponsor can legitimately have an empty catalogue — the empty
      state says so instead of rendering three blank tabs. */
   if (demo === "empty") {
     return (
-      <div className="space-y-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          {heading}
-        </div>
+      <div className="space-y-6">
+        <StadiumHead title="Packages" pill="Sample data" />
         <EmptyState
           mark="users"
           title="No inventory matches these filters"
@@ -132,31 +155,22 @@ export default async function MarketplacePage({
       demoParam ? { tab: key, demo: demoParam } : { tab: key },
     ).toString()}`;
 
+  const fromCents = Math.round(Math.min(...marketplacePackages.map((p) => parseAmount(p.price))) * 100);
+
   return (
-    <div className="space-y-5">
-      {/* ------------------------------------------------------- heading */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        {heading}
-      </div>
+    <div className="space-y-6">
+      <StadiumHead title="Packages" pill="Sample data">
+        <MarketTiles packagesCount={marketplacePackages.length} jobTypes={rates.length} fromCents={fromCents} />
+      </StadiumHead>
 
       {/* ---------------------------------------------------------- tabs */}
-      <div className="flex flex-wrap gap-1 rounded-lg border border-line bg-surface p-1">
+      <TabStrip label="Catalogue section">
         {TABS.map((t) => (
-          <Link
-            key={t.key}
-            href={tabHref(t.key)}
-            className={[
-              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-              t.key === active
-                ? "bg-sponsor/15 text-sponsor"
-                : "text-muted hover:text-text",
-            ].join(" ")}
-          >
+          <TabLink key={t.key} href={tabHref(t.key)} on={t.key === active} count={t.count}>
             {t.label}
-            <span className="text-[10px] tabular-nums text-faint">{t.count}</span>
-          </Link>
+          </TabLink>
         ))}
-      </div>
+      </TabStrip>
 
       {/* ====================================================== packages */}
       {active === "packages" && (
@@ -204,20 +218,20 @@ export default async function MarketplacePage({
 
 /** The signed-in sponsor's marketplace — real packages, real jobs, real briefs. */
 function LiveMarketplace({ live }: { live: { packages: Pkg[]; jobs: LiveJob[] } }) {
+  const fromCents = live.packages.length
+    ? Math.round(Math.min(...live.packages.map((p) => parseAmount(p.price))) * 100)
+    : 0;
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Marketplace</h1>
-        <p className="mt-1 text-xs text-muted">
-          {live.packages.length} packages · {live.jobs.length} NIL jobs · curated by BTG
-        </p>
-      </div>
+    <div className="space-y-6">
+      <StadiumHead title="Packages" pill={<StadiumUpdated iso={new Date().toISOString()} />}>
+        <MarketTiles packagesCount={live.packages.length} jobTypes={live.jobs.length} fromCents={fromCents} />
+      </StadiumHead>
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold tracking-tight">Packages</h2>
+        <h2 className="sx-section-title">Packages</h2>
         <PackagesCatalog items={live.packages} submit={submitBrief} />
       </section>
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold tracking-tight">NIL jobs</h2>
+        <h2 className="sx-section-title">Job types</h2>
         <JobsCatalog jobs={live.jobs} submit={submitBrief} />
       </section>
       <p className="text-[10px] leading-relaxed text-faint">

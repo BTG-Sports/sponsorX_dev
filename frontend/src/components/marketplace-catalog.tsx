@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Badge, Card } from "@/components/ui";
+import { Badge } from "@/components/ui";
 import { MiniChip, Monogram, initials } from "@/components/hero";
 import { compact } from "@/components/charts";
 import { Dropdown, FilterChip, SearchInput } from "@/components/filter-kit";
@@ -40,10 +40,10 @@ const SIZE_OPTIONS = [
   { value: "60", label: "60 / page" },
 ];
 
-const STATE_TONE: Record<InventoryState, "accent" | "warn" | "primary" | "neutral"> = {
+const STATE_TONE: Record<InventoryState, "accent" | "warn" | "neutral"> = {
   ACTIVE: "accent",
   LIMITED: "warn",
-  BOOKED: "primary",
+  BOOKED: "neutral",
   SOLD_OUT: "neutral",
 };
 
@@ -54,7 +54,7 @@ export type CatalogInitial = Partial<Record<string, string>>;
 /** Parse a display amount to a sortable number: "$1,500–$3,000" → 1500,
     "~$2,500" → 2500, "1.2M" → 1200000, "$15K–$30K+" → 15000. Non-numeric
     ("Recurring") → 0, so it sorts to the bottom of a low→high order. */
-function parseAmount(s: string): number {
+export function parseAmount(s: string): number {
   const m = s.replace(/[,$~\s]/g, "").match(/([\d.]+)\s*([KM])?/i);
   if (!m) return 0;
   let n = parseFloat(m[1]);
@@ -400,7 +400,9 @@ function CatalogShell<T>({
   );
 }
 
-/** Shared card frame: identity band on top, body below. */
+/** Shared card frame: identity band on top, body below — an LED panel on
+    the Stadium Board (P1-ART-23), with the pointer-light spot OpsStage
+    already wires for every `[data-spot]` element. */
 function IdentityCard({
   dimmed,
   band,
@@ -411,12 +413,12 @@ function IdentityCard({
   children: React.ReactNode;
 }) {
   return (
-    <Card className={["overflow-hidden p-0", dimmed ? "opacity-75" : ""].join(" ")}>
-      <div className="flex items-center gap-3 bg-gradient-to-br from-primary/20 to-transparent p-4">
+    <div data-spot="" className={["sx-stadium-panel overflow-hidden", dimmed ? "opacity-75" : ""].join(" ")}>
+      <div className="flex items-center gap-3 bg-gradient-to-br from-sponsor/15 to-transparent p-4">
         {band}
       </div>
       {children}
-    </Card>
+    </div>
   );
 }
 
@@ -508,7 +510,7 @@ export function PackagesCatalog({
                   <>
                     <Monogram
                       text={initials(p.name)}
-                      tone={p.featured ? "accent" : "primary"}
+                      tone={p.featured ? "accent" : "neutral"}
                       className="size-10 text-xs"
                     />
                     <div className="min-w-0 flex-1">
@@ -518,7 +520,7 @@ export function PackagesCatalog({
                       <p className="mt-0.5 truncate text-[11px] text-muted">{p.note}</p>
                     </div>
                     {p.featured ? (
-                      <Badge tone="primary">Popular</Badge>
+                      <Badge tone="accent">Popular</Badge>
                     ) : (
                       <Badge tone={STATE_TONE[p.state]}>{INVENTORY_COPY[p.state]}</Badge>
                     )}
@@ -550,7 +552,7 @@ export function PackagesCatalog({
                     }
                     className="mt-3 w-full rounded-lg bg-primary py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
                   >
-                    Request a brief
+                    Request this
                   </button>
                 </div>
               </IdentityCard>,
@@ -671,14 +673,14 @@ export function AthleteCatalog({
                     <Monogram
                       text={initials(a.athlete)}
                       shape="circle"
-                      tone={soldOut ? "neutral" : "primary"}
+                      tone={soldOut ? "neutral" : "accent"}
                       className="size-10 text-xs"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="flex items-center gap-1.5 truncate text-sm font-semibold tracking-tight">
                         {a.athlete}
                         {a.verified && (
-                          <span title="Verified athlete" className="text-primary-soft">
+                          <span title="Verified athlete" className="text-success">
                             ✔
                           </span>
                         )}
@@ -690,7 +692,7 @@ export function AthleteCatalog({
                     {soldOut ? (
                       <Badge tone="neutral">Sold out</Badge>
                     ) : (
-                      <Badge tone="primary">{a.tier} tier</Badge>
+                      <Badge tone="accent">{a.tier} tier</Badge>
                     )}
                   </>
                 }
@@ -936,13 +938,13 @@ export type LiveJob = { id: string; name: string; price: string };
 export function JobsCatalog({ jobs, submit }: { jobs: LiveJob[]; submit?: BriefSubmit }) {
   const [seed, setSeed] = useState<BriefSeed | null>(null);
   if (jobs.length === 0) {
-    return <p className="text-xs text-muted">BTG hasn&rsquo;t published any NIL jobs yet.</p>;
+    return <p className="text-xs text-muted">BTG hasn&rsquo;t published any job types yet.</p>;
   }
   return (
     <>
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {jobs.map((j) => (
-          <li key={j.id} className="rounded-xl border border-line bg-surface p-4">
+          <li key={j.id} data-spot="" className="sx-stadium-panel p-4">
             <p className="text-[10px] font-medium uppercase tracking-wider text-faint">{j.id}</p>
             <p className="mt-1 text-sm font-semibold tracking-tight">{j.name}</p>
             <p className="mt-1 text-xs tabular-nums text-accent">{j.price} per athlete</p>
@@ -951,7 +953,7 @@ export function JobsCatalog({ jobs, submit }: { jobs: LiveJob[]; submit?: BriefS
               onClick={() => setSeed({ kind: "job", name: j.name, jobId: j.id, price: j.price })}
               className="mt-3 w-full rounded-lg bg-primary py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
             >
-              Request a brief
+              Request this
             </button>
           </li>
         ))}

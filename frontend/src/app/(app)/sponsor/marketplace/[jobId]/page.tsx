@@ -1,20 +1,24 @@
 import { BackLink } from "@/components/back-link";
 import Link from "next/link";
-import { BlockedNotice, Card, SectionHeading } from "@/components/ui";
-import { HeroBand, MiniChip } from "@/components/hero";
-import { compact } from "@/components/charts";
-import { inventoryItem, money } from "@/lib/fixtures";
+import { BlockedNotice, SectionHeading } from "@/components/ui";
+import { MiniChip } from "@/components/hero";
+import { StadiumHead, StadiumPanel, StadiumTile, StadiumTiles, at } from "@/components/stadium-stage";
+import { inventoryItem } from "@/lib/fixtures";
 import { resolveBack } from "@/lib/back";
 
 /* --------------------------------------------------------------------------
-   NIL Job / Inventory Detail — §9 screen 7, redesigned per spec 2026-09-11:
-   hero band with the sourced stat trio, includes grid, and a "Managed by BTG"
-   rail in place of anything resembling checkout (§17).
+   One job — §9 screen 7, restyled on the Stadium Board (P1-ART-23, spec
+   2026-10-11 §7.7): Head with a "Request this" action, three tiles off the
+   fixture, then the details panel and the "Managed by BTG" rail in place of
+   anything resembling checkout (§17). Restyle only — it stays on fixtures,
+   as today (the plan doesn't wire this page to a real catalogue read).
 
    §9.7 asks for job code, deliverables, sponsor price, rights, exclusivity,
    dates, usage, approval, status and availability — all on the page. Base
-   rate — what the athlete is paid — is absent by design (guide §04). Implied
-   CPM is displayed because §15 stores it for learning.
+   rate — what the athlete is paid — is absent by design (guide §04). The
+   "implied CPM" figure is kept (§15 stores it for learning) but in plain
+   words — "What you pay per 1,000 people reached" — with the jargon and the
+   §15 note behind a hint instead of printed on screen.
    -------------------------------------------------------------------------- */
 
 export default async function InventoryDetailPage({
@@ -29,8 +33,18 @@ export default async function InventoryDetailPage({
   const back = resolveBack(from, "mk-media");
   const it = inventoryItem;
 
+  const requestThis = (
+    <button
+      type="button"
+      title="Creates a CampaignBrief in DRAFT — not wired"
+      className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-cta-ink"
+    >
+      Request this
+    </button>
+  );
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <BackLink target={back} />
 
       {/* C-5 (check pass): this is the demo media-property detail — linked
@@ -39,64 +53,50 @@ export default async function InventoryDetailPage({
       <BlockedNotice>
         Demo data — a sample media-property listing. BTG&rsquo;s own media
         properties aren&rsquo;t bookable in Phase 1; browse the packages and
-        NIL jobs on the{" "}
+        job types on the{" "}
         <Link href="/sponsor/marketplace" className="underline">marketplace</Link>.
       </BlockedNotice>
 
-      {/* ------------------------------------------------------- hero band */}
-      <HeroBand className="sx-animate">
-        <div className="flex flex-wrap items-center gap-x-10 gap-y-5">
-          <div className="min-w-52 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              {it.exclusive && (
-                <MiniChip kind="neutral">
-                  EXCLUSIVE · {it.durationWeeks} WEEKS
-                </MiniChip>
-              )}
-              <MiniChip kind="neutral">{it.jobId}</MiniChip>
-            </div>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight">
-              {it.name}
-            </h1>
-            <p className="mt-1 text-xs text-muted">
-              {it.property} · {it.formats.join(" · ")}
-            </p>
-          </div>
-
-          <dl className="flex flex-wrap gap-x-8 gap-y-4">
-            <div>
-              <dt className="text-[10px] font-medium uppercase tracking-wider text-muted">
-                Est. views
-              </dt>
-              <dd className="mt-0.5 flex items-baseline gap-1.5 text-xl font-bold tabular-nums tracking-tight">
-                {compact(it.estViews)} <MiniChip kind="est" />
-              </dd>
-            </div>
-            <div>
-              <dt className="text-[10px] font-medium uppercase tracking-wider text-muted">
-                Implied CPM
-              </dt>
-              <dd className="mt-0.5 text-xl font-bold tabular-nums tracking-tight">
-                ${it.cpm}
-              </dd>
-              <dd className="text-[9px] text-faint">§15 — stored for learning</dd>
-            </div>
-            <div>
-              <dt className="text-[10px] font-medium uppercase tracking-wider text-muted">
-                Price
-              </dt>
-              <dd className="mt-0.5 text-xl font-bold tabular-nums tracking-tight text-accent">
-                {money(it.estPrice)}
-              </dd>
-            </div>
-          </dl>
+      <StadiumHead title={it.name} pill="Sample data" actions={requestThis}>
+        <div className="sx-stadium-in flex flex-wrap items-center gap-2" style={at(0.04)}>
+          {it.exclusive && (
+            <MiniChip kind="neutral">
+              EXCLUSIVE · {it.durationWeeks} WEEKS
+            </MiniChip>
+          )}
+          <MiniChip kind="neutral">{it.jobId}</MiniChip>
+          <span className="text-xs text-muted">
+            {it.property} · {it.formats.join(" · ")}
+          </span>
         </div>
-      </HeroBand>
+        <StadiumTiles cols={3}>
+          <StadiumTile
+            label="Estimated views"
+            value={it.estViews}
+            hint="How many people we expect this to reach. An estimate, not a checked figure."
+            delay={0.1}
+          />
+          <StadiumTile
+            label="What you pay per 1,000 people reached"
+            value={it.cpm * 100}
+            format="usd0"
+            hint="The estimated reach divided into the price, times 1,000 — a quick way to compare listings. Stored for learning (§15), not a guarantee."
+            delay={0.16}
+          />
+          <StadiumTile
+            label="Price"
+            value={it.estPrice}
+            format="usd0"
+            hint="What this would cost, all in."
+            delay={0.22}
+          />
+        </StadiumTiles>
+      </StadiumHead>
 
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr] lg:items-start">
         {/* ------------------------------------------------------- left */}
         <div className="space-y-4">
-          <Card className="sx-animate sx-delay-1">
+          <StadiumPanel delay={0.3}>
             <SectionHeading title="What's included" />
             <ul className="grid gap-2 sm:grid-cols-2">
               {it.includes.map((i) => (
@@ -111,22 +111,22 @@ export default async function InventoryDetailPage({
             <p className="mt-4 border-t border-line-soft pt-3 text-[10px] leading-relaxed text-faint">
               Usage rights: {it.usageRights} · {it.approval}
             </p>
-          </Card>
+          </StadiumPanel>
 
-          <Card className="sx-animate sx-delay-2">
+          <StadiumPanel delay={0.36}>
             <SectionHeading title="About" />
             <p className="text-xs leading-relaxed text-muted">{it.about}</p>
-          </Card>
+          </StadiumPanel>
         </div>
 
         {/* ------------------------------------------------------- rail */}
         <div className="space-y-4">
           {/* Artwork placeholder — real creative lives in the R2 public bucket. */}
-          <div className="sx-animate sx-delay-1 relative aspect-4/3 overflow-hidden rounded-xl border border-line">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#123049] via-[#0e1d2c] to-[#0a0c10]" />
+          <div className="sx-stadium-in relative aspect-4/3 overflow-hidden rounded-[6px] border border-line" style={at(0.3)}>
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1c1511] via-[#15110e] to-[#0b0a09]" />
             <div
               aria-hidden="true"
-              className="absolute -right-8 top-1/3 size-56 rounded-full bg-primary/25 blur-[70px]"
+              className="absolute -right-8 top-1/3 size-56 rounded-full bg-sponsor/25 blur-[70px]"
             />
             <div className="relative grid h-full place-items-center text-center">
               <div>
@@ -146,22 +146,22 @@ export default async function InventoryDetailPage({
             </p>
           </div>
 
-          <Card className="sx-animate sx-delay-2 border-accent/30 bg-gradient-to-br from-accent/12 to-surface">
+          <StadiumPanel delay={0.36}>
             <p className="text-xs font-semibold tracking-tight">
               Managed by BTG
             </p>
             <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
-              Request this inventory and BTG matches the athletes, checks
-              category conflicts and sends one invoice. No checkout — Phase 1
-              is a managed marketplace (§17).
+              Request this and BTG matches the athletes, checks category
+              conflicts and sends one invoice. No checkout — Phase 1 is a
+              managed marketplace (§17).
             </p>
             <div className="mt-4 space-y-2">
               <button
                 type="button"
                 title="Creates a CampaignBrief in DRAFT — not wired"
-                className="w-full rounded-lg bg-accent py-2.5 text-xs font-semibold text-cta-ink transition-colors hover:bg-accent-soft"
+                className="w-full rounded-lg bg-primary py-2.5 text-xs font-semibold text-cta-ink transition-colors hover:bg-primary-soft"
               >
-                Request this inventory
+                Request this
               </button>
               <button
                 type="button"
@@ -171,7 +171,7 @@ export default async function InventoryDetailPage({
                 Talk to BTG
               </button>
             </div>
-          </Card>
+          </StadiumPanel>
         </div>
       </div>
 

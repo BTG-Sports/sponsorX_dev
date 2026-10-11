@@ -99,8 +99,8 @@ test("a sponsor brief is approved, staffs itself, and is answered — accept, de
   await sponsor.goto("/sponsor/marketplace");
   await expect(sponsor.getByRole("heading", { name: "Packages" })).toBeVisible();
   await sponsor
-    .locator(`xpath=//*[normalize-space()='SponsorX Test Drive']/ancestor::*[.//button[normalize-space()='Request a brief']][1]`)
-    .getByRole("button", { name: "Request a brief" })
+    .locator(`xpath=//*[normalize-space()='SponsorX Test Drive']/ancestor::*[.//button[normalize-space()='Request this']][1]`)
+    .getByRole("button", { name: "Request this" })
     .click();
   const drawer = sponsor.getByRole("dialog", { name: "Request a brief" });
   await drawer.getByLabel("Objective").fill(objective);
