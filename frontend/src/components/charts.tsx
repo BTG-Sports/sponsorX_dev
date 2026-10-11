@@ -709,7 +709,7 @@ export function FunnelSteps({
                     {conv.text} <span className="text-faint">· more than the step above, not a conversion</span>
                   </>
                 ) : (
-                  <>↓ {conv.text}</>
+                  <>↓ {conv.text} carried on</>
                 )}
               </p>
             )}

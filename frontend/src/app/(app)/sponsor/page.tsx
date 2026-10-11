@@ -327,12 +327,12 @@ function CostPer1000({ o }: { o: SponsorOverview }) {
         hint="What you've agreed to spend, divided by the people your posts have reached, times 1,000. Lower is better value. Counted over all time, not just this period."
         note="All time"
       >
-        What you pay per 1,000 people reached
+        Cost per 1,000 people reached
       </Title>
       {o.costPer1000Cents !== null ? (
         <>
           <ArenaCount value={o.costPer1000Cents} format="usd" delay={0.58} className="sx-stadium-num block text-[34px] leading-tight" />
-          <p className="mt-1.5 text-[11.5px] text-faint">Based on your agreed spend and the people reached so far</p>
+          <p className="mt-1.5 text-[11.5px] text-faint">Uses everything you&rsquo;ve agreed to spend, not only what&rsquo;s been invoiced so far</p>
         </>
       ) : (
         <Quiet>{o.money ? "Shows once checked reach is in." : "Your login doesn't include spending, so this can't be worked out here."}</Quiet>
