@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 
 import { removeLineAction, updateLineAction } from "@/app/(app)/sponsor/cart/actions";
 import { ShopRefusal } from "@/components/shop-bits";
+import { at, StadiumDate } from "@/components/stadium-stage";
 import { isoDay, lineSeller, usd, validateLine, type ApiCartLine } from "@/lib/shop-live";
 
 /* --------------------------------------------------------------------------
@@ -17,7 +18,7 @@ import { isoDay, lineSeller, usd, validateLine, type ApiCartLine } from "@/lib/s
 const input =
   "w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-text focus:border-primary/50 focus:outline-none disabled:opacity-60";
 
-export function ShopCartLine({ line, editable }: { line: ApiCartLine; editable: boolean }) {
+export function ShopCartLine({ line, editable, i = 0 }: { line: ApiCartLine; editable: boolean; i?: number }) {
   const router = useRouter();
   const [quantity, setQuantity] = useState(String(line.quantity));
   const [startsOn, setStartsOn] = useState(isoDay(line.startsOn));
@@ -52,15 +53,18 @@ export function ShopCartLine({ line, editable }: { line: ApiCartLine; editable: 
   };
 
   return (
-    <li className="space-y-3 rounded-xl border border-line bg-surface p-4">
+    <li className="sx-stadium-row space-y-3 border-b border-line-soft px-5 py-4 last:border-0" style={at(0.25 + i * 0.04)}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{line.title}</p>
+          <p className="truncate text-sm font-semibold text-text">{line.title}</p>
           <p className="mt-0.5 text-[11px] text-muted">
             {lineSeller(line)} · {usd(line.unitPriceCents)} each
           </p>
+          <p className="mt-0.5 text-[11px] text-faint">
+            Qty {line.quantity} · <StadiumDate iso={line.startsOn} format="date" /> – <StadiumDate iso={line.endsOn} format="date" />
+          </p>
         </div>
-        <p className="text-sm font-semibold tabular-nums">{usd(line.lineTotalCents)}</p>
+        <p className="text-sm font-semibold tabular-nums text-text">{usd(line.lineTotalCents)}</p>
       </div>
 
       <div className="grid grid-cols-3 gap-2 sm:max-w-md">
