@@ -49,7 +49,7 @@ replaced by a static row of facts), there is no flicker, and the count-ups show 
   from is in the `?`.
 - **Status chips use colour plus a word** (never colour alone): Running (green), Needs your OK
   (orange, filled), Behind (red), Finished (grey).
-- **Empty states say what to do next**, e.g. "No campaigns yet. Find athletes to start one →".
+- **Empty states say what to do next**, e.g. "No campaigns yet. Browse packages to start one →".
   An all-clear "Needs you" says "You're all caught up ✓".
 - **Status bars** (`StadiumSteps`) show where a request, campaign, order or checkout stands, in
   3–5 plain steps.
@@ -78,7 +78,8 @@ order's lines, one campaign's athlete roster.
 
 ## 5. Shared kit (new; mirrors the arena kit's API so pages read the same)
 
-- `frontend/src/app/globals.css`: a `.sx-stadium` block after `.sx-arena`. It holds tokens
+- `frontend/src/app/(app)/sponsor/stadium.css` (imported by the sponsor layout; kept out of
+  `globals.css` so it never collides with other in-flight work there): the `.sx-stadium` block. It holds tokens
   (`--st`, `--st-glow`, `--st-line`, `--st-plate`), the ground (top-left glow, dot-matrix band,
   pointer light), panels and scan-lines, numerals, title, pill, ticker, chips, badge pulse, steps,
   buttons, tabs, drawers, tables, nav, the power-on entrance and the reduced-motion overrides.
@@ -105,12 +106,12 @@ order's lines, one campaign's athlete roster.
 
 - **Dashboard**, alone on top.
 - **Campaigns** (megaphone): Campaigns, Requests.
-- **Marketplace** (store): Cart (with an item-count badge), Find athletes, Orders, Shop.
+- **Marketplace** (store): Cart, Orders, Packages, Shop.
 - **Account** (gear): Billing · soon, Messages · soon, Settings · soon (inert, as today).
 
 Analytics, Rewards and Leads leave the sidebar: the new dashboard and results pages cover what
 they promised, and they had no route. Routes are unchanged (`/sponsor/marketplace` is labelled
-"Find athletes"). Requests is a new route, `/sponsor/requests`. Its list moves off the
+"Packages": it is BTG's price list of packages and NIL job types, not a list of athletes). Requests is a new route, `/sponsor/requests`. Its list moves off the
 campaigns page, where a "Your requests" tile links to it.
 
 ## 7. Pages
@@ -119,17 +120,19 @@ Every page has a live mode and a demo mode (`?demo=`, fixtures). Both render thr
 stadium components; demo keeps its fixtures and its "Sample data" pill.
 
 ### 7.1 Dashboard — `/sponsor`
-- **Ticker:** campaigns running · people reached today · posts waiting for your OK · fans who
+- **Ticker** (dashboard only, bleeding to the column edges): campaigns running · people reached today · posts waiting for your OK · fans who
   redeemed today · top city. All are from the overview read; a fact with a zero or null value is
   left out.
 - **Head:** "Your sponsorships", Updated pill, a **range switch (7 days / 30 days / 90 days / All
   time, `?range=`, default 30d)** that drives every number below, and "+ New request".
-- **Five tiles:** People reached · Likes, comments & shares (with "x% of people reached") · Link
+- **Five tiles:** People reached (checked figures only; caption "+n more reported by athletes" when
+  `otherViews` > 0) · Likes, comments & shares (with "x% of people reached") · Link
   clicks · Fans who redeemed · Money spent (invoiced, with a paid share bar and "$x paid · $y
   still to pay"). The first four carry a sparkline and a change against the previous period of
   equal length; "All time" shows no change.
-- **Row:** `StadiumTrend` (2/3) + **Needs you** (1/3): posts waiting for your OK → the campaign's
-  review section; artwork to approve; invoices to pay; orders waiting. Each row has a count badge.
+- **Row:** `StadiumTrend` (2/3) + **Needs you** (1/3): posts waiting for your OK → the campaigns
+  list filtered to them; orders to pay → Orders "To pay" tab; invoices to pay. Each row has a count
+  badge. (Artwork approval is BTG's step, not the sponsor's, so it is not listed.)
 - **Row:** From scan to redeemed (`FunnelSteps`) · What you pay per 1,000 people reached (paid ÷
   views; **no benchmark is shown**, because Phase 1 holds none: `sponsor-report.ts` L111) · Posts
   delivered (x of y, late count, next due).
@@ -167,13 +170,14 @@ marks. Row: From scan to redeemed · Best athletes. Then link clicks by post, ob
 published posts as a gallery, and edition placements. It is all the existing `/report` payload
 except the daily series.
 
-### 7.6 Find athletes — `/sponsor/marketplace`
-Tiles: Athletes available · Ready-made packages · Sports. Tabs: Packages / Athletes & jobs, with
-search, a Sport filter and a Budget filter. A server-paged card grid with its own keys per tab.
-Picking a card opens the existing request drawer. The client slicing in
-`marketplace-catalog.tsx` goes.
+### 7.6 Packages — `/sponsor/marketplace`
+Tiles: Ready-made packages · Job types · Price range ("from $x"). These are computed from the
+catalogue itself, which is a **bounded, curated price list** (§7 packages and the NIL job
+catalogue), so under memory `pagination-pattern` it stays client-paged with the house pager
+(12/24/60, above and below). It gets the stadium look and plain words; picking a card still opens
+the existing request drawer.
 
-### 7.7 One athlete job — `/sponsor/marketplace/[jobId]`
+### 7.7 One job — `/sponsor/marketplace/[jobId]`
 Restyle only (Head with "Request this", three tiles, details). It stays on fixtures, as today.
 
 ### 7.8 Shop — `/sponsor/shop`
@@ -213,19 +217,20 @@ campaigns (with `campaignId`, one campaign, 404 if out of scope). Response:
 {
   readAt: string,
   range: { key, from: string|null, to: string, days: number|null, bucket: "day" | "week" },
-  reach:   { views, engagements, prev: { views, engagements } | null,
-             bySource: Partial<Record<MetricSource, number>> },          // MetricDaily
+  reach:   { verifiedViews, verifiedEngagements, otherViews,              // MetricDaily — never blended:
+             prev: { verifiedViews, verifiedEngagements } | null,       // "People reached" is VERIFIED_API +
+             bySource: Record<MetricSource, number> },                 // VERIFIED_MANUAL; the rest shown apart
   clicks:  { total, prev: number | null },                                // LinkEvent
   fans:    { scan, landing, claim, redeem, prevRedeem: number | null,
              events: number },                                            // RewardEvent by type
-  daily:   { day: string, views, engagements, clicks, redeems }[],        // zero-filled
+  daily:   { day: string, views, clicks, redeems }[],                     // zero-filled; views = verified
   today:   { views, redeems },                                            // ticker
   delivery:{ due, delivered, late, nextDueAt: string | null },            // Deliverable
   topAthletes: { athleteId, name, sport, views }[],                       // ≤5, by views
   topCities:   { city, region, redeems }[],                               // ≤5, REDEEM with a city
   money?:  { contractedCents, invoicedCents, paidCents },                 // same permission gate as /campaigns/summary
-  costPer1000Cents: number | null,                                        // paid ÷ views × 1000; null when views = 0 or money hidden
-  needsYou:{ postsToReview, artworkToApprove, invoicesUnpaid, ordersWaiting },
+  costPer1000Cents: number | null,                                        // mediaValueFor(contracted, all-time verified views); null when 0 views or money hidden
+  needsYou:{ postsToReview, ordersToPay, invoicesUnpaid? },
   campaigns: { running }
 }
 ```
@@ -247,12 +252,10 @@ spentCents }`, where spent = totalCents over paid-or-later states.
 `?page size` (plus the existing filters) → `{ results, page }` with `total`; the legacy `limit`
 path is unchanged.
 
-### 8.4 `GET /catalogue/packages` and `/catalogue/jobs` paging
-`?page size q sport budgetMax` → `{ packages|jobs, page, counts: { athletes, packages, sports } }`.
-
 ### 8.5 Already sufficient
 `/campaigns` + `/campaigns/summary`, `/briefs` (paged, `counts`), `/deliverables?campaignId&page`,
-`/campaigns/:id/report`, `/cart`, `/reservations/:id`.
+`/campaigns/:id/report`, `/cart`, `/reservations/:id`, `/catalogue/packages`, `/catalogue/jobs`
+(bounded).
 
 ## 9. Verification
 
