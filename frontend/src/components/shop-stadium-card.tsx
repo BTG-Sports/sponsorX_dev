@@ -12,9 +12,10 @@ import { athleteLine, kindLabel, ruleNotes, sellerLine, usd, type ApiSearchResul
 
    Presentational and hook-free: a server component. Every figure is a field
    of the GET /marketplace/search row (memory: stats-must-be-retrievable).
-   Dates are real timestamps (midnight UTC on the wire), shown in the
-   viewer's own timezone via `StadiumDate` rather than the shared card's
-   fixed-UTC `windowLabel`.
+   Dates are calendar days (midnight UTC on the wire), so they are shown in
+   UTC (`StadiumDate utc`) — the same days `ShopAddToCart`'s min / max and
+   the API's "available from / until" checks use; read in a timezone west
+   of UTC they would otherwise shift back a day.
    -------------------------------------------------------------------------- */
 
 export function ShopStadiumCard({ result: r, action, i = 0 }: { result: ApiSearchResult; action?: ReactNode; i?: number }) {
@@ -26,9 +27,9 @@ export function ShopStadiumCard({ result: r, action, i = 0 }: { result: ApiSearc
       "Any dates"
     ) : (
       <>
-        {availableFrom ? <StadiumDate iso={availableFrom} format="date" /> : "any start"}
+        {availableFrom ? <StadiumDate iso={availableFrom} format="date" utc /> : "any start"}
         {" – "}
-        {availableUntil ? <StadiumDate iso={availableUntil} format="date" /> : "no end date"}
+        {availableUntil ? <StadiumDate iso={availableUntil} format="date" utc /> : "no end date"}
       </>
     );
 

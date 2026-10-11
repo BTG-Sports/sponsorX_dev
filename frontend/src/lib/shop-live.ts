@@ -14,6 +14,7 @@
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "@/lib/brand-categories";
 import type { ApiCheckout, ApiOrderAcceptance } from "@/lib/checkout-gate";
 import type { SponsorRefund } from "@/lib/refunds-live";
+import { US_STATES, isUsState } from "@/lib/onboarding-live";
 
 /* ------------------------------------------------------------------ shapes */
 
@@ -240,15 +241,16 @@ type SearchParams = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v.trim() : "");
 
 /** The filter form's values, exactly as typed — what the shop's instant
- *  filters read back from the URL. `maxPrice` is a preset band's cents value
- *  (Under $500 / $1,000 / $5,000), not typed by hand (P1-ART-23 Task 13 —
- *  it replaces the old separate min/max dollar inputs). */
+ *  filters read back from the URL. `minPrice` / `maxPrice` are preset bands'
+ *  cents values ($500+ … / Under $500 …), not typed by hand (P1-ART-23 Task
+ *  13 — they replace the old separate min/max dollar inputs). */
 export type ShopFilters = {
   q: string;
   kind: string;
   category: string;
   sport: string;
   stateCode: string;
+  minPrice: string;
   maxPrice: string;
   availableFrom: string;
   availableUntil: string;
@@ -260,6 +262,7 @@ export const FILTER_KEYS: (keyof ShopFilters)[] = [
   "category",
   "sport",
   "stateCode",
+  "minPrice",
   "maxPrice",
   "availableFrom",
   "availableUntil",
@@ -269,22 +272,37 @@ export function shopFilters(sp: SearchParams): ShopFilters {
   return Object.fromEntries(FILTER_KEYS.map((k) => [k, one(sp[k])])) as ShopFilters;
 }
 
-/** The shop's price filter: three bands, each a `maxPrice` already in cents
- *  — the wire's own unit, so picking one needs no conversion. */
+/** The shop's "Price" filter: three bands, each a `maxPrice` already in
+ *  cents — the wire's own unit, so picking one needs no conversion. */
 export const PRICE_BANDS = [
   { value: "50000", label: "Under $500" },
   { value: "100000", label: "Under $1,000" },
   { value: "500000", label: "Under $5,000" },
 ];
 
+/** The shop's "From" price filter: three bands, each a `minPrice` in cents. */
+export const MIN_PRICE_BANDS = [
+  { value: "50000", label: "$500+" },
+  { value: "100000", label: "$1,000+" },
+  { value: "500000", label: "$5,000+" },
+];
+
+/** The "State" filter's options: the US state codes (and DC), by name — a
+ *  fixed list, so the control never flashes free text. */
+export const STATE_OPTIONS = US_STATES.map((s) => ({ value: s.code, label: `${s.name} (${s.code})` }));
+
+const isBand = (bands: { value: string }[], v: string) => bands.some((b) => b.value === v);
+
 /**
  * The URL's filters → `GET /marketplace/search`'s extra query params (its
  * `?page` / `?size` are added separately, by `apiListQuery`). Only values the
  * contract accepts are sent (SearchQuery in backend/src/contracts/marketplace.ts):
- * a kind or category outside its list, a state code that isn't two letters, a
- * price band that isn't a positive whole number of cents, or a day that isn't
- * a day, is dropped and named in `ignored`, so a typo narrows nothing instead
- * of failing the page with a 400. Days are sent as midnight UTC.
+ * a kind or category outside its list, a state code that isn't a US state, a
+ * price that isn't one of its filter's bands (an old `?maxPrice=500` dollars
+ * bookmark would otherwise mean $5), or a day that isn't a day, is dropped
+ * and named in `ignored`, so a stale link narrows nothing instead of failing
+ * the page with a 400 or quietly filtering the wrong thing. Days are sent as
+ * midnight UTC.
  */
 export function shopSearchExtras(sp: SearchParams): { filters: ShopFilters; extras: Record<string, string>; ignored: string[] } {
   const f = shopFilters(sp);
@@ -302,12 +320,15 @@ export function shopSearchExtras(sp: SearchParams): { filters: ShopFilters; extr
   }
   if (f.sport) extras.sport = f.sport.slice(0, 60);
   if (f.stateCode) {
-    if (/^[A-Za-z]{2}$/.test(f.stateCode)) extras.stateCode = f.stateCode.toUpperCase();
+    if (isUsState(f.stateCode.toUpperCase())) extras.stateCode = f.stateCode.toUpperCase();
     else ignored.push("state");
   }
+  if (f.minPrice) {
+    if (isBand(MIN_PRICE_BANDS, f.minPrice)) extras.minPrice = f.minPrice;
+    else ignored.push("price from");
+  }
   if (f.maxPrice) {
-    const cents = Number(f.maxPrice);
-    if (Number.isInteger(cents) && cents > 0) extras.maxPrice = String(cents);
+    if (isBand(PRICE_BANDS, f.maxPrice)) extras.maxPrice = f.maxPrice;
     else ignored.push("price");
   }
   for (const [key, label] of [
@@ -325,6 +346,19 @@ export function shopSearchExtras(sp: SearchParams): { filters: ShopFilters; extr
 /** True when any filter is set — the empty state then offers to clear them. */
 export function hasFilters(f: ShopFilters): boolean {
   return FILTER_KEYS.some((k) => f[k] !== "");
+}
+
+/** The filters as the controls should show them: a URL value that isn't one
+ *  of a filter's options reads as "any" (it's named under "Not applied"),
+ *  never as a blank or a stale label. */
+export function shownFilters(f: ShopFilters): ShopFilters {
+  const code = f.stateCode.toUpperCase();
+  return {
+    ...f,
+    stateCode: isUsState(code) ? code : "",
+    minPrice: isBand(MIN_PRICE_BANDS, f.minPrice) ? f.minPrice : "",
+    maxPrice: isBand(PRICE_BANDS, f.maxPrice) ? f.maxPrice : "",
+  };
 }
 
 /* --------------------------------------------------------------- demo data */
@@ -401,6 +435,21 @@ export const DEMO_LISTINGS: ApiSearchResult[] = [
   },
 ];
 
+/** The demo deck's cart — what the "In your cart" / "Cart total" tiles show
+ *  under "Sample data": two lines of the deck itself, priced from it, so the
+ *  total is the sum a real cart of these lines would read. */
+const DEMO_CART_LINES = [
+  { listingId: "demo-1", quantity: 2 },
+  { listingId: "demo-3", quantity: 1 },
+];
+export const DEMO_CART = {
+  lines: DEMO_CART_LINES.length,
+  totalCents: DEMO_CART_LINES.reduce(
+    (sum, l) => sum + l.quantity * (DEMO_LISTINGS.find((r) => r.id === l.listingId)?.item.priceCents ?? 0),
+    0,
+  ),
+};
+
 /** `GET /marketplace/search`'s paged shape, computed in memory over the demo
  *  deck with the filter semantics above — no network call, same page info
  *  shape (`page`, `size`, `total`, `pages`) the live read answers with. */
@@ -410,8 +459,10 @@ export function demoShopSearch(
 ): { results: ApiSearchResult[]; page: { page: number; size: number; total: number; pages: number } } {
   const q = filters.q.toLowerCase();
   const sport = filters.sport.toLowerCase();
-  const stateCode = filters.stateCode.toUpperCase();
-  const maxPrice = filters.maxPrice ? Number(filters.maxPrice) : null;
+  const shown = shownFilters(filters);
+  const stateCode = shown.stateCode;
+  const minPrice = shown.minPrice ? Number(shown.minPrice) : null;
+  const maxPrice = shown.maxPrice ? Number(shown.maxPrice) : null;
   const from = filters.availableFrom ? dayToIso(filters.availableFrom) : null;
   const until = filters.availableUntil ? dayToIso(filters.availableUntil) : null;
 
@@ -421,6 +472,7 @@ export function demoShopSearch(
     if (filters.category && !r.item.categories.includes(filters.category)) return false;
     if (sport && !(r.athlete?.sport ?? "").toLowerCase().includes(sport)) return false;
     if (stateCode && (r.property?.stateCode ?? "") !== stateCode) return false;
+    if (minPrice !== null && r.item.priceCents < minPrice) return false;
     if (maxPrice !== null && r.item.priceCents > maxPrice) return false;
     if (from && r.item.availableUntil && r.item.availableUntil < from) return false;
     if (until && r.item.availableFrom && r.item.availableFrom > until) return false;

@@ -10,12 +10,16 @@ import { demoState } from "@/lib/demo";
 import { apiListQuery, pageParams, type PageInfo, type SearchParams } from "@/lib/list-query";
 import {
   CATEGORY_OPTIONS,
+  DEMO_CART,
   DEMO_LISTINGS,
   KIND_OPTIONS,
+  MIN_PRICE_BANDS,
   PRICE_BANDS,
+  STATE_OPTIONS,
   demoShopSearch,
   hasFilters,
   shopSearchExtras,
+  shownFilters,
   type ApiCart,
   type ApiSearchResult,
   type ShopFilters,
@@ -36,7 +40,9 @@ import { requirePortalAccess } from "@/server/portal";
                                                  page never uses any more.
           GET /cart                             "In your cart" / "Cart
                                                  total" — never summed from
-                                                 the rows on screen.
+                                                 the rows on screen; if the
+                                                 read fails the two tiles
+                                                 are left out, never 0 / $0.
    Writes (ShopAddToCart → ./actions.ts)         POST /cart, POST /cart/lines
 
    LIVE vs DEMO. A signed-in sponsor whose account is linked sees the real
@@ -54,10 +60,13 @@ export const dynamic = "force-dynamic";
 
 const PATH = "/sponsor/shop";
 
+/** The cart tiles' figures, or null when the cart couldn't be read. */
+type CartFigures = { lines: number; totalCents: number } | null;
+
 async function liveShop(
   sp: SearchParams,
   extras: Record<string, string>,
-): Promise<{ results: ApiSearchResult[]; page: PageInfo; cartLines: number; cartTotalCents: number; refused: string | null } | null> {
+): Promise<{ results: ApiSearchResult[]; page: PageInfo; cart: CartFigures; refused: string | null } | null> {
   const query = apiListQuery(sp, extras);
   const [searchRes, cartRes] = await Promise.all([apiFetch(`/marketplace/search${query}`), apiFetch("/cart")]);
   if (searchRes.status === 403) return null;
@@ -78,16 +87,14 @@ async function liveShop(
     page = data.page;
   }
 
-  let cartLines = 0;
-  let cartTotalCents = 0;
+  /* No cart yet is a real, empty cart (0 / $0). A failed or refused read is
+     unknown — the tiles are left out rather than claim an empty cart. */
+  let cart: CartFigures = null;
   if (cartRes.ok) {
-    const { cart } = (await cartRes.json()) as { cart: ApiCart | null };
-    if (cart) {
-      cartLines = cart.lines.length;
-      cartTotalCents = cart.totalCents;
-    }
+    const body = (await cartRes.json().catch(() => null)) as { cart: ApiCart | null } | null;
+    if (body) cart = body.cart ? { lines: body.cart.lines.length, totalCents: body.cart.totalCents } : { lines: 0, totalCents: 0 };
   }
-  return { results, page, cartLines, cartTotalCents, refused };
+  return { results, page, cart, refused };
 }
 
 export default async function ShopPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
@@ -111,8 +118,7 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
         refused={live.refused}
         results={live.results}
         page={live.page}
-        cartLines={live.cartLines}
-        cartTotalCents={live.cartTotalCents}
+        cart={live.cart}
         canWrite={canWrite}
         sample={false}
         updatedAt={new Date().toISOString()}
@@ -129,8 +135,7 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
       refused={null}
       results={deck.results}
       page={deck.page}
-      cartLines={empty ? 0 : 2}
-      cartTotalCents={empty ? 0 : 148_000}
+      cart={empty ? { lines: 0, totalCents: 0 } : DEMO_CART}
       canWrite={false}
       sample
       updatedAt={new Date().toISOString()}
@@ -141,54 +146,67 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
 /* ------------------------------------------------------------- the page */
 
 function Shop({
-  filters, ignored, refused, results, page, cartLines, cartTotalCents, canWrite, sample, updatedAt,
+  filters: raw, ignored, refused, results, page, cart, canWrite, sample, updatedAt,
 }: {
   filters: ShopFilters;
   ignored: string[];
   refused: string | null;
   results: ApiSearchResult[];
   page: PageInfo;
-  cartLines: number;
-  cartTotalCents: number;
+  cart: CartFigures;
   canWrite: boolean;
   sample: boolean;
   updatedAt: string;
 }) {
   const pill = sample ? "Sample data" : <StadiumUpdated iso={updatedAt} />;
-  const filtered = hasFilters(filters);
+  const filtered = hasFilters(raw);
+  /* The controls show only values they offer — a stale URL value reads as "any". */
+  const filters = shownFilters(raw);
   const today = new Date().toISOString().slice(0, 10);
 
-  const cartAction = (
-    <Link href="/sponsor/cart" className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-cta-ink hover:bg-primary-soft">
-      Cart · {cartLines}
-    </Link>
+  const headActions = (
+    <div className="flex items-center gap-2">
+      <Link
+        href="/sponsor/orders"
+        className="rounded-md border border-line px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
+      >
+        Orders →
+      </Link>
+      <Link href="/sponsor/cart" className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-cta-ink hover:bg-primary-soft">
+        {cart ? `Cart · ${cart.lines}` : "Cart"}
+      </Link>
+    </div>
   );
 
   return (
     <div className="space-y-6">
-      <StadiumHead title="Shop" pill={pill} actions={cartAction}>
-        <StadiumTiles cols={3}>
+      <StadiumHead title="Shop" pill={pill} actions={headActions}>
+        <StadiumTiles cols={cart ? 3 : 2}>
           <StadiumTile
             label="Spots for sale"
             value={page.total}
             hint="How many items are on sale right now, from every seller you can buy from."
             delay={0.1}
           />
-          <StadiumTile
-            label="In your cart"
-            value={cartLines}
-            href="/sponsor/cart"
-            hint="Lines in your cart, before you check out."
-            delay={0.16}
-          />
-          <StadiumTile
-            label="Cart total"
-            value={cartTotalCents}
-            format="usd0"
-            href="/sponsor/cart"
-            hint="What everything in your cart adds up to, before fees."
-            delay={0.22}
-          />
+          {cart && (
+            <StadiumTile
+              label="In your cart"
+              value={cart.lines}
+              href="/sponsor/cart"
+              hint="Lines in your cart, before you check out."
+              delay={0.16}
+            />
+          )}
+          {cart && (
+            <StadiumTile
+              label="Cart total"
+              value={cart.totalCents}
+              format="usd0"
+              href="/sponsor/cart"
+              hint="What everything in your cart adds up to, before fees."
+              delay={0.22}
+            />
+          )}
         </StadiumTiles>
       </StadiumHead>
 
@@ -220,13 +238,17 @@ function Shop({
               tone="sponsor"
             />
             <ListSearch initial={filters.sport} label="Filter by sport" placeholder="Sport" tone="sponsor" param="sport" />
-            <ListSearch initial={filters.stateCode} label="Filter by state" placeholder="State" tone="sponsor" param="stateCode" />
-            <ListFilter param="maxPrice" value={filters.maxPrice} label="Price" allLabel="Any price" options={PRICE_BANDS} tone="sponsor" />
+            <ListFilter param="stateCode" value={filters.stateCode} label="State" allLabel="Any state" options={STATE_OPTIONS} tone="sponsor" />
+            <ListFilter param="minPrice" value={filters.minPrice} label="Price from" allLabel="From any price" options={MIN_PRICE_BANDS} tone="sponsor" />
+            <ListFilter param="maxPrice" value={filters.maxPrice} label="Price up to" allLabel="Up to any price" options={PRICE_BANDS} tone="sponsor" />
             <ShopDateFilter availableFrom={filters.availableFrom} availableUntil={filters.availableUntil} />
           </div>
           {ignored.length > 0 && <p className="mb-2 text-[11px] text-warn">Not applied (not a valid value): {ignored.join(", ")}.</p>}
           {refused && <p className="mb-2 text-[11px] text-warn">{refused}</p>}
 
+          {/* The pager stays above and below even on zero results (the house
+              pattern), so the page size stays in reach. */}
+          <PagerRow page={page} noun="Items" tone="sponsor" position="top" filtered={filtered && page.total > 0} />
           {results.length === 0 ? (
             <PendingList>
               <StadiumPanel className="text-center">
@@ -244,18 +266,15 @@ function Shop({
               </StadiumPanel>
             </PendingList>
           ) : (
-            <>
-              <PagerRow page={page} noun="Items" tone="sponsor" position="top" filtered={filtered} />
-              <PendingList>
-                <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {results.map((r, i) => (
-                    <ShopStadiumCard key={r.id} result={r} i={i} action={cardAction(r, canWrite, sample, today)} />
-                  ))}
-                </ul>
-              </PendingList>
-              <PagerRow page={page} noun="Items" tone="sponsor" position="bottom" />
-            </>
+            <PendingList>
+              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {results.map((r, i) => (
+                  <ShopStadiumCard key={r.id} result={r} i={i} action={cardAction(r, canWrite, sample, today)} />
+                ))}
+              </ul>
+            </PendingList>
           )}
+          <PagerRow page={page} noun="Items" tone="sponsor" position="bottom" />
         </ServerList>
       </section>
 

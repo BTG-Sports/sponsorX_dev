@@ -19,6 +19,11 @@ import {
   usd,
   validateLine,
   windowLabel,
+  DEMO_CART,
+  MIN_PRICE_BANDS,
+  PRICE_BANDS,
+  STATE_OPTIONS,
+  shownFilters,
 } from "../src/lib/shop-live";
 
 /* --------------------------------------------------------------------------
@@ -87,6 +92,40 @@ describe("demoShopSearch", () => {
   it("clamps an out-of-range page to the last one, like the API", () => {
     const { page } = demoShopSearch(shopFilters({}), { page: 99, size: 1 });
     expect(page.page).toBe(page.pages);
+  });
+
+  it("applies the From price band and ignores a price that isn't a band", () => {
+    const from = demoShopSearch(shopFilters({ minPrice: "100000" }), { page: 1, size: 60 });
+    expect(from.page.total).toBeGreaterThan(0);
+    expect(from.results.every((r) => r.item.priceCents >= 100_000)).toBe(true);
+    const all = demoShopSearch(shopFilters({}), { page: 1, size: 60 });
+    expect(demoShopSearch(shopFilters({ maxPrice: "500" }), { page: 1, size: 60 }).page.total).toBe(all.page.total);
+  });
+
+  it("prices the demo cart from the deck itself", () => {
+    expect(DEMO_CART.lines).toBe(2);
+    expect(DEMO_CART.totalCents).toBe(2 * 35_000 + 150_000);
+  });
+});
+
+describe("price bands and states", () => {
+  it("sends a From band as minPrice cents", () => {
+    expect(shopSearchExtras({ minPrice: "50000", maxPrice: "500000" }).extras).toEqual({ minPrice: "50000", maxPrice: "500000" });
+  });
+
+  it("ignores an old dollars bookmark (?maxPrice=500) instead of filtering to $5", () => {
+    const { extras, ignored } = shopSearchExtras({ maxPrice: "500", minPrice: "100" });
+    expect(extras).toEqual({});
+    expect(ignored).toEqual(["price from", "price"]);
+    expect(shownFilters(shopFilters({ maxPrice: "500", minPrice: "100" }))).toMatchObject({ maxPrice: "", minPrice: "" });
+  });
+
+  it("accepts only US state codes, upper-cased", () => {
+    expect(shopSearchExtras({ stateCode: "dc" }).extras).toEqual({ stateCode: "DC" });
+    expect(shopSearchExtras({ stateCode: "ZZ" }).ignored).toEqual(["state"]);
+    expect(shownFilters(shopFilters({ stateCode: "md" })).stateCode).toBe("MD");
+    expect(STATE_OPTIONS.find((o) => o.value === "MD")?.label).toBe("Maryland (MD)");
+    expect(MIN_PRICE_BANDS.map((b) => b.value)).toEqual(PRICE_BANDS.map((b) => b.value));
   });
 });
 

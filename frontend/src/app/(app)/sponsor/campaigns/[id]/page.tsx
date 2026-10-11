@@ -16,6 +16,7 @@ import {
   StadiumSteps,
   StadiumTile,
   StadiumTiles,
+  StadiumUpdated,
   at,
 } from "@/components/stadium-stage";
 import { PagedTable, Primary, StageTable, Td, Tr, type Column } from "@/components/stage-table";
@@ -284,8 +285,10 @@ function LiveDetail({
   const staffing = c.state === "STAFFING" ? sponsorStaffing(c.staffing) : null;
   const nextLine = next ?? staffing?.line ?? (c.state === "APPROVAL" ? launchLine(c.startDate, now) : null);
 
+  /* Only when a spend figure is visible — a budget alone would read "$0 of
+     $X", a zero the role simply can't see past. */
   const money =
-    c.contracted !== undefined || c.invoiced !== undefined || c.budget !== undefined
+    c.contracted !== undefined || c.invoiced !== undefined
       ? {
           amountCents: c.invoiced ?? c.contracted ?? 0,
           budgetCents: c.budget,
@@ -299,7 +302,7 @@ function LiveDetail({
     name: r.name,
     chip: (
       <span className="flex flex-wrap gap-1.5">
-        <StadiumChip tone={LIVE_ORDER_TONE[r.order!.state] ?? "info"}>{LIVE_ORDER_COPY[r.order!.state] ?? r.order!.state}</StadiumChip>
+        <StadiumChip tone={LIVE_ORDER_TONE[r.order!.state] ?? "info"}>{LIVE_ORDER_COPY[r.order!.state] ?? "In progress"}</StadiumChip>
         {r.overdue > 0 && <StadiumChip tone="late">{r.overdue} overdue</StadiumChip>}
         {r.inReview > 0 && <StadiumChip tone="info">{r.inReview} in review</StadiumChip>}
       </span>
@@ -321,6 +324,7 @@ function LiveDetail({
         behind={behind}
         hasReport={hasReport}
         reportHref={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report?from=sponsor-campaign`}
+        pill={<StadiumUpdated iso={detail.readAt} />}
       />
 
       <StadiumSteps steps={CAMPAIGN_STEPS} now={campaignStepNow(c.state)} label="Where this campaign stands" />
@@ -403,7 +407,7 @@ function LiveDetail({
 
       <RosterSection rows={rows} viewsLabel="Verified views" delay={0.5} />
 
-      <PostsSection posts={detail.posts} page={detail.postsPage} />
+      <PostsSection posts={detail.posts} page={detail.postsPage} unavailable={detail.postsUnavailable} />
 
       <p className="text-[10px] leading-relaxed text-faint">
         Delivery, roster and spend are from Postgres; verified views are
@@ -522,7 +526,7 @@ function Tiles({
         key="next"
         label="Next post due"
         value={days}
-        caption={nextDue ? <>on <StadiumDate iso={nextDue} format="weekday" /></> : "Nothing scheduled right now"}
+        caption={nextDue ? <>on <StadiumDate iso={nextDue} format="weekday" utc /></> : "Nothing scheduled right now"}
         hint="Days until the next post this campaign owes is due."
         delay={0.28}
       />,
@@ -595,38 +599,55 @@ const POSTS_COLUMNS: Column[] = [
   { key: "due", label: "Due" },
 ];
 
-function PostsSection({ posts, page }: { posts: ApiDeliverable[]; page: PageInfo }) {
+function PostsSection({
+  posts,
+  page,
+  unavailable,
+}: {
+  posts: ApiDeliverable[] | null;
+  page: PageInfo;
+  unavailable?: "error" | "forbidden";
+}) {
+  /* A role that can't read posts doesn't get the section at all. */
+  if (unavailable === "forbidden") return null;
   return (
     <section className="min-w-0 sx-stadium-in" style={at(0.56)}>
       <StadiumSection title="Posts" hint="Every post this campaign includes, oldest due first." />
-      <ServerList>
-        {posts.length === 0 ? (
-          <PendingList>
-            <StadiumPanel>
-              <p className="text-sm text-muted">No posts scheduled yet. They show here once BTG staffs athletes onto this campaign.</p>
-            </StadiumPanel>
-          </PendingList>
-        ) : (
-          <PagedTable bare tone="sponsor" page={page} noun="Posts" label="Campaign posts" keys={CAMPAIGN_POST_KEYS} columns={POSTS_COLUMNS}>
-            {posts.map((d, i) => {
-              const w = deliverableWord(d.state);
-              return (
-                <Tr key={d.id} i={i}>
-                  <Td>
-                    <Primary sub={d.athlete.displayName}>{d.title}</Primary>
-                  </Td>
-                  <Td label="Status">
-                    <StadiumChip tone={w.tone}>{w.text}</StadiumChip>
-                  </Td>
-                  <Td label="Due" muted>
-                    {new Date(d.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
-                  </Td>
-                </Tr>
-              );
-            })}
-          </PagedTable>
-        )}
-      </ServerList>
+      {posts === null ? (
+        /* The read failed — the rest of the page is still good. */
+        <StadiumPanel tone="late">
+          <p className="text-sm text-muted">Posts couldn&apos;t load — refresh to try again.</p>
+        </StadiumPanel>
+      ) : (
+        <ServerList>
+          {page.total === 0 ? (
+            <PendingList>
+              <StadiumPanel>
+                <p className="text-sm text-muted">No posts scheduled yet. They show here once BTG staffs athletes onto this campaign.</p>
+              </StadiumPanel>
+            </PendingList>
+          ) : (
+            <PagedTable bare tone="sponsor" page={page} noun="Posts" label="Campaign posts" keys={CAMPAIGN_POST_KEYS} columns={POSTS_COLUMNS}>
+              {posts.map((d, i) => {
+                const w = deliverableWord(d.state);
+                return (
+                  <Tr key={d.id} i={i}>
+                    <Td>
+                      <Primary sub={d.athlete.displayName}>{d.title}</Primary>
+                    </Td>
+                    <Td label="Status">
+                      <StadiumChip tone={w.tone}>{w.text}</StadiumChip>
+                    </Td>
+                    <Td label="Due" muted>
+                      <StadiumDate iso={d.dueDate} format="date" utc />
+                    </Td>
+                  </Tr>
+                );
+              })}
+            </PagedTable>
+          )}
+        </ServerList>
+      )}
     </section>
   );
 }

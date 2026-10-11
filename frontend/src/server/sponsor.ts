@@ -10,7 +10,7 @@ import { SPONSOR_ROLES, type ApiCampaign } from "@/lib/sponsor-live";
 import type { ApiOps } from "@/lib/ops-live";
 import { apiFetch, fetchActor } from "@/server/api";
 import { fetchCampaign, fetchCampaignPage, fetchCampaignSummary, type CampaignSummary } from "@/server/campaigns";
-import { apiListQuery, apiListQueryFor, textParam, type ListKeys, type PageInfo, type SearchParams } from "@/lib/list-query";
+import { apiListQuery, apiListQueryFor, pageOrAll, textParam, type ListKeys, type PageInfo, type SearchParams } from "@/lib/list-query";
 import type { ApiCampaignArtworkSlot } from "@/lib/edition-artwork-live";
 import type { ApiDeliverable } from "@/lib/deliverables-live";
 import { openRequests, type ApiSponsorRequest } from "@/lib/brief-status";
@@ -125,9 +125,16 @@ export type LiveCampaignDetail =
       /** SPONSOR_ADMIN approves or asks for changes; an analyst only sees it. */
       canDecideContent: boolean;
       /** P1-ART-23 — every post this campaign includes, oldest due first,
-       *  server-paged (own URL keys: a second paged read on this page). */
-      posts: ApiDeliverable[];
+       *  server-paged (own URL keys: a second paged read on this page).
+       *  null when that read failed — the rest of the page still renders,
+       *  and `postsUnavailable` says why. */
+      posts: ApiDeliverable[] | null;
       postsPage: PageInfo;
+      /** "forbidden" — the role can't read posts (403): hide the section.
+       *  "error" — anything else went wrong: say so, offer a refresh. */
+      postsUnavailable?: "error" | "forbidden";
+      /** When these reads were made — the head's "Updated" pill. */
+      readAt: string;
     }
   /** Not theirs, or not a campaign — the API answers both the same (403). */
   | { status: "missing" };
@@ -140,7 +147,9 @@ export const CAMPAIGN_POST_KEYS: ListKeys = { page: "ppage", size: "psize" };
  * One campaign: its portfolio row (package, money — column-gated by the API),
  * its delivery board (GET /campaigns/:id/ops, orders scoped by whereFor, no
  * invitations for a sponsor), and one server page of its posts. Null for the
- * demo.
+ * demo. The posts read is the one exception to "no catch": it is secondary,
+ * so its failure degrades to a notice in the section (`readPosts`) instead
+ * of an error page for the whole campaign.
  */
 export async function liveSponsorCampaign(id: string, sp: SearchParams): Promise<LiveCampaignDetail | null> {
   const who = await fetchActor();
@@ -153,8 +162,11 @@ export async function liveSponsorCampaign(id: string, sp: SearchParams): Promise
     apiFetch(`/campaigns/${encodeURIComponent(id)}/ops`),
     apiFetch(`/campaigns/${encodeURIComponent(id)}/artwork`),
     apiFetch(`/deliverables?state=SPONSOR_REVIEW&campaignId=${encodeURIComponent(id)}`),
-    apiFetch(`/deliverables${apiListQueryFor(sp, CAMPAIGN_POST_KEYS, { campaignId: id })}`),
+    /* The post log is secondary — a failure here (even a network throw) must
+       not take the page down, so it can't reject the batch. */
+    apiFetch(`/deliverables${apiListQueryFor(sp, CAMPAIGN_POST_KEYS, { campaignId: id })}`).catch(() => null),
   ]);
+  const readAt = new Date().toISOString();
   if (!campaign) return { status: "missing" };
   if (res.status === 403 || res.status === 404) return { status: "missing" };
   if (!res.ok) throw new Error(`Campaign unavailable (${res.status}).`);
@@ -164,9 +176,7 @@ export async function liveSponsorCampaign(id: string, sp: SearchParams): Promise
   /* Content for sign-off: a role that can't read it gets none, not an error. */
   if (!rev.ok && rev.status !== 403) throw new Error(`Content review unavailable (${rev.status}).`);
   const review = rev.ok ? ((await rev.json()) as { deliverables: ApiDeliverable[] }).deliverables : [];
-  /* The post log: same gate as the review read above — none rather than an error. */
-  if (!postsRes.ok && postsRes.status !== 403) throw new Error(`Campaign posts unavailable (${postsRes.status}).`);
-  const postsBody = postsRes.ok ? ((await postsRes.json()) as { deliverables: ApiDeliverable[]; page: PageInfo }) : null;
+  const posts = await readPosts(postsRes);
   return {
     status: "found",
     campaign,
@@ -175,7 +185,28 @@ export async function liveSponsorCampaign(id: string, sp: SearchParams): Promise
     canDecideArtwork: who.actor.roles.includes("SPONSOR_ADMIN"),
     review,
     canDecideContent: who.actor.roles.includes("SPONSOR_ADMIN"),
-    posts: postsBody?.deliverables ?? [],
-    postsPage: postsBody?.page ?? { page: 1, size: 12, total: 0, pages: 1 },
+    ...posts,
+    readAt,
   };
+}
+
+/** The campaign's post log, degraded rather than thrown: a 403 hides the
+ *  section, any other failure (status, network, a body that isn't the
+ *  expected shape) reads as "couldn't load". A route still answering the
+ *  unpaged shape gets one page holding every row (`pageOrAll`). */
+async function readPosts(
+  res: Response | null,
+): Promise<{ posts: ApiDeliverable[] | null; postsPage: PageInfo; postsUnavailable?: "error" | "forbidden" }> {
+  const none = (why: "error" | "forbidden") => ({ posts: null, postsPage: pageOrAll([]), postsUnavailable: why });
+  if (!res) return none("error");
+  if (res.status === 403) return none("forbidden");
+  if (!res.ok) return none("error");
+  try {
+    const body = (await res.json()) as { deliverables?: unknown; page?: PageInfo | null };
+    if (!Array.isArray(body?.deliverables)) return none("error");
+    const rows = body.deliverables as ApiDeliverable[];
+    return { posts: rows, postsPage: pageOrAll(rows, body.page) };
+  } catch {
+    return none("error");
+  }
 }

@@ -27,21 +27,28 @@ export function StadiumUpdated({ iso }: { iso: string }) {
 
 /* A due date, in the viewer's own timezone (not the server's / UTC) — the
    same hydration-safe approach as StadiumUpdated above. "weekday" reads
-   "Tuesday, Oct 14"; "date" reads "Oct 14, 2026". */
+   "Tuesday, Oct 14"; "date" reads "Oct 14, 2026".
+
+   `utc` — for DATE-ONLY values (a due day or an availability day, stored as
+   midnight UTC). Read in a timezone west of UTC that midnight is still the
+   previous evening, so the day would shift back one; formatted in UTC it is
+   the day that was meant. The text is then the same on the server and in
+   the browser, so it renders on the first paint with no client swap. */
 const DATE_FORMAT: Record<"weekday" | "date", Intl.DateTimeFormatOptions> = {
   weekday: { weekday: "long", month: "short", day: "numeric" },
   date: { month: "short", day: "numeric", year: "numeric" },
 };
 
-export function StadiumDate({ iso, format }: { iso: string; format: "weekday" | "date" }) {
-  const text = useSyncExternalStore(
+export function StadiumDate({ iso, format, utc = false }: { iso: string; format: "weekday" | "date"; utc?: boolean }) {
+  const local = useSyncExternalStore(
     subscribe,
     () => new Date(iso).toLocaleDateString("en-US", DATE_FORMAT[format]),
     () => "",
   );
+  const text = utc ? new Date(iso).toLocaleDateString("en-US", { ...DATE_FORMAT[format], timeZone: "UTC" }) : local;
 
   return (
-    <time dateTime={iso} suppressHydrationWarning>
+    <time dateTime={utc ? iso.slice(0, 10) : iso} suppressHydrationWarning={!utc}>
       {text}
     </time>
   );
