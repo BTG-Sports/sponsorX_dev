@@ -235,14 +235,15 @@ Counsel reviews the attribution claims, the consent basis for using fan data thi
 
 *4 tasks · 16 person-days*
 
-### ▶ `3S1-DATA-01` · Warehouse ingestion pipeline
+### ◑ `3S1-DATA-01` · Warehouse ingestion pipeline
 
-**Order** 7 · **DATA** · **Where:** Code · **5d** · **Ready**
+**Order** 7 · **DATA** · **Where:** Code · **5d** · **Code review**
 
 Move transactional data into the warehouse on a schedule, idempotently, so a re-run never double-counts.
 
 - **Depends on:** 3S0-DATA-02
 - **Done when:** Ingestion runs on schedule and is safe to re-run
+- **Delivered:** `backend/worker/warehouse/` — 2026-10-12. Hourly in the worker when `WAREHOUSE_DATABASE_URL` is set, so it starts in production once `3S0-OPS-01` provisions the warehouse
 - **Reference:** Spec §21
 
 ### ⏸ `3S1-DATA-02` · Daily campaign fact and dimension tables

@@ -69,6 +69,11 @@ Out of scope here, and why:
 - **Transformation** is plain SQL files run in order (`stg` then `dw`), kept in
   the repository and versioned like code. Whether that is dbt or a small runner
   is `3S0-OPS-01`'s call; the files are the same either way.
+- **Ingestion is built (`3S1-DATA-01`).** `backend/worker/warehouse/`:
+  - `sources.mts` is the column **allow-list**: 29 tables, and only the audit actions the facts read. The athlete's birth date is read only to compute `is_minor`.
+  - `ingest.mts` copies the data hourly when `WAREHOUSE_DATABASE_URL` is set. Each run reads one consistent, read-only snapshot of the product, and an advisory lock means only one run at a time. APPEND tables are read from a watermark minus 48 hours; VERSIONED tables are read in full and get a new version only when the row's hash changes (or a deleted version when the row is gone). Every run is logged in `raw._ingest_run`.
+  - `migrations/*.sql` holds the warehouse's own schema files, applied at the start of each run.
+  - Timestamps in `_row` are the product's UTC values, as ISO text with no zone.
 - **Idempotent by day.** Ingestion and transformation rebuild a **date range**
   inside one transaction: delete the facts for those dates, insert them again.
   A re-run never double-counts (`3S1-DATA-01`'s acceptance). The default range

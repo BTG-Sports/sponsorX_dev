@@ -103,3 +103,19 @@ The user decided each one: market geography from registration plus a reward venu
 - §10 of `documentation/SponsorX-Warehouse-Schema.md` (v1.1) is signed "rcfworks, with Rodney's delegated authority", 2026-10-12, accepted as written. The header now reads Accepted.
 - **Tracker and plan:** DATA-02 is Done. **3S0-OPS-01** (select and provision the warehouse) and **3S1-DATA-01** (ingestion pipeline) are now Ready, since DATA-02 was their only prerequisite.
 - PRs #185 and #186 merged. `main` and `main_development` have identical content. Fast-forwarding `main_development` onto `main`'s five merge commits was blocked by the auto-mode safety check (a direct push to a shared branch); it is left to the user.
+
+## rcfworks — 3S1-DATA-01: warehouse ingestion (Code review)
+
+- **Why a warehouse at all (the user asked):** Phase 3 analysis shouldn't load the live database; the product overwrites history that pricing and forecasting need; and reports, pricing and forecasts need one agreed set of numbers. At pilot size it is ahead of need, so it is kept light: plain Postgres. The user chose to keep it.
+- **The user's decisions:** hourly; copy by allow-list.
+- **Built: `backend/worker/warehouse/`.**
+  - `sources.mts` lists 29 tables and their allowed columns. It copies no personal data, and only 7 audit actions, without before/after. The athlete's birth date is read only to compute `is_minor` with the product's own rule.
+  - `ingest.mts`:
+    - APPEND tables (RewardEvent, LinkEvent, EditionEvent, AuditLog) are read from the watermark minus 48 hours, one raw row per source row, updated only when its hash changes.
+    - VERSIONED tables (the rest) are read in full; a new version is written only when the row hash differs from the latest, and a row gone from the product gets a deleted version.
+    - Each run reads one REPEATABLE READ, READ ONLY transaction on the product; an advisory lock (`INGEST_LOCK_KEY`) makes an overlapping run step aside; every run is logged in `raw._ingest_run`.
+  - `migrate.mts` with `migrations/0001_ingestion.sql`: the warehouse's own SQL migrations, tracked in `public.warehouse_migrations`.
+- **Worker:** hourly, plus a first run 90 seconds after boot, **only when `WAREHOUSE_DATABASE_URL` is set**. Otherwise it logs that ingestion is off. The variable is documented in `.env.example`.
+- **Tests: `tests/warehouse-ingest.test.ts`, 13 tests** against product and warehouse Postgres. The warehouse database is `<test db>_warehouse`, created automatically (CI's Postgres user can do this). They cover: first copy; no personal data; only the listed audit actions; a re-run adding nothing; one new version per change; a deleted version; a late click city updated, not duplicated; and the lock.
+- **Verified:** tsc and eslint clean; **full backend suite 193 files / 3,102 tests pass**.
+- **Left:** it runs in production once 3S0-OPS-01 provisions the warehouse database and sets the variable.
