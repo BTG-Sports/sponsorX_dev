@@ -16,9 +16,11 @@ import {
   type ApiIntegrationHealth,
   type ApiQueues,
 } from "@/lib/ops-board-live";
+import { redirect } from "next/navigation";
+
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
-import { mayUse } from "@/lib/admin-access";
+import { isFinanceOnly, mayUse } from "@/lib/admin-access";
 
 /* --------------------------------------------------------------------------
    Operations Board — P7-FE-06, §23. What needs BTG's action today, and every
@@ -52,6 +54,9 @@ const BOARD_CAMPAIGNS = 5;
 
 export default async function OperationsBoardPage() {
   const actor = await requirePortalAccess("admin");
+  /* P1-ART-25 — Finance's home is the Treasury; nothing on the board is read for them. */
+  if (isFinanceOnly(actor.roles)) redirect("/admin/finance");
+
   const [board, delivery, health] = await Promise.all([
     read<{ queues: ApiQueues }>("/operations/board"),
     read<{ campaigns: ApiDeliveryHealth[]; page: { total: number } }>(`/operations/delivery-health?page=1&size=${BOARD_CAMPAIGNS}`),

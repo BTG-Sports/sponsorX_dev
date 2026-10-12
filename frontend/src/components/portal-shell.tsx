@@ -8,6 +8,8 @@ import { OpsGround } from "./ops-stage";
 import { ArenaGround } from "./arena-stage";
 import { StadiumGround } from "./stadium-stage";
 import { StagePortals } from "./stage-portals";
+import { StageRoot } from "./stage-root";
+import { VaultGround } from "./vault-stage";
 import { PortalNav, type NavItem } from "./portal-nav";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
@@ -128,6 +130,7 @@ export function PortalShell({
   userName,
   userRole,
   stage = false,
+  vault = false,
   dock,
   children,
 }: {
@@ -148,6 +151,8 @@ export function PortalShell({
    *  still means the admin's `"ops"`.
    *  P1-ART-23 — `"stadium"`: the sponsor's fixed-dark Stadium Board. */
   stage?: boolean | "ops" | "arena" | "stadium";
+  /** P1-ART-25 — on the admin stage, switch to the Vault on money routes. */
+  vault?: boolean;
   /** P1-ART-24 — on a staged portal, the four hrefs (from `nav`) the phone
    *  dock carries; its Menu opens the LED menu and replaces the hamburger. */
   dock?: readonly string[];
@@ -163,7 +168,7 @@ export function PortalShell({
   const stagePad = docked ? "pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-14" : "pb-14";
 
   return (
-    <div className={`flex min-h-screen ${stageCls}`}>
+    <StageRoot className={`flex min-h-screen ${stageCls}`} vault={kind === "ops" && vault}>
       {kind && <StagePortals className={stageCls} />}
       {/* ------------------------------------------------------- sidebar */}
       <aside className="sx-shell-aside sticky top-0 hidden h-screen w-56 shrink-0 overflow-hidden border-r border-line/70 bg-gradient-to-b from-surface via-surface to-bg md:flex md:flex-col">
@@ -312,6 +317,8 @@ export function PortalShell({
              column unclipped. */
           <OpsStage className={`sx-stage relative isolate flex min-w-0 flex-1 flex-col px-5 ${stagePad} pt-8 sm:px-8 lg:px-10 lg:pt-10`}>
             <OpsGround word="" />
+            {/* P1-ART-25 — both grounds render; vault.css shows one */}
+            <VaultGround />
             <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
           </OpsStage>
         ) : kind === "arena" ? (
@@ -344,6 +351,6 @@ export function PortalShell({
           userRole={userRole}
         />
       )}
-    </div>
+    </StageRoot>
   );
 }

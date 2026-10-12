@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { ADMIN_DOCK, ADMIN_NAV } from "../src/lib/admin-nav";
 import { DOCK_SCROLL_THRESHOLD, dockScroll, resolveDock, sheetGroups, type DockScroll } from "../src/lib/mobile-dock";
 import { groupNav } from "../src/lib/nav-groups";
 import { SPONSOR_NAV } from "../src/lib/sponsor-nav";
@@ -50,7 +51,6 @@ describe("P1-ART-24 · dock items", () => {
       return [...m![1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
     };
     const cases: [string, string][] = [
-      ["app/(app)/admin/layout.tsx", read("app/(app)/admin/layout.tsx")],
       ["app/(app)/athlete/layout.tsx", read("app/(app)/athlete/layout.tsx")],
       ["app/(app)/sponsor/layout.tsx", read("lib/sponsor-nav.ts")],
     ];
@@ -59,6 +59,10 @@ describe("P1-ART-24 · dock items", () => {
       expect(hrefs, layout).toHaveLength(4);
       for (const h of hrefs) expect(navSrc, `${layout} docks ${h}`).toContain(`href: "${h}"`);
     }
+    /* P1-ART-25 — the admin's dock and nav are real arrays in lib/admin-nav.ts
+       (the Finance-only dock is pinned in admin-nav.test.ts) */
+    expect(ADMIN_DOCK).toHaveLength(4);
+    expect(resolveDock(ADMIN_DOCK, ADMIN_NAV, "/admin", "/admin")).toHaveLength(4);
     /* the sponsor's resolves fully against the real array */
     expect(resolveDock(docked(read("app/(app)/sponsor/layout.tsx")), SPONSOR_NAV, "/sponsor", "/sponsor")).toHaveLength(4);
   });

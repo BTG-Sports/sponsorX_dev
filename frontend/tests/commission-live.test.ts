@@ -79,10 +79,11 @@ describe("2S5-FE-01 · the commission editor", () => {
     const page = readFileSync(new URL("../src/app/(app)/admin/commission/page.tsx", import.meta.url), "utf8");
     expect(page.indexOf("isCommissionAdmin(actor.roles)")).toBeGreaterThan(-1);
     expect(page.indexOf("isCommissionAdmin(actor.roles)")).toBeLessThan(page.indexOf('apiFetch("/commission-rules")'));
-    const layout = readFileSync(new URL("../src/app/(app)/admin/layout.tsx", import.meta.url), "utf8");
+    const nav = readFileSync(new URL("../src/lib/admin-nav.ts", import.meta.url), "utf8");
     /* The nav filter also applies the per-desk access map (check pass C-1);
-       commission stays BTG-admin only inside it. */
-    expect(layout).toMatch(/NAV\.filter\(\(n\) => mayUse\(n\.href, actor\.roles\) && \(n\.href !== "\/admin\/commission" \|\| isCommissionAdmin\(actor\.roles\)\)\)/);
+       commission stays BTG-admin only inside it. P1-ART-25: the filter moved
+       from the admin layout into lib/admin-nav.ts's navFor. */
+    expect(nav).toMatch(/ADMIN_NAV\.filter\(\(n\) => mayUse\(n\.href, roles\) && \(n\.href !== "\/admin\/commission" \|\| isCommissionAdmin\(roles\)\)\)/);
   });
 });
 

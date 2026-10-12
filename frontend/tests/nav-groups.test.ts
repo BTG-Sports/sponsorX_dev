@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import { ADMIN_NAV } from "../src/lib/admin-nav";
 import { activeGroup, groupNav, isActiveHref } from "../src/lib/nav-groups";
 import { SPONSOR_NAV } from "../src/lib/sponsor-nav";
 
@@ -36,9 +37,10 @@ describe("P1-ART-21 · sidebar groups", () => {
     expect(isActiveHref("/admin/finance", "/admin/finance/x", "/admin")).toBe(true);
   });
 
+  /* P1-ART-25 — the real array now lives in lib/admin-nav.ts (it used to be
+     read out of the layout's source with a regex). */
   it("the admin nav: Dashboard on top, every other desk in a group, each group sorted A → Z", () => {
-    const src = readFileSync(new URL("../src/app/(app)/admin/layout.tsx", import.meta.url), "utf8");
-    const items = [...src.matchAll(/\{ href: "([^"]+)", label: "([^"]+)", icon: "[a-z]+"(?:, group: "([^"]+)")?(?:, groupIcon: "[a-z]+")? \}/g)].map((m) => ({ href: m[1]!, label: m[2]!, group: m[3] }));
+    const items = ADMIN_NAV;
     expect(items.length).toBeGreaterThan(25);
     const { top, groups } = groupNav(items);
     expect(top.map((i) => i.label)).toEqual(["Dashboard"]);
