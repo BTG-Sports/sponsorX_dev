@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { accessFor, mayUse } from "../src/lib/admin-access";
+import { accessFor, isFinanceOnly, mayUse } from "../src/lib/admin-access";
 
 /* Check pass C-1 — one map decides which staff roles each admin desk (and its
    nav link) is for; a missing route is open to every admin-portal role. */
@@ -34,4 +34,15 @@ describe("admin access map", () => {
       expect(mayUse(p, ["SUPER_ADMIN"]), p).toBe(true);
     }
   });
+});
+
+describe("isFinanceOnly", () => {
+  it("only when FINANCE is the sole admin-portal role", () => {
+    expect(isFinanceOnly(["FINANCE"])).toBe(true);
+    expect(isFinanceOnly(["FINANCE", "BTG_ADMIN"])).toBe(false);
+    expect(isFinanceOnly(["FINANCE", "SALES"])).toBe(false);
+    expect(isFinanceOnly(["BTG_ADMIN"])).toBe(false);
+    expect(isFinanceOnly([])).toBe(false);
+  });
+  it("ignores roles that are not admin-portal roles", () => expect(isFinanceOnly(["FINANCE", "ATHLETE"])).toBe(true));
 });
