@@ -8,9 +8,7 @@ import { OpsGround } from "./ops-stage";
 import { ArenaGround } from "./arena-stage";
 import { StadiumGround } from "./stadium-stage";
 import { StagePortals } from "./stage-portals";
-import { StageRoot } from "./stage-root";
 import { VaultGround } from "./vault-stage";
-import { VAULT_LABEL, type VaultMode } from "@/lib/vault-routes";
 import { PortalNav, type NavItem } from "./portal-nav";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
@@ -20,13 +18,15 @@ import { UserMenu } from "./user-menu";
    (screen 3), reworked to the sponsor-redesign language (spec 2026-09-11):
    accent glow atmosphere, gradient hairlines, staggered entrance, editorial
    watermark. Portal accent colours follow the BTG SponsorX logo (Roadmap A0):
-   Athlete = blue, Sponsor = orange, Admin = steel, Property = soft blue.
+   Athlete = blue, Sponsor = orange, Admin = steel, Property = soft blue,
+   Finance = gold (the Vault, P1-ART-25).
    -------------------------------------------------------------------------- */
 
 export type Portal =
   | "sponsor"
   | "athlete"
   | "admin"
+  | "finance"
   | "property"
   | "next"
   | "advisor";
@@ -69,6 +69,19 @@ const ACCENT: Record<
     edge: "from-admin/50",
     label: "Admin Portal",
   },
+  /* The Finance portal (P1-ART-25) — always on the Vault. Its gold comes
+     from the admin-toned tokens, which vault.css re-pins to brushed gold
+     under `.sx-ops.sx-vault` (the same tokens the shared ops kit reads), so
+     the accent, the kit and the chrome are one gold. The label's first word
+     is the sidebar watermark: FINANCE. */
+  finance: {
+    text: "text-admin",
+    bg: "bg-admin/15",
+    dot: "bg-admin",
+    wash: "from-admin/15",
+    edge: "from-admin/50",
+    label: "Finance Portal",
+  },
   property: {
     text: "text-property",
     bg: "bg-property/15",
@@ -99,21 +112,6 @@ const ACCENT: Record<
     label: "NEXT Advisor",
   },
 };
-
-/* P1-ART-25 — a word that follows the look. Where the Vault can switch on,
-   both words render and vault.css shows one (`.sx-when-ops` /
-   `.sx-when-vault`, keyed off the shell root's `sx-vault`): the switch is
-   decided on the client, by path (StageRoot), so the server can't pick. The
-   hidden word is `display: none`, so it is out of the accessibility tree. */
-function StageWord({ ops, vault, mode }: { ops: string; vault: string; mode: VaultMode }) {
-  if (mode === "off") return <>{ops}</>;
-  return (
-    <>
-      <span className="sx-when-ops">{ops}</span>
-      <span className="sx-when-vault">{vault}</span>
-    </>
-  );
-}
 
 function TopIcon({ path, label }: { path: string; label: string }) {
   return (
@@ -146,7 +144,6 @@ export function PortalShell({
   userName,
   userRole,
   stage = false,
-  vault = false,
   dock,
   children,
 }: {
@@ -165,11 +162,11 @@ export function PortalShell({
    *  stage (fixed-dark in both themes), with every page as content on it.
    *  P1-ART-22 — `"arena"`: the athlete portal's theme-aware stage. `true`
    *  still means the admin's `"ops"`.
-   *  P1-ART-23 — `"stadium"`: the sponsor's fixed-dark Stadium Board. */
-  stage?: boolean | "ops" | "arena" | "stadium";
-  /** P1-ART-25 — on the admin stage, switch to the Vault: `true` on the
-   *  money routes; `"all"` on every route (a Finance-only viewer). */
-  vault?: boolean | "all";
+   *  P1-ART-23 — `"stadium"`: the sponsor's fixed-dark Stadium Board.
+   *  P1-ART-25 — `"vault"`: the Finance portal's fixed-dark Vault. It keeps
+   *  the ops chrome's structure (`sx-ops`) and vault.css re-skins it under
+   *  `sx-vault`, so the root carries both. */
+  stage?: boolean | "ops" | "arena" | "stadium" | "vault";
   /** P1-ART-24 — on a staged portal, the four hrefs (from `nav`) the phone
    *  dock carries; its Menu opens the LED menu and replaces the hamburger. */
   dock?: readonly string[];
@@ -177,16 +174,15 @@ export function PortalShell({
 }) {
   const accent = ACCENT[portal];
   const kind = stage === true ? "ops" : stage || null;
-  const stageCls = kind === "ops" ? "sx-ops" : kind === "arena" ? "sx-arena" : kind === "stadium" ? "sx-stadium" : "";
+  const stageCls = kind === "ops" ? "sx-ops" : kind === "arena" ? "sx-arena" : kind === "stadium" ? "sx-stadium" : kind === "vault" ? "sx-ops sx-vault" : "";
   const docked = kind !== null && !!dock;
   /* Below md the page keeps clear of the floating dock (its height, its
      12px float and the safe area), so the last row or a pager never sits
      under it. */
   const stagePad = docked ? "pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-14" : "pb-14";
-  const vaultMode: VaultMode = kind !== "ops" || !vault ? "off" : vault === "all" ? "all" : "money";
 
   return (
-    <StageRoot className={`flex min-h-screen ${stageCls}`} vault={vaultMode}>
+    <div className={`flex min-h-screen ${stageCls}`}>
       {kind && <StagePortals className={stageCls} />}
       {/* ------------------------------------------------------- sidebar */}
       <aside className="sx-shell-aside sticky top-0 hidden h-screen w-56 shrink-0 overflow-hidden border-r border-line/70 bg-gradient-to-b from-surface via-surface to-bg md:flex md:flex-col">
@@ -203,7 +199,7 @@ export function PortalShell({
           aria-hidden="true"
           className="pointer-events-none absolute bottom-14 right-0.5 select-none text-5xl font-black leading-none tracking-tighter text-text/[0.04] [writing-mode:vertical-rl]"
         >
-          <StageWord ops={accent.label.split(" ")[0].toUpperCase()} vault={VAULT_LABEL.split(" ")[0].toUpperCase()} mode={vaultMode} />
+          {accent.label.split(" ")[0].toUpperCase()}
         </span>
 
         <Link href={rootHref} className="sx-animate relative block px-5 pb-4 pt-5">
@@ -221,7 +217,7 @@ export function PortalShell({
             <span className={`relative inline-flex size-1.5 rounded-full ${accent.dot}`} />
           </span>
           <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
-            <StageWord ops={accent.label} vault={VAULT_LABEL} mode={vaultMode} />
+            {accent.label}
           </span>
           <span className="h-px flex-1 bg-gradient-to-r from-line to-transparent" />
         </div>
@@ -305,7 +301,7 @@ export function PortalShell({
           <div className="flex items-center gap-3">
             {/* the admin and stadium stages are dark in both themes — no
                 toggle to offer there; the arena is theme-aware and keeps it */}
-            {kind !== "ops" && kind !== "stadium" && <ThemeToggle />}
+            {kind !== "ops" && kind !== "stadium" && kind !== "vault" && <ThemeToggle />}
             {/* Both inert until their features ship — on a phone they only
                crowd the actor's name out of the header, so they wait for sm. */}
             <div className="hidden items-center gap-3 sm:flex">
@@ -335,8 +331,6 @@ export function PortalShell({
              column unclipped. */
           <OpsStage className={`sx-stage relative isolate flex min-w-0 flex-1 flex-col px-5 ${stagePad} pt-8 sm:px-8 lg:px-10 lg:pt-10`}>
             <OpsGround word="" />
-            {/* P1-ART-25 — both grounds render; vault.css shows one */}
-            <VaultGround />
             <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
           </OpsStage>
         ) : kind === "arena" ? (
@@ -353,6 +347,14 @@ export function PortalShell({
             <StadiumGround />
             <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
           </OpsStage>
+        ) : kind === "vault" ? (
+          /* The Vault (P1-ART-25): the ops column (`sx-stage`, which vault.css
+             re-grounds in bank green), the same root island for the pointer
+             light, the vault ground, the same column. */
+          <OpsStage className={`sx-stage relative isolate flex min-w-0 flex-1 flex-col px-5 ${stagePad} pt-8 sm:px-8 lg:px-10 lg:pt-10`}>
+            <VaultGround />
+            <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
+          </OpsStage>
         ) : (
           <main className="min-w-0 flex-1 px-6 py-6">{children}</main>
         )}
@@ -360,16 +362,17 @@ export function PortalShell({
 
       {docked && kind && (
         <MobileDock
-          stage={kind}
+          /* the Vault's dock and menu are the ops ones, re-skinned by
+             vault.css through the `sx-vault` on <body> (StagePortals) */
+          stage={kind === "vault" ? "ops" : kind}
           dock={dock}
           nav={nav}
           rootHref={rootHref}
           portalLabel={accent.label}
-          vault={vaultMode}
           userName={userName}
           userRole={userRole}
         />
       )}
-    </StageRoot>
+    </div>
   );
 }

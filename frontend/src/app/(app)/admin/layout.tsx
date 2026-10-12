@@ -5,9 +5,6 @@ import { dockFor, mayUseVault, navFor, rootFor } from "@/lib/admin-nav";
 import { isFinanceOnly } from "@/lib/admin-access";
 
 import "../../mobile-nav.css";
-/* P1-ART-25 — the Vault, Finance's look on the money desks (StageRoot
-   switches it on by route) and on every page a Finance-only viewer opens. */
-import "./vault.css";
 
 /* BTG admin surface — §10's four workspaces plus the command center (§23).
    The nav, the dock and who sees which live in lib/admin-nav.ts. */

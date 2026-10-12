@@ -1,5 +1,5 @@
 /* --------------------------------------------------------------------------
-   The Vault — Finance's look on the admin shell (P1-ART-25, 2026-10-12).
+   The Vault — the Finance portal's stage (P1-ART-25, 2026-10-12).
 
    Admin is Mission Control (steel HUD, chamfers, brackets), the athlete is
    the Arena (blue plates, speed bars, lanes), the sponsor is the Stadium
@@ -14,15 +14,16 @@
    with a slow pulse. Never a chamfer, bracket, scan-line, lane, speed bar
    or ticker here (memory portal-stage-identities).
 
-   How it is switched on: the shell root keeps `.sx-ops` (the admin chrome's
-   structure) and gains `.sx-vault` + `data-vault` on a money route
-   (components/stage-root.tsx). Everything below is scoped under `.sx-vault`
-   or `[data-vault]`; the chrome overrides are `.sx-ops.sx-vault …`, one
+   How it is switched on: the Finance portal (`/finance`) is the only place.
+   Its shell (PortalShell `stage="vault"`) is the ops chrome's structure, so
+   the root carries `.sx-ops` AND `.sx-vault`. Everything below is scoped
+   under `.sx-vault`; the chrome overrides are `.sx-ops.sx-vault …`, one
    class more specific than the ops rules they replace in globals.css, so
-   they win whatever order the two files load in. The phone menu is
-   portaled to <body>, so it is reached through an ANCESTOR carrying
-   `sx-vault` and `data-vault` (StageRoot sets both on <body> while a Vault
-   route is open) — see "the phone menu" below.
+   they win whatever order the two files load in. Drawers, dialogs and the
+   phone menu are portaled to <body>, so they are reached through <body>
+   carrying both classes too (StagePortals) — see "the phone menu" below.
+   The admin portal never carries `.sx-vault`: Mission Control is untouched
+   (restructure, 2026-10-12 — the Vault used to switch on inside /admin).
 
    Unlayered, like stadium.css and mobile-nav.css, so these rules beat
    Tailwind's utilities on the same element — they set colour, border and
@@ -30,7 +31,7 @@
    Reduced motion: no bezel turn, no hairline trace, no draw-in, no shimmer,
    no pulse, no glint; count-ups show their final value (ArenaCount).
    Kept out of globals.css on purpose (other work in flight there); imported
-   by the admin layout.
+   by the finance layout only.
    -------------------------------------------------------------------------- */
 
 /* the unlock trace's angle — registered so it can animate smoothly. Without
@@ -47,8 +48,7 @@
 }
 
 /* tokens ------------------------------------------------------------------ */
-.sx-vault,
-[data-vault] {
+.sx-vault {
   --vault-ground: #06100c;
   --vault-gold: #d4b062;
   --vault-gold-hi: #f1dfa6;
@@ -89,13 +89,13 @@
    to gold on bank green by itself. `@theme inline` makes the utilities read
    these variables directly, so re-pinning them here is enough.
    The second selector is for a piece portaled to <body> that carries its
-   own `.sx-ops` (the commission rule dialog): `.sx-ops` re-declares ops
-   blue on that element, which would beat what it inherits from a Vault
-   <body>. Under a Vault ancestor it gets these instead — (0,2,0) beats the
-   bare `.sx-ops`. Mission Control never matches: its <body> and shell
-   root carry neither `.sx-vault` nor `data-vault` (stage-root.tsx). */
+   own `.sx-ops` (a shared dialog built for Mission Control): `.sx-ops`
+   re-declares ops blue on that element, which would beat what it inherits
+   from a Vault <body>. Under a Vault ancestor it gets these instead —
+   (0,2,0) beats the bare `.sx-ops`. Mission Control never matches: the
+   admin portal's <body> and shell root never carry `.sx-vault`. */
 .sx-ops.sx-vault,
-:is(.sx-vault, [data-vault]) .sx-ops {
+.sx-vault .sx-ops {
   --sx-bg: #06100c;
   --sx-surface: #0b1912;
   --sx-surface-2: #0f2119;
@@ -114,7 +114,7 @@
   --sx-success: #3ddc97;
   --sx-admin: #d4b062;
   /* NEXT's violet is a programme colour on Mission Control; on the Vault
-     (a Finance-only viewer's Splits) the NEXT pieces take the gold too */
+     (the Finance portal's Splits) the NEXT pieces take the gold too */
   --sx-next: #d4b062;
   --sx-next-soft: #f1dfa6;
   color-scheme: dark;
@@ -122,12 +122,10 @@
 }
 
 /* ground ------------------------------------------------------------------ */
-/* Both grounds are rendered (PortalShell); exactly one shows. The vault
-   ground is hidden unless an ancestor is the Vault — never "shown unless
-   not", because <body> carries `.sx-ops` too and would hide it. */
+/* PortalShell renders it on the Vault stage only; hidden anywhere else it
+   could land, shown under a Vault ancestor. */
 .sx-vault-ground { display: none; }
 .sx-vault .sx-vault-ground { display: block; }
-.sx-vault .sx-ops-ground { display: none; }
 .sx-vault-ground {
   background:
     radial-gradient(1200px 520px at 88% -8%, rgb(212 176 98 / 0.14), transparent 60%),
@@ -166,7 +164,7 @@
    :root, so the re-pinned --sx-bg never reaches it), which shows below the
    sticky sidebar on a long page */
 body.sx-vault,
-.sx-ops.sx-vault[data-vault] { background-color: var(--vault-ground); }
+.sx-ops.sx-vault { background-color: var(--vault-ground); }
 
 /* chrome: sidebar, header, nav groups ------------------------------------- */
 .sx-ops.sx-vault .sx-shell-aside {
@@ -180,14 +178,6 @@ body.sx-vault,
 .sx-ops.sx-vault .sx-nav-head[data-open]:not([data-holds]) .sx-nav-tile { border-color: rgb(212 176 98 / 0.4); color: var(--vault-gold-hi); }
 .sx-ops.sx-vault .sx-nav-track { border-color: rgb(212 176 98 / 0.24); }
 .sx-ops.sx-vault .sx-nav-head::after { background: linear-gradient(90deg, transparent, rgb(241 223 166 / 0.07), transparent); }
-
-/* the portal's name follows the look (portal-shell.tsx StageWord): the
-   sidebar label and the watermark render both words, one shows. Off the
-   Vault the ops word shows — Mission Control's markup gains a span, its
-   rendering nothing. */
-.sx-when-vault { display: none; }
-:is(.sx-vault, [data-vault]) .sx-when-vault { display: inline; }
-:is(.sx-vault, [data-vault]) .sx-when-ops { display: none; }
 
 /* words: the engraved serif -------------------------------------------- */
 .sx-ops.sx-vault .sx-page-title {
@@ -375,7 +365,7 @@ body.sx-vault,
 .sx-ops.sx-vault input[type="radio"] { accent-color: var(--vault-gold); }
 
 /* drawers and dialogs — portaled to <body>, so they turn gold when <body>
-   carries `.sx-vault` too (StageRoot) */
+   carries `.sx-vault` too (StagePortals) */
 .sx-ops.sx-vault .sx-drawer,
 .sx-ops.sx-vault .sx-drawer-out {
   background:
@@ -740,7 +730,7 @@ a:focus-visible > .sx-vault-key > svg { transform: rotate(90deg); }
 /* The dock sits inside the shell root, so `.sx-vault` reaches it. Its ops
    skin (mobile-nav.css) is a chamfered HUD bar with a cyan bracket puck;
    here it is a square double-ruled bar and a gold-ruled puck. */
-:is(.sx-vault, [data-vault]) .sx-dock[data-stage="ops"] {
+.sx-vault .sx-dock[data-stage="ops"] {
   --mn-accent: #d4b062;
   --mn-hot: #f1dfa6;
   --mn-ink: #ece5cf;
@@ -752,7 +742,7 @@ a:focus-visible > .sx-vault-key > svg { transform: rotate(90deg); }
   --mn-glow: rgb(212 176 98 / 0.45);
   --mn-wash: rgb(212 176 98 / 0.08);
 }
-:is(.sx-vault, [data-vault]) .sx-dock[data-stage="ops"] .sx-dock-bar {
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-bar {
   clip-path: none;
   border: 1px solid rgb(212 176 98 / 0.38);
   outline: 1px solid rgb(212 176 98 / 0.14);
@@ -761,7 +751,7 @@ a:focus-visible > .sx-vault-key > svg { transform: rotate(90deg); }
     linear-gradient(90deg, transparent, rgb(241 223 166 / 0.5), transparent) top / 100% 1px no-repeat,
     linear-gradient(180deg, rgb(12 30 21 / 0.95), rgb(5 12 9 / 0.97));
 }
-:is(.sx-vault, [data-vault]) .sx-dock[data-stage="ops"] .sx-dock-bar::before {
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-bar::before {
   inset: 4px;
   padding: 0;
   clip-path: none;
@@ -770,13 +760,13 @@ a:focus-visible > .sx-vault-key > svg { transform: rotate(90deg); }
   mask: none;
   border: 1px dashed rgb(212 176 98 / 0.1);
 }
-:is(.sx-vault, [data-vault]) .sx-dock[data-stage="ops"] .sx-dock-puck {
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-puck {
   background: linear-gradient(180deg, rgb(212 176 98 / 0.2), rgb(212 176 98 / 0.04));
   box-shadow: inset 0 0 0 1px rgb(212 176 98 / 0.5);
 }
-:is(.sx-vault, [data-vault]) .sx-dock[data-stage="ops"] .sx-dock-puck > i { display: none; }
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-puck > i { display: none; }
 /* a lozenge rides the puck's top rule */
-:is(.sx-vault, [data-vault]) .sx-dock[data-stage="ops"] .sx-dock-puck::after {
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-puck::after {
   content: "";
   position: absolute;
   left: 50%;
@@ -788,17 +778,17 @@ a:focus-visible > .sx-vault-key > svg { transform: rotate(90deg); }
   transform: rotate(45deg);
   box-shadow: 0 0 8px rgb(212 176 98 / 0.7);
 }
-:is(.sx-vault, [data-vault]) .sx-dock[data-stage="ops"] .sx-dock-item[aria-current="page"] { color: #fff8e4; }
-:is(.sx-vault, [data-vault]) .sx-dock[data-stage="ops"] .sx-dock-item[aria-current="page"] .sx-dock-glyph { filter: drop-shadow(0 0 6px rgb(212 176 98 / 0.8)); }
-:is(.sx-vault, [data-vault]) .sx-dock[data-stage="ops"] .sx-dock-item:focus-visible { outline-color: var(--mn-hot); }
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-item[aria-current="page"] { color: #fff8e4; }
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-item[aria-current="page"] .sx-dock-glyph { filter: drop-shadow(0 0 6px rgb(212 176 98 / 0.8)); }
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-item:focus-visible { outline-color: var(--mn-hot); }
 
 /* the phone menu ------------------------------------------------------------------ */
 /* Portaled to <body>: reached when <body> (or any ancestor) is the Vault —
-   StageRoot sets `sx-vault` and `data-vault` there on a money route.
+   StagePortals puts `sx-ops sx-vault` there while the Finance portal is open.
    Ops gives it a floor grid, a scan sweep, chamfered tiles and brackets;
    here: a guilloché of engine-turned rings, a double rule under the head,
    square double-ruled tiles, gold for the lit one. */
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] {
+.sx-vault .sx-sheet[data-stage="ops"] {
   --sheet-r: 0px;
   --mn-accent: #d4b062;
   --mn-hot: #f1dfa6;
@@ -811,14 +801,14 @@ a:focus-visible > .sx-vault-key > svg { transform: rotate(90deg); }
   --mn-glow: rgb(212 176 98 / 0.45);
   --mn-wash: rgb(212 176 98 / 0.08);
 }
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-sheet-fx {
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-fx {
   background:
     radial-gradient(80% 36% at 90% -4%, rgb(212 176 98 / 0.16), transparent 70%),
     radial-gradient(70% 40% at -10% 104%, rgb(16 120 80 / 0.3), transparent 70%);
 }
 /* engine-turned rings: two sets of fine concentric circles whose
    interference reads as guilloché */
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-sheet-fx-a {
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-fx-a {
   inset: 0;
   height: auto;
   transform: none;
@@ -829,7 +819,7 @@ a:focus-visible > .sx-vault-key > svg { transform: rotate(90deg); }
   mask-image: radial-gradient(70% 55% at 95% 0%, #000, transparent 75%);
 }
 /* the scan sweep's layer becomes a double rule along the top edge */
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-sheet-fx-b {
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-fx-b {
   top: 0;
   left: 0;
   right: 0;
@@ -839,15 +829,15 @@ a:focus-visible > .sx-vault-key > svg { transform: rotate(90deg); }
   border-bottom: 1px solid rgb(212 176 98 / 0.14);
   animation: none;
 }
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-sheet-close,
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-sheet-foot,
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-tile,
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-tile-glyph,
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-sheet-avatar { clip-path: none; border-radius: 0; }
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-sheet-close { background: rgb(212 176 98 / 0.06); box-shadow: inset 0 0 0 1px var(--mn-line); }
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-sheet-group-head { color: #cdbf98; }
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-sheet-group-head::before { box-shadow: none; transform: rotate(45deg); }
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-tile {
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-close,
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-foot,
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile,
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile-glyph,
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-avatar { clip-path: none; border-radius: 0; }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-close { background: rgb(212 176 98 / 0.06); box-shadow: inset 0 0 0 1px var(--mn-line); }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-group-head { color: #cdbf98; }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-group-head::before { box-shadow: none; transform: rotate(45deg); }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile {
   border: 1px solid var(--mn-line);
   outline: 1px solid rgb(212 176 98 / 0.08);
   outline-offset: 2px;
@@ -856,7 +846,7 @@ a:focus-visible > .sx-vault-key > svg { transform: rotate(90deg); }
   animation-name: sx-vault-rise;
 }
 /* the masked chamfer ring becomes the dashed inner rule */
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-tile::before {
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile::before {
   inset: 3px;
   padding: 0;
   clip-path: none;
@@ -865,26 +855,26 @@ a:focus-visible > .sx-vault-key > svg { transform: rotate(90deg); }
   mask: none;
   border: 1px dashed rgb(212 176 98 / 0.1);
 }
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-tile[aria-current="page"] {
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile[aria-current="page"] {
   border-color: var(--vault-gold, #d4b062);
   outline-color: rgb(212 176 98 / 0.3);
   background: linear-gradient(160deg, rgb(212 176 98 / 0.2), rgb(8 18 13 / 0.88) 75%);
 }
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-tile[aria-current="page"]::before { background: none; border-color: rgb(212 176 98 / 0.25); }
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-tile[aria-current="page"] .sx-tile-label { color: var(--vault-gold-hi, #f1dfa6); }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile[aria-current="page"]::before { background: none; border-color: rgb(212 176 98 / 0.25); }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile[aria-current="page"] .sx-tile-label { color: var(--vault-gold-hi, #f1dfa6); }
 /* never the ops brackets, even on the lit or focused tile (theirs is a
    longer selector than this one, hence the !important) */
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-tile-br { display: none !important; }
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-tile:focus-visible { outline: 2px solid var(--mn-hot); outline-offset: 2px; }
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-tile:focus-visible::before { padding: 0; background: none; }
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-sheet-close:focus-visible { box-shadow: inset 0 0 0 2px var(--mn-hot); }
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-sheet-foot { border: 1px solid var(--mn-line); box-shadow: none; }
-:is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-sheet-avatar { font-family: var(--font-source-serif), Georgia, serif; }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile-br { display: none !important; }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile:focus-visible { outline: 2px solid var(--mn-hot); outline-offset: 2px; }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile:focus-visible::before { padding: 0; background: none; }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-close:focus-visible { box-shadow: inset 0 0 0 2px var(--mn-hot); }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-foot { border: 1px solid var(--mn-line); box-shadow: none; }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-avatar { font-family: var(--font-source-serif), Georgia, serif; }
 
-/* every other admin page, for a Finance-only viewer ----------------------------- */
-/* Follow-up (2026-10-12): a Finance-only viewer has the Vault on EVERY page
-   (StageRoot mode "all") — Campaigns, Splits, a "not in your role" page —
-   so what Mission Control draws on the shared admin pages is re-cut here
+/* the shared ops kit, on the Finance portal ------------------------------------- */
+/* The Finance portal is the Vault on every page — Splits, the error page, a
+   refused desk — and some of what those pages use is Mission Control's
+   shared kit, so what that kit draws is re-cut here
    too. All of it is scoped under `.sx-ops.sx-vault`: Mission Control,
    without the class, is untouched. */
 
@@ -987,5 +977,5 @@ a:focus-visible > .sx-vault-key > svg { transform: rotate(90deg); }
   .sx-vault-key > svg { transition: none; }
   a:hover > .sx-vault-key > svg,
   a:focus-visible > .sx-vault-key > svg { transform: none; }
-  :is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-tile { animation: none; }
+  .sx-vault .sx-sheet[data-stage="ops"] .sx-tile { animation: none; }
 }

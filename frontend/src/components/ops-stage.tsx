@@ -62,8 +62,7 @@ const MOTES: ReadonlyArray<readonly [number, number, number, number, string]> = 
 /** `word`: the outlined word behind the hero — each desk on the stage names itself. */
 export function OpsGround({ word = "OPS" }: { word?: string }) {
   return (
-    /* `sx-ops-ground`: vault.css hides it on the Vault (P1-ART-25) */
-    <div aria-hidden="true" className="sx-ops-ground pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_10%_0%,rgba(46,155,245,.22),transparent_65%),radial-gradient(40%_40%_at_88%_30%,rgba(46,155,245,.1),transparent_65%),radial-gradient(50%_45%_at_100%_100%,rgba(249,122,31,.15),transparent_62%)]" />
       <div className="sx-login-light absolute inset-0" />
 

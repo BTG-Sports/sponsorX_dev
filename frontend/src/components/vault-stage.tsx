@@ -4,7 +4,7 @@
    The admin desks' dashboard anatomy (memory admin-desks-are-dashboards) —
    a small title with a live pill, a row of tiles, then the work — drawn as
    a bank vault: bank green, brushed gold, banknote guilloché, double-rule
-   frames, engraved serif numerals (app/(app)/admin/vault.css). Every figure
+   frames, engraved serif numerals (app/(app)/finance/vault.css). Every figure
    is one of the page's own reads (memory stats-must-be-retrievable); a
    hidden figure is left out, never drawn as 0. The exports mirror the
    Stadium kit (stadium-stage.tsx), so a Vault page reads like a sponsor one.
