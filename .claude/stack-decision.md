@@ -469,10 +469,14 @@ answer is Postgres.
 
 - **Services:** `Postgres-warehouse` (staging) and `Postgres-warehouse-production` (production). Each is its own database, never the product's, in the same Railway project, on Postgres 18 (the same `postgres-ssl` image as the product's).
 - **Region: US East** (`us-east4-eqdc4a`), as A7 / G-02 require. **`railway add` placed the first one in `sfo`.** It was moved with `railway service scale <us-east4-eqdc4a>=1 sfo=0` while still empty. Check the region of every new database; do not trust the default.
-- **Backups** match the product databases' (runbook): PITR wired to `sponsorx-pg-backups`, plus daily and weekly snapshots. Unlike the facts, the raw layer's version history cannot be rebuilt from the product, so it is backed up like product data.
+- **Provisioned 2026-10-12.**
+  - Staging: `Postgres-warehouse` (`8903a76f`).
+  - Production: `Postgres-warehouse-production` (`040f44e6`). It landed in US East without a move.
+  - Each `api` service carries `WAREHOUSE_DATABASE_URL` (a `${{…DATABASE_URL}}` reference) and `WAREHOUSE_SOURCE_DATABASE_URL` (the reader login; its host, port and database are references, and the password is set via stdin).
+- **Backups** match the product databases' (runbook): PITR wired to `sponsorx-pg-backups`, plus daily and weekly snapshots, and monthly in production. After `pitr enable`, the database needs a redeploy before archiving starts. Unlike the facts, the raw layer's version history cannot be rebuilt from the product, so it is backed up like product data.
 - **Reached over private networking only.** No public proxy, the same as the product databases.
 
-**Why not BigQuery or Snowflake.** They are a new vendor, a new contract and data residency to establish again, data leaving Railway, and an ETL path out of the private network, all for a data volume measured in megabytes. Measured on 2026-10-12: staging's 29 copied tables hold 5.5 MB and about 1,100 rows; production's hold 7 rows. Snowflake's minimum spend alone would exceed this whole addendum's cost.
+**Why not BigQuery or Snowflake.** They are a new vendor, a new contract and data residency to establish again, data leaving Railway, and an ETL path out of the private network, all for a data volume measured in megabytes. Measured on 2026-10-12: staging's 28 copied tables hold 5.5 MB and about 1,100 rows; production's hold 7 rows. Snowflake's minimum spend alone would exceed this whole addendum's cost.
 
 ## C2. The transformation layer is SQL files run by the worker
 

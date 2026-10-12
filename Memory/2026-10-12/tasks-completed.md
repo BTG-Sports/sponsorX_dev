@@ -109,7 +109,7 @@ The user decided each one: market geography from registration plus a reward venu
 - **Why a warehouse at all (the user asked):** Phase 3 analysis shouldn't load the live database; the product overwrites history that pricing and forecasting need; and reports, pricing and forecasts need one agreed set of numbers. At pilot size it is ahead of need, so it is kept light: plain Postgres. The user chose to keep it.
 - **The user's decisions:** hourly; copy by allow-list.
 - **Built: `backend/worker/warehouse/`.**
-  - `sources.mts` lists 29 tables and their allowed columns. It copies no personal data, and only 7 audit actions, without before/after. The athlete's birth date is read only to compute `is_minor` with the product's own rule.
+  - `sources.mts` lists 28 tables and their allowed columns. It copies no personal data, and only 7 audit actions, without before/after. The athlete's birth date is read only to compute `is_minor` with the product's own rule.
   - `ingest.mts`:
     - APPEND tables (RewardEvent, LinkEvent, EditionEvent, AuditLog) are read from the watermark minus 48 hours, one raw row per source row, updated only when its hash changes.
     - VERSIONED tables (the rest) are read in full; a new version is written only when the row hash differs from the latest, and a row gone from the product gets a deleted version.
@@ -141,3 +141,21 @@ The user decided each one: market geography from registration plus a reward venu
   - verify a real run;
   - then production, with the user's OK.
 - The password for staging's reader is in the session scratchpad only, until it is set as a Railway variable.
+
+## rcfworks — 3S0-OPS-01 and 3S1-DATA-01 → Done; the warehouse runs in staging and production
+
+- **Deploy:** #187–#189 merged. The scheduled 12:00 UTC CI run never appeared, so with the user's OK the "Daily deploy" workflow was started by hand after `main`'s push CI went green (fd91e3c). `release` moved 46323d4 → fd91e3c, and staging and production deployed it, healthy.
+- **The e2e failure on PR #189** was not a test failure: the e2e web server couldn't fetch Google Fonts on the runner and timed out at 120 s before any test ran. The push run on the same commit passed, and a re-run of the PR job passed.
+- **Staging:**
+  - `warehouse_reader` created; it counts 34 athletes and is refused email, `User` and writes.
+  - Both variables are set on `api`.
+  - **Run 1: all 28 tables match the app (191 rows), no email-like text, no forbidden keys, about 0.5 s.**
+- **Production (user's OK):**
+  - `Postgres-warehouse-production` (040f44e6), created in US East and renamed through the API.
+  - Backups: PITR plus daily, weekly and monthly, with the first backup taken.
+  - `warehouse_reader` with its own password; both variables on `api`.
+  - **Run 1: all 28 tables match (7 NilJob rows), no personal data.** Health ok.
+- **The table count is 28, not 29** as written earlier. Corrected in the warehouse doc, Addendum C, this log and the tracker notes.
+- The reader passwords exist only as Railway variables; the scratchpad copies are deleted. The CLI is relinked to staging / monitor-trigger.
+- **Memory:** `railway-add-database-quirks`. `-s` is ignored, the region can land in `sfo`, the add shows an interactive prompt, and backups need a database redeploy.
+- **Tracker and plan:** 3S1-DATA-01 Done (user's OK), 3S0-OPS-01 Done.
