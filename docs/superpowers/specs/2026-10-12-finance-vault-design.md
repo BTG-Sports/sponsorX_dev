@@ -102,13 +102,13 @@ Its API mirrors the Stadium kit, so the pages read the same way.
 |---|---|
 | `VaultGround` | The green and gold glows, two SVG guilloché rosettes (top right, bottom left, about 14% opacity) and the pointer light (`data-spot`, as in the other grounds) |
 | `VaultHead({title, pill, actions, children})` | The title row; the tiles go in as children |
-| `VaultTiles({cols})` / `VaultTile({label, value, format, caption, delta, deltaLabel, href, hint, tone, delay})` | A double-rule tile with an `ArenaCount` count-up in `.sx-vault-num` (gold gradient serif). `delta` is a fraction (▲/▼ %, "vs the 30 days before"). `tone="you"` gives a gold border and a badge; `"late"` gives red. `href` makes the whole tile a link. `hint` adds a "?" through the existing `StadiumHint`, which gains a `skin?: "stadium" | "vault"` prop picking `sx-<skin>-q` / `sx-<skin>-tip` (default `stadium`, so the sponsor side is unchanged) |
-| `VaultBox({label, count, amountCents, sub, href, delay})` | A Needs-you "deposit box": count · amount, the oldest wait, and "Open …". The whole box is a link. A key-ring glyph sits top right |
+| `VaultTiles({cols})` / `VaultTile({label, value, format, caption, delta, deltaLabel, href, hint, tone, delay})` | A double-rule tile with an `ArenaCount` count-up in `.sx-vault-num` (gold gradient serif). `delta` is a fraction (▲/▼ %, "vs the 30 days before"). `tone="you"` gives a gold border; `badge` adds the pulsing count; `"late"` gives red. `href` makes the whole tile a link. `hint` adds a "?" through the existing `StadiumHint`, which gains a `skin?: "stadium" | "vault"` prop picking `sx-<skin>-q` / `sx-<skin>-tip` (default `stadium`, so the sponsor side is unchanged) |
+| `VaultBox({label, count, cents, sub, href, open, delay})` | A Needs-you "deposit box": count · amount, the oldest wait, and "Open …". The whole box is a link. A key-ring glyph sits top right |
 | `VaultPanel({children, flush, delay, tone})` / `VaultSection({title, hint, action})` | A panel and a section's title row (serif heading) |
 | `VaultDial({value, label, caption})` | The ring gauge (`value` 0..1): an SVG ring with a gradient stroke that sweeps to the value, and a ticked bezel that turns slowly (stopped with reduced motion), with the % in the centre in the serif |
 | `VaultFlow({series, bucket})` | A client island (`vault-flow.tsx`) for the money-in vs money-out chart. "In" is a gold area with a line; "out" is a dashed green line. A hover read-out shows the date, in and out. It reuses `stadium-trend.tsx`'s monotone curve, which never overshoots, adapted. Accessible: an `aria-label` summary plus a visually hidden table |
 | `VaultSplit({rows})` | Horizontal gold share bars with the amount and % |
-| `VaultSteps({states})` | The athlete-pay steps (Pending → Approved → Ready → Paid, with Held/Disputed set apart in red), each with an amount and a count |
+| `VaultSteps({steps, label})` | The athlete-pay steps (Pending → Approved → Ready → Paid, with Held/Disputed set apart in red), each with an amount and a count |
 | `VaultChip({tone, children})` / `VaultBadge({count})` | A status word, and the pulsing gold count |
 | `VaultRange({current, path, params})` | The 7 / 30 / 90 days / All time switch: links, a segmented control, gold for the active one. Reuses `RangeKey` |
 | `VaultGhost` | The loading screen, used by `loading.tsx` on each Vault route |
