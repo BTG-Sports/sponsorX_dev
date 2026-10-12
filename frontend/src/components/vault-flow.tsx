@@ -15,15 +15,13 @@
 import { useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 import { formatCount } from "@/lib/format-count";
-import { flowPaths, type FlowPoint } from "@/lib/monotone-path";
+import { compact, flowPaths, type FlowPoint } from "@/lib/monotone-path";
 
-// re-exported: this is where flowPaths/FlowPoint used to live
-export { flowPaths };
+// re-exported: this is where flowPaths/FlowPoint/compact used to live
+export { compact, flowPaths };
 export type { FlowPoint };
 
 const usd = (cents: number) => formatCount(cents, "usd0");
-const compact = (cents: number) =>
-  (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
 const fmtDay = (iso: string, week: boolean) => {
   const s = new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
   return week ? `Week of ${s}` : s;

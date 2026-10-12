@@ -53,6 +53,24 @@ export function monotonePath(px: number[], py: number[]) {
   return line;
 }
 
+/**
+ * cents → "$690" / "$1.4K": the money chart's axis-tick labels (vault-flow.tsx).
+ * Pure, so it lives beside flowPaths rather than in the "use client" component
+ * it serves (memory: server-imports-client-helper). `minimumFractionDigits: 0`
+ * pins the fraction digits so Node's ICU and the browser's agree — left
+ * unset, the two disagreed on $690's trailing zero and flagged React as a
+ * hydration mismatch (P1-ART-25 review).
+ */
+export function compact(cents: number): string {
+  return (cents / 100).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  });
+}
+
 export type FlowPoint = { day: string; inCents: number; outCents: number };
 
 /**

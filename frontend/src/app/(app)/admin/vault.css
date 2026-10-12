@@ -480,6 +480,12 @@ a.sx-vault-frame:focus-visible,
   background: var(--vault-good);
   box-shadow: 0 0 8px var(--vault-good);
 }
+/* "Sample": a hollow gold ring, never the live green dot */
+.sx-vault-pill[data-sample]::before {
+  background: transparent;
+  border: 1px solid var(--vault-gold);
+  box-shadow: none;
+}
 /* attention: solid gold, a slow pulse ringing out from it */
 .sx-vault-badge {
   display: inline-flex;

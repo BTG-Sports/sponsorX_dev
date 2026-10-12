@@ -90,12 +90,29 @@ export function VaultGround() {
 
 /* head and tiles ------------------------------------------------------------- */
 
-export function VaultHead({ title, pill, actions, children }: { title: string; pill?: ReactNode; actions?: ReactNode; children?: ReactNode }) {
+export function VaultHead({
+  title,
+  pill,
+  /** Fixtures, not the real books: a hollow ring (vault.css), never the live dot. */
+  sample,
+  actions,
+  children,
+}: {
+  title: string;
+  pill?: ReactNode;
+  sample?: boolean;
+  actions?: ReactNode;
+  children?: ReactNode;
+}) {
   return (
     <header>
       <div className="sx-vault-in flex flex-wrap items-center gap-3" style={at(0.04)}>
         <h1 className="sx-page-title">{title}</h1>
-        {pill != null && <span className="sx-vault-pill">{pill}</span>}
+        {pill != null && (
+          <span className="sx-vault-pill" data-sample={sample ? "" : undefined}>
+            {pill}
+          </span>
+        )}
         {actions != null && <div className="flex flex-wrap items-center gap-2 sm:ml-auto">{actions}</div>}
       </div>
       {children}

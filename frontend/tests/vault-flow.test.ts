@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { flowPaths, monotonePath } from "@/lib/monotone-path";
+import { compact, flowPaths, monotonePath } from "@/lib/monotone-path";
 
 /* P1-ART-25 — the Treasury's money chart: two series on ONE scale, through
    the curve stadium-trend.tsx already proves never overshoots. */
@@ -36,6 +36,13 @@ describe("monotonePath", () => {
 
   it("an empty series is an empty path", () => {
     expect(monotonePath([], [])).toBe("");
+  });
+});
+
+describe("compact", () => {
+  it("pins the fraction digits so Node and the browser agree (the hydration mismatch, P1-ART-25 review)", () => {
+    expect(compact(69_000)).toBe("$690");
+    expect(compact(140_000)).toBe("$1.4K");
   });
 });
 
