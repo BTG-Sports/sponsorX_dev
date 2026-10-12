@@ -45,6 +45,32 @@ export function activeGroup<T extends GroupedItem>(groups: readonly NavGroup<T>[
   return groups.find((g) => g.items.some((i) => !i.pending && isActiveHref(i.href, pathname, rootHref)))?.key ?? null;
 }
 
+/** P1-ART-25 review — a role's nav is `full` filtered down to what it may
+ *  use; a group's glyph lived on exactly one item (`groupIcon`), so if that
+ *  item was filtered out, `groupNav`'s per-item scan never saw it and the
+ *  whole group rendered without a glyph (Campaigns and NEXT, for a
+ *  Finance-only viewer, lost "megaphone" and "book").
+ *
+ *  The glyph is really a property of the GROUP, not of whichever item
+ *  happens to carry it, so build the group → icon map from the full,
+ *  unfiltered list first, then stamp it onto the first surviving item of
+ *  each group that doesn't already carry one — `groupNav` needs no change,
+ *  it still just reads `groupIcon` off whatever reaches it. */
+export function stampGroupIcons<T extends GroupedItem>(kept: readonly T[], full: readonly T[]): T[] {
+  const icons = new Map<string, T["groupIcon"]>();
+  for (const item of full) {
+    if (item.group && item.groupIcon && !icons.has(item.group)) icons.set(item.group, item.groupIcon);
+  }
+  const stamped = new Set<string>();
+  return kept.map((item) => {
+    if (!item.group || item.groupIcon || stamped.has(item.group)) return item;
+    const icon = icons.get(item.group);
+    if (!icon) return item;
+    stamped.add(item.group);
+    return { ...item, groupIcon: icon };
+  });
+}
+
 /** Which groups a viewer left open — their own browser's convenience, never
  *  shared. Read through useSyncExternalStore (the sidebar), so the server
  *  and the hydrating client agree on "none" and the browser's memory joins

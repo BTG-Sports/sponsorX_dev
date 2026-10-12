@@ -1,6 +1,7 @@
 import { Card, SectionHeading, StatTile } from "@/components/ui";
 import { MiniChip } from "@/components/hero";
 import { EmptyState } from "@/components/states";
+import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { money } from "@/lib/fixtures";
 import { apiFetch, fetchActor } from "@/server/api";
 import { apiListQuery, type PageInfo, type SearchParams } from "@/lib/list-query";
@@ -15,7 +16,11 @@ import { ReachList, type ReachRow } from "./reach-list";
    - GET /operations/job-economics — per NIL job: orders, average sell,
      average athlete pay, margin. Per JOB on purpose (network-metrics.ts):
      margin is earned per line, and a package's margin is the sum of its
-     lines — the finer grain, from which the coarser can be summed.
+     lines — the finer grain, from which the coarser can be summed. This
+     read alone needs a second, optional grant — campaignOrder read — on top
+     of network-metrics' metricAggregate; a network manager holds the first
+     but not the second (lib/admin-access.ts), so a 403 here drops only the
+     "Economics by job" table below, never the whole desk.
    - GET /operations/delivery-health — the marketplace-learning read: each
      live campaign's frozen reach PROJECTION (made when the order was sold,
      P7-DATA-03) against the reach actually VERIFIED. That gap is what
@@ -56,17 +61,28 @@ async function load(sp: SearchParams) {
     apiFetch("/operations/job-economics"),
     apiFetch(`/operations/delivery-health${apiListQuery(sp, { projected: "true" })}`),
   ]);
-  if (n.status === 403 || j.status === 403) return { kind: "denied" as const };
-  if (!n.ok || !j.ok || !h.ok) throw new Error(`Network metrics unavailable (${n.status}/${j.status}/${h.status}).`);
+  /* Only network-metrics gates the whole page: it needs just metricAggregate
+     read, which every role this desk is mapped to holds. job-economics needs
+     a second, optional read — campaignOrder — that a network manager lacks
+     (lib/admin-access.ts); a 403 there drops just the "Economics by job"
+     table, never the desk itself. */
+  if (n.status === 403) return { kind: "denied" as const };
+  if (!n.ok || !h.ok) throw new Error(`Network metrics unavailable (${n.status}/${h.status}).`);
+  if (!j.ok && j.status !== 403) throw new Error(`Job economics unavailable (${j.status}).`);
   return {
     kind: "ok" as const,
     network: (await n.json()) as Network,
-    jobs: ((await j.json()) as { jobs: JobEcon[] }).jobs,
+    jobs: j.status === 403 ? null : ((await j.json()) as { jobs: JobEcon[] }).jobs,
     health: (await h.json()) as { campaigns: ReachRow[]; page: PageInfo },
   };
 }
 
 export default async function NetworkPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  /* A staff role this desk isn't for (lib/admin-access: tenant-wide
+     metricAggregate read) gets "not in your role"; the 403 in load() stays
+     the backstop. */
+  const lacking = await staffWithoutAccess("/admin/network");
+  if (lacking) return <NotInRole path="/admin/network" title="Network" roles={lacking} />;
   const data = await load(await searchParams);
   const heading = (
     <div>
@@ -111,49 +127,54 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
         every figure recomputed from rows <MiniChip kind="ver">POSTGRES</MiniChip>
       </p>
 
-      <section>
-        <SectionHeading
-          title="Economics by job"
-          hint="Margin is earned per line — a package's margin is the sum of its jobs' lines."
-        />
-        <Card className="p-0">
-          {jobs.length === 0 ? (
-            <p className="px-4 py-6 text-center text-xs text-muted">No orders yet.</p>
-          ) : (
-            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Athlete network — scrollable table">
-              <table className="w-full min-w-[36rem] text-left text-xs">
-                <thead>
-                  <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">
-                    <th className="px-4 py-2.5 font-medium">Job</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Orders</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Avg sell</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Avg athlete pay</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Margin</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Margin rate</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line-soft">
-                  {jobs.map((j) => (
-                    <tr key={j.jobId}>
-                      <td className="px-4 py-3 font-medium">{j.jobId}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{j.orders}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{money(j.averageSellPrice)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-muted">{money(j.averageCompensation)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{money(j.totalMargin)}</td>
-                      <td className={`px-4 py-3 text-right tabular-nums ${j.marginRate < 1 - 1 / 1.4 ? "font-medium text-danger" : ""}`}>
-                        {pct(j.marginRate)}
-                      </td>
+      {/* jobs is null when job-economics 403'd on us alone (a network manager:
+          metricAggregate read without campaignOrder read) — the rest of the
+          desk still renders, this table just isn't theirs. */}
+      {jobs !== null && (
+        <section>
+          <SectionHeading
+            title="Economics by job"
+            hint="Margin is earned per line — a package's margin is the sum of its jobs' lines."
+          />
+          <Card className="p-0">
+            {jobs.length === 0 ? (
+              <p className="px-4 py-6 text-center text-xs text-muted">No orders yet.</p>
+            ) : (
+              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Athlete network — scrollable table">
+                <table className="w-full min-w-[36rem] text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">
+                      <th className="px-4 py-2.5 font-medium">Job</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Orders</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Avg sell</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Avg athlete pay</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Margin</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Margin rate</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
-        <p className="mt-2 text-[10px] text-faint">
-          A margin rate under {pct(1 - 1 / 1.4)} means lines sold below the 1.4× floor on average (P0-PMO-13).
-        </p>
-      </section>
+                  </thead>
+                  <tbody className="divide-y divide-line-soft">
+                    {jobs.map((j) => (
+                      <tr key={j.jobId}>
+                        <td className="px-4 py-3 font-medium">{j.jobId}</td>
+                        <td className="px-4 py-3 text-right tabular-nums">{j.orders}</td>
+                        <td className="px-4 py-3 text-right tabular-nums">{money(j.averageSellPrice)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-muted">{money(j.averageCompensation)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums">{money(j.totalMargin)}</td>
+                        <td className={`px-4 py-3 text-right tabular-nums ${j.marginRate < 1 - 1 / 1.4 ? "font-medium text-danger" : ""}`}>
+                          {pct(j.marginRate)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+          <p className="mt-2 text-[10px] text-faint">
+            A margin rate under {pct(1 - 1 / 1.4)} means lines sold below the 1.4× floor on average (P0-PMO-13).
+          </p>
+        </section>
+      )}
 
       <section>
         <SectionHeading

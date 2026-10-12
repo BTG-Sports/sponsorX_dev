@@ -184,11 +184,17 @@ test("a verified post releases the earning, shows in finance, and lands in the s
   await expect(reconciliation, "contracted $80, Zoho invoiced $50").toContainText("$30 not invoiced");
   await expect(rowWith(desk, "INV-E2E-P7")).toContainText("paid");
 
-  //    FINANCE role: sees the earning, not what the sponsor was billed.
+  //    FINANCE role, in its own portal (P1-ART-25 restructure: /finance, the
+  //    Treasury): sees the earning, not what the sponsor was billed — the
+  //    invoice tabs and the Collected dial are absent (2026-09-24), not zeros.
   const finance = await pageAs(browser, testInfo, { key: "p7.finance", roles: ["FINANCE"] });
-  await finance.goto("/admin/finance");
-  await expect(finance.getByText(/Invoices are visible to BTG admin only/).first()).toBeVisible();
+  await finance.goto("/finance");
+  await expect(finance.getByRole("heading", { level: 1, name: "Treasury" })).toBeVisible();
+  await expect(finance.getByRole("navigation", { name: "The books" }).getByRole("link")).toHaveCount(1);
+  await expect(finance.getByRole("img", { name: /^Collected:/ })).toHaveCount(0);
   await expect(rowWith(finance, ATHLETE.name, CAMPAIGN_NAME)).toContainText("Approved for payout");
+  await finance.goto("/finance?tab=invoices");
+  await expect(rowWith(finance, ATHLETE.name, CAMPAIGN_NAME), "an invoice tab asked for falls back to earnings").toContainText("Approved for payout");
   await expect(finance.getByText("INV-E2E-P7")).toHaveCount(0);
 
   // 6. THE SPONSOR'S REPORT — from their dashboard, on the Stadium Board

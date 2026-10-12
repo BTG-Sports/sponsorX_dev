@@ -12,8 +12,11 @@ import { useEffect, useRef, useState } from "react";
    via static class maps so Tailwind sees every utility.
    -------------------------------------------------------------------------- */
 
-/** Portal tints. The advisor desk uses "next" (one programme, one violet). */
-export type FilterTone = "athlete" | "admin" | "sponsor" | "property" | "next";
+/** Portal tints. The advisor desk uses "next" (one programme, one violet).
+    Finance's "vault" is gold-on-bank-green, not a CSS custom property like
+    the others — brushed gold is a fixed brand colour, not a per-tenant tint —
+    so its entries below are literal hex arbitrary values. */
+export type FilterTone = "athlete" | "admin" | "sponsor" | "property" | "next" | "vault";
 
 const TONE = {
   athlete: {
@@ -41,7 +44,24 @@ const TONE = {
     trigger: "border-next/40",
     search: "focus:border-next/50 focus-visible:ring-next/30",
   },
+  vault: {
+    chip: "border-[#d4b062]/30 bg-[#d4b062]/10",
+    trigger: "border-[#d4b062]/40",
+    search: "focus:border-[#d4b062]/70 focus-visible:ring-[#d4b062]/60",
+  },
 } satisfies Record<FilterTone, { chip: string; trigger: string; search: string }>;
+
+/** The selected row in a Dropdown's option list: check mark + label. Flat
+    (text-accent / text-text) for every existing portal, unchanged — only the
+    vault's engraved gold (#f1dfa6) replaces both. */
+const OPTION_TONE = {
+  athlete: { check: "text-accent", text: "text-text" },
+  admin: { check: "text-accent", text: "text-text" },
+  sponsor: { check: "text-accent", text: "text-text" },
+  property: { check: "text-accent", text: "text-text" },
+  next: { check: "text-accent", text: "text-text" },
+  vault: { check: "text-[#f1dfa6]", text: "text-[#f1dfa6]" },
+} satisfies Record<FilterTone, { check: string; text: string }>;
 
 /* ------------------------------------------------------------------ icons */
 
@@ -74,7 +94,14 @@ export function ChevronDown({ open }: { open: boolean }) {
   );
 }
 
-export function CheckIcon({ visible }: { visible: boolean }) {
+export function CheckIcon({
+  visible,
+  className = "text-accent",
+}: {
+  visible: boolean;
+  /** Tint override — the vault tone passes its gold (OPTION_TONE). */
+  className?: string;
+}) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -84,7 +111,8 @@ export function CheckIcon({ visible }: { visible: boolean }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       className={[
-        "size-3 shrink-0 text-accent",
+        "size-3 shrink-0",
+        className,
         visible ? "" : "invisible",
       ].join(" ")}
       aria-hidden="true"
@@ -321,10 +349,10 @@ export function Dropdown({
                 }}
                 className={[
                   "flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-surface-2",
-                  selected ? "font-medium text-text" : "text-muted",
+                  selected ? `font-medium ${OPTION_TONE[tone].text}` : "text-muted",
                 ].join(" ")}
               >
-                <CheckIcon visible={selected} />
+                <CheckIcon visible={selected} className={OPTION_TONE[tone].check} />
                 {o.label}
               </button>
             );

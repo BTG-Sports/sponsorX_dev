@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { BriefsDesk } from "@/components/briefs-desk";
 import { EmptyState } from "@/components/states";
+import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { apiListQuery, textParam } from "@/lib/list-query";
 import { TABS, briefTabQuery, toBriefRow, type ApiBriefPage, type TabKey } from "@/lib/briefs-live";
 import { apiFetch } from "@/server/api";
@@ -38,6 +39,11 @@ const CLOSERS = [...APPROVERS, "SALES"];
 
 export default async function BriefsPage({ searchParams }: PageProps<"/admin/briefs">) {
   const actor = await requirePortalAccess("admin");
+  /* A staff role this desk isn't for (lib/admin-access: campaignBrief read)
+     gets "not in your role", as on every mapped desk; the 403 below stays
+     the backstop. */
+  const lacking = await staffWithoutAccess("/admin/briefs");
+  if (lacking) return <NotInRole path="/admin/briefs" title="Briefs" roles={lacking} />;
   const sp = await searchParams;
   /* P4-FE-09 — "Held for BTG" is the default: a brief whose every safety
      check passes is approved automatically (P4-BE-11), so what is left for

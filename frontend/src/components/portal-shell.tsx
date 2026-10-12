@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Logo } from "./logo";
+import { MobileDock } from "./mobile-dock";
 import { MobileNav } from "./mobile-nav";
 import { OpsStage } from "./ops-fx";
 import { OpsGround } from "./ops-stage";
 import { ArenaGround } from "./arena-stage";
 import { StadiumGround } from "./stadium-stage";
 import { StagePortals } from "./stage-portals";
+import { VaultGround } from "./vault-stage";
 import { PortalNav, type NavItem } from "./portal-nav";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
@@ -16,13 +18,15 @@ import { UserMenu } from "./user-menu";
    (screen 3), reworked to the sponsor-redesign language (spec 2026-09-11):
    accent glow atmosphere, gradient hairlines, staggered entrance, editorial
    watermark. Portal accent colours follow the BTG SponsorX logo (Roadmap A0):
-   Athlete = blue, Sponsor = orange, Admin = steel, Property = soft blue.
+   Athlete = blue, Sponsor = orange, Admin = steel, Property = soft blue,
+   Finance = gold (the Vault, P1-ART-25).
    -------------------------------------------------------------------------- */
 
 export type Portal =
   | "sponsor"
   | "athlete"
   | "admin"
+  | "finance"
   | "property"
   | "next"
   | "advisor";
@@ -64,6 +68,19 @@ const ACCENT: Record<
     wash: "from-admin/15",
     edge: "from-admin/50",
     label: "Admin Portal",
+  },
+  /* The Finance portal (P1-ART-25) — always on the Vault. Its gold comes
+     from the admin-toned tokens, which vault.css re-pins to brushed gold
+     under `.sx-ops.sx-vault` (the same tokens the shared ops kit reads), so
+     the accent, the kit and the chrome are one gold. The label's first word
+     is the sidebar watermark: FINANCE. */
+  finance: {
+    text: "text-admin",
+    bg: "bg-admin/15",
+    dot: "bg-admin",
+    wash: "from-admin/15",
+    edge: "from-admin/50",
+    label: "Finance Portal",
   },
   property: {
     text: "text-property",
@@ -127,6 +144,7 @@ export function PortalShell({
   userName,
   userRole,
   stage = false,
+  dock,
   children,
 }: {
   portal: Portal;
@@ -144,13 +162,24 @@ export function PortalShell({
    *  stage (fixed-dark in both themes), with every page as content on it.
    *  P1-ART-22 — `"arena"`: the athlete portal's theme-aware stage. `true`
    *  still means the admin's `"ops"`.
-   *  P1-ART-23 — `"stadium"`: the sponsor's fixed-dark Stadium Board. */
-  stage?: boolean | "ops" | "arena" | "stadium";
+   *  P1-ART-23 — `"stadium"`: the sponsor's fixed-dark Stadium Board.
+   *  P1-ART-25 — `"vault"`: the Finance portal's fixed-dark Vault. It keeps
+   *  the ops chrome's structure (`sx-ops`) and vault.css re-skins it under
+   *  `sx-vault`, so the root carries both. */
+  stage?: boolean | "ops" | "arena" | "stadium" | "vault";
+  /** P1-ART-24 — on a staged portal, the four hrefs (from `nav`) the phone
+   *  dock carries; its Menu opens the LED menu and replaces the hamburger. */
+  dock?: readonly string[];
   children: ReactNode;
 }) {
   const accent = ACCENT[portal];
   const kind = stage === true ? "ops" : stage || null;
-  const stageCls = kind === "ops" ? "sx-ops" : kind === "arena" ? "sx-arena" : kind === "stadium" ? "sx-stadium" : "";
+  const stageCls = kind === "ops" ? "sx-ops" : kind === "arena" ? "sx-arena" : kind === "stadium" ? "sx-stadium" : kind === "vault" ? "sx-ops sx-vault" : "";
+  const docked = kind !== null && !!dock;
+  /* Below md the page keeps clear of the floating dock (its height, its
+     12px float and the safe area), so the last row or a pager never sits
+     under it. */
+  const stagePad = docked ? "pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-14" : "pb-14";
 
   return (
     <div className={`flex min-h-screen ${stageCls}`}>
@@ -238,14 +267,17 @@ export function PortalShell({
             className={`pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r ${accent.edge} via-line to-transparent`}
           />
 
-          <MobileNav
-            nav={nav}
-            rootHref={rootHref}
-            accentBg={accent.bg}
-            accentText={accent.text}
-            accentDot={accent.dot}
-            portalLabel={accent.label}
-          />
+          {/* the staged portals open their menu from the dock instead */}
+          {!docked && (
+            <MobileNav
+              nav={nav}
+              rootHref={rootHref}
+              accentBg={accent.bg}
+              accentText={accent.text}
+              accentDot={accent.dot}
+              portalLabel={accent.label}
+            />
+          )}
           {orgBrand?.logoUrl && (
             /* A plain <img>: the logo is a public-bucket URL, and next/image
                optimisation is a host-specific primitive (stay host-portable). */
@@ -269,7 +301,7 @@ export function PortalShell({
           <div className="flex items-center gap-3">
             {/* the admin and stadium stages are dark in both themes — no
                 toggle to offer there; the arena is theme-aware and keeps it */}
-            {kind !== "ops" && kind !== "stadium" && <ThemeToggle />}
+            {kind !== "ops" && kind !== "stadium" && kind !== "vault" && <ThemeToggle />}
             {/* Both inert until their features ship — on a phone they only
                crowd the actor's name out of the header, so they wait for sm. */}
             <div className="hidden items-center gap-3 sm:flex">
@@ -297,28 +329,50 @@ export function PortalShell({
              and column. No overflow clip here — the ground clips itself, and
              the desks' sticky toolbars (the matching studio) need the main
              column unclipped. */
-          <OpsStage className="sx-stage relative isolate flex min-w-0 flex-1 flex-col px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10">
+          <OpsStage className={`sx-stage relative isolate flex min-w-0 flex-1 flex-col px-5 ${stagePad} pt-8 sm:px-8 lg:px-10 lg:pt-10`}>
             <OpsGround word="" />
             <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
           </OpsStage>
         ) : kind === "arena" ? (
           /* The arena (P1-ART-22): the same root island for the pointer light,
              the athlete ground, the same column. */
-          <OpsStage className="sx-arena-stage relative isolate flex min-w-0 flex-1 flex-col px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10">
+          <OpsStage className={`sx-arena-stage relative isolate flex min-w-0 flex-1 flex-col px-5 ${stagePad} pt-8 sm:px-8 lg:px-10 lg:pt-10`}>
             <ArenaGround />
             <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
           </OpsStage>
         ) : kind === "stadium" ? (
           /* The Stadium Board (P1-ART-23): the same root island for the pointer
              light, the sponsor ground, the same column. */
-          <OpsStage className="sx-stadium-stage relative isolate flex min-w-0 flex-1 flex-col px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10">
+          <OpsStage className={`sx-stadium-stage relative isolate flex min-w-0 flex-1 flex-col px-5 ${stagePad} pt-8 sm:px-8 lg:px-10 lg:pt-10`}>
             <StadiumGround />
+            <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
+          </OpsStage>
+        ) : kind === "vault" ? (
+          /* The Vault (P1-ART-25): the ops column (`sx-stage`, which vault.css
+             re-grounds in bank green), the same root island for the pointer
+             light, the vault ground, the same column. */
+          <OpsStage className={`sx-stage relative isolate flex min-w-0 flex-1 flex-col px-5 ${stagePad} pt-8 sm:px-8 lg:px-10 lg:pt-10`}>
+            <VaultGround />
             <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
           </OpsStage>
         ) : (
           <main className="min-w-0 flex-1 px-6 py-6">{children}</main>
         )}
       </div>
+
+      {docked && kind && (
+        <MobileDock
+          /* the Vault's dock and menu are the ops ones, re-skinned by
+             vault.css through the `sx-vault` on <body> (StagePortals) */
+          stage={kind === "vault" ? "ops" : kind}
+          dock={dock}
+          nav={nav}
+          rootHref={rootHref}
+          portalLabel={accent.label}
+          userName={userName}
+          userRole={userRole}
+        />
+      )}
     </div>
   );
 }

@@ -2,6 +2,8 @@ import { requirePortalAccess } from "@/server/portal";
 import { PortalShell, type NavItem } from "@/components/portal-shell";
 import { roleLabel, viewerName } from "@/server/viewer";
 
+import "../../mobile-nav.css";
+
 /* The athlete portal's sidebar — P1-ART-22 (2026-10-11; owner: "make it the
    structure same as in the admin"): the admin sidebar's structure exactly
    (P1-ART-21, lib/nav-groups.ts) — Dashboard alone on top, every other desk
@@ -38,6 +40,9 @@ const NAV: NavItem[] = [
   { href: "/athlete/settings", label: "Settings", icon: "gear", group: "Account" },
 ];
 
+/* P1-ART-24 — the phone dock's four destinations (the rest are behind its Menu). */
+const DOCK = ["/athlete", "/athlete/offers", "/athlete/deliverables", "/athlete/earnings"];
+
 /* Authorisation, not merely authentication (P2-BE-04). requirePortalAccess()
    resolves the Clerk identity to its Postgres tenant and roles and admits only
    the roles this portal is for — P2-INT-01 checked that you were signed in as
@@ -61,6 +66,7 @@ export default async function AthleteLayout({ children }: LayoutProps<"/athlete"
       /* Only the current guardian answers a handoff request — the minor never does. */
       nav={NAV.filter((n) => n.href !== "/athlete/guardian-requests" || actor.roles.includes("GUARDIAN"))}
       rootHref="/athlete"
+      dock={DOCK}
       userName={await viewerName("Athlete")}
       userRole={isAthlete ? "Content Partner" : `${roleLabel(actor.roles)} · preview`}
       /* P1-ART-22 — the whole athlete portal on the Arena. */

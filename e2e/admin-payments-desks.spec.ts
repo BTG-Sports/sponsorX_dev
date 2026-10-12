@@ -150,17 +150,28 @@ test.describe("Stream A · Finance reads, never resolves", () => {
     finance = await pageAs(browser, testInfo, FINANCE);
   });
 
+  /* P1-ART-25 restructure — Finance has its own portal: the same desks at
+     /finance/payment-events and /finance/disputes, on the Vault. */
+  const FINANCE_PATH: Record<string, string> = {
+    "/admin/payments/events": "/finance/payment-events",
+    "/admin/payments/disputes": "/finance/disputes",
+  };
   for (const desk of DESKS) {
-    test(`${desk.path} as FINANCE: the desk, without a Resolve button`, async () => {
-      await go(finance, FINANCE.key, desk.path);
+    const path = FINANCE_PATH[desk.path]!;
+    test(`${path} as FINANCE: the desk, on the Vault, without a Resolve button`, async () => {
+      await go(finance, FINANCE.key, path);
+      await expect(finance.locator("body")).toHaveClass(/sx-vault/);
       await expect(finance.getByRole("heading", { level: 1, name: desk.title })).toBeVisible();
       await tableOrEmpty(finance, desk.noun);
       await expect(finance.getByRole("button", { name: /^Resolve/ })).toHaveCount(0);
     });
   }
 
-  test("/admin/support/<id> as FINANCE is not in role", async () => {
+  /* P1-ART-25 restructure — admin no longer admits FINANCE: an /admin link
+     forwards a Finance user to their own portal. */
+  test("/admin/support/<id> as FINANCE forwards to the Finance portal", async () => {
     await go(finance, FINANCE.key, "/admin/support/anything");
-    await expect(finance.getByText("Not in your role")).toBeVisible();
+    await finance.waitForURL((u) => u.pathname === "/finance");
+    await expect(finance.getByRole("heading", { level: 1, name: "Treasury" })).toBeVisible();
   });
 });

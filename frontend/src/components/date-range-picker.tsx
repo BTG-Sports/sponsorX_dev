@@ -56,6 +56,7 @@ const DAY_TONE: Record<FilterTone, { edge: string; range: string; dot: string; r
   sponsor: { edge: "bg-sponsor text-cta-ink", range: "bg-sponsor/15 text-text", dot: "bg-sponsor", ring: "focus-visible:ring-sponsor/50", link: "text-sponsor" },
   property: { edge: "bg-property text-cta-ink", range: "bg-property/15 text-text", dot: "bg-property", ring: "focus-visible:ring-property/50", link: "text-property" },
   next: { edge: "bg-next text-cta-ink", range: "bg-next/15 text-text", dot: "bg-next", ring: "focus-visible:ring-next/50", link: "text-next" },
+  vault: { edge: "bg-[#d4b062] text-[#06100c]", range: "bg-[#d4b062]/15 text-text", dot: "bg-[#d4b062]", ring: "focus-visible:ring-[#d4b062]/60", link: "text-[#d4b062]" },
 };
 
 export function DateRangePicker({
