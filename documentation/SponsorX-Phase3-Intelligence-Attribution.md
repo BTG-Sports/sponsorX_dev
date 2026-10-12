@@ -186,15 +186,16 @@ Split from `3S0-BE-05`, whose API is live. The reward create form gets an option
 - **Done when:** BTG can enter a venue city and state when creating a reward, and the reward detail shows it
 - **Reference:** Spec §16
 
-### ▶ `3S0-DATA-02` · Design the warehouse schema and semantic layer
+### ◑ `3S0-DATA-02` · Design the warehouse schema and semantic layer
 
-**Order** 4 · **DATA** · **Where:** Document · **5d** · **Ready**
+**Order** 4 · **DATA** · **Where:** Document · **5d** · **Code review**
 
 Facts and dimensions separated from the transactional database, so analytical queries never slow down the product.
 
 - **Depends on:** 3S0-DATA-01
 - **Done when:** Warehouse schema designed and reviewed; the daily campaign fact table and its dimensions are specified
 - **Reference:** Spec §19
+- **Delivered:** [`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) — 2026-10-12, awaiting review sign-off
 
 ### ⏸ `3S0-OPS-01` · Select the warehouse and transformation layer
 

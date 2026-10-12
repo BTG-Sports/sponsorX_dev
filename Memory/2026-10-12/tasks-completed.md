@@ -57,3 +57,23 @@ The user decided each one: market geography from registration plus a reward venu
 - **Acceptance checked clause by clause** at the user's request; every clause has a passing test (7 files, 138 tests) or, for DATA-01, the document.
 - The audit doc's inventory (§3 A and D) now also names the fields the fixes added, so it matches the code.
 - **Tracker and plan:** the six rows are Done (Date Done 2026-10-12). 3S0-DATA-02 is **Ready**, since its only prerequisite was DATA-01. 3S0-FE-01 stays Ready for HeckerCreatives.
+
+## rcfworks — 3S0-DATA-02: warehouse schema and semantic layer (Code review)
+
+- **PR:** #184 (https://github.com/BTG-Sports/sponsorX_dev/pull/184), the same branch as DATA-01 and BE-01…05.
+- **Delivered:** `documentation/SponsorX-Warehouse-Schema.md`. It reads the spec from Drive (`BTG_SponsorX_Phases_2_4_Detailed_Developer_Specifications.docx`, §15/§19/§20/§22).
+- **The user's decisions:**
+  - grain is campaign × athlete × channel × day;
+  - the warehouse is a separate Postgres database on Railway;
+  - sponsor, property and athlete keep history (type 2).
+- **Inventory joins the grain,** because an athlete can hold several jobs on one campaign (`CampaignOrder` is unique on campaign + athlete + job).
+- **Findings that shaped it:**
+  - No product table has a channel or platform. Channel is derived (published-URL host, in-person jobs, reward QR, tracking link, edition print/digital); open item O1 suggests a `Deliverable.platform`.
+  - Marketplace orders belong to no campaign, so they get a companion fact.
+  - Spec §19's other tables (pricing_recommendations and the rest) are product tables built by their own tasks, not warehouse tables.
+- **Design rules:**
+  - every measure is dated by its own event, so the fact is additive and reconciliation is exact (zero tolerance);
+  - no personal data in the warehouse;
+  - market comes from registration plus the reward venue, never from IP.
+- **Verified:** the Appendix A SQL ran clean in an empty Postgres (10 tables and a view), and a smoke row read back through `sem.campaign_daily`.
+- **Left:** the user's review sign-off in §10, then Done.
