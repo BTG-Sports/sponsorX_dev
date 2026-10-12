@@ -277,7 +277,6 @@ export function Dropdown({
   includeAll = true,
   placement = "down",
   block = false,
-  disabled = false,
 }: {
   /** aria-label of the control, e.g. "Filter by status". */
   label: string;
@@ -297,8 +296,6 @@ export function Dropdown({
       pinned right, matching text inputs — for use as a form field rather than
       an inline toolbar pill. */
   block?: boolean;
-  /** A form field that can't change right now (e.g. a package's kind). */
-  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -320,9 +317,8 @@ export function Dropdown({
         aria-label={label}
         aria-haspopup="listbox"
         aria-expanded={open}
-        disabled={disabled}
         onClick={() => setOpen((v) => !v)}
-        className={[triggerCls(Boolean(value), open, tone), block ? "w-full justify-between" : "", disabled ? "cursor-not-allowed opacity-50" : ""].join(" ")}
+        className={[triggerCls(Boolean(value), open, tone), block ? "w-full justify-between" : ""].join(" ")}
       >
         <span className={block ? "min-w-0 truncate" : ""}>
           {current?.label ?? allLabel}
@@ -330,11 +326,10 @@ export function Dropdown({
         <ChevronDown open={open} />
       </button>
 
-      {open && !disabled && (
+      {open && (
         <div
           className={[
-            /* max-h + scroll: a form list (44 brand categories) must not run off the page. */
-            "sx-pop absolute right-0 z-30 min-w-full w-max max-h-72 overflow-y-auto rounded-xl border border-line bg-surface py-1 shadow-xl",
+            "sx-pop absolute right-0 z-30 min-w-full w-max overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-xl",
             placement === "up" ? "bottom-full mb-1.5" : "top-full mt-1.5",
           ].join(" ")}
           role="listbox"
