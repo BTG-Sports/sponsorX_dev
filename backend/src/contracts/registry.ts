@@ -63,7 +63,7 @@ import {
   EarningTransitionInput,
 } from "./earning";
 import {
-  MediaValue, MetricBreakdown, MetricEntryInput, MetricSource,
+  MediaValue, MetricBreakdown, MetricEntry, MetricEntryInput, MetricSource,
   SourcedTotals, SponsorReport,
 } from "./metric";
 import { Invoice, PaymentStatus, ZohoInvoiceWebhook } from "./invoice";
@@ -284,6 +284,7 @@ registry.register("MetricSource", MetricSource);
 registry.register("SourcedTotals", SourcedTotals);
 registry.register("MetricBreakdown", MetricBreakdown);
 registry.register("MetricEntryInput", MetricEntryInput);
+registry.register("MetricEntry", MetricEntry);
 registry.register("MediaValue", MediaValue);
 registry.register("SponsorReport", SponsorReport);
 
@@ -400,7 +401,7 @@ const PATHS: Row[] = [
   { method: "post", path: "/deliverables/{id}/verify", tag: "Deliverables", summary: "BTG verifies the published post." },
   { method: "post", path: "/deliverables/{id}/uploads", tag: "Deliverables", summary: "Presign a direct-to-R2 upload. Refused (409) while the draft is with its reviewers — in BTG's queue, BTG_REVIEW or SPONSOR_REVIEW (P5-BE-09). Content-Type is signed into the PUT, and Content-Length when the optional `bytes` is given.", body: CreativeUploadInput, status: 201 },
   { method: "post", path: "/deliverables/{id}/assets", tag: "Deliverables", summary: "Register an uploaded creative asset, recording the content type its upload was presigned for. Refused (409) while the draft is with its reviewers (P5-BE-09).", body: CreativeAssetInput, status: 201 },
-  { method: "post", path: "/deliverables/{id}/metrics", tag: "Metrics", summary: "Record a metric entry, with its provenance.", body: MetricEntryInput, status: 201 },
+  { method: "post", path: "/deliverables/{id}/metrics", tag: "Metrics", summary: "Record a metric entry, with its provenance. 3S0-BE-01: the answer says when it was first recorded and last corrected.", body: MetricEntryInput, response: MetricEntry, status: 201 },
   { method: "get", path: "/deliverables/{id}/metrics", tag: "Metrics", summary: "A deliverable's metrics, by provenance label.", response: MetricBreakdown },
   { method: "post", path: "/deliverables/{id}/tracking-link", tag: "Tracking", summary: "Create the deliverable's tracking link.", body: TrackingLinkInput, status: 201 },
 
@@ -427,7 +428,7 @@ const PATHS: Row[] = [
   { method: "get", path: "/earnings/invoices", tag: "Earnings", summary: "Sponsor invoices (Zoho Books mirror) on the reconciliation's campaign set, flat, newest issued first, offset-paged (?page ?size). BTG admin only (invoice read) — 403 otherwise." },
   { method: "get", path: "/rewards", tag: "Rewards", summary: "Rewards the caller may read, with the four-event funnel per reward and the current fan consent line (P6-FE-01). Offset mode (server-paged lists, 2026-09-29): ?page ?size (default 12, max 100) ?tab=all|live|draft|paused|ended ?campaignId ?q (offer, campaign or sponsor name) → `page: { page, size, total, pages }`, newest expiry first. Without ?page: the newest 200, ?campaignId narrows. Each reward carries `campaign.state` and `followsCampaign`, how it follows its campaign in words, e.g. \"Goes live when the campaign launches\" (P6-BE-09)." },
   { method: "get", path: "/rewards/summary", tag: "Rewards", summary: "The rewards desk's per-tab counts, live count and SCAN / CLAIM / REDEEM totals over the caller's whole scope (?campaignId narrows), computed in the database; funnel null for callers who do not read reward events (2026-09-29)." },
-  { method: "get", path: "/rewards/{id}", tag: "Rewards", summary: "One reward with its per-athlete tokens — token strings only for roles that write rewards (P6-FE-01). With `followsCampaign` (P6-BE-09)." },
+  { method: "get", path: "/rewards/{id}", tag: "Rewards", summary: "One reward with its per-athlete tokens — token strings only for roles that write rewards (P6-FE-01). With `followsCampaign` (P6-BE-09). 3S0-BE-04: each token carries `refusedRedeems` and `lastRefusedRedeemAt` — tries of a used code, refused." },
   { method: "get", path: "/reward-tokens/{id}/qr-url", tag: "Rewards", summary: "A short-lived, audited signed read of a token's QR PNG (P6-BE-06) for printing." },
   { method: "get", path: "/deliverables", tag: "Deliverables", summary: "Deliverables the caller may read, soonest due first; ?state=, ?campaignId= and ?from=&to= (dueDate range, ISO, to exclusive) narrow. An open revision request is derived from the audit log (P5-FE-02); `revision.by` is SYSTEM when the automatic checks sent it back (with `failed`), REVIEWER otherwise. Each row carries the latest submission's `caption`, `captionVersion`, `requiredDisclosures`, `checks` and, on a review desk, `waitingSince` (P5-BE-09). ?systemReturned=exclude drops drafts the checks sent back — BTG's queue. Each row carries `btgReviewSkipped` and, for BTG, `skipReason` (P5-BE-10); ?btgSkipped=only lists just the drafts that skipped BTG's review. Offset mode with ?page (1-based) and ?size (12/24/60, max 100): also ?q (title, athlete, campaign, sponsor), ?kind (video|image, the job's format), ?tab (todo|review|done — whose move), ?sort (due|waiting|newest; default due); answers `page: { page, size, total, pages }` (2026-09-29).", query: z.object({ state: z.string().optional(), campaignId: z.string().optional(), from: z.string().optional(), to: z.string().optional(), page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional(), q: z.string().optional(), kind: z.enum(["video", "image"]).optional(), tab: z.enum(["todo", "review", "done"]).optional(), sort: z.enum(["due", "waiting", "newest"]).optional(), systemReturned: z.enum(["exclude"]).optional(), btgSkipped: z.enum(["only"]).optional() }) },
   { method: "get", path: "/deliverables/summary", tag: "Deliverables", summary: "Headline counts under the list's scope (?state=, ?campaignId=, ?from=&to= narrow): total, per-state counts, open revisions, aging (on a review desk, not sent back, latest upload over 24 whole hours ago), overdue (the athlete's move, due before today UTC), and the campaigns involved (2026-09-29). ?systemReturned=exclude as on the list (P5-BE-09). `btgSkipped`: how many skipped BTG's review; ?btgSkipped=only narrows to them (P5-BE-10).", query: z.object({ state: z.string().optional(), campaignId: z.string().optional(), from: z.string().optional(), to: z.string().optional(), systemReturned: z.enum(["exclude"]).optional(), btgSkipped: z.enum(["only"]).optional() }) },

@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Make SponsorX intelligent. Recommend prices, identify best-fit sponsors, forecast delivery, flag underperformance before a campaign ends, detect suspicious metrics and ingest verified commerce attribution. |
-| **Tasks** | 44 · 184 person-days |
+| **Tasks** | 51 · 193 person-days |
 | **Blueprint timeline** | 18–22 weeks |
 | **Balanced budget** | $105K–$160K |
 | **Depends on** | Phase 2 transaction history, campaign performance data, marketplace activity, reliable event ingestion |
@@ -17,7 +17,7 @@
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md)  | 186 | 14–18 weeks |
 | 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 72 | 16–20 weeks |
-| 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md) **← you are here** | 44 | 18–22 weeks |
+| 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md) **← you are here** | 51 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
 ---
@@ -93,11 +93,11 @@ If a task's *definition* turns out to be wrong — the acceptance criteria don't
 
 *Warehouse schema, event taxonomy audit, model governance and — critically — what the word 'attribution' is allowed to mean.*
 
-*6 tasks · 20 person-days*
+*13 tasks · 29 person-days*
 
-### ⏸ `3S0-PMO-01` · Define what attribution is permitted to claim
+### ▶ `3S0-PMO-01` · Define what attribution is permitted to claim
 
-**Order** 1 · **PMO** · **Where:** Document · **3d** · **Blocked**
+**Order** 1 · **PMO** · **Where:** Document · **3d** · **Ready**
 
 The most important decision in Phase 3 and it is a language decision, not a technical one. Verified redemption, verified transaction, modelled attribution and estimated media value are four different things and must never be blended in a sponsor report.
 
@@ -105,9 +105,9 @@ The most important decision in Phase 3 and it is a language decision, not a tech
 - **Done when:** Written definitions for every attribution class, with the reporting language each is allowed to use
 - **Reference:** Spec §17.4, §22
 
-### ⏸ `3S0-PMO-02` · Model governance policy
+### ▶ `3S0-PMO-02` · Model governance policy
 
-**Order** 2 · **PMO** · **Where:** Document · **3d** · **Blocked**
+**Order** 2 · **PMO** · **Where:** Document · **3d** · **Ready**
 
 How a model version is proposed, validated, activated, rolled back and compared. Without this, nobody can explain why a price changed.
 
@@ -115,25 +115,97 @@ How a model version is proposed, validated, activated, rolled back and compared.
 - **Done when:** Governance policy written: versioning, confidence, explanation, override, monitoring and rollback
 - **Reference:** Spec §15
 
-### ⏸ `3S0-DATA-01` · Event taxonomy audit
+### ✅ `3S0-DATA-01` · Event taxonomy audit
 
-**Order** 3 · **DATA** · **Where:** Document · **3d** · **Blocked**
+**Order** 3 · **DATA** · **Where:** Document · **3d** · **Done**
 
 Audit every event Phases 1 and 2 emit before building a warehouse on top of them. Inconsistent event definitions are what make analytics untrustworthy later.
 
 - **Depends on:** Phase 2 complete
 - **Done when:** Every event type inventoried with its definition, source and known gaps
 - **Reference:** Spec §21
+- **Delivered:** [`SponsorX-Event-Taxonomy-Audit.md`](./SponsorX-Event-Taxonomy-Audit.md) — 2026-10-12
 
-### ⏸ `3S0-DATA-02` · Design the warehouse schema and semantic layer
+### ✅ `3S0-BE-01` · Timestamp every metric row
 
-**Order** 4 · **DATA** · **Where:** Document · **5d** · **Blocked**
+**Order** 3.1 · **BE** · **Where:** Code · **1d** · **Done**
+
+Raised by `3S0-DATA-01` (gap G7). `MetricDaily` had no time, and a same-source correction overwrote the row, so "what did we know on day X" could not be read from it. `createdAt` is when the figure was first recorded and never moves; `updatedAt` is the latest correction. Rows recorded before this are dated from their `metric.record` audit rows.
+
+- **Depends on:** 3S0-DATA-01
+- **Done when:** MetricDaily carries `createdAt` and `updatedAt`; a correction moves only `updatedAt`; earlier rows are dated from the audit log; `POST /deliverables/{id}/metrics` answers with both
+- **Reference:** Spec §19, §22
+
+### ✅ `3S0-BE-02` · Send the campaign-live email
+
+**Order** 3.2 · **BE** · **Where:** Code · **3d** · **Done**
+
+Raised by `3S0-DATA-01` (gap G1). Every launch queued `notify.campaignLive` and nothing consumed it: nobody outside BTG was told a campaign had gone live, and the rows waited forever. The worker now emails the sponsor's admins and every athlete on an active order, and a minor's guardian while a guardian is in control. Launches queued before this are closed as skipped, so the deploy sends no stale news.
+
+- **Depends on:** 3S0-DATA-01
+- **Done when:** A launch emails the sponsor admins and every athlete with an ACTIVE order (and a controlling guardian), once per address; a campaign no longer ACTIVE sends nothing; the backlog is marked skipped, not sent
+- **Reference:** Spec §21
+
+### ✅ `3S0-BE-03` · One audit name for archiving a listing
+
+**Order** 3.3 · **BE** · **Where:** Code · **1d** · **Done**
+
+Raised by `3S0-DATA-01` (gap G9). Archiving a listing was logged as `listing.archive` on two paths and `listing.archived` on the seller's. It is now `listing.archive` everywhere. Rows already written keep their name, because the audit log is append-only.
+
+- **Depends on:** 3S0-DATA-01
+- **Done when:** The seller archiving a listing is audited as `listing.archive`; no new `listing.archived` rows
+- **Reference:** Spec §21
+
+### ✅ `3S0-BE-04` · Count refused redemptions of a used code
+
+**Order** 3.4 · **BE** · **Where:** Code · **1d** · **Done**
+
+Raised by `3S0-DATA-01` (gap G4). Redemption is once per single-use code, enforced by the database; a used code presented again is refused and, until now, nothing recorded it. The code now counts those refusals and keeps the time of the latest, which is how a shared or screenshotted code shows itself. Only "already used" refusals count.
+
+- **Depends on:** 3S0-DATA-01
+- **Done when:** A used code tried again is still refused and its `refusedRedeems` / `lastRefusedRedeemAt` move; other refusals do not count; `GET /rewards/{id}` returns both per token
+- **Reference:** Spec §21, §22
+
+### ✅ `3S0-BE-05` · Reward venue: where an in-person reward is handed out
+
+**Order** 3.5 · **BE** · **Where:** Code · **1d** · **Done**
+
+Raised by `3S0-DATA-01` (gaps G2, G3). The fan funnel had no geography. A reward now takes an optional venue (city and US state) when it is created: the reward's location, never the fan's. Market geography for benchmarks comes from what is already registered: the athlete's and the property's city and state, and a brief's target states.
+
+- **Depends on:** 3S0-DATA-01
+- **Done when:** `POST /campaigns/{id}/rewards` accepts `venue {city, stateCode}` (US states only) and stores it; `GET /rewards/{id}` returns it, null when none was given
+- **Reference:** Spec §19
+
+### ✅ `3S0-BE-06` · Record a deliverable's platform at publish
+
+**Order** 3.7 · **BE** · **Where:** Code · **1d** · **Done**
+
+Raised by `3S0-DATA-02` (open item O1). No table recorded which platform a deliverable went out on, so the warehouse's channel could only be inferred. Marking a deliverable published now stores `platform` (INSTAGRAM, TIKTOK, YOUTUBE, X, FACEBOOK or OTHER) from the published URL's host. The athlete enters nothing new. Rows published earlier are backfilled by the same rule in SQL.
+
+- **Depends on:** 3S0-DATA-01
+- **Done when:** Publishing records `platform` from the URL host (a host matches only itself or its subdomains); earlier rows are backfilled identically; the database refuses any other value; the deliverable list returns it
+- **Reference:** Spec §19
+
+### ▶ `3S0-FE-01` · Reward form: venue field
+
+**Order** 3.6 · **FE** · **Where:** Code · **1d** · **Ready**
+
+Split from `3S0-BE-05`, whose API is live. The reward create form gets an optional venue: a city and a US state.
+
+- **Depends on:** 3S0-BE-05
+- **Done when:** BTG can enter a venue city and state when creating a reward, and the reward detail shows it
+- **Reference:** Spec §16
+
+### ◑ `3S0-DATA-02` · Design the warehouse schema and semantic layer
+
+**Order** 4 · **DATA** · **Where:** Document · **5d** · **Code review**
 
 Facts and dimensions separated from the transactional database, so analytical queries never slow down the product.
 
 - **Depends on:** 3S0-DATA-01
 - **Done when:** Warehouse schema designed and reviewed; the daily campaign fact table and its dimensions are specified
 - **Reference:** Spec §19
+- **Delivered:** [`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) — 2026-10-12, awaiting review sign-off
 
 ### ⏸ `3S0-OPS-01` · Select the warehouse and transformation layer
 
@@ -216,6 +288,7 @@ Automated proof that the warehouse agrees with the source system. Run it every n
 Assemble the inputs a pricing model needs — audience, engagement, historical delivery, demand, seasonality, geography, scarcity — and snapshot them so a past recommendation can always be explained.
 
 - **Depends on:** 3S1-DATA-02
+- **Builds on:** `AthleteScore` (P3-BE-10), the existing snapshot pattern. Features read from the warehouse, not product tables. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Feature snapshots generate on schedule and are retrievable by entity and date
 - **Reference:** Spec §19
 
@@ -226,6 +299,7 @@ Assemble the inputs a pricing model needs — audience, engagement, historical d
 Start with rules and statistics, not machine learning. The spec is explicit: do not build ML pricing before there is enough clean history.
 
 - **Depends on:** 3S2-BE-01
+- **Builds on:** `domain/pricing-learning.ts` (implied CPM, P7-DATA-03) and `domain/pricing.ts` / `margin-floor.ts` (tier multiplier and sell floor). A recommendation never goes below the floor. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Every recommended price exposes model version, confidence and factor breakdown
 - **Reference:** Spec §17.1, §22
 
@@ -236,6 +310,7 @@ Start with rules and statistics, not machine learning. The spec is explicit: do 
 Store the recommendation immutably. An override is a separate record with a required reason — it never edits the original.
 
 - **Depends on:** 3S2-BE-02
+- **Builds on:** the unused `pricing.floorOverrideAttempt` audit action; `pricing_overrides` is new. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Admin can override a price only with the right permission and a recorded reason; the recommendation is unchanged
 - **Reference:** Spec §17.1, §22
 
@@ -262,6 +337,7 @@ Recommended CPM, current rate, factor breakdown, confidence, historical range an
 Objective, budget, geography, sport, audience, included and excluded categories, dates and channels — the input to matching.
 
 - **Depends on:** 3S2-BE-01
+- **Builds on:** **`CampaignBrief`**, which already holds objective, budget, sports, states, categories and dates. Add exclusions, channels and audience target to it; no second brief table. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** A sponsor brief captures all matching inputs including exclusions
 - **Reference:** Spec §19
 
@@ -272,6 +348,7 @@ Objective, budget, geography, sport, audience, included and excluded categories,
 Score audience fit, geography, format, category affinity, historical performance, budget fit, sponsor history and inventory quality — then explain the score in words a salesperson can repeat.
 
 - **Depends on:** 3S3-BE-01
+- **Builds on:** `domain/match-score.ts` (P4-BE-08 ranking with reasons). Persist its output as `match_scores` with a model version. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Brief produces ranked recommendations with explanation factors within the agreed response time
 - **Reference:** Spec §17.2, §22
 
@@ -282,6 +359,7 @@ Score audience fit, geography, format, category affinity, historical performance
 Filter out unavailable, conflicted and brand-unsafe inventory before scoring. Ranking something that cannot be sold wastes everyone's time.
 
 - **Depends on:** 3S3-BE-02
+- **Builds on:** `domain/matching.ts`'s eligibility, extended to availability, category conflicts and brand safety. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Match explorer never returns unavailable or category-conflicted inventory
 - **Reference:** Spec §22
 
@@ -318,6 +396,7 @@ Compare elapsed campaign time against delivered metrics, every day.
 Estimate final impressions and the probability of hitting the guarantee, and keep every historical forecast so the model can be judged later.
 
 - **Depends on:** 3S4-DATA-01
+- **Builds on:** `domain/delivery-health.ts` (P7-DATA-04). The forecast is its forward-looking version, with history in `campaign_forecasts`. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Forecast refreshes automatically and persists historical forecasts
 - **Reference:** Spec §17.3, §22
 
@@ -328,6 +407,7 @@ Estimate final impressions and the probability of hitting the guarantee, and kee
 Campaigns crossing a risk threshold raise an alert with a recommended action — accelerate content, add a deliverable, change channel, or reserve make-good inventory.
 
 - **Depends on:** 3S4-BE-01
+- **Builds on:** `domain/delivery-health.ts`'s fixed rules, which these thresholds replace. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** At-risk campaigns generate actionable alerts before campaign end, not after
 - **Reference:** Spec §17.3, §22
 
@@ -400,6 +480,7 @@ Attribution is pluggable, never universal. Each adapter declares its method, loo
 Partner events normalise into one shape carrying source, method, window, confidence and the matched entities.
 
 - **Depends on:** 3S6-BE-01
+- **Builds on:** nothing, but `SalesAttribution` (NEXT student credit) is a different thing. Name the new table distinctly. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Attribution events identify source, method and confidence; modelled revenue is never labelled verified
 - **Reference:** Spec §19, §22
 

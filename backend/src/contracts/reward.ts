@@ -1,5 +1,7 @@
 import { z } from "./zod";
 
+import { US_STATES } from "../domain/onboarding-rules";
+
 import {
   hasVisibleText,
   RESERVE_MINUTES,
@@ -64,6 +66,15 @@ export const RewardInput = z
     reserveMinutes: z.int().min(RESERVE_MINUTES.min).max(RESERVE_MINUTES.max).default(RESERVE_MINUTES.default),
     landingHeadline: optionalCopy(120),
     landingSubhead: optionalCopy(280),
+    /** 3S0-BE-05 — where an in-person reward is handed out. The reward's
+     *  location, never the fan's; null or absent for an online-only reward. */
+    venue: z
+      .object({
+        city: requiredCopy(120, "The venue's city").transform((c) => c.trim()),
+        stateCode: z.string().length(2).refine((c) => US_STATES.has(c), "a US state code"),
+      })
+      .nullable()
+      .optional(),
   })
   .meta({
     id: "RewardInput",

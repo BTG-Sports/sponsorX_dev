@@ -1033,6 +1033,10 @@ model Deliverable {
   state        DeliverableState @default(NOT_STARTED)
   publishedUrl String?
   publishedAt  DateTime?
+  /// 3S0-BE-06 — the platform it went out on, read from `publishedUrl`'s host
+  /// at publish (domain/deliverable-platform.ts): INSTAGRAM | TIKTOK | YOUTUBE |
+  /// X | FACEBOOK | OTHER. Null until published.
+  platform      String?
 
   /// P5-BE-09 — the caption the athlete will post, as last submitted, and the
   /// creative version it was submitted with. Every submission is also on the
@@ -1106,6 +1110,11 @@ model MetricDaily {
   engagements   Int          @default(0)
   source        MetricSource
   enteredBy     String?
+  /// 3S0-BE-01 — when this day's figure from this source was first recorded.
+  /// Never moves: a same-source correction updates the row, not this.
+  createdAt     DateTime     @default(now())
+  /// 3S0-BE-01 — when it was last recorded (the latest correction).
+  updatedAt     DateTime     @default(now()) @updatedAt
 
   deliverable Deliverable @relation(fields: [deliverableId], references: [id])
 
@@ -1186,6 +1195,11 @@ model Reward {
   /// (fan-consent.ts, P6-SEC-01) so the claim records the text the fan saw.
   landingHeadline String?
   landingSubhead  String?
+  /// 3S0-BE-05 — where an in-person reward is handed out (its venue's city and
+  /// US state), given when the reward is created. The reward's location, not
+  /// the fan's. Null for an online-only reward.
+  venueCity      String?
+  venueStateCode String?
 
   campaign Campaign      @relation(fields: [campaignId], references: [id])
   tokens   RewardToken[]
@@ -1207,6 +1221,11 @@ model RewardToken {
   /// until this instant. Set by `reward_reserve`, cleared by the redeem that
   /// uses it; a past value is a lapsed hold (kept so the fan page can say so).
   reservedUntil DateTime?
+  /// 3S0-BE-04 — how often this code was presented again after it had been
+  /// used, and refused. Repeated tries are how a shared or screenshotted code
+  /// shows itself. Only "already used" refusals count.
+  refusedRedeems      Int       @default(0)
+  lastRefusedRedeemAt DateTime?
 
   reward  Reward        @relation(fields: [rewardId], references: [id])
   athlete Athlete?      @relation(fields: [athleteId], references: [id])

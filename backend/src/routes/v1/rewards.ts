@@ -86,6 +86,7 @@ const addReward: RequestHandler<{ id: string }> = async (req, res) => {
       eligibilityNote: body.eligibilityNote ?? null,
       redemptionCap: body.redemptionCap ?? null,
       landingHeadline: body.landingHeadline ?? null,
+      venue: body.venue ?? null,
       landingSubhead: body.landingSubhead ?? null,
       reserveMinutes: body.reserveMinutes,
     }),
@@ -282,7 +283,7 @@ async function funnelsFor(actor: Parameters<typeof can>[0], tokenToReward: Map<s
 }
 
 const TOKEN_SELECT = {
-  id: true, token: true, qrKey: true,
+  id: true, token: true, qrKey: true, refusedRedeems: true, lastRefusedRedeemAt: true,
   athlete: { select: { id: true, displayName: true } },
 } as const;
 
@@ -291,7 +292,7 @@ const TOKEN_SELECT = {
 function rewardSelect(tokenWhere: Prisma.RewardTokenWhereInput | null) {
   return {
     id: true, offerText: true, terms: true, singleUse: true, expiresAt: true, state: true,
-    eligibility: true, eligibilityNote: true, redemptionCap: true, landingHeadline: true, landingSubhead: true,
+    eligibility: true, eligibilityNote: true, redemptionCap: true, landingHeadline: true, landingSubhead: true, venueCity: true, venueStateCode: true,
     redemptionCount: true, reserveMinutes: true,
     campaign: { select: { id: true, name: true, endDate: true, state: true, sponsor: { select: { name: true } } } },
     tokens: tokenWhere ? { where: tokenWhere, select: TOKEN_SELECT } : { select: TOKEN_SELECT },
@@ -318,9 +319,10 @@ type RewardRow = {
   id: string; offerText: string; terms: string; singleUse: boolean; expiresAt: Date; state: string;
   eligibility: string; eligibilityNote: string | null; redemptionCap: number | null;
   landingHeadline: string | null; landingSubhead: string | null;
+  venueCity: string | null; venueStateCode: string | null;
   redemptionCount: number; reserveMinutes: number;
   campaign: { id: string; name: string; endDate: Date; state: string; sponsor: { name: string } };
-  tokens: { id: string; token: string; qrKey: string | null; athlete: { id: string; displayName: string } | null }[];
+  tokens: { id: string; token: string; qrKey: string | null; refusedRedeems: number; lastRefusedRedeemAt: Date | null; athlete: { id: string; displayName: string } | null }[];
 };
 
 /**
@@ -360,6 +362,8 @@ function rewardOut(r: RewardRow, funnel: Record<string, number> | undefined, wit
     held,
     reserveMinutes: r.reserveMinutes,
     landing: { headline: r.landingHeadline, subhead: r.landingSubhead },
+    /* 3S0-BE-05 — the reward's venue; null for an online-only reward. */
+    venue: r.venueCity && r.venueStateCode ? { city: r.venueCity, stateCode: r.venueStateCode } : null,
     campaign: { id: r.campaign.id, name: r.campaign.name, sponsorName: r.campaign.sponsor.name, endDate: r.campaign.endDate.toISOString(), state: r.campaign.state },
     /* P6-BE-09 — how this reward follows its campaign, in words. */
     followsCampaign: followsCampaign(r.state as RewardState, r.campaign.state, r.expiresAt.getTime() <= Date.now()),
@@ -372,6 +376,9 @@ function rewardOut(r: RewardRow, funnel: Record<string, number> | undefined, wit
             id: t.id,
             athlete: t.athlete,
             qrReady: t.qrKey !== null,
+            /* 3S0-BE-04 — tries of this code after it was used, refused. */
+            refusedRedeems: t.refusedRedeems,
+            lastRefusedRedeemAt: t.lastRefusedRedeemAt?.toISOString() ?? null,
             ...(printable ? { token: t.token } : {}),
           })),
         }

@@ -218,8 +218,9 @@ describe("P5-BE-08 · every step of the chain works and is audited", () => {
     at("APPROVED");
     const out = await markPublished(athlete(), "dlv_1", "https://instagram.com/p/abc");
     expect(out.state).toBe("PUBLISHED");
-    expect(updates[0]).toMatchObject({ publishedUrl: "https://instagram.com/p/abc" });
+    expect(updates[0]).toMatchObject({ publishedUrl: "https://instagram.com/p/abc", platform: "INSTAGRAM" });
     expect(updates[0]!.publishedAt).toBeInstanceOf(Date);
+    expect(auditRows[0]!.after).toMatchObject({ platform: "INSTAGRAM" });
   });
 
   it("BTG verifies the published work", async () => {
