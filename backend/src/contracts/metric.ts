@@ -55,6 +55,18 @@ export const MetricEntryInput = z
       "Recording a figure for a day that already has one from a DIFFERENT source adds a second row; the same source updates the existing row. A manually verified figure never silently overwrites an API one.",
   });
 
+/** 3S0-BE-01 — what recording a figure answers: the row, and when it was
+ *  first recorded and last corrected. */
+export const MetricEntry = z
+  .object({
+    id: z.string(),
+    source: MetricSource,
+    day: z.iso.datetime(),
+    recordedAt: z.iso.datetime().describe("When this day's figure from this source was first recorded. Never moves."),
+    updatedAt: z.iso.datetime().describe("When it was last recorded — the latest same-source correction."),
+  })
+  .meta({ id: "MetricEntry" });
+
 export const MediaValue = z
   .object({
     amount: z.int().describe("cents"),

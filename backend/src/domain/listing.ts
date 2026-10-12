@@ -631,7 +631,10 @@ export async function transitionListing(actor: Actor, id: string, to: "PAUSED" |
       if (row.state !== "PAUSED") throw new IllegalListingTransitionError(row.state as ListingState, "PUBLISHED");
       return goLive(tx, actor, row, new Date());
     }
-    return (await move(tx, actor, row, to, {}, `listing.${to.toLowerCase()}`)).view;
+    /* 3S0-BE-03 — an archive is `listing.archive` whoever makes it (onboarding
+       and the athlete's departure write the same name). Rows written before
+       this as `listing.archived` stay as they are: the log is append-only. */
+    return (await move(tx, actor, row, to, {}, to === "ARCHIVED" ? "listing.archive" : "listing.paused")).view;
   });
 }
 

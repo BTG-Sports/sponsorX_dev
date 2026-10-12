@@ -261,6 +261,8 @@ export async function createReward(
     landingSubhead?: string | null;
     /* QA-09 */
     reserveMinutes?: number;
+    /* 3S0-BE-05 */
+    venue?: { city: string; stateCode: string } | null;
   },
   now = new Date(),
 ): Promise<{ id: string; state: RewardState }> {
@@ -297,6 +299,8 @@ export async function createReward(
         redemptionCap: input.redemptionCap ?? null,
         landingHeadline: copyOrNull(input.landingHeadline),
         landingSubhead: copyOrNull(input.landingSubhead),
+        venueCity: input.venue?.city ?? null,
+        venueStateCode: input.venue?.stateCode ?? null,
         /* Always DRAFT. A reward that arrived already ACTIVE would be live
            before anyone read the terms it commits a merchant to. */
         state: "DRAFT",
@@ -311,6 +315,7 @@ export async function createReward(
         eligibility: input.eligibility ?? "ANYONE",
         redemptionCap: input.redemptionCap ?? null,
         reserveMinutes: input.reserveMinutes ?? RESERVE_MINUTES.default,
+        venue: input.venue ?? null,
       },
     });
 
@@ -938,13 +943,35 @@ export async function redeemToken(
     [row] = await failFast(() => prisma.$queryRaw<Out[]>`
       SELECT outcome, event_id, reward_state FROM reward_redeem(${token}, ${sqlTs(now)}::timestamp)`);
   } catch (error) {
-    if (isUniqueViolation(error)) throw new AlreadyRedeemedError();
+    if (isUniqueViolation(error)) {
+      await countRefusedRedeem(token, now);
+      throw new AlreadyRedeemedError();
+    }
     throw error;
   }
   if (!row) throw new Error("reward_redeem returned no row");
   const refused = refusal(row.outcome, row.reward_state);
+  if (refused instanceof AlreadyRedeemedError) await countRefusedRedeem(token, now);
   if (refused) throw refused;
   return { id: row.event_id!, type: "REDEEM" };
+}
+
+/**
+ * 3S0-BE-04 — a used code presented again: counted on the code, with the time.
+ * Its own statement, after `reward_redeem` has refused (which wrote nothing),
+ * so there is no transaction for it to roll back with. The refusal is the
+ * answer either way: a failed count must not turn a 409 into a 500.
+ */
+async function countRefusedRedeem(token: string, now: Date): Promise<void> {
+  try {
+    await prisma.rewardToken.updateMany({
+      /* tenant-scope: public route — the opaque token names exactly one code. */
+      where: { token },
+      data: { refusedRedeems: { increment: 1 }, lastRefusedRedeemAt: now },
+    });
+  } catch {
+    /* The refusal stands on its own; only the count is lost. */
+  }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────

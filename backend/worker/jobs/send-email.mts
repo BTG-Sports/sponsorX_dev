@@ -207,6 +207,14 @@ ${d.portalUrl ?? ""}
     subject: `Ready to launch: ${d.campaignName ?? "a campaign"}`,
     text: `Every athlete on ${d.campaignName ?? "this campaign"}${d.sponsorName ? ` for ${d.sponsorName}` : ""} has accepted, and nobody is still waiting to answer.\n\nIt launches on its own on its start date — or you can launch it sooner:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* 3S0-BE-02 — the campaign is live. To the sponsor's admins, each athlete
+     on it, and a minor's guardian (seat). */
+  "campaign.live": (d) => ({
+    subject: `Live now: ${d.campaignName ?? "your campaign"}`,
+    text: d.seat === "sponsor"
+      ? `Hi ${d.firstName || "there"},\n\n${d.campaignName ?? "Your campaign"}${d.sponsorName ? ` for ${d.sponsorName}` : ""} is live. The athletes on it can now publish their deliverables, and you'll see each one as it comes in:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`
+      : `Hi ${d.firstName || "there"},\n\n${d.campaignName ?? "The campaign"} for ${d.sponsorName ?? "your sponsor"} is live${d.seat === "guardian" ? `, and ${d.athleteFirstName ?? "your athlete"} is on it` : ""}. ${d.seat === "guardian" ? "Their" : "Your"} deliverables and due dates are here:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
   /* P4-BE-12 — automatic staffing stopped; BTG takes it from here. */
   "campaign.staffingStopped": (d) => ({
     subject: `Automatic staffing stopped: ${d.campaignName ?? "a campaign"}`,

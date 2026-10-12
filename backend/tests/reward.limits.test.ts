@@ -159,6 +159,27 @@ describe.skipIf(!hasDatabase)("P6-BE-08 · on the path a request takes", async (
     expect(list.json.rewards.find((r: { id: string }) => r.id === created.json.id)).toMatchObject({ redemptionCap: 50 });
   });
 
+  /* 3S0-BE-05 — where an in-person reward is handed out, given when it is
+     created (3S0-DATA-01 gaps G2/G3: the fan funnel had no geography). The
+     venue is the reward's own location, not the fan's — nothing about the fan
+     is stored. Optional: an online-only reward has none. */
+  it("keeps the venue it was created with — city and US state — and reads it back; none is null", async () => {
+    const expiresAt = new Date(Date.now() + 30 * 864e5).toISOString();
+    const created = await call("POST", "/campaigns/rl_campaign/rewards", "rl_admin", {
+      ...BASE, expiresAt, venue: { city: "  Baltimore ", stateCode: "MD" },
+    });
+    expect(created.status).toBe(201);
+    expect(await prisma.reward.findUniqueOrThrow({ where: { id: created.json.id }, select: { venueCity: true, venueStateCode: true } }))
+      .toEqual({ venueCity: "Baltimore", venueStateCode: "MD" });
+    expect((await call("GET", `/rewards/${created.json.id}`, "rl_admin")).json.venue).toEqual({ city: "Baltimore", stateCode: "MD" });
+
+    expect((await call("POST", "/campaigns/rl_campaign/rewards", "rl_admin", { ...BASE, expiresAt, venue: { city: "Toronto", stateCode: "ON" } })).status).toBe(400);
+    expect((await call("POST", "/campaigns/rl_campaign/rewards", "rl_admin", { ...BASE, expiresAt, venue: { city: " ", stateCode: "MD" } })).status).toBe(400);
+
+    const online = await call("POST", "/campaigns/rl_campaign/rewards", "rl_admin", { ...BASE, expiresAt });
+    expect((await call("GET", `/rewards/${online.json.id}`, "rl_admin")).json.venue).toBeNull();
+  });
+
   it("refuses a zero cap at the route, and at the database", async () => {
     const bad = await call("POST", "/campaigns/rl_campaign/rewards", "rl_admin", { ...BASE, redemptionCap: 0 });
     expect(bad.status).toBe(400);
@@ -223,5 +244,33 @@ describe.skipIf(!hasDatabase)("P6-BE-08 · on the path a request takes", async (
     expect(results.every((r) => r.status === 201)).toBe(true);
     /* And single use per token still holds: the index, not the cap. */
     expect((await redeem(toks[0]!)).status).toBe(409);
+  });
+
+  /* 3S0-BE-04 — a used code tried again is how a shared or screenshotted code
+     shows itself (3S0-DATA-01 gap G4). The refusal is unchanged; the code now
+     remembers how often it happened and when. Only "already used" counts:
+     an expired or paused reward refusing is not a sign of misuse. */
+  it("a used code tried again is refused and counted on the code, with the time; other refusals are not", async () => {
+    const [used, fresh] = await reward("rl_twice", 2, { singleUse: true });
+    expect((await redeem(used!)).status).toBe(201);
+    const before = Date.now();
+    expect((await redeem(used!)).status).toBe(409);
+    expect((await redeem(used!)).status).toBe(409);
+
+    const code = await prisma.rewardToken.findUniqueOrThrow({ where: { token: used! }, select: { refusedRedeems: true, lastRefusedRedeemAt: true } });
+    expect(code.refusedRedeems).toBe(2);
+    expect(code.lastRefusedRedeemAt!.getTime()).toBeGreaterThanOrEqual(before - 1000);
+    expect(await redeemRows("rl_twice")).toBe(1);
+
+    await prisma.reward.update({ where: { id: "rl_twice" }, data: { state: "PAUSED" } });
+    expect((await redeem(fresh!)).status).toBe(409);
+    expect((await prisma.rewardToken.findUniqueOrThrow({ where: { token: fresh! }, select: { refusedRedeems: true } })).refusedRedeems).toBe(0);
+
+    /* Readable where the reward's codes are read. */
+    const detail = await call("GET", "/rewards/rl_twice", "rl_admin");
+    expect(detail.status).toBe(200);
+    const row = (detail.json.tokens as { id: string; refusedRedeems: number; lastRefusedRedeemAt: string | null }[]).find((t) => t.id === "rl_twice_tok_0");
+    expect(row).toMatchObject({ refusedRedeems: 2 });
+    expect(row!.lastRefusedRedeemAt).toBe(code.lastRefusedRedeemAt!.toISOString());
   });
 });

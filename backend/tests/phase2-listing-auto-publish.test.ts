@@ -212,6 +212,14 @@ describe.skipIf(!hasDatabase)("2S3-BE-06 · listings publish automatically; BTG 
       expect(await prisma.auditLog.count({ where: { action: "listing.withdraw", entityId: id } })).toBe(1);
       expect((await call("POST", `/listings/${id}/submit`, "lap_mgr")).json.state).toBe("PUBLISHED");
     });
+
+    it("the seller archiving is audited as listing.archive — one name for the move, whoever makes it (3S0-BE-03)", async () => {
+      const gone = await teamListing("Larks retired banner", "Courtside banners for every home game this season.");
+      expect((await call("POST", `/listings/${gone}/submit`, "lap_mgr")).json.state).toBe("PUBLISHED");
+      expect((await call("POST", `/listings/${gone}/transition`, "lap_mgr", { to: "ARCHIVED" })).json.state).toBe("ARCHIVED");
+      expect(await prisma.auditLog.count({ where: { action: "listing.archive", entityId: gone } })).toBe(1);
+      expect(await prisma.auditLog.count({ where: { action: "listing.archived" } })).toBe(0);
+    });
   });
 
   describe("flagged: restricted words", () => {
