@@ -295,3 +295,35 @@ type FinanceOverview = {
 - **Tracker:** add a row for P1-ART-25 in `Claude outputs/SponsorX-Full-Programme-Task-Board.xlsx` (a fractional `Order` after P1-ART-24), and extend the Dashboard ranges by hand. See CLAUDE.md.
 - **Team log:** `Memory/2026-10-12/finance-vault.md`.
 - **Auto-memory:** update `portal-stage-identities` with the Vault (the fourth look).
+
+## 11. Restructure (2026-10-12, owner): a real `/finance` portal; admin untouched
+
+**What changed.** The owner rejected the Vault living inside `/admin`. Their words: "why are the routes in admin? … if you do this, the admin visual design would change also", and "btg admin still have the finance without the redesign". This supersedes §2.
+
+- **New portal `/finance`.** `app/(app)/finance/`, `PortalShell portal="finance" stage="vault"`, the label "Finance Portal", and `vault.css` imported by the finance layout.
+  - `server/portal.ts` admits **FINANCE only**. FINANCE is removed from the admin portal's list, so a Finance user signing in lands on `/finance`, and an `/admin/…` link sends them to their own portal.
+  - BTG admins do not use `/finance`.
+- **Routes:**
+
+  | Route | Was |
+  |---|---|
+  | `/finance` | Treasury |
+  | `/finance/payouts`, `/finance/payouts/[id]` | |
+  | `/finance/refunds` | |
+  | `/finance/payment-events` | |
+  | `/finance/disputes`, `/finance/disputes/[id]` | |
+  | `/finance/splits` | NEXT revenue splits |
+
+  They are the Vault pages built in this branch, moved, with every internal link and `revalidatePath` pointing into `/finance`.
+  - The nav lives in `lib/finance-nav.ts` (with its dock), grouped: Treasury; Money (Payouts, Refunds, Payment events, Disputes); NEXT (Splits).
+  - Commission stays BTG-admin only, in admin.
+  - Campaigns is not in the Finance portal for now.
+- **Admin is exactly as before this branch.** The money desks, the old Finance workspace page, Commission and its components, NEXT Splits, `not-in-role` and the admin nav labels are restored to their `feature/P1-ART-24-mobile-dock` versions.
+  - The Vault switch inside admin is removed: `StageRoot` toggling, `vaultOn`, the `.sx-when-*` words and the Finance-only nav/redirect.
+- **Kept from this branch:**
+  - `GET /finance/overview` and the backend refactors;
+  - the `ADMIN_ACCESS` entries that hide desks a role's API refuses;
+  - the Network page showing network managers what they can read;
+  - the `vault` pager tone, the kit and the shared helpers.
+
+  None of these changes how admin looks.
