@@ -207,14 +207,15 @@ Facts and dimensions separated from the transactional database, so analytical qu
 - **Reference:** Spec §19
 - **Delivered:** [`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) — 2026-10-12, signed off the same day (rcfworks, with Rodney's delegated authority)
 
-### ▶ `3S0-OPS-01` · Select the warehouse and transformation layer
+### ✅ `3S0-OPS-01` · Select the warehouse and transformation layer
 
-**Order** 5 · **OPS** · **Where:** Vendor console · **3d** · **Ready**
+**Order** 5 · **OPS** · **Where:** Vendor console · **3d** · **Done**
 
 Snowflake, BigQuery, Redshift or Postgres depending on scale, plus dbt or equivalent for versioned transformations.
 
 - **Depends on:** 3S0-DATA-02
 - **Done when:** Warehouse and transformation tooling selected, provisioned and cost-modelled
+- **Delivered:** `.claude/stack-decision.md` Addendum C; `Postgres-warehouse` (staging) and `Postgres-warehouse-production`, ingestion running hourly in both — 2026-10-12
 - **Reference:** Spec §20
 
 ### ⏸ `3S0-LEG-01` · Attribution, consent and partner terms review
@@ -235,9 +236,9 @@ Counsel reviews the attribution claims, the consent basis for using fan data thi
 
 *4 tasks · 16 person-days*
 
-### ◑ `3S1-DATA-01` · Warehouse ingestion pipeline
+### ✅ `3S1-DATA-01` · Warehouse ingestion pipeline
 
-**Order** 7 · **DATA** · **Where:** Code · **5d** · **Code review**
+**Order** 7 · **DATA** · **Where:** Code · **5d** · **Done**
 
 Move transactional data into the warehouse on a schedule, idempotently, so a re-run never double-counts.
 
