@@ -97,3 +97,47 @@ The user decided each one: market geography from registration plus a reward venu
 - **A correction made along the way:** only `SX-05` is an appearance job in code (`APPEARANCE_JOBS`), so `IN_PERSON` no longer includes SX-06.
 - **Verified:** tsc and eslint clean; **full backend suite 192 files / 3,089 tests pass** on Postgres.
 - **Tracker:** row 54 holds 3S0-BE-06 (Order 3.7, Done). The ranges and 15 Dashboard formulas now reach row 54. DATA-02's notes are updated, and it stays at Code review until the §10 sign-off. Phase 3 is now 51 tasks · 193 days.
+
+## rcfworks — 3S0-DATA-02 signed off → Done
+
+- §10 of `documentation/SponsorX-Warehouse-Schema.md` (v1.1) is signed "rcfworks, with Rodney's delegated authority", 2026-10-12, accepted as written. The header now reads Accepted.
+- **Tracker and plan:** DATA-02 is Done. **3S0-OPS-01** (select and provision the warehouse) and **3S1-DATA-01** (ingestion pipeline) are now Ready, since DATA-02 was their only prerequisite.
+- PRs #185 and #186 merged. `main` and `main_development` have identical content. Fast-forwarding `main_development` onto `main`'s five merge commits was blocked by the auto-mode safety check (a direct push to a shared branch); it is left to the user.
+
+## rcfworks — 3S1-DATA-01: warehouse ingestion (Code review)
+
+- **Why a warehouse at all (the user asked):** Phase 3 analysis shouldn't load the live database; the product overwrites history that pricing and forecasting need; and reports, pricing and forecasts need one agreed set of numbers. At pilot size it is ahead of need, so it is kept light: plain Postgres. The user chose to keep it.
+- **The user's decisions:** hourly; copy by allow-list.
+- **Built: `backend/worker/warehouse/`.**
+  - `sources.mts` lists 29 tables and their allowed columns. It copies no personal data, and only 7 audit actions, without before/after. The athlete's birth date is read only to compute `is_minor` with the product's own rule.
+  - `ingest.mts`:
+    - APPEND tables (RewardEvent, LinkEvent, EditionEvent, AuditLog) are read from the watermark minus 48 hours, one raw row per source row, updated only when its hash changes.
+    - VERSIONED tables (the rest) are read in full; a new version is written only when the row hash differs from the latest, and a row gone from the product gets a deleted version.
+    - Each run reads one REPEATABLE READ, READ ONLY transaction on the product; an advisory lock (`INGEST_LOCK_KEY`) makes an overlapping run step aside; every run is logged in `raw._ingest_run`.
+  - `migrate.mts` with `migrations/0001_ingestion.sql`: the warehouse's own SQL migrations, tracked in `public.warehouse_migrations`.
+- **Worker:** hourly, plus a first run 90 seconds after boot, **only when `WAREHOUSE_DATABASE_URL` is set**. Otherwise it logs that ingestion is off. The variable is documented in `.env.example`.
+- **Tests: `tests/warehouse-ingest.test.ts`, 13 tests** against product and warehouse Postgres. The warehouse database is `<test db>_warehouse`, created automatically (CI's Postgres user can do this). They cover: first copy; no personal data; only the listed audit actions; a re-run adding nothing; one new version per change; a deleted version; a late click city updated, not duplicated; and the lock.
+- **Verified:** tsc and eslint clean; **full backend suite 193 files / 3,102 tests pass**.
+- **Left:** it runs in production once 3S0-OPS-01 provisions the warehouse database and sets the variable.
+
+## rcfworks — 3S0-OPS-01: warehouse selected, staging provisioned (In progress)
+
+- **The user's decisions:** transforms as SQL files run by the worker (no dbt); the reader login limited to the allow-listed columns; staging first, production after the user's OK.
+- **Decision recorded:** `.claude/stack-decision.md` **Addendum C**. It covers the choice of Postgres on Railway over BigQuery and Snowflake (data measured at 5.5 MB on staging, 7 rows in production), SQL transforms over dbt, the reader login, the cost model, and revisit triggers.
+  - **Cost: about $3.50 a month per environment now, about $7 for both**; $9–$14 in year one.
+  - Inputs: Railway prices checked 2026-10-12 (RAM $10/GB, CPU $20/vCPU, volume $0.15/GB, buckets $0.015/GB) and the staging product Postgres's measured 0.29 GB RAM and 0.011 vCPU.
+- **Code (PR #187):**
+  - `worker/warehouse/grants.mts` generates column-level SELECT grants from `sources.mts`, revoking any earlier grants first, and makes every transaction read-only.
+  - `scripts/warehouse-reader.mts`, run as `npm run warehouse:reader`.
+  - The worker reads the product through `WAREHOUSE_SOURCE_DATABASE_URL` when it is set.
+  - `tests/warehouse-reader.test.ts` (6 tests): a full ingestion runs through the reader; the reader is refused `Athlete.email`, `RewardToken.token`, the `User` table and any write.
+  - **Full suite 194 files / 3,108 tests pass.**
+- **Staging, provisioned:**
+  - Service `Postgres-warehouse` (8903a76f). `railway add` **ignored `-s` and named it `Postgres-Ac6n`, in `sfo`**. It was renamed through the `serviceUpdate` GraphQL call and moved to `us-east4-eqdc4a` with `railway service scale` while still empty.
+  - Backups: PITR enabled and wired to `sponsorx-pg-backups`, daily and weekly snapshots, first backup taken, archiver on.
+- **Not yet done, and why:** the reader login on staging failed safely (rolled back) because staging's database lacks today's migrations. `release` moves only at the nightly CI run (12:00 UTC) and was 49 commits behind `main`. After the deploy that carries #185–#187:
+  - apply the reader login on staging (the `railway ssh` pattern);
+  - set `WAREHOUSE_DATABASE_URL` and `WAREHOUSE_SOURCE_DATABASE_URL` on staging `api`;
+  - verify a real run;
+  - then production, with the user's OK.
+- The password for staging's reader is in the session scratchpad only, until it is set as a Railway variable.

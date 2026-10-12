@@ -19,7 +19,8 @@
     "zoho:backfill": "node --env-file-if-exists=../.env --import tsx scripts/zoho-backfill.mts",
     "agreement:register": "node --env-file-if-exists=../.env --import tsx scripts/agreement-register.mts",
     "smoke:receipt": "node scripts/smoke-receipt.mjs",
-    "uat:phase2": "node scripts/uat-phase2.mjs"
+    "uat:phase2": "node scripts/uat-phase2.mjs",
+    "warehouse:reader": "node --import tsx scripts/warehouse-reader.mts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "9.1.0",

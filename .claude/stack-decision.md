@@ -452,3 +452,56 @@ depends on a web framework at all.
   arborist crash on the workspace graph; because peers no longer auto-install,
   `vite` (vitest's peer) is an explicit devDependency in both workspaces. Revisit
   when npm fixes the bug.
+
+---
+
+# Addendum C — The analytics warehouse (Phase 3)
+
+**Date:** 2026-10-12
+**Status:** Decided (`3S0-OPS-01`). Design: `documentation/SponsorX-Warehouse-Schema.md` (`3S0-DATA-02`, signed off 2026-10-12). Ingestion: `backend/worker/warehouse/` (`3S1-DATA-01`).
+
+Spec §20 makes a warehouse and a transformation layer required for Phase 3:
+analytics must not run on the product database. It offers Snowflake,
+BigQuery, Redshift or Postgres "depending on scale". At SponsorX's scale the
+answer is Postgres.
+
+## C1. The warehouse is a separate Postgres on Railway, per environment
+
+- **Services:** `Postgres-warehouse` (staging) and `Postgres-warehouse-production` (production). Each is its own database, never the product's, in the same Railway project, on Postgres 18 (the same `postgres-ssl` image as the product's).
+- **Region: US East** (`us-east4-eqdc4a`), as A7 / G-02 require. **`railway add` placed the first one in `sfo`.** It was moved with `railway service scale <us-east4-eqdc4a>=1 sfo=0` while still empty. Check the region of every new database; do not trust the default.
+- **Backups** match the product databases' (runbook): PITR wired to `sponsorx-pg-backups`, plus daily and weekly snapshots. Unlike the facts, the raw layer's version history cannot be rebuilt from the product, so it is backed up like product data.
+- **Reached over private networking only.** No public proxy, the same as the product databases.
+
+**Why not BigQuery or Snowflake.** They are a new vendor, a new contract and data residency to establish again, data leaving Railway, and an ETL path out of the private network, all for a data volume measured in megabytes. Measured on 2026-10-12: staging's 29 copied tables hold 5.5 MB and about 1,100 rows; production's hold 7 rows. Snowflake's minimum spend alone would exceed this whole addendum's cost.
+
+## C2. The transformation layer is SQL files run by the worker
+
+Numbered `.sql` files in the repo are applied by the same small runner that ingestion uses (`worker/warehouse/migrate.mts` for the warehouse's own schema; `3S1-DATA-02` adds the `stg` and `dw` transforms the same way). They are versioned like code, reviewed in PRs, and add no new tools or services.
+
+**Why not dbt.** It brings a Python toolchain, a separate job to schedule and secure, and a second way of running SQL, for a handful of models. Its benefits (lineage graphs, docs, model tests) matter once the models grow or an analyst joins; the reconciliation checks (`3S1-QA-01`) cover correctness meanwhile.
+
+## C3. Ingestion reads through a column-limited, read-only login
+
+`warehouse_reader` on each product database may SELECT exactly the allow-listed columns of `worker/warehouse/sources.mts`, plus an athlete's birth date, read only to compute `is_minor`. Every transaction it opens is read-only. The grants are generated from the same list (`worker/warehouse/grants.mts`; apply with `npm run warehouse:reader -w @sponsorx/backend`), so the database itself refuses a personal column even if code asked for one. Re-apply after adding a column to the list.
+
+The worker uses `WAREHOUSE_DATABASE_URL` (the warehouse) and `WAREHOUSE_SOURCE_DATABASE_URL` (the product, as `warehouse_reader`). Without the first, ingestion is off.
+
+## C4. Cost model
+
+Railway's usage prices (Railway pricing docs, checked 2026-10-12): RAM $10/GB-month, CPU $20/vCPU-month, volume $0.15/GB-month, buckets $0.015/GB-month, private-network traffic free. The usage figures are the staging product Postgres's (same image, same backups), measured over 3 days: 0.29 GB RAM, 0.011 vCPU, 1.5 GB disk, 4.2 GB backups.
+
+| Per environment, per month | Now | Year one (raw history about 5 GB) |
+|---|---|---|
+| Memory 0.29 GB | $2.90 | $2.90–$5.00 (up to 0.5 GB under transforms) |
+| CPU (idle plus hourly ingestion) | $0.22–$0.40 | $0.40–$1.00 |
+| Volume | $0.23 (1.5 GB) | $0.75 (5 GB) |
+| Backups | $0.07 | $0.30 (20 GB) |
+| **Total** | **≈ $3.50** | **≈ $4.50–$7.00** |
+
+**Both environments: about $7 a month now, $9–$14 in year one.** Reads from the product cost nothing extra.
+
+## C5. Revisit when
+
+- the warehouse passes **about 50 GB**, or a nightly transform takes **more than 15 minutes**: consider a columnar engine, which BigQuery would be;
+- **more than about 15 transform models**, or an analyst or BI tool joins: consider dbt over the same SQL;
+- a dashboard's query noticeably loads the warehouse during ingestion: give the warehouse its own replica or a larger plan.
