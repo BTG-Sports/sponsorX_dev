@@ -134,3 +134,45 @@ Never put chamfers, brackets, scan-lines, lanes or speed bars on a Vault screen.
 - **The fixture Splits view** (`?demo=`) gained the `data-payee` attribute the live view already had, on both the allocation bar and the payee-card dot.
 - **`fetchActor`** is now wrapped in React's `cache()` (`server/api.ts`) — pages that call it directly and again through `staffWithoutAccess` no longer make two `/me` round trips in one render pass; it still never persists across requests.
 - Fixed the stale "Analytics, the Audit log, Integrations and NEXT stay on Mission Control, even for Finance users" line above — Splits does reach Finance, and this was superseded by the "Finance is its own portal on every page" follow-up.
+
+### Restructure: Finance is a real portal, `/finance` (2026-10-12, owner)
+**Why.** The owner rejected the Vault inside `/admin`: BTG admins saw their money desks change look ("btg admin still have the finance without the redesign"). Finance gets its own portal, as athlete and sponsor do, and admin goes back to exactly how it was before this branch. Spec §11 / §11.1. This is the `/finance` half; restoring the admin pages is a separate pass.
+
+- **Access.** `server/portal.ts`: a `finance` portal admitting `FINANCE` only, right after `admin`; FINANCE is out of the admin list. So a Finance-only user lands on `/finance`, and `/admin`, `/admin/payouts`, `/admin/finance` and `/portal` forward them there. A FINANCE + admin-portal role still lands on `/admin`. `proxy.ts` protects no prefixes, so nothing changed there. New `tests/portal-routing.test.ts`.
+- **Shell.** `PortalShell portal="finance" stage="vault"`: the root is `sx-ops sx-vault`, there is only `VaultGround`, no theme toggle, the label is "Finance Portal" and the watermark FINANCE. The dock and phone menu are the ops ones, gold via `<body>`. `StagePortals` now adds each class separately.
+  - Gone: `StageRoot` (`stage-root.tsx` deleted), `StageWord` / `.sx-when-*`, the `vault` props on the shell, the dock and the menu, and `sx-ops-ground`.
+  - `portal-shell.tsx`, `mobile-dock.tsx`, `mobile-nav.tsx` and `ops-stage.tsx` are back to `feature/P1-ART-24-mobile-dock`, plus only the finance additions in the shell.
+- **`vault.css`** moved to `app/(app)/finance/` and is imported by the finance layout only. The admin layout lost its import line (the only admin-layout edit). `[data-vault]` became `.sx-vault`.
+- **Routes** (copied from the Vault versions, every link and `revalidatePath` into `/finance`):
+
+  | New route | Copied from |
+  |---|---|
+  | `/finance` (route group `(treasury)`) | `admin/finance` |
+  | `/finance/payouts`, `/[id]` | `admin/payouts` |
+  | `/finance/refunds` | `admin/refunds` |
+  | `/finance/payment-events` | `admin/payments/events` |
+  | `/finance/disputes`, `/[id]` | `admin/payments/disputes` |
+  | `/finance/splits` | `admin/next/splits` |
+
+  - Nav: `lib/finance-nav.ts` (Treasury; Money: Disputes, Payment events, Payouts, Refunds to send; NEXT: Splits). Dock: Treasury, Payouts, Refunds, Disputes.
+  - Portal `error.tsx` and `loading.tsx`, both in the Vault. A 403 shows `finance/refused.tsx`, in place of the admin `NotInRole` checks (the portal admits FINANCE only).
+- **Shared pieces, admin unchanged.**
+  - `admin/next/live.ts` → `server/next-editions.ts`; the admin file re-exports it.
+  - `NextHeading` / `EditionSwitcher` → `components/next-heading.tsx`; `admin/next/editions/live-editions.tsx` re-exports them.
+  - The desk components take their server action as a prop, defaulting to admin's: `MarkRefunded send`, `ResolveEvent resolve`, `TakeForReview review`, `ResolveDispute resolve`, `SplitLockControl save`.
+- **e2e.** These Finance-user flows now point at `/finance`, and the admin assertions are left for the restore:
+  - `loop-p7-earnings-report` (the Finance half);
+  - `admin-payments-desks` (Finance reads the two desks on the Vault; `/admin/support` forwards to `/finance`);
+  - `qa-phase2` (the dispute detail as Finance; `/admin/support` forwards).
+- **Verified.**
+  - tsc is clean except the expected admin-side errors: `admin/layout.tsx` still passes `vault=`, and `tests/admin-nav.test.ts` imports the deleted `stage-root`.
+  - eslint is clean on everything touched.
+  - vitest: 128 files / 1353 tests pass. Only `admin-nav.test.ts` fails to load (stage-root), and that is for the admin restore.
+- **Browser walk** on the live dev servers (`finance-portal-walk.cjs`, screenshots in the session scratchpad `finance-portal/`):
+  - **As QA Finance:** sign-in lands on `/finance`. Every nav page, plus `?tab=failed`, `?tab=sent`, a dispute detail, a missing payout and `?tab=invoices`, is on the Vault (`sx-ops sx-vault` on the root and `<body>`), shows "FINANCE PORTAL" / FINANCE, and has no theme toggle, at 1440 and 390. There is no Mission Control cyan or chamfer, no horizontal scroll, no `a[href^="/admin"]` (the phone menu included), and no console errors.
+  - **As QA admin:** `/admin` and `/admin/payouts` carry no `sx-vault` and say "ADMIN PORTAL" / ADMIN. `/finance` forwards to `/admin`.
+- **Left for the admin restore** (owned by the second pass):
+  - `admin/layout.tsx` (nav/dock/vault, back to base), `lib/admin-nav.ts` (then delete `lib/vault-routes.ts` and `tests/vault-routes.test.ts`), `admin/(board)/page.tsx`, `components/not-in-role.tsx`;
+  - the admin money desks, `admin/finance/*`, commission and its components, `admin/next/splits/*`;
+  - the admin-only tests: `admin-nav`, `admin-access`, `not-in-role`, `nav-groups` and `mobile-dock` (these two import `lib/admin-nav`);
+  - keep the two re-export shims, `admin/next/live.ts` and `admin/next/editions/live-editions.tsx`.
