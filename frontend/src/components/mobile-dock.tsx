@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import { Glyph, StageMenu, type Phase, type StageKind } from "./mobile-nav";
 import type { NavItem } from "./portal-nav";
 import { dockScroll, resolveDock, type DockScroll } from "@/lib/mobile-dock";
+import type { VaultMode } from "@/lib/vault-routes";
 
 /* --------------------------------------------------------------------------
    The dock — P1-ART-24 (2026-10-12; owner: "add a wow factor + awwwaaard on
@@ -27,13 +28,15 @@ import { dockScroll, resolveDock, type DockScroll } from "@/lib/mobile-dock";
    -------------------------------------------------------------------------- */
 
 export function MobileDock({
-  stage, dock, nav, rootHref, portalLabel, userName, userRole,
+  stage, dock, nav, rootHref, portalLabel, vault = "off", userName, userRole,
 }: {
   stage: StageKind;
   dock: readonly string[];
   nav: NavItem[];
   rootHref: string;
   portalLabel: string;
+  /** P1-ART-25 — when the menu names itself Finance (the shell's Vault mode). */
+  vault?: VaultMode;
   userName: string;
   userRole: string;
 }) {
@@ -136,6 +139,7 @@ export function MobileDock({
             nav={nav}
             rootHref={rootHref}
             portalLabel={portalLabel}
+            vault={vault}
             userName={userName}
             userRole={userRole}
           />,

@@ -9,6 +9,7 @@ import { Logo } from "./logo";
 import type { NavItem } from "./portal-nav";
 import { sheetGroups } from "@/lib/mobile-dock";
 import { groupNav, isActiveHref, type NavGroup } from "@/lib/nav-groups";
+import { VAULT_LABEL, vaultOn, type VaultMode } from "@/lib/vault-routes";
 
 /* --------------------------------------------------------------------------
    Mobile portal navigation: the sidebar is hidden below `md`, so the top-bar
@@ -300,7 +301,7 @@ export function Glyph({ icon, className = "size-5" }: { icon: NavIcon; className
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function StageMenu({
-  id, stage, phase, onClose, onClosed, nav, rootHref, portalLabel, userName, userRole,
+  id, stage, phase, onClose, onClosed, nav, rootHref, portalLabel, vault = "off", userName, userRole,
 }: {
   id: string;
   stage: StageKind;
@@ -312,10 +313,14 @@ export function StageMenu({
   nav: NavItem[];
   rootHref: string;
   portalLabel: string;
+  /** P1-ART-25 — the shell's Vault mode: on a Vault screen the menu is the
+   *  Finance portal's (the sheet opens on the client, so it can just ask). */
+  vault?: VaultMode;
   userName: string;
   userRole: string;
 }) {
   const pathname = usePathname();
+  const label = vaultOn(pathname ?? "", vault) ? VAULT_LABEL : portalLabel;
   const sheet = useRef<HTMLDivElement>(null);
   const { top, groups } = groupNav(nav);
   const ordered = sheetGroups(groups, pathname, rootHref);
@@ -392,11 +397,11 @@ export function StageMenu({
 
       <p className="sx-sheet-portal">
         <span className="sx-sheet-live" aria-hidden="true" />
-        {portalLabel}
+        {label}
         <span className="sx-sheet-rule" aria-hidden="true" />
       </p>
 
-      <nav aria-label={portalLabel} className="sx-sheet-body">
+      <nav aria-label={label} className="sx-sheet-body">
         {top.map((item) => (
           <SheetTile key={item.pending ? item.label : item.href} item={item} hero pathname={pathname} rootHref={rootHref} g={0} r={0} />
         ))}

@@ -113,6 +113,10 @@
   --sx-warn: #e9b949;
   --sx-success: #3ddc97;
   --sx-admin: #d4b062;
+  /* NEXT's violet is a programme colour on Mission Control; on the Vault
+     (a Finance-only viewer's Splits) the NEXT pieces take the gold too */
+  --sx-next: #d4b062;
+  --sx-next-soft: #f1dfa6;
   color-scheme: dark;
   color: #ece5cf;
 }
@@ -154,6 +158,15 @@
   transition: opacity 0.5s ease;
 }
 [data-sx-ops][data-lit] > .sx-vault-ground .sx-vault-light { opacity: 1; }
+/* the stage column's own ground (globals .sx-stage: a cyan sky, an orange
+   glow, a dot grid) sits under the vault ground and never shows — but it is
+   Mission Control's, so it goes, not merely covered */
+.sx-ops.sx-vault .sx-stage { background: var(--vault-ground); }
+/* and the page itself: <body> keeps the theme's --background (resolved at
+   :root, so the re-pinned --sx-bg never reaches it), which shows below the
+   sticky sidebar on a long page */
+body.sx-vault,
+.sx-ops.sx-vault[data-vault] { background-color: var(--vault-ground); }
 
 /* chrome: sidebar, header, nav groups ------------------------------------- */
 .sx-ops.sx-vault .sx-shell-aside {
@@ -167,6 +180,14 @@
 .sx-ops.sx-vault .sx-nav-head[data-open]:not([data-holds]) .sx-nav-tile { border-color: rgb(212 176 98 / 0.4); color: var(--vault-gold-hi); }
 .sx-ops.sx-vault .sx-nav-track { border-color: rgb(212 176 98 / 0.24); }
 .sx-ops.sx-vault .sx-nav-head::after { background: linear-gradient(90deg, transparent, rgb(241 223 166 / 0.07), transparent); }
+
+/* the portal's name follows the look (portal-shell.tsx StageWord): the
+   sidebar label and the watermark render both words, one shows. Off the
+   Vault the ops word shows — Mission Control's markup gains a span, its
+   rendering nothing. */
+.sx-when-vault { display: none; }
+:is(.sx-vault, [data-vault]) .sx-when-vault { display: inline; }
+:is(.sx-vault, [data-vault]) .sx-when-ops { display: none; }
 
 /* words: the engraved serif -------------------------------------------- */
 .sx-ops.sx-vault .sx-page-title {
@@ -859,6 +880,92 @@ a:focus-visible > .sx-vault-key > svg { transform: rotate(90deg); }
 :is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-sheet-close:focus-visible { box-shadow: inset 0 0 0 2px var(--mn-hot); }
 :is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-sheet-foot { border: 1px solid var(--mn-line); box-shadow: none; }
 :is(.sx-vault, [data-vault]) .sx-sheet[data-stage="ops"] .sx-sheet-avatar { font-family: var(--font-source-serif), Georgia, serif; }
+
+/* every other admin page, for a Finance-only viewer ----------------------------- */
+/* Follow-up (2026-10-12): a Finance-only viewer has the Vault on EVERY page
+   (StageRoot mode "all") — Campaigns, Splits, a "not in your role" page —
+   so what Mission Control draws on the shared admin pages is re-cut here
+   too. All of it is scoped under `.sx-ops.sx-vault`: Mission Control,
+   without the class, is untouched. */
+
+/* a page's own heading when it isn't the house `.sx-page-title` (the
+   "not in your role" page): the engraved serif */
+.sx-ops.sx-vault main h1:not(.sx-page-title) {
+  font-family: var(--font-source-serif), Georgia, serif;
+  color: var(--vault-gold-hi);
+}
+/* figures on the shared cards: a stat tile's number and a campaign card's
+   Athletes / Contracted / Ends — the serif, in gold */
+.sx-ops.sx-vault .sx-stat .text-2xl.tabular-nums,
+.sx-ops.sx-vault dd.tabular-nums.font-semibold {
+  font-family: var(--font-source-serif), Georgia, serif;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums lining-nums;
+  color: var(--vault-gold-hi);
+}
+/* NEXT revenue splits: the four payees' fills are admin, primary, next and
+   accent — one gold under these tokens — so each gets its own vault shade */
+.sx-ops.sx-vault [data-payee="SPONSORX"] { background: #f1dfa6; }
+.sx-ops.sx-vault [data-payee="SCHOOL"] { background: #d4b062; }
+.sx-ops.sx-vault [data-payee="STUDENT_POOL"] { background: #3ddc97; }
+.sx-ops.sx-vault [data-payee="EDITORIAL_FUND"] { background: #a99b74; }
+
+/* Mission Control's own kit (ops-stage.tsx: QueueDeck, KpiTile, the panels,
+   StageHeading, StageLink), should a page that uses it open under the
+   Vault: square double-ruled plates, no chamfer, no bracket, no cyan */
+.sx-ops.sx-vault :is(.sx-ops-card, .sx-ops-panel) {
+  clip-path: none;
+  border: 1px solid var(--vault-line);
+  background: var(--vault-plate);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.sx-ops.sx-vault :is(.sx-ops-card, .sx-ops-panel)::before {
+  inset: 3px;
+  padding: 0;
+  clip-path: none;
+  background: none;
+  -webkit-mask: none;
+  mask: none;
+  border: 1px solid rgb(212 176 98 / 0.07);
+}
+.sx-ops.sx-vault .sx-ops-card::after { display: none; }
+.sx-ops.sx-vault .sx-ops-card:is(:hover, :focus-visible) { border-color: var(--vault-gold); }
+.sx-ops.sx-vault .sx-ops-card:focus-visible { outline: 2px solid var(--vault-gold-hi); outline-offset: 3px; }
+.sx-ops.sx-vault .sx-ops-br { display: none; }
+/* a KPI tile's glowing top bar (an inline style, hence !important) becomes
+   the double rule a stat tile has here */
+.sx-ops.sx-vault .sx-ops-panel > span.absolute.top-0 {
+  height: 4px;
+  background:
+    linear-gradient(var(--vault-gold), var(--vault-gold)) top / 100% 1px no-repeat,
+    linear-gradient(rgb(212 176 98 / 0.3), rgb(212 176 98 / 0.3)) bottom / 100% 1px no-repeat !important;
+  box-shadow: none !important;
+}
+/* their count-ups: the engraved gold numeral */
+.sx-ops.sx-vault .sx-ops-panel dd > span:first-child,
+.sx-ops.sx-vault .sx-ops-card > span:first-of-type > span:first-child {
+  font-family: var(--font-source-serif), Georgia, serif;
+  font-variant-numeric: tabular-nums lining-nums;
+  background: linear-gradient(180deg, #f8ecc2 8%, #e3c57d 52%, #b98f3e 96%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.sx-ops.sx-vault .sx-ops-bar { background: linear-gradient(90deg, var(--vault-gold-lo), #f6e6b4); box-shadow: none; }
+.sx-ops.sx-vault .sx-ops-orbit { border-color: rgb(212 176 98 / 0.2); }
+.sx-ops.sx-vault .sx-ops-ghost { background: linear-gradient(100deg, rgb(212 176 98 / 0.04) 30%, rgb(212 176 98 / 0.12) 50%, rgb(212 176 98 / 0.04) 70%) 0 0 / 250% 100%; }
+.sx-ops.sx-vault .sx-ops-flash { box-shadow: inset 0 0 0 1px rgb(241 223 166 / 0.85); animation-name: sx-vault-pulse; }
+/* the kit's cyan words (StageHeading, StageLink, the tiles' figures) */
+.sx-ops.sx-vault :is(.text-\[\#cfe9ff\], .text-\[\#9be0ff\], .text-\[\#63b4f8\], .text-\[\#93c5fd\]) { color: var(--vault-gold-hi); }
+.sx-ops.sx-vault .hover\:text-\[\#9be0ff\]:hover { color: #fff8e4; }
+.sx-ops.sx-vault h2.text-\[\#cfe9ff\] {
+  font-family: var(--font-source-serif), Georgia, serif;
+  font-size: 15px;
+  letter-spacing: 0.005em;
+  text-transform: none;
+}
 
 /* reduced motion ------------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {

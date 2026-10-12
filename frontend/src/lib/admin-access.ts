@@ -52,6 +52,30 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   "/admin/next": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES", "FINANCE"], who: "BTG admins, Sales and Finance" },
   /* P9-FE-11 — the API's studentProspect.approve is BTG admin and Sales (own tenant) and SUPER_ADMIN. */
   "/admin/next/prospects": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES"], who: "BTG admins and Sales" },
+
+  /* P1-ART-25 follow-up (2026-10-12) — desks that were open to every staff
+     role here but that the API refuses for some: the nav listed them and the
+     page then said "outside your role". Each list is what the API already
+     enforces (backend/src/auth/policy.ts); no role loses a desk it could use.
+     NEXT editions, inventory and rights: GET /editions/:id, /:id/ledger
+     (edition read) and /:id/rights-ledger (editionAsset read) are BTG admin
+     and SUPER_ADMIN only among staff — Finance lists editions through its
+     split read but can open none of them; Sales holds no edition read. */
+  "/admin/next/editions": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  "/admin/next/inventory": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  "/admin/next/rights": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  /* GET /editions/:id/splits: revenueSplit read is BTG admin, Finance and SUPER_ADMIN; Finance locks the split. */
+  "/admin/next/splits": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
+  /* GET /briefs: campaignBrief read is BTG admin, campaign managers and Sales (own tenant) and SUPER_ADMIN. */
+  "/admin/briefs": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "SALES"], who: "BTG admins, campaign managers and Sales" },
+  /* GET /operations/network-metrics, /job-economics and /analytics: tenant-wide
+     metricAggregate read — BTG admin, campaign and network managers, SUPER_ADMIN. */
+  "/admin/network": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR"], who: "BTG admins, campaign managers and network managers" },
+  "/admin/analytics": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR"], who: "BTG admins, campaign managers and network managers" },
+  /* GET /audit-log: auditLog read is BTG admin (own tenant) and SUPER_ADMIN. */
+  "/admin/audit": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  /* GET /operations/integration-health: tenant-wide webhookDelivery read is BTG admin and SUPER_ADMIN. */
+  "/admin/integrations": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
 };
 
 /** The access entry that governs a path (longest matching prefix). */

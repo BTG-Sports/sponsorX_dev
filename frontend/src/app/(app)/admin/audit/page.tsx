@@ -1,4 +1,5 @@
 import { EmptyState } from "@/components/states";
+import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { AuditExplorer, type AuditPage } from "@/components/audit-explorer";
 import { apiListQuery, textParam } from "@/lib/list-query";
 import { apiFetch, fetchActor } from "@/server/api";
@@ -33,6 +34,10 @@ export default async function AuditPageRoute({
     </div>
   );
 
+  /* A staff role this desk isn't for (lib/admin-access: auditLog read) gets
+     "not in your role"; the 403 below stays the backstop. */
+  const lacking = await staffWithoutAccess("/admin/audit");
+  if (lacking) return <NotInRole path="/admin/audit" title="Audit log" roles={lacking} />;
   const who = await fetchActor();
   const res = who.status === "linked" ? await apiFetch(`/audit-log${apiListQuery(sp, filters)}`) : null;
   if (!res || res.status === 403) {

@@ -10,6 +10,7 @@ import { StadiumGround } from "./stadium-stage";
 import { StagePortals } from "./stage-portals";
 import { StageRoot } from "./stage-root";
 import { VaultGround } from "./vault-stage";
+import { VAULT_LABEL, type VaultMode } from "@/lib/vault-routes";
 import { PortalNav, type NavItem } from "./portal-nav";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
@@ -99,6 +100,21 @@ const ACCENT: Record<
   },
 };
 
+/* P1-ART-25 — a word that follows the look. Where the Vault can switch on,
+   both words render and vault.css shows one (`.sx-when-ops` /
+   `.sx-when-vault`, keyed off the shell root's `sx-vault`): the switch is
+   decided on the client, by path (StageRoot), so the server can't pick. The
+   hidden word is `display: none`, so it is out of the accessibility tree. */
+function StageWord({ ops, vault, mode }: { ops: string; vault: string; mode: VaultMode }) {
+  if (mode === "off") return <>{ops}</>;
+  return (
+    <>
+      <span className="sx-when-ops">{ops}</span>
+      <span className="sx-when-vault">{vault}</span>
+    </>
+  );
+}
+
 function TopIcon({ path, label }: { path: string; label: string }) {
   return (
     <span
@@ -151,8 +167,9 @@ export function PortalShell({
    *  still means the admin's `"ops"`.
    *  P1-ART-23 — `"stadium"`: the sponsor's fixed-dark Stadium Board. */
   stage?: boolean | "ops" | "arena" | "stadium";
-  /** P1-ART-25 — on the admin stage, switch to the Vault on money routes. */
-  vault?: boolean;
+  /** P1-ART-25 — on the admin stage, switch to the Vault: `true` on the
+   *  money routes; `"all"` on every route (a Finance-only viewer). */
+  vault?: boolean | "all";
   /** P1-ART-24 — on a staged portal, the four hrefs (from `nav`) the phone
    *  dock carries; its Menu opens the LED menu and replaces the hamburger. */
   dock?: readonly string[];
@@ -166,9 +183,10 @@ export function PortalShell({
      12px float and the safe area), so the last row or a pager never sits
      under it. */
   const stagePad = docked ? "pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-14" : "pb-14";
+  const vaultMode: VaultMode = kind !== "ops" || !vault ? "off" : vault === "all" ? "all" : "money";
 
   return (
-    <StageRoot className={`flex min-h-screen ${stageCls}`} vault={kind === "ops" && vault}>
+    <StageRoot className={`flex min-h-screen ${stageCls}`} vault={vaultMode}>
       {kind && <StagePortals className={stageCls} />}
       {/* ------------------------------------------------------- sidebar */}
       <aside className="sx-shell-aside sticky top-0 hidden h-screen w-56 shrink-0 overflow-hidden border-r border-line/70 bg-gradient-to-b from-surface via-surface to-bg md:flex md:flex-col">
@@ -185,7 +203,7 @@ export function PortalShell({
           aria-hidden="true"
           className="pointer-events-none absolute bottom-14 right-0.5 select-none text-5xl font-black leading-none tracking-tighter text-text/[0.04] [writing-mode:vertical-rl]"
         >
-          {accent.label.split(" ")[0].toUpperCase()}
+          <StageWord ops={accent.label.split(" ")[0].toUpperCase()} vault={VAULT_LABEL.split(" ")[0].toUpperCase()} mode={vaultMode} />
         </span>
 
         <Link href={rootHref} className="sx-animate relative block px-5 pb-4 pt-5">
@@ -203,7 +221,7 @@ export function PortalShell({
             <span className={`relative inline-flex size-1.5 rounded-full ${accent.dot}`} />
           </span>
           <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
-            {accent.label}
+            <StageWord ops={accent.label} vault={VAULT_LABEL} mode={vaultMode} />
           </span>
           <span className="h-px flex-1 bg-gradient-to-r from-line to-transparent" />
         </div>
@@ -347,6 +365,7 @@ export function PortalShell({
           nav={nav}
           rootHref={rootHref}
           portalLabel={accent.label}
+          vault={vaultMode}
           userName={userName}
           userRole={userRole}
         />

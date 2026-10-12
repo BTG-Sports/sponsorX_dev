@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ADMIN_DOCK, ADMIN_NAV, FINANCE_DOCK, dockFor, navFor, rootFor } from "@/lib/admin-nav";
 import { resolveDock } from "@/lib/mobile-dock";
 import { groupNav } from "@/lib/nav-groups";
+import type { VaultMode } from "@/lib/vault-routes";
 
 /* P1-ART-25 (spec §2) — Finance lands on the Treasury, and the admin shell
    switches to the Vault on a money desk, never on any other screen. */
@@ -77,6 +78,36 @@ describe("P1-ART-25 · the admin nav per viewer", () => {
     }
   });
 
+  /* P1-ART-25 follow-up — a desk the API refuses a role is not in its nav
+     (lib/admin-access), so nothing listed says "outside your role". */
+  it("lists a Finance-only viewer exactly the desks the API lets Finance use", () => {
+    expect(navFor(["FINANCE"]).map((n) => n.href)).toEqual([
+      "/admin/finance",
+      "/admin/campaigns",
+      "/admin/payments/disputes",
+      "/admin/payments/events",
+      "/admin/payouts",
+      "/admin/refunds",
+      "/admin/next/splits",
+    ]);
+  });
+
+  it("keeps every desk the other staff roles can use, and only those", () => {
+    expect(navFor(["SALES"]).map((n) => n.href)).toEqual([
+      "/admin", "/admin/sponsor-requests", "/admin/briefs", "/admin/campaigns", "/admin/offers", "/admin/next/prospects",
+    ]);
+    expect(navFor(["CAMPAIGN_MGR"]).map((n) => n.href)).toEqual([
+      "/admin", "/admin/approvals", "/admin/briefs", "/admin/campaigns", "/admin/offers", "/admin/rewards", "/admin/network", "/admin/analytics",
+    ]);
+    expect(navFor(["NETWORK_MGR"]).map((n) => n.href)).toEqual([
+      "/admin", "/admin/applications", "/admin/campaigns", "/admin/network", "/admin/analytics",
+    ]);
+  });
+
+  it("still lists every desk for a BTG admin", () => {
+    expect(navFor(["BTG_ADMIN"]).map((n) => n.href)).toEqual(ADMIN_NAV.map((n) => n.href));
+  });
+
   it("gives a super admin everything: Dashboard on top, Commission and Treasury both present", () => {
     const nav = navFor(["SUPER_ADMIN"]);
     expect(nav[0]).toMatchObject({ href: "/admin", label: "Dashboard" });
@@ -87,7 +118,7 @@ describe("P1-ART-25 · the admin nav per viewer", () => {
 
 describe("P1-ART-25 · the shell root switches on money routes", async () => {
   const { StageRoot } = await import("@/components/stage-root");
-  const render = (path: string, vault = true) => {
+  const render = (path: string, vault: VaultMode = "money") => {
     pathname = path;
     return renderToStaticMarkup(createElement(StageRoot, { className: "flex sx-ops", vault } as Parameters<typeof StageRoot>[0], "x"));
   };
@@ -101,6 +132,12 @@ describe("P1-ART-25 · the shell root switches on money routes", async () => {
   it("leaves Mission Control alone everywhere else, and when the shell is not asked to switch", () => {
     expect(render("/admin")).toBe('<div class="flex sx-ops">x</div>');
     expect(render("/admin/campaigns")).toBe('<div class="flex sx-ops">x</div>');
-    expect(render("/admin/payouts", false)).toBe('<div class="flex sx-ops">x</div>');
+    expect(render("/admin/payouts", "off")).toBe('<div class="flex sx-ops">x</div>');
+  });
+
+  it("is the Vault on every page for a Finance-only viewer (mode all)", () => {
+    for (const p of ["/admin/campaigns", "/admin/next/splits", "/admin/finance"]) {
+      expect(render(p, "all"), p).toBe('<div class="flex sx-ops sx-vault" data-vault="">x</div>');
+    }
   });
 });

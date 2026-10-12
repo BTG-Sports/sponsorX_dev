@@ -1,6 +1,7 @@
 import { Card, SectionHeading, StatTile } from "@/components/ui";
 import { MiniChip } from "@/components/hero";
 import { EmptyState } from "@/components/states";
+import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { money } from "@/lib/fixtures";
 import { apiFetch, fetchActor } from "@/server/api";
 import { apiListQuery, type PageInfo, type SearchParams } from "@/lib/list-query";
@@ -67,6 +68,11 @@ async function load(sp: SearchParams) {
 }
 
 export default async function NetworkPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  /* A staff role this desk isn't for (lib/admin-access: tenant-wide
+     metricAggregate read) gets "not in your role"; the 403 in load() stays
+     the backstop. */
+  const lacking = await staffWithoutAccess("/admin/network");
+  if (lacking) return <NotInRole path="/admin/network" title="Network" roles={lacking} />;
   const data = await load(await searchParams);
   const heading = (
     <div>

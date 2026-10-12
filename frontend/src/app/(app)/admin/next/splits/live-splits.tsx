@@ -112,6 +112,9 @@ export async function LiveSplits({ live }: { live: LiveEditions }) {
           {rows.map((r) => (
             <div
               key={r.payeeKind}
+              /* data-payee: the Vault tells the four apart (vault.css) — its
+                 tokens turn admin, primary and accent all one gold */
+              data-payee={r.payeeKind}
               className={`${PAYEE_FILL[r.payeeKind]} relative min-w-0`}
               style={{ flexBasis: `${r.bps / 100}%` }}
               title={`${PAYEE_LABEL[r.payeeKind]} — ${r.bps / 100}%${r.amountCents != null ? ` · ${money(r.amountCents)}` : ""}`}
@@ -138,7 +141,7 @@ export async function LiveSplits({ live }: { live: LiveEditions }) {
           {rows.map((r) => (
             <Card key={r.payeeKind} className="min-w-0 p-4">
               <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted">
-                <span aria-hidden="true" className={`size-2.5 rounded-[2px] ${PAYEE_FILL[r.payeeKind]}`} />
+                <span aria-hidden="true" data-payee={r.payeeKind} className={`size-2.5 rounded-[2px] ${PAYEE_FILL[r.payeeKind]}`} />
                 {r.payeeKind.replace("_", " ").toLowerCase()}
               </p>
               <p className="mt-1.5 text-sm font-medium">

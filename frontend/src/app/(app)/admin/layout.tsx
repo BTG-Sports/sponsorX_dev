@@ -2,10 +2,11 @@ import { requirePortalAccess } from "@/server/portal";
 import { PortalShell } from "@/components/portal-shell";
 import { roleLabel, viewerName } from "@/server/viewer";
 import { dockFor, navFor, rootFor } from "@/lib/admin-nav";
+import { isFinanceOnly } from "@/lib/admin-access";
 
 import "../../mobile-nav.css";
 /* P1-ART-25 — the Vault, Finance's look on the money desks (StageRoot
-   switches it on by route). */
+   switches it on by route) and on every page a Finance-only viewer opens. */
 import "./vault.css";
 
 /* BTG admin surface — §10's four workspaces plus the command center (§23).
@@ -35,9 +36,11 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       userName={await viewerName("BTG staff")}
       userRole={roleLabel(actor.roles)}
       /* P1-ART-18 — the whole admin portal on the Mission Control stage;
-         P1-ART-25 — the Vault on the money desks. */
+         P1-ART-25 — the Vault on the money desks, and on every page for a
+         Finance-only viewer: Finance is its own portal, as athlete and
+         sponsor are, so no page of theirs drops back into Mission Control. */
       stage
-      vault
+      vault={isFinanceOnly(actor.roles) ? "all" : true}
     >
       {children}
     </PortalShell>
