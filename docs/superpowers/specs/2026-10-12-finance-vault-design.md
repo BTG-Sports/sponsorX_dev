@@ -131,7 +131,8 @@ existing demo case, laid out the same way and marked "Sample".
 
 1. **Head:** "Treasury", the live pill and `VaultRange` (`?range=`, default 30d).
 2. **Five tiles,** from `GET /finance/overview`:
-   - **Money in**, with a delta;
+   - **Money in** — marketplace orders paid in the period (by card or invoice), less refunds the
+     card provider made — with a delta;
    - **Paid out**, with a delta;
    - **Owed to payees**;
    - **BTG kept**, with a delta. Its caption says "marketplace fees only" when `kept.campaignCommission` is absent;
@@ -199,7 +200,7 @@ Each Vault route gets a `loading.tsx` that renders `VaultGhost`, replacing or ad
 type FinanceOverview = {
   readAt: string;
   range: { key; from; to; days; bucket: "day" | "week" };
-  moneyIn:  { cents: number; prev: number | null };   // marketplace orders paidAt in window: Σ totalCents − Σ PaymentRefund.amountCents created in window
+  moneyIn:  { cents: number; prev: number | null };   // marketplace orders paidAt in window, however paidVia (CARD or ZOHO_INVOICE): Σ totalCents − Σ PaymentRefund.amountCents created in window (PaymentRefund is the card provider's own refund; a RefundDue BTG sends by hand is not subtracted here — §9)
   paidOut:  { cents: number; prev: number | null };   // Σ Payout.amountCents state PAID, paidAt in window + Σ earning net amount, state PAID, paidAt in window
   owed:     { cents: number };                        // now, not windowed; athlete and property pay only: earnings PENDING|ELIGIBLE|APPROVED_FOR_PAYOUT (net) + Σ over each payee (partyTenantId, partyType, partyId) of max(0, its PROPERTY_PAYABLE|ATHLETE_PAYABLE credit − debit) over EVERY status, as payouts.ts balanceOf nets a payee's balance — PENDING (earned, sponsor not yet paid) and AVAILABLE credits count, a paid payout's PAID debit takes it off, a returned payout's AVAILABLE credit puts it back, and a reversed booking with its REVERSAL mirror (both REVERSED) nets to zero. Per payee, never tenant-wide: a refund after a payout leaves one payee below zero, which must not cut what others are owed. REFERRAL_PAYABLE (no payee balance; not settled by a payout) and RESERVE_HELD (nobody's until released into a payable) are left out on purpose
   owedBack: { cents: number };                        // now, not windowed; informational: Σ over each payee of |min(0, payable balance)| — what payees owe BACK after a refund that followed a payout; never netted into owed
@@ -264,6 +265,10 @@ type FinanceOverview = {
 - New write actions.
 - Zoho changes.
 - Showing invoices to Finance.
+- Netting `RefundDue` (refunds BTG sends by hand, e.g. a bank transfer or cheque order) out
+  of **Money in**: today only `PaymentRefund` (the card provider's own refund) is subtracted.
+  A hand-sent refund of a card-paid order still reduces what the sponsor is owed, but not yet
+  what the Treasury counts as having come in this period — a follow-up decision, not a bug.
 
 ## 10. Bookkeeping
 

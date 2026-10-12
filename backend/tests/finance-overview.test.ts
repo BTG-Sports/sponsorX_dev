@@ -209,6 +209,20 @@ describe.skipIf(!hasDatabase)("GET /finance/overview — the Treasury (P1-ART-25
     await prisma.paymentDispute.create({ data: { id: `${p}-dispute1`, tenantId, orderId: `${p}-order1`, sponsorId: `${p}-sp1`, provider: "standin", providerDisputeRef: `${p}-dp1`, amountCents: 900, state: "OPEN", openedAt: ago(1) } });
     await prisma.paymentEvent.create({ data: { id: `${p}-event1`, tenantId, provider: "standin", providerEventId: `${p}-evt1`, type: "payment.failed", occurredAt: ago(1), payload: {}, status: "HELD", outcome: `${p} held for BTG`, appliedAt: ago(1), resolvedAt: null } });
 
+    /* Sponsor invoices (Zoho, read-only mirror): one paid, one overdue by
+       31-60 days — reconciliationTotals' own aging cut — so the BTG-admin
+       `invoices` assertion checks a real invoiced/collected/rate/aging
+       rather than an empty set. Tied to `${p}-campaign1`, which already has
+       an order with an earning in scope (reconciliationSet's own join). */
+    await prisma.campaignInvoice.create({ data: {
+      id: `${p}-invoice-paid`, tenantId, campaignId: `${p}-campaign1`, zohoInvoiceId: `${p}-zoho-paid`,
+      status: "paid", amount: 5_000, issuedAt: ago(20), dueAt: ago(10), paidAt: ago(10),
+    } });
+    await prisma.campaignInvoice.create({ data: {
+      id: `${p}-invoice-overdue`, tenantId, campaignId: `${p}-campaign1`, zohoInvoiceId: `${p}-zoho-overdue`,
+      status: "overdue", amount: 3_000, issuedAt: ago(70), dueAt: ago(45),
+    } });
+
     /* Two logins for the HTTP test. */
     await prisma.user.create({ data: { id: `${p}-u-fin`, tenantId, clerkId: `${p}-clerk-fin`, email: `${p}-fin@fov-test.invalid`, roles: ["FINANCE"] } });
     await prisma.user.create({ data: { id: `${p}-u-sales`, tenantId, clerkId: `${p}-clerk-sales`, email: `${p}-sales@fov-test.invalid`, roles: ["SALES"] } });
@@ -228,6 +242,7 @@ describe.skipIf(!hasDatabase)("GET /finance/overview — the Treasury (P1-ART-25
     await prisma.ledgerEntry.deleteMany({ where });
     await prisma.earning.deleteMany({ where });
     await prisma.campaignOrder.deleteMany({ where });
+    await prisma.campaignInvoice.deleteMany({ where });
     await prisma.campaign.deleteMany({ where });
     await prisma.nilJob.deleteMany({ where });
     await prisma.payout.deleteMany({ where });
@@ -357,9 +372,17 @@ describe.skipIf(!hasDatabase)("GET /finance/overview — the Treasury (P1-ART-25
     });
   });
 
-  it("BTG admin also gets the invoice totals", async () => {
+  it("BTG admin also gets the invoice totals — one paid, one overdue 31-60 days", async () => {
     const o = await financeOverview(btgAdmin, { range: "30d" }, NOW);
-    expect(o.invoices).toEqual({ invoicedCents: 0, collectedCents: 0, rate: null, aging: [0, 0, 0, 0] });
+    /* own-tenant scope (policy.ts): only this tenant's two invoices, never t2's. */
+    expect(o.invoices).toEqual({ invoicedCents: 8_000, collectedCents: 5_000, rate: 63, aging: [0, 0, 3_000, 0] });
+  });
+
+  it("needsYou.payouts.count agrees with listPayouts' own waiting-on-BTG figure", async () => {
+    const { listPayouts } = await import("../src/domain/payouts");
+    const o = await financeOverview(finance, { range: "30d" }, NOW);
+    const list = await listPayouts(finance);
+    expect(o.needsYou.payouts.count).toBe(list.waiting.BTG);
   });
 
   it("compares with the previous equal window, and not for all time", async () => {

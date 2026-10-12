@@ -11,10 +11,6 @@ import { useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from 
 
 import { monotonePath } from "@/lib/monotone-path";
 
-// re-exported: this is where monotonePath used to live, and vault-flow.tsx
-// (P1-ART-25) still imports it from here
-export { monotonePath };
-
 export type TrendPoint = { day: string; views: number; clicks: number; redeems: number };
 type Metric = "views" | "clicks" | "redeems";
 const METRICS: { key: Metric; label: string; unit: string }[] = [

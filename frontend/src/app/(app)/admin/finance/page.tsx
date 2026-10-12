@@ -179,7 +179,7 @@ function TreasuryView({ t }: { t: Treasury }) {
             value={ov.moneyIn.cents}
             delta={d(ov.moneyIn.cents, ov.moneyIn.prev)}
             deltaLabel={prev}
-            hint="Card payments taken for marketplace orders in this period, less card refunds."
+            hint="Marketplace orders paid in this period (by card or invoice), less refunds the card provider made."
             delay={0.08}
           />
           <VaultTile
@@ -193,7 +193,13 @@ function TreasuryView({ t }: { t: Treasury }) {
           <VaultTile
             label="Owed to payees"
             value={ov.owed.cents}
-            caption="earned, not paid yet"
+            caption={
+              ov.owedBack && ov.owedBack.cents > 0 ? (
+                <>earned, not paid yet · {usd0(ov.owedBack.cents)} owed back by payees</>
+              ) : (
+                "earned, not paid yet"
+              )
+            }
             hint="Athlete earnings not yet paid, plus what the marketplace owes athletes and properties."
             delay={0.16}
           />
@@ -218,7 +224,7 @@ function TreasuryView({ t }: { t: Treasury }) {
             value={waiting}
             format="int"
             tone={waiting ? "you" : undefined}
-            badge={waiting}
+            badge={waiting > 0 ? waiting : undefined}
             caption="items waiting on BTG"
             delay={0.24}
           />
@@ -227,9 +233,9 @@ function TreasuryView({ t }: { t: Treasury }) {
 
       {/* ③ what waits on BTG, one deposit box per desk */}
       <section aria-label="Needs you" className="mt-4 grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <VaultBox label="Payouts to approve" count={ov.needsYou.payouts.count} cents={ov.needsYou.payouts.cents} sub={oldest(ov.needsYou.payouts.oldestAt)} href="/admin/payouts" open="Open Payouts" delay={0.28} />
+        <VaultBox label="Payouts waiting on BTG" count={ov.needsYou.payouts.count} cents={ov.needsYou.payouts.cents} sub={oldest(ov.needsYou.payouts.oldestAt)} href="/admin/payouts" open="Open Payouts" delay={0.28} />
         <VaultBox label="Refunds to send" count={ov.needsYou.refunds.count} cents={ov.needsYou.refunds.cents} sub={oldest(ov.needsYou.refunds.oldestAt)} href="/admin/refunds" open="Open Refunds" delay={0.32} />
-        <VaultBox label="Disputes open" count={ov.needsYou.disputes.count} cents={ov.needsYou.disputes.cents} sub="money frozen" href="/admin/payments/disputes" open="Open Disputes" delay={0.36} />
+        <VaultBox label="Disputes unresolved" count={ov.needsYou.disputes.count} cents={ov.needsYou.disputes.cents} sub="money frozen" href="/admin/payments/disputes" open="Open Disputes" delay={0.36} />
         <VaultBox label="Payment events held" count={ov.needsYou.events.count} sub="the payment provider sent something we couldn't apply" href="/admin/payments/events" open="Open Payment events" delay={0.4} />
       </section>
 

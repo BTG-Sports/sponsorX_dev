@@ -31,11 +31,15 @@ const TITLE = "Commission";
 export default async function CommissionPage() {
   const actor = await requirePortalAccess("admin");
   const readAt = new Date().toISOString();
+  const admin = isCommissionAdmin(actor.roles);
+  /* No data is read on the branch below, so there is nothing live to show
+     the pill for — the Live pill appears only once the rules are actually
+     fetched (P1-ART-25 review). */
   const head = (
-    <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>} actions={<StadiumHint skin="vault" label="About this desk" text="How each marketplace sale is split. A change applies to orders approved from then on; approved orders keep the split they were approved with." />} />
+    <VaultHead title={TITLE} pill={admin ? <>Live · <VaultUpdated iso={readAt} /></> : undefined} actions={<StadiumHint skin="vault" label="About this desk" text="How each marketplace sale is split. A change applies to orders approved from then on; approved orders keep the split they were approved with." />} />
   );
 
-  if (!isCommissionAdmin(actor.roles)) {
+  if (!admin) {
     return (
       <div className="space-y-6">
         {head}

@@ -17,10 +17,6 @@ import { useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from 
 import { formatCount } from "@/lib/format-count";
 import { compact, flowPaths, type FlowPoint } from "@/lib/monotone-path";
 
-// re-exported: this is where flowPaths/FlowPoint/compact used to live
-export { compact, flowPaths };
-export type { FlowPoint };
-
 const usd = (cents: number) => formatCount(cents, "usd0");
 const fmtDay = (iso: string, week: boolean) => {
   const s = new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });

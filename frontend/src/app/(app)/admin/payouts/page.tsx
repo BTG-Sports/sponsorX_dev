@@ -115,7 +115,7 @@ export default async function PayoutApprovalsPage({ searchParams }: { searchPara
         }
       >
         <VaultTiles cols={4}>
-          <VaultTile label="Waiting on BTG" value={waiting} format="int" tone={waiting > 0 ? "you" : undefined} badge={waiting > 0 ? waiting : undefined} href={`${PATH}?tab=waiting`} delay={0.08} />
+          <VaultTile label="Waiting for approval" value={waiting} format="int" tone={waiting > 0 ? "you" : undefined} badge={waiting > 0 ? waiting : undefined} href={`${PATH}?tab=waiting`} delay={0.08} />
           <VaultTile
             label="Sending"
             value={sending}

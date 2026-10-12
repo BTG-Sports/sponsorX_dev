@@ -64,7 +64,7 @@ const STATE_WORD: Record<string, string> = {
 
 /** A non-numeric tile — the same double-rule frame as VaultTile, for text
  *  (the payee's name, a chip, a date) rather than a counted figure. Kept
- *  local rather than added to the kit (vault-stage.tsx is not ours to edit). */
+ *  local rather than added to the kit. */
 function InfoTile({ label, children, delay = 0.1 }: { label: string; children: ReactNode; delay?: number }) {
   return (
     <div data-spot="" className="sx-vault-frame sx-vault-in px-4 pb-3.5 pt-3.5" style={at(delay)}>

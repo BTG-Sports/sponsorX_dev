@@ -127,7 +127,7 @@ export async function financeOverview(actor: Actor, opts: { range: RangeKey }, n
     /* Every status, per payee: see "Owed" in the header. */
     prisma.ledgerEntry.groupBy({ /* tenant-scope: whereFor(ledgerEntry). */ by: ["partyTenantId", "partyType", "partyId"], where: { AND: [s.ledger, { account: { in: PAYABLE } }] }, _sum: { creditCents: true, debitCents: true } } as never) as unknown as Promise<{ _sum: { creditCents: number | null; debitCents: number | null } }[]>,
     prisma.ledgerEntry.groupBy({ /* tenant-scope: whereFor(ledgerEntry). */ by: ["account"], where: { AND: [s.ledger, { OR: SALES_JOURNALS, createdAt: { gte: w.from, lt: w.to } }] }, _sum: { creditCents: true, debitCents: true } } as never) as unknown as Promise<{ account: string; _sum: { creditCents: number | null; debitCents: number | null } }[]>,
-    prisma.payout.findMany({ /* tenant-scope: whereFor(payout) first; the BTG list's own "waits on BTG" rule. */ where: { AND: [s.payout, waitingOnWhere("BTG")] }, select: { amountCents: true, requestedAt: true } }),
+    prisma.payout.aggregate({ /* tenant-scope: whereFor(payout) first; the BTG list's own "waits on BTG" rule. */ where: { AND: [s.payout, waitingOnWhere("BTG")] }, _count: { _all: true }, _sum: { amountCents: true }, _min: { requestedAt: true } }),
     prisma.refundDue.aggregate({ /* tenant-scope: whereFor(refundDue) first. */ where: { AND: [s.refund, { state: "OPEN" }] }, _count: { _all: true }, _sum: { amountCents: true }, _min: { createdAt: true } }),
     prisma.paymentDispute.aggregate({ /* tenant-scope: whereFor(paymentDispute) first. */ where: { AND: [s.dispute, { state: { in: [...OPEN_DISPUTE] } }] }, _count: { _all: true }, _sum: { amountCents: true } }),
     prisma.paymentEvent.count({ /* tenant-scope: whereFor(paymentEvent); the desk's waitingOnBtg rule. */ where: { AND: [s.event, WAITING_ON_BTG] } }),
@@ -172,9 +172,9 @@ export async function financeOverview(actor: Actor, opts: { range: RangeKey }, n
     earningsByState,
     needsYou: {
       payouts: {
-        count: waitingPayouts.length,
-        cents: waitingPayouts.reduce((n, p) => n + p.amountCents, 0),
-        oldestAt: waitingPayouts.reduce<Date | null>((m, p) => (!m || p.requestedAt < m ? p.requestedAt : m), null)?.toISOString() ?? null,
+        count: waitingPayouts._count._all,
+        cents: waitingPayouts._sum.amountCents ?? 0,
+        oldestAt: waitingPayouts._min.requestedAt?.toISOString() ?? null,
       },
       refunds: { count: openRefunds._count._all, cents: openRefunds._sum.amountCents ?? 0, oldestAt: openRefunds._min.createdAt?.toISOString() ?? null },
       disputes: { count: disputes._count._all, cents: disputes._sum.amountCents ?? 0 },

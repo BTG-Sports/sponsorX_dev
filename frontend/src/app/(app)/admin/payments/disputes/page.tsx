@@ -70,7 +70,7 @@ export default async function DisputesPage({ searchParams }: { searchParams: Pro
     <div className="space-y-5">
       <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>} actions={<StadiumHint skin="vault" label="About this desk" text="Card payments sponsors disputed with the provider. A dispute freezes its order’s money — no payout or refund moves — until a BTG admin resolves it to the provider’s outcome." />}>
         <VaultTiles cols={4}>
-          <VaultTile label="Open" value={list.counts.OPEN} format="int" tone={list.counts.OPEN ? "you" : undefined} badge={list.counts.OPEN} caption={list.counts.OPEN ? "waiting to be taken for review" : "nothing waiting"} delay={0.08} />
+          <VaultTile label="Open" value={list.counts.OPEN} format="int" tone={list.counts.OPEN ? "you" : undefined} badge={list.counts.OPEN > 0 ? list.counts.OPEN : undefined} caption={list.counts.OPEN ? "waiting to be taken for review" : "nothing waiting"} delay={0.08} />
           <VaultTile label="Under review" value={list.counts.UNDER_REVIEW} format="int" caption={waiting ? `${waiting} order${waiting === 1 ? "" : "s"} frozen` : "no money frozen"} delay={0.12} />
           <VaultTile label="Won" value={list.counts.WON} format="int" caption="money unfrozen" delay={0.16} />
           <VaultTile label="Lost" value={list.counts.LOST} format="int" caption="books reversed" delay={0.2} />

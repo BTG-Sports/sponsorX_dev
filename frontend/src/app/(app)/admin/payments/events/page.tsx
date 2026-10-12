@@ -76,7 +76,7 @@ export default async function PaymentEventsPage({ searchParams }: { searchParams
     <div className="space-y-5">
       <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>} actions={<StadiumHint skin="vault" label="About this desk" text="What the payment provider told SponsorX and what was done with it. Held and failed events wait for a BTG admin; deferred ones wait for the event they follow." />}>
         <VaultTiles cols={5}>
-          <VaultTile label="Needs BTG" value={list.waitingOnBtg} format="int" tone={list.waitingOnBtg ? "you" : undefined} badge={list.waitingOnBtg} caption="held or failed, not yet dealt with" delay={0.08} />
+          <VaultTile label="Needs BTG" value={list.waitingOnBtg} format="int" tone={list.waitingOnBtg ? "you" : undefined} badge={list.waitingOnBtg > 0 ? list.waitingOnBtg : undefined} caption="held or failed, not yet dealt with" delay={0.08} />
           <VaultTile label="Applied" value={list.counts.APPLIED} format="int" caption="all time" delay={0.12} />
           <VaultTile label="Held" value={list.counts.HELD} format="int" caption="all time, incl. resolved" delay={0.16} />
           <VaultTile label="Failed" value={list.counts.FAILED} format="int" caption="all time, incl. resolved" delay={0.2} />

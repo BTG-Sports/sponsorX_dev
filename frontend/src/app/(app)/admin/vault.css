@@ -21,9 +21,8 @@
    class more specific than the ops rules they replace in globals.css, so
    they win whatever order the two files load in. The phone menu is
    portaled to <body>, so it is reached through an ANCESTOR carrying
-   `.sx-vault` (StageRoot adds that class — only that class, never
-   `data-vault` — to <body> while a Vault route is open) — see "the phone
-   menu" below.
+   `sx-vault` and `data-vault` (StageRoot sets both on <body> while a Vault
+   route is open) — see "the phone menu" below.
 
    Unlayered, like stadium.css and mobile-nav.css, so these rules beat
    Tailwind's utilities on the same element — they set colour, border and
@@ -774,8 +773,7 @@ a:focus-visible > .sx-vault-key > svg { transform: rotate(90deg); }
 
 /* the phone menu ------------------------------------------------------------------ */
 /* Portaled to <body>: reached when <body> (or any ancestor) is the Vault —
-   StageRoot carries `sx-vault` (the class only, never `data-vault`) there
-   on a money route.
+   StageRoot sets `sx-vault` and `data-vault` there on a money route.
    Ops gives it a floor grid, a scan sweep, chamfered tiles and brackets;
    here: a guilloché of engine-turned rings, a double rule under the head,
    square double-ruled tiles, gold for the lit one. */

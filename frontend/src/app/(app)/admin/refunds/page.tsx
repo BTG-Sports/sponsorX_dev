@@ -69,7 +69,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
     <div className="space-y-5">
       <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>} actions={<StadiumHint skin="vault" label="About this desk" text="Money owed back to sponsors, sent by hand for now. Card payments are refunded automatically once the payment provider is connected." />}>
         <VaultTiles cols={2}>
-          <VaultTile label="To send" value={list.counts.open} format="int" caption={list.counts.open > 0 ? openSummary(list) : undefined} tone={list.counts.open ? "you" : undefined} badge={list.counts.open} delay={0.08} />
+          <VaultTile label="To send" value={list.counts.open} format="int" caption={list.counts.open > 0 ? openSummary(list) : undefined} tone={list.counts.open ? "you" : undefined} badge={list.counts.open > 0 ? list.counts.open : undefined} delay={0.08} />
           <VaultTile label="Sent" value={list.counts.sent} format="int" delay={0.12} />
         </VaultTiles>
       </VaultHead>
