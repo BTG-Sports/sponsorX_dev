@@ -12,8 +12,11 @@ import { useEffect, useRef, useState } from "react";
    via static class maps so Tailwind sees every utility.
    -------------------------------------------------------------------------- */
 
-/** Portal tints. The advisor desk uses "next" (one programme, one violet). */
-export type FilterTone = "athlete" | "admin" | "sponsor" | "property" | "next";
+/** Portal tints. The advisor desk uses "next" (one programme, one violet).
+    Finance's "vault" is gold-on-bank-green, not a CSS custom property like
+    the others — brushed gold is a fixed brand colour, not a per-tenant tint —
+    so its entries below are literal hex arbitrary values. */
+export type FilterTone = "athlete" | "admin" | "sponsor" | "property" | "next" | "vault";
 
 const TONE = {
   athlete: {
@@ -41,7 +44,24 @@ const TONE = {
     trigger: "border-next/40",
     search: "focus:border-next/50 focus-visible:ring-next/30",
   },
+  vault: {
+    chip: "border-[#d4b062]/30 bg-[#d4b062]/10",
+    trigger: "border-[#d4b062]/40",
+    search: "focus:border-[#d4b062]/70 focus-visible:ring-[#d4b062]/60",
+  },
 } satisfies Record<FilterTone, { chip: string; trigger: string; search: string }>;
+
+/** The selected row in a Dropdown's option list: check mark + label. Flat
+    (text-accent / text-text) for every existing portal, unchanged — only the
+    vault's engraved gold (#f1dfa6) replaces both. */
+const OPTION_TONE = {
+  athlete: { check: "text-accent", text: "text-text" },
+  admin: { check: "text-accent", text: "text-text" },
+  sponsor: { check: "text-accent", text: "text-text" },
+  property: { check: "text-accent", text: "text-text" },
+  next: { check: "text-accent", text: "text-text" },
+  vault: { check: "text-[#f1dfa6]", text: "text-[#f1dfa6]" },
+} satisfies Record<FilterTone, { check: string; text: string }>;
 
 /* ------------------------------------------------------------------ icons */
 
@@ -74,7 +94,14 @@ export function ChevronDown({ open }: { open: boolean }) {
   );
 }
 
-export function CheckIcon({ visible }: { visible: boolean }) {
+export function CheckIcon({
+  visible,
+  className = "text-accent",
+}: {
+  visible: boolean;
+  /** Tint override — the vault tone passes its gold (OPTION_TONE). */
+  className?: string;
+}) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -84,7 +111,8 @@ export function CheckIcon({ visible }: { visible: boolean }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       className={[
-        "size-3 shrink-0 text-accent",
+        "size-3 shrink-0",
+        className,
         visible ? "" : "invisible",
       ].join(" ")}
       aria-hidden="true"
@@ -249,6 +277,7 @@ export function Dropdown({
   includeAll = true,
   placement = "down",
   block = false,
+  disabled = false,
 }: {
   /** aria-label of the control, e.g. "Filter by status". */
   label: string;
@@ -268,6 +297,8 @@ export function Dropdown({
       pinned right, matching text inputs — for use as a form field rather than
       an inline toolbar pill. */
   block?: boolean;
+  /** A form field that can't change right now (e.g. a package's kind). */
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -289,8 +320,9 @@ export function Dropdown({
         aria-label={label}
         aria-haspopup="listbox"
         aria-expanded={open}
+        disabled={disabled}
         onClick={() => setOpen((v) => !v)}
-        className={[triggerCls(Boolean(value), open, tone), block ? "w-full justify-between" : ""].join(" ")}
+        className={[triggerCls(Boolean(value), open, tone), block ? "w-full justify-between" : "", disabled ? "cursor-not-allowed opacity-50" : ""].join(" ")}
       >
         <span className={block ? "min-w-0 truncate" : ""}>
           {current?.label ?? allLabel}
@@ -298,10 +330,11 @@ export function Dropdown({
         <ChevronDown open={open} />
       </button>
 
-      {open && (
+      {open && !disabled && (
         <div
           className={[
-            "sx-pop absolute right-0 z-30 min-w-full w-max overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-xl",
+            /* max-h + scroll: a form list (44 brand categories) must not run off the page. */
+            "sx-pop absolute right-0 z-30 min-w-full w-max max-h-72 overflow-y-auto rounded-xl border border-line bg-surface py-1 shadow-xl",
             placement === "up" ? "bottom-full mb-1.5" : "top-full mt-1.5",
           ].join(" ")}
           role="listbox"
@@ -321,10 +354,10 @@ export function Dropdown({
                 }}
                 className={[
                   "flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-surface-2",
-                  selected ? "font-medium text-text" : "text-muted",
+                  selected ? `font-medium ${OPTION_TONE[tone].text}` : "text-muted",
                 ].join(" ")}
               >
-                <CheckIcon visible={selected} />
+                <CheckIcon visible={selected} className={OPTION_TONE[tone].check} />
                 {o.label}
               </button>
             );
