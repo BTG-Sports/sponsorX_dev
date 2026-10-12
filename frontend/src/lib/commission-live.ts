@@ -73,6 +73,19 @@ export function rateLabel(r: Pick<ApiRule, "bps" | "fixedCents">): string {
   return r.fixedCents ? `${pctLabel(r.bps)} + ${usd(r.fixedCents)}` : pctLabel(r.bps);
 }
 
+/** Still applying: no end, or an end that hasn't arrived yet. */
+export function inForce(r: Pick<ApiRule, "effectiveTo">, now: Date = new Date()): boolean {
+  return r.effectiveTo === null || new Date(r.effectiveTo) > now;
+}
+
+/** The commission desk's two head tiles (P1-ART-25): how many rules are in
+ *  force, and how many of the six kinds (KINDS.length) at least one of them
+ *  covers. From the rules list alone — no new read. */
+export function commissionTiles(rules: ApiRule[], now: Date = new Date()): { inForce: number; kindsCovered: number } {
+  const live = rules.filter((r) => inForce(r, now));
+  return { inForce: live.length, kindsCovered: new Set(live.map((r) => r.kind)).size };
+}
+
 export type RuleGroup = { kind: RuleKind; label: string; hint: string; current: ApiRule[]; history: Record<string, ApiRule[]> };
 
 /**

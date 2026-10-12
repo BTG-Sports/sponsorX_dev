@@ -37,6 +37,10 @@ import {
 
    The API decides everything that matters (which rule applies, versions,
    the split); this only shows its answers.
+
+   On the Vault (P1-ART-25): bank green and brushed gold throughout (the
+   strip, the flash, the rule dialog) — used by /admin/commission alone, so
+   restyled with it rather than left on the ops-blue it was built in.
    -------------------------------------------------------------------------- */
 
 type Result<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -60,7 +64,7 @@ export function CommissionEditor({ rules, actions }: { rules: ApiRule[]; actions
       <SplitStrip groups={groups} active={kind} onPick={(k) => { setKind(k); setFlash(null); }} />
 
       {flash && (
-        <p role="status" className="sx-ops-in rounded-lg border border-[#22c55e]/40 bg-[#22c55e]/10 px-3.5 py-2.5 text-xs text-[#86efac]">
+        <p role="status" className="sx-ops-in rounded-lg border border-[#3ddc97]/40 bg-[#3ddc97]/10 px-3.5 py-2.5 text-xs text-[#3ddc97]">
           {flash}
         </p>
       )}
@@ -111,19 +115,19 @@ function SplitStrip({ groups, active, onPick }: { groups: RuleGroup[]; active: R
                 aria-label={`${g.label}: ${s.headline === "—" ? "no rate for everyone" : s.headline}, ${s.caption}`}
                 className={`relative block w-full min-w-0 rounded-md border px-3.5 pb-3 pt-3 text-left transition-all duration-300 ${
                   on
-                    ? "border-[#9be0ff] bg-[#0d1b2e]/90 shadow-[0_0_22px_rgba(46,155,245,.35)]"
-                    : "border-[#63b4f8]/22 bg-[#0a1424]/70 hover:border-[#63b4f8]/60 hover:bg-[#0c1829]/90"
+                    ? "border-[#f1dfa6] bg-[#0f2119]/90 shadow-[0_0_22px_rgba(212,176,98,.35)]"
+                    : "border-[#d4b062]/22 bg-[#0b1912]/70 hover:border-[#d4b062]/60 hover:bg-[#0f2119]/90"
                 }`}
               >
-                <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-[2px] ${on ? "bg-[#9be0ff] shadow-[0_0_10px_#9be0ff]" : s.empty ? "bg-white/10" : "bg-[#2e9bf5]"}`} />
-                <span className="flex items-baseline gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a96a3]">
-                  <span className="font-mono text-[#9be0ff]/70">{String(i + 1).padStart(2, "0")}</span>
+                <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-[2px] ${on ? "bg-[#f1dfa6] shadow-[0_0_10px_#f1dfa6]" : s.empty ? "bg-white/10" : "bg-[#d4b062]"}`} />
+                <span className="flex items-baseline gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#a99b74]">
+                  <span className="font-mono text-[#f1dfa6]/70">{String(i + 1).padStart(2, "0")}</span>
                   <span className="truncate">{g.label}</span>
                 </span>
-                <span className={`mt-1.5 block truncate text-[22px] font-bold leading-none tracking-tight tabular-nums ${s.empty ? "text-[#5b6b7d]" : on ? "text-white" : "text-[#cfe9ff]"}`}>
+                <span className={`mt-1.5 block truncate text-[22px] font-bold leading-none tracking-tight tabular-nums ${s.empty ? "text-[#8a8064]" : on ? "text-white" : "text-[#ece5cf]"}`}>
                   {s.headline}
                 </span>
-                <span className="mt-1.5 block truncate text-[11px] text-[#7e88a0]">{s.caption}</span>
+                <span className="mt-1.5 block truncate text-[11px] text-[#a99b74]">{s.caption}</span>
               </button>
             </li>
           );
@@ -208,7 +212,7 @@ function KindPanel({ group, onAdd, onRevise }: { group: RuleGroup; onAdd: () => 
               main,
               <tr key={`${r.id}-h`} id={`rule-history-${r.id}`} className="sx-table-detail">
                 <Td colSpan={COLUMNS.length}>
-                  <ol className="space-y-1 border-l border-[#63b4f8]/30 pl-3 text-[11px] text-muted">
+                  <ol className="space-y-1 border-l border-[#d4b062]/30 pl-3 text-[11px] text-muted">
                     {history.map((h) => (
                       <li key={h.id}>
                         <span className="tabular-nums text-text">v{h.version}</span> · {rateLabel(h)}, priority {h.priority} · {sinceLabel(h.effectiveFrom)} → {h.effectiveTo ? sinceLabel(h.effectiveTo) : "now"}

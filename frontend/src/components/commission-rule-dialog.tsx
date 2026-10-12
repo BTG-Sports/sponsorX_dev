@@ -14,8 +14,9 @@ import {
 
 /* --------------------------------------------------------------------------
    The commission desk's rule dialog (P1-ART-19, 2S5-FE-01) — "Add a rule"
-   and "Revise" as one popup, in the sign-up rules dialog's shape (P1-ART-17:
-   chamfered night glass, named dropdowns, nothing typed that isn't a choice).
+   and "Revise" as one popup: named dropdowns, nothing typed that isn't a
+   choice. On the Vault (P1-ART-25): bank green and brushed gold, square
+   corners — never the sign-up dialog's chamfer.
 
    - ADD: what it is and who it applies to are dropdowns (the kind is preset
      from the tile that opened it); a property type is a dropdown too; a
@@ -32,7 +33,6 @@ import {
    `.sx-ops`, so it is the night stage in both themes.
    -------------------------------------------------------------------------- */
 
-const CHAMFER = "[clip-path:polygon(0_0,calc(100%-14px)_0,100%_14px,100%_100%,14px_100%,0_calc(100%-14px))]";
 const KIND_OPTIONS = KINDS.map((k) => ({ code: k.kind, name: k.label }));
 const SCOPE_OPTIONS = SCOPES.map((s) => ({ code: s.scope, name: s.label }));
 const PROPERTY_OPTIONS = PROPERTY_KINDS.map((k) => ({ code: k, name: k.charAt(0) + k.slice(1).toLowerCase() }));
@@ -116,21 +116,21 @@ export function RuleDialog({
   if (!mounted) return null;
   return createPortal(
     <div className="sx-ops fixed inset-0 z-50 grid place-items-center p-4" role="presentation">
-      <button type="button" tabIndex={-1} aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-[#02050b]/75" />
+      <button type="button" tabIndex={-1} aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-[#040a06]/75" />
       <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="rule-dialog-title" className="sx-pop relative w-full max-w-xl">
-        <span aria-hidden="true" className="pointer-events-none absolute -inset-2 rounded-2xl bg-gradient-to-br from-[#2e9bf5]/45 via-[#9be0ff]/15 to-[#f97a1f]/25 blur-xl" />
-        <div className={`relative max-h-[calc(100vh-2rem)] overflow-y-auto bg-[radial-gradient(90%_60%_at_0%_0%,rgba(46,155,245,.22),transparent_70%),linear-gradient(160deg,#0c1828,#060b14)] px-6 pb-6 pt-5 ${CHAMFER}`}>
-          <span aria-hidden="true" className="pointer-events-none absolute inset-0 border border-[#63b4f8]/35 [clip-path:inherit]" />
+        <span aria-hidden="true" className="pointer-events-none absolute -inset-2 rounded-2xl bg-gradient-to-br from-[#d4b062]/45 via-[#f1dfa6]/15 to-[#d4b062]/25 blur-xl" />
+        <div className="relative max-h-[calc(100vh-2rem)] overflow-y-auto bg-[radial-gradient(90%_60%_at_0%_0%,rgba(212,176,98,.16),transparent_70%),linear-gradient(160deg,#0f2119,#050d09)] px-6 pb-6 pt-5">
+          <span aria-hidden="true" className="pointer-events-none absolute inset-0 border border-[#d4b062]/35" />
 
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#9be0ff]">{editing ? `Revise · version ${editing.version + 1}` : "Add a rule"}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#f1dfa6]">{editing ? `Revise · version ${editing.version + 1}` : "Add a rule"}</p>
               <h2 id="rule-dialog-title" className="mt-1 text-lg font-bold tracking-tight text-white">
                 {editing ? `${kind.label} · ${scopeLabel(editing)}` : kind.label}
               </h2>
-              <p className="mt-1 text-[11px] text-[#8a96a3]">{kind.hint}.{editing ? ` Saving starts version ${editing.version + 1} from now; orders already approved keep version ${editing.version}.` : " Applies to orders approved from now on."}</p>
+              <p className="mt-1 text-[11px] text-[#a99b74]">{kind.hint}.{editing ? ` Saving starts version ${editing.version + 1} from now; orders already approved keep version ${editing.version}.` : " Applies to orders approved from now on."}</p>
             </div>
-            <button type="button" onClick={onClose} aria-label="Close" className="grid size-9 shrink-0 place-items-center rounded-full border border-[#63b4f8]/30 text-[#cfe9ff] hover:bg-white/5">×</button>
+            <button type="button" onClick={onClose} aria-label="Close" className="grid size-9 shrink-0 place-items-center rounded-full border border-[#d4b062]/30 text-[#ece5cf] hover:bg-white/5">×</button>
           </div>
 
           <form className="mt-5 space-y-3.5" onSubmit={(e) => { e.preventDefault(); save(); }}>
@@ -162,13 +162,13 @@ export function RuleDialog({
                 </label>
               )}
               <label className="block">
-                <span className={fieldLabel}>Priority <span className="text-[#5b6b7d]">(higher wins)</span></span>
+                <span className={fieldLabel}>Priority <span className="text-[#8a8064]">(higher wins)</span></span>
                 <input className={`${field} tabular-nums`} inputMode="numeric" value={form.priority} onChange={(e) => set({ priority: e.target.value })} />
               </label>
             </div>
 
             <label className="block">
-              <span className={fieldLabel}>Note <span className="text-[#5b6b7d]">(optional)</span></span>
+              <span className={fieldLabel}>Note <span className="text-[#8a8064]">(optional)</span></span>
               <input className={field} value={form.note} onChange={(e) => set({ note: e.target.value })} maxLength={500} placeholder="Why this rate — e.g. agreed with Bowie Bulldogs, Sept 2026" />
             </label>
 
@@ -176,12 +176,12 @@ export function RuleDialog({
 
             {compare && (
               <div>
-                <p className="mb-1.5 text-[11px] text-[#8a96a3]">The sample order on the desk, in effect and with this rule:</p>
+                <p className="mb-1.5 text-[11px] text-[#a99b74]">The sample order on the desk, in effect and with this rule:</p>
                 <PreviewTable result={compare} />
               </div>
             )}
 
-            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#63b4f8]/15 pt-4">
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#d4b062]/15 pt-4">
               <button type="button" className={`${btnQuiet} mr-auto`} onClick={runPreview} disabled={previewing || saving}>
                 {previewing ? "Working it out…" : compare ? "Preview again" : "Preview with this rule"}
               </button>

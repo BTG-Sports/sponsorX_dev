@@ -1,10 +1,9 @@
 import Link from "next/link";
 
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
-import { KpiTile } from "@/components/ops-stage";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
-import { EmptyState, SkeletonRows } from "@/components/states";
-import { Badge } from "@/components/ui";
+import { EmptyState } from "@/components/states";
+import { VaultChip, VaultGhost, VaultHead, VaultTile, VaultTiles, VaultUpdated, at, type VaultTone } from "@/components/vault-stage";
 import { demoState } from "@/lib/demo";
 import {
   DISPUTE_TABS, EMPTY_DISPUTE_LIST, amountWords, disputeTab, providerWords, reasonWords, stateLabel, stateTone, type ApiDisputeList,
@@ -13,11 +12,17 @@ import { apiListQuery } from "@/lib/list-query";
 import { agoLabel } from "@/lib/marketplace-ops-live";
 import { apiFetch } from "@/server/api";
 
+/** stateTone's order-automation Tone, read as a VaultTone: open (warn) is
+ *  waiting on BTG; won (accent) and lost (danger) read good / late; under
+ *  review (primary) is a quiet info word. ("neutral" is unused by
+ *  stateTone, kept only so the Record is total.) */
+const DISPUTE_CHIP: Record<ReturnType<typeof stateTone>, VaultTone> = { warn: "you", accent: "good", danger: "late", primary: "info", neutral: "info" };
+
 /* --------------------------------------------------------------------------
    Disputes — 2S5-FE-08. A sponsor disputed a card payment with the provider
    (2S5-BE-03): its order's money is frozen until a BTG admin resolves it to
-   the outcome the provider reports. A dashboard on the Mission Control
-   stage: small title, four tiles from the API's counts, then the work.
+   the outcome the provider reports. A dashboard on the Vault (P1-ART-25):
+   small title, four tiles from the API's counts, then the work.
 
    Reads  GET /disputes?state&page&size   { counts, disputes, page? }
    BTG admin and Finance (paymentDispute read). The actions live on the
@@ -31,14 +36,7 @@ const TITLE = "Disputes";
 
 export default async function DisputesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const demo = await demoState(searchParams);
-  if (demo === "loading") {
-    return (
-      <div className="space-y-6">
-        <h1 className="sx-page-title">{TITLE}</h1>
-        <SkeletonRows rows={3} />
-      </div>
-    );
-  }
+  if (demo === "loading") return <VaultGhost label="Loading disputes" tiles={4} rows={1} />;
   if (demo === "error") throw new Error("Demo error state");
 
   const lacking = await staffWithoutAccess(PATH);
@@ -65,21 +63,21 @@ export default async function DisputesPage({ searchParams }: { searchParams: Pro
     { key: "action", label: "Action", srOnly: true },
   ];
 
+  const readAt = new Date().toISOString();
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="sx-page-title">{TITLE}</h1>
-        <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">
+      <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>}>
+        <p className="sx-vault-in mt-2 max-w-3xl text-xs leading-relaxed text-[color:var(--vault-muted)]" style={at(0.04)}>
           Card payments sponsors disputed with the provider. A dispute freezes its order’s money — no payout or refund moves — until a BTG admin resolves it to the provider’s outcome.
         </p>
-      </div>
-
-      <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <KpiTile label="Open" value={list.counts.OPEN} caption={list.counts.OPEN ? "waiting to be taken for review" : "nothing waiting"} tone={list.counts.OPEN ? "orange" : "green"} delay={0.1} />
-        <KpiTile label="Under review" value={list.counts.UNDER_REVIEW} caption={waiting ? `${waiting} order${waiting === 1 ? "" : "s"} frozen` : "no money frozen"} tone="blue" delay={0.16} />
-        <KpiTile label="Won" value={list.counts.WON} caption="money unfrozen" tone="green" delay={0.22} />
-        <KpiTile label="Lost" value={list.counts.LOST} caption="books reversed" tone="cyan" delay={0.28} />
-      </dl>
+        <VaultTiles cols={4}>
+          <VaultTile label="Open" value={list.counts.OPEN} format="int" tone={list.counts.OPEN ? "you" : undefined} badge={list.counts.OPEN} caption={list.counts.OPEN ? "waiting to be taken for review" : "nothing waiting"} delay={0.08} />
+          <VaultTile label="Under review" value={list.counts.UNDER_REVIEW} format="int" caption={waiting ? `${waiting} order${waiting === 1 ? "" : "s"} frozen` : "no money frozen"} delay={0.12} />
+          <VaultTile label="Won" value={list.counts.WON} format="int" caption="money unfrozen" delay={0.16} />
+          <VaultTile label="Lost" value={list.counts.LOST} format="int" caption="books reversed" delay={0.2} />
+        </VaultTiles>
+      </VaultHead>
 
       <TabStrip label="Disputes">
         {DISPUTE_TABS.map((t) => (
@@ -93,14 +91,14 @@ export default async function DisputesPage({ searchParams }: { searchParams: Pro
         <EmptyState mark="inbox" title={`No ${tab.label.toLowerCase()} disputes`}
           hint={tab.key === "open" ? "Nothing waiting — every dispute has been taken for review or resolved." : tab.key === "review" ? "Disputes BTG has taken for review appear here until a BTG admin resolves them." : `Disputes resolved as ${tab.label.toLowerCase()} appear here.`} />
       ) : (
-        <PagedTable page={page} noun="Disputes" label={`Disputes · ${tab.label}`} columns={columns}>
+        <PagedTable page={page} noun="Disputes" tone="vault" label={`Disputes · ${tab.label}`} columns={columns}>
           {rows.map((d, i) => (
             <Tr key={d.id} i={i} tone={d.state === "OPEN" ? "warn" : undefined}>
               <Td><Primary sub={d.sponsorName}>{d.orderRef}</Primary></Td>
               <Td label="Amount" num className="font-semibold">{amountWords(d)}</Td>
               <Td label="Reason" muted>{reasonWords(d)}</Td>
               <Td label="Opened" muted><span title={d.openedAt}>{agoLabel(d.openedAt, now)}</span></Td>
-              <Td label="State"><Badge tone={stateTone(d.state)}>{stateLabel(d.state)}</Badge></Td>
+              <Td label="State"><VaultChip tone={DISPUTE_CHIP[stateTone(d.state)]}>{stateLabel(d.state)}</VaultChip></Td>
               <Td label="Provider" muted>{providerWords(d)}</Td>
               <Td act>
                 <Link href={`${PATH}/${encodeURIComponent(d.id)}`} aria-label={`Open the ${d.orderRef} dispute`}

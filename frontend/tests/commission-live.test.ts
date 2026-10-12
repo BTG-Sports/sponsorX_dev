@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }))
 vi.mock("../src/app/(app)/admin/new-signups/rules/actions", () => ({ setAgeRowAction: async () => ({ ok: false, message: "n/a" }), removeAgeRowAction: async () => ({ ok: false, message: "n/a" }) }));
 
 import {
-  groupRules, isCommissionAdmin, kindSummary, parseDollars, parsePercent, rateLabel, scopeLabel, toPreviewLines, toRuleInput, type ApiRule,
+  commissionTiles, groupRules, isCommissionAdmin, kindSummary, parseDollars, parsePercent, rateLabel, scopeLabel, toPreviewLines, toRuleInput, type ApiRule,
 } from "../src/lib/commission-live";
 
 /* 2S5-FE-01 — "Rules can be created, versioned and previewed against a
@@ -165,5 +165,32 @@ describe("P1-ART-19 · the split strip's tile for a kind", () => {
     expect(scoped.empty).toBe(false);
     const none = kindSummary({ current: [] });
     expect(none).toMatchObject({ headline: "—", caption: "no rule · adds nothing", empty: true, overrides: 0 });
+  });
+});
+
+describe("P1-ART-25 · the commission desk's two Vault tiles", () => {
+  const rule = (over: Partial<ApiRule>): ApiRule => ({
+    id: "r", ruleKey: "k", version: 1, kind: "PLATFORM_FEE", scope: "GLOBAL", scopeRef: null, bps: 1500, fixedCents: 0,
+    priority: 0, effectiveFrom: "2026-09-01T00:00:00Z", effectiveTo: null, note: null, ...over,
+  });
+  const now = new Date("2026-10-12T00:00:00Z");
+
+  it("counts rules still in force, and the distinct kinds among them", () => {
+    const rules = [
+      rule({ id: "1", kind: "PLATFORM_FEE" }),
+      rule({ id: "2", kind: "PROCESSING" }),
+      rule({ id: "3", kind: "PLATFORM_FEE", scope: "SPONSOR", scopeRef: "s1" }),
+      rule({ id: "4", kind: "REFERRAL", effectiveTo: "2026-09-15T00:00:00Z" }), // ended already — not in force
+    ];
+    expect(commissionTiles(rules, now)).toEqual({ inForce: 3, kindsCovered: 2 });
+  });
+
+  it("a rule whose effectiveTo hasn't arrived yet is still in force", () => {
+    const rules = [rule({ id: "1", effectiveTo: "2099-01-01T00:00:00Z" })];
+    expect(commissionTiles(rules, now)).toEqual({ inForce: 1, kindsCovered: 1 });
+  });
+
+  it("no rules at all reads as zero, not a crash", () => {
+    expect(commissionTiles([], now)).toEqual({ inForce: 0, kindsCovered: 0 });
   });
 });
