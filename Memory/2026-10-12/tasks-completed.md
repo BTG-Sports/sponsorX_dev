@@ -77,3 +77,23 @@ The user decided each one: market geography from registration plus a reward venu
   - market comes from registration plus the reward venue, never from IP.
 - **Verified:** the Appendix A SQL ran clean in an empty Postgres (10 tables and a view), and a smoke row read back through `sem.campaign_daily`.
 - **Left:** the user's review sign-off in §10, then Done.
+
+## rcfworks — the three items the warehouse design raised, finished
+
+- **3S0-BE-06 · Deliverable platform (Done).**
+  - `markPublished` now stores `Deliverable.platform`, read from the published URL's host by `src/domain/deliverable-platform.ts`. Values are INSTAGRAM, TIKTOK, YOUTUBE, X, FACEBOOK or OTHER, and a host matches only itself or its subdomains.
+  - Migration `20261012100400_deliverable_platform` backfills published rows with the same rule in SQL and adds a CHECK.
+  - A Postgres test runs the migration's UPDATE on the same 15 URLs and must agree with the code.
+  - The deliverable list returns `platform`. The audit's `after` carries it.
+- **Marketplace fact and snapshots, fully specified** (warehouse doc v1.1 §7 and Appendix A):
+  - `fact_marketplace_order_line`, an accumulating snapshot with one row per line, milestone dates and the OrderLineFinancials split;
+  - `snap_ledger_daily`;
+  - `snap_payment_status_daily`, whose closed states were checked against the code: payout PAID/REJECTED (FAILED retries), refund SENT.
+  - The appendix SQL (13 tables, 1 view) ran clean in an empty Postgres.
+- **Spec §19's product tables mapped** (warehouse doc §11):
+  - Five overlap with existing code: `sponsor_briefs` → extend `CampaignBrief`; `match_scores` → persist `match-score.ts`; pricing → `pricing-learning.ts` + `pricing.ts`/`margin-floor.ts`; `campaign_forecasts` → `delivery-health.ts`; `feature_snapshots` → the `AthleteScore` pattern.
+  - `attribution_events` is a name clash with `SalesAttribution`.
+  - "Builds on" lines were added to nine Phase 3 tasks.
+- **A correction made along the way:** only `SX-05` is an appearance job in code (`APPEARANCE_JOBS`), so `IN_PERSON` no longer includes SX-06.
+- **Verified:** tsc and eslint clean; **full backend suite 192 files / 3,089 tests pass** on Postgres.
+- **Tracker:** row 54 holds 3S0-BE-06 (Order 3.7, Done). The ranges and 15 Dashboard formulas now reach row 54. DATA-02's notes are updated, and it stays at Code review until the §10 sign-off. Phase 3 is now 51 tasks · 193 days.

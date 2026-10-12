@@ -89,6 +89,15 @@ describe("GET /deliverables", () => {
     expect(d.latestAsset).toEqual({ version: 1, uploadedAt: "2026-10-01T00:00:00.000Z" });
   });
 
+  it("says which platform a published deliverable went out on, and selects it (3S0-BE-06)", async () => {
+    rows = [row({ state: "PUBLISHED", publishedUrl: "https://www.tiktok.com/@j/video/1", publishedAt: new Date("2026-10-05T00:00:00Z"), platform: "TIKTOK" })];
+    const d = ((await run(listDeliverables, {})).deliverables as Record<string, unknown>[])[0];
+    expect(d.platform).toBe("TIKTOK");
+    expect((listArgs.select as Record<string, unknown>).platform).toBe(true);
+    rows = [row()];
+    expect(((await run(listDeliverables, {})).deliverables as Record<string, unknown>[])[0]!.platform).toBeNull();
+  });
+
   it("an open revision: requested after the latest upload, and back with the athlete", async () => {
     audits = [{ entityId: "dl_1", after: { reason: "Show the logo", }, at: new Date("2026-10-02T00:00:00Z") }];
     const d = ((await run(listDeliverables, {})).deliverables as Record<string, unknown>[])[0];

@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Make SponsorX intelligent. Recommend prices, identify best-fit sponsors, forecast delivery, flag underperformance before a campaign ends, detect suspicious metrics and ingest verified commerce attribution. |
-| **Tasks** | 50 · 192 person-days |
+| **Tasks** | 51 · 193 person-days |
 | **Blueprint timeline** | 18–22 weeks |
 | **Balanced budget** | $105K–$160K |
 | **Depends on** | Phase 2 transaction history, campaign performance data, marketplace activity, reliable event ingestion |
@@ -17,7 +17,7 @@
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md)  | 186 | 14–18 weeks |
 | 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 72 | 16–20 weeks |
-| 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md) **← you are here** | 50 | 18–22 weeks |
+| 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md) **← you are here** | 51 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
 ---
@@ -93,7 +93,7 @@ If a task's *definition* turns out to be wrong — the acceptance criteria don't
 
 *Warehouse schema, event taxonomy audit, model governance and — critically — what the word 'attribution' is allowed to mean.*
 
-*12 tasks · 28 person-days*
+*13 tasks · 29 person-days*
 
 ### ▶ `3S0-PMO-01` · Define what attribution is permitted to claim
 
@@ -174,6 +174,16 @@ Raised by `3S0-DATA-01` (gaps G2, G3). The fan funnel had no geography. A reward
 
 - **Depends on:** 3S0-DATA-01
 - **Done when:** `POST /campaigns/{id}/rewards` accepts `venue {city, stateCode}` (US states only) and stores it; `GET /rewards/{id}` returns it, null when none was given
+- **Reference:** Spec §19
+
+### ✅ `3S0-BE-06` · Record a deliverable's platform at publish
+
+**Order** 3.7 · **BE** · **Where:** Code · **1d** · **Done**
+
+Raised by `3S0-DATA-02` (open item O1). No table recorded which platform a deliverable went out on, so the warehouse's channel could only be inferred. Marking a deliverable published now stores `platform` (INSTAGRAM, TIKTOK, YOUTUBE, X, FACEBOOK or OTHER) from the published URL's host. The athlete enters nothing new. Rows published earlier are backfilled by the same rule in SQL.
+
+- **Depends on:** 3S0-DATA-01
+- **Done when:** Publishing records `platform` from the URL host (a host matches only itself or its subdomains); earlier rows are backfilled identically; the database refuses any other value; the deliverable list returns it
 - **Reference:** Spec §19
 
 ### ▶ `3S0-FE-01` · Reward form: venue field
@@ -278,6 +288,7 @@ Automated proof that the warehouse agrees with the source system. Run it every n
 Assemble the inputs a pricing model needs — audience, engagement, historical delivery, demand, seasonality, geography, scarcity — and snapshot them so a past recommendation can always be explained.
 
 - **Depends on:** 3S1-DATA-02
+- **Builds on:** `AthleteScore` (P3-BE-10), the existing snapshot pattern. Features read from the warehouse, not product tables. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Feature snapshots generate on schedule and are retrievable by entity and date
 - **Reference:** Spec §19
 
@@ -288,6 +299,7 @@ Assemble the inputs a pricing model needs — audience, engagement, historical d
 Start with rules and statistics, not machine learning. The spec is explicit: do not build ML pricing before there is enough clean history.
 
 - **Depends on:** 3S2-BE-01
+- **Builds on:** `domain/pricing-learning.ts` (implied CPM, P7-DATA-03) and `domain/pricing.ts` / `margin-floor.ts` (tier multiplier and sell floor). A recommendation never goes below the floor. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Every recommended price exposes model version, confidence and factor breakdown
 - **Reference:** Spec §17.1, §22
 
@@ -298,6 +310,7 @@ Start with rules and statistics, not machine learning. The spec is explicit: do 
 Store the recommendation immutably. An override is a separate record with a required reason — it never edits the original.
 
 - **Depends on:** 3S2-BE-02
+- **Builds on:** the unused `pricing.floorOverrideAttempt` audit action; `pricing_overrides` is new. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Admin can override a price only with the right permission and a recorded reason; the recommendation is unchanged
 - **Reference:** Spec §17.1, §22
 
@@ -324,6 +337,7 @@ Recommended CPM, current rate, factor breakdown, confidence, historical range an
 Objective, budget, geography, sport, audience, included and excluded categories, dates and channels — the input to matching.
 
 - **Depends on:** 3S2-BE-01
+- **Builds on:** **`CampaignBrief`**, which already holds objective, budget, sports, states, categories and dates. Add exclusions, channels and audience target to it; no second brief table. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** A sponsor brief captures all matching inputs including exclusions
 - **Reference:** Spec §19
 
@@ -334,6 +348,7 @@ Objective, budget, geography, sport, audience, included and excluded categories,
 Score audience fit, geography, format, category affinity, historical performance, budget fit, sponsor history and inventory quality — then explain the score in words a salesperson can repeat.
 
 - **Depends on:** 3S3-BE-01
+- **Builds on:** `domain/match-score.ts` (P4-BE-08 ranking with reasons). Persist its output as `match_scores` with a model version. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Brief produces ranked recommendations with explanation factors within the agreed response time
 - **Reference:** Spec §17.2, §22
 
@@ -344,6 +359,7 @@ Score audience fit, geography, format, category affinity, historical performance
 Filter out unavailable, conflicted and brand-unsafe inventory before scoring. Ranking something that cannot be sold wastes everyone's time.
 
 - **Depends on:** 3S3-BE-02
+- **Builds on:** `domain/matching.ts`'s eligibility, extended to availability, category conflicts and brand safety. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Match explorer never returns unavailable or category-conflicted inventory
 - **Reference:** Spec §22
 
@@ -380,6 +396,7 @@ Compare elapsed campaign time against delivered metrics, every day.
 Estimate final impressions and the probability of hitting the guarantee, and keep every historical forecast so the model can be judged later.
 
 - **Depends on:** 3S4-DATA-01
+- **Builds on:** `domain/delivery-health.ts` (P7-DATA-04). The forecast is its forward-looking version, with history in `campaign_forecasts`. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Forecast refreshes automatically and persists historical forecasts
 - **Reference:** Spec §17.3, §22
 
@@ -390,6 +407,7 @@ Estimate final impressions and the probability of hitting the guarantee, and kee
 Campaigns crossing a risk threshold raise an alert with a recommended action — accelerate content, add a deliverable, change channel, or reserve make-good inventory.
 
 - **Depends on:** 3S4-BE-01
+- **Builds on:** `domain/delivery-health.ts`'s fixed rules, which these thresholds replace. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** At-risk campaigns generate actionable alerts before campaign end, not after
 - **Reference:** Spec §17.3, §22
 
@@ -462,6 +480,7 @@ Attribution is pluggable, never universal. Each adapter declares its method, loo
 Partner events normalise into one shape carrying source, method, window, confidence and the matched entities.
 
 - **Depends on:** 3S6-BE-01
+- **Builds on:** nothing, but `SalesAttribution` (NEXT student credit) is a different thing. Name the new table distinctly. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Attribution events identify source, method and confidence; modelled revenue is never labelled verified
 - **Reference:** Spec §19, §22
 

@@ -1,6 +1,8 @@
 # SponsorX Warehouse Schema and Semantic Layer
 
-**Task `3S0-DATA-02` · Version 1.0 · 2026-10-12 · Phase 3, Sprint 0 · Draft for review**
+**Task `3S0-DATA-02` · Version 1.1 · 2026-10-12 · Phase 3, Sprint 0 · Draft for review**
+
+> **v1.1:** platform is now recorded on deliverables (`3S0-BE-06`, O1 closed); the marketplace fact and both snapshots fully specified (§7, Appendix A); Spec §19's product tables mapped to their tasks and to what already exists (§11).
 
 Phase 3's benchmarks, pricing, forecasting and dashboards read from an
 analytical model kept **separate from the product database**, so analytical
@@ -37,7 +39,9 @@ Out of scope here, and why:
   **product tables**. They are written by the Sprint 2–8 services in the product
   database, with tenant scope and audit, and are designed by their own tasks.
   The warehouse ingests them later as sources. Only `warehouse_fact_campaign_daily`
-  and the `warehouse_dim_*` tables of §19 belong here.
+  and the `warehouse_dim_*` tables of §19 belong here. **§11 maps each one to
+  the task that builds it and to what already exists**, because several
+  overlap with Phase 1–2 code.
 - **`benchmark_metrics`** is produced by `3S1-DATA-03` from this model; its
   shape is sketched in §7 so the fact supports it.
 
@@ -175,26 +179,23 @@ state moves daily and lives on the fact's activity, not here.
 
 ### `dim_channel` — type 1, static
 
-**Where the activity happened.** No product table has a channel or platform
-column (`Deliverable` has none; the job catalogue is format-only), so channel
-is **derived** during staging by these rules, in order:
+**Where the activity happened.** Social deliverables record their platform
+at publish since `3S0-BE-06` (`Deliverable.platform`, read from the published
+URL's host; rows published earlier were backfilled by the same rule). The
+other channels follow from which table the row came from. Staging applies
+these rules in order:
 
 | `channel_code` | Group | Rule |
 |---|---|---|
-| `SOCIAL_INSTAGRAM`, `SOCIAL_TIKTOK`, `SOCIAL_YOUTUBE`, `SOCIAL_X`, `SOCIAL_FACEBOOK` | `SOCIAL` | a deliverable's `publishedUrl` host (`instagram.com`, `tiktok.com`, `youtube.com`/`youtu.be`, `x.com`/`twitter.com`, `facebook.com`) |
-| `SOCIAL_OTHER` | `SOCIAL` | a published deliverable whose URL host is none of the above |
-| `IN_PERSON` | `IN_PERSON` | a deliverable with no URL whose job is in-person (`SX-05` Local Appearance, `SX-06` Content Day) |
+| `IN_PERSON` | `IN_PERSON` | a deliverable whose job is an appearance (`SX-05` Local Appearance — the product's `APPEARANCE_JOBS`), published or not |
+| `SOCIAL_INSTAGRAM`, `SOCIAL_TIKTOK`, `SOCIAL_YOUTUBE`, `SOCIAL_X`, `SOCIAL_FACEBOOK` | `SOCIAL` | `Deliverable.platform` = `INSTAGRAM`, `TIKTOK`, `YOUTUBE`, `X`, `FACEBOOK` |
+| `SOCIAL_OTHER` | `SOCIAL` | `Deliverable.platform` = `OTHER` |
 | `UNPUBLISHED` | `SOCIAL` | a deliverable not yet published (no URL) — counts due/submitted only |
 | `REWARD_QR` | `FAN` | `RewardEvent` rows (the fan reward funnel) |
 | `TRACKING_LINK` | `FAN` | `LinkEvent` rows |
 | `EDITION_PRINT` | `EDITION` | `EditionEvent` of type `QR_SCAN`; ad-slot sales |
 | `EDITION_DIGITAL` | `EDITION` | `EditionEvent` of other types |
 | `CAMPAIGN` | `CAMPAIGN` | campaign-level money with no athlete (invoices) |
-
-**Open item O1:** deriving the platform from the URL is reliable for the
-listed hosts but is still an inference. If platform matters to pricing,
-a `platform` column on `Deliverable` (set at publish) is a small backend task;
-the rule above is then only the fallback for older rows.
 
 ### `dim_inventory` — type 1 with version
 
@@ -326,15 +327,87 @@ Rules the views enforce:
 
 ## 7 · Companion facts and snapshots
 
-Specified to the level `3S1-DATA-02` needs to plan; their columns follow the
-same conventions.
+### `fact_marketplace_order_line` — accumulating snapshot
 
-| Table | Grain | Why it is separate |
+Marketplace orders are sponsor purchases of listings and **belong to no
+campaign** (`MarketplaceOrder` has no campaign link), so they cannot sit in
+`fact_campaign_daily`. **Grain: one row per order line**, updated as the
+order passes its milestones (an accumulating snapshot): each milestone is a
+date key, filled when it happens.
+
+| Column | Type | Source |
 |---|---|---|
-| `fact_marketplace_order_line` | one row per marketplace order line | Marketplace orders are sponsor purchases of listings and **belong to no campaign** (`MarketplaceOrder` has no campaign link). Keys: date (contracted), sponsor, property / seller athlete, inventory (`LISTING_ITEM`), market. Measures from `MarketplaceOrderLine` and `OrderLineFinancials`: gross, discount, net, platform fee, management fee, processing, property share, referral, reserve — all cents. |
-| `snap_ledger_daily` | one row per party × account × status × day | `LedgerEntry.status` changes in place (audit G8). A daily snapshot of balances by `PENDING` / `AVAILABLE` / `PAID` / `REVERSED` keeps the history. |
-| `snap_payment_status_daily` | one row per payment attempt / payout / refund × day while open | Same reason, for `PaymentAttempt`, `Payout`, `RefundDue`. |
-| `benchmark_metrics` (`3S1-DATA-03`) | dimension type × dimension id × metric × period | p25, median, p75 and `sample_size` of per-campaign or per-athlete values, computed from `fact_campaign_daily` by sport, market, format (inventory) and audience (tier). A small sample stays visibly small. |
+| `tenant_id` | `text` | `MarketplaceOrder.tenantId` (the books the sale is recorded in) |
+| `seller_tenant_id` | `text` | `MarketplaceOrderLine.itemTenantId` (the seller's tenant — scopes a seller's view) |
+| `order_id`, `line_id` | `text` | degenerate keys |
+| `sponsor_key` | `bigint` | the buying sponsor, version valid on the placed date |
+| `property_key` | `bigint` | `MarketplaceOrderLine.propertyId`; `0` for an independent athlete's line |
+| `athlete_key` | `bigint` | `MarketplaceOrderLine.sellerAthleteId`, else `OrderLineFinancials.athleteId`; `0` if none |
+| `inventory_key` | `bigint` | `LISTING_ITEM` → `MarketplaceOrderLine.inventoryItemId` |
+| `market_key` | `bigint` | the property's registered city/state, else the athlete's |
+| `placed_date_key` | `int` | `MarketplaceOrder.createdAt` |
+| `contracted_date_key` | `int` | `MarketplaceOrder.contractedAt`; null until |
+| `paid_date_key` | `int` | `MarketplaceOrder.paidAt`; null until |
+| `fulfilled_date_key` | `int` | `MarketplaceOrder.fulfilledAt`; null until |
+| `ended_date_key` | `int` | `refundedAt`, or the `marketplaceOrder.cancelled` audit row; null otherwise |
+| `starts_on_key`, `ends_on_key` | `int` | `MarketplaceOrderLine.startsOn` / `endsOn` — the run of what was bought |
+| `order_state` | `text` | `MarketplaceOrder.state`, current |
+| `currency` | `text` | `MarketplaceOrder.currency` |
+| `quantity` | `int` | `MarketplaceOrderLine.quantity` |
+| `unit_price_cents`, `line_total_cents` | `bigint` | `MarketplaceOrderLine` |
+| `gross_cents`, `discount_cents`, `net_cents` | `bigint` | `OrderLineFinancials` |
+| `platform_fee_cents`, `management_fee_cents`, `processing_cents` | `bigint` | `OrderLineFinancials` |
+| `property_share_cents`, `referral_cents`, `reserve_cents`, `available_cents` | `bigint` | `OrderLineFinancials` |
+| `team_available_cents`, `team_reserve_cents` | `bigint` | `OrderLineFinancials`; 0 when null |
+| `refunded_cents` | `bigint` | `RefundDue.amountCents` for this line, state sent |
+
+Lines without `OrderLineFinancials` yet (before contracting) carry zeros in
+the financial columns; they fill when it is computed.
+
+### `snap_ledger_daily` — periodic snapshot
+
+`LedgerEntry.status` changes in place (audit G8), so the warehouse keeps the
+day-end position. **Grain: one row per day × party × account × status** with
+any entries.
+
+| Column | Type | Source |
+|---|---|---|
+| `date_key` | `int` | the snapshot day (end of day UTC) |
+| `tenant_id`, `party_tenant_id` | `text` | `LedgerEntry.tenantId`, `partyTenantId` |
+| `party_type`, `party_id` | `text` | `SPONSOR`, `PLATFORM`, `PROCESSOR`, `REFERRER`, `PROPERTY`, `ATHLETE` |
+| `account` | `text` | `SPONSOR_RECEIVABLE` … `ATHLETE_PAYABLE` |
+| `status` | `text` | `PENDING`, `AVAILABLE`, `PAID`, `REVERSED` — the status each entry had **at that day's end** (latest raw version ingested by then) |
+| `entries` | `int` | count |
+| `debit_cents`, `credit_cents` | `bigint` | sums |
+| `balance_cents` | `bigint` | `debit_cents - credit_cents` |
+
+### `snap_payment_status_daily` — periodic snapshot
+
+**Grain: one row per day × payment subject** while the subject is open, plus
+the day it closes. A subject is a card payment, a payout or a refund due.
+
+| Column | Type | Source |
+|---|---|---|
+| `date_key` | `int` | the snapshot day |
+| `tenant_id` | `text` | the subject's tenant |
+| `subject_type` | `text` | `PAYMENT_ATTEMPT`, `PAYOUT`, `REFUND_DUE` |
+| `subject_id` | `text` | its id |
+| `party_type`, `party_id` | `text` | the sponsor (attempts, refunds) or the payee (`Payout.payeeType`/`payeeId`) |
+| `state` | `text` | the subject's state at that day's end |
+| `amount_cents` | `bigint` | `amountCents` |
+| `refunded_cents` | `bigint` | `PaymentAttempt.refundedCents`; 0 otherwise |
+| `days_in_state` | `int` | days since the state last changed (from raw versions) |
+| `is_closed` | `boolean` | attempt `SUCCEEDED`, `PARTIALLY_REFUNDED`, `REFUNDED` or `FAILED`; payout `PAID` or `REJECTED` (a `FAILED` payout is retried, so stays open); refund `SENT` |
+
+A subject stops getting rows the day after it closes. "How long do payouts
+wait?" is an `AVG(days_in_state)` over open rows.
+
+### `benchmark_metrics` (`3S1-DATA-03`)
+
+Grain: dimension type × dimension id × metric × period. p25, median, p75 and
+`sample_size` of per-campaign or per-athlete values, computed from
+`fact_campaign_daily` by sport, market, format (inventory) and audience
+(tier). A small sample stays visibly small. `3S1-DATA-03` specifies it.
 
 ## 8 · Reconciliation (for `3S1-QA-01`)
 
@@ -349,6 +422,7 @@ and over the last 7 days:
 | Invoices | `SUM(invoiced_cents)`, `SUM(invoice_paid_cents)` per campaign | `CampaignInvoice` amounts by `issuedAt` / `paidAt` | exact |
 | Marketplace | `SUM(net)` of `fact_marketplace_order_line` | `SUM(OrderLineFinancials.netCents)` | exact |
 | Ledger | `snap_ledger_daily` for today | `SUM(debitCents - creditCents)` of `LedgerEntry` by party, account, status | exact |
+| Payments | open `snap_payment_status_daily` rows for today, by subject type and state | `PaymentAttempt`, `Payout`, `RefundDue` counts and `SUM(amountCents)` by state, excluding closed | exact |
 | Fan funnel | `SUM(qr_*)` per reward-day | `COUNT(*)` of `RewardEvent` by type and UTC day | exact |
 | Clicks | `SUM(link_clicks)` | `COUNT(*)` of `LinkEvent` | exact |
 | Views | `SUM(views_<label>)` per deliverable-day | `MetricDaily` latest version | exact |
@@ -363,7 +437,7 @@ alert (`3S1-QA-01`) with the check name, tenant and the two totals.
 
 | # | Item | Owner |
 |---|---|---|
-| O1 | Social platform is inferred from the published URL (§4 `dim_channel`). A `platform` field on `Deliverable` would make it a fact. | backend, if pricing needs it |
+| O1 | ~~Social platform is inferred from the published URL.~~ **Closed by `3S0-BE-06`:** `Deliverable.platform` is recorded at publish and backfilled. | done |
 | O2 | `NilJob` prices are whole dollars while every other amount is cents (audit, Phase 2–4 plan note 1); `dim_inventory` multiplies by 100. Confirm before `3S2-BE-02` reads list prices. | backend |
 | O3 | Ingestion cadence: hourly for `raw` events, nightly for the full transform and reconciliation, is the starting point. `3S0-OPS-01` costs it. | ops |
 | O4 | Retention in the warehouse: same as the product's (it holds no personal data, so no shorter PII clock applies). Confirm with the data-retention owner. | PMO |
@@ -378,6 +452,30 @@ alert (`3S1-QA-01`) with the check name, tenant and the two totals.
 | **Changes requested** | |
 
 ---
+
+## 11 · Spec §19's product tables: who builds each, and what already exists
+
+Spec §19 lists thirteen tables besides the warehouse's own. They are product
+tables (§1), but five overlap with code or tables that Phases 1–2 already
+shipped. Building them fresh would mean two copies of the same thing, so each
+owning task is told what to build on. The Phase 3 plan carries the same
+"Builds on" line on each task.
+
+| Spec §19 table | Built by | Already exists — build on it, do not duplicate |
+|---|---|---|
+| `sponsor_briefs` | `3S3-BE-01` | **`CampaignBrief`** already holds objective, budget, sports, `stateCodes`, categories, dates and its state machine (P4-BE-11 auto-approval). `3S3-BE-01` **adds** the missing inputs (exclusions, channels, audience target) to `CampaignBrief`; there is no second brief table. |
+| `match_scores` | `3S3-BE-02` | **`domain/match-score.ts`** (P4-BE-08) already ranks a brief's eligible athletes with reasons; `domain/matching.ts` applies eligibility. They compute on the fly and store nothing. `3S3-BE-02` persists their output as `match_scores` with a `model_version`, and extends the factors; `3S3-BE-03`'s filter is `matching.ts`'s eligibility, extended to conflicts and brand safety. |
+| `pricing_recommendations` | `3S2-BE-02`, `3S2-BE-03` | **`domain/pricing-learning.ts`** (P7-DATA-03) computes each line's implied CPM; **`domain/pricing.ts`** (P0-PMO-13) owns the tier multiplier and the sell floor, and **`margin-floor.ts`** enforces it. The CPM engine reads these as inputs; a recommendation may never go below the floor `pricing.ts` computes. |
+| `pricing_overrides` | `3S2-BE-03` | Nothing. New table; every override also writes an audit row (`pricing.floorOverrideAttempt` already exists in `AUDIT_ACTIONS`, unused — audit G13). |
+| `campaign_forecasts` | `3S4-BE-01`, `3S4-BE-02` | **`domain/delivery-health.ts`** (P7-DATA-04) already detects a campaign delivering less than promised for the operations dashboard. The forecast is its forward-looking version: `3S4-BE-01` stores history in `campaign_forecasts`, `3S4-BE-02`'s thresholds replace delivery-health's fixed rules. |
+| `feature_snapshots` | `3S2-BE-01` | **`AthleteScore`** (P3-BE-10) is the existing snapshot pattern (score, factors JSON, method, `scoredAt`). Features are read from this warehouse's facts and dimensions, not from the product tables directly. |
+| `attribution_events` | `3S6-BE-02` | Name clash only: **`SalesAttribution`** (NEXT) credits a student with an ad sale and is not commerce attribution (audit G14). Name the new table so the two are never confused; its method and confidence follow `3S0-PMO-01`'s classes. |
+| `attribution_rules` | `3S6-BE-01`, `3S6-BE-03` | Nothing. |
+| `make_good_recommendations` | `3S5-BE-01`, `3S5-BE-02` | Nothing. |
+| `benchmark_metrics` | `3S1-DATA-03` | Nothing; a warehouse table (§7). |
+| `anomaly_events` | `3S8-DATA-01` | Nothing as a table. `RewardToken.refusedRedeems` (`3S0-BE-04`) and `metric_corrections` on the fact (§5) are ready-made signals. |
+| `model_registry` | `3S8-BE-01` | Nothing. |
+| `scenario_runs` | `3S7-BE-01` | Nothing. |
 
 ## Appendix A · Table definitions (SQL)
 
@@ -563,6 +661,76 @@ CREATE TABLE dw.fact_campaign_daily (
 );
 CREATE INDEX fact_campaign_daily_tenant_date ON dw.fact_campaign_daily (tenant_id, date_key);
 CREATE INDEX fact_campaign_daily_athlete     ON dw.fact_campaign_daily (athlete_key, date_key);
+
+CREATE TABLE dw.fact_marketplace_order_line (
+  tenant_id            text   NOT NULL,
+  seller_tenant_id     text   NOT NULL,
+  order_id             text   NOT NULL,
+  line_id              text   PRIMARY KEY,
+  sponsor_key          bigint NOT NULL REFERENCES dw.dim_sponsor (sponsor_key),
+  property_key         bigint NOT NULL REFERENCES dw.dim_property (property_key),
+  athlete_key          bigint NOT NULL REFERENCES dw.dim_athlete (athlete_key),
+  inventory_key        bigint NOT NULL REFERENCES dw.dim_inventory (inventory_key),
+  market_key           bigint NOT NULL REFERENCES dw.dim_market (market_key),
+  placed_date_key      int    NOT NULL REFERENCES dw.dim_date (date_key),
+  contracted_date_key  int    REFERENCES dw.dim_date (date_key),
+  paid_date_key        int    REFERENCES dw.dim_date (date_key),
+  fulfilled_date_key   int    REFERENCES dw.dim_date (date_key),
+  ended_date_key       int    REFERENCES dw.dim_date (date_key),
+  starts_on_key        int    NOT NULL REFERENCES dw.dim_date (date_key),
+  ends_on_key          int    NOT NULL REFERENCES dw.dim_date (date_key),
+  order_state          text   NOT NULL,
+  currency             text   NOT NULL,
+  quantity             int    NOT NULL,
+  unit_price_cents     bigint NOT NULL,
+  line_total_cents     bigint NOT NULL,
+  gross_cents          bigint NOT NULL DEFAULT 0,
+  discount_cents       bigint NOT NULL DEFAULT 0,
+  net_cents            bigint NOT NULL DEFAULT 0,
+  platform_fee_cents   bigint NOT NULL DEFAULT 0,
+  management_fee_cents bigint NOT NULL DEFAULT 0,
+  processing_cents     bigint NOT NULL DEFAULT 0,
+  property_share_cents bigint NOT NULL DEFAULT 0,
+  referral_cents       bigint NOT NULL DEFAULT 0,
+  reserve_cents        bigint NOT NULL DEFAULT 0,
+  available_cents      bigint NOT NULL DEFAULT 0,
+  team_available_cents bigint NOT NULL DEFAULT 0,
+  team_reserve_cents   bigint NOT NULL DEFAULT 0,
+  refunded_cents       bigint NOT NULL DEFAULT 0,
+  _built_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX fact_mol_tenant_placed ON dw.fact_marketplace_order_line (tenant_id, placed_date_key);
+CREATE INDEX fact_mol_seller        ON dw.fact_marketplace_order_line (seller_tenant_id, placed_date_key);
+
+CREATE TABLE dw.snap_ledger_daily (
+  date_key        int    NOT NULL REFERENCES dw.dim_date (date_key),
+  tenant_id       text   NOT NULL,
+  party_tenant_id text   NOT NULL,
+  party_type      text   NOT NULL CHECK (party_type IN ('SPONSOR','PLATFORM','PROCESSOR','REFERRER','PROPERTY','ATHLETE')),
+  party_id        text   NOT NULL,
+  account         text   NOT NULL,
+  status          text   NOT NULL CHECK (status IN ('PENDING','AVAILABLE','PAID','REVERSED')),
+  entries         int    NOT NULL,
+  debit_cents     bigint NOT NULL,
+  credit_cents    bigint NOT NULL,
+  balance_cents   bigint NOT NULL,
+  PRIMARY KEY (date_key, tenant_id, party_type, party_id, account, status)
+);
+
+CREATE TABLE dw.snap_payment_status_daily (
+  date_key       int    NOT NULL REFERENCES dw.dim_date (date_key),
+  tenant_id      text   NOT NULL,
+  subject_type   text   NOT NULL CHECK (subject_type IN ('PAYMENT_ATTEMPT','PAYOUT','REFUND_DUE')),
+  subject_id     text   NOT NULL,
+  party_type     text   NOT NULL,
+  party_id       text   NOT NULL,
+  state          text   NOT NULL,
+  amount_cents   bigint NOT NULL,
+  refunded_cents bigint NOT NULL DEFAULT 0,
+  days_in_state  int    NOT NULL,
+  is_closed      boolean NOT NULL,
+  PRIMARY KEY (date_key, subject_type, subject_id)
+);
 
 CREATE SCHEMA IF NOT EXISTS sem;
 

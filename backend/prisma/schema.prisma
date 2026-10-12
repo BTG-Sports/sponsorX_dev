@@ -1033,6 +1033,10 @@ model Deliverable {
   state        DeliverableState @default(NOT_STARTED)
   publishedUrl String?
   publishedAt  DateTime?
+  /// 3S0-BE-06 — the platform it went out on, read from `publishedUrl`'s host
+  /// at publish (domain/deliverable-platform.ts): INSTAGRAM | TIKTOK | YOUTUBE |
+  /// X | FACEBOOK | OTHER. Null until published.
+  platform      String?
 
   /// P5-BE-09 — the caption the athlete will post, as last submitted, and the
   /// creative version it was submitted with. Every submission is also on the
