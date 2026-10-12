@@ -18,9 +18,7 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor, type Actor } from "../../auth/actor";
-import { ForbiddenError } from "../../auth/errors";
-import { can, scopeOf, whereFor } from "../../auth/scope";
-import { canReadField } from "../../auth/fields";
+import { whereFor } from "../../auth/scope";
 import { prisma } from "../../db/client";
 import { allowedList, pageRequest, readPage, searchTerm } from "../../lib/paging";
 import {
@@ -32,6 +30,15 @@ import {
   readEarning,
   transitionEarning,
 } from "../../domain/earning";
+import {
+  EARNING_STATES,
+  type EarningStateName,
+  reconciliationSet,
+  reconciliationTotals,
+  requireInvoiceRights,
+  rightsOf,
+  type Rights,
+} from "../../domain/earning-books";
 
 export const earningsRouter = Router();
 
@@ -59,23 +66,6 @@ export const earningsRouter = Router();
    last change — paidAt, else the order's acceptedAt — and `?q=`), and no
    `campaigns` block: reconciliation has its own paged route now, computed
    per campaign rather than from a capped earnings list. */
-
-const EARNING_STATES = ["PENDING", "ELIGIBLE", "APPROVED_FOR_PAYOUT", "PAID", "HELD", "DISPUTED"] as const;
-type EarningStateName = (typeof EARNING_STATES)[number];
-
-type Rights = { seeAmount: boolean; seeSell: boolean; seeInvoices: boolean; seeReasons: boolean };
-
-function rightsOf(actor: Actor): Rights {
-  const seeAmount = canReadField(actor.roles, "earning.amount");
-  const seeSell = seeAmount && canReadField(actor.roles, "campaignOrder.sellPrice");
-  const seeInvoices = seeSell && can(actor, "invoice", "read");
-  /* 2S5-BE-08 — why an earning was left for Finance: BTG's own words, and
-     they name amounts. Tenant-wide readers who see amounts only (Finance,
-     BTG admin) — never the athlete, never a role denied the amount. */
-  const readScope = scopeOf(actor, "earning", "read");
-  const seeReasons = seeAmount && (readScope === "own-tenant" || readScope === "any");
-  return { seeAmount, seeSell, seeInvoices, seeReasons };
-}
 
 const EARNING_SELECT = {
   id: true, state: true, gross: true, adjustment: true, taxYear: true, paidAt: true, reference: true,
@@ -399,69 +389,6 @@ const earningsSummary: RequestHandler = async (req, res) => {
    rate, and invoice aging in cents — outstanding (not paid, not void) by
    days past due: not yet due (or no due date) / 1–30 / 31–60 / > 60, the
    same cut lib/earnings-live.ts's agingBuckets makes. */
-
-function reconciliationSet(actor: Actor) {
-  return {
-    AND: [
-      whereFor(actor, "campaign", "read"),
-      { orders: { some: { earning: { is: whereFor(actor, "earning", "read") } } } },
-    ],
-  };
-}
-
-function requireInvoiceRights(actor: Actor) {
-  if (!rightsOf(actor).seeInvoices) throw new ForbiddenError("invoice", "read");
-}
-
-const NOT_SETTLED = {
-  NOT: [
-    { status: { equals: "paid", mode: "insensitive" as const } },
-    { status: { equals: "void", mode: "insensitive" as const } },
-  ],
-};
-
-const DAY = 86_400_000;
-
-async function reconciliationTotals(actor: Actor, now: Date) {
-  const inSet = { campaign: { is: reconciliationSet(actor) } };
-  const byStatus = await prisma.campaignInvoice.groupBy({
-    by: ["status"],
-    /* tenant-scope: through the campaign — whereFor(campaign) ∧ whereFor(earning). */
-    where: inSet,
-    _sum: { amount: true },
-  } as never) as unknown as { status: string; _sum: { amount: number | null } }[];
-  let invoiced = 0;
-  let collected = 0;
-  for (const g of byStatus) {
-    const st = g.status.toLowerCase();
-    if (st === "void") continue;
-    invoiced += g._sum.amount ?? 0;
-    if (st === "paid") collected += g._sum.amount ?? 0;
-  }
-  /* late = floor((now − due) / day): ≤0 not yet due, ≤30, ≤60, >60. */
-  const ago = (days: number) => new Date(now.getTime() - days * DAY);
-  const cuts = [
-    { OR: [{ dueAt: null }, { dueAt: { gt: ago(1) } }] },
-    { dueAt: { gt: ago(31), lte: ago(1) } },
-    { dueAt: { gt: ago(61), lte: ago(31) } },
-    { dueAt: { lte: ago(61) } },
-  ];
-  const aging = await Promise.all(
-    cuts.map((cut) =>
-      prisma.campaignInvoice.aggregate({
-        /* tenant-scope: through the campaign — whereFor(campaign) ∧ whereFor(earning). */
-        where: { AND: [inSet, NOT_SETTLED, cut] },
-        _sum: { amount: true },
-      }),
-    ),
-  );
-  return {
-    invoiced,
-    collected,
-    rate: invoiced ? Math.round((100 * collected) / invoiced) : null,
-    aging: aging.map((a) => a._sum.amount ?? 0),
-  };
-}
 
 const listReconciliation: RequestHandler = async (req, res) => {
   const actor = req.actor!;
