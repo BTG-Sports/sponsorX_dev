@@ -478,6 +478,7 @@ a.sx-vault-frame:focus-visible,
 .sx-vault-badge {
   display: inline-flex;
   min-width: 1.4rem;
+  align-self: center; /* never stretched tall by a flex row */
   justify-content: center;
   border-radius: 9999px;
   padding: 0 0.45rem;
@@ -610,7 +611,9 @@ a.sx-vault-frame:focus-visible,
 @keyframes sx-vault-grow { from { transform: scaleX(0); } }
 
 /* athlete pay, step by step --------------------------------------------------- */
-/* The main steps sit on one engraved rule, a bead on it for each. */
+/* The main steps sit on one engraved rule, a bead on it for each. The rule
+   joins the beads only when the four share a row (the kit's `@container`
+   wrapper is wide enough — Tailwind's @md, 28rem); two by two, beads alone. */
 .sx-vault-steps { position: relative; }
 .sx-vault-steps::before {
   content: "";
@@ -618,8 +621,12 @@ a.sx-vault-frame:focus-visible,
   left: 12.5%;
   right: 12.5%;
   top: 4px;
+  display: none;
   border-top: 1px dashed rgb(212 176 98 / 0.4);
   pointer-events: none;
+}
+@container (min-width: 28rem) {
+  .sx-vault-steps::before { display: block; }
 }
 .sx-vault-steps > li { position: relative; padding-top: 16px; }
 .sx-vault-steps > li::before {

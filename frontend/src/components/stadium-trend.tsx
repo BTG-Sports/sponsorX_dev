@@ -33,6 +33,19 @@ export function trendPath(values: number[], w: number, h: number, pad: number) {
   const px = values.map((_, i) => x(i));
   const py = values.map((v) => y(v));
   const n = values.length;
+  const line = monotonePath(px, py);
+  const area = n > 1 ? `${line} L${px[n - 1]},${h} L0,${h} Z` : "";
+  return { line, area, max, x, y };
+}
+
+/**
+ * Pure: the monotone cubic (Fritsch–Carlson) through already-placed points
+ * — `px` ascending, `py` in the box's own units. Shared by trendPath above
+ * and the Vault's money chart (vault-flow.tsx, P1-ART-25), which puts two
+ * series on one scale and so places its own points.
+ */
+export function monotonePath(px: number[], py: number[]) {
+  const n = px.length;
 
   // secant slopes, then tangents: zero at a peak/valley, averaged elsewhere
   const d = px.slice(0, -1).map((_, k) => (py[k + 1]! - py[k]!) / (px[k + 1]! - px[k]! || 1));
@@ -66,8 +79,7 @@ export function trendPath(values: number[], w: number, h: number, pad: number) {
       ` ${r1(px[k + 1]! - third)},${r1(py[k + 1]! - m[k + 1]! * third)}` +
       ` ${px[k + 1]},${py[k + 1]}`;
   }
-  const area = n > 1 ? `${line} L${px[n - 1]},${h} L0,${h} Z` : "";
-  return { line, area, max, x, y };
+  return line;
 }
 
 const fmtDay = (iso: string, week: boolean) => {
