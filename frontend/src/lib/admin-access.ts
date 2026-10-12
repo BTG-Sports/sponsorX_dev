@@ -49,7 +49,12 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   "/admin/payments/disputes": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
   /* 2S1-FE-14 — a support message and its attachments: supportMessage read is BTG admin (own tenant) and SUPER_ADMIN. */
   "/admin/support": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
-  "/admin/next": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES", "FINANCE"], who: "BTG admins, Sales and Finance" },
+  /* Governs no page itself — every /admin/next/* desk below has its own,
+     narrower entry (editions, inventory, prospects, rights, splits). This is
+     only the fallback for a future /admin/next/* desk with no entry of its
+     own yet, so it stays BTG-admin only rather than open to Sales or Finance
+     by default. */
+  "/admin/next": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   /* P9-FE-11 — the API's studentProspect.approve is BTG admin and Sales (own tenant) and SUPER_ADMIN. */
   "/admin/next/prospects": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES"], who: "BTG admins and Sales" },
 
@@ -68,8 +73,11 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   "/admin/next/splits": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
   /* GET /briefs: campaignBrief read is BTG admin, campaign managers and Sales (own tenant) and SUPER_ADMIN. */
   "/admin/briefs": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "SALES"], who: "BTG admins, campaign managers and Sales" },
-  /* GET /operations/network-metrics, /job-economics and /analytics: tenant-wide
-     metricAggregate read — BTG admin, campaign and network managers, SUPER_ADMIN. */
+  /* GET /operations/network-metrics and /analytics: tenant-wide metricAggregate
+     read — BTG admin, campaign and network managers, SUPER_ADMIN. GET
+     /operations/job-economics needs a second, optional read on top of that —
+     campaignOrder — which a network manager lacks; network/page.tsx treats a
+     403 there as "no economics table", not "not in your role". */
   "/admin/network": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR"], who: "BTG admins, campaign managers and network managers" },
   "/admin/analytics": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR"], who: "BTG admins, campaign managers and network managers" },
   /* GET /audit-log: auditLog read is BTG admin (own tenant) and SUPER_ADMIN. */

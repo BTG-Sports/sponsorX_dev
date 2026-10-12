@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import { ADMIN_DOCK, ADMIN_NAV, FINANCE_DOCK, dockFor, navFor, rootFor } from "@/lib/admin-nav";
+import { ADMIN_DOCK, ADMIN_NAV, FINANCE_DOCK, dockFor, mayUseVault, navFor, rootFor } from "@/lib/admin-nav";
 import { resolveDock } from "@/lib/mobile-dock";
 import { groupNav } from "@/lib/nav-groups";
 import type { VaultMode } from "@/lib/vault-routes";
@@ -39,6 +39,16 @@ describe("P1-ART-25 · the admin nav per viewer", () => {
     /* their Money group keeps its glyph without Commission */
     expect(groups.find((g) => g.label === "Money")).toMatchObject({ icon: "wallet" });
     expect(groups.find((g) => g.label === "Money")!.items.map((i) => i.label)).toEqual(["Disputes", "Payment events", "Payouts", "Refunds to send"]);
+  });
+
+  /* Review follow-up — a group's glyph is built from the FULL admin nav, not
+     from whichever filtered item happens to carry it: Campaigns' icon sits
+     on Approvals and NEXT's on Editions, both hidden from Finance, so the
+     old per-item scan left both groups glyph-less for a Finance-only viewer. */
+  it("keeps every group's glyph for a Finance-only viewer, even past the desk that carries it", () => {
+    const { groups } = groupNav(navFor(["FINANCE"]));
+    expect(groups.find((g) => g.label === "Campaigns")).toMatchObject({ icon: "megaphone" });
+    expect(groups.find((g) => g.label === "NEXT")).toMatchObject({ icon: "book" });
   });
 
   it("roots a Finance-only viewer at the Treasury and docks their four desks", () => {
@@ -113,6 +123,24 @@ describe("P1-ART-25 · the admin nav per viewer", () => {
     expect(nav[0]).toMatchObject({ href: "/admin", label: "Dashboard" });
     expect(nav.some((n) => n.href === "/admin/commission")).toBe(true);
     expect(nav.some((n) => n.href === "/admin/finance" && n.label === "Treasury")).toBe(true);
+  });
+});
+
+/* Review follow-up — a role with no money desk at all must not see the
+   Vault switch on over a "not in your role" page on a deep-linked money
+   route (the admin layout only passes the money-routes mode when this is
+   true). */
+describe("P1-ART-25 review · mayUseVault", () => {
+  it("is true for every role that holds at least one money desk", () => {
+    expect(mayUseVault(["FINANCE"])).toBe(true);
+    expect(mayUseVault(["BTG_ADMIN"])).toBe(true);
+    expect(mayUseVault(["SUPER_ADMIN"])).toBe(true);
+  });
+
+  it("is false for a role with no money desk at all", () => {
+    expect(mayUseVault(["CAMPAIGN_MGR"])).toBe(false);
+    expect(mayUseVault(["SALES"])).toBe(false);
+    expect(mayUseVault(["NETWORK_MGR"])).toBe(false);
   });
 });
 

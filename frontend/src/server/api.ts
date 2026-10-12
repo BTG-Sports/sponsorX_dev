@@ -16,6 +16,7 @@
 import "server-only";
 import { auth } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 export type Actor = {
   userId: string;
@@ -66,8 +67,15 @@ const API_URL = process.env.API_URL ?? "http://localhost:4000";
  * `GET /api/v1/me` also *completes* a new user's link: the claim of a
  * provisioned row happens inside the API's `resolveActor()`, so a first
  * sign-in is finished by this call rather than by anything here.
+ *
+ * Review follow-up — several pages call this once for themselves and again
+ * through `staffWithoutAccess`, each a real `/me` round trip: `cache()`
+ * dedupes repeat calls within one render pass (React's request memoization,
+ * same pattern as an ORM read with no `fetch` of its own to dedupe on). It
+ * never persists across requests — a revoked role is gone on the next one —
+ * and `cache: "no-store"` on the underlying fetch is unchanged.
  */
-export async function fetchActor(): Promise<ActorResult> {
+export const fetchActor = cache(async function fetchActor(): Promise<ActorResult> {
   const { userId, getToken } = await auth();
   if (!userId) return { status: "anonymous" };
 
@@ -95,7 +103,7 @@ export async function fetchActor(): Promise<ActorResult> {
   }
 
   return { status: "linked", actor: (await response.json()) as Actor };
-}
+});
 
 /**
  * An authenticated call to the API, as the signed-in user — P4-FE-01.

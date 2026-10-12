@@ -29,6 +29,15 @@ describe("admin access map", () => {
     expect(mayUse("/admin", ["FINANCE"])).toBe(true);
   });
 
+  /* Review follow-up — a Campaigns sub-page (a single order, unmapped like
+     its parent) stays open to every admin-portal role, Finance and network
+     managers included — the money-only-roles bug (§5) is about the Vault
+     switch, never about Campaigns access itself. */
+  it("keeps an unmapped desk's sub-pages open too", () => {
+    expect(mayUse("/admin/campaigns/c_1", ["FINANCE"])).toBe(true);
+    expect(mayUse("/admin/campaigns/c_1", ["NETWORK_MGR"])).toBe(true);
+  });
+
   it("BTG and super admins reach every desk", () => {
     for (const p of ["/admin/applications", "/admin/approvals", "/admin/finance", "/admin/rewards", "/admin/next/splits", "/admin/commission"]) {
       expect(mayUse(p, ["BTG_ADMIN"]), p).toBe(true);
@@ -58,6 +67,20 @@ describe("desks pinned to what the API enforces", () => {
       expect(mayUse("/admin/audit", [role]), role).toBe(false);
       expect(mayUse("/admin/integrations", [role]), role).toBe(false);
     }
+  });
+});
+
+/* Review follow-up — "/admin/next" governs no page of its own (every real
+   desk below it — editions, inventory, prospects, rights, splits — has its
+   own, narrower entry); it is only the fallback for a future desk with none
+   yet, so it no longer opens to Sales or Finance by default. */
+describe("the /admin/next fallback", () => {
+  it("is BTG-admin only, and never shadows a desk's own entry", () => {
+    expect(mayUse("/admin/next", ["SALES"])).toBe(false);
+    expect(mayUse("/admin/next", ["FINANCE"])).toBe(false);
+    expect(mayUse("/admin/next", ["BTG_ADMIN"])).toBe(true);
+    expect(mayUse("/admin/next/prospects", ["SALES"])).toBe(true);
+    expect(mayUse("/admin/next/splits", ["FINANCE"])).toBe(true);
   });
 });
 

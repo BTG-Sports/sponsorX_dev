@@ -1,6 +1,8 @@
 import type { NavItem } from "@/components/portal-shell";
 import { isFinanceOnly, mayUse } from "@/lib/admin-access";
 import { isCommissionAdmin } from "@/lib/commission-live";
+import { stampGroupIcons } from "@/lib/nav-groups";
+import { isVaultPath } from "@/lib/vault-routes";
 
 /* BTG admin surface — §10's four workspaces plus the command center (§23).
 
@@ -40,12 +42,11 @@ export const ADMIN_NAV: NavItem[] = [
   /* 2S1-FE-11 — the restricted-words list. */
   { href: "/admin/restricted-words", label: "Restricted words", icon: "ban", group: "Marketplace" },
 
-  /* Money in and out. The group's glyph rides on Disputes, not Commission:
-     Finance never sees Commission, and its Money group keeps the wallet. */
+  /* Money in and out. */
   /* 2S5-FE-01 — BTG admin only; hidden from the other staff roles below. */
-  { href: "/admin/commission", label: "Commission", icon: "card", group: "Money" },
+  { href: "/admin/commission", label: "Commission", icon: "card", group: "Money", groupIcon: "wallet" },
   /* 2S5-FE-08 — sponsors' card disputes: frozen money until a BTG admin resolves them (BTG admin and Finance). */
-  { href: "/admin/payments/disputes", label: "Disputes", icon: "flag", group: "Money", groupIcon: "wallet" },
+  { href: "/admin/payments/disputes", label: "Disputes", icon: "flag", group: "Money" },
   /* 2S5-FE-07 — the payment provider's events SponsorX could not apply (BTG admin and Finance). */
   { href: "/admin/payments/events", label: "Payment events", icon: "card", group: "Money" },
   { href: "/admin/payouts", label: "Payouts", icon: "wallet", group: "Money" },
@@ -96,9 +97,15 @@ export function rootFor(roles: readonly string[]): string {
  *  (lib/admin-access); commission stays BTG-admin only as before.
  *  P1-ART-25 — a Finance-only viewer's home is the Treasury: it leads the
  *  nav in Dashboard's place (and leaves the Money group, so it is not
- *  listed twice). */
+ *  listed twice).
+ *  Review follow-up — a role's filtered nav keeps every group's glyph even
+ *  when the item that carries it is filtered out (stampGroupIcons, built
+ *  from the full, unfiltered ADMIN_NAV). */
 export function navFor(roles: readonly string[]): NavItem[] {
-  const allowed = ADMIN_NAV.filter((n) => mayUse(n.href, roles) && (n.href !== "/admin/commission" || isCommissionAdmin(roles)));
+  const allowed = stampGroupIcons(
+    ADMIN_NAV.filter((n) => mayUse(n.href, roles) && (n.href !== "/admin/commission" || isCommissionAdmin(roles))),
+    ADMIN_NAV,
+  );
   if (!isFinanceOnly(roles)) return allowed;
   return [
     { href: "/admin/finance", label: "Treasury", icon: "wallet" },
@@ -109,4 +116,18 @@ export function navFor(roles: readonly string[]): NavItem[] {
 /** The viewer's phone dock. */
 export function dockFor(roles: readonly string[]): readonly string[] {
   return isFinanceOnly(roles) ? FINANCE_DOCK : ADMIN_DOCK;
+}
+
+/** Review follow-up — may this viewer reach ANY money desk at all? A role
+ *  with no money desk (a campaign manager or Sales user deep-linking
+ *  /admin/payouts) must not see the Vault switch on over a "not in your
+ *  role" page: the admin layout only passes the money-routes Vault mode
+ *  ("money") when this is true, "off" otherwise. Checked against the
+ *  concrete desks in ADMIN_NAV, not the bare VAULT_PREFIXES themselves —
+ *  "/admin/payments" alone names no desk, so `mayUse` would call it open to
+ *  everyone. */
+export function mayUseVault(roles: readonly string[]): boolean {
+  return ADMIN_NAV.some(
+    (n) => isVaultPath(n.href) && mayUse(n.href, roles) && (n.href !== "/admin/commission" || isCommissionAdmin(roles)),
+  );
 }

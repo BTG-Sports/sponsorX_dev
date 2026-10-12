@@ -1,7 +1,7 @@
 import { requirePortalAccess } from "@/server/portal";
 import { PortalShell } from "@/components/portal-shell";
 import { roleLabel, viewerName } from "@/server/viewer";
-import { dockFor, navFor, rootFor } from "@/lib/admin-nav";
+import { dockFor, mayUseVault, navFor, rootFor } from "@/lib/admin-nav";
 import { isFinanceOnly } from "@/lib/admin-access";
 
 import "../../mobile-nav.css";
@@ -38,9 +38,12 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       /* P1-ART-18 — the whole admin portal on the Mission Control stage;
          P1-ART-25 — the Vault on the money desks, and on every page for a
          Finance-only viewer: Finance is its own portal, as athlete and
-         sponsor are, so no page of theirs drops back into Mission Control. */
+         sponsor are, so no page of theirs drops back into Mission Control.
+         Review follow-up — a role with no money desk at all (mayUseVault)
+         gets the Vault switched off outright, rather than seeing it light up
+         over a "not in your role" page on a deep-linked money route. */
       stage
-      vault={isFinanceOnly(actor.roles) ? "all" : true}
+      vault={isFinanceOnly(actor.roles) ? "all" : mayUseVault(actor.roles)}
     >
       {children}
     </PortalShell>
