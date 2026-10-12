@@ -170,9 +170,12 @@ test("a verified post releases the earning, shows in finance, and lands in the s
   await expect(athlete.getByText("$80"), "no sponsor price on the athlete's side").toHaveCount(0);
   await expect(athlete.getByText("$50"), "no commission either").toHaveCount(0);
 
-  // 5. FINANCE — BTG admin: the earning with commission, and the reconciliation.
+  // 5. FINANCE — BTG admin, on the Treasury (P1-ART-25): the earning with
+  //    commission, then the reconciliation and the invoices on their own tabs.
   await desk.goto("/admin/finance");
-  await expect(desk.getByRole("heading", { level: 1, name: "Finance" })).toBeVisible();
+  await expect(desk.getByRole("heading", { level: 1, name: "Treasury" })).toBeVisible();
+  await expect(desk.getByRole("navigation", { name: "The books" }).getByRole("link")).toHaveCount(3);
+  await expect(desk.getByRole("img", { name: /^Collected:/ }), "BTG admin sees the invoice dial").toBeVisible();
   await expect(desk.getByText(/Payout actions are blocked on the written Phase 1 payment policy/)).toBeVisible();
   await expect(desk.getByText(/under \$2,000 move to .approved for payout. on their own/)).toBeVisible();
   const earningRow = rowWith(desk, ATHLETE.name, CAMPAIGN_NAME);
@@ -180,15 +183,22 @@ test("a verified post releases the earning, shows in finance, and lands in the s
   await expect(earningRow).toContainText("$30");
   await expect(earningRow, "sponsor price").toContainText("$80");
   await expect(earningRow, "commission = $80 − $30").toContainText("$50");
+  await desk.goto("/admin/finance?tab=campaigns");
   const reconciliation = rowWith(desk, CAMPAIGN_NAME, "not invoiced");
   await expect(reconciliation, "contracted $80, Zoho invoiced $50").toContainText("$30 not invoiced");
+  await desk.goto("/admin/finance?tab=invoices");
   await expect(rowWith(desk, "INV-E2E-P7")).toContainText("paid");
 
-  //    FINANCE role: sees the earning, not what the sponsor was billed.
+  //    FINANCE role: sees the earning, not what the sponsor was billed — the
+  //    invoice tabs and the Collected dial are absent (2026-09-24), not zeros.
   const finance = await pageAs(browser, testInfo, { key: "p7.finance", roles: ["FINANCE"] });
   await finance.goto("/admin/finance");
-  await expect(finance.getByText(/Invoices are visible to BTG admin only/).first()).toBeVisible();
+  await expect(finance.getByRole("heading", { level: 1, name: "Treasury" })).toBeVisible();
+  await expect(finance.getByRole("navigation", { name: "The books" }).getByRole("link")).toHaveCount(1);
+  await expect(finance.getByRole("img", { name: /^Collected:/ })).toHaveCount(0);
   await expect(rowWith(finance, ATHLETE.name, CAMPAIGN_NAME)).toContainText("Approved for payout");
+  await finance.goto("/admin/finance?tab=invoices");
+  await expect(rowWith(finance, ATHLETE.name, CAMPAIGN_NAME), "an invoice tab asked for falls back to earnings").toContainText("Approved for payout");
   await expect(finance.getByText("INV-E2E-P7")).toHaveCount(0);
 
   // 6. THE SPONSOR'S REPORT — from their dashboard, on the Stadium Board
