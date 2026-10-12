@@ -4,6 +4,8 @@ import { roleLabel, viewerName } from "@/server/viewer";
 import { isCommissionAdmin } from "@/lib/commission-live";
 import { mayUse } from "@/lib/admin-access";
 
+import "../../mobile-nav.css";
+
 /* BTG admin surface — §10's four workspaces plus the command center (§23).
 
    P1-ART-21 (2026-10-07; owner: "too many … collapsable … sort them
@@ -72,6 +74,10 @@ const NAV: NavItem[] = [
   { href: "/admin/integrations", label: "Integrations", icon: "gear", group: "System" },
 ];
 
+/* P1-ART-24 — the phone dock's four destinations (the rest are behind its
+   Menu). A desk the viewer's role cannot use drops out of the dock too. */
+const DOCK = ["/admin", "/admin/approvals", "/admin/campaigns", "/admin/finance"];
+
 /* Authorisation, not merely authentication (P2-BE-04). requirePortalAccess()
    resolves the Clerk identity to its Postgres tenant and roles and admits only
    the roles this portal is for — P2-INT-01 checked that you were signed in as
@@ -91,6 +97,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
          commission stays BTG-admin only as before. */
       nav={NAV.filter((n) => mayUse(n.href, actor.roles) && (n.href !== "/admin/commission" || isCommissionAdmin(actor.roles)))}
       rootHref="/admin"
+      dock={DOCK}
       orgName="BTG Sports Group"
       userName={await viewerName("BTG staff")}
       userRole={roleLabel(actor.roles)}

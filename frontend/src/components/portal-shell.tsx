@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Logo } from "./logo";
+import { MobileDock } from "./mobile-dock";
 import { MobileNav } from "./mobile-nav";
 import { OpsStage } from "./ops-fx";
 import { OpsGround } from "./ops-stage";
@@ -127,6 +128,7 @@ export function PortalShell({
   userName,
   userRole,
   stage = false,
+  dock,
   children,
 }: {
   portal: Portal;
@@ -146,11 +148,19 @@ export function PortalShell({
    *  still means the admin's `"ops"`.
    *  P1-ART-23 — `"stadium"`: the sponsor's fixed-dark Stadium Board. */
   stage?: boolean | "ops" | "arena" | "stadium";
+  /** P1-ART-24 — on a staged portal, the four hrefs (from `nav`) the phone
+   *  dock carries; its Menu opens the LED menu and replaces the hamburger. */
+  dock?: readonly string[];
   children: ReactNode;
 }) {
   const accent = ACCENT[portal];
   const kind = stage === true ? "ops" : stage || null;
   const stageCls = kind === "ops" ? "sx-ops" : kind === "arena" ? "sx-arena" : kind === "stadium" ? "sx-stadium" : "";
+  const docked = kind !== null && !!dock;
+  /* Below md the page keeps clear of the floating dock (its height, its
+     12px float and the safe area), so the last row or a pager never sits
+     under it. */
+  const stagePad = docked ? "pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-14" : "pb-14";
 
   return (
     <div className={`flex min-h-screen ${stageCls}`}>
@@ -238,14 +248,17 @@ export function PortalShell({
             className={`pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r ${accent.edge} via-line to-transparent`}
           />
 
-          <MobileNav
-            nav={nav}
-            rootHref={rootHref}
-            accentBg={accent.bg}
-            accentText={accent.text}
-            accentDot={accent.dot}
-            portalLabel={accent.label}
-          />
+          {/* the staged portals open their menu from the dock instead */}
+          {!docked && (
+            <MobileNav
+              nav={nav}
+              rootHref={rootHref}
+              accentBg={accent.bg}
+              accentText={accent.text}
+              accentDot={accent.dot}
+              portalLabel={accent.label}
+            />
+          )}
           {orgBrand?.logoUrl && (
             /* A plain <img>: the logo is a public-bucket URL, and next/image
                optimisation is a host-specific primitive (stay host-portable). */
@@ -297,21 +310,21 @@ export function PortalShell({
              and column. No overflow clip here — the ground clips itself, and
              the desks' sticky toolbars (the matching studio) need the main
              column unclipped. */
-          <OpsStage className="sx-stage relative isolate flex min-w-0 flex-1 flex-col px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10">
+          <OpsStage className={`sx-stage relative isolate flex min-w-0 flex-1 flex-col px-5 ${stagePad} pt-8 sm:px-8 lg:px-10 lg:pt-10`}>
             <OpsGround word="" />
             <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
           </OpsStage>
         ) : kind === "arena" ? (
           /* The arena (P1-ART-22): the same root island for the pointer light,
              the athlete ground, the same column. */
-          <OpsStage className="sx-arena-stage relative isolate flex min-w-0 flex-1 flex-col px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10">
+          <OpsStage className={`sx-arena-stage relative isolate flex min-w-0 flex-1 flex-col px-5 ${stagePad} pt-8 sm:px-8 lg:px-10 lg:pt-10`}>
             <ArenaGround />
             <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
           </OpsStage>
         ) : kind === "stadium" ? (
           /* The Stadium Board (P1-ART-23): the same root island for the pointer
              light, the sponsor ground, the same column. */
-          <OpsStage className="sx-stadium-stage relative isolate flex min-w-0 flex-1 flex-col px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10">
+          <OpsStage className={`sx-stadium-stage relative isolate flex min-w-0 flex-1 flex-col px-5 ${stagePad} pt-8 sm:px-8 lg:px-10 lg:pt-10`}>
             <StadiumGround />
             <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
           </OpsStage>
@@ -319,6 +332,18 @@ export function PortalShell({
           <main className="min-w-0 flex-1 px-6 py-6">{children}</main>
         )}
       </div>
+
+      {docked && kind && (
+        <MobileDock
+          stage={kind}
+          dock={dock}
+          nav={nav}
+          rootHref={rootHref}
+          portalLabel={accent.label}
+          userName={userName}
+          userRole={userRole}
+        />
+      )}
     </div>
   );
 }

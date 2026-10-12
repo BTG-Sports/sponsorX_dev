@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { ICONS, type NavIcon } from "./icons";
 import { Logo } from "./logo";
 import type { NavItem } from "./portal-nav";
+import { sheetGroups } from "@/lib/mobile-dock";
 import { groupNav, isActiveHref, type NavGroup } from "@/lib/nav-groups";
 
 /* --------------------------------------------------------------------------
@@ -17,7 +19,7 @@ import { groupNav, isActiveHref, type NavGroup } from "@/lib/nav-groups";
    animations to 1ms rather than removing them, so the event still fires).
    -------------------------------------------------------------------------- */
 
-type Phase = "closed" | "open" | "closing";
+export type Phase = "closed" | "open" | "closing";
 
 export function MobileNav({
   nav,
@@ -266,5 +268,200 @@ function GroupedLinks({
         </section>
       ))}
     </>
+  );
+}
+
+/* --------------------------------------------------------------------------
+   P1-ART-24 — the LED menu: the staged portals' menu (admin, athlete,
+   sponsor), opened from the dock's Menu (mobile-dock.tsx). The legacy menu
+   above stays for property, NEXT and advisor, untouched.
+
+   The same dialog contract: role="dialog", aria-modal, Escape and the ✕
+   close it, a link tap closes it as it navigates, the body's scroll is
+   locked, focus moves in and Tab stays inside; the dock puts focus back on
+   its Menu button once the exit has played (`onClosed`, on animationend —
+   reduced motion shortens the animations rather than removing them, so the
+   event still fires).
+
+   One structure, three looks: `data-stage` picks the skin in
+   app/mobile-nav.css — Mission Control (ops), the Arena, the Stadium Board.
+   -------------------------------------------------------------------------- */
+
+export type StageKind = "ops" | "arena" | "stadium";
+
+export function Glyph({ icon, className = "size-5" }: { icon: NavIcon; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={`shrink-0 ${className}`}>
+      <path d={ICONS[icon] ?? ICONS.grid} />
+    </svg>
+  );
+}
+
+const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+export function StageMenu({
+  id, stage, phase, onClose, onClosed, nav, rootHref, portalLabel, userName, userRole,
+}: {
+  id: string;
+  stage: StageKind;
+  phase: Exclude<Phase, "closed">;
+  /** Start the exit. */
+  onClose: () => void;
+  /** The exit has played: unmount and return focus. */
+  onClosed: () => void;
+  nav: NavItem[];
+  rootHref: string;
+  portalLabel: string;
+  userName: string;
+  userRole: string;
+}) {
+  const pathname = usePathname();
+  const sheet = useRef<HTMLDivElement>(null);
+  const { top, groups } = groupNav(nav);
+  const ordered = sheetGroups(groups, pathname, rootHref);
+
+  const onKey = useEffectEvent((e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onClose();
+      return;
+    }
+    if (e.key !== "Tab" || !sheet.current) return;
+    const list = [...sheet.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
+    if (list.length === 0) return;
+    const first = list[0];
+    const last = list[list.length - 1];
+    const inside = sheet.current.contains(document.activeElement);
+    if (e.shiftKey && (document.activeElement === first || !inside)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (document.activeElement === last || !inside)) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+
+  useEffect(() => {
+    sheet.current?.querySelector<HTMLElement>("[data-sheet-close]")?.focus({ preventScroll: true });
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handler = (e: KeyboardEvent) => onKey(e);
+    document.addEventListener("keydown", handler);
+    return () => {
+      document.removeEventListener("keydown", handler);
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  const initial = (userName.trim()[0] ?? "?").toUpperCase();
+
+  return (
+    <div
+      ref={sheet}
+      id={id}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Navigation"
+      data-stage={stage}
+      data-phase={phase}
+      className="sx-sheet md:hidden"
+      onAnimationEnd={(e) => {
+        if (e.target === e.currentTarget && phase === "closing") onClosed();
+      }}
+      onClick={(e) => {
+        // Any tap on a link starts the exit as it navigates.
+        if ((e.target as HTMLElement).closest("a")) onClose();
+      }}
+    >
+      {/* the skin's ground: floor grid + sweep / floodlight / dot-matrix */}
+      <div aria-hidden="true" className="sx-sheet-fx">
+        <span className="sx-sheet-fx-a" />
+        <span className="sx-sheet-fx-b" />
+      </div>
+
+      <div className="sx-sheet-head">
+        <Link href={rootHref} className="sx-sheet-logo">
+          <Logo className="h-7" />
+        </Link>
+        <button type="button" data-sheet-close onClick={onClose} aria-label="Close navigation" className="sx-sheet-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" className="size-[18px]">
+            <path d="M6 6l12 12M18 6 6 18" />
+          </svg>
+        </button>
+      </div>
+
+      <p className="sx-sheet-portal">
+        <span className="sx-sheet-live" aria-hidden="true" />
+        {portalLabel}
+        <span className="sx-sheet-rule" aria-hidden="true" />
+      </p>
+
+      <nav aria-label={portalLabel} className="sx-sheet-body">
+        {top.map((item) => (
+          <SheetTile key={item.pending ? item.label : item.href} item={item} hero pathname={pathname} rootHref={rootHref} g={0} r={0} />
+        ))}
+        {ordered.map((g, gi) => (
+          <section key={g.key} className="sx-sheet-group" style={{ "--g": gi + 1 } as CSSProperties}>
+            <h2 className="sx-sheet-group-head">
+              <span>{g.label}</span>
+              <span className="sx-sheet-rule" aria-hidden="true" />
+              <span className="sx-sheet-count" aria-hidden="true">{String(g.items.length).padStart(2, "0")}</span>
+            </h2>
+            <div className="sx-sheet-grid">
+              {g.items.map((item, k) => (
+                <SheetTile key={item.pending ? item.label : item.href} item={item} pathname={pathname} rootHref={rootHref} g={gi + 1} r={Math.floor(k / 2)} />
+              ))}
+            </div>
+          </section>
+        ))}
+      </nav>
+
+      <div className="sx-sheet-foot">
+        <span className="sx-sheet-avatar" aria-hidden="true">{initial}</span>
+        <span className="min-w-0 flex-1">
+          <span className="sx-sheet-name">{userName}</span>
+          <span className="sx-sheet-role">{userRole}</span>
+        </span>
+        <Link href="/map" className="sx-sheet-map">
+          route map
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function SheetTile({
+  item, hero = false, pathname, rootHref, g, r,
+}: { item: NavItem; hero?: boolean; pathname: string; rootHref: string; /** group index — the stagger */ g: number; /** row in the group (the board's power-on runs row by row) */ r: number }) {
+  const style = { "--g": g, "--r": r } as CSSProperties;
+  const cls = `sx-tile${hero ? " sx-tile-hero" : ""}`;
+  if (item.pending) {
+    return (
+      <span className={cls} data-pending="" aria-disabled="true" style={style}>
+        <span className="sx-tile-glyph"><Glyph icon={item.icon} /></span>
+        <span className="sx-tile-label">{item.label}</span>
+        <span className="sx-tile-soon">soon</span>
+      </span>
+    );
+  }
+  const active = isActiveHref(item.href, pathname, rootHref);
+  return (
+    <Link href={item.href} className={cls} aria-current={active ? "page" : undefined} style={style}>
+      <span className="sx-tile-br sx-tile-br-a" aria-hidden="true" />
+      <span className="sx-tile-br sx-tile-br-b" aria-hidden="true" />
+      <span className="sx-tile-glyph"><Glyph icon={item.icon} className={hero ? "size-6" : "size-5"} /></span>
+      <span className="sx-tile-text">
+        <span className="sx-tile-label">{item.label}</span>
+        {hero && <span className="sx-tile-sub">{active ? "You are here" : "Back to the overview"}</span>}
+      </span>
+      {hero &&
+        (active ? (
+          <span className="sx-tile-here" aria-hidden="true" />
+        ) : (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="sx-tile-arrow size-5">
+            <path d="M5 12h14m-6-6 6 6-6 6" />
+          </svg>
+        ))}
+    </Link>
   );
 }

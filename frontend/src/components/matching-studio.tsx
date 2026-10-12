@@ -633,7 +633,8 @@ export function MatchingStudio({
 
       {/* ------------------------------------------- bottom dock (< xl) */}
       {view === "workspace" && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/85 px-4 py-2.5 backdrop-blur-xl xl:hidden">
+        /* data-sx-bottombar: the phone dock (P1-ART-24) rides above this bar instead of covering it */
+        <div data-sx-bottombar="" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/85 px-4 py-2.5 backdrop-blur-xl xl:hidden">
           <div className="mx-auto flex max-w-3xl items-center gap-3">
             <button
               type="button"
