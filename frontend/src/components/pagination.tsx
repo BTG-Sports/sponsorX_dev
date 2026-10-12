@@ -18,6 +18,9 @@ const ACTIVE_TONE: Record<FilterTone, string> = {
   sponsor: "border-sponsor/40 bg-sponsor/10 text-text",
   property: "border-property/40 bg-property/10 text-text",
   next: "border-next/40 bg-next/10 text-text",
+  /* The vault: solid brushed gold, not a tint — Finance's active page reads
+     as a struck coin, not a highlighted one. */
+  vault: "bg-[#d4b062] text-[#06100c] border-[#d4b062]",
 };
 
 /**

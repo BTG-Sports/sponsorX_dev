@@ -1,0 +1,981 @@
+/* --------------------------------------------------------------------------
+   The Vault — the Finance portal's stage (P1-ART-25, 2026-10-12).
+
+   Admin is Mission Control (steel HUD, chamfers, brackets), the athlete is
+   the Arena (blue plates, speed bars, lanes), the sponsor is the Stadium
+   Board (orange LED, scan-lines, ticker). Finance's stage is a bank vault:
+   always dark, a deep bank-green ground, brushed-gold hairlines, banknote
+   guilloché rosettes, a DOUBLE-RULE frame (a gold border, a second fainter
+   rule 3px outside it, a dashed rule 4px inside — the border of a note),
+   engraved serif numerals filled with a gold gradient, and the vault dial.
+   The entrance is an UNLOCK: a gold hairline traces round each frame
+   clockwise from twelve o'clock, like a dial turning, then fades; the
+   content rises and the numbers count up. Attention is a solid gold badge
+   with a slow pulse. Never a chamfer, bracket, scan-line, lane, speed bar
+   or ticker here (memory portal-stage-identities).
+
+   How it is switched on: the Finance portal (`/finance`) is the only place.
+   Its shell (PortalShell `stage="vault"`) is the ops chrome's structure, so
+   the root carries `.sx-ops` AND `.sx-vault`. Everything below is scoped
+   under `.sx-vault`; the chrome overrides are `.sx-ops.sx-vault …`, one
+   class more specific than the ops rules they replace in globals.css, so
+   they win whatever order the two files load in. Drawers, dialogs and the
+   phone menu are portaled to <body>, so they are reached through <body>
+   carrying both classes too (StagePortals) — see "the phone menu" below.
+   The admin portal never carries `.sx-vault`: Mission Control is untouched
+   (restructure, 2026-10-12 — the Vault used to switch on inside /admin).
+
+   Unlayered, like stadium.css and mobile-nav.css, so these rules beat
+   Tailwind's utilities on the same element — they set colour, border and
+   background, almost never box geometry.
+   Reduced motion: no bezel turn, no hairline trace, no draw-in, no shimmer,
+   no pulse, no glint; count-ups show their final value (ArenaCount).
+   Kept out of globals.css on purpose (other work in flight there); imported
+   by the finance layout only.
+   -------------------------------------------------------------------------- */
+
+/* the unlock trace's angle — registered so it can animate smoothly. Without
+   @property a browser doesn't interpolate a custom property at all: the
+   keyframes below would flip it discretely, at 70% straight from 0deg to
+   360deg, so the trace would not sweep but FLASH the full border on at
+   once. The `@supports at-rule(@property)` gate below keeps the trace to
+   browsers that register it, and leaves the frame with no trace, never a
+   flashed one, everywhere else. */
+@property --sx-vault-turn {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+/* tokens ------------------------------------------------------------------ */
+.sx-vault {
+  --vault-ground: #06100c;
+  --vault-gold: #d4b062;
+  --vault-gold-hi: #f1dfa6;
+  --vault-gold-lo: #c49a45;
+  --vault-ink: #ece5cf;
+  --vault-muted: #a99b74;
+  --vault-faint: #8a8064;
+  --vault-good: #3ddc97;
+  --vault-late: #e36a5a;
+  --vault-line: rgb(212 176 98 / 0.28);
+  --vault-line-soft: rgb(212 176 98 / 0.13);
+  --vault-glow: rgb(212 176 98 / 0.45);
+  --vault-plate: linear-gradient(180deg, rgb(20 40 30 / 0.74), rgb(8 18 13 / 0.88));
+  /* flat greens for a form's own surfaces (the commission desk and its
+     dialog): a raised plate, a resting plate, and the well a field sits in */
+  --vault-plate-hi: #0f2119;
+  --vault-plate-lo: #0b1912;
+  --vault-well: #050d09;
+  --vault-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* The shared ComboBox (place-dialog.tsx) reads these, with Mission
+     Control's cyan as its fallback — so a dropdown under the Vault (the
+     commission dialog, the sample order) is gold without a prop. */
+  --sx-combo-hi: #f1dfa6;
+  --sx-combo-line: #d4b062;
+  --sx-combo-field: #050d09;
+  --sx-combo-open: #0f2119;
+  --sx-combo-pop: #08140f;
+  --sx-combo-active: #d4b062;
+  --sx-combo-ink: #ece5cf;
+  --sx-combo-label: #a99b74;
+  --sx-combo-faint: #8a8064;
+}
+
+/* The shell's themed tokens, re-pinned like .sx-stadium's: every shared
+   primitive that reads them (the sidebar's accent bloom, edge line and
+   active item — all `admin`-toned utilities; the header hairline; the user
+   menu; pagers and filters on the admin tone; text, lines, surfaces) turns
+   to gold on bank green by itself. `@theme inline` makes the utilities read
+   these variables directly, so re-pinning them here is enough.
+   The second selector is for a piece portaled to <body> that carries its
+   own `.sx-ops` (a shared dialog built for Mission Control): `.sx-ops`
+   re-declares ops blue on that element, which would beat what it inherits
+   from a Vault <body>. Under a Vault ancestor it gets these instead —
+   (0,2,0) beats the bare `.sx-ops`. Mission Control never matches: the
+   admin portal's <body> and shell root never carry `.sx-vault`. */
+.sx-ops.sx-vault,
+.sx-vault .sx-ops {
+  --sx-bg: #06100c;
+  --sx-surface: #0b1912;
+  --sx-surface-2: #0f2119;
+  --sx-line: #2e3b2c;
+  --sx-line-soft: #1b2a20;
+  --sx-text: #ece5cf;
+  --sx-text-muted: #a99b74;
+  --sx-text-faint: #8a8064;
+  --sx-primary: #d4b062;
+  --sx-primary-soft: #f1dfa6;
+  --sx-accent: #d4b062;
+  --sx-accent-soft: #f1dfa6;
+  --sx-cta-ink: #06100c;
+  --sx-danger: #e36a5a;
+  --sx-warn: #e9b949;
+  --sx-success: #3ddc97;
+  --sx-admin: #d4b062;
+  /* NEXT's violet is a programme colour on Mission Control; on the Vault
+     (the Finance portal's Splits) the NEXT pieces take the gold too */
+  --sx-next: #d4b062;
+  --sx-next-soft: #f1dfa6;
+  color-scheme: dark;
+  color: #ece5cf;
+}
+
+/* ground ------------------------------------------------------------------ */
+/* PortalShell renders it on the Vault stage only; hidden anywhere else it
+   could land, shown under a Vault ancestor. */
+.sx-vault-ground { display: none; }
+.sx-vault .sx-vault-ground { display: block; }
+.sx-vault-ground {
+  background:
+    radial-gradient(1200px 520px at 88% -8%, rgb(212 176 98 / 0.14), transparent 60%),
+    radial-gradient(900px 640px at -10% 108%, rgb(16 120 80 / 0.32), transparent 62%),
+    radial-gradient(700px 420px at 40% 120%, rgb(212 176 98 / 0.05), transparent 70%),
+    var(--vault-ground);
+}
+/* the rosettes drift a few pixels against the pointer (OpsStage's --tx /
+   --ty, -1..1), like the ops floor grid — depth, not motion */
+.sx-vault-rosette {
+  position: absolute;
+  color: var(--vault-gold);
+  opacity: 0.14;
+  transform: translate3d(calc(var(--tx, 0) * -10px), calc(var(--ty, 0) * -8px), 0);
+  transition: transform 1.2s var(--vault-ease);
+}
+.sx-vault-rosette[data-far] { opacity: 0.1; transform: translate3d(calc(var(--tx, 0) * 6px), calc(var(--ty, 0) * 5px), 0); }
+/* a vignette so the lower page never reads flat */
+.sx-vault-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 50% 30%, transparent 55%, rgb(0 0 0 / 0.35));
+}
+/* the pointer light, a warm lamp over the engraving */
+.sx-vault-light {
+  background: radial-gradient(560px circle at var(--px, -999px) var(--py, -999px), rgb(212 176 98 / 0.08), transparent 65%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+[data-sx-ops][data-lit] > .sx-vault-ground .sx-vault-light { opacity: 1; }
+/* the stage column's own ground (globals .sx-stage: a cyan sky, an orange
+   glow, a dot grid) sits under the vault ground and never shows — but it is
+   Mission Control's, so it goes, not merely covered */
+.sx-ops.sx-vault .sx-stage { background: var(--vault-ground); }
+/* and the page itself: <body> keeps the theme's --background (resolved at
+   :root, so the re-pinned --sx-bg never reaches it), which shows below the
+   sticky sidebar on a long page */
+body.sx-vault,
+.sx-ops.sx-vault { background-color: var(--vault-ground); }
+
+/* chrome: sidebar, header, nav groups ------------------------------------- */
+.sx-ops.sx-vault .sx-shell-aside {
+  border-right-color: var(--vault-line-soft);
+  background: linear-gradient(180deg, rgb(10 26 18 / 0.94), rgb(5 12 9 / 0.97));
+}
+.sx-ops.sx-vault .sx-shell-header {
+  background: rgb(6 16 12 / 0.76);
+}
+.sx-ops.sx-vault .sx-nav-head[data-holds] .sx-nav-tile { box-shadow: 0 0 14px rgb(212 176 98 / 0.35); }
+.sx-ops.sx-vault .sx-nav-head[data-open]:not([data-holds]) .sx-nav-tile { border-color: rgb(212 176 98 / 0.4); color: var(--vault-gold-hi); }
+.sx-ops.sx-vault .sx-nav-track { border-color: rgb(212 176 98 / 0.24); }
+.sx-ops.sx-vault .sx-nav-head::after { background: linear-gradient(90deg, transparent, rgb(241 223 166 / 0.07), transparent); }
+
+/* words: the engraved serif -------------------------------------------- */
+.sx-ops.sx-vault .sx-page-title {
+  font-family: var(--font-source-serif), Georgia, serif;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  color: var(--vault-gold-hi);
+}
+/* the ops title's green status dot becomes a gold lozenge with a fine ring
+   — the ornament a banknote puts before its denomination */
+.sx-ops.sx-vault .sx-page-title::before {
+  width: 7px;
+  height: 7px;
+  margin-inline: 2px 4px;
+  border-radius: 0;
+  background: var(--vault-gold);
+  box-shadow: 0 0 0 2px var(--vault-ground), 0 0 0 3px rgb(212 176 98 / 0.5);
+  transform: rotate(45deg);
+}
+.sx-ops.sx-vault .sx-section-title {
+  font-family: var(--font-source-serif), Georgia, serif;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  text-transform: none;
+  color: var(--vault-gold-hi);
+}
+
+/* the shared primitives, off the HUD ------------------------------------ */
+/* cards: square, a gold hairline and an inner rule — the brackets go */
+.sx-ops.sx-vault .sx-card {
+  border-radius: 0;
+  border-color: var(--vault-line);
+  background: var(--vault-plate);
+}
+.sx-ops.sx-vault .sx-card::before {
+  inset: 3px;
+  width: auto;
+  height: auto;
+  border: 1px solid rgb(212 176 98 / 0.07);
+}
+.sx-ops.sx-vault .sx-card::after { display: none; }
+.sx-ops.sx-vault .sx-card .sx-card { background: rgb(4 12 9 / 0.45); }
+.sx-ops.sx-vault .sx-card .sx-card::before { display: none; }
+.sx-ops.sx-vault .sx-hero-band {
+  border-radius: 0;
+  border-color: var(--vault-line);
+  background:
+    radial-gradient(70% 80% at 100% 0%, rgb(212 176 98 / 0.16), transparent 60%),
+    var(--vault-plate);
+}
+.sx-ops.sx-vault .sx-hero-band::before {
+  height: 4px;
+  background:
+    linear-gradient(90deg, transparent, var(--vault-gold), transparent) top / 100% 1px no-repeat,
+    linear-gradient(90deg, transparent, rgb(212 176 98 / 0.35), transparent) bottom / 100% 1px no-repeat;
+  box-shadow: none;
+}
+/* a stat tile's top edge: a double rule instead of the cyan bar */
+.sx-ops.sx-vault .sx-stat { border-radius: 0; border-color: var(--vault-line); }
+.sx-ops.sx-vault .sx-stat::after {
+  height: 4px;
+  background:
+    linear-gradient(var(--vault-gold), var(--vault-gold)) top / 100% 1px no-repeat,
+    linear-gradient(rgb(212 176 98 / 0.3), rgb(212 176 98 / 0.3)) bottom / 100% 1px no-repeat;
+  box-shadow: none;
+}
+.sx-ops.sx-vault .sx-stat-label { color: var(--vault-muted); letter-spacing: 0.16em; }
+.sx-ops.sx-vault .sx-notice {
+  border-radius: 0;
+  border-color: rgb(212 176 98 / 0.4);
+  background: rgb(212 176 98 / 0.08);
+  color: var(--vault-gold-hi);
+}
+
+/* tabs — every idiom (role=tab, .sx-tab, the link strip TabStrip draws):
+   an engraved underline, the mockup's, instead of cyan pills */
+.sx-ops.sx-vault [role="tablist"],
+.sx-ops.sx-vault .sx-tabs,
+.sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 {
+  gap: 0;
+  border: 0;
+  border-bottom: 1px solid rgb(212 176 98 / 0.25);
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+.sx-ops.sx-vault [role="tab"],
+.sx-ops.sx-vault .sx-tab,
+.sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 > a,
+.sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 > button,
+.sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 > span {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--vault-muted);
+  padding: 0.55rem 0.95rem;
+  box-shadow: none;
+  transition: color 0.25s ease, box-shadow 0.3s var(--vault-ease);
+}
+.sx-ops.sx-vault [role="tab"]:hover,
+.sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 > a:hover,
+.sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 > button:hover {
+  color: var(--vault-gold-hi);
+  box-shadow: inset 0 -1px 0 rgb(212 176 98 / 0.45);
+}
+.sx-ops.sx-vault [role="tab"][aria-selected="true"],
+.sx-ops.sx-vault .sx-tab[data-active],
+.sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 > [aria-current],
+.sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 > .bg-primary\/15,
+.sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 > .bg-admin\/15,
+.sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 > .bg-next\/15 {
+  background: linear-gradient(180deg, transparent 40%, rgb(212 176 98 / 0.08));
+  color: var(--vault-gold-hi);
+  box-shadow: inset 0 -2px 0 var(--vault-gold);
+}
+.sx-ops.sx-vault [role="tab"]:focus-visible,
+.sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 > a:focus-visible {
+  outline: 2px solid var(--vault-gold-hi);
+  outline-offset: -2px;
+}
+
+/* buttons: brushed gold, square — no chamfer */
+.sx-ops.sx-vault .sx-btn-primary,
+.sx-ops.sx-vault button.bg-primary,
+.sx-ops.sx-vault a.bg-primary {
+  clip-path: none;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #f3e2ad, #d4b062 55%, #b98f3e);
+  color: #06100c;
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.4), inset 0 -1px 0 rgb(0 0 0 / 0.2), 0 8px 20px -10px var(--vault-glow);
+  transition: box-shadow 0.3s ease, filter 0.3s ease;
+}
+.sx-ops.sx-vault .sx-btn-primary:hover,
+.sx-ops.sx-vault button.bg-primary:not(:disabled):hover,
+.sx-ops.sx-vault a.bg-primary:hover {
+  background: linear-gradient(180deg, #f3e2ad, #d4b062 55%, #b98f3e);
+  filter: brightness(1.07);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45), inset 0 -1px 0 rgb(0 0 0 / 0.2), 0 10px 26px -8px var(--vault-glow);
+}
+.sx-ops.sx-vault button.bg-primary:disabled { box-shadow: none; filter: saturate(0.5); }
+/* (no background here: a pager's numbers and the filter triggers are
+   `border-line` buttons too, and keep their own fill) */
+.sx-ops.sx-vault .sx-btn-secondary,
+.sx-ops.sx-vault button.border-line,
+.sx-ops.sx-vault a.border-line {
+  clip-path: none;
+  border-radius: 2px;
+  border-color: rgb(212 176 98 / 0.32);
+  color: #d9c48f;
+}
+.sx-ops.sx-vault .sx-btn-secondary { background: rgb(6 16 12 / 0.6); }
+.sx-ops.sx-vault .sx-btn-secondary:hover,
+.sx-ops.sx-vault button.border-line:hover,
+.sx-ops.sx-vault a.border-line:hover {
+  border-color: var(--vault-gold);
+  background-color: rgb(212 176 98 / 0.08);
+  color: #fff8e4;
+}
+.sx-ops.sx-vault :is(.sx-btn-primary, .sx-btn-secondary, button.bg-primary, a.bg-primary, button.border-line, a.border-line):focus-visible {
+  outline: 2px solid var(--vault-gold-hi);
+  outline-offset: 2px;
+}
+
+/* native fields a desk still hand-rolls */
+.sx-ops.sx-vault select,
+.sx-ops.sx-vault input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.sx-ops.sx-vault textarea {
+  border-color: rgb(212 176 98 / 0.3);
+  background-color: rgb(4 12 9 / 0.72);
+  color: var(--vault-ink);
+}
+.sx-ops.sx-vault select:focus,
+.sx-ops.sx-vault input:not([type="checkbox"]):not([type="radio"]):focus,
+.sx-ops.sx-vault textarea:focus {
+  border-color: var(--vault-gold);
+  box-shadow: 0 0 0 2px rgb(212 176 98 / 0.3), 0 0 16px rgb(212 176 98 / 0.18);
+}
+.sx-ops.sx-vault select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4b062' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+}
+.sx-ops.sx-vault select option { background: #06100c; color: var(--vault-ink); }
+.sx-ops.sx-vault input[type="checkbox"],
+.sx-ops.sx-vault input[type="radio"] { accent-color: var(--vault-gold); }
+
+/* drawers and dialogs — portaled to <body>, so they turn gold when <body>
+   carries `.sx-vault` too (StagePortals) */
+.sx-ops.sx-vault .sx-drawer,
+.sx-ops.sx-vault .sx-drawer-out {
+  background:
+    radial-gradient(80% 40% at 100% 0%, rgb(212 176 98 / 0.12), transparent 70%),
+    linear-gradient(180deg, #0a1812, #050d09);
+  box-shadow: inset 1px 0 0 rgb(212 176 98 / 0.45), -30px 0 60px rgb(0 0 0 / 0.55);
+}
+.sx-ops.sx-vault [role="dialog"] > div > .sx-pop,
+.sx-ops.sx-vault [role="dialog"] > .sx-pop {
+  border-radius: 0;
+  border-color: var(--vault-line);
+  outline: 1px solid rgb(212 176 98 / 0.12);
+  outline-offset: 3px;
+  background:
+    radial-gradient(90% 60% at 0% 0%, rgb(212 176 98 / 0.12), transparent 70%),
+    linear-gradient(160deg, #0c1c15, #060f0b);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.6), 0 0 60px rgb(212 176 98 / 0.08);
+}
+
+/* tables: gold hairlines, engraved figures ------------------------------- */
+.sx-vault table tr { border-color: var(--vault-line-soft); }
+.sx-ops.sx-vault .sx-table-wrap { border-radius: 0; border-color: var(--vault-line); background: var(--vault-plate); }
+.sx-ops.sx-vault .sx-table th {
+  color: var(--vault-muted);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  border-bottom-color: rgb(212 176 98 / 0.25);
+}
+.sx-ops.sx-vault .sx-table td { border-top-color: var(--vault-line-soft); }
+.sx-ops.sx-vault .sx-table td.num {
+  font-family: var(--font-source-serif), Georgia, serif;
+  font-weight: 600;
+  color: var(--vault-gold-hi);
+}
+.sx-ops.sx-vault .sx-table tbody tr { animation-name: sx-vault-rise; }
+.sx-ops.sx-vault .sx-table tbody tr:hover { background: rgb(212 176 98 / 0.05); }
+.sx-ops.sx-vault .sx-table tbody tr[data-open] { background: rgb(212 176 98 / 0.07); }
+.sx-ops.sx-vault .sx-table tbody tr[data-tone="accent"] { box-shadow: inset 3px 0 0 var(--vault-gold); }
+.sx-ops.sx-vault .sx-table tbody tr.sx-table-detail > td { background: rgb(4 12 9 / 0.4); }
+
+/* the double-rule frame ----------------------------------------------------- */
+/* A tile, a deposit box, a gold-framed panel: a gold border, a second rule
+   3px outside it (the outline) and a dashed rule 4px inside (::before).
+   Square corners, always. */
+.sx-vault-frame {
+  position: relative;
+  border: 1px solid rgb(212 176 98 / 0.35);
+  outline: 1px solid rgb(212 176 98 / 0.14);
+  outline-offset: 3px;
+  background: var(--vault-plate);
+  transition: border-color 0.35s ease, outline-color 0.35s ease, background-color 0.35s ease;
+}
+.sx-vault-frame::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  pointer-events: none;
+  border: 1px dashed rgb(212 176 98 / 0.12);
+}
+/* the pointer's spotlight, only while it is over the frame */
+.sx-vault-frame[data-spot]:hover,
+.sx-vault-panel[data-spot]:hover {
+  background:
+    radial-gradient(260px circle at var(--mx, -999px) var(--my, -999px), rgb(212 176 98 / 0.1), transparent 70%),
+    var(--vault-plate);
+}
+.sx-vault-frame[data-tone="you"] { border-color: var(--vault-gold); outline-color: rgb(212 176 98 / 0.32); }
+.sx-vault-frame[data-tone="you"]::before { border-color: rgb(212 176 98 / 0.22); }
+.sx-vault-frame[data-tone="late"] { border-color: rgb(227 106 90 / 0.6); outline-color: rgb(227 106 90 / 0.18); }
+.sx-vault-frame[data-tone="late"]::before { border-color: rgb(227 106 90 / 0.16); }
+/* a frame that links (a deposit box), or holds a covering link (a tile) */
+a.sx-vault-frame:hover,
+.sx-vault-frame:has(> dd > a.sx-vault-cover:hover) {
+  border-color: var(--vault-gold-hi);
+  outline-color: rgb(212 176 98 / 0.45);
+}
+/* focus replaces the outer rule with a bright one — the frame IS the ring */
+a.sx-vault-frame:focus-visible,
+.sx-vault-frame:has(> dd > a.sx-vault-cover:focus-visible) {
+  outline: 2px solid var(--vault-gold-hi);
+  outline-offset: 3px;
+}
+.sx-vault-cover { position: absolute; inset: 0; z-index: 1; }
+.sx-vault-cover:focus-visible { outline: none; }
+
+/* a panel: one hairline and a faint inner rule (the frame's quieter kin) */
+.sx-vault-panel {
+  position: relative;
+  border: 1px solid var(--vault-line);
+  background: var(--vault-plate);
+}
+.sx-vault-panel::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  pointer-events: none;
+  border: 1px solid rgb(212 176 98 / 0.06);
+}
+/* a gold-framed panel (`tone`) already has the frame's dashed rule */
+.sx-vault-panel.sx-vault-frame::before { inset: 4px; border-style: dashed; }
+
+/* numerals: engraved, gold-filled ----------------------------------------- */
+/* Two layers clipped to the text: a glint band over the gold gradient. The
+   band layer is 2.5× the figure's width, so at 120% it sits wholly off the
+   left edge and at -20% wholly off the right: after the count-up it crosses
+   the figure once, left to right, and parks. The drop-shadow under it is
+   the engraving's cut edge. */
+.sx-vault-num {
+  font-family: var(--font-source-serif), Georgia, serif;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  font-variant-numeric: tabular-nums lining-nums;
+  background:
+    linear-gradient(105deg, transparent 42%, rgb(255 251 235 / 0.85) 50%, transparent 58%) 120% 0 / 250% 100% no-repeat,
+    linear-gradient(180deg, #f8ecc2 8%, #e3c57d 52%, #b98f3e 96%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 0 rgb(0 0 0 / 0.55));
+  animation: sx-vault-glint 1.2s ease-in-out calc(var(--sx-reveal-delay, 0s) + 1.35s) both;
+}
+@keyframes sx-vault-glint {
+  from { background-position: 120% 0, 0 0; }
+  to { background-position: -20% 0, 0 0; }
+}
+
+/* pill, badge ----------------------------------------------------------------- */
+.sx-vault-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgb(212 176 98 / 0.45);
+  border-radius: 9999px;
+  background: rgb(212 176 98 / 0.06);
+  padding: 0.15rem 0.65rem;
+  font-size: 11px;
+  color: #d9c48f;
+}
+.sx-vault-pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--vault-good);
+  box-shadow: 0 0 8px var(--vault-good);
+}
+/* "Sample": a hollow gold ring, never the live green dot */
+.sx-vault-pill[data-sample]::before {
+  background: transparent;
+  border: 1px solid var(--vault-gold);
+  box-shadow: none;
+}
+/* attention: solid gold, a slow pulse ringing out from it */
+.sx-vault-badge {
+  display: inline-flex;
+  min-width: 1.4rem;
+  align-self: center; /* never stretched tall by a flex row */
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0 0.45rem;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.6;
+  color: var(--vault-ground);
+  background: linear-gradient(180deg, #f1dfa6, #d4b062);
+  animation: sx-vault-pulse 2.4s ease-out infinite;
+}
+.sx-vault-badge[data-zero] { animation: none; background: rgb(212 176 98 / 0.18); color: var(--vault-muted); }
+@keyframes sx-vault-pulse {
+  0% { box-shadow: 0 0 0 0 rgb(212 176 98 / 0.55); }
+  70%, 100% { box-shadow: 0 0 0 8px rgb(212 176 98 / 0); }
+}
+
+/* chips: square-cornered, a status word */
+.sx-vault-chip { border-radius: 2px; letter-spacing: 0.02em; }
+
+/* the "?" explainer (stadium-hint.tsx, skin="vault") ------------------------- */
+.sx-vault-q {
+  position: relative;
+  z-index: 2; /* above a tile's covering link */
+  display: inline-grid;
+  width: 15px;
+  height: 15px;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgb(212 176 98 / 0.5);
+  font-family: var(--font-source-serif), Georgia, serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--vault-gold);
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+}
+.sx-vault-q:hover,
+.sx-vault-q[aria-expanded="true"] { border-color: var(--vault-gold-hi); color: var(--vault-gold-hi); background: rgb(212 176 98 / 0.12); }
+.sx-vault-q:focus-visible { outline: 2px solid var(--vault-gold-hi); outline-offset: 2px; color: var(--vault-gold-hi); }
+.sx-vault-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 40;
+  width: max-content;
+  max-width: 16rem;
+  /* `translate`, not `transform`: .sx-pop's keyframes own `transform` */
+  translate: -50% 0;
+  border: 1px solid var(--vault-line);
+  outline: 1px solid rgb(212 176 98 / 0.1);
+  outline-offset: 2px;
+  background: #0b1a13;
+  padding: 0.5rem 0.65rem;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.45;
+  text-transform: none;
+  color: var(--vault-ink);
+  box-shadow: 0 14px 40px rgb(0 0 0 / 0.55);
+}
+
+/* entrance: unlock ------------------------------------------------------------ */
+/* The content rises in (`backwards` — never stuck invisible if an animation
+   doesn't run). A frame also gets the trace: a bright gold border revealed
+   by a conic mask that sweeps clockwise from twelve o'clock, then fades. */
+@keyframes sx-vault-rise {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+}
+.sx-vault-in { animation: sx-vault-rise 0.75s var(--vault-ease) var(--sx-reveal-delay, 0s) backwards; }
+/* without @property registration the trace can't interpolate (see the
+   comment above the @property rule), so it only runs where that's
+   supported; elsewhere the frame stays untraced, never flashed */
+@supports at-rule(@property) {
+  .sx-vault-frame.sx-vault-in::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    pointer-events: none;
+    border: 1px solid var(--vault-gold-hi);
+    box-shadow: 0 0 10px rgb(241 223 166 / 0.35), inset 0 0 10px rgb(241 223 166 / 0.12);
+    -webkit-mask: conic-gradient(from 0deg, #000 var(--sx-vault-turn), transparent 0);
+    mask: conic-gradient(from 0deg, #000 var(--sx-vault-turn), transparent 0);
+    opacity: 0;
+    animation: sx-vault-trace 1.15s cubic-bezier(0.45, 0.05, 0.25, 1) var(--sx-reveal-delay, 0s) both;
+  }
+  @keyframes sx-vault-trace {
+    0% { --sx-vault-turn: 0deg; opacity: 1; }
+    70% { --sx-vault-turn: 360deg; opacity: 1; }
+    100% { --sx-vault-turn: 360deg; opacity: 0; }
+  }
+}
+
+/* the dial ------------------------------------------------------------------- */
+/* The ticked bezel turns on the dial's own centre (the viewBox is 140²). */
+.sx-vault-bezel {
+  transform-box: view-box;
+  transform-origin: 70px 70px;
+  animation: sx-vault-turn 90s linear infinite;
+}
+@keyframes sx-vault-turn { to { transform: rotate(360deg); } }
+/* the sweep draws round to the value as the dial unlocks */
+.sx-vault-sweep {
+  animation: sx-vault-sweep 1.6s var(--vault-ease) calc(var(--sx-reveal-delay, 0s) + 0.25s) backwards;
+  filter: drop-shadow(0 0 4px rgb(212 176 98 / 0.45));
+}
+@keyframes sx-vault-sweep { from { stroke-dashoffset: var(--sx-dial-c); } }
+.sx-vault-dial-num { font-family: var(--font-source-serif), Georgia, serif; font-weight: 700; font-variant-numeric: tabular-nums lining-nums; }
+
+/* the money chart (vault-flow.tsx) ----------------------------------------- */
+/* the plot draws in left to right, the way ink crosses a ledger */
+.sx-vault-flow-plot { animation: sx-vault-wipe 1.6s var(--vault-ease) 0.35s backwards; }
+@keyframes sx-vault-wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.sx-vault-flow-in { filter: drop-shadow(0 0 5px rgb(232 207 134 / 0.45)); }
+.sx-vault-flow:focus-visible { outline: 2px solid var(--vault-gold-hi); outline-offset: 4px; }
+.sx-vault-flow-tip {
+  border: 1px solid rgb(212 176 98 / 0.4);
+  outline: 1px solid rgb(212 176 98 / 0.1);
+  outline-offset: 2px;
+  background: rgb(9 22 16 / 0.94);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.5);
+}
+
+/* share bars ------------------------------------------------------------------ */
+.sx-vault-bar { display: block; height: 8px; background: rgb(212 176 98 / 0.1); box-shadow: inset 0 0 0 1px rgb(212 176 98 / 0.08); }
+.sx-vault-bar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--vault-gold-lo), #f6e6b4);
+  box-shadow: 0 0 10px -2px rgb(212 176 98 / 0.6);
+  transform-origin: left;
+  animation: sx-vault-grow 1.1s var(--vault-ease) var(--sx-reveal-delay, 0s) backwards;
+}
+@keyframes sx-vault-grow { from { transform: scaleX(0); } }
+
+/* athlete pay, step by step --------------------------------------------------- */
+/* The main steps sit on one engraved rule, a bead on it for each. The rule
+   joins the beads only when all four share a row (the kit's `@container`
+   wrapper is wide enough — Tailwind's @md, 28rem); two by two, beads alone.
+   The 12.5% offsets are the first/last bead's centre in a FOUR-column grid
+   (`@md:grid-cols-4` — VaultSteps always lays the grid out in four columns,
+   whatever `main` holds), so the rule only draws when `data-n` (set by
+   VaultSteps to `main.length`) confirms there really are four. */
+.sx-vault-steps { position: relative; }
+.sx-vault-steps::before {
+  content: "";
+  position: absolute;
+  left: 12.5%;
+  right: 12.5%;
+  top: 4px;
+  display: none;
+  border-top: 1px dashed rgb(212 176 98 / 0.4);
+  pointer-events: none;
+}
+@container (min-width: 28rem) {
+  .sx-vault-steps[data-n="4"]::before { display: block; }
+}
+.sx-vault-steps > li { position: relative; padding-top: 16px; }
+.sx-vault-steps > li::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 9px;
+  height: 9px;
+  translate: -50% 0;
+  border: 1px solid var(--vault-gold);
+  background: var(--vault-ground);
+  transform: rotate(45deg);
+}
+.sx-vault-steps > li[data-has]::before { background: var(--vault-gold); box-shadow: 0 0 8px rgb(212 176 98 / 0.55); }
+
+/* the range switch ------------------------------------------------------------ */
+.sx-vault-range { border: 1px solid var(--vault-line); }
+.sx-vault-range a { color: var(--vault-muted); transition: color 0.2s ease, background-color 0.2s ease; }
+.sx-vault-range a + a { border-left: 1px solid var(--vault-line-soft); }
+.sx-vault-range a:hover { color: var(--vault-gold-hi); background: rgb(212 176 98 / 0.06); }
+.sx-vault-range a[aria-current="true"] {
+  background: linear-gradient(180deg, #f1dfa6, #d4b062);
+  color: var(--vault-ground);
+  font-weight: 600;
+}
+.sx-vault-range a:focus-visible { outline: 2px solid var(--vault-gold-hi); outline-offset: -2px; }
+
+/* the deposit box's key ------------------------------------------------------- */
+/* the key turns a quarter in its lock while the box is hovered or focused */
+.sx-vault-key { transition: transform 0.5s var(--vault-ease), color 0.3s ease, border-color 0.3s ease; }
+.sx-vault-key > svg { transition: transform 0.6s var(--vault-ease); }
+a:hover > .sx-vault-key,
+a:focus-visible > .sx-vault-key { border-color: var(--vault-gold); color: var(--vault-gold-hi); }
+a:hover > .sx-vault-key > svg,
+a:focus-visible > .sx-vault-key > svg { transform: rotate(90deg); }
+
+/* loading ----------------------------------------------------------------------- */
+.sx-vault-ghost {
+  background: linear-gradient(90deg, rgb(212 176 98 / 0.04), rgb(212 176 98 / 0.12), rgb(212 176 98 / 0.04)) 0 0 / 200% 100%;
+  animation: sx-vault-shimmer 1.6s linear infinite;
+}
+@keyframes sx-vault-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* the phone dock ---------------------------------------------------------------- */
+/* The dock sits inside the shell root, so `.sx-vault` reaches it. Its ops
+   skin (mobile-nav.css) is a chamfered HUD bar with a cyan bracket puck;
+   here it is a square double-ruled bar and a gold-ruled puck. */
+.sx-vault .sx-dock[data-stage="ops"] {
+  --mn-accent: #d4b062;
+  --mn-hot: #f1dfa6;
+  --mn-ink: #ece5cf;
+  --mn-muted: #a99b74;
+  --mn-faint: #8a8064;
+  --mn-line: rgb(212 176 98 / 0.26);
+  --mn-bg: #06100c;
+  --mn-plate: linear-gradient(180deg, rgb(20 40 30 / 0.82), rgb(8 18 13 / 0.9));
+  --mn-glow: rgb(212 176 98 / 0.45);
+  --mn-wash: rgb(212 176 98 / 0.08);
+}
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-bar {
+  clip-path: none;
+  border: 1px solid rgb(212 176 98 / 0.38);
+  outline: 1px solid rgb(212 176 98 / 0.14);
+  outline-offset: 3px;
+  background:
+    linear-gradient(90deg, transparent, rgb(241 223 166 / 0.5), transparent) top / 100% 1px no-repeat,
+    linear-gradient(180deg, rgb(12 30 21 / 0.95), rgb(5 12 9 / 0.97));
+}
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-bar::before {
+  inset: 4px;
+  padding: 0;
+  clip-path: none;
+  background: none;
+  -webkit-mask: none;
+  mask: none;
+  border: 1px dashed rgb(212 176 98 / 0.1);
+}
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-puck {
+  background: linear-gradient(180deg, rgb(212 176 98 / 0.2), rgb(212 176 98 / 0.04));
+  box-shadow: inset 0 0 0 1px rgb(212 176 98 / 0.5);
+}
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-puck > i { display: none; }
+/* a lozenge rides the puck's top rule */
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-puck::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  translate: -50% 0;
+  background: var(--vault-gold, #d4b062);
+  transform: rotate(45deg);
+  box-shadow: 0 0 8px rgb(212 176 98 / 0.7);
+}
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-item[aria-current="page"] { color: #fff8e4; }
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-item[aria-current="page"] .sx-dock-glyph { filter: drop-shadow(0 0 6px rgb(212 176 98 / 0.8)); }
+.sx-vault .sx-dock[data-stage="ops"] .sx-dock-item:focus-visible { outline-color: var(--mn-hot); }
+
+/* the phone menu ------------------------------------------------------------------ */
+/* Portaled to <body>: reached when <body> (or any ancestor) is the Vault —
+   StagePortals puts `sx-ops sx-vault` there while the Finance portal is open.
+   Ops gives it a floor grid, a scan sweep, chamfered tiles and brackets;
+   here: a guilloché of engine-turned rings, a double rule under the head,
+   square double-ruled tiles, gold for the lit one. */
+.sx-vault .sx-sheet[data-stage="ops"] {
+  --sheet-r: 0px;
+  --mn-accent: #d4b062;
+  --mn-hot: #f1dfa6;
+  --mn-ink: #ece5cf;
+  --mn-muted: #a99b74;
+  --mn-faint: #8a8064;
+  --mn-line: rgb(212 176 98 / 0.26);
+  --mn-bg: #06100c;
+  --mn-plate: linear-gradient(180deg, rgb(20 40 30 / 0.8), rgb(8 18 13 / 0.88));
+  --mn-glow: rgb(212 176 98 / 0.45);
+  --mn-wash: rgb(212 176 98 / 0.08);
+}
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-fx {
+  background:
+    radial-gradient(80% 36% at 90% -4%, rgb(212 176 98 / 0.16), transparent 70%),
+    radial-gradient(70% 40% at -10% 104%, rgb(16 120 80 / 0.3), transparent 70%);
+}
+/* engine-turned rings: two sets of fine concentric circles whose
+   interference reads as guilloché */
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-fx-a {
+  inset: 0;
+  height: auto;
+  transform: none;
+  background:
+    repeating-radial-gradient(circle at 105% -5%, rgb(212 176 98 / 0.09) 0 1px, transparent 1px 7px),
+    repeating-radial-gradient(circle at 85% 8%, rgb(212 176 98 / 0.07) 0 1px, transparent 1px 7px);
+  -webkit-mask-image: radial-gradient(70% 55% at 95% 0%, #000, transparent 75%);
+  mask-image: radial-gradient(70% 55% at 95% 0%, #000, transparent 75%);
+}
+/* the scan sweep's layer becomes a double rule along the top edge */
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-fx-b {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: none;
+  border-top: 1px solid rgb(212 176 98 / 0.35);
+  border-bottom: 1px solid rgb(212 176 98 / 0.14);
+  animation: none;
+}
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-close,
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-foot,
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile,
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile-glyph,
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-avatar { clip-path: none; border-radius: 0; }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-close { background: rgb(212 176 98 / 0.06); box-shadow: inset 0 0 0 1px var(--mn-line); }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-group-head { color: #cdbf98; }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-group-head::before { box-shadow: none; transform: rotate(45deg); }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile {
+  border: 1px solid var(--mn-line);
+  outline: 1px solid rgb(212 176 98 / 0.08);
+  outline-offset: 2px;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  animation-name: sx-vault-rise;
+}
+/* the masked chamfer ring becomes the dashed inner rule */
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile::before {
+  inset: 3px;
+  padding: 0;
+  clip-path: none;
+  background: none;
+  -webkit-mask: none;
+  mask: none;
+  border: 1px dashed rgb(212 176 98 / 0.1);
+}
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile[aria-current="page"] {
+  border-color: var(--vault-gold, #d4b062);
+  outline-color: rgb(212 176 98 / 0.3);
+  background: linear-gradient(160deg, rgb(212 176 98 / 0.2), rgb(8 18 13 / 0.88) 75%);
+}
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile[aria-current="page"]::before { background: none; border-color: rgb(212 176 98 / 0.25); }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile[aria-current="page"] .sx-tile-label { color: var(--vault-gold-hi, #f1dfa6); }
+/* never the ops brackets, even on the lit or focused tile (theirs is a
+   longer selector than this one, hence the !important) */
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile-br { display: none !important; }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile:focus-visible { outline: 2px solid var(--mn-hot); outline-offset: 2px; }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-tile:focus-visible::before { padding: 0; background: none; }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-close:focus-visible { box-shadow: inset 0 0 0 2px var(--mn-hot); }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-foot { border: 1px solid var(--mn-line); box-shadow: none; }
+.sx-vault .sx-sheet[data-stage="ops"] .sx-sheet-avatar { font-family: var(--font-source-serif), Georgia, serif; }
+
+/* the shared ops kit, on the Finance portal ------------------------------------- */
+/* The Finance portal is the Vault on every page — Splits, the error page, a
+   refused desk — and some of what those pages use is Mission Control's
+   shared kit, so what that kit draws is re-cut here
+   too. All of it is scoped under `.sx-ops.sx-vault`: Mission Control,
+   without the class, is untouched. */
+
+/* a page's own heading when it isn't the house `.sx-page-title` (the
+   "not in your role" page): the engraved serif */
+.sx-ops.sx-vault main h1:not(.sx-page-title) {
+  font-family: var(--font-source-serif), Georgia, serif;
+  color: var(--vault-gold-hi);
+}
+/* figures on the shared cards: a stat tile's number and a campaign card's
+   Athletes / Contracted / Ends — the serif, in gold */
+.sx-ops.sx-vault .sx-stat .text-2xl.tabular-nums,
+.sx-ops.sx-vault dd.tabular-nums.font-semibold {
+  font-family: var(--font-source-serif), Georgia, serif;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums lining-nums;
+  color: var(--vault-gold-hi);
+}
+/* NEXT revenue splits: the four payees' fills are admin, primary, next and
+   accent — one gold under these tokens — so each gets its own vault shade */
+.sx-ops.sx-vault [data-payee="SPONSORX"] { background: #f1dfa6; }
+.sx-ops.sx-vault [data-payee="SCHOOL"] { background: #d4b062; }
+.sx-ops.sx-vault [data-payee="STUDENT_POOL"] { background: #3ddc97; }
+.sx-ops.sx-vault [data-payee="EDITORIAL_FUND"] { background: #a99b74; }
+
+/* Mission Control's own kit (ops-stage.tsx: QueueDeck, KpiTile, the panels,
+   StageHeading, StageLink), should a page that uses it open under the
+   Vault: square double-ruled plates, no chamfer, no bracket, no cyan */
+.sx-ops.sx-vault :is(.sx-ops-card, .sx-ops-panel) {
+  clip-path: none;
+  border: 1px solid var(--vault-line);
+  background: var(--vault-plate);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.sx-ops.sx-vault :is(.sx-ops-card, .sx-ops-panel)::before {
+  inset: 3px;
+  padding: 0;
+  clip-path: none;
+  background: none;
+  -webkit-mask: none;
+  mask: none;
+  border: 1px solid rgb(212 176 98 / 0.07);
+}
+.sx-ops.sx-vault .sx-ops-card::after { display: none; }
+.sx-ops.sx-vault .sx-ops-card:is(:hover, :focus-visible) { border-color: var(--vault-gold); }
+.sx-ops.sx-vault .sx-ops-card:focus-visible { outline: 2px solid var(--vault-gold-hi); outline-offset: 3px; }
+.sx-ops.sx-vault .sx-ops-br { display: none; }
+/* a KPI tile's glowing top bar (an inline style, hence !important) becomes
+   the double rule a stat tile has here */
+.sx-ops.sx-vault .sx-ops-panel > span.absolute.top-0 {
+  height: 4px;
+  background:
+    linear-gradient(var(--vault-gold), var(--vault-gold)) top / 100% 1px no-repeat,
+    linear-gradient(rgb(212 176 98 / 0.3), rgb(212 176 98 / 0.3)) bottom / 100% 1px no-repeat !important;
+  box-shadow: none !important;
+}
+/* their count-ups: the engraved gold numeral */
+.sx-ops.sx-vault .sx-ops-panel dd > span:first-child,
+.sx-ops.sx-vault .sx-ops-card > span:first-of-type > span:first-child {
+  font-family: var(--font-source-serif), Georgia, serif;
+  font-variant-numeric: tabular-nums lining-nums;
+  background: linear-gradient(180deg, #f8ecc2 8%, #e3c57d 52%, #b98f3e 96%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.sx-ops.sx-vault .sx-ops-bar { background: linear-gradient(90deg, var(--vault-gold-lo), #f6e6b4); box-shadow: none; }
+.sx-ops.sx-vault .sx-ops-orbit { border-color: rgb(212 176 98 / 0.2); }
+.sx-ops.sx-vault .sx-ops-ghost { background: linear-gradient(100deg, rgb(212 176 98 / 0.04) 30%, rgb(212 176 98 / 0.12) 50%, rgb(212 176 98 / 0.04) 70%) 0 0 / 250% 100%; }
+.sx-ops.sx-vault .sx-ops-flash { box-shadow: inset 0 0 0 1px rgb(241 223 166 / 0.85); animation-name: sx-vault-pulse; }
+/* the kit's cyan words (StageHeading, StageLink, the tiles' figures) */
+.sx-ops.sx-vault :is(.text-\[\#cfe9ff\], .text-\[\#9be0ff\], .text-\[\#63b4f8\], .text-\[\#93c5fd\]) { color: var(--vault-gold-hi); }
+.sx-ops.sx-vault .hover\:text-\[\#9be0ff\]:hover { color: #fff8e4; }
+.sx-ops.sx-vault h2.text-\[\#cfe9ff\] {
+  font-family: var(--font-source-serif), Georgia, serif;
+  font-size: 15px;
+  letter-spacing: 0.005em;
+  text-transform: none;
+}
+
+/* reduced motion ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .sx-vault-in,
+  .sx-vault-frame.sx-vault-in::after,
+  .sx-vault-num,
+  .sx-vault-bezel,
+  .sx-vault-sweep,
+  .sx-vault-flow-plot,
+  .sx-vault-bar > span,
+  .sx-vault-badge,
+  .sx-vault-ghost,
+  .sx-ops.sx-vault .sx-table tbody tr { animation: none; }
+  .sx-vault-frame.sx-vault-in::after { display: none; }
+  .sx-vault-rosette,
+  .sx-vault-rosette[data-far] { transform: none; transition: none; }
+  .sx-vault-frame,
+  .sx-vault-key,
+  .sx-vault-key > svg { transition: none; }
+  a:hover > .sx-vault-key > svg,
+  a:focus-visible > .sx-vault-key > svg { transform: none; }
+  .sx-vault .sx-sheet[data-stage="ops"] .sx-tile { animation: none; }
+}

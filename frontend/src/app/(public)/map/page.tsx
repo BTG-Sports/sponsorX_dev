@@ -35,6 +35,9 @@ const ROUTES = [
   { href: "/admin/next/inventory", title: 'Ad Slot Inventory Ledger (NEXT)', ref: 'NEXT spec §8 · P1-FE-22', surface: 'admin' },
   { href: "/admin/next/splits", title: 'Revenue Splits per Edition (NEXT)', ref: 'NEXT spec §5.7 · P1-FE-23', surface: 'admin' },
   { href: "/admin/next/rights", title: 'Rights Ledger + Clearance Queue (NEXT)', ref: 'NEXT spec §5.3 · P1-FE-29', surface: 'admin' },
+  { href: "/finance", title: 'Treasury — the Finance portal (the Vault)', ref: '§10 · P1-ART-25', surface: 'finance' },
+  { href: "/finance/payouts", title: 'Payout approvals (Finance)', ref: '2S5-FE-04 · P1-ART-25', surface: 'finance' },
+  { href: "/finance/splits", title: 'Revenue Splits per Edition (Finance)', ref: 'P9-FE-05 · P1-ART-25', surface: 'finance' },
   { href: "/next/northside-high/fall-2026", title: 'Free Digital Edition Reader (NEXT)', ref: 'NEXT principle 10 · P1-FE-27', surface: 'public' },
   { href: "/r/DEMO_TOKEN", title: "Fan Redeem", ref: "§16", surface: "fan (no login)" },
 ];

@@ -1,6 +1,7 @@
 import { Badge, Card, SectionHeading } from "@/components/ui";
 import { MiniChip } from "@/components/hero";
 import { EmptyState } from "@/components/states";
+import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { apiFetch, fetchActor } from "@/server/api";
 
 /* --------------------------------------------------------------------------
@@ -49,6 +50,10 @@ function ago(iso: string, now: number): string {
 }
 
 export default async function IntegrationsPage() {
+  /* A staff role this desk isn't for (lib/admin-access: webhookDelivery read)
+     gets "not in your role"; the 403 below stays the backstop. */
+  const lacking = await staffWithoutAccess("/admin/integrations");
+  if (lacking) return <NotInRole path="/admin/integrations" title="Integrations" roles={lacking} />;
   const who = await fetchActor();
   const heading = (
     <div>

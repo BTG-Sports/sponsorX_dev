@@ -1,5 +1,6 @@
 import { AnalyticsStory } from "@/components/analytics-story";
 import { EmptyState, SkeletonPage } from "@/components/states";
+import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { demoState } from "@/lib/demo";
 import type { RangeKey } from "@/lib/fixtures";
 import { toLiveStory, type ApiAnalytics, type LiveStory } from "@/lib/analytics-live";
@@ -56,6 +57,14 @@ export default async function AdminAnalyticsPage({
   const demo = await demoState(Promise.resolve(sp));
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+  /* A staff role this desk isn't for (lib/admin-access: tenant-wide
+     metricAggregate read) gets "not in your role", not the sample story;
+     the 403 in liveStory() stays the backstop. The demo stays for ?demo=
+     and signed-out visitors. */
+  if (demo === null) {
+    const lacking = await staffWithoutAccess("/admin/analytics");
+    if (lacking) return <NotInRole path="/admin/analytics" title="Analytics" roles={lacking} />;
+  }
 
   const rawRange = Array.isArray(sp.range) ? sp.range[0] : sp.range;
   const range: RangeKey =

@@ -5,9 +5,13 @@ import { PortalShell } from "@/components/portal-shell";
 import { SPONSOR_NAV } from "@/lib/sponsor-nav";
 
 import "./stadium.css";
+import "../../mobile-nav.css";
 
 /* The sidebar takes the admin/athlete structure (P1-ART-23, lib/sponsor-nav.ts):
    Dashboard alone on top, every other desk in a collapsible group. */
+
+/* P1-ART-24 — the phone dock's four destinations (the rest are behind its Menu). */
+const DOCK = ["/sponsor", "/sponsor/campaigns", "/sponsor/shop", "/sponsor/orders"];
 
 /* Authorisation, not merely authentication (P2-BE-04). requirePortalAccess()
    resolves the Clerk identity to its Postgres tenant and roles and admits only
@@ -36,6 +40,7 @@ export default async function SponsorLayout({ children }: LayoutProps<"/sponsor"
       portal="sponsor"
       nav={SPONSOR_NAV}
       rootHref="/sponsor"
+      dock={DOCK}
       userName={clerkName || user?.primaryEmailAddress?.emailAddress || "Sponsor"}
       userRole={role}
       /* P1-ART-23 — the whole sponsor portal on the Stadium Board. */

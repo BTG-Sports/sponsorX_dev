@@ -10,7 +10,18 @@
 
 import { useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
-export function StadiumHint({ label, text }: { /** What the number is called ("People reached"). */ label: string; text: string }) {
+export function StadiumHint({
+  label,
+  text,
+  skin = "stadium",
+}: {
+  /** What the number is called ("People reached"). */
+  label: string;
+  text: string;
+  /** P1-ART-25 — whose look the "?" and its tip wear: `sx-<skin>-q` /
+   *  `sx-<skin>-tip` (stadium.css, vault.css). The behaviour is the same. */
+  skin?: "stadium" | "vault";
+}) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const ref = useRef<HTMLSpanElement>(null);
@@ -42,7 +53,7 @@ export function StadiumHint({ label, text }: { /** What the number is called ("P
     <span ref={ref} className="relative inline-flex align-middle" onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave}>
       <button
         type="button"
-        className="sx-stadium-q"
+        className={`sx-${skin}-q`}
         aria-label={`What is “${label}”?`}
         aria-expanded={open}
         aria-describedby={open ? id : undefined}
@@ -53,7 +64,7 @@ export function StadiumHint({ label, text }: { /** What the number is called ("P
         ?
       </button>
       {open && (
-        <span role="tooltip" id={id} className="sx-pop sx-stadium-tip">
+        <span role="tooltip" id={id} className={`sx-pop sx-${skin}-tip`}>
           {text}
         </span>
       )}

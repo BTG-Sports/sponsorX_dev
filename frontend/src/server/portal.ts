@@ -23,6 +23,7 @@ import { fetchActor, type Actor } from "@/server/api";
 
 export type Portal =
   | "admin"
+  | "finance"
   | "athlete"
   | "sponsor"
   | "property"
@@ -44,9 +45,13 @@ const PORTAL_ROLES: ReadonlyArray<readonly [Portal, readonly string[]]> = [
       "SALES",
       "CAMPAIGN_MGR",
       "NETWORK_MGR",
-      "FINANCE",
     ],
   ],
+  /* The Finance portal (P1-ART-25, 2026-10-12; owner: Finance should feel
+     like its own portal, and BTG admins keep their money desks as they
+     were). FINANCE alone — a BTG admin never opens it. Right after admin, so
+     a FINANCE + BTG_ADMIN account still lands on admin, the senior one. */
+  ["finance", ["FINANCE"]],
   ["sponsor", ["SPONSOR_ADMIN", "SPONSOR_ANALYST"]],
   ["property", ["PROPERTY_MGR"]],
   ["athlete", ["ATHLETE", "GUARDIAN"]],

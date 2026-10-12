@@ -25,11 +25,13 @@ import { ForbiddenError } from "../auth/errors";
 import { mediaValueFor, NOT_LIVE_ORDER_STATES, sponsorSpendFor } from "./sponsor-report";
 import { METRIC_SOURCES, type MetricSource } from "./metric-source";
 import type { DeliverableState } from "./deliverable-state";
+import { DAY, iso, startOfDay, windowFor, type RangeKey, type Window } from "./overview-window";
 
-export const RANGES = ["7d", "30d", "90d", "all"] as const;
-export type RangeKey = (typeof RANGES)[number];
+/* Moved to overview-window.ts (P1-ART-25, Task 1) — re-exported so nothing
+   that already imports RANGES / windowFor / RangeKey / Window from here has
+   to change. */
+export { RANGES, windowFor, type RangeKey, type Window } from "./overview-window";
 
-const DAY = 86_400_000;
 const VERIFIED: readonly string[] = ["VERIFIED_API", "VERIFIED_MANUAL"];
 /* Mutable element types, not `readonly` — Prisma's generated `notIn` filters
    (EnumDeliverableStateFilter, EnumOrderStateFilter) want DeliverableState[] /
@@ -42,7 +44,6 @@ const LIVE_ORDER = { state: { notIn: NOT_LIVE_ORDER_STATES } };
  *  tenant-wide reach, though `campaign`'s own builder does not use it today. */
 const TENANT_WIDE_SCOPES = new Set(["any", "own-tenant", "operated"]);
 
-export type Window = { key: RangeKey; from: Date; to: Date; days: number; bucket: "day" | "week"; prevFrom: Date | null };
 export type DailyPoint = { day: string; views: number; clicks: number; redeems: number };
 
 export type SponsorOverview = {
@@ -70,22 +71,6 @@ export type SponsorOverview = {
   needsYou: { postsToReview: number; ordersToPay: number; invoicesUnpaid?: number };
   campaigns: { total: number; running: number };
 };
-
-const startOfDay = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-const iso = (d: Date) => d.toISOString().slice(0, 10);
-
-/** The window a range covers: [from, to), `to` = tomorrow 00:00 UTC so today counts. */
-export function windowFor(key: RangeKey, now: Date, earliest: Date | null): Window {
-  const to = new Date(startOfDay(now).getTime() + DAY);
-  if (key === "all") {
-    const from = startOfDay(earliest && earliest < now ? earliest : now);
-    const days = Math.max(1, Math.round((to.getTime() - from.getTime()) / DAY));
-    return { key, from, to, days, bucket: days > 120 ? "week" : "day", prevFrom: null };
-  }
-  const days = { "7d": 7, "30d": 30, "90d": 90 }[key];
-  const from = new Date(to.getTime() - days * DAY);
-  return { key, from, to, days, bucket: "day", prevFrom: new Date(from.getTime() - days * DAY) };
-}
 
 /** Every bucket in the window, zero where nothing happened. Weeks start at `from`. */
 export function zeroFill(w: Window, rows: { day: Date; views?: number; clicks?: number; redeems?: number }[]): DailyPoint[] {

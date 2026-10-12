@@ -20,6 +20,7 @@ import { zohoWebhooksRouter } from "./zoho-webhooks";
 import { inquiriesRouter } from "./inquiries";
 import { catalogueRouter } from "./catalogue";
 import { sponsorOverviewRouter } from "./sponsor-overview";
+import { financeOverviewRouter } from "./finance-overview";
 import { rewardsRouter } from "./rewards";
 import { meRouter } from "./me";
 import { signupsRouter } from "./signups";
@@ -116,6 +117,10 @@ v1Router.use("/", catalogueRouter);
 /* P1-ART-23 — the sponsor's Stadium Board dashboard: one scoped read over
    the caller's own campaigns, computed in the database. */
 v1Router.use("/", sponsorOverviewRouter);
+
+/* P1-ART-25 — the Treasury, Finance's home: one scoped read over the
+   tenant's books, computed in the database. */
+v1Router.use("/", financeOverviewRouter);
 
 /* Stage 9 — the property portal's own property (P9-OPS-01). A NEXT school
    is a Property with kind SCHOOL; its advisor is that property's manager. */
