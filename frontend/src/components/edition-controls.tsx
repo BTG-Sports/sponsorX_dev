@@ -290,8 +290,12 @@ export function RateCardEditor({ publicationId, card }: { publicationId: string;
   );
 }
 
-/** Finance locks the split with a note; BTG admin unlocks it with a reason. */
-export function SplitLockControl({ editionId, locked, canLock, canUnlock }: { editionId: string; locked: boolean; canLock: boolean; canUnlock: boolean }) {
+/** Finance locks the split with a note; BTG admin unlocks it with a reason.
+ *  P1-ART-25 — `save`: the server action to call, admin's by default; the
+ *  Finance portal passes its own, which revalidates /finance (same endpoint). */
+export function SplitLockControl({
+  editionId, locked, canLock, canUnlock, save = splitLockAction,
+}: { editionId: string; locked: boolean; canLock: boolean; canUnlock: boolean; save?: typeof splitLockAction }) {
   const { pending, note, run } = useAction();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
@@ -309,7 +313,7 @@ export function SplitLockControl({ editionId, locked, canLock, canUnlock }: { ed
       className="flex w-full flex-wrap items-end gap-2 rounded-xl border border-line bg-surface p-3"
       onSubmit={(e) => {
         e.preventDefault();
-        run(() => splitLockAction(editionId, lock, text), () => { setText(""); setOpen(false); });
+        run(() => save(editionId, lock, text), () => { setText(""); setOpen(false); });
       }}
     >
       <label className={`${label} min-w-0 flex-1 basis-56`}>

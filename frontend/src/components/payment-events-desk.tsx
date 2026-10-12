@@ -13,9 +13,14 @@ import { DialogError, NoteField, OrderDialog, btn } from "./order-dialog";
    POST /payment-events/:id/resolve. Once only; a refusal (409 already
    resolved or not a held/failed event, 422 an empty note or a card number)
    is shown in the API's words. BTG admin only — Finance sees no button.
+
+   P1-ART-25 — `resolve`: the server action to call, admin's by default; the
+   Finance portal passes its own, which revalidates /finance (same endpoint).
    -------------------------------------------------------------------------- */
 
-export function ResolveEvent({ event }: { event: ApiPaymentEvent }) {
+type Resolve = typeof resolveEventAction;
+
+export function ResolveEvent({ event, resolve = resolveEventAction }: { event: ApiPaymentEvent; resolve?: Resolve }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -23,12 +28,12 @@ export function ResolveEvent({ event }: { event: ApiPaymentEvent }) {
         className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-3.5 text-sm font-semibold text-cta-ink hover:bg-primary-soft md:min-h-9 md:w-auto md:text-xs">
         Resolve…
       </button>
-      {open && <ResolveDialog event={event} onClose={() => setOpen(false)} />}
+      {open && <ResolveDialog event={event} resolve={resolve} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-function ResolveDialog({ event: e, onClose }: { event: ApiPaymentEvent; onClose: () => void }) {
+function ResolveDialog({ event: e, resolve, onClose }: { event: ApiPaymentEvent; resolve: Resolve; onClose: () => void }) {
   const router = useRouter();
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +43,7 @@ function ResolveDialog({ event: e, onClose }: { event: ApiPaymentEvent; onClose:
     setError(null);
     if (off) return setError("Say what you did about it — the next person reads this.");
     start(async () => {
-      const res = await resolveEventAction(e.id, { note: note.trim() });
+      const res = await resolve(e.id, { note: note.trim() });
       if (!res.ok) return setError(res.message);
       onClose();
       router.refresh();

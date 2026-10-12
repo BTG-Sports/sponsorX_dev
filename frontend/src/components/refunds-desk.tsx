@@ -15,9 +15,14 @@ import { DialogError, OrderDialog, btn } from "./order-dialog";
    sent. A card or bank number is refused here and again by the API; a
    refusal (409 already sent, 422 a card-number reference or a future date)
    is shown in the API's words.
+
+   P1-ART-25 — `send`: the server action to call, admin's by default; the
+   Finance portal passes its own, which revalidates /finance (same endpoint).
    -------------------------------------------------------------------------- */
 
-export function MarkRefunded({ refund }: { refund: ApiRefund }) {
+type SendRefund = typeof markRefundSentAction;
+
+export function MarkRefunded({ refund, send = markRefundSentAction }: { refund: ApiRefund; send?: SendRefund }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -25,7 +30,7 @@ export function MarkRefunded({ refund }: { refund: ApiRefund }) {
         className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-3.5 text-sm font-semibold text-cta-ink hover:bg-primary-soft md:min-h-9 md:w-auto md:text-xs">
         Mark refunded
       </button>
-      {open && <MarkDialog refund={refund} onClose={() => setOpen(false)} />}
+      {open && <MarkDialog refund={refund} send={send} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -33,7 +38,7 @@ export function MarkRefunded({ refund }: { refund: ApiRefund }) {
 const input =
   "box-border h-11 w-full rounded-lg border border-line bg-bg px-3 text-sm text-text focus:border-primary/60 focus:outline-none";
 
-function MarkDialog({ refund: r, onClose }: { refund: ApiRefund; onClose: () => void }) {
+function MarkDialog({ refund: r, send, onClose }: { refund: ApiRefund; send: SendRefund; onClose: () => void }) {
   const router = useRouter();
   const max = today();
   const [method, setMethod] = useState<RefundMethod>(r.paidVia === "CHEQUE" ? "CHEQUE" : "BANK_TRANSFER");
@@ -49,7 +54,7 @@ function MarkDialog({ refund: r, onClose }: { refund: ApiRefund; onClose: () => 
     setError(null);
     if (off) return setError(bad.method ?? bad.reference ?? bad.sentOn ?? null);
     start(async () => {
-      const res = await markRefundSentAction(r.id, { method, reference: reference.trim(), sentOn });
+      const res = await send(r.id, { method, reference: reference.trim(), sentOn });
       if (!res.ok) return setError(res.message);
       onClose();
       router.refresh();

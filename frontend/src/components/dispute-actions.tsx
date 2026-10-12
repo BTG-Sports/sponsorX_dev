@@ -28,31 +28,37 @@ const primarySmall =
 const quietSmall =
   "inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-line px-3.5 text-sm font-medium text-text hover:bg-surface-2 md:min-h-9 md:w-auto md:text-xs";
 
-export function TakeForReview({ dispute }: { dispute: ApiDispute }) {
+type Review = typeof reviewDisputeAction;
+type Resolve = typeof resolveDisputeAction;
+
+/** P1-ART-25 — `review` / `resolve`: the server action to call, admin's by
+ *  default; the Finance portal passes its own, which revalidates /finance
+ *  (same endpoints). */
+export function TakeForReview({ dispute, review = reviewDisputeAction }: { dispute: ApiDispute; review?: Review }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} aria-label={`Take the ${dispute.orderRef} dispute for review`} className={primarySmall}>
         Take for review…
       </button>
-      {open && <ReviewDialog dispute={dispute} onClose={() => setOpen(false)} />}
+      {open && <ReviewDialog dispute={dispute} review={review} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-export function ResolveDispute({ dispute }: { dispute: ApiDispute }) {
+export function ResolveDispute({ dispute, resolve = resolveDisputeAction }: { dispute: ApiDispute; resolve?: Resolve }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} aria-label={`Resolve the ${dispute.orderRef} dispute`} className={dispute.canResolve ? primarySmall : quietSmall}>
         Resolve…
       </button>
-      {open && <ResolveDialog dispute={dispute} onClose={() => setOpen(false)} />}
+      {open && <ResolveDialog dispute={dispute} resolve={resolve} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-function ReviewDialog({ dispute: d, onClose }: { dispute: ApiDispute; onClose: () => void }) {
+function ReviewDialog({ dispute: d, review, onClose }: { dispute: ApiDispute; review: Review; onClose: () => void }) {
   const router = useRouter();
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +68,7 @@ function ReviewDialog({ dispute: d, onClose }: { dispute: ApiDispute; onClose: (
     setError(null);
     if (off) return setError("Say what was sent to the provider, or what you're gathering.");
     start(async () => {
-      const res = await reviewDisputeAction(d.id, { note: note.trim() });
+      const res = await review(d.id, { note: note.trim() });
       if (!res.ok) return setError(res.message);
       onClose();
       router.refresh();
@@ -87,7 +93,7 @@ function ReviewDialog({ dispute: d, onClose }: { dispute: ApiDispute; onClose: (
   );
 }
 
-function ResolveDialog({ dispute: d, onClose }: { dispute: ApiDispute; onClose: () => void }) {
+function ResolveDialog({ dispute: d, resolve, onClose }: { dispute: ApiDispute; resolve: Resolve; onClose: () => void }) {
   const router = useRouter();
   const partial = isPartial(d) && d.providerOutcome === "LOST";
   const [note, setNote] = useState("");
@@ -103,7 +109,7 @@ function ResolveDialog({ dispute: d, onClose }: { dispute: ApiDispute; onClose: 
     if (!note.trim()) return setError("Say how it was resolved — the next person reads this.");
     if (noLines) return setError("Pick at least one line the dispute was lost on.");
     start(async () => {
-      const res = await resolveDisputeAction(d.id, { note: note.trim(), ...(partial ? { lineIds: lines } : {}) });
+      const res = await resolve(d.id, { note: note.trim(), ...(partial ? { lineIds: lines } : {}) });
       if (!res.ok) return setError(res.message);
       onClose();
       router.refresh();

@@ -16,7 +16,6 @@ import {
   shortDate,
   stageChangeLine,
   toFlatplan,
-  type ApiEdition,
   type ApiEditionDetail,
   type ApiLedgerSlot,
   type ApiSaleCandidate,
@@ -25,6 +24,12 @@ import {
 } from "@/lib/editions-live";
 import { noEditionHint, readJson, type LiveEditions } from "../live";
 import { artworkGate, artworkStatus } from "@/lib/edition-artwork-live";
+import { EditionSwitcher, NextHeading } from "@/components/next-heading";
+
+/* P1-ART-25 restructure — the heading and the edition switcher moved to
+   components/next-heading.tsx (the Finance portal's Splits uses them too);
+   re-exported so the NEXT screens' imports stay as they were. */
+export { EditionSwitcher, NextHeading };
 
 /* --------------------------------------------------------------------------
    P9-FE-03 — the page map on the AdSlot ledger. Same screen as the fixture
@@ -62,47 +67,6 @@ const STATE_TONE: Record<string, "primary" | "warn" | "neutral" | "accent" | "da
   DISTRIBUTED: "accent",
   CANCELLED: "danger",
 };
-
-export function EditionSwitcher({ editions, current, base }: { editions: ApiEdition[]; current: ApiEdition; base: string }) {
-  const many = new Set(editions.map((e) => e.publication.id)).size > 1;
-  return (
-    <nav aria-label="Editions" className="flex max-w-full gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1">
-      {editions.map((e) => (
-        <Link
-          key={e.id}
-          href={`${base}?edition=${encodeURIComponent(e.id)}`}
-          aria-current={e.id === current.id ? "page" : undefined}
-          className={[
-            "shrink-0 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-            e.id === current.id ? "bg-next/15 text-next" : "text-muted hover:text-text",
-          ].join(" ")}
-        >
-          {e.label}
-          {many && <span className="text-muted"> · {e.publication.name}</span>}
-        </Link>
-      ))}
-    </nav>
-  );
-}
-
-export function NextHeading({ title, sub, right }: { title: string; sub: string; right?: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <div className="min-w-0">
-        <h1 className="sx-page-title">
-          {title}{" "}
-          <span className="bg-[linear-gradient(90deg,var(--sx-next-soft),var(--sx-next))] bg-clip-text text-transparent">
-            · SponsorX NEXT
-          </span>
-        </h1>
-        <p className="mt-1 text-xs text-muted">{sub}</p>
-      </div>
-      {/* min-w-0 + max-w-full: the edition switcher scrolls inside this slot
-          instead of widening the page past a phone (first-pass QA, 390px). */}
-      {right && <div className="min-w-0 max-w-full">{right}</div>}
-    </div>
-  );
-}
 
 export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live: LiveEditions; initialOpenPage?: number; now: number }) {
   const e = live.current;
