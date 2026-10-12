@@ -2,10 +2,9 @@ import Link from "next/link";
 
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
+import { Badge } from "@/components/ui";
 import { EmptyState } from "@/components/states";
 import { PayoutRetry } from "@/components/payout-decision";
-import { StadiumHint } from "@/components/stadium-hint";
-import { VaultChip, VaultHead, VaultTile, VaultTiles, VaultUpdated, type VaultTone } from "@/components/vault-stage";
 import { apiListQuery } from "@/lib/list-query";
 import {
   APPROVAL_TABS, approvalBadge, approvalTab, checkSummary, failedFilter, listQuery, payeeKind, payoutStatus, retryStatus, stamp, tabCount, usd,
@@ -21,14 +20,6 @@ import { retryPayoutAction } from "./actions";
    P1-FE-31 (2026-10-07): one SERVER-PAGED table per tab (the house pager);
    the waiting tab's per-row checks are read for the page only.
 
-   P1-ART-25 (2026-10-12) — the Vault: the tile row is the list read's own
-   per-state counts (`list.counts`), nothing new is read. Every status word
-   still comes from payouts-live.ts; only the chip's colour is mapped here.
-   Review (2026-10-12): four tiles, one per tab and each the tab's own count
-   (tabCount) — Approved and Sending fold into one Sending tile, as they do
-   in the tab; Failed follows the tab's "needs BTG" default. The desk's
-   explanation is a "?" by the title, not a paragraph under it (spec §3).
-
    Reads  GET /payouts?state=…&page&size   the tab's page and every state's count
                                            (Failed tab: &waitingOn=BTG unless ?show=all)
           GET /payouts/:id                 (waiting tab) each request's rule checks
@@ -43,20 +34,6 @@ import { retryPayoutAction } from "./actions";
 export const dynamic = "force-dynamic";
 const PATH = "/admin/payouts";
 const TITLE = "Payout approvals";
-
-/** payouts-live.ts's plain tones, mapped to the Vault's five chip colours
- *  (memory portal-stage-identities: never the cyan/warn pair here). */
-function chipTone(tone: "neutral" | "primary" | "accent" | "danger" | "warn"): VaultTone {
-  if (tone === "accent") return "good";
-  if (tone === "primary") return "info";
-  if (tone === "warn" || tone === "danger") return "late";
-  return "done";
-}
-
-/** A row still waiting on BTG's decision reads as "you" (gold), whatever
- *  payoutStatus's plain tone would otherwise be. */
-const rowTone = (state: string, tone: "neutral" | "primary" | "accent" | "danger" | "warn"): VaultTone =>
-  state === "REQUESTED" ? "you" : chipTone(tone);
 
 export default async function PayoutApprovalsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const lacking = await staffWithoutAccess(PATH);
@@ -79,19 +56,6 @@ export default async function PayoutApprovalsPage({ searchParams }: { searchPara
   const now = new Date();
   const problems = tab === "problems";
 
-  /* The tile row: each tile is its tab's own number (tabCount), so a tile
-     and the tab it opens never disagree. Failed counts what needs BTG by
-     default — the Failed tab's default — and every failed payout with
-     ?show=all; "needs BTG" is said only when that split was actually read. */
-  const showAll = filter === "all";
-  const waiting = tabCount("waiting", list.counts, list.waiting, showAll);
-  const approved = list.counts.APPROVED ?? 0;
-  const withProvider = list.counts.SENDING ?? 0;
-  const sending = tabCount("sending", list.counts, list.waiting, showAll);
-  const paidCount = tabCount("paid", list.counts, list.waiting, showAll);
-  const failed = tabCount("problems", list.counts, list.waiting, showAll);
-  const failedBtgOnly = !showAll && Boolean(list.waiting);
-
   const columns: Column[] = [
     { key: "payee", label: "Payee" },
     { key: "amount", label: "Amount", num: true },
@@ -103,46 +67,18 @@ export default async function PayoutApprovalsPage({ searchParams }: { searchPara
 
   return (
     <div className="space-y-6">
-      <VaultHead
-        title={TITLE}
-        pill={<>Live · <VaultUpdated iso={now.toISOString()} /></>}
-        actions={
-          <StadiumHint
-            skin="vault"
-            label="About this desk"
-            text="Payouts that pass every check are approved automatically; only the rest wait here for you. Every decision is recorded, automatic or yours."
-          />
-        }
-      >
-        <VaultTiles cols={4}>
-          <VaultTile label="Waiting for approval" value={waiting} format="int" tone={waiting > 0 ? "you" : undefined} badge={waiting > 0 ? waiting : undefined} href={`${PATH}?tab=waiting`} delay={0.08} />
-          <VaultTile
-            label="Sending"
-            value={sending}
-            format="int"
-            caption={`${approved.toLocaleString("en-US")} approved · ${withProvider.toLocaleString("en-US")} with the provider`}
-            href={`${PATH}?tab=sending`}
-            delay={0.12}
-          />
-          <VaultTile label="Paid" value={paidCount} format="int" href={`${PATH}?tab=paid`} delay={0.16} />
-          <VaultTile
-            label={failedBtgOnly ? "Failed · needs BTG" : "Failed"}
-            value={failed}
-            format="int"
-            tone={failed > 0 ? "late" : undefined}
-            href={`${PATH}?tab=problems${showAll ? "&show=all" : ""}`}
-            delay={0.2}
-          />
-        </VaultTiles>
-      </VaultHead>
+      <div>
+        <h1 className="sx-page-title">{TITLE}</h1>
+        <p className="mt-1 text-xs text-muted">Payouts that pass every check are approved automatically; only the rest wait here for you. Every decision is recorded, automatic or yours.</p>
+      </div>
 
       <TabStrip label="Payout states">
         {APPROVAL_TABS.map((t) => (
           <TabLink
             key={t.key}
-            href={`${PATH}?tab=${t.key}${t.key === "problems" && showAll ? "&show=all" : ""}`}
+            href={`${PATH}?tab=${t.key}${t.key === "problems" && filter === "all" ? "&show=all" : ""}`}
             on={t.key === tab}
-            count={tabCount(t.key, list.counts, list.waiting, showAll)}
+            count={tabCount(t.key, list.counts, list.waiting, filter === "all")}
             hot={t.key === "problems" || t.key === "waiting"}
           >
             {t.label}
@@ -173,7 +109,6 @@ export default async function PayoutApprovalsPage({ searchParams }: { searchPara
         <EmptyState mark="inbox" title={tab === "waiting" ? "Nothing waiting for approval" : problems ? (filter === "btg" ? "Nothing failed needs BTG" : "No failed payouts") : "Nothing here"} hint={tab === "waiting" ? "Payout requests from athletes and teams arrive here. Most are approved automatically; the ones here need a person." : ""} />
       ) : (
         <PagedTable
-          tone="vault"
           page={page}
           noun="Payouts"
           label={`${APPROVAL_TABS.find((t) => t.key === tab)!.label} payouts`}
@@ -203,18 +138,18 @@ export default async function PayoutApprovalsPage({ searchParams }: { searchPara
                 <Td label={tab === "waiting" ? "Checks" : "Status"}>
                   {tab === "waiting" && check ? (
                     <span className="block">
-                      <VaultChip tone={check.ok ? "good" : "late"}>{check.ok ? "✓ " : "● "}{check.label}</VaultChip>
+                      <Badge tone={check.ok ? "accent" : "warn"}>{check.ok ? "✓ " : "● "}{check.label}</Badge>
                       {why && <span className="mt-1 block text-[11px] text-warn">{why}</span>}
                     </span>
                   ) : retry ? (
                     <span className="block">
-                      <VaultChip tone={retry.needsBtg ? "you" : chipTone(retry.tone)}>{retry.label}</VaultChip>
+                      <Badge tone={retry.tone}>{retry.label}</Badge>
                       {p.failureReason && <span className="mt-1 block text-[11px] text-muted">Provider said: {p.failureReason}</span>}
                     </span>
                   ) : (
                     <span className="flex flex-wrap gap-1">
-                      <VaultChip tone={rowTone(p.state, status.tone)}>{p.state === "APPROVED" ? "Approved — sending soon" : status.label}</VaultChip>
-                      {auto && <VaultChip tone="good">✓ {auto}</VaultChip>}
+                      <Badge tone={status.tone}>{p.state === "APPROVED" ? "Approved — sending soon" : status.label}</Badge>
+                      {auto && <Badge tone="accent">✓ {auto}</Badge>}
                     </span>
                   )}
                 </Td>

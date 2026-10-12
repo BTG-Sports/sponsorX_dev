@@ -1,11 +1,9 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
+import { Badge, Card, SectionHeading } from "@/components/ui";
 import { PayoutDecision, PayoutRetry } from "@/components/payout-decision";
 import { PayoutTracker } from "@/components/payout-history";
-import { Primary, StageTable, Td, Tr, type Column } from "@/components/stage-table";
-import { VaultChip, VaultDate, VaultHead, VaultPanel, VaultSection, VaultTile, VaultTiles, VaultUpdated, at, type VaultTone } from "@/components/vault-stage";
 import {
   approvalBadge, attemptsWords, auditTrail, payeeKind, payeeShare, payoutStatus, payoutTracker, retryStatus, returnedLine, usd, type ApiPayoutDetail,
 } from "@/lib/payouts-live";
@@ -22,13 +20,6 @@ import { decidePayoutAction, retryPayoutAction } from "../actions";
    provider; a payout the payee's bank returned says so, dated, and the
    return is in the trail.
 
-   P1-ART-25 (2026-10-12) — the Vault: a tile strip (amount, payee, state,
-   requested, decided) replaces the old summary card; the orders become one
-   bounded StageTable instead of a card per order; the checklist and audit
-   trail move into gold-framed panels. Every read, write and test hook is
-   unchanged — the "Payout to …" line stays (e2e payee-money.spec.ts), as
-   does the returned line's `text-danger` class.
-
    Reads  GET /payouts/:id                         payout, account, orders, checks
           GET /marketplace-orders/:id/financials   the split frozen at approval
    Writes POST /payouts/:id/decision  APPROVE (to the payment provider) or
@@ -38,47 +29,6 @@ import { decidePayoutAction, retryPayoutAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 const PATH = "/admin/payouts";
-
-/** payouts-live.ts's plain tones, mapped to the Vault's five chip colours. */
-function chipTone(tone: "neutral" | "primary" | "accent" | "danger" | "warn"): VaultTone {
-  if (tone === "accent") return "good";
-  if (tone === "primary") return "info";
-  if (tone === "warn" || tone === "danger") return "late";
-  return "done";
-}
-/** A payout still waiting on BTG's decision reads as "you" (gold). */
-const rowTone = (state: string, tone: "neutral" | "primary" | "accent" | "danger" | "warn"): VaultTone =>
-  state === "REQUESTED" ? "you" : chipTone(tone);
-
-/** A short state word for the tile's chip — payoutStatus's own sentence
- *  ("Returned by your bank: fix your payout account") is the long form
- *  shown as plain, wrapping text underneath; VaultChip itself never wraps. */
-const STATE_WORD: Record<string, string> = {
-  REQUESTED: "Waiting on BTG",
-  APPROVED: "Approved",
-  SENDING: "Sending",
-  PAID: "Paid",
-  REJECTED: "Sent back",
-  FAILED: "Failed",
-};
-
-/** A non-numeric tile — the same double-rule frame as VaultTile, for text
- *  (the payee's name, a chip, a date) rather than a counted figure. Kept
- *  local rather than added to the kit. */
-function InfoTile({ label, children, delay = 0.1 }: { label: string; children: ReactNode; delay?: number }) {
-  return (
-    <div data-spot="" className="sx-vault-frame sx-vault-in px-4 pb-3.5 pt-3.5" style={at(delay)}>
-      <dt className="text-[10.5px] uppercase tracking-[0.16em] text-[color:var(--vault-muted)]">{label}</dt>
-      <dd className="mt-1.5 text-[15px] leading-tight text-[color:var(--vault-ink)]">{children}</dd>
-    </div>
-  );
-}
-
-const ORDER_COLUMNS: readonly Column[] = [
-  { key: "order", label: "Order" },
-  { key: "split", label: "Split" },
-  { key: "payout", label: "This payout", num: true },
-];
 
 export default async function PayoutDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const lacking = await staffWithoutAccess(PATH);
@@ -111,12 +61,6 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
   /* An athlete by first name; a team or school by its whole name. */
   const first = p.payeeType === "ATHLETE" ? (p.payeeName.split(/\s+/)[0] ?? p.payeeName) : p.payeeName;
   const passed = p.checks.filter((c) => c.ok).length;
-  const hasMeta = Boolean(attempts || returned || reasons.length > 0 || steps);
-  /* A failed payout says who acts next, in BTG's words (retryStatus) — never
-     payoutStatus's sentence to the payee ("Returned by your bank: …"). Gold
-     when BTG must act; plain gold info when it retries on its own or waits
-     for the payee — not red, nothing for BTG to do. */
-  const stateTone: VaultTone = p.state === "FAILED" && retry ? (retry.needsBtg ? "you" : "info") : rowTone(p.state, status.tone);
 
   return (
     <div className="space-y-6">
@@ -124,140 +68,117 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
         ← Payout approvals
       </Link>
 
-      <VaultHead title="Payout review" pill={<>Live · <VaultUpdated iso={new Date().toISOString()} /></>}>
-        <VaultTiles cols={5}>
-          <VaultTile label="Amount" value={p.amountCents} format="usd" caption={`Payout to ${p.payeeName}`} delay={0.08} />
-          <InfoTile label="Payee" delay={0.12}>
-            {p.payeeName}
-            <span className="mt-0.5 block text-[11px] text-[color:var(--vault-muted)]">{payeeKind(p.payeeType)}</span>
-          </InfoTile>
-          <InfoTile label="State" delay={0.16}>
-            <span className="flex flex-wrap gap-1">
-              <VaultChip tone={stateTone}>{STATE_WORD[p.state] ?? p.state}</VaultChip>
-              {auto && <VaultChip tone="good">✓ {auto}</VaultChip>}
-            </span>
-            <span className="mt-1.5 block text-[11px] font-normal normal-case leading-snug tracking-normal text-[color:var(--vault-muted)]">
-              {p.state === "FAILED" && retry ? retry.label : p.state === "REQUESTED" ? "Waiting for BTG's decision" : p.state === "APPROVED" ? "Approved — sending soon" : status.label}
-            </span>
-          </InfoTile>
-          <InfoTile label="Requested" delay={0.2}>
-            <VaultDate iso={p.requestedAt} format="date" />
-          </InfoTile>
-          <InfoTile label="Decided" delay={0.24}>
-            {p.decidedAt ? <VaultDate iso={p.decidedAt} format="date" /> : <span className="text-[color:var(--vault-faint)]">Not yet</span>}
-          </InfoTile>
-        </VaultTiles>
-      </VaultHead>
-
-      <VaultPanel delay={0.28}>
-        <p className="text-[11px] text-[color:var(--vault-muted)]">
-          Payout account{" "}
-          <VaultChip tone={p.account.status === "READY" ? "good" : "late"}>
-            {p.account.status === "READY" ? "✓ Ready · managed by Stripe" : p.account.status === "NEEDS_INFO" ? "● Stripe needs more information" : "● Not set up"}
-          </VaultChip>
-        </p>
-      </VaultPanel>
-
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
+          <Card>
+            <p className="text-sm font-semibold">{p.payeeName}</p>
+            <p className="mt-0.5 text-xs text-muted">{payeeKind(p.payeeType)}</p>
+            <p className="mt-3 text-xs">
+              Payout account{" "}
+              <Badge tone={p.account.status === "READY" ? "accent" : "warn"}>
+                {p.account.status === "READY" ? "✓ Ready · managed by Stripe" : p.account.status === "NEEDS_INFO" ? "● Stripe needs more information" : "● Not set up"}
+              </Badge>
+            </p>
+          </Card>
+
           <section>
-            <VaultSection title="Orders" hint="Each order's split, frozen when the sale was approved." />
-            <StageTable label={`Orders in this payout, ${p.payeeName}`} columns={ORDER_COLUMNS}>
+            <SectionHeading title="Orders" hint="Each order's split, frozen when the sale was approved." />
+            <div className="space-y-3">
               {p.orders.map((o, i) => {
                 const line = p.lines.find((l) => l.orderId === o.orderId);
                 return (
-                  <Tr key={o.orderId} i={i}>
-                    <Td><Primary sub={o.title}>{o.orderRef}</Primary></Td>
-                    <Td label="Split">
-                      <span className="block space-y-1.5">
-                        {splits[i]!.map((f) => {
-                          const s = payeeShare(f, p.payeeType);
-                          return (
-                            <span key={f.lineId} className="block text-[11.5px] leading-relaxed text-[color:var(--vault-muted)]">
-                              Sale {usd(s.saleCents)} → {first} {usd(s.shareCents)} ={" "}
-                              <span className="tabular-nums text-[color:var(--vault-ink)]">{usd(s.availableCents)}</span> available
-                              {s.reserveCents > 0 && <> + <span className="tabular-nums text-[color:var(--vault-ink)]">{usd(s.reserveCents)}</span> reserve · released when the order closes</>}
-                            </span>
-                          );
-                        })}
-                      </span>
-                    </Td>
-                    <Td label="This payout" num className="font-semibold">{line ? usd(line.amountCents) : "—"}</Td>
-                  </Tr>
+                  <Card key={o.orderId}>
+                    <p className="text-xs font-medium tabular-nums">{o.orderRef}</p>
+                    <p className="text-[11px] text-muted">{o.title}</p>
+                    {splits[i]!.map((f) => {
+                      const s = payeeShare(f, p.payeeType);
+                      return (
+                        <p key={f.lineId} className="mt-2 text-xs leading-relaxed">
+                          Sale {usd(s.saleCents)} → {first} {usd(s.shareCents)} ={" "}
+                          <span className="tabular-nums">{usd(s.availableCents)}</span> available
+                          {s.reserveCents > 0 && <> + <span className="tabular-nums">{usd(s.reserveCents)}</span> reserve · released when the order closes</>}
+                        </p>
+                      );
+                    })}
+                    {line && <p className="mt-2 text-[11px] text-muted">This payout: <span className="font-medium text-text tabular-nums">{usd(line.amountCents)}</span></p>}
+                  </Card>
                 );
               })}
-            </StageTable>
+            </div>
           </section>
 
           <section>
-            <VaultSection title={`Checks · ${passed} of ${p.checks.length} passed`} />
-            <VaultPanel flush delay={0.32}>
-              <ul className="divide-y divide-[color:var(--vault-line-soft)]">
+            <SectionHeading title={`Checks · ${passed} of ${p.checks.length} passed`} />
+            <Card className="p-0">
+              <ul className="divide-y divide-line-soft">
                 {p.checks.map((c) => (
                   <li key={c.key} className="flex items-center justify-between gap-3 px-4 py-2.5 text-xs">
                     <span>{c.label}</span>
-                    <VaultChip tone={c.ok ? "good" : "late"}>{c.ok ? "✓ Passed" : "✕ Not met"}</VaultChip>
+                    <Badge tone={c.ok ? "accent" : "warn"}>{c.ok ? "✓ Passed" : "● Not met"}</Badge>
                   </li>
                 ))}
               </ul>
-            </VaultPanel>
+            </Card>
           </section>
 
           <section>
-            <VaultSection title="Audit trail" />
-            <VaultPanel flush delay={0.36}>
-              <ul className="divide-y divide-[color:var(--vault-line-soft)]">
+            <SectionHeading title="Audit trail" />
+            <Card className="p-0">
+              <ul className="divide-y divide-line-soft">
                 {auditTrail(p).map((a, i) => (
                   <li key={i} className="flex items-center justify-between gap-3 px-4 py-2.5 text-xs">
                     <span>{a.what}</span>
-                    <span className="text-[color:var(--vault-muted)] tabular-nums">{a.when}</span>
+                    <span className="text-muted tabular-nums">{a.when}</span>
                   </li>
                 ))}
               </ul>
-            </VaultPanel>
+            </Card>
           </section>
         </div>
 
-        <aside className="space-y-4">
-          {hasMeta && (
-            <VaultPanel delay={0.3}>
-              {attempts && <p className="text-[11px] text-muted">{attempts}</p>}
-              {returned && <p className="mt-2 text-[11px] font-medium text-danger">{returned}</p>}
-              {reasons.length > 0 && (
-                <div className="mt-3 rounded-lg border border-warn/40 bg-warn/5 px-3 py-2">
-                  <p className="text-[11px] font-medium text-warn">Not approved automatically because</p>
-                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px]">
-                    {reasons.map((r) => <li key={r}>{r}</li>)}
-                  </ul>
-                </div>
-              )}
-              {steps && <PayoutTracker steps={steps} vertical />}
-            </VaultPanel>
-          )}
-
-          <VaultPanel tone={p.state === "REQUESTED" ? "you" : undefined} delay={0.36}>
-            {p.state === "REQUESTED" && (
-              <PayoutDecision payeeFirstName={first} amount={usd(p.amountCents)} decide={decidePayoutAction.bind(null, p.id)} />
-            )}
-            {(p.state === "APPROVED" || p.state === "SENDING") && (
-              <p className="text-[11px] text-muted">
-                {p.provider === "none"
-                  ? "Approved. It waits here until the payment provider is connected — nothing is sent before then."
-                  : "The payment provider is sending it to the payee's payout account. Nothing more to do."}
-              </p>
-            )}
-            {p.state === "PAID" && <p className="text-[11px] text-muted">{first} has been emailed.</p>}
-            {p.state === "REJECTED" && <p className="text-[11px] text-muted">Sent back. The money is back in {first}&rsquo;s available balance.</p>}
-            {p.state === "FAILED" && (
-              <div className="space-y-2">
-                {p.failureReason && <p className="text-[11px] text-danger">Couldn&rsquo;t send: {p.failureReason}</p>}
-                <PayoutRetry retry={retryPayoutAction.bind(null, p.id)} />
-                <p className="text-[11px] text-muted">
-                  Retry hands the payout to the payment provider again, now{retry && !retry.needsBtg ? " — you don't have to: it goes again on its own" : ""}. It resets the automatic retries.
-                </p>
+        <aside>
+          <Card>
+            <p className="text-[11px] text-muted">Payout to {p.payeeName}</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">{usd(p.amountCents)}</p>
+            <p className="mt-2 flex flex-wrap gap-1">
+              {retry ? <Badge tone={retry.tone}>{retry.label}</Badge> : <Badge tone={status.tone}>{p.state === "REQUESTED" ? "Waiting for BTG's decision" : p.state === "APPROVED" ? "Approved — sending soon" : status.label}</Badge>}
+              {auto && <Badge tone="accent">✓ {auto}</Badge>}
+            </p>
+            {attempts && <p className="mt-2 text-[11px] text-muted">{attempts}</p>}
+            {returned && <p className="mt-1 text-[11px] font-medium text-danger">{returned}</p>}
+            {reasons.length > 0 && (
+              <div className="mt-3 rounded-lg border border-warn/40 bg-warn/5 px-3 py-2">
+                <p className="text-[11px] font-medium text-warn">Not approved automatically because</p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px]">
+                  {reasons.map((r) => <li key={r}>{r}</li>)}
+                </ul>
               </div>
             )}
-          </VaultPanel>
+            {steps && <PayoutTracker steps={steps} vertical />}
+            <div className="mt-4 border-t border-line-soft pt-4">
+              {p.state === "REQUESTED" && (
+                <PayoutDecision payeeFirstName={first} amount={usd(p.amountCents)} decide={decidePayoutAction.bind(null, p.id)} />
+              )}
+              {(p.state === "APPROVED" || p.state === "SENDING") && (
+                <p className="text-[11px] text-muted">
+                  {p.provider === "none"
+                    ? "Approved. It waits here until the payment provider is connected — nothing is sent before then."
+                    : "The payment provider is sending it to the payee's payout account. Nothing more to do."}
+                </p>
+              )}
+              {p.state === "PAID" && <p className="text-[11px] text-muted">{first} has been emailed.</p>}
+              {p.state === "REJECTED" && <p className="text-[11px] text-muted">Sent back. The money is back in {first}&rsquo;s available balance.</p>}
+              {p.state === "FAILED" && (
+                <div className="space-y-2">
+                  {p.failureReason && <p className="text-[11px] text-danger">Couldn&rsquo;t send: {p.failureReason}</p>}
+                  <PayoutRetry retry={retryPayoutAction.bind(null, p.id)} />
+                  <p className="text-[11px] text-muted">
+                    Retry hands the payout to the payment provider again, now{retry && !retry.needsBtg ? " — you don't have to: it goes again on its own" : ""}. It resets the automatic retries.
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
         </aside>
       </div>
     </div>

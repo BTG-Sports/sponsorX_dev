@@ -170,12 +170,9 @@ test("a verified post releases the earning, shows in finance, and lands in the s
   await expect(athlete.getByText("$80"), "no sponsor price on the athlete's side").toHaveCount(0);
   await expect(athlete.getByText("$50"), "no commission either").toHaveCount(0);
 
-  // 5. FINANCE — BTG admin, on the Treasury (P1-ART-25): the earning with
-  //    commission, then the reconciliation and the invoices on their own tabs.
+  // 5. FINANCE — BTG admin: the earning with commission, and the reconciliation.
   await desk.goto("/admin/finance");
-  await expect(desk.getByRole("heading", { level: 1, name: "Treasury" })).toBeVisible();
-  await expect(desk.getByRole("navigation", { name: "The books" }).getByRole("link")).toHaveCount(3);
-  await expect(desk.getByRole("img", { name: /^Collected:/ }), "BTG admin sees the invoice dial").toBeVisible();
+  await expect(desk.getByRole("heading", { level: 1, name: "Finance" })).toBeVisible();
   await expect(desk.getByText(/Payout actions are blocked on the written Phase 1 payment policy/)).toBeVisible();
   await expect(desk.getByText(/under \$2,000 move to .approved for payout. on their own/)).toBeVisible();
   const earningRow = rowWith(desk, ATHLETE.name, CAMPAIGN_NAME);
@@ -183,10 +180,8 @@ test("a verified post releases the earning, shows in finance, and lands in the s
   await expect(earningRow).toContainText("$30");
   await expect(earningRow, "sponsor price").toContainText("$80");
   await expect(earningRow, "commission = $80 − $30").toContainText("$50");
-  await desk.goto("/admin/finance?tab=campaigns");
   const reconciliation = rowWith(desk, CAMPAIGN_NAME, "not invoiced");
   await expect(reconciliation, "contracted $80, Zoho invoiced $50").toContainText("$30 not invoiced");
-  await desk.goto("/admin/finance?tab=invoices");
   await expect(rowWith(desk, "INV-E2E-P7")).toContainText("paid");
 
   //    FINANCE role, in its own portal (P1-ART-25 restructure: /finance, the

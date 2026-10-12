@@ -1,353 +1,411 @@
-import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
-import { ServerList } from "@/components/server-pager";
-import { TabLink, TabStrip } from "@/components/stage-table";
-import { EmptyState } from "@/components/states";
-import {
-  VaultBox,
-  VaultDial,
-  VaultFlow,
-  VaultGhost,
-  VaultHead,
-  VaultPanel,
-  VaultRange,
-  VaultSection,
-  VaultSplit,
-  VaultSteps,
-  VaultTile,
-  VaultTiles,
-  VaultUpdated,
-  at,
-} from "@/components/vault-stage";
+import { Badge, BlockedNotice, Card, SectionHeading, StatTile } from "@/components/ui";
+import { Donut, FunnelSteps, HBarList } from "@/components/charts";
+import { MiniChip } from "@/components/hero";
+import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import {
+  EARNING_COPY,
+  INVOICE_COPY,
+  adminFinanceX,
+  adminOps,
+  earningItems,
+  money,
+  sponsorInvoices,
+  type EarningState,
+  type InvoiceStatus,
+} from "@/lib/fixtures";
+import {
+  agingRows,
+  earningApprovalNote,
   pagedQuery,
+  summaryBuckets,
   STATES,
+  type ApiEarning,
+  type ApiEarningsSummary,
+  type ApiInvoiceRow,
+  type ApiPage,
   type ApiReconciliationPage,
 } from "@/lib/earnings-live";
-import {
-  PAY_STEPS,
-  delta,
-  needsYouTotal,
-  rangeParam,
-  splitRows,
-  waitedFor,
-  type ApiFinanceOverview,
-  type RangeKey,
-} from "@/lib/finance-overview-live";
-import { formatCount } from "@/lib/format-count";
-import { pageParams, pageParamsFor, textParam, type SearchParams } from "@/lib/list-query";
+import { pageParams, pageParamsFor, textParam, type ListKeys, type SearchParams } from "@/lib/list-query";
+import { ListFilter, ListSearch, PagerRow, PendingList, ServerList } from "@/components/server-pager";
 import { apiFetch, fetchActor } from "@/server/api";
-import { CampaignsTab, EarningsTab, INVOICE_KEYS, InvoicesTab, PATH, RECON_KEYS, tabHref, tabOf, type Books, type EarningsPage, type InvoicesPage } from "./books";
-import { demoBooks, demoOverview } from "./demo";
-import { Aging, DialLedger } from "./pieces";
+import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 
 /* --------------------------------------------------------------------------
-   The Treasury — Finance's home (P1-ART-25, 2026-10-12; was the Finance
-   Workspace, §10).
+   Finance Workspace — §10.
 
-   Stats first, on the Vault (vault-stage.tsx, memory admin-desks-are-
-   dashboards): a small title with the live pill and the 7 / 30 / 90 days /
-   All time switch, five money tiles, then the work — what waits on BTG at
-   each money desk, money in vs money out beside how much is settled, where
-   the marketplace money went beside athlete pay by step, and the books.
-   Every figure is GET /finance/overview's (one read, scoped per role on the
-   server); the books are one tabbed, server-paged table.
+   Two sides that SponsorX only ever observes:
 
-   SponsorX only ever observes two sides of the books:
-   - sponsor invoices live in Zoho Books — SponsorX holds the reference and
-     the status Zoho reports, inbound only, and never writes an invoice;
-   - athlete earnings move through their steps, status only: no tax ID, no
-     bank details (Addendum A6). Earning.reference is a Zoho / payment
-     reference, never a credential.
+   - Sponsor invoices live in Zoho Books. SponsorX holds the reference and the
+     status Zoho reports, inbound only — it never writes an invoice (§18).
+   - Athlete earnings move through the §21 state machine. Status only: no tax
+     ID, no bank details (§26, Addendum A6). Earning.reference is a Zoho /
+     payment reference, never a credential.
 
-   INVOICES ARE BTG ADMIN ONLY — the 2026-09-24 RBAC matrix decision
-   (`invoice`): Finance reads earnings, not what the sponsor was billed. The
-   overview leaves `invoices` out for that role, so the Collected dial, the
-   unpaid-invoice ageing and the By campaign / Sponsor invoices tabs are
-   simply ABSENT for Finance — never drawn as 0.
+   The whole "approve for payout" action is BLOCKED on the written Phase 1
+   payment policy (§37 gate one) — the A-gate. This screen shows states; it
+   does not move money or collect payout details, and won't until the policy
+   is written down.
 
-   LIVE vs DEMO (P7-FE-02). A signed-in Finance / BTG desk reads the real
-   books; an outage is the error page, never fixtures dressed as the real
-   books (QA pass 4 rule). Fixtures render only for ?demo= and signed-out
-   visitors, laid out the same way and marked "Sample" — a hollow gold ring
-   on the pill, never the live dot, and no window switch: a sample has only
-   the one (30-day) window.
+   LIVE vs DEMO (P7-FE-02). A signed-in Finance / BTG desk sees the REAL
+   books: GET /earnings — every earning in its §21 state, the athlete's net
+   amount, the sponsor price and BTG's commission — and, for BTG admin, the
+   reconciliation against the Zoho Books invoice mirror (contracted vs
+   invoiced vs collected, beside earnings raised and paid). Read-only on
+   purpose: the payout actions stay blocked on the payment policy (§37 gate
+   one), and are not coded around. FINANCE does not see invoices — the
+   2026-09-24 matrix decision (RBAC Matrix, `invoice`) — so for that role
+   the invoice panels say so instead of showing zeros.
 
-   SERVER-PAGED. Only the active tab's list is fetched, each with its own URL
-   keys: athlete earnings ?page ?size (plus ?q ?state), by campaign ?rpage
-   ?rsize, sponsor invoices ?ipage ?isize. ?tab= picks the tab; a tab link
-   keeps the window and ?demo=, and drops every page key.
-
-   SPLIT (P1-ART-25 review, 745 lines): the books — their tabs, columns,
-   tones, the earnings footnote and `tabHref` — live in `books.tsx`; the
-   sample overview and books in `demo.ts`; the ageing list and a dial's
-   ledger in `pieces.tsx`. This file keeps the reads, the access check and
-   the routing.
+   SERVER-PAGED (2026-09-29). Nothing is fetched whole and totalled here:
+   the tiles and the earnings flow come from GET /earnings/summary, and each
+   table is its own paged read with its own URL keys — athlete earnings
+   ?page ?size (plus ?q ?state), reconciliation ?rpage ?rsize, invoices
+   ?ipage ?isize. Reconciliation is computed per campaign in the database
+   (GET /earnings/reconciliation), so no campaign drops out past a cap, and
+   its `totals` carry Invoiced / Collected / aging over every campaign. For
+   FINANCE the two invoice routes answer 403 — the "BTG admin only" note.
    -------------------------------------------------------------------------- */
 
 const FINANCE_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"];
 
-type Treasury = {
-  ov: ApiFinanceOverview;
-  range: RangeKey;
-  books: Books;
+const RECON_KEYS: ListKeys = { page: "rpage", size: "rsize" };
+const INVOICE_KEYS: ListKeys = { page: "ipage", size: "isize" };
+
+type LiveBooks = {
+  summary: ApiEarningsSummary;
+  earnings: { earnings: ApiEarning[]; page: ApiPage };
+  recon: ApiReconciliationPage | null;
+  invoices: { invoices: ApiInvoiceRow[]; page: ApiPage } | null;
   q: string;
   state: string;
-  sp: SearchParams;
-  /** Fixtures, not the real books: the "Sample" pill instead of the read time. */
-  sample?: boolean;
 };
 
-/** One API read; anything not-ok is an error (the error page). */
-async function readJson<T>(path: string): Promise<T> {
+/** One API read. `allow403` turns the invoice gate's refusal into null —
+ *  the role simply doesn't see invoices; anything else not-ok is an error. */
+async function readJson<T>(path: string, allow403 = false): Promise<T | null> {
   const res = await apiFetch(path);
-  if (!res.ok) throw new Error(`The books are unavailable (${res.status}).`);
+  if (allow403 && res.status === 403) return null;
+  if (!res.ok) throw new Error(`Earnings unavailable (${res.status}).`);
   return (await res.json()) as T;
 }
 
-async function liveTreasury(sp: SearchParams): Promise<Treasury | null> {
-  /* No catch — an outage is an error page, never fixtures. */
+async function liveBooks(sp: SearchParams): Promise<LiveBooks | null> {
+  /* No catch — an outage is an error page, never fixtures dressed as the
+     real books (QA pass 4 rule). */
   const who = await fetchActor();
   if (who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => FINANCE_ROLES.includes(r))) return null;
-  const range = rangeParam(sp);
   const q = textParam(sp, "q");
   const state = textParam(sp, "state", STATES);
-  const earningsPath = `/earnings${pagedQuery(pageParams(sp), { q, state })}`;
-  /* The earnings tab is every role's default, so its read starts beside the
-     overview's; the other tabs wait to learn whether the role may see them. */
-  const asked = textParam(sp, "tab");
-  const early = asked === "campaigns" || asked === "invoices" ? null : readJson<EarningsPage>(earningsPath);
-  const [{ overview: ov }, earlyEarnings] = await Promise.all([
-    readJson<{ overview: ApiFinanceOverview }>(`/finance/overview?range=${range}`),
-    early,
+  const [summary, earnings, recon, invoices] = await Promise.all([
+    readJson<ApiEarningsSummary>("/earnings/summary"),
+    readJson<{ earnings: ApiEarning[]; page: ApiPage }>(`/earnings${pagedQuery(pageParams(sp), { q, state })}`),
+    readJson<ApiReconciliationPage>(`/earnings/reconciliation${pagedQuery(pageParamsFor(sp, RECON_KEYS))}`, true),
+    readJson<{ invoices: ApiInvoiceRow[]; page: ApiPage }>(`/earnings/invoices${pagedQuery(pageParamsFor(sp, INVOICE_KEYS))}`, true),
   ]);
-  const tab = tabOf(sp, !!ov.invoices);
-  const books: Books =
-    tab === "campaigns"
-      ? { tab, recon: await readJson<ApiReconciliationPage>(`/earnings/reconciliation${pagedQuery(pageParamsFor(sp, RECON_KEYS))}`) }
-      : tab === "invoices"
-        ? { tab, invoices: await readJson<InvoicesPage>(`/earnings/invoices${pagedQuery(pageParamsFor(sp, INVOICE_KEYS))}`) }
-        : { tab, earnings: earlyEarnings ?? (await readJson<EarningsPage>(earningsPath)) };
-  return { ov, range, books, q, state, sp };
+  return { summary: summary!, earnings: earnings!, recon, invoices, q, state };
 }
 
-/* words ----------------------------------------------------------------- */
-
-const usd0 = (cents: number) => formatCount(cents, "usd0");
-
-const PREV: Record<RangeKey, string> = {
-  "7d": "vs the 7 days before",
-  "30d": "vs the 30 days before",
-  "90d": "vs the 90 days before",
-  all: "",
+const LIVE_INVOICE_TONE: Record<string, "neutral" | "primary" | "accent" | "danger"> = {
+  draft: "neutral",
+  sent: "primary",
+  paid: "accent",
+  overdue: "danger",
+  void: "neutral",
 };
 
-/* the page ------------------------------------------------------------------------------ */
-
-function TreasuryView({ t }: { t: Treasury }) {
-  const { ov, range, books } = t;
-  const prev = PREV[range];
-  const d = (now: number, before: number | null) => (range === "all" ? undefined : delta(now, before));
-  const waiting = needsYouTotal(ov.needsYou);
-  const rows = splitRows(ov.split);
-  const inv = ov.invoices;
-  const earningsTotal = STATES.reduce((n, st) => n + ov.earningsByState[st].count, 0);
-  const oldest = (iso: string | null) => {
-    const w = waitedFor(iso);
-    return w ? `the oldest has ${w}` : undefined;
-  };
+function LiveFinance({ books }: { books: LiveBooks }) {
+  const b = summaryBuckets(books.summary);
+  const owed = STATES.filter((st) => st !== "PAID" && st !== "DISPUTED").reduce((n, st) => n + b[st].amount, 0);
+  const attention = b.HELD.count + b.DISPUTED.count;
+  const campaigns = books.recon?.campaigns ?? null;
+  const totals = books.recon?.totals ?? null;
+  const invoiced = totals ? totals.invoiced : null;
+  const collected = totals ? totals.collected : null;
+  const rate = totals ? totals.rate : null;
+  const earnings = books.earnings.earnings;
+  const earningsFiltered = Boolean(books.q || books.state);
+  const noInvoices = (
+    <p className="text-[11px] leading-relaxed text-muted">
+      Invoices are visible to BTG admin only — the 2026-09-24 decision in the RBAC matrix
+      (`invoice`): Finance reads earnings, not what the sponsor was billed.
+    </p>
+  );
 
   return (
     <ServerList>
-      <VaultHead
-        title="Treasury"
-        pill={t.sample ? "Sample" : <>Live · <VaultUpdated iso={ov.readAt} /></>}
-        sample={t.sample}
-        actions={t.sample ? undefined : <VaultRange current={range} path={PATH} params={t.sp} />}
-      >
-        {t.sample && (
-          <p className="sx-vault-in mt-2 text-[11.5px] text-[color:var(--vault-muted)]" style={at(0.06)}>
-            Demo data — the real books are read by BTG admin and Finance only, so every figure below is sample data.
-          </p>
-        )}
-        {/* ② the five money numbers: two across on a phone, the fifth
-            (Needs you) across both — VaultTiles' own phone grid. */}
-        <VaultTiles cols={5}>
-          <VaultTile
-            label="Money in"
-            value={ov.moneyIn.cents}
-            delta={d(ov.moneyIn.cents, ov.moneyIn.prev)}
-            deltaLabel={prev}
-            hint="Marketplace orders paid in this period (by card or invoice), less refunds the card provider made."
-            delay={0.08}
-          />
-          <VaultTile
-            label="Paid out"
-            value={ov.paidOut.cents}
-            delta={d(ov.paidOut.cents, ov.paidOut.prev)}
-            deltaLabel={prev}
-            caption="to athletes and properties"
-            delay={0.12}
-          />
-          <VaultTile
-            label="Owed to payees"
-            value={ov.owed.cents}
-            caption={
-              ov.owedBack && ov.owedBack.cents > 0 ? (
-                <>earned, not paid yet · {usd0(ov.owedBack.cents)} owed back by payees</>
-              ) : (
-                "earned, not paid yet"
-              )
-            }
-            hint="Athlete earnings not yet paid, plus what the marketplace owes athletes and properties."
-            delay={0.16}
-          />
-          <VaultTile
-            label="BTG kept"
-            value={ov.kept.cents}
-            delta={d(ov.kept.cents, ov.kept.prev)}
-            deltaLabel={prev}
-            caption={
-              ov.kept.campaignCommission === undefined ? (
-                "marketplace fees only"
-              ) : (
-                <>
-                  marketplace fees · campaign commission {usd0(ov.kept.campaignCommission)} <span className="whitespace-nowrap">all time</span>
-                </>
-              )
-            }
-            delay={0.2}
-          />
-          <VaultTile
-            label="Needs you"
-            value={waiting}
-            format="int"
-            tone={waiting ? "you" : undefined}
-            badge={waiting > 0 ? waiting : undefined}
-            caption="items waiting on BTG"
-            delay={0.24}
-          />
-        </VaultTiles>
-      </VaultHead>
-
-      {/* ③ what waits on BTG, one deposit box per desk */}
-      <section aria-label="Needs you" className="mt-4 grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <VaultBox label="Payouts waiting on BTG" count={ov.needsYou.payouts.count} cents={ov.needsYou.payouts.cents} sub={oldest(ov.needsYou.payouts.oldestAt)} href="/admin/payouts" open="Open Payouts" delay={0.28} />
-        <VaultBox label="Refunds to send" count={ov.needsYou.refunds.count} cents={ov.needsYou.refunds.cents} sub={oldest(ov.needsYou.refunds.oldestAt)} href="/admin/refunds" open="Open Refunds" delay={0.32} />
-        <VaultBox label="Disputes unresolved" count={ov.needsYou.disputes.count} cents={ov.needsYou.disputes.cents} sub="money frozen" href="/admin/payments/disputes" open="Open Disputes" delay={0.36} />
-        <VaultBox label="Payment events held" count={ov.needsYou.events.count} sub="the payment provider sent something we couldn't apply" href="/admin/payments/events" open="Open Payment events" delay={0.4} />
-      </section>
-
-      {/* ④ money in vs money out, beside how much of what was earned is paid.
-          The chart's height is fixed, so the dial panel is built to about
-          the same height: the dial, then the two figures its share is made
-          of. "Settled" (the one word for the panel) stays on the dial only
-          — the section title names what the two figures are, so it never
-          repeats the dial's own label (P1-ART-25 review). */}
-      <div className="mt-4 grid gap-4 xl:grid-cols-[1.6fr_1fr]">
-        <VaultPanel delay={0.44} className="min-w-0">
-          <VaultSection title="Money in vs. money out" hint={range === "all" ? "All time" : `Last ${ov.range.days} days`} />
-          <VaultFlow series={ov.series} bucket={ov.range.bucket} />
-        </VaultPanel>
-        <VaultPanel delay={0.48} className="flex min-w-0 flex-col gap-4">
-          <VaultSection title="Paid vs. owed" hint="paid this period, against what is owed now" />
-          <div className="flex flex-1 items-center">
-            <VaultDial value={ov.settled.rate} label="Settled" size={156} caption="Of what athletes and properties earned, how much has been paid." />
-          </div>
-          <DialLedger
-            rows={[
-              { label: "Paid this period", cents: ov.settled.paidCents },
-              { label: "Owed now", cents: ov.settled.owedCents },
-            ]}
-          />
-        </VaultPanel>
+    <div className="space-y-6">
+      <div>
+        <h1 className="sx-page-title">Finance</h1>
+        <p className="mt-1 text-xs text-muted">
+          Invoice status from Zoho Books and athlete earnings status — §10. SponsorX observes; it does not invoice or pay.
+        </p>
       </div>
 
-      {/* ④b BTG admin only: the sponsor invoices (Zoho) — collected, and
-          unpaid by days past due. A band of its own rather than a second
-          dial squeezed beside the chart: the chart's height is fixed, and a
-          column of two dials and the ageing ran far past it. Finance never
-          sees invoices (2026-09-24); the band is absent, never zeros. */}
-      {inv && (
-        <VaultPanel delay={0.5} className="@container mt-4 min-w-0">
-          <VaultSection title="Sponsor invoices" hint="from Zoho Books" />
-          <div className="grid gap-x-10 gap-y-6 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] @3xl:items-center">
-            <div className="space-y-4">
-              <VaultDial value={inv.rate === null ? null : inv.rate / 100} label="Collected" size={128} caption="Sponsor invoices paid, from Zoho Books." />
-              <DialLedger
-                rows={[
-                  { label: "Collected", cents: inv.collectedCents },
-                  { label: "Invoiced", cents: inv.invoicedCents },
-                ]}
-              />
-            </div>
-            <div>
-              <p className="mb-2.5 text-[10px] uppercase tracking-[0.16em] text-[color:var(--vault-muted)]">Unpaid, by days past due</p>
-              <Aging aging={inv.aging} />
-            </div>
+      <BlockedNotice>
+        Payout actions are blocked on the written Phase 1 payment policy (§37 gate one, an open A-gate). This screen
+        shows real states; it does not approve, pay or collect payout details until the policy is written. Earnings
+        under $2,000 move to &ldquo;approved for payout&rdquo; on their own as they become eligible (2S5-BE-08); the
+        ones left for Finance say why. Paid is still recorded by Finance.
+      </BlockedNotice>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile label="Invoiced" value={invoiced === null ? "—" : money(invoiced)} sub={invoiced === null ? "BTG admin only" : "all campaigns · Zoho Books"} />
+        <StatTile label="Collected" value={collected === null ? "—" : money(collected)} sub={totals === null ? "BTG admin only" : rate === null ? "nothing invoiced yet · Zoho Books" : `${rate}% of invoiced · Zoho Books`} />
+        <StatTile label="Owed to athletes" value={money(owed)} sub="raised, not yet paid" />
+        <StatTile label="Needs attention" value={String(attention)} sub="held / disputed" />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Invoice aging</p>
+          <div className="mt-3">
+            {totals ? (
+              totals.aging.some((n) => n > 0) ? (
+                <HBarList rows={agingRows(totals.aging).map((r, k) => ({ ...r, tone: k >= 2 ? "warn" : "primary" }))} />
+              ) : (
+                <p className="text-xs text-muted">Nothing outstanding.</p>
+              )
+            ) : (
+              noInvoices
+            )}
           </div>
-        </VaultPanel>
+          <p className="mt-3 flex items-center gap-1.5 text-[10px] text-faint">
+            outstanding by days past due <MiniChip kind="ver">ZOHO BOOKS</MiniChip>
+          </p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Earnings flow</p>
+          <div className="mt-2">
+            <FunnelSteps
+              stages={["PENDING", "ELIGIBLE", "APPROVED_FOR_PAYOUT", "PAID"].map((st) => ({
+                label: EARNING_COPY[st as EarningState],
+                value: b[st as EarningState].amount,
+              }))}
+              compact
+            />
+          </div>
+          <p className="mt-3 flex items-center gap-1.5 text-[10px] text-faint">
+            Σ Earning by state — balance in each, not a conversion <MiniChip kind="ver">POSTGRES</MiniChip>
+          </p>
+        </Card>
+      </div>
+
+      {campaigns && books.recon && (
+        <section>
+          <SectionHeading
+            title="Reconciliation"
+            hint="Per campaign: what the orders sold, what Zoho invoiced and collected, and what athletes are owed and paid."
+          />
+          <div className="mb-3">
+            <PagerRow page={books.recon.page} noun="Campaigns" tone="admin" position="top" keys={RECON_KEYS} />
+          </div>
+          <PendingList>
+          <Card className="p-0">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Finance — scrollable table">
+              <table className="w-full min-w-[48rem] text-left">
+                <thead>
+                  <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">
+                    <th className="px-4 py-2.5 font-medium">Campaign</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Contracted</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Invoiced</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Collected</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Athlete earnings</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Paid out</th>
+                    <th className="px-4 py-2.5 font-medium">Check</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line-soft">
+                  {campaigns.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-6 text-center text-xs text-muted">No campaign has an earning yet.</td>
+                    </tr>
+                  )}
+                  {campaigns.map((c) => {
+                    const under = c.invoiced < c.contracted;
+                    const over = c.invoiced > c.contracted;
+                    return (
+                      <tr key={c.campaignId}>
+                        <td className="px-4 py-3 text-xs">
+                          <span className="font-medium">{c.name}</span>
+                          <span className="block text-[11px] text-faint">{c.sponsorName}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right text-xs tabular-nums">{money(c.contracted)}</td>
+                        <td className="px-4 py-3 text-right text-xs tabular-nums">{money(c.invoiced)}</td>
+                        <td className="px-4 py-3 text-right text-xs tabular-nums">{money(c.invoicePaid)}</td>
+                        <td className="px-4 py-3 text-right text-xs tabular-nums">{money(c.earningsRaised)}</td>
+                        <td className="px-4 py-3 text-right text-xs tabular-nums">{money(c.earningsPaid)}</td>
+                        <td className="px-4 py-3">
+                          {under ? (
+                            <Badge tone="warn">{money(c.contracted - c.invoiced)} not invoiced</Badge>
+                          ) : over ? (
+                            <Badge tone="danger">invoiced over contract</Badge>
+                          ) : (
+                            <Badge tone="accent">matches</Badge>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+          </PendingList>
+          <PagerRow page={books.recon.page} noun="Campaigns" tone="admin" position="bottom" keys={RECON_KEYS} />
+        </section>
       )}
 
-      {/* ⑤ where the money went, beside athlete pay by step */}
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <VaultPanel delay={0.52} className="min-w-0">
-          <VaultSection title="Where the money went" hint="Marketplace sales" />
-          {rows.length ? <VaultSplit rows={rows} /> : <p className="py-6 text-center text-xs text-[color:var(--vault-muted)]">No marketplace sales in this period.</p>}
-        </VaultPanel>
-        <VaultPanel delay={0.56} className="min-w-0">
-          <VaultSection title="Athlete pay, step by step" hint="all time" />
-          <VaultSteps
-            steps={PAY_STEPS.map((s) => ({
-              label: s.label,
-              off: s.off,
-              count: ov.earningsByState[s.state].count,
-              cents: ov.earningsByState[s.state].amount,
-            }))}
-          />
-        </VaultPanel>
-      </div>
-
-      {/* ⑥ the books — one tabbed, server-paged table */}
-      <VaultPanel delay={0.6} className="mt-4 min-w-0">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <TabStrip label="The books">
-            <TabLink href={tabHref("earnings", range, t.sp)} on={books.tab === "earnings"} count={earningsTotal}>
-              Athlete earnings
-            </TabLink>
-            {inv && !t.sample && (
-              <TabLink href={tabHref("campaigns", range, t.sp)} on={books.tab === "campaigns"} count={books.tab === "campaigns" ? books.recon.page.total : undefined}>
-                By campaign
-              </TabLink>
-            )}
-            {inv && (
-              <TabLink href={tabHref("invoices", range, t.sp)} on={books.tab === "invoices"} count={books.tab === "invoices" ? books.invoices.page.total : undefined}>
-                Sponsor invoices
-              </TabLink>
-            )}
-          </TabStrip>
-          <p className="text-[11.5px] text-[color:var(--vault-muted)]">Status only — no tax ID or bank details.</p>
-        </div>
-        {books.tab === "earnings" && <EarningsTab data={books.earnings} q={t.q} state={t.state} sample={t.sample} />}
-        {books.tab === "campaigns" && <CampaignsTab data={books.recon} />}
-        {books.tab === "invoices" && (
-          <InvoicesTab
-            page={books.invoices.page}
-            rows={books.invoices.invoices.map((i) => ({
-              id: i.zohoInvoiceId,
-              sponsor: i.sponsor,
-              campaign: i.campaign,
-              ref: i.number ?? i.zohoInvoiceId,
-              status: i.status,
-              amount: i.amount,
-            }))}
-          />
+      <section>
+        <SectionHeading title="Sponsor invoices" hint="§18 — from Zoho Books, inbound only; SponsorX never writes an invoice." />
+        {books.invoices && books.invoices.page.total > 0 && (
+          <div className="mb-3">
+            <PagerRow page={books.invoices.page} noun="Invoices" tone="admin" position="top" keys={INVOICE_KEYS} />
+          </div>
         )}
-      </VaultPanel>
+        <PendingList>
+        <Card className={books.invoices ? "p-0" : "p-4"}>
+          {!books.invoices ? (
+            noInvoices
+          ) : books.invoices.invoices.length === 0 ? (
+            <p className="px-4 py-6 text-center text-xs text-muted">No invoices synced from Zoho yet.</p>
+          ) : (
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Finance — scrollable table">
+              <table className="w-full min-w-[36rem] text-left">
+                <thead>
+                  <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">
+                    <th className="px-4 py-2.5 font-medium">Sponsor</th>
+                    <th className="px-4 py-2.5 font-medium">Campaign</th>
+                    <th className="px-4 py-2.5 font-medium">Reference</th>
+                    <th className="px-4 py-2.5 font-medium">Status</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line-soft">
+                  {books.invoices.invoices.map((i) => (
+                    <tr key={i.zohoInvoiceId}>
+                      <td className="px-4 py-3 text-xs font-medium">{i.sponsor}</td>
+                      <td className="px-4 py-3 text-xs text-muted">{i.campaign}</td>
+                      <td className="px-4 py-3">
+                        <code className="font-mono text-[11px] text-faint">{i.number ?? i.zohoInvoiceId}</code>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge tone={LIVE_INVOICE_TONE[i.status.toLowerCase()] ?? "neutral"}>{i.status.toLowerCase()}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right text-xs font-semibold tabular-nums">{money(i.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+        </PendingList>
+        {books.invoices && books.invoices.page.total > 0 && (
+          <PagerRow page={books.invoices.page} noun="Invoices" tone="admin" position="bottom" keys={INVOICE_KEYS} />
+        )}
+      </section>
+
+      <section>
+        <SectionHeading title="Athlete earnings" hint="§21 — status only, no tax ID or bank details (§26)" />
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <ListSearch initial={books.q} label="Search earnings" placeholder="Athlete, campaign, sponsor, job or reference…" tone="admin" />
+          <ListFilter
+            param="state"
+            value={books.state}
+            label="Filter by status"
+            allLabel="All statuses"
+            options={STATES.map((st) => ({ value: st, label: EARNING_COPY[st] }))}
+            tone="admin"
+          />
+        </div>
+        <div className="mb-3">
+          <PagerRow page={books.earnings.page} noun="Earnings" tone="admin" position="top" filtered={earningsFiltered} />
+        </div>
+        <PendingList>
+        <Card className="p-0">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Finance — scrollable table">
+            <table className="w-full min-w-[44rem] text-left">
+              <thead>
+                <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">
+                  <th className="px-4 py-2.5 font-medium">Athlete</th>
+                  <th className="px-4 py-2.5 font-medium">Campaign</th>
+                  <th className="px-4 py-2.5 font-medium">Reference</th>
+                  <th className="px-4 py-2.5 font-medium">Status</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Athlete</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Sponsor price</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Commission</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line-soft">
+                {earnings.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-6 text-center text-xs text-muted">
+                      {earningsFiltered ? "No earning matches this search or status." : "No earnings raised yet."}
+                    </td>
+                  </tr>
+                )}
+                {earnings.map((e) => (
+                  <tr key={e.id}>
+                    <td className="px-4 py-3 text-xs font-medium">{e.athlete.displayName}</td>
+                    <td className="px-4 py-3 text-xs text-muted">
+                      {e.order.campaignName}
+                      <span className="text-faint"> · {e.order.jobId}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {e.reference ? <code className="font-mono text-[11px] text-faint">{e.reference}</code> : <span className="text-[11px] text-faint">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const note = earningApprovalNote(e);
+                        return (
+                          <span className="flex flex-col items-start gap-1">
+                            <Badge tone={EARNING_TONE[e.state]}>{EARNING_COPY[e.state]}</Badge>
+                            {note.badge && <Badge tone="accent">✓ {note.badge}</Badge>}
+                            {note.reasons.length > 0 && (
+                              <span className="text-[11px] leading-snug text-warn">For Finance: {note.reasons.join(" · ")}</span>
+                            )}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-4 py-3 text-right text-xs font-semibold tabular-nums">{typeof e.amount === "number" ? money(e.amount) : "—"}</td>
+                    <td className="px-4 py-3 text-right text-xs tabular-nums text-muted">{typeof e.sellPrice === "number" ? money(e.sellPrice) : "—"}</td>
+                    <td className="px-4 py-3 text-right text-xs tabular-nums text-muted">{typeof e.commission === "number" ? money(e.commission) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+        </PendingList>
+        <PagerRow page={books.earnings.page} noun="Earnings" tone="admin" position="bottom" filtered={earningsFiltered} />
+        <p className="mt-2 text-[10px] leading-relaxed text-faint">
+          Commission is BTG&rsquo;s cut: the sponsor price minus the athlete&rsquo;s net earning. The athlete never sees
+          the sponsor price (§7.1).
+        </p>
+      </section>
+    </div>
     </ServerList>
   );
 }
+
+const EARNING_TONE: Record<EarningState, "neutral" | "primary" | "accent" | "danger"> = {
+  PENDING: "neutral",
+  ELIGIBLE: "primary",
+  APPROVED_FOR_PAYOUT: "primary",
+  PAID: "accent",
+  HELD: "danger",
+  DISPUTED: "danger",
+};
+
+const INVOICE_TONE: Record<InvoiceStatus, "neutral" | "primary" | "accent" | "danger"> = {
+  DRAFT: "neutral",
+  SENT: "primary",
+  PAID: "accent",
+  OVERDUE: "danger",
+};
 
 export default async function AdminFinancePage({
   searchParams,
@@ -355,29 +413,269 @@ export default async function AdminFinancePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const demo = await demoState(searchParams);
-  if (demo === "loading") return <VaultGhost label="Loading the Treasury" tiles={5} cols={5} rows={3} />;
+  if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
   /* C-1: a staff role this desk isn't for gets "not in your role", not the
      sample desk. The demo stays for ?demo= and signed-out visitors. */
   if (demo === null) {
-    const lacking = await staffWithoutAccess(PATH);
-    if (lacking) return <NotInRole path={PATH} title="Treasury" roles={lacking} />;
+    const lacking = await staffWithoutAccess("/admin/finance");
+    if (lacking) return <NotInRole path="/admin/finance" title="Finance" roles={lacking} />;
   }
 
-  const sp = await searchParams;
-  const live = demo === null ? await liveTreasury(sp) : null;
-  if (live) return <TreasuryView t={live} />;
+  const heading = (
+    <div>
+      <h1 className="sx-page-title">Finance</h1>
+      <p className="mt-1 text-xs text-muted">
+        Invoice status from Zoho Books and athlete earnings status — §10.
+        SponsorX observes; it does not invoice or pay.
+      </p>
+    </div>
+  );
+
+  const live = demo === null ? await liveBooks(await searchParams) : null;
+  if (live) return <LiveFinance books={live} />;
 
   if (demo === "empty") {
     return (
-      <div>
-        <VaultHead title="Treasury" pill="Sample" sample />
-        <div className="mt-5">
-          <EmptyState mark="chart" title="No money has moved yet" hint="Payments, payouts and invoices appear here once campaigns launch." />
-        </div>
+      <div className="space-y-6">
+        {heading}
+        <EmptyState
+          mark="chart"
+          title="No invoices yet"
+          hint="Invoices sync from Zoho Books once campaigns launch."
+        />
       </div>
     );
   }
 
-  return <TreasuryView t={{ ov: demoOverview(), range: "30d", books: demoBooks(sp), q: "", state: "", sp, sample: true }} />;
+  const owedToAthletes = earningItems
+    .filter((e) => e.state !== "PAID" && e.state !== "DISPUTED")
+    .reduce((s, e) => s + e.amount, 0);
+  const attention = earningItems.filter(
+    (e) => e.state === "HELD" || e.state === "DISPUTED",
+  ).length;
+
+  return (
+    <div className="space-y-6">
+      {/* -------------------------------------------------------- headline */}
+      {heading}
+
+      {/* P7-QA-02: this fixture branch also reaches signed-in staff outside
+          FINANCE_ROLES (SALES, CAMPAIGN_MGR, NETWORK_MGR) — its ZOHO BOOKS /
+          verified chips must not read as the real books. */}
+      {demo === null && (
+        <BlockedNotice>
+          Demo data — the real books are read by BTG admin and Finance only, so
+          every figure below is sample data.
+        </BlockedNotice>
+      )}
+
+      {/* -------------------------------------------------------- gate ---- */}
+      <BlockedNotice>
+        Payout actions are blocked on the written Phase 1 payment policy (§37
+        gate one, an open A-gate). Expected: earnings status only, no tax ID
+        collected. Until it is written and linked from the stack decision,
+        nothing here approves a payout.
+      </BlockedNotice>
+
+      {/* ------------------------------------------------ collection + aging */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="sx-animate sx-delay-1 p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+            Collection rate
+          </p>
+          <div className="mt-3 flex items-center gap-4">
+            <Donut
+              segments={[
+                {
+                  label: "Collected",
+                  value: adminFinanceX.collectionRatePct,
+                  color: "var(--sx-primary)",
+                },
+                {
+                  label: "Outstanding",
+                  value: 100 - adminFinanceX.collectionRatePct,
+                  color: "var(--sx-line-soft)",
+                },
+              ]}
+              centerValue={`${adminFinanceX.collectionRatePct}%`}
+              centerLabel="collected"
+            />
+            <div>
+              <p className="text-2xl font-semibold tabular-nums">
+                {adminFinanceX.collectionRatePct}%
+              </p>
+              <p className="text-xs text-muted">of invoiced revenue collected</p>
+            </div>
+          </div>
+          <p className="mt-3 flex items-center gap-1.5 text-[10px] text-faint">
+            collected / invoiced · quarter to date{" "}
+            <MiniChip kind="ver">ZOHO BOOKS</MiniChip>
+          </p>
+        </Card>
+
+        <Card className="sx-animate sx-delay-2 p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+              Invoice aging
+            </p>
+            <Badge tone="danger">overdue</Badge>
+          </div>
+          <div className="mt-3">
+            <HBarList
+              rows={adminFinanceX.aging.map((row) => ({
+                ...row,
+                tone:
+                  row.label === "31–60 days" || row.label === "> 60 days"
+                    ? "warn"
+                    : "primary",
+              }))}
+            />
+          </div>
+          <p className="mt-3 flex items-center gap-1.5 text-[10px] text-faint">
+            invoice age buckets <MiniChip kind="ver">ZOHO BOOKS</MiniChip>
+          </p>
+        </Card>
+      </div>
+
+      {/* ----------------------------------------------------- stat tiles */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile label="Invoiced" value={money(adminOps.invoicedCents)} sub="quarter to date · Zoho Books" source="VERIFIED_MANUAL" />
+        <StatTile label="Collected" value={money(adminOps.collectedCents)} sub="quarter to date · Zoho Books" source="VERIFIED_MANUAL" />
+        <StatTile label="Owed to athletes" value={money(owedToAthletes)} sub="not yet paid" />
+        <StatTile label="Needs attention" value={String(attention)} sub="held / disputed" />
+      </div>
+
+      {/* ------------------------------------------------ sponsor invoices */}
+      <section>
+        <SectionHeading
+          title="Sponsor invoices"
+          hint={`Latest invoices — most recent ${sponsorInvoices.length} shown, not the quarter total. §18 — from Zoho Books, inbound only; SponsorX never writes an invoice.`}
+        />
+        <Card className="p-0">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Finance — scrollable table">
+            <table className="w-full min-w-[36rem] text-left">
+              <thead>
+                <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">
+                  <th className="px-4 py-2.5 font-medium">Sponsor</th>
+                  <th className="px-4 py-2.5 font-medium">Campaign</th>
+                  <th className="px-4 py-2.5 font-medium">Reference</th>
+                  <th className="px-4 py-2.5 font-medium">Status</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line-soft">
+                {sponsorInvoices.map((i) => (
+                  <tr key={i.id}>
+                    <td className="px-4 py-3 text-xs font-medium">{i.sponsor}</td>
+                    <td className="px-4 py-3 text-xs text-muted">{i.campaign}</td>
+                    <td className="px-4 py-3">
+                      <code className="font-mono text-[11px] text-faint">{i.ref}</code>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge tone={INVOICE_TONE[i.status]}>
+                        {INVOICE_COPY[i.status]}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right text-xs font-semibold tabular-nums">
+                      {money(i.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </section>
+
+      {/* ------------------------------------------------ athlete earnings */}
+      <section>
+        <SectionHeading
+          title="Athlete earnings"
+          hint="§21 state machine — status only, no tax ID or bank details (§26)"
+        />
+        <Card className="p-0">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Finance — scrollable table">
+            <table className="w-full min-w-[36rem] text-left">
+              <thead>
+                <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">
+                  <th className="px-4 py-2.5 font-medium">Athlete</th>
+                  <th className="px-4 py-2.5 font-medium">Campaign</th>
+                  <th className="px-4 py-2.5 font-medium">Reference</th>
+                  <th className="px-4 py-2.5 font-medium">Status</th>
+                  <th className="px-4 py-2.5 text-right font-medium">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line-soft">
+                {earningItems.map((e) => (
+                  <tr key={e.id}>
+                    <td className="px-4 py-3 text-xs font-medium">{e.athlete}</td>
+                    <td className="px-4 py-3 text-xs text-muted">
+                      {e.campaign}
+                      <span className="text-faint"> · {e.jobId}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {e.reference ? (
+                        <code className="font-mono text-[11px] text-faint">{e.reference}</code>
+                      ) : (
+                        <span className="text-[11px] text-faint">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge tone={EARNING_TONE[e.state]}>
+                        {EARNING_COPY[e.state]}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right text-xs font-semibold tabular-nums">
+                      {money(e.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+        <p className="mt-2 text-[10px] leading-relaxed text-faint">
+          Commission is BTG&rsquo;s cut of the sponsor price; the athlete&rsquo;s
+          rate and the sponsor price are different numbers, and reconciliation
+          against Zoho happens in the worker (§18), never on this screen.
+        </p>
+      </section>
+
+      {/* --------------------------------------------------- earnings flow */}
+      <section>
+        <SectionHeading
+          title="Earnings flow"
+          hint="§21 — Σ Earning by state, cents"
+        />
+        <Card className="p-4">
+          <FunnelSteps
+            stages={adminFinanceX.earningsFlow.map((s) => ({
+              label: s.label,
+              value: s.value,
+            }))}
+            compact
+          />
+          <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted">
+            {adminFinanceX.earningsFlow.map((s) => (
+              <li key={s.label}>
+                {s.label} <span className="font-semibold text-text">{money(s.value)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 flex items-center gap-1.5 text-[10px] text-faint">
+            Σ Earning by state <MiniChip kind="ver">POSTGRES</MiniChip>
+          </p>
+          <p className="mt-2 text-[10px] leading-relaxed text-faint">
+            Balance sitting in each state — not a conversion funnel.
+          </p>
+          <p className="mt-2 text-[10px] leading-relaxed text-faint">
+            Earnings are status-tracked only — no tax ID or bank details are
+            collected in Phase 1 (§26, Addendum A6); payout policy is still an
+            open gate (§37).
+          </p>
+        </Card>
+      </section>
+    </div>
+  );
 }

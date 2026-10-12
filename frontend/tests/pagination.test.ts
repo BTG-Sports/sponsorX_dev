@@ -6,8 +6,7 @@ import { Pagination } from "@/components/pagination";
 
 /* P1-ART-25 review — the Vault's pager reads as a struck gold coin, not a
    tinted one (pagination.tsx's own comment on ACTIVE_TONE.vault). Pinned
-   here so a future tone tweak can't silently drop the vault's own treatment,
-   the way tests/admin-nav.test.ts pins StageRoot's sx-vault/data-vault. */
+   here so a future tone tweak can't silently drop the vault's own treatment. */
 
 describe("Pagination · the vault tone", () => {
   it("gives the active page solid brushed gold, not a tint", () => {

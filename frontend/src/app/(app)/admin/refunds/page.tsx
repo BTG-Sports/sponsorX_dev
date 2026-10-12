@@ -1,9 +1,8 @@
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { MarkRefunded } from "@/components/refunds-desk";
+import { StatePill } from "@/components/order-bits";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
-import { EmptyState } from "@/components/states";
-import { StadiumHint } from "@/components/stadium-hint";
-import { VaultChip, VaultGhost, VaultHead, VaultTile, VaultTiles, VaultUpdated } from "@/components/vault-stage";
+import { EmptyState, SkeletonRows } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { apiListQuery } from "@/lib/list-query";
 import { money } from "@/lib/order-automation-live";
@@ -35,7 +34,14 @@ const TITLE = "Refunds to send";
 
 export default async function RefundsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const demo = await demoState(searchParams);
-  if (demo === "loading") return <VaultGhost label="Loading refunds" tiles={2} cols={2} rows={1} />;
+  if (demo === "loading") {
+    return (
+      <div className="space-y-6">
+        <h1 className="sx-page-title">{TITLE}</h1>
+        <SkeletonRows rows={3} />
+      </div>
+    );
+  }
   if (demo === "error") throw new Error("Demo error state");
 
   const lacking = await staffWithoutAccess(PATH);
@@ -63,16 +69,15 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
     ...(sent ? [] : [{ key: "action", label: "Action", srOnly: true }]),
   ];
 
-  const readAt = new Date().toISOString();
-
   return (
     <div className="space-y-5">
-      <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>} actions={<StadiumHint skin="vault" label="About this desk" text="Money owed back to sponsors, sent by hand for now. Card payments are refunded automatically once the payment provider is connected." />}>
-        <VaultTiles cols={2}>
-          <VaultTile label="To send" value={list.counts.open} format="int" caption={list.counts.open > 0 ? openSummary(list) : undefined} tone={list.counts.open ? "you" : undefined} badge={list.counts.open > 0 ? list.counts.open : undefined} delay={0.08} />
-          <VaultTile label="Sent" value={list.counts.sent} format="int" delay={0.12} />
-        </VaultTiles>
-      </VaultHead>
+      <div>
+        <h1 className="sx-page-title">{TITLE}</h1>
+        <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">
+          Money owed back to sponsors, sent by hand for now. Card payments are refunded automatically once the payment provider is connected.
+        </p>
+        {list.counts.open > 0 && <p className="mt-2 text-sm font-semibold tabular-nums">{openSummary(list)}</p>}
+      </div>
 
       <TabStrip label="Refunds">
         {REFUND_TABS.map((t) => (
@@ -87,7 +92,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
           ? <EmptyState mark="inbox" title="Nothing sent yet" hint="Refunds marked sent — by Finance, or automatically to a card — appear here." />
           : <EmptyState mark="inbox" title="Nothing to send" hint="Nothing to send — every refund is out." />
       ) : (
-        <PagedTable page={page} noun="Refunds" tone="vault" label={sent ? "Sent refunds" : "Refunds to send"} columns={columns}>
+        <PagedTable page={page} noun="Refunds" label={sent ? "Sent refunds" : "Refunds to send"} columns={columns}>
           {rows.map((r, i) => (
             <Tr key={r.id} i={i} tone={sent ? undefined : "warn"}>
               <Td><Primary>{refundRef(r)}</Primary></Td>
@@ -95,13 +100,13 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
               <Td label="Line" muted>{refundWhat(r)}</Td>
               <Td label="Amount" num className="font-semibold">{money(r.amountCents)}</Td>
               <Td label="Why">
-                <span title={r.causeWords}><VaultChip>{causeLabel(r.cause)}</VaultChip></span>
-                <span className="mt-1 block text-[11px] text-[color:var(--vault-muted)]">{r.causeWords}</span>
+                <span title={r.causeWords}><StatePill p={{ label: causeLabel(r.cause), tone: "primary", mark: "●" }} /></span>
+                <span className="mt-1 block text-[11px] text-muted">{r.causeWords}</span>
               </Td>
               <Td label="Paid by">{r.paidViaWords ?? "—"}</Td>
               <Td label={sent ? "Sent" : "Waiting since"} muted>
                 {sent ? sentWords(r) ?? "Sent" : waitingSince(r.createdAt)}
-                {!sent && r.zohoNote && <span className="mt-1 block text-[11px] text-[color:var(--vault-gold-hi)]">{r.zohoNote}</span>}
+                {!sent && r.zohoNote && <span className="mt-1 block text-[11px] text-primary-soft">{r.zohoNote}</span>}
               </Td>
               {!sent && (
                 <Td act>

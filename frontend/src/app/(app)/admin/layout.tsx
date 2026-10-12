@@ -1,8 +1,7 @@
 import { requirePortalAccess } from "@/server/portal";
 import { PortalShell } from "@/components/portal-shell";
 import { roleLabel, viewerName } from "@/server/viewer";
-import { dockFor, mayUseVault, navFor, rootFor } from "@/lib/admin-nav";
-import { isFinanceOnly } from "@/lib/admin-access";
+import { ADMIN_DOCK, navFor } from "@/lib/admin-nav";
 
 import "../../mobile-nav.css";
 
@@ -24,23 +23,16 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <PortalShell
       portal="admin"
-      /* C-1: each desk's link only for the roles it's for (lib/admin-access).
-         P1-ART-25: a Finance-only viewer is rooted at the Treasury. */
+      /* C-1: each desk's link only for the roles it's for (lib/admin-access);
+         commission stays BTG-admin only as before. */
       nav={navFor(actor.roles)}
-      rootHref={rootFor(actor.roles)}
-      dock={dockFor(actor.roles)}
+      rootHref="/admin"
+      dock={ADMIN_DOCK}
       orgName="BTG Sports Group"
       userName={await viewerName("BTG staff")}
       userRole={roleLabel(actor.roles)}
-      /* P1-ART-18 — the whole admin portal on the Mission Control stage;
-         P1-ART-25 — the Vault on the money desks, and on every page for a
-         Finance-only viewer: Finance is its own portal, as athlete and
-         sponsor are, so no page of theirs drops back into Mission Control.
-         Review follow-up — a role with no money desk at all (mayUseVault)
-         gets the Vault switched off outright, rather than seeing it light up
-         over a "not in your role" page on a deep-linked money route. */
+      /* P1-ART-18 — the whole admin portal on the Mission Control stage. */
       stage
-      vault={isFinanceOnly(actor.roles) ? "all" : mayUseVault(actor.roles)}
     >
       {children}
     </PortalShell>

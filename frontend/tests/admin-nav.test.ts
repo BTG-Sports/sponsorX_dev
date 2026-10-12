@@ -1,78 +1,39 @@
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { ADMIN_DOCK, ADMIN_NAV, FINANCE_DOCK, dockFor, mayUseVault, navFor, rootFor } from "@/lib/admin-nav";
+import { ADMIN_DOCK, ADMIN_NAV, navFor } from "@/lib/admin-nav";
 import { resolveDock } from "@/lib/mobile-dock";
 import { groupNav } from "@/lib/nav-groups";
-import type { VaultMode } from "@/lib/vault-routes";
 
-/* P1-ART-25 (spec §2) — Finance lands on the Treasury, and the admin shell
-   switches to the Vault on a money desk, never on any other screen. */
+/* The admin nav per viewer. The array is the admin layout's as it was
+   (P1-ART-21 groups, P1-ART-24 dock); navFor applies the per-desk access map
+   (lib/admin-access) and the commission rule to the roles staff sign in
+   with. Finance has its own portal (/finance, P1-ART-25 §11) — nothing here
+   is Finance-only any more. */
 
-let pathname = "/admin";
-vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
-
-describe("P1-ART-25 · the admin nav per viewer", () => {
-  it("relabels Finance's home Treasury, at the foot of Money", () => {
+describe("the admin nav per viewer", () => {
+  it("keeps Finance's desk under its own name, inside Money", () => {
     const money = groupNav(ADMIN_NAV).groups.find((g) => g.label === "Money")!;
-    expect(money.items.at(-1)).toMatchObject({ href: "/admin/finance", label: "Treasury" });
-    expect(ADMIN_NAV.some((n) => n.label === "Finance")).toBe(false);
+    expect(money.items.map((i) => i.label)).toEqual(["Commission", "Disputes", "Finance", "Payment events", "Payouts", "Refunds to send"]);
+    expect(ADMIN_NAV.some((n) => n.label === "Treasury")).toBe(false);
   });
 
-  it("leaves a BTG admin's nav as it was: Dashboard on top, Treasury in Money, Commission theirs", () => {
+  it("gives a BTG admin the whole nav: Dashboard on top, Commission theirs, the dock resolving in full", () => {
     const nav = navFor(["BTG_ADMIN"]);
+    expect(nav.map((n) => n.href)).toEqual(ADMIN_NAV.map((n) => n.href));
     expect(nav[0]).toMatchObject({ href: "/admin", label: "Dashboard" });
-    expect(nav.filter((n) => n.href === "/admin/finance")).toEqual([expect.objectContaining({ label: "Treasury", group: "Money" })]);
     expect(nav.some((n) => n.href === "/admin/commission")).toBe(true);
-    expect(rootFor(["BTG_ADMIN"])).toBe("/admin");
-    expect(dockFor(["BTG_ADMIN"])).toBe(ADMIN_DOCK);
+    expect(resolveDock(ADMIN_DOCK, nav, "/admin", "/admin").map((i) => i.label)).toEqual(["Dashboard", "Approvals", "Campaigns", "Finance"]);
   });
 
-  it("puts Treasury on top for a Finance-only viewer, in Dashboard's place, listed once", () => {
-    const nav = navFor(["FINANCE"]);
-    const { top, groups } = groupNav(nav);
-    expect(top).toEqual([{ href: "/admin/finance", label: "Treasury", icon: "wallet" }]);
-    expect(nav.filter((n) => n.href === "/admin/finance")).toHaveLength(1);
-    expect(nav.some((n) => n.href === "/admin")).toBe(false);
-    expect(nav.some((n) => n.href === "/admin/commission")).toBe(false);
-    /* their Money group keeps its glyph without Commission */
-    expect(groups.find((g) => g.label === "Money")).toMatchObject({ icon: "wallet" });
-    expect(groups.find((g) => g.label === "Money")!.items.map((i) => i.label)).toEqual(["Disputes", "Payment events", "Payouts", "Refunds to send"]);
+  it("gives a super admin everything too", () => {
+    const nav = navFor(["SUPER_ADMIN"]);
+    expect(nav[0]).toMatchObject({ href: "/admin", label: "Dashboard" });
+    expect(nav.some((n) => n.href === "/admin/commission")).toBe(true);
+    expect(nav.some((n) => n.href === "/admin/finance" && n.label === "Finance")).toBe(true);
   });
 
-  /* Review follow-up — a group's glyph is built from the FULL admin nav, not
-     from whichever filtered item happens to carry it: Campaigns' icon sits
-     on Approvals and NEXT's on Editions, both hidden from Finance, so the
-     old per-item scan left both groups glyph-less for a Finance-only viewer. */
-  it("keeps every group's glyph for a Finance-only viewer, even past the desk that carries it", () => {
-    const { groups } = groupNav(navFor(["FINANCE"]));
-    expect(groups.find((g) => g.label === "Campaigns")).toMatchObject({ icon: "megaphone" });
-    expect(groups.find((g) => g.label === "NEXT")).toMatchObject({ icon: "book" });
-  });
-
-  it("roots a Finance-only viewer at the Treasury and docks their four desks", () => {
-    expect(rootFor(["FINANCE"])).toBe("/admin/finance");
-    expect(dockFor(["FINANCE"])).toBe(FINANCE_DOCK);
-    const nav = navFor(["FINANCE"]);
-    expect(resolveDock(FINANCE_DOCK, nav, "/admin/finance", "/admin/finance").map((i) => [i.label, i.active])).toEqual([
-      ["Treasury", true],
-      ["Payouts", false],
-      ["Refunds to send", false],
-      ["Disputes", false],
-    ]);
-    /* the other desks still light by prefix under the Treasury root */
-    expect(resolveDock(FINANCE_DOCK, nav, "/admin/payouts/po_1", "/admin/finance").map((i) => i.active)).toEqual([false, true, false, false]);
-  });
-
-  it("treats Finance with another staff role as staff: the board stays home", () => {
-    expect(rootFor(["FINANCE", "SALES"])).toBe("/admin");
-    expect(navFor(["FINANCE", "SALES"])[0]).toMatchObject({ href: "/admin", label: "Dashboard" });
-  });
-
-  /* Guard: if the layout stopped calling navFor/rootFor/dockFor, nothing
-     above would fail — these pin the per-desk access map (lib/admin-access)
-     and isCommissionAdmin through the actual roles staff sign in with. */
+  /* Guard: these pin the per-desk access map (lib/admin-access) and
+     isCommissionAdmin through the actual roles staff sign in with. */
   it("hides both money desks from a campaign manager and from sales", () => {
     for (const role of ["CAMPAIGN_MGR", "SALES"]) {
       const nav = navFor([role]);
@@ -90,18 +51,6 @@ describe("P1-ART-25 · the admin nav per viewer", () => {
 
   /* P1-ART-25 follow-up — a desk the API refuses a role is not in its nav
      (lib/admin-access), so nothing listed says "outside your role". */
-  it("lists a Finance-only viewer exactly the desks the API lets Finance use", () => {
-    expect(navFor(["FINANCE"]).map((n) => n.href)).toEqual([
-      "/admin/finance",
-      "/admin/campaigns",
-      "/admin/payments/disputes",
-      "/admin/payments/events",
-      "/admin/payouts",
-      "/admin/refunds",
-      "/admin/next/splits",
-    ]);
-  });
-
   it("keeps every desk the other staff roles can use, and only those", () => {
     expect(navFor(["SALES"]).map((n) => n.href)).toEqual([
       "/admin", "/admin/sponsor-requests", "/admin/briefs", "/admin/campaigns", "/admin/offers", "/admin/next/prospects",
@@ -114,58 +63,14 @@ describe("P1-ART-25 · the admin nav per viewer", () => {
     ]);
   });
 
-  it("still lists every desk for a BTG admin", () => {
-    expect(navFor(["BTG_ADMIN"]).map((n) => n.href)).toEqual(ADMIN_NAV.map((n) => n.href));
-  });
-
-  it("gives a super admin everything: Dashboard on top, Commission and Treasury both present", () => {
-    const nav = navFor(["SUPER_ADMIN"]);
-    expect(nav[0]).toMatchObject({ href: "/admin", label: "Dashboard" });
-    expect(nav.some((n) => n.href === "/admin/commission")).toBe(true);
-    expect(nav.some((n) => n.href === "/admin/finance" && n.label === "Treasury")).toBe(true);
-  });
-});
-
-/* Review follow-up — a role with no money desk at all must not see the
-   Vault switch on over a "not in your role" page on a deep-linked money
-   route (the admin layout only passes the money-routes mode when this is
-   true). */
-describe("P1-ART-25 review · mayUseVault", () => {
-  it("is true for every role that holds at least one money desk", () => {
-    expect(mayUseVault(["FINANCE"])).toBe(true);
-    expect(mayUseVault(["BTG_ADMIN"])).toBe(true);
-    expect(mayUseVault(["SUPER_ADMIN"])).toBe(true);
-  });
-
-  it("is false for a role with no money desk at all", () => {
-    expect(mayUseVault(["CAMPAIGN_MGR"])).toBe(false);
-    expect(mayUseVault(["SALES"])).toBe(false);
-    expect(mayUseVault(["NETWORK_MGR"])).toBe(false);
-  });
-});
-
-describe("P1-ART-25 · the shell root switches on money routes", async () => {
-  const { StageRoot } = await import("@/components/stage-root");
-  const render = (path: string, vault: VaultMode = "money") => {
-    pathname = path;
-    return renderToStaticMarkup(createElement(StageRoot, { className: "flex sx-ops", vault } as Parameters<typeof StageRoot>[0], "x"));
-  };
-
-  it("adds sx-vault and data-vault on a money desk", () => {
-    for (const p of ["/admin/finance", "/admin/payouts", "/admin/payments/disputes/d_1", "/admin/commission"]) {
-      expect(render(p), p).toBe('<div class="flex sx-ops sx-vault" data-vault="">x</div>');
-    }
-  });
-
-  it("leaves Mission Control alone everywhere else, and when the shell is not asked to switch", () => {
-    expect(render("/admin")).toBe('<div class="flex sx-ops">x</div>');
-    expect(render("/admin/campaigns")).toBe('<div class="flex sx-ops">x</div>');
-    expect(render("/admin/payouts", "off")).toBe('<div class="flex sx-ops">x</div>');
-  });
-
-  it("is the Vault on every page for a Finance-only viewer (mode all)", () => {
-    for (const p of ["/admin/campaigns", "/admin/next/splits", "/admin/finance"]) {
-      expect(render(p, "all"), p).toBe('<div class="flex sx-ops sx-vault" data-vault="">x</div>');
-    }
+  /* Review follow-up — a group's glyph is built from the FULL admin nav, not
+     from whichever filtered item happens to carry it: Intake's sits on
+     Applications, Campaigns' on Approvals and NEXT's on Editions, all hidden
+     from Sales, so a per-item scan would leave those groups glyph-less. */
+  it("keeps every group's glyph when the desk that carries it is filtered out", () => {
+    const { groups } = groupNav(navFor(["SALES"]));
+    expect(groups.find((g) => g.label === "Intake")).toMatchObject({ icon: "inbox" });
+    expect(groups.find((g) => g.label === "Campaigns")).toMatchObject({ icon: "megaphone" });
+    expect(groups.find((g) => g.label === "NEXT")).toMatchObject({ icon: "book" });
   });
 });

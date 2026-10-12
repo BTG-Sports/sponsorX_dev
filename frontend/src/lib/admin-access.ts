@@ -99,10 +99,3 @@ export function mayUse(path: string, roles: readonly string[]): boolean {
   const a = accessFor(path);
   return !a || roles.some((r) => a.roles.includes(r));
 }
-
-/** P1-ART-25 — a viewer whose only admin-portal role is FINANCE: they land
- *  on the Treasury, and their nav and dock lead with it. */
-export function isFinanceOnly(roles: readonly string[]): boolean {
-  const mine = roles.filter((r) => ADMIN_PORTAL_ROLES.includes(r));
-  return mine.length === 1 && mine[0] === "FINANCE";
-}

@@ -37,10 +37,6 @@ import {
 
    The API decides everything that matters (which rule applies, versions,
    the split); this only shows its answers.
-
-   On the Vault (P1-ART-25): bank green and brushed gold throughout (the
-   strip, the flash, the rule dialog) — used by /admin/commission alone, so
-   restyled with it rather than left on the ops-blue it was built in.
    -------------------------------------------------------------------------- */
 
 type Result<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -64,7 +60,7 @@ export function CommissionEditor({ rules, actions }: { rules: ApiRule[]; actions
       <SplitStrip groups={groups} active={kind} onPick={(k) => { setKind(k); setFlash(null); }} />
 
       {flash && (
-        <p role="status" className="sx-vault-in rounded-lg border border-[color:var(--vault-good)]/40 bg-[color:var(--vault-good)]/10 px-3.5 py-2.5 text-xs text-[color:var(--vault-good)]">
+        <p role="status" className="sx-ops-in rounded-lg border border-[#22c55e]/40 bg-[#22c55e]/10 px-3.5 py-2.5 text-xs text-[#86efac]">
           {flash}
         </p>
       )}
@@ -107,7 +103,7 @@ function SplitStrip({ groups, active, onPick }: { groups: RuleGroup[]; active: R
           const s = kindSummary(g);
           const on = g.kind === active;
           return (
-            <li key={g.kind} className="sx-vault-in min-w-0" style={{ "--sx-reveal-delay": `${i * 0.06}s` } as CSSProperties}>
+            <li key={g.kind} className="sx-ops-in min-w-0" style={{ "--sx-reveal-delay": `${i * 0.06}s` } as CSSProperties}>
               <button
                 type="button"
                 onClick={() => onPick(g.kind)}
@@ -115,19 +111,19 @@ function SplitStrip({ groups, active, onPick }: { groups: RuleGroup[]; active: R
                 aria-label={`${g.label}: ${s.headline === "—" ? "no rate for everyone" : s.headline}, ${s.caption}`}
                 className={`relative block w-full min-w-0 rounded-md border px-3.5 pb-3 pt-3 text-left transition-all duration-300 ${
                   on
-                    ? "border-[color:var(--vault-gold-hi)] bg-[color:var(--vault-plate-hi)]/90 shadow-[0_0_22px_color-mix(in_srgb,var(--vault-gold)_35%,transparent)]"
-                    : "border-[color:var(--vault-gold)]/22 bg-[color:var(--vault-plate-lo)]/70 hover:border-[color:var(--vault-gold)]/60 hover:bg-[color:var(--vault-plate-hi)]/90"
+                    ? "border-[#9be0ff] bg-[#0d1b2e]/90 shadow-[0_0_22px_rgba(46,155,245,.35)]"
+                    : "border-[#63b4f8]/22 bg-[#0a1424]/70 hover:border-[#63b4f8]/60 hover:bg-[#0c1829]/90"
                 }`}
               >
-                <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-[2px] ${on ? "bg-[color:var(--vault-gold-hi)] shadow-[0_0_10px_var(--vault-gold-hi)]" : s.empty ? "bg-white/10" : "bg-[color:var(--vault-gold)]"}`} />
-                <span className="flex items-baseline gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--vault-muted)]">
-                  <span className="font-mono text-[color:var(--vault-gold-hi)]/70">{String(i + 1).padStart(2, "0")}</span>
+                <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-[2px] ${on ? "bg-[#9be0ff] shadow-[0_0_10px_#9be0ff]" : s.empty ? "bg-white/10" : "bg-[#2e9bf5]"}`} />
+                <span className="flex items-baseline gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a96a3]">
+                  <span className="font-mono text-[#9be0ff]/70">{String(i + 1).padStart(2, "0")}</span>
                   <span className="truncate">{g.label}</span>
                 </span>
-                <span className={`mt-1.5 block truncate text-[22px] font-bold leading-none tracking-tight tabular-nums ${s.empty ? "text-[color:var(--vault-faint)]" : on ? "text-white" : "text-[color:var(--vault-ink)]"}`}>
+                <span className={`mt-1.5 block truncate text-[22px] font-bold leading-none tracking-tight tabular-nums ${s.empty ? "text-[#5b6b7d]" : on ? "text-white" : "text-[#cfe9ff]"}`}>
                   {s.headline}
                 </span>
-                <span className="mt-1.5 block truncate text-[11px] text-[color:var(--vault-muted)]">{s.caption}</span>
+                <span className="mt-1.5 block truncate text-[11px] text-[#7e88a0]">{s.caption}</span>
               </button>
             </li>
           );
@@ -212,7 +208,7 @@ function KindPanel({ group, onAdd, onRevise }: { group: RuleGroup; onAdd: () => 
               main,
               <tr key={`${r.id}-h`} id={`rule-history-${r.id}`} className="sx-table-detail">
                 <Td colSpan={COLUMNS.length}>
-                  <ol className="space-y-1 border-l border-[color:var(--vault-gold)]/30 pl-3 text-[11px] text-muted">
+                  <ol className="space-y-1 border-l border-[#63b4f8]/30 pl-3 text-[11px] text-muted">
                     {history.map((h) => (
                       <li key={h.id}>
                         <span className="tabular-nums text-text">v{h.version}</span> · {rateLabel(h)}, priority {h.priority} · {sinceLabel(h.effectiveFrom)} → {h.effectiveTo ? sinceLabel(h.effectiveTo) : "now"}

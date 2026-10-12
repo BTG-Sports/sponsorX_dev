@@ -59,8 +59,7 @@ describe("P1-ART-24 · dock items", () => {
       expect(hrefs, layout).toHaveLength(4);
       for (const h of hrefs) expect(navSrc, `${layout} docks ${h}`).toContain(`href: "${h}"`);
     }
-    /* P1-ART-25 — the admin's dock and nav are real arrays in lib/admin-nav.ts
-       (the Finance-only dock is pinned in admin-nav.test.ts) */
+    /* P1-ART-25 — the admin's dock and nav are real arrays in lib/admin-nav.ts */
     expect(ADMIN_DOCK).toHaveLength(4);
     expect(resolveDock(ADMIN_DOCK, ADMIN_NAV, "/admin", "/admin")).toHaveLength(4);
     /* the sponsor's resolves fully against the real array */

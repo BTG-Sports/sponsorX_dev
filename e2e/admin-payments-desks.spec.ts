@@ -7,11 +7,11 @@ import { API_URL, desktopOnly, hasLoopStack, LOOP_SKIP_REASON, pageAs, signInExi
  * message page (Stream A of the Phase 2 frontend batch, 2026-10-07).
  *
  * Walks /admin/payments/events and /admin/payments/disputes as BTG_ADMIN:
- * the Vault (P1-ART-25), the small title, the tiles from the API's own
- * counts, the tab strip, and either the stage table with the house pager or
- * an honest empty state — no console error, no horizontal overflow at 1440
- * or 390. Then seeds a support message through the public API and walks
- * /admin/support/<id>. As FINANCE, the desks render without a Resolve
+ * the Mission Control stage, the small title, the four KPI tiles, the tab
+ * strip with the API's counts, and either the stage table with the house
+ * pager or an honest empty state — no console error, no horizontal overflow
+ * at 1440 or 390. Then seeds a support message through the public API and
+ * walks /admin/support/<id>. As FINANCE, the desks render without a Resolve
  * button.
  *
  * The dev database may hold no provider events or disputes: the empty
@@ -28,7 +28,7 @@ const ADMIN = { key: "p7.admin", roles: ["BTG_ADMIN" as const] };
 const FINANCE = { key: "p7.finance", roles: ["FINANCE" as const] };
 
 const DESKS = [
-  { path: "/admin/payments/events", title: "Payment events", noun: "Events", tiles: ["Needs BTG", "Applied", "Held", "Failed", "Ignored or deferred"], tabs: ["Needs BTG", "Deferred", "Resolved", "All"] },
+  { path: "/admin/payments/events", title: "Payment events", noun: "Events", tiles: ["Needs BTG", "Held", "Failed", "Deferred"], tabs: ["Needs BTG", "Deferred", "Resolved", "All"] },
   { path: "/admin/payments/disputes", title: "Disputes", noun: "Disputes", tiles: ["Open", "Under review", "Won", "Lost"], tabs: ["Open", "Under review", "Won", "Lost"] },
 ];
 
@@ -85,7 +85,7 @@ test.describe("Stream A · payment desks and the support page", () => {
       await go(admin, ADMIN.key, desk.path);
       await expect(admin.locator("body")).toHaveClass(/sx-ops/);
       await expect(admin.getByRole("heading", { level: 1, name: desk.title })).toBeVisible();
-      for (const tile of desk.tiles) await expect(admin.locator("dl dt", { hasText: new RegExp(`^${tile}\\s*\\d*$`, "i") }).first()).toBeVisible();
+      for (const tile of desk.tiles) await expect(admin.locator("dl dt", { hasText: new RegExp(`^${tile}$`, "i") }).first()).toBeVisible();
       const strip = admin.getByRole("navigation", { name: desk.title });
       await expect(strip).toBeVisible();
       for (const tab of desk.tabs) await expect(strip.getByRole("link", { name: new RegExp(`^${tab}`) })).toBeVisible();

@@ -176,3 +176,4 @@ Never put chamfers, brackets, scan-lines, lanes or speed bars on a Vault screen.
   - the admin money desks, `admin/finance/*`, commission and its components, `admin/next/splits/*`;
   - the admin-only tests: `admin-nav`, `admin-access`, `not-in-role`, `nav-groups` and `mobile-dock` (these two import `lib/admin-nav`);
   - keep the two re-export shims, `admin/next/live.ts` and `admin/next/editions/live-editions.tsx`.
+- **Admin restore done (2026-10-13)**, see `Memory/2026-10-13/finance-portal.md`. Admin is back to Mission Control, and the Vault lives only in `/finance`.
