@@ -127,7 +127,7 @@ test("2S5-FE-07 · a HELD payment event shows on the desk and BTG resolves it", 
   await raised({ type: "payment.refunded", orderId: seed!.orderId, amountCents: 1000 });
   await admin.goto("/admin/payments/events");
   await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Payment events");
-  await expect(tile(admin, "Needs BTG")).toHaveText(/[1-9]/, { timeout: 8_000 });
+  await expect(tile(admin, "Waiting on BTG")).toHaveText(/[1-9]/, { timeout: 8_000 });
   await expect(tile(admin, "Held")).toHaveText(/[1-9]/);
   const table = admin.locator("table.sx-table");
   await expect(table).toBeVisible();

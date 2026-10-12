@@ -1,9 +1,8 @@
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
-import { KpiTile } from "@/components/ops-stage";
 import { ResolveEvent } from "@/components/payment-events-desk";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
-import { EmptyState, SkeletonRows } from "@/components/states";
-import { Badge } from "@/components/ui";
+import { EmptyState } from "@/components/states";
+import { VaultChip, VaultGhost, VaultHead, VaultTile, VaultTiles, VaultUpdated, at, type VaultTone } from "@/components/vault-stage";
 import { demoState } from "@/lib/demo";
 import { apiListQuery } from "@/lib/list-query";
 import { agoLabel } from "@/lib/marketplace-ops-live";
@@ -13,11 +12,17 @@ import {
 } from "@/lib/payment-events-live";
 import { apiFetch, fetchActor } from "@/server/api";
 
+/** statusTone's order-automation Tone, read as a VaultTone: held (warn) is
+ *  waiting on BTG; failed (danger) and applied (accent) read late / good;
+ *  everything else (received, ignored, deferred) is a quiet info word.
+ *  ("primary" is unused by statusTone, kept only so the Record is total.) */
+const EVENT_CHIP: Record<ReturnType<typeof statusTone>, VaultTone> = { warn: "you", danger: "late", accent: "good", neutral: "info", primary: "info" };
+
 /* --------------------------------------------------------------------------
    Payment events — 2S5-FE-07. The provider's events as SponsorX applied
    them (2S5-INT-02): HELD and FAILED are for a person, DEFERRED waits for
-   what it follows. A dashboard on the Mission Control stage: small title,
-   four tiles from the API's counts, then the work.
+   what it follows. A dashboard on the Vault (P1-ART-25): small title, five
+   tiles from the API's counts, then the work.
 
    Reads  GET  /payment-events?status&resolved&page&size   { counts, waitingOnBtg, events, page? }
    Writes POST /payment-events/:id/resolve                 (ResolveEvent → ../actions.ts; BTG admin only)
@@ -32,14 +37,7 @@ const TITLE = "Payment events";
 
 export default async function PaymentEventsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const demo = await demoState(searchParams);
-  if (demo === "loading") {
-    return (
-      <div className="space-y-6">
-        <h1 className="sx-page-title">{TITLE}</h1>
-        <SkeletonRows rows={3} />
-      </div>
-    );
-  }
+  if (demo === "loading") return <VaultGhost label="Loading payment events" tiles={5} rows={1} />;
   if (demo === "error") throw new Error("Demo error state");
 
   const lacking = await staffWithoutAccess(PATH);
@@ -70,21 +68,23 @@ export default async function PaymentEventsPage({ searchParams }: { searchParams
     { key: "action", label: "Action", srOnly: true },
   ];
 
+  const readAt = new Date().toISOString();
+  const ignoredOrDeferred = (list.counts.IGNORED ?? 0) + (list.counts.DEFERRED ?? 0);
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="sx-page-title">{TITLE}</h1>
-        <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">
+      <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>}>
+        <p className="sx-vault-in mt-2 max-w-3xl text-xs leading-relaxed text-[color:var(--vault-muted)]" style={at(0.04)}>
           What the payment provider told SponsorX and what was done with it. Held and failed events wait for a BTG admin; deferred ones wait for the event they follow.
         </p>
-      </div>
-
-      <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <KpiTile label="Needs BTG" value={list.waitingOnBtg} caption={list.waitingOnBtg ? "held or failed, not yet dealt with" : "nothing waiting for BTG"} tone={list.waitingOnBtg ? "orange" : "green"} delay={0.1} />
-        <KpiTile label="Held" value={list.counts.HELD} caption="all time, incl. resolved" tone="blue" delay={0.16} />
-        <KpiTile label="Failed" value={list.counts.FAILED} caption="all time, incl. resolved" tone="cyan" delay={0.22} />
-        <KpiTile label="Deferred" value={list.counts.DEFERRED} caption="waiting for the event they follow" tone="blue" delay={0.28} />
-      </dl>
+        <VaultTiles cols={5}>
+          <VaultTile label="Waiting on BTG" value={list.waitingOnBtg} format="int" tone={list.waitingOnBtg ? "you" : undefined} badge={list.waitingOnBtg} caption="held or failed, not yet dealt with" delay={0.08} />
+          <VaultTile label="Applied" value={list.counts.APPLIED} format="int" caption="all time" delay={0.12} />
+          <VaultTile label="Held" value={list.counts.HELD} format="int" caption="all time, incl. resolved" delay={0.16} />
+          <VaultTile label="Failed" value={list.counts.FAILED} format="int" caption="all time, incl. resolved" delay={0.2} />
+          <VaultTile label="Ignored or deferred" value={ignoredOrDeferred} format="int" caption="no action needed, or waiting its turn" delay={0.24} />
+        </VaultTiles>
+      </VaultHead>
 
       <TabStrip label="Payment events">
         {EVENT_TABS.map((t) => (
@@ -94,27 +94,27 @@ export default async function PaymentEventsPage({ searchParams }: { searchParams
         ))}
       </TabStrip>
 
-      {!resolver && rows.length > 0 && <p className="text-xs text-muted">BTG admin resolves these.</p>}
+      {!resolver && rows.length > 0 && <p className="text-xs text-[color:var(--vault-muted)]">BTG admin resolves these.</p>}
 
       {rows.length === 0 ? (
         <EmptyState mark="inbox" title={tab.key === "needs" ? "Nothing needs BTG" : tab.key === "deferred" ? "Nothing deferred" : tab.key === "resolved" ? "Nothing resolved yet" : "No events yet"}
           hint={tab.key === "needs" ? "Every provider event was applied, or has been dealt with." : tab.key === "deferred" ? "No event is waiting for one it follows." : tab.key === "resolved" ? "Events a BTG admin marks dealt with appear here." : "The provider has sent nothing to these books yet."} />
       ) : (
-        <PagedTable page={page} noun="Events" label={`Payment events · ${tab.label}`} columns={columns}>
+        <PagedTable page={page} noun="Events" tone="vault" label={`Payment events · ${tab.label}`} columns={columns}>
           {rows.map((e, i) => {
             const open = canResolve(e);
             return (
               <Tr key={e.id} i={i} tone={open ? (e.status === "FAILED" ? "danger" : "warn") : undefined}>
                 <Td><Primary sub={`${e.provider} · ${e.providerEventId}`}>{typeLabel(e.type)}</Primary></Td>
-                <Td label="Order">{e.subjectRef ?? <span className="text-muted">—</span>}</Td>
+                <Td label="Order">{e.subjectRef ?? <span className="text-[color:var(--vault-muted)]">—</span>}</Td>
                 <Td label="Status">
-                  <Badge tone={statusTone(e.status)}>{statusLabel(e.status)}</Badge>
-                  {e.status === "DEFERRED" && e.nextAttemptAt && <span className="mt-1 block text-[11px] text-muted">next try {dayOf(e.nextAttemptAt)} · attempt {e.attempts}</span>}
+                  <VaultChip tone={EVENT_CHIP[statusTone(e.status)]}>{statusLabel(e.status)}</VaultChip>
+                  {e.status === "DEFERRED" && e.nextAttemptAt && <span className="mt-1 block text-[11px] text-[color:var(--vault-muted)]">next try {dayOf(e.nextAttemptAt)} · attempt {e.attempts}</span>}
                 </Td>
                 <Td label="Why" className="max-w-[28rem]">
-                  <span className="block text-[12px] leading-relaxed">{e.outcome ?? <span className="text-muted">—</span>}</span>
+                  <span className="block text-[12px] leading-relaxed">{e.outcome ?? <span className="text-[color:var(--vault-muted)]">—</span>}</span>
                   {e.resolvedAt && (
-                    <span className="mt-1 block text-[11px] text-primary-soft">
+                    <span className="mt-1 block text-[11px] text-[color:var(--vault-gold-hi)]">
                       Dealt with {dayOf(e.resolvedAt)}{e.resolvedBy ? ` by ${e.resolvedBy}` : ""}{e.resolutionNote ? ` — ${e.resolutionNote}` : ""}
                     </span>
                   )}
@@ -123,7 +123,7 @@ export default async function PaymentEventsPage({ searchParams }: { searchParams
                   <span title={resolvedTab && e.resolvedAt ? e.resolvedAt : e.receivedAt}>{agoLabel(resolvedTab && e.resolvedAt ? e.resolvedAt : e.receivedAt, now)}</span>
                 </Td>
                 <Td act>
-                  {open && resolver ? <ResolveEvent event={e} /> : open ? <span className="text-[11px] text-muted">BTG admin resolves</span> : null}
+                  {open && resolver ? <ResolveEvent event={e} /> : open ? <span className="text-[11px] text-[color:var(--vault-muted)]">BTG admin resolves</span> : null}
                 </Td>
               </Tr>
             );
