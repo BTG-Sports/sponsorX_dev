@@ -95,9 +95,9 @@ If a task's *definition* turns out to be wrong — the acceptance criteria don't
 
 *6 tasks · 20 person-days*
 
-### ⏸ `3S0-PMO-01` · Define what attribution is permitted to claim
+### ▶ `3S0-PMO-01` · Define what attribution is permitted to claim
 
-**Order** 1 · **PMO** · **Where:** Document · **3d** · **Blocked**
+**Order** 1 · **PMO** · **Where:** Document · **3d** · **Ready**
 
 The most important decision in Phase 3 and it is a language decision, not a technical one. Verified redemption, verified transaction, modelled attribution and estimated media value are four different things and must never be blended in a sponsor report.
 
@@ -105,9 +105,9 @@ The most important decision in Phase 3 and it is a language decision, not a tech
 - **Done when:** Written definitions for every attribution class, with the reporting language each is allowed to use
 - **Reference:** Spec §17.4, §22
 
-### ⏸ `3S0-PMO-02` · Model governance policy
+### ▶ `3S0-PMO-02` · Model governance policy
 
-**Order** 2 · **PMO** · **Where:** Document · **3d** · **Blocked**
+**Order** 2 · **PMO** · **Where:** Document · **3d** · **Ready**
 
 How a model version is proposed, validated, activated, rolled back and compared. Without this, nobody can explain why a price changed.
 
@@ -115,15 +115,16 @@ How a model version is proposed, validated, activated, rolled back and compared.
 - **Done when:** Governance policy written: versioning, confidence, explanation, override, monitoring and rollback
 - **Reference:** Spec §15
 
-### ⏸ `3S0-DATA-01` · Event taxonomy audit
+### ◑ `3S0-DATA-01` · Event taxonomy audit
 
-**Order** 3 · **DATA** · **Where:** Document · **3d** · **Blocked**
+**Order** 3 · **DATA** · **Where:** Document · **3d** · **Code review**
 
 Audit every event Phases 1 and 2 emit before building a warehouse on top of them. Inconsistent event definitions are what make analytics untrustworthy later.
 
 - **Depends on:** Phase 2 complete
 - **Done when:** Every event type inventoried with its definition, source and known gaps
 - **Reference:** Spec §21
+- **Delivered:** [`SponsorX-Event-Taxonomy-Audit.md`](./SponsorX-Event-Taxonomy-Audit.md) — 2026-10-12
 
 ### ⏸ `3S0-DATA-02` · Design the warehouse schema and semantic layer
 
