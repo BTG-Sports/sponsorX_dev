@@ -97,3 +97,9 @@ The user decided each one: market geography from registration plus a reward venu
 - **A correction made along the way:** only `SX-05` is an appearance job in code (`APPEARANCE_JOBS`), so `IN_PERSON` no longer includes SX-06.
 - **Verified:** tsc and eslint clean; **full backend suite 192 files / 3,089 tests pass** on Postgres.
 - **Tracker:** row 54 holds 3S0-BE-06 (Order 3.7, Done). The ranges and 15 Dashboard formulas now reach row 54. DATA-02's notes are updated, and it stays at Code review until the §10 sign-off. Phase 3 is now 51 tasks · 193 days.
+
+## rcfworks — 3S0-DATA-02 signed off → Done
+
+- §10 of `documentation/SponsorX-Warehouse-Schema.md` (v1.1) is signed "rcfworks, with Rodney's delegated authority", 2026-10-12, accepted as written. The header now reads Accepted.
+- **Tracker and plan:** DATA-02 is Done. **3S0-OPS-01** (select and provision the warehouse) and **3S1-DATA-01** (ingestion pipeline) are now Ready, since DATA-02 was their only prerequisite.
+- PRs #185 and #186 merged. `main` and `main_development` have identical content. Fast-forwarding `main_development` onto `main`'s five merge commits was blocked by the auto-mode safety check (a direct push to a shared branch); it is left to the user.

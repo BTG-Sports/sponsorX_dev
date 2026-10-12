@@ -196,20 +196,20 @@ Split from `3S0-BE-05`, whose API is live. The reward create form gets an option
 - **Done when:** BTG can enter a venue city and state when creating a reward, and the reward detail shows it
 - **Reference:** Spec §16
 
-### ◑ `3S0-DATA-02` · Design the warehouse schema and semantic layer
+### ✅ `3S0-DATA-02` · Design the warehouse schema and semantic layer
 
-**Order** 4 · **DATA** · **Where:** Document · **5d** · **Code review**
+**Order** 4 · **DATA** · **Where:** Document · **5d** · **Done**
 
 Facts and dimensions separated from the transactional database, so analytical queries never slow down the product.
 
 - **Depends on:** 3S0-DATA-01
 - **Done when:** Warehouse schema designed and reviewed; the daily campaign fact table and its dimensions are specified
 - **Reference:** Spec §19
-- **Delivered:** [`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) — 2026-10-12, awaiting review sign-off
+- **Delivered:** [`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) — 2026-10-12, signed off the same day (rcfworks, with Rodney's delegated authority)
 
-### ⏸ `3S0-OPS-01` · Select the warehouse and transformation layer
+### ▶ `3S0-OPS-01` · Select the warehouse and transformation layer
 
-**Order** 5 · **OPS** · **Where:** Vendor console · **3d** · **Blocked**
+**Order** 5 · **OPS** · **Where:** Vendor console · **3d** · **Ready**
 
 Snowflake, BigQuery, Redshift or Postgres depending on scale, plus dbt or equivalent for versioned transformations.
 
@@ -235,9 +235,9 @@ Counsel reviews the attribution claims, the consent basis for using fan data thi
 
 *4 tasks · 16 person-days*
 
-### ⏸ `3S1-DATA-01` · Warehouse ingestion pipeline
+### ▶ `3S1-DATA-01` · Warehouse ingestion pipeline
 
-**Order** 7 · **DATA** · **Where:** Code · **5d** · **Blocked**
+**Order** 7 · **DATA** · **Where:** Code · **5d** · **Ready**
 
 Move transactional data into the warehouse on a schedule, idempotently, so a re-run never double-counts.
 

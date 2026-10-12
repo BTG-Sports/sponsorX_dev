@@ -1,6 +1,6 @@
 # SponsorX Warehouse Schema and Semantic Layer
 
-**Task `3S0-DATA-02` · Version 1.1 · 2026-10-12 · Phase 3, Sprint 0 · Draft for review**
+**Task `3S0-DATA-02` · Version 1.1 · 2026-10-12 · Phase 3, Sprint 0 · Accepted 2026-10-12**
 
 > **v1.1:** platform is now recorded on deliverables (`3S0-BE-06`, O1 closed); the marketplace fact and both snapshots fully specified (§7, Appendix A); Spec §19's product tables mapped to their tasks and to what already exists (§11).
 
@@ -446,10 +446,10 @@ alert (`3S1-QA-01`) with the check name, tenant and the two totals.
 
 | | |
 |---|---|
-| **Reviewed and accepted** | Yes / with changes below |
-| **By** | |
-| **Date** | |
-| **Changes requested** | |
+| **Reviewed and accepted** | Yes — as written (v1.1) |
+| **By** | rcfworks, with Rodney's delegated authority |
+| **Date** | 2026-10-12 |
+| **Changes requested** | None |
 
 ---
 
