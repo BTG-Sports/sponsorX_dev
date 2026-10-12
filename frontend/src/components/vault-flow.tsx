@@ -15,25 +15,11 @@
 import { useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 import { formatCount } from "@/lib/format-count";
-import { monotonePath } from "./stadium-trend";
+import { flowPaths, type FlowPoint } from "@/lib/monotone-path";
 
-export type FlowPoint = { day: string; inCents: number; outCents: number };
-
-/**
- * Pure: both lines and the "in" area for `series` in a w×h box, `pad` at
- * the top, on one shared scale (the larger of the two peaks).
- */
-export function flowPaths(series: FlowPoint[], w: number, h: number, pad: number) {
-  const n = series.length;
-  const max = Math.max(0, ...series.map((p) => Math.max(p.inCents, p.outCents)));
-  const x = (i: number) => (n === 1 ? w / 2 : Math.round((i / (n - 1)) * w));
-  const y = (v: number) => (max === 0 ? h : Math.round(h - (v / max) * (h - pad)));
-  const px = series.map((_, i) => x(i));
-  const inLine = monotonePath(px, series.map((p) => y(p.inCents)));
-  const outLine = monotonePath(px, series.map((p) => y(p.outCents)));
-  const inArea = n > 1 ? `${inLine} L${px[n - 1]},${h} L0,${h} Z` : "";
-  return { inLine, outLine, inArea, max, x, y };
-}
+// re-exported: this is where flowPaths/FlowPoint used to live
+export { flowPaths };
+export type { FlowPoint };
 
 const usd = (cents: number) => formatCount(cents, "usd0");
 const compact = (cents: number) =>
@@ -84,7 +70,8 @@ export function VaultFlow({ series, bucket }: { series: FlowPoint[]; bucket: "da
       ) : (
         <div
           tabIndex={0}
-          role="img"
+          role="group"
+          aria-roledescription="chart"
           aria-label={`Money in ${usd(totalIn)} and money out ${usd(totalOut)} over ${series.length} ${unit}s. Use the arrow keys to read each ${unit}.`}
           onKeyDown={key}
           onBlur={() => setAt(null)}

@@ -21,7 +21,8 @@
    class more specific than the ops rules they replace in globals.css, so
    they win whatever order the two files load in. The phone menu is
    portaled to <body>, so it is reached through an ANCESTOR carrying
-   `.sx-vault` or `[data-vault]` (body, via StagePortals) — see "the phone
+   `.sx-vault` (StageRoot adds that class — only that class, never
+   `data-vault` — to <body> while a Vault route is open) — see "the phone
    menu" below.
 
    Unlayered, like stadium.css and mobile-nav.css, so these rules beat
@@ -33,8 +34,13 @@
    by the admin layout.
    -------------------------------------------------------------------------- */
 
-/* the unlock trace's angle — registered so it can animate (a browser
-   without @property shows the frame with no trace, never a broken one) */
+/* the unlock trace's angle — registered so it can animate smoothly. Without
+   @property a browser doesn't interpolate a custom property at all: the
+   keyframes below would flip it discretely, at 70% straight from 0deg to
+   360deg, so the trace would not sweep but FLASH the full border on at
+   once. The `@supports at-rule(@property)` gate below keeps the trace to
+   browsers that register it, and leaves the frame with no trace, never a
+   flashed one, everywhere else. */
 @property --sx-vault-turn {
   syntax: "<angle>";
   inherits: false;
@@ -45,7 +51,6 @@
 .sx-vault,
 [data-vault] {
   --vault-ground: #06100c;
-  --vault-ground-2: #0a1812;
   --vault-gold: #d4b062;
   --vault-gold-hi: #f1dfa6;
   --vault-gold-lo: #c49a45;
@@ -249,7 +254,8 @@
 .sx-ops.sx-vault .sx-tab[data-active],
 .sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 > [aria-current],
 .sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 > .bg-primary\/15,
-.sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 > .bg-admin\/15 {
+.sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 > .bg-admin\/15,
+.sx-ops.sx-vault .rounded-lg.border.border-line.bg-surface.p-1 > .bg-next\/15 {
   background: linear-gradient(180deg, transparent 40%, rgb(212 176 98 / 0.08));
   color: var(--vault-gold-hi);
   box-shadow: inset 0 -2px 0 var(--vault-gold);
@@ -325,7 +331,7 @@
 .sx-ops.sx-vault input[type="radio"] { accent-color: var(--vault-gold); }
 
 /* drawers and dialogs — portaled to <body>, so they turn gold when <body>
-   is the Vault too (StagePortals) */
+   carries `.sx-vault` too (StageRoot) */
 .sx-ops.sx-vault .sx-drawer,
 .sx-ops.sx-vault .sx-drawer-out {
   background:
@@ -550,22 +556,27 @@ a.sx-vault-frame:focus-visible,
   from { opacity: 0; transform: translate3d(0, 8px, 0); }
 }
 .sx-vault-in { animation: sx-vault-rise 0.75s var(--vault-ease) var(--sx-reveal-delay, 0s) backwards; }
-.sx-vault-frame.sx-vault-in::after {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  pointer-events: none;
-  border: 1px solid var(--vault-gold-hi);
-  box-shadow: 0 0 10px rgb(241 223 166 / 0.35), inset 0 0 10px rgb(241 223 166 / 0.12);
-  -webkit-mask: conic-gradient(from 0deg, #000 var(--sx-vault-turn), transparent 0);
-  mask: conic-gradient(from 0deg, #000 var(--sx-vault-turn), transparent 0);
-  opacity: 0;
-  animation: sx-vault-trace 1.15s cubic-bezier(0.45, 0.05, 0.25, 1) var(--sx-reveal-delay, 0s) both;
-}
-@keyframes sx-vault-trace {
-  0% { --sx-vault-turn: 0deg; opacity: 1; }
-  70% { --sx-vault-turn: 360deg; opacity: 1; }
-  100% { --sx-vault-turn: 360deg; opacity: 0; }
+/* without @property registration the trace can't interpolate (see the
+   comment above the @property rule), so it only runs where that's
+   supported; elsewhere the frame stays untraced, never flashed */
+@supports at-rule(@property) {
+  .sx-vault-frame.sx-vault-in::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    pointer-events: none;
+    border: 1px solid var(--vault-gold-hi);
+    box-shadow: 0 0 10px rgb(241 223 166 / 0.35), inset 0 0 10px rgb(241 223 166 / 0.12);
+    -webkit-mask: conic-gradient(from 0deg, #000 var(--sx-vault-turn), transparent 0);
+    mask: conic-gradient(from 0deg, #000 var(--sx-vault-turn), transparent 0);
+    opacity: 0;
+    animation: sx-vault-trace 1.15s cubic-bezier(0.45, 0.05, 0.25, 1) var(--sx-reveal-delay, 0s) both;
+  }
+  @keyframes sx-vault-trace {
+    0% { --sx-vault-turn: 0deg; opacity: 1; }
+    70% { --sx-vault-turn: 360deg; opacity: 1; }
+    100% { --sx-vault-turn: 360deg; opacity: 0; }
+  }
 }
 
 /* the dial ------------------------------------------------------------------- */
@@ -612,8 +623,12 @@ a.sx-vault-frame:focus-visible,
 
 /* athlete pay, step by step --------------------------------------------------- */
 /* The main steps sit on one engraved rule, a bead on it for each. The rule
-   joins the beads only when the four share a row (the kit's `@container`
-   wrapper is wide enough — Tailwind's @md, 28rem); two by two, beads alone. */
+   joins the beads only when all four share a row (the kit's `@container`
+   wrapper is wide enough — Tailwind's @md, 28rem); two by two, beads alone.
+   The 12.5% offsets are the first/last bead's centre in a FOUR-column grid
+   (`@md:grid-cols-4` — VaultSteps always lays the grid out in four columns,
+   whatever `main` holds), so the rule only draws when `data-n` (set by
+   VaultSteps to `main.length`) confirms there really are four. */
 .sx-vault-steps { position: relative; }
 .sx-vault-steps::before {
   content: "";
@@ -626,7 +641,7 @@ a.sx-vault-frame:focus-visible,
   pointer-events: none;
 }
 @container (min-width: 28rem) {
-  .sx-vault-steps::before { display: block; }
+  .sx-vault-steps[data-n="4"]::before { display: block; }
 }
 .sx-vault-steps > li { position: relative; padding-top: 16px; }
 .sx-vault-steps > li::before {
@@ -729,7 +744,8 @@ a:focus-visible > .sx-vault-key > svg { transform: rotate(90deg); }
 
 /* the phone menu ------------------------------------------------------------------ */
 /* Portaled to <body>: reached when <body> (or any ancestor) is the Vault —
-   StagePortals carries `sx-vault` / `data-vault` there on a money route.
+   StageRoot carries `sx-vault` (the class only, never `data-vault`) there
+   on a money route.
    Ops gives it a floor grid, a scan sweep, chamfered tiles and brackets;
    here: a guilloché of engine-turned rings, a double rule under the head,
    square double-ruled tiles, gold for the lit one. */

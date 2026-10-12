@@ -9,6 +9,12 @@
 
 import { useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from "react";
 
+import { monotonePath } from "@/lib/monotone-path";
+
+// re-exported: this is where monotonePath used to live, and vault-flow.tsx
+// (P1-ART-25) still imports it from here
+export { monotonePath };
+
 export type TrendPoint = { day: string; views: number; clicks: number; redeems: number };
 type Metric = "views" | "clicks" | "redeems";
 const METRICS: { key: Metric; label: string; unit: string }[] = [
@@ -16,8 +22,6 @@ const METRICS: { key: Metric; label: string; unit: string }[] = [
   { key: "clicks", label: "Link clicks", unit: "clicks" },
   { key: "redeems", label: "Fans who redeemed", unit: "redeemed" },
 ];
-
-const r1 = (n: number) => Math.round(n * 10) / 10;
 
 /**
  * Pure: the line and area paths for `values` in a w×h box, `pad` at the top.
@@ -36,50 +40,6 @@ export function trendPath(values: number[], w: number, h: number, pad: number) {
   const line = monotonePath(px, py);
   const area = n > 1 ? `${line} L${px[n - 1]},${h} L0,${h} Z` : "";
   return { line, area, max, x, y };
-}
-
-/**
- * Pure: the monotone cubic (Fritsch–Carlson) through already-placed points
- * — `px` ascending, `py` in the box's own units. Shared by trendPath above
- * and the Vault's money chart (vault-flow.tsx, P1-ART-25), which puts two
- * series on one scale and so places its own points.
- */
-export function monotonePath(px: number[], py: number[]) {
-  const n = px.length;
-
-  // secant slopes, then tangents: zero at a peak/valley, averaged elsewhere
-  const d = px.slice(0, -1).map((_, k) => (py[k + 1]! - py[k]!) / (px[k + 1]! - px[k]! || 1));
-  const m = py.map((_, k) => {
-    if (k === 0) return d[0] ?? 0;
-    if (k === n - 1) return d[n - 2] ?? 0;
-    return d[k - 1]! * d[k]! <= 0 ? 0 : (d[k - 1]! + d[k]!) / 2;
-  });
-  // Fritsch–Carlson: cap the tangents so no segment overshoots
-  d.forEach((dk, k) => {
-    if (dk === 0) {
-      m[k] = 0;
-      m[k + 1] = 0;
-      return;
-    }
-    const a = m[k]! / dk;
-    const b = m[k + 1]! / dk;
-    const s = a * a + b * b;
-    if (s > 9) {
-      const t = 3 / Math.sqrt(s);
-      m[k] = t * a * dk;
-      m[k + 1] = t * b * dk;
-    }
-  });
-
-  let line = n ? `M${px[0]},${py[0]}` : "";
-  for (let k = 0; k < n - 1; k++) {
-    const third = (px[k + 1]! - px[k]!) / 3;
-    line +=
-      ` C${r1(px[k]! + third)},${r1(py[k]! + m[k]! * third)}` +
-      ` ${r1(px[k + 1]! - third)},${r1(py[k + 1]! - m[k + 1]! * third)}` +
-      ` ${px[k + 1]},${py[k + 1]}`;
-  }
-  return line;
 }
 
 const fmtDay = (iso: string, week: boolean) => {

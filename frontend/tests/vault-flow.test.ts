@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { monotonePath, trendPath } from "@/components/stadium-trend";
-import { flowPaths } from "@/components/vault-flow";
+import { flowPaths, monotonePath } from "@/lib/monotone-path";
 
 /* P1-ART-25 — the Treasury's money chart: two series on ONE scale, through
    the curve stadium-trend.tsx already proves never overshoots. */
@@ -23,10 +22,16 @@ function segments(line: string) {
 }
 
 describe("monotonePath", () => {
-  it("is exactly the curve trendPath draws (the shared builder changed nothing)", () => {
-    const values = [0, 40, 0, 0, 120, 3, 3, 90, 0];
-    const { line, x, y } = trendPath(values, 600, 190, 18);
-    expect(monotonePath(values.map((_, i) => x(i)), values.map((v) => y(v)))).toBe(line);
+  it("matches the curve the pre-refactor trendPath drew for this series (pinned literal — trendPath now calls monotonePath itself, so comparing the two live would prove nothing)", () => {
+    // px/py as the pre-extraction trendPath (a468c00~1:components/stadium-trend.tsx)
+    // placed them for values=[0,40,0,0,120,3,3,90,0] in a 600×190 box, pad 18.
+    const px = [0, 75, 150, 225, 300, 375, 450, 525, 600];
+    const py = [190, 133, 190, 190, 18, 186, 186, 61, 190];
+    expect(monotonePath(px, py)).toBe(
+      "M0,190 C25,171 50,133 75,133 C100,133 125,190 150,190 C175,190 200,190 225,190" +
+        " C250,190 275,18 300,18 C325,18 350,186 375,186 C400,186 425,186 450,186" +
+        " C475,186 500,61 525,61 C550,61 575,147 600,190",
+    );
   });
 
   it("an empty series is an empty path", () => {

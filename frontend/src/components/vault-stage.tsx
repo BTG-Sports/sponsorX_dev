@@ -95,8 +95,8 @@ export function VaultHead({ title, pill, actions, children }: { title: string; p
     <header>
       <div className="sx-vault-in flex flex-wrap items-center gap-3" style={at(0.04)}>
         <h1 className="sx-page-title">{title}</h1>
-        {pill && <span className="sx-vault-pill">{pill}</span>}
-        {actions && <div className="flex flex-wrap items-center gap-2 sm:ml-auto">{actions}</div>}
+        {pill != null && <span className="sx-vault-pill">{pill}</span>}
+        {actions != null && <div className="flex flex-wrap items-center gap-2 sm:ml-auto">{actions}</div>}
       </div>
       {children}
     </header>
@@ -163,9 +163,9 @@ export function VaultTile({
             {deltaLabel}
           </span>
         )}
-        {caption && <span className="mt-1 block text-[11.5px] text-[color:var(--vault-muted)]">{caption}</span>}
+        {caption != null && <span className="mt-1 block text-[11.5px] text-[color:var(--vault-muted)]">{caption}</span>}
         {href && (
-          <span aria-hidden="true" className="absolute right-3.5 top-3 text-[color:var(--vault-gold)] opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100">
+          <span aria-hidden="true" className="absolute right-3.5 top-3 text-[color:var(--vault-gold)] opacity-0 transition-all duration-300 motion-safe:group-hover:translate-x-0.5 group-hover:opacity-100">
             →
           </span>
         )}
@@ -229,10 +229,10 @@ export function VaultBox({
           )}
         </span>
       )}
-      {sub && !clear && <span className="mt-0.5 block text-[11.5px] text-[color:var(--vault-muted)]">{sub}</span>}
+      {sub != null && !clear && <span className="mt-0.5 block text-[11.5px] text-[color:var(--vault-muted)]">{sub}</span>}
       <span className="mt-2.5 flex items-center gap-1 text-[11.5px] font-medium text-[color:var(--vault-gold)]">
         {open}
-        <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1">
+        <span aria-hidden="true" className="transition-transform duration-300 motion-safe:group-hover:translate-x-1">
           →
         </span>
       </span>
@@ -262,7 +262,7 @@ export function VaultPanel({
       data-spot=""
       data-tone={tone}
       className={`sx-vault-panel ${tone ? "sx-vault-frame" : ""} ${delay !== undefined ? "sx-vault-in" : ""} ${flush ? "" : "p-5"} ${className}`}
-      style={at(delay ?? 0)}
+      style={delay !== undefined ? at(delay) : undefined}
     >
       {children}
     </div>
@@ -273,7 +273,7 @@ export function VaultSection({ title, hint, action }: { title: string; hint?: Re
   return (
     <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1">
       <h2 className="sx-section-title min-w-0">{title}</h2>
-      {hint && <p className="text-xs text-[color:var(--vault-muted)]">{hint}</p>}
+      {hint != null && <p className="text-xs text-[color:var(--vault-muted)]">{hint}</p>}
       {action}
     </div>
   );
@@ -374,7 +374,7 @@ export function VaultDial({ value, label, caption, size = 148 }: { value: number
           {label.toUpperCase()}
         </text>
       </svg>
-      {caption && <figcaption className="min-w-[10rem] max-w-[16rem] flex-1 text-[12px] leading-relaxed text-[color:var(--vault-muted)]">{caption}</figcaption>}
+      {caption != null && <figcaption className="min-w-[10rem] max-w-[16rem] flex-1 text-[12px] leading-relaxed text-[color:var(--vault-muted)]">{caption}</figcaption>}
     </figure>
   );
 }
@@ -423,7 +423,7 @@ export function VaultSteps({ steps, label = "Athlete pay, step by step" }: { ste
   );
   return (
     <div className="@container">
-      <ol aria-label={label} className="sx-vault-steps grid grid-cols-2 gap-x-3 gap-y-4 @md:grid-cols-4">
+      <ol aria-label={label} data-n={main.length} className="sx-vault-steps grid grid-cols-2 gap-x-3 gap-y-4 @md:grid-cols-4">
         {main.map((s) => (
           <li key={s.label} data-has={s.count > 0 ? "" : undefined} className="text-center">
             <span className="block text-[10px] uppercase tracking-[0.16em] text-[color:var(--vault-muted)]">{s.label}</span>
