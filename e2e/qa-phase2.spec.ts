@@ -203,9 +203,9 @@ test("2S5-FE-08 · a dispute opens, BTG takes it for review; the payee sees the 
   await shot(athlete, "athlete-money-frozen-390");
   await athlete.context().close();
 
-  /* Finance reads, no buttons */
+  /* Finance reads, no buttons — in their own portal (P1-ART-25 restructure) */
   const finance = await pageAs(browser, testInfo, FINANCE);
-  await finance.goto(admin.url());
+  await finance.goto(`/finance/disputes/${disputeId}`);
   await expect(finance.getByRole("button", { name: /Resolve|Take for review/ })).toHaveCount(0);
   await expect(finance.getByText(/BTG admin/).first()).toBeVisible();
   await shot(finance, "dispute-detail-finance");
@@ -269,8 +269,9 @@ test("2S1-FE-14 · a support message with a file reaches BTG's page and the file
   expect(opened, "the signed link opened in a new tab").not.toBeNull();
   await opened?.close();
   const finance = await pageAs(browser, testInfo, FINANCE);
+  /* admin no longer admits FINANCE (P1-ART-25 restructure): forwarded home */
   await finance.goto(`/admin/support/${m.id}`);
-  await expect(finance.getByText(/Outside your role|not in your role|BTG admin/i).first()).toBeVisible();
+  await finance.waitForURL((u) => u.pathname === "/finance");
   await finance.context().close();
 });
 
