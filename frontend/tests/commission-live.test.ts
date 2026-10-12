@@ -190,6 +190,15 @@ describe("P1-ART-25 · the commission desk's two Vault tiles", () => {
     expect(commissionTiles(rules, now)).toEqual({ inForce: 1, kindsCovered: 1 });
   });
 
+  it("a rule dated to start later is not in force yet — and its kind isn't covered", () => {
+    const rules = [
+      rule({ id: "1", kind: "PLATFORM_FEE" }),
+      rule({ id: "2", kind: "REFERRAL", effectiveFrom: "2026-11-01T00:00:00Z" }), // starts next month
+      rule({ id: "3", kind: "PROCESSING", effectiveFrom: "2026-10-12T00:00:00Z" }), // starts exactly now: in force
+    ];
+    expect(commissionTiles(rules, now)).toEqual({ inForce: 2, kindsCovered: 2 });
+  });
+
   it("no rules at all reads as zero, not a crash", () => {
     expect(commissionTiles([], now)).toEqual({ inForce: 0, kindsCovered: 0 });
   });

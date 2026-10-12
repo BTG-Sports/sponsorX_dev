@@ -4,7 +4,8 @@ import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
 import { EmptyState } from "@/components/states";
 import { PayoutRetry } from "@/components/payout-decision";
-import { VaultChip, VaultHead, VaultTile, VaultTiles, VaultUpdated, at, type VaultTone } from "@/components/vault-stage";
+import { StadiumHint } from "@/components/stadium-hint";
+import { VaultChip, VaultHead, VaultTile, VaultTiles, VaultUpdated, type VaultTone } from "@/components/vault-stage";
 import { apiListQuery } from "@/lib/list-query";
 import {
   APPROVAL_TABS, approvalBadge, approvalTab, checkSummary, failedFilter, listQuery, payeeKind, payoutStatus, retryStatus, stamp, tabCount, usd,
@@ -23,6 +24,10 @@ import { retryPayoutAction } from "./actions";
    P1-ART-25 (2026-10-12) — the Vault: the tile row is the list read's own
    per-state counts (`list.counts`), nothing new is read. Every status word
    still comes from payouts-live.ts; only the chip's colour is mapped here.
+   Review (2026-10-12): four tiles, one per tab and each the tab's own count
+   (tabCount) — Approved and Sending fold into one Sending tile, as they do
+   in the tab; Failed follows the tab's "needs BTG" default. The desk's
+   explanation is a "?" by the title, not a paragraph under it (spec §3).
 
    Reads  GET /payouts?state=…&page&size   the tab's page and every state's count
                                            (Failed tab: &waitingOn=BTG unless ?show=all)
@@ -74,12 +79,18 @@ export default async function PayoutApprovalsPage({ searchParams }: { searchPara
   const now = new Date();
   const problems = tab === "problems";
 
-  /* The tile row: the same per-state counts the tab strip already reads. */
-  const waiting = list.counts.REQUESTED ?? 0;
+  /* The tile row: each tile is its tab's own number (tabCount), so a tile
+     and the tab it opens never disagree. Failed counts what needs BTG by
+     default — the Failed tab's default — and every failed payout with
+     ?show=all; "needs BTG" is said only when that split was actually read. */
+  const showAll = filter === "all";
+  const waiting = tabCount("waiting", list.counts, list.waiting, showAll);
   const approved = list.counts.APPROVED ?? 0;
-  const sending = list.counts.SENDING ?? 0;
-  const paidCount = list.counts.PAID ?? 0;
-  const failed = list.counts.FAILED ?? 0;
+  const withProvider = list.counts.SENDING ?? 0;
+  const sending = tabCount("sending", list.counts, list.waiting, showAll);
+  const paidCount = tabCount("paid", list.counts, list.waiting, showAll);
+  const failed = tabCount("problems", list.counts, list.waiting, showAll);
+  const failedBtgOnly = !showAll && Boolean(list.waiting);
 
   const columns: Column[] = [
     { key: "payee", label: "Payee" },
@@ -92,16 +103,36 @@ export default async function PayoutApprovalsPage({ searchParams }: { searchPara
 
   return (
     <div className="space-y-6">
-      <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={now.toISOString()} /></>}>
-        <p className="sx-vault-in mt-1.5 max-w-prose text-xs text-muted" style={at(0.04)}>
-          Payouts that pass every check are approved automatically; only the rest wait here for you. Every decision is recorded, automatic or yours.
-        </p>
-        <VaultTiles cols={5}>
-          <VaultTile label="Waiting on BTG" value={waiting} format="int" tone="you" badge={waiting > 0 ? waiting : undefined} href={`${PATH}?tab=waiting`} delay={0.08} />
-          <VaultTile label="Approved" value={approved} format="int" delay={0.12} />
-          <VaultTile label="Sending" value={sending} format="int" delay={0.16} />
-          <VaultTile label="Paid" value={paidCount} format="int" delay={0.2} />
-          <VaultTile label="Failed" value={failed} format="int" tone={failed > 0 ? "late" : undefined} delay={0.24} />
+      <VaultHead
+        title={TITLE}
+        pill={<>Live · <VaultUpdated iso={now.toISOString()} /></>}
+        actions={
+          <StadiumHint
+            skin="vault"
+            label="About this desk"
+            text="Payouts that pass every check are approved automatically; only the rest wait here for you. Every decision is recorded, automatic or yours."
+          />
+        }
+      >
+        <VaultTiles cols={4}>
+          <VaultTile label="Waiting on BTG" value={waiting} format="int" tone={waiting > 0 ? "you" : undefined} badge={waiting > 0 ? waiting : undefined} href={`${PATH}?tab=waiting`} delay={0.08} />
+          <VaultTile
+            label="Sending"
+            value={sending}
+            format="int"
+            caption={`${approved.toLocaleString("en-US")} approved · ${withProvider.toLocaleString("en-US")} with the provider`}
+            href={`${PATH}?tab=sending`}
+            delay={0.12}
+          />
+          <VaultTile label="Paid" value={paidCount} format="int" href={`${PATH}?tab=paid`} delay={0.16} />
+          <VaultTile
+            label={failedBtgOnly ? "Failed · needs BTG" : "Failed"}
+            value={failed}
+            format="int"
+            tone={failed > 0 ? "late" : undefined}
+            href={`${PATH}?tab=problems${showAll ? "&show=all" : ""}`}
+            delay={0.2}
+          />
         </VaultTiles>
       </VaultHead>
 
@@ -109,9 +140,9 @@ export default async function PayoutApprovalsPage({ searchParams }: { searchPara
         {APPROVAL_TABS.map((t) => (
           <TabLink
             key={t.key}
-            href={`${PATH}?tab=${t.key}${t.key === "problems" && filter === "all" ? "&show=all" : ""}`}
+            href={`${PATH}?tab=${t.key}${t.key === "problems" && showAll ? "&show=all" : ""}`}
             on={t.key === tab}
-            count={tabCount(t.key, list.counts, list.waiting, filter === "all")}
+            count={tabCount(t.key, list.counts, list.waiting, showAll)}
             hot={t.key === "problems" || t.key === "waiting"}
           >
             {t.label}

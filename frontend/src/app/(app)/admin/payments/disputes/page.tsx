@@ -3,7 +3,8 @@ import Link from "next/link";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
 import { EmptyState } from "@/components/states";
-import { VaultChip, VaultGhost, VaultHead, VaultTile, VaultTiles, VaultUpdated, at, type VaultTone } from "@/components/vault-stage";
+import { StadiumHint } from "@/components/stadium-hint";
+import { VaultChip, VaultGhost, VaultHead, VaultTile, VaultTiles, VaultUpdated, type VaultTone } from "@/components/vault-stage";
 import { demoState } from "@/lib/demo";
 import {
   DISPUTE_TABS, EMPTY_DISPUTE_LIST, amountWords, disputeTab, providerWords, reasonWords, stateLabel, stateTone, type ApiDisputeList,
@@ -36,7 +37,7 @@ const TITLE = "Disputes";
 
 export default async function DisputesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const demo = await demoState(searchParams);
-  if (demo === "loading") return <VaultGhost label="Loading disputes" tiles={4} rows={1} />;
+  if (demo === "loading") return <VaultGhost label="Loading disputes" tiles={4} cols={4} rows={1} />;
   if (demo === "error") throw new Error("Demo error state");
 
   const lacking = await staffWithoutAccess(PATH);
@@ -67,10 +68,7 @@ export default async function DisputesPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="space-y-5">
-      <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>}>
-        <p className="sx-vault-in mt-2 max-w-3xl text-xs leading-relaxed text-[color:var(--vault-muted)]" style={at(0.04)}>
-          Card payments sponsors disputed with the provider. A dispute freezes its order’s money — no payout or refund moves — until a BTG admin resolves it to the provider’s outcome.
-        </p>
+      <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>} actions={<StadiumHint skin="vault" label="About this desk" text="Card payments sponsors disputed with the provider. A dispute freezes its order’s money — no payout or refund moves — until a BTG admin resolves it to the provider’s outcome." />}>
         <VaultTiles cols={4}>
           <VaultTile label="Open" value={list.counts.OPEN} format="int" tone={list.counts.OPEN ? "you" : undefined} badge={list.counts.OPEN} caption={list.counts.OPEN ? "waiting to be taken for review" : "nothing waiting"} delay={0.08} />
           <VaultTile label="Under review" value={list.counts.UNDER_REVIEW} format="int" caption={waiting ? `${waiting} order${waiting === 1 ? "" : "s"} frozen` : "no money frozen"} delay={0.12} />

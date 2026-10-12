@@ -21,10 +21,10 @@ import {
 export const SAMPLE: SampleLine[] = [{ label: "Courtside banner", amount: "1200", propertyKind: "TEAM", athleteItem: false, teamShare: "" }];
 const KIND_OPTIONS = PROPERTY_KINDS.map((k) => ({ code: k, name: k.charAt(0) + k.slice(1).toLowerCase() }));
 
-export const field = "box-border min-h-10 w-full rounded-lg border border-[#d4b062]/30 bg-[#050d09]/70 px-3 text-sm text-white placeholder:text-[#8a8064] focus:border-[#f1dfa6] focus:outline-none";
-export const fieldLabel = "mb-1 block text-[11px] font-medium text-[#a99b74]";
+export const field = "box-border min-h-10 w-full rounded-lg border border-[color:var(--vault-gold)]/30 bg-[color:var(--vault-well)]/70 px-3 text-sm text-white placeholder:text-[color:var(--vault-faint)] focus:border-[color:var(--vault-gold-hi)] focus:outline-none";
+export const fieldLabel = "mb-1 block text-[11px] font-medium text-[color:var(--vault-muted)]";
 export const btnPrimary = "inline-flex min-h-10 items-center justify-center rounded-lg bg-primary px-4 text-xs font-bold text-cta-ink hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40";
-export const btnQuiet = "inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d4b062]/30 px-3.5 text-xs font-medium text-[#ece5cf] hover:border-[#d4b062]/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-40";
+export const btnQuiet = "inline-flex min-h-10 items-center justify-center rounded-lg border border-[color:var(--vault-gold)]/30 px-3.5 text-xs font-medium text-[color:var(--vault-ink)] hover:border-[color:var(--vault-gold)]/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-40";
 
 export type PreviewFn = (input: {
   lines: Exclude<ReturnType<typeof toPreviewLines>, { ok: false }>["lines"];
@@ -58,7 +58,7 @@ export function SamplePanel({ lines, setLines, preview }: { lines: SampleLine[];
 
       <ol className="mt-4 space-y-2.5">
         {lines.map((l, i) => (
-          <li key={i} className="rounded-lg border border-[#d4b062]/15 bg-[#050d09]/40 p-3">
+          <li key={i} className="rounded-lg border border-[color:var(--vault-gold)]/15 bg-[color:var(--vault-well)]/40 p-3">
             <div className="grid grid-cols-[minmax(0,1fr)_6.5rem_auto] items-end gap-2">
               <label className="min-w-0">
                 <span className={fieldLabel}>Item</span>
@@ -69,13 +69,13 @@ export function SamplePanel({ lines, setLines, preview }: { lines: SampleLine[];
                 <input className={`${field} text-right tabular-nums`} inputMode="decimal" value={l.amount} onChange={(e) => setLine(i, { amount: e.target.value })} placeholder="1200" />
               </label>
               <button type="button" onClick={() => setLines(lines.filter((_, j) => j !== i))} disabled={lines.length === 1} aria-label={`Remove line ${i + 1}`}
-                className="grid size-10 place-items-center rounded-lg border border-[#d4b062]/20 text-[#a99b74] hover:text-white disabled:opacity-30">
+                className="grid size-10 place-items-center rounded-lg border border-[color:var(--vault-gold)]/20 text-[color:var(--vault-muted)] hover:text-white disabled:opacity-30">
                 ×
               </button>
             </div>
             <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
               <ComboBox label="Sold by" placeholder="Property type" options={KIND_OPTIONS} value={l.propertyKind} onPick={(code) => setLine(i, { propertyKind: code })} showCode={false} />
-              <label className="flex min-h-10 items-center gap-2 rounded-lg border border-[#d4b062]/20 px-3 text-xs text-[#ece5cf]">
+              <label className="flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--vault-gold)]/20 px-3 text-xs text-[color:var(--vault-ink)]">
                 <input type="checkbox" className="accent-primary" checked={l.athleteItem} onChange={(e) => setLine(i, { athleteItem: e.target.checked })} />
                 Athlete&rsquo;s item
               </label>
@@ -111,11 +111,11 @@ export function PreviewTable({ result }: { result: PreviewResult }) {
   const runs = [{ name: "In effect", run: result.current }, ...(result.withDraft ? [{ name: "With this rule", run: result.withDraft }] : [])];
   const two = runs.length === 2;
   return (
-    <div className="overflow-x-auto rounded-lg border border-[#d4b062]/20 bg-[#050d09]/50">
+    <div className="overflow-x-auto rounded-lg border border-[color:var(--vault-gold)]/20 bg-[color:var(--vault-well)]/50">
       <table className="w-full text-xs">
         <caption className="sr-only">The split of the sample order</caption>
         <thead>
-          <tr className="border-b border-[#d4b062]/20 text-[10px] uppercase tracking-[0.12em] text-[#a99b74]">
+          <tr className="border-b border-[color:var(--vault-gold)]/20 text-[10px] uppercase tracking-[0.12em] text-[color:var(--vault-muted)]">
             <th scope="col" className="px-3 py-2 text-left font-semibold">Whole order</th>
             {runs.map((r) => <th key={r.name} scope="col" className="px-3 py-2 text-right font-semibold">{r.name}</th>)}
             {two && <th scope="col" className="px-3 py-2 text-right font-semibold">Change</th>}
@@ -127,14 +127,14 @@ export function PreviewTable({ result }: { result: PreviewResult }) {
             const b = runs[1]?.run.totals[row.key];
             const off = row.key !== "netCents" && !row.strong;
             return (
-              <tr key={row.key} className={`border-b border-[#d4b062]/10 last:border-0 ${row.strong ? "bg-[#d4b062]/8" : ""}`}>
-                <th scope="row" className={`px-3 py-1.5 text-left ${row.strong ? "font-semibold text-white" : "font-normal text-[#a99b74]"}`}>
-                  {off && <span aria-hidden="true" className="mr-1 text-[#8a8064]">−</span>}{row.label}
+              <tr key={row.key} className={`border-b border-[color:var(--vault-gold)]/10 last:border-0 ${row.strong ? "bg-[color:var(--vault-gold)]/8" : ""}`}>
+                <th scope="row" className={`px-3 py-1.5 text-left ${row.strong ? "font-semibold text-white" : "font-normal text-[color:var(--vault-muted)]"}`}>
+                  {off && <span aria-hidden="true" className="mr-1 text-[color:var(--vault-faint)]">−</span>}{row.label}
                 </th>
-                <td className={`px-3 py-1.5 text-right tabular-nums ${row.strong ? "font-semibold text-white" : "text-[#ece5cf]"}`}>{usd(a)}</td>
-                {b !== undefined && <td className={`px-3 py-1.5 text-right tabular-nums ${row.strong ? "font-semibold text-white" : "text-[#ece5cf]"}`}>{usd(b)}</td>}
+                <td className={`px-3 py-1.5 text-right tabular-nums ${row.strong ? "font-semibold text-white" : "text-[color:var(--vault-ink)]"}`}>{usd(a)}</td>
+                {b !== undefined && <td className={`px-3 py-1.5 text-right tabular-nums ${row.strong ? "font-semibold text-white" : "text-[color:var(--vault-ink)]"}`}>{usd(b)}</td>}
                 {b !== undefined && (
-                  <td className={`px-3 py-1.5 text-right tabular-nums ${b === a ? "text-[#8a8064]" : b > a ? "text-[#3ddc97]" : "text-[#e36a5a]"}`}>
+                  <td className={`px-3 py-1.5 text-right tabular-nums ${b === a ? "text-[color:var(--vault-faint)]" : b > a ? "text-[color:var(--vault-good)]" : "text-[color:var(--vault-late)]"}`}>
                     {b === a ? "—" : `${b > a ? "+" : "−"}${usd(Math.abs(b - a))}`}
                   </td>
                 )}
@@ -144,7 +144,7 @@ export function PreviewTable({ result }: { result: PreviewResult }) {
         </tbody>
       </table>
       {runs[0]!.run.lines.some((l) => l.teamAvailableCents !== null) && (
-        <p className="border-t border-[#d4b062]/10 px-3 py-2 text-[11px] text-[#a99b74]">
+        <p className="border-t border-[color:var(--vault-gold)]/10 px-3 py-2 text-[11px] text-[color:var(--vault-muted)]">
           Athlete items (in effect): {runs[0]!.run.lines.filter((l) => l.teamAvailableCents !== null).map((l) =>
             `${l.lineId} — property ${usd(l.teamAvailableCents!)}, athlete ${usd(l.availableCents - l.teamAvailableCents!)}`).join("; ")}.
         </p>

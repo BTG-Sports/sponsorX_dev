@@ -28,7 +28,7 @@ const ADMIN = { key: "p7.admin", roles: ["BTG_ADMIN" as const] };
 const FINANCE = { key: "p7.finance", roles: ["FINANCE" as const] };
 
 const DESKS = [
-  { path: "/admin/payments/events", title: "Payment events", noun: "Events", tiles: ["Waiting on BTG", "Applied", "Held", "Failed", "Ignored or deferred"], tabs: ["Needs BTG", "Deferred", "Resolved", "All"] },
+  { path: "/admin/payments/events", title: "Payment events", noun: "Events", tiles: ["Needs BTG", "Applied", "Held", "Failed", "Ignored or deferred"], tabs: ["Needs BTG", "Deferred", "Resolved", "All"] },
   { path: "/admin/payments/disputes", title: "Disputes", noun: "Disputes", tiles: ["Open", "Under review", "Won", "Lost"], tabs: ["Open", "Under review", "Won", "Lost"] },
 ];
 
@@ -85,7 +85,7 @@ test.describe("Stream A · payment desks and the support page", () => {
       await go(admin, ADMIN.key, desk.path);
       await expect(admin.locator("body")).toHaveClass(/sx-ops/);
       await expect(admin.getByRole("heading", { level: 1, name: desk.title })).toBeVisible();
-      for (const tile of desk.tiles) await expect(admin.locator("dl dt", { hasText: new RegExp(`^${tile}$`, "i") }).first()).toBeVisible();
+      for (const tile of desk.tiles) await expect(admin.locator("dl dt", { hasText: new RegExp(`^${tile}\\s*\\d*$`, "i") }).first()).toBeVisible();
       const strip = admin.getByRole("navigation", { name: desk.title });
       await expect(strip).toBeVisible();
       for (const tab of desk.tabs) await expect(strip.getByRole("link", { name: new RegExp(`^${tab}`) })).toBeVisible();

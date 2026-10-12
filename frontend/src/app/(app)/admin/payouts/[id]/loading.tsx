@@ -3,5 +3,5 @@
 import { VaultGhost } from "@/components/vault-stage";
 
 export default function Loading() {
-  return <VaultGhost label="Loading the payout" tiles={5} rows={3} />;
+  return <VaultGhost label="Loading the payout" tiles={5} cols={5} rows={3} />;
 }

@@ -4,5 +4,5 @@
 import { VaultGhost } from "@/components/vault-stage";
 
 export default function Loading() {
-  return <VaultGhost label="Loading payment events" tiles={5} rows={1} />;
+  return <VaultGhost label="Loading payment events" tiles={5} cols={5} rows={1} />;
 }

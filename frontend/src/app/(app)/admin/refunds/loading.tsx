@@ -3,5 +3,5 @@
 import { VaultGhost } from "@/components/vault-stage";
 
 export default function Loading() {
-  return <VaultGhost label="Loading refunds" tiles={2} rows={1} />;
+  return <VaultGhost label="Loading refunds" tiles={2} cols={2} rows={1} />;
 }

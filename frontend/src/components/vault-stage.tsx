@@ -120,10 +120,18 @@ export function VaultHead({
   );
 }
 
-export function VaultTiles({ children, cols = 4 }: { children: ReactNode; cols?: 2 | 3 | 4 | 5 }) {
-  const grid = { 2: "sm:grid-cols-2", 3: "sm:grid-cols-3", 4: "lg:grid-cols-4", 5: "sm:grid-cols-3 xl:grid-cols-5" }[cols];
-  /* gap-4: the frame's outer rule sits 4px outside each tile */
-  return <dl className={`mt-5 grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 ${grid}`}>{children}</dl>;
+export type TileCols = 2 | 3 | 4 | 5;
+
+/** The tile grid, shared by VaultTiles and VaultGhost so a page's loading
+ *  screen lays its tiles out as the page will. Two across on a phone (the
+ *  numbers read as one block, never a column of lone tiles), and an odd
+ *  last tile spans both there. gap-4: the frame's outer rule sits 4px
+ *  outside each tile. */
+const TILE_GRID: Record<TileCols, string> = { 2: "", 3: "sm:grid-cols-3", 4: "lg:grid-cols-4", 5: "sm:grid-cols-3 xl:grid-cols-5" };
+const tileGrid = (cols: TileCols) => `grid grid-cols-2 gap-4 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2 ${TILE_GRID[cols]}`;
+
+export function VaultTiles({ children, cols = 4 }: { children: ReactNode; cols?: TileCols }) {
+  return <dl className={`mt-5 ${tileGrid(cols)}`}>{children}</dl>;
 }
 
 /** A tile. `delta` is a fraction (0.12 = ▲ 12%), null/absent hides it;
@@ -159,7 +167,7 @@ export function VaultTile({
   const up = shown && delta >= 0;
   const flat = shown && Math.round(delta * 100) === 0;
   return (
-    <div data-spot="" data-tone={tone} className="sx-vault-frame sx-vault-in group px-4 pb-3.5 pt-3.5" style={at(delay)}>
+    <div data-spot="" data-tone={tone} className="sx-vault-frame sx-vault-in group min-w-0 px-4 pb-3.5 pt-3.5" style={at(delay)}>
       <dt className="flex items-center gap-1.5 text-[10.5px] uppercase tracking-[0.16em] text-[color:var(--vault-muted)]">
         {label}
         {badge !== undefined && <VaultBadge count={badge} />}
@@ -167,7 +175,8 @@ export function VaultTile({
       </dt>
       <dd className="mt-1.5">
         {href && <Link href={href} className="sx-vault-cover" aria-label={`${label} — open`} />}
-        <ArenaCount value={value} format={format} delay={delay} className="sx-vault-num block text-[28px] leading-tight" />
+        {/* a size down on a phone, where two tiles share 390px: "$1,234,567" still fits */}
+        <ArenaCount value={value} format={format} delay={delay} className="sx-vault-num block text-[23px] leading-tight sm:text-[28px]" />
         {shown && (
           <span className="mt-1 block text-[11.5px] text-[color:var(--vault-muted)]">
             {flat ? (
@@ -521,7 +530,7 @@ export function VaultRange({ current, path, params }: { current: RangeKey; path:
   );
 }
 
-export function VaultGhost({ label = "Loading", tiles = 4, rows = 2 }: { label?: string; tiles?: number; rows?: number }) {
+export function VaultGhost({ label = "Loading", tiles = 4, cols = 4, rows = 2 }: { label?: string; tiles?: number; /** The page's VaultTiles `cols`. */ cols?: TileCols; rows?: number }) {
   return (
     <div role="status" aria-label={label}>
       <div aria-hidden="true">
@@ -529,7 +538,7 @@ export function VaultGhost({ label = "Loading", tiles = 4, rows = 2 }: { label?:
           <div className="sx-vault-ghost h-7 w-48" />
           <div className="sx-vault-ghost h-5 w-28 rounded-full" />
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className={`mt-5 ${tileGrid(cols)}`}>
           {Array.from({ length: tiles }, (_, i) => (
             <div key={i} className="sx-vault-frame sx-vault-ghost min-h-[110px]" />
           ))}

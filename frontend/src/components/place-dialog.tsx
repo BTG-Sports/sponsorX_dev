@@ -235,7 +235,10 @@ export function PlaceDialog({
 
 /** A designed, searchable dropdown (no native <select>): a trigger showing
  *  the choice, and a popover with a filter box and a listbox — ↑ ↓ ⏎, Esc
- *  closes the list (not the dialog). */
+ *  closes the list (not the dialog).
+ *  Its colours are `--sx-combo-*` variables with Mission Control's cyan as
+ *  the fallback; the Vault sets them gold (vault.css), so the commission
+ *  desk's dropdowns match their stage with no prop threaded through. */
 export function ComboBox({
   label, placeholder, options, value, onPick, note, disabled = false, autoFocus = false, showCode = true,
 }: {
@@ -284,7 +287,7 @@ export function ComboBox({
 
   return (
     <div className="relative" onBlur={(e) => { if (open && !e.currentTarget.contains(e.relatedTarget as Node | null)) close(false); }}>
-      <span id={`${id}-label`} className="mb-1 block text-[11px] font-medium text-[#8a96a3]">{label}</span>
+      <span id={`${id}-label`} className="mb-1 block text-[11px] font-medium text-[color:var(--sx-combo-label,#8a96a3)]">{label}</span>
       <button
         ref={trigger}
         type="button"
@@ -295,23 +298,23 @@ export function ComboBox({
         data-autofocus={autoFocus ? "" : undefined}
         onClick={() => { setOpen((v) => !v); setActive(Math.max(0, shown.findIndex((o) => o.code === value))); }}
         onKeyDown={(e) => { if (!open && (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ")) { e.preventDefault(); setOpen(true); } }}
-        className={`flex min-h-11 w-full items-center gap-2.5 rounded-lg border px-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${open ? "border-[#9be0ff] bg-[#0a1626]" : "border-[#63b4f8]/30 bg-[#04080f]/70 hover:border-[#63b4f8]/60"}`}
+        className={`flex min-h-11 w-full items-center gap-2.5 rounded-lg border px-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${open ? "border-[color:var(--sx-combo-hi,#9be0ff)] bg-[color:var(--sx-combo-open,#0a1626)]" : "border-[color:var(--sx-combo-line,#63b4f8)]/30 bg-[color:var(--sx-combo-field,#04080f)]/70 hover:border-[color:var(--sx-combo-line,#63b4f8)]/60"}`}
       >
         <span id={`${id}-value`} className="flex min-w-0 flex-1 items-center gap-2">
           {chosen ? (
             <>
-              {showCode && chosen.code && <span className="font-mono text-xs font-semibold text-[#9be0ff]">{chosen.code}</span>}
+              {showCode && chosen.code && <span className="font-mono text-xs font-semibold text-[color:var(--sx-combo-hi,#9be0ff)]">{chosen.code}</span>}
               <span className="truncate font-medium text-white">{chosen.name}</span>
             </>
           ) : (
-            <span className="text-[#5b6b7d]">{placeholder}</span>
+            <span className="text-[color:var(--sx-combo-faint,#5b6b7d)]">{placeholder}</span>
           )}
         </span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`size-4 shrink-0 text-[#8a96a3] transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`size-4 shrink-0 text-[color:var(--sx-combo-label,#8a96a3)] transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
       </button>
 
       {open && (
-        <div className="sx-pop absolute inset-x-0 top-full z-20 mt-1.5 overflow-hidden rounded-xl border border-[#63b4f8]/40 bg-[#060b14] shadow-[0_18px_40px_rgba(0,0,0,.65)]" onKeyDown={onKey}>
+        <div className="sx-pop absolute inset-x-0 top-full z-20 mt-1.5 overflow-hidden rounded-xl border border-[color:var(--sx-combo-line,#63b4f8)]/40 bg-[color:var(--sx-combo-pop,#060b14)] shadow-[0_18px_40px_rgba(0,0,0,.65)]" onKeyDown={onKey}>
           <div className="border-b border-white/5 p-2">
             <input
               autoFocus
@@ -320,11 +323,11 @@ export function ComboBox({
               aria-label={`Search ${label.toLowerCase()}`}
               aria-controls={`${id}-list`}
               placeholder={`Search ${label.toLowerCase()}…`}
-              className="w-full rounded-md border border-[#63b4f8]/25 bg-[#04080f] px-2.5 py-1.5 text-xs text-white placeholder:text-[#5b6b7d] focus:border-[#9be0ff] focus:outline-none"
+              className="w-full rounded-md border border-[color:var(--sx-combo-line,#63b4f8)]/25 bg-[color:var(--sx-combo-field,#04080f)] px-2.5 py-1.5 text-xs text-white placeholder:text-[color:var(--sx-combo-faint,#5b6b7d)] focus:border-[color:var(--sx-combo-hi,#9be0ff)] focus:outline-none"
             />
           </div>
-          <ul ref={list} id={`${id}-list`} role="listbox" aria-label={label} className="max-h-64 overflow-y-auto p-1 [scrollbar-color:rgba(99,180,248,.35)_transparent] [scrollbar-width:thin]">
-            {shown.length === 0 && <li className="px-3 py-2 text-xs text-[#8a96a3]">Nothing matches.</li>}
+          <ul ref={list} id={`${id}-list`} role="listbox" aria-label={label} className="max-h-64 overflow-y-auto p-1 [scrollbar-color:color-mix(in_srgb,var(--sx-combo-line,#63b4f8)_35%,transparent)_transparent] [scrollbar-width:thin]">
+            {shown.length === 0 && <li className="px-3 py-2 text-xs text-[color:var(--sx-combo-label,#8a96a3)]">Nothing matches.</li>}
             {shown.map((o, i) => {
               const n = note?.(o) ?? null;
               return (
@@ -334,12 +337,12 @@ export function ComboBox({
                     tabIndex={-1}
                     onMouseEnter={() => setActive(i)}
                     onClick={() => choose(o)}
-                    className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs ${i === active ? "bg-[#2e9bf5]/22" : ""} ${o.code === value ? "text-white" : "text-[#cfe9ff]"}`}
+                    className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs ${i === active ? "bg-[color:var(--sx-combo-active,#2e9bf5)]/22" : ""} ${o.code === value ? "text-white" : "text-[color:var(--sx-combo-ink,#cfe9ff)]"}`}
                   >
-                    {showCode && <span className="w-9 shrink-0 font-mono font-semibold text-[#9be0ff]">{o.code || "—"}</span>}
+                    {showCode && <span className="w-9 shrink-0 font-mono font-semibold text-[color:var(--sx-combo-hi,#9be0ff)]">{o.code || "—"}</span>}
                     <span className="min-w-0 flex-1 truncate">{o.name}</span>
-                    {n && <span className="shrink-0 rounded-full border border-[#63b4f8]/30 px-1.5 text-[10px] text-[#9aa4b2]">{n}</span>}
-                    {o.code === value && <span aria-hidden="true" className="text-[#9be0ff]">✓</span>}
+                    {n && <span className="shrink-0 rounded-full border border-[color:var(--sx-combo-line,#63b4f8)]/30 px-1.5 text-[10px] text-[color:var(--sx-combo-label,#9aa4b2)]">{n}</span>}
+                    {o.code === value && <span aria-hidden="true" className="text-[color:var(--sx-combo-hi,#9be0ff)]">✓</span>}
                   </button>
                 </li>
               );

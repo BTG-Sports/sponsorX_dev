@@ -63,7 +63,24 @@
   --vault-line-soft: rgb(212 176 98 / 0.13);
   --vault-glow: rgb(212 176 98 / 0.45);
   --vault-plate: linear-gradient(180deg, rgb(20 40 30 / 0.74), rgb(8 18 13 / 0.88));
+  /* flat greens for a form's own surfaces (the commission desk and its
+     dialog): a raised plate, a resting plate, and the well a field sits in */
+  --vault-plate-hi: #0f2119;
+  --vault-plate-lo: #0b1912;
+  --vault-well: #050d09;
   --vault-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* The shared ComboBox (place-dialog.tsx) reads these, with Mission
+     Control's cyan as its fallback — so a dropdown under the Vault (the
+     commission dialog, the sample order) is gold without a prop. */
+  --sx-combo-hi: #f1dfa6;
+  --sx-combo-line: #d4b062;
+  --sx-combo-field: #050d09;
+  --sx-combo-open: #0f2119;
+  --sx-combo-pop: #08140f;
+  --sx-combo-active: #d4b062;
+  --sx-combo-ink: #ece5cf;
+  --sx-combo-label: #a99b74;
+  --sx-combo-faint: #8a8064;
 }
 
 /* The shell's themed tokens, re-pinned like .sx-stadium's: every shared
@@ -71,8 +88,15 @@
    active item — all `admin`-toned utilities; the header hairline; the user
    menu; pagers and filters on the admin tone; text, lines, surfaces) turns
    to gold on bank green by itself. `@theme inline` makes the utilities read
-   these variables directly, so re-pinning them here is enough. */
-.sx-ops.sx-vault {
+   these variables directly, so re-pinning them here is enough.
+   The second selector is for a piece portaled to <body> that carries its
+   own `.sx-ops` (the commission rule dialog): `.sx-ops` re-declares ops
+   blue on that element, which would beat what it inherits from a Vault
+   <body>. Under a Vault ancestor it gets these instead — (0,2,0) beats the
+   bare `.sx-ops`. Mission Control never matches: its <body> and shell
+   root carry neither `.sx-vault` nor `data-vault` (stage-root.tsx). */
+.sx-ops.sx-vault,
+:is(.sx-vault, [data-vault]) .sx-ops {
   --sx-bg: #06100c;
   --sx-surface: #0b1912;
   --sx-surface-2: #0f2119;

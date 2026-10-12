@@ -2,7 +2,8 @@ import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { MarkRefunded } from "@/components/refunds-desk";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
 import { EmptyState } from "@/components/states";
-import { VaultChip, VaultGhost, VaultHead, VaultTile, VaultTiles, VaultUpdated, at } from "@/components/vault-stage";
+import { StadiumHint } from "@/components/stadium-hint";
+import { VaultChip, VaultGhost, VaultHead, VaultTile, VaultTiles, VaultUpdated } from "@/components/vault-stage";
 import { demoState } from "@/lib/demo";
 import { apiListQuery } from "@/lib/list-query";
 import { money } from "@/lib/order-automation-live";
@@ -34,7 +35,7 @@ const TITLE = "Refunds to send";
 
 export default async function RefundsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const demo = await demoState(searchParams);
-  if (demo === "loading") return <VaultGhost label="Loading refunds" tiles={2} rows={1} />;
+  if (demo === "loading") return <VaultGhost label="Loading refunds" tiles={2} cols={2} rows={1} />;
   if (demo === "error") throw new Error("Demo error state");
 
   const lacking = await staffWithoutAccess(PATH);
@@ -66,10 +67,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="space-y-5">
-      <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>}>
-        <p className="sx-vault-in mt-2 max-w-3xl text-xs leading-relaxed text-[color:var(--vault-muted)]" style={at(0.04)}>
-          Money owed back to sponsors, sent by hand for now. Card payments are refunded automatically once the payment provider is connected.
-        </p>
+      <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>} actions={<StadiumHint skin="vault" label="About this desk" text="Money owed back to sponsors, sent by hand for now. Card payments are refunded automatically once the payment provider is connected." />}>
         <VaultTiles cols={2}>
           <VaultTile label="To send" value={list.counts.open} format="int" caption={list.counts.open > 0 ? openSummary(list) : undefined} tone={list.counts.open ? "you" : undefined} badge={list.counts.open} delay={0.08} />
           <VaultTile label="Sent" value={list.counts.sent} format="int" delay={0.12} />

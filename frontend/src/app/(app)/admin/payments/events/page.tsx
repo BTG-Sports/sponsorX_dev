@@ -2,7 +2,8 @@ import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { ResolveEvent } from "@/components/payment-events-desk";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
 import { EmptyState } from "@/components/states";
-import { VaultChip, VaultGhost, VaultHead, VaultTile, VaultTiles, VaultUpdated, at, type VaultTone } from "@/components/vault-stage";
+import { StadiumHint } from "@/components/stadium-hint";
+import { VaultChip, VaultGhost, VaultHead, VaultTile, VaultTiles, VaultUpdated, type VaultTone } from "@/components/vault-stage";
 import { demoState } from "@/lib/demo";
 import { apiListQuery } from "@/lib/list-query";
 import { agoLabel } from "@/lib/marketplace-ops-live";
@@ -37,7 +38,7 @@ const TITLE = "Payment events";
 
 export default async function PaymentEventsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const demo = await demoState(searchParams);
-  if (demo === "loading") return <VaultGhost label="Loading payment events" tiles={5} rows={1} />;
+  if (demo === "loading") return <VaultGhost label="Loading payment events" tiles={5} cols={5} rows={1} />;
   if (demo === "error") throw new Error("Demo error state");
 
   const lacking = await staffWithoutAccess(PATH);
@@ -73,12 +74,9 @@ export default async function PaymentEventsPage({ searchParams }: { searchParams
 
   return (
     <div className="space-y-5">
-      <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>}>
-        <p className="sx-vault-in mt-2 max-w-3xl text-xs leading-relaxed text-[color:var(--vault-muted)]" style={at(0.04)}>
-          What the payment provider told SponsorX and what was done with it. Held and failed events wait for a BTG admin; deferred ones wait for the event they follow.
-        </p>
+      <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>} actions={<StadiumHint skin="vault" label="About this desk" text="What the payment provider told SponsorX and what was done with it. Held and failed events wait for a BTG admin; deferred ones wait for the event they follow." />}>
         <VaultTiles cols={5}>
-          <VaultTile label="Waiting on BTG" value={list.waitingOnBtg} format="int" tone={list.waitingOnBtg ? "you" : undefined} badge={list.waitingOnBtg} caption="held or failed, not yet dealt with" delay={0.08} />
+          <VaultTile label="Needs BTG" value={list.waitingOnBtg} format="int" tone={list.waitingOnBtg ? "you" : undefined} badge={list.waitingOnBtg} caption="held or failed, not yet dealt with" delay={0.08} />
           <VaultTile label="Applied" value={list.counts.APPLIED} format="int" caption="all time" delay={0.12} />
           <VaultTile label="Held" value={list.counts.HELD} format="int" caption="all time, incl. resolved" delay={0.16} />
           <VaultTile label="Failed" value={list.counts.FAILED} format="int" caption="all time, incl. resolved" delay={0.2} />

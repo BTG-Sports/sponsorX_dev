@@ -112,6 +112,11 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
   const first = p.payeeType === "ATHLETE" ? (p.payeeName.split(/\s+/)[0] ?? p.payeeName) : p.payeeName;
   const passed = p.checks.filter((c) => c.ok).length;
   const hasMeta = Boolean(attempts || returned || reasons.length > 0 || steps);
+  /* A failed payout says who acts next, in BTG's words (retryStatus) — never
+     payoutStatus's sentence to the payee ("Returned by your bank: …"). Gold
+     when BTG must act; plain gold info when it retries on its own or waits
+     for the payee — not red, nothing for BTG to do. */
+  const stateTone: VaultTone = p.state === "FAILED" && retry ? (retry.needsBtg ? "you" : "info") : rowTone(p.state, status.tone);
 
   return (
     <div className="space-y-6">
@@ -119,20 +124,20 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
         ← Payout approvals
       </Link>
 
-      <VaultHead title="Payout review" pill={<VaultUpdated iso={new Date().toISOString()} />}>
+      <VaultHead title="Payout review" pill={<>Live · <VaultUpdated iso={new Date().toISOString()} /></>}>
         <VaultTiles cols={5}>
-          <VaultTile label="Amount" value={p.amountCents} format="usd0" caption={`Payout to ${p.payeeName}`} delay={0.08} />
+          <VaultTile label="Amount" value={p.amountCents} format="usd" caption={`Payout to ${p.payeeName}`} delay={0.08} />
           <InfoTile label="Payee" delay={0.12}>
             {p.payeeName}
             <span className="mt-0.5 block text-[11px] text-[color:var(--vault-muted)]">{payeeKind(p.payeeType)}</span>
           </InfoTile>
           <InfoTile label="State" delay={0.16}>
             <span className="flex flex-wrap gap-1">
-              <VaultChip tone={rowTone(p.state, status.tone)}>{STATE_WORD[p.state] ?? p.state}</VaultChip>
+              <VaultChip tone={stateTone}>{STATE_WORD[p.state] ?? p.state}</VaultChip>
               {auto && <VaultChip tone="good">✓ {auto}</VaultChip>}
             </span>
             <span className="mt-1.5 block text-[11px] font-normal normal-case leading-snug tracking-normal text-[color:var(--vault-muted)]">
-              {p.state === "REQUESTED" ? "Waiting for BTG's decision" : p.state === "APPROVED" ? "Approved — sending soon" : status.label}
+              {p.state === "FAILED" && retry ? retry.label : p.state === "REQUESTED" ? "Waiting for BTG's decision" : p.state === "APPROVED" ? "Approved — sending soon" : status.label}
             </span>
           </InfoTile>
           <InfoTile label="Requested" delay={0.2}>

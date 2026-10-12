@@ -1,6 +1,7 @@
 import { EmptyState } from "@/components/states";
 import { CommissionEditor } from "@/components/commission-editor";
-import { VaultHead, VaultTile, VaultTiles, VaultUpdated, at } from "@/components/vault-stage";
+import { StadiumHint } from "@/components/stadium-hint";
+import { VaultHead, VaultTile, VaultTiles, VaultUpdated } from "@/components/vault-stage";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 import { KINDS, commissionTiles, isCommissionAdmin, type ApiRule } from "@/lib/commission-live";
@@ -31,11 +32,7 @@ export default async function CommissionPage() {
   const actor = await requirePortalAccess("admin");
   const readAt = new Date().toISOString();
   const head = (
-    <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>}>
-      <p className="sx-vault-in mt-2 max-w-3xl text-xs leading-relaxed text-[color:var(--vault-muted)]" style={at(0.04)}>
-        How each marketplace sale is split. A change applies to orders approved from then on; approved orders keep the split they were approved with.
-      </p>
-    </VaultHead>
+    <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>} actions={<StadiumHint skin="vault" label="About this desk" text="How each marketplace sale is split. A change applies to orders approved from then on; approved orders keep the split they were approved with." />} />
   );
 
   if (!isCommissionAdmin(actor.roles)) {

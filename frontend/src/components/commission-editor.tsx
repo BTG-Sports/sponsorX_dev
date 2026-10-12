@@ -64,7 +64,7 @@ export function CommissionEditor({ rules, actions }: { rules: ApiRule[]; actions
       <SplitStrip groups={groups} active={kind} onPick={(k) => { setKind(k); setFlash(null); }} />
 
       {flash && (
-        <p role="status" className="sx-ops-in rounded-lg border border-[#3ddc97]/40 bg-[#3ddc97]/10 px-3.5 py-2.5 text-xs text-[#3ddc97]">
+        <p role="status" className="sx-vault-in rounded-lg border border-[color:var(--vault-good)]/40 bg-[color:var(--vault-good)]/10 px-3.5 py-2.5 text-xs text-[color:var(--vault-good)]">
           {flash}
         </p>
       )}
@@ -107,7 +107,7 @@ function SplitStrip({ groups, active, onPick }: { groups: RuleGroup[]; active: R
           const s = kindSummary(g);
           const on = g.kind === active;
           return (
-            <li key={g.kind} className="sx-ops-in min-w-0" style={{ "--sx-reveal-delay": `${i * 0.06}s` } as CSSProperties}>
+            <li key={g.kind} className="sx-vault-in min-w-0" style={{ "--sx-reveal-delay": `${i * 0.06}s` } as CSSProperties}>
               <button
                 type="button"
                 onClick={() => onPick(g.kind)}
@@ -115,19 +115,19 @@ function SplitStrip({ groups, active, onPick }: { groups: RuleGroup[]; active: R
                 aria-label={`${g.label}: ${s.headline === "—" ? "no rate for everyone" : s.headline}, ${s.caption}`}
                 className={`relative block w-full min-w-0 rounded-md border px-3.5 pb-3 pt-3 text-left transition-all duration-300 ${
                   on
-                    ? "border-[#f1dfa6] bg-[#0f2119]/90 shadow-[0_0_22px_rgba(212,176,98,.35)]"
-                    : "border-[#d4b062]/22 bg-[#0b1912]/70 hover:border-[#d4b062]/60 hover:bg-[#0f2119]/90"
+                    ? "border-[color:var(--vault-gold-hi)] bg-[color:var(--vault-plate-hi)]/90 shadow-[0_0_22px_color-mix(in_srgb,var(--vault-gold)_35%,transparent)]"
+                    : "border-[color:var(--vault-gold)]/22 bg-[color:var(--vault-plate-lo)]/70 hover:border-[color:var(--vault-gold)]/60 hover:bg-[color:var(--vault-plate-hi)]/90"
                 }`}
               >
-                <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-[2px] ${on ? "bg-[#f1dfa6] shadow-[0_0_10px_#f1dfa6]" : s.empty ? "bg-white/10" : "bg-[#d4b062]"}`} />
-                <span className="flex items-baseline gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#a99b74]">
-                  <span className="font-mono text-[#f1dfa6]/70">{String(i + 1).padStart(2, "0")}</span>
+                <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-[2px] ${on ? "bg-[color:var(--vault-gold-hi)] shadow-[0_0_10px_var(--vault-gold-hi)]" : s.empty ? "bg-white/10" : "bg-[color:var(--vault-gold)]"}`} />
+                <span className="flex items-baseline gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--vault-muted)]">
+                  <span className="font-mono text-[color:var(--vault-gold-hi)]/70">{String(i + 1).padStart(2, "0")}</span>
                   <span className="truncate">{g.label}</span>
                 </span>
-                <span className={`mt-1.5 block truncate text-[22px] font-bold leading-none tracking-tight tabular-nums ${s.empty ? "text-[#8a8064]" : on ? "text-white" : "text-[#ece5cf]"}`}>
+                <span className={`mt-1.5 block truncate text-[22px] font-bold leading-none tracking-tight tabular-nums ${s.empty ? "text-[color:var(--vault-faint)]" : on ? "text-white" : "text-[color:var(--vault-ink)]"}`}>
                   {s.headline}
                 </span>
-                <span className="mt-1.5 block truncate text-[11px] text-[#a99b74]">{s.caption}</span>
+                <span className="mt-1.5 block truncate text-[11px] text-[color:var(--vault-muted)]">{s.caption}</span>
               </button>
             </li>
           );
@@ -212,7 +212,7 @@ function KindPanel({ group, onAdd, onRevise }: { group: RuleGroup; onAdd: () => 
               main,
               <tr key={`${r.id}-h`} id={`rule-history-${r.id}`} className="sx-table-detail">
                 <Td colSpan={COLUMNS.length}>
-                  <ol className="space-y-1 border-l border-[#d4b062]/30 pl-3 text-[11px] text-muted">
+                  <ol className="space-y-1 border-l border-[color:var(--vault-gold)]/30 pl-3 text-[11px] text-muted">
                     {history.map((h) => (
                       <li key={h.id}>
                         <span className="tabular-nums text-text">v{h.version}</span> · {rateLabel(h)}, priority {h.priority} · {sinceLabel(h.effectiveFrom)} → {h.effectiveTo ? sinceLabel(h.effectiveTo) : "now"}

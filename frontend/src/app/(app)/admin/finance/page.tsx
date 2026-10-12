@@ -14,6 +14,7 @@ import {
   VaultSplit,
   VaultSteps,
   VaultTile,
+  VaultTiles,
   VaultUpdated,
   at,
 } from "@/components/vault-stage";
@@ -170,11 +171,9 @@ function TreasuryView({ t }: { t: Treasury }) {
             Demo data — the real books are read by BTG admin and Finance only, so every figure below is sample data.
           </p>
         )}
-        {/* ② the five money numbers. VaultTiles' grid goes one column below
-            420px; on a phone the Treasury keeps two (the fifth, Needs you,
-            across both), so the numbers still read as one block. gap-4: the
-            frame's outer rule sits 4px outside each tile. */}
-        <dl className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5 max-sm:[&>*:last-child]:col-span-2">
+        {/* ② the five money numbers: two across on a phone, the fifth
+            (Needs you) across both — VaultTiles' own phone grid. */}
+        <VaultTiles cols={5}>
           <VaultTile
             label="Money in"
             value={ov.moneyIn.cents}
@@ -223,7 +222,7 @@ function TreasuryView({ t }: { t: Treasury }) {
             caption="items waiting on BTG"
             delay={0.24}
           />
-        </dl>
+        </VaultTiles>
       </VaultHead>
 
       {/* ③ what waits on BTG, one deposit box per desk */}
@@ -350,7 +349,7 @@ export default async function AdminFinancePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const demo = await demoState(searchParams);
-  if (demo === "loading") return <VaultGhost label="Loading the Treasury" tiles={5} rows={3} />;
+  if (demo === "loading") return <VaultGhost label="Loading the Treasury" tiles={5} cols={5} rows={3} />;
   if (demo === "error") throw new Error("Demo error state");
   /* C-1: a staff role this desk isn't for gets "not in your role", not the
      sample desk. The demo stays for ?demo= and signed-out visitors. */

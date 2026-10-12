@@ -73,9 +73,10 @@ export function rateLabel(r: Pick<ApiRule, "bps" | "fixedCents">): string {
   return r.fixedCents ? `${pctLabel(r.bps)} + ${usd(r.fixedCents)}` : pctLabel(r.bps);
 }
 
-/** Still applying: no end, or an end that hasn't arrived yet. */
-export function inForce(r: Pick<ApiRule, "effectiveTo">, now: Date = new Date()): boolean {
-  return r.effectiveTo === null || new Date(r.effectiveTo) > now;
+/** Applying now: it has started (a rule dated for later is not in force
+ *  yet), and it has no end, or an end that hasn't arrived yet. */
+export function inForce(r: Pick<ApiRule, "effectiveFrom" | "effectiveTo">, now: Date = new Date()): boolean {
+  return new Date(r.effectiveFrom) <= now && (r.effectiveTo === null || new Date(r.effectiveTo) > now);
 }
 
 /** The commission desk's two head tiles (P1-ART-25): how many rules are in

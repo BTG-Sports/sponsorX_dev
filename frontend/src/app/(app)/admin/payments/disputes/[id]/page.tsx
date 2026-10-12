@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/states";
 import {
   VaultChip, VaultDate, VaultHead, VaultPanel, VaultSection, VaultUpdated, at, type VaultTone,
 } from "@/components/vault-stage";
-import { amountWords, disputeFacts, mayResolve, mayReview, stateLabel, stateTone, tabFor, type ApiDispute } from "@/lib/disputes-live";
+import { amountWords, disputeFacts, mayResolve, mayReview, providerWords, resolveWords, stateLabel, stateTone, tabFor, type ApiDispute } from "@/lib/disputes-live";
 import { money } from "@/lib/order-automation-live";
 import { apiFetch, fetchActor } from "@/server/api";
 
@@ -26,6 +26,10 @@ const DISPUTE_CHIP: Record<ReturnType<typeof stateTone>, VaultTone> = { warn: "y
    (OPEN; BTG admin or Finance) and Resolve (UNDER_REVIEW once the provider
    has decided; BTG admin only — Finance reads one line instead). On the
    Vault (P1-ART-25): a double-rule fact strip in place of the plain header.
+   Review (2026-10-12): the title names the order; the provider's decision
+   (or that it is still awaited) has its own panel above the facts; the
+   action panel is gold only when this viewer can act; the 404 keeps the
+   Vault head.
 
    Reads  GET  /disputes/:id
    Writes POST /disputes/:id/review, /resolve   (dispute-actions.tsx → ../../actions.ts)
@@ -58,7 +62,7 @@ export default async function DisputePage({ params }: { params: Promise<{ id: st
     return (
       <div className="space-y-5">
         <Link href={LIST} className="text-xs text-[color:var(--vault-muted)] hover:text-[color:var(--vault-gold-hi)]">← Disputes</Link>
-        <h1 className="sx-page-title">{TITLE}</h1>
+        <VaultHead title={TITLE} />
         <EmptyState mark="inbox" title="No dispute matches this link" hint="It may be in another tenant’s books, or the link is old." action={{ label: "Back to Disputes", href: LIST }} />
       </div>
     );
@@ -72,6 +76,9 @@ export default async function DisputePage({ params }: { params: Promise<{ id: st
   const back = `${LIST}?tab=${tabFor(d.state).key}`;
   const readAt = new Date().toISOString();
   const awaiting = d.state === "OPEN" || d.state === "UNDER_REVIEW";
+  /* Gold only when this viewer has the next step — Finance reading an
+     under-review dispute it can't resolve gets a plain panel. */
+  const canAct = (d.state === "OPEN" && reviewer) || (d.state === "UNDER_REVIEW" && resolver);
   /* A payout's own state word (not disputes-live's stateTone) read as a VaultTone. */
   const payoutChip = (state: string): VaultTone => (state === "PAID" ? "good" : state === "FAILED" ? "late" : "info");
 
@@ -90,7 +97,7 @@ export default async function DisputePage({ params }: { params: Promise<{ id: st
     <div className="space-y-6">
       <Link href={back} className="text-xs text-[color:var(--vault-muted)] hover:text-[color:var(--vault-gold-hi)]">← Disputes</Link>
 
-      <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>}>
+      <VaultHead title={`${TITLE} · ${d.orderRef}`} pill={<>Live · <VaultUpdated iso={readAt} /></>}>
         <p className="sx-vault-in mt-2 text-xs text-[color:var(--vault-muted)]" style={at(0.04)}>
           {d.sponsorName} · {d.provider} dispute <span className="font-mono">{d.providerDisputeRef}</span>
           {d.frozen && <span className="ml-2 text-[color:var(--vault-late)]">Money frozen</span>}
@@ -104,7 +111,7 @@ export default async function DisputePage({ params }: { params: Promise<{ id: st
       </VaultHead>
 
       {awaiting && (
-        <VaultPanel tone={reviewer || resolver ? "you" : undefined} delay={0.24} className="flex flex-wrap items-center gap-2.5">
+        <VaultPanel tone={canAct ? "you" : undefined} delay={0.24} className="flex flex-wrap items-center gap-2.5">
           {d.state === "OPEN" && reviewer && <TakeForReview dispute={d} />}
           {d.state === "UNDER_REVIEW" && resolver && <ResolveDispute dispute={d} />}
           {awaiting && !resolver && <p className="text-xs text-[color:var(--vault-muted)]">BTG admin resolves these.</p>}
@@ -149,8 +156,14 @@ export default async function DisputePage({ params }: { params: Promise<{ id: st
           </VaultPanel>
         </div>
 
-        <aside>
-          <VaultPanel delay={0.36}>
+        <aside className="space-y-6">
+          <VaultPanel delay={0.34}>
+            <VaultSection title={d.providerOutcome ? "The provider’s decision" : "Waiting on the provider’s decision"} />
+            {d.providerOutcome && <VaultChip tone={d.providerOutcome === "WON" ? "good" : "late"}>{providerWords(d)}</VaultChip>}
+            {awaiting && <p className={`text-xs leading-relaxed text-[color:var(--vault-muted)] ${d.providerOutcome ? "mt-2" : ""}`}>{resolveWords(d)}</p>}
+          </VaultPanel>
+
+          <VaultPanel delay={0.38}>
             <VaultSection title="Facts" />
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-xs">
               {facts.map((f) => (
