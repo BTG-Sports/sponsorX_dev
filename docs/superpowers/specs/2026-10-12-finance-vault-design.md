@@ -61,8 +61,26 @@ Rules:
 - The Money group item `/admin/finance` is relabelled **Treasury**.
 - BTG admins keep Mission Control as their home and see the Vault when they open a money desk.
 
-The pages a Finance user can open outside the money desks (Analytics, Audit log, Integrations, NEXT) stay on
-Mission Control. This is out of scope here: they are shared admin pages.
+**Follow-up (2026-10-12): Finance is its own portal everywhere.** The owner found that a Finance user who
+opened Campaigns, Briefs, Network, NEXT, Analytics, the Audit log or Integrations dropped back into Mission
+Control, under an "ADMIN" label, and that some of those desks only said "outside your role". So:
+- **The Vault on every page for a Finance-only viewer.** `vaultOn(path, mode)` (`lib/vault-routes.ts`) decides,
+  and `StageRoot` uses it. The mode is `"all"` for a Finance-only viewer (the admin layout passes
+  `vault="all"` when `isFinanceOnly`), `"money"` for everyone else (the Vault on the routes above only), and
+  `"off"` on every other portal. `<body>` carries `sx-vault` / `data-vault` whenever the root does.
+- **The label and watermark follow the look.** The sidebar's portal label and its vertical watermark read
+  "FINANCE PORTAL" / "FINANCE" whenever the Vault is on, "ADMIN PORTAL" / "ADMIN" otherwise. Both words are
+  rendered and `vault.css` shows one (`.sx-when-vault` / `.sx-when-ops`), because the switch is made on the
+  client. The phone menu names itself by the same rule (`vaultOn` in `StageMenu`). The header's greeting is
+  unchanged.
+- **Desks Finance can't use are hidden, by explicit access entries.** Briefs, Network, Analytics, the Audit
+  log, Integrations and NEXT Editions / Inventory / Rights now have `ADMIN_ACCESS` entries listing the roles
+  the API actually serves (each cites its policy row), so the nav hides them and the page shows "Not in your
+  role". NEXT Splits is mapped to BTG admins and Finance. A Finance-only viewer's nav is: Treasury,
+  Campaigns, Disputes, Payment events, Payouts, Refunds to send, Splits. No role lost a desk its reads allow.
+- **What's left is re-cut in `vault.css`,** scoped under `.sx-ops.sx-vault`: the stage column's own ground,
+  `<body>`, NEXT's violet, the shared stat and card figures (gold serif), the Mission Control kit (panels,
+  cards, brackets, KPI bars and numbers, cyan words) and the Splits payee fills (`data-payee`).
 
 ## 3. Page anatomy (memory `admin-desks-are-dashboards`)
 
@@ -260,7 +278,9 @@ type FinanceOverview = {
 
 ## 9. Out of scope
 
-- Restyling Analytics, the Audit log, Integrations or the NEXT Splits screen.
+- Restyling Analytics, the Audit log or Integrations for BTG admins: they stay on Mission Control. (Finance
+  no longer sees them — see §2's follow-up — and Splits and Campaigns are on the Vault for a Finance-only
+  viewer.)
 - A separate `/finance` URL space.
 - New write actions.
 - Zoho changes.

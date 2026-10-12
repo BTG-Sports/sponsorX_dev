@@ -99,3 +99,29 @@ Never put chamfers, brackets, scan-lines, lanes or speed bars on a Vault screen.
 - Decide whether refunds sent by hand should come off "Money in".
 - Analytics, the Audit log, Integrations and NEXT stay on Mission Control, even for Finance users.
 - The repo has no jsdom, so the `<body>` class switch has no DOM test; the browser walks cover it.
+
+### Follow-up: Finance is its own portal on every page
+**The owner's complaint (with screenshots):** a Finance user who opened Campaigns, Briefs, Network, NEXT, Analytics, the Audit log or Integrations dropped back into Mission Control; the sidebar still said "ADMIN PORTAL" and the watermark "ADMIN"; and Briefs was in their nav but said "Briefs are outside your role".
+
+**Desks, checked against the API (`backend/src/auth/policy.ts`):**
+| Desk | Finance | Why | Now mapped to |
+|---|---|---|---|
+| Campaigns | kept | `campaign` read own-tenant | (open, unchanged) |
+| NEXT Splits | kept | `/editions` lists via `revenueSplit` read; splits read and lock | BTG admins and Finance |
+| Briefs | hidden | `campaignBrief` read: BTG admin, campaign mgr, Sales | those three + super admin |
+| Network, Analytics | hidden | tenant-wide `metricAggregate` read | BTG admin, campaign and network mgrs |
+| Audit log | hidden | `auditLog` read | BTG admins |
+| Integrations | hidden | tenant-wide `webhookDelivery` read | BTG admins |
+| NEXT Editions, Inventory, Rights | hidden | `/editions/:id`, `/ledger` need `edition` read; `/rights-ledger` needs `editionAsset` | BTG admins |
+
+- Each mapped page now also opens with `staffWithoutAccess` → `NotInRole`, so a direct visit says "Not in your role" (with "Back to the Treasury") the same way everywhere. The API's 403 handling stays as the backstop.
+- **Other roles:** the new entries also take out desks the API already refused them. Sales loses Network, Analytics, Audit, Integrations and NEXT Editions/Inventory/Rights/Splits (it holds no edition read, so all four refused it); campaign managers lose Audit and Integrations; network managers lose Briefs, Audit and Integrations. No desk any role could actually use disappeared, and `admin-nav.test.ts` pins every staff role's nav.
+- A Finance-only viewer's nav is now: Treasury, Campaigns, Disputes, Payment events, Payouts, Refunds to send, Splits.
+
+**The Vault everywhere for Finance.** `lib/vault-routes.ts` gained `vaultOn(path, mode)` with modes `off` / `money` / `all`. The admin layout passes `vault="all"` when `isFinanceOnly`, else `true` (money routes only). `StageRoot` uses `vaultOn`, and still sets `sx-vault` / `data-vault` on `<body>`.
+
+**The label follows the look.** `PortalShell` renders both words for the sidebar label and the watermark (`.sx-when-ops` / `.sx-when-vault`); `vault.css` shows one. The phone menu (`StageMenu`) picks its label with `vaultOn`. The header greeting is unchanged.
+
+**Re-skin (vault.css only, under `.sx-ops.sx-vault`):** the stage column's own cyan ground and `<body>`'s background; NEXT's violet tokens to gold; stat-tile and campaign-card figures in the gold serif; the Mission Control kit (panels, cards, brackets, KPI bars and counts, cyan words) in case a page using it opens on the Vault; the Splits payee fills, each a distinct vault shade. The only markup change is a `data-payee` attribute on the Splits bar and swatches: under the Vault tokens its four fills (admin, primary, next, accent) were one gold.
+
+**Verified:** tsc and eslint clean; vitest 126 files / 1353 tests. Browser walk on the live dev servers: as QA Finance, every nav page plus Briefs and Audit (direct visits) at 1440 and 390 have `sx-vault` on `<body>`, "FINANCE PORTAL" / "FINANCE", the phone menu says "Finance Portal", and the computed-style scan finds no Mission Control cyan, chamfer, bracket or floor grid; no console errors, no horizontal scroll. As QA admin, `/admin`, `/admin/campaigns`, `/admin/audit` and `/admin/next/editions` are unchanged Mission Control with "ADMIN" labels, and `/admin/payouts` is the Vault with "FINANCE".
