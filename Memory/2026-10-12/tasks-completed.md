@@ -119,3 +119,25 @@ The user decided each one: market geography from registration plus a reward venu
 - **Tests: `tests/warehouse-ingest.test.ts`, 13 tests** against product and warehouse Postgres. The warehouse database is `<test db>_warehouse`, created automatically (CI's Postgres user can do this). They cover: first copy; no personal data; only the listed audit actions; a re-run adding nothing; one new version per change; a deleted version; a late click city updated, not duplicated; and the lock.
 - **Verified:** tsc and eslint clean; **full backend suite 193 files / 3,102 tests pass**.
 - **Left:** it runs in production once 3S0-OPS-01 provisions the warehouse database and sets the variable.
+
+## rcfworks — 3S0-OPS-01: warehouse selected, staging provisioned (In progress)
+
+- **The user's decisions:** transforms as SQL files run by the worker (no dbt); the reader login limited to the allow-listed columns; staging first, production after the user's OK.
+- **Decision recorded:** `.claude/stack-decision.md` **Addendum C**. It covers the choice of Postgres on Railway over BigQuery and Snowflake (data measured at 5.5 MB on staging, 7 rows in production), SQL transforms over dbt, the reader login, the cost model, and revisit triggers.
+  - **Cost: about $3.50 a month per environment now, about $7 for both**; $9–$14 in year one.
+  - Inputs: Railway prices checked 2026-10-12 (RAM $10/GB, CPU $20/vCPU, volume $0.15/GB, buckets $0.015/GB) and the staging product Postgres's measured 0.29 GB RAM and 0.011 vCPU.
+- **Code (PR #187):**
+  - `worker/warehouse/grants.mts` generates column-level SELECT grants from `sources.mts`, revoking any earlier grants first, and makes every transaction read-only.
+  - `scripts/warehouse-reader.mts`, run as `npm run warehouse:reader`.
+  - The worker reads the product through `WAREHOUSE_SOURCE_DATABASE_URL` when it is set.
+  - `tests/warehouse-reader.test.ts` (6 tests): a full ingestion runs through the reader; the reader is refused `Athlete.email`, `RewardToken.token`, the `User` table and any write.
+  - **Full suite 194 files / 3,108 tests pass.**
+- **Staging, provisioned:**
+  - Service `Postgres-warehouse` (8903a76f). `railway add` **ignored `-s` and named it `Postgres-Ac6n`, in `sfo`**. It was renamed through the `serviceUpdate` GraphQL call and moved to `us-east4-eqdc4a` with `railway service scale` while still empty.
+  - Backups: PITR enabled and wired to `sponsorx-pg-backups`, daily and weekly snapshots, first backup taken, archiver on.
+- **Not yet done, and why:** the reader login on staging failed safely (rolled back) because staging's database lacks today's migrations. `release` moves only at the nightly CI run (12:00 UTC) and was 49 commits behind `main`. After the deploy that carries #185–#187:
+  - apply the reader login on staging (the `railway ssh` pattern);
+  - set `WAREHOUSE_DATABASE_URL` and `WAREHOUSE_SOURCE_DATABASE_URL` on staging `api`;
+  - verify a real run;
+  - then production, with the user's OK.
+- The password for staging's reader is in the session scratchpad only, until it is set as a Railway variable.

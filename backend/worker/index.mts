@@ -372,6 +372,7 @@ const EDITION_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 /* 3S1-DATA-01 — warehouse ingestion, hourly, where a warehouse is configured. */
 let warehouseTimer: ReturnType<typeof setInterval> | undefined;
 let warehousePool: pg.Pool | undefined;
+let warehouseSourcePool: pg.Pool | undefined;
 const WAREHOUSE_INGEST_INTERVAL_MS = 60 * 60 * 1000;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
    channel is renewed every 12 hours against a 24-hour expiry. */
@@ -911,8 +912,14 @@ async function main(): Promise<void> {
   const warehouseUrl = process.env.WAREHOUSE_DATABASE_URL;
   if (warehouseUrl) {
     warehousePool = new pg.Pool({ connectionString: warehouseUrl, options: "-c TimeZone=UTC", max: 2 });
+    /* 3S0-OPS-01 — read the product through its read-only login, which can
+       see only the allow-listed columns (worker/warehouse/grants.mts). The
+       worker's own connection is the fallback for local development. */
+    const sourceUrl = process.env.WAREHOUSE_SOURCE_DATABASE_URL;
+    warehouseSourcePool = sourceUrl ? new pg.Pool({ connectionString: sourceUrl, options: "-c TimeZone=UTC", max: 1 }) : undefined;
+    if (!sourceUrl) log("[worker] WAREHOUSE_SOURCE_DATABASE_URL is not set — ingestion reads through the worker's own connection.");
     const warehouseIngest = () => {
-      void ingestWarehouse({ product: pool, warehouse: warehousePool! })
+      void ingestWarehouse({ product: warehouseSourcePool ?? pool, warehouse: warehousePool! })
         .then((out) => {
           if (out.status === "skipped") return log(`[worker] warehouse ingest skipped: ${out.reason}`);
           const changed = Object.entries(out.rows)
@@ -1012,6 +1019,7 @@ export async function stopWorker(): Promise<void> {
   if (editionTimer) clearInterval(editionTimer);
   if (warehouseTimer) clearInterval(warehouseTimer);
   await warehousePool?.end().catch(() => {});
+  await warehouseSourcePool?.end().catch(() => {});
   timer = undefined;
   expiryTimer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});
