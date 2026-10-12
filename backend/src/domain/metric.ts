@@ -67,7 +67,7 @@ export async function recordMetric(
     source: MetricSource;
   },
   now = new Date(),
-): Promise<{ id: string; source: MetricSource; day: Date }> {
+): Promise<{ id: string; source: MetricSource; day: Date; recordedAt: Date; updatedAt: Date }> {
   assertTenantWide(actor, "metricEvent", "write");
 
   const day = dayOf(input.day);
@@ -105,7 +105,7 @@ export async function recordMetric(
         engagements: input.engagements,
         enteredBy: input.source === "VERIFIED_API" ? null : actor.userId,
       },
-      select: { id: true, source: true, day: true },
+      select: { id: true, source: true, day: true, createdAt: true, updatedAt: true },
     });
 
     await audit(tx, actor, AUDIT_ACTIONS.metric.record, "MetricDaily", row.id, {
@@ -118,7 +118,7 @@ export async function recordMetric(
       },
     });
 
-    return { id: row.id, source: row.source as MetricSource, day: row.day };
+    return { id: row.id, source: row.source as MetricSource, day: row.day, recordedAt: row.createdAt, updatedAt: row.updatedAt };
   });
 }
 

@@ -37,6 +37,7 @@ import { seedEnvironment, TENANT_ID } from "./jobs/seed-environment.mts";
 import { seedCatalogue } from "./jobs/seed-catalogue.mts";
 import { expireInvitations } from "./jobs/expire-invitations.mts";
 import { handleInvitationSent, type InvitationJob } from "./jobs/notify-invitation.mts";
+import { notifyCampaignLive } from "../src/domain/campaign-live-mail.ts";
 
 /**
  * The job names this worker can actually consume.
@@ -49,6 +50,8 @@ import { handleInvitationSent, type InvitationJob } from "./jobs/notify-invitati
 const HANDLED_JOBS = new Set<string>([
   "notify.email",
   "notify.invitationSent",
+  /* 3S0-BE-02 — the campaign-live email a launch queues. */
+  "notify.campaignLive",
   "reward.generateQr",
   "image.derive",
   "tracking.resolveGeo",
@@ -480,6 +483,17 @@ async function main(): Promise<void> {
         ? `[worker] notify.invitationSent queued mail to ${maskEmail(outcome.to)}`
         : `[worker] notify.invitationSent skipped: ${outcome.reason}`,
     );
+  });
+
+  /* 3S0-BE-02 — every launch queued this since P5-BE-04; it resolves the
+     campaign now and queues notify.email rows, so the vendor call stays in
+     one place. A campaign no longer live sends nothing. */
+  await ensureQueue("notify.campaignLive");
+  await boss.work<{ campaignId: string }>("notify.campaignLive", async ([job]) => {
+    const outcome = await notifyCampaignLive(job.data.campaignId);
+    log("queued" in outcome
+      ? `[worker] notify.campaignLive queued ${outcome.queued} email(s)`
+      : `[worker] notify.campaignLive skipped: ${outcome.skipped}`);
   });
 
   /* P7-BE-04 — the inbound half of §18. The webhook route recorded the

@@ -1,6 +1,8 @@
 # SponsorX Event Taxonomy Audit — Phases 1 and 2
 
-**Task `3S0-DATA-01` · Version 1.0 · 2026-10-12 · Phase 3, Sprint 0**
+**Task `3S0-DATA-01` · Version 1.1 · 2026-10-12 · Phase 3, Sprint 0**
+
+> **v1.1 (2026-10-12):** five gaps fixed the same day as `3S0-BE-01`…`05`: G1, G2/G3, G4, G7 and G9. They are marked in §5, and the market-geography rule is in §6.
 
 Phase 3 builds a warehouse, benchmarks, pricing, forecasting and attribution on
 top of what Phases 1 and 2 already record. This document lists **every event
@@ -191,7 +193,7 @@ The job's **outcome is not written back**; it lives only in pg-boss's own tables
 | `payouts.send` | `payouts.ts`, `onboarding.ts` | payout handler |
 | `payouts.confirm` | **none found** | payout handler |
 | `refunds.send` | `refunds.ts` | refund handler |
-| `notify.campaignLive` | `campaign.ts` L253, on every launch | **none** (see gap G1) |
+| `notify.campaignLive` | `campaign.ts` L253, on every launch | `domain/campaign-live-mail.ts` (since `3S0-BE-02`; was none, gap G1) |
 | `notify.deliverableDue`, `zoho.pushAthlete` | none | none (declared only) |
 
 **Interval sweeps** in `worker/index.mts` (22 timers): invitation expiry, metric
@@ -219,15 +221,15 @@ Severity reflects the impact on Phase 3's numbers, not on the product today.
 
 | # | Gap | Where | Severity | Effect on Phase 3 |
 |---|---|---|---|---|
-| G1 | `notify.campaignLive` is enqueued on every campaign launch but no worker handles it, so the rows stay in `OutboxJob` forever (the drain skips unhandled names on purpose) | `domain/campaign.ts` L253; `HANDLED_JOBS` in `worker/index.mts` | Medium | An outbox-based "pending work" metric reads permanently high. No launch email is sent. |
-| G2 | **`RewardEvent.city` / `region` are never filled.** SCAN, LANDING and CLAIM are written without them, and the geo job only resolves `LinkEvent`. The reward taxonomy promises coarse geography on SCAN. | `domain/reward.ts` `writeEvent` callers; `worker/jobs/resolve-geo.mts` | High | No geography for the reward funnel, so `3S1-DATA-03` benchmarks by market cannot use it. |
-| G3 | **`GEOLITE2_CITY_PATH` is unset on staging and production** (2026-10-09 audit), so `LinkEvent.city` / `region` are null everywhere too | worker env | High | All behavioural geography is empty in real data. |
-| G4 | Refused repeat redemptions are not recorded; the request gets a 409 and nothing is written. The reward taxonomy says these attempts should be logged to spot shared codes. | `domain/reward.ts` redeem path | Medium | `3S8-DATA-01` anomaly rules lose their best fraud signal. |
+| G1 | **Fixed by `3S0-BE-02`.** `notify.campaignLive` is enqueued on every campaign launch but no worker handles it, so the rows stay in `OutboxJob` forever (the drain skips unhandled names on purpose) | `domain/campaign.ts` L253; `HANDLED_JOBS` in `worker/index.mts` | Medium | An outbox-based "pending work" metric reads permanently high. No launch email is sent. |
+| G2 | **Addressed by `3S0-BE-05`:** market geography now comes from registration and the reward's venue (§6); fan-level geography on these rows is still empty. **`RewardEvent.city` / `region` are never filled.** SCAN, LANDING and CLAIM are written without them, and the geo job only resolves `LinkEvent`. The reward taxonomy promises coarse geography on SCAN. | `domain/reward.ts` `writeEvent` callers; `worker/jobs/resolve-geo.mts` | High | No geography for the reward funnel, so `3S1-DATA-03` benchmarks by market cannot use it. |
+| G3 | **No longer blocking (`3S0-BE-05`, §6):** GeoLite is still unset, but market geography no longer depends on it. **`GEOLITE2_CITY_PATH` is unset on staging and production** (2026-10-09 audit), so `LinkEvent.city` / `region` are null everywhere too | worker env | High | All behavioural geography is empty in real data. |
+| G4 | **Fixed by `3S0-BE-04`.** Refused repeat redemptions are not recorded; the request gets a 409 and nothing is written. The reward taxonomy says these attempts should be logged to spot shared codes. | `domain/reward.ts` redeem path | Medium | `3S8-DATA-01` anomaly rules lose their best fraud signal. |
 | G5 | `LinkEvent` and `EditionEvent` have no bot or prefetch marker and no dedup; every request is a row | `tracking.ts`, `edition.ts` | Medium | Click counts include crawlers and link-preview fetchers; benchmarks need a filter rule first. |
 | G6 | Two vocabularies say "scan" and "click": `RewardEventType.SCAN` versus `EngagementType.QR_SCAN`, and `LinkEvent` versus `EngagementType.LINK_CLICK` | schema enums | Medium | The warehouse must keep the channels apart by name, or edition and athlete funnels blend. |
-| G7 | `MetricDaily` has no timestamp (`createdAt` / `updatedAt`), and a same-source correction overwrites the row. The earlier figure survives only in the previous `metric.record` audit row. | `schema.prisma` `MetricDaily`; `metric.ts` upsert | High | "What did we know on day X" (feature snapshots, `3S2-BE-01`) cannot be read from the table; it has to be rebuilt from the audit log. |
+| G7 | **Fixed by `3S0-BE-01`.** `MetricDaily` has no timestamp (`createdAt` / `updatedAt`), and a same-source correction overwrites the row. The earlier figure survives only in the previous `metric.record` audit row. | `schema.prisma` `MetricDaily`; `metric.ts` upsert | High | "What did we know on day X" (feature snapshots, `3S2-BE-01`) cannot be read from the table; it has to be rebuilt from the audit log. |
 | G8 | Ledger, payment, payout and refund **status changes are in-place updates**. Only some moves have an audit row (payouts and refunds do; `LedgerEntry.status` does not). | `ledger.ts` L170, L229 | Medium | Daily balances by status must be snapshotted by ingestion, or history is lost. |
-| G9 | Audit action names are inconsistent: one archive is logged as `listing.archive` (onboarding) **and** `listing.archived` (owner); `listing.request_changes` is snake_case; `listing.paused` and `marketplaceOrder.<state>` are states while the convention is verbs | `onboarding.ts` L786; `listing.ts` L634, L677; `marketplace-order.ts` L709 | Medium | Event counts by action split one transition across two names. |
+| G9 | **Archive fixed by `3S0-BE-03`;** the snake_case and state-named actions remain. Audit action names are inconsistent: one archive is logged as `listing.archive` (onboarding) **and** `listing.archived` (owner); `listing.request_changes` is snake_case; `listing.paused` and `marketplaceOrder.<state>` are states while the convention is verbs | `onboarding.ts` L786; `listing.ts` L634, L677; `marketplace-order.ts` L709 | Medium | Event counts by action split one transition across two names. |
 | G10 | `AuditLog.after` has no schema or version: its shape is whatever each call site passes | every `audit()` call | Medium | The warehouse needs a per-action parser, and a code change silently changes the shape. |
 | G11 | A system act and an anonymous public act look the same (`actorId` null at 92 sites); one site uses the pseudo-id `system:auto-staffing:<tenant>` | `domain/*` | Low | Automation-rate metrics ("how much did the system do") need the action name to tell them apart. |
 | G12 | Job outcomes are not recorded on `OutboxJob`; they live in pg-boss's tables under pg-boss's default retention | `worker/index.mts` drain | Low | Job success and failure history is short-lived; integration health over months is not reconstructable. |
@@ -241,8 +243,13 @@ Severity reflects the impact on Phase 3's numbers, not on the product today.
 
 These are suggestions only; none of them has been added to the task board.
 
-- **Code fixes to raise as tasks:** G1 (consume `notify.campaignLive` or stop enqueueing it), G2 (resolve reward-event geography the same way as clicks), G4 (record refused redemptions), G9 (one name per transition).
-- **Ops:** G3 (set `GEOLITE2_CITY_PATH`). It is already listed on `P2-OPS-04`.
+- **Fixed 2026-10-12:**
+  - G1 → `3S0-BE-02`: the worker sends the campaign-live email; earlier launches were closed as skipped.
+  - G2/G3 → `3S0-BE-05`: a reward takes its venue's city and state, and market geography comes from registration (§6). The venue form field is `3S0-FE-01`.
+  - G4 → `3S0-BE-04`: refused tries are counted on the code.
+  - G7 → `3S0-BE-01`: `MetricDaily` has `createdAt`/`updatedAt`, backfilled from the audit log.
+  - G9 → `3S0-BE-03`: one archive name. `listing.request_changes` and the state-named `listing.paused` / `marketplaceOrder.<state>` were left as they are, and nothing reads them by name.
+- **Ops, still open:** setting `GEOLITE2_CITY_PATH` (`P2-OPS-04`) would add the fan's IP-derived city to clicks. It is no longer needed for market geography (§6).
 - **Absorbed by later Phase 3 tasks:** G7 and G8 → `3S0-DATA-02` and `3S1-DATA-01` (snapshot on ingestion); G5 → `3S1-DATA-03` and `3S8-DATA-01`; G6 and G15 → `3S0-DATA-02` semantic layer; G14 → `3S0-PMO-01`; G10 → `3S0-DATA-02`.
 
 ---
@@ -259,6 +266,8 @@ These are suggestions only; none of them has been added to the task board.
   status (G7, G8).
 - **Keep channels apart:** reward QR versus edition QR versus tracking link (G6), and
   provenance labels carried on every metric row.
+- **Market geography comes from registration, not from IP.** A campaign's market is where its athletes and properties are registered (`Athlete.city`/`stateCode`, `Property.city`/`stateCode`) and what its brief targets (`CampaignBrief.stateCodes`). For an in-person reward it is also where the reward is handed out (`Reward.venueCity`/`venueStateCode`, `3S0-BE-05`). These are stable and always filled, unlike IP lookups. IP-derived `city`/`region` on events is the fan's location: an optional extra, never the market.
+- **Old action names map to current ones.** `listing.archived` (written before `3S0-BE-03`) means `listing.archive`. The audit log is append-only, so those rows keep their name and the semantic layer maps them.
 - **Tenant scope travels with every row.** Every event table has `tenantId`.
   `LedgerEntry` also has `partyTenantId`, which is the one to scope a payee's view by.
 

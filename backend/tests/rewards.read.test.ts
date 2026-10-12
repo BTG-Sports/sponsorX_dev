@@ -44,8 +44,8 @@ const REWARD = {
   expiresAt: new Date("2026-12-01T00:00:00Z"), state: "ACTIVE",
   campaign: { id: "cmp_1", name: "Fall", endDate: new Date("2026-11-30T00:00:00Z"), sponsor: { name: "Bowie" } },
   tokens: [
-    { id: "tk_1", token: "secret-a", qrKey: "t/t/qr/tk_1.png", athlete: { id: "a1", displayName: "JORDAN" } },
-    { id: "tk_2", token: "secret-b", qrKey: null, athlete: { id: "a2", displayName: "SAM" } },
+    { id: "tk_1", token: "secret-a", qrKey: "t/t/qr/tk_1.png", refusedRedeems: 3, lastRefusedRedeemAt: new Date("2026-10-11T18:00:00Z"), athlete: { id: "a1", displayName: "JORDAN" } },
+    { id: "tk_2", token: "secret-b", qrKey: null, refusedRedeems: 0, lastRefusedRedeemAt: null, athlete: { id: "a2", displayName: "SAM" } },
   ],
 };
 
@@ -94,8 +94,8 @@ describe("GET /rewards/:id", () => {
   it("BTG gets token strings to print, and QR readiness", async () => {
     const b = await run(readReward, admin, { params: { id: "rw_1" } });
     expect(b.tokens).toEqual([
-      { id: "tk_1", athlete: { id: "a1", displayName: "JORDAN" }, qrReady: true, token: "secret-a" },
-      { id: "tk_2", athlete: { id: "a2", displayName: "SAM" }, qrReady: false, token: "secret-b" },
+      { id: "tk_1", athlete: { id: "a1", displayName: "JORDAN" }, qrReady: true, refusedRedeems: 3, lastRefusedRedeemAt: "2026-10-11T18:00:00.000Z", token: "secret-a" },
+      { id: "tk_2", athlete: { id: "a2", displayName: "SAM" }, qrReady: false, refusedRedeems: 0, lastRefusedRedeemAt: null, token: "secret-b" },
     ]);
   });
   it("a sponsor sees tokens but never their strings", async () => {
