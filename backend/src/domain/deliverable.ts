@@ -50,6 +50,7 @@ import {
 import { maybeMakeEligible } from "./earning";
 import { advanceCampaignOfOrder } from "./campaign-stages";
 import { decideSkip, isBtgReviewer, lockAthleteContent, SKIP_ATHLETE_SELECT } from "./content-trust";
+import { platformOf } from "./deliverable-platform";
 
 export class PublishedUrlRequiredError extends Error {
   readonly status = 400;
@@ -700,8 +701,8 @@ export async function markPublished(
     action: "write",
     tenantWide: false,
     auditAction: AUDIT_ACTIONS.deliverable.markPublished,
-    data: { publishedUrl: trimmed, publishedAt: new Date() },
-    after: { publishedUrl: trimmed },
+    data: { publishedUrl: trimmed, publishedAt: new Date(), platform: platformOf(trimmed) },
+    after: { publishedUrl: trimmed, platform: platformOf(trimmed) },
   });
 }
 

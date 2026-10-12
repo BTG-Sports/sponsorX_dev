@@ -62,7 +62,7 @@ const APPEARANCE_JOBS = new Set(["SX-05"]);
 const STATES = ["NOT_STARTED", "DRAFT_SUBMITTED", "BTG_REVIEW", "SPONSOR_REVIEW", "APPROVED", "PUBLISHED", "VERIFIED"];
 
 const LIST_SELECT = {
-  id: true, title: true, dueDate: true, state: true, publishedUrl: true, publishedAt: true,
+  id: true, title: true, dueDate: true, state: true, publishedUrl: true, publishedAt: true, platform: true,
   /* P5-BE-09 — the latest submission's caption and checks, and the wait. */
   caption: true, captionVersion: true, checks: true, checksPassed: true, checkedAt: true, reviewWaitingSince: true,
   /* P5-BE-10 — the latest submission skipped BTG's review, and why. */
@@ -85,7 +85,7 @@ const LIST_SELECT = {
 
 type ListRow = {
   id: string; title: string; dueDate: Date; state: string;
-  publishedUrl: string | null; publishedAt: Date | null;
+  publishedUrl: string | null; publishedAt: Date | null; platform?: string | null;
   caption: string | null; captionVersion: number | null;
   checks: unknown; checksPassed: boolean | null; checkedAt: Date | null; reviewWaitingSince: Date | null;
   btgReviewSkipped: boolean; skipReason: string | null;
@@ -139,6 +139,8 @@ function rowOut(d: ListRow, revision: { reason: string; at: Date } | undefined, 
     state: d.state,
     publishedUrl: d.publishedUrl,
     publishedAt: d.publishedAt?.toISOString() ?? null,
+    /* 3S0-BE-06 — read from the published URL at publish; null until then. */
+    platform: d.platform ?? null,
     orderId: d.order.id,
     jobId: d.order.jobId,
     jobName: d.order.job.name,
