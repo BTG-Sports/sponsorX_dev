@@ -102,7 +102,7 @@ Its API mirrors the Stadium kit, so the pages read the same way.
 |---|---|
 | `VaultGround` | The green and gold glows, two SVG guilloché rosettes (top right, bottom left, about 14% opacity) and the pointer light (`data-spot`, as in the other grounds) |
 | `VaultHead({title, pill, actions, children})` | The title row; the tiles go in as children |
-| `VaultTiles({cols})` / `VaultTile({label, value, format, caption, delta, deltaLabel, href, hint, tone, delay})` | A double-rule tile with an `ArenaCount` count-up in `.sx-vault-num` (gold gradient serif). `delta` is a fraction (▲/▼ %, "vs the 30 days before"). `tone="you"` gives a gold border and a badge; `"late"` gives red. `href` makes the whole tile a link. `hint` adds a "?" through `VaultHint` (`vault-hint.tsx`, a copy of `stadium-hint.tsx`'s mechanics in the Vault's tokens) |
+| `VaultTiles({cols})` / `VaultTile({label, value, format, caption, delta, deltaLabel, href, hint, tone, delay})` | A double-rule tile with an `ArenaCount` count-up in `.sx-vault-num` (gold gradient serif). `delta` is a fraction (▲/▼ %, "vs the 30 days before"). `tone="you"` gives a gold border and a badge; `"late"` gives red. `href` makes the whole tile a link. `hint` adds a "?" through the existing `StadiumHint`, which gains a `skin?: "stadium" | "vault"` prop picking `sx-<skin>-q` / `sx-<skin>-tip` (default `stadium`, so the sponsor side is unchanged) |
 | `VaultBox({label, count, amountCents, sub, href, delay})` | A Needs-you "deposit box": count · amount, the oldest wait, and "Open …". The whole box is a link. A key-ring glyph sits top right |
 | `VaultPanel({children, flush, delay, tone})` / `VaultSection({title, hint, action})` | A panel and a section's title row (serif heading) |
 | `VaultDial({value, label, caption})` | The ring gauge (`value` 0..1): an SVG ring with a gradient stroke that sweeps to the value, and a ticked bezel that turns slowly (stopped with reduced motion), with the % in the centre in the serif |
@@ -145,7 +145,7 @@ existing demo case, laid out the same way and marked "Sample".
    A box with a count of 0 shows "All clear" in green, and stays visible.
 4. **Money in vs. money out** (`VaultFlow`, about 2/3 width), with **`VaultDial` "Settled"** beside it:
    - The dial shows `settled.rate`, captioned "Of what athletes and properties earned, how much has been paid".
-   - **BTG admins only** (when `invoices` is present) also get a second dial, "Collected" (the Zoho invoice rate), and the unpaid-invoice ageing (0–30 / 31–60 / 61–90 / 90+, with 90+ in red).
+   - **BTG admins only** (when `invoices` is present) also get a second dial, "Collected" (the Zoho invoice rate), and the unpaid-invoice ageing by days past due, using `/earnings/reconciliation`'s own cut: not yet due / 1–30 / 31–60 / over 60 days, with over 60 in red.
    - Finance never sees either; that's the 2026-09-24 rule. Nothing is shown as 0 in their place: the panel is simply absent.
 5. **Where the money went** (`VaultSplit`, from the ledger, captioned "Marketplace sales") beside **Athlete pay, step by step** (`VaultSteps`, from `earningsByState`).
 6. **The books:** one panel with a `TabStrip` driven by `?tab=`:
@@ -213,7 +213,7 @@ type FinanceOverview = {
     disputes: { count: number; cents: number };                          // PaymentDispute OPEN | UNDER_REVIEW
     events:   { count: number };                                         // the waitingOnBtg rule of GET /payment-events
   };
-  invoices?: { invoicedCents: number; collectedCents: number; rate: number | null; aging: [number, number, number, number] }; // ONLY when the actor can read campaignInvoice; the same totals as /earnings/reconciliation
+  invoices?: { invoicedCents: number; collectedCents: number; rate: number | null; aging: number[] }; // ONLY when rightsOf(actor).seeInvoices; exactly reconciliationTotals() — rate is a whole percent, aging = [not yet due, 1–30, 31–60, >60 days late]
 };
 ```
 
