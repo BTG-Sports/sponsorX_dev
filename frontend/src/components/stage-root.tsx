@@ -19,8 +19,16 @@ export function StageRoot({ className, vault, children }: { className: string; /
 
   useEffect(() => {
     if (!on) return;
+    /* classList.add/dataset here touch <body> as a shared set, not a
+       reference count — that's safe only because exactly one StageRoot is
+       ever mounted at a time (one PortalShell per page), so there is never
+       a second mount whose cleanup could step on this one's. */
     document.body.classList.add("sx-vault");
-    return () => document.body.classList.remove("sx-vault");
+    document.body.dataset.vault = "";
+    return () => {
+      document.body.classList.remove("sx-vault");
+      delete document.body.dataset.vault;
+    };
   }, [on]);
 
   return (

@@ -58,6 +58,31 @@ describe("P1-ART-25 · the admin nav per viewer", () => {
     expect(rootFor(["FINANCE", "SALES"])).toBe("/admin");
     expect(navFor(["FINANCE", "SALES"])[0]).toMatchObject({ href: "/admin", label: "Dashboard" });
   });
+
+  /* Guard: if the layout stopped calling navFor/rootFor/dockFor, nothing
+     above would fail — these pin the per-desk access map (lib/admin-access)
+     and isCommissionAdmin through the actual roles staff sign in with. */
+  it("hides both money desks from a campaign manager and from sales", () => {
+    for (const role of ["CAMPAIGN_MGR", "SALES"]) {
+      const nav = navFor([role]);
+      expect(nav.some((n) => n.href === "/admin/commission"), role).toBe(false);
+      expect(nav.some((n) => n.href === "/admin/finance"), role).toBe(false);
+    }
+  });
+
+  it("hides the money desks from an athlete network manager too", () => {
+    const nav = navFor(["NETWORK_MGR"]);
+    for (const href of ["/admin/commission", "/admin/finance", "/admin/payouts", "/admin/refunds", "/admin/payments/events", "/admin/payments/disputes"]) {
+      expect(nav.some((n) => n.href === href), href).toBe(false);
+    }
+  });
+
+  it("gives a super admin everything: Dashboard on top, Commission and Treasury both present", () => {
+    const nav = navFor(["SUPER_ADMIN"]);
+    expect(nav[0]).toMatchObject({ href: "/admin", label: "Dashboard" });
+    expect(nav.some((n) => n.href === "/admin/commission")).toBe(true);
+    expect(nav.some((n) => n.href === "/admin/finance" && n.label === "Treasury")).toBe(true);
+  });
 });
 
 describe("P1-ART-25 · the shell root switches on money routes", async () => {

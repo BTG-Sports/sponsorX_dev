@@ -1,5 +1,6 @@
 import { EmptyState } from "@/components/states";
-import { accessFor } from "@/lib/admin-access";
+import { accessFor, isFinanceOnly } from "@/lib/admin-access";
+import { rootFor } from "@/lib/admin-nav";
 import { roleLabel } from "@/server/viewer";
 import { fetchActor } from "@/server/api";
 
@@ -25,6 +26,12 @@ export async function staffWithoutAccess(path: string): Promise<string[] | null>
 
 export function NotInRole({ path, title, roles }: { path: string; title: string; roles: string[] }) {
   const a = accessFor(path);
+  /* P1-ART-25 — a Finance-only viewer has no Operations Board: their home is
+     the Treasury, so the bounce-back goes there under its own name instead
+     of dropping them on a board they can't use. */
+  const home = isFinanceOnly(roles)
+    ? { label: "Back to the Treasury", href: rootFor(roles) }
+    : { label: "Back to the Operations Board", href: rootFor(roles) };
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
@@ -32,7 +39,7 @@ export function NotInRole({ path, title, roles }: { path: string; title: string;
         mark="users"
         title="Not in your role"
         hint={`This desk is for ${a?.who ?? "other BTG roles"}. You're signed in as ${roleLabel(roles)}. If you need it, ask a BTG admin to add the role.`}
-        action={{ label: "Back to the Operations Board", href: "/admin" }}
+        action={home}
       />
     </div>
   );
