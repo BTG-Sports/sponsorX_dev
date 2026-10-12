@@ -21,10 +21,13 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
    test database, and the rows other test files leave carry real-clock dates,
    so this file's windows hold only this file's money.
 
-   The ledger is seeded as ledger.ts posts it: a booking's payables, a
+   The ledger is seeded as ledger.ts posts it — balanced journals in its id
+   format and statuses: a booking (the sponsor's receivable debited), a
    reserve released into a payable (RESERVE_RELEASE), a reversed booking with
-   its REVERSAL mirror, and the PAYOUT journal behind the paid payout — the
-   payable debited PAID, PAYOUT_CLEARING credited — exactly postPayout's shape.
+   its REVERSAL mirror, a booked-released-reversed line (whose release
+   reversal is not a sale), the PAYOUT journal behind each paid payout (the
+   payable debited PAID, PAYOUT_CLEARING credited — postPayout's shape), and a
+   second athlete refunded after a payout, who owes money back.
    -------------------------------------------------------------------------- */
 
 process.env.DATABASE_URL ??= "postgresql://sponsorx:sponsorx@localhost:5432/sponsorx";
@@ -116,30 +119,87 @@ describe.skipIf(!hasDatabase)("GET /finance/overview — the Treasury (P1-ART-25
     await prisma.earning.create({ data: { id: `${p}-earning-paid`, tenantId, athleteId: `${p}-ath1`, orderId: `${p}-corder-paid`, gross: 4_000, adjustment: 0, state: "PAID", paidAt: ago(3), taxYear: 2004 } });
     await prisma.earning.create({ data: { id: `${p}-earning-apfp`, tenantId, athleteId: `${p}-ath1`, orderId: `${p}-corder-apfp`, gross: 1_500, adjustment: 0, state: "APPROVED_FOR_PAYOUT", taxYear: 2004 } });
 
-    /* The ledger, as ledger.ts posts it. */
+    /* The ledger, as ledger.ts posts it: every journal balanced, its id in
+       ledger.ts's format (`<order>:<line>:booking`, `…:<party>:release`,
+       `<journal>:reversal`, `<payout>:<order>:payout`), every leg in the
+       status ledger.ts gives it. */
     const entry = (id: string, d: { journalId: string; entryType: string; account: string; partyType: string; partyId: string; creditCents?: number; debitCents?: number; status: string; createdAt: Date }) =>
       prisma.ledgerEntry.create({ data: { id: `${p}-ledger-${id}`, tenantId, orderId: `${p}-order1`, partyTenantId: tenantId, ...d, journalId: `${p}-${d.journalId}` } });
     const athleteParty = { partyType: "ATHLETE", partyId: `${p}-ath1` };
-    /* The booking: what BTG kept, each payee's share, and a reserve. */
-    await entry("platform", { journalId: "j1", entryType: "BOOKING", account: "PLATFORM_REVENUE", partyType: "PLATFORM", partyId: "platform", creditCents: 1_200, status: "AVAILABLE", createdAt: ago(3) });
-    await entry("athlete", { journalId: "j1", entryType: "BOOKING", account: "ATHLETE_PAYABLE", ...athleteParty, creditCents: 6_000, status: "AVAILABLE", createdAt: ago(3) });
-    await entry("property", { journalId: "j1", entryType: "BOOKING", account: "PROPERTY_PAYABLE", partyType: "PROPERTY", partyId: `${p}-prop1`, creditCents: 2_000, status: "PENDING", createdAt: ago(3) });
-    await entry("reserve", { journalId: "j1", entryType: "BOOKING", account: "RESERVE_HELD", ...athleteParty, creditCents: 400, status: "AVAILABLE", createdAt: ago(3) });
-    /* The reserve released into the athlete's payable (releaseReserve). */
-    await entry("release-held", { journalId: "j-release", entryType: "RESERVE_RELEASE", account: "RESERVE_HELD", ...athleteParty, debitCents: 400, status: "AVAILABLE", createdAt: ago(1) });
-    await entry("release-payable", { journalId: "j-release", entryType: "RESERVE_RELEASE", account: "ATHLETE_PAYABLE", ...athleteParty, creditCents: 400, status: "AVAILABLE", createdAt: ago(1) });
-    /* A booked line later reversed (reverseOrder): the original marked
-       REVERSED, its mirror posted REVERSED — the pair nets to zero. */
-    await entry("athlete-reversed", { journalId: "j4", entryType: "BOOKING", account: "ATHLETE_PAYABLE", ...athleteParty, creditCents: 800, status: "REVERSED", createdAt: ago(3) });
-    await entry("athlete-reversal", { journalId: "j4:reversal", entryType: "REVERSAL", account: "ATHLETE_PAYABLE", ...athleteParty, debitCents: 800, status: "REVERSED", createdAt: ago(2) });
+    const athlete2Party = { partyType: "ATHLETE", partyId: `${p}-ath2` };
+    const sponsorParty = { partyType: "SPONSOR", partyId: `${p}-sp1` };
+    const platformParty = { partyType: "PLATFORM", partyId: tenantId };
+    const clearing = { account: "PAYOUT_CLEARING", partyType: "PROCESSOR", partyId: "processor" };
+    /* Line 1's booking (bookingEntries): the sponsor's receivable debited for
+       the net; BTG's fee, each payee's share and the athlete's reserve
+       credited. post() writes every leg PENDING; the sponsor has paid, so
+       markOrderPaid moved both payables to AVAILABLE. */
+    const l1 = { journalId: "order1:line1:booking", entryType: "BOOKING", createdAt: ago(3) };
+    await entry("l1-receivable", { ...l1, account: "SPONSOR_RECEIVABLE", ...sponsorParty, debitCents: 9_600, status: "PENDING" });
+    await entry("l1-platform", { ...l1, account: "PLATFORM_REVENUE", ...platformParty, creditCents: 1_200, status: "PENDING" });
+    await entry("l1-property", { ...l1, account: "PROPERTY_PAYABLE", partyType: "PROPERTY", partyId: `${p}-prop1`, creditCents: 2_000, status: "AVAILABLE" });
+    await entry("l1-reserve", { ...l1, account: "RESERVE_HELD", ...athleteParty, creditCents: 400, status: "PENDING" });
+    await entry("l1-athlete", { ...l1, account: "ATHLETE_PAYABLE", ...athleteParty, creditCents: 6_000, status: "AVAILABLE" });
+    /* releaseReserve: line 1's reserve into the athlete's payable, both legs AVAILABLE. */
+    const r1 = { journalId: "order1:line1:ATHLETE:release", entryType: "RESERVE_RELEASE", status: "AVAILABLE", createdAt: ago(1) };
+    await entry("r1-held", { ...r1, account: "RESERVE_HELD", ...athleteParty, debitCents: 400 });
+    await entry("r1-payable", { ...r1, account: "ATHLETE_PAYABLE", ...athleteParty, creditCents: 400 });
+    /* Line 4 booked, then reversed (reverseOrder): the booking's legs marked
+       REVERSED and their mirror posted REVERSED — the pair nets to zero. */
+    const l4 = { journalId: "order1:line4:booking", entryType: "BOOKING", status: "REVERSED", createdAt: ago(3) };
+    await entry("l4-receivable", { ...l4, account: "SPONSOR_RECEIVABLE", ...sponsorParty, debitCents: 800 });
+    await entry("l4-athlete", { ...l4, account: "ATHLETE_PAYABLE", ...athleteParty, creditCents: 800 });
+    const l4r = { journalId: "order1:line4:booking:reversal", entryType: "REVERSAL", status: "REVERSED", createdAt: ago(2) };
+    await entry("l4r-receivable", { ...l4r, account: "SPONSOR_RECEIVABLE", ...sponsorParty, creditCents: 800 });
+    await entry("l4r-athlete", { ...l4r, account: "ATHLETE_PAYABLE", ...athleteParty, debitCents: 800 });
+    /* Line 5 booked, its reserve released, then reversed. reverseOrder
+       mirrors the release too — a REVERSAL journal of its own,
+       `…:release:reversal`, which is not a sale: the line nets to zero in
+       `split` as in `owed`. */
+    const l5 = { journalId: "order1:line5:booking", entryType: "BOOKING", status: "REVERSED", createdAt: ago(3) };
+    await entry("l5-receivable", { ...l5, account: "SPONSOR_RECEIVABLE", ...sponsorParty, debitCents: 1_100 });
+    await entry("l5-reserve", { ...l5, account: "RESERVE_HELD", ...athleteParty, creditCents: 100 });
+    await entry("l5-athlete", { ...l5, account: "ATHLETE_PAYABLE", ...athleteParty, creditCents: 1_000 });
+    const r5 = { journalId: "order1:line5:ATHLETE:release", entryType: "RESERVE_RELEASE", status: "REVERSED", createdAt: ago(2) };
+    await entry("r5-held", { ...r5, account: "RESERVE_HELD", ...athleteParty, debitCents: 100 });
+    await entry("r5-payable", { ...r5, account: "ATHLETE_PAYABLE", ...athleteParty, creditCents: 100 });
+    const l5r = { journalId: "order1:line5:booking:reversal", entryType: "REVERSAL", status: "REVERSED", createdAt: ago(1) };
+    await entry("l5r-receivable", { ...l5r, account: "SPONSOR_RECEIVABLE", ...sponsorParty, creditCents: 1_100 });
+    await entry("l5r-reserve", { ...l5r, account: "RESERVE_HELD", ...athleteParty, debitCents: 100 });
+    await entry("l5r-athlete", { ...l5r, account: "ATHLETE_PAYABLE", ...athleteParty, debitCents: 1_000 });
+    const r5r = { journalId: "order1:line5:ATHLETE:release:reversal", entryType: "REVERSAL", status: "REVERSED", createdAt: ago(1) };
+    await entry("r5r-held", { ...r5r, account: "RESERVE_HELD", ...athleteParty, creditCents: 100 });
+    await entry("r5r-payable", { ...r5r, account: "ATHLETE_PAYABLE", ...athleteParty, debitCents: 100 });
     /* The paid payout's PAYOUT journal (postPayout). */
-    await entry("payout-payable", { journalId: "payout-paid:order1:payout", entryType: "PAYOUT", account: "ATHLETE_PAYABLE", ...athleteParty, debitCents: 3_000, status: "PAID", createdAt: ago(2) });
-    await entry("payout-clearing", { journalId: "payout-paid:order1:payout", entryType: "PAYOUT", account: "PAYOUT_CLEARING", partyType: "PROCESSOR", partyId: "processor", creditCents: 3_000, status: "PAID", createdAt: ago(2) });
+    const pay1 = { journalId: "payout-paid:order1:payout", entryType: "PAYOUT", status: "PAID", createdAt: ago(2) };
+    await entry("pay1-payable", { ...pay1, account: "ATHLETE_PAYABLE", ...athleteParty, debitCents: 3_000 });
+    await entry("pay1-clearing", { ...pay1, ...clearing, creditCents: 3_000 });
+
+    /* A refund after a payout, for athlete 2, outside every window but "all":
+       line 6 booked, the athlete paid 3_000 of it, then the line refunded.
+       reverseOrder leaves the PAYOUT journal alone (2S5-BE-05), so athlete 2's
+       payable nets to −3_000 — money owed BACK, which must not cut what is
+       owed to athlete 1 or the property. */
+    await prisma.payout.create({ data: {
+      id: `${p}-payout-ath2`, tenantId, payeeType: "ATHLETE", payeeId: `${p}-ath2`, payeeTenantId: tenantId,
+      amountCents: 3_000, state: "PAID", paidAt: ago(110), requestedAt: ago(112),
+    } });
+    const l6 = { journalId: "order1:line6:booking", entryType: "BOOKING", status: "REVERSED", createdAt: ago(120) };
+    await entry("l6-receivable", { ...l6, account: "SPONSOR_RECEIVABLE", ...sponsorParty, debitCents: 5_000 });
+    await entry("l6-athlete", { ...l6, account: "ATHLETE_PAYABLE", ...athlete2Party, creditCents: 5_000 });
+    const pay2 = { journalId: "payout-ath2:order1:payout", entryType: "PAYOUT", status: "PAID", createdAt: ago(110) };
+    await entry("pay2-payable", { ...pay2, account: "ATHLETE_PAYABLE", ...athlete2Party, debitCents: 3_000 });
+    await entry("pay2-clearing", { ...pay2, ...clearing, creditCents: 3_000 });
+    const l6r = { journalId: "order1:line6:booking:reversal", entryType: "REVERSAL", status: "REVERSED", createdAt: ago(100) };
+    await entry("l6r-receivable", { ...l6r, account: "SPONSOR_RECEIVABLE", ...sponsorParty, creditCents: 5_000 });
+    await entry("l6r-athlete", { ...l6r, account: "ATHLETE_PAYABLE", ...athlete2Party, debitCents: 5_000 });
 
     /* Each tenant's oldest row, outside every window but "all": in t1 a
        booking written at contract time (before any payment), in t2 a refund. */
     if (oldest === "booking") {
-      await entry("old-booking", { journalId: "j0", entryType: "BOOKING", account: "PLATFORM_REVENUE", partyType: "PLATFORM", partyId: "platform", creditCents: 300, status: "PENDING", createdAt: ago(200) });
+      const l0 = { journalId: "order1:line0:booking", entryType: "BOOKING", status: "PENDING", createdAt: ago(200) };
+      await entry("l0-receivable", { ...l0, account: "SPONSOR_RECEIVABLE", ...sponsorParty, debitCents: 300 });
+      await entry("l0-platform", { ...l0, account: "PLATFORM_REVENUE", ...platformParty, creditCents: 300 });
     } else {
       await refund(0, 100, ago(200));
     }
@@ -193,9 +253,11 @@ describe.skipIf(!hasDatabase)("GET /finance/overview — the Treasury (P1-ART-25
   /* One tenant's books over 30 days, by hand. */
   const MONEY_IN = 10_000 + 5_000 - 1_000;
   const PAID_OUT = 3_000 + 4_000; // payout + PAID earning
-  /* APPROVED_FOR_PAYOUT earning + athlete payable (booked 6_000, released
-     reserve 400, reversed pair 0, less the 3_000 paid out) + property 2_000. */
-  const OWED = 1_500 + (6_000 + 400 + 800 - 800 - 3_000) + 2_000;
+  /* APPROVED_FOR_PAYOUT earning + athlete 1's payable (booked 6_000, released
+     reserve 400, reversed lines 4 and 5 net 0, less the 3_000 paid out) +
+     the property's 2_000. Athlete 2's −3_000 is owed BACK, not netted in. */
+  const OWED = 1_500 + (6_000 + 400 + (800 - 800) + (1_000 + 100 - 1_000 - 100) - 3_000) + 2_000;
+  const OWED_BACK = 3_000;
   const KEPT = 1_200;
 
   let server: ReturnType<ReturnType<typeof createApp>["listen"]>;
@@ -246,12 +308,39 @@ describe.skipIf(!hasDatabase)("GET /finance/overview — the Treasury (P1-ART-25
     expect(o.owed.cents).toBe(1_500 + 6_400 - 3_000 + 2_000);
   });
 
+  it("a refund after one payee's payout doesn't cut what is owed to the others — it is owed back", async () => {
+    /* Netted tenant-wide, athlete 2's −3_000 would take 3_000 off OWED. */
+    const o = await financeOverview(finance, { range: "30d" }, NOW);
+    expect(o.owed.cents).toBe(OWED);
+    expect(o.owedBack).toEqual({ cents: OWED_BACK });
+    expect(o.settled.rate).toBeGreaterThanOrEqual(0);
+    expect(o.settled.rate).toBeLessThanOrEqual(1);
+  });
+
+  it("owed goes back up when the bank returns a paid payout (postPayoutReturn)", async () => {
+    const id = (leg: string) => `fov-t1-ledger-ret1-${leg}`;
+    const ret = { tenantId: T1, orderId: "fov-t1-order1", partyTenantId: T1, journalId: "fov-t1-payout-paid:fov-t1-order1:returned:1", entryType: "PAYOUT", status: "AVAILABLE", createdAt: ago(1) };
+    await prisma.ledgerEntry.createMany({ data: [
+      { ...ret, id: id("payable"), account: "ATHLETE_PAYABLE", partyType: "ATHLETE", partyId: "fov-t1-ath1", creditCents: 3_000 },
+      { ...ret, id: id("clearing"), account: "PAYOUT_CLEARING", partyType: "PROCESSOR", partyId: "processor", debitCents: 3_000 },
+    ] });
+    try {
+      const o = await financeOverview(finance, { range: "30d" }, NOW);
+      expect(o.owed.cents).toBe(OWED + 3_000);
+      expect(o.owedBack).toEqual({ cents: OWED_BACK });
+      expect(o.split.athletes).toBe(6_000); // a PAYOUT journal is not a sale
+    } finally {
+      await prisma.ledgerEntry.deleteMany({ where: { id: { in: [id("payable"), id("clearing")] } } });
+    }
+  });
+
   it("FINANCE sees the lifetime campaign commission (sell price − every earning)", async () => {
     const o = await financeOverview(finance, { range: "30d" }, NOW);
     expect(o.kept.campaignCommission).toBe(40_000 + 20_000 - (4_000 + 1_500));
   });
 
-  it("split is the window's sales only — payouts and reserve releases don't move it", async () => {
+  it("split is the window's sales only — payouts, reserve releases and their reversals don't move it", async () => {
+    /* Line 5 (booked, released, reversed) nets to zero: only its booking's reversal is a sale. */
     const o = await financeOverview(finance, { range: "30d" }, NOW);
     expect(o.split).toEqual({ athletes: 6_000, properties: 2_000, platform: 1_200, management: 0, processing: 0, referral: 0, reserve: 400 });
   });
@@ -323,6 +412,7 @@ describe.skipIf(!hasDatabase)("GET /finance/overview — the Treasury (P1-ART-25
       expect(o.moneyIn).toEqual({ cents: MONEY_IN, prev: 2_500 });
       expect(o.paidOut.cents).toBe(PAID_OUT);
       expect(o.owed.cents).toBe(OWED);
+      expect(o.owedBack).toEqual({ cents: OWED_BACK });
       expect(o.kept.cents).toBe(KEPT);
       expect(o.needsYou.payouts).toMatchObject({ count: 2, cents: 2_500 });
       expect(o.needsYou.refunds).toMatchObject({ count: 1, cents: 700 });

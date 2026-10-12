@@ -15,12 +15,23 @@
  * FINANCE, the 2026-09-24 matrix decision), campaign commission only with
  * seeSell.
  *
- * "Owed" nets the payee payables over every status, as the payee's own
- * balance does (payouts.ts balanceOf): a booking's credit (PENDING until the
- * sponsor pays, then AVAILABLE — earned either way, not yet paid), a
- * released reserve's credit, less the PAID debit each PAYOUT journal posts
- * (plus the AVAILABLE credit a returned payout posts back). A reversed
- * booking and its REVERSAL mirror are both REVERSED and net to zero.
+ * "Owed" is athlete and property pay only: earnings not yet paid, plus the
+ * ATHLETE_PAYABLE and PROPERTY_PAYABLE balances. REFERRAL_PAYABLE is left
+ * out on purpose — a referrer is paid outside the payout desks, so it is no
+ * payee's balance and no payout can settle it — and so is RESERVE_HELD,
+ * which is nobody's to be paid until releaseReserve moves it into a payable
+ * (where it then counts). Each payee's payable is netted over every status,
+ * as the payee's own balance is (payouts.ts balanceOf): a booking's credit
+ * (PENDING until the sponsor pays, then AVAILABLE — earned either way, not
+ * yet paid), a released reserve's credit, less the PAID debit each PAYOUT
+ * journal posts (plus the AVAILABLE credit a returned payout posts back). A
+ * reversed booking and its REVERSAL mirror are both REVERSED and net to zero.
+ *
+ * Netted PER PAYEE (partyTenantId, partyType, partyId), never tenant-wide: a
+ * refund after a payout leaves that payee's payable below zero (reverseOrder
+ * leaves PAYOUT journals alone), and summed with everyone else's it would
+ * cut what the others are owed. Only positive balances count as owed; the
+ * negatives are reported apart, as `owedBack`.
  */
 import { prisma } from "../db/client";
 import type { Actor } from "../auth/actor";
@@ -37,9 +48,12 @@ import { OPEN_DISPUTE } from "./payment-exceptions";
 const TENANT_WIDE = new Set(["own-tenant", "any"]);
 const OWED_EARNING: EarningStateName[] = ["PENDING", "ELIGIBLE", "APPROVED_FOR_PAYOUT"];
 const PAYABLE = ["PROPERTY_PAYABLE", "ATHLETE_PAYABLE"];
-/* The journals that are sales: a booking and its reversal. PAYOUT and
-   RESERVE_RELEASE journals move money between accounts after the sale. */
-const SALES_JOURNALS = ["BOOKING", "REVERSAL"];
+/* The journals that are sales: a booking and a booking's reversal. PAYOUT
+   and RESERVE_RELEASE journals move money between accounts after the sale,
+   and reverseOrder mirrors a release as a REVERSAL journal too — told apart
+   by its id: ledger.ts names a booking `<order>:<line>:booking` (or
+   `<order>:fees:booking`) and a reversal `<journal>:reversal`. */
+const SALES_JOURNALS = [{ entryType: "BOOKING" }, { entryType: "REVERSAL", journalId: { endsWith: ":booking:reversal" } }];
 const SPLIT_ACCOUNTS = {
   athletes: "ATHLETE_PAYABLE", properties: "PROPERTY_PAYABLE", platform: "PLATFORM_REVENUE",
   management: "MANAGEMENT_REVENUE", processing: "PROCESSING_PAYABLE", referral: "REFERRAL_PAYABLE", reserve: "RESERVE_HELD",
@@ -50,14 +64,16 @@ export type FinanceOverview = {
   range: { key: RangeKey; from: string; to: string; days: number; bucket: "day" | "week" };
   moneyIn: { cents: number; prev: number | null };
   paidOut: { cents: number; prev: number | null };
-  /** Now, not windowed: earnings not yet paid plus the payee payables' net balance. */
+  /** Now, not windowed: earnings not yet paid plus each payee's payable balance, where above zero (see the header). */
   owed: { cents: number };
+  /** Now, not windowed; informational: what payees owe BACK — the sum of each payee's payable balance below zero (a refund after a payout). Never netted into `owed`. */
+  owedBack: { cents: number };
   /** `campaignCommission` is LIFETIME (sell price − every earning raised), not windowed; only with seeSell. */
   kept: { cents: number; prev: number | null; campaignCommission?: number };
   series: { day: string; inCents: number; outCents: number }[];
-  /** The window's sales only (BOOKING and REVERSAL journals), credit − debit by account. */
+  /** The window's sales only (BOOKING journals and their reversals — not a release's reversal), credit − debit by account. */
   split: Record<keyof typeof SPLIT_ACCOUNTS, number>;
-  /** `rate` is a 0..1 FRACTION: windowed paid-out ÷ (windowed paid-out + owed now); null when both are 0. */
+  /** `rate` is a 0..1 FRACTION (clamped): windowed paid-out ÷ (windowed paid-out + owed now); null when both are 0. */
   settled: { paidCents: number; owedCents: number; rate: number | null };
   earningsByState: Record<EarningStateName, { count: number; amount: number }>;
   needsYou: {
@@ -100,7 +116,7 @@ export async function financeOverview(actor: Actor, opts: { range: RangeKey }, n
      it gets heavy. */
   const [
     orders, refunds, payouts, earningsPaid, ledgerKept,
-    earningsByState, payableAgg, splitGroups, waitingPayouts, openRefunds, disputes, events, sellPrice, invoices,
+    earningsByState, payables, splitGroups, waitingPayouts, openRefunds, disputes, events, sellPrice, invoices,
   ] = await Promise.all([
     prisma.marketplaceOrder.findMany({ /* tenant-scope: whereFor(marketplaceOrder) first. */ where: { AND: [s.order, { paidAt: { gte: since, lt: w.to } }] }, select: { paidAt: true, totalCents: true } }),
     prisma.paymentRefund.findMany({ /* tenant-scope: providerRefundScope — the marketplaceOrder read scope on its own tenantId. */ where: { AND: [s.providerRefund, { createdAt: { gte: since, lt: w.to } }] }, select: { createdAt: true, amountCents: true } }),
@@ -108,9 +124,9 @@ export async function financeOverview(actor: Actor, opts: { range: RangeKey }, n
     prisma.earning.findMany({ /* tenant-scope: whereFor(earning) first. */ where: { AND: [s.earning, { state: "PAID", paidAt: { gte: since, lt: w.to } }] }, select: { paidAt: true, gross: true, adjustment: true } }),
     prisma.ledgerEntry.findMany({ /* tenant-scope: whereFor(ledgerEntry) first. */ where: { AND: [s.ledger, { account: { in: ["PLATFORM_REVENUE", "MANAGEMENT_REVENUE"] }, createdAt: { gte: since, lt: w.to } }] }, select: { createdAt: true, creditCents: true, debitCents: true } }),
     earningTotalsByState(actor, true),
-    /* Every status: see "Owed" in the header. */
-    prisma.ledgerEntry.aggregate({ /* tenant-scope: whereFor(ledgerEntry) first. */ where: { AND: [s.ledger, { account: { in: PAYABLE } }] }, _sum: { creditCents: true, debitCents: true } }),
-    prisma.ledgerEntry.groupBy({ /* tenant-scope: whereFor(ledgerEntry). */ by: ["account"], where: { AND: [s.ledger, { entryType: { in: SALES_JOURNALS }, createdAt: { gte: w.from, lt: w.to } }] }, _sum: { creditCents: true, debitCents: true } } as never) as unknown as Promise<{ account: string; _sum: { creditCents: number | null; debitCents: number | null } }[]>,
+    /* Every status, per payee: see "Owed" in the header. */
+    prisma.ledgerEntry.groupBy({ /* tenant-scope: whereFor(ledgerEntry). */ by: ["partyTenantId", "partyType", "partyId"], where: { AND: [s.ledger, { account: { in: PAYABLE } }] }, _sum: { creditCents: true, debitCents: true } } as never) as unknown as Promise<{ _sum: { creditCents: number | null; debitCents: number | null } }[]>,
+    prisma.ledgerEntry.groupBy({ /* tenant-scope: whereFor(ledgerEntry). */ by: ["account"], where: { AND: [s.ledger, { OR: SALES_JOURNALS, createdAt: { gte: w.from, lt: w.to } }] }, _sum: { creditCents: true, debitCents: true } } as never) as unknown as Promise<{ account: string; _sum: { creditCents: number | null; debitCents: number | null } }[]>,
     prisma.payout.findMany({ /* tenant-scope: whereFor(payout) first; the BTG list's own "waits on BTG" rule. */ where: { AND: [s.payout, waitingOnWhere("BTG")] }, select: { amountCents: true, requestedAt: true } }),
     prisma.refundDue.aggregate({ /* tenant-scope: whereFor(refundDue) first. */ where: { AND: [s.refund, { state: "OPEN" }] }, _count: { _all: true }, _sum: { amountCents: true }, _min: { createdAt: true } }),
     prisma.paymentDispute.aggregate({ /* tenant-scope: whereFor(paymentDispute) first. */ where: { AND: [s.dispute, { state: { in: [...OPEN_DISPUTE] } }] }, _count: { _all: true }, _sum: { amountCents: true } }),
@@ -132,7 +148,9 @@ export async function financeOverview(actor: Actor, opts: { range: RangeKey }, n
   const inPrev = (xs: { at: Date; c: number }[]) => (w.prevFrom ? xs.filter((x) => x.at < w.from).reduce((n, x) => n + x.c, 0) : null);
 
   const owedEarnings = OWED_EARNING.reduce((n, st) => n + earningsByState[st].amount, 0);
-  const owed = owedEarnings + (payableAgg._sum.creditCents ?? 0) - (payableAgg._sum.debitCents ?? 0);
+  const balances = payables.map((g) => (g._sum.creditCents ?? 0) - (g._sum.debitCents ?? 0));
+  const owed = owedEarnings + balances.reduce((n, b) => n + Math.max(0, b), 0);
+  const owedBack = balances.reduce((n, b) => n - Math.min(0, b), 0);
   const paidOut = inWin(outs);
   const net = (acct: string) => { const g = splitGroups.find((x) => x.account === acct); return (g?._sum.creditCents ?? 0) - (g?._sum.debitCents ?? 0); };
 
@@ -142,6 +160,7 @@ export async function financeOverview(actor: Actor, opts: { range: RangeKey }, n
     moneyIn: { cents: inWin(ins), prev: inPrev(ins) },
     paidOut: { cents: paidOut, prev: inPrev(outs) },
     owed: { cents: owed },
+    owedBack: { cents: owedBack },
     kept: {
       cents: inWin(kept),
       prev: inPrev(kept),
@@ -149,7 +168,7 @@ export async function financeOverview(actor: Actor, opts: { range: RangeKey }, n
     },
     series: bucketSeries(w, ins, outs),
     split: Object.fromEntries(Object.entries(SPLIT_ACCOUNTS).map(([k, acct]) => [k, net(acct)])) as FinanceOverview["split"],
-    settled: { paidCents: paidOut, owedCents: owed, rate: paidOut + owed > 0 ? paidOut / (paidOut + owed) : null },
+    settled: { paidCents: paidOut, owedCents: owed, rate: paidOut + owed > 0 ? Math.min(1, Math.max(0, paidOut / (paidOut + owed))) : null },
     earningsByState,
     needsYou: {
       payouts: {

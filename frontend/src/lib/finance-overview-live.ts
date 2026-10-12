@@ -20,6 +20,8 @@ export type ApiFinanceOverview = {
   moneyIn: { cents: number; prev: number | null };
   paidOut: { cents: number; prev: number | null };
   owed: { cents: number };
+  /** Informational: what payees owe back (each payee's payable below zero, e.g. a refund after a payout); never netted into `owed`. */
+  owedBack?: { cents: number };
   kept: { cents: number; prev: number | null; campaignCommission?: number };
   series: { day: string; inCents: number; outCents: number }[];
   split: Split;

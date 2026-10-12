@@ -201,11 +201,12 @@ type FinanceOverview = {
   range: { key; from; to; days; bucket: "day" | "week" };
   moneyIn:  { cents: number; prev: number | null };   // marketplace orders paidAt in window: Σ totalCents − Σ PaymentRefund.amountCents created in window
   paidOut:  { cents: number; prev: number | null };   // Σ Payout.amountCents state PAID, paidAt in window + Σ earning net amount, state PAID, paidAt in window
-  owed:     { cents: number };                        // now, not windowed: earnings PENDING|ELIGIBLE|APPROVED_FOR_PAYOUT (net) + ledger PROPERTY_PAYABLE|ATHLETE_PAYABLE (credit − debit) over EVERY status, as payouts.ts balanceOf nets a payee's balance — PENDING (earned, sponsor not yet paid) and AVAILABLE credits count, a paid payout's PAID debit takes it off, a returned payout's AVAILABLE credit puts it back, and a reversed booking with its REVERSAL mirror (both REVERSED) nets to zero
+  owed:     { cents: number };                        // now, not windowed; athlete and property pay only: earnings PENDING|ELIGIBLE|APPROVED_FOR_PAYOUT (net) + Σ over each payee (partyTenantId, partyType, partyId) of max(0, its PROPERTY_PAYABLE|ATHLETE_PAYABLE credit − debit) over EVERY status, as payouts.ts balanceOf nets a payee's balance — PENDING (earned, sponsor not yet paid) and AVAILABLE credits count, a paid payout's PAID debit takes it off, a returned payout's AVAILABLE credit puts it back, and a reversed booking with its REVERSAL mirror (both REVERSED) nets to zero. Per payee, never tenant-wide: a refund after a payout leaves one payee below zero, which must not cut what others are owed. REFERRAL_PAYABLE (no payee balance; not settled by a payout) and RESERVE_HELD (nobody's until released into a payable) are left out on purpose
+  owedBack: { cents: number };                        // now, not windowed; informational: Σ over each payee of |min(0, payable balance)| — what payees owe BACK after a refund that followed a payout; never netted into owed
   kept:     { cents: number; prev: number | null; campaignCommission?: number }; // ledger PLATFORM_REVENUE + MANAGEMENT_REVENUE (credit − debit) created in window; campaignCommission is LIFETIME (Σ sell price − every earning raised, earning-books campaignCommission), only when canReadField allows the sell price (same gate /earnings/summary uses for `sell`; FINANCE has it)
   series:   { day: string; inCents: number; outCents: number }[]; // zero-filled, the same definitions as moneyIn / paidOut, by bucket
-  split:    { athletes; properties; platform; management; processing; referral; reserve: number }; // the window's SALES only: ledger credit − debit by account over BOOKING and REVERSAL journals created in window (PAYOUT and RESERVE_RELEASE journals move money after the sale and are left out)
-  settled:  { paidCents: number; owedCents: number; rate: number | null }; // rate is a 0..1 FRACTION = windowed paidOut / (windowed paidOut + owed now); null when both are 0
+  split:    { athletes; properties; platform; management; processing; referral; reserve: number }; // the window's SALES only: ledger credit − debit by account over BOOKING journals and BOOKING reversals (REVERSAL with journalId ending `:booking:reversal`) created in window. PAYOUT and RESERVE_RELEASE journals move money after the sale and are left out — and so is a release's reversal (`…:release:reversal`), which reverseOrder also posts as REVERSAL
+  settled:  { paidCents: number; owedCents: number; rate: number | null }; // rate is a 0..1 FRACTION = windowed paidOut / (windowed paidOut + owed now), clamped to 0..1; null when both are 0
   earningsByState: Record<EarningState, { count: number; amount: number }>; // earning-books earningTotalsByState — the same call /earnings/summary makes; the route refuses (403) a caller without earning.amount rather than send amounts as 0
   needsYou: {
     payouts:  { count: number; cents: number; oldestAt: string | null }; // waiting on BTG: the rule GET /payouts uses for its waiting tab + Failed with waitingOn BTG
@@ -234,7 +235,8 @@ type FinanceOverview = {
 - `prev` for 30d and `null` for `all`;
 - the series is zero-filled and sums to the totals;
 - the needs-you counts match what the desks' own reads count;
-- the ledger seeded as ledger.ts posts it (a reserve release, a reversed pair, the PAYOUT journal behind a paid payout): `owed` drops by the paid payout, `split` stays sales-only;
+- the ledger seeded as ledger.ts posts it (balanced journals in its id format and statuses: a reserve release, a reversed pair, a booked-released-reversed line, the PAYOUT journal behind a paid payout, a payout return): `owed` drops by the paid payout and rises on its return, `split` stays sales-only (a release's reversal included);
+- a refund after one payee's payout does not cut what others are owed; it shows as `owedBack`;
 - 7d / 90d, and an `all` window over 120 days (weekly) opened by a booking or a refund;
 - SUPER_ADMIN counting both tenants; FINANCE's `campaignCommission`;
 - over HTTP: the default 30d, range parsing, 403 for SALES.
