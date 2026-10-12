@@ -76,6 +76,10 @@ pushed, and `singleUse` on REDEEM.
 
 **Joins to the business model** via `RewardToken` → `Reward` → campaign and athlete.
 
+**Beside the events** (`3S0-BE-04`, `3S0-BE-05`):
+- Each code (`RewardToken`) counts the times it was presented again after use and refused (`refusedRedeems`, `lastRefusedRedeemAt`). These are not funnel events: a refused try writes no `RewardEvent`.
+- Each reward can carry the venue where it is handed out (`Reward.venueCity`, `venueStateCode`).
+
 ### B · Tracking-link clicks — `LinkEvent`
 
 **Definition:** a request to a tracking link's short URL, recorded after the
@@ -101,7 +105,9 @@ report keeps print and digital apart.
 one source, unique on `(deliverableId, day, source)`. A second reading from the
 **same** source overwrites that row; a different source lands beside it.
 `enteredBy` is the staff user, null for `VERIFIED_API`. Each write also leaves a
-`metric.record` audit row carrying the values.
+`metric.record` audit row carrying the values. Since `3S0-BE-01` the row has
+`createdAt` (first recorded, never moves) and `updatedAt` (latest correction).
+Earlier rows were dated from their audit rows.
 
 **Provenance labels** (`MetricSource`): `VERIFIED_API`, `VERIFIED_MANUAL`,
 `SELF_REPORTED`, `ESTIMATED`, `ATTRIBUTED`. Rules are in

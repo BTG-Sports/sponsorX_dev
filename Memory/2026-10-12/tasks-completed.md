@@ -51,3 +51,9 @@ The user decided each one: market geography from registration plus a reward venu
   - **full backend suite 191 files / 3,070 tests pass**.
   - `prisma migrate diff` shows no drift on the three changed tables. It still reports 16 older lines (two foreign keys and an index rename), not touched here.
 - **Tracker:** Phase 3 rows 48–53 were appended (Order 3.1–3.6). The autofilter, conditional formatting, Status validation and 15 Dashboard formulas now reach row 53. 3S0-DATA-01 notes and Unblocks are updated. The Phase 3 plan has the six tasks (Sprint 0 is now 12 tasks · 28 days; the phase is 50 · 192). The audit doc is v1.1, with the market-geography rule in §6.
+
+## rcfworks — 3S0-DATA-01 and 3S0-BE-01…05 → Done
+
+- **Acceptance checked clause by clause** at the user's request; every clause has a passing test (7 files, 138 tests) or, for DATA-01, the document.
+- The audit doc's inventory (§3 A and D) now also names the fields the fixes added, so it matches the code.
+- **Tracker and plan:** the six rows are Done (Date Done 2026-10-12). 3S0-DATA-02 is **Ready**, since its only prerequisite was DATA-01. 3S0-FE-01 stays Ready for HeckerCreatives.

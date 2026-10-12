@@ -115,9 +115,9 @@ How a model version is proposed, validated, activated, rolled back and compared.
 - **Done when:** Governance policy written: versioning, confidence, explanation, override, monitoring and rollback
 - **Reference:** Spec §15
 
-### ◑ `3S0-DATA-01` · Event taxonomy audit
+### ✅ `3S0-DATA-01` · Event taxonomy audit
 
-**Order** 3 · **DATA** · **Where:** Document · **3d** · **Code review**
+**Order** 3 · **DATA** · **Where:** Document · **3d** · **Done**
 
 Audit every event Phases 1 and 2 emit before building a warehouse on top of them. Inconsistent event definitions are what make analytics untrustworthy later.
 
@@ -126,9 +126,9 @@ Audit every event Phases 1 and 2 emit before building a warehouse on top of them
 - **Reference:** Spec §21
 - **Delivered:** [`SponsorX-Event-Taxonomy-Audit.md`](./SponsorX-Event-Taxonomy-Audit.md) — 2026-10-12
 
-### ◑ `3S0-BE-01` · Timestamp every metric row
+### ✅ `3S0-BE-01` · Timestamp every metric row
 
-**Order** 3.1 · **BE** · **Where:** Code · **1d** · **Code review**
+**Order** 3.1 · **BE** · **Where:** Code · **1d** · **Done**
 
 Raised by `3S0-DATA-01` (gap G7). `MetricDaily` had no time, and a same-source correction overwrote the row, so "what did we know on day X" could not be read from it. `createdAt` is when the figure was first recorded and never moves; `updatedAt` is the latest correction. Rows recorded before this are dated from their `metric.record` audit rows.
 
@@ -136,9 +136,9 @@ Raised by `3S0-DATA-01` (gap G7). `MetricDaily` had no time, and a same-source c
 - **Done when:** MetricDaily carries `createdAt` and `updatedAt`; a correction moves only `updatedAt`; earlier rows are dated from the audit log; `POST /deliverables/{id}/metrics` answers with both
 - **Reference:** Spec §19, §22
 
-### ◑ `3S0-BE-02` · Send the campaign-live email
+### ✅ `3S0-BE-02` · Send the campaign-live email
 
-**Order** 3.2 · **BE** · **Where:** Code · **3d** · **Code review**
+**Order** 3.2 · **BE** · **Where:** Code · **3d** · **Done**
 
 Raised by `3S0-DATA-01` (gap G1). Every launch queued `notify.campaignLive` and nothing consumed it: nobody outside BTG was told a campaign had gone live, and the rows waited forever. The worker now emails the sponsor's admins and every athlete on an active order, and a minor's guardian while a guardian is in control. Launches queued before this are closed as skipped, so the deploy sends no stale news.
 
@@ -146,9 +146,9 @@ Raised by `3S0-DATA-01` (gap G1). Every launch queued `notify.campaignLive` and 
 - **Done when:** A launch emails the sponsor admins and every athlete with an ACTIVE order (and a controlling guardian), once per address; a campaign no longer ACTIVE sends nothing; the backlog is marked skipped, not sent
 - **Reference:** Spec §21
 
-### ◑ `3S0-BE-03` · One audit name for archiving a listing
+### ✅ `3S0-BE-03` · One audit name for archiving a listing
 
-**Order** 3.3 · **BE** · **Where:** Code · **1d** · **Code review**
+**Order** 3.3 · **BE** · **Where:** Code · **1d** · **Done**
 
 Raised by `3S0-DATA-01` (gap G9). Archiving a listing was logged as `listing.archive` on two paths and `listing.archived` on the seller's. It is now `listing.archive` everywhere. Rows already written keep their name, because the audit log is append-only.
 
@@ -156,9 +156,9 @@ Raised by `3S0-DATA-01` (gap G9). Archiving a listing was logged as `listing.arc
 - **Done when:** The seller archiving a listing is audited as `listing.archive`; no new `listing.archived` rows
 - **Reference:** Spec §21
 
-### ◑ `3S0-BE-04` · Count refused redemptions of a used code
+### ✅ `3S0-BE-04` · Count refused redemptions of a used code
 
-**Order** 3.4 · **BE** · **Where:** Code · **1d** · **Code review**
+**Order** 3.4 · **BE** · **Where:** Code · **1d** · **Done**
 
 Raised by `3S0-DATA-01` (gap G4). Redemption is once per single-use code, enforced by the database; a used code presented again is refused and, until now, nothing recorded it. The code now counts those refusals and keeps the time of the latest, which is how a shared or screenshotted code shows itself. Only "already used" refusals count.
 
@@ -166,9 +166,9 @@ Raised by `3S0-DATA-01` (gap G4). Redemption is once per single-use code, enforc
 - **Done when:** A used code tried again is still refused and its `refusedRedeems` / `lastRefusedRedeemAt` move; other refusals do not count; `GET /rewards/{id}` returns both per token
 - **Reference:** Spec §21, §22
 
-### ◑ `3S0-BE-05` · Reward venue: where an in-person reward is handed out
+### ✅ `3S0-BE-05` · Reward venue: where an in-person reward is handed out
 
-**Order** 3.5 · **BE** · **Where:** Code · **1d** · **Code review**
+**Order** 3.5 · **BE** · **Where:** Code · **1d** · **Done**
 
 Raised by `3S0-DATA-01` (gaps G2, G3). The fan funnel had no geography. A reward now takes an optional venue (city and US state) when it is created: the reward's location, never the fan's. Market geography for benchmarks comes from what is already registered: the athlete's and the property's city and state, and a brief's target states.
 
@@ -186,9 +186,9 @@ Split from `3S0-BE-05`, whose API is live. The reward create form gets an option
 - **Done when:** BTG can enter a venue city and state when creating a reward, and the reward detail shows it
 - **Reference:** Spec §16
 
-### ⏸ `3S0-DATA-02` · Design the warehouse schema and semantic layer
+### ▶ `3S0-DATA-02` · Design the warehouse schema and semantic layer
 
-**Order** 4 · **DATA** · **Where:** Document · **5d** · **Blocked**
+**Order** 4 · **DATA** · **Where:** Document · **5d** · **Ready**
 
 Facts and dimensions separated from the transactional database, so analytical queries never slow down the product.
 
