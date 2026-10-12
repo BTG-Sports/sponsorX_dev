@@ -201,24 +201,26 @@ type FinanceOverview = {
   range: { key; from; to; days; bucket: "day" | "week" };
   moneyIn:  { cents: number; prev: number | null };   // marketplace orders paidAt in window: Σ totalCents − Σ PaymentRefund.amountCents created in window
   paidOut:  { cents: number; prev: number | null };   // Σ Payout.amountCents state PAID, paidAt in window + Σ earning net amount, state PAID, paidAt in window
-  owed:     { cents: number };                        // now: earnings PENDING|ELIGIBLE|APPROVED_FOR_PAYOUT (net) + ledger PROPERTY_PAYABLE|ATHLETE_PAYABLE (credit − debit) with status PENDING|AVAILABLE
-  kept:     { cents: number; prev: number | null; campaignCommission?: number }; // ledger PLATFORM_REVENUE + MANAGEMENT_REVENUE (credit − debit) created in window; + campaign commission only when canReadField allows the sell price (same gate /earnings/summary uses for `sell`)
+  owed:     { cents: number };                        // now, not windowed: earnings PENDING|ELIGIBLE|APPROVED_FOR_PAYOUT (net) + ledger PROPERTY_PAYABLE|ATHLETE_PAYABLE (credit − debit) over EVERY status, as payouts.ts balanceOf nets a payee's balance — PENDING (earned, sponsor not yet paid) and AVAILABLE credits count, a paid payout's PAID debit takes it off, a returned payout's AVAILABLE credit puts it back, and a reversed booking with its REVERSAL mirror (both REVERSED) nets to zero
+  kept:     { cents: number; prev: number | null; campaignCommission?: number }; // ledger PLATFORM_REVENUE + MANAGEMENT_REVENUE (credit − debit) created in window; campaignCommission is LIFETIME (Σ sell price − every earning raised, earning-books campaignCommission), only when canReadField allows the sell price (same gate /earnings/summary uses for `sell`; FINANCE has it)
   series:   { day: string; inCents: number; outCents: number }[]; // zero-filled, the same definitions as moneyIn / paidOut, by bucket
-  split:    { athletes; properties; platform; management; processing; referral; reserve: number }; // ledger credit − debit by account, created in window
-  settled:  { paidCents: number; owedCents: number; rate: number | null }; // rate = paid / (paid + owed); null when both are 0
-  earningsByState: Record<EarningState, { count: number; amount: number }>; // the same net amounts /earnings/summary returns
+  split:    { athletes; properties; platform; management; processing; referral; reserve: number }; // the window's SALES only: ledger credit − debit by account over BOOKING and REVERSAL journals created in window (PAYOUT and RESERVE_RELEASE journals move money after the sale and are left out)
+  settled:  { paidCents: number; owedCents: number; rate: number | null }; // rate is a 0..1 FRACTION = windowed paidOut / (windowed paidOut + owed now); null when both are 0
+  earningsByState: Record<EarningState, { count: number; amount: number }>; // earning-books earningTotalsByState — the same call /earnings/summary makes; the route refuses (403) a caller without earning.amount rather than send amounts as 0
   needsYou: {
     payouts:  { count: number; cents: number; oldestAt: string | null }; // waiting on BTG: the rule GET /payouts uses for its waiting tab + Failed with waitingOn BTG
     refunds:  { count: number; cents: number; oldestAt: string | null }; // RefundDue OPEN
-    disputes: { count: number; cents: number };                          // PaymentDispute OPEN | UNDER_REVIEW
-    events:   { count: number };                                         // the waitingOnBtg rule of GET /payment-events
+    disputes: { count: number; cents: number };                          // payment-exceptions OPEN_DISPUTE (OPEN | UNDER_REVIEW)
+    events:   { count: number };                                         // payment-events WAITING_ON_BTG — the same filter GET /payment-events counts as waitingOnBtg
   };
-  invoices?: { invoicedCents: number; collectedCents: number; rate: number | null; aging: number[] }; // ONLY when rightsOf(actor).seeInvoices; exactly reconciliationTotals() — rate is a whole percent, aging = [not yet due, 1–30, 31–60, >60 days late]
+  invoices?: { invoicedCents: number; collectedCents: number; rate: number | null; aging: number[] }; // ONLY when rightsOf(actor).seeInvoices; exactly reconciliationTotals() — rate is a WHOLE PERCENT (0..100, unlike settled.rate), aging = [not yet due, 1–30, 31–60, >60 days late]
 };
 ```
 
 **Rules:**
-- **The earnings net amount and the needs-you rules are imported from the domain modules that already compute them.** They are not re-derived, so the Treasury and each desk cannot disagree.
+- **The earnings net amount and the needs-you rules are imported from the domain modules that already compute them.** They are not re-derived, so the Treasury and each desk cannot disagree: `earningTotalsByState`, `campaignSell` and `campaignCommission` (earning-books.ts, also behind `/earnings/summary`), `waitingOnWhere("BTG")` (payout-auto.ts), `OPEN_DISPUTE` (payment-exceptions.ts), `WAITING_ON_BTG` (payment-events.ts).
+- **Provider refunds** (`PaymentRefund`, no policy resource of its own) are read at the `marketplaceOrder` read scope on their own `tenantId`: `any` → every tenant, `own-tenant` → the actor's, anything else → nothing.
+- **"All time" starts** at the earliest money row in scope: a paid order, payout or earning, a provider refund, or a ledger entry (a BOOKING is written at contract time, before payment).
 - `prev` is the previous equal window, and is `null` for `all`.
 - **Weekly buckets past 120 days,** as on the sponsor overview.
 - **A hidden figure is omitted, never sent as 0.**
@@ -231,7 +233,11 @@ type FinanceOverview = {
 - the money-in, paid-out, owed and kept arithmetic on seeded rows;
 - `prev` for 30d and `null` for `all`;
 - the series is zero-filled and sums to the totals;
-- the needs-you counts match what the desks' own reads count.
+- the needs-you counts match what the desks' own reads count;
+- the ledger seeded as ledger.ts posts it (a reserve release, a reversed pair, the PAYOUT journal behind a paid payout): `owed` drops by the paid payout, `split` stays sales-only;
+- 7d / 90d, and an `all` window over 120 days (weekly) opened by a booking or a refund;
+- SUPER_ADMIN counting both tenants; FINANCE's `campaignCommission`;
+- over HTTP: the default 30d, range parsing, 403 for SALES.
 
 **Frontend helper:** `lib/finance-overview-live.ts`, with the type, `RANGES` and the formatting helpers, plus a unit test.
 

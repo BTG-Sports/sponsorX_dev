@@ -33,6 +33,9 @@ import {
 import {
   EARNING_STATES,
   type EarningStateName,
+  campaignCommission,
+  campaignSell,
+  earningTotalsByState,
   reconciliationSet,
   reconciliationTotals,
   requireInvoiceRights,
@@ -297,22 +300,7 @@ const earningsSummary: RequestHandler = async (req, res) => {
   const asked = Number(req.query.year);
   const year = Number.isInteger(asked) && asked >= 2000 && asked <= 2100 ? asked : new Date().getUTCFullYear();
 
-  const groups = (await prisma.earning.groupBy({
-    by: ["state"],
-    /* tenant-scope: whereFor(earning). */
-    where: scope,
-    _count: { _all: true },
-    ...(seeAmount ? { _sum: { gross: true, adjustment: true } } : {}),
-  } as never)) as unknown as { state: string; _count: { _all: number }; _sum?: { gross: number | null; adjustment: number | null } }[];
-
-  const byState = Object.fromEntries(
-    EARNING_STATES.map((s) => {
-      const g = groups.find((x) => x.state === s);
-      const count = g?._count._all ?? 0;
-      const amount = (g?._sum?.gross ?? 0) + (g?._sum?.adjustment ?? 0);
-      return [s, seeAmount ? { count, amount } : { count }];
-    }),
-  ) as Record<EarningStateName, { count: number; amount?: number }>;
+  const byState = await earningTotalsByState(actor, seeAmount);
   const count = EARNING_STATES.reduce((n, s) => n + byState[s].count, 0);
   const sum = (states: readonly EarningStateName[]) => states.reduce((n, s) => n + (byState[s].amount ?? 0), 0);
 
@@ -352,13 +340,8 @@ const earningsSummary: RequestHandler = async (req, res) => {
       paidByMonth: { year, months },
     };
     if (seeSell) {
-      const sell = await prisma.campaignOrder.aggregate({
-        /* tenant-scope: orders whose earning whereFor(earning) admits. */
-        where: { earning: { is: scope } },
-        _sum: { sellPrice: true },
-      });
-      const sellPrice = sell._sum.sellPrice ?? 0;
-      money.sell = { sellPrice, commission: sellPrice - sum(EARNING_STATES) };
+      const sellPrice = await campaignSell(actor);
+      money.sell = { sellPrice, commission: campaignCommission(sellPrice, byState) };
     }
   }
 
@@ -374,21 +357,8 @@ const earningsSummary: RequestHandler = async (req, res) => {
 /* --- reconciliation (2026-09-29) --------------------------------------------
 
    GET /earnings/reconciliation — Finance's per-campaign reconciliation, one
-   page at a time (?page= ?size=, default 12), computed per campaign from the
-   database. It used to be derived from the 500-capped earnings list, so a
-   campaign whose earnings fell past the cap silently dropped out of the
-   books; now the campaign set is "every campaign the caller reads that has
-   an earning the caller reads", counted and paged in SQL.
-
-   Same gate as the list's `campaigns` block — `earning.amount`, sponsor
-   price AND `invoice` read (BTG admin; not FINANCE, the 2026-09-24 matrix
-   decision) — anyone else gets a 403, as they never got the block before.
-
-   `totals` is over the whole set, not the page: invoiced / collected
-   (void excluded, Zoho status compared case-insensitively), the collection
-   rate, and invoice aging in cents — outstanding (not paid, not void) by
-   days past due: not yet due (or no due date) / 1–30 / 31–60 / > 60, the
-   same cut lib/earnings-live.ts's agingBuckets makes. */
+   page at a time. The set, the gate and the totals are the books' shared
+   rules: see the reconciliation block in domain/earning-books.ts. */
 
 const listReconciliation: RequestHandler = async (req, res) => {
   const actor = req.actor!;

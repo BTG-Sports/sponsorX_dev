@@ -91,6 +91,9 @@ export class PaymentEventError extends Error {
 const OPEN = new Set<PaymentEventStatus>(["RECEIVED", "DEFERRED"]);
 /** Exceptions BTG reads first. */
 export const EXCEPTIONS: readonly PaymentEventStatus[] = ["HELD", "FAILED", "DEFERRED"];
+/** Waiting on BTG: HELD or FAILED and not yet closed by a person — the list's
+ *  `waitingOnBtg` and the Treasury's count (P1-ART-25) read this one rule. */
+export const WAITING_ON_BTG = { status: { in: ["HELD", "FAILED"] as PaymentEventStatus[] }, resolvedAt: null } satisfies Prisma.PaymentEventWhereInput;
 
 /** Seconds before each retry of an event that arrived before what it follows; after the last, it is BTG's. */
 export const DEFER_AFTER_SECONDS = [30, 120, 600, 1800, 3600, 10_800] as const;
@@ -507,7 +510,7 @@ export async function listPaymentEvents(actor: Actor, statuses?: PaymentEventSta
       : read(0, 200).then((rows) => ({ rows, page: null as PageInfo | null })),
     prisma.paymentEvent.groupBy({ /* tenant-scope: whereFor(paymentEvent, read). */ by: ["status"], where: scope, _count: { _all: true } }),
   ]);
-  const open = await prisma.paymentEvent.count({ /* tenant-scope: whereFor(paymentEvent, read). */ where: { AND: [scope, { status: { in: ["HELD", "FAILED"] }, resolvedAt: null }] } });
+  const open = await prisma.paymentEvent.count({ /* tenant-scope: whereFor(paymentEvent, read). */ where: { AND: [scope, WAITING_ON_BTG] } });
   return {
     counts: Object.fromEntries(PAYMENT_EVENT_STATUSES.map((s) => [s, grouped.find((g) => g.status === s)?._count._all ?? 0])),
     /** HELD or FAILED and not yet closed by a person. */
