@@ -1,11 +1,22 @@
 -- 3S1-DATA-02 · the money snapshots (design §7). They start the day copying
 -- began; earlier days are absent, never invented (user, 2026-10-13). A day's
 -- state is the latest raw version copied by the end of that day (UTC).
+--
+-- A DIARY. Days already written are never rewritten: each run redoes only
+-- from the last day written (today, while today is still open) to today, so
+-- the work does not grow with history. A day missed while the worker was down
+-- is filled from the raw versions, which are kept, so it reads the same.
 CREATE TEMP TABLE _days ON COMMIT DROP AS
   SELECT g::date AS d
     FROM generate_series(
-           (SELECT coalesce(min(started_at AT TIME ZONE 'UTC')::date, current_date) FROM raw._ingest_run),
+           least(
+             coalesce((SELECT max(d.date) FROM dw.snap_ledger_daily s JOIN dw.dim_date d USING (date_key)),
+                      (SELECT coalesce(min(started_at AT TIME ZONE 'UTC')::date, current_date) FROM raw._ingest_run)),
+             coalesce((SELECT max(d.date) FROM dw.snap_payment_status_daily s JOIN dw.dim_date d USING (date_key)),
+                      (SELECT coalesce(min(started_at AT TIME ZONE 'UTC')::date, current_date) FROM raw._ingest_run))),
            (now() AT TIME ZONE 'UTC')::date, interval '1 day') g;
+DELETE FROM dw.snap_ledger_daily WHERE date_key IN (SELECT dw.dk(d) FROM _days);
+DELETE FROM dw.snap_payment_status_daily WHERE date_key IN (SELECT dw.dk(d) FROM _days);
 
 INSERT INTO dw.snap_ledger_daily
 SELECT dw.dk(dy.d), v.tenant_id, v._row->>'partyTenantId', v._row->>'partyType', v._row->>'partyId', v._row->>'account', v._row->>'status',

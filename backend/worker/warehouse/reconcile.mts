@@ -11,8 +11,13 @@
  *
  * The app is read through the warehouse's read-only login, which can see only
  * the allow-listed columns (worker/warehouse/grants.mts) — every column used
- * here is on that list. The comparison is against the app NOW and the
- * warehouse as of its last build, so run it straight after a build.
+ * here is on that list.
+ *
+ * LIKE WITH LIKE. Every hourly run calls this with the same frozen view of the
+ * app its copy was taken from (ingest.mts), so a change made during the run is
+ * never a false alarm. Called with a pool instead, it compares the app as it
+ * is now with the warehouse as of its last build — useful to see drift, but
+ * expect the next run's changes to show.
  */
 import type pg from "pg";
 
@@ -21,7 +26,10 @@ export type ReconcileOutcome = { ok: boolean; checks: ReconcileCheck[] };
 
 type Row = { k: string; v: string | number | null };
 
-export async function reconcileWarehouse(opts: { product: pg.Pool; warehouse: pg.Pool; tenantId?: string }): Promise<ReconcileOutcome> {
+/** Anything that runs a query: a pool, or an open client (e.g. the run's frozen view of the app). */
+type Queryable = Pick<pg.ClientBase, "query">;
+
+export async function reconcileWarehouse(opts: { product: Queryable; warehouse: Queryable; tenantId?: string }): Promise<ReconcileOutcome> {
   const t = opts.tenantId ?? null;
   const P = async (sql: string) => (await opts.product.query<Row>(sql, [t])).rows;
   const W = async (sql: string) => (await opts.warehouse.query<Row>(sql, [t])).rows;

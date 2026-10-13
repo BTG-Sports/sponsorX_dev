@@ -85,16 +85,18 @@ describe.skipIf(!hasDatabase)("3S1-DATA-02 · the model", { timeout: 180_000 }, 
       INSERT INTO "Athlete" (id, "tenantId", slug, "legalName", "displayName", sport, tier, "ageBand", city, "stateCode", "propertyId", state, "countryCode", "majorityAge")
         VALUES ('wm_a1', '${T}', 'wm-a1', 'Sam Lee', 'Sam', 'Soccer', 'CREATOR', '18_PLUS', 'Baltimore', 'MD', 'wm_prop', 'ACTIVE', 'US', 18),
                ('wm_a2', '${T}', 'wm-a2', 'Jo Reed', 'Jo', 'Soccer', 'EMERGING', '16_17', ' austin ', 'TX', NULL, 'ACTIVE', 'US', 18);
+      -- Its own job for social work. The in-person job is the catalogue's 'SX-05' (the product's
+      -- APPEARANCE_JOBS): orders reference it without this test creating or deleting the shared row.
       INSERT INTO "NilJob" (id, "tenantId", name, "baseLow", "baseHigh", "sellLow", "sellHigh", "sellFloorEmerging", "sellFloorCreator", "sellFloorPremium")
-        VALUES ('SX-01', '${T}', 'Story Drop', 25, 50, 75, 125, 60, 75, 90), ('SX-05', '${T}', 'Local Appearance', 150, 300, 400, 750, 300, 400, 500) ON CONFLICT (id) DO NOTHING;
+        VALUES ('wm_job', '${T}', 'Story Drop', 25, 50, 75, 125, 60, 75, 90);
       INSERT INTO "CampaignBrief" (id, "tenantId", "sponsorId", objective, budget, "startDate", "endDate", categories, "stateCodes", sports, state, "updatedAt")
         VALUES ('wm_b1', '${T}', 'wm_sp', 'Awareness', 500000, '2026-09-01', '2026-12-31', '{FOOD}', '{MD,TX}', '{Soccer}', 'CAMPAIGN_CREATED', now());
       INSERT INTO "Campaign" (id, "tenantId", "sponsorId", "briefId", name, budget, "startDate", "endDate", state, "updatedAt")
         VALUES ('wm_c1', '${T}', 'wm_sp', 'wm_b1', 'Fall tacos', 500000, '2026-09-01', '2026-12-31', 'ACTIVE', now());
       INSERT INTO "CampaignOrder" (id, "tenantId", "campaignId", "athleteId", "jobId", compensation, "sellPrice", "usageRights", "dueDate", state, "acceptedAt") VALUES
-        ('wm_o1', '${T}', 'wm_c1', 'wm_a1', 'SX-01', 10000, 20000, '90 days', '2026-09-30', 'ACTIVE', '2026-09-05 10:00'),
+        ('wm_o1', '${T}', 'wm_c1', 'wm_a1', 'wm_job', 10000, 20000, '90 days', '2026-09-30', 'ACTIVE', '2026-09-05 10:00'),
         ('wm_o2', '${T}', 'wm_c1', 'wm_a1', 'SX-05', 20000, 40000, '90 days', '2026-09-30', 'ACTIVE', '2026-09-05 11:00'),
-        ('wm_o3', '${T}', 'wm_c1', 'wm_a2', 'SX-01', 8000, 15000, '90 days', '2026-09-30', 'CANCELLED', '2026-09-06 09:00');
+        ('wm_o3', '${T}', 'wm_c1', 'wm_a2', 'wm_job', 8000, 15000, '90 days', '2026-09-30', 'CANCELLED', '2026-09-06 09:00');
       INSERT INTO "Deliverable" (id, "tenantId", "orderId", title, "dueDate", state, "publishedUrl", "publishedAt", platform) VALUES
         ('wm_d1', '${T}', 'wm_o1', 'Reel', '2026-09-20', 'VERIFIED', 'https://instagram.com/p/x', '2026-09-18 15:00', 'INSTAGRAM'),
         ('wm_d2', '${T}', 'wm_o2', 'Store visit', '2026-09-25', 'NOT_STARTED', NULL, NULL, NULL),
@@ -164,10 +166,36 @@ describe.skipIf(!hasDatabase)("3S1-DATA-02 · the model", { timeout: 180_000 }, 
     await warehouse.end();
   });
 
-  it("builds the model after the copy, and logs what it built", async () => {
-    const [run] = await w(`SELECT status, built FROM raw._ingest_run ORDER BY id DESC LIMIT 1`);
+  it("builds the model after the copy, and logs what it built, how long it took, and the double-check", async () => {
+    const [run] = await w(`SELECT status, built, build_ms, reconcile FROM raw._ingest_run ORDER BY id DESC LIMIT 1`);
     expect(run!.status).toBe("ok");
     expect(run!.built.fact_campaign_daily).toBeGreaterThan(0);
+    expect(run!.build_ms).toBeGreaterThanOrEqual(0);
+    expect(run!.reconcile).toMatchObject({ ok: true, failed: [] });
+  });
+
+  it("the hourly double-check compares like with like: a change made during the run is not a false alarm", async () => {
+    const out = await ingestWarehouse({
+      product, warehouse,
+      /* After the copy, before the build and the check: someone books more. */
+      onCopied: async () => { await product.query(`UPDATE "CampaignOrder" SET "sellPrice" = 22000 WHERE id = 'wm_o1'`); },
+    });
+    try {
+      expect(out.status).toBe("ok");
+      if (out.status === "ok") expect(out.reconciled).toEqual({ ok: true, failed: [] });
+      /* Checked against the app as it is NOW, the warehouse is behind — as expected until the next run. */
+      expect((await reconcileWarehouse({ product, warehouse, tenantId: T })).ok).toBe(false);
+    } finally {
+      await product.query(`UPDATE "CampaignOrder" SET "sellPrice" = 20000 WHERE id = 'wm_o1'`);
+      await ingestWarehouse({ product, warehouse });
+    }
+  });
+
+  it("the daily balance record is a diary: past days are never rewritten", async () => {
+    await w(`INSERT INTO dw.snap_ledger_daily VALUES (20261011, $1, $1, 'ATHLETE', 'wm_marker', 'ATHLETE_PAYABLE', 'PENDING', 1, 0, 1, -1)`, [T]);
+    expect((await ingestWarehouse({ product, warehouse })).status).toBe("ok");
+    expect(await w(`SELECT party_id FROM dw.snap_ledger_daily WHERE date_key = 20261011 AND tenant_id = $1`, [T])).toEqual([{ party_id: "wm_marker" }]);
+    await w(`DELETE FROM dw.snap_ledger_daily WHERE party_id = 'wm_marker'`);
   });
 
   it("dimensions: names, current values, campaign targets, channel and market rules", async () => {
@@ -176,18 +204,20 @@ describe.skipIf(!hasDatabase)("3S1-DATA-02 · the model", { timeout: 180_000 }, 
     const [a2] = await w(`SELECT display_name, tier, is_minor, city, state_code FROM dw.dim_athlete WHERE athlete_id = 'wm_a2'`);
     expect(a2).toMatchObject({ display_name: "Jo", tier: "EMERGING", is_minor: true, city: " austin ", state_code: "TX" });
     expect((await w(`SELECT region FROM dw.dim_market WHERE state_code = 'TX' AND city = 'Austin'`))[0]).toMatchObject({ region: "SOUTH" });
-    expect((await w(`SELECT list_low_cents, list_high_cents, format FROM dw.dim_inventory WHERE inventory_kind = 'NIL_JOB' AND source_id = 'SX-01'`))[0])
-      .toMatchObject({ list_low_cents: "7500", list_high_cents: "12500", format: "SX-01" });
+    expect((await w(`SELECT list_low_cents, list_high_cents, format FROM dw.dim_inventory WHERE inventory_kind = 'NIL_JOB' AND source_id = 'wm_job'`))[0])
+      .toMatchObject({ list_low_cents: "7500", list_high_cents: "12500", format: "wm_job" });
+    /* An order's job that the catalogue doesn't have still gets its own line. */
+    expect(await w(`SELECT count(*)::int n FROM dw.dim_inventory WHERE inventory_kind = 'NIL_JOB' AND source_id = 'SX-05'`)).toEqual([{ n: 1 }]);
     expect(await w(`SELECT count(*)::int n FROM dw.dim_date`)).toEqual([{ n: expect.any(Number) }]);
   });
 
   it("delivery, views and corrections land on their own days and channels", async () => {
-    expect(await fact("2026-09-20", "wm_a1", "SOCIAL_INSTAGRAM", "SX-01")).toMatchObject({ deliverables_due: 1, views_verified_manual: "400", engagements_verified_manual: "20" });
-    expect(await fact("2026-09-18", "wm_a1", "SOCIAL_INSTAGRAM", "SX-01")).toMatchObject({ deliverables_published: 1 });
-    expect(await fact("2026-09-19", "wm_a1", "SOCIAL_INSTAGRAM", "SX-01")).toMatchObject({ deliverables_verified: 1, views_verified_api: "1000", views_self_reported: "1500", engagements_self_reported: "90" });
-    expect(await fact("2026-09-17", "wm_a1", "SOCIAL_INSTAGRAM", "SX-01")).toMatchObject({ revisions_requested: 1 });
+    expect(await fact("2026-09-20", "wm_a1", "SOCIAL_INSTAGRAM", "wm_job")).toMatchObject({ deliverables_due: 1, views_verified_manual: "400", engagements_verified_manual: "20" });
+    expect(await fact("2026-09-18", "wm_a1", "SOCIAL_INSTAGRAM", "wm_job")).toMatchObject({ deliverables_published: 1 });
+    expect(await fact("2026-09-19", "wm_a1", "SOCIAL_INSTAGRAM", "wm_job")).toMatchObject({ deliverables_verified: 1, views_verified_api: "1000", views_self_reported: "1500", engagements_self_reported: "90" });
+    expect(await fact("2026-09-17", "wm_a1", "SOCIAL_INSTAGRAM", "wm_job")).toMatchObject({ revisions_requested: 1 });
     expect(await fact("2026-09-25", "wm_a1", "IN_PERSON", "SX-05")).toMatchObject({ deliverables_due: 1 });
-    expect(await fact("2026-09-22", "wm_a2", "UNPUBLISHED", "SX-01")).toMatchObject({ deliverables_due: 1 });
+    expect(await fact("2026-09-22", "wm_a2", "UNPUBLISHED", "wm_job")).toMatchObject({ deliverables_due: 1 });
   });
 
   it("the fan funnel: per day, the job only when the athlete holds one, the venue's market before the athlete's", async () => {
@@ -196,11 +226,11 @@ describe.skipIf(!hasDatabase)("3S1-DATA-02 · the model", { timeout: 180_000 }, 
     const [m] = await w(`SELECT state_code, city FROM dw.dim_market WHERE market_key = $1`, [venue.market_key]);
     expect(m).toEqual({ state_code: "VA", city: "Arlington" });
     expect(await fact("2026-09-22", "wm_a1", "REWARD_QR", null)).toMatchObject({ qr_redemptions: 1 });
-    const a2 = await fact("2026-09-21", "wm_a2", "REWARD_QR", "SX-01");
+    const a2 = await fact("2026-09-21", "wm_a2", "REWARD_QR", "wm_job");
     expect(a2).toMatchObject({ qr_scans: 1 });
     expect((await w(`SELECT state_code FROM dw.dim_market WHERE market_key = $1`, [a2.market_key]))[0]).toEqual({ state_code: "TX" });
     expect(await fact("2026-09-23", null, "REWARD_QR", null)).toMatchObject({ qr_scans: 1, market_key: "0" });
-    expect(await fact("2026-09-18", "wm_a1", "TRACKING_LINK", "SX-01")).toMatchObject({ link_clicks: 2 });
+    expect(await fact("2026-09-18", "wm_a1", "TRACKING_LINK", "wm_job")).toMatchObject({ link_clicks: 2 });
   });
 
   it("NEXT editions: the slot's sale, print scans and digital engagement on that campaign", async () => {
@@ -211,17 +241,17 @@ describe.skipIf(!hasDatabase)("3S1-DATA-02 · the model", { timeout: 180_000 }, 
   });
 
   it("money on its own day: bookings, a cancellation, earnings, invoicing", async () => {
-    expect(await fact("2026-09-05", "wm_a1", "CAMPAIGN", "SX-01")).toMatchObject({ booked_sell_cents: "20000", booked_compensation_cents: "10000" });
+    expect(await fact("2026-09-05", "wm_a1", "CAMPAIGN", "wm_job")).toMatchObject({ booked_sell_cents: "20000", booked_compensation_cents: "10000" });
     expect(await fact("2026-09-05", "wm_a1", "CAMPAIGN", "SX-05")).toMatchObject({ booked_sell_cents: "40000" });
-    expect(await fact("2026-09-06", "wm_a2", "CAMPAIGN", "SX-01")).toMatchObject({ booked_sell_cents: "15000", booked_compensation_cents: "8000" });
-    expect(await fact("2026-09-10", "wm_a2", "CAMPAIGN", "SX-01")).toMatchObject({ cancelled_sell_cents: "15000" });
-    expect(await fact("2026-10-01", "wm_a1", "CAMPAIGN", "SX-01")).toMatchObject({ earnings_paid_cents: "9500" });
+    expect(await fact("2026-09-06", "wm_a2", "CAMPAIGN", "wm_job")).toMatchObject({ booked_sell_cents: "15000", booked_compensation_cents: "8000" });
+    expect(await fact("2026-09-10", "wm_a2", "CAMPAIGN", "wm_job")).toMatchObject({ cancelled_sell_cents: "15000" });
+    expect(await fact("2026-10-01", "wm_a1", "CAMPAIGN", "wm_job")).toMatchObject({ earnings_paid_cents: "9500" });
     expect(await fact("2026-09-02", null, "CAMPAIGN", null)).toMatchObject({ invoiced_cents: "75000" });
     expect(await fact("2026-09-15", null, "CAMPAIGN", null)).toMatchObject({ invoice_paid_cents: "75000" });
   });
 
   it("each row carries the sponsor and the athlete's property", async () => {
-    const row = await fact("2026-09-05", "wm_a1", "CAMPAIGN", "SX-01");
+    const row = await fact("2026-09-05", "wm_a1", "CAMPAIGN", "wm_job");
     expect((await w(`SELECT sponsor_id FROM dw.dim_sponsor WHERE sponsor_key = $1`, [row.sponsor_key]))[0]).toEqual({ sponsor_id: "wm_sp" });
     expect((await w(`SELECT property_id FROM dw.dim_property WHERE property_key = $1`, [row.property_key]))[0]).toEqual({ property_id: "wm_prop" });
   });
@@ -231,6 +261,18 @@ describe.skipIf(!hasDatabase)("3S1-DATA-02 · the model", { timeout: 180_000 }, 
     expect(s).toMatchObject({ views_verified: "1400", booked_net_cents: "60000" });
     expect(Number(s!.claim_rate)).toBe(1);
     expect(Number(s!.redemption_rate)).toBe(1);
+  });
+
+  it("an odd date in a record (far outside 2020–2035) is added to the date table instead of stopping the build", async () => {
+    /* A view count entered for a day in 1999 — a table read in full every hour. */
+    await seed(`INSERT INTO "MetricDaily" (id, "tenantId", "deliverableId", day, views, engagements, source) VALUES ('wm_m_odd', '${T}', 'wm_d1', '1999-06-01', 5, 0, 'VERIFIED_API')`);
+    try {
+      expect((await ingestWarehouse({ product, warehouse })).status).toBe("ok");
+      expect(await fact("1999-06-01", "wm_a1", "SOCIAL_INSTAGRAM", "wm_job")).toMatchObject({ views_verified_api: "5" });
+    } finally {
+      await seed(`DELETE FROM "MetricDaily" WHERE id = 'wm_m_odd'`);
+      await ingestWarehouse({ product, warehouse });
+    }
   });
 
   it("the marketplace line, with its milestones, split and refund", async () => {
@@ -263,7 +305,7 @@ describe.skipIf(!hasDatabase)("3S1-DATA-02 · the model", { timeout: 180_000 }, 
 
   it("a rebuild on unchanged data changes nothing", async () => {
     const hash = async () => (await w(`SELECT md5(string_agg(f::text, '|' ORDER BY f::text)) h FROM (SELECT date_key, campaign_key, athlete_key, channel_key, inventory_key, market_key, sponsor_key, property_key,
-      booked_sell_cents, views_verified_api, qr_scans FROM dw.fact_campaign_daily) f`))[0]!.h;
+      booked_sell_cents, views_verified_api, qr_scans FROM dw.fact_campaign_daily WHERE tenant_id = $1) f`, [T]))[0]!.h;
     const before = await hash();
     expect((await ingestWarehouse({ product, warehouse })).status).toBe("ok");
     expect(await hash()).toBe(before);
@@ -279,7 +321,7 @@ describe.skipIf(!hasDatabase)("3S1-DATA-02 · the model", { timeout: 180_000 }, 
     const versions = await w(`SELECT tier, valid_from::text, valid_to::text, is_current FROM dw.dim_athlete WHERE athlete_id = 'wm_a1' ORDER BY valid_from`);
     expect(versions.map((v) => [v.tier, v.is_current])).toEqual([["CREATOR", false], ["PREMIUM", true]]);
     expect(versions[1]!.valid_from).toBe(today);
-    const old = await fact("2026-09-05", "wm_a1", "CAMPAIGN", "SX-01");
+    const old = await fact("2026-09-05", "wm_a1", "CAMPAIGN", "wm_job");
     expect((await w(`SELECT tier FROM dw.dim_athlete WHERE athlete_key = $1`, [old.athlete_key]))[0]).toEqual({ tier: "CREATOR" });
     expect((await w(`SELECT status FROM dw.snap_ledger_daily s JOIN dw.dim_date d USING (date_key) WHERE s.tenant_id = $1 AND s.account = 'ATHLETE_PAYABLE' AND d.date = $2`, [T, today])))
       .toEqual([{ status: "AVAILABLE" }]);

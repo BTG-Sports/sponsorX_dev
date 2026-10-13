@@ -1,18 +1,14 @@
 -- 3S1-DATA-02 · the dimensions (design §4). The whole model is rebuilt each
 -- run (user, 2026-10-13); keys are computed (dw.k), so a rebuild yields the
 -- same keys and the same rows.
-TRUNCATE dw.fact_campaign_daily, dw.fact_marketplace_order_line, dw.snap_ledger_daily, dw.snap_payment_status_daily,
+-- The money snapshots are a diary and are NOT rebuilt (50_snapshots adds
+-- only the days not yet written); the date table is fixed and only topped up.
+TRUNCATE dw.fact_campaign_daily, dw.fact_marketplace_order_line,
          dw.bridge_sponsor_category, dw.dim_sponsor, dw.dim_property, dw.dim_athlete, dw.dim_campaign,
-         dw.dim_channel, dw.dim_inventory, dw.dim_market, dw.dim_date;
+         dw.dim_channel, dw.dim_inventory, dw.dim_market;
 
 /* ── date: 2020–2035, wider than any event SponsorX holds ─────────────────── */
-INSERT INTO dw.dim_date
-SELECT dw.dk(d), d, extract(year FROM d), extract(quarter FROM d), extract(month FROM d), extract(week FROM d), extract(isodow FROM d),
-       date_trunc('month', d)::date, date_trunc('week', d)::date,
-       CASE WHEN extract(month FROM d) BETWEEN 8 AND 11 THEN 'FALL'
-            WHEN extract(month FROM d) IN (12, 1, 2) THEN 'WINTER'
-            WHEN extract(month FROM d) BETWEEN 3 AND 5 THEN 'SPRING' ELSE 'SUMMER' END
-  FROM generate_series('2020-01-01'::date, '2035-12-31'::date, interval '1 day') AS g(d0), LATERAL (SELECT d0::date AS d) x;
+SELECT dw.ensure_dates(ARRAY(SELECT g::date FROM generate_series('2020-01-01'::date, '2035-12-31'::date, interval '1 day') g));
 
 /* ── channel: fixed ───────────────────────────────────────────────────────── */
 INSERT INTO dw.dim_channel (channel_key, channel_code, channel_group) VALUES
@@ -49,7 +45,7 @@ WITH v AS (
   SELECT * FROM marked WHERE rn = 1 OR h IS DISTINCT FROM prev_h OR _deleted IS DISTINCT FROM prev_del
 )
 SELECT t, id, tenant_id, _row, _deleted,
-       CASE WHEN row_number() OVER w = 1 THEN '2000-01-01'::date ELSE d END AS valid_from,
+       CASE WHEN row_number() OVER w = 1 THEN '-infinity'::date ELSE d END AS valid_from,
        coalesce(lead(d) OVER w - 1, '9999-12-31'::date) AS valid_to,
        lead(d) OVER w IS NULL AS is_last
   FROM changes WINDOW w AS (PARTITION BY t, id ORDER BY d);
@@ -64,13 +60,13 @@ INSERT INTO dw.dim_sponsor (sponsor_key, tenant_id, sponsor_id, name, ownership,
 SELECT dw.k('sponsor:' || id || ':' || valid_from), tenant_id, id, _row->>'name', _row->>'ownership',
        dw.arr(_row->'categories'), valid_from, valid_to, is_last
   FROM _v WHERE t = 'Sponsor' AND NOT _deleted;
-INSERT INTO dw.dim_sponsor (sponsor_key, tenant_id, sponsor_id, name, valid_from, is_current) VALUES (0, '', '', 'Unattributed', '2000-01-01', true);
+INSERT INTO dw.dim_sponsor (sponsor_key, tenant_id, sponsor_id, name, valid_from, is_current) VALUES (0, '', '', 'Unattributed', '-infinity', true);
 INSERT INTO dw.bridge_sponsor_category SELECT sponsor_key, unnest(categories) FROM dw.dim_sponsor WHERE sponsor_key <> 0 ON CONFLICT DO NOTHING;
 
 INSERT INTO dw.dim_property (property_key, tenant_id, property_id, name, kind, city, state_code, valid_from, valid_to, is_current)
 SELECT dw.k('property:' || id || ':' || valid_from), tenant_id, id, _row->>'name', _row->>'kind', _row->>'city', _row->>'stateCode', valid_from, valid_to, is_last
   FROM _v WHERE t = 'Property' AND NOT _deleted;
-INSERT INTO dw.dim_property (property_key, tenant_id, property_id, name, valid_from, is_current) VALUES (0, '', '', 'No property', '2000-01-01', true);
+INSERT INTO dw.dim_property (property_key, tenant_id, property_id, name, valid_from, is_current) VALUES (0, '', '', 'No property', '-infinity', true);
 
 INSERT INTO dw.dim_athlete (athlete_key, tenant_id, athlete_id, display_name, sport, position, level, school, grad_year, tier, age_band, is_minor,
                             city, state_code, property_id, valid_from, valid_to, is_current)
@@ -79,7 +75,7 @@ SELECT dw.k('athlete:' || v.id || ':' || v.valid_from), v.tenant_id, v.id, l._ro
        v._row->>'city', v._row->>'stateCode', v._row->>'propertyId', v.valid_from, v.valid_to, v.is_last
   FROM _v v JOIN _latest l ON l.t = 'Athlete' AND l.id = v.id
  WHERE v.t = 'Athlete' AND NOT v._deleted;
-INSERT INTO dw.dim_athlete (athlete_key, tenant_id, athlete_id, display_name, is_minor, valid_from, is_current) VALUES (0, '', '', 'Unattributed', false, '2000-01-01', true);
+INSERT INTO dw.dim_athlete (athlete_key, tenant_id, athlete_id, display_name, is_minor, valid_from, is_current) VALUES (0, '', '', 'Unattributed', false, '-infinity', true);
 
 /* ── campaign: type 1 ─────────────────────────────────────────────────────── */
 INSERT INTO dw.dim_campaign (campaign_key, tenant_id, campaign_id, name, sponsor_id, start_date, end_date, budget_cents,
@@ -102,7 +98,13 @@ SELECT dw.k('LISTING_ITEM:' || id), tenant_id, 'LISTING_ITEM', id, _row->>'title
        (_row->>'priceCents')::bigint, (_row->>'priceCents')::bigint, coalesce((_row->>'version')::int, 1) FROM stg."InventoryItem"
 UNION ALL
 SELECT dw.k('AD_SLOT:' || id), tenant_id, 'AD_SLOT', id, _row->>'slotCode', _row->>'kind',
-       (_row->>'priceCents')::bigint, (_row->>'priceCents')::bigint, 1 FROM stg."AdSlot";
+       (_row->>'priceCents')::bigint, (_row->>'priceCents')::bigint, 1 FROM stg."AdSlot"
+UNION ALL
+/* A job an order names but the catalogue no longer has (deleted, or never
+   copied) keeps its own line, named by its id — never folded into unknown. */
+SELECT DISTINCT ON (o._row->>'jobId') dw.k('NIL_JOB:' || (o._row->>'jobId')), o.tenant_id, 'NIL_JOB', o._row->>'jobId', o._row->>'jobId', o._row->>'jobId', NULL::bigint, NULL::bigint, 1
+  FROM stg."CampaignOrder" o
+ WHERE o._row->>'jobId' IS NOT NULL AND NOT EXISTS (SELECT 1 FROM stg."NilJob" j WHERE j.id = o._row->>'jobId');
 INSERT INTO dw.dim_inventory (inventory_key, tenant_id, inventory_kind, source_id, name) VALUES (0, '', 'UNKNOWN', '', 'Unknown');
 
 /* ── market: every registered or venue location, US Census region ─────────── */

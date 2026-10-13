@@ -128,6 +128,8 @@ INSERT INTO _act (d, campaign_id, channel, invoice_paid_cents)
   SELECT (_row->>'paidAt')::timestamp::date, _row->>'campaignId', 'CAMPAIGN', (_row->>'amount')::bigint
     FROM stg."CampaignInvoice" WHERE _row->>'paidAt' IS NOT NULL;
 
+SELECT dw.ensure_dates(ARRAY(SELECT DISTINCT d FROM _act));
+
 /* Keys, then sum into the grain. A row takes the dimension versions valid on
    its day; market is the reward's venue when it has one, else the athlete's
    registered city and state (design §5). */

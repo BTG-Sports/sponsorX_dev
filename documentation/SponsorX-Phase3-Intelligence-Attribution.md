@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Make SponsorX intelligent. Recommend prices, identify best-fit sponsors, forecast delivery, flag underperformance before a campaign ends, detect suspicious metrics and ingest verified commerce attribution. |
-| **Tasks** | 51 · 193 person-days |
+| **Tasks** | 52 · 196 person-days |
 | **Blueprint timeline** | 18–22 weeks |
 | **Balanced budget** | $105K–$160K |
 | **Depends on** | Phase 2 transaction history, campaign performance data, marketplace activity, reliable event ingestion |
@@ -17,7 +17,7 @@
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md)  | 186 | 14–18 weeks |
 | 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 72 | 16–20 weeks |
-| 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md) **← you are here** | 51 | 18–22 weeks |
+| 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md) **← you are here** | 52 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
 ---
@@ -257,6 +257,17 @@ The core analytical model: one row per campaign per day, with conformed dimensio
 - **Done when:** Warehouse metrics reconcile to transactional campaign, order and payment totals within defined tolerance
 - **Delivered:** `backend/worker/warehouse/` (model, transforms, `reconcile.mts`) — 2026-10-13; tolerance zero (design §8)
 - **Reference:** Spec §19, §22
+
+### ⏸ `3S1-DATA-04` · Incremental warehouse build
+
+**Order** 8.5 · **DATA** · **Where:** Code · **3d** · **Blocked**
+
+Raised in review of `3S1-DATA-02` (2026-10-13). The model is rebuilt whole every hour, which takes well under a second at today's size. Once that grows, build only what changed, including figures entered late for an earlier day, which a plain "last 7 days" window would miss.
+
+- **Depends on:** 3S1-DATA-02
+- **Starts when:** an hourly build is logged as slower than one minute (the worker records every build's time and warns above 60 s)
+- **Done when:** a build redoes only the rows its changes touch, late-dated figures included, and the hourly double-check still passes at zero difference
+- **Reference:** Spec §21
 
 ### ⏸ `3S1-DATA-03` · Benchmark pipeline
 

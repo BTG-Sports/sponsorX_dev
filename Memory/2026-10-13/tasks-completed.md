@@ -40,3 +40,25 @@
   - reconciliation **catching** a planted drift (booked 75,000 vs 76,000).
 - **Verified:** tsc and eslint clean; **full backend suite 196 files / 3,140 tests pass**. Reconciliation across all tenants of the local test database is clean.
 - **Left:** after #191 deploys, run the reconciliation on staging and production and record the results, then Done.
+
+## rcfworks — 3S1-DATA-02 review: the warehouse rule, run timing, diary snapshots, like-for-like double-check
+
+- **The user questioned the approach** ("isn't hourly expensive? why not store at the point of transaction?"). The answers, in plain terms:
+  - an hourly run costs pennies (about 0.5 s on a database costing about $3.50 a month);
+  - the app already records every event when it happens, and the job only arranges it;
+  - updating analytics inside ~70 different write paths would be error-prone, slow the busy moments, and leave no way to rebuild after a bug.
+  - The user chose to keep the hourly runs.
+- **The rule (user, 2026-10-13): anything that needs the current status reads the app, never the warehouse.** A cancellation shows in the app at once and in the warehouse within the hour, so payments, payouts, refunds, cancellations, permissions, redemption and availability are never decided from the warehouse.
+  - Written into design doc §2 and stack-decision **C3a**.
+  - Enforced by `tests/warehouse-boundary.test.ts`: no code in `backend/src` or `frontend/src` reaches the warehouse.
+- **I overclaimed** that a "last 7 days" switch was ready. It wasn't built, and a plain window would miss figures entered late. Instead:
+  - every run records its **build time** (`raw._ingest_run.build_ms`), and the worker warns above 60 s;
+  - the incremental build is raised as **3S1-DATA-04** (Blocked, starts when that warning appears; tracker row 55, plan updated, Phase 3 now 52 tasks · 196 days).
+- **The money snapshots are a diary:** past days are never rewritten. Only the last day written up to today is redone, and the date table is no longer truncated.
+- **The double-check is like with like:** it runs every hour inside the same frozen (REPEATABLE READ) view of the app as the copy, so a change mid-run is not a false alarm. The result is stored in `raw._ingest_run.reconcile` and a failure is logged as an error. Migration `0003_run_checks.sql`.
+- **Real bugs found by running the full suite in parallel:**
+  - **A date outside 2020–2035 stopped the whole build** (a foreign-key violation). `dw.ensure_dates()` now adds any date the data holds.
+  - **The first dimension version started 2000-01-01**, so older records lost their athlete. It now has no start date (`-infinity`).
+  - **An order whose job isn't in the catalogue** now keeps its own job line instead of becoming unknown. This also let the test stop creating and deleting the shared `SX-0x` catalogue rows.
+  - **A pre-existing flake in `phase2-listing-auto-publish`:** two emails written in one transaction share a timestamp. It is now compared as a set and picked by template.
+- **Tests:** warehouse 38 (model 17, ingest 13, reader 6, boundary 2). **Full backend suite 197 files / 3,145 tests, green twice in a row.**

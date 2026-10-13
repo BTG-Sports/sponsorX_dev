@@ -1,5 +1,10 @@
 -- 3S1-DATA-02 · fact_marketplace_order_line (design §7): one row per order
 -- line, its milestones as date keys, its financial split and refunds.
+SELECT dw.ensure_dates(ARRAY(
+  SELECT (o._row->>c)::timestamp::date FROM stg."MarketplaceOrder" o, unnest(ARRAY['createdAt','contractedAt','paidAt','fulfilledAt','refundedAt']) c
+  UNION SELECT (l._row->>c)::timestamp::date FROM stg."MarketplaceOrderLine" l, unnest(ARRAY['startsOn','endsOn']) c
+  UNION SELECT at::date FROM stg.audit WHERE action = 'marketplaceOrder.cancelled'));
+
 INSERT INTO dw.fact_marketplace_order_line
 SELECT o.tenant_id, l._row->>'itemTenantId', o.id, l.id,
        coalesce(sp.sponsor_key, 0), coalesce(pr.property_key, 0), coalesce(at.athlete_key, 0), coalesce(inv.inventory_key, 0),

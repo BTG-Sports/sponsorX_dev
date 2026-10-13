@@ -66,6 +66,11 @@ Out of scope here, and why:
                                             └──────────────────────────────────────────────┘
 ```
 
+- **THE RULE (user, 2026-10-13): anything that needs the current status reads the app, never the warehouse.**
+  - The warehouse is up to an hour behind by design. A cancellation shows in the app at once and in the warehouse within the hour.
+  - So no live decision is ever taken from the warehouse: a payment, a payout, a refund, a cancellation, who may see what, whether a code can still be redeemed, or whether an item is available.
+  - The warehouse feeds analysis only: reports, benchmarks, price suggestions and forecasts, which work in days and weeks. A price suggestion never overrides the app's own price floor, which the app checks at the moment of sale.
+  - Enforced by `backend/tests/warehouse-boundary.test.ts`: no code under `backend/src` or `frontend/src` reaches the warehouse. An analysis screen that needs warehouse figures (3S7) gets its own reader, named in that test on purpose.
 - **The product never reads the warehouse on a request path**, and the
   warehouse never writes the product. Ingestion uses a dedicated **read-only
   role** on the product database. Intelligence screens (`3S7-*`) read `sem`
@@ -83,6 +88,11 @@ Out of scope here, and why:
   - `ingest.mts` copies the data hourly when `WAREHOUSE_DATABASE_URL` is set. Each run reads one consistent, read-only snapshot of the product, and an advisory lock means only one run at a time. APPEND tables are read from a watermark minus 48 hours; VERSIONED tables are read in full and get a new version only when the row's hash changes (or a deleted version when the row is gone). Every run is logged in `raw._ingest_run`.
   - `migrations/*.sql` holds the warehouse's own schema files, applied at the start of each run.
   - Timestamps in `_row` are the product's UTC values, as ISO text with no zone.
+- **How the model is rebuilt (as built, 3S1-DATA-02).**
+  - **Every hour, after the copy,** the whole model is rebuilt in one transaction.
+  - **The money snapshots are a diary:** only today (and any day missed while the worker was down) is written, and past days are never rewritten.
+  - **Each run records its build time and a double-check against the app,** taken inside the same frozen view of the app as the copy. Both sides see the same moment, so a change made mid-run is never a false alarm.
+  - **A build slower than a minute is logged as a warning.** That is the trigger for `3S1-DATA-04`: an incremental build that redoes only what changed. It must also handle figures entered late for an earlier day (a view count typed in days afterwards), which is why a plain "last 7 days" window is not enough.
 - **Idempotent by day.** Ingestion and transformation rebuild a **date range**
   inside one transaction: delete the facts for those dates, insert them again.
   A re-run never double-counts (`3S1-DATA-01`'s acceptance). The default range
@@ -99,7 +109,7 @@ Out of scope here, and why:
   current), `is_current boolean`. A fact row takes the dimension version valid
   **on the fact's date**.
   - Versions come from the raw copies: one per day (the day's last), kept only when a tracked attribute changed.
-  - The first version is valid from `2000-01-01`, since nothing older is known.
+  - The first version has no start date (`-infinity`), since nothing older is known; even a record dated decades back finds it.
   - A row deleted in the product ends its last version the day before.
 - **Tenant.** Every dimension and fact row carries `tenant_id text`. The
   semantic layer filters on it; no view returns rows across tenants. `LedgerEntry`'s
