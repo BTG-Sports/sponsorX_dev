@@ -210,6 +210,13 @@ describe.skipIf(!hasDatabase)("2S2-FE-03 · BTG answers a change request; drafts
       });
       expect(accepted.status, accepted.text).toBe(200);
       expect(accepted.json.state).toBe("ACCEPTED");
+      /* 3S1-BE-02 — an order made by accepting an offer is booked as a fact, with its deliverables due, like any other. */
+      const { campaignId, athleteId } = await prisma.offer.findUniqueOrThrow({ where: { id: offer.id }, select: { campaignId: true, athleteId: true } });
+      const made = await prisma.campaignOrder.findFirstOrThrow({ where: { campaignId, athleteId }, select: { id: true, sellPrice: true, compensation: true, deliverables: { select: { id: true } } } });
+      expect(await prisma.fact.findMany({ where: { sourceId: made.id }, select: { kind: true, measures: true } }))
+        .toEqual([{ kind: "ORDER_BOOKED", measures: { booked_sell_cents: made.sellPrice, booked_compensation_cents: made.compensation } }]);
+      expect(made.deliverables.length).toBeGreaterThan(0);
+      expect(await prisma.fact.count({ where: { kind: "DELIVERABLE_DUE", sourceId: { in: made.deliverables.map((d) => d.id) } } })).toBe(made.deliverables.length);
       /* An answered offer has nothing left to keep. */
       expect((await keep(offer.id, requestId, "oan_cm", { note: "Late" })).status).toBe(409);
     });

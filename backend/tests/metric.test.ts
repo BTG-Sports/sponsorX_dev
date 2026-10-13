@@ -20,6 +20,10 @@ let deliverable: Record<string, unknown> | null;
 let upserts: { where: unknown; create: Record<string, unknown>; update: Record<string, unknown> }[] = [];
 let auditRows: Record<string, unknown>[] = [];
 
+/* 3S1-BE-02 — this fake database has no Fact table; the facts are proven against Postgres (fact-wiring.test.ts). */
+vi.mock("../src/domain/fact-writers", async (importOriginal) =>
+  Object.fromEntries(Object.keys(await importOriginal<object>()).map((k) => [k, async () => {}])));
+
 vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://sponsorx.example" } }));
 
 vi.mock("../src/db/client", () => {

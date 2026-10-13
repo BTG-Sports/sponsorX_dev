@@ -91,7 +91,7 @@ import { handleRollupMetrics } from "./jobs/rollup-metrics.mts";
 import { remindDueDeliverables } from "./jobs/deliverable-reminders.mts";
 import { handleIngestInvoice, type IngestInvoiceJob } from "./jobs/ingest-invoice.mts";
 import { handleRenderReport } from "./jobs/render-report.mts";
-import { ingestWarehouse } from "./warehouse/ingest.mts";
+import { ingestWarehouse, SLOW_BUILD_MS } from "./warehouse/ingest.mts";
 import { applyQueuePolicy } from "./queue-policy.mts";
 import { expireCarts } from "../src/domain/cart.ts";
 import { expireReservations } from "../src/domain/reservation.ts";
@@ -925,7 +925,9 @@ async function main(): Promise<void> {
           const changed = Object.entries(out.rows)
             .map(([t, r]) => [t, r.mode === "APPEND" ? r.inserted + r.updated : r.versions + r.deleted] as const)
             .filter(([, n]) => n > 0);
-          log(`[worker] warehouse ingest run ${out.runId} — ${changed.length ? changed.map(([t, n]) => `${t} ${n}`).join(", ") : "no changes"}`);
+          log(`[worker] warehouse ingest run ${out.runId} — ${changed.length ? changed.map(([t, n]) => `${t} ${n}`).join(", ") : "no changes"}; built in ${out.buildMs} ms; double-check ${out.reconciled.ok ? "ok" : "FAILED"}`);
+          if (!out.reconciled.ok) logError(`[worker] warehouse double-check found differences in run ${out.runId}:`, JSON.stringify(out.reconciled.failed.slice(0, 20)));
+          if (out.buildMs > SLOW_BUILD_MS) logError(`[worker] warehouse build took ${Math.round(out.buildMs / 1000)} s — time for the incremental mode (3S1-DATA-04)`, "");
         })
         .catch((error: unknown) => logError("[worker] warehouse ingest failed, will retry next hour:", error));
     };

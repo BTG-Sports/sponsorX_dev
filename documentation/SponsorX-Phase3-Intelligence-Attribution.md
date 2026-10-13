@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Make SponsorX intelligent. Recommend prices, identify best-fit sponsors, forecast delivery, flag underperformance before a campaign ends, detect suspicious metrics and ingest verified commerce attribution. |
-| **Tasks** | 53 · 199 person-days |
+| **Tasks** | 58 · 204 person-days |
 | **Blueprint timeline** | 18–22 weeks |
 | **Balanced budget** | $105K–$160K |
 | **Depends on** | Phase 2 transaction history, campaign performance data, marketplace activity, reliable event ingestion |
@@ -17,7 +17,7 @@
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md)  | 186 | 14–18 weeks |
 | 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 72 | 16–20 weeks |
-| 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md) **← you are here** | 53 | 18–22 weeks |
+| 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md) **← you are here** | 58 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
 ---
@@ -235,7 +235,7 @@ Counsel reviews the attribution claims, the consent basis for using fan data thi
 
 *Get the data out of the transactional database and into an analytical model that can be trusted.*
 
-*4 tasks · 16 person-days*
+*10 tasks · 24 person-days*
 
 ### ✅ `3S1-DATA-01` · Warehouse ingestion pipeline
 
@@ -259,35 +259,97 @@ The core analytical model: one row per campaign per day, with conformed dimensio
 - **Delivered:** `backend/worker/warehouse/` (model, transforms, `reconcile.mts`) — 2026-10-13; tolerance zero (design §8)
 - **Reference:** Spec §19, §22
 
-### ⏸ `3S1-DATA-04` · Incremental warehouse build
+> **Changed 2026-10-13 (user review): facts are recorded by the app, not re-derived by a warehouse.** The separate warehouse (3S0-OPS-01, 3S1-DATA-01, 3S1-DATA-02) worked out business meaning a second time from copied tables. That meant two copies of the rules, a copy job that can fail, and edits it cannot see. It is replaced by a fact ledger the app writes in the same transaction as each action, with daily summaries kept up to date in that same transaction. The warehouse is retired by 3S1-OPS-02. Design: [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) (written in 3S1-BE-01).
 
-**Order** 8.5 · **DATA** · **Where:** Code · **3d** · **Blocked**
+### ◑ `3S1-BE-01` · Fact ledger and daily summaries
 
-Raised in review of `3S1-DATA-02` (2026-10-13). The model is rebuilt whole every hour, which takes well under a second at today's size. Once that grows, build only what changed, including figures entered late for an earlier day, which a plain "last 7 days" window would miss.
+**Order** 7.1 · **BE** · **Where:** Code · **2d** · **Code review**
 
-- **Depends on:** 3S1-DATA-02
-- **Starts when:** an hourly build is logged as slower than one minute (the worker records every build's time and warns above 60 s)
-- **Done when:** a build redoes only the rows its changes touch, late-dated figures included, and the hourly double-check still passes at zero difference
+The same transaction that books, cancels, pays or delivers also writes one fact row: what happened, to which campaign, athlete, job, channel and market, how much, and when. The values come from the app's own code, so the meaning is defined once. The daily campaign summaries are updated in that same transaction. Corrections are new rows, never edits.
+
+- **Depends on:** 3S0-DATA-01
+- **Done when:** facts and summaries are written in the same transaction as the change (both or neither); the summaries always equal the sum of the facts; a correction adds rows and never edits one
+- **Delivered:** [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md), `backend/src/domain/facts.ts` — 2026-10-13
+- **Reference:** Spec §19, §21, §22
+
+### ◑ `3S1-BE-02` · Record facts in every money and delivery action
+
+**Order** 7.2 · **BE** · **Where:** Code · **2d** · **Code review**
+
+The fact writer, wired into every action that changes money or delivery:
+- orders booked and cancelled;
+- earnings paid;
+- invoices issued and paid;
+- deliverables due, published, verified and sent back for revision;
+- metrics recorded and corrected;
+- ad slots sold;
+- marketplace milestones and financials.
+
+Fan scans, clicks and edition views are already one row per event, so they are counted directly rather than copied.
+
+- **Depends on:** 3S1-BE-01
+- **Done when:** every listed action writes its fact in its own transaction; the daily summaries match the app's own totals for a seeded campaign
+- **Delivered:** `backend/src/domain/fact-writers.ts`, wired into each action; `backend/tests/fact-wiring.test.ts` — 2026-10-13. Where each fact is written, and what reverses what: [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §4
+- **Reference:** Spec §19, §22
+
+### ⏸ `3S1-QA-02` · Nothing slips through: action and status coverage tests
+
+**Order** 7.3 · **QA** · **Where:** Code · **1d** · **Blocked**
+
+Tests that fail the build in two cases: an action that changes money or delivery does not write its fact, or a new order state, payment type or metric source is added without being classified for the facts.
+
+- **Depends on:** 3S1-BE-02
+- **Done when:** removing a fact write, or adding an unclassified state, fails CI
+- **Reference:** Spec §22
+
+### ⏸ `3S1-DATA-05` · Fill fact history from current records
+
+**Order** 7.4 · **DATA** · **Where:** Code · **1d** · **Blocked**
+
+A one-off, re-runnable fill of facts for everything that happened before the ledger existed, from the app's current records and its audit history.
+
+- **Depends on:** 3S1-BE-02
+- **Done when:** history is filled for all tenants; re-running adds nothing; the summaries equal the app's totals for every campaign
 - **Reference:** Spec §21
 
-### ▶ `3S1-DATA-03` · Benchmark pipeline
+### ⏸ `3S1-OPS-02` · Retire the warehouse
 
-**Order** 9 · **DATA** · **Where:** Code · **3d** · **Ready**
+**Order** 7.5 · **OPS** · **Where:** Code / Vendor console · **1d** · **Blocked**
+
+Stop the hourly copy, and remove the warehouse settings and code. Once the facts and summaries are live, delete `Postgres-warehouse` and `Postgres-warehouse-production`, with the owner's OK.
+
+- **Depends on:** 3S1-DATA-05
+- **Done when:** no warehouse service, setting or code remains; analysis reads the summaries; the design docs say so
+- **Reference:** Spec §20
+
+### ▶ `3S1-OPS-03` · Only the app writes to the live database
+
+**Order** 7.6 · **OPS** · **Where:** Vendor console · **1d** · **Ready**
+
+A dedicated login for the app with write access; people get read-only access. Corrections go through admin actions, which record their facts, so no edit can bypass the ledger.
+
+- **Depends on:** —
+- **Done when:** in staging and production only the app's login can write; a read-only login exists for people; the change is recorded in the deployment runbook
+- **Reference:** Spec §26
+
+### ⏸ `3S1-DATA-03` · Benchmark pipeline
+
+**Order** 9 · **DATA** · **Where:** Code · **3d** · **Blocked**
 
 Percentile benchmarks by sport, market, format and audience — p25, median, p75 with sample size, so a small sample is visibly small.
 
-- **Depends on:** 3S1-DATA-02
+- **Depends on:** 3S1-DATA-05
 - **Done when:** Benchmarks compute with sample sizes exposed and refresh on schedule
 - **Reference:** Spec §19
 
-### ▶ `3S1-QA-01` · Warehouse reconciliation tests
+### ⏸ `3S1-QA-01` · Warehouse reconciliation tests
 
-**Order** 10 · **QA** · **Where:** Code · **3d** · **Ready**
+**Order** 10 · **QA** · **Where:** Code · **3d** · **Blocked**
 
 Automated proof that the warehouse agrees with the source system. Run it every night, not once at launch.
 
-- **Depends on:** 3S1-DATA-02
-- **Done when:** Reconciliation tests run nightly and alert on drift beyond tolerance
+- **Depends on:** 3S1-DATA-05
+- **Done when:** a nightly check finds the daily summaries equal to the sum of the facts, and the facts agreeing with the app's current records. A mismatch emails BTG admins once, and again once on recovery, and shows in the admin integration-health data (user, 2026-10-13: email plus admin screen, no Slack)
 - **Reference:** Spec §22
 
 ## Sprint 2 · Dynamic CPM engine
@@ -296,13 +358,13 @@ Automated proof that the warehouse agrees with the source system. Run it every n
 
 *4 tasks · 18 person-days*
 
-### ▶ `3S2-BE-01` · Feature store and snapshot service
+### ⏸ `3S2-BE-01` · Feature store and snapshot service
 
-**Order** 11 · **BE** · **Where:** Code · **5d** · **Ready**
+**Order** 11 · **BE** · **Where:** Code · **5d** · **Blocked**
 
 Assemble the inputs a pricing model needs — audience, engagement, historical delivery, demand, seasonality, geography, scarcity — and snapshot them so a past recommendation can always be explained.
 
-- **Depends on:** 3S1-DATA-02
+- **Depends on:** 3S1-DATA-05
 - **Builds on:** `AthleteScore` (P3-BE-10), the existing snapshot pattern. Features read from the warehouse, not product tables. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Feature snapshots generate on schedule and are retrievable by entity and date
 - **Reference:** Spec §19
@@ -544,9 +606,9 @@ Attributed transactions, revenue, method, window, confidence and unmatched event
 
 **Order** 30.5 · **BE** · **Where:** Code · **3d** · **Blocked**
 
-Raised building `3S7-FE-01` / `3S7-FE-02` (2026-10-13). Both hubs depend on warehouse facts, but no task serves them: `GET /intelligence/sponsor` and `GET /intelligence/property`, scoped by the API to the caller's own sponsor org or property, reading the semantic layer and the CPM engine.
+Raised building `3S7-FE-01` / `3S7-FE-02` (2026-10-13). Both hubs depend on warehouse facts, but no task serves them: `GET /intelligence/sponsor` and `GET /intelligence/property`, scoped by the API to the caller's own sponsor org or property, reading the daily summaries of the fact ledger (`3S1-BE-01`, in the app database; never the warehouse) and the CPM engine.
 
-- **Depends on:** 3S1-DATA-02, 3S2-BE-02
+- **Depends on:** 3S1-DATA-05, 3S2-BE-02
 - **Done when:** both reads answer the shapes in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md), cross-tenant and cross-org reads are refused, and the four attribution classes are returned separately
 - **Reference:** Spec §16 P3-06, P3-07; §19
 

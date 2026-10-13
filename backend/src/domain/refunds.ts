@@ -45,6 +45,8 @@ import { ProviderRefusedError, ProviderUnavailableError, refundCard, sendCardRef
 import { containsCardNumber } from "./marketplace-order-rules";
 import { appUrl, btgAdmins, orderRef, sponsorRecipient, tell, usd } from "./order-mail";
 import { lockCampaign } from "./campaign-stages";
+/* 3S1-BE-02 — a marketplace refund sent is a fact, written beside each place one is marked SENT. */
+import { factRefundSent } from "./fact-writers";
 import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
 
 type Tx = Prisma.TransactionClient;
@@ -227,6 +229,7 @@ export async function recordRefund(
         before: { refundId: row.id, state: "OPEN" },
         after: { refundId: row.id, state: "SENT", method: "CARD", provider: already.provider, reference: already.reference, alreadyRefundedAtProvider: true },
       });
+      await factRefundSent(tx, row.id);
       await tellRefundSent(tx, order, row.id, amountCents, now);
       return { ...row, state: "SENT" };
     }
@@ -275,6 +278,7 @@ export async function recordRefund(
           before: { refundId: row.id, state: "OPEN" },
           after: { refundId: row.id, state: "SENT", method: "CARD", provider: refunded.provider, test: refunded.test, reference: refunded.reference },
         });
+        await factRefundSent(tx, row.id);
         await tellRefundSent(tx, order, row.id, amountCents, now);
         return { ...row, state: "SENT" };
       }
@@ -341,6 +345,7 @@ export async function sendRefund(refundDueId: string, now = new Date()): Promise
       before: { refundId: row.id, state: "OPEN" },
       after: { refundId: row.id, state: "SENT", method: "CARD", provider: refunded.provider, reference: refunded.reference },
     });
+    await factRefundSent(tx, row.id);
     await tellRefundSent(tx, order, row.id, row.amountCents, now);
     return { sent: true };
   }, { timeout: 60_000, maxWait: 10_000 });
@@ -633,6 +638,7 @@ export async function markRefundSent(actor: Actor, id: string, input: Partial<Re
         /* tenant-scope: the order of the refund just loaded through whereFor(refundDue, write). */
         where: { id: found.orderId }, select: { id: true, tenantId: true, createdBy: true, billingEmail: true, billingName: true },
       });
+      await factRefundSent(tx, found.id);
       await tellRefundSent(tx, order, found.id, found.amountCents, sentOn);
     }
     return tx.refundDue.findUniqueOrThrow({

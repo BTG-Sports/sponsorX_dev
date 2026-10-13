@@ -77,5 +77,82 @@
   - **#193** merged `main` into the branch, keeping `main_development`'s content (the merged tree was identical to it).
   - #192 then merged clean. The memory `always-pull-main-development-first` now also says to check that `main` merges before opening a sync PR.
 - **Deploy (user's OK):** `main` CI green → "Daily deploy" started by hand → `release` 91ca9e8. Staging and production deployed it.
-- **Live:** run 16 in both environments applied migrations `0002_model` and `0003_run_checks` and built the model (staging 112 ms, production 129 ms). **The hourly double-check was clean in both, with zero differences.** Staging has no campaigns yet, so the campaign checks have nothing to compare; the marketplace, ledger and payment checks matched on real data. Railway's log view cut the run line short, so the run record (`raw._ingest_run`) is the source.
+- **Live:** run 16 in both environments applied migrations `0002_model` and `0003_run_checks` and built the model (staging 112 ms, production 129 ms). **The hourly double-check was clean in both, with zero differences.** Staging has no campaigns yet, so the campaign checks have nothing to compare; the marketplace, ledger and payment checks matched on real data. **Correction (later the same day):** I said Railway's log view cut the run line short. That was wrong. The worker's log change (build time, double-check result, slow-build warning) was never committed, so the deployed worker printed the old line. The run record (`raw._ingest_run`) did hold the build time and the double-check result, so the figures reported were right; only the explanation was wrong. The log change is committed with 3S1-BE-01's push.
 - **Tracker and plan:** 3S1-DATA-02 Done. **3S1-DATA-03, 3S1-QA-01 and 3S2-BE-01 are now Ready.**
+
+## rcfworks — direction change: facts recorded by the app replace the warehouse (user decision)
+
+- **What happened.** Planning 3S1-QA-01 (drift alerts), the user asked why the warehouse could drift at all. My answer listed four causes:
+  - app changes the warehouse's rules don't know;
+  - bugs in the separate rules;
+  - a copy job that can fail;
+  - edits made outside the app.
+
+  The user's verdict: the warehouse is "below par", and alerts don't remove causes. They asked for an approach that does, compared in percentages. They also noted, fairly, that these risks should have been explained when the warehouse was proposed.
+- **Decision (user): the new approach.**
+  - A fact ledger written by the app in the same transaction as each action, with daily summaries updated in that transaction.
+  - Corrections are new rows; tests make missed facts fail CI; only the app's login writes; the warehouse is retired.
+  - The figures presented: delay 60 min → 0; known silent failure modes 4 → 0; copies of the rules 2 → 1; separate pieces 12 → 0; about $7 → $0 a month; about 45–55% less code (estimate). Cost: about 6–8 days.
+- **Notification for the redefined 3S1-QA-01 (user):** email BTG admins plus the admin screen, no Slack.
+- **Tracker (Phase 3):**
+  - Row 55 (3S1-DATA-04, never started) reused as **3S1-BE-01 Fact ledger and daily summaries (Ready)**.
+  - New rows 57–61: **3S1-BE-02** (record facts in every action), **3S1-QA-02** (nothing-slips-through tests), **3S1-DATA-05** (fill history), **3S1-OPS-02** (retire the warehouse), **3S1-OPS-03** (only the app writes, Ready).
+  - 3S1-QA-01, 3S1-DATA-03, 3S2-BE-01 and **HeckerCreatives' 3S7-BE-02** (raised today for the intelligence hubs) are re-pointed to the summaries and depend on 3S1-DATA-05. The screen contracts are unchanged.
+  - 3S0-DATA-02, 3S0-OPS-01, 3S1-DATA-01 and 3S1-DATA-02 stay Done, marked SUPERSEDED.
+  - Ranges and 15 Dashboard formulas extended to row 61. Phase 3 is now 58 tasks · 204 days.
+- **Docs:** the Phase 3 plan has the new tasks and a change note; the warehouse design is marked superseded (what carries over is noted); stack-decision **Addendum D** supersedes C.
+- **The warehouse keeps running harmlessly** in staging and production until 3S1-OPS-02.
+
+## rcfworks — 3S1-BE-01: fact ledger and daily summaries (Code review)
+
+- **Design:** `documentation/SponsorX-Fact-Ledger.md`, covering the idea, the parts, 8 rules, and the facts by kind (wired in 3S1-BE-02).
+- **Built:**
+  - `Fact`: one row per business event. Unique per tenant + key, so a retried action adds nothing. `reversesId` is unique, so a fact is reversed at most once. A trigger `fact_append_only` refuses UPDATE and DELETE, except DELETE where `sponsorx.audit_purge = 'on'` (the test databases).
+  - `CampaignDaySummary`: one row per tenant × campaign × athlete × channel × inventory × market × day, with 26 measure columns. '' stands for "none" in key columns.
+  - Migration `20261013120000_fact_ledger`, taken from `prisma migrate diff` with the 16 older drift lines left out.
+  - `src/domain/fact-rules.ts`: closed lists `FACT_KINDS`, `FACT_CHANNELS`, `INVENTORY_KINDS`, `MEASURE_COLUMNS`; `normaliseMarket`.
+  - `src/domain/facts.ts`:
+    - `recordFact(tx, …)` writes the fact and moves its summary with one `INSERT … ON CONFLICT DO UPDATE col = col + delta`, in the caller's transaction;
+    - `reverseFact` corrects with a negated fact on the correction day;
+    - `checkFactSummaries` compares the summaries with the sum of the facts, measure by measure.
+  - Fan scans, clicks and edition views are deliberately not measures: they are already one row per event and are counted directly.
+  - Both models are declared system-internal in `authz.coverage.test.ts` (no route reads them yet; 3S7-BE-02 will add matrix rows).
+- **Tests:** `tests/fact-ledger.test.ts`, 11 tests:
+  - saved together;
+  - a rollback saves neither;
+  - an idempotent retry;
+  - a correction adds a row and never edits, landing on its own day;
+  - at most one reversal;
+  - the database refuses an edit and a delete;
+  - 20 concurrent writes to one summary row all count;
+  - bad measures, fractions and blank keys are refused;
+  - the summaries equal the facts, and the check catches a tampered row.
+- **Verified:** tsc and eslint clean (the house rule "explicit select" was applied to 7 reads); **full suite 198 files / 3,158 tests, green twice under CI's en_US collation**; no Prisma drift on the new tables.
+- **Next:** 3S1-BE-02 wires `recordFact` into every money and delivery action.
+
+## rcfworks — correction: an uncommitted worker change
+
+- While committing 3S1-BE-01, I found `backend/worker/index.mts` still modified. It holds the 3S1-DATA-02 review change: the hourly log line with build time and double-check result, an error log on a failed double-check, and a warning on a build over 60 s. It was edited but never committed (the commit only added `backend/worker/warehouse/`), so it was never deployed.
+- It is committed now. The earlier claim that Railway "cut the line short" is corrected above and was told to the user.
+- **Lesson:** run `git status` before every commit and check every modified file is either staged or deliberately left out.
+
+## rcfworks — 3S1-BE-02 · facts recorded in every money and delivery action (Code review)
+
+- **What:** each action that changes money or delivery now writes its fact in its own transaction. The writers are in `backend/src/domain/fact-writers.ts`, one per event; each action calls its writer right after its own write.
+- **Wired:**
+  - orders: `acceptOrder` and `respondToOffer` (booked, plus each deliverable due); `transitionOrder` CANCELLED;
+  - deliverables: `move()` for published, verified and sent back; `submitDraft` when the automatic checks send it back;
+  - `recordMetric`; `transitionEarning` PAID; `ingestZohoInvoice`;
+  - NEXT edition sale and cancellation (slots);
+  - ledger `bookOrder` / `reverseOrder` (marketplace lines);
+  - the four places in `refunds.ts` that mark a refund SENT.
+- **Rules settled while wiring** (written up in `SponsorX-Fact-Ledger.md` v1.1 §4):
+  - Cancelling an accepted order reverses its deliverables' "due" facts, matching how the app counts (sponsor overview and campaign list leave cancelled orders out). Published or verified stays.
+  - Zoho changing an invoice's amount or date, or voiding it, reverses the old figure. A paid invoice can't go back: the ingest already refuses that.
+  - A refund Finance marks sent by hand is dated on the day Finance gives. Edition refunds record no refund fact; the slot sale's reversal already takes the money out.
+- **Tests:**
+  - `tests/fact-wiring.test.ts` (9): runs a campaign through the real actions, failing first before anything was wired. Checks the summaries equal the app's own totals and the self-check passes.
+  - Fact checks added to `edition-automation`, `phase2-line-cancellation` and `phase2-offer-answers`.
+  - Five unit tests on a fake database stub the writers out (no Fact table there).
+  - Facts written in one transaction share its timestamp, so tests compare them as a set, not in order.
+- **Verified:** tsc and eslint clean; backend build OK; **full suite 199 files / 3,167 tests, green twice under en_US**.

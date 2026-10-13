@@ -29,6 +29,7 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { resolveRates } from "./commission";
 import { breakdownOrder, type LineBreakdown } from "./ledger-math";
+import { factMarketplaceContracted, factMarketplaceUnwound } from "./fact-writers";
 
 type Entry = {
   account: string; partyType: string; partyId: string; partyTenantId: string;
@@ -162,6 +163,8 @@ export async function bookOrder(tx: Tx, orderId: string, at: Date) {
   await audit(tx, { userId: null, tenantId: order.tenantId }, "ledger.book", "MarketplaceOrder", order.id, {
     after: { lines: breakdown.length, netCents: breakdown.reduce((s, b) => s + b.netCents, 0), feesCents: order.feesCents },
   });
+  /* 3S1-BE-02 — each line's gross and net, as facts, from the financials just frozen. */
+  await factMarketplaceContracted(tx, order.id, at);
   return breakdown;
 }
 
@@ -231,6 +234,8 @@ export async function reverseOrder(tx: Tx, orderId: string, lineId?: string) {
     where: { id: { in: posted.map((e) => e.id) } }, data: { status: "REVERSED" },
   });
   await audit(tx, await booksOf(tx, orderId), "ledger.reverse", "MarketplaceOrder", orderId, { after: { journals: journals.size, entries: posted.length, ...(lineId ? { lineId } : {}) } });
+  /* 3S1-BE-02 — the contracted facts reversed, on the day of the reversal. */
+  await factMarketplaceUnwound(tx, orderId, new Date(), lineId);
 }
 
 /**

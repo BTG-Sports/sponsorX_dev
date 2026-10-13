@@ -22,6 +22,10 @@ let existingDeliverables = 0;
    storage builds its S3 client at import time. No network happens in this
    file — the client is constructed and never called — but it needs the
    config to exist. Same shape as storage.grants.test.ts. */
+/* 3S1-BE-02 — this fake database has no Fact table; the facts are proven against Postgres (fact-wiring.test.ts). */
+vi.mock("../src/domain/fact-writers", async (importOriginal) =>
+  Object.fromEntries(Object.keys(await importOriginal<object>()).map((k) => [k, async () => {}])));
+
 vi.mock("../src/config/env", () => ({
   env: {
     APP_URL: "https://sponsorx.example",
