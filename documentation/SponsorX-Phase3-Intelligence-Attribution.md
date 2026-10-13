@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Make SponsorX intelligent. Recommend prices, identify best-fit sponsors, forecast delivery, flag underperformance before a campaign ends, detect suspicious metrics and ingest verified commerce attribution. |
-| **Tasks** | 62 · 205.5 person-days |
+| **Tasks** | 63 · 206 person-days |
 | **Blueprint timeline** | 18–22 weeks |
 | **Balanced budget** | $105K–$160K |
 | **Depends on** | Phase 2 transaction history, campaign performance data, marketplace activity, reliable event ingestion |
@@ -17,7 +17,7 @@
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md)  | 186 | 14–18 weeks |
 | 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 72 | 16–20 weeks |
-| 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md) **← you are here** | 62 | 18–22 weeks |
+| 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md) **← you are here** | 63 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
 ---
@@ -235,7 +235,7 @@ Counsel reviews the attribution claims, the consent basis for using fan data thi
 
 *Get the data out of the transactional database and into an analytical model that can be trusted.*
 
-*14 tasks · 25.5 person-days*
+*15 tasks · 26 person-days*
 
 ### ✅ `3S1-DATA-01` · Warehouse ingestion pipeline
 
@@ -357,14 +357,18 @@ The same, for:
 - **Delivered:** `fillSlotHistory`, `fillMarketplaceHistory` in `backend/src/domain/fact-history.ts`; `npm run facts:fill -- slots marketplace`. Tests erase the live facts and refill them from history: the same facts come back — 2026-10-13. [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §8
 - **Reference:** Spec §21
 
-### ▶ `3S1-OPS-04` · Fill the history on staging and production
+### ◑ `3S1-OPS-04` · Fill the history on staging and production
 
-**Order** 7.43 · **OPS** · **Where:** Code / Vendor console · **0.5d** · **Ready**
+**Order** 7.43 · **OPS** · **Where:** Code / Vendor console · **0.5d** · **Code review**
 
 Run the three fills on staging, then on production with the owner's OK; the check must then pass for every campaign and tenant.
 
 - **Depends on:** 3S1-DATA-05, 3S1-DATA-06, 3S1-DATA-07
 - **Done when:** history is filled for all tenants in both environments; the check passes; a second run adds nothing
+- **Delivered:** 2026-10-13, after the deploy of `f00d36a`:
+  - **staging:** 7 facts filled (6 marketplace orders);
+  - **production:** nothing to fill.
+  - In both, the check passes and a second run adds nothing. [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §8
 - **Reference:** Spec §21
 
 ### ⏸ `3S1-OPS-02` · Retire the warehouse
@@ -397,15 +401,39 @@ Percentile benchmarks by sport, market, format and audience — p25, median, p75
 - **Done when:** Benchmarks compute with sample sizes exposed and refresh on schedule
 - **Reference:** Spec §19
 
-### ⏸ `3S1-QA-01` · Warehouse reconciliation tests
+### ◑ `3S1-QA-01` · Nightly fact check
 
-**Order** 10 · **QA** · **Where:** Code · **3d** · **Blocked**
+**Order** 10 · **QA** · **Where:** Code · **3d** · **Code review**
 
-Automated proof that the warehouse agrees with the source system. Run it every night, not once at launch.
+Automated proof, every night, that the report figures agree with the app's own records: not once at launch. (Was "Warehouse reconciliation tests"; the warehouse is replaced by the fact ledger.)
 
 - **Depends on:** 3S1-OPS-04
 - **Done when:** a nightly check finds the daily summaries equal to the sum of the facts, and the facts agreeing with the app's current records. A mismatch emails BTG admins once, and again once on recovery, and shows in the admin integration-health data (user, 2026-10-13: email plus admin screen, no Slack)
+- **Delivered:** 2026-10-13:
+  - `backend/src/domain/fact-nightly.ts`;
+  - the worker's nightly tick (19:00 UTC);
+  - `FactCheckRun` (migration `20261013150000_fact_check_run`);
+  - the `facts.checkFailed` / `facts.checkRecovered` emails, switched on by `FACT_CHECK_EMAILS`;
+  - the `facts` section of `GET /operations/integration-health`;
+  - `backend/tests/fact-nightly.test.ts`.
+
+  [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §9
 - **Reference:** Spec §22
+
+### ⏸ `3S1-FE-01` · Figures check on the integrations screen
+
+**Order** 10.1 · **FE** · **Where:** Code · **0.5d** · **Blocked**
+
+Raised by `3S1-QA-01` (2026-10-13). Show the nightly fact check on the admin integrations screen, beside Zoho, webhooks and the queue, from the `facts` section of `GET /operations/integration-health`:
+- when it last ran;
+- whether the report figures match the app;
+- since when they have not;
+- the differences, in words;
+- whether emails are on.
+
+- **Depends on:** 3S1-QA-01
+- **Done when:** the integrations screen shows the section in its three states: never run, matching, and not matching with its differences. Only BTG can see it.
+- **Reference:** Spec §22, §23
 
 ## Sprint 2 · Dynamic CPM engine
 

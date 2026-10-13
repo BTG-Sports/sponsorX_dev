@@ -16,12 +16,17 @@
  *                  for the worker) and pg-boss (what the worker did with it):
  *                  backlog, oldest waiting, and recent failed jobs for this
  *                  tenant only (pg-boss rows carry tenantId in their data).
+ *   facts        — 3S1-QA-01: the nightly fact check — when it last ran,
+ *                  whether this tenant's report figures match the app's
+ *                  records, since when they have not, and what differs.
  */
 import { prisma } from "../db/client";
 import type { Actor } from "../auth/actor";
 import { assertTenantWide } from "../auth/scope";
 import { redisReachable } from "../lib/redis";
 import { storageReachable } from "../lib/storage";
+import { env } from "../config/env";
+import { factCheckStatus, type FactCheckStatus } from "./fact-nightly";
 
 const WEEK = 7 * 86_400_000;
 
@@ -38,6 +43,7 @@ export type IntegrationHealth = {
     jobs: { name: string; state: string; count: number }[];
     recentFailed: { name: string; failedAt: string | null; error: string | null }[];
   };
+  facts: FactCheckStatus;
 };
 
 export async function integrationHealth(actor: Actor, now = new Date()): Promise<IntegrationHealth> {
@@ -143,6 +149,7 @@ export async function integrationHealth(actor: Actor, now = new Date()): Promise
       jobs,
       recentFailed,
     },
+    facts: await factCheckStatus(prisma, tenantId, Boolean(env.FACT_CHECK_EMAILS)),
   };
 }
 

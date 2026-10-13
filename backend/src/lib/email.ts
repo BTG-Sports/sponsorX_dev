@@ -246,6 +246,9 @@ export type EmailTemplate =
   | "payout.failedForBtg"
   /* 2S5-INT-01 — Stripe refused a card refund SponsorX queued: it is back on Finance's "Refunds to send" list. BTG's admins, with Stripe's reason. */
   | "refund.providerRefused"
+  /* 3S1-QA-01 — the nightly fact check: the figures stopped matching the app; they match again. */
+  | "facts.checkFailed"
+  | "facts.checkRecovered"
   /* P4-BE-09 — campaigns move on their own: BTG's campaign managers hear a
      campaign is ready to launch; the sponsor hears their final report is ready. */
   | "campaign.readyToLaunch"

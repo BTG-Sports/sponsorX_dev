@@ -38,6 +38,8 @@ vi.mock("../src/db/client", () => ({
     outboxJob: {
       groupBy: async () => [{ name: "zoho.syncAccount", _count: { _all: 2 }, _min: { createdAt: new Date("2026-10-03T10:00:00Z") } }],
     },
+    /* 3S1-QA-01 — no nightly fact check has run yet. */
+    factCheckRun: { findFirst: async () => null, findMany: async () => [] },
   },
 }));
 
@@ -75,6 +77,9 @@ describe("integrationHealth", async () => {
   });
   it("athletes have no last-sync column — reported as null, not a guess", () => {
     expect(h.sync.find((x) => x.entity.startsWith("Athletes"))!.lastSyncAt).toBeNull();
+  });
+  it("reports the nightly fact check — never run yet, nothing to show (3S1-QA-01)", () => {
+    expect(h.facts).toEqual({ lastRunAt: null, matches: null, failingSince: null, differences: [], differenceCount: 0, emails: false, lastError: null });
   });
   it("is BTG's — FINANCE is refused", async () => {
     await expect(integrationHealth(finance)).rejects.toThrow();

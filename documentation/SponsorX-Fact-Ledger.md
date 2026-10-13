@@ -1,6 +1,6 @@
 # SponsorX Fact Ledger
 
-**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07` · Version 1.6 · 2026-10-13 · Phase 3, Sprint 1**
+**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07`, `3S1-OPS-04`, `3S1-QA-01` · Version 1.7 · 2026-10-13 · Phase 3, Sprint 1**
 
 Phase 3's figures (reports, benchmarks, price suggestions, forecasts) come
 from **facts the app records at the moment each thing happens**, not from a
@@ -187,3 +187,39 @@ Facts start when the ledger goes live. The history fills (`backend/src/domain/fa
 - **Marketplace:** the same facts, key for key and day for day.
 - **Campaigns** (orders, deliverables, views, payments, invoices): every non-zero daily summary figure is the same.
 - **A cancelled edition's slots:** each campaign's figure is the same, day by day.
+
+**Filled on 2026-10-13 (`3S1-OPS-04`).** The ledger went live with the deploy of `f00d36a` at 10:36 UTC.
+
+| Environment | Check before | Fill | Check after | Second run |
+|---|---|---|---|---|
+| Staging | One gap: 6 marketplace orders. Staging has no campaign orders, payments, views, invoices or sold slots. | 7 facts | both checks pass | added nothing |
+| Production | Already matching: no money history before the ledger | 0 facts | both checks pass | added nothing |
+
+## 9 · The nightly check
+
+`backend/src/domain/fact-nightly.ts` (`3S1-QA-01`).
+
+**When it runs.** Every night, the worker runs both checks (§7) across every tenant, read-only. It runs on the first hourly tick at or after **19:00 UTC** (3 am Manila).
+- The run is kept as a `FactCheckRun` row, one per UTC day. Its unique `day` means a second worker, or a restart, finds the day already taken.
+- A run cut short by a dead worker is taken over after an hour.
+- A run that could not run (a database error) is recorded with its error, logged, tried again on the next tick, and never emailed as a mismatch.
+
+**Who is told.** A tenant's active BTG admins get one email when its figures stop matching ("SponsorX report figures don't match the app") and one when they match again.
+- The first email says the app's own records are untouched, lists up to 20 differences in plain words, and links to integration health. An example line: "Fall tacos — amount booked (sponsor price): the app says $200.00, the report figures say $0.00".
+- The recovery email says since when the figures had not matched.
+- Nothing is sent on the nights in between.
+
+**Switched on per environment.** `FACT_CHECK_EMAILS=on` turns the emails on, once that environment's history is filled. The check runs and is recorded either way.
+
+**On the admin screen.** `GET /operations/integration-health` carries a `facts` section for the caller's tenant only:
+- when the check last ran;
+- whether the figures match;
+- since when they have not;
+- the differences, in words;
+- whether emails are on;
+- the last error.
+
+Drawing it on the integrations screen is `3S1-FE-01`.
+
+**When an admin is emailed,** the developers run `npm run facts:check` for the full list. A gap in history is fixed by `facts:fill`. An action that skipped its writer is a bug, and `3S1-QA-02`'s coverage test should have caught it.
+
