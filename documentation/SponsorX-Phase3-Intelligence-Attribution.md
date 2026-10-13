@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Make SponsorX intelligent. Recommend prices, identify best-fit sponsors, forecast delivery, flag underperformance before a campaign ends, detect suspicious metrics and ingest verified commerce attribution. |
-| **Tasks** | 51 · 193 person-days |
+| **Tasks** | 52 · 196 person-days |
 | **Blueprint timeline** | 18–22 weeks |
 | **Balanced budget** | $105K–$160K |
 | **Depends on** | Phase 2 transaction history, campaign performance data, marketplace activity, reliable event ingestion |
@@ -17,7 +17,7 @@
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md)  | 186 | 14–18 weeks |
 | 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 72 | 16–20 weeks |
-| 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md) **← you are here** | 51 | 18–22 weeks |
+| 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md) **← you are here** | 52 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
 ---
@@ -207,14 +207,15 @@ Facts and dimensions separated from the transactional database, so analytical qu
 - **Reference:** Spec §19
 - **Delivered:** [`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) — 2026-10-12, signed off the same day (rcfworks, with Rodney's delegated authority)
 
-### ▶ `3S0-OPS-01` · Select the warehouse and transformation layer
+### ✅ `3S0-OPS-01` · Select the warehouse and transformation layer
 
-**Order** 5 · **OPS** · **Where:** Vendor console · **3d** · **Ready**
+**Order** 5 · **OPS** · **Where:** Vendor console · **3d** · **Done**
 
 Snowflake, BigQuery, Redshift or Postgres depending on scale, plus dbt or equivalent for versioned transformations.
 
 - **Depends on:** 3S0-DATA-02
 - **Done when:** Warehouse and transformation tooling selected, provisioned and cost-modelled
+- **Delivered:** `.claude/stack-decision.md` Addendum C; `Postgres-warehouse` (staging) and `Postgres-warehouse-production`, ingestion running hourly in both — 2026-10-12
 - **Reference:** Spec §20
 
 ### ⏸ `3S0-LEG-01` · Attribution, consent and partner terms review
@@ -235,9 +236,9 @@ Counsel reviews the attribution claims, the consent basis for using fan data thi
 
 *4 tasks · 16 person-days*
 
-### ◑ `3S1-DATA-01` · Warehouse ingestion pipeline
+### ✅ `3S1-DATA-01` · Warehouse ingestion pipeline
 
-**Order** 7 · **DATA** · **Where:** Code · **5d** · **Code review**
+**Order** 7 · **DATA** · **Where:** Code · **5d** · **Done**
 
 Move transactional data into the warehouse on a schedule, idempotently, so a re-run never double-counts.
 
@@ -246,15 +247,27 @@ Move transactional data into the warehouse on a schedule, idempotently, so a re-
 - **Delivered:** `backend/worker/warehouse/` — 2026-10-12. Hourly in the worker when `WAREHOUSE_DATABASE_URL` is set, so it starts in production once `3S0-OPS-01` provisions the warehouse
 - **Reference:** Spec §21
 
-### ⏸ `3S1-DATA-02` · Daily campaign fact and dimension tables
+### ◑ `3S1-DATA-02` · Daily campaign fact and dimension tables
 
-**Order** 8 · **DATA** · **Where:** Code · **5d** · **Blocked**
+**Order** 8 · **DATA** · **Where:** Code · **5d** · **Code review**
 
 The core analytical model: one row per campaign per day, with conformed dimensions for property, sponsor, channel and inventory.
 
 - **Depends on:** 3S1-DATA-01
 - **Done when:** Warehouse metrics reconcile to transactional campaign, order and payment totals within defined tolerance
+- **Delivered:** `backend/worker/warehouse/` (model, transforms, `reconcile.mts`) — 2026-10-13; tolerance zero (design §8)
 - **Reference:** Spec §19, §22
+
+### ⏸ `3S1-DATA-04` · Incremental warehouse build
+
+**Order** 8.5 · **DATA** · **Where:** Code · **3d** · **Blocked**
+
+Raised in review of `3S1-DATA-02` (2026-10-13). The model is rebuilt whole every hour, which takes well under a second at today's size. Once that grows, build only what changed, including figures entered late for an earlier day, which a plain "last 7 days" window would miss.
+
+- **Depends on:** 3S1-DATA-02
+- **Starts when:** an hourly build is logged as slower than one minute (the worker records every build's time and warns above 60 s)
+- **Done when:** a build redoes only the rows its changes touch, late-dated figures included, and the hourly double-check still passes at zero difference
+- **Reference:** Spec §21
 
 ### ⏸ `3S1-DATA-03` · Benchmark pipeline
 

@@ -469,10 +469,14 @@ answer is Postgres.
 
 - **Services:** `Postgres-warehouse` (staging) and `Postgres-warehouse-production` (production). Each is its own database, never the product's, in the same Railway project, on Postgres 18 (the same `postgres-ssl` image as the product's).
 - **Region: US East** (`us-east4-eqdc4a`), as A7 / G-02 require. **`railway add` placed the first one in `sfo`.** It was moved with `railway service scale <us-east4-eqdc4a>=1 sfo=0` while still empty. Check the region of every new database; do not trust the default.
-- **Backups** match the product databases' (runbook): PITR wired to `sponsorx-pg-backups`, plus daily and weekly snapshots. Unlike the facts, the raw layer's version history cannot be rebuilt from the product, so it is backed up like product data.
+- **Provisioned 2026-10-12.**
+  - Staging: `Postgres-warehouse` (`8903a76f`).
+  - Production: `Postgres-warehouse-production` (`040f44e6`). It landed in US East without a move.
+  - Each `api` service carries `WAREHOUSE_DATABASE_URL` (a `${{…DATABASE_URL}}` reference) and `WAREHOUSE_SOURCE_DATABASE_URL` (the reader login; its host, port and database are references, and the password is set via stdin).
+- **Backups** match the product databases' (runbook): PITR wired to `sponsorx-pg-backups`, plus daily and weekly snapshots, and monthly in production. After `pitr enable`, the database needs a redeploy before archiving starts. Unlike the facts, the raw layer's version history cannot be rebuilt from the product, so it is backed up like product data.
 - **Reached over private networking only.** No public proxy, the same as the product databases.
 
-**Why not BigQuery or Snowflake.** They are a new vendor, a new contract and data residency to establish again, data leaving Railway, and an ETL path out of the private network, all for a data volume measured in megabytes. Measured on 2026-10-12: staging's 29 copied tables hold 5.5 MB and about 1,100 rows; production's hold 7 rows. Snowflake's minimum spend alone would exceed this whole addendum's cost.
+**Why not BigQuery or Snowflake.** They are a new vendor, a new contract and data residency to establish again, data leaving Railway, and an ETL path out of the private network, all for a data volume measured in megabytes. Measured on 2026-10-12: staging's 28 copied tables hold 5.5 MB and about 1,100 rows; production's hold 7 rows. Snowflake's minimum spend alone would exceed this whole addendum's cost.
 
 ## C2. The transformation layer is SQL files run by the worker
 
@@ -485,6 +489,10 @@ Numbered `.sql` files in the repo are applied by the same small runner that inge
 `warehouse_reader` on each product database may SELECT exactly the allow-listed columns of `worker/warehouse/sources.mts`, plus an athlete's birth date, read only to compute `is_minor`. Every transaction it opens is read-only. The grants are generated from the same list (`worker/warehouse/grants.mts`; apply with `npm run warehouse:reader -w @sponsorx/backend`), so the database itself refuses a personal column even if code asked for one. Re-apply after adding a column to the list.
 
 The worker uses `WAREHOUSE_DATABASE_URL` (the warehouse) and `WAREHOUSE_SOURCE_DATABASE_URL` (the product, as `warehouse_reader`). Without the first, ingestion is off.
+
+## C3a. The rule: live decisions read the app, never the warehouse
+
+The warehouse is up to an hour behind by design, so payments, payouts, refunds, cancellations, permissions, redemption and availability are always decided from the app. The warehouse only feeds analysis that works in days and weeks. Enforced by `backend/tests/warehouse-boundary.test.ts` (user, 2026-10-13).
 
 ## C4. Cost model
 
