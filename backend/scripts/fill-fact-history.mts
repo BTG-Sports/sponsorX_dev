@@ -1,7 +1,8 @@
 /**
- * Fill the fact history — 3S1-DATA-05 (and 3S1-DATA-06 / 07 as they land).
+ * Fill the fact history — 3S1-DATA-05, 3S1-DATA-06, 3S1-DATA-07.
  *
  *   npm run facts:fill -w @sponsorx/backend -- orders
+ *   npm run facts:fill -w @sponsorx/backend -- orders views payments invoices slots marketplace
  *   npm run facts:fill -w @sponsorx/backend -- orders --tenant <tenantId>
  *   npm run facts:fill -w @sponsorx/backend -- orders --confirm-production
  *
@@ -13,15 +14,31 @@
  * measures the fill is answerable for, and the exit code says whether they
  * all match.
  *
- * Parts: orders — orders booked and cancelled, deliverables due, published
- * and verified, drafts sent back.
+ * Parts:
+ *   orders   — orders booked and cancelled; deliverables due, published and verified; drafts sent back (3S1-DATA-05)
+ *   views    — each day's views and engagements by label, with the corrections the audit log shows (3S1-DATA-06)
+ *   payments — earnings paid (3S1-DATA-06)
+ *   invoices — Zoho invoices issued and paid (3S1-DATA-06)
+ *   slots    — NEXT ad slots sold; a cancelled edition's sales, sold and reversed (3S1-DATA-07)
+ *   marketplace — lines contracted and unwound, refunds sent (3S1-DATA-07)
  */
 import { prisma } from "../src/db/client.ts";
 import { env } from "../src/config/env.ts";
-import { fillOrderHistory, ORDER_HISTORY_MEASURES } from "../src/domain/fact-history.ts";
+import {
+  fillInvoiceHistory, fillMarketplaceHistory, fillOrderHistory, fillPaymentHistory, fillSlotHistory, fillViewHistory,
+  INVOICE_HISTORY_MEASURES, MARKETPLACE_HISTORY_MEASURES, ORDER_HISTORY_MEASURES, PAYMENT_HISTORY_MEASURES,
+  SLOT_HISTORY_MEASURES, VIEW_HISTORY_MEASURES,
+} from "../src/domain/fact-history.ts";
 import { checkFactsAgainstApp } from "../src/domain/fact-check.ts";
 
-const PARTS = { orders: { fill: fillOrderHistory, measures: ORDER_HISTORY_MEASURES } } as const;
+const PARTS = {
+  orders: { fill: fillOrderHistory, measures: ORDER_HISTORY_MEASURES },
+  views: { fill: fillViewHistory, measures: VIEW_HISTORY_MEASURES },
+  payments: { fill: fillPaymentHistory, measures: PAYMENT_HISTORY_MEASURES },
+  invoices: { fill: fillInvoiceHistory, measures: INVOICE_HISTORY_MEASURES },
+  slots: { fill: fillSlotHistory, measures: SLOT_HISTORY_MEASURES },
+  marketplace: { fill: fillMarketplaceHistory, measures: MARKETPLACE_HISTORY_MEASURES },
+} as const;
 
 const args = process.argv.slice(2);
 const at = args.indexOf("--tenant");
@@ -43,7 +60,7 @@ try {
   for (const part of parts as Array<keyof typeof PARTS>) {
     const started = Date.now();
     const report = await PARTS[part].fill(prisma, { tenantId });
-    console.log(`Filled ${part} on ${environment}${tenantId ? ` (tenant ${tenantId})` : ""}: ${report.orders} orders, ${report.factsAdded} facts added, ` +
+    console.log(`Filled ${part} on ${environment}${tenantId ? ` (tenant ${tenantId})` : ""}: ${report.records} records, ${report.factsAdded} facts added, ` +
       `${report.fallbackDates} dated by fallback (no audit entry), in ${Math.round((Date.now() - started) / 1000)}s.`);
     for (const m of PARTS[part].measures) measures.add(m);
   }

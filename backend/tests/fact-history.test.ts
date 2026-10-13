@@ -113,7 +113,7 @@ describe.skipIf(!hasDatabase)("3S1-DATA-05 · filling the order and deliverable 
 
   it("after the fill, every figure matches the app, and the summaries equal the facts", async () => {
     const report = await fillOrderHistory(prisma, { tenantId: T });
-    expect(report).toMatchObject({ orders: 5, fallbackDates: 1 });
+    expect(report).toMatchObject({ records: 5, fallbackDates: 1 });
     expect(report.factsAdded).toBeGreaterThan(0);
     expect(await checkFactsAgainstApp(prisma, { tenantId: T })).toEqual({ ok: true, differences: [] });
     expect(await checkFactSummaries(prisma, { tenantId: T })).toEqual({ ok: true, differences: [] });
@@ -143,12 +143,12 @@ describe.skipIf(!hasDatabase)("3S1-DATA-05 · filling the order and deliverable 
 
   it("running it again adds nothing", async () => {
     const before = await prisma.fact.count({ where: { tenantId: T } });
-    expect(await fillOrderHistory(prisma, { tenantId: T })).toEqual({ orders: 5, factsAdded: 0, fallbackDates: 1 });
+    expect(await fillOrderHistory(prisma, { tenantId: T })).toEqual({ records: 5, factsAdded: 0, fallbackDates: 1 });
     expect(await prisma.fact.count({ where: { tenantId: T } })).toBe(before);
     expect((await checkFactsAgainstApp(prisma, { tenantId: T })).ok).toBe(true);
   });
 
   it("fills only the tenant it is given", async () => {
-    expect(await fillOrderHistory(prisma, { tenantId: "fh_nobody" })).toEqual({ orders: 0, factsAdded: 0, fallbackDates: 0 });
+    expect(await fillOrderHistory(prisma, { tenantId: "fh_nobody" })).toEqual({ records: 0, factsAdded: 0, fallbackDates: 0 });
   });
 });

@@ -197,4 +197,24 @@ describe.skipIf(!hasDatabase)("3S1-BE-02 · the campaign actions record their fa
     /* 3S1-QA-03 — and the check that compares them with the app's records, measure by measure, agrees. */
     expect(await checkFactsAgainstApp(prisma, { tenantId: T })).toEqual({ ok: true, differences: [] });
   });
+
+  it("3S1-DATA-05/06 · erased and filled again from history, every daily summary comes back as the live actions left it", async () => {
+    const H = await import("../src/domain/fact-history");
+    const { MEASURE_COLUMNS } = await import("../src/domain/fact-rules");
+    /* Every non-zero figure, by its summary row. A live correction can leave a row at zero (filed, then moved or
+       reversed) where history files it once; zero is zero. */
+    const figures = async () => (await prisma.campaignDaySummary.findMany({
+      where: { tenantId: T },
+      select: { campaignId: true, athleteId: true, channel: true, inventoryKey: true, marketKey: true, day: true, ...Object.fromEntries(Object.values(MEASURE_COLUMNS).map((c) => [c, true])) },
+    })).flatMap((r) => Object.values(MEASURE_COLUMNS).filter((c) => Number((r as Record<string, unknown>)[c]) !== 0)
+      .map((c) => `${r.campaignId} ${r.athleteId} ${r.channel} ${r.inventoryKey} ${r.marketKey} ${r.day.toISOString().slice(0, 10)} ${c}=${(r as Record<string, unknown>)[c]}`)).sort();
+    const live = await figures();
+    expect(live.length).toBeGreaterThan(10);
+    await prisma.fact.deleteMany({ where: { tenantId: T } });
+    await prisma.campaignDaySummary.deleteMany({ where: { tenantId: T } });
+    for (const fill of [H.fillOrderHistory, H.fillViewHistory, H.fillPaymentHistory, H.fillInvoiceHistory]) await fill(prisma, { tenantId: T });
+    expect(await figures()).toEqual(live);
+    expect(await checkFactsAgainstApp(prisma, { tenantId: T })).toEqual({ ok: true, differences: [] });
+    expect(await checkFactSummaries(prisma, { tenantId: T })).toEqual({ ok: true, differences: [] });
+  });
 });

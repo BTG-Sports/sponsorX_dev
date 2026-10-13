@@ -332,19 +332,20 @@ The dates come from the records and their audit history.
 - **Delivered:** `backend/src/domain/fact-history.ts`, `backend/scripts/fill-fact-history.mts` (`npm run facts:fill -- orders`), `backend/tests/fact-history.test.ts` — 2026-10-13. How it works: [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §8
 - **Reference:** Spec §21
 
-### ⏸ `3S1-DATA-06` · Fill history: views, payments and invoices
+### ◑ `3S1-DATA-06` · Fill history: views, payments and invoices
 
-**Order** 7.41 · **DATA** · **Where:** Code · **0.5d** · **Blocked**
+**Order** 7.41 · **DATA** · **Where:** Code · **0.5d** · **Code review**
 
 The same, for daily views and engagements (the final figure for each day and label, with earlier corrections counted from the audit log), earnings paid, and Zoho invoices issued and paid.
 
 - **Depends on:** 3S1-QA-03
 - **Done when:** after the fill, the check matches these measures for every campaign; re-running adds nothing
+- **Delivered:** `fillViewHistory`, `fillPaymentHistory`, `fillInvoiceHistory` in `backend/src/domain/fact-history.ts`; `npm run facts:fill -- views payments invoices`; `backend/tests/fact-history-money.test.ts` — 2026-10-13. [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §8
 - **Reference:** Spec §21
 
-### ⏸ `3S1-DATA-07` · Fill history: NEXT ad slots and the marketplace
+### ◑ `3S1-DATA-07` · Fill history: NEXT ad slots and the marketplace
 
-**Order** 7.42 · **DATA** · **Where:** Code · **0.5d** · **Blocked**
+**Order** 7.42 · **DATA** · **Where:** Code · **0.5d** · **Code review**
 
 The same, for:
 - NEXT ad slots sold, including the sale and its reversal for slots a cancelled edition released, rebuilt from the cancelled-sale record;
@@ -353,11 +354,12 @@ The same, for:
 
 - **Depends on:** 3S1-QA-03
 - **Done when:** after the fill, the check matches these measures for every campaign and tenant; re-running adds nothing
+- **Delivered:** `fillSlotHistory`, `fillMarketplaceHistory` in `backend/src/domain/fact-history.ts`; `npm run facts:fill -- slots marketplace`. Tests erase the live facts and refill them from history: the same facts come back — 2026-10-13. [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §8
 - **Reference:** Spec §21
 
-### ⏸ `3S1-OPS-04` · Fill the history on staging and production
+### ▶ `3S1-OPS-04` · Fill the history on staging and production
 
-**Order** 7.43 · **OPS** · **Where:** Code / Vendor console · **0.5d** · **Blocked**
+**Order** 7.43 · **OPS** · **Where:** Code / Vendor console · **0.5d** · **Ready**
 
 Run the three fills on staging, then on production with the owner's OK; the check must then pass for every campaign and tenant.
 

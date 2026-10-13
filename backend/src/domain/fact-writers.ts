@@ -178,7 +178,9 @@ export async function factMetricRecorded(tx: Tx, metricDailyId: string): Promise
   const d = await deliverableContext(tx, m.deliverableId);
   const label = METRIC_SOURCE_MEASURES[m.source];
   const measures: Partial<Record<FactMeasure, number>> = { [label.views]: m.views, [label.engagements]: m.engagements };
-  const previous = await liveFacts(tx, m.tenantId, "METRIC_RECORDED", "MetricDaily", m.id);
+  /* The figures recorded before — not a count of corrections the history fill recorded on its own (fact-history.ts). */
+  const previous = (await liveFacts(tx, m.tenantId, "METRIC_RECORDED", "MetricDaily", m.id))
+    .filter((p) => label.views in (p.measures as Record<string, number>));
   const same = (p: { measures: unknown }) => {
     const pm = p.measures as Record<string, number>;
     return pm[label.views] === m.views && pm[label.engagements] === m.engagements;

@@ -1,6 +1,6 @@
 # SponsorX Fact Ledger
 
-**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05` · Version 1.4 · 2026-10-13 · Phase 3, Sprint 1**
+**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07` · Version 1.6 · 2026-10-13 · Phase 3, Sprint 1**
 
 Phase 3's figures (reports, benchmarks, price suggestions, forecasts) come
 from **facts the app records at the moment each thing happens**, not from a
@@ -177,5 +177,13 @@ Facts start when the ledger goes live. The history fills (`backend/src/domain/fa
 | Part | Task | Covers |
 |---|---|---|
 | `orders` | `3S1-DATA-05` | orders booked and cancelled; deliverables due, published and verified; drafts sent back |
-| views, payments, invoices | `3S1-DATA-06` | to come |
-| NEXT ad slots, marketplace | `3S1-DATA-07` | to come |
+| `views` | `3S1-DATA-06` | each day's views and engagements by label, on its own day. Corrections are counted from the audit log (every value entered), less those the facts already count. The live writer cannot count a correction to a figure from before the ledger, because the old figure had no fact, so the fill counts it. |
+| `payments` | `3S1-DATA-06` | earnings paid, on the paid day |
+| `invoices` | `3S1-DATA-06` | Zoho invoices issued and paid, on their days; a void invoice records nothing |
+| `slots` | `3S1-DATA-07` | NEXT ad slots sold now, on the sale day. Each sale a cancelled edition undid is rebuilt from the cancelled-sale record: the sale on its audit-log day (one per campaign and edition, since the per-slot prices were cleared with the slots), reversed on the cancellation day. It is skipped when the sale was recorded live. |
+| `marketplace` | `3S1-DATA-07` | each contracted line on the contract day; each line since unwound, reversed on the day its books were (the ledger's REVERSAL journal); each refund sent, on its sent day |
+
+**Proof that history equals live.** Tests take data the real actions produced, erase its facts, fill them again from history, and compare:
+- **Marketplace:** the same facts, key for key and day for day.
+- **Campaigns** (orders, deliverables, views, payments, invoices): every non-zero daily summary figure is the same.
+- **A cancelled edition's slots:** each campaign's figure is the same, day by day.

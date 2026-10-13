@@ -510,6 +510,22 @@ describe.skipIf(!hasDatabase)("P9-BE-17/18/19 · editions that run themselves, o
       const sold = new Set([paidAdOnly, unpaidAdOnly, twoEditions]);
       expect((await checkFactsAgainstApp(prisma, { tenantId: T })).differences.filter((d) => d.measure === "ad_slot_sold_cents" && sold.has(d.campaignId!))).toEqual([]);
 
+      /* 3S1-DATA-07 — these campaigns' facts erased, as if the ledger had not existed, and filled again from history: the
+         cancelled edition's slots were cleared, so its sales come back from the cancelled-sale record, one per campaign
+         rather than per slot — each campaign's figure, day by day, is what the live actions recorded. */
+      const byDay = async () => (await prisma.$queryRawUnsafe<Array<{ c: string; d: string; n: string }>>(
+        `SELECT "campaignId" AS c, to_char("occurredOn", 'YYYY-MM-DD') AS d, sum((measures->>'ad_slot_sold_cents')::bigint)::text AS n
+           FROM "Fact" WHERE "tenantId" = $1 AND "campaignId" = ANY($2::text[]) GROUP BY 1, 2 ORDER BY 1, 2`, T, [...sold]));
+      const liveDays = await byDay();
+      await prisma.fact.deleteMany({ where: { tenantId: T, campaignId: { in: [...sold] } } });
+      await prisma.campaignDaySummary.deleteMany({ where: { tenantId: T, campaignId: { in: [...sold] } } });
+      const { fillSlotHistory } = await import("../src/domain/fact-history");
+      await fillSlotHistory(prisma, { tenantId: T });
+      expect(await byDay()).toEqual(liveDays);
+      expect(await prisma.fact.count({ where: { tenantId: T, campaignId: { in: [...sold] }, sourceType: "CancelledAdSale", kind: "AD_SLOT_SOLD" } })).toBe(3);
+      expect((await checkFactsAgainstApp(prisma, { tenantId: T })).differences.filter((d) => d.measure === "ad_slot_sold_cents" && sold.has(d.campaignId!))).toEqual([]);
+      expect((await fillSlotHistory(prisma, { tenantId: T })).factsAdded, "a second run adds nothing").toBe(0);
+
       const rows = await prisma.refundDue.findMany({
         where: { tenantId: T, editionId: e.id }, select: { campaignId: true, amountCents: true, cause: true, paidVia: true, orderId: true, state: true },
         orderBy: { amountCents: "asc" },
