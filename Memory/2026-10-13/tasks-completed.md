@@ -77,7 +77,7 @@
   - **#193** merged `main` into the branch, keeping `main_development`'s content (the merged tree was identical to it).
   - #192 then merged clean. The memory `always-pull-main-development-first` now also says to check that `main` merges before opening a sync PR.
 - **Deploy (user's OK):** `main` CI green → "Daily deploy" started by hand → `release` 91ca9e8. Staging and production deployed it.
-- **Live:** run 16 in both environments applied migrations `0002_model` and `0003_run_checks` and built the model (staging 112 ms, production 129 ms). **The hourly double-check was clean in both, with zero differences.** Staging has no campaigns yet, so the campaign checks have nothing to compare; the marketplace, ledger and payment checks matched on real data. Railway's log view cut the run line short, so the run record (`raw._ingest_run`) is the source.
+- **Live:** run 16 in both environments applied migrations `0002_model` and `0003_run_checks` and built the model (staging 112 ms, production 129 ms). **The hourly double-check was clean in both, with zero differences.** Staging has no campaigns yet, so the campaign checks have nothing to compare; the marketplace, ledger and payment checks matched on real data. **Correction (later the same day):** I said Railway's log view cut the run line short. That was wrong. The worker's log change (build time, double-check result, slow-build warning) was never committed, so the deployed worker printed the old line. The run record (`raw._ingest_run`) did hold the build time and the double-check result, so the figures reported were right; only the explanation was wrong. The log change is committed with 3S1-BE-01's push.
 - **Tracker and plan:** 3S1-DATA-02 Done. **3S1-DATA-03, 3S1-QA-01 and 3S2-BE-01 are now Ready.**
 
 ## rcfworks — direction change: facts recorded by the app replace the warehouse (user decision)
@@ -129,3 +129,9 @@
   - the summaries equal the facts, and the check catches a tampered row.
 - **Verified:** tsc and eslint clean (the house rule "explicit select" was applied to 7 reads); **full suite 198 files / 3,158 tests, green twice under CI's en_US collation**; no Prisma drift on the new tables.
 - **Next:** 3S1-BE-02 wires `recordFact` into every money and delivery action.
+
+## rcfworks — correction: an uncommitted worker change
+
+- While committing 3S1-BE-01, I found `backend/worker/index.mts` still modified. It holds the 3S1-DATA-02 review change: the hourly log line with build time and double-check result, an error log on a failed double-check, and a warning on a build over 60 s. It was edited but never committed (the commit only added `backend/worker/warehouse/`), so it was never deployed.
+- It is committed now. The earlier claim that Railway "cut the line short" is corrected above and was told to the user.
+- **Lesson:** run `git status` before every commit and check every modified file is either staged or deliberately left out.
