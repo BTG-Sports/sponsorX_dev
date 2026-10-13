@@ -237,13 +237,16 @@ describe.skipIf(!hasDatabase)("2S3-BE-06 · listings publish automatically; BTG 
       const trail = await prisma.auditLog.findFirstOrThrow({ where: { action: "listing.hold", entityId: id }, select: { after: true } });
       expect(trail.after).toMatchObject({ state: "PENDING_APPROVAL", reasons: ['Restricted words: "poker"'], checks: { restrictedWords: ["poker"] } });
       const told = await mails(about(id, "Poker night skills clinic"));
-      expect(told.map((m) => [m.template, m.to])).toEqual([
+      /* Both are written in one transaction, so they share a timestamp: compare as a set. */
+      expect(told.map((m) => [m.template, m.to]).sort()).toEqual([
         ["listing.held", "lap_quinn@lap-test.invalid"],
         ["listing.heldForBtg", "lap_admin@lap-test.invalid"],
       ]);
-      expect(told[0]!.data).toMatchObject({ words: 'Restricted words: "poker"', accountCheck: "" });
-      expect(told[1]!.data.reasons).toBe('• Restricted words: "poker"');
-      expect(told[1]!.data.reviewUrl).toMatch(new RegExp(`/admin/marketplace\\?listings=held#listing-${id}$`));
+      const seller = told.find((m) => m.template === "listing.held")!;
+      const btg = told.find((m) => m.template === "listing.heldForBtg")!;
+      expect(seller.data).toMatchObject({ words: 'Restricted words: "poker"', accountCheck: "" });
+      expect(btg.data.reasons).toBe('• Restricted words: "poker"');
+      expect(btg.data.reviewUrl).toMatch(new RegExp(`/admin/marketplace\\?listings=held#listing-${id}$`));
     });
 
     it("BTG approves a held listing: PUBLISHED, approved by BTG, the seller told it is live", async () => {

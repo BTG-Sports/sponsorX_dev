@@ -24,7 +24,9 @@
 import type pg from "pg";
 
 import { requiresGuardian } from "../../src/domain/guardian-rules.ts";
+import { buildWarehouse } from "./build.mts";
 import { migrateWarehouse } from "./migrate.mts";
+import { reconcileWarehouse } from "./reconcile.mts";
 import { SOURCES, TRANSIENT_COLUMNS, type Source } from "./sources.mts";
 
 /** The advisory-lock key that keeps ingestion runs from overlapping. */
@@ -38,7 +40,8 @@ export type TableOutcome =
   | { mode: "APPEND"; read: number; inserted: number; updated: number };
 
 export type IngestOutcome =
-  | { status: "ok"; runId: number; rows: Record<string, TableOutcome> }
+  | { status: "ok"; runId: number; rows: Record<string, TableOutcome>; built: Record<string, number>; buildMs: number;
+      reconciled: { ok: boolean; failed: { check: string; key: string; warehouse: number; product: number }[] } }
   | { status: "skipped"; reason: string };
 
 const q = (name: string) => `"${name.replace(/"/g, '""')}"`;
@@ -190,7 +193,15 @@ async function copyAppend(src: pg.ClientBase, wh: pg.ClientBase, s: Source & { m
   }
 }
 
-export async function ingestWarehouse(opts: { product: pg.Pool; warehouse: pg.Pool }): Promise<IngestOutcome> {
+/** A build slower than this is logged as a warning: time to build the incremental mode (3S1-DATA-04). */
+export const SLOW_BUILD_MS = 60_000;
+
+export async function ingestWarehouse(opts: {
+  product: pg.Pool;
+  warehouse: pg.Pool;
+  /** Tests only: runs after the copy, before the build and the double-check. */
+  onCopied?: () => Promise<void>;
+}): Promise<IngestOutcome> {
   const wh = await opts.warehouse.connect();
   try {
     const locked = (await wh.query<{ ok: boolean }>("SELECT pg_try_advisory_lock($1) AS ok", [INGEST_LOCK_KEY])).rows[0]!.ok;
@@ -202,9 +213,23 @@ export async function ingestWarehouse(opts: { product: pg.Pool; warehouse: pg.Po
       runId = Number((await wh.query<{ id: string }>(`INSERT INTO raw._ingest_run DEFAULT VALUES RETURNING id`)).rows[0]!.id);
       const src = await opts.product.connect();
       const rows: Record<string, TableOutcome> = {};
+      let built: Record<string, number>;
+      let buildMs: number;
+      let reconciled: { ok: boolean; failed: { check: string; key: string; warehouse: number; product: number }[] };
       try {
         await src.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
         for (const s of SOURCES) rows[s.table] = s.mode === "APPEND" ? await copyAppend(src, wh, s) : await copyVersioned(src, wh, s);
+        await opts.onCopied?.();
+        /* 3S1-DATA-02 — rebuild the model from what was just copied, under the
+           same lock, so facts never trail the raw layer by more than a run. */
+        const started = Date.now();
+        built = await buildWarehouse(wh);
+        buildMs = Date.now() - started;
+        /* The double-check, still inside the frozen view the copy was taken
+           from: both sides see the same moment, so a booking made while this
+           ran is not a false alarm. */
+        const check = await reconcileWarehouse({ product: src, warehouse: wh });
+        reconciled = { ok: check.ok, failed: check.checks.filter((c) => !c.ok).map(({ check: name, key, warehouse, product }) => ({ check: name, key, warehouse, product })) };
         await src.query("COMMIT");
       } catch (error) {
         await src.query("ROLLBACK").catch(() => {});
@@ -212,8 +237,9 @@ export async function ingestWarehouse(opts: { product: pg.Pool; warehouse: pg.Po
       } finally {
         src.release();
       }
-      await wh.query(`UPDATE raw._ingest_run SET status = 'ok', finished_at = now(), rows = $2 WHERE id = $1`, [runId, JSON.stringify(rows)]);
-      return { status: "ok", runId, rows };
+      await wh.query(`UPDATE raw._ingest_run SET status = 'ok', finished_at = now(), rows = $2, built = $3, build_ms = $4, reconcile = $5 WHERE id = $1`,
+        [runId, JSON.stringify(rows), JSON.stringify(built), buildMs, JSON.stringify(reconciled)]);
+      return { status: "ok", runId, rows, built, buildMs, reconciled };
     } catch (error) {
       if (runId !== null) {
         await wh.query(`UPDATE raw._ingest_run SET status = 'failed', finished_at = now(), error = $2 WHERE id = $1`,

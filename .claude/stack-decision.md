@@ -490,6 +490,10 @@ Numbered `.sql` files in the repo are applied by the same small runner that inge
 
 The worker uses `WAREHOUSE_DATABASE_URL` (the warehouse) and `WAREHOUSE_SOURCE_DATABASE_URL` (the product, as `warehouse_reader`). Without the first, ingestion is off.
 
+## C3a. The rule: live decisions read the app, never the warehouse
+
+The warehouse is up to an hour behind by design, so payments, payouts, refunds, cancellations, permissions, redemption and availability are always decided from the app. The warehouse only feeds analysis that works in days and weeks. Enforced by `backend/tests/warehouse-boundary.test.ts` (user, 2026-10-13).
+
 ## C4. Cost model
 
 Railway's usage prices (Railway pricing docs, checked 2026-10-12): RAM $10/GB-month, CPU $20/vCPU-month, volume $0.15/GB-month, buckets $0.015/GB-month, private-network traffic free. The usage figures are the staging product Postgres's (same image, same backups), measured over 3 days: 0.29 GB RAM, 0.011 vCPU, 1.5 GB disk, 4.2 GB backups.
