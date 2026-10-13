@@ -38,6 +38,8 @@ import {
   type RewardEligibility,
   type SimpleResult,
 } from "@/lib/rewards-live";
+import { parseVenue, venueLabel } from "@/lib/reward-venue";
+import { RewardVenueFields } from "@/components/reward-venue-fields";
 
 /* --------------------------------------------------------------------------
    LiveRewardsDesk — /admin/rewards on real rewards (P6-FE-01, §9 screen 10,
@@ -56,6 +58,8 @@ import {
      optionally live at once. The consent line fans see is shown, not edited
      (versioned centrally, P6-SEC-01): the claim records which words the fan
      saw, and a per-reward edit would break that record.
+   - 3S0-FE-01: an optional venue (city + US state, both or neither), shown
+     on every card and in the QR panel as "City, ST" or "Online only".
    -------------------------------------------------------------------------- */
 
 type Actions = {
@@ -264,6 +268,13 @@ export function LiveRewardsDesk({
                       <dt className="text-faint">Expires</dt>
                       <dd className="text-muted">{fmtDay(r.expiresAt)}</dd>
                     </div>
+                    {r.venue !== undefined && (
+                      /* 3S0-FE-01 — absent only from an API older than 3S0-BE-05. */
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-faint">Venue</dt>
+                        <dd className="min-w-0 truncate text-muted">{venueLabel(r.venue)}</dd>
+                      </div>
+                    )}
                     <div className="flex justify-between gap-2">
                       <dt className="shrink-0 text-faint">Redeemed of claimed</dt>
                       <dd className="min-w-0 text-right text-muted">
@@ -405,6 +416,11 @@ function QrPanel({ rewardId, actions, onClose }: { rewardId: string; actions: Ac
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold tracking-tight">{rw?.offerText ?? "QR codes"}</p>
             <p className="text-[11px] text-muted">One token per athlete — each QR says who drove the scan.</p>
+            {rw && rw.venue !== undefined && (
+              <p className="mt-0.5 text-[11px] text-faint">
+                Venue: <span className="text-muted">{venueLabel(rw.venue)}</span>
+              </p>
+            )}
           </div>
           <button type="button" data-autofocus onClick={onClose} aria-label="Close QR codes" className="grid size-8 place-items-center rounded-full border border-line text-muted hover:text-text">
             <CloseIcon />
@@ -649,6 +665,9 @@ function Creator({
   const [headline, setHeadline] = useState("");
   const [subhead, setSubhead] = useState("");
   const [activate, setActivate] = useState(false);
+  /* 3S0-FE-01 — where it is handed out: city + state, or neither. */
+  const [venueCity, setVenueCity] = useState("");
+  const [venueState, setVenueState] = useState("");
   /* QA-09 — how long a claim holds a unit of a capped reward. */
   const [hold, setHold] = useState<HoldPreset>("60");
   const [holdCustom, setHoldCustom] = useState("");
@@ -680,7 +699,8 @@ function Creator({
   const cap = parseCap(capInput);
   const reserveMinutes = holdPreset(hold, holdCustom);
   const holdBad = typeof cap === "number" && reserveMinutes === "invalid";
-  const ready = campaign && offer.trim() && terms.trim() && picked.size > 0 && cap !== "invalid" && !holdBad && !busy;
+  const venue = parseVenue(venueCity, venueState);
+  const ready = campaign && offer.trim() && terms.trim() && picked.size > 0 && cap !== "invalid" && !holdBad && venue.ok && !busy;
   /* QA pass 6 (P6-FE-03): once a part-way failure has saved the reward, its
      own fields are what they are — a retry issues the missing tokens and
      goes live, it cannot edit (no edit route). Lock them rather than accept
@@ -689,7 +709,7 @@ function Creator({
   const locked = resumeId !== null;
 
   const create = async () => {
-    if (!campaign || cap === "invalid" || holdBad) return;
+    if (!campaign || cap === "invalid" || holdBad || !venue.ok) return;
     setBusy(true);
     setError(null);
     const r = await actions.create({
@@ -704,6 +724,7 @@ function Creator({
       landingHeadline: headline.trim() || null,
       landingSubhead: subhead.trim() || null,
       reserveMinutes: reserveMinutes === "invalid" ? 60 : reserveMinutes,
+      venue: venue.venue,
       athleteIds: [...picked],
       activate,
       ...(resumeId ? { resumeRewardId: resumeId } : {}),
@@ -855,6 +876,13 @@ function Creator({
                     <input value={subhead} onChange={(e) => setSubhead(e.target.value)} maxLength={280} placeholder="Thanks for coming out — this one's on us." className={inputCls} />
                   </label>
                 </fieldset>
+                <RewardVenueFields
+                  city={venueCity}
+                  stateCode={venueState}
+                  onCity={setVenueCity}
+                  onState={setVenueState}
+                  inputClassName={inputCls}
+                />
                 </fieldset>
 
                 <div>
@@ -911,7 +939,7 @@ function Creator({
           </div>
           <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line-soft bg-surface px-5 py-3.5">
             <p className="mr-auto text-[10px] text-faint">
-              {!offer.trim() ? "Name the offer." : !terms.trim() ? "Add the terms." : cap === "invalid" ? "Fix the redemption cap." : holdBad ? "Fix the hold window." : picked.size === 0 ? "Pick at least one athlete." : resumeId ? "Finishes the reward already saved." : `${picked.size} token${picked.size === 1 ? "" : "s"} will be issued.`}
+              {!offer.trim() ? "Name the offer." : !terms.trim() ? "Add the terms." : cap === "invalid" ? "Fix the redemption cap." : holdBad ? "Fix the hold window." : !venue.ok ? "Finish the venue — or clear it." : picked.size === 0 ? "Pick at least one athlete." : resumeId ? "Finishes the reward already saved." : `${picked.size} token${picked.size === 1 ? "" : "s"} will be issued.`}
             </p>
             <button type="button" onClick={onClose} className="rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text hover:bg-surface-2">
               Cancel

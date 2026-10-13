@@ -14,6 +14,8 @@
    records.
    -------------------------------------------------------------------------- */
 
+import type { RewardVenue } from "./reward-venue";
+
 export type ApiRewardState = "DRAFT" | "ACTIVE" | "PAUSED" | "EXPIRED" | "ARCHIVED";
 export type Funnel = { SCAN: number; LANDING: number; CLAIM: number; REDEEM: number };
 export type RewardEligibility = "ANYONE" | "AGE_18_PLUS" | "AGE_21_PLUS" | "TICKET_HOLDERS";
@@ -43,6 +45,9 @@ export type ApiReward = {
   /* P6-BE-09 — how it follows its campaign, in words, e.g. "Goes live when
      the campaign launches". Optional so a desk against an older API renders. */
   followsCampaign?: string | null;
+  /* 3S0-BE-05 — where an in-person reward is handed out; null = online
+     only. Optional so a desk against an older API still renders. */
+  venue?: RewardVenue | null;
 };
 
 export type ApiRewardDetail = ApiReward & {
@@ -63,6 +68,8 @@ export type NewReward = {
   landingSubhead: string | null;
   /** QA-09 — how long a claim holds a unit of a capped reward. */
   reserveMinutes: number;
+  /** 3S0-FE-01 — a city and a US state, or null for an online-only reward. */
+  venue?: RewardVenue | null;
   athleteIds: string[];
   activate: boolean;
   /** A retry after a part-way failure: finish THIS reward (issue the tokens

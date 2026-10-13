@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Badge, Card } from "@/components/ui";
 import { Monogram, initials } from "@/components/hero";
 import { ScoreRing } from "@/components/score-ring";
+import { RewardVenueFields } from "@/components/reward-venue-fields";
+import { parseVenue, venueLabel, type RewardVenue } from "@/lib/reward-venue";
 
 /* --------------------------------------------------------------------------
    RewardCreator — the QR / Reward Creator (§9 screen 10, §16) rebuilt as a
@@ -22,6 +24,10 @@ import { ScoreRing } from "@/components/score-ring";
    single-use is a partial unique index on RewardEvent, and the fan page is a
    no-JS route. Everything here is local-to-visit; `onCreate` hands the draft
    up to the desk, which owns the list.
+
+   3S0-FE-01: step 1 takes an optional venue — a city and a US state, both or
+   neither (lib/reward-venue.ts) — and the fan card names it ("At Austin,
+   TX"). The reward's location, never the fan's.
    -------------------------------------------------------------------------- */
 
 export type RewardTypeOption = {
@@ -58,6 +64,8 @@ export type CreatedReward = {
   type: string;
   expiration: string;
   athletes: number;
+  /** 3S0-FE-01 — where it is handed out; null = online only. */
+  venue: RewardVenue | null;
 };
 
 const SPONSORS = ["Under Armour", "Silver Spring Grill", "Kigali Sports Co."];
@@ -305,6 +313,9 @@ export function RewardCreator({
   const [type, setType] = useState(draft.redemptionType);
   const [expiration, setExpiration] = useState(draft.expiration);
   const [terms, setTerms] = useState(draft.terms ?? "");
+  const [venueCity, setVenueCity] = useState("");
+  const [venueState, setVenueState] = useState("");
+  const venue = parseVenue(venueCity, venueState);
 
   /* --- step 2 · design --- */
   const [subhead, setSubhead] = useState(draft.subhead);
@@ -341,7 +352,9 @@ export function RewardCreator({
   const gate =
     step === 0 && !offer.trim()
       ? "Name the offer to continue."
-      : step === 2 && picked.size === 0
+      : step === 0 && !venue.ok
+        ? "Finish the venue — or clear it."
+        : step === 2 && picked.size === 0
         ? "Pick at least one athlete — §16 attribution needs a token holder."
         : null;
 
@@ -352,6 +365,7 @@ export function RewardCreator({
       type,
       expiration,
       athletes: picked.size,
+      venue: venue.ok ? venue.venue : null,
     });
 
   const th = THEMES[theme];
@@ -458,6 +472,14 @@ export function RewardCreator({
                     ))}
                   </div>
                 </Labelled>
+
+                <RewardVenueFields
+                  city={venueCity}
+                  stateCode={venueState}
+                  onCity={setVenueCity}
+                  onState={setVenueState}
+                  inputClassName={inputCls}
+                />
 
                 <Labelled
                   label="Terms & conditions"
@@ -699,6 +721,9 @@ export function RewardCreator({
               <p className="mt-0.5 text-[9px] text-faint">
                 Expires: {expiration} · Powered by SponsorX
               </p>
+              {venue.ok && venue.venue && (
+                <p className="mt-0.5 text-[9px] text-faint">At {venueLabel(venue.venue)}</p>
+              )}
             </div>
           </div>
         </div>

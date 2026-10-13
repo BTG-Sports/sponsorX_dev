@@ -17,6 +17,7 @@ import {
   type RewardTypeOption,
 } from "@/components/reward-creator";
 import type { RewardState } from "@/lib/fixtures";
+import { venueLabel, type RewardVenue } from "@/lib/reward-venue";
 
 const DEFAULT_PAGE_SIZE = 12;
 const SIZE_OPTIONS = [
@@ -54,6 +55,8 @@ export type RewardRow = {
   scans: number;
   claims: number;
   redeemed: number;
+  /** 3S0-FE-01 — set on a reward made in this visit; fixtures carry none. */
+  venue?: RewardVenue | null;
 };
 
 const STATE_TONE: Record<RewardState, "neutral" | "primary" | "accent" | "warn"> = {
@@ -184,6 +187,7 @@ export function RewardsDesk({
       expires: r.expiration,
       created: "Just now",
       athletes: r.athletes,
+      venue: r.venue,
       scans: 0,
       claims: 0,
       redeemed: 0,
@@ -536,6 +540,7 @@ export function RewardsDesk({
                             : "No tokens yet"}
                           {" · "}
                           {r.expires === "—" ? "no expiry set" : `expires ${r.expires}`}
+                          {r.venue !== undefined && ` · ${venueLabel(r.venue)}`}
                         </p>
                       </div>
                     </div>

@@ -1,6 +1,7 @@
 "use server";
 
 import { apiFetch } from "@/server/api";
+import { checkVenue } from "@/lib/reward-venue";
 import {
   campaignPickerPath,
   pickerOptions,
@@ -41,6 +42,11 @@ export async function createRewardAction(input: NewReward): Promise<CreateReward
   if (!input?.campaignId || !input.offerText?.trim() || !input.terms?.trim()) {
     return { ok: false, message: "Name the offer and its terms." };
   }
+  /* 3S0-FE-01 — a venue is a city and a US state together, or none (online
+     only). Checked here too: a server action is a public endpoint, and the
+     API's own refusal of half a venue is a less friendly sentence. */
+  const venue = checkVenue(input.venue);
+  if (!venue.ok) return { ok: false, message: venue.message };
   let rewardId: string | undefined = input.resumeRewardId || undefined;
   try {
     /* A RETRY after a part-way failure finishes the reward already saved:
@@ -75,6 +81,8 @@ export async function createRewardAction(input: NewReward): Promise<CreateReward
           reserveMinutes: input.reserveMinutes,
           landingHeadline: input.landingHeadline,
           landingSubhead: input.landingSubhead,
+          /* 3S0-BE-05 — where it is handed out; null = online only. */
+          venue: venue.venue,
         }),
       });
       if (!made.ok) return { ok: false, message: await reason(made, `The reward was not created (HTTP ${made.status}).`) };
