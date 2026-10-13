@@ -316,9 +316,9 @@ For every campaign, the daily summaries are compared with the app's own figures:
 - **Delivered:** `backend/src/domain/fact-check.ts`, `backend/scripts/check-facts.mts` (`npm run facts:check`), `backend/tests/fact-app-check.test.ts` — 2026-10-13. How it works: [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §7
 - **Reference:** Spec §22
 
-### ⏸ `3S1-DATA-05` · Fill history: orders and deliverables
+### ◑ `3S1-DATA-05` · Fill history: orders and deliverables
 
-**Order** 7.4 · **DATA** · **Where:** Code · **0.5d** · **Blocked**
+**Order** 7.4 · **DATA** · **Where:** Code · **0.5d** · **Code review**
 
 A re-runnable fill, through the live fact writers, for what happened before the ledger existed. It covers:
 - orders booked and cancelled;
@@ -329,6 +329,7 @@ The dates come from the records and their audit history.
 
 - **Depends on:** 3S1-QA-03
 - **Done when:** after the fill, the check matches these measures for every campaign; re-running adds nothing
+- **Delivered:** `backend/src/domain/fact-history.ts`, `backend/scripts/fill-fact-history.mts` (`npm run facts:fill -- orders`), `backend/tests/fact-history.test.ts` — 2026-10-13. How it works: [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §8
 - **Reference:** Spec §21
 
 ### ⏸ `3S1-DATA-06` · Fill history: views, payments and invoices

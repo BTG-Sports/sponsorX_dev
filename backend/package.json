@@ -21,6 +21,7 @@
     "smoke:receipt": "node scripts/smoke-receipt.mjs",
     "uat:phase2": "node scripts/uat-phase2.mjs",
     "facts:check": "node --env-file-if-exists=../.env --import tsx scripts/check-facts.mts",
+    "facts:fill": "node --env-file-if-exists=../.env --import tsx scripts/fill-fact-history.mts",
     "warehouse:reader": "node --import tsx scripts/warehouse-reader.mts"
   },
   "dependencies": {

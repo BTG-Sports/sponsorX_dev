@@ -1,6 +1,6 @@
 # SponsorX Fact Ledger
 
-**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03` · Version 1.3 · 2026-10-13 · Phase 3, Sprint 1**
+**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05` · Version 1.4 · 2026-10-13 · Phase 3, Sprint 1**
 
 Phase 3's figures (reports, benchmarks, price suggestions, forecasts) come
 from **facts the app records at the moment each thing happens**, not from a
@@ -155,3 +155,27 @@ The facts are only as good as their coverage, and a gap raises no error: the fig
 The app never deletes these records, so a difference is never "the record was deleted".
 
 **Running it.** `npm run facts:check -w @sponsorx/backend [-- --tenant <id>]` runs both checks in a READ ONLY transaction, so it is safe against production. It exits 1 on any difference. The history fills use it to prove themselves, and the nightly check (`3S1-QA-01`) will run it.
+
+## 8 · Filling the history
+
+Facts start when the ledger goes live. The history fills (`backend/src/domain/fact-history.ts`) record the facts for everything before that. They work from the app's records and its audit log, **through the same writers the live actions call**, so a history fact means exactly what a live one does.
+
+- **Safe to re-run, and safe while live.** Every fact carries the key its live action would have used, so an event already recorded adds nothing, whether by an earlier run or live since the ledger went in. Revisions have no fixed key (each sending-back is its own event), so they are counted instead: the audit log's revisions for a deliverable, less the facts it already has; the oldest missing ones are recorded.
+- **One order per transaction.** A long fill never holds a lock for long.
+- **Each event is dated by when it happened:**
+
+  | Event | Dated by |
+  |---|---|
+  | Booked | the acceptance |
+  | Published | the published date |
+  | Cancelled, verified, sent back | the audit log entry written with the action |
+
+  A record with no audit entry (data seeded straight into the database) falls back to the nearest known date: cancelled to the acceptance, verified to the publication. Each run reports how many records did, so it is never silent.
+- **Filed where the live action would file it.** For example, a draft sent back before publication counts as `UNPUBLISHED`.
+- **Running it.** `npm run facts:fill -w @sponsorx/backend -- <part> [--tenant <id>]`. Production needs `--confirm-production`, after a clean staging run. Afterwards it runs the "match the app" check (§7) for the measures that part answers for, and exits 1 on any difference.
+
+| Part | Task | Covers |
+|---|---|---|
+| `orders` | `3S1-DATA-05` | orders booked and cancelled; deliverables due, published and verified; drafts sent back |
+| views, payments, invoices | `3S1-DATA-06` | to come |
+| NEXT ad slots, marketplace | `3S1-DATA-07` | to come |

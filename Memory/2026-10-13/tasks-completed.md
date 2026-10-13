@@ -203,3 +203,22 @@
 - **Checked:** nothing in the app deletes orders, deliverables, earnings, invoices, slots or refunds, so any difference on the live databases is real.
 - **Fixed:** two tests created and then deleted the shared catalogue job SX-04, which raced when they ran at the same moment. Both now add it only if missing and never delete it.
 - **Verified:** tsc and eslint clean; **full suite 201 files / 3,197 tests, green twice**.
+
+## rcfworks — 3S1-DATA-05 · history of orders and deliverables (Code review)
+
+- **What:** `backend/src/domain/fact-history.ts` `fillOrderHistory(db, { tenantId? })` records the facts for orders and deliverables from before the ledger, through the live writers. It runs one transaction per accepted order, in the order things happened:
+  - booked (acceptance day) with its deliverables due;
+  - each deliverable's revisions (audit log), publication (published date) and verification (audit log);
+  - cancellation last (audit log).
+- **Dates and fallbacks:** a record with no audit entry falls back to the nearest known date (cancelled → acceptance, verified → publication), and the run reports how many did.
+- **No double counting:** every fact uses its live key, so it's safe to re-run and safe while live. Revisions (no fixed key) are counted: the audit count less the facts already there, oldest first.
+- **Writer change:** `factRevisionRequested` now files a revision made before publication under `UNPUBLISHED`, dated by the published date. Live it already got that answer; history now gets the same.
+- **Script:** `npm run facts:fill -w @sponsorx/backend -- orders [--tenant id]` fills, then runs the "match the app" check for its measures and exits 1 on a difference. Production refuses without `--confirm-production`. Fixed an argument bug where the first part was dropped when `--tenant` was absent.
+- **Tests:** `tests/fact-history.test.ts` (6) covers history written the old way, plus one order sent back live and one cancelled live after the ledger:
+  - before the fill, the check names exactly the 8 order and deliverable measures;
+  - after it, every campaign matches and summaries equal facts;
+  - each event is on its day and channel;
+  - a live revision and a live cancellation are not doubled;
+  - a re-run adds nothing;
+  - another tenant is untouched.
+- **Verified:** tsc and eslint clean; **full suite 202 files / 3,203 tests, green twice**.
