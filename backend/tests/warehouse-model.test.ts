@@ -318,7 +318,8 @@ describe.skipIf(!hasDatabase)("3S1-DATA-02 · the model", { timeout: 180_000 }, 
     await product.query(`UPDATE "Athlete" SET tier = 'PREMIUM' WHERE id = 'wm_a1'`);
     await product.query(`UPDATE "LedgerEntry" SET status = 'AVAILABLE' WHERE id = 'wm_le1'`);
     expect((await ingestWarehouse({ product, warehouse })).status).toBe("ok");
-    const versions = await w(`SELECT tier, valid_from::text, valid_to::text, is_current FROM dw.dim_athlete WHERE athlete_id = 'wm_a1' ORDER BY valid_from`);
+    /* Ordered by the date itself, not its text: "-infinity" sorts differently as text under different collations. */
+    const versions = await w(`SELECT tier, a.valid_from::text AS valid_from, valid_to::text, is_current FROM dw.dim_athlete a WHERE athlete_id = 'wm_a1' ORDER BY a.valid_from`);
     expect(versions.map((v) => [v.tier, v.is_current])).toEqual([["CREATOR", false], ["PREMIUM", true]]);
     expect(versions[1]!.valid_from).toBe(today);
     const old = await fact("2026-09-05", "wm_a1", "CAMPAIGN", "wm_job");

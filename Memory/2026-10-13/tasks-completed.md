@@ -62,3 +62,10 @@
   - **An order whose job isn't in the catalogue** now keeps its own job line instead of becoming unknown. This also let the test stop creating and deleting the shared `SX-0x` catalogue rows.
   - **A pre-existing flake in `phase2-listing-auto-publish`:** two emails written in one transaction share a timestamp. It is now compared as a set and picked by template.
 - **Tests:** warehouse 38 (model 17, ingest 13, reader 6, boundary 2). **Full backend suite 197 files / 3,145 tests, green twice in a row.**
+
+## rcfworks — PR #191's CI failure: a test sorted dates as text
+
+- **What failed:** the required "typecheck · lint · unit · authz matrix" check, which blocked the merge. One test failed, `warehouse-model` "history". Both dimension versions were right, but they were listed in the opposite order.
+- **Cause:** the test sorted by `valid_from::text`; the output alias wins over the column in `ORDER BY`. `'-infinity'` as text sorts first under the C collation used locally, and after `'2026-…'` under CI's `en_US.UTF-8`, which ignores the hyphen.
+- **Fix:** sort by the date column itself (`ORDER BY a.valid_from`). The warehouse SQL was never at fault.
+- **To catch this class of problem locally,** the test databases were recreated with `en_US.UTF-8` (template1 too, so the derived `_warehouse*` databases match CI). The warehouse tests (38) and **the full suite (197 files / 3,145 tests) pass under CI's collation.**
