@@ -1,6 +1,7 @@
 /**
- * Filling the fact history — 3S1-DATA-05 (orders and deliverables) and
- * 3S1-DATA-06 (views, payments and invoices)
+ * Filling the fact history — 3S1-DATA-05 (orders and deliverables),
+ * 3S1-DATA-06 (views, payments and invoices) and 3S1-DATA-07 (NEXT ad
+ * slots and the marketplace)
  * (documentation/SponsorX-Fact-Ledger.md §8).
  *
  * Records the facts for what happened before the ledger existed, from the
@@ -29,10 +30,11 @@ import type { Prisma, PrismaClient } from "../generated/prisma/client";
 import { AUDIT_ACTIONS } from "../db/audit";
 import type { FactMeasure } from "./fact-rules";
 import {
-  deliverableChannel, factDeliverablePublished, factDeliverableVerified, factEarningPaid, factInvoice, factMetricRecorded,
-  factOrderBooked, factOrderCancelled, factRevisionRequested,
+  deliverableChannel, factAdSlotSold, factDeliverablePublished, factDeliverableVerified, factEarningPaid, factInvoice,
+  factMarketplaceContracted, factMarketplaceUnwound, factMetricRecorded, factOrderBooked, factOrderCancelled,
+  factRefundSent, factRevisionRequested,
 } from "./fact-writers";
-import { recordFact } from "./facts";
+import { recordFact, reverseFact } from "./facts";
 
 type Db = PrismaClient;
 type Tx = Prisma.TransactionClient;
@@ -208,4 +210,105 @@ export async function fillInvoiceHistory(db: Db, opts: { tenantId?: string } = {
     where: opts.tenantId ? { tenantId: opts.tenantId } : {}, select: { id: true }, orderBy: { id: "asc" },
   });
   return fillEach(db, opts, rows.map((r) => r.id), factInvoice);
+}
+
+/* ── 3S1-DATA-07 · NEXT ad slots and the marketplace ────────────────────── */
+
+export const SLOT_HISTORY_MEASURES: readonly FactMeasure[] = ["ad_slot_sold_cents"];
+export const MARKETPLACE_HISTORY_MEASURES: readonly FactMeasure[] = ["marketplace_gross_cents", "marketplace_net_cents", "marketplace_refunded_cents"];
+
+/**
+ * A sale a cancelled edition undid. The slots were cleared when the edition
+ * was cancelled, so the sale is rebuilt from what the cancellation kept: the
+ * CancelledAdSale row (the campaign, the total, the day) and the audit log's
+ * `adSlot.sell` entry (the day it was sold). It is recorded as one sale for
+ * the campaign in that edition — the per-slot prices went with the slots —
+ * and reversed on the cancellation day, as the live cancellation does.
+ *
+ * Skipped when the sale was recorded live (its slots' facts exist): the live
+ * cancellation reversed those itself.
+ */
+async function fillCancelledSale(tx: Tx, cancelledSaleId: string): Promise<number> {
+  const c = await tx.cancelledAdSale.findUniqueOrThrow({
+    /* tenant-scope: by id, a row the fill listed in its own tenant. */
+    where: { id: cancelledSaleId }, select: { id: true, tenantId: true, editionId: true, campaignId: true, soldCents: true, cancelledAt: true },
+  });
+  if (c.soldCents <= 0) return 0;
+  const [{ n } = { n: "0" }] = await tx.$queryRawUnsafe<Array<{ n: string }>>(
+    /* tenant-scope: this campaign's own slot facts, in its tenant. */
+    `SELECT count(*)::text AS n FROM "Fact" f JOIN "AdSlot" s ON s.id = f."sourceId"
+      WHERE f."tenantId" = $1 AND f.kind = 'AD_SLOT_SOLD' AND f."campaignId" = $2 AND s."editionId" = $3`, c.tenantId, c.campaignId, c.editionId);
+  if (Number(n) > 0) return 0;
+  const sales = await tx.auditLog.findMany({
+    /* tenant-scope: this campaign's own audit entries, in its tenant. */
+    where: { tenantId: c.tenantId, entity: "Campaign", entityId: c.campaignId, action: "adSlot.sell" },
+    select: { at: true, after: true }, orderBy: { at: "asc" },
+  });
+  const sold = sales.find((a) => (a.after as { editionId?: string } | null)?.editionId === c.editionId)?.at;
+  const key = `adslot.cancelled-sale:${c.id}`;
+  await recordFact(tx, {
+    tenantId: c.tenantId, kind: "AD_SLOT_SOLD", key, occurredOn: sold ?? c.cancelledAt, campaignId: c.campaignId,
+    channel: "EDITION_PRINT", source: { type: "CancelledAdSale", id: c.id }, measures: { ad_slot_sold_cents: c.soldCents },
+  });
+  await reverseFact(tx, { tenantId: c.tenantId, key, occurredOn: c.cancelledAt, reason: "edition cancelled" });
+  return sold ? 0 : 1;
+}
+
+/** NEXT ad slots: every slot sold now, on its sale day; every sale a cancelled edition undid, sold and reversed. */
+export async function fillSlotHistory(db: Db, opts: { tenantId?: string } = {}): Promise<FillReport> {
+  const t = opts.tenantId ?? null;
+  const before = await factCount(db, t);
+  const scope = opts.tenantId ? { tenantId: opts.tenantId } : {};
+  const slots = await db.adSlot.findMany({
+    /* tenant-scope: the platform fill — every tenant, or the one named. */
+    where: { ...scope, campaignId: { not: null }, soldAt: { not: null } }, select: { id: true }, orderBy: { soldAt: "asc" },
+  });
+  for (const s of slots) await db.$transaction((tx) => factAdSlotSold(tx, s.id));
+  const cancelled = await db.cancelledAdSale.findMany({
+    /* tenant-scope: the platform fill — every tenant, or the one named. */
+    where: scope, select: { id: true }, orderBy: { cancelledAt: "asc" },
+  });
+  let fallbackDates = 0;
+  for (const c of cancelled) fallbackDates += await db.$transaction((tx) => fillCancelledSale(tx, c.id));
+  return { records: slots.length + cancelled.length, factsAdded: (await factCount(db, t)) - before, fallbackDates };
+}
+
+/**
+ * One contracted marketplace order: each line's contract on the contract
+ * day; each line since unwound, reversed on the day its books were (the
+ * ledger's REVERSAL journal); each refund sent, on the day it was sent.
+ */
+async function fillMarketplaceOrder(tx: Tx, orderId: string): Promise<void> {
+  const o = await tx.marketplaceOrder.findUniqueOrThrow({
+    /* tenant-scope: by id, an order the fill listed in its own tenant. */
+    where: { id: orderId }, select: { id: true, contractedAt: true, lines: { select: { id: true } } },
+  });
+  if (o.contractedAt) {
+    await factMarketplaceContracted(tx, o.id, o.contractedAt);
+    for (const l of o.lines) {
+      const reversal = await tx.ledgerEntry.findFirst({
+        /* tenant-scope: this line's own entries, named by its order and id. */
+        where: { orderId: o.id, lineId: l.id, entryType: "REVERSAL" }, select: { createdAt: true }, orderBy: { createdAt: "asc" },
+      });
+      if (reversal) await factMarketplaceUnwound(tx, o.id, reversal.createdAt, l.id);
+    }
+  }
+  const refunds = await tx.refundDue.findMany({
+    /* tenant-scope: this order's own refunds. */
+    where: { orderId: o.id, state: "SENT" }, select: { id: true },
+  });
+  for (const r of refunds) await factRefundSent(tx, r.id);
+}
+
+/** The marketplace: lines contracted and unwound, refunds sent. */
+export async function fillMarketplaceHistory(db: Db, opts: { tenantId?: string } = {}): Promise<FillReport> {
+  const rows = await db.marketplaceOrder.findMany({
+    /* tenant-scope: the platform fill — every tenant, or the one named. */
+    where: {
+      ...(opts.tenantId ? { tenantId: opts.tenantId } : {}),
+      OR: [{ contractedAt: { not: null } }, { refunds: { some: { state: "SENT" } } }],
+    },
+    select: { id: true }, orderBy: { createdAt: "asc" },
+  });
+  return fillEach(db, opts, rows.map((r) => r.id), fillMarketplaceOrder);
 }

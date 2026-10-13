@@ -1,8 +1,8 @@
 /**
- * Fill the fact history — 3S1-DATA-05, 3S1-DATA-06 (and 3S1-DATA-07 as it lands).
+ * Fill the fact history — 3S1-DATA-05, 3S1-DATA-06, 3S1-DATA-07.
  *
  *   npm run facts:fill -w @sponsorx/backend -- orders
- *   npm run facts:fill -w @sponsorx/backend -- orders views payments invoices
+ *   npm run facts:fill -w @sponsorx/backend -- orders views payments invoices slots marketplace
  *   npm run facts:fill -w @sponsorx/backend -- orders --tenant <tenantId>
  *   npm run facts:fill -w @sponsorx/backend -- orders --confirm-production
  *
@@ -19,12 +19,15 @@
  *   views    — each day's views and engagements by label, with the corrections the audit log shows (3S1-DATA-06)
  *   payments — earnings paid (3S1-DATA-06)
  *   invoices — Zoho invoices issued and paid (3S1-DATA-06)
+ *   slots    — NEXT ad slots sold; a cancelled edition's sales, sold and reversed (3S1-DATA-07)
+ *   marketplace — lines contracted and unwound, refunds sent (3S1-DATA-07)
  */
 import { prisma } from "../src/db/client.ts";
 import { env } from "../src/config/env.ts";
 import {
-  fillInvoiceHistory, fillOrderHistory, fillPaymentHistory, fillViewHistory,
-  INVOICE_HISTORY_MEASURES, ORDER_HISTORY_MEASURES, PAYMENT_HISTORY_MEASURES, VIEW_HISTORY_MEASURES,
+  fillInvoiceHistory, fillMarketplaceHistory, fillOrderHistory, fillPaymentHistory, fillSlotHistory, fillViewHistory,
+  INVOICE_HISTORY_MEASURES, MARKETPLACE_HISTORY_MEASURES, ORDER_HISTORY_MEASURES, PAYMENT_HISTORY_MEASURES,
+  SLOT_HISTORY_MEASURES, VIEW_HISTORY_MEASURES,
 } from "../src/domain/fact-history.ts";
 import { checkFactsAgainstApp } from "../src/domain/fact-check.ts";
 
@@ -33,6 +36,8 @@ const PARTS = {
   views: { fill: fillViewHistory, measures: VIEW_HISTORY_MEASURES },
   payments: { fill: fillPaymentHistory, measures: PAYMENT_HISTORY_MEASURES },
   invoices: { fill: fillInvoiceHistory, measures: INVOICE_HISTORY_MEASURES },
+  slots: { fill: fillSlotHistory, measures: SLOT_HISTORY_MEASURES },
+  marketplace: { fill: fillMarketplaceHistory, measures: MARKETPLACE_HISTORY_MEASURES },
 } as const;
 
 const args = process.argv.slice(2);

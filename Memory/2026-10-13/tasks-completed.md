@@ -238,3 +238,16 @@
   - nothing is doubled;
   - a re-run adds nothing.
 - **Verified:** tsc and eslint clean; **full suite 203 files / 3,208 tests, green twice**.
+
+## rcfworks — 3S1-DATA-07 · history of NEXT ad slots and the marketplace (Code review)
+
+- **What:** two more fills in `fact-history.ts`, all through the live writers:
+  - `fillSlotHistory`: slots sold now, via `factAdSlotSold`. Each `CancelledAdSale` is rebuilt: sold on its `adSlot.sell` audit day as one fact per campaign × edition (the per-slot prices were cleared with the slots), then reversed on `cancelledAt`. It is skipped when the sale was recorded live.
+  - `fillMarketplaceHistory`: contracted lines on `contractedAt`; a line with a REVERSAL journal is unwound on that day; refunds SENT.
+- **Script:** `npm run facts:fill -- slots marketplace`. All six parts now exist: `orders views payments invoices slots marketplace`.
+- **Proof that history = live:** tests erase the live facts and refill them from history.
+  - Marketplace facts come back identical, key for key (`phase2-line-cancellation`).
+  - A cancelled edition's per-campaign daily figures are identical (`edition-automation`).
+  - The campaign side (orders, deliverables, views, payments, invoices): every non-zero daily summary figure is identical (`fact-wiring`). That strengthens DATA-05/06 too.
+- **Tracker:** 3S1-OPS-04 → Ready (all three fills are built).
+- **Verified:** tsc and eslint clean; **full suite 203 files / 3,210 tests, green twice**.
