@@ -247,9 +247,9 @@ Move transactional data into the warehouse on a schedule, idempotently, so a re-
 - **Delivered:** `backend/worker/warehouse/` — 2026-10-12. Hourly in the worker when `WAREHOUSE_DATABASE_URL` is set, so it starts in production once `3S0-OPS-01` provisions the warehouse
 - **Reference:** Spec §21
 
-### ◑ `3S1-DATA-02` · Daily campaign fact and dimension tables
+### ✅ `3S1-DATA-02` · Daily campaign fact and dimension tables
 
-**Order** 8 · **DATA** · **Where:** Code · **5d** · **Code review**
+**Order** 8 · **DATA** · **Where:** Code · **5d** · **Done**
 
 The core analytical model: one row per campaign per day, with conformed dimensions for property, sponsor, channel and inventory.
 
@@ -269,9 +269,9 @@ Raised in review of `3S1-DATA-02` (2026-10-13). The model is rebuilt whole every
 - **Done when:** a build redoes only the rows its changes touch, late-dated figures included, and the hourly double-check still passes at zero difference
 - **Reference:** Spec §21
 
-### ⏸ `3S1-DATA-03` · Benchmark pipeline
+### ▶ `3S1-DATA-03` · Benchmark pipeline
 
-**Order** 9 · **DATA** · **Where:** Code · **3d** · **Blocked**
+**Order** 9 · **DATA** · **Where:** Code · **3d** · **Ready**
 
 Percentile benchmarks by sport, market, format and audience — p25, median, p75 with sample size, so a small sample is visibly small.
 
@@ -279,9 +279,9 @@ Percentile benchmarks by sport, market, format and audience — p25, median, p75
 - **Done when:** Benchmarks compute with sample sizes exposed and refresh on schedule
 - **Reference:** Spec §19
 
-### ⏸ `3S1-QA-01` · Warehouse reconciliation tests
+### ▶ `3S1-QA-01` · Warehouse reconciliation tests
 
-**Order** 10 · **QA** · **Where:** Code · **3d** · **Blocked**
+**Order** 10 · **QA** · **Where:** Code · **3d** · **Ready**
 
 Automated proof that the warehouse agrees with the source system. Run it every night, not once at launch.
 
@@ -295,9 +295,9 @@ Automated proof that the warehouse agrees with the source system. Run it every n
 
 *4 tasks · 18 person-days*
 
-### ⏸ `3S2-BE-01` · Feature store and snapshot service
+### ▶ `3S2-BE-01` · Feature store and snapshot service
 
-**Order** 11 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 11 · **BE** · **Where:** Code · **5d** · **Ready**
 
 Assemble the inputs a pricing model needs — audience, engagement, historical delivery, demand, seasonality, geography, scarcity — and snapshot them so a past recommendation can always be explained.
 
