@@ -20,6 +20,7 @@
     "agreement:register": "node --env-file-if-exists=../.env --import tsx scripts/agreement-register.mts",
     "smoke:receipt": "node scripts/smoke-receipt.mjs",
     "uat:phase2": "node scripts/uat-phase2.mjs",
+    "facts:check": "node --env-file-if-exists=../.env --import tsx scripts/check-facts.mts",
     "warehouse:reader": "node --import tsx scripts/warehouse-reader.mts"
   },
   "dependencies": {

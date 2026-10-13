@@ -1,6 +1,6 @@
 # SponsorX Fact Ledger
 
-**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02` · Version 1.2 · 2026-10-13 · Phase 3, Sprint 1**
+**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03` · Version 1.3 · 2026-10-13 · Phase 3, Sprint 1**
 
 Phase 3's figures (reports, benchmarks, price suggestions, forecasts) come
 from **facts the app records at the moment each thing happens**, not from a
@@ -118,3 +118,40 @@ The facts are only as good as their coverage, and a gap raises no error: the fig
    - payment-dispute states.
 
    The tables are typed against the app's own lists, so a new value fails the typecheck, and the test fails it again by name. The fact writers read two of the tables directly: where a metric source's figures are filed, and which channel a platform is.
+
+## 7 · Match the app
+
+`checkFactSummaries` proves the summaries equal the facts. `checkFactsAgainstApp` (`backend/src/domain/fact-check.ts`, `3S1-QA-03`) proves the facts agree with the app's own records.
+
+**For every campaign,** each summary total is compared with the same figure worked out from the app's tables:
+
+| Measure | The app's own figure |
+|---|---|
+| booked (sell, pay) | accepted orders |
+| cancelled (sell, pay) | accepted orders now cancelled |
+| deliverables due | deliverables of accepted orders that are not cancelled |
+| deliverables published | deliverables with a published date |
+| deliverables verified | deliverables that are VERIFIED |
+| drafts sent back | the audit log's revision entries (reviewer or automatic checks) |
+| views / engagements, by label | each day's figure from `MetricDaily` |
+| earnings paid | PAID earnings, gross plus adjustment |
+| invoiced / invoice paid | Zoho invoices with an issue or paid date, not void |
+| ad slots sold | slots currently sold to the campaign |
+
+**For every tenant's marketplace:**
+
+| Measure | The app's own figure |
+|---|---|
+| gross / net | the financials of lines whose booking is not reversed |
+| refunded | marketplace refunds marked SENT |
+
+`metric_corrections` is not compared, because the app keeps the corrected figure, not a count of corrections.
+
+**What a difference means.** Each difference is named by tenant, campaign and measure, with the app's figure and the facts' figure. It means one of three things:
+- history not yet filled (expected until `3S1-OPS-04`);
+- an action that skipped its writer;
+- a record or summary changed outside the app.
+
+The app never deletes these records, so a difference is never "the record was deleted".
+
+**Running it.** `npm run facts:check -w @sponsorx/backend [-- --tenant <id>]` runs both checks in a READ ONLY transaction, so it is safe against production. It exits 1 on any difference. The history fills use it to prove themselves, and the nightly check (`3S1-QA-01`) will run it.
