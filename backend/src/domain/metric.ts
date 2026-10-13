@@ -21,6 +21,7 @@ import { audit, AUDIT_ACTIONS } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
+import { factMetricRecorded } from "./fact-writers";
 import {
   emptyTotals,
   METRIC_SOURCES,
@@ -107,6 +108,9 @@ export async function recordMetric(
       },
       select: { id: true, source: true, day: true, createdAt: true, updatedAt: true },
     });
+
+    /* 3S1-BE-02 — the day's figure, as a fact; a correction reverses the old one. */
+    await factMetricRecorded(tx, row.id);
 
     await audit(tx, actor, AUDIT_ACTIONS.metric.record, "MetricDaily", row.id, {
       after: {

@@ -135,3 +135,24 @@
 - While committing 3S1-BE-01, I found `backend/worker/index.mts` still modified. It holds the 3S1-DATA-02 review change: the hourly log line with build time and double-check result, an error log on a failed double-check, and a warning on a build over 60 s. It was edited but never committed (the commit only added `backend/worker/warehouse/`), so it was never deployed.
 - It is committed now. The earlier claim that Railway "cut the line short" is corrected above and was told to the user.
 - **Lesson:** run `git status` before every commit and check every modified file is either staged or deliberately left out.
+
+## rcfworks — 3S1-BE-02 · facts recorded in every money and delivery action (Code review)
+
+- **What:** each action that changes money or delivery now writes its fact in its own transaction. The writers are in `backend/src/domain/fact-writers.ts`, one per event; each action calls its writer right after its own write.
+- **Wired:**
+  - orders: `acceptOrder` and `respondToOffer` (booked, plus each deliverable due); `transitionOrder` CANCELLED;
+  - deliverables: `move()` for published, verified and sent back; `submitDraft` when the automatic checks send it back;
+  - `recordMetric`; `transitionEarning` PAID; `ingestZohoInvoice`;
+  - NEXT edition sale and cancellation (slots);
+  - ledger `bookOrder` / `reverseOrder` (marketplace lines);
+  - the four places in `refunds.ts` that mark a refund SENT.
+- **Rules settled while wiring** (written up in `SponsorX-Fact-Ledger.md` v1.1 §4):
+  - Cancelling an accepted order reverses its deliverables' "due" facts, matching how the app counts (sponsor overview and campaign list leave cancelled orders out). Published or verified stays.
+  - Zoho changing an invoice's amount or date, or voiding it, reverses the old figure. A paid invoice can't go back: the ingest already refuses that.
+  - A refund Finance marks sent by hand is dated on the day Finance gives. Edition refunds record no refund fact; the slot sale's reversal already takes the money out.
+- **Tests:**
+  - `tests/fact-wiring.test.ts` (9): runs a campaign through the real actions, failing first before anything was wired. Checks the summaries equal the app's own totals and the self-check passes.
+  - Fact checks added to `edition-automation`, `phase2-line-cancellation` and `phase2-offer-answers`.
+  - Five unit tests on a fake database stub the writers out (no Fact table there).
+  - Facts written in one transaction share its timestamp, so tests compare them as a set, not in order.
+- **Verified:** tsc and eslint clean; backend build OK; **full suite 199 files / 3,167 tests, green twice under en_US**.

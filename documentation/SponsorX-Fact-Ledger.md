@@ -1,6 +1,6 @@
 # SponsorX Fact Ledger
 
-**Task `3S1-BE-01` · Version 1.0 · 2026-10-13 · Phase 3, Sprint 1**
+**Tasks `3S1-BE-01`, `3S1-BE-02` · Version 1.1 · 2026-10-13 · Phase 3, Sprint 1**
 
 Phase 3's figures (reports, benchmarks, price suggestions, forecasts) come
 from **facts the app records at the moment each thing happens**, not from a
@@ -48,21 +48,35 @@ nothing needs copying.
 
 ## 4 · Facts by kind
 
-Wired into the actions by `3S1-BE-02`; each row is the action, its key, and the measures it moves.
+Wired into the actions by `3S1-BE-02`. The writers live in `backend/src/domain/fact-writers.ts`, one per event; each action calls its writer inside its own transaction, right after its own write.
 
-| Kind | Written when | Measures |
+| Kind | Written when | Written by | Measures |
+|---|---|---|---|
+| `ORDER_BOOKED` | a campaign order is accepted (directly, or by accepting an offer) | `acceptOrder`, `respondToOffer` | `booked_sell_cents`, `booked_compensation_cents` |
+| `ORDER_CANCELLED` | an accepted order is cancelled | `transitionOrder` | `cancelled_sell_cents`, `cancelled_compensation_cents` |
+| `EARNING_PAID` | an earning is marked paid | `transitionEarning` | `earnings_paid_cents` (gross plus adjustment) |
+| `INVOICE_ISSUED` / `INVOICE_PAID` | Zoho reports an invoice issued or paid | `ingestZohoInvoice` | `invoiced_cents` / `invoice_paid_cents` |
+| `DELIVERABLE_DUE` | an order is accepted (one per deliverable, on its due date) | with `ORDER_BOOKED` | `deliverables_due` |
+| `DELIVERABLE_PUBLISHED` / `DELIVERABLE_VERIFIED` | an athlete publishes; BTG verifies | `markPublished`, `verifyPublished` | `deliverables_published` / `deliverables_verified` |
+| `REVISION_REQUESTED` | a reviewer, or the automatic checks, send a draft back | `requestRevision`, `submitDraft` | `revisions_requested` |
+| `METRIC_RECORDED` | views and engagements are recorded for a day and source | `recordMetric` | `views_<label>`, `engagements_<label>` (plus `metric_corrections` on a correction) |
+| `AD_SLOT_SOLD` | a NEXT ad slot is sold to a campaign | the edition sale | `ad_slot_sold_cents` |
+| `MARKETPLACE_LINE_CONTRACTED` | a marketplace order is contracted, per line | `bookOrder` (ledger) | `marketplace_gross_cents`, `marketplace_net_cents` |
+| `MARKETPLACE_REFUND` | a marketplace refund is marked sent (by the provider, or by Finance) | the four places in `refunds.ts` that mark one SENT | `marketplace_refunded_cents` |
+| `REVERSAL` | any correction (below) | the writer of the event it corrects | the negated measures of the fact it reverses |
+
+**What reverses what.** Each of these is a new `REVERSAL` row, never an edit.
+
+| Event | Reversed | On which day |
 |---|---|---|
-| `ORDER_BOOKED` | a campaign order is accepted | `booked_sell_cents`, `booked_compensation_cents` |
-| `ORDER_CANCELLED` | an accepted order is cancelled | `cancelled_sell_cents`, `cancelled_compensation_cents` |
-| `EARNING_PAID` | an earning is marked paid | `earnings_paid_cents` (gross plus adjustment) |
-| `INVOICE_ISSUED` / `INVOICE_PAID` | Zoho reports an invoice issued or paid | `invoiced_cents` / `invoice_paid_cents` |
-| `DELIVERABLE_DUE` | a deliverable is scheduled (a moved due date is a reversal plus a new fact) | `deliverables_due` |
-| `DELIVERABLE_PUBLISHED` / `DELIVERABLE_VERIFIED` | an athlete publishes; BTG verifies | `deliverables_published` / `deliverables_verified` |
-| `REVISION_REQUESTED` | a reviewer or the automatic checks send a draft back | `revisions_requested` |
-| `METRIC_RECORDED` | views and engagements are recorded for a day and source (a correction is a reversal plus a new fact, plus `metric_corrections`) | `views_<label>`, `engagements_<label>` |
-| `AD_SLOT_SOLD` | a NEXT ad slot is sold to a campaign | `ad_slot_sold_cents` |
-| `MARKETPLACE_LINE_CONTRACTED` / `MARKETPLACE_REFUND` | a marketplace order is contracted; a refund is sent | `marketplace_gross_cents`, `marketplace_net_cents` / `marketplace_refunded_cents` |
-| `REVERSAL` | any correction | the negated measures of the fact it reverses |
+| A deliverable is published | its "due" fact filed under `UNPUBLISHED`; it is filed again under its platform | its due date |
+| An accepted order is cancelled | its deliverables' "due" facts (the app stops counting a cancelled order's deliverables). Anything already published or verified stays. | their due dates |
+| A day's views are corrected | the earlier figure for that day and source | the figure's own day |
+| Zoho changes an invoice's amount or date, or voids it | the figure that no longer holds. A void keeps nothing. A paid invoice never goes back (the ingest refuses that already). | the figure's own day |
+| A NEXT edition is cancelled | each slot's sale, before the slot is cleared | the cancellation day |
+| A marketplace order or line is unwound (`reverseOrder`) | that line's contract | the unwinding day |
+
+**Not recorded.** A refund on a cancelled NEXT edition is not marketplace money, so it records no refund fact; the sale's reversal already takes it out. A marketplace refund still waiting on Finance's list is not yet a fact: it becomes one when it is marked sent, on the day Finance gives.
 
 Channels: the social platforms (`SOCIAL_*`), `UNPUBLISHED`, `IN_PERSON`, `EDITION_PRINT`, `EDITION_DIGITAL`, `CAMPAIGN` (money that belongs to an order or campaign, not to one channel), and `MARKETPLACE`.
 

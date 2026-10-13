@@ -32,6 +32,7 @@ import {
 import { payoutHoldReason } from "./payout-holds";
 import { refuseCardNumber } from "./marketplace-order-rules";
 import { autoApprovalReasons, autoApproveSettings, autoApprovedByTenant, autoWindowFor, lockPayee, SYSTEM, windowStart } from "./payout-auto";
+import { factEarningPaid } from "./fact-writers";
 
 export class EarningImmutableError extends Error {
   readonly status = 409;
@@ -223,6 +224,8 @@ export async function transitionEarning(
       before: { state: from },
       after: { state: to, ...(to === "PAID" ? { reference: detail.reference ?? null } : {}) },
     });
+    /* 3S1-BE-02 — the payment, as a fact. */
+    if (to === "PAID") await factEarningPaid(tx, earningId);
 
     return { id: updated.id, state: updated.state as EarningState };
   });

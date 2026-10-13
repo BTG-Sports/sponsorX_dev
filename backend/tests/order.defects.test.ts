@@ -18,6 +18,10 @@ import { PRICED_TIERS } from "../src/domain/pricing";
    PATH a real caller takes.
    -------------------------------------------------------------------------- */
 
+/* 3S1-BE-02 — this fake database has no Fact table; the facts are proven against Postgres (fact-wiring.test.ts). */
+vi.mock("../src/domain/fact-writers", async (importOriginal) =>
+  Object.fromEntries(Object.keys(await importOriginal<object>()).map((k) => [k, async () => {}])));
+
 vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://x" } }));
 
 let order: Record<string, unknown> | null = null;

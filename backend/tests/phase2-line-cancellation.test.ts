@@ -283,6 +283,12 @@ describe.skipIf(!hasDatabase)("2S4-BE-12 / 2S4-BE-13 · cancelling a paid line, 
       expect(await mailsFor("delivery.cancelConfirmed", line)).toEqual(["lc_buyer@lc-test.invalid"]);
       expect(await mailsFor("sale.lineCancelled", line)).toEqual(["lc_jo@lc-test.invalid"]);
       expect(await mailsFor("refund.sent", c.json.refund.id)).toEqual(["lc_buyer@lc-test.invalid"]);
+      /* 3S1-BE-02 — the line's contract was a fact; cancelling reversed it, and the money sent back is its own fact. */
+      const lineFacts = await prisma.fact.findMany({ where: { sourceId: line }, select: { kind: true, measures: true }, orderBy: { recordedAt: "asc" } });
+      expect(lineFacts.map((f) => f.kind)).toEqual(["MARKETPLACE_LINE_CONTRACTED", "REVERSAL"]);
+      expect((lineFacts[1]!.measures as Record<string, number>).marketplace_gross_cents).toBe(-(lineFacts[0]!.measures as Record<string, number>).marketplace_gross_cents!);
+      expect(await prisma.fact.findMany({ where: { sourceId: c.json.refund.id }, select: { kind: true, channel: true, measures: true } }))
+        .toEqual([{ kind: "MARKETPLACE_REFUND", channel: "MARKETPLACE", measures: { marketplace_refunded_cents: 30_000 } }]);
       /* Again: nothing more happens. */
       const again = await call("POST", `/deliveries/${line}/cancel`, "lc_buyer", {});
       expect(again.status).toBe(409);
@@ -322,6 +328,11 @@ describe.skipIf(!hasDatabase)("2S4-BE-12 / 2S4-BE-13 · cancelling a paid line, 
       expect(refunds.map((r) => [r.lineId, r.cause, r.state, r.paidVia])).toEqual([[joL, "SPONSOR_CANCELLED", "OPEN", "BANK_TRANSFER"], [gullsL, "SPONSOR_CANCELLED", "OPEN", "BANK_TRANSFER"]]);
       expect(refunds.reduce((s, r) => s + r.amountCents, 0)).toBe(total);
       expect(await mailsFor("sale.lineCancelled", gullsL)).toEqual(["lc_ari@lc-test.invalid", "lc_mgr@lc-test.invalid"]);
+      /* 3S1-BE-02 — each line's contract reversed on its own; a refund still waiting for Finance is not yet a fact. */
+      for (const l of [joL, gullsL]) {
+        expect((await prisma.fact.findMany({ where: { sourceId: l }, select: { kind: true }, orderBy: { recordedAt: "asc" } })).map((f) => f.kind)).toEqual(["MARKETPLACE_LINE_CONTRACTED", "REVERSAL"]);
+      }
+      expect(await prisma.fact.count({ where: { sourceId: { in: refunds.map((r) => r.id) } } })).toBe(0);
     });
 
     it("two clicks at once refund once", async () => {
@@ -746,6 +757,9 @@ describe.skipIf(!hasDatabase)("2S4-BE-12 / 2S4-BE-13 · cancelling a paid line, 
       expect(ok.status, ok.text).toBe(200);
       expect(ok.json).toMatchObject({ id: target.id, state: "SENT", sent: { on: today(), method: "BANK_TRANSFER", reference: "RF-2026-0042", by: "BTG", test: false } });
       expect((await call("POST", `/refunds/${target.id}/sent`, "lc_admin", body)).status).toBe(409);
+      /* 3S1-BE-02 — the money sent back is a fact, on the day Finance gave, once however often it is marked. */
+      const sentFacts = await prisma.fact.findMany({ where: { sourceId: target.id }, select: { kind: true, occurredOn: true, measures: true } });
+      expect(sentFacts).toEqual([{ kind: "MARKETPLACE_REFUND", occurredOn: new Date(`${body.sentOn}T00:00:00.000Z`), measures: { marketplace_refunded_cents: target.amountCents } }]);
       expect(await mailsFor("refund.sent", target.id)).toEqual(["lc_buyer@lc-test.invalid"]);
       /* The sponsor's email never names how it was sent or its reference. */
       const mail = (await emails()).find((e) => e.template === "refund.sent" && e.idempotencyKey.includes(target.id))!;

@@ -62,6 +62,7 @@ import { guardianControls } from "./guardian-rules";
 import { athleteFloor, floorProblem, offerParty, PARTY_SELECT } from "./offer-desk";
 import { advanceCampaign, lockCampaignForStaffing } from "./campaign-stages";
 import { replaceAfterDecline } from "./auto-staffing";
+import { factOrderBooked } from "./fact-writers";
 import { readPage, type PageRequest } from "../lib/paging";
 
 export type OfferState = "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
@@ -748,6 +749,8 @@ export async function respondToOffer(
       await tx.deliverable.create({ data: { tenantId: actor.tenantId, orderId: order.id, title: d.title, dueDate: d.dueDate }, select: { id: true } });
     }
     await createEarningForOrder(tx, actor, { id: order.id, tenantId: actor.tenantId, athleteId: row.athleteId, compensation: row.compensation, dueDate });
+    /* 3S1-BE-02 — the booking and its deliverables' due dates, as facts. */
+    await factOrderBooked(tx, order.id);
     /* 2S3-BE-03 — the item is now spoken for; 2S2-BE-02 — the exclusivity starts. */
     if (row.inventoryItemId) {
       /* A package takes its parts with it (2S3-BE-02). Contracted: this is an accepted contract. */

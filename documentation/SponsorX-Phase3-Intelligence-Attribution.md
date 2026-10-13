@@ -272,9 +272,9 @@ The same transaction that books, cancels, pays or delivers also writes one fact 
 - **Delivered:** [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md), `backend/src/domain/facts.ts` — 2026-10-13
 - **Reference:** Spec §19, §21, §22
 
-### ⏸ `3S1-BE-02` · Record facts in every money and delivery action
+### ◑ `3S1-BE-02` · Record facts in every money and delivery action
 
-**Order** 7.2 · **BE** · **Where:** Code · **2d** · **Blocked**
+**Order** 7.2 · **BE** · **Where:** Code · **2d** · **Code review**
 
 The fact writer, wired into every action that changes money or delivery:
 - orders booked and cancelled;
@@ -289,6 +289,7 @@ Fan scans, clicks and edition views are already one row per event, so they are c
 
 - **Depends on:** 3S1-BE-01
 - **Done when:** every listed action writes its fact in its own transaction; the daily summaries match the app's own totals for a seeded campaign
+- **Delivered:** `backend/src/domain/fact-writers.ts`, wired into each action; `backend/tests/fact-wiring.test.ts` — 2026-10-13. Where each fact is written, and what reverses what: [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §4
 - **Reference:** Spec §19, §22
 
 ### ⏸ `3S1-QA-02` · Nothing slips through: action and status coverage tests

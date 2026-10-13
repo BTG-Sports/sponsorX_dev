@@ -29,6 +29,7 @@ import { ForbiddenError } from "../auth/errors";
 import { refuseIfBackwards } from "./invoice-replay";
 import { ingestOrderInvoice } from "./order-payment";
 import { refundPaymentAfterEditionCancel } from "./refunds";
+import { factInvoice } from "./fact-writers";
 
 export class UnknownDealError extends Error {
   readonly status = 422;
@@ -150,6 +151,8 @@ export async function ingestZohoInvoice(
     update: data,
     select: { id: true, status: true },
   });
+  /* 3S1-BE-02 — issued and paid, as facts; a change in Zoho reverses the old figure. */
+  await factInvoice(tx, row.id);
 
   /* P9-BE-19 — money that arrives for an ad sale an edition's cancellation
      already undid goes straight onto Finance's "Refunds to send", in this

@@ -33,6 +33,7 @@ import { guardianReadiness } from "./guardian-rules";
 import { acceptAgreementIn } from "./agreement";
 import { assertBudgetCarriesLine, assertLineClearsFloor } from "./margin-floor";
 import { createDeliverablesFromJob } from "./deliverable";
+import { factOrderBooked, factOrderCancelled } from "./fact-writers";
 import { createEarningForOrder } from "./earning";
 import { projectLine } from "./pricing-learning";
 import { advanceCampaign, advanceCampaignOfOrder, lockCampaignForStaffing } from "./campaign-stages";
@@ -285,6 +286,8 @@ export async function transitionOrder(
     /* P4-BE-09 — a declined or withdrawn order was the last one waiting:
        the campaign may now be fully staffed (or fully verified). */
     if (to === "REJECTED" || to === "CANCELLED") await advanceCampaignOfOrder(tx, orderId);
+    /* 3S1-BE-02 — the cancellation is a fact, in this transaction. */
+    if (to === "CANCELLED") await factOrderCancelled(tx, orderId, new Date());
 
     return { id: updated.id, state: updated.state as OrderState };
   });
@@ -394,6 +397,10 @@ export async function acceptOrder(
       compensation: order.compensation,
       dueDate: order.dueDate,
     });
+
+    /* 3S1-BE-02 — the booking and its deliverables' due dates are facts,
+       in this transaction; after the deliverables, which it reads. */
+    await factOrderBooked(tx, order.id);
 
     await audit(tx, actor, AUDIT_ACTIONS.campaign.orderAccept, "CampaignOrder", orderId, {
       before: { state: from },

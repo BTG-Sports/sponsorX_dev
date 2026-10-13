@@ -149,7 +149,10 @@ export async function reverseFact(
     original.id, dayOf(input.occurredOn), JSON.stringify(Object.fromEntries(negated)), input.reason,
   );
   if (!inserted.length) {
-    const existing = await tx.fact.findUniqueOrThrow({ where: { reversesId: original.id }, select: { id: true } });
+    const existing = await tx.fact.findUniqueOrThrow({
+      /* tenant-scope: the reversal of the fact found above in this tenant (reversesId is unique). */
+      where: { reversesId: original.id }, select: { id: true },
+    });
     return { id: existing.id, created: false };
   }
   await moveSummary(tx, inserted[0]!, negated.filter(([, v]) => v !== 0));
