@@ -102,3 +102,30 @@
   - Ranges and 15 Dashboard formulas extended to row 61. Phase 3 is now 58 tasks · 204 days.
 - **Docs:** the Phase 3 plan has the new tasks and a change note; the warehouse design is marked superseded (what carries over is noted); stack-decision **Addendum D** supersedes C.
 - **The warehouse keeps running harmlessly** in staging and production until 3S1-OPS-02.
+
+## rcfworks — 3S1-BE-01: fact ledger and daily summaries (Code review)
+
+- **Design:** `documentation/SponsorX-Fact-Ledger.md`, covering the idea, the parts, 8 rules, and the facts by kind (wired in 3S1-BE-02).
+- **Built:**
+  - `Fact`: one row per business event. Unique per tenant + key, so a retried action adds nothing. `reversesId` is unique, so a fact is reversed at most once. A trigger `fact_append_only` refuses UPDATE and DELETE, except DELETE where `sponsorx.audit_purge = 'on'` (the test databases).
+  - `CampaignDaySummary`: one row per tenant × campaign × athlete × channel × inventory × market × day, with 26 measure columns. '' stands for "none" in key columns.
+  - Migration `20261013120000_fact_ledger`, taken from `prisma migrate diff` with the 16 older drift lines left out.
+  - `src/domain/fact-rules.ts`: closed lists `FACT_KINDS`, `FACT_CHANNELS`, `INVENTORY_KINDS`, `MEASURE_COLUMNS`; `normaliseMarket`.
+  - `src/domain/facts.ts`:
+    - `recordFact(tx, …)` writes the fact and moves its summary with one `INSERT … ON CONFLICT DO UPDATE col = col + delta`, in the caller's transaction;
+    - `reverseFact` corrects with a negated fact on the correction day;
+    - `checkFactSummaries` compares the summaries with the sum of the facts, measure by measure.
+  - Fan scans, clicks and edition views are deliberately not measures: they are already one row per event and are counted directly.
+  - Both models are declared system-internal in `authz.coverage.test.ts` (no route reads them yet; 3S7-BE-02 will add matrix rows).
+- **Tests:** `tests/fact-ledger.test.ts`, 11 tests:
+  - saved together;
+  - a rollback saves neither;
+  - an idempotent retry;
+  - a correction adds a row and never edits, landing on its own day;
+  - at most one reversal;
+  - the database refuses an edit and a delete;
+  - 20 concurrent writes to one summary row all count;
+  - bad measures, fractions and blank keys are refused;
+  - the summaries equal the facts, and the check catches a tampered row.
+- **Verified:** tsc and eslint clean (the house rule "explicit select" was applied to 7 reads); **full suite 198 files / 3,158 tests, green twice under CI's en_US collation**; no Prisma drift on the new tables.
+- **Next:** 3S1-BE-02 wires `recordFact` into every money and delivery action.

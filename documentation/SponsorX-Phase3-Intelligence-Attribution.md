@@ -261,14 +261,15 @@ The core analytical model: one row per campaign per day, with conformed dimensio
 
 > **Changed 2026-10-13 (user review): facts are recorded by the app, not re-derived by a warehouse.** The separate warehouse (3S0-OPS-01, 3S1-DATA-01, 3S1-DATA-02) worked out business meaning a second time from copied tables. That meant two copies of the rules, a copy job that can fail, and edits it cannot see. It is replaced by a fact ledger the app writes in the same transaction as each action, with daily summaries kept up to date in that same transaction. The warehouse is retired by 3S1-OPS-02. Design: [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) (written in 3S1-BE-01).
 
-### ▶ `3S1-BE-01` · Fact ledger and daily summaries
+### ◑ `3S1-BE-01` · Fact ledger and daily summaries
 
-**Order** 7.1 · **BE** · **Where:** Code · **2d** · **Ready**
+**Order** 7.1 · **BE** · **Where:** Code · **2d** · **Code review**
 
 The same transaction that books, cancels, pays or delivers also writes one fact row: what happened, to which campaign, athlete, job, channel and market, how much, and when. The values come from the app's own code, so the meaning is defined once. The daily campaign summaries are updated in that same transaction. Corrections are new rows, never edits.
 
 - **Depends on:** 3S0-DATA-01
 - **Done when:** facts and summaries are written in the same transaction as the change (both or neither); the summaries always equal the sum of the facts; a correction adds rows and never edits one
+- **Delivered:** [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md), `backend/src/domain/facts.ts` — 2026-10-13
 - **Reference:** Spec §19, §21, §22
 
 ### ⏸ `3S1-BE-02` · Record facts in every money and delivery action
