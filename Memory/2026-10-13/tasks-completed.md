@@ -176,3 +176,49 @@
   - PAID earnings are final.
   - An ACTIVE order can be cancelled, and that goes through `transitionOrder` (already wired).
 - **Verified:** tsc and eslint clean; **full suite 200 files / 3,190 tests, green twice**.
+
+## rcfworks — 3S1-DATA-05 split into five tasks (user)
+
+- Filling the history (one 1-day task) is now five half-day tasks, each with its own PR:
+  - **3S1-QA-03** "match the app" check;
+  - **3S1-DATA-05** history of orders and deliverables;
+  - **3S1-DATA-06** history of views, payments and invoices;
+  - **3S1-DATA-07** history of NEXT ad slots and the marketplace;
+  - **3S1-OPS-04** run it on staging, then production with the owner's OK.
+- 3S1-OPS-02, 3S1-DATA-03, 3S1-QA-01, 3S2-BE-01 and HeckerCreatives' 3S7-BE-02 now depend on 3S1-OPS-04 (history filled on the live databases) instead of 3S1-DATA-05.
+- Phase 3 is now 62 tasks · 205.5 days; Sprint 1 is 14 tasks · 25.5 days.
+- Tracker rows 62–65 were added with fractional Orders. Dashboard formulas, autofilter, conditional formatting and the Status validation were extended to row 65.
+
+## rcfworks — 3S1-QA-03 · "match the app" check (Code review)
+
+- **What:** `backend/src/domain/fact-check.ts` `checkFactsAgainstApp(db, { tenantId? })` compares the daily summaries with the app's own records.
+  - Per campaign: booked, cancelled, deliverables due/published/verified, revisions (from the audit log), views and engagements by label, earnings paid, invoices, ad slots sold.
+  - Per tenant: marketplace gross, net and refunded.
+  - Each difference is named by tenant, campaign and measure, with both figures.
+  - `metric_corrections` is the one measure not compared (the app keeps no count). A test holds the compared and not-compared lists to `MEASURE_COLUMNS`.
+- **Script:** `npm run facts:check -w @sponsorx/backend [-- --tenant id]` runs both checks in a READ ONLY transaction (safe on production) and exits 1 on any difference.
+- **Tests:**
+  - `tests/fact-app-check.test.ts`: history written straight to the database is named measure by measure; recording it with the live writers makes the check pass; a hand-edited summary and an order cancelled in the database are both caught.
+  - The check also passes after the real actions in `fact-wiring` and the whole marketplace run in `phase2-line-cancellation` (asserted non-empty), and for ad slots in `edition-automation`. There it correctly flagged a slot price an earlier test edits by hand, so that assertion is limited to its own campaigns.
+- **Checked:** nothing in the app deletes orders, deliverables, earnings, invoices, slots or refunds, so any difference on the live databases is real.
+- **Fixed:** two tests created and then deleted the shared catalogue job SX-04, which raced when they ran at the same moment. Both now add it only if missing and never delete it.
+- **Verified:** tsc and eslint clean; **full suite 201 files / 3,197 tests, green twice**.
+
+## rcfworks — 3S1-DATA-05 · history of orders and deliverables (Code review)
+
+- **What:** `backend/src/domain/fact-history.ts` `fillOrderHistory(db, { tenantId? })` records the facts for orders and deliverables from before the ledger, through the live writers. It runs one transaction per accepted order, in the order things happened:
+  - booked (acceptance day) with its deliverables due;
+  - each deliverable's revisions (audit log), publication (published date) and verification (audit log);
+  - cancellation last (audit log).
+- **Dates and fallbacks:** a record with no audit entry falls back to the nearest known date (cancelled → acceptance, verified → publication), and the run reports how many did.
+- **No double counting:** every fact uses its live key, so it's safe to re-run and safe while live. Revisions (no fixed key) are counted: the audit count less the facts already there, oldest first.
+- **Writer change:** `factRevisionRequested` now files a revision made before publication under `UNPUBLISHED`, dated by the published date. Live it already got that answer; history now gets the same.
+- **Script:** `npm run facts:fill -w @sponsorx/backend -- orders [--tenant id]` fills, then runs the "match the app" check for its measures and exits 1 on a difference. Production refuses without `--confirm-production`. Fixed an argument bug where the first part was dropped when `--tenant` was absent.
+- **Tests:** `tests/fact-history.test.ts` (6) covers history written the old way, plus one order sent back live and one cancelled live after the ledger:
+  - before the fill, the check names exactly the 8 order and deliverable measures;
+  - after it, every campaign matches and summaries equal facts;
+  - each event is on its day and channel;
+  - a live revision and a live cancellation are not doubled;
+  - a re-run adds nothing;
+  - another tenant is untouched.
+- **Verified:** tsc and eslint clean; **full suite 202 files / 3,203 tests, green twice**.

@@ -98,6 +98,7 @@ describe.skipIf(!hasDatabase)("P9-BE-17/18/19 · editions that run themselves, o
   const rateCard = await import("../src/domain/edition-rate-card");
   const refunds = await import("../src/domain/refunds");
   const { checkFactSummaries } = await import("../src/domain/facts");
+  const { checkFactsAgainstApp } = await import("../src/domain/fact-check");
   const { listEditions } = await import("../src/routes/v1/editions");
   const { ingestZohoInvoice } = await import("../src/domain/invoice");
 
@@ -504,6 +505,10 @@ describe.skipIf(!hasDatabase)("P9-BE-17/18/19 · editions that run themselves, o
       const ours = { tenantId: T, campaignId: { in: [paidAdOnly, unpaidAdOnly, twoEditions] } };
       expect(await prisma.fact.count({ where: { ...ours, kind: "AD_SLOT_SOLD" } })).toBe(4);
       expect(await prisma.fact.count({ where: { ...ours, kind: "REVERSAL" } })).toBe(3);
+      /* 3S1-QA-03 — the check agrees for these campaigns' ad-slot sales. Only this test's campaigns and the slot measure:
+         this test writes invoices straight to the database, and the split-lock test above edits a slot's price directly. */
+      const sold = new Set([paidAdOnly, unpaidAdOnly, twoEditions]);
+      expect((await checkFactsAgainstApp(prisma, { tenantId: T })).differences.filter((d) => d.measure === "ad_slot_sold_cents" && sold.has(d.campaignId!))).toEqual([]);
 
       const rows = await prisma.refundDue.findMany({
         where: { tenantId: T, editionId: e.id }, select: { campaignId: true, amountCents: true, cause: true, paidVia: true, orderId: true, state: true },

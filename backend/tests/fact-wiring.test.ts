@@ -28,6 +28,7 @@ describe.skipIf(!hasDatabase)("3S1-BE-02 · the campaign actions record their fa
   const { transitionEarning } = await import("../src/domain/earning");
   const { ingestZohoInvoice } = await import("../src/domain/invoice");
   const { checkFactSummaries } = await import("../src/domain/facts");
+  const { checkFactsAgainstApp } = await import("../src/domain/fact-check");
   const { NIL_JOBS } = await import("../src/domain/nil-jobs");
 
   const T = "fw_t";
@@ -55,13 +56,11 @@ describe.skipIf(!hasDatabase)("3S1-BE-02 · the campaign actions record their fa
       await prisma.$executeRawUnsafe(`DELETE FROM "${t}" WHERE "tenantId" = $1`, T);
     }
     await prisma.$executeRawUnsafe(`DELETE FROM "Tenant" WHERE id = $1`, T);
-    await prisma.nilJob.deleteMany({ where: { id: { in: createdJobs }, tenantId: T } });
   }
   /* Catalogue jobs are shared rows with fixed ids, and accepting an order needs a job with a
      deliverable template: SX-04 (two social deliverables) and SX-05 (the in-person job,
-     APPEARANCE_JOBS). Use them when the database already has them; otherwise create them for
-     this test and remove them after. */
-  const createdJobs: string[] = [];
+     APPEARANCE_JOBS). Added when missing and never removed: reference data, the same in every
+     environment, and other test files running at the same moment may be using them. */
 
   beforeAll(async () => {
     await clean();
@@ -76,11 +75,7 @@ describe.skipIf(!hasDatabase)("3S1-BE-02 · the campaign actions record their fa
       { id: "fw_staff", tenantId: T, clerkId: "fw_staff", email: "staff@fw.invalid", roles: ["BTG_ADMIN"] },
       { id: "fw_fin", tenantId: T, clerkId: "fw_fin", email: "fin@fw.invalid", roles: ["FINANCE"] },
     ] });
-    for (const job of NIL_JOBS.filter((j) => j.id === "SX-04" || j.id === "SX-05")) {
-      if (await prisma.nilJob.findUnique({ where: { id: job.id }, select: { id: true } })) continue;
-      createdJobs.push(job.id);
-      await prisma.nilJob.create({ data: { ...job, tenantId: T } });
-    }
+    await prisma.nilJob.createMany({ data: NIL_JOBS.filter((j) => j.id === "SX-04" || j.id === "SX-05").map((j) => ({ ...j, tenantId: T })), skipDuplicates: true });
     await prisma.agreement.create({ data: { id: "fw_agr", tenantId: T, kind: "FW_CAMPAIGN_ORDER", version: 1, bodyHash: "fw-terms-hash", effectiveAt: new Date("2026-01-01") } });
     await prisma.campaign.create({ data: {
       id: "fw_c", tenantId: T, sponsorId: "fw_sp", name: "Fall tacos", budget: 500000, startDate: new Date("2026-09-01"), endDate: new Date("2026-12-31"),
@@ -199,5 +194,7 @@ describe.skipIf(!hasDatabase)("3S1-BE-02 · the campaign actions record their fa
     expect(await sum("deliverablesDue")).toBe(await prisma.deliverable.count({ where: { tenantId: T, order: { state: { notIn: ["CANCELLED", "REJECTED"] } } } }));
     expect(await sum("deliverablesPublished")).toBe(await prisma.deliverable.count({ where: { tenantId: T, publishedAt: { not: null } } }));
     expect(await checkFactSummaries(prisma, { tenantId: T })).toEqual({ ok: true, differences: [] });
+    /* 3S1-QA-03 — and the check that compares them with the app's records, measure by measure, agrees. */
+    expect(await checkFactsAgainstApp(prisma, { tenantId: T })).toEqual({ ok: true, differences: [] });
   });
 });

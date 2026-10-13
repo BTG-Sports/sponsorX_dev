@@ -107,7 +107,7 @@ async function deliverableContext(tx: Tx, deliverableId: string) {
   const d = await tx.deliverable.findUniqueOrThrow({
     /* tenant-scope: by id, the deliverable the calling action just wrote. */
     where: { id: deliverableId },
-    select: { id: true, tenantId: true, dueDate: true, platform: true, order: { select: { campaignId: true, athleteId: true, jobId: true } } },
+    select: { id: true, tenantId: true, dueDate: true, platform: true, publishedAt: true, order: { select: { campaignId: true, athleteId: true, jobId: true } } },
   });
   return { ...d, channel: deliverableChannel(d.order.jobId, d.platform) };
 }
@@ -147,10 +147,18 @@ export async function factDeliverableVerified(tx: Tx, deliverableId: string, at:
   await deliverableFact(tx, d, "DELIVERABLE_VERIFIED", `deliverable.verified:${d.id}`, at, "deliverables_verified");
 }
 
-/** A draft was sent back — by a reviewer or by the automatic checks. Each sending-back is its own event. */
+/**
+ * A draft was sent back — by a reviewer or by the automatic checks. Each
+ * sending-back is its own event. Filed under the channel the deliverable had
+ * at that moment: a draft sent back before it was published is UNPUBLISHED,
+ * which is what the live action always sees; the history fill (which reads a
+ * deliverable after publication) gets the same answer from the published date.
+ */
 export async function factRevisionRequested(tx: Tx, deliverableId: string, at: Date): Promise<void> {
   const d = await deliverableContext(tx, deliverableId);
-  await deliverableFact(tx, d, "REVISION_REQUESTED", `deliverable.revision:${d.id}:${at.toISOString()}`, at, "revisions_requested");
+  const before = !d.publishedAt || at < d.publishedAt;
+  const channel = before && d.channel !== "IN_PERSON" ? "UNPUBLISHED" : d.channel;
+  await deliverableFact(tx, { ...d, channel }, "REVISION_REQUESTED", `deliverable.revision:${d.id}:${at.toISOString()}`, at, "revisions_requested");
 }
 
 /* ── metrics ──────────────────────────────────────────────────────────────── */

@@ -779,4 +779,17 @@ describe.skipIf(!hasDatabase)("2S4-BE-12 / 2S4-BE-13 · cancelling a paid line, 
       expect(s.text).not.toMatch(/"refunds"|"freeUntil"|"sellerAnswerBy"|RF-2026-0042/);
     });
   });
+
+  it("3S1-QA-03 · after every sale, cancellation and refund above, the marketplace's facts match the app's records", async () => {
+    const { checkFactsAgainstApp } = await import("../src/domain/fact-check");
+    /* Not an empty comparison: money was contracted and refunded here. */
+    const [m] = await prisma.$queryRawUnsafe<Array<{ gross: string | null; refunded: string | null }>>(
+      `SELECT sum(CASE WHEN f.kind = 'MARKETPLACE_LINE_CONTRACTED' THEN (f.measures->>'marketplace_gross_cents')::bigint END)::text AS gross,
+              sum((f.measures->>'marketplace_refunded_cents')::bigint)::text AS refunded FROM "Fact" f WHERE f."tenantId" = $1`, T);
+    expect(Number(m!.gross)).toBeGreaterThan(0);
+    expect(Number(m!.refunded)).toBeGreaterThan(0);
+    for (const tenantId of await tenantsInPlay()) {
+      expect(await checkFactsAgainstApp(prisma, { tenantId }), tenantId).toEqual({ ok: true, differences: [] });
+    }
+  });
 });
