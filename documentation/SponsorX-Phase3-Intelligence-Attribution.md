@@ -247,14 +247,15 @@ Move transactional data into the warehouse on a schedule, idempotently, so a re-
 - **Delivered:** `backend/worker/warehouse/` — 2026-10-12. Hourly in the worker when `WAREHOUSE_DATABASE_URL` is set, so it starts in production once `3S0-OPS-01` provisions the warehouse
 - **Reference:** Spec §21
 
-### ⏸ `3S1-DATA-02` · Daily campaign fact and dimension tables
+### ◑ `3S1-DATA-02` · Daily campaign fact and dimension tables
 
-**Order** 8 · **DATA** · **Where:** Code · **5d** · **Blocked**
+**Order** 8 · **DATA** · **Where:** Code · **5d** · **Code review**
 
 The core analytical model: one row per campaign per day, with conformed dimensions for property, sponsor, channel and inventory.
 
 - **Depends on:** 3S1-DATA-01
 - **Done when:** Warehouse metrics reconcile to transactional campaign, order and payment totals within defined tolerance
+- **Delivered:** `backend/worker/warehouse/` (model, transforms, `reconcile.mts`) — 2026-10-13; tolerance zero (design §8)
 - **Reference:** Spec §19, §22
 
 ### ⏸ `3S1-DATA-03` · Benchmark pipeline

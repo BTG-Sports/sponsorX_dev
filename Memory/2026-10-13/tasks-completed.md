@@ -1,0 +1,42 @@
+# 2026-10-13
+
+## rcfworks — 3S1-DATA-02: daily campaign fact and dimension tables (Code review)
+
+- **Pulled `main_development`** (e96835a, HeckerCreatives' P1-ART-25 Finance Vault); nothing on the backend side. Last night's deploy moved `release`.
+- **The user's decisions:** rebuild right after each hourly copy; rebuild the whole model each time while the data is small (the 7-day mode is kept for later); the money snapshots start 2026-10-12, with earlier days absent rather than invented.
+- **Built (`backend/worker/warehouse/`):**
+  - `migrations/0002_model.sql`:
+    - schemas `stg`, `dw`, `sem`;
+    - the dimensions, `fact_campaign_daily`, `fact_marketplace_order_line`, `snap_ledger_daily` and `snap_payment_status_daily`;
+    - `dw.k()`, which computes keys from identity, so rebuilds never renumber;
+    - a `raw._ingest_run.built` column.
+  - `transforms/`:
+    - `10_stg`: latest-version views over raw; audit names mapped (`listing.archived` → `listing.archive`); the helpers `dw.dk`, `dw.market_key` and `dw.arr`.
+    - `20_dims`: date 2020–2035; channel; type-2 sponsor, property and athlete from raw versions (one per day, the day's last; the first covers all earlier time); campaign; inventory; market with Census regions.
+    - `30_fact_campaign_daily`: every source dated by its own event.
+    - `40_marketplace`.
+    - `50_snapshots`: state at day end from raw versions.
+    - `60_sem`: `campaign_daily`, and `campaign_summary` with the §6 metrics.
+    - All of it runs in one transaction after every ingestion, under the same lock (`build.mts`).
+  - `reconcile.mts` runs 11 zero-tolerance checks, key by key: booked, compensation, earnings paid, invoiced, invoice paid, marketplace net, ledger, open payments, fan funnel, clicks and views.
+- **Refinements while building,** recorded in the design doc v1.2:
+  - market joins the fact's key (a reward's venue can differ between otherwise identical rows);
+  - order-level money lands on the `CAMPAIGN` channel;
+  - `cancelled_compensation_cents` added, so margin is exact;
+  - a fan-funnel job is set only when the athlete holds exactly one on the campaign.
+- **Found while testing:** a JSON `null` array stopped the build ("cannot extract elements from a scalar"). `dw.arr()` now treats a non-list as empty.
+- **Tests:** `tests/warehouse-model.test.ts`, 14 tests against product and warehouse Postgres. It seeds a full campaign and checks:
+  - exact figures per day, channel, job and market;
+  - the venue market winning over registration;
+  - NEXT ad-slot rows;
+  - money dates;
+  - sponsor and property keys;
+  - the semantic ratios;
+  - the marketplace line;
+  - the snapshots;
+  - **reconciliation: every check at zero difference**;
+  - a rebuild changing nothing;
+  - tier history with old facts keeping the old version;
+  - reconciliation **catching** a planted drift (booked 75,000 vs 76,000).
+- **Verified:** tsc and eslint clean; **full backend suite 196 files / 3,140 tests pass**. Reconciliation across all tenants of the local test database is clean.
+- **Left:** after #191 deploys, run the reconciliation on staging and production and record the results, then Done.

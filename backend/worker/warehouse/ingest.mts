@@ -24,6 +24,7 @@
 import type pg from "pg";
 
 import { requiresGuardian } from "../../src/domain/guardian-rules.ts";
+import { buildWarehouse } from "./build.mts";
 import { migrateWarehouse } from "./migrate.mts";
 import { SOURCES, TRANSIENT_COLUMNS, type Source } from "./sources.mts";
 
@@ -38,7 +39,7 @@ export type TableOutcome =
   | { mode: "APPEND"; read: number; inserted: number; updated: number };
 
 export type IngestOutcome =
-  | { status: "ok"; runId: number; rows: Record<string, TableOutcome> }
+  | { status: "ok"; runId: number; rows: Record<string, TableOutcome>; built: Record<string, number> }
   | { status: "skipped"; reason: string };
 
 const q = (name: string) => `"${name.replace(/"/g, '""')}"`;
@@ -212,8 +213,12 @@ export async function ingestWarehouse(opts: { product: pg.Pool; warehouse: pg.Po
       } finally {
         src.release();
       }
-      await wh.query(`UPDATE raw._ingest_run SET status = 'ok', finished_at = now(), rows = $2 WHERE id = $1`, [runId, JSON.stringify(rows)]);
-      return { status: "ok", runId, rows };
+      /* 3S1-DATA-02 — rebuild the model from what was just copied, under the
+         same lock, so facts never trail the raw layer by more than a run. */
+      const built = await buildWarehouse(wh);
+      await wh.query(`UPDATE raw._ingest_run SET status = 'ok', finished_at = now(), rows = $2, built = $3 WHERE id = $1`,
+        [runId, JSON.stringify(rows), JSON.stringify(built)]);
+      return { status: "ok", runId, rows, built };
     } catch (error) {
       if (runId !== null) {
         await wh.query(`UPDATE raw._ingest_run SET status = 'failed', finished_at = now(), error = $2 WHERE id = $1`,

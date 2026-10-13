@@ -2,6 +2,15 @@
 
 **Task `3S0-DATA-02` · Version 1.1 · 2026-10-12 · Phase 3, Sprint 0 · Accepted 2026-10-12**
 
+> **v1.2 (2026-10-13, `3S1-DATA-02` as built):** the model is built by `backend/worker/warehouse/` — tables in `migrations/0002_model.sql`, rows by `transforms/*.sql` after every hourly copy, checked by `reconcile.mts`. Refinements made while building, none changing what was signed:
+> - **Market joins the fact's key** (§5). Reward rows that share every other key can come from codes with different venues.
+> - **Order-level money lands on the `CAMPAIGN` channel** (§4, §5) with the order's athlete and job, because one order can cover several channels.
+> - **`cancelled_compensation_cents`** is added (§5), so `margin_cents` (§6) is exact.
+> - **A fan-funnel row has a job** only when the athlete holds exactly one on that campaign; otherwise the job is unknown (§5).
+> - **Keys are computed** from each row's own identity (`dw.k`), never counted, so rebuilds never renumber them (§3).
+> - **History:** one version per day, the day's last; the first version covers all earlier time (§3).
+> - **`dim_date` spans 2020–2035** (§4).
+>
 > **v1.1:** platform is now recorded on deliverables (`3S0-BE-06`, O1 closed); the marketplace fact and both snapshots fully specified (§7, Appendix A); Spec §19's product tables mapped to their tasks and to what already exists (§11).
 
 Phase 3's benchmarks, pricing, forecasting and dashboards read from an
@@ -83,13 +92,15 @@ Out of scope here, and why:
 
 ## 3 · Conventions
 
-- **Keys.** Every dimension has a surrogate key `<dim>_key bigint` (identity)
-  and keeps its source id as `<entity>_id text`. Every dimension has an
+- **Keys.** Every dimension has a surrogate key `<dim>_key bigint`, **computed** from the row's own identity (`dw.k('<kind>:<id>[:<valid_from>]')`), so a rebuild yields the same keys. Each keeps its source id as `<entity>_id text`. Every dimension has an
   **unknown member** at key `0` ("Unattributed" / "Unknown"), so a fact never
   has a null key.
 - **History (type 2).** `valid_from date`, `valid_to date` (`9999-12-31` while
   current), `is_current boolean`. A fact row takes the dimension version valid
   **on the fact's date**.
+  - Versions come from the raw copies: one per day (the day's last), kept only when a tracked attribute changed.
+  - The first version is valid from `2000-01-01`, since nothing older is known.
+  - A row deleted in the product ends its last version the day before.
 - **Tenant.** Every dimension and fact row carries `tenant_id text`. The
   semantic layer filters on it; no view returns rows across tenants. `LedgerEntry`'s
   `partyTenantId` is carried as `party_tenant_id` where a payee's view needs it.
@@ -111,7 +122,7 @@ Out of scope here, and why:
 
 ### `dim_date` — type 1, static
 
-One row per calendar day from 2026-01-01 to 2030-12-31.
+One row per calendar day from 2020-01-01 to 2035-12-31. Seasons by month: FALL Aug–Nov, WINTER Dec–Feb, SPRING Mar–May, SUMMER Jun–Jul.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -200,7 +211,7 @@ these rules in order:
 | `TRACKING_LINK` | `FAN` | `LinkEvent` rows |
 | `EDITION_PRINT` | `EDITION` | `EditionEvent` of type `QR_SCAN`; ad-slot sales |
 | `EDITION_DIGITAL` | `EDITION` | `EditionEvent` of other types |
-| `CAMPAIGN` | `CAMPAIGN` | campaign-level money with no athlete (invoices) |
+| `CAMPAIGN` | `CAMPAIGN` | money and commercial events, which have no channel of their own. An order's bookings, cancellations and earnings carry its athlete and job; invoices carry neither |
 
 ### `dim_inventory` — type 1 with version
 
@@ -259,7 +270,9 @@ Ratios are never stored (§6).
 | `inventory_key` | `bigint` | the order's job for social / in-person / fan rows; the ad slot for edition rows; `0` for campaign-level rows |
 | `market_key` | `bigint` | `REWARD_QR` rows: the reward's venue (`Reward.venueCity`/`venueStateCode`) if set, else the athlete's registered city/state; every other row: the athlete's registered city/state; campaign-level rows: unknown |
 
-Primary key: (`date_key`, `campaign_key`, `athlete_key`, `channel_key`, `inventory_key`).
+Primary key: (`date_key`, `campaign_key`, `athlete_key`, `channel_key`, `inventory_key`, `market_key`). Market is in the key because a reward code's venue can differ between rows that share every other key. Everywhere else it follows from the athlete.
+
+**Fan-funnel job:** a reward code knows its athlete and campaign, not a job. The row takes the athlete's job only when they hold exactly one on that campaign; otherwise inventory is unknown (`0`), never a guess.
 
 ### Measures — delivery and performance
 
@@ -288,7 +301,7 @@ Primary key: (`date_key`, `campaign_key`, `athlete_key`, `channel_key`, `invento
 |---|---|---|
 | `booked_sell_cents` | `bigint` | `CampaignOrder.sellPrice` on the day the order was accepted (`acceptedAt`) |
 | `booked_compensation_cents` | `bigint` | `CampaignOrder.compensation`, same day |
-| `cancelled_sell_cents` | `bigint` | the order's `sellPrice` on the day of its `order.cancel` audit row, if it had been accepted (negative effect is applied in the semantic metric, not by a negative row) |
+| `cancelled_sell_cents`, `cancelled_compensation_cents` | `bigint` | the order's `sellPrice` and `compensation` on the day of its `order.cancel` audit row, if it had been accepted. The negative effect is applied in the semantic metric, not by a negative row |
 | `earnings_paid_cents` | `bigint` | `Earning.gross + Earning.adjustment` on `paidAt` |
 | `ad_slot_sold_cents` | `bigint` | `AdSlot.soldCents` on `soldAt` (edition rows) |
 | `invoiced_cents`, `invoice_paid_cents` | `bigint` | `CampaignInvoice.amount` on `issuedAt` / `paidAt` (campaign-level rows: athlete `0`, channel `CAMPAIGN`) |
@@ -314,9 +327,9 @@ a screen that needs a different number needs a different name.
 | `redemption_rate` | `SUM(qr_redemptions) / NULLIF(SUM(qr_claims), 0)` |
 | `scan_to_landing_gap` | `1 - SUM(qr_landings) / NULLIF(SUM(qr_scans), 0)` — an operational finding (reward taxonomy) |
 | `booked_net_cents` | `SUM(booked_sell_cents) - SUM(cancelled_sell_cents)` |
-| `margin_cents` | `booked_net_cents - SUM(booked_compensation_cents)` on the same orders |
+| `margin_cents` | `booked_net_cents - (SUM(booked_compensation_cents) - SUM(cancelled_compensation_cents))` |
 | `effective_cpm_cents` | `booked_net_cents * 1000 / NULLIF(views_verified, 0)` — verified views only |
-| `delivery_on_time_rate` | deliverables published on or before due ÷ deliverables due (by order) |
+| `delivery_on_time_rate` | deliverables published on or before their due date ÷ deliverables due by today (read per deliverable from `stg`, since daily sums cannot tell it) |
 
 Rules the views enforce:
 
@@ -483,6 +496,8 @@ owning task is told what to build on. The Phase 3 plan carries the same
 | `scenario_runs` | `3S7-BE-01` | Nothing. |
 
 ## Appendix A · Table definitions (SQL)
+
+> **As built:** the live tables are `backend/worker/warehouse/migrations/0002_model.sql`. It differs from the sketch below by the v1.2 refinements: computed keys (no identity columns), market in the fact's key, and `cancelled_compensation_cents`.
 
 Postgres dialect. Run against an empty database on 2026-10-12 to check it is
 valid; `3S1-DATA-02` creates these through the transformation layer. The
