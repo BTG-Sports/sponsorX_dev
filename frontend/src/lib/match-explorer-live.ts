@@ -174,6 +174,13 @@ export function utcMinute(iso: string): string {
   return `${d.toISOString().slice(0, 10)} ${d.toISOString().slice(11, 16)} UTC`;
 }
 
+/** A run's day, short enough for a KPI tile on a phone: "Oct 13" (UTC). */
+export function shortDay(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
 /** Factors, biggest push on the score first. */
 export function byImpact(factors: readonly MatchFactor[]): MatchFactor[] {
   return [...factors].sort((a, b) => b.contribution - a.contribution);

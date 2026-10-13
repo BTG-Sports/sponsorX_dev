@@ -1,16 +1,17 @@
 import Link from "next/link";
 
 import { EnginePending, SampleBanner } from "@/components/engine-pending";
+import { FigureTile } from "@/components/forecast-bits";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { ConfidenceChip } from "@/components/pricing-panel";
 import { ListFilter, ListSearch, ServerList } from "@/components/server-pager";
 import { PagedTable, Primary, Td, Tr, type Column } from "@/components/stage-table";
 import { EmptyState, SkeletonRows } from "@/components/states";
-import { StatTile } from "@/components/ui";
+import { SourceLabel } from "@/components/ui";
 import { demoState } from "@/lib/demo";
 import { cpm } from "@/lib/intelligence";
 import { apiListQuery, textParam } from "@/lib/list-query";
-import { PRICING_VIEWS, SAMPLE_PRICING_DESK, deltaOf, kindLabel, pricingView, type PricingDesk } from "@/lib/pricing-live";
+import { PRICING_VIEWS, deltaOf, kindLabel, pricingView, samplePricingDesk, type PricingDesk } from "@/lib/pricing-live";
 import { readEngine, wantsSample } from "@/server/engine";
 
 /* --------------------------------------------------------------------------
@@ -66,9 +67,9 @@ export default async function PricingPage({ searchParams }: { searchParams: SP }
   if (await wantsSample(searchParams)) {
     return (
       <div className="space-y-5">
-        <h1 className="sx-page-title">{TITLE}</h1>
         <SampleBanner />
-        <PricingDeskView desk={SAMPLE_PRICING_DESK} q={q} view={view} sample />
+        <h1 className="sx-page-title">{TITLE}</h1>
+        <PricingDeskView desk={samplePricingDesk(q, view)} q={q} view={view} sample />
       </div>
     );
   }
@@ -105,12 +106,13 @@ function PricingDeskView({ desk, q, view, sample = false }: { desk: PricingDesk;
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label="Items priced" value={summary.priced.toLocaleString("en-US")} sub="CPM engine" source="ESTIMATED" />
-        <StatTile label="Above current" value={summary.above.toLocaleString("en-US")} sub="recommended higher" source="ESTIMATED" />
-        <StatTile label="Below current" value={summary.below.toLocaleString("en-US")} sub="recommended lower" source="ESTIMATED" />
-        <StatTile label="Low confidence" value={summary.lowConfidence.toLocaleString("en-US")} sub="under 50% — check before quoting" source="ESTIMATED" />
-      </div>
+      {/* FigureTile, not StatTile: StatTile keeps its caption and source chip on one unwrapped row, which spills past a phone's half-width tile. */}
+      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <FigureTile label="Items priced" value={summary.priced.toLocaleString("en-US")} caption="CPM engine" extra={<SourceLabel source="ESTIMATED" />} />
+        <FigureTile label="Above current" value={summary.above.toLocaleString("en-US")} caption="recommended higher" extra={<SourceLabel source="ESTIMATED" />} />
+        <FigureTile label="Below current" value={summary.below.toLocaleString("en-US")} caption="recommended lower" extra={<SourceLabel source="ESTIMATED" />} />
+        <FigureTile label="Low confidence" value={summary.lowConfidence.toLocaleString("en-US")} caption="under 50% — check before quoting" extra={<SourceLabel source="ESTIMATED" />} />
+      </dl>
 
       <ServerList>
         <div className="space-y-3">
@@ -143,8 +145,11 @@ function PricingDeskView({ desk, q, view, sample = false }: { desk: PricingDesk;
                     </Td>
                     <Td label="Current CPM" num muted>{r.currentCpmCents === null ? "—" : cpm(r.currentCpmCents)}</Td>
                     <Td label="Recommended" num>
-                      <span className="font-semibold text-text">{cpm(r.recommendedCpmCents)}</span>
-                      {r.override && <span className="block text-[10px] text-muted">override {cpm(r.override.cpmCents)}</span>}
+                      {/* One block wrapper per multi-part cell: a phone's stacked card makes a cell's direct children inline (globals.css). */}
+                      <span className="block min-w-0">
+                        <span className="block font-semibold text-text">{cpm(r.recommendedCpmCents)}</span>
+                        {r.override && <span className="block text-[10px] text-muted">override {cpm(r.override.cpmCents)}</span>}
+                      </span>
                     </Td>
                     <Td label="Against current">
                       <span className={d.direction === "up" ? "text-accent" : d.direction === "down" ? "text-danger" : "text-muted"}>
@@ -153,8 +158,10 @@ function PricingDeskView({ desk, q, view, sample = false }: { desk: PricingDesk;
                       </span>
                     </Td>
                     <Td label="Confidence">
-                      <ConfidenceChip confidence={r.stamp.confidence} />
-                      <span className="mt-0.5 block font-mono text-[10px] text-faint">{r.stamp.modelVersion}</span>
+                      <span className="block min-w-0">
+                        <span className="block"><ConfidenceChip confidence={r.stamp.confidence} /></span>
+                        <span className="mt-0.5 block font-mono text-[10px] text-faint">{r.stamp.modelVersion}</span>
+                      </span>
                     </Td>
                     <Td act>
                       <Link

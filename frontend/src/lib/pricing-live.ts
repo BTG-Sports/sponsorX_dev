@@ -333,6 +333,23 @@ export const SAMPLE_PRICING_DESK: PricingDesk = {
   summary: { priced: 4, above: 1, below: 1, atRate: 1, lowConfidence: 1 },
 };
 
+/**
+ * The sample desk as the engine would answer `?q=&view=`: rows narrowed by
+ * the search (title, seller, kind) and the view, the page counting the
+ * matches. The summary stays over every item, as the engine's does.
+ */
+export function samplePricingDesk(q: string, view: PricingView, desk: PricingDesk = SAMPLE_PRICING_DESK): PricingDesk {
+  const needle = q.trim().toLowerCase();
+  const items = desk.items.filter((r) => {
+    if (needle && ![r.title, r.seller.name, kindLabel(r.kind)].some((t) => t.toLowerCase().includes(needle))) return false;
+    if (view === "above") return deltaOf(r.currentCpmCents, r.recommendedCpmCents).direction === "up";
+    if (view === "below") return deltaOf(r.currentCpmCents, r.recommendedCpmCents).direction === "down";
+    if (view === "low") return r.stamp.confidence < 0.5;
+    return true;
+  });
+  return { ...desk, items, page: { ...desk.page, page: 1, total: items.length, pages: Math.max(1, Math.ceil(items.length / desk.page.size)) } };
+}
+
 const SAMPLE_FACTORS: PricingFactor[] = [
   { key: "seasonality", label: "Seasonality", effect: -0.06, impactCents: -60, explanation: "October is between the football and basketball peaks for this market." },
   { key: "audience", label: "Audience", effect: 0.18, impactCents: 180, explanation: "Home crowds have averaged 14% above comparable venues this season." },

@@ -22,7 +22,7 @@
    Pure: no fetch (server/engine.ts reads), so tests import it freely.
    -------------------------------------------------------------------------- */
 
-import type { ModelStamp } from "./intelligence";
+import { confidenceBand, type ModelStamp } from "./intelligence";
 import { categoryLabel, type BrandCategory } from "./brand-categories";
 import { kindLabel } from "./inventory-live";
 
@@ -100,6 +100,26 @@ export function overallSellThrough(rows: SellThroughRow[]): { sold: number; list
   const sold = rows.reduce((n, r) => n + r.sold, 0);
   const listed = rows.reduce((n, r) => n + r.listed, 0);
   return { sold, listed, rate: listed > 0 ? sold / listed : null };
+}
+
+/** Formats with a rate draw as bars; formats with nothing listed have no rate, so
+ *  they never get a bar (not even a sliver) and print as plain text instead. */
+export function splitSellThrough(rows: SellThroughRow[]): { rated: (SellThroughRow & { rate: number })[]; unlisted: SellThroughRow[] } {
+  const rated: (SellThroughRow & { rate: number })[] = [];
+  const unlisted: SellThroughRow[] = [];
+  for (const r of rows) {
+    if (r.rate === null) unlisted.push(r);
+    else rated.push({ ...r, rate: r.rate });
+  }
+  return { rated, unlisted };
+}
+
+/** The confidence pill's short form ("68% · medium") for places where the word
+ *  "confidence" is already on screen (a column header, a prefix); the full
+ *  wording stays in the pill's accessible name. */
+export function confidenceShort(confidence: number): string {
+  const p = Math.round(Math.min(1, Math.max(0, confidence)) * 100);
+  return `${p}% · ${confidenceBand(confidence)}`;
 }
 
 /** Best fit first. */

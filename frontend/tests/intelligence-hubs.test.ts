@@ -5,11 +5,13 @@ import {
   PROPERTY_INTEL_PATH,
   SAMPLE_PROPERTY_INTEL,
   categoryWord,
+  confidenceShort,
   overallSellThrough,
   qualityBand,
   rankFit,
   rankRates,
   rateChange,
+  splitSellThrough,
   type PropertyRate,
 } from "@/lib/property-intelligence-live";
 import {
@@ -118,6 +120,21 @@ describe("3S7-FE-02 property hub — contract and engine", () => {
     expect(overallSellThrough(SAMPLE_PROPERTY_INTEL.sellThrough)).toEqual({ sold: 24, listed: 42, rate: 24 / 42 });
     expect(overallSellThrough([{ format: "ihub-T", sold: 0, listed: 0, rate: null }])).toEqual({ sold: 0, listed: 0, rate: null });
     expect(overallSellThrough([])).toEqual({ sold: 0, listed: 0, rate: null });
+  });
+
+  it("never gives a format with nothing listed a bar — it prints as text", () => {
+    const { rated, unlisted } = splitSellThrough(SAMPLE_PROPERTY_INTEL.sellThrough);
+    expect(rated.every((r) => typeof r.rate === "number")).toBe(true);
+    expect(unlisted.map((r) => r.format)).toEqual(SAMPLE_PROPERTY_INTEL.sellThrough.filter((r) => r.rate === null).map((r) => r.format));
+    expect(rated.length + unlisted.length).toBe(SAMPLE_PROPERTY_INTEL.sellThrough.length);
+    expect(splitSellThrough([{ format: "ihub-none", sold: 0, listed: 0, rate: null }])).toEqual({ rated: [], unlisted: [{ format: "ihub-none", sold: 0, listed: 0, rate: null }] });
+  });
+
+  it("shortens a confidence pill to percent and band, on one line", () => {
+    expect(confidenceShort(0.68)).toBe("68% · medium");
+    expect(confidenceShort(0.42)).toBe("42% · low");
+    expect(confidenceShort(0.81)).toBe("81% · high");
+    expect(confidenceShort(1.4)).toBe("100% · high");
   });
 
   it("labels the open opportunity an estimate", () => {

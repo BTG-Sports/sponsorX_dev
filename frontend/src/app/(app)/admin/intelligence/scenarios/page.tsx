@@ -49,8 +49,7 @@ export default async function ScenarioPlannerPage({ searchParams }: { searchPara
 
   if (await wantsSample(searchParams)) {
     return (
-      <Frame pill={<Pill text="Sample" />}>
-        <SampleBanner />
+      <Frame pill={<Pill text="Sample" />} banner={<SampleBanner />}>
         <ScenarioPlanner desk={SAMPLE_SCENARIO_DESK} sample />
       </Frame>
     );
@@ -80,9 +79,10 @@ export default async function ScenarioPlannerPage({ searchParams }: { searchPara
   );
 }
 
-function Frame({ children, pill }: { children: ReactNode; pill?: ReactNode }) {
+function Frame({ children, pill, banner }: { children: ReactNode; pill?: ReactNode; banner?: ReactNode }) {
   return (
     <div className="space-y-5">
+      {banner}
       <div className="flex flex-wrap items-center gap-2.5">
         <h1 className="sx-page-title">{TITLE}</h1>
         {pill}

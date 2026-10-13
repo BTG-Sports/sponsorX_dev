@@ -162,25 +162,39 @@ function Desk({ desk, tab, cls, campaign, sample = false }: { desk: AttributionD
                 const shownAs = displayClass(e);
                 return (
                   <Tr key={e.id} i={i} tone={shownAs.demoted ? "warn" : undefined}>
+                    {/* Column balance on a laptop: Source and Matched-to keep a
+                        readable minimum, the demoted note wraps narrower, and
+                        When stays on one line clear of the card's edge. */}
                     <Td>
-                      <Primary sub={e.source.adapter}>{e.source.partner}</Primary>
+                      <span className="block min-w-0 md:min-w-[9rem]">
+                        <Primary sub={e.source.adapter}>{e.source.partner}</Primary>
+                      </span>
                     </Td>
+                    {/* One wrapper per cell: on a phone the stacked-card CSS makes a
+                        labelled cell's direct children inline, which split the
+                        badge apart and glued the method to its window. */}
                     <Td label="Class">
-                      <ClassBadge cls={shownAs.cls} />
-                      {shownAs.demoted && (
-                        <span className="mt-1 block max-w-56 text-[11px] text-warn">Sent as verified, but matched probabilistically — shown as modelled.</span>
-                      )}
+                      <span className="block min-w-0">
+                        <ClassBadge cls={shownAs.cls} />
+                        {shownAs.demoted && (
+                          <span className="mt-1 block max-w-44 text-[11px] text-warn">Sent as verified, but matched probabilistically — shown as modelled.</span>
+                        )}
+                      </span>
                     </Td>
                     <Td label="Method">
-                      <span className="block text-[13px]">{methodLine(e)}</span>
-                      <span className="block text-[11px] text-muted">{e.windowDays > 0 ? windowLabel(e.windowDays) : "no window — recorded directly"}</span>
+                      <span className="block min-w-0">
+                        <span className="block text-[13px]">{methodLine(e)}</span>
+                        <span className="block text-[11px] text-muted">{e.windowDays > 0 ? windowLabel(e.windowDays) : "no window — recorded directly"}</span>
+                      </span>
                     </Td>
                     <Td label="Confidence" muted>{confidenceLabel(e.confidence)}</Td>
                     <Td label="Amount" num>{amountOf(e.amountCents)}</Td>
                     <Td label="Matched to">
-                      {e.campaign ? <Primary sub={e.athlete?.name ?? "no athlete"}>{e.campaign.name}</Primary> : <span className="text-muted">—</span>}
+                      <span className="block min-w-0 md:min-w-[9rem]">
+                        {e.campaign ? <Primary sub={e.athlete?.name ?? "no athlete"}>{e.campaign.name}</Primary> : <span className="text-muted">—</span>}
+                      </span>
                     </Td>
-                    <Td label="When" muted>{momentLabel(e.occurredAt)}</Td>
+                    <Td label="When" muted className="whitespace-nowrap md:pr-5">{momentLabel(e.occurredAt)}</Td>
                   </Tr>
                 );
               })}
@@ -204,14 +218,16 @@ function Desk({ desk, tab, cls, campaign, sample = false }: { desk: AttributionD
                       <Primary sub={`${u.source.adapter} · ${u.reference}`}>{u.source.partner}</Primary>
                     </Td>
                     <Td label="Why">
-                      <strong className="block text-[13px] font-semibold">
-                        {r.label}
-                        {u.reason === "ambiguous" && u.candidates ? ` · ${u.candidates} candidate campaigns` : ""}
-                      </strong>
-                      <span className="block max-w-80 text-[11px] text-muted">{r.hint}</span>
+                      <span className="block min-w-0">
+                        <strong className="block text-[13px] font-semibold">
+                          {r.label}
+                          {u.reason === "ambiguous" && u.candidates ? ` · ${u.candidates} candidate campaigns` : ""}
+                        </strong>
+                        <span className="block max-w-80 text-[11px] text-muted">{r.hint}</span>
+                      </span>
                     </Td>
                     <Td label="Amount" num>{amountOf(u.amountCents)}</Td>
-                    <Td label="Received" muted>{momentLabel(u.receivedAt)}</Td>
+                    <Td label="Received" muted className="whitespace-nowrap md:pr-5">{momentLabel(u.receivedAt)}</Td>
                   </Tr>
                 );
               })}

@@ -70,6 +70,9 @@ describe("approval", () => {
   it("needs an option and a note", () => {
     expect(approvalError({ optionId: "", note: "x" })).toBe("Pick the substitute to approve.");
     expect(approvalError({ optionId: "mgt-7", note: "   " })).toContain("Say why this substitute");
+    expect(approvalError({ optionId: "mgt-7", note: "ok" })).toContain("at least 8 characters");
+    expect(approvalError({ optionId: "mgt-7", note: "  1234567  " })).toContain("at least 8 characters");
+    expect(approvalError({ optionId: "mgt-7", note: "12345678" })).toBeNull();
     expect(approvalError({ optionId: "mgt-7", note: "x".repeat(2001) })).toContain("under 2,000");
     expect(approvalError({ optionId: "mgt-7", note: "Sponsor agreed" })).toBeNull();
   });

@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 
 import { saveShortlistAction } from "@/app/(app)/admin/intelligence/matching/actions";
+import { CloseIcon } from "@/components/filter-kit";
 import { PagerRow, PendingList, ServerList } from "@/components/server-pager";
 import { Primary, StageTable, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
 import { EmptyState } from "@/components/states";
 import { Button } from "@/components/ui";
 import { useDrawerFocus } from "@/components/use-drawer-focus";
+import { useMounted } from "@/components/use-mounted";
 import { confidenceLabel, pct } from "@/lib/intelligence";
 import {
   KIND_LABEL,
@@ -310,19 +313,33 @@ function ShortlistPanel({
   );
 }
 
+/* The drawer portals to <body>, like the anomaly and make-good drawers: in
+   the page's main column its z-50 sat under the shell's sticky header and
+   the phone dock (both stack at shell level), which covered its title, its
+   Close button and "Add to shortlist". On <body> it is above all of it, and
+   still themed — StagePortals keeps the stage's class on <body>. The page
+   behind stops scrolling while it is open; focus is trapped in the panel and
+   returns to the opener on close (useDrawerFocus); Escape closes. */
 function FactorDrawer({ match, on, onToggle, onClose }: { match: ApiMatch; on: boolean; onToggle: () => void; onClose: () => void }) {
+  const mounted = useMounted();
   const [closing, setClosing] = useState(false);
-  const { panelRef, onKeyDown } = useDrawerFocus<HTMLElement>(true);
+  const { panelRef, onKeyDown } = useDrawerFocus<HTMLDivElement>(true);
   const band = matchBand(match.score);
+  const titleId = `mx-${match.id}-title`;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setClosing(true);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
   }, []);
-  /* Unmount rides animationend; the timer covers reduced motion. */
+  /* Unmount rides the slide-out; the timer covers reduced motion. */
   useEffect(() => {
     if (!closing) return;
     const t = setTimeout(onClose, 400);
@@ -330,100 +347,100 @@ function FactorDrawer({ match, on, onToggle, onClose }: { match: ApiMatch; on: b
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closing]);
 
-  return (
-    <div
-      className={["fixed inset-0 z-50", closing ? "pointer-events-none" : ""].join(" ")}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Why ${match.name} ranks ${match.rank}`}
-      onKeyDown={onKeyDown}
-    >
-      <div onClick={() => setClosing(true)} className={["absolute inset-0 bg-black/50", closing ? "sx-backdrop-out" : "sx-backdrop"].join(" ")} />
-      <aside
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className={`fixed inset-0 z-50 ${closing ? "pointer-events-none" : ""}`} role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={onKeyDown}>
+      <button type="button" tabIndex={-1} aria-label="Close" onClick={() => setClosing(true)} className={`${closing ? "sx-backdrop-out" : "sx-backdrop"} absolute inset-0 cursor-default bg-black/60`} />
+      <div
         ref={panelRef}
         tabIndex={-1}
         onAnimationEnd={(e) => {
           if (closing && e.animationName === "sx-drawer-out") onClose();
         }}
-        className={[
-          "absolute inset-y-0 right-0 flex w-full max-w-md flex-col gap-5 overflow-y-auto border-l border-line bg-surface p-5 shadow-2xl shadow-black/40",
-          closing ? "sx-drawer-out" : "sx-drawer",
-        ].join(" ")}
+        className={`${closing ? "sx-drawer-out" : "sx-drawer"} absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-line bg-surface shadow-2xl shadow-black/40 outline-none`}
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line-soft p-5">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-faint">
               #{match.rank} · {KIND_LABEL[match.kind].one}
             </p>
-            <h2 className="mt-0.5 text-base font-semibold tracking-tight">{match.name}</h2>
+            <h2 id={titleId} className="mt-0.5 text-base font-semibold tracking-tight">
+              {match.name}
+            </h2>
             <p className="mt-0.5 text-xs text-muted">{match.sub}</p>
           </div>
           <button
             type="button"
             onClick={() => setClosing(true)}
             aria-label="Close"
-            className="grid size-8 shrink-0 place-items-center rounded-full border border-line/70 text-muted transition-colors hover:text-text"
+            className="grid size-8 shrink-0 place-items-center rounded-full border border-line text-muted transition-colors hover:bg-surface-2 hover:text-text"
           >
-            ✕
+            <CloseIcon />
           </button>
         </div>
 
-        <div className="flex items-end justify-between gap-3 rounded-xl border border-line bg-surface-2/40 p-4">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
           <div>
-            <p className="text-[11px] text-muted">Match score</p>
-            <p className={`text-4xl font-semibold tabular-nums leading-none ${BAND_TEXT[band]}`}>
-              {match.score}
-              <span className="ml-1 text-sm font-normal text-faint">/ 100</span>
+            <div className="flex items-end justify-between gap-3 rounded-xl border border-line bg-surface-2/40 p-4">
+              <div>
+                <p className="text-[11px] text-muted">Match score</p>
+                <p className={`text-4xl font-semibold tabular-nums leading-none ${BAND_TEXT[band]}`}>
+                  {match.score}
+                  <span className="ml-1 text-sm font-normal text-faint">/ 100</span>
+                </p>
+              </div>
+              <div className="text-right">
+                <Availability m={match} />
+              </div>
+            </div>
+            <p className="mt-2 text-[11px] text-faint">
+              {match.stamp.modelVersion} · {confidenceLabel(match.stamp.confidence)} · {utcMinute(match.stamp.computedAt)}
             </p>
           </div>
-          <div className="text-right">
-            <Availability m={match} />
-          </div>
-        </div>
-        <p className="-mt-3 text-[11px] text-faint">
-          {match.stamp.modelVersion} · {confidenceLabel(match.stamp.confidence)} · {utcMinute(match.stamp.computedAt)}
-        </p>
 
-        {match.reasons.length > 0 && (
+          {match.reasons.length > 0 && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-faint">In a sentence</p>
+              <ul className="mt-2 space-y-1.5 text-sm">
+                {match.reasons.map((r) => (
+                  <li key={r} className="flex gap-2">
+                    <span aria-hidden="true" className="mt-2 size-1 shrink-0 rounded-full bg-primary" />
+                    {r}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-faint">In a sentence</p>
-            <ul className="mt-2 space-y-1.5 text-sm">
-              {match.reasons.map((r) => (
-                <li key={r} className="flex gap-2">
-                  <span aria-hidden="true" className="mt-2 size-1 shrink-0 rounded-full bg-primary" />
-                  {r}
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-faint">Every factor</p>
+            <ul className="mt-2 space-y-3">
+              {byImpact(match.factors).map((f) => (
+                <li key={f.key}>
+                  <div className="flex items-baseline justify-between gap-3 text-xs">
+                    <span className="font-medium">{factorLabel(f)}</span>
+                    <span className="shrink-0 tabular-nums text-muted">
+                      +{f.contribution} of {Math.round(f.weight * 100)} pts
+                    </span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2" aria-hidden="true">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${Math.round(factorFit(f) * 100)}%` }} />
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted">{f.reason}</p>
                 </li>
               ))}
             </ul>
           </div>
-        )}
-
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-faint">Every factor</p>
-          <ul className="mt-2 space-y-3">
-            {byImpact(match.factors).map((f) => (
-              <li key={f.key}>
-                <div className="flex items-baseline justify-between gap-3 text-xs">
-                  <span className="font-medium">{factorLabel(f)}</span>
-                  <span className="shrink-0 tabular-nums text-muted">
-                    +{f.contribution} of {Math.round(f.weight * 100)} pts
-                  </span>
-                </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2" aria-hidden="true">
-                  <div className="h-full rounded-full bg-primary" style={{ width: `${Math.round(factorFit(f) * 100)}%` }} />
-                </div>
-                <p className="mt-1 text-[11px] text-muted">{f.reason}</p>
-              </li>
-            ))}
-          </ul>
         </div>
 
-        <div className="mt-auto border-t border-line pt-4">
+        <div className="shrink-0 border-t border-line-soft p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <Button full variant={on ? "secondary" : "primary"} onClick={onToggle}>
             {on ? "Remove from shortlist" : "Add to shortlist"}
           </Button>
         </div>
-      </aside>
-    </div>
+      </div>
+    </div>,
+    document.body,
   );
 }

@@ -17,6 +17,7 @@ import {
   matchKindOf,
   matchesPath,
   sampleMatchPage,
+  shortDay,
   utcMinute,
   type ApiBriefList,
   type ApiMatchPage,
@@ -122,9 +123,10 @@ export default async function MatchExplorerPage({ searchParams }: { searchParams
   return <Explorer list={list} q={bq} brief={brief} data={read.data} sample={false} />;
 }
 
-function Frame({ children, pill }: { children: ReactNode; pill?: ReactNode }) {
+function Frame({ children, pill, banner }: { children: ReactNode; pill?: ReactNode; banner?: ReactNode }) {
   return (
     <div className="space-y-5">
+      {banner}
       <div className="flex flex-wrap items-center gap-2.5">
         <h1 className="sx-page-title">{TITLE}</h1>
         {pill}
@@ -167,6 +169,7 @@ function Explorer({
   const saved = data.shortlist;
   return (
     <Frame
+      banner={banner}
       pill={
         <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-muted">
           <span aria-hidden="true" className={`size-1.5 rounded-full ${sample ? "bg-warn" : "bg-accent"}`} />
@@ -174,14 +177,13 @@ function Explorer({
         </span>
       }
     >
-      {banner}
       <ExplorerBriefPicker briefs={list.briefs} page={list.page} q={q} currentId={brief.id} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label={`Ranked ${KIND_LABEL[kind].many.toLowerCase()}`} value={data.counts[kind].toLocaleString("en-US")} sub={`against ${brief.sponsorName}`} />
         <StatTile label="Filtered out" value={out.toLocaleString("en-US")} sub="unavailable, conflicted or unsafe" />
         <StatTile label="On saved shortlist" value={(saved?.entries.length ?? 0).toLocaleString("en-US")} sub={saved ? `saved ${utcMinute(saved.savedAt)}` : "none saved yet"} />
-        <StatTile label="Ranked" value={utcMinute(data.run.computedAt).slice(0, 10)} sub={data.run.modelVersion} />
+        <StatTile label="Ranked" value={shortDay(data.run.computedAt)} sub={data.run.modelVersion} />
       </div>
 
       <MatchExplorer key={brief.id} briefId={brief.id} data={data} sample={sample} />

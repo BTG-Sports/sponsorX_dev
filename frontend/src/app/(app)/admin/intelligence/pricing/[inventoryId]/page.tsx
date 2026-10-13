@@ -28,7 +28,8 @@ import { readEngineItem, wantsSample } from "@/server/engine";
 
 export const dynamic = "force-dynamic";
 const PATH = "/admin/intelligence/pricing";
-const TITLE = "Pricing";
+/** The pending / absent title — never "Pricing", which is the back link's word for the desk. */
+const TITLE = "Pricing recommendation";
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
 
@@ -57,8 +58,8 @@ export default async function PricingItemPage({ params, searchParams }: { params
   if (await wantsSample(searchParams)) {
     return (
       <div className="space-y-5">
-        {back(true)}
         <SampleBanner />
+        {back(true)}
         <Panel d={sampleDetail(inventoryId)} sample />
       </div>
     );
@@ -125,11 +126,14 @@ function Panel({ d, sample = false }: { d: PricingDetail; sample?: boolean }) {
             </div>
             <div>
               <p className="text-[11px] font-medium uppercase tracking-wide text-faint">Against current</p>
-              <p className={`mt-1 text-sm font-semibold ${delta.direction === "up" ? "text-accent" : delta.direction === "down" ? "text-danger" : "text-muted"}`}>
-                {delta.direction === "up" ? "▲ " : delta.direction === "down" ? "▼ " : ""}
-                {delta.words}
+              {/* The figure big like its neighbours, the words under it — "13% above the current rate" in one line orphaned "rate" at laptop width. */}
+              <p className={`mt-1 text-2xl font-semibold tabular-nums tracking-tight ${delta.direction === "up" ? "text-accent" : delta.direction === "down" ? "text-danger" : "text-muted"}`}>
+                {delta.fraction === null ? "—" : `${delta.direction === "up" ? "▲ " : delta.direction === "down" ? "▼ " : ""}${Math.round(Math.abs(delta.fraction) * 100)}%`}
               </p>
-              <p className="text-[11px] text-faint">{rec.floorCpmCents === null ? "no sell floor applies" : `never below the floor, ${cpm(rec.floorCpmCents)}`}</p>
+              <p className="text-[11px] text-faint">
+                {delta.direction === "none" ? "no current rate to compare" : delta.direction === "flat" ? "at the current rate" : `${delta.direction === "up" ? "above" : "below"} the current rate`}
+              </p>
+              <p className="text-[11px] text-faint">{rec.floorCpmCents === null ? "no sell floor applies" : `never below the ${cpm(rec.floorCpmCents)} floor`}</p>
             </div>
           </section>
 

@@ -10,12 +10,14 @@ import {
   PROPERTY_INTEL_PATH,
   SAMPLE_PROPERTY_INTEL,
   categoryWord,
+  confidenceShort,
   formatWord,
   overallSellThrough,
   qualityBand,
   rankFit,
   rankRates,
   rateChange,
+  splitSellThrough,
   type PropertyIntel,
 } from "@/lib/property-intelligence-live";
 import { apiFetch } from "@/server/api";
@@ -67,8 +69,8 @@ export default async function PropertyIntelligencePage({ searchParams }: { searc
   if (await wantsSample(searchParams)) {
     return (
       <div className="space-y-6">
-        {heading}
         <SampleBanner />
+        {heading}
         <Hub d={SAMPLE_PROPERTY_INTEL} />
       </div>
     );
@@ -124,16 +126,30 @@ function NoInventory() {
 
 const BAND_TONE = { high: "accent", medium: "primary", low: "warn" } as const;
 
-function Confidence({ stamp }: { stamp: ModelStamp }) {
+/** The confidence pill, always on one line. `short` drops the word
+ *  "confidence" where it is already on screen (the rate table's header or
+ *  its mobile prefix); the full wording stays in the accessible name. */
+function Confidence({ stamp, short = false }: { stamp: ModelStamp; short?: boolean }) {
+  const full = confidenceLabel(stamp.confidence);
   return (
-    <span title={`Model ${stamp.modelVersion}`}>
-      <Badge tone={BAND_TONE[confidenceBand(stamp.confidence)]}>{confidenceLabel(stamp.confidence)}</Badge>
+    <span className="inline-block whitespace-nowrap" title={`${full} · model ${stamp.modelVersion}`}>
+      <Badge tone={BAND_TONE[confidenceBand(stamp.confidence)]}>
+        {short ? (
+          <>
+            {confidenceShort(stamp.confidence)}
+            <span className="sr-only"> confidence</span>
+          </>
+        ) : (
+          full
+        )}
+      </Badge>
     </span>
   );
 }
 
 function Hub({ d }: { d: PropertyIntel }) {
   const sell = overallSellThrough(d.sellThrough);
+  const sellRows = splitSellThrough(d.sellThrough);
   const rates = rankRates(d.rates);
   const up = rates.filter((r) => (rateChange(r) ?? 0) > 0).length;
   const down = rates.filter((r) => (rateChange(r) ?? 0) < 0).length;
@@ -161,15 +177,16 @@ function Hub({ d }: { d: PropertyIntel }) {
           </p>
         </li>
         <li className="rounded-xl border border-line bg-surface p-4">
-          <p className="flex items-center justify-between gap-2 text-[11px] text-muted">
-            Quality score
-            <Confidence stamp={d.quality.stamp} />
-          </p>
+          <p className="text-[11px] text-muted">Quality score</p>
           <p className="mt-1 text-xl font-semibold tabular-nums">
             {Math.round(d.quality.score)}
             <span className="text-sm font-normal text-muted"> / 100</span>
           </p>
-          <p className="mt-0.5 text-[11px] text-faint">{qualityBand(d.quality.score)}</p>
+          {/* The pill sits on the caption line, not beside the label, so neither is squeezed onto two lines. */}
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-faint">
+            {qualityBand(d.quality.score)}
+            <Confidence stamp={d.quality.stamp} />
+          </p>
         </li>
         <li className="rounded-xl border border-line bg-surface p-4">
           <p className="text-[11px] text-muted">Rate recommendations</p>
@@ -186,18 +203,33 @@ function Hub({ d }: { d: PropertyIntel }) {
         <section>
           <SectionHeading title="Sell-through by type" hint="Units sponsors have bought, against the units you listed, per kind of item." />
           <Card>
-            {d.sellThrough.length === 0 ? (
+            {sellRows.rated.length === 0 && sellRows.unlisted.length === 0 ? (
               <p className="text-xs text-muted">Nothing listed yet. Sell-through appears once your items are on sale.</p>
             ) : (
-              <HBarList
-                rows={d.sellThrough.map((s) => ({
-                  id: s.format,
-                  label: formatWord(s.format),
-                  value: s.rate === null ? 0 : Math.round(s.rate * 100),
-                  display: s.rate === null ? "Nothing listed" : `${s.sold.toLocaleString("en-US")} of ${s.listed.toLocaleString("en-US")} · ${pct(s.rate)}`,
-                  tone: s.rate !== null && s.rate < 0.25 ? "warn" : undefined,
-                }))}
-              />
+              <>
+                {sellRows.rated.length > 0 && (
+                  <HBarList
+                    rows={sellRows.rated.map((s) => ({
+                      id: s.format,
+                      label: formatWord(s.format),
+                      value: Math.round(s.rate * 100),
+                      display: `${s.sold.toLocaleString("en-US")} of ${s.listed.toLocaleString("en-US")} · ${pct(s.rate)}`,
+                      tone: s.rate < 0.25 ? "warn" : undefined,
+                    }))}
+                  />
+                )}
+                {/* No rate, no bar: a format with nothing listed is a muted text row. */}
+                {sellRows.unlisted.length > 0 && (
+                  <ul className={`space-y-1.5 text-[11px] ${sellRows.rated.length > 0 ? "mt-3 border-t border-line-soft pt-3" : ""}`}>
+                    {sellRows.unlisted.map((s) => (
+                      <li key={s.format} className="flex items-baseline justify-between gap-2 text-faint">
+                        <span className="min-w-0 truncate">{formatWord(s.format)}</span>
+                        <span className="shrink-0">Nothing listed</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </Card>
         </section>
@@ -260,18 +292,24 @@ function Hub({ d }: { d: PropertyIntel }) {
 /* -------------------------------------------------------- rate table */
 
 function Rates({ rates }: { rates: PropertyIntel["rates"] }) {
-  const cols = "sm:grid-cols-[minmax(0,1fr)_5.5rem_7rem_4.5rem_11rem]";
+  const cols = "sm:grid-cols-[minmax(0,1fr)_5.5rem_7rem_4.5rem_7.5rem]";
+  /* Capped at max-w-5xl: on a wide screen an uncapped item column ran
+     ~1100px and stranded the figures at the far edge, away from their item.
+     The heading is local, not <SectionHeading action>, so the link can
+     stack under the description on a phone instead of squeezing it. */
   return (
-    <section>
-      <SectionHeading
-        title="Rate recommendations"
-        hint="What each item could charge per 1,000 people reached, and what moved the price. Nothing here changes a price for you."
-        action={
-          <Link href="/property/inventory" className="shrink-0 text-xs font-medium text-accent hover:text-accent-soft">
-            Change a price in Inventory →
-          </Link>
-        }
-      />
+    <section className="max-w-5xl">
+      <div className="mb-3 flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <h2 className="sx-section-title text-sm font-semibold tracking-tight">Rate recommendations</h2>
+          <p className="mt-0.5 text-xs text-muted">
+            What each item could charge per 1,000 people reached, and what moved the price. Nothing here changes a price for you.
+          </p>
+        </div>
+        <Link href="/property/inventory" className="shrink-0 self-start text-xs font-medium text-accent hover:text-accent-soft sm:self-auto">
+          Change a price in Inventory →
+        </Link>
+      </div>
       {rates.length === 0 ? (
         <EmptyState mark="chart" title="No recommendations yet" hint="They appear once your items have enough sales history to price from." />
       ) : (
@@ -304,8 +342,11 @@ function Rates({ rates }: { rates: PropertyIntel["rates"] }) {
                     <span className={`sm:text-right ${change === null ? "text-faint" : change > 0 ? "text-success" : change < 0 ? "text-warn" : "text-muted"}`}>
                       {change === null ? "—" : signedPct(change)}
                     </span>
-                    <span className="text-right">
-                      <Confidence stamp={r.stamp} />
+                    <span className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0.5">
+                      <span aria-hidden="true" className="text-[10px] text-faint sm:hidden">
+                        Confidence
+                      </span>
+                      <Confidence stamp={r.stamp} short />
                     </span>
                   </div>
                   {r.topFactors.length > 0 && (

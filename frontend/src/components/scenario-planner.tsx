@@ -121,6 +121,8 @@ function useScenario(initial: ScenarioInputs, calc: Calc) {
         }
         const key = inputsKey(next);
         if (key === shown.current) {
+          seq.current += 1; /* back to the answer on screen: drop any in flight */
+          setBusy(false);
           setError(null);
           return;
         }
@@ -151,6 +153,9 @@ function useScenario(initial: ScenarioInputs, calc: Calc) {
   const update = (patch: Partial<ScenarioInputs>) => {
     const next = { ...inputs, ...patch };
     setInputs(next);
+    /* Dim the old figures from the first change, not after the debounce:
+       what's on screen stops being the answer the moment an input moves. */
+    setBusy(true);
     schedule(next);
   };
   const load = (next: ScenarioInputs, title?: string) => {
@@ -299,16 +304,20 @@ function ResultCard({ s }: { s: Scenario }) {
   const r = s.result;
   return (
     <Card className={`space-y-4 p-5 transition-opacity ${s.stale && r ? "opacity-60" : ""}`}>
-      <div aria-live="polite" className="min-h-4 text-[11px]">
-        {s.error ? <span className="text-danger">{s.error}</span> : s.busy ? <span className="text-muted">Calculating…</span> : null}
+      {/* The status rides the first label's row — on its own line it left an
+          empty band at the top of the card whenever there was nothing to say. */}
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Expected impressions</p>
+        <span aria-live="polite" className="text-right text-[11px]">
+          {s.error ? <span className="text-danger">{s.error}</span> : s.busy ? <span className="text-muted">Calculating…</span> : null}
+        </span>
       </div>
       {!r ? (
-        <p className="text-xs text-muted">{s.error ? "No answer yet for these inputs." : "Asking the scenario engine…"}</p>
+        <p className="-mt-2 text-xs text-muted">{s.error ? "No answer yet for these inputs." : "Asking the scenario engine…"}</p>
       ) : (
         <>
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Expected impressions</p>
-            <p className="mt-1 text-4xl font-semibold tabular-nums tracking-tight sm:text-5xl">{compact(r.expectedImpressions.mid)}</p>
+          <div className="-mt-3">
+            <p className="text-4xl font-semibold tabular-nums tracking-tight sm:text-5xl">{compact(r.expectedImpressions.mid)}</p>
             <p className="mt-1 text-xs tabular-nums text-muted">
               likely between {compact(r.expectedImpressions.low)} and {compact(r.expectedImpressions.high)}
             </p>

@@ -18,6 +18,7 @@ import {
   matchesPath,
   sampleMatchPage,
   selectionFrom,
+  shortDay,
   shortlistChanged,
   toEntry,
   toggleEntry,
@@ -117,6 +118,12 @@ describe("reading a match", () => {
   it("formats a UTC minute the same everywhere", () => {
     expect(utcMinute("2026-10-13T09:05:59.000Z")).toBe("2026-10-13 09:05 UTC");
     expect(utcMinute("not a date")).toBe("—");
+  });
+
+  it("shortens a run's day for the KPI tile, in UTC", () => {
+    expect(shortDay("2026-10-13T09:05:59.000Z")).toBe("Oct 13");
+    expect(shortDay("2026-10-13T23:59:00.000-05:00")).toBe("Oct 14");
+    expect(shortDay("not a date")).toBe("—");
   });
 });
 

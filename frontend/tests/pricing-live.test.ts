@@ -15,6 +15,7 @@ import {
   rankFactors,
   reconciles,
   sampleDetail,
+  samplePricingDesk,
   smallSample,
   waterfall,
   type PricingFactor,
@@ -159,6 +160,21 @@ describe("samples obey the contract", () => {
     expect(d.recommendation.recommendedCpmCents).toBeGreaterThanOrEqual(d.recommendation.floorCpmCents ?? 0);
     expect(d.inventory.title).toBe(row.title);
     expect(d.recommendation.stamp.modelVersion).toBeTruthy();
+  });
+
+  it("the sample desk filters by ?q and ?view like the engine, the summary staying whole", () => {
+    expect(samplePricingDesk("", "").items).toHaveLength(SAMPLE_PRICING_DESK.items.length);
+    const none = samplePricingDesk("zzzz-none", "");
+    expect(none.items).toEqual([]);
+    expect(none.page).toMatchObject({ total: 0, page: 1, pages: 1 });
+    expect(none.summary).toEqual(SAMPLE_PRICING_DESK.summary);
+    expect(samplePricingDesk("  courtside ", "").items.map((r) => r.inventoryId)).toEqual(["pr-inv-1"]);
+    expect(samplePricingDesk("jordan", "").items.map((r) => r.inventoryId)).toEqual(["pr-inv-2"]);
+    expect(samplePricingDesk("signage", "").items.map((r) => r.inventoryId)).toEqual(["pr-inv-1"]);
+    expect(samplePricingDesk("", "above").items.map((r) => r.inventoryId)).toEqual(["pr-inv-1"]);
+    expect(samplePricingDesk("", "below").items.map((r) => r.inventoryId)).toEqual(["pr-inv-2"]);
+    expect(samplePricingDesk("", "low").items.map((r) => r.inventoryId)).toEqual(["pr-inv-3"]);
+    expect(samplePricingDesk("jordan", "above").items).toEqual([]);
   });
 
   it("the low-confidence sample shows a small sample", () => {

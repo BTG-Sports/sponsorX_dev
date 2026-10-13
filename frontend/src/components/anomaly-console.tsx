@@ -204,6 +204,7 @@ function ReviewDrawer({ anomaly, preview, onClose }: { anomaly: Anomaly; preview
           ) : (
             <form
               id={`anom-${anomaly.id}-form`}
+              noValidate
               className="space-y-4"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -248,7 +249,9 @@ function ReviewDrawer({ anomaly, preview, onClose }: { anomaly: Anomaly; preview
           <div className="shrink-0 space-y-2 border-t border-line-soft p-4">
             <DialogError message={error} />
             {notice && <p role="status" className="rounded-lg bg-warn/10 px-3 py-2 text-[11px] text-warn">{notice}</p>}
-            <button type="submit" form={`anom-${anomaly.id}-form`} disabled={pending} className={`${btn.primary} w-full`}>
+            {/* noValidate + formNoValidate: the app's own note message shows,
+                never the browser's "Please fill out this field" bubble. */}
+            <button type="submit" form={`anom-${anomaly.id}-form`} formNoValidate disabled={pending} className={`${btn.primary} w-full`}>
               {pending ? "Recording…" : "Record disposition"}
             </button>
           </div>

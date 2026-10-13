@@ -31,6 +31,7 @@
    -------------------------------------------------------------------------- */
 
 import { usd, type ModelStamp } from "@/lib/intelligence";
+import { MIN_REASON } from "@/lib/intel-admin";
 import type { PageInfo } from "@/lib/list-query";
 import type { GuaranteeMetric } from "@/lib/forecast-live";
 
@@ -154,6 +155,7 @@ export function approvalError(input: { optionId: string; note: string }): string
   if (!input.optionId) return "Pick the substitute to approve.";
   const note = input.note.trim();
   if (!note) return "Say why this substitute — the note goes on the audit record and the campaign.";
+  if (note.length < MIN_REASON) return `Say a little more (at least ${MIN_REASON} characters) so the audit record explains it.`;
   if (note.length > NOTE_MAX) return `Keep the note under ${NOTE_MAX.toLocaleString("en-US")} characters.`;
   return null;
 }

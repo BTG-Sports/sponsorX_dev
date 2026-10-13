@@ -130,14 +130,19 @@ function Hub({ sp, range, data: d, pill }: { sp: SearchParams; range: RangeKey; 
         </StadiumTiles>
       </StadiumHead>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Formats d={d} />
-        <Renewals d={d} />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Partners d={d} />
-        <Audience d={d} />
+      {/* Two independent stacks, each panel its own content height: the wide
+          column carries the long lists (formats, audience bars), the narrow
+          one the short ones (renewals, partners). Side-by-side grid rows
+          stretched the shorter panel of each pair into a large empty box. */}
+      <div className="grid items-start gap-4 lg:grid-cols-3">
+        <div className="min-w-0 space-y-4 lg:col-span-2">
+          <Formats d={d} />
+          <Audience d={d} />
+        </div>
+        <div className="min-w-0 space-y-4">
+          <Renewals d={d} />
+          <Partners d={d} />
+        </div>
       </div>
     </div>
   );
@@ -165,7 +170,7 @@ function Formats({ d }: { d: SponsorIntel }) {
   const rows = rankFormats(d.formats);
   const most = Math.max(1, ...rows.map((r) => r.redemptions));
   return (
-    <StadiumPanel flush delay={0.4} className="min-w-0 lg:col-span-2">
+    <StadiumPanel flush delay={0.4} className="min-w-0">
       <div className="px-5 pt-5">
         <Title
           hint="Each kind of post or appearance, ranked by what one redemption cost you: what you agreed to spend on it, divided by the fans who redeemed. Lower is better value."
@@ -284,7 +289,14 @@ function Partners({ d }: { d: SponsorIntel }) {
               i={i}
               lead={monogramOf(p.name)}
               title={p.name}
-              sub={`${partnerKindWord(p.kind)} · ${p.campaigns.toLocaleString("en-US")} ${p.campaigns === 1 ? "campaign" : "campaigns"} · ${confidenceLabel(p.stamp.confidence)}`}
+              /* StadiumRow truncates its sub line; this one wraps instead,
+                 with the confidence kept whole, so it is never cut off. */
+              sub={
+                <span className="whitespace-normal">
+                  {partnerKindWord(p.kind)} · {p.campaigns.toLocaleString("en-US")} {p.campaigns === 1 ? "campaign" : "campaigns"} ·{" "}
+                  <span className="whitespace-nowrap">{confidenceLabel(p.stamp.confidence)}</span>
+                </span>
+              }
               right={
                 <span className="block">
                   <span className="block text-[13px] font-bold tabular-nums text-text">{pct(p.score)}</span>

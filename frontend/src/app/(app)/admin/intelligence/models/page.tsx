@@ -202,8 +202,12 @@ function ModelPanel({ m, reg, sample }: { m: RegistryModel; reg: ModelRegistry; 
         )}
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <Card>
+      {/* items-start: each card is its own height, not its neighbour's.
+          The compare card stacks above the next one — every .sx-card is its
+          own stacking context (backdrop blur), so its version list otherwise
+          opened UNDER the Thresholds card on a phone. */}
+      <div className="grid items-start gap-5 xl:grid-cols-2">
+        <Card className="relative z-10">
           <SectionHeading title="Compare versions" hint="The metrics each version was validated with." />
           {pair ? <VersionCompare key={m.key} versions={byNew} initial={pair} /> : <p className="text-xs text-muted">Compare needs two versions.</p>}
         </Card>
@@ -219,7 +223,7 @@ function ModelPanel({ m, reg, sample }: { m: RegistryModel; reg: ModelRegistry; 
       </div>
 
       {(m.factors?.length || rollouts.length) ? (
-        <div className="grid gap-5 xl:grid-cols-2">
+        <div className="grid items-start gap-5 xl:grid-cols-2">
           {m.factors?.length ? (
             <Card>
               <SectionHeading title="Pricing factors" hint={`Weights in ${m.activeVersion ?? "the live version"} — a new weight is a new version.`} />

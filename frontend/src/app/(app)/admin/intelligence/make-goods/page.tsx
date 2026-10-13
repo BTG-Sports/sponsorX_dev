@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { EnginePending, SampleBanner } from "@/components/engine-pending";
-import { StatusChip } from "@/components/forecast-bits";
+import { FigureTile, StatusChip } from "@/components/forecast-bits";
 import { MakeGoodReview } from "@/components/makegood-review";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { KpiTile } from "@/components/ops-stage";
@@ -113,8 +113,9 @@ function Desk({ list, tab, campaign, sample }: { list: MakeGoodList; tab: MakeGo
       <h1 className="sx-page-title">{TITLE}</h1>
 
       <dl className="grid grid-cols-2 gap-3 xl:grid-cols-3">
-        <KpiTile label="Open shortfalls" value={counts.open} caption={counts.open ? "waiting on a substitute" : "nothing short"} tone={counts.open ? "orange" : "green"} delay={0.1} />
-        <KpiTile label="Value at risk · USD" value={Math.round(counts.openValueCents / 100)} caption="estimated value of open shortfalls" tone="blue" delay={0.16} />
+        <KpiTile label="Open shortfalls" value={counts.open} caption={counts.open ? "need a substitute" : "nothing short"} tone={counts.open ? "orange" : "green"} delay={0.1} />
+        {/* KpiTile counts a bare number; money is a formatted string, so it takes a FigureTile in the same tone. */}
+        <FigureTile label="Value at risk" value={usd(counts.openValueCents)} caption="estimated, open only" tone="blue" />
         <KpiTile label="Approved" value={counts.approvedThisPeriod} caption={periodWords(counts.period)} tone="green" delay={0.22} />
       </dl>
 
@@ -150,8 +151,11 @@ function Desk({ list, tab, campaign, sample }: { list: MakeGoodList; tab: MakeGo
           {rows.map((s, i) => {
             const shortCell = (
               <Td label="Shortfall" num>
-                <span className="font-semibold">{fmtCount(s.shortfall)}</span>
-                <span className="block text-[11px] text-muted">{pct(shortfallShare(s))} of {fmtCount(s.sold)} {METRIC_WORD[s.metric]}</span>
+                {/* One block wrapper per multi-part cell: a phone's stacked card makes a cell's direct children inline (globals.css). */}
+                <span className="block min-w-0">
+                  <span className="block font-semibold">{fmtCount(s.shortfall)}</span>
+                  <span className="block text-[11px] text-muted">{pct(shortfallShare(s))} of {fmtCount(s.sold)} {METRIC_WORD[s.metric]}</span>
+                </span>
               </Td>
             );
             if (tab === "open") {
@@ -162,19 +166,23 @@ function Desk({ list, tab, campaign, sample }: { list: MakeGoodList; tab: MakeGo
                   {shortCell}
                   <Td label="Value short" num className="font-semibold">{usd(s.shortfallValueCents)}</Td>
                   <Td label="Best substitute">
-                    {best ? (
-                      <span className="block min-w-0">
-                        <span className="block text-[13px]">{best.inventoryName}</span>
-                        <span className="block text-[11px] text-muted">{equivalencyLabel(best.equivalencyScore)} · {signedUsd(best.costImpactCents)}</span>
-                      </span>
-                    ) : (
-                      <StatusChip tone="danger">{s.options.length ? "None passes every check" : "No substitute found"}</StatusChip>
-                    )}
-                    <span className="mt-0.5 block text-[11px] text-faint">{s.options.length} option{s.options.length === 1 ? "" : "s"}</span>
+                    <span className="block min-w-0">
+                      {best ? (
+                        <>
+                          <span className="block text-[13px]">{best.inventoryName}</span>
+                          <span className="block text-[11px] text-muted">{equivalencyLabel(best.equivalencyScore)} · {signedUsd(best.costImpactCents)}</span>
+                        </>
+                      ) : (
+                        <span className="block"><StatusChip tone="danger">{s.options.length ? "None passes every check" : "No substitute found"}</StatusChip></span>
+                      )}
+                      <span className="mt-0.5 block text-[11px] text-faint">{s.options.length} option{s.options.length === 1 ? "" : "s"}</span>
+                    </span>
                   </Td>
                   <Td label="Model" muted>
-                    <code className="text-[11px]">{s.stamp.modelVersion}</code>
-                    <span className="block text-[11px]">{confidenceLabel(s.stamp.confidence)}</span>
+                    <span className="block min-w-0">
+                      <code className="block text-[11px]">{s.stamp.modelVersion}</code>
+                      <span className="block text-[11px]">{confidenceLabel(s.stamp.confidence)}</span>
+                    </span>
                   </Td>
                   <Td act><MakeGoodReview shortfall={s} sample={sample} /></Td>
                 </Tr>
@@ -186,15 +194,17 @@ function Desk({ list, tab, campaign, sample }: { list: MakeGoodList; tab: MakeGo
                 <Td><Primary sub={s.sponsorName}>{s.campaign.name}</Primary></Td>
                 {shortCell}
                 <Td label="Approved substitute">
-                  <span className="block text-[13px]">{chosen?.inventoryName ?? "—"}</span>
-                  {chosen && <span className="block text-[11px] text-muted">{chosen.propertyName} · {signedUsd(chosen.costImpactCents)}</span>}
+                  <span className="block min-w-0">
+                    <span className="block text-[13px]">{chosen?.inventoryName ?? "—"}</span>
+                    {chosen && <span className="block text-[11px] text-muted">{chosen.propertyName} · {signedUsd(chosen.costImpactCents)}</span>}
+                  </span>
                 </Td>
                 <Td label="Approved by" muted>
                   {s.decision ? (
-                    <>
-                      {s.decision.by}
+                    <span className="block min-w-0">
+                      <span className="block">{s.decision.by}</span>
                       <span className="block text-[11px]">{dayLabel(s.decision.at)}</span>
-                    </>
+                    </span>
                   ) : "—"}
                 </Td>
                 <Td act><MakeGoodReview shortfall={s} sample={sample} /></Td>

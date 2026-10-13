@@ -12,6 +12,7 @@ import { Meter } from "@/components/ui";
 import { useDialogFocus } from "@/components/use-dialog-focus";
 import { useMounted } from "@/components/use-mounted";
 import { METRIC_WORD, dayLabel, fmtCount } from "@/lib/forecast-live";
+import { MIN_REASON } from "@/lib/intel-admin";
 import { pct, usd } from "@/lib/intelligence";
 import {
   CHECKS, approvalBlock, approvalError, bestOption, costWords, coverage, decidedOption, equivalencyLabel, shortfallShare, signedUsd,
@@ -153,7 +154,7 @@ function Drawer({ s, sample, onClose }: { s: Shortfall; sample: boolean; onClose
               <p className="text-sm">
                 Approve <strong>{pickedOption.inventoryName}</strong> ({pickedOption.propertyName}) — {costWords(pickedOption.costImpactCents).toLowerCase()}.
               </p>
-              <NoteField id={`mg-${s.id}-note`} label="Why this substitute" hint="Goes on the audit record and the campaign." value={note} onChange={setNote} />
+              <NoteField id={`mg-${s.id}-note`} label="Why this substitute" hint={`Goes on the audit record and the campaign — at least ${MIN_REASON} characters.`} value={note} onChange={setNote} />
               <DialogError message={error} />
               {sample && <p className="text-[11px] text-warn">Sample preview — approving here sends nothing.</p>}
               <div className="flex flex-wrap justify-end gap-2">

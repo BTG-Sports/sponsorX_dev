@@ -79,7 +79,7 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/admin/intelligence/matching", label: "Match explorer", icon: "users", group: "Intelligence" },
   { href: "/admin/intelligence/models", label: "Models", icon: "gear", group: "Intelligence" },
   { href: "/admin/intelligence/pricing", label: "Pricing", icon: "card", group: "Intelligence" },
-  { href: "/admin/intelligence/scenarios", label: "Scenario planner", icon: "pen", group: "Intelligence" },
+  { href: "/admin/intelligence/scenarios", label: "Scenarios", icon: "pen", group: "Intelligence" },
 
   /* The platform itself. */
   { href: "/admin/analytics", label: "Analytics", icon: "chart", group: "System", groupIcon: "gear" },

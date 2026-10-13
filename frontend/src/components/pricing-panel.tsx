@@ -123,7 +123,10 @@ export function PriceWaterfall({ baseCents, recommendedCents, factors }: { baseC
 export function RangeBar({ range, currentCents, recommendedCents }: { range: PricingRange; currentCents: number | null; recommendedCents: number }) {
   const s = rangeScale(range, [currentCents, recommendedCents]);
   const small = smallSample(range);
-  const band: CSSProperties = { left: `${s.at(range.p25Cents)}%`, width: `${s.at(range.p75Cents) - s.at(range.p25Cents)}%` };
+  const lo = s.at(range.p25Cents);
+  const med = s.at(range.medianCents);
+  const hi = s.at(range.p75Cents);
+  const band: CSSProperties = { left: `${lo}%`, width: `${hi - lo}%` };
   const marker = (cents: number, label: string, cls: string) => (
     <span
       className="absolute top-0 -translate-x-1/2"
@@ -145,27 +148,37 @@ export function RangeBar({ range, currentCents, recommendedCents }: { range: Pri
           </span>
         )}
       </div>
-      <div className="relative h-3">
-        <span aria-hidden="true" className="absolute inset-x-0 top-1 h-1 rounded-full bg-surface-2" />
-        <span aria-hidden="true" className={`absolute top-0.5 h-2 rounded-full ${small ? "bg-warn/30" : "bg-primary/30"}`} style={band} />
-        <span aria-hidden="true" className="absolute -top-0.5 h-4 w-0.5 -translate-x-1/2 rounded-full bg-primary" style={{ left: `${s.at(range.medianCents)}%` }} />
-        {currentCents !== null && marker(currentCents, "Current", "bg-muted")}
-        {marker(recommendedCents, "Recommended", "bg-accent")}
+      {/* Each quartile is labelled AT its mark on the track, never in even
+          columns that could be read against the wrong dot: the median above
+          (clamped inside the track), the 25th ending at its tick, the 75th
+          starting at its tick — so the two can never meet. */}
+      <div>
+        <div className="relative mb-1.5 h-4 text-[11px]">
+          <span className="absolute bottom-0 w-28 text-center" style={{ left: `clamp(0px, calc(${med}% - 3.5rem), calc(100% - 7rem))` }}>
+            <span className="text-faint">Median </span>
+            <span className="tabular-nums text-text">{cpm(range.medianCents)}</span>
+          </span>
+        </div>
+        <div className="relative h-3">
+          <span aria-hidden="true" className="absolute inset-x-0 top-1 h-1 rounded-full bg-surface-2" />
+          <span aria-hidden="true" className={`absolute top-0.5 h-2 rounded-full ${small ? "bg-warn/30" : "bg-primary/30"}`} style={band} />
+          <span aria-hidden="true" className="absolute top-0 h-5 w-px -translate-x-1/2 bg-faint" style={{ left: `${lo}%` }} />
+          <span aria-hidden="true" className="absolute top-0 h-5 w-px -translate-x-1/2 bg-faint" style={{ left: `${hi}%` }} />
+          <span aria-hidden="true" className="absolute -top-0.5 h-4 w-0.5 -translate-x-1/2 rounded-full bg-primary" style={{ left: `${med}%` }} />
+          {currentCents !== null && marker(currentCents, "Current", "bg-muted")}
+          {marker(recommendedCents, "Recommended", "bg-accent")}
+        </div>
+        <div className="relative h-9 text-[11px]">
+          <span className="absolute left-0 top-2 min-w-max pr-1.5 text-right" style={{ width: `${lo}%` }}>
+            <span className="block text-faint">25th pct</span>
+            <span className="block tabular-nums text-text">{cpm(range.p25Cents)}</span>
+          </span>
+          <span className="absolute right-0 top-2 min-w-max pl-1.5 text-left" style={{ width: `${100 - hi}%` }}>
+            <span className="block text-faint">75th pct</span>
+            <span className="block tabular-nums text-text">{cpm(range.p75Cents)}</span>
+          </span>
+        </div>
       </div>
-      <dl className="grid grid-cols-3 gap-2 text-[11px]">
-        <div>
-          <dt className="text-faint">25th percentile</dt>
-          <dd className="tabular-nums text-text">{cpm(range.p25Cents)}</dd>
-        </div>
-        <div>
-          <dt className="text-faint">Median</dt>
-          <dd className="tabular-nums text-text">{cpm(range.medianCents)}</dd>
-        </div>
-        <div>
-          <dt className="text-faint">75th percentile</dt>
-          <dd className="tabular-nums text-text">{cpm(range.p75Cents)}</dd>
-        </div>
-      </dl>
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted">
         <li className="flex items-center gap-1.5">
           <span aria-hidden="true" className="size-2.5 rounded-full bg-accent" />

@@ -82,7 +82,10 @@ function ReasonDialog({
         <button type="button" onClick={onClose} className={btn.quiet}>
           Cancel
         </button>
-        <button type="submit" disabled={pending} className={danger ? btn.danger : btn.primary}>
+        {/* formNoValidate: the note's `required` stays for assistive tech, but
+            the app's own "at least 8 characters" line is the message shown —
+            not the browser's "Please fill out this field" bubble. */}
+        <button type="submit" formNoValidate disabled={pending} className={danger ? btn.danger : btn.primary}>
           {pending ? "Saving…" : confirm}
         </button>
       </div>

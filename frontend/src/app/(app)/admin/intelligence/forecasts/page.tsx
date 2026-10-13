@@ -76,10 +76,10 @@ function Desk({ list, tab, sample }: { list: ForecastList; tab: ForecastTabKey; 
   const current = FORECAST_TABS.find((t) => t.key === tab)!;
 
   const columns: Column[] = [
-    { key: "campaign", label: "Campaign" },
-    { key: "pacing", label: "Pacing", className: "min-w-40" },
+    { key: "campaign", label: "Campaign", className: "min-w-52" },
+    { key: "pacing", label: "Pacing", className: "min-w-44" },
     { key: "projected", label: "Projected final", num: true },
-    { key: "probability", label: "Probability of guarantee", num: true },
+    { key: "probability", label: <>Probability<br />of guarantee</>, num: true },
     { key: "risk", label: "Risk" },
     { key: "ends", label: "Ends" },
     { key: "action", label: "Action", srOnly: true },
@@ -92,9 +92,9 @@ function Desk({ list, tab, sample }: { list: ForecastList; tab: ForecastTabKey; 
 
       <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <KpiTile label="Active campaigns" value={counts.active} caption="forecast nightly" tone="blue" delay={0.1} />
-        <KpiTile label="At risk" value={counts.at_risk} caption={counts.at_risk ? "unlikely to meet the guarantee" : "none at risk"} tone={counts.at_risk ? "orange" : "green"} share={share(counts.at_risk)} delay={0.16} />
-        <KpiTile label="Watch" value={counts.watch} caption="below a risk threshold" tone="cyan" share={share(counts.watch)} delay={0.22} />
-        <KpiTile label="On track" value={counts.on_track} caption="pacing to the guarantee" tone="green" share={share(counts.on_track)} delay={0.28} />
+        <KpiTile label="At risk" value={counts.at_risk} caption={counts.at_risk ? "likely to miss" : "none at risk"} tone={counts.at_risk ? "orange" : "green"} share={share(counts.at_risk)} delay={0.16} />
+        <KpiTile label="Watch" value={counts.watch} caption="past a threshold" tone="cyan" share={share(counts.watch)} delay={0.22} />
+        <KpiTile label="On track" value={counts.on_track} caption="pacing to target" tone="green" share={share(counts.on_track)} delay={0.28} />
       </dl>
 
       <TabStrip label="Forecast risk">
@@ -116,22 +116,30 @@ function Desk({ list, tab, sample }: { list: ForecastList; tab: ForecastTabKey; 
           {rows.map((r, i) => (
             <Tr key={r.campaignId} i={i} tone={r.risk === "at_risk" ? "danger" : r.risk === "watch" ? "warn" : undefined}>
               <Td><Primary sub={r.sponsorName}>{r.campaignName}</Primary></Td>
+              {/* One block wrapper per multi-part cell: a phone's stacked card makes a cell's direct children inline (globals.css). */}
               <Td label="Pacing">
-                <PacingBar row={r} />
-                <span className="mt-1 block text-[11px] text-muted">
-                  {paceWords(r)} · {fmtCount(r.delivered)} of {fmtCount(r.guarantee.value)} {METRIC_WORD[r.guarantee.metric]}
+                <span className="block min-w-0">
+                  <PacingBar row={r} />
+                  <span className="mt-1 block text-[11px] text-muted">
+                    {paceWords(r)} · {fmtCount(r.delivered)} of {fmtCount(r.guarantee.value)} {METRIC_WORD[r.guarantee.metric]}
+                  </span>
                 </span>
               </Td>
               <Td label="Projected" num>
-                <span className="font-semibold">{fmtCount(r.projectedFinal.mid)}</span>
-                <span className="block text-[11px] text-muted">{fmtCount(r.projectedFinal.low)} – {fmtCount(r.projectedFinal.high)}</span>
+                <span className="block min-w-0">
+                  <span className="block font-semibold">{fmtCount(r.projectedFinal.mid)}</span>
+                  <span className="block text-[11px] text-muted">range {fmtCount(r.projectedFinal.low)} – {fmtCount(r.projectedFinal.high)}</span>
+                </span>
               </Td>
               <Td label="Probability" num>
-                <span className="font-semibold">{pct(r.probabilityOfGuarantee)}</span>
-                <span className="block text-[11px] text-faint" title={`Model ${r.stamp.modelVersion}`}>{r.stamp.modelVersion} · {confidenceLabel(r.stamp.confidence)}</span>
+                <span className="block min-w-0">
+                  <span className="block font-semibold">{pct(r.probabilityOfGuarantee)}</span>
+                  <span className="block text-[11px] text-faint">{confidenceLabel(r.stamp.confidence)}</span>
+                  <code className="block text-[10px] text-faint" title={`Model ${r.stamp.modelVersion}`}>{r.stamp.modelVersion}</code>
+                </span>
               </Td>
               <Td label="Risk"><RiskBadge risk={r.risk} /></Td>
-              <Td label="Ends" muted>{daysLeftWords(r.endsAt, now)}</Td>
+              <Td label="Ends" muted className="whitespace-nowrap">{daysLeftWords(r.endsAt, now)}</Td>
               <Td act>
                 <Link
                   href={sampleHref(`${PATH}/${encodeURIComponent(r.campaignId)}`, sample)}

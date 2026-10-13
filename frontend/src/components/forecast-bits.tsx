@@ -38,6 +38,7 @@ export function StampLine({ stamp, className = "" }: { stamp: ModelStamp; classN
   return (
     <span className={`inline-flex flex-wrap items-center gap-x-1.5 text-[11px] text-faint ${className}`}>
       <code className="rounded bg-surface-2 px-1.5 py-px text-[10px] text-muted">{stamp.modelVersion}</code>
+      <span aria-hidden="true">·</span>
       <span>{confidenceLabel(stamp.confidence)}</span>
       <span aria-hidden="true">·</span>
       <span>computed {dayLabel(stamp.computedAt)}</span>
@@ -66,15 +67,31 @@ export function PacingBar({ row }: { row: Pick<ForecastRow, "guarantee" | "elaps
   );
 }
 
-/** A figure on a detail page: a label, the value as text, a caption. */
-export function FigureTile({ label, value, caption, extra }: { label: string; value: string; caption?: ReactNode; extra?: ReactNode }) {
+/** A tile's top edge and figure colour — the same four tones as Mission Control's KpiTile. */
+const FIGURE_TONE = {
+  blue: { text: "text-[#93c5fd]", edge: "#2e9bf5" },
+  orange: { text: "text-[#fdba74]", edge: "#f97a1f" },
+  green: { text: "text-[#86efac]", edge: "#22c55e" },
+  cyan: { text: "text-[#cfe9ff]", edge: "#9be0ff" },
+} as const;
+
+/**
+ * A figure as text — a label, the value already formatted ("$23,265",
+ * "18%"), a caption that wraps rather than truncates. `tone` gives it the
+ * KpiTile edge so it can sit in a row of them.
+ */
+export function FigureTile({ label, value, caption, extra, tone }: {
+  label: string; value: string; caption?: ReactNode; extra?: ReactNode; tone?: keyof typeof FIGURE_TONE;
+}) {
+  const t = tone ? FIGURE_TONE[tone] : null;
   return (
-    <div className="sx-ops-panel relative rounded-lg border border-line bg-surface px-4 pb-4 pt-3.5">
+    <div className="sx-ops-panel relative min-w-0 rounded-lg border border-line bg-surface px-4 pb-4 pt-3.5">
+      {t && <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px]" style={{ background: t.edge, boxShadow: `0 0 10px ${t.edge}` }} />}
       <dt className="text-[10px] font-medium uppercase tracking-[0.22em] text-muted">{label}</dt>
       <dd className="mt-1.5">
-        <span className="block text-[26px] font-bold leading-none tracking-tight">{value}</span>
+        <span className={`block text-[26px] font-bold leading-none tracking-tight tabular-nums ${t?.text ?? ""}`}>{value}</span>
         {caption && <span className="mt-1.5 block text-[11px] text-faint">{caption}</span>}
-        {extra && <span className="mt-2 block">{extra}</span>}
+        {extra && <span className="mt-2 flex flex-wrap gap-1">{extra}</span>}
       </dd>
     </div>
   );
