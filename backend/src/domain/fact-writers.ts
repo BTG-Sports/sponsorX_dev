@@ -14,20 +14,18 @@
 import type { Prisma } from "../generated/prisma/client";
 import { recordFact, reverseFact } from "./facts";
 import type { FactChannel, FactMeasure } from "./fact-rules";
+import { METRIC_SOURCE_MEASURES, PLATFORM_CHANNELS } from "./fact-classification";
+import type { DeliverablePlatform } from "./deliverable-platform";
 
 type Tx = Prisma.TransactionClient;
 
 /** The product's appearance jobs (deliverables.ts `APPEARANCE_JOBS`). */
 const APPEARANCE_JOBS = new Set(["SX-05"]);
 
-/** A deliverable's channel: an appearance job is in person; otherwise its recorded platform; unpublished until it has one. */
+/** A deliverable's channel: an appearance job is in person; otherwise its recorded platform (fact-classification.ts); unpublished until it has one. */
 export function deliverableChannel(jobId: string, platform: string | null | undefined): FactChannel {
   if (APPEARANCE_JOBS.has(jobId)) return "IN_PERSON";
-  switch (platform) {
-    case "INSTAGRAM": case "TIKTOK": case "YOUTUBE": case "X": case "FACEBOOK": return `SOCIAL_${platform}` as FactChannel;
-    case "OTHER": return "SOCIAL_OTHER";
-    default: return "UNPUBLISHED";
-  }
+  return (platform && PLATFORM_CHANNELS[platform as DeliverablePlatform]) || "UNPUBLISHED";
 }
 
 async function athleteMarket(tx: Tx, athleteId: string | null | undefined) {
@@ -157,14 +155,6 @@ export async function factRevisionRequested(tx: Tx, deliverableId: string, at: D
 
 /* ── metrics ──────────────────────────────────────────────────────────────── */
 
-const VIEW: Record<string, FactMeasure> = {
-  VERIFIED_API: "views_verified_api", VERIFIED_MANUAL: "views_verified_manual", SELF_REPORTED: "views_self_reported",
-  ESTIMATED: "views_estimated", ATTRIBUTED: "views_attributed",
-};
-const ENGAGEMENT: Record<string, FactMeasure> = {
-  VERIFIED_API: "engagements_verified_api", VERIFIED_MANUAL: "engagements_verified_manual", SELF_REPORTED: "engagements_self_reported",
-  ESTIMATED: "engagements_estimated", ATTRIBUTED: "engagements_attributed",
-};
 
 /**
  * One day's views and engagements from one source were recorded. A same-source
@@ -178,11 +168,12 @@ export async function factMetricRecorded(tx: Tx, metricDailyId: string): Promise
     select: { id: true, tenantId: true, day: true, views: true, engagements: true, source: true, updatedAt: true, deliverableId: true },
   });
   const d = await deliverableContext(tx, m.deliverableId);
-  const measures: Partial<Record<FactMeasure, number>> = { [VIEW[m.source]!]: m.views, [ENGAGEMENT[m.source]!]: m.engagements };
+  const label = METRIC_SOURCE_MEASURES[m.source];
+  const measures: Partial<Record<FactMeasure, number>> = { [label.views]: m.views, [label.engagements]: m.engagements };
   const previous = await liveFacts(tx, m.tenantId, "METRIC_RECORDED", "MetricDaily", m.id);
   const same = (p: { measures: unknown }) => {
     const pm = p.measures as Record<string, number>;
-    return pm[VIEW[m.source]!] === m.views && pm[ENGAGEMENT[m.source]!] === m.engagements;
+    return pm[label.views] === m.views && pm[label.engagements] === m.engagements;
   };
   if (previous.length && previous.every(same)) return;
   for (const p of previous) await reverseFact(tx, { tenantId: m.tenantId, key: p.idempotencyKey, occurredOn: p.occurredOn, reason: "metric corrected" });

@@ -292,14 +292,15 @@ Fan scans, clicks and edition views are already one row per event, so they are c
 - **Delivered:** `backend/src/domain/fact-writers.ts`, wired into each action; `backend/tests/fact-wiring.test.ts` — 2026-10-13. Where each fact is written, and what reverses what: [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §4
 - **Reference:** Spec §19, §22
 
-### ⏸ `3S1-QA-02` · Nothing slips through: action and status coverage tests
+### ◑ `3S1-QA-02` · Nothing slips through: action and status coverage tests
 
-**Order** 7.3 · **QA** · **Where:** Code · **1d** · **Blocked**
+**Order** 7.3 · **QA** · **Where:** Code · **1d** · **Code review**
 
 Tests that fail the build in two cases: an action that changes money or delivery does not write its fact, or a new order state, payment type or metric source is added without being classified for the facts.
 
 - **Depends on:** 3S1-BE-02
 - **Done when:** removing a fact write, or adding an unclassified state, fails CI
+- **Delivered:** `backend/tests/fact-coverage.static.test.ts` (with `tests/support/fact-coverage.ts`), `backend/src/domain/fact-classification.ts` — 2026-10-13. How it works: [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §6
 - **Reference:** Spec §22
 
 ### ⏸ `3S1-DATA-05` · Fill fact history from current records

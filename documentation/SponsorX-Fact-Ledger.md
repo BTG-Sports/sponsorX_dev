@@ -1,6 +1,6 @@
 # SponsorX Fact Ledger
 
-**Tasks `3S1-BE-01`, `3S1-BE-02` · Version 1.1 · 2026-10-13 · Phase 3, Sprint 1**
+**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02` · Version 1.2 · 2026-10-13 · Phase 3, Sprint 1**
 
 Phase 3's figures (reports, benchmarks, price suggestions, forecasts) come
 from **facts the app records at the moment each thing happens**, not from a
@@ -88,3 +88,33 @@ These carry over unchanged from `SponsorX-Warehouse-Schema.md`:
 - the metric definitions (verified views, claim rate, margin, effective CPM; §6 there).
 
 The tables that did the copying and re-deriving do not carry over. `3S1-OPS-02` retires them.
+
+## 6 · Nothing slips through
+
+The facts are only as good as their coverage, and a gap raises no error: the figures are just quietly wrong. `3S1-QA-02` makes two kinds of gap fail the build.
+
+1. **A write without its fact.** `tests/fact-coverage.static.test.ts` reads the code and finds every place that writes money or delivery data. That covers:
+   - an order's state or price;
+   - a deliverable's state, due date or platform;
+   - an earning's payment;
+   - a metric; an invoice;
+   - an ad slot's sale;
+   - a marketplace line's financials;
+   - a refund being sent;
+   - a ledger reversal;
+   - any write to the fact tables.
+
+   Each place has a reviewed decision in the test: the fact writers its function calls, and how many times, or "none" and why. The build fails when:
+   - a fact call is removed (or only left in a comment);
+   - a new write has no decision;
+   - a new function calls the deliverable-set creator without recording the due facts;
+   - anything but `facts.ts` writes the fact tables;
+   - a decision names a write that no longer exists.
+2. **A value without a decision.** `backend/src/domain/fact-classification.ts` classifies every value of the money and delivery vocabularies: the facts it leads to, or none and why. The vocabularies are:
+   - order, deliverable, earning, edition and marketplace-order states;
+   - metric sources; deliverable platforms;
+   - payment methods;
+   - refund causes, states and methods;
+   - payment-dispute states.
+
+   The tables are typed against the app's own lists, so a new value fails the typecheck, and the test fails it again by name. The fact writers read two of the tables directly: where a metric source's figures are filed, and which channel a platform is.

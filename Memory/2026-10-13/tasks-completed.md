@@ -156,3 +156,23 @@
   - Five unit tests on a fake database stub the writers out (no Fact table there).
   - Facts written in one transaction share its timestamp, so tests compare them as a set, not in order.
 - **Verified:** tsc and eslint clean; backend build OK; **full suite 199 files / 3,167 tests, green twice under en_US**.
+
+## rcfworks — 3S1-QA-02 · nothing slips through the fact ledger (Code review)
+
+- **What:** the build now fails if money or delivery data is written without its fact, or if a status or type is added without a decision for the facts.
+- **Writes:** `tests/fact-coverage.static.test.ts` (scanner in `tests/support/fact-coverage.ts`).
+  - It reads `src/` and `worker/` and finds every write of money or delivery data: 32 places today.
+  - Each place is keyed `file › function › write` and has a reviewed decision: the fact calls the function makes and at least how many, or "none" and why.
+  - Two writes in one function need two calls: `recordRefund` marks a refund SENT in two places.
+  - A call that only appears in a comment doesn't count.
+  - `createDeliverablesFromJob` is checked through its callers: any new caller must record the due facts.
+  - Only `facts.ts` may write the fact tables.
+  - A decision for a write that no longer exists fails.
+  - Six self-tests feed the scanner a mutated copy of the code and prove each failure fires.
+- **Statuses and types:** `src/domain/fact-classification.ts` classifies every value of 12 vocabularies (order, deliverable, earning, edition and marketplace-order states; metric sources; platforms; payment methods; refund causes, states and methods; dispute states). The tables are typed `Record<…>` over the app's own lists, so a new value fails tsc, and the test names it. `fact-writers.ts` now reads the metric-source and platform tables.
+- **Checked while classifying:**
+  - A provider's own refund goes through `recordRefund` (already wired).
+  - A lost card dispute reverses through `reverseOrder` (already wired).
+  - PAID earnings are final.
+  - An ACTIVE order can be cancelled, and that goes through `transitionOrder` (already wired).
+- **Verified:** tsc and eslint clean; **full suite 200 files / 3,190 tests, green twice**.
