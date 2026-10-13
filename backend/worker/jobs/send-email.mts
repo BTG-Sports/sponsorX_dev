@@ -197,6 +197,17 @@ ${d.portalUrl ?? ""}
     text: `The payment provider couldn't send a payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"}, and SponsorX won't retry it by itself.\n\nWhy: ${d.reason ?? ""}\n\nCheck it with the provider, then retry it — or send it back to the payee with a note:\n\n${d.payoutUrl ?? ""}\n\n— SponsorX`,
   }),
   /* 2S5-INT-01 — Stripe refused a queued card refund; it is Finance's to send by hand. */
+  /* 3S1-QA-01 — the nightly fact check, to BTG's admins: once when the figures stop matching the
+     app's records, once when they match again. The app's records are the truth and are untouched;
+     only the report figures disagree, so the message says so before anything else. */
+  "facts.checkFailed": (d) => ({
+    subject: "SponsorX report figures don't match the app",
+    text: `Last night's check found ${d.count ?? "some"} figure(s) used for reports and analysis that don't match the app's own records.\n\nNothing in the app's records has changed — orders, payments and deliverables are as they were. Only the report figures disagree with them, so reports may be off until this is fixed.\n\n${d.lines ?? ""}\n\nThe developers have the details. You'll get one more email when the figures match again. Integration health shows the latest check:\n\n${d.healthUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "facts.checkRecovered": (d) => ({
+    subject: "SponsorX report figures match the app again",
+    text: `Last night's check found every figure used for reports and analysis matching the app's own records again${d.since ? ` (they had not matched since ${d.since})` : ""}.\n\nNothing more to do. Integration health shows the latest check:\n\n${d.healthUrl ?? ""}\n\n— SponsorX`,
+  }),
   "refund.providerRefused": (d) => ({
     subject: `A refund of ${d.amount ?? ""} on order ${d.orderRef ?? ""} couldn't be sent to the card`,
     text: `SponsorX tried to refund ${d.amount ?? ""} on order ${d.orderRef ?? ""} to the sponsor's card through Stripe, and it didn't go.\n\nWhy: ${d.why ?? ""}\n\nIt is back on "Refunds to send" — send it another way and mark it sent:\n\n${d.refundsUrl ?? ""}\n\n— SponsorX`,

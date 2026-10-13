@@ -251,3 +251,45 @@
   - The campaign side (orders, deliverables, views, payments, invoices): every non-zero daily summary figure is identical (`fact-wiring`). That strengthens DATA-05/06 too.
 - **Tracker:** 3S1-OPS-04 → Ready (all three fills are built).
 - **Verified:** tsc and eslint clean; **full suite 203 files / 3,210 tests, green twice**.
+
+## rcfworks — deploy f00d36a, and 3S1-OPS-04 on staging (In progress)
+
+- **Deploy:** #201 (sync of #198–#200) merged. `main`'s CI went green on `f00d36a`, and the "Daily deploy" was started by hand (the user's OK) at 10:36 UTC. All four services (staging and production, api and web) reached SUCCESS at `f00d36a`. This carried #197's fact tables too: **from 10:36 UTC every real action records its fact, in staging and production.**
+- **Staging fill** (over `railway ssh --environment staging --service api`):
+  - **Check before:** summaries = facts; the only gap was `seed_tenant_btg` marketplace gross/net 580000. A read-only count confirmed staging has no campaign orders, deliverables, metrics, earnings, invoices or sold slots at all; its only money history is 6 marketplace orders.
+  - **Fill** (all six parts): marketplace 6 orders → 7 facts, 0 fallback dates.
+  - **Check after:** both checks pass.
+  - **Second run:** 0 added.
+- **Production:** the auto-mode classifier refuses a production shell, even for the read-only check, so it was not worked around. The user runs the commands: check, `facts:fill … --confirm-production`, check.
+
+## rcfworks — 3S1-OPS-04 on production (Code review)
+
+- The user ran the three commands (the classifier blocks a production shell).
+- **Check before:** already passing; production has no money history from before the ledger.
+- **Fill:** 0 records in every part.
+- **Check after:** both checks pass.
+- With staging done earlier, history is filled in both environments.
+
+## rcfworks — 3S1-QA-01 · nightly fact check (Code review)
+
+- **What:** `backend/src/domain/fact-nightly.ts` `runNightlyFactCheck`.
+  - The worker ticks hourly and runs the check once a day, at or after **19:00 UTC**. It runs both checks read-only across every tenant.
+  - Each night is kept in `FactCheckRun` (migration `20261013150000_fact_check_run`; unique `day`). A run cut short by a dead worker is taken over after an hour. A run that errored is retried on the next tick and never emailed as a mismatch.
+- **Emails:** a tenant's active BTG admins get one email when its figures stop matching (`facts.checkFailed`) and one when they match again (`facts.checkRecovered`, saying since when).
+  - The failure email says the app's records are untouched, lists up to 20 differences in plain words, and links to integrations.
+  - It is only sent where `FACT_CHECK_EMAILS=on`. The default is off (in `env.ts`, and documented in `.env.example`).
+- **Admin data:** `GET /operations/integration-health` gains `facts` for the caller's tenant: last run, matches, failingSince, differences in words, emails, lastError.
+- **Raised:** **3S1-FE-01** (draw it on the integrations screen; HeckerCreatives' side) was added to the plan and tracker (row 66, ranges extended). Phase 3 is now 63 tasks · 206 days.
+- QA-01 is renamed "Nightly fact check" (was "Warehouse reconciliation tests").
+- **Tests:** `tests/fact-nightly.test.ts` (7):
+  - waits for its hour, then runs once;
+  - one email per active BTG admin (not a disabled admin, not Finance, not another tenant), in words;
+  - silent while still failing;
+  - integration health shows it, per tenant;
+  - one recovery email with "since";
+  - emails off sends nothing;
+  - an errored run is retried; a dead run is taken over after an hour.
+
+  `integration-health.test.ts` covers the never-run state; `FactCheckRun` is registered in `authz.coverage`.
+- **Verified:** tsc and eslint clean; no drift; **full suite 204 files / 3,219 tests, green twice**.
+- **To do after merge and deploy:** set `FACT_CHECK_EMAILS=on` in staging and production on Railway (both histories are filled). Production needs the owner's OK.

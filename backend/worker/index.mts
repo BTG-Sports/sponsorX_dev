@@ -105,6 +105,8 @@ import { STUDENT_DIGEST_HOUR_UTC, sendStudentApprovalDigests, sweepStudentAutoma
 import { sweepEditionStages } from "../src/domain/edition-automation.ts";
 import { sweepHeldSales } from "../src/domain/ad-sale-auto.ts";
 import { purgeExpiredClosures } from "../src/domain/account-closure.ts";
+import { runNightlyFactCheck, FACT_CHECK_HOUR_UTC } from "../src/domain/fact-nightly.ts";
+import { env } from "../src/config/env.ts";
 import { trimZohoWebhookBodies } from "../src/domain/webhook-retention.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
 import { LISTING_DIGEST_HOUR_UTC, sendListingDigests } from "../src/domain/listing.ts";
@@ -372,6 +374,8 @@ const EDITION_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 /* 3S1-DATA-01 — warehouse ingestion, hourly, where a warehouse is configured. */
 let warehouseTimer: ReturnType<typeof setInterval> | undefined;
 let warehousePool: pg.Pool | undefined;
+/* 3S1-QA-01 — the nightly fact check (hourly tick; runs once a day at or after 19:00 UTC). */
+let factCheckTimer: ReturnType<typeof setInterval> | undefined;
 let warehouseSourcePool: pg.Pool | undefined;
 const WAREHOUSE_INGEST_INTERVAL_MS = 60 * 60 * 1000;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
@@ -937,6 +941,24 @@ async function main(): Promise<void> {
     log("[worker] WAREHOUSE_DATABASE_URL is not set — warehouse ingestion is off.");
   }
 
+  /* 3S1-QA-01 — the nightly fact check. Hourly, so a worker that was down at 19:00 UTC runs it on its
+     first tick after; the day's unique run makes every other tick (and every other worker) a no-op.
+     BTG's admins are emailed only where FACT_CHECK_EMAILS is "on". */
+  const factCheck = () => {
+    void runNightlyFactCheck(prisma, new Date(), { emails: env.FACT_CHECK_EMAILS })
+      .then((out) => {
+        if (out.status === "ran") {
+          log(`[worker] fact check ${out.day}: ${out.ok ? "every figure matches the app" : `${out.differenceCount} difference(s) in ${out.failingTenants.length} tenant(s)`}; ${out.emailsSent} email(s)${env.FACT_CHECK_EMAILS ? "" : " (emails off)"}`);
+          if (!out.ok) logError(`[worker] fact check ${out.day} found differences for:`, out.failingTenants.join(", "));
+        }
+        if (out.status === "failed") logError(`[worker] fact check ${out.day} could not run, will retry in an hour:`, out.error);
+      })
+      .catch((error: unknown) => logError("[worker] fact check failed, will retry next hour:", error));
+  };
+  factCheckTimer = setInterval(factCheck, REMINDER_INTERVAL_MS);
+  setTimeout(factCheck, 120_000).unref();
+  log(`[worker] fact check: nightly at ${FACT_CHECK_HOUR_UTC}:00 UTC; emails ${env.FACT_CHECK_EMAILS ? "on" : "off"}.`);
+
   /* 2S4-BE-09 — BTG's daily summary of the orders approved automatically.
      Hourly, from ORDER_DIGEST_HOUR_UTC: the first pass of the day sends it
      and records the day (one per BTG tenant per UTC date), so later passes
@@ -1020,6 +1042,7 @@ export async function stopWorker(): Promise<void> {
   if (studentDigestTimer) clearInterval(studentDigestTimer);
   if (editionTimer) clearInterval(editionTimer);
   if (warehouseTimer) clearInterval(warehouseTimer);
+  if (factCheckTimer) clearInterval(factCheckTimer);
   await warehousePool?.end().catch(() => {});
   await warehouseSourcePool?.end().catch(() => {});
   timer = undefined;

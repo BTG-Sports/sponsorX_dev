@@ -240,6 +240,10 @@ const schema = z.object({
      say the address is being set up. */
   SUPPORT_EMAIL: z.string().email().default("support@sponsorx.net"),
   SUPPORT_MAILBOX_READY: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  /* 3S1-QA-01 — the nightly fact check runs and records its result everywhere; it emails BTG's admins
+     only where this is "on". Turned on per environment once that environment's fact history is filled
+     (3S1-OPS-04) — before then every old campaign would show as "not matching". */
+  FACT_CHECK_EMAILS: z.enum(["on", "off"]).default("off").transform((v) => v === "on"),
 });
 
 /* A development default that reached production would make every continuation
