@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Make SponsorX intelligent. Recommend prices, identify best-fit sponsors, forecast delivery, flag underperformance before a campaign ends, detect suspicious metrics and ingest verified commerce attribution. |
-| **Tasks** | 52 · 196 person-days |
+| **Tasks** | 53 · 199 person-days |
 | **Blueprint timeline** | 18–22 weeks |
 | **Balanced budget** | $105K–$160K |
 | **Depends on** | Phase 2 transaction history, campaign performance data, marketplace activity, reliable event ingestion |
@@ -17,7 +17,7 @@
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md)  | 186 | 14–18 weeks |
 | 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 72 | 16–20 weeks |
-| 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md) **← you are here** | 52 | 18–22 weeks |
+| 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md) **← you are here** | 53 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
 ---
@@ -186,15 +186,16 @@ Raised by `3S0-DATA-02` (open item O1). No table recorded which platform a deliv
 - **Done when:** Publishing records `platform` from the URL host (a host matches only itself or its subdomains); earlier rows are backfilled identically; the database refuses any other value; the deliverable list returns it
 - **Reference:** Spec §19
 
-### ▶ `3S0-FE-01` · Reward form: venue field
+### ◑ `3S0-FE-01` · Reward form: venue field
 
-**Order** 3.6 · **FE** · **Where:** Code · **1d** · **Ready**
+**Order** 3.6 · **FE** · **Where:** Code · **1d** · **Code review**
 
 Split from `3S0-BE-05`, whose API is live. The reward create form gets an optional venue: a city and a US state.
 
 - **Depends on:** 3S0-BE-05
 - **Done when:** BTG can enter a venue city and state when creating a reward, and the reward detail shows it
 - **Reference:** Spec §16
+- **Delivered:** the live reward creator (`live-rewards-desk.tsx`) and the demo wizard share `reward-venue-fields.tsx`; half a venue is refused in the form and in the action; each reward shows "City, ST" or "Online only" — 2026-10-13
 
 ### ✅ `3S0-DATA-02` · Design the warehouse schema and semantic layer
 
@@ -328,15 +329,16 @@ Store the recommendation immutably. An override is a separate record with a requ
 - **Done when:** Admin can override a price only with the right permission and a recorded reason; the recommendation is unchanged
 - **Reference:** Spec §17.1, §22
 
-### ⏸ `3S2-FE-01` · Build the pricing intelligence panel
+### ▶ `3S2-FE-01` · Build the pricing intelligence panel
 
-**Order** 14 · **FE** · **Where:** Code · **5d** · **Blocked**
+**Order** 14 · **FE** · **Where:** Code · **5d** · **In progress**
 
 Recommended CPM, current rate, factor breakdown, confidence, historical range and the override control.
 
 - **Depends on:** 3S2-BE-02
 - **Done when:** Panel shows the full factor breakdown and confidence for any inventory item
 - **Reference:** Spec §16 P3-01
+- **Built (2026-10-13):** `/admin/intelligence/pricing`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the Dynamic CPM engine is mounted the screen says so and shows no figures. Closes when the engine lands and the screen is walked against it.
 
 ## Sprint 3 · Sponsor matching
 
@@ -377,15 +379,16 @@ Filter out unavailable, conflicted and brand-unsafe inventory before scoring. Ra
 - **Done when:** Match explorer never returns unavailable or category-conflicted inventory
 - **Reference:** Spec §22
 
-### ⏸ `3S3-FE-01` · Build the sponsor match explorer
+### ▶ `3S3-FE-01` · Build the sponsor match explorer
 
-**Order** 18 · **FE** · **Where:** Code · **5d** · **Blocked**
+**Order** 18 · **FE** · **Where:** Code · **5d** · **In progress**
 
 Ranked athletes, properties and inventory with match scores and readable reasons, plus shortlist saving.
 
 - **Depends on:** 3S3-BE-02
 - **Done when:** Explorer ranks, explains and saves shortlists
 - **Reference:** Spec §16 P3-02
+- **Built (2026-10-13):** `/admin/intelligence/matching`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the match scoring is mounted the screen says so and shows no figures. Closes when the engine lands and the screen is walked against it.
 
 ## Sprint 4 · Forecasting & pacing
 
@@ -425,15 +428,16 @@ Campaigns crossing a risk threshold raise an alert with a recommended action —
 - **Done when:** At-risk campaigns generate actionable alerts before campaign end, not after
 - **Reference:** Spec §17.3, §22
 
-### ⏸ `3S4-FE-01` · Build the campaign forecast dashboard
+### ▶ `3S4-FE-01` · Build the campaign forecast dashboard
 
-**Order** 22 · **FE** · **Where:** Code · **5d** · **Blocked**
+**Order** 22 · **FE** · **Where:** Code · **5d** · **In progress**
 
 Projected final delivery, probability of guarantee, pacing chart, risk factors and recommended actions.
 
 - **Depends on:** 3S4-BE-01
 - **Done when:** Dashboard shows pacing and risk for every active campaign
 - **Reference:** Spec §16 P3-03
+- **Built (2026-10-13):** `/admin/intelligence/forecasts`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the delivery forecast is mounted the screen says so and shows no figures. Closes when the engine lands and the screen is walked against it.
 
 ## Sprint 5 · Make-good optimiser
 
@@ -461,15 +465,16 @@ A make-good changes what a sponsor was sold, so it needs approval and an audit t
 - **Done when:** Make-good approval is recorded, audited and reflected in the campaign
 - **Reference:** Spec §18
 
-### ⏸ `3S5-FE-01` · Build the make-good recommendation centre
+### ▶ `3S5-FE-01` · Build the make-good recommendation centre
 
-**Order** 25 · **FE** · **Where:** Code · **5d** · **Blocked**
+**Order** 25 · **FE** · **Where:** Code · **5d** · **In progress**
 
 Shortfall amount, substitute options, equivalency score, cost impact and the approval action.
 
 - **Depends on:** 3S5-BE-01
 - **Done when:** Centre surfaces shortfalls and lets a manager approve a substitution
 - **Reference:** Spec §16 P3-04
+- **Built (2026-10-13):** `/admin/intelligence/make-goods`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the make-good engine is mounted the screen says so and shows no figures. Closes when the engine lands and the screen is walked against it.
 
 ## Sprint 6 · Attribution framework
 
@@ -518,41 +523,54 @@ Events that cannot be matched stay visible rather than disappearing. Silent data
 - **Done when:** Unmatched and ambiguous events remain in a reviewable queue
 - **Reference:** Spec §17.4
 
-### ⏸ `3S6-FE-01` · Build the attribution dashboard
+### ▶ `3S6-FE-01` · Build the attribution dashboard
 
-**Order** 30 · **FE** · **Where:** Code · **5d** · **Blocked**
+**Order** 30 · **FE** · **Where:** Code · **5d** · **In progress**
 
 Attributed transactions, revenue, method, window, confidence and unmatched events — with the four classes visually distinct.
 
 - **Depends on:** 3S6-BE-02
 - **Done when:** Dashboard distinguishes verified redemptions, verified transactions, modelled attribution and estimated media value
 - **Reference:** Spec §16 P3-05
+- **Built (2026-10-13):** `/admin/intelligence/attribution`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the attribution event model is mounted the screen says so and shows no figures. Closes when the engine lands and the screen is walked against it.
 
 ## Sprint 7 · Intelligence dashboards
 
 *Sponsor and property hubs, and the scenario planner.*
 
-*5 tasks · 23 person-days*
+*6 tasks · 26 person-days*
 
-### ⏸ `3S7-FE-01` · Build the sponsor intelligence hub
+### ⏸ `3S7-BE-02` · Serve sponsor and property intelligence
 
-**Order** 31 · **FE** · **Where:** Code · **5d** · **Blocked**
+**Order** 30.5 · **BE** · **Where:** Code · **3d** · **Blocked**
+
+Raised building `3S7-FE-01` / `3S7-FE-02` (2026-10-13). Both hubs depend on warehouse facts, but no task serves them: `GET /intelligence/sponsor` and `GET /intelligence/property`, scoped by the API to the caller's own sponsor org or property, reading the semantic layer and the CPM engine.
+
+- **Depends on:** 3S1-DATA-02, 3S2-BE-02
+- **Done when:** both reads answer the shapes in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md), cross-tenant and cross-org reads are refused, and the four attribution classes are returned separately
+- **Reference:** Spec §16 P3-06, P3-07; §19
+
+### ▶ `3S7-FE-01` · Build the sponsor intelligence hub
+
+**Order** 31 · **FE** · **Where:** Code · **5d** · **In progress**
 
 Cross-campaign insights, audience segments, best-performing formats and properties, renewal recommendations.
 
 - **Depends on:** 3S1-DATA-02
 - **Done when:** Hub renders cross-campaign intelligence for a sponsor
 - **Reference:** Spec §16 P3-06
+- **Built (2026-10-13):** `/sponsor/intelligence`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the sponsor read, 3S7-BE-02 is mounted the screen says so and shows no figures. Closes when the engine lands and the screen is walked against it.
 
-### ⏸ `3S7-FE-02` · Build the property intelligence hub
+### ▶ `3S7-FE-02` · Build the property intelligence hub
 
-**Order** 32 · **FE** · **Where:** Code · **5d** · **Blocked**
+**Order** 32 · **FE** · **Where:** Code · **5d** · **In progress**
 
 Rate recommendations, revenue opportunity, sell-through, sponsor-category fit and a quality score.
 
 - **Depends on:** 3S2-BE-02
 - **Done when:** Hub renders rate and opportunity intelligence for a property
 - **Reference:** Spec §16 P3-07
+- **Built (2026-10-13):** `/property/intelligence`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the property read, 3S7-BE-02 is mounted the screen says so and shows no figures. Closes when the engine lands and the screen is walked against it.
 
 ### ⏸ `3S7-BE-01` · Scenario planning service
 
@@ -564,15 +582,16 @@ What-if: change budget, CPM, audience and inventory mix, and compare expected de
 - **Done when:** A scenario can be created, calculated and compared against another
 - **Reference:** Spec §18
 
-### ⏸ `3S7-FE-03` · Build the scenario planner
+### ▶ `3S7-FE-03` · Build the scenario planner
 
-**Order** 34 · **FE** · **Where:** Code · **5d** · **Blocked**
+**Order** 34 · **FE** · **Where:** Code · **5d** · **In progress**
 
 The sales-conversation screen: adjust the inputs live while a sponsor watches.
 
 - **Depends on:** 3S7-BE-01
 - **Done when:** Planner calculates and compares scenarios interactively
 - **Reference:** Spec §16 P3-08
+- **Built (2026-10-13):** `/admin/intelligence/scenarios`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the scenario service is mounted the screen says so and shows no figures. Closes when the engine lands and the screen is walked against it.
 
 ### ⏸ `3S7-INT-01` · Push intelligence into Zoho
 
@@ -600,15 +619,16 @@ Improbable spikes, duplicate events, bot-like behaviour, suspicious redemption p
 - **Done when:** Anomaly console identifies seeded duplicate, bot and redemption test patterns
 - **Reference:** Spec §15, §22
 
-### ⏸ `3S8-FE-01` · Build the data quality and anomaly console
+### ▶ `3S8-FE-01` · Build the data quality and anomaly console
 
-**Order** 37 · **FE** · **Where:** Code · **5d** · **Blocked**
+**Order** 37 · **FE** · **Where:** Code · **5d** · **In progress**
 
 Flagged streams, suspicious redemptions, data-quality issues and the reviewer's disposition.
 
 - **Depends on:** 3S8-DATA-01
 - **Done when:** Reviewer can triage and resolve every flagged anomaly
 - **Reference:** Spec §16 P3-09
+- **Built (2026-10-13):** `/admin/intelligence/anomalies`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the anomaly rules is mounted the screen says so and shows no figures. Closes when the engine lands and the screen is walked against it.
 
 ### ⏸ `3S8-BE-01` · Model registry and activation
 
@@ -620,15 +640,16 @@ Versions activate, roll back and compare without a code deployment. Pricing that
 - **Done when:** A model version can be activated, rolled back and compared without deploying code
 - **Reference:** Spec §22
 
-### ⏸ `3S8-FE-02` · Build the model and rule administration screen
+### ▶ `3S8-FE-02` · Build the model and rule administration screen
 
-**Order** 39 · **FE** · **Where:** Code · **5d** · **Blocked**
+**Order** 39 · **FE** · **Where:** Code · **5d** · **In progress**
 
 Pricing factors, model versions, thresholds, benchmarks, rollouts and feature flags.
 
 - **Depends on:** 3S8-BE-01
 - **Done when:** Admin can manage model versions and thresholds from the UI
 - **Reference:** Spec §16 P3-10
+- **Built (2026-10-13):** `/admin/intelligence/models`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the model registry is mounted the screen says so and shows no figures. Closes when the engine lands and the screen is walked against it.
 
 ### ⏸ `3S8-OPS-01` · Per-tenant feature flags for intelligence
 
