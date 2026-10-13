@@ -792,4 +792,24 @@ describe.skipIf(!hasDatabase)("2S4-BE-12 / 2S4-BE-13 · cancelling a paid line, 
       expect(await checkFactsAgainstApp(prisma, { tenantId }), tenantId).toEqual({ ok: true, differences: [] });
     }
   });
+
+  it("3S1-DATA-07 · the marketplace's facts erased and filled again from history come back exactly as the live actions wrote them", async () => {
+    const { fillMarketplaceHistory } = await import("../src/domain/fact-history");
+    const { checkFactsAgainstApp } = await import("../src/domain/fact-check");
+    const tenants = await tenantsInPlay();
+    const facts = async () => (await prisma.fact.findMany({
+      where: { tenantId: { in: tenants }, channel: "MARKETPLACE" }, select: { tenantId: true, kind: true, idempotencyKey: true, occurredOn: true, measures: true },
+    })).map((f) => `${f.tenantId} ${f.kind} ${f.idempotencyKey} ${f.occurredOn.toISOString().slice(0, 10)} ${JSON.stringify(f.measures)}`).sort();
+    const live = await facts();
+    expect(live.length).toBeGreaterThan(10);
+    /* As if the ledger had not existed: the marketplace's facts and summaries gone (test databases allow the purge). */
+    await prisma.fact.deleteMany({ where: { tenantId: { in: tenants }, channel: "MARKETPLACE" } });
+    await prisma.campaignDaySummary.deleteMany({ where: { tenantId: { in: tenants }, channel: "MARKETPLACE" } });
+    for (const tenantId of tenants) await fillMarketplaceHistory(prisma, { tenantId });
+    expect(await facts()).toEqual(live);
+    for (const tenantId of tenants) {
+      expect(await checkFactsAgainstApp(prisma, { tenantId }), tenantId).toEqual({ ok: true, differences: [] });
+      expect((await fillMarketplaceHistory(prisma, { tenantId })).factsAdded, "a second run adds nothing").toBe(0);
+    }
+  });
 });
