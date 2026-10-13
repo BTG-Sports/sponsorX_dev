@@ -17,6 +17,8 @@ const NAV: NavItem[] = [
   { href: "/property/sales", label: "Orders", icon: "box" },
   { href: "/property/earnings", label: "Earnings", icon: "wallet" },
   { href: "/property/analytics", label: "Analytics", icon: "chart" },
+  /* 3S7-FE-02 — rate and opportunity intelligence (Phase 3). */
+  { href: "/property/intelligence", label: "Intelligence", icon: "trophy" },
   { href: "/property/branding", label: "Branding", icon: "pen" },
   /* 2S1-FE-04 / 2S1-FE-08 — documents on file, and the account itself. */
   { href: "/property/documents", label: "Documents", icon: "file" },

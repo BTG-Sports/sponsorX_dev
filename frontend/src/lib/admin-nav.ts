@@ -69,6 +69,18 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/admin/next/rights", label: "Rights", icon: "camera", group: "NEXT" },
   { href: "/admin/next/splits", label: "Splits", icon: "file", group: "NEXT" },
 
+  /* Phase 3 · Intelligence (3S2-FE-01 … 3S8-FE-02) — each desk reads an
+     engine the backend chain is still building, and says so until it
+     answers (lib/intelligence.ts). */
+  { href: "/admin/intelligence/anomalies", label: "Anomalies", icon: "flag", group: "Intelligence", groupIcon: "chart" },
+  { href: "/admin/intelligence/attribution", label: "Attribution", icon: "chart", group: "Intelligence" },
+  { href: "/admin/intelligence/forecasts", label: "Forecasts", icon: "calendar", group: "Intelligence" },
+  { href: "/admin/intelligence/make-goods", label: "Make-goods", icon: "gift", group: "Intelligence" },
+  { href: "/admin/intelligence/matching", label: "Match explorer", icon: "users", group: "Intelligence" },
+  { href: "/admin/intelligence/models", label: "Models", icon: "gear", group: "Intelligence" },
+  { href: "/admin/intelligence/pricing", label: "Pricing", icon: "card", group: "Intelligence" },
+  { href: "/admin/intelligence/scenarios", label: "Scenario planner", icon: "pen", group: "Intelligence" },
+
   /* The platform itself. */
   { href: "/admin/analytics", label: "Analytics", icon: "chart", group: "System", groupIcon: "gear" },
   { href: "/admin/audit", label: "Audit log", icon: "file", group: "System" },

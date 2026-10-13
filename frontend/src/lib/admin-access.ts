@@ -80,6 +80,21 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
      403 there as "no economics table", not "not in your role". */
   "/admin/network": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR"], who: "BTG admins, campaign managers and network managers" },
   "/admin/analytics": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR"], who: "BTG admins, campaign managers and network managers" },
+  /* Phase 3 · Intelligence — proposed with the engines' contracts
+     (documentation/SponsorX-Phase3-Screen-Contracts.md); the API's policy
+     rows land with each engine and stay the enforcement. Pricing, matching,
+     forecasts, attribution and scenarios are sales tools; make-goods change
+     what a sponsor was sold and anomalies change what a sponsor sees, so
+     those two stay with BTG admins and campaign managers; the model
+     registry is BTG-admin only (3S0-PMO-02). */
+  "/admin/intelligence/anomalies": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"], who: "BTG admins and campaign managers" },
+  "/admin/intelligence/attribution": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "SALES"], who: "BTG admins, campaign managers and Sales" },
+  "/admin/intelligence/forecasts": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "SALES"], who: "BTG admins, campaign managers and Sales" },
+  "/admin/intelligence/make-goods": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"], who: "BTG admins and campaign managers" },
+  "/admin/intelligence/matching": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "SALES"], who: "BTG admins, campaign managers, network managers and Sales" },
+  "/admin/intelligence/models": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  "/admin/intelligence/pricing": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "SALES"], who: "BTG admins, campaign managers and Sales" },
+  "/admin/intelligence/scenarios": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "SALES"], who: "BTG admins, campaign managers and Sales" },
   /* GET /audit-log: auditLog read is BTG admin (own tenant) and SUPER_ADMIN. */
   "/admin/audit": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   /* GET /operations/integration-health: tenant-wide webhookDelivery read is BTG admin and SUPER_ADMIN. */

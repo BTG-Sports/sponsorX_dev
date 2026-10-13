@@ -54,12 +54,15 @@ describe("the admin nav per viewer", () => {
   it("keeps every desk the other staff roles can use, and only those", () => {
     expect(navFor(["SALES"]).map((n) => n.href)).toEqual([
       "/admin", "/admin/sponsor-requests", "/admin/briefs", "/admin/campaigns", "/admin/offers", "/admin/next/prospects",
+      "/admin/intelligence/attribution", "/admin/intelligence/forecasts", "/admin/intelligence/matching", "/admin/intelligence/pricing", "/admin/intelligence/scenarios",
     ]);
     expect(navFor(["CAMPAIGN_MGR"]).map((n) => n.href)).toEqual([
-      "/admin", "/admin/approvals", "/admin/briefs", "/admin/campaigns", "/admin/offers", "/admin/rewards", "/admin/network", "/admin/analytics",
+      "/admin", "/admin/approvals", "/admin/briefs", "/admin/campaigns", "/admin/offers", "/admin/rewards", "/admin/network",
+      "/admin/intelligence/anomalies", "/admin/intelligence/attribution", "/admin/intelligence/forecasts", "/admin/intelligence/make-goods",
+      "/admin/intelligence/matching", "/admin/intelligence/pricing", "/admin/intelligence/scenarios", "/admin/analytics",
     ]);
     expect(navFor(["NETWORK_MGR"]).map((n) => n.href)).toEqual([
-      "/admin", "/admin/applications", "/admin/campaigns", "/admin/network", "/admin/analytics",
+      "/admin", "/admin/applications", "/admin/campaigns", "/admin/network", "/admin/intelligence/matching", "/admin/analytics",
     ]);
   });
 

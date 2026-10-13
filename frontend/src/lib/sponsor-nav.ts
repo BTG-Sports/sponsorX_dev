@@ -11,6 +11,8 @@ export const SPONSOR_NAV: NavItem[] = [
 
   /* What the sponsor is running and asking for. */
   { href: "/sponsor/campaigns", label: "Campaigns", icon: "megaphone", group: "Campaigns", groupIcon: "megaphone" },
+  /* 3S7-FE-01 — what worked across every campaign (Phase 3). */
+  { href: "/sponsor/intelligence", label: "Intelligence", icon: "chart", group: "Campaigns" },
   { href: "/sponsor/requests", label: "Requests", icon: "inbox", group: "Campaigns" },
 
   /* Browsing, buying and what came of it. */

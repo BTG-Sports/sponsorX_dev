@@ -44,7 +44,7 @@ describe("P1-ART-21 · sidebar groups", () => {
     expect(items.length).toBeGreaterThan(25);
     const { top, groups } = groupNav(items);
     expect(top.map((i) => i.label)).toEqual(["Dashboard"]);
-    expect(groups.map((g) => g.label)).toEqual(["Intake", "Campaigns", "Marketplace", "Money", "Accounts", "NEXT", "System"]);
+    expect(groups.map((g) => g.label)).toEqual(["Intake", "Campaigns", "Marketplace", "Money", "Accounts", "NEXT", "Intelligence", "System"]);
     for (const g of groups) {
       const labels = g.items.map((i) => i.label);
       expect(labels, g.label).toEqual([...labels].sort((a, b) => a.localeCompare(b)));
@@ -75,7 +75,7 @@ describe("P1-ART-21 · sidebar groups", () => {
       const { top, groups } = groupNav(SPONSOR_NAV);
       expect(top.map((i) => i.label)).toEqual(["Dashboard"]);
       expect(groups.map((g) => [g.label, g.items.map((i) => i.label)])).toEqual([
-        ["Campaigns", ["Campaigns", "Requests"]],
+        ["Campaigns", ["Campaigns", "Intelligence", "Requests"]],
         ["Marketplace", ["Cart", "Orders", "Packages", "Shop"]],
         ["Account", ["Billing", "Messages", "Settings"]],
       ]);
