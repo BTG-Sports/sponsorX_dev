@@ -48,3 +48,30 @@ Branch `feature/3S-FE-phase3-screens`, cut from `main_development` at e6bb8a8 (a
   - new test files: `intelligence`, `reward-venue`, `pricing-live`, `match-explorer-live`, `scenarios-live`, `forecast-live`, `makegood-live`, `attribution-live`, `anomalies-live`, `models-live`, `intelligence-hubs`.
 - **Not yet done: a browser walk.** Docker and the API weren't running. Every page needs a signed-in user and `/me`.
 - **Stage Progress:** the 2026-10-13 row is appended. The figures are unchanged from the 12th, because no Phase 1 task moved today.
+
+## HeckerCreatives — QA pass and close-out: all eleven Phase 3 FE tasks Done
+
+The owner asked for frontend QA at phone, laptop and desktop widths, then Done, then a push to `main_development` and `main`.
+
+- **Local stack.** Docker was off, so it was started (`docker compose -p sponsorx up -d`). Five of rcfworks' merged migrations (`20261012100000`…`100400`, none destructive) were applied with `prisma migrate deploy` and `prisma generate`. The API ran on :4000 and `next dev` on :3000, both from the worktree.
+- **The walk** (`scratchpad/walk.mjs`). Clerk sign-in tickets for the QA BTG admin, sponsor, property manager and Finance users. Every new route was opened in its pending and `?demo=sample` states, plus the two detail pages and `/admin/rewards`, at 390×844, 1366×768 and 1920×1080. Checks: status, pending/sample state, no horizontal overflow, no console errors, role gating (Finance is forwarded to `/finance`).
+  - First run: 77/78. The forecast detail page was 540px wide on a phone.
+  - After fixes: **78/78, zero console errors.**
+- **Screenshot review** (three reviewers, one per width) **and an interaction pass** (drawers, dialogs, filters, keyboard, the venue field end to end). Defects found and fixed:
+  - **Match explorer drawer (high):** it rendered inside `<main>`, so the shell header covered its Close button and the dock covered "Add to shortlist". It is now portalled to `<body>` like the anomaly and make-good drawers.
+  - **Model admin:** the Compare list opened under the Thresholds card on a phone. Fixed.
+  - **Mobile stacked tables** fused a cell's parts ("300K247K – 352K"), because `globals.css` makes a labelled cell's direct children inline. Every multi-part cell is now one block wrapper, the pattern `Primary` already uses.
+  - **Hidden table:** a `<table className="sr-only">` ignores the 1px width and widened the page, so it now sits in a `div.sr-only`. `components/vault-flow.tsx` has the same pattern; it was not touched.
+  - **Pacing chart** text now stays at 11px at every width (laid out in real pixels).
+  - **Pricing range:** the quartile labels now sit at their markers.
+  - **Layout:**
+    - tiles: "$23,265" instead of "USD 23,265", plus shorter captions, chips and pills;
+    - the brief picker's duplicate pagers are gone;
+    - the sample banner now sits above the title on every screen;
+    - the nav label "Scenario planner" is now "Scenarios".
+  - **Notes:** make-good notes need 8 characters, like anomalies and models. App validation replaces the browser's own bubble.
+  - **Not bugs:** the faded sidebar and the "blank" sell-through chart in full-page screenshots. Full-page capture with a sticky sidebar, and a `Reveal` that only fires on scroll, both checked in a real scroll.
+- **Verified after fixes:** `tsc` clean, `eslint . --max-warnings=0` clean, vitest **138 files / 1520 tests**, `next build` green.
+  - `tests/security-review.test.ts` once timed out in a full run under load. It passed alone and on the re-run.
+- **Status:** 3S0-FE-01 and the ten screens are **Done** (owner's call, 2026-10-13). For the ten, the live-data walk happens when each engine lands; the screens show `EnginePending` until then.
+- **Cleanup:** the interaction pass's draft reward ("QA venue test - delete me", `cmv662d050000s8vjowx0y02w`) and its token were deleted from the local DB.
