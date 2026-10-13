@@ -69,3 +69,13 @@
 - **Cause:** the test sorted by `valid_from::text`; the output alias wins over the column in `ORDER BY`. `'-infinity'` as text sorts first under the C collation used locally, and after `'2026-…'` under CI's `en_US.UTF-8`, which ignores the hyphen.
 - **Fix:** sort by the date column itself (`ORDER BY a.valid_from`). The warehouse SQL was never at fault.
 - **To catch this class of problem locally,** the test databases were recreated with `en_US.UTF-8` (template1 too, so the derived `_warehouse*` databases match CI). The warehouse tests (38) and **the full suite (197 files / 3,145 tests) pass under CI's collation.**
+
+## rcfworks — PR merge order, deploy, 3S1-DATA-02 → Done
+
+- **#192 (main_development → main) conflicted.** The Finance Vault had been merged into `main` (e3d87d1) and into `main_development` separately, leaving the warehouse files and the board with no common base. I had pulled `main_development` but never checked `main`; the user flagged it ("hey, I told you to pull").
+  - Every line only on `main` was an older version of a later change, and `main` held no task-board cell that `main_development` lacked.
+  - **#193** merged `main` into the branch, keeping `main_development`'s content (the merged tree was identical to it).
+  - #192 then merged clean. The memory `always-pull-main-development-first` now also says to check that `main` merges before opening a sync PR.
+- **Deploy (user's OK):** `main` CI green → "Daily deploy" started by hand → `release` 91ca9e8. Staging and production deployed it.
+- **Live:** run 16 in both environments applied migrations `0002_model` and `0003_run_checks` and built the model (staging 112 ms, production 129 ms). **The hourly double-check was clean in both, with zero differences.** Staging has no campaigns yet, so the campaign checks have nothing to compare; the marketplace, ledger and payment checks matched on real data. Railway's log view cut the run line short, so the run record (`raw._ingest_run`) is the source.
+- **Tracker and plan:** 3S1-DATA-02 Done. **3S1-DATA-03, 3S1-QA-01 and 3S2-BE-01 are now Ready.**
