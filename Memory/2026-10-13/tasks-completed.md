@@ -222,3 +222,19 @@
   - a re-run adds nothing;
   - another tenant is untouched.
 - **Verified:** tsc and eslint clean; **full suite 202 files / 3,203 tests, green twice**.
+
+## rcfworks — 3S1-DATA-06 · history of views, payments and invoices (Code review)
+
+- **What:** three fills in `fact-history.ts`, all through the live writers:
+  - `fillViewHistory`: each `MetricDaily` row via `factMetricRecorded`, plus its corrections. Corrections are the value changes in the row's `metric.record` audit entries, less those the facts already count. This also catches a pre-ledger figure corrected live, which the live writer can't count because the old figure had no fact.
+  - `fillPaymentHistory`: PAID earnings, on the paid day.
+  - `fillInvoiceHistory`: via `factInvoice`; a void invoice records nothing.
+- **Script:** `npm run facts:fill -- views payments invoices`. The fill report's `orders` field is now `records` (all parts share it).
+- **Bug found by the re-run test and fixed:** the corrections-only fact had the same kind as a figure, so `factMetricRecorded` took it for an old figure and re-recorded everything (4 extra facts). It now compares only facts that hold a figure.
+- **Tests:** `tests/fact-history-money.test.ts` (5) covers history plus a live correction, a live payment and a live Zoho invoice:
+  - the check matches all 13 measures;
+  - each fact is on its day;
+  - corrections are counted once (2);
+  - nothing is doubled;
+  - a re-run adds nothing.
+- **Verified:** tsc and eslint clean; **full suite 203 files / 3,208 tests, green twice**.

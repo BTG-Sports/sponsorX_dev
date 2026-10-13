@@ -1,5 +1,6 @@
 /**
- * Filling the fact history — 3S1-DATA-05 (orders and deliverables)
+ * Filling the fact history — 3S1-DATA-05 (orders and deliverables) and
+ * 3S1-DATA-06 (views, payments and invoices)
  * (documentation/SponsorX-Fact-Ledger.md §8).
  *
  * Records the facts for what happened before the ledger existed, from the
@@ -28,8 +29,10 @@ import type { Prisma, PrismaClient } from "../generated/prisma/client";
 import { AUDIT_ACTIONS } from "../db/audit";
 import type { FactMeasure } from "./fact-rules";
 import {
-  factDeliverablePublished, factDeliverableVerified, factOrderBooked, factOrderCancelled, factRevisionRequested,
+  deliverableChannel, factDeliverablePublished, factDeliverableVerified, factEarningPaid, factInvoice, factMetricRecorded,
+  factOrderBooked, factOrderCancelled, factRevisionRequested,
 } from "./fact-writers";
+import { recordFact } from "./facts";
 
 type Db = PrismaClient;
 type Tx = Prisma.TransactionClient;
@@ -43,7 +46,8 @@ export const ORDER_HISTORY_MEASURES: readonly FactMeasure[] = [
 const ORDER_CANCEL = "order.cancel";
 const REVISIONS = [AUDIT_ACTIONS.deliverable.requestRevision, AUDIT_ACTIONS.deliverable.systemRevision];
 
-export type FillReport = { orders: number; factsAdded: number; fallbackDates: number };
+/** `records`: how many app records the fill looked at; `factsAdded`: what this run recorded. */
+export type FillReport = { records: number; factsAdded: number; fallbackDates: number };
 
 async function factCount(db: Db | Tx, tenantId: string | null): Promise<number> {
   const [r] = await db.$queryRawUnsafe<Array<{ n: string }>>(
@@ -119,5 +123,89 @@ export async function fillOrderHistory(db: Db, opts: { tenantId?: string } = {})
   });
   let fallbackDates = 0;
   for (const o of orders) fallbackDates += await db.$transaction((tx) => fillOrder(tx, o.id));
-  return { orders: orders.length, factsAdded: (await factCount(db, t)) - before, fallbackDates };
+  return { records: orders.length, factsAdded: (await factCount(db, t)) - before, fallbackDates };
+}
+
+/* ── 3S1-DATA-06 · views, payments and invoices ─────────────────────────── */
+
+export const VIEW_HISTORY_MEASURES: readonly FactMeasure[] = [
+  "views_verified_api", "views_verified_manual", "views_self_reported", "views_estimated", "views_attributed",
+  "engagements_verified_api", "engagements_verified_manual", "engagements_self_reported", "engagements_estimated", "engagements_attributed",
+];
+export const PAYMENT_HISTORY_MEASURES: readonly FactMeasure[] = ["earnings_paid_cents"];
+export const INVOICE_HISTORY_MEASURES: readonly FactMeasure[] = ["invoiced_cents", "invoice_paid_cents"];
+
+/**
+ * One day's figure. The figure itself through the live writer (which records
+ * nothing when the facts already hold it). Then its corrections: every value
+ * the audit log shows was entered for this row, a correction each time it
+ * changed — less the corrections the facts already count. The live writer
+ * can only count a correction when the earlier figure had a fact, so a figure
+ * from before the ledger that was corrected after it is counted here too.
+ */
+async function fillMetric(tx: Tx, metricId: string): Promise<void> {
+  await factMetricRecorded(tx, metricId);
+  const m = await tx.metricDaily.findUniqueOrThrow({
+    /* tenant-scope: by id, a row the fill listed in its own tenant. */
+    where: { id: metricId },
+    select: { id: true, tenantId: true, day: true, deliverable: { select: { id: true, platform: true, order: { select: { campaignId: true, athleteId: true, jobId: true } } } } },
+  });
+  const entered = await tx.auditLog.findMany({
+    /* tenant-scope: this row's own audit entries, in its tenant. */
+    where: { tenantId: m.tenantId, entity: "MetricDaily", entityId: m.id, action: AUDIT_ACTIONS.metric.record },
+    select: { after: true }, orderBy: { at: "asc" },
+  });
+  const values = entered.map((e) => { const a = (e.after ?? {}) as { views?: number; engagements?: number }; return `${a.views}/${a.engagements}`; });
+  const changes = values.filter((v, i) => i > 0 && v !== values[i - 1]).length;
+  const [{ n } = { n: "0" }] = await tx.$queryRawUnsafe<Array<{ n: string }>>(
+    /* tenant-scope: this row's own facts, in its tenant. */
+    `SELECT coalesce(sum((measures->>'metric_corrections')::bigint), 0)::text AS n FROM "Fact"
+      WHERE "tenantId" = $1 AND "sourceType" = 'MetricDaily' AND "sourceId" = $2`, m.tenantId, m.id);
+  const missing = changes - Number(n);
+  if (missing <= 0) return;
+  const d = m.deliverable;
+  const athlete = await tx.athlete.findUnique({
+    /* tenant-scope: by id, the athlete this row's own order names. */
+    where: { id: d.order.athleteId }, select: { stateCode: true, city: true },
+  });
+  await recordFact(tx, {
+    tenantId: m.tenantId, kind: "METRIC_RECORDED", key: `metric.corrections-before-ledger:${m.id}:${changes}`, occurredOn: m.day,
+    campaignId: d.order.campaignId, athleteId: d.order.athleteId, inventory: { kind: "NIL_JOB", id: d.order.jobId },
+    channel: deliverableChannel(d.order.jobId, d.platform), market: athlete ? { state: athlete.stateCode, city: athlete.city } : null,
+    source: { type: "MetricDaily", id: m.id }, measures: { metric_corrections: missing },
+  });
+}
+
+async function fillEach(db: Db, opts: { tenantId?: string }, ids: string[], one: (tx: Tx, id: string) => Promise<void>): Promise<FillReport> {
+  const t = opts.tenantId ?? null;
+  const before = await factCount(db, t);
+  for (const id of ids) await db.$transaction((tx) => one(tx, id));
+  return { records: ids.length, factsAdded: (await factCount(db, t)) - before, fallbackDates: 0 };
+}
+
+/** Every day's views and engagements, by label, with the corrections the audit log shows. */
+export async function fillViewHistory(db: Db, opts: { tenantId?: string } = {}): Promise<FillReport> {
+  const rows = await db.metricDaily.findMany({
+    /* tenant-scope: the platform fill — every tenant, or the one named. */
+    where: opts.tenantId ? { tenantId: opts.tenantId } : {}, select: { id: true }, orderBy: [{ day: "asc" }, { id: "asc" }],
+  });
+  return fillEach(db, opts, rows.map((r) => r.id), fillMetric);
+}
+
+/** Every earning paid, on its paid day. */
+export async function fillPaymentHistory(db: Db, opts: { tenantId?: string } = {}): Promise<FillReport> {
+  const rows = await db.earning.findMany({
+    /* tenant-scope: the platform fill — every tenant, or the one named. */
+    where: { state: "PAID", ...(opts.tenantId ? { tenantId: opts.tenantId } : {}) }, select: { id: true }, orderBy: { paidAt: "asc" },
+  });
+  return fillEach(db, opts, rows.map((r) => r.id), factEarningPaid);
+}
+
+/** Every Zoho invoice: issued and paid, on their own days; a void one records nothing. */
+export async function fillInvoiceHistory(db: Db, opts: { tenantId?: string } = {}): Promise<FillReport> {
+  const rows = await db.campaignInvoice.findMany({
+    /* tenant-scope: the platform fill — every tenant, or the one named. */
+    where: opts.tenantId ? { tenantId: opts.tenantId } : {}, select: { id: true }, orderBy: { id: "asc" },
+  });
+  return fillEach(db, opts, rows.map((r) => r.id), factInvoice);
 }
