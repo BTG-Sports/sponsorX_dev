@@ -160,6 +160,7 @@ const SYSTEM_INTERNAL: Record<string, string> = {
      intelligence reads (3S7-BE-02) will, scoped to the caller's sponsor or property, and add matrix rows then. */
   Fact: "the fact ledger — written in the same transaction as each money or delivery action; no route reads it yet (3S7-BE-02 will)",
   CampaignDaySummary: "the daily summaries kept in step with the fact ledger; no route reads them yet (3S7-BE-02 will)",
+  FactCheckRun: "the nightly fact check's record (3S1-QA-01): platform-wide, written by the worker; each tenant's part is read through integration health (webhookDelivery read, BTG only)",
 };
 
 describe("P8-SEC-01 · every model is governed by the matrix", () => {

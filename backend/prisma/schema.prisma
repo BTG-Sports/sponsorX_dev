@@ -216,19 +216,19 @@ enum AthleteTier {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Tenant {
-  id               String   @id @default(cuid())
-  name             String
-  createdAt        DateTime @default(now())
+  id                 String   @id @default(cuid())
+  name               String
+  createdAt          DateTime @default(now())
   /// Phase 2 (2S3-BE-01) — the tenant that runs the marketplace this one sells
   /// in: BTG's, for an organisation BTG approved (2S1-BE-04). Null for BTG's
   /// own tenant. BTG staff review the inventory and listings of the tenants
   /// they operate — the `operated` scope — and nothing else of theirs.
-  operatorTenantId String?
+  operatorTenantId   String?
   /// 2S1-BE-10 — "BTG staff confirm minors before approval". Off by default:
   /// a minor and their guardian are approved by the system once every check
   /// passes. On, a complete minor waits in New sign-ups for a person — the
   /// switch the open guardian e-signature question may need, with no rebuild.
-  staffConfirmMinors Boolean @default(false)
+  staffConfirmMinors Boolean  @default(false)
 
   inventoryItems    InventoryItem[]
   listings          Listing[]
@@ -238,29 +238,29 @@ model Tenant {
 }
 
 model User {
-  id         String   @id @default(cuid())
-  tenantId   String
+  id             String    @id @default(cuid())
+  tenantId       String
   /// Identity lives in Clerk; this row is the mirror. Never a password.
-  clerkId    String   @unique
-  email      String
+  clerkId        String    @unique
+  email          String
   /// Authorization lives here, not in Clerk — §04.
-  roles      Role[]
-  athleteId  String?  @unique
-  sponsorId  String?
-  propertyId String?
-  guardianId String?
+  roles          Role[]
+  athleteId      String?   @unique
+  sponsorId      String?
+  propertyId     String?
+  guardianId     String?
   /// SponsorX NEXT (P9-BE-05): a STUDENT's own record — without it every
   /// student-scoped row matches nothing. A STUDENT's propertyId is their school.
-  studentId  String?  @unique
+  studentId      String?   @unique
   /// The same person's Zoho CRM user id (P8-INT-01, field-mapping O-5). Set
   /// by matching on email; a Task this user originates is owned by them in
   /// the CRM. Null means the API account owns it and nobody is notified.
-  zohoUserId String?  @unique
+  zohoUserId     String?   @unique
   /// 2S1-BE-17 — when BTG switched this login off (Reject), and why. A
   /// disabled login is refused at sign-in; Reinstate clears both.
   disabledAt     DateTime?
   disabledReason String?
-  createdAt  DateTime @default(now())
+  createdAt      DateTime  @default(now())
 
   athlete     Athlete?              @relation(fields: [athleteId], references: [id])
   acceptances AgreementAcceptance[]
@@ -321,15 +321,15 @@ model Property {
 }
 
 model Guardian {
-  id           String    @id @default(cuid())
-  tenantId     String
-  legalName    String
-  email        String
-  phone        String?
+  id               String    @id @default(cuid())
+  tenantId         String
+  legalName        String
+  email            String
+  phone            String?
   /// PARENT | LEGAL_GUARDIAN | AUTHORIZED_REP
-  relationship String
+  relationship     String
   /// §37 pre-pilot gate — a minor cannot go ACTIVE without this set.
-  verifiedAt   DateTime?
+  verifiedAt       DateTime?
   /// 2S1-BE-10 — opening the set-up link from the email confirms the address.
   emailConfirmedAt DateTime?
   /// True when the system verified this guardian (email, ID, proof, agreement
@@ -341,11 +341,11 @@ model Guardian {
   rejectNote       String?
   rejectedBy       String?
 
-  wards    Athlete[]
+  wards     Athlete[]
   documents AccountDocument[]
   /// SponsorX NEXT — reused unchanged: a minor student needs a verified
   /// guardian on the same rule as an athlete (P9-BE-04).
-  students Student[]
+  students  Student[]
 
   @@index([tenantId])
 }
@@ -405,7 +405,7 @@ model Athlete {
   /// §11 §6 — categories they will NOT promote. This one is a rule, and §26's
   /// conflict check reads it: Phase 4 asks "which athletes exclude alcohol?"
   /// and must get an answer from an index, not from someone reading notes.
-  restrictedCategories String[] @default([])
+  restrictedCategories String[]  @default([])
   /// Anything that does not reduce to a category. Deliberately separate from
   /// the list above so nobody mistakes unenforceable text for an enforceable
   /// restriction — a conflict check cannot read this and must not appear to.
@@ -435,16 +435,16 @@ model Athlete {
   /// email by link; `reviewReasons` say why it waits for BTG instead (a
   /// likely duplicate, the staff-confirmation setting); `autoApproved` is
   /// true when the system approved it.
-  emailConfirmedAt DateTime?
-  reviewReasons    String[] @default([])
-  autoApproved     Boolean  @default(false)
+  emailConfirmedAt  DateTime?
+  reviewReasons     String[]  @default([])
+  autoApproved      Boolean   @default(false)
   /// BTG's Reject after approval (New sign-ups): access withdrawn, listings
   /// ended, payouts held, the reason emailed. `rejectedVia` is ATHLETE when
   /// BTG rejected this athlete, GUARDIAN when it came with their guardian's
   /// rejection — Reinstate undoes exactly what that rejection did.
-  signupRejectedAt DateTime?
-  signupRejectNote String?
-  signupRejectedBy String?
+  signupRejectedAt  DateTime?
+  signupRejectNote  String?
+  signupRejectedBy  String?
   signupRejectedVia String?
 
   /// 2S1-BE-12 — coming of age. When a minor reaches their place's age they
@@ -479,32 +479,32 @@ model Athlete {
 
   createdAt DateTime @default(now())
 
-  guardian     Guardian?             @relation(fields: [guardianId], references: [id])
-  property     Property?             @relation(fields: [propertyId], references: [id])
-  socials      AthleteSocial[]
-  rates        AthleteRate[]
-  scores       AthleteScore[]
-  invites      CampaignInvite[]
-  orders       CampaignOrder[]
-  earnings     Earning[]
-  tokens       RewardToken[]
-  user         User?
+  guardian         Guardian?              @relation(fields: [guardianId], references: [id])
+  property         Property?              @relation(fields: [propertyId], references: [id])
+  socials          AthleteSocial[]
+  rates            AthleteRate[]
+  scores           AthleteScore[]
+  invites          CampaignInvite[]
+  orders           CampaignOrder[]
+  earnings         Earning[]
+  tokens           RewardToken[]
+  user             User?
   /// An athlete correspondent is also a Student (P9-BE-04).
-  student      Student?
+  student          Student?
   /// SponsorX NEXT (P9-BE-11) — consent recorded for this athlete as a
   /// subject, and claims made on a FEATURED profile.
-  consents     AgreementAcceptance[]
-  claims       AthleteClaim[]
-  inventory    InventoryItem[]
+  consents         AgreementAcceptance[]
+  claims           AthleteClaim[]
+  inventory        InventoryItem[]
   /// 2S3-BE-05 — listings this athlete sells without a team.
-  sellingListings Listing[] @relation("ListingSellerAthlete")
-  offers       Offer[]
-  restrictions BrandRestriction[]
+  sellingListings  Listing[]              @relation("ListingSellerAthlete")
+  offers           Offer[]
+  restrictions     BrandRestriction[]
   /// P3-BE-16 — the athlete's own post-approval edits, held for BTG review.
-  profileChanges AthleteProfileChange[]
+  profileChanges   AthleteProfileChange[]
   /// 2S1-BE-15 — requests to become this minor's guardian.
   guardianHandoffs GuardianHandoff[]
-  documents    AccountDocument[]
+  documents        AccountDocument[]
 
   @@index([tenantId, state])
   @@index([tenantId, sport, stateCode])
@@ -573,36 +573,36 @@ model AgeOfMajority {
 /// transaction with the audit rows. Socials stay direct (PUT /socials) —
 /// they are self-reported by definition and labelled as such.
 model AthleteProfileChange {
-  id        String             @id @default(cuid())
-  tenantId  String
-  athleteId String
+  id                    String             @id @default(cuid())
+  tenantId              String
+  athleteId             String
   /// The §11 sections touched, for the desk's summary line.
-  sections  String[]
+  sections              String[]
   /// { column: proposed value } — only columns that differ from the row at
   /// submission; a request with nothing to change is refused.
-  fields    Json
+  fields                Json
   /// What the athlete said to the reviewer, if anything.
-  note      String?
-  state     ProfileChangeState @default(PENDING)
+  note                  String?
+  state                 ProfileChangeState @default(PENDING)
   /// Required on DECLINED — shown back to the athlete verbatim.
-  reviewerNotes String?
-  reviewedBy    String?
-  reviewedAt    DateTime?
+  reviewerNotes         String?
+  reviewedBy            String?
+  reviewedAt            DateTime?
   /// 2S1-BE-14 — edits publish at once (state APPROVED, appliedAt set, no
   /// reviewer). `sensitive` marks a legal-name, date-of-birth or guardian
   /// edit: those re-run the sign-up checks and BTG admins are emailed.
-  sensitive     Boolean          @default(false)
-  appliedAt     DateTime?
+  sensitive             Boolean            @default(false)
+  appliedAt             DateTime?
   /// A legal-name change waits for this: the matching ID, in the private
   /// bucket (PENDING until it arrives; then applied).
-  idDocumentKey         String?  @unique
+  idDocumentKey         String?            @unique
   idDocumentFilename    String?
   idDocumentContentType String?
   idDocumentBytes       Int?
   idDocumentUploadedAt  DateTime?
   /// What the re-run checks found, in plain words ("Now a minor — a guardian is needed").
-  checkNotes    String[]         @default([])
-  createdAt     DateTime         @default(now())
+  checkNotes            String[]           @default([])
+  createdAt             DateTime           @default(now())
 
   athlete Athlete @relation(fields: [athleteId], references: [id])
 
@@ -888,28 +888,28 @@ model Campaign {
   zohoRenewalDealId String?     @unique
   updatedAt         DateTime    @default(now()) @updatedAt
 
-  sponsor       Sponsor           @relation(fields: [sponsorId], references: [id])
-  brief         CampaignBrief?    @relation(fields: [briefId], references: [id])
-  invites       CampaignInvite[]
-  orders        CampaignOrder[]
-  offers        Offer[]
-  rewards       Reward[]
-  invoices      CampaignInvoice[]
+  sponsor          Sponsor                @relation(fields: [sponsorId], references: [id])
+  brief            CampaignBrief?         @relation(fields: [briefId], references: [id])
+  invites          CampaignInvite[]
+  orders           CampaignOrder[]
+  offers           Offer[]
+  rewards          Reward[]
+  invoices         CampaignInvoice[]
   /// SponsorX NEXT — the ad positions this campaign bought (P9-BE-03).
-  adSlots       AdSlot[]
+  adSlots          AdSlot[]
   /// Edition content sponsored by this campaign — only with a commercial
   /// grant (P9-BE-10).
-  editionAssets EditionAsset[]
+  editionAssets    EditionAsset[]
   /// P9-BE-18 — its automatic ad sale, held for SALES with the reasons.
-  adSaleHold    AdSaleHold?
+  adSaleHold       AdSaleHold?
   /// P9-BE-19 — sales an edition's cancellation undid.
   cancelledAdSales CancelledAdSale[]
   /// P9-BE-19 — money owed back because an edition it bought into was cancelled.
-  refundsDue    RefundDue[]
+  refundsDue       RefundDue[]
   /// Server-rendered sponsor reports (2S7-BE-02).
-  reportFiles   ReportFile[]
+  reportFiles      ReportFile[]
   /// P4-BE-12 — athletes automatic staffing skipped, and why.
-  staffingSkips CampaignStaffingSkip[]
+  staffingSkips    CampaignStaffingSkip[]
 
   @@index([tenantId, state])
 }
@@ -1036,20 +1036,20 @@ model Deliverable {
   /// 3S0-BE-06 — the platform it went out on, read from `publishedUrl`'s host
   /// at publish (domain/deliverable-platform.ts): INSTAGRAM | TIKTOK | YOUTUBE |
   /// X | FACEBOOK | OTHER. Null until published.
-  platform      String?
+  platform     String?
 
   /// P5-BE-09 — the caption the athlete will post, as last submitted, and the
   /// creative version it was submitted with. Every submission is also on the
   /// audit log (deliverable.submitDraft), so this is the latest, not the only.
-  caption        String?
-  captionVersion Int?
+  caption            String?
+  captionVersion     Int?
   /// P5-BE-09 — the automatic checks of the latest submission:
   /// [{ key, ok, text }]. Null until the first submission after the checks
   /// existed. checksPassed=false while DRAFT_SUBMITTED means the system sent
   /// it back to the athlete and it is not in BTG's queue.
-  checks         Json?
-  checksPassed   Boolean?
-  checkedAt      DateTime?
+  checks             Json?
+  checksPassed       Boolean?
+  checkedAt          DateTime?
   /// P5-BE-09 — when the current draft reached its current reviewer: BTG (a
   /// passing submission; kept through BTG_REVIEW) or the sponsor
   /// (SPONSOR_REVIEW). Null off a review desk. The 48-hour reminder is sent
@@ -1061,7 +1061,7 @@ model Deliverable {
   /// to the sponsor (a trusted adult athlete, no sensitive category, no BTG
   /// revision on this deliverable), with the reason in words. Recomputed on
   /// every submission; kept through a later revision so BTG can see it was.
-  btgReviewSkipped Boolean @default(false)
+  btgReviewSkipped Boolean   @default(false)
   skipReason       String?
   /// P5-BE-10 — when a BTG reviewer (a person, never the system) last passed
   /// this deliverable on from BTG_REVIEW, and last asked for a revision on
@@ -1185,11 +1185,11 @@ model Reward {
   /// by a trigger on RewardEvent (insert and delete) for EVERY reward, so no
   /// write path can let it drift and a cap set later already counts what was
   /// redeemed before it; never written by application code.
-  redemptionCount Int     @default(0)
+  redemptionCount Int               @default(0)
   /// How long a CLAIM on a capped reward holds a unit for that fan (QA-09,
   /// 2026-09-28): the unit is theirs until claimedAt + this, then it is
   /// released. 5 min – 7 days, CHECK-constrained. Ignored when uncapped.
-  reserveMinutes  Int     @default(60)
+  reserveMinutes  Int               @default(60)
   /// The fan page's own words; null falls back to the page's default copy.
   /// Consent wording is deliberately NOT here — it is versioned centrally
   /// (fan-consent.ts, P6-SEC-01) so the claim records the text the fan saw.
@@ -1198,8 +1198,8 @@ model Reward {
   /// 3S0-BE-05 — where an in-person reward is handed out (its venue's city and
   /// US state), given when the reward is created. The reward's location, not
   /// the fan's. Null for an online-only reward.
-  venueCity      String?
-  venueStateCode String?
+  venueCity       String?
+  venueStateCode  String?
 
   campaign Campaign      @relation(fields: [campaignId], references: [id])
   tokens   RewardToken[]
@@ -1208,19 +1208,19 @@ model Reward {
 }
 
 model RewardToken {
-  id        String  @id @default(cuid())
-  tenantId  String
-  rewardId  String
+  id                  String    @id @default(cuid())
+  tenantId            String
+  rewardId            String
   /// Per-athlete attribution — which athlete's QR produced this journey.
-  athleteId String?
+  athleteId           String?
   /// Opaque, never the record id.
-  token     String  @unique
+  token               String    @unique
   /// R2 object in the private bucket.
-  qrKey     String?
+  qrKey               String?
   /// QA-09 — the unit this token's CLAIM reserved on a capped reward is held
   /// until this instant. Set by `reward_reserve`, cleared by the redeem that
   /// uses it; a past value is a lapsed hold (kept so the fan page can say so).
-  reservedUntil DateTime?
+  reservedUntil       DateTime?
   /// 3S0-BE-04 — how often this code was presented again after it had been
   /// used, and refused. Repeated tries are how a shared or screenshotted code
   /// shows itself. Only "already used" refusals count.
@@ -1306,24 +1306,24 @@ model RewardEvent {
 /// §26 and Addendum A6. `reference` holds a Zoho or bank reference, which is
 /// a pointer, not a credential.
 model Earning {
-  id         String       @id @default(cuid())
-  tenantId   String
-  athleteId  String
-  orderId    String       @unique
+  id                    String       @id @default(cuid())
+  tenantId              String
+  athleteId             String
+  orderId               String       @unique
   /// cents
-  gross      Int
-  adjustment Int          @default(0)
-  state      EarningState @default(PENDING)
-  taxYear    Int
-  paidAt     DateTime?
-  reference  String?
+  gross                 Int
+  adjustment            Int          @default(0)
+  state                 EarningState @default(PENDING)
+  taxYear               Int
+  paidAt                DateTime?
+  reference             String?
   /// 2S5-BE-08 — moved to APPROVED_FOR_PAYOUT by the rule as it became
   /// ELIGIBLE (false once Finance approves it by hand). `autoApprovedAt` is
   /// never cleared: the athlete's 7-day automatic total counts it.
-  approvedAutomatically Boolean   @default(false)
+  approvedAutomatically Boolean      @default(false)
   autoApprovedAt        DateTime?
   /// Why it was left ELIGIBLE for Finance, in words. Internal.
-  reviewReasons         String[]  @default([])
+  reviewReasons         String[]     @default([])
 
   order   CampaignOrder @relation(fields: [orderId], references: [id])
   athlete Athlete       @relation(fields: [athleteId], references: [id])
@@ -1373,14 +1373,14 @@ model AgreementAcceptance {
   /// who authorised on behalf of a minor subject.
   guardianId  String?
 
-  agreement Agreement      @relation(fields: [agreementId], references: [id])
-  user      User?          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  athlete   Athlete?       @relation(fields: [athleteId], references: [id], onDelete: Restrict)
-  student   Student?       @relation(fields: [studentId], references: [id], onDelete: Restrict)
-  order     CampaignOrder?
+  agreement        Agreement         @relation(fields: [agreementId], references: [id])
+  user             User?             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  athlete          Athlete?          @relation(fields: [athleteId], references: [id], onDelete: Restrict)
+  student          Student?          @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  order            CampaignOrder?
   /// 2S4-FE-02 — the sponsor's acceptance of a marketplace order's terms.
   marketplaceOrder MarketplaceOrder?
-  rights    ContentRight[]
+  rights           ContentRight[]
 
   @@index([tenantId, agreementId])
 }
@@ -1468,28 +1468,28 @@ model WebhookDelivery {
 /// Pushed one-way to Zoho Leads; qualification happens in the CRM. A sponsor
 /// enquiry, not a fan: fan-consent lead capture is Phase 2 (2S6-INT-03).
 model Inquiry {
-  id          String   @id @default(cuid())
-  tenantId    String
-  companyName String?
-  firstName   String?
-  lastName    String
-  email       String
-  phone       String?
-  message     String?
+  id                String    @id @default(cuid())
+  tenantId          String
+  companyName       String?
+  firstName         String?
+  lastName          String
+  email             String
+  phone             String?
+  message           String?
   /// "web-form" | "outbound" | "event"
-  source      String
-  zohoLeadId  String?  @unique
+  source            String
+  zohoLeadId        String?   @unique
   /// 2S1-BE-05 — BTG's review of the request: NEW | APPROVED | DECLINED.
-  state        String    @default("NEW")
+  state             String    @default("NEW")
   /// What the business called itself on the form ("Coffee shop / café") —
   /// their words; BTG picks the real categories on approval.
-  categoryText String?
-  decidedAt    DateTime?
-  decidedBy    String?
+  categoryText      String?
+  decidedAt         DateTime?
+  decidedBy         String?
   /// Why it was declined — the requester reads it.
-  decisionNote String?
+  decisionNote      String?
   /// The sponsor approving it opened (or linked to).
-  sponsorId    String?
+  sponsorId         String?
   /// 2S1-BE-17 — the business type the sponsor picked: a brand category, or
   /// OTHER with their own description in businessTypeOther.
   businessType      String?
@@ -1498,11 +1498,11 @@ model Inquiry {
   emailConfirmedAt  DateTime?
   /// Why it waits for BTG instead of being approved automatically (empty
   /// when it was, or hasn't been checked yet).
-  reviewReasons     String[] @default([])
+  reviewReasons     String[]  @default([])
   /// True when the system approved it; false when a person did.
-  autoApproved      Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now()) @updatedAt
+  autoApproved      Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now()) @updatedAt
 
   documents InquiryDocument[]
 
@@ -1631,7 +1631,7 @@ model Publication {
   name       String
   createdAt  DateTime @default(now())
 
-  property Property? @relation(fields: [propertyId], references: [id])
+  property Property?         @relation(fields: [propertyId], references: [id])
   editions Edition[]
   /// P9-BE-18 — what each position kind costs in this masthead's editions.
   rateCard EditionRateCard[]
@@ -1668,16 +1668,16 @@ model Edition {
   splitLockedBy  String?
   splitLockNote  String?
 
-  publication   Publication            @relation(fields: [publicationId], references: [id])
-  slots         AdSlot[]
-  splits        RevenueSplit[]
-  events        EditionEvent[]
-  assets        EditionAsset[]
-  contributions ContentContribution[]
-  schoolPools   SchoolPoolAllocation[]
-  saleHolds     AdSaleHold[]
+  publication    Publication            @relation(fields: [publicationId], references: [id])
+  slots          AdSlot[]
+  splits         RevenueSplit[]
+  events         EditionEvent[]
+  assets         EditionAsset[]
+  contributions  ContentContribution[]
+  schoolPools    SchoolPoolAllocation[]
+  saleHolds      AdSaleHold[]
   cancelledSales CancelledAdSale[]
-  refundsDue    RefundDue[]
+  refundsDue     RefundDue[]
 
   @@index([tenantId, state])
 }
@@ -1847,32 +1847,32 @@ enum EngagementType {
 /// athlete correspondent is both, which is why `athleteId` is here and not a
 /// nullable half of Athlete.
 model Student {
-  id            String       @id @default(cuid())
-  tenantId      String
+  id                        String       @id @default(cuid())
+  tenantId                  String
   /// The school.
-  propertyId    String
-  athleteId     String?      @unique
-  guardianId    String?
-  legalName     String
-  displayName   String
+  propertyId                String
+  athleteId                 String?      @unique
+  guardianId                String?
+  legalName                 String
+  displayName               String
   /// Optional on purpose — V3 §2: school email must not be a hard requirement.
-  email         String?
-  gradYear      Int?
+  email                     String?
+  gradYear                  Int?
   /// Minor status, on the athlete's rule: a date, or a band where no date is
   /// given (§11). The only age data the programme needs (P9-SEC-01).
-  birthDate     DateTime?
-  ageBand       String?
+  birthDate                 DateTime?
+  ageBand                   String?
   /// EDITOR | WRITER | PHOTOGRAPHER | VIDEO | DESIGNER | SALES | CORRESPONDENT
-  masthead      String[]
-  state         StudentState @default(DRAFT)
-  reviewerNotes String?
+  masthead                  String[]
+  state                     StudentState @default(DRAFT)
+  reviewerNotes             String?
   /// Graduated, transferred or withdrew. Access ends; attribution does not.
-  leftAt        DateTime?
-  createdAt     DateTime     @default(now())
+  leftAt                    DateTime?
+  createdAt                 DateTime     @default(now())
   /// P9-BE-20 — why an application waits for the advisor, in words
   /// ("Not on the school roster"). Only while UNDER_REVIEW (CHECK). Read by
   /// the advisor and BTG only — the student is told their school is reviewing.
-  reviewReasons String[]     @default([])
+  reviewReasons             String[]     @default([])
   /// P9-BE-20 — approved by the system on an exact roster match, and which
   /// roster entry it matched. Both or neither (CHECK).
   autoApprovedAt            DateTime?
@@ -1943,7 +1943,7 @@ model SalesAttribution {
   /// sale is reversed once.
   reversesId   String?  @unique
 
-  student Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  student  Student           @relation(fields: [studentId], references: [id], onDelete: Restrict)
   reverses SalesAttribution? @relation("AttributionReversal", fields: [reversesId], references: [id], onDelete: Cascade)
   reversal SalesAttribution? @relation("AttributionReversal")
 
@@ -1995,25 +1995,25 @@ model StudentPointAccrual {
 /// Acceptance Check). Rejection carries a reason code, notifies the student,
 /// and costs them no sales credit.
 model StudentProspect {
-  id                 String        @id @default(cuid())
-  tenantId           String
-  studentId          String
-  businessName       String
+  id                   String        @id @default(cuid())
+  tenantId             String
+  studentId            String
+  businessName         String
   /// A brand category (brand-categories.ts).
-  category           String
-  state              ProspectState @default(SUBMITTED)
-  reasonCode         String?
+  category             String
+  state                ProspectState @default(SUBMITTED)
+  reasonCode           String?
   /// Open categories offered when the refusal was a category exclusivity.
-  redirectCategories String[]
-  decidedAt          DateTime?
-  createdAt          DateTime      @default(now())
+  redirectCategories   String[]
+  decidedAt            DateTime?
+  createdAt            DateTime      @default(now())
   /// P9-BE-21 — decided by the system on submit (accepted clean, or refused
   /// for a category another sponsor holds). Never while SUBMITTED (CHECK).
-  decidedAutomatically Boolean     @default(false)
+  decidedAutomatically Boolean       @default(false)
   /// P9-BE-21 — why the system held it for SALES / BTG, in words. Kept after
   /// a person decides, as the record of why it reached them. Internal: never
   /// in a student's read.
-  reviewReasons      String[]      @default([])
+  reviewReasons        String[]      @default([])
 
   student Student @relation(fields: [studentId], references: [id])
 
@@ -2060,15 +2060,15 @@ model EditionAsset {
   /// transition table (deliverable-state.ts) — no state machine of its own —
   /// and stops at APPROVED: a CHECK in migration 20261003150000 keeps it to
   /// DRAFT_SUBMITTED, BTG_REVIEW, SPONSOR_REVIEW or APPROVED.
-  adSlotId       String?           @unique
-  reviewState    DeliverableState?
+  adSlotId            String?           @unique
+  reviewState         DeliverableState?
   /// Uploads so far — a new upload replaces r2Key and counts up.
-  artworkVersion Int?
+  artworkVersion      Int?
   /// When the latest file landed: what "waiting since" is measured from.
-  submittedAt    DateTime?
+  submittedAt         DateTime?
   /// An open revision request, until the next upload answers it. Only ever
   /// set in DRAFT_SUBMITTED (CHECK). The full history is the audit log.
-  revisionNote   String?
+  revisionNote        String?
   /// P9-BE-22 — the latest file as its presigned grant described it (the
   /// signed PUT enforces both), and the automatic checks run on it at upload
   /// (edition-artwork-checks.ts). checksPassed false: the system sent it
@@ -2081,7 +2081,7 @@ model EditionAsset {
   artworkCheckedAt    DateTime?
   /// P9-BE-22 — the latest upload skipped BTG's review (a trusted sponsor),
   /// and why. Recomputed on every upload.
-  btgReviewSkipped    Boolean   @default(false)
+  btgReviewSkipped    Boolean           @default(false)
   skipReason          String?
   /// P9-BE-22 — the sponsor's clean record is read from these two clocks,
   /// as P5-BE-10 reads an athlete's from the Deliverable's: when a BTG
@@ -2160,14 +2160,14 @@ model RosterEntry {
 /// first of the three assertions; the school (roster + advisor) verifies it,
 /// and a guardian authorises a minor's commercial activation.
 model AthleteClaim {
-  id            String     @id @default(cuid())
-  tenantId      String
-  athleteId     String
-  claimantName  String
-  claimantEmail String
-  birthDate     DateTime?
-  ageBand       String?
-  rosterMatched Boolean    @default(false)
+  id               String     @id @default(cuid())
+  tenantId         String
+  athleteId        String
+  claimantName     String
+  claimantEmail    String
+  birthDate        DateTime?
+  ageBand          String?
+  rosterMatched    Boolean    @default(false)
   /// 2S8-PMO-02: PENDING_EMAIL until the claimant opens the emailed link;
   /// only then SUBMITTED, which the advisor sees and may verify (CHECK
   /// AthleteClaim_confirmed_before_review, migration 20261006100100).
@@ -2410,7 +2410,7 @@ model InventoryItem {
   availableUntil       DateTime?
   /// Brand categories it suits, and the ones it will not be sold to.
   categories           String[]
-  restrictedCategories String[] @default([])
+  restrictedCategories String[]  @default([])
   /// { minQuantity?, maxQuantity?, bundleOnly? } — strict.
   packageRules         Json      @default("{}")
   active               Boolean   @default(true)
@@ -2444,49 +2444,49 @@ enum ListingState {
 /// publishing a listing are separate steps so governance sits between them
 /// (Phase 2 state machines §2).
 model Listing {
-  id              String       @id @default(cuid())
-  tenantId        String
+  id                     String       @id @default(cuid())
+  tenantId               String
   /// The verified property whose listing it is — or null when an athlete with
   /// no team sells their own item (2S3-BE-05); then sellerAthleteId is set.
   /// Exactly one of the two (marketplace_checks.sql).
-  propertyId      String?
+  propertyId             String?
   /// 2S3-BE-05 — the independent athlete selling their own item.
-  sellerAthleteId String?
-  inventoryItemId String
-  title           String
-  description     String?
+  sellerAthleteId        String?
+  inventoryItemId        String
+  title                  String
+  description            String?
   /// PUBLIC | PRIVATE (offered to invited sponsors only — 2S3-BE-04)
-  visibility      String       @default("PUBLIC")
-  state           ListingState @default(DRAFT)
+  visibility             String       @default("PUBLIC")
+  state                  ListingState @default(DRAFT)
   /// When it becomes visible once published; null means at once.
-  publishAt       DateTime?
-  submittedAt     DateTime?
-  reviewNotes     String?
-  decidedAt       DateTime?
-  decidedBy       String?
-  publishedAt     DateTime?
+  publishAt              DateTime?
+  submittedAt            DateTime?
+  reviewNotes            String?
+  decidedAt              DateTime?
+  decidedBy              String?
+  publishedAt            DateTime?
   /// 2S3-BE-06 — why the listing waits for BTG (plain words, for BTG): the
   /// restricted words matched, or the seller's standing. Empty when nothing
   /// held it. Kept after BTG decides, so the history reads true.
-  reviewReasons   String[]     @default([])
+  reviewReasons          String[]     @default([])
   /// 2S3-BE-06 — the restricted words that held it — the one reason the
   /// seller is told in full, so they can edit them out.
-  heldWords       String[]     @default([])
+  heldWords              String[]     @default([])
   /// 2S3-BE-06 — true when the checks passed and it went live on its own;
   /// false when BTG approved it (decidedBy / decidedAt) or it isn't live.
-  publishedAutomatically Boolean @default(false)
+  publishedAutomatically Boolean      @default(false)
   /// 2S3-BE-06 — BTG paused (PAUSED) or ended (ENDED) it, with the reason the
   /// seller was emailed. A BTG pause is BTG's to lift: the seller's resume
   /// sends it back to BTG instead of putting it live.
-  btgAction       String?
-  btgReason       String?
-  btgActedAt      DateTime?
-  btgActedBy      String?
-  createdBy       String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @default(now()) @updatedAt
+  btgAction              String?
+  btgReason              String?
+  btgActedAt             DateTime?
+  btgActedBy             String?
+  createdBy              String?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @default(now()) @updatedAt
 
-  tenant    Tenant        @relation(fields: [tenantId], references: [id])
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
   property      Property?     @relation(fields: [propertyId], references: [id], onDelete: Restrict)
   sellerAthlete Athlete?      @relation("ListingSellerAthlete", fields: [sellerAthleteId], references: [id], onDelete: Restrict)
   item          InventoryItem @relation(fields: [inventoryItemId], references: [id])
@@ -2543,12 +2543,12 @@ model Offer {
   /// so BTG's desk can show "Revised from …". Null for an offer drafted fresh.
   fromOfferId     String?
 
-  campaign Campaign       @relation(fields: [campaignId], references: [id])
-  athlete  Athlete        @relation(fields: [athleteId], references: [id])
-  job      NilJob         @relation(fields: [jobId], references: [id])
-  order    CampaignOrder? @relation(fields: [orderId], references: [id])
+  campaign        Campaign             @relation(fields: [campaignId], references: [id])
+  athlete         Athlete              @relation(fields: [athleteId], references: [id])
+  job             NilJob               @relation(fields: [jobId], references: [id])
+  order           CampaignOrder?       @relation(fields: [orderId], references: [id])
   /// 2S2-FE-03 — the athlete's requests for a change, oldest first.
-  changeRequests OfferChangeRequest[] @relation("OfferChangeRequests")
+  changeRequests  OfferChangeRequest[] @relation("OfferChangeRequests")
   /// 2S2-FE-03 — the requests this offer was drafted to answer (REVISED).
   answersRequests OfferChangeRequest[] @relation("OfferChangeRevisions")
   fromOffer       Offer?               @relation("OfferRevisions", fields: [fromOfferId], references: [id])
@@ -2565,14 +2565,14 @@ model Offer {
 /// replying that it stands. One row per request; the athlete's words are
 /// never edited, and BTG's answer is written once (answeredAt).
 model OfferChangeRequest {
-  id          String   @id @default(cuid())
-  tenantId    String
-  offerId     String
+  id             String    @id @default(cuid())
+  tenantId       String
+  offerId        String
   /// The user who asked — the athlete answering the offer.
-  requestedBy String
+  requestedBy    String
   /// What the athlete wants changed, in their words (≤ 2000 chars).
-  note        String
-  createdAt   DateTime @default(now())
+  note           String
+  createdAt      DateTime  @default(now())
   /// BTG's answer, once: KEPT (the offer stands, with a reply in answerNote)
   /// or REVISED (withdrawn; revisedOfferId is the new draft). Null while
   /// unanswered — answer, answeredAt and answeredBy are set together (CHECKs).
@@ -2786,39 +2786,39 @@ enum MarketplaceOrderState {
 /// the tenants that tenant operates. Its figures are fixed from APPROVED on
 /// (prisma/sql/marketplace_order_immutable.sql).
 model MarketplaceOrder {
-  id               String                @id @default(cuid())
-  tenantId         String
-  sponsorId        String
-  reservationId    String                @unique
-  state            MarketplaceOrderState @default(PENDING_APPROVAL)
-  currency         String                @default("USD")
-  subtotalCents    Int
-  feesCents        Int
-  totalCents       Int
+  id                   String                @id @default(cuid())
+  tenantId             String
+  sponsorId            String
+  reservationId        String                @unique
+  state                MarketplaceOrderState @default(PENDING_APPROVAL)
+  currency             String                @default("USD")
+  subtotalCents        Int
+  feesCents            Int
+  totalCents           Int
   /// 2S4-BE-05 — whether policy sends it to BTG, and why.
-  requiresApproval Boolean
-  approvalReasons  String[]
-  decidedAt        DateTime?
+  requiresApproval     Boolean
+  approvalReasons      String[]
+  decidedAt            DateTime?
   /// A user id, or "system" when policy approved it.
-  decidedBy        String?
-  decisionNotes    String?
-  contractedAt     DateTime?
+  decidedBy            String?
+  decisionNotes        String?
+  contractedAt         DateTime?
   /// 2S5-BE-04 — when it reached FULFILLED: the payout holding period runs from here.
-  fulfilledAt      DateTime?
-  createdBy        String?
+  fulfilledAt          DateTime?
+  createdBy            String?
   /// 2S7-INT-01 — the Deal this order is in Zoho.
-  zohoDealId       String?               @unique
+  zohoDealId           String?               @unique
   /// 2S4-FE-02 — the contract gate. The sponsor's acceptance of the tenant's
   /// MARKETPLACE_ORDER terms (who, when, which version, the hash of the text
   /// shown), written in the order's own transaction. Null only on orders
   /// placed before the gate existed; placeOrder never writes one without it.
-  acceptanceId     String?               @unique
+  acceptanceId         String?               @unique
   /// The billing contact the sponsor confirmed at checkout — a snapshot,
   /// fixed when the order is placed (marketplace_order_immutable.sql).
   /// Name, email and an optional PO / reference; never card or bank numbers.
-  billingName      String?
-  billingEmail     String?
-  billingReference String?
+  billingName          String?
+  billingEmail         String?
+  billingReference     String?
   /// 2S4-BE-09 — the sponsor's spending limit when the order was placed: the
   /// figure it was checked against (computed from their own orders —
   /// spending-limit.ts). Above it, the order waits for BTG.
@@ -2849,8 +2849,8 @@ model MarketplaceOrder {
   /// the sponsor's limit rising), PROBLEM (a delivery problem or an overdue
   /// line refunded), BTG (BTG refunded the whole order). Null before 2S4-BE-12.
   refundCause          String?
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @default(now()) @updatedAt
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @default(now()) @updatedAt
 
   reservation     Reservation               @relation(fields: [reservationId], references: [id])
   acceptance      AgreementAcceptance?      @relation(fields: [acceptanceId], references: [id], onDelete: Restrict)
@@ -2992,7 +2992,7 @@ model LedgerEntry {
 /// itself lives at the payment provider, which holds the bank and tax
 /// details; SponsorX keeps only the provider's account id and its status.
 model PayoutAccount {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   /// The payee's own tenant.
   tenantId          String
   /// ATHLETE | PROPERTY
@@ -3002,15 +3002,15 @@ model PayoutAccount {
   provider          String
   providerAccountId String?
   /// NOT_SET_UP | NEEDS_INFO | READY
-  status            String   @default("NOT_SET_UP")
+  status            String    @default("NOT_SET_UP")
   /// 2S5-BE-06 — when where the payee is paid last CHANGED: the provider's
   /// account id replaced, or the account leaving READY (and so, on its
   /// return, a re-onboarding). Null for an account set up once. Not
   /// `updatedAt`, which moves on every status sync. A payout requested within
   /// PAYOUT_ACCOUNT_CHANGE_REVIEW_DAYS of it goes to BTG.
   changedAt         DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @default(now()) @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now()) @updatedAt
 
   @@unique([payeeType, payeeId])
   @@index([tenantId])
@@ -3153,26 +3153,26 @@ model PaymentDispute {
 /// 2S5-BE-04 / 2S5-BE-05 — a payee asks to be paid its available balance; BTG
 /// approves; the provider sends it; confirmation posts the PAYOUT journals.
 model Payout {
-  id             String       @id @default(cuid())
+  id                    String    @id @default(cuid())
   /// The books the paid orders are in (the operator's tenant).
-  tenantId       String
+  tenantId              String
   /// ATHLETE | PROPERTY
-  payeeType      String
-  payeeId        String
-  payeeTenantId  String
-  amountCents    Int
+  payeeType             String
+  payeeId               String
+  payeeTenantId         String
+  amountCents           Int
   /// REQUESTED | APPROVED | SENDING | PAID | REJECTED | FAILED
-  state          String       @default("REQUESTED")
-  requestedBy    String?
-  requestedAt    DateTime     @default(now())
-  decidedBy      String?
-  decidedAt      DateTime?
-  decisionNote   String?
-  provider       String?
-  providerRef    String?
-  sentAt         DateTime?
-  paidAt         DateTime?
-  failureReason  String?
+  state                 String    @default("REQUESTED")
+  requestedBy           String?
+  requestedAt           DateTime  @default(now())
+  decidedBy             String?
+  decidedAt             DateTime?
+  decisionNote          String?
+  provider              String?
+  providerRef           String?
+  sentAt                DateTime?
+  paidAt                DateTime?
+  failureReason         String?
   /// 2S5-BE-06 — approved by the rule (under the limit, every check passed),
   /// as the system: `decidedBy` "system", `decidedAt` the moment.
   approvedAutomatically Boolean   @default(false)
@@ -3199,8 +3199,8 @@ model Payout {
   /// PAID → FAILED, its PAYOUT journals mirrored, retried like an account failure.
   returnedAt            DateTime?
   returnCount           Int       @default(0)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @default(now()) @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @default(now()) @updatedAt
 
   lines PayoutLine[]
 
@@ -3355,51 +3355,51 @@ model MarketplaceOrderInvoice {
 /// CANCELLED / REFUNDED follow the order. Only a CONFIRMED line's money can
 /// be requested (payouts.ts); a PROBLEM line's is held.
 model OrderLineDelivery {
-  id               String    @id @default(cuid())
+  id                  String    @id @default(cuid())
   /// The order's books (the operator's tenant).
-  tenantId         String
-  orderId          String
-  lineId           String    @unique
-  sponsorId        String
+  tenantId            String
+  orderId             String
+  lineId              String    @unique
+  sponsorId           String
   /// The team that sells it, and its tenant.
-  propertyId       String?
-  propertyTenantId String?
+  propertyId          String?
+  propertyTenantId    String?
   /// The athlete whose item it is (independent seller or roster athlete), and their tenant.
-  athleteId        String?
-  athleteTenantId  String?
+  athleteId           String?
+  athleteTenantId     String?
   /// UNPAID | IN_DELIVERY | DELIVERED | CONFIRMED | PROBLEM | REFUNDED | CANCELLED
-  state            String    @default("UNPAID")
-  paidAt           DateTime?
-  deliveredAt      DateTime?
-  deliveredBy      String?
-  deliveredByName  String?
-  note             String?
+  state               String    @default("UNPAID")
+  paidAt              DateTime?
+  deliveredAt         DateTime?
+  deliveredBy         String?
+  deliveredByName     String?
+  note                String?
   /// The optional photo, in the private bucket; or a link.
-  proofKey         String?
-  proofLink        String?
+  proofKey            String?
+  proofLink           String?
   /// deliveredAt + 24 hours: the sponsor's window to confirm or report a problem.
-  confirmDueAt     DateTime?
-  confirmedAt      DateTime?
-  confirmedBy      String?
+  confirmDueAt        DateTime?
+  confirmedAt         DateTime?
+  confirmedBy         String?
   /// SPONSOR | SILENCE | BTG
-  confirmedHow     String?
-  problemAt        DateTime?
-  problemBy        String?
-  problemNote      String?
-  resolvedAt       DateTime?
-  resolvedBy       String?
+  confirmedHow        String?
+  problemAt           DateTime?
+  problemBy           String?
+  problemNote         String?
+  resolvedAt          DateTime?
+  resolvedBy          String?
   /// CONFIRMED | REFUNDED
-  resolution       String?
-  resolutionNote   String?
+  resolution          String?
+  resolutionNote      String?
   /// 2S4-BE-08 — the first overdue reminder (a day after the last date), once sent.
-  remindedAt       DateTime?
+  remindedAt          DateTime?
   /// 2S4-BE-11 — the second reminder, 3 days after the last date.
-  secondRemindedAt DateTime?
+  secondRemindedAt    DateTime?
   /// 2S4-BE-11 — handed to BTG 7 days after the last date with nothing marked.
-  overdueEscalatedAt DateTime?
+  overdueEscalatedAt  DateTime?
   /// 2S4-BE-11 — the date the seller agreed to deliver again on (the sponsor
   /// accepted). Replaces the line's own last date for reminders and overdue.
-  redeliverOn      DateTime?
+  redeliverOn         DateTime?
   /// 2S4-BE-12 — a paid line cancelled before it was delivered (the line is
   /// then REFUNDED): when, by whom — SPONSOR (free, before the cut-off),
   /// SELLER (couldn't deliver), AGREED (the sponsor asked, the seller
@@ -3412,8 +3412,8 @@ model OrderLineDelivery {
   cancelledSellerType String?
   cancelledSellerId   String?
   cancelNote          String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @default(now()) @updatedAt
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
 
   line   MarketplaceOrderLine @relation(fields: [lineId], references: [id])
   issues DeliveryIssue[]
@@ -3587,38 +3587,38 @@ model TeamInvitation {
 /// one can only ask BTG, recorded in the reactivation* columns. At most one
 /// CLOSED row per subject (a partial unique index in the migration).
 model AccountClosure {
-  id          String   @id @default(cuid())
-  tenantId    String
+  id                       String    @id @default(cuid())
+  tenantId                 String
   /// ATHLETE | GUARDIAN | PROPERTY | SPONSOR — or, for a Reject before
   /// approval, the application itself: ONBOARDING (a PropertyOnboarding with
   /// no Property yet) | INQUIRY (a sponsor request declined before an account)
-  subjectKind String
-  subjectId   String
+  subjectKind              String
+  subjectId                String
   /// SELF | REJECTED | TERMINATED
-  cause       String
+  cause                    String
   /// CLOSED | REACTIVATED | PURGED
-  state       String   @default("CLOSED")
+  state                    String    @default("CLOSED")
   /// Why: the owner's own words, or BTG's reason.
-  reason      String?
-  closedAt    DateTime @default(now())
+  reason                   String?
+  closedAt                 DateTime  @default(now())
   /// The user who closed it; null when the system did.
-  closedBy    String?
-  retainUntil DateTime
+  closedBy                 String?
+  retainUntil              DateTime
   /// The logins this closure switched off (User ids). Reactivation switches
   /// on exactly these and no others.
-  userIds                String[] @default([])
+  userIds                  String[]  @default([])
   /// The listings it paused, brought back on reactivation if still paused.
-  pausedListingIds       String[] @default([])
+  pausedListingIds         String[]  @default([])
   /// It withdrew the property's listing access (PROPERTY only).
-  listingAccessWithdrawn Boolean  @default(false)
+  listingAccessWithdrawn   Boolean   @default(false)
   /// Where the reactivation link goes, and who the page greets.
-  contactEmail String
-  displayName  String
-  reactivatedAt DateTime?
-  reactivatedBy String?
+  contactEmail             String
+  displayName              String
+  reactivatedAt            DateTime?
+  reactivatedBy            String?
   /// What the re-run checks found on reactivation.
-  recheckNotes  String[] @default([])
-  purgedAt      DateTime?
+  recheckNotes             String[]  @default([])
+  purgedAt                 DateTime?
   /// A rejected account asking BTG to look again.
   reactivationRequestedAt  DateTime?
   reactivationRequestNote  String?
@@ -3628,7 +3628,7 @@ model AccountClosure {
   reactivationDecidedAt    DateTime?
   reactivationDecidedBy    String?
   reactivationDecisionNote String?
-  createdAt DateTime @default(now())
+  createdAt                DateTime  @default(now())
 
   @@index([tenantId, state, retainUntil])
   @@index([tenantId, subjectKind, subjectId])
@@ -3640,21 +3640,21 @@ model AccountClosure {
 /// until it the current guardian keeps acting. A declined or disputed
 /// request goes to BTG support by hand: nothing here decides it.
 model GuardianHandoff {
-  id             String    @id @default(cuid())
-  tenantId       String
-  athleteId      String
+  id                  String    @id @default(cuid())
+  tenantId            String
+  athleteId           String
   /// The guardian when the request was made: the only one who can answer.
-  fromGuardianId String
-  requesterName  String
-  requesterEmail String
-  requesterPhone String?
+  fromGuardianId      String
+  requesterName       String
+  requesterEmail      String
+  requesterPhone      String?
   /// PARENT | LEGAL_GUARDIAN | AUTHORIZED_REP
-  relationship   String
+  relationship        String
   /// REQUESTED (being filled in) | WAITING (with the current guardian) |
   /// HANDED_OFF (handed off; "BTG staff confirm minors" is on, so BTG
   /// confirms the switch) | SWITCHED | DECLINED | CANCELLED (the guardian
   /// changed another way first)
-  state          String    @default("REQUESTED")
+  state               String    @default("REQUESTED")
   emailConfirmedAt    DateTime?
   agreementAcceptedAt DateTime?
   agreementVersion    String?
@@ -3667,8 +3667,8 @@ model GuardianHandoff {
   switchedAt          DateTime?
   /// The Guardian row the athlete moved to (new, or the requester's existing one).
   newGuardianId       String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
 
   athlete   Athlete                   @relation(fields: [athleteId], references: [id])
   documents GuardianHandoffDocument[]
@@ -3824,4 +3824,30 @@ model CampaignDaySummary {
 
   @@unique([tenantId, campaignId, athleteId, channel, inventoryKey, marketKey, day])
   @@index([tenantId, day])
+}
+
+/// 3S1-QA-01 — one row per night the fact check ran (documentation/SponsorX-Fact-Ledger.md §9).
+/// Platform-wide, not tenant-owned: the check covers every tenant, and each tenant's differences are
+/// inside `differences`, filtered by tenant wherever they are read. Remembering last night's result is
+/// what lets BTG be emailed once when a tenant's figures stop matching, and once when they match again.
+model FactCheckRun {
+  id              String    @id @default(cuid())
+  /// The UTC day the check is for — one run per day, however many workers or restarts.
+  day             DateTime  @unique @db.Date
+  startedAt       DateTime  @default(now())
+  finishedAt      DateTime?
+  /// The summaries equal the sum of the facts. Null until finished, or when the check itself could not run.
+  summariesOk     Boolean?
+  /// The facts agree with the app's own records. Null as above.
+  appOk           Boolean?
+  differenceCount Int       @default(0)
+  /// Tenants with any difference.
+  failingTenants  String[]  @default([])
+  /// The differences, at most 500: { tenantId, campaignId, measure, app, facts, check }.
+  differences     Json?
+  /// The check could not run (a database error, a timeout) — logged; never emailed as a mismatch.
+  error           String?
+  durationMs      Int?
+
+  @@index([finishedAt])
 }
