@@ -293,3 +293,9 @@
   `integration-health.test.ts` covers the never-run state; `FactCheckRun` is registered in `authz.coverage`.
 - **Verified:** tsc and eslint clean; no drift; **full suite 204 files / 3,219 tests, green twice**.
 - **To do after merge and deploy:** set `FACT_CHECK_EMAILS=on` in staging and production on Railway (both histories are filled). Production needs the owner's OK.
+
+## rcfworks — close of day
+
+- #202 (3S1-QA-01) merged. Sync PR **#203** (`main_development` → `main`) is open and merges cleanly.
+- `FACT_CHECK_EMAILS=on` was set on the `api` service in **staging and production** (the user's OK), with `--skip-deploys`. It takes effect with the deploy that brings #203. If #203 is merged before the 12:00 UTC nightly CI, the nightly deploy carries both, and the first nightly fact check runs at 19:00 UTC today.
+- Tomorrow: confirm the deploy and the first nightly run (worker log `fact check 2026-10-13: …`), then 3S1-OPS-03 (only the app writes) and 3S1-OPS-02 (retire the warehouse).
