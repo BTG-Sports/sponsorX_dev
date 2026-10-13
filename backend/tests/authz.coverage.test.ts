@@ -156,6 +156,10 @@ const SYSTEM_INTERNAL: Record<string, string> = {
   EmailSendLog: "the worker's idempotency ledger for sent email",
   ListingDigest: "the worker's record of the daily auto-published listings summary sent to each BTG tenant (2S3-BE-06) — no route reads it",
   OrderApprovalDigest: "the worker's record of the daily summary of orders approved automatically, sent to each BTG tenant (2S4-BE-09) — no route reads it",
+  /* 3S1-BE-01 — written only inside domain transactions (src/domain/facts.ts). No route reads them yet: the
+     intelligence reads (3S7-BE-02) will, scoped to the caller's sponsor or property, and add matrix rows then. */
+  Fact: "the fact ledger — written in the same transaction as each money or delivery action; no route reads it yet (3S7-BE-02 will)",
+  CampaignDaySummary: "the daily summaries kept in step with the fact ledger; no route reads them yet (3S7-BE-02 will)",
 };
 
 describe("P8-SEC-01 · every model is governed by the matrix", () => {

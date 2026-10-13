@@ -97,6 +97,8 @@ describe.skipIf(!hasDatabase)("P9-BE-17/18/19 · editions that run themselves, o
   const splitLock = await import("../src/domain/edition-split-lock");
   const rateCard = await import("../src/domain/edition-rate-card");
   const refunds = await import("../src/domain/refunds");
+  const { checkFactSummaries } = await import("../src/domain/facts");
+  const { checkFactsAgainstApp } = await import("../src/domain/fact-check");
   const { listEditions } = await import("../src/routes/v1/editions");
   const { ingestZohoInvoice } = await import("../src/domain/invoice");
 
@@ -496,6 +498,18 @@ describe.skipIf(!hasDatabase)("P9-BE-17/18/19 · editions that run themselves, o
       expect(states).toEqual({ [paidAdOnly]: "CANCELLED", [unpaidAdOnly]: "CANCELLED", [twoEditions]: "DRAFT" });
       expect(await soldTo(twoEditions)).toEqual([{ slotCode: "P02-FULL", editionId: other.id, soldCents: 80_000 }]);
 
+      /* 3S1-BE-02 — each sale was a fact; the cancellation reversed this edition's three and left the other edition's sale counting. */
+      const soldCents = async (campaignId: string) => Number((await prisma.$queryRawUnsafe<Array<{ n: string | null }>>(
+        `SELECT sum("adSlotSoldCents")::text AS n FROM "CampaignDaySummary" WHERE "tenantId" = $1 AND "campaignId" = $2`, T, campaignId))[0]?.n ?? 0);
+      expect([await soldCents(paidAdOnly), await soldCents(unpaidAdOnly), await soldCents(twoEditions)]).toEqual([0, 0, 80_000]);
+      const ours = { tenantId: T, campaignId: { in: [paidAdOnly, unpaidAdOnly, twoEditions] } };
+      expect(await prisma.fact.count({ where: { ...ours, kind: "AD_SLOT_SOLD" } })).toBe(4);
+      expect(await prisma.fact.count({ where: { ...ours, kind: "REVERSAL" } })).toBe(3);
+      /* 3S1-QA-03 — the check agrees for these campaigns' ad-slot sales. Only this test's campaigns and the slot measure:
+         this test writes invoices straight to the database, and the split-lock test above edits a slot's price directly. */
+      const sold = new Set([paidAdOnly, unpaidAdOnly, twoEditions]);
+      expect((await checkFactsAgainstApp(prisma, { tenantId: T })).differences.filter((d) => d.measure === "ad_slot_sold_cents" && sold.has(d.campaignId!))).toEqual([]);
+
       const rows = await prisma.refundDue.findMany({
         where: { tenantId: T, editionId: e.id }, select: { campaignId: true, amountCents: true, cause: true, paidVia: true, orderId: true, state: true },
         orderBy: { amountCents: "asc" },
@@ -528,6 +542,9 @@ describe.skipIf(!hasDatabase)("P9-BE-17/18/19 · editions that run themselves, o
       expect(mine[0]).toMatchObject({ orderId: null, orderRef: null, wholeOrder: false, zohoNote: refunds.ZOHO_NOTE, edition: { label: "NXA Cancel" }, causeWords: expect.stringMatching(/cancelled the edition/) });
       const sent = await refunds.markRefundSent(finance as never, mine[0]!.id, { method: "BANK_TRANSFER", reference: "NXA-CN-1", sentOn: new Date().toISOString().slice(0, 10) });
       expect(sent.state).toBe("SENT");
+      /* An edition refund is not marketplace money: no refund fact (3S1-BE-02). The ledger still balances. */
+      expect(await prisma.fact.count({ where: { tenantId: T, kind: "MARKETPLACE_REFUND" } })).toBe(0);
+      expect(await checkFactSummaries(prisma, { tenantId: T })).toEqual({ ok: true, differences: [] });
     });
 
     it("a Zoho payment after the cancellation becomes one refund row; a redelivered webhook adds none", async () => {

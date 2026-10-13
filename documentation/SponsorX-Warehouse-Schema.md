@@ -2,6 +2,14 @@
 
 **Task `3S0-DATA-02` · Version 1.1 · 2026-10-12 · Phase 3, Sprint 0 · Accepted 2026-10-12**
 
+> **SUPERSEDED 2026-10-13 (user review).** This design is being replaced by a fact ledger the app writes in the same transaction as each action (`3S1-BE-01`…; `3S1-OPS-02` retires the warehouse). The warehouse worked out business meaning a second time from copied tables, which left four ways its numbers could silently go wrong:
+> 1. app changes the warehouse's rules did not know about;
+> 2. bugs in those separate rules;
+> 3. a copy job that can fail;
+> 4. edits made outside the app.
+>
+> What carries over: the list of facts, the channel and market rules, and the metric definitions (§4–§6). This document stays as the record of what was built and why it was replaced.
+
 > **v1.2 (2026-10-13, `3S1-DATA-02` as built):** the model is built by `backend/worker/warehouse/` — tables in `migrations/0002_model.sql`, rows by `transforms/*.sql` after every hourly copy, checked by `reconcile.mts`. Refinements made while building, none changing what was signed:
 > - **Market joins the fact's key** (§5). Reward rows that share every other key can come from codes with different venues.
 > - **Order-level money lands on the `CAMPAIGN` channel** (§4, §5) with the order's athlete and job, because one order can cover several channels.

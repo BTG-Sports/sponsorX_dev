@@ -41,6 +41,7 @@ import { rightsGap } from "./content-rights";
 import { artworkGap } from "./edition-artwork";
 import { describeBlocker } from "./edition-artwork-rules";
 import { resolveSchoolPools } from "./dmv-pools";
+import { factAdSlotReleased, factAdSlotSold } from "./fact-writers";
 
 export type AdSlotKind = "QUARTER" | "HALF" | "FULL" | "BACK_COVER" | "PRESENTING";
 export type EngagementType = "QR_SCAN" | "LINK_CLICK" | "PROFILE_VIEW" | "CAMPAIGN_VIEW" | "CTA_CLICK";
@@ -374,7 +375,7 @@ async function cancelEditionIn(
   const out: EditionCancellation = { released: [], campaignsCancelled: [], campaignsLeft: [], refunds: [] };
   const sold = await tx.adSlot.findMany({
     where: { tenantId, editionId: edition.id, campaignId: { not: null } },
-    select: { slotCode: true, campaignId: true, soldCents: true },
+    select: { id: true, slotCode: true, campaignId: true, soldCents: true },
     orderBy: [{ campaignId: "asc" }, { slotCode: "asc" }],
   });
   const byCampaign = new Map<string, typeof sold>();
@@ -400,6 +401,8 @@ async function cancelEditionIn(
     const refund = await recordEditionRefund(tx, by, { tenantId, editionId: edition.id, campaignId, sponsorId: campaign.sponsorId, soldCents });
     if (refund) out.refunds.push({ campaignId, refundId: refund.id, amountCents: refund.amountCents });
 
+    /* 3S1-BE-02 — each sale reversed as a fact, before the sale is cleared (the writer reads it). */
+    for (const s of slots) await factAdSlotReleased(tx, tenantId, s.id, now);
     const released = await tx.adSlot.updateMany({
       where: { tenantId, editionId: edition.id, campaignId },
       data: { campaignId: null, soldCents: null, soldAt: null },
@@ -733,6 +736,8 @@ export async function sellIn(
       data: { campaignId, soldCents: values[i]!, soldAt: now },
     });
     if (won.count !== 1) throw new SlotConflictError(`${slot.slotCode} was sold a moment ago.`);
+    /* 3S1-BE-02 — the sale, as a fact. */
+    await factAdSlotSold(tx, slot.id);
   }
   await audit(tx, by, "adSlot.sell", "Campaign", campaignId, {
     after: {

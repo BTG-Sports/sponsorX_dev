@@ -51,6 +51,7 @@ import { maybeMakeEligible } from "./earning";
 import { advanceCampaignOfOrder } from "./campaign-stages";
 import { decideSkip, isBtgReviewer, lockAthleteContent, SKIP_ATHLETE_SELECT } from "./content-trust";
 import { platformOf } from "./deliverable-platform";
+import { factDeliverablePublished, factDeliverableVerified, factRevisionRequested } from "./fact-writers";
 
 export class PublishedUrlRequiredError extends Error {
   readonly status = 400;
@@ -332,6 +333,12 @@ async function move(
       after: { state: to, ...opts.after },
     });
 
+    /* 3S1-BE-02 — the delivery facts, in this transaction. */
+    const at = new Date();
+    if (to === "PUBLISHED") await factDeliverablePublished(tx, deliverableId, at);
+    else if (to === "VERIFIED") await factDeliverableVerified(tx, deliverableId, at);
+    else if (opts.auditAction === AUDIT_ACTIONS.deliverable.requestRevision) await factRevisionRequested(tx, deliverableId, at);
+
     /* P5-INT-01 — queued inside the transaction, for the same reason the
        outbox exists at all: the message and the fact it announces must
        commit together or not at all.
@@ -562,6 +569,8 @@ export async function submitDraft(
         before: { state: "DRAFT_SUBMITTED" },
         after: { state: "DRAFT_SUBMITTED", reasons },
       });
+      /* 3S1-BE-02 — sent back by the automatic checks: a revision, as a fact. */
+      await factRevisionRequested(tx, found.id, now);
       /* As move()'s notifications: skipped where the athlete has no linked
          login yet. Their page shows the same reasons either way. */
       const email = found.order.athlete.user?.email;
