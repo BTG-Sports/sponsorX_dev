@@ -79,3 +79,26 @@
 - **Deploy (user's OK):** `main` CI green → "Daily deploy" started by hand → `release` 91ca9e8. Staging and production deployed it.
 - **Live:** run 16 in both environments applied migrations `0002_model` and `0003_run_checks` and built the model (staging 112 ms, production 129 ms). **The hourly double-check was clean in both, with zero differences.** Staging has no campaigns yet, so the campaign checks have nothing to compare; the marketplace, ledger and payment checks matched on real data. Railway's log view cut the run line short, so the run record (`raw._ingest_run`) is the source.
 - **Tracker and plan:** 3S1-DATA-02 Done. **3S1-DATA-03, 3S1-QA-01 and 3S2-BE-01 are now Ready.**
+
+## rcfworks — direction change: facts recorded by the app replace the warehouse (user decision)
+
+- **What happened.** Planning 3S1-QA-01 (drift alerts), the user asked why the warehouse could drift at all. My answer listed four causes:
+  - app changes the warehouse's rules don't know;
+  - bugs in the separate rules;
+  - a copy job that can fail;
+  - edits made outside the app.
+
+  The user's verdict: the warehouse is "below par", and alerts don't remove causes. They asked for an approach that does, compared in percentages. They also noted, fairly, that these risks should have been explained when the warehouse was proposed.
+- **Decision (user): the new approach.**
+  - A fact ledger written by the app in the same transaction as each action, with daily summaries updated in that transaction.
+  - Corrections are new rows; tests make missed facts fail CI; only the app's login writes; the warehouse is retired.
+  - The figures presented: delay 60 min → 0; known silent failure modes 4 → 0; copies of the rules 2 → 1; separate pieces 12 → 0; about $7 → $0 a month; about 45–55% less code (estimate). Cost: about 6–8 days.
+- **Notification for the redefined 3S1-QA-01 (user):** email BTG admins plus the admin screen, no Slack.
+- **Tracker (Phase 3):**
+  - Row 55 (3S1-DATA-04, never started) reused as **3S1-BE-01 Fact ledger and daily summaries (Ready)**.
+  - New rows 57–61: **3S1-BE-02** (record facts in every action), **3S1-QA-02** (nothing-slips-through tests), **3S1-DATA-05** (fill history), **3S1-OPS-02** (retire the warehouse), **3S1-OPS-03** (only the app writes, Ready).
+  - 3S1-QA-01, 3S1-DATA-03, 3S2-BE-01 and **HeckerCreatives' 3S7-BE-02** (raised today for the intelligence hubs) are re-pointed to the summaries and depend on 3S1-DATA-05. The screen contracts are unchanged.
+  - 3S0-DATA-02, 3S0-OPS-01, 3S1-DATA-01 and 3S1-DATA-02 stay Done, marked SUPERSEDED.
+  - Ranges and 15 Dashboard formulas extended to row 61. Phase 3 is now 58 tasks · 204 days.
+- **Docs:** the Phase 3 plan has the new tasks and a change note; the warehouse design is marked superseded (what carries over is noted); stack-decision **Addendum D** supersedes C.
+- **The warehouse keeps running harmlessly** in staging and production until 3S1-OPS-02.

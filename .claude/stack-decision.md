@@ -513,3 +513,49 @@ Railway's usage prices (Railway pricing docs, checked 2026-10-12): RAM $10/GB-mo
 - the warehouse passes **about 50 GB**, or a nightly transform takes **more than 15 minutes**: consider a columnar engine, which BigQuery would be;
 - **more than about 15 transform models**, or an analyst or BI tool joins: consider dbt over the same SQL;
 - a dashboard's query noticeably loads the warehouse during ingestion: give the warehouse its own replica or a larger plan.
+
+---
+
+# Addendum D — Facts recorded by the app, not re-derived by a warehouse
+
+**Date:** 2026-10-13
+**Status:** Decided by the user. **Supersedes Addendum C** (the separate analytics warehouse).
+
+## D1. Why C was replaced
+
+Addendum C's warehouse copied the app's tables every hour and worked out the business meaning again in its own SQL. That left four ways for its numbers to go wrong without anyone noticing:
+1. the app changes (a new status or payment type) and the warehouse's rules don't;
+2. a bug in the warehouse's separate rules (two were found in testing on 2026-10-13);
+3. the copy job fails;
+4. edits made directly in the database.
+
+Running more often and alerting on drift only shorten the damage. They do not remove the cause. That was the user's point, and it was right; the risks should have been raised when C was proposed.
+
+## D2. What replaces it
+
+- **A fact ledger in the app database.** The same transaction that books, cancels, pays or delivers also writes one fact row, with values from the app's own code. Either both are saved or neither is. The meaning is defined once.
+- **Daily summaries are updated in that same transaction.** Figures are instant and can never disagree with the change; they can always be rebuilt from the facts.
+- **Corrections are new rows, never edits** (like `LedgerEntry`).
+- **Tests fail the build** if an action that changes money or delivery stops writing its fact, or a new state or payment type is not classified.
+- **Only the app's login writes to the live database;** corrections go through admin actions that record their facts.
+- **Analysis reads the small summary rows in the app database.** If load ever matters, Postgres's own replica is an exact copy with no rules of its own, so it cannot drift.
+
+## D3. Compared with C (as presented to the user, 2026-10-13)
+
+| | C, the warehouse | D, facts in the app |
+|---|---|---|
+| Delay | up to 60 min | 0 |
+| Known silent failure modes | 4 | 0 |
+| Copies of the business rules | 2 | 1 |
+| Separate pieces to run | 12 | 0 |
+| Monthly cost | ≈ $7 | ≈ $0 |
+| Code | 1,393 lines + 679 test lines | ≈ 600–800 + ≈ 400 (estimate) |
+
+**Costs of D:**
+- about 6–8 days of work;
+- one or two extra small rows written per money or delivery action;
+- analysis reads hit the app database (summary rows only).
+
+## D4. What happens to C
+
+`Postgres-warehouse` and `Postgres-warehouse-production`, the reader logins, the hourly copy and `backend/worker/warehouse/` keep running harmlessly until `3S1-OPS-02` retires them, after the facts and history are live. The rule in C3a stands in a stronger form: live decisions read the app, and so does analysis now.
