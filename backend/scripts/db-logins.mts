@@ -1,6 +1,6 @@
 /**
  * Create or update the live database's two logins — 3S1-OPS-03.
- * The app's (`sponsorx_app`, owner of everything) and people's
+ * The app's (`sponsorx_app`, owner of everything) and developers'
  * (`sponsorx_readonly`, look only). See src/db/logins.ts.
  *
  * Run as the master login, inside the api service, with the two passwords

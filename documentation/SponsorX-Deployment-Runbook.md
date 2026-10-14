@@ -190,7 +190,7 @@ no edit can bypass the fact ledger (`SponsorX-Fact-Ledger.md` §10).
 | Login | Who | Can do |
 |---|---|---|
 | `sponsorx_app` | The `api` service (the API, the worker and the deploy step's `prisma migrate deploy`); the staging `tester` service | Owns the database and every table: reads, writes, and applies new tables at deploy |
-| `sponsorx_readonly` | People | Reads every table. Postgres refuses it any write and any new table, even with read-only switched off |
+| `sponsorx_readonly` | Developers (only Railway project members can reach the database) | Reads every table. Postgres refuses it any write and any new table, even with read-only switched off |
 | `postgres` | Nobody, day to day | Railway's master login. **Break-glass only** — see below |
 
 **Looking at data.** From inside the `api` service, through the read-only

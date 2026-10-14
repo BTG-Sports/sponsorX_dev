@@ -16,7 +16,7 @@ import { applyLogins, checkLogins, loginsOk, loginUrl } from "../src/db/logins";
    Then the two logins are applied, and each is tried for real.
 
    Done when: only the app's login can write; a read-only login exists for
-   people. The app's login still deploys (applies new tables) and runs the
+   developers. The app's login still deploys (applies new tables) and runs the
    job queue.
    -------------------------------------------------------------------------- */
 
@@ -25,7 +25,7 @@ process.env.CLERK_PUBLISHABLE_KEY ??= "pk_test_x";
 const seededDb = await import("./support/seeded-db");
 const hasDatabase = await seededDb.databaseAvailable();
 
-describe.skipIf(!hasDatabase)("3S1-OPS-03 · the app's login and people's read-only login", { timeout: 180_000 }, () => {
+describe.skipIf(!hasDatabase)("3S1-OPS-03 · the app's login and developers' read-only login", { timeout: 180_000 }, () => {
   const tag = Math.random().toString(36).slice(2, 8);
   const logins = { app: `t_ol_app_${tag}`, readonly: `t_ol_ro_${tag}` };
   const passwords = { app: `app_${tag}_${"x".repeat(24)}`, readonly: `ro_${tag}_${"y".repeat(24)}` };
@@ -73,7 +73,7 @@ describe.skipIf(!hasDatabase)("3S1-OPS-03 · the app's login and people's read-o
     expect(loginsOk(check)).toBe(true);
   });
 
-  it("people's login reads every table, and every write is refused — even with read-only switched off", async () => {
+  it("developers' login reads every table, and every write is refused — even with read-only switched off", async () => {
     await as(roUrl, async (db) => {
       expect((await db.query(`SELECT count(*)::int AS n FROM "Fact"`)).rows[0].n).toBe(0);
       expect((await db.query(`SELECT count(*)::int AS n FROM pgboss.job`)).rows[0].n).toBe(0);
@@ -110,7 +110,7 @@ describe.skipIf(!hasDatabase)("3S1-OPS-03 · the app's login and people's read-o
     });
   });
 
-  it("a table the app adds later can be read by people, and not written", async () => {
+  it("a table the app adds later can be read by developers, and not written", async () => {
     await as(appUrl, (db) => db.query(`CREATE TABLE public."LoginsLater" (id int); INSERT INTO public."LoginsLater" VALUES (1)`));
     await as(roUrl, async (db) => {
       expect((await db.query(`SELECT id FROM "LoginsLater"`)).rows).toEqual([{ id: 1 }]);

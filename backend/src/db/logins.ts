@@ -3,7 +3,7 @@
  *
  * Only the app writes. The app gets its own login, `sponsorx_app`: it owns
  * the database and everything in it, so it reads and writes rows and its
- * deploy step applies new tables (`prisma migrate deploy`). People get
+ * deploy step applies new tables (`prisma migrate deploy`). Developers get
  * `sponsorx_readonly`: it may look at every table, and Postgres refuses it
  * any write. Corrections are made through the admin actions, which record
  * their facts, so no edit can bypass the ledger. The master login Railway
@@ -90,7 +90,7 @@ export async function applyLogins(admin: pg.Pool, passwords: LoginPasswords, log
     const handOver = await ownershipStatements(db, logins.app);
     for (const statement of handOver) await db.query(statement);
 
-    /* People: connect and look, in every schema, including tables the app adds later. No write is granted. */
+    /* Developers: connect and look, in every schema, including tables the app adds later. No write is granted. */
     const schemas = (await db.query<{ nspname: string }>(USER_SCHEMAS)).rows.map((r) => r.nspname);
     await db.query(`DO $$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), ${db.escapeLiteral(logins.readonly)}); END $$`);
     for (const s of schemas.map(ident)) {

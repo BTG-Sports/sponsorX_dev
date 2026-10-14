@@ -1,5 +1,5 @@
 /**
- * Look at the live database as a person — 3S1-OPS-03. Uses the read-only
+ * Look at the live database as a developer — 3S1-OPS-03. Uses the read-only
  * login (READONLY_DATABASE_URL), never the app's, inside a READ ONLY
  * transaction that is rolled back:
  *

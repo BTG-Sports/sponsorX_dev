@@ -30,14 +30,14 @@ Neither database has a public address: staging's Postgres has no TCP proxy and n
   - takes the passwords as JSON on stdin, never in argv;
   - runs as the master login and refuses to run otherwise;
   - prints only counts and checks, and exits 1 if a check fails.
-- `npm run db:read -- 'SQL'`: people's queries, run through `READONLY_DATABASE_URL` in a READ ONLY transaction that is rolled back.
+- `npm run db:read -- 'SQL'`: developers' queries, run through `READONLY_DATABASE_URL` in a READ ONLY transaction that is rolled back.
 - `backend/tests/db-logins.test.ts` (8 tests) uses a scratch database built by every migration plus pg-boss' schema, as the master login, like staging and production. It shows that:
   - the check passes;
   - the read-only login is refused INSERT, UPDATE and DELETE (including on `pgboss.job`), `DISABLE TRIGGER` on Fact, and CREATE TABLE, even with read-only switched off;
   - `prisma migrate deploy` runs as the app;
   - pg-boss starts, sends and fetches as the app;
   - the app can read `pg_stat_archiver` (system health);
-  - a table the app adds later is readable by people and not writable;
+  - a table the app adds later is readable by developers and not writable;
   - a re-run hands over an object the master login made;
   - only the master login can apply it.
 - **Docs:**

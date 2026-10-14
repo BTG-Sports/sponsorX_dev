@@ -231,7 +231,7 @@ the app's records behind its back. The database enforces it with two logins:
 - **`sponsorx_app`** is the app's. It owns the database and every table, so
   the app reads and writes, and its deploy step applies new tables. It is no
   superuser.
-- **`sponsorx_readonly`** is people's. It reads every table, including ones
+- **`sponsorx_readonly`** is developers'. Only members of the Railway project (the developers) can reach it. It reads every table, including ones
   added later, and Postgres refuses it any write, even with read-only
   switched off.
 
@@ -239,10 +239,10 @@ A wrong figure is corrected through the admin action that owns it, which
 records its fact. Railway's master login is break-glass only.
 
 - **Code:** `backend/src/db/logins.ts`, `npm run db:logins` (applies and
-  checks) and `npm run db:read` (people's queries).
+  checks) and `npm run db:read` (developers' queries).
 - **Proof:** `backend/tests/db-logins.test.ts`, on a database built by every
   migration plus pg-boss' schema, as staging and production were. The app's
-  login still deploys and runs the job queue; people's login is refused every
+  login still deploys and runs the job queue; developers' login is refused every
   write.
 - **Steps per environment:** Deployment Runbook §6.
 
