@@ -2,7 +2,7 @@
    The Arena — the athlete portal's stage (P1-ART-22, 2026-10-11).
 
    The admin desks sit on the fixed-dark Mission Control HUD (ops-stage.tsx).
-   The athlete's pages sit on the Arena: theme-aware, rounded plates with a
+   The athlete's pages sit on the Arena: rounded plates with a
    slanted speed bar, jersey numerals, floodlights and track lanes on the
    ground. Same dashboard anatomy as the admin desks (memory:
    admin-desks-are-dashboards) — a small title with a provenance pill, a row

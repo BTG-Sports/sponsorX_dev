@@ -75,22 +75,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         },
       }}
     >
-      {/* suppressHydrationWarning: the pre-paint script below may set
-          data-theme on <html> before React hydrates, and the JSX never
-          declares it (vendored guide preventing-flash-before-hydration.md,
-          Themes section). */}
+      {/* One theme, dark (2026-10-14: the day/night toggle was removed, and a
+          visitor's old "sx-theme" choice is no longer read). Client code
+          still writes attributes on <html> that the JSX never declares —
+          the landing loader's data-sx-booted, the proposal print's
+          data-theme (lib/print-light.ts) — hence suppressHydrationWarning. */}
       <html
         lang="en"
         className={`${poppins.variable} ${bebas.variable} ${sourceSerif.variable} h-full antialiased`}
         suppressHydrationWarning
       >
         <body className="min-h-full flex flex-col">
-          <script
-            // Applies the stored theme before first paint; dark needs no attribute.
-            dangerouslySetInnerHTML={{
-              __html: `try{if(localStorage.getItem("sx-theme")==="light")document.documentElement.dataset.theme="light"}catch(e){}`,
-            }}
-          />
           {children}
           {/* The public site's page transition (P1-ART-12). Here, above the
               route groups, so it survives the move between (home) and
