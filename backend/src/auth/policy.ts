@@ -174,7 +174,9 @@ export type Resource =
   | "paymentEvent"
   | "paymentDispute"
   | "supportMessage"
-  | "pricingRecommendation";
+  | "pricingRecommendation"
+  | "briefMatch"
+  | "campaignForecast";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -257,6 +259,8 @@ export const RESOURCES: readonly Resource[] = [
   "paymentDispute",
   "supportMessage",
   "pricingRecommendation",
+  "briefMatch",
+  "campaignForecast",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -1086,6 +1090,27 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
     CAMPAIGN_MGR: rwa("own-tenant"),
+    SALES: rwa("own-tenant"),
+  },
+  /* 3S3-BE-02 (matrix §29) — the match engine's ranking of a brief's
+     candidates, and the brief's shortlist. Read by the matching desk and
+     Sales; the shortlist saved by the desk. A sponsor or athlete never sees
+     a score. */
+  briefMatch: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    CAMPAIGN_MGR: rwa("own-tenant", "own-tenant"),
+    NETWORK_MGR: rwa("own-tenant", "own-tenant"),
+    SALES: rwa("own-tenant"),
+  },
+  /* 3S4-BE-01 (matrix §30) — the delivery forecast of active campaigns:
+     pacing, the projection, risk and recommended actions. Read by the
+     campaign desk and Sales; write is setting a campaign's guarantee. A
+     sponsor never sees a forecast. */
+  campaignForecast: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    CAMPAIGN_MGR: rwa("own-tenant", "own-tenant"),
     SALES: rwa("own-tenant"),
   },
 };

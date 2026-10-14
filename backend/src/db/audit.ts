@@ -69,6 +69,10 @@ export const AUDIT_ACTIONS = {
     /** 3S2-BE-03 — a BTG admin set their own price for an item, with a reason. */
     override: "pricing.override",
   },
+  /** 3S3-BE-02 — the match engine: a brief's shortlist saved (replaced). */
+  match: {
+    shortlistSave: "match.shortlistSave",
+  },
   /** Agreements — acceptance is the legally interesting event. */
   agreement: {
     accept: "agreement.accept",
@@ -81,6 +85,8 @@ export const AUDIT_ACTIONS = {
     cancel: "campaign.cancel",
     orderAccept: "order.accept",
     orderReject: "order.reject",
+    /** 3S4-BE-01 — BTG set (or cleared) what the campaign is promised to reach. */
+    guaranteeSet: "campaign.guaranteeSet",
   },
   /** Payouts — Phase 1 tracks status only; no bank details exist to audit. */
   payout: {

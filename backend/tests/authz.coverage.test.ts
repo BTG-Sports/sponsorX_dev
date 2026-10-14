@@ -92,6 +92,14 @@ const GOVERNED_BY: Record<string, Resource> = {
   /* 3S2-BE-02/03 — a stored suggested price, and a BTG admin's override of it: read by BTG admins, campaign managers and Sales; the override written by BTG admins. */
   PricingRecommendation: "pricingRecommendation",
   PricingOverride: "pricingRecommendation",
+  /* 3S3-BE-02 — a brief's ranking runs, their scores, and its shortlist: read by the matching desk and Sales; the shortlist saved by the desk. */
+  MatchRun: "briefMatch",
+  MatchScore: "briefMatch",
+  BriefShortlist: "briefMatch",
+  /* 3S4 — an active campaign's pacing, forecasts and risk alerts: read by the campaign desk and Sales; written by the worker. */
+  CampaignPacing: "campaignForecast",
+  CampaignForecast: "campaignForecast",
+  CampaignForecastAlert: "campaignForecast",
   /* 2S5-INT-02 — the payment provider's events: written by the signed webhook and the worker, read by BTG admin and Finance. */
   PaymentEvent: "paymentEvent",
   /* 2S5-BE-03 — a refund the provider reported: its record, read with the events. A dispute: BTG support's. */

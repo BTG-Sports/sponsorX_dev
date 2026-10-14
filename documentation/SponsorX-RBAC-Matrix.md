@@ -1613,6 +1613,48 @@ factors, comparable range, confidence and model version. Read through
 - **An item outside the caller's tenant answers 404**, the same as an item not
   priced yet.
 
+## 29 · Phase 3 · sponsor matching *(added 2026-10-14)*
+
+### `briefMatch` (3S3-BE-02, 3S3-BE-03)
+The match engine's ranking of a brief's candidates (athletes, properties,
+inventory items), with scores, factors and reasons, and the brief's saved
+shortlist. Read through `GET /intelligence/briefs/{briefId}/matches`; the
+shortlist saved through `POST /intelligence/briefs/{briefId}/shortlist`.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN`, `CAMPAIGN_MGR`, `NETWORK_MGR` | own-tenant | own-tenant (the shortlist) | — |
+| `SALES` | own-tenant | — | — |
+
+- **Write is only the shortlist.** Nobody edits a score. Saving replaces the
+  brief's shortlist and is audited (`match.shortlistSave`).
+- **No sponsor or athlete sees a score.** A sponsor reads its brief through
+  `campaignBrief`, which carries no ranking.
+- **A brief outside the caller's tenant answers 404.**
+- **Removed candidates are only counted.** Unavailable, category-conflicted
+  and brand-unsafe candidates are filtered out before scoring, and the
+  response carries only their counts (3S3-BE-03).
+
+## 30 · Phase 3 · delivery forecasts *(added 2026-10-14)*
+
+### `campaignForecast` (3S4-DATA-01, 3S4-BE-01, 3S4-BE-02)
+An active campaign's daily pacing, its delivery forecast (projected final,
+probability of the guarantee, risk, reasons, recommended actions), its risk
+alerts, and the guarantee it is forecast against. Read through
+`GET /intelligence/forecasts` and `GET /intelligence/forecasts/{campaignId}`;
+the guarantee set through `PUT /intelligence/forecasts/{campaignId}/guarantee`.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN`, `CAMPAIGN_MGR` | own-tenant | own-tenant (the guarantee) | — |
+| `SALES` | own-tenant | — | — |
+
+- **Write is only the guarantee.** Forecasts, pacing and alerts are made by
+  the worker. Setting a guarantee is audited (`campaign.guaranteeSet`).
+- **No sponsor sees a forecast.** A sponsor reads its campaign's delivery
+  through its own report.
+- **A campaign outside the caller's tenant answers 404.**
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

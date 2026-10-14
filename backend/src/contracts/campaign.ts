@@ -5,6 +5,7 @@ import { BRIEF_STATES } from "../domain/brief-state";
 import { CAMPAIGN_STATES } from "../domain/campaign-state";
 import { INVITE_STATES } from "../domain/invite-state";
 import { ORDER_STATES } from "../domain/order-state";
+import { AUDIENCE_TIERS, MATCH_CHANNELS } from "../domain/match-vocabulary";
 
 /* --------------------------------------------------------------------------
    Briefs, campaigns and invitations on the wire — P4-BE-02…06, §21, §26.
@@ -45,6 +46,11 @@ export const CampaignBriefInput = z
     /** Targeting AND the conflict input. An athlete restricting any of these
      *  is excluded from matching and refused at the invitation. */
     categories: z.array(BrandCategory).max(25).default([]),
+    /** 3S3-BE-01 — the matching inputs. */
+    excludedCategories: z.array(BrandCategory).max(25).default([]).describe("Categories the sponsor will not be associated with: a candidate tied to one is not matched. Never also in `categories`."),
+    channels: z.array(z.enum(MATCH_CHANNELS)).max(MATCH_CHANNELS.length).default([]).describe("Where the sponsor wants to be seen; empty is no preference."),
+    audienceTiers: z.array(z.enum(AUDIENCE_TIERS)).max(AUDIENCE_TIERS.length).default([]).describe("The athlete tiers wanted; empty is any."),
+    audienceMinFollowers: z.int().min(0).max(INT4_MAX).nullable().optional().describe("The smallest audience wanted: followers on the athlete's largest account. Null: no minimum."),
   })
   .meta({ id: "CampaignBriefInput", description: "What a sponsor asks for, before BTG turns it into a campaign." });
 
@@ -60,6 +66,10 @@ export const CampaignBriefPatch = z
     sports: z.array(z.string().min(1).max(60)).max(20).optional(),
     stateCodes: z.array(z.string().length(2)).max(60).optional(),
     categories: z.array(BrandCategory).max(25).optional(),
+    excludedCategories: z.array(BrandCategory).max(25).optional(),
+    channels: z.array(z.enum(MATCH_CHANNELS)).max(MATCH_CHANNELS.length).optional(),
+    audienceTiers: z.array(z.enum(AUDIENCE_TIERS)).max(AUDIENCE_TIERS.length).optional(),
+    audienceMinFollowers: z.int().min(0).max(INT4_MAX).nullable().optional(),
   })
   .meta({
     id: "CampaignBriefPatch",
