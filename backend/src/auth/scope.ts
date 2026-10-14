@@ -904,6 +904,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   paymentDispute: tenantScoped,
   /* 2S0-SEC-01 — a support message lives in the tenant whose form it came through (PUBLIC_INTAKE_TENANT_ID). */
   supportMessage: tenantScoped,
+  /* 3S2-BE-02 — the engine's suggestions, per tenant. */
+  pricingRecommendation: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

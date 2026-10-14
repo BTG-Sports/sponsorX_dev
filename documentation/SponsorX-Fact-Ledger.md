@@ -1,6 +1,6 @@
 # SponsorX Fact Ledger
 
-**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07`, `3S1-OPS-04`, `3S1-QA-01`, `3S1-OPS-03`, `3S1-DATA-03`, `3S2-BE-01` · Version 1.10 · 2026-10-14 · Phase 3, Sprint 1**
+**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07`, `3S1-OPS-04`, `3S1-QA-01`, `3S1-OPS-03`, `3S1-DATA-03`, `3S2-BE-01`, `3S2-BE-02` · Version 1.11 · 2026-10-14 · Phase 3, Sprint 1**
 
 Phase 3's figures (reports, benchmarks, price suggestions, forecasts) come
 from **facts the app records at the moment each thing happens**, not from a
@@ -345,4 +345,65 @@ snapshot, or the latest before it. `listFeatureSnapshots` returns a range.
 - **Caveats:**
   - Until real campaigns run, snapshots mostly hold self-reported audience figures.
   - Storage grows by one row per bookable athlete per day, roughly 0.5–1 GB a year per 1,000 athletes. Thinning old snapshots can wait.
+
+## 13 · Suggested prices (the CPM engine, v1)
+
+**`3S2-BE-02`.** For each athlete's item for sale, the engine suggests a price per
+1,000 impressions (CPM) and says why. It works from rules and statistics, not
+machine learning: the spec says not to learn prices before there is enough clean
+history.
+
+1. **Base.** The benchmark middle (§11) of the most specific group with at least
+   10 orders, in this order: the same NIL job, the sport, the tier, the state,
+   all orders. If no group has 10, it uses the largest group there is, and
+   confidence is lower. If there are no benchmarks at all, it uses the item's own
+   current CPM: its price ÷ the athlete's projected impressions
+   (`pricing-learning.ts`).
+2. **Factors,** from the athlete's feature snapshot (§12). Each is a signed
+   fraction of the base, with a sentence a salesperson can repeat:
+
+   | Factor | Rule |
+   |---|---|
+   | Engagement | (rate ÷ the tenant's median rate − 1) × 0.5 |
+   | Delivery record | (on-time rate − 0.8) × 0.5, once 3 or more deliverables were due |
+   | Demand | (orders booked ÷ the typical number for the same sport and state − 1) × 0.1 |
+   | Seasonality | (index − 1) × 0.25, once there is a year of history |
+   | Scarcity | +10% for 1–2 comparable athletes, +5% for 3–5, −5% for 10 or more |
+
+   Each factor is capped at **±20%**, and all of them together at **±40%**
+   (user, 2026-10-14). Above the total cap they are scaled down together, so
+   each keeps its share.
+3. **Floor.** A suggestion never goes below the sell floor for the job and the
+   athlete's tier (`NilJob.sellFloor*`, as a CPM). When the floor lifts it, a
+   `floor` factor says so. **Base + Σ impacts always equals the suggestion.**
+4. **Stamp.** The model version (`cpm-rules@1.0.0`), when it was computed, and a
+   confidence from 0 to 1, made of:
+   - comparable orders: 0.45 for 30 or more, 0.35 for 10 or more, 0.15 for a small sample, 0.05 for none;
+   - verified audience: 0.20;
+   - a delivery record: 0.15;
+   - engagement: 0.10;
+   - seasonality: 0.05;
+   - demand: 0.05.
+
+   Below 0.5 counts as "low confidence" on the pricing panel.
+
+**v1 prices athlete items only** (user, 2026-10-14). A venue's or team's item is
+not priced yet, because the benchmarks come from athlete campaigns.
+
+**Reads.** `GET /intelligence/pricing` returns a page of priced items and a
+summary over all of them. `GET /intelligence/pricing/{inventoryId}` returns one
+item's base, factors, floor, comparable range and stamp. An item that isn't
+priced, or belongs to another tenant, answers 404. Access is the
+`pricingRecommendation` permission: BTG admins, campaign managers and Sales, in
+their own tenant (RBAC matrix §28).
+
+**Until `3S2-BE-03`:**
+- suggestions are computed when read, and each id names its item and snapshot day;
+- nobody can override (`canOverride: false`).
+
+`3S2-BE-03` stores each suggestion permanently and adds overrides with a reason.
+
+- **Code:** `backend/src/domain/pricing-engine.ts`, `backend/src/routes/v1/intelligence.ts`.
+- **Proof:** `backend/tests/pricing-engine.test.ts`. It works out every price by
+  hand: the caps, the floor, the fallbacks, roles and tenants.
 

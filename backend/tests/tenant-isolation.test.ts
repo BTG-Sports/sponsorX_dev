@@ -166,6 +166,8 @@ const PARAM_FOR: Record<string, string> = {
   students: A.student, prospects: A.prospect, sponsors: A.sponsor,
   "edition-assets": A.asset, claims: A.claim, properties: A.school, onboarding: A.onboarding,
   inventory: A.item, listings: A.listing, offers: A.offer, roster: A.athlete,
+  /* GET /intelligence/pricing/{inventoryId} (3S2-BE-02). */
+  pricing: A.item,
   /* POST /offers/{id}/change-requests/{requestId}/keep (2S2-FE-03). */
   "change-requests": A.changeRequest,
   restrictions: A.restriction, lines: A.cartLine,

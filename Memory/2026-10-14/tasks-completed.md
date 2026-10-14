@@ -178,3 +178,28 @@ The warehouse databases, settings and hourly copy all stay. Nothing reads them.
 - `authz.coverage` registers `FeatureSnapshot`.
 - **Docs:** Fact Ledger v1.10 §12; the plan entry is set to Code review, and its "Builds on" line is re-pointed from the warehouse to the ledger.
 - **Tracker:** 3S2-BE-01 is in Code review.
+
+## rcfworks — 3S2-BE-02 · CPM engine v1 (Code review)
+
+**User decisions, 2026-10-14:**
+- v1 prices athlete items only; venue and team items are not priced yet;
+- each factor is capped at ±20%, and all factors together at ±40%.
+
+**Built:**
+- `backend/src/domain/pricing-engine.ts`:
+  - `recommend()` is pure;
+  - the base is the benchmark median: job, then sport, tier, state, then all orders, at 10 or more orders. Otherwise it is the largest group, or the current CPM;
+  - the factors are engagement, delivery, demand, seasonality and scarcity, capped and then scaled together;
+  - a floor factor applies when the floor lifts the price, and base + Σ impacts = the suggestion;
+  - the stamp is `cpm-rules@1.0.0`, with a confidence from 0 to 1.
+- `pricingDesk` and `pricingDetail` compute when read from the latest snapshot. Until 3S2-BE-03 stores them, the ids are `computed:<item>:<day>` and `canOverride` is false.
+- **Routes:** `GET /intelligence/pricing` and `GET /intelligence/pricing/{inventoryId}` (`routes/v1/intelligence.ts`), as the pricing panel's contract asks.
+- **New permission `pricingRecommendation`:**
+  - read: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR and SALES;
+  - write (the override, 3S2-BE-03): SUPER_ADMIN and BTG_ADMIN.
+  - Registered in RBAC matrix §28, policy and scope, the matrix digest (`be91f12557155114`), the OpenAPI registry and the tenant-isolation sweep.
+- **The NIL job sell floor is read by job id.** The SX catalogue is one row per id, whichever tenant seeded it. In dollars, it is ×100 against an item's cents.
+- `tests/pricing-engine.test.ts`: 10 tests with hand-worked prices.
+- **Docs:** Fact Ledger v1.11 §13; the plan entry; the tracker is in Code review.
+
+**Lesson (my mistake, now fixed):** `export DATABASE_URL=… TEST_DATABASE_URL=$DATABASE_URL` on one line leaves `TEST_DATABASE_URL` empty, because the shell expands the variable before assigning it. Every database-backed test then quietly skips. Set the two in separate exports, or spell out both URLs.

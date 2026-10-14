@@ -720,6 +720,8 @@ const PATHS: Row[] = [
   { method: "get", path: "/campaigns/{id}/payment-status", tag: "Invoices", summary: "Paid, invoiced and outstanding.", response: PaymentStatus },
   { method: "get", path: "/operations/delivery-health", tag: "Operations", summary: "Delivery health across live campaigns. Paged with ?page (2026-09-29): ?size ?projected=true (campaigns carrying a reach projection), ending soonest first → adds `page`.", query: z.object({ under: z.enum(["true", "false"]).optional(), page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional(), projected: z.enum(["true", "false"]).optional() }) },
   { method: "get", path: "/operations/network-metrics", tag: "Operations", summary: "Network-wide metrics." },
+  { method: "get", path: "/intelligence/pricing", tag: "Intelligence", summary: "The CPM engine's suggested prices for the tenant's athlete items (3S2-BE-02): a page (?page&size&q&view=above|below|low) and a summary over every priced item. Each carries model version, confidence and when." },
+  { method: "get", path: "/intelligence/pricing/{inventoryId}", tag: "Intelligence", summary: "One item's suggested price (3S2-BE-02): base, factor breakdown (base + Σ impacts = the suggestion), sell floor, comparable range and stamp. 404 when the item is not priced yet." },
   { method: "get", path: "/operations/job-economics", tag: "Operations", summary: "Economics by NIL job." },
 
   // 2S5-INT-02 — the payment provider's events
