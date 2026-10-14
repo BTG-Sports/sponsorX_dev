@@ -174,7 +174,7 @@ Honesty about this is the point of writing it down.
 | Rollback across a migration | **Not exercised.** The rule is "do not"; §3 is the path |
 | Migration failure | Exercised by accident on 2026-09-21 — the pre-deploy command was broken by the repo split and the deploy failed correctly, serving the previous release throughout |
 | Restore | Walked on a staging snapshot; never against production data |
-| Database logins (§6) | Not yet run in staging or production |
+| Database logins (§6) | Exercised on staging and production on 2026-10-14. One lesson: wait for the api redeploy to finish before step 4, or the check reaches the old copy, which still runs on the master login |
 
 *Owner: rcfworks. Review this whenever a new service, job type or external
 dependency is added.*

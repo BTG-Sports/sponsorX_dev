@@ -1,6 +1,6 @@
 # SponsorX Fact Ledger
 
-**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07`, `3S1-OPS-04`, `3S1-QA-01`, `3S1-OPS-03` · Version 1.8 · 2026-10-14 · Phase 3, Sprint 1**
+**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07`, `3S1-OPS-04`, `3S1-QA-01`, `3S1-OPS-03`, `3S1-DATA-03` · Version 1.9 · 2026-10-14 · Phase 3, Sprint 1**
 
 Phase 3's figures (reports, benchmarks, price suggestions, forecasts) come
 from **facts the app records at the moment each thing happens**, not from a
@@ -245,4 +245,61 @@ records its fact. Railway's master login is break-glass only.
   login still deploys and runs the job queue; developers' login is refused every
   write.
 - **Steps per environment:** Deployment Runbook §6.
+
+## 11 · Benchmarks
+
+**`3S1-DATA-03`.** The benchmarks answer "what do sponsors usually pay?" for a
+sport, a market, a format and an audience. The answer is in **cents per 1,000
+verified views** (effective CPM), because SponsorX sells fixed-price jobs and a
+price alone says nothing about whether it was cheap or dear.
+
+**One figure per order.** An order is one campaign, athlete and NIL job, and
+the ledger files its money and its views under those keys. From the daily
+summaries:
+
+> effective CPM = (booked sell − cancelled sell) × 1,000 ÷ (API-verified + manually verified views)
+
+- **Left out:**
+  - orders with nothing left to pay for (cancelled in full);
+  - orders with no verified views yet;
+  - orders booked more than **12 months** before the refresh.
+- **Views that don't count:** self-reported, estimated and attributed views.
+
+**Per segment.** For each segment, the low (p25), middle (median) and high (p75)
+across its orders, and how many orders that is (`sampleSize`). The segments are:
+
+| Dimension | Segment |
+|---|---|
+| `ALL` | every order |
+| `SPORT` | the athlete's sport |
+| `MARKET` | the US state the booking was filed under |
+| `FORMAT` | the NIL job (e.g. `SX-04`) |
+| `AUDIENCE` | the athlete's tier |
+
+Sport and tier are taken as they are now. An athlete with no state or no tier
+appears under `ALL` and the other dimensions, but not under those two.
+
+**Small samples stay visibly small.** Below **10 orders** (`BENCHMARK_MIN_SAMPLE`;
+user, 2026-10-14), a figure is still shown but carries `smallSample: true`. One
+odd deal can swing a figure from a few orders, and nobody should price from it as
+though it were settled.
+
+**Per tenant, never across tenants.** Each operator's benchmarks come from its
+own orders only.
+
+**When it refreshes.** Every night, right after the fact check (§9), the worker
+rebuilds each tenant's benchmarks in one transaction. A tenant whose check failed
+**keeps yesterday's figures**, so a benchmark is never built from figures known to
+be wrong. `npm run benchmarks:refresh -- [--tenant <id>]` does the same by hand
+and prints the figures.
+
+- **Code:** `backend/src/domain/benchmarks.ts` (`refreshBenchmarks`,
+  `listBenchmarks`), `Benchmark` (migration `20261014090000_benchmark`).
+- **Proof:** `backend/tests/benchmarks.test.ts` uses orders and views written
+  through the ledger, with every figure worked out by hand. It covers cancelled
+  and unverified orders, the 12-month window, two tenants, a refresh replacing
+  the figures, and a failed check keeping yesterday's.
+- **Readers:** the model screen (`3S8-FE-02`, `GET /intelligence/models`) and
+  the CPM engine (`3S2-BE-02`), when their routes are built. Until then,
+  `listBenchmarks` is the read.
 
