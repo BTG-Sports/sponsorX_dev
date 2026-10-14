@@ -95,6 +95,7 @@ const moveBrief: RequestHandler<{ id: string }> = async (req, res) => {
 const BRIEF_SELECT = {
   id: true, objective: true, state: true, budget: true, closeReason: true,
   startDate: true, endDate: true, sports: true, stateCodes: true, categories: true,
+  excludedCategories: true, channels: true, audienceTiers: true, audienceMinFollowers: true,
   createdAt: true,
   /* P4-BE-11 — how it was approved, and (BTG only) why it was held. */
   autoApproved: true, heldAt: true, heldReasons: true,
@@ -110,6 +111,7 @@ const BRIEF_SELECT = {
 type BriefRow = {
   id: string; objective: string; state: string; budget: number; closeReason: string | null;
   startDate: Date; endDate: Date; sports: string[]; stateCodes: string[]; categories: string[];
+  excludedCategories: string[]; channels: string[]; audienceTiers: string[]; audienceMinFollowers: number | null;
   createdAt: Date;
   autoApproved: boolean; heldAt: Date | null; heldReasons: string[];
   tenantId: string; sponsorId: string;
@@ -149,6 +151,11 @@ function briefOut(b: BriefRow, readiness?: Readiness, holds = false) {
     sports: b.sports,
     stateCodes: b.stateCodes,
     categories: b.categories,
+    /* 3S3-BE-01 — the matching inputs. */
+    excludedCategories: b.excludedCategories,
+    channels: b.channels,
+    audienceTiers: b.audienceTiers,
+    audienceMinFollowers: b.audienceMinFollowers,
     createdAt: b.createdAt.toISOString(),
     sponsorName: b.sponsor.name,
     package: b.package,

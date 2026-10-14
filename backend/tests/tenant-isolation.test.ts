@@ -373,6 +373,8 @@ const BODY: Record<string, unknown> = {
   "POST /seller-approvals/{id}/decision": { decision: "ACCEPT" },
   /* 3S2-BE-03 — overriding tenant A's suggested price. */
   "POST /intelligence/pricing/recommendations/{recommendationId}/overrides": { cpmCents: 999999, reason: "Sweep override reason" },
+  /* 3S3-BE-02 — saving tenant A's brief's shortlist. */
+  "POST /intelligence/briefs/{briefId}/shortlist": { entryIds: [`athlete:${A.athlete}`] },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -394,6 +396,12 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     );
     const h = createHash("sha256");
     for (const { table_name } of tables) {
+      /* 3S3-BE-02 — reading a brief's matches stores the ranking it made (MatchRun,
+         MatchScore): tenant A's admin reading its own brief in the positive
+         control leaves one. Tenant B's reads of tenant A's brief answer 404
+         before anything is written, and the shortlist (a write) is still
+         fingerprinted. */
+      if (table_name === "MatchRun" || table_name === "MatchScore") continue;
       /* The positive control's own reads are allowed to leave a trace: a
          private-file read is audited, and tenant A's admin making it is
          tenant A acting on itself (2S1-BE-17, the proof-of-business link). */

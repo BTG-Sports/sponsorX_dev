@@ -222,3 +222,58 @@ The warehouse databases, settings and hourly copy all stay. Nothing reads them.
 - **Registered:** the OpenAPI registry; `authz.coverage` maps both models to `pricingRecommendation`; the tenant-isolation sweep has a tenant-A suggestion, the `recommendations` id and the POST body.
 - `tests/pricing-engine.test.ts` now has 15 tests, adding storing, the trigger, every override rule, and an override staying in force overnight.
 - **Docs:** Fact Ledger v1.12 §13 and RBAC matrix §28 updated; the plan entry and tracker are in Code review.
+
+## rcfworks — deploy a556c11 (3S2 pricing sprint) and the staging check
+
+- **#211 and the sync #209 merged.** The user's first deploy dispatch (11:15 UTC) ran before `main`'s checks finished and correctly refused: "Checks on a556c11 are not all green (0 of 2) — not deploying today." After CI went green, the second dispatch (11:30) moved `release` to `a556c11`. The api and web in staging and production were live at 11:32. The migrations (`FeatureSnapshot`, `PricingRecommendation`, `PricingOverride`, and the trigger) were applied by the pre-deploy step as `sponsorx_app`.
+- **Staging, run by hand:**
+  - `/health` returned 200;
+  - `benchmarks:refresh` produced 0 figures, because there are no campaign orders with verified views yet;
+  - `features:snapshot` took 8 snapshots for 8 active athletes in 4 tenants;
+  - `pricing:refresh` priced 0 items. The 6 active athlete items (seed tenant) belong to athletes with no follower or view counts, and there are no benchmarks, so there is nothing to price per view from. The engine refuses to guess, as designed.
+- **Production:** not touched by hand. The worker runs the fact check, then benchmarks, snapshots and suggested prices, from 19:00 UTC tonight.
+
+## rcfworks — Sprint 3S3 · sponsor matching: 3S3-BE-01, -02, -03 (Code review, one PR)
+
+**User decisions, 2026-10-14:**
+- rank all three kinds: athletes, properties and items;
+- the eight factors and their points: audience 15, geography 15, category 15, history 15, budget 15, format 10, sponsor history 10, quality 5;
+- a response target of under 2 s for about 1,000 candidates;
+- one consolidated PR.
+
+**Built:**
+- **3S3-BE-01:** `CampaignBrief` gains `excludedCategories`, `channels` (`MATCH_CHANNELS`), `audienceTiers` and `audienceMinFollowers`.
+  - The fields are accepted on create and patch (Zod), and returned by `GET /briefs/{id}`.
+  - A category both wanted and excluded is refused with 422 (`CategoryWantedAndExcludedError`).
+- **3S3-BE-03:** `match-rules.ts` `filterCandidate` removes, in this order:
+  - **unavailable:** not ACTIVE or FEATURED; an item's window misses the brief; a property has nothing available;
+  - **category conflict:** an EXCLUSIVITY restriction in the brief's dates, or a tie to an excluded category in 12 months (the sponsors' categories from orders and marketplace sales, or the item's own);
+  - **brand safety:** a profile, league, school or team restriction, or an item restriction, or a minor or school with a sensitive category.
+
+  A partly-available item is LIMITED with a note. Applicants in review are not candidates.
+- **3S3-BE-02:** `scoreCandidate` scores the eight factors.
+  - A factor that does not apply gets weight 0 and the rest are scaled. Contributions are whole points by largest remainder, so they sum to the score exactly.
+  - Confidence is the share of points resting on real data. The model is `match-rules@2.0.0`.
+- `match-engine.ts` gathers everything in about 10 batched queries, ranks all three kinds, and stores `MatchRun` and `MatchScore`.
+  - Runs are reused for 10 minutes by the real clock, or until the brief's `updatedAt`. The three runs share one timestamp.
+  - `BriefShortlist` holds at most 100 entries, only from the current ranking, replaced on save, and audited as `match.shortlistSave`.
+- **Routes:** `GET /intelligence/briefs/{briefId}/matches` and `POST /intelligence/briefs/{briefId}/shortlist`.
+- **New permission `briefMatch`** (RBAC matrix §29):
+  - read: BTG_ADMIN, CAMPAIGN_MGR, NETWORK_MGR and SALES;
+  - write (the shortlist): BTG_ADMIN, CAMPAIGN_MGR and NETWORK_MGR.
+  - The matrix digest is now `25b70735cf8b7452`.
+- `restriction-window.ts` moved `dayStart`, `dayEnd` and `overlaps` out of `restrictions.ts` (which re-exports them), so the rules stay free of database access.
+- **Tenant-isolation sweep:** the shortlist POST body was added, and MatchRun and MatchScore are left out of the "nothing changed" fingerprint. They are what tenant A's own positive-control read stores; tenant B gets 404 before any write.
+- `tests/match-engine.test.ts`: 14 tests. They cover:
+  - scores worked out by hand (84 for the athlete example, 61 for the venue);
+  - every filter reason and its order;
+  - LIMITED items;
+  - the brief inputs;
+  - run reuse, staleness and brief edits;
+  - shortlists, roles and tenants;
+  - 1,000 athletes ranked in under 2 s.
+- **Docs:** `documentation/SponsorX-Match-Engine.md` (new); the plan entries; the tracker (3 rows in Code review).
+
+**For HeckerCreatives:**
+- The sponsor brief form can now send `excludedCategories`, `channels`, `audienceTiers` and `audienceMinFollowers`.
+- In the match explorer, Sales can read but not save a shortlist: the API answers 403. The screen contract had proposed Sales could save.

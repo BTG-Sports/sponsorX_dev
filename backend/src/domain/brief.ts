@@ -21,6 +21,7 @@ import { scopeFor } from "../auth/policy";
 import { ForbiddenError } from "../auth/errors";
 import type { BriefState } from "./brief-state";
 import type { BrandCategory } from "./brand-categories";
+import { assertNoWantedExcluded, type AudienceTier, type MatchChannel } from "./match-vocabulary";
 import { applyBriefMove, BRIEF_AUDIT_ACTIONS, lockBrief } from "./brief-moves";
 import { autoApproveOrHold } from "./brief-auto";
 import { startAutoStaffing } from "./auto-staffing";
@@ -42,6 +43,11 @@ export type BriefInput = {
   sports: readonly string[];
   stateCodes: readonly string[];
   categories: readonly BrandCategory[];
+  /** 3S3-BE-01 — the matching inputs: categories the sponsor will not be associated with, channels, and the audience wanted. */
+  excludedCategories?: readonly BrandCategory[];
+  channels?: readonly MatchChannel[];
+  audienceTiers?: readonly AudienceTier[];
+  audienceMinFollowers?: number | null;
 };
 
 export class UnknownStudentCodeError extends Error {
@@ -138,6 +144,7 @@ export async function createBrief(
       studentCodeId = code.id;
     }
 
+    assertNoWantedExcluded(input.categories, input.excludedCategories ?? []);
     const brief = await tx.campaignBrief.create({
       data: {
         tenantId: actor.tenantId,
@@ -151,6 +158,10 @@ export async function createBrief(
         sports: [...input.sports],
         stateCodes: [...input.stateCodes],
         categories: [...input.categories],
+        excludedCategories: [...(input.excludedCategories ?? [])],
+        channels: [...(input.channels ?? [])],
+        audienceTiers: [...(input.audienceTiers ?? [])],
+        audienceMinFollowers: input.audienceMinFollowers ?? null,
       },
       select: { id: true, state: true },
     });
@@ -214,6 +225,7 @@ export async function updateBrief(
       where: { id: found.id, tenantId: found.tenantId },
       select: {
         objective: true, budget: true, packageId: true, startDate: true, endDate: true, sports: true, stateCodes: true, categories: true,
+        excludedCategories: true, channels: true, audienceTiers: true, audienceMinFollowers: true,
         sponsorId: true, heldAt: true,
       },
     });
@@ -231,7 +243,12 @@ export async function updateBrief(
       ...(patch.sports !== undefined ? { sports: [...patch.sports] } : {}),
       ...(patch.stateCodes !== undefined ? { stateCodes: [...patch.stateCodes] } : {}),
       ...(patch.categories !== undefined ? { categories: [...patch.categories] } : {}),
+      ...(patch.excludedCategories !== undefined ? { excludedCategories: [...patch.excludedCategories] } : {}),
+      ...(patch.channels !== undefined ? { channels: [...patch.channels] } : {}),
+      ...(patch.audienceTiers !== undefined ? { audienceTiers: [...patch.audienceTiers] } : {}),
+      ...(patch.audienceMinFollowers !== undefined ? { audienceMinFollowers: patch.audienceMinFollowers } : {}),
     };
+    assertNoWantedExcluded(patch.categories ?? before.categories, patch.excludedCategories ?? before.excludedCategories);
     await tx.campaignBrief.update({
       /* tenant-scope: the brief found through whereFor(campaignBrief, write) and locked. */
       where: { id: found.id },

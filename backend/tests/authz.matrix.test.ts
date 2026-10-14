@@ -403,7 +403,13 @@ describe("the whole matrix is pinned", () => {
       // CAMPAIGN_MGR and SALES own-tenant read; every other cell deny (matrix
       // §28). With its rows removed the grid hashes to the previous
       // 8278919e225e694d.
-    ).toBe("be91f12557155114");
+      // Updated 2026-10-14 (3S3-BE-02): new `briefMatch` resource — the match
+      // engine's ranking of a brief and its shortlist. SUPER_ADMIN any read and
+      // write; BTG_ADMIN, CAMPAIGN_MGR and NETWORK_MGR own-tenant read and write
+      // (the shortlist); SALES own-tenant read; every other cell deny (matrix
+      // §29). With its rows removed the grid hashes to the previous
+      // be91f12557155114.
+    ).toBe("25b70735cf8b7452");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

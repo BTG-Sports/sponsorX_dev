@@ -542,37 +542,58 @@ Recommended CPM, current rate, factor breakdown, confidence, historical range an
 
 *4 tasks · 16 person-days*
 
-### ⏸ `3S3-BE-01` · Sponsor brief model
+### ◑ `3S3-BE-01` · Sponsor brief model
 
-**Order** 15 · **BE** · **Where:** Code · **3d** · **Blocked**
+**Order** 15 · **BE** · **Where:** Code · **3d** · **Code review**
 
 Objective, budget, geography, sport, audience, included and excluded categories, dates and channels — the input to matching.
 
 - **Depends on:** 3S2-BE-01
 - **Builds on:** **`CampaignBrief`**, which already holds objective, budget, sports, states, categories and dates. Add exclusions, channels and audience target to it; no second brief table. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** A sponsor brief captures all matching inputs including exclusions
+- **Delivered:** 2026-10-14.
+  - **New brief fields:** `excludedCategories`, `channels`, `audienceTiers` and `audienceMinFollowers`.
+  - **API:** accepted on create and edit, and returned on read. A category both wanted and excluded is refused (422).
+  - **Proof:** migration `20261014180000_matching`; `backend/tests/match-engine.test.ts`.
+
+  [`SponsorX-Match-Engine.md`](./SponsorX-Match-Engine.md) §1
 - **Reference:** Spec §19
 
-### ⏸ `3S3-BE-02` · Match scoring service
+### ◑ `3S3-BE-02` · Match scoring service
 
-**Order** 16 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 16 · **BE** · **Where:** Code · **5d** · **Code review**
 
 Score audience fit, geography, format, category affinity, historical performance, budget fit, sponsor history and inventory quality — then explain the score in words a salesperson can repeat.
 
 - **Depends on:** 3S3-BE-01
 - **Builds on:** `domain/match-score.ts` (P4-BE-08 ranking with reasons). Persist its output as `match_scores` with a model version. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Brief produces ranked recommendations with explanation factors within the agreed response time
+- **Delivered:** 2026-10-14.
+  - **What it ranks:** athletes, properties and items (user, 2026-10-14).
+  - **Factors:** eight, out of 100 — audience 15, geography 15, category 15, history 15, budget 15, format 10, sponsor history 10, quality 5. Factors that don't apply are weighted 0, and the score is the exact sum of the contributions.
+  - **Runs:** stored (`MatchRun`, `MatchScore`) and reused for 10 minutes.
+  - **Shortlists:** saved per brief (`BriefShortlist`).
+  - **Endpoints:** `GET /intelligence/briefs/{briefId}/matches` and `POST /intelligence/briefs/{briefId}/shortlist`, with the new permission `briefMatch` (RBAC matrix §29).
+  - **Agreed response time:** under 2 seconds for about 1,000 candidates (user, 2026-10-14), and proven in the test.
+
+  [`SponsorX-Match-Engine.md`](./SponsorX-Match-Engine.md) §3–§4
 - **Reference:** Spec §17.2, §22
 
-### ⏸ `3S3-BE-03` · Eligibility filter ahead of scoring
+### ◑ `3S3-BE-03` · Eligibility filter ahead of scoring
 
-**Order** 17 · **BE** · **Where:** Code · **3d** · **Blocked**
+**Order** 17 · **BE** · **Where:** Code · **3d** · **Code review**
 
 Filter out unavailable, conflicted and brand-unsafe inventory before scoring. Ranking something that cannot be sold wastes everyone's time.
 
 - **Depends on:** 3S3-BE-02
 - **Builds on:** `domain/matching.ts`'s eligibility, extended to availability, category conflicts and brand safety. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Match explorer never returns unavailable or category-conflicted inventory
+- **Delivered:** 2026-10-14. Before scoring, three kinds of candidate are removed and only counted (`filteredOut`):
+  - **unavailable:** not active, or not available on the brief's days;
+  - **category conflict:** held exclusively in the brief's categories, or tied to a category the brief excludes;
+  - **brand safety:** a restriction (the athlete's own, a league, school or team rule, the item's), or a minor or school in a sensitive category.
+
+  An item available for only part of the brief is matched as `LIMITED`. [`SponsorX-Match-Engine.md`](./SponsorX-Match-Engine.md) §2
 - **Reference:** Spec §22
 
 ### ✅ `3S3-FE-01` · Build the sponsor match explorer
