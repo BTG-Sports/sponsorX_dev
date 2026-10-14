@@ -244,6 +244,8 @@ const schema = z.object({
      only where this is "on". Turned on per environment once that environment's fact history is filled
      (3S1-OPS-04) — before then every old campaign would show as "not matching". */
   FACT_CHECK_EMAILS: z.enum(["on", "off"]).default("off").transform((v) => v === "on"),
+  /* 3S4-BE-02 — email BTG admins and campaign managers when an active campaign becomes at risk, and when it recovers. The forecast and its dashboard alert run either way. */
+  FORECAST_EMAILS: z.enum(["on", "off"]).default("off").transform((v) => v === "on"),
 });
 
 /* A development default that reached production would make every continuation

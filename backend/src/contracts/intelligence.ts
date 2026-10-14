@@ -1,6 +1,7 @@
 import { z } from "./zod";
 
 import { MATCH_KINDS } from "../domain/match-rules";
+import { GUARANTEE_METRICS } from "../domain/forecast-rules";
 import { SHORTLIST_MAX } from "../domain/match-vocabulary";
 
 /* --------------------------------------------------------------------------
@@ -30,3 +31,19 @@ export const ShortlistInput = z
   })
   .strict()
   .meta({ id: "ShortlistInput", description: "Replace a brief's shortlist with exactly these ranked matches (3S3-BE-02)." });
+
+export const ForecastsQuery = z
+  .object({
+    risk: z.enum(["all", "at_risk", "watch", "on_track"]).default("all").describe("Which active campaigns: all, or one risk level"),
+    page: z.coerce.number().int().optional(),
+    size: z.coerce.number().int().optional(),
+  })
+  .meta({ id: "ForecastsQuery", description: "Active campaigns' latest forecasts, riskiest first (3S4-BE-01)." });
+
+export const GuaranteeInput = z
+  .object({
+    metric: z.enum(GUARANTEE_METRICS).nullable().describe("What the campaign is promised: impressions, engagements, redemptions or deliverables. Null clears it (every deliverable booked)."),
+    value: z.int().min(1).max(2_000_000_000).nullable().optional().describe("How many, by the end date"),
+  })
+  .strict()
+  .meta({ id: "GuaranteeInput", description: "Set what a campaign is promised to reach by its end date (3S4-BE-01)." });

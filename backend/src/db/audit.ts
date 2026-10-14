@@ -85,6 +85,8 @@ export const AUDIT_ACTIONS = {
     cancel: "campaign.cancel",
     orderAccept: "order.accept",
     orderReject: "order.reject",
+    /** 3S4-BE-01 — BTG set (or cleared) what the campaign is promised to reach. */
+    guaranteeSet: "campaign.guaranteeSet",
   },
   /** Payouts — Phase 1 tracks status only; no bank details exist to audit. */
   payout: {

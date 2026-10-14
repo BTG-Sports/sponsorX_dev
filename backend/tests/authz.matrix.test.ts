@@ -409,7 +409,13 @@ describe("the whole matrix is pinned", () => {
       // (the shortlist); SALES own-tenant read; every other cell deny (matrix
       // §29). With its rows removed the grid hashes to the previous
       // be91f12557155114.
-    ).toBe("25b70735cf8b7452");
+      // Updated 2026-10-14 (3S4-BE-01): new `campaignForecast` resource — an
+      // active campaign's pacing, forecast and alerts, and its guarantee.
+      // SUPER_ADMIN any read and write; BTG_ADMIN and CAMPAIGN_MGR own-tenant
+      // read and write (the guarantee); SALES own-tenant read; every other cell
+      // deny (matrix §30). With its rows removed the grid hashes to the
+      // previous 25b70735cf8b7452.
+    ).toBe("51eb91aed060275f");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

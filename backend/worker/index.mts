@@ -109,6 +109,7 @@ import { runNightlyFactCheck, FACT_CHECK_HOUR_UTC } from "../src/domain/fact-nig
 import { refreshBenchmarks } from "../src/domain/benchmarks.ts";
 import { takeFeatureSnapshots } from "../src/domain/feature-snapshots.ts";
 import { storePricingRecommendations } from "../src/domain/pricing-engine.ts";
+import { runForecasts } from "../src/domain/forecast-engine.ts";
 import { env } from "../src/config/env.ts";
 import { trimZohoWebhookBodies } from "../src/domain/webhook-retention.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
@@ -965,7 +966,11 @@ async function main(): Promise<void> {
             /* 3S2-BE-03 — then today's suggested prices, from those snapshots, stored as made. */
             .then(() => storePricingRecommendations(new Date(), { skipTenants: out.failingTenants }))
             .then((p) => log(`[worker] suggested prices ${out.day}: ${p.stored} stored for ${p.items} item(s)${p.skipped.length ? `; none for ${p.skipped.join(", ")}` : ""}`))
-            .catch((error: unknown) => logError(`[worker] suggested prices ${out.day} could not be stored, will retry tomorrow:`, error));
+            .catch((error: unknown) => logError(`[worker] suggested prices ${out.day} could not be stored, will retry tomorrow:`, error))
+            /* 3S4 — then pacing and the delivery forecast for every active campaign, and the risk alerts. */
+            .then(() => runForecasts(prisma, new Date(), { skipTenants: out.failingTenants, emails: env.FORECAST_EMAILS }))
+            .then((r) => log(`[worker] forecasts ${out.day}: ${r.forecasts} made for ${r.campaigns} active campaign(s); ${r.alertsRaised} alert(s), ${r.emails} email(s)${env.FORECAST_EMAILS ? "" : " (emails off)"}${r.skipped.length ? `; none for ${r.skipped.join(", ")}` : ""}`))
+            .catch((error: unknown) => logError(`[worker] forecasts ${out.day} could not be made, will retry tomorrow:`, error));
         }
         if (out.status === "failed") logError(`[worker] fact check ${out.day} could not run, will retry in an hour:`, out.error);
       })

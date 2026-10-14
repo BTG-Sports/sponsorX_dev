@@ -877,6 +877,12 @@ model Campaign {
   budget    Int
   startDate DateTime
   endDate   DateTime
+  /// 3S4-BE-01 — what the campaign is promised to reach by its end date, set
+  /// by BTG: impressions | engagements | redemptions | deliverables, and how
+  /// many. Unset: every deliverable booked, published and verified (user,
+  /// 2026-10-14).
+  guaranteeMetric String?
+  guaranteeValue  Int?
   state     CampaignState @default(DRAFT)
 
   /// P4-BE-12 — the system staffs the campaign from its package: on for a
@@ -4012,4 +4018,80 @@ model BriefShortlist {
   entries   Json
   savedBy   String
   savedAt   DateTime @default(now())
+}
+
+/// 3S4-DATA-01 — a campaign's pacing on a day: how much of the flight has gone
+/// against how much of the guarantee is delivered. One row per active
+/// campaign per UTC day, written nightly; the forecast dashboard draws its
+/// pacing chart from them.
+model CampaignPacing {
+  id         String   @id @default(cuid())
+  tenantId   String
+  campaignId String
+  day        DateTime @db.Date
+  metric     String
+  guarantee  Int
+  /// Verified delivery to the end of the day, cumulative.
+  delivered  Int
+  /// What the plan expected by then, cumulative.
+  expected   Int
+  /// 0..1 — the share of the flight gone.
+  elapsed    Float
+
+  @@unique([campaignId, day])
+  @@index([tenantId, day])
+}
+
+/// 3S4-BE-01 — a delivery forecast as made: the projected final delivery
+/// (low, mid, high), the probability of the guarantee, the risk, its factors
+/// and the recommended actions. One per active campaign per UTC day, kept so
+/// the model can be judged later.
+model CampaignForecast {
+  id              String   @id @default(cuid())
+  tenantId        String
+  campaignId      String
+  day             DateTime @db.Date
+  modelVersion    String
+  metric          String
+  guarantee       Int
+  delivered       Int
+  /// VERIFIED_SYSTEM | VERIFIED_API | VERIFIED_MANUAL
+  deliveredSource String
+  elapsed         Float
+  low             Int
+  mid             Int
+  high            Int
+  /// 0..1
+  probability     Float
+  /// on_track | watch | at_risk
+  risk            String
+  /// [{ key, label, detail }]
+  riskFactors     Json
+  /// [{ kind, label, detail }]
+  actions         Json
+  /// [{ date, low, mid, high }] from tomorrow to the end date.
+  projection      Json
+  forecastAt      DateTime @default(now())
+
+  @@unique([campaignId, day])
+  @@index([tenantId, day])
+}
+
+/// 3S4-BE-02 — a campaign crossed a risk threshold: raised before its end date,
+/// shown on the dashboard, and (at_risk) emailed once to BTG admins and
+/// campaign managers. Closed when the campaign is back on track.
+model CampaignForecastAlert {
+  id          String    @id @default(cuid())
+  tenantId    String
+  campaignId  String
+  /// watch | at_risk
+  risk        String
+  /// The probability the campaign fell below (0.8 for watch, 0.5 for at_risk).
+  threshold   Float
+  probability Float
+  emailed     Boolean   @default(false)
+  raisedAt    DateTime  @default(now())
+  recoveredAt DateTime?
+
+  @@index([tenantId, campaignId, raisedAt])
 }

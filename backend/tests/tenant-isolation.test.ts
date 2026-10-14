@@ -170,6 +170,8 @@ const PARAM_FOR: Record<string, string> = {
   pricing: A.item,
   /* POST /intelligence/pricing/recommendations/{recommendationId}/overrides (3S2-BE-03). */
   recommendations: A.recommendation,
+  /* GET /intelligence/forecasts/{campaignId}, PUT …/guarantee (3S4). */
+  forecasts: A.campaign,
   /* POST /offers/{id}/change-requests/{requestId}/keep (2S2-FE-03). */
   "change-requests": A.changeRequest,
   restrictions: A.restriction, lines: A.cartLine,
@@ -375,6 +377,8 @@ const BODY: Record<string, unknown> = {
   "POST /intelligence/pricing/recommendations/{recommendationId}/overrides": { cpmCents: 999999, reason: "Sweep override reason" },
   /* 3S3-BE-02 — saving tenant A's brief's shortlist. */
   "POST /intelligence/briefs/{briefId}/shortlist": { entryIds: [`athlete:${A.athlete}`] },
+  /* 3S4 — setting tenant A's campaign's guarantee. */
+  "PUT /intelligence/forecasts/{campaignId}/guarantee": { metric: "impressions", value: 999999 },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
