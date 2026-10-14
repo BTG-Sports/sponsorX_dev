@@ -277,3 +277,37 @@ The warehouse databases, settings and hourly copy all stay. Nothing reads them.
 **For HeckerCreatives:**
 - The sponsor brief form can now send `excludedCategories`, `channels`, `audienceTiers` and `audienceMinFollowers`.
 - In the match explorer, Sales can read but not save a shortlist: the API answers 403. The screen contract had proposed Sales could save.
+
+## rcfworks — Sprint 3S4 · forecasting and pacing: 3S4-DATA-01, -BE-01, -BE-02 (Code review, one PR)
+
+**User decisions, 2026-10-14:**
+- the guarantee is set by BTG per campaign; unset, it is every deliverable booked;
+- risk is on track at 80% or more, watch from 50%, at risk below;
+- email BTG admins and campaign managers once at risk, and once on recovery;
+- one PR.
+
+**Built:**
+- **Migration `20261014210000_forecasting`:** `Campaign.guaranteeMetric` and `guaranteeValue`, plus `CampaignPacing`, `CampaignForecast` and `CampaignForecastAlert`.
+- **`forecast-rules.ts`** (no database access):
+  - **flows:** the observed daily rate blended with the plan's (fully trusted at 30% of the flight); range and probability from the daily spread (normal approximation, 80% band);
+  - **deliverables:** each one's chance of landing (98% not yet due, adjusted for a late athlete; 75% overdue; 40% overdue in the last week), with the probability as their product;
+  - risk thresholds, reasons, the four actions, and `alertMove`. Alerts are raised only before the end and after 20% of the flight; at risk is emailed once, held through a dip to watch, and followed by one recovery email.
+- **`forecast-engine.ts`:**
+  - **delivery:** the ledger's verified views and engagements, REDEEM events, and verified deliverables;
+  - **nightly `runForecasts`:** pacing (missing days filled), the forecast (`createMany skipDuplicates`, one per campaign per day), and the alert move with `forecast.atRisk` and `forecast.recovered` emails to BTG_ADMIN and CAMPAIGN_MGR, gated by `FORECAST_EMAILS` (default off);
+  - **reads:** `forecastList` and `forecastDetail`;
+  - **`setGuarantee`:** audited as `campaign.guaranteeSet`.
+- **Wiring:**
+  - the worker runs it after suggested prices and skips tenants whose check failed; `npm run forecasts:refresh` does it by hand;
+  - routes `GET /intelligence/forecasts`, `GET /intelligence/forecasts/{campaignId}` and `PUT …/guarantee`;
+  - new permission `campaignForecast` (RBAC matrix §30): read for BTG_ADMIN, CAMPAIGN_MGR and SALES; write (the guarantee) for BTG_ADMIN and CAMPAIGN_MGR. The digest is now `51eb91aed060275f`;
+  - registered in OpenAPI, authz.coverage and the tenant-isolation sweep (the `forecasts` id and the PUT body); `.env.example` documents `FORECAST_EMAILS`.
+- **`tests/forecast.test.ts`** (17 tests): every figure worked out by hand. The three simulated campaigns:
+  - A, deliverables: watch at 72%, overdue work, chase it;
+  - B, impressions: at risk and emailed to 2 people, then recovered the next night with one email;
+  - C, two days in: at risk, not alerted.
+
+  The tests also cover a re-run the same day, emails off, roles, tenants and the templates.
+- **Docs:** `documentation/SponsorX-Forecasting.md` (new); the plan entries; the tracker (3 rows in Code review).
+
+**After deploy:** set `FORECAST_EMAILS=on` on the api service in staging and production, the same way as `FACT_CHECK_EMAILS`.

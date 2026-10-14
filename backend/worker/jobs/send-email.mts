@@ -208,6 +208,15 @@ ${d.portalUrl ?? ""}
     subject: "SponsorX report figures match the app again",
     text: `Last night's check found every figure used for reports and analysis matching the app's own records again${d.since ? ` (they had not matched since ${d.since})` : ""}.\n\nNothing more to do. Integration health shows the latest check:\n\n${d.healthUrl ?? ""}\n\n— SponsorX`,
   }),
+  /* 3S4-BE-02 — a campaign's delivery forecast crossed into at risk, and back. */
+  "forecast.atRisk": (d) => ({
+    subject: `At risk: ${d.campaignName ?? "a campaign"} may miss its guarantee`,
+    text: `Last night's forecast gives ${d.campaignName ?? "a campaign"}${d.sponsorName ? ` (${d.sponsorName})` : ""} a ${d.probability ?? ""} chance of reaching its guarantee of ${d.guarantee ?? ""} by ${d.endsOn ?? "its end date"}. It is projected to reach ${d.projected ?? ""}.\n\nRecommended:\n${d.actions ?? ""}\n\nYou'll get one more email when it is back on track. The forecast, its pacing and its reasons:\n\n${d.forecastUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "forecast.recovered": (d) => ({
+    subject: `Back on track: ${d.campaignName ?? "a campaign"}`,
+    text: `${d.campaignName ?? "A campaign"} is back on track${d.since ? ` (it had been at risk since ${d.since})` : ""}: last night's forecast gives it a ${d.probability ?? ""} chance of reaching its guarantee.\n\nNothing more to do. The forecast:\n\n${d.forecastUrl ?? ""}\n\n— SponsorX`,
+  }),
   "refund.providerRefused": (d) => ({
     subject: `A refund of ${d.amount ?? ""} on order ${d.orderRef ?? ""} couldn't be sent to the card`,
     text: `SponsorX tried to refund ${d.amount ?? ""} on order ${d.orderRef ?? ""} to the sponsor's card through Stripe, and it didn't go.\n\nWhy: ${d.why ?? ""}\n\nIt is back on "Refunds to send" — send it another way and mark it sent:\n\n${d.refundsUrl ?? ""}\n\n— SponsorX`,

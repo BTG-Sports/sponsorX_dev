@@ -6,13 +6,17 @@
  * one item's detail, and a BTG admin's override with a reason.
  *
  * 3S3-BE-02/03 — the match engine: a brief's ranked candidates, one kind a
- * page, and the brief's shortlist (briefMatch, RBAC matrix §29). Tenant-wide, for BTG admins, campaign managers and
+ * page, and the brief's shortlist (briefMatch, RBAC matrix §29).
+ *
+ * 3S4 — the delivery forecast: active campaigns' forecasts, one campaign's
+ * detail, and a campaign's guarantee (campaignForecast, RBAC matrix §30). Tenant-wide, for BTG admins, campaign managers and
  * Sales (pricingRecommendation, RBAC matrix §28).
  */
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { MatchesQuery, PricingOverrideInput, ShortlistInput } from "../../contracts/intelligence";
+import { ForecastsQuery, GuaranteeInput, MatchesQuery, PricingOverrideInput, ShortlistInput } from "../../contracts/intelligence";
+import { forecastDetail, forecastList, setGuarantee } from "../../domain/forecast-engine";
 import { matchPage, saveShortlist } from "../../domain/match-engine";
 import { overridePrice, pricingDesk, pricingDetail, type PricingDeskView } from "../../domain/pricing-engine";
 import { pageRequest } from "../../lib/paging";
@@ -60,3 +64,25 @@ const shortlist: RequestHandler<{ briefId: string }> = async (req, res) => {
 
 intelligenceRouter.get("/intelligence/briefs/:briefId/matches", requireActor, matches);
 intelligenceRouter.post("/intelligence/briefs/:briefId/shortlist", requireActor, shortlist);
+
+/** GET /intelligence/forecasts?risk=all|at_risk|watch|on_track&page&size */
+const forecasts: RequestHandler = async (req, res) => {
+  const q = ForecastsQuery.parse(req.query ?? {});
+  const page = pageRequest({ page: 1, ...req.query })!;
+  res.json(await forecastList(req.actor!, { risk: q.risk, page }));
+};
+
+/** GET /intelligence/forecasts/:campaignId */
+const forecast: RequestHandler<{ campaignId: string }> = async (req, res) => {
+  res.json(await forecastDetail(req.actor!, req.params.campaignId));
+};
+
+/** PUT /intelligence/forecasts/:campaignId/guarantee { metric, value } */
+const guarantee: RequestHandler<{ campaignId: string }> = async (req, res) => {
+  const body = GuaranteeInput.parse(req.body ?? {});
+  res.json(await setGuarantee(req.actor!, req.params.campaignId, { metric: body.metric, value: body.value ?? null }));
+};
+
+intelligenceRouter.get("/intelligence/forecasts", requireActor, forecasts);
+intelligenceRouter.get("/intelligence/forecasts/:campaignId", requireActor, forecast);
+intelligenceRouter.put("/intelligence/forecasts/:campaignId/guarantee", requireActor, guarantee);

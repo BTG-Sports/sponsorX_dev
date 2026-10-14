@@ -175,7 +175,8 @@ export type Resource =
   | "paymentDispute"
   | "supportMessage"
   | "pricingRecommendation"
-  | "briefMatch";
+  | "briefMatch"
+  | "campaignForecast";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -259,6 +260,7 @@ export const RESOURCES: readonly Resource[] = [
   "supportMessage",
   "pricingRecommendation",
   "briefMatch",
+  "campaignForecast",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -1099,6 +1101,16 @@ export const POLICY: Record<Resource, RolePolicy> = {
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
     CAMPAIGN_MGR: rwa("own-tenant", "own-tenant"),
     NETWORK_MGR: rwa("own-tenant", "own-tenant"),
+    SALES: rwa("own-tenant"),
+  },
+  /* 3S4-BE-01 (matrix §30) — the delivery forecast of active campaigns:
+     pacing, the projection, risk and recommended actions. Read by the
+     campaign desk and Sales; write is setting a campaign's guarantee. A
+     sponsor never sees a forecast. */
+  campaignForecast: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    CAMPAIGN_MGR: rwa("own-tenant", "own-tenant"),
     SALES: rwa("own-tenant"),
   },
 };

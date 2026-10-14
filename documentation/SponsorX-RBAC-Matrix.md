@@ -1635,6 +1635,26 @@ shortlist saved through `POST /intelligence/briefs/{briefId}/shortlist`.
   and brand-unsafe candidates are filtered out before scoring, and the
   response carries only their counts (3S3-BE-03).
 
+## 30 · Phase 3 · delivery forecasts *(added 2026-10-14)*
+
+### `campaignForecast` (3S4-DATA-01, 3S4-BE-01, 3S4-BE-02)
+An active campaign's daily pacing, its delivery forecast (projected final,
+probability of the guarantee, risk, reasons, recommended actions), its risk
+alerts, and the guarantee it is forecast against. Read through
+`GET /intelligence/forecasts` and `GET /intelligence/forecasts/{campaignId}`;
+the guarantee set through `PUT /intelligence/forecasts/{campaignId}/guarantee`.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN`, `CAMPAIGN_MGR` | own-tenant | own-tenant (the guarantee) | — |
+| `SALES` | own-tenant | — | — |
+
+- **Write is only the guarantee.** Forecasts, pacing and alerts are made by
+  the worker. Setting a guarantee is audited (`campaign.guaranteeSet`).
+- **No sponsor sees a forecast.** A sponsor reads its campaign's delivery
+  through its own report.
+- **A campaign outside the caller's tenant answers 404.**
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

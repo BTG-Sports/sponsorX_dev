@@ -129,7 +129,7 @@ import {
 } from "./delivery";
 import { PayoutAccountLinkInput, PayoutDecisionInput, PayoutListQuery, StandinAccountInput, StandinCheckoutInput } from "./payouts";
 import { RefundSentInput, RefundsQuery } from "./refunds";
-import { MatchesQuery, PricingOverrideInput, ShortlistInput } from "./intelligence";
+import { ForecastsQuery, GuaranteeInput, MatchesQuery, PricingOverrideInput, ShortlistInput } from "./intelligence";
 import {
   DisputeResolveInput, DisputeReviewInput, DisputesQuery, PaymentEventResolveInput, PaymentEventsQuery, ProviderWebhookEnvelope, StandinEventInput,
 } from "./payment-events";
@@ -726,6 +726,9 @@ const PATHS: Row[] = [
   { method: "post", path: "/intelligence/pricing/recommendations/{recommendationId}/overrides", tag: "Intelligence", summary: "A BTG admin's own price for an item, with a reason (3S2-BE-03) → 201 { override }. 403 without the permission; 422 with no reason of 10–500 characters, or below the sell floor (the attempt is audited). Never edits the suggestion or the item's listed price; the newest override stays in force until replaced.", body: PricingOverrideInput },
   { method: "get", path: "/intelligence/briefs/{briefId}/matches", tag: "Intelligence", summary: "A brief's candidates of one kind, ranked best first (3S3-BE-02): each with a 0–100 score that is the sum of its factors' contributions, the factors (weight, contribution, reason), reasons in a salesperson's words, availability (AVAILABLE | LIMITED) and stamp. Unavailable, category-conflicted and brand-unsafe candidates are filtered out first and only counted (`filteredOut`, 3S3-BE-03). Also every kind's count, the run, and the brief's shortlist.", query: MatchesQuery },
   { method: "post", path: "/intelligence/briefs/{briefId}/shortlist", tag: "Intelligence", summary: "Replace the brief's shortlist with exactly these ranked match ids (3S3-BE-02); an empty list clears it. 422 for an id not in the brief's current ranking. BTG admins, campaign managers and network managers.", body: ShortlistInput },
+  { method: "get", path: "/intelligence/forecasts", tag: "Intelligence", summary: "Every active campaign's latest delivery forecast (3S4-BE-01), riskiest first: elapsed share, guarantee { metric, value }, verified delivery and its source, projected final { low, mid, high }, probability of the guarantee, risk (on_track ≥ 80%, watch ≥ 50%, at_risk) and stamp; counts over the whole tenant.", query: ForecastsQuery },
+  { method: "get", path: "/intelligence/forecasts/{campaignId}", tag: "Intelligence", summary: "One campaign's latest forecast with its pacing (delivered against expected, per day), projected band to the end date, risk factors, recommended actions (accelerate content, add a deliverable, change channel, reserve make-good inventory), the open alert and every past forecast, newest first (3S4-BE-01/02). 404 when none." },
+  { method: "put", path: "/intelligence/forecasts/{campaignId}/guarantee", tag: "Intelligence", summary: "Set what a campaign is promised to reach by its end date — impressions, engagements, redemptions or deliverables, and how many — or clear it (metric null: every deliverable booked). BTG admins and campaign managers; audited (3S4-BE-01).", body: GuaranteeInput },
   { method: "get", path: "/operations/job-economics", tag: "Operations", summary: "Economics by NIL job." },
 
   // 2S5-INT-02 — the payment provider's events

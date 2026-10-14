@@ -249,6 +249,8 @@ export type EmailTemplate =
   /* 3S1-QA-01 — the nightly fact check: the figures stopped matching the app; they match again. */
   | "facts.checkFailed"
   | "facts.checkRecovered"
+  | "forecast.atRisk"
+  | "forecast.recovered"
   /* P4-BE-09 — campaigns move on their own: BTG's campaign managers hear a
      campaign is ready to launch; the sponsor hears their final report is ready. */
   | "campaign.readyToLaunch"
