@@ -72,6 +72,7 @@ test("secret scan: leaves placeholders, publishable test keys and the local stac
     "DATABASE_URL: postgresql://sponsorx:sponsorx@localhost:5432/sponsorx_test",
     "postgresql://sponsorx@127.0.0.1:55432/sponsorx_test_c",
     "DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/sponsorx",
+    "DATABASE_URL = postgresql://sponsorx_app:${{Postgres.SPONSORX_APP_PASSWORD}}@${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/railway",
     'S3_SECRET_ACCESS_KEY: z.string().default("sponsorx-dev-secret"),',
     j("sk", "_live_", "Zx9Kq2Lm4Np6Rs8Tu0Vw  // secret-scan: allow"),
   ];

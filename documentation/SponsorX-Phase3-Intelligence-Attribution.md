@@ -381,14 +381,19 @@ Stop the hourly copy, and remove the warehouse settings and code. Once the facts
 - **Done when:** no warehouse service, setting or code remains; analysis reads the summaries; the design docs say so
 - **Reference:** Spec §20
 
-### ▶ `3S1-OPS-03` · Only the app writes to the live database
+### ◑ `3S1-OPS-03` · Only the app writes to the live database
 
-**Order** 7.6 · **OPS** · **Where:** Vendor console · **1d** · **Ready**
+**Order** 7.6 · **OPS** · **Where:** Code / Vendor console · **1d** · **In progress**
 
-A dedicated login for the app with write access; people get read-only access. Corrections go through admin actions, which record their facts, so no edit can bypass the ledger.
+A dedicated login for the app with write access; developers get read-only access. Corrections go through admin actions, which record their facts, so no edit can bypass the ledger.
 
 - **Depends on:** —
-- **Done when:** in staging and production only the app's login can write; a read-only login exists for people; the change is recorded in the deployment runbook
+- **Done when:** in staging and production only the app's login can write; a read-only login exists for developers; the change is recorded in the deployment runbook
+- **Built:** 2026-10-14. Two logins (user, 2026-10-14: the app's own login also applies new tables at deploy; no separate owner login):
+  - `sponsorx_app`, which owns everything;
+  - `sponsorx_readonly`, for developers (user, 2026-10-14: live data is for developers only).
+
+  The code is `backend/src/db/logins.ts`, `npm run db:logins` and `npm run db:read`; the proof is `backend/tests/db-logins.test.ts`. The steps are in the Deployment Runbook §6, and the reasoning is in [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §10. Applying it to staging and production comes after the deploy.
 - **Reference:** Spec §26
 
 ### ⏸ `3S1-DATA-03` · Benchmark pipeline

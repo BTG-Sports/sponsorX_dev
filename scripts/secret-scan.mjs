@@ -43,7 +43,9 @@ const SKIP = [/^package-lock\.json$/, /(^|\/)node_modules\//, /\.(png|jpe?g|gif|
    stack and CI's service containers. Anything else — a *.railway.internal or
    *.rlwy.net host above all — is a real database. */
 const LOCAL_DB_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0", "postgres", "db", "host.docker.internal"]);
-const PLACEHOLDER_PASSWORD = /^(\$\{?[A-Z_]+\}?|<[^>]+>|\*+|x+|\.\.\.|password|pass|secret|changeme|PASSWORD|USER:PASSWORD)$/i;
+/* `${{Service.VAR}}` is a Railway variable reference (Deployment Runbook §6): the
+   password is resolved by Railway at deploy and never written down. */
+const PLACEHOLDER_PASSWORD = /^(\$\{?[A-Z_]+\}?|\$\{\{[A-Za-z0-9<>_.-]+\}\}|<[^>]+>|\*+|x+|\.\.\.|password|pass|secret|changeme|PASSWORD|USER:PASSWORD)$/i;
 
 export const RULES = [
   { id: "stripe-or-clerk-secret-key", re: /\b(?:sk|rk)_(?:live|test)_[0-9A-Za-z]{16,}/g },
