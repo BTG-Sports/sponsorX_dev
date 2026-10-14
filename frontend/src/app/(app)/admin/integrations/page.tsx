@@ -3,6 +3,7 @@ import { MiniChip } from "@/components/hero";
 import { EmptyState } from "@/components/states";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { apiFetch, fetchActor } from "@/server/api";
+import { type ApiFactCheck, factCheckProblem, factCheckView, nightLabel } from "@/lib/fact-check-live";
 
 /* --------------------------------------------------------------------------
    Integration health — P8-FE-01, §23 §20. Is Zoho syncing, is the worker
@@ -32,6 +33,8 @@ type Health = {
     jobs: { name: string; state: string; count: number }[];
     recentFailed: { name: string; failedAt: string | null; error: string | null }[];
   };
+  /** 3S1-QA-01's nightly figures check (lib/fact-check-live). Optional: an API from before it has none. */
+  facts?: ApiFactCheck;
 };
 
 /** Outbox work older than this means the worker isn't draining. */
@@ -80,11 +83,14 @@ export default async function IntegrationsPage() {
   const rejected = h.webhooks.bySource.reduce((n, s) => n + s.rejected, 0);
   const failedJobs = h.queue.jobs.filter((j) => j.state === "failed").reduce((n, j) => n + j.count, 0);
   const stale = h.queue.outboxPending.filter((p) => now - Date.parse(p.oldest) > STALE_MINUTES * 60_000);
+  const facts = h.facts ? factCheckView(h.facts) : null;
+  const factsProblem = facts && factCheckProblem(facts);
   const problems = [
     ...depsDown.map((d) => `${d} unreachable`),
     ...(rejected ? [`${rejected} webhook deliver${rejected === 1 ? "y" : "ies"} rejected this week`] : []),
     ...(failedJobs ? [`${failedJobs} worker job${failedJobs === 1 ? "" : "s"} failed this week`] : []),
     ...(stale.length ? [`outbox work waiting over ${STALE_MINUTES} min (${stale.map((s) => s.name).join(", ")})`] : []),
+    ...(factsProblem ? [factsProblem] : []),
   ];
 
   const jobNames = [...new Set(h.queue.jobs.map((j) => j.name))];
@@ -244,6 +250,70 @@ export default async function IntegrationsPage() {
           outbox and pg-boss, this tenant only <MiniChip kind="ver">POSTGRES</MiniChip>
         </p>
       </section>
+
+      {facts && <FiguresCheck v={facts} />}
     </div>
+  );
+}
+
+/* 3S1-FE-01 — the nightly figures check: do the report figures (the fact
+   ledger and its daily summaries) still agree with the app's own records? */
+function FiguresCheck({ v }: { v: ReturnType<typeof factCheckView> }) {
+  const tone = v.state === "matching" ? "border-success/30 bg-success/5" : v.state === "mismatch" ? "border-warn/40 bg-warn/5" : "";
+  return (
+    <section data-testid="figures-check" data-state={v.state}>
+      <SectionHeading title="Figures check · nightly" hint="3S1-QA-01 — every night the report figures are compared with the app's own records, campaign by campaign." />
+      <Card className={tone}>
+        {v.state === "never" && (
+          <>
+            <p className="text-sm font-semibold tracking-tight">Not run yet</p>
+            <p className="mt-1 text-xs text-muted">The worker runs the check once a night at 19:00 UTC. The first result shows here.</p>
+          </>
+        )}
+        {v.state === "failed" && (
+          <>
+            <p className="flex flex-wrap items-center gap-2 text-sm font-semibold tracking-tight">
+              The last check could not run <Badge tone="danger">not run</Badge>
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              Tried {fmt(v.lastRunAt)}. This is not a mismatch — nothing was compared, and no one was emailed. It is tried again on the worker&apos;s next tick.
+            </p>
+            <p className="mt-2 break-words font-mono text-[11px] text-faint">{v.error}</p>
+          </>
+        )}
+        {v.state === "matching" && (
+          <>
+            <p className="flex flex-wrap items-center gap-2 text-sm font-semibold tracking-tight">
+              Report figures match the app <Badge tone="accent">matching</Badge>
+            </p>
+            <p className="mt-1 text-xs text-muted">Last checked {fmt(v.lastRunAt)}.</p>
+          </>
+        )}
+        {v.state === "mismatch" && (
+          <>
+            <p className="flex flex-wrap items-center gap-2 text-sm font-semibold tracking-tight">
+              Report figures don&apos;t match the app <Badge tone="warn">{v.count} difference{v.count === 1 ? "" : "s"}</Badge>
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              {v.failingSince ? `Not matching since the night of ${nightLabel(v.failingSince)}` : "Not matching"} · last checked {fmt(v.lastRunAt)}.
+            </p>
+            <ul className="mt-3 space-y-1.5 border-t border-line-soft pt-3 text-xs">
+              {v.differences.map((d, i) => (
+                <li key={i} className="break-words">· {d}</li>
+              ))}
+              {v.more > 0 && <li className="text-muted">· …and {v.more} more</li>}
+            </ul>
+          </>
+        )}
+        <p className="mt-3 text-[11px] text-faint">
+          {v.emails
+            ? "BTG admins are emailed once when the figures stop matching, and once when they match again."
+            : "Emails are off in this environment — the check still runs and is recorded here."}
+        </p>
+      </Card>
+      <p className="mt-2 flex items-center gap-1.5 text-[10px] text-faint">
+        fact ledger vs the app&apos;s records, this tenant only <MiniChip kind="ver">POSTGRES</MiniChip>
+      </p>
+    </section>
   );
 }
