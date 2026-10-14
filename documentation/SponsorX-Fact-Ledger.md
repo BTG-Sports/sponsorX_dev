@@ -1,6 +1,6 @@
 # SponsorX Fact Ledger
 
-**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07`, `3S1-OPS-04`, `3S1-QA-01` · Version 1.7 · 2026-10-13 · Phase 3, Sprint 1**
+**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07`, `3S1-OPS-04`, `3S1-QA-01`, `3S1-OPS-03` · Version 1.8 · 2026-10-14 · Phase 3, Sprint 1**
 
 Phase 3's figures (reports, benchmarks, price suggestions, forecasts) come
 from **facts the app records at the moment each thing happens**, not from a
@@ -44,7 +44,7 @@ nothing needs copying.
    - A reward's venue wins over the athlete's registered city and state when the reward has one.
    - No state means no market.
    - Never derived from an IP address.
-8. **Only the app writes.** Corrections go through admin actions that record their facts (`3S1-OPS-03` closes the database to other writers).
+8. **Only the app writes.** Corrections go through admin actions that record their facts. The database enforces it (§10).
 
 ## 4 · Facts by kind
 
@@ -222,4 +222,27 @@ Facts start when the ledger goes live. The history fills (`backend/src/domain/fa
 Drawing it on the integrations screen is `3S1-FE-01`.
 
 **When an admin is emailed,** the developers run `npm run facts:check` for the full list. A gap in history is fixed by `facts:fill`. An action that skipped its writer is a bug, and `3S1-QA-02`'s coverage test should have caught it.
+
+## 10 · Only the app writes
+
+**`3S1-OPS-03`.** The facts are only as good as the rule that nothing changes
+the app's records behind its back. The database enforces it with two logins:
+
+- **`sponsorx_app`** is the app's. It owns the database and every table, so
+  the app reads and writes, and its deploy step applies new tables. It is no
+  superuser.
+- **`sponsorx_readonly`** is people's. It reads every table, including ones
+  added later, and Postgres refuses it any write, even with read-only
+  switched off.
+
+A wrong figure is corrected through the admin action that owns it, which
+records its fact. Railway's master login is break-glass only.
+
+- **Code:** `backend/src/db/logins.ts`, `npm run db:logins` (applies and
+  checks) and `npm run db:read` (people's queries).
+- **Proof:** `backend/tests/db-logins.test.ts`, on a database built by every
+  migration plus pg-boss' schema, as staging and production were. The app's
+  login still deploys and runs the job queue; people's login is refused every
+  write.
+- **Steps per environment:** Deployment Runbook §6.
 
