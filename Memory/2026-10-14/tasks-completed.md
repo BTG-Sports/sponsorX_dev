@@ -149,3 +149,32 @@ The warehouse databases, settings and hourly copy all stay. Nothing reads them.
 - **QA (production build):** 18/18 Playwright walks, desktop + mobile. Signed out, nothing changes. Each of admin, athlete, sponsor, Finance, property, advisor and student: header + hero + closing all read "<Role> Dashboard" and link to their portal, Login gone, the phone menu shows one button, clicking the header button lands in the portal, `/packages` shares it. **A revoked Clerk session goes back to Login / Get Started** (session revoked via the Clerk API, page reloaded). Screenshots after the 3D loader at 1366 / 412 / 360 px reviewed by eye: the longest label ("Property Dashboard") fits beside the logo at 360 with no overflow. Frontend 140 files / 1,531 tests, eslint, tsc, `next build` green.
 
 - **Pushed and closed (HeckerCreatives):** 3S1-FE-01, P1-ART-26 and P1-ART-27 merged into `main_development` and `main` (b59fd98, CI green), then marked **Done** in the tracker and the plan on the owner's call.
+
+## rcfworks — 3S2-BE-01 · feature store and snapshots (Code review)
+
+**What it is (agreed with the user):** the inputs a price is suggested from, frozen per athlete per day. The pricing engine (3S2-BE-02) uses them, and a past suggestion can always be explained.
+
+**User decisions, 2026-10-14:** one snapshot per athlete per day; "recent" means 90 days. Caveats were discussed and accepted:
+- snapshots will be thin until campaigns run;
+- audience figures are mostly self-reported;
+- seasonality needs a year of history;
+- storage grows by about 0.5–1 GB a year per 1,000 athletes;
+- a missed night falls back to the day before;
+- nothing reads the snapshots until 3S2-BE-02.
+
+**Built:**
+- `FeatureSnapshot`, migration `20261014120000_feature_snapshot`, unique on (tenant, entity type, entity, day). Written with `createMany skipDuplicates`, so it is never updated.
+- `backend/src/domain/feature-snapshots.ts`:
+  - covers bookable athletes (ACTIVE or FEATURED);
+  - audience comes from `AthleteSocial`, with labels;
+  - engagement, delivery and demand come from the summaries;
+  - on-time delivery comes from the DUE and PUBLISHED facts per deliverable, skipping reversed DUE facts;
+  - seasonality needs a year of bookings for the sport, and is otherwise null with a reason;
+  - the module also covers geography, scarcity and the segment's benchmarks.
+  - `getFeatureSnapshot` returns that day's snapshot or the latest before it; `listFeatureSnapshots` returns a range.
+- The worker runs benchmarks and then snapshots after the nightly fact check, skipping the tenants whose check failed.
+- `npm run features:snapshot -- [--tenant id]`.
+- `tests/feature-snapshots.test.ts` (7 tests), with every value worked out by hand.
+- `authz.coverage` registers `FeatureSnapshot`.
+- **Docs:** Fact Ledger v1.10 §12; the plan entry is set to Code review, and its "Builds on" line is re-pointed from the warehouse to the ledger.
+- **Tracker:** 3S2-BE-01 is in Code review.

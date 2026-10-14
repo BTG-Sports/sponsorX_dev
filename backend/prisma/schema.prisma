@@ -3877,3 +3877,24 @@ model Benchmark {
 
   @@unique([tenantId, dimension, segment, metric])
 }
+
+/// 3S2-BE-01 — what was known about an entity on a day: the inputs a price is
+/// suggested from (audience, engagement, delivery, demand, seasonality,
+/// geography, scarcity, benchmarks), so a past suggestion can always be
+/// explained (domain/feature-snapshots.ts). One per athlete per UTC day, taken
+/// nightly after the benchmarks; written once and never changed.
+model FeatureSnapshot {
+  id         String   @id @default(cuid())
+  tenantId   String
+  /// ATHLETE
+  entityType String
+  entityId   String
+  /// The UTC day the snapshot describes.
+  day        DateTime @db.Date
+  /// "features-v1" — the shape of `features`; a new shape is a new version, never an edit.
+  version    String
+  features   Json
+  createdAt  DateTime @default(now())
+
+  @@unique([tenantId, entityType, entityId, day])
+}
