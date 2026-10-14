@@ -174,6 +174,72 @@ Honesty about this is the point of writing it down.
 | Rollback across a migration | **Not exercised.** The rule is "do not"; §3 is the path |
 | Migration failure | Exercised by accident on 2026-09-21 — the pre-deploy command was broken by the repo split and the deploy failed correctly, serving the previous release throughout |
 | Restore | Walked on a staging snapshot; never against production data |
+| Database logins (§6) | Exercised on staging and production on 2026-10-14. One lesson: wait for the api redeploy to finish before step 4, or the check reaches the old copy, which still runs on the master login |
 
 *Owner: rcfworks. Review this whenever a new service, job type or external
 dependency is added.*
+
+---
+
+## 6 · Database logins — only the app writes
+
+**`3S1-OPS-03` · 2026-10-14.** The live database has two logins of its own.
+Corrections are made through the admin actions, which record their facts, so
+no edit can bypass the fact ledger (`SponsorX-Fact-Ledger.md` §10).
+
+| Login | Who | Can do |
+|---|---|---|
+| `sponsorx_app` | The `api` service (the API, the worker and the deploy step's `prisma migrate deploy`); the staging `tester` service | Owns the database and every table: reads, writes, and applies new tables at deploy |
+| `sponsorx_readonly` | Developers (only Railway project members can reach the database) | Reads every table. Postgres refuses it any write and any new table, even with read-only switched off |
+| `postgres` | Nobody, day to day | Railway's master login. **Break-glass only** — see below |
+
+**Looking at data.** From inside the `api` service, through the read-only
+login, in a transaction that is rolled back:
+
+```
+railway ssh --environment <env> --service api -- \
+  npm run db:read -w @sponsorx/backend -- 'SELECT id, state FROM "CampaignOrder" LIMIT 5'
+```
+
+**Where the passwords live.** On the database service, as
+`SPONSORX_APP_PASSWORD` and `SPONSORX_READONLY_PASSWORD`. The `api` service
+builds its URLs from them by reference, so no password is copied anywhere:
+
+```
+DATABASE_URL          = postgresql://sponsorx_app:${{<db>.SPONSORX_APP_PASSWORD}}@${{<db>.PGHOST}}:${{<db>.PGPORT}}/${{<db>.PGDATABASE}}
+READONLY_DATABASE_URL = postgresql://sponsorx_readonly:${{<db>.SPONSORX_READONLY_PASSWORD}}@${{<db>.PGHOST}}:${{<db>.PGPORT}}/${{<db>.PGDATABASE}}
+```
+
+`<db>` is `Postgres` in staging and `Postgres-production` in production. The
+staging `tester` service's `STAGING_DATABASE_URL` is the same as the app's.
+
+**Setting it up in an environment** (done once; safe to repeat):
+
+1. Put two new passwords on the database service, without deploying it:
+   `railway variables --environment <env> --service <db> --skip-deploys --set "SPONSORX_APP_PASSWORD=$(openssl rand -hex 24)" --set "SPONSORX_READONLY_PASSWORD=$(openssl rand -hex 24)"`.
+2. Apply the logins while `api` still runs as the master login. The passwords
+   go in on stdin, so they never appear in a command line or a log:
+   ```
+   railway variables --environment <env> --service <db> --json \
+     | node -e 'const v=JSON.parse(require("fs").readFileSync(0,"utf8"));process.stdout.write(JSON.stringify({app:v.SPONSORX_APP_PASSWORD,readonly:v.SPONSORX_READONLY_PASSWORD}))' \
+     | railway ssh --environment <env> --service api -- npm run db:logins -w @sponsorx/backend
+   ```
+   It ends `logins: all checks pass.` — the app is not a superuser and owns
+   everything, the app can apply a new table, and the read-only login can
+   read but is refused a write and a new table.
+3. Set `DATABASE_URL` and `READONLY_DATABASE_URL` on `api` (and, in staging,
+   `STAGING_DATABASE_URL` on `tester`) as above. That redeploys `api`.
+4. Check `/health`, then `npm run facts:check` through `railway ssh`, then one
+   `db:read` query.
+
+**Undo.** Set `api`'s `DATABASE_URL` back to `${{<db>.DATABASE_URL}}` (the
+master login). The logins can stay; nothing else depends on them.
+
+**Break-glass.** If a migration ever needs the master login (for example, to
+add a Postgres extension), it fails at the pre-deploy step and nothing ships.
+Run that one statement as the master login, record why in the day's
+`Memory/` log, then re-run step 2 with `"adminUrl"` (the master URL) added to
+the JSON: it hands anything the master login created back to the app. The
+master password is visible to every member of the Railway project, so who is
+a member is the real lock on it.
+

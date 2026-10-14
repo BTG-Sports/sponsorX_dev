@@ -22,7 +22,10 @@
     "uat:phase2": "node scripts/uat-phase2.mjs",
     "facts:check": "node --env-file-if-exists=../.env --import tsx scripts/check-facts.mts",
     "facts:fill": "node --env-file-if-exists=../.env --import tsx scripts/fill-fact-history.mts",
-    "warehouse:reader": "node --import tsx scripts/warehouse-reader.mts"
+    "benchmarks:refresh": "node --env-file-if-exists=../.env --import tsx scripts/refresh-benchmarks.mts",
+    "warehouse:reader": "node --import tsx scripts/warehouse-reader.mts",
+    "db:logins": "node --import tsx scripts/db-logins.mts",
+    "db:read": "node --import tsx scripts/db-read.mts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "9.1.0",

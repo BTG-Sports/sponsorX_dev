@@ -375,30 +375,51 @@ Run the three fills on staging, then on production with the owner's OK; the chec
 
 **Order** 7.5 · **OPS** · **Where:** Code / Vendor console · **1d** · **Blocked**
 
+> **On hold (user, 2026-10-14).** "If no one is going to use it we just leave it there while we are in development." The warehouse databases, settings and hourly copy stay for now. Nothing reads them: analysis reads the fact ledger.
+
 Stop the hourly copy, and remove the warehouse settings and code. Once the facts and summaries are live, delete `Postgres-warehouse` and `Postgres-warehouse-production`, with the owner's OK.
 
 - **Depends on:** 3S1-OPS-04
 - **Done when:** no warehouse service, setting or code remains; analysis reads the summaries; the design docs say so
 - **Reference:** Spec §20
 
-### ▶ `3S1-OPS-03` · Only the app writes to the live database
+### ◑ `3S1-OPS-03` · Only the app writes to the live database
 
-**Order** 7.6 · **OPS** · **Where:** Vendor console · **1d** · **Ready**
+**Order** 7.6 · **OPS** · **Where:** Code / Vendor console · **1d** · **Code review**
 
-A dedicated login for the app with write access; people get read-only access. Corrections go through admin actions, which record their facts, so no edit can bypass the ledger.
+A dedicated login for the app with write access; developers get read-only access. Corrections go through admin actions, which record their facts, so no edit can bypass the ledger.
 
 - **Depends on:** —
-- **Done when:** in staging and production only the app's login can write; a read-only login exists for people; the change is recorded in the deployment runbook
+- **Done when:** in staging and production only the app's login can write; a read-only login exists for developers; the change is recorded in the deployment runbook
+- **Built:** 2026-10-14. Two logins (user, 2026-10-14: the app's own login also applies new tables at deploy; no separate owner login):
+  - `sponsorx_app`, which owns everything;
+  - `sponsorx_readonly`, for developers (user, 2026-10-14: live data is for developers only).
+
+  The code is `backend/src/db/logins.ts`, `npm run db:logins` and `npm run db:read`; the proof is `backend/tests/db-logins.test.ts`. The steps are in the Deployment Runbook §6, and the reasoning is in [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §10. - **Delivered:** 2026-10-14, after the deploy of `59ca246`, in staging and production:
+  - 167 objects were handed to `sponsorx_app`, and all six checks pass;
+  - the app runs as `sponsorx_app`, and only `sponsorx_app` and `sponsorx_readonly` are connected;
+  - the fact check passes;
+  - a write through `db:read` is refused.
+
+  On staging, the tester site uses the app's login, and the master password was changed.
 - **Reference:** Spec §26
 
-### ⏸ `3S1-DATA-03` · Benchmark pipeline
+### ◑ `3S1-DATA-03` · Benchmark pipeline
 
-**Order** 9 · **DATA** · **Where:** Code · **3d** · **Blocked**
+**Order** 9 · **DATA** · **Where:** Code · **3d** · **Code review**
 
 Percentile benchmarks by sport, market, format and audience — p25, median, p75 with sample size, so a small sample is visibly small.
 
 - **Depends on:** 3S1-OPS-04
 - **Done when:** Benchmarks compute with sample sizes exposed and refresh on schedule
+- **Delivered:** 2026-10-14. Effective CPM is (paid, net of cancellations) × 1,000 ÷ verified views, computed per order from the fact ledger's summaries over the last 12 months.
+  - **Dimensions:** sport, US state, NIL job and athlete tier, plus all orders together.
+  - **Sample:** a figure from fewer than 10 orders is marked a small sample (user, 2026-10-14).
+  - **Schedule:** rebuilt nightly after the fact check. A tenant whose check failed keeps yesterday's figures.
+  - **Code:** `Benchmark` (migration `20261014090000_benchmark`), `backend/src/domain/benchmarks.ts` and `npm run benchmarks:refresh`.
+  - **Proof:** `backend/tests/benchmarks.test.ts`.
+
+  [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §11
 - **Reference:** Spec §19
 
 ### ◑ `3S1-QA-01` · Nightly fact check
