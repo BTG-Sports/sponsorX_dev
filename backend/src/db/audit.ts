@@ -69,6 +69,10 @@ export const AUDIT_ACTIONS = {
     /** 3S2-BE-03 — a BTG admin set their own price for an item, with a reason. */
     override: "pricing.override",
   },
+  /** 3S3-BE-02 — the match engine: a brief's shortlist saved (replaced). */
+  match: {
+    shortlistSave: "match.shortlistSave",
+  },
   /** Agreements — acceptance is the legally interesting event. */
   agreement: {
     accept: "agreement.accept",

@@ -1613,6 +1613,28 @@ factors, comparable range, confidence and model version. Read through
 - **An item outside the caller's tenant answers 404**, the same as an item not
   priced yet.
 
+## 29 · Phase 3 · sponsor matching *(added 2026-10-14)*
+
+### `briefMatch` (3S3-BE-02, 3S3-BE-03)
+The match engine's ranking of a brief's candidates (athletes, properties,
+inventory items), with scores, factors and reasons, and the brief's saved
+shortlist. Read through `GET /intelligence/briefs/{briefId}/matches`; the
+shortlist saved through `POST /intelligence/briefs/{briefId}/shortlist`.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN`, `CAMPAIGN_MGR`, `NETWORK_MGR` | own-tenant | own-tenant (the shortlist) | — |
+| `SALES` | own-tenant | — | — |
+
+- **Write is only the shortlist.** Nobody edits a score. Saving replaces the
+  brief's shortlist and is audited (`match.shortlistSave`).
+- **No sponsor or athlete sees a score.** A sponsor reads its brief through
+  `campaignBrief`, which carries no ranking.
+- **A brief outside the caller's tenant answers 404.**
+- **Removed candidates are only counted.** Unavailable, category-conflicted
+  and brand-unsafe candidates are filtered out before scoring, and the
+  response carries only their counts (3S3-BE-03).
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

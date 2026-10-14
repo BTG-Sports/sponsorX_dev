@@ -824,6 +824,16 @@ model CampaignBrief {
   stateCodes    String[]
   /// Conflict-check input — §26.
   categories    String[]
+  /// 3S3-BE-01 — BRAND_CATEGORIES the sponsor will not be associated with: a
+  /// candidate tied to one is filtered out of matching (a category conflict).
+  excludedCategories   String[] @default([])
+  /// 3S3-BE-01 — MATCH_CHANNELS the sponsor wants (INSTAGRAM, TIKTOK, YOUTUBE, X,
+  /// FACEBOOK, IN_PERSON); empty means no preference.
+  channels             String[] @default([])
+  /// 3S3-BE-01 — the athlete tiers wanted (AthleteTier); empty means any.
+  audienceTiers        String[] @default([])
+  /// 3S3-BE-01 — the smallest audience wanted: followers on the athlete's largest account. Null: no minimum.
+  audienceMinFollowers Int?
   state         BriefState @default(DRAFT)
   /// P4-FE-07 — why BTG closed it; null unless CLOSED.
   closeReason   String?
@@ -3943,4 +3953,63 @@ model PricingOverride {
   createdAt        DateTime @default(now())
 
   @@index([tenantId, inventoryId, createdAt])
+}
+
+/// 3S3-BE-02 — one ranking of a brief's candidates of one kind (athlete,
+/// property, inventory), as the match engine made it (domain/match-engine.ts):
+/// the model version, when, and what the eligibility filter removed. Its rows
+/// are MatchScore. A run is reused for a few minutes so pages agree, then
+/// made again.
+model MatchRun {
+  id           String   @id @default(cuid())
+  tenantId     String
+  briefId      String
+  /// athlete | property | inventory
+  kind         String
+  modelVersion String
+  /// { unavailable, categoryConflict, brandSafety } — counts only; never the rows.
+  filteredOut  Json
+  candidates   Int
+  durationMs   Int
+  computedAt   DateTime @default(now())
+
+  @@index([tenantId, briefId, kind, computedAt])
+}
+
+/// 3S3-BE-02 — one ranked candidate in a run: its score (0..100, the sum of its
+/// factors' contributions), the factors and reasons, and its availability.
+model MatchScore {
+  id           String @id @default(cuid())
+  tenantId     String
+  runId        String
+  /// "athlete:<id>" — stable per brief; what a shortlist stores.
+  matchId      String
+  kind         String
+  refId        String
+  name         String
+  sub          String
+  rank         Int
+  score        Int
+  /// 0..1 — the share of the score resting on real data.
+  confidence   Float
+  /// [{ key, label, weight, contribution, reason }]
+  factors      Json
+  reasons      String[]
+  /// { state: AVAILABLE | LIMITED, note? }
+  availability Json
+
+  @@unique([runId, matchId])
+  @@index([runId, rank])
+}
+
+/// 3S3-BE-02 — the brief's saved shortlist: the match ids BTG chose, with the
+/// name and score each had when saved. Saving replaces it.
+model BriefShortlist {
+  id        String   @id @default(cuid())
+  tenantId  String
+  briefId   String   @unique
+  /// [{ matchId, kind, name, score }]
+  entries   Json
+  savedBy   String
+  savedAt   DateTime @default(now())
 }

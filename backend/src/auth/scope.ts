@@ -906,6 +906,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   supportMessage: tenantScoped,
   /* 3S2-BE-02 — the engine's suggestions, per tenant. */
   pricingRecommendation: tenantScoped,
+  /* 3S3-BE-02 — a brief's ranking and shortlist, per tenant. */
+  briefMatch: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 
