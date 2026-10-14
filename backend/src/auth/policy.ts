@@ -173,7 +173,8 @@ export type Resource =
   | "signupRules"
   | "paymentEvent"
   | "paymentDispute"
-  | "supportMessage";
+  | "supportMessage"
+  | "pricingRecommendation";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -255,6 +256,7 @@ export const RESOURCES: readonly Resource[] = [
   "paymentEvent",
   "paymentDispute",
   "supportMessage",
+  "pricingRecommendation",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -1076,6 +1078,15 @@ export const POLICY: Record<Resource, RolePolicy> = {
   supportMessage: {
     SUPER_ADMIN: rwa("any"),
     BTG_ADMIN: rwa("own-tenant"),
+  },
+  /* 3S2-BE-02 (matrix §28) — the CPM engine's suggested prices, tenant-wide.
+     Read by the people who price and sell; write is the override with a
+     reason (3S2-BE-03), BTG admins only. A seller never sees the engine. */
+  pricingRecommendation: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    CAMPAIGN_MGR: rwa("own-tenant"),
+    SALES: rwa("own-tenant"),
   },
 };
 

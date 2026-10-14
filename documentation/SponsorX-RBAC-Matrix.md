@@ -1592,6 +1592,27 @@ guardianship proof or an ID), in the tenant whose form it came through.
 - **Nobody else reaches it**, the sender included: they get a copy that
   carries only the topic and the reference.
 
+## 28 · Phase 3 · suggested prices *(added 2026-10-14)*
+
+### `pricingRecommendation` (3S2-BE-02, 3S2-BE-03)
+The CPM engine's suggested price for an athlete's item for sale, with its
+factors, comparable range, confidence and model version. Read through
+`GET /intelligence/pricing` and `GET /intelligence/pricing/{inventoryId}`.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant (the override, with a reason — 3S2-BE-03) | — |
+| `CAMPAIGN_MGR`, `SALES` | own-tenant | — | — |
+
+- **Write is only the override** (`POST /intelligence/pricing/recommendations/{id}/overrides`).
+  A suggestion is never edited, and the database refuses it. An override is
+  its own record with a required reason, and an audit row (3S2-BE-03). The
+  detail's `canOverride` is true for exactly the roles with write.
+- **No seller sees the engine.** An athlete, a team or a sponsor never reads a
+  suggested price or its factors.
+- **An item outside the caller's tenant answers 404**, the same as an item not
+  priced yet.
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

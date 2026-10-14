@@ -16,6 +16,7 @@ import { deliverablesRouter } from "./deliverables";
 import { earningsRouter } from "./earnings";
 import { guardiansRouter } from "./guardians";
 import { metricsRouter } from "./metrics";
+import { intelligenceRouter } from "./intelligence";
 import { zohoWebhooksRouter } from "./zoho-webhooks";
 import { inquiriesRouter } from "./inquiries";
 import { catalogueRouter } from "./catalogue";
@@ -100,6 +101,7 @@ v1Router.use("/", earningsRouter);
 /* B7 — metrics and the sponsor report (P7-DATA-01, P7-BE-05). Every read
    returns a breakdown by provenance label, never a blended number (§22). */
 v1Router.use("/", metricsRouter);
+v1Router.use("/", intelligenceRouter);
 
 /* B7 — inbound Zoho (P7-BE-04, §18, §20). PUBLIC and unauthenticated by
    necessity: Zoho cannot log in. Guarded by an HMAC shared secret instead,

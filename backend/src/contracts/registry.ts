@@ -129,6 +129,7 @@ import {
 } from "./delivery";
 import { PayoutAccountLinkInput, PayoutDecisionInput, PayoutListQuery, StandinAccountInput, StandinCheckoutInput } from "./payouts";
 import { RefundSentInput, RefundsQuery } from "./refunds";
+import { PricingOverrideInput } from "./intelligence";
 import {
   DisputeResolveInput, DisputeReviewInput, DisputesQuery, PaymentEventResolveInput, PaymentEventsQuery, ProviderWebhookEnvelope, StandinEventInput,
 } from "./payment-events";
@@ -720,6 +721,9 @@ const PATHS: Row[] = [
   { method: "get", path: "/campaigns/{id}/payment-status", tag: "Invoices", summary: "Paid, invoiced and outstanding.", response: PaymentStatus },
   { method: "get", path: "/operations/delivery-health", tag: "Operations", summary: "Delivery health across live campaigns. Paged with ?page (2026-09-29): ?size ?projected=true (campaigns carrying a reach projection), ending soonest first → adds `page`.", query: z.object({ under: z.enum(["true", "false"]).optional(), page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional(), projected: z.enum(["true", "false"]).optional() }) },
   { method: "get", path: "/operations/network-metrics", tag: "Operations", summary: "Network-wide metrics." },
+  { method: "get", path: "/intelligence/pricing", tag: "Intelligence", summary: "The CPM engine's latest stored suggestions for the tenant's athlete items (3S2-BE-02/03), each with the override in force: a page (?page&size&q&view=above|below|low) and a summary over every priced item. Each carries model version, confidence and when." },
+  { method: "get", path: "/intelligence/pricing/{inventoryId}", tag: "Intelligence", summary: "One item's latest stored suggestion (3S2-BE-02/03): base, factor breakdown (base + Σ impacts = the suggestion), sell floor, comparable range and stamp. `overrides`, newest first: { id, cpmCents, reason, by { name }, at }; `canOverride`. 404 when the item is not priced yet." },
+  { method: "post", path: "/intelligence/pricing/recommendations/{recommendationId}/overrides", tag: "Intelligence", summary: "A BTG admin's own price for an item, with a reason (3S2-BE-03) → 201 { override }. 403 without the permission; 422 with no reason of 10–500 characters, or below the sell floor (the attempt is audited). Never edits the suggestion or the item's listed price; the newest override stays in force until replaced.", body: PricingOverrideInput },
   { method: "get", path: "/operations/job-economics", tag: "Operations", summary: "Economics by NIL job." },
 
   // 2S5-INT-02 — the payment provider's events

@@ -463,37 +463,66 @@ Raised by `3S1-QA-01` (2026-10-13). Show the nightly fact check on the admin int
 
 *4 tasks · 18 person-days*
 
-### ⏸ `3S2-BE-01` · Feature store and snapshot service
+### ◑ `3S2-BE-01` · Feature store and snapshot service
 
-**Order** 11 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 11 · **BE** · **Where:** Code · **5d** · **Code review**
 
 Assemble the inputs a pricing model needs — audience, engagement, historical delivery, demand, seasonality, geography, scarcity — and snapshot them so a past recommendation can always be explained.
 
 - **Depends on:** 3S1-OPS-04
-- **Builds on:** `AthleteScore` (P3-BE-10), the existing snapshot pattern. Features read from the warehouse, not product tables. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
+- **Builds on:** `AthleteScore` (P3-BE-10), the existing snapshot pattern. Features read from the fact ledger's summaries and facts, and the app's athlete records — not the warehouse (re-pointed 2026-10-14, Fact Ledger §12).
 - **Done when:** Feature snapshots generate on schedule and are retrievable by entity and date
+- **Delivered:** 2026-10-14.
+  - **What:** one snapshot per bookable athlete per UTC day, written once and never changed. It is taken nightly after the benchmarks; a tenant whose fact check failed takes none that day.
+  - **Inputs:** audience (with labels), engagement, delivery (including on-time), demand, seasonality (only once there is a year of bookings), geography, scarcity and the segment's benchmarks. "Recent" means 90 days (user, 2026-10-14).
+  - **Retrieval:** `getFeatureSnapshot` gives that day's snapshot or the latest before it; `listFeatureSnapshots` gives a range.
+  - **Code:** `FeatureSnapshot` (migration `20261014120000_feature_snapshot`), `backend/src/domain/feature-snapshots.ts` and `npm run features:snapshot`.
+  - **Proof:** `backend/tests/feature-snapshots.test.ts`.
+
+  [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §12
 - **Reference:** Spec §19
 
-### ⏸ `3S2-BE-02` · Dynamic CPM engine v1 (rules-based)
+### ◑ `3S2-BE-02` · Dynamic CPM engine v1 (rules-based)
 
-**Order** 12 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 12 · **BE** · **Where:** Code · **5d** · **Code review**
 
 Start with rules and statistics, not machine learning. The spec is explicit: do not build ML pricing before there is enough clean history.
 
 - **Depends on:** 3S2-BE-01
 - **Builds on:** `domain/pricing-learning.ts` (implied CPM, P7-DATA-03) and `domain/pricing.ts` / `margin-floor.ts` (tier multiplier and sell floor). A recommendation never goes below the floor. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Every recommended price exposes model version, confidence and factor breakdown
+- **Delivered:** 2026-10-14.
+  - **Base:** the benchmark median of the most specific group with 10+ orders: job, then sport, tier, state, then all orders. Otherwise the largest group, or the item's current CPM.
+  - **Factors:** engagement, delivery record, demand, seasonality and scarcity, from the feature snapshot. Each is capped at ±20%, and all together at ±40% (user, 2026-10-14).
+  - **Floor:** never below the sell floor; when the floor lifts a price, it shows as its own factor.
+  - **Stamp:** model version `cpm-rules@1.0.0` and a confidence from 0 to 1.
+  - **Scope:** athlete items only in v1 (user, 2026-10-14).
+  - **Code:** `backend/src/domain/pricing-engine.ts`; `GET /intelligence/pricing` and `GET /intelligence/pricing/{inventoryId}`, as the pricing panel's contract asks; new permission `pricingRecommendation` (RBAC matrix §28).
+  - **Proof:** `backend/tests/pricing-engine.test.ts`.
+
+  [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §13
 - **Reference:** Spec §17.1, §22
 
-### ⏸ `3S2-BE-03` · Pricing recommendation and override records
+### ◑ `3S2-BE-03` · Pricing recommendation and override records
 
-**Order** 13 · **BE** · **Where:** Code · **3d** · **Blocked**
+**Order** 13 · **BE** · **Where:** Code · **3d** · **Code review**
 
 Store the recommendation immutably. An override is a separate record with a required reason — it never edits the original.
 
 - **Depends on:** 3S2-BE-02
 - **Builds on:** the unused `pricing.floorOverrideAttempt` audit action; `pricing_overrides` is new. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Admin can override a price only with the right permission and a recorded reason; the recommendation is unchanged
+- **Delivered:** 2026-10-14.
+  - **Suggestions:** stored nightly, one per item per day (`PricingRecommendation`). The database refuses any edit or delete.
+  - **Overrides:** `POST /intelligence/pricing/recommendations/{id}/overrides`, for BTG admins only (`pricingRecommendation` write).
+    - A reason of 10–500 characters is required, and the price can never go below the sell floor. A below-floor attempt is audited as `pricing.floorOverrideAttempt`.
+    - Each override is its own record (`PricingOverride`, append-only) plus a `pricing.override` audit row.
+    - The newest override stays in force until replaced, including across tomorrow's suggestion. It never changes the listed price (user, 2026-10-14).
+  - **Migration:** `20261014150000_pricing_records`.
+  - **By hand:** `npm run pricing:refresh`.
+  - **Proof:** `backend/tests/pricing-engine.test.ts`.
+
+  [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §13
 - **Reference:** Spec §17.1, §22
 
 ### ✅ `3S2-FE-01` · Build the pricing intelligence panel

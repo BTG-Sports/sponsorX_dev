@@ -149,3 +149,76 @@ The warehouse databases, settings and hourly copy all stay. Nothing reads them.
 - **QA (production build):** 18/18 Playwright walks, desktop + mobile. Signed out, nothing changes. Each of admin, athlete, sponsor, Finance, property, advisor and student: header + hero + closing all read "<Role> Dashboard" and link to their portal, Login gone, the phone menu shows one button, clicking the header button lands in the portal, `/packages` shares it. **A revoked Clerk session goes back to Login / Get Started** (session revoked via the Clerk API, page reloaded). Screenshots after the 3D loader at 1366 / 412 / 360 px reviewed by eye: the longest label ("Property Dashboard") fits beside the logo at 360 with no overflow. Frontend 140 files / 1,531 tests, eslint, tsc, `next build` green.
 
 - **Pushed and closed (HeckerCreatives):** 3S1-FE-01, P1-ART-26 and P1-ART-27 merged into `main_development` and `main` (b59fd98, CI green), then marked **Done** in the tracker and the plan on the owner's call.
+
+## rcfworks — 3S2-BE-01 · feature store and snapshots (Code review)
+
+**What it is (agreed with the user):** the inputs a price is suggested from, frozen per athlete per day. The pricing engine (3S2-BE-02) uses them, and a past suggestion can always be explained.
+
+**User decisions, 2026-10-14:** one snapshot per athlete per day; "recent" means 90 days. Caveats were discussed and accepted:
+- snapshots will be thin until campaigns run;
+- audience figures are mostly self-reported;
+- seasonality needs a year of history;
+- storage grows by about 0.5–1 GB a year per 1,000 athletes;
+- a missed night falls back to the day before;
+- nothing reads the snapshots until 3S2-BE-02.
+
+**Built:**
+- `FeatureSnapshot`, migration `20261014120000_feature_snapshot`, unique on (tenant, entity type, entity, day). Written with `createMany skipDuplicates`, so it is never updated.
+- `backend/src/domain/feature-snapshots.ts`:
+  - covers bookable athletes (ACTIVE or FEATURED);
+  - audience comes from `AthleteSocial`, with labels;
+  - engagement, delivery and demand come from the summaries;
+  - on-time delivery comes from the DUE and PUBLISHED facts per deliverable, skipping reversed DUE facts;
+  - seasonality needs a year of bookings for the sport, and is otherwise null with a reason;
+  - the module also covers geography, scarcity and the segment's benchmarks.
+  - `getFeatureSnapshot` returns that day's snapshot or the latest before it; `listFeatureSnapshots` returns a range.
+- The worker runs benchmarks and then snapshots after the nightly fact check, skipping the tenants whose check failed.
+- `npm run features:snapshot -- [--tenant id]`.
+- `tests/feature-snapshots.test.ts` (7 tests), with every value worked out by hand.
+- `authz.coverage` registers `FeatureSnapshot`.
+- **Docs:** Fact Ledger v1.10 §12; the plan entry is set to Code review, and its "Builds on" line is re-pointed from the warehouse to the ledger.
+- **Tracker:** 3S2-BE-01 is in Code review.
+
+## rcfworks — 3S2-BE-02 · CPM engine v1 (Code review)
+
+**User decisions, 2026-10-14:**
+- v1 prices athlete items only; venue and team items are not priced yet;
+- each factor is capped at ±20%, and all factors together at ±40%.
+
+**Built:**
+- `backend/src/domain/pricing-engine.ts`:
+  - `recommend()` is pure;
+  - the base is the benchmark median: job, then sport, tier, state, then all orders, at 10 or more orders. Otherwise it is the largest group, or the current CPM;
+  - the factors are engagement, delivery, demand, seasonality and scarcity, capped and then scaled together;
+  - a floor factor applies when the floor lifts the price, and base + Σ impacts = the suggestion;
+  - the stamp is `cpm-rules@1.0.0`, with a confidence from 0 to 1.
+- `pricingDesk` and `pricingDetail` compute when read from the latest snapshot. Until 3S2-BE-03 stores them, the ids are `computed:<item>:<day>` and `canOverride` is false.
+- **Routes:** `GET /intelligence/pricing` and `GET /intelligence/pricing/{inventoryId}` (`routes/v1/intelligence.ts`), as the pricing panel's contract asks.
+- **New permission `pricingRecommendation`:**
+  - read: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR and SALES;
+  - write (the override, 3S2-BE-03): SUPER_ADMIN and BTG_ADMIN.
+  - Registered in RBAC matrix §28, policy and scope, the matrix digest (`be91f12557155114`), the OpenAPI registry and the tenant-isolation sweep.
+- **The NIL job sell floor is read by job id.** The SX catalogue is one row per id, whichever tenant seeded it. In dollars, it is ×100 against an item's cents.
+- `tests/pricing-engine.test.ts`: 10 tests with hand-worked prices.
+- **Docs:** Fact Ledger v1.11 §13; the plan entry; the tracker is in Code review.
+
+**Lesson (my mistake, now fixed):** `export DATABASE_URL=… TEST_DATABASE_URL=$DATABASE_URL` on one line leaves `TEST_DATABASE_URL` empty, because the shell expands the variable before assigning it. Every database-backed test then quietly skips. Set the two in separate exports, or spell out both URLs.
+
+## rcfworks — 3S2-BE-03 · pricing records and overrides (Code review)
+
+**User decisions, 2026-10-14:**
+- the newest override stays in force until an admin replaces it, including after tomorrow's suggestion;
+- an override never changes the item's listed price.
+
+**Built:**
+- `PricingRecommendation` and `PricingOverride`, migration `20261014150000_pricing_records`. A `pricing_append_only` trigger refuses UPDATE or DELETE on both, except DELETE in a database marked purgeable, as the ledger does.
+- `storePricingRecommendations` stores one per item per UTC day with `skipDuplicates`. The worker runs it after the snapshots and skips the tenants whose check failed. `npm run pricing:refresh` does it by hand.
+- The reads (`pricingDesk` and `pricingDetail`) now serve the latest stored suggestion, plus the override in force and the full override history. `canOverride` comes from `can(… "write")`.
+- `overridePrice`, at `POST /intelligence/pricing/recommendations/{id}/overrides` (Zod `PricingOverrideInput`):
+  - BTG admins only; others get 403;
+  - the reason must be 10–500 characters, otherwise 422;
+  - below the floor it returns 422 and writes a `pricing.floorOverrideAttempt` audit row;
+  - otherwise it creates the record and a `pricing.override` audit row (a new `AUDIT_ACTIONS.pricing.override`).
+- **Registered:** the OpenAPI registry; `authz.coverage` maps both models to `pricingRecommendation`; the tenant-isolation sweep has a tenant-A suggestion, the `recommendations` id and the POST body.
+- `tests/pricing-engine.test.ts` now has 15 tests, adding storing, the trigger, every override rule, and an override staying in force overnight.
+- **Docs:** Fact Ledger v1.12 §13 and RBAC matrix §28 updated; the plan entry and tracker are in Code review.

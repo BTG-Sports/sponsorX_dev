@@ -1,6 +1,6 @@
 # SponsorX Fact Ledger
 
-**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07`, `3S1-OPS-04`, `3S1-QA-01`, `3S1-OPS-03`, `3S1-DATA-03` · Version 1.9 · 2026-10-14 · Phase 3, Sprint 1**
+**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07`, `3S1-OPS-04`, `3S1-QA-01`, `3S1-OPS-03`, `3S1-DATA-03`, `3S2-BE-01`, `3S2-BE-02`, `3S2-BE-03` · Version 1.12 · 2026-10-14 · Phase 3, Sprint 1**
 
 Phase 3's figures (reports, benchmarks, price suggestions, forecasts) come
 from **facts the app records at the moment each thing happens**, not from a
@@ -302,4 +302,128 @@ and prints the figures.
 - **Readers:** the model screen (`3S8-FE-02`, `GET /intelligence/models`) and
   the CPM engine (`3S2-BE-02`), when their routes are built. Until then,
   `listBenchmarks` is the read.
+
+## 12 · Feature snapshots
+
+**`3S2-BE-01`.** The pricing engine (`3S2-BE-02`) suggests a price per athlete.
+To make that suggestion, and to explain it later ("why $300 for Sam in
+March?"), it reads a **snapshot** of everything known about the athlete that
+day. There is one snapshot per bookable athlete (`ACTIVE` or `FEATURED`) per UTC
+day. It is written once and never changed, so it still says what was known
+then.
+
+| Input | What | From |
+|---|---|---|
+| `audience` | Each platform's followers and average views, with their label (§22); totals; whether any is verified | `AthleteSocial` |
+| `engagement` | Verified engagements ÷ verified views | Summaries, last 90 days |
+| `delivery` | Deliverables due, published, verified and sent back. Of those due by today, how many were published on or before their due day. Orders cancelled. | Summaries; due and published facts per deliverable (a due fact since reversed doesn't count) |
+| `demand` | Orders booked for the athlete, and their net value. Orders booked for athletes of the same sport and state. | Summaries, last 90 days |
+| `seasonality` | Bookings for the sport in this calendar month last year ÷ the average month of the last 365 days. Null, with the reason, until there is a year of bookings for the sport. | Summaries |
+| `geography` | State and city; orders booked in that state | Athlete; summaries, last 90 days |
+| `scarcity` | Bookable athletes with the same sport, state and tier | Athletes |
+| `benchmarks` | The segment's price ranges (all orders, the sport, the state, the tier) as of that night | §11 |
+
+"Recent" means **90 days** (`FEATURE_WINDOW_DAYS`; user, 2026-10-14): one
+season. A figure that can't be known yet is `null` with the reason, never a
+guess. Each snapshot carries `features-v1`; a new shape is a new version,
+never an edit of old snapshots.
+
+**When it is taken.** Every night, after the benchmarks (§11), the worker takes
+the day's snapshots. A tenant whose fact check failed takes none that day, and a
+lookup for that day returns the day before. `npm run features:snapshot --
+[--tenant <id>]` does the same by hand; a snapshot already taken that day stands.
+
+**Retrieval.** `getFeatureSnapshot(tenant, athlete, date)` returns that day's
+snapshot, or the latest before it. `listFeatureSnapshots` returns a range.
+
+- **Code:** `backend/src/domain/feature-snapshots.ts`, `FeatureSnapshot`
+  (migration `20261014120000_feature_snapshot`).
+- **Proof:** `backend/tests/feature-snapshots.test.ts` writes orders,
+  deliverables and views through the ledger, and works out every value by
+  hand. It also covers a re-run the same day, retrieval by date, two tenants,
+  and a failed check taking none.
+- **Caveats:**
+  - Until real campaigns run, snapshots mostly hold self-reported audience figures.
+  - Storage grows by one row per bookable athlete per day, roughly 0.5–1 GB a year per 1,000 athletes. Thinning old snapshots can wait.
+
+## 13 · Suggested prices (the CPM engine, v1)
+
+**`3S2-BE-02`.** For each athlete's item for sale, the engine suggests a price per
+1,000 impressions (CPM) and says why. It works from rules and statistics, not
+machine learning: the spec says not to learn prices before there is enough clean
+history.
+
+1. **Base.** The benchmark middle (§11) of the most specific group with at least
+   10 orders, in this order: the same NIL job, the sport, the tier, the state,
+   all orders. If no group has 10, it uses the largest group there is, and
+   confidence is lower. If there are no benchmarks at all, it uses the item's own
+   current CPM: its price ÷ the athlete's projected impressions
+   (`pricing-learning.ts`).
+2. **Factors,** from the athlete's feature snapshot (§12). Each is a signed
+   fraction of the base, with a sentence a salesperson can repeat:
+
+   | Factor | Rule |
+   |---|---|
+   | Engagement | (rate ÷ the tenant's median rate − 1) × 0.5 |
+   | Delivery record | (on-time rate − 0.8) × 0.5, once 3 or more deliverables were due |
+   | Demand | (orders booked ÷ the typical number for the same sport and state − 1) × 0.1 |
+   | Seasonality | (index − 1) × 0.25, once there is a year of history |
+   | Scarcity | +10% for 1–2 comparable athletes, +5% for 3–5, −5% for 10 or more |
+
+   Each factor is capped at **±20%**, and all of them together at **±40%**
+   (user, 2026-10-14). Above the total cap they are scaled down together, so
+   each keeps its share.
+3. **Floor.** A suggestion never goes below the sell floor for the job and the
+   athlete's tier (`NilJob.sellFloor*`, as a CPM). When the floor lifts it, a
+   `floor` factor says so. **Base + Σ impacts always equals the suggestion.**
+4. **Stamp.** The model version (`cpm-rules@1.0.0`), when it was computed, and a
+   confidence from 0 to 1, made of:
+   - comparable orders: 0.45 for 30 or more, 0.35 for 10 or more, 0.15 for a small sample, 0.05 for none;
+   - verified audience: 0.20;
+   - a delivery record: 0.15;
+   - engagement: 0.10;
+   - seasonality: 0.05;
+   - demand: 0.05.
+
+   Below 0.5 counts as "low confidence" on the pricing panel.
+
+**v1 prices athlete items only** (user, 2026-10-14). A venue's or team's item is
+not priced yet, because the benchmarks come from athlete campaigns.
+
+**Reads.** `GET /intelligence/pricing` returns a page of priced items and a
+summary over all of them. `GET /intelligence/pricing/{inventoryId}` returns one
+item's base, factors, floor, comparable range and stamp. An item that isn't
+priced, or belongs to another tenant, answers 404. Access is the
+`pricingRecommendation` permission: BTG admins, campaign managers and Sales, in
+their own tenant (RBAC matrix §28).
+
+**Stored as made (`3S2-BE-03`).** Every night, after the feature snapshots, the
+worker stores each item's suggestion (`PricingRecommendation`), one per item per
+UTC day, and the reads serve the latest one. The database refuses any UPDATE or
+DELETE, so "what did we suggest, and why" always has the same answer. A tenant
+whose fact check failed stores none that day. `npm run pricing:refresh` does the
+same by hand (take the snapshots first).
+
+**Overrides (`3S2-BE-03`).** A BTG admin can set their own price for an item:
+`POST /intelligence/pricing/recommendations/{id}/overrides { cpmCents, reason }`.
+- **A reason of 10–500 characters is required.**
+- **Never below the sell floor.** The attempt is refused (422) and itself
+  audited (`pricing.floorOverrideAttempt`).
+- **BTG admins only.** Campaign managers and Sales see overrides but can't make
+  them (403).
+- **An override is its own record** (`PricingOverride`, append-only, like the
+  suggestions) **and an audit row** (`pricing.override`). It never edits the
+  suggestion.
+- **The newest override for an item stays in force** until another replaces it,
+  including after tomorrow's suggestion arrives (user, 2026-10-14). The detail
+  lists every override, newest first.
+- **It never changes the item's listed price** (user, 2026-10-14). The listed
+  price stays the seller's.
+
+- **Code:** `backend/src/domain/pricing-engine.ts`, `backend/src/routes/v1/intelligence.ts`,
+  `PricingRecommendation` and `PricingOverride` (migration `20261014150000_pricing_records`).
+- **Proof:** `backend/tests/pricing-engine.test.ts`. It works out every price by
+  hand: the caps, the floor, the fallbacks, roles and tenants. It also covers
+  storing, the database refusing edits, every override rule, and an override
+  staying in force overnight.
 
