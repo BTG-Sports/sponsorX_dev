@@ -54,3 +54,29 @@ Neither database has a public address: staging's Postgres has no TCP proxy and n
 2. Staging: passwords on `Postgres`, then `db:logins`, then switch `api` and `tester`, then health, `facts:check` and `db:read`.
 3. Change the staging master password.
 4. Production: the user runs the commands.
+
+## rcfworks — 3S1-OPS-03 applied in staging and production (Code review)
+
+PR #204 was merged, then the sync PR #205. The user started the deploy by hand once `main` was green (the safety system blocks me from starting it). `59ca246` is live in both environments.
+
+The setup went in four steps, the same in both environments:
+1. Passwords: `SPONSORX_APP_PASSWORD` and `SPONSORX_READONLY_PASSWORD` were set on the database service with `--skip-deploys`.
+2. Logins: `db:logins` received the passwords on stdin. It handed over 167 objects, and all six checks passed.
+3. Switch: `api` got `DATABASE_URL` and `READONLY_DATABASE_URL` as `${{<db>.…}}` references, which redeploys it.
+4. Checks: `facts:check` passes, and `db:read` shows only `sponsorx_app` and `sponsorx_readonly` connected.
+
+**Staging only:**
+- `tester` uses `STAGING_DATABASE_URL`, which is the app's login. The site is up.
+- The worker log after the switch shows no permission errors. pg-boss started, and the pre-deploy migration step ran as the app.
+- The master password was changed, so the one exposed this morning no longer works.
+  - Method: `ALTER ROLE postgres` was run through `railway ssh` with stdin, and the new password was proven to work.
+  - `POSTGRES_PASSWORD` and `PGPASSWORD` were updated with `--skip-deploys`. The service's `DATABASE_URL` follows by reference.
+
+**Production:** the user pasted the commands.
+- The first attempt checked too early: the ssh reached the old container, which was still on the master login without `READONLY_DATABASE_URL`. The user then ran the undo.
+- Re-running step 3 and waiting for the redeploy (finished 05:27 UTC) gave the expected results.
+- Runbook §5 now records this lesson.
+
+**Tracker:** 3S1-OPS-03 is now in Code review.
+
+**For HeckerCreatives:** `frontend/src/lib/intelligence.ts` (lines 126 and 140) still says "a sponsor/property-scoped read of the warehouse". The warehouse is being retired (3S1-OPS-02), and these reads will come from the fact ledger's summaries.
