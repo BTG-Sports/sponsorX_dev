@@ -462,15 +462,23 @@ Raised by `3S1-QA-01` (2026-10-13). Show the nightly fact check on the admin int
 
 *4 tasks · 18 person-days*
 
-### ⏸ `3S2-BE-01` · Feature store and snapshot service
+### ◑ `3S2-BE-01` · Feature store and snapshot service
 
-**Order** 11 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 11 · **BE** · **Where:** Code · **5d** · **Code review**
 
 Assemble the inputs a pricing model needs — audience, engagement, historical delivery, demand, seasonality, geography, scarcity — and snapshot them so a past recommendation can always be explained.
 
 - **Depends on:** 3S1-OPS-04
-- **Builds on:** `AthleteScore` (P3-BE-10), the existing snapshot pattern. Features read from the warehouse, not product tables. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
+- **Builds on:** `AthleteScore` (P3-BE-10), the existing snapshot pattern. Features read from the fact ledger's summaries and facts, and the app's athlete records — not the warehouse (re-pointed 2026-10-14, Fact Ledger §12).
 - **Done when:** Feature snapshots generate on schedule and are retrievable by entity and date
+- **Delivered:** 2026-10-14.
+  - **What:** one snapshot per bookable athlete per UTC day, written once and never changed. It is taken nightly after the benchmarks; a tenant whose fact check failed takes none that day.
+  - **Inputs:** audience (with labels), engagement, delivery (including on-time), demand, seasonality (only once there is a year of bookings), geography, scarcity and the segment's benchmarks. "Recent" means 90 days (user, 2026-10-14).
+  - **Retrieval:** `getFeatureSnapshot` gives that day's snapshot or the latest before it; `listFeatureSnapshots` gives a range.
+  - **Code:** `FeatureSnapshot` (migration `20261014120000_feature_snapshot`), `backend/src/domain/feature-snapshots.ts` and `npm run features:snapshot`.
+  - **Proof:** `backend/tests/feature-snapshots.test.ts`.
+
+  [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §12
 - **Reference:** Spec §19
 
 ### ⏸ `3S2-BE-02` · Dynamic CPM engine v1 (rules-based)

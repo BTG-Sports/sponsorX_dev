@@ -23,6 +23,7 @@
     "facts:check": "node --env-file-if-exists=../.env --import tsx scripts/check-facts.mts",
     "facts:fill": "node --env-file-if-exists=../.env --import tsx scripts/fill-fact-history.mts",
     "benchmarks:refresh": "node --env-file-if-exists=../.env --import tsx scripts/refresh-benchmarks.mts",
+    "features:snapshot": "node --env-file-if-exists=../.env --import tsx scripts/take-feature-snapshots.mts",
     "warehouse:reader": "node --import tsx scripts/warehouse-reader.mts",
     "db:logins": "node --import tsx scripts/db-logins.mts",
     "db:read": "node --import tsx scripts/db-read.mts"

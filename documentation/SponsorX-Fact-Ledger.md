@@ -1,6 +1,6 @@
 # SponsorX Fact Ledger
 
-**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07`, `3S1-OPS-04`, `3S1-QA-01`, `3S1-OPS-03`, `3S1-DATA-03` · Version 1.9 · 2026-10-14 · Phase 3, Sprint 1**
+**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07`, `3S1-OPS-04`, `3S1-QA-01`, `3S1-OPS-03`, `3S1-DATA-03`, `3S2-BE-01` · Version 1.10 · 2026-10-14 · Phase 3, Sprint 1**
 
 Phase 3's figures (reports, benchmarks, price suggestions, forecasts) come
 from **facts the app records at the moment each thing happens**, not from a
@@ -302,4 +302,47 @@ and prints the figures.
 - **Readers:** the model screen (`3S8-FE-02`, `GET /intelligence/models`) and
   the CPM engine (`3S2-BE-02`), when their routes are built. Until then,
   `listBenchmarks` is the read.
+
+## 12 · Feature snapshots
+
+**`3S2-BE-01`.** The pricing engine (`3S2-BE-02`) suggests a price per athlete.
+To make that suggestion, and to explain it later ("why $300 for Sam in
+March?"), it reads a **snapshot** of everything known about the athlete that
+day. There is one snapshot per bookable athlete (`ACTIVE` or `FEATURED`) per UTC
+day. It is written once and never changed, so it still says what was known
+then.
+
+| Input | What | From |
+|---|---|---|
+| `audience` | Each platform's followers and average views, with their label (§22); totals; whether any is verified | `AthleteSocial` |
+| `engagement` | Verified engagements ÷ verified views | Summaries, last 90 days |
+| `delivery` | Deliverables due, published, verified and sent back. Of those due by today, how many were published on or before their due day. Orders cancelled. | Summaries; due and published facts per deliverable (a due fact since reversed doesn't count) |
+| `demand` | Orders booked for the athlete, and their net value. Orders booked for athletes of the same sport and state. | Summaries, last 90 days |
+| `seasonality` | Bookings for the sport in this calendar month last year ÷ the average month of the last 365 days. Null, with the reason, until there is a year of bookings for the sport. | Summaries |
+| `geography` | State and city; orders booked in that state | Athlete; summaries, last 90 days |
+| `scarcity` | Bookable athletes with the same sport, state and tier | Athletes |
+| `benchmarks` | The segment's price ranges (all orders, the sport, the state, the tier) as of that night | §11 |
+
+"Recent" means **90 days** (`FEATURE_WINDOW_DAYS`; user, 2026-10-14): one
+season. A figure that can't be known yet is `null` with the reason, never a
+guess. Each snapshot carries `features-v1`; a new shape is a new version,
+never an edit of old snapshots.
+
+**When it is taken.** Every night, after the benchmarks (§11), the worker takes
+the day's snapshots. A tenant whose fact check failed takes none that day, and a
+lookup for that day returns the day before. `npm run features:snapshot --
+[--tenant <id>]` does the same by hand; a snapshot already taken that day stands.
+
+**Retrieval.** `getFeatureSnapshot(tenant, athlete, date)` returns that day's
+snapshot, or the latest before it. `listFeatureSnapshots` returns a range.
+
+- **Code:** `backend/src/domain/feature-snapshots.ts`, `FeatureSnapshot`
+  (migration `20261014120000_feature_snapshot`).
+- **Proof:** `backend/tests/feature-snapshots.test.ts` writes orders,
+  deliverables and views through the ledger, and works out every value by
+  hand. It also covers a re-run the same day, retrieval by date, two tenants,
+  and a failed check taking none.
+- **Caveats:**
+  - Until real campaigns run, snapshots mostly hold self-reported audience figures.
+  - Storage grows by one row per bookable athlete per day, roughly 0.5–1 GB a year per 1,000 athletes. Thinning old snapshots can wait.
 
