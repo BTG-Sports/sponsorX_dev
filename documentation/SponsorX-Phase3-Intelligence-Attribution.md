@@ -482,15 +482,25 @@ Assemble the inputs a pricing model needs — audience, engagement, historical d
   [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §12
 - **Reference:** Spec §19
 
-### ⏸ `3S2-BE-02` · Dynamic CPM engine v1 (rules-based)
+### ◑ `3S2-BE-02` · Dynamic CPM engine v1 (rules-based)
 
-**Order** 12 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 12 · **BE** · **Where:** Code · **5d** · **Code review**
 
 Start with rules and statistics, not machine learning. The spec is explicit: do not build ML pricing before there is enough clean history.
 
 - **Depends on:** 3S2-BE-01
 - **Builds on:** `domain/pricing-learning.ts` (implied CPM, P7-DATA-03) and `domain/pricing.ts` / `margin-floor.ts` (tier multiplier and sell floor). A recommendation never goes below the floor. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Every recommended price exposes model version, confidence and factor breakdown
+- **Delivered:** 2026-10-14.
+  - **Base:** the benchmark median of the most specific group with 10+ orders: job, then sport, tier, state, then all orders. Otherwise the largest group, or the item's current CPM.
+  - **Factors:** engagement, delivery record, demand, seasonality and scarcity, from the feature snapshot. Each is capped at ±20%, and all together at ±40% (user, 2026-10-14).
+  - **Floor:** never below the sell floor; when the floor lifts a price, it shows as its own factor.
+  - **Stamp:** model version `cpm-rules@1.0.0` and a confidence from 0 to 1.
+  - **Scope:** athlete items only in v1 (user, 2026-10-14).
+  - **Code:** `backend/src/domain/pricing-engine.ts`; `GET /intelligence/pricing` and `GET /intelligence/pricing/{inventoryId}`, as the pricing panel's contract asks; new permission `pricingRecommendation` (RBAC matrix §28).
+  - **Proof:** `backend/tests/pricing-engine.test.ts`.
+
+  [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §13
 - **Reference:** Spec §17.1, §22
 
 ### ⏸ `3S2-BE-03` · Pricing recommendation and override records

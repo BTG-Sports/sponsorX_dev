@@ -397,7 +397,13 @@ describe("the whole matrix is pinned", () => {
       // longer carries the files). SUPER_ADMIN any read; BTG_ADMIN own-tenant
       // read; every other cell deny (matrix §27). With its rows removed the
       // grid hashes to the previous a5f2afaf1f38bdee.
-    ).toBe("8278919e225e694d");
+      // Updated 2026-10-14 (3S2-BE-02): new `pricingRecommendation` resource —
+      // the CPM engine's suggested prices. SUPER_ADMIN any read and write;
+      // BTG_ADMIN own-tenant read and write (the override, 3S2-BE-03);
+      // CAMPAIGN_MGR and SALES own-tenant read; every other cell deny (matrix
+      // §28). With its rows removed the grid hashes to the previous
+      // 8278919e225e694d.
+    ).toBe("be91f12557155114");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {
