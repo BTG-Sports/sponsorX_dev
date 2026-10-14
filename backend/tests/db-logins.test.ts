@@ -56,6 +56,13 @@ describe.skipIf(!hasDatabase)("3S1-OPS-03 · the app's login and developers' rea
 
   afterAll(async () => {
     await master?.end();
+    /* A closed client's socket can still be closing (CI is slower than a laptop); a forced drop would
+       then kill it mid-close and surface as an uncaught "terminating connection". Wait until it is gone. */
+    for (let i = 0; i < 100; i++) {
+      const open = await server.query(`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = $1`, [name]);
+      if (open.rows[0].n === 0) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
     await server.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
     for (const role of [logins.app, logins.readonly]) await server.query(`DROP ROLE IF EXISTS "${role}"`).catch(() => {});
     await server.end();
