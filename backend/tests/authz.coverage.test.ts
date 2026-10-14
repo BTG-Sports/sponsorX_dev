@@ -89,6 +89,9 @@ const GOVERNED_BY: Record<string, Resource> = {
   MarketplaceOrderInvoice: "marketplaceOrder",
   /* 2S4-BE-13 — money owed back to a sponsor: Finance's "Refunds to send". */
   RefundDue: "refundDue",
+  /* 3S2-BE-02/03 — a stored suggested price, and a BTG admin's override of it: read by BTG admins, campaign managers and Sales; the override written by BTG admins. */
+  PricingRecommendation: "pricingRecommendation",
+  PricingOverride: "pricingRecommendation",
   /* 2S5-INT-02 — the payment provider's events: written by the signed webhook and the worker, read by BTG admin and Finance. */
   PaymentEvent: "paymentEvent",
   /* 2S5-BE-03 — a refund the provider reported: its record, read with the events. A dispute: BTG support's. */

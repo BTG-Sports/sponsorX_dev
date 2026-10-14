@@ -1604,10 +1604,10 @@ factors, comparable range, confidence and model version. Read through
 | `BTG_ADMIN` | own-tenant | own-tenant (the override, with a reason — 3S2-BE-03) | — |
 | `CAMPAIGN_MGR`, `SALES` | own-tenant | — | — |
 
-- **Write is only the override.** A suggestion is never edited. An override
-  is its own record with a required reason, and an audit row (3S2-BE-03).
-  Until that ships, nobody can override: the detail answers
-  `canOverride: false`.
+- **Write is only the override** (`POST /intelligence/pricing/recommendations/{id}/overrides`).
+  A suggestion is never edited, and the database refuses it. An override is
+  its own record with a required reason, and an audit row (3S2-BE-03). The
+  detail's `canOverride` is true for exactly the roles with write.
 - **No seller sees the engine.** An athlete, a team or a sponsor never reads a
   suggested price or its factors.
 - **An item outside the caller's tenant answers 404**, the same as an item not

@@ -108,6 +108,7 @@ import { purgeExpiredClosures } from "../src/domain/account-closure.ts";
 import { runNightlyFactCheck, FACT_CHECK_HOUR_UTC } from "../src/domain/fact-nightly.ts";
 import { refreshBenchmarks } from "../src/domain/benchmarks.ts";
 import { takeFeatureSnapshots } from "../src/domain/feature-snapshots.ts";
+import { storePricingRecommendations } from "../src/domain/pricing-engine.ts";
 import { env } from "../src/config/env.ts";
 import { trimZohoWebhookBodies } from "../src/domain/webhook-retention.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
@@ -960,7 +961,11 @@ async function main(): Promise<void> {
             .catch((error: unknown) => logError(`[worker] benchmarks ${out.day} could not be refreshed, will retry tomorrow:`, error))
             .then(() => takeFeatureSnapshots(prisma, new Date(), { skipTenants: out.failingTenants }))
             .then((f) => log(`[worker] feature snapshots ${out.day}: ${f.written} taken for ${f.athletes} athlete(s)${f.skipped.length ? `; none for ${f.skipped.join(", ")}` : ""}`))
-            .catch((error: unknown) => logError(`[worker] feature snapshots ${out.day} could not be taken, will retry tomorrow:`, error));
+            .catch((error: unknown) => logError(`[worker] feature snapshots ${out.day} could not be taken, will retry tomorrow:`, error))
+            /* 3S2-BE-03 — then today's suggested prices, from those snapshots, stored as made. */
+            .then(() => storePricingRecommendations(new Date(), { skipTenants: out.failingTenants }))
+            .then((p) => log(`[worker] suggested prices ${out.day}: ${p.stored} stored for ${p.items} item(s)${p.skipped.length ? `; none for ${p.skipped.join(", ")}` : ""}`))
+            .catch((error: unknown) => logError(`[worker] suggested prices ${out.day} could not be stored, will retry tomorrow:`, error));
         }
         if (out.status === "failed") logError(`[worker] fact check ${out.day} could not run, will retry in an hour:`, out.error);
       })

@@ -2,14 +2,15 @@
  * /api/v1/intelligence — Phase 3's engines, read by the admin intelligence
  * screens (documentation/SponsorX-Phase3-Screen-Contracts.md).
  *
- * 3S2-BE-02 — the CPM engine's suggested prices: the pricing panel's list
- * and one item's detail. Tenant-wide, for BTG admins, campaign managers and
+ * 3S2-BE-02/03 — the CPM engine's suggested prices: the pricing panel's list,
+ * one item's detail, and a BTG admin's override with a reason. Tenant-wide, for BTG admins, campaign managers and
  * Sales (pricingRecommendation, RBAC matrix §28).
  */
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { pricingDesk, pricingDetail, type PricingDeskView } from "../../domain/pricing-engine";
+import { PricingOverrideInput } from "../../contracts/intelligence";
+import { overridePrice, pricingDesk, pricingDetail, type PricingDeskView } from "../../domain/pricing-engine";
 import { pageRequest } from "../../lib/paging";
 
 export const intelligenceRouter = Router();
@@ -31,3 +32,11 @@ const detail: RequestHandler<{ inventoryId: string }> = async (req, res) => {
 
 intelligenceRouter.get("/intelligence/pricing", requireActor, desk);
 intelligenceRouter.get("/intelligence/pricing/:inventoryId", requireActor, detail);
+
+/** POST /intelligence/pricing/recommendations/:recommendationId/overrides { cpmCents, reason } */
+const override: RequestHandler<{ recommendationId: string }> = async (req, res) => {
+  const body = PricingOverrideInput.parse(req.body ?? {});
+  res.status(201).json(await overridePrice(req.actor!, req.params.recommendationId, body));
+};
+
+intelligenceRouter.post("/intelligence/pricing/recommendations/:recommendationId/overrides", requireActor, override);

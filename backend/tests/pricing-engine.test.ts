@@ -119,7 +119,7 @@ describe("3S2-BE-02 · the CPM engine's rules", () => {
 
 describe.skipIf(!hasDatabase)("3S2-BE-02 · the pricing reads", { timeout: 90_000 }, async () => {
   const { prisma } = await import("../src/db/client");
-  const { pricingDesk, pricingDetail, NotPricedError } = await import("../src/domain/pricing-engine");
+  const { pricingDesk, pricingDetail, overridePrice, storePricingRecommendations, NotPricedError, OverrideReasonError, OverrideBelowFloorError } = await import("../src/domain/pricing-engine");
   const { takeFeatureSnapshots } = await import("../src/domain/feature-snapshots");
   const { ForbiddenError } = await import("../src/auth/errors");
   const { NIL_JOBS } = await import("../src/domain/nil-jobs");
@@ -129,9 +129,12 @@ describe.skipIf(!hasDatabase)("3S2-BE-02 · the pricing reads", { timeout: 90_00
   const actor = (tenantId: string, role: string, extra: Partial<Actor> = {}) =>
     ({ userId: `pe_${role}`, tenantId, roles: [role], sponsorId: null, athleteId: null, guardianId: null, propertyId: null, ...extra }) as unknown as Actor;
   const page = { page: 1, size: 25, skip: 0, take: 25 };
+  const TODAY = new Date();
+  const TOMORROW = new Date(TODAY.getTime() + 86_400_000);
+  const recOf = async (tenantId: string, item: string) => (await pricingDetail(actor(tenantId, "BTG_ADMIN"), item)).recommendation;
 
   async function clean() {
-    for (const t of ["FeatureSnapshot", "Benchmark", "InventoryItem", "AthleteSocial", "Athlete", "Property"]) {
+    for (const t of ["PricingOverride", "PricingRecommendation", "FeatureSnapshot", "Benchmark", "InventoryItem", "AthleteSocial", "Athlete", "Property", "AuditLog", "User"]) {
       await prisma.$executeRawUnsafe(`DELETE FROM "${t}" WHERE "tenantId" = ANY($1::text[])`, [T, OTHER]);
     }
     await prisma.$executeRawUnsafe(`DELETE FROM "Tenant" WHERE id = ANY($1::text[])`, [T, OTHER]);
@@ -156,8 +159,14 @@ describe.skipIf(!hasDatabase)("3S2-BE-02 · the pricing reads", { timeout: 90_00
       { id: "pe_i3", tenantId: T, propertyId: "pe_p1", title: "Scoreboard sign", kind: "SIGNAGE", priceCents: 90000 },
       { id: "pe_j1", tenantId: OTHER, athleteId: "pe_b1", jobId: "SX-04", title: "Other post", kind: "SOCIAL_POST", priceCents: 60000 },
     ] });
-    await takeFeatureSnapshots(prisma, new Date(), { tenantId: T });
-    await takeFeatureSnapshots(prisma, new Date(), { tenantId: OTHER });
+    await prisma.user.createMany({ data: [
+      { id: "pe_BTG_ADMIN", tenantId: T, clerkId: "pe_btg", email: "ana@pe.invalid", roles: ["BTG_ADMIN"] },
+      { id: "pe_o_BTG_ADMIN", tenantId: OTHER, clerkId: "pe_obtg", email: "olly@pe.invalid", roles: ["BTG_ADMIN"] },
+    ] });
+    for (const t of [T, OTHER]) {
+      await takeFeatureSnapshots(prisma, TODAY, { tenantId: t });
+      await storePricingRecommendations(TODAY, { tenantId: t });
+    }
   });
 
   afterAll(clean);
@@ -179,14 +188,16 @@ describe.skipIf(!hasDatabase)("3S2-BE-02 · the pricing reads", { timeout: 90_00
     expect((await pricingDesk(actor(T, "CAMPAIGN_MGR"), { page, search: "sam" })).items).toHaveLength(1);
   });
 
-  it("one item's detail: base, factors that add up, floor, range and stamp; nobody can override yet", async () => {
+  it("one item's detail: base, factors that add up, floor, range and stamp; only BTG admins may override", async () => {
     const d = await pricingDetail(actor(T, "BTG_ADMIN"), "pe_i1");
     expect(d.inventory).toEqual({ id: "pe_i1", title: "Instagram post", kind: "SOCIAL_POST", seller: { kind: "ATHLETE", id: "pe_a1", name: "Sam Lee" }, priceCents: 60000 });
     const r = d.recommendation;
     expect(r.baseCpmCents + r.factors.reduce((t, f) => t + f.impactCents, 0)).toBe(r.recommendedCpmCents);
     expect(r.factors.map((f) => f.key)).toEqual(["engagement", "delivery", "demand", "seasonality", "scarcity"]);
     expect(r.floorCpmCents).toBe(Math.round((NIL_JOBS.find((j) => j.id === "SX-04")!.sellFloorCreator * 100 / 2000) * 1000));
-    expect(d).toMatchObject({ overrides: [], canOverride: false });
+    expect(d).toMatchObject({ overrides: [], canOverride: true });
+    expect((await pricingDetail(actor(T, "SALES"), "pe_i1")).canOverride).toBe(false);
+    expect((await pricingDetail(actor(T, "CAMPAIGN_MGR"), "pe_i1")).canOverride).toBe(false);
   });
 
   it("an item that is not priced, retired, or another tenant's answers 404 — never another tenant's figures", async () => {
@@ -201,5 +212,57 @@ describe.skipIf(!hasDatabase)("3S2-BE-02 · the pricing reads", { timeout: 90_00
       await expect(pricingDesk(a, { page })).rejects.toBeInstanceOf(ForbiddenError);
       await expect(pricingDetail(a, "pe_i1")).rejects.toBeInstanceOf(ForbiddenError);
     }
+  });
+
+  it("stores one suggestion per item per day, as made: a second run the same day stores nothing", async () => {
+    expect(await storePricingRecommendations(TODAY, { tenantId: T })).toEqual({ tenants: 1, items: 1, stored: 0, alreadyStored: 1, skipped: [] });
+    expect(await prisma.pricingRecommendation.count({ where: { tenantId: T } })).toBe(1);
+    expect((await recOf(T, "pe_i1")).id).not.toMatch(/^computed:/);
+  });
+
+  it("the database refuses any edit of a suggestion or an override — and any delete outside a purgeable database", async () => {
+    const rec = await recOf(T, "pe_i1");
+    await expect(prisma.pricingRecommendation.update({ where: { id: rec.id }, data: { recommendedCpmCents: 1 }, select: { id: true } })).rejects.toThrow(/pricing_append_only/);
+    await expect(prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SET LOCAL sponsorx.audit_purge = 'off'`);
+      await tx.$executeRawUnsafe(`DELETE FROM "PricingRecommendation" WHERE id = $1`, rec.id);
+    })).rejects.toThrow(/pricing_append_only/);
+  });
+
+  it("an override: BTG admins only, with a reason of 10–500 characters, never below the floor (and the attempt is audited)", async () => {
+    const rec = await recOf(T, "pe_i1");
+    await expect(overridePrice(actor(T, "SALES"), rec.id, { cpmCents: 30000, reason: "Sales would like this" })).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(overridePrice(actor(T, "CAMPAIGN_MGR"), rec.id, { cpmCents: 30000, reason: "A manager would like this" })).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(overridePrice(actor(T, "BTG_ADMIN"), rec.id, { cpmCents: 30000, reason: "   too short   " })).rejects.toBeInstanceOf(OverrideReasonError);
+    await expect(overridePrice(actor(T, "BTG_ADMIN"), rec.id, { cpmCents: 30000, reason: "x".repeat(501) })).rejects.toBeInstanceOf(OverrideReasonError);
+    await expect(overridePrice(actor(T, "BTG_ADMIN"), rec.id, { cpmCents: rec.floorCpmCents! - 1, reason: "Undercut the competition" })).rejects.toBeInstanceOf(OverrideBelowFloorError);
+    expect(await prisma.auditLog.findMany({ where: { tenantId: T, action: "pricing.floorOverrideAttempt" }, select: { entityId: true, actorId: true } }))
+      .toEqual([{ entityId: rec.id, actorId: "pe_BTG_ADMIN" }]);
+    expect(await prisma.pricingOverride.count({ where: { tenantId: T } })).toBe(0);
+    /* Another tenant's admin cannot reach it. */
+    await expect(overridePrice(actor(OTHER, "BTG_ADMIN", { userId: "pe_o_BTG_ADMIN" }), rec.id, { cpmCents: 30000, reason: "Not my tenant's item" })).rejects.toBeInstanceOf(NotPricedError);
+  });
+
+  it("an accepted override is its own record and an audit row; the suggestion and the listed price are untouched", async () => {
+    const rec = await recOf(T, "pe_i1");
+    const { override } = await overridePrice(actor(T, "BTG_ADMIN"), rec.id, { cpmCents: 31000, reason: "  Agreed with the sponsor at launch  " });
+    expect(override).toMatchObject({ cpmCents: 31000, reason: "Agreed with the sponsor at launch", by: { name: "ana@pe.invalid" } });
+    expect(await prisma.auditLog.count({ where: { tenantId: T, action: "pricing.override", entityId: override.id } })).toBe(1);
+    expect(await recOf(T, "pe_i1")).toEqual(rec);
+    expect((await prisma.inventoryItem.findUniqueOrThrow({ where: { id: "pe_i1" }, select: { priceCents: true } })).priceCents).toBe(60000);
+    expect((await pricingDesk(actor(T, "SALES"), { page })).items[0]!.override).toEqual({ cpmCents: 31000, at: override.at });
+  });
+
+  it("the newest override is in force, and stays in force when tomorrow's suggestion arrives; every override is listed, newest first", async () => {
+    const first = await recOf(T, "pe_i1");
+    const { override: second } = await overridePrice(actor(T, "BTG_ADMIN"), first.id, { cpmCents: 32000, reason: "Raised after the playoff run" });
+    await takeFeatureSnapshots(prisma, TOMORROW, { tenantId: T });
+    await storePricingRecommendations(TOMORROW, { tenantId: T });
+    const tomorrow = await pricingDetail(actor(T, "BTG_ADMIN"), "pe_i1", TOMORROW);
+    expect(tomorrow.recommendation.id).not.toBe(first.id);
+    expect(tomorrow.overrides.map((o) => [o.cpmCents, o.reason])).toEqual([[32000, "Raised after the playoff run"], [31000, "Agreed with the sponsor at launch"]]);
+    expect((await pricingDesk(actor(T, "BTG_ADMIN"), { page }, TOMORROW)).items[0]!.override).toEqual({ cpmCents: 32000, at: second.at });
+    /* Today's view still shows today's suggestion. */
+    expect((await pricingDetail(actor(T, "BTG_ADMIN"), "pe_i1", TODAY)).recommendation.id).toBe(first.id);
   });
 });

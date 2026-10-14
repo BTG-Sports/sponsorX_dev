@@ -66,6 +66,8 @@ export const AUDIT_ACTIONS = {
     rateUpdate: "rate.update",
     packagePriceUpdate: "package.priceUpdate",
     floorOverrideAttempt: "pricing.floorOverrideAttempt",
+    /** 3S2-BE-03 — a BTG admin set their own price for an item, with a reason. */
+    override: "pricing.override",
   },
   /** Agreements — acceptance is the legally interesting event. */
   agreement: {
