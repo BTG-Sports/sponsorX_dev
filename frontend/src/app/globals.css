@@ -26,8 +26,8 @@
    is orange): Athlete = blue, Sponsor = orange, Admin = steel, Property = soft
    blue.
 
-   A2 adds the Frost light variant under [data-theme="light"]; dark remains
-   primary.
+   One theme on screen: dark. The day/night toggle was removed 2026-10-14;
+   the Frost light palette below is kept only for paper (lib/print-light.ts).
    -------------------------------------------------------------------------- */
 
 :root {
@@ -79,9 +79,11 @@
 }
 
 /* --------------------------------------------------------------------------
-   Frost / Command Deck Light (spec 2026-09-11 A2). Dark stays the :root
-   default; [data-theme="light"] on <html> re-points the same tokens, so both
-   themes cascade through Tailwind's @theme inline mapping with no class
+   Frost / Command Deck Light (spec 2026-09-11 A2) — PRINT ONLY since
+   2026-10-14, when the on-screen day/night toggle was removed: the schools
+   proposal wears it for the length of a print (lib/print-light.ts). Dark is
+   the :root and the only screen theme; [data-theme="light"] on <html>
+   re-points the same tokens, so both cascade through Tailwind's @theme inline mapping with no class
    changes. Brand hues are darkened until each clears WCAG AA 4.5:1 both as
    bare small text on the worst-case white surface AND on their own /12–/15
    tinted chips (tint composited over white — the harder target, since the
@@ -2906,9 +2908,6 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
   12% { opacity: 1; }
   40%, to { transform: translate3d(320%, 0, 0); opacity: 0; }
 }
-[data-theme="light"] .sx-arena-flood { opacity: 0.35; }
-[data-theme="light"] .sx-arena-stripes,
-[data-theme="light"] .sx-arena-lanes { opacity: 0.7; }
 
 /* entrance ---------------------------------------------------------------- */
 @keyframes sx-arena-slide {
@@ -2975,7 +2974,6 @@ a.sx-arena-plate:focus-visible { outline: none; }
 }
 .sx-arena-plate:hover .sx-arena-shine { animation: sx-arena-shine 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 @keyframes sx-arena-shine { to { transform: translate3d(60%, 0, 0); } }
-[data-theme="light"] .sx-arena-shine { background: linear-gradient(115deg, transparent 42%, color-mix(in srgb, var(--sx-athlete) 10%, transparent) 50%, transparent 58%); }
 
 /* words ------------------------------------------------------------------- */
 .sx-arena-num {

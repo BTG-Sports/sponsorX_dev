@@ -25,6 +25,7 @@ import type { ReactNode } from "react";
 
 import { CountUp } from "./count-up";
 import { Magnetic, TiltSpot } from "./hero-fx";
+import { DashboardCta } from "./my-dashboard";
 import { networkStats } from "@/lib/fixtures";
 
 const C = 24;
@@ -184,13 +185,14 @@ export function ClosingCopy() {
           under half their 16px gap — and take a sheen on hover. */}
       <div className="mt-[clamp(10px,2svh,24px)] flex gap-3 lg:mt-6 lg:flex-wrap lg:gap-4 lg:[@media(max-height:800px)]:mt-4">
         <Magnetic className="sx-cta-pulse relative rounded-xl max-lg:flex-1" maxX={5} maxY={4}>
-        <Link
+        {/* Signed in: "<Role> Dashboard", straight to their portal (P1-ART-27). */}
+        <DashboardCta
           href="/login"
           className="sx-sheen group relative inline-flex h-[clamp(40px,5.6svh,46px)] flex-1 overflow-hidden items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-[#5ee0ff] to-[#2e9bf5] px-2 text-[clamp(12.5px,3.6vw,15px)] font-medium lg:h-[46px] lg:flex-none lg:gap-4 lg:px-9 lg:text-[15px] text-[#041018] shadow-[0_0_28px_rgba(94,224,255,.5)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_0_38px_rgba(94,224,255,.7)]"
+          icon={<ArrowIcon className="size-[18px] transition-transform group-hover:translate-x-0.5" />}
         >
           Get Started
-          <ArrowIcon className="size-[18px] transition-transform group-hover:translate-x-0.5" />
-        </Link>
+        </DashboardCta>
         </Magnetic>
         <Magnetic className="max-lg:flex-1" maxX={5} maxY={4}>
         <Link

@@ -12,7 +12,7 @@ import { useEffect, useRef } from "react";
    this drives it with a ref + direct textContent writes instead of
    useState — calling setState synchronously inside the effect body (the
    reduced-motion branch) would trip this repo's react-hooks/set-state-in-effect
-   rule, the same one theme-toggle.tsx documents working around. The
+   rule. The
    IntersectionObserver/rAF callbacks that mutate textContent run
    asynchronously after the effect returns, same as insight-carousel.tsx's
    scroll/autoplay listeners.

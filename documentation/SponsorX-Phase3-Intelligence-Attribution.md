@@ -441,9 +441,9 @@ Automated proof, every night, that the report figures agree with the app's own r
   [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §9
 - **Reference:** Spec §22
 
-### ⏸ `3S1-FE-01` · Figures check on the integrations screen
+### ✅ `3S1-FE-01` · Figures check on the integrations screen
 
-**Order** 10.1 · **FE** · **Where:** Code · **0.5d** · **Blocked**
+**Order** 10.1 · **FE** · **Where:** Code · **0.5d** · **Done**
 
 Raised by `3S1-QA-01` (2026-10-13). Show the nightly fact check on the admin integrations screen, beside Zoho, webhooks and the queue, from the `facts` section of `GET /operations/integration-health`:
 - when it last ran;
@@ -454,6 +454,7 @@ Raised by `3S1-QA-01` (2026-10-13). Show the nightly fact check on the admin int
 
 - **Depends on:** 3S1-QA-01
 - **Done when:** the integrations screen shows the section in its three states: never run, matching, and not matching with its differences. Only BTG can see it.
+- **Delivered:** `frontend/src/lib/fact-check-live.ts` (the states, unit-tested) and the "Figures check · nightly" section on `/admin/integrations` — 2026-10-14. A fourth state is drawn too: the check could not run (`matches` null with `lastError`), shown as "not run", never as a mismatch. A mismatch or a failed run also joins the page's "needs attention" summary. Walked live on desktop and mobile with each state staged in `FactCheckRun`; Finance never reaches the screen. Built while the fact ledger is being revised (2026-10-14) — re-walk once that lands in case the `facts` shape moves.
 - **Reference:** Spec §22, §23
 
 ## Sprint 2 · Dynamic CPM engine

@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { Logo } from "./logo";
 import { HeaderBar } from "./header-fx";
-import { Magnetic } from "./hero-fx";
-import { RollLabel, SiteMenu, SiteNav } from "./site-nav";
+import { HeaderActions, SiteMenu, SiteNav } from "./site-nav";
 
 /* --------------------------------------------------------------------------
    Public marketing chrome — mockup screen 1, header redrawn 1:1 to the hero
@@ -44,32 +43,8 @@ export function SiteHeader() {
             on a phone Login moves into the menu and Get Started drops its
             arrow so logo, CTA and button fit a 360px screen. */}
         <div className="relative ml-auto flex items-center gap-3 sm:gap-7">
-          <Link
-            href="/login"
-            className="sx-roll-host hidden text-[15px] text-text/90 transition-colors hover:text-primary-soft sm:block"
-          >
-            <RollLabel text="Login" />
-          </Link>
-          <Magnetic maxX={8} maxY={4}>
-            <Link
-              href="/login"
-              className="sx-shine sx-roll-host group relative inline-flex h-10 items-center gap-3 overflow-hidden whitespace-nowrap rounded-xl bg-gradient-to-r from-primary-soft to-primary px-4 text-[14px] font-medium text-white shadow-[0_0_22px_rgba(46,155,245,.5)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_0_32px_rgba(46,155,245,.7)] sm:gap-4 sm:px-7 sm:text-[15px]"
-            >
-              <RollLabel text="Get Started" />
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="hidden size-[18px] transition-transform group-hover:translate-x-0.5 sm:block"
-                aria-hidden="true"
-              >
-                <path d="M4 12h16M14 6l6 6-6 6" />
-              </svg>
-            </Link>
-          </Magnetic>
+          {/* Login + Get Started — or, signed in, "<Role> Dashboard" (site-nav.tsx). */}
+          <HeaderActions />
           <SiteMenu />
         </div>
       </HeaderBar>

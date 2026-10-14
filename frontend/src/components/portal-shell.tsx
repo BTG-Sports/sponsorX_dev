@@ -10,7 +10,6 @@ import { StadiumGround } from "./stadium-stage";
 import { StagePortals } from "./stage-portals";
 import { VaultGround } from "./vault-stage";
 import { PortalNav, type NavItem } from "./portal-nav";
-import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
 
 /* --------------------------------------------------------------------------
@@ -159,8 +158,8 @@ export function PortalShell({
   userName: string;
   userRole: string;
   /** P1-ART-18 — the admin portal: the whole shell on the Mission Control
-   *  stage (fixed-dark in both themes), with every page as content on it.
-   *  P1-ART-22 — `"arena"`: the athlete portal's theme-aware stage. `true`
+   *  stage, with every page as content on it.
+   *  P1-ART-22 — `"arena"`: the athlete portal's stage. `true`
    *  still means the admin's `"ops"`.
    *  P1-ART-23 — `"stadium"`: the sponsor's fixed-dark Stadium Board.
    *  P1-ART-25 — `"vault"`: the Finance portal's fixed-dark Vault. It keeps
@@ -299,9 +298,6 @@ export function PortalShell({
           </div>
 
           <div className="flex items-center gap-3">
-            {/* the admin and stadium stages are dark in both themes — no
-                toggle to offer there; the arena is theme-aware and keeps it */}
-            {kind !== "ops" && kind !== "stadium" && kind !== "vault" && <ThemeToggle />}
             {/* Both inert until their features ship — on a phone they only
                crowd the actor's name out of the header, so they wait for sm. */}
             <div className="hidden items-center gap-3 sm:flex">
