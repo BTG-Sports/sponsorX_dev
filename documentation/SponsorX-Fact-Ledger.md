@@ -1,6 +1,6 @@
 # SponsorX Fact Ledger
 
-**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07`, `3S1-OPS-04`, `3S1-QA-01`, `3S1-OPS-03`, `3S1-DATA-03`, `3S2-BE-01`, `3S2-BE-02` · Version 1.11 · 2026-10-14 · Phase 3, Sprint 1**
+**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07`, `3S1-OPS-04`, `3S1-QA-01`, `3S1-OPS-03`, `3S1-DATA-03`, `3S2-BE-01`, `3S2-BE-02`, `3S2-BE-03` · Version 1.12 · 2026-10-14 · Phase 3, Sprint 1**
 
 Phase 3's figures (reports, benchmarks, price suggestions, forecasts) come
 from **facts the app records at the moment each thing happens**, not from a
@@ -397,13 +397,33 @@ priced, or belongs to another tenant, answers 404. Access is the
 `pricingRecommendation` permission: BTG admins, campaign managers and Sales, in
 their own tenant (RBAC matrix §28).
 
-**Until `3S2-BE-03`:**
-- suggestions are computed when read, and each id names its item and snapshot day;
-- nobody can override (`canOverride: false`).
+**Stored as made (`3S2-BE-03`).** Every night, after the feature snapshots, the
+worker stores each item's suggestion (`PricingRecommendation`), one per item per
+UTC day, and the reads serve the latest one. The database refuses any UPDATE or
+DELETE, so "what did we suggest, and why" always has the same answer. A tenant
+whose fact check failed stores none that day. `npm run pricing:refresh` does the
+same by hand (take the snapshots first).
 
-`3S2-BE-03` stores each suggestion permanently and adds overrides with a reason.
+**Overrides (`3S2-BE-03`).** A BTG admin can set their own price for an item:
+`POST /intelligence/pricing/recommendations/{id}/overrides { cpmCents, reason }`.
+- **A reason of 10–500 characters is required.**
+- **Never below the sell floor.** The attempt is refused (422) and itself
+  audited (`pricing.floorOverrideAttempt`).
+- **BTG admins only.** Campaign managers and Sales see overrides but can't make
+  them (403).
+- **An override is its own record** (`PricingOverride`, append-only, like the
+  suggestions) **and an audit row** (`pricing.override`). It never edits the
+  suggestion.
+- **The newest override for an item stays in force** until another replaces it,
+  including after tomorrow's suggestion arrives (user, 2026-10-14). The detail
+  lists every override, newest first.
+- **It never changes the item's listed price** (user, 2026-10-14). The listed
+  price stays the seller's.
 
-- **Code:** `backend/src/domain/pricing-engine.ts`, `backend/src/routes/v1/intelligence.ts`.
+- **Code:** `backend/src/domain/pricing-engine.ts`, `backend/src/routes/v1/intelligence.ts`,
+  `PricingRecommendation` and `PricingOverride` (migration `20261014150000_pricing_records`).
 - **Proof:** `backend/tests/pricing-engine.test.ts`. It works out every price by
-  hand: the caps, the floor, the fallbacks, roles and tenants.
+  hand: the caps, the floor, the fallbacks, roles and tenants. It also covers
+  storing, the database refusing edits, every override rule, and an override
+  staying in force overnight.
 

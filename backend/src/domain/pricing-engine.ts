@@ -22,12 +22,15 @@
  * v1 prices athlete items only; a venue's or team's item is not priced yet
  * (user, 2026-10-14) — the benchmarks come from athlete campaigns.
  *
- * Until 3S2-BE-03 stores recommendations, each is computed when read and its
- * id names what it was computed from (item and snapshot day).
+ * Suggestions are stored nightly as made (3S2-BE-03; `storePricingRecommendations`)
+ * and the reads serve the latest stored one. An override is its own record,
+ * with a reason; it never edits a suggestion or the item's listed price.
  */
 import type { Actor } from "../auth/actor";
-import { assertTenantWide } from "../auth/scope";
+import { assertTenantWide, can } from "../auth/scope";
+import { audit, AUDIT_ACTIONS } from "../db/audit";
 import { prisma } from "../db/client";
+import { Prisma } from "../generated/prisma/client";
 import type { PageInfo, PageRequest } from "../lib/paging";
 import { BENCHMARK_MIN_SAMPLE, listBenchmarks, type BenchmarkView } from "./benchmarks";
 import type { AthleteFeatures } from "./feature-snapshots";
@@ -205,9 +208,11 @@ export function recommend(input: EngineInput): Recommendation | null {
   };
 }
 
-/* ───────────────────────────── reads ───────────────────────────── */
+/* ───────────────────────────── computing a tenant ───────────────────────────── */
 
 type Priced = {
+  /** The day of the feature snapshot the suggestion read; not read back from storage. */
+  snapshotDay?: string;
   inventory: { id: string; title: string; kind: string; seller: { kind: "ATHLETE"; id: string; name: string }; priceCents: number };
   recommendation: Recommendation;
 };
@@ -220,10 +225,10 @@ const median = (xs: number[]) => {
 };
 
 /** Every athlete item of the tenant that can be priced, with its recommendation. */
-async function priceTenant(tenantId: string, now: Date, onlyItem?: string): Promise<Priced[]> {
+async function priceTenant(tenantId: string, now: Date): Promise<Priced[]> {
   const items = await prisma.inventoryItem.findMany({
     /* tenant-scope: explicit — this tenant's active athlete items. */
-    where: { tenantId, active: true, athleteId: { not: null }, ...(onlyItem ? { id: onlyItem } : {}) },
+    where: { tenantId, active: true, athleteId: { not: null } },
     orderBy: { title: "asc" },
     select: { id: true, title: true, kind: true, priceCents: true, jobId: true, athleteId: true, athlete: { select: { displayName: true, sport: true, stateCode: true, tier: true } } },
   });
@@ -280,11 +285,100 @@ async function priceTenant(tenantId: string, now: Date, onlyItem?: string): Prom
     });
     if (!recommendation) continue;
     out.push({
+      snapshotDay: snap.day.toISOString().slice(0, 10),
       inventory: { id: i.id, title: i.title, kind: i.kind, seller: { kind: "ATHLETE", id: i.athleteId!, name: i.athlete.displayName }, priceCents: i.priceCents },
       recommendation,
     });
   }
   return out;
+}
+
+/* ───────────────────────────── storing (3S2-BE-03) ───────────────────────────── */
+
+export type StoreReport = { tenants: number; items: number; stored: number; alreadyStored: number; skipped: string[] };
+
+/**
+ * Store today's suggestion for every priceable athlete item, as made. One per
+ * item per UTC day: a second run the same day stores nothing new, and the
+ * database refuses any edit of what was stored. `skipTenants` store none —
+ * the worker passes the tenants whose fact check failed.
+ */
+export async function storePricingRecommendations(now: Date, opts: { tenantId?: string; skipTenants?: string[] } = {}): Promise<StoreReport> {
+  const skip = new Set(opts.skipTenants ?? []);
+  const tenants = opts.tenantId
+    ? [opts.tenantId]
+    : (await prisma.tenant.findMany({ select: { id: true }, orderBy: { id: "asc" } })).map((t) => t.id);
+  const day = new Date(`${now.toISOString().slice(0, 10)}T00:00:00Z`);
+  let items = 0;
+  let stored = 0;
+  for (const tenantId of tenants.filter((t) => !skip.has(t))) {
+    const priced = await priceTenant(tenantId, now);
+    items += priced.length;
+    if (!priced.length) continue;
+    const res = await prisma.pricingRecommendation.createMany({
+      data: priced.map((p) => ({
+        tenantId, inventoryId: p.inventory.id, athleteId: p.inventory.seller.id, day,
+        snapshotDay: new Date(`${p.snapshotDay}T00:00:00Z`),
+        modelVersion: p.recommendation.stamp.modelVersion, confidence: p.recommendation.stamp.confidence,
+        currentCpmCents: p.recommendation.currentCpmCents, recommendedCpmCents: p.recommendation.recommendedCpmCents,
+        baseCpmCents: p.recommendation.baseCpmCents, floorCpmCents: p.recommendation.floorCpmCents,
+        factors: p.recommendation.factors as unknown as Prisma.InputJsonValue,
+        range: (p.recommendation.range ?? Prisma.DbNull) as Prisma.InputJsonValue,
+        computedAt: now,
+      })),
+      skipDuplicates: true,
+    });
+    stored += res.count;
+  }
+  return { tenants: tenants.filter((t) => !skip.has(t)).length, items, stored, alreadyStored: items - stored, skipped: tenants.filter((t) => skip.has(t)) };
+}
+
+/* ───────────────────────────── reads ───────────────────────────── */
+
+type StoredRow = {
+  id: string; inventoryId: string; athleteId: string; modelVersion: string; confidence: number; currentCpmCents: number | null;
+  recommendedCpmCents: number; baseCpmCents: number; floorCpmCents: number | null; factors: Factor[]; range: Range | null; computedAt: Date;
+  title: string; kind: string; priceCents: number; sellerName: string;
+};
+
+const fromStored = (r: StoredRow): Priced => ({
+  inventory: { id: r.inventoryId, title: r.title, kind: r.kind, seller: { kind: "ATHLETE", id: r.athleteId, name: r.sellerName }, priceCents: r.priceCents },
+  recommendation: {
+    id: r.id, currentCpmCents: r.currentCpmCents, recommendedCpmCents: r.recommendedCpmCents, baseCpmCents: r.baseCpmCents,
+    floorCpmCents: r.floorCpmCents, factors: r.factors, range: r.range,
+    stamp: { modelVersion: r.modelVersion, confidence: r.confidence, computedAt: r.computedAt.toISOString() },
+  },
+});
+
+/** Each active athlete item's latest stored suggestion, on or before today. */
+async function latestStored(tenantId: string, now: Date, onlyItem?: string): Promise<Priced[]> {
+  const rows = await prisma.$queryRawUnsafe<StoredRow[]>(
+    /* tenant-scope: explicit — this tenant's suggestions, for its own active athlete items. */
+    `SELECT DISTINCT ON (r."inventoryId")
+            r.id, r."inventoryId", r."athleteId", r."modelVersion", r.confidence, r."currentCpmCents", r."recommendedCpmCents",
+            r."baseCpmCents", r."floorCpmCents", r.factors, r.range, r."computedAt",
+            i.title, i.kind, i."priceCents", a."displayName" AS "sellerName"
+       FROM "PricingRecommendation" r
+       JOIN "InventoryItem" i ON i.id = r."inventoryId" AND i."tenantId" = r."tenantId" AND i.active
+       JOIN "Athlete" a ON a.id = r."athleteId" AND a."tenantId" = r."tenantId"
+      WHERE r."tenantId" = $1 AND r.day <= $2::date AND ($3::text IS NULL OR r."inventoryId" = $3)
+      ORDER BY r."inventoryId", r.day DESC`,
+    tenantId, now.toISOString().slice(0, 10), onlyItem ?? null,
+  );
+  return rows.map(fromStored).sort((a, b) => a.inventory.title.localeCompare(b.inventory.title) || a.inventory.id.localeCompare(b.inventory.id));
+}
+
+/** The override in force for each item: the newest one (user, 2026-10-14 — it stays until another replaces it). */
+async function overridesInForce(tenantId: string, itemIds: string[]) {
+  if (!itemIds.length) return new Map<string, { cpmCents: number; at: string }>();
+  const rows = await prisma.$queryRawUnsafe<Array<{ inventoryId: string; cpmCents: number; createdAt: Date }>>(
+    /* tenant-scope: explicit — this tenant's overrides. */
+    `SELECT DISTINCT ON ("inventoryId") "inventoryId", "cpmCents", "createdAt"
+       FROM "PricingOverride" WHERE "tenantId" = $1 AND "inventoryId" = ANY($2::text[])
+      ORDER BY "inventoryId", "createdAt" DESC, id DESC`,
+    tenantId, itemIds,
+  );
+  return new Map(rows.map((r) => [r.inventoryId, { cpmCents: r.cpmCents, at: r.createdAt.toISOString() }]));
 }
 
 const FLAT = 0.005;
@@ -299,7 +393,7 @@ export type PricingDeskView = "above" | "below" | "low" | "";
 /** GET /intelligence/pricing — the priced items, a page of them, and the summary over all of them. */
 export async function pricingDesk(actor: Actor, q: { page: PageRequest; search?: string; view?: PricingDeskView }, now = new Date()) {
   assertTenantWide(actor, "pricingRecommendation", "read");
-  const all = await priceTenant(actor.tenantId, now);
+  const all = await latestStored(actor.tenantId, now);
   const summary = {
     priced: all.length,
     above: all.filter((p) => direction(p.recommendation) === "above").length,
@@ -311,28 +405,96 @@ export async function pricingDesk(actor: Actor, q: { page: PageRequest; search?:
   const shown = all
     .filter((p) => !term || p.inventory.title.toLowerCase().includes(term) || p.inventory.seller.name.toLowerCase().includes(term))
     .filter((p) => !q.view || (q.view === "low" ? p.recommendation.stamp.confidence < LOW_CONFIDENCE : direction(p.recommendation) === q.view));
+  const pageItems = shown.slice(q.page.skip, q.page.skip + q.page.take);
+  const overrides = await overridesInForce(actor.tenantId, pageItems.map((p) => p.inventory.id));
   const page: PageInfo = { page: q.page.page, size: q.page.size, total: shown.length, pages: Math.max(1, Math.ceil(shown.length / q.page.size)) };
   return {
-    items: shown.slice(q.page.skip, q.page.skip + q.page.take).map((p) => ({
+    items: pageItems.map((p) => ({
       inventoryId: p.inventory.id, title: p.inventory.title, kind: p.inventory.kind, seller: p.inventory.seller,
       recommendationId: p.recommendation.id, currentCpmCents: p.recommendation.currentCpmCents,
-      recommendedCpmCents: p.recommendation.recommendedCpmCents, override: null, stamp: p.recommendation.stamp,
+      recommendedCpmCents: p.recommendation.recommendedCpmCents, override: overrides.get(p.inventory.id) ?? null, stamp: p.recommendation.stamp,
     })),
     page,
     summary,
   };
 }
 
-/** GET /intelligence/pricing/:inventoryId — one item's recommendation, with its factors and range. */
+/** GET /intelligence/pricing/:inventoryId — one item's latest suggestion, with its factors and range, and every override. */
 export async function pricingDetail(actor: Actor, inventoryId: string, now = new Date()) {
   assertTenantWide(actor, "pricingRecommendation", "read");
-  const [p] = await priceTenant(actor.tenantId, now, inventoryId);
+  const [p] = await latestStored(actor.tenantId, now, inventoryId);
   if (!p) throw new NotPricedError();
+  const overrides = await prisma.$queryRawUnsafe<Array<{ id: string; cpmCents: number; reason: string; email: string | null; createdAt: Date }>>(
+    /* tenant-scope: explicit — this tenant's overrides of this item, newest first. */
+    `SELECT o.id, o."cpmCents", o.reason, u.email, o."createdAt"
+       FROM "PricingOverride" o LEFT JOIN "User" u ON u.id = o."byUserId" AND u."tenantId" = o."tenantId"
+      WHERE o."tenantId" = $1 AND o."inventoryId" = $2
+      ORDER BY o."createdAt" DESC, o.id DESC`,
+    actor.tenantId, inventoryId,
+  );
   return {
     inventory: p.inventory,
     recommendation: p.recommendation,
-    /* Overrides arrive with 3S2-BE-03; until then there is nothing to override with. */
-    overrides: [],
-    canOverride: false,
+    overrides: overrides.map((o) => ({ id: o.id, cpmCents: o.cpmCents, reason: o.reason, by: { name: o.email ?? "a former user" }, at: o.createdAt.toISOString() })),
+    canOverride: can(actor, "pricingRecommendation", "write"),
   };
+}
+
+/* ───────────────────────────── overrides (3S2-BE-03) ───────────────────────────── */
+
+export const OVERRIDE_REASON_MIN = 10;
+export const OVERRIDE_REASON_MAX = 500;
+
+export class OverrideReasonError extends Error {
+  readonly status = 422;
+  readonly code = "override_reason";
+  constructor() {
+    super(`An override needs a reason of ${OVERRIDE_REASON_MIN}–${OVERRIDE_REASON_MAX} characters.`);
+    this.name = "OverrideReasonError";
+  }
+}
+
+export class OverrideBelowFloorError extends Error {
+  readonly status = 422;
+  readonly code = "override_below_floor";
+  constructor(floorCpmCents: number) {
+    super(`An override cannot go below the sell floor (${floorCpmCents} cents per 1,000 impressions).`);
+    this.name = "OverrideBelowFloorError";
+  }
+}
+
+/**
+ * POST /intelligence/pricing/recommendations/:id/overrides — a BTG admin's own
+ * price, with the reason. It is a record of its own and an audit row; the
+ * suggestion is never touched, and neither is the item's listed price (user,
+ * 2026-10-14). Below the sell floor it is refused, and the attempt itself is
+ * audited (`pricing.floorOverrideAttempt`).
+ */
+export async function overridePrice(actor: Actor, recommendationId: string, input: { cpmCents: number; reason: string }) {
+  assertTenantWide(actor, "pricingRecommendation", "write");
+  const rec = await prisma.pricingRecommendation.findFirst({
+    where: { id: recommendationId, tenantId: actor.tenantId },
+    select: { id: true, inventoryId: true, floorCpmCents: true, recommendedCpmCents: true },
+  });
+  if (!rec) throw new NotPricedError();
+  const reason = input.reason.trim();
+  if (reason.length < OVERRIDE_REASON_MIN || reason.length > OVERRIDE_REASON_MAX) throw new OverrideReasonError();
+  if (rec.floorCpmCents !== null && input.cpmCents < rec.floorCpmCents) {
+    await prisma.$transaction((tx) => audit(tx, actor, AUDIT_ACTIONS.pricing.floorOverrideAttempt, "PricingRecommendation", rec.id, {
+      after: { inventoryId: rec.inventoryId, attemptedCpmCents: input.cpmCents, floorCpmCents: rec.floorCpmCents, reason },
+    }));
+    throw new OverrideBelowFloorError(rec.floorCpmCents);
+  }
+  const override = await prisma.$transaction(async (tx) => {
+    const o = await tx.pricingOverride.create({
+      data: { tenantId: actor.tenantId, inventoryId: rec.inventoryId, recommendationId: rec.id, cpmCents: input.cpmCents, reason, byUserId: actor.userId },
+      select: { id: true, cpmCents: true, reason: true, createdAt: true },
+    });
+    await audit(tx, actor, AUDIT_ACTIONS.pricing.override, "PricingOverride", o.id, {
+      after: { inventoryId: rec.inventoryId, recommendationId: rec.id, recommendedCpmCents: rec.recommendedCpmCents, cpmCents: input.cpmCents, reason },
+    });
+    return o;
+  });
+  const me = await prisma.user.findFirst({ where: { id: actor.userId, tenantId: actor.tenantId }, select: { email: true } });
+  return { override: { id: override.id, cpmCents: override.cpmCents, reason: override.reason, by: { name: me?.email ?? "you" }, at: override.createdAt.toISOString() } };
 }

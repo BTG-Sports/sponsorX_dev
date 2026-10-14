@@ -69,7 +69,7 @@ const A = {
   school: "ti_school_a", student: "ti_student_a", code: "ti_code_a", prospect: "ti_prospect_a",
   asset: "ti_asset_ed_a", claim: "ti_claim_a", onboarding: "ti_onboarding_a",
   /* Phase 2 batch 3 — an athlete's item, a school's item with a listing awaiting approval, a sent offer. */
-  item: "ti_item_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
+  item: "ti_item_a", recommendation: "ti_rec_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
   /* 2S2-FE-03 — the athlete's change request on that offer, unanswered. */
   changeRequest: "ti_offer_change_a",
   /* Phase 2 batch 4 — a restriction, the sponsor's cart with a line. */
@@ -168,6 +168,8 @@ const PARAM_FOR: Record<string, string> = {
   inventory: A.item, listings: A.listing, offers: A.offer, roster: A.athlete,
   /* GET /intelligence/pricing/{inventoryId} (3S2-BE-02). */
   pricing: A.item,
+  /* POST /intelligence/pricing/recommendations/{recommendationId}/overrides (3S2-BE-03). */
+  recommendations: A.recommendation,
   /* POST /offers/{id}/change-requests/{requestId}/keep (2S2-FE-03). */
   "change-requests": A.changeRequest,
   restrictions: A.restriction, lines: A.cartLine,
@@ -369,6 +371,8 @@ const BODY: Record<string, unknown> = {
   "POST /team-invitations/{id}/respond": { decision: "ACCEPT" },
   /* 2S4-BE-09 — a seller answering tenant A's order. */
   "POST /seller-approvals/{id}/decision": { decision: "ACCEPT" },
+  /* 3S2-BE-03 — overriding tenant A's suggested price. */
+  "POST /intelligence/pricing/recommendations/{recommendationId}/overrides": { cpmCents: 999999, reason: "Sweep override reason" },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -486,6 +490,12 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       { id: A.item, tenantId: t, athleteId: A.athlete, title: "TI Secret Item", kind: "OTHER", priceCents: 5000 },
       { id: A.schoolItem, tenantId: t, propertyId: A.school, title: "TI Secret Banner", kind: "SIGNAGE", priceCents: 9000 },
     ] });
+    /* 3S2-BE-03 — a stored suggested price for tenant A's athlete item. */
+    await prisma.pricingRecommendation.create({ data: {
+      id: A.recommendation, tenantId: t, inventoryId: A.item, athleteId: A.athlete, day: new Date("2026-10-01"), snapshotDay: new Date("2026-10-01"),
+      modelVersion: "cpm-rules@1.0.0", confidence: 0.4, currentCpmCents: 2500, recommendedCpmCents: 2750, baseCpmCents: 2500, floorCpmCents: 2000,
+      factors: [{ key: "scarcity", label: "Scarcity", effect: 0.1, impactCents: 250, explanation: "TI secret explanation" }], computedAt: new Date("2026-10-01"),
+    }, select: { id: true } });
     await prisma.listing.create({ data: { id: A.listing, tenantId: t, propertyId: A.school, inventoryItemId: A.schoolItem, title: "TI Secret Listing", description: "TI secret listing description", state: "PENDING_APPROVAL" } });
     /* 2S3-BE-05 — sold by the athlete with no team, published, so every catalogue and search read is swept against it. */
     await prisma.listing.create({ data: { id: A.athleteListing, tenantId: t, sellerAthleteId: A.athlete, inventoryItemId: A.item, title: "TI Secret Athlete Listing", description: "TI secret athlete listing description", state: "PUBLISHED", publishedAt: new Date(),

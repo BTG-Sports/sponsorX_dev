@@ -3898,3 +3898,49 @@ model FeatureSnapshot {
 
   @@unique([tenantId, entityType, entityId, day])
 }
+
+/// 3S2-BE-03 — a suggested price as the CPM engine made it (domain/pricing-engine.ts):
+/// one per item per UTC day, stored nightly after the feature snapshots. The
+/// database refuses an UPDATE or DELETE: what was suggested, and why, stays
+/// exactly as it was.
+model PricingRecommendation {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  inventoryId         String
+  athleteId           String
+  /// The UTC day it was made for (the feature snapshot it read is on or before it).
+  day                 DateTime @db.Date
+  snapshotDay         DateTime @db.Date
+  modelVersion        String
+  /// 0..1
+  confidence          Float
+  currentCpmCents     Int?
+  recommendedCpmCents Int
+  baseCpmCents        Int
+  floorCpmCents       Int?
+  /// [{ key, label, effect, impactCents, explanation }] — base + Σ impactCents = recommendedCpmCents.
+  factors             Json
+  /// { p25Cents, medianCents, p75Cents, sampleSize, basis } | null
+  range               Json?
+  computedAt          DateTime
+
+  @@unique([tenantId, inventoryId, day])
+}
+
+/// 3S2-BE-03 — a BTG admin's own price for an item, with the reason. Never
+/// edits the recommendation it was made against; the newest override for an
+/// item stays in force until another replaces it (user, 2026-10-14). Never
+/// changes the item's listed price (user, 2026-10-14). Append-only, like the
+/// recommendations.
+model PricingOverride {
+  id               String   @id @default(cuid())
+  tenantId         String
+  inventoryId      String
+  recommendationId String
+  cpmCents         Int
+  reason           String
+  byUserId         String
+  createdAt        DateTime @default(now())
+
+  @@index([tenantId, inventoryId, createdAt])
+}

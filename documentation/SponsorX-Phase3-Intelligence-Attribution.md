@@ -503,15 +503,26 @@ Start with rules and statistics, not machine learning. The spec is explicit: do 
   [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §13
 - **Reference:** Spec §17.1, §22
 
-### ⏸ `3S2-BE-03` · Pricing recommendation and override records
+### ◑ `3S2-BE-03` · Pricing recommendation and override records
 
-**Order** 13 · **BE** · **Where:** Code · **3d** · **Blocked**
+**Order** 13 · **BE** · **Where:** Code · **3d** · **Code review**
 
 Store the recommendation immutably. An override is a separate record with a required reason — it never edits the original.
 
 - **Depends on:** 3S2-BE-02
 - **Builds on:** the unused `pricing.floorOverrideAttempt` audit action; `pricing_overrides` is new. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Admin can override a price only with the right permission and a recorded reason; the recommendation is unchanged
+- **Delivered:** 2026-10-14.
+  - **Suggestions:** stored nightly, one per item per day (`PricingRecommendation`). The database refuses any edit or delete.
+  - **Overrides:** `POST /intelligence/pricing/recommendations/{id}/overrides`, for BTG admins only (`pricingRecommendation` write).
+    - A reason of 10–500 characters is required, and the price can never go below the sell floor. A below-floor attempt is audited as `pricing.floorOverrideAttempt`.
+    - Each override is its own record (`PricingOverride`, append-only) plus a `pricing.override` audit row.
+    - The newest override stays in force until replaced, including across tomorrow's suggestion. It never changes the listed price (user, 2026-10-14).
+  - **Migration:** `20261014150000_pricing_records`.
+  - **By hand:** `npm run pricing:refresh`.
+  - **Proof:** `backend/tests/pricing-engine.test.ts`.
+
+  [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §13
 - **Reference:** Spec §17.1, §22
 
 ### ✅ `3S2-FE-01` · Build the pricing intelligence panel

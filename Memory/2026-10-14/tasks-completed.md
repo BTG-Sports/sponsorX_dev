@@ -203,3 +203,22 @@ The warehouse databases, settings and hourly copy all stay. Nothing reads them.
 - **Docs:** Fact Ledger v1.11 §13; the plan entry; the tracker is in Code review.
 
 **Lesson (my mistake, now fixed):** `export DATABASE_URL=… TEST_DATABASE_URL=$DATABASE_URL` on one line leaves `TEST_DATABASE_URL` empty, because the shell expands the variable before assigning it. Every database-backed test then quietly skips. Set the two in separate exports, or spell out both URLs.
+
+## rcfworks — 3S2-BE-03 · pricing records and overrides (Code review)
+
+**User decisions, 2026-10-14:**
+- the newest override stays in force until an admin replaces it, including after tomorrow's suggestion;
+- an override never changes the item's listed price.
+
+**Built:**
+- `PricingRecommendation` and `PricingOverride`, migration `20261014150000_pricing_records`. A `pricing_append_only` trigger refuses UPDATE or DELETE on both, except DELETE in a database marked purgeable, as the ledger does.
+- `storePricingRecommendations` stores one per item per UTC day with `skipDuplicates`. The worker runs it after the snapshots and skips the tenants whose check failed. `npm run pricing:refresh` does it by hand.
+- The reads (`pricingDesk` and `pricingDetail`) now serve the latest stored suggestion, plus the override in force and the full override history. `canOverride` comes from `can(… "write")`.
+- `overridePrice`, at `POST /intelligence/pricing/recommendations/{id}/overrides` (Zod `PricingOverrideInput`):
+  - BTG admins only; others get 403;
+  - the reason must be 10–500 characters, otherwise 422;
+  - below the floor it returns 422 and writes a `pricing.floorOverrideAttempt` audit row;
+  - otherwise it creates the record and a `pricing.override` audit row (a new `AUDIT_ACTIONS.pricing.override`).
+- **Registered:** the OpenAPI registry; `authz.coverage` maps both models to `pricingRecommendation`; the tenant-isolation sweep has a tenant-A suggestion, the `recommendations` id and the POST body.
+- `tests/pricing-engine.test.ts` now has 15 tests, adding storing, the trigger, every override rule, and an override staying in force overnight.
+- **Docs:** Fact Ledger v1.12 §13 and RBAC matrix §28 updated; the plan entry and tracker are in Code review.
