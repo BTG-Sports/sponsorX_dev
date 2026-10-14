@@ -861,9 +861,9 @@ Raised 2026-10-07 by the programme owner: the admin sidebar's 29 links were too 
 - **Done when:** the dashboard shows Dashboard and seven closed groups; a desk opens only its own group; a header toggles and the choice survives a reload; every desk still reachable by every role it's for; tests, lint, tsc and build green
 - **Reference:** `docs/superpowers/specs/2026-10-07-admin-sidebar-groups-design.md`; `frontend/src/lib/nav-groups.ts`; `frontend/src/components/portal-nav.tsx`
 
-### ◑ `P1-ART-26` · One theme — remove the day/night toggle
+### ✅ `P1-ART-26` · One theme — remove the day/night toggle
 
-**Order** 33.59996875 · **ART** · **Where:** Code · **0.5d** · **Code review** · **Unblocks** 0
+**Order** 33.59996875 · **ART** · **Where:** Code · **0.5d** · **Done** · **Unblocks** 0
 
 Raised 2026-10-14 by the programme owner: remove day/night mode from the whole web app; the default — dark — is the only theme. Reverses the on-screen half of P1-FE-02's light theme (A2).
 
@@ -876,9 +876,9 @@ Raised 2026-10-14 by the programme owner: remove day/night mode from the whole w
 - **Done when:** no screen offers a theme switch; every screen renders dark even with an old stored "light"; the schools proposal still prints light; tests, lint, tsc and build green
 - **Reference:** `frontend/src/app/layout.tsx`; `frontend/src/components/portal-shell.tsx`; `frontend/src/app/globals.css`; `frontend/src/lib/print-light.ts`
 
-### ◑ `P1-ART-27` · Public site — signed-in visitors get "‹Role› Dashboard" instead of Login / Get Started
+### ✅ `P1-ART-27` · Public site — signed-in visitors get "‹Role› Dashboard" instead of Login / Get Started
 
-**Order** 33.69996875 · **ART** · **Where:** Code · **0.5d** · **Code review** · **Unblocks** 0
+**Order** 33.69996875 · **ART** · **Where:** Code · **0.5d** · **Done** · **Unblocks** 0
 
 Raised 2026-10-14 by the programme owner: on the landing page, someone already signed in — their session not yet expired — should be offered their own dashboard, not Login and Get Started.
 

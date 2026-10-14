@@ -441,9 +441,9 @@ Automated proof, every night, that the report figures agree with the app's own r
   [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §9
 - **Reference:** Spec §22
 
-### ◑ `3S1-FE-01` · Figures check on the integrations screen
+### ✅ `3S1-FE-01` · Figures check on the integrations screen
 
-**Order** 10.1 · **FE** · **Where:** Code · **0.5d** · **Code review**
+**Order** 10.1 · **FE** · **Where:** Code · **0.5d** · **Done**
 
 Raised by `3S1-QA-01` (2026-10-13). Show the nightly fact check on the admin integrations screen, beside Zoho, webhooks and the queue, from the `facts` section of `GET /operations/integration-health`:
 - when it last ran;
