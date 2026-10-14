@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { CountUp } from "./count-up";
 import { Magnetic, ScrambleText, TiltSpot } from "./hero-fx";
+import { DashboardCta } from "./my-dashboard";
 import { networkStats, trustedBrands } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
@@ -128,13 +129,14 @@ export function HeroActions() {
   return (
     <div className="flex items-center gap-3 sm:flex-wrap sm:gap-6">
       <Magnetic className="max-sm:flex-1">
-      <Link
+      {/* Signed in: "<Role> Dashboard", straight to their portal (P1-ART-27). */}
+      <DashboardCta
         href="#start"
         className="sx-sheen group relative inline-flex h-11 flex-1 overflow-hidden items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-[#4fb0ff] to-[#2b8fe9] px-3 text-[14px] font-medium text-white shadow-[0_0_30px_rgba(46,155,245,.55)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_0_40px_rgba(46,155,245,.7)] sm:h-[50px] sm:flex-none sm:gap-4 sm:px-10 sm:text-[15px]"
+        icon={<ArrowRightIcon className="size-[18px] transition-transform group-hover:translate-x-0.5" />}
       >
         Get Started
-        <ArrowRightIcon className="size-[18px] transition-transform group-hover:translate-x-0.5" />
-      </Link>
+      </DashboardCta>
       </Magnetic>
       <Magnetic className="max-sm:flex-1">
       <Link

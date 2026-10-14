@@ -30,7 +30,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { Magnetic } from "./hero-fx";
 import { Logo } from "./logo";
+import { useMyDashboard } from "./my-dashboard";
 
 interface NavItem {
   label: string;
@@ -203,6 +205,49 @@ function LineIcon({ d, className = "size-5" }: { d: string; className?: string }
 }
 
 /**
+ * The header's Login and gradient "Get Started →" (site-chrome.tsx). For a
+ * visitor already signed in (2026-10-14, P1-ART-27) the pair becomes one
+ * "<Role> Dashboard →" that goes straight to their portal; Login has
+ * nothing left to do, so it steps aside.
+ */
+export function HeaderActions() {
+  const dashboard = useMyDashboard();
+  return (
+    <>
+      {!dashboard && (
+        <Link
+          href="/login"
+          className="sx-roll-host hidden text-[15px] text-text/90 transition-colors hover:text-primary-soft sm:block"
+        >
+          <RollLabel text="Login" />
+        </Link>
+      )}
+      <Magnetic maxX={8} maxY={4}>
+        <Link
+          href={dashboard?.href ?? "/login"}
+          data-dashboard={dashboard ? "" : undefined}
+          className="sx-shine sx-roll-host group relative inline-flex h-10 items-center gap-3 overflow-hidden whitespace-nowrap rounded-xl bg-gradient-to-r from-primary-soft to-primary px-4 text-[14px] font-medium text-white shadow-[0_0_22px_rgba(46,155,245,.5)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_0_32px_rgba(46,155,245,.7)] sm:gap-4 sm:px-7 sm:text-[15px]"
+        >
+          <RollLabel text={dashboard ? dashboard.label : "Get Started"} />
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="hidden size-[18px] transition-transform group-hover:translate-x-0.5 sm:block"
+            aria-hidden="true"
+          >
+            <path d="M4 12h16M14 6l6 6-6 6" />
+          </svg>
+        </Link>
+      </Magnetic>
+    </>
+  );
+}
+
+/**
  * The header's menu button below `xl`, and the takeover it opens. Follows
  * the portal menu (mobile-nav.tsx): portaled to <body> (the sticky header's
  * backdrop-filter would otherwise trap a fixed overlay inside its box), a
@@ -217,6 +262,7 @@ export function SiteMenu() {
   const [at, setAt] = useState("calc(100% - 2.5rem) 2.25rem");
   const trigger = useRef<HTMLButtonElement>(null);
   const isCurrent = useIsCurrent();
+  const dashboard = useMyDashboard();
   const visible = phase !== "closed";
 
   const close = () => setPhase((p) => (p === "open" ? "closing" : p));
@@ -373,17 +419,21 @@ export function SiteMenu() {
               className="sx-animate relative grid shrink-0 grid-cols-2 gap-3 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 sm:px-[8vw]"
               style={{ animationDelay: `${160 + NAV.length * 45}ms` }}
             >
+              {/* Signed in: one full-width "<Role> Dashboard" in place of the pair. */}
+              {!dashboard && (
+                <Link
+                  href="/login"
+                  className="inline-flex h-12 items-center justify-center rounded-xl border border-[#bfe0ff]/50 bg-[#0a1428]/40 text-[15px] font-medium text-on-media transition-colors hover:border-primary-soft hover:bg-primary/15"
+                >
+                  Login
+                </Link>
+              )}
               <Link
-                href="/login"
-                className="inline-flex h-12 items-center justify-center rounded-xl border border-[#bfe0ff]/50 bg-[#0a1428]/40 text-[15px] font-medium text-on-media transition-colors hover:border-primary-soft hover:bg-primary/15"
+                href={dashboard?.href ?? "/login"}
+                data-dashboard={dashboard ? "" : undefined}
+                className={`group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#4fb0ff] to-[#2b8fe9] text-[15px] font-medium text-white shadow-[0_0_24px_rgba(46,155,245,.5)] ${dashboard ? "col-span-2" : ""}`}
               >
-                Login
-              </Link>
-              <Link
-                href="/login"
-                className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#4fb0ff] to-[#2b8fe9] text-[15px] font-medium text-white shadow-[0_0_24px_rgba(46,155,245,.5)]"
-              >
-                Get Started
+                {dashboard ? dashboard.label : "Get Started"}
                 <LineIcon d="M4 12h16M14 6l6 6-6 6" className="size-[18px] transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>

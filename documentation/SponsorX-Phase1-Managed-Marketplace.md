@@ -861,6 +861,36 @@ Raised 2026-10-07 by the programme owner: the admin sidebar's 29 links were too 
 - **Done when:** the dashboard shows Dashboard and seven closed groups; a desk opens only its own group; a header toggles and the choice survives a reload; every desk still reachable by every role it's for; tests, lint, tsc and build green
 - **Reference:** `docs/superpowers/specs/2026-10-07-admin-sidebar-groups-design.md`; `frontend/src/lib/nav-groups.ts`; `frontend/src/components/portal-nav.tsx`
 
+### ◑ `P1-ART-26` · One theme — remove the day/night toggle
+
+**Order** 33.59996875 · **ART** · **Where:** Code · **0.5d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-14 by the programme owner: remove day/night mode from the whole web app; the default — dark — is the only theme. Reverses the on-screen half of P1-FE-02's light theme (A2).
+
+- **The sun/moon button is gone** from every portal header (it showed on the athlete Arena, property, advisor, NEXT and guardian shells); `components/theme-toggle.tsx` is deleted.
+- **A saved choice is ignored.** The root layout's pre-paint script that re-applied `localStorage["sx-theme"]="light"` is removed, so a visitor who had picked light gets dark on their next load.
+- **Light-only screen styling removed** (the Arena's floodlight, stripes, lanes, plate shine, phone dock and sheet under `[data-theme="light"]`).
+- **Kept for paper only:** the Frost light tokens in `globals.css`, because the schools proposal prints on them (`lib/print-light.ts`, P1-FE-26). The QR print sheets' own light/dark choice (`/print/reward?theme=`) is a print format, not an app theme, and is unchanged.
+
+- **Depends on:** —
+- **Done when:** no screen offers a theme switch; every screen renders dark even with an old stored "light"; the schools proposal still prints light; tests, lint, tsc and build green
+- **Reference:** `frontend/src/app/layout.tsx`; `frontend/src/components/portal-shell.tsx`; `frontend/src/app/globals.css`; `frontend/src/lib/print-light.ts`
+
+### ◑ `P1-ART-27` · Public site — signed-in visitors get "‹Role› Dashboard" instead of Login / Get Started
+
+**Order** 33.69996875 · **ART** · **Where:** Code · **0.5d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-14 by the programme owner: on the landing page, someone already signed in — their session not yet expired — should be offered their own dashboard, not Login and Get Started.
+
+- **Where:** the header (every public page shares it), the phone menu, the hero's Get Started and the closing Get Started. Signed in, Login steps aside and Get Started reads "Admin Dashboard", "Athlete Dashboard", "Finance Dashboard"… — "Guardian Dashboard" for a guardian — and opens that portal.
+- **Which portal** is decided as everywhere else: `server/portal.ts` `portalFor()` on the Postgres roles behind `GET /me`. `lib/dashboard-link.ts` only names it.
+- **The landing stays static.** Clerk's `useAuth()` says whether the session is live (an expired or revoked one reads as signed out); only then does the page ask a server action (`server/my-dashboard.ts`) once, shared by every button. Signed out, unprovisioned, or the API down: the buttons are exactly as before.
+- The footer's "Sign In" link is unchanged.
+
+- **Depends on:** —
+- **Done when:** signed in with a live session, every Login / Get Started on the public site becomes the visitor's "‹Role› Dashboard" and opens it; signed out or session ended, unchanged; `/` still prerendered static; tests, lint, tsc and build green
+- **Reference:** `frontend/src/components/my-dashboard.tsx`; `frontend/src/components/site-nav.tsx`; `frontend/src/lib/dashboard-link.ts`; `frontend/src/server/my-dashboard.ts`
+
 ### ▶ `P1-FE-18` · Apply the SponsorX NEXT UI requirement across the existing pages
 
 **Order** 37.02 · **FE** · **Where:** Code · **2d** · **Ready** · **Unblocks** 5
