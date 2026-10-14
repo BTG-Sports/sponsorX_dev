@@ -80,3 +80,33 @@ The setup went in four steps, the same in both environments:
 **Tracker:** 3S1-OPS-03 is now in Code review.
 
 **For HeckerCreatives:** `frontend/src/lib/intelligence.ts` (lines 126 and 140) still says "a sponsor/property-scoped read of the warehouse". The warehouse is being retired (3S1-OPS-02), and these reads will come from the fact ledger's summaries.
+
+## rcfworks — 3S1-OPS-02 on hold (user)
+
+"Let's just leave the database alone. If no one is going to use it, we just leave it there while we are in development."
+
+The warehouse databases, settings and hourly copy all stay. Nothing reads them.
+- **Plan:** a note on the 3S1-OPS-02 entry.
+- **Tracker:** a note in Notes. The status stays Blocked, because the list has no "On hold".
+
+## rcfworks — 3S1-DATA-03 · benchmark pipeline (Code review)
+
+**What it is (agreed with the user):** what sponsors usually pay per 1,000 verified views, by sport, market, format and audience, plus all orders together. Each figure has p25, median, p75 and the number of orders behind it.
+
+**User decisions, 2026-10-14:**
+- A figure from fewer than **10 orders** is marked a small sample. It is still shown.
+- The window is the **last 12 months**.
+
+**Built:**
+- `Benchmark`, migration `20261014090000_benchmark`. No drift for it: the remaining `migrate diff` lines (EditionAsset FK, an index rename) predate this change.
+- `backend/src/domain/benchmarks.ts` computes one CPM per order from the summaries: (booked − cancelled sell) × 1000 ÷ (API + manual verified views), grouped by (tenant, campaign, athlete, NIL job). Percentiles use `percentile_cont`, rounded to cents.
+  - The segment comes from the athlete's current sport and tier, and the state of the booking's market.
+  - `refreshBenchmarks` replaces a tenant's rows in one transaction; `skipTenants` keeps yesterday's.
+  - `listBenchmarks` returns `smallSample`.
+- The worker refreshes after the nightly fact check reports `ran`, skipping the tenants whose check failed.
+- `npm run benchmarks:refresh -- [--tenant id]`.
+- `tests/benchmarks.test.ts` (5 tests). Facts are written through `recordFact`, and every figure is worked out by hand.
+- `authz.coverage` registers `Benchmark` as SYSTEM_INTERNAL.
+- **Docs:** Fact Ledger v1.9 §11; the plan entry is set to Code review.
+
+**Live:** neither staging nor production has campaign orders with verified views, so the benchmarks will be empty until real campaigns run. This is expected.

@@ -375,6 +375,8 @@ Run the three fills on staging, then on production with the owner's OK; the chec
 
 **Order** 7.5 · **OPS** · **Where:** Code / Vendor console · **1d** · **Blocked**
 
+> **On hold (user, 2026-10-14).** "If no one is going to use it we just leave it there while we are in development." The warehouse databases, settings and hourly copy stay for now. Nothing reads them: analysis reads the fact ledger.
+
 Stop the hourly copy, and remove the warehouse settings and code. Once the facts and summaries are live, delete `Postgres-warehouse` and `Postgres-warehouse-production`, with the owner's OK.
 
 - **Depends on:** 3S1-OPS-04
@@ -402,14 +404,22 @@ A dedicated login for the app with write access; developers get read-only access
   On staging, the tester site uses the app's login, and the master password was changed.
 - **Reference:** Spec §26
 
-### ⏸ `3S1-DATA-03` · Benchmark pipeline
+### ◑ `3S1-DATA-03` · Benchmark pipeline
 
-**Order** 9 · **DATA** · **Where:** Code · **3d** · **Blocked**
+**Order** 9 · **DATA** · **Where:** Code · **3d** · **Code review**
 
 Percentile benchmarks by sport, market, format and audience — p25, median, p75 with sample size, so a small sample is visibly small.
 
 - **Depends on:** 3S1-OPS-04
 - **Done when:** Benchmarks compute with sample sizes exposed and refresh on schedule
+- **Delivered:** 2026-10-14. Effective CPM is (paid, net of cancellations) × 1,000 ÷ verified views, computed per order from the fact ledger's summaries over the last 12 months.
+  - **Dimensions:** sport, US state, NIL job and athlete tier, plus all orders together.
+  - **Sample:** a figure from fewer than 10 orders is marked a small sample (user, 2026-10-14).
+  - **Schedule:** rebuilt nightly after the fact check. A tenant whose check failed keeps yesterday's figures.
+  - **Code:** `Benchmark` (migration `20261014090000_benchmark`), `backend/src/domain/benchmarks.ts` and `npm run benchmarks:refresh`.
+  - **Proof:** `backend/tests/benchmarks.test.ts`.
+
+  [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §11
 - **Reference:** Spec §19
 
 ### ◑ `3S1-QA-01` · Nightly fact check

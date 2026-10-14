@@ -3851,3 +3851,29 @@ model FactCheckRun {
 
   @@index([finishedAt])
 }
+
+/// 3S1-DATA-03 — what sponsors usually pay per 1,000 verified views, per tenant
+/// and segment: p25, median, p75 and the number of orders behind them, so a
+/// small sample stays visibly small (domain/benchmarks.ts). Derived from the
+/// fact ledger's summaries and rebuilt nightly after the fact check; a refresh
+/// replaces a tenant's rows, and nothing else writes them.
+model Benchmark {
+  id          String   @id @default(cuid())
+  tenantId    String
+  /// ALL | SPORT | MARKET | FORMAT | AUDIENCE
+  dimension   String
+  /// The sport, US state, NIL job id or athlete tier; "" for ALL.
+  segment     String
+  /// EFFECTIVE_CPM_CENTS — what the sponsor paid, net of cancellations, × 1,000 ÷ verified views.
+  metric      String
+  p25         Int
+  median      Int
+  p75         Int
+  /// Orders behind the figure; below BENCHMARK_MIN_SAMPLE it is shown as a small sample.
+  sampleSize  Int
+  /// Orders booked in this many days before the refresh.
+  windowDays  Int
+  refreshedAt DateTime
+
+  @@unique([tenantId, dimension, segment, metric])
+}
