@@ -26,6 +26,7 @@
     "features:snapshot": "node --env-file-if-exists=../.env --import tsx scripts/take-feature-snapshots.mts",
     "pricing:refresh": "node --env-file-if-exists=../.env --import tsx scripts/store-pricing.mts",
     "forecasts:refresh": "node --env-file-if-exists=../.env --import tsx scripts/run-forecasts.mts",
+    "makegoods:refresh": "node --env-file-if-exists=../.env --import tsx scripts/run-make-goods.mts",
     "warehouse:reader": "node --import tsx scripts/warehouse-reader.mts",
     "db:logins": "node --import tsx scripts/db-logins.mts",
     "db:read": "node --import tsx scripts/db-read.mts"

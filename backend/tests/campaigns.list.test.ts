@@ -18,6 +18,8 @@ vi.mock("../src/db/client", () => ({
       findMany: (a: Record<string, unknown>) => ((args = a), Promise.resolve(rows)),
       findFirst: (a: Record<string, unknown>) => ((args = a), Promise.resolve(rows[0] ?? null)),
     },
+    /* 3S5 — BTG's detail lists the campaign's make-goods (covered on a real database by tests/makegood.test.ts). */
+    makeGoodShortfall: { findMany: () => Promise.resolve([]) },
   },
 }));
 
@@ -188,12 +190,15 @@ describe("GET /campaigns/:id (QA pass 7, F-5)", () => {
     expect(desk.nextStep).toEqual({ who: "BTG", text: "Ready for BTG to launch" });
     expect(desk.stageChange).toMatchObject({ state: "APPROVAL", movedAutomatically: true, reason: "Every athlete has accepted." });
     expect(desk.stageHistory).toHaveLength(1);
+    /* 3S5 — and its make-goods; a sponsor never sees them. */
+    expect(desk.makeGoods).toEqual([]);
 
     const mine = await one(sponsor, "cmp_1");
     expect(stageAudience).toBe("sponsor");
     expect(mine.nextStep).toEqual({ who: "BTG", text: "Your athletes are confirmed — your campaign launches soon" });
     expect(mine.stageChange).toEqual({ state: "APPROVAL", at: "2026-10-03T10:00:00.000Z", movedAutomatically: true });
     expect("stageHistory" in mine).toBe(false);
+    expect("makeGoods" in mine).toBe(false);
 
     /* The list carries the step too, without the history. */
     const row = (await list(staff)).campaigns[0]!;

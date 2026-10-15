@@ -20,7 +20,7 @@
  * Sponsors never see a forecast.
  */
 import type { Actor } from "../auth/actor";
-import { assertTenantWide } from "../auth/scope";
+import { assertTenantWide, can } from "../auth/scope";
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
 import type { Prisma, PrismaClient } from "../generated/prisma/client";
@@ -31,6 +31,7 @@ import {
   projectionPath, recommendedActions, riskFactors, riskOf,
   type ChannelDelivery, type GuaranteeMetric, type PendingDeliverable, type Risk,
 } from "./forecast-rules";
+import { campaignMakeGoods } from "./makegood-engine";
 import { appUrl, tell } from "./order-mail";
 
 type Tx = Prisma.TransactionClient;
@@ -319,6 +320,8 @@ export async function forecastDetail(actor: Actor, campaignId: string) {
     actions: f.actions,
     alert: alert ? { raisedAt: alert.raisedAt.toISOString(), risk: alert.risk, threshold: alert.threshold } : null,
     history: history.map((h) => ({ forecastAt: h.forecastAt.toISOString(), projectedMid: h.mid, probability: h.probability, modelVersion: h.modelVersion })),
+    /* 3S5 — the campaign's open and approved make-goods, for those who may see them (not Sales). */
+    ...(can(actor, "makeGood", "read") ? { makeGoods: await campaignMakeGoods(actor.tenantId, campaignId) } : {}),
   };
 }
 

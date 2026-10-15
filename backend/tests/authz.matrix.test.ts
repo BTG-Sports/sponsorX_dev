@@ -415,7 +415,13 @@ describe("the whole matrix is pinned", () => {
       // read and write (the guarantee); SALES own-tenant read; every other cell
       // deny (matrix §30). With its rows removed the grid hashes to the
       // previous 25b70735cf8b7452.
-    ).toBe("51eb91aed060275f");
+      // Updated 2026-10-15 (3S5-BE-01/02): new `makeGood` resource — a
+      // campaign's shortfalls, their substitutes and approving one.
+      // SUPER_ADMIN any read and approve; BTG_ADMIN and CAMPAIGN_MGR own-tenant
+      // read and approve; no write; every other cell deny, Sales included
+      // (matrix §31). With its rows removed the grid hashes to the previous
+      // 51eb91aed060275f.
+    ).toBe("e05782e25f86994e");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

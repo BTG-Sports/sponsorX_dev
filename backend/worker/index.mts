@@ -110,6 +110,7 @@ import { refreshBenchmarks } from "../src/domain/benchmarks.ts";
 import { takeFeatureSnapshots } from "../src/domain/feature-snapshots.ts";
 import { storePricingRecommendations } from "../src/domain/pricing-engine.ts";
 import { runForecasts } from "../src/domain/forecast-engine.ts";
+import { runMakeGoods } from "../src/domain/makegood-engine.ts";
 import { env } from "../src/config/env.ts";
 import { trimZohoWebhookBodies } from "../src/domain/webhook-retention.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
@@ -970,7 +971,11 @@ async function main(): Promise<void> {
             /* 3S4 — then pacing and the delivery forecast for every active campaign, and the risk alerts. */
             .then(() => runForecasts(prisma, new Date(), { skipTenants: out.failingTenants, emails: env.FORECAST_EMAILS }))
             .then((r) => log(`[worker] forecasts ${out.day}: ${r.forecasts} made for ${r.campaigns} active campaign(s); ${r.alertsRaised} alert(s), ${r.emails} email(s)${env.FORECAST_EMAILS ? "" : " (emails off)"}${r.skipped.length ? `; none for ${r.skipped.join(", ")}` : ""}`))
-            .catch((error: unknown) => logError(`[worker] forecasts ${out.day} could not be made, will retry tomorrow:`, error));
+            .catch((error: unknown) => logError(`[worker] forecasts ${out.day} could not be made, will retry tomorrow:`, error))
+            /* 3S5 — then the shortfalls of at-risk campaigns, their substitutes, and the automatic approvals. */
+            .then(() => runMakeGoods(prisma, new Date(), { skipTenants: out.failingTenants }))
+            .then((m) => log(`[worker] make-goods ${out.day}: ${m.shortfalls} shortfall(s), ${m.opened} new, ${m.closed} closed; ${m.autoApproved} approved automatically, ${m.held} held for BTG${m.skipped.length ? `; none for ${m.skipped.join(", ")}` : ""}`))
+            .catch((error: unknown) => logError(`[worker] make-goods ${out.day} could not be made, will retry tomorrow:`, error));
         }
         if (out.status === "failed") logError(`[worker] fact check ${out.day} could not run, will retry in an hour:`, out.error);
       })

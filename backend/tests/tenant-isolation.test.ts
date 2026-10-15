@@ -69,7 +69,7 @@ const A = {
   school: "ti_school_a", student: "ti_student_a", code: "ti_code_a", prospect: "ti_prospect_a",
   asset: "ti_asset_ed_a", claim: "ti_claim_a", onboarding: "ti_onboarding_a",
   /* Phase 2 batch 3 — an athlete's item, a school's item with a listing awaiting approval, a sent offer. */
-  item: "ti_item_a", recommendation: "ti_rec_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
+  item: "ti_item_a", recommendation: "ti_rec_a", makeGood: "ti_mg_a", makeGoodOption: "ti_mgo_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
   /* 2S2-FE-03 — the athlete's change request on that offer, unanswered. */
   changeRequest: "ti_offer_change_a",
   /* Phase 2 batch 4 — a restriction, the sponsor's cart with a line. */
@@ -172,6 +172,8 @@ const PARAM_FOR: Record<string, string> = {
   recommendations: A.recommendation,
   /* GET /intelligence/forecasts/{campaignId}, PUT …/guarantee (3S4). */
   forecasts: A.campaign,
+  /* POST /intelligence/make-goods/{shortfallId}/approve (3S5-BE-02). */
+  "make-goods": A.makeGood,
   /* POST /offers/{id}/change-requests/{requestId}/keep (2S2-FE-03). */
   "change-requests": A.changeRequest,
   restrictions: A.restriction, lines: A.cartLine,
@@ -379,6 +381,8 @@ const BODY: Record<string, unknown> = {
   "POST /intelligence/briefs/{briefId}/shortlist": { entryIds: [`athlete:${A.athlete}`] },
   /* 3S4 — setting tenant A's campaign's guarantee. */
   "PUT /intelligence/forecasts/{campaignId}/guarantee": { metric: "impressions", value: 999999 },
+  /* 3S5-BE-02 — approving tenant A's make-good. */
+  "POST /intelligence/make-goods/{shortfallId}/approve": { optionId: A.makeGoodOption, note: "Sweep approval note" },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -507,6 +511,17 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       id: A.recommendation, tenantId: t, inventoryId: A.item, athleteId: A.athlete, day: new Date("2026-10-01"), snapshotDay: new Date("2026-10-01"),
       modelVersion: "cpm-rules@1.0.0", confidence: 0.4, currentCpmCents: 2500, recommendedCpmCents: 2750, baseCpmCents: 2500, floorCpmCents: 2000,
       factors: [{ key: "scarcity", label: "Scarcity", effect: 0.1, impactCents: 250, explanation: "TI secret explanation" }], computedAt: new Date("2026-10-01"),
+    }, select: { id: true } });
+    /* 3S5-BE-01 — an open shortfall on tenant A's campaign, with one substitute that passes every check. */
+    await prisma.makeGoodShortfall.create({ data: {
+      id: A.makeGood, tenantId: t, campaignId: A.campaign, metric: "impressions", sold: 30000, projected: 15000, shortfall: 15000, unitValueCents: 20,
+      shortfallValueCents: 300000, elapsed: 0.9, modelVersion: "makegood-rules@1.0.0", confidence: 1, computedAt: new Date("2026-10-01"),
+      heldReasons: ["TI secret held reason"],
+      options: { create: [{
+        id: A.makeGoodOption, tenantId: t, inventoryItemId: A.item, rank: 1, inventoryName: "TI Secret Item", propertyName: "TI Secret Owner", format: "Item ×1",
+        units: 1, estimatedDelivery: 15000, basis: "own_history", verifiedEstimate: true, equivalencyScore: 1, costCents: 5000, costImpactCents: -295000,
+        available: true, exclusivityClear: true, meetsTarget: true, youth: false, reason: "TI secret reason",
+      }] },
     }, select: { id: true } });
     await prisma.listing.create({ data: { id: A.listing, tenantId: t, propertyId: A.school, inventoryItemId: A.schoolItem, title: "TI Secret Listing", description: "TI secret listing description", state: "PENDING_APPROVAL" } });
     /* 2S3-BE-05 — sold by the athlete with no team, published, so every catalogue and search read is swept against it. */
