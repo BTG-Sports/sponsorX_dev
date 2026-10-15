@@ -338,12 +338,18 @@ otherwise when weighing **D2**.
 | `BTG_ADMIN` | own-tenant | own-tenant | own-tenant |
 | `SALES` | own-tenant | own-tenant | — |
 | `CAMPAIGN_MGR` | own-tenant | own-tenant | **own-tenant** |
+| `NETWORK_MGR` | own-tenant | — | — |
 | `SPONSOR_ADMIN` | own | own (while `DRAFT`) | — |
 | `SPONSOR_ANALYST` | own | — | — |
 | all others | — | — | — |
 
 Qualifying a brief is `CAMPAIGN_MGR`'s call, not the sponsor's — Phase 1 is a
 managed marketplace, and that gate is the management.
+
+`NETWORK_MGR` reads (added 2026-10-15, QA): §29 has network managers saving a
+brief's shortlist and the Matching Studio and match explorer admit them, and
+neither is possible without reading the brief. Read only — they never write,
+qualify or approve one.
 
 ### `campaign`
 | Role | Read | Write | Approve |

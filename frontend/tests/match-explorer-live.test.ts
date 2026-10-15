@@ -4,7 +4,9 @@ import {
   BRIEF_KEYS,
   MATCH_KINDS,
   SAMPLE_BRIEF_LIST,
+  SHORTLIST_SAVE_ROLES,
   byImpact,
+  canSaveShortlist,
   explorerBriefHref,
   explorerBriefsQuery,
   factorFit,
@@ -124,6 +126,16 @@ describe("reading a match", () => {
     expect(shortDay("2026-10-13T09:05:59.000Z")).toBe("Oct 13");
     expect(shortDay("2026-10-13T23:59:00.000-05:00")).toBe("Oct 14");
     expect(shortDay("not a date")).toBe("—");
+  });
+});
+
+describe("who saves a shortlist (briefMatch write, 2026-10-14)", () => {
+  it("the matching desk saves; Sales reads", () => {
+    for (const r of SHORTLIST_SAVE_ROLES) expect(canSaveShortlist([r])).toBe(true);
+    expect(canSaveShortlist(["SALES"])).toBe(false);
+    expect(canSaveShortlist(["FINANCE", "SALES"])).toBe(false);
+    expect(canSaveShortlist(["SALES", "CAMPAIGN_MGR"])).toBe(true);
+    expect(canSaveShortlist([])).toBe(false);
   });
 });
 

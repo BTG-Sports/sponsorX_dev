@@ -140,3 +140,17 @@ describe("sendBlockedFor", () => {
     expect(sendBlockedFor(brief({ state: "CAMPAIGN_CREATED" }))).toBeNull();
   });
 });
+
+describe("briefAsks — the sponsor's engine inputs in words (3S3-BE-01, QA 2026-10-15)", async () => {
+  const { briefAsks, briefAsksLine } = await import("../src/lib/matching-live");
+  it("says tiers, channels, minimum audience and categories to avoid, in that order", () => {
+    expect(briefAsks({ audienceTiers: ["CREATOR", "ANCHOR"], channels: ["TIKTOK", "IN_PERSON"], audienceMinFollowers: 10_000, excludedCategories: ["ALCOHOL"] }))
+      .toEqual(["Creator or Anchor tiers", "TikTok, In person", "10,000+ followers", "avoid Alcohol"]);
+    expect(briefAsksLine({ audienceTiers: ["PREMIUM"] })).toBe("Premium tier");
+  });
+  it("is null when the brief asks nothing beyond sport, state and category — including an older answer without the fields", () => {
+    expect(briefAsksLine({})).toBeNull();
+    expect(briefAsksLine({ audienceTiers: [], channels: [], audienceMinFollowers: null, excludedCategories: [] })).toBeNull();
+    expect(briefAsksLine({ audienceMinFollowers: 0 })).toBeNull();
+  });
+});

@@ -836,6 +836,19 @@ function BriefBand({ filled }: { filled: number }) {
             ))}
           </dd>
         </div>
+        {/* 3S3-BE-01 — what the sponsor asked the engine for, full width so it never truncates:
+            the desk reads the same asks the engine filters and scores by (QA 2026-10-15). */}
+        <div className="sx-join-rise min-w-0 sm:col-span-2 lg:col-span-5" style={{ ["--sx-d" as string]: "225ms" }}>
+          <dt className="text-[10px] font-medium uppercase tracking-wide text-faint">
+            Sponsor asks
+          </dt>
+          <dd className="mt-0.5 text-sm font-semibold tracking-tight">
+            {MATCH_BRIEF.asks ?? "No extra asks"}
+            <span className="ml-2 text-[10px] font-normal text-faint">
+              {MATCH_BRIEF.asks ? "tiers · channels · audience · avoid" : "sport, market and category only"}
+            </span>
+          </dd>
+        </div>
       </dl>
     </Card>
   );

@@ -26,6 +26,9 @@ import { applyBriefMove, BRIEF_AUDIT_ACTIONS, lockBrief } from "./brief-moves";
 import { autoApproveOrHold } from "./brief-auto";
 import { startAutoStaffing } from "./auto-staffing";
 import { startAutoSale } from "./ad-sale-auto";
+
+/** A matching list is a set: a repeat in the body is stored once, in the order first sent (QA 2026-10-15). */
+const uniq = <T>(xs: readonly T[] | undefined): T[] => [...new Set(xs ?? [])];
 import { sponsorBriefStatus, type SponsorBriefStatus } from "./brief-auto-rules";
 
 export type BriefInput = {
@@ -158,9 +161,9 @@ export async function createBrief(
         sports: [...input.sports],
         stateCodes: [...input.stateCodes],
         categories: [...input.categories],
-        excludedCategories: [...(input.excludedCategories ?? [])],
-        channels: [...(input.channels ?? [])],
-        audienceTiers: [...(input.audienceTiers ?? [])],
+        excludedCategories: uniq(input.excludedCategories),
+        channels: uniq(input.channels),
+        audienceTiers: uniq(input.audienceTiers),
         audienceMinFollowers: input.audienceMinFollowers ?? null,
       },
       select: { id: true, state: true },
@@ -243,9 +246,9 @@ export async function updateBrief(
       ...(patch.sports !== undefined ? { sports: [...patch.sports] } : {}),
       ...(patch.stateCodes !== undefined ? { stateCodes: [...patch.stateCodes] } : {}),
       ...(patch.categories !== undefined ? { categories: [...patch.categories] } : {}),
-      ...(patch.excludedCategories !== undefined ? { excludedCategories: [...patch.excludedCategories] } : {}),
-      ...(patch.channels !== undefined ? { channels: [...patch.channels] } : {}),
-      ...(patch.audienceTiers !== undefined ? { audienceTiers: [...patch.audienceTiers] } : {}),
+      ...(patch.excludedCategories !== undefined ? { excludedCategories: uniq(patch.excludedCategories) } : {}),
+      ...(patch.channels !== undefined ? { channels: uniq(patch.channels) } : {}),
+      ...(patch.audienceTiers !== undefined ? { audienceTiers: uniq(patch.audienceTiers) } : {}),
       ...(patch.audienceMinFollowers !== undefined ? { audienceMinFollowers: patch.audienceMinFollowers } : {}),
     };
     assertNoWantedExcluded(patch.categories ?? before.categories, patch.excludedCategories ?? before.excludedCategories);
