@@ -763,9 +763,9 @@ Shortfall amount, substitute options, equivalency score, cost impact and the app
 
 *5 tasks · 23 person-days*
 
-### ◑ `3S6-BE-01` · Attribution adapter framework
+### ✅ `3S6-BE-01` · Attribution adapter framework
 
-**Order** 26 · **BE** · **Where:** Code · **5d** · **Code review**
+**Order** 26 · **BE** · **Where:** Code · **5d** · **Done**
 
 Attribution is pluggable, never universal. Each adapter declares its method, lookback window and match approach.
 
