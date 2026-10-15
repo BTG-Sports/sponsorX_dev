@@ -29,19 +29,14 @@ import { assertAllowed } from "../auth/scope";
 import { prisma } from "../db/client";
 import { BENCHMARK_METRIC } from "./benchmarks";
 import { windowFor, type RangeKey } from "./overview-window";
-import { AT_RISK_BELOW, WATCH_BELOW } from "./forecast-rules";
+import { buildRenewals, renewalOf, RENEWAL_VERSION } from "./renewal-advice";
+
+export { buildRenewals, renewalOf, RENEWAL_VERSION };
 
 export const SPONSOR_INTEL_VERSION = "sponsor-intel@1.0.0";
-export const RENEWAL_VERSION = "renewal-rules@1.0.0";
-/** Renewal advice covers campaigns ending this many days ahead… */
-export const RENEWAL_AHEAD_DAYS = 45;
-/** …and those that ended this many days ago. */
-export const RENEWAL_BEHIND_DAYS = 30;
 /** A partner's score is fully trusted from this many published deliverables. */
 export const PARTNER_FULL_CONFIDENCE_POSTS = 5;
 
-const DAY_MS = 86_400_000;
-const n = (x: number) => Math.round(x).toLocaleString("en-US");
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
 /** The NIL jobs (nil-jobs.ts) as inventory kinds, so the hub speaks one format vocabulary. */
@@ -61,13 +56,6 @@ export function formatOf(inventoryKey: string, itemKinds: ReadonlyMap<string, st
 
 type Provenance = "VERIFIED_API" | "VERIFIED_MANUAL";
 const provenanceOf = (api: number, manual: number): Provenance => (manual > api ? "VERIFIED_MANUAL" : "VERIFIED_API");
-
-export type RenewalAdvice = "RENEW" | "ADJUST" | "LET_END";
-
-/** The renewal advice for a share of the promise delivered (user, 2026-10-15: the forecast's 80% / 50%). */
-export function renewalOf(share: number): RenewalAdvice {
-  return share >= WATCH_BELOW ? "RENEW" : share >= AT_RISK_BELOW ? "ADJUST" : "LET_END";
-}
 
 /**
  * A partner athlete's score, 0..1: the average of what applies — delivery
@@ -228,29 +216,7 @@ export async function sponsorIntelligence(actor: Actor, range: RangeKey, now = n
   /* ── renewals: campaigns ending soon or just ended, from their latest forecast ── */
   const redeemsBy = new Map<string, number>();
   for (const r of redeems) redeemsBy.set(r.campaignId, (redeemsBy.get(r.campaignId) ?? 0) + Number(r.n));
-  const forecastBy = new Map(forecasts.map((f) => [f.campaignId, f]));
-  const lo = now.getTime() - RENEWAL_BEHIND_DAYS * DAY_MS;
-  const hi = now.getTime() + RENEWAL_AHEAD_DAYS * DAY_MS;
-  const renewals = campaigns
-    .filter((c) => c.state !== "CANCELLED" && c.endDate.getTime() >= lo && c.endDate.getTime() <= hi && forecastBy.has(c.id))
-    .map((c) => {
-      const f = forecastBy.get(c.id)!;
-      const share = f.guarantee > 0 ? f.mid / f.guarantee : 0;
-      const advice = renewalOf(share);
-      const ended = c.endDate.getTime() < now.getTime();
-      const reasons = [
-        `${ended ? "Delivered" : "On course to deliver"} ${n(f.mid)} of the ${n(f.guarantee)} ${f.metric} promised (${Math.round(share * 100)}%).`,
-        ...(redeemsBy.get(c.id) ? [`${n(redeemsBy.get(c.id)!)} fans redeemed your offer.`] : []),
-        advice === "RENEW" ? "It delivered what was promised, so it is worth booking again."
-          : advice === "ADJUST" ? "It fell short of the promise, so renew with a different format or partner."
-            : "It fell well short of the promise.",
-      ];
-      return {
-        campaignId: c.id, campaignName: c.name, endsAt: c.endDate.toISOString(), renewalScore: round2(Math.min(1, share)), recommendation: advice, reasons,
-        stamp: { modelVersion: RENEWAL_VERSION, confidence: round2(Math.min(1, 0.4 + 2 * f.elapsed)), computedAt: f.forecastAt.toISOString() },
-      };
-    })
-    .sort((a, b) => a.endsAt.localeCompare(b.endsAt) || a.campaignId.localeCompare(b.campaignId));
+  const renewals = buildRenewals(campaigns, forecasts, redeemsBy, now);
 
   return {
     asOf: now.toISOString(),

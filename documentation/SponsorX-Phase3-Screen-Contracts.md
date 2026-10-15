@@ -147,6 +147,10 @@ Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, SALES.
   - inputs: `budgetCents, cpmCents, audience { sport?, stateCodes?, ageBand? }, mix[{ format, share }]` (shares sum to 1)
   - result: `expectedImpressions { low, mid, high }, expectedRevenueCents, deliveryProbability, stamp, notes[]`
 - `POST /intelligence/scenarios { name, inputs }` → the saved scenario `{ id, name, inputs, result, savedAt }`.
+- **Mounted 2026-10-15** (3S7-BE-01, [SponsorX-Scenarios.md](./SponsorX-Scenarios.md)) as proposed, with these differences:
+  - the formats are social posts and videos: the ones it can both price and measure in views;
+  - a saved scenario adds `savedBy`;
+  - bad inputs are a 422 with the problems in words.
 
 ## 3S8-FE-01 · Data quality and anomaly console — `/admin/intelligence/anomalies`
 
@@ -157,6 +161,10 @@ Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR.
   - anomaly: `id, kind: spike|duplicate|bot|redemption|manual_entry, severity, subject { type: campaign|athlete|reward|metric_stream, … }, detectedAt, rule { id, version }, evidence[{ label, value }], disposition { outcome, note, by, at } | null`
 - `POST /intelligence/anomalies/:id/disposition { outcome: confirmed_issue|false_positive|excluded_from_reporting, note }` — a note (8+ characters) for every outcome.
 - Acceptance #10: seeded duplicate, bot and redemption patterns must appear here.
+- **Mounted 2026-10-15** (3S8-DATA-01, [SponsorX-Anomalies.md](./SponsorX-Anomalies.md)) as proposed, with these additions:
+  - a disposition adds `automatic`: SponsorX excludes a duplicate post on its own, and a person may replace that;
+  - a person's decision is final (409 after);
+  - a note under 8 characters is a 422.
 
 ## 3S8-FE-02 · Model and rule administration — `/admin/intelligence/models`
 

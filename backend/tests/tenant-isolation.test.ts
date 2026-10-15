@@ -69,7 +69,7 @@ const A = {
   school: "ti_school_a", student: "ti_student_a", code: "ti_code_a", prospect: "ti_prospect_a",
   asset: "ti_asset_ed_a", claim: "ti_claim_a", onboarding: "ti_onboarding_a",
   /* Phase 2 batch 3 — an athlete's item, a school's item with a listing awaiting approval, a sent offer. */
-  item: "ti_item_a", recommendation: "ti_rec_a", makeGood: "ti_mg_a", makeGoodOption: "ti_mgo_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
+  item: "ti_item_a", recommendation: "ti_rec_a", makeGood: "ti_mg_a", makeGoodOption: "ti_mgo_a", anomaly: "ti_anomaly_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
   /* 2S2-FE-03 — the athlete's change request on that offer, unanswered. */
   changeRequest: "ti_offer_change_a",
   /* Phase 2 batch 4 — a restriction, the sponsor's cart with a line. */
@@ -174,6 +174,8 @@ const PARAM_FOR: Record<string, string> = {
   forecasts: A.campaign,
   /* POST /intelligence/make-goods/{shortfallId}/approve (3S5-BE-02). */
   "make-goods": A.makeGood,
+  /* POST /intelligence/anomalies/{anomalyId}/disposition (3S8-DATA-01). */
+  anomalies: A.anomaly,
   /* POST /offers/{id}/change-requests/{requestId}/keep (2S2-FE-03). */
   "change-requests": A.changeRequest,
   restrictions: A.restriction, lines: A.cartLine,
@@ -383,6 +385,11 @@ const BODY: Record<string, unknown> = {
   "PUT /intelligence/forecasts/{campaignId}/guarantee": { metric: "impressions", value: 999999 },
   /* 3S5-BE-02 — approving tenant A's make-good. */
   "POST /intelligence/make-goods/{shortfallId}/approve": { optionId: A.makeGoodOption, note: "Sweep approval note" },
+  /* 3S8-DATA-01 — deciding tenant A's anomaly. */
+  "POST /intelligence/anomalies/{anomalyId}/disposition": { outcome: "false_positive", note: "Sweep disposition note" },
+  /* 3S7-BE-01 — a what-if and a saved scenario: tenant B's own, never tenant A's. */
+  "POST /intelligence/scenarios/calculate": { inputs: { budgetCents: 100000, cpmCents: 2000, audience: {}, mix: [{ format: "SOCIAL_POST", share: 1 }] } },
+  "POST /intelligence/scenarios": { name: "Sweep scenario", inputs: { budgetCents: 100000, cpmCents: 2000, audience: {}, mix: [{ format: "SOCIAL_POST", share: 1 }] } },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -511,6 +518,11 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       id: A.recommendation, tenantId: t, inventoryId: A.item, athleteId: A.athlete, day: new Date("2026-10-01"), snapshotDay: new Date("2026-10-01"),
       modelVersion: "cpm-rules@1.0.0", confidence: 0.4, currentCpmCents: 2500, recommendedCpmCents: 2750, baseCpmCents: 2500, floorCpmCents: 2000,
       factors: [{ key: "scarcity", label: "Scarcity", effect: 0.1, impactCents: 250, explanation: "TI secret explanation" }], computedAt: new Date("2026-10-01"),
+    }, select: { id: true } });
+    /* 3S8-DATA-01 — an open flag on tenant A's campaign. */
+    await prisma.anomaly.create({ data: {
+      id: A.anomaly, tenantId: t, kind: "bot", severity: "high", ruleId: "bot.clicks", ruleVersion: "anomaly-rules@1.0.0", subjectType: "campaign",
+      subjectId: A.campaign, subjectName: "TI Secret Campaign", fingerprint: "ti-secret-flag", evidence: [{ label: "TI secret", value: "1" }], detectedAt: new Date("2026-10-01"),
     }, select: { id: true } });
     /* 3S5-BE-01 — an open shortfall on tenant A's campaign, with one substitute that passes every check. */
     await prisma.makeGoodShortfall.create({ data: {

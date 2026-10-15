@@ -80,6 +80,12 @@ export const AUDIT_ACTIONS = {
     approve: "makeGood.approve",
     autoApprove: "makeGood.autoApprove",
   },
+  /** 3S8-DATA-01 — an anomaly flag decided: by a person, or automatically by
+   *  SponsorX for the clear-cut case (actor null). */
+  anomaly: {
+    dispose: "anomaly.dispose",
+    autoDispose: "anomaly.autoDispose",
+  },
   /** Agreements — acceptance is the legally interesting event. */
   agreement: {
     accept: "agreement.accept",

@@ -20,6 +20,7 @@
 export const NEEDS_ZOHO_CRM = new Set([
   "zoho.pushDeal", "zoho.pushCampaign", "zoho.pushTask", "zoho.pushLead",
   "zoho.pushRenewal", "zoho.ingestCrm", "zoho.backfill", "zoho.pushMarketplaceOrder", "zoho.pushSponsor",
+  "zoho.pushIntelligence",
 ]);
 
 /** True when the three CRM credentials are all set. */

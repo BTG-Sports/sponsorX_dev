@@ -72,3 +72,41 @@ export const SponsorIntelQuery = z
     range: z.enum(RANGES).default("30d").describe("The window: 7d, 30d, 90d or all"),
   })
   .meta({ id: "SponsorIntelQuery", description: "The sponsor's own intelligence hub over a window (3S7-BE-02)." });
+
+const ScenarioInputsSchema = z
+  .object({
+    budgetCents: z.int().min(1).max(2_000_000_000).describe("What the sponsor would spend, in cents"),
+    cpmCents: z.int().min(1).max(10_000_000).describe("The price per 1,000 views the sponsor would pay, in cents"),
+    audience: z.object({
+      sport: z.string().max(80).optional(),
+      stateCodes: z.array(z.string().max(2)).max(60).optional(),
+      ageBand: z.string().max(20).optional(),
+    }).strict().default({}),
+    mix: z.array(z.object({ format: z.string().min(1).max(40), share: z.number().min(0).max(1) }).strict()).min(1).max(10)
+      .describe("Each format's share of the budget, summing to 1"),
+  })
+  .strict()
+  .meta({ id: "ScenarioInputs", description: "A what-if for the scenario planner (3S7-BE-01)." });
+
+export const ScenarioCalculateInput = z.object({ inputs: ScenarioInputsSchema }).strict()
+  .meta({ id: "ScenarioCalculateInput", description: "Calculate a what-if; nothing is stored (3S7-BE-01)." });
+
+export const ScenarioSaveInput = z.object({ name: z.string().min(1).max(120), inputs: ScenarioInputsSchema }).strict()
+  .meta({ id: "ScenarioSaveInput", description: "Calculate and keep a scenario with its answer and model stamp (3S7-BE-01)." });
+
+export const AnomaliesQuery = z
+  .object({
+    tab: z.enum(["open", "resolved"]).default("open").describe("Flags to review, or decided ones"),
+    kind: z.enum(["spike", "duplicate", "bot", "redemption", "manual_entry"]).optional(),
+    page: z.coerce.number().int().optional(),
+    size: z.coerce.number().int().optional(),
+  })
+  .meta({ id: "AnomaliesQuery", description: "Anomaly flags (3S8-DATA-01)." });
+
+export const AnomalyDispositionInput = z
+  .object({
+    outcome: z.enum(["confirmed_issue", "false_positive", "excluded_from_reporting"]),
+    note: z.string().max(2200).describe("Why — 8 to 2,000 characters, kept on the record and in the audit log"),
+  })
+  .strict()
+  .meta({ id: "AnomalyDispositionInput", description: "Decide an anomaly flag, with a note (3S8-DATA-01)." });

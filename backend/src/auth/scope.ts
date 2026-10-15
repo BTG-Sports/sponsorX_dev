@@ -915,6 +915,9 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   /* 3S7-BE-02 — the caller's own sponsor org, and the caller's own property, in its tenant. */
   sponsorIntelligence: (actor, scope) => (scope === "own-sponsor" && actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING),
   propertyIntelligence: (actor, scope) => (scope === "own-property" && actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING),
+  /* 3S7-BE-01 — saved scenarios, per tenant. 3S8-DATA-01 — anomaly flags, per tenant. */
+  scenario: tenantScoped,
+  anomaly: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

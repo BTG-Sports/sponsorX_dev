@@ -17,13 +17,18 @@
  *
  * 3S7-BE-02 — the sponsor's and the property's own hubs (sponsorIntelligence,
  * propertyIntelligence, RBAC matrix §32), scoped by the actor, never the request.
+ *
+ * 3S7-BE-01 — the scenario planner (scenario, §33). 3S8-DATA-01 — anomaly
+ * flags and their dispositions (anomaly, §34).
  */
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { ForecastsQuery, GuaranteeInput, MakeGoodApproveInput, MakeGoodsQuery, MatchesQuery, PricingOverrideInput, ShortlistInput, SponsorIntelQuery } from "../../contracts/intelligence";
+import { ForecastsQuery, GuaranteeInput, MakeGoodApproveInput, MakeGoodsQuery, MatchesQuery, PricingOverrideInput, ShortlistInput, SponsorIntelQuery, ScenarioCalculateInput, ScenarioSaveInput, AnomaliesQuery, AnomalyDispositionInput } from "../../contracts/intelligence";
 import { forecastDetail, forecastList, setGuarantee } from "../../domain/forecast-engine";
+import { anomalyDesk, disposeAnomaly } from "../../domain/anomaly-engine";
 import { approveMakeGood, makeGoodList } from "../../domain/makegood-engine";
+import { calculateScenario, saveScenario, scenarioDesk } from "../../domain/scenario-engine";
 import { matchPage, saveShortlist } from "../../domain/match-engine";
 import { overridePrice, pricingDesk, pricingDetail, type PricingDeskView } from "../../domain/pricing-engine";
 import { propertyIntelligence } from "../../domain/property-intelligence";
@@ -125,3 +130,39 @@ const propertyHub: RequestHandler = async (req, res) => {
 
 intelligenceRouter.get("/intelligence/sponsor", requireActor, sponsorHub);
 intelligenceRouter.get("/intelligence/property", requireActor, propertyHub);
+
+/** GET /intelligence/scenarios?page&size */
+const scenarios: RequestHandler = async (req, res) => {
+  res.json(await scenarioDesk(req.actor!, pageRequest({ page: 1, ...req.query })!));
+};
+
+/** POST /intelligence/scenarios/calculate { inputs } — nothing stored. */
+const calculate: RequestHandler = async (req, res) => {
+  const body = ScenarioCalculateInput.parse(req.body ?? {});
+  res.json(await calculateScenario(req.actor!, body.inputs));
+};
+
+/** POST /intelligence/scenarios { name, inputs } */
+const saveOne: RequestHandler = async (req, res) => {
+  const body = ScenarioSaveInput.parse(req.body ?? {});
+  res.status(201).json(await saveScenario(req.actor!, body));
+};
+
+intelligenceRouter.get("/intelligence/scenarios", requireActor, scenarios);
+intelligenceRouter.post("/intelligence/scenarios/calculate", requireActor, calculate);
+intelligenceRouter.post("/intelligence/scenarios", requireActor, saveOne);
+
+/** GET /intelligence/anomalies?tab=open|resolved&kind&page&size */
+const anomalies: RequestHandler = async (req, res) => {
+  const q = AnomaliesQuery.parse(req.query ?? {});
+  res.json(await anomalyDesk(req.actor!, { tab: q.tab, kind: q.kind, page: pageRequest({ page: 1, ...req.query })! }));
+};
+
+/** POST /intelligence/anomalies/:anomalyId/disposition { outcome, note } */
+const dispose: RequestHandler<{ anomalyId: string }> = async (req, res) => {
+  const body = AnomalyDispositionInput.parse(req.body ?? {});
+  res.json(await disposeAnomaly(req.actor!, req.params.anomalyId, body));
+};
+
+intelligenceRouter.get("/intelligence/anomalies", requireActor, anomalies);
+intelligenceRouter.post("/intelligence/anomalies/:anomalyId/disposition", requireActor, dispose);
