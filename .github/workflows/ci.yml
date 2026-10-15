@@ -1,14 +1,24 @@
 # Continuous integration — P2-OPS-07, §30, Guide §09.
 #
-# Runs on every push to any branch and on every pull request, plus once a day
-# at 8 pm Manila on the latest `main`. The nightly run is skipped when `main`
-# has not changed since the last deploy; when it passes, deploy-daily.yml
-# ships that commit. Push and pull-request runs only check — they never deploy.
+# Runs on every pull request, on every push to `main` and `main_development`,
+# plus once a day at 8 pm Manila on the latest `main`. The nightly run is
+# skipped when `main` has not changed since the last deploy; when it passes,
+# deploy-daily.yml ships that commit. Push and pull-request runs only check —
+# they never deploy.
 #
 # History: on 2026-10-01 the account ran out of GitHub Actions minutes, so CI
 # was cut to the nightly run and hand-started runs. On 2026-10-07 the
 # repository moved to the BTG-Sports organisation and is public, where
 # standard runners cost no minutes, so CI runs on every commit again.
+#
+# 2026-10-15 — faster merges. A push to a working branch no longer runs CI on
+# its own: its pull request runs the same checks on the same commit, so the
+# push run was a duplicate queueing beside it. And a pull request that only
+# touches the day's log, the tracker or the graph (`Memory/`, `Claude outputs/`,
+# `graphify-out/`) skips the build and test jobs — nothing there is read by
+# the code or the tests. `documentation/` is not on that list: tests read the
+# RBAC matrix. Pushes to `main`, the nightly and hand-started runs always run
+# everything, so a deploy is never decided on a skipped check.
 #
 # The job "typecheck · lint · unit · authz matrix" is a REQUIRED check on
 # `main` and `main_development` (repository ruleset "CI required", 2026-10-07):
@@ -26,7 +36,7 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: [main, main_development]
   pull_request:
   schedule:
     - cron: "0 12 * * *" # 12:00 UTC = 8:00 pm Manila, every day
@@ -40,10 +50,15 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  # A few seconds' check before the ten-minute ones: on the nightly run, if
-  # `release` (what is deployed) already equals `main`, there is nothing new
-  # to test or deploy, so the heavy jobs are skipped. A hand-started run
-  # always tests.
+  # A few seconds' check before the ten-minute ones. The heavy jobs are
+  # skipped in two cases only:
+  # - the nightly run, when `release` (what is deployed) already equals
+  #   `main`: nothing new to test or deploy;
+  # - a pull request whose every file (and every renamed file's old path) is
+  #   under `Memory/`, `Claude outputs/` or `graphify-out/`.
+  # A skipped job reports as passed, so the required check lets that pull
+  # request merge. Anything uncertain — the file list can't be read, or it
+  # came back shorter than the pull request says — runs everything.
   changed:
     name: anything new on main
     runs-on: ubuntu-latest
@@ -53,14 +68,28 @@ jobs:
       - id: check
         env:
           GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          PR_FILES: ${{ github.event.pull_request.changed_files }}
         run: |
           RELEASE=$(gh api "repos/${{ github.repository }}/branches/release" --jq .commit.sha 2>/dev/null || echo none)
           if [ "${{ github.event_name }}" = "schedule" ] && [ "$RELEASE" = "${{ github.sha }}" ]; then
             echo "main (${GITHUB_SHA:0:7}) is already deployed — skipping tonight's checks."
             echo "run=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            LISTED=$(gh api --paginate "repos/${{ github.repository }}/pulls/$PR/files" --jq '.[].filename' 2>/dev/null) || LISTED=""
+            OLD=$(gh api --paginate "repos/${{ github.repository }}/pulls/$PR/files" --jq '.[] | .previous_filename // empty' 2>/dev/null) || OLD=""
+            COUNT=$(printf '%s\n' "$LISTED" | grep -c . || true)
+            OTHER=$(printf '%s\n%s\n' "$LISTED" "$OLD" | grep . | grep -vE '^(Memory|Claude outputs|graphify-out)/' || true)
+            if [ "$COUNT" -gt 0 ] && [ "$COUNT" = "$PR_FILES" ] && [ -z "$OTHER" ]; then
+              echo "Only the log, the tracker or the graph changed ($COUNT file(s)) — skipping the build and tests."
+              printf '%s\n' "$LISTED"
+              echo "run=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo "run=true" >> "$GITHUB_OUTPUT"
 
   # ---------------------------------------------------------------------
   # 2S8-SEC-02 — dependency scan and secret scan.
@@ -216,7 +245,7 @@ jobs:
   # E2E — P2-QA-01.
   #
   # A SEPARATE JOB, deliberately. The suite above is 442 assertions that
-  # finish in under a second and gate every push; a browser run takes tens of
+  # finish in under a second and gate every pull request; a browser run takes tens of
   # seconds and downloads a 82 MB binary. Putting them in one job would make
   # the fast feedback wait for the slow, and the usual response to that is to
   # stop requiring one of them.
