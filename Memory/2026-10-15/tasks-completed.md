@@ -284,3 +284,10 @@
   - **Confirmed:** `SponsorX_Renewal_Score:integer` and `SponsorX_Next_Action:text`.
   - The script drops the tooltips and prints Zoho's details on a refusal. That fix is committed with the CI change.
 - **Still to do:** **production** Zoho, with the user's OK. 3S7-INT-01 stays in Code review until then and until a push lands.
+
+## rcfworks — deploy e6ce2f1; production Zoho fields wait for go-live
+
+- **Deploy:** #226 (the sync of #224 and #225) merged; `main` went green; Claude deployed. `release` moved to `e6ce2f1`, and production's api was SUCCESS at 17:10 (+08).
+- **The user ran the production fields command:** `npm run zoho:intel-fields -- --create --confirm-production`. It stopped with `ZohoNotConfiguredError`: production has no Zoho keys, which is deliberate until go-live (P2-OPS-04). Nothing changed.
+- **Recorded on P2-OPS-04's tracker row:** run the fields command when the production Zoho keys are set.
+- **3S7-INT-01:** stays in Code review. It goes to Done when tonight's staging run lands the score and next action on a sandbox sponsor's Account (to check tomorrow).
