@@ -114,6 +114,8 @@ import { storePricingRecommendations } from "../src/domain/pricing-engine.ts";
 import { runForecasts } from "../src/domain/forecast-engine.ts";
 import { runMakeGoods } from "../src/domain/makegood-engine.ts";
 import { runAnomalies } from "../src/domain/anomaly-engine.ts";
+import { runBacktests } from "../src/domain/backtest-engine.ts";
+import { validateBenchmarks } from "../src/domain/benchmark-validation.ts";
 import { queueZohoIntelligence } from "../src/domain/zoho-intelligence.ts";
 import { env } from "../src/config/env.ts";
 import { trimZohoWebhookBodies } from "../src/domain/webhook-retention.ts";
@@ -968,6 +970,13 @@ async function main(): Promise<void> {
           /* 3S2-BE-01 — then today's feature snapshots, which carry those benchmarks. The same tenants skip. */
           void refreshBenchmarks(prisma, new Date(), { skipTenants: out.failingTenants })
             .then((b) => log(`[worker] benchmarks ${out.day}: ${b.benchmarks} figure(s) for ${b.tenants} tenant(s)${b.skipped.length ? `; kept yesterday's for ${b.skipped.join(", ")}` : ""}`))
+            /* 3S9-QA-02 — and say which benchmarks are sound enough to price from. */
+            .then(async () => {
+              const ts = (await prisma.tenant.findMany({ select: { id: true } })).map((t) => t.id);
+              let total = 0; let valid = 0;
+              for (const t of ts) { const v = await validateBenchmarks(prisma, t, new Date()); total += v.summary.total; valid += v.summary.valid; }
+              log(`[worker] benchmarks ${out.day}: ${valid} of ${total} valid to price from`);
+            })
             .catch((error: unknown) => logError(`[worker] benchmarks ${out.day} could not be refreshed, will retry tomorrow:`, error))
             .then(() => takeFeatureSnapshots(prisma, new Date(), { skipTenants: out.failingTenants }))
             .then((f) => log(`[worker] feature snapshots ${out.day}: ${f.written} taken for ${f.athletes} athlete(s)${f.skipped.length ? `; none for ${f.skipped.join(", ")}` : ""}`))
@@ -988,6 +997,10 @@ async function main(): Promise<void> {
             .then(() => runAnomalies(prisma, new Date(), { skipTenants: out.failingTenants }))
             .then((a) => log(`[worker] anomalies ${out.day}: ${a.flagged} new flag(s), ${a.excludedAutomatically} excluded automatically${a.skipped.length ? `; none for ${a.skipped.join(", ")}` : ""}`))
             .catch((error: unknown) => logError(`[worker] anomalies ${out.day} could not be checked, will retry tomorrow:`, error))
+            /* 3S9-QA-01 — then the backtests of every model version with real history. */
+            .then(() => runBacktests(prisma, new Date()))
+            .then((b) => log(`[worker] backtests ${out.day}: ${b.runs} run(s) stored`))
+            .catch((error: unknown) => logError(`[worker] backtests ${out.day} could not run, will retry tomorrow:`, error))
             /* 3S7-INT-01 — then each sponsor's renewal score and next action to Zoho, where they changed. Only with Zoho set up:
                otherwise the jobs would pile up in the outbox, one more each night. */
             .then(() => (zohoCrmConfigured() ? queueZohoIntelligence(prisma, new Date(), { skipTenants: out.failingTenants }) : null))

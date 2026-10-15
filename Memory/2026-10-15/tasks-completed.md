@@ -285,6 +285,38 @@
   - The script drops the tooltips and prints Zoho's details on a refusal. That fix is committed with the CI change.
 - **Still to do:** **production** Zoho, with the user's OK. 3S7-INT-01 stays in Code review until then and until a push lands.
 
+## rcfworks — deploy e6ce2f1; production Zoho fields wait for go-live
+
+- **Deploy:** #226 (the sync of #224 and #225) merged; `main` went green; Claude deployed. `release` moved to `e6ce2f1`, and production's api was SUCCESS at 17:10 (+08).
+- **The user ran the production fields command:** `npm run zoho:intel-fields -- --create --confirm-production`. It stopped with `ZohoNotConfiguredError`: production has no Zoho keys, which is deliberate until go-live (P2-OPS-04). Nothing changed.
+- **Recorded on P2-OPS-04's tracker row:** run the fields command when the production Zoho keys are set.
+- **3S7-INT-01:** stays in Code review. It goes to Done when tonight's staging run lands the score and next action on a sandbox sponsor's Account (to check tomorrow).
+
+## rcfworks — 3S0-PMO-01, 3S9-QA-01, 3S9-QA-02 (Code review, one PR)
+
+**3S0-PMO-01 · attribution claims:** `documentation/SponsorX-Attribution-Claims.md`, drafted for the owner's approval.
+- It defines the four classes, with the evidence, money and confidence of each.
+- It sets the words each class may and must never use, and that the classes are never summed (no ROI from modelled or estimated figures).
+- It maps each class to its provenance, and requires zero rather than a guess.
+- The legal review follows as `3S0-LEG-01`. This unblocks `3S6-BE-01`.
+
+**3S9-QA-02 · benchmark validation (`benchmark-validation.ts`):**
+- **`checkBenchmark`:** a benchmark fails if inconsistent, stale (over 2 days), small (under 10 orders) or too spread (over 4×), with every reason.
+- **`reconciliationVerdict`:** a pure function over the nightly fact check. The tolerance is exact and the check must be under 2 days old. It is pure so tests never write the platform-wide `FactCheckRun`.
+- **Where it shows:** the models screen (`benchmarkValidation`), the nightly log after benchmarks, and `npm run benchmarks:validate`.
+
+**3S9-QA-01 · backtests (`backtest-rules.ts`, pure):**
+- **Scoring:** `scoreForecasts` (error, within 10%, second half, Brier, calibration bands) and `scorePricing` (error, within 20%, confidence bands).
+- **Simulation:** `simulateForecastHistory` is seeded (mulberry32) over 300 campaigns at ¼, ½ and ¾.
+- **Engine** (`backtest-engine.ts`): real forecast history (ended campaigns, against the last pacing) and real pricing history (orders against the latest suggestion on or before booking), per version stamp. Runs are stored as `BacktestRun`, nightly after anomalies; with `--simulate`, a simulated run is stored and marked.
+- **On the models screen:** each version shows its latest backtest, real before simulated.
+- **Simulated result for forecast 1.0.0:**
+  - **Projection:** error 10.8% overall, 4.7% at ¾.
+  - **Probability:** overconfident early. At ¼, 95% given became 74% reached and 5% given became 22% reached. At ¾ it is calibrated (96% / 97%).
+  - **`fullTrustElapsed` 0.45:** improves the error (10.8% → 9.4%) but not the overconfidence.
+  - **Recommendations** are documented for the owner: the settings change, or a new forecast version with a wider early spread.
+- **Tests:** `tests/backtest.test.ts`, 8, every figure by hand.
+- **Shared:** migration `20261015220000_backtest_runs`; authz.coverage maps BacktestRun to `modelRegistry`; docs `SponsorX-Backtest.md` and the plan entries (Code review).
 ## HeckerCreatives — 3S2-FE-01, 3S3-FE-01, 3S4-FE-01: wired to the engines that landed 2026-10-14, walked live
 
 Branch `feature/3S1-FE-01-P1-ART-26-27`, after pulling `main` (13 commits: 3S2 pricing, 3S3 matching, 3S4 forecasting) and `main_development` (close of day 10-14). Local: the four new migrations applied, Prisma client regenerated, API + worker on :4000 from `npm start`.
@@ -395,8 +427,24 @@ Probe rows deleted (5 overrides, 1 DRAFT brief, the shortlist), the guarantee ba
 - Matching, forecasts, the brief desk and the sponsor drawer walked in production; 0 page errors, 0 5xx.
 - **No findings.** Pushed to `main_development` and `main` after this entry (merge with rcfworks' day; see the commit).
 
+**Merge with HeckerCreatives' work (#227/#228):** #230 conflicted with `main_development` after Ganielle's Phase 3 screen wiring landed.
+- **Tracker:** resolved per the team rule. Took their copy and re-applied only my five changed rows (P2-OPS-04, 3S0-PMO-01, 3S7-INT-01, 3S9-QA-01, 3S9-QA-02). A row-by-row three-way comparison showed no row changed on both sides.
+- **Today's log:** both sides kept.
+- **Their backend changes merged cleanly:** NETWORK_MGR reads `campaignBrief` (digest `3d92c5837a1480f7`, built on mine), plus pricing and forecast test additions.
+- **Checks:** the full CI set re-ran on the merged code and passed: backend 217 / 3,365 and web 140 / 1,543.
 ## HeckerCreatives — P1-ART-22's QA fixes committed; P1-ART-22…25 Done (owner's call)
 
 The fixes logged on 2026-10-11 under "the QA findings fixed (still Code review, not yet committed)" — the Arena speed bar capped so it never crosses content, the last six native `<select>`s on athlete pages replaced by the house `Dropdown` (which gained `disabled` and a scrolling list), reactivation kept inside the portal — are committed today on top of the merged `main_development`, re-verified there (tsc, eslint, the full frontend suite, `next build`), and pushed through a PR to `main_development` and `main`. The 2026-10-05 design note for the dev Clerk-quota fallback (`docs/superpowers/specs/`) goes in with it.
 
 **Tracker:** P1-ART-22, P1-ART-23, P1-ART-24 and P1-ART-25 move from Code review to **Done** (owner's call, 2026-10-15); today's Stage Progress row is corrected for the four. P8-QA-03 and P9-QA-01 stay In progress — nothing new was done on them today, and the edition e2e (P9-QA-01) still needs the Clerk cap cleared to run.
+- **Second merge** (Ganielle's #229, P1-ART-22…25 Done): resolved the same way. Their tracker, my five rows re-applied, no row changed on both sides, both sides of the log kept. #229 is frontend-only; frontend build, tests and lint passed on the merged code.
+- **A cache file blocked the merge:** the local `graphify-out/cache/last_query_stamp`, which holds only a timestamp. My copy was discarded for theirs.
+
+## rcfworks — 3S0-PMO-01, 3S9-QA-01, 3S9-QA-02 to Done
+
+- **#230 merged.** All three meet their acceptance:
+  - 3S0-PMO-01: the definitions and reporting language are written;
+  - 3S9-QA-01: backtests are documented with accuracy and calibration per model;
+  - 3S9-QA-02: benchmarks are validated for sample size, and reconciliation is checked to an exact tolerance.
+- **Updated:** the tracker and the plan.
+- **The two policy documents (3S0-PMO-01, 3S0-PMO-02)** still await the owner's read; any change comes as an edit by PR.

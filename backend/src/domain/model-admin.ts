@@ -13,6 +13,8 @@ import { assertTenantWide, scopeOf } from "../auth/scope";
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS, type AuditActor } from "../db/audit";
 import type { Prisma } from "../generated/prisma/client";
+import { latestBacktests } from "./backtest-engine";
+import { validateBenchmarks } from "./benchmark-validation";
 import { BENCHMARK_MIN_SAMPLE, listBenchmarks } from "./benchmarks";
 import { MATCH_FACTORS } from "./match-rules";
 import { activeModel, builtInSettings, FEATURES, MODEL_DEFS, MODEL_KEYS, type Feature, type ModelKey } from "./model-registry";
@@ -106,13 +108,14 @@ async function outputsBy(tenantId: string, key: ModelKey): Promise<Map<string, n
 
 async function modelView(tenantId: string, key: ModelKey) {
   const def = MODEL_DEFS[key];
-  const [rows, active, outputs] = await Promise.all([
+  const [rows, active, outputs, backtests] = await Promise.all([
     prisma.modelVersion.findMany({
       where: { tenantId, key },
       select: { version: true, status: true, createdAt: true, createdBy: true, notes: true, reason: true, thresholds: true },
     }),
     activeModel(prisma, tenantId, key),
     outputsBy(tenantId, key),
+    latestBacktests(prisma, tenantId),
   ]);
   const users = new Map((await prisma.user.findMany({
     where: { tenantId, id: { in: rows.map((r) => r.createdBy).filter((u): u is string => !!u) } }, select: { id: true, email: true },
@@ -123,7 +126,16 @@ async function modelView(tenantId: string, key: ModelKey) {
     version: r.version, status: r.status as "draft" | "validated" | "active" | "retired", createdAt: r.createdAt.toISOString(),
     createdBy: r.createdBy ? users.get(r.createdBy) ?? "a former user" : "SponsorX (built in)",
     notes: r.notes || r.reason, settings: r.thresholds as Record<string, number>,
-    metrics: [{ label: "Outputs made", value: outputs.get(`${def.base}@${r.version}`) ?? 0 }],
+    metrics: [
+      { label: "Outputs made", value: outputs.get(`${def.base}@${r.version}`) ?? 0 },
+      /* 3S9-QA-01 — the version's latest backtest, real before simulated. */
+      ...(((backtests.get(`${def.base}@${r.version}`)?.metrics ?? []) as Array<{ label: string; value: number; unit?: string; better?: "higher" | "lower" }>)
+        .map((m) => (backtests.get(`${def.base}@${r.version}`)!.simulated ? { ...m, label: `${m.label} (simulated)` } : m))),
+    ],
+    backtest: backtests.has(`${def.base}@${r.version}`) ? (() => {
+      const b = backtests.get(`${def.base}@${r.version}`)!;
+      return { ranAt: b.ranAt.toISOString(), simulated: b.simulated, sampleSize: b.sampleSize, calibration: b.calibration };
+    })() : null,
   })).sort((a, b) => cmp(b.version, a.version));
   return {
     key, name: def.name, activeVersion: active.version, versions,
@@ -159,6 +171,8 @@ export async function modelRegistry(actor: Actor, now = new Date()) {
       p25: b.p25, median: b.median, p75: b.p75, sampleSize: b.sampleSize, refreshedAt: b.refreshedAt,
     })),
     benchmarkMinSample: BENCHMARK_MIN_SAMPLE,
+    /* 3S9-QA-02 — each benchmark's verdict, and the reconciliation behind them. */
+    benchmarkValidation: await validateBenchmarks(prisma, tenantId, now),
     flags: FEATURES.flatMap((feature) => tenants.map((t) => ({ feature, tenantId: t.id, tenantName: t.name, enabled: flagBy.get(`${feature}::${t.id}`) ?? true }))),
     rollouts: [] as Array<{ model: ModelKey; version: string; stage: string; tenants: Array<{ id: string; name: string }> }>,
   };

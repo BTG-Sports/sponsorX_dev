@@ -95,14 +95,22 @@ If a task's *definition* turns out to be wrong — the acceptance criteria don't
 
 *13 tasks · 29 person-days*
 
-### ▶ `3S0-PMO-01` · Define what attribution is permitted to claim
+### ✅ `3S0-PMO-01` · Define what attribution is permitted to claim
 
-**Order** 1 · **PMO** · **Where:** Document · **3d** · **Ready**
+**Order** 1 · **PMO** · **Where:** Document · **3d** · **Done**
 
 The most important decision in Phase 3 and it is a language decision, not a technical one. Verified redemption, verified transaction, modelled attribution and estimated media value are four different things and must never be blended in a sponsor report.
 
 - **Depends on:** Phase 2 complete
 - **Done when:** Written definitions for every attribution class, with the reporting language each is allowed to use
+- **Delivered:** 2026-10-15, drafted for the owner's approval: [`SponsorX-Attribution-Claims.md`](./SponsorX-Attribution-Claims.md). It covers:
+  - the four classes (verified redemption, verified transaction, modelled attribution, estimated media value): what each is, its evidence, money and confidence;
+  - the words each may and must never use;
+  - never summed, no ROI from modelled or estimated figures;
+  - provenance;
+  - zero rather than a guess.
+
+  The legal review follows as `3S0-LEG-01`.
 - **Reference:** Spec §17.4, §22
 
 ### ✅ `3S0-PMO-02` · Model governance policy
@@ -979,24 +987,38 @@ Every intelligence feature must be disableable per tenant. Not every customer sh
 
 *4 tasks · 16 person-days*
 
-### ⏸ `3S9-QA-01` · Backtest the pricing and forecast models
+### ✅ `3S9-QA-01` · Backtest the pricing and forecast models
 
-**Order** 41 · **QA** · **Where:** Code · **5d** · **Blocked**
+**Order** 41 · **QA** · **Where:** Code · **5d** · **Done**
 
 Run the models against historical campaigns and check whether they would actually have been right. This is what separates intelligence from decoration.
 
 - **Depends on:** 3S8-BE-01
 - **Done when:** Backtest results documented with accuracy and confidence calibration per model
+- **Delivered:** 2026-10-15.
+  - **The forecast:** accuracy (error of the projected final, within 10%, second half) and probability calibration (Brier score, by band) on ended campaigns.
+  - **Pricing:** accuracy against achieved CPM, and within-20% by confidence band, on orders after a suggestion.
+  - **Per version, nightly,** kept as `BacktestRun` and shown beside each version on the models screen.
+  - **No real history yet.** On a seeded simulated history of 300 campaigns, the projection is good (4.7% error at ¾ of the flight), but the probability is overconfident early (95% given → 74% reached at ¼).
+  - **Recommendations are documented,** and the decision is the owner's.
+
+  [`SponsorX-Backtest.md`](./SponsorX-Backtest.md) §2–§4
 - **Reference:** Spec §21
 
-### ⏸ `3S9-QA-02` · Benchmark and reconciliation validation
+### ✅ `3S9-QA-02` · Benchmark and reconciliation validation
 
-**Order** 42 · **QA** · **Where:** Code · **3d** · **Blocked**
+**Order** 42 · **QA** · **Where:** Code · **3d** · **Done**
 
 Confirm benchmarks are statistically meaningful and warehouse totals still tie out.
 
 - **Depends on:** 3S1-DATA-03
 - **Done when:** Benchmarks validated for sample size; reconciliation within tolerance
+- **Delivered:** 2026-10-15.
+  - **Benchmarks:** each is validated for ordered quartiles, freshness (2 days), sample size (10 orders) and spread (4×), and flagged with its reasons.
+  - **Reconciliation:** the nightly fact check, with an exact tolerance, run within 2 days.
+  - **Where it shows:** on the models screen (`benchmarkValidation`), in the nightly log, and through `npm run benchmarks:validate`.
+
+  [`SponsorX-Backtest.md`](./SponsorX-Backtest.md) §1
 - **Reference:** Spec §22
 
 ### ⏸ `3S9-PMO-01` · Phase 3 UAT and staged rollout
