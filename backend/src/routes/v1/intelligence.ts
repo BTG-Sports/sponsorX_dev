@@ -27,9 +27,10 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { ForecastsQuery, GuaranteeInput, MakeGoodApproveInput, MakeGoodsQuery, MatchesQuery, PricingDeskQuery, PricingOverrideInput, ShortlistInput, SponsorIntelQuery, ScenarioCalculateInput, ScenarioSaveInput, AnomaliesQuery, AnomalyDispositionInput, FlagInput, ModelReasonInput, ModelRollbackInput, ModelSettingsInput } from "../../contracts/intelligence";
+import { ForecastsQuery, GuaranteeInput, MakeGoodApproveInput, MakeGoodsQuery, MatchesQuery, PricingDeskQuery, PricingOverrideInput, ShortlistInput, SponsorIntelQuery, ScenarioCalculateInput, ScenarioSaveInput, AnomaliesQuery, AnomalyDispositionInput, FlagInput, ModelReasonInput, ModelRollbackInput, ModelSettingsInput, PartnerInput } from "../../contracts/intelligence";
 import { forecastDetail, forecastList, setGuarantee } from "../../domain/forecast-engine";
 import { anomalyDesk, disposeAnomaly } from "../../domain/anomaly-engine";
+import { addPartner, partnerDesk } from "../../domain/attribution-intake";
 import { approveMakeGood, makeGoodList } from "../../domain/makegood-engine";
 import { activateVersion, changeSettings, modelRegistry, rollbackModel, setFlag, validateVersion } from "../../domain/model-admin";
 import { calculateScenario, saveScenario, scenarioDesk } from "../../domain/scenario-engine";
@@ -204,3 +205,16 @@ intelligenceRouter.post("/intelligence/models/:key/versions/:version/validate", 
 intelligenceRouter.post("/intelligence/models/:key/versions/:version/activate", requireActor, activate);
 intelligenceRouter.post("/intelligence/models/:key/rollback", requireActor, rollback);
 intelligenceRouter.patch("/intelligence/flags", requireActor, flag);
+
+/** GET /intelligence/attribution/partners — the adapters, and this tenant's partners (3S6-BE-01). */
+const partners: RequestHandler = async (req, res) => {
+  res.json(await partnerDesk(req.actor!));
+};
+
+/** POST /intelligence/attribution/partners { name, adapter } — the token comes back once. */
+const partnerAdd: RequestHandler = async (req, res) => {
+  res.status(201).json(await addPartner(req.actor!, PartnerInput.parse(req.body ?? {})));
+};
+
+intelligenceRouter.get("/intelligence/attribution/partners", requireActor, partners);
+intelligenceRouter.post("/intelligence/attribution/partners", requireActor, partnerAdd);

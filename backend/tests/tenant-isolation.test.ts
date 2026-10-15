@@ -69,7 +69,7 @@ const A = {
   school: "ti_school_a", student: "ti_student_a", code: "ti_code_a", prospect: "ti_prospect_a",
   asset: "ti_asset_ed_a", claim: "ti_claim_a", onboarding: "ti_onboarding_a",
   /* Phase 2 batch 3 — an athlete's item, a school's item with a listing awaiting approval, a sent offer. */
-  item: "ti_item_a", recommendation: "ti_rec_a", makeGood: "ti_mg_a", makeGoodOption: "ti_mgo_a", anomaly: "ti_anomaly_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
+  item: "ti_item_a", recommendation: "ti_rec_a", makeGood: "ti_mg_a", makeGoodOption: "ti_mgo_a", anomaly: "ti_anomaly_a", partner: "ti_partner_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
   /* 2S2-FE-03 — the athlete's change request on that offer, unanswered. */
   changeRequest: "ti_offer_change_a",
   /* Phase 2 batch 4 — a restriction, the sponsor's cart with a line. */
@@ -178,6 +178,8 @@ const PARAM_FOR: Record<string, string> = {
   anomalies: A.anomaly,
   /* /intelligence/models/{key}/versions/{version}/… (3S8-BE-01) — tenant A's validated forecast version. */
   models: "forecast", versions: "1.1.0",
+  /* POST /attribution/partners/{partnerId}/events (3S6-BE-01) — tenant A's partner, without its token. */
+  partners: A.partner,
   /* POST /offers/{id}/change-requests/{requestId}/keep (2S2-FE-03). */
   "change-requests": A.changeRequest,
   restrictions: A.restriction, lines: A.cartLine,
@@ -395,6 +397,8 @@ const BODY: Record<string, unknown> = {
   "POST /intelligence/models/{key}/versions/{version}/activate": { reason: "Sweep activation reason" },
   "POST /intelligence/models/{key}/rollback": { toVersion: "1.1.0", reason: "Sweep rollback reason" },
   "PATCH /intelligence/flags": { feature: "forecast", tenantId: "ti_tenant_a", enabled: false, reason: "Sweep switching off tenant A" },
+  /* 3S6-BE-01 — a delivery to tenant A's partner: refused without its token, whoever is signed in. */
+  "POST /attribution/partners/{partnerId}/events": { events: [{ id: "ti_sweep", type: "sale", occurred_at: "2026-10-01T00:00:00Z", order_id: "ti_x" }] },
   /* 3S7-BE-01 — a what-if and a saved scenario: tenant B's own, never tenant A's. */
   "POST /intelligence/scenarios/calculate": { inputs: { budgetCents: 100000, cpmCents: 2000, audience: {}, mix: [{ format: "SOCIAL_POST", share: 1 }] } },
   "POST /intelligence/scenarios": { name: "Sweep scenario", inputs: { budgetCents: 100000, cpmCents: 2000, audience: {}, mix: [{ format: "SOCIAL_POST", share: 1 }] } },
@@ -527,6 +531,8 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       modelVersion: "cpm-rules@1.0.0", confidence: 0.4, currentCpmCents: 2500, recommendedCpmCents: 2750, baseCpmCents: 2500, floorCpmCents: 2000,
       factors: [{ key: "scarcity", label: "Scarcity", effect: 0.1, impactCents: 250, explanation: "TI secret explanation" }], computedAt: new Date("2026-10-01"),
     }, select: { id: true } });
+    /* 3S6-BE-01 — tenant A's attribution partner (its token is not the sweep's to know). */
+    await prisma.attributionPartner.create({ data: { id: A.partner, tenantId: t, name: "TI Secret Partner", adapter: "generic-webhook-v1", tokenHash: "f".repeat(64) }, select: { id: true } });
     /* 3S8-BE-01 — a validated forecast version of tenant A's, waiting to go live. */
     await prisma.modelVersion.create({ data: {
       tenantId: t, key: "forecast", version: "1.1.0", status: "validated", thresholds: { atRiskBelow: 0.45 }, notes: "TI secret notes", reason: "TI secret reason", createdBy: A.admin,

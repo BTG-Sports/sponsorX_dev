@@ -131,3 +131,37 @@ of campaigns reaching their guarantee):
 
 The alert thresholds are unaffected: "at risk" is already conservative at
 50%.
+
+## 5 · Forecast 2.0.0: the approved fix
+
+**What changed** (built-in `forecast-rules@2.0.0`, 2026-10-15):
+- **The pace itself is uncertain.** The remaining days get a second spread: rate × `paceUncertainty` × (share of the flight still to go) × days left, shared across those days.
+- **It is widest early and gone at the end.** It doesn't move the projected final.
+- **`paceUncertainty` is a setting** on the models screen ("Allowance for a change of pace"), built in at **0.6**, with a safe range of 0.2–1.0.
+
+**How 0.6 was chosen:** on two separate seeded histories (the one above,
+`20261015`, and a held-out one, `777`), 0.6 gave the lowest Brier score on
+both:
+
+| | 1.0.0 (none) | 0.5 | **0.6** | 0.8 |
+|---|---|---|---|---|
+| Brier, history 20261015 | 0.108 | 0.097 | **0.096** | 0.097 |
+| Brier, held-out history 777 | 0.115 | 0.099 | **0.099** | 0.099 |
+
+**Calibration at 0.6** (history 20261015), given / reached:
+
+| Band | All checkpoints | At ¼ of the flight |
+|---|---|---|
+| Under 50% | 10.9% / 14.0% | 16.3% / 21.9% |
+| 50% to 80% | 64.2% / 80.9% | 60.7% / 77.5% |
+| 80% or more | 94.1% / 97.4% | none given (was 95.3% / 73.9%) |
+
+- **The overconfidence is gone.** Early on, the forecast no longer says
+  "95%" for campaigns that then miss. It says "watch" until the evidence is in.
+- **The middle band is now a little cautious:** given 64%, reached 81%. A
+  cautious alert is safer than a missed one.
+- **The projected-final accuracy is unchanged** (§4), because the fix widens
+  only the uncertainty.
+
+The nightly backtest judges 2.0.0 on real campaigns as they end, and the
+models screen shows it beside 1.0.0.

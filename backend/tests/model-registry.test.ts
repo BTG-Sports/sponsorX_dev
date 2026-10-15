@@ -56,7 +56,7 @@ describe.skipIf(!hasDatabase)("3S8-BE-01 / 3S8-OPS-01 · the model registry and 
   it("before any change, every engine runs its built-in version, with its settings and safe ranges", async () => {
     const r = await A.modelRegistry(ana, NOW);
     expect(r.models.map((m) => [m.key, m.activeVersion, m.versions.map((v) => `${v.version}:${v.status}`)])).toEqual([
-      ["pricing", "1.0.0", ["1.0.0:active"]], ["matching", "2.0.0", ["2.0.0:active"]], ["forecast", "1.0.0", ["1.0.0:active"]],
+      ["pricing", "1.0.0", ["1.0.0:active"]], ["matching", "2.0.0", ["2.0.0:active"]], ["forecast", "2.0.0", ["2.0.0:active"]],
       ["makegood", "1.0.0", ["1.0.0:active"]], ["anomalies", "1.0.0", ["1.0.0:active"]],
     ]);
     expect(r.models.find((m) => m.key === "forecast")!.thresholds.find((t) => t.key === "atRiskBelow")).toMatchObject({ value: 0.5, min: 0.3, max: 0.7 });
@@ -67,34 +67,34 @@ describe.skipIf(!hasDatabase)("3S8-BE-01 / 3S8-OPS-01 · the model registry and 
 
   it("a change inside the safe range goes live at once, automatically — and the engine uses it from its next run", async () => {
     const out = await A.changeSettings(ana, "forecast", { values: { atRiskBelow: 0.45 }, reason: "Fewer at-risk alerts in a slow month" }, NOW);
-    expect(out).toMatchObject({ version: "1.1.0", status: "active", heldBecause: [] });
-    expect(out.model.versions.map((v) => `${v.version}:${v.status}`)).toEqual(["1.1.0:active", "1.0.0:retired"]);
+    expect(out).toMatchObject({ version: "2.1.0", status: "active", heldBecause: [] });
+    expect(out.model.versions.map((v) => `${v.version}:${v.status}`)).toEqual(["2.1.0:active", "2.0.0:retired"]);
     expect((await activeModel(prisma, T, "forecast")).t).toMatchObject({ atRiskBelow: 0.45, watchBelow: 0.8 });
-    /* 48% was at risk under 1.0.0; it is on watch under 1.1.0. */
+    /* 48% was at risk under 2.0.0; it is on watch under 2.1.0. */
     expect(riskOf(0.48)).toBe("at_risk");
     expect(riskWith(0.48, (await activeModel(prisma, T, "forecast")).t as never)).toBe("watch");
     await runForecasts(prisma, NOW, { tenantId: T });
-    expect((await prisma.campaignForecast.findFirstOrThrow({ where: { tenantId: T }, select: { modelVersion: true } })).modelVersion).toBe("forecast-rules@1.1.0");
+    expect((await prisma.campaignForecast.findFirstOrThrow({ where: { tenantId: T }, select: { modelVersion: true } })).modelVersion).toBe("forecast-rules@2.1.0");
     expect((await versions("forecast")).versions[0]!.metrics).toEqual([{ label: "Outputs made", value: 1 }]);
     expect(await prisma.auditLog.count({ where: { tenantId: T, action: "model.autoActivate", actorId: null } })).toBe(1);
   });
 
   it("a change outside the safe range is held for a second person — never the proposer — then activated", async () => {
     const out = await A.changeSettings(ana, "forecast", { values: { atRiskBelow: 0.75 }, reason: "Try a much stricter at-risk line" }, NOW);
-    expect(out).toMatchObject({ version: "1.2.0", status: "draft" });
+    expect(out).toMatchObject({ version: "2.2.0", status: "draft" });
     expect(out.heldBecause[0]).toContain("outside the safe range 0.3–0.7");
-    await expect(A.activateVersion(ana, "forecast", "1.2.0", { reason: "Skipping the check here" })).rejects.toBeInstanceOf(A.ModelStateError);
-    await expect(A.validateVersion(ana, "forecast", "1.2.0", { reason: "Checking my own change" })).rejects.toThrow(/second person/);
-    await A.validateVersion(bo, "forecast", "1.2.0", { reason: "Checked against last quarter" });
-    const m = await A.activateVersion(bo, "forecast", "1.2.0", { reason: "Going with the stricter line" });
-    expect(m.versions.map((v) => `${v.version}:${v.status}`)).toEqual(["1.2.0:active", "1.1.0:retired", "1.0.0:retired"]);
+    await expect(A.activateVersion(ana, "forecast", "2.2.0", { reason: "Skipping the check here" })).rejects.toBeInstanceOf(A.ModelStateError);
+    await expect(A.validateVersion(ana, "forecast", "2.2.0", { reason: "Checking my own change" })).rejects.toThrow(/second person/);
+    await A.validateVersion(bo, "forecast", "2.2.0", { reason: "Checked against last quarter" });
+    const m = await A.activateVersion(bo, "forecast", "2.2.0", { reason: "Going with the stricter line" });
+    expect(m.versions.map((v) => `${v.version}:${v.status}`)).toEqual(["2.2.0:active", "2.1.0:retired", "2.0.0:retired"]);
   });
 
   it("roll back to any retired version, with no deployment; compare versions by their settings", async () => {
-    const m = await A.rollbackModel(ana, "forecast", { toVersion: "1.0.0", reason: "Back to the built-in settings" });
-    expect(m.activeVersion).toBe("1.0.0");
-    expect(m.versions.map((v) => [v.version, v.status, v.settings.atRiskBelow])).toEqual([["1.2.0", "retired", 0.75], ["1.1.0", "retired", 0.45], ["1.0.0", "active", 0.5]]);
-    await expect(A.rollbackModel(ana, "forecast", { toVersion: "1.0.0", reason: "It is already active" })).rejects.toBeInstanceOf(A.ModelStateError);
+    const m = await A.rollbackModel(ana, "forecast", { toVersion: "2.0.0", reason: "Back to the built-in settings" });
+    expect(m.activeVersion).toBe("2.0.0");
+    expect(m.versions.map((v) => [v.version, v.status, v.settings.atRiskBelow])).toEqual([["2.2.0", "retired", 0.75], ["2.1.0", "retired", 0.45], ["2.0.0", "active", 0.5]]);
+    await expect(A.rollbackModel(ana, "forecast", { toVersion: "2.0.0", reason: "It is already active" })).rejects.toBeInstanceOf(A.ModelStateError);
     expect(await prisma.auditLog.count({ where: { tenantId: T, action: { in: ["model.versionCreate", "model.validate", "model.activate", "model.rollback"] } } })).toBe(5);
   });
 

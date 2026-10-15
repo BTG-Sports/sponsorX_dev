@@ -456,3 +456,38 @@ The fixes logged on 2026-10-11 under "the QA findings fixed (still Code review, 
   - `SponsorX-Model-Governance.md` (3S0-PMO-02).
 - **`SponsorX-Backtest.md`:** recommendation 2 approved. That is a new forecast version with a wider early spread, backtested on the same simulated history before going live. The user's "1,2,3 approved" was read as the recommended option, and the user was told.
 - **Recorded:** each document's header or recommendations section now says it was approved.
+
+## rcfworks — forecast 2.0.0, 3S9-OPS-01, 3S6-BE-01 (Code review, one PR)
+
+**Forecast 2.0.0** (owner-approved recommendation 2):
+- **The change:** `forecastFlow` gains `paceUncertainty`, a second spread of rate × u × (share left) × days left, shared across the days left. Default 0 keeps 1.x exact for direct callers.
+- **Built in:** `forecast-rules@2.0.0` with the setting `paceUncertainty` 0.6 (safe range 0.2–1).
+- **Why 0.6:** the best Brier score on seed 20261015 (0.096) and on a held-out seed, 777 (0.099).
+- **Result:** the early "95%" overconfidence is gone; the middle band is slightly cautious.
+- **Tests updated:**
+  - the `fo_B` probability is now 0.0001 (Φ(−3.75), worked out in the test);
+  - the registry tests use 2.x;
+  - the backtest fixtures use 2.0.0.
+
+**3S9-OPS-01 · pipeline monitoring:**
+- **Recording:** `pipeline-runs.ts` (`recordStep`, `runStep`). The worker chain was rewritten so every step is recorded, failures included, and the chain goes on.
+- **Health check:** `/health/full` gains a `pipeline` check (`evaluatePipeline`). It fails on a failed step, 26 h without success, active campaigns without a forecast in 26 h, drift, or an unreadable record. It never fails off Railway, or before the first night.
+- **Alerting** reuses the uptime monitor.
+- **Tests:** `health-full.test.ts` (fake extended, 5 new cases, statement count 3) and `pipeline-runs.test.ts`.
+
+**3S6-BE-01 · attribution adapters:**
+- **Adapters:** `attribution-adapters.ts` (interface, registry rules, `generic-webhook-v1`).
+- **Intake:** `attribution-intake.ts`:
+  - a token is shown once and stored as SHA-256, compared in constant time;
+  - an unknown partner and a wrong token get the same 401;
+  - a partner or feature switched off gets 403;
+  - every delivery is kept, a rejected one too.
+- **Public route:** `routes/v1/attribution.ts`, rate-limited.
+- **Permission:** `attribution` (RBAC §36, digest `0829d0ceec6d26d5`); the feature `attribution` is added to FEATURES.
+- **Tests:** `attribution-framework.test.ts`. A second adapter (`flat-orders-v1`) is registered and used with no engine change.
+- **Shared:**
+  - migrations `20261016090000_pipeline_runs` and `20261016100000_attribution_framework`;
+  - authz.coverage: AttributionPartner and AttributionDelivery mapped, PipelineRun platform-wide;
+  - openapi coverage gains the `attribution` route file;
+  - the tenant-isolation sweep has tenant A's partner;
+  - docs: Attribution-Framework, Pipeline-Monitoring, Backtest §5, and the plan entries.

@@ -129,7 +129,7 @@ import {
 } from "./delivery";
 import { PayoutAccountLinkInput, PayoutDecisionInput, PayoutListQuery, StandinAccountInput, StandinCheckoutInput } from "./payouts";
 import { RefundSentInput, RefundsQuery } from "./refunds";
-import { ForecastsQuery, GuaranteeInput, MakeGoodApproveInput, MakeGoodsQuery, MatchesQuery, PricingDeskQuery, PricingOverrideInput, ShortlistInput, SponsorIntelQuery, ScenarioCalculateInput, ScenarioSaveInput, AnomaliesQuery, AnomalyDispositionInput, FlagInput, ModelReasonInput, ModelRollbackInput, ModelSettingsInput } from "./intelligence";
+import { ForecastsQuery, GuaranteeInput, MakeGoodApproveInput, MakeGoodsQuery, MatchesQuery, PricingDeskQuery, PricingOverrideInput, ShortlistInput, SponsorIntelQuery, ScenarioCalculateInput, ScenarioSaveInput, AnomaliesQuery, AnomalyDispositionInput, FlagInput, ModelReasonInput, ModelRollbackInput, ModelSettingsInput, PartnerDeliveryInput, PartnerInput } from "./intelligence";
 import {
   DisputeResolveInput, DisputeReviewInput, DisputesQuery, PaymentEventResolveInput, PaymentEventsQuery, ProviderWebhookEnvelope, StandinEventInput,
 } from "./payment-events";
@@ -744,6 +744,9 @@ const PATHS: Row[] = [
   { method: "post", path: "/intelligence/models/{key}/versions/{version}/activate", tag: "Intelligence", summary: "Make a validated version active; the active one is retired. The engines use it from their next run. 409 for any other status.", body: ModelReasonInput },
   { method: "post", path: "/intelligence/models/{key}/rollback", tag: "Intelligence", summary: "Make a retired version active again; the active one is retired. 409 unless the version is retired.", body: ModelRollbackInput },
   { method: "patch", path: "/intelligence/flags", tag: "Intelligence", summary: "Switch one intelligence feature (pricing, matching, forecast, makegood, anomalies, scenarios, sponsorHub, propertyHub, zohoIntelligence) on or off for one tenant, with a reason; audited. Off: its nightly run skips the tenant and its reads and writes answer 403 feature_off. BTG admins for their tenant, super admins for any.", body: FlagInput },
+  { method: "get", path: "/intelligence/attribution/partners", tag: "Intelligence", summary: "The attribution adapters available (each with its methods, deterministic first; lookback; exact keys; intake) and this tenant's partners with their deliveries, events and rejections (3S6-BE-01). BTG admins." },
+  { method: "post", path: "/intelligence/attribution/partners", tag: "Intelligence", summary: "Add an attribution partner with an adapter; its secret token is returned ONCE (kept only as a hash), with the endpoint the partner posts to. Audited. BTG admins.", body: PartnerInput },
+  { method: "post", path: "/attribution/partners/{partnerId}/events", tag: "Attribution", summary: "A partner's delivery (3S6-BE-01). PUBLIC: proven by `Authorization: Bearer <partner token>`, rate-limited. The partner's adapter parses it; the delivery is kept as received with the events it yielded and every problem. 202 with { deliveryId, accepted, problems }; 401 unknown partner or wrong token; 403 partner or feature switched off.", body: PartnerDeliveryInput },
   { method: "get", path: "/operations/job-economics", tag: "Operations", summary: "Economics by NIL job." },
 
   // 2S5-INT-02 — the payment provider's events

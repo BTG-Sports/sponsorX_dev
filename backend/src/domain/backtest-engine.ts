@@ -78,7 +78,7 @@ export async function runBacktests(db: PrismaClient, now: Date, opts: { tenantId
     }
     if (opts.simulate) {
       const active = await activeModel(db, tenantId, "forecast");
-      const s = scoreForecasts(simulateForecastHistory(undefined, active.t.fullTrustElapsed));
+      const s = scoreForecasts(simulateForecastHistory(undefined, active.t.fullTrustElapsed, active.t.paceUncertainty));
       rows.push({ tenantId, model: "forecast", version: active.stamp, simulated: true, ranAt: now, sampleSize: s.sampleSize, metrics: s.metrics, calibration: s.calibration });
       report.simulated += 1;
     }

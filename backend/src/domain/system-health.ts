@@ -95,13 +95,83 @@ export type QueueCheck = {
   failedLast24h: number | null;
 };
 
+/* ─────────── 3S9-OPS-01 — the nightly pipeline (documentation/SponsorX-Pipeline-Monitoring.md) ─────────── */
+
+/** Nothing in the nightly chain succeeded for this long: the pipeline is stale. */
+export const PIPELINE_STALE_HOURS = 26;
+/** A model's backtest error grew by more than this share, and by at least DRIFT_MIN_POINTS: drift. */
+export const DRIFT_GROWTH = 0.5;
+export const DRIFT_MIN_POINTS = 5;
+export const DRIFT_METRICS = ["Mean error of the projected final", "Mean error of the suggested CPM"];
+
+export type PipelineReading = {
+  /** The latest record of each step from the last three nights. */
+  runs: Array<{ step: string; status: string; day: string; finishedAt: string }>;
+  lastOkAt: string | null;
+  lastForecastAt: string | null;
+  activeCampaigns: number;
+  /** Real backtests, newest first. */
+  backtests: Array<{ model: string; version: string; ranAt: string; metrics: Array<{ label: string; value: number }> }>;
+};
+
+export type PipelineCheck = {
+  ok: boolean;
+  configured: boolean;
+  lastRunAt: string | null;
+  failedSteps: string[];
+  hoursSinceSuccess: number | null;
+  forecastsFresh: boolean;
+  drift: string[];
+};
+
+/**
+ * Pure: the pipeline's record → the check. Off Railway (locally, in CI) the
+ * nightly chain never runs, so it is never a failure there; on Railway, before
+ * the first night, nothing has run yet and that is not a failure either.
+ */
+export function evaluatePipeline(r: PipelineReading | null, railway: boolean, now: Date): PipelineCheck {
+  const none: PipelineCheck = { ok: true, configured: railway, lastRunAt: null, failedSteps: [], hoursSinceSuccess: null, forecastsFresh: true, drift: [] };
+  if (!railway) return { ...none, configured: false };
+  if (!r) return { ...none, ok: false };
+  if (!r.runs.length && !r.lastOkAt) return none;
+  /* The latest record per step: failed now, whatever came before. */
+  const latest = new Map<string, { status: string; day: string }>();
+  for (const x of [...r.runs].sort((a, b) => b.day.localeCompare(a.day))) if (!latest.has(x.step)) latest.set(x.step, x);
+  const failedSteps = [...latest].filter(([, x]) => x.status === "failed").map(([k]) => k).sort();
+  const hours = (iso: string | null) => (iso ? (now.getTime() - new Date(iso).getTime()) / 3_600_000 : null);
+  const sinceOk = hours(r.lastOkAt);
+  const sinceForecast = hours(r.lastForecastAt);
+  const forecastsFresh = r.activeCampaigns === 0 || (sinceForecast !== null && sinceForecast <= PIPELINE_STALE_HOURS);
+  /* Drift: a version's newest real backtest against its previous one. */
+  const drift: string[] = [];
+  const seen = new Map<string, Array<{ metrics: Array<{ label: string; value: number }> }>>();
+  for (const b of r.backtests) seen.set(`${b.model}|${b.version}`, [...(seen.get(`${b.model}|${b.version}`) ?? []), b]);
+  for (const [key, list] of seen) {
+    if (list.length < 2) continue;
+    const metric = (x: { metrics: Array<{ label: string; value: number }> }) => x.metrics.find((m) => DRIFT_METRICS.includes(m.label))?.value;
+    const now0 = metric(list[0]!); const before = metric(list[1]!);
+    if (now0 === undefined || before === undefined || before <= 0) continue;
+    if (now0 > before * (1 + DRIFT_GROWTH) && now0 - before >= DRIFT_MIN_POINTS) drift.push(`${key.replace("|", " ")}: error ${before}% → ${now0}%`);
+  }
+  const stale = sinceOk === null || sinceOk > PIPELINE_STALE_HOURS;
+  return {
+    ok: !failedSteps.length && !stale && forecastsFresh && !drift.length,
+    configured: true,
+    lastRunAt: r.lastOkAt,
+    failedSteps,
+    hoursSinceSuccess: sinceOk === null ? null : Math.round(sinceOk * 10) / 10,
+    forecastsFresh,
+    drift,
+  };
+}
+
 export type FullHealth = {
   status: "ok" | "degraded";
-  checks: { db: boolean; redis: boolean; storage: boolean; backups: BackupCheck; queue: QueueCheck };
+  checks: { db: boolean; redis: boolean; storage: boolean; backups: BackupCheck; queue: QueueCheck; pipeline: PipelineCheck };
   /** API responses in the last 15 minutes and how many were 5xx — the error rate, reported, never a failure. */
   traffic: ErrorRate;
   /** Present only when degraded: the names of the checks that failed. */
-  failed?: Array<"db" | "redis" | "storage" | "backups" | "queue">;
+  failed?: Array<"db" | "redis" | "storage" | "backups" | "queue" | "pipeline">;
 };
 
 /**
@@ -190,6 +260,31 @@ async function readArchiver(): Promise<ArchiverRow | null> {
   };
 }
 
+/** The nightly pipeline's record, under a short statement timeout; null if unreadable. */
+async function readPipeline(): Promise<PipelineReading | null> {
+  const rows = await prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SET LOCAL statement_timeout = '2s'`;
+      /* tenant-scope: platform-wide health — the pipeline's own record, and counts and times only; no tenant's rows are returned. */
+      return tx.$queryRaw<Array<{ runs: PipelineReading["runs"] | null; lastOkAt: Date | null; lastForecastAt: Date | null; activeCampaigns: number; backtests: PipelineReading["backtests"] | null }>>`
+        SELECT (SELECT json_agg(json_build_object('step', step, 'status', status, 'day', to_char(day, 'YYYY-MM-DD'), 'finishedAt', "finishedAt"))
+                  FROM "PipelineRun" WHERE day >= current_date - 3) AS runs,
+               (SELECT max("finishedAt") FROM "PipelineRun" WHERE status = 'ok') AS "lastOkAt",
+               (SELECT max("forecastAt") FROM "CampaignForecast") AS "lastForecastAt",
+               (SELECT count(*)::int FROM "Campaign" WHERE state = 'ACTIVE' AND "startDate" <= now() AND "endDate" >= current_date) AS "activeCampaigns",
+               (SELECT json_agg(b) FROM (SELECT model, version, "ranAt", metrics FROM "BacktestRun" WHERE NOT simulated ORDER BY "ranAt" DESC LIMIT 50) b) AS backtests`;
+    },
+    { maxWait: 1_500, timeout: PROBE_TIMEOUT_MS },
+  );
+  const row = rows[0];
+  if (!row || !("activeCampaigns" in row)) return null;
+  const iso = (d: Date | string | null) => (d === null ? null : new Date(d).toISOString());
+  return {
+    runs: row.runs ?? [], lastOkAt: iso(row.lastOkAt), lastForecastAt: iso(row.lastForecastAt),
+    activeCampaigns: Number(row.activeCampaigns ?? 0), backtests: row.backtests ?? [],
+  };
+}
+
 /**
  * The queue's numbers, under a short statement timeout; null if unreadable.
  * The outbox side counts only rows the drain would actually dispatch: a name
@@ -242,20 +337,23 @@ export function onRailway(environmentName = env.RAILWAY_ENVIRONMENT_NAME): boole
 
 /** Every dependency `/health/ready` checks, plus the backups and the queue. Never throws. */
 export async function fullHealth(railway = onRailway()): Promise<FullHealth> {
-  const [db, redis, storage, archiver, queueReading] = await Promise.all([
+  const [db, redis, storage, archiver, queueReading, pipelineReading] = await Promise.all([
     within(prisma.$queryRaw`SELECT 1`.then(() => true), PROBE_TIMEOUT_MS, false),
     within(redisReachable(), PROBE_TIMEOUT_MS, false),
     within(storageReachable(), PROBE_TIMEOUT_MS, false),
     within(readArchiver(), PROBE_TIMEOUT_MS, null),
     within<QueueReading | null>(readQueue(), PROBE_TIMEOUT_MS, null),
+    within<PipelineReading | null>(readPipeline(), PROBE_TIMEOUT_MS, null),
   ]);
   const backups = evaluateBackups(archiver, railway);
   const queue = evaluateQueue(queueReading, railway);
+  const pipeline = evaluatePipeline(pipelineReading, railway, new Date());
 
-  const checks = { db, redis, storage, backups, queue };
+  const checks = { db, redis, storage, backups, queue, pipeline };
   const failed = (["db", "redis", "storage"] as const).filter((k) => !checks[k]) as NonNullable<FullHealth["failed"]>;
   if (!backups.ok) failed.push("backups");
   if (!queue.ok) failed.push("queue");
+  if (!pipeline.ok) failed.push("pipeline");
 
   const traffic = errorRate();
   return failed.length ? { status: "degraded", checks, traffic, failed } : { status: "ok", checks, traffic };

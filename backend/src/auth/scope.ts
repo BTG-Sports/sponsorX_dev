@@ -920,6 +920,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   anomaly: tenantScoped,
   /* 3S8-BE-01 — model versions and feature flags, per tenant. */
   modelRegistry: tenantScoped,
+  /* 3S6-BE-01 — attribution partners and deliveries, per tenant. */
+  attribution: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

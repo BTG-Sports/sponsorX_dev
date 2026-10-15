@@ -109,7 +109,7 @@ describe.skipIf(!hasDatabase)("3S9-QA-01/02 · against the database, and on the 
     await prisma.campaign.create({ data: { id: "bkt_c", tenantId: T, sponsorId: "bkt_sp", name: "October", budget: 1, startDate: D("2026-10-01"), endDate: D("2026-10-31"), state: "COMPLETED" }, select: { id: true } });
     await prisma.campaignPacing.create({ data: { tenantId: T, campaignId: "bkt_c", day: D("2026-10-31"), metric: "impressions", guarantee: 30000, delivered: 27000, expected: 30000, elapsed: 1 } });
     const forecast = (day: string, probability: number, mid: number, elapsed: number) => prisma.campaignForecast.create({ data: {
-      tenantId: T, campaignId: "bkt_c", day: D(day), modelVersion: "forecast-rules@1.0.0", metric: "impressions", guarantee: 30000, delivered: 0, deliveredSource: "VERIFIED_API",
+      tenantId: T, campaignId: "bkt_c", day: D(day), modelVersion: "forecast-rules@2.0.0", metric: "impressions", guarantee: 30000, delivered: 0, deliveredSource: "VERIFIED_API",
       elapsed, low: mid, mid, high: mid, probability, risk: "on_track", riskFactors: [], actions: [], projection: [],
     }, select: { id: true } });
     await forecast("2026-10-10", 0.9, 30000, 0.3);
@@ -133,7 +133,7 @@ describe.skipIf(!hasDatabase)("3S9-QA-01/02 · against the database, and on the 
     expect(await runBacktests(prisma, NOW, { tenantId: T, simulate: true })).toEqual({ tenants: 1, runs: 3, simulated: 1 });
     const runs = await prisma.backtestRun.findMany({ where: { tenantId: T }, select: { model: true, version: true, simulated: true, sampleSize: true, metrics: true }, orderBy: [{ model: "asc" }, { simulated: "asc" }] });
     expect(runs.map((r) => [r.model, r.version, r.simulated, r.sampleSize])).toEqual([
-      ["forecast", "forecast-rules@1.0.0", false, 2], ["forecast", "forecast-rules@1.0.0", true, 900], ["pricing", "cpm-rules@1.0.0", false, 1],
+      ["forecast", "forecast-rules@2.0.0", false, 2], ["forecast", "forecast-rules@2.0.0", true, 900], ["pricing", "cpm-rules@1.0.0", false, 1],
     ]);
     expect((runs[0]!.metrics as Array<{ value: number }>).map((m) => m.value)).toEqual([2, 7.4, 50, 3.7, 0.425]);
     expect((runs[2]!.metrics as Array<{ value: number }>).map((m) => m.value)).toEqual([1, 20, 100]);

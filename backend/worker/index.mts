@@ -115,6 +115,7 @@ import { runForecasts } from "../src/domain/forecast-engine.ts";
 import { runMakeGoods } from "../src/domain/makegood-engine.ts";
 import { runAnomalies } from "../src/domain/anomaly-engine.ts";
 import { runBacktests } from "../src/domain/backtest-engine.ts";
+import { recordStep, runStep } from "../src/domain/pipeline-runs.ts";
 import { validateBenchmarks } from "../src/domain/benchmark-validation.ts";
 import { queueZohoIntelligence } from "../src/domain/zoho-intelligence.ts";
 import { env } from "../src/config/env.ts";
@@ -968,46 +969,52 @@ async function main(): Promise<void> {
           /* 3S1-DATA-03 — rebuild the benchmarks from the figures just checked. A tenant whose
              check failed keeps yesterday's: a benchmark is never built from figures known to be wrong. */
           /* 3S2-BE-01 — then today's feature snapshots, which carry those benchmarks. The same tenants skip. */
-          void refreshBenchmarks(prisma, new Date(), { skipTenants: out.failingTenants })
-            .then((b) => log(`[worker] benchmarks ${out.day}: ${b.benchmarks} figure(s) for ${b.tenants} tenant(s)${b.skipped.length ? `; kept yesterday's for ${b.skipped.join(", ")}` : ""}`))
-            /* 3S9-QA-02 — and say which benchmarks are sound enough to price from. */
-            .then(async () => {
-              const ts = (await prisma.tenant.findMany({ select: { id: true } })).map((t) => t.id);
+          /* 3S9-OPS-01 — each step below is recorded (PipelineRun) as it ends, and /health/full reads the
+             record: a failed step, a night with nothing done, or active campaigns without a fresh forecast
+             turn it degraded, and the uptime monitor alerts. A step that fails is logged, recorded, and the
+             chain goes on — as it always has. */
+          const skipTenants = out.failingTenants;
+          const io = { log, logError };
+          void (async () => {
+            await recordStep(prisma, out.day, "fact_check", "ok", out.ok ? "every figure matches the app" : `${out.differenceCount} difference(s) in ${out.failingTenants.length} tenant(s)`, new Date()).catch(() => undefined);
+            /* 3S1-DATA-03 — rebuild the benchmarks from the figures just checked. A tenant whose check failed
+               keeps yesterday's: a benchmark is never built from figures known to be wrong. 3S9-QA-02 — and say
+               which are sound enough to price from. */
+            await runStep(prisma, out.day, "benchmarks", async () => {
+              const b = await refreshBenchmarks(prisma, new Date(), { skipTenants });
               let total = 0; let valid = 0;
-              for (const t of ts) { const v = await validateBenchmarks(prisma, t, new Date()); total += v.summary.total; valid += v.summary.valid; }
-              log(`[worker] benchmarks ${out.day}: ${valid} of ${total} valid to price from`);
-            })
-            .catch((error: unknown) => logError(`[worker] benchmarks ${out.day} could not be refreshed, will retry tomorrow:`, error))
-            .then(() => takeFeatureSnapshots(prisma, new Date(), { skipTenants: out.failingTenants }))
-            .then((f) => log(`[worker] feature snapshots ${out.day}: ${f.written} taken for ${f.athletes} athlete(s)${f.skipped.length ? `; none for ${f.skipped.join(", ")}` : ""}`))
-            .catch((error: unknown) => logError(`[worker] feature snapshots ${out.day} could not be taken, will retry tomorrow:`, error))
+              for (const t of (await prisma.tenant.findMany({ select: { id: true } })).map((x) => x.id)) {
+                const v = await validateBenchmarks(prisma, t, new Date()); total += v.summary.total; valid += v.summary.valid;
+              }
+              return { b, total, valid };
+            }, ({ b, total, valid }) => `[worker] benchmarks ${out.day}: ${b.benchmarks} figure(s) for ${b.tenants} tenant(s)${b.skipped.length ? `; kept yesterday's for ${b.skipped.join(", ")}` : ""}; ${valid} of ${total} valid to price from`, io);
+            /* 3S2-BE-01 — then today's feature snapshots, which carry those benchmarks. The same tenants skip. */
+            await runStep(prisma, out.day, "snapshots", () => takeFeatureSnapshots(prisma, new Date(), { skipTenants }),
+              (f) => `[worker] feature snapshots ${out.day}: ${f.written} taken for ${f.athletes} athlete(s)${f.skipped.length ? `; none for ${f.skipped.join(", ")}` : ""}`, io);
             /* 3S2-BE-03 — then today's suggested prices, from those snapshots, stored as made. */
-            .then(() => storePricingRecommendations(new Date(), { skipTenants: out.failingTenants }))
-            .then((p) => log(`[worker] suggested prices ${out.day}: ${p.stored} stored for ${p.items} item(s)${p.skipped.length ? `; none for ${p.skipped.join(", ")}` : ""}`))
-            .catch((error: unknown) => logError(`[worker] suggested prices ${out.day} could not be stored, will retry tomorrow:`, error))
+            await runStep(prisma, out.day, "prices", () => storePricingRecommendations(new Date(), { skipTenants }),
+              (p) => `[worker] suggested prices ${out.day}: ${p.stored} stored for ${p.items} item(s)${p.skipped.length ? `; none for ${p.skipped.join(", ")}` : ""}`, io);
             /* 3S4 — then pacing and the delivery forecast for every active campaign, and the risk alerts. */
-            .then(() => runForecasts(prisma, new Date(), { skipTenants: out.failingTenants, emails: env.FORECAST_EMAILS }))
-            .then((r) => log(`[worker] forecasts ${out.day}: ${r.forecasts} made for ${r.campaigns} active campaign(s); ${r.alertsRaised} alert(s), ${r.emails} email(s)${env.FORECAST_EMAILS ? "" : " (emails off)"}${r.skipped.length ? `; none for ${r.skipped.join(", ")}` : ""}`))
-            .catch((error: unknown) => logError(`[worker] forecasts ${out.day} could not be made, will retry tomorrow:`, error))
+            await runStep(prisma, out.day, "forecasts", () => runForecasts(prisma, new Date(), { skipTenants, emails: env.FORECAST_EMAILS }),
+              (r) => `[worker] forecasts ${out.day}: ${r.forecasts} made for ${r.campaigns} active campaign(s); ${r.alertsRaised} alert(s), ${r.emails} email(s)${env.FORECAST_EMAILS ? "" : " (emails off)"}${r.skipped.length ? `; none for ${r.skipped.join(", ")}` : ""}`, io);
             /* 3S5 — then the shortfalls of at-risk campaigns, their substitutes, and the automatic approvals. */
-            .then(() => runMakeGoods(prisma, new Date(), { skipTenants: out.failingTenants }))
-            .then((m) => log(`[worker] make-goods ${out.day}: ${m.shortfalls} shortfall(s), ${m.opened} new, ${m.closed} closed; ${m.autoApproved} approved automatically, ${m.held} held for BTG${m.skipped.length ? `; none for ${m.skipped.join(", ")}` : ""}`))
-            .catch((error: unknown) => logError(`[worker] make-goods ${out.day} could not be made, will retry tomorrow:`, error))
+            await runStep(prisma, out.day, "makegoods", () => runMakeGoods(prisma, new Date(), { skipTenants }),
+              (m) => `[worker] make-goods ${out.day}: ${m.shortfalls} shortfall(s), ${m.opened} new, ${m.closed} closed; ${m.autoApproved} approved automatically, ${m.held} held for BTG${m.skipped.length ? `; none for ${m.skipped.join(", ")}` : ""}`, io);
             /* 3S8-DATA-01 — then the anomaly rules over the last 30 days; the clear-cut flags decided automatically. */
-            .then(() => runAnomalies(prisma, new Date(), { skipTenants: out.failingTenants }))
-            .then((a) => log(`[worker] anomalies ${out.day}: ${a.flagged} new flag(s), ${a.excludedAutomatically} excluded automatically${a.skipped.length ? `; none for ${a.skipped.join(", ")}` : ""}`))
-            .catch((error: unknown) => logError(`[worker] anomalies ${out.day} could not be checked, will retry tomorrow:`, error))
+            await runStep(prisma, out.day, "anomalies", () => runAnomalies(prisma, new Date(), { skipTenants }),
+              (a) => `[worker] anomalies ${out.day}: ${a.flagged} new flag(s), ${a.excludedAutomatically} excluded automatically${a.skipped.length ? `; none for ${a.skipped.join(", ")}` : ""}`, io);
             /* 3S9-QA-01 — then the backtests of every model version with real history. */
-            .then(() => runBacktests(prisma, new Date()))
-            .then((b) => log(`[worker] backtests ${out.day}: ${b.runs} run(s) stored`))
-            .catch((error: unknown) => logError(`[worker] backtests ${out.day} could not run, will retry tomorrow:`, error))
-            /* 3S7-INT-01 — then each sponsor's renewal score and next action to Zoho, where they changed. Only with Zoho set up:
-               otherwise the jobs would pile up in the outbox, one more each night. */
-            .then(() => (zohoCrmConfigured() ? queueZohoIntelligence(prisma, new Date(), { skipTenants: out.failingTenants }) : null))
-            .then((z) => log(z ? `[worker] Zoho intelligence ${out.day}: ${z.queued} of ${z.sponsors} sponsor(s) queued (changed)` : `[worker] Zoho intelligence ${out.day}: Zoho is not set up — nothing queued`))
-            .catch((error: unknown) => logError(`[worker] Zoho intelligence ${out.day} could not be queued, will retry tomorrow:`, error));
+            await runStep(prisma, out.day, "backtests", () => runBacktests(prisma, new Date()), (b) => `[worker] backtests ${out.day}: ${b.runs} run(s) stored`, io);
+            /* 3S7-INT-01 — then each sponsor's renewal score and next action to Zoho, where they changed. Only with
+               Zoho set up: otherwise the jobs would pile up in the outbox, one more each night. */
+            await runStep(prisma, out.day, "zoho_intelligence", async () => (zohoCrmConfigured() ? queueZohoIntelligence(prisma, new Date(), { skipTenants }) : null),
+              (z) => (z ? `[worker] Zoho intelligence ${out.day}: ${z.queued} of ${z.sponsors} sponsor(s) queued (changed)` : `[worker] Zoho intelligence ${out.day}: Zoho is not set up — nothing queued`), io);
+          })();
         }
-        if (out.status === "failed") logError(`[worker] fact check ${out.day} could not run, will retry in an hour:`, out.error);
+        if (out.status === "failed") {
+          logError(`[worker] fact check ${out.day} could not run, will retry in an hour:`, out.error);
+          void recordStep(prisma, out.day, "fact_check", "failed", String(out.error), new Date()).catch(() => undefined);
+        }
       })
       .catch((error: unknown) => logError("[worker] fact check failed, will retry next hour:", error));
   };

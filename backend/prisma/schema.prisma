@@ -4304,3 +4304,57 @@ model BacktestRun {
 
   @@index([tenantId, model, ranAt])
 }
+
+/// 3S9-OPS-01 — how each step of the nightly chain ended, one row per step per
+/// night (the latest attempt). Platform-wide, like FactCheckRun; /health/full
+/// reads it (documentation/SponsorX-Pipeline-Monitoring.md).
+model PipelineRun {
+  id         String   @id @default(cuid())
+  day        DateTime @db.Date
+  /// fact_check | benchmarks | snapshots | prices | forecasts | makegoods | anomalies | backtests | zoho_intelligence
+  step       String
+  /// ok | failed
+  status     String
+  summary    String
+  startedAt  DateTime
+  finishedAt DateTime
+
+  @@unique([day, step])
+}
+
+/// 3S6-BE-01 — an attribution partner: a store or platform that sends its
+/// sales, through one adapter (documentation/SponsorX-Attribution-Framework.md).
+/// Its token is shown once and kept only as a SHA-256.
+model AttributionPartner {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  /// The adapter key, e.g. generic-webhook-v1 (attribution-adapters.ts).
+  adapter   String
+  tokenHash String
+  enabled   Boolean  @default(true)
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+/// 3S6-BE-01 — one delivery from a partner, kept as received with the events
+/// its adapter made of it and every problem, so nothing a partner sends
+/// disappears silently. Matching is 3S6-BE-03.
+model AttributionDelivery {
+  id         String   @id @default(cuid())
+  tenantId   String
+  partnerId  String
+  adapter    String
+  receivedAt DateTime
+  /// accepted (at least one event) | rejected
+  status     String
+  eventCount Int
+  problems   String[] @default([])
+  /// [{ externalId, kind, occurredAt, amountCents, currency, keys }]
+  events     Json
+  payload    Json
+
+  @@index([tenantId, partnerId, receivedAt])
+}

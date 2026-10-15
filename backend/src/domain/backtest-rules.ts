@@ -120,7 +120,7 @@ export const CHECKPOINTS = [0.25, 0.5, 0.75] as const;
  * forecast at a quarter, half and three quarters of the way, with the given
  * trust share, and judged against where each actually ended.
  */
-export function simulateForecastHistory(seed = 20261015, fullTrust?: number): ForecastPoint[] {
+export function simulateForecastHistory(seed = 20261015, fullTrust?: number, paceUncertainty = 0): ForecastPoint[] {
   const r = seeded(seed);
   const out: ForecastPoint[] = [];
   for (let c = 0; c < SIMULATED_CAMPAIGNS; c++) {
@@ -138,7 +138,7 @@ export function simulateForecastHistory(seed = 20261015, fullTrust?: number): Fo
     const final = daily.reduce((t, x) => t + x, 0);
     for (const at of CHECKPOINTS) {
       const gone = Math.max(1, Math.round(total * at));
-      const p = forecastFlow(guarantee, daily.slice(0, gone), total, fullTrust);
+      const p = forecastFlow(guarantee, daily.slice(0, gone), total, fullTrust, paceUncertainty);
       out.push({ probability: p.probability, mid: p.mid, final, guarantee, elapsed: gone / total });
     }
   }

@@ -108,6 +108,8 @@ const GOVERNED_BY: Record<string, Resource> = {
   ModelVersion: "modelRegistry",
   FeatureFlag: "modelRegistry",
   BacktestRun: "modelRegistry",
+  AttributionPartner: "attribution",
+  AttributionDelivery: "attribution",
   /* 2S5-INT-02 — the payment provider's events: written by the signed webhook and the worker, read by BTG admin and Finance. */
   PaymentEvent: "paymentEvent",
   /* 2S5-BE-03 — a refund the provider reported: its record, read with the events. A dispute: BTG support's. */
@@ -180,6 +182,7 @@ const SYSTEM_INTERNAL: Record<string, string> = {
   Fact: "the fact ledger — written in the same transaction as each money or delivery action; no route reads it yet (3S7-BE-02 will)",
   CampaignDaySummary: "the daily summaries kept in step with the fact ledger; no route reads them yet (3S7-BE-02 will)",
   FactCheckRun: "the nightly fact check's record (3S1-QA-01): platform-wide, written by the worker; each tenant's part is read through integration health (webhookDelivery read, BTG only)",
+  PipelineRun: "the nightly pipeline's record (3S9-OPS-01): platform-wide, written by the worker, read only by /health/full as counts and times",
   Benchmark: "the benchmarks (3S1-DATA-03): derived from the fact ledger's summaries and rebuilt nightly by the worker; read by the model screen and the pricing engine when their routes land (3S8-FE-02, 3S2-BE-02)",
   FeatureSnapshot: "the daily feature snapshots (3S2-BE-01): what was known about an athlete on a day, written once by the worker; read by the pricing engine when it lands (3S2-BE-02)",
 };

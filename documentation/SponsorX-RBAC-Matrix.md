@@ -1794,6 +1794,28 @@ the governance policy (`SponsorX-Model-Governance.md`, 3S0-PMO-02).
   - `flag.set`.
 - **Campaign managers and Sales don't change how SponsorX decides.**
 
+## 36 · Phase 3 · attribution partners *(added 2026-10-15)*
+
+### `attribution` (3S6-BE-01)
+The attribution partners (stores and platforms that send their sales) and
+their deliveries (`SponsorX-Attribution-Framework.md`).
+- **Read** through `GET /intelligence/attribution/partners`.
+- **A partner is added** through `POST /intelligence/attribution/partners`.
+
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+
+- **Adding a partner hands out a credential,** so only BTG admins do it. It is
+  audited (`attribution.partnerAdd`). The token is shown once and kept only as
+  a hash.
+- **Partners never sign in.** They post to
+  `POST /api/v1/attribution/partners/{partnerId}/events`, proving their own
+  token. It is public by necessity, rate-limited, and answers 401 the same way
+  for an unknown partner and a wrong token.
+- **Switched off per tenant** as the `attribution` feature (§35).
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at
