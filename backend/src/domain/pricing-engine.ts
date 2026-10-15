@@ -444,6 +444,8 @@ export async function pricingDetail(actor: Actor, inventoryId: string, now = new
 
 export const OVERRIDE_REASON_MIN = 10;
 export const OVERRIDE_REASON_MAX = 500;
+/** An override above $10,000 per 1,000 impressions is a typo, not a price — refused on the wire (QA 2026-10-15; the screen stops at the same figure). */
+export const OVERRIDE_MAX_CENTS = 1_000_000;
 
 export class OverrideReasonError extends Error {
   readonly status = 422;

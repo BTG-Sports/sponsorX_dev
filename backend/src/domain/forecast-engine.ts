@@ -322,11 +322,13 @@ export async function forecastDetail(actor: Actor, campaignId: string) {
   };
 }
 
-/** PUT /intelligence/forecasts/:campaignId/guarantee — BTG sets (or, with no metric, clears) what the campaign is promised. */
-export async function setGuarantee(actor: Actor, campaignId: string, input: { metric: GuaranteeMetric | null; value?: number | null }) {
+/** PUT /intelligence/forecasts/:campaignId/guarantee — BTG sets (or, with no metric, clears) what the campaign is promised.
+ *  Not after the end date: nothing is forecast for it any more, so a promise set then would never be paced (QA 2026-10-15). */
+export async function setGuarantee(actor: Actor, campaignId: string, input: { metric: GuaranteeMetric | null; value?: number | null }, now = new Date()) {
   assertTenantWide(actor, "campaignForecast", "write");
-  const c = await prisma.campaign.findFirst({ where: { id: campaignId, tenantId: actor.tenantId }, select: { id: true, guaranteeMetric: true, guaranteeValue: true } });
+  const c = await prisma.campaign.findFirst({ where: { id: campaignId, tenantId: actor.tenantId }, select: { id: true, endDate: true, guaranteeMetric: true, guaranteeValue: true } });
   if (!c) throw new ForecastNotFoundError();
+  if (day(c.endDate) < day(now)) throw new GuaranteeError(`This campaign ended on ${isoDay(c.endDate)}; a guarantee is set before the end date, while there is still a forecast to pace against.`);
   if (input.metric !== null && (!input.value || input.value < 1)) throw new GuaranteeError("A guarantee needs a value of at least 1.");
   const after = input.metric === null ? { guaranteeMetric: null, guaranteeValue: null } : { guaranteeMetric: input.metric, guaranteeValue: input.value! };
   await prisma.$transaction(async (tx) => {

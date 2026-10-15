@@ -8,7 +8,7 @@ import { Monogram, initials } from "@/components/hero";
 import { CloseIcon, Dropdown } from "@/components/filter-kit";
 import { athleteInv, money } from "@/lib/fixtures";
 import { BRAND_CATEGORIES, categoryLabel } from "@/lib/brand-categories";
-import type { BriefRequest } from "@/lib/brief-request";
+import { AUDIENCE_TIERS, CHANNEL_LABEL, MATCH_CHANNELS, TIER_LABEL, type BriefRequest } from "@/lib/brief-request";
 import { submittedMessage, type BriefStatus } from "@/lib/brief-status";
 
 /** A live submit (P4-FE-01). Absent in demo mode, where the drawer only
@@ -28,7 +28,10 @@ const CATEGORY_OPTIONS = BRAND_CATEGORIES.map((c) => ({ value: c, label: categor
    Frontend only. Nothing is persisted: submitting swaps the body to a success
    state and that's it. It captures exactly the CampaignBrief fields the
    blueprint names (objective, budget, timing, targeting, category — P4-BE-02),
-   so when the backend lands the shape already matches.
+   so when the backend lands the shape already matches. Since 3S3-BE-01
+   (2026-10-14) the brief also carries the match engine's inputs — the tiers
+   and channels wanted, a minimum audience, and the categories to avoid — so
+   the drawer asks for them (lib/brief-request.ts maps them).
 
    Drawer plumbing mirrors the applications-desk review drawer verbatim —
    portaled to <body>, Escape closes, background scroll locks, focus lands in
@@ -55,10 +58,10 @@ const distinct = (pick: (a: (typeof athleteInv)[number]) => string) =>
 
 const SPORT_OPTIONS = distinct((a) => a.sport);
 const GEO_OPTIONS = distinct((a) => a.geo);
-const TIER_OPTIONS = distinct((a) => a.tier).map((o) => ({
-  value: o.value,
-  label: `${o.label} tier`,
-}));
+/* The tiers and channels are the API's own lists (match-vocabulary.ts), the
+   athlete catalog's tier words being a subset of them. */
+const TIER_OPTIONS = AUDIENCE_TIERS.map((t) => ({ value: t, label: TIER_LABEL[t] }));
+const CHANNEL_OPTIONS = MATCH_CHANNELS.map((c) => ({ value: c, label: CHANNEL_LABEL[c] }));
 
 const DURATION_OPTIONS = [
   { value: "2", label: "2 weeks" },
@@ -111,6 +114,51 @@ function Field({
 
 const inputCls =
   "w-full rounded-lg border border-line bg-surface px-3 py-2 text-xs text-text placeholder:text-faint outline-none transition-colors focus:border-sponsor/50 focus-visible:ring-2 focus-visible:ring-sponsor/30";
+
+/** A row of toggle chips — "any" when none is on. A disabled chip is one the
+ *  form already uses elsewhere (your own category can't be one to avoid). */
+function Picks({
+  label,
+  hint,
+  options,
+  value,
+  onChange,
+  disabledValues = [],
+}: {
+  label: string;
+  hint?: string;
+  options: { value: string; label: string }[];
+  value: string[];
+  onChange: (v: string[]) => void;
+  disabledValues?: string[];
+}) {
+  return (
+    <fieldset className="m-0 min-w-0 border-0 p-0">
+      <legend className="mb-1 block text-[11px] font-medium text-muted">{label}</legend>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((o) => {
+          const on = value.includes(o.value);
+          return (
+            <button
+              key={o.value}
+              type="button"
+              aria-pressed={on}
+              disabled={disabledValues.includes(o.value)}
+              onClick={() => onChange(on ? value.filter((v) => v !== o.value) : [...value, o.value])}
+              className={[
+                "rounded-full border px-2.5 py-1 text-[11px] transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                on ? "border-sponsor bg-sponsor/15 text-text" : "border-line text-muted hover:text-text",
+              ].join(" ")}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+      {hint && <p className="mt-1 text-[10px] text-faint">{hint}</p>}
+    </fieldset>
+  );
+}
 
 export function BriefRequestDrawer({
   seed,
@@ -216,8 +264,11 @@ function BriefForm({
   const [duration, setDuration] = useState("4");
   const [sport, setSport] = useState(seed.kind === "athlete" ? seed.sport : "");
   const [geo, setGeo] = useState("");
-  const [tier, setTier] = useState("");
+  const [audienceTiers, setAudienceTiers] = useState<string[]>([]);
+  const [channels, setChannels] = useState<string[]>([]);
+  const [minFollowers, setMinFollowers] = useState("");
   const [category, setCategory] = useState("");
+  const [excludedCategories, setExcludedCategories] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
   /* P4-FE-09 — the live answer: approved automatically, or BTG reviewing. */
@@ -235,8 +286,8 @@ function BriefForm({
     setSending(true);
     setError(null);
     const out = await submit({
-      objective, budget, start, durationWeeks: Number(duration), sport, geo, tier,
-      category, message,
+      objective, budget, start, durationWeeks: Number(duration), sport, geo, tier: "",
+      audienceTiers, channels, minFollowers, category, excludedCategories, message,
       packageId: seed.kind === "package" ? (seed.packageId ?? null) : null,
       jobName: seed.kind === "job" ? `${seed.name} (${seed.jobId})` : seed.kind === "athlete" ? seed.jobName : null,
     }).catch(() => ({ ok: false as const, error: "Couldn't reach BTG — please try again." }));
@@ -360,27 +411,28 @@ function BriefForm({
                 block
               />
             </Field>
-            <Field label="Tier">
+            <Field label="Geography">
               <Dropdown
-                label="Target tier"
-                allLabel="Any tier"
-                value={tier}
-                options={TIER_OPTIONS}
-                onChange={setTier}
+                label="Target geography"
+                allLabel="Any geography"
+                value={geo}
+                options={GEO_OPTIONS}
+                onChange={setGeo}
                 tone="sponsor"
                 block
               />
             </Field>
           </div>
-          <Field label="Geography">
-            <Dropdown
-              label="Target geography"
-              allLabel="Any geography"
-              value={geo}
-              options={GEO_OPTIONS}
-              onChange={setGeo}
-              tone="sponsor"
-              block
+          <Picks label="Athlete tiers" hint="None picked means any tier." options={TIER_OPTIONS} value={audienceTiers} onChange={setAudienceTiers} />
+          <Picks label="Where to be seen" hint="None picked means no preference." options={CHANNEL_OPTIONS} value={channels} onChange={setChannels} />
+          <Field label="Minimum audience" htmlFor="brief-min-followers" hint="Followers on the athlete's largest account. Leave blank for no minimum.">
+            <input
+              id="brief-min-followers"
+              value={minFollowers}
+              onChange={(e) => setMinFollowers(e.target.value)}
+              inputMode="numeric"
+              placeholder="e.g. 10,000 or 10k"
+              className={inputCls}
             />
           </Field>
         </fieldset>
@@ -394,11 +446,23 @@ function BriefForm({
             allLabel="Select a category"
             value={category}
             options={CATEGORY_OPTIONS}
-            onChange={setCategory}
+            onChange={(c) => {
+              setCategory(c);
+              setExcludedCategories((xs) => xs.filter((x) => x !== c));
+            }}
             tone="sponsor"
             block
           />
         </Field>
+
+        <Picks
+          label="Categories to avoid"
+          hint="An athlete or venue tied to one of these won't be matched."
+          options={CATEGORY_OPTIONS}
+          value={excludedCategories}
+          onChange={setExcludedCategories}
+          disabledValues={category ? [category] : []}
+        />
 
         <Field label="Message to BTG" htmlFor="brief-message" hint="Optional.">
           <textarea

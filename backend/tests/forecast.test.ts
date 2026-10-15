@@ -184,6 +184,12 @@ describe.skipIf(!hasDatabase)("3S4 · pacing, forecasts and alerts, nightly, aga
     expect(await setGuarantee(actor(T, "BTG_ADMIN"), "fo_B", { metric: "impressions", value: 30000 })).toEqual({ campaignId: "fo_B", guarantee: { metric: "impressions", value: 30000 } });
     expect(await setGuarantee(actor(T, "CAMPAIGN_MGR"), "fo_C", { metric: "impressions", value: 30000 })).toMatchObject({ guarantee: { metric: "impressions" } });
     expect(await prisma.auditLog.count({ where: { tenantId: T, action: "campaign.guaranteeSet" } })).toBe(2);
+    /* Not after the end date — still ACTIVE, but nothing forecasts it any more (QA 2026-10-15). */
+    await prisma.campaign.create({ data: { id: "fo_Z", tenantId: T, sponsorId: "fo_sp", name: "Over", budget: 1, startDate: D("2026-10-01"), endDate: D("2026-11-05"), state: "ACTIVE" }, select: { id: true } });
+    await expect(setGuarantee(actor(T, "BTG_ADMIN"), "fo_Z", { metric: "impressions", value: 10 }, NOW)).rejects.toThrow(/ended on 2026-11-05/);
+    await expect(setGuarantee(actor(T, "BTG_ADMIN"), "fo_Z", { metric: null }, NOW)).rejects.toBeInstanceOf(GuaranteeError);
+    expect(await prisma.auditLog.count({ where: { tenantId: T, action: "campaign.guaranteeSet" } })).toBe(2);
+    await prisma.campaign.delete({ where: { id: "fo_Z" } });
   });
 
   it("nightly: pacing for every day so far, a forecast per active campaign, and the alerts — at risk emailed to BTG admins and campaign managers once", async () => {

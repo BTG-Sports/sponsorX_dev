@@ -441,6 +441,9 @@ export const POLICY: Record<Resource, RolePolicy> = {
     BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
     SALES: rwa("own-tenant", "own-tenant"),
     CAMPAIGN_MGR: rwa("own-tenant", "own-tenant", "own-tenant"),
+    /* QA 2026-10-15: §29 has network managers saving a brief's shortlist, and both
+       matching desks admit them — neither works without reading the brief. Read only. */
+    NETWORK_MGR: rwa("own-tenant"),
     SPONSOR_ADMIN: rwa("own", "own"),
     SPONSOR_ANALYST: rwa("own"),
   },

@@ -1,4 +1,6 @@
 import type { MatchAthlete, MatchData, MatchReason, MatchTier } from "@/lib/matching";
+import { categoryLabel, type BrandCategory } from "@/lib/brand-categories";
+import { CHANNEL_LABEL, TIER_LABEL, type AudienceTier, type MatchChannel } from "@/lib/brief-request";
 import { apiListQuery, pageParamsFor, textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
 
 /* --------------------------------------------------------------------------
@@ -33,6 +35,30 @@ import { apiListQuery, pageParamsFor, textParam, type PageInfo, type SearchParam
    -------------------------------------------------------------------------- */
 
 /** Catalogue prices in WHOLE DOLLARS (see UNITS above). */
+/**
+ * What the sponsor asked the match engine for, in words — the tiers, the
+ * channels, the minimum audience and the categories to avoid (3S3-BE-01).
+ * The engine filters and scores by these; the people qualifying and
+ * staffing by hand must see them too (QA 2026-10-15). Null when the brief
+ * asks nothing beyond sport, state and category.
+ */
+export function briefAsks(b: Pick<ApiBrief, "excludedCategories" | "channels" | "audienceTiers" | "audienceMinFollowers">): string[] {
+  const out: string[] = [];
+  const tiers = (b.audienceTiers ?? []).map((t) => TIER_LABEL[t as AudienceTier] ?? t);
+  if (tiers.length) out.push(`${tiers.join(" or ")} tier${tiers.length > 1 ? "s" : ""}`);
+  const channels = (b.channels ?? []).map((c) => CHANNEL_LABEL[c as MatchChannel] ?? c);
+  if (channels.length) out.push(channels.join(", "));
+  if (b.audienceMinFollowers != null && b.audienceMinFollowers > 0) out.push(`${b.audienceMinFollowers.toLocaleString("en-US")}+ followers`);
+  const avoid = (b.excludedCategories ?? []).map((c) => categoryLabel(c as BrandCategory));
+  if (avoid.length) out.push(`avoid ${avoid.join(", ")}`);
+  return out;
+}
+
+export function briefAsksLine(b: Parameters<typeof briefAsks>[0]): string | null {
+  const parts = briefAsks(b);
+  return parts.length ? parts.join(" · ") : null;
+}
+
 export type ApiBriefJob = {
   jobId: string;
   name: string;
@@ -52,6 +78,11 @@ export type ApiBrief = {
   sports: string[];
   stateCodes: string[];
   categories: string[];
+  /** 3S3-BE-01 — the match engine's inputs; absent on an older answer. */
+  excludedCategories?: string[];
+  channels?: string[];
+  audienceTiers?: string[];
+  audienceMinFollowers?: number | null;
   createdAt: string;
   sponsorName: string;
   package: {
@@ -234,6 +265,7 @@ export function toMatchData(b: ApiBrief, eligible: ApiEligibleAthlete[], opts: {
       marketNote: b.sports.length ? b.sports.join(", ") : "any sport",
       needed,
       sponsorCategory: b.categories.length ? b.categories.join(", ") : "—",
+      asks: briefAsksLine(b),
       responseDeadline: "7 days after send",
       scoreSnapshot: latest ? `latest ${fmtDate(latest.scoredAt)}` : "none scored yet",
       scoreMethod: latest?.method ?? "rules-v1",
