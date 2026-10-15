@@ -45,10 +45,11 @@ describe("3S8-DATA-01 · the rules", () => {
     const clicks = Array.from({ length: 35 }, (_, i) => ({ linkId: "l1", campaignId: "c1", campaignName: "First", at: at("2026-11-05T12:00:00Z", i) }));
     expect(R.botFlags(clicks)).toMatchObject([{ kind: "bot", severity: "medium", evidence: [{ value: "35" }, { value: "2026-11-05 12:00:00 UTC" }, { value: "35" }] }]);
     expect(R.botFlags(clicks.slice(0, 29))).toEqual([]);
-    const redeems = Array.from({ length: 12 }, (_, i) => ({ rewardId: "r1", offerText: "Free shake", at: at("2026-11-06T09:00:00Z", i * 15), fanEmail: i < 3 ? "Fan@x.invalid" : null }));
-    expect(R.redemptionFlags(redeems).map((f) => [f.ruleId, f.severity, f.evidence[0]!.value])).toEqual([
-      ["redemption.burst", "high", "12"], ["redemption.repeat_fan", "medium", "f***@x.invalid"],
-    ]);
+    const redeems = Array.from({ length: 12 }, (_, i) => ({ rewardId: "r1", offerText: "Free shake", at: at("2026-11-06T09:00:00Z", i * 15) }));
+    expect(R.redemptionFlags(redeems).map((f) => [f.ruleId, f.severity, f.evidence[0]!.value])).toEqual([["redemption.burst", "high", "12"]]);
+    /* The fan is grouped in the database; the flag carries only the count and their first redemption — never the address. */
+    const fans = [{ rewardId: "r1", offerText: "Free shake", n: 3, firstEventId: "ev1", firstAt: at("2026-11-06T09:00:00Z", 0) }, { rewardId: "r1", offerText: "Free shake", n: 2, firstEventId: "ev9", firstAt: at("2026-11-06T09:00:00Z", 0) }];
+    expect(R.repeatFanFlags(fans)).toMatchObject([{ ruleId: "redemption.repeat_fan", fingerprint: "redemption.repeat_fan:r1:ev1", evidence: [{ value: "3" }, { value: "2026-11-06 09:00:00 UTC" }] }]);
   });
 
   it("manual entry: 3× what the API measured that day, or more engagements than views", () => {

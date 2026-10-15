@@ -157,12 +157,15 @@ export function botFlags(rows: readonly ClickRow[]): Flag[] {
   return out;
 }
 
-export type RedeemRow = { rewardId: string; offerText: string; at: Date; fanEmail: string | null };
+export type RedeemRow = { rewardId: string; offerText: string; at: Date };
+/**
+ * One fan's redemptions of one reward, grouped in the database. The fan's
+ * address never leaves it (tests/fan-pii.test.ts): only the count and the
+ * fan's first redemption, whose id keys the flag.
+ */
+export type RepeatFanRow = { rewardId: string; offerText: string; n: number; firstEventId: string; firstAt: Date };
 
-/** A fan's email, masked for the evidence: "a***@example.com". */
-export const maskEmail = (e: string) => e.replace(/^(.)[^@]*(@.*)$/, "$1***$2");
-
-/** Bursts of redemptions on one reward, and one fan redeeming the same reward again and again. */
+/** Bursts of redemptions on one reward. */
 export function redemptionFlags(rows: readonly RedeemRow[]): Flag[] {
   const out: Flag[] = [];
   const byRewardDay = new Map<string, RedeemRow[]>();
@@ -178,23 +181,20 @@ export function redemptionFlags(rows: readonly RedeemRow[]): Flag[] {
       evidence: [{ label: "Redemptions inside 5 minutes", value: n(d.count) }, { label: "From", value: d.from!.toISOString().slice(0, 19).replace("T", " ") + " UTC" }],
     });
   }
-  const byFan = new Map<string, RedeemRow[]>();
-  for (const r of rows) {
-    if (!r.fanEmail?.trim()) continue;
-    const k = `${r.rewardId}|${r.fanEmail.trim().toLowerCase()}`;
-    byFan.set(k, [...(byFan.get(k) ?? []), r]);
-  }
-  for (const [key, list] of byFan) {
-    if (list.length < REPEAT_FAN_REDEEMS) continue;
-    const [rewardId, email] = key.split("|");
-    out.push({
-      kind: "redemption", severity: "medium", ruleId: "redemption.repeat_fan",
-      subject: { type: "reward", id: rewardId!, name: list[0]!.offerText },
-      fingerprint: `redemption.repeat_fan:${rewardId}:${email}`,
-      evidence: [{ label: "Fan", value: maskEmail(email!) }, { label: "Times redeemed", value: n(list.length) }],
-    });
-  }
   return out;
+}
+
+/** One fan redeeming the same reward REPEAT_FAN_REDEEMS times or more. */
+export function repeatFanFlags(rows: readonly RepeatFanRow[]): Flag[] {
+  return rows.filter((r) => r.n >= REPEAT_FAN_REDEEMS).map((r) => ({
+    kind: "redemption" as const, severity: "medium" as const, ruleId: "redemption.repeat_fan",
+    subject: { type: "reward" as const, id: r.rewardId, name: r.offerText },
+    fingerprint: `redemption.repeat_fan:${r.rewardId}:${r.firstEventId}`,
+    evidence: [
+      { label: "Times one fan redeemed", value: n(r.n) },
+      { label: "Their first redemption", value: r.firstAt.toISOString().slice(0, 19).replace("T", " ") + " UTC" },
+    ],
+  }));
 }
 
 export type EntryRow = { deliverableId: string; title: string; day: Date; source: string; views: number; engagements: number };

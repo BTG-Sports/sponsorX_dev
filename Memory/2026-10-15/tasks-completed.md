@@ -198,3 +198,8 @@
 - docs: `SponsorX-Scenarios.md`, `SponsorX-Anomalies.md`, Field Mapping §12.3, RBAC §33–34, the plan (Code review) and the screen contracts.
 
 **Checks:** every CI step passed locally: security, both builds, lint, backend 215 files / 3,345 tests (no skips), web 140 / 1,531.
+
+**CI fix on #221.** `tests/fan-pii.test.ts` forbids putting a fan's email in a raw SELECT on `RewardEvent`, and the repeat-fan rule had selected it.
+- **Why the local run missed it:** the test scans only git-tracked files, and the new file wasn't added yet.
+- **The fix:** fans are now grouped in the database (`GROUP BY lower(trim("fanEmail"))`), returning only the count and the first redemption's id and time. The address never leaves the database. The flag's evidence is "Times one fan redeemed" and "Their first redemption"; the masked email is gone.
+- **Checks:** re-run with every file tracked: backend 215 / 3,345 and web 140 / 1,531, both green.

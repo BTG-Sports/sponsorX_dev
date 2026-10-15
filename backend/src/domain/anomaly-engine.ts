@@ -25,7 +25,7 @@ import { audit, AUDIT_ACTIONS, type AuditActor } from "../db/audit";
 import type { Prisma, PrismaClient } from "../generated/prisma/client";
 import type { PageInfo, PageRequest } from "../lib/paging";
 import {
-  ANOMALY_RULES_VERSION, botFlags, duplicateFlags, LOOKBACK_DAYS, manualFlags, redemptionFlags, spikeFlags,
+  ANOMALY_RULES_VERSION, botFlags, duplicateFlags, LOOKBACK_DAYS, manualFlags, redemptionFlags, repeatFanFlags, REPEAT_FAN_REDEEMS, spikeFlags,
   type AnomalyKind, type Flag,
 } from "./anomaly-rules";
 
@@ -67,7 +67,7 @@ export class AnomalyNoteError extends Error {
 /** Every flag the rules raise for one tenant over the lookback. */
 async function detect(tenantId: string, now: Date): Promise<Flag[]> {
   const since = new Date(now.getTime() - LOOKBACK_DAYS * 86_400_000);
-  const [metrics, posts, clicks, redeems] = await Promise.all([
+  const [metrics, posts, clicks, redeems, repeatFans] = await Promise.all([
     prisma.metricDaily.findMany({
       /* tenant-scope: explicit — this tenant's metric entries in the lookback. */
       where: { tenantId, day: { gte: since } },
@@ -86,12 +86,23 @@ async function detect(tenantId: string, now: Date): Promise<Flag[]> {
         WHERE e."tenantId" = $1 AND e.at >= $2`,
       tenantId, since,
     ),
-    prisma.$queryRawUnsafe<Array<{ rewardId: string; offerText: string; at: Date; fanEmail: string | null }>>(
+    prisma.$queryRawUnsafe<Array<{ rewardId: string; offerText: string; at: Date }>>(
       /* tenant-scope: explicit — this tenant's redemptions in the lookback. */
-      `SELECT t."rewardId", r."offerText", e.at, e."fanEmail"
+      `SELECT t."rewardId", r."offerText", e.at
          FROM "RewardEvent" e JOIN "RewardToken" t ON t.id = e."tokenId" JOIN "Reward" r ON r.id = t."rewardId"
         WHERE e."tenantId" = $1 AND e.type = 'REDEEM' AND e.at >= $2`,
       tenantId, since,
+    ),
+    /* One fan, one reward, many redemptions — grouped in the database, so the
+       fan's address is compared there and never selected (fan-pii.test.ts). */
+    prisma.$queryRawUnsafe<Array<{ rewardId: string; offerText: string; n: bigint; firstEventId: string; firstAt: Date }>>(
+      /* tenant-scope: explicit — this tenant's redemptions in the lookback, per fan. */
+      `SELECT t."rewardId", r."offerText", count(*) AS n, min(e.id) AS "firstEventId", min(e.at) AS "firstAt"
+         FROM "RewardEvent" e JOIN "RewardToken" t ON t.id = e."tokenId" JOIN "Reward" r ON r.id = t."rewardId"
+        WHERE e."tenantId" = $1 AND e.type = 'REDEEM' AND e.at >= $2 AND e."fanEmail" IS NOT NULL
+        GROUP BY t."rewardId", r."offerText", lower(trim(e."fanEmail"))
+       HAVING count(*) >= $3`,
+      tenantId, since, REPEAT_FAN_REDEEMS,
     ),
   ]);
   const entries = metrics.map((m) => ({ deliverableId: m.deliverableId, title: m.deliverable.title, day: m.day, source: m.source, views: m.views, engagements: m.engagements }));
@@ -102,6 +113,7 @@ async function detect(tenantId: string, now: Date): Promise<Flag[]> {
     }))),
     ...botFlags(clicks),
     ...redemptionFlags(redeems),
+    ...repeatFanFlags(repeatFans.map((r) => ({ ...r, n: Number(r.n) }))),
     ...manualFlags(entries),
   ];
 }
