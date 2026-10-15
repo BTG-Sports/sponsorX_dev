@@ -15,6 +15,7 @@
 
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "./brand-categories";
 import type { PageInfo } from "@/lib/list-query";
+import { briefAsksLine } from "@/lib/matching-live";
 
 export type BriefState = "DRAFT" | "QUALIFIED" | "APPROVED" | "CAMPAIGN_CREATED" | "CLOSED";
 
@@ -29,6 +30,11 @@ export type ApiBrief = {
   sports: string[];
   stateCodes: string[];
   categories: string[];
+  /** 3S3-BE-01 — the match engine's inputs; absent on an older answer. */
+  excludedCategories?: string[];
+  channels?: string[];
+  audienceTiers?: string[];
+  audienceMinFollowers?: number | null;
   createdAt: string;
   sponsorName: string;
   closeReason?: string | null;
@@ -154,6 +160,8 @@ export type BriefRow = {
   sports: string;
   geography: string;
   category: string;
+  /** 3S3-BE-01 — tiers, channels, minimum audience and categories to avoid, in words; null when the brief asks none. */
+  asks?: string | null;
   submitted: string;
   objective: string;
   closeReason: string | null;
@@ -189,6 +197,7 @@ export function toBriefRow(b: ApiBrief): BriefRow {
     sports: b.sports.length ? b.sports.join(", ") : "Any sport",
     geography: b.stateCodes.length ? b.stateCodes.join(", ") : "Any geography",
     category: category(b.categories),
+    asks: briefAsksLine(b),
     submitted: shortDate(b.createdAt),
     objective: b.objective,
     closeReason: b.closeReason ?? null,

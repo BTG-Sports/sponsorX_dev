@@ -49,12 +49,17 @@ import {
    Every number is the engine's: score, rank, factor weights and points,
    confidence, counts. Nothing is computed here but a factor's fit
    (its points ÷ its share), which is a restatement of two engine numbers.
+
+   `canSave` is the page's reading of the viewer's roles (SHORTLIST_SAVE_ROLES):
+   Sales reads the ranking and the saved shortlist but the API refuses its
+   save (403, 2026-10-14), so for Sales the picks, the Save button and the
+   drawer's "Add to shortlist" are not offered at all — not shown and refused.
    -------------------------------------------------------------------------- */
 
 const BAND_FILL: Record<MatchBand, string> = { strong: "bg-accent", good: "bg-primary", weak: "bg-warn" };
 const BAND_TEXT: Record<MatchBand, string> = { strong: "text-accent", good: "text-primary", weak: "text-warn" };
 
-export function MatchExplorer(props: { briefId: string; data: ApiMatchPage; sample: boolean }) {
+export function MatchExplorer(props: { briefId: string; data: ApiMatchPage; sample: boolean; canSave: boolean }) {
   return (
     <ServerList>
       <Explorer {...props} />
@@ -62,7 +67,7 @@ export function MatchExplorer(props: { briefId: string; data: ApiMatchPage; samp
   );
 }
 
-function Explorer({ briefId, data, sample }: { briefId: string; data: ApiMatchPage; sample: boolean }) {
+function Explorer({ briefId, data, sample, canSave }: { briefId: string; data: ApiMatchPage; sample: boolean; canSave: boolean }) {
   const sp = useSearchParams();
   const [saved, setSaved] = useState<ApiShortlist | null>(data.shortlist);
   const [selected, setSelected] = useState<Record<string, ShortlistEntry>>(() => selectionFrom(data.shortlist));
@@ -97,7 +102,7 @@ function Explorer({ briefId, data, sample }: { briefId: string; data: ApiMatchPa
   const kind = data.kind;
   const filtered = filteredOutLine(data.filteredOut);
   const columns: Column[] = [
-    { key: "pick", label: "Shortlist", srOnly: true },
+    ...(canSave ? [{ key: "pick", label: "Shortlist", srOnly: true } satisfies Column] : []),
     { key: "rank", label: "#", num: true },
     { key: "match", label: KIND_LABEL[kind].one },
     { key: "score", label: "Match score" },
@@ -139,15 +144,17 @@ function Explorer({ briefId, data, sample }: { briefId: string; data: ApiMatchPa
                   const band = matchBand(m.score);
                   return (
                     <Tr key={m.id} i={i} tone={on ? "accent" : undefined}>
-                      <Td>
-                        <input
-                          type="checkbox"
-                          checked={on}
-                          onChange={() => toggle(m)}
-                          aria-label={`Shortlist ${m.name}`}
-                          className="size-4 accent-[var(--sx-primary)]"
-                        />
-                      </Td>
+                      {canSave && (
+                        <Td>
+                          <input
+                            type="checkbox"
+                            checked={on}
+                            onChange={() => toggle(m)}
+                            aria-label={`Shortlist ${m.name}`}
+                            className="size-4 accent-[var(--sx-primary)]"
+                          />
+                        </Td>
+                      )}
                       <Td label="Rank" num muted>
                         {m.rank}
                       </Td>
@@ -201,6 +208,7 @@ function Explorer({ briefId, data, sample }: { briefId: string; data: ApiMatchPa
         dirty={dirty}
         saving={saving}
         sample={sample}
+        canSave={canSave}
         note={note}
         onRemove={(e) => {
           setNote(null);
@@ -209,7 +217,9 @@ function Explorer({ briefId, data, sample }: { briefId: string; data: ApiMatchPa
         onSave={save}
       />
 
-      {open && <FactorDrawer match={open} on={Boolean(selected[open.id])} onToggle={() => toggle(open)} onClose={() => setOpen(null)} />}
+      {open && (
+        <FactorDrawer match={open} on={Boolean(selected[open.id])} onToggle={canSave ? () => toggle(open) : null} onClose={() => setOpen(null)} />
+      )}
     </div>
   );
 }
@@ -242,6 +252,7 @@ function ShortlistPanel({
   dirty,
   saving,
   sample,
+  canSave,
   note,
   onRemove,
   onSave,
@@ -251,6 +262,7 @@ function ShortlistPanel({
   dirty: boolean;
   saving: boolean;
   sample: boolean;
+  canSave: boolean;
   note: { ok: boolean; text: string } | null;
   onRemove: (e: ShortlistEntry) => void;
   onSave: () => void;
@@ -261,7 +273,7 @@ function ShortlistPanel({
     <aside aria-label="Shortlist" className="space-y-3 self-start rounded-xl border border-line bg-surface p-4 lg:sticky lg:top-4">
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold">Shortlist</h2>
-        <span className="text-[11px] tabular-nums text-muted">{count} picked</span>
+        <span className="text-[11px] tabular-nums text-muted">{canSave ? `${count} picked` : `${count} on it`}</span>
       </div>
       <p className="text-[11px] text-muted">
         {saved ? `Saved ${utcMinute(saved.savedAt)} by ${saved.savedBy}.` : "Nothing saved for this brief yet."}
@@ -269,7 +281,7 @@ function ShortlistPanel({
 
       {count === 0 ? (
         <p className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-[11px] text-muted">
-          Tick a match to add it. Picks stay while you page and switch tabs.
+          {canSave ? "Tick a match to add it. Picks stay while you page and switch tabs." : "The matching desk hasn't saved a shortlist for this brief."}
         </p>
       ) : (
         <div className="space-y-3">
@@ -282,14 +294,16 @@ function ShortlistPanel({
                     <span className="min-w-0 truncate">{e.name}</span>
                     <span className="flex shrink-0 items-center gap-1.5">
                       <span className="tabular-nums text-muted">{e.score}</span>
-                      <button
-                        type="button"
-                        onClick={() => onRemove(e)}
-                        aria-label={`Remove ${e.name} from the shortlist`}
-                        className="grid size-6 place-items-center rounded-full text-faint hover:bg-surface-2 hover:text-text"
-                      >
-                        ✕
-                      </button>
+                      {canSave && (
+                        <button
+                          type="button"
+                          onClick={() => onRemove(e)}
+                          aria-label={`Remove ${e.name} from the shortlist`}
+                          className="grid size-6 place-items-center rounded-full text-faint hover:bg-surface-2 hover:text-text"
+                        >
+                          ✕
+                        </button>
+                      )}
                     </span>
                   </li>
                 ))}
@@ -299,11 +313,19 @@ function ShortlistPanel({
         </div>
       )}
 
-      {dirty && <p className="text-[11px] font-medium text-warn">Unsaved changes</p>}
-      <Button full onClick={onSave} disabled={!dirty || saving || sample}>
-        {saving ? "Saving…" : count === 0 && saved ? "Clear saved shortlist" : "Save shortlist"}
-      </Button>
-      {sample && <p className="text-[11px] text-faint">Saving is off in the sample preview.</p>}
+      {canSave ? (
+        <>
+          {dirty && <p className="text-[11px] font-medium text-warn">Unsaved changes</p>}
+          <Button full onClick={onSave} disabled={!dirty || saving || sample}>
+            {saving ? "Saving…" : count === 0 && saved ? "Clear saved shortlist" : "Save shortlist"}
+          </Button>
+          {sample && <p className="text-[11px] text-faint">Saving is off in the sample preview.</p>}
+        </>
+      ) : (
+        <p className="rounded-lg border border-line bg-surface-2/50 px-3 py-2 text-[11px] text-muted">
+          Shortlists are saved by BTG admins, campaign managers and network managers. Your role reads them.
+        </p>
+      )}
       {note && (
         <p role="status" className={`text-[11px] ${note.ok ? "text-accent" : "text-danger"}`}>
           {note.text}
@@ -320,7 +342,7 @@ function ShortlistPanel({
    still themed — StagePortals keeps the stage's class on <body>. The page
    behind stops scrolling while it is open; focus is trapped in the panel and
    returns to the opener on close (useDrawerFocus); Escape closes. */
-function FactorDrawer({ match, on, onToggle, onClose }: { match: ApiMatch; on: boolean; onToggle: () => void; onClose: () => void }) {
+function FactorDrawer({ match, on, onToggle, onClose }: { match: ApiMatch; on: boolean; onToggle: (() => void) | null; onClose: () => void }) {
   const mounted = useMounted();
   const [closing, setClosing] = useState(false);
   const { panelRef, onKeyDown } = useDrawerFocus<HTMLDivElement>(true);
@@ -434,11 +456,13 @@ function FactorDrawer({ match, on, onToggle, onClose }: { match: ApiMatch; on: b
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-line-soft p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <Button full variant={on ? "secondary" : "primary"} onClick={onToggle}>
-            {on ? "Remove from shortlist" : "Add to shortlist"}
-          </Button>
-        </div>
+        {onToggle && (
+          <div className="shrink-0 border-t border-line-soft p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <Button full variant={on ? "secondary" : "primary"} onClick={onToggle}>
+              {on ? "Remove from shortlist" : "Add to shortlist"}
+            </Button>
+          </div>
+        )}
       </div>
     </div>,
     document.body,

@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 /* --------------------------------------------------------------------------
@@ -28,7 +29,8 @@ const FORBIDDEN = [/WAREHOUSE_(SOURCE_)?DATABASE_URL/, /worker\/warehouse\//, /\
 describe("the warehouse rule: live decisions read the app, never the warehouse", () => {
   for (const root of ["../src", "../../frontend/src"]) {
     it(`no code under ${root.replace("../", "")} reaches the warehouse`, () => {
-      const offenders = files(new URL(root, import.meta.url).pathname)
+      /* fileURLToPath, not .pathname: on Windows the latter is "/D:/…" with the space still encoded (QA 2026-10-15). */
+      const offenders = files(fileURLToPath(new URL(root, import.meta.url)))
         .filter((f) => FORBIDDEN.some((re) => re.test(readFileSync(f, "utf8"))));
       expect(offenders).toEqual([]);
     });

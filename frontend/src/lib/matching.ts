@@ -119,6 +119,7 @@ export const MATCH_BRIEF = {
   marketNote: "home market must match",
   needed: 6,
   sponsorCategory: "beverages — sports hydration",
+  asks: "Creator or Premium tiers · TikTok, Instagram · 10,000+ followers · avoid Alcohol",
   responseDeadline: "24 Sep 2026",
   scoreSnapshot: "2 Sep 2026",
   scoreMethod: "rules-v1",
@@ -627,6 +628,8 @@ export type MatchBrief = {
   marketNote: string;
   needed: number;
   sponsorCategory: string;
+  /** 3S3-BE-01 — tiers, channels, minimum audience, categories to avoid, in words; null when none (matching-live briefAsksLine). */
+  asks?: string | null;
   responseDeadline: string;
   scoreSnapshot: string;
   scoreMethod: string;

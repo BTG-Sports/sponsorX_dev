@@ -5,15 +5,25 @@ import { GUARANTEE_METRICS } from "../domain/forecast-rules";
 import { SHORTLIST_MAX } from "../domain/match-vocabulary";
 import { NOTE_MAX } from "../domain/makegood-rules";
 import { RANGES } from "../domain/overview-window";
+import { OVERRIDE_MAX_CENTS } from "../domain/pricing-engine";
 
 /* --------------------------------------------------------------------------
    The intelligence engines on the wire (Phase 3). Rules live in the domain
    files: pricing in domain/pricing-engine.ts.
    -------------------------------------------------------------------------- */
 
+export const PricingDeskQuery = z
+  .object({
+    view: z.enum(["above", "below", "low"]).optional().describe("Only the items recommended above or below their current rate, or under the medium confidence band"),
+    q: z.string().max(200).optional().describe("Item title or seller name"),
+    page: z.coerce.number().int().optional(),
+    size: z.coerce.number().int().optional(),
+  })
+  .meta({ id: "PricingDeskQuery", description: "The pricing desk's page (3S2-BE-02). An unknown view is refused, not ignored." });
+
 export const PricingOverrideInput = z
   .object({
-    cpmCents: z.number().int().positive().describe("The BTG admin's own price per 1,000 impressions, in cents — never below the sell floor"),
+    cpmCents: z.number().int().positive().max(OVERRIDE_MAX_CENTS).describe("The BTG admin's own price per 1,000 impressions, in cents — never below the sell floor, never above $10,000"),
     reason: z.string().describe("Why — 10 to 500 characters, kept with the override and in the audit log"),
   })
   .strict()

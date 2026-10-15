@@ -2,14 +2,15 @@
    Phase 3 · Intelligence — the screens' shared vocabulary (3S2-FE-01 …
    3S8-FE-02, decided 2026-10-13: "FE only, honest empty states").
 
-   Every Phase 3 screen reads an engine that the backend chain is still
-   building (rcfworks: warehouse → features → CPM, matching, forecasting,
-   make-goods, attribution, scenarios, anomalies, model registry). Until an
-   engine's route is mounted, its screen says so — by name, with the tasks it
-   waits on — and shows no number at all. A placeholder figure would be a
+   Every Phase 3 screen reads an engine from the backend chain (rcfworks:
+   the fact ledger → features → CPM, matching, forecasting, make-goods,
+   attribution, scenarios, anomalies, model registry). Until an engine's
+   route is mounted, its screen says so — by name, with the tasks it waits
+   on — and shows no number at all. A placeholder figure would be a
    statistic with no retrieval path (the "stats must be retrievable" rule,
    Blueprint §22). When the route lands, the same page renders it; nothing on
-   the frontend has to change but the contract, if it moved.
+   the frontend has to change but the contract, if it moved. Landed so far
+   (2026-10-14): pricing, matching and forecast — walked live 2026-10-15.
 
    The contracts each screen expects are written down in
    documentation/SponsorX-Phase3-Screen-Contracts.md — the proposal the
@@ -123,7 +124,7 @@ export const ENGINES: Record<EngineKey, Engine> = {
     key: "sponsorHub",
     name: "Sponsor intelligence",
     screen: "3S7-FE-01",
-    waitsOn: ["3S1-DATA-02 daily campaign facts (done)", "a sponsor-scoped read of the warehouse (no task yet)"],
+    waitsOn: ["3S1-BE-01 fact ledger and daily summaries", "3S7-BE-02 a sponsor-scoped read of the summaries"],
     endpoint: "GET /intelligence/sponsor",
     shows: [
       "What worked across all your campaigns",
@@ -137,7 +138,7 @@ export const ENGINES: Record<EngineKey, Engine> = {
     key: "propertyHub",
     name: "Property intelligence",
     screen: "3S7-FE-02",
-    waitsOn: ["3S2-BE-02 CPM engine v1", "a property-scoped read of the warehouse (no task yet)"],
+    waitsOn: ["3S2-BE-02 CPM engine v1 (done)", "3S7-BE-02 a property-scoped read of the summaries"],
     endpoint: "GET /intelligence/property",
     shows: [
       "Rate recommendations for your inventory",
