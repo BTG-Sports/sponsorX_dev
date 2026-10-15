@@ -496,3 +496,10 @@ The fixes logged on 2026-10-11 under "the QA findings fixed (still Code review, 
 - **What happened:** sync #233's push run failed in three of that file's tests, although the PR run of the same commit had passed.
 - **Cause:** the "tampered link" swapped the signature's last two characters for "AA". The last base64url character carries only 4 bits, so about one run in a thousand the "tampered" signature decoded to the same bytes and confirmed the claim; the next two tests then failed from it.
 - **Fix:** the test now flips the signature's first character. The failed job on #233 was re-run, and the fix rides on #234.
+
+## rcfworks — #233 and #234 merged; 3S6-BE-01 to Done
+
+- **#233** (the sync of #229, #230 and #232) merged; `main` CI is running, then the deploy.
+- **#234** (forecast 2.0.0, 3S9-OPS-01, 3S6-BE-01, the flaky-test fix) merged into `main_development`.
+- **3S6-BE-01 → Done:** its acceptance is proven by the test.
+- **3S9-OPS-01 stays in Code review** until it is deployed: its clause says "live".
