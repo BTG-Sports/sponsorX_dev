@@ -71,9 +71,9 @@ const n = (x: number) => Math.round(x).toLocaleString("en-US");
 const usd = (cents: number) => `$${Math.round(Math.abs(cents) / 100).toLocaleString("en-US")}`;
 
 /** The days a make-good decided on `today` runs: tomorrow, for MAKEGOOD_WINDOW_DAYS days. */
-export function makeGoodWindow(today: Date): { startsOn: Date; endsOn: Date } {
+export function makeGoodWindow(today: Date, days = MAKEGOOD_WINDOW_DAYS): { startsOn: Date; endsOn: Date } {
   const start = utcDay(today) + DAY_MS;
-  return { startsOn: new Date(start), endsOn: new Date(start + (MAKEGOOD_WINDOW_DAYS - 1) * DAY_MS) };
+  return { startsOn: new Date(start), endsOn: new Date(start + (days - 1) * DAY_MS) };
 }
 
 /* ───────────────────────────── the estimate ───────────────────────────── */
@@ -252,15 +252,18 @@ export type AutoFacts = {
 export type AutoDecision = { approve: true; option: OptionDraft } | { approve: false; held: string[] };
 
 /** Whether SponsorX approves the best substitute itself, or holds the shortfall for a person with every reason. */
-export function autoDecision(options: readonly OptionDraft[], f: AutoFacts): AutoDecision {
+/** The settings behind automatic approval: the built-in ones, or the tenant's active version (3S8-BE-01). */
+export type AutoSettings = { autoMinCoverage: number; autoMinElapsed: number };
+
+export function autoDecision(options: readonly OptionDraft[], f: AutoFacts, t: AutoSettings = { autoMinCoverage: AUTO_MIN_COVERAGE, autoMinElapsed: AUTO_MIN_ELAPSED }): AutoDecision {
   const best = bestOption(options);
   const held: string[] = [];
   if (!best) held.push("No substitute passes all three checks.");
-  if (f.elapsed < AUTO_MIN_ELAPSED) held.push(`Only ${Math.round(f.elapsed * 100)}% of the flight has gone; SponsorX approves on its own from ${AUTO_MIN_ELAPSED * 100}%, when the shortfall is near-certain.`);
+  if (f.elapsed < t.autoMinElapsed) held.push(`Only ${Math.round(f.elapsed * 100)}% of the flight has gone; SponsorX approves on its own from ${Math.round(t.autoMinElapsed * 100)}%, when the shortfall is near-certain.`);
   if (f.sensitive) held.push("The sponsor's category is age-gated, so a person decides.");
   if (best) {
     const cover = coverageOf(f.shortfall, best.estimatedDelivery);
-    if (cover < AUTO_MIN_COVERAGE) held.push(`The best substitute covers ${Math.round(cover * 100)}% of the shortfall; SponsorX approves on its own from ${AUTO_MIN_COVERAGE * 100}%.`);
+    if (cover < t.autoMinCoverage) held.push(`The best substitute covers ${Math.round(cover * 100)}% of the shortfall; SponsorX approves on its own from ${Math.round(t.autoMinCoverage * 100)}%.`);
     if (best.costImpactCents > 0) held.push(`The best substitute costs ${usd(best.costImpactCents)} more than the shortfall is worth.`);
     if (best.youth) held.push("The best substitute involves a minor or a school, so a person decides.");
     if (!best.verifiedEstimate) held.push("The best substitute's estimate rests on unverified or thin figures.");

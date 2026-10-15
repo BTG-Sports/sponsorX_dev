@@ -4241,3 +4241,44 @@ model AnomalyScan {
   tenantId String   @id
   ranAt    DateTime
 }
+
+/// 3S8-BE-01 — one version of an engine's tunable settings, per tenant
+/// (documentation/SponsorX-Model-Governance.md). draft → validated → active →
+/// retired; one active per tenant and model (partial unique index). The
+/// engines stamp their outputs with the active version.
+model ModelVersion {
+  id          String    @id @default(cuid())
+  tenantId    String
+  /// pricing | matching | forecast | makegood | anomalies
+  key         String
+  version     String
+  /// draft | validated | active | retired
+  status      String
+  /// { settingKey: value } — the whole set, not a difference.
+  thresholds  Json
+  notes       String    @default("")
+  reason      String
+  /// null for the built-in version.
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  validatedBy String?
+  validatedAt DateTime?
+  activatedAt DateTime?
+  retiredAt   DateTime?
+
+  @@unique([tenantId, key, version])
+  @@index([tenantId, key, status])
+}
+
+/// 3S8-OPS-01 — an intelligence feature switched on or off for one tenant.
+/// No row means on.
+model FeatureFlag {
+  tenantId  String
+  feature   String
+  enabled   Boolean
+  reason    String
+  updatedBy String?
+  updatedAt DateTime
+
+  @@id([tenantId, feature])
+}

@@ -176,6 +176,8 @@ const PARAM_FOR: Record<string, string> = {
   "make-goods": A.makeGood,
   /* POST /intelligence/anomalies/{anomalyId}/disposition (3S8-DATA-01). */
   anomalies: A.anomaly,
+  /* /intelligence/models/{key}/versions/{version}/… (3S8-BE-01) — tenant A's validated forecast version. */
+  models: "forecast", versions: "1.1.0",
   /* POST /offers/{id}/change-requests/{requestId}/keep (2S2-FE-03). */
   "change-requests": A.changeRequest,
   restrictions: A.restriction, lines: A.cartLine,
@@ -387,6 +389,12 @@ const BODY: Record<string, unknown> = {
   "POST /intelligence/make-goods/{shortfallId}/approve": { optionId: A.makeGoodOption, note: "Sweep approval note" },
   /* 3S8-DATA-01 — deciding tenant A's anomaly. */
   "POST /intelligence/anomalies/{anomalyId}/disposition": { outcome: "false_positive", note: "Sweep disposition note" },
+  /* 3S8-BE-01 / 3S8-OPS-01 — tenant A's model versions and flags. A change of settings is tenant B's own. */
+  "PATCH /intelligence/models/{key}/thresholds": { values: { atRiskBelow: 0.45 }, reason: "Sweep settings change" },
+  "POST /intelligence/models/{key}/versions/{version}/validate": { reason: "Sweep validation reason" },
+  "POST /intelligence/models/{key}/versions/{version}/activate": { reason: "Sweep activation reason" },
+  "POST /intelligence/models/{key}/rollback": { toVersion: "1.1.0", reason: "Sweep rollback reason" },
+  "PATCH /intelligence/flags": { feature: "forecast", tenantId: "ti_tenant_a", enabled: false, reason: "Sweep switching off tenant A" },
   /* 3S7-BE-01 — a what-if and a saved scenario: tenant B's own, never tenant A's. */
   "POST /intelligence/scenarios/calculate": { inputs: { budgetCents: 100000, cpmCents: 2000, audience: {}, mix: [{ format: "SOCIAL_POST", share: 1 }] } },
   "POST /intelligence/scenarios": { name: "Sweep scenario", inputs: { budgetCents: 100000, cpmCents: 2000, audience: {}, mix: [{ format: "SOCIAL_POST", share: 1 }] } },
@@ -518,6 +526,10 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       id: A.recommendation, tenantId: t, inventoryId: A.item, athleteId: A.athlete, day: new Date("2026-10-01"), snapshotDay: new Date("2026-10-01"),
       modelVersion: "cpm-rules@1.0.0", confidence: 0.4, currentCpmCents: 2500, recommendedCpmCents: 2750, baseCpmCents: 2500, floorCpmCents: 2000,
       factors: [{ key: "scarcity", label: "Scarcity", effect: 0.1, impactCents: 250, explanation: "TI secret explanation" }], computedAt: new Date("2026-10-01"),
+    }, select: { id: true } });
+    /* 3S8-BE-01 — a validated forecast version of tenant A's, waiting to go live. */
+    await prisma.modelVersion.create({ data: {
+      tenantId: t, key: "forecast", version: "1.1.0", status: "validated", thresholds: { atRiskBelow: 0.45 }, notes: "TI secret notes", reason: "TI secret reason", createdBy: A.admin,
     }, select: { id: true } });
     /* 3S8-DATA-01 — an open flag on tenant A's campaign. */
     await prisma.anomaly.create({ data: {
@@ -729,6 +741,12 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
        (2026-10-02, 134 files). The siblings below already carry 120s. */
   }, 60_000);
 
+  /* Routes whose path parameter names a model (an engine's key, "forecast"),
+     not a record: tenant B changing its own forecast settings is correct
+     (3S8-BE-01). Only the leak check applies; the version routes, which do
+     name tenant A's record, must still refuse. */
+  const OWN_TENANT_PATHS = new Set(["PATCH /intelligence/models/{key}/thresholds"]);
+
   it("every route, as every tenant-B actor: never a success, never a tenant-A value", async () => {
     const secrets = [
       ...Object.values(A).filter((v) => v !== A.tenant),
@@ -744,7 +762,7 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
         /* A route that names a tenant-A record — in its path or its body —
            must refuse. A bare list route answers tenant B with tenant B's
            own rows, which is correct; for those only the leak check applies. */
-        const aimsAtA = r.path.includes("{") || JSON.stringify(BODY[key] ?? {}).includes("ti_");
+        const aimsAtA = (r.path.includes("{") && !OWN_TENANT_PATHS.has(key)) || JSON.stringify(BODY[key] ?? {}).includes("ti_");
         if (aimsAtA && status < 400) failures.push(`${actor.id} ${key} → ${status}: ${text.slice(0, 160)}`);
         if (aimsAtA && status === 400) failures.push(`${actor.id} ${key} → 400 (stopped at validation; needs a valid BODY): ${text.slice(0, 200)}`);
         /* A 500 is not a refusal: the call crashed before or instead of the

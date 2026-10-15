@@ -1280,9 +1280,16 @@ Wire up continuous integration so every commit is type-checked, linted, unit-tes
 - **Done when:** Every commit runs all four; the authz matrix is a required check, not an advisory one
 - **Reference:** §30, Guide §09
 
-### ▶ `P2-OPS-08` · Configure PR environments
+### ✕ `P2-OPS-08` · Configure PR environments — **DROPPED**
 
-**Order** 61 · **OPS** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 0
+**Order** 61 · **OPS** · **Where:** Vendor console · **1d** · **Dropped** · **Unblocks** 0
+
+> **Dropped 2026-10-15 (user decision: "its not worth doing").**
+> - Every pull request already runs the full suite in CI, browser tests included, against its own fresh, migrated database.
+> - The team is two people, who merge every PR themselves.
+> - A running app and database for each open PR would cost Railway money for little gain.
+>
+> Nothing depends on this task.
 
 Give every pull request its own throwaway environment with a fresh seeded database — never a copy of production data.
 

@@ -28,6 +28,7 @@ import { createHash } from "node:crypto";
 
 import { enqueue } from "../db/outbox";
 import type { PrismaClient } from "../generated/prisma/client";
+import { tenantsWithout } from "./model-registry";
 import { sponsorRenewals } from "./renewal-advice";
 import type { PushOutcome, SyncCtx } from "./zoho-sync";
 
@@ -57,7 +58,8 @@ export type ZohoIntelReport = { tenants: number; sponsors: number; queued: numbe
 
 /** Nightly: queue a push for every sponsor in Zoho whose values changed since the last one sent. */
 export async function queueZohoIntelligence(db: PrismaClient, now: Date, opts: { tenantId?: string; skipTenants?: string[] } = {}): Promise<ZohoIntelReport> {
-  const skip = new Set(opts.skipTenants ?? []);
+  /* 3S8-OPS-01 — a tenant with Zoho intelligence switched off sends nothing. */
+  const skip = new Set([...(opts.skipTenants ?? []), ...(await tenantsWithout(db, "zohoIntelligence"))]);
   const tenants = opts.tenantId ? [opts.tenantId] : (await db.tenant.findMany({ select: { id: true }, orderBy: { id: "asc" } })).map((t) => t.id);
   const report: ZohoIntelReport = { tenants: 0, sponsors: 0, queued: 0, skipped: tenants.filter((t) => skip.has(t)) };
   for (const tenantId of tenants.filter((t) => !skip.has(t))) {

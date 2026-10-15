@@ -110,3 +110,21 @@ export const AnomalyDispositionInput = z
   })
   .strict()
   .meta({ id: "AnomalyDispositionInput", description: "Decide an anomaly flag, with a note (3S8-DATA-01)." });
+
+const reason = z.string().max(600).describe("Why — 10 to 500 characters, kept on the version and in the audit log");
+
+export const ModelSettingsInput = z
+  .object({ values: z.record(z.string().max(60), z.number()).describe("The settings to change, by key; the rest keep the active version's values"), reason })
+  .strict()
+  .meta({ id: "ModelSettingsInput", description: "Save new settings as the model's next version (3S8-BE-01). Inside the safe ranges: active at once; outside: held as a draft for a second person." });
+
+export const ModelReasonInput = z.object({ reason }).strict()
+  .meta({ id: "ModelReasonInput", description: "Validate or activate a model version, with a reason (3S8-BE-01)." });
+
+export const ModelRollbackInput = z.object({ toVersion: z.string().min(1).max(20), reason }).strict()
+  .meta({ id: "ModelRollbackInput", description: "Make a retired version active again (3S8-BE-01)." });
+
+export const FlagInput = z
+  .object({ feature: z.string().min(1).max(40), tenantId: z.string().min(1).max(200), enabled: z.boolean(), reason })
+  .strict()
+  .meta({ id: "FlagInput", description: "Switch one intelligence feature on or off for one tenant (3S8-OPS-01)." });

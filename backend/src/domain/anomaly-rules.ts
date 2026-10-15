@@ -81,7 +81,7 @@ export function densest(times: readonly Date[], seconds: number): { count: numbe
 export type StreamDay = { deliverableId: string; title: string; source: string; day: Date; views: number };
 
 /** Spikes, per stream (deliverable × source), against the trailing median of its earlier days. */
-export function spikeFlags(rows: readonly StreamDay[]): Flag[] {
+export function spikeFlags(rows: readonly StreamDay[], factor = SPIKE_FACTOR): Flag[] {
   const streams = new Map<string, StreamDay[]>();
   for (const r of rows) streams.set(`${r.deliverableId}:${r.source}`, [...(streams.get(`${r.deliverableId}:${r.source}`) ?? []), r]);
   const out: Flag[] = [];
@@ -91,9 +91,9 @@ export function spikeFlags(rows: readonly StreamDay[]): Flag[] {
       const prior = sorted.slice(0, i).filter((p) => r.day.getTime() - p.day.getTime() <= SPIKE_TRAILING_DAYS * 86_400_000 && p.views > 0);
       if (prior.length < SPIKE_MIN_PRIOR || r.views < SPIKE_MIN_VIEWS) return;
       const base = median(prior.map((p) => p.views));
-      if (base <= 0 || r.views < SPIKE_FACTOR * base) return;
+      if (base <= 0 || r.views < factor * base) return;
       out.push({
-        kind: "spike", severity: r.views >= SPIKE_HIGH_FACTOR * base ? "high" : "medium", ruleId: "spike.views",
+        kind: "spike", severity: r.views >= Math.max(SPIKE_HIGH_FACTOR, 2 * factor) * base ? "high" : "medium", ruleId: "spike.views",
         subject: { type: "metric_stream", id: key, name: `${r.title} · ${r.source}` },
         fingerprint: `spike.views:${key}:${day(r.day)}`,
         evidence: [
@@ -136,13 +136,13 @@ export function duplicateFlags(rows: readonly PostRow[]): Flag[] {
 export type ClickRow = { linkId: string; campaignId: string; campaignName: string; at: Date };
 
 /** A link clicked BOT_CLICKS times inside one minute. One flag per link per day. */
-export function botFlags(rows: readonly ClickRow[]): Flag[] {
+export function botFlags(rows: readonly ClickRow[], clicks = BOT_CLICKS): Flag[] {
   const byLinkDay = new Map<string, ClickRow[]>();
   for (const r of rows) byLinkDay.set(`${r.linkId}|${day(r.at)}`, [...(byLinkDay.get(`${r.linkId}|${day(r.at)}`) ?? []), r]);
   const out: Flag[] = [];
   for (const [key, list] of byLinkDay) {
     const d = densest(list.map((r) => r.at), BOT_WINDOW_S);
-    if (d.count < BOT_CLICKS) continue;
+    if (d.count < clicks) continue;
     const [linkId, on] = key.split("|");
     out.push({
       kind: "bot", severity: d.count >= BOT_HIGH_CLICKS ? "high" : "medium", ruleId: "bot.clicks",
@@ -166,13 +166,13 @@ export type RedeemRow = { rewardId: string; offerText: string; at: Date };
 export type RepeatFanRow = { rewardId: string; offerText: string; n: number; firstEventId: string; firstAt: Date };
 
 /** Bursts of redemptions on one reward. */
-export function redemptionFlags(rows: readonly RedeemRow[]): Flag[] {
+export function redemptionFlags(rows: readonly RedeemRow[], burst = BURST_REDEEMS): Flag[] {
   const out: Flag[] = [];
   const byRewardDay = new Map<string, RedeemRow[]>();
   for (const r of rows) byRewardDay.set(`${r.rewardId}|${day(r.at)}`, [...(byRewardDay.get(`${r.rewardId}|${day(r.at)}`) ?? []), r]);
   for (const [key, list] of byRewardDay) {
     const d = densest(list.map((r) => r.at), BURST_WINDOW_S);
-    if (d.count < BURST_REDEEMS) continue;
+    if (d.count < burst) continue;
     const [rewardId, on] = key.split("|");
     out.push({
       kind: "redemption", severity: "high", ruleId: "redemption.burst",
@@ -185,8 +185,8 @@ export function redemptionFlags(rows: readonly RedeemRow[]): Flag[] {
 }
 
 /** One fan redeeming the same reward REPEAT_FAN_REDEEMS times or more. */
-export function repeatFanFlags(rows: readonly RepeatFanRow[]): Flag[] {
-  return rows.filter((r) => r.n >= REPEAT_FAN_REDEEMS).map((r) => ({
+export function repeatFanFlags(rows: readonly RepeatFanRow[], min = REPEAT_FAN_REDEEMS): Flag[] {
+  return rows.filter((r) => r.n >= min).map((r) => ({
     kind: "redemption" as const, severity: "medium" as const, ruleId: "redemption.repeat_fan",
     subject: { type: "reward" as const, id: r.rewardId, name: r.offerText },
     fingerprint: `redemption.repeat_fan:${r.rewardId}:${r.firstEventId}`,
@@ -202,14 +202,14 @@ export type EntryRow = { deliverableId: string; title: string; day: Date; source
 const HAND_ENTERED = new Set(["VERIFIED_MANUAL", "SELF_REPORTED"]);
 
 /** Hand-entered figures far above what the API measured the same day, or with more engagements than views. */
-export function manualFlags(rows: readonly EntryRow[]): Flag[] {
+export function manualFlags(rows: readonly EntryRow[], factor = MANUAL_FACTOR): Flag[] {
   const out: Flag[] = [];
   const api = new Map(rows.filter((r) => r.source === "VERIFIED_API").map((r) => [`${r.deliverableId}|${day(r.day)}`, r.views]));
   for (const r of rows) {
     if (!HAND_ENTERED.has(r.source)) continue;
     const key = `${r.deliverableId}:${r.source}`;
     const measured = api.get(`${r.deliverableId}|${day(r.day)}`) ?? 0;
-    if (measured > 0 && r.views >= MANUAL_FACTOR * measured) {
+    if (measured > 0 && r.views >= factor * measured) {
       out.push({
         kind: "manual_entry", severity: "medium", ruleId: "manual.over_measured",
         subject: { type: "metric_stream", id: key, name: `${r.title} · ${r.source}` },

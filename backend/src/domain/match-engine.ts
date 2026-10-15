@@ -29,8 +29,9 @@ import type { AthleteFeatures } from "./feature-snapshots";
 import { lineFloor } from "./margin-floor";
 import { packageLines } from "./match-score";
 import { MATCH_CHANNELS, SHORTLIST_MAX } from "./match-vocabulary";
+import { activeModel, assertFeature, type ActiveModel } from "./model-registry";
 import {
-  byScore, EXCLUDED_LOOKBACK_DAYS, filterCandidate, MATCH_KINDS, MATCH_MODEL_VERSION, scoreCandidate,
+  byScore, EXCLUDED_LOOKBACK_DAYS, filterCandidate, MATCH_KINDS, scoreCandidate,
   type Availability, type BriefForMatch, type EligibilityFacts, type MatchKind, type ScoreFacts,
 } from "./match-rules";
 
@@ -96,8 +97,8 @@ async function loadBrief(tenantId: string, briefId: string) {
  * through here too, so a substitute is held to the same exclusivity and
  * brand-safety filter as a match.
  */
-export async function gatherCandidates(tenantId: string, brief: BriefForMatch, lines: { jobId: string; quantity: number }[], now: Date): Promise<Candidate[]> {
-  const since = new Date(now.getTime() - EXCLUDED_LOOKBACK_DAYS * 86_400_000);
+export async function gatherCandidates(tenantId: string, brief: BriefForMatch, lines: { jobId: string; quantity: number }[], now: Date, lookbackDays = EXCLUDED_LOOKBACK_DAYS): Promise<Candidate[]> {
+  const since = new Date(now.getTime() - lookbackDays * 86_400_000);
   const [athletes, properties, items, restrictions, orders, sold, snapshots, listings] = await Promise.all([
     prisma.athlete.findMany({
       /* tenant-scope: explicit — this tenant's network. */
@@ -303,9 +304,9 @@ export async function gatherCandidates(tenantId: string, brief: BriefForMatch, l
 }
 
 /** Rank every kind for a brief and store the runs. */
-async function rankBrief(tenantId: string, briefId: string, brief: BriefForMatch, lines: { jobId: string; quantity: number }[], now: Date) {
+async function rankBrief(tenantId: string, briefId: string, brief: BriefForMatch, lines: { jobId: string; quantity: number }[], now: Date, model: ActiveModel) {
   const started = Date.now();
-  const all = await gatherCandidates(tenantId, brief, lines, now);
+  const all = await gatherCandidates(tenantId, brief, lines, now, model.t.excludedLookbackDays);
   const runs: Array<{ kind: MatchKind; filteredOut: Record<string, number>; ranked: Ranked[] }> = [];
   for (const kind of MATCH_KINDS) {
     const filteredOut = { unavailable: 0, categoryConflict: 0, brandSafety: 0 };
@@ -325,7 +326,7 @@ async function rankBrief(tenantId: string, briefId: string, brief: BriefForMatch
   await prisma.$transaction(async (tx) => {
     for (const r of runs) {
       const run = await tx.matchRun.create({
-        data: { tenantId, briefId, kind: r.kind, modelVersion: MATCH_MODEL_VERSION, filteredOut: r.filteredOut, candidates: r.ranked.length, durationMs, computedAt },
+        data: { tenantId, briefId, kind: r.kind, modelVersion: model.stamp, filteredOut: r.filteredOut, candidates: r.ranked.length, durationMs, computedAt },
         select: { id: true },
       });
       if (r.ranked.length) {
@@ -343,6 +344,8 @@ async function rankBrief(tenantId: string, briefId: string, brief: BriefForMatch
 /** The brief's latest run of each kind, ranking again when it is stale or the brief changed since. */
 async function currentRuns(tenantId: string, briefId: string, now: Date) {
   const b = await loadBrief(tenantId, briefId);
+  /* 3S8-BE-01 — the tenant's active settings; a run made with other settings is ranked again. */
+  const model = await activeModel(prisma, tenantId, "matching");
   const latest = async () => prisma.$queryRawUnsafe<Array<{ id: string; kind: MatchKind; modelVersion: string; filteredOut: Record<string, number>; candidates: number; computedAt: Date }>>(
     /* tenant-scope: explicit — this tenant's runs for this brief. */
     `SELECT DISTINCT ON (kind) id, kind, "modelVersion", "filteredOut", candidates, "computedAt" FROM "MatchRun"
@@ -352,9 +355,9 @@ async function currentRuns(tenantId: string, briefId: string, now: Date) {
   let runs = await latest();
   /* Fresh by the real clock — `now` dates the facts (the lookback, the snapshot day), not the cache. */
   const fresh = runs.length === MATCH_KINDS.length && runs.every((r) =>
-    r.modelVersion === MATCH_MODEL_VERSION && r.computedAt.getTime() > Date.now() - RUN_REUSE_MS && r.computedAt >= b.updatedAt);
+    r.modelVersion === model.stamp && r.computedAt.getTime() > Date.now() - RUN_REUSE_MS && r.computedAt >= b.updatedAt);
   if (!fresh) {
-    await rankBrief(tenantId, briefId, b.brief, b.lines, now);
+    await rankBrief(tenantId, briefId, b.brief, b.lines, now, model);
     runs = await latest();
   }
   return new Map(runs.map((r) => [r.kind, r]));
@@ -373,6 +376,7 @@ async function shortlistOf(tenantId: string, briefId: string) {
 /** GET /intelligence/briefs/:briefId/matches — one page of one kind, best first. */
 export async function matchPage(actor: Actor, briefId: string, kind: MatchKind, page: PageRequest, now = new Date()) {
   assertTenantWide(actor, "briefMatch", "read");
+  await assertFeature(prisma, actor.tenantId, "matching");
   const runs = await currentRuns(actor.tenantId, briefId, now);
   const run = runs.get(kind)!;
   const rows = await prisma.matchScore.findMany({
@@ -402,6 +406,7 @@ export async function matchPage(actor: Actor, briefId: string, kind: MatchKind, 
 /** POST /intelligence/briefs/:briefId/shortlist — replaces the brief's shortlist with exactly these ranked matches. */
 export async function saveShortlist(actor: Actor, briefId: string, entryIds: readonly string[], now = new Date()) {
   assertTenantWide(actor, "briefMatch", "write");
+  await assertFeature(prisma, actor.tenantId, "matching");
   const ids = [...new Set(entryIds)];
   if (ids.length > SHORTLIST_MAX) throw new ShortlistEntryError([]);
   const runs = await currentRuns(actor.tenantId, briefId, now);

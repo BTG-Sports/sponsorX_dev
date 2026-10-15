@@ -28,6 +28,7 @@ import { ForbiddenError } from "../auth/errors";
 import { assertAllowed } from "../auth/scope";
 import { prisma } from "../db/client";
 import { BENCHMARK_METRIC } from "./benchmarks";
+import { assertFeature } from "./model-registry";
 import { windowFor, type RangeKey } from "./overview-window";
 import { buildRenewals, renewalOf, RENEWAL_VERSION } from "./renewal-advice";
 
@@ -76,6 +77,7 @@ type SumRow = { campaignId: string; athleteId: string; inventoryKey: string; api
 export async function sponsorIntelligence(actor: Actor, range: RangeKey, now = new Date()) {
   const scope = assertAllowed(actor, "sponsorIntelligence", "read");
   if (scope !== "own-sponsor" || !actor.sponsorId) throw new ForbiddenError("sponsorIntelligence", "read");
+  await assertFeature(prisma, actor.tenantId, "sponsorHub");
   const tenantId = actor.tenantId;
   const sponsorId = actor.sponsorId;
 

@@ -76,14 +76,14 @@ export type Projection = { low: number; mid: number; high: number; probability: 
  * A flow's forecast. `daily` is the verified delivery on each day gone, in
  * order (length = days gone).
  */
-export function forecastFlow(guarantee: number, daily: readonly number[], total: number): Projection & { rate: number; sdDay: number } {
+export function forecastFlow(guarantee: number, daily: readonly number[], total: number, fullTrust = FULL_TRUST_ELAPSED): Projection & { rate: number; sdDay: number } {
   const gone = daily.length;
   const left = Math.max(0, total - gone);
   const delivered = daily.reduce((t, x) => t + x, 0);
   const plan = guarantee / total;
   const mu = gone ? delivered / gone : 0;
   const sigma = gone ? Math.sqrt(daily.reduce((t, x) => t + (x - mu) ** 2, 0) / gone) : 0;
-  const w = Math.min(1, gone / total / FULL_TRUST_ELAPSED);
+  const w = Math.min(1, gone / total / fullTrust);
   const rate = w * mu + (1 - w) * plan;
   const sdDay = w * sigma + (1 - w) * 0.5 * plan;
   const mid = delivered + rate * left;
@@ -119,8 +119,18 @@ export function forecastDeliverables(guarantee: number, delivered: number, pendi
   };
 }
 
+/** The settings behind risk and alerts: the built-in ones, or the tenant's active version (3S8-BE-01). */
+export type ForecastSettings = { watchBelow: number; atRiskBelow: number; alertMinElapsed: number };
+export const FORECAST_DEFAULTS: ForecastSettings = { watchBelow: WATCH_BELOW, atRiskBelow: AT_RISK_BELOW, alertMinElapsed: 0.2 };
+
+/** Risk under the given settings (3S8-BE-01). */
+export function riskWith(probability: number, t: Pick<ForecastSettings, "watchBelow" | "atRiskBelow">): Risk {
+  return probability >= t.watchBelow ? "on_track" : probability >= t.atRiskBelow ? "watch" : "at_risk";
+}
+
+/** Risk under the built-in settings. */
 export function riskOf(probability: number): Risk {
-  return probability >= WATCH_BELOW ? "on_track" : probability >= AT_RISK_BELOW ? "watch" : "at_risk";
+  return riskWith(probability, FORECAST_DEFAULTS);
 }
 
 /** The projected band, from tomorrow to the end date, straight from today's total to the final. */
@@ -239,11 +249,11 @@ export const ALERT_MIN_ELAPSED = 0.2;
  * to watch does not close it), so a campaign hovering around a threshold
  * does not email every night.
  */
-export function alertMove(open: OpenAlert, risk: Risk, beforeEnd: boolean, elapsed: number): AlertMove {
+export function alertMove(open: OpenAlert, risk: Risk, beforeEnd: boolean, elapsed: number, t: ForecastSettings = { ...FORECAST_DEFAULTS, alertMinElapsed: ALERT_MIN_ELAPSED }): AlertMove {
   const none: AlertMove = { raise: null, close: false, emailRecovery: false };
   if (risk === "on_track") return open ? { raise: null, close: true, emailRecovery: open.risk === "at_risk" && open.emailed } : none;
-  if (!beforeEnd || elapsed < ALERT_MIN_ELAPSED) return none;
-  if (risk === "watch") return open ? none : { raise: { risk: "watch", threshold: WATCH_BELOW, email: false }, close: false, emailRecovery: false };
+  if (!beforeEnd || elapsed < t.alertMinElapsed) return none;
+  if (risk === "watch") return open ? none : { raise: { risk: "watch", threshold: t.watchBelow, email: false }, close: false, emailRecovery: false };
   if (open?.risk === "at_risk") return none;
-  return { raise: { risk: "at_risk", threshold: AT_RISK_BELOW, email: true }, close: !!open, emailRecovery: false };
+  return { raise: { risk: "at_risk", threshold: t.atRiskBelow, email: true }, close: !!open, emailRecovery: false };
 }
