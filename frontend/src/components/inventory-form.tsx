@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { Dropdown, type FilterTone } from "@/components/filter-kit";
 import {
   BRAND_CATEGORIES,
   EMPTY_DRAFT,
@@ -51,6 +52,7 @@ export function InventoryForm({
   update,
   savedHref,
   onCancel,
+  tone = "athlete",
 }: {
   mode: "create" | "edit";
   /** The item being edited (edit mode). */
@@ -62,6 +64,8 @@ export function InventoryForm({
   /** Where to go after a create — `{id}` is replaced with the new item's id. */
   savedHref?: string;
   onCancel?: () => void;
+  /** The portal's colour for the pickers — the athlete's, or the team manager's. */
+  tone?: FilterTone;
 }) {
   const router = useRouter();
   const initial: InventoryDraft = item ? { ...draftFromItem(item), components: [] } : EMPTY_DRAFT;
@@ -136,12 +140,18 @@ export function InventoryForm({
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div>
-          <label className={LABEL} htmlFor="inv-kind">Kind</label>
-          <select id="inv-kind" className={INPUT} value={d.kind} disabled={lockedPackage} onChange={(e) => set("kind", e.target.value as InventoryDraft["kind"])}>
-            {kindOptions.map((k) => (
-              <option key={k} value={k}>{KIND_LABEL[k]}</option>
-            ))}
-          </select>
+          <p className={LABEL} aria-hidden="true">Kind</p>
+          <Dropdown
+            label="Kind"
+            allLabel="Kind"
+            includeAll={false}
+            block
+            disabled={lockedPackage}
+            value={d.kind}
+            options={kindOptions.map((k) => ({ value: k, label: KIND_LABEL[k] }))}
+            onChange={(v) => set("kind", v as InventoryDraft["kind"])}
+            tone={tone}
+          />
           <FieldError text={errors.kind} />
         </div>
         <div>
@@ -178,17 +188,17 @@ export function InventoryForm({
             <div className="space-y-2">
               {d.components.map((c, n) => (
                 <div key={n} className="flex items-center gap-2">
-                  <select
-                    aria-label={`Item ${n + 1}`}
-                    className={INPUT}
-                    value={c.itemId}
-                    onChange={(e) => set("components", d.components.map((x, i) => (i === n ? { ...x, itemId: e.target.value } : x)))}
-                  >
-                    <option value="">Pick an item…</option>
-                    {components.map((o) => (
-                      <option key={o.id} value={o.id}>{o.label}</option>
-                    ))}
-                  </select>
+                  <div className="min-w-0 flex-1">
+                    <Dropdown
+                      label={`Item ${n + 1}`}
+                      allLabel="Pick an item…"
+                      block
+                      value={c.itemId}
+                      options={components.map((o) => ({ value: o.id, label: o.label }))}
+                      onChange={(v) => set("components", d.components.map((x, i) => (i === n ? { ...x, itemId: v } : x)))}
+                      tone={tone}
+                    />
+                  </div>
                   <input
                     aria-label={`Units of item ${n + 1}`}
                     type="number"

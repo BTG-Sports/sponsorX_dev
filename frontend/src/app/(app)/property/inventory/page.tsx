@@ -65,6 +65,7 @@ export default async function PropertyInventoryPage({ searchParams }: { searchPa
             create={createItemAction}
             components={componentOptions(items)}
             savedHref="/property/inventory/{id}"
+            tone="property"
             startOpen={!hasAny}
           />
         }

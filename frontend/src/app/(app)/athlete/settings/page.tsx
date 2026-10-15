@@ -46,8 +46,9 @@ export default async function AthleteSettingsPage({ searchParams }: { searchPara
         ? "Payouts go to the athlete’s own payout account on Stripe. There’s nothing to set up from this login."
         : "There’s no payout account on this login yet."}
       previews={[
-        { href: "/reactivate?demo=self", label: "reactivate within 30 days" },
-        { href: "/reactivate?demo=btg", label: "closed by BTG" },
+        /* In-portal previews (portal views stay in the portal), not the public /reactivate. */
+        { href: "/athlete/settings/reactivate?case=self", label: "reactivate within 30 days" },
+        { href: "/athlete/settings/reactivate?case=btg", label: "closed by BTG" },
         { href: `/athlete/settings/coming-of-age?as=${guardian ? "guardian" : "athlete"}`, label: "coming-of-age reminder" },
       ]}
     />

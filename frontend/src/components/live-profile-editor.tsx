@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { Dropdown } from "@/components/filter-kit";
 import { Badge } from "@/components/ui";
 import { SECTIONS, type SectionKey } from "@/lib/profile-sections";
 import type { SectionState } from "@/lib/profile-live";
@@ -333,9 +334,16 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
                 <div className="mt-1 space-y-1.5 normal-case tracking-normal">
                   <input value={form.guardianName} onChange={(e) => set("guardianName", e.target.value)} placeholder="Guardian's full name" maxLength={160} className={INPUT_CLS} aria-label="Guardian's full name" />
                   <input type="email" value={form.guardianEmail} onChange={(e) => set("guardianEmail", e.target.value)} placeholder="Guardian's email" maxLength={254} className={INPUT_CLS} aria-label="Guardian's email" />
-                  <select value={form.guardianRelationship} onChange={(e) => set("guardianRelationship", e.target.value)} className={INPUT_CLS} aria-label="Relationship">
-                    {RELATIONSHIPS.map((x) => <option key={x}>{x}</option>)}
-                  </select>
+                  <Dropdown
+                    label="Relationship"
+                    allLabel="Relationship"
+                    includeAll={false}
+                    block
+                    value={form.guardianRelationship}
+                    options={RELATIONSHIPS.map((x) => ({ value: x, label: x }))}
+                    onChange={(v) => set("guardianRelationship", v)}
+                    tone="athlete"
+                  />
                   <p>Under the age of majority, a guardian approves your agreements and payments. They&rsquo;re emailed to complete their page. {SENSITIVE_NOTE}</p>
                 </div>
               ) : (
@@ -367,15 +375,20 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
               School / team
               <input value={form.school} onChange={(e) => set("school", e.target.value)} maxLength={120} className={`${INPUT_CLS} mt-1 normal-case tracking-normal`} />
             </label>
-            <label className="block text-[10px] uppercase tracking-wide text-faint">
-              Level
-              <select value={form.level} onChange={(e) => set("level", e.target.value)} className={`${INPUT_CLS} mt-1 normal-case tracking-normal`}>
-                <option value="">—</option>
-                {LEVELS.map((l) => (
-                  <option key={l} value={l}>{LEVEL_LABEL[l]}</option>
-                ))}
-              </select>
-            </label>
+            <div className="block text-[10px] uppercase tracking-wide text-faint">
+              <span aria-hidden="true">Level</span>
+              <div className="mt-1 normal-case tracking-normal">
+                <Dropdown
+                  label="Level"
+                  allLabel="—"
+                  block
+                  value={form.level}
+                  options={LEVELS.map((l) => ({ value: l, label: LEVEL_LABEL[l] }))}
+                  onChange={(v) => set("level", v)}
+                  tone="athlete"
+                />
+              </div>
+            </div>
             <label className="block text-[10px] uppercase tracking-wide text-faint">
               Class of
               <input inputMode="numeric" value={form.gradYear} onChange={(e) => set("gradYear", e.target.value.replace(/[^\d]/g, "").slice(0, 4))} className={`${INPUT_CLS} mt-1 tracking-normal`} />
@@ -478,18 +491,16 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
               {rows.length === 0 && <p className="text-[11px] text-faint">No accounts yet — add one below.</p>}
               {rows.map((r, i) => (
                 <div key={i} className="grid gap-2 sm:grid-cols-[8rem_minmax(0,1fr)_8rem_auto] sm:items-center">
-                  <select
-                    aria-label="Platform"
+                  <Dropdown
+                    label="Platform"
+                    allLabel="Platform"
+                    includeAll={false}
+                    block
                     value={r.platform}
-                    onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, platform: e.target.value as Row["platform"] } : x)))}
-                    className={INPUT_CLS}
-                  >
-                    {PLATFORMS.filter((p) => p === r.platform || !used.has(p)).map((p) => (
-                      <option key={p} value={p}>
-                        {PLATFORM_LABEL[p]}
-                      </option>
-                    ))}
-                  </select>
+                    options={PLATFORMS.filter((p) => p === r.platform || !used.has(p)).map((p) => ({ value: p, label: PLATFORM_LABEL[p] }))}
+                    onChange={(v) => setRows(rows.map((x, j) => (j === i ? { ...x, platform: v as Row["platform"] } : x)))}
+                    tone="athlete"
+                  />
                   <input
                     aria-label="Handle"
                     value={r.handle}

@@ -2930,13 +2930,18 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
   overflow: hidden;
   transition: transform 0.4s var(--ar-ease), border-color 0.3s ease, box-shadow 0.4s ease;
 }
-/* the speed bar: a slanted accent along the left edge */
+/* the speed bar: a slanted accent along the left edge. Its length is capped:
+   skewX moves each end sideways by half its length × tan 14° (≈ 0.125 × the
+   length), so a full-height bar on a tall plate walked into the text and
+   controls (QA 2026-10-11 — 23 plates at 1440, 28 at 390). At 88px the top
+   end stays ≤ 24px from the edge, inside every plate's padding, and a KPI
+   tile (≈ 98px of bar before) looks the same. */
 .sx-arena-plate::before {
   content: "";
   position: absolute;
   left: 10px;
   top: 12px;
-  bottom: 12px;
+  height: min(calc(100% - 24px), 88px);
   width: 3px;
   border-radius: 9999px;
   background: linear-gradient(180deg, var(--tone), color-mix(in srgb, var(--tone) 30%, transparent));
@@ -3081,7 +3086,7 @@ a.sx-arena-plate:focus-visible { outline: none; }
   position: absolute;
   left: 10px;
   top: 12px;
-  bottom: 12px;
+  height: min(calc(100% - 24px), 88px); /* capped like the plate's speed bar */
   width: 3px;
   border-radius: 9999px;
   background: var(--ar);
