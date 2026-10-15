@@ -29,6 +29,8 @@
     "makegoods:refresh": "node --env-file-if-exists=../.env --import tsx scripts/run-make-goods.mts",
     "zoho:intel-fields": "node --env-file-if-exists=../.env --import tsx scripts/zoho-intel-fields.mts",
     "anomalies:refresh": "node --env-file-if-exists=../.env --import tsx scripts/run-anomalies.mts",
+    "benchmarks:validate": "node --env-file-if-exists=../.env --import tsx scripts/validate-benchmarks.mts",
+    "models:backtest": "node --env-file-if-exists=../.env --import tsx scripts/run-backtests.mts",
     "warehouse:reader": "node --import tsx scripts/warehouse-reader.mts",
     "db:logins": "node --import tsx scripts/db-logins.mts",
     "db:read": "node --import tsx scripts/db-read.mts"

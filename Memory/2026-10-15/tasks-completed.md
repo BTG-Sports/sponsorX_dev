@@ -291,3 +291,29 @@
 - **The user ran the production fields command:** `npm run zoho:intel-fields -- --create --confirm-production`. It stopped with `ZohoNotConfiguredError`: production has no Zoho keys, which is deliberate until go-live (P2-OPS-04). Nothing changed.
 - **Recorded on P2-OPS-04's tracker row:** run the fields command when the production Zoho keys are set.
 - **3S7-INT-01:** stays in Code review. It goes to Done when tonight's staging run lands the score and next action on a sandbox sponsor's Account (to check tomorrow).
+
+## rcfworks — 3S0-PMO-01, 3S9-QA-01, 3S9-QA-02 (Code review, one PR)
+
+**3S0-PMO-01 · attribution claims:** `documentation/SponsorX-Attribution-Claims.md`, drafted for the owner's approval.
+- It defines the four classes, with the evidence, money and confidence of each.
+- It sets the words each class may and must never use, and that the classes are never summed (no ROI from modelled or estimated figures).
+- It maps each class to its provenance, and requires zero rather than a guess.
+- The legal review follows as `3S0-LEG-01`. This unblocks `3S6-BE-01`.
+
+**3S9-QA-02 · benchmark validation (`benchmark-validation.ts`):**
+- **`checkBenchmark`:** a benchmark fails if inconsistent, stale (over 2 days), small (under 10 orders) or too spread (over 4×), with every reason.
+- **`reconciliationVerdict`:** a pure function over the nightly fact check. The tolerance is exact and the check must be under 2 days old. It is pure so tests never write the platform-wide `FactCheckRun`.
+- **Where it shows:** the models screen (`benchmarkValidation`), the nightly log after benchmarks, and `npm run benchmarks:validate`.
+
+**3S9-QA-01 · backtests (`backtest-rules.ts`, pure):**
+- **Scoring:** `scoreForecasts` (error, within 10%, second half, Brier, calibration bands) and `scorePricing` (error, within 20%, confidence bands).
+- **Simulation:** `simulateForecastHistory` is seeded (mulberry32) over 300 campaigns at ¼, ½ and ¾.
+- **Engine** (`backtest-engine.ts`): real forecast history (ended campaigns, against the last pacing) and real pricing history (orders against the latest suggestion on or before booking), per version stamp. Runs are stored as `BacktestRun`, nightly after anomalies; with `--simulate`, a simulated run is stored and marked.
+- **On the models screen:** each version shows its latest backtest, real before simulated.
+- **Simulated result for forecast 1.0.0:**
+  - **Projection:** error 10.8% overall, 4.7% at ¾.
+  - **Probability:** overconfident early. At ¼, 95% given became 74% reached and 5% given became 22% reached. At ¾ it is calibrated (96% / 97%).
+  - **`fullTrustElapsed` 0.45:** improves the error (10.8% → 9.4%) but not the overconfidence.
+  - **Recommendations** are documented for the owner: the settings change, or a new forecast version with a wider early spread.
+- **Tests:** `tests/backtest.test.ts`, 8, every figure by hand.
+- **Shared:** migration `20261015220000_backtest_runs`; authz.coverage maps BacktestRun to `modelRegistry`; docs `SponsorX-Backtest.md` and the plan entries (Code review).
