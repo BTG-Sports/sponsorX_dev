@@ -58,7 +58,7 @@ export async function writeEngine(
   key: EngineKey,
   path: string,
   body: unknown,
-  method: "POST" | "PATCH" = "POST",
+  method: "POST" | "PATCH" | "PUT" = "POST",
 ): Promise<{ ok: true; data: unknown } | { ok: false; error: string }> {
   const res = await apiFetch(path, { method, body: JSON.stringify(body) });
   let data: unknown = null;

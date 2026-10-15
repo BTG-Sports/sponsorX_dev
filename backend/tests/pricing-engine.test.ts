@@ -266,3 +266,20 @@ describe.skipIf(!hasDatabase)("3S2-BE-02 · the pricing reads", { timeout: 90_00
     expect((await pricingDetail(actor(T, "BTG_ADMIN"), "pe_i1", TODAY)).recommendation.id).toBe(first.id);
   });
 });
+
+describe("3S2-BE-03 · the override on the wire", async () => {
+  const { PricingOverrideInput, PricingDeskQuery } = await import("../src/contracts/intelligence");
+  const { OVERRIDE_MAX_CENTS } = await import("../src/domain/pricing-engine");
+
+  it("refuses a CPM above $10,000 — a typo, not a price (QA 2026-10-15)", () => {
+    expect(PricingOverrideInput.safeParse({ cpmCents: OVERRIDE_MAX_CENTS, reason: "the ceiling itself is a price" }).success).toBe(true);
+    expect(PricingOverrideInput.safeParse({ cpmCents: OVERRIDE_MAX_CENTS + 1, reason: "one cent over the ceiling" }).success).toBe(false);
+    expect(PricingOverrideInput.safeParse({ cpmCents: 2_000_000_000, reason: "twenty million dollars per thousand" }).success).toBe(false);
+  });
+
+  it("the desk refuses an unknown view rather than ignoring it, like an unknown kind or risk", () => {
+    expect(PricingDeskQuery.safeParse({ view: "below", page: "2", size: "24" }).success).toBe(true);
+    expect(PricingDeskQuery.safeParse({}).success).toBe(true);
+    expect(PricingDeskQuery.safeParse({ view: "bogus" }).success).toBe(false);
+  });
+});

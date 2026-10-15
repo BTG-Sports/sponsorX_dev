@@ -44,7 +44,9 @@ production: its live layout fed by the lib's `SAMPLE_*` object, under a
 ## 3S2-FE-01 · Pricing intelligence panel — `/admin/intelligence/pricing`
 
 Engine: Dynamic CPM engine (3S2-BE-01/02/03). Types: `frontend/src/lib/pricing-live.ts`.
-Roles: read SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, SALES; override decided by the API through `canOverride` (proposed: BTG admins).
+Roles: read SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, SALES; override decided by the API through `canOverride` (BTG admins).
+
+**Landed 2026-10-14** (`backend/src/domain/pricing-engine.ts`, `routes/v1/intelligence.ts`); screen walked against it 2026-10-15. As proposed, with these facts: v1 prices **athlete items only** (`seller.kind` is always `ATHLETE`); suggestions are stored nightly and the reads serve the latest stored one; the detail's 404 is `not_priced` with a message (the screen's "absent" state); an override below the floor is 422 `override_below_floor` and the attempt is audited. After the QA pass of 2026-10-15: an override above $10,000 CPM (`OVERRIDE_MAX_CENTS`) is 400 on the wire, as the screen already refused it; an unknown `view` is 400, like an unknown `kind` or `risk`.
 
 - `GET /intelligence/pricing?page&size&q&view=above|below|low` → `{ items, page, summary }`
   - item: `inventoryId, title, kind, seller { kind: ATHLETE|PROPERTY, id, name }, recommendationId, currentCpmCents | null, recommendedCpmCents, override (the one in force) | null, stamp`
@@ -61,6 +63,8 @@ Screen policy to confirm: under 10 comparable sales is shown as a small sample; 
 Engine: Match scoring (3S3-BE-01/02/03). Types: `frontend/src/lib/match-explorer-live.ts`.
 Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, NETWORK_MGR, SALES. The brief picker reads the existing, live `GET /briefs`.
 
+**Landed 2026-10-14** (`backend/src/domain/match-engine.ts`; `documentation/SponsorX-Match-Engine.md`); screen walked against it 2026-10-15. As proposed, with one change: **Sales reads but does not save a shortlist** (`briefMatch` write is BTG admins, campaign managers and network managers; the API answers Sales' save with 403), so the screen offers the picks and Save only to those roles (`canSaveShortlist`). A ranking is reused for ten minutes so its pages agree. The brief gained the engine's inputs — `excludedCategories`, `channels`, `audienceTiers`, `audienceMinFollowers` — and the sponsor's brief drawer sends them (`lib/brief-request.ts`). BTG reads them in words ("Sponsor asks": tiers · channels · minimum audience · avoid) on the brief desk, the Matching Studio header and above the explorer's ranking (`briefAsksLine`, QA 2026-10-15). Network managers read briefs since 2026-10-15 (`campaignBrief` read, own-tenant — the matrix's brief row had left them out while §29 had them saving shortlists, so both matching desks were dead ends for the role). A list sent with repeats (`channels`, `audienceTiers`, `excludedCategories`) is stored as a set.
+
 - `GET /intelligence/briefs/:briefId/matches?kind=athlete|property|inventory&page&size` → `{ briefId, kind, counts { athlete, property, inventory }, filteredOut { unavailable, categoryConflict, brandSafety }, matches, page, shortlist | null, run { modelVersion, computedAt } }`
   - match: `id, kind, refId, name, sub, rank, score (0..100 = Σ contributions), factors[{ key, label, weight, contribution (0..weight×100), reason }], reasons[] (salesperson words), availability { state: AVAILABLE|LIMITED, note? }, stamp`
   - Unavailable and category-conflicted candidates are **never** in `matches` (acceptance #3); the screen shows only the `filteredOut` counts.
@@ -69,7 +73,13 @@ Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, NETWORK_MGR, SALES. The brief picke
 ## 3S4-FE-01 · Campaign forecast dashboard — `/admin/intelligence/forecasts`
 
 Engine: Delivery forecast (3S4-DATA-01, 3S4-BE-01/02). Types: `frontend/src/lib/forecast-live.ts`.
-Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, SALES.
+Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, SALES read; BTG_ADMIN and CAMPAIGN_MGR set a guarantee.
+
+**Landed 2026-10-14** (`backend/src/domain/forecast-engine.ts`; `documentation/SponsorX-Forecasting.md`); screen walked against it 2026-10-15. As proposed, plus one write the proposal didn't have:
+
+- `PUT /intelligence/forecasts/:campaignId/guarantee { metric, value }` → `{ campaignId, guarantee | null }` — what the campaign is promised by its end date; `{ metric: null }` clears it, and the engine then paces against every deliverable booked (the default). Audited as `campaign.guaranteeSet`. The detail page has the control (`ForecastGuaranteeForm`, `canSetGuarantee`); the forecast is made nightly, so a new guarantee shows from the next one.
+- The detail's 404 is `forecast_not_found` with a message (the screen's "absent" state).
+- After the end date the guarantee is refused (422 `guarantee`, "This campaign ended on …"): nothing forecasts it any more, so a promise set then would never be paced (QA 2026-10-15).
 
 - `GET /intelligence/forecasts?risk=all|at_risk|watch|on_track&page&size` → `{ counts { active, at_risk, watch, on_track }, campaigns, page }`
   - row: `campaignId, campaignName, sponsorName, startsAt, endsAt, elapsed (0..1), guarantee { metric, value }, delivered, deliveredSource (VERIFIED_*), projectedFinal { low, mid, high }, probabilityOfGuarantee, risk, stamp` — ordered by risk, then lowest probability, then soonest end.

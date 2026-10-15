@@ -9,9 +9,32 @@
    The rules are the API's: budget in CENTS (the form shows dollars), dates as
    calendar dates, categories from the closed vocabulary. Phase 1 is a managed
    marketplace: this is a request BTG qualifies and prices, not a purchase.
+
+   3S3-BE-01 (2026-10-14) gave the brief the match engine's inputs — the
+   categories to avoid, the channels, the audience tiers and a minimum
+   audience — so the drawer asks for them and they travel as columns, not as
+   lines in the objective. The vocabularies mirror the backend's
+   match-vocabulary.ts; the API is the enforcement.
    -------------------------------------------------------------------------- */
 
 import { BRAND_CATEGORIES, type BrandCategory } from "./brand-categories";
+
+/** backend/src/domain/match-vocabulary.ts MATCH_CHANNELS, in its order. */
+export const MATCH_CHANNELS = ["INSTAGRAM", "TIKTOK", "YOUTUBE", "X", "FACEBOOK", "IN_PERSON"] as const;
+export type MatchChannel = (typeof MATCH_CHANNELS)[number];
+export const CHANNEL_LABEL: Record<MatchChannel, string> = {
+  INSTAGRAM: "Instagram",
+  TIKTOK: "TikTok",
+  YOUTUBE: "YouTube",
+  X: "X",
+  FACEBOOK: "Facebook",
+  IN_PERSON: "In person",
+};
+
+/** backend/src/domain/match-vocabulary.ts AUDIENCE_TIERS — the athlete tiers. */
+export const AUDIENCE_TIERS = ["EMERGING", "CREATOR", "PREMIUM", "ANCHOR"] as const;
+export type AudienceTier = (typeof AUDIENCE_TIERS)[number];
+export const TIER_LABEL: Record<AudienceTier, string> = { EMERGING: "Emerging", CREATOR: "Creator", PREMIUM: "Premium", ANCHOR: "Anchor" };
 
 export type BriefRequest = {
   sponsorId: string;
@@ -23,11 +46,19 @@ export type BriefRequest = {
   durationWeeks: number;
   sport: string;
   geo: string;
+  /** One preferred tier as a word ("Creator") — the older single pick; a
+   *  known one becomes `audienceTiers`, an unknown one a line in the objective. */
   tier: string;
   category: string;
   message: string;
   packageId?: string | null;
   jobName?: string | null;
+  /** The match engine's inputs (3S3-BE-01). Each may be left out. */
+  excludedCategories?: string[];
+  channels?: string[];
+  audienceTiers?: string[];
+  /** As typed — "10,000", "10k", "1.5m", or "" for no minimum. */
+  minFollowers?: string;
 };
 
 export type BriefBody = {
@@ -40,9 +71,27 @@ export type BriefBody = {
   sports: string[];
   stateCodes: string[];
   categories: BrandCategory[];
+  excludedCategories: BrandCategory[];
+  channels: MatchChannel[];
+  audienceTiers: AudienceTier[];
+  audienceMinFollowers: number | null;
 };
 
 export class BriefRequestInvalid extends Error {}
+
+/** "10,000" → 10000, "10k" → 10000, "1.5m" → 1500000; "" → null (no minimum). */
+export function followersCount(text: string): number | null {
+  const t = (text ?? "").trim().toLowerCase().replace(/,/g, "");
+  if (!t) return null;
+  const m = t.match(/^(\d+(?:\.\d+)?)\s*([km])?$/);
+  if (!m) throw new BriefRequestInvalid("Give the minimum audience as a number of followers, e.g. 10,000 or 10k.");
+  const n = Math.round(Number(m[1]) * (m[2] === "m" ? 1_000_000 : m[2] === "k" ? 1_000 : 1));
+  if (n > 2_147_483_647) throw new BriefRequestInvalid("That minimum audience is larger than any account.");
+  return n;
+}
+
+const inVocabulary = <T extends string>(list: readonly T[], values: readonly string[] | undefined): T[] =>
+  [...new Set((values ?? []).filter((v): v is T => (list as readonly string[]).includes(v)))];
 
 /** The first dollar amount in the text, in cents. A band's LOWER bound — the
  *  brief records what the sponsor is prepared to start at; BTG prices it. */
@@ -76,15 +125,28 @@ export function toBriefBody(r: BriefRequest, today = new Date()): BriefBody {
   if (Number.isNaN(start.getTime())) throw new BriefRequestInvalid("That start date is not a date.");
   const end = new Date(start.getTime() + Math.max(1, r.durationWeeks) * 7 * 864e5);
 
+  /* The single "Preferred tier" pick is a column now when it names a tier the
+     API knows; any other wording still travels in the objective. */
+  const tierPick = r.tier.trim().toUpperCase();
+  const audienceTiers = inVocabulary(AUDIENCE_TIERS, [...(r.audienceTiers ?? []), tierPick]);
+  const tierLine = r.tier && !(AUDIENCE_TIERS as readonly string[]).includes(tierPick) ? `Preferred tier: ${r.tier}` : "";
+
   /* The API keeps objective only; everything else the sponsor typed that has
      no column of its own travels with it, so BTG reads it at qualification. */
   const extras = [
     r.jobName ? `Requested job: ${r.jobName}` : "",
-    r.tier ? `Preferred tier: ${r.tier}` : "",
+    tierLine,
     r.message.trim() ? `Note: ${r.message.trim()}` : "",
   ].filter(Boolean);
 
   const category = r.category as BrandCategory;
+  const categories = (BRAND_CATEGORIES as readonly string[]).includes(category) ? [category] : [];
+  const excludedCategories = inVocabulary(BRAND_CATEGORIES, r.excludedCategories);
+  /* The API refuses a category both wanted and avoided (match-vocabulary.ts);
+     say so here, in the drawer's words, rather than send it. */
+  if (excludedCategories.some((c) => categories.includes(c))) {
+    throw new BriefRequestInvalid("Your own category can't also be one to avoid.");
+  }
   return {
     sponsorId: r.sponsorId,
     objective: [objective, ...extras].join("\n\n").slice(0, 2000),
@@ -94,6 +156,10 @@ export function toBriefBody(r: BriefRequest, today = new Date()): BriefBody {
     endDate: day(end),
     sports: r.sport ? [r.sport] : [],
     stateCodes: stateCodesFor(r.geo),
-    categories: (BRAND_CATEGORIES as readonly string[]).includes(category) ? [category] : [],
+    categories,
+    excludedCategories,
+    channels: inVocabulary(MATCH_CHANNELS, r.channels),
+    audienceTiers,
+    audienceMinFollowers: followersCount(r.minFollowers ?? ""),
   };
 }

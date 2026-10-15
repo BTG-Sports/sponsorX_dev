@@ -48,6 +48,9 @@ export function PricingOverrideForm({
   const typed = parseCpmInput(price);
 
   const submit = () => {
+    /* Save on a form with nothing in it (the one just cleared by a save) is a
+       stray click, not an attempt: keep the success note, flag nothing (QA 2026-10-15). */
+    if (!price.trim() && !reason.trim()) return;
     setTouched(true);
     setError(null);
     setSaved(null);

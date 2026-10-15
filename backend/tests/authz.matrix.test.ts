@@ -131,6 +131,12 @@ describe("the money boundary, from both sides (matrix §7.1)", () => {
     }
   });
 
+  it("network managers read a brief — they staff its roster and save its shortlist (§29) — and never write, qualify or approve one", () => {
+    expect(scopeFor(["NETWORK_MGR"], "campaignBrief", "read")).toBe("own-tenant");
+    expect(isAllowed(["NETWORK_MGR"], "campaignBrief", "write")).toBe(false);
+    expect(isAllowed(["NETWORK_MGR"], "campaignBrief", "approve")).toBe(false);
+  });
+
   it("does not let an athlete read a sponsor report about them", () => {
     expect(isAllowed(["ATHLETE"], "sponsorReport", "read")).toBe(false);
     expect(isAllowed(["GUARDIAN"], "sponsorReport", "read")).toBe(false);
@@ -438,7 +444,13 @@ describe("the whole matrix is pinned", () => {
       // flags. SUPER_ADMIN any read and write; BTG_ADMIN own-tenant read and
       // write; every other cell deny (matrix §35). With its rows removed the
       // grid hashes to the previous 22f65ea6071c590b.
-    ).toBe("4f8aa9696f132aa2");
+      // Updated 2026-10-15 (QA): `campaignBrief.NETWORK_MGR.read` = own-tenant.
+      // §29 has network managers saving a brief's shortlist and both matching
+      // desks admit them, but the brief row left them unable to read one, so
+      // the desks showed "outside your role". The matrix row was corrected
+      // first; this digest follows it. Only that one cell moved: with it back
+      // to deny the grid hashes to the previous 4f8aa9696f132aa2.
+    ).toBe("3d92c5837a1480f7");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

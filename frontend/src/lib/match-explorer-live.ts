@@ -5,18 +5,21 @@ import { MATCHABLE_STATES, type ApiBrief } from "@/lib/matching-live";
 /* --------------------------------------------------------------------------
    3S3-FE-01 — the sponsor match explorer's contract and pure helpers.
 
-   PROPOSED CONTRACT (3S3-BE-02 match scoring + 3S3-BE-03 eligibility filter
-   are not built yet; this is what the screen is built against):
+   THE CONTRACT — the match engine landed 2026-10-14 (3S3-BE-01/02/03,
+   backend/src/domain/match-engine.ts; documentation/SponsorX-Match-Engine.md):
 
    GET  /intelligence/briefs/:briefId/matches?kind=athlete|property|inventory&page&size
         → ApiMatchPage — one page of ONE kind, ranked best first, plus every
           kind's count, what the eligibility filter removed for this kind,
-          and the brief's saved shortlist (or null).
+          and the brief's saved shortlist (or null). A ranking is reused for
+          ten minutes so its pages agree, then made again.
    POST /intelligence/briefs/:briefId/shortlist { entryIds: string[] }
         → ApiShortlist — replaces the brief's shortlist with exactly these
-          match ids (an empty list clears it). Roles: the page's own
-          (SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, NETWORK_MGR, SALES), tenant
-          scoped like every brief read.
+          match ids (an empty list clears it). Roles (`briefMatch`, RBAC
+          matrix §29): everyone on the page READS; BTG admins, campaign
+          managers and network managers SAVE — Sales reads a shortlist and
+          the API answers its save with 403, so the screen never offers it
+          (SHORTLIST_SAVE_ROLES). Tenant scoped like every brief read.
 
    THE SCORE. A match's score is 0..100 and is the sum of its factors'
    contributions; each factor has a weight (its share of the 100) and a
@@ -227,6 +230,15 @@ export function filteredOutLine(f: FilteredOut): string | null {
 }
 
 /* -------------------------------------------------------------- shortlist */
+
+/** Who the API lets save a shortlist (`briefMatch` write — policy.ts). The
+ *  page's other role, Sales, reads one. Mirrors the policy as admin-access.ts
+ *  does; the API stays the enforcement. */
+export const SHORTLIST_SAVE_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR"] as const;
+
+export function canSaveShortlist(roles: readonly string[]): boolean {
+  return roles.some((r) => (SHORTLIST_SAVE_ROLES as readonly string[]).includes(r));
+}
 
 export function toEntry(m: Pick<ApiMatch, "id" | "kind" | "name" | "score">): ShortlistEntry {
   return { matchId: m.id, kind: m.kind, name: m.name, score: m.score };
