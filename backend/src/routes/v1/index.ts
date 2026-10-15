@@ -18,6 +18,7 @@ import { guardiansRouter } from "./guardians";
 import { metricsRouter } from "./metrics";
 import { intelligenceRouter } from "./intelligence";
 import { zohoWebhooksRouter } from "./zoho-webhooks";
+import { attributionRouter } from "./attribution";
 import { inquiriesRouter } from "./inquiries";
 import { catalogueRouter } from "./catalogue";
 import { sponsorOverviewRouter } from "./sponsor-overview";
@@ -107,6 +108,10 @@ v1Router.use("/", intelligenceRouter);
    necessity: Zoho cannot log in. Guarded by an HMAC shared secret instead,
    which the production env guard refuses to boot without. */
 v1Router.use("/", zohoWebhooksRouter);
+
+/* 3S6-BE-01 — attribution partners' deliveries. PUBLIC by necessity: a
+   partner cannot sign in; each proves its own token. Rate-limited. */
+v1Router.use("/", attributionRouter);
 
 /* B8 — a prospective sponsor's enquiry (P8-INT-06). PUBLIC and rate-limited;
    writes one row and queues the Zoho Lead push. */

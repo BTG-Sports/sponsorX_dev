@@ -36,6 +36,8 @@ const state = vi.hoisted(() => ({
   } as
     | { installed: boolean; jobs: { due: number; oldestDueSeconds: number | null; failed: number }; outbox: { pending: number; oldestSeconds: number | null } }
     | "throws",
+  /* 3S9-OPS-01 — the nightly pipeline's record, as the one-row reading returns it. */
+  pipeline: { runs: [], lastOkAt: null, lastForecastAt: null, activeCampaigns: 0, backtests: null } as Record<string, unknown> | "throws",
   /* The values bound into the outbox query — the parked job names. */
   outboxValues: [] as unknown[],
   statements: [] as string[],
@@ -64,6 +66,11 @@ vi.mock("../src/db/client", () => {
     $queryRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
       const sql = strings.join("?");
       state.statements.push(sql);
+      /* 3S9-OPS-01 — the nightly pipeline's record. */
+      if (/PipelineRun/.test(sql)) {
+        if (state.pipeline === "throws") throw new Error(`pipeline read failed on ${SECRET_HOST}`);
+        return [state.pipeline];
+      }
       if (/pgboss|OutboxJob/.test(sql)) {
         if (state.queue === "throws") throw new Error(`queue read failed on ${SECRET_HOST}`);
         if (sql.includes("to_regclass")) return [{ installed: state.queue.installed }];
@@ -117,6 +124,7 @@ beforeEach(() => {
   state.storage = true;
   state.archiver = { archivedAgoSeconds: 5 * 60, failing: false };
   state.queue = { installed: true, jobs: { due: 0, oldestDueSeconds: null, failed: 0 }, outbox: { pending: 0, oldestSeconds: null } };
+  state.pipeline = { runs: [], lastOkAt: null, lastForecastAt: null, activeCampaigns: 0, backtests: null };
   state.outboxValues = [];
   state.statements = [];
   state.hits = 0;
@@ -143,6 +151,8 @@ describe("GET /health/full", () => {
         storage: true,
         backups: { ok: true, configured: true, minutesSinceArchive: 5, failing: false },
         queue: { ok: true, configured: true, depth: 0, oldestWaitMinutes: 0, failedLast24h: 0 },
+        /* Before the first night nothing has run: not a failure. */
+        pipeline: { ok: true, configured: true, lastRunAt: null, failedSteps: [], hoursSinceSuccess: null, forecastsFresh: true, drift: [] },
       },
       traffic: { windowMinutes: 15, requests: 0, status5xx: 0, rate: null },
     });
@@ -151,7 +161,8 @@ describe("GET /health/full", () => {
 
   it("reads the archiver and the queue, each under a short statement timeout", async () => {
     await full();
-    expect(state.statements.filter((q) => /SET LOCAL statement_timeout = '2s'/.test(q))).toHaveLength(2);
+    /* The archiver, the queue and (3S9-OPS-01) the pipeline. */
+    expect(state.statements.filter((q) => /SET LOCAL statement_timeout = '2s'/.test(q))).toHaveLength(3);
     expect(state.statements.some((q) => /FROM pg_stat_archiver/.test(q))).toBe(true);
     expect(state.statements.some((q) => /FROM pgboss\.job/.test(q))).toBe(true);
   });
@@ -203,7 +214,8 @@ describe("GET /health/full", () => {
     const res = await fetch(`${base}/health/full`);
     const text = await res.text();
     expect(res.status).toBe(503);
-    expect(JSON.parse(text).failed).toEqual(["db", "backups", "queue"]);
+    /* 3S9-OPS-01 — with the database down the pipeline's record is unreadable too. */
+    expect(JSON.parse(text).failed).toEqual(["db", "backups", "queue", "pipeline"]);
     expect(text).not.toMatch(/railway|internal|ECONNREFUSED|5432|Error/i);
   });
 
@@ -340,5 +352,51 @@ describe("errorRate", () => {
     expect(errorRate(t0 + 14 * 60_000)).toMatchObject({ requests: 2, status5xx: 1 });
     expect(errorRate(t0 + 15 * 60_000)).toMatchObject({ requests: 1, status5xx: 0, rate: 0 });
     expect(errorRate(t0 + 30 * 60_000)).toMatchObject({ requests: 0, rate: null });
+  });
+});
+
+describe("GET /health/full · the nightly pipeline (3S9-OPS-01)", () => {
+  const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+  const today = new Date().toISOString().slice(0, 10);
+
+  it("a step that failed last night: 503, pipeline named, the step listed", async () => {
+    state.pipeline = { runs: [{ step: "forecasts", status: "failed", day: today, finishedAt: hoursAgo(1) }, { step: "benchmarks", status: "ok", day: today, finishedAt: hoursAgo(1) }],
+      lastOkAt: hoursAgo(1), lastForecastAt: hoursAgo(1), activeCampaigns: 0, backtests: null };
+    const { status, body } = await full();
+    expect(status).toBe(503);
+    expect(body.failed).toEqual(["pipeline"]);
+    expect((body.checks as Record<string, { failedSteps: string[] }>).pipeline.failedSteps).toEqual(["forecasts"]);
+  });
+
+  it("nothing succeeded for 26 hours: stale", async () => {
+    state.pipeline = { runs: [{ step: "benchmarks", status: "ok", day: today, finishedAt: hoursAgo(27) }], lastOkAt: hoursAgo(27), lastForecastAt: null, activeCampaigns: 0, backtests: null };
+    const { status, body } = await full();
+    expect(status).toBe(503);
+    expect((body.checks as Record<string, { hoursSinceSuccess: number }>).pipeline.hoursSinceSuccess).toBe(27);
+  });
+
+  it("active campaigns with no forecast in 26 hours: a silently stale forecast is a failure", async () => {
+    state.pipeline = { runs: [{ step: "forecasts", status: "ok", day: today, finishedAt: hoursAgo(2) }], lastOkAt: hoursAgo(2), lastForecastAt: hoursAgo(30), activeCampaigns: 3, backtests: null };
+    const { status, body } = await full();
+    expect(status).toBe(503);
+    expect((body.checks as Record<string, { forecastsFresh: boolean }>).pipeline.forecastsFresh).toBe(false);
+  });
+
+  it("a model's backtest error growing by half and 5 points: drift", async () => {
+    const run = (value: number, h: number) => ({ model: "forecast", version: "forecast-rules@2.0.0", ranAt: hoursAgo(h), metrics: [{ label: "Mean error of the projected final", value }] });
+    state.pipeline = { runs: [{ step: "backtests", status: "ok", day: today, finishedAt: hoursAgo(1) }], lastOkAt: hoursAgo(1), lastForecastAt: hoursAgo(1), activeCampaigns: 1, backtests: [run(16, 1), run(9, 25)] };
+    const { status, body } = await full();
+    expect(status).toBe(503);
+    expect((body.checks as Record<string, { drift: string[] }>).pipeline.drift).toEqual(["forecast forecast-rules@2.0.0: error 9% → 16%"]);
+  });
+
+  it("a healthy night: ok; off Railway the pipeline is never a failure; unreadable on Railway is", async () => {
+    state.pipeline = { runs: [{ step: "forecasts", status: "ok", day: today, finishedAt: hoursAgo(3) }], lastOkAt: hoursAgo(3), lastForecastAt: hoursAgo(3), activeCampaigns: 2, backtests: null };
+    expect((await full()).status).toBe(200);
+    state.pipeline = "throws";
+    expect((await full()).body.failed).toEqual(["pipeline"]);
+    state.env.RAILWAY_ENVIRONMENT_NAME = undefined;
+    const off = await full();
+    expect((off.body.checks as Record<string, { ok: boolean; configured: boolean }>).pipeline).toMatchObject({ ok: true, configured: false });
   });
 });

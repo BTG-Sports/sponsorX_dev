@@ -29,7 +29,8 @@
  * from AT_RISK_BELOW (50%) to 80%; at risk below 50%.
  */
 
-export const FORECAST_MODEL_VERSION = "forecast-rules@1.0.0";
+/** 2.0.0 (2026-10-15): the pace's own uncertainty widens the early spread (forecastFlow, paceUncertainty). */
+export const FORECAST_MODEL_VERSION = "forecast-rules@2.0.0";
 export const GUARANTEE_METRICS = ["impressions", "engagements", "redemptions", "deliverables"] as const;
 export type GuaranteeMetric = (typeof GUARANTEE_METRICS)[number];
 export type Risk = "on_track" | "watch" | "at_risk";
@@ -76,7 +77,15 @@ export type Projection = { low: number; mid: number; high: number; probability: 
  * A flow's forecast. `daily` is the verified delivery on each day gone, in
  * order (length = days gone).
  */
-export function forecastFlow(guarantee: number, daily: readonly number[], total: number, fullTrust = FULL_TRUST_ELAPSED): Projection & { rate: number; sdDay: number } {
+/**
+ * `paceUncertainty` (forecast-rules@2.0.0, user-approved 2026-10-15 after the
+ * backtest, documentation/SponsorX-Backtest.md §4): the pace itself is
+ * uncertain — a campaign can slow down or pick up — so the remaining days'
+ * total has a second spread, rate × paceUncertainty × (share of the flight
+ * still to go) × days left, perfectly shared across those days. It is widest
+ * early and gone at the end. 0 is the 1.x forecast exactly.
+ */
+export function forecastFlow(guarantee: number, daily: readonly number[], total: number, fullTrust = FULL_TRUST_ELAPSED, paceUncertainty = 0): Projection & { rate: number; sdDay: number } {
   const gone = daily.length;
   const left = Math.max(0, total - gone);
   const delivered = daily.reduce((t, x) => t + x, 0);
@@ -87,7 +96,8 @@ export function forecastFlow(guarantee: number, daily: readonly number[], total:
   const rate = w * mu + (1 - w) * plan;
   const sdDay = w * sigma + (1 - w) * 0.5 * plan;
   const mid = delivered + rate * left;
-  const sd = sdDay * Math.sqrt(left);
+  const sdPace = rate * paceUncertainty * (left / total) * left;
+  const sd = Math.sqrt((sdDay * Math.sqrt(left)) ** 2 + sdPace ** 2);
   const probability = left === 0 || sd === 0 ? (mid >= guarantee ? 1 : 0) : normalCdf((mid - guarantee) / sd);
   return {
     low: Math.round(Math.max(delivered, mid - BAND_Z * sd)), mid: Math.round(mid), high: Math.round(mid + BAND_Z * sd),

@@ -208,7 +208,8 @@ describe.skipIf(!hasDatabase)("3S4 · pacing, forecasts and alerts, nightly, aga
     expect(list.campaigns.map((c) => [c.campaignId, c.risk])).toEqual([["fo_B", "at_risk"], ["fo_C", "at_risk"], ["fo_A", "watch"]]);
     expect(list.campaigns[0]).toMatchObject({
       guarantee: { metric: "impressions", value: 30000 }, delivered: 5000, deliveredSource: "VERIFIED_API",
-      projectedFinal: { mid: 15000 }, probabilityOfGuarantee: 0, elapsed: 0.3333, stamp: { modelVersion: "forecast-rules@1.0.0" },
+      /* 2.0.0: the pace may yet change — spread 500 × 0.6 × (20 ÷ 30) × 20 = 4,000; Φ((15,000 − 30,000) ÷ 4,000) = Φ(−3.75) ≈ 0.0001. */
+      projectedFinal: { mid: 15000 }, probabilityOfGuarantee: 0.0001, elapsed: 0.3333, stamp: { modelVersion: "forecast-rules@2.0.0" },
     });
     expect((await forecastList(actor(T, "SALES"), { page, risk: "watch" })).campaigns.map((c) => c.campaignId)).toEqual(["fo_A"]);
   });

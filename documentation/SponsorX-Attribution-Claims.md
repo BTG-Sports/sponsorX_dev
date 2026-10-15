@@ -1,6 +1,6 @@
 # SponsorX Attribution Claims
 
-**Task `3S0-PMO-01` · Version 1.0 · 2026-10-15 · Phase 3 · For the owner's approval**
+**Task `3S0-PMO-01` · Version 1.0 · 2026-10-15 · Phase 3 · Approved by the owner, 2026-10-15**
 
 What SponsorX may say a campaign caused, and in what words. This is a
 language decision, not a technical one. There are four kinds of result, and
