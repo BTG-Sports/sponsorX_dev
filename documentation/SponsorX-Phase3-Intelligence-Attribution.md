@@ -105,14 +105,24 @@ The most important decision in Phase 3 and it is a language decision, not a tech
 - **Done when:** Written definitions for every attribution class, with the reporting language each is allowed to use
 - **Reference:** Spec §17.4, §22
 
-### ▶ `3S0-PMO-02` · Model governance policy
+### ◑ `3S0-PMO-02` · Model governance policy
 
-**Order** 2 · **PMO** · **Where:** Document · **3d** · **Ready**
+**Order** 2 · **PMO** · **Where:** Document · **3d** · **Code review**
 
 How a model version is proposed, validated, activated, rolled back and compared. Without this, nobody can explain why a price changed.
 
 - **Depends on:** Phase 2 complete
 - **Done when:** Governance policy written: versioning, confidence, explanation, override, monitoring and rollback
+- **Delivered:** 2026-10-15, drafted for the owner's approval: [`SponsorX-Model-Governance.md`](./SponsorX-Model-Governance.md). It covers:
+  - versioning per tenant, with the version as the stamp on every output;
+  - draft → validated → active → retired;
+  - automatic validation inside the safe ranges, and a second person for anything outside them (user, 2026-10-15: automation first);
+  - confidence and explanation on every output;
+  - overrides that never edit what the engine made;
+  - rollback and comparison with no deployment;
+  - per-tenant switches;
+  - who may act;
+  - monitoring.
 - **Reference:** Spec §15
 
 ### ✅ `3S0-DATA-01` · Event taxonomy audit
@@ -919,14 +929,21 @@ Flagged streams, suspicious redemptions, data-quality issues and the reviewer's 
 - **Reference:** Spec §16 P3-09
 - **Built (2026-10-13):** `/admin/intelligence/anomalies`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the anomaly rules is mounted the screen says so and shows no figures. Marked Done by the owner 2026-10-13 with the UI complete and QA'd at phone, laptop and desktop widths; when the engine lands, walk the screen against it.
 
-### ⏸ `3S8-BE-01` · Model registry and activation
+### ◑ `3S8-BE-01` · Model registry and activation
 
-**Order** 38 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 38 · **BE** · **Where:** Code · **5d** · **Code review**
 
 Versions activate, roll back and compare without a code deployment. Pricing that requires a release to change is pricing nobody will trust.
 
 - **Depends on:** 3S0-PMO-02
 - **Done when:** A model version can be activated, rolled back and compared without deploying code
+- **Delivered:** 2026-10-15.
+  - **Five engines' settings are versioned per tenant:** pricing caps, the match lookback, the forecast's risk lines, the make-good limits and the anomaly thresholds, each with a safe range.
+  - **Changing settings saves the next version.** Inside the safe ranges it goes live at once, automatically. Outside them it is held for a second person to validate.
+  - **Activate, roll back and compare** without a deployment. The engines read the active settings at each run and stamp their outputs with its version.
+  - **Endpoints:** `GET /intelligence/models` and `PATCH …/thresholds`, `POST …/validate`, `…/activate` and `…/rollback`. New permission `modelRegistry` (RBAC matrix §35).
+
+  [`SponsorX-Model-Governance.md`](./SponsorX-Model-Governance.md)
 - **Reference:** Spec §22
 
 ### ✅ `3S8-FE-02` · Build the model and rule administration screen
@@ -940,14 +957,20 @@ Pricing factors, model versions, thresholds, benchmarks, rollouts and feature fl
 - **Reference:** Spec §16 P3-10
 - **Built (2026-10-13):** `/admin/intelligence/models`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the model registry is mounted the screen says so and shows no figures. Marked Done by the owner 2026-10-13 with the UI complete and QA'd at phone, laptop and desktop widths; when the engine lands, walk the screen against it.
 
-### ⏸ `3S8-OPS-01` · Per-tenant feature flags for intelligence
+### ◑ `3S8-OPS-01` · Per-tenant feature flags for intelligence
 
-**Order** 40 · **OPS** · **Where:** Code · **3d** · **Blocked**
+**Order** 40 · **OPS** · **Where:** Code · **3d** · **Code review**
 
 Every intelligence feature must be disableable per tenant. Not every customer should see a forecast.
 
 - **Depends on:** 3S8-BE-01
 - **Done when:** All intelligence features can be disabled per tenant through feature flags
+- **Delivered:** 2026-10-15.
+  - **Nine features can be switched off per tenant:** pricing, matching, forecasts, make-goods, anomalies, scenarios, both hubs and the Zoho updates.
+  - **Off:** the nightly run skips that tenant, and the reads and writes answer 403 `feature_off`.
+  - **Endpoint:** `PATCH /intelligence/flags`, with a reason, audited. BTG admins for their own tenant, super admins for any.
+
+  [`SponsorX-Model-Governance.md`](./SponsorX-Model-Governance.md) §7
 - **Reference:** Spec §22
 
 ## Sprint 9 · Backtesting & rollout

@@ -16,6 +16,7 @@ import type { Prisma } from "../generated/prisma/client";
 import type { PageInfo, PageRequest } from "../lib/paging";
 import { BENCHMARK_METRIC } from "./benchmarks";
 import type { AthleteFeatures } from "./feature-snapshots";
+import { assertFeature } from "./model-registry";
 import { NIL_JOBS } from "./nil-jobs";
 import {
   calculate, inputProblems, MIN_SEGMENT_ATHLETES, percentile, SCENARIO_FORMATS,
@@ -99,12 +100,14 @@ async function answer(tenantId: string, inputs: ScenarioInputs, now: Date): Prom
 /** POST /intelligence/scenarios/calculate — a what-if; nothing is stored. */
 export async function calculateScenario(actor: Actor, inputs: ScenarioInputs, now = new Date()) {
   assertTenantWide(actor, "scenario", "read");
+  await assertFeature(prisma, actor.tenantId, "scenarios");
   return answer(actor.tenantId, inputs, now);
 }
 
 /** POST /intelligence/scenarios — calculate and keep, with the answer's model stamp. */
 export async function saveScenario(actor: Actor, input: { name: string; inputs: ScenarioInputs }, now = new Date()) {
   assertTenantWide(actor, "scenario", "write");
+  await assertFeature(prisma, actor.tenantId, "scenarios");
   const name = input.name.trim();
   if (!name || name.length > NAME_MAX) throw new ScenarioInputError([`Name the scenario (1 to ${NAME_MAX} characters).`]);
   const result = await answer(actor.tenantId, input.inputs, now);
@@ -136,6 +139,7 @@ async function views(tenantId: string, ids: string[]) {
 /** GET /intelligence/scenarios — the saved scenarios (newest first), the suggested starting inputs, and what the planner can calculate for. */
 export async function scenarioDesk(actor: Actor, page: PageRequest) {
   assertTenantWide(actor, "scenario", "read");
+  await assertFeature(prisma, actor.tenantId, "scenarios");
   const tenantId = actor.tenantId;
   const [total, rows, athletes, benchmark] = await Promise.all([
     prisma.scenario.count({ where: { tenantId } }),

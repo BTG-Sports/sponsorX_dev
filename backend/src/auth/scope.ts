@@ -918,6 +918,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   /* 3S7-BE-01 — saved scenarios, per tenant. 3S8-DATA-01 — anomaly flags, per tenant. */
   scenario: tenantScoped,
   anomaly: tenantScoped,
+  /* 3S8-BE-01 — model versions and feature flags, per tenant. */
+  modelRegistry: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

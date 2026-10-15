@@ -25,9 +25,10 @@ import { audit, AUDIT_ACTIONS, type AuditActor } from "../db/audit";
 import type { Prisma, PrismaClient } from "../generated/prisma/client";
 import type { PageInfo, PageRequest } from "../lib/paging";
 import {
-  ANOMALY_RULES_VERSION, botFlags, duplicateFlags, LOOKBACK_DAYS, manualFlags, redemptionFlags, repeatFanFlags, REPEAT_FAN_REDEEMS, spikeFlags,
+  botFlags, duplicateFlags, LOOKBACK_DAYS, manualFlags, redemptionFlags, repeatFanFlags, spikeFlags,
   type AnomalyKind, type Flag,
 } from "./anomaly-rules";
+import { activeModel, assertFeature, tenantsWithout } from "./model-registry";
 
 export const ANOMALY_KINDS: readonly AnomalyKind[] = ["spike", "duplicate", "bot", "redemption", "manual_entry"];
 export const OUTCOMES = ["confirmed_issue", "false_positive", "excluded_from_reporting"] as const;
@@ -65,7 +66,7 @@ export class AnomalyNoteError extends Error {
 }
 
 /** Every flag the rules raise for one tenant over the lookback. */
-async function detect(tenantId: string, now: Date): Promise<Flag[]> {
+async function detect(tenantId: string, now: Date, t: Record<string, number>): Promise<Flag[]> {
   const since = new Date(now.getTime() - LOOKBACK_DAYS * 86_400_000);
   const [metrics, posts, clicks, redeems, repeatFans] = await Promise.all([
     prisma.metricDaily.findMany({
@@ -102,19 +103,19 @@ async function detect(tenantId: string, now: Date): Promise<Flag[]> {
         WHERE e."tenantId" = $1 AND e.type = 'REDEEM' AND e.at >= $2 AND e."fanEmail" IS NOT NULL
         GROUP BY t."rewardId", r."offerText", lower(trim(e."fanEmail"))
        HAVING count(*) >= $3`,
-      tenantId, since, REPEAT_FAN_REDEEMS,
+      tenantId, since, t.repeatFanRedeems!,
     ),
   ]);
   const entries = metrics.map((m) => ({ deliverableId: m.deliverableId, title: m.deliverable.title, day: m.day, source: m.source, views: m.views, engagements: m.engagements }));
   return [
-    ...spikeFlags(entries),
+    ...spikeFlags(entries, t.spikeFactor),
     ...duplicateFlags(posts.map((p) => ({
       deliverableId: p.id, title: p.title, publishedUrl: p.publishedUrl!, publishedAt: p.publishedAt, campaignId: p.order.campaignId, campaignName: p.order.campaign.name,
     }))),
-    ...botFlags(clicks),
-    ...redemptionFlags(redeems),
-    ...repeatFanFlags(repeatFans.map((r) => ({ ...r, n: Number(r.n) }))),
-    ...manualFlags(entries),
+    ...botFlags(clicks, t.botClicks),
+    ...redemptionFlags(redeems, t.burstRedeems),
+    ...repeatFanFlags(repeatFans.map((r) => ({ ...r, n: Number(r.n) })), t.repeatFanRedeems),
+    ...manualFlags(entries, t.manualFactor),
   ];
 }
 
@@ -122,12 +123,15 @@ export type AnomalyReport = { tenants: number; flagged: number; excludedAutomati
 
 /** The nightly run, for every tenant or one. New flags are kept; the clear-cut ones are decided automatically and audited. */
 export async function runAnomalies(db: PrismaClient, now: Date, opts: { tenantId?: string; skipTenants?: string[] } = {}): Promise<AnomalyReport> {
-  const skip = new Set(opts.skipTenants ?? []);
+  /* 3S8-OPS-01 — a tenant with anomaly detection switched off is not checked. */
+  const skip = new Set([...(opts.skipTenants ?? []), ...(await tenantsWithout(db, "anomalies"))]);
   const tenants = opts.tenantId ? [opts.tenantId] : (await db.tenant.findMany({ select: { id: true }, orderBy: { id: "asc" } })).map((t) => t.id);
   const report: AnomalyReport = { tenants: 0, flagged: 0, excludedAutomatically: 0, skipped: tenants.filter((t) => skip.has(t)) };
   for (const tenantId of tenants.filter((t) => !skip.has(t))) {
     report.tenants += 1;
-    const flags = await detect(tenantId, now);
+    /* 3S8-BE-01 — the tenant's active settings, and the version stamp on every flag raised with them. */
+    const model = await activeModel(db, tenantId, "anomalies");
+    const flags = await detect(tenantId, now, model.t);
     const known = new Set((flags.length ? await db.anomaly.findMany({
       where: { tenantId, fingerprint: { in: flags.map((f) => f.fingerprint) } }, select: { fingerprint: true },
     }) : []).map((a) => a.fingerprint));
@@ -135,7 +139,7 @@ export async function runAnomalies(db: PrismaClient, now: Date, opts: { tenantId
       await db.$transaction(async (tx) => {
         const made = await tx.anomaly.createMany({
           data: [{
-            tenantId, kind: f.kind, severity: f.severity, ruleId: f.ruleId, ruleVersion: ANOMALY_RULES_VERSION,
+            tenantId, kind: f.kind, severity: f.severity, ruleId: f.ruleId, ruleVersion: model.stamp,
             subjectType: f.subject.type, subjectId: f.subject.id, subjectName: f.subject.name, fingerprint: f.fingerprint,
             evidence: f.evidence as unknown as Prisma.InputJsonValue, detectedAt: now,
             ...(f.auto ? { outcome: f.auto.outcome, note: f.auto.note, automatic: true, decidedAt: now } : {}),
@@ -191,6 +195,7 @@ async function toViews(tenantId: string, rows: readonly Row[]) {
 /** GET /intelligence/anomalies?tab=open|resolved&kind&page&size — open: highest severity first, newest first; resolved: newest decision first. */
 export async function anomalyDesk(actor: Actor, q: { tab: "open" | "resolved"; kind?: AnomalyKind; page: PageRequest }) {
   assertTenantWide(actor, "anomaly", "read");
+  await assertFeature(prisma, actor.tenantId, "anomalies");
   const tenantId = actor.tenantId;
   const [all, scan] = await Promise.all([
     prisma.anomaly.findMany({ where: { tenantId }, select: { id: true, kind: true, severity: true, ruleId: true, outcome: true, detectedAt: true, decidedAt: true } }),
@@ -218,6 +223,7 @@ export async function anomalyDesk(actor: Actor, q: { tab: "open" | "resolved"; k
 /** POST /intelligence/anomalies/:id/disposition — a person decides, with a note. Final; it may replace SponsorX's automatic decision. */
 export async function disposeAnomaly(actor: Actor, id: string, input: { outcome: Outcome; note: string }, now = new Date()) {
   assertTenantWide(actor, "anomaly", "write");
+  await assertFeature(prisma, actor.tenantId, "anomalies");
   const note = input.note.trim();
   if (note.length < NOTE_MIN || note.length > NOTE_MAX) throw new AnomalyNoteError();
   const row = await prisma.$transaction(async (tx) => {

@@ -28,6 +28,7 @@ import { ForbiddenError } from "../auth/errors";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { prisma } from "../db/client";
 import { BRAND_CATEGORIES, SENSITIVE_CATEGORIES } from "./brand-categories";
+import { assertFeature } from "./model-registry";
 
 export const PROPERTY_INTEL_VERSION = "property-intel@1.0.0";
 /** Sales in this many days count towards sell-through, opportunity and category fit. */
@@ -67,6 +68,7 @@ export async function propertyIntelligence(actor: Actor, now = new Date()) {
     select: { id: true, tenantId: true, kind: true },
   });
   if (!property) throw new ForbiddenError("propertyIntelligence", "read");
+  await assertFeature(prisma, property.tenantId, "propertyHub");
   const tenantId = property.tenantId;
   const since = new Date(now.getTime() - SALES_WINDOW_DAYS * 86_400_000);
   const school = property.kind === "SCHOOL";

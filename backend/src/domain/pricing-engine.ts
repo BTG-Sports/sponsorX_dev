@@ -33,6 +33,7 @@ import { prisma } from "../db/client";
 import { Prisma } from "../generated/prisma/client";
 import type { PageInfo, PageRequest } from "../lib/paging";
 import { BENCHMARK_MIN_SAMPLE, listBenchmarks, type BenchmarkView } from "./benchmarks";
+import { activeModel, assertFeature, tenantsWithout } from "./model-registry";
 import type { AthleteFeatures } from "./feature-snapshots";
 import { impliedCpm, projectImpressions } from "./pricing-learning";
 
@@ -90,6 +91,8 @@ export type EngineInput = {
   floorPriceCents: number | null;
   peers: Peers;
   computedAt: Date;
+  /** 3S8-BE-01 — the tenant's active settings and their stamp; the built-in ones when absent. */
+  model?: { stamp: string; maxFactor: number; maxTotal: number };
 };
 
 const DIMENSION_WORDS: Record<string, (segment: string) => string> = {
@@ -123,25 +126,25 @@ function rawFactors(input: EngineInput): Array<Omit<Factor, "impactCents">> {
   const rate = f.engagement.rate;
   const median = input.peers.medianEngagementRate;
   out.push(rate !== null && median !== null && median > 0
-    ? { key: "engagement", label: "Engagement", effect: clamp((rate / median - 1) * 0.5, MAX_FACTOR),
+    ? { key: "engagement", label: "Engagement", effect: clamp((rate / median - 1) * 0.5, input.model?.maxFactor ?? MAX_FACTOR),
         explanation: `${(rate * 100).toFixed(1)}% of verified viewers engaged, against ${(median * 100).toFixed(1)}% typical here.` }
     : { key: "engagement", label: "Engagement", effect: 0, explanation: "No verified engagement yet, so no adjustment." });
 
   const d = f.delivery;
   out.push(d.dueByToday >= 3 && d.onTimeRate !== null
-    ? { key: "delivery", label: "Delivery record", effect: clamp((d.onTimeRate - 0.8) * 0.5, MAX_FACTOR),
+    ? { key: "delivery", label: "Delivery record", effect: clamp((d.onTimeRate - 0.8) * 0.5, input.model?.maxFactor ?? MAX_FACTOR),
         explanation: `${d.publishedOnTime} of ${d.dueByToday} deliverables were published on time in the last ${f.window.days} days.` }
     : { key: "delivery", label: "Delivery record", effect: 0, explanation: "Fewer than 3 deliverables due yet, so no adjustment." });
 
   const typical = input.peers.ordersPerAthlete.get(key) ?? 0;
   out.push(typical > 0
-    ? { key: "demand", label: "Demand", effect: clamp((f.demand.ordersBooked / typical - 1) * 0.1, MAX_FACTOR),
+    ? { key: "demand", label: "Demand", effect: clamp((f.demand.ordersBooked / typical - 1) * 0.1, input.model?.maxFactor ?? MAX_FACTOR),
         explanation: `${f.demand.ordersBooked} order(s) booked in the last ${f.window.days} days, against ${round2(typical)} typical for ${input.athlete.sport} athletes in the same state.` }
     : { key: "demand", label: "Demand", effect: 0, explanation: "No recent orders for comparable athletes, so no adjustment." });
 
   const s = f.seasonality;
   out.push(s.index !== null
-    ? { key: "seasonality", label: "Seasonality", effect: clamp((s.index - 1) * 0.25, MAX_FACTOR),
+    ? { key: "seasonality", label: "Seasonality", effect: clamp((s.index - 1) * 0.25, input.model?.maxFactor ?? MAX_FACTOR),
         explanation: `This month is ${s.index >= 1 ? "busier" : "quieter"} than usual for ${input.athlete.sport} (${s.index}× an average month).` }
     : { key: "seasonality", label: "Seasonality", effect: 0, explanation: `No adjustment: ${s.reason ?? "not enough history"}.` });
 
@@ -180,7 +183,8 @@ export function recommend(input: EngineInput): Recommendation | null {
   /* Cap each factor, then the total: scaled down together, so each keeps its share. */
   const raw = rawFactors(input);
   const sum = raw.reduce((t, x) => t + x.effect, 0);
-  const scale = Math.abs(sum) > MAX_TOTAL ? MAX_TOTAL / Math.abs(sum) : 1;
+  const maxTotal = input.model?.maxTotal ?? MAX_TOTAL;
+  const scale = Math.abs(sum) > maxTotal ? maxTotal / Math.abs(sum) : 1;
   const factors: Factor[] = raw.map((x) => {
     const effect = Math.round(x.effect * scale * 10_000) / 10_000;
     return { ...x, effect, impactCents: Math.round(baseCpmCents * effect) };
@@ -204,7 +208,7 @@ export function recommend(input: EngineInput): Recommendation | null {
       ? { p25Cents: base.p25, medianCents: base.median, p75Cents: base.p75, sampleSize: base.sampleSize,
           basis: `${DIMENSION_WORDS[base.dimension]!(base.segment)}, last 12 months${base.smallSample ? " (small sample)" : ""}` }
       : null,
-    stamp: { modelVersion: PRICING_MODEL_VERSION, confidence: confidence(base, f), computedAt: input.computedAt.toISOString() },
+    stamp: { modelVersion: input.model?.stamp ?? PRICING_MODEL_VERSION, confidence: confidence(base, f), computedAt: input.computedAt.toISOString() },
   };
 }
 
@@ -226,6 +230,8 @@ const median = (xs: number[]) => {
 
 /** Every athlete item of the tenant that can be priced, with its recommendation. */
 async function priceTenant(tenantId: string, now: Date): Promise<Priced[]> {
+  const active = await activeModel(prisma, tenantId, "pricing");
+  const model = { stamp: active.stamp, maxFactor: active.t.maxFactor!, maxTotal: active.t.maxTotal! };
   const items = await prisma.inventoryItem.findMany({
     /* tenant-scope: explicit — this tenant's active athlete items. */
     where: { tenantId, active: true, athleteId: { not: null } },
@@ -282,6 +288,7 @@ async function priceTenant(tenantId: string, now: Date): Promise<Priced[]> {
       floorPriceCents: tierFloor !== undefined ? tierFloor * 100 : null,
       peers,
       computedAt: now,
+      model,
     });
     if (!recommendation) continue;
     out.push({
@@ -304,7 +311,8 @@ export type StoreReport = { tenants: number; items: number; stored: number; alre
  * the worker passes the tenants whose fact check failed.
  */
 export async function storePricingRecommendations(now: Date, opts: { tenantId?: string; skipTenants?: string[] } = {}): Promise<StoreReport> {
-  const skip = new Set(opts.skipTenants ?? []);
+  /* 3S8-OPS-01 — a tenant with pricing switched off stores none. */
+  const skip = new Set([...(opts.skipTenants ?? []), ...(await tenantsWithout(prisma, "pricing"))]);
   const tenants = opts.tenantId
     ? [opts.tenantId]
     : (await prisma.tenant.findMany({ select: { id: true }, orderBy: { id: "asc" } })).map((t) => t.id);
@@ -393,6 +401,7 @@ export type PricingDeskView = "above" | "below" | "low" | "";
 /** GET /intelligence/pricing — the priced items, a page of them, and the summary over all of them. */
 export async function pricingDesk(actor: Actor, q: { page: PageRequest; search?: string; view?: PricingDeskView }, now = new Date()) {
   assertTenantWide(actor, "pricingRecommendation", "read");
+  await assertFeature(prisma, actor.tenantId, "pricing");
   const all = await latestStored(actor.tenantId, now);
   const summary = {
     priced: all.length,
@@ -422,6 +431,7 @@ export async function pricingDesk(actor: Actor, q: { page: PageRequest; search?:
 /** GET /intelligence/pricing/:inventoryId — one item's latest suggestion, with its factors and range, and every override. */
 export async function pricingDetail(actor: Actor, inventoryId: string, now = new Date()) {
   assertTenantWide(actor, "pricingRecommendation", "read");
+  await assertFeature(prisma, actor.tenantId, "pricing");
   const [p] = await latestStored(actor.tenantId, now, inventoryId);
   if (!p) throw new NotPricedError();
   const overrides = await prisma.$queryRawUnsafe<Array<{ id: string; cpmCents: number; reason: string; email: string | null; createdAt: Date }>>(
@@ -472,6 +482,7 @@ export class OverrideBelowFloorError extends Error {
  */
 export async function overridePrice(actor: Actor, recommendationId: string, input: { cpmCents: number; reason: string }) {
   assertTenantWide(actor, "pricingRecommendation", "write");
+  await assertFeature(prisma, actor.tenantId, "pricing");
   const rec = await prisma.pricingRecommendation.findFirst({
     where: { id: recommendationId, tenantId: actor.tenantId },
     select: { id: true, inventoryId: true, floorCpmCents: true, recommendedCpmCents: true },

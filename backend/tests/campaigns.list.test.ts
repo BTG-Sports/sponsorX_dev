@@ -20,6 +20,8 @@ vi.mock("../src/db/client", () => ({
     },
     /* 3S5 — BTG's detail lists the campaign's make-goods (covered on a real database by tests/makegood.test.ts). */
     makeGoodShortfall: { findMany: () => Promise.resolve([]) },
+    /* 3S8-OPS-01 — no flag row: every feature on. */
+    featureFlag: { findFirst: () => Promise.resolve(null) },
   },
 }));
 

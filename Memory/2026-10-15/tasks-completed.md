@@ -203,3 +203,56 @@
 - **Why the local run missed it:** the test scans only git-tracked files, and the new file wasn't added yet.
 - **The fix:** fans are now grouped in the database (`GROUP BY lower(trim("fanEmail"))`), returning only the count and the first redemption's id and time. The address never leaves the database. The flag's evidence is "Times one fan redeemed" and "Their first redemption"; the masked email is gone.
 - **Checks:** re-run with every file tracked: backend 215 / 3,345 and web 140 / 1,531, both green.
+
+## rcfworks — P2-OPS-08 dropped (user decision)
+
+- **Decision:** the user asked for "PR environments" (a temporary copy of the app per pull request) to be deleted: "its not worth doing".
+- **Recorded as Dropped,** in the tracker (Phase 1) and the plan, with the reasons:
+  - CI already runs the full suite on a fresh database for every PR;
+  - the team is two people;
+  - it would cost Railway money.
+- **Not physically removed:** deleting a row would throw off the Dashboard's ranges and counts.
+- **Nothing depended on it** (Unblocks 0).
+- **Phase 1 backend left:** two-step login and production keys (waiting for launch by decision), the sign-off and UAT (end of phase), the first NEXT edition sale (a business milestone), and HeckerCreatives' two.
+
+## rcfworks — 3S0-PMO-02, 3S8-BE-01, 3S8-OPS-01 (Code review, one PR)
+
+**Asked:** "lets do next 3 backend task … for phase 3". Only 3S9-QA-02 could start; the rest waited on 3S0-PMO-02. The user approved drafting the policy and building the registry and flags.
+
+**3S0-PMO-02 · governance policy:** `documentation/SponsorX-Model-Governance.md`, drafted for the owner's approval.
+
+**3S8-BE-01 · model registry:**
+- **Settings:** `model-registry.ts` (`MODEL_DEFS`, the safe ranges, `activeModel`).
+- **Admin:** `model-admin.ts`:
+  - the desk;
+  - `changeSettings`: inside the ranges it auto-validates and activates (`model.autoActivate`, null actor); outside, it is held as a draft;
+  - `validateVersion`: a second person, never the proposer;
+  - `activateVersion`;
+  - `rollbackModel`;
+  - `setFlag`.
+- **The built-in version** is stored on the first change, so it can be rolled back to.
+- **Engines wired to their tenant's active settings and stamp:**
+
+  | Engine | Settings it reads |
+  |---|---|
+  | Pricing | `maxFactor`, `maxTotal` |
+  | Matching | lookback; a run made with other settings is re-ranked |
+  | Forecast | `riskWith`, `alertMove`, `forecastFlow`'s trust share |
+  | Make-goods | auto rules, window days |
+  | Anomalies | every threshold |
+
+- **`riskOf(p)` keeps its one-argument shape,** because `tests/forecast.test.ts` maps over it. The settings version is `riskWith`.
+
+**3S8-OPS-01 · feature flags:**
+- **Nine features.** The `FeatureFlag` table holds them, and no row means on.
+- **Off:**
+  - the nightly runs skip the tenant (`tenantsWithout`);
+  - reads and writes answer 403 `feature_off` (`assertFeature`);
+  - the campaign and forecast details return no make-goods.
+
+**Shared:**
+- migration `20261015190000_model_registry_flags`, with one active version per tenant and model (a partial unique index);
+- matrix digest `4f8aa9696f132aa2`, RBAC §35;
+- the tenant-isolation sweep: a seeded tenant-A validated version. The settings PATCH is exempted from the "names tenant A" rule, because `{key}` is an engine name and tenant B changing its own settings is correct; the leak check still applies;
+- the `campaigns.list` fake gains `featureFlag`;
+- `tests/model-registry.test.ts`, 7: built-ins; an auto change that the forecast uses and stamps; a held change, the second person, activation; rollback and compare; refusals; a switch off and on; who.

@@ -27,11 +27,12 @@ import type { Prisma, PrismaClient } from "../generated/prisma/client";
 import type { PageInfo, PageRequest } from "../lib/paging";
 import type { AthleteFeatures } from "./feature-snapshots";
 import {
-  addDays, alertMove, daysInclusive, flight, FORECAST_MODEL_VERSION, forecastDeliverables, forecastFlow, GUARANTEE_METRICS, isoDay,
-  projectionPath, recommendedActions, riskFactors, riskOf,
-  type ChannelDelivery, type GuaranteeMetric, type PendingDeliverable, type Risk,
+  addDays, alertMove, daysInclusive, flight, forecastDeliverables, forecastFlow, GUARANTEE_METRICS, isoDay,
+  projectionPath, recommendedActions, riskFactors, riskWith,
+  type ChannelDelivery, type ForecastSettings, type GuaranteeMetric, type PendingDeliverable, type Risk,
 } from "./forecast-rules";
 import { campaignMakeGoods } from "./makegood-engine";
+import { activeModel, assertFeature, tenantsWithout } from "./model-registry";
 import { appUrl, tell } from "./order-mail";
 
 type Tx = Prisma.TransactionClient;
@@ -141,12 +142,16 @@ export type ForecastReport = { tenants: number; campaigns: number; forecasts: nu
  * the same day changes nothing), and the alert move.
  */
 export async function runForecasts(db: PrismaClient, now: Date, opts: { tenantId?: string; skipTenants?: string[]; emails?: boolean } = {}): Promise<ForecastReport> {
-  const skip = new Set(opts.skipTenants ?? []);
+  /* 3S8-OPS-01 — a tenant with forecasts switched off makes none. */
+  const skip = new Set([...(opts.skipTenants ?? []), ...(await tenantsWithout(db, "forecast"))]);
   const tenants = opts.tenantId ? [opts.tenantId] : (await db.tenant.findMany({ select: { id: true }, orderBy: { id: "asc" } })).map((t) => t.id);
   const today = day(now);
   const report: ForecastReport = { tenants: 0, campaigns: 0, forecasts: 0, alertsRaised: 0, emails: 0, skipped: tenants.filter((t) => skip.has(t)) };
   for (const tenantId of tenants.filter((t) => !skip.has(t))) {
     report.tenants += 1;
+    /* 3S8-BE-01 — the tenant's active settings, and the stamp on every forecast made with them. */
+    const model = await activeModel(db, tenantId, "forecast");
+    const settings = { watchBelow: model.t.watchBelow!, atRiskBelow: model.t.atRiskBelow!, alertMinElapsed: model.t.alertMinElapsed! };
     const campaigns = await db.campaign.findMany({
       /* tenant-scope: explicit — this tenant's campaigns in flight. */
       where: { tenantId, state: "ACTIVE", startDate: { lte: addDays(today, 1) }, endDate: { gte: today } },
@@ -173,15 +178,15 @@ export async function runForecasts(db: PrismaClient, now: Date, opts: { tenantId
       /* 3S4-BE-01 — the forecast. */
       const p = x.metric === "deliverables"
         ? forecastDeliverables(x.guarantee, x.delivered, x.pending, today, c.endDate)
-        : forecastFlow(x.guarantee, x.daily, x.flight.total);
-      const risk = riskOf(p.probability);
+        : forecastFlow(x.guarantee, x.daily, x.flight.total, model.t.fullTrustElapsed);
+      const risk = riskWith(p.probability, settings);
       const situation = {
         metric: x.metric, guarantee: x.guarantee, delivered: x.delivered, expectedToday: x.expectedBy(today), projectedMid: p.mid,
         elapsed: x.flight.elapsed, daysLeft: x.flight.left, overdue: x.overdue, channels: x.channels, risk,
       };
       const made = await db.campaignForecast.createMany({
         data: [{
-          tenantId, campaignId: c.id, day: today, modelVersion: FORECAST_MODEL_VERSION, metric: x.metric, guarantee: x.guarantee,
+          tenantId, campaignId: c.id, day: today, modelVersion: model.stamp, metric: x.metric, guarantee: x.guarantee,
           delivered: x.delivered, deliveredSource: x.deliveredSource, elapsed: x.flight.elapsed, low: p.low, mid: p.mid, high: p.high,
           probability: p.probability, risk,
           riskFactors: riskFactors(situation) as unknown as Prisma.InputJsonValue,
@@ -194,7 +199,7 @@ export async function runForecasts(db: PrismaClient, now: Date, opts: { tenantId
       report.forecasts += 1;
 
       /* 3S4-BE-02 — the alert move, once per new forecast. */
-      const moved = await db.$transaction(async (tx) => alertFor(tx, tenantId, c, risk, p.probability, p.mid, x.guarantee, x.metric, situation, today, opts.emails ?? false));
+      const moved = await db.$transaction(async (tx) => alertFor(tx, tenantId, c, risk, p.probability, p.mid, x.guarantee, x.metric, situation, today, opts.emails ?? false, settings));
       report.alertsRaised += moved.raised;
       report.emails += moved.emails;
     }
@@ -204,7 +209,7 @@ export async function runForecasts(db: PrismaClient, now: Date, opts: { tenantId
 
 async function alertFor(
   tx: Tx, tenantId: string, c: CampaignRow, risk: Risk, probability: number, mid: number, guarantee: number, metric: GuaranteeMetric,
-  situation: Parameters<typeof recommendedActions>[0], today: Date, emails: boolean,
+  situation: Parameters<typeof recommendedActions>[0], today: Date, emails: boolean, settings: ForecastSettings,
 ): Promise<{ raised: number; emails: number }> {
   const open = await tx.campaignForecastAlert.findFirst({
     /* tenant-scope: explicit — this campaign's open alert. */
@@ -212,7 +217,7 @@ async function alertFor(
     orderBy: { raisedAt: "desc" },
     select: { id: true, risk: true, emailed: true, raisedAt: true },
   });
-  const move = alertMove(open ? { id: open.id, risk: open.risk as "watch" | "at_risk", emailed: open.emailed } : null, risk, day(today) <= day(c.endDate), situation.elapsed);
+  const move = alertMove(open ? { id: open.id, risk: open.risk as "watch" | "at_risk", emailed: open.emailed } : null, risk, day(today) <= day(c.endDate), situation.elapsed, settings);
   let sent = 0;
   const people = async () => tx.user.findMany({
     /* tenant-scope: explicit — the tenant's BTG admins and campaign managers. */
@@ -290,6 +295,7 @@ const row = (r: LatestRow) => ({
 /** GET /intelligence/forecasts?risk=all|at_risk|watch|on_track — every active campaign's latest forecast, riskiest first. */
 export async function forecastList(actor: Actor, q: { risk?: Risk | "all"; page: PageRequest }) {
   assertTenantWide(actor, "campaignForecast", "read");
+  await assertFeature(prisma, actor.tenantId, "forecast");
   const all = (await latest(actor.tenantId)).sort((a, b) =>
     RISK_RANK[a.risk] - RISK_RANK[b.risk] || a.probability - b.probability || a.endDate.getTime() - b.endDate.getTime() || a.campaignId.localeCompare(b.campaignId));
   const counts = { active: all.length, at_risk: 0, watch: 0, on_track: 0 };
@@ -302,6 +308,7 @@ export async function forecastList(actor: Actor, q: { risk?: Risk | "all"; page:
 /** GET /intelligence/forecasts/:campaignId — the latest forecast with its pacing, projection, reasons, actions, alert and history. */
 export async function forecastDetail(actor: Actor, campaignId: string) {
   assertTenantWide(actor, "campaignForecast", "read");
+  await assertFeature(prisma, actor.tenantId, "forecast");
   const [r] = await latest(actor.tenantId, campaignId);
   if (!r) throw new ForecastNotFoundError();
   /* tenant-scope: every read below is this campaign in the caller's tenant (`where`). */
@@ -328,6 +335,7 @@ export async function forecastDetail(actor: Actor, campaignId: string) {
 /** PUT /intelligence/forecasts/:campaignId/guarantee — BTG sets (or, with no metric, clears) what the campaign is promised. */
 export async function setGuarantee(actor: Actor, campaignId: string, input: { metric: GuaranteeMetric | null; value?: number | null }) {
   assertTenantWide(actor, "campaignForecast", "write");
+  await assertFeature(prisma, actor.tenantId, "forecast");
   const c = await prisma.campaign.findFirst({ where: { id: campaignId, tenantId: actor.tenantId }, select: { id: true, guaranteeMetric: true, guaranteeValue: true } });
   if (!c) throw new ForecastNotFoundError();
   if (input.metric !== null && (!input.value || input.value < 1)) throw new GuaranteeError("A guarantee needs a value of at least 1.");

@@ -181,6 +181,14 @@ Roles: SUPER_ADMIN, BTG_ADMIN.
   - `PATCH /intelligence/models/:key/thresholds { values, reason }`
   - `PATCH /intelligence/flags { feature, tenantId, enabled, reason }` (acceptance #12)
 - Acceptance #11: activate, roll back and compare with no deploy. The version rules above are the screen's reading of 3S0-PMO-02, which is not written yet — confirm them there.
+- **Mounted 2026-10-15** (3S8-BE-01, 3S8-OPS-01). The version rules match the policy, now written ([SponsorX-Model-Governance.md](./SponsorX-Model-Governance.md)). Fields beyond the contract:
+  - each version carries its `settings`, for comparing;
+  - its metrics are "Outputs made" until back-tests (3S9-QA-01) add theirs;
+  - a settings change answers `{ version, status, heldBecause, model }`. Inside the safe ranges it is active at once; outside them it is held as a draft;
+  - **extra endpoint:** `POST /intelligence/models/{key}/versions/{version}/validate { reason }` lets a second person validate a held draft. The screen needs a button for it;
+  - `rollouts` is empty: settings are per tenant, with no staged rollout;
+  - flags also include `scenarios` and `zohoIntelligence`;
+  - a switched-off feature's reads answer 403 `feature_off`.
 
 ---
 

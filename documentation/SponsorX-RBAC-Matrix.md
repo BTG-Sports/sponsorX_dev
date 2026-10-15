@@ -1758,6 +1758,36 @@ Read through `GET /intelligence/anomalies`; decided through
   with no actor. A person may replace it; a person's decision is final.
 - **A flag outside the caller's tenant answers 404.**
 
+## 35 · Phase 3 · model registry and feature flags *(added 2026-10-15)*
+
+### `modelRegistry` (3S8-BE-01, 3S8-OPS-01)
+The engines' versioned settings and the per-tenant feature switches, under
+the governance policy (`SponsorX-Model-Governance.md`, 3S0-PMO-02).
+- **Read** through `GET /intelligence/models`.
+- **Written** through:
+  - `PATCH /intelligence/models/{key}/thresholds`;
+  - `POST …/versions/{version}/validate` and `…/activate`;
+  - `POST …/rollback`;
+  - `PATCH /intelligence/flags`.
+
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+
+- **Settings and switches are per tenant.** A BTG admin changes its own; a
+  super admin may switch a feature for any tenant.
+- **Inside the safe ranges a change goes live automatically,** audited as
+  `model.autoActivate` with no actor. Outside, it waits for a **second
+  person**, not the proposer, to validate it.
+- **Every act carries a reason** and is audited:
+  - `model.versionCreate`;
+  - `model.validate`;
+  - `model.activate`;
+  - `model.rollback`;
+  - `flag.set`.
+- **Campaign managers and Sales don't change how SponsorX decides.**
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

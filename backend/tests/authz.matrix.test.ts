@@ -433,7 +433,12 @@ describe("the whole matrix is pinned", () => {
       // SUPER_ADMIN any read and write; BTG_ADMIN and CAMPAIGN_MGR own-tenant
       // read and write (matrix §34); every other cell deny. With their rows
       // removed the grid hashes to the previous dc3c5d517b67a709.
-    ).toBe("22f65ea6071c590b");
+      // Updated 2026-10-15 (3S8-BE-01, 3S8-OPS-01): new `modelRegistry`
+      // resource — the engines' versioned settings and per-tenant feature
+      // flags. SUPER_ADMIN any read and write; BTG_ADMIN own-tenant read and
+      // write; every other cell deny (matrix §35). With its rows removed the
+      // grid hashes to the previous 22f65ea6071c590b.
+    ).toBe("4f8aa9696f132aa2");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {
