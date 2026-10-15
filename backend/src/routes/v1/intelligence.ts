@@ -11,12 +11,16 @@
  * 3S4 — the delivery forecast: active campaigns' forecasts, one campaign's
  * detail, and a campaign's guarantee (campaignForecast, RBAC matrix §30). Tenant-wide, for BTG admins, campaign managers and
  * Sales (pricingRecommendation, RBAC matrix §28).
+ *
+ * 3S5 — make-goods: campaigns' shortfalls with their substitutes, and
+ * approving one (makeGood, RBAC matrix §31). BTG admins and campaign managers.
  */
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { ForecastsQuery, GuaranteeInput, MatchesQuery, PricingOverrideInput, ShortlistInput } from "../../contracts/intelligence";
+import { ForecastsQuery, GuaranteeInput, MakeGoodApproveInput, MakeGoodsQuery, MatchesQuery, PricingOverrideInput, ShortlistInput } from "../../contracts/intelligence";
 import { forecastDetail, forecastList, setGuarantee } from "../../domain/forecast-engine";
+import { approveMakeGood, makeGoodList } from "../../domain/makegood-engine";
 import { matchPage, saveShortlist } from "../../domain/match-engine";
 import { overridePrice, pricingDesk, pricingDetail, type PricingDeskView } from "../../domain/pricing-engine";
 import { pageRequest } from "../../lib/paging";
@@ -86,3 +90,19 @@ const guarantee: RequestHandler<{ campaignId: string }> = async (req, res) => {
 intelligenceRouter.get("/intelligence/forecasts", requireActor, forecasts);
 intelligenceRouter.get("/intelligence/forecasts/:campaignId", requireActor, forecast);
 intelligenceRouter.put("/intelligence/forecasts/:campaignId/guarantee", requireActor, guarantee);
+
+/** GET /intelligence/make-goods?status=open|approved&campaign&page&size */
+const makeGoods: RequestHandler = async (req, res) => {
+  const q = MakeGoodsQuery.parse(req.query ?? {});
+  const page = pageRequest({ page: 1, ...req.query })!;
+  res.json(await makeGoodList(req.actor!, { status: q.status, campaignId: q.campaign, page }));
+};
+
+/** POST /intelligence/make-goods/:shortfallId/approve { optionId, note } */
+const approve: RequestHandler<{ shortfallId: string }> = async (req, res) => {
+  const body = MakeGoodApproveInput.parse(req.body ?? {});
+  res.json(await approveMakeGood(req.actor!, req.params.shortfallId, body));
+};
+
+intelligenceRouter.get("/intelligence/make-goods", requireActor, makeGoods);
+intelligenceRouter.post("/intelligence/make-goods/:shortfallId/approve", requireActor, approve);

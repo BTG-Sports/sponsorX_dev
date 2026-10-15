@@ -679,24 +679,52 @@ Projected final delivery, probability of guarantee, pacing chart, risk factors a
 
 *3 tasks · 13 person-days*
 
-### ⏸ `3S5-BE-01` · Make-good recommendation engine
+### ◑ `3S5-BE-01` · Make-good recommendation engine
 
-**Order** 23 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 23 · **BE** · **Where:** Code · **5d** · **Code review**
 
 Given a shortfall, find substitute inventory of equivalent value that is actually available and does not create a category conflict.
 
 - **Depends on:** 3S4-BE-01
 - **Done when:** Recommendations respect sponsor target, availability, exclusivity and estimated value equivalence
+- **Delivered:** 2026-10-15.
+  - **Shortfall:** opened nightly, after the forecasts, for an active campaign the forecast says is at risk. It is the guarantee less the projection, valued at what the sponsor paid per unit. It is refreshed while open, and closes when the campaign recovers.
+  - **Substitutes:** the tenant's inventory, through the match engine's own exclusivity and brand-safety filter, then the purchase paths' availability check.
+    - **When:** over 14 days from tomorrow (user, 2026-10-15).
+    - **Each one shows:** available, clear of exclusivity, on the sponsor's target; its estimated delivery, equivalency and cost to BTG.
+    - **Shown:** up to 5 passing every check, plus up to 2 closer ones that fail one.
+  - **Endpoint:** `GET /intelligence/make-goods`, with the new permission `makeGood` (RBAC matrix §31).
+
+  [`SponsorX-Make-Goods.md`](./SponsorX-Make-Goods.md) §1–§4
 - **Reference:** Spec §22
 
-### ⏸ `3S5-BE-02` · Make-good approval workflow
+### ◑ `3S5-BE-02` · Make-good approval workflow
 
-**Order** 24 · **BE** · **Where:** Code · **3d** · **Blocked**
+**Order** 24 · **BE** · **Where:** Code · **3d** · **Code review**
 
 A make-good changes what a sponsor was sold, so it needs approval and an audit trail.
 
 - **Depends on:** 3S5-BE-01
 - **Done when:** Make-good approval is recorded, audited and reflected in the campaign
+- **Delivered:** 2026-10-15.
+  - **By a person:** a BTG admin or campaign manager approves one substitute with a note (`POST /intelligence/make-goods/{id}/approve`).
+  - **Automatically by SponsorX,** under the Phase 2 rule (user, 2026-10-15). It approves on its own only when the best substitute:
+    - passes every check;
+    - covers at least 90% of the gap;
+    - costs BTG no more than the gap is worth;
+    - involves no minor, school or age-gated category;
+    - is estimated from verified figures;
+    - and 80% of the flight has gone.
+
+    Otherwise the shortfall is held, with every reason.
+  - **Either way:**
+    - the checks run again, live;
+    - the units are committed so nobody else can buy them;
+    - the decision is recorded and can never change (a database trigger);
+    - it is audited (`makeGood.approve` / `makeGood.autoApprove`);
+    - it shows on the campaign's detail and its forecast.
+
+  [`SponsorX-Make-Goods.md`](./SponsorX-Make-Goods.md) §5–§6
 - **Reference:** Spec §18
 
 ### ✅ `3S5-FE-01` · Build the make-good recommendation centre

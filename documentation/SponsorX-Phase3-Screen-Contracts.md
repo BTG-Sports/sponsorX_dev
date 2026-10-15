@@ -85,6 +85,10 @@ Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR (read and approve).
   - shortfall: `id, campaign { id, name }, sponsorName, metric, sold, projected, shortfall, shortfallValueCents, endsAt, stamp, options, decision { optionId, by, at, note } | null`
   - option: `id, inventoryName, propertyName, format, equivalencyScore (0..1), estimatedDelivery, costImpactCents (signed), checks { available, exclusivityClear, meetsTarget }, reason` (acceptance #7).
 - `POST /intelligence/make-goods/:id/approve { optionId, note }` — 409 when the option fails a check or the shortfall is already decided; 422 on a blank note. Recorded, audited and reflected in the campaign (3S5-BE-02).
+- **Mounted 2026-10-15** (3S5-BE-01/02, [SponsorX-Make-Goods.md](./SponsorX-Make-Goods.md)) as proposed. Fields beyond the contract:
+  - each shortfall adds `status` and `automatic { approved, heldBecause[] }`. SponsorX approves on its own when every safety check passes; otherwise these are the reasons it waits for a person.
+  - the decision adds `automatic`, `runsFrom` and `runsUntil`.
+  - a note under 8 characters is a 422.
 
 ## 3S6-FE-01 · Attribution dashboard — `/admin/intelligence/attribution`
 

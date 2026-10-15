@@ -1655,6 +1655,31 @@ the guarantee set through `PUT /intelligence/forecasts/{campaignId}/guarantee`.
   through its own report.
 - **A campaign outside the caller's tenant answers 404.**
 
+## 31 · Phase 3 · make-goods *(added 2026-10-15)*
+
+### `makeGood` (3S5-BE-01, 3S5-BE-02)
+A campaign's projected shortfall against its guarantee, the substitute
+inventory that could make it good (with each one's checks, equivalency and
+cost to BTG), and the decision. Read through `GET /intelligence/make-goods`
+(and on the campaign's detail and forecast); approved through
+`POST /intelligence/make-goods/{shortfallId}/approve`.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | — | any |
+| `BTG_ADMIN`, `CAMPAIGN_MGR` | own-tenant | — | own-tenant |
+
+- **Only BTG admins and campaign managers.** A make-good changes what a
+  sponsor was sold and spends BTG's inventory. Sales reads the forecast
+  (§30) but not the make-goods. No sponsor sees the options or their cost.
+- **Approve is the only act by a person.** Shortfalls and their substitutes
+  are made by the worker. An approval is audited (`makeGood.approve`).
+- **SponsorX approves on its own only when every safety check passes**
+  (user, 2026-10-15). That is audited as `makeGood.autoApprove`, with no
+  actor. Otherwise the shortfall waits for a person, with the reasons.
+- **A decided make-good never changes.** The database refuses any update or
+  delete of an approved shortfall and its substitutes.
+- **A shortfall outside the caller's tenant answers 404.**
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

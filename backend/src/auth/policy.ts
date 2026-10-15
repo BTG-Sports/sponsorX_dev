@@ -176,7 +176,8 @@ export type Resource =
   | "supportMessage"
   | "pricingRecommendation"
   | "briefMatch"
-  | "campaignForecast";
+  | "campaignForecast"
+  | "makeGood";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -261,6 +262,7 @@ export const RESOURCES: readonly Resource[] = [
   "pricingRecommendation",
   "briefMatch",
   "campaignForecast",
+  "makeGood",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -1112,6 +1114,17 @@ export const POLICY: Record<Resource, RolePolicy> = {
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
     CAMPAIGN_MGR: rwa("own-tenant", "own-tenant"),
     SALES: rwa("own-tenant"),
+  },
+  /* 3S5-BE-01/02 (matrix §31) — a campaign's projected shortfall, the
+     substitutes that could make it good, and approving one. A make-good
+     changes what a sponsor was sold and spends BTG's inventory, so only BTG
+     admins and campaign managers read and approve; Sales does not. A sponsor
+     never sees the options or their cost. Nothing is written by hand but the
+     approval, so there is no write. */
+  makeGood: {
+    SUPER_ADMIN: rwa("any", undefined, "any"),
+    BTG_ADMIN: rwa("own-tenant", undefined, "own-tenant"),
+    CAMPAIGN_MGR: rwa("own-tenant", undefined, "own-tenant"),
   },
 };
 
