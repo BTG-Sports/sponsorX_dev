@@ -272,3 +272,15 @@
   - A first, looser pattern (`SponsorX-Phase[1-4]-*`) also matched the screen contracts and the ledger design (a test mentions that one), so it was tightened to the exact names.
 - **Tested on samples:** the #224 shape and each plan file skip; the screen contracts, ledger design, payment policy, RBAC matrix, plan + code, and a lookalike all run in full.
 - **Held locally** until #224 merges, so #224 stays a pure tracker PR.
+
+## rcfworks — deploy fb37c17 and the Zoho sandbox fields
+
+- **Deploy:** `main` went green on `fb37c17` (#222 with #221 and #223). Claude started the deploy, and `release` moved to `fb37c17`.
+- **Staging:** both migrations applied (`…150000_scenarios_anomalies_zoho_intel`, `…190000_model_registry_flags`); the API is listening; `/health` returns 200.
+- **Zoho sandbox (through staging):**
+  - `npm run zoho:intel-fields -- --create` was refused with INVALID_DATA for both fields.
+  - A one-off diagnostic call meant to read the error **created `SponsorX_Renewal_Score`**. That was the intended place (the sandbox), but the call was not the read-only check it was described as, and the user was told.
+  - The cause was the tooltip object. `SponsorX_Next_Action` was then created the same way.
+  - **Confirmed:** `SponsorX_Renewal_Score:integer` and `SponsorX_Next_Action:text`.
+  - The script drops the tooltips and prints Zoho's details on a refusal. That fix is committed with the CI change.
+- **Still to do:** **production** Zoho, with the user's OK. 3S7-INT-01 stays in Code review until then and until a push lands.
