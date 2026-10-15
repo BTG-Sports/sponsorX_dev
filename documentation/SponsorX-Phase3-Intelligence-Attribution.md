@@ -717,6 +717,7 @@ A make-good changes what a sponsor was sold, so it needs approval and an audit t
     - and 80% of the flight has gone.
 
     Otherwise the shortfall is held, with every reason.
+  - **Note:** the last two conditions (verified figures, 80% of the flight) were proposed during the build and approved by the user on 2026-10-15. They bind only the automatic approval; a person can approve any passing substitute at any time. [`SponsorX-Make-Goods.md`](./SponsorX-Make-Goods.md) §6
   - **Either way:**
     - the checks run again, live;
     - the units are committed so nobody else can buy them;

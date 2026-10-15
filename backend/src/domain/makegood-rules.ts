@@ -31,6 +31,13 @@
  *     near-certain and not an early dip that recovers;
  *   - the estimate rests on verified figures: the owner's own verified
  *     history, or a benchmark of at least BENCHMARK_MIN_SAMPLE orders.
+ *
+ * The last two were proposed in the build and approved by the user on
+ * 2026-10-15, to be kept noted: the 80% rule stops SponsorX spending BTG's
+ * inventory on a slow start that would have recovered; the verified-estimate
+ * rule stops a self-reported view count making a substitute look as if it
+ * covers the gap when it does not. Both bind only the automatic approval —
+ * a person may approve any passing substitute at any time.
  */
 import { BENCHMARK_MIN_SAMPLE } from "./benchmarks";
 import type { GuaranteeMetric } from "./forecast-rules";

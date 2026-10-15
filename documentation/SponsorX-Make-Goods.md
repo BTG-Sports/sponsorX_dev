@@ -105,6 +105,18 @@ SponsorX approves the best substitute itself only when **all** of these hold:
 5. **80%** of the flight has gone, so the shortfall is near-certain and not an early dip.
 6. The estimate rests on **verified figures**: the athlete's verified history, or a benchmark of at least 10 orders.
 
+> **Note on rules 5 and 6.** These two were proposed during the build, not in
+> the original request, and approved by the user on 2026-10-15.
+> - **Rule 5 (80% of the flight)** stops SponsorX spending BTG's inventory on a
+>   slow start that would have recovered. Early shortfalls often catch up on
+>   their own.
+> - **Rule 6 (verified estimate)** stops a self-reported view count making a
+>   substitute look as if it covers the gap when it doesn't, which would leave
+>   the sponsor short again.
+>
+> Both bind only the automatic approval. A BTG admin or campaign manager can
+> approve any passing substitute by hand at any time.
+
 **How it is recorded.**
 - **The same steps as a person's approval:** the live check, the commitment, the record and the audit (`makeGood.autoApprove`, no actor).
 - **The note** says why it qualified.

@@ -45,9 +45,11 @@
   - involves no minor, school or age-gated category.
 
   Otherwise the shortfall is held with the reasons.
-- **Two safety conditions added on my side,** stated in the doc and the PR:
-  - **at least 80% of the flight gone,** matching the forecast's "reserve make-good" action, so an early dip doesn't spend inventory;
-  - **a verified estimate:** the athlete's verified history, or a benchmark of 10 or more orders.
+- **Two safety conditions proposed during the build, approved by the user on 2026-10-15** (noted in the code, `SponsorX-Make-Goods.md` §6 and the plan, at the user's request):
+  - **at least 80% of the flight gone,** matching the forecast's "reserve make-good" action, so a slow start that would recover doesn't spend BTG's inventory;
+  - **a verified estimate:** the athlete's verified history, or a benchmark of 10 or more orders, so a self-reported view count can't make a substitute look as if it covers the gap.
+
+  Both bind only the automatic approval. A person can approve any passing substitute at any time.
 
 **Built:**
 - **`makegood-rules.ts`** (pure): the window; one unit's estimate (verified history, then profile, then benchmark; none for redemptions); units from 1 to 10 within stock and package rules; equivalency (smaller over larger); target misses; options shown (up to 5 passing plus 2 closer near-misses); the automatic decision with the held reasons in words.
