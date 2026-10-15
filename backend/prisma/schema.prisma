@@ -4282,3 +4282,25 @@ model FeatureFlag {
 
   @@id([tenantId, feature])
 }
+
+/// 3S9-QA-01 — one backtest of one model version: how far its answers were
+/// from what happened, and whether its confidence meant what it said. Kept
+/// per run; the registry shows a version's latest (real before simulated).
+model BacktestRun {
+  id          String   @id @default(cuid())
+  tenantId    String
+  /// forecast | pricing
+  model       String
+  /// The version stamp judged, e.g. forecast-rules@1.0.0.
+  version     String
+  /// True for the seeded simulated history (documentation/SponsorX-Backtest.md §4).
+  simulated   Boolean
+  ranAt       DateTime
+  sampleSize  Int
+  /// [{ label, value, unit?, better? }]
+  metrics     Json
+  /// [{ band, n, predicted, observed }]
+  calibration Json
+
+  @@index([tenantId, model, ranAt])
+}
