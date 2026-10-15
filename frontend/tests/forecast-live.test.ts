@@ -1,12 +1,44 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  PACING_BOX, SAMPLE_FORECAST_DETAILS, SAMPLE_FORECAST_LIST, alertLeadDays, alertWords, compareRisk, daysLeft, daysLeftWords, fmtCount, forecastTab,
-  linearExpected, nearestStop, niceCeil, paceRatio, paceWords, pacingBar, pacingGeometry, projectedShare, sampleForecastDetail, sampleForecastList,
-  sampleHref, tabCount, type ForecastDetail, type ForecastRow,
+  GUARANTEE_MAX, GUARANTEE_SET_ROLES, PACING_BOX, SAMPLE_FORECAST_DETAILS, SAMPLE_FORECAST_LIST, alertLeadDays, alertWords, canSetGuarantee,
+  checkGuarantee, compareRisk, daysLeft, daysLeftWords, fmtCount, forecastTab, guaranteeCount, guaranteeWords, linearExpected, nearestStop, niceCeil,
+  paceRatio, paceWords, pacingBar, pacingGeometry, projectedShare, sampleForecastDetail, sampleForecastList, sampleHref, tabCount,
+  type ForecastDetail, type ForecastRow,
 } from "@/lib/forecast-live";
 
-/* 3S4-FE-01 — the forecast dashboard's pure logic: tabs, risk order, pacing words, the mini bar, the chart geometry and the sample. */
+/* 3S4-FE-01 — the forecast dashboard's pure logic: tabs, risk order, pacing words, the mini bar, the chart geometry, the guarantee form and the sample. */
+
+describe("the guarantee (PUT …/guarantee, 2026-10-14)", () => {
+  it("BTG admins and campaign managers set it; Sales reads", () => {
+    for (const r of GUARANTEE_SET_ROLES) expect(canSetGuarantee([r])).toBe(true);
+    expect(canSetGuarantee(["SALES"])).toBe(false);
+    expect(canSetGuarantee(["SALES", "BTG_ADMIN"])).toBe(true);
+    expect(canSetGuarantee([])).toBe(false);
+  });
+  it("reads a count as people type it", () => {
+    expect(guaranteeCount("500,000")).toBe(500_000);
+    expect(guaranteeCount("500k")).toBe(500_000);
+    expect(guaranteeCount("1.2M")).toBe(1_200_000);
+    expect(guaranteeCount("")).toBeNull();
+    expect(guaranteeCount("many")).toBeNull();
+  });
+  it("an empty metric is the default and needs no number", () => {
+    expect(checkGuarantee("", "")).toEqual({ ok: true, input: { metric: null } });
+    expect(checkGuarantee("", "garbage")).toEqual({ ok: true, input: { metric: null } });
+  });
+  it("a named metric needs a whole number from 1 to the API's ceiling", () => {
+    expect(checkGuarantee("impressions", "500k")).toEqual({ ok: true, input: { metric: "impressions", value: 500_000 } });
+    expect(checkGuarantee("impressions", "")).toMatchObject({ ok: false });
+    expect(checkGuarantee("impressions", "0")).toMatchObject({ ok: false });
+    expect(checkGuarantee("impressions", String(GUARANTEE_MAX + 1))).toMatchObject({ ok: false });
+    expect(checkGuarantee("clicks", "10")).toMatchObject({ ok: false, message: "Pick what the campaign is promised." });
+  });
+  it("says the guarantee in words, default included", () => {
+    expect(guaranteeWords({ metric: "redemptions", value: 3000 }, "2026-10-31T00:00:00.000Z")).toBe("3,000 redemptions by Oct 31.");
+    expect(guaranteeWords(null, "2026-10-31T00:00:00.000Z")).toContain("Every deliverable booked");
+  });
+});
 
 const row = (o: Partial<ForecastRow> & { campaignId: string }): ForecastRow => ({
   campaignName: "Fc test",

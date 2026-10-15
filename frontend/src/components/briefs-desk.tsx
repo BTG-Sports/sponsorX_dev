@@ -259,6 +259,9 @@ function Desk({
               <dd>{sel.geography}</dd>
               <dt className="text-muted">Business category</dt>
               <dd>{sel.category}</dd>
+              {/* 3S3-BE-01 — what the sponsor asked the match engine for; BTG reads the same asks the engine filters by. */}
+              <dt className="text-muted">Sponsor asks</dt>
+              <dd>{sel.asks ?? <span className="text-faint">None beyond sport, geography and category</span>}</dd>
               <dt className="text-muted">Submitted</dt>
               <dd>{sel.submitted}</dd>
             </dl>

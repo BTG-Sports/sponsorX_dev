@@ -197,6 +197,11 @@ describe.skipIf(!hasDatabase)("3S3 · briefs, the ranking, and shortlists, again
     briefId = created.id;
     expect(await prisma.campaignBrief.findUniqueOrThrow({ where: { id: briefId }, select: { excludedCategories: true, channels: true, audienceTiers: true, audienceMinFollowers: true } }))
       .toEqual({ excludedCategories: ["ENERGY_DRINK"], channels: ["INSTAGRAM"], audienceTiers: ["CREATOR"], audienceMinFollowers: 10000 });
+    /* A list sent with repeats is stored as a set (QA 2026-10-15). */
+    await updateBrief(btg, briefId, { channels: ["TIKTOK", "TIKTOK", "INSTAGRAM"], audienceTiers: ["CREATOR", "CREATOR"], excludedCategories: ["ENERGY_DRINK", "ENERGY_DRINK"] }, NOW);
+    expect(await prisma.campaignBrief.findUniqueOrThrow({ where: { id: briefId }, select: { excludedCategories: true, channels: true, audienceTiers: true } }))
+      .toEqual({ excludedCategories: ["ENERGY_DRINK"], channels: ["TIKTOK", "INSTAGRAM"], audienceTiers: ["CREATOR"] });
+    await updateBrief(btg, briefId, { channels: ["INSTAGRAM"] }, NOW);
     await expect(createBrief(btg, {
       sponsorId: "me_sp", objective: "Both", budget: 1000, startDate: new Date("2026-11-01"), endDate: new Date("2026-11-30"),
       sports: [], stateCodes: [], categories: ["FITNESS"], excludedCategories: ["FITNESS"],

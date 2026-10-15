@@ -12,6 +12,7 @@ import {
   EXPLORER_PATH,
   KIND_LABEL,
   SAMPLE_BRIEF_LIST,
+  canSaveShortlist,
   explorerBriefsQuery,
   filteredOutTotal,
   matchKindOf,
@@ -22,8 +23,8 @@ import {
   type ApiBriefList,
   type ApiMatchPage,
 } from "@/lib/match-explorer-live";
-import type { ApiBrief } from "@/lib/matching-live";
-import { apiFetch } from "@/server/api";
+import { briefAsksLine, type ApiBrief } from "@/lib/matching-live";
+import { apiFetch, fetchActor } from "@/server/api";
 import { readEngine, wantsSample } from "@/server/engine";
 
 /* --------------------------------------------------------------------------
@@ -40,6 +41,8 @@ import { readEngine, wantsSample } from "@/server/engine";
           GET /intelligence/briefs/:briefId/matches?kind&page&size
               (the match scoring engine, 3S3-BE-02 — readEngine)
    Writes POST /intelligence/briefs/:briefId/shortlist { entryIds } (./actions.ts)
+          — offered to the roles the API lets save (canSaveShortlist); Sales
+          reads the ranking and the saved shortlist.
 
    Engine not mounted → title + <EnginePending>, nothing numeric. A real
    API error throws to the error boundary. ?demo=loading|empty|error, and
@@ -70,18 +73,22 @@ export default async function MatchExplorerPage({ searchParams }: { searchParams
   const kind = matchKindOf(sp);
   const bq = textParam(sp, "bq");
   const want = textParam(sp, "brief");
+  /* staffWithoutAccess let a demo viewer through unlinked: they can't save. */
+  const who = await fetchActor();
+  const canSave = who.status === "linked" && canSaveShortlist(who.actor.roles);
 
   if (await wantsSample(searchParams)) {
     const brief = SAMPLE_BRIEF_LIST.briefs.find((b) => b.id === want) ?? SAMPLE_BRIEF_LIST.briefs[0];
     return (
-      <Explorer list={SAMPLE_BRIEF_LIST} q="" brief={brief} data={sampleMatchPage(kind, brief.id)} sample banner={<SampleBanner />} />
+      <Explorer list={SAMPLE_BRIEF_LIST} q="" brief={brief} data={sampleMatchPage(kind, brief.id)} sample canSave={canSave} banner={<SampleBanner />} />
     );
   }
 
   if (demo === "empty") return <NoBrief />;
 
-  /* The picker — real briefs. A 403 is the API's answer for a role (Sales
-     may not read briefs), not an outage. */
+  /* The picker — real briefs. A 403 is the API's answer for a role, not an
+     outage. Every role this desk admits reads briefs today (network managers
+     since 2026-10-15); the state stays for the policy's next change. */
   const listRes = await apiFetch(`/briefs${explorerBriefsQuery(sp)}`);
   if (listRes.status === 403) {
     return (
@@ -120,7 +127,7 @@ export default async function MatchExplorerPage({ searchParams }: { searchParams
       </Frame>
     );
   }
-  return <Explorer list={list} q={bq} brief={brief} data={read.data} sample={false} />;
+  return <Explorer list={list} q={bq} brief={brief} data={read.data} sample={false} canSave={canSave} />;
 }
 
 function Frame({ children, pill, banner }: { children: ReactNode; pill?: ReactNode; banner?: ReactNode }) {
@@ -155,6 +162,7 @@ function Explorer({
   brief,
   data,
   sample,
+  canSave,
   banner,
 }: {
   list: ApiBriefList;
@@ -162,6 +170,7 @@ function Explorer({
   brief: ApiBrief;
   data: ApiMatchPage;
   sample: boolean;
+  canSave: boolean;
   banner?: ReactNode;
 }) {
   const kind = data.kind;
@@ -179,6 +188,14 @@ function Explorer({
     >
       <ExplorerBriefPicker briefs={list.briefs} page={list.page} q={q} currentId={brief.id} />
 
+      {/* 3S3-BE-01 — the sponsor's asks the engine filtered and scored by, so the ranking reads as an answer to them. */}
+      <p className="text-[11px] text-muted">
+        <span className="font-medium text-text">{brief.sponsorName} asks:</span>{" "}
+        {briefAsksLine(brief) ?? "nothing beyond sport, state and category"}
+        {brief.sports.length ? ` · ${brief.sports.join(", ")}` : ""}
+        {brief.stateCodes.length ? ` · ${brief.stateCodes.join(", ")}` : ""}
+      </p>
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label={`Ranked ${KIND_LABEL[kind].many.toLowerCase()}`} value={data.counts[kind].toLocaleString("en-US")} sub={`against ${brief.sponsorName}`} />
         <StatTile label="Filtered out" value={out.toLocaleString("en-US")} sub="unavailable, conflicted or unsafe" />
@@ -186,7 +203,7 @@ function Explorer({
         <StatTile label="Ranked" value={shortDay(data.run.computedAt)} sub={data.run.modelVersion} />
       </div>
 
-      <MatchExplorer key={brief.id} briefId={brief.id} data={data} sample={sample} />
+      <MatchExplorer key={brief.id} briefId={brief.id} data={data} sample={sample} canSave={canSave} />
     </Frame>
   );
 }

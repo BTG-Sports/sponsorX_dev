@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { EnginePending, SampleBanner } from "@/components/engine-pending";
 import { FigureTile, RiskBadge, StampLine, StatusChip } from "@/components/forecast-bits";
+import { ForecastGuaranteeForm } from "@/components/forecast-guarantee-form";
 import { ForecastPacingChart } from "@/components/forecast-pacing-chart";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { StageTable, Td, Tr, type Column } from "@/components/stage-table";
@@ -9,10 +10,11 @@ import { EmptyState, SkeletonChart, SkeletonRows } from "@/components/states";
 import { Card, SourceLabel } from "@/components/ui";
 import { demoState } from "@/lib/demo";
 import {
-  ACTION_WORD, METRIC_WORD, alertWords, dayLabel, daysLeftWords, flightWords, fmtCount, paceWords, projectedShare, sampleForecastDetail, sampleHref,
-  type ForecastDetail,
+  ACTION_WORD, METRIC_WORD, alertWords, canSetGuarantee, dayLabel, daysLeftWords, flightWords, fmtCount, paceWords, projectedShare, sampleForecastDetail,
+  sampleHref, type ForecastDetail,
 } from "@/lib/forecast-live";
 import { pct } from "@/lib/intelligence";
+import { fetchActor } from "@/server/api";
 import { readEngineItem, wantsSample } from "@/server/engine";
 
 /* --------------------------------------------------------------------------
@@ -27,8 +29,11 @@ import { readEngineItem, wantsSample } from "@/server/engine";
    forecast so the model can be judged (acceptance #5).
 
    Reads  GET /intelligence/forecasts/:campaignId   (lib/forecast-live.ts)
-   Read-only. Pending engine → <EnginePending>; ?demo=sample (development
-   only) → the sample campaign of that id, under a banner.
+   Writes PUT /intelligence/forecasts/:campaignId/guarantee (./../actions.ts)
+          — the guarantee, for BTG admins and campaign managers
+          (canSetGuarantee); Sales reads it.
+   Pending engine → <EnginePending>; ?demo=sample (development only) → the
+   sample campaign of that id, under a banner.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -54,11 +59,14 @@ export default async function ForecastPage({ params, searchParams }: { params: P
   const lacking = await staffWithoutAccess(LIST);
   if (lacking) return <NotInRole path={LIST} title={TITLE} roles={lacking} />;
   const { campaignId } = await params;
+  /* staffWithoutAccess let a demo viewer through unlinked: they can't set it. */
+  const who = await fetchActor();
+  const canSet = who.status === "linked" && canSetGuarantee(who.actor.roles);
 
   if (await wantsSample(searchParams)) {
     const d = sampleForecastDetail(campaignId);
     if (!d) return <Missing sample />;
-    return <Forecast d={d} sample />;
+    return <Forecast d={d} sample canSet={canSet} />;
   }
 
   const read = await readEngineItem<ForecastDetail>("forecast", `/intelligence/forecasts/${encodeURIComponent(campaignId)}`);
@@ -72,7 +80,7 @@ export default async function ForecastPage({ params, searchParams }: { params: P
     );
   }
   if (read.state === "absent") return <Missing sample={false} />;
-  return <Forecast d={read.data} sample={false} />;
+  return <Forecast d={read.data} sample={false} canSet={canSet} />;
 }
 
 function Missing({ sample }: { sample: boolean }) {
@@ -85,7 +93,7 @@ function Missing({ sample }: { sample: boolean }) {
   );
 }
 
-function Forecast({ d, sample }: { d: ForecastDetail; sample: boolean }) {
+function Forecast({ d, sample, canSet }: { d: ForecastDetail; sample: boolean; canSet: boolean }) {
   const metric = METRIC_WORD[d.guarantee.metric];
   const now = new Date().getTime();
   const makeGoods = sampleHref(`${MAKE_GOODS}?campaign=${encodeURIComponent(d.campaignId)}`, sample);
@@ -125,8 +133,18 @@ function Forecast({ d, sample }: { d: ForecastDetail; sample: boolean }) {
         <FigureTile label="Delivered" value={fmtCount(d.delivered)} caption={`${metric} · ${paceWords(d)}`} extra={<SourceLabel source={d.deliveredSource} />} />
         <FigureTile label="Projected final" value={fmtCount(d.projectedFinal.mid)} caption={`range ${fmtCount(d.projectedFinal.low)} – ${fmtCount(d.projectedFinal.high)} · ${pct(projectedShare(d))} of guarantee`} extra={<SourceLabel source="ESTIMATED" />} />
         <FigureTile label="Probability of guarantee" value={pct(d.probabilityOfGuarantee)} caption={`by ${dayLabel(d.endsAt)}`} extra={<SourceLabel source="ESTIMATED" />} />
-        <FigureTile label="Guarantee" value={fmtCount(d.guarantee.value)} caption={`${metric} sold`} />
+        <FigureTile label="Guarantee" value={fmtCount(d.guarantee.value)} caption={`${metric} promised by ${dayLabel(d.endsAt)}`} />
       </dl>
+
+      <Card className="space-y-3 p-5">
+        <div>
+          <h2 className="text-sm font-semibold">Guarantee</h2>
+          <p className="mt-0.5 text-[11px] text-muted">
+            What this campaign is promised by its end date. Unset, the engine paces against every deliverable booked.
+          </p>
+        </div>
+        <ForecastGuaranteeForm campaignId={d.campaignId} guarantee={d.guarantee} endsAt={d.endsAt} canSet={canSet} sample={sample} />
+      </Card>
 
       <Card className="p-5">
         <h2 className="mb-3 text-sm font-semibold">Pacing</h2>

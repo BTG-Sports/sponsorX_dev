@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { budgetCents, stateCodesFor, toBriefBody, BriefRequestInvalid } from "@/lib/brief-request";
+import { budgetCents, followersCount, stateCodesFor, toBriefBody, BriefRequestInvalid } from "@/lib/brief-request";
 import { toJob, toPkg } from "@/lib/marketplace-live";
 
 /* --------------------------------------------------------------------------
@@ -57,17 +57,46 @@ describe("the drawer's fields become the API's brief", () => {
     expect(stateCodesFor("Kigali, RW")).toEqual([]); // not a US state — no targeting guessed
     expect(stateCodesFor("")).toEqual([]);
   });
-  it("builds the full body", () => {
+  it("builds the full body — a known tier is a column, not a line in the objective", () => {
     expect(toBriefBody({ ...base, sponsorId: "sp_1" })).toEqual({
       sponsorId: "sp_1",
-      objective: "Drive foot traffic to our Annapolis opening\n\nPreferred tier: Creator\n\nNote: Weekend focus",
+      objective: "Drive foot traffic to our Annapolis opening\n\nNote: Weekend focus",
       budget: 150_000, packageId: "pkg_local_blitz",
       startDate: "2026-10-05", endDate: "2026-11-02",
       sports: ["Basketball"], stateCodes: ["DC", "MD", "VA"], categories: ["RESTAURANT"],
+      excludedCategories: [], channels: [], audienceTiers: ["CREATOR"], audienceMinFollowers: null,
     });
+  });
+  it("a tier the API doesn't know still travels in the objective", () => {
+    const b = toBriefBody({ ...base, tier: "Local heroes", sponsorId: "s" });
+    expect(b.audienceTiers).toEqual([]);
+    expect(b.objective).toContain("Preferred tier: Local heroes");
   });
   it("drops a category outside the closed vocabulary rather than sending free text", () => {
     expect(toBriefBody({ ...base, category: "Quick-service restaurant", sponsorId: "s" }).categories).toEqual([]);
+  });
+  it("carries the match engine's inputs (3S3-BE-01) from their own vocabularies, deduplicated", () => {
+    const b = toBriefBody({
+      ...base, sponsorId: "s", tier: "",
+      excludedCategories: ["ALCOHOL", "ALCOHOL", "not-a-category"],
+      channels: ["TIKTOK", "INSTAGRAM", "MYSPACE"],
+      audienceTiers: ["PREMIUM", "ANCHOR", "legend"],
+      minFollowers: "10k",
+    });
+    expect(b.excludedCategories).toEqual(["ALCOHOL"]);
+    expect(b.channels).toEqual(["TIKTOK", "INSTAGRAM"]);
+    expect(b.audienceTiers).toEqual(["PREMIUM", "ANCHOR"]);
+    expect(b.audienceMinFollowers).toBe(10_000);
+  });
+  it("refuses the sponsor's own category as one to avoid — the API would too", () => {
+    expect(() => toBriefBody({ ...base, sponsorId: "s", excludedCategories: ["RESTAURANT"] })).toThrow(BriefRequestInvalid);
+  });
+  it("reads a minimum audience as people type it", () => {
+    expect(followersCount("")).toBeNull();
+    expect(followersCount("10,000")).toBe(10_000);
+    expect(followersCount("10k")).toBe(10_000);
+    expect(followersCount("1.5M")).toBe(1_500_000);
+    expect(() => followersCount("lots")).toThrow(BriefRequestInvalid);
   });
 });
 

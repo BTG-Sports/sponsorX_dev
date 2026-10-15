@@ -2,11 +2,11 @@
    3S4-FE-01 · Campaign forecast dashboard — the contract, the words and the
    chart geometry (decided 2026-10-13: "FE only, honest empty states").
 
-   The delivery forecast service (3S4-BE-01) and its risk thresholds
-   (3S4-BE-02) are not built yet. The screens read them through
-   server/engine.ts `readEngine("forecast", …)`, show <EnginePending> until
-   the route is mounted, and render exactly what is typed here once it is.
-   This is the PROPOSED contract the engine is built against:
+   The delivery forecast service (3S4-DATA-01, 3S4-BE-01/02) landed
+   2026-10-14 (backend/src/domain/forecast-engine.ts; documentation/
+   SponsorX-Forecasting.md). The screens read it through server/engine.ts
+   `readEngine("forecast", …)`, show <EnginePending> if the route is ever
+   unmounted, and render exactly what is typed here:
 
    GET /intelligence/forecasts?risk=all|at_risk|watch|on_track&page&size
        → ForecastList { counts, campaigns: ForecastRow[], page }
@@ -19,9 +19,15 @@
        projected band from today to the end date, risk factors, the
        recommended actions, the alert (if a threshold was crossed) and
        every past forecast (acceptance #5: forecasts are persisted).
+   PUT /intelligence/forecasts/:campaignId/guarantee { metric, value }
+       → { campaignId, guarantee | null } — what the campaign is promised
+       by its end date. Unset (metric null), the engine paces against every
+       deliverable booked. The forecast is made NIGHTLY, so a new guarantee
+       shows from the next one (checkGuarantee, GUARANTEE_SET_ROLES).
 
-   Roles (proposed, lib/admin-access): SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR,
-   SALES — reads only; the screen writes nothing.
+   Roles (`campaignForecast`, RBAC matrix §30; lib/admin-access): SUPER_ADMIN,
+   BTG_ADMIN, CAMPAIGN_MGR and SALES read; BTG admins and campaign managers
+   set the guarantee — the one write on these screens.
 
    Provenance: `delivered` is verified delivery only (delivery-health.ts's
    rule — a self-reported figure cannot evidence delivery against a
@@ -39,7 +45,9 @@ import { monotonePath } from "@/lib/monotone-path";
 /* ------------------------------------------------------------------ types */
 
 export type RiskLevel = "on_track" | "watch" | "at_risk";
-export type GuaranteeMetric = "impressions" | "engagements" | "redemptions" | "deliverables";
+/** backend/src/domain/forecast-rules.ts GUARANTEE_METRICS, in its order. */
+export const GUARANTEE_METRICS = ["impressions", "engagements", "redemptions", "deliverables"] as const;
+export type GuaranteeMetric = (typeof GUARANTEE_METRICS)[number];
 /** Verified kinds only (ui.tsx SourceLabel): system-recorded, platform API, or BTG-verified manual entry. */
 export type DeliveredSource = "VERIFIED_SYSTEM" | "VERIFIED_API" | "VERIFIED_MANUAL";
 
@@ -235,6 +243,54 @@ export const ACTION_WORD: Record<ActionKind, string> = {
 export function sampleHref(href: string, sample: boolean): string {
   if (!sample) return href;
   return `${href}${href.includes("?") ? "&" : "?"}demo=sample`;
+}
+
+/* -------------------------------------------------------------- guarantee */
+
+/** Who the API lets set a guarantee (`campaignForecast` write — policy.ts).
+ *  Sales, the page's other role, reads. Mirrors the policy as admin-access.ts
+ *  does; the API stays the enforcement. */
+export const GUARANTEE_SET_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"] as const;
+
+export function canSetGuarantee(roles: readonly string[]): boolean {
+  return roles.some((r) => (GUARANTEE_SET_ROLES as readonly string[]).includes(r));
+}
+
+/** The API's ceiling (contracts/intelligence.ts GuaranteeInput). */
+export const GUARANTEE_MAX = 2_000_000_000;
+
+/** What PUT …/guarantee takes: a metric and how many, or null to clear
+ *  (the engine then paces against every deliverable booked). */
+export type GuaranteeInput = { metric: GuaranteeMetric; value: number } | { metric: null };
+
+/** "500,000" → 500000, "500k" → 500000, "1.2m" → 1200000; anything else null. */
+export function guaranteeCount(text: string): number | null {
+  const t = (text ?? "").trim().toLowerCase().replace(/,/g, "");
+  const m = t.match(/^(\d+(?:\.\d+)?)\s*([km])?$/);
+  if (!m) return null;
+  return Math.round(Number(m[1]) * (m[2] === "m" ? 1_000_000 : m[2] === "k" ? 1_000 : 1));
+}
+
+/**
+ * The guarantee form's rules, shown as you type and re-checked by the server
+ * action. An empty metric is "the default" — every deliverable booked — and
+ * needs no number; a named metric needs a whole number from 1 to the API's
+ * ceiling.
+ */
+export function checkGuarantee(metricInput: string, valueInput: string): { ok: true; input: GuaranteeInput } | { ok: false; message: string } {
+  const metric = (metricInput ?? "").trim();
+  if (!metric) return { ok: true, input: { metric: null } };
+  if (!(GUARANTEE_METRICS as readonly string[]).includes(metric)) return { ok: false, message: "Pick what the campaign is promised." };
+  const value = guaranteeCount(valueInput);
+  if (value === null || value < 1) return { ok: false, message: `How many ${metric} by the end date — a whole number, e.g. 500,000 or 500k.` };
+  if (value > GUARANTEE_MAX) return { ok: false, message: `A guarantee is at most ${fmtCount(GUARANTEE_MAX)} ${metric}.` };
+  return { ok: true, input: { metric: metric as GuaranteeMetric, value } };
+}
+
+/** "500,000 impressions by Oct 31", or the default in words. */
+export function guaranteeWords(g: { metric: GuaranteeMetric; value: number } | null, endsAt: string): string {
+  if (!g) return `Every deliverable booked, published and verified by ${dayLabel(endsAt)} (the default).`;
+  return `${g.value.toLocaleString("en-US")} ${METRIC_WORD[g.metric]} by ${dayLabel(endsAt)}.`;
 }
 
 /* ------------------------------------------------------------- the chart */
