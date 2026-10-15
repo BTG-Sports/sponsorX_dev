@@ -177,7 +177,9 @@ export type Resource =
   | "pricingRecommendation"
   | "briefMatch"
   | "campaignForecast"
-  | "makeGood";
+  | "makeGood"
+  | "sponsorIntelligence"
+  | "propertyIntelligence";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -263,6 +265,8 @@ export const RESOURCES: readonly Resource[] = [
   "briefMatch",
   "campaignForecast",
   "makeGood",
+  "sponsorIntelligence",
+  "propertyIntelligence",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -1125,6 +1129,20 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any", undefined, "any"),
     BTG_ADMIN: rwa("own-tenant", undefined, "own-tenant"),
     CAMPAIGN_MGR: rwa("own-tenant", undefined, "own-tenant"),
+  },
+  /* 3S7-BE-02 (matrix §32) — the sponsor's intelligence hub: its own
+     campaigns' four attribution classes, formats, partners and renewal
+     advice. Only the sponsor's own people, and only their own org; a sponsor
+     never names an org in the request. Read-only. */
+  sponsorIntelligence: {
+    SPONSOR_ADMIN: rwa("own-sponsor"),
+    SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
+  /* 3S7-BE-02 (matrix §32) — a team's or school's intelligence hub: its
+     suggested prices, open opportunity, sell-through, category fit and
+     quality. Only the property's own manager. Read-only. */
+  propertyIntelligence: {
+    PROPERTY_MGR: rwa("own-property"),
   },
 };
 

@@ -421,7 +421,13 @@ describe("the whole matrix is pinned", () => {
       // read and approve; no write; every other cell deny, Sales included
       // (matrix §31). With its rows removed the grid hashes to the previous
       // 51eb91aed060275f.
-    ).toBe("e05782e25f86994e");
+      // Updated 2026-10-15 (3S7-BE-02): new `sponsorIntelligence` and
+      // `propertyIntelligence` resources — a sponsor's and a property's own
+      // hubs. SPONSOR_ADMIN and SPONSOR_ANALYST own-sponsor read;
+      // PROPERTY_MGR own-property read; no write or approve; every other cell
+      // deny, BTG included (matrix §32). With their rows removed the grid
+      // hashes to the previous e05782e25f86994e.
+    ).toBe("dc3c5d517b67a709");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

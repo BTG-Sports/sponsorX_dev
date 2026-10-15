@@ -912,6 +912,9 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   campaignForecast: tenantScoped,
   /* 3S5-BE-01 — a campaign's shortfalls and their make-goods, per tenant. */
   makeGood: tenantScoped,
+  /* 3S7-BE-02 — the caller's own sponsor org, and the caller's own property, in its tenant. */
+  sponsorIntelligence: (actor, scope) => (scope === "own-sponsor" && actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING),
+  propertyIntelligence: (actor, scope) => (scope === "own-property" && actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING),
 
   /* Added with P4-BE-01, the first task to query sponsors.
 
