@@ -13,7 +13,7 @@ import { ACTIONS, POLICY, RESOURCES, ROLES, scopeForRole, type Resource } from "
    neither fails this file — which is the only way "complete" stays true
    after the day it was checked.
 
-   It runs in `npm test`, which CI runs on every push and pull request.
+   It runs in `npm test`, which CI runs on every pull request.
    -------------------------------------------------------------------------- */
 
 const SCHEMA = readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8");
@@ -222,13 +222,15 @@ describe("P8-SEC-01 · every model is governed by the matrix", () => {
     }
   });
 
-  /* P2-OPS-07 (2026-10-07): CI runs on every push and every pull request
-     again (public repository, free minutes), plus nightly on main and by
-     hand. The automatic deploy still waits for a green nightly or
-     hand-started run — never a push run. */
-  it("runs in CI on every push and pull request, nightly, by hand, and before every automatic deploy", () => {
+  /* P2-OPS-07 (2026-10-07): CI runs on every pull request again (public
+     repository, free minutes), plus nightly on main and by hand. Since
+     2026-10-15 a push runs it only on `main` and `main_development`: a
+     working branch's pull request already checks the same commit. The
+     automatic deploy still waits for a green nightly or hand-started run —
+     never a push run. */
+  it("runs in CI on every pull request, on pushes to main and main_development, nightly, by hand, and before every automatic deploy", () => {
     const ci = readFileSync(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8");
-    expect(ci).toMatch(/on:\s*\n\s*push:\s*\n\s*branches: \["\*\*"\]\s*\n\s*pull_request:\s*\n\s*schedule:\s*\n\s*- cron:/);
+    expect(ci).toMatch(/on:\s*\n\s*push:\s*\n\s*branches: \[main, main_development\]\s*\n\s*pull_request:\s*\n\s*schedule:\s*\n\s*- cron:/);
     expect(ci).toContain("workflow_dispatch:");
     expect(ci).toContain("name: typecheck · lint · unit · authz matrix");
     expect(ci).toContain("npm run test -w @sponsorx/backend");
