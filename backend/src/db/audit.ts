@@ -73,6 +73,13 @@ export const AUDIT_ACTIONS = {
   match: {
     shortlistSave: "match.shortlistSave",
   },
+  /** 3S5-BE-02 — a make-good approved for a campaign's shortfall: by a BTG
+   *  admin or campaign manager, or automatically by SponsorX when every
+   *  safety check passed (actor null). */
+  makeGood: {
+    approve: "makeGood.approve",
+    autoApprove: "makeGood.autoApprove",
+  },
   /** Agreements — acceptance is the legally interesting event. */
   agreement: {
     accept: "agreement.accept",

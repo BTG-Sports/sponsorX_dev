@@ -64,7 +64,7 @@ export class ShortlistEntryError extends Error {
   }
 }
 
-type Candidate = { kind: MatchKind; refId: string; name: string; sub: string; facts: EligibilityFacts; score: ScoreFacts };
+export type Candidate = { kind: MatchKind; refId: string; name: string; sub: string; facts: EligibilityFacts; score: ScoreFacts };
 type Ranked = {
   matchId: string; kind: MatchKind; refId: string; name: string; sub: string; rank: number; score: number; confidence: number;
   factors: ReturnType<typeof scoreCandidate>["factors"]; reasons: string[]; availability: Availability;
@@ -90,8 +90,13 @@ async function loadBrief(tenantId: string, briefId: string) {
   return { id: b.id, updatedAt: b.updatedAt, brief, lines: packageLines(b.package?.lineItems) };
 }
 
-/** Every candidate of every kind, with the facts the filter and the score need. */
-async function gather(tenantId: string, brief: BriefForMatch, lines: { jobId: string; quantity: number }[], now: Date): Promise<Candidate[]> {
+/**
+ * Every candidate of every kind, with the facts the filter and the score
+ * need. The make-good engine (3S5-BE-01) reads its inventory candidates
+ * through here too, so a substitute is held to the same exclusivity and
+ * brand-safety filter as a match.
+ */
+export async function gatherCandidates(tenantId: string, brief: BriefForMatch, lines: { jobId: string; quantity: number }[], now: Date): Promise<Candidate[]> {
   const since = new Date(now.getTime() - EXCLUDED_LOOKBACK_DAYS * 86_400_000);
   const [athletes, properties, items, restrictions, orders, sold, snapshots, listings] = await Promise.all([
     prisma.athlete.findMany({
@@ -300,7 +305,7 @@ async function gather(tenantId: string, brief: BriefForMatch, lines: { jobId: st
 /** Rank every kind for a brief and store the runs. */
 async function rankBrief(tenantId: string, briefId: string, brief: BriefForMatch, lines: { jobId: string; quantity: number }[], now: Date) {
   const started = Date.now();
-  const all = await gather(tenantId, brief, lines, now);
+  const all = await gatherCandidates(tenantId, brief, lines, now);
   const runs: Array<{ kind: MatchKind; filteredOut: Record<string, number>; ranked: Ranked[] }> = [];
   for (const kind of MATCH_KINDS) {
     const filteredOut = { unavailable: 0, categoryConflict: 0, brandSafety: 0 };

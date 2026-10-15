@@ -37,6 +37,7 @@ import { sponsorBriefStatus } from "../../domain/brief-auto-rules";
 import { createCampaignFromBrief, launchCampaign, transitionCampaign } from "../../domain/campaign";
 import { stageViews, type StageView } from "../../domain/campaign-stages";
 import { setAutoStaffing, staffingSkips } from "../../domain/auto-staffing";
+import { campaignMakeGoods } from "../../domain/makegood-engine";
 import type { Audience } from "../../domain/campaign-stage-rules";
 import { eligibleForBrief, eligiblePageForBrief } from "../../domain/matching";
 import { readinessFor, readyBriefIds, type Readiness } from "../../domain/brief-readiness";
@@ -719,7 +720,9 @@ const readCampaign: RequestHandler<{ id: string }> = async (req, res) => {
   })) as unknown as CampaignRow | null;
   if (!c) throw new ForbiddenError("campaign", "read");
   const stages = await stagesFor(actor, [c.id], true);
-  const out = campaignOut(c, see, stages);
+  const base = campaignOut(c, see, stages);
+  /* 3S5 — BTG admins and campaign managers see the campaign's open and approved make-goods. */
+  const out = can(actor, "makeGood", "read") ? { ...base, makeGoods: await campaignMakeGoods(actor.tenantId, c.id) } : base;
   /* P4-BE-12 — BTG's detail names the athletes automatic staffing skipped, and why. */
   if (stages.history && out.staffing && "skipped" in out.staffing) {
     res.json({ campaign: { ...out, staffing: { ...out.staffing, skips: await staffingSkips(c.id) } } });

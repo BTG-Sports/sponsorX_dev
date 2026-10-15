@@ -4095,3 +4095,90 @@ model CampaignForecastAlert {
 
   @@index([tenantId, campaignId, raisedAt])
 }
+
+/// 3S5-BE-01 — a campaign's projected shortfall against its guarantee, opened
+/// nightly when the forecast says at risk, with the substitutes that could make
+/// it good (documentation/SponsorX-Make-Goods.md). One OPEN per campaign
+/// (a partial unique index in the migration). Refreshed each night while
+/// OPEN; CLOSED when the campaign recovers or is cancelled. Once APPROVED —
+/// by a BTG admin or campaign manager, or automatically by SponsorX when every
+/// safety check passes (3S5-BE-02) — it can never change: a trigger refuses
+/// any update or delete of a decided row.
+model MakeGoodShortfall {
+  id                  String    @id @default(cuid())
+  tenantId            String
+  campaignId          String
+  /// OPEN | APPROVED | CLOSED
+  status              String    @default("OPEN")
+  /// impressions | engagements | redemptions | deliverables (the guarantee's metric)
+  metric              String
+  /// What was sold: the guarantee.
+  sold                Int
+  /// The forecast's projected final (its mid).
+  projected           Int
+  /// sold − projected.
+  shortfall           Int
+  /// What one unit of the metric is worth to this sponsor: the campaign's sold value ÷ the guarantee, in cents.
+  unitValueCents      Float
+  shortfallValueCents Int
+  /// The share of the flight gone, from the forecast.
+  elapsed             Float
+  modelVersion        String
+  /// 0..1 — how far the substitutes' estimates rest on real data.
+  confidence          Float
+  computedAt          DateTime
+  /// Why SponsorX did not approve it on its own, in words; empty once approved automatically.
+  heldReasons         String[]  @default([])
+  decidedOptionId     String?
+  /// The user who approved it; null when SponsorX approved it automatically.
+  decidedBy           String?
+  automatic           Boolean   @default(false)
+  decidedAt           DateTime?
+  note                String?
+  /// The days the approved make-good runs.
+  runsFrom            DateTime? @db.Date
+  runsUntil           DateTime? @db.Date
+  openedAt            DateTime  @default(now())
+  closedAt            DateTime?
+
+  options MakeGoodOption[]
+
+  @@index([tenantId, status])
+  @@index([campaignId])
+}
+
+/// 3S5-BE-01 — one substitute offered for a shortfall, as the engine made it:
+/// its units, estimated delivery, equivalency, cost to BTG and the three
+/// checks. Replaced each night while its shortfall is OPEN; frozen with it
+/// once decided.
+model MakeGoodOption {
+  id                String  @id @default(cuid())
+  tenantId          String
+  shortfallId       String
+  inventoryItemId   String
+  rank              Int
+  inventoryName     String
+  /// The property's name, or the athlete's for an athlete's item.
+  propertyName      String
+  format            String
+  units             Int
+  estimatedDelivery Int
+  /// own_history | profile | benchmark | count
+  basis             String
+  verifiedEstimate  Boolean
+  /// 0..1
+  equivalencyScore  Float
+  costCents         Int
+  costImpactCents   Int
+  available         Boolean
+  exclusivityClear  Boolean
+  meetsTarget       Boolean
+  youth             Boolean
+  problems          String[] @default([])
+  reason            String
+
+  shortfall MakeGoodShortfall @relation(fields: [shortfallId], references: [id])
+
+  @@index([shortfallId])
+  @@index([tenantId])
+}

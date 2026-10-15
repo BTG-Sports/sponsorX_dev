@@ -311,3 +311,31 @@ The warehouse databases, settings and hourly copy all stay. Nothing reads them.
 - **Docs:** `documentation/SponsorX-Forecasting.md` (new); the plan entries; the tracker (3 rows in Code review).
 
 **After deploy:** set `FORECAST_EMAILS=on` on the api service in staging and production, the same way as `FACT_CHECK_EMAILS`.
+
+## rcfworks — deploy 9b4ce22 (3S3 matching + 3S4 forecasting), and close of day
+
+- **Merged:** #214, then sync #213, which carried #212 and #214.
+  - `main` went green on `9b4ce22`, and the user's dispatch moved `release`.
+  - The api and web in staging and production were live at 14:05 UTC.
+  - The migrations `20261014180000_matching` and `20261014210000_forecasting` were applied by the pre-deploy step as `sponsorx_app`.
+- **Staging check:**
+  - `/health` returned 200;
+  - `forecasts:refresh` found 0 active campaigns in 4 tenants (none exist yet), which is expected;
+  - the new tables are present and empty, and the worker log is clean.
+- **`FORECAST_EMAILS=on`:** set on staging's api service (it redeployed and was live at 14:17). Production: the user runs `railway variables --environment production --service api --set "FORECAST_EMAILS=on"`.
+- **Stage Progress:** the 2026-10-14 snapshot row is appended (Phase 1: 282 done; S1 58, up 2 from HeckerCreatives' P1-ART-26 and 27; 40 days left).
+
+**Close of day.** Today's PRs were #204–#214, plus the syncs #205, #207, #209 and #213, all merged. Everything is deployed to staging and production.
+
+| Task | Status |
+|---|---|
+| 3S1-OPS-03 | Code review; applied in both environments |
+| 3S1-OPS-02 | On hold (user) |
+| 3S1-DATA-03 | Code review |
+| 3S2-BE-01, 3S2-BE-02, 3S2-BE-03 | Code review |
+| 3S3-BE-01, 3S3-BE-02, 3S3-BE-03 | Code review |
+| 3S4-DATA-01, 3S4-BE-01, 3S4-BE-02 | Code review |
+
+**Next:** Sprint 3S5 (make-goods), which follows from 3S4's "reserve make-good inventory" action.
+
+**Google Sheet:** the user mirrors the tracker by hand at end of day.

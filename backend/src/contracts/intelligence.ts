@@ -3,6 +3,7 @@ import { z } from "./zod";
 import { MATCH_KINDS } from "../domain/match-rules";
 import { GUARANTEE_METRICS } from "../domain/forecast-rules";
 import { SHORTLIST_MAX } from "../domain/match-vocabulary";
+import { NOTE_MAX } from "../domain/makegood-rules";
 
 /* --------------------------------------------------------------------------
    The intelligence engines on the wire (Phase 3). Rules live in the domain
@@ -47,3 +48,20 @@ export const GuaranteeInput = z
   })
   .strict()
   .meta({ id: "GuaranteeInput", description: "Set what a campaign is promised to reach by its end date (3S4-BE-01)." });
+
+export const MakeGoodsQuery = z
+  .object({
+    status: z.enum(["open", "approved"]).default("open").describe("Which shortfalls: open (awaiting a decision) or approved"),
+    campaign: z.string().min(1).max(200).optional().describe("One campaign's shortfalls only"),
+    page: z.coerce.number().int().optional(),
+    size: z.coerce.number().int().optional(),
+  })
+  .meta({ id: "MakeGoodsQuery", description: "Campaigns' shortfalls and their make-good substitutes (3S5-BE-01)." });
+
+export const MakeGoodApproveInput = z
+  .object({
+    optionId: z.string().min(1).max(200).describe("The substitute to approve, from the shortfall's options"),
+    note: z.string().max(NOTE_MAX + 200).describe("Why this substitute — 8 to 2,000 characters, kept on the decision and in the audit log"),
+  })
+  .strict()
+  .meta({ id: "MakeGoodApproveInput", description: "Approve one substitute for a shortfall (3S5-BE-02). Refused (409) when it fails a check now or the shortfall is decided." });

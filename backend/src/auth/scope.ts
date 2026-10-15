@@ -910,6 +910,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   briefMatch: tenantScoped,
   /* 3S4-BE-01 — a campaign's forecasts, pacing and alerts, per tenant. */
   campaignForecast: tenantScoped,
+  /* 3S5-BE-01 — a campaign's shortfalls and their make-goods, per tenant. */
+  makeGood: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 
