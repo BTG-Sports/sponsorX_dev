@@ -851,6 +851,31 @@ Account of its own.
 - Payment and invoice references follow with 2S5.
 - Nothing is read back. A property is not bi-directional.
 
+## 12.3 · Phase 3 — intelligence on the sponsor's Account (3S7-INT-01, 2026-10-15)
+
+The sales team works in Zoho, so each sponsor's Account shows SponsorX's
+renewal advice. It is the same advice as the sponsor's hub
+(`SponsorX-Hub-Intelligence.md` §1).
+
+| SponsorX | Zoho (Accounts) | Type | Direction | Notes |
+|---|---|---|---|---|
+| Renewal score | `SponsorX_Renewal_Score` | Whole number | SponsorX → Zoho | 0–100: the share of the promise the campaign that matters most is on course to deliver (capped at 100). Blank when no campaign ends within 45 days or ended within 30. |
+| Recommended next action | `SponsorX_Next_Action` | Single line, 255 | SponsorX → Zoho | The advice, the campaign and the first reason, e.g. "Renew: Fall push — On course to deliver 27,000 of the 30,000 impressions promised (90%)." |
+
+- **The campaign that matters most** is the soonest still to end, else the
+  one that ended most recently.
+- **Automatic** (the Phase 2 rule):
+  - Nightly, after the forecasts, every sponsor already in Zoho whose
+    values changed gets one `zoho.pushIntelligence` job.
+  - An unchanged value is not sent again (`Sponsor.zohoIntelHash`).
+  - Nothing is queued while Zoho isn't set up.
+- **The job writes only these two fields,** by the Account's id. Nothing is
+  read back. A person editing them in Zoho is overwritten the next time the
+  advice changes.
+- **The fields** are made by `npm run zoho:intel-fields -- --create`: the
+  sandbox first, then production with the owner's OK and
+  `--confirm-production`. The script checks the generated API names.
+
 ## 13 · Revision history
 
 | Version | Date | Change |

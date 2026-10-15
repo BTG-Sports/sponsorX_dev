@@ -1713,6 +1713,51 @@ Read through `GET /intelligence/property`.
   screens (forecasts, pricing, make-goods).
 - **Read-only.** Nothing is written.
 
+## 33 · Phase 3 · scenario planner *(added 2026-10-15)*
+
+### `scenario` (3S7-BE-01)
+What-if plans:
+- the views to expect;
+- the chance of delivering;
+- expected revenue for a budget, CPM, audience and format mix.
+
+Read through `GET /intelligence/scenarios` and
+`POST /intelligence/scenarios/calculate` (a calculation stores nothing);
+written through `POST /intelligence/scenarios` (saving one).
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN`, `CAMPAIGN_MGR`, `SALES` | own-tenant | own-tenant | — |
+
+- **A planning tool, not a commitment.** Saving keeps the inputs and the
+  answer with its model stamp; nothing about a campaign or sponsor changes.
+- **No sponsor plans here.**
+
+## 34 · Phase 3 · anomaly flags *(added 2026-10-15)*
+
+### `anomaly` (3S8-DATA-01)
+The nightly anomaly rules' flags, with their evidence and disposition:
+- spikes;
+- duplicate posts;
+- bot-like clicks;
+- suspicious redemptions;
+- manual-entry mismatches.
+
+Read through `GET /intelligence/anomalies`; decided through
+`POST /intelligence/anomalies/{anomalyId}/disposition`.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN`, `CAMPAIGN_MGR` | own-tenant | own-tenant | — |
+
+- **A disposition changes what a sponsor's report counts,** so only BTG
+  admins and campaign managers decide. Every decision carries a note and is
+  audited (`anomaly.dispose`).
+- **SponsorX decides the clear-cut case itself:** a duplicate post is
+  excluded from reporting automatically, audited as `anomaly.autoDispose`
+  with no actor. A person may replace it; a person's decision is final.
+- **A flag outside the caller's tenant answers 404.**
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

@@ -842,14 +842,21 @@ Rate recommendations, revenue opportunity, sell-through, sponsor-category fit an
 - **Reference:** Spec §16 P3-07
 - **Built (2026-10-13):** `/property/intelligence`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the property read, 3S7-BE-02 is mounted the screen says so and shows no figures. Marked Done by the owner 2026-10-13 with the UI complete and QA'd at phone, laptop and desktop widths; when the engine lands, walk the screen against it.
 
-### ⏸ `3S7-BE-01` · Scenario planning service
+### ◑ `3S7-BE-01` · Scenario planning service
 
-**Order** 33 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 33 · **BE** · **Where:** Code · **5d** · **Code review**
 
 What-if: change budget, CPM, audience and inventory mix, and compare expected delivery and revenue.
 
 - **Depends on:** 3S4-BE-01
 - **Done when:** A scenario can be created, calculated and compared against another
+- **Delivered:** 2026-10-15.
+  - **How:** each format's share of the budget buys posts at the tenant's booked price (or the catalogue's). The audience's verified views per post (low, likely, high) give the expected views.
+  - **Chance of delivering** what the CPM sells: as the forecast does it.
+  - **Expected revenue:** the budget, reduced when delivery falls short (user, 2026-10-15).
+  - **Endpoints:** `GET /intelligence/scenarios`, `POST …/calculate` (stores nothing) and `POST /intelligence/scenarios` (keeps it with its stamp, to compare). New permission `scenario` (RBAC matrix §33).
+
+  [`SponsorX-Scenarios.md`](./SponsorX-Scenarios.md)
 - **Reference:** Spec §18
 
 ### ✅ `3S7-FE-03` · Build the scenario planner
@@ -863,14 +870,20 @@ The sales-conversation screen: adjust the inputs live while a sponsor watches.
 - **Reference:** Spec §16 P3-08
 - **Built (2026-10-13):** `/admin/intelligence/scenarios`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the scenario service is mounted the screen says so and shows no figures. Marked Done by the owner 2026-10-13 with the UI complete and QA'd at phone, laptop and desktop widths; when the engine lands, walk the screen against it.
 
-### ⏸ `3S7-INT-01` · Push intelligence into Zoho
+### ◑ `3S7-INT-01` · Push intelligence into Zoho
 
-**Order** 35 · **INT** · **Where:** Code · **3d** · **Blocked**
+**Order** 35 · **INT** · **Where:** Code · **3d** · **Code review**
 
 Renewal scores, sponsor health and recommended next action flow back to the CRM where the sales team already works.
 
 - **Depends on:** 3S7-FE-01
 - **Done when:** Zoho shows renewal score and recommended next action on the sponsor record
+- **Delivered:** 2026-10-15.
+  - **What Zoho shows:** each sponsor's Account carries `SponsorX_Renewal_Score` (0–100) and `SponsorX_Next_Action`, from the same renewal advice as the sponsor's hub.
+  - **Automatic:** the nightly run queues `zoho.pushIntelligence` only for sponsors in Zoho whose values changed.
+  - **The fields** are made by `npm run zoho:intel-fields -- --create`: the sandbox first, then production with the owner's OK.
+
+  [`SponsorX-Zoho-Field-Mapping.md`](./SponsorX-Zoho-Field-Mapping.md) §12.3
 - **Reference:** Spec §20
 
 ## Sprint 8 · Anomaly detection & model admin
@@ -879,14 +892,20 @@ Renewal scores, sponsor health and recommended next action flow back to the CRM 
 
 *5 tasks · 23 person-days*
 
-### ⏸ `3S8-DATA-01` · Anomaly detection rules
+### ◑ `3S8-DATA-01` · Anomaly detection rules
 
-**Order** 36 · **DATA** · **Where:** Code · **5d** · **Blocked**
+**Order** 36 · **DATA** · **Where:** Code · **5d** · **Code review**
 
 Improbable spikes, duplicate events, bot-like behaviour, suspicious redemption patterns and manual-entry inconsistencies.
 
 - **Depends on:** 3S1-DATA-02
 - **Done when:** Anomaly console identifies seeded duplicate, bot and redemption test patterns
+- **Delivered:** 2026-10-15.
+  - **Seven rules,** nightly over 30 days: spikes, duplicate posts, bot-like clicks, redemption bursts, a fan redeeming repeatedly, hand-entered figures 3× the API's, and more engagements than views.
+  - **Decisions:** a person decides each flag with a note. A duplicate post is excluded from reporting automatically (user, 2026-10-15: automation first), and a person may replace that.
+  - **Endpoints:** `GET /intelligence/anomalies` and `POST …/{id}/disposition`. New permission `anomaly` (RBAC matrix §34).
+
+  [`SponsorX-Anomalies.md`](./SponsorX-Anomalies.md)
 - **Reference:** Spec §15, §22
 
 ### ✅ `3S8-FE-01` · Build the data quality and anomaly console

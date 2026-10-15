@@ -46,6 +46,8 @@ export type JobName =
   /* 2S7-INT-01 — a contracted marketplace order, its sponsor, and the
      outside properties it buys from. */
   | "zoho.pushMarketplaceOrder"
+  /* 3S7-INT-01 — a sponsor's renewal score and next action onto its Account, queued nightly when they change. */
+  | "zoho.pushIntelligence"
   /* P8-INT-03 — a verified CRM notification, recorded and queued by the
      webhook route; the worker fetches and applies the records. */
   | "zoho.ingestCrm"
