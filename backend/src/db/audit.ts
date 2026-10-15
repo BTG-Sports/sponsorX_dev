@@ -80,6 +80,23 @@ export const AUDIT_ACTIONS = {
     approve: "makeGood.approve",
     autoApprove: "makeGood.autoApprove",
   },
+  /** 3S8-DATA-01 — an anomaly flag decided: by a person, or automatically by
+   *  SponsorX for the clear-cut case (actor null). */
+  anomaly: {
+    dispose: "anomaly.dispose",
+    autoDispose: "anomaly.autoDispose",
+  },
+  /** 3S8-BE-01 / 3S8-OPS-01 — the model registry and feature flags
+   *  (documentation/SponsorX-Model-Governance.md). autoActivate is SponsorX
+   *  making a change inside the safe ranges live (actor null). */
+  model: {
+    versionCreate: "model.versionCreate",
+    autoActivate: "model.autoActivate",
+    validate: "model.validate",
+    activate: "model.activate",
+    rollback: "model.rollback",
+    flagSet: "flag.set",
+  },
   /** Agreements — acceptance is the legally interesting event. */
   agreement: {
     accept: "agreement.accept",

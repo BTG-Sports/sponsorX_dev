@@ -147,6 +147,10 @@ Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, SALES.
   - inputs: `budgetCents, cpmCents, audience { sport?, stateCodes?, ageBand? }, mix[{ format, share }]` (shares sum to 1)
   - result: `expectedImpressions { low, mid, high }, expectedRevenueCents, deliveryProbability, stamp, notes[]`
 - `POST /intelligence/scenarios { name, inputs }` → the saved scenario `{ id, name, inputs, result, savedAt }`.
+- **Mounted 2026-10-15** (3S7-BE-01, [SponsorX-Scenarios.md](./SponsorX-Scenarios.md)) as proposed, with these differences:
+  - the formats are social posts and videos: the ones it can both price and measure in views;
+  - a saved scenario adds `savedBy`;
+  - bad inputs are a 422 with the problems in words.
 
 ## 3S8-FE-01 · Data quality and anomaly console — `/admin/intelligence/anomalies`
 
@@ -157,6 +161,10 @@ Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR.
   - anomaly: `id, kind: spike|duplicate|bot|redemption|manual_entry, severity, subject { type: campaign|athlete|reward|metric_stream, … }, detectedAt, rule { id, version }, evidence[{ label, value }], disposition { outcome, note, by, at } | null`
 - `POST /intelligence/anomalies/:id/disposition { outcome: confirmed_issue|false_positive|excluded_from_reporting, note }` — a note (8+ characters) for every outcome.
 - Acceptance #10: seeded duplicate, bot and redemption patterns must appear here.
+- **Mounted 2026-10-15** (3S8-DATA-01, [SponsorX-Anomalies.md](./SponsorX-Anomalies.md)) as proposed, with these additions:
+  - a disposition adds `automatic`: SponsorX excludes a duplicate post on its own, and a person may replace that;
+  - a person's decision is final (409 after);
+  - a note under 8 characters is a 422.
 
 ## 3S8-FE-02 · Model and rule administration — `/admin/intelligence/models`
 
@@ -173,6 +181,14 @@ Roles: SUPER_ADMIN, BTG_ADMIN.
   - `PATCH /intelligence/models/:key/thresholds { values, reason }`
   - `PATCH /intelligence/flags { feature, tenantId, enabled, reason }` (acceptance #12)
 - Acceptance #11: activate, roll back and compare with no deploy. The version rules above are the screen's reading of 3S0-PMO-02, which is not written yet — confirm them there.
+- **Mounted 2026-10-15** (3S8-BE-01, 3S8-OPS-01). The version rules match the policy, now written ([SponsorX-Model-Governance.md](./SponsorX-Model-Governance.md)). Fields beyond the contract:
+  - each version carries its `settings`, for comparing;
+  - its metrics are "Outputs made" until back-tests (3S9-QA-01) add theirs;
+  - a settings change answers `{ version, status, heldBecause, model }`. Inside the safe ranges it is active at once; outside them it is held as a draft;
+  - **extra endpoint:** `POST /intelligence/models/{key}/versions/{version}/validate { reason }` lets a second person validate a held draft. The screen needs a button for it;
+  - `rollouts` is empty: settings are per tenant, with no staged rollout;
+  - flags also include `scenarios` and `zohoIntelligence`;
+  - a switched-off feature's reads answer 403 `feature_off`.
 
 ---
 

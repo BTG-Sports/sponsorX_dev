@@ -30,6 +30,7 @@ import {
   type BackfillModule,
   type SyncCtx,
 } from "../../src/domain/zoho-sync.ts";
+import { pushIntelligence } from "../../src/domain/zoho-intelligence.ts";
 import { logError } from "../../src/lib/redact.ts";
 
 export type Deps = { db: PrismaClient; zoho: () => ZohoClient };
@@ -86,6 +87,11 @@ export const handlePushMarketplaceOrder = (deps: Deps, job: MarketplaceOrderJob)
 export type RenewalJob = Tenanted & { campaignId: string };
 export const handlePushRenewal = (deps: Deps, job: RenewalJob) =>
   tolerateRecordErrors("zoho.pushRenewal", () => pushRenewal(ctxFor(deps), job.tenantId, job.campaignId));
+
+/** 3S7-INT-01 — a sponsor's renewal score and next action onto its Account. */
+export type IntelligenceJob = Tenanted & { sponsorId: string };
+export const handlePushIntelligence = (deps: Deps, job: IntelligenceJob) =>
+  tolerateRecordErrors("zoho.pushIntelligence", () => pushIntelligence(ctxFor(deps), job.tenantId, job.sponsorId));
 
 /**
  * `zoho.ingestCrm` — apply the records a verified notification named

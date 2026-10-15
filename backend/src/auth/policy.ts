@@ -179,7 +179,10 @@ export type Resource =
   | "campaignForecast"
   | "makeGood"
   | "sponsorIntelligence"
-  | "propertyIntelligence";
+  | "propertyIntelligence"
+  | "scenario"
+  | "anomaly"
+  | "modelRegistry";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -267,6 +270,9 @@ export const RESOURCES: readonly Resource[] = [
   "makeGood",
   "sponsorIntelligence",
   "propertyIntelligence",
+  "scenario",
+  "anomaly",
+  "modelRegistry",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -1143,6 +1149,30 @@ export const POLICY: Record<Resource, RolePolicy> = {
      quality. Only the property's own manager. Read-only. */
   propertyIntelligence: {
     PROPERTY_MGR: rwa("own-property"),
+  },
+  /* 3S7-BE-01 (matrix §33) — the scenario planner: calculate a what-if
+     (read) and save one (write). BTG's planning desk and Sales. */
+  scenario: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    CAMPAIGN_MGR: rwa("own-tenant", "own-tenant"),
+    SALES: rwa("own-tenant", "own-tenant"),
+  },
+  /* 3S8-DATA-01 (matrix §34) — anomaly flags and their dispositions. A
+     disposition changes what a sponsor's report counts, so only BTG admins
+     and campaign managers. */
+  anomaly: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    CAMPAIGN_MGR: rwa("own-tenant", "own-tenant"),
+  },
+  /* 3S8-BE-01, 3S8-OPS-01 (matrix §35) — the engines' versioned settings and
+     the per-tenant feature flags. Changing how SponsorX prices, forecasts and
+     flags is BTG administration: BTG admins for their tenant, super admins
+     for any. */
+  modelRegistry: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
   },
 };
 

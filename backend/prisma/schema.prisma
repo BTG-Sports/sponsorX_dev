@@ -758,6 +758,9 @@ model Sponsor {
   /// (BRAND_CATEGORIES). Set by BTG. Every restriction and exclusivity check
   /// asks against these; a sponsor with none cannot buy in the marketplace.
   categories        String[]
+  /// 3S7-INT-01 — what SponsorX last sent to the Account's renewal score and next action, so an unchanged value is not sent again.
+  zohoIntelHash     String?
+  zohoIntelPushedAt DateTime?
 
   briefs    CampaignBrief[]
   campaigns Campaign[]
@@ -4181,4 +4184,101 @@ model MakeGoodOption {
 
   @@index([shortfallId])
   @@index([tenantId])
+}
+
+/// 3S7-BE-01 — a saved what-if from the scenario planner: the inputs and the
+/// answer exactly as calculated, with its model stamp, so two can be compared
+/// later as they were made.
+model Scenario {
+  id       String   @id @default(cuid())
+  tenantId String
+  name     String
+  /// { budgetCents, cpmCents, audience { sport?, stateCodes?, ageBand? }, mix [{ format, share }] }
+  inputs   Json
+  /// { expectedImpressions { low, mid, high }, expectedRevenueCents, deliveryProbability, stamp, notes }
+  result   Json
+  savedBy  String
+  savedAt  DateTime
+
+  @@index([tenantId, savedAt])
+}
+
+/// 3S8-DATA-01 — a rule's claim that a figure looks wrong, kept once
+/// (fingerprint) with its rule, version and evidence, and its disposition:
+/// by a person (final), or automatically by SponsorX for the clear-cut case
+/// (a duplicate post), which a person may replace.
+model Anomaly {
+  id          String    @id @default(cuid())
+  tenantId    String
+  /// spike | duplicate | bot | redemption | manual_entry
+  kind        String
+  /// high | medium | low
+  severity    String
+  ruleId      String
+  ruleVersion String
+  /// campaign | athlete | reward | metric_stream
+  subjectType String
+  subjectId   String
+  subjectName String
+  fingerprint String
+  /// [{ label, value }]
+  evidence    Json
+  detectedAt  DateTime
+  /// confirmed_issue | false_positive | excluded_from_reporting; null while open
+  outcome     String?
+  note        String?
+  /// The user who decided; null when SponsorX decided automatically.
+  decidedBy   String?
+  automatic   Boolean   @default(false)
+  decidedAt   DateTime?
+
+  @@unique([tenantId, fingerprint])
+  @@index([tenantId, outcome])
+}
+
+/// 3S8-DATA-01 — when the anomaly rules last ran for a tenant (the console's "as of").
+model AnomalyScan {
+  tenantId String   @id
+  ranAt    DateTime
+}
+
+/// 3S8-BE-01 — one version of an engine's tunable settings, per tenant
+/// (documentation/SponsorX-Model-Governance.md). draft → validated → active →
+/// retired; one active per tenant and model (partial unique index). The
+/// engines stamp their outputs with the active version.
+model ModelVersion {
+  id          String    @id @default(cuid())
+  tenantId    String
+  /// pricing | matching | forecast | makegood | anomalies
+  key         String
+  version     String
+  /// draft | validated | active | retired
+  status      String
+  /// { settingKey: value } — the whole set, not a difference.
+  thresholds  Json
+  notes       String    @default("")
+  reason      String
+  /// null for the built-in version.
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  validatedBy String?
+  validatedAt DateTime?
+  activatedAt DateTime?
+  retiredAt   DateTime?
+
+  @@unique([tenantId, key, version])
+  @@index([tenantId, key, status])
+}
+
+/// 3S8-OPS-01 — an intelligence feature switched on or off for one tenant.
+/// No row means on.
+model FeatureFlag {
+  tenantId  String
+  feature   String
+  enabled   Boolean
+  reason    String
+  updatedBy String?
+  updatedAt DateTime
+
+  @@id([tenantId, feature])
 }

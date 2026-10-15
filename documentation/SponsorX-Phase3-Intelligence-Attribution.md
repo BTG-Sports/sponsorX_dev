@@ -105,14 +105,24 @@ The most important decision in Phase 3 and it is a language decision, not a tech
 - **Done when:** Written definitions for every attribution class, with the reporting language each is allowed to use
 - **Reference:** Spec §17.4, §22
 
-### ▶ `3S0-PMO-02` · Model governance policy
+### ◑ `3S0-PMO-02` · Model governance policy
 
-**Order** 2 · **PMO** · **Where:** Document · **3d** · **Ready**
+**Order** 2 · **PMO** · **Where:** Document · **3d** · **Code review**
 
 How a model version is proposed, validated, activated, rolled back and compared. Without this, nobody can explain why a price changed.
 
 - **Depends on:** Phase 2 complete
 - **Done when:** Governance policy written: versioning, confidence, explanation, override, monitoring and rollback
+- **Delivered:** 2026-10-15, drafted for the owner's approval: [`SponsorX-Model-Governance.md`](./SponsorX-Model-Governance.md). It covers:
+  - versioning per tenant, with the version as the stamp on every output;
+  - draft → validated → active → retired;
+  - automatic validation inside the safe ranges, and a second person for anything outside them (user, 2026-10-15: automation first);
+  - confidence and explanation on every output;
+  - overrides that never edit what the engine made;
+  - rollback and comparison with no deployment;
+  - per-tenant switches;
+  - who may act;
+  - monitoring.
 - **Reference:** Spec §15
 
 ### ✅ `3S0-DATA-01` · Event taxonomy audit
@@ -842,14 +852,21 @@ Rate recommendations, revenue opportunity, sell-through, sponsor-category fit an
 - **Reference:** Spec §16 P3-07
 - **Built (2026-10-13):** `/property/intelligence`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the property read, 3S7-BE-02 is mounted the screen says so and shows no figures. Marked Done by the owner 2026-10-13 with the UI complete and QA'd at phone, laptop and desktop widths; when the engine lands, walk the screen against it.
 
-### ⏸ `3S7-BE-01` · Scenario planning service
+### ◑ `3S7-BE-01` · Scenario planning service
 
-**Order** 33 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 33 · **BE** · **Where:** Code · **5d** · **Code review**
 
 What-if: change budget, CPM, audience and inventory mix, and compare expected delivery and revenue.
 
 - **Depends on:** 3S4-BE-01
 - **Done when:** A scenario can be created, calculated and compared against another
+- **Delivered:** 2026-10-15.
+  - **How:** each format's share of the budget buys posts at the tenant's booked price (or the catalogue's). The audience's verified views per post (low, likely, high) give the expected views.
+  - **Chance of delivering** what the CPM sells: as the forecast does it.
+  - **Expected revenue:** the budget, reduced when delivery falls short (user, 2026-10-15).
+  - **Endpoints:** `GET /intelligence/scenarios`, `POST …/calculate` (stores nothing) and `POST /intelligence/scenarios` (keeps it with its stamp, to compare). New permission `scenario` (RBAC matrix §33).
+
+  [`SponsorX-Scenarios.md`](./SponsorX-Scenarios.md)
 - **Reference:** Spec §18
 
 ### ✅ `3S7-FE-03` · Build the scenario planner
@@ -863,14 +880,20 @@ The sales-conversation screen: adjust the inputs live while a sponsor watches.
 - **Reference:** Spec §16 P3-08
 - **Built (2026-10-13):** `/admin/intelligence/scenarios`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the scenario service is mounted the screen says so and shows no figures. Marked Done by the owner 2026-10-13 with the UI complete and QA'd at phone, laptop and desktop widths; when the engine lands, walk the screen against it.
 
-### ⏸ `3S7-INT-01` · Push intelligence into Zoho
+### ◑ `3S7-INT-01` · Push intelligence into Zoho
 
-**Order** 35 · **INT** · **Where:** Code · **3d** · **Blocked**
+**Order** 35 · **INT** · **Where:** Code · **3d** · **Code review**
 
 Renewal scores, sponsor health and recommended next action flow back to the CRM where the sales team already works.
 
 - **Depends on:** 3S7-FE-01
 - **Done when:** Zoho shows renewal score and recommended next action on the sponsor record
+- **Delivered:** 2026-10-15.
+  - **What Zoho shows:** each sponsor's Account carries `SponsorX_Renewal_Score` (0–100) and `SponsorX_Next_Action`, from the same renewal advice as the sponsor's hub.
+  - **Automatic:** the nightly run queues `zoho.pushIntelligence` only for sponsors in Zoho whose values changed.
+  - **The fields** are made by `npm run zoho:intel-fields -- --create`: the sandbox first, then production with the owner's OK.
+
+  [`SponsorX-Zoho-Field-Mapping.md`](./SponsorX-Zoho-Field-Mapping.md) §12.3
 - **Reference:** Spec §20
 
 ## Sprint 8 · Anomaly detection & model admin
@@ -879,14 +902,20 @@ Renewal scores, sponsor health and recommended next action flow back to the CRM 
 
 *5 tasks · 23 person-days*
 
-### ⏸ `3S8-DATA-01` · Anomaly detection rules
+### ◑ `3S8-DATA-01` · Anomaly detection rules
 
-**Order** 36 · **DATA** · **Where:** Code · **5d** · **Blocked**
+**Order** 36 · **DATA** · **Where:** Code · **5d** · **Code review**
 
 Improbable spikes, duplicate events, bot-like behaviour, suspicious redemption patterns and manual-entry inconsistencies.
 
 - **Depends on:** 3S1-DATA-02
 - **Done when:** Anomaly console identifies seeded duplicate, bot and redemption test patterns
+- **Delivered:** 2026-10-15.
+  - **Seven rules,** nightly over 30 days: spikes, duplicate posts, bot-like clicks, redemption bursts, a fan redeeming repeatedly, hand-entered figures 3× the API's, and more engagements than views.
+  - **Decisions:** a person decides each flag with a note. A duplicate post is excluded from reporting automatically (user, 2026-10-15: automation first), and a person may replace that.
+  - **Endpoints:** `GET /intelligence/anomalies` and `POST …/{id}/disposition`. New permission `anomaly` (RBAC matrix §34).
+
+  [`SponsorX-Anomalies.md`](./SponsorX-Anomalies.md)
 - **Reference:** Spec §15, §22
 
 ### ✅ `3S8-FE-01` · Build the data quality and anomaly console
@@ -900,14 +929,21 @@ Flagged streams, suspicious redemptions, data-quality issues and the reviewer's 
 - **Reference:** Spec §16 P3-09
 - **Built (2026-10-13):** `/admin/intelligence/anomalies`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the anomaly rules is mounted the screen says so and shows no figures. Marked Done by the owner 2026-10-13 with the UI complete and QA'd at phone, laptop and desktop widths; when the engine lands, walk the screen against it.
 
-### ⏸ `3S8-BE-01` · Model registry and activation
+### ◑ `3S8-BE-01` · Model registry and activation
 
-**Order** 38 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 38 · **BE** · **Where:** Code · **5d** · **Code review**
 
 Versions activate, roll back and compare without a code deployment. Pricing that requires a release to change is pricing nobody will trust.
 
 - **Depends on:** 3S0-PMO-02
 - **Done when:** A model version can be activated, rolled back and compared without deploying code
+- **Delivered:** 2026-10-15.
+  - **Five engines' settings are versioned per tenant:** pricing caps, the match lookback, the forecast's risk lines, the make-good limits and the anomaly thresholds, each with a safe range.
+  - **Changing settings saves the next version.** Inside the safe ranges it goes live at once, automatically. Outside them it is held for a second person to validate.
+  - **Activate, roll back and compare** without a deployment. The engines read the active settings at each run and stamp their outputs with its version.
+  - **Endpoints:** `GET /intelligence/models` and `PATCH …/thresholds`, `POST …/validate`, `…/activate` and `…/rollback`. New permission `modelRegistry` (RBAC matrix §35).
+
+  [`SponsorX-Model-Governance.md`](./SponsorX-Model-Governance.md)
 - **Reference:** Spec §22
 
 ### ✅ `3S8-FE-02` · Build the model and rule administration screen
@@ -921,14 +957,20 @@ Pricing factors, model versions, thresholds, benchmarks, rollouts and feature fl
 - **Reference:** Spec §16 P3-10
 - **Built (2026-10-13):** `/admin/intelligence/models`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the model registry is mounted the screen says so and shows no figures. Marked Done by the owner 2026-10-13 with the UI complete and QA'd at phone, laptop and desktop widths; when the engine lands, walk the screen against it.
 
-### ⏸ `3S8-OPS-01` · Per-tenant feature flags for intelligence
+### ◑ `3S8-OPS-01` · Per-tenant feature flags for intelligence
 
-**Order** 40 · **OPS** · **Where:** Code · **3d** · **Blocked**
+**Order** 40 · **OPS** · **Where:** Code · **3d** · **Code review**
 
 Every intelligence feature must be disableable per tenant. Not every customer should see a forecast.
 
 - **Depends on:** 3S8-BE-01
 - **Done when:** All intelligence features can be disabled per tenant through feature flags
+- **Delivered:** 2026-10-15.
+  - **Nine features can be switched off per tenant:** pricing, matching, forecasts, make-goods, anomalies, scenarios, both hubs and the Zoho updates.
+  - **Off:** the nightly run skips that tenant, and the reads and writes answer 403 `feature_off`.
+  - **Endpoint:** `PATCH /intelligence/flags`, with a reason, audited. BTG admins for their own tenant, super admins for any.
+
+  [`SponsorX-Model-Governance.md`](./SponsorX-Model-Governance.md) §7
 - **Reference:** Spec §22
 
 ## Sprint 9 · Backtesting & rollout

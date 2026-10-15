@@ -44,10 +44,11 @@ import type { AthleteFeatures } from "./feature-snapshots";
 import { ALERT_MIN_ELAPSED, isoDay, type GuaranteeMetric } from "./forecast-rules";
 import type { PackageRules } from "./inventory";
 import {
-  allPass, autoDecision, autoNote, BASIS_WEIGHT, chooseOptions, equivalency, makeGoodWindow, MAKEGOOD_MODEL_VERSION, NOTE_MAX, NOTE_MIN,
+  allPass, autoDecision, autoNote, BASIS_WEIGHT, chooseOptions, equivalency, makeGoodWindow, NOTE_MAX, NOTE_MIN,
   optionReason, targetMisses, unitEstimate, unitsFor, type OptionDraft, type Target,
 } from "./makegood-rules";
 import { gatherCandidates } from "./match-engine";
+import { activeModel, assertFeature, featureEnabled, tenantsWithout } from "./model-registry";
 import { filterCandidate, type BriefForMatch } from "./match-rules";
 import { lockItems } from "./reservation";
 
@@ -150,12 +151,12 @@ async function sponsorSide(tenantId: string, f: Pick<ForecastRow, "sponsorId" | 
 }
 
 /** The shortfall's figures and its substitutes, as the rules make them. */
-async function buildShortfall(tenantId: string, f: ForecastRow, today: Date) {
+async function buildShortfall(tenantId: string, f: ForecastRow, today: Date, windowDays: number) {
   const sold = f.guarantee;
   const shortfall = sold - f.mid;
   const unitValueCents = (await soldValueCents(tenantId, f.campaignId, f.budget)) / sold;
   const shortfallValueCents = Math.round(shortfall * unitValueCents);
-  const window = makeGoodWindow(today);
+  const window = makeGoodWindow(today, windowDays);
   const side = await sponsorSide(tenantId, f, window);
 
   const candidates = (await gatherCandidates(tenantId, side.forMatch, [], today)).filter((c) => c.kind === "inventory");
@@ -251,12 +252,17 @@ export type MakeGoodReport = { tenants: number; shortfalls: number; opened: numb
  * every safety check passes.
  */
 export async function runMakeGoods(db: PrismaClient, now: Date, opts: { tenantId?: string; skipTenants?: string[] } = {}): Promise<MakeGoodReport> {
-  const skip = new Set(opts.skipTenants ?? []);
+  /* 3S8-OPS-01 — a tenant with make-goods switched off makes none. */
+  const skip = new Set([...(opts.skipTenants ?? []), ...(await tenantsWithout(db, "makegood"))]);
   const tenants = opts.tenantId ? [opts.tenantId] : (await db.tenant.findMany({ select: { id: true }, orderBy: { id: "asc" } })).map((t) => t.id);
   const today = day(now);
   const report: MakeGoodReport = { tenants: 0, shortfalls: 0, opened: 0, closed: 0, autoApproved: 0, held: 0, skipped: tenants.filter((t) => skip.has(t)) };
   for (const tenantId of tenants.filter((t) => !skip.has(t))) {
     report.tenants += 1;
+    /* 3S8-BE-01 — the tenant's active settings, and the stamp on every shortfall made with them. */
+    const model = await activeModel(db, tenantId, "makegood");
+    const auto = { autoMinCoverage: model.t.autoMinCoverage!, autoMinElapsed: model.t.autoMinElapsed! };
+    const windowDays = model.t.windowDays!;
     const forecasts = await db.$queryRawUnsafe<ForecastRow[]>(
       /* tenant-scope: explicit — this tenant's active campaigns' forecasts made today. */
       `SELECT f."campaignId", f.metric, f.guarantee, f.mid, f.elapsed, f.risk, c.budget, c."sponsorId", c."briefId"
@@ -282,9 +288,9 @@ export async function runMakeGoods(db: PrismaClient, now: Date, opts: { tenantId
         continue;
       }
       if (approved.has(f.campaignId)) continue;
-      const built = await buildShortfall(tenantId, f, today);
+      const built = await buildShortfall(tenantId, f, today, windowDays);
       const outcome = await db.$transaction(async (tx) => {
-        const data = { ...built.figures, modelVersion: MAKEGOOD_MODEL_VERSION, computedAt: now };
+        const data = { ...built.figures, modelVersion: model.stamp, computedAt: now };
         let id = open;
         if (id) {
           const locked = await tx.$queryRawUnsafe<Array<{ id: string }>>(
@@ -309,7 +315,7 @@ export async function runMakeGoods(db: PrismaClient, now: Date, opts: { tenantId
         }
 
         /* 3S5-BE-02 — automatic when every safety check passes; otherwise held, with every reason. */
-        const decision = autoDecision(built.options, { shortfall: built.figures.shortfall, elapsed: f.elapsed, sensitive: built.sensitive });
+        const decision = autoDecision(built.options, { shortfall: built.figures.shortfall, elapsed: f.elapsed, sensitive: built.sensitive }, auto);
         let held = decision.approve ? [] : decision.held;
         if (decision.approve) {
           const option = await tx.makeGoodOption.findFirstOrThrow({
@@ -318,7 +324,7 @@ export async function runMakeGoods(db: PrismaClient, now: Date, opts: { tenantId
           });
           try {
             await approveInTx(tx, SYSTEM(tenantId), { id, tenantId, campaignId: f.campaignId }, option, built.categories,
-              autoNote(decision.option, built.figures.shortfall, f.metric), now, true);
+              autoNote(decision.option, built.figures.shortfall, f.metric), now, true, windowDays);
             return "approved" as const;
           } catch (error) {
             if (!(error instanceof MakeGoodCheckError)) throw error;
@@ -363,10 +369,10 @@ type OptionForApproval = { id: string; inventoryItemId: string; units: number; c
  */
 async function approveInTx(
   tx: Tx, actor: AuditActor, s: { id: string; tenantId: string; campaignId: string }, o: OptionForApproval, categories: readonly string[],
-  note: string, now: Date, automatic: boolean,
+  note: string, now: Date, automatic: boolean, windowDays: number,
 ) {
   if (!allPass(o)) throw new MakeGoodCheckError(o.problems.length ? o.problems : ["it fails a check"]);
-  const window = makeGoodWindow(now);
+  const window = makeGoodWindow(now, windowDays);
   const takes = await unitsTaken(tx, o.inventoryItemId, s.tenantId, o.units);
   await lockItems(tx, takes.map((t) => t.inventoryItemId));
   const item = await tx.inventoryItem.findFirst({ where: { tenantId: s.tenantId, id: o.inventoryItemId }, select: { priceCents: true } });
@@ -399,8 +405,10 @@ async function approveInTx(
 /** POST /intelligence/make-goods/:shortfallId/approve — a BTG admin or campaign manager approves one substitute, with a note. */
 export async function approveMakeGood(actor: Actor, shortfallId: string, input: { optionId: string; note: string }, now = new Date()) {
   assertTenantWide(actor, "makeGood", "approve");
+  await assertFeature(prisma, actor.tenantId, "makegood");
   const note = input.note.trim();
   if (note.length < NOTE_MIN || note.length > NOTE_MAX) throw new MakeGoodNoteError();
+  const windowDays = (await activeModel(prisma, actor.tenantId, "makegood")).t.windowDays!;
   await prisma.$transaction(async (tx) => {
     const [s] = await tx.$queryRawUnsafe<Array<{ id: string; tenantId: string; campaignId: string; status: string }>>(
       /* tenant-scope: explicit — the caller's tenant's shortfall, locked against the nightly refresh. */
@@ -411,8 +419,8 @@ export async function approveMakeGood(actor: Actor, shortfallId: string, input: 
     const o = await tx.makeGoodOption.findFirst({ where: { tenantId: actor.tenantId, shortfallId: s.id, id: input.optionId }, select: OPTION_FOR_APPROVAL });
     if (!o) throw new MakeGoodNotFoundError("No such substitute on this shortfall.");
     const campaign = await tx.campaign.findFirst({ where: { tenantId: actor.tenantId, id: s.campaignId }, select: { sponsorId: true, briefId: true } });
-    const side = await sponsorSide(actor.tenantId, { sponsorId: campaign?.sponsorId ?? "", briefId: campaign?.briefId ?? null }, makeGoodWindow(now));
-    await approveInTx(tx, actor, s, o, side.categories, note, now, false);
+    const side = await sponsorSide(actor.tenantId, { sponsorId: campaign?.sponsorId ?? "", briefId: campaign?.briefId ?? null }, makeGoodWindow(now, windowDays));
+    await approveInTx(tx, actor, s, o, side.categories, note, now, false, windowDays);
   });
   return (await views(actor.tenantId, [shortfallId]))[0]!;
 }
@@ -498,6 +506,7 @@ function monthOf(now: Date) {
 /** GET /intelligence/make-goods?status=open|approved&campaign&page&size — open first by value at risk, largest first; approved newest first. */
 export async function makeGoodList(actor: Actor, q: { status: "open" | "approved"; campaignId?: string; page: PageRequest }, now = new Date()) {
   assertTenantWide(actor, "makeGood", "read");
+  await assertFeature(prisma, actor.tenantId, "makegood");
   const all = await prisma.makeGoodShortfall.findMany({
     where: { tenantId: actor.tenantId, status: { in: ["OPEN", "APPROVED"] }, ...(q.campaignId ? { campaignId: q.campaignId } : {}) },
     select: { id: true, status: true, shortfallValueCents: true, decidedAt: true },
@@ -521,6 +530,7 @@ export async function makeGoodList(actor: Actor, q: { status: "open" | "approved
 
 /** A campaign's open and approved make-goods, newest first — for its detail and its forecast (BTG admins and campaign managers only). */
 export async function campaignMakeGoods(tenantId: string, campaignId: string) {
+  if (!(await featureEnabled(prisma, tenantId, "makegood"))) return [];
   const rows = await prisma.makeGoodShortfall.findMany({
     where: { tenantId, campaignId, status: { in: ["OPEN", "APPROVED"] } },
     orderBy: { openedAt: "desc" },

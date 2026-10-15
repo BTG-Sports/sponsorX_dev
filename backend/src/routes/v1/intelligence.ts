@@ -17,13 +17,22 @@
  *
  * 3S7-BE-02 — the sponsor's and the property's own hubs (sponsorIntelligence,
  * propertyIntelligence, RBAC matrix §32), scoped by the actor, never the request.
+ *
+ * 3S7-BE-01 — the scenario planner (scenario, §33). 3S8-DATA-01 — anomaly
+ * flags and their dispositions (anomaly, §34).
+ *
+ * 3S8-BE-01, 3S8-OPS-01 — the model registry and feature flags
+ * (modelRegistry, §35; documentation/SponsorX-Model-Governance.md).
  */
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { ForecastsQuery, GuaranteeInput, MakeGoodApproveInput, MakeGoodsQuery, MatchesQuery, PricingOverrideInput, ShortlistInput, SponsorIntelQuery } from "../../contracts/intelligence";
+import { ForecastsQuery, GuaranteeInput, MakeGoodApproveInput, MakeGoodsQuery, MatchesQuery, PricingOverrideInput, ShortlistInput, SponsorIntelQuery, ScenarioCalculateInput, ScenarioSaveInput, AnomaliesQuery, AnomalyDispositionInput, FlagInput, ModelReasonInput, ModelRollbackInput, ModelSettingsInput } from "../../contracts/intelligence";
 import { forecastDetail, forecastList, setGuarantee } from "../../domain/forecast-engine";
+import { anomalyDesk, disposeAnomaly } from "../../domain/anomaly-engine";
 import { approveMakeGood, makeGoodList } from "../../domain/makegood-engine";
+import { activateVersion, changeSettings, modelRegistry, rollbackModel, setFlag, validateVersion } from "../../domain/model-admin";
+import { calculateScenario, saveScenario, scenarioDesk } from "../../domain/scenario-engine";
 import { matchPage, saveShortlist } from "../../domain/match-engine";
 import { overridePrice, pricingDesk, pricingDetail, type PricingDeskView } from "../../domain/pricing-engine";
 import { propertyIntelligence } from "../../domain/property-intelligence";
@@ -125,3 +134,76 @@ const propertyHub: RequestHandler = async (req, res) => {
 
 intelligenceRouter.get("/intelligence/sponsor", requireActor, sponsorHub);
 intelligenceRouter.get("/intelligence/property", requireActor, propertyHub);
+
+/** GET /intelligence/scenarios?page&size */
+const scenarios: RequestHandler = async (req, res) => {
+  res.json(await scenarioDesk(req.actor!, pageRequest({ page: 1, ...req.query })!));
+};
+
+/** POST /intelligence/scenarios/calculate { inputs } — nothing stored. */
+const calculate: RequestHandler = async (req, res) => {
+  const body = ScenarioCalculateInput.parse(req.body ?? {});
+  res.json(await calculateScenario(req.actor!, body.inputs));
+};
+
+/** POST /intelligence/scenarios { name, inputs } */
+const saveOne: RequestHandler = async (req, res) => {
+  const body = ScenarioSaveInput.parse(req.body ?? {});
+  res.status(201).json(await saveScenario(req.actor!, body));
+};
+
+intelligenceRouter.get("/intelligence/scenarios", requireActor, scenarios);
+intelligenceRouter.post("/intelligence/scenarios/calculate", requireActor, calculate);
+intelligenceRouter.post("/intelligence/scenarios", requireActor, saveOne);
+
+/** GET /intelligence/anomalies?tab=open|resolved&kind&page&size */
+const anomalies: RequestHandler = async (req, res) => {
+  const q = AnomaliesQuery.parse(req.query ?? {});
+  res.json(await anomalyDesk(req.actor!, { tab: q.tab, kind: q.kind, page: pageRequest({ page: 1, ...req.query })! }));
+};
+
+/** POST /intelligence/anomalies/:anomalyId/disposition { outcome, note } */
+const dispose: RequestHandler<{ anomalyId: string }> = async (req, res) => {
+  const body = AnomalyDispositionInput.parse(req.body ?? {});
+  res.json(await disposeAnomaly(req.actor!, req.params.anomalyId, body));
+};
+
+intelligenceRouter.get("/intelligence/anomalies", requireActor, anomalies);
+intelligenceRouter.post("/intelligence/anomalies/:anomalyId/disposition", requireActor, dispose);
+
+/** GET /intelligence/models */
+const models: RequestHandler = async (req, res) => {
+  res.json(await modelRegistry(req.actor!));
+};
+
+/** PATCH /intelligence/models/:key/thresholds { values, reason } */
+const settings: RequestHandler<{ key: string }> = async (req, res) => {
+  res.json(await changeSettings(req.actor!, req.params.key, ModelSettingsInput.parse(req.body ?? {})));
+};
+
+/** POST /intelligence/models/:key/versions/:version/validate { reason } */
+const validate: RequestHandler<{ key: string; version: string }> = async (req, res) => {
+  res.json({ model: await validateVersion(req.actor!, req.params.key, req.params.version, ModelReasonInput.parse(req.body ?? {})) });
+};
+
+/** POST /intelligence/models/:key/versions/:version/activate { reason } */
+const activate: RequestHandler<{ key: string; version: string }> = async (req, res) => {
+  res.json({ model: await activateVersion(req.actor!, req.params.key, req.params.version, ModelReasonInput.parse(req.body ?? {})) });
+};
+
+/** POST /intelligence/models/:key/rollback { toVersion, reason } */
+const rollback: RequestHandler<{ key: string }> = async (req, res) => {
+  res.json({ model: await rollbackModel(req.actor!, req.params.key, ModelRollbackInput.parse(req.body ?? {})) });
+};
+
+/** PATCH /intelligence/flags { feature, tenantId, enabled, reason } */
+const flag: RequestHandler = async (req, res) => {
+  res.json({ flag: await setFlag(req.actor!, FlagInput.parse(req.body ?? {})) });
+};
+
+intelligenceRouter.get("/intelligence/models", requireActor, models);
+intelligenceRouter.patch("/intelligence/models/:key/thresholds", requireActor, settings);
+intelligenceRouter.post("/intelligence/models/:key/versions/:version/validate", requireActor, validate);
+intelligenceRouter.post("/intelligence/models/:key/versions/:version/activate", requireActor, activate);
+intelligenceRouter.post("/intelligence/models/:key/rollback", requireActor, rollback);
+intelligenceRouter.patch("/intelligence/flags", requireActor, flag);

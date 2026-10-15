@@ -427,7 +427,18 @@ describe("the whole matrix is pinned", () => {
       // PROPERTY_MGR own-property read; no write or approve; every other cell
       // deny, BTG included (matrix §32). With their rows removed the grid
       // hashes to the previous e05782e25f86994e.
-    ).toBe("dc3c5d517b67a709");
+      // Updated 2026-10-15 (3S7-BE-01, 3S8-DATA-01): new `scenario` resource
+      // — SUPER_ADMIN any read and write; BTG_ADMIN, CAMPAIGN_MGR and SALES
+      // own-tenant read and write (matrix §33) — and new `anomaly` resource —
+      // SUPER_ADMIN any read and write; BTG_ADMIN and CAMPAIGN_MGR own-tenant
+      // read and write (matrix §34); every other cell deny. With their rows
+      // removed the grid hashes to the previous dc3c5d517b67a709.
+      // Updated 2026-10-15 (3S8-BE-01, 3S8-OPS-01): new `modelRegistry`
+      // resource — the engines' versioned settings and per-tenant feature
+      // flags. SUPER_ADMIN any read and write; BTG_ADMIN own-tenant read and
+      // write; every other cell deny (matrix §35). With its rows removed the
+      // grid hashes to the previous 22f65ea6071c590b.
+    ).toBe("4f8aa9696f132aa2");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

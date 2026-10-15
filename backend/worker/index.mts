@@ -70,6 +70,8 @@ const HANDLED_JOBS = new Set<string>([
   "zoho.backfill",
   /* 2S7-INT-01 — marketplace orders, their sponsors and properties. */
   "zoho.pushMarketplaceOrder",
+  /* 3S7-INT-01 — renewal score and next action onto a sponsor's Account. */
+  "zoho.pushIntelligence",
   /* 2S7-BE-02 — the sponsor report rendered as a file, unattended. */
   "report.render",
   /* 2S5-INT-02 / 2S5-BE-05 — the payment provider's side (stand-in on staging). */
@@ -111,6 +113,8 @@ import { takeFeatureSnapshots } from "../src/domain/feature-snapshots.ts";
 import { storePricingRecommendations } from "../src/domain/pricing-engine.ts";
 import { runForecasts } from "../src/domain/forecast-engine.ts";
 import { runMakeGoods } from "../src/domain/makegood-engine.ts";
+import { runAnomalies } from "../src/domain/anomaly-engine.ts";
+import { queueZohoIntelligence } from "../src/domain/zoho-intelligence.ts";
 import { env } from "../src/config/env.ts";
 import { trimZohoWebhookBodies } from "../src/domain/webhook-retention.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
@@ -127,10 +131,11 @@ import { processPaymentEvent, retryDeferredPaymentEvents, standinConfirmPayment 
 import { providerName } from "../src/lib/payment-provider.ts";
 import { redis } from "../src/lib/redis.ts";
 import { zohoConfigFromEnv, zohoFromEnv } from "../src/lib/zoho.ts";
+import { zohoCrmConfigured } from "../src/lib/zoho-jobs.ts";
 import {
-  handleBackfill, handleIngestCrm, handlePushDeal, handlePushLead, handlePushMarketplaceOrder, handlePushRenewal, handlePushSponsor,
+  handleBackfill, handleIngestCrm, handlePushDeal, handlePushLead, handlePushMarketplaceOrder, handlePushRenewal, handlePushSponsor, handlePushIntelligence,
   handlePushTask, renewWatch, runReconciliation, dispatchableJobs,
-  type BackfillJob, type DealJob, type IngestCrmJob, type LeadJob, type MarketplaceOrderJob, type RenewalJob, type SponsorJob, type TaskJob,
+  type BackfillJob, type DealJob, type IngestCrmJob, type LeadJob, type MarketplaceOrderJob, type RenewalJob, type SponsorJob, type TaskJob, type IntelligenceJob,
 } from "./jobs/zoho-sync.mts";
 import { logError, maskEmail, redactEmails } from "../src/lib/redact.ts";
 
@@ -612,6 +617,9 @@ async function main(): Promise<void> {
   await ensureQueue("zoho.pushRenewal");
   await boss.work<RenewalJob>("zoho.pushRenewal", async ([job]) =>
     zohoLog("zoho.pushRenewal", await handlePushRenewal(zohoDeps, job.data)));
+  await ensureQueue("zoho.pushIntelligence");
+  await boss.work<IntelligenceJob>("zoho.pushIntelligence", async ([job]) =>
+    zohoLog("zoho.pushIntelligence", await handlePushIntelligence(zohoDeps, job.data)));
   await ensureQueue("zoho.ingestCrm");
   await boss.work<IngestCrmJob>("zoho.ingestCrm", async ([job]) => {
     const out = await handleIngestCrm(zohoDeps, job.data);
@@ -975,7 +983,16 @@ async function main(): Promise<void> {
             /* 3S5 — then the shortfalls of at-risk campaigns, their substitutes, and the automatic approvals. */
             .then(() => runMakeGoods(prisma, new Date(), { skipTenants: out.failingTenants }))
             .then((m) => log(`[worker] make-goods ${out.day}: ${m.shortfalls} shortfall(s), ${m.opened} new, ${m.closed} closed; ${m.autoApproved} approved automatically, ${m.held} held for BTG${m.skipped.length ? `; none for ${m.skipped.join(", ")}` : ""}`))
-            .catch((error: unknown) => logError(`[worker] make-goods ${out.day} could not be made, will retry tomorrow:`, error));
+            .catch((error: unknown) => logError(`[worker] make-goods ${out.day} could not be made, will retry tomorrow:`, error))
+            /* 3S8-DATA-01 — then the anomaly rules over the last 30 days; the clear-cut flags decided automatically. */
+            .then(() => runAnomalies(prisma, new Date(), { skipTenants: out.failingTenants }))
+            .then((a) => log(`[worker] anomalies ${out.day}: ${a.flagged} new flag(s), ${a.excludedAutomatically} excluded automatically${a.skipped.length ? `; none for ${a.skipped.join(", ")}` : ""}`))
+            .catch((error: unknown) => logError(`[worker] anomalies ${out.day} could not be checked, will retry tomorrow:`, error))
+            /* 3S7-INT-01 — then each sponsor's renewal score and next action to Zoho, where they changed. Only with Zoho set up:
+               otherwise the jobs would pile up in the outbox, one more each night. */
+            .then(() => (zohoCrmConfigured() ? queueZohoIntelligence(prisma, new Date(), { skipTenants: out.failingTenants }) : null))
+            .then((z) => log(z ? `[worker] Zoho intelligence ${out.day}: ${z.queued} of ${z.sponsors} sponsor(s) queued (changed)` : `[worker] Zoho intelligence ${out.day}: Zoho is not set up — nothing queued`))
+            .catch((error: unknown) => logError(`[worker] Zoho intelligence ${out.day} could not be queued, will retry tomorrow:`, error));
         }
         if (out.status === "failed") logError(`[worker] fact check ${out.day} could not run, will retry in an hour:`, out.error);
       })

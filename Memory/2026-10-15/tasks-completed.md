@@ -145,3 +145,114 @@
 - **Docs:** `SponsorX-Hub-Intelligence.md`, RBAC §32, the plan (Code review with a Delivered line), the screen contracts (mounted).
 - **Checks:** every CI step passed locally: backend 212 files / 3,322 tests (no skips), web 140 / 1,531, lint, both builds, security.
 - **Tracker:** Phase 3 row 56 → Code review.
+
+## rcfworks — 3S7-BE-02 deployed (release e392870)
+
+- #219 and the sync #220 merged.
+- `main`'s CI went green, and Claude started the deploy itself under the new allow rule. `release` moved to `e392870`; staging and production are deploying. No migration.
+
+## rcfworks — 3S7-BE-01, 3S7-INT-01, 3S8-DATA-01 (Code review, one PR)
+
+**Decisions (user, 2026-10-15):**
+- **Planner revenue:** the budget, reduced when the likely delivery falls short (the cost of a make-good).
+- **Zoho fields:** created in the sandbox first, and production only with the user's OK.
+- **"Exclude from reporting":** records the decision and flags the figure for now; taking flagged figures out of reports is a later task.
+- **"Remember automation priority for BTG admin":**
+  - anomalies decide the clear-cut case themselves (a duplicate post is excluded automatically, and a person may replace that);
+  - Zoho updates queue nightly with no button.
+
+**3S7-BE-01 · scenario planner:**
+- **Rules** (`scenario-rules.ts`):
+  - posts bought = budget share ÷ the format's price (tenant median booked, else the catalogue midpoint);
+  - expected views = posts × the audience's verified views per post (p25 / median / p75 from snapshots; the whole network below 3 matches);
+  - sold = budget ÷ CPM × 1,000, and the chance of delivering it is a normal approximation from the quartile spread;
+  - revenue = budget × min(1, likely ÷ sold).
+- **Formats:** social posts and videos only (those it can price and measure).
+- **Endpoints:** `GET /intelligence/scenarios`, `POST …/calculate` (stores nothing) and `POST /intelligence/scenarios` (a `Scenario` row with its stamp).
+- **Permission:** `scenario` (RBAC §33).
+- **Tests:** `tests/scenarios.test.ts`, 8.
+
+**3S7-INT-01 · intelligence into Zoho:**
+- **Shared logic:** `renewal-advice.ts` holds the renewal advice for both the hub and Zoho. It takes its database client, so the worker's Zoho job module loads no global client; `tests/zoho-client.test.ts` caught that.
+- **What is sent:** `zoho-intelligence.ts` sends `SponsorX_Renewal_Score` (0–100) and `SponsorX_Next_Action`, from the soonest campaign still to end (else the most recently ended).
+- **Nightly:** `queueZohoIntelligence` queues only sponsors in Zoho whose hash changed (`Sponsor.zohoIntelHash`), and only when Zoho is configured.
+- **Job:** `zoho.pushIntelligence` is wired into the outbox job names, NEEDS_ZOHO_CRM and the worker.
+- **Fields script:** `scripts/zoho-intel-fields.mts` (`npm run zoho:intel-fields`) checks, or with `--create` adds, the two fields. Production also needs `--confirm-production`.
+- **Still to do:** run it on staging (the sandbox token) after the deploy, then production with the user's OK.
+- **Tests:** `tests/zoho-intelligence.test.ts`, 3, against FakeZoho.
+
+**3S8-DATA-01 · anomaly detection:**
+- **Rules** (`anomaly-rules.ts`), seven: spike 5× the trailing median (≥1,000 views, ≥3 earlier days), duplicate post URL, 30 clicks in a minute, 10 redemptions in 5 minutes, one fan 3 times, hand-entered 3× the API's figure, and engagements > views.
+- **Engine** (`anomaly-engine.ts`): nightly over 30 days, after make-goods. Flags are unique by fingerprint. The duplicate is auto-excluded and audited as `anomaly.autoDispose`.
+- **Endpoints:** `GET /intelligence/anomalies` (with `AnomalyScan` for "as of") and `POST …/{id}/disposition`: a note is required, a person's decision is final, and a person may replace an automatic one.
+- **Permission:** `anomaly` (RBAC §34).
+- **Tests:** `tests/anomalies.test.ts`, 9. All seven seeded patterns are flagged once.
+
+**Shared:**
+- migration `20261015150000_scenarios_anomalies_zoho_intel`;
+- worker chain: … → make-goods → anomalies → the Zoho intelligence queue;
+- matrix digest `22f65ea6071c590b`;
+- tenant-isolation sweep: a seeded tenant-A flag and the new bodies;
+- authz.coverage;
+- OpenAPI registry;
+- docs: `SponsorX-Scenarios.md`, `SponsorX-Anomalies.md`, Field Mapping §12.3, RBAC §33–34, the plan (Code review) and the screen contracts.
+
+**Checks:** every CI step passed locally: security, both builds, lint, backend 215 files / 3,345 tests (no skips), web 140 / 1,531.
+
+**CI fix on #221.** `tests/fan-pii.test.ts` forbids putting a fan's email in a raw SELECT on `RewardEvent`, and the repeat-fan rule had selected it.
+- **Why the local run missed it:** the test scans only git-tracked files, and the new file wasn't added yet.
+- **The fix:** fans are now grouped in the database (`GROUP BY lower(trim("fanEmail"))`), returning only the count and the first redemption's id and time. The address never leaves the database. The flag's evidence is "Times one fan redeemed" and "Their first redemption"; the masked email is gone.
+- **Checks:** re-run with every file tracked: backend 215 / 3,345 and web 140 / 1,531, both green.
+
+## rcfworks — P2-OPS-08 dropped (user decision)
+
+- **Decision:** the user asked for "PR environments" (a temporary copy of the app per pull request) to be deleted: "its not worth doing".
+- **Recorded as Dropped,** in the tracker (Phase 1) and the plan, with the reasons:
+  - CI already runs the full suite on a fresh database for every PR;
+  - the team is two people;
+  - it would cost Railway money.
+- **Not physically removed:** deleting a row would throw off the Dashboard's ranges and counts.
+- **Nothing depended on it** (Unblocks 0).
+- **Phase 1 backend left:** two-step login and production keys (waiting for launch by decision), the sign-off and UAT (end of phase), the first NEXT edition sale (a business milestone), and HeckerCreatives' two.
+
+## rcfworks — 3S0-PMO-02, 3S8-BE-01, 3S8-OPS-01 (Code review, one PR)
+
+**Asked:** "lets do next 3 backend task … for phase 3". Only 3S9-QA-02 could start; the rest waited on 3S0-PMO-02. The user approved drafting the policy and building the registry and flags.
+
+**3S0-PMO-02 · governance policy:** `documentation/SponsorX-Model-Governance.md`, drafted for the owner's approval.
+
+**3S8-BE-01 · model registry:**
+- **Settings:** `model-registry.ts` (`MODEL_DEFS`, the safe ranges, `activeModel`).
+- **Admin:** `model-admin.ts`:
+  - the desk;
+  - `changeSettings`: inside the ranges it auto-validates and activates (`model.autoActivate`, null actor); outside, it is held as a draft;
+  - `validateVersion`: a second person, never the proposer;
+  - `activateVersion`;
+  - `rollbackModel`;
+  - `setFlag`.
+- **The built-in version** is stored on the first change, so it can be rolled back to.
+- **Engines wired to their tenant's active settings and stamp:**
+
+  | Engine | Settings it reads |
+  |---|---|
+  | Pricing | `maxFactor`, `maxTotal` |
+  | Matching | lookback; a run made with other settings is re-ranked |
+  | Forecast | `riskWith`, `alertMove`, `forecastFlow`'s trust share |
+  | Make-goods | auto rules, window days |
+  | Anomalies | every threshold |
+
+- **`riskOf(p)` keeps its one-argument shape,** because `tests/forecast.test.ts` maps over it. The settings version is `riskWith`.
+
+**3S8-OPS-01 · feature flags:**
+- **Nine features.** The `FeatureFlag` table holds them, and no row means on.
+- **Off:**
+  - the nightly runs skip the tenant (`tenantsWithout`);
+  - reads and writes answer 403 `feature_off` (`assertFeature`);
+  - the campaign and forecast details return no make-goods.
+
+**Shared:**
+- migration `20261015190000_model_registry_flags`, with one active version per tenant and model (a partial unique index);
+- matrix digest `4f8aa9696f132aa2`, RBAC §35;
+- the tenant-isolation sweep: a seeded tenant-A validated version. The settings PATCH is exempted from the "names tenant A" rule, because `{key}` is an engine name and tenant B changing its own settings is correct; the leak check still applies;
+- the `campaigns.list` fake gains `featureFlag`;
+- `tests/model-registry.test.ts`, 7: built-ins; an auto change that the forecast uses and stamps; a held change, the second person, activation; rollback and compare; refusals; a switch off and on; who.
