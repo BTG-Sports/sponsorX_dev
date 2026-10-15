@@ -1041,9 +1041,9 @@ Roll out per tenant behind flags, starting with BTG's own data, before any exter
 - **Done when:** All 12 Phase 3 acceptance criteria demonstrated and signed off
 - **Reference:** Spec §22
 
-### ◑ `3S9-OPS-01` · Model and pipeline monitoring
+### ✅ `3S9-OPS-01` · Model and pipeline monitoring
 
-**Order** 44 · **OPS** · **Where:** Vendor console · **3d** · **Code review**
+**Order** 44 · **OPS** · **Where:** Vendor console · **3d** · **Done**
 
 Job failures, model drift, pipeline lag and data freshness all need alerts. A silently stale forecast is worse than none.
 
