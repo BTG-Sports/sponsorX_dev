@@ -439,3 +439,12 @@ The fixes logged on 2026-10-11 under "the QA findings fixed (still Code review, 
 **Tracker:** P1-ART-22, P1-ART-23, P1-ART-24 and P1-ART-25 move from Code review to **Done** (owner's call, 2026-10-15); today's Stage Progress row is corrected for the four. P8-QA-03 and P9-QA-01 stay In progress — nothing new was done on them today, and the edition e2e (P9-QA-01) still needs the Clerk cap cleared to run.
 - **Second merge** (Ganielle's #229, P1-ART-22…25 Done): resolved the same way. Their tracker, my five rows re-applied, no row changed on both sides, both sides of the log kept. #229 is frontend-only; frontend build, tests and lint passed on the merged code.
 - **A cache file blocked the merge:** the local `graphify-out/cache/last_query_stamp`, which holds only a timestamp. My copy was discarded for theirs.
+
+## rcfworks — 3S0-PMO-01, 3S9-QA-01, 3S9-QA-02 to Done
+
+- **#230 merged.** All three meet their acceptance:
+  - 3S0-PMO-01: the definitions and reporting language are written;
+  - 3S9-QA-01: backtests are documented with accuracy and calibration per model;
+  - 3S9-QA-02: benchmarks are validated for sample size, and reconciliation is checked to an exact tolerance.
+- **Updated:** the tracker and the plan.
+- **The two policy documents (3S0-PMO-01, 3S0-PMO-02)** still await the owner's read; any change comes as an edit by PR.
