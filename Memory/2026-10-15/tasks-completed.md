@@ -262,3 +262,13 @@
 - **The user's standing rule:** "when acceptance criteria passed, move it to done". Saved to memory. From now on this happens right after a merge, without waiting to be asked.
 - **Moved to Done:** 3S7-BE-02, 3S7-BE-01, 3S8-DATA-01, 3S0-PMO-02, 3S8-BE-01, 3S8-OPS-01. All are merged to `main` (#221 and #223, via #222), their acceptance is met and their tests are green. Tracker and plan both updated.
 - **Stays in Code review: 3S7-INT-01.** Its clause, "Zoho shows renewal score and next action on the sponsor record", needs the two Account fields created (sandbox, then production with the owner's OK) and a push to land.
+
+## rcfworks — CI: the four phase plans join the quick pass
+
+- **Why:** the user asked why a tracker-only PR (#224) still ran the full tests.
+- **Cause:** it touched the Phase 3 plan, under `documentation/`, which was left out of the docs-only skip because tests read some documents there.
+- **Checked:** no test opens the four phase plan files; the only mention is in a comment.
+- **Changed:** `.github/workflows/ci.yml` now also skips the build and tests when every file is the log, the tracker, the graph or one of exactly `SponsorX-Phase1-Managed-Marketplace.md`, `SponsorX-Phase2-Marketplace-Commerce.md`, `SponsorX-Phase3-Intelligence-Attribution.md` or `SponsorX-Phase4-INFINEX-Integration.md`.
+  - A first, looser pattern (`SponsorX-Phase[1-4]-*`) also matched the screen contracts and the ledger design (a test mentions that one), so it was tightened to the exact names.
+- **Tested on samples:** the #224 shape and each plan file skip; the screen contracts, ledger design, payment policy, RBAC matrix, plan + code, and a lookalike all run in full.
+- **Held locally** until #224 merges, so #224 stays a pure tracker PR.

@@ -14,10 +14,12 @@
 # 2026-10-15 — faster merges. A push to a working branch no longer runs CI on
 # its own: its pull request runs the same checks on the same commit, so the
 # push run was a duplicate queueing beside it. And a pull request that only
-# touches the day's log, the tracker or the graph (`Memory/`, `Claude outputs/`,
+# touches the day's log, the tracker, the four phase plans or the graph
+# (`Memory/`, `Claude outputs/`, the four plan files named in the rule below,
 # `graphify-out/`) skips the build and test jobs — nothing there is read by
-# the code or the tests. `documentation/` is not on that list: tests read the
-# RBAC matrix. Pushes to `main`, the nightly and hand-started runs always run
+# the code or the tests (the phase plans added 2026-10-15, checked: no test
+# opens them). The rest of `documentation/` is not on that list: tests read
+# the RBAC matrix, the fact ledger and others. Pushes to `main`, the nightly and hand-started runs always run
 # everything, so a deploy is never decided on a skipped check.
 #
 # The job "typecheck · lint · unit · authz matrix" is a REQUIRED check on
@@ -55,7 +57,10 @@ jobs:
   # - the nightly run, when `release` (what is deployed) already equals
   #   `main`: nothing new to test or deploy;
   # - a pull request whose every file (and every renamed file's old path) is
-  #   under `Memory/`, `Claude outputs/` or `graphify-out/`.
+  #   under `Memory/`, `Claude outputs/` or `graphify-out/`, or is one of the
+  #   four phase plans (Phase1-Managed-Marketplace, Phase2-Marketplace-Commerce,
+  #   Phase3-Intelligence-Attribution, Phase4-INFINEX-Integration) — those
+  #   exact files, not every document whose name starts with a phase.
   # A skipped job reports as passed, so the required check lets that pull
   # request merge. Anything uncertain — the file list can't be read, or it
   # came back shorter than the pull request says — runs everything.
@@ -81,9 +86,9 @@ jobs:
             LISTED=$(gh api --paginate "repos/${{ github.repository }}/pulls/$PR/files" --jq '.[].filename' 2>/dev/null) || LISTED=""
             OLD=$(gh api --paginate "repos/${{ github.repository }}/pulls/$PR/files" --jq '.[] | .previous_filename // empty' 2>/dev/null) || OLD=""
             COUNT=$(printf '%s\n' "$LISTED" | grep -c . || true)
-            OTHER=$(printf '%s\n%s\n' "$LISTED" "$OLD" | grep . | grep -vE '^(Memory|Claude outputs|graphify-out)/' || true)
+            OTHER=$(printf '%s\n%s\n' "$LISTED" "$OLD" | grep . | grep -vE '^(Memory|Claude outputs|graphify-out)/|^documentation/SponsorX-Phase(1-Managed-Marketplace|2-Marketplace-Commerce|3-Intelligence-Attribution|4-INFINEX-Integration)\.md$' || true)
             if [ "$COUNT" -gt 0 ] && [ "$COUNT" = "$PR_FILES" ] && [ -z "$OTHER" ]; then
-              echo "Only the log, the tracker or the graph changed ($COUNT file(s)) — skipping the build and tests."
+              echo "Only the log, the tracker, the phase plans or the graph changed ($COUNT file(s)) — skipping the build and tests."
               printf '%s\n' "$LISTED"
               echo "run=false" >> "$GITHUB_OUTPUT"
               exit 0
