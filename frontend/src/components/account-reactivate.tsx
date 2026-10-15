@@ -27,17 +27,19 @@ type FormAction = (formData: FormData) => Promise<void>;
 const primary = "inline-flex min-h-12 items-center justify-center rounded-lg bg-primary px-5 text-sm font-bold text-cta-ink hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40";
 
 export function AccountReactivate({
-  view, supportEmail, portalPath, reactivate, request,
+  view, supportEmail, portalPath, reactivate, request, titled = true,
 }: {
   view: ReactivateView;
   supportEmail: string;
   portalPath: string;
   reactivate?: FormAction;
   request?: FormAction;
+  /** false when the page already has its own title row (the in-portal preview). */
+  titled?: boolean;
 }) {
   return (
     <div className="mx-auto w-full max-w-xl space-y-3.5">
-      <h1 className="text-2xl font-bold tracking-tight sm:text-[28px]">Reactivate your account</h1>
+      {titled && <h1 className="text-2xl font-bold tracking-tight sm:text-[28px]">Reactivate your account</h1>}
 
       {view.kind === "self" && (
         <section aria-label="Account closed" className="flex flex-col gap-2.5 rounded-xl border border-line bg-surface px-4.5 py-4">

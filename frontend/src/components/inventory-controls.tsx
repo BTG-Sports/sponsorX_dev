@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import type { FilterTone } from "@/components/filter-kit";
 import { InventoryForm } from "@/components/inventory-form";
 import type { InventoryBody } from "@/lib/inventory-live";
 
@@ -67,11 +68,14 @@ export function InventoryNewItem({
   components,
   savedHref,
   startOpen = false,
+  tone = "athlete",
 }: {
   create: (body: InventoryBody) => Promise<Result>;
   components: Array<{ id: string; label: string }>;
   savedHref: string;
   startOpen?: boolean;
+  /** The portal's colour for the form's pickers. */
+  tone?: FilterTone;
 }) {
   const [open, setOpen] = useState(startOpen);
   if (!open) {
@@ -89,7 +93,7 @@ export function InventoryNewItem({
     /* P1-ART-22: w-full so the open form spans its slot wherever the page puts it. */
     <div className="w-full rounded-xl border border-line bg-surface p-5 text-left">
       <h2 className="mb-3 text-sm font-semibold tracking-tight">New item</h2>
-      <InventoryForm mode="create" create={create} components={components} savedHref={savedHref} onCancel={() => setOpen(false)} />
+      <InventoryForm mode="create" create={create} components={components} savedHref={savedHref} onCancel={() => setOpen(false)} tone={tone} />
     </div>
   );
 }

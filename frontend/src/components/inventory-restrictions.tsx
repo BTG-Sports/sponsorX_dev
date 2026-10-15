@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { Dropdown } from "@/components/filter-kit";
 import { BRAND_CATEGORIES, categoryLabel, type RestrictionRow } from "@/lib/inventory-live";
 
 /* --------------------------------------------------------------------------
@@ -90,12 +91,14 @@ export function InventoryRestrictions({
           if (category) void run("add", () => add(category, reason));
         }}
       >
-        <select aria-label="Category" className={INPUT} value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="">Add a category…</option>
-          {BRAND_CATEGORIES.map((c) => (
-            <option key={c} value={c}>{categoryLabel(c)}</option>
-          ))}
-        </select>
+        <Dropdown
+          label="Category"
+          allLabel="Add a category…"
+          value={category}
+          options={BRAND_CATEGORIES.map((c) => ({ value: c, label: categoryLabel(c) }))}
+          onChange={setCategory}
+          tone="athlete"
+        />
         <input aria-label="Reason (optional)" className={`${INPUT} min-w-0 flex-1 basis-40`} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (optional)" />
         <button
           type="submit"
