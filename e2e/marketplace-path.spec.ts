@@ -322,7 +322,9 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
   const form = athlete.getByRole("form", { name: "New inventory item" });
   await expect(form).toBeVisible();
   await athlete.locator("#inv-title").fill(CLINIC.title);
-  await athlete.locator("#inv-kind").selectOption("CAMP");
+  /* P1-ART-22: Kind is the house dropdown now, not a native <select>. */
+  await form.getByRole("button", { name: "Kind" }).click();
+  await form.getByRole("option", { name: "Camp or clinic", exact: true }).click();
   await athlete.locator("#inv-price").fill(CLINIC.price);
   await athlete.locator("#inv-qty").fill(CLINIC.quantity);
   await athlete.locator("#inv-from").fill(day(10));

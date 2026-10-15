@@ -432,3 +432,10 @@ Probe rows deleted (5 overrides, 1 DRAFT brief, the shortlist), the guarantee ba
 - **Today's log:** both sides kept.
 - **Their backend changes merged cleanly:** NETWORK_MGR reads `campaignBrief` (digest `3d92c5837a1480f7`, built on mine), plus pricing and forecast test additions.
 - **Checks:** the full CI set re-ran on the merged code and passed: backend 217 / 3,365 and web 140 / 1,543.
+## HeckerCreatives — P1-ART-22's QA fixes committed; P1-ART-22…25 Done (owner's call)
+
+The fixes logged on 2026-10-11 under "the QA findings fixed (still Code review, not yet committed)" — the Arena speed bar capped so it never crosses content, the last six native `<select>`s on athlete pages replaced by the house `Dropdown` (which gained `disabled` and a scrolling list), reactivation kept inside the portal — are committed today on top of the merged `main_development`, re-verified there (tsc, eslint, the full frontend suite, `next build`), and pushed through a PR to `main_development` and `main`. The 2026-10-05 design note for the dev Clerk-quota fallback (`docs/superpowers/specs/`) goes in with it.
+
+**Tracker:** P1-ART-22, P1-ART-23, P1-ART-24 and P1-ART-25 move from Code review to **Done** (owner's call, 2026-10-15); today's Stage Progress row is corrected for the four. P8-QA-03 and P9-QA-01 stay In progress — nothing new was done on them today, and the edition e2e (P9-QA-01) still needs the Clerk cap cleared to run.
+- **Second merge** (Ganielle's #229, P1-ART-22…25 Done): resolved the same way. Their tracker, my five rows re-applied, no row changed on both sides, both sides of the log kept. #229 is frontend-only; frontend build, tests and lint passed on the merged code.
+- **A cache file blocked the merge:** the local `graphify-out/cache/last_query_stamp`, which holds only a timestamp. My copy was discarded for theirs.
