@@ -22,9 +22,10 @@ if (create && isProduction && !args.has("--confirm-production")) {
   process.exit(2);
 }
 
+/* No tooltip: Zoho's v8 field API refuses one in this shape with INVALID_DATA (sandbox, 2026-10-15). */
 const WANTED = [
-  { apiName: ZOHO_RENEWAL_SCORE, field: { field_label: "SponsorX Renewal Score", data_type: "integer", tooltip: { name: "static_text", value: "0–100: the share of the promise SponsorX expects the sponsor's soonest campaign to deliver." } } },
-  { apiName: ZOHO_NEXT_ACTION, field: { field_label: "SponsorX Next Action", data_type: "text", length: 255, tooltip: { name: "static_text", value: "SponsorX's recommended next step for this sponsor, refreshed nightly." } } },
+  { apiName: ZOHO_RENEWAL_SCORE, field: { field_label: "SponsorX Renewal Score", data_type: "integer" } },
+  { apiName: ZOHO_NEXT_ACTION, field: { field_label: "SponsorX Next Action", data_type: "text", length: 255 } },
 ];
 
 const zoho = zohoFromEnv();
@@ -39,7 +40,7 @@ if (!create) {
   process.exit(1);
 }
 const made = (await zoho.request("POST", "/crm/v8/settings/fields?module=Accounts", { fields: missing.map((m) => m.field) })) as { fields?: Array<{ code: string; details?: { id?: string }; message?: string }> };
-for (const [i, r] of (made.fields ?? []).entries()) console.log(`  created ${missing[i]!.apiName}: ${r.code}${r.message ? ` — ${r.message}` : ""}`);
+for (const [i, r] of (made.fields ?? []).entries()) console.log(`  created ${missing[i]!.apiName}: ${r.code}${r.message ? ` — ${r.message}` : ""}${r.code === "SUCCESS" ? "" : ` ${JSON.stringify(r.details ?? {})}`}`);
 const again = (await zoho.request("GET", "/crm/v8/settings/fields?module=Accounts")) as { fields?: Array<{ api_name: string }> };
 const now = new Set((again.fields ?? []).map((f) => f.api_name));
 const wrong = WANTED.filter((w) => !now.has(w.apiName));
