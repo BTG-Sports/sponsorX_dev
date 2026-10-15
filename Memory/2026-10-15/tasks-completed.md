@@ -256,3 +256,9 @@
 - the tenant-isolation sweep: a seeded tenant-A validated version. The settings PATCH is exempted from the "names tenant A" rule, because `{key}` is an engine name and tenant B changing its own settings is correct; the leak check still applies;
 - the `campaigns.list` fake gains `featureFlag`;
 - `tests/model-registry.test.ts`, 7: built-ins; an auto change that the forecast uses and stamps; a held change, the second person, activation; rollback and compare; refusals; a switch off and on; who.
+
+## rcfworks — six Phase 3 tasks moved to Done
+
+- **The user's standing rule:** "when acceptance criteria passed, move it to done". Saved to memory. From now on this happens right after a merge, without waiting to be asked.
+- **Moved to Done:** 3S7-BE-02, 3S7-BE-01, 3S8-DATA-01, 3S0-PMO-02, 3S8-BE-01, 3S8-OPS-01. All are merged to `main` (#221 and #223, via #222), their acceptance is met and their tests are green. Tracker and plan both updated.
+- **Stays in Code review: 3S7-INT-01.** Its clause, "Zoho shows renewal score and next action on the sponsor record", needs the two Account fields created (sandbox, then production with the owner's OK) and a push to land.
