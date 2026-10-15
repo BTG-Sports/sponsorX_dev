@@ -256,3 +256,31 @@
 - the tenant-isolation sweep: a seeded tenant-A validated version. The settings PATCH is exempted from the "names tenant A" rule, because `{key}` is an engine name and tenant B changing its own settings is correct; the leak check still applies;
 - the `campaigns.list` fake gains `featureFlag`;
 - `tests/model-registry.test.ts`, 7: built-ins; an auto change that the forecast uses and stamps; a held change, the second person, activation; rollback and compare; refusals; a switch off and on; who.
+
+## rcfworks — six Phase 3 tasks moved to Done
+
+- **The user's standing rule:** "when acceptance criteria passed, move it to done". Saved to memory. From now on this happens right after a merge, without waiting to be asked.
+- **Moved to Done:** 3S7-BE-02, 3S7-BE-01, 3S8-DATA-01, 3S0-PMO-02, 3S8-BE-01, 3S8-OPS-01. All are merged to `main` (#221 and #223, via #222), their acceptance is met and their tests are green. Tracker and plan both updated.
+- **Stays in Code review: 3S7-INT-01.** Its clause, "Zoho shows renewal score and next action on the sponsor record", needs the two Account fields created (sandbox, then production with the owner's OK) and a push to land.
+
+## rcfworks — CI: the four phase plans join the quick pass
+
+- **Why:** the user asked why a tracker-only PR (#224) still ran the full tests.
+- **Cause:** it touched the Phase 3 plan, under `documentation/`, which was left out of the docs-only skip because tests read some documents there.
+- **Checked:** no test opens the four phase plan files; the only mention is in a comment.
+- **Changed:** `.github/workflows/ci.yml` now also skips the build and tests when every file is the log, the tracker, the graph or one of exactly `SponsorX-Phase1-Managed-Marketplace.md`, `SponsorX-Phase2-Marketplace-Commerce.md`, `SponsorX-Phase3-Intelligence-Attribution.md` or `SponsorX-Phase4-INFINEX-Integration.md`.
+  - A first, looser pattern (`SponsorX-Phase[1-4]-*`) also matched the screen contracts and the ledger design (a test mentions that one), so it was tightened to the exact names.
+- **Tested on samples:** the #224 shape and each plan file skip; the screen contracts, ledger design, payment policy, RBAC matrix, plan + code, and a lookalike all run in full.
+- **Held locally** until #224 merges, so #224 stays a pure tracker PR.
+
+## rcfworks — deploy fb37c17 and the Zoho sandbox fields
+
+- **Deploy:** `main` went green on `fb37c17` (#222 with #221 and #223). Claude started the deploy, and `release` moved to `fb37c17`.
+- **Staging:** both migrations applied (`…150000_scenarios_anomalies_zoho_intel`, `…190000_model_registry_flags`); the API is listening; `/health` returns 200.
+- **Zoho sandbox (through staging):**
+  - `npm run zoho:intel-fields -- --create` was refused with INVALID_DATA for both fields.
+  - A one-off diagnostic call meant to read the error **created `SponsorX_Renewal_Score`**. That was the intended place (the sandbox), but the call was not the read-only check it was described as, and the user was told.
+  - The cause was the tooltip object. `SponsorX_Next_Action` was then created the same way.
+  - **Confirmed:** `SponsorX_Renewal_Score:integer` and `SponsorX_Next_Action:text`.
+  - The script drops the tooltips and prints Zoho's details on a refusal. That fix is committed with the CI change.
+- **Still to do:** **production** Zoho, with the user's OK. 3S7-INT-01 stays in Code review until then and until a push lands.
