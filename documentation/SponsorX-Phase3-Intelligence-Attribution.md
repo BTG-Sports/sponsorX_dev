@@ -95,9 +95,9 @@ If a task's *definition* turns out to be wrong — the acceptance criteria don't
 
 *13 tasks · 29 person-days*
 
-### ◑ `3S0-PMO-01` · Define what attribution is permitted to claim
+### ✅ `3S0-PMO-01` · Define what attribution is permitted to claim
 
-**Order** 1 · **PMO** · **Where:** Document · **3d** · **Code review**
+**Order** 1 · **PMO** · **Where:** Document · **3d** · **Done**
 
 The most important decision in Phase 3 and it is a language decision, not a technical one. Verified redemption, verified transaction, modelled attribution and estimated media value are four different things and must never be blended in a sponsor report.
 
@@ -987,9 +987,9 @@ Every intelligence feature must be disableable per tenant. Not every customer sh
 
 *4 tasks · 16 person-days*
 
-### ◑ `3S9-QA-01` · Backtest the pricing and forecast models
+### ✅ `3S9-QA-01` · Backtest the pricing and forecast models
 
-**Order** 41 · **QA** · **Where:** Code · **5d** · **Code review**
+**Order** 41 · **QA** · **Where:** Code · **5d** · **Done**
 
 Run the models against historical campaigns and check whether they would actually have been right. This is what separates intelligence from decoration.
 
@@ -1005,9 +1005,9 @@ Run the models against historical campaigns and check whether they would actuall
   [`SponsorX-Backtest.md`](./SponsorX-Backtest.md) §2–§4
 - **Reference:** Spec §21
 
-### ◑ `3S9-QA-02` · Benchmark and reconciliation validation
+### ✅ `3S9-QA-02` · Benchmark and reconciliation validation
 
-**Order** 42 · **QA** · **Where:** Code · **3d** · **Code review**
+**Order** 42 · **QA** · **Where:** Code · **3d** · **Done**
 
 Confirm benchmarks are statistically meaningful and warehouse totals still tie out.
 
