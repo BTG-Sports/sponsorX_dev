@@ -112,7 +112,10 @@ of campaigns reaching their guarantee):
 - **The cause:** the spread is taken from the daily figures alone. It misses
   slow starts and changes of pace, so early on it is too narrow.
 
-### Recommendations (owner's decision)
+### Recommendations — decided 2026-10-15
+
+**The owner approved recommendation 2**: a new forecast version with a wider early spread, backtested on this same history before it goes live. Recommendation 1 is not applied on its own.
+
 
 1. **A settings change, available today:** raise "observed rate fully trusted
    from" (`fullTrustElapsed`) from 0.3 to 0.45, inside its safe range. On the

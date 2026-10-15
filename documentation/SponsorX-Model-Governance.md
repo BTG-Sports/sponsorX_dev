@@ -1,6 +1,6 @@
 # SponsorX Model Governance Policy
 
-**Task `3S0-PMO-02` · Version 1.0 · 2026-10-15 · Phase 3 · For the owner's approval**
+**Task `3S0-PMO-02` · Version 1.0 · 2026-10-15 · Phase 3 · Approved by the owner, 2026-10-15**
 
 How SponsorX's engines change their rules. Without this, nobody can explain
 why a price, a forecast or a flag changed. It covers the engines' **settings**:

@@ -448,3 +448,11 @@ The fixes logged on 2026-10-11 under "the QA findings fixed (still Code review, 
   - 3S9-QA-02: benchmarks are validated for sample size, and reconciliation is checked to an exact tolerance.
 - **Updated:** the tracker and the plan.
 - **The two policy documents (3S0-PMO-01, 3S0-PMO-02)** still await the owner's read; any change comes as an edit by PR.
+
+## rcfworks — owner approvals (2026-10-15)
+
+- **Approved, as written:**
+  - `SponsorX-Attribution-Claims.md` (3S0-PMO-01), which unblocks 3S6;
+  - `SponsorX-Model-Governance.md` (3S0-PMO-02).
+- **`SponsorX-Backtest.md`:** recommendation 2 approved. That is a new forecast version with a wider early spread, backtested on the same simulated history before going live. The user's "1,2,3 approved" was read as the recommended option, and the user was told.
+- **Recorded:** each document's header or recommendations section now says it was approved.
