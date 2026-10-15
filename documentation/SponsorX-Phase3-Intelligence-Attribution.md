@@ -105,9 +105,9 @@ The most important decision in Phase 3 and it is a language decision, not a tech
 - **Done when:** Written definitions for every attribution class, with the reporting language each is allowed to use
 - **Reference:** Spec §17.4, §22
 
-### ◑ `3S0-PMO-02` · Model governance policy
+### ✅ `3S0-PMO-02` · Model governance policy
 
-**Order** 2 · **PMO** · **Where:** Document · **3d** · **Code review**
+**Order** 2 · **PMO** · **Where:** Document · **3d** · **Done**
 
 How a model version is proposed, validated, activated, rolled back and compared. Without this, nobody can explain why a price changed.
 
@@ -813,9 +813,9 @@ Attributed transactions, revenue, method, window, confidence and unmatched event
 
 *6 tasks · 26 person-days*
 
-### ◑ `3S7-BE-02` · Serve sponsor and property intelligence
+### ✅ `3S7-BE-02` · Serve sponsor and property intelligence
 
-**Order** 30.5 · **BE** · **Where:** Code · **3d** · **Code review**
+**Order** 30.5 · **BE** · **Where:** Code · **3d** · **Done**
 
 Raised building `3S7-FE-01` / `3S7-FE-02` (2026-10-13). Both hubs depend on warehouse facts, but no task serves them: `GET /intelligence/sponsor` and `GET /intelligence/property`, scoped by the API to the caller's own sponsor org or property, reading the daily summaries of the fact ledger (`3S1-BE-01`, in the app database; never the warehouse) and the CPM engine.
 
@@ -852,9 +852,9 @@ Rate recommendations, revenue opportunity, sell-through, sponsor-category fit an
 - **Reference:** Spec §16 P3-07
 - **Built (2026-10-13):** `/property/intelligence`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the property read, 3S7-BE-02 is mounted the screen says so and shows no figures. Marked Done by the owner 2026-10-13 with the UI complete and QA'd at phone, laptop and desktop widths; when the engine lands, walk the screen against it.
 
-### ◑ `3S7-BE-01` · Scenario planning service
+### ✅ `3S7-BE-01` · Scenario planning service
 
-**Order** 33 · **BE** · **Where:** Code · **5d** · **Code review**
+**Order** 33 · **BE** · **Where:** Code · **5d** · **Done**
 
 What-if: change budget, CPM, audience and inventory mix, and compare expected delivery and revenue.
 
@@ -902,9 +902,9 @@ Renewal scores, sponsor health and recommended next action flow back to the CRM 
 
 *5 tasks · 23 person-days*
 
-### ◑ `3S8-DATA-01` · Anomaly detection rules
+### ✅ `3S8-DATA-01` · Anomaly detection rules
 
-**Order** 36 · **DATA** · **Where:** Code · **5d** · **Code review**
+**Order** 36 · **DATA** · **Where:** Code · **5d** · **Done**
 
 Improbable spikes, duplicate events, bot-like behaviour, suspicious redemption patterns and manual-entry inconsistencies.
 
@@ -929,9 +929,9 @@ Flagged streams, suspicious redemptions, data-quality issues and the reviewer's 
 - **Reference:** Spec §16 P3-09
 - **Built (2026-10-13):** `/admin/intelligence/anomalies`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the anomaly rules is mounted the screen says so and shows no figures. Marked Done by the owner 2026-10-13 with the UI complete and QA'd at phone, laptop and desktop widths; when the engine lands, walk the screen against it.
 
-### ◑ `3S8-BE-01` · Model registry and activation
+### ✅ `3S8-BE-01` · Model registry and activation
 
-**Order** 38 · **BE** · **Where:** Code · **5d** · **Code review**
+**Order** 38 · **BE** · **Where:** Code · **5d** · **Done**
 
 Versions activate, roll back and compare without a code deployment. Pricing that requires a release to change is pricing nobody will trust.
 
@@ -957,9 +957,9 @@ Pricing factors, model versions, thresholds, benchmarks, rollouts and feature fl
 - **Reference:** Spec §16 P3-10
 - **Built (2026-10-13):** `/admin/intelligence/models`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the model registry is mounted the screen says so and shows no figures. Marked Done by the owner 2026-10-13 with the UI complete and QA'd at phone, laptop and desktop widths; when the engine lands, walk the screen against it.
 
-### ◑ `3S8-OPS-01` · Per-tenant feature flags for intelligence
+### ✅ `3S8-OPS-01` · Per-tenant feature flags for intelligence
 
-**Order** 40 · **OPS** · **Where:** Code · **3d** · **Code review**
+**Order** 40 · **OPS** · **Where:** Code · **3d** · **Done**
 
 Every intelligence feature must be disableable per tenant. Not every customer should see a forecast.
 
