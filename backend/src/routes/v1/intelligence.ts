@@ -14,15 +14,20 @@
  *
  * 3S5 — make-goods: campaigns' shortfalls with their substitutes, and
  * approving one (makeGood, RBAC matrix §31). BTG admins and campaign managers.
+ *
+ * 3S7-BE-02 — the sponsor's and the property's own hubs (sponsorIntelligence,
+ * propertyIntelligence, RBAC matrix §32), scoped by the actor, never the request.
  */
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { ForecastsQuery, GuaranteeInput, MakeGoodApproveInput, MakeGoodsQuery, MatchesQuery, PricingOverrideInput, ShortlistInput } from "../../contracts/intelligence";
+import { ForecastsQuery, GuaranteeInput, MakeGoodApproveInput, MakeGoodsQuery, MatchesQuery, PricingOverrideInput, ShortlistInput, SponsorIntelQuery } from "../../contracts/intelligence";
 import { forecastDetail, forecastList, setGuarantee } from "../../domain/forecast-engine";
 import { approveMakeGood, makeGoodList } from "../../domain/makegood-engine";
 import { matchPage, saveShortlist } from "../../domain/match-engine";
 import { overridePrice, pricingDesk, pricingDetail, type PricingDeskView } from "../../domain/pricing-engine";
+import { propertyIntelligence } from "../../domain/property-intelligence";
+import { sponsorIntelligence } from "../../domain/sponsor-intelligence";
 import { pageRequest } from "../../lib/paging";
 
 export const intelligenceRouter = Router();
@@ -106,3 +111,17 @@ const approve: RequestHandler<{ shortfallId: string }> = async (req, res) => {
 
 intelligenceRouter.get("/intelligence/make-goods", requireActor, makeGoods);
 intelligenceRouter.post("/intelligence/make-goods/:shortfallId/approve", requireActor, approve);
+
+/** GET /intelligence/sponsor?range=7d|30d|90d|all — the caller's own sponsor org. */
+const sponsorHub: RequestHandler = async (req, res) => {
+  const q = SponsorIntelQuery.parse(req.query ?? {});
+  res.json(await sponsorIntelligence(req.actor!, q.range));
+};
+
+/** GET /intelligence/property — the caller's own property. */
+const propertyHub: RequestHandler = async (req, res) => {
+  res.json(await propertyIntelligence(req.actor!));
+};
+
+intelligenceRouter.get("/intelligence/sponsor", requireActor, sponsorHub);
+intelligenceRouter.get("/intelligence/property", requireActor, propertyHub);

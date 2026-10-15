@@ -1680,6 +1680,39 @@ cost to BTG), and the decision. Read through `GET /intelligence/make-goods`
   delete of an approved shortfall and its substitutes.
 - **A shortfall outside the caller's tenant answers 404.**
 
+## 32 · Phase 3 · sponsor and property hubs *(added 2026-10-15)*
+
+### `sponsorIntelligence` (3S7-BE-02)
+The sponsor's own intelligence hub:
+- its campaigns' four attribution classes, never added together;
+- formats;
+- partners;
+- renewal advice.
+
+Read through `GET /intelligence/sponsor`.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SPONSOR_ADMIN`, `SPONSOR_ANALYST` | own-sponsor | — | — |
+
+### `propertyIntelligence` (3S7-BE-02)
+A team's or school's own hub:
+- suggested prices for its roster's items;
+- open opportunity;
+- sell-through;
+- category fit;
+- quality.
+
+Read through `GET /intelligence/property`.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `PROPERTY_MGR` | own-property | — | — |
+
+- **The org or property is the caller's, never the request's.** Neither read
+  takes an id, so there is nothing to tamper with.
+- **No BTG role holds either.** BTG reads the same figures through its own
+  screens (forecasts, pricing, make-goods).
+- **Read-only.** Nothing is written.
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

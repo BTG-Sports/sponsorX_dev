@@ -113,6 +113,12 @@ Scoped by the API to the caller's sponsor org.
 
 **Gap: no backend task builds this read.** 3S7-FE-01 depends on 3S1-DATA-02 (the warehouse facts), but nothing on the board serves them to a sponsor. Raised as **3S7-BE-02** on 2026-10-13.
 
+**Mounted 2026-10-15** by 3S7-BE-02 ([SponsorX-Hub-Intelligence.md](./SponsorX-Hub-Intelligence.md) §1):
+- read from the fact ledger, not the warehouse;
+- `VERIFIED_TRANSACTION` and `MODELLED` are 0 until partner-store data exists;
+- `segments` is empty until a sourced audience exists;
+- formats include `AD_SLOT` for edition ads.
+
 ## 3S7-FE-02 · Property intelligence hub — `/property/intelligence`
 
 Engine: Property intelligence. Types: `frontend/src/lib/property-intelligence-live.ts`.
@@ -126,6 +132,10 @@ Scoped by the API to the caller's property.
   - `quality: { score (0..100), components[{ label, score, detail }], stamp }`
 
 Same gap as the sponsor hub: served by **3S7-BE-02**, on top of 3S2-BE-02.
+
+**Mounted 2026-10-15** by 3S7-BE-02 ([SponsorX-Hub-Intelligence.md](./SponsorX-Hub-Intelligence.md) §2). Notes:
+- suggested prices cover the roster's items, because the CPM engine prices athletes' items;
+- category fit returns every brand category: age-gated ones fit 0 for a school, with the reason.
 
 ## 3S7-FE-03 · Scenario planner — `/admin/intelligence/scenarios`
 

@@ -4,6 +4,7 @@ import { MATCH_KINDS } from "../domain/match-rules";
 import { GUARANTEE_METRICS } from "../domain/forecast-rules";
 import { SHORTLIST_MAX } from "../domain/match-vocabulary";
 import { NOTE_MAX } from "../domain/makegood-rules";
+import { RANGES } from "../domain/overview-window";
 
 /* --------------------------------------------------------------------------
    The intelligence engines on the wire (Phase 3). Rules live in the domain
@@ -65,3 +66,9 @@ export const MakeGoodApproveInput = z
   })
   .strict()
   .meta({ id: "MakeGoodApproveInput", description: "Approve one substitute for a shortfall (3S5-BE-02). Refused (409) when it fails a check now or the shortfall is decided." });
+
+export const SponsorIntelQuery = z
+  .object({
+    range: z.enum(RANGES).default("30d").describe("The window: 7d, 30d, 90d or all"),
+  })
+  .meta({ id: "SponsorIntelQuery", description: "The sponsor's own intelligence hub over a window (3S7-BE-02)." });

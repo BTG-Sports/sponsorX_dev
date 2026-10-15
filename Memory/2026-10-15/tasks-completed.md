@@ -86,3 +86,62 @@
 - **Checks:** every CI step passed locally: security, both builds, lint, backend 211 files / 3,313 tests (no skips), web 140 / 1,531. The browser tests weren't run locally, and nothing in the frontend changed.
 - **Tracker:** Phase 3 rows 26–27 → Code review, Owner rcfworks, Started 2026-10-15, with Notes.
 - **Commit:** held locally until #216 (the CI change) merges, so 3S5 goes up as its own PR.
+
+## rcfworks — 3S5 deployed (release 8baa13a)
+
+- **PRs merged:** #216 (CI), #217 (3S5) and the sync #218 into `main`.
+- **First deploy dispatch (04:59 UTC):** refused, correctly. It ran before `main`'s CI finished: "0 of 2" checks green.
+- **The deploy command is now Claude's:** the user added `Bash(gh workflow run deploy-daily.yml --ref main)` to `.claude/settings.local.json`. The classifier blocks Claude starting a production deploy or editing its own permissions.
+- **Second dispatch (after CI went green):** moved `release` to `8baa13a`. Staging and production are deploying.
+- **Staging checks:**
+  - The pre-deploy step applied `20261015090000_make_goods`.
+  - The API is listening and the worker started.
+  - `/health` returns 200.
+- **Production:** not read from here (the classifier blocks production reads).
+- **Tonight's 19:00 UTC chain** includes make-goods for the first time. Expect 0 shortfalls until campaigns are active.
+
+## rcfworks — Code review rows checked and closed
+
+**Moved to Done:** the user's 22 Phase 3 rows. Each "Done when" was checked against its tests (green in the full run) and is live in staging and production. The ones that depend on an environment were confirmed from the logs:
+- **3S1-OPS-03:** the two logins were applied in both environments;
+- **3S1-OPS-04:** history filled in both, the check passed, and a second run added nothing;
+- **3S1-QA-01, 3S1-DATA-03, 3S2-BE-01:** the nightly chain ran.
+
+**Updated:** tracker rows (Status Done, Date Done 2026-10-15, a note), and the plan entries (◑ → ✅).
+- **Not moved:**
+  - **4S0-ART-01**, the user's design task: 10 of the 12 screens exist. *Virtual campaign extension* and *virtual pricing* are still missing.
+  - **HeckerCreatives' four rows** (P1-ART-22…25): theirs to close.
+
+## rcfworks — 3S7-BE-02 · sponsor and property hubs (Code review)
+
+**Decisions (user, 2026-10-15):**
+- "Sales matched" and "sales likely" are 0 until 3S6 partner-store data exists.
+- Estimated media value = verified views × the tenant's benchmark median per 1,000, labelled an estimate.
+- No audience segments without a real source.
+- Renewal advice at the forecast's thresholds: renew ≥ 80%, renew with changes ≥ 50%, let it end below.
+
+**Built:**
+- **`sponsor-intelligence.ts`** (`GET /intelligence/sponsor?range`):
+  - **Scope:** the caller's own org only.
+  - **Sources:** ledger summaries, REDEEM events, the benchmark and the latest forecasts.
+  - **Formats:** NIL jobs mapped to inventory kinds.
+  - **Partners:** athletes (delivery and reach) and properties (fulfilled share of paid lines).
+  - **Renewals:** campaigns ending within 45 days or ended within 30.
+- **`property-intelligence.ts`** (`GET /intelligence/property`):
+  - **Scope:** the caller's own property only.
+  - **Inventory:** its own items plus its roster's.
+  - **Shows:**
+    - the roster's latest suggested prices, with the top three factors;
+    - opportunity (unsold in 12 months, estimated);
+    - sell-through per format;
+    - category fit (restricted categories, and age-gated ones for a school, fit 0 with the reason);
+    - quality (complete / on sale / fulfilled).
+- **Permissions** `sponsorIntelligence` (SPONSOR_ADMIN and SPONSOR_ANALYST, own-sponsor) and `propertyIntelligence` (PROPERTY_MGR, own-property): RBAC §32, matrix digest `dc3c5d517b67a709`.
+- **`tests/hub-intelligence.test.ts`** (9 tests, prefix `hbi_`):
+  - figures worked by hand: $300 media value from 15,000 views at $20, $50 a redemption, partner scores 1 / 1 / 0.75, renewals RENEW 90% and LET_END 40%, school quality 67;
+  - a rival sponsor and another tenant see only their own;
+  - another property sees only its own;
+  - every other role is refused.
+- **Docs:** `SponsorX-Hub-Intelligence.md`, RBAC §32, the plan (Code review with a Delivered line), the screen contracts (mounted).
+- **Checks:** every CI step passed locally: backend 212 files / 3,322 tests (no skips), web 140 / 1,531, lint, both builds, security.
+- **Tracker:** Phase 3 row 56 → Code review.
