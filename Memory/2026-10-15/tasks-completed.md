@@ -491,3 +491,8 @@ The fixes logged on 2026-10-11 under "the QA findings fixed (still Code review, 
   - openapi coverage gains the `attribution` route file;
   - the tenant-isolation sweep has tenant A's partner;
   - docs: Attribution-Framework, Pipeline-Monitoring, Backtest §5, and the plan entries.
+
+**Flaky test fixed (`tests/pmo02-claim-email.test.ts`):**
+- **What happened:** sync #233's push run failed in three of that file's tests, although the PR run of the same commit had passed.
+- **Cause:** the "tampered link" swapped the signature's last two characters for "AA". The last base64url character carries only 4 bits, so about one run in a thousand the "tampered" signature decoded to the same bytes and confirmed the claim; the next two tests then failed from it.
+- **Fix:** the test now flips the signature's first character. The failed job on #233 was re-run, and the fix rides on #234.

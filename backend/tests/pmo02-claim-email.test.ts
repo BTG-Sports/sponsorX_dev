@@ -135,7 +135,11 @@ describe.skipIf(!hasDatabase)("2S8-PMO-02 · profile claim: email first, then th
   it("a tampered link is refused and confirms nothing", async () => {
     const good = tokenIn((await claimEmails())[0]!.data.confirmUrl!);
     const [id, exp, sig] = good.split(".");
-    for (const bad of [`${id}.${Number(exp) + 86_400}.${sig}`, `${id}.${exp}.${sig!.slice(0, -2)}AA`, `other_claim.${exp}.${sig}`, "nonsense"]) {
+    /* The signature is tampered at its FIRST character: every one of its 6 bits counts. Replacing the
+       last two with "AA" (as this test once did) left the same bytes about one run in a thousand — the
+       last base64url character carries only 4 bits — and the "tampered" link confirmed (CI, 2026-10-15). */
+    const flipped = `${sig![0] === "A" ? "B" : "A"}${sig!.slice(1)}`;
+    for (const bad of [`${id}.${Number(exp) + 86_400}.${sig}`, `${id}.${exp}.${flipped}`, `other_claim.${exp}.${sig}`, "nonsense"]) {
       const click = await call("GET", `/public/athlete-claims/confirm?t=${encodeURIComponent(bad)}`, null);
       expect(click.status).toBe(302);
       expect(click.location).toBe("https://web.pmo02.example/?claim=invalid");
