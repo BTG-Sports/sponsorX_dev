@@ -97,6 +97,10 @@ export const AUDIT_ACTIONS = {
     rollback: "model.rollback",
     flagSet: "flag.set",
   },
+  /** 3S6-BE-01 — an attribution partner added (it was handed a token). */
+  attribution: {
+    partnerAdd: "attribution.partnerAdd",
+  },
   /** Agreements — acceptance is the legally interesting event. */
   agreement: {
     accept: "agreement.accept",

@@ -450,7 +450,12 @@ describe("the whole matrix is pinned", () => {
       // the desks showed "outside your role". The matrix row was corrected
       // first; this digest follows it. Only that one cell moved: with it back
       // to deny the grid hashes to the previous 4f8aa9696f132aa2.
-    ).toBe("3d92c5837a1480f7");
+      // Updated 2026-10-15 (3S6-BE-01): new `attribution` resource —
+      // attribution partners and their deliveries. SUPER_ADMIN any read and
+      // write; BTG_ADMIN own-tenant read and write; every other cell deny
+      // (matrix §36). With its rows removed the grid hashes to the previous
+      // 3d92c5837a1480f7.
+    ).toBe("0829d0ceec6d26d5");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

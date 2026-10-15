@@ -763,14 +763,23 @@ Shortfall amount, substitute options, equivalency score, cost impact and the app
 
 *5 tasks · 23 person-days*
 
-### ⏸ `3S6-BE-01` · Attribution adapter framework
+### ✅ `3S6-BE-01` · Attribution adapter framework
 
-**Order** 26 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 26 · **BE** · **Where:** Code · **5d** · **Done**
 
 Attribution is pluggable, never universal. Each adapter declares its method, lookback window and match approach.
 
 - **Depends on:** 3S0-PMO-01
 - **Done when:** A new attribution partner can be added as an adapter without changing the engine
+- **Delivered:** 2026-10-15.
+  - **Each adapter declares** its methods (deterministic first), lookback and exact keys. The registry refuses one that doesn't.
+  - **First adapter:** `generic-webhook-v1`.
+  - **Partners:** each is added with a token shown once and kept as a hash. A partner posts to `POST /api/v1/attribution/partners/{id}/events` (Bearer token, rate-limited).
+  - **Every delivery is kept** with its events and problems.
+  - **Proof of the criterion:** a second adapter with a different shape is registered and used in the test with no engine change.
+  - **Permission:** `attribution` (RBAC matrix §36).
+
+  [`SponsorX-Attribution-Framework.md`](./SponsorX-Attribution-Framework.md)
 - **Reference:** Spec §17.4
 
 ### ⏸ `3S6-BE-02` · Normalised attribution event model
@@ -1003,6 +1012,7 @@ Run the models against historical campaigns and check whether they would actuall
   - **Recommendations are documented,** and the decision is the owner's.
 
   [`SponsorX-Backtest.md`](./SponsorX-Backtest.md) §2–§4
+- **Follow-up, 2026-10-15 (owner-approved):** forecast `2.0.0` allows for a change of pace (`paceUncertainty` 0.6, chosen on two separate simulated histories). The early overconfidence is gone, and Brier goes from 0.108 to 0.096. [`SponsorX-Backtest.md`](./SponsorX-Backtest.md) §5
 - **Reference:** Spec §21
 
 ### ✅ `3S9-QA-02` · Benchmark and reconciliation validation
@@ -1031,14 +1041,20 @@ Roll out per tenant behind flags, starting with BTG's own data, before any exter
 - **Done when:** All 12 Phase 3 acceptance criteria demonstrated and signed off
 - **Reference:** Spec §22
 
-### ⏸ `3S9-OPS-01` · Model and pipeline monitoring
+### ◑ `3S9-OPS-01` · Model and pipeline monitoring
 
-**Order** 44 · **OPS** · **Where:** Vendor console · **3d** · **Blocked**
+**Order** 44 · **OPS** · **Where:** Vendor console · **3d** · **Code review**
 
 Job failures, model drift, pipeline lag and data freshness all need alerts. A silently stale forecast is worse than none.
 
 - **Depends on:** 3S9-QA-01
 - **Done when:** Monitoring and alerting live for every scheduled job and model service
+- **Delivered:** 2026-10-15.
+  - **Every nightly step records how it ended** (`PipelineRun`).
+  - **`/health/full` gains a `pipeline` check.** It fails on a failed step, nothing succeeding in 26 h, active campaigns without a forecast in 26 h, or backtest drift (half again and 5 points).
+  - **Alerts:** the uptime monitor already checks every 15 minutes and alerts on a change, so nothing new to set up.
+
+  [`SponsorX-Pipeline-Monitoring.md`](./SponsorX-Pipeline-Monitoring.md)
 - **Reference:** Spec §20, §38
 
 ---

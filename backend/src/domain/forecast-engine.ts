@@ -178,7 +178,7 @@ export async function runForecasts(db: PrismaClient, now: Date, opts: { tenantId
       /* 3S4-BE-01 — the forecast. */
       const p = x.metric === "deliverables"
         ? forecastDeliverables(x.guarantee, x.delivered, x.pending, today, c.endDate)
-        : forecastFlow(x.guarantee, x.daily, x.flight.total, model.t.fullTrustElapsed);
+        : forecastFlow(x.guarantee, x.daily, x.flight.total, model.t.fullTrustElapsed, model.t.paceUncertainty);
       const risk = riskWith(p.probability, settings);
       const situation = {
         metric: x.metric, guarantee: x.guarantee, delivered: x.delivered, expectedToday: x.expectedBy(today), projectedMid: p.mid,

@@ -52,12 +52,14 @@ export const MODEL_DEFS: Record<ModelKey, { name: string; base: string; builtIn:
     ],
   },
   forecast: {
-    name: "Delivery forecast", base: "forecast-rules", builtIn: "1.0.0",
+    name: "Delivery forecast", base: "forecast-rules", builtIn: "2.0.0",
     thresholds: [
       { key: "watchBelow", label: "On watch below this chance of the guarantee", unit: "share", value: 0.8, min: 0.6, max: 0.95 },
       { key: "atRiskBelow", label: "At risk below this chance", unit: "share", value: 0.5, min: 0.3, max: 0.7 },
       { key: "alertMinElapsed", label: "No alert before this share of the flight", unit: "share", value: 0.2, min: 0.05, max: 0.5 },
       { key: "fullTrustElapsed", label: "Observed rate fully trusted from this share of the flight", unit: "share", value: 0.3, min: 0.1, max: 0.6 },
+      /* 2.0.0 — chosen on two separate simulated histories: the best calibration of the probability (documentation/SponsorX-Backtest.md §5). */
+      { key: "paceUncertainty", label: "Allowance for a change of pace", unit: "share", value: 0.6, min: 0.2, max: 1 },
     ],
   },
   makegood: {
@@ -99,7 +101,7 @@ export async function activeModel(db: Db, tenantId: string, key: ModelKey): Prom
 
 /* ───────────────────────────── feature flags (3S8-OPS-01) ───────────────────────────── */
 
-export const FEATURES = ["pricing", "matching", "forecast", "makegood", "anomalies", "scenarios", "sponsorHub", "propertyHub", "zohoIntelligence"] as const;
+export const FEATURES = ["pricing", "matching", "forecast", "makegood", "anomalies", "scenarios", "sponsorHub", "propertyHub", "zohoIntelligence", "attribution"] as const;
 export type Feature = (typeof FEATURES)[number];
 
 export class FeatureOffError extends Error {

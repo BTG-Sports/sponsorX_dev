@@ -138,3 +138,15 @@ export const FlagInput = z
   .object({ feature: z.string().min(1).max(40), tenantId: z.string().min(1).max(200), enabled: z.boolean(), reason })
   .strict()
   .meta({ id: "FlagInput", description: "Switch one intelligence feature on or off for one tenant (3S8-OPS-01)." });
+
+export const PartnerInput = z
+  .object({
+    name: z.string().max(200).describe("The partner's name, 2 to 120 characters"),
+    adapter: z.string().min(1).max(60).describe("The adapter key, e.g. generic-webhook-v1"),
+  })
+  .strict()
+  .meta({ id: "PartnerInput", description: "Add an attribution partner (3S6-BE-01). Its token is returned once." });
+
+export const PartnerDeliveryInput = z
+  .object({ events: z.array(z.record(z.string(), z.unknown())).min(1).max(500).describe("The partner's events, in its adapter's format") })
+  .meta({ id: "PartnerDeliveryInput", description: "A partner's delivery (generic-webhook-v1: { events: [{ id, type, occurred_at, amount_cents?, currency?, reward_token?, order_id?, click_id? }] }). Bearer token required." });

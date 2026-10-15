@@ -182,7 +182,8 @@ export type Resource =
   | "propertyIntelligence"
   | "scenario"
   | "anomaly"
-  | "modelRegistry";
+  | "modelRegistry"
+  | "attribution";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -273,6 +274,7 @@ export const RESOURCES: readonly Resource[] = [
   "scenario",
   "anomaly",
   "modelRegistry",
+  "attribution",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -1174,6 +1176,13 @@ export const POLICY: Record<Resource, RolePolicy> = {
      flags is BTG administration: BTG admins for their tenant, super admins
      for any. */
   modelRegistry: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+  },
+  /* 3S6-BE-01 (matrix §36) — attribution partners and their deliveries.
+     Adding a partner hands out a credential, so BTG admins only. Partners
+     themselves never sign in: they prove a token on their own endpoint. */
+  attribution: {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
   },
