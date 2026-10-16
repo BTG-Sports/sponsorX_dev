@@ -150,3 +150,18 @@ export const PartnerInput = z
 export const PartnerDeliveryInput = z
   .object({ events: z.array(z.record(z.string(), z.unknown())).min(1).max(500).describe("The partner's events, in its adapter's format") })
   .meta({ id: "PartnerDeliveryInput", description: "A partner's delivery (generic-webhook-v1: { events: [{ id, type, occurred_at, amount_cents?, currency?, reward_token?, order_id?, click_id? }] }). Bearer token required." });
+
+export const ATTRIBUTION_CLASS_KEYS = ["VERIFIED_REDEMPTION", "VERIFIED_TRANSACTION", "MODELLED", "ESTIMATED_MEDIA_VALUE"] as const;
+
+export const AttributionDeskQuery = z
+  .object({
+    campaign: z.string().min(1).max(200).optional().describe("One campaign only (the queue is always the whole tenant's: an unmatched sale has no campaign)"),
+    tab: z.enum(["events", "unmatched"]).default("events").describe("Matched partner sales, or the reconciliation queue"),
+    class: z.enum(ATTRIBUTION_CLASS_KEYS).optional().describe("Events of one class only"),
+    page: z.coerce.number().int().optional(),
+    size: z.coerce.number().int().optional(),
+  })
+  .meta({ id: "AttributionDeskQuery", description: "Partner sales matched to campaigns, and the queue of those that were not (3S6-BE-03/04)." });
+
+export const AttributionDismissInput = z.object({ reason: z.string().max(600).describe("Why — 10 to 500 characters, kept on the sale and in the audit log") }).strict()
+  .meta({ id: "AttributionDismissInput", description: "Dismiss an unmatched partner sale, with a reason; it stays visible as dismissed (3S6-BE-04)." });

@@ -1179,12 +1179,17 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
   },
-  /* 3S6-BE-01 (matrix §36) — attribution partners and their deliveries.
-     Adding a partner hands out a credential, so BTG admins only. Partners
-     themselves never sign in: they prove a token on their own endpoint. */
+  /* 3S6-BE-01, 3S6-BE-03/04 (matrix §36) — attribution partners, their
+     deliveries, the matched sales and the queue. Campaign managers and Sales
+     read (the attribution desk); adding a partner hands out a credential and
+     dismissing a queued sale changes what is counted, so writing is BTG
+     admins'. Partners themselves never sign in: they prove a token on their
+     own endpoint. */
   attribution: {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    CAMPAIGN_MGR: rwa("own-tenant"),
+    SALES: rwa("own-tenant"),
   },
 };
 

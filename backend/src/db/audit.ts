@@ -100,6 +100,8 @@ export const AUDIT_ACTIONS = {
   /** 3S6-BE-01 — an attribution partner added (it was handed a token). */
   attribution: {
     partnerAdd: "attribution.partnerAdd",
+    /** 3S6-BE-04 — an unmatched partner sale dismissed from the queue, with the reason. */
+    dismiss: "attribution.dismiss",
   },
   /** Agreements — acceptance is the legally interesting event. */
   agreement: {

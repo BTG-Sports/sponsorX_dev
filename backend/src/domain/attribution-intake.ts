@@ -13,8 +13,13 @@
  *   with `Authorization: Bearer <token>`. The token is checked in constant
  *   time; the partner's adapter parses the body; the delivery is kept as
  *   received (`AttributionDelivery`) with the events it yielded and every
- *   problem, so nothing a partner sends disappears silently. Matching the
- *   events to campaigns is 3S6-BE-03; the normalised event table is 3S6-BE-02.
+ *   problem, so nothing a partner sends disappears silently.
+ *
+ *   EVENTS (3S6-BE-02/03). Each event becomes one `PartnerSaleAttribution`
+ *   — once: the partner's own id is unique per partner, so a resent sale is
+ *   counted once — matched as it arrives, exact keys first
+ *   (attribution-matching.ts). One that does not match waits in the queue
+ *   with its reason (3S6-BE-04).
  *
  * Zoho, Stripe and every other vendor stay off this path; it never calls out.
  * The feature can be switched off per tenant (`attribution`, 3S8-OPS-01).
@@ -26,7 +31,8 @@ import { assertTenantWide } from "../auth/scope";
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
 import type { Prisma } from "../generated/prisma/client";
-import { adapterFor, adapters, describeAdapter } from "./attribution-adapters";
+import { adapterFor, adapters, describeAdapter, type PartnerEvent } from "./attribution-adapters";
+import { basisOf, columnsOf, matchEvent, modelFor, type MatchContext, type Outcome } from "./attribution-matching";
 import { assertFeature, featureEnabled } from "./model-registry";
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
@@ -73,15 +79,57 @@ export async function receiveDelivery(partnerId: string, authorization: string |
   if (!partner.enabled || !(await featureEnabled(prisma, partner.tenantId, "attribution"))) throw new PartnerOffError();
   const adapter = adapterFor(partner.adapter);
   const parsed = adapter ? adapter.parse(payload) : { events: [], problems: [`No adapter "${partner.adapter}" is registered.`] };
-  const row = await prisma.attributionDelivery.create({
-    data: {
-      tenantId: partner.tenantId, partnerId: partner.id, adapter: partner.adapter, receivedAt: now,
-      status: parsed.events.length ? "accepted" : "rejected", eventCount: parsed.events.length, problems: parsed.problems.slice(0, 100),
-      events: parsed.events as unknown as Prisma.InputJsonValue, payload: payload as Prisma.InputJsonValue,
-    },
-    select: { id: true },
+
+  /* Each event once: one already stored (or repeated in this delivery) is a duplicate, not a second sale. */
+  const seen = new Set((parsed.events.length ? await prisma.partnerSaleAttribution.findMany({
+    where: { tenantId: partner.tenantId, partnerId: partner.id, externalId: { in: parsed.events.map((e) => e.externalId) } },
+    select: { externalId: true },
+  }) : []).map((r) => r.externalId));
+  const fresh: PartnerEvent[] = [];
+  for (const e of parsed.events) if (!seen.has(e.externalId)) { seen.add(e.externalId); fresh.push(e); }
+
+  /* Matched oldest first, so a sale is matched before a refund of it in the same delivery. */
+  const matched: Array<{ e: PartnerEvent; o: Outcome }> = [];
+  if (adapter && fresh.length) {
+    const ctx: MatchContext = { tenantId: partner.tenantId, partnerId: partner.id, adapter, model: await modelFor(prisma, partner.tenantId, adapter), batchOrders: new Map() };
+    for (const e of [...fresh].sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt))) {
+      const o = await matchEvent(prisma, ctx, e);
+      if (o.status === "matched" && e.kind === "sale" && e.keys.order_id && !ctx.batchOrders!.has(e.keys.order_id)) {
+        ctx.batchOrders!.set(e.keys.order_id, { campaignId: o.campaignId, athleteId: o.athleteId, basis: basisOf(o) });
+      }
+      matched.push({ e, o });
+    }
+  }
+
+  const row = await prisma.$transaction(async (tx) => {
+    const d = await tx.attributionDelivery.create({
+      data: {
+        tenantId: partner.tenantId, partnerId: partner.id, adapter: partner.adapter, receivedAt: now,
+        status: parsed.events.length ? "accepted" : "rejected", eventCount: parsed.events.length, problems: parsed.problems.slice(0, 100),
+        events: parsed.events as unknown as Prisma.InputJsonValue, payload: payload as Prisma.InputJsonValue,
+      },
+      select: { id: true },
+    });
+    if (matched.length) {
+      await tx.partnerSaleAttribution.createMany({
+        data: matched.map(({ e, o }) => ({
+          tenantId: partner.tenantId, partnerId: partner.id, deliveryId: d.id, adapter: partner.adapter,
+          externalId: e.externalId, kind: e.kind, occurredAt: new Date(e.occurredAt), receivedAt: now,
+          amountCents: e.amountCents, currency: e.currency, keys: e.keys as Prisma.InputJsonValue,
+          orderId: e.keys.order_id ?? null, stateCode: e.stateCode ?? null, windowDays: adapter!.lookbackDays,
+          ...columnsOf(o, now),
+        })),
+        /* Two deliveries racing with the same sale: the second is a duplicate, not an error. */
+        skipDuplicates: true,
+      });
+    }
+    return d;
   });
-  return { deliveryId: row.id, accepted: parsed.events.length, problems: parsed.problems };
+  return {
+    deliveryId: row.id, accepted: parsed.events.length, problems: parsed.problems,
+    matched: matched.filter((m) => m.o.status === "matched").length, queued: matched.filter((m) => m.o.status === "unmatched").length,
+    duplicates: parsed.events.length - fresh.length,
+  };
 }
 
 /* ───────────────────────────── BTG's side ───────────────────────────── */

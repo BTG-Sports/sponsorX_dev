@@ -5,7 +5,8 @@
  * alerts. A silently stale forecast is worse than none."
  *
  * Every step of the nightly chain (the fact check, then benchmarks, feature
- * snapshots, suggested prices, forecasts, make-goods, anomalies, backtests,
+ * snapshots, suggested prices, forecasts, make-goods, anomalies, the
+ * attribution queue's retry, backtests,
  * the Zoho intelligence queue) records how it ended — one row per step per
  * night, the latest attempt kept. `/health/full` reads them
  * (system-health.ts evaluatePipeline) and turns degraded when a step failed,
@@ -19,7 +20,7 @@
 import type { PrismaClient } from "../generated/prisma/client";
 
 export const PIPELINE_STEPS = [
-  "fact_check", "benchmarks", "snapshots", "prices", "forecasts", "makegoods", "anomalies", "backtests", "zoho_intelligence",
+  "fact_check", "benchmarks", "snapshots", "prices", "forecasts", "makegoods", "anomalies", "attribution", "backtests", "zoho_intelligence",
 ] as const;
 export type PipelineStep = (typeof PIPELINE_STEPS)[number];
 

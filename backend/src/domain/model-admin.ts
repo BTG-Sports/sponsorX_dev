@@ -94,6 +94,7 @@ const OUTPUTS: Record<ModelKey, { table: string; column: string }> = {
   forecast: { table: "CampaignForecast", column: "modelVersion" },
   makegood: { table: "MakeGoodShortfall", column: "modelVersion" },
   anomalies: { table: "Anomaly", column: "ruleVersion" },
+  attribution: { table: "PartnerSaleAttribution", column: "modelVersion" },
 };
 
 /** What each version made: the outputs stamped with it — the compare view's figure until backtests (3S9-QA-01) add theirs. */

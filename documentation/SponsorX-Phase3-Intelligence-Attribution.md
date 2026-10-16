@@ -782,35 +782,53 @@ Attribution is pluggable, never universal. Each adapter declares its method, loo
   [`SponsorX-Attribution-Framework.md`](./SponsorX-Attribution-Framework.md)
 - **Reference:** Spec §17.4
 
-### ⏸ `3S6-BE-02` · Normalised attribution event model
+### ◑ `3S6-BE-02` · Normalised attribution event model
 
-**Order** 27 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 27 · **BE** · **Where:** Code · **5d** · **Code review**
 
 Partner events normalise into one shape carrying source, method, window, confidence and the matched entities.
 
 - **Depends on:** 3S6-BE-01
 - **Builds on:** nothing, but `SalesAttribution` (NEXT student credit) is a different thing. Name the new table distinctly. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Attribution events identify source, method and confidence; modelled revenue is never labelled verified
+- **Built:** 2026-10-16.
+  - **`PartnerSaleAttribution`:** one row per partner sale or refund, with its source (partner, adapter, delivery), method, matched key, window, confidence, model version, campaign and athlete. Counted once per partner id.
+  - **The database refuses a modelled sale labelled verified** (CHECK `PartnerSaleAttribution_class_check`).
+
+  [`SponsorX-Attribution-Matching.md`](./SponsorX-Attribution-Matching.md) §1
 - **Reference:** Spec §19, §22
 
-### ⏸ `3S6-BE-03` · Deterministic-first matching engine
+### ◑ `3S6-BE-03` · Deterministic-first matching engine
 
-**Order** 28 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 28 · **BE** · **Where:** Code · **5d** · **Code review**
 
 Try the exact match first — reward token, order ID, partner click ID. Only fall back to probabilistic matching, and mark it explicitly when you do.
 
 - **Depends on:** 3S6-BE-02
 - **Done when:** Deterministic matches are attempted first; probabilistic matches carry an explicit method and confidence
+- **Built:** 2026-10-16.
+  - **Exact first:** reward token, then tracking-link code (click id), then an order id already matched (how a refund finds its sale), inside the adapter's window.
+  - **Modelled fallback** only when no key matched and the adapter declares it: one campaign redeemed in the sale's state → `MODELLED`, with `attr-geo-time@0.1.0` and its confidence (below 1). Settings in the model registry.
+  - **The sponsor hub** now reads matched and likely sales.
+
+  [`SponsorX-Attribution-Matching.md`](./SponsorX-Attribution-Matching.md) §2
 - **Reference:** Spec §17.4
 
-### ⏸ `3S6-BE-04` · Reconciliation queue for unmatched events
+### ◑ `3S6-BE-04` · Reconciliation queue for unmatched events
 
-**Order** 29 · **BE** · **Where:** Code · **3d** · **Blocked**
+**Order** 29 · **BE** · **Where:** Code · **3d** · **Code review**
 
 Events that cannot be matched stay visible rather than disappearing. Silent data loss is worse than visible gaps.
 
 - **Depends on:** 3S6-BE-03
 - **Done when:** Unmatched and ambiguous events remain in a reviewable queue
+- **Built:** 2026-10-16.
+  - **Every unmatched sale stays** with its reason: `no_match`, `ambiguous`, `outside_window`, `unknown_token`.
+  - **Retried nightly** (step `attribution`).
+  - **BTG admins may dismiss one with a reason;** it is audited and stays on the list, marked. No manual assignment.
+  - **Served** by `GET /intelligence/attribution` (the 3S6-FE-01 contract). BTG admins, campaign managers and Sales read.
+
+  [`SponsorX-Attribution-Matching.md`](./SponsorX-Attribution-Matching.md) §3
 - **Reference:** Spec §17.4
 
 ### ✅ `3S6-FE-01` · Build the attribution dashboard
@@ -1041,9 +1059,9 @@ Roll out per tenant behind flags, starting with BTG's own data, before any exter
 - **Done when:** All 12 Phase 3 acceptance criteria demonstrated and signed off
 - **Reference:** Spec §22
 
-### ◑ `3S9-OPS-01` · Model and pipeline monitoring
+### ✅ `3S9-OPS-01` · Model and pipeline monitoring
 
-**Order** 44 · **OPS** · **Where:** Vendor console · **3d** · **Code review**
+**Order** 44 · **OPS** · **Where:** Vendor console · **3d** · **Done**
 
 Job failures, model drift, pipeline lag and data freshness all need alerts. A silently stale forecast is worse than none.
 

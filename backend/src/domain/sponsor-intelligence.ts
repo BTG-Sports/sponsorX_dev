@@ -13,8 +13,10 @@
  *
  * THE FOUR ATTRIBUTION CLASSES ARE NEVER ADDED TOGETHER (user, 2026-10-15):
  *   VERIFIED_REDEMPTION    fans who redeemed — counted by SponsorX, no money;
- *   VERIFIED_TRANSACTION   0 until partner-store data exists (Sprint 3S6);
- *   MODELLED               0 until then too;
+ *   VERIFIED_TRANSACTION   partner sales matched exactly to its campaigns,
+ *                          sales less refunds (3S6-BE-03);
+ *   MODELLED               partner sales a model linked to them — "likely",
+ *                          never verified; sales less refunds;
  *   ESTIMATED_MEDIA_VALUE  verified views × the tenant's benchmark median
  *                          price per 1,000 — an estimate, never revenue;
  *                          null with no benchmark.
@@ -129,10 +131,20 @@ export async function sponsorIntelligence(actor: Actor, range: RangeKey, now = n
   /* ── the totals: four classes, never added together ── */
   const views = sums.reduce((t, r) => t + Number(r.api) + Number(r.manual), 0);
   const redemptions = redeems.reduce((t, r) => t + Number(r.n), 0);
+  /* 3S6-BE-03 — partner sales matched to these campaigns in the range: sales counted, refunds taken off. */
+  const partnerSales = ids.length ? await prisma.partnerSaleAttribution.groupBy({
+    where: { tenantId, status: "matched", campaignId: { in: ids }, occurredAt: { gte: from, lt: w.to } },
+    by: ["class", "kind"], _count: { _all: true }, _sum: { amountCents: true },
+  }) : [];
+  const partnerTotal = (cls: "VERIFIED_TRANSACTION" | "MODELLED") => {
+    const sales = partnerSales.find((r) => r.class === cls && r.kind === "sale");
+    const refunds = partnerSales.find((r) => r.class === cls && r.kind === "refund");
+    return { count: sales?._count._all ?? 0, amountCents: (sales?._sum.amountCents ?? 0) - (refunds?._sum.amountCents ?? 0) };
+  };
   const totals = {
     VERIFIED_REDEMPTION: { count: redemptions, amountCents: null },
-    VERIFIED_TRANSACTION: { count: 0, amountCents: 0 },
-    MODELLED: { count: 0, amountCents: 0 },
+    VERIFIED_TRANSACTION: partnerTotal("VERIFIED_TRANSACTION"),
+    MODELLED: partnerTotal("MODELLED"),
     ESTIMATED_MEDIA_VALUE: { count: views, amountCents: benchmark ? Math.round((views * benchmark.median) / 1000) : null },
   };
 

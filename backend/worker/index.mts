@@ -115,6 +115,7 @@ import { runForecasts } from "../src/domain/forecast-engine.ts";
 import { runMakeGoods } from "../src/domain/makegood-engine.ts";
 import { runAnomalies } from "../src/domain/anomaly-engine.ts";
 import { runBacktests } from "../src/domain/backtest-engine.ts";
+import { rematchQueue } from "../src/domain/attribution-matching.ts";
 import { recordStep, runStep } from "../src/domain/pipeline-runs.ts";
 import { validateBenchmarks } from "../src/domain/benchmark-validation.ts";
 import { queueZohoIntelligence } from "../src/domain/zoho-intelligence.ts";
@@ -1003,6 +1004,9 @@ async function main(): Promise<void> {
             /* 3S8-DATA-01 — then the anomaly rules over the last 30 days; the clear-cut flags decided automatically. */
             await runStep(prisma, out.day, "anomalies", () => runAnomalies(prisma, new Date(), { skipTenants }),
               (a) => `[worker] anomalies ${out.day}: ${a.flagged} new flag(s), ${a.excludedAutomatically} excluded automatically${a.skipped.length ? `; none for ${a.skipped.join(", ")}` : ""}`, io);
+            /* 3S6-BE-03/04 — then retry the attribution queue: a refund that came before its sale, a late click. */
+            await runStep(prisma, out.day, "attribution", () => rematchQueue(prisma, new Date()),
+              (q) => `[worker] attribution ${out.day}: ${q.matched} of ${q.checked} queued sale(s) matched${q.skipped.length ? `; none for ${q.skipped.join(", ")}` : ""}`, io);
             /* 3S9-QA-01 — then the backtests of every model version with real history. */
             await runStep(prisma, out.day, "backtests", () => runBacktests(prisma, new Date()), (b) => `[worker] backtests ${out.day}: ${b.runs} run(s) stored`, io);
             /* 3S7-INT-01 — then each sponsor's renewal score and next action to Zoho, where they changed. Only with
