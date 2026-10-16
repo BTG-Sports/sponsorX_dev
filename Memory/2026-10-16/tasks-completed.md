@@ -40,3 +40,16 @@ The last Phase 3 backend tasks. The plan was approved by the user before startin
 - The tenant-isolation sweep covers the dismiss route.
 
 **Tracker:** 3S6-BE-02/03/04 moved to Done on 2026-10-16, after #237 merged with acceptance met. Sync PR #238 (main_development → main) is open; the deploy follows once main is green.
+
+## rcfworks — deploy, and 3S9-PMO-01 · Phase 3 acceptance and rollout (Code review)
+
+- **Deployed:** after #238 merged, `main` CI passed, and deploy-daily moved the release to `11d0a316` (3S6-BE-02/03/04 live, with the migration `20261016120000_partner_sale_attribution`).
+- **What's left in Phase 3** (reviewed for the user):
+  - 3S7-INT-01 is at Code review, waiting for tonight's sandbox Zoho push;
+  - 3S1-OPS-02 is on hold by the user's decision (2026-10-14);
+  - 3S9-PMO-01, below.
+- **3S9-PMO-01:** written as `documentation/SponsorX-Phase3-UAT.md`, approved as a plan by the user.
+  - **The criteria:** each of the 12 is mapped to the tests that prove it; 196/196 pass on release `11d0a316`.
+  - **Criterion 12** ("all features can be disabled") was only tested for 3 of the 10 features. Added `tests/phase3-feature-flags.test.ts`, which switches each of the ten off and back on and fails if a new feature has no check.
+  - **Staged rollout:** stage 1, BTG's internal desks; stage 2, the hubs on BTG's own accounts; stage 3, outside sponsors and properties at go-live. Per-tenant switches and model rollback are the way back, with no release needed.
+  - **Done, 2026-10-16.** The user's instruction was: "if it meets the acceptance criteria, move it to done." The sign-off is recorded in §4 of the doc.

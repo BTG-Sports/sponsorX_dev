@@ -1049,14 +1049,20 @@ Confirm benchmarks are statistically meaningful and warehouse totals still tie o
   [`SponsorX-Backtest.md`](./SponsorX-Backtest.md) §1
 - **Reference:** Spec §22
 
-### ⏸ `3S9-PMO-01` · Phase 3 UAT and staged rollout
+### ✅ `3S9-PMO-01` · Phase 3 UAT and staged rollout
 
-**Order** 43 · **PMO** · **Where:** Document · **5d** · **Blocked**
+**Order** 43 · **PMO** · **Where:** Document · **5d** · **Done**
 
 Roll out per tenant behind flags, starting with BTG's own data, before any external property sees a recommendation.
 
 - **Depends on:** 3S9-QA-01
 - **Done when:** All 12 Phase 3 acceptance criteria demonstrated and signed off
+- **Delivered:** 2026-10-16, signed off by the user the same day.
+  - **Each criterion** has its proof: the tests that exercise it, 196/196 passing on release `11d0a316`.
+  - **Criterion 12** gained a test that switches off each of the ten features in turn.
+  - **The staged rollout:** BTG's internal desks, then the hubs on BTG's own accounts, then outside sponsors and properties at go-live.
+
+  [`SponsorX-Phase3-UAT.md`](./SponsorX-Phase3-UAT.md)
 - **Reference:** Spec §22
 
 ### ✅ `3S9-OPS-01` · Model and pipeline monitoring
