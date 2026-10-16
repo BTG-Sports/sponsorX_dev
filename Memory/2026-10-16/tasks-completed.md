@@ -169,3 +169,17 @@ The user asked me to check the acceptance criteria and close the rows if they pa
   - **None of the skips are from stages 3–7:** they are tests that only run on the other screen size, or Phase 2 checks that need seed data.
   - **The wording:** "Phases 3–7" in its definition means Phase 1's stages 3–7. I quoted it to the user without explaining it, which confused them, and added the note to the plan.
 - **P9-QA-01: met.** `next-edition-e2e.test.ts` passes 7/7, one test per clause. Clause 4 (artwork through the approval board, with a ContentRight) has been covered since P9-BE-16, Done on 2026-10-05.
+
+## rcfworks — P8-QA-01 · the Phase 1 acceptance record (Done); P8-QA-02 · UAT scripts (In progress)
+
+- **Where §30 is:** in `documentation/Master/Updated_BTG_SponsorX_Master_Development_Blueprint_Integrated_Athlete_Network.docx`, in the repo. I first looked only in Drive, and the user pointed me back to the documentation folder.
+- **P8-QA-01:** `documentation/SponsorX-Phase1-Acceptance.md` records all 14 criteria with their proof:
+  - 1,048/1,048 backend tests across 39 files;
+  - the Phase 1 end-to-end loop specs, green on main's CI run 38857461531;
+  - Zoho, live in the sandbox (the 2026-10-09 run).
+- **New test:** `tests/phase1-acceptance.test.ts` covers criterion 2, BTG setting an athlete's rate. Nothing had tested the admin act directly.
+- **The user's decisions:**
+  - **Criterion 2's "configure SX jobs"** is met by a reviewed code change. There is no admin editing screen; one gets added only if BTG needs the bands to change often.
+  - **Sign-off:** P8-QA-01 is Done.
+- **Finding:** `NilJob.id` is unique across the database, so only one tenant can hold the SX catalogue. It's noted in the record as something to fix before a second tenant prices its own jobs.
+- **P8-QA-02:** `documentation/SponsorX-Phase1-UAT-Scripts.md` has four journeys (athlete, sponsor, BTG admin, fan) in 28 steps, each mapped to §30. Next is the simulated-user run on staging.
