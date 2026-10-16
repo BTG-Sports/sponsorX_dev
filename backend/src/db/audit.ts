@@ -103,6 +103,16 @@ export const AUDIT_ACTIONS = {
     /** 3S6-BE-04 — an unmatched partner sale dismissed from the queue, with the reason. */
     dismiss: "attribution.dismiss",
   },
+  /** 4S1-BE-01/02/03 — the virtual registry: worlds, zones, placements, and putting a placement on sale. */
+  virtual: {
+    worldCreate: "virtual.worldCreate",
+    worldUpdate: "virtual.worldUpdate",
+    zonesUpsert: "virtual.zonesUpsert",
+    placementCreate: "virtual.placementCreate",
+    placementUpdate: "virtual.placementUpdate",
+    placementPublish: "virtual.placementPublish",
+    placementRetire: "virtual.placementRetire",
+  },
   /** Agreements — acceptance is the legally interesting event. */
   agreement: {
     accept: "agreement.accept",

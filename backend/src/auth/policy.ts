@@ -183,7 +183,8 @@ export type Resource =
   | "scenario"
   | "anomaly"
   | "modelRegistry"
-  | "attribution";
+  | "attribution"
+  | "virtualWorld";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -275,6 +276,7 @@ export const RESOURCES: readonly Resource[] = [
   "anomaly",
   "modelRegistry",
   "attribution",
+  "virtualWorld",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -1190,6 +1192,17 @@ export const POLICY: Record<Resource, RolePolicy> = {
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
     CAMPAIGN_MGR: rwa("own-tenant"),
     SALES: rwa("own-tenant"),
+  },
+  /* 4S1-BE-01/02/03 (matrix §37) — virtual worlds, their zones and
+     placements. BTG registers and prices them; campaign managers and Sales
+     read them to sell; a world's owner (a VIRTUAL property's manager) reads
+     its own worlds. */
+  virtualWorld: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    CAMPAIGN_MGR: rwa("own-tenant"),
+    SALES: rwa("own-tenant"),
+    PROPERTY_MGR: rwa("own-property"),
   },
 };
 

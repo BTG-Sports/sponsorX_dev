@@ -922,6 +922,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   modelRegistry: tenantScoped,
   /* 3S6-BE-01 — attribution partners and deliveries, per tenant. */
   attribution: tenantScoped,
+  /* 4S1-BE-01 — virtual worlds: tenant-wide for staff; a world's owner sees its own (zones and placements are read through their world). */
+  virtualWorld: (actor, scope) => (scope === "own-property" ? (actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING) : tenantScoped(actor, scope)),
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

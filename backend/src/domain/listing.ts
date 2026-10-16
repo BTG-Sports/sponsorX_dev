@@ -69,6 +69,7 @@ import {
   type ListingState,
 } from "./listing-rules";
 import { logError } from "../lib/redact";
+import { VIRTUAL_PLACEMENT_KIND } from "./virtual-rules";
 import { readPage, type PageRequest } from "../lib/paging";
 
 export class ListingError extends Error {
@@ -258,9 +259,11 @@ export async function createListing(actor: Actor, input: ListingInput & { invent
         id: input.inventoryItemId,
         OR: [{ tenantId: actor.tenantId, propertyId }, { athlete: { propertyId } }],
       },
-      select: { id: true, tenantId: true },
+      select: { id: true, tenantId: true, kind: true },
     });
     if (!item) throw new ForbiddenError("listing", "write");
+    /* 4S1-BE-03 — a virtual placement is booked by the week inside a campaign (4S1-BE-04), not listed. */
+    if (item.kind === VIRTUAL_PLACEMENT_KIND) throw new ListingError("A virtual placement is booked through its placement windows, not listed.", 422);
     /* 2S2-BE-05 — an athlete who joined keeps their own listing (it stops
        selling while they are on the team; it was never ended for them). One
        open listing per item, so the athlete archives theirs first. */
