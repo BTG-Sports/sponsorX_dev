@@ -175,3 +175,42 @@ export function freeSlot(capacity: number, overlapping: Array<{ slot: number }>)
   for (let s = 1; s <= capacity; s += 1) if (!taken.has(s)) return s;
   return null;
 }
+
+/* ───────────────────────────── creative (4S2-BE-02) ───────────────────────────── */
+
+/** The file types each creative type may be (Taxonomy §3). A logo is a PNG, for its transparency. */
+export const CREATIVE_MIMES: Record<CreativeType, readonly string[]> = {
+  IMAGE: ["image/png", "image/jpeg", "image/webp"],
+  VIDEO: ["video/mp4"],
+  LOGO: ["image/png"],
+};
+
+/**
+ * Everything that stops a creative going on this placement, in plain words;
+ * empty when it fits. The width, height and size are what SponsorX read from
+ * the stored file (an image's pixels, every file's bytes); a video's size and
+ * length are as declared.
+ */
+export function creativeProblems(
+  placement: { kind: string; widthPx: number; heightPx: number; creativeTypes: string[]; maxBytes: number; maxVideoSeconds: number | null },
+  asset: { creativeType: CreativeType; mime: string; widthPx: number; heightPx: number; bytes: number; durationSeconds?: number | null },
+): string[] {
+  const out: string[] = [];
+  const kind = placement.kind.toLowerCase().replace(/_/g, " ");
+  if (!placement.creativeTypes.includes(asset.creativeType)) out.push(`This ${kind} takes ${placement.creativeTypes.map((t) => t.toLowerCase()).join(" or ")}, not ${asset.creativeType.toLowerCase()}.`);
+  if (!CREATIVE_MIMES[asset.creativeType]?.includes(asset.mime)) out.push(`A ${asset.creativeType.toLowerCase()} is ${CREATIVE_MIMES[asset.creativeType]?.join(", ")}, not ${asset.mime}.`);
+  if (asset.widthPx !== placement.widthPx || asset.heightPx !== placement.heightPx) out.push(`It must be exactly ${placement.widthPx}×${placement.heightPx} px; this is ${asset.widthPx}×${asset.heightPx}.`);
+  if (asset.bytes > placement.maxBytes) out.push(`It must be at most ${Math.round(placement.maxBytes / 1024)} KB; this is ${Math.round(asset.bytes / 1024)} KB.`);
+  if (asset.creativeType === "VIDEO") {
+    if (asset.durationSeconds == null || asset.durationSeconds < 1) out.push("Say how long the video is, in seconds.");
+    else if (placement.maxVideoSeconds != null && asset.durationSeconds > placement.maxVideoSeconds) out.push(`A video here runs at most ${placement.maxVideoSeconds} s; this runs ${asset.durationSeconds} s.`);
+  }
+  return out;
+}
+
+/** Why a deployment's dates do not fit its booked window, or null. */
+export function deploymentDatesProblem(d: { startsAt: Date; endsAt: Date }, w: { startsAt: Date; endsAt: Date }): string | null {
+  if (d.endsAt <= d.startsAt) return "A deployment ends after it starts.";
+  if (d.startsAt < w.startsAt || d.endsAt > w.endsAt) return "A deployment runs inside its booked window.";
+  return null;
+}

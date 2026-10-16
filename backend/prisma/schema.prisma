@@ -4436,6 +4436,8 @@ model VirtualWorld {
   runtimeVersion String?
   /// ACTIVE | RETIRED
   status         String   @default("ACTIVE")
+  /// 4S2-BE-03 — goes up on every change to what the world should show; the manifest's version.
+  manifestVersion Int     @default(0)
   createdBy      String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @default(now()) @updatedAt
@@ -4534,4 +4536,69 @@ model PlacementWindow {
 
   @@index([tenantId, placementId, startsAt])
   @@index([tenantId, campaignId])
+}
+
+/// 4S2-BE-02 — a sponsor's creative for one booked window, versioned, checked
+/// against its placement's specs when it is registered
+/// (documentation/SponsorX-Virtual-Registry.md §5). The file is in the private
+/// bucket; a REJECTED version keeps its reasons and its file is deleted.
+model VirtualAsset {
+  id              String   @id @default(cuid())
+  tenantId        String
+  windowId        String
+  placementId     String
+  campaignId      String
+  version         Int
+  r2Key           String
+  /// image/png | image/jpeg | image/webp | video/mp4
+  mime            String
+  /// IMAGE | VIDEO | LOGO
+  creativeType    String
+  widthPx         Int
+  heightPx        Int
+  bytes           Int
+  /// Video only: its length, as declared.
+  durationSeconds Int?
+  /// sha256 of the file, hex — what a world checks a download against.
+  checksum        String?
+  /// VALIDATED | REJECTED
+  state           String
+  problems        String[] @default([])
+  createdBy       String?
+  createdAt       DateTime @default(now())
+
+  @@unique([windowId, version])
+  @@index([tenantId, windowId])
+}
+
+/// 4S2-BE-01 — what a world shows on a placement, when: a campaign's booked
+/// window, one version of its creative, and the dates it runs (inside the
+/// window). DRAFT → APPROVED → ENDED; PAUSED and ROLLED_BACK are 4S2-BE-05's.
+/// The database refuses two APPROVED deployments on the same window whose
+/// dates overlap (EXCLUDE "CreativeDeployment_no_overlap").
+model CreativeDeployment {
+  id           String    @id @default(cuid())
+  tenantId     String
+  worldId      String
+  placementId  String
+  windowId     String
+  campaignId   String
+  assetId      String
+  assetVersion Int
+  startsAt     DateTime
+  endsAt       DateTime
+  /// DRAFT | APPROVED | PAUSED | ROLLED_BACK | ENDED
+  state        String    @default("DRAFT")
+  /// Goes up on every change of state — a world compares it to know what changed.
+  sequence     Int       @default(1)
+  approvedBy   String?
+  approvedAt   DateTime?
+  endedAt      DateTime?
+  endReason    String?
+  createdBy    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+
+  @@index([tenantId, worldId, state])
+  @@index([tenantId, windowId])
 }
