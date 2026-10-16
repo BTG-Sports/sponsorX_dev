@@ -9,6 +9,8 @@
 > 4. edits made outside the app.
 >
 > What carries over: the list of facts, the channel and market rules, and the metric definitions (§4–§6). This document stays as the record of what was built and why it was replaced.
+>
+> **Code removed 2026-10-16 (`3S1-OPS-02`).** The hourly copy and `backend/worker/warehouse/` are gone. The databases `Postgres-warehouse` (staging) and `Postgres-warehouse-production` still exist on Railway, unused, by the user's decision. See `.claude/stack-decision.md` Addendum D4.
 
 > **v1.2 (2026-10-13, `3S1-DATA-02` as built):** the model is built by `backend/worker/warehouse/` — tables in `migrations/0002_model.sql`, rows by `transforms/*.sql` after every hourly copy, checked by `reconcile.mts`. Refinements made while building, none changing what was signed:
 > - **Market joins the fact's key** (§5). Reward rows that share every other key can come from codes with different venues.

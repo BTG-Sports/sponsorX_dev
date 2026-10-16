@@ -389,16 +389,19 @@ Run the three fills on staging, then on production with the owner's OK; the chec
   - In both, the check passes and a second run adds nothing. [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §8
 - **Reference:** Spec §21
 
-### ⏸ `3S1-OPS-02` · Retire the warehouse
+### ✅ `3S1-OPS-02` · Retire the warehouse
 
-**Order** 7.5 · **OPS** · **Where:** Code / Vendor console · **1d** · **Blocked**
+**Order** 7.5 · **OPS** · **Where:** Code / Vendor console · **1d** · **Done**
 
-> **On hold (user, 2026-10-14).** "If no one is going to use it we just leave it there while we are in development." The warehouse databases, settings and hourly copy stay for now. Nothing reads them: analysis reads the fact ledger.
+> **The databases stay (user, 2026-10-14 and 2026-10-16).** "If no one is going to use it we just leave it there while we are in development." On 2026-10-16, after its test broke a CI run, the user said to remove the code from the tests and the worker and only note that the databases exist.
 
-Stop the hourly copy, and remove the warehouse settings and code. Once the facts and summaries are live, delete `Postgres-warehouse` and `Postgres-warehouse-production`, with the owner's OK.
+Stop the hourly copy, and remove the warehouse code. The databases stay.
 
 - **Depends on:** 3S1-OPS-04
-- **Done when:** no warehouse service, setting or code remains; analysis reads the summaries; the design docs say so
+- **Done when:** no warehouse code or hourly copy remains; analysis reads the summaries; the design docs say so; the databases that remain are noted *(amended 2026-10-16 by the user: the databases are kept, so they are noted rather than deleted)*
+- **Delivered:** 2026-10-16.
+  - **Removed:** the hourly copy, `backend/worker/warehouse/`, its four test files and the `warehouse:reader` script.
+  - **Still there, unused:** `Postgres-warehouse` and `Postgres-warehouse-production` on Railway, their settings on the worker services (nothing reads them), and the `warehouse_reader` login on each product database. They are noted in `.claude/stack-decision.md` (Addendum D4) and in [`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md).
 - **Reference:** Spec §20
 
 ### ✅ `3S1-OPS-03` · Only the app writes to the live database
