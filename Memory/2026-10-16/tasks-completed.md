@@ -214,3 +214,4 @@ The plan was approved by the user. The doc is `SponsorX-Virtual-Registry.md` §5
 - **Permission:** creative and deployments use campaign write; the manifest is a `virtualWorld` read. RBAC §37 has a note.
 - **Migration:** `20261016190000_creative_deployments`.
 - **Tests:** `tests/virtual-creative.test.ts` (11 tests) uploads real PNG and JPEG images through the signature-checking in-process bucket. The tenant-isolation sweep covers the 7 new routes.
+- **4S2-BE-01/02/03 are Done:** #250 is merged, and all three acceptance criteria were demonstrated in `virtual-creative.test.ts`.

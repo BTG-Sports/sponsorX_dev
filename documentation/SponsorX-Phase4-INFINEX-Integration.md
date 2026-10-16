@@ -276,15 +276,15 @@ Thumbnail, orientation, allowed creative types, technical constraints and placem
 
 *6 tasks · 24 person-days*
 
-### ◑ `4S2-BE-01` · Creative deployment model
+### ✅ `4S2-BE-01` · Creative deployment model
 
-**Order** 13 · **BE** · **Where:** Code · **5d** · **Code review**
+**Order** 13 · **BE** · **Where:** Code · **5d** · **Done**
 
 Associate approved sponsor assets with placements, versioned, with start and end times.
 
 - **Depends on:** 4S1-BE-03
 - **Done when:** A deployment record ties campaign, placement, asset version and schedule
-- **Built:** 2026-10-16.
+- **Delivered:** 2026-10-16 (merged in #250).
   - **What a deployment is:** a campaign's booked window, one validated creative version, and its dates inside the window. It goes DRAFT → APPROVED → ENDED, and approving checks everything again at that moment.
   - **One at a time:** the database refuses two approved deployments on the same window at the same time.
   - **Each change** bumps the deployment's sequence and the world's manifest version.
@@ -293,15 +293,15 @@ Associate approved sponsor assets with placements, versioned, with start and end
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §6
 - **Reference:** Spec §27.2, §30
 
-### ◑ `4S2-BE-02` · Creative validation against placement specs
+### ✅ `4S2-BE-02` · Creative validation against placement specs
 
-**Order** 14 · **BE** · **Where:** Code · **3d** · **Code review**
+**Order** 14 · **BE** · **Where:** Code · **3d** · **Done**
 
 Reject assets that do not fit the surface before they reach the world, not after a sponsor complains.
 
 - **Depends on:** 4S2-BE-01
 - **Done when:** An asset failing the placement's technical constraints is rejected at upload
-- **Built:** 2026-10-16.
+- **Delivered:** 2026-10-16 (merged in #250).
   - **What is checked:** registering an upload checks it against the placement: its type, exactly its pixels, its size, and a video's length.
   - **What SponsorX reads itself:** the stored file's size, its checksum and, for an image, its real pixels and format. A video's pixels and length are as declared.
   - **A failing version** is REJECTED with every reason, with its file deleted, and can never be deployed.
@@ -309,15 +309,15 @@ Reject assets that do not fit the surface before they reach the world, not after
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §5
 - **Reference:** Spec §27.2
 
-### ◑ `4S2-BE-03` · Active manifest service
+### ✅ `4S2-BE-03` · Active manifest service
 
-**Order** 15 · **BE** · **Where:** Code · **5d** · **Code review**
+**Order** 15 · **BE** · **Where:** Code · **5d** · **Done**
 
 The endpoint INFINEX calls to ask what is live right now. Must return only approved, in-window deployments for the requested world and time.
 
 - **Depends on:** 4S2-BE-01
 - **Done when:** Manifest returns only approved, in-window deployments for the requested world and time
-- **Built:** 2026-10-16.
+- **Delivered:** 2026-10-16 (merged in #250).
   - **What it returns:** `GET /virtual/worlds/{id}/manifest?at=` lists only approved, in-date deployments on booked windows, on-sale placements and validated creative, in an active world.
   - **Versioned:** it carries the manifest version and an ETag (304 when nothing changed).
   - **Still to come:** the download links are 4S2-BE-04, and the game's own login is 4S0-SEC-01.
