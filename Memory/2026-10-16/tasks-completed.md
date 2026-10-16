@@ -159,3 +159,13 @@ The user asked why P0-OPS-03 was open "when all Clerk tasks were finished". Cler
 
 **Done:** the "Done when" is amended to "Both instances exist", the MFA half now sits only on P2-INT-02, and P0-OPS-03 is Done (plan and tracker).
 - **4S1-BE-04 is Done:** #244 is merged, and its acceptance was demonstrated in `virtual-bookings.test.ts`.
+
+## rcfworks — P8-QA-03 and P9-QA-01 to Done (HeckerCreatives' rows, closed at the user's instruction)
+
+The user asked me to check the acceptance criteria and close the rows if they pass. Owner stays HeckerCreatives.
+
+- **P8-QA-03: met.** Main's CI run (38857461531) passed one Playwright suite: 70 passed, 0 failed.
+  - **The Phase 1 stage 3–7 tests:** loop-p3-application (including the minor loop that was red on 10-02), loop-p4-matching, loop-p5-delivery, redeem-flow and loop-p7-earnings-report are all green.
+  - **None of the skips are from stages 3–7:** they are tests that only run on the other screen size, or Phase 2 checks that need seed data.
+  - **The wording:** "Phases 3–7" in its definition means Phase 1's stages 3–7. I quoted it to the user without explaining it, which confused them, and added the note to the plan.
+- **P9-QA-01: met.** `next-edition-e2e.test.ts` passes 7/7, one test per clause. Clause 4 (artwork through the approval board, with a ContentRight) has been covered since P9-BE-16, Done on 2026-10-05.
