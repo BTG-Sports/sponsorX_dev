@@ -136,7 +136,7 @@ import {
 import { SponsorDocumentInput, SponsorEmailConfirmInput, SponsorRequestDecisionInput, SponsorRequestListQuery } from "./sponsor-requests";
 import { RestrictedTextInput, RestrictedWordInput } from "./restricted-words";
 import { LinkRenewInput, LinkRenewReceipt } from "./links";
-import { PlacementInput as VirtualPlacementInput, PlacementPatch as VirtualPlacementPatch, WorldInput as VirtualWorldInput, WorldPatch as VirtualWorldPatch, ZonesInput as VirtualZonesInput } from "./virtual";
+import { PlacementInput as VirtualPlacementInput, PlacementPatch as VirtualPlacementPatch, WorldInput as VirtualWorldInput, WorldPatch as VirtualWorldPatch, ZonesInput as VirtualZonesInput, WindowInput as PlacementWindowInput, WindowRelease as PlacementWindowRelease } from "./virtual";
 import {
   OnboardingConfirmEmailInput, OnboardingDecisionInput, OnboardingDocumentInput, OnboardingStartInput, OnboardingStepInput, OrganizationDocumentInput,
 } from "./onboarding";
@@ -760,6 +760,9 @@ const PATHS: Row[] = [
   { method: "patch", path: "/virtual/placements/{placementId}", tag: "Virtual", summary: "Change a placement: name, price, capacity and dates until it retires; its specs only while a DRAFT (409 on sale — sponsors buy against them). On sale, its inventory item follows. Audited. BTG admins.", body: VirtualPlacementPatch },
   { method: "post", path: "/virtual/placements/{placementId}/publish", tag: "Virtual", summary: "Put a DRAFT on sale (4S1-BE-03): only in an active PRODUCTION world whose owner BTG approved to sell, in an active zone. Creates its InventoryItem (kind VIRTUAL_PLACEMENT, the world's property, its price and dates, one buyer per period at capacity 1) and marks it AVAILABLE. 409 with every reason otherwise. Audited. BTG admins." },
   { method: "post", path: "/virtual/placements/{placementId}/retire", tag: "Virtual", summary: "Retire a placement for good: off sale, its inventory item switched off; its external ID is never reused. Audited. BTG admins." },
+  { method: "get", path: "/virtual/placements/{placementId}/windows", tag: "Virtual", summary: "A placement's booked windows (4S1-BE-04), released ones too, soonest first, with the campaign and slot, and the placement's capacity. Whoever may read the placement." },
+  { method: "post", path: "/virtual/placements/{placementId}/windows", tag: "Virtual", summary: "Book an on-sale placement for whole UTC days inside a DRAFT campaign, within its dates and the placement's availability. Price frozen: the list price per week × days ÷ 7. Takes the first capacity slot free for every day. 409 when the days are taken — the database refuses an overlap (EXCLUDE constraint), so two sponsors never buy the same billboard for the same week. Audited. Whoever may write the campaign.", body: PlacementWindowInput },
+  { method: "post", path: "/virtual/windows/{windowId}/release", tag: "Virtual", summary: "Give a booked window's days back while its campaign is still a draft, with a reason; the window stays, marked RELEASED. Cancelling a campaign releases its windows. Audited. Whoever may write the campaign.", body: PlacementWindowRelease },
   { method: "get", path: "/operations/job-economics", tag: "Operations", summary: "Economics by NIL job." },
 
   // 2S5-INT-02 — the payment provider's events

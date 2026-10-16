@@ -112,6 +112,9 @@ export const AUDIT_ACTIONS = {
     placementUpdate: "virtual.placementUpdate",
     placementPublish: "virtual.placementPublish",
     placementRetire: "virtual.placementRetire",
+    /** 4S1-BE-04 — a placement booked for days inside a campaign, and given back. */
+    windowBook: "virtual.windowBook",
+    windowRelease: "virtual.windowRelease",
   },
   /** Agreements — acceptance is the legally interesting event. */
   agreement: {

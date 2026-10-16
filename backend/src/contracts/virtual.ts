@@ -54,7 +54,7 @@ const spec = {
   maxVideoSeconds: z.int().nullable().optional(),
   capacity: z.int().optional(),
   viewabilityRule: z.string().max(60).optional(),
-  rackPriceCents: z.int(),
+  rackPriceCents: z.int().describe("The list price per week, in cents; a booked window costs this × days ÷ 7"),
   availableFrom: when,
   availableUntil: when,
 };
@@ -68,3 +68,15 @@ export const PlacementPatch = z
   .object({ name: z.string().max(200).optional(), ...Object.fromEntries(Object.entries(spec).map(([k, v]) => [k, v.optional()])) })
   .strict()
   .meta({ id: "VirtualPlacementPatch", description: "Change a placement: name, price, capacity and dates any time before it retires; specs only while a DRAFT (4S1-BE-02)." });
+
+export const WindowInput = z
+  .object({
+    campaignId: z.string().min(1).max(200).describe("A DRAFT campaign the caller may write; the window falls within its dates"),
+    startsAt: z.iso.datetime().describe("Midnight UTC, the first day"),
+    endsAt: z.iso.datetime().describe("Midnight UTC, the day after the last"),
+  })
+  .strict()
+  .meta({ id: "PlacementWindowInput", description: "Book a placement for whole days inside a campaign (4S1-BE-04)." });
+
+export const WindowRelease = z.object({ reason: z.string().max(600).describe("Why, 3 to 500 characters") }).strict()
+  .meta({ id: "PlacementWindowRelease", description: "Give a booked window back while its campaign is still a draft (4S1-BE-04)." });

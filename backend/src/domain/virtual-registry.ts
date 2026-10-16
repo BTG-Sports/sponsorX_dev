@@ -10,7 +10,7 @@
  *   ZONES (districts, venues, zones) are upserted in one call by external ID
  *   — how a world's map is imported — each under an allowed parent.
  *   PLACEMENTS are surfaces with specs, a viewability rule, a capacity, a
- *   price and availability. Created as DRAFT; put on sale (AVAILABLE) only in
+ *   list price per week and availability. Created as DRAFT; put on sale (AVAILABLE) only in
  *   a production world whose owner BTG has approved; retired for good.
  *
  *   ON SALE = SELLABLE INVENTORY (4S1-BE-03). Going AVAILABLE creates one
@@ -22,6 +22,7 @@
  *   campaign (4S1-BE-04).
  *
  * IDs never change and nothing is deleted (trigger "virtual_ids_are_fixed").
+ * A placement or world with booked days still to come (4S1-BE-04) cannot be retired.
  * BTG writes (`virtualWorld`, RBAC matrix §37); campaign managers and Sales
  * read; a world's owner reads its own worlds. Every write is audited.
  */
@@ -30,6 +31,8 @@ import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
 import { prisma } from "../db/client";
 import type { Prisma } from "../generated/prisma/client";
+import { futureBookings } from "./virtual-bookings";
+import { VirtualConflictError, VirtualInputError, VirtualNotFoundError } from "./virtual-errors";
 import {
   DEFAULT_RULE, EXTERNAL_ID, nestingProblem, placementProblems, publishProblems, specLine, VIRTUAL_PLACEMENT_KIND,
   type CreativeType, type Environment, type PlacementKind, type PlacementSpec, type ZoneLevel,
@@ -37,32 +40,7 @@ import {
 
 type Tx = Prisma.TransactionClient;
 
-export class VirtualInputError extends Error {
-  readonly status = 422;
-  readonly code = "virtual_input";
-  constructor(readonly problems: string[]) {
-    super(problems.join(" "));
-    this.name = "VirtualInputError";
-  }
-}
-
-export class VirtualNotFoundError extends Error {
-  readonly status = 404;
-  readonly code = "virtual_not_found";
-  constructor(what = "world") {
-    super(`No such ${what}.`);
-    this.name = "VirtualNotFoundError";
-  }
-}
-
-export class VirtualConflictError extends Error {
-  readonly status = 409;
-  readonly code = "virtual_conflict";
-  constructor(message: string) {
-    super(message);
-    this.name = "VirtualConflictError";
-  }
-}
+export { VirtualConflictError, VirtualInputError, VirtualNotFoundError };
 
 const WORLD = { id: true, propertyId: true, externalId: true, name: true, environment: true, runtime: true, runtimeVersion: true, status: true, createdAt: true } as const;
 const ZONE = { id: true, parentId: true, level: true, externalId: true, name: true, status: true } as const;
@@ -166,6 +144,10 @@ export async function updateWorld(actor: Actor, worldId: string, patch: { name?:
       select: WORLD,
     });
     if (patch.status === "RETIRED") {
+      /* tenant-scope: keyed by the world found above through whereFor. */
+      const ids = (await tx.virtualPlacement.findMany({ where: { tenantId: w.tenantId, worldId: w.id }, select: { id: true } })).map((x) => x.id);
+      const ahead = await futureBookings(tx, w.tenantId, ids, now);
+      if (ahead) throw new VirtualConflictError(`Its placements have ${ahead} booked window(s) still to come — release them, or cancel their campaigns, first.`);
       await tx.virtualZone.updateMany({ where: { tenantId: w.tenantId, worldId: w.id, status: "ACTIVE" }, data: { status: "RETIRED" } });
       const open = await tx.virtualPlacement.findMany({ where: { tenantId: w.tenantId, worldId: w.id, state: { not: "RETIRED" } }, select: { id: true, inventoryItemId: true } });
       for (const p of open) await retireInside(tx, p, now);
@@ -408,6 +390,8 @@ export async function retirePlacement(actor: Actor, placementId: string, now = n
   return prisma.$transaction(async (tx) => {
     const { p } = await placementFor(tx, actor, placementId, "write");
     if (p.state === "RETIRED") throw new VirtualConflictError("It is already retired.");
+    const ahead = await futureBookings(tx, p.tenantId, [p.id], now);
+    if (ahead) throw new VirtualConflictError(`It has ${ahead} booked window(s) still to come — release them, or cancel their campaigns, first.`);
     await retireInside(tx, p, now);
     await audit(tx, actor, AUDIT_ACTIONS.virtual.placementRetire, "VirtualPlacement", p.id, { before: { state: p.state }, after: { state: "RETIRED" } });
     const next = await tx.virtualPlacement.findFirstOrThrow({ where: { tenantId: p.tenantId, id: p.id }, select: PLACEMENT });

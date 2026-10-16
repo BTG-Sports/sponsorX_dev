@@ -102,7 +102,7 @@ export function placementProblems(p: PlacementSpec): string[] {
   if (!video && p.maxVideoSeconds != null) out.push("Only a placement that takes video has a longest video.");
   if (p.capacity !== undefined && !between(p.capacity, LIMITS.capacity)) out.push(`Capacity is ${LIMITS.capacity.min} to ${LIMITS.capacity.max} sponsors at once.`);
   if (p.viewabilityRule !== undefined && !VIEWABILITY_RULES[p.viewabilityRule]) out.push(`No viewability rule "${p.viewabilityRule}". Available: ${Object.keys(VIEWABILITY_RULES).join(", ")}.`);
-  if (!between(p.rackPriceCents, LIMITS.priceCents)) out.push("The price is $1 to $1,000,000, in cents.");
+  if (!between(p.rackPriceCents, LIMITS.priceCents)) out.push("The list price per week is $1 to $1,000,000, in cents.");
   if (p.availableFrom && p.availableUntil && p.availableUntil <= p.availableFrom) out.push("Available until comes after available from.");
   return out;
 }
@@ -134,4 +134,44 @@ export function specLine(p: { kind: string; widthPx: number; heightPx: number; c
     `${p.capacity === 1 ? "one sponsor at a time" : `${p.capacity} sponsors at a time`}`,
     `counted as seen: ${rule.toLowerCase()}`,
   ].join("; ") + ".";
+}
+
+/* ───────────────────────────── booking windows (4S1-BE-04) ───────────────────────────── */
+
+const DAY_MS = 86_400_000;
+export const BOOKING_DAYS = { min: 1, max: 365 } as const;
+
+const midnight = (d: Date) => d.getTime() % DAY_MS === 0;
+export const daysIn = (startsAt: Date, endsAt: Date) => Math.round((endsAt.getTime() - startsAt.getTime()) / DAY_MS);
+
+/** The price frozen onto a window: the list price is per week, so it is the weekly price × days ÷ 7, to the cent. */
+export const windowPrice = (rackPriceCentsPerWeek: number, days: number) => Math.max(1, Math.round((rackPriceCentsPerWeek * days) / 7));
+
+/** Everything that stops this booking, in plain words; empty when it may be booked (the overlap itself is the database's). */
+export function bookingProblems(b: {
+  startsAt: Date; endsAt: Date;
+  placement: { state: string; availableFrom: Date | null; availableUntil: Date | null };
+  campaign: { state: string; startDate: Date; endDate: Date };
+}): string[] {
+  const out: string[] = [];
+  if (!midnight(b.startsAt) || !midnight(b.endsAt)) out.push("A window is whole days: it starts and ends at midnight UTC.");
+  const days = daysIn(b.startsAt, b.endsAt);
+  if (b.endsAt <= b.startsAt) out.push("A window ends after it starts.");
+  else if (days < BOOKING_DAYS.min || days > BOOKING_DAYS.max) out.push(`A window is ${BOOKING_DAYS.min} to ${BOOKING_DAYS.max} days.`);
+  if (b.placement.state !== "AVAILABLE") out.push(b.placement.state === "DRAFT" ? "The placement is not on sale yet." : "The placement is retired.");
+  if (b.placement.availableFrom && b.startsAt < b.placement.availableFrom) out.push("The placement is not available that early.");
+  if (b.placement.availableUntil && b.endsAt > b.placement.availableUntil) out.push("The placement is not available that late.");
+  if (b.campaign.state !== "DRAFT") out.push(`A campaign that is ${b.campaign.state} cannot buy more placements.`);
+  /* The campaign's dates are whole days too: its last day counts. */
+  const flightEnd = new Date(Date.UTC(b.campaign.endDate.getUTCFullYear(), b.campaign.endDate.getUTCMonth(), b.campaign.endDate.getUTCDate() + 1));
+  const flightStart = new Date(Date.UTC(b.campaign.startDate.getUTCFullYear(), b.campaign.startDate.getUTCMonth(), b.campaign.startDate.getUTCDate()));
+  if (b.startsAt < flightStart || b.endsAt > flightEnd) out.push("The window falls outside the campaign's dates.");
+  return out;
+}
+
+/** The first slot (1..capacity) free for the whole window, given the BOOKED windows that overlap it; null when full. */
+export function freeSlot(capacity: number, overlapping: Array<{ slot: number }>): number | null {
+  const taken = new Set(overlapping.map((w) => w.slot));
+  for (let s = 1; s <= capacity; s += 1) if (!taken.has(s)) return s;
+  return null;
 }
