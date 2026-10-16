@@ -109,13 +109,13 @@ against Blueprint v2.0; **Addendum B (2026-09-21)** records the split into
 
 ## The task board
 
-The programme is 345 tasks across the blueprint's four phases. **Three artefacts, three
+The programme is five phases: the blueprint's four, plus Phase 5, the INFINEX game, split out of Phase 4 on 2026-10-16 (the game is not started; Phase 4 is SponsorX's web application only). **Three artefacts, three
 jobs** — keep them straight or they drift:
 
 | Artefact | Owns | Changes | Who |
 |---|---|---|---|
-| `documentation/SponsorX-Phase{1..4}-*.md` | The **plan** — every task's definition, plain-English detail, acceptance criteria | Only when scope changes | Anyone, by pull request |
-| `Claude outputs/SponsorX-Full-Programme-Task-Board.xlsx` | The **working tracker** — all four phases consolidated | Continuously, during the day | Every developer |
+| `documentation/SponsorX-Phase{1..5}-*.md` | The **plan** — every task's definition, plain-English detail, acceptance criteria | Only when scope changes | Anyone, by pull request |
+| `Claude outputs/SponsorX-Full-Programme-Task-Board.xlsx` | The **working tracker** — all five phases consolidated | Continuously, during the day | Every developer |
 | Google Sheet [SponsorXFullProgrammeTaskBoard](https://docs.google.com/spreadsheets/d/10PGtZb3jGBBHhbNOWwl__hS0b_HKN7EL0KRHrnSVoI0/) | The **published status** — what the team and stakeholders read | Once a day | Whoever worked that day |
 
 > **The daily rule.** During the day, tag your task **In progress** in the consolidated
@@ -155,7 +155,7 @@ jobs** — keep them straight or they drift:
 > `create_file` makes a *new* file rather than a new revision, so there is no way to write
 > cells in the published Sheet. Do not offer to update it, and do not "solve" this by
 > uploading a rival copy — the Sheet's URL is referenced in ten places across this file, the
-> four phase documents and the baseline memory, and a second copy fragments a link the team
+> phase documents and the baseline memory, and a second copy fragments a link the team
 > already has. Mirror it by hand at end of day, as the daily rule says.
 >
 > **Copies of the xlsx sitting in Google Drive are snapshots, not the tracker.** Two such
@@ -200,7 +200,8 @@ Code review. Committing one file is what makes a shared tracker actually shared.
 [Phase 1 · Managed Marketplace](documentation/SponsorX-Phase1-Managed-Marketplace.md) (220 tasks) ·
 [Phase 2 · Marketplace & Commerce](documentation/SponsorX-Phase2-Marketplace-Commerce.md) (123) ·
 [Phase 3 · Intelligence & Attribution](documentation/SponsorX-Phase3-Intelligence-Attribution.md) (44) ·
-[Phase 4 · INFINEX Integration](documentation/SponsorX-Phase4-INFINEX-Integration.md) (51)
+[Phase 4 · INFINEX Integration](documentation/SponsorX-Phase4-INFINEX-Integration.md) (47, the web application) ·
+[Phase 5 · INFINEX Game](documentation/SponsorX-Phase5-INFINEX-Game.md) (7, waits for the game)
 
 ## Architecture rules
 

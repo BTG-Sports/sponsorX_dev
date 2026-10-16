@@ -87,4 +87,13 @@ The last Phase 3 backend tasks. The plan was approved by the user before startin
   - **New:** 5S2-PMO-02, the pilot sponsor UAT.
 - **Dashboard:** a Phase 5 row and column were added. The Phase 4 ranges end at row 51, and the total is now 556 delivery tasks.
 - **Roadmap:** a Phase 5 row was added, and its text now says five phases. The Legend's spec source now reads "Phases 2–5".
-- **Google Sheet:** it needs a Phase 5 tab, added by hand at the next mirror.
+
+**Plan files** (the PR after the tracker's):
+- **New:** `documentation/SponsorX-Phase5-INFINEX-Game.md`, with the 7 tasks, a former-ID table and 5 acceptance criteria.
+- **The Phase 4 plan:**
+  - the moved tasks are removed, and 4S3-INT-02/03 are split;
+  - 4S0-PMO-01 is redefined as the world contract, and 4S9-PMO-02 is now the Phase 4 UAT;
+  - there are 11 acceptance criteria (criterion 3 moved to Phase 5);
+  - a dated change note was added.
+- **References updated:** `CLAUDE.md`, the phase-file tables in Phases 1–3, the INFINEX API spec (5S1-QA-01, 5S2-QA-01, 5S1-INT-02/03) and the developer handoff.
+- **CI:** the Phase 5 plan file is added to the docs-only list.

@@ -5,20 +5,23 @@
 | | |
 |---|---|
 | **Goal** | Make virtual worlds first-class SponsorX inventory. Sponsors buy, activate, measure and renew virtual placements in the same campaign system used for athletes, events and fan rewards. |
-| **Tasks** | 51 · 207 person-days |
+| **Tasks** | 47 · 190 person-days |
 | **Blueprint timeline** | 18–22 weeks |
 | **Balanced budget** | $90K–$150K |
 | **Depends on** | Stable SponsorX APIs, campaign/reward engine, identity/session model, metrics pipeline |
 | **Source** | Phases 2–4 Detailed Developer Specifications v1.0 (Spec § references) + Blueprint §34 |
 
-### The four phase documents
+> **Changed 2026-10-16 (user): Phase 4 is the web application only.** The INFINEX game has not been started; SponsorX comes first, then the game. So Phase 4 builds SponsorX's side — the pages, API and database for worlds, placements, creative, telemetry, pricing, activations and reporting — and proves it with a **stand-in world** (a script that calls SponsorX the way the game will). Every task that needs the real game moved to [Phase 5](./SponsorX-Phase5-INFINEX-Game.md), renumbered: `4S3-INT-01` → `5S1-INT-01`, `4S3-QA-01` → `5S1-QA-01`, `4S9-QA-01` → `5S2-QA-01`, `4S9-PMO-01` → `5S2-PMO-01`; the game halves of `4S3-INT-02` and `4S3-INT-03` are `5S1-INT-02` and `5S1-INT-03`. Phase acceptance criterion 3 ("the INFINEX client renders a placement") moved with them.
+
+### The five phase documents
 
 | Phase | File | Tasks | Timeline |
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md)  | 186 | 14–18 weeks |
 | 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 72 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
-| 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md) **← you are here** | 51 | 18–22 weeks |
+| 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md) **← you are here** | 47 | 18–22 weeks |
+| 5 | [`SponsorX-Phase5-INFINEX-Game.md`](./SponsorX-Phase5-INFINEX-Game.md) | 7 | after the game's staging world exists |
 
 ---
 
@@ -29,7 +32,7 @@ Three artefacts, three jobs. Keeping them straight is what stops them drifting a
 | Artefact | Owns | When it changes | Who touches it |
 |---|---|---|---|
 | **These four Markdown files** | The **plan** — what each task is, in plain English, and what *done* means | Only when scope or a task's meaning changes | Anyone, by pull request, reviewed like code |
-| **`SponsorX-Full-Programme-Task-Board.xlsx`** | The **working tracker** — all four phases consolidated in one file | Continuously, during the day | Every developer, as they work |
+| **`SponsorX-Full-Programme-Task-Board.xlsx`** | The **working tracker** — all five phases consolidated in one file | Continuously, during the day | Every developer, as they work |
 | **Google Sheet** [SponsorXFullProgrammeTaskBoard](https://docs.google.com/spreadsheets/d/10PGtZb3jGBBHhbNOWwl__hS0b_HKN7EL0KRHrnSVoI0/) | The **published status** — what the team and stakeholders see | Once a day, at end of day | Whoever worked that day |
 
 ### 🔁 The daily rule
@@ -91,7 +94,7 @@ The specification is explicit about what may and may not run in parallel:
 
 **Permitted.** Begin Phase 3 warehouse and event modelling during the final 4–6 weeks of Phase 2, so transaction data is captured correctly from launch. Begin the Phase 4 API contract and placement taxonomy during the final 4 weeks of Phase 3.
 
-**Forbidden.** Do not build ML pricing before there is enough clean history — launch Phase 3 on rules and statistics. Do not launch marketplace payouts before commission snapshots, reconciliation, refund and dispute behaviour and audit logs are fully tested. Do not report virtual impressions to sponsors until viewability and de-duplication criteria are validated against pilot-world telemetry.
+**Forbidden.** Do not build ML pricing before there is enough clean history — launch Phase 3 on rules and statistics. Do not launch marketplace payouts before commission snapshots, reconciliation, refund and dispute behaviour and audit logs are fully tested. Do not report virtual impressions to sponsors until viewability and de-duplication criteria are validated against pilot-world telemetry. *(Since 2026-10-16 that validation is Phase 5's `5S2-QA-01`: through Phase 4, virtual impressions reach sponsors only labelled unvalidated, from the stand-in world.)*
 
 ---
 
@@ -103,14 +106,14 @@ The specification is explicit about what may and may not run in parallel:
 
 *5 tasks · 17 person-days*
 
-### ⏸ `4S0-PMO-01` · Confirm the INFINEX runtime and identity model
+### ⏸ `4S0-PMO-01` · Define the world contract: runtime, environments and identity
 
 **Order** 1 · **PMO** · **Where:** Document · **3d** · **Blocked**
 
-Which engine, which environments, how sessions and users are identified. Everything downstream assumes stable world, zone and placement IDs — if those churn, the inventory churns with them.
+The rules any world must follow to work with SponsorX, written before the game exists so the game is built to them (2026-10-16): SponsorX does not depend on the world's engine, which is recorded per world; each world has a staging and a production environment; world, zone and placement IDs are stable and never reused — if those churn, the inventory churns with them; sessions and players reach SponsorX only as anonymous references.
 
 - **Depends on:** Phase 3 complete
-- **Done when:** Runtime, environment versioning and identity/session model confirmed in writing
+- **Done when:** Runtime-neutral contract, environment versioning and identity/session model written and approved
 - **Reference:** Spec §33
 
 ### ⏸ `4S0-PMO-02` · Agree the world and placement taxonomy
@@ -295,51 +298,31 @@ Assign creative version, approve, schedule, publish and roll back.
 - **Done when:** Staff can run the full deployment lifecycle from the console
 - **Reference:** Spec §26 P4-05
 
-## Sprint 3 · INFINEX client integration
+## Sprint 3 · INFINEX client endpoints
 
-*The game-engine side: consume the manifest, render placements, report health.*
+*SponsorX's side of the world's connection: who the world clients are, whether they are alive, and the settings they read. The game's side is Phase 5 (`5S1-INT-01`…`03`).*
 
-*4 tasks · 12 person-days*
+*2 tasks · 3 person-days*
 
-### ⏸ `4S3-INT-01` · INFINEX client manifest consumption
+### ⏸ `4S3-INT-02` · Client registry and heartbeat endpoint
 
-**Order** 19 · **INT** · **Where:** Code · **5d** · **Blocked**
+**Order** 20 · **INT** · **Where:** Code · **2d** · **Blocked**
 
-Game-engine side: fetch the manifest, cache it sensibly, and render the right asset version.
+Trusted clients register with a key and report health, so you know when a world stops rendering sponsorship. SponsorX's side: the registry, the heartbeat endpoint and the missing-heartbeat alert, proven with the stand-in world. The game sending it is `5S1-INT-02`.
 
 - **Depends on:** 4S2-BE-03
-- **Done when:** The INFINEX client renders a sponsored placement using the correct asset version
-- **Reference:** Spec §34
-
-### ⏸ `4S3-INT-02` · Client registry and heartbeat
-
-**Order** 20 · **INT** · **Where:** Code · **3d** · **Blocked**
-
-Trusted clients register with a key and report health, so you know when a world stops rendering sponsorship.
-
-- **Depends on:** 4S3-INT-01
-- **Done when:** Client heartbeat reports and a missing heartbeat raises an alert
+- **Done when:** A registered client's heartbeat is recorded and a missing heartbeat raises an alert (proven with the stand-in world)
 - **Reference:** Spec §28, §30
 
 ### ⏸ `4S3-INT-03` · Client configuration endpoint
 
 **Order** 21 · **INT** · **Where:** Code · **1d** · **Blocked**
 
-Feature flags, telemetry limits and schema versions delivered to the client so behaviour can change without a client release.
+Feature flags, telemetry limits and schema versions delivered to the client so behaviour can change without a client release. SponsorX's side: the endpoint and its limits; the game honouring them is `5S1-INT-03`.
 
-- **Depends on:** 4S3-INT-01
-- **Done when:** Client reads config remotely and honours telemetry limits
+- **Depends on:** 4S2-BE-03
+- **Done when:** Config is served per client with its telemetry limits, and the stand-in world honours them
 - **Reference:** Spec §28
-
-### ⏸ `4S3-QA-01` · Staging world placement test
-
-**Order** 22 · **QA** · **Where:** Code · **3d** · **Blocked**
-
-A placement is only AVAILABLE after it renders correctly in a staging world.
-
-- **Depends on:** 4S3-INT-01
-- **Done when:** Placement passes the staging test before it can be marked available
-- **Reference:** Spec §27.1
 
 ## Sprint 4 · Telemetry ingestion
 
@@ -621,40 +604,20 @@ Prove the throughput and dashboard latency targets hold at expected Phase 4 traf
 - **Done when:** Load test meets the agreed ingestion throughput and dashboard latency targets
 - **Reference:** Spec §34
 
-## Sprint 9 · Pilot world launch
+## Sprint 9 · Web application launch
 
-*One world, real sponsors, validated telemetry, calibrated pricing.*
+*The Phase 4 sign-off and the production rollout. The pilot world — validated telemetry and calibrated pricing — is Phase 5 (`5S2-*`).*
 
-*4 tasks · 16 person-days*
+*2 tasks · 8 person-days*
 
-### ⏸ `4S9-QA-01` · Telemetry validation against the pilot world
-
-**Order** 48 · **QA** · **Where:** Code · **5d** · **Blocked**
-
-Compare what the client emitted against what SponsorX recorded, event by event, in a real world.
-
-- **Depends on:** 4S8-OPS-01
-- **Done when:** Telemetry reconciles between client and server within defined tolerance
-- **Reference:** Spec §33
-
-### ⏸ `4S9-PMO-01` · Calibrate virtual pricing against real traffic
-
-**Order** 49 · **PMO** · **Where:** Document · **3d** · **Blocked**
-
-The pricing model was built on assumptions. Pilot traffic replaces them with measurements.
-
-- **Depends on:** 4S9-QA-01
-- **Done when:** Virtual rates recalibrated against observed traffic, viewability and dwell
-- **Reference:** Spec §32
-
-### ⏸ `4S9-PMO-02` · Pilot sponsor UAT
+### ⏸ `4S9-PMO-02` · Phase 4 UAT
 
 **Order** 50 · **PMO** · **Where:** Document · **5d** · **Blocked**
 
-A real sponsor runs a real virtual activation and receives a real report.
+The whole web application walked end to end with the stand-in world: a sponsor buys a virtual placement, runs an activation and receives a report. The real-sponsor pilot is Phase 5's `5S2-PMO-02`.
 
-- **Depends on:** 4S9-QA-01
-- **Done when:** All 12 Phase 4 acceptance criteria demonstrated and signed off
+- **Depends on:** 4S8-OPS-01
+- **Done when:** All 11 Phase 4 acceptance criteria demonstrated and signed off
 - **Reference:** Spec §34
 
 ### ⏸ `4S9-OPS-01` · Production rollout and incident readiness
@@ -675,16 +638,15 @@ Every one of these must be demonstrated before the phase is signed off.
 
 1. SponsorX can register a world, zone and virtual placement and map the placement to sellable inventory.
 2. Active campaign manifest returns only approved, in-window deployments for the requested world/time.
-3. INFINEX client can render a sponsored placement using the correct asset/version.
-4. Creative can be paused or rolled back from SponsorX without redeploying the entire INFINEX application.
-5. Telemetry batch endpoint supports idempotent event IDs and rejects malformed/unauthorized events.
-6. Viewable impressions are calculated according to versioned viewability rules and remain distinct from gross renders.
-7. Repeated duplicate telemetry does not inflate sponsor reports.
-8. Interactive activation can start, complete, and trigger a SponsorX reward exactly once per configured eligibility rule.
-9. Cross-channel dashboard shows INFINEX metrics alongside non-virtual campaign metrics without double counting.
-10. Operations console displays event lag, client heartbeat, deployment failures and active incidents.
-11. Pilot sponsor can receive a report containing virtual delivery, interaction, reward funnel and proof/creative summary.
-12. Load test meets agreed event-ingestion throughput and dashboard latency targets for expected Phase 4 traffic.
+3. Creative can be paused or rolled back from SponsorX without redeploying the entire INFINEX application.
+4. Telemetry batch endpoint supports idempotent event IDs and rejects malformed/unauthorized events.
+5. Viewable impressions are calculated according to versioned viewability rules and remain distinct from gross renders.
+6. Repeated duplicate telemetry does not inflate sponsor reports.
+7. Interactive activation can start, complete, and trigger a SponsorX reward exactly once per configured eligibility rule.
+8. Cross-channel dashboard shows INFINEX metrics alongside non-virtual campaign metrics without double counting.
+9. Operations console displays event lag, client heartbeat, deployment failures and active incidents.
+10. A sponsor can receive a report containing virtual delivery, interaction, reward funnel and proof/creative summary (from the stand-in world; the real-sponsor pilot is Phase 5).
+11. Load test meets agreed event-ingestion throughput and dashboard latency targets for expected Phase 4 traffic.
 
 ---
 
