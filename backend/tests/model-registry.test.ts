@@ -57,7 +57,7 @@ describe.skipIf(!hasDatabase)("3S8-BE-01 / 3S8-OPS-01 · the model registry and 
     const r = await A.modelRegistry(ana, NOW);
     expect(r.models.map((m) => [m.key, m.activeVersion, m.versions.map((v) => `${v.version}:${v.status}`)])).toEqual([
       ["pricing", "1.0.0", ["1.0.0:active"]], ["matching", "2.0.0", ["2.0.0:active"]], ["forecast", "2.0.0", ["2.0.0:active"]],
-      ["makegood", "1.0.0", ["1.0.0:active"]], ["anomalies", "1.0.0", ["1.0.0:active"]],
+      ["makegood", "1.0.0", ["1.0.0:active"]], ["anomalies", "1.0.0", ["1.0.0:active"]], ["attribution", "0.1.0", ["0.1.0:active"]],
     ]);
     expect(r.models.find((m) => m.key === "forecast")!.thresholds.find((t) => t.key === "atRiskBelow")).toMatchObject({ value: 0.5, min: 0.3, max: 0.7 });
     expect(r.models.find((m) => m.key === "matching")!.factors).toHaveLength(8);

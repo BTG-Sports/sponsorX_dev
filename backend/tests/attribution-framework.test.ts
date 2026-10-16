@@ -60,7 +60,7 @@ describe.skipIf(!hasDatabase)("3S6-BE-01 · partners and deliveries, against the
   const NOW = new Date("2026-11-10T20:00:00Z");
 
   async function clean() {
-    for (const t of ["AttributionDelivery", "AttributionPartner", "FeatureFlag", "AuditLog"]) await prisma.$executeRawUnsafe(`DELETE FROM "${t}" WHERE "tenantId" = ANY($1::text[])`, [T, OTHER]);
+    for (const t of ["PartnerSaleAttribution", "AttributionDelivery", "AttributionPartner", "FeatureFlag", "AuditLog"]) await prisma.$executeRawUnsafe(`DELETE FROM "${t}" WHERE "tenantId" = ANY($1::text[])`, [T, OTHER]);
     await prisma.$executeRawUnsafe(`DELETE FROM "Tenant" WHERE id = ANY($1::text[])`, [T, OTHER]);
   }
 
@@ -130,9 +130,11 @@ describe.skipIf(!hasDatabase)("3S6-BE-01 · partners and deliveries, against the
     ]);
   });
 
-  it("who: BTG admins only; another tenant sees none of these partners", async () => {
-    for (const a of [actor(T, "CAMPAIGN_MGR"), actor(T, "SALES"), actor(T, "SPONSOR_ADMIN")]) {
-      await expect(I.partnerDesk(a)).rejects.toBeInstanceOf(ForbiddenError);
+  it("who: BTG admins add partners; campaign managers and Sales read (3S6-BE-03/04's desk); a sponsor never; another tenant sees none of these partners", async () => {
+    await expect(I.partnerDesk(actor(T, "SPONSOR_ADMIN"))).rejects.toBeInstanceOf(ForbiddenError);
+    for (const a of [actor(T, "CAMPAIGN_MGR"), actor(T, "SALES")]) {
+      expect((await I.partnerDesk(a)).partners).toHaveLength(2);
+      await expect(I.addPartner(a, { name: "Not theirs to add", adapter: "generic-webhook-v1" })).rejects.toBeInstanceOf(ForbiddenError);
     }
     expect((await I.partnerDesk(actor(OTHER, "BTG_ADMIN"))).partners).toEqual([]);
   });

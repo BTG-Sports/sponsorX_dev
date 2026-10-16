@@ -27,10 +27,11 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { ForecastsQuery, GuaranteeInput, MakeGoodApproveInput, MakeGoodsQuery, MatchesQuery, PricingDeskQuery, PricingOverrideInput, ShortlistInput, SponsorIntelQuery, ScenarioCalculateInput, ScenarioSaveInput, AnomaliesQuery, AnomalyDispositionInput, FlagInput, ModelReasonInput, ModelRollbackInput, ModelSettingsInput, PartnerInput } from "../../contracts/intelligence";
+import { ForecastsQuery, GuaranteeInput, MakeGoodApproveInput, MakeGoodsQuery, MatchesQuery, PricingDeskQuery, PricingOverrideInput, ShortlistInput, SponsorIntelQuery, ScenarioCalculateInput, ScenarioSaveInput, AnomaliesQuery, AnomalyDispositionInput, FlagInput, ModelReasonInput, ModelRollbackInput, ModelSettingsInput, PartnerInput, AttributionDeskQuery, AttributionDismissInput } from "../../contracts/intelligence";
 import { forecastDetail, forecastList, setGuarantee } from "../../domain/forecast-engine";
 import { anomalyDesk, disposeAnomaly } from "../../domain/anomaly-engine";
 import { addPartner, partnerDesk } from "../../domain/attribution-intake";
+import { attributionDesk, dismissUnmatched } from "../../domain/attribution-desk";
 import { approveMakeGood, makeGoodList } from "../../domain/makegood-engine";
 import { activateVersion, changeSettings, modelRegistry, rollbackModel, setFlag, validateVersion } from "../../domain/model-admin";
 import { calculateScenario, saveScenario, scenarioDesk } from "../../domain/scenario-engine";
@@ -218,3 +219,18 @@ const partnerAdd: RequestHandler = async (req, res) => {
 
 intelligenceRouter.get("/intelligence/attribution/partners", requireActor, partners);
 intelligenceRouter.post("/intelligence/attribution/partners", requireActor, partnerAdd);
+
+/** GET /intelligence/attribution?campaign&tab=events|unmatched&class&page&size — matched partner sales and the queue (3S6-BE-03/04). */
+const attributionRead: RequestHandler = async (req, res) => {
+  const q = AttributionDeskQuery.parse(req.query ?? {});
+  const page = pageRequest({ page: 1, ...req.query })!;
+  res.json(await attributionDesk(req.actor!, { campaign: q.campaign, tab: q.tab, class: q.class, page }));
+};
+
+/** POST /intelligence/attribution/unmatched/:saleId/dismiss { reason } */
+const dismiss: RequestHandler<{ saleId: string }> = async (req, res) => {
+  res.json(await dismissUnmatched(req.actor!, req.params.saleId, AttributionDismissInput.parse(req.body ?? {})));
+};
+
+intelligenceRouter.get("/intelligence/attribution", requireActor, attributionRead);
+intelligenceRouter.post("/intelligence/attribution/unmatched/:saleId/dismiss", requireActor, dismiss);

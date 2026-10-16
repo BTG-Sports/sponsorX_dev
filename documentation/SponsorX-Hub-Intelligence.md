@@ -37,8 +37,8 @@ are left out of the count. "Active" means currently running.
 | Class | Count | Money |
 |---|---|---|
 | Fans who redeemed (`VERIFIED_REDEMPTION`) | REDEEM events on the sponsor's rewards | none |
-| Sales matched to you (`VERIFIED_TRANSACTION`) | 0 until partner-store data exists (Sprint 3S6) | 0 |
-| Sales likely from you (`MODELLED`) | 0 until then | 0 |
+| Sales matched to you (`VERIFIED_TRANSACTION`) | partner sales matched exactly to the sponsor's campaigns in the range (3S6-BE-03); 0 until a partner sends any | sales less refunds, as the partner reported them |
+| Sales likely from you (`MODELLED`) | partner sales a model linked to them, always "likely" | sales less refunds |
 | Estimated media value (`ESTIMATED_MEDIA_VALUE`) | verified views | verified views × the tenant's benchmark median per 1,000. An estimate, never revenue. Null with no benchmark. |
 
 **Formats.** The ledger's inventory keys are read as inventory kinds:

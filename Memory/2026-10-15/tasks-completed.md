@@ -503,3 +503,17 @@ The fixes logged on 2026-10-11 under "the QA findings fixed (still Code review, 
 - **#234** (forecast 2.0.0, 3S9-OPS-01, 3S6-BE-01, the flaky-test fix) merged into `main_development`.
 - **3S6-BE-01 → Done:** its acceptance is proven by the test.
 - **3S9-OPS-01 stays in Code review** until it is deployed: its clause says "live".
+
+## rcfworks — deploy 1122a37; 3S9-OPS-01 to Done
+
+- **Deploy:** #236 (the sync of #234 and #235) merged. `main` went green, Claude deployed, and `release` moved to `1122a37`.
+- **Staging:**
+  - both migrations applied (`pipeline_runs`, `attribution_framework`);
+  - the API is listening;
+  - `/health/full` returns 200 with status ok and `pipeline` ok, configured, nothing run yet (the first night is 19:00 UTC).
+- **3S9-OPS-01 → Done:** the monitoring is live.
+- **Stage Progress:** today's row was already appended by HeckerCreatives when closing P1-ART-22…25 (Done 286). My only Phase 1 change today (P2-OPS-08 dropped) changes no done count, so no duplicate row was added.
+- **Open for tomorrow:**
+  - check tonight's chain (the first recorded pipeline run, anomalies, backtests, the Zoho sandbox push), then 3S7-INT-01 to Done if the sandbox Account shows the score;
+  - next: 3S6-BE-02/03/04, the rest of attribution, which finishes Phase 3's backend apart from 3S1-OPS-02 (on hold).
+- **The user:** mirror the tracker to the Google Sheet.

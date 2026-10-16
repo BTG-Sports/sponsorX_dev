@@ -110,6 +110,14 @@ Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, SALES.
   - unmatched (the 3S6-BE-04 reconciliation queue, read-only here): `id, source, reference, reason: no_match|ambiguous|outside_window|unknown_token, candidates | null, amountCents | null, receivedAt`
 - The four totals are four tiles, each with its own claim sentence, never summed (acceptance #8). **Guard:** the screen shows a row as verified only when it is deterministic *and* names a match key; a probabilistic row the API labels verified is shown as modelled, with a warning on the row.
 
+**Mounted 2026-10-16** by 3S6-BE-02/03/04 ([SponsorX-Attribution-Matching.md](./SponsorX-Attribution-Matching.md) §4). As proposed, with these facts:
+- events are partner sales only (`VERIFIED_TRANSACTION`, `MODELLED`); filtering by the other two classes returns no rows, and their figures are the tiles';
+- a refund's `amountCents` is negative, and each row also carries `kind: sale|refund`;
+- the totals count sales and take refunds off the amount; `VERIFIED_REDEMPTION.amountCents` is 0 (no reward value is held);
+- the queue is the whole tenant's whatever `campaign` says (an unmatched sale has no campaign); open first, then dismissed ones, each with `dismissed: { by, at, reason } | null`, `kind`, `occurredAt` and `keysGiven` (the key names, never their values);
+- an unknown `campaign` is 404 `attribution_not_found`;
+- dismissing is `POST /intelligence/attribution/unmatched/:id/dismiss { reason }` (BTG admins; the screen stays read-only until it wants the button).
+
 ## 3S7-FE-01 · Sponsor intelligence hub — `/sponsor/intelligence`
 
 Engine: Sponsor intelligence. Types: `frontend/src/lib/sponsor-intelligence-live.ts`.

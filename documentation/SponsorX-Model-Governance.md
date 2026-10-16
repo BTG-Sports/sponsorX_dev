@@ -22,8 +22,9 @@ the models screen (`/admin/intelligence/models`).
 - **Each change is a new version** (the next minor number). It holds the whole
   set of settings, not just the difference, so any two can be compared.
 - **The version is the stamp.** Every output carries the version that made it:
-  a price, a forecast, a shortfall, an anomaly flag, a match run. So a past
-  output can always be explained by the settings behind it.
+  a price, a forecast, a shortfall, an anomaly flag, a match run, a modelled
+  partner sale (`attr-geo-time`, 3S6-BE-03). So a past output can always be
+  explained by the settings behind it.
 
 ## 2 · The four states
 
@@ -83,7 +84,8 @@ Each intelligence feature can be switched off for one tenant (`3S8-OPS-01`):
 - anomalies;
 - scenarios;
 - the sponsor and property hubs;
-- the Zoho updates.
+- the Zoho updates;
+- attribution (partner intake, matching and the desk).
 
 **When a feature is off,** its nightly run skips that tenant, and its pages
 answer that it is switched off. Switching back on resumes from the next run.

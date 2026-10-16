@@ -15,8 +15,9 @@ Every night (from 19:00 UTC) the worker runs one chain:
 5. forecasts;
 6. make-goods;
 7. anomalies;
-8. backtests;
-9. the Zoho intelligence queue.
+8. the attribution queue's retry (3S6-BE-03/04, `attribution`);
+9. backtests;
+10. the Zoho intelligence queue.
 
 **Each step records how it ended** (`PipelineRun`): one row per step per
 night, ok or failed, with its summary or error. A retry the same night

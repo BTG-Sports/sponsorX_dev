@@ -455,7 +455,12 @@ describe("the whole matrix is pinned", () => {
       // write; BTG_ADMIN own-tenant read and write; every other cell deny
       // (matrix §36). With its rows removed the grid hashes to the previous
       // 3d92c5837a1480f7.
-    ).toBe("0829d0ceec6d26d5");
+      // Updated 2026-10-16 (3S6-BE-03/04): `attribution.CAMPAIGN_MGR.read` and
+      // `attribution.SALES.read` = own-tenant — the attribution desk's readers
+      // (screen contract 3S6-FE-01). Writing (partners, dismissing a queued
+      // sale) stays BTG admins'. With those two cells back to deny the grid
+      // hashes to the previous 0829d0ceec6d26d5.
+    ).toBe("8f3f5c877af850bb");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {
