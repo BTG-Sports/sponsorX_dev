@@ -11,14 +11,15 @@
 | **Depends on** | Nothing — this is the start |
 | **Source** | Master Development Blueprint v2.0 (§ references) + `.claude/stack-decision.md` Addendum A |
 
-### The four phase documents
+### The five phase documents
 
 | Phase | File | Tasks | Timeline |
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md) **← you are here** | 186 | 14–18 weeks |
 | 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 72 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
-| 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
+| 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 47 | 18–22 weeks |
+| 5 | [`SponsorX-Phase5-INFINEX-Game.md`](./SponsorX-Phase5-INFINEX-Game.md)  | 7 | after the game's staging world exists |
 
 ---
 
@@ -29,7 +30,7 @@ Three artefacts, three jobs. Keeping them straight is what stops them drifting a
 | Artefact | Owns | When it changes | Who touches it |
 |---|---|---|---|
 | **These four Markdown files** | The **plan** — what each task is, in plain English, and what *done* means | Only when scope or a task's meaning changes | Anyone, by pull request, reviewed like code |
-| **`SponsorX-Full-Programme-Task-Board.xlsx`** | The **working tracker** — all four phases consolidated in one file | Continuously, during the day | Every developer, as they work |
+| **`SponsorX-Full-Programme-Task-Board.xlsx`** | The **working tracker** — all five phases consolidated in one file | Continuously, during the day | Every developer, as they work |
 | **Google Sheet** [SponsorXFullProgrammeTaskBoard](https://docs.google.com/spreadsheets/d/10PGtZb3jGBBHhbNOWwl__hS0b_HKN7EL0KRHrnSVoI0/) | The **published status** — what the team and stakeholders see | Once a day, at end of day | Whoever worked that day |
 
 ### 🔁 The daily rule
@@ -169,14 +170,15 @@ Buy the domain the whole product is addressed at, and keep control of its DNS. N
 - **Done when:** Domain registered to a BTG-controlled account with auto-renew and registrar lock on; DNS managed somewhere the team can add records; the chosen name recorded in `.claude/stack-decision.md`
 - **Reference:** §38, Guide §10
 
-### ▶ `P0-OPS-03` · Create Clerk application (dev + production instances)
+### ✅ `P0-OPS-03` · Create Clerk application (dev + production instances)
 
-**Order** 3 · **OPS** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 55
+**Order** 3 · **OPS** · **Where:** Vendor console · **1d** · **Done** · **Unblocks** 55
 
 Create the Clerk account with separate dev and production instances. Clerk handles login, passwords and MFA only — it never stores who belongs to which tenant or what they can do.
 
 - **Depends on:** nothing — startable now
-- **Done when:** Both instances exist; MFA available for privileged roles
+- **Done when:** Both instances exist *(amended 2026-10-16 by the user: the MFA half — "MFA available for privileged roles" — is `P2-INT-02`'s, which closes it when Clerk Pro is bought at launch)*
+- **Delivered:** application `SponsorX` with its development and production instances (2026-09-21); production signs in on `clerk.sponsorx.net`, domain verified. Closed 2026-10-16.
 - **Reference:** Addendum A4, §26
 
 ### ▶ `P0-LEG-01` · Commission Content Collaboration Agreement from counsel
@@ -2681,14 +2683,20 @@ Receive Zoho's updates, verify they are genuine, write them to your own database
 - **Done when:** The route verifies the signature, writes to our own database and enqueues — it never calls Zoho
 - **Reference:** Guide §07
 
-### ⏸ `P8-QA-01` · Full §30 acceptance criteria pass
+### ✅ `P8-QA-01` · Full §30 acceptance criteria pass
 
-**Order** 157 · **QA** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 3
+**Order** 157 · **QA** · **Where:** Code · **5d** · **Done** · **Unblocks** 3
 
 Demonstrate all fourteen acceptance criteria from the blueprint and record the evidence.
 
 - **Depends on:** all phases
 - **Done when:** All fourteen §30 criteria demonstrated and recorded
+- **Delivered:** 2026-10-16, signed off by the user.
+  - **All 14 demonstrated:** 1,048 of 1,048 backend tests across the 39 files behind them, the Phase 1 end-to-end loop specs green on `main`, and Zoho checked live in the sandbox on 2026-10-09.
+  - **A new test for #2:** `phase1-acceptance.test.ts`, BTG setting an athlete's rate.
+  - **#2's SX jobs:** configured through a reviewed code change, by the user's decision.
+
+  [`SponsorX-Phase1-Acceptance.md`](./SponsorX-Phase1-Acceptance.md)
 - **Reference:** §30
 
 ### ⏸ `P8-INT-04` · Webhook delivery recording
@@ -2872,14 +2880,21 @@ The formal sign-off that the pre-pilot and pre-sponsor-pilot conditions are met 
 - **Done when:** §37's pre-pilot and pre-sponsor-pilot gates formally signed off
 - **Reference:** §37
 
-### ⏸ `P8-QA-03` · Regression suite consolidation
+### ✅ `P8-QA-03` · Regression suite consolidation
 
-**Order** 176 · **QA** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+**Order** 176 · **QA** · **Where:** Code · **3d** · **Done** · **Unblocks** 0
 
 Gather every end-to-end test from across the project into one suite that runs in CI.
 
 - **Depends on:** P8-QA-01
-- **Done when:** Every E2E test from Phases 3–7 runs green in one suite in CI
+- **Done when:** Every E2E test from Phases 3–7 runs green in one suite in CI *("Phases 3–7" here are Phase 1's stages 3–7)*
+- **Delivered:** verified 2026-10-16 on `main`'s CI run (`11d0a316`…`0757299b`, run 38857461531). There were 70 passed and 0 failed in one Playwright suite.
+  - **Stage 3:** `loop-p3-application` (2 tests, including the minor loop that was red on 2026-10-02).
+  - **Stage 4:** `loop-p4-matching`.
+  - **Stage 5:** `loop-p5-delivery`.
+  - **Stage 6:** `redeem-flow`.
+  - **Stage 7:** `loop-p7-earnings-report`.
+  - **The skips:** project-specific tests that pass on the other project, or Phase 2 checks that need seed data; none is from stages 3–7. Backend and frontend suites are also green. Built by HeckerCreatives; closed at the user's instruction.
 - **Reference:** §38
 
 ### ⏸ `P8-SEC-02` · Cross-tenant isolation test pass
@@ -3202,14 +3217,17 @@ Phase 2 overrides Phase 1's manual rule here (programme owner, 2026-10-03). Edit
 - **Done when:** Each screen shows what the system did and what is left for a person
 - **Reference:** BTG admin review items 23 and 24, 2026-10-03
 
-### ⏸ `P9-QA-01` · E2E: edition sells once, a student code attributes the sale
+### ✅ `P9-QA-01` · E2E: edition sells once, a student code attributes the sale
 
-**Order** 210 · **QA** · **Where:** Code · **3d** · **Blocked**
+**Order** 210 · **QA** · **Where:** Code · **3d** · **Done**
 
 The Stage 1 exit, run as a test rather than asserted in a document.
 
 - **Depends on:** P9-FE-03, P9-BE-07, P9-BE-16
 - **Done when:** A school is a Property, an edition sells a back cover exactly once, a student's code attributes a sale, artwork clears the approval board with a ContentRight covering its use, QR_SCAN and LINK_CLICK report separately, and a split resolves to four payees without touching Earning
+- **Delivered:** verified 2026-10-16: `backend/tests/next-edition-e2e.test.ts`, 7/7 green over the real API, one test per clause.
+  - **Clause 4:** the artwork goes through BTG review, then sponsor review, and is refused until a ContentRight covers it. It was waiting on P9-BE-16, which has been Done since 2026-10-05.
+  - Built by HeckerCreatives; closed at the user's instruction.
 - **Reference:** Spec §11
 
 ### ⏸ `P9-BE-10` · ContentRight — one rights ledger, three population paths

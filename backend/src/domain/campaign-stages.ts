@@ -50,6 +50,7 @@ import { OPEN_INVITE_STATES } from "./invite-state";
 import { notReadyToGoLive, type RewardState } from "./reward-state";
 import { raiseSyncTask } from "./sync-tasks";
 import { logError } from "../lib/redact";
+import { releaseCampaignWindows } from "./virtual-bookings";
 
 type Tx = Prisma.TransactionClient;
 
@@ -342,6 +343,8 @@ export async function applyStageMove(
     await enqueue(tx, actor.tenantId, "zoho.pushDeal", { campaignId: campaign.id });
     /* P6-BE-09 — its live rewards stop taking new claims. */
     await pauseRewardsOnCancel(tx, campaign);
+    /* 4S1-BE-04 — the virtual placements it booked are given back. */
+    await releaseCampaignWindows(tx, actor, campaign);
   }
   if (to === "REPORTING" && !adOnly) {
     /* P4-BE-09 — the final report is rendered on the worker; its render

@@ -4417,3 +4417,121 @@ model PartnerSaleAttribution {
   @@index([tenantId, campaignId, occurredAt])
   @@index([partnerId, orderId])
 }
+
+/// 4S1-BE-01 — a virtual world, in one environment (documentation/SponsorX-Virtual-Registry.md,
+/// SponsorX-Virtual-Taxonomy.md). Owned by a property of kind VIRTUAL. Its
+/// external ID is the world owner's, unique per tenant and environment, and
+/// never changes (trigger "virtual_ids_are_fixed"). A world is retired, never
+/// deleted, so its ID is never reused.
+model VirtualWorld {
+  id             String   @id @default(cuid())
+  tenantId       String
+  propertyId     String
+  externalId     String
+  name           String
+  /// STAGING | PRODUCTION
+  environment    String
+  /// What the world runs on, for people (e.g. "Unity 6"). No rule reads it.
+  runtime        String?
+  runtimeVersion String?
+  /// ACTIVE | RETIRED
+  status         String   @default("ACTIVE")
+  createdBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  @@unique([tenantId, environment, externalId])
+  @@index([tenantId, propertyId])
+}
+
+/// 4S1-BE-01 — a district, venue or zone of a world, in one table
+/// (SponsorX-Virtual-Taxonomy.md §2). parentId null means directly under the
+/// world. External ID, level and parent are fixed once created.
+model VirtualZone {
+  id         String   @id @default(cuid())
+  tenantId   String
+  worldId    String
+  parentId   String?
+  /// DISTRICT | VENUE | ZONE
+  level      String
+  externalId String
+  name       String
+  /// ACTIVE | RETIRED
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@unique([worldId, externalId])
+  @@index([tenantId, worldId])
+}
+
+/// 4S1-BE-02 — a surface a sponsor's brand can appear on, with its specs,
+/// viewability rule, capacity, price and availability. 4S1-BE-03 — once
+/// AVAILABLE it maps to one InventoryItem of kind VIRTUAL_PLACEMENT, kept in
+/// step with it (inventoryItemId). External ID and position are fixed.
+model VirtualPlacement {
+  id              String    @id @default(cuid())
+  tenantId        String
+  worldId         String
+  /// The zone, venue or district it sits in; null means directly under the world.
+  zoneId          String?
+  externalId      String
+  name            String
+  /// BILLBOARD | LED_SCREEN | NAMING_RIGHTS | BRANDED_ROOM | COURT | TUNNEL | KIOSK
+  kind            String
+  widthPx         Int
+  heightPx        Int
+  /// IMAGE | VIDEO | LOGO
+  creativeTypes   String[]
+  maxBytes        Int
+  /// Required when VIDEO is allowed; null otherwise.
+  maxVideoSeconds Int?
+  /// How many sponsors can share it at once.
+  capacity        Int       @default(1)
+  /// The versioned rule that decides what counts as seen (virtual-rules.ts VIEWABILITY_RULES).
+  viewabilityRule String
+  rackPriceCents  Int
+  currency        String    @default("USD")
+  availableFrom   DateTime?
+  availableUntil  DateTime?
+  /// UNTESTED | PASSED | FAILED — the staging test is Phase 5 (5S1-QA-01).
+  testStatus      String    @default("UNTESTED")
+  /// DRAFT | AVAILABLE | RETIRED
+  state           String    @default("DRAFT")
+  inventoryItemId String?   @unique
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
+
+  @@unique([worldId, externalId])
+  @@index([tenantId, worldId])
+}
+
+/// 4S1-BE-04 — a placement booked for a stretch of whole days, inside a
+/// campaign (documentation/SponsorX-Virtual-Registry.md §4). `slot` is which
+/// of the placement's capacity it takes (1 for most). The database refuses two
+/// BOOKED windows on the same placement and slot whose days overlap
+/// (EXCLUDE constraint "PlacementWindow_no_overlap"), so the same billboard
+/// is never sold twice for the same week. A released window stays, marked.
+model PlacementWindow {
+  id            String    @id @default(cuid())
+  tenantId      String
+  placementId   String
+  campaignId    String
+  slot          Int
+  /// UTC midnight; the window runs [startsAt, endsAt).
+  startsAt      DateTime
+  endsAt        DateTime
+  /// Frozen at booking: the list price per week × days ÷ 7.
+  priceCents    Int
+  currency      String    @default("USD")
+  /// BOOKED | RELEASED
+  state         String    @default("BOOKED")
+  bookedBy      String?
+  bookedAt      DateTime  @default(now())
+  releasedAt    DateTime?
+  releaseReason String?
+
+  @@index([tenantId, placementId, startsAt])
+  @@index([tenantId, campaignId])
+}

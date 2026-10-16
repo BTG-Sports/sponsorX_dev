@@ -11,14 +11,15 @@
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
 | **Source** | Phases 2–4 Detailed Developer Specifications v1.0, August 2026 (Spec § references) + Blueprint §32 |
 
-### The four phase documents
+### The five phase documents
 
 | Phase | File | Tasks | Timeline |
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md)  | 186 | 14–18 weeks |
 | 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md) **← you are here** | 72 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
-| 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
+| 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 47 | 18–22 weeks |
+| 5 | [`SponsorX-Phase5-INFINEX-Game.md`](./SponsorX-Phase5-INFINEX-Game.md)  | 7 | after the game's staging world exists |
 
 ---
 
@@ -29,7 +30,7 @@ Three artefacts, three jobs. Keeping them straight is what stops them drifting a
 | Artefact | Owns | When it changes | Who touches it |
 |---|---|---|---|
 | **These four Markdown files** | The **plan** — what each task is, in plain English, and what *done* means | Only when scope or a task's meaning changes | Anyone, by pull request, reviewed like code |
-| **`SponsorX-Full-Programme-Task-Board.xlsx`** | The **working tracker** — all four phases consolidated in one file | Continuously, during the day | Every developer, as they work |
+| **`SponsorX-Full-Programme-Task-Board.xlsx`** | The **working tracker** — all five phases consolidated in one file | Continuously, during the day | Every developer, as they work |
 | **Google Sheet** [SponsorXFullProgrammeTaskBoard](https://docs.google.com/spreadsheets/d/10PGtZb3jGBBHhbNOWwl__hS0b_HKN7EL0KRHrnSVoI0/) | The **published status** — what the team and stakeholders see | Once a day, at end of day | Whoever worked that day |
 
 ### 🔁 The daily rule

@@ -23,6 +23,7 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { assertMayCommit } from "./guardian-acts";
 import { BRAND_CATEGORIES } from "./brand-categories";
+import { VIRTUAL_PLACEMENT_KIND } from "./virtual-rules";
 import { readPage, type PageRequest } from "../lib/paging";
 
 export const INVENTORY_KINDS = ["SOCIAL_POST", "VIDEO", "APPEARANCE", "AUTOGRAPH", "CAMP", "SIGNAGE", "TICKETS", "OTHER", "PACKAGE"] as const;
@@ -240,6 +241,8 @@ export async function updateInventoryItem(actor: Actor, id: string, patch: Parti
   return prisma.$transaction(async (tx) => {
     const item = await tx.inventoryItem.findFirst({ where: { ...whereFor(actor, "inventoryItem", "write"), id }, select: SELECT });
     if (!item) throw new ForbiddenError("inventoryItem", "write");
+    /* 4S1-BE-03 — SponsorX keeps a virtual placement's item in step with the placement; it is changed there. */
+    if (item.kind === VIRTUAL_PLACEMENT_KIND) throw new InventoryError("This item is a virtual placement's — change it on the placement.");
     /* 2S1-BE-11 — pricing a minor's item is their guardian's. */
     await assertMayCommit(tx, actor, "manage");
     const next = {

@@ -69,7 +69,7 @@ const A = {
   school: "ti_school_a", student: "ti_student_a", code: "ti_code_a", prospect: "ti_prospect_a",
   asset: "ti_asset_ed_a", claim: "ti_claim_a", onboarding: "ti_onboarding_a",
   /* Phase 2 batch 3 — an athlete's item, a school's item with a listing awaiting approval, a sent offer. */
-  item: "ti_item_a", recommendation: "ti_rec_a", makeGood: "ti_mg_a", makeGoodOption: "ti_mgo_a", anomaly: "ti_anomaly_a", partner: "ti_partner_a", sale: "ti_sale_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
+  item: "ti_item_a", recommendation: "ti_rec_a", makeGood: "ti_mg_a", makeGoodOption: "ti_mgo_a", anomaly: "ti_anomaly_a", partner: "ti_partner_a", sale: "ti_sale_a", world: "ti_world_a", placement: "ti_placement_a", window: "ti_window_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
   /* 2S2-FE-03 — the athlete's change request on that offer, unanswered. */
   changeRequest: "ti_offer_change_a",
   /* Phase 2 batch 4 — a restriction, the sponsor's cart with a line. */
@@ -182,6 +182,11 @@ const PARAM_FOR: Record<string, string> = {
   partners: A.partner,
   /* POST /intelligence/attribution/unmatched/{saleId}/dismiss (3S6-BE-04) — tenant A's queued sale. */
   unmatched: A.sale,
+  /* /virtual/worlds/{worldId}…, /virtual/placements/{placementId}… (4S1-BE-01/02/03) — tenant A's world and its draft placement. */
+  worlds: A.world,
+  placements: A.placement,
+  /* POST /virtual/windows/{windowId}/release (4S1-BE-04) — tenant A's booked window. */
+  windows: A.window,
   /* POST /offers/{id}/change-requests/{requestId}/keep (2S2-FE-03). */
   "change-requests": A.changeRequest,
   restrictions: A.restriction, lines: A.cartLine,
@@ -395,6 +400,15 @@ const BODY: Record<string, unknown> = {
   "POST /intelligence/anomalies/{anomalyId}/disposition": { outcome: "false_positive", note: "Sweep disposition note" },
   /* 3S6-BE-04 — dismissing tenant A's queued partner sale. */
   "POST /intelligence/attribution/unmatched/{saleId}/dismiss": { reason: "Sweep dismissal reason" },
+  /* 4S1-BE-01/02/03 — registering against, renaming and pricing tenant A's world and placement. */
+  "POST /virtual/worlds": { propertyId: A.school, externalId: "ti-sweep-world", name: "Sweep world", environment: "PRODUCTION" },
+  "PATCH /virtual/worlds/{worldId}": { name: "Sweep rename" },
+  "PUT /virtual/worlds/{worldId}/zones": { zones: [{ externalId: "ti-sweep-zone", name: "Sweep zone", level: "ZONE" }] },
+  "POST /virtual/worlds/{worldId}/placements": { externalId: "ti-sweep-board", name: "Sweep board", kind: "BILLBOARD", widthPx: 800, heightPx: 400, creativeTypes: ["IMAGE"], maxBytes: 5000000, rackPriceCents: 10000 },
+  "PATCH /virtual/placements/{placementId}": { rackPriceCents: 20000 },
+  /* 4S1-BE-04 — booking tenant A's placement into tenant A's campaign, and releasing its window. */
+  "POST /virtual/placements/{placementId}/windows": { campaignId: A.campaign, startsAt: "2026-11-02T00:00:00.000Z", endsAt: "2026-11-09T00:00:00.000Z" },
+  "POST /virtual/windows/{windowId}/release": { reason: "Sweep release reason" },
   /* 3S8-BE-01 / 3S8-OPS-01 — tenant A's model versions and flags. A change of settings is tenant B's own. */
   "PATCH /intelligence/models/{key}/thresholds": { values: { atRiskBelow: 0.45 }, reason: "Sweep settings change" },
   "POST /intelligence/models/{key}/versions/{version}/validate": { reason: "Sweep validation reason" },
@@ -537,6 +551,16 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     }, select: { id: true } });
     /* 3S6-BE-01 — tenant A's attribution partner (its token is not the sweep's to know). */
     await prisma.attributionPartner.create({ data: { id: A.partner, tenantId: t, name: "TI Secret Partner", adapter: "generic-webhook-v1", tokenHash: "f".repeat(64) }, select: { id: true } });
+    /* 4S1-BE-01/02 — tenant A's world (owned by its school, for the sweep) and a draft placement in it. */
+    await prisma.virtualWorld.create({ data: { id: A.world, tenantId: t, propertyId: A.school, externalId: "ti-world-a", name: "TI Secret World", environment: "PRODUCTION" }, select: { id: true } });
+    await prisma.virtualPlacement.create({ data: {
+      id: A.placement, tenantId: t, worldId: A.world, externalId: "ti-board-a", name: "TI Secret Board", kind: "BILLBOARD", widthPx: 800, heightPx: 400,
+      creativeTypes: ["IMAGE"], maxBytes: 5000000, viewabilityRule: "display-50pct-1s@1", rackPriceCents: 10000,
+    }, select: { id: true } });
+    /* 4S1-BE-04 — a week of that placement booked by tenant A's campaign. */
+    await prisma.placementWindow.create({ data: {
+      id: A.window, tenantId: t, placementId: A.placement, campaignId: A.campaign, slot: 1, startsAt: new Date("2026-11-02T00:00:00Z"), endsAt: new Date("2026-11-09T00:00:00Z"), priceCents: 10000,
+    }, select: { id: true } });
     /* 3S6-BE-04 — a sale of that partner's, waiting in tenant A's queue. */
     await prisma.partnerSaleAttribution.create({ data: {
       id: A.sale, tenantId: t, partnerId: A.partner, deliveryId: "ti_delivery_a", adapter: "generic-webhook-v1", externalId: "TI-SECRET-ORDER", kind: "sale",

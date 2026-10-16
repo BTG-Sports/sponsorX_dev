@@ -87,4 +87,99 @@ The last Phase 3 backend tasks. The plan was approved by the user before startin
   - **New:** 5S2-PMO-02, the pilot sponsor UAT.
 - **Dashboard:** a Phase 5 row and column were added. The Phase 4 ranges end at row 51, and the total is now 556 delivery tasks.
 - **Roadmap:** a Phase 5 row was added, and its text now says five phases. The Legend's spec source now reads "Phases 2–5".
-- **Google Sheet:** it needs a Phase 5 tab, added by hand at the next mirror.
+
+**Plan files** (the PR after the tracker's):
+- **New:** `documentation/SponsorX-Phase5-INFINEX-Game.md`, with the 7 tasks, a former-ID table and 5 acceptance criteria.
+- **The Phase 4 plan:**
+  - the moved tasks are removed, and 4S3-INT-02/03 are split;
+  - 4S0-PMO-01 is redefined as the world contract, and 4S9-PMO-02 is now the Phase 4 UAT;
+  - there are 11 acceptance criteria (criterion 3 moved to Phase 5);
+  - a dated change note was added.
+- **References updated:** `CLAUDE.md`, the phase-file tables in Phases 1–3, the INFINEX API spec (5S1-QA-01, 5S2-QA-01, 5S1-INT-02/03) and the developer handoff.
+- **CI:** the Phase 5 plan file is added to the docs-only list.
+
+## rcfworks — 4S0-PMO-01 and 4S0-PMO-02 · the world contract and the taxonomy (Done)
+
+Both were approved by the user as plans before writing ("lets start both 4s0"). Approving the plan is the sign-off, so both go to Done.
+
+- **4S0-PMO-01:** `documentation/SponsorX-INFINEX-World-Contract.md`, the rules any world follows, written before the game exists so the game is built to fit.
+  - **Any engine:** HTTPS and JSON; `runtime` and `runtimeVersion` are recorded per world, and no rule reads them.
+  - **Environments:** `STAGING` and `PRODUCTION`. Versions are tracked by `buildId`, `manifestVersion`, `schemaVersion` per event type, and `/api/v1` changing only by additions.
+  - **Stable IDs:** external IDs are never changed or reused, and a surface keeps the same ID in staging and production.
+  - **Anonymous players:** only `sessionRef` and `subjectRef`, and no linking across channels by default.
+  - **Two callers:** the world's server and the game on a player's device; the details are 4S0-SEC-01.
+- **4S0-PMO-02:** `documentation/SponsorX-Virtual-Taxonomy.md`.
+  - **Five levels:** world, district, venue, zone and surface, with the allowed parents for each.
+  - **Three tables:** `VirtualWorld`, `VirtualZone` and `VirtualPlacement`.
+  - **Seven placement kinds,** each with its specs and creative types.
+  - **The mapping to SponsorX:** a `VIRTUAL` property, and an `InventoryItem` of kind `VIRTUAL_PLACEMENT`.
+- **Unblocked:** 4S1-BE-01 (and through it 4S1-BE-02/03/04), 4S0-ART-01's dependency, 4S0-PMO-03 and 4S0-SEC-01.
+
+## rcfworks — 4S1-BE-01/02/03 · the virtual registry (Code review)
+
+The plan was approved by the user. The doc is `documentation/SponsorX-Virtual-Registry.md`.
+
+- **4S1-BE-01: worlds and zones.**
+  - **Worlds:** `VirtualWorld`, one per environment, under the owner's external ID, owned by a `VIRTUAL` property. Retiring a world retires its zones and takes its placements off sale.
+  - **Zones:** `VirtualZone`, upserted by external ID through `PUT /virtual/worlds/{id}/zones`. It is all or nothing, uses the allowed parents, creates parents first, and a zone's level and parent are fixed.
+- **4S1-BE-02: placements.** `VirtualPlacement` holds the kind, size, creative types (per kind), file and video limits, capacity, a viewability rule (a versioned default per kind), price and dates. It starts as a draft, its specs are fixed once on sale, and it is `UNTESTED` until Phase 5.
+- **4S1-BE-03: on sale.**
+  - **When:** only a draft in an active production world, in an active zone, whose owner is approved.
+  - **What it creates:** one `InventoryItem` of kind `VIRTUAL_PLACEMENT`, owned by the world's property, with one buyer per period at capacity 1.
+  - **Kept in step:** the price and dates follow the placement, and retiring switches the item off.
+  - **Locked for owners:** `inventory.ts` refuses edits and `listing.ts` refuses a listing, because it is booked through windows (4S1-BE-04).
+- **The database:**
+  - trigger `virtual_ids_are_fixed`: no ID change, no move, no un-retire, and no delete except on test databases;
+  - CHECK constraints for the vocabulary.
+
+  The first version of the trigger compared fields that only some of the tables have, and Postgres errored on the others; it now checks one table at a time.
+- **Permission:** `virtualWorld` (RBAC §37).
+  - **BTG:** writes.
+  - **Campaign managers and Sales:** read.
+  - **PROPERTY_MGR:** reads its own worlds.
+  - **Matrix digest:** `f037fe7542127ad9`.
+- **The sweep:** tenant isolation covers all 10 routes.
+
+## rcfworks — 4S1-BE-01/02/03 to Done (#243 merged); 4S1-BE-04 · booking windows (Code review)
+
+- **4S1-BE-01/02/03:** Done in the tracker and the plan. #243 is merged and every acceptance clause was demonstrated in `virtual-registry.test.ts`.
+- **4S1-BE-04: `PlacementWindow`.**
+  - **What it books:** an on-sale placement for whole UTC days, inside a DRAFT campaign and its dates (the same rule as ad slots).
+  - **Price:** frozen at booking, as the list price per week × days ÷ 7. The registry doc and contract now say the list price is per week.
+  - **Slot:** the first free capacity slot for every day of the window.
+  - **The overlap rule is the database's:** the `PlacementWindow_no_overlap` exclusion constraint over (placement, slot, day range) where BOOKED, using the `btree_gist` extension, created by the migration. Two campaigns racing for the last slot get one booking and one 409; the test proves it.
+  - **Giving days back:** release while the campaign is a draft, with a reason. `campaign-stages.ts applyStageMove → CANCELLED` releases all of a campaign's windows. A placement or world with bookings to come can't be retired.
+  - **Permission:** booking is a campaign write, so there is no new matrix row; RBAC §37 has a note.
+  - **Code:** the errors moved to `virtual-errors.ts` so the registry and the bookings don't import each other.
+- **Not done here, and noted in the doc:** bookings aren't money facts yet, so they don't show in campaign figures, the sponsor report or the fact check. That's 4S7-BE-01 / 4S7-DATA-01. A campaign holding only virtual windows counts as empty in `campaign-state.ts`: it can't skip STAFFING the way an ad-only campaign can, because the shape counts only orders and ad slots. That's 4S7-BE-01 as well.
+
+## rcfworks — P0-OPS-03 closed (the user's decision)
+
+The user asked why P0-OPS-03 was open "when all Clerk tasks were finished". Clerk is finished: the application `SponsorX` has dev and production instances, and production signs in on `clerk.sponsorx.net`. The row was open only because its "Done when" included "MFA available for privileged roles", which needs Clerk Pro (deferred to launch on 2026-09-21). P2-INT-02 says the same thing.
+
+**Done:** the "Done when" is amended to "Both instances exist", the MFA half now sits only on P2-INT-02, and P0-OPS-03 is Done (plan and tracker).
+- **4S1-BE-04 is Done:** #244 is merged, and its acceptance was demonstrated in `virtual-bookings.test.ts`.
+
+## rcfworks — P8-QA-03 and P9-QA-01 to Done (HeckerCreatives' rows, closed at the user's instruction)
+
+The user asked me to check the acceptance criteria and close the rows if they pass. Owner stays HeckerCreatives.
+
+- **P8-QA-03: met.** Main's CI run (38857461531) passed one Playwright suite: 70 passed, 0 failed.
+  - **The Phase 1 stage 3–7 tests:** loop-p3-application (including the minor loop that was red on 10-02), loop-p4-matching, loop-p5-delivery, redeem-flow and loop-p7-earnings-report are all green.
+  - **None of the skips are from stages 3–7:** they are tests that only run on the other screen size, or Phase 2 checks that need seed data.
+  - **The wording:** "Phases 3–7" in its definition means Phase 1's stages 3–7. I quoted it to the user without explaining it, which confused them, and added the note to the plan.
+- **P9-QA-01: met.** `next-edition-e2e.test.ts` passes 7/7, one test per clause. Clause 4 (artwork through the approval board, with a ContentRight) has been covered since P9-BE-16, Done on 2026-10-05.
+
+## rcfworks — P8-QA-01 · the Phase 1 acceptance record (Done); P8-QA-02 · UAT scripts (In progress)
+
+- **Where §30 is:** in `documentation/Master/Updated_BTG_SponsorX_Master_Development_Blueprint_Integrated_Athlete_Network.docx`, in the repo. I first looked only in Drive, and the user pointed me back to the documentation folder.
+- **P8-QA-01:** `documentation/SponsorX-Phase1-Acceptance.md` records all 14 criteria with their proof:
+  - 1,048/1,048 backend tests across 39 files;
+  - the Phase 1 end-to-end loop specs, green on main's CI run 38857461531;
+  - Zoho, live in the sandbox (the 2026-10-09 run).
+- **New test:** `tests/phase1-acceptance.test.ts` covers criterion 2, BTG setting an athlete's rate. Nothing had tested the admin act directly.
+- **The user's decisions:**
+  - **Criterion 2's "configure SX jobs"** is met by a reviewed code change. There is no admin editing screen; one gets added only if BTG needs the bands to change often.
+  - **Sign-off:** P8-QA-01 is Done.
+- **Finding:** `NilJob.id` is unique across the database, so only one tenant can hold the SX catalogue. It's noted in the record as something to fix before a second tenant prices its own jobs.
+- **P8-QA-02:** `documentation/SponsorX-Phase1-UAT-Scripts.md` has four journeys (athlete, sponsor, BTG admin, fan) in 28 steps, each mapped to §30. Next is the simulated-user run on staging.
