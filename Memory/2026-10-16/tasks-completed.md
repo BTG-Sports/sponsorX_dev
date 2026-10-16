@@ -70,3 +70,21 @@ The last Phase 3 backend tasks. The plan was approved by the user before startin
 
   They are noted in `.claude/stack-decision.md` Addendum D4 and in `SponsorX-Warehouse-Schema.md`.
 - **3S1-OPS-02 is Done.** Its "Done when" was amended to match the user's decision: the databases are noted, not deleted.
+
+## rcfworks — Phase 4 split: the web application stays, the game moves to Phase 5 (user's decision)
+
+**Why:** the user is INFINEX's game developer, and the game has not been started. The user decided: "remove all tasks pertaining to the game and transfer it to phase 5. we finish phase 4, only the web application." Moved tasks are renumbered (approved).
+
+**Tracker** (this PR; the plan files follow in the next):
+- **Phase 4: 47 tasks, 190 days.**
+  - **Removed:** 4S3-INT-01, 4S3-QA-01, 4S9-QA-01, 4S9-PMO-01.
+  - **Split:** 4S3-INT-02 (now 2 days) and 4S3-INT-03 keep SponsorX's side, proven with a stand-in world. Both now depend on 4S2-BE-03.
+  - **Redefined:** 4S0-PMO-01 (the world contract SponsorX sets) and 4S9-PMO-02 (Phase 4 UAT: 11 criteria, depends on 4S8-OPS-01).
+  - **Renamed:** Sprint 3 is "INFINEX client endpoints"; Sprint 9 is "Web application launch".
+- **New Phase 5 sheet: 7 tasks, 21 days.**
+  - **Moved and renumbered:** 5S1-INT-01 (was 4S3-INT-01), 5S1-QA-01 (was 4S3-QA-01), 5S2-QA-01 (was 4S9-QA-01), 5S2-PMO-01 (was 4S9-PMO-01).
+  - **The game halves of the split tasks:** 5S1-INT-02 and 5S1-INT-03.
+  - **New:** 5S2-PMO-02, the pilot sponsor UAT.
+- **Dashboard:** a Phase 5 row and column were added. The Phase 4 ranges end at row 51, and the total is now 556 delivery tasks.
+- **Roadmap:** a Phase 5 row was added, and its text now says five phases. The Legend's spec source now reads "Phases 2–5".
+- **Google Sheet:** it needs a Phase 5 tab, added by hand at the next mirror.
