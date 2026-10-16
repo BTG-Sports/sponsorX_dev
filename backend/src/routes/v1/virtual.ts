@@ -8,7 +8,8 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { PlacementInput, PlacementPatch, WindowInput, WindowRelease, WorldInput, WorldPatch, ZonesInput } from "../../contracts/virtual";
+import { CreativeRegisterInput, CreativeUploadInput, DeploymentEnd, DeploymentInput, PlacementInput, PlacementPatch, WindowInput, WindowRelease, WorldInput, WorldPatch, ZonesInput } from "../../contracts/virtual";
+import { approveDeployment, createDeployment, endDeployment, presignCreative, registerCreative, windowCreative, worldManifest } from "../../domain/virtual-creative";
 import { bookPlacement, placementWindows, releaseWindow } from "../../domain/virtual-bookings";
 import {
   createPlacement, createWorld, getPlacement, getWorld, listWorlds, publishPlacement, retirePlacement, updatePlacement, updateWorld, upsertZones,
@@ -60,3 +61,34 @@ const release: RequestHandler<{ windowId: string }> = async (req, res) => { res.
 virtualRouter.get("/virtual/placements/:placementId/windows", requireActor, windows);
 virtualRouter.post("/virtual/placements/:placementId/windows", requireActor, book);
 virtualRouter.post("/virtual/windows/:windowId/release", requireActor, release);
+
+/* 4S2-BE-01/02/03 — creative on a booked window, its deployments, and the world's manifest. */
+const creativeUpload: RequestHandler<{ windowId: string }> = async (req, res) => { res.status(201).json(await presignCreative(req.actor!, req.params.windowId, CreativeUploadInput.parse(req.body ?? {}))); };
+const creativeRegister: RequestHandler<{ windowId: string }> = async (req, res) => {
+  const out = await registerCreative(req.actor!, req.params.windowId, CreativeRegisterInput.parse(req.body ?? {}));
+  /* A version that fails the placement's checks is recorded, and refused. */
+  res.status(out.asset.state === "REJECTED" ? 422 : 201).json(out);
+};
+const creative: RequestHandler<{ windowId: string }> = async (req, res) => { res.json(await windowCreative(req.actor!, req.params.windowId)); };
+const deploy: RequestHandler<{ windowId: string }> = async (req, res) => {
+  const b = DeploymentInput.parse(req.body ?? {});
+  res.status(201).json(await createDeployment(req.actor!, req.params.windowId, { assetId: b.assetId, startsAt: b.startsAt ? new Date(b.startsAt) : undefined, endsAt: b.endsAt ? new Date(b.endsAt) : undefined }));
+};
+const approve: RequestHandler<{ deploymentId: string }> = async (req, res) => { res.json(await approveDeployment(req.actor!, req.params.deploymentId)); };
+const end: RequestHandler<{ deploymentId: string }> = async (req, res) => { res.json(await endDeployment(req.actor!, req.params.deploymentId, DeploymentEnd.parse(req.body ?? {}))); };
+const manifest: RequestHandler<{ worldId: string }> = async (req, res) => {
+  const at = typeof req.query.at === "string" && !Number.isNaN(Date.parse(req.query.at)) ? new Date(req.query.at) : new Date();
+  const { etag, manifest: body } = await worldManifest(req.actor!, req.params.worldId, at);
+  res.setHeader("ETag", etag);
+  res.setHeader("Cache-Control", "no-store");
+  if (req.get("if-none-match") === etag) { res.status(304).end(); return; }
+  res.json(body);
+};
+
+virtualRouter.post("/virtual/windows/:windowId/assets/uploads", requireActor, creativeUpload);
+virtualRouter.post("/virtual/windows/:windowId/assets", requireActor, creativeRegister);
+virtualRouter.get("/virtual/windows/:windowId/assets", requireActor, creative);
+virtualRouter.post("/virtual/windows/:windowId/deployments", requireActor, deploy);
+virtualRouter.post("/virtual/deployments/:deploymentId/approve", requireActor, approve);
+virtualRouter.post("/virtual/deployments/:deploymentId/end", requireActor, end);
+virtualRouter.get("/virtual/worlds/:worldId/manifest", requireActor, manifest);

@@ -191,3 +191,26 @@ The user asked me to check the acceptance criteria and close the rows if they pa
   - **The scripts:** done, with the steps mapped to §30.
   - **The run:** met by Phase 2's simulated-user run on staging (2026-10-09: sign-up, Zoho, cross-tenant) plus the daily end-to-end loops in CI (application, matching, delivery, QR reward, earnings and report).
   - **No new runner was built.** The scripts stay ready for BTG's real pilot.
+
+## rcfworks — 4S2-BE-01/02/03 · creative, deployments and the manifest (Code review)
+
+The plan was approved by the user. The doc is `SponsorX-Virtual-Registry.md` §5–§7.
+
+- **4S2-BE-02: `VirtualAsset`.**
+  - **Upload:** direct to the private bucket, with the type and size signed into the upload (the deliverables and artwork pattern). Registering is the confirm step, using `checkPrivateUpload`.
+  - **The check:** against the placement, for type, exact pixels, size and video length.
+  - **SponsorX reads the stored file:** its bytes, its sha256 and, for an image, its real pixels and format (`sharp`, already a dependency). A video's pixels and length are as declared, because there's no video reader and none was added.
+  - **A failing version** is REJECTED with its reasons, the API answers 422, and the file is deleted.
+- **4S2-BE-01: `CreativeDeployment`.**
+  - **What it ties:** the window, a validated version and its dates inside the window.
+  - **States:** DRAFT → APPROVED → ENDED. Approving checks everything again. Pause and rollback are 4S2-BE-05.
+  - **The database's rule:** `CreativeDeployment_no_overlap` allows one approved deployment per window at a time.
+  - **Each change:** bumps `sequence` and `VirtualWorld.manifestVersion`.
+  - **A released or cancelled window** ends its deployments (hooked into `virtual-bookings.releaseInside`).
+- **4S2-BE-03: `manifestFor` and `GET /virtual/worlds/{id}/manifest?at=`.**
+  - **What it returns:** only approved, in-date deployments on booked windows, on-sale placements and validated creative, in an active world.
+  - **ETag:** the hash of what the world would show, with 304 when nothing changed.
+  - **Still to come:** `url` is null until 4S2-BE-04, and the game's machine login is 4S0-SEC-01.
+- **Permission:** creative and deployments use campaign write; the manifest is a `virtualWorld` read. RBAC §37 has a note.
+- **Migration:** `20261016190000_creative_deployments`.
+- **Tests:** `tests/virtual-creative.test.ts` (11 tests) uploads real PNG and JPEG images through the signature-checking in-process bucket. The tenant-isolation sweep covers the 7 new routes.

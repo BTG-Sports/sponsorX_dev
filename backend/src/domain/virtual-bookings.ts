@@ -27,6 +27,7 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { audit, AUDIT_ACTIONS, type AuditActor } from "../db/audit";
 import { prisma } from "../db/client";
 import type { Prisma } from "../generated/prisma/client";
+import { endWindowDeployments } from "./virtual-creative";
 import { VirtualConflictError, VirtualInputError, VirtualNotFoundError } from "./virtual-errors";
 import { bookingProblems, daysIn, freeSlot, windowPrice } from "./virtual-rules";
 
@@ -105,6 +106,8 @@ export async function bookPlacement(actor: Actor, placementId: string, input: { 
 
 async function releaseInside(tx: Tx, by: AuditActor, w: { id: string; tenantId: string }, reason: string, now: Date) {
   await tx.placementWindow.updateMany({ where: { id: w.id, tenantId: w.tenantId, state: "BOOKED" }, data: { state: "RELEASED", releasedAt: now, releaseReason: reason } });
+  /* 4S2-BE-01 — what the window showed comes off its world with it. */
+  await endWindowDeployments(tx, by, w, `Its window was given back: ${reason}`, now);
   await audit(tx, by, AUDIT_ACTIONS.virtual.windowRelease, "PlacementWindow", w.id, { before: { state: "BOOKED" }, after: { state: "RELEASED", reason } });
 }
 

@@ -1,6 +1,6 @@
 import { z } from "./zod";
 
-import { CREATIVE_TYPES, ENVIRONMENTS, PLACEMENT_KINDS, ZONE_LEVELS } from "../domain/virtual-rules";
+import { CREATIVE_MIMES, CREATIVE_TYPES, ENVIRONMENTS, PLACEMENT_KINDS, ZONE_LEVELS } from "../domain/virtual-rules";
 
 /* --------------------------------------------------------------------------
    The virtual registry on the wire — 4S1-BE-01/02/03
@@ -80,3 +80,29 @@ export const WindowInput = z
 
 export const WindowRelease = z.object({ reason: z.string().max(600).describe("Why, 3 to 500 characters") }).strict()
   .meta({ id: "PlacementWindowRelease", description: "Give a booked window back while its campaign is still a draft (4S1-BE-04)." });
+
+const MIMES = [...new Set(Object.values(CREATIVE_MIMES).flat())] as [string, ...string[]];
+
+export const CreativeUploadInput = z
+  .object({ contentType: z.enum(MIMES), bytes: z.int().describe("The file's exact size; signed into the upload") })
+  .strict()
+  .meta({ id: "VirtualCreativeUploadInput", description: "Ask for a direct upload of a window's creative to the private bucket (4S2-BE-02)." });
+
+export const CreativeRegisterInput = z
+  .object({
+    r2Key: z.string().min(1).max(300),
+    creativeType: z.enum(CREATIVE_TYPES),
+    widthPx: z.int().optional().describe("A video's width; an image's is read from the file"),
+    heightPx: z.int().optional().describe("A video's height; an image's is read from the file"),
+    durationSeconds: z.int().nullable().optional().describe("A video's length, in seconds"),
+  })
+  .strict()
+  .meta({ id: "VirtualCreativeRegisterInput", description: "Register an uploaded file as the window's next creative version, checked against the placement (4S2-BE-02)." });
+
+export const DeploymentInput = z
+  .object({ assetId: z.string().min(1).max(200), startsAt: z.iso.datetime().optional(), endsAt: z.iso.datetime().optional() })
+  .strict()
+  .meta({ id: "CreativeDeploymentInput", description: "Deploy a validated creative version on its booked window, for the window's dates or narrower ones (4S2-BE-01)." });
+
+export const DeploymentEnd = z.object({ reason: z.string().max(600) }).strict()
+  .meta({ id: "CreativeDeploymentEnd", description: "End a deployment, with the reason (4S2-BE-01)." });

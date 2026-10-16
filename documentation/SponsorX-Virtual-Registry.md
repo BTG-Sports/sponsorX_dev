@@ -1,6 +1,6 @@
 # SponsorX Virtual Registry
 
-**Tasks `4S1-BE-01`, `4S1-BE-02`, `4S1-BE-03`, `4S1-BE-04` · Version 1.1 · 2026-10-16 · Phase 4, Sprint 1**
+**Tasks `4S1-BE-01`…`04` (Sprint 1), `4S2-BE-01`…`03` (Sprint 2) · Version 1.2 · 2026-10-16 · Phase 4**
 
 This is how SponsorX records virtual worlds and their surfaces, and puts a
 surface on sale. The names come from
@@ -120,7 +120,108 @@ so it doesn't appear in the campaign's figures, the sponsor report or the
 nightly fact check. Virtual inventory joins the campaign's reporting in
 `4S7-BE-01` / `4S7-DATA-01`.
 
-## 5 · Fixed IDs, held by the database
+## 5 · Creative, checked against the placement (`4S2-BE-02`)
+
+**Done when:** an asset failing the placement's technical constraints is
+rejected at upload.
+
+**How creative arrives:**
+- A campaign's booked window (§4) takes the sponsor's creative. The file goes
+  straight to the private bucket, the same way deliverables and ad-slot
+  artwork do.
+- The upload is signed for one file type (PNG, JPEG, WebP or MP4) and one
+  exact size, up to the placement's largest file.
+- Registering it is the confirm step:
+  - the stored file must be what the upload was signed for, or it is deleted
+    and refused (`storage.checkPrivateUpload`);
+  - it then becomes the window's next **version**.
+
+**What is checked, against the placement:**
+- a creative type the placement takes, and a matching file type (a logo is a
+  PNG);
+- **exactly** the placement's pixels;
+- no bigger than its largest file;
+- a video no longer than its longest video.
+
+**SponsorX reads the stored file rather than trusting what the uploader
+says:** its size, its checksum (SHA-256) and, for an image, its real pixels
+and format. An image's declared size is ignored, and a JPEG sent as a PNG is
+caught.
+- **A video's pixels and length are as declared.** The API has no video
+  reader, and adding one would be a new dependency.
+
+**A version that fails** is `REJECTED`, with every reason. It is kept as a
+record (the API answers 422), its file is deleted, and it can never be
+deployed. One that passes is `VALIDATED`.
+
+## 6 · Deployments (`4S2-BE-01`)
+
+**Done when:** a deployment record ties campaign, placement, asset version
+and schedule.
+
+**What a deployment is:** the campaign's booked window, one `VALIDATED`
+creative version, and the dates it runs. By default those are the window's
+dates; narrower ones must fall inside it.
+
+**Its states:** `DRAFT` → `APPROVED` → `ENDED`. Pausing and rolling back are
+`4S2-BE-05`.
+
+**Approving checks everything again, at that moment:**
+- the window is still booked;
+- the placement is on sale;
+- the world is active;
+- the campaign is not cancelled;
+- the creative is validated.
+
+**One creative at a time on a window:** the database refuses two approved
+deployments on the same window at overlapping times
+(`CreativeDeployment_no_overlap`).
+
+**Every change of state:**
+- bumps the deployment's `sequence` and its world's `manifestVersion`;
+- is audited.
+
+**A window given back** (released, or its campaign cancelled) ends its
+deployments, with the reason.
+
+## 7 · The manifest (`4S2-BE-03`)
+
+**Done when:** the manifest returns only approved, in-window deployments for
+the requested world and time.
+
+**Where:** `GET /virtual/worlds/{worldId}/manifest?at=` (default: now).
+
+**It returns only deployments that are all of these:**
+- `APPROVED`, and inside their dates at `at`;
+- on a booked window;
+- on a placement that is on sale;
+- showing validated creative;
+- in an active world.
+
+**Each entry carries:**
+- the placement's external ID;
+- the deployment and its `sequence`;
+- the campaign;
+- the creative's ID, version, file type, checksum and pixels;
+- its dates.
+
+**The manifest carries the world's `manifestVersion` and an ETag.**
+- A world sends the ETag back as `If-None-Match`.
+- While nothing it would show has changed, the answer is 304.
+- A world takes the latest manifest; it never needs the history.
+
+**Still to come:**
+- **Download links** for the files are `4S2-BE-04` (signed, short-lived);
+  until then `url` is null.
+- **The game's own call** needs its machine login (`4S0-SEC-01`). Until then
+  BTG staff, a world's owner and the stand-in world read the manifest through
+  `virtualWorld`.
+
+**Who** uploads creative and deploys it: whoever may write the campaign (BTG
+admins, campaign managers). Sales and sponsors may not yet; a sponsor's own
+upload is a later step.
+
+## 8 · Fixed IDs, held by the database
 
 A trigger (`virtual_ids_are_fixed`) refuses:
 - changing an external ID;
@@ -137,16 +238,16 @@ CHECK constraints hold the vocabulary:
 - positive sizes and prices;
 - an `AVAILABLE` placement always has its inventory item.
 
-## 6 · Who
+## 9 · Who
 
-`virtualWorld`, RBAC matrix §37 (booking follows campaign write, §4):
+`virtualWorld`, RBAC matrix §37 (booking, creative and deployments follow campaign write, §4–§6):
 - **BTG admins** register, change, put on sale and retire.
 - **Campaign managers and Sales** read.
 - **A world's owner** reads its own worlds.
 
 Every write is audited (`virtual.*`).
 
-## 7 · Endpoints
+## 10 · Endpoints
 
 | Method + path | What it does |
 |---|---|
@@ -163,16 +264,26 @@ Every write is audited (`virtual.*`).
 | `GET /virtual/placements/{placementId}/windows` | its booked (and released) windows, and its capacity |
 | `POST /virtual/placements/{placementId}/windows` | book it for days inside a campaign |
 | `POST /virtual/windows/{windowId}/release` | give a window's days back |
+| `POST /virtual/windows/{windowId}/assets/uploads` | a direct upload of the window's creative |
+| `POST /virtual/windows/{windowId}/assets` | register it as the next version, checked against the placement |
+| `GET /virtual/windows/{windowId}/assets` | the window's creative versions and deployments |
+| `POST /virtual/windows/{windowId}/deployments` | deploy a validated version (draft) |
+| `POST /virtual/deployments/{deploymentId}/approve` | approve it: into the manifest for its dates |
+| `POST /virtual/deployments/{deploymentId}/end` | end it, with the reason |
+| `GET /virtual/worlds/{worldId}/manifest` | what the world shows at a given time |
 
-## 8 · Where it lives
+## 11 · Where it lives
 
 - `backend/src/domain/virtual-rules.ts`: the vocabulary and its rules (pure).
 - `backend/src/domain/virtual-registry.ts`: worlds, zones, placements, on
   sale.
 - `backend/src/domain/virtual-bookings.ts`: booking windows; released on
   campaign cancel (`campaign-stages.ts`).
+- `backend/src/domain/virtual-creative.ts`: creative, deployments, the
+  manifest.
 - `backend/src/routes/v1/virtual.ts`, `backend/src/contracts/virtual.ts`.
 - **Migrations:** `20261016150000_virtual_registry`,
-  `20261016170000_placement_windows`.
-- **Proof:** `backend/tests/virtual-registry.test.ts` and
-  `backend/tests/virtual-bookings.test.ts`.
+  `20261016170000_placement_windows`, `20261016190000_creative_deployments`.
+- **Proof:** `backend/tests/virtual-registry.test.ts`,
+  `backend/tests/virtual-bookings.test.ts` and
+  `backend/tests/virtual-creative.test.ts`.

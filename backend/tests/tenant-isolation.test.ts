@@ -69,7 +69,7 @@ const A = {
   school: "ti_school_a", student: "ti_student_a", code: "ti_code_a", prospect: "ti_prospect_a",
   asset: "ti_asset_ed_a", claim: "ti_claim_a", onboarding: "ti_onboarding_a",
   /* Phase 2 batch 3 — an athlete's item, a school's item with a listing awaiting approval, a sent offer. */
-  item: "ti_item_a", recommendation: "ti_rec_a", makeGood: "ti_mg_a", makeGoodOption: "ti_mgo_a", anomaly: "ti_anomaly_a", partner: "ti_partner_a", sale: "ti_sale_a", world: "ti_world_a", placement: "ti_placement_a", window: "ti_window_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
+  item: "ti_item_a", recommendation: "ti_rec_a", makeGood: "ti_mg_a", makeGoodOption: "ti_mgo_a", anomaly: "ti_anomaly_a", partner: "ti_partner_a", sale: "ti_sale_a", world: "ti_world_a", placement: "ti_placement_a", window: "ti_window_a", vasset: "ti_vasset_a", deployment: "ti_deployment_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
   /* 2S2-FE-03 — the athlete's change request on that offer, unanswered. */
   changeRequest: "ti_offer_change_a",
   /* Phase 2 batch 4 — a restriction, the sponsor's cart with a line. */
@@ -187,6 +187,8 @@ const PARAM_FOR: Record<string, string> = {
   placements: A.placement,
   /* POST /virtual/windows/{windowId}/release (4S1-BE-04) — tenant A's booked window. */
   windows: A.window,
+  /* POST /virtual/deployments/{deploymentId}/approve|end (4S2-BE-01) — tenant A's draft deployment. */
+  deployments: A.deployment,
   /* POST /offers/{id}/change-requests/{requestId}/keep (2S2-FE-03). */
   "change-requests": A.changeRequest,
   restrictions: A.restriction, lines: A.cartLine,
@@ -409,6 +411,11 @@ const BODY: Record<string, unknown> = {
   /* 4S1-BE-04 — booking tenant A's placement into tenant A's campaign, and releasing its window. */
   "POST /virtual/placements/{placementId}/windows": { campaignId: A.campaign, startsAt: "2026-11-02T00:00:00.000Z", endsAt: "2026-11-09T00:00:00.000Z" },
   "POST /virtual/windows/{windowId}/release": { reason: "Sweep release reason" },
+  /* 4S2-BE-01/02 — uploading, registering and deploying creative on tenant A's window, and ending its deployment. */
+  "POST /virtual/windows/{windowId}/assets/uploads": { contentType: "image/png", bytes: 1000 },
+  "POST /virtual/windows/{windowId}/assets": { r2Key: "virtual/ti_tenant_a/ti_window_a/sweep", creativeType: "IMAGE" },
+  "POST /virtual/windows/{windowId}/deployments": { assetId: A.vasset },
+  "POST /virtual/deployments/{deploymentId}/end": { reason: "Sweep end reason" },
   /* 3S8-BE-01 / 3S8-OPS-01 — tenant A's model versions and flags. A change of settings is tenant B's own. */
   "PATCH /intelligence/models/{key}/thresholds": { values: { atRiskBelow: 0.45 }, reason: "Sweep settings change" },
   "POST /intelligence/models/{key}/versions/{version}/validate": { reason: "Sweep validation reason" },
@@ -560,6 +567,15 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     /* 4S1-BE-04 — a week of that placement booked by tenant A's campaign. */
     await prisma.placementWindow.create({ data: {
       id: A.window, tenantId: t, placementId: A.placement, campaignId: A.campaign, slot: 1, startsAt: new Date("2026-11-02T00:00:00Z"), endsAt: new Date("2026-11-09T00:00:00Z"), priceCents: 10000,
+    }, select: { id: true } });
+    /* 4S2-BE-01/02 — a validated creative on that window, and a draft deployment of it. */
+    await prisma.virtualAsset.create({ data: {
+      id: A.vasset, tenantId: t, windowId: A.window, placementId: A.placement, campaignId: A.campaign, version: 1, r2Key: "virtual/ti/secret.png", mime: "image/png",
+      creativeType: "IMAGE", widthPx: 800, heightPx: 400, bytes: 1000, checksum: "a".repeat(64), state: "VALIDATED",
+    }, select: { id: true } });
+    await prisma.creativeDeployment.create({ data: {
+      id: A.deployment, tenantId: t, worldId: A.world, placementId: A.placement, windowId: A.window, campaignId: A.campaign, assetId: A.vasset, assetVersion: 1,
+      startsAt: new Date("2026-11-02T00:00:00Z"), endsAt: new Date("2026-11-09T00:00:00Z"),
     }, select: { id: true } });
     /* 3S6-BE-04 — a sale of that partner's, waiting in tenant A's queue. */
     await prisma.partnerSaleAttribution.create({ data: {
