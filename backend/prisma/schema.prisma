@@ -4506,3 +4506,32 @@ model VirtualPlacement {
   @@unique([worldId, externalId])
   @@index([tenantId, worldId])
 }
+
+/// 4S1-BE-04 — a placement booked for a stretch of whole days, inside a
+/// campaign (documentation/SponsorX-Virtual-Registry.md §4). `slot` is which
+/// of the placement's capacity it takes (1 for most). The database refuses two
+/// BOOKED windows on the same placement and slot whose days overlap
+/// (EXCLUDE constraint "PlacementWindow_no_overlap"), so the same billboard
+/// is never sold twice for the same week. A released window stays, marked.
+model PlacementWindow {
+  id            String    @id @default(cuid())
+  tenantId      String
+  placementId   String
+  campaignId    String
+  slot          Int
+  /// UTC midnight; the window runs [startsAt, endsAt).
+  startsAt      DateTime
+  endsAt        DateTime
+  /// Frozen at booking: the list price per week × days ÷ 7.
+  priceCents    Int
+  currency      String    @default("USD")
+  /// BOOKED | RELEASED
+  state         String    @default("BOOKED")
+  bookedBy      String?
+  bookedAt      DateTime  @default(now())
+  releasedAt    DateTime?
+  releaseReason String?
+
+  @@index([tenantId, placementId, startsAt])
+  @@index([tenantId, campaignId])
+}

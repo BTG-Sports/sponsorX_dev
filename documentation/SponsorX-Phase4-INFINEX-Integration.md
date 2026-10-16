@@ -176,15 +176,15 @@ The INFINEX client sends telemetry that becomes sponsor billing data. Its authen
 
 *7 tasks · 25 person-days*
 
-### ◑ `4S1-BE-01` · World and zone registry
+### ✅ `4S1-BE-01` · World and zone registry
 
-**Order** 6 · **BE** · **Where:** Code · **3d** · **Code review**
+**Order** 6 · **BE** · **Where:** Code · **3d** · **Done**
 
 Register INFINEX worlds and their districts, venues and zones against stable external IDs.
 
 - **Depends on:** 4S0-PMO-02
 - **Done when:** SponsorX can register a world and its zones against stable external IDs
-- **Built:** 2026-10-16.
+- **Delivered:** 2026-10-16 (merged in #243).
   - **Worlds:** one per environment, under the owner's external ID, owned by a `VIRTUAL` property.
   - **Zones:** upserted in one call by external ID, all or nothing, under allowed parents.
   - **Fixed IDs:** the database refuses an ID change, a move or a delete.
@@ -192,44 +192,52 @@ Register INFINEX worlds and their districts, venues and zones against stable ext
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §1
 - **Reference:** Spec §28, §30
 
-### ◑ `4S1-BE-02` · Virtual placement model
+### ✅ `4S1-BE-02` · Virtual placement model
 
-**Order** 7 · **BE** · **Where:** Code · **5d** · **Code review**
+**Order** 7 · **BE** · **Where:** Code · **5d** · **Done**
 
 Billboards, LED surfaces, naming rights, branded rooms, courts, tunnels, kiosks. Each with technical creative constraints, a viewability rule and capacity.
 
 - **Depends on:** 4S1-BE-01
 - **Done when:** A placement can be registered with specs, viewability rule and availability
-- **Built:** 2026-10-16.
+- **Delivered:** 2026-10-16 (merged in #243).
   - **What a placement records:** its kind, size, creative types, file and video limits, capacity, viewability rule (a default per kind), price and dates, starting as a draft.
   - **Specs are fixed once on sale;** the test status stays `UNTESTED` until Phase 5.
 
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §2
 - **Reference:** Spec §30
 
-### ◑ `4S1-BE-03` · Map placements to sellable inventory
+### ✅ `4S1-BE-03` · Map placements to sellable inventory
 
-**Order** 8 · **BE** · **Where:** Code · **3d** · **Code review**
+**Order** 8 · **BE** · **Where:** Code · **3d** · **Done**
 
 The join that makes virtual surfaces purchasable through the same campaign system as everything else.
 
 - **Depends on:** 4S1-BE-02
 - **Done when:** A virtual placement maps to a sellable SponsorX inventory record
-- **Built:** 2026-10-16.
+- **Delivered:** 2026-10-16 (merged in #243).
   - **On sale:** a production draft goes on sale only when its world and zone are active and its owner is approved. It then becomes an `InventoryItem` of kind `VIRTUAL_PLACEMENT`, owned by the world's property, with one buyer per period.
   - **Kept in step:** price and date changes follow, and retiring switches the item off. The owner cannot edit or list it.
 
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §3
 - **Reference:** Spec §27.1
 
-### ⏸ `4S1-BE-04` · Placement availability windows
+### ◑ `4S1-BE-04` · Placement availability windows
 
-**Order** 9 · **BE** · **Where:** Code · **3d** · **Blocked**
+**Order** 9 · **BE** · **Where:** Code · **3d** · **Code review**
 
 Sellable time windows with capacity, so two sponsors cannot buy the same billboard for the same week.
 
 - **Depends on:** 4S1-BE-02
 - **Done when:** Overlapping purchases of the same placement are rejected
+- **Built:** 2026-10-16.
+  - **What a window books:** an on-sale placement for whole UTC days, inside a draft campaign and its dates, at the weekly list price pro rata, in the first free capacity slot.
+  - **The database refuses an overlapping booking** on the same placement and slot (`PlacementWindow_no_overlap`), so two sponsors racing get one booking and one 409.
+  - **Giving days back:** a window is released while the campaign is a draft, and all of a campaign's windows are released when it is cancelled.
+  - **Retiring:** a placement or world with bookings to come cannot be retired.
+  - **Not yet a money fact:** that is `4S7-BE-01` / `4S7-DATA-01`.
+
+  [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §4
 - **Reference:** Spec §30
 
 ### ⏸ `4S1-FE-01` · Build the world registry screen

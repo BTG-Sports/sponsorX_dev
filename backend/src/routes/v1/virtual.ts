@@ -1,13 +1,15 @@
 /**
  * /api/v1/virtual — the virtual registry: worlds, zones, placements, and
- * putting a placement on sale (4S1-BE-01/02/03,
+ * putting a placement on sale (4S1-BE-01/02/03), booking it by the day
+ * (4S1-BE-04,
  * documentation/SponsorX-Virtual-Registry.md). BTG writes; campaign managers
  * and Sales read; a world's owner reads its own (`virtualWorld`, RBAC §37).
  */
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { PlacementInput, PlacementPatch, WorldInput, WorldPatch, ZonesInput } from "../../contracts/virtual";
+import { PlacementInput, PlacementPatch, WindowInput, WindowRelease, WorldInput, WorldPatch, ZonesInput } from "../../contracts/virtual";
+import { bookPlacement, placementWindows, releaseWindow } from "../../domain/virtual-bookings";
 import {
   createPlacement, createWorld, getPlacement, getWorld, listWorlds, publishPlacement, retirePlacement, updatePlacement, updateWorld, upsertZones,
 } from "../../domain/virtual-registry";
@@ -46,3 +48,15 @@ virtualRouter.get("/virtual/placements/:placementId", requireActor, placement);
 virtualRouter.patch("/virtual/placements/:placementId", requireActor, placementPatch);
 virtualRouter.post("/virtual/placements/:placementId/publish", requireActor, publish);
 virtualRouter.post("/virtual/placements/:placementId/retire", requireActor, retire);
+
+/* 4S1-BE-04 — booking windows: whoever may write the campaign books and releases. */
+const windows: RequestHandler<{ placementId: string }> = async (req, res) => { res.json(await placementWindows(req.actor!, req.params.placementId)); };
+const book: RequestHandler<{ placementId: string }> = async (req, res) => {
+  const b = WindowInput.parse(req.body ?? {});
+  res.status(201).json(await bookPlacement(req.actor!, req.params.placementId, { campaignId: b.campaignId, startsAt: new Date(b.startsAt), endsAt: new Date(b.endsAt) }));
+};
+const release: RequestHandler<{ windowId: string }> = async (req, res) => { res.json(await releaseWindow(req.actor!, req.params.windowId, WindowRelease.parse(req.body ?? {}))); };
+
+virtualRouter.get("/virtual/placements/:placementId/windows", requireActor, windows);
+virtualRouter.post("/virtual/placements/:placementId/windows", requireActor, book);
+virtualRouter.post("/virtual/windows/:windowId/release", requireActor, release);

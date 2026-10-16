@@ -1856,6 +1856,10 @@ Virtual worlds, their districts, venues and zones, and their placements
   it: SponsorX keeps the item in step with the placement.
 - **Every write is audited** (`virtual.*`). Nothing is deleted. IDs never
   change (database trigger `virtual_ids_are_fixed`).
+- **Booking a placement into a campaign** (4S1-BE-04, `POST
+  /virtual/placements/{placementId}/windows`, `POST
+  /virtual/windows/{windowId}/release`) is a campaign write: whoever may write
+  the campaign (`campaign`, §2) and read the placement. No new matrix row.
 
 ## 14 · Known gaps
 

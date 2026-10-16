@@ -139,3 +139,16 @@ The plan was approved by the user. The doc is `documentation/SponsorX-Virtual-Re
   - **PROPERTY_MGR:** reads its own worlds.
   - **Matrix digest:** `f037fe7542127ad9`.
 - **The sweep:** tenant isolation covers all 10 routes.
+
+## rcfworks — 4S1-BE-01/02/03 to Done (#243 merged); 4S1-BE-04 · booking windows (Code review)
+
+- **4S1-BE-01/02/03:** Done in the tracker and the plan. #243 is merged and every acceptance clause was demonstrated in `virtual-registry.test.ts`.
+- **4S1-BE-04: `PlacementWindow`.**
+  - **What it books:** an on-sale placement for whole UTC days, inside a DRAFT campaign and its dates (the same rule as ad slots).
+  - **Price:** frozen at booking, as the list price per week × days ÷ 7. The registry doc and contract now say the list price is per week.
+  - **Slot:** the first free capacity slot for every day of the window.
+  - **The overlap rule is the database's:** the `PlacementWindow_no_overlap` exclusion constraint over (placement, slot, day range) where BOOKED, using the `btree_gist` extension, created by the migration. Two campaigns racing for the last slot get one booking and one 409; the test proves it.
+  - **Giving days back:** release while the campaign is a draft, with a reason. `campaign-stages.ts applyStageMove → CANCELLED` releases all of a campaign's windows. A placement or world with bookings to come can't be retired.
+  - **Permission:** booking is a campaign write, so there is no new matrix row; RBAC §37 has a note.
+  - **Code:** the errors moved to `virtual-errors.ts` so the registry and the bookings don't import each other.
+- **Not done here, and noted in the doc:** bookings aren't money facts yet, so they don't show in campaign figures, the sponsor report or the fact check. That's 4S7-BE-01 / 4S7-DATA-01. A campaign holding only virtual windows counts as empty in `campaign-state.ts`: it can't skip STAFFING the way an ad-only campaign can, because the shape counts only orders and ad slots. That's 4S7-BE-01 as well.
