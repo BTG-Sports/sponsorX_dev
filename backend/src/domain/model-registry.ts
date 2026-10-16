@@ -31,7 +31,7 @@ import type { Prisma, PrismaClient } from "../generated/prisma/client";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
-export const MODEL_KEYS = ["pricing", "matching", "forecast", "makegood", "anomalies"] as const;
+export const MODEL_KEYS = ["pricing", "matching", "forecast", "makegood", "anomalies", "attribution"] as const;
 export type ModelKey = (typeof MODEL_KEYS)[number];
 
 export type ThresholdDef = { key: string; label: string; unit: string; value: number; min: number; max: number; integer?: boolean };
@@ -78,6 +78,14 @@ export const MODEL_DEFS: Record<ModelKey, { name: string; base: string; builtIn:
       { key: "burstRedeems", label: "Redemption burst: redemptions inside 5 minutes", unit: "redemptions", value: 10, min: 5, max: 50, integer: true },
       { key: "repeatFanRedeems", label: "One fan redeeming the same reward", unit: "times", value: 3, min: 2, max: 10, integer: true },
       { key: "manualFactor", label: "Manual entry: times what the API measured", unit: "×", value: 3, min: 2, max: 10 },
+    ],
+  },
+  /* 3S6-BE-03 — the modelled fallback, tried only when no exact key matches and the adapter declares it (attribution-matching.ts). */
+  attribution: {
+    name: "Modelled attribution (place and time)", base: "attr-geo-time", builtIn: "0.1.0",
+    thresholds: [
+      { key: "confidence", label: "Confidence given a modelled match", unit: "share", value: 0.5, min: 0.2, max: 0.8 },
+      { key: "minRedemptions", label: "Least redemptions in the state, inside the window, for a campaign to count", unit: "redemptions", value: 3, min: 1, max: 20, integer: true },
     ],
   },
 };

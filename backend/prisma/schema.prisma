@@ -4341,7 +4341,7 @@ model AttributionPartner {
 
 /// 3S6-BE-01 — one delivery from a partner, kept as received with the events
 /// its adapter made of it and every problem, so nothing a partner sends
-/// disappears silently. Matching is 3S6-BE-03.
+/// disappears silently. Its events are stored and matched as PartnerSaleAttribution (3S6-BE-02/03).
 model AttributionDelivery {
   id         String   @id @default(cuid())
   tenantId   String
@@ -4357,4 +4357,63 @@ model AttributionDelivery {
   payload    Json
 
   @@index([tenantId, partnerId, receivedAt])
+}
+
+/// 3S6-BE-02 — one partner sale or refund, normalised: where it came from, how
+/// it was matched (or why it was not), and to what
+/// (documentation/SponsorX-Attribution-Matching.md). Named apart from
+/// `SalesAttribution`, which credits a NEXT student with an ad sale.
+///
+/// status: matched | unmatched | dismissed. An unmatched row IS the
+/// reconciliation queue (3S6-BE-04); a dismissed one stays, with who and why.
+/// The database refuses a modelled row labelled verified (CHECK
+/// "PartnerSaleAttribution_class_check").
+model PartnerSaleAttribution {
+  id           String    @id @default(cuid())
+  tenantId     String
+  partnerId    String
+  deliveryId   String
+  adapter      String
+  /// The partner's own id for the event — one row per partner per id.
+  externalId   String
+  /// sale | refund
+  kind         String
+  occurredAt   DateTime
+  receivedAt   DateTime
+  amountCents  Int?
+  currency     String
+  /// The exact keys it carried: { token?, order_id?, click_id? }.
+  keys         Json
+  /// keys.order_id, kept as a column: a refund finds its sale by it.
+  orderId      String?
+  /// Where the sale happened (US state), when the partner says — the modelled fallback's input.
+  stateCode    String?
+  status       String
+  /// VERIFIED_TRANSACTION | MODELLED, when matched.
+  class        String?
+  /// deterministic | probabilistic, when matched.
+  method       String?
+  /// token | order_id | click_id — the exact key that matched; null for modelled.
+  matchKey     String?
+  /// The adapter's lookback window.
+  windowDays   Int
+  /// 1 for an exact match; below 1, always, for a modelled one.
+  confidence   Float?
+  /// The model behind a modelled match, e.g. attr-geo-time@0.1.0.
+  modelVersion String?
+  campaignId   String?
+  athleteId    String?
+  matchedAt    DateTime?
+  /// Unmatched: no_match | ambiguous | outside_window | unknown_token.
+  reason       String?
+  /// Ambiguous: how many campaigns it could belong to.
+  candidates   Int?
+  dismissedBy  String?
+  dismissedAt  DateTime?
+  dismissNote  String?
+
+  @@unique([partnerId, externalId])
+  @@index([tenantId, status, receivedAt])
+  @@index([tenantId, campaignId, occurredAt])
+  @@index([partnerId, orderId])
 }

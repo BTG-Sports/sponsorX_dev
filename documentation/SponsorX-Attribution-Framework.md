@@ -29,7 +29,9 @@ changing the engine.** What the results may be called is
 - the amount and currency;
 - the exact keys.
 
-Matching keys to campaigns is `3S6-BE-03`. The normalised event table is `3S6-BE-02`.
+Each event is stored once and matched to a campaign as it arrives, exact keys
+first: [`SponsorX-Attribution-Matching.md`](./SponsorX-Attribution-Matching.md)
+(3S6-BE-02/03/04).
 
 ## 2 · The first adapter: `generic-webhook-v1`
 
@@ -56,7 +58,7 @@ Matching keys to campaigns is `3S6-BE-03`. The normalised event table is `3S6-BE
 - **The partner desk** (`GET /intelligence/attribution/partners`) shows the adapters available and each partner's deliveries, rejections, events and last delivery.
 
 **Who** (`attribution`, RBAC matrix §36): BTG admins for their tenant, super
-admins for any. **The feature is switched per tenant** as `attribution` (3S8-OPS-01).
+admins for any. Campaign managers and Sales read the partner desk (2026-10-16). **The feature is switched per tenant** as `attribution` (3S8-OPS-01).
 
 ## 4 · Where it lives
 

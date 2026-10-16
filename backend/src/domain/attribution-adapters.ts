@@ -16,8 +16,8 @@
  * A PARTNER EVENT is what an adapter hands the engine: one sale or refund,
  * with the partner's own id, when it happened, the amount, and the exact keys
  * it carries (a SponsorX reward token, an order id, a SponsorX click id).
- * Matching those keys to campaigns is 3S6-BE-03; the normalised event table
- * is 3S6-BE-02.
+ * The engine stores each one as a `PartnerSaleAttribution` (3S6-BE-02) and
+ * matches its keys to a campaign (attribution-matching.ts, 3S6-BE-03).
  */
 import { z } from "../contracts/zod";
 
@@ -33,6 +33,8 @@ export type PartnerEvent = {
   currency: string;
   /** The exact keys it carries; a deterministic match needs at least one. */
   keys: Partial<Record<MatchKey, string>>;
+  /** Where the sale happened (US state), if the partner says — the modelled fallback's only input (3S6-BE-03). */
+  stateCode?: string | null;
 };
 
 export type ParseResult = { events: PartnerEvent[]; problems: string[] };

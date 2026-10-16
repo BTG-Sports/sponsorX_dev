@@ -1794,18 +1794,31 @@ the governance policy (`SponsorX-Model-Governance.md`, 3S0-PMO-02).
   - `flag.set`.
 - **Campaign managers and Sales don't change how SponsorX decides.**
 
-## 36 · Phase 3 · attribution partners *(added 2026-10-15)*
+## 36 · Phase 3 · attribution partners and matched sales *(added 2026-10-15, widened 2026-10-16)*
 
-### `attribution` (3S6-BE-01)
-The attribution partners (stores and platforms that send their sales) and
-their deliveries (`SponsorX-Attribution-Framework.md`).
-- **Read** through `GET /intelligence/attribution/partners`.
+### `attribution` (3S6-BE-01, 3S6-BE-03/04)
+The attribution partners (stores and platforms that send their sales), their
+deliveries, the partner sales matched to campaigns and the queue of those that
+were not (`SponsorX-Attribution-Framework.md`, `SponsorX-Attribution-Matching.md`).
+- **Read** through `GET /intelligence/attribution/partners` and
+  `GET /intelligence/attribution` (the attribution desk).
 - **A partner is added** through `POST /intelligence/attribution/partners`.
+- **A queued sale is dismissed** through
+  `POST /intelligence/attribution/unmatched/{saleId}/dismiss`.
 
 | Role | Read | Write | Approve |
 |---|---|---|---|
 | `SUPER_ADMIN` | any | any | — |
 | `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `CAMPAIGN_MGR` | own-tenant | — | — |
+| `SALES` | own-tenant | — | — |
+
+- **Campaign managers and Sales read** (2026-10-16): the attribution desk's
+  readers in the screen contract (3S6-FE-01). They see partner names and
+  counts, never a partner's token or a fan's reward code.
+- **Dismissing a queued sale changes what is counted,** so only BTG admins do
+  it, with a reason; it is audited (`attribution.dismiss`) and the sale stays
+  on the list, marked. Nobody assigns a sale to a campaign by hand.
 
 - **Adding a partner hands out a credential,** so only BTG admins do it. It is
   audited (`attribution.partnerAdd`). The token is shown once and kept only as
