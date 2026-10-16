@@ -106,24 +106,38 @@ The specification is explicit about what may and may not run in parallel:
 
 *5 tasks · 17 person-days*
 
-### ⏸ `4S0-PMO-01` · Define the world contract: runtime, environments and identity
+### ✅ `4S0-PMO-01` · Define the world contract: runtime, environments and identity
 
-**Order** 1 · **PMO** · **Where:** Document · **3d** · **Blocked**
+**Order** 1 · **PMO** · **Where:** Document · **3d** · **Done**
 
 The rules any world must follow to work with SponsorX, written before the game exists so the game is built to them (2026-10-16): SponsorX does not depend on the world's engine, which is recorded per world; each world has a staging and a production environment; world, zone and placement IDs are stable and never reused — if those churn, the inventory churns with them; sessions and players reach SponsorX only as anonymous references.
 
 - **Depends on:** Phase 3 complete
 - **Done when:** Runtime-neutral contract, environment versioning and identity/session model written and approved
+- **Delivered:** 2026-10-16, approved by the user.
+  - **Any engine:** a world talks to SponsorX in HTTPS and JSON, and records its engine in `runtime` and `runtimeVersion`.
+  - **Two environments:** `STAGING` and `PRODUCTION`.
+  - **Stable external IDs:** never changed, never reused.
+  - **Anonymous players:** only `sessionRef` and `subjectRef`, with no linking across channels by default.
+  - **Two callers:** the world's server, and the game on a player's device.
+
+  [`SponsorX-INFINEX-World-Contract.md`](./SponsorX-INFINEX-World-Contract.md)
 - **Reference:** Spec §33
 
-### ⏸ `4S0-PMO-02` · Agree the world and placement taxonomy
+### ✅ `4S0-PMO-02` · Agree the world and placement taxonomy
 
-**Order** 2 · **PMO** · **Where:** Document · **3d** · **Blocked**
+**Order** 2 · **PMO** · **Where:** Document · **3d** · **Done**
 
 World, district, venue, zone, surface. Getting this vocabulary right once saves renaming an inventory model later.
 
 - **Depends on:** 4S0-PMO-01
 - **Done when:** Taxonomy documented and mapped to SponsorX entities
+- **Delivered:** 2026-10-16, approved by the user.
+  - **Five levels in three tables:** `VirtualWorld`, `VirtualZone` (district, venue, zone) and `VirtualPlacement` (surface).
+  - **Seven placement kinds,** each with its specs, its capacity and a viewability rule.
+  - **Mapped to SponsorX:** a world's owner is a `VIRTUAL` property; a surface for sale is an `InventoryItem` of kind `VIRTUAL_PLACEMENT`.
+
+  [`SponsorX-Virtual-Taxonomy.md`](./SponsorX-Virtual-Taxonomy.md)
 - **Reference:** Spec §25, §27.1
 
 ### ⏸ `4S0-PMO-03` · Estimate telemetry volume and cost

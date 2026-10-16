@@ -511,8 +511,8 @@ machine carries per-placement status, the way `CampaignOrder` and
 5. **Explicit `currency`** on new money-bearing models. Phase 1 assumes USD except on `CampaignInvoice`.
 6. **The Phase 2 `InventoryItem` / `Listing` seam** (`P8-PMO-03` §4), so a virtual placement is one inventory kind rather than a parallel purchase path. If Phase 4 must start before the marketplace ships, `PlacementWindow.campaignId` + `soldCents` (the `AdSlot` pattern) is a safe interim that the listing layer can wrap later without migrating data.
 7. **Sprint 0 decisions:**
-   - `4S0-PMO-01` runtime and identity model, including whether `subjectRef` may ever be linked across channels
-   - `4S0-PMO-02` taxonomy
+   - `4S0-PMO-01` runtime and identity model, including whether `subjectRef` may ever be linked across channels. **Settled 2026-10-16:** [`SponsorX-INFINEX-World-Contract.md`](./SponsorX-INFINEX-World-Contract.md) (any engine; no linking across channels by default)
+   - `4S0-PMO-02` taxonomy. **Settled 2026-10-16:** [`SponsorX-Virtual-Taxonomy.md`](./SponsorX-Virtual-Taxonomy.md)
    - `4S0-PMO-03` volume and cost (stream buffer or not)
    - `4S0-SEC-01` client authentication and signing
 
