@@ -158,3 +158,4 @@ The plan was approved by the user. The doc is `documentation/SponsorX-Virtual-Re
 The user asked why P0-OPS-03 was open "when all Clerk tasks were finished". Clerk is finished: the application `SponsorX` has dev and production instances, and production signs in on `clerk.sponsorx.net`. The row was open only because its "Done when" included "MFA available for privileged roles", which needs Clerk Pro (deferred to launch on 2026-09-21). P2-INT-02 says the same thing.
 
 **Done:** the "Done when" is amended to "Both instances exist", the MFA half now sits only on P2-INT-02, and P0-OPS-03 is Done (plan and tracker).
+- **4S1-BE-04 is Done:** #244 is merged, and its acceptance was demonstrated in `virtual-bookings.test.ts`.
