@@ -2683,14 +2683,20 @@ Receive Zoho's updates, verify they are genuine, write them to your own database
 - **Done when:** The route verifies the signature, writes to our own database and enqueues — it never calls Zoho
 - **Reference:** Guide §07
 
-### ⏸ `P8-QA-01` · Full §30 acceptance criteria pass
+### ✅ `P8-QA-01` · Full §30 acceptance criteria pass
 
-**Order** 157 · **QA** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 3
+**Order** 157 · **QA** · **Where:** Code · **5d** · **Done** · **Unblocks** 3
 
 Demonstrate all fourteen acceptance criteria from the blueprint and record the evidence.
 
 - **Depends on:** all phases
 - **Done when:** All fourteen §30 criteria demonstrated and recorded
+- **Delivered:** 2026-10-16, signed off by the user.
+  - **All 14 demonstrated:** 1,048 of 1,048 backend tests across the 39 files behind them, the Phase 1 end-to-end loop specs green on `main`, and Zoho checked live in the sandbox on 2026-10-09.
+  - **A new test for #2:** `phase1-acceptance.test.ts`, BTG setting an athlete's rate.
+  - **#2's SX jobs:** configured through a reviewed code change, by the user's decision.
+
+  [`SponsorX-Phase1-Acceptance.md`](./SponsorX-Phase1-Acceptance.md)
 - **Reference:** §30
 
 ### ⏸ `P8-INT-04` · Webhook delivery recording
