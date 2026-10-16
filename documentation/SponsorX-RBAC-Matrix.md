@@ -1829,6 +1829,34 @@ were not (`SponsorX-Attribution-Framework.md`, `SponsorX-Attribution-Matching.md
   for an unknown partner and a wrong token.
 - **Switched off per tenant** as the `attribution` feature (§35).
 
+## 37 · Phase 4 · the virtual registry *(added 2026-10-16)*
+
+### `virtualWorld` (4S1-BE-01/02/03)
+Virtual worlds, their districts, venues and zones, and their placements
+(surfaces), with each placement's inventory item once it is on sale
+(`SponsorX-Virtual-Registry.md`).
+- **Read** through `GET /virtual/worlds`, `GET /virtual/worlds/{worldId}` and
+  `GET /virtual/placements/{placementId}`.
+- **Write:** registering a world (`POST /virtual/worlds`), changing or
+  retiring it (`PATCH`), upserting its zones (`PUT …/zones`), registering and
+  changing placements, putting one on sale (`…/publish`) and retiring one.
+
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `CAMPAIGN_MGR` | own-tenant | — | — |
+| `SALES` | own-tenant | — | — |
+| `PROPERTY_MGR` | own-property | — | — |
+
+- **BTG registers and prices the inventory.** Campaign managers and Sales read
+  it to sell it.
+- **A world's owner** (a `VIRTUAL` property's manager) reads its own worlds,
+  zones and placements. It cannot edit the placement's inventory item or list
+  it: SponsorX keeps the item in step with the placement.
+- **Every write is audited** (`virtual.*`). Nothing is deleted. IDs never
+  change (database trigger `virtual_ids_are_fixed`).
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

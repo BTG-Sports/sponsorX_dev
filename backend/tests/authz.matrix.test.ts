@@ -460,7 +460,13 @@ describe("the whole matrix is pinned", () => {
       // (screen contract 3S6-FE-01). Writing (partners, dismissing a queued
       // sale) stays BTG admins'. With those two cells back to deny the grid
       // hashes to the previous 0829d0ceec6d26d5.
-    ).toBe("8f3f5c877af850bb");
+      // Updated 2026-10-16 (4S1-BE-01/02/03): new `virtualWorld` resource —
+      // virtual worlds, zones and placements. SUPER_ADMIN any read and write;
+      // BTG_ADMIN own-tenant read and write; CAMPAIGN_MGR and SALES own-tenant
+      // read; PROPERTY_MGR own-property read; every other cell deny (matrix
+      // §37). With its rows removed the grid hashes to the previous
+      // 8f3f5c877af850bb.
+    ).toBe("f037fe7542127ad9");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

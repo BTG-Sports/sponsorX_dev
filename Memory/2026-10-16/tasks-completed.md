@@ -114,3 +114,28 @@ Both were approved by the user as plans before writing ("lets start both 4s0"). 
   - **Seven placement kinds,** each with its specs and creative types.
   - **The mapping to SponsorX:** a `VIRTUAL` property, and an `InventoryItem` of kind `VIRTUAL_PLACEMENT`.
 - **Unblocked:** 4S1-BE-01 (and through it 4S1-BE-02/03/04), 4S0-ART-01's dependency, 4S0-PMO-03 and 4S0-SEC-01.
+
+## rcfworks — 4S1-BE-01/02/03 · the virtual registry (Code review)
+
+The plan was approved by the user. The doc is `documentation/SponsorX-Virtual-Registry.md`.
+
+- **4S1-BE-01: worlds and zones.**
+  - **Worlds:** `VirtualWorld`, one per environment, under the owner's external ID, owned by a `VIRTUAL` property. Retiring a world retires its zones and takes its placements off sale.
+  - **Zones:** `VirtualZone`, upserted by external ID through `PUT /virtual/worlds/{id}/zones`. It is all or nothing, uses the allowed parents, creates parents first, and a zone's level and parent are fixed.
+- **4S1-BE-02: placements.** `VirtualPlacement` holds the kind, size, creative types (per kind), file and video limits, capacity, a viewability rule (a versioned default per kind), price and dates. It starts as a draft, its specs are fixed once on sale, and it is `UNTESTED` until Phase 5.
+- **4S1-BE-03: on sale.**
+  - **When:** only a draft in an active production world, in an active zone, whose owner is approved.
+  - **What it creates:** one `InventoryItem` of kind `VIRTUAL_PLACEMENT`, owned by the world's property, with one buyer per period at capacity 1.
+  - **Kept in step:** the price and dates follow the placement, and retiring switches the item off.
+  - **Locked for owners:** `inventory.ts` refuses edits and `listing.ts` refuses a listing, because it is booked through windows (4S1-BE-04).
+- **The database:**
+  - trigger `virtual_ids_are_fixed`: no ID change, no move, no un-retire, and no delete except on test databases;
+  - CHECK constraints for the vocabulary.
+
+  The first version of the trigger compared fields that only some of the tables have, and Postgres errored on the others; it now checks one table at a time.
+- **Permission:** `virtualWorld` (RBAC §37).
+  - **BTG:** writes.
+  - **Campaign managers and Sales:** read.
+  - **PROPERTY_MGR:** reads its own worlds.
+  - **Matrix digest:** `f037fe7542127ad9`.
+- **The sweep:** tenant isolation covers all 10 routes.
