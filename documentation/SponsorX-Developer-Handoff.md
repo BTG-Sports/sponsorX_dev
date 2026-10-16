@@ -41,7 +41,7 @@ The one loop that matters most, and that every trade-off protects (§39):
 | `frontend/` | `@sponsorx/frontend` — the Next.js 16 web app. **Has no database.** Talks only to the API |
 | `backend/` | `@sponsorx/backend` — the Express API (`/api/v1`), the pg-boss worker, Prisma |
 | `e2e/` | Playwright browser tests |
-| `documentation/` | The plan: four phase documents, runbooks, specs |
+| `documentation/` | The plan: five phase documents, runbooks, specs |
 | `Claude outputs/` | The **task tracker** (`SponsorX-Full-Programme-Task-Board.xlsx`) — committed, edited by everyone |
 | `Memory/` | The team's daily log — one folder per day. Capital **M** (see §7) |
 | `graphify-out/` | A knowledge graph of the codebase, for search |

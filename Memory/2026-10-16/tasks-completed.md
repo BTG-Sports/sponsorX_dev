@@ -87,4 +87,30 @@ The last Phase 3 backend tasks. The plan was approved by the user before startin
   - **New:** 5S2-PMO-02, the pilot sponsor UAT.
 - **Dashboard:** a Phase 5 row and column were added. The Phase 4 ranges end at row 51, and the total is now 556 delivery tasks.
 - **Roadmap:** a Phase 5 row was added, and its text now says five phases. The Legend's spec source now reads "Phases 2–5".
-- **Google Sheet:** it needs a Phase 5 tab, added by hand at the next mirror.
+
+**Plan files** (the PR after the tracker's):
+- **New:** `documentation/SponsorX-Phase5-INFINEX-Game.md`, with the 7 tasks, a former-ID table and 5 acceptance criteria.
+- **The Phase 4 plan:**
+  - the moved tasks are removed, and 4S3-INT-02/03 are split;
+  - 4S0-PMO-01 is redefined as the world contract, and 4S9-PMO-02 is now the Phase 4 UAT;
+  - there are 11 acceptance criteria (criterion 3 moved to Phase 5);
+  - a dated change note was added.
+- **References updated:** `CLAUDE.md`, the phase-file tables in Phases 1–3, the INFINEX API spec (5S1-QA-01, 5S2-QA-01, 5S1-INT-02/03) and the developer handoff.
+- **CI:** the Phase 5 plan file is added to the docs-only list.
+
+## rcfworks — 4S0-PMO-01 and 4S0-PMO-02 · the world contract and the taxonomy (Done)
+
+Both were approved by the user as plans before writing ("lets start both 4s0"). Approving the plan is the sign-off, so both go to Done.
+
+- **4S0-PMO-01:** `documentation/SponsorX-INFINEX-World-Contract.md`, the rules any world follows, written before the game exists so the game is built to fit.
+  - **Any engine:** HTTPS and JSON; `runtime` and `runtimeVersion` are recorded per world, and no rule reads them.
+  - **Environments:** `STAGING` and `PRODUCTION`. Versions are tracked by `buildId`, `manifestVersion`, `schemaVersion` per event type, and `/api/v1` changing only by additions.
+  - **Stable IDs:** external IDs are never changed or reused, and a surface keeps the same ID in staging and production.
+  - **Anonymous players:** only `sessionRef` and `subjectRef`, and no linking across channels by default.
+  - **Two callers:** the world's server and the game on a player's device; the details are 4S0-SEC-01.
+- **4S0-PMO-02:** `documentation/SponsorX-Virtual-Taxonomy.md`.
+  - **Five levels:** world, district, venue, zone and surface, with the allowed parents for each.
+  - **Three tables:** `VirtualWorld`, `VirtualZone` and `VirtualPlacement`.
+  - **Seven placement kinds,** each with its specs and creative types.
+  - **The mapping to SponsorX:** a `VIRTUAL` property, and an `InventoryItem` of kind `VIRTUAL_PLACEMENT`.
+- **Unblocked:** 4S1-BE-01 (and through it 4S1-BE-02/03/04), 4S0-ART-01's dependency, 4S0-PMO-03 and 4S0-SEC-01.

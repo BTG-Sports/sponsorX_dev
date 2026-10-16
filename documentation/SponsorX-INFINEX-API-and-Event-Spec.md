@@ -7,7 +7,7 @@
 | **Status** | Draft contract. Phase 1 documents it **now** so that Phase 4 attaches without redesigning campaigns or inventory. Nothing in this document is built unless marked **exists**. |
 | **Acceptance** | The Phase 4 data contract is anticipated so campaigns and inventory need no redesign |
 | **Audience** | SponsorX engineers and the INFINEX integration team |
-| **Plan of record** | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md) (51 tasks, `4S0-*` … `4S9-*`) |
+| **Plan of record** | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md) (47 tasks, `4S0-*` … `4S9-*`) · Phase 5, the game side: [`SponsorX-Phase5-INFINEX-Game.md`](./SponsorX-Phase5-INFINEX-Game.md) (split out 2026-10-16) |
 | **Related** | [`SponsorX-Phase2-4-Module-Interface-and-Migration-Plan.md`](./SponsorX-Phase2-4-Module-Interface-and-Migration-Plan.md) (`P8-PMO-03`) · [`SponsorX-RBAC-Matrix.md`](./SponsorX-RBAC-Matrix.md) · live OpenAPI at `GET /api/v1/openapi.json` |
 
 **Labels used throughout:**
@@ -87,7 +87,7 @@ change, not a migration.
 | World operator (the company running a world) | `Property` with `kind = "VIRTUAL"` | **Exists** (the kind value, and onboarding via `/public/onboarding` → BTG decision → `Property` with `listingAccessAt`) | A property already owns inventory and has a portal (`PROPERTY_MGR`). |
 | World | `VirtualWorld { id, tenantId, propertyId, externalId @unique per tenant, name, environment (STAGING\|PRODUCTION), runtimeVersion, status }` | **Proposed** (`4S1-BE-01`) | `Publication` → `Edition`: a property-owned container of sellable positions. |
 | District / venue / zone | `VirtualZone { id, tenantId, worldId, parentId?, level, externalId, name, status }` | **Proposed** (`4S1-BE-01`) | — |
-| Placement (billboard, LED, naming right, branded room, court, tunnel, kiosk) | `VirtualPlacement { id, tenantId, zoneId, externalId, kind, widthPx?, heightPx?, aspect, allowedCreativeTypes[], constraints Json, viewabilityRuleId, capacity Int, rackPriceCents, currency, testStatus (UNTESTED\|PASSED\|FAILED), state (DRAFT\|AVAILABLE\|RETIRED) }` | **Proposed** (`4S1-BE-02`, `4S3-QA-01`: AVAILABLE only after a staging pass) | **`AdSlot`** (**exists**): `slotCode`, `kind` enum, `priceCents`, `quantity`, `campaignId?`, `soldCents?`, `soldAt?`, with a database constraint against double-selling (`backend/prisma/sql/adslot_inventory.sql`). A placement is an ad slot with a location and a time window instead of an edition. |
+| Placement (billboard, LED, naming right, branded room, court, tunnel, kiosk) | `VirtualPlacement { id, tenantId, zoneId, externalId, kind, widthPx?, heightPx?, aspect, allowedCreativeTypes[], constraints Json, viewabilityRuleId, capacity Int, rackPriceCents, currency, testStatus (UNTESTED\|PASSED\|FAILED), state (DRAFT\|AVAILABLE\|RETIRED) }` | **Proposed** (`4S1-BE-02`, `5S1-QA-01`: AVAILABLE only after a staging pass — Phase 5, once the game exists) | **`AdSlot`** (**exists**): `slotCode`, `kind` enum, `priceCents`, `quantity`, `campaignId?`, `soldCents?`, `soldAt?`, with a database constraint against double-selling (`backend/prisma/sql/adslot_inventory.sql`). A placement is an ad slot with a location and a time window instead of an edition. |
 | Sellable inventory record | Phase 2's `InventoryItem` / `Listing` (**planned**, `2S2-BE-01`, `2S3-BE-01`), with `VirtualPlacement` as one inventory kind | **Proposed** (`4S1-BE-03`) | `SponsorPackage.lineItems` / `includes` already carries non-athlete inventory as lines (for example the iMC feature, `backend/src/domain/sponsor-packages.ts`). Buying a placement bundle through a §7-style package needs no new purchase path. |
 | Availability window | `PlacementWindow { id, tenantId, placementId, startsAt, endsAt, capacity, campaignId?, soldCents?, state (OPEN\|HELD\|SOLD) }`, with a Postgres **exclusion constraint** on `(placementId, tstzrange(startsAt, endsAt))` for SOLD/HELD rows | **Proposed** (`4S1-BE-04`: "overlapping purchases of the same placement are rejected") | `adslot_inventory.sql` and `invite_one_open.sql` (**exist**): "at most one" rules live in the database. |
 | Purchase | `PlacementWindow.campaignId` + `soldCents` frozen at sale; `Campaign` unchanged | **Proposed** | Exactly how `POST /editions/:id/sales` books an `AdSlot` to a `Campaign` today (`backend/src/domain/edition.ts`). The campaign state machine already allows an **ad-only** campaign (no athlete orders) to go DRAFT → APPROVAL (`backend/src/domain/campaign-state.ts`, `isAdOnly`). |
@@ -108,7 +108,7 @@ change, not a migration.
 
 - `VIRTUAL_GROSS` — renders reported by a trusted client
 - `VIRTUAL_VIEWABLE` — passes rule version *n*
-- `VIRTUAL_UNVALIDATED` — before pilot validation (`4S9-QA-01`)
+- `VIRTUAL_UNVALIDATED` — before pilot validation (`5S2-QA-01`, Phase 5)
 
 Before validation, sponsor-facing surfaces **must not** show virtual
 impressions at all (the forbidden overlap in §1). The sponsor report builder
@@ -155,7 +155,7 @@ touching portal routes.
 | `POST /virtual/worlds` | `{propertyId, externalId, name, environment}` | `201 VirtualWorld` | BTG_ADMIN / PROPERTY_MGR (own-property). Audited as `virtualWorld.create`. |
 | `PUT /virtual/worlds/:id/zones` | `[{externalId, parentExternalId?, level, name}]` | `200 {zones}` | Idempotent upsert by `externalId`. A zone is never deleted — it is retired. |
 | `POST /virtual/zones/:id/placements` | placement spec (§3.2) | `201 VirtualPlacement` (state DRAFT) | |
-| `POST /virtual/placements/:id/test-result` | `{status: PASSED\|FAILED, buildId, evidenceUrl?}` | `200` | SERVICE (staging client) or BTG. PASSED unlocks AVAILABLE (`4S3-QA-01`). |
+| `POST /virtual/placements/:id/test-result` | `{status: PASSED\|FAILED, buildId, evidenceUrl?}` | `200` | SERVICE (staging client) or BTG. PASSED unlocks AVAILABLE (`5S1-QA-01`, Phase 5). |
 | `POST /virtual/placements/:id/windows` | `{startsAt, endsAt, capacity, rackPriceCents, currency}` | `201 PlacementWindow` | Overlap → `409 window-overlap`. |
 | `POST /virtual/windows/:id/sale` | `{campaignId, soldCents}` | `200` | Mirrors `POST /editions/:id/sales`. Audited `placementWindow.sell`. |
 
@@ -202,7 +202,7 @@ touching portal routes.
 - Asset URLs are **signed and short-lived** (`4S2-BE-04`). Today's private-bucket signed reads (`GET /deliverables/:id/assets/:version/url`, `GET /reward-tokens/:id/qr-url`) are the pattern.
 - The manifest carries **no sponsor pricing and no athlete pay**. The `FIELD_DENIALS` rules in `backend/src/auth/fields.ts` apply to `SERVICE` like anyone else.
 
-**Client config and heartbeat (`4S3-INT-02`, `-03`)**
+**Client config and heartbeat (`4S3-INT-02`, `-03`; the game's side is Phase 5's `5S1-INT-02`, `-03`)**
 
 | Method + path | Response |
 |---|---|
@@ -511,8 +511,8 @@ machine carries per-placement status, the way `CampaignOrder` and
 5. **Explicit `currency`** on new money-bearing models. Phase 1 assumes USD except on `CampaignInvoice`.
 6. **The Phase 2 `InventoryItem` / `Listing` seam** (`P8-PMO-03` §4), so a virtual placement is one inventory kind rather than a parallel purchase path. If Phase 4 must start before the marketplace ships, `PlacementWindow.campaignId` + `soldCents` (the `AdSlot` pattern) is a safe interim that the listing layer can wrap later without migrating data.
 7. **Sprint 0 decisions:**
-   - `4S0-PMO-01` runtime and identity model, including whether `subjectRef` may ever be linked across channels
-   - `4S0-PMO-02` taxonomy
+   - `4S0-PMO-01` runtime and identity model, including whether `subjectRef` may ever be linked across channels. **Settled 2026-10-16:** [`SponsorX-INFINEX-World-Contract.md`](./SponsorX-INFINEX-World-Contract.md) (any engine; no linking across channels by default)
+   - `4S0-PMO-02` taxonomy. **Settled 2026-10-16:** [`SponsorX-Virtual-Taxonomy.md`](./SponsorX-Virtual-Taxonomy.md)
    - `4S0-PMO-03` volume and cost (stream buffer or not)
    - `4S0-SEC-01` client authentication and signing
 
