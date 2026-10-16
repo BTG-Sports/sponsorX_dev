@@ -222,15 +222,15 @@ The join that makes virtual surfaces purchasable through the same campaign syste
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §3
 - **Reference:** Spec §27.1
 
-### ◑ `4S1-BE-04` · Placement availability windows
+### ✅ `4S1-BE-04` · Placement availability windows
 
-**Order** 9 · **BE** · **Where:** Code · **3d** · **Code review**
+**Order** 9 · **BE** · **Where:** Code · **3d** · **Done**
 
 Sellable time windows with capacity, so two sponsors cannot buy the same billboard for the same week.
 
 - **Depends on:** 4S1-BE-02
 - **Done when:** Overlapping purchases of the same placement are rejected
-- **Built:** 2026-10-16.
+- **Delivered:** 2026-10-16 (merged in #244).
   - **What a window books:** an on-sale placement for whole UTC days, inside a draft campaign and its dates, at the weekly list price pro rata, in the first free capacity slot.
   - **The database refuses an overlapping booking** on the same placement and slot (`PlacementWindow_no_overlap`), so two sponsors racing get one booking and one 409.
   - **Giving days back:** a window is released while the campaign is a draft, and all of a campaign's windows are released when it is cancelled.
