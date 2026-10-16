@@ -389,16 +389,19 @@ Run the three fills on staging, then on production with the owner's OK; the chec
   - In both, the check passes and a second run adds nothing. [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §8
 - **Reference:** Spec §21
 
-### ⏸ `3S1-OPS-02` · Retire the warehouse
+### ✅ `3S1-OPS-02` · Retire the warehouse
 
-**Order** 7.5 · **OPS** · **Where:** Code / Vendor console · **1d** · **Blocked**
+**Order** 7.5 · **OPS** · **Where:** Code / Vendor console · **1d** · **Done**
 
-> **On hold (user, 2026-10-14).** "If no one is going to use it we just leave it there while we are in development." The warehouse databases, settings and hourly copy stay for now. Nothing reads them: analysis reads the fact ledger.
+> **The databases stay (user, 2026-10-14 and 2026-10-16).** "If no one is going to use it we just leave it there while we are in development." On 2026-10-16, after its test broke a CI run, the user said to remove the code from the tests and the worker and only note that the databases exist.
 
-Stop the hourly copy, and remove the warehouse settings and code. Once the facts and summaries are live, delete `Postgres-warehouse` and `Postgres-warehouse-production`, with the owner's OK.
+Stop the hourly copy, and remove the warehouse code. The databases stay.
 
 - **Depends on:** 3S1-OPS-04
-- **Done when:** no warehouse service, setting or code remains; analysis reads the summaries; the design docs say so
+- **Done when:** no warehouse code or hourly copy remains; analysis reads the summaries; the design docs say so; the databases that remain are noted *(amended 2026-10-16 by the user: the databases are kept, so they are noted rather than deleted)*
+- **Delivered:** 2026-10-16.
+  - **Removed:** the hourly copy, `backend/worker/warehouse/`, its four test files and the `warehouse:reader` script.
+  - **Still there, unused:** `Postgres-warehouse` and `Postgres-warehouse-production` on Railway, their settings on the worker services (nothing reads them), and the `warehouse_reader` login on each product database. They are noted in `.claude/stack-decision.md` (Addendum D4) and in [`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md).
 - **Reference:** Spec §20
 
 ### ✅ `3S1-OPS-03` · Only the app writes to the live database
@@ -782,31 +785,31 @@ Attribution is pluggable, never universal. Each adapter declares its method, loo
   [`SponsorX-Attribution-Framework.md`](./SponsorX-Attribution-Framework.md)
 - **Reference:** Spec §17.4
 
-### ◑ `3S6-BE-02` · Normalised attribution event model
+### ✅ `3S6-BE-02` · Normalised attribution event model
 
-**Order** 27 · **BE** · **Where:** Code · **5d** · **Code review**
+**Order** 27 · **BE** · **Where:** Code · **5d** · **Done**
 
 Partner events normalise into one shape carrying source, method, window, confidence and the matched entities.
 
 - **Depends on:** 3S6-BE-01
 - **Builds on:** nothing, but `SalesAttribution` (NEXT student credit) is a different thing. Name the new table distinctly. ([`SponsorX-Warehouse-Schema.md`](./SponsorX-Warehouse-Schema.md) §11)
 - **Done when:** Attribution events identify source, method and confidence; modelled revenue is never labelled verified
-- **Built:** 2026-10-16.
+- **Delivered:** 2026-10-16 (merged in #237).
   - **`PartnerSaleAttribution`:** one row per partner sale or refund, with its source (partner, adapter, delivery), method, matched key, window, confidence, model version, campaign and athlete. Counted once per partner id.
   - **The database refuses a modelled sale labelled verified** (CHECK `PartnerSaleAttribution_class_check`).
 
   [`SponsorX-Attribution-Matching.md`](./SponsorX-Attribution-Matching.md) §1
 - **Reference:** Spec §19, §22
 
-### ◑ `3S6-BE-03` · Deterministic-first matching engine
+### ✅ `3S6-BE-03` · Deterministic-first matching engine
 
-**Order** 28 · **BE** · **Where:** Code · **5d** · **Code review**
+**Order** 28 · **BE** · **Where:** Code · **5d** · **Done**
 
 Try the exact match first — reward token, order ID, partner click ID. Only fall back to probabilistic matching, and mark it explicitly when you do.
 
 - **Depends on:** 3S6-BE-02
 - **Done when:** Deterministic matches are attempted first; probabilistic matches carry an explicit method and confidence
-- **Built:** 2026-10-16.
+- **Delivered:** 2026-10-16 (merged in #237).
   - **Exact first:** reward token, then tracking-link code (click id), then an order id already matched (how a refund finds its sale), inside the adapter's window.
   - **Modelled fallback** only when no key matched and the adapter declares it: one campaign redeemed in the sale's state → `MODELLED`, with `attr-geo-time@0.1.0` and its confidence (below 1). Settings in the model registry.
   - **The sponsor hub** now reads matched and likely sales.
@@ -814,15 +817,15 @@ Try the exact match first — reward token, order ID, partner click ID. Only fal
   [`SponsorX-Attribution-Matching.md`](./SponsorX-Attribution-Matching.md) §2
 - **Reference:** Spec §17.4
 
-### ◑ `3S6-BE-04` · Reconciliation queue for unmatched events
+### ✅ `3S6-BE-04` · Reconciliation queue for unmatched events
 
-**Order** 29 · **BE** · **Where:** Code · **3d** · **Code review**
+**Order** 29 · **BE** · **Where:** Code · **3d** · **Done**
 
 Events that cannot be matched stay visible rather than disappearing. Silent data loss is worse than visible gaps.
 
 - **Depends on:** 3S6-BE-03
 - **Done when:** Unmatched and ambiguous events remain in a reviewable queue
-- **Built:** 2026-10-16.
+- **Delivered:** 2026-10-16 (merged in #237).
   - **Every unmatched sale stays** with its reason: `no_match`, `ambiguous`, `outside_window`, `unknown_token`.
   - **Retried nightly** (step `attribution`).
   - **BTG admins may dismiss one with a reason;** it is audited and stays on the list, marked. No manual assignment.
@@ -1049,14 +1052,20 @@ Confirm benchmarks are statistically meaningful and warehouse totals still tie o
   [`SponsorX-Backtest.md`](./SponsorX-Backtest.md) §1
 - **Reference:** Spec §22
 
-### ⏸ `3S9-PMO-01` · Phase 3 UAT and staged rollout
+### ✅ `3S9-PMO-01` · Phase 3 UAT and staged rollout
 
-**Order** 43 · **PMO** · **Where:** Document · **5d** · **Blocked**
+**Order** 43 · **PMO** · **Where:** Document · **5d** · **Done**
 
 Roll out per tenant behind flags, starting with BTG's own data, before any external property sees a recommendation.
 
 - **Depends on:** 3S9-QA-01
 - **Done when:** All 12 Phase 3 acceptance criteria demonstrated and signed off
+- **Delivered:** 2026-10-16, signed off by the user the same day.
+  - **Each criterion** has its proof: the tests that exercise it, 196/196 passing on release `11d0a316`.
+  - **Criterion 12** gained a test that switches off each of the ten features in turn.
+  - **The staged rollout:** BTG's internal desks, then the hubs on BTG's own accounts, then outside sponsors and properties at go-live.
+
+  [`SponsorX-Phase3-UAT.md`](./SponsorX-Phase3-UAT.md)
 - **Reference:** Spec §22
 
 ### ✅ `3S9-OPS-01` · Model and pipeline monitoring

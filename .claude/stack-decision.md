@@ -558,4 +558,11 @@ Running more often and alerting on drift only shorten the damage. They do not re
 
 ## D4. What happens to C
 
-`Postgres-warehouse` and `Postgres-warehouse-production`, the reader logins, the hourly copy and `backend/worker/warehouse/` keep running harmlessly until `3S1-OPS-02` retires them, after the facts and history are live. The rule in C3a stands in a stronger form: live decisions read the app, and so does analysis now.
+The rule in C3a stands in a stronger form: live decisions read the app, and so does analysis now.
+
+**Retired 2026-10-16 (`3S1-OPS-02`, user).** The hourly copy, `backend/worker/warehouse/`, its tests and the `warehouse:reader` script are removed. **The two databases stay, by the user's decision, unused:**
+- **`Postgres-warehouse`** (staging) and **`Postgres-warehouse-production`** (production) are still services in the Railway project. Nothing writes to them or reads from them.
+- **What still exists around them:**
+  - their `WAREHOUSE_DATABASE_URL` / `WAREHOUSE_SOURCE_DATABASE_URL` settings on the worker services, which nothing reads now;
+  - the `warehouse_reader` login on each product database.
+- **They are kept, not forgotten.** Deleting them needs the owner's OK and is not planned.
