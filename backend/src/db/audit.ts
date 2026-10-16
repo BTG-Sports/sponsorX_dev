@@ -115,6 +115,11 @@ export const AUDIT_ACTIONS = {
     /** 4S1-BE-04 — a placement booked for days inside a campaign, and given back. */
     windowBook: "virtual.windowBook",
     windowRelease: "virtual.windowRelease",
+    /** 4S2-BE-01/02 — a creative version registered (validated or rejected), and deployments made, approved and ended. */
+    creativeRegister: "virtual.creativeRegister",
+    deploymentCreate: "virtual.deploymentCreate",
+    deploymentApprove: "virtual.deploymentApprove",
+    deploymentEnd: "virtual.deploymentEnd",
   },
   /** Agreements — acceptance is the legally interesting event. */
   agreement: {

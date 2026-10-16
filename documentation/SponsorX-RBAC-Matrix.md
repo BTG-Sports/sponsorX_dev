@@ -1860,6 +1860,8 @@ Virtual worlds, their districts, venues and zones, and their placements
   /virtual/placements/{placementId}/windows`, `POST
   /virtual/windows/{windowId}/release`) is a campaign write: whoever may write
   the campaign (`campaign`, §2) and read the placement. No new matrix row.
+  The same goes for a window's creative and deployments (4S2-BE-01/02). A
+  world's manifest (4S2-BE-03) is a `virtualWorld` read.
 
 ## 14 · Known gaps
 
