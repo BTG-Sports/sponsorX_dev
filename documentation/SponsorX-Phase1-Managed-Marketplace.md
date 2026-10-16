@@ -2739,14 +2739,18 @@ Actually restore a backup. Actually trigger an alert. Actually roll back once. U
 - **Done when:** Backups verified by an actual restore; monitoring alerts tested; rollback procedure exercised once
 - **Reference:** §38
 
-### ⏸ `P8-QA-02` · Write and run UAT scripts (§38 deliverable)
+### ✅ `P8-QA-02` · Write and run UAT scripts (§38 deliverable)
 
-**Order** 162 · **QA** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 1
+**Order** 162 · **QA** · **Where:** Code · **5d** · **Done** · **Unblocks** 1
 
 Write and run user acceptance scripts for athlete, sponsor, admin and fan, with real pilot users on staging.
 
 - **Depends on:** P8-QA-01
-- **Done when:** Scripts exist for athlete, sponsor, admin and fan journeys; run with real pilot users on staging
+- **Done when:** Scripts exist for athlete, sponsor, admin and fan journeys; run with real pilot users on staging *(amended 2026-10-16 by the user: the run is met by the existing evidence, as Phase 2's was by simulated users)*
+- **Delivered:** 2026-10-16, closed by the user's decision.
+  - **The scripts:** [`SponsorX-Phase1-UAT-Scripts.md`](./SponsorX-Phase1-UAT-Scripts.md), 28 steps across four journeys, each mapped to §30.
+  - **The run:** Phase 2's simulated-user run on staging (2026-10-09, `documentation/uat-evidence/phase2-2610090617/`) covered sign-up, Zoho in the sandbox and cross-tenant refusals. The daily end-to-end tests in CI walk the rest of the Phase 1 loop in a browser: application, matching, invitation, delivery and approval, the fan QR reward, earnings and the sponsor report.
+  - **The scripts stay ready** for BTG's real pilot users.
 - **Reference:** §29 Sprint 7, §38
 
 ### ⏸ `P8-SEC-01` · Complete the authorisation matrix

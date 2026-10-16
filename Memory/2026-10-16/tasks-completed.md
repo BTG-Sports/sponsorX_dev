@@ -183,3 +183,11 @@ The user asked me to check the acceptance criteria and close the rows if they pa
   - **Sign-off:** P8-QA-01 is Done.
 - **Finding:** `NilJob.id` is unique across the database, so only one tenant can hold the SX catalogue. It's noted in the record as something to fix before a second tenant prices its own jobs.
 - **P8-QA-02:** `documentation/SponsorX-Phase1-UAT-Scripts.md` has four journeys (athlete, sponsor, BTG admin, fan) in 28 steps, each mapped to §30. Next is the simulated-user run on staging.
+
+## rcfworks — P8-QA-02 to Done (the user's decision)
+
+- **Why no Phase 1 staging run:** the user asked why run one if Phase 2 already did, and decided to "close all phase 1 tests that were proven in phase2 tests".
+- **Closed:** P8-QA-02, the only Phase 1 test task still open.
+  - **The scripts:** done, with the steps mapped to §30.
+  - **The run:** met by Phase 2's simulated-user run on staging (2026-10-09: sign-up, Zoho, cross-tenant) plus the daily end-to-end loops in CI (application, matching, delivery, QR reward, earnings and report).
+  - **No new runner was built.** The scripts stay ready for BTG's real pilot.

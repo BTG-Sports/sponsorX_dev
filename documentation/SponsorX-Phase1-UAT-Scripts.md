@@ -1,17 +1,26 @@
 # SponsorX Phase 1 · UAT Scripts
 
-**Task `P8-QA-02` · Draft 0.2 · 2026-10-16 · Phase 1, Stage 8**
+**Task `P8-QA-02` · Version 1.0 · 2026-10-16 · Phase 1, Stage 8**
 
 **Done when:** scripts exist for the athlete, sponsor, admin and fan journeys,
 and they have been run with real pilot users on staging.
 
-**Status.** These are the scripts. The "Criteria" column names the §30
-criteria each step shows, numbered as in
+**Status: done (2026-10-16, the user's decision).** The "Criteria" column
+names the §30 criteria each step shows, numbered as in
 [`SponsorX-Phase1-Acceptance.md`](./SponsorX-Phase1-Acceptance.md)
-(`P8-QA-01`). Still to come:
-- **The simulated-user run on staging** comes next: a browser script plays
-  each person, as Phase 2's did (`backend/scripts/uat-phase2.mjs`).
-- **The run with real pilot users** is BTG's.
+(`P8-QA-01`). The run is met by evidence that already exists:
+- **Phase 2's simulated-user run on staging** (2026-10-09,
+  `documentation/uat-evidence/phase2-2610090617/`) covered the steps the phases
+  share: athlete and sponsor sign-up (A1, S1), Zoho in the sandbox (B7, B8),
+  and other people's links being refused (A8, S7).
+- **The daily end-to-end tests in CI** walk the rest of the loop in a browser:
+  - `loop-p3-application`: A1, A2, B1;
+  - `loop-p4-matching`: S2, S3, B2–B4, A5;
+  - `loop-p5-delivery`: A6, B5, S5;
+  - `redeem-flow`: F1–F3;
+  - `loop-p7-earnings-report`: A7, S6, B7.
+
+These scripts stay ready for BTG's real pilot users.
 
 **How to read a step.**
 - **Who** does it.
