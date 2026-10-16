@@ -93,7 +93,6 @@ import { handleRollupMetrics } from "./jobs/rollup-metrics.mts";
 import { remindDueDeliverables } from "./jobs/deliverable-reminders.mts";
 import { handleIngestInvoice, type IngestInvoiceJob } from "./jobs/ingest-invoice.mts";
 import { handleRenderReport } from "./jobs/render-report.mts";
-import { ingestWarehouse, SLOW_BUILD_MS } from "./warehouse/ingest.mts";
 import { applyQueuePolicy } from "./queue-policy.mts";
 import { expireCarts } from "../src/domain/cart.ts";
 import { expireReservations } from "../src/domain/reservation.ts";
@@ -385,13 +384,8 @@ let studentDigestTimer: ReturnType<typeof setInterval> | undefined;
    taken under its lock in its own transaction, so overlapping passes agree. */
 let editionTimer: ReturnType<typeof setInterval> | undefined;
 const EDITION_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
-/* 3S1-DATA-01 — warehouse ingestion, hourly, where a warehouse is configured. */
-let warehouseTimer: ReturnType<typeof setInterval> | undefined;
-let warehousePool: pg.Pool | undefined;
 /* 3S1-QA-01 — the nightly fact check (hourly tick; runs once a day at or after 19:00 UTC). */
 let factCheckTimer: ReturnType<typeof setInterval> | undefined;
-let warehouseSourcePool: pg.Pool | undefined;
-const WAREHOUSE_INGEST_INTERVAL_MS = 60 * 60 * 1000;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
    channel is renewed every 12 hours against a 24-hour expiry. */
 const ZOHO_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
@@ -925,39 +919,6 @@ async function main(): Promise<void> {
   editionTimer = setInterval(editionSweep, EDITION_SWEEP_INTERVAL_MS);
   setTimeout(editionSweep, 70_000).unref();
 
-  /* 3S1-DATA-01 — copy the product into the warehouse's raw layer, hourly.
-     Only where a warehouse database is configured: production has none until
-     3S0-OPS-01 provisions it, and then this starts on its own. A run that
-     finds another in progress steps aside (advisory lock), and every run is
-     safe to repeat, so a missed or doubled hour costs nothing. */
-  const warehouseUrl = process.env.WAREHOUSE_DATABASE_URL;
-  if (warehouseUrl) {
-    warehousePool = new pg.Pool({ connectionString: warehouseUrl, options: "-c TimeZone=UTC", max: 2 });
-    /* 3S0-OPS-01 — read the product through its read-only login, which can
-       see only the allow-listed columns (worker/warehouse/grants.mts). The
-       worker's own connection is the fallback for local development. */
-    const sourceUrl = process.env.WAREHOUSE_SOURCE_DATABASE_URL;
-    warehouseSourcePool = sourceUrl ? new pg.Pool({ connectionString: sourceUrl, options: "-c TimeZone=UTC", max: 1 }) : undefined;
-    if (!sourceUrl) log("[worker] WAREHOUSE_SOURCE_DATABASE_URL is not set — ingestion reads through the worker's own connection.");
-    const warehouseIngest = () => {
-      void ingestWarehouse({ product: warehouseSourcePool ?? pool, warehouse: warehousePool! })
-        .then((out) => {
-          if (out.status === "skipped") return log(`[worker] warehouse ingest skipped: ${out.reason}`);
-          const changed = Object.entries(out.rows)
-            .map(([t, r]) => [t, r.mode === "APPEND" ? r.inserted + r.updated : r.versions + r.deleted] as const)
-            .filter(([, n]) => n > 0);
-          log(`[worker] warehouse ingest run ${out.runId} — ${changed.length ? changed.map(([t, n]) => `${t} ${n}`).join(", ") : "no changes"}; built in ${out.buildMs} ms; double-check ${out.reconciled.ok ? "ok" : "FAILED"}`);
-          if (!out.reconciled.ok) logError(`[worker] warehouse double-check found differences in run ${out.runId}:`, JSON.stringify(out.reconciled.failed.slice(0, 20)));
-          if (out.buildMs > SLOW_BUILD_MS) logError(`[worker] warehouse build took ${Math.round(out.buildMs / 1000)} s — time for the incremental mode (3S1-DATA-04)`, "");
-        })
-        .catch((error: unknown) => logError("[worker] warehouse ingest failed, will retry next hour:", error));
-    };
-    warehouseTimer = setInterval(warehouseIngest, WAREHOUSE_INGEST_INTERVAL_MS);
-    setTimeout(warehouseIngest, 90_000).unref();
-  } else {
-    log("[worker] WAREHOUSE_DATABASE_URL is not set — warehouse ingestion is off.");
-  }
-
   /* 3S1-QA-01 — the nightly fact check. Hourly, so a worker that was down at 19:00 UTC runs it on its
      first tick after; the day's unique run makes every other tick (and every other worker) a no-op.
      BTG's admins are emailed only where FACT_CHECK_EMAILS is "on". */
@@ -1108,10 +1069,7 @@ export async function stopWorker(): Promise<void> {
   if (studentSweepTimer) clearInterval(studentSweepTimer);
   if (studentDigestTimer) clearInterval(studentDigestTimer);
   if (editionTimer) clearInterval(editionTimer);
-  if (warehouseTimer) clearInterval(warehouseTimer);
   if (factCheckTimer) clearInterval(factCheckTimer);
-  await warehousePool?.end().catch(() => {});
-  await warehouseSourcePool?.end().catch(() => {});
   timer = undefined;
   expiryTimer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});
