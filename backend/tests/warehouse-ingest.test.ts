@@ -198,6 +198,11 @@ describe.skipIf(!hasDatabase)("3S1-DATA-01 · ingestion", { timeout: 120_000 }, 
 
   it("an event updated late (a click's city) is updated in raw, not duplicated", async () => {
     await q(`UPDATE "LinkEvent" SET city = 'Baltimore', region = 'MD' WHERE id = 'wi_click'`);
+    /* The watermark is the newest click in the whole product database, and other test files running
+       alongside insert clicks dated weeks ahead (anomalies, attribution) — past this one by more than
+       the overlap, so it would not be re-read. Pin the watermark to this click: the question here is
+       whether a click updated inside the overlap is re-read, not what else the database holds. */
+    await w(`UPDATE raw._watermark SET last_at = (SELECT _at FROM raw."LinkEvent" WHERE id = 'wi_click') WHERE table_name = 'LinkEvent'`);
     await ingestWarehouse({ product, warehouse });
     const rows = await w(`SELECT _row->>'city' AS city FROM raw."LinkEvent" WHERE id = 'wi_click'`);
     expect(rows).toEqual([{ city: "Baltimore" }]);
