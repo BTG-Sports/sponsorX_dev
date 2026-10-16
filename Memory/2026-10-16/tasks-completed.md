@@ -39,4 +39,4 @@ The last Phase 3 backend tasks. The plan was approved by the user before startin
   - the sponsor hub.
 - The tenant-isolation sweep covers the dismiss route.
 
-**Tracker:** 3S6-BE-02/03/04 are at Code review, owner rcfworks, started 2026-10-16. They move to Done once merged.
+**Tracker:** 3S6-BE-02/03/04 moved to Done on 2026-10-16, after #237 merged with acceptance met. Sync PR #238 (main_development → main) is open; the deploy follows once main is green.
