@@ -170,14 +170,15 @@ Buy the domain the whole product is addressed at, and keep control of its DNS. N
 - **Done when:** Domain registered to a BTG-controlled account with auto-renew and registrar lock on; DNS managed somewhere the team can add records; the chosen name recorded in `.claude/stack-decision.md`
 - **Reference:** §38, Guide §10
 
-### ▶ `P0-OPS-03` · Create Clerk application (dev + production instances)
+### ✅ `P0-OPS-03` · Create Clerk application (dev + production instances)
 
-**Order** 3 · **OPS** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 55
+**Order** 3 · **OPS** · **Where:** Vendor console · **1d** · **Done** · **Unblocks** 55
 
 Create the Clerk account with separate dev and production instances. Clerk handles login, passwords and MFA only — it never stores who belongs to which tenant or what they can do.
 
 - **Depends on:** nothing — startable now
-- **Done when:** Both instances exist; MFA available for privileged roles
+- **Done when:** Both instances exist *(amended 2026-10-16 by the user: the MFA half — "MFA available for privileged roles" — is `P2-INT-02`'s, which closes it when Clerk Pro is bought at launch)*
+- **Delivered:** application `SponsorX` with its development and production instances (2026-09-21); production signs in on `clerk.sponsorx.net`, domain verified. Closed 2026-10-16.
 - **Reference:** Addendum A4, §26
 
 ### ▶ `P0-LEG-01` · Commission Content Collaboration Agreement from counsel

@@ -152,3 +152,9 @@ The plan was approved by the user. The doc is `documentation/SponsorX-Virtual-Re
   - **Permission:** booking is a campaign write, so there is no new matrix row; RBAC §37 has a note.
   - **Code:** the errors moved to `virtual-errors.ts` so the registry and the bookings don't import each other.
 - **Not done here, and noted in the doc:** bookings aren't money facts yet, so they don't show in campaign figures, the sponsor report or the fact check. That's 4S7-BE-01 / 4S7-DATA-01. A campaign holding only virtual windows counts as empty in `campaign-state.ts`: it can't skip STAFFING the way an ad-only campaign can, because the shape counts only orders and ad slots. That's 4S7-BE-01 as well.
+
+## rcfworks — P0-OPS-03 closed (the user's decision)
+
+The user asked why P0-OPS-03 was open "when all Clerk tasks were finished". Clerk is finished: the application `SponsorX` has dev and production instances, and production signs in on `clerk.sponsorx.net`. The row was open only because its "Done when" included "MFA available for privileged roles", which needs Clerk Pro (deferred to launch on 2026-09-21). P2-INT-02 says the same thing.
+
+**Done:** the "Done when" is amended to "Both instances exist", the MFA half now sits only on P2-INT-02, and P0-OPS-03 is Done (plan and tracker).
