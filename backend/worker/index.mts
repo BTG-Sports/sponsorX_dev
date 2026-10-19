@@ -116,6 +116,7 @@ import { runAnomalies } from "../src/domain/anomaly-engine.ts";
 import { runBacktests } from "../src/domain/backtest-engine.ts";
 import { rematchQueue } from "../src/domain/attribution-matching.ts";
 import { recordStep, runStep } from "../src/domain/pipeline-runs.ts";
+import { sweepMissingHeartbeats } from "../src/domain/infinex-clients.ts";
 import { validateBenchmarks } from "../src/domain/benchmark-validation.ts";
 import { queueZohoIntelligence } from "../src/domain/zoho-intelligence.ts";
 import { env } from "../src/config/env.ts";
@@ -326,6 +327,8 @@ let reminderTimer: ReturnType<typeof setInterval> | undefined;
 let cartTimer: ReturnType<typeof setInterval> | undefined;
 /* 2S4-BE-02 — the reservation sweep, every minute. */
 let holdTimer: ReturnType<typeof setInterval> | undefined;
+/* 4S3-INT-02 — the missing-heartbeat check for INFINEX game builds, every minute. */
+let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 /* 2S4-BE-07 / -08 — the delivery sweep: 24-hour silence confirms, overdue
    reminders, and the 30-day auto-close. Every ten minutes, so a sponsor's
    24 hours end within minutes of the deadline; each pass is idempotent. */
@@ -780,6 +783,14 @@ async function main(): Promise<void> {
   /* 2S4-BE-02 — mark lapsed holds EXPIRED. The stock already came back the
      instant each one's time passed (availability counts only live holds);
      this keeps the record true. Every minute: a hold lasts fifteen. */
+  /* 4S3-INT-02 — a game build that reported and then went quiet for five minutes is marked missing and alerted
+     (audit + the Integrations screen), once, until it reports again. */
+  heartbeatTimer = setInterval(() => {
+    void sweepMissingHeartbeats(prisma)
+      .then(({ missing }) => { if (missing) log(`[worker] infinex heartbeats — ${missing} build(s) newly missing`); })
+      .catch((error: unknown) => logError("[worker] heartbeat sweep failed, will retry next minute:", error));
+  }, 60_000);
+
   holdTimer = setInterval(() => {
     void expireReservations(prisma)
       .then(({ expired }) => { if (expired) log(`[worker] reservations — expired ${expired}`); })
@@ -1053,6 +1064,7 @@ export async function stopWorker(): Promise<void> {
   if (cartTimer) clearInterval(cartTimer);
   if (retentionTimer) clearInterval(retentionTimer);
   if (holdTimer) clearInterval(holdTimer);
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
   if (deliveryTimer) clearInterval(deliveryTimer);
   if (reviewReminderTimer) clearInterval(reviewReminderTimer);
   if (zohoTimer) clearInterval(zohoTimer);

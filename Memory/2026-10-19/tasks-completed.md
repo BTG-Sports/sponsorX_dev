@@ -233,3 +233,16 @@ The user chose "the next Phase 4 backend task". 4S0-SEC-01 comes before 4S3-INT-
   - `CreativeDeployment_pause_rollback_check` and `InfinexToken_kind_check` exist;
   - `/health` returns 200.
 - **Stage Progress:** no change. Phase 4 work moves no Phase 1 count.
+
+## rcfworks — 4S3-INT-02 · client registry and heartbeat (Code review)
+
+The plan was approved. Its decisions: a client is one build per world; heartbeats aren't signed; only the latest beat is kept; missing means 5 minutes after a first report; the alert is the Integrations screen plus audit, no email.
+
+- **Registry.** `InfinexClient` gains the heartbeat columns, `missingSince`, `revokedBy`/`revokeReason`, `@@unique([worldId, buildId])` and a CHECK. `POST`/`GET /infinex/clients` and `POST /infinex/clients/{id}/revoke`, for BTG or a world's server; a game session gets 409.
+- **Heartbeat.** `POST /infinex/heartbeat` `{manifestVersion, buildId?, fps?, errorCount?}` takes a game session only (a server token or a person gets 409). The client comes from the token, and a body `buildId` that isn't the session's is 422. It answers 204, keeps the latest beat and a count, and clears `missingSince` with an `infinex.heartbeatRecovered` audit row.
+- **Missing.** `sweepMissingHeartbeats` runs on a worker timer every minute. An ACTIVE build that has reported and then gone quiet for more than 300 s is marked once, with `infinex.heartbeatMissing`, in one transaction per build. `integrationHealth().infinex` gives the threshold, active, missing, and each build's heartbeat age (§5.5, for 4S8-FE-01).
+- **Stand-in world.** `scripts/infinex-standin.mts` (`npm run infinex:standin`) uses the public API only: server token → session → manifest → N heartbeats. `runStandin` is exported for the tests.
+- **Change to 4S0-SEC-01:** a session now starts without `INFINEX_SIGNING_SECRET` (`signingKey: null`); the signed routes still refuse. Spec §6.2 and Secrets-Rotation §11a are updated.
+- **Permissions.** `infinexClient.INFINEX_CLIENT` read/write own-tenant, pinned by scope.ts to `actor.machine.clientId`. Digest `b1f1e50851c850e3` → `6c2dbfecd20f5311`. RBAC §38 is updated, and two 4S0 test expectations went 403 → 409 (still refused, one step later). The sweep has bodies for register, revoke and heartbeat.
+- **Tests:** `infinex-clients.test.ts` (5), with INFINEX_SIGNING_SECRET deliberately unset.
+- **Docs:** spec §4.2 and §5.5, the Phase 4 plan. Tracker: Code review.

@@ -223,7 +223,7 @@ The same steps apply to every row below:
 ### 11a · `INFINEX_SIGNING_SECRET` (+ `_PREVIOUS`)
 
 - **What:** the root a game session's signing key is derived from (`4S0-SEC-01`, `backend/src/auth/machine.ts`). The key itself is never stored.
-- **Unset:** no game session can be started (503). Set it on `api` before an INFINEX world's game sends signed requests (the telemetry intake, `4S4-BE-01`).
+- **Unset:** a game session still starts, with no signing key, and the signed routes refuse it. Set it on `api` before an INFINEX world's game sends signed requests (the telemetry intake, `4S4-BE-01`).
 - **Rotate:**
   1. Set `INFINEX_SIGNING_SECRET_PREVIOUS` = the current value and `INFINEX_SIGNING_SECRET` = a new random value. Deploy.
   2. New sessions get keys from the new root. Sessions already running keep verifying under the old one.

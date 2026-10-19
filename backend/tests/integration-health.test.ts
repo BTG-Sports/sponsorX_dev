@@ -40,6 +40,15 @@ vi.mock("../src/db/client", () => ({
     },
     /* 3S1-QA-01 — no nightly fact check has run yet. */
     factCheckRun: { findFirst: async () => null, findMany: async () => [] },
+    /* 4S3-INT-02 — one INFINEX build quiet for six minutes (marked missing), one never launched. */
+    infinexClient: {
+      findMany: async () => [
+        { id: "c1", worldId: "w1", buildId: "2026.10.1", status: "ACTIVE", createdAt: new Date("2026-10-01T00:00:00Z"), revokedAt: null, revokeReason: null,
+          lastHeartbeatAt: new Date("2026-10-03T23:54:00Z"), lastManifestVersion: 4, lastFps: 60, lastErrorCount: 0, heartbeatCount: 120, missingSince: new Date("2026-10-03T23:59:30Z") },
+        { id: "c2", worldId: "w1", buildId: "2026.10.2", status: "ACTIVE", createdAt: new Date("2026-10-02T00:00:00Z"), revokedAt: null, revokeReason: null,
+          lastHeartbeatAt: null, lastManifestVersion: null, lastFps: null, lastErrorCount: null, heartbeatCount: 0, missingSince: null },
+      ],
+    },
   },
 }));
 
@@ -52,6 +61,10 @@ const finance = { ...base, roles: ["FINANCE"] } as unknown as Actor;
 describe("integrationHealth", async () => {
   const h = await integrationHealth(admin, new Date("2026-10-04T00:00:00Z"));
 
+  it("4S3-INT-02 · lists the INFINEX builds with their heartbeat age, and which are missing", () => {
+    expect(h.infinex).toMatchObject({ thresholdSeconds: 300, active: 2, missing: 1 });
+    expect(h.infinex.clients.map((c) => [c.id, c.heartbeatAgeSeconds, c.missing])).toEqual([["c1", 360, true], ["c2", null, false]]);
+  });
   it("reports dependencies as /health/ready does", () => {
     expect(h.dependencies).toEqual({ db: true, redis: true, storage: false });
   });

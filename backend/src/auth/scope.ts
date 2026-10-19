@@ -931,7 +931,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
       ? (actor.infinexWorldId ? { tenantId: actor.tenantId, id: actor.infinexWorldId } : MATCHES_NOTHING)
       : scope === "own-property" ? (actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING) : tenantScoped(actor, scope)),
   infinexCredential: tenantScoped,
-  infinexClient: tenantScoped,
+  /* 4S3-INT-02 — a game session reaches only its own client row. */
+  infinexClient: (actor, scope) => (actor.machine?.clientId ? { tenantId: actor.tenantId, id: actor.machine.clientId } : tenantScoped(actor, scope)),
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

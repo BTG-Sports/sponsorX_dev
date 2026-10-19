@@ -4652,18 +4652,30 @@ model InfinexCredential {
   @@index([tenantId])
 }
 
-/// A game client registered for one world (and build). Registration and heartbeats are 4S3-INT-02.
+/// A game build registered for one world (4S3-INT-02): one row per world and build. Its latest heartbeat is kept
+/// here, not one row per beat; a build that has reported and then goes quiet is MISSING until it reports again.
 model InfinexClient {
-  id           String    @id @default(cuid())
-  tenantId     String
-  worldId      String
-  buildId      String
+  id                  String    @id @default(cuid())
+  tenantId            String
+  worldId             String
+  buildId             String
   /// ACTIVE | REVOKED
-  status       String    @default("ACTIVE")
-  createdBy    String?
-  createdAt    DateTime  @default(now())
-  revokedAt    DateTime?
+  status              String    @default("ACTIVE")
+  createdBy           String?
+  createdAt           DateTime  @default(now())
+  revokedAt           DateTime?
+  revokedBy           String?
+  revokeReason        String?
+  /// 4S3-INT-02 — the latest heartbeat, and how many there have been.
+  lastHeartbeatAt     DateTime?
+  lastManifestVersion Int?
+  lastFps             Float?
+  lastErrorCount      Int?
+  heartbeatCount      Int       @default(0)
+  /// 4S3-INT-02 — set when the missing-heartbeat check raised its alert; cleared by the next heartbeat.
+  missingSince        DateTime?
 
+  @@unique([worldId, buildId])
   @@index([tenantId, worldId])
 }
 

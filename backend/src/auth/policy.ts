@@ -1222,12 +1222,14 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
   },
-  /* 4S0-SEC-01 (matrix §38) — the game clients registered for a world. BTG registers and revokes (4S3-INT-02);
-     a world's server reads them and starts a game session for one (a write). */
+  /* 4S0-SEC-01 / 4S3-INT-02 (matrix §38) — the game builds registered for a world. BTG and a world's server
+     register and revoke them; a server starts a game session for one (a write). A game session reads and writes
+     only its own client (its heartbeat) — scope.ts pins it. */
   infinexClient: {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
     INFINEX_SERVICE: rwa("own-tenant", "own-tenant"),
+    INFINEX_CLIENT: rwa("own-tenant", "own-tenant"),
   },
 };
 

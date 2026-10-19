@@ -384,14 +384,22 @@ Assign creative version, approve, schedule, publish and roll back.
 
 *2 tasks · 3 person-days*
 
-### ⏸ `4S3-INT-02` · Client registry and heartbeat endpoint
+### ◑ `4S3-INT-02` · Client registry and heartbeat endpoint
 
-**Order** 20 · **INT** · **Where:** Code · **2d** · **Blocked**
+**Order** 20 · **INT** · **Where:** Code · **2d** · **Code review**
 
 Trusted clients register with a key and report health, so you know when a world stops rendering sponsorship. SponsorX's side: the registry, the heartbeat endpoint and the missing-heartbeat alert, proven with the stand-in world. The game sending it is `5S1-INT-02`.
 
 - **Depends on:** 4S2-BE-03
 - **Done when:** A registered client's heartbeat is recorded and a missing heartbeat raises an alert (proven with the stand-in world)
+- **Delivered:** 2026-10-19.
+  - **Registry:** a client is one game build for one world, registered and revoked by BTG or the world's server (`/infinex/clients`).
+  - **Heartbeat:** `POST /infinex/heartbeat` comes from a game session (4S0-SEC-01). The latest beat and a count are kept on the client.
+  - **Missing:** a build that reported and then goes quiet for 5 minutes is marked missing by the worker's minute sweep. The alert is an audit row and a line on the Integrations screen; the next heartbeat records the recovery.
+  - **Stand-in world:** `npm run infinex:standin` calls SponsorX exactly as a world will (server token → game session → manifest → heartbeats). The tests drive it end to end.
+  - **Test:** `infinex-clients.test.ts`.
+
+  [`SponsorX-INFINEX-API-and-Event-Spec.md`](./SponsorX-INFINEX-API-and-Event-Spec.md) §4.2, §5.5
 - **Reference:** Spec §28, §30
 
 ### ⏸ `4S3-INT-03` · Client configuration endpoint
