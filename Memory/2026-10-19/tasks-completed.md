@@ -145,3 +145,13 @@ The user asked to close and implement every open item from the last summary. The
 **Tracker:** P8-BE-01 is added as Phase 1 row 305 (the autofilter, Status validation and conditional formatting now reach row 305; the Dashboard already reads to 400). 4S2-BE-04 and 4S7-BE-01 are at Code review, owner rcfworks, started 2026-10-19.
 
 **Not done here:** 4S7-DATA-01 (counting a fan once across channels) needs in-game events (4S4/4S5).
+
+## rcfworks — 3S7-INT-01 to Done; #255's e2e fix
+
+- **3S7-INT-01 → Done (the user's OK for the staging write).**
+  - **The simulated data:** staging got one clearly labelled campaign, `sim_3s7int01_campaign` ("UAT simulated — Harborview spring push", ACTIVE, ends 2026-11-08), with a forecast (86,000 of 100,000 impressions), for the sponsor "UAT 2610090617 Harborview Bakery".
+  - **The push:** `queueZohoIntelligence` queued 1 push for that tenant, and the worker sent it.
+  - **Read back from the sandbox:** Renewal Score 86; Next Action "Renew: UAT simulated — Harborview spring push — On course to deliver 86,000 of the 100,000 impressions promised (86%)."
+  - **Production:** its two fields follow P2-OPS-04's Zoho keys, as recorded on 2026-10-15.
+- **#255's e2e failed on CI.** `e2e/support/loop-db.ts` seeded NilJob with `on conflict (id)`, and P8-BE-01 removed that key. It now uses `("tenantId", id)`. A `git grep` of the tracked files found no other NilJob upsert. The e2e suite is now run locally before pushing.
+

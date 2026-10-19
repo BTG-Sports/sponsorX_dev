@@ -77,7 +77,7 @@ export async function ensureBase(): Promise<void> {
       await c.query(
         `insert into "NilJob"(id, "tenantId", name, "baseLow", "baseHigh", "sellLow", "sellHigh",
                               "sellFloorEmerging", "sellFloorCreator", "sellFloorPremium")
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) on conflict (id) do nothing`,
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) on conflict ("tenantId", id) do nothing`,
         [job.id, TENANT, job.name, job.baseLow, job.baseHigh, job.sellLow, job.sellHigh,
          job.sellFloorEmerging, job.sellFloorCreator, job.sellFloorPremium],
       );
