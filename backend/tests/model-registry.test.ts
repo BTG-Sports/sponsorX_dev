@@ -106,6 +106,16 @@ describe.skipIf(!hasDatabase)("3S8-BE-01 / 3S8-OPS-01 · the model registry and 
     await expect(A.changeSettings(ana, "forecast", { values: { watchBelow: 1.5 }, reason: "More than everything" })).rejects.toBeInstanceOf(A.ModelInputError);
     await expect(A.changeSettings(ana, "makegood", { values: { windowDays: 10.5 }, reason: "Half a day longer" })).rejects.toBeInstanceOf(A.ModelInputError);
     await expect(A.changeSettings(ana, "forecast", { values: { atRiskBelow: 0.4 }, reason: "short" })).rejects.toBeInstanceOf(A.ModelInputError);
+  });
+
+  it("idempotent under a double submit: the live values are 'nothing changed'; a draft's values are that draft, never a third version (QA 2026-10-19)", async () => {
+    /* forecast is back on 2.0.0 (atRiskBelow 0.5) after the rollback above */
+    await expect(A.changeSettings(ana, "forecast", { values: { atRiskBelow: 0.5 }, reason: "Saving the live value again" })).rejects.toThrow(/Nothing changed/);
+    const first = await A.changeSettings(ana, "forecast", { values: { atRiskBelow: 0.8 }, reason: "A held change, submitted twice" }, NOW);
+    const second = await A.changeSettings(ana, "forecast", { values: { atRiskBelow: 0.8 }, reason: "A held change, submitted twice" }, NOW);
+    expect(first).toMatchObject({ version: "2.3.0", status: "draft" });
+    expect(second).toMatchObject({ version: "2.3.0", status: "draft" });
+    expect((await A.modelRegistry(ana, NOW)).models.find((m) => m.key === "forecast")!.versions.filter((v) => v.status === "draft")).toHaveLength(1);
     await expect(A.changeSettings(ana, "weather", { values: { x: 1 }, reason: "No such model at all" })).rejects.toBeInstanceOf(A.ModelNotFoundError);
   });
 

@@ -181,7 +181,8 @@ export async function dismissUnmatched(actor: Actor, id: string, input: { reason
       where: { tenantId: actor.tenantId, id, status: "unmatched" },
       data: { status: "dismissed", dismissedBy: actor.userId, dismissedAt: now, dismissNote: reason },
     });
-    if (!n.count) throw new AttributionNotFoundError();
+    /* Lost a race: another person dismissed it, or the nightly retry matched it, between the read and the write — the record stands (409, not 404). */
+    if (!n.count) throw new AttributionDecidedError("Already decided meanwhile; the record stands.");
     await audit(tx, actor, AUDIT_ACTIONS.attribution.dismiss, "PartnerSaleAttribution", id, { before: { status: "unmatched", reason: row.reason }, after: { status: "dismissed", note: reason } });
     return { id, status: "dismissed" as const, dismissedAt: now.toISOString() };
   });

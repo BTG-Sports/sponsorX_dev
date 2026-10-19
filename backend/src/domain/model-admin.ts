@@ -214,15 +214,23 @@ export async function changeSettings(actor: Actor, keyIn: string, input: { value
     await ensureBuiltIn(tx, tenantId, key);
     const [current, all] = await Promise.all([
       activeModel(tx, tenantId, key),
-      tx.modelVersion.findMany({ where: { tenantId, key }, select: { version: true } }),
+      tx.modelVersion.findMany({ where: { tenantId, key }, select: { version: true, status: true, thresholds: true } }),
     ]);
+    /* Idempotent under a double submit (QA 2026-10-19): the same values as the
+       live version are "nothing changed", and the same values as a draft still
+       waiting for its second person are that draft — never a third version. */
+    const next = { ...current.t, ...input.values };
+    const sameAs = (t: unknown) => JSON.stringify(Object.entries((t ?? {}) as Record<string, number>).sort()) === JSON.stringify(Object.entries(next).sort());
+    if (sameAs(current.t)) throw new ModelInputError(["Nothing changed: every value equals the live version's."]);
+    const waiting = all.filter((r) => r.status === "draft" && sameAs(r.thresholds)).map((r) => r.version).sort(cmp).at(-1);
+    if (waiting) return { version: waiting, automatic: false };
     const top = all.map((r) => r.version).sort(cmp).at(-1) ?? def.builtIn;
     const [maj, min] = parse(top);
     const version = `${maj}.${(min ?? 0) + 1}.0`;
     const automatic = outside.length === 0;
     const row = await tx.modelVersion.create({
       data: {
-        tenantId, key, version, status: automatic ? "validated" : "draft", thresholds: { ...current.t, ...input.values },
+        tenantId, key, version, status: automatic ? "validated" : "draft", thresholds: next,
         notes: automatic ? `${reason} (inside the safe ranges: validated and activated automatically)` : `${reason} (held: ${outside.join("; ")})`,
         reason, createdBy: actor.userId, createdAt: now, ...(automatic ? { validatedAt: now } : {}),
       },
