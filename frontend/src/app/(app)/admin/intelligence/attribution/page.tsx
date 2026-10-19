@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { ClassBadge, ClassTiles } from "@/components/attribution-bits";
+import { DismissSale } from "@/components/attribution-dismiss";
 import { EnginePending, SampleBanner } from "@/components/engine-pending";
+import { StatusChip } from "@/components/forecast-bits";
 import { IntelDeskHeader } from "@/components/intel-desk-bits";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { ListFilter, ServerList } from "@/components/server-pager";
@@ -11,24 +13,30 @@ import {
   ATTRIBUTION_EMPTY,
   ATTRIBUTION_TABS,
   CLASS_OPTIONS,
-  UNMATCHED_REASON,
   amountOf,
   attributionTab,
+  canDismiss,
   classParam,
   classTiles,
+  dismissedLine,
   displayClass,
   emptyAttributionDesk,
+  isRefund,
+  keysGivenLine,
+  kindLabel,
   methodLine,
   sampleAttribution,
+  unmatchedReason,
   windowLabel,
   type AttributionDesk,
   type AttributionTab,
 } from "@/lib/attribution-live";
 import { demoState } from "@/lib/demo";
-import { momentLabel, one, qs } from "@/lib/intel-admin";
+import { dayLabel, momentLabel, one, qs } from "@/lib/intel-admin";
 import { ENGINES, confidenceLabel, type AttributionClass } from "@/lib/intelligence";
 import { apiListQuery } from "@/lib/list-query";
-import { readEngine, wantsSample } from "@/server/engine";
+import { fetchActor } from "@/server/api";
+import { readEngineItem, wantsSample } from "@/server/engine";
 
 /* --------------------------------------------------------------------------
    3S6-FE-01 · Attribution dashboard (Spec §16 P3-05, acceptance #8).
@@ -36,16 +44,23 @@ import { readEngine, wantsSample } from "@/server/engine";
    Four claims kept apart: verified redemptions, verified transactions,
    modelled attribution and estimated media value — four tiles, each with its
    own sentence and its own look (components/attribution-bits.tsx), never
-   summed. Under them, two tabs: the attributed events (source, class,
-   method and match key, window, confidence, amount, what it matched), and
-   the reconciliation queue — events the engine could not match, kept in
-   view with the reason (3S6-BE-04). Read-only.
+   summed. Under them, two tabs: the attributed partner sales (source, class,
+   method and match key, window, confidence, amount — a refund negative and
+   marked — and what it matched), and the reconciliation queue (3S6-BE-04):
+   partner sales the engine could not match, kept in view with the reason
+   and the NAMES of the keys they carried, open first, then the dismissed
+   ones marked with who, when and why.
 
    Reads  GET /intelligence/attribution?campaign&tab=events|unmatched&class&page&size
           (lib/attribution-live.ts). Engine "attribution"; until it answers,
-          <EnginePending> and no number at all.
-   BTG admins, campaign managers and Sales. ?demo=loading|empty|error, and
-   ?demo=sample (development only) previews the live layout on the sample.
+          <EnginePending> and no number at all. An unknown ?campaign is the
+          API's 404 attribution_not_found → a not-found state, not the error
+          boundary.
+   Writes POST /intelligence/attribution/unmatched/:id/dismiss (./actions.ts)
+          — offered only to the roles the API lets dismiss (canDismiss: BTG
+          admins); campaign managers and Sales read the queue.
+   ?demo=loading|empty|error, and ?demo=sample (development only) previews
+   the live layout on the sample.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -73,18 +88,21 @@ export default async function AttributionPage({ searchParams }: { searchParams: 
   const tab = attributionTab(sp.tab);
   const cls = tab === "events" ? classParam(sp.class) : "";
   const campaign = one(sp.campaign).slice(0, 100);
+  /* staffWithoutAccess let a demo viewer through unlinked: they can't dismiss. */
+  const who = await fetchActor();
+  const mayDismiss = who.status === "linked" && canDismiss(who.actor.roles);
 
   if (await wantsSample(searchParams)) {
     return (
       <div className="space-y-5">
         <SampleBanner />
-        <Desk desk={sampleAttribution(tab, cls)} tab={tab} cls={cls} campaign="" sample />
+        <Desk desk={sampleAttribution(tab, cls)} tab={tab} cls={cls} campaign="" mayDismiss={mayDismiss} sample />
       </div>
     );
   }
-  if (demo === "empty") return <Desk desk={emptyAttributionDesk(tab)} tab={tab} cls={cls} campaign={campaign} />;
+  if (demo === "empty") return <Desk desk={emptyAttributionDesk(tab)} tab={tab} cls={cls} campaign={campaign} mayDismiss={mayDismiss} />;
 
-  const read = await readEngine<AttributionDesk>("attribution", `/intelligence/attribution${apiListQuery(sp, { tab, class: cls, campaign })}`);
+  const read = await readEngineItem<AttributionDesk>("attribution", `/intelligence/attribution${apiListQuery(sp, { tab, class: cls, campaign })}`);
   if (read.state === "pending") {
     return (
       <div className="space-y-5">
@@ -93,10 +111,21 @@ export default async function AttributionPage({ searchParams }: { searchParams: 
       </div>
     );
   }
-  return <Desk desk={read.data} tab={tab} cls={cls} campaign={campaign} />;
+  if (read.state === "absent") {
+    /* The API's own 404 — attribution_not_found: no such campaign in this tenant. */
+    return (
+      <div className="space-y-5">
+        <h1 className="sx-page-title">{TITLE}</h1>
+        <EmptyState mark="chart" title="No such campaign" hint={read.message} action={{ label: "Show every campaign", href: `${PATH}${qs({ tab: tab === "events" ? null : tab })}` }} />
+      </div>
+    );
+  }
+  return <Desk desk={read.data} tab={tab} cls={cls} campaign={campaign} mayDismiss={mayDismiss} />;
 }
 
-function Desk({ desk, tab, cls, campaign, sample = false }: { desk: AttributionDesk; tab: AttributionTab; cls: AttributionClass | ""; campaign: string; sample?: boolean }) {
+function Desk({ desk, tab, cls, campaign, mayDismiss, sample = false }: {
+  desk: AttributionDesk; tab: AttributionTab; cls: AttributionClass | ""; campaign: string; mayDismiss: boolean; sample?: boolean;
+}) {
   const scoped = desk.scope?.campaign ?? null;
   const keep = { campaign: campaign || null, demo: sample ? "sample" : null };
   const events = desk.events ?? [];
@@ -116,8 +145,11 @@ function Desk({ desk, tab, cls, campaign, sample = false }: { desk: AttributionD
   const unmatchedCols: Column[] = [
     { key: "source", label: "Source" },
     { key: "reason", label: "Why it's unmatched" },
+    { key: "keys", label: "Keys carried" },
     { key: "amount", label: "Amount", num: true },
     { key: "when", label: "Received" },
+    { key: "status", label: "Status" },
+    ...(mayDismiss ? [{ key: "act", label: "Dismiss", srOnly: true } as Column] : []),
   ];
 
   return (
@@ -148,7 +180,13 @@ function Desk({ desk, tab, cls, campaign, sample = false }: { desk: AttributionD
         {tab === "events" && (
           <div className="flex flex-wrap items-center gap-2">
             <ListFilter param="class" value={cls} label="Filter by attribution class" allLabel="All four classes" options={CLASS_OPTIONS} tone="admin" />
+            {(cls === "VERIFIED_REDEMPTION" || cls === "ESTIMATED_MEDIA_VALUE") && (
+              <p className="text-[11px] text-muted">Only partner sales are rows here — this class&rsquo;s figure is its tile above.</p>
+            )}
           </div>
+        )}
+        {tab === "unmatched" && scoped && (
+          <p className="text-[11px] text-muted">The queue is the whole tenant&rsquo;s — an unmatched sale has no campaign yet, so the {scoped.name} filter does not narrow it.</p>
         )}
 
         {shown === 0 ? (
@@ -160,8 +198,9 @@ function Desk({ desk, tab, cls, campaign, sample = false }: { desk: AttributionD
             <PagedTable bare page={desk.page} filtered={Boolean(cls)} noun="Events" label="Attributed events" columns={eventCols}>
               {events.map((e, i) => {
                 const shownAs = displayClass(e);
+                const refund = isRefund(e);
                 return (
-                  <Tr key={e.id} i={i} tone={shownAs.demoted ? "warn" : undefined}>
+                  <Tr key={e.id} i={i} tone={shownAs.demoted ? "warn" : undefined} className={refund ? "opacity-80" : ""}>
                     {/* Column balance on a laptop: Source and Matched-to keep a
                         readable minimum, the demoted note wraps narrower, and
                         When stays on one line clear of the card's edge. */}
@@ -188,7 +227,12 @@ function Desk({ desk, tab, cls, campaign, sample = false }: { desk: AttributionD
                       </span>
                     </Td>
                     <Td label="Confidence" muted>{confidenceLabel(e.confidence)}</Td>
-                    <Td label="Amount" num>{amountOf(e.amountCents)}</Td>
+                    <Td label="Amount" num>
+                      <span className="block min-w-0" data-kind={refund ? "refund" : "sale"}>
+                        <span className={`block tabular-nums ${refund ? "text-danger" : ""}`}>{amountOf(e.amountCents)}</span>
+                        {refund && <span className="block text-[11px] text-danger">{kindLabel(e)} — taken off the total</span>}
+                      </span>
+                    </Td>
                     <Td label="Matched to">
                       <span className="block min-w-0 md:min-w-[9rem]">
                         {e.campaign ? <Primary sub={e.athlete?.name ?? "no athlete"}>{e.campaign.name}</Primary> : <span className="text-muted">—</span>}
@@ -208,14 +252,25 @@ function Desk({ desk, tab, cls, campaign, sample = false }: { desk: AttributionD
               noun="Events"
               label="Unmatched and ambiguous events"
               columns={unmatchedCols}
-              foot={<p className="text-[11px] text-faint">Read-only. An event the engine could not match stays here rather than disappearing — no amount from this list counts toward any class above.</p>}
+              foot={
+                <p className="text-[11px] text-faint">
+                  A sale the engine could not match stays here rather than disappearing — no amount from this list counts toward any class above.
+                  {mayDismiss
+                    ? " Dismissing keeps it on the list, marked with who and why; nobody assigns it to a campaign by hand."
+                    : " BTG admins can dismiss one, with a reason; it stays on the list, marked."}
+                </p>
+              }
             >
               {unmatched.map((u, i) => {
-                const r = UNMATCHED_REASON[u.reason];
+                const r = unmatchedReason(u.reason);
+                const refund = isRefund(u);
+                const gone = u.dismissed ?? null;
                 return (
-                  <Tr key={u.id} i={i} tone={u.reason === "ambiguous" ? "warn" : undefined}>
+                  <Tr key={u.id} i={i} tone={!gone && u.reason === "ambiguous" ? "warn" : undefined} className={gone ? "opacity-70" : ""}>
                     <Td>
-                      <Primary sub={`${u.source.adapter} · ${u.reference}`}>{u.source.partner}</Primary>
+                      <span className="block min-w-0 md:min-w-[9rem]">
+                        <Primary sub={`${u.source.adapter} · ${u.reference}`}>{u.source.partner}</Primary>
+                      </span>
                     </Td>
                     <Td label="Why">
                       <span className="block min-w-0">
@@ -226,8 +281,36 @@ function Desk({ desk, tab, cls, campaign, sample = false }: { desk: AttributionD
                         <span className="block max-w-80 text-[11px] text-muted">{r.hint}</span>
                       </span>
                     </Td>
-                    <Td label="Amount" num>{amountOf(u.amountCents)}</Td>
-                    <Td label="Received" muted className="whitespace-nowrap md:pr-5">{momentLabel(u.receivedAt)}</Td>
+                    <Td label="Keys carried" muted>
+                      <span className="block min-w-0 max-w-44 text-[11px]">{keysGivenLine(u.keysGiven)}</span>
+                    </Td>
+                    <Td label="Amount" num>
+                      <span className="block min-w-0" data-kind={refund ? "refund" : "sale"}>
+                        <span className={`block tabular-nums ${refund ? "text-danger" : ""}`}>{amountOf(u.amountCents)}</span>
+                        {refund && <span className="block text-[11px] text-danger">{kindLabel(u)}</span>}
+                      </span>
+                    </Td>
+                    <Td label="Received" muted className="whitespace-nowrap">
+                      <span className="block">{momentLabel(u.receivedAt)}</span>
+                      {u.occurredAt && <span className="block text-[11px] text-faint">happened {momentLabel(u.occurredAt)}</span>}
+                    </Td>
+                    <Td label="Status">
+                      <span className="block min-w-0 max-w-56" data-dismissed={gone ? "true" : "false"}>
+                        {gone ? (
+                          <>
+                            <span className="block text-[12px] font-medium text-muted">{dismissedLine(gone, dayLabel)}</span>
+                            {gone.reason && <span className="block text-[11px] text-faint">&ldquo;{gone.reason}&rdquo;</span>}
+                          </>
+                        ) : (
+                          <StatusChip tone="warn">Open</StatusChip>
+                        )}
+                      </span>
+                    </Td>
+                    {mayDismiss && (
+                      <Td act>
+                        {!gone && <DismissSale saleId={u.id} reference={u.reference} sample={sample} />}
+                      </Td>
+                    )}
                   </Tr>
                 );
               })}

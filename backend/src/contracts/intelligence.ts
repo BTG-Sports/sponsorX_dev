@@ -85,8 +85,9 @@ export const SponsorIntelQuery = z
 
 const ScenarioInputsSchema = z
   .object({
-    budgetCents: z.int().min(1).max(2_000_000_000).describe("What the sponsor would spend, in cents"),
-    cpmCents: z.int().min(1).max(10_000_000).describe("The price per 1,000 views the sponsor would pay, in cents"),
+    /* min 0, not 1: a zero reaches the engine, which answers 422 in words ("Set a budget above zero.") like every other input problem; the contract refuses only shape and ceilings. */
+    budgetCents: z.int().min(0).max(2_000_000_000).describe("What the sponsor would spend, in cents"),
+    cpmCents: z.int().min(0).max(10_000_000).describe("The price per 1,000 views the sponsor would pay, in cents"),
     audience: z.object({
       sport: z.string().max(80).optional(),
       stateCodes: z.array(z.string().max(2)).max(60).optional(),

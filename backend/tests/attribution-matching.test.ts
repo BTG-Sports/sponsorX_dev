@@ -253,14 +253,18 @@ describe.skipIf(!hasDatabase)("3S6-BE-02/03/04 · partner sales, against the dat
     await expect(Q.dismissUnmatched(admin, s3, { reason: "test" })).rejects.toBeInstanceOf(Q.AttributionInputError);
     await expect(Q.dismissUnmatched(actor(T, "CAMPAIGN_MGR"), s3, { reason: "A test order from the partner's staff" })).rejects.toBeInstanceOf(ForbiddenError);
     expect(await Q.dismissUnmatched(admin, s3, { reason: "A test order from the partner's staff" }, NOW)).toEqual({ id: s3, status: "dismissed", dismissedAt: NOW.toISOString() });
-    await expect(Q.dismissUnmatched(admin, s3, { reason: "A test order from the partner's staff" })).rejects.toBeInstanceOf(Q.AttributionNotFoundError);
+    /* Dismissed is final: a second dismissal is a 409 with the record standing, not "no such sale". */
+    await expect(Q.dismissUnmatched(admin, s3, { reason: "A test order from the partner's staff" })).rejects.toBeInstanceOf(Q.AttributionDecidedError);
     const s1 = (await prisma.partnerSaleAttribution.findFirstOrThrow({ where: { tenantId: T, externalId: "s1" }, select: { id: true } })).id;
-    await expect(Q.dismissUnmatched(admin, s1, { reason: "Matched sales are not in the queue" })).rejects.toBeInstanceOf(Q.AttributionNotFoundError);
+    /* A matched sale is on the desk, not the queue: 409 (it was decided by the engine), while an id that exists nowhere stays 404. */
+    await expect(Q.dismissUnmatched(admin, s1, { reason: "Matched sales are not in the queue" })).rejects.toBeInstanceOf(Q.AttributionDecidedError);
+    await expect(Q.dismissUnmatched(admin, "atm_no_such_sale", { reason: "An id that exists nowhere" })).rejects.toBeInstanceOf(Q.AttributionNotFoundError);
     expect(await prisma.auditLog.count({ where: { tenantId: T, action: "attribution.dismiss", entityId: s3 } })).toBe(1);
 
     const queue = await Q.attributionDesk(actor(T, "SALES"), { tab: "unmatched", page }, NOW);
     expect(queue.counts.unmatched).toBe(6);
-    expect(queue.unmatched!.at(-1)).toMatchObject({ reference: "s3", dismissed: { by: "atm_BTG_ADMIN", reason: "A test order from the partner's staff" } });
+    /* `by` is words, never a user id: this actor has no User row, so "a former user"; a known user reads "email (Role)" (peopleWords). */
+    expect(queue.unmatched!.at(-1)).toMatchObject({ reference: "s3", dismissed: { by: "a former user", reason: "A test order from the partner's staff" } });
     /* The nightly retry leaves a dismissed sale alone. */
     await M.rematchQueue(prisma, NOW);
     expect((await rowOf("s3")).status).toBe("dismissed");

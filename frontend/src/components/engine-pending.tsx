@@ -15,21 +15,27 @@ import { Card } from "./ui";
 
 export function EnginePending({ engine, audience = "staff" }: { engine: Engine; audience?: "staff" | "sponsor" | "property" }) {
   const staff = audience === "staff";
+  /* 3S8-OPS-01: the engine exists; a BTG admin switched the feature off for this tenant. */
+  const off = engine.off === true;
   return (
-    <div data-engine-pending={engine.key}>
+    <div data-engine-pending={engine.key} data-engine-off={off || undefined}>
       <Card className="space-y-4 p-5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-muted">
             <span aria-hidden="true" className="size-1.5 rounded-full bg-warn" />
-            {staff ? "Engine not live yet" : "Coming soon"}
+            {off ? "Switched off" : staff ? "Engine not live yet" : "Coming soon"}
           </span>
           {staff && <span className="text-[11px] text-faint">{engine.screen} · {engine.name}</span>}
         </div>
 
         <p className="max-w-2xl text-sm">
-          {staff
-            ? "No figures are shown until the engine answers. A placeholder number would be a statistic nobody can trace."
-            : engine.plain}
+          {off
+            ? staff
+              ? "A BTG admin switched this feature off for this organisation. The engine is live; nothing is wrong with it. Switch it back on under Models → Feature flags to see figures here."
+              : "This feature is switched off for your organisation. Ask your BTG contact if you need it."
+            : staff
+              ? "No figures are shown until the engine answers. A placeholder number would be a statistic nobody can trace."
+              : engine.plain}
         </p>
 
         <div>
@@ -44,7 +50,7 @@ export function EnginePending({ engine, audience = "staff" }: { engine: Engine; 
           </ul>
         </div>
 
-        {staff && (
+        {staff && !off && (
           <div className="grid gap-3 border-t border-line pt-3 text-xs sm:grid-cols-2">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-faint">Waits on</p>

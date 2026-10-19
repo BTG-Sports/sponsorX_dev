@@ -12,10 +12,10 @@ import { Meter } from "@/components/ui";
 import { useDialogFocus } from "@/components/use-dialog-focus";
 import { useMounted } from "@/components/use-mounted";
 import { METRIC_WORD, dayLabel, fmtCount } from "@/lib/forecast-live";
-import { MIN_REASON } from "@/lib/intel-admin";
 import { pct, usd } from "@/lib/intelligence";
 import {
-  CHECKS, approvalBlock, approvalError, bestOption, costWords, coverage, decidedOption, equivalencyLabel, shortfallShare, signedUsd,
+  CHECKS, NOTE_MAX, NOTE_MIN, approvalBlock, approvalError, bestOption, costWords, coverage, decidedByWords, decidedOption, decisionWords, equivalencyLabel,
+  heldReasons, runWords, shortfallShare, signedUsd,
   type MakeGoodOption, type Shortfall,
 } from "@/lib/makegood-live";
 
@@ -27,11 +27,17 @@ import {
    of the gap it covers, the three checks of acceptance #7 (available,
    clear of exclusivity, on target) and the engine's reason. An option
    failing any check shows why and has no approve button that works. Picking
-   one opens the approve form under the options: a required note, then
+   one opens the approve form under the options: a note of NOTE_MIN to
+   NOTE_MAX characters (the API's own words when it is not), then
    approveMakeGoodAction → POST /intelligence/make-goods/:id/approve.
 
-   A decided shortfall is read-only: the approved option marked, who, when
-   and their note. In the `?demo=sample` preview the form never sends.
+   SponsorX approves on its own when every safety check passes (3S5-BE-02).
+   An open shortfall it did not approve says it waits for a person and lists
+   `automatic.heldBecause` — the reviewer sees why before deciding.
+
+   A decided shortfall is read-only: the approved option marked, whether
+   SponsorX or a person decided it, when, the days it runs and the note. In
+   the `?demo=sample` preview the form never sends.
    -------------------------------------------------------------------------- */
 
 const trigger =
@@ -67,6 +73,8 @@ function Drawer({ s, sample, onClose }: { s: Shortfall; sample: boolean; onClose
 
   const best = bestOption(s.options);
   const chosen = decidedOption(s);
+  const held = heldReasons(s);
+  const runs = s.decision ? runWords(s.decision) : null;
   const pickedOption = s.options.find((o) => o.id === picked) ?? null;
   const metric = METRIC_WORD[s.metric];
   const titleId = `mg-${s.id}-title`;
@@ -113,10 +121,27 @@ function Drawer({ s, sample, onClose }: { s: Shortfall; sample: boolean; onClose
           </section>
 
           {s.decision && (
-            <p role="status" className="rounded-lg border border-success/40 bg-success/10 px-3 py-2 text-xs text-text">
-              <strong className="font-semibold">Approved{chosen ? `: ${chosen.inventoryName}` : ""}</strong> — by {s.decision.by}, {dayLabel(s.decision.at)}.
-              <span className="mt-1 block text-muted">&ldquo;{s.decision.note}&rdquo;</span>
-            </p>
+            <div role="status" className="rounded-lg border border-success/40 bg-success/10 px-3 py-2 text-xs text-text">
+              <p>
+                <strong className="font-semibold">{decisionWords(s.decision)}{chosen ? `: ${chosen.inventoryName}` : ""}</strong> — {decidedByWords(s.decision)}, {dayLabel(s.decision.at)}.
+                {runs && <span className="text-muted"> {runs}.</span>}
+              </p>
+              <p className="mt-1 text-muted">&ldquo;{s.decision.note}&rdquo;</p>
+              {!s.decision.automatic && s.automatic.heldBecause.length > 0 && (
+                /* Why SponsorX left it to a person in the first place. */
+                <p className="mt-1 text-[11px] text-muted">Held for a person because: {s.automatic.heldBecause.join(" ")}</p>
+              )}
+            </div>
+          )}
+
+          {held.length > 0 && (
+            <section aria-labelledby={`mg-${s.id}-held`} className="rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-xs text-text">
+              <h3 id={`mg-${s.id}-held`} className="font-semibold">Waiting for a person</h3>
+              <p className="mt-0.5 text-muted">SponsorX approves on its own when every safety check passes. It did not here because:</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                {held.map((why) => <li key={why}>{why}</li>)}
+              </ul>
+            </section>
           )}
 
           <section aria-label="Substitute options" className="space-y-2">
@@ -154,7 +179,13 @@ function Drawer({ s, sample, onClose }: { s: Shortfall; sample: boolean; onClose
               <p className="text-sm">
                 Approve <strong>{pickedOption.inventoryName}</strong> ({pickedOption.propertyName}) — {costWords(pickedOption.costImpactCents).toLowerCase()}.
               </p>
-              <NoteField id={`mg-${s.id}-note`} label="Why this substitute" hint={`Goes on the audit record and the campaign — at least ${MIN_REASON} characters.`} value={note} onChange={setNote} />
+              <NoteField
+                id={`mg-${s.id}-note`}
+                label="Why this substitute"
+                hint={`Goes on the audit record and the campaign — ${NOTE_MIN} to ${NOTE_MAX.toLocaleString("en-US")} characters.`}
+                value={note}
+                onChange={setNote}
+              />
               <DialogError message={error} />
               {sample && <p className="text-[11px] text-warn">Sample preview — approving here sends nothing.</p>}
               <div className="flex flex-wrap justify-end gap-2">

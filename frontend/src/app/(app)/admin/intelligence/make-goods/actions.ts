@@ -11,11 +11,12 @@ import { writeEngine } from "@/server/engine";
 
    POST /intelligence/make-goods/:shortfallId/approve   { optionId, note }
 
-   The API (3S5-BE-02) is the authority: it refuses an option failing a
-   check, a shortfall already decided, and a role that may not approve, and
-   it records, audits and reflects the approval in the campaign. This adds
-   none of that — it only checks the note is there and says the API's words
-   back. Until the engine is mounted, writeEngine answers "isn't live yet".
+   The API (3S5-BE-02) is the authority: it refuses (409) an option failing
+   a check now or a shortfall already decided, (422) a note outside 8 to
+   2,000 characters, and a role that may not approve; it records, audits and
+   reflects the approval in the campaign. This adds none of that — it only
+   checks the note's length first, in the API's own words (approvalError),
+   and says the API's message back when it refuses.
    -------------------------------------------------------------------------- */
 
 export type ApproveResult = { ok: true } | { ok: false; message: string };

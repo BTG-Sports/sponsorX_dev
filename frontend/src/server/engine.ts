@@ -11,8 +11,13 @@
 
 import "server-only";
 
-import { ENGINES, routeMissing, type EngineKey, type EngineRead } from "@/lib/intelligence";
+import { ENGINES, featureOff, routeMissing, type Engine, type EngineKey, type EngineRead } from "@/lib/intelligence";
 import { apiFetch } from "@/server/api";
+
+/** The pending card's engine: the registry entry, marked `off` when BTG switched the feature off for this tenant. */
+function pendingEngine(key: EngineKey, status: number, body: unknown): Engine {
+  return featureOff(status, body) ? { ...ENGINES[key], off: true } : ENGINES[key];
+}
 
 export async function readEngine<T>(key: EngineKey, path: string): Promise<EngineRead<T>> {
   const res = await apiFetch(path);
@@ -23,7 +28,7 @@ export async function readEngine<T>(key: EngineKey, path: string): Promise<Engin
   } catch {
     /* no JSON body: not the catch-all, so not "pending" */
   }
-  if (routeMissing(res.status, body)) return { state: "pending", engine: ENGINES[key] };
+  if (routeMissing(res.status, body)) return { state: "pending", engine: pendingEngine(key, res.status, body) };
   throw new Error(`${ENGINES[key].name} unavailable (${res.status}).`);
 }
 
@@ -45,7 +50,7 @@ export async function readEngineItem<T>(
   } catch {
     /* no JSON body */
   }
-  if (routeMissing(res.status, body)) return { state: "pending", engine: ENGINES[key] };
+  if (routeMissing(res.status, body)) return { state: "pending", engine: pendingEngine(key, res.status, body) };
   if (res.status === 404) {
     const message = (body as { error?: { message?: unknown } } | null)?.error?.message;
     return { state: "absent", message: typeof message === "string" ? message : "Not found." };
@@ -68,8 +73,9 @@ export async function writeEngine(
     /* empty body */
   }
   if (res.ok) return { ok: true, data };
-  if (routeMissing(res.status, data)) return { ok: false, error: `${ENGINES[key].name} isn't live yet.` };
   const message = (data as { error?: { message?: string } } | null)?.error?.message;
+  if (featureOff(res.status, data)) return { ok: false, error: message ?? `${ENGINES[key].name} is switched off for your organisation.` };
+  if (routeMissing(res.status, data)) return { ok: false, error: `${ENGINES[key].name} isn't live yet.` };
   return { ok: false, error: message ?? `${ENGINES[key].name} refused that (${res.status}).` };
 }
 

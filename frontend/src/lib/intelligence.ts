@@ -46,6 +46,8 @@ export type Engine = {
   shows: string[];
   /** One plain sentence for a sponsor or property: no task ids, no routes. */
   plain: string;
+  /** Set by server/engine.ts when the engine answered 403 feature_off: live, but switched off for this tenant (3S8-OPS-01). */
+  off?: boolean;
 };
 
 export const ENGINES: Record<EngineKey, Engine> = {
@@ -202,14 +204,26 @@ export type EngineRead<T> = { state: "live"; data: T } | { state: "pending"; eng
  * The API's catch-all (backend/src/app.ts) answers an unknown route with
  * exactly `404 { error: { code: "not_found" } }` — no message. A mounted
  * route that cannot find a record says why (a message), and an engine that
- * is mounted but deliberately off may answer 501. Anything else is a real
- * failure and must surface as one — never as "coming soon".
+ * is mounted but deliberately off answers 501, or — since 3S8-OPS-01's
+ * per-tenant switches — `403 { error: { code: "feature_off" } }`. Anything
+ * else is a real failure and must surface as one — never as "coming soon".
  */
 export function routeMissing(status: number, body: unknown): boolean {
   if (status === 501) return true;
+  if (featureOff(status, body)) return true;
   if (status !== 404) return false;
   const err = (body as { error?: { code?: unknown; message?: unknown } } | null)?.error;
   return err?.code === "not_found" && err.message === undefined;
+}
+
+/**
+ * The engine is mounted but a BTG admin switched this feature OFF for the
+ * tenant (3S8-OPS-01: `403 { error: { code: "feature_off" } }`). Still "no
+ * figures", but the screen must say "switched off", not "not built yet".
+ */
+export function featureOff(status: number, body: unknown): boolean {
+  if (status !== 403) return false;
+  return (body as { error?: { code?: unknown } } | null)?.error?.code === "feature_off";
 }
 
 /* ------------------------------------------------------------- provenance */

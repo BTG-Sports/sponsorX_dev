@@ -25,9 +25,11 @@ import {
   SAMPLE_SPONSOR_INTEL,
   classTiles,
   formatWord,
+  knownCost,
   partnerKindWord,
   rankFormats,
   rankPartners,
+  renewalEnded,
   renewalWord,
   renewalsDue,
   sourcedSegments,
@@ -44,15 +46,20 @@ import { readEngine, wantsSample } from "@/server/engine";
    apart, the best formats and partners, the audience (only where a source is
    named) and which campaigns are worth renewing.
 
-   Reads GET /intelligence/sponsor?range=   (proposed — the engine isn't
-         mounted yet; lib/sponsor-intelligence-live.ts has the contract)
+   Reads GET /intelligence/sponsor?range=   (mounted 2026-10-15 by 3S7-BE-02;
+         lib/sponsor-intelligence-live.ts has the contract, documentation/
+         SponsorX-Hub-Intelligence.md §1 the rules)
    Scoped by the API to the signed-in sponsor's own org.
 
-   Decided 2026-10-13, "FE only, honest empty states": until the engine
-   answers, the page is its title and <EnginePending> — no figure at all.
+   Decided 2026-10-13, "FE only, honest empty states": a tenant whose hub is
+   switched off gets the page's title and <EnginePending> — no figure at all.
    A real API failure throws to the error boundary. ?demo=sample (dev only)
    previews the live layout from SAMPLE_SPONSOR_INTEL under a banner;
    ?demo=loading|empty|error render the branded states.
+
+   Live-but-empty is honest, never invented: a zero class prints as zero
+   with its claim, a media value with no market rate on file prints no
+   figure, and an empty audience says no platform has named a source yet.
    -------------------------------------------------------------------------- */
 
 const PATH = "/sponsor/intelligence";
@@ -120,13 +127,17 @@ function Hub({ sp, range, data: d, pill }: { sp: SearchParams; range: RangeKey; 
             label="Campaigns counted"
             value={d.campaigns.count}
             caption={`${d.campaigns.active.toLocaleString("en-US")} running now`}
-            hint="Every campaign of yours with results in this period. The insights below are worked out across all of them."
+            hint="Every campaign of yours that has started — drafts and cancelled ones left out. The figures below cover this period's results across all of them."
             href="/sponsor/campaigns"
             delay={0.1}
           />
-          {classTiles(d.totals).map((t, i) => (
-            <StadiumTile key={t.cls} label={t.label} value={t.value} format={t.format} caption={t.caption} hint={t.hint} delay={0.16 + i * 0.06} />
-          ))}
+          {classTiles(d.totals).map((t, i) =>
+            t.value === null ? (
+              <NoFigureTile key={t.cls} label={t.label} caption={t.caption} hint={t.hint} delay={0.16 + i * 0.06} />
+            ) : (
+              <StadiumTile key={t.cls} label={t.label} value={t.value} format={t.format} caption={t.caption} hint={t.hint} delay={0.16 + i * 0.06} />
+            ),
+          )}
         </StadiumTiles>
       </StadiumHead>
 
@@ -149,6 +160,26 @@ function Hub({ sp, range, data: d, pill }: { sp: SearchParams; range: RangeKey; 
 }
 
 /* --------------------------------------------------------- panel helpers */
+
+/** A class tile with no figure to show (media value with no market rate on
+ *  file): StadiumTile's frame with a dash where the number would be — a
+ *  "$0" there would be an estimate the engine never made. */
+function NoFigureTile({ label, caption, hint, delay }: { label: string; caption: string; hint: string; delay: number }) {
+  return (
+    <div data-spot="" className="sx-stadium-panel sx-stadium-in px-4 pb-3.5 pt-3.5" style={at(delay)}>
+      <dt className="flex items-center gap-1.5 text-[12px] text-muted">
+        {label}
+        <StadiumHint label={label} text={hint} />
+      </dt>
+      <dd className="mt-1">
+        <span className="sx-stadium-num block text-[28px] leading-tight text-faint" aria-label="No figure yet">
+          —
+        </span>
+        <span className="mt-1 block text-[11.5px] text-faint">{caption}</span>
+      </dd>
+    </div>
+  );
+}
 
 function Title({ children, hint, note }: { children: string; hint?: string; note?: string }) {
   return (
@@ -173,7 +204,7 @@ function Formats({ d }: { d: SponsorIntel }) {
     <StadiumPanel flush delay={0.4} className="min-w-0">
       <div className="px-5 pt-5">
         <Title
-          hint="Each kind of post or appearance, ranked by what one redemption cost you: what you agreed to spend on it, divided by the fans who redeemed. Lower is better value."
+          hint="Each kind of post, appearance or edition ad, ranked by what one redemption cost you: what you agreed to spend on it in this period, divided by the fans who redeemed. Lower is better value."
           note="Best value first"
         >
           What worked best
@@ -185,32 +216,37 @@ function Formats({ d }: { d: SponsorIntel }) {
         </div>
       ) : (
         <ul className="pb-1">
-          {rows.map((r, i) => (
-            <li key={r.format} className="sx-stadium-row border-b border-line-soft px-5 py-3 last:border-0" style={at(0.45 + i * 0.04)}>
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="text-[13px] font-semibold text-text">{formatWord(r.format)}</span>
-                <span className="text-[11.5px] text-muted">
-                  {r.campaigns.toLocaleString("en-US")} {r.campaigns === 1 ? "campaign" : "campaigns"}
+          {rows.map((r, i) => {
+            const cost = knownCost(r);
+            return (
+              <li key={r.format} className="sx-stadium-row border-b border-line-soft px-5 py-3 last:border-0" style={at(0.45 + i * 0.04)}>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="text-[13px] font-semibold text-text">{formatWord(r.format)}</span>
+                  <span className="text-[11.5px] text-muted">
+                    {r.campaigns.toLocaleString("en-US")} {r.campaigns === 1 ? "campaign" : "campaigns"}
+                  </span>
+                  <span className="ml-auto text-right">
+                    <span className="block text-[13px] font-bold tabular-nums text-text">{cost !== null ? cpm(cost) : "—"}</span>
+                    <span className="block text-[11px] text-muted">
+                      {cost !== null ? "per fan who redeemed" : r.redemptions > 0 ? "no spend booked in this period" : "no redemptions yet"}
+                    </span>
+                  </span>
+                </div>
+                <span className="mt-2 block">
+                  <StadiumBar value={r.redemptions / most} delay={0.6 + i * 0.05} />
                 </span>
-                <span className="ml-auto text-right">
-                  <span className="block text-[13px] font-bold tabular-nums text-text">{r.costPerResultCents !== null ? cpm(r.costPerResultCents) : "—"}</span>
-                  <span className="block text-[11px] text-muted">{r.costPerResultCents !== null ? "per fan who redeemed" : "no redemptions yet"}</span>
-                </span>
-              </div>
-              <span className="mt-2 block">
-                <StadiumBar value={r.redemptions / most} delay={0.6 + i * 0.05} />
-              </span>
-              <p className="mt-1.5 text-[11.5px] text-faint">
-                {r.redemptions.toLocaleString("en-US")} redeemed
-                {r.deliveredImpressions > 0 && (
-                  <>
-                    {" · "}
-                    {compactNumber(r.deliveredImpressions)} people reached ({sourceWord(r.provenance).toLowerCase()})
-                  </>
-                )}
-              </p>
-            </li>
-          ))}
+                <p className="mt-1.5 text-[11.5px] text-faint">
+                  {r.redemptions.toLocaleString("en-US")} redeemed
+                  {r.deliveredImpressions > 0 && (
+                    <>
+                      {" · "}
+                      {compactNumber(r.deliveredImpressions)} people reached ({sourceWord(r.provenance).toLowerCase()})
+                    </>
+                  )}
+                </p>
+              </li>
+            );
+          })}
         </ul>
       )}
     </StadiumPanel>
@@ -224,13 +260,13 @@ function Renewals({ d }: { d: SponsorIntel }) {
   return (
     <StadiumPanel flush delay={0.46} tone={rows.length ? "you" : undefined} className="min-w-0">
       <div className="px-5 pt-5">
-        <Title hint="Campaigns ending soon, and whether they look worth running again. Worked out from how each one did; the confidence says how sure we are.">
+        <Title hint="Campaigns ending in the next 45 days or ended in the last 30, and whether they look worth running again. Worked out from each one's delivery against what was promised; the confidence says how sure we are.">
           Worth renewing?
         </Title>
       </div>
       {rows.length === 0 ? (
         <div className="px-5 pb-5">
-          <Quiet>Nothing ending soon. Advice shows here as your campaigns near their end date.</Quiet>
+          <Quiet>Nothing ending soon or just ended. Advice shows here as your campaigns near their end date and have a delivery forecast.</Quiet>
         </div>
       ) : (
         <ul className="pb-1">
@@ -245,7 +281,7 @@ function Renewals({ d }: { d: SponsorIntel }) {
                   <StadiumChip tone={w.tone}>{w.text}</StadiumChip>
                 </div>
                 <p className="mt-0.5 text-[11.5px] text-muted">
-                  Ends <StadiumDate iso={r.endsAt} format="weekday" utc /> · {confidenceLabel(r.stamp.confidence)}
+                  {renewalEnded(r, d.asOf) ? "Ended" : "Ends"} <StadiumDate iso={r.endsAt} format="weekday" utc /> · {confidenceLabel(r.stamp.confidence)}
                 </p>
                 {r.reasons.length > 0 && (
                   <ul className="mt-2 space-y-1 text-[11.5px] text-muted">
@@ -273,13 +309,13 @@ function Partners({ d }: { d: SponsorIntel }) {
   return (
     <StadiumPanel flush delay={0.52} className="min-w-0">
       <div className="px-5 pt-5">
-        <Title hint="The athletes and teams that did best for you across your campaigns. The score is worked out from their checked results; the confidence says how sure we are.">
+        <Title hint="The athletes and teams that did best for you across your campaigns. An athlete's score is their posts delivered on time and the checked views each one got; a team's or school's is the share of your orders with them that were delivered. The confidence says how sure we are.">
           Your best partners
         </Title>
       </div>
       {rows.length === 0 ? (
         <div className="px-5 pb-3">
-          <Quiet>No partners with counted results yet. They show here once their posts for you are checked.</Quiet>
+          <Quiet>No partners with counted results yet. They show here once their posts for you are due and checked, or an order with a team or school is paid.</Quiet>
         </div>
       ) : (
         <div className="pb-1">
@@ -317,9 +353,9 @@ function Audience({ d }: { d: SponsorIntel }) {
   const rows = sourcedSegments(d.segments);
   return (
     <StadiumPanel delay={0.58} className="min-w-0">
-      <Title hint="Who your campaigns reached, only where the platform or BTG can say where the figure came from.">Who you reached</Title>
+      <Title hint="Who your campaigns reached, only where the platform or BTG can say where the figure came from. SponsorX never guesses at an audience.">Who you reached</Title>
       {rows.length === 0 ? (
-        <Quiet>No audience figures with a known source yet. They show here once a platform shares them for your campaigns.</Quiet>
+        <Quiet>No sourced audience yet. A breakdown shows here only once a platform names where its figures came from — nothing here is estimated.</Quiet>
       ) : (
         <ul className="space-y-3">
           {rows.map((s, i) => (

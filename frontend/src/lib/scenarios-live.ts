@@ -4,23 +4,35 @@ import type { PageInfo } from "@/lib/list-query";
 /* --------------------------------------------------------------------------
    3S7-FE-03 — the scenario planner's contract and pure helpers.
 
-   PROPOSED CONTRACT (3S7-BE-01 scenario planning is not built yet; it waits
-   on 3S4-BE-01 delivery forecast — this is what the screen is built
-   against). Roles: the page's own (SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR,
-   SALES), tenant scoped.
+   THE CONTRACT — mounted 2026-10-15 by 3S7-BE-01 (backend/src/domain/
+   scenario-engine.ts + scenario-rules.ts, contracts/intelligence.ts;
+   documentation/SponsorX-Scenarios.md), reconciled here 2026-10-19. Roles:
+   the page's own (SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, SALES), tenant
+   scoped, behind the per-tenant `scenarios` feature flag (a switched-off
+   tenant reads 403 `feature_off`, which server/engine.ts shows as pending).
 
    GET  /intelligence/scenarios?page&size → ApiScenarioDesk
         The saved scenarios (one page, newest first), the starting inputs
-        the engine suggests, and the choices it can calculate for (formats,
-        sports, states, age bands) — so the planner never offers a format the
-        engine can't price.
+        the engine suggests ($10,000, the tenant's benchmark CPM or $20,
+        60% posts / 40% videos), and the choices it can calculate for:
+        formats, sports, states, age bands. The planner offers ONLY
+        options.formats — today social posts and videos, the two the engine
+        can both price and measure in views — never a list of its own.
    POST /intelligence/scenarios/calculate { inputs } → ScenarioResult
         Pure what-if: nothing is stored.
-   POST /intelligence/scenarios { name, inputs } → ApiSavedScenario
-        Calculates and stores; the stored result keeps its model stamp.
+   POST /intelligence/scenarios { name, inputs } → 201 ApiSavedScenario
+        Calculates and stores; the stored result keeps its model stamp, and
+        the record carries `savedBy` (the saver's email).
+   Errors: inputs the engine can't take are a 422 `scenario_inputs` whose
+        message is the problems in words, joined by a space — the planner
+        shows that text verbatim next to the inputs. validateInputs below
+        says the same words first, so a half-dragged slider never leaves
+        the browser; the contract's integer bounds (a zod 400 with no words
+        of its own) are pre-empted the same way.
 
-   MONEY in integer cents. A mix is the share of the budget per inventory
-   format; shares are 0..1 and sum to 1 (normaliseMix makes them).
+   MONEY in integer cents (budgetCents, cpmCents). A mix is the share of
+   the budget per format; shares are 0..1 and sum to 1 (normaliseMix makes
+   them so), one line per format, at most MIX_MAX lines.
 
    Every figure on the planner is the engine's answer to these inputs. The
    only arithmetic here is the A-vs-B difference of two engine answers —
@@ -41,11 +53,12 @@ export type ScenarioInputs = {
 
 export type ScenarioResult = {
   expectedImpressions: { low: number; mid: number; high: number };
+  /** The budget, reduced in proportion when likely delivery falls short of what is sold. */
   expectedRevenueCents: number;
-  /** 0..1 — the chance the plan delivers in full (3S4-BE-01's forecast). */
+  /** 0..1 — the chance the plan delivers in full (3S4-BE-01's method). */
   deliveryProbability: number;
   stamp: ModelStamp;
-  /** The engine's caveats, in words. */
+  /** The engine's caveats, in words — every fallback is named here. */
   notes: string[];
 };
 
@@ -55,11 +68,12 @@ export type ApiSavedScenario = {
   inputs: ScenarioInputs;
   result: ScenarioResult;
   savedAt: string;
-  /** The saver's display name. */
-  savedBy?: string;
+  /** Who saved it: the user's email, or "a former user" once they are gone. */
+  savedBy: string;
 };
 
 export type ScenarioOptions = {
+  /** What the engine can price and measure — the only formats the planner offers. */
   formats: { key: string; label: string }[];
   sports: string[];
   stateCodes: string[];
@@ -78,6 +92,12 @@ export const SCENARIOS_PATH = "/admin/intelligence/scenarios";
 /** Slider ranges — UI bounds, not figures. Typed fields may go past them. */
 export const BUDGET_RANGE = { min: 1_000_00, max: 250_000_00, step: 500_00 } as const;
 export const CPM_RANGE = { min: 1_00, max: 60_00, step: 25 } as const;
+
+/** The contract's hard limits (ScenarioInputs / ScenarioSaveInput, contracts/intelligence.ts). */
+export const BUDGET_MAX_CENTS = 2_000_000_000;
+export const CPM_MAX_CENTS = 10_000_000;
+export const MIX_MAX = 10;
+export const NAME_MAX = 120;
 
 /* -------------------------------------------------------------------- mix */
 
@@ -141,25 +161,40 @@ export function removeFormat(mix: readonly MixLine[], format: string): MixLine[]
 
 /* ------------------------------------------------------------- validation */
 
-/** What's wrong with these inputs, in words; [] when the engine can take them. */
-export function validateInputs(i: ScenarioInputs): string[] {
+const wholeUsd = (cents: number) => `$${Math.round(cents / 100).toLocaleString("en-US")}`;
+
+/**
+ * What's wrong with these inputs, in words; [] when the engine can take
+ * them. The same words, in the same order, as the engine's own
+ * `inputProblems` (scenario-rules.ts) — so whichever side speaks, the
+ * planner says one thing. `offered` is options.formats' keys: with it, a
+ * format the engine can't price is named here too. The three bound checks
+ * are the contract's integer limits, which the API would otherwise refuse
+ * with a generic 400.
+ */
+export function validateInputs(i: ScenarioInputs, offered?: readonly string[]): string[] {
   const issues: string[] = [];
   if (!Number.isInteger(i.budgetCents) || i.budgetCents <= 0) issues.push("Set a budget above zero.");
+  else if (i.budgetCents > BUDGET_MAX_CENTS) issues.push(`The budget is at most ${wholeUsd(BUDGET_MAX_CENTS)}.`);
   if (!Number.isInteger(i.cpmCents) || i.cpmCents <= 0) issues.push("Set a CPM above zero.");
-  if (i.mix.length === 0) issues.push("Add at least one inventory format.");
-  else {
-    const formats = i.mix.map((l) => l.format);
-    if (new Set(formats).size !== formats.length) issues.push("Each format appears once in the mix.");
-    if (i.mix.some((l) => !Number.isFinite(l.share) || l.share < 0 || l.share > 1)) issues.push("Each format's share is between 0% and 100%.");
-    else if (Math.abs(mixTotal(i.mix) - 1) > 0.001) issues.push("The mix must add up to 100%.");
+  else if (i.cpmCents > CPM_MAX_CENTS) issues.push(`The CPM is at most ${wholeUsd(CPM_MAX_CENTS)} per 1,000 views.`);
+  if (!i.mix.length) issues.push("Add at least one inventory format.");
+  else if (i.mix.length > MIX_MAX) issues.push(`The mix holds at most ${MIX_MAX} formats.`);
+  const formats = i.mix.map((l) => l.format);
+  if (new Set(formats).size !== formats.length) issues.push("Each format appears once in the mix.");
+  if (offered) {
+    const unknown = formats.filter((f) => !offered.includes(f));
+    if (unknown.length) issues.push(`The planner can't price ${unknown.join(", ")}.`);
   }
-  for (const c of i.audience.stateCodes ?? []) {
-    if (!/^[A-Z]{2}$/.test(c)) {
-      issues.push(`“${c}” isn't a two-letter state code.`);
-      break;
-    }
-  }
+  if (i.mix.some((l) => !Number.isFinite(l.share) || l.share < 0 || l.share > 1)) issues.push("Each format's share is between 0% and 100%.");
+  else if (i.mix.length && Math.abs(mixTotal(i.mix) - 1) > 0.001) issues.push("The mix must add up to 100%.");
+  if ((i.audience.stateCodes ?? []).some((c) => !/^[A-Z]{2}$/.test(c))) issues.push("State codes are two capital letters.");
   return issues;
+}
+
+/** The problems as one line — the form the API's 422 message takes. */
+export function problemsText(issues: readonly string[]): string {
+  return issues.join(" ");
 }
 
 /** The inputs the engine is sent: mix normalised, empty audience keys dropped. */
@@ -185,6 +220,23 @@ export function parseStateCodes(text: string, allowed?: readonly string[]): stri
 /** A stable key for "same inputs" — skips recalculating what's on screen. */
 export function inputsKey(i: ScenarioInputs): string {
   return JSON.stringify(cleanInputs(i));
+}
+
+/**
+ * An age band as the athlete records keep it (UNDER_16 | 16_17 | 18_PLUS),
+ * said for a sponsor. An unknown band shows as it came.
+ */
+export function ageBandLabel(band: string): string {
+  switch (band) {
+    case "UNDER_16":
+      return "Under 16";
+    case "16_17":
+      return "16–17";
+    case "18_PLUS":
+      return "18+";
+    default:
+      return band;
+  }
 }
 
 /* ------------------------------------------------------------- comparison */
@@ -253,11 +305,13 @@ export function utcMinute(iso: string): string {
 
 /* ------------------------------------------------------------------ SAMPLE */
 
-/* `?demo=sample` only (development preview + tests). Never a live figure. */
+/* `?demo=sample` only (development preview + tests). Never a live figure.
+   Shaped like the live desk: the engine's two formats, its age-band keys,
+   an email in savedBy. */
 
 export const SAMPLE_MODEL = "scenario-sample@0.0.0";
 
-const SAMPLE_REACH: Record<string, number> = { SOCIAL_POST: 1.15, VIDEO: 1.3, SIGNAGE: 0.85, APPEARANCE: 0.6, TICKETS: 0.5 };
+const SAMPLE_REACH: Record<string, number> = { SOCIAL_POST: 1.15, VIDEO: 1.3 };
 
 /**
  * The sample "engine" — a toy formula so the dev preview reacts to the
@@ -281,20 +335,29 @@ export function sampleResult(inputs: ScenarioInputs): ScenarioResult {
 }
 
 const SAMPLE_DEFAULTS: ScenarioInputs = {
+  budgetCents: 10_000_00,
+  cpmCents: 20_00,
+  audience: {},
+  mix: [
+    { format: "SOCIAL_POST", share: 0.6 },
+    { format: "VIDEO", share: 0.4 },
+  ],
+};
+
+const SAMPLE_A: ScenarioInputs = {
   budgetCents: 25_000_00,
   cpmCents: 12_00,
   audience: { sport: "Football", stateCodes: ["TX"] },
   mix: [
-    { format: "SOCIAL_POST", share: 0.5 },
+    { format: "SOCIAL_POST", share: 0.7 },
     { format: "VIDEO", share: 0.3 },
-    { format: "SIGNAGE", share: 0.2 },
   ],
 };
 
 const SAMPLE_B: ScenarioInputs = {
   budgetCents: 40_000_00,
   cpmCents: 10_50,
-  audience: { sport: "Football", stateCodes: ["OK", "TX"], ageBand: "18-24" },
+  audience: { sport: "Football", stateCodes: ["OK", "TX"], ageBand: "18_PLUS" },
   mix: [
     { format: "VIDEO", share: 0.6 },
     { format: "SOCIAL_POST", share: 0.4 },
@@ -303,8 +366,8 @@ const SAMPLE_B: ScenarioInputs = {
 
 export const SAMPLE_SCENARIO_DESK: ApiScenarioDesk = {
   scenarios: [
-    { id: "sc_sample_1", name: "Texas football — starter", inputs: SAMPLE_DEFAULTS, result: sampleResult(SAMPLE_DEFAULTS), savedAt: "2026-10-12T15:00:00.000Z", savedBy: "Sample Salesperson" },
-    { id: "sc_sample_2", name: "Two-state video push", inputs: SAMPLE_B, result: sampleResult(SAMPLE_B), savedAt: "2026-10-12T15:20:00.000Z", savedBy: "Sample Salesperson" },
+    { id: "sc_sample_1", name: "Texas football — starter", inputs: SAMPLE_A, result: sampleResult(SAMPLE_A), savedAt: "2026-10-12T15:00:00.000Z", savedBy: "sales@sample.invalid" },
+    { id: "sc_sample_2", name: "Two-state video push", inputs: SAMPLE_B, result: sampleResult(SAMPLE_B), savedAt: "2026-10-12T15:20:00.000Z", savedBy: "sales@sample.invalid" },
   ],
   page: { page: 1, size: 12, total: 2, pages: 1 },
   defaults: SAMPLE_DEFAULTS,
@@ -312,12 +375,9 @@ export const SAMPLE_SCENARIO_DESK: ApiScenarioDesk = {
     formats: [
       { key: "SOCIAL_POST", label: "Social post" },
       { key: "VIDEO", label: "Video" },
-      { key: "SIGNAGE", label: "Signage" },
-      { key: "APPEARANCE", label: "Appearance" },
-      { key: "TICKETS", label: "Tickets" },
     ],
     sports: ["Basketball", "Football", "Soccer", "Volleyball"],
     stateCodes: ["KS", "OK", "TX"],
-    ageBands: ["18-24", "25-34", "35-44", "45+"],
+    ageBands: ["16_17", "18_PLUS"],
   },
 };

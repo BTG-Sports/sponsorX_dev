@@ -7,7 +7,10 @@ every screen is live code that reads its engine, and until the engine's
 route is mounted it says so — by name, with the tasks it waits on — and
 shows no number at all.
 
-**Status of these shapes: proposed.** They are the frontend's side of the
+**Status of these shapes: landed, every one.** The three engines of 2026-10-14
+were walked on 2026-10-15; the seven that mounted on 2026-10-15/16 were
+reconciled field by field against their engines and walked live on
+2026-10-19 (each section ends with what changed). They were the frontend's side of the
 contract. The engine author (backend chain: 3S2-BE … 3S8-BE) owns the final
 shape; if it moves, change the screen's `lib/*-live.ts` types and this file
 in the same pull request. The full TypeScript types live in each screen's
@@ -20,7 +23,7 @@ lib, named below — this document is the summary, the lib is the truth.
 |---|---|
 | 2xx | The live screen |
 | `404 { error: { code: "not_found" } }` with **no message** (the API's catch-all for an unmounted route) | `EnginePending` — no figures |
-| `501` (engine mounted but switched off, e.g. a per-tenant flag, 3S8-OPS-01) | `EnginePending` |
+| `501`, or `403 { error: { code: "feature_off" } }` (engine mounted but switched off for the tenant — 3S8-OPS-01's per-tenant flag answers the 403) | `EnginePending` marked **Switched off** — "a BTG admin switched this feature off for this organisation", never "not built yet"; a write answers the API's own sentence |
 | A mounted route's own 404 **with a message** | "Not found" state on detail screens; an error elsewhere |
 | Anything else (401, 403, 409, 5xx …) | The page's error boundary — an outage is never shown as "coming soon" |
 
@@ -86,6 +89,8 @@ Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, SALES read; BTG_ADMIN and CAMPAIGN_
 - `GET /intelligence/forecasts/:campaignId` → the row plus `pacing[{ date, delivered, expected }], projection[{ date, low, mid, high }], riskFactors[{ key, label, detail }], actions[{ kind, label, detail }], alert { raisedAt, risk, threshold } | null, history[{ forecastAt, projectedMid, probability, modelVersion }]` (newest first — acceptance #5 persists every forecast).
   - `actions[].kind`: accelerate content, add a deliverable, change channel, reserve make-good inventory (3S4-BE-02). An alert must be raised before the campaign ends (acceptance #6).
 
+- **QA 2026-10-19 (round three):** the detail read carries `makeGoods` (3S5-BE-02, for those who may read `makeGood`); the screen now renders them as a **Make-goods** card — what is open and held for a person, and what was approved, by whom, and when it runs — with the link into the make-good centre on this campaign. `lib/forecast-live.ts` `ForecastDetail.makeGoods?: Shortfall[]`.
+
 ## 3S5-FE-01 · Make-good recommendation centre — `/admin/intelligence/make-goods`
 
 Engine: Make-good engine (3S5-BE-01/02). Types: `frontend/src/lib/makegood-live.ts`.
@@ -99,6 +104,8 @@ Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR (read and approve).
   - each shortfall adds `status` and `automatic { approved, heldBecause[] }`. SponsorX approves on its own when every safety check passes; otherwise these are the reasons it waits for a person.
   - the decision adds `automatic`, `runsFrom` and `runsUntil`.
   - a note under 8 characters is a 422.
+
+- **Reconciled and walked 2026-10-19.** `lib/makegood-live.ts` now matches `views()` in `makegood-engine.ts` exactly (`status`, `automatic`, `decision.automatic/runsFrom/runsUntil`). An open shortfall SponsorX did not approve is marked "Held for a person · N reasons" in its row, and the drawer lists `automatic.heldBecause` under "Waiting for a person" before the reviewer picks a substitute. An approved shortfall says whether SponsorX ("SponsorX · automatic") or a person (`decision.by`, the API's `email (Role)`) decided it, the date, and "Runs Oct 20 – Nov 2". The approve form enforces the API's note rule client-side (trimmed, 8–2,000 characters) with the API's own 422 sentence; a 409 is shown as the API's message. Walked: the one local shortfall, approved automatically.
 
 ## 3S6-FE-01 · Attribution dashboard — `/admin/intelligence/attribution`
 
@@ -117,6 +124,9 @@ Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, SALES.
 - the queue is the whole tenant's whatever `campaign` says (an unmatched sale has no campaign); open first, then dismissed ones, each with `dismissed: { by, at, reason } | null`, `kind`, `occurredAt` and `keysGiven` (the key names, never their values);
 - an unknown `campaign` is 404 `attribution_not_found`;
 - dismissing is `POST /intelligence/attribution/unmatched/:id/dismiss { reason }` (BTG admins; the screen stays read-only until it wants the button).
+
+- **Reconciled and walked 2026-10-19.** Events render as partner sales only; a refund is its own row (`kind: refund`, amount negative, "Refund — taken off the total"); the redemption tile is a count with no money line. The queue shows each sale's key *names* (`keysGiven`, "Carried reward token"), when it happened, open rows first then dismissed ones marked "Dismissed by {by} · {date}" with the reason. **Dismiss is live:** BTG admins (`SUPER_ADMIN`, `BTG_ADMIN`, `canDismiss`) get a per-row form posting `{ reason }` (10–500 characters, the API's bounds); campaign managers and Sales see the queue read-only. An unknown `?campaign` (404 `attribution_not_found`) renders a not-found state. Walked with a generic-webhook partner: a token-matched $45 sale, its $15 refund by order id, and an unknown-token sale dismissed from the queue.
+- **QA 2026-10-19 (engine side, same pass):** `dismissed.by` is now words — "email (Role)" or "a former user" — never a user id; dismissing a sale that is already dismissed, or that the nightly retry matched meanwhile, is `409 attribution_decided` with the reason, while an id that exists nowhere stays 404. Round three: a dismissal that loses the race to another person's (or the nightly retry's) is also `409 attribution_decided`, never 404.
 
 ## 3S7-FE-01 · Sponsor intelligence hub — `/sponsor/intelligence`
 
@@ -137,6 +147,8 @@ Scoped by the API to the caller's sponsor org.
 - `segments` is empty until a sourced audience exists;
 - formats include `AD_SLOT` for edition ads.
 
+- **Reconciled and walked 2026-10-19.** `renewals[]` carries `ended` (the screen falls back to `endsAt` vs `asOf`). `totals.ESTIMATED_MEDIA_VALUE.amountCents` is `null` with no tenant benchmark: the tile shows a dash and says why, never $0. A format's `costPerResultCents` of 0 (redemptions inside the window, booking outside) prints "no spend booked in this period", not $0.00. `AD_SLOT` reads "Edition ad"; `segments: []` reads "No sourced audience yet". The sample mirrors the engine (`sponsor-intel@1.0.0`, `renewal-rules@1.0.0`). Walked as the QA sponsor: 3 campaigns, 1 redemption, the walk's matched sale net of its refund ($30), two renewal recommendations.
+
 ## 3S7-FE-02 · Property intelligence hub — `/property/intelligence`
 
 Engine: Property intelligence. Types: `frontend/src/lib/property-intelligence-live.ts`.
@@ -155,6 +167,8 @@ Same gap as the sponsor hub: served by **3S7-BE-02**, on top of 3S2-BE-02.
 - suggested prices cover the roster's items, because the CPM engine prices athletes' items;
 - category fit returns every brand category: age-gated ones fit 0 for a school, with the reason.
 
+- **Reconciled and walked 2026-10-19.** Shapes matched; wording did not: opportunity is unsold active items **at listed price** over 12 months, sell-through counts **items** (not units) with a sale in 12 months, and rates are the **roster's** items only (the empty state says so). Category fit lists every brand category; a 0 prints "Not a fit" with the engine's reason. Sample stamps are `property-intel@1.0.0`; quality parts are the engine's three. The whole-screen empty state is only for a property with no items and no rates. Walked as the Hawks' manager: 2 items, $2,100 open opportunity, 26 categories, quality 50/100.
+
 ## 3S7-FE-03 · Scenario planner — `/admin/intelligence/scenarios`
 
 Engine: Scenario planning (3S7-BE-01, on 3S4-BE-01). Types: `frontend/src/lib/scenarios-live.ts`.
@@ -170,6 +184,9 @@ Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, SALES.
   - a saved scenario adds `savedBy`;
   - bad inputs are a 422 with the problems in words.
 
+- **Reconciled and walked 2026-10-19.** `savedBy` is a required string (the saver's email, or "a former user"). Formats, sports, states and age bands come from `options` only; age bands arrive as `UNDER_16 | 16_17 | 18_PLUS` and are labelled on screen while the key is posted. The 422 `scenario_inputs` message is every problem joined by a space, shown verbatim beside the inputs; `validateInputs` in `lib/scenarios-live.ts` repeats `inputProblems`' words and order (pinned against the backend's test case) and pre-empts the contract's integer bounds (budget ≤ $20M, CPM ≤ $100k, ≤ 10 formats, name ≤ 120), which the API would otherwise answer with a wordless 400. Walked: live calculate, "Set a budget above zero.", a saved scenario with its saver, and the `scenarios` flag off → `EnginePending` ("Switched off"), on → live again.
+- **QA 2026-10-19 (engine side):** the contract's `budgetCents` / `cpmCents` floor is 0, not 1, so a zero reaches the engine and comes back as the 422 sentence rather than a wordless 400; negatives and the ceilings are still the contract's.
+
 ## 3S8-FE-01 · Data quality and anomaly console — `/admin/intelligence/anomalies`
 
 Engine: Anomaly detection (3S8-DATA-01, on 3S1-DATA-02). Types: `frontend/src/lib/anomalies-live.ts`.
@@ -183,6 +200,8 @@ Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR.
   - a disposition adds `automatic`: SponsorX excludes a duplicate post on its own, and a person may replace that;
   - a person's decision is final (409 after);
   - a note under 8 characters is a 422.
+
+- **Reconciled and walked 2026-10-19.** `rule.version` is the registry stamp (`anomaly-rules@1.0.0`), not a bare semver; the screen prints `rule.id · stamp`. `asOf` is the epoch until the nightly rules first run for the tenant — the screen then shows no time and says so. `disposition.automatic` is surfaced: SponsorX's duplicate-post exclusion sits on Resolved tagged "automatic" with the form beneath to replace it; a person's decision is shown as final with no form. Note bounds and wording (8–2,000, the API's sentence) are enforced client-side; a 409 `anomaly_decided` is shown in the API's words. The sample's rule ids and subject types are the engine's seven real rules. Walked: the one local `manual.over_measured` flag, decided by a person, shown final on Resolved.
 
 ## 3S8-FE-02 · Model and rule administration — `/admin/intelligence/models`
 
@@ -207,6 +226,9 @@ Roles: SUPER_ADMIN, BTG_ADMIN.
   - `rollouts` is empty: settings are per tenant, with no staged rollout;
   - flags also include `scenarios` and `zohoIntelligence`;
   - a switched-off feature's reads answer 403 `feature_off`.
+
+- **Reconciled and walked 2026-10-19.** Versions are bare numbers (`2.1.0`); each carries `settings` and `backtest { ranAt, simulated, sampleSize, calibration }`, its metrics being "Outputs made" plus the latest backtest's (suffixed "(simulated)"). The compare view shows settings first, then metrics. The settings editor only refuses what the API refuses (≤ 0, a share > 1); a value outside its safe range is saved and **held** — the screen warns before, and after the save shows `{ version, status, heldBecause }`. A held draft gets a **Validate** button with the second-person rule stated; the API's 409 to the proposer is surfaced as-is. `benchmarkValidation` renders as a Verdict column (status + every reason) and a Reconciliation card; `benchmarkMinSample` is 10. `factors` exist only for `matching` and are points. `rollouts` is always empty and the block says so. Reasons are 10–500 characters (`modelReasonError`), not intel-admin's 8. Walked: six models, forecast 2.0.0 with its simulated backtest, "No benchmarks yet" with the reconciliation verdict "The nightly fact check has not run yet.", ten flags × three tenants.
+- **QA 2026-10-19 (both sides, same pass):** each threshold carries `integer` and the editor refuses a fraction with the API's sentence ("… is a whole number.") instead of offering a save the API refuses; each `benchmarkValidation.benchmarks[]` check carries `label`, the same string its benchmark row has as `segment`, and the screen joins on that rather than rebuilding the label. The held-draft → second-person Validate → Activate → roll back path was exercised end to end through the API and the screen. Round three: `PATCH …/thresholds` is idempotent under a double submit — the live version's own values are `422` "Nothing changed", and a draft's values return that draft rather than a third version; two parallel validates answer one 200 and one 409.
 
 ---
 
