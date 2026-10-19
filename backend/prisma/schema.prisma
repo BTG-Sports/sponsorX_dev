@@ -667,8 +667,9 @@ model AthleteScore {
 /// same formula against the athlete's AGREED rate, enforced by P3-BE-12 —
 /// these columns tell a salesperson the worst case before they quote.
 model NilJob {
-  /// "SX-03"
-  id       String @id
+  /// "SX-03" — unique within its tenant, so each tenant can hold its own
+  /// catalogue (P8-BE-01; the P8-QA-01 finding).
+  id       String
   tenantId String
   name     String
   baseLow  Int
@@ -685,6 +686,7 @@ model NilJob {
   orders  CampaignOrder[]
   offers  Offer[]
 
+  @@id([tenantId, id])
   @@index([tenantId])
 }
 
@@ -698,7 +700,7 @@ model AthleteRate {
   version   Int    @default(1)
 
   athlete Athlete @relation(fields: [athleteId], references: [id])
-  job     NilJob  @relation(fields: [jobId], references: [id])
+  job     NilJob  @relation(fields: [tenantId, jobId], references: [tenantId, id])
 
   @@unique([athleteId, jobId, version])
   @@index([tenantId])
@@ -916,6 +918,8 @@ model Campaign {
   invoices         CampaignInvoice[]
   /// SponsorX NEXT — the ad positions this campaign bought (P9-BE-03).
   adSlots          AdSlot[]
+  /// 4S7-BE-01 — INFINEX placements booked into it.
+  placementWindows PlacementWindow[]
   /// Edition content sponsored by this campaign — only with a commercial
   /// grant (P9-BE-10).
   editionAssets    EditionAsset[]
@@ -968,7 +972,7 @@ model CampaignInvite {
 
   campaign Campaign @relation(fields: [campaignId], references: [id])
   athlete  Athlete  @relation(fields: [athleteId], references: [id])
-  job      NilJob   @relation(fields: [jobId], references: [id])
+  job      NilJob   @relation(fields: [tenantId, jobId], references: [tenantId, id])
 
   /// NO full @@unique here on purpose. "One invite per athlete per job, ever"
   /// would forbid re-inviting an athlete whose previous invitation EXPIRED or
@@ -1029,7 +1033,7 @@ model CampaignOrder {
 
   campaign     Campaign             @relation(fields: [campaignId], references: [id])
   athlete      Athlete              @relation(fields: [athleteId], references: [id])
-  job          NilJob               @relation(fields: [jobId], references: [id])
+  job          NilJob               @relation(fields: [tenantId, jobId], references: [tenantId, id])
   acceptance   AgreementAcceptance? @relation(fields: [acceptanceId], references: [id])
   deliverables Deliverable[]
   earning      Earning?
@@ -2564,7 +2568,7 @@ model Offer {
 
   campaign        Campaign             @relation(fields: [campaignId], references: [id])
   athlete         Athlete              @relation(fields: [athleteId], references: [id])
-  job             NilJob               @relation(fields: [jobId], references: [id])
+  job             NilJob               @relation(fields: [tenantId, jobId], references: [tenantId, id])
   order           CampaignOrder?       @relation(fields: [orderId], references: [id])
   /// 2S2-FE-03 — the athlete's requests for a change, oldest first.
   changeRequests  OfferChangeRequest[] @relation("OfferChangeRequests")
@@ -3834,6 +3838,8 @@ model CampaignDaySummary {
   cancelledCompensationCents BigInt   @default(0)
   earningsPaidCents          BigInt   @default(0)
   adSlotSoldCents            BigInt   @default(0)
+  /// 4S7-BE-01 — INFINEX placements booked (PLACEMENT_WINDOW_BOOKED).
+  virtualBookedCents         BigInt   @default(0)
   invoicedCents              BigInt   @default(0)
   invoicePaidCents           BigInt   @default(0)
   marketplaceGrossCents      BigInt   @default(0)
@@ -4520,6 +4526,8 @@ model PlacementWindow {
   tenantId      String
   placementId   String
   campaignId    String
+  /// 4S7-BE-01 — the campaign it is booked into, beside its orders and ad slots.
+  campaign      Campaign  @relation(fields: [campaignId], references: [id])
   slot          Int
   /// UTC midnight; the window runs [startsAt, endsAt).
   startsAt      DateTime

@@ -176,7 +176,7 @@ export async function autoStaffIn(
     select: {
       ...CAMPAIGN_FOR_MOVE, autoStaffing: true, staffingStoppedAt: true, budget: true,
       brief: { select: { id: true, package: { select: { athleteCountMin: true, athleteCountMax: true, lineItems: true } } } },
-      _count: { select: { orders: true, adSlots: true } },
+      _count: { select: { orders: true, adSlots: true, placementWindows: { where: { state: "BOOKED" } } } },
     },
   });
   if (!c || !c.autoStaffing || c.staffingStoppedAt || !c.brief?.package) return NOTHING(state);

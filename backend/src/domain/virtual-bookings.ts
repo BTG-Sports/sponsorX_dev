@@ -27,6 +27,7 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { audit, AUDIT_ACTIONS, type AuditActor } from "../db/audit";
 import { prisma } from "../db/client";
 import type { Prisma } from "../generated/prisma/client";
+import { factPlacementWindowBooked, factPlacementWindowReleased } from "./fact-writers";
 import { endWindowDeployments } from "./virtual-creative";
 import { VirtualConflictError, VirtualInputError, VirtualNotFoundError } from "./virtual-errors";
 import { bookingProblems, daysIn, freeSlot, windowPrice } from "./virtual-rules";
@@ -93,6 +94,8 @@ export async function bookPlacement(actor: Actor, placementId: string, input: { 
         },
         select: WINDOW,
       });
+      /* 4S7-BE-01 — the booking is a money fact on the campaign, beside its orders and ad slots. */
+      await factPlacementWindowBooked(tx, w.id);
       await audit(tx, actor, AUDIT_ACTIONS.virtual.windowBook, "PlacementWindow", w.id, {
         after: { placementId: p.id, campaignId: campaign.id, slot, startsAt: w.startsAt.toISOString(), endsAt: w.endsAt.toISOString(), priceCents: w.priceCents },
       });
@@ -106,6 +109,7 @@ export async function bookPlacement(actor: Actor, placementId: string, input: { 
 
 async function releaseInside(tx: Tx, by: AuditActor, w: { id: string; tenantId: string }, reason: string, now: Date) {
   await tx.placementWindow.updateMany({ where: { id: w.id, tenantId: w.tenantId, state: "BOOKED" }, data: { state: "RELEASED", releasedAt: now, releaseReason: reason } });
+  await factPlacementWindowReleased(tx, w.tenantId, w.id, now);
   /* 4S2-BE-01 — what the window showed comes off its world with it. */
   await endWindowDeployments(tx, by, w, `Its window was given back: ${reason}`, now);
   await audit(tx, by, AUDIT_ACTIONS.virtual.windowRelease, "PlacementWindow", w.id, { before: { state: "BOOKED" }, after: { state: "RELEASED", reason } });

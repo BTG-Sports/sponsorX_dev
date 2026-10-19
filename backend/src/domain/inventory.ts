@@ -121,7 +121,8 @@ async function ownerFor(tx: Prisma.TransactionClient, actor: Actor): Promise<{ a
 async function assertJob(tx: Prisma.TransactionClient, jobId: string | null | undefined) {
   if (!jobId) return;
   const job = await tx.nilJob.findFirst({
-    /* tenant-scope: the NIL job catalogue is BTG's published list, read across tenants by design (matrix §6 "catalog"). */
+    /* tenant-scope: the NIL job catalogue is BTG's published list, read across tenants by design (matrix §6 "catalog").
+       An item's job is a catalogue kind, so any tenant's catalogue holding the id will do (P8-BE-01). */
     where: { id: jobId },
     select: { id: true },
   });

@@ -109,6 +109,12 @@ async function appFigures(db: Db, t: string | null): Promise<Row[]> {
       WHERE s."campaignId" IS NOT NULL AND s."soldAt" IS NOT NULL AND ($1::text IS NULL OR s."tenantId" = $1)
       GROUP BY 1, 2`));
   rows.push(...await q(
+    /* tenant-scope: as above. 4S7-BE-01 — INFINEX placement windows booked and not given back. */
+    `SELECT w."tenantId", w."campaignId", 'virtual_booked_cents' AS measure, sum(w."priceCents")::text AS v
+       FROM "PlacementWindow" w
+      WHERE w.state = 'BOOKED' AND ($1::text IS NULL OR w."tenantId" = $1)
+      GROUP BY 1, 2`));
+  rows.push(...await q(
     /* tenant-scope: as above. Marketplace lines contracted and not unwound — a line is unwound when its booking journal is reversed. */
     `SELECT l."tenantId", NULL AS "campaignId", m.measure, sum(m.v)::text AS v
        FROM "MarketplaceOrderLine" l JOIN "OrderLineFinancials" f ON f."lineId" = l.id,

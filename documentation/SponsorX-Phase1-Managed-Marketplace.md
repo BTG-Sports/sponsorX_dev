@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Launch real micro-NIL campaigns while building the data foundation. BTG staff run matching, pricing, conflict checks and invoicing; the software standardises and records every step. |
-| **Tasks** | 220 · 509 person-days |
+| **Tasks** | 221 · 510 person-days |
 | **Blueprint timeline** | 14–18 weeks |
 | **Balanced budget** | $75K–$105K |
 | **Depends on** | Nothing — this is the start |
@@ -2661,7 +2661,7 @@ Search the whole codebase to confirm no tax ID, bank or card field exists anywhe
 
 **Exit gate.** the §39 loop runs end-to-end on real data with Zoho in sync; the
 
-*24 tasks · 0 person-days*
+*25 tasks · 1 person-days*
 
 ### ▶ `P8-INT-01` · Zoho outbound push jobs for all four bi-directional objects
 
@@ -2697,6 +2697,23 @@ Demonstrate all fourteen acceptance criteria from the blueprint and record the e
   - **#2's SX jobs:** configured through a reviewed code change, by the user's decision.
 
   [`SponsorX-Phase1-Acceptance.md`](./SponsorX-Phase1-Acceptance.md)
+- **Reference:** §30
+
+### ◑ `P8-BE-01` · A NIL job catalogue per tenant
+
+**Order** 157.5 · **BE** · **Where:** Code · **1d** · **Code review**
+
+Raised by `P8-QA-01`'s finding: a job's ID (`SX-02`) was unique across the whole database, so only one tenant could hold the SX catalogue.
+
+- **Depends on:** P8-QA-01
+- **Done when:** A second tenant can hold and price its own SX jobs, and no record can point at another tenant's job
+- **Delivered:** 2026-10-19.
+  - **The key:** a job is identified by its tenant and ID. The rates, invites, orders and offers that name a job name it by both, so the database refuses a link to another tenant's job.
+  - **The migration** first checks that no existing record points at another tenant's job, and stops with the list if one does.
+  - **Reads:** the catalogue loader, the campaign desk and the invitation email read the record's own tenant's job. The pricing engine prefers it, falling back to another tenant's when its own has none.
+  - **Test:** `nil-job-per-tenant.test.ts`. `phase1-acceptance.test.ts` now holds its own catalogue, which also ends its race with other test files over `SX-04` and `SX-05`.
+
+  [`SponsorX-Phase1-Acceptance.md`](./SponsorX-Phase1-Acceptance.md) criterion 2
 - **Reference:** §30
 
 ### ⏸ `P8-INT-04` · Webhook delivery recording
