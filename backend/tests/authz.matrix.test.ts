@@ -474,7 +474,12 @@ describe("the whole matrix is pinned", () => {
       // SUPER_ADMIN any and BTG_ADMIN own-tenant read and write; every other
       // new cell deny. No existing role-and-resource cell moved. Before them
       // the grid hashed to f037fe7542127ad9.
-    ).toBe("b1f1e50851c850e3");
+      // Updated 2026-10-19 (4S3-INT-02): `infinexClient.INFINEX_CLIENT` read
+      // and write = own-tenant, pinned by scope.ts to the session's own client
+      // — a game session reads its own build and writes its heartbeat (matrix
+      // §38). Only those two cells moved: with them back to deny the grid
+      // hashes to the previous b1f1e50851c850e3.
+    ).toBe("6c2dbfecd20f5311");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

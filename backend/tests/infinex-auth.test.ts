@@ -182,8 +182,9 @@ describe.skipIf(!hasDatabase)("4S0-SEC-01 · machine credentials, tokens and gam
     expect((await call("GET", `/virtual/worlds/${arena}/manifest`, { token: game })).status).toBe(200);
     expect((await call("GET", `/virtual/worlds/${plaza}/manifest`, { token: game })).status).toBe(404);
     expect((await call("GET", "/virtual/worlds", { token: game })).json?.worlds?.map((w: { id: string }) => w.id)).toEqual([arena]);
-    /* A game cannot start sessions, and a person cannot either, even BTG. */
-    expect((await call("POST", `/infinex/clients/${client}/sessions`, { token: game })).status).toBe(403);
+    /* A game cannot start sessions, and a person cannot either, even BTG (refused after the role check: since
+       4S3-INT-02 a game session may write its own client row, its heartbeat). */
+    expect((await call("POST", `/infinex/clients/${client}/sessions`, { token: game })).status).toBe(409);
     expect((await call("POST", `/infinex/clients/${client}/sessions`, { clerk: ADMIN })).status).toBe(409);
     /* Another tenant's client is not there. */
     expect((await call("POST", `/infinex/clients/${clientB}/sessions`, { token })).status).toBe(404);

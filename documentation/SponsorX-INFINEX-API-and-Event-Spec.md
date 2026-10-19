@@ -207,7 +207,8 @@ touching portal routes.
 | Method + path | Response |
 |---|---|
 | `GET /infinex/config` | `{schemaVersions: {supported: [1,2], preferred: 2}, telemetry: {maxBatch: 500, maxBytes: 1048576, flushSeconds: 10, sampleRates: {…}}, manifest: {pollSeconds: 60}, flags: {…}}` |
-| `POST /infinex/heartbeat` `{clientId, buildId, worldId, manifestVersion, fps?, errors?: […]}` | `204`. A missing heartbeat past its threshold raises an integration-health alert (§5.5). |
+| `POST /infinex/heartbeat` `{manifestVersion, buildId?, fps?, errorCount?}` | **Exists** (`4S3-INT-02`). A game session only: the client and world come from its token, never the body (a `buildId` that isn't the session's is 422). Answers `204`. The latest beat and a count are kept on the client. A build that has reported and then sends nothing for 5 minutes is marked missing and alerted (§5.5) until it reports again. Not signed: not billing data. |
+| `POST /infinex/clients` `{worldId, buildId}` · `GET /infinex/clients?worldId` · `POST /infinex/clients/{id}/revoke` `{reason}` | **Exist** (`4S3-INT-02`). A client is one game build for one world, registered by BTG or the world's server. Revoking stops its sessions on their next call. |
 
 **Telemetry and activations (`4S4-*`, `4S6-*`)**
 
@@ -357,7 +358,7 @@ The Integrations screen (`/admin/integrations`, backed by
 `backend/src/domain/integration-health.ts` — **exists**) already reports webhook
 rejections, failed worker jobs and outbox lag. **Proposed additions:**
 
-- heartbeat age per client
+- heartbeat age per client: **exists** (`4S3-INT-02`). `integrationHealth().infinex` lists each active build's heartbeat age and which are missing. The worker's minute sweep raises the alert (`infinex.heartbeatMissing` in the audit log), and the next heartbeat records the recovery (`infinex.heartbeatRecovered`).
 - telemetry intake lag, measured as `receivedAt − occurredAt` at p95
 - rejected-event rate by reason
 - dead-lettered outbound deliveries
@@ -409,7 +410,7 @@ takes a second branch in `requireActor()` (`backend/src/auth/machine.ts`).
    - **The key:** an HMAC of the session's token id under `INFINEX_SIGNING_SECRET` (rotation: `_PREVIOUS`), so it is never stored. The verifier derives it again.
    - **The headers:** `SponsorX-Key-Id` is the session's token id; `SponsorX-Signature: t=<unix>,v1=<hex HMAC-SHA256(key, t + "." + rawBody)>`, over the raw bytes, with `t` within ±300 s.
    - **Supersedes** the earlier "per-build key pair" wording. A key pair in a shipped game is a long-lived secret too.
-   - **Until the secret is set,** no session can start (503).
+   - **Until the secret is set,** a session still starts (manifest, heartbeat) with `signingKey: null`, and the signed routes refuse it (changed 2026-10-19 with `4S3-INT-02`, so the stand-in world runs on staging before the secret exists).
 
 **Resolution into today's authorisation, with no redesign.**
 - The credential acts as its own `User` (roles `INFINEX_SERVICE`, `INFINEX_CLIENT`; an `@machine.invalid` address, which a person's sign-in can never claim).
