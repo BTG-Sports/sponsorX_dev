@@ -140,7 +140,7 @@ export async function transitionCampaign(
       select: {
         ...CAMPAIGN_FOR_MOVE,
         /* P9-BE-09 — an ad-only campaign may skip STAFFING. */
-        _count: { select: { orders: true, adSlots: true } },
+        _count: { select: { orders: true, adSlots: true, placementWindows: { where: { state: "BOOKED" } } } },
       },
     });
     if (!campaign) throw new ForbiddenError("campaign", "write");

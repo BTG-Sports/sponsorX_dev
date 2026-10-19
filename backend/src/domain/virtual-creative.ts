@@ -26,8 +26,9 @@
  *   AVAILABLE placement and a VALIDATED creative, in an ACTIVE world. It
  *   carries the manifest version and an ETag (304 when nothing changed). The
  *   game's own call needs its machine login (4S0-SEC-01); until then BTG
- *   staff and the stand-in world read it through `virtualWorld`. Download
- *   links for the files are 4S2-BE-04.
+ *   staff and the stand-in world read it through `virtualWorld`. Each file
+ *   comes with a signed link to the private bucket that lives fifteen minutes,
+ *   stepped every five so a poll in one step changes nothing (4S2-BE-04).
  *
  * Who: whoever may write the campaign (BTG admins, campaign managers)
  * uploads creative and deploys it; whoever may read the world reads its
@@ -42,7 +43,7 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { audit, AUDIT_ACTIONS, type AuditActor } from "../db/audit";
 import { prisma } from "../db/client";
 import type { Prisma } from "../generated/prisma/client";
-import { checkPrivateUpload, deletePrivateObject, getPrivateObject, presignPrivateUpload, uploadRefusal } from "../lib/storage";
+import { checkPrivateUpload, creativeLinkStep, deletePrivateObject, getPrivateObject, presignCreativeLinks, presignPrivateUpload, uploadRefusal } from "../lib/storage";
 import { VirtualConflictError, VirtualInputError, VirtualNotFoundError } from "./virtual-errors";
 import { CREATIVE_MIMES, creativeProblems, deploymentDatesProblem, type CreativeType } from "./virtual-rules";
 
@@ -287,16 +288,23 @@ export async function endWindowDeployments(tx: Tx, by: AuditActor, window: { id:
   return live.length;
 }
 
-/* ───────────────────────────── the manifest (4S2-BE-03) ───────────────────────────── */
+/* ───────────────────────────── the manifest (4S2-BE-03, links 4S2-BE-04) ───────────────────────────── */
 
-/** What a world should show at `at`: only approved, in-date deployments on booked windows, on-sale placements and validated creative. */
-export async function manifestFor(db: Tx | typeof prisma, world: { id: string; tenantId: string; externalId: string; environment: string; status: string; manifestVersion: number }, at: Date) {
+type ManifestWorld = { id: string; tenantId: string; externalId: string; environment: string; status: string; manifestVersion: number };
+
+/**
+ * What a world should show at `at`: only approved, in-date deployments on booked windows, on-sale placements and
+ * validated creative — with each file's key, for the links. The ETag covers what the world would show and the
+ * five-minute link step `now` falls in (4S2-BE-04), not when it was asked: a poll inside one step that changes
+ * nothing gets 304, and the step turning hands out fresh links before the old ones lapse.
+ */
+export async function manifestFor(db: Tx | typeof prisma, world: ManifestWorld, at: Date, now = new Date()) {
   const live = world.status !== "ACTIVE" ? [] : await db.$queryRaw<Array<{
     deploymentId: string; sequence: number; campaignId: string; placementExternalId: string; startsAt: Date; endsAt: Date;
-    assetId: string; version: number; mime: string; checksum: string | null; widthPx: number; heightPx: number;
+    assetId: string; version: number; mime: string; checksum: string | null; widthPx: number; heightPx: number; r2Key: string;
   }>>`
     SELECT d.id AS "deploymentId", d.sequence, d."campaignId", p."externalId" AS "placementExternalId", d."startsAt", d."endsAt",
-           a.id AS "assetId", a.version, a.mime, a.checksum, a."widthPx", a."heightPx"
+           a.id AS "assetId", a.version, a.mime, a.checksum, a."widthPx", a."heightPx", a."r2Key"
       FROM "CreativeDeployment" d
       JOIN "PlacementWindow" w ON w.id = d."windowId" AND w.state = 'BOOKED'
       JOIN "VirtualPlacement" p ON p.id = d."placementId" AND p.state = 'AVAILABLE'
@@ -314,24 +322,40 @@ export async function manifestFor(db: Tx | typeof prisma, world: { id: string; t
       deploymentId: r.deploymentId,
       sequence: r.sequence,
       campaignId: r.campaignId,
-      /* The download link is 4S2-BE-04 (signed, short-lived); until then the world gets everything else. */
-      asset: { assetId: r.assetId, version: r.version, mime: r.mime, checksum: r.checksum ? `sha256:${r.checksum}` : null, widthPx: r.widthPx, heightPx: r.heightPx, url: null, urlExpiresAt: null },
+      /* url and urlExpiresAt are filled by the grant (worldManifest), once the world is known to need them. */
+      asset: { assetId: r.assetId, version: r.version, mime: r.mime, checksum: r.checksum ? `sha256:${r.checksum}` : null, widthPx: r.widthPx, heightPx: r.heightPx, url: null as string | null, urlExpiresAt: null as string | null },
       window: { startsAt: r.startsAt.toISOString(), endsAt: r.endsAt.toISOString() },
       activationIds: [] as string[],
     })),
   };
-  /* The ETag covers what the world would show, not when it was asked: a poll that changes nothing gets 304. */
-  const etag = `"${createHash("sha256").update(JSON.stringify(body)).digest("hex").slice(0, 32)}"`;
-  return { etag, manifest: { ...body, generatedAt: new Date().toISOString(), at: at.toISOString() } };
+  const step = creativeLinkStep(now);
+  const etag = `"${createHash("sha256").update(JSON.stringify({ body, links: step.signedAt.toISOString() })).digest("hex").slice(0, 32)}"`;
+  const keys = new Map(live.map((r) => [r.assetId, r.r2Key]));
+  return { etag, keys, manifest: { ...body, generatedAt: now.toISOString(), at: at.toISOString() } };
 }
 
-/** GET /virtual/worlds/:worldId/manifest?at — the manifest, as BTG staff (and the stand-in world) read it until 4S0-SEC-01 gives the game its own login. */
-export async function worldManifest(actor: Actor, worldId: string, at = new Date()) {
+/**
+ * GET /virtual/worlds/:worldId/manifest?at — the manifest, as BTG staff (and the stand-in world) read it until
+ * 4S0-SEC-01 gives the game its own login. 4S2-BE-04: each file comes with a signed link that lives fifteen
+ * minutes (storage.presignCreativeLinks, one audit row per grant). `ifNoneMatch` matching the ETag answers
+ * `notModified` before anything is signed, so an unchanged poll grants (and records) nothing.
+ */
+export async function worldManifest(actor: Actor, worldId: string, at?: Date, opts: { ifNoneMatch?: string; now?: Date } = {}) {
   assertAllowed(actor, "virtualWorld", "read");
   const world = await prisma.virtualWorld.findFirst({
     where: { ...whereFor(actor, "virtualWorld", "read"), id: worldId },
     select: { id: true, tenantId: true, externalId: true, environment: true, status: true, manifestVersion: true },
   });
   if (!world) throw new VirtualNotFoundError();
-  return manifestFor(prisma, world, at);
+  const now = opts.now ?? new Date();
+  const { etag, keys, manifest } = await manifestFor(prisma, world, at ?? now, now);
+  if (opts.ifNoneMatch === etag) return { etag, notModified: true as const, manifest: null };
+  if (keys.size) {
+    const { urls, expiresAt } = await presignCreativeLinks(actor, keys, { entity: "VirtualWorld", entityId: world.id }, now);
+    for (const p of manifest.placements) {
+      p.asset.url = urls.get(p.asset.assetId) ?? null;
+      p.asset.urlExpiresAt = expiresAt.toISOString();
+    }
+  }
+  return { etag, notModified: false as const, manifest };
 }

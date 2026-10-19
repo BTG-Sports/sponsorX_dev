@@ -99,10 +99,11 @@ function presignUpload(bucket: string, key: string, contentType: string, pins: U
 export const SENSITIVE_DOCUMENT_TTL_SECONDS = 5 * 60;
 
 /** Presigned GET. Private-bucket callers must go through the audited wrapper. */
-function presignDownload(bucket: string, key: string, ttlSeconds = PRESIGN_TTL_SECONDS) {
+function presignDownload(bucket: string, key: string, ttlSeconds = PRESIGN_TTL_SECONDS, signingDate?: Date) {
   /* A caller may ask for shorter, never longer. */
   return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), {
     expiresIn: Math.min(ttlSeconds, PRESIGN_TTL_SECONDS),
+    ...(signingDate ? { signingDate } : {}),
   });
 }
 
@@ -189,6 +190,45 @@ export async function presignPrivateDownload(
   );
 
   return presignDownload(BUCKETS.private, key, ttlSeconds);
+}
+
+/**
+ * 4S2-BE-04 — a world's creative links step every five minutes. Each is
+ * signed at the start of its step and lives the full fifteen, so a link is
+ * good for at least ten minutes after it is handed out, and every link minted
+ * in one step is the same string: a world polling its manifest sees no change
+ * until the step turns.
+ */
+export const CREATIVE_LINK_STEP_SECONDS = 5 * 60;
+
+/** The step `now` falls in: when its links were signed, and when they expire. */
+export function creativeLinkStep(now: Date): { signedAt: Date; expiresAt: Date } {
+  const ms = CREATIVE_LINK_STEP_SECONDS * 1000;
+  const signedAt = new Date(Math.floor(now.getTime() / ms) * ms);
+  return { signedAt, expiresAt: new Date(signedAt.getTime() + PRESIGN_TTL_SECONDS * 1000) };
+}
+
+/**
+ * Grant short-lived reads of a world's **private** creative, and record it —
+ * 4S2-BE-04. One audit row for the grant, naming every key (never the links:
+ * they are the credential). Keyed by whatever the caller names each file by.
+ */
+export async function presignCreativeLinks(
+  actor: AuditActor,
+  keys: ReadonlyMap<string, string>,
+  context: GrantContext,
+  now: Date,
+): Promise<{ urls: Map<string, string>; expiresAt: Date }> {
+  for (const key of keys.values()) assertSafeKey(key);
+  const step = creativeLinkStep(now);
+  await prisma.$transaction((tx) =>
+    audit(tx, actor, AUDIT_ACTIONS.virtual.creativeLinksGrant, context.entity, context.entityId, {
+      after: { bucket: BUCKETS.private, keys: [...keys.values()], ttlSeconds: PRESIGN_TTL_SECONDS, signedAt: step.signedAt.toISOString() },
+    }),
+  );
+  const urls = new Map<string, string>();
+  for (const [name, key] of keys) urls.set(name, await presignDownload(BUCKETS.private, key, PRESIGN_TTL_SECONDS, step.signedAt));
+  return { urls, expiresAt: step.expiresAt };
 }
 
 /**

@@ -331,7 +331,8 @@ const readBrief: RequestHandler<{ id: string }> = async (req, res) => {
     : [];
   const catalogue = lines.length
     ? await prisma.nilJob.findMany({
-        where: { ...whereFor(actor, "nilJob", "read"), id: { in: lines.map((l) => l.jobId) } },
+        /* P8-BE-01 — the brief's own tenant's catalogue: another tenant may price the same job id differently. */
+        where: { ...whereFor(actor, "nilJob", "read"), tenantId: brief.tenantId, id: { in: lines.map((l) => l.jobId) } },
         select: {
           id: true, name: true, sellLow: true, sellHigh: true,
           sellFloorEmerging: true, sellFloorCreator: true, sellFloorPremium: true,

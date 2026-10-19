@@ -120,6 +120,8 @@ export const AUDIT_ACTIONS = {
     deploymentCreate: "virtual.deploymentCreate",
     deploymentApprove: "virtual.deploymentApprove",
     deploymentEnd: "virtual.deploymentEnd",
+    /** 4S2-BE-04 — short-lived links to a world's creative, handed out with its manifest. */
+    creativeLinksGrant: "virtual.creativeLinksGrant",
   },
   /** Agreements — acceptance is the legally interesting event. */
   agreement: {

@@ -78,7 +78,7 @@ export async function handleInvitationSent(
        JOIN "Athlete" a  ON a.id = i."athleteId"
        JOIN "Campaign" c ON c.id = i."campaignId"
        JOIN "Sponsor" s  ON s.id = c."sponsorId"
-       LEFT JOIN "NilJob" j ON j.id = i."jobId"
+       LEFT JOIN "NilJob" j ON j."tenantId" = i."tenantId" AND j.id = i."jobId"
       WHERE i.id = $1`,
     [job.inviteId],
   );

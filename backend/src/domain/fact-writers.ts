@@ -268,6 +268,28 @@ export async function factAdSlotReleased(tx: Tx, tenantId: string, slotId: strin
   }
 }
 
+/* ── INFINEX placement windows (4S7-BE-01) ─────────────────────────────────── */
+
+/** A placement was booked for days inside a campaign: its frozen price, on the booking day. */
+export async function factPlacementWindowBooked(tx: Tx, windowId: string): Promise<void> {
+  const w = await tx.placementWindow.findUniqueOrThrow({
+    /* tenant-scope: by id, the window the calling action just booked. */
+    where: { id: windowId }, select: { id: true, tenantId: true, campaignId: true, placementId: true, priceCents: true, bookedAt: true },
+  });
+  await recordFact(tx, {
+    tenantId: w.tenantId, kind: "PLACEMENT_WINDOW_BOOKED", key: `placementwindow.booked:${w.id}`, occurredOn: w.bookedAt,
+    campaignId: w.campaignId, inventory: { kind: "VIRTUAL_PLACEMENT", id: w.placementId }, channel: "INFINEX",
+    source: { type: "PlacementWindow", id: w.id }, measures: { virtual_booked_cents: w.priceCents },
+  });
+}
+
+/** A booked window was given back: its booking is reversed on the release day. */
+export async function factPlacementWindowReleased(tx: Tx, tenantId: string, windowId: string, at: Date): Promise<void> {
+  for (const f of await liveFacts(tx, tenantId, "PLACEMENT_WINDOW_BOOKED", "PlacementWindow", windowId)) {
+    await reverseFact(tx, { tenantId, key: f.idempotencyKey, occurredOn: at, reason: "window released" });
+  }
+}
+
 /* ── marketplace ──────────────────────────────────────────────────────────── */
 
 /** A marketplace order was contracted: each line's gross and net, on the contract day. Call after its financials are written. */

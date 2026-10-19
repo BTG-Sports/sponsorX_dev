@@ -130,6 +130,10 @@ ${r.adPlacements.length && r.editionEngagement ? `<h2>Edition placements</h2>
 <p class="faint">Print and digital kept apart — pooling them would say something untrue.</p>
 <p class="muted">${r.adPlacements.length} position${r.adPlacements.length === 1 ? "" : "s"} · ${n(r.editionEngagement.print.QR_SCAN)} print QR scans · ${n(r.editionEngagement.digital.LINK_CLICK)} digital link clicks ${chip("VERIFIED_SYSTEM")}</p>` : ""}
 
+${r.virtualPlacements?.length ? `<h2>INFINEX placements</h2>
+<table>${r.virtualPlacements.map((v) => `
+  <tr><td><b>${esc(v.placementName)}</b> <span class="faint">${esc(v.worldId)} · ${day(v.startsAt)} – ${day(v.endsAt)}</span></td><td class="r">${usd(v.priceCents)}</td></tr>`).join("")}</table>` : ""}
+
 ${brand.footer ? `<p class="faint" data-brand="footer" style="margin-top:28px">${esc(brand.footer)}</p>` : ""}
 <p class="faint" style="margin-top:${brand.footer ? "6px" : "28px"}">Rendered by SponsorX on ${day(renderedAt)} from the same figures as the live report.</p>
 </body></html>`;

@@ -182,12 +182,14 @@ describe("the report's spend is the shared rule", () => {
   it("excludes CANCELLED and REJECTED orders, adds ad placements, never uses compensation", () => {
     expect(sponsorSpendCents({ orders, adSlots })).toBe(400000);
     expect(sponsorSpendCents({ orders: [], adSlots: [] })).toBe(0);
+    /* 4S7-BE-01 — INFINEX placements still booked count, at their frozen price; one given back does not. */
+    expect(sponsorSpendCents({ orders: [], adSlots: [], placementWindows: [{ state: "BOOKED", priceCents: 70_000 }, { state: "RELEASED", priceCents: 50_000 }] })).toBe(70_000);
   });
 
   it("buildSponsorReport's media value is computed on exactly that spend", async () => {
     const { prisma } = await import("../src/db/client");
     Object.assign(prisma as object, {
-      campaign: { findFirst: async () => ({ id: "c1", name: "Autumn", state: "ACTIVE", startDate: new Date("2026-09-01"), endDate: null, budget: 500000, brief: null, orders, adSlots, rewards: [] }) },
+      campaign: { findFirst: async () => ({ id: "c1", tenantId: "t1", name: "Autumn", state: "ACTIVE", startDate: new Date("2026-09-01"), endDate: null, budget: 500000, brief: null, orders, adSlots, placementWindows: [], rewards: [] }) },
       metricDaily: { findMany: async () => [{ source: "VERIFIED_API", views: 200000, engagements: 0 }] },
       editionEvent: { groupBy: async () => [] },
     });

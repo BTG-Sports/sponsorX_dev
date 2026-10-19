@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -44,7 +44,7 @@ describe("4S2 · the creative rules (pure)", () => {
 const seededDb = await import("./support/seeded-db");
 const hasDatabase = await seededDb.databaseAvailable();
 
-describe.skipIf(!hasDatabase)("4S2-BE-01/02/03 · creative, deployments and the manifest, against the database", { timeout: 120_000 }, async () => {
+describe.skipIf(!hasDatabase)("4S2-BE-01/02/03/04 · creative, deployments, the manifest and its signed links, against the database", { timeout: 120_000 }, async () => {
   const previousEndpoint = process.env.S3_ENDPOINT;
   const { startObjectStore } = await import("./support/object-store");
   const store = await startObjectStore();
@@ -66,6 +66,10 @@ describe.skipIf(!hasDatabase)("4S2-BE-01/02/03 · creative, deployments and the 
   const admin = actor(T, "BTG_ADMIN");
   const cm = actor(T, "CAMPAIGN_MGR");
   const NOW = new Date("2026-10-20T12:00:00Z");
+  /* 4S2-BE-04 — the links are signed against the real clock (the bucket checks their expiry), so the tests pin
+     `now` to a moment inside the current five-minute step: two reads in one step must agree. */
+  const STEP_MS = 5 * 60_000;
+  const LINK_NOW = new Date(Math.floor(Date.now() / STEP_MS) * STEP_MS + 1_000);
 
   const image = (w: number, h: number, format: "png" | "jpeg" = "png") =>
     sharp({ create: { width: w, height: h, channels: 3, background: { r: 200, g: 30, b: 30 } } })[format]().toBuffer();
@@ -165,22 +169,67 @@ describe.skipIf(!hasDatabase)("4S2-BE-01/02/03 · creative, deployments and the 
 
   it("03 · the manifest: nothing until approved; then only in its dates; versioned, with an ETag that holds while nothing changes", async () => {
     const before = await C.worldManifest(admin, world, new Date("2026-11-03T12:00:00Z"));
-    expect(before.manifest).toMatchObject({ worldId: "arena", environment: "PRODUCTION", manifestVersion: 0, placements: [] });
+    expect(before.manifest!).toMatchObject({ worldId: "arena", environment: "PRODUCTION", manifestVersion: 0, placements: [] });
 
     const approved = await C.approveDeployment(cm, dep, NOW);
     expect(approved.deployment).toMatchObject({ state: "APPROVED", sequence: 2 });
-    const during = await C.worldManifest(admin, world, new Date("2026-11-03T12:00:00Z"));
-    expect(during.manifest.manifestVersion).toBe(1);
-    expect(during.manifest.placements).toEqual([expect.objectContaining({
+    const during = await C.worldManifest(admin, world, new Date("2026-11-03T12:00:00Z"), { now: LINK_NOW });
+    expect(during.manifest!.manifestVersion).toBe(1);
+    expect(during.manifest!.placements).toEqual([expect.objectContaining({
       placementId: "east-led", deploymentId: dep, sequence: 2, campaignId: `${T}_c1`,
-      asset: expect.objectContaining({ assetId: good, version: 1, mime: "image/png", widthPx: 1920, heightPx: 1080, checksum: expect.stringMatching(/^sha256:[0-9a-f]{64}$/), url: null }),
+      asset: expect.objectContaining({ assetId: good, version: 1, mime: "image/png", widthPx: 1920, heightPx: 1080, checksum: expect.stringMatching(/^sha256:[0-9a-f]{64}$/), url: expect.stringContaining("X-Amz-Signature=") }),
       window: { startsAt: "2026-11-02T00:00:00.000Z", endsAt: "2026-11-09T00:00:00.000Z" },
     })]);
-    expect((await C.worldManifest(admin, world, new Date("2026-11-03T13:00:00Z"))).etag).toBe(during.etag);
+    expect((await C.worldManifest(admin, world, new Date("2026-11-03T13:00:00Z"), { now: LINK_NOW })).etag).toBe(during.etag);
     /* Outside its dates: not shown — and a different ETag. */
-    const after = await C.worldManifest(admin, world, new Date("2026-11-10T12:00:00Z"));
-    expect(after.manifest.placements).toEqual([]);
+    const after = await C.worldManifest(admin, world, new Date("2026-11-10T12:00:00Z"), { now: LINK_NOW });
+    expect(after.manifest!.placements).toEqual([]);
     expect(after.etag).not.toBe(during.etag);
+  });
+
+  it("04 · each file comes with a signed link that fetches exactly that file, lives 15 minutes and is good for at least 10", async () => {
+    const at = new Date("2026-11-03T12:00:00Z");
+    const m = await C.worldManifest(admin, world, at, { now: LINK_NOW });
+    const asset = m.manifest!.placements[0]!.asset;
+    const expiresAt = new Date(asset.urlExpiresAt!);
+    expect(expiresAt.getTime() - LINK_NOW.getTime()).toBeGreaterThanOrEqual(10 * 60_000);
+    expect(expiresAt.getTime() - LINK_NOW.getTime()).toBeLessThanOrEqual(15 * 60_000);
+    const got = await fetch(asset.url!);
+    expect(got.status).toBe(200);
+    const bytes = Buffer.from(await got.arrayBuffer());
+    expect(`sha256:${createHash("sha256").update(bytes).digest("hex")}`).toBe(asset.checksum);
+    /* The link is for that file only: pointed at another key, the signature fails. */
+    const lifted = new URL(asset.url!);
+    lifted.pathname = lifted.pathname.replace(/[^/]+$/, "other.png");
+    expect((await fetch(lifted)).status).toBe(403);
+  });
+
+  it("04 · a link handed out in an earlier step lapses; the next step hands out fresh links and a new ETag", async () => {
+    const at = new Date("2026-11-03T12:00:00Z");
+    const now = await C.worldManifest(admin, world, at, { now: LINK_NOW });
+    const old = await C.worldManifest(admin, world, at, { now: new Date(LINK_NOW.getTime() - 20 * 60_000) });
+    expect((await fetch(old.manifest!.placements[0]!.asset.url!)).status).toBe(403);
+    expect(old.etag).not.toBe(now.etag);
+    const next = await C.worldManifest(admin, world, at, { now: new Date(LINK_NOW.getTime() + STEP_MS) });
+    expect(next.etag).not.toBe(now.etag);
+    expect(next.manifest!.placements[0]!.asset.url).not.toBe(now.manifest!.placements[0]!.asset.url);
+    /* Inside one step the links are the same string, so a world holding them sees no change. */
+    const again = await C.worldManifest(admin, world, at, { now: new Date(LINK_NOW.getTime() + 60_000) });
+    expect(again.manifest!.placements[0]!.asset.url).toBe(now.manifest!.placements[0]!.asset.url);
+  });
+
+  it("04 · one audit row per grant, naming the keys and never the link; an unchanged poll grants nothing", async () => {
+    const at = new Date("2026-11-03T12:00:00Z");
+    const grants = () => prisma.auditLog.count({ where: { tenantId: T, action: "virtual.creativeLinksGrant" } });
+    const before = await grants();
+    const m = await C.worldManifest(admin, world, at, { now: LINK_NOW });
+    expect(await grants()).toBe(before + 1);
+    const row = await prisma.auditLog.findFirstOrThrow({ where: { tenantId: T, action: "virtual.creativeLinksGrant" }, orderBy: { at: "desc" }, select: { entity: true, entityId: true, before: true, after: true } });
+    expect(JSON.stringify(row)).toContain(`virtual/${T}/`);
+    expect(JSON.stringify(row)).not.toContain("X-Amz-Signature");
+    const unchanged = await C.worldManifest(admin, world, at, { now: LINK_NOW, ifNoneMatch: m.etag });
+    expect(unchanged).toMatchObject({ notModified: true, manifest: null, etag: m.etag });
+    expect(await grants()).toBe(before + 1);
   });
 
   it("01 · one creative at a time on a window: a second overlapping approval is refused (the database's rule)", async () => {
@@ -190,22 +239,22 @@ describe.skipIf(!hasDatabase)("4S2-BE-01/02/03 · creative, deployments and the 
 
   it("ending, and a window given back, take creative off the world", async () => {
     await C.endDeployment(cm, dep, { reason: "Swapping the creative" }, NOW);
-    expect((await C.worldManifest(admin, world, new Date("2026-11-03T12:00:00Z"))).manifest.placements).toEqual([]);
+    expect((await C.worldManifest(admin, world, new Date("2026-11-03T12:00:00Z"))).manifest!.placements).toEqual([]);
 
     const k = await upload(w2, "image/png", await image(1920, 1080));
     const a = (await C.registerCreative(cm, w2, { r2Key: k, creativeType: "IMAGE" })).asset.id;
     const d2 = (await C.createDeployment(cm, w2, { assetId: a })).deployment.id;
     await C.approveDeployment(cm, d2, NOW);
-    expect((await C.worldManifest(admin, world, new Date("2026-11-10T12:00:00Z"))).manifest.placements).toHaveLength(1);
+    expect((await C.worldManifest(admin, world, new Date("2026-11-10T12:00:00Z"))).manifest!.placements).toHaveLength(1);
     await B.releaseWindow(cm, w2, { reason: "The sponsor moved the dates" }, NOW);
     expect((await prisma.creativeDeployment.findFirstOrThrow({ where: { id: d2 }, select: { state: true, endReason: true } }))).toMatchObject({ state: "ENDED", endReason: "Its window was given back: The sponsor moved the dates" });
-    expect((await C.worldManifest(admin, world, new Date("2026-11-10T12:00:00Z"))).manifest.placements).toEqual([]);
+    expect((await C.worldManifest(admin, world, new Date("2026-11-10T12:00:00Z"))).manifest!.placements).toEqual([]);
   });
 
   it("who: BTG and campaign managers upload and deploy; Sales and sponsors cannot; a world's owner reads its manifest; another tenant reaches nothing", async () => {
     await expect(C.presignCreative(actor(T, "SALES"), w1, { contentType: "image/png", bytes: 100 })).rejects.toBeInstanceOf(ForbiddenError);
     await expect(C.presignCreative(actor(T, "SPONSOR_ADMIN", { sponsorId: `${T}_sp` }), w1, { contentType: "image/png", bytes: 100 })).rejects.toBeInstanceOf(ForbiddenError);
-    expect((await C.worldManifest(actor(T, "PROPERTY_MGR", { propertyId: `${T}_p` }), world)).manifest.worldId).toBe("arena");
+    expect((await C.worldManifest(actor(T, "PROPERTY_MGR", { propertyId: `${T}_p` }), world)).manifest!.worldId).toBe("arena");
     await expect(C.worldManifest(actor(OTHER, "BTG_ADMIN"), world)).rejects.toBeInstanceOf(V.VirtualNotFoundError);
     await expect(C.presignCreative(actor(OTHER, "BTG_ADMIN"), w1, { contentType: "image/png", bytes: 100 })).rejects.toBeInstanceOf(V.VirtualNotFoundError);
     await expect(C.approveDeployment(actor(OTHER, "BTG_ADMIN"), dep)).rejects.toBeInstanceOf(V.VirtualNotFoundError);

@@ -70,6 +70,8 @@ export type StageFacts = {
   /** ACCEPTED invitations with no order yet for that athlete and job. */
   invitesWithoutOrder: number;
   adSlots: number;
+  /** 4S7-BE-01 — BOOKED INFINEX placement windows. Absent: none. */
+  placementWindows?: number;
   /** Deliverables on signed orders. */
   deliverables: { total: number; published: number; verified: number };
   /** When the campaign last entered REPORTING, from the audit; null if never recorded. */
@@ -97,7 +99,7 @@ function answersWaiting(f: StageFacts): number {
 }
 
 function adOnly(f: StageFacts): boolean {
-  return isAdOnly({ orders: f.ordersAll, adSlots: f.adSlots });
+  return isAdOnly({ orders: f.ordersAll, adSlots: f.adSlots, placementWindows: f.placementWindows });
 }
 
 /**

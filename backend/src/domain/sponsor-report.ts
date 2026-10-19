@@ -50,27 +50,31 @@ export const NOT_LIVE_ORDER_STATES: OrderState[] = ["CANCELLED", "REJECTED"];
  * Spend is what the SPONSOR is paying: the sell price of every LIVE order
  * (not CANCELLED or REJECTED — an order that never went ahead bought
  * nothing), plus any NEXT ad placements at their frozen sale value
- * (P9-BE-12). Never athlete compensation: a media value computed against
+ * (P9-BE-12), plus INFINEX placements still booked, at the price frozen at
+ * booking (4S7-BE-01). Never athlete compensation: a media value computed against
  * athlete cost would flatter the number by exactly BTG's margin. Pure.
  */
 export function sponsorSpendCents(input: {
   orders: readonly { state: string; sellPrice: number }[];
   adSlots: readonly { soldCents: number | null }[];
+  placementWindows?: readonly { state: string; priceCents: number }[];
 }): number {
   const notLive: readonly string[] = NOT_LIVE_ORDER_STATES;
   const orders = input.orders.filter((o) => !notLive.includes(o.state)).reduce((n, o) => n + o.sellPrice, 0);
-  return input.adSlots.reduce((n, s) => n + (s.soldCents ?? 0), orders);
+  const virtual = (input.placementWindows ?? []).filter((w) => w.state === "BOOKED").reduce((n, w) => n + w.priceCents, 0);
+  return input.adSlots.reduce((n, s) => n + (s.soldCents ?? 0), orders + virtual);
 }
 
 /**
  * `sponsorSpendCents` summed in the database over campaigns the CALLER has
  * already scoped (the overview passes ids from whereFor(actor, "campaign")).
  * `ordersCents` is the live orders' sell price alone — the overview's
- * `money.contractedCents`; `spendCents` adds the ad placements.
+ * `money.contractedCents`; `spendCents` adds the ad placements and (4S7-BE-01)
+ * the INFINEX placements still booked.
  */
-export async function sponsorSpendFor(campaignIds: string[]): Promise<{ ordersCents: number; adSlotCents: number; spendCents: number }> {
-  if (!campaignIds.length) return { ordersCents: 0, adSlotCents: 0, spendCents: 0 };
-  const [orders, slots] = await Promise.all([
+export async function sponsorSpendFor(campaignIds: string[]): Promise<{ ordersCents: number; adSlotCents: number; virtualCents: number; spendCents: number }> {
+  if (!campaignIds.length) return { ordersCents: 0, adSlotCents: 0, virtualCents: 0, spendCents: 0 };
+  const [orders, slots, windows] = await Promise.all([
     prisma.campaignOrder.aggregate({
       /* tenant-scope: keyed by campaign ids the caller scoped through whereFor. */
       where: { campaignId: { in: campaignIds }, state: { notIn: NOT_LIVE_ORDER_STATES } }, _sum: { sellPrice: true },
@@ -79,10 +83,15 @@ export async function sponsorSpendFor(campaignIds: string[]): Promise<{ ordersCe
       /* tenant-scope: keyed by campaign ids the caller scoped through whereFor. */
       where: { campaignId: { in: campaignIds } }, _sum: { soldCents: true },
     }),
+    prisma.placementWindow.aggregate({
+      /* tenant-scope: keyed by campaign ids the caller scoped through whereFor. */
+      where: { campaignId: { in: campaignIds }, state: "BOOKED" }, _sum: { priceCents: true },
+    }),
   ]);
   const ordersCents = orders._sum?.sellPrice ?? 0;
   const adSlotCents = slots._sum?.soldCents ?? 0;
-  return { ordersCents, adSlotCents, spendCents: ordersCents + adSlotCents };
+  const virtualCents = windows._sum?.priceCents ?? 0;
+  return { ordersCents, adSlotCents, virtualCents, spendCents: ordersCents + adSlotCents + virtualCents };
 }
 
 export class ReportNotAvailableError extends Error {
@@ -144,6 +153,8 @@ export type SponsorReport = {
    *  because pooling them makes the report say something untrue. Empty and
    *  null for a campaign with no ad placements. */
   adPlacements: Array<{ slotCode: string; kind: string; editionId: string; soldCents: number }>;
+  /** 4S7-BE-01 — the INFINEX placements this campaign holds, booked (not given back), at their frozen price. Empty with none. */
+  virtualPlacements: Array<{ placementId: string; placementName: string; worldId: string; startsAt: string; endsAt: string; priceCents: number }>;
   editionEngagement: EditionEngagement | null;
   redemption: { issued: number; redeemed: number; rate: number };
   mediaValue: MediaValue;
@@ -271,7 +282,7 @@ export async function buildSponsorReport(
     /* tenant-scope: the caller scopes — assembleSponsorReport spreads whereFor(actor), the render job passes its own tenantId. */
     where: campaignWhere,
     select: {
-      id: true, name: true, state: true, startDate: true, endDate: true, budget: true,
+      id: true, tenantId: true, name: true, state: true, startDate: true, endDate: true, budget: true,
       brief: { select: { objective: true } },
       orders: {
         select: {
@@ -288,6 +299,10 @@ export async function buildSponsorReport(
         },
       },
       adSlots: { select: { id: true, slotCode: true, kind: true, editionId: true, soldCents: true } },
+      placementWindows: {
+        where: { state: "BOOKED" }, orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+        select: { state: true, priceCents: true, startsAt: true, endsAt: true, placementId: true },
+      },
       rewards: {
         select: {
           tokens: {
@@ -346,8 +361,25 @@ export async function buildSponsorReport(
         _count: true,
       })
     : [];
+  /* 4S7-BE-01 — the booked placements' names and worlds, for the report. */
+  const placements = campaign.placementWindows.length
+    ? await prisma.virtualPlacement.findMany({
+        /* tenant-scope: keyed by the windows of the campaign loaded above through whereFor. */
+        where: { tenantId: campaign.tenantId, id: { in: [...new Set(campaign.placementWindows.map((w) => w.placementId))] } },
+        select: { id: true, externalId: true, name: true, worldId: true },
+      })
+    : [];
+  const worlds = placements.length
+    ? await prisma.virtualWorld.findMany({
+        /* tenant-scope: the worlds of the placements read above. */
+        where: { tenantId: campaign.tenantId, id: { in: [...new Set(placements.map((p) => p.worldId))] } },
+        select: { id: true, externalId: true },
+      })
+    : [];
+  const placementBy = new Map(placements.map((p) => [p.id, p]));
+  const worldBy = new Map(worlds.map((w) => [w.id, w.externalId]));
   /* Spend: THE rule (sponsorSpendCents), shared with the sponsor overview. */
-  const spend = sponsorSpendCents({ orders: campaign.orders, adSlots: campaign.adSlots });
+  const spend = sponsorSpendCents({ orders: campaign.orders, adSlots: campaign.adSlots, placementWindows: campaign.placementWindows });
 
   const withoutObservations: Omit<SponsorReport, "observations"> = {
     campaign: {
@@ -366,6 +398,13 @@ export async function buildSponsorReport(
     adPlacements: campaign.adSlots.map((s) => ({
       slotCode: s.slotCode, kind: s.kind, editionId: s.editionId, soldCents: s.soldCents ?? 0,
     })),
+    virtualPlacements: campaign.placementWindows.map((w) => {
+      const p = placementBy.get(w.placementId);
+      return {
+        placementId: p?.externalId ?? w.placementId, placementName: p?.name ?? "", worldId: p ? worldBy.get(p.worldId) ?? "" : "",
+        startsAt: w.startsAt.toISOString(), endsAt: w.endsAt.toISOString(), priceCents: w.priceCents,
+      };
+    }),
     editionEngagement: slotIds.length ? foldEngagement(engagementRows) : null,
     redemption: {
       issued,

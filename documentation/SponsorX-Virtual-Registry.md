@@ -115,10 +115,15 @@ be retired. Release the windows, or cancel their campaigns, first.
 books and releases. Whoever may read the placement sees its windows. Every
 booking and release is audited.
 
-**Not yet in the money ledger.** A booking isn't recorded as a sale fact yet,
-so it doesn't appear in the campaign's figures, the sponsor report or the
-nightly fact check. Virtual inventory joins the campaign's reporting in
-`4S7-BE-01` / `4S7-DATA-01`.
+**In the money ledger (`4S7-BE-01`).** A booking is a `PLACEMENT_WINDOW_BOOKED`
+fact on its campaign, at its frozen price, beside the campaign's orders and
+ad slots; giving the days back reverses it on the release day. So it counts
+once in the campaign's figures, the nightly fact check, the sponsor's spend
+and the sponsor report (its `virtualPlacements`). A window belongs to a real
+campaign (a foreign key). A campaign holding only INFINEX placements has
+nothing to staff, so it may go DRAFT → APPROVAL as an ad-only one does; a
+campaign with athlete work is still staffed. Counting a fan once across
+channels is `4S7-DATA-01`.
 
 ## 5 · Creative, checked against the placement (`4S2-BE-02`)
 
@@ -210,9 +215,24 @@ the requested world and time.
 - While nothing it would show has changed, the answer is 304.
 - A world takes the latest manifest; it never needs the history.
 
+**Download links (`4S2-BE-04`).** Each file comes with `url`, a signed link
+to the private bucket, and `urlExpiresAt`.
+- **Short-lived:** a link lives 15 minutes, the storage-wide maximum.
+- **Stepped:** links are signed at the start of each 5-minute step, so every
+  link a world is handed is good for at least 10 minutes, and every link
+  minted in one step is the same string.
+- **Fits the ETag:** the ETag covers what the world shows and the step. A
+  poll inside one step that changes nothing gets 304, and nothing is signed;
+  the step turning hands out fresh links before the old ones lapse.
+- **Can't be lifted:** a link fetches only its own file, and only until it
+  expires.
+- **Audited:** one `virtual.creativeLinksGrant` row per grant, naming the
+  keys, never the links (they are the credential).
+- **Served by Cloudflare R2.** The links point at R2 directly; they are not
+  cached at the edge. If the load test (`4S8-OPS-01`) shows that is too slow,
+  a caching layer in front is a separate task.
+
 **Still to come:**
-- **Download links** for the files are `4S2-BE-04` (signed, short-lived);
-  until then `url` is null.
 - **The game's own call** needs its machine login (`4S0-SEC-01`). Until then
   BTG staff, a world's owner and the stand-in world read the manifest through
   `virtualWorld`.

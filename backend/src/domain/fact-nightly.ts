@@ -75,6 +75,7 @@ const WORDS: Record<FactMeasure, string> = {
   metric_corrections: "view corrections",
   earnings_paid_cents: "athlete pay paid out",
   ad_slot_sold_cents: "NEXT ad slots sold",
+  virtual_booked_cents: "INFINEX placements booked",
   invoiced_cents: "amount invoiced",
   invoice_paid_cents: "invoices paid",
   marketplace_gross_cents: "marketplace sales (gross)",

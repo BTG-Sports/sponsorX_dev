@@ -919,9 +919,9 @@ The sales-conversation screen: adjust the inputs live while a sponsor watches.
 - **Reference:** Spec §16 P3-08
 - **Built (2026-10-13):** `/admin/intelligence/scenarios`, against the proposed contract in [SponsorX-Phase3-Screen-Contracts.md](./SponsorX-Phase3-Screen-Contracts.md). Until the scenario service is mounted the screen says so and shows no figures. Marked Done by the owner 2026-10-13 with the UI complete and QA'd at phone, laptop and desktop widths; when the engine lands, walk the screen against it.
 
-### ◑ `3S7-INT-01` · Push intelligence into Zoho
+### ✅ `3S7-INT-01` · Push intelligence into Zoho
 
-**Order** 35 · **INT** · **Where:** Code · **3d** · **Code review**
+**Order** 35 · **INT** · **Where:** Code · **3d** · **Done**
 
 Renewal scores, sponsor health and recommended next action flow back to the CRM where the sales team already works.
 
@@ -931,6 +931,7 @@ Renewal scores, sponsor health and recommended next action flow back to the CRM 
   - **What Zoho shows:** each sponsor's Account carries `SponsorX_Renewal_Score` (0–100) and `SponsorX_Next_Action`, from the same renewal advice as the sponsor's hub.
   - **Automatic:** the nightly run queues `zoho.pushIntelligence` only for sponsors in Zoho whose values changed.
   - **The fields** are made by `npm run zoho:intel-fields -- --create`: the sandbox first, then production with the owner's OK.
+  - **Done 2026-10-19, shown in the sandbox:** a simulated campaign ending soon on staging gave a UAT sponsor a forecast. The worker's push put `SponsorX_Renewal_Score` 86 and `SponsorX_Next_Action` "Renew: … On course to deliver 86,000 of the 100,000 impressions promised (86%)." on its Account. The other 22 Accounts show their next action ("No campaign ending soon."). Production's two fields follow P2-OPS-04's Zoho keys.
 
   [`SponsorX-Zoho-Field-Mapping.md`](./SponsorX-Zoho-Field-Mapping.md) §12.3
 - **Reference:** Spec §20
