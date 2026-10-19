@@ -215,3 +215,10 @@ The user chose "the next Phase 4 backend task". 4S0-SEC-01 comes before 4S3-INT-
 - **Docs:** API spec §6.2 rewritten as decided, its §2 "missing" row now "exists", World Contract §5, Secrets-Rotation §11a (`INFINEX_SIGNING_SECRET`), the Phase 4 plan. Tracker: Code review.
 
 **For later:** `INFINEX_SIGNING_SECRET` is not set on staging or production yet. Sessions answer 503 until then, which is safe; it's needed before 4S4-BE-01 / 5S1. Registering clients is 4S3-INT-02.
+
+## rcfworks — #259 merged; 4S2-BE-05 and 4S0-SEC-01 to Done; sync #260
+
+- **#257 and #259 merged by the user**, CI all green including e2e.
+- **To Done (plan and tracker):** 4S2-BE-05 and 4S0-SEC-01.
+- **Sync PR #260** (main_development → main) carries #257, #258 and #259. `git merge-tree` gives exactly main_development's tree. The deploy follows once main is green.
+- **Next in Phase 4's order:** 4S3-INT-02 (client registry, heartbeat, missing-heartbeat alert), built on 4S0-SEC-01.
