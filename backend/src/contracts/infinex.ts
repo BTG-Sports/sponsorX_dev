@@ -33,3 +33,17 @@ export const Heartbeat = z.object({
 }).strict()
   .meta({ id: "InfinexHeartbeat", description: "A game session's heartbeat (4S3-INT-02). The client and world are the session's." });
 
+const rate = z.number().min(0).max(1);
+export const ClientConfigInput = z.object({
+  override: z.object({
+    telemetry: z.object({
+      maxBatch: z.number().optional(), maxBytes: z.number().optional(), flushSeconds: z.number().optional(),
+      sampleRates: z.record(z.string(), rate).optional(),
+    }).strict().optional(),
+    manifest: z.object({ pollSeconds: z.number().optional() }).strict().optional(),
+    heartbeat: z.object({ everySeconds: z.number().optional() }).strict().optional(),
+    flags: z.record(z.string(), z.boolean()).optional(),
+  }).strict().nullable().describe("The values to change from the defaults, within their limits; null clears the override"),
+}).strict()
+  .meta({ id: "InfinexClientConfigInput", description: "BTG sets or clears one game build's client config override, within its limits (4S3-INT-03)." });
+

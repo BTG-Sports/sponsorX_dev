@@ -13,33 +13,42 @@
  *   billing data.
  *
  *   MISSING. A build that has reported at least once and then sends nothing
- *   for HEARTBEAT_MISSING_SECONDS (5 minutes; 4S3-INT-03 makes it a setting) is
- *   marked missing by the worker's minute sweep, which raises the alert: an
+ *   for MISSING_AFTER_BEATS of its own heartbeat intervals (4S3-INT-03: 2.5
+ *   minutes at the default 30 s) is marked missing by the worker's minute
+ *   sweep, which raises the alert: an
  *   audit row, and the client listed as missing on the Integrations screen
  *   (integration-health.ts). Its next heartbeat clears it and records the
  *   recovery. A build nobody has launched yet never alarms.
  */
 import type { Actor } from "../auth/actor";
+import { ForbiddenError } from "../auth/errors";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { audit, AUDIT_ACTIONS, type AuditActor } from "../db/audit";
 import { prisma } from "../db/client";
-import type { Prisma, PrismaClient } from "../generated/prisma/client";
+import { Prisma, type PrismaClient } from "../generated/prisma/client";
 import { InfinexConflictError, InfinexInputError, InfinexNotFoundError } from "./infinex-auth";
+import {
+  CONFIG_DEFAULTS_VERSION, configEtag, effectiveConfig, LIMITS, missingAfterSeconds, overrideProblems, type ConfigOverride,
+} from "./infinex-config";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
-export const HEARTBEAT_MISSING_SECONDS = 5 * 60;
+/** The default threshold, for the Integrations screen's heading; each build uses its own (missingAfterSeconds). */
+export const HEARTBEAT_MISSING_SECONDS = missingAfterSeconds(null);
 
 const CLIENT = {
   id: true, worldId: true, buildId: true, status: true, createdAt: true, revokedAt: true, revokeReason: true,
   lastHeartbeatAt: true, lastManifestVersion: true, lastFps: true, lastErrorCount: true, heartbeatCount: true, missingSince: true,
+  configOverride: true, configVersion: true,
 } as const;
 type ClientRow = Prisma.InfinexClientGetPayload<{ select: typeof CLIENT }>;
 const iso = (d: Date | null) => d?.toISOString() ?? null;
-const view = (c: ClientRow, now: Date) => ({
+const view = ({ configOverride, ...c }: ClientRow, now: Date) => ({
   ...c, createdAt: c.createdAt.toISOString(), revokedAt: iso(c.revokedAt), lastHeartbeatAt: iso(c.lastHeartbeatAt), missingSince: iso(c.missingSince),
   heartbeatAgeSeconds: c.lastHeartbeatAt ? Math.max(0, Math.round((now.getTime() - c.lastHeartbeatAt.getTime()) / 1000)) : null,
   missing: c.missingSince !== null,
+  missingAfterSeconds: missingAfterSeconds(configOverride as ConfigOverride | null),
+  configOverridden: configOverride !== null,
 });
 
 const BUILD = /^[A-Za-z0-9._+-]{1,64}$/;
@@ -130,22 +139,26 @@ export async function recordHeartbeat(
  * The worker's minute sweep: every ACTIVE client that has reported and then gone quiet for longer than
  * HEARTBEAT_MISSING_SECONDS is marked missing, once, with an audit row (the alert). Returns how many.
  */
-export async function sweepMissingHeartbeats(db: PrismaClient = prisma, now = new Date()): Promise<{ missing: number }> {
-  const cutoff = new Date(now.getTime() - HEARTBEAT_MISSING_SECONDS * 1000);
-  const quiet = await db.infinexClient.findMany({
+export async function sweepMissingHeartbeats(db: PrismaClient = prisma, now = new Date(), opts: { tenantId?: string } = {}): Promise<{ missing: number }> {
+  /* Every build quiet for at least the shortest threshold any build can have; then each against its own. */
+  const shortest = new Date(now.getTime() - LIMITS.heartbeatSeconds.min * 5 * 1000);
+  const candidates = await db.infinexClient.findMany({
     /* tenant-scope: the system's sweep across tenants; each alert is filed under its client's own tenant. */
-    where: { status: "ACTIVE", missingSince: null, lastHeartbeatAt: { lt: cutoff } },
-    select: { id: true, tenantId: true, worldId: true, buildId: true, lastHeartbeatAt: true },
+    where: { status: "ACTIVE", missingSince: null, lastHeartbeatAt: { lt: shortest }, ...(opts.tenantId ? { tenantId: opts.tenantId } : {}) },
+    select: { id: true, tenantId: true, worldId: true, buildId: true, lastHeartbeatAt: true, configOverride: true },
   });
+  const quiet = candidates.map((c) => ({ ...c, thresholdSeconds: missingAfterSeconds(c.configOverride as ConfigOverride | null) }))
+    .filter((c) => c.lastHeartbeatAt!.getTime() < now.getTime() - c.thresholdSeconds * 1000);
   let missing = 0;
   for (const c of quiet) {
+    const cutoff = new Date(now.getTime() - c.thresholdSeconds * 1000);
     /* Marked and alerted together; a heartbeat that lands first wins (missingSince is no longer null). */
     missing += await db.$transaction(async (tx) => {
       const marked = await tx.infinexClient.updateMany({ where: { id: c.id, tenantId: c.tenantId, status: "ACTIVE", missingSince: null, lastHeartbeatAt: { lt: cutoff } }, data: { missingSince: now } });
       if (!marked.count) return 0;
       const by: AuditActor = { userId: null, tenantId: c.tenantId };
       await audit(tx, by, AUDIT_ACTIONS.infinex.heartbeatMissing, "InfinexClient", c.id, {
-        after: { worldId: c.worldId, buildId: c.buildId, lastHeartbeatAt: c.lastHeartbeatAt!.toISOString(), thresholdSeconds: HEARTBEAT_MISSING_SECONDS },
+        after: { worldId: c.worldId, buildId: c.buildId, lastHeartbeatAt: c.lastHeartbeatAt!.toISOString(), thresholdSeconds: c.thresholdSeconds },
       });
       return 1;
     });
@@ -160,4 +173,56 @@ export async function clientHealth(db: Db, tenantId: string, now = new Date()) {
   });
   const clients = rows.map((c) => view(c, now));
   return { thresholdSeconds: HEARTBEAT_MISSING_SECONDS, active: clients.length, missing: clients.filter((c) => c.missing).length, clients };
+}
+
+/* ───────────────────────────── client config (4S3-INT-03) ───────────────────────────── */
+
+const configOf = (c: { id: string; buildId: string; worldId: string; configOverride: unknown; configVersion: number }) => {
+  const config = effectiveConfig(c.configOverride as ConfigOverride | null);
+  return {
+    etag: configEtag(config, c.configVersion),
+    body: { clientId: c.id, worldId: c.worldId, buildId: c.buildId, defaultsVersion: CONFIG_DEFAULTS_VERSION, configVersion: c.configVersion, overridden: c.configOverride !== null, ...config },
+  };
+};
+const CONFIG_ROW = { id: true, buildId: true, worldId: true, status: true, configOverride: true, configVersion: true } as const;
+
+/** GET /infinex/config — a game session's own build's effective config, with its ETag. */
+export async function sessionConfig(actor: Actor) {
+  assertAllowed(actor, "infinexClient", "read");
+  const clientId = actor.machine?.clientId;
+  if (!clientId) throw new InfinexConflictError("Only a game session reads its config here; BTG and servers use /infinex/clients/{id}/config.");
+  const c = await prisma.infinexClient.findFirst({ where: { ...whereFor(actor, "infinexClient", "read"), id: clientId }, select: CONFIG_ROW });
+  if (!c || c.status !== "ACTIVE") throw new InfinexNotFoundError("client");
+  return configOf(c);
+}
+
+/** GET /infinex/clients/{id}/config — a build's effective config and its override (BTG and the world's server). */
+export async function readClientConfig(actor: Actor, clientId: string) {
+  assertAllowed(actor, "infinexClient", "read");
+  const c = await prisma.infinexClient.findFirst({ where: { ...whereFor(actor, "infinexClient", "read"), id: clientId }, select: CONFIG_ROW });
+  if (!c) throw new InfinexNotFoundError("client");
+  return { ...configOf(c).body, override: (c.configOverride as ConfigOverride | null) ?? null, limits: LIMITS };
+}
+
+/**
+ * PATCH /infinex/clients/{id}/config { override } — BTG sets (or, with null, clears) a build's override. Refused
+ * with every reason when a value is outside its limits. Machines read their config; they never change it.
+ */
+export async function setClientConfig(actor: Actor, clientId: string, input: { override: ConfigOverride | null }) {
+  assertAllowed(actor, "infinexClient", "write");
+  if (actor.machine) throw new ForbiddenError("infinexClient", "write");
+  const problems = input.override ? overrideProblems(input.override) : [];
+  if (problems.length) throw new InfinexInputError(problems);
+  return prisma.$transaction(async (tx) => {
+    const c = await tx.infinexClient.findFirst({ where: { ...whereFor(actor, "infinexClient", "write"), id: clientId }, select: { id: true, configOverride: true } });
+    if (!c) throw new InfinexNotFoundError("client");
+    const next = await tx.infinexClient.update({
+      /* tenant-scope: the client found above through whereFor. */
+      where: { id: c.id },
+      data: { configOverride: input.override ?? Prisma.DbNull, configVersion: { increment: 1 } },
+      select: CONFIG_ROW,
+    });
+    await audit(tx, actor, AUDIT_ACTIONS.infinex.clientConfig, "InfinexClient", c.id, { before: { override: c.configOverride ?? null }, after: { override: input.override, configVersion: next.configVersion } });
+    return { ...configOf(next).body, override: input.override, limits: LIMITS };
+  });
 }

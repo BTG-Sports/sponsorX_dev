@@ -3,13 +3,16 @@
  * script that calls SponsorX exactly as a world will").
  *
  *   SPONSORX_API_URL=https://… INFINEX_CREDENTIAL_ID=… INFINEX_CREDENTIAL_SECRET=sxs_… INFINEX_CLIENT_ID=… \
- *     npm run infinex:standin -w @sponsorx/backend -- --beats 3 --every 30
+ *     npm run infinex:standin -w @sponsorx/backend -- --beats 3
  *
  * Plays both halves, through the public API only, as the real ones will:
  *   the world's server — swaps its credential for a token, starts a session
  *     for one registered game build;
- *   the game — reads its world's manifest with the session's token, then
- *     sends heartbeats carrying the manifest version it shows.
+ *   the game — reads its config first (4S3-INT-03) and honours it: a
+ *     heartbeat every `heartbeat.everySeconds`, the manifest read again once
+ *     `manifest.pollSeconds` has passed (with If-None-Match), and it reports
+ *     the telemetry limits it would send under. Heartbeats carry the manifest
+ *     version it shows.
  * No database access and no SponsorX code: what passes here passes for a
  * world built by someone else. `runStandin` is what the tests drive.
  */
@@ -20,23 +23,28 @@ export type StandinOptions = {
   secret: string;
   clientId: string;
   beats?: number;
-  everySeconds?: number;
   fps?: number;
   log?: (line: string) => void;
   sleep?: (ms: number) => Promise<void>;
 };
 
-export type StandinResult = { worldId: string; manifestVersion: number; placements: number; heartbeats: number };
+export type StandinResult = {
+  worldId: string; manifestVersion: number; placements: number; heartbeats: number; manifestReads: number;
+  config: { heartbeatSeconds: number; pollSeconds: number; maxBatch: number; maxBytes: number; configVersion: number };
+};
 
-async function call(baseUrl: string, method: string, path: string, token: string | null, body?: unknown) {
+async function call(baseUrl: string, method: string, path: string, token: string | null, body?: unknown, headers: Record<string, string> = {}) {
   const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/v1${path}`, {
     method,
-    headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), "content-type": "application/json" },
+    headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), "content-type": "application/json", ...headers },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await res.text();
+  if (res.status === 304) return { notModified: true } as Record<string, unknown>;
   if (!res.ok) throw new Error(`${method} ${path} → ${res.status}: ${text.slice(0, 300)}`);
-  return text ? (JSON.parse(text) as Record<string, unknown>) : {};
+  const json = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+  const etag = res.headers.get("etag");
+  return etag ? { ...json, etag } : json;
 }
 
 export async function runStandin(o: StandinOptions): Promise<StandinResult> {
@@ -51,18 +59,39 @@ export async function runStandin(o: StandinOptions): Promise<StandinResult> {
   const worldId = String(session.worldId);
   log(`server: game session for client ${o.clientId}, world ${worldId}, until ${String(session.expiresAt)}${session.signingKey ? "" : " (no signing key: INFINEX_SIGNING_SECRET is not set)"}`);
 
-  /* The game. */
+  /* The game: its config first, then everything it does follows it. */
   const game = String(session.accessToken);
-  const manifest = await call(o.baseUrl, "GET", `/virtual/worlds/${encodeURIComponent(worldId)}/manifest`, game);
-  const manifestVersion = Number(manifest.manifestVersion);
-  const placements = Array.isArray(manifest.placements) ? manifest.placements.length : 0;
+  const cfg = await call(o.baseUrl, "GET", "/infinex/config", game) as {
+    heartbeat: { everySeconds: number }; manifest: { pollSeconds: number }; telemetry: { maxBatch: number; maxBytes: number }; configVersion: number;
+  };
+  const config = { heartbeatSeconds: cfg.heartbeat.everySeconds, pollSeconds: cfg.manifest.pollSeconds, maxBatch: cfg.telemetry.maxBatch, maxBytes: cfg.telemetry.maxBytes, configVersion: cfg.configVersion };
+  log(`game: config v${config.configVersion} — heartbeat every ${config.heartbeatSeconds}s, manifest every ${config.pollSeconds}s, telemetry batches ≤ ${config.maxBatch} events / ${config.maxBytes} bytes`);
+  const manifestPath = `/virtual/worlds/${encodeURIComponent(worldId)}/manifest`;
+  let manifest = await call(o.baseUrl, "GET", manifestPath, game);
+  let manifestReads = 1;
+  let manifestVersion = Number(manifest.manifestVersion);
+  let placements = Array.isArray(manifest.placements) ? manifest.placements.length : 0;
   log(`game: manifest v${manifestVersion}, ${placements} placement(s) live`);
+  let sinceManifest = 0;
   for (let i = 1; i <= beats; i++) {
     await call(o.baseUrl, "POST", "/infinex/heartbeat", game, { manifestVersion, fps: o.fps ?? 60, errorCount: 0 });
     log(`game: heartbeat ${i}/${beats}`);
-    if (i < beats) await sleep((o.everySeconds ?? 30) * 1000);
+    if (i === beats) break;
+    await sleep(config.heartbeatSeconds * 1000);
+    sinceManifest += config.heartbeatSeconds;
+    if (sinceManifest >= config.pollSeconds) {
+      sinceManifest = 0;
+      const next = await call(o.baseUrl, "GET", manifestPath, game, undefined, manifest.etag ? { "if-none-match": String(manifest.etag) } : {});
+      manifestReads += 1;
+      if (!next.notModified) {
+        manifest = next;
+        manifestVersion = Number(next.manifestVersion);
+        placements = Array.isArray(next.placements) ? next.placements.length : 0;
+      }
+      log(`game: manifest ${next.notModified ? "unchanged" : `now v${manifestVersion}`}`);
+    }
   }
-  return { worldId, manifestVersion, placements, heartbeats: beats };
+  return { worldId, manifestVersion, placements, heartbeats: beats, manifestReads, config };
 }
 
 /* The command line. */
@@ -75,7 +104,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   };
   runStandin({
     baseUrl: need("SPONSORX_API_URL"), credentialId: need("INFINEX_CREDENTIAL_ID"), secret: need("INFINEX_CREDENTIAL_SECRET"), clientId: need("INFINEX_CLIENT_ID"),
-    beats: Number(arg("beats") ?? 1), everySeconds: Number(arg("every") ?? 30),
+    beats: Number(arg("beats") ?? 1),
   }).then(
     (r) => { console.log(`stand-in world: ${JSON.stringify(r)}`); },
     (e: unknown) => { console.error(`stand-in world failed: ${(e as Error).message}`); process.exit(1); },

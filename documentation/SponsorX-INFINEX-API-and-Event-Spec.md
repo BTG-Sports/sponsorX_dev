@@ -206,7 +206,7 @@ touching portal routes.
 
 | Method + path | Response |
 |---|---|
-| `GET /infinex/config` | `{schemaVersions: {supported: [1,2], preferred: 2}, telemetry: {maxBatch: 500, maxBytes: 1048576, flushSeconds: 10, sampleRates: {…}}, manifest: {pollSeconds: 60}, flags: {…}}` |
+| `GET /infinex/config` | **Exists** (`4S3-INT-03`). A game session's own build: `{clientId, worldId, buildId, defaultsVersion, configVersion, overridden, schemaVersions: {supported: [1], preferred: 1}, telemetry: {maxBatch: 500, maxBytes: 1048576, flushSeconds: 10, sampleRates: {…}}, manifest: {pollSeconds: 60}, heartbeat: {everySeconds: 30}, flags: {telemetry, activations}}`, with an ETag (304 to `If-None-Match`). The defaults are reviewed code (`infinex-config@1.0.0`). BTG may override one build within limits (`GET`/`PATCH /infinex/clients/{id}/config`; out-of-limit values are 422 with every reason). A build counts as missing after five of its own heartbeat intervals. The telemetry intake (`4S4-BE-01`) enforces these same limits. |
 | `POST /infinex/heartbeat` `{manifestVersion, buildId?, fps?, errorCount?}` | **Exists** (`4S3-INT-02`). A game session only: the client and world come from its token, never the body (a `buildId` that isn't the session's is 422). Answers `204`. The latest beat and a count are kept on the client. A build that has reported and then sends nothing for 5 minutes is marked missing and alerted (§5.5) until it reports again. Not signed: not billing data. |
 | `POST /infinex/clients` `{worldId, buildId}` · `GET /infinex/clients?worldId` · `POST /infinex/clients/{id}/revoke` `{reason}` | **Exist** (`4S3-INT-02`). A client is one game build for one world, registered by BTG or the world's server. Revoking stops its sessions on their next call. |
 

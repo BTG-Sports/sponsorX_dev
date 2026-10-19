@@ -426,6 +426,8 @@ const BODY: Record<string, unknown> = {
   "POST /infinex/clients/{clientId}/revoke": { reason: "Sweep revoke reason" },
   "POST /infinex/clients": { worldId: A.world, buildId: "sweep-build" },
   "POST /infinex/heartbeat": { manifestVersion: 0 },
+  /* 4S3-INT-03 — changing tenant A's build's config. */
+  "PATCH /infinex/clients/{clientId}/config": { override: { heartbeat: { everySeconds: 60 } } },
   /* 4S2-BE-05 — pausing tenant A's deployment, and rolling back tenant A's window. */
   "POST /virtual/deployments/{deploymentId}/pause": { reason: "Sweep pause reason" },
   "POST /virtual/windows/{windowId}/rollback": { reason: "Sweep rollback reason" },

@@ -112,8 +112,8 @@ describe.skipIf(!hasDatabase)("4S3-INT-02 · client registry and heartbeats, pro
 
   it("the stand-in world: server token → game session (no signing key yet) → manifest → heartbeats, recorded on the build", async () => {
     const lines: string[] = [];
-    const r = await runStandin({ baseUrl: base, credentialId: cred.id, secret: cred.secret, clientId: build, beats: 2, everySeconds: 0, fps: 58.5, log: (l) => lines.push(l), sleep: async () => {} });
-    expect(r).toEqual({ worldId: arena, manifestVersion: 0, placements: 0, heartbeats: 2 });
+    const r = await runStandin({ baseUrl: base, credentialId: cred.id, secret: cred.secret, clientId: build, beats: 2, fps: 58.5, log: (l) => lines.push(l), sleep: async () => {} });
+    expect(r).toMatchObject({ worldId: arena, manifestVersion: 0, placements: 0, heartbeats: 2 });
     expect(lines.join("\n")).toContain("no signing key");
     const row = await prisma.infinexClient.findFirstOrThrow({ where: { tenantId: T, id: build }, select: { heartbeatCount: true, lastManifestVersion: true, lastFps: true, lastErrorCount: true, lastHeartbeatAt: true } });
     expect(row).toMatchObject({ heartbeatCount: 2, lastManifestVersion: 0, lastFps: 58.5, lastErrorCount: 0 });
@@ -134,12 +134,13 @@ describe.skipIf(!hasDatabase)("4S3-INT-02 · client registry and heartbeats, pro
   it("missing: a build quiet for five minutes is marked and alerted once; the Integrations screen shows it; its next heartbeat recovers it", async () => {
     const now = new Date();
     await prisma.infinexClient.update({ where: { id: build }, data: { lastHeartbeatAt: new Date(now.getTime() - 6 * 60_000) }, select: { id: true } });
-    expect(await H.sweepMissingHeartbeats(prisma, now)).toEqual({ missing: 1 });
-    expect(await H.sweepMissingHeartbeats(prisma, new Date(now.getTime() + 60_000))).toEqual({ missing: 0 });
+    expect(await H.sweepMissingHeartbeats(prisma, now, { tenantId: T })).toEqual({ missing: 1 });
+    expect(await H.sweepMissingHeartbeats(prisma, new Date(now.getTime() + 60_000), { tenantId: T })).toEqual({ missing: 0 });
     expect(await prisma.auditLog.count({ where: { tenantId: T, action: "infinex.heartbeatMissing", entityId: build } })).toBe(1);
 
     const health = await integrationHealth(staff(T), now);
-    expect(health.infinex).toMatchObject({ thresholdSeconds: 300, active: 2, missing: 1 });
+    /* 4S3-INT-03 — the default threshold is five 30-second heartbeats. */
+    expect(health.infinex).toMatchObject({ thresholdSeconds: 150, active: 2, missing: 1 });
     expect(health.infinex.clients[0]).toMatchObject({ id: build, missing: true, heartbeatAgeSeconds: 360 });
     /* The second build was registered and never launched: no alarm. */
     expect(health.infinex.clients[1]).toMatchObject({ buildId: "2026.10.2", missing: false, lastHeartbeatAt: null });
@@ -156,6 +157,6 @@ describe.skipIf(!hasDatabase)("4S3-INT-02 · client registry and heartbeats, pro
     expect((await call("POST", `/infinex/clients/${build}/revoke`, { clerk: ADMIN }, { reason: "Build withdrawn" })).status).toBe(200);
     expect((await call("POST", "/infinex/heartbeat", { token: game }, { manifestVersion: 0 })).status).toBe(401);
     expect((await call("POST", `/infinex/clients/${build}/revoke`, { clerk: ADMIN }, { reason: "Again" })).status).toBe(409);
-    expect(await H.sweepMissingHeartbeats(prisma, new Date(Date.now() + 3_600_000))).toEqual({ missing: 0 });
+    expect(await H.sweepMissingHeartbeats(prisma, new Date(Date.now() + 3_600_000), { tenantId: T })).toEqual({ missing: 0 });
   });
 });

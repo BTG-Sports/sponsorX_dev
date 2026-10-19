@@ -246,3 +246,15 @@ The plan was approved. Its decisions: a client is one build per world; heartbeat
 - **Permissions.** `infinexClient.INFINEX_CLIENT` read/write own-tenant, pinned by scope.ts to `actor.machine.clientId`. Digest `b1f1e50851c850e3` → `6c2dbfecd20f5311`. RBAC §38 is updated, and two 4S0 test expectations went 403 → 409 (still refused, one step later). The sweep has bodies for register, revoke and heartbeat.
 - **Tests:** `infinex-clients.test.ts` (5), with INFINEX_SIGNING_SECRET deliberately unset.
 - **Docs:** spec §4.2 and §5.5, the Phase 4 plan. Tracker: Code review.
+
+## rcfworks — 4S3-INT-02 to Done (#262); 4S3-INT-03 · client configuration (Code review)
+
+- **4S3-INT-02 → Done.** #262 merged by the user, CI all green.
+- **4S3-INT-03.** The plan was approved: defaults in code, BTG overrides within limits, missing after five intervals, and the stand-in honours the intervals.
+  - **Config module.** `domain/infinex-config.ts`: `CONFIG_DEFAULTS` (`infinex-config@1.0.0`); `LIMITS` (maxBatch 1–1000, maxBytes 1 KB–1 MB, flushSeconds 1–300, pollSeconds 15–900, heartbeatSeconds 10–300, sample rates 0–1, known event types and flags only); `overrideProblems`, which returns every reason at once; `effectiveConfig`; `missingAfterSeconds` (5 intervals, so 150 s by default; was a fixed 300 s in #262); `configEtag`.
+  - **Database.** `InfinexClient.configOverride` (JSON) and `configVersion`; migration `20261019220000_infinex_client_config`.
+  - **Endpoints.** `GET /infinex/config` (game session, ETag/304). `GET /infinex/clients/{id}/config` (BTG and the server: config, override, limits). `PATCH …/config` (BTG only, so machines get 403; null clears; audited `infinex.clientConfig`).
+  - **Sweep.** It now reads each build's own threshold, and takes an optional `tenantId`. Tests scope their sweeps to their own tenant: with the shorter threshold, a future-clock sweep in one test file caught another file's builds.
+  - **Stand-in world.** It reads its config first, sleeps `heartbeat.everySeconds` between beats, re-reads the manifest (with If-None-Match) once `manifest.pollSeconds` has passed, and reports the limits. The `--every` flag is gone.
+  - **Tests:** `infinex-config.test.ts` (7). `infinex-clients` and `integration-health` updated for the 150 s default. The sweep has the PATCH body.
+  - **Docs:** spec §4.2, World Contract §6, RBAC §38 (no cell moved; the digest is unchanged), the Phase 4 plan. Tracker: Code review.
