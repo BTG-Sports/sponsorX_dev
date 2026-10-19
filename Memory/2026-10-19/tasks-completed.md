@@ -287,3 +287,10 @@ The plan was approved. The three tasks ship together because the endpoint cannot
 - **#264 merged by the user.** main's CI on `eeed32cb` was all green. Claude ran `deploy-daily.yml`, and `release` moved `a34659f2` → `eeed32cb`.
 - **Staging (read-only):** running commit `eeed32cb`; `20261019200000_infinex_client_heartbeat` and `20261019220000_infinex_client_config` applied at 09:55:31 UTC; `/health` 200.
 - **Note:** the deploy workflow only moves `release`, and Railway then builds and rolls out on its own (about 2 minutes here). A check made straight after the workflow can see the old release. Check `RAILWAY_GIT_COMMIT_SHA` first.
+
+## rcfworks — INFINEX_SIGNING_SECRET set on staging (the user asked)
+
+- **How:** Claude set it with `railway variables --environment staging --service api --set INFINEX_SIGNING_SECRET=…`, using a 32-byte random value generated in the command and never printed or stored anywhere else.
+- **Confirmed:** Railway redeployed the api. The running container has it (present, 43 characters) and is still on release `eeed32cb`.
+- **What it unlocks:** game sessions on staging now get a signing key. The signed telemetry route goes live there with #265.
+- **Production:** not set. That needs the user's say-so, at go-live with the other INFINEX settings. Rotation is in `SponsorX-Secrets-Rotation.md` §11a.
