@@ -59,7 +59,10 @@ describe.skipIf(!hasDatabase)("3S8-BE-01 / 3S8-OPS-01 · the model registry and 
       ["pricing", "1.0.0", ["1.0.0:active"]], ["matching", "2.0.0", ["2.0.0:active"]], ["forecast", "2.0.0", ["2.0.0:active"]],
       ["makegood", "1.0.0", ["1.0.0:active"]], ["anomalies", "1.0.0", ["1.0.0:active"]], ["attribution", "0.1.0", ["0.1.0:active"]],
     ]);
-    expect(r.models.find((m) => m.key === "forecast")!.thresholds.find((t) => t.key === "atRiskBelow")).toMatchObject({ value: 0.5, min: 0.3, max: 0.7 });
+    expect(r.models.find((m) => m.key === "forecast")!.thresholds.find((t) => t.key === "atRiskBelow")).toMatchObject({ value: 0.5, min: 0.3, max: 0.7, integer: false });
+    /* `integer` travels with the threshold so the screen refuses a fraction before the API does (QA 2026-10-19). */
+    expect(r.models.find((m) => m.key === "matching")!.thresholds.find((t) => t.key === "excludedLookbackDays")).toMatchObject({ integer: true });
+    expect(r.models.flatMap((m) => m.thresholds).every((t) => typeof t.integer === "boolean")).toBe(true);
     expect(r.models.find((m) => m.key === "matching")!.factors).toHaveLength(8);
     expect(r.flags.filter((f) => f.tenantId === T).every((f) => f.enabled)).toBe(true);
     expect(new Set(r.flags.map((f) => f.tenantId))).toEqual(new Set([T]));
@@ -103,6 +106,16 @@ describe.skipIf(!hasDatabase)("3S8-BE-01 / 3S8-OPS-01 · the model registry and 
     await expect(A.changeSettings(ana, "forecast", { values: { watchBelow: 1.5 }, reason: "More than everything" })).rejects.toBeInstanceOf(A.ModelInputError);
     await expect(A.changeSettings(ana, "makegood", { values: { windowDays: 10.5 }, reason: "Half a day longer" })).rejects.toBeInstanceOf(A.ModelInputError);
     await expect(A.changeSettings(ana, "forecast", { values: { atRiskBelow: 0.4 }, reason: "short" })).rejects.toBeInstanceOf(A.ModelInputError);
+  });
+
+  it("idempotent under a double submit: the live values are 'nothing changed'; a draft's values are that draft, never a third version (QA 2026-10-19)", async () => {
+    /* forecast is back on 2.0.0 (atRiskBelow 0.5) after the rollback above */
+    await expect(A.changeSettings(ana, "forecast", { values: { atRiskBelow: 0.5 }, reason: "Saving the live value again" })).rejects.toThrow(/Nothing changed/);
+    const first = await A.changeSettings(ana, "forecast", { values: { atRiskBelow: 0.8 }, reason: "A held change, submitted twice" }, NOW);
+    const second = await A.changeSettings(ana, "forecast", { values: { atRiskBelow: 0.8 }, reason: "A held change, submitted twice" }, NOW);
+    expect(first).toMatchObject({ version: "2.3.0", status: "draft" });
+    expect(second).toMatchObject({ version: "2.3.0", status: "draft" });
+    expect((await A.modelRegistry(ana, NOW)).models.find((m) => m.key === "forecast")!.versions.filter((v) => v.status === "draft")).toHaveLength(1);
     await expect(A.changeSettings(ana, "weather", { values: { x: 1 }, reason: "No such model at all" })).rejects.toBeInstanceOf(A.ModelNotFoundError);
   });
 

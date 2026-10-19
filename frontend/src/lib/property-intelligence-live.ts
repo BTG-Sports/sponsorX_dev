@@ -3,26 +3,34 @@
    engine is built against, the derived figures the page prints, and the
    sample that feeds `?demo=sample` and the tests.
 
-   Reads (proposed, not mounted yet — lib/intelligence.ts ENGINES.propertyHub)
+   Reads (mounted 2026-10-15 by 3S7-BE-02 — backend/src/domain/property-intelligence.ts,
+          documentation/SponsorX-Hub-Intelligence.md §2)
      GET /intelligence/property
        Scoped by the API to the caller's own property (Actor.propertyId);
-       no property id in the request. Rates come from the 3S2-BE-02 CPM
-       engine; sell-through and opportunity from the property's inventory
-       and sold lines.
+       no property id in the request. The property's inventory is the
+       active items it owns and its roster athletes' items. Rates are the
+       3S2-BE-02 CPM engine's latest stored suggestion per item — it prices
+       athletes' items, so the suggestions are the roster's; sell-through,
+       opportunity and category fit count the last 12 months of sales.
 
    Decisions
    - Every model output carries a ModelStamp and the page prints its
      confidence: each rate recommendation, the category fit and the quality
-     score (the last two add a stamp to the brief's proposed shape).
-   - Open opportunity is an estimate and says so (provenance ESTIMATED).
-   - Overall sell-through is worked out here from the per-format rows the
-     engine returns — the whole set, never a page of it.
+     score.
+   - Open opportunity is an estimate and says so (provenance ESTIMATED): the
+     unsold items at their listed prices.
+   - Sell-through counts items, not units: active items per kind, and those
+     with a sale in the window. Overall sell-through is worked out here from
+     the per-format rows the engine returns — the whole set, never a page.
+   - Category fit comes back for every brand category. A category
+     restricted for the property, or age-gated for a school, fits 0 and
+     its reason says so; the page always prints the reason.
    - A rate with no current CPM has no "change"; the table shows a dash.
 
    Pure: no fetch (server/engine.ts reads), so tests import it freely.
    -------------------------------------------------------------------------- */
 
-import { confidenceBand, type ModelStamp } from "./intelligence";
+import { confidenceBand, pct, type ModelStamp } from "./intelligence";
 import { categoryLabel, type BrandCategory } from "./brand-categories";
 import { kindLabel } from "./inventory-live";
 
@@ -39,37 +47,46 @@ export type PropertyRate = {
   name: string;
   /** An inventory kind (SOCIAL_POST, SIGNAGE, …). */
   format: string;
-  /** null when the item has no CPM set yet. */
+  /** null when the item had no CPM when the suggestion was made. */
   currentCpmCents: number | null;
   recommendedCpmCents: number;
+  /** The CPM engine's own stamp (modelVersion "cpm-rules@…"). */
   stamp: ModelStamp;
+  /** The three largest factors by absolute effect; may be empty. */
   topFactors: RateFactor[];
 };
 
 export type SellThroughRow = {
+  /** An inventory kind. */
   format: string;
+  /** Items of this kind with a sale in the last 12 months. */
   sold: number;
+  /** Active items of this kind. */
   listed: number;
-  /** sold ÷ listed, 0..1; null when nothing is listed. */
+  /** sold ÷ listed, 0..1 (two decimals); null when nothing is listed. */
   rate: number | null;
 };
 
 export type CategoryFit = {
-  /** A brand category (APPAREL, FITNESS, …). */
+  /** A brand category (APPAREL, FITNESS, …) — every one comes back. */
   category: string;
-  /** 0..1 */
+  /** 0..1; 0 for a restricted or (for a school) age-gated category. */
   fit: number;
+  /** Always present: why the fit is what it is. */
   reason: string;
 };
 
+/** The engine's parts: "Listings complete", "On sale" and, once there are paid orders, "Orders fulfilled". */
 export type QualityComponent = { label: string; score: number; detail: string };
 
 export type PropertyIntel = {
   asOf: string;
   rates: PropertyRate[];
+  /** Active items with nothing sold in 12 months, at their listed prices. */
   opportunity: { openValueCents: number; unsoldItems: number; provenance: "ESTIMATED" };
   sellThrough: SellThroughRow[];
   categoryFit: { stamp: ModelStamp; categories: CategoryFit[] };
+  /** score 0..100; 0 with no items. */
   quality: { score: number; components: QualityComponent[]; stamp: ModelStamp };
 };
 
@@ -127,6 +144,11 @@ export function rankFit(rows: CategoryFit[]): CategoryFit[] {
   return [...rows].sort((a, b) => b.fit - a.fit || a.category.localeCompare(b.category));
 }
 
+/** A fit's short form: "80% fit", or "Not a fit" at 0 (restricted, or age-gated for a school) — the reason says why. */
+export function fitWord(fit: number): string {
+  return fit <= 0 ? "Not a fit" : `${pct(fit)} fit`;
+}
+
 /** A 0..100 score's band word. */
 export function qualityBand(score: number): "Strong" | "Fair" | "Needs work" {
   if (score >= 75) return "Strong";
@@ -142,7 +164,9 @@ export const categoryWord = (category: string) => categoryLabel(category as Bran
 
 const STAMP = (modelVersion: string, confidence: number): ModelStamp => ({ modelVersion, confidence, computedAt: "2026-10-12T06:00:00.000Z" });
 
-/** `?demo=sample` and the tests — never shown in production (server/engine.ts wantsSample). */
+/** `?demo=sample` and the tests — never shown in production (server/engine.ts
+ *  wantsSample). Shaped as the engine answers today: a school's hub, with the
+ *  engine's model versions, its quality parts, and an age-gated category at 0. */
 export const SAMPLE_PROPERTY_INTEL: PropertyIntel = {
   asOf: "2026-10-12T06:00:00.000Z",
   rates: [
@@ -189,20 +213,23 @@ export const SAMPLE_PROPERTY_INTEL: PropertyIntel = {
     { format: "TICKETS", sold: 0, listed: 0, rate: null },
   ],
   categoryFit: {
-    stamp: STAMP("category-fit@0.2.0", 0.7),
+    stamp: STAMP("property-intel@1.0.0", 0.7),
     categories: [
-      { category: "FITNESS", fit: 0.88, reason: "Your audience follows training and wellness content" },
-      { category: "APPAREL", fit: 0.81, reason: "Gameday apparel sold through quickly last season" },
-      { category: "LOCAL_RETAIL", fit: 0.66, reason: "Most of your fans live within 20 miles" },
+      { category: "FITNESS", fit: 1, reason: "You list items for it; 4 sale(s) to its brands in the last 12 months." },
+      { category: "APPAREL", fit: 0.8, reason: "You list items for it; 1 sale(s) to its brands in the last 12 months." },
+      { category: "LOCAL_RETAIL", fit: 0.7, reason: "You list items for it; no sales to its brands yet." },
+      { category: "RESTAURANT", fit: 0.4, reason: "Nothing is listed for it yet; no sales to its brands yet." },
+      { category: "ALCOHOL", fit: 0, reason: "Age-gated: never offered for a school." },
+      { category: "GAMBLING", fit: 0, reason: "Restricted for this property." },
     ],
   },
   quality: {
     score: 72,
-    stamp: STAMP("inventory-quality@0.1.0", 0.68),
+    stamp: STAMP("property-intel@1.0.0", 0.8),
     components: [
-      { label: "Delivery record", score: 91, detail: "Everything sold was delivered on time" },
-      { label: "Listing detail", score: 64, detail: "Four items have no photo" },
-      { label: "Audience proof", score: 58, detail: "Half your reach figures are checked by a platform" },
+      { label: "Listings complete", score: 64, detail: "7 of 11 item(s) have a description and a category." },
+      { label: "On sale", score: 61, detail: "7 of 11 item(s) have a published listing." },
+      { label: "Orders fulfilled", score: 91, detail: "10 of 11 paid order line(s) delivered in the last 12 months." },
     ],
   },
 };

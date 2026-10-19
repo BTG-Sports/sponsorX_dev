@@ -167,6 +167,27 @@ export async function runAnomalies(db: PrismaClient, now: Date, opts: { tenantId
 
 const ROLE_WORDS: Record<string, string> = { SUPER_ADMIN: "Super admin", BTG_ADMIN: "BTG admin", CAMPAIGN_MGR: "Campaign manager" };
 
+/**
+ * Who decided, in words a reader knows: "email (Role)", or "a former user"
+ * once the row is gone. One lookup for a page of rows; shared with the
+ * attribution queue (3S6-BE-04), so a decider is never a raw user id.
+ */
+export async function peopleWords(tenantId: string, ids: readonly (string | null | undefined)[]): Promise<(id: string | null | undefined) => string | null> {
+  const want = [...new Set(ids.filter((u): u is string => !!u))];
+  const users = new Map(
+    want.length
+      ? (await prisma.user.findMany({ where: { tenantId, id: { in: want } }, select: { id: true, email: true, roles: true } })).map((u) => [u.id, u])
+      : [],
+  );
+  return (id) => {
+    if (!id) return null;
+    const u = users.get(id);
+    if (!u) return "a former user";
+    const role = u.roles.map((x) => ROLE_WORDS[x]).find(Boolean);
+    return role ? `${u.email} (${role})` : u.email;
+  };
+}
+
 const ROW = {
   id: true, kind: true, severity: true, ruleId: true, ruleVersion: true, subjectType: true, subjectId: true, subjectName: true,
   evidence: true, detectedAt: true, outcome: true, note: true, decidedBy: true, automatic: true, decidedAt: true,

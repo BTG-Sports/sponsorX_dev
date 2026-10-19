@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ATTRIBUTION_CLASSES, ATTRIBUTION_ORDER, ENGINES, confidenceBand, confidenceLabel, cpm, routeMissing, signedPct, usd } from "@/lib/intelligence";
+import { ATTRIBUTION_CLASSES, ATTRIBUTION_ORDER, ENGINES, confidenceBand, confidenceLabel, cpm, featureOff, routeMissing, signedPct, usd } from "@/lib/intelligence";
 
 /* Phase 3 screens' shared vocabulary — lib/intelligence.ts. */
 
@@ -11,6 +11,19 @@ describe("routeMissing — 'engine not built yet' vs a real failure", () => {
 
   it("reads 501 as a mounted engine that is switched off", () => {
     expect(routeMissing(501, null)).toBe(true);
+  });
+
+  it("reads 403 feature_off (3S8-OPS-01's per-tenant switch) as switched off — and no other 403", () => {
+    expect(routeMissing(403, { error: { code: "feature_off", message: "Scenario planning is off for this tenant." } })).toBe(true);
+    expect(routeMissing(403, { error: { code: "forbidden" } })).toBe(false);
+    expect(routeMissing(403, null)).toBe(false);
+  });
+
+  it("featureOff tells the switched-off case apart from a missing engine, so the card can say so", () => {
+    expect(featureOff(403, { error: { code: "feature_off" } })).toBe(true);
+    expect(featureOff(403, { error: { code: "forbidden" } })).toBe(false);
+    expect(featureOff(404, { error: { code: "not_found" } })).toBe(false);
+    expect(featureOff(501, null)).toBe(false);
   });
 
   it("never mistakes a mounted route's own 404 (it says why) for a missing engine", () => {

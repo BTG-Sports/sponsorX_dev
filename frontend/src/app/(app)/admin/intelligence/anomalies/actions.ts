@@ -9,9 +9,13 @@ import { writeEngine } from "@/server/engine";
    3S8-FE-01 — the anomaly console's one write: a reviewer's disposition.
 
    POST /intelligence/anomalies/:id/disposition { outcome, note }
-   The note is required for every outcome (lib/anomalies-live.ts) — checked
-   here before the call so a blank note never reaches the API; the API's
-   policy and its audit row stay the enforcement.
+   The note — 8 to 2,000 characters for every outcome (lib/anomalies-live.ts,
+   the engine's own rule and wording) — is checked here before the call so a
+   bad note never reaches the API; the API's policy and its audit row stay
+   the enforcement. Its refusals come back verbatim through writeEngine:
+   409 "A person has already decided this anomaly; the record stands."
+   (final), 422 the note rule, 404 not this tenant's flag. A success may be
+   a first decision or the replacement of SponsorX's automatic one.
    -------------------------------------------------------------------------- */
 
 const PATH = "/admin/intelligence/anomalies";

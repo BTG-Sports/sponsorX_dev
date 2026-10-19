@@ -12,12 +12,16 @@ import { useDrawerFocus } from "@/components/use-drawer-focus";
 import { useMounted } from "@/components/use-mounted";
 import {
   ANOMALY_KINDS,
+  DECIDER,
   KIND,
+  NOTE_MAX,
+  NOTE_RULE,
   OUTCOMES,
   OUTCOME_LABEL,
   SEVERITY,
   SUBJECT_LABEL,
   dispositionError,
+  reviewState,
   ruleLabel,
   type Anomaly,
   type AnomalyKind,
@@ -30,10 +34,20 @@ import { momentLabel } from "@/lib/intel-admin";
 
    <KindChips>     instant kind filter (?kind), one chip per kind with its
                    open count from the API; no Apply button.
-   <AnomalyReview> the row's "Review" button and its slide-over: the rule
-                   and version that raised the flag, the evidence it saw,
-                   and the disposition form — three outcomes, a note
-                   required for every one. A resolved flag opens read-only.
+   <AnomalyReview> the row's button and its slide-over: the rule and stamp
+                   that raised the flag, the evidence it saw, and the
+                   disposition form — three outcomes, a note of 8 to 2,000
+                   characters for every one (the API's own rule, checked
+                   here first with its wording). Three states
+                   (lib reviewState):
+                   open       — the form;
+                   automatic  — SponsorX's own decision shown as such, and
+                                the form beneath it to replace it;
+                   final      — a person's decision, read-only (a second
+                                one would answer 409).
+                   The API's refusal is shown verbatim — a 409 reads
+                   "A person has already decided this anomaly; the record
+                   stands." — never a generic failure.
 
    `preview` (the ?demo=sample page) never calls the API: the form says
    so and stops.
@@ -73,18 +87,19 @@ export function SeverityPill({ severity }: { severity: Anomaly["severity"] }) {
 
 export function AnomalyReview({ anomaly, preview = false }: { anomaly: Anomaly; preview?: boolean }) {
   const [open, setOpen] = useState(false);
-  const resolved = Boolean(anomaly.disposition);
+  const state = reviewState(anomaly);
+  const verb = state === "open" ? "Review" : state === "automatic" ? "Check" : "View";
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label={`${resolved ? "View" : "Review"} ${KIND[anomaly.kind].label.toLowerCase()} on ${anomaly.subject.name}`}
+        aria-label={`${verb} ${KIND[anomaly.kind].label.toLowerCase()} on ${anomaly.subject.name}${state === "automatic" ? " (decided automatically — you may replace it)" : ""}`}
         className={`inline-flex min-h-9 items-center justify-center rounded-lg px-3.5 text-xs font-semibold ${
-          resolved ? "border border-line text-text hover:bg-surface-2" : "bg-primary text-cta-ink hover:bg-primary-soft"
+          state === "open" ? "bg-primary text-cta-ink hover:bg-primary-soft" : "border border-line text-text hover:bg-surface-2"
         }`}
       >
-        {resolved ? "View" : "Review →"}
+        {state === "open" ? "Review →" : state === "automatic" ? "Check →" : "View"}
       </button>
       {open && <ReviewDrawer anomaly={anomaly} preview={preview} onClose={() => setOpen(false)} />}
     </>
@@ -124,6 +139,9 @@ function ReviewDrawer({ anomaly, preview, onClose }: { anomaly: Anomaly; preview
 
   if (!mounted) return null;
   const d = anomaly.disposition;
+  const state = reviewState(anomaly);
+  /* A person may still decide: nothing yet, or only SponsorX's automatic call. */
+  const canDecide = state !== "final";
   const kind = KIND[anomaly.kind];
 
   const submit = () => {
@@ -192,25 +210,35 @@ function ReviewDrawer({ anomaly, preview, onClose }: { anomaly: Anomaly; preview
             </p>
           </section>
 
-          {d ? (
-            <section className="rounded-lg border border-line bg-surface-2 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-faint">Disposition</p>
+          {d && (
+            <section className={`rounded-lg border p-3 ${d.automatic ? "border-admin/40 bg-admin/10" : "border-line bg-surface-2"}`} aria-label="Disposition">
+              <p className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-faint">
+                Disposition
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal ${d.automatic ? "bg-admin/20 text-text" : "bg-surface text-muted"}`}>
+                  {d.automatic ? "SponsorX · automatic" : "Final"}
+                </span>
+              </p>
               <p className="mt-1.5 text-sm font-semibold">{OUTCOME_LABEL[d.outcome]}</p>
               <p className="mt-1 whitespace-pre-line text-xs text-text">{d.note}</p>
               <p className="mt-2 text-[11px] text-muted">
                 {d.by} · {momentLabel(d.at)}
               </p>
+              <p className="mt-2 text-[11px] text-muted">{d.automatic ? DECIDER.automatic.hint : DECIDER.person.hint}</p>
             </section>
-          ) : (
+          )}
+
+          {canDecide && (
             <form
               id={`anom-${anomaly.id}-form`}
               noValidate
+              aria-label={d ? "Replace SponsorX's decision" : "Record a disposition"}
               className="space-y-4"
               onSubmit={(e) => {
                 e.preventDefault();
                 submit();
               }}
             >
+              {d && <p className="text-[13px] font-semibold">Replace SponsorX&rsquo;s decision</p>}
               <fieldset className="space-y-2">
                 <legend className="text-[13px] font-semibold">Outcome</legend>
                 {OUTCOMES.map((o) => (
@@ -234,25 +262,29 @@ function ReviewDrawer({ anomaly, preview, onClose }: { anomaly: Anomaly; preview
                   id={`anom-${anomaly.id}-note`}
                   rows={4}
                   required
-                  maxLength={2000}
+                  maxLength={NOTE_MAX}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
+                  aria-describedby={`anom-${anomaly.id}-note-rule`}
                   placeholder="What you checked and why this outcome"
                   className="w-full resize-y rounded-lg border border-line bg-bg px-3 py-2.5 text-[13px] text-text placeholder:text-faint focus:border-primary/60 focus:outline-none"
                 />
+                <p id={`anom-${anomaly.id}-note-rule`} className="text-[11px] text-faint">
+                  {NOTE_RULE} {d ? "Yours is then final." : "A person's decision is final."}
+                </p>
               </div>
             </form>
           )}
         </div>
 
-        {!d && (
+        {canDecide && (
           <div className="shrink-0 space-y-2 border-t border-line-soft p-4">
             <DialogError message={error} />
             {notice && <p role="status" className="rounded-lg bg-warn/10 px-3 py-2 text-[11px] text-warn">{notice}</p>}
             {/* noValidate + formNoValidate: the app's own note message shows,
                 never the browser's "Please fill out this field" bubble. */}
             <button type="submit" form={`anom-${anomaly.id}-form`} formNoValidate disabled={pending} className={`${btn.primary} w-full`}>
-              {pending ? "Recording…" : "Record disposition"}
+              {pending ? "Recording…" : d ? "Replace decision" : "Record disposition"}
             </button>
           </div>
         )}
