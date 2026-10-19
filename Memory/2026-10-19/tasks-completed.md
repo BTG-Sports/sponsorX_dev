@@ -258,3 +258,8 @@ The plan was approved. Its decisions: a client is one build per world; heartbeat
   - **Stand-in world.** It reads its config first, sleeps `heartbeat.everySeconds` between beats, re-reads the manifest (with If-None-Match) once `manifest.pollSeconds` has passed, and reports the limits. The `--every` flag is gone.
   - **Tests:** `infinex-config.test.ts` (7). `infinex-clients` and `integration-health` updated for the 150 s default. The sweep has the PATCH body.
   - **Docs:** spec §4.2, World Contract §6, RBAC §38 (no cell moved; the digest is unchanged), the Phase 4 plan. Tracker: Code review.
+
+## rcfworks — 4S3-INT-03 to Done (#263); sync to main
+
+- **#263 merged by the user**, CI all green. 4S3-INT-03 → Done (plan and tracker). Sprint 3 is complete.
+- **Sync PR to main** carries #262 and #263. `git merge-tree` gives exactly main_development's tree. The deploy follows once main is green.

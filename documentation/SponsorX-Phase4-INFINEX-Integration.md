@@ -402,15 +402,15 @@ Trusted clients register with a key and report health, so you know when a world 
   [`SponsorX-INFINEX-API-and-Event-Spec.md`](./SponsorX-INFINEX-API-and-Event-Spec.md) §4.2, §5.5
 - **Reference:** Spec §28, §30
 
-### ◑ `4S3-INT-03` · Client configuration endpoint
+### ✅ `4S3-INT-03` · Client configuration endpoint
 
-**Order** 21 · **INT** · **Where:** Code · **1d** · **Code review**
+**Order** 21 · **INT** · **Where:** Code · **1d** · **Done**
 
 Feature flags, telemetry limits and schema versions delivered to the client so behaviour can change without a client release. SponsorX's side: the endpoint and its limits; the game honouring them is `5S1-INT-03`.
 
 - **Depends on:** 4S2-BE-03
 - **Done when:** Config is served per client with its telemetry limits, and the stand-in world honours them
-- **Delivered:** 2026-10-19.
+- **Delivered:** 2026-10-19 (merged in #263).
   - **What a game reads:** `GET /infinex/config` serves a game session its own build's config with an ETag: event versions, telemetry limits, manifest and heartbeat intervals, and flags.
   - **Where it comes from:** the reviewed defaults (`infinex-config@1.0.0`), plus BTG's override for that build, within fixed limits.
   - **Missing alert:** a build counts as missing after five of its own heartbeat intervals.
