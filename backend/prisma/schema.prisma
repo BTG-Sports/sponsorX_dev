@@ -73,7 +73,9 @@ datasource db {
 /// Authorization lives here and in user_roles, never in Clerk (§04, Addendum A4).
 /// STUDENT and ADVISOR are SponsorX NEXT's (P9-BE-05, matrix §15.1): a
 /// student correspondent is not an ATHLETE, and a faculty advisor is not a
-/// PROPERTY_MGR.
+/// PROPERTY_MGR. INFINEX_SERVICE (an INFINEX world's server, through its
+/// machine credential) and INFINEX_CLIENT (a game session its world's server
+/// started) are machines, never people (4S0-SEC-01, matrix §38).
 enum Role {
   SUPER_ADMIN
   BTG_ADMIN
@@ -89,6 +91,8 @@ enum Role {
   SERVICE
   STUDENT
   ADVISOR
+  INFINEX_SERVICE
+  INFINEX_CLIENT
 }
 
 enum AthleteState {
@@ -4616,4 +4620,66 @@ model CreativeDeployment {
 
   @@index([tenantId, worldId, state])
   @@index([tenantId, windowId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4S0-SEC-01 — trusted client authentication (documentation/SponsorX-INFINEX-
+// API-and-Event-Spec.md §6). No Clerk: a world's server holds a machine
+// credential and swaps it for 15-minute tokens; a game on a player's device
+// gets a 15-minute session (token + signing key) its world's server started.
+// Secrets and tokens are stored only as SHA-256 hashes; a session's signing
+// key is derived from INFINEX_SIGNING_SECRET and never stored.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A world operator's server credential. One tenant; its service user carries
+/// the roles, so revoking a role or the credential takes effect on the next call.
+model InfinexCredential {
+  id           String    @id @default(cuid())
+  tenantId     String
+  name         String
+  /// The User the credential acts as (roles INFINEX_SERVICE, INFINEX_CLIENT); audit rows name it.
+  userId       String    @unique
+  secretHash   String
+  /// "<resource>:<action>" the credential's tokens may use; empty means whatever its roles allow.
+  scopes       String[]  @default([])
+  createdBy    String?
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+  revokedAt    DateTime?
+  revokedBy    String?
+  revokeReason String?
+
+  @@index([tenantId])
+}
+
+/// A game client registered for one world (and build). Registration and heartbeats are 4S3-INT-02.
+model InfinexClient {
+  id           String    @id @default(cuid())
+  tenantId     String
+  worldId      String
+  buildId      String
+  /// ACTIVE | REVOKED
+  status       String    @default("ACTIVE")
+  createdBy    String?
+  createdAt    DateTime  @default(now())
+  revokedAt    DateTime?
+
+  @@index([tenantId, worldId])
+}
+
+/// A 15-minute access token. SERVICE: a world's server; CLIENT: a game session for one client.
+model InfinexToken {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tokenHash    String   @unique
+  /// SERVICE | CLIENT
+  kind         String
+  credentialId String
+  clientId     String?
+  scopes       String[] @default([])
+  issuedAt     DateTime @default(now())
+  expiresAt    DateTime
+
+  @@index([tenantId, credentialId])
+  @@index([expiresAt])
 }

@@ -466,7 +466,15 @@ describe("the whole matrix is pinned", () => {
       // read; PROPERTY_MGR own-property read; every other cell deny (matrix
       // §37). With its rows removed the grid hashes to the previous
       // 8f3f5c877af850bb.
-    ).toBe("f037fe7542127ad9");
+      // Updated 2026-10-19 (4S0-SEC-01): two machine roles, INFINEX_SERVICE
+      // and INFINEX_CLIENT, and two resources, `infinexCredential` and
+      // `infinexClient` (matrix §38). The new roles reach only
+      // virtualWorld.read (own-tenant, both) and infinexClient read and
+      // write (own-tenant, INFINEX_SERVICE); the new resources give
+      // SUPER_ADMIN any and BTG_ADMIN own-tenant read and write; every other
+      // new cell deny. No existing role-and-resource cell moved. Before them
+      // the grid hashed to f037fe7542127ad9.
+    ).toBe("b1f1e50851c850e3");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {
