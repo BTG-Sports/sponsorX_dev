@@ -222,3 +222,14 @@ The user chose "the next Phase 4 backend task". 4S0-SEC-01 comes before 4S3-INT-
 - **To Done (plan and tracker):** 4S2-BE-05 and 4S0-SEC-01.
 - **Sync PR #260** (main_development → main) carries #257, #258 and #259. `git merge-tree` gives exactly main_development's tree. The deploy follows once main is green.
 - **Next in Phase 4's order:** 4S3-INT-02 (client registry, heartbeat, missing-heartbeat alert), built on 4S0-SEC-01.
+
+## rcfworks — deployed a34659f2 (4S2-BE-05, 4S0-SEC-01 on staging)
+
+- **#260 and #261 merged by the user.** main's CI on `a34659f2` was all green, including e2e. Claude ran `deploy-daily.yml`, and `release` moved `cd751d2c` → `a34659f2`.
+- **Staging, checked read-only:**
+  - `20261019150000_deployment_pause_rollback` and `20261019180000_infinex_machine_auth` are applied;
+  - `Role` ends `…ADVISOR,INFINEX_SERVICE,INFINEX_CLIENT`;
+  - `InfinexCredential`, `InfinexClient` and `InfinexToken` exist;
+  - `CreativeDeployment_pause_rollback_check` and `InfinexToken_kind_check` exist;
+  - `/health` returns 200.
+- **Stage Progress:** no change. Phase 4 work moves no Phase 1 count.
