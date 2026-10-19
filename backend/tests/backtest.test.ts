@@ -146,7 +146,10 @@ describe.skipIf(!hasDatabase)("3S9-QA-01/02 · against the database, and on the 
     expect(forecast.metrics.map((m) => m.label)).toContain("Mean error of the projected final");
     expect(r.models.find((m) => m.key === "pricing")!.versions[0]!.metrics.find((m) => m.label === "Within 20% of the achieved CPM")!.value).toBe(100);
     expect(r.benchmarkValidation.summary).toEqual({ total: 2, valid: 1, flagged: 1 });
-    expect(r.benchmarkValidation.benchmarks.find((x) => x.segment === "Soccer")).toMatchObject({ status: "small_sample" });
+    expect(r.benchmarkValidation.benchmarks.find((x) => x.segment === "Soccer")).toMatchObject({ status: "small_sample", label: "Sport: Soccer" });
+    /* every verdict carries the label its benchmark row has as `segment`, so a screen joins the two by data (QA 2026-10-19). */
+    const rowLabels = new Set(r.benchmarks.map((b) => b.segment));
+    expect(r.benchmarkValidation.benchmarks.map((c) => c.label).every((l) => rowLabels.has(l))).toBe(true);
     expect(r.benchmarkValidation.reconciliation.tolerance).toBe("exact");
   });
 });

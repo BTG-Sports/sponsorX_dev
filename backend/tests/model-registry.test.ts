@@ -59,7 +59,10 @@ describe.skipIf(!hasDatabase)("3S8-BE-01 / 3S8-OPS-01 · the model registry and 
       ["pricing", "1.0.0", ["1.0.0:active"]], ["matching", "2.0.0", ["2.0.0:active"]], ["forecast", "2.0.0", ["2.0.0:active"]],
       ["makegood", "1.0.0", ["1.0.0:active"]], ["anomalies", "1.0.0", ["1.0.0:active"]], ["attribution", "0.1.0", ["0.1.0:active"]],
     ]);
-    expect(r.models.find((m) => m.key === "forecast")!.thresholds.find((t) => t.key === "atRiskBelow")).toMatchObject({ value: 0.5, min: 0.3, max: 0.7 });
+    expect(r.models.find((m) => m.key === "forecast")!.thresholds.find((t) => t.key === "atRiskBelow")).toMatchObject({ value: 0.5, min: 0.3, max: 0.7, integer: false });
+    /* `integer` travels with the threshold so the screen refuses a fraction before the API does (QA 2026-10-19). */
+    expect(r.models.find((m) => m.key === "matching")!.thresholds.find((t) => t.key === "excludedLookbackDays")).toMatchObject({ integer: true });
+    expect(r.models.flatMap((m) => m.thresholds).every((t) => typeof t.integer === "boolean")).toBe(true);
     expect(r.models.find((m) => m.key === "matching")!.factors).toHaveLength(8);
     expect(r.flags.filter((f) => f.tenantId === T).every((f) => f.enabled)).toBe(true);
     expect(new Set(r.flags.map((f) => f.tenantId))).toEqual(new Set([T]));
