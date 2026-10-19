@@ -479,7 +479,13 @@ describe("the whole matrix is pinned", () => {
       // — a game session reads its own build and writes its heartbeat (matrix
       // §38). Only those two cells moved: with them back to deny the grid
       // hashes to the previous b1f1e50851c850e3.
-    ).toBe("6c2dbfecd20f5311");
+      // Updated 2026-10-19 (4S4-BE-01): new `virtualEvent` resource — raw
+      // INFINEX telemetry. INFINEX_CLIENT own-tenant write (pinned to its own
+      // client's events, signed); SUPER_ADMIN any read; BTG_ADMIN own-tenant
+      // read; every other cell deny, and nobody edits (append-only in the
+      // database) — matrix §38. With its rows removed the grid hashes to the
+      // previous 6c2dbfecd20f5311.
+    ).toBe("e42f713e01538f23");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

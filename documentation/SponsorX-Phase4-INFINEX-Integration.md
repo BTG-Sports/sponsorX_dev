@@ -402,15 +402,15 @@ Trusted clients register with a key and report health, so you know when a world 
   [`SponsorX-INFINEX-API-and-Event-Spec.md`](./SponsorX-INFINEX-API-and-Event-Spec.md) §4.2, §5.5
 - **Reference:** Spec §28, §30
 
-### ◑ `4S3-INT-03` · Client configuration endpoint
+### ✅ `4S3-INT-03` · Client configuration endpoint
 
-**Order** 21 · **INT** · **Where:** Code · **1d** · **Code review**
+**Order** 21 · **INT** · **Where:** Code · **1d** · **Done**
 
 Feature flags, telemetry limits and schema versions delivered to the client so behaviour can change without a client release. SponsorX's side: the endpoint and its limits; the game honouring them is `5S1-INT-03`.
 
 - **Depends on:** 4S2-BE-03
 - **Done when:** Config is served per client with its telemetry limits, and the stand-in world honours them
-- **Delivered:** 2026-10-19.
+- **Delivered:** 2026-10-19 (merged in #263).
   - **What a game reads:** `GET /infinex/config` serves a game session its own build's config with an ETag: event versions, telemetry limits, manifest and heartbeat intervals, and flags.
   - **Where it comes from:** the reviewed defaults (`infinex-config@1.0.0`), plus BTG's override for that build, within fixed limits.
   - **Missing alert:** a build counts as missing after five of its own heartbeat intervals.
@@ -426,24 +426,35 @@ Feature flags, telemetry limits and schema versions delivered to the client so b
 
 *5 tasks · 21 person-days*
 
-### ⏸ `4S4-BE-01` · Telemetry batch ingestion endpoint
+### ◑ `4S4-BE-01` · Telemetry batch ingestion endpoint
 
-**Order** 23 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 23 · **BE** · **Where:** Code · **5d** · **Code review**
 
 Batched events with service authentication. Validates schema, timestamp, placement-campaign relationship, signature and replay indicators.
 
 - **Depends on:** 4S0-SEC-01
 - **Done when:** Batch endpoint supports idempotent event IDs and rejects malformed or unauthorised events
+- **Delivered:** 2026-10-19.
+  - **The endpoint:** `POST /infinex/telemetry` takes a game session's batch, signed over the raw bytes (4S0-SEC-01), within its build's limits (4S3-INT-03).
+  - **Idempotent:** one row per (client, eventId); a resend is `duplicate`.
+  - **Refused:** every malformed or unauthorised event, each with a named problem; the good ones are kept. An unsigned, tampered or stale batch, or one from a server or a person, stores nothing.
+  - **Stand-in world:** it sends its batch exactly as a world will.
+  - **Test:** `infinex-telemetry.test.ts`.
+
+  [`SponsorX-INFINEX-API-and-Event-Spec.md`](./SponsorX-INFINEX-API-and-Event-Spec.md) §5.3
 - **Reference:** Spec §28, §34
 
-### ⏸ `4S4-BE-02` · Event schema and versioning
+### ◑ `4S4-BE-02` · Event schema and versioning
 
-**Order** 24 · **BE** · **Where:** Code · **3d** · **Blocked**
+**Order** 24 · **BE** · **Where:** Code · **3d** · **Code review**
 
 The shared contract: event_id, schema_version, event_type, occurred_at, world/zone/placement, session, dwell, interaction type. Versioned so client and server can evolve apart.
 
 - **Depends on:** 4S4-BE-01
 - **Done when:** Schema is versioned and a mismatched version is rejected with a clear error
+- **Delivered:** 2026-10-19, with 4S4-BE-01.
+  - **Versioned:** the envelope plus each event type's data shape, as schema version 1 (`SCHEMAS[1]` in `infinex-telemetry.ts`). The supported versions come from the build's config.
+  - **A mismatched version** is refused as `unsupported-schema-version`, naming the supported ones. An unknown type or bad data is refused with the field and the reason.
 - **Reference:** Spec §29
 
 ### ⏸ `4S4-BE-03` · Idempotent de-duplication
@@ -466,14 +477,18 @@ A queue in front of ingestion so a traffic burst in-world does not drop sponsors
 - **Done when:** Ingestion sustains the agreed burst rate with buffering and no event loss
 - **Reference:** Spec §31, §38
 
-### ⏸ `4S4-DATA-01` · Raw event storage
+### ◑ `4S4-DATA-01` · Raw event storage
 
-**Order** 27 · **DATA** · **Where:** Code · **3d** · **Blocked**
+**Order** 27 · **DATA** · **Where:** Code · **3d** · **Code review**
 
 Durable raw telemetry, kept separate from aggregates, so any number can be recomputed from source.
 
 - **Depends on:** 4S4-BE-01
 - **Done when:** Raw events are durably stored and aggregates are reproducible from them
+- **Delivered:** 2026-10-19, with 4S4-BE-01.
+  - **Storage:** `VirtualEventRaw` holds every accepted event as sent (and every late one, quarantined), keyed (client, eventId).
+  - **Never changed:** append-only in the database.
+  - **Kept apart from aggregates.** The first aggregate (4S5-DATA-01) is computed from these rows, so it can always be recomputed.
 - **Reference:** Spec §30
 
 ## Sprint 5 · Viewability & aggregates
