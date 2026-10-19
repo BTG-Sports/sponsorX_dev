@@ -28,6 +28,7 @@
     "forecasts:refresh": "node --env-file-if-exists=../.env --import tsx scripts/run-forecasts.mts",
     "makegoods:refresh": "node --env-file-if-exists=../.env --import tsx scripts/run-make-goods.mts",
     "zoho:intel-fields": "node --env-file-if-exists=../.env --import tsx scripts/zoho-intel-fields.mts",
+    "infinex:standin": "node --env-file-if-exists=../.env --import tsx scripts/infinex-standin.mts",
     "anomalies:refresh": "node --env-file-if-exists=../.env --import tsx scripts/run-anomalies.mts",
     "benchmarks:validate": "node --env-file-if-exists=../.env --import tsx scripts/validate-benchmarks.mts",
     "models:backtest": "node --env-file-if-exists=../.env --import tsx scripts/run-backtests.mts",

@@ -19,7 +19,10 @@
  *   facts        — 3S1-QA-01: the nightly fact check — when it last ran,
  *                  whether this tenant's report figures match the app's
  *                  records, since when they have not, and what differs.
+ *   infinex      — 4S3-INT-02: each INFINEX game build's heartbeat age, and
+ *                  which have gone missing (the worker's alert).
  */
+import { clientHealth } from "./infinex-clients";
 import { prisma } from "../db/client";
 import type { Actor } from "../auth/actor";
 import { assertTenantWide } from "../auth/scope";
@@ -44,6 +47,8 @@ export type IntegrationHealth = {
     recentFailed: { name: string; failedAt: string | null; error: string | null }[];
   };
   facts: FactCheckStatus;
+  /** 4S3-INT-02 (§5.5) — the INFINEX game builds: heartbeat age, and which are missing (the alert). */
+  infinex: Awaited<ReturnType<typeof clientHealth>>;
 };
 
 export async function integrationHealth(actor: Actor, now = new Date()): Promise<IntegrationHealth> {
@@ -150,6 +155,7 @@ export async function integrationHealth(actor: Actor, now = new Date()): Promise
       recentFailed,
     },
     facts: await factCheckStatus(prisma, tenantId, Boolean(env.FACT_CHECK_EMAILS)),
+    infinex: await clientHealth(prisma, tenantId, now),
   };
 }
 

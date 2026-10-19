@@ -160,15 +160,15 @@ Twelve new screens including placement preview metadata, activation builder and 
 - **Done when:** All 12 Phase 4 screens designed, with creative technical constraints specified per placement type
 - **Reference:** Spec §26
 
-### ◑ `4S0-SEC-01` · Trusted client authentication design
+### ✅ `4S0-SEC-01` · Trusted client authentication design
 
-**Order** 5 · **SEC** · **Where:** Code · **3d** · **Code review**
+**Order** 5 · **SEC** · **Where:** Code · **3d** · **Done**
 
 The INFINEX client sends telemetry that becomes sponsor billing data. Its authentication has to be strong enough that fabricated events are not possible.
 
 - **Depends on:** 4S0-PMO-01
 - **Done when:** Client authentication and event signing design reviewed and approved
-- **Delivered:** 2026-10-19. The design was approved by the user as the plan, and is written in the API spec §6.2. It is also built:
+- **Delivered:** 2026-10-19 (merged in #259). The design was approved by the user as the plan, and is written in the API spec §6.2. It is also built:
   - **Servers:** a world's server swaps a BTG-issued machine credential for a 15-minute token.
   - **Games:** a game gets a 15-minute session from its server (a token for its own world, and a signing key derived and never stored), and signs over the raw bytes.
   - **Checked every call:** revoking takes effect on the next call.
@@ -350,15 +350,15 @@ Creative is served fast and signed, so assets cannot be lifted from the URL.
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §7
 - **Reference:** Spec §31
 
-### ◑ `4S2-BE-05` · Deployment pause and rollback
+### ✅ `4S2-BE-05` · Deployment pause and rollback
 
-**Order** 17 · **BE** · **Where:** Code · **3d** · **Code review**
+**Order** 17 · **BE** · **Where:** Code · **3d** · **Done**
 
 A sponsor needs their creative down in minutes, not at the next release. Pausing invalidates the manifest and the prior asset state.
 
 - **Depends on:** 4S2-BE-03
 - **Done when:** Creative can be paused or rolled back from SponsorX without redeploying the INFINEX application
-- **Delivered:** 2026-10-19.
+- **Delivered:** 2026-10-19 (merged in #257).
   - **Pause and resume:** `POST /virtual/deployments/{id}/pause` takes a deployment off its world's manifest on the next poll (within 60 s), with a new manifest version and ETag. `…/resume` puts it back, checked again like an approval.
   - **Roll back:** `POST /virtual/windows/{id}/rollback` puts the previous validated version (or a named one) on the window from now to the old end, in one step.
   - **No new links:** none are handed out for a paused deployment; one already out lapses within 15 minutes (4S2-BE-04).
@@ -384,24 +384,40 @@ Assign creative version, approve, schedule, publish and roll back.
 
 *2 tasks · 3 person-days*
 
-### ⏸ `4S3-INT-02` · Client registry and heartbeat endpoint
+### ✅ `4S3-INT-02` · Client registry and heartbeat endpoint
 
-**Order** 20 · **INT** · **Where:** Code · **2d** · **Blocked**
+**Order** 20 · **INT** · **Where:** Code · **2d** · **Done**
 
 Trusted clients register with a key and report health, so you know when a world stops rendering sponsorship. SponsorX's side: the registry, the heartbeat endpoint and the missing-heartbeat alert, proven with the stand-in world. The game sending it is `5S1-INT-02`.
 
 - **Depends on:** 4S2-BE-03
 - **Done when:** A registered client's heartbeat is recorded and a missing heartbeat raises an alert (proven with the stand-in world)
+- **Delivered:** 2026-10-19 (merged in #262).
+  - **Registry:** a client is one game build for one world, registered and revoked by BTG or the world's server (`/infinex/clients`).
+  - **Heartbeat:** `POST /infinex/heartbeat` comes from a game session (4S0-SEC-01). The latest beat and a count are kept on the client.
+  - **Missing:** a build that reported and then goes quiet for 5 minutes is marked missing by the worker's minute sweep. The alert is an audit row and a line on the Integrations screen; the next heartbeat records the recovery.
+  - **Stand-in world:** `npm run infinex:standin` calls SponsorX exactly as a world will (server token → game session → manifest → heartbeats). The tests drive it end to end.
+  - **Test:** `infinex-clients.test.ts`.
+
+  [`SponsorX-INFINEX-API-and-Event-Spec.md`](./SponsorX-INFINEX-API-and-Event-Spec.md) §4.2, §5.5
 - **Reference:** Spec §28, §30
 
-### ⏸ `4S3-INT-03` · Client configuration endpoint
+### ◑ `4S3-INT-03` · Client configuration endpoint
 
-**Order** 21 · **INT** · **Where:** Code · **1d** · **Blocked**
+**Order** 21 · **INT** · **Where:** Code · **1d** · **Code review**
 
 Feature flags, telemetry limits and schema versions delivered to the client so behaviour can change without a client release. SponsorX's side: the endpoint and its limits; the game honouring them is `5S1-INT-03`.
 
 - **Depends on:** 4S2-BE-03
 - **Done when:** Config is served per client with its telemetry limits, and the stand-in world honours them
+- **Delivered:** 2026-10-19.
+  - **What a game reads:** `GET /infinex/config` serves a game session its own build's config with an ETag: event versions, telemetry limits, manifest and heartbeat intervals, and flags.
+  - **Where it comes from:** the reviewed defaults (`infinex-config@1.0.0`), plus BTG's override for that build, within fixed limits.
+  - **Missing alert:** a build counts as missing after five of its own heartbeat intervals.
+  - **Stand-in world:** it reads its config first and honours it, with heartbeats and manifest reads at the intervals it was given.
+  - **Test:** `infinex-config.test.ts`.
+
+  [`SponsorX-INFINEX-API-and-Event-Spec.md`](./SponsorX-INFINEX-API-and-Event-Spec.md) §4.2
 - **Reference:** Spec §28
 
 ## Sprint 4 · Telemetry ingestion

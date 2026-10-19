@@ -133,6 +133,13 @@ export const AUDIT_ACTIONS = {
     credentialRevoke: "infinex.credentialRevoke",
     tokenIssue: "infinex.tokenIssue",
     sessionStart: "infinex.sessionStart",
+    /** 4S3-INT-02 — a game build registered and revoked; a heartbeat gone missing (the alert), and back. */
+    clientRegister: "infinex.clientRegister",
+    clientRevoke: "infinex.clientRevoke",
+    heartbeatMissing: "infinex.heartbeatMissing",
+    heartbeatRecovered: "infinex.heartbeatRecovered",
+    /** 4S3-INT-03 — BTG set or cleared a build's client config override. */
+    clientConfig: "infinex.clientConfig",
   },
   /** Agreements — acceptance is the legally interesting event. */
   agreement: {

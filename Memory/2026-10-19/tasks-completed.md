@@ -215,3 +215,46 @@ The user chose "the next Phase 4 backend task". 4S0-SEC-01 comes before 4S3-INT-
 - **Docs:** API spec §6.2 rewritten as decided, its §2 "missing" row now "exists", World Contract §5, Secrets-Rotation §11a (`INFINEX_SIGNING_SECRET`), the Phase 4 plan. Tracker: Code review.
 
 **For later:** `INFINEX_SIGNING_SECRET` is not set on staging or production yet. Sessions answer 503 until then, which is safe; it's needed before 4S4-BE-01 / 5S1. Registering clients is 4S3-INT-02.
+
+## rcfworks — #259 merged; 4S2-BE-05 and 4S0-SEC-01 to Done; sync #260
+
+- **#257 and #259 merged by the user**, CI all green including e2e.
+- **To Done (plan and tracker):** 4S2-BE-05 and 4S0-SEC-01.
+- **Sync PR #260** (main_development → main) carries #257, #258 and #259. `git merge-tree` gives exactly main_development's tree. The deploy follows once main is green.
+- **Next in Phase 4's order:** 4S3-INT-02 (client registry, heartbeat, missing-heartbeat alert), built on 4S0-SEC-01.
+
+## rcfworks — deployed a34659f2 (4S2-BE-05, 4S0-SEC-01 on staging)
+
+- **#260 and #261 merged by the user.** main's CI on `a34659f2` was all green, including e2e. Claude ran `deploy-daily.yml`, and `release` moved `cd751d2c` → `a34659f2`.
+- **Staging, checked read-only:**
+  - `20261019150000_deployment_pause_rollback` and `20261019180000_infinex_machine_auth` are applied;
+  - `Role` ends `…ADVISOR,INFINEX_SERVICE,INFINEX_CLIENT`;
+  - `InfinexCredential`, `InfinexClient` and `InfinexToken` exist;
+  - `CreativeDeployment_pause_rollback_check` and `InfinexToken_kind_check` exist;
+  - `/health` returns 200.
+- **Stage Progress:** no change. Phase 4 work moves no Phase 1 count.
+
+## rcfworks — 4S3-INT-02 · client registry and heartbeat (Code review)
+
+The plan was approved. Its decisions: a client is one build per world; heartbeats aren't signed; only the latest beat is kept; missing means 5 minutes after a first report; the alert is the Integrations screen plus audit, no email.
+
+- **Registry.** `InfinexClient` gains the heartbeat columns, `missingSince`, `revokedBy`/`revokeReason`, `@@unique([worldId, buildId])` and a CHECK. `POST`/`GET /infinex/clients` and `POST /infinex/clients/{id}/revoke`, for BTG or a world's server; a game session gets 409.
+- **Heartbeat.** `POST /infinex/heartbeat` `{manifestVersion, buildId?, fps?, errorCount?}` takes a game session only (a server token or a person gets 409). The client comes from the token, and a body `buildId` that isn't the session's is 422. It answers 204, keeps the latest beat and a count, and clears `missingSince` with an `infinex.heartbeatRecovered` audit row.
+- **Missing.** `sweepMissingHeartbeats` runs on a worker timer every minute. An ACTIVE build that has reported and then gone quiet for more than 300 s is marked once, with `infinex.heartbeatMissing`, in one transaction per build. `integrationHealth().infinex` gives the threshold, active, missing, and each build's heartbeat age (§5.5, for 4S8-FE-01).
+- **Stand-in world.** `scripts/infinex-standin.mts` (`npm run infinex:standin`) uses the public API only: server token → session → manifest → N heartbeats. `runStandin` is exported for the tests.
+- **Change to 4S0-SEC-01:** a session now starts without `INFINEX_SIGNING_SECRET` (`signingKey: null`); the signed routes still refuse. Spec §6.2 and Secrets-Rotation §11a are updated.
+- **Permissions.** `infinexClient.INFINEX_CLIENT` read/write own-tenant, pinned by scope.ts to `actor.machine.clientId`. Digest `b1f1e50851c850e3` → `6c2dbfecd20f5311`. RBAC §38 is updated, and two 4S0 test expectations went 403 → 409 (still refused, one step later). The sweep has bodies for register, revoke and heartbeat.
+- **Tests:** `infinex-clients.test.ts` (5), with INFINEX_SIGNING_SECRET deliberately unset.
+- **Docs:** spec §4.2 and §5.5, the Phase 4 plan. Tracker: Code review.
+
+## rcfworks — 4S3-INT-02 to Done (#262); 4S3-INT-03 · client configuration (Code review)
+
+- **4S3-INT-02 → Done.** #262 merged by the user, CI all green.
+- **4S3-INT-03.** The plan was approved: defaults in code, BTG overrides within limits, missing after five intervals, and the stand-in honours the intervals.
+  - **Config module.** `domain/infinex-config.ts`: `CONFIG_DEFAULTS` (`infinex-config@1.0.0`); `LIMITS` (maxBatch 1–1000, maxBytes 1 KB–1 MB, flushSeconds 1–300, pollSeconds 15–900, heartbeatSeconds 10–300, sample rates 0–1, known event types and flags only); `overrideProblems`, which returns every reason at once; `effectiveConfig`; `missingAfterSeconds` (5 intervals, so 150 s by default; was a fixed 300 s in #262); `configEtag`.
+  - **Database.** `InfinexClient.configOverride` (JSON) and `configVersion`; migration `20261019220000_infinex_client_config`.
+  - **Endpoints.** `GET /infinex/config` (game session, ETag/304). `GET /infinex/clients/{id}/config` (BTG and the server: config, override, limits). `PATCH …/config` (BTG only, so machines get 403; null clears; audited `infinex.clientConfig`).
+  - **Sweep.** It now reads each build's own threshold, and takes an optional `tenantId`. Tests scope their sweeps to their own tenant: with the shorter threshold, a future-clock sweep in one test file caught another file's builds.
+  - **Stand-in world.** It reads its config first, sleeps `heartbeat.everySeconds` between beats, re-reads the manifest (with If-None-Match) once `manifest.pollSeconds` has passed, and reports the limits. The `--every` flag is gone.
+  - **Tests:** `infinex-config.test.ts` (7). `infinex-clients` and `integration-health` updated for the 150 s default. The sweep has the PATCH body.
+  - **Docs:** spec §4.2, World Contract §6, RBAC §38 (no cell moved; the digest is unchanged), the Phase 4 plan. Tracker: Code review.

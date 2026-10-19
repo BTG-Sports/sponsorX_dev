@@ -1915,11 +1915,21 @@ reads its own world's manifest.
 | `SUPER_ADMIN` | any | any | — |
 | `BTG_ADMIN` | own-tenant | own-tenant | — |
 | `INFINEX_SERVICE` | own-tenant | own-tenant | — |
+| `INFINEX_CLIENT` | **its own client** | **its own client** | — |
 
 - **A server's write** is starting a game session for one of its tenant's
-  clients (`POST /infinex/clients/{id}/sessions`). Only a server's token may
-  start one: a person, even BTG, gets 409, and a game gets 403.
-- **Registering and revoking clients** is `4S3-INT-02`.
+  clients (`POST /infinex/clients/{id}/sessions`), and registering or
+  revoking a build (`POST /infinex/clients`, `…/revoke`, `4S3-INT-02`). BTG
+  admins register and revoke too. Only a server's token may start a session:
+  a person, even BTG, or a game gets 409.
+- **Config** (`4S3-INT-03`): reading a build's config is an `infinexClient`
+  read. A game session reads its own at `GET /infinex/config`; BTG and the
+  world's server read any of the tenant's at `GET /infinex/clients/{id}/config`.
+  Only a person may change it (`PATCH …/config`, BTG): a machine's write cell
+  covers sessions, registration and heartbeats, never its own settings (403).
+- **A game session's write** is its own heartbeat (`POST /infinex/heartbeat`,
+  `4S3-INT-02`). `scope.ts` pins it to its own client, so it reads only its
+  own build and cannot register, revoke or start anything (409).
 
 **Internal:** `InfinexToken` (a token's hash and expiry) is read only by the
 verifier and is never listed.

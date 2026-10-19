@@ -49,15 +49,6 @@ export class InfinexConflictError extends Error {
     this.name = "InfinexConflictError";
   }
 }
-export class InfinexUnavailableError extends Error {
-  readonly status = 503;
-  readonly code = "infinex_unavailable";
-  constructor(message: string) {
-    super(message);
-    this.name = "InfinexUnavailableError";
-  }
-}
-
 const CREDENTIAL = { id: true, name: true, scopes: true, createdAt: true, lastUsedAt: true, revokedAt: true, revokeReason: true } as const;
 type CredentialRow = { id: string; name: string; scopes: string[]; createdAt: Date; lastUsedAt: Date | null; revokedAt: Date | null; revokeReason: string | null };
 const view = (c: CredentialRow) => ({
@@ -149,8 +140,9 @@ export async function issueServiceToken(input: { credentialId: string; secret: s
 export async function startClientSession(actor: Actor, clientId: string, now = new Date()) {
   assertAllowed(actor, "infinexClient", "write");
   if (!actor.machine || actor.machine.clientId) throw new InfinexConflictError("Only an INFINEX server's token starts a game session.");
-  const secret = signingSecrets()[0];
-  if (!secret) throw new InfinexUnavailableError("Game sessions are not configured here yet (INFINEX_SIGNING_SECRET).");
+  /* 4S3-INT-02 — without INFINEX_SIGNING_SECRET a session still starts (manifest, heartbeat), with no signing
+     key; the signed routes refuse it (503) until the secret is set. */
+  const secret = signingSecrets()[0] ?? null;
   const client = await prisma.infinexClient.findFirst({ where: { ...whereFor(actor, "infinexClient", "write"), id: clientId }, select: { id: true, tenantId: true, worldId: true, status: true } });
   if (!client) throw new InfinexNotFoundError("client");
   if (client.status !== "ACTIVE") throw new InfinexConflictError("This client is revoked.");
@@ -159,7 +151,7 @@ export async function startClientSession(actor: Actor, clientId: string, now = n
     await audit(tx, actor, AUDIT_ACTIONS.infinex.sessionStart, "InfinexClient", client.id, { after: { tokenId: t.tokenId, expiresAt: t.expiresAt.toISOString() } });
     return {
       accessToken: t.token, tokenType: "Bearer" as const, expiresAt: t.expiresAt.toISOString(),
-      keyId: t.tokenId, signingKey: signingKeyFor(secret, t.tokenId), clientId: client.id, worldId: client.worldId,
+      keyId: t.tokenId, signingKey: secret ? signingKeyFor(secret, t.tokenId) : null, clientId: client.id, worldId: client.worldId,
     };
   });
 }
