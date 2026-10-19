@@ -20,12 +20,13 @@ import { readEngine, wantsSample } from "@/server/engine";
           POST /intelligence/scenarios { name, inputs }       (save)
           — both through ./actions.ts. Contract: lib/scenarios-live.ts.
 
-   The engine (3S7-BE-01, on 3S4-BE-01's forecast) isn't mounted yet: the
-   saved-list read is the liveness check, and until it answers the page is
-   its title and <EnginePending> — no figure at all. A real API error throws
-   to the error boundary. ?demo=loading|empty|error, and ?demo=sample
-   (development only) runs the planner on lib/scenarios-live.ts's sample
-   calculator under a <SampleBanner>.
+   The engine (3S7-BE-01, on 3S4-BE-01's forecast) mounted 2026-10-15 and
+   is behind the per-tenant `scenarios` feature flag. The saved-list read is
+   the liveness check: a tenant with the flag off reads 403 `feature_off`,
+   which readEngine shows as <EnginePending> — no figure at all. A real API
+   error throws to the error boundary. ?demo=loading|empty|error, and
+   ?demo=sample (development only) runs the planner on
+   lib/scenarios-live.ts's sample calculator under a <SampleBanner>.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";

@@ -13,6 +13,12 @@ describe("routeMissing — 'engine not built yet' vs a real failure", () => {
     expect(routeMissing(501, null)).toBe(true);
   });
 
+  it("reads 403 feature_off (3S8-OPS-01's per-tenant switch) as switched off — and no other 403", () => {
+    expect(routeMissing(403, { error: { code: "feature_off", message: "Scenario planning is off for this tenant." } })).toBe(true);
+    expect(routeMissing(403, { error: { code: "forbidden" } })).toBe(false);
+    expect(routeMissing(403, null)).toBe(false);
+  });
+
   it("never mistakes a mounted route's own 404 (it says why) for a missing engine", () => {
     expect(routeMissing(404, { error: { code: "not_found", message: "No such inventory item." } })).toBe(false);
     expect(routeMissing(404, null)).toBe(false);
