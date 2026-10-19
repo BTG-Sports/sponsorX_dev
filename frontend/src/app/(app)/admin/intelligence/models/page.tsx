@@ -349,7 +349,8 @@ function BenchmarksView({ reg }: { reg: ModelRegistry }) {
       <StageTable label="CPM benchmarks" columns={columns}>
         {reg.benchmarks.map((b, i) => {
           const check = checkFor(reg.benchmarkValidation, b);
-          const thin = check ? check.status === "small_sample" || check.reasons.some((r) => r.includes("order(s) behind it")) : isSmallSample(b, reg.benchmarkMinSample);
+          /* With a verdict, the verdict decides; without one, only the sample size can say anything. */
+          const thin = !check && isSmallSample(b, reg.benchmarkMinSample);
           const flagged = check ? check.status !== "valid" : thin;
           return (
             <Tr key={b.segment} i={i} tone={check?.status === "inconsistent" ? "danger" : flagged ? "warn" : undefined}>

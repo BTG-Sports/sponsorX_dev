@@ -35,4 +35,23 @@ Branch `feature/3S5-FE-01-3S8-FE-02-engine-walk`, cut after pulling `main` and `
 
 **Tracker:** the seven rows stay Done; Notes record the reconciliation and the walk. Stage Progress: the 2026-10-19 row appended from the live block.
 
+## HeckerCreatives — QA pass on the seven screens and their engines (API + screens), and the findings fixed
+
+Two independent passes on commit `b57dfa7`: a high-effort code review of the branch diff (unanchored on my own notes), and a temporary adversarial Playwright probe (`pageAs` admin / sales / campaign manager / super admin / sponsor) against the dev stack — auth edges, role gates UI vs API, validation bounds, 409/422/404 paths, tenant scope, the switched-off state, and phone layouts.
+
+**Passed first time:** no token / garbage token → 401 on every new write with no figures in the body; Sales and campaign managers get "Not in your role" on make-goods and models and see no Dismiss button on the queue (API refuses 403); sponsor can't read the desk, the registry or the property hub; admin can't read the sponsor hub (403, scoped); 422 wording on the make-good note, anomaly note, dismiss reason and model reason; 409 on a person's final anomaly decision and on approving a decided shortfall; `?tab=bogus` / `?kind=bogus` / `?status=bogus` / `?range=bogus` → 400; strict bodies refuse extra keys; the **held draft → proposer's self-validate 409 → second person validates → Activate from the screen → roll back** path end to end; scenarios off → calculate and save both 403 `feature_off`; four screens at 390px with no overflow.
+
+**Findings, all fixed in the same pass (frontend + backend):**
+1. **Switched-off read as "not built yet"** (review + probe). `routeMissing` folded `403 feature_off` into "pending", so a tenant whose feature BTG deliberately switched off saw "Engine not live yet · waits on 3S7-BE-01". `lib/intelligence.ts` gains `featureOff`; `server/engine.ts` marks the pending engine `off`; `EnginePending` then says **Switched off** with the Feature-flags pointer (sponsor/property wording separate) and drops the "waits on" block; a write returns the API's sentence instead of "isn't live yet".
+2. **Raw user id as the decider** (probe: "Dismissed by e2e_u_qa7_admin"). `attribution-desk.ts` now resolves `dismissed.by` through `peopleWords` (exported from `anomaly-engine.ts`, the same "email (Role)" / "a former user" rule); never an id.
+3. **Second dismiss was 404 "No such unmatched sale"** while the sale sat on the list. Now `409 attribution_decided` — "Already dismissed; the record stands." / "matched meanwhile" — with a true 404 only for an id that exists nowhere. Backend test updated for both.
+4. **Editor offered a save the API refuses** (review + probe: 365.5 days → the dialog said "goes live at once", the API said 422 "… is a whole number."). The registry's thresholds now carry `integer`; `thresholdErrors` refuses a fraction with the API's sentence. Seen live on the screen.
+5. **Benchmark verdicts joined by rebuilt prose** (review). The screen reconstructed the API's "Sport: Soccer" label to find a row's verdict; any wording drift would have silently shown every row as "Not checked yet". `model-admin.ts` now puts the same `label` on each check and the screen joins on it; the rebuild helper is gone.
+6. **Budget 0 on `/scenarios/calculate` was a wordless 400** (zod `min(1)`), unlike every other input problem. The contract floor is 0 so the engine answers "Set a budget above zero." (negatives and ceilings stay the contract's). The screen pre-empted it already.
+7. Small ones from the review: a dead `thin` branch on the benchmarks table that string-matched reason prose; an unreachable sample guard in the dismiss island; the anomalies sample's `page.total` (5 → 7 rows).
+
+**Not changed, noted:** the sponsor hub's "Campaigns counted" counts every non-draft campaign regardless of the range (engine semantics, copy already says so).
+
+**Verified after the fixes:** probe 12/12 with 0 findings (was 7), 0 console / page errors / 5xx; frontend 140 files / 1,589 tests, tsc, eslint; backend tsc + eslint on the touched files, and against `sponsorx_test`: attribution-matching, model-registry, backtest, anomalies, tenant-isolation, scenarios, openapi — green; `next build` green. The probe's partner, rows, scenario, flag rows and model versions were deleted afterwards; the spec deleted.
+
 **Not started, deliberately:** the Phase 4 web-application screens (4S1-FE-01/02/03, 4S2-FE-01) — their engines landed on 10-16 (`/virtual/*`), but every row is ⏸ behind `4S0-ART-01`, the owner's design task, and no screen or contract exists yet. That is new screen work, not integration.

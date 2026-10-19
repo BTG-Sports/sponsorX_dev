@@ -252,7 +252,7 @@ export const SAMPLE_ANOMALIES: AnomalyDesk = {
       },
     },
   ],
-  page: { page: 1, size: 12, total: 5, pages: 1 },
+  page: { page: 1, size: 12, total: 7, pages: 1 },
 };
 
 /** The sample as the API would answer one tab and kind — preview only. */

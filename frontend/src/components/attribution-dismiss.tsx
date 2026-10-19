@@ -35,7 +35,6 @@ export function DismissSale({ saleId, reference, sample }: { saleId: string; ref
     setError(null);
     const invalid = dismissError(reason);
     if (invalid) return setError(invalid);
-    if (sample) return setError("Sample preview — nothing is sent.");
     start(async () => {
       const res = await dismissUnmatchedAction(saleId, reason.trim());
       if (!res.ok) return setError(res.message);

@@ -23,7 +23,7 @@ lib, named below — this document is the summary, the lib is the truth.
 |---|---|
 | 2xx | The live screen |
 | `404 { error: { code: "not_found" } }` with **no message** (the API's catch-all for an unmounted route) | `EnginePending` — no figures |
-| `501`, or `403 { error: { code: "feature_off" } }` (engine mounted but switched off for the tenant — 3S8-OPS-01's per-tenant flag answers the 403) | `EnginePending` |
+| `501`, or `403 { error: { code: "feature_off" } }` (engine mounted but switched off for the tenant — 3S8-OPS-01's per-tenant flag answers the 403) | `EnginePending` marked **Switched off** — "a BTG admin switched this feature off for this organisation", never "not built yet"; a write answers the API's own sentence |
 | A mounted route's own 404 **with a message** | "Not found" state on detail screens; an error elsewhere |
 | Anything else (401, 403, 409, 5xx …) | The page's error boundary — an outage is never shown as "coming soon" |
 
@@ -124,6 +124,7 @@ Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, SALES.
 - dismissing is `POST /intelligence/attribution/unmatched/:id/dismiss { reason }` (BTG admins; the screen stays read-only until it wants the button).
 
 - **Reconciled and walked 2026-10-19.** Events render as partner sales only; a refund is its own row (`kind: refund`, amount negative, "Refund — taken off the total"); the redemption tile is a count with no money line. The queue shows each sale's key *names* (`keysGiven`, "Carried reward token"), when it happened, open rows first then dismissed ones marked "Dismissed by {by} · {date}" with the reason. **Dismiss is live:** BTG admins (`SUPER_ADMIN`, `BTG_ADMIN`, `canDismiss`) get a per-row form posting `{ reason }` (10–500 characters, the API's bounds); campaign managers and Sales see the queue read-only. An unknown `?campaign` (404 `attribution_not_found`) renders a not-found state. Walked with a generic-webhook partner: a token-matched $45 sale, its $15 refund by order id, and an unknown-token sale dismissed from the queue.
+- **QA 2026-10-19 (engine side, same pass):** `dismissed.by` is now words — "email (Role)" or "a former user" — never a user id; dismissing a sale that is already dismissed, or that the nightly retry matched meanwhile, is `409 attribution_decided` with the reason, while an id that exists nowhere stays 404.
 
 ## 3S7-FE-01 · Sponsor intelligence hub — `/sponsor/intelligence`
 
@@ -181,7 +182,8 @@ Roles: SUPER_ADMIN, BTG_ADMIN, CAMPAIGN_MGR, SALES.
   - a saved scenario adds `savedBy`;
   - bad inputs are a 422 with the problems in words.
 
-- **Reconciled and walked 2026-10-19.** `savedBy` is a required string (the saver's email, or "a former user"). Formats, sports, states and age bands come from `options` only; age bands arrive as `UNDER_16 | 16_17 | 18_PLUS` and are labelled on screen while the key is posted. The 422 `scenario_inputs` message is every problem joined by a space, shown verbatim beside the inputs; `validateInputs` in `lib/scenarios-live.ts` repeats `inputProblems`' words and order (pinned against the backend's test case) and pre-empts the contract's integer bounds (budget ≤ $20M, CPM ≤ $100k, ≤ 10 formats, name ≤ 120), which the API would otherwise answer with a wordless 400. Walked: live calculate, "Set a budget above zero.", a saved scenario with its saver, and the `scenarios` flag off → `EnginePending`, on → live again.
+- **Reconciled and walked 2026-10-19.** `savedBy` is a required string (the saver's email, or "a former user"). Formats, sports, states and age bands come from `options` only; age bands arrive as `UNDER_16 | 16_17 | 18_PLUS` and are labelled on screen while the key is posted. The 422 `scenario_inputs` message is every problem joined by a space, shown verbatim beside the inputs; `validateInputs` in `lib/scenarios-live.ts` repeats `inputProblems`' words and order (pinned against the backend's test case) and pre-empts the contract's integer bounds (budget ≤ $20M, CPM ≤ $100k, ≤ 10 formats, name ≤ 120), which the API would otherwise answer with a wordless 400. Walked: live calculate, "Set a budget above zero.", a saved scenario with its saver, and the `scenarios` flag off → `EnginePending` ("Switched off"), on → live again.
+- **QA 2026-10-19 (engine side):** the contract's `budgetCents` / `cpmCents` floor is 0, not 1, so a zero reaches the engine and comes back as the 422 sentence rather than a wordless 400; negatives and the ceilings are still the contract's.
 
 ## 3S8-FE-01 · Data quality and anomaly console — `/admin/intelligence/anomalies`
 
@@ -224,6 +226,7 @@ Roles: SUPER_ADMIN, BTG_ADMIN.
   - a switched-off feature's reads answer 403 `feature_off`.
 
 - **Reconciled and walked 2026-10-19.** Versions are bare numbers (`2.1.0`); each carries `settings` and `backtest { ranAt, simulated, sampleSize, calibration }`, its metrics being "Outputs made" plus the latest backtest's (suffixed "(simulated)"). The compare view shows settings first, then metrics. The settings editor only refuses what the API refuses (≤ 0, a share > 1); a value outside its safe range is saved and **held** — the screen warns before, and after the save shows `{ version, status, heldBecause }`. A held draft gets a **Validate** button with the second-person rule stated; the API's 409 to the proposer is surfaced as-is. `benchmarkValidation` renders as a Verdict column (status + every reason) and a Reconciliation card; `benchmarkMinSample` is 10. `factors` exist only for `matching` and are points. `rollouts` is always empty and the block says so. Reasons are 10–500 characters (`modelReasonError`), not intel-admin's 8. Walked: six models, forecast 2.0.0 with its simulated backtest, "No benchmarks yet" with the reconciliation verdict "The nightly fact check has not run yet.", ten flags × three tenants.
+- **QA 2026-10-19 (both sides, same pass):** each threshold carries `integer` and the editor refuses a fraction with the API's sentence ("… is a whole number.") instead of offering a save the API refuses; each `benchmarkValidation.benchmarks[]` check carries `label`, the same string its benchmark row has as `segment`, and the screen joins on that rather than rebuilding the label. The held-draft → second-person Validate → Activate → roll back path was exercised end to end through the API and the screen.
 
 ---
 

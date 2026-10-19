@@ -77,7 +77,8 @@ export type ModelVersion = {
   backtest: Backtest | null;
 };
 
-export type Threshold = { key: string; label: string; value: number; unit: string; min: number; max: number };
+/** `integer`: the API refuses a fraction for it ("… is a whole number."), so the editor must too. */
+export type Threshold = { key: string; label: string; value: number; unit: string; min: number; max: number; integer?: boolean };
 /** A match-scoring factor (3S3-BE-02): `weight` is the points it can add to the score. Read-only — a new weight is code. */
 export type Factor = { key: string; label: string; weight: number };
 
@@ -100,6 +101,8 @@ export type BenchmarkStatus = "valid" | "inconsistent" | "stale" | "small_sample
 export type BenchmarkCheck = {
   dimension: string;
   segment: string;
+  /** The same label the benchmark row carries as `segment` ("All" / "Sport: Soccer") — the join key, built by the API once. */
+  label: string;
   sampleSize: number;
   p25: number;
   median: number;
@@ -315,8 +318,9 @@ export const isShare = (t: Pick<Threshold, "unit">) => t.unit === "share";
 
 /**
  * Per-key problems the API would REFUSE outright (""/non-numbers, zero or
- * less, a share above 1). A value outside its safe range is not a problem —
- * it is saved and held; see thresholdWarnings.
+ * less, a share above 1, a fraction where it wants a whole number — the
+ * API's own words for that one). A value outside its safe range is not a
+ * problem — it is saved and held; see thresholdWarnings.
  */
 export function thresholdErrors(ts: Threshold[], values: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
@@ -326,6 +330,7 @@ export function thresholdErrors(ts: Threshold[], values: Record<string, string>)
     if (raw === "" || !Number.isFinite(n)) out[t.key] = "Enter a number.";
     else if (n <= 0) out[t.key] = "Must be above zero.";
     else if (isShare(t) && n > 1) out[t.key] = "A share is at most 1.";
+    else if (t.integer && !Number.isInteger(n)) out[t.key] = `${t.label} is a whole number.`;
   }
   return out;
 }
@@ -393,14 +398,9 @@ export function isSmallSample(b: Pick<Benchmark, "sampleSize">, min: number): bo
   return b.sampleSize < min;
 }
 
-/** The segment label the API builds for a benchmark row ("All" / "Sport: Soccer") — joins a check to its row. */
-export function benchmarkSegmentLabel(dimension: string, segment: string): string {
-  return dimension === "ALL" ? "All" : `${dimension.charAt(0)}${dimension.slice(1).toLowerCase()}: ${segment}`;
-}
-
-/** The verdict for one benchmark row, if the validation has one. */
+/** The verdict for one benchmark row, if the validation has one — joined on the label the API put on both. */
 export function checkFor(v: BenchmarkValidation, b: Pick<Benchmark, "segment">): BenchmarkCheck | undefined {
-  return v.benchmarks.find((c) => benchmarkSegmentLabel(c.dimension, c.segment) === b.segment);
+  return v.benchmarks.find((c) => c.label === b.segment);
 }
 
 export const BENCHMARK_STATUS: Record<BenchmarkStatus, { label: string; tone: "success" | "warn" | "danger" }> = {
@@ -553,7 +553,7 @@ export const SAMPLE_REGISTRY: ModelRegistry = {
           backtest: null,
         },
       ],
-      thresholds: [{ key: "excludedLookbackDays", label: "Days a past tie to an excluded category counts", value: 365, unit: "days", min: 90, max: 730 }],
+      thresholds: [{ key: "excludedLookbackDays", label: "Days a past tie to an excluded category counts", value: 365, unit: "days", min: 90, max: 730, integer: true }],
       factors: [
         { key: "audience", label: "Audience fit", weight: 15 },
         { key: "geography", label: "Geography", weight: 15 },
@@ -575,10 +575,10 @@ export const SAMPLE_REGISTRY: ModelRegistry = {
   benchmarkValidation: {
     checkedAt: "2026-10-18T06:00:00Z",
     benchmarks: [
-      { dimension: "ALL", segment: "ALL", sampleSize: 212, p25: 820, median: 1_140, p75: 1_560, status: "valid", reasons: [] },
-      { dimension: "SPORT", segment: "Basketball", sampleSize: 64, p25: 450, median: 610, p75: 900, status: "valid", reasons: [] },
+      { dimension: "ALL", segment: "ALL", label: "All", sampleSize: 212, p25: 820, median: 1_140, p75: 1_560, status: "valid", reasons: [] },
+      { dimension: "SPORT", segment: "Basketball", label: "Sport: Basketball", sampleSize: 64, p25: 450, median: 610, p75: 900, status: "valid", reasons: [] },
       {
-        dimension: "SPORT", segment: "Soccer", sampleSize: 4, p25: 300, median: 980, p75: 1_900, status: "small_sample",
+        dimension: "SPORT", segment: "Soccer", label: "Sport: Soccer", sampleSize: 4, p25: 300, median: 980, p75: 1_900, status: "small_sample",
         reasons: ["Only 4 order(s) behind it; 10 are needed.", "Its middle half spans 6.3× (over 4×): too wide to price from."],
       },
     ],

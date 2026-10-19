@@ -5,7 +5,6 @@ import {
   SAMPLE_REGISTRY,
   SECOND_PERSON_RULE,
   backtestLabel,
-  benchmarkSegmentLabel,
   canActivate,
   canValidate,
   cellKey,
@@ -167,6 +166,14 @@ describe("settings", () => {
     expect(thresholdErrors(days, { windowDays: "45" })).toEqual({});
   });
 
+  it("refuses a fraction where the API wants a whole number, in the API's words", () => {
+    const days = [{ key: "windowDays", label: "Days a make-good runs", value: 14, unit: "days", min: 7, max: 30, integer: true }];
+    expect(thresholdErrors(days, { windowDays: "14.5" }).windowDays).toBe("Days a make-good runs is a whole number.");
+    expect(thresholdErrors(days, { windowDays: "15" })).toEqual({});
+    /* no flag: a fraction is the API's to judge, as before */
+    expect(thresholdErrors([{ ...days[0], integer: undefined }], { windowDays: "14.5" })).toEqual({});
+  });
+
   it("warns, not refuses, outside the safe range — the version is held", () => {
     expect(thresholdWarnings(ts, {})).toEqual({});
     expect(thresholdWarnings(ts, { atRiskBelow: "0.75" }).atRiskBelow).toMatch(/Outside the safe range 0.3–0.7.*held/);
@@ -207,9 +214,7 @@ describe("benchmarks, their verdicts, views and KPIs", () => {
     expect(isSmallSample({ sampleSize: 10 }, 10)).toBe(false);
   });
 
-  it("joins each benchmark row to its verdict by the label the API builds", () => {
-    expect(benchmarkSegmentLabel("ALL", "ALL")).toBe("All");
-    expect(benchmarkSegmentLabel("SPORT", "Soccer")).toBe("Sport: Soccer");
+  it("joins each benchmark row to its verdict by the label the API put on both — never by rebuilding it", () => {
     const soccer = checkFor(SAMPLE_REGISTRY.benchmarkValidation, { segment: "Sport: Soccer" })!;
     expect(soccer.status).toBe("small_sample");
     expect(soccer.reasons).toHaveLength(2);

@@ -140,7 +140,8 @@ async function modelView(tenantId: string, key: ModelKey) {
   })).sort((a, b) => cmp(b.version, a.version));
   return {
     key, name: def.name, activeVersion: active.version, versions,
-    thresholds: def.thresholds.map((t) => ({ key: t.key, label: t.label, value: active.t[t.key]!, unit: t.unit, min: t.min, max: t.max })),
+    /* `integer`: the screen refuses a fraction with the same words changeSettings would, instead of offering a save the API refuses. */
+    thresholds: def.thresholds.map((t) => ({ key: t.key, label: t.label, value: active.t[t.key]!, unit: t.unit, min: t.min, max: t.max, integer: t.integer === true })),
     ...(key === "matching" ? { factors: MATCH_FACTORS.map((f) => ({ key: f.key, label: f.label, weight: f.points })) } : {}),
   };
 }
@@ -164,16 +165,19 @@ export async function modelRegistry(actor: Actor, now = new Date()) {
     where: { tenantId: { in: tenants.map((t) => t.id) } }, select: { tenantId: true, feature: true, enabled: true },
   });
   const flagBy = new Map(flagRows.map((f) => [`${f.feature}::${f.tenantId}`, f.enabled]));
+  /* One label per benchmark, built here once: the row carries it as `segment`, its verdict as `label`, so a screen joins the two by data. */
+  const benchmarkLabel = (dimension: string, segment: string) => (dimension === "ALL" ? "All" : `${dimension.charAt(0)}${dimension.slice(1).toLowerCase()}: ${segment}`);
+  const validation = await validateBenchmarks(prisma, tenantId, now);
   return {
     asOf: now.toISOString(),
     models: await Promise.all(MODEL_KEYS.map((k) => modelView(tenantId, k))),
     benchmarks: (await listBenchmarks(prisma, tenantId)).map((b) => ({
-      segment: b.dimension === "ALL" ? "All" : `${b.dimension.charAt(0)}${b.dimension.slice(1).toLowerCase()}: ${b.segment}`,
+      segment: benchmarkLabel(b.dimension, b.segment),
       p25: b.p25, median: b.median, p75: b.p75, sampleSize: b.sampleSize, refreshedAt: b.refreshedAt,
     })),
     benchmarkMinSample: BENCHMARK_MIN_SAMPLE,
     /* 3S9-QA-02 — each benchmark's verdict, and the reconciliation behind them. */
-    benchmarkValidation: await validateBenchmarks(prisma, tenantId, now),
+    benchmarkValidation: { ...validation, benchmarks: validation.benchmarks.map((c) => ({ ...c, label: benchmarkLabel(c.dimension, c.segment) })) },
     flags: FEATURES.flatMap((feature) => tenants.map((t) => ({ feature, tenantId: t.id, tenantName: t.name, enabled: flagBy.get(`${feature}::${t.id}`) ?? true }))),
     rollouts: [] as Array<{ model: ModelKey; version: string; stage: string; tenants: Array<{ id: string; name: string }> }>,
   };

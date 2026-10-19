@@ -24,6 +24,7 @@ import { assertTenantWide } from "../auth/scope";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
 import { prisma } from "../db/client";
 import type { PageInfo, PageRequest } from "../lib/paging";
+import { peopleWords } from "./anomaly-engine";
 import { BENCHMARK_METRIC } from "./benchmarks";
 import { assertFeature } from "./model-registry";
 
@@ -44,6 +45,16 @@ export class AttributionInputError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "AttributionInputError";
+  }
+}
+
+/** The sale is on the list but no longer open: already dismissed, or matched by the nightly retry meanwhile. */
+export class AttributionDecidedError extends Error {
+  readonly status = 409;
+  readonly code = "attribution_decided";
+  constructor(message: string) {
+    super(message);
+    this.name = "AttributionDecidedError";
   }
 }
 
@@ -109,6 +120,7 @@ export async function attributionDesk(
       prisma.partnerSaleAttribution.count({ /* tenant-scope: `where` carries the caller's tenantId. */ where }),
     ]);
     const page: PageInfo = { page: q.page.page, size: q.page.size, total, pages: Math.max(1, Math.ceil(total / q.page.size)) };
+    const who = await peopleWords(tenantId, rows.map((r) => r.dismissedBy));
     return {
       ...base,
       unmatched: rows.map((r) => ({
@@ -116,7 +128,7 @@ export async function attributionDesk(
         receivedAt: r.receivedAt.toISOString(), kind: r.kind, occurredAt: r.occurredAt.toISOString(),
         /* Which keys it carried, never their values: a reward token is a fan's code. */
         keysGiven: Object.keys((r.keys ?? {}) as Record<string, string>).sort(),
-        dismissed: r.status === "dismissed" ? { by: r.dismissedBy, at: r.dismissedAt!.toISOString(), reason: r.dismissNote } : null,
+        dismissed: r.status === "dismissed" ? { by: who(r.dismissedBy), at: r.dismissedAt!.toISOString(), reason: r.dismissNote } : null,
       })),
       page,
     };
@@ -159,8 +171,11 @@ export async function dismissUnmatched(actor: Actor, id: string, input: { reason
   const reason = input.reason.trim();
   if (reason.length < 10 || reason.length > 500) throw new AttributionInputError("Say why it is dismissed (10 to 500 characters).");
   return prisma.$transaction(async (tx) => {
-    const row = await tx.partnerSaleAttribution.findFirst({ where: { tenantId: actor.tenantId, id, status: "unmatched" }, select: { id: true, reason: true } });
+    const row = await tx.partnerSaleAttribution.findFirst({ where: { tenantId: actor.tenantId, id }, select: { id: true, reason: true, status: true } });
     if (!row) throw new AttributionNotFoundError();
+    /* A decision stands: dismissed is final, and a sale the nightly retry matched meanwhile has left the queue — 409, not "no such sale". */
+    if (row.status === "dismissed") throw new AttributionDecidedError("Already dismissed; the record stands.");
+    if (row.status !== "unmatched") throw new AttributionDecidedError("This sale was matched meanwhile and is no longer in the queue.");
     /* Guarded by status: a sale the nightly retry matched meanwhile is not dismissed. */
     const n = await tx.partnerSaleAttribution.updateMany({
       where: { tenantId: actor.tenantId, id, status: "unmatched" },
