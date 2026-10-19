@@ -933,6 +933,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   infinexCredential: tenantScoped,
   /* 4S3-INT-02 — a game session reaches only its own client row. */
   infinexClient: (actor, scope) => (actor.machine?.clientId ? { tenantId: actor.tenantId, id: actor.machine.clientId } : tenantScoped(actor, scope)),
+  /* 4S4-BE-01 — a game session reaches only its own client's events. */
+  virtualEvent: (actor, scope) => (actor.machine?.clientId ? { tenantId: actor.tenantId, clientId: actor.machine.clientId } : tenantScoped(actor, scope)),
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

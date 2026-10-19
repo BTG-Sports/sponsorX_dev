@@ -120,6 +120,8 @@ const GOVERNED_BY: Record<string, Resource> = {
   /* 4S0-SEC-01 — INFINEX machine credentials and the game clients registered for a world. */
   InfinexCredential: "infinexCredential",
   InfinexClient: "infinexClient",
+  /* 4S4-BE-01 / 4S4-DATA-01 — raw INFINEX telemetry. */
+  VirtualEventRaw: "virtualEvent",
   /* 2S5-INT-02 — the payment provider's events: written by the signed webhook and the worker, read by BTG admin and Finance. */
   PaymentEvent: "paymentEvent",
   /* 2S5-BE-03 — a refund the provider reported: its record, read with the events. A dispute: BTG support's. */

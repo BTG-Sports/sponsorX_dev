@@ -1931,6 +1931,22 @@ reads its own world's manifest.
   `4S3-INT-02`). `scope.ts` pins it to its own client, so it reads only its
   own build and cannot register, revoke or start anything (409).
 
+### `virtualEvent` — raw INFINEX telemetry *(added 2026-10-19, 4S4-BE-01)*
+
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | — | — |
+| `BTG_ADMIN` | own-tenant | — | — |
+| `INFINEX_CLIENT` | — | own-tenant, **its own client's events** | — |
+
+- **Write** is a game session's signed batch (`POST /infinex/telemetry`). The
+  tenant, world and build come from the session, never from an event.
+- **Nobody edits or deletes a raw event.** The table is append-only in the
+  database (`virtual_event_append_only`), so every aggregate can be recomputed
+  from it.
+- **Reading** raw events (for BTG's review of quarantined events and the
+  recomputation jobs) arrives with Sprint 5. No route reads them yet.
+
 **Internal:** `InfinexToken` (a token's hash and expiry) is read only by the
 verifier and is never listed.
 

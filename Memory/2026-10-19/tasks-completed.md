@@ -263,3 +263,27 @@ The plan was approved. Its decisions: a client is one build per world; heartbeat
 
 - **#263 merged by the user**, CI all green. 4S3-INT-03 → Done (plan and tracker). Sprint 3 is complete.
 - **Sync PR to main** carries #262 and #263. `git merge-tree` gives exactly main_development's tree. The deploy follows once main is green.
+
+## rcfworks — 4S4-BE-01 (with 4S4-BE-02, 4S4-DATA-01) · the telemetry intake (Code review)
+
+The plan was approved. The three tasks ship together because the endpoint cannot work without the versioned schema and the raw store. 4S4-BE-03's acceptance (reports not inflated) waits for Sprint 5's aggregates, which will build on this key.
+
+- **Endpoint.** `POST /infinex/telemetry`. The spec's `telemetry:batch` clashes with Express route params, so the spec is updated. It takes a game session only, behind `requireClientSignature`: raw bytes, ±300 s, key id = the session. A route-specific `express.json({ limit: "1mb" })` runs before the global 100 KB parser, and the build's config sets the real cap (`maxBatch`/`maxBytes` → 413). `flags.telemetry` off → 409.
+- **Per-event checks** (`domain/infinex-telemetry.ts`), each refused with a named problem while the rest of the batch is kept:
+  - the strict envelope, and 8 KB per event;
+  - `schemaVersion` among the config's supported versions (refused naming them), and the v1 data shape per type (`SCHEMAS[1]`);
+  - not more than 5 minutes ahead;
+  - `worldId` = the session's world; a placement in that world; a deployment live at `occurredAt` (approved by then, inside its dates, not ended, paused or rolled back yet); a render's creative = the deployment's; a zone in the world;
+  - no `tenantId` in the body; a producer, if given, = the session's; `activation.complete` and `client.heartbeat` go to their own endpoints; activation events wait for `flags.activations`.
+- **Stored once.** `VirtualEventRaw` has PK `(clientId, eventId)`; `createManyAndReturn` with `skipDuplicates`, so a resend is answered `duplicate` (and a repeat inside one batch too). Older than 72 h → `QUARANTINED`, kept. Append-only trigger `virtual_event_append_only`. Migration `20261019230000_virtual_event_raw`.
+- **Permissions.** New resource `virtualEvent` (INFINEX_CLIENT write, pinned to its own client; BTG/SUPER read). RBAC §38; digest `6c2dbfecd20f5311` → `e42f713e01538f23`. Model coverage maps `VirtualEventRaw`.
+- **Stand-in world.** With a signing key it sends a render and a visible event per live placement, split to `maxBatch`. `signedPost` is exported.
+- **Tests:** `infinex-telemetry.test.ts` (6): the stand-in end to end and a resend all duplicate; every refusal; quarantine; 413 and 409; an unsigned, tampered or stale batch, a server token or a person (nothing stored); append-only.
+- **My mistake, caught before commit:** I first dated this work 2026-10-20, then fixed the date with a repo-wide `grep | sed` that also rewrote 17 unrelated files, including the `LEGACY_LINKS_ACCEPTED_UNTIL` default. All 17 were restored from HEAD and `git status` checked. Lesson saved: limit bulk edits to the task's own files.
+- **For later:** `INFINEX_SIGNING_SECRET` must be set on staging (a Railway variable) before the stand-in's telemetry runs there. Until then staging answers 503, which is safe.
+
+## rcfworks — deployed eeed32cb (4S3-INT-02, 4S3-INT-03 on staging)
+
+- **#264 merged by the user.** main's CI on `eeed32cb` was all green. Claude ran `deploy-daily.yml`, and `release` moved `a34659f2` → `eeed32cb`.
+- **Staging (read-only):** running commit `eeed32cb`; `20261019200000_infinex_client_heartbeat` and `20261019220000_infinex_client_config` applied at 09:55:31 UTC; `/health` 200.
+- **Note:** the deploy workflow only moves `release`, and Railway then builds and rolls out on its own (about 2 minutes here). A check made straight after the workflow can see the old release. Check `RAILWAY_GIT_COMMIT_SHA` first.

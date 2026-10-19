@@ -47,3 +47,7 @@ export const ClientConfigInput = z.object({
 }).strict()
   .meta({ id: "InfinexClientConfigInput", description: "BTG sets or clears one game build's client config override, within its limits (4S3-INT-03)." });
 
+export const TelemetryBatch = z.object({
+  events: z.array(z.record(z.string(), z.unknown())).describe("Event envelopes (§5.1), at most the build's telemetry.maxBatch"),
+}).meta({ id: "InfinexTelemetryBatch", description: "A game session's signed telemetry batch (4S4-BE-01). Each event is checked on its own; the body is not validated as a whole beyond this shape." });
+
