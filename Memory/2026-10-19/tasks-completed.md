@@ -176,3 +176,17 @@ The user picked this as today's extra backend task; the plan was approved.
 - **#255 merged by the user.** The permission check blocks me from running `gh pr merge`. CI was all green on the rerun, including e2e.
 - **To Done (tracker and plan):** P8-BE-01, 4S2-BE-04 and 4S7-BE-01, merged with their acceptance met.
 - **Sync PR #256** (main_development → main) is open. `git merge-tree` of main and main_development gives exactly main_development's tree. The deploy follows once main is green.
+
+## rcfworks — deployed cd751d2c; #257 merged
+
+- **#256 and #257 merged by the user.** main's CI on `cd751d2c` was all green, including e2e. Claude ran `deploy-daily.yml`, and `release` moved 4cc18895 → `cd751d2c`.
+- **Staging, checked read-only:**
+  - both #255 migrations are applied;
+  - `NilJob_pkey` is `("tenantId", id)`;
+  - `AthleteRate_tenantId_jobId_fkey` and `PlacementWindow_campaignId_fkey` exist;
+  - `CampaignDaySummary.virtualBookedCents` exists;
+  - `/health` returns 200.
+- **Production** reads are blocked for Claude. The job-catalogue migration checks itself, so it would stop with a list rather than apply over a cross-tenant link.
+- **Still to sync to main:** 4S2-BE-05 (#257) is on main_development and goes with the next sync PR.
+- **Tracker sync workflow:** it failed on `cd751d2c` because the Google Sheet endpoint answered 404. It has failed on and off since 10-16 and passed at 03:30 today. Not caused by this work.
+- **Stage Progress:** today's row (already there) is updated for P8-BE-01 Done: S8 24, Done 292, days left 16.
