@@ -294,3 +294,13 @@ The plan was approved. The three tasks ship together because the endpoint cannot
 - **Confirmed:** Railway redeployed the api. The running container has it (present, 43 characters) and is still on release `eeed32cb`.
 - **What it unlocks:** game sessions on staging now get a signing key. The signed telemetry route goes live there with #265.
 - **Production:** not set. That needs the user's say-so, at go-live with the other INFINEX settings. Rotation is in `SponsorX-Secrets-Rotation.md` §11a.
+
+## rcfworks — 4S4 to Done (#265); deployed 1b198d4b (telemetry intake on staging)
+
+- **#265 merged by the user.** 4S4-BE-01, 4S4-BE-02 and 4S4-DATA-01 → Done (plan and tracker).
+- **#266 (sync) merged by the user.** main's CI on `1b198d4b` was all green, including e2e. Claude ran `deploy-daily.yml`, and `release` moved `eeed32cb` → `1b198d4b`.
+- **Staging (read-only):**
+  - running `1b198d4b`, with `INFINEX_SIGNING_SECRET` present;
+  - `20261019230000_virtual_event_raw` applied at 10:59:20 UTC, and trigger `virtual_event_append_only` present;
+  - `/health` 200;
+  - `POST /api/v1/infinex/telemetry` with no session → 401.
