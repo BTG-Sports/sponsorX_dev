@@ -4699,3 +4699,38 @@ model InfinexToken {
   @@index([tenantId, credentialId])
   @@index([expiresAt])
 }
+
+/// 4S4-BE-01 / 4S4-DATA-01 — a game's raw telemetry, exactly as accepted: one row per (client, eventId), so a
+/// resent event is stored once (the database's key, not the code's care). Append-only (trigger
+/// `virtual_event_append_only`), kept apart from any aggregate so every figure can be recomputed from it.
+/// Tenant, world and build come from the game session, never from the event body.
+model VirtualEventRaw {
+  clientId      String
+  eventId       String
+  tenantId      String
+  worldId       String
+  buildId       String
+  /// The game session (its token id) that sent it.
+  sessionKeyId  String
+  eventType     String
+  schemaVersion Int
+  occurredAt    DateTime
+  receivedAt    DateTime @default(now())
+  /// The placement's own id (resolved from the external id the game sent) and the deployment it showed.
+  placementId   String?
+  deploymentId  String?
+  zoneId        String?
+  activationId  String?
+  sessionRef    String?
+  subjectRef    String?
+  sequence      Int?
+  data          Json
+  /// ACCEPTED | QUARANTINED (arrived after the late-arrival window: kept, never counted until reviewed)
+  status        String   @default("ACCEPTED")
+
+  @@id([clientId, eventId])
+  @@index([tenantId, placementId, occurredAt])
+  @@index([tenantId, eventType, occurredAt])
+  @@index([tenantId, receivedAt])
+}
+

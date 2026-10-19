@@ -13,13 +13,16 @@
  *   GET  /infinex/config                     a game session: its build's effective config, with an ETag (4S3-INT-03)
  *   GET  /infinex/clients/:clientId/config   BTG or a server: a build's config, override and limits
  *   PATCH /infinex/clients/:clientId/config  BTG: set or clear a build's override, within limits
+ *   POST /infinex/telemetry                  a game session, signed: a telemetry batch (207, 4S4-BE-01)
  */
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
+import { requireClientSignature } from "../../auth/machine";
 import { ClientConfigInput, ClientInput, ClientRevoke, CredentialInput, CredentialRevoke, Heartbeat, TokenRequest } from "../../contracts/infinex";
 import { createCredential, issueServiceToken, listCredentials, revokeCredential, startClientSession } from "../../domain/infinex-auth";
 import { listClients, readClientConfig, recordHeartbeat, registerClient, revokeClient, sessionConfig, setClientConfig } from "../../domain/infinex-clients";
+import { ingestTelemetry } from "../../domain/infinex-telemetry";
 import { clientIp } from "../../lib/client-ip";
 import { limit } from "../../lib/rate-limit";
 
@@ -69,7 +72,13 @@ const setConfig: RequestHandler<{ clientId: string }> = async (req, res) => {
   res.json(await setClientConfig(req.actor!, req.params.clientId, ClientConfigInput.parse(req.body ?? {})));
 };
 
+const telemetry: RequestHandler = async (req, res) => {
+  const raw = (req as { rawBody?: Buffer }).rawBody;
+  res.status(207).json(await ingestTelemetry(req.actor!, req.body, raw?.length ?? 0));
+};
+
 infinexRouter.post("/infinex/token", token);
+infinexRouter.post("/infinex/telemetry", requireActor, requireClientSignature, telemetry);
 infinexRouter.get("/infinex/config", requireActor, config);
 infinexRouter.get("/infinex/clients/:clientId/config", requireActor, clientConfig);
 infinexRouter.patch("/infinex/clients/:clientId/config", requireActor, setConfig);

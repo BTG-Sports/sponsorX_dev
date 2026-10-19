@@ -191,7 +191,8 @@ export type Resource =
   | "attribution"
   | "virtualWorld"
   | "infinexCredential"
-  | "infinexClient";
+  | "infinexClient"
+  | "virtualEvent";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -286,6 +287,7 @@ export const RESOURCES: readonly Resource[] = [
   "virtualWorld",
   "infinexCredential",
   "infinexClient",
+  "virtualEvent",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -1230,6 +1232,13 @@ export const POLICY: Record<Resource, RolePolicy> = {
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
     INFINEX_SERVICE: rwa("own-tenant", "own-tenant"),
     INFINEX_CLIENT: rwa("own-tenant", "own-tenant"),
+  },
+  /* 4S4-BE-01 (matrix §38) — raw INFINEX telemetry. Only a game session writes it (signed, its own client's
+     events); BTG reads it. Nobody edits or deletes a raw event (append-only, in the database). */
+  virtualEvent: {
+    SUPER_ADMIN: rwa("any"),
+    BTG_ADMIN: rwa("own-tenant"),
+    INFINEX_CLIENT: rwa(undefined, "own-tenant"),
   },
 };
 

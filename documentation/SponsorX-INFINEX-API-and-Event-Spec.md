@@ -248,7 +248,7 @@ Every event, in both directions, uses one envelope. **Proposed:**
 ```
 
 - **The tenant is never trusted from the body** on inbound events. It comes from the credential, as `actor.tenantId` does today (`backend/src/auth/scope.ts`).
-- **A mismatched `schemaVersion` is rejected** with `422 unsupported-schema-version`, and the response names the supported versions (`4S4-BE-02`).
+- **A mismatched `schemaVersion` is rejected** as `unsupported-schema-version`, naming the supported versions (`4S4-BE-02`). In a batch that is that event's result inside the 207, never the whole batch. The supported versions come from the build's config (`4S3-INT-03`); version 1's data shapes are in `infinex-telemetry.ts`.
 
 ### 5.2 · Inbound events (INFINEX → SponsorX)
 
@@ -269,12 +269,17 @@ viewable impressions "remain distinct from gross renders". Keeping the two as
 different raw facts means a rule change recomputes viewable from raw data
 (`4S4-DATA-01`), without asking the client to re-send anything.
 
-### 5.3 · Telemetry intake — `POST /infinex/telemetry:batch`
+### 5.3 · Telemetry intake — `POST /infinex/telemetry`
+
+**Built 2026-10-19** (`4S4-BE-01`, with `4S4-BE-02` and `4S4-DATA-01`; `backend/src/domain/infinex-telemetry.ts`):
+- **The path:** `POST /infinex/telemetry`, not `…:batch`. The colon clashes with Express route parameters.
+- **The signature** is over the JSON bytes, after any gzip.
+- **The rest:** as below, with the details in the bullets after the validation list.
 
 **Request:**
 
 ```
-POST /api/v1/infinex/telemetry:batch
+POST /api/v1/infinex/telemetry
 Authorization: Bearer <client access token>
 SponsorX-Key-Id: key_…
 SponsorX-Signature: t=1759341731,v1=<hex HMAC-SHA256(secret, t + "." + rawBody)>
@@ -295,6 +300,18 @@ Content-Encoding: gzip            (optional)
    - the placement belongs to the world the client is registered for
    - the `deploymentId` was LIVE at `occurredAt` (the placement-campaign relationship)
 5. **De-duplication.** `(clientId, eventId)` is the primary key of `VirtualEventRaw`, so a duplicate insert is a no-op and returns `duplicate`.
+
+**As built:**
+- **Batch refusals:**
+  - over the build's `maxBatch` or `maxBytes`: `413 batch-too-large` (the route itself takes up to 1 MB);
+  - the build's `flags.telemetry` off: `409 telemetry-off`;
+  - a bad or stale signature: `401`;
+  - `INFINEX_SIGNING_SECRET` unset: `503`.
+- **Each event is refused on its own,** never the batch, with a named problem: `malformed-event`, `event-too-large` (over 8 KB), `unsupported-schema-version` (naming the supported versions), `unknown-event-type`, `malformed-data` (the v1 data shapes of §5.2), `occurred-in-future`, `wrong-world`, `placement-not-in-world`, `deployment-not-live`, `asset-mismatch` (a render of creative the deployment does not carry), `zone-not-in-world`, `tenant-in-body`, `wrong-producer`, `wrong-endpoint` (`activation.complete`, `client.heartbeat`) and `activations-off` (until the build's `flags.activations`).
+- **"Live at `occurredAt`"** means approved by then, inside its dates, and not yet ended, paused or rolled back at that moment.
+- **Late events:** an event older than 72 hours is stored with status `QUARANTINED`; the rest are `ACCEPTED`.
+- **Storage:** `VirtualEventRaw`, keyed `(clientId, eventId)`, append-only in the database.
+- **The response** also counts `quarantined`.
 
 **Response:** `207 Multi-Status`
 

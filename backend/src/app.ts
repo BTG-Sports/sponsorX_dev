@@ -35,6 +35,13 @@ export function createApp() {
     next();
   });
 
+  /* 4S4-BE-01 — a game's telemetry batch may be up to 1 MB (its build's config sets the real cap, at most
+     that); every other route keeps the 100 KB default. Parsed here first, so the parser below skips it. */
+  app.use(
+    "/api/v1/infinex/telemetry",
+    express.json({ limit: "1mb", verify: (req, _res, buf) => { (req as { rawBody?: Buffer }).rawBody = Buffer.from(buf); } }),
+  );
+
   /* The webhook routes verify an HMAC over the bytes the sender signed, so
      the raw body is kept for them (and only them) alongside the parsed one. */
   app.use(
