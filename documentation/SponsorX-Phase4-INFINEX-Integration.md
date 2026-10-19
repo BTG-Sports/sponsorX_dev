@@ -235,7 +235,7 @@ Sellable time windows with capacity, so two sponsors cannot buy the same billboa
   - **The database refuses an overlapping booking** on the same placement and slot (`PlacementWindow_no_overlap`), so two sponsors racing get one booking and one 409.
   - **Giving days back:** a window is released while the campaign is a draft, and all of a campaign's windows are released when it is cancelled.
   - **Retiring:** a placement or world with bookings to come cannot be retired.
-  - **Not yet a money fact:** that is `4S7-BE-01` / `4S7-DATA-01`.
+  - **A money fact since `4S7-BE-01`** (2026-10-19).
 
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §4
 - **Reference:** Spec §30
@@ -320,19 +320,26 @@ The endpoint INFINEX calls to ask what is live right now. Must return only appro
 - **Delivered:** 2026-10-16 (merged in #250).
   - **What it returns:** `GET /virtual/worlds/{id}/manifest?at=` lists only approved, in-date deployments on booked windows, on-sale placements and validated creative, in an active world.
   - **Versioned:** it carries the manifest version and an ETag (304 when nothing changed).
-  - **Still to come:** the download links are 4S2-BE-04, and the game's own login is 4S0-SEC-01.
+  - **Still to come:** the game's own login is 4S0-SEC-01. The download links came with 4S2-BE-04.
 
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §7
 - **Reference:** Spec §28, §34
 
-### ⏸ `4S2-BE-04` · Signed asset delivery through the CDN
+### ◑ `4S2-BE-04` · Signed asset delivery through the CDN
 
-**Order** 16 · **BE** · **Where:** Code · **3d** · **Blocked**
+**Order** 16 · **BE** · **Where:** Code · **3d** · **Code review**
 
 Creative is served fast and signed, so assets cannot be lifted from the URL.
 
 - **Depends on:** 4S2-BE-03
 - **Done when:** Creative is delivered through signed, short-lived CDN URLs
+- **Delivered:** 2026-10-19.
+  - **The links:** each file in the manifest comes with `url`, signed to the private bucket on Cloudflare R2, and `urlExpiresAt`. A link lives 15 minutes and fetches only its own file.
+  - **Stepped every 5 minutes:** every link handed out is good for at least 10, and a poll inside one step gets 304 with nothing signed.
+  - **Audited:** one row per grant, naming the keys and never the links.
+  - **Not edge-cached:** a caching layer is a separate task, only if the load test (4S8-OPS-01) needs one.
+
+  [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §7
 - **Reference:** Spec §31
 
 ### ⏸ `4S2-BE-05` · Deployment pause and rollback
@@ -555,14 +562,21 @@ Challenge rules, start condition, completion criteria, reward trigger and sponso
 
 *5 tasks · 25 person-days*
 
-### ⏸ `4S7-BE-01` · Cross-channel campaign model extension
+### ◑ `4S7-BE-01` · Cross-channel campaign model extension
 
-**Order** 38 · **BE** · **Where:** Code · **5d** · **Blocked**
+**Order** 38 · **BE** · **Where:** Code · **5d** · **Code review**
 
 One campaign holding real-world, social, athlete, reward and INFINEX inventory together.
 
 - **Depends on:** 4S1-BE-03
 - **Done when:** A single campaign can contain virtual and non-virtual inventory
+- **Delivered:** 2026-10-19.
+  - **One campaign, all three:** athlete orders, NEXT ad slots and INFINEX placement windows sit on one campaign. A window now belongs to its campaign (a foreign key).
+  - **Money:** a booking is a `PLACEMENT_WINDOW_BOOKED` fact (channel `INFINEX`), reversed when the days are given back. It counts once in the campaign's figures, the nightly fact check, the sponsor's spend and the sponsor report.
+  - **Stages:** a campaign holding only INFINEX placements skips staffing, as an ad-only one does. One with athlete work is still staffed.
+  - **Test:** `cross-channel-campaign.test.ts`.
+
+  [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §4 · [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §4
 - **Reference:** Spec §25
 
 ### ⏸ `4S7-DATA-01` · Cross-channel aggregation without double counting

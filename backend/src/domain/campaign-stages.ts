@@ -137,7 +137,7 @@ export async function loadStageFacts(db: Tx, campaignIds: string[], now: Date): 
       /* tenant-scope: ids the caller loaded through whereFor, or the sweep's tenant-filtered ids. */
       where: { id: ids },
       select: {
-        id: true, state: true, _count: { select: { orders: true, adSlots: true } },
+        id: true, state: true, _count: { select: { orders: true, adSlots: true, placementWindows: { where: { state: "BOOKED" } } } },
         /* The package's athlete range — fully staffed is its maximum. */
         brief: { select: { package: { select: { athleteCountMin: true, athleteCountMax: true, lineItems: true } } } },
         /* P4-BE-12 / P4-BE-13 — automatic staffing, and the launch day. */
@@ -209,6 +209,7 @@ export async function loadStageFacts(db: Tx, campaignIds: string[], now: Date): 
       invitesWaiting: invites.filter((i) => i.campaignId === c.id && i.state !== "ACCEPTED").length,
       invitesWithoutOrder: invites.filter((i) => i.campaignId === c.id && i.state === "ACCEPTED" && !ordered.has(`${i.athleteId}|${i.jobId}`)).length,
       adSlots: c._count.adSlots,
+      placementWindows: c._count.placementWindows,
       deliverables: {
         total: ds.length,
         published: ds.filter((d) => d.state === "PUBLISHED").length,
@@ -397,7 +398,7 @@ export async function advanceCampaign(
     const { facts } = read;
     const move = automaticMove(facts);
     if (!move || move.to === "ACTIVE") break;
-    const shape = { orders: facts.ordersAll, adSlots: facts.adSlots };
+    const shape = { orders: facts.ordersAll, adSlots: facts.adSlots, placementWindows: facts.placementWindows };
     if (!canTransitionCampaign(facts.state, move.to, shape)) break;
     const campaign = await tx.campaign.findFirstOrThrow({
       where: { id: campaignId, tenantId }, select: CAMPAIGN_FOR_MOVE,

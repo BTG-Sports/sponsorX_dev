@@ -20,7 +20,7 @@
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { PutObjectCommand, type S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, PutObjectCommand, type S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export type StoredObject = { body: Buffer; type: string };
@@ -60,6 +60,18 @@ async function presignedPutValid(client: S3Client, req: IncomingMessage, bucket:
   return new URL(url).searchParams.get("X-Amz-Signature") === sig;
 }
 
+/** 4S2-BE-04 — a presigned GET is checked like a PUT: the signature over its key, and its expiry. */
+async function presignedGetValid(client: S3Client, req: IncomingMessage, bucket: string, key: string): Promise<boolean> {
+  const q = new URL(req.url ?? "/", "http://x").searchParams;
+  const sig = q.get("X-Amz-Signature");
+  const date = q.get("X-Amz-Date");
+  const expires = Number(q.get("X-Amz-Expires"));
+  if (!sig || !date || !expires) return false;
+  if (Date.now() > amzDate(date).getTime() + expires * 1000) return false;
+  const url = await getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: expires, signingDate: amzDate(date) });
+  return new URL(url).searchParams.get("X-Amz-Signature") === sig;
+}
+
 export async function startObjectStore(): Promise<ObjectStore> {
   const objects = new Map<string, StoredObject>();
   let client: S3Client | null = null;
@@ -96,6 +108,22 @@ export async function startObjectStore(): Promise<ObjectStore> {
       objects.delete(id);
       res.writeHead(204);
       res.end();
+      return;
+    }
+    if (req.method === "GET" && client && new URL(req.url ?? "/", "http://x").searchParams.has("X-Amz-Signature")) {
+      presignedGetValid(client, req, bucket, key).then((ok) => {
+        const o = objects.get(id);
+        if (!ok || !o) {
+          res.writeHead(ok ? 404 : 403, { "Content-Type": "application/xml" });
+          res.end(`<?xml version="1.0" encoding="UTF-8"?><Error><Code>${ok ? "NoSuchKey" : "AccessDenied"}</Code></Error>`);
+          return;
+        }
+        res.writeHead(200, { "Content-Type": o.type, "Content-Length": o.body.length });
+        res.end(o.body);
+      }, (error: unknown) => {
+        res.writeHead(500);
+        res.end(String(error));
+      });
       return;
     }
     if (req.method === "HEAD" || req.method === "GET") {

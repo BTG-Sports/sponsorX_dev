@@ -266,10 +266,11 @@ async function priceTenant(tenantId: string, now: Date): Promise<Priced[]> {
   };
   const benchmarks = await listBenchmarks(prisma, tenantId);
   const jobs = new Map((await prisma.nilJob.findMany({
-    /* tenant-scope: the SX catalogue is reference data — one row per job id, whichever tenant seeded it — read only for its sell floors. */
+    /* tenant-scope: the SX catalogue is reference data, read only for its sell floors. P8-BE-01 — each tenant may
+       hold its own, so the items' own tenant's row wins; another tenant's is the fallback when this one has none. */
     where: { id: { in: [...new Set(items.map((i) => i.jobId).filter((j): j is string => !!j))] } },
-    select: { id: true, sellFloorEmerging: true, sellFloorCreator: true, sellFloorPremium: true },
-  })).map((j) => [j.id, j]));
+    select: { id: true, tenantId: true, sellFloorEmerging: true, sellFloorCreator: true, sellFloorPremium: true },
+  })).sort((a, b) => Number(a.tenantId === tenantId) - Number(b.tenantId === tenantId) || b.tenantId.localeCompare(a.tenantId)).map((j) => [j.id, j]));
 
   const out: Priced[] = [];
   for (const i of items) {

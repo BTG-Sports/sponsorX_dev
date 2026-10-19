@@ -25,6 +25,7 @@ const WATCHED: Record<string, RegExp | "ALL"> = {
   metricDaily: "ALL",
   campaignInvoice: "ALL",
   adSlot: /\b(campaignId|soldCents|soldAt)\b/,
+  placementWindow: /\b(state|priceCents|campaignId)\b/,
   orderLineFinancials: "ALL",
   refundDue: /\b(state|sentAt|sentOn|amountCents)\b/,
   ledgerEntry: /"REVERSED"/,

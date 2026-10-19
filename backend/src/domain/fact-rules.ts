@@ -15,6 +15,8 @@ export const FACT_KINDS = [
   "ORDER_BOOKED", "ORDER_CANCELLED", "EARNING_PAID", "INVOICE_ISSUED", "INVOICE_PAID",
   "DELIVERABLE_DUE", "DELIVERABLE_PUBLISHED", "DELIVERABLE_VERIFIED", "REVISION_REQUESTED",
   "METRIC_RECORDED", "AD_SLOT_SOLD", "MARKETPLACE_LINE_CONTRACTED", "MARKETPLACE_REFUND",
+  /** 4S7-BE-01 — an INFINEX placement booked for days inside a campaign. */
+  "PLACEMENT_WINDOW_BOOKED",
   /** A correction: the negated measures of the fact it reverses. */
   "REVERSAL",
 ] as const;
@@ -24,10 +26,12 @@ export type FactKind = (typeof FACT_KINDS)[number];
 export const FACT_CHANNELS = [
   "SOCIAL_INSTAGRAM", "SOCIAL_TIKTOK", "SOCIAL_YOUTUBE", "SOCIAL_X", "SOCIAL_FACEBOOK", "SOCIAL_OTHER",
   "UNPUBLISHED", "IN_PERSON", "EDITION_PRINT", "EDITION_DIGITAL", "CAMPAIGN", "MARKETPLACE",
+  /** 4S7-BE-01 — an INFINEX world. */
+  "INFINEX",
 ] as const;
 export type FactChannel = (typeof FACT_CHANNELS)[number];
 
-export const INVENTORY_KINDS = ["NIL_JOB", "LISTING_ITEM", "AD_SLOT"] as const;
+export const INVENTORY_KINDS = ["NIL_JOB", "LISTING_ITEM", "AD_SLOT", "VIRTUAL_PLACEMENT"] as const;
 export type InventoryKind = (typeof INVENTORY_KINDS)[number];
 
 /**
@@ -59,6 +63,7 @@ export const MEASURE_COLUMNS = {
   cancelled_compensation_cents: "cancelledCompensationCents",
   earnings_paid_cents: "earningsPaidCents",
   ad_slot_sold_cents: "adSlotSoldCents",
+  virtual_booked_cents: "virtualBookedCents",
   invoiced_cents: "invoicedCents",
   invoice_paid_cents: "invoicePaidCents",
   marketplace_gross_cents: "marketplaceGrossCents",

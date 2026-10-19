@@ -1,6 +1,6 @@
 # SponsorX Fact Ledger
 
-**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07`, `3S1-OPS-04`, `3S1-QA-01`, `3S1-OPS-03`, `3S1-DATA-03`, `3S2-BE-01`, `3S2-BE-02`, `3S2-BE-03` · Version 1.12 · 2026-10-14 · Phase 3, Sprint 1**
+**Tasks `3S1-BE-01`, `3S1-BE-02`, `3S1-QA-02`, `3S1-QA-03`, `3S1-DATA-05/06/07`, `3S1-OPS-04`, `3S1-QA-01`, `3S1-OPS-03`, `3S1-DATA-03`, `3S2-BE-01`, `3S2-BE-02`, `3S2-BE-03`, `4S7-BE-01` · Version 1.13 · 2026-10-19 · Phase 3, Sprint 1; Phase 4, Sprint 7**
 
 Phase 3's figures (reports, benchmarks, price suggestions, forecasts) come
 from **facts the app records at the moment each thing happens**, not from a
@@ -61,6 +61,7 @@ Wired into the actions by `3S1-BE-02`. The writers live in `backend/src/domain/f
 | `REVISION_REQUESTED` | a reviewer, or the automatic checks, send a draft back | `requestRevision`, `submitDraft` | `revisions_requested` |
 | `METRIC_RECORDED` | views and engagements are recorded for a day and source | `recordMetric` | `views_<label>`, `engagements_<label>` (plus `metric_corrections` on a correction) |
 | `AD_SLOT_SOLD` | a NEXT ad slot is sold to a campaign | the edition sale | `ad_slot_sold_cents` |
+| `PLACEMENT_WINDOW_BOOKED` | an INFINEX placement is booked for days inside a campaign (`4S7-BE-01`), at the price frozen at booking; inventory `VIRTUAL_PLACEMENT`, channel `INFINEX` | `bookPlacement` | `virtual_booked_cents` |
 | `MARKETPLACE_LINE_CONTRACTED` | a marketplace order is contracted, per line | `bookOrder` (ledger) | `marketplace_gross_cents`, `marketplace_net_cents` |
 | `MARKETPLACE_REFUND` | a marketplace refund is marked sent (by the provider, or by Finance) | the four places in `refunds.ts` that mark one SENT | `marketplace_refunded_cents` |
 | `REVERSAL` | any correction (below) | the writer of the event it corrects | the negated measures of the fact it reverses |
@@ -74,11 +75,14 @@ Wired into the actions by `3S1-BE-02`. The writers live in `backend/src/domain/f
 | A day's views are corrected | the earlier figure for that day and source | the figure's own day |
 | Zoho changes an invoice's amount or date, or voids it | the figure that no longer holds. A void keeps nothing. A paid invoice never goes back (the ingest refuses that already). | the figure's own day |
 | A NEXT edition is cancelled | each slot's sale, before the slot is cleared | the cancellation day |
+| An INFINEX placement window is given back (released, or its campaign cancelled) | its booking | the release day |
 | A marketplace order or line is unwound (`reverseOrder`) | that line's contract | the unwinding day |
 
 **Not recorded.** A refund on a cancelled NEXT edition is not marketplace money, so it records no refund fact; the sale's reversal already takes it out. A marketplace refund still waiting on Finance's list is not yet a fact: it becomes one when it is marked sent, on the day Finance gives.
 
-Channels: the social platforms (`SOCIAL_*`), `UNPUBLISHED`, `IN_PERSON`, `EDITION_PRINT`, `EDITION_DIGITAL`, `CAMPAIGN` (money that belongs to an order or campaign, not to one channel), and `MARKETPLACE`.
+Channels: the social platforms (`SOCIAL_*`), `UNPUBLISHED`, `IN_PERSON`, `EDITION_PRINT`, `EDITION_DIGITAL`, `CAMPAIGN` (money that belongs to an order or campaign, not to one channel), `MARKETPLACE`, and `INFINEX` (an INFINEX world, `4S7-BE-01`).
+
+**One campaign, every channel (`4S7-BE-01`).** A campaign can hold athlete orders, NEXT ad slots and INFINEX placement windows together. Each is its own fact on the campaign, so each is counted once: the summary has a column per measure (`virtualBookedCents` beside `bookedSellCents` and `adSlotSoldCents`), the nightly check compares each with the app's own records (booked windows' `priceCents`), and the sponsor's spend adds the three. No history fill is needed: no environment had a booked window before the writer went live.
 
 ## 5 · What carries over from the warehouse design
 

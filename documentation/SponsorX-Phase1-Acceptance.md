@@ -90,10 +90,11 @@ anything held. It is what an admin uses whenever a check fails.
     keeps the tests checking that every floor and package still adds up.
   - **If that changes:** an editing screen is a new task, raised only if BTG
     needs the bands to change often.
-- **Finding.** A job's ID (`SX-02`) is unique across the whole database, so
-  only one tenant can hold the catalogue. This is fine while Phase 1 sells
-  through BTG's tenant. It needs a change before a second tenant prices its
-  own jobs.
+- **Finding, fixed 2026-10-19 (`P8-BE-01`).** A job's ID (`SX-02`) was
+  unique across the whole database, so only one tenant could hold the
+  catalogue. It is now unique within its tenant: each tenant holds its own
+  catalogue and prices, and the database refuses a rate, invite, order or
+  offer pointing at another tenant's job (`nil-job-per-tenant.test.ts`).
 
 ### 3 · Sponsor can view packages and submit a campaign request or brief — **Demonstrated**
 

@@ -387,7 +387,7 @@ async function cancelEditionIn(
     const campaign = await tx.campaign.findFirstOrThrow({
       /* tenant-scope: a campaign holding this edition's slots, in the edition's tenant, locked above. */
       where: { tenantId, id: campaignId },
-      select: { ...CAMPAIGN_FOR_MOVE, _count: { select: { orders: true, adSlots: true } } },
+      select: { ...CAMPAIGN_FOR_MOVE, _count: { select: { orders: true, adSlots: true, placementWindows: { where: { state: "BOOKED" } } } } },
     });
     const soldCents = slots.reduce((n, s) => n + (s.soldCents ?? 0), 0);
     /* The record of the sale undone — what a payment arriving later is matched

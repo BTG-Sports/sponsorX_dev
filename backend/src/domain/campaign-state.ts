@@ -20,7 +20,8 @@
  * DECIDED (P9-BE-09, spec §5.2): a SponsorX NEXT sale IS an ordinary Campaign
  * — placements, dates, a Zoho Deal — with NO CampaignOrder, because an order
  * needs an athlete and a job and an ad has neither. So an AD-ONLY campaign
- * (zero orders, at least one sold ad slot) skips STAFFING: DRAFT → APPROVAL.
+ * (zero orders, at least one sold ad slot — or, 4S7-BE-01, a booked INFINEX
+ * placement) skips STAFFING: DRAFT → APPROVAL.
  * That one extra edge exists only for ad-only campaigns; a campaign with
  * athlete work still has to be staffed, and an empty campaign with neither
  * cannot skip anything. From APPROVAL the path is the ordinary one, to a
@@ -64,12 +65,15 @@ export class IllegalCampaignTransitionError extends Error {
   }
 }
 
-/** What the campaign holds, for the one rule that depends on it. */
-export type CampaignShape = { orders: number; adSlots: number };
+/** What the campaign holds, for the one rule that depends on it. 4S7-BE-01 — its BOOKED INFINEX placement windows too. */
+export type CampaignShape = { orders: number; adSlots: number; placementWindows?: number };
 
-/** An ad bought on its own: nothing to staff, something sold (P9-BE-09). */
+/**
+ * Advertising bought on its own: nothing to staff, something sold (P9-BE-09) — an ad slot or, since 4S7-BE-01, an
+ * INFINEX placement. A campaign holding any athlete work alongside them is still staffed.
+ */
 export function isAdOnly(shape: CampaignShape): boolean {
-  return shape.orders === 0 && shape.adSlots > 0;
+  return shape.orders === 0 && shape.adSlots + (shape.placementWindows ?? 0) > 0;
 }
 
 export function canTransitionCampaign(

@@ -21,9 +21,8 @@ describe.skipIf(!hasDatabase)("P8-QA-01 · criterion 2: BTG sets an athlete's ra
   const { NIL_JOBS } = await import("../src/domain/nil-jobs");
   const { ForbiddenError } = await import("../src/auth/errors");
 
-  /* NilJob ids ("SX-02") are unique across the database: the catalogue lives in whichever tenant seeded it first. */
-  let T = "p1a_t";
-  let ownTenant = false;
+  /* P8-BE-01 — a job id is unique within its tenant, so this test holds its own catalogue. */
+  const T = "p1a_t";
   const actor = (role: string, extra: Record<string, unknown> = {}) =>
     ({ userId: `p1a_${role}`, tenantId: T, roles: [role], sponsorId: null, athleteId: null, guardianId: null, propertyId: null, ...extra }) as unknown as Actor;
 
@@ -31,20 +30,13 @@ describe.skipIf(!hasDatabase)("P8-QA-01 · criterion 2: BTG sets an athlete's ra
     await prisma.$executeRawUnsafe(`DELETE FROM "AuditLog" WHERE "entityId" IN (SELECT id FROM "AthleteRate" WHERE "athleteId" = 'p1a_ath')`);
     await prisma.$executeRawUnsafe(`DELETE FROM "AthleteRate" WHERE "athleteId" = 'p1a_ath'`);
     await prisma.$executeRawUnsafe(`DELETE FROM "Athlete" WHERE id = 'p1a_ath'`);
-    if (ownTenant) {
-      await prisma.$executeRawUnsafe(`DELETE FROM "NilJob" WHERE "tenantId" = $1`, T);
-      await prisma.$executeRawUnsafe(`DELETE FROM "Tenant" WHERE id = $1`, T);
-    }
+    await prisma.$executeRawUnsafe(`DELETE FROM "NilJob" WHERE "tenantId" = $1`, T);
+    await prisma.$executeRawUnsafe(`DELETE FROM "Tenant" WHERE id = $1`, T);
   }
   beforeAll(async () => {
-    const held = await prisma.nilJob.findFirst({ where: { id: "SX-02" }, select: { tenantId: true } });
-    if (held) T = held.tenantId;
-    else {
-      ownTenant = true;
-      await prisma.tenant.create({ data: { id: T, name: "Phase 1 acceptance" } });
-      await prisma.nilJob.createMany({ data: NIL_JOBS.map((j) => ({ ...j, tenantId: T })) });
-    }
     await clean();
+    await prisma.tenant.create({ data: { id: T, name: "Phase 1 acceptance" } });
+    await prisma.nilJob.createMany({ data: NIL_JOBS.map((j) => ({ ...j, tenantId: T })) });
     await prisma.athlete.create({ data: {
       id: "p1a_ath", tenantId: T, slug: "p1a-ath", legalName: "Ava", displayName: "Ava Cruz", email: "ava@p1a.invalid", sport: "Soccer", city: "X", stateCode: "MD", ageBand: "18_PLUS", state: "ACTIVE", tier: "CREATOR",
     }, select: { id: true } });

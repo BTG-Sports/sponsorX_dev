@@ -91,6 +91,10 @@ const DECISIONS: Record<string, Decision> = {
   ["src/domain/edition.ts › cancelEditionIn › adSlot.updateMany"]: { calls: { factAdSlotReleased: 1 } },
   ["src/domain/edition.ts › addSlot › adSlot.create"]: { none: "A new slot is unsold." },
 
+  /* INFINEX placement windows (4S7-BE-01) */
+  ["src/domain/virtual-bookings.ts › bookPlacement › placementWindow.create"]: { calls: { factPlacementWindowBooked: 1 } },
+  ["src/domain/virtual-bookings.ts › releaseInside › placementWindow.updateMany"]: { calls: { factPlacementWindowReleased: 1 } },
+
   /* Marketplace */
   ["src/domain/ledger.ts › bookOrder › orderLineFinancials.create"]: { calls: { factMarketplaceContracted: 1 } },
   ["src/domain/ledger.ts › reverseOrder › ledgerEntry.updateMany"]: { calls: { factMarketplaceUnwound: 1 } },

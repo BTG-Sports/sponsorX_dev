@@ -35,7 +35,7 @@ export async function seedCatalogue(
         `INSERT INTO "NilJob" (id, "tenantId", name, "baseLow", "baseHigh", "sellLow", "sellHigh",
                                "sellFloorEmerging", "sellFloorCreator", "sellFloorPremium")
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-         ON CONFLICT (id) DO UPDATE SET
+         ON CONFLICT ("tenantId", id) DO UPDATE SET
            name = EXCLUDED.name,
            "baseLow" = EXCLUDED."baseLow", "baseHigh" = EXCLUDED."baseHigh",
            "sellLow" = EXCLUDED."sellLow", "sellHigh" = EXCLUDED."sellHigh",

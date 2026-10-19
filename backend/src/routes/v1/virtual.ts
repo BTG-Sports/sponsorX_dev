@@ -78,11 +78,11 @@ const approve: RequestHandler<{ deploymentId: string }> = async (req, res) => { 
 const end: RequestHandler<{ deploymentId: string }> = async (req, res) => { res.json(await endDeployment(req.actor!, req.params.deploymentId, DeploymentEnd.parse(req.body ?? {}))); };
 const manifest: RequestHandler<{ worldId: string }> = async (req, res) => {
   const at = typeof req.query.at === "string" && !Number.isNaN(Date.parse(req.query.at)) ? new Date(req.query.at) : new Date();
-  const { etag, manifest: body } = await worldManifest(req.actor!, req.params.worldId, at);
-  res.setHeader("ETag", etag);
+  const out = await worldManifest(req.actor!, req.params.worldId, at, { ifNoneMatch: req.get("if-none-match") });
+  res.setHeader("ETag", out.etag);
   res.setHeader("Cache-Control", "no-store");
-  if (req.get("if-none-match") === etag) { res.status(304).end(); return; }
-  res.json(body);
+  if (out.notModified) { res.status(304).end(); return; }
+  res.json(out.manifest);
 };
 
 virtualRouter.post("/virtual/windows/:windowId/assets/uploads", requireActor, creativeUpload);
