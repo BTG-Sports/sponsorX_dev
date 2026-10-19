@@ -138,6 +138,8 @@ export const AUDIT_ACTIONS = {
     clientRevoke: "infinex.clientRevoke",
     heartbeatMissing: "infinex.heartbeatMissing",
     heartbeatRecovered: "infinex.heartbeatRecovered",
+    /** 4S3-INT-03 — BTG set or cleared a build's client config override. */
+    clientConfig: "infinex.clientConfig",
   },
   /** Agreements — acceptance is the legally interesting event. */
   agreement: {

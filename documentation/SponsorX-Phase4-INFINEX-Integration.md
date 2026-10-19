@@ -384,15 +384,15 @@ Assign creative version, approve, schedule, publish and roll back.
 
 *2 tasks · 3 person-days*
 
-### ◑ `4S3-INT-02` · Client registry and heartbeat endpoint
+### ✅ `4S3-INT-02` · Client registry and heartbeat endpoint
 
-**Order** 20 · **INT** · **Where:** Code · **2d** · **Code review**
+**Order** 20 · **INT** · **Where:** Code · **2d** · **Done**
 
 Trusted clients register with a key and report health, so you know when a world stops rendering sponsorship. SponsorX's side: the registry, the heartbeat endpoint and the missing-heartbeat alert, proven with the stand-in world. The game sending it is `5S1-INT-02`.
 
 - **Depends on:** 4S2-BE-03
 - **Done when:** A registered client's heartbeat is recorded and a missing heartbeat raises an alert (proven with the stand-in world)
-- **Delivered:** 2026-10-19.
+- **Delivered:** 2026-10-19 (merged in #262).
   - **Registry:** a client is one game build for one world, registered and revoked by BTG or the world's server (`/infinex/clients`).
   - **Heartbeat:** `POST /infinex/heartbeat` comes from a game session (4S0-SEC-01). The latest beat and a count are kept on the client.
   - **Missing:** a build that reported and then goes quiet for 5 minutes is marked missing by the worker's minute sweep. The alert is an audit row and a line on the Integrations screen; the next heartbeat records the recovery.
@@ -402,14 +402,22 @@ Trusted clients register with a key and report health, so you know when a world 
   [`SponsorX-INFINEX-API-and-Event-Spec.md`](./SponsorX-INFINEX-API-and-Event-Spec.md) §4.2, §5.5
 - **Reference:** Spec §28, §30
 
-### ⏸ `4S3-INT-03` · Client configuration endpoint
+### ◑ `4S3-INT-03` · Client configuration endpoint
 
-**Order** 21 · **INT** · **Where:** Code · **1d** · **Blocked**
+**Order** 21 · **INT** · **Where:** Code · **1d** · **Code review**
 
 Feature flags, telemetry limits and schema versions delivered to the client so behaviour can change without a client release. SponsorX's side: the endpoint and its limits; the game honouring them is `5S1-INT-03`.
 
 - **Depends on:** 4S2-BE-03
 - **Done when:** Config is served per client with its telemetry limits, and the stand-in world honours them
+- **Delivered:** 2026-10-19.
+  - **What a game reads:** `GET /infinex/config` serves a game session its own build's config with an ETag: event versions, telemetry limits, manifest and heartbeat intervals, and flags.
+  - **Where it comes from:** the reviewed defaults (`infinex-config@1.0.0`), plus BTG's override for that build, within fixed limits.
+  - **Missing alert:** a build counts as missing after five of its own heartbeat intervals.
+  - **Stand-in world:** it reads its config first and honours it, with heartbeats and manifest reads at the intervals it was given.
+  - **Test:** `infinex-config.test.ts`.
+
+  [`SponsorX-INFINEX-API-and-Event-Spec.md`](./SponsorX-INFINEX-API-and-Event-Spec.md) §4.2
 - **Reference:** Spec §28
 
 ## Sprint 4 · Telemetry ingestion

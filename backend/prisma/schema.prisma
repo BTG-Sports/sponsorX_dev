@@ -4674,6 +4674,10 @@ model InfinexClient {
   heartbeatCount      Int       @default(0)
   /// 4S3-INT-02 — set when the missing-heartbeat check raised its alert; cleared by the next heartbeat.
   missingSince        DateTime?
+  /// 4S3-INT-03 — BTG's override of the default client config, within its limits (domain/infinex-config.ts);
+  /// null means the defaults. `configVersion` goes up on every change.
+  configOverride      Json?
+  configVersion       Int       @default(0)
 
   @@unique([worldId, buildId])
   @@index([tenantId, worldId])
