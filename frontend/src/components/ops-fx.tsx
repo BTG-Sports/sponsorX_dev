@@ -104,8 +104,16 @@ export function OpsCount({ value, delay = 0, className = "" }: { value: number; 
 
   useEffect(() => {
     const node = ref.current?.firstChild;
-    if (!node || value === 0 || reducedMotion()) return;
+    if (!node) return;
     const final = fmt(value);
+    /* The text node is written by hand below, so the previous effect's
+       cleanup leaves it at the PREVIOUS value. Settle it to this one first —
+       a refresh that takes a figure to 0 (a shortfall approved, a queue
+       emptied) must show 0, not the number it animated to last time. */
+    if (value === 0 || reducedMotion()) {
+      node.nodeValue = final;
+      return;
+    }
     node.nodeValue = "0";
     let raf = 0;
     const timer = window.setTimeout(() => {

@@ -11,6 +11,7 @@ import {
   SAMPLE_PROPERTY_INTEL,
   categoryWord,
   confidenceShort,
+  fitWord,
   formatWord,
   overallSellThrough,
   qualityBand,
@@ -31,21 +32,24 @@ import { requirePortalAccess } from "@/server/portal";
    current CPM, open opportunity, sell-through by format, which sponsor
    categories fit and an inventory quality score.
 
-   Reads GET /intelligence/property   (proposed — the engine isn't mounted
-                                       yet; lib/property-intelligence-live.ts
-                                       has the contract)
+   Reads GET /intelligence/property   (mounted 2026-10-15 by 3S7-BE-02;
+                                       lib/property-intelligence-live.ts has
+                                       the contract, documentation/SponsorX-
+                                       Hub-Intelligence.md §2 the rules)
          GET /properties/mine         404 = no property on this login
    Scoped by the API to the manager's own property.
 
-   Decided 2026-10-13, "FE only, honest empty states": until the engine
-   answers, the page is its heading and <EnginePending> — no figure at all.
+   Decided 2026-10-13, "FE only, honest empty states": a tenant whose hub is
+   switched off gets the heading and <EnginePending> — no figure at all.
    A real API failure throws to the error boundary. ?demo=sample (dev only)
    previews the live layout from SAMPLE_PROPERTY_INTEL under a banner;
    ?demo=loading|empty|error render the branded states.
 
    Every model figure prints its confidence; the open opportunity is an
-   estimate and is labelled one. Nothing here edits a price — the manager
-   changes it in Inventory.
+   estimate and is labelled one. Category fit lists every brand category,
+   and one that fits 0 (restricted, or age-gated for a school) prints the
+   engine's reason. Nothing here edits a price — the manager changes it in
+   Inventory.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -163,7 +167,9 @@ function Hub({ d }: { d: PropertyIntel }) {
           </p>
           <p className="mt-1 text-xl font-semibold tabular-nums">{usd(d.opportunity.openValueCents)}</p>
           <p className="mt-0.5 text-[11px] text-faint">
-            {d.opportunity.unsoldItems.toLocaleString("en-US")} unsold {d.opportunity.unsoldItems === 1 ? "item" : "items"} at recommended rates
+            {d.opportunity.unsoldItems === 0
+              ? "Every active item sold in the last 12 months"
+              : `${d.opportunity.unsoldItems.toLocaleString("en-US")} ${d.opportunity.unsoldItems === 1 ? "item" : "items"} with no sale in 12 months, at listed price`}
           </p>
         </li>
         <li className="rounded-xl border border-line bg-surface p-4">
@@ -173,7 +179,7 @@ function Hub({ d }: { d: PropertyIntel }) {
           </p>
           <p className="mt-1 text-xl font-semibold tabular-nums">{sell.rate === null ? "—" : pct(sell.rate)}</p>
           <p className="mt-0.5 text-[11px] text-faint">
-            {sell.listed === 0 ? "Nothing listed yet" : `${sell.sold.toLocaleString("en-US")} of ${sell.listed.toLocaleString("en-US")} units sold`}
+            {sell.listed === 0 ? "No active items yet" : `${sell.sold.toLocaleString("en-US")} of ${sell.listed.toLocaleString("en-US")} items sold in 12 months`}
           </p>
         </li>
         <li className="rounded-xl border border-line bg-surface p-4">
@@ -201,10 +207,10 @@ function Hub({ d }: { d: PropertyIntel }) {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section>
-          <SectionHeading title="Sell-through by type" hint="Units sponsors have bought, against the units you listed, per kind of item." />
+          <SectionHeading title="Sell-through by type" hint="Items with a sale in the last 12 months, against the active items you have of that kind — yours and your roster's." />
           <Card>
             {sellRows.rated.length === 0 && sellRows.unlisted.length === 0 ? (
-              <p className="text-xs text-muted">Nothing listed yet. Sell-through appears once your items are on sale.</p>
+              <p className="text-xs text-muted">No active items yet. Sell-through appears once you have items in Inventory.</p>
             ) : (
               <>
                 {sellRows.rated.length > 0 && (
@@ -224,7 +230,7 @@ function Hub({ d }: { d: PropertyIntel }) {
                     {sellRows.unlisted.map((s) => (
                       <li key={s.format} className="flex items-baseline justify-between gap-2 text-faint">
                         <span className="min-w-0 truncate">{formatWord(s.format)}</span>
-                        <span className="shrink-0">Nothing listed</span>
+                        <span className="shrink-0">No active items</span>
                       </li>
                     ))}
                   </ul>
@@ -235,20 +241,23 @@ function Hub({ d }: { d: PropertyIntel }) {
         </section>
 
         <section>
-          <SectionHeading title="Sponsor categories that fit you" hint="Which kinds of sponsor your audience and record suit best. A model's view, with its confidence." />
+          <SectionHeading
+            title="Sponsor categories that fit you"
+            hint="Every brand category, by what you list for it and the sales you have made to its brands in the last 12 months. A category you have restricted, or one that is age-gated for a school, is not a fit and says why. A model's view, with its confidence."
+          />
           <Card className="space-y-3">
             <div className="flex justify-end">
               <Confidence stamp={d.categoryFit.stamp} />
             </div>
             {d.categoryFit.categories.length === 0 ? (
-              <p className="text-xs text-muted">Not enough sales history to say yet.</p>
+              <p className="text-xs text-muted">No categories scored yet.</p>
             ) : (
               <ul className="space-y-3">
                 {rankFit(d.categoryFit.categories).map((c) => (
-                  <li key={c.category}>
+                  <li key={c.category} className={c.fit <= 0 ? "opacity-80" : undefined}>
                     <div className="flex items-baseline justify-between gap-2 text-xs">
                       <span className="font-medium">{categoryWord(c.category)}</span>
-                      <span className="tabular-nums text-muted">{pct(c.fit)} fit</span>
+                      <span className="tabular-nums text-muted">{fitWord(c.fit)}</span>
                     </div>
                     <div className="mt-1">
                       <Meter value={c.fit * 100} />
@@ -303,7 +312,7 @@ function Rates({ rates }: { rates: PropertyIntel["rates"] }) {
         <div className="min-w-0">
           <h2 className="sx-section-title text-sm font-semibold tracking-tight">Rate recommendations</h2>
           <p className="mt-0.5 text-xs text-muted">
-            What each item could charge per 1,000 people reached, and what moved the price. Nothing here changes a price for you.
+            What each of your roster&rsquo;s items could charge per 1,000 people reached, and what moved the price. Nothing here changes a price for you.
           </p>
         </div>
         <Link href="/property/inventory" className="shrink-0 self-start text-xs font-medium text-accent hover:text-accent-soft sm:self-auto">
@@ -311,7 +320,11 @@ function Rates({ rates }: { rates: PropertyIntel["rates"] }) {
         </Link>
       </div>
       {rates.length === 0 ? (
-        <EmptyState mark="chart" title="No recommendations yet" hint="They appear once your items have enough sales history to price from." />
+        <EmptyState
+          mark="chart"
+          title="No recommendations yet"
+          hint="SponsorX prices your roster athletes' items; a suggestion appears here for each of theirs once it has priced them."
+        />
       ) : (
         <Card className="p-0">
           <div className={`hidden gap-x-3 border-b border-line-soft px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-faint sm:grid ${cols}`}>

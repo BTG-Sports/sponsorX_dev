@@ -12,7 +12,8 @@ import { METRIC_WORD, dayLabel, fmtCount, sampleHref } from "@/lib/forecast-live
 import { confidenceLabel, pct, usd } from "@/lib/intelligence";
 import { apiListQuery, textParam } from "@/lib/list-query";
 import {
-  EMPTY_MAKEGOOD_LIST, MAKEGOOD_TABS, bestOption, decidedOption, equivalencyLabel, makeGoodTab, periodWords, sampleMakeGoodList, shortfallShare, signedUsd,
+  EMPTY_MAKEGOOD_LIST, MAKEGOOD_TABS, bestOption, decidedByWords, decidedOption, equivalencyLabel, heldReasons, makeGoodTab, periodWords, runWords,
+  sampleMakeGoodList, shortfallShare, signedUsd,
   type MakeGoodList, type MakeGoodStatus,
 } from "@/lib/makegood-live";
 import { readEngine, wantsSample } from "@/server/engine";
@@ -26,12 +27,17 @@ import { readEngine, wantsSample } from "@/server/engine";
    side by side in a drawer (components/makegood-review.tsx) — equivalency,
    cost impact, the three checks — and the approve-with-note form.
 
+   SponsorX approves on its own when every safety check passes (3S5-BE-02,
+   2026-10-15). An open row that waits for a person says so — the drawer
+   lists why — and an approved row says whether SponsorX or a person decided
+   it, and the days the make-good runs.
+
    `?campaign=<id>` narrows the desk to one campaign; the forecast page's
    "Find make-goods" links here that way.
 
    Reads  GET  /intelligence/make-goods?status&campaign&page&size   (lib/makegood-live.ts)
    Writes POST /intelligence/make-goods/:id/approve                 (./actions.ts)
-   Until the make-good engine (3S5-BE-01) is mounted the desk shows
+   Mounted 2026-10-15; if the route ever answers 404 again the desk shows
    <EnginePending> and no figure. ?demo=loading|empty|error renders the
    branded states; ?demo=sample (development only) the live layout fed by
    SAMPLE_MAKEGOOD_LIST, under a banner, with approvals that send nothing.
@@ -143,7 +149,7 @@ function Desk({ list, tab, campaign, sample }: { list: MakeGoodList; tab: MakeGo
           hint={
             tab === "open"
               ? "A shortfall appears when a campaign's forecast falls below what was sold. Nothing is short right now."
-              : "Substitutes a manager approves appear here, with who approved them and why."
+              : "Substitutes a manager approves — or SponsorX approves on its own when every safety check passes — appear here, with who decided and why."
           }
         />
       ) : (
@@ -160,6 +166,7 @@ function Desk({ list, tab, campaign, sample }: { list: MakeGoodList; tab: MakeGo
             );
             if (tab === "open") {
               const best = bestOption(s.options);
+              const held = heldReasons(s);
               return (
                 <Tr key={s.id} i={i} tone={best ? "warn" : "danger"}>
                   <Td><Primary sub={`${s.sponsorName} · ends ${dayLabel(s.endsAt)}`}>{s.campaign.name}</Primary></Td>
@@ -176,6 +183,12 @@ function Desk({ list, tab, campaign, sample }: { list: MakeGoodList; tab: MakeGo
                         <span className="block"><StatusChip tone="danger">{s.options.length ? "None passes every check" : "No substitute found"}</StatusChip></span>
                       )}
                       <span className="mt-0.5 block text-[11px] text-faint">{s.options.length} option{s.options.length === 1 ? "" : "s"}</span>
+                      {held.length > 0 && (
+                        /* SponsorX did not approve it on its own; the drawer lists every reason. */
+                        <span className="mt-1 block" title={held.join(" ")}>
+                          <StatusChip tone="warn">Held for a person · {held.length} reason{held.length === 1 ? "" : "s"}</StatusChip>
+                        </span>
+                      )}
                     </span>
                   </Td>
                   <Td label="Model" muted>
@@ -202,8 +215,11 @@ function Desk({ list, tab, campaign, sample }: { list: MakeGoodList; tab: MakeGo
                 <Td label="Approved by" muted>
                   {s.decision ? (
                     <span className="block min-w-0">
-                      <span className="block">{s.decision.by}</span>
-                      <span className="block text-[11px]">{dayLabel(s.decision.at)}</span>
+                      <span className="block text-text">{decidedByWords(s.decision)}</span>
+                      <span className="block text-[11px]">
+                        {s.decision.automatic ? "approved automatically" : "a person's decision"} · {dayLabel(s.decision.at)}
+                      </span>
+                      {runWords(s.decision) && <span className="block text-[11px] text-faint">{runWords(s.decision)}</span>}
                     </span>
                   ) : "—"}
                 </Td>

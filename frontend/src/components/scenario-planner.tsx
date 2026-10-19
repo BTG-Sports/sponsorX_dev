@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { calculateScenarioAction, saveScenarioAction, type CalculateResult } from "@/app/(app)/admin/intelligence/scenarios/actions";
 import { Dropdown } from "@/components/filter-kit";
@@ -11,12 +11,15 @@ import { confidenceLabel, cpm, pct, usd } from "@/lib/intelligence";
 import {
   BUDGET_RANGE,
   CPM_RANGE,
+  NAME_MAX,
   addFormat,
+  ageBandLabel,
   cleanInputs,
   compact,
   diffResults,
   inputsKey,
   parseStateCodes,
+  problemsText,
   rebalanceMix,
   removeFormat,
   sampleResult,
@@ -41,13 +44,18 @@ import {
    scenario engine (calculateScenarioAction → POST
    /intelligence/scenarios/calculate) once the sliders settle — debounced
    300ms, the latest answer wins, an answer for inputs already on screen is
-   skipped. Between a change and its answer the old figures dim; invalid
-   inputs say why and keep the last good answer dimmed.
+   skipped. Between a change and its answer the old figures dim; inputs the
+   engine can't take say why — in the engine's own words, whether they come
+   from lib/scenarios-live.ts's mirror of its rules or from its 422 — right
+   under the controls, and keep the last good answer dimmed.
 
-   Every figure in a result card is the engine's answer, stamped with its
-   model version and confidence. The comparison strip is B − A of two engine
-   answers — nothing else is computed here. In the dev sample preview the
-   calculator is lib/scenarios-live.ts sampleResult, stamped as a sample.
+   The formats, sports, states and age bands on offer are the desk's
+   `options` (3S7-BE-01, mounted 2026-10-15: social posts and videos), never
+   a list of this file's own. Every figure in a result card is the engine's
+   answer, stamped with its model version and confidence. The comparison
+   strip is B − A of two engine answers — nothing else is computed here. In
+   the dev sample preview the calculator is lib/scenarios-live.ts
+   sampleResult, stamped as a sample.
    -------------------------------------------------------------------------- */
 
 type Calc = (i: ScenarioInputs) => Promise<CalculateResult>;
@@ -56,8 +64,9 @@ const sampleCalc: Calc = async (i) => ({ ok: true, result: sampleResult(i) });
 
 export function ScenarioPlanner({ desk, sample }: { desk: ApiScenarioDesk; sample: boolean }) {
   const calc: Calc = sample ? sampleCalc : calculateScenarioAction;
-  const a = useScenario(desk.defaults, calc);
-  const b = useScenario(desk.defaults, calc);
+  const offered = useMemo(() => desk.options.formats.map((f) => f.key), [desk.options.formats]);
+  const a = useScenario(desk.defaults, calc, offered);
+  const b = useScenario(desk.defaults, calc, offered);
   const diff = a.result && b.result ? diffResults(a.result, b.result) : null;
   const stale = a.stale || b.stale;
 
@@ -98,11 +107,13 @@ export function ScenarioPlanner({ desk, sample }: { desk: ApiScenarioDesk; sampl
 
 type Scenario = ReturnType<typeof useScenario>;
 
-function useScenario(initial: ScenarioInputs, calc: Calc) {
+/** `offered` — options.formats' keys: the only formats the engine prices. */
+function useScenario(initial: ScenarioInputs, calc: Calc, offered: readonly string[]) {
   const [inputs, setInputs] = useState(initial);
   const [name, setName] = useState("");
   const [result, setResult] = useState<ScenarioResult | null>(null);
   const [busy, setBusy] = useState(false);
+  /** The problems in words — the engine's, or lib/scenarios-live.ts's identical mirror of them. */
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seq = useRef(0);
@@ -112,11 +123,11 @@ function useScenario(initial: ScenarioInputs, calc: Calc) {
     (next: ScenarioInputs, wait = 300) => {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(async () => {
-        const issues = validateInputs(cleanInputs(next));
+        const issues = validateInputs(cleanInputs(next), offered);
         if (issues.length) {
           seq.current += 1; /* drop any answer still in flight */
           setBusy(false);
-          setError(issues[0]);
+          setError(problemsText(issues));
           return;
         }
         const key = inputsKey(next);
@@ -138,7 +149,7 @@ function useScenario(initial: ScenarioInputs, calc: Calc) {
         } else setError(out.error);
       }, wait);
     },
-    [calc],
+    [calc, offered],
   );
 
   /* The first answer, on mount. */
@@ -203,6 +214,12 @@ function ScenarioColumn({
       <ResultCard s={s} />
 
       <Card className="space-y-4 p-4">
+        {/* The engine's refusal, word for word, where the thing to change is. */}
+        {s.error && (
+          <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+            {s.error}
+          </p>
+        )}
         <MoneyField
           id={`${id}-budget`}
           label="Budget"
@@ -236,7 +253,7 @@ function ScenarioColumn({
               label={`Scenario ${letter} age band`}
               allLabel="Any age"
               value={inputs.audience.ageBand ?? ""}
-              options={options.ageBands.map((v) => ({ value: v, label: v }))}
+              options={options.ageBands.map((v) => ({ value: v, label: ageBandLabel(v) }))}
               onChange={(v) => update({ audience: { ...inputs.audience, ageBand: v || undefined } })}
               tone="admin"
             />
@@ -309,11 +326,11 @@ function ResultCard({ s }: { s: Scenario }) {
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Expected impressions</p>
         <span aria-live="polite" className="text-right text-[11px]">
-          {s.error ? <span className="text-danger">{s.error}</span> : s.busy ? <span className="text-muted">Calculating…</span> : null}
+          {s.error ? <span className="text-danger">Change the inputs below</span> : s.busy ? <span className="text-muted">Calculating…</span> : null}
         </span>
       </div>
       {!r ? (
-        <p className="-mt-2 text-xs text-muted">{s.error ? "No answer yet for these inputs." : "Asking the scenario engine…"}</p>
+        <p className="-mt-2 text-xs text-muted">{s.error ? "No answer yet for these inputs — the engine says why below." : "Asking the scenario engine…"}</p>
       ) : (
         <>
           <div className="-mt-3">
@@ -483,7 +500,7 @@ function SaveRow({ s, letter, sample }: { s: Scenario; letter: string; sample: b
         <input
           id={`sc-${letter}-name`}
           type="text"
-          maxLength={80}
+          maxLength={NAME_MAX}
           value={s.name}
           onChange={(e) => {
             setNote(null);
@@ -530,7 +547,7 @@ function SavedScenarios({ desk, onLoad }: { desk: ApiScenarioDesk; onLoad: (sc: 
           {desk.scenarios.map((sc, i) => (
             <Tr key={sc.id} i={i}>
               <Td>
-                <Primary sub={`${utcMinute(sc.savedAt)}${sc.savedBy ? ` · ${sc.savedBy}` : ""} · ${sc.result.stamp.modelVersion}`}>{sc.name}</Primary>
+                <Primary sub={`${utcMinute(sc.savedAt)} · ${sc.savedBy} · ${sc.result.stamp.modelVersion}`}>{sc.name}</Primary>
               </Td>
               <Td label="Budget" num>
                 {usd(sc.inputs.budgetCents)}

@@ -16,6 +16,7 @@ import {
   emptyAnomalyDesk,
   kindParam,
   ruleLabel,
+  rulesRan,
   sampleAnomalies,
   type AnomalyDesk,
   type AnomalyKind,
@@ -35,12 +36,17 @@ import { readEngine, wantsSample } from "@/server/engine";
 
    Open flags per kind as KPI tiles, then the work: To review / Resolved
    tabs, instant kind chips, a server-paged table, and a slide-over per row
-   with the rule's evidence and the disposition form (a note required for
-   every outcome) — components/anomaly-console.tsx.
+   with the rule's evidence and the disposition form (a note of 8 to 2,000
+   characters for every outcome) — components/anomaly-console.tsx.
+   Resolved holds a person's final decisions AND SponsorX's automatic ones
+   (a duplicate post, excluded the night it is seen), which a person may
+   still replace — the row says which.
 
    Reads  GET  /intelligence/anomalies?tab=open|resolved&kind&page&size
    Writes POST /intelligence/anomalies/:id/disposition { outcome, note } (./actions.ts)
-   Engine "anomalies"; until it answers, <EnginePending> and no number.
+   Engine "anomalies" (3S8-DATA-01, live); until it answers, <EnginePending>
+   and no number. `asOf` is the epoch until the rules first run — then the
+   header shows no time and the desk says so.
    BTG admins and campaign managers. ?demo=loading|empty|error|sample.
    -------------------------------------------------------------------------- */
 
@@ -106,7 +112,9 @@ function Console({ desk, tab, kind, sample = false }: { desk: AnomalyDesk; tab: 
 
   return (
     <div className="space-y-5">
-      <IntelDeskHeader title={TITLE} engine={ENGINES.anomalies.name} asOf={desk.asOf} sample={sample} />
+      <IntelDeskHeader title={TITLE} engine={ENGINES.anomalies.name} asOf={rulesRan(desk.asOf) ? desk.asOf : undefined} sample={sample}>
+        {!rulesRan(desk.asOf) && <span className="text-[11px] text-muted">The rules haven&rsquo;t run for this tenant yet — they run nightly.</span>}
+      </IntelDeskHeader>
 
       <ul aria-label="Open flags by kind" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         {ANOMALY_KINDS.map((k) => {
@@ -149,8 +157,16 @@ function Console({ desk, tab, kind, sample = false }: { desk: AnomalyDesk; tab: 
                   <Td label={tab === "open" ? "Detected" : "Outcome"} muted>
                     {a.disposition ? (
                       <span className="block">
-                        <span className="block text-[13px] font-medium text-text">{OUTCOME_LABEL[a.disposition.outcome]}</span>
-                        <span className="block text-[11px]">{a.disposition.by} · {momentLabel(a.disposition.at)}</span>
+                        <span className="block text-[13px] font-medium text-text">
+                          {OUTCOME_LABEL[a.disposition.outcome]}
+                          {a.disposition.automatic && (
+                            <span className="ml-1.5 rounded-full bg-admin/15 px-1.5 py-0.5 align-middle text-[10px] font-semibold text-text">automatic</span>
+                          )}
+                        </span>
+                        <span className="block text-[11px]">
+                          {a.disposition.by} · {momentLabel(a.disposition.at)}
+                          {a.disposition.automatic ? " · you may replace it" : " · final"}
+                        </span>
                       </span>
                     ) : (
                       momentLabel(a.detectedAt)

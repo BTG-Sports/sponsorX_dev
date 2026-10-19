@@ -40,6 +40,7 @@
 
 import type { ModelStamp } from "@/lib/intelligence";
 import type { PageInfo } from "@/lib/list-query";
+import type { Shortfall } from "@/lib/makegood-live";
 import { monotonePath } from "@/lib/monotone-path";
 
 /* ------------------------------------------------------------------ types */
@@ -95,6 +96,12 @@ export type ForecastDetail = ForecastRow & {
   alert: ForecastAlert | null;
   /** Newest first. */
   history: HistoryEntry[];
+  /**
+   * The campaign's open and approved make-goods (3S5-BE-02), newest first —
+   * sent only to those who may read `makeGood` (BTG admins, campaign
+   * managers); absent for Sales.
+   */
+  makeGoods?: Shortfall[];
 };
 
 export const EMPTY_FORECAST_LIST: ForecastList = {

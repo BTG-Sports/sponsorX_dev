@@ -140,7 +140,8 @@ async function modelView(tenantId: string, key: ModelKey) {
   })).sort((a, b) => cmp(b.version, a.version));
   return {
     key, name: def.name, activeVersion: active.version, versions,
-    thresholds: def.thresholds.map((t) => ({ key: t.key, label: t.label, value: active.t[t.key]!, unit: t.unit, min: t.min, max: t.max })),
+    /* `integer`: the screen refuses a fraction with the same words changeSettings would, instead of offering a save the API refuses. */
+    thresholds: def.thresholds.map((t) => ({ key: t.key, label: t.label, value: active.t[t.key]!, unit: t.unit, min: t.min, max: t.max, integer: t.integer === true })),
     ...(key === "matching" ? { factors: MATCH_FACTORS.map((f) => ({ key: f.key, label: f.label, weight: f.points })) } : {}),
   };
 }
@@ -164,16 +165,19 @@ export async function modelRegistry(actor: Actor, now = new Date()) {
     where: { tenantId: { in: tenants.map((t) => t.id) } }, select: { tenantId: true, feature: true, enabled: true },
   });
   const flagBy = new Map(flagRows.map((f) => [`${f.feature}::${f.tenantId}`, f.enabled]));
+  /* One label per benchmark, built here once: the row carries it as `segment`, its verdict as `label`, so a screen joins the two by data. */
+  const benchmarkLabel = (dimension: string, segment: string) => (dimension === "ALL" ? "All" : `${dimension.charAt(0)}${dimension.slice(1).toLowerCase()}: ${segment}`);
+  const validation = await validateBenchmarks(prisma, tenantId, now);
   return {
     asOf: now.toISOString(),
     models: await Promise.all(MODEL_KEYS.map((k) => modelView(tenantId, k))),
     benchmarks: (await listBenchmarks(prisma, tenantId)).map((b) => ({
-      segment: b.dimension === "ALL" ? "All" : `${b.dimension.charAt(0)}${b.dimension.slice(1).toLowerCase()}: ${b.segment}`,
+      segment: benchmarkLabel(b.dimension, b.segment),
       p25: b.p25, median: b.median, p75: b.p75, sampleSize: b.sampleSize, refreshedAt: b.refreshedAt,
     })),
     benchmarkMinSample: BENCHMARK_MIN_SAMPLE,
     /* 3S9-QA-02 — each benchmark's verdict, and the reconciliation behind them. */
-    benchmarkValidation: await validateBenchmarks(prisma, tenantId, now),
+    benchmarkValidation: { ...validation, benchmarks: validation.benchmarks.map((c) => ({ ...c, label: benchmarkLabel(c.dimension, c.segment) })) },
     flags: FEATURES.flatMap((feature) => tenants.map((t) => ({ feature, tenantId: t.id, tenantName: t.name, enabled: flagBy.get(`${feature}::${t.id}`) ?? true }))),
     rollouts: [] as Array<{ model: ModelKey; version: string; stage: string; tenants: Array<{ id: string; name: string }> }>,
   };
@@ -210,15 +214,23 @@ export async function changeSettings(actor: Actor, keyIn: string, input: { value
     await ensureBuiltIn(tx, tenantId, key);
     const [current, all] = await Promise.all([
       activeModel(tx, tenantId, key),
-      tx.modelVersion.findMany({ where: { tenantId, key }, select: { version: true } }),
+      tx.modelVersion.findMany({ where: { tenantId, key }, select: { version: true, status: true, thresholds: true } }),
     ]);
+    /* Idempotent under a double submit (QA 2026-10-19): the same values as the
+       live version are "nothing changed", and the same values as a draft still
+       waiting for its second person are that draft — never a third version. */
+    const next = { ...current.t, ...input.values };
+    const sameAs = (t: unknown) => JSON.stringify(Object.entries((t ?? {}) as Record<string, number>).sort()) === JSON.stringify(Object.entries(next).sort());
+    if (sameAs(current.t)) throw new ModelInputError(["Nothing changed: every value equals the live version's."]);
+    const waiting = all.filter((r) => r.status === "draft" && sameAs(r.thresholds)).map((r) => r.version).sort(cmp).at(-1);
+    if (waiting) return { version: waiting, automatic: false };
     const top = all.map((r) => r.version).sort(cmp).at(-1) ?? def.builtIn;
     const [maj, min] = parse(top);
     const version = `${maj}.${(min ?? 0) + 1}.0`;
     const automatic = outside.length === 0;
     const row = await tx.modelVersion.create({
       data: {
-        tenantId, key, version, status: automatic ? "validated" : "draft", thresholds: { ...current.t, ...input.values },
+        tenantId, key, version, status: automatic ? "validated" : "draft", thresholds: next,
         notes: automatic ? `${reason} (inside the safe ranges: validated and activated automatically)` : `${reason} (held: ${outside.join("; ")})`,
         reason, createdBy: actor.userId, createdAt: now, ...(automatic ? { validatedAt: now } : {}),
       },

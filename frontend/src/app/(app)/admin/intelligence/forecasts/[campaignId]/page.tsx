@@ -13,7 +13,8 @@ import {
   ACTION_WORD, METRIC_WORD, alertWords, canSetGuarantee, dayLabel, daysLeftWords, flightWords, fmtCount, paceWords, projectedShare, sampleForecastDetail,
   sampleHref, type ForecastDetail,
 } from "@/lib/forecast-live";
-import { pct } from "@/lib/intelligence";
+import { pct, usd } from "@/lib/intelligence";
+import { decidedByWords, decisionWords, heldReasons, runWords, type Shortfall } from "@/lib/makegood-live";
 import { fetchActor } from "@/server/api";
 import { readEngineItem, wantsSample } from "@/server/engine";
 
@@ -90,6 +91,50 @@ function Missing({ sample }: { sample: boolean }) {
       <h1 className="sx-page-title">{TITLE}</h1>
       <EmptyState mark="inbox" title="No forecast matches this link" hint="The campaign may have ended, or the link is old." action={{ label: "Back to Forecasts", href: sampleHref(LIST, sample) }} />
     </div>
+  );
+}
+
+/**
+ * The campaign's make-goods (3S5-BE-02 adds `makeGoods` to this read for
+ * those who may read them): what is open and held for a person, and what
+ * was approved — by whom, and when it runs. The decisions themselves are
+ * made in the make-good centre, which the link opens on this campaign.
+ */
+function MakeGoodsCard({ shortfalls, href }: { shortfalls: Shortfall[]; href: string }) {
+  return (
+    <Card className="space-y-3 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold">Make-goods</h2>
+        <Link href={href} className="text-[11px] font-medium text-primary-soft hover:underline">Open in the make-good centre →</Link>
+      </div>
+      {shortfalls.length ? (
+        <ul className="space-y-2.5" aria-label="Make-goods for this campaign">
+          {shortfalls.map((s) => {
+            const held = heldReasons(s);
+            return (
+              <li key={s.id} className="text-xs">
+                <span className="flex flex-wrap items-center gap-2">
+                  <strong className="text-[13px] font-semibold text-text">
+                    {fmtCount(s.shortfall)} {s.metric} short · {usd(s.shortfallValueCents)} at risk
+                  </strong>
+                  {s.decision ? <StatusChip tone="success">Approved</StatusChip> : held.length ? <StatusChip tone="warn">Held for a person</StatusChip> : <StatusChip tone="warn">Open</StatusChip>}
+                </span>
+                {s.decision ? (
+                  <span className="text-muted">
+                    {decisionWords(s.decision)}: {s.options.find((o) => o.id === s.decision?.optionId)?.inventoryName ?? "a substitute"} — {decidedByWords(s.decision)} · {dayLabel(s.decision.at)}
+                    {runWords(s.decision) ? ` · ${runWords(s.decision)}` : ""}
+                  </span>
+                ) : (
+                  <span className="text-muted">{held.length ? held[0] : "Waiting for a substitute to be picked."}</span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="text-xs text-muted">None — nothing has fallen short of what was sold.</p>
+      )}
+    </Card>
   );
 }
 
@@ -206,6 +251,8 @@ function Forecast({ d, sample, canSet }: { d: ForecastDetail; sample: boolean; c
           )}
         </Card>
       </div>
+
+      {d.makeGoods !== undefined && <MakeGoodsCard shortfalls={d.makeGoods} href={makeGoods} />}
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">Forecast history</h2>
