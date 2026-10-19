@@ -168,8 +168,8 @@ and schedule.
 creative version, and the dates it runs. By default those are the window's
 dates; narrower ones must fall inside it.
 
-**Its states:** `DRAFT` → `APPROVED` → `ENDED`. Pausing and rolling back are
-`4S2-BE-05`.
+**Its states:** `DRAFT` → `APPROVED` → `ENDED`, and, since `4S2-BE-05`,
+`PAUSED` and `ROLLED_BACK`.
 
 **Approving checks everything again, at that moment:**
 - the window is still booked;
@@ -187,7 +187,35 @@ deployments on the same window at overlapping times
 - is audited.
 
 **A window given back** (released, or its campaign cancelled) ends its
-deployments, with the reason.
+deployments, with the reason. What was already rolled back stays as it was.
+
+### 6.1 · Pause, resume and roll back (`4S2-BE-05`)
+
+**Done when:** creative can be paused or rolled back from SponsorX without
+redeploying the INFINEX application. The manifest shows only `APPROVED`
+deployments, so each of these takes effect on the world's next poll (its
+`ttlSeconds` is 60). Each bumps the world's `manifestVersion`, so the ETag
+changes, and each is audited.
+
+- **Pause** (`APPROVED` → `PAUSED`, with the reason): off the world. No new
+  download link is handed out for it. A link already handed out lapses within
+  15 minutes (§7). `pausedAt` and `stateReason` say when and why.
+- **Resume** (`PAUSED` → `APPROVED`): checked again as an approval is. It is
+  refused if another approved deployment has taken those days meanwhile
+  (the database's one-at-a-time rule).
+- **Roll back** (per window, with the reason): the running or paused
+  deployment becomes `ROLLED_BACK`. An earlier `VALIDATED` version (the one
+  named, or else the newest older than the running one) goes on the world,
+  approved, from now to the old end, in one transaction. The old one records
+  `rolledBackAt`, `stateReason` and `replacedById`. Naming a newer version
+  rolls forward the same way.
+- **Refused:** pausing what isn't approved, resuming what isn't paused,
+  rolling back with nothing running or no earlier version, or to the version
+  already running, and ending a rolled-back deployment (end its replacement
+  instead).
+- **The database** requires a paused deployment to carry when and why, and a
+  rolled-back one when, why and what replaced it
+  (`CreativeDeployment_pause_rollback_check`).
 
 ## 7 · The manifest (`4S2-BE-03`)
 
@@ -290,6 +318,9 @@ Every write is audited (`virtual.*`).
 | `POST /virtual/windows/{windowId}/deployments` | deploy a validated version (draft) |
 | `POST /virtual/deployments/{deploymentId}/approve` | approve it: into the manifest for its dates |
 | `POST /virtual/deployments/{deploymentId}/end` | end it, with the reason |
+| `POST /virtual/deployments/{deploymentId}/pause` | pause it, with the reason: off the world on the next poll (`4S2-BE-05`) |
+| `POST /virtual/deployments/{deploymentId}/resume` | resume it, checked again (`4S2-BE-05`) |
+| `POST /virtual/windows/{windowId}/rollback` | roll the window back to an earlier version, with the reason (`4S2-BE-05`) |
 | `GET /virtual/worlds/{worldId}/manifest` | what the world shows at a given time |
 
 ## 11 · Where it lives

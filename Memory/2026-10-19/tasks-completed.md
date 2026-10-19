@@ -155,3 +155,24 @@ The user asked to close and implement every open item from the last summary. The
   - **Production:** its two fields follow P2-OPS-04's Zoho keys, as recorded on 2026-10-15.
 - **#255's e2e failed on CI.** `e2e/support/loop-db.ts` seeded NilJob with `on conflict (id)`, and P8-BE-01 removed that key. It now uses `("tenantId", id)`. A `git grep` of the tracked files found no other NilJob upsert. The e2e suite is now run locally before pushing.
 
+
+## rcfworks — 4S2-BE-05 · deployment pause and roll back (Code review)
+
+The user picked this as today's extra backend task; the plan was approved.
+
+- **Pause and resume.** `POST /virtual/deployments/{id}/pause` takes an APPROVED deployment PAUSED, with a reason. `…/resume` takes it back to APPROVED, re-checked like an approval (`liveProblems`, now shared with approve). The database's one-at-a-time rule refuses a resume if another approved deployment took those days.
+- **Roll back.** `POST /virtual/windows/{id}/rollback` turns the window's running or paused deployment ROLLED_BACK and puts the previous validated version (or a named one; naming a newer one rolls forward) on the window, approved, from now to the old end, in one transaction.
+- **Effect on the world:** each bumps `manifestVersion`, so the ETag changes. The manifest shows only APPROVED, so the world sees the change on its next poll (`ttlSeconds` 60), with no INFINEX release. A paused deployment gets no new links; ones already handed out lapse within 15 minutes.
+- **Database.** PAUSED and ROLLED_BACK were already allowed. Migration `20261019150000_deployment_pause_rollback` adds `pausedAt`, `rolledBackAt`, `stateReason` and `replacedById`, with a CHECK that each state carries them.
+- **Other changes.** `endDeployment` refuses a ROLLED_BACK deployment (end its replacement instead). A window given back leaves rolled-back deployments as they were.
+- **Audited:** `virtual.deploymentPause`, `virtual.deploymentResume` and `virtual.deploymentRollback`.
+- **Wired in:** the OpenAPI registry has the three routes, and the tenant-isolation sweep covers pause and rollback (resume needs no body).
+- **Tests:** `virtual-deployment-control.test.ts` (6).
+- **Docs:** Virtual Registry §6.1 and §10, and the Phase 4 plan. Tracker: Code review.
+- **Held locally** until #255 merges, so the two PRs don't stack.
+
+## rcfworks — #255 merged; P8-BE-01, 4S2-BE-04, 4S7-BE-01 to Done; sync #256
+
+- **#255 merged by the user.** The permission check blocks me from running `gh pr merge`. CI was all green on the rerun, including e2e.
+- **To Done (tracker and plan):** P8-BE-01, 4S2-BE-04 and 4S7-BE-01, merged with their acceptance met.
+- **Sync PR #256** (main_development → main) is open. `git merge-tree` of main and main_development gives exactly main_development's tree. The deploy follows once main is green.

@@ -187,7 +187,7 @@ const PARAM_FOR: Record<string, string> = {
   placements: A.placement,
   /* POST /virtual/windows/{windowId}/release (4S1-BE-04) — tenant A's booked window. */
   windows: A.window,
-  /* POST /virtual/deployments/{deploymentId}/approve|end (4S2-BE-01) — tenant A's draft deployment. */
+  /* POST /virtual/deployments/{deploymentId}/approve|end|pause|resume (4S2-BE-01/05) — tenant A's draft deployment. */
   deployments: A.deployment,
   /* POST /offers/{id}/change-requests/{requestId}/keep (2S2-FE-03). */
   "change-requests": A.changeRequest,
@@ -416,6 +416,9 @@ const BODY: Record<string, unknown> = {
   "POST /virtual/windows/{windowId}/assets": { r2Key: "virtual/ti_tenant_a/ti_window_a/sweep", creativeType: "IMAGE" },
   "POST /virtual/windows/{windowId}/deployments": { assetId: A.vasset },
   "POST /virtual/deployments/{deploymentId}/end": { reason: "Sweep end reason" },
+  /* 4S2-BE-05 — pausing tenant A's deployment, and rolling back tenant A's window. */
+  "POST /virtual/deployments/{deploymentId}/pause": { reason: "Sweep pause reason" },
+  "POST /virtual/windows/{windowId}/rollback": { reason: "Sweep rollback reason" },
   /* 3S8-BE-01 / 3S8-OPS-01 — tenant A's model versions and flags. A change of settings is tenant B's own. */
   "PATCH /intelligence/models/{key}/thresholds": { values: { atRiskBelow: 0.45 }, reason: "Sweep settings change" },
   "POST /intelligence/models/{key}/versions/{version}/validate": { reason: "Sweep validation reason" },
