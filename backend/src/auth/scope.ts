@@ -50,6 +50,8 @@ export { type Action, type Resource, type Scope };
  * which is the ward.
  */
 export function scopeOf(actor: Actor, resource: Resource, action: Action): Scope {
+  /* 4S0-SEC-01 — a machine token's scopes narrow what its roles allow; they never widen it. */
+  if (actor.scopes && actor.scopes.length && !actor.scopes.includes(`${resource}:${action}`)) return "deny";
   if (actor.actingFor) {
     const asWard = scopeFor(["ATHLETE"], resource, action);
     if (asWard !== "deny" && asWard !== "deferred") return asWard;
@@ -923,7 +925,13 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   /* 3S6-BE-01 — attribution partners and deliveries, per tenant. */
   attribution: tenantScoped,
   /* 4S1-BE-01 — virtual worlds: tenant-wide for staff; a world's owner sees its own (zones and placements are read through their world). */
-  virtualWorld: (actor, scope) => (scope === "own-property" ? (actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING) : tenantScoped(actor, scope)),
+  virtualWorld: (actor, scope) => (
+    /* 4S0-SEC-01 — a game session reaches only the world its client is registered for. */
+    actor.infinexWorldId !== undefined
+      ? (actor.infinexWorldId ? { tenantId: actor.tenantId, id: actor.infinexWorldId } : MATCHES_NOTHING)
+      : scope === "own-property" ? (actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING) : tenantScoped(actor, scope)),
+  infinexCredential: tenantScoped,
+  infinexClient: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

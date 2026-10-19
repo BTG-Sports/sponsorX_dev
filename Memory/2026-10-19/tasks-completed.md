@@ -155,3 +155,63 @@ The user asked to close and implement every open item from the last summary. The
   - **Production:** its two fields follow P2-OPS-04's Zoho keys, as recorded on 2026-10-15.
 - **#255's e2e failed on CI.** `e2e/support/loop-db.ts` seeded NilJob with `on conflict (id)`, and P8-BE-01 removed that key. It now uses `("tenantId", id)`. A `git grep` of the tracked files found no other NilJob upsert. The e2e suite is now run locally before pushing.
 
+
+## rcfworks — 4S2-BE-05 · deployment pause and roll back (Code review)
+
+The user picked this as today's extra backend task; the plan was approved.
+
+- **Pause and resume.** `POST /virtual/deployments/{id}/pause` takes an APPROVED deployment PAUSED, with a reason. `…/resume` takes it back to APPROVED, re-checked like an approval (`liveProblems`, now shared with approve). The database's one-at-a-time rule refuses a resume if another approved deployment took those days.
+- **Roll back.** `POST /virtual/windows/{id}/rollback` turns the window's running or paused deployment ROLLED_BACK and puts the previous validated version (or a named one; naming a newer one rolls forward) on the window, approved, from now to the old end, in one transaction.
+- **Effect on the world:** each bumps `manifestVersion`, so the ETag changes. The manifest shows only APPROVED, so the world sees the change on its next poll (`ttlSeconds` 60), with no INFINEX release. A paused deployment gets no new links; ones already handed out lapse within 15 minutes.
+- **Database.** PAUSED and ROLLED_BACK were already allowed. Migration `20261019150000_deployment_pause_rollback` adds `pausedAt`, `rolledBackAt`, `stateReason` and `replacedById`, with a CHECK that each state carries them.
+- **Other changes.** `endDeployment` refuses a ROLLED_BACK deployment (end its replacement instead). A window given back leaves rolled-back deployments as they were.
+- **Audited:** `virtual.deploymentPause`, `virtual.deploymentResume` and `virtual.deploymentRollback`.
+- **Wired in:** the OpenAPI registry has the three routes, and the tenant-isolation sweep covers pause and rollback (resume needs no body).
+- **Tests:** `virtual-deployment-control.test.ts` (6).
+- **Docs:** Virtual Registry §6.1 and §10, and the Phase 4 plan. Tracker: Code review.
+- **Held locally** until #255 merges, so the two PRs don't stack.
+
+## rcfworks — #255 merged; P8-BE-01, 4S2-BE-04, 4S7-BE-01 to Done; sync #256
+
+- **#255 merged by the user.** The permission check blocks me from running `gh pr merge`. CI was all green on the rerun, including e2e.
+- **To Done (tracker and plan):** P8-BE-01, 4S2-BE-04 and 4S7-BE-01, merged with their acceptance met.
+- **Sync PR #256** (main_development → main) is open. `git merge-tree` of main and main_development gives exactly main_development's tree. The deploy follows once main is green.
+
+## rcfworks — deployed cd751d2c; #257 merged
+
+- **#256 and #257 merged by the user.** main's CI on `cd751d2c` was all green, including e2e. Claude ran `deploy-daily.yml`, and `release` moved 4cc18895 → `cd751d2c`.
+- **Staging, checked read-only:**
+  - both #255 migrations are applied;
+  - `NilJob_pkey` is `("tenantId", id)`;
+  - `AthleteRate_tenantId_jobId_fkey` and `PlacementWindow_campaignId_fkey` exist;
+  - `CampaignDaySummary.virtualBookedCents` exists;
+  - `/health` returns 200.
+- **Production** reads are blocked for Claude. The job-catalogue migration checks itself, so it would stop with a list rather than apply over a cross-tenant link.
+- **Still to sync to main:** 4S2-BE-05 (#257) is on main_development and goes with the next sync PR.
+- **Tracker sync workflow:** it failed on `cd751d2c` because the Google Sheet endpoint answered 404. It has failed on and off since 10-16 and passed at 03:30 today. Not caused by this work.
+- **Stage Progress:** today's row (already there) is updated for P8-BE-01 Done: S8 24, Done 292, days left 16.
+
+## rcfworks — 4S0-SEC-01 · trusted client authentication for INFINEX (Code review)
+
+The user chose "the next Phase 4 backend task". 4S0-SEC-01 comes before 4S3-INT-02 because the registry's "key" is this design. The plan was approved; that approval is the "reviewed and approved" clause.
+
+**Decisions (in the plan):**
+- SponsorX issues its own tokens, not Clerk M2M (Clerk Pro is deferred).
+- The role is split into `INFINEX_SERVICE` and `INFINEX_CLIENT`; `SERVICE` stays for internal integrations.
+- A game signs with a 15-minute session key, not a key pair. This settles the spec's "key pair vs HMAC" contradiction.
+
+**Built:**
+- **Credentials.** `InfinexCredential`: BTG issues one (`POST /infinex/credentials`). The secret `sxs_…` is shown once and stored as its SHA-256. It gets its own service User: roles `INFINEX_SERVICE` + `INFINEX_CLIENT`, an `@machine.invalid` address, `clerkId machine:…`. `resolveActor`'s email claim now refuses a row with a machine role.
+- **Server tokens.** `POST /infinex/token` is public and rate-limited (60/min per IP). Any failure is the same 401. A token `sxm_…` lives 15 min and is stored as its SHA-256 in `InfinexToken`.
+- **Game sessions.** `POST /infinex/clients/{id}/sessions` takes a server token only: a person gets 409, a game 403. It returns a CLIENT token pinned to the client's world (`actor.infinexWorldId`, applied in the `virtualWorld` scope builder) and a signing key = HMAC(`INFINEX_SIGNING_SECRET`, `infinex-session:<tokenId>`), never stored. Unset secret → 503.
+- **Login.** `requireActor`: a bearer starting `sxm_` goes to `auth/machine.ts resolveMachineActor`, which checks on every call the token's expiry, the credential not revoked, the user not disabled and still holding the role, and the client ACTIVE. The token's kind narrows the user's roles to one.
+- **Scopes.** `scope.ts scopeOf` denies anything not in `actor.scopes` when they are set. Scopes narrow and never widen.
+- **Signatures.** `verifyClientSignature` and the `requireClientSignature` middleware check the raw body (app.ts now keeps it for `/api/v1/infinex/`), `t` within ±300 s, `SponsorX-Key-Id` = the session's token id, and both rotation roots. Ready for 4S4-BE-01.
+- **Field denials.** Both machine roles are denied all 19 protected fields (`MACHINE` in fields.ts).
+- **RBAC §38.** `virtualWorld` read for both roles; `infinexCredential` (SUPER_ADMIN any, BTG own-tenant); `infinexClient` (+ INFINEX_SERVICE read/write own-tenant). The digest moved `f037fe7542127ad9` → `b1f1e50851c850e3`; additive only, no existing cell moved.
+- **Coverage tests.** `InfinexToken` is declared internal. The sweep covers sessions and revoke, with tenant A's credential and client; `/infinex/token` is excluded as public. The OpenAPI coverage list gained `infinex`.
+- **Migration** `20261019180000_infinex_machine_auth`: the enum values, three tables and CHECKs.
+- **Tests:** `infinex-auth.test.ts` (11): the signature cases, issue/list/no secret leaked, token 401s, a server token reads its tenant only with no writes, sessions pinned to a world, a signed route accepting and refusing, scopes narrowing, expiry, client and credential revocation stopping at once, a person unable to claim the machine user, who.
+- **Docs:** API spec §6.2 rewritten as decided, its §2 "missing" row now "exists", World Contract §5, Secrets-Rotation §11a (`INFINEX_SIGNING_SECRET`), the Phase 4 plan. Tracker: Code review.
+
+**For later:** `INFINEX_SIGNING_SECRET` is not set on staging or production yet. Sessions answer 503 until then, which is safe; it's needed before 4S4-BE-01 / 5S1. Registering clients is 4S3-INT-02.

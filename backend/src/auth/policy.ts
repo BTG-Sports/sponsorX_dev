@@ -45,7 +45,10 @@ export type Role =
   | "SPONSOR_ANALYST"
   | "SERVICE"
   | "STUDENT"
-  | "ADVISOR";
+  | "ADVISOR"
+  /* 4S0-SEC-01 — machines, never people: an INFINEX world's server, and a game session its server started. */
+  | "INFINEX_SERVICE"
+  | "INFINEX_CLIENT";
 
 export const ROLES: readonly Role[] = [
   "SUPER_ADMIN",
@@ -62,6 +65,8 @@ export const ROLES: readonly Role[] = [
   "SERVICE",
   "STUDENT",
   "ADVISOR",
+  "INFINEX_SERVICE",
+  "INFINEX_CLIENT",
 ] as const;
 
 export type Action = "read" | "write" | "approve";
@@ -184,7 +189,9 @@ export type Resource =
   | "anomaly"
   | "modelRegistry"
   | "attribution"
-  | "virtualWorld";
+  | "virtualWorld"
+  | "infinexCredential"
+  | "infinexClient";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -277,6 +284,8 @@ export const RESOURCES: readonly Resource[] = [
   "modelRegistry",
   "attribution",
   "virtualWorld",
+  "infinexCredential",
+  "infinexClient",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -1203,6 +1212,22 @@ export const POLICY: Record<Resource, RolePolicy> = {
     CAMPAIGN_MGR: rwa("own-tenant"),
     SALES: rwa("own-tenant"),
     PROPERTY_MGR: rwa("own-property"),
+    /* 4S0-SEC-01 (matrix §38) — a world's server reads its tenant's worlds and manifests; a game session reads
+       only its own world (scope.ts pins it to the session's world). Neither writes anything here. */
+    INFINEX_SERVICE: rwa("own-tenant"),
+    INFINEX_CLIENT: rwa("own-tenant"),
+  },
+  /* 4S0-SEC-01 (matrix §38) — machine credentials for INFINEX world servers: BTG issues and revokes them. */
+  infinexCredential: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+  },
+  /* 4S0-SEC-01 (matrix §38) — the game clients registered for a world. BTG registers and revokes (4S3-INT-02);
+     a world's server reads them and starts a game session for one (a write). */
+  infinexClient: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    INFINEX_SERVICE: rwa("own-tenant", "own-tenant"),
   },
 };
 

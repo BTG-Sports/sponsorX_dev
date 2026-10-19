@@ -8,8 +8,10 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { CreativeRegisterInput, CreativeUploadInput, DeploymentEnd, DeploymentInput, PlacementInput, PlacementPatch, WindowInput, WindowRelease, WorldInput, WorldPatch, ZonesInput } from "../../contracts/virtual";
-import { approveDeployment, createDeployment, endDeployment, presignCreative, registerCreative, windowCreative, worldManifest } from "../../domain/virtual-creative";
+import { CreativeRegisterInput, CreativeUploadInput, DeploymentEnd, DeploymentInput, DeploymentPause, WindowRollback, PlacementInput, PlacementPatch, WindowInput, WindowRelease, WorldInput, WorldPatch, ZonesInput } from "../../contracts/virtual";
+import {
+  approveDeployment, createDeployment, endDeployment, pauseDeployment, presignCreative, registerCreative, resumeDeployment, rollbackWindow, windowCreative, worldManifest,
+} from "../../domain/virtual-creative";
 import { bookPlacement, placementWindows, releaseWindow } from "../../domain/virtual-bookings";
 import {
   createPlacement, createWorld, getPlacement, getWorld, listWorlds, publishPlacement, retirePlacement, updatePlacement, updateWorld, upsertZones,
@@ -76,6 +78,9 @@ const deploy: RequestHandler<{ windowId: string }> = async (req, res) => {
 };
 const approve: RequestHandler<{ deploymentId: string }> = async (req, res) => { res.json(await approveDeployment(req.actor!, req.params.deploymentId)); };
 const end: RequestHandler<{ deploymentId: string }> = async (req, res) => { res.json(await endDeployment(req.actor!, req.params.deploymentId, DeploymentEnd.parse(req.body ?? {}))); };
+const pause: RequestHandler<{ deploymentId: string }> = async (req, res) => { res.json(await pauseDeployment(req.actor!, req.params.deploymentId, DeploymentPause.parse(req.body ?? {}))); };
+const resume: RequestHandler<{ deploymentId: string }> = async (req, res) => { res.json(await resumeDeployment(req.actor!, req.params.deploymentId)); };
+const rollback: RequestHandler<{ windowId: string }> = async (req, res) => { res.json(await rollbackWindow(req.actor!, req.params.windowId, WindowRollback.parse(req.body ?? {}))); };
 const manifest: RequestHandler<{ worldId: string }> = async (req, res) => {
   const at = typeof req.query.at === "string" && !Number.isNaN(Date.parse(req.query.at)) ? new Date(req.query.at) : new Date();
   const out = await worldManifest(req.actor!, req.params.worldId, at, { ifNoneMatch: req.get("if-none-match") });
@@ -91,4 +96,7 @@ virtualRouter.get("/virtual/windows/:windowId/assets", requireActor, creative);
 virtualRouter.post("/virtual/windows/:windowId/deployments", requireActor, deploy);
 virtualRouter.post("/virtual/deployments/:deploymentId/approve", requireActor, approve);
 virtualRouter.post("/virtual/deployments/:deploymentId/end", requireActor, end);
+virtualRouter.post("/virtual/deployments/:deploymentId/pause", requireActor, pause);
+virtualRouter.post("/virtual/deployments/:deploymentId/resume", requireActor, resume);
+virtualRouter.post("/virtual/windows/:windowId/rollback", requireActor, rollback);
 virtualRouter.get("/virtual/worlds/:worldId/manifest", requireActor, manifest);

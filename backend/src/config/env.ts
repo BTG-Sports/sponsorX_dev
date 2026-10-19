@@ -125,6 +125,13 @@ const schema = z.object({
      Optional in the schema so a local checkout runs, but the production guard
      below refuses to boot without it: the invoice webhook is a public route,
      and an unsigned one is an unauthenticated write into the finance mirror. */
+  /* 4S0-SEC-01 — the root a game session's signing key is derived from
+     (HMAC of the session's token id; auth/machine.ts). Never stored per
+     session. Unset: no game session can be started (503), which is the safe
+     direction until 4S4-BE-01's telemetry needs it. `_PREVIOUS` is the
+     rotation overlap, as everywhere else. */
+  INFINEX_SIGNING_SECRET: z.string().optional(),
+  INFINEX_SIGNING_SECRET_PREVIOUS: z.string().optional(),
   ZOHO_WEBHOOK_SECRET: z.string().optional(),
   ZOHO_WEBHOOK_SECRET_PREVIOUS: z.string().optional(),
 

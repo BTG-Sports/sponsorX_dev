@@ -95,10 +95,14 @@ on a player's device cannot.
 
 | Caller | How it proves itself | What it may do |
 |---|---|---|
-| **The world's server** | A machine credential that gets a token lasting 15 minutes | Read the manifest and its settings, send events, report challenge completions |
-| **The game on a player's device** | A key per build, which signs its events. Its short-lived token comes from the world's server, never from a secret built into the game. | Read the manifest and its settings, send heartbeats and events. Nothing else. |
+| **The world's server** | A machine credential (id and secret, from BTG) that it swaps at `POST /infinex/token` for a token lasting 15 minutes | Read the manifest and its settings, start game sessions, send events, report challenge completions |
+| **The game on a player's device** | A 15-minute session its world's server starts for it: a token for its own world, and a key it signs its requests with. Nothing secret is built into the game. | Read its world's manifest and settings, send heartbeats and events. Nothing else. |
 
-The full design (tokens, signing, rotation and revoking) is `4S0-SEC-01`.
+The design is `4S0-SEC-01`, decided 2026-10-19
+(`SponsorX-INFINEX-API-and-Event-Spec.md` §6.2):
+- a game signs each request over its exact bytes (`SponsorX-Key-Id`,
+  `SponsorX-Signature`, ±300 s);
+- revoking a credential or a client takes effect on the next call.
 
 ## 6 · What SponsorX promises a world
 

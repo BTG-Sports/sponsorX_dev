@@ -50,6 +50,8 @@ arrive denied to everyone until a row is added.
 | `SPONSOR_ADMIN` | Sponsor Admin | Sponsor |
 | `SPONSOR_ANALYST` | Sponsor Analyst | Sponsor |
 | `SERVICE` | API Service Account | System |
+| `INFINEX_SERVICE` | An INFINEX world's server, through its machine credential (§38) | System |
+| `INFINEX_CLIENT` | A game on a player's device, through a session its world's server started (§38) | System |
 
 **There is no Fan role.** v1 of the blueprint had one; v2 removed it. The fan
 reward page has no login at all (§16), so a fan is never an actor in this
@@ -1862,6 +1864,65 @@ Virtual worlds, their districts, venues and zones, and their placements
   the campaign (`campaign`, §2) and read the placement. No new matrix row.
   The same goes for a window's creative and deployments (4S2-BE-01/02). A
   world's manifest (4S2-BE-03) is a `virtualWorld` read.
+
+## 38 · Phase 4 · INFINEX machines *(added 2026-10-19)*
+
+`4S0-SEC-01`. Two machine roles, never held by a person. Both are reached only
+through `auth/machine.ts` (an `sxm_…` bearer token), never through Clerk. A
+person's sign-in can never claim a machine's user row. Design:
+`SponsorX-INFINEX-API-and-Event-Spec.md` §6.
+
+- **`INFINEX_SERVICE`:** a world operator's server. Its credential (issued by
+  BTG) acts as its own `User`, and the server swaps it for a 15-minute token.
+- **`INFINEX_CLIENT`:** a game on a player's device. Its world's server starts
+  a 15-minute session for one registered client: a token and a signing key.
+
+**Narrowing, never widening.**
+- A token acts only as its kind's role, even though the credential's user
+  holds both.
+- A credential's optional scopes (`"<resource>:<action>"`) narrow further
+  (`scope.ts scopeOf`). A scope that names something the role is not allowed
+  gives nothing.
+- A game session reaches only its client's world.
+- Both roles are denied every protected field (§7).
+
+### `virtualWorld` — two rows added to §37
+
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `INFINEX_SERVICE` | own-tenant | — | — |
+| `INFINEX_CLIENT` | own-tenant, **its session's world only** | — | — |
+
+The world's server reads its tenant's worlds, placements and manifests. A game
+reads its own world's manifest.
+
+### `infinexCredential` — machine credentials for world servers
+
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+
+- **Issuing** (`POST /infinex/credentials`) creates the service user and
+  shows the secret once; only its SHA-256 is kept.
+- **Revoking** (`…/revoke`, with the reason) stops its tokens and sessions on
+  their next call. Both are audited.
+
+### `infinexClient` — game clients registered for a world
+
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `INFINEX_SERVICE` | own-tenant | own-tenant | — |
+
+- **A server's write** is starting a game session for one of its tenant's
+  clients (`POST /infinex/clients/{id}/sessions`). Only a server's token may
+  start one: a person, even BTG, gets 409, and a game gets 403.
+- **Registering and revoking clients** is `4S3-INT-02`.
+
+**Internal:** `InfinexToken` (a token's hash and expiry) is read only by the
+verifier and is never listed.
 
 ## 14 · Known gaps
 

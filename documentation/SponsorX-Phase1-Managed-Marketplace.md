@@ -2699,15 +2699,15 @@ Demonstrate all fourteen acceptance criteria from the blueprint and record the e
   [`SponsorX-Phase1-Acceptance.md`](./SponsorX-Phase1-Acceptance.md)
 - **Reference:** §30
 
-### ◑ `P8-BE-01` · A NIL job catalogue per tenant
+### ✅ `P8-BE-01` · A NIL job catalogue per tenant
 
-**Order** 157.5 · **BE** · **Where:** Code · **1d** · **Code review**
+**Order** 157.5 · **BE** · **Where:** Code · **1d** · **Done**
 
 Raised by `P8-QA-01`'s finding: a job's ID (`SX-02`) was unique across the whole database, so only one tenant could hold the SX catalogue.
 
 - **Depends on:** P8-QA-01
 - **Done when:** A second tenant can hold and price its own SX jobs, and no record can point at another tenant's job
-- **Delivered:** 2026-10-19.
+- **Delivered:** 2026-10-19 (merged in #255).
   - **The key:** a job is identified by its tenant and ID. The rates, invites, orders and offers that name a job name it by both, so the database refuses a link to another tenant's job.
   - **The migration** first checks that no existing record points at another tenant's job, and stops with the list if one does.
   - **Reads:** the catalogue loader, the campaign desk and the invitation email read the record's own tenant's job. The pricing engine prefers it, falling back to another tenant's when its own has none.

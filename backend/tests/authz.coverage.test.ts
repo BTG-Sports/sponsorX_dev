@@ -117,6 +117,9 @@ const GOVERNED_BY: Record<string, Resource> = {
   PlacementWindow: "virtualWorld",
   VirtualAsset: "virtualWorld",
   CreativeDeployment: "virtualWorld",
+  /* 4S0-SEC-01 — INFINEX machine credentials and the game clients registered for a world. */
+  InfinexCredential: "infinexCredential",
+  InfinexClient: "infinexClient",
   /* 2S5-INT-02 — the payment provider's events: written by the signed webhook and the worker, read by BTG admin and Finance. */
   PaymentEvent: "paymentEvent",
   /* 2S5-BE-03 — a refund the provider reported: its record, read with the events. A dispute: BTG support's. */
@@ -182,6 +185,7 @@ const GOVERNED_BY: Record<string, Resource> = {
 const SYSTEM_INTERNAL: Record<string, string> = {
   OutboxJob: "the job queue — written inside domain transactions, drained by the worker",
   EmailSendLog: "the worker's idempotency ledger for sent email",
+  InfinexToken: "4S0-SEC-01 — a machine token's hash and expiry, looked up only by auth/machine.ts to resolve the caller; no route reads or lists them",
   ListingDigest: "the worker's record of the daily auto-published listings summary sent to each BTG tenant (2S3-BE-06) — no route reads it",
   OrderApprovalDigest: "the worker's record of the daily summary of orders approved automatically, sent to each BTG tenant (2S4-BE-09) — no route reads it",
   /* 3S1-BE-01 — written only inside domain transactions (src/domain/facts.ts). No route reads them yet: the
