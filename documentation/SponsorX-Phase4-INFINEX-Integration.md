@@ -325,15 +325,15 @@ The endpoint INFINEX calls to ask what is live right now. Must return only appro
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §7
 - **Reference:** Spec §28, §34
 
-### ◑ `4S2-BE-04` · Signed asset delivery through the CDN
+### ✅ `4S2-BE-04` · Signed asset delivery through the CDN
 
-**Order** 16 · **BE** · **Where:** Code · **3d** · **Code review**
+**Order** 16 · **BE** · **Where:** Code · **3d** · **Done**
 
 Creative is served fast and signed, so assets cannot be lifted from the URL.
 
 - **Depends on:** 4S2-BE-03
 - **Done when:** Creative is delivered through signed, short-lived CDN URLs
-- **Delivered:** 2026-10-19.
+- **Delivered:** 2026-10-19 (merged in #255).
   - **The links:** each file in the manifest comes with `url`, signed to the private bucket on Cloudflare R2, and `urlExpiresAt`. A link lives 15 minutes and fetches only its own file.
   - **Stepped every 5 minutes:** every link handed out is good for at least 10, and a poll inside one step gets 304 with nothing signed.
   - **Audited:** one row per grant, naming the keys and never the links.
@@ -342,14 +342,22 @@ Creative is served fast and signed, so assets cannot be lifted from the URL.
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §7
 - **Reference:** Spec §31
 
-### ⏸ `4S2-BE-05` · Deployment pause and rollback
+### ◑ `4S2-BE-05` · Deployment pause and rollback
 
-**Order** 17 · **BE** · **Where:** Code · **3d** · **Blocked**
+**Order** 17 · **BE** · **Where:** Code · **3d** · **Code review**
 
 A sponsor needs their creative down in minutes, not at the next release. Pausing invalidates the manifest and the prior asset state.
 
 - **Depends on:** 4S2-BE-03
 - **Done when:** Creative can be paused or rolled back from SponsorX without redeploying the INFINEX application
+- **Delivered:** 2026-10-19.
+  - **Pause and resume:** `POST /virtual/deployments/{id}/pause` takes a deployment off its world's manifest on the next poll (within 60 s), with a new manifest version and ETag. `…/resume` puts it back, checked again like an approval.
+  - **Roll back:** `POST /virtual/windows/{id}/rollback` puts the previous validated version (or a named one) on the window from now to the old end, in one step.
+  - **No new links:** none are handed out for a paused deployment; one already out lapses within 15 minutes (4S2-BE-04).
+  - **Records:** each is audited and records when and why; the database holds that.
+  - **Test:** `virtual-deployment-control.test.ts`.
+
+  [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §6.1
 - **Reference:** Spec §27.2, §34
 
 ### ⏸ `4S2-FE-01` · Build the creative deployment console
@@ -562,15 +570,15 @@ Challenge rules, start condition, completion criteria, reward trigger and sponso
 
 *5 tasks · 25 person-days*
 
-### ◑ `4S7-BE-01` · Cross-channel campaign model extension
+### ✅ `4S7-BE-01` · Cross-channel campaign model extension
 
-**Order** 38 · **BE** · **Where:** Code · **5d** · **Code review**
+**Order** 38 · **BE** · **Where:** Code · **5d** · **Done**
 
 One campaign holding real-world, social, athlete, reward and INFINEX inventory together.
 
 - **Depends on:** 4S1-BE-03
 - **Done when:** A single campaign can contain virtual and non-virtual inventory
-- **Delivered:** 2026-10-19.
+- **Delivered:** 2026-10-19 (merged in #255).
   - **One campaign, all three:** athlete orders, NEXT ad slots and INFINEX placement windows sit on one campaign. A window now belongs to its campaign (a foreign key).
   - **Money:** a booking is a `PLACEMENT_WINDOW_BOOKED` fact (channel `INFINEX`), reversed when the days are given back. It counts once in the campaign's figures, the nightly fact check, the sponsor's spend and the sponsor report.
   - **Stages:** a campaign holding only INFINEX placements skips staffing, as an ad-only one does. One with athlete work is still staffed.

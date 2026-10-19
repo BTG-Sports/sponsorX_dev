@@ -15,8 +15,11 @@
  *
  *   DEPLOYMENTS. A deployment ties the campaign's window, one VALIDATED
  *   version of its creative and the dates it runs, inside the window. DRAFT,
- *   then APPROVED (checked again, live), then ENDED. Pausing and rolling back
- *   are 4S2-BE-05. Two APPROVED deployments on one window never overlap (the
+ *   then APPROVED (checked again, live), then ENDED. 4S2-BE-05: an APPROVED
+ *   one can be PAUSED (and resumed, checked again like an approval), or
+ *   ROLLED_BACK, which puts an earlier validated version on the window from
+ *   that moment to the old end. Both take effect on the world's next manifest
+ *   poll: no INFINEX release is needed. Two APPROVED deployments on one window never overlap (the
  *   database's EXCLUDE constraint). Every change of state bumps the
  *   deployment's `sequence` and its world's `manifestVersion`, and is audited.
  *   A window given back (bookings) ends its deployments.
@@ -61,12 +64,13 @@ const ASSET = {
 } as const;
 const DEPLOYMENT = {
   id: true, worldId: true, placementId: true, windowId: true, campaignId: true, assetId: true, assetVersion: true, startsAt: true, endsAt: true,
-  state: true, sequence: true, approvedAt: true, endedAt: true, endReason: true,
+  state: true, sequence: true, approvedAt: true, endedAt: true, endReason: true, pausedAt: true, rolledBackAt: true, stateReason: true, replacedById: true,
 } as const;
 
 const viewAsset = (a: Prisma.VirtualAssetGetPayload<{ select: typeof ASSET }>) => ({ ...a, createdAt: a.createdAt.toISOString() });
 const viewDeployment = (d: Prisma.CreativeDeploymentGetPayload<{ select: typeof DEPLOYMENT }>) => ({
   ...d, startsAt: d.startsAt.toISOString(), endsAt: d.endsAt.toISOString(), approvedAt: d.approvedAt?.toISOString() ?? null, endedAt: d.endedAt?.toISOString() ?? null,
+  pausedAt: d.pausedAt?.toISOString() ?? null, rolledBackAt: d.rolledBackAt?.toISOString() ?? null,
 });
 
 const isOverlap = (e: unknown) => /CreativeDeployment_no_overlap|exclusion constraint/i.test(String((e as { message?: string })?.message ?? "")) || (e as { code?: string })?.code === "P2004";
@@ -222,6 +226,26 @@ async function deploymentFor(tx: Tx, actor: Actor, deploymentId: string) {
   return { d, ...reach };
 }
 
+type Reach = Awaited<ReturnType<typeof windowFor>> & { d: { tenantId: string } };
+
+/** What must still hold for creative to go (back) on a world: approving, resuming and rolling back all ask it. */
+async function liveProblems(tx: Tx, { d, w, campaign, placement, world }: Reach, assetId: string): Promise<string[]> {
+  const asset = await tx.virtualAsset.findFirst({ where: { tenantId: d.tenantId, id: assetId }, select: { state: true } });
+  return [
+    ...(w.state !== "BOOKED" ? ["Its window was given back."] : []),
+    ...(placement.state !== "AVAILABLE" ? ["Its placement is not on sale."] : []),
+    ...(world.status !== "ACTIVE" ? ["Its world is retired."] : []),
+    ...(campaign.state === "CANCELLED" ? ["Its campaign is cancelled."] : []),
+    ...(asset?.state !== "VALIDATED" ? ["Its creative is not validated."] : []),
+  ];
+}
+
+const reasonOf = (input: { reason: string }) => {
+  const reason = input.reason.trim();
+  if (reason.length < 3 || reason.length > 500) throw new VirtualInputError(["Say why (3 to 500 characters)."]);
+  return reason;
+};
+
 /**
  * POST /virtual/deployments/:deploymentId/approve — it goes into its world's
  * manifest for its dates. Checked again now: still a DRAFT, its window still
@@ -233,15 +257,11 @@ export async function approveDeployment(actor: Actor, deploymentId: string, now 
   assertAllowed(actor, "campaign", "write");
   try {
     return await prisma.$transaction(async (tx) => {
-      const { d, w, campaign, placement, world } = await deploymentFor(tx, actor, deploymentId);
-      const asset = await tx.virtualAsset.findFirst({ where: { tenantId: d.tenantId, id: d.assetId }, select: { state: true } });
+      const reach = await deploymentFor(tx, actor, deploymentId);
+      const { d } = reach;
       const problems = [
         ...(d.state !== "DRAFT" ? [`It is ${d.state}, not a draft.`] : []),
-        ...(w.state !== "BOOKED" ? ["Its window was given back."] : []),
-        ...(placement.state !== "AVAILABLE" ? ["Its placement is not on sale."] : []),
-        ...(world.status !== "ACTIVE" ? ["Its world is retired."] : []),
-        ...(campaign.state === "CANCELLED" ? ["Its campaign is cancelled."] : []),
-        ...(asset?.state !== "VALIDATED" ? ["Its creative is not validated."] : []),
+        ...(await liveProblems(tx, reach, d.assetId)),
       ];
       if (problems.length) throw new VirtualConflictError(problems.join(" "));
       const next = await tx.creativeDeployment.update({
@@ -261,11 +281,11 @@ export async function approveDeployment(actor: Actor, deploymentId: string, now 
 /** POST /virtual/deployments/:deploymentId/end { reason } — off its world for good, with the reason. */
 export async function endDeployment(actor: Actor, deploymentId: string, input: { reason: string }, now = new Date()) {
   assertAllowed(actor, "campaign", "write");
-  const reason = input.reason.trim();
-  if (reason.length < 3 || reason.length > 500) throw new VirtualInputError(["Say why (3 to 500 characters)."]);
+  const reason = reasonOf(input);
   return prisma.$transaction(async (tx) => {
     const { d } = await deploymentFor(tx, actor, deploymentId);
     if (d.state === "ENDED") throw new VirtualConflictError("It has already ended.");
+    if (d.state === "ROLLED_BACK") throw new VirtualConflictError("It was rolled back; the deployment that replaced it is the one to end.");
     const next = await endInside(tx, actor, d, reason, now);
     return { deployment: viewDeployment(next) };
   });
@@ -276,16 +296,124 @@ async function endInside(tx: Tx, by: AuditActor, d: { id: string; tenantId: stri
     /* tenant-scope: a deployment reached through its campaign (or by the system, keyed by its window). */
     where: { id: d.id }, data: { state: "ENDED", endedAt: now, endReason: reason, sequence: { increment: 1 } }, select: DEPLOYMENT,
   });
-  if (d.state !== "DRAFT") await bumpManifest(tx, d.tenantId, d.worldId);
+  if (d.state === "APPROVED") await bumpManifest(tx, d.tenantId, d.worldId);
   await audit(tx, by, AUDIT_ACTIONS.virtual.deploymentEnd, "CreativeDeployment", d.id, { before: { state: d.state }, after: { state: "ENDED", reason } });
   return next;
 }
 
 /** In the caller's transaction: a window given back (released, or its campaign cancelled) ends its deployments. */
 export async function endWindowDeployments(tx: Tx, by: AuditActor, window: { id: string; tenantId: string }, reason: string, now: Date) {
-  const live = await tx.creativeDeployment.findMany({ where: { tenantId: window.tenantId, windowId: window.id, state: { not: "ENDED" } }, select: { id: true, tenantId: true, worldId: true, state: true } });
+  /* A rolled-back deployment is already off its world, replaced by one this ends too. */
+  const live = await tx.creativeDeployment.findMany({ where: { tenantId: window.tenantId, windowId: window.id, state: { notIn: ["ENDED", "ROLLED_BACK"] } }, select: { id: true, tenantId: true, worldId: true, state: true } });
   for (const d of live) await endInside(tx, by, d, reason, now);
   return live.length;
+}
+
+/* ───────────────────────────── pause, resume and roll back (4S2-BE-05) ───────────────────────────── */
+
+/**
+ * POST /virtual/deployments/:deploymentId/pause { reason } — off its world on the next manifest poll, until resumed.
+ * No new link is handed out for it; one already handed out lapses within fifteen minutes (4S2-BE-04).
+ */
+export async function pauseDeployment(actor: Actor, deploymentId: string, input: { reason: string }, now = new Date()) {
+  assertAllowed(actor, "campaign", "write");
+  const reason = reasonOf(input);
+  return prisma.$transaction(async (tx) => {
+    const { d } = await deploymentFor(tx, actor, deploymentId);
+    if (d.state !== "APPROVED") throw new VirtualConflictError(`It is ${d.state}; only an approved deployment can be paused.`);
+    const next = await tx.creativeDeployment.update({
+      /* tenant-scope: the deployment found above through its window's campaign and world. */
+      where: { id: d.id }, data: { state: "PAUSED", pausedAt: now, stateReason: reason, sequence: { increment: 1 } }, select: DEPLOYMENT,
+    });
+    await bumpManifest(tx, d.tenantId, d.worldId);
+    await audit(tx, actor, AUDIT_ACTIONS.virtual.deploymentPause, "CreativeDeployment", d.id, { before: { state: "APPROVED" }, after: { state: "PAUSED", reason, sequence: next.sequence } });
+    return { deployment: viewDeployment(next) };
+  });
+}
+
+/** POST /virtual/deployments/:deploymentId/resume — back on its world, checked again as an approval is. */
+export async function resumeDeployment(actor: Actor, deploymentId: string) {
+  assertAllowed(actor, "campaign", "write");
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const reach = await deploymentFor(tx, actor, deploymentId);
+      const { d } = reach;
+      const problems = [
+        ...(d.state !== "PAUSED" ? [`It is ${d.state}, not paused.`] : []),
+        ...(await liveProblems(tx, reach, d.assetId)),
+      ];
+      if (problems.length) throw new VirtualConflictError(problems.join(" "));
+      const next = await tx.creativeDeployment.update({
+        /* tenant-scope: the deployment found above through its window's campaign and world. */
+        where: { id: d.id }, data: { state: "APPROVED", pausedAt: null, stateReason: null, sequence: { increment: 1 } }, select: DEPLOYMENT,
+      });
+      await bumpManifest(tx, d.tenantId, d.worldId);
+      await audit(tx, actor, AUDIT_ACTIONS.virtual.deploymentResume, "CreativeDeployment", d.id, { before: { state: "PAUSED" }, after: { state: "APPROVED", sequence: next.sequence } });
+      return { deployment: viewDeployment(next) };
+    });
+  } catch (e) {
+    if (isOverlap(e)) throw new VirtualConflictError("Another approved deployment now runs on this window at some of those times.");
+    throw e;
+  }
+}
+
+/**
+ * POST /virtual/windows/:windowId/rollback { reason, assetId? } — the window's running (or paused) deployment is
+ * ROLLED_BACK and an earlier validated version — the one named, or else the newest older than it — goes on the
+ * world from now to the old end, approved, in one step.
+ */
+export async function rollbackWindow(actor: Actor, windowId: string, input: { reason: string; assetId?: string }, now = new Date()) {
+  assertAllowed(actor, "campaign", "write");
+  const reason = reasonOf(input);
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const reach = await windowFor(tx, actor, windowId);
+      const { w, placement } = reach;
+      const current = await tx.creativeDeployment.findFirst({
+        where: { tenantId: w.tenantId, windowId: w.id, state: { in: ["APPROVED", "PAUSED"] }, endsAt: { gt: now } },
+        orderBy: [{ startsAt: "asc" }, { id: "asc" }], select: { ...DEPLOYMENT, tenantId: true },
+      });
+      if (!current) throw new VirtualConflictError("Nothing is running or paused on this window to roll back.");
+      const target = input.assetId
+        ? await tx.virtualAsset.findFirst({ where: { tenantId: w.tenantId, windowId: w.id, id: input.assetId }, select: { id: true, version: true, state: true } })
+        : await tx.virtualAsset.findFirst({
+            where: { tenantId: w.tenantId, windowId: w.id, state: "VALIDATED", version: { lt: current.assetVersion } },
+            orderBy: { version: "desc" }, select: { id: true, version: true, state: true },
+          });
+      if (!target) throw new VirtualConflictError(input.assetId ? "That creative is not on this window." : "There is no earlier validated version to roll back to.");
+      if (target.id === current.assetId) throw new VirtualConflictError("That version is the one already running.");
+      const problems = await liveProblems(tx, { ...reach, d: current }, target.id);
+      if (problems.length) throw new VirtualConflictError(problems.join(" "));
+      const dates = { startsAt: current.startsAt > now ? current.startsAt : now, endsAt: current.endsAt };
+      const bad = deploymentDatesProblem(dates, w);
+      if (bad) throw new VirtualInputError([bad]);
+
+      /* The old one leaves first, so the database's one-at-a-time rule lets the new one in. */
+      const replacement = await tx.creativeDeployment.create({
+        data: {
+          tenantId: w.tenantId, worldId: placement.worldId, placementId: placement.id, windowId: w.id, campaignId: w.campaignId, assetId: target.id, assetVersion: target.version,
+          ...dates, createdBy: actor.userId,
+        },
+        select: { id: true },
+      });
+      const old = await tx.creativeDeployment.update({
+        /* tenant-scope: the window's own deployment, found above through its campaign and world. */
+        where: { id: current.id }, data: { state: "ROLLED_BACK", rolledBackAt: now, stateReason: reason, replacedById: replacement.id, pausedAt: null, sequence: { increment: 1 } }, select: DEPLOYMENT,
+      });
+      const next = await tx.creativeDeployment.update({
+        /* tenant-scope: the deployment just created on this window. */
+        where: { id: replacement.id }, data: { state: "APPROVED", approvedBy: actor.userId, approvedAt: now, sequence: { increment: 1 } }, select: DEPLOYMENT,
+      });
+      await bumpManifest(tx, w.tenantId, placement.worldId);
+      await audit(tx, actor, AUDIT_ACTIONS.virtual.deploymentRollback, "CreativeDeployment", current.id, {
+        before: { state: current.state, assetVersion: current.assetVersion }, after: { state: "ROLLED_BACK", reason, replacedById: next.id, assetVersion: target.version },
+      });
+      return { rolledBack: viewDeployment(old), deployment: viewDeployment(next) };
+    });
+  } catch (e) {
+    if (isOverlap(e)) throw new VirtualConflictError("Another approved deployment runs on this window at some of those times.");
+    throw e;
+  }
 }
 
 /* ───────────────────────────── the manifest (4S2-BE-03, links 4S2-BE-04) ───────────────────────────── */

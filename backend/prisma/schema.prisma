@@ -4603,6 +4603,13 @@ model CreativeDeployment {
   approvedAt   DateTime?
   endedAt      DateTime?
   endReason    String?
+  /// 4S2-BE-05 — when it was last paused (null once resumed), and when it was rolled back.
+  pausedAt     DateTime?
+  rolledBackAt DateTime?
+  /// 4S2-BE-05 — why it is PAUSED or ROLLED_BACK.
+  stateReason  String?
+  /// 4S2-BE-05 — the deployment a roll back put in its place.
+  replacedById String?
   createdBy    String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @default(now()) @updatedAt

@@ -106,3 +106,12 @@ export const DeploymentInput = z
 
 export const DeploymentEnd = z.object({ reason: z.string().max(600) }).strict()
   .meta({ id: "CreativeDeploymentEnd", description: "End a deployment, with the reason (4S2-BE-01)." });
+
+export const DeploymentPause = z.object({ reason: z.string().max(600).describe("Why, 3 to 500 characters") }).strict()
+  .meta({ id: "CreativeDeploymentPause", description: "Pause an approved deployment, with the reason: off its world on the next manifest poll (4S2-BE-05)." });
+
+export const WindowRollback = z.object({
+  reason: z.string().max(600).describe("Why, 3 to 500 characters"),
+  assetId: z.string().min(1).max(64).optional().describe("The validated version to put back; default the newest one older than the running one"),
+}).strict()
+  .meta({ id: "CreativeWindowRollback", description: "Roll a window's running or paused deployment back to an earlier validated creative version, from now to its end (4S2-BE-05)." });
