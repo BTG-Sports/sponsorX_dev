@@ -20,6 +20,7 @@ import { intelligenceRouter } from "./intelligence";
 import { zohoWebhooksRouter } from "./zoho-webhooks";
 import { attributionRouter } from "./attribution";
 import { virtualRouter } from "./virtual";
+import { infinexRouter } from "./infinex";
 import { inquiriesRouter } from "./inquiries";
 import { catalogueRouter } from "./catalogue";
 import { sponsorOverviewRouter } from "./sponsor-overview";
@@ -106,6 +107,7 @@ v1Router.use("/", metricsRouter);
 v1Router.use("/", intelligenceRouter);
 /* 4S1-BE-01/02/03 — the virtual registry (Phase 4). */
 v1Router.use("/", virtualRouter);
+v1Router.use("/", infinexRouter);
 
 /* B7 — inbound Zoho (P7-BE-04, §18, §20). PUBLIC and unauthenticated by
    necessity: Zoho cannot log in. Guarded by an HMAC shared secret instead,

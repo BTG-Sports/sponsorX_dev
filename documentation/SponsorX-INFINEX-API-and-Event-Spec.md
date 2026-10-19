@@ -55,7 +55,7 @@ sessions and its rendering.
 | Versioned REST API | **Exists** | `/api/v1` (`backend/src/app.ts`). `GET /api/v1/` returns `{service:"sponsorx-api",version:"v1"}`. |
 | Machine-readable contract | **Exists** | `GET /api/v1/openapi.json`: OpenAPI 3.1, generated from the Zod registry on every request, `Cache-Control: no-store` (`backend/src/routes/v1/openapi.ts`, `backend/src/contracts/registry.ts`). A CI test keeps it matched to the live routes (`backend/tests/openapi.coverage.test.ts`). Errors are RFC 9457 `ProblemDetails`. |
 | `SERVICE` role in the policy | **Exists** | `Role.SERVICE` in `schema.prisma`; policy rows in `backend/src/auth/policy.ts` (§6 below). |
-| **Machine authentication for `SERVICE`** | **Missing** | The only credential the API accepts is a **Clerk user session** (Bearer token or cookie, `backend/src/auth/clerk.ts`). There is no API key, no client-credentials flow and no request-signing verifier. `registry.ts` documents `bearerAuth` "for §8's API Service Account", but nothing implements a separate verifier. **This is the first thing Phase 4 must add** (§6). |
+| **Machine authentication for INFINEX** | **Exists** (2026-10-19, `4S0-SEC-01`) | Server credentials swapped for 15-minute tokens, game sessions with a signing key, and the raw-body signature verifier (`backend/src/auth/machine.ts`, §6.2). Before this the only credential the API accepted was a Clerk user session. |
 | **Outbound events or webhooks** | **Missing** | Everything outbound today is a Zoho API call or a Resend email, made by the worker. There is no subscriber registry, no event envelope and no delivery signing. The outbox is the right foundation (§5.4). |
 | Inbound webhook intake pattern | **Exists** | `POST /webhooks/zoho/invoice`: HMAC-SHA256, constant-time compare, a `WebhookDelivery` row, enqueue, 202 (`backend/src/routes/v1/zoho-webhooks.ts`). This is the template for telemetry intake (§5.3). One caveat: the HMAC is computed over re-serialised JSON, not the raw bytes. |
 | Virtual inventory model | **Missing** | "VIRTUAL" exists only as an organisation type in property onboarding (`ORG_TYPES` in `backend/src/domain/onboarding-rules.ts`, with a `platformUrl` detail field), so a world operator can already onboard as a property. There are no world, zone or placement models. |
@@ -384,28 +384,55 @@ produce a `SERVICE` actor** except a Clerk *user* session for a `User` row
 that carries the role. That is unsuitable for a game server and impossible
 for a shipped game client.
 
-### 6.2 · Proposed design (`4S0-SEC-01`)
+### 6.2 · The design (`4S0-SEC-01`, decided and built 2026-10-19)
 
-There are **two trust tiers**, because a game client is not a server:
+There are **two trust tiers**, because a game client is not a server. Neither
+goes through Clerk: Clerk authenticates people. A bearer token starting `sxm_`
+takes a second branch in `requireActor()` (`backend/src/auth/machine.ts`).
 
 | Tier | Who | Credential | May call |
 |---|---|---|---|
-| **INFINEX server** | INFINEX's backend services | OAuth 2.0 client-credentials → short-lived JWT access token (15 min), audience `sponsorx-api`, `sub = <ServiceCredential.id>`. **Decision:** Clerk machine tokens (keeps `backend/src/auth/clerk.ts` the only vendor file) or a SponsorX-issued token signed with a rotating key. | Registry reads, manifest, config, activation complete, telemetry batch, metrics reads |
-| **Game client build** | The shipped client, per build or install | A per-build key pair registered as an `InfinexClient`. The client signs telemetry (§5.3). A short-lived access token is minted by the INFINEX server — **never** a long-lived secret in the binary. | Manifest (read), config (read), heartbeat, telemetry batch — **nothing else** |
+| **INFINEX server** | INFINEX's backend services | A machine credential (`InfinexCredential`: id + secret, issued by BTG, secret shown once and stored as its SHA-256), swapped at `POST /infinex/token` for a **15-minute token**. | Registry and manifest reads; starting game sessions (`POST /infinex/clients/{id}/sessions`). Later: config, activation complete, telemetry, metrics reads, as their tasks add them. |
+| **Game client** | The shipped game on a player's device | **No long-lived secret in the binary.** Its world's server starts a 15-minute session for one registered `InfinexClient`: a token pinned to that client's world, and a signing key. | Its world's manifest. Later: config, heartbeat, telemetry. **Nothing else.** |
 
-**Resolution into today's authorisation, with no redesign.** Add a second
-branch to `requireActor()` (`backend/src/auth/actor.ts`):
+**Decisions.**
+1. **SponsorX issues its own tokens, not Clerk machine tokens.**
+   - **What a token is:** 32 random bytes, stored only as their SHA-256, with an expiry.
+   - **Looked up on every request,** with its credential, its user and (for a session) its client. So revoking any of them, or a role on the user, takes effect on the next call. No signing keys to rotate.
+   - **Why not Clerk:** it keeps Clerk out of the machine path; Clerk Pro is deferred to launch.
+2. **The role is split** (§6.3's recommendation):
+   - `INFINEX_SERVICE` and `INFINEX_CLIENT` are new matrix rows (RBAC §38);
+   - `SERVICE` stays for internal integrations;
+   - neither new role writes campaigns, sponsors or anything commercial;
+   - both are denied every protected field.
+3. **A game signs with a session key, not a key pair.**
+   - **The key:** an HMAC of the session's token id under `INFINEX_SIGNING_SECRET` (rotation: `_PREVIOUS`), so it is never stored. The verifier derives it again.
+   - **The headers:** `SponsorX-Key-Id` is the session's token id; `SponsorX-Signature: t=<unix>,v1=<hex HMAC-SHA256(key, t + "." + rawBody)>`, over the raw bytes, with `t` within ±300 s.
+   - **Supersedes** the earlier "per-build key pair" wording. A key pair in a shipped game is a long-lived secret too.
+   - **Until the secret is set,** no session can start (503).
 
-- A verified service token resolves to a `ServiceCredential { id, tenantId, userId, scopes[], revokedAt? }`.
-- Its linked `User` row carries `roles: [SERVICE]`.
-- `resolveActor` then produces an ordinary `Actor`, so `whereFor`, `assertAllowed`, `FIELD_DENIALS` and `audit()` all work unchanged.
-- Roles are still read from Postgres on every request, so revoking takes effect on the next call.
-- Audit rows name the service user.
+**Resolution into today's authorisation, with no redesign.**
+- The credential acts as its own `User` (roles `INFINEX_SERVICE`, `INFINEX_CLIENT`; an `@machine.invalid` address, which a person's sign-in can never claim).
+- A token acts only as its kind's role, and comes out as an ordinary `Actor`. So `whereFor`, `assertAllowed`, `FIELD_DENIALS` and `audit()` work unchanged, and audit rows name the credential's user.
+- A game session also carries its client's world, and `virtualWorld` reads are pinned to it.
 
-**Scopes narrow; they never widen.** A token's `scopes[]` (for example
-`manifest:read`, `telemetry:write`, `activation:complete`) is checked **in
-addition to** the role policy. A scope can deny what `SERVICE` could
-otherwise do; it can never grant something `policy.ts` denies.
+**Scopes narrow; they never widen.** A credential's optional `scopes[]`
+(`"<resource>:<action>"`, for example `virtualWorld:read`) are checked **in
+addition to** the role policy (`scope.ts scopeOf`). A scope can deny what the
+role could otherwise do; it can never grant something `policy.ts` denies.
+
+**What it does not stop.** Someone who takes a running game apart can sign
+events with its session key for that session's 15 minutes. That is true of
+any client a player holds. It is bounded by the session's life and the config
+limits (`4S3-INT-03`), and caught by the fraud and anomaly checks
+(`4S8-DATA-01`).
+
+**Endpoints:**
+- `POST /infinex/token`: public and rate-limited; any failure is the same 401.
+- `POST /infinex/clients/{clientId}/sessions`: a server's token only.
+- `GET`/`POST /infinex/credentials` and `POST /infinex/credentials/{id}/revoke`: BTG admins.
+- **Audited:** issuing, revoking, every token and every session.
+- **Proven in** `backend/tests/infinex-auth.test.ts`.
 
 ### 6.3 · What `SERVICE` may do today (**exists**, `backend/src/auth/policy.ts`)
 

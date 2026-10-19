@@ -40,7 +40,9 @@ export function createApp() {
   app.use(
     express.json({
       verify: (req, _res, buf) => {
-        if ((req as { url?: string }).url?.startsWith("/api/v1/webhooks/")) (req as { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+        const url = (req as { url?: string }).url ?? "";
+        /* 4S0-SEC-01 — a game signs its INFINEX requests over the raw bytes too. */
+        if (url.startsWith("/api/v1/webhooks/") || url.startsWith("/api/v1/infinex/")) (req as { rawBody?: Buffer }).rawBody = Buffer.from(buf);
       },
     }),
   );

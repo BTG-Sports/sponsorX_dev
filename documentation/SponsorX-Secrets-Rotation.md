@@ -30,6 +30,7 @@ Some secrets **check** something that arrives from outside: a Zoho webhook signa
 | `INTAKE_TOKEN_SECRET` | `INTAKE_TOKEN_SECRET_PREVIOUS` | every emailed link (`lib/intake-secret.ts`) |
 | `STANDIN_PROVIDER_SECRET` | `STANDIN_PROVIDER_SECRET_PREVIOUS` | staging's test-provider links (`lib/payment-provider.ts`) |
 | `STRIPE_WEBHOOK_SECRET` | `STRIPE_WEBHOOK_SECRET_PREVIOUS` | Stripe's platform webhook signature (`lib/stripe.ts`) |
+| `INFINEX_SIGNING_SECRET` | `INFINEX_SIGNING_SECRET_PREVIOUS` | the root every INFINEX game session's signing key is derived from (`auth/machine.ts`, 4S0-SEC-01) |
 | `STRIPE_THIN_WEBHOOK_SECRET` | `STRIPE_THIN_WEBHOOK_SECRET_PREVIOUS` | Stripe's thin-event (Accounts v2) destination signature (same file) |
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | `STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS` | Stripe's Connect webhook signature (same file) |
 
@@ -218,6 +219,16 @@ The same steps apply to every row below:
   4. Delete `SPONSORX_EDGE_KEY_PREVIOUS` on `api`, then deploy.
 - **Downtime:** none. If the order is wrong, nothing breaks, but the API falls back to the socket address for a few minutes, so every fan shares one rate-limit bucket. That is why `api` goes first.
 - **Recommendation:** make sure this is **set** on production. Without it, every fan arriving through the web server counts against one bucket.
+
+### 11a · `INFINEX_SIGNING_SECRET` (+ `_PREVIOUS`)
+
+- **What:** the root a game session's signing key is derived from (`4S0-SEC-01`, `backend/src/auth/machine.ts`). The key itself is never stored.
+- **Unset:** no game session can be started (503). Set it on `api` before an INFINEX world's game sends signed requests (the telemetry intake, `4S4-BE-01`).
+- **Rotate:**
+  1. Set `INFINEX_SIGNING_SECRET_PREVIOUS` = the current value and `INFINEX_SIGNING_SECRET` = a new random value. Deploy.
+  2. New sessions get keys from the new root. Sessions already running keep verifying under the old one.
+  3. After 15 minutes (a session's life), delete `_PREVIOUS` and deploy.
+- **Leaked:** rotate as above, but delete `_PREVIOUS` at once. Every running game session then fails its signature and its server starts a new one.
 
 ### 12 · GitHub Actions secrets
 

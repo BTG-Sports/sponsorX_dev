@@ -160,14 +160,22 @@ Twelve new screens including placement preview metadata, activation builder and 
 - **Done when:** All 12 Phase 4 screens designed, with creative technical constraints specified per placement type
 - **Reference:** Spec §26
 
-### ⏸ `4S0-SEC-01` · Trusted client authentication design
+### ◑ `4S0-SEC-01` · Trusted client authentication design
 
-**Order** 5 · **SEC** · **Where:** Code · **3d** · **Blocked**
+**Order** 5 · **SEC** · **Where:** Code · **3d** · **Code review**
 
 The INFINEX client sends telemetry that becomes sponsor billing data. Its authentication has to be strong enough that fabricated events are not possible.
 
 - **Depends on:** 4S0-PMO-01
 - **Done when:** Client authentication and event signing design reviewed and approved
+- **Delivered:** 2026-10-19. The design was approved by the user as the plan, and is written in the API spec §6.2. It is also built:
+  - **Servers:** a world's server swaps a BTG-issued machine credential for a 15-minute token.
+  - **Games:** a game gets a 15-minute session from its server (a token for its own world, and a signing key derived and never stored), and signs over the raw bytes.
+  - **Checked every call:** revoking takes effect on the next call.
+  - **Roles:** `INFINEX_SERVICE` and `INFINEX_CLIENT` (RBAC §38). Scopes narrow and never widen; no protected field is readable.
+  - **Test:** `infinex-auth.test.ts`.
+
+  [`SponsorX-INFINEX-API-and-Event-Spec.md`](./SponsorX-INFINEX-API-and-Event-Spec.md) §6.2
 - **Reference:** Spec §29, §31
 
 ## Sprint 1 · World & placement registry

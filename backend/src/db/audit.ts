@@ -127,6 +127,13 @@ export const AUDIT_ACTIONS = {
     /** 4S2-BE-04 — short-lived links to a world's creative, handed out with its manifest. */
     creativeLinksGrant: "virtual.creativeLinksGrant",
   },
+  /** 4S0-SEC-01 — INFINEX machine credentials issued and revoked, tokens issued, game sessions started. */
+  infinex: {
+    credentialCreate: "infinex.credentialCreate",
+    credentialRevoke: "infinex.credentialRevoke",
+    tokenIssue: "infinex.tokenIssue",
+    sessionStart: "infinex.sessionStart",
+  },
   /** Agreements — acceptance is the legally interesting event. */
   agreement: {
     accept: "agreement.accept",

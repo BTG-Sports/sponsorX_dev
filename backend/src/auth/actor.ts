@@ -13,7 +13,9 @@
  *     authenticated Clerk id and email, so it can be tested with no HTTP and
  *     no Clerk.
  *   - `requireActor()` is the Express middleware that gets those two values
- *     off a request. Vendor coupling lives there and nowhere else.
+ *     off a request. Vendor coupling lives there and nowhere else. An INFINEX
+ *     machine token (4S0-SEC-01, `auth/machine.ts`) takes a second branch and
+ *     never reaches Clerk; it too comes out as an ordinary Actor.
  *
  * **Roles are read from Postgres on every request, never from a session
  * claim.** Revoking a role therefore takes effect on the next request rather
@@ -25,6 +27,7 @@ import type { NextFunction, Request, Response } from "express";
 import { prisma } from "../db/client";
 import { authenticateClerkRequest, type EmailSource } from "./clerk";
 import { AccountDisabledError, UnauthenticatedError, UnprovisionedError } from "./errors";
+import { isMachineToken, resolveMachineActor } from "./machine";
 import { ROLES, type Role } from "./policy";
 import { actForWard, WARD_HEADER } from "../domain/guardian-acts";
 
@@ -85,6 +88,15 @@ export type Actor = {
    * first. Audit rows still name the guardian's own user. Absent otherwise.
    */
   actingFor?: { athleteId: string; guardianId: string } | null;
+  /**
+   * 4S0-SEC-01 — set only for an INFINEX machine token (auth/machine.ts). `scopes` ("<resource>:<action>")
+   * narrow what the roles allow and never widen it (scope.ts `scopeOf`); empty or absent means the roles alone.
+   * `machine` names the credential (and, for a game session, the client); `infinexWorldId` pins a game session
+   * to its client's world. All absent for a person.
+   */
+  scopes?: string[];
+  machine?: { credentialId: string; clientId: string | null; tokenId: string } | null;
+  infinexWorldId?: string | null;
 };
 
 const ROLE_SET = new Set<string>(ROLES);
@@ -146,9 +158,11 @@ export async function resolveActor(
   const provisioned = await prisma.user.findFirst({
     /* tenant-scope: identity resolution — there is no actor, and so no tenant, until this finds one. */
     where: { email: email.toLowerCase() },
-    select: { id: true, disabledAt: true, disabledReason: true },
+    select: { id: true, disabledAt: true, disabledReason: true, roles: true },
   });
   if (!provisioned) throw new UnprovisionedError(email);
+  /* 4S0-SEC-01 — a machine's user is reached only through its credential, never claimed by a person's sign-in. */
+  if (provisioned.roles.some((r) => r === "INFINEX_SERVICE" || r === "INFINEX_CLIENT")) throw new UnprovisionedError(email);
   if (provisioned.disabledAt) throw new AccountDisabledError(provisioned.disabledReason);
 
   /* Claim it. `clerkId` is unique, so a second identity claiming the same
@@ -192,6 +206,13 @@ export async function requireActor(
   _res: Response,
   next: NextFunction,
 ): Promise<void> {
+  /* 4S0-SEC-01 — an INFINEX machine token (`sxm_…`) is checked here, never by Clerk; anything else is Clerk's. */
+  const bearer = /^Bearer\s+(\S+)$/i.exec(req.get("authorization") ?? "")?.[1];
+  if (isMachineToken(bearer)) {
+    req.actor = await resolveMachineActor(bearer);
+    next();
+    return;
+  }
   const identity = await authenticateClerkRequest(req);
   if (!identity) throw new UnauthenticatedError();
 
