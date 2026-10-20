@@ -66,3 +66,15 @@ The user asked for tasks only, nothing built: a socket connection for the game, 
 - **Not part of it:** Phase 4's former criteria 5–11 and the two added on 2026-10-20, all now in Phase 5 with their tasks (Phase 5's 7–15).
 - **Counts:** Phase 4 is 19 tasks · 62 days, all Done. Tracker row 23; ranges to row 23; Roadmap and CLAUDE.md updated.
 - **Local tooling note:** the session scratchpad had been cleared overnight, so the embedded Postgres and the openpyxl venv were reinstalled there.
+
+## rcfworks — P8-PMO-06 · production go/no-go review drafted (In progress, decision pending)
+
+- **The record:** `documentation/SponsorX-Go-No-Go-Review.md`.
+- **§37 read from the repo's Blueprint copy** (`documentation/Master/Updated_…Integrated_Athlete_Network.docx`, "37. Developer Go/No-Go Gates"). Each condition is recorded with its evidence, or with its gap and owner:
+  - **Before coding Phase 1:** met.
+  - **Before the athlete pilot:** not met. Counsel's P0-LEG-01/02 templates, P0-LEG-06 NIL and high-school constraints, P0-LEG-03 guardian e-sign, P0-LEG-04 fan privacy and the pre-pilot privacy review are open. The payout process is partly met: the Phase 1 policy is written, but 2S0-LEG-01 and 2S0-LEG-02 are open.
+  - **Before the sponsor pilot:** economics and labels are met; P0-LEG-05 reward terms is open, and 3S0-LEG-01 (attribution wording) keeps Phase 3 attribution on BTG's desks until it closes.
+  - **Before Phases 2 and 3:** met. **Before Phase 4:** not applicable (the game is parked).
+- **The owner's production switches,** listed: Stripe live (keys, webhooks, `PAYMENT_PROVIDER`, the Connect model), Zoho production keys and intel fields, Clerk Pro MFA, `SPONSORX_EDGE_KEY`, `GEOLITE2_CITY_PATH`, the Resend sending domain, the Phase 3 stage 3 switch, and a production check by someone with access.
+- **Recommendation:** no-go for real outside users until counsel answers; meanwhile, production readiness and a BTG-internal dry run. Not signed.
+- **Also:** CLAUDE.md's "Open decisions" was stale. The payment policy, residency, email (Resend) and PDF worker were decided weeks ago (P0-PMO-01/02/03/06). It now lists only the open legal questions, plus a "Decided" line and the Stack table's email row. Tracker: P8-PMO-06 In progress, owner rcfworks.

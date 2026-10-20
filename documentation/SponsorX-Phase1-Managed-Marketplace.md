@@ -2891,14 +2891,19 @@ Write what a brand-new developer needs to run the project locally and ship their
 - **Done when:** A developer who has never seen the project can run it locally and ship a change
 - **Reference:** §38
 
-### ⏸ `P8-PMO-06` · Production go/no-go review
+### ▶ `P8-PMO-06` · Production go/no-go review
 
-**Order** 175 · **PMO** · **Where:** Document · **1d** · **Blocked** · **Unblocks** 0
+**Order** 175 · **PMO** · **Where:** Document · **1d** · **In progress** · **Unblocks** 0
 
 The formal sign-off that the pre-pilot and pre-sponsor-pilot conditions are met and you are going live.
 
 - **Depends on:** P8-QA-02, P8-OPS-01
 - **Done when:** §37's pre-pilot and pre-sponsor-pilot gates formally signed off
+- **Drafted 2026-10-20, decision pending:** [`SponsorX-Go-No-Go-Review.md`](./SponsorX-Go-No-Go-Review.md).
+  - **The software is ready:** Phases 1–4 are signed off.
+  - **The athlete-pilot and sponsor-pilot gates wait on counsel:** P0-LEG-01 to P0-LEG-06, 2S0-LEG-01, 2S0-LEG-02 and 3S0-LEG-01.
+  - **The owner's production switches** are listed in the record.
+  - **The recommendation:** no-go for real outside users until counsel answers, with production readiness and a BTG-internal dry run in parallel.
 - **Reference:** §37
 
 ### ✅ `P8-QA-03` · Regression suite consolidation
