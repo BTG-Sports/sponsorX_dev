@@ -397,10 +397,16 @@ Define exactly what counts as a scan, a landing, a claim and a redemption. If th
 
 > **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
-Check which reward types are legal in your states — coupons are easy, sweepstakes are heavily regulated.
+~~Check which reward types are legal in your states — coupons are easy, sweepstakes are heavily regulated.~~
+
+**Redefined 2026-10-20 by the programme owner,** on the same principle as `P0-LEG-06`. BTG does not vet every reward a sponsor chooses, state by state.
+- **The sponsor is responsible for the reward it offers:** it confirms the reward is lawful wherever it is offered, including age limits and any alcohol, cannabis or betting rules.
+- **Built-in limits stay for everyone.** The app runs instant rewards only: no prize won by chance, and nothing to pay to claim. The 18+, 21+ and ticket-holder flags are checked at the booth.
+- **If anyone objects to a reward, BTG pauses it.** The pause already exists (`POST /rewards/{id}/transition` → `PAUSED`), so there is no new build.
+- **Counsel's part shrinks to one paragraph:** approving the sponsor-responsibility wording in the sponsor's terms (in the `2S0-LEG-01` draft, Part B).
 
 - **Depends on:** nothing — startable now
-- **Done when:** Written confirmation of which reward types are permitted in target states
+- **Done when:** Counsel approves the sponsor-responsibility paragraph for rewards. No state-by-state list of permitted reward types is produced.
 - **Reference:** §16
 
 ### ▶ `P0-OPS-04` · Provision Zoho API credentials and sandbox

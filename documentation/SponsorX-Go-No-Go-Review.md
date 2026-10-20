@@ -61,7 +61,7 @@ completeness.
 |---|---|---|---|
 | Package economics approved | **Met** | P0-PMO-09, P0-PMO-10, P0-PMO-13 | — |
 | Tracking and report labels defined | **Met** | The report format (P0-PMO-05) and the attribution claim classes (3S0-PMO-01, `SponsorX-Attribution-Claims.md`). Counsel's review of the sponsor-facing attribution wording (3S0-LEG-01) is still open. Until it closes, Phase 3's attribution shows only on BTG's own desks (stage 1 of the staged rollout in `SponsorX-Phase3-UAT.md`). | Counsel for 3S0-LEG-01 |
-| Reward terms reviewed | **Open** | P0-LEG-05: written confirmation of which reward types (sweepstakes, coupons and so on) are permitted in the target states | Counsel |
+| Reward terms reviewed | **Open** | P0-LEG-05, redefined 2026-10-20: counsel approves the sponsor-responsibility paragraph for rewards in the sponsor's terms. The app runs instant rewards only, and BTG pauses a reward anyone objects to. | Counsel |
 
 ### Before Phases 2, 3 and 4 — **Met**, or **not applicable**
 

@@ -122,13 +122,19 @@ what would satisfy it.
 ## 6 · Reward terms — coupon and sweepstakes legality
 *(`P0-LEG-05`, §16, 1d)*
 
-Which fan reward types we may lawfully run. **Discount coupons are simple; prize
-draws and sweepstakes are heavily regulated** and vary by state. Needed before
-building the tools that create rewards.
+**Redefined 2026-10-20 by the programme owner.** We no longer ask counsel to
+vet every kind of reward in every state. Instead:
 
-**Done when:** written confirmation of permitted reward types in the DMV and
-Baltimore — discount coupon, free item, event check-in reward, prize draw — with
-any conditions such as required official rules or no-purchase-necessary wording.
+- **The sponsor is responsible for the reward it offers.** The sponsor
+  confirms the reward is lawful wherever it is offered, including age limits
+  and any alcohol, cannabis or betting rules.
+- **Built-in limits stay for everyone.** The app runs instant rewards only:
+  no prize won by chance, and nothing to pay to claim. Age and
+  ticket-holder limits are checked at the booth.
+- **If anyone objects to a reward,** BTG pauses it.
+
+**Done when:** counsel approves the sponsor-responsibility paragraph in the
+sponsor's terms (the marketplace and payout terms draft, Part B, section B7).
 
 ---
 
@@ -161,7 +167,7 @@ for using fan data that way, and what partner contracts permit all need review.
 | 3 | Fan reward privacy review | `P0-LEG-04` | Now | 3d |
 | 4 | Athlete-responsibility wording (redefined 2026-10-20, in item 1) | `P0-LEG-06` | Now — with item 1 | 0.5d |
 | 5 | Guardian authorisation method | `P0-LEG-03` | Now — with item 1 | 1d |
-| 6 | Reward terms (coupon / sweepstakes) | `P0-LEG-05` | Now | 1d |
+| 6 | Sponsor-responsibility wording for rewards (redefined 2026-10-20) | `P0-LEG-05` | Now — with item 7 | 0.5d |
 | 7 | Marketplace and payout agreements | `2S0-LEG-01` | Phase 2 | 5d |
 | 8 | Tax and withholding position | `2S0-LEG-02` | Phase 2 | 3d |
 | 9 | Attribution and partner terms | `3S0-LEG-01` | Phase 3 | 3d |

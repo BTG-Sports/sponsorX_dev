@@ -155,3 +155,12 @@ Drafted so counsel has something to approve. Each is marked "DRAFT for counsel r
 
 The switch stays off until the frontend ships.
 - **Frontend tasks raised** (Ready, for the teammate): `P8-FE-03` (the rules tick on `/join` and the guardian's page), `P8-FE-04` (the portal prompt and the settings switch), `P8-FE-05` (BTG's dispute desk) and `P8-FE-06` (the paused-deal banner and upload). They're on the tracker and in the Phase 1 plan.
+
+## P0-LEG-05 redefined (rewards)
+
+- **Programme owner's decision (2026-10-20),** on the same principle as LEG-06: BTG doesn't vet every reward state by state.
+- **The sponsor is responsible for the reward it offers.** A new section B7 in the sponsor's order terms (the item 4 draft) says so.
+- **Built-in limits stay:** instant rewards only (no chance, nothing to pay), and the 18+, 21+ and ticket-holder flags are checked at the booth.
+- **BTG pauses a reward anyone objects to,** using the PAUSED transition that already exists. No new code.
+- **Updated:** the Phase 1 plan, the Legal Work Brief, the Go/No-Go review and the tracker's Legal row.
+- **Item 4 in Drive** was replaced to add B7. Its fees are now described as BTG's proposed rates, each with what it's for, instead of "placeholders". The older version is in the Drive trash.
