@@ -110,7 +110,7 @@ The design is `4S0-SEC-01`, decided 2026-10-19
   the world and time asked.
 - **Creative comes through signed links that expire within minutes.**
 - **A pause or a rollback in SponsorX takes effect at the world's next
-  manifest fetch,** with no new game build (`4S2-BE-05`, `4S8-BE-01`).
+  manifest fetch,** with no new game build (`4S2-BE-05`, `5S8-BE-01`).
 - **Settings come from SponsorX** (`4S3-INT-03`, `GET /infinex/config`): how
   often to send a heartbeat and read the manifest, the largest telemetry
   batch, the supported event versions and the feature flags. A world reads

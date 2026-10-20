@@ -99,7 +99,7 @@ change, not a migration.
 | Aggregates | `VirtualMetricDaily { tenantId, deploymentId, day, visits, grossImpressions, viewableImpressions, dwellMsTotal, interactions, uniqueSessions, ruleVersion, source }`, unique on (deploymentId, day, ruleVersion) | **Proposed** (`5S5-DATA-01`) | **`MetricDaily`** (**exists**): unique on (deliverableId, day, source), with `source MetricSource`. Dashboards read aggregates, never raw rows. |
 | Viewability rule | `ViewabilityRule { id, version, minVisiblePct, minDwellMs, effectiveAt }`, immutable once used | **Proposed** (`5S5-BE-01`) | `AthleteScore.method` / `content-value-rules.ts` (**exist**): versioned rules stored with every result, so a number can be explained later. |
 | Client (game build / server) | `InfinexClient { id, tenantId, worldId?, kind (SERVER\|CLIENT_BUILD), keyId, publicKey or secretHash, schemaVersions[], lastHeartbeatAt?, status }` | **Proposed** (`4S3-INT-02`) | `WebhookDelivery` + integration health (**exist**) for operational visibility. |
-| Incident | `DeploymentIncident { id, tenantId, type, severity, openedAt, closedAt?, notes, deploymentIds[] }` | **Proposed** (`4S8-BE-02`) | `AuditLog` (**exists**) records every pause and rollback that causes one. |
+| Incident | `DeploymentIncident { id, tenantId, type, severity, openedAt, closedAt?, notes, deploymentIds[] }` | **Proposed** (`5S8-BE-02`) | `AuditLog` (**exists**) records every pause and rollback that causes one. |
 
 ### 3.3 · Provenance for virtual numbers
 
@@ -166,7 +166,7 @@ touching portal routes.
 | `POST /campaigns/:id/virtual-assets/uploads` → presigned PUT; then `POST /campaigns/:id/virtual-assets` `{r2Key, version, …}` | Same direct-to-R2 pattern as deliverables. Validation against the placement's constraints runs on the worker (`virtualAsset.validate`); a failure leaves the asset `REJECTED` with reasons. |
 | `POST /virtual/deployments` `{campaignId, placementWindowId, assetId, assetVersion, startsAt, endsAt}` | Creates DRAFT. |
 | `POST /virtual/deployments/:id/transition` `{to, reason?}` | APPROVE / SCHEDULE / PAUSE / RESUME / ROLLBACK / END. Each transition bumps `sequence`, is audited, and enqueues `infinex.manifestChanged` in the same transaction. |
-| `POST /virtual/emergency-pause` `{scope: {sponsorId? , campaignId?, deploymentIds?}, reason}` | Kill switch (`4S8-BE-01`). BTG_ADMIN only, MFA session required. Pauses every matching deployment in one transaction. |
+| `POST /virtual/emergency-pause` `{scope: {sponsorId? , campaignId?, deploymentIds?}, reason}` | Kill switch (`5S8-BE-01`). BTG_ADMIN only, MFA session required. Pauses every matching deployment in one transaction. |
 
 **Manifest — what INFINEX calls at runtime (`4S2-BE-03`)**
 
@@ -358,7 +358,7 @@ SponsorX-Delivery-Attempt: 2
 | `manifest.changed` | Any deployment transition in a world | `{worldId, manifestVersion}` | Re-fetch the manifest |
 | `deployment.paused` | `…/transition {to: PAUSE}` | `{deploymentId, sequence, reason}` | Stop rendering within the agreed time target |
 | `deployment.rolledBack` | `…/transition {to: ROLLBACK}` | `{deploymentId, sequence, toAssetVersion}` | Render the prior version |
-| `emergency.pause` | `POST /virtual/emergency-pause` | `{deploymentIds[], reason, issuedAt}` | Remove immediately; acknowledge via heartbeat `manifestVersion` (`4S8-BE-01`) |
+| `emergency.pause` | `POST /virtual/emergency-pause` | `{deploymentIds[], reason, issuedAt}` | Remove immediately; acknowledge via heartbeat `manifestVersion` (`5S8-BE-01`) |
 | `placement.statusChanged` | Placement AVAILABLE / RETIRED, or a test result | `{placementId, state, testStatus}` | Registry sync |
 | `activation.changed` | Activation LIVE / PAUSED / ENDED | `{activationId, state, sequence}` | Enable or disable the in-world trigger |
 | `reward.issued` | Activation completion transaction | `{activationId, completionId, rewardTokenId, claimUrl}` | Show the fan their claim link |

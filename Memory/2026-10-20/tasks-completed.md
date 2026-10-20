@@ -44,3 +44,13 @@ The user asked for tasks only, nothing built: a socket connection for the game, 
 - **Renamed** in the spec, the World Contract, the Module Interface plan, the Virtual Registry and the Taxonomy: exact-ID replace in those five files only.
 - **Kept as they were:** code comments and dated Memory logs (the former-ID table maps them).
 - **Tracker:** the rows moved sheet to sheet, ranges reset (Phase 4 to row 31, Phase 5 to row 45), the Roadmap updated. CLAUDE.md is updated too.
+
+## rcfworks — correction: all 9 remaining Phase 4 tasks moved to Phase 5 too
+
+- **What went wrong:** I had kept 9 Phase 4 tasks as "web-side" (they run in SponsorX, not in the game). The user asked whether the emergency pause was for the game ("I told you to transfer all game related tasks to Phase 5. Am I not clear?"). It is: everything those tasks manage lives in the game. I had sorted by where the code runs instead of by what it serves.
+- **Moved** as Sprint 8 · Virtual inventory screens, controls and launch: 4S0-ART-01 → 5S8-ART-01; 4S1-FE-01/02/03 → 5S8-FE-01/02/03; 4S2-FE-01 → 5S8-FE-04; 4S8-BE-01/02 → 5S8-BE-01/02; 4S9-PMO-02 → 5S8-PMO-01; 4S9-OPS-01 → 5S8-OPS-01. 5S6-FE-01 now depends on 5S8-ART-01.
+- **Phase 4:** 18 tasks, all Done (closed at what was built). Its criteria 1–4 are demonstrated by those tasks' tests; the two criteria added today are Phase 5's 14–15.
+- **Phase 5:** 50 tasks · 198 days. 5S2-PMO-02 signs off all 15 criteria.
+- **References** updated in the spec and the World Contract. The tracker rows moved (Phase 4 to row 22, Phase 5 to row 54) and the Roadmap is updated.
+- **Consequence:** no backend task is left for the SponsorX web app in Phases 1–4. What remains is go-live vendor setup (P2-INT-02 Clerk MFA, P2-OPS-04 production Zoho keys) and the frontend.
+

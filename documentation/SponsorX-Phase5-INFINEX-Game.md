@@ -5,9 +5,9 @@
 | | |
 |---|---|
 | **Goal** | Connect the INFINEX game to SponsorX: the game shows sponsors' creative on the right surfaces, reports its health and its viewing, and a real sponsor runs a pilot in a real world. |
-| **Tasks** | 41 · 163 person-days |
+| **Tasks** | 50 · 198 person-days |
 | **Timeline** | Starts once the INFINEX game has a staging world |
-| **Depends on** | **The INFINEX game** (not started as of 2026-10-16), and Phase 4's SponsorX side: the manifest (`4S2-BE-03`), the client endpoints (`4S3-INT-02`, `-03`) and the telemetry intake (`4S4-BE-01`). Since 2026-10-20 the game-dependent rest of Phase 4 is here (Sprints 4–7) |
+| **Depends on** | **The INFINEX game** (not started as of 2026-10-16), and Phase 4's SponsorX side: the manifest (`4S2-BE-03`), the client endpoints (`4S3-INT-02`, `-03`) and the telemetry intake (`4S4-BE-01`). Since 2026-10-20 all of Phase 4's open work is here (Sprints 4–8) |
 | **Source** | Split out of Phase 4 on 2026-10-16 (user); the tasks keep their Phases 2–4 Spec § references |
 
 > **Why this phase exists (user, 2026-10-16).** The INFINEX game has not been started; the plan is SponsorX's web application first, then the game. Phase 4 builds SponsorX's side and proves it with a stand-in world, a script that calls SponsorX the way the game will. Every task that needs the real game moved here, renumbered. The rules the game must follow are Phase 4's world contract (`4S0-PMO-01`) and taxonomy (`4S0-PMO-02`), so the game is built to fit SponsorX.
@@ -59,6 +59,15 @@ pilot world's telemetry (`5S2-QA-01`).
 | `5S7-FE-03` | `4S7-FE-03` (moved 2026-10-20: the game is parked) |
 | `5S7-FE-04` | `4S8-FE-01` (moved 2026-10-20: the game is parked) |
 | `5S7-DATA-02` | `4S8-DATA-01` (moved 2026-10-20: the game is parked) |
+| `5S8-ART-01` | `4S0-ART-01` (moved 2026-10-20: the game is parked) |
+| `5S8-FE-01` | `4S1-FE-01` (moved 2026-10-20: the game is parked) |
+| `5S8-FE-02` | `4S1-FE-02` (moved 2026-10-20: the game is parked) |
+| `5S8-FE-03` | `4S1-FE-03` (moved 2026-10-20: the game is parked) |
+| `5S8-FE-04` | `4S2-FE-01` (moved 2026-10-20: the game is parked) |
+| `5S8-BE-01` | `4S8-BE-01` (moved 2026-10-20: the game is parked) |
+| `5S8-BE-02` | `4S8-BE-02` (moved 2026-10-20: the game is parked) |
+| `5S8-PMO-01` | `4S9-PMO-02` (moved 2026-10-20: the game is parked) |
+| `5S8-OPS-01` | `4S9-OPS-01` (moved 2026-10-20: the game is parked) |
 
 ---
 
@@ -143,7 +152,7 @@ Formerly `4S9-PMO-01`. The pricing model (`5S5-BE-02`, formerly `4S5-BE-02`) was
 New on 2026-10-16: the real-sponsor pilot, formerly part of `4S9-PMO-02`. A real sponsor runs a real virtual activation in the pilot world and receives a real report.
 
 - **Depends on:** 5S2-QA-01, 5S3-QA-01
-- **Done when:** All 13 Phase 5 acceptance criteria demonstrated and signed off
+- **Done when:** All 15 Phase 5 acceptance criteria demonstrated and signed off
 - **Reference:** Spec §34
 
 ## Sprint 3 · Player accounts and live connection
@@ -520,7 +529,7 @@ Formerly `4S6-INT-01` (moved 2026-10-20). Completion produces a claim token and 
 
 Formerly `4S6-FE-01` (moved 2026-10-20). Challenge rules, start condition, completion criteria, reward trigger and sponsor content.
 
-- **Depends on:** 4S0-ART-01
+- **Depends on:** 5S8-ART-01
 - **Done when:** A campaign manager can build and publish an activation without engineering help
 - **Reference:** Spec §26 P4-06
 
@@ -590,6 +599,104 @@ Formerly `4S8-DATA-01` (moved 2026-10-20). Invalid or suspicious event patterns 
 - **Done when:** Suspicious event patterns are flagged and excluded from sponsor-facing aggregates
 - **Reference:** Spec §27.3
 
+## Sprint 8 · Virtual inventory screens, controls and launch
+
+*SponsorX's screens and controls for virtual inventory (the world registry, placement manager and preview, the creative deployment console), the emergency pause and incident log, and the UAT and production rollout. Moved from Phase 4 on 2026-10-20: everything they manage lives in the game.*
+
+*9 tasks · 35 person-days*
+
+### ⏸ `5S8-ART-01` · Design the virtual admin and sponsor screens
+
+**Order** 41 · **ART** · **Where:** Design tool · **5d** · **Blocked**
+
+Formerly `4S0-ART-01` (moved 2026-10-20). Twelve new screens including placement preview metadata, activation builder and the world heatmap. Placement specs need a designer who understands 3D constraints.
+
+- **Depends on:** 4S0-PMO-02
+- **Done when:** All 12 Phase 4 screens designed, with creative technical constraints specified per placement type
+- **Reference:** Spec §26
+
+### ⏸ `5S8-FE-01` · Build the world registry screen
+
+**Order** 42 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+Formerly `4S1-FE-01` (moved 2026-10-20). Worlds, districts, venues, zones, environment IDs and operational status.
+
+- **Depends on:** 5S8-ART-01
+- **Done when:** Admin can register and manage worlds and zones
+- **Reference:** Spec §26 P4-01
+
+### ⏸ `5S8-FE-02` · Build the placement manager
+
+**Order** 43 · **FE** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S1-FE-02` (moved 2026-10-20). Placement IDs, dimensions and type, zone, viewability rules, dates and pricing.
+
+- **Depends on:** 4S1-BE-02
+- **Done when:** Admin can create, configure and price placements
+- **Reference:** Spec §26 P4-02
+
+### ⏸ `5S8-FE-03` · Build placement preview metadata
+
+**Order** 44 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+Formerly `4S1-FE-03` (moved 2026-10-20). Thumbnail, orientation, allowed creative types, technical constraints and placement test status — so a sponsor knows what they are buying.
+
+- **Depends on:** 4S1-BE-02
+- **Done when:** Preview metadata renders and shows the placement's staging test status
+- **Reference:** Spec §26 P4-03
+
+### ⏸ `5S8-FE-04` · Build the creative deployment console
+
+**Order** 45 · **FE** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S2-FE-01` (moved 2026-10-20). Assign creative version, approve, schedule, publish and roll back.
+
+- **Depends on:** 5S8-ART-01
+- **Done when:** Staff can run the full deployment lifecycle from the console
+- **Reference:** Spec §26 P4-05
+
+### ⏸ `5S8-BE-01` · Emergency pause and kill switch
+
+**Order** 46 · **BE** · **Where:** Code · **3d** · **Blocked**
+
+Formerly `4S8-BE-01` (moved 2026-10-20). One control that takes a sponsor's creative down across every world immediately. You will need it on a Friday evening.
+
+- **Depends on:** 4S2-BE-05
+- **Done when:** Emergency pause removes creative from all worlds within the agreed time target
+- **Reference:** Spec §28
+
+### ⏸ `5S8-BE-02` · Deployment incident log
+
+**Order** 47 · **BE** · **Where:** Code · **3d** · **Blocked**
+
+Formerly `4S8-BE-02` (moved 2026-10-20). Type, severity, opened and closed times, notes. Ops history a sponsor can be shown.
+
+- **Depends on:** 5S8-BE-01
+- **Done when:** Incidents are logged, tracked and closable with notes
+- **Reference:** Spec §30
+
+### ⏸ `5S8-PMO-01` · Phase 4 UAT
+
+**Order** 48 · **PMO** · **Where:** Document · **5d** · **Blocked**
+
+Formerly `4S9-PMO-02` (moved 2026-10-20). The web application walked end to end: BTG registers a world and its placements, sells a placement into a campaign, deploys, pauses and rolls back creative, and uses the emergency pause, all from SponsorX's screens. Moved with the rest of Phase 4's open work on 2026-10-20: everything it manages lives in the game.
+
+- **Depends on:** 5S8-FE-01, 5S8-FE-02, 5S8-FE-03, 5S8-FE-04, 5S8-BE-02
+- **Done when:** Phase 5 criteria 14 and 15 demonstrated and signed off
+- **Reference:** Spec §34
+
+### ⏸ `5S8-OPS-01` · Production rollout and incident readiness
+
+**Order** 49 · **OPS** · **Where:** Vendor console · **3d** · **Blocked**
+
+Formerly `4S9-OPS-01` (moved 2026-10-20). Streaming, observability, scaling and an on-call path before the first paying virtual sponsor.
+
+- **Depends on:** 5S8-PMO-01
+- **Done when:** Production rollout complete with monitoring, alerting and an incident runbook
+- **Reference:** Spec §31, §38
+
+---
+
 ---
 
 ## Phase acceptance criteria
@@ -613,6 +720,8 @@ Every one of these must be demonstrated before the phase is signed off.
 11. The operations console displays event lag, client heartbeat, deployment failures and active incidents *(formerly Phase 4 criterion 9)*.
 12. A sponsor receives a report containing virtual delivery, interaction, reward funnel and proof/creative summary *(formerly Phase 4 criterion 10)*.
 13. The load test meets the agreed event-ingestion throughput and dashboard latency targets *(formerly Phase 4 criterion 11)*.
+14. BTG registers worlds and placements, books them into campaigns and deploys, pauses and rolls back creative from SponsorX's screens *(added to Phase 4 on 2026-10-20, moved the same day)*.
+15. An emergency pause takes every affected creative off its world's manifest at once, and each one is recorded as an incident *(added to Phase 4 on 2026-10-20, moved the same day)*.
 
 ---
 

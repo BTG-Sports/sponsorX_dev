@@ -5,13 +5,13 @@
 | | |
 |---|---|
 | **Goal** | Make virtual worlds first-class SponsorX inventory. Sponsors buy, activate, measure and renew virtual placements in the same campaign system used for athletes, events and fan rewards. |
-| **Tasks** | 27 · 96 person-days |
+| **Tasks** | 18 · 61 person-days |
 | **Blueprint timeline** | 18–22 weeks |
 | **Balanced budget** | $90K–$150K |
 | **Depends on** | Stable SponsorX APIs, campaign/reward engine, identity/session model, metrics pipeline |
 | **Source** | Phases 2–4 Detailed Developer Specifications v1.0 (Spec § references) + Blueprint §34 |
 
-> **Changed 2026-10-20 (user): the game is parked, and Phase 4 is the web application only.** "Do not make any preparation for the game at this point. Our priority is to ship the SponsorX web app." Every Phase 4 task that needs the game's traffic, telemetry or in-world activity moved to [Phase 5](./SponsorX-Phase5-INFINEX-Game.md), renumbered (the table is in Phase 5): telemetry at scale, viewability and virtual metrics, pricing from traffic, in-world activations and rewards, game reporting, the INFINEX ops console and fraud checks. 20 tasks. Phase 4 keeps what works without the game: the virtual-inventory admin screens, the creative deployment console, the emergency pause and incident log, UAT and rollout. What was already built (registry, bookings, creative and manifest, machine login, client registry and settings, the telemetry intake) stays as it is.
+> **Changed 2026-10-20 (user): the game is parked; every open Phase 4 task moved to Phase 5.** "Do not make any preparation for the game at this point. Our priority is to ship the SponsorX web app. All game-related tasks should be … transferred to Phase 5." All of Phase 4 serves the game (it sells sponsorship inside the INFINEX game's worlds), so all 29 open tasks moved, renumbered (the table is in [Phase 5](./SponsorX-Phase5-INFINEX-Game.md)): the 20 that need the game's traffic first, then the virtual-inventory screens, the emergency pause, the incident log, UAT and rollout. Phase 4 is closed at what was built (all Done): the world and placement registry, bookings, creative and the manifest, pause and rollback, machine login, client endpoints and settings, the telemetry intake, and the cross-channel campaign model. Its criteria 1–4 are demonstrated by those tasks' tests.
 
 > **Changed 2026-10-16 (user): Phase 4 is the web application only.** The INFINEX game has not been started; SponsorX comes first, then the game. So Phase 4 builds SponsorX's side — the pages, API and database for worlds, placements, creative, telemetry, pricing, activations and reporting — and proves it with a **stand-in world** (a script that calls SponsorX the way the game will). Every task that needs the real game moved to [Phase 5](./SponsorX-Phase5-INFINEX-Game.md), renumbered: `4S3-INT-01` → `5S1-INT-01`, `4S3-QA-01` → `5S1-QA-01`, `4S9-QA-01` → `5S2-QA-01`, `4S9-PMO-01` → `5S2-PMO-01`; the game halves of `4S3-INT-02` and `4S3-INT-03` are `5S1-INT-02` and `5S1-INT-03`. Phase acceptance criterion 3 ("the INFINEX client renders a placement") moved with them.
 
@@ -106,7 +106,7 @@ The specification is explicit about what may and may not run in parallel:
 
 *Confirm the INFINEX runtime, identity model, telemetry volume and the world/placement taxonomy before a line of code.*
 
-*4 tasks · 14 person-days*
+*3 tasks · 9 person-days*
 
 ### ✅ `4S0-PMO-01` · Define the world contract: runtime, environments and identity
 
@@ -142,16 +142,6 @@ World, district, venue, zone, surface. Getting this vocabulary right once saves 
   [`SponsorX-Virtual-Taxonomy.md`](./SponsorX-Virtual-Taxonomy.md)
 - **Reference:** Spec §25, §27.1
 
-### ⏸ `4S0-ART-01` · Design the virtual admin and sponsor screens
-
-**Order** 4 · **ART** · **Where:** Design tool · **5d** · **Blocked**
-
-Twelve new screens including placement preview metadata, activation builder and the world heatmap. Placement specs need a designer who understands 3D constraints.
-
-- **Depends on:** 4S0-PMO-02
-- **Done when:** All 12 Phase 4 screens designed, with creative technical constraints specified per placement type
-- **Reference:** Spec §26
-
 ### ✅ `4S0-SEC-01` · Trusted client authentication design
 
 **Order** 5 · **SEC** · **Where:** Code · **3d** · **Done**
@@ -174,7 +164,7 @@ The INFINEX client sends telemetry that becomes sponsor billing data. Its authen
 
 *Map INFINEX worlds, zones and surfaces into SponsorX entities that can actually be sold.*
 
-*7 tasks · 25 person-days*
+*4 tasks · 14 person-days*
 
 ### ✅ `4S1-BE-01` · World and zone registry
 
@@ -240,41 +230,11 @@ Sellable time windows with capacity, so two sponsors cannot buy the same billboa
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §4
 - **Reference:** Spec §30
 
-### ⏸ `4S1-FE-01` · Build the world registry screen
-
-**Order** 10 · **FE** · **Where:** Code · **3d** · **Blocked**
-
-Worlds, districts, venues, zones, environment IDs and operational status.
-
-- **Depends on:** 4S0-ART-01
-- **Done when:** Admin can register and manage worlds and zones
-- **Reference:** Spec §26 P4-01
-
-### ⏸ `4S1-FE-02` · Build the placement manager
-
-**Order** 11 · **FE** · **Where:** Code · **5d** · **Blocked**
-
-Placement IDs, dimensions and type, zone, viewability rules, dates and pricing.
-
-- **Depends on:** 4S1-BE-02
-- **Done when:** Admin can create, configure and price placements
-- **Reference:** Spec §26 P4-02
-
-### ⏸ `4S1-FE-03` · Build placement preview metadata
-
-**Order** 12 · **FE** · **Where:** Code · **3d** · **Blocked**
-
-Thumbnail, orientation, allowed creative types, technical constraints and placement test status — so a sponsor knows what they are buying.
-
-- **Depends on:** 4S1-BE-02
-- **Done when:** Preview metadata renders and shows the placement's staging test status
-- **Reference:** Spec §26 P4-03
-
 ## Sprint 2 · Manifest & creative deployment
 
 *The service INFINEX asks: what should I be showing right now?*
 
-*6 tasks · 24 person-days*
+*5 tasks · 19 person-days*
 
 ### ✅ `4S2-BE-01` · Creative deployment model
 
@@ -359,16 +319,6 @@ A sponsor needs their creative down in minutes, not at the next release. Pausing
 
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §6.1
 - **Reference:** Spec §27.2, §34
-
-### ⏸ `4S2-FE-01` · Build the creative deployment console
-
-**Order** 18 · **FE** · **Where:** Code · **5d** · **Blocked**
-
-Assign creative version, approve, schedule, publish and roll back.
-
-- **Depends on:** 4S0-ART-01
-- **Done when:** Staff can run the full deployment lifecycle from the console
-- **Reference:** Spec §26 P4-05
 
 ## Sprint 3 · INFINEX client endpoints
 
@@ -486,60 +436,6 @@ One campaign holding real-world, social, athlete, reward and INFINEX inventory t
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §4 · [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §4
 - **Reference:** Spec §25
 
-## Sprint 8 · Operations & load
-
-*The kill switch, the incident log, and proof it holds under load.*
-
-*2 tasks · 6 person-days*
-
-### ⏸ `4S8-BE-01` · Emergency pause and kill switch
-
-**Order** 44 · **BE** · **Where:** Code · **3d** · **Blocked**
-
-One control that takes a sponsor's creative down across every world immediately. You will need it on a Friday evening.
-
-- **Depends on:** 4S2-BE-05
-- **Done when:** Emergency pause removes creative from all worlds within the agreed time target
-- **Reference:** Spec §28
-
-### ⏸ `4S8-BE-02` · Deployment incident log
-
-**Order** 45 · **BE** · **Where:** Code · **3d** · **Blocked**
-
-Type, severity, opened and closed times, notes. Ops history a sponsor can be shown.
-
-- **Depends on:** 4S8-BE-01
-- **Done when:** Incidents are logged, tracked and closable with notes
-- **Reference:** Spec §30
-
-## Sprint 9 · Web application launch
-
-*The Phase 4 sign-off and the production rollout. The pilot world — validated telemetry and calibrated pricing — is Phase 5 (`5S2-*`).*
-
-*2 tasks · 8 person-days*
-
-### ⏸ `4S9-PMO-02` · Phase 4 UAT
-
-**Order** 50 · **PMO** · **Where:** Document · **5d** · **Blocked**
-
-The web application walked end to end: BTG registers a world and its placements, sells a placement into a campaign, deploys, pauses and rolls back creative, and uses the emergency pause, all from SponsorX's screens. Since 2026-10-20 nothing here needs the game; the game-dependent tasks are Phase 5's.
-
-- **Depends on:** 4S1-FE-01, 4S1-FE-02, 4S1-FE-03, 4S2-FE-01, 4S8-BE-02
-- **Done when:** All 6 Phase 4 acceptance criteria demonstrated and signed off
-- **Reference:** Spec §34
-
-### ⏸ `4S9-OPS-01` · Production rollout and incident readiness
-
-**Order** 51 · **OPS** · **Where:** Vendor console · **3d** · **Blocked**
-
-Streaming, observability, scaling and an on-call path before the first paying virtual sponsor.
-
-- **Depends on:** 4S9-PMO-02
-- **Done when:** Production rollout complete with monitoring, alerting and an incident runbook
-- **Reference:** Spec §31, §38
-
----
-
 ## Phase acceptance criteria
 
 Every one of these must be demonstrated before the phase is signed off.
@@ -548,10 +444,7 @@ Every one of these must be demonstrated before the phase is signed off.
 2. Active campaign manifest returns only approved, in-window deployments for the requested world/time.
 3. Creative can be paused or rolled back from SponsorX without redeploying the entire INFINEX application.
 4. Telemetry batch endpoint supports idempotent event IDs and rejects malformed/unauthorized events.
-5. *(Added 2026-10-20.)* BTG registers worlds and placements, books them into campaigns and deploys, pauses and rolls back creative from SponsorX's screens.
-6. *(Added 2026-10-20.)* An emergency pause takes every affected creative off its world's manifest at once, and each one is recorded as an incident.
-
-*The former criteria 5–11 (viewability, de-duplication, activations, cross-channel, operations console, the sponsor's virtual report and the load test) moved to Phase 5 with their tasks on 2026-10-20; they are Phase 5's criteria 7–13.*
+*The former criteria 5–11 (viewability, de-duplication, activations, cross-channel, operations console, the sponsor's virtual report and the load test) moved to Phase 5 with their tasks on 2026-10-20 (Phase 5's criteria 7–13), and so did the two added that day for the admin screens and the emergency pause (Phase 5's 14–15). Phase 4 has no open task left.*
 
 ---
 
