@@ -138,16 +138,25 @@ Counsel drafts the documents external properties accept: platform terms, marketp
 - **Done when:** All marketplace agreements delivered, versioned and approved for production use
 - **Reference:** Spec §7.1
 
-### ⏸ `2S0-LEG-02` · Tax and withholding position for marketplace payouts
+### ▶ `2S0-LEG-02` · Tax and withholding position for marketplace payouts
 
-**Order** 5 · **LEG** · **Where:** External · counsel · **3d** · **Blocked**
+**Order** 5 · **LEG** · **Where:** External · BTG's accountant · **0.5d** · **Ready**
 
 > **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
 Phase 1 collected no tax IDs because money moved outside the system. Phase 2 moves real money, so that changes. Determine what the payment provider handles versus what SponsorX must collect and report.
 
+**Position proposed 2026-10-20** (for BTG's accountant to confirm, not to research; draft 7 in the SponsorX Legal folder):
+- **Marketplace payouts:** Stripe Connect's tax reporting collects each payee's W-9 (or W-8 outside the US) during Stripe's own payout set-up, and files and delivers the 1099s on BTG's behalf. A payee without tax details isn't READY, so payouts already wait.
+- **Managed campaign payments** (Zoho Books, outside SponsorX): BTG's finance team collects W-9s and files 1099s as for any contractor.
+- **SponsorX never collects or stores a tax ID.**
+- **A minor's tax form is in the minor's name,** though the payout goes to the guardian's account.
+- **No app change.** The only action is one Stripe dashboard setting at go-live (the Go/No-Go review's owner's switches).
+
+The athlete agreement (Section 4), the guardian agreement (Section 6) and the seller terms (A9) carry this wording.
+
 - **Depends on:** 2S0-PMO-02
-- **Done when:** Written position on tax ID collection, withholding and 1099 reporting, and which system of record owns each
+- **Done when:** BTG's accountant confirms the four proposed answers in draft 7 (or corrects them), and Stripe tax reporting is switched on for connected accounts
 - **Reference:** Spec §9, §10
 
 ### ✅ `2S0-SEC-01` · Payments and PII security review

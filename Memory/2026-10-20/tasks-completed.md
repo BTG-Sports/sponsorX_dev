@@ -164,3 +164,15 @@ The switch stays off until the frontend ships.
 - **BTG pauses a reward anyone objects to,** using the PAUSED transition that already exists. No new code.
 - **Updated:** the Phase 1 plan, the Legal Work Brief, the Go/No-Go review and the tracker's Legal row.
 - **Item 4 in Drive** was replaced to add B7. Its fees are now described as BTG's proposed rates, each with what it's for, instead of "placeholders". The older version is in the Drive trash.
+
+## 2S0-LEG-02 (tax) and the legal drafts' final shape
+
+- **The tax position,** proposed for BTG's accountant to confirm, not to research:
+  - Stripe Connect collects W-9/W-8 forms and files the 1099s for marketplace payouts.
+  - BTG finance handles campaign payments made outside SponsorX.
+  - SponsorX stores no tax ID.
+  - A minor's form is in the minor's name.
+- **No app change.** The only action is switching on Stripe's tax reporting at go-live, which is now listed in the Go/No-Go review's owner's switches.
+- **Drive:** draft 7 (Tax Position) is new. Drafts 1 (now v0.7), 4 and 6 were replaced with the tax wording, and the older versions are in the Drive trash.
+- **The email to Rodney** (scratchpad `rodney-email.html`) now has all 7 current links, and asks Rodney to pass draft 7 to the accountant.
+- **Docs and tracker updated:** the Phase 2 plan, the Legal Work Brief, the Go/No-Go review and the tracker's Legal row (2S0-LEG-02 Ready, 0.5d, BTG's accountant).

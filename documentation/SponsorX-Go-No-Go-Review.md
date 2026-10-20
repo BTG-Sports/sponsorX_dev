@@ -53,7 +53,7 @@ completeness.
 | Agreement templates approved | **Open** | P0-LEG-01 (Content Collaboration Agreement) and P0-LEG-02 (Campaign Order template), each delivered, versioned and approved for production use | Counsel |
 | Athlete and guardian compliance checklist approved | **Open** | P0-LEG-06, redefined 2026-10-20: counsel approves the athlete-responsibility wording in the athlete agreement. The athlete (or guardian) confirms their own rules (P8-BE-02), and a disputed deal is paused for documents (P8-BE-03). P0-LEG-03: whether click-wrap is enough for a guardian, or which e-sign vendor (Blocked). | Counsel |
 | Data privacy defined | **Open** | P0-LEG-04: consent wording for scan → claim → redeem, purpose limitation, and what sponsors receive. Counsel's §37 pre-pilot privacy review (recorded open in `.claude/stack-decision.md` A7). | Counsel |
-| Payout process defined | **Partly** | **Phase 1:** the payment policy is written (status tracking only, no tax IDs). **Phase 2 moves real money by Stripe transfer,** so it also needs 2S0-LEG-01 (marketplace and payout terms) and 2S0-LEG-02 (tax ID collection, withholding and 1099 position). | Counsel |
+| Payout process defined | **Partly** | **Phase 1:** the payment policy is written (status tracking only, no tax IDs). **Phase 2 moves real money by Stripe transfer,** so it also needs 2S0-LEG-01 (marketplace and payout terms) and 2S0-LEG-02: the tax position, which BTG's accountant confirms. Stripe collects tax forms and files the 1099s; SponsorX stores no tax ID. | Counsel |
 
 ### Before the sponsor pilot — **Not met: one item waits on counsel**
 
@@ -84,6 +84,7 @@ owner at go-live. None of them needs code.
 | MFA for admin and finance | Not available: needs Clerk Pro | Upgrade to Clerk Pro, then require MFA for privileged roles in production | P2-INT-02 |
 | Fan rate limiting | `SPONSORX_EDGE_KEY` unset, so all fans share one bucket | Set it on production web and api | P2-OPS-04 (P8-SEC-03) |
 | Fan geography | `GEOLITE2_CITY_PATH` unset | Set it on production | P2-OPS-04 |
+| Tax forms | Stripe Connect tax reporting off | Once BTG's accountant confirms 2S0-LEG-02, switch on tax reporting for connected accounts in the Stripe Dashboard. Stripe then collects W-9 and W-8 forms and files the 1099s. | Owner |
 | Email | Resend chosen (P0-PMO-03, G-04) | Confirm the production sending domain is verified (DKIM, SPF) and live | Owner |
 | Phase 3 rollout | Per-tenant feature switches | Stage 3 (outside sponsors and properties) only after 3S0-LEG-01 | Owner |
 | Production check | Not run by Claude (production reads are blocked for it) | Someone with production access runs the Deployment Runbook's production checks | Owner or rcfworks |

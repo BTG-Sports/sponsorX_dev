@@ -147,10 +147,14 @@ Listed so the full scope is visible. Each depends on decisions not yet made.
 marketplace, payout and privacy terms plus BTG representation documents. Longest
 lead item of that phase.
 
-**8 · Tax and withholding position** *(`2S0-LEG-02`, Phase 2, 3d)* — Phase 1
-collects no tax IDs because money moves outside the platform. **Phase 2 moves
-real money, so that changes.** Written position on what the payment provider
-handles versus what SponsorX must collect and report, and which system owns each.
+**8 · Tax and withholding position** *(`2S0-LEG-02`, Phase 2, 0.5d, BTG's accountant)*
+— **Position proposed 2026-10-20, for the accountant to confirm, not to research:**
+- **Marketplace payouts:** Stripe collects each payee's W-9 or W-8 and files the 1099s on BTG's behalf.
+- **Campaign payments made outside SponsorX:** BTG's finance team handles them as for any contractor.
+- **SponsorX never stores a tax ID.**
+- **A minor's form is in the minor's name.**
+
+The four questions and the proposed answers are in draft 7 in the SponsorX Legal folder.
 
 **9 · Attribution and partner terms review** *(`3S0-LEG-01`, Phase 3, 3d)* — when
 the platform starts claiming attributed revenue, those claims, the consent basis
@@ -169,7 +173,7 @@ for using fan data that way, and what partner contracts permit all need review.
 | 5 | Guardian authorisation method | `P0-LEG-03` | Now — with item 1 | 1d |
 | 6 | Sponsor-responsibility wording for rewards (redefined 2026-10-20) | `P0-LEG-05` | Now — with item 7 | 0.5d |
 | 7 | Marketplace and payout agreements | `2S0-LEG-01` | Phase 2 | 5d |
-| 8 | Tax and withholding position | `2S0-LEG-02` | Phase 2 | 3d |
+| 8 | Tax position: confirm four proposed answers (BTG's accountant) | `2S0-LEG-02` | Now | 0.5d |
 | 9 | Attribution and partner terms | `3S0-LEG-01` | Phase 3 | 3d |
 
 **Phase 1 total: ~14 days of counsel time.** Items 1, 2 and 5 concern the same
