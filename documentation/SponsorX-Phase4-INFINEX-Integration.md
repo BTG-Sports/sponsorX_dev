@@ -5,13 +5,13 @@
 | | |
 |---|---|
 | **Goal** | Make virtual worlds first-class SponsorX inventory. Sponsors buy, activate, measure and renew virtual placements in the same campaign system used for athletes, events and fan rewards. |
-| **Tasks** | 18 · 61 person-days |
+| **Tasks** | 19 · 62 person-days |
 | **Blueprint timeline** | 18–22 weeks |
 | **Balanced budget** | $90K–$150K |
 | **Depends on** | Stable SponsorX APIs, campaign/reward engine, identity/session model, metrics pipeline |
 | **Source** | Phases 2–4 Detailed Developer Specifications v1.0 (Spec § references) + Blueprint §34 |
 
-> **Changed 2026-10-20 (user): the game is parked; every open Phase 4 task moved to Phase 5.** "Do not make any preparation for the game at this point. Our priority is to ship the SponsorX web app. All game-related tasks should be … transferred to Phase 5." All of Phase 4 serves the game (it sells sponsorship inside the INFINEX game's worlds), so all 29 open tasks moved, renumbered (the table is in [Phase 5](./SponsorX-Phase5-INFINEX-Game.md)): the 20 that need the game's traffic first, then the virtual-inventory screens, the emergency pause, the incident log, UAT and rollout. Phase 4 is closed at what was built (all Done): the world and placement registry, bookings, creative and the manifest, pause and rollback, machine login, client endpoints and settings, the telemetry intake, and the cross-channel campaign model. Its criteria 1–4 are demonstrated by those tasks' tests.
+> **Changed 2026-10-20 (user): the game is parked; every open Phase 4 task moved to Phase 5.** "Do not make any preparation for the game at this point. Our priority is to ship the SponsorX web app. All game-related tasks should be … transferred to Phase 5." All of Phase 4 serves the game (it sells sponsorship inside the INFINEX game's worlds), so all 29 open tasks moved, renumbered (the table is in [Phase 5](./SponsorX-Phase5-INFINEX-Game.md)): the 20 that need the game's traffic first, then the virtual-inventory screens, the emergency pause, the incident log, UAT and rollout. Phase 4 is closed at what was built (all Done): the world and placement registry, bookings, creative and the manifest, pause and rollback, machine login, client endpoints and settings, the telemetry intake, and the cross-channel campaign model. Its criteria 1–4 are demonstrated and signed off (`4S9-PMO-03`, [`SponsorX-Phase4-Acceptance-Signoff.md`](./SponsorX-Phase4-Acceptance-Signoff.md)).
 
 > **Changed 2026-10-16 (user): Phase 4 is the web application only.** The INFINEX game has not been started; SponsorX comes first, then the game. So Phase 4 builds SponsorX's side — the pages, API and database for worlds, placements, creative, telemetry, pricing, activations and reporting — and proves it with a **stand-in world** (a script that calls SponsorX the way the game will). Every task that needs the real game moved to [Phase 5](./SponsorX-Phase5-INFINEX-Game.md), renumbered: `4S3-INT-01` → `5S1-INT-01`, `4S3-QA-01` → `5S1-QA-01`, `4S9-QA-01` → `5S2-QA-01`, `4S9-PMO-01` → `5S2-PMO-01`; the game halves of `4S3-INT-02` and `4S3-INT-03` are `5S1-INT-02` and `5S1-INT-03`. Phase acceptance criterion 3 ("the INFINEX client renders a placement") moved with them.
 
@@ -435,6 +435,29 @@ One campaign holding real-world, social, athlete, reward and INFINEX inventory t
 
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §4 · [`SponsorX-Fact-Ledger.md`](./SponsorX-Fact-Ledger.md) §4
 - **Reference:** Spec §25
+
+## Sprint 9 · Sign-off
+
+*Phase 4 accepted as built, after its open work moved to Phase 5 (2026-10-20).*
+
+*1 task · 1 person-days*
+
+### ✅ `4S9-PMO-03` · Phase 4 acceptance record, as built
+
+**Order** 52 · **PMO** · **Where:** Document · **1d** · **Done**
+
+Raised 2026-10-20, when the game was parked and every open Phase 4 task moved to Phase 5 (the former UAT is `5S8-PMO-01`). It records Phase 4's criteria 1–4, each with the tasks, pull requests and tests that prove it.
+
+- **Depends on:** 4S1-BE-04, 4S2-BE-03, 4S2-BE-05, 4S4-BE-01
+- **Done when:** Phase 4's acceptance criteria 1–4 demonstrated and signed off
+- **Delivered:** 2026-10-20.
+  - **The evidence:** 75 of 75 Phase 4 tests pass against `08f10a6b`, with the stand-in world end to end; release `1b198d4b` is checked on staging.
+  - **Signed off** by rcfworks with Rodney's delegated authority.
+
+  [`SponsorX-Phase4-Acceptance-Signoff.md`](./SponsorX-Phase4-Acceptance-Signoff.md)
+- **Reference:** Spec §34
+
+---
 
 ## Phase acceptance criteria
 

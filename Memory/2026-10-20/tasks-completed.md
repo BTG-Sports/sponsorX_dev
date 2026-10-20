@@ -54,3 +54,15 @@ The user asked for tasks only, nothing built: a socket connection for the game, 
 - **References** updated in the spec and the World Contract. The tracker rows moved (Phase 4 to row 22, Phase 5 to row 54) and the Roadmap is updated.
 - **Consequence:** no backend task is left for the SponsorX web app in Phases 1–4. What remains is go-live vendor setup (P2-INT-02 Clerk MFA, P2-OPS-04 production Zoho keys) and the frontend.
 
+
+## rcfworks — 4S9-PMO-03 · Phase 4 acceptance record, as built (Done, signed off)
+
+- **The request:** after the ship-readiness review of Phases 1–4, the user asked for "a Phase 4 sign-off first".
+- **New task** `4S9-PMO-03` (Order 52, Sprint 9 · Sign-off) and the record `documentation/SponsorX-Phase4-Acceptance-Signoff.md`, laid out like Phase 2's.
+  - **Phase 4 is accepted as built:** criteria 1–4 demonstrated.
+  - **The evidence** for each criterion: tasks, PRs and tests. 75/75 Phase 4 tests passed on 2026-10-20 against `08f10a6b`: virtual-registry 12, virtual-bookings 10, virtual-creative 14, virtual-deployment-control 6, infinex-telemetry 6, infinex-auth 11, infinex-clients 5, infinex-config 7, cross-channel-campaign 4.
+  - **On staging:** release `1b198d4b`, checked read-only on 2026-10-19.
+  - **Signed** by rcfworks with Rodney's delegated authority.
+- **Not part of it:** Phase 4's former criteria 5–11 and the two added on 2026-10-20, all now in Phase 5 with their tasks (Phase 5's 7–15).
+- **Counts:** Phase 4 is 19 tasks · 62 days, all Done. Tracker row 23; ranges to row 23; Roadmap and CLAUDE.md updated.
+- **Local tooling note:** the session scratchpad had been cleared overnight, so the embedded Postgres and the openpyxl venv were reinstalled there.
