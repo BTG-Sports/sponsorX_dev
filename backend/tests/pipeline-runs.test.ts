@@ -19,14 +19,26 @@ describe("3S9-OPS-01 · the pipeline check (pure)", () => {
   const night = (status: string, step = "forecasts", day = "2026-11-10") => ({ step, status, day, finishedAt: ago(1) });
 
   it("the latest record of each step decides: a failure yesterday that succeeded today is not a failure", () => {
-    const r = H.evaluatePipeline({ runs: [night("ok", "forecasts", "2026-11-10"), night("failed", "forecasts", "2026-11-09")], lastOkAt: ago(1), lastForecastAt: ago(1), activeCampaigns: 1, backtests: [] }, true, NOW);
+    const r = H.evaluatePipeline({ runs: [night("ok", "forecasts", "2026-11-10"), night("failed", "forecasts", "2026-11-09")], lastOkAt: ago(1), lastForecastDay: "2026-11-10", activeCampaigns: 1, backtests: [] }, true, NOW);
     expect(r).toMatchObject({ ok: true, failedSteps: [], hoursSinceSuccess: 1 });
-    expect(H.evaluatePipeline({ runs: [night("failed"), night("ok", "anomalies")], lastOkAt: ago(1), lastForecastAt: ago(1), activeCampaigns: 0, backtests: [] }, true, NOW).failedSteps).toEqual(["forecasts"]);
+    expect(H.evaluatePipeline({ runs: [night("failed"), night("ok", "anomalies")], lastOkAt: ago(1), lastForecastDay: "2026-11-10", activeCampaigns: 0, backtests: [] }, true, NOW).failedSteps).toEqual(["forecasts"]);
+  });
+
+  it("forecast freshness is by day: one made early yesterday is fresh this morning; none since the day before is stale", () => {
+    /* Staging, 2026-10-20: a seed made the day's forecast at 03:55; that night's run had nothing to add (one per
+       campaign per day), and at 05:55 the next morning the old 26-hour rule called it stale. */
+    const at = (iso: string) => new Date(iso);
+    const r = (lastForecastDay: string | null) => ({ runs: [night("ok", "forecasts", "2026-10-19")], lastOkAt: "2026-10-19T19:59:36Z", lastForecastDay, activeCampaigns: 1, backtests: [] });
+    expect(H.evaluatePipeline(r("2026-10-19"), true, at("2026-10-20T06:05:00Z"))).toMatchObject({ ok: true, forecastsFresh: true });
+    expect(H.evaluatePipeline(r("2026-10-19"), true, at("2026-10-20T23:59:00Z")).forecastsFresh).toBe(true);
+    expect(H.evaluatePipeline(r("2026-10-19"), true, at("2026-10-21T00:01:00Z")).forecastsFresh).toBe(false);
+    expect(H.evaluatePipeline(r(null), true, at("2026-10-20T06:05:00Z")).forecastsFresh).toBe(false);
+    expect(H.evaluatePipeline({ ...r(null), activeCampaigns: 0 }, true, at("2026-10-20T06:05:00Z")).forecastsFresh).toBe(true);
   });
 
   it("drift needs half again and 5 points: 9% → 13% is not drift; 9% → 14% is", () => {
     const bt = (v: number, h: number) => ({ model: "pricing", version: "cpm-rules@1.0.0", ranAt: ago(h), metrics: [{ label: "Mean error of the suggested CPM", value: v }] });
-    const base = { runs: [night("ok")], lastOkAt: ago(1), lastForecastAt: ago(1), activeCampaigns: 1 };
+    const base = { runs: [night("ok")], lastOkAt: ago(1), lastForecastDay: "2026-11-10", activeCampaigns: 1 };
     expect(H.evaluatePipeline({ ...base, backtests: [bt(13, 1), bt(9, 25)] }, true, NOW).drift).toEqual([]);
     expect(H.evaluatePipeline({ ...base, backtests: [bt(14, 1), bt(9, 25)] }, true, NOW).drift).toEqual(["pricing cpm-rules@1.0.0: error 9% → 14%"]);
   });
