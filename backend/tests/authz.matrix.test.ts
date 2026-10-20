@@ -485,7 +485,14 @@ describe("the whole matrix is pinned", () => {
       // read; every other cell deny, and nobody edits (append-only in the
       // database) — matrix §38. With its rows removed the grid hashes to the
       // previous 6c2dbfecd20f5311.
-    ).toBe("e42f713e01538f23");
+      // Updated 2026-10-20 (P8-BE-03): new `dealDispute` resource — a concern
+      // raised about a deal, which pauses it. SUPER_ADMIN any read/write/
+      // approve; BTG_ADMIN own-tenant read/write/approve (opens and decides);
+      // CAMPAIGN_MGR and FINANCE own-tenant read; ATHLETE own read/write (reads
+      // theirs, sends documents); GUARDIAN ward read, write deferred (acts as
+      // the ward); every other cell deny — matrix §39. With its rows removed
+      // the grid hashes to the previous e42f713e01538f23.
+    ).toBe("c38aba9da7b833e8");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

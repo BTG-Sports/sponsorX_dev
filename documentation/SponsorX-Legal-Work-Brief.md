@@ -90,15 +90,21 @@ minor scans.
 ## 4 · NIL eligibility and athletic-association constraints
 *(`P0-LEG-06`, §26 / §4, 3d)*
 
-A written list of what state NIL law and high-school athletic associations
-prohibit. **We would rather build restrictions into the product than discover
-them after an athlete loses eligibility** — a known rule becomes an automatic
-check.
+**Redefined 2026-10-20 by the programme owner.** Athletes come from many
+states and countries, each with its own school, league and association rules,
+so we no longer ask counsel for a list of every place's rules. Instead:
 
-**Done when:** an enforceable constraints list — prohibited sponsor categories
-(alcohol, gambling, tobacco, cannabis, others), school-mark and uniform
-restrictions, disclosure requirements, and any approval or reporting obligation
-before a high-school athlete may accept a deal. DMV first.
+- **The athlete is responsible for their own rules.** The athlete confirms
+  they have checked them; for a minor, the guardian confirms.
+- **Built-in limits stay for everyone:** sensitive categories are blocked for
+  minors, a person reviews every minor's content, and athletes block their
+  own categories.
+- **If someone objects to a deal,** BTG pauses it and asks the athlete for
+  documents, such as the school's written approval.
+
+**Done when:** counsel approves the athlete-responsibility paragraph and the
+confirmation wording, both in the Content Collaboration Agreement draft
+(item 1). No state-by-state list is needed.
 
 ## 5 · Guardian authorisation method
 *(`P0-LEG-03`, gate G-03, Addendum A5 / §4, 1d)*
@@ -116,13 +122,19 @@ what would satisfy it.
 ## 6 · Reward terms — coupon and sweepstakes legality
 *(`P0-LEG-05`, §16, 1d)*
 
-Which fan reward types we may lawfully run. **Discount coupons are simple; prize
-draws and sweepstakes are heavily regulated** and vary by state. Needed before
-building the tools that create rewards.
+**Redefined 2026-10-20 by the programme owner.** We no longer ask counsel to
+vet every kind of reward in every state. Instead:
 
-**Done when:** written confirmation of permitted reward types in the DMV and
-Baltimore — discount coupon, free item, event check-in reward, prize draw — with
-any conditions such as required official rules or no-purchase-necessary wording.
+- **The sponsor is responsible for the reward it offers.** The sponsor
+  confirms the reward is lawful wherever it is offered, including age limits
+  and any alcohol, cannabis or betting rules.
+- **Built-in limits stay for everyone.** The app runs instant rewards only:
+  no prize won by chance, and nothing to pay to claim. Age and
+  ticket-holder limits are checked at the booth.
+- **If anyone objects to a reward,** BTG pauses it.
+
+**Done when:** counsel approves the sponsor-responsibility paragraph in the
+sponsor's terms (the marketplace and payout terms draft, Part B, section B7).
 
 ---
 
@@ -135,10 +147,14 @@ Listed so the full scope is visible. Each depends on decisions not yet made.
 marketplace, payout and privacy terms plus BTG representation documents. Longest
 lead item of that phase.
 
-**8 · Tax and withholding position** *(`2S0-LEG-02`, Phase 2, 3d)* — Phase 1
-collects no tax IDs because money moves outside the platform. **Phase 2 moves
-real money, so that changes.** Written position on what the payment provider
-handles versus what SponsorX must collect and report, and which system owns each.
+**8 · Tax and withholding position** *(`2S0-LEG-02`, Phase 2, 0.5d, BTG's accountant)*
+— **Position proposed 2026-10-20, for the accountant to confirm, not to research:**
+- **Marketplace payouts:** Stripe collects each payee's W-9 or W-8 and files the 1099s on BTG's behalf.
+- **Campaign payments made outside SponsorX:** BTG's finance team handles them as for any contractor.
+- **SponsorX never stores a tax ID.**
+- **A minor's form is in the minor's name.**
+
+The four questions and the proposed answers are in draft 7 in the SponsorX Legal folder.
 
 **9 · Attribution and partner terms review** *(`3S0-LEG-01`, Phase 3, 3d)* — when
 the platform starts claiming attributed revenue, those claims, the consent basis
@@ -153,11 +169,11 @@ for using fan data that way, and what partner contracts permit all need review.
 | 1 | Content Collaboration Agreement | `P0-LEG-01` | Now — first | 3d |
 | 2 | Campaign Order template | `P0-LEG-02` | Now — first | 3d |
 | 3 | Fan reward privacy review | `P0-LEG-04` | Now | 3d |
-| 4 | NIL eligibility and association constraints | `P0-LEG-06` | Now | 3d |
+| 4 | Athlete-responsibility wording (redefined 2026-10-20, in item 1) | `P0-LEG-06` | Now — with item 1 | 0.5d |
 | 5 | Guardian authorisation method | `P0-LEG-03` | Now — with item 1 | 1d |
-| 6 | Reward terms (coupon / sweepstakes) | `P0-LEG-05` | Now | 1d |
+| 6 | Sponsor-responsibility wording for rewards (redefined 2026-10-20) | `P0-LEG-05` | Now — with item 7 | 0.5d |
 | 7 | Marketplace and payout agreements | `2S0-LEG-01` | Phase 2 | 5d |
-| 8 | Tax and withholding position | `2S0-LEG-02` | Phase 2 | 3d |
+| 8 | Tax position: confirm four proposed answers (BTG's accountant) | `2S0-LEG-02` | Now | 0.5d |
 | 9 | Attribution and partner terms | `3S0-LEG-01` | Phase 3 | 3d |
 
 **Phase 1 total: ~14 days of counsel time.** Items 1, 2 and 5 concern the same

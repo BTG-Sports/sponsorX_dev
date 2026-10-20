@@ -123,6 +123,9 @@ import {
 } from "./marketplace";
 import { NotificationPreferenceInput } from "./notification-preferences";
 import {
+  DealDisputeDocumentInput, DealDisputeListQuery, DealDisputeOpenInput, DealDisputeResolveInput, RulesAttestationInput,
+} from "./deal-disputes";
+import {
   CancellationAnswerInput, DeliveryCancelInput, SaleCancelInput, DeliveryProblemInput, DeliveryProofQuery, DeliveryResolutionInput, InvitableAthletesQuery, MarkDeliveredInput, ProblemAnswerInput, ProofUploadInput,
   ReplyAnswerInput, TeamInvitationInput,
   TeamInvitationResponseInput,
@@ -336,6 +339,18 @@ const PATHS: Row[] = [
   { method: "get", path: "/me", tag: "Identity", summary: "The caller's resolved actor: tenant, roles and linked records." },
   { method: "get", path: "/me/notification-preferences", tag: "Identity", summary: "Which events reach the caller, per channel — muted or delivered (2S6-BE-02)." },
   { method: "put", path: "/me/notification-preferences", tag: "Identity", summary: "Mute or unmute one channel for one event type; the worker honours it at send time.", body: NotificationPreferenceInput },
+  /* P8-BE-02 (P0-LEG-06) — the athlete's own rules are their responsibility. */
+  { method: "get", path: "/me/rules-attestation", tag: "Identity", summary: "The rules wording, whether the athlete's confirmation counts for it (an athlete under a guardian's control needs the guardian's), and whether a deal waits on it here (P8-BE-02)." },
+  { method: "post", path: "/me/rules-attestation", tag: "Identity", summary: "Confirm the current rules wording: an adult athlete, or a guardian acting for their minor. A minor's own login is refused (guardian_must_act). Audited.", body: RulesAttestationInput },
+  { method: "get", path: "/public/rules-attestation", tag: "Public", summary: "The rules wording the application and the guardian's set-up page show, with its version (P8-BE-02).", auth: false },
+  /* P8-BE-03 (P0-LEG-06) — a concern raised about a deal pauses it until BTG decides. */
+  { method: "post", path: "/orders/{id}/disputes", tag: "Campaigns", summary: "BTG admin: record a concern about a sent, accepted or active order and what the athlete must send. The deal pauses (deliverables can't move, the order can only be cancelled) and its earning is held. The athlete, or a minor's guardian, is emailed. Audited.", body: DealDisputeOpenInput },
+  { method: "get", path: "/deal-disputes", tag: "Campaigns", summary: "Deal disputes: BTG's tenant-wide list, or the athlete's own (a guardian's ward's).", query: DealDisputeListQuery },
+  { method: "get", path: "/deal-disputes/{id}", tag: "Campaigns", summary: "One dispute: who raised what, what was asked for, the documents in (names only) and the outcome." },
+  { method: "post", path: "/deal-disputes/{id}/documents", tag: "Campaigns", summary: "The athlete (or a minor's guardian) starts a document upload for an open dispute: a private-bucket PUT for exactly that file (PDF, JPEG, PNG or WebP, at most 10 MB).", body: DealDisputeDocumentInput },
+  { method: "post", path: "/deal-disputes/{id}/documents/{documentId}/confirm", tag: "Campaigns", summary: "Confirm the document arrived. The first moves the dispute to DOCUMENTS_IN; BTG's admins are emailed of each." },
+  { method: "get", path: "/deal-disputes/{id}/documents/{documentId}", tag: "Campaigns", summary: "BTG admin: a five-minute, audited link to a document the athlete sent." },
+  { method: "post", path: "/deal-disputes/{id}/resolve", tag: "Campaigns", summary: "BTG admin: RESUME lifts the pause and puts the earning back; CANCEL cancels the order and leaves its earning held for Finance. The athlete, or a minor's guardian, is emailed the note. Audited.", body: DealDisputeResolveInput },
 
   // applications — public intake (P3-BE-13)
   { method: "post", path: "/applications/intake", tag: "Applications", summary: "Apply to the Athlete Network.", auth: false, body: AthleteApplicationInput, status: 201, response: ApplicationSubmissionReceipt },

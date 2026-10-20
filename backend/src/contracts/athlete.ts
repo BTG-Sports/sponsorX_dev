@@ -144,6 +144,10 @@ const AthleteApplicationFields = z.object({
 
   // §11 §3 — Social
   socials: z.array(SocialAccountIntake).max(4).default([]),
+
+  // P8-BE-02 — the applicant confirmed the wording GET /public/rules-attestation served: its version.
+  rulesAttestationVersion: z.string().trim().min(1).max(40).optional()
+    .meta({ description: "The `version` of the rules confirmation the applicant ticked (GET /public/rules-attestation). Omitted when not ticked. A version that isn't the current wording is refused (422 `rules_attestation_stale`)." }),
 });
 
 /* --------------------------------------------------------------------------

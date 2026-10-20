@@ -53,9 +53,14 @@ export const GuardianDetailsInput = z
   .meta({ id: "GuardianDetailsInput", description: "The guardian's own details, from their set-up page." });
 
 export const GuardianAgreementInput = z
-  .object({ agreementId: z.string().min(1).max(100), bodyHashShown: z.string().min(1).max(200) })
+  .object({
+    agreementId: z.string().min(1).max(100),
+    bodyHashShown: z.string().min(1).max(200),
+    /* P8-BE-02 — the guardian also confirmed the athlete's own rules (GET /public/rules-attestation): its version. */
+    rulesAttestationVersion: z.string().trim().min(1).max(40).optional(),
+  })
   .strict()
-  .meta({ id: "GuardianAgreementInput", description: "The guardian agreement version shown, and the hash of the text on screen (§12)." });
+  .meta({ id: "GuardianAgreementInput", description: "The guardian agreement version shown, and the hash of the text on screen (§12). With `rulesAttestationVersion`, the guardian also confirmed the athlete's school, league and local rules for paid sponsorships (P8-BE-02); a version that isn't the current wording is refused (422 `rules_attestation_stale`)." });
 
 export const SignupRejectInput = z
   .object({ note: z.string().trim().min(1).max(2000) })
@@ -83,6 +88,14 @@ export const SignupStreamQuery = z
   .meta({ id: "SignupStreamQuery", description: "One kind (or all), only what is held for BTG (`review=1`), and a name / email search." });
 
 export const SignupSettingsInput = z
-  .object({ staffConfirmMinors: z.boolean() })
+  .object({
+    staffConfirmMinors: z.boolean().optional(),
+    /* P8-BE-02 */
+    requireRulesAttestation: z.boolean().optional(),
+  })
   .strict()
-  .meta({ id: "SignupSettingsInput", description: "\"BTG staff confirm minors before approval\" — off by default." });
+  .refine((v) => v.staffConfirmMinors !== undefined || v.requireRulesAttestation !== undefined, { message: "Set at least one setting." })
+  .meta({
+    id: "SignupSettingsInput",
+    description: "\"BTG staff confirm minors before approval\" and \"athletes confirm their own rules before a deal\" (P8-BE-02) — both off by default. Send either or both.",
+  });
