@@ -20,3 +20,27 @@ The user asked for tasks only, nothing built: a socket connection for the game, 
 - The sheet's autofilter, Status validation and conditional formatting are extended to row 25. The Dashboard already reads Phase 5 to row 100.
 
 **Why the identity decision comes first:** the World Contract (`4S0-PMO-01`) says players are anonymous (only `sessionRef`/`subjectRef`). Accounts change that, so the decision is recorded before anything is built.
+
+## rcfworks — the game is parked: Phase 4's 20 game-dependent tasks moved to Phase 5
+
+**The user, 2026-10-20:** "Game is parked. We prioritise the web application. Game tasks are for Phase 5. Do not make any preparation for the game at this point. Our priority is to ship the SponsorX web app." This came when I proposed Sprint 5 (viewability and virtual metrics) as the next backend task.
+
+**Moved to Phase 5** (the user chose 20, not all 29), renumbered, with the former-ID table in the Phase 5 plan:
+- **Sprint 4 · Telemetry at scale:** 4S0-PMO-03 → 5S4-PMO-01, 4S4-BE-03 → 5S4-BE-01, 4S4-OPS-01 → 5S4-OPS-01, 4S8-OPS-01 → 5S4-OPS-02.
+- **Sprint 5 · Viewability, metrics and pricing:** 4S5-BE-01/DATA-01/DATA-02/FE-01/BE-02 → 5S5-…
+- **Sprint 6 · In-world activations and rewards:** 4S6-BE-01/02/03, INT-01, FE-01 → 5S6-…
+- **Sprint 7 · Game reporting and operations:** 4S7-DATA-01, FE-01/02/03 → 5S7-…; 4S8-FE-01 → 5S7-FE-04; 4S8-DATA-01 → 5S7-DATA-02.
+
+**Phase 4 keeps 9 open tasks** (the web side, which runs without the game): 4S0-ART-01, 4S1-FE-01/02/03, 4S2-FE-01, 4S8-BE-01 (emergency pause), 4S8-BE-02 (incident log), 4S9-PMO-02 (UAT, redefined: it depends on the kept tasks, with 6 criteria) and 4S9-OPS-01.
+
+**Counts:** Phase 4 is 27 tasks · 96 days (was 47 · 190). Phase 5 is 41 · 163.
+
+**Criteria:**
+- Phase 4 keeps 1–4 and gains 5 (the admin screens) and 6 (emergency pause logged as an incident).
+- The former 5–11 are Phase 5's 7–13.
+- 5S2-PMO-02 signs off all 13.
+
+**References:**
+- **Renamed** in the spec, the World Contract, the Module Interface plan, the Virtual Registry and the Taxonomy: exact-ID replace in those five files only.
+- **Kept as they were:** code comments and dated Memory logs (the former-ID table maps them).
+- **Tracker:** the rows moved sheet to sheet, ranges reset (Phase 4 to row 31, Phase 5 to row 45), the Roadmap updated. CLAUDE.md is updated too.

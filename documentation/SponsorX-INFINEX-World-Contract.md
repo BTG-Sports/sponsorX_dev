@@ -83,7 +83,7 @@ and none reaches a sponsor.**
   identifiers.
 - **Location:** at most a city and region. SponsorX keeps no more.
 - **No linking across channels by default.** A fan who scans a QR code and also plays in a world is
-  not matched up. Cross-channel totals (`4S7-DATA-01`) are counted without
+  not matched up. Cross-channel totals (`5S7-DATA-01`) are counted without
   joining people.
   - Allowing a link later is a policy change, not a rebuild.
   - It does not wait on legal (standing rule).

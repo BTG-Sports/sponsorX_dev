@@ -5,9 +5,9 @@
 | | |
 |---|---|
 | **Goal** | Connect the INFINEX game to SponsorX: the game shows sponsors' creative on the right surfaces, reports its health and its viewing, and a real sponsor runs a pilot in a real world. |
-| **Tasks** | 21 · 69 person-days |
+| **Tasks** | 41 · 163 person-days |
 | **Timeline** | Starts once the INFINEX game has a staging world |
-| **Depends on** | **The INFINEX game** (not started as of 2026-10-16), and Phase 4's SponsorX side: the manifest (`4S2-BE-03`), the client endpoints (`4S3-INT-02`, `-03`), telemetry intake (`4S4-*`) and the load test (`4S8-OPS-01`) |
+| **Depends on** | **The INFINEX game** (not started as of 2026-10-16), and Phase 4's SponsorX side: the manifest (`4S2-BE-03`), the client endpoints (`4S3-INT-02`, `-03`) and the telemetry intake (`4S4-BE-01`). Since 2026-10-20 the game-dependent rest of Phase 4 is here (Sprints 4–7) |
 | **Source** | Split out of Phase 4 on 2026-10-16 (user); the tasks keep their Phases 2–4 Spec § references |
 
 > **Why this phase exists (user, 2026-10-16).** The INFINEX game has not been started; the plan is SponsorX's web application first, then the game. Phase 4 builds SponsorX's side and proves it with a stand-in world, a script that calls SponsorX the way the game will. Every task that needs the real game moved here, renumbered. The rules the game must follow are Phase 4's world contract (`4S0-PMO-01`) and taxonomy (`4S0-PMO-02`), so the game is built to fit SponsorX.
@@ -39,6 +39,26 @@ pilot world's telemetry (`5S2-QA-01`).
 | `5S2-QA-01` | `4S9-QA-01` |
 | `5S2-PMO-01` | `4S9-PMO-01` |
 | `5S2-PMO-02` | new: the real-sponsor pilot, formerly part of `4S9-PMO-02` |
+| `5S4-PMO-01` | `4S0-PMO-03` (moved 2026-10-20: the game is parked) |
+| `5S4-BE-01` | `4S4-BE-03` (moved 2026-10-20: the game is parked) |
+| `5S4-OPS-01` | `4S4-OPS-01` (moved 2026-10-20: the game is parked) |
+| `5S4-OPS-02` | `4S8-OPS-01` (moved 2026-10-20: the game is parked) |
+| `5S5-BE-01` | `4S5-BE-01` (moved 2026-10-20: the game is parked) |
+| `5S5-DATA-01` | `4S5-DATA-01` (moved 2026-10-20: the game is parked) |
+| `5S5-DATA-02` | `4S5-DATA-02` (moved 2026-10-20: the game is parked) |
+| `5S5-FE-01` | `4S5-FE-01` (moved 2026-10-20: the game is parked) |
+| `5S5-BE-02` | `4S5-BE-02` (moved 2026-10-20: the game is parked) |
+| `5S6-BE-01` | `4S6-BE-01` (moved 2026-10-20: the game is parked) |
+| `5S6-BE-02` | `4S6-BE-02` (moved 2026-10-20: the game is parked) |
+| `5S6-BE-03` | `4S6-BE-03` (moved 2026-10-20: the game is parked) |
+| `5S6-INT-01` | `4S6-INT-01` (moved 2026-10-20: the game is parked) |
+| `5S6-FE-01` | `4S6-FE-01` (moved 2026-10-20: the game is parked) |
+| `5S7-DATA-01` | `4S7-DATA-01` (moved 2026-10-20: the game is parked) |
+| `5S7-FE-01` | `4S7-FE-01` (moved 2026-10-20: the game is parked) |
+| `5S7-FE-02` | `4S7-FE-02` (moved 2026-10-20: the game is parked) |
+| `5S7-FE-03` | `4S7-FE-03` (moved 2026-10-20: the game is parked) |
+| `5S7-FE-04` | `4S8-FE-01` (moved 2026-10-20: the game is parked) |
+| `5S7-DATA-02` | `4S8-DATA-01` (moved 2026-10-20: the game is parked) |
 
 ---
 
@@ -102,7 +122,7 @@ Formerly `4S3-QA-01`. A placement is only AVAILABLE after it renders correctly i
 
 Formerly `4S9-QA-01`. Compare what the game emitted against what SponsorX recorded, event by event, in a real world. Until it passes, virtual impressions reach sponsors only labelled unvalidated.
 
-- **Depends on:** 5S1-INT-01, 4S8-OPS-01
+- **Depends on:** 5S1-INT-01, 5S4-OPS-02
 - **Done when:** Telemetry reconciles between client and server within defined tolerance
 - **Reference:** Spec §33
 
@@ -110,7 +130,7 @@ Formerly `4S9-QA-01`. Compare what the game emitted against what SponsorX record
 
 **Order** 6 · **PMO** · **Where:** Document · **3d** · **Blocked**
 
-Formerly `4S9-PMO-01`. The pricing model (`4S5-BE-02`) was built on assumptions and stand-in traffic. Pilot traffic replaces them with measurements.
+Formerly `4S9-PMO-01`. The pricing model (`5S5-BE-02`, formerly `4S5-BE-02`) was built on assumptions and stand-in traffic. Pilot traffic replaces them with measurements.
 
 - **Depends on:** 5S2-QA-01
 - **Done when:** Virtual rates recalibrated against observed traffic, viewability and dwell
@@ -123,7 +143,7 @@ Formerly `4S9-PMO-01`. The pricing model (`4S5-BE-02`) was built on assumptions 
 New on 2026-10-16: the real-sponsor pilot, formerly part of `4S9-PMO-02`. A real sponsor runs a real virtual activation in the pilot world and receives a real report.
 
 - **Depends on:** 5S2-QA-01, 5S3-QA-01
-- **Done when:** All 6 Phase 5 acceptance criteria demonstrated and signed off
+- **Done when:** All 13 Phase 5 acceptance criteria demonstrated and signed off
 - **Reference:** Spec §34
 
 ## Sprint 3 · Player accounts and live connection
@@ -346,6 +366,230 @@ Every finding is fixed or recorded with its reason.
 - **Done when:** Every check passes, or each open finding is recorded with its risk and its owner
 - **Reference:** Spec §29, §31
 
+## Sprint 4 · Telemetry at scale
+
+*Volume, buffering, de-duplication and load: what the game's real traffic needs. Moved from Phase 4 on 2026-10-20: the game is parked.*
+
+*4 tasks · 18 person-days*
+
+### ⏸ `5S4-PMO-01` · Estimate telemetry volume and cost
+
+**Order** 21 · **PMO** · **Where:** Document · **3d** · **Blocked**
+
+Formerly `4S0-PMO-03` (moved 2026-10-20). Virtual worlds emit far more events than a QR code does. Size the ingestion, storage and warehouse cost before committing to an architecture.
+
+- **Depends on:** 4S0-PMO-01
+- **Done when:** Event volume estimated per concurrent user with an infrastructure cost model
+- **Reference:** Spec §31, §38
+
+### ⏸ `5S4-BE-01` · Idempotent de-duplication
+
+**Order** 22 · **BE** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S4-BE-03` (moved 2026-10-20). Clients retry. Networks duplicate. Duplicate telemetry must never inflate a sponsor's numbers — this is billing data.
+
+- **Depends on:** 4S4-BE-01
+- **Done when:** Repeated duplicate telemetry does not inflate sponsor reports
+- **Reference:** Spec §34
+
+### ⏸ `5S4-OPS-01` · Event streaming and buffering
+
+**Order** 23 · **OPS** · **Where:** Vendor console · **5d** · **Blocked**
+
+Formerly `4S4-OPS-01` (moved 2026-10-20). A queue in front of ingestion so a traffic burst in-world does not drop sponsorship data.
+
+- **Depends on:** 4S4-BE-01
+- **Done when:** Ingestion sustains the agreed burst rate with buffering and no event loss
+- **Reference:** Spec §31, §38
+
+### ⏸ `5S4-OPS-02` · Load test event ingestion and dashboards
+
+**Order** 24 · **OPS** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S8-OPS-01` (moved 2026-10-20). Prove the throughput and dashboard latency targets hold at expected Phase 4 traffic, before a pilot world goes live.
+
+- **Depends on:** 5S4-OPS-01
+- **Done when:** Load test meets the agreed ingestion throughput and dashboard latency targets
+- **Reference:** Spec §34
+
+## Sprint 5 · Viewability, metrics and pricing
+
+*Turn the game's renders into impressions a sponsor can be billed for honestly, and price placements from real traffic. Moved from Phase 4 on 2026-10-20: the game is parked.*
+
+*5 tasks · 23 person-days*
+
+### ⏸ `5S5-BE-01` · Viewability rule engine
+
+**Order** 25 · **BE** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S5-BE-01` (moved 2026-10-20). Versioned rules — minimum visible percentage and minimum dwell — decide which renders count as viewable impressions.
+
+- **Depends on:** 4S4-DATA-01
+- **Done when:** Viewable impressions are calculated per versioned rule and remain distinct from gross renders
+- **Reference:** Spec §30, §34
+
+### ⏸ `5S5-DATA-01` · Virtual metric aggregation job
+
+**Order** 26 · **DATA** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S5-DATA-01` (moved 2026-10-20). Visits, gross impressions, viewable impressions, dwell, interactions, challenge metrics and session-level uniques.
+
+- **Depends on:** 5S5-BE-01
+- **Done when:** Aggregates compute on schedule and dashboards read aggregates, never raw telemetry
+- **Reference:** Spec §27.3
+
+### ⏸ `5S5-DATA-02` · World traffic benchmarks
+
+**Order** 27 · **DATA** · **Where:** Code · **3d** · **Blocked**
+
+Formerly `4S5-DATA-02` (moved 2026-10-20). Baseline visits, dwell and interaction rates per world and zone — the inputs to virtual pricing.
+
+- **Depends on:** 5S5-DATA-01
+- **Done when:** Traffic benchmarks compute per world and zone
+- **Reference:** Spec §30, §32
+
+### ⏸ `5S5-FE-01` · Build the virtual metrics dashboard
+
+**Order** 28 · **FE** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S5-FE-01` (moved 2026-10-20). Visits, impressions, viewable impressions, dwell, interactions, completion and the reward funnel.
+
+- **Depends on:** 5S5-DATA-01
+- **Done when:** Dashboard renders virtual delivery with gross and viewable clearly separated
+- **Reference:** Spec §26 P4-07
+
+### ⏸ `5S5-BE-02` · Virtual pricing model
+
+**Order** 29 · **BE** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S5-BE-02` (moved 2026-10-20). Rules-based and transparent first: base rate × traffic × viewability × dwell × scarcity × exclusivity × seasonality × integration depth.
+
+- **Depends on:** 5S5-DATA-02
+- **Done when:** A virtual placement produces a recommended rate with its factor breakdown visible
+- **Reference:** Spec §32
+
+## Sprint 6 · In-world activations and rewards
+
+*Challenges inside the game that start, complete and pay a SponsorX reward exactly once. Moved from Phase 4 on 2026-10-20: the game is parked.*
+
+*5 tasks · 23 person-days*
+
+### ⏸ `5S6-BE-01` · Activation definition model
+
+**Order** 30 · **BE** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S6-BE-01` (moved 2026-10-20). Challenges, quests, scavenger hunts, skill tests, product discovery and sponsor booths, with start conditions, completion criteria and reward triggers.
+
+- **Depends on:** 4S2-BE-01
+- **Done when:** An activation can be defined with rules, completion criteria and a linked reward
+- **Reference:** Spec §30
+
+### ⏸ `5S6-BE-02` · Activation start and complete flow
+
+**Order** 31 · **BE** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S6-BE-02` (moved 2026-10-20). Validate completion against activation, session and user constraints before anything is awarded.
+
+- **Depends on:** 5S6-BE-01
+- **Done when:** Activation can start and complete, validated against its eligibility rules
+- **Reference:** Spec §27.4
+
+### ⏸ `5S6-BE-03` · Reward trigger with exactly-once guarantee
+
+**Order** 32 · **BE** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S6-BE-03` (moved 2026-10-20). The in-world equivalent of Phase 1's single-use QR redemption, and it needs the same database-level guarantee rather than application logic.
+
+- **Depends on:** 5S6-BE-02
+- **Done when:** An activation triggers a SponsorX reward exactly once per configured eligibility rule
+- **Reference:** Spec §34
+
+### ⏸ `5S6-INT-01` · Wire in-world rewards to the wallet service
+
+**Order** 33 · **INT** · **Where:** Code · **3d** · **Blocked**
+
+Formerly `4S6-INT-01` (moved 2026-10-20). Completion produces a claim token and deep link; the fan receives it in-world and optionally by wallet, SMS or email.
+
+- **Depends on:** 5S6-BE-03
+- **Done when:** A completed activation delivers a reward through the existing reward and wallet services
+- **Reference:** Spec §27.4
+
+### ⏸ `5S6-FE-01` · Build the activation builder
+
+**Order** 34 · **FE** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S6-FE-01` (moved 2026-10-20). Challenge rules, start condition, completion criteria, reward trigger and sponsor content.
+
+- **Depends on:** 4S0-ART-01
+- **Done when:** A campaign manager can build and publish an activation without engineering help
+- **Reference:** Spec §26 P4-06
+
+## Sprint 7 · Game reporting and operations
+
+*The game's numbers beside every other channel, the sponsor's activation report, the heatmap, the INFINEX ops console and fraud checks. Moved from Phase 4 on 2026-10-20: the game is parked.*
+
+*6 tasks · 30 person-days*
+
+### ⏸ `5S7-DATA-01` · Cross-channel aggregation without double counting
+
+**Order** 35 · **DATA** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S7-DATA-01` (moved 2026-10-20). The hard part. A fan who scans a QR and completes an in-world challenge is one person, and must not be counted twice.
+
+- **Depends on:** 4S7-BE-01
+- **Done when:** Cross-channel dashboard shows INFINEX metrics alongside other channels without double counting
+- **Reference:** Spec §34
+
+### ⏸ `5S7-FE-01` · Build the cross-channel campaign dashboard
+
+**Order** 36 · **FE** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S7-FE-01` (moved 2026-10-20). Compare INFINEX against social, streaming, event and athlete inventory in one view.
+
+- **Depends on:** 5S7-DATA-01
+- **Done when:** Dashboard compares all channels on consistent metrics
+- **Reference:** Spec §26 P4-08
+
+### ⏸ `5S7-FE-02` · Build the sponsor activation report
+
+**Order** 37 · **FE** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S7-FE-02` (moved 2026-10-20). Virtual activation summary with content, engagement, rewards, screenshots and proofs, and recommended next actions.
+
+- **Depends on:** 5S5-FE-01
+- **Done when:** A pilot sponsor receives a report with virtual delivery, interaction, reward funnel and creative proof
+- **Reference:** Spec §26 P4-11, §34
+
+### ⏸ `5S7-FE-03` · Build the world heatmap and zone insights
+
+**Order** 38 · **FE** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S7-FE-03` (moved 2026-10-20). Aggregated zone traffic and engagement, where INFINEX telemetry supports it.
+
+- **Depends on:** 5S5-DATA-02
+- **Done when:** Heatmap renders zone-level traffic and engagement
+- **Reference:** Spec §26 P4-12
+
+### ⏸ `5S7-FE-04` · Build the INFINEX operations console
+
+**Order** 39 · **FE** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S8-FE-01` (moved 2026-10-20). Health, event lag, placement failures, creative mismatch, kill switch and incident log.
+
+- **Depends on:** 4S3-INT-02
+- **Done when:** Console displays event lag, client heartbeat, deployment failures and active incidents
+- **Reference:** Spec §26 P4-09, §34
+
+### ⏸ `5S7-DATA-02` · Virtual fraud and anomaly checks
+
+**Order** 40 · **DATA** · **Where:** Code · **5d** · **Blocked**
+
+Formerly `4S8-DATA-01` (moved 2026-10-20). Invalid or suspicious event patterns flagged before they reach a sponsor report — this is Phase 3's anomaly work applied to telemetry.
+
+- **Depends on:** 5S4-BE-01
+- **Done when:** Suspicious event patterns are flagged and excluded from sponsor-facing aggregates
+- **Reference:** Spec §27.3
+
 ---
 
 ## Phase acceptance criteria
@@ -362,6 +606,13 @@ Every one of these must be demonstrated before the phase is signed off.
    - the game shows the server's reason for every refused login;
    - repeated failures lock the account;
    - the game holds a live, authenticated socket that receives a pause or a feed change within seconds.
+7. Viewable impressions are calculated according to versioned viewability rules and remain distinct from gross renders *(formerly Phase 4 criterion 5)*.
+8. Repeated duplicate telemetry does not inflate sponsor reports *(formerly Phase 4 criterion 6)*.
+9. An interactive activation can start, complete and trigger a SponsorX reward exactly once per configured eligibility rule *(formerly Phase 4 criterion 7)*.
+10. The cross-channel dashboard shows INFINEX metrics alongside non-virtual campaign metrics without double counting *(formerly Phase 4 criterion 8)*.
+11. The operations console displays event lag, client heartbeat, deployment failures and active incidents *(formerly Phase 4 criterion 9)*.
+12. A sponsor receives a report containing virtual delivery, interaction, reward funnel and proof/creative summary *(formerly Phase 4 criterion 10)*.
+13. The load test meets the agreed event-ingestion throughput and dashboard latency targets *(formerly Phase 4 criterion 11)*.
 
 ---
 
