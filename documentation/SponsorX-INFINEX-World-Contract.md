@@ -83,7 +83,7 @@ and none reaches a sponsor.**
   identifiers.
 - **Location:** at most a city and region. SponsorX keeps no more.
 - **No linking across channels by default.** A fan who scans a QR code and also plays in a world is
-  not matched up. Cross-channel totals (`4S7-DATA-01`) are counted without
+  not matched up. Cross-channel totals (`5S7-DATA-01`) are counted without
   joining people.
   - Allowing a link later is a policy change, not a rebuild.
   - It does not wait on legal (standing rule).
@@ -110,7 +110,7 @@ The design is `4S0-SEC-01`, decided 2026-10-19
   the world and time asked.
 - **Creative comes through signed links that expire within minutes.**
 - **A pause or a rollback in SponsorX takes effect at the world's next
-  manifest fetch,** with no new game build (`4S2-BE-05`, `4S8-BE-01`).
+  manifest fetch,** with no new game build (`4S2-BE-05`, `5S8-BE-01`).
 - **Settings come from SponsorX** (`4S3-INT-03`, `GET /infinex/config`): how
   often to send a heartbeat and read the manifest, the largest telemetry
   batch, the supported event versions and the feature flags. A world reads
