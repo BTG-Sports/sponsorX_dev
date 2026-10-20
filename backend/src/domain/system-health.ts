@@ -108,7 +108,8 @@ export type PipelineReading = {
   /** The latest record of each step from the last three nights. */
   runs: Array<{ step: string; status: string; day: string; finishedAt: string }>;
   lastOkAt: string | null;
-  lastForecastAt: string | null;
+  /** The newest forecast's day (YYYY-MM-DD, UTC). A campaign gets one forecast per day, so freshness is by day, not by hours. */
+  lastForecastDay: string | null;
   activeCampaigns: number;
   /** Real backtests, newest first. */
   backtests: Array<{ model: string; version: string; ranAt: string; metrics: Array<{ label: string; value: number }> }>;
@@ -140,8 +141,11 @@ export function evaluatePipeline(r: PipelineReading | null, railway: boolean, no
   const failedSteps = [...latest].filter(([, x]) => x.status === "failed").map(([k]) => k).sort();
   const hours = (iso: string | null) => (iso ? (now.getTime() - new Date(iso).getTime()) / 3_600_000 : null);
   const sinceOk = hours(r.lastOkAt);
-  const sinceForecast = hours(r.lastForecastAt);
-  const forecastsFresh = r.activeCampaigns === 0 || (sinceForecast !== null && sinceForecast <= PIPELINE_STALE_HOURS);
+  /* Fresh: a forecast for today or yesterday. Not "made in the last 26 hours": a forecast made early in a
+     day (a seed, a manual run) leaves that night's run nothing to add, and its age would cross 26 hours
+     the next morning with nothing wrong. A night that makes none is still caught, from midnight UTC. */
+  const yesterday = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
+  const forecastsFresh = r.activeCampaigns === 0 || (r.lastForecastDay !== null && r.lastForecastDay >= yesterday);
   /* Drift: a version's newest real backtest against its previous one. */
   const drift: string[] = [];
   const seen = new Map<string, Array<{ metrics: Array<{ label: string; value: number }> }>>();
@@ -266,11 +270,11 @@ async function readPipeline(): Promise<PipelineReading | null> {
     async (tx) => {
       await tx.$executeRaw`SET LOCAL statement_timeout = '2s'`;
       /* tenant-scope: platform-wide health — the pipeline's own record, and counts and times only; no tenant's rows are returned. */
-      return tx.$queryRaw<Array<{ runs: PipelineReading["runs"] | null; lastOkAt: Date | null; lastForecastAt: Date | null; activeCampaigns: number; backtests: PipelineReading["backtests"] | null }>>`
+      return tx.$queryRaw<Array<{ runs: PipelineReading["runs"] | null; lastOkAt: Date | null; lastForecastDay: string | null; activeCampaigns: number; backtests: PipelineReading["backtests"] | null }>>`
         SELECT (SELECT json_agg(json_build_object('step', step, 'status', status, 'day', to_char(day, 'YYYY-MM-DD'), 'finishedAt', "finishedAt"))
                   FROM "PipelineRun" WHERE day >= current_date - 3) AS runs,
                (SELECT max("finishedAt") FROM "PipelineRun" WHERE status = 'ok') AS "lastOkAt",
-               (SELECT max("forecastAt") FROM "CampaignForecast") AS "lastForecastAt",
+               (SELECT to_char(max(day), 'YYYY-MM-DD') FROM "CampaignForecast") AS "lastForecastDay",
                (SELECT count(*)::int FROM "Campaign" WHERE state = 'ACTIVE' AND "startDate" <= now() AND "endDate" >= current_date) AS "activeCampaigns",
                (SELECT json_agg(b) FROM (SELECT model, version, "ranAt", metrics FROM "BacktestRun" WHERE NOT simulated ORDER BY "ranAt" DESC LIMIT 50) b) AS backtests`;
     },
@@ -280,7 +284,7 @@ async function readPipeline(): Promise<PipelineReading | null> {
   if (!row || !("activeCampaigns" in row)) return null;
   const iso = (d: Date | string | null) => (d === null ? null : new Date(d).toISOString());
   return {
-    runs: row.runs ?? [], lastOkAt: iso(row.lastOkAt), lastForecastAt: iso(row.lastForecastAt),
+    runs: row.runs ?? [], lastOkAt: iso(row.lastOkAt), lastForecastDay: row.lastForecastDay ?? null,
     activeCampaigns: Number(row.activeCampaigns ?? 0), backtests: row.backtests ?? [],
   };
 }

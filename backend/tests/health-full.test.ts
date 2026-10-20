@@ -37,7 +37,7 @@ const state = vi.hoisted(() => ({
     | { installed: boolean; jobs: { due: number; oldestDueSeconds: number | null; failed: number }; outbox: { pending: number; oldestSeconds: number | null } }
     | "throws",
   /* 3S9-OPS-01 — the nightly pipeline's record, as the one-row reading returns it. */
-  pipeline: { runs: [], lastOkAt: null, lastForecastAt: null, activeCampaigns: 0, backtests: null } as Record<string, unknown> | "throws",
+  pipeline: { runs: [], lastOkAt: null, lastForecastDay: null, activeCampaigns: 0, backtests: null } as Record<string, unknown> | "throws",
   /* The values bound into the outbox query — the parked job names. */
   outboxValues: [] as unknown[],
   statements: [] as string[],
@@ -124,7 +124,7 @@ beforeEach(() => {
   state.storage = true;
   state.archiver = { archivedAgoSeconds: 5 * 60, failing: false };
   state.queue = { installed: true, jobs: { due: 0, oldestDueSeconds: null, failed: 0 }, outbox: { pending: 0, oldestSeconds: null } };
-  state.pipeline = { runs: [], lastOkAt: null, lastForecastAt: null, activeCampaigns: 0, backtests: null };
+  state.pipeline = { runs: [], lastOkAt: null, lastForecastDay: null, activeCampaigns: 0, backtests: null };
   state.outboxValues = [];
   state.statements = [];
   state.hits = 0;
@@ -358,10 +358,11 @@ describe("errorRate", () => {
 describe("GET /health/full · the nightly pipeline (3S9-OPS-01)", () => {
   const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
   const today = new Date().toISOString().slice(0, 10);
+  const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
 
   it("a step that failed last night: 503, pipeline named, the step listed", async () => {
     state.pipeline = { runs: [{ step: "forecasts", status: "failed", day: today, finishedAt: hoursAgo(1) }, { step: "benchmarks", status: "ok", day: today, finishedAt: hoursAgo(1) }],
-      lastOkAt: hoursAgo(1), lastForecastAt: hoursAgo(1), activeCampaigns: 0, backtests: null };
+      lastOkAt: hoursAgo(1), lastForecastDay: today, activeCampaigns: 0, backtests: null };
     const { status, body } = await full();
     expect(status).toBe(503);
     expect(body.failed).toEqual(["pipeline"]);
@@ -369,14 +370,14 @@ describe("GET /health/full · the nightly pipeline (3S9-OPS-01)", () => {
   });
 
   it("nothing succeeded for 26 hours: stale", async () => {
-    state.pipeline = { runs: [{ step: "benchmarks", status: "ok", day: today, finishedAt: hoursAgo(27) }], lastOkAt: hoursAgo(27), lastForecastAt: null, activeCampaigns: 0, backtests: null };
+    state.pipeline = { runs: [{ step: "benchmarks", status: "ok", day: today, finishedAt: hoursAgo(27) }], lastOkAt: hoursAgo(27), lastForecastDay: null, activeCampaigns: 0, backtests: null };
     const { status, body } = await full();
     expect(status).toBe(503);
     expect((body.checks as Record<string, { hoursSinceSuccess: number }>).pipeline.hoursSinceSuccess).toBe(27);
   });
 
-  it("active campaigns with no forecast in 26 hours: a silently stale forecast is a failure", async () => {
-    state.pipeline = { runs: [{ step: "forecasts", status: "ok", day: today, finishedAt: hoursAgo(2) }], lastOkAt: hoursAgo(2), lastForecastAt: hoursAgo(30), activeCampaigns: 3, backtests: null };
+  it("active campaigns with no forecast for today or yesterday: a silently stale forecast is a failure", async () => {
+    state.pipeline = { runs: [{ step: "forecasts", status: "ok", day: today, finishedAt: hoursAgo(2) }], lastOkAt: hoursAgo(2), lastForecastDay: twoDaysAgo, activeCampaigns: 3, backtests: null };
     const { status, body } = await full();
     expect(status).toBe(503);
     expect((body.checks as Record<string, { forecastsFresh: boolean }>).pipeline.forecastsFresh).toBe(false);
@@ -384,14 +385,14 @@ describe("GET /health/full · the nightly pipeline (3S9-OPS-01)", () => {
 
   it("a model's backtest error growing by half and 5 points: drift", async () => {
     const run = (value: number, h: number) => ({ model: "forecast", version: "forecast-rules@2.0.0", ranAt: hoursAgo(h), metrics: [{ label: "Mean error of the projected final", value }] });
-    state.pipeline = { runs: [{ step: "backtests", status: "ok", day: today, finishedAt: hoursAgo(1) }], lastOkAt: hoursAgo(1), lastForecastAt: hoursAgo(1), activeCampaigns: 1, backtests: [run(16, 1), run(9, 25)] };
+    state.pipeline = { runs: [{ step: "backtests", status: "ok", day: today, finishedAt: hoursAgo(1) }], lastOkAt: hoursAgo(1), lastForecastDay: today, activeCampaigns: 1, backtests: [run(16, 1), run(9, 25)] };
     const { status, body } = await full();
     expect(status).toBe(503);
     expect((body.checks as Record<string, { drift: string[] }>).pipeline.drift).toEqual(["forecast forecast-rules@2.0.0: error 9% → 16%"]);
   });
 
   it("a healthy night: ok; off Railway the pipeline is never a failure; unreadable on Railway is", async () => {
-    state.pipeline = { runs: [{ step: "forecasts", status: "ok", day: today, finishedAt: hoursAgo(3) }], lastOkAt: hoursAgo(3), lastForecastAt: hoursAgo(3), activeCampaigns: 2, backtests: null };
+    state.pipeline = { runs: [{ step: "forecasts", status: "ok", day: today, finishedAt: hoursAgo(3) }], lastOkAt: hoursAgo(3), lastForecastDay: today, activeCampaigns: 2, backtests: null };
     expect((await full()).status).toBe(200);
     state.pipeline = "throws";
     expect((await full()).body.failed).toEqual(["pipeline"]);
