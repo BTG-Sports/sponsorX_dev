@@ -523,6 +523,21 @@ ${d.portalUrl ?? ""}
     subject: `You're approved — manage ${d.athleteFirstName ?? "your athlete"}'s SponsorX account`,
     text: `Hi ${d.firstName ?? "there"},\n\nYou're approved as ${d.athleteFirstName ?? "your athlete"}'s guardian. Sign in with this email address to approve agreements and payments, and set up where ${d.athleteFirstName ?? "their"}'s money is paid:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* P8-BE-03 — a deal paused by a concern, the documents in, and BTG's decision. */
+  "dealDispute.opened": (d) => ({
+    subject: `A deal on SponsorX is paused: ${d.campaignName ?? "a campaign"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.forGuardian ? `A concern has been raised about ${d.athleteFirstName ?? "your athlete"}'s` : "A concern has been raised about your"} deal for ${d.campaignName ?? "a campaign"}, so BTG has paused it while we look into it:\n\n${d.reason ?? ""}\n\nTo resume it, please send:\n\n${d.documentsRequested ?? ""}\n\nUpload them from the order page:\n\n${d.orderUrl ?? ""}\n\nNothing on this deal moves until BTG decides, and its payment is on hold meanwhile. Your other deals carry on as normal.\n\n— BTG SponsorX`,
+  }),
+  "dealDispute.documentsIn": (d) => ({
+    subject: `Documents in for a paused deal: ${d.athleteName ?? "an athlete"}`,
+    text: `${d.athleteName ?? "An athlete"} sent a document for their paused deal: ${d.filename ?? "a file"}.\n\nReview it and resume or cancel the deal:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "dealDispute.resolved": (d) => ({
+    subject: d.outcome === "RESUME" ? `Your deal is back on: ${d.campaignName ?? "a campaign"}` : `Your deal has been cancelled: ${d.campaignName ?? "a campaign"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.outcome === "RESUME"
+      ? `BTG has looked into the concern about ${d.forGuardian ? `${d.athleteFirstName ?? "your athlete"}'s` : "your"} deal for ${d.campaignName ?? "a campaign"} and resumed it. Everything on it carries on from where it stopped.`
+      : `BTG has looked into the concern about ${d.forGuardian ? `${d.athleteFirstName ?? "your athlete"}'s` : "your"} deal for ${d.campaignName ?? "a campaign"} and cancelled it. BTG's finance team will be in touch about any work already done.`}\n\n${d.note ?? ""}\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
   "signup.newSignup": (d) => ({
     subject: `New ${d.kindWord ?? "sign-up"}: ${d.name ?? "someone"} ${d.outcome ?? ""}`.trim(),
     text: `${d.name ?? "Someone"} ${d.outcome ?? "signed up"} on SponsorX.${d.reasons ? `\n\nWhy it is waiting for you:\n${d.reasons}` : ""}\n\nOpen it on New sign-ups:\n\n${d.reviewUrl ?? ""}\n\nIf something is wrong, reject it from that page — their access is withdrawn and they are told why.\n\n— SponsorX`,

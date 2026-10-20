@@ -175,6 +175,12 @@ export type EmailTemplate =
   | "guardian.accountReinstated"
   /* 2S1-BE-11 — a minor uploaded content; their guardian hears of each one. */
   | "guardian.contentUploaded"
+  /* P8-BE-03 — a concern raised about a deal pauses it: the athlete (or a
+     minor's guardian) hears what was raised and what to send; BTG's admins
+     hear of each document; the athlete hears BTG's decision. */
+  | "dealDispute.opened"
+  | "dealDispute.documentsIn"
+  | "dealDispute.resolved"
   /* P5-BE-09 — a draft that failed the automatic checks goes back to the
      athlete, each failure in words; a draft waiting over 48 hours on its
      reviewer reminds BTG's campaign managers, or the sponsor's admins. */

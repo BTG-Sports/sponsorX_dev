@@ -63,7 +63,8 @@ const DECISIONS: Record<string, Decision> = {
   /* Campaign orders */
   [`${CO} › createOrder › campaignOrder.create`]: { none: "A new order is a DRAFT: nothing is booked until it is accepted." },
   [`${CO} › updateOrderTerms › campaignOrder.update`]: { none: "Terms change only while DRAFT (TermsFrozenError); the amounts are read when it is accepted." },
-  [`${CO} › transitionOrder › campaignOrder.update`]: { calls: { factOrderCancelled: 1 } },
+  /* P8-BE-03 — transitionOrder's move moved into applyOrderTransitionIn, which a disputed deal's cancellation also uses. */
+  [`${CO} › applyOrderTransitionIn › campaignOrder.update`]: { calls: { factOrderCancelled: 1 } },
   [`${CO} › acceptOrder › campaignOrder.update`]: { calls: { factOrderBooked: 1 } },
   ["src/domain/campaign.ts › launchIn › campaignOrder.updateMany"]: { none: "ACCEPTED → ACTIVE when the campaign goes live: no money moves; the booking was recorded at acceptance." },
   ["src/domain/offer.ts › respondToOffer › campaignOrder.create"]: { calls: { factOrderBooked: 1 } },
@@ -81,6 +82,9 @@ const DECISIONS: Record<string, Decision> = {
   [`${E} › adjustEarning › earning.update`]: { none: "Only while unpaid (isEarningMutable); the amount is recorded when it is paid." },
   [`${E} › maybeMakeEligible › earning.update`]: { none: "PENDING → ELIGIBLE: nothing is paid." },
   [`${E} › autoApproveEarning › earning.updateMany`]: { none: "ELIGIBLE → APPROVED_FOR_PAYOUT: nothing is paid." },
+  /* P8-BE-03 — a deal dispute holds the earning, and RESUME puts it back to PENDING or ELIGIBLE. */
+  ["src/domain/deal-disputes.ts › openDealDispute › earning.updateMany"]: { none: "→ HELD while a dispute pauses the deal: nothing is paid." },
+  ["src/domain/deal-disputes.ts › resolveDealDispute › earning.updateMany"]: { none: "HELD → PENDING or ELIGIBLE when BTG resumes the deal: nothing is paid." },
 
   /* Metrics and invoices */
   ["src/domain/metric.ts › recordMetric › metricDaily.upsert"]: { calls: { factMetricRecorded: 1 } },

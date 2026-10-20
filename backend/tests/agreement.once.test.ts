@@ -31,6 +31,9 @@ const tx = {
   },
   user: { findFirst: () => Promise.resolve({ athlete: null }) },
   /* 2S1-BE-11's guard reads the signer's athlete: an adult with no guardian. */
+  /* P8-BE-03 / P8-BE-02 — no dispute pauses this order, and the rules confirmation is switched off. */
+  dealDispute: { findFirst: () => Promise.resolve(null) },
+  tenant: { findFirst: () => Promise.resolve({ requireRulesAttestation: false }) },
   athlete: { findFirst: () => Promise.resolve({ id: "ath_1", legalName: "A", displayName: "A", state: "ACTIVE", birthDate: null, ageBand: "18_PLUS", majorityAge: 18, guardianId: null, guardian: null }) },
 } as never;
 

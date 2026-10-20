@@ -18,6 +18,7 @@
  * to.
  */
 
+import { assertNotPaused } from "./deal-pause";
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
@@ -261,7 +262,21 @@ export async function transitionOrder(
     assertTenantWide(actor, "campaignOrder", "write");
   }
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction((tx) => applyOrderTransitionIn(tx, actor, orderId, to));
+}
+
+/**
+ * The move itself, inside the caller's transaction — `transitionOrder`'s, or
+ * P8-BE-03's when BTG cancels a disputed deal. The caller has checked the
+ * actor's right; the row is still loaded through their scope.
+ */
+export async function applyOrderTransitionIn(
+  tx: Prisma.TransactionClient,
+  actor: Actor,
+  orderId: string,
+  to: OrderState,
+): Promise<{ id: string; state: OrderState }> {
+  {
     const order = await tx.campaignOrder.findFirst({
       where: { ...whereFor(actor, "campaignOrder", "write"), id: orderId },
       select: { id: true, state: true },
@@ -270,6 +285,8 @@ export async function transitionOrder(
 
     const from = order.state as OrderState;
     if (!canTransitionOrder(from, to)) throw new IllegalOrderTransitionError(from, to);
+    /* P8-BE-03 — a paused deal can only be cancelled. Declining, activating and completing wait for BTG's decision. */
+    if (to !== "CANCELLED") await assertNotPaused(tx, orderId);
 
     /* tenant-scope: the row loaded above through whereFor(campaignOrder, write). */
     const updated = await tx.campaignOrder.update({
@@ -290,7 +307,7 @@ export async function transitionOrder(
     if (to === "CANCELLED") await factOrderCancelled(tx, orderId, new Date());
 
     return { id: updated.id, state: updated.state as OrderState };
-  });
+  }
 }
 
 /**
@@ -342,6 +359,8 @@ export async function acceptOrder(
 
     const from = order.state as OrderState;
     if (from !== "SENT") throw new OrderNotSentError(from);
+    /* P8-BE-03 — an order paused by a dispute can't be accepted until BTG resumes it. */
+    await assertNotPaused(tx, order.id);
 
     /* Read inside the transaction, so the state cannot move between the check
        and the write. */

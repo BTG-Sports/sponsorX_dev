@@ -51,7 +51,7 @@ completeness.
 | Condition | Status | What closes it | Owner |
 |---|---|---|---|
 | Agreement templates approved | **Open** | P0-LEG-01 (Content Collaboration Agreement) and P0-LEG-02 (Campaign Order template), each delivered, versioned and approved for production use | Counsel |
-| Athlete and guardian compliance checklist approved | **Open** | P0-LEG-06: the written list of NIL and high-school athletic-association constraints the product must enforce. P0-LEG-03: whether click-wrap is enough for a guardian, or which e-sign vendor (Blocked). | Counsel |
+| Athlete and guardian compliance checklist approved | **Open** | P0-LEG-06, redefined 2026-10-20: counsel approves the athlete-responsibility wording in the athlete agreement. The athlete (or guardian) confirms their own rules (P8-BE-02), and a disputed deal is paused for documents (P8-BE-03). P0-LEG-03: whether click-wrap is enough for a guardian, or which e-sign vendor (Blocked). | Counsel |
 | Data privacy defined | **Open** | P0-LEG-04: consent wording for scan → claim → redeem, purpose limitation, and what sponsors receive. Counsel's §37 pre-pilot privacy review (recorded open in `.claude/stack-decision.md` A7). | Counsel |
 | Payout process defined | **Partly** | **Phase 1:** the payment policy is written (status tracking only, no tax IDs). **Phase 2 moves real money by Stripe transfer,** so it also needs 2S0-LEG-01 (marketplace and payout terms) and 2S0-LEG-02 (tax ID collection, withholding and 1099 position). | Counsel |
 

@@ -17,6 +17,8 @@ import { requireActor } from "../../auth/actor";
 import { NotificationPreferenceInput } from "../../contracts/notification-preferences";
 import { listPreferences, setPreference } from "../../domain/notification-preferences";
 import { controlView } from "../../domain/guardian-acts";
+import { RulesAttestationInput } from "../../contracts/deal-disputes";
+import { confirmRulesAttestation, myRulesAttestation } from "../../domain/rules-attestation";
 
 export const meRouter = Router();
 
@@ -53,4 +55,14 @@ meRouter.get("/notification-preferences", requireActor, async (req, res) => {
 });
 meRouter.put("/notification-preferences", requireActor, async (req, res) => {
   res.json({ preferences: await setPreference(req.actor!, NotificationPreferenceInput.parse(req.body)) });
+});
+
+/* P8-BE-02 (P0-LEG-06) — the athlete's own rules: where they stand, and
+   confirming the current wording (an adult, or a minor's guardian acting for
+   them; a minor's own login is refused, guardian_must_act). */
+meRouter.get("/rules-attestation", requireActor, async (req, res) => {
+  res.json(await myRulesAttestation(req.actor!));
+});
+meRouter.post("/rules-attestation", requireActor, async (req, res) => {
+  res.json(await confirmRulesAttestation(req.actor!, RulesAttestationInput.parse(req.body ?? {}).version));
 });

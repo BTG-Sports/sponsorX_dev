@@ -345,10 +345,20 @@ Agree the seven things that make up an athlete's score and how much each counts.
 
 > **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
-Find out what state NIL law and high-school athletic associations actually forbid, so the product can enforce it rather than discovering it later.
+~~Find out what state NIL law and high-school athletic associations actually forbid, so the product can enforce it rather than discovering it later.~~
+
+**Redefined 2026-10-20 by the programme owner.**
+
+- **Why:** athletes come from many states and countries, each with its own school, league and association rules. Researching them all through counsel is not workable ("like putting tabs on every ant on an ant hill").
+- **The rule now:**
+  - **The athlete is responsible for their own rules.** The athlete confirms they follow them; for a minor, the guardian confirms.
+  - **The built-in limits stay for everyone:** sensitive categories, a person reviewing every minor's content, and the categories the athlete blocks.
+  - **Forms only when there's a dispute.** When someone objects to a deal, BTG pauses it and asks for documents.
+- **The build:** `P8-BE-02` and `P8-BE-03`.
+- **Counsel's part shrinks to one paragraph:** approving the responsibility wording, which sits in the athlete agreement (`P0-LEG-01`).
 
 - **Depends on:** nothing — startable now
-- **Done when:** Written constraints list the product must enforce
+- **Done when:** Counsel approves the athlete-responsibility paragraph and the confirmation wording (in the `P0-LEG-01` draft). No state-by-state constraints list is produced.
 - **Reference:** §26, §4
 
 ### ⏸ `P0-ART-01` · Produce the ERD as a distributable diagram (§38 deliverable)
@@ -1640,7 +1650,7 @@ An automated test covering the whole path from application to active athlete, in
 Check that the legal constraints around minors are enforced in the code, not just written in a document.
 
 - **Depends on:** P3-BE-03 *(Legal dependency removed 2026-09-15 — counsel approvals no longer gate development; see the Legal sheet in the task board.)*
-- **Done when:** Date of birth handling, guardian PII and the constraints from P0-LEG-06 are enforced in code, not just documented
+- **Done when:** Date of birth handling, guardian PII and the constraints from P0-LEG-06 are enforced in code, not just documented *(P0-LEG-06 redefined 2026-10-20: the constraints are now the athlete's own confirmation (`P8-BE-02`) and the dispute pause (`P8-BE-03`), not a state-by-state list.)*
 - **Reference:** §4, §26
 
 ## Stage 4 · Sponsor Demand & Matching
@@ -2715,6 +2725,59 @@ Raised by `P8-QA-01`'s finding: a job's ID (`SX-02`) was unique across the whole
 
   [`SponsorX-Phase1-Acceptance.md`](./SponsorX-Phase1-Acceptance.md) criterion 2
 - **Reference:** §30
+
+### 🔎 `P8-BE-02` · The athlete's own rules are their responsibility
+
+**Order** 157.6 · **BE** · **Where:** Code · **1d** · **Code review**
+
+Raised by `P0-LEG-06`'s redefinition (2026-10-20). SponsorX does not research every school's, league's or country's rules. The athlete confirms they follow their own; for a minor, the guardian confirms.
+
+- **Depends on:** nothing
+- **Done when:** All of these hold.
+  - **The wording** is served with its version.
+  - **An adult** confirms it on the application or from their login.
+  - **A minor's guardian** confirms it on their set-up page, or from their login acting for the minor.
+  - **A minor's own tick doesn't count,** and a minor's own login is refused.
+  - **A stale wording is refused.**
+  - **With BTG's per-tenant switch on,** accepting a deal or listing an item waits on a confirmation that counts. With the switch off, nothing changes.
+- **Delivered:** 2026-10-20.
+  - **The wording:** `rules-attestation.ts` (version `2026-10-20`), at `GET /public/rules-attestation`.
+  - **Where it's recorded:**
+    - the application (`rulesAttestationVersion`);
+    - the guardian's agreement step (same field);
+    - `GET`/`POST /me/rules-attestation`.
+  - **The switch:** `requireRulesAttestation` in `/signup-rules/settings`. It's enforced in `assertMayCommit`, so it covers every accept and list path at once.
+  - **Test:** `deal-disputes.test.ts`.
+  - **The screens are frontend work:** the tick on `/join` and on the guardian's page, and the athlete portal prompt. The switch stays off until they ship.
+- **Reference:** §4, §26
+
+### 🔎 `P8-BE-03` · A concern raised about a deal pauses it
+
+**Order** 157.7 · **BE** · **Where:** Code · **2d** · **Code review**
+
+Raised by `P0-LEG-06`'s redefinition (2026-10-20): "if there are disputes, that's the time we should be strict with forms".
+
+- **Depends on:** P8-BE-02
+- **Done when:** All of these hold.
+  - **BTG opens a dispute** on a sent, accepted or active order.
+  - **While it's open, the deal is paused:**
+    - no deliverable moves;
+    - the order can only be cancelled;
+    - the earning is held and stays held.
+  - **The athlete is emailed what was raised and what to send.** For a minor, the guardian is emailed.
+  - **The athlete sends documents through the private upload,** and BTG's admins are emailed.
+  - **BTG opens the documents through audited links.**
+  - **BTG then decides:**
+    - **resume:** the earning goes back to where it was;
+    - **cancel:** the order is cancelled and the earning is left held for Finance.
+  - **Sponsors see none of it.**
+- **Delivered:** 2026-10-20.
+  - **Code and model:** `deal-disputes.ts` (`DealDispute` and `DealDisputeDocument`), with the pause check in `deal-pause.ts`. That check is called from the order, deliverable and earning moves.
+  - **Routes:** `/orders/{id}/disputes` and `/deal-disputes…`.
+  - **Access:** the RBAC matrix §39.
+  - **Tests:** `deal-disputes.test.ts`, plus the tenant-isolation sweep.
+  - **The screens are frontend work:** BTG's dispute desk, and the athlete's order banner with the upload.
+- **Reference:** §4, §21, §26
 
 ### ⏸ `P8-INT-04` · Webhook delivery recording
 

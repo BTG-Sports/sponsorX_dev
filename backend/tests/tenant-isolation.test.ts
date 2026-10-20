@@ -108,6 +108,8 @@ const A = {
   paymentEvent: "ti_payment_event_a",
   /* 2S5-BE-03 — a dispute on tenant A's order. */
   dispute: "ti_dispute_a",
+  /* P8-BE-03 — a concern raised about tenant A's order, and a document sent for it. */
+  dealDispute: "ti_ddispute_a", dealDisputeDoc: "ti_ddoc_a",
   /* 2S0-SEC-01 — a contact-form message to tenant A's support desk, with an attachment. */
   supportMessage: "ti_support_message_a", supportAttachment: "ti_support_attachment_a",
 } as const;
@@ -223,6 +225,8 @@ const PARAM_FOR: Record<string, string> = {
   /* 2S5-INT-02 — BTG's provider-event exceptions. */
   "payment-events": A.paymentEvent,
   disputes: A.dispute,
+  /* P8-BE-03 — /deal-disputes/{id}… (its documents take the `documents` noun's id: refused either way). */
+  "deal-disputes": A.dealDispute,
   /* 2S0-SEC-01 — BTG's support desk: a message and one of its attachments. */
   "support-messages": A.supportMessage, attachments: A.supportAttachment,
 };
@@ -388,6 +392,11 @@ const BODY: Record<string, unknown> = {
   /* 2S5-BE-03 — reviewing and resolving tenant A's dispute. */
   "POST /disputes/{id}/review": { note: "Sweep review" },
   "POST /disputes/{id}/resolve": { note: "Sweep resolve" },
+  /* P8-BE-03 — opening a dispute on tenant A's order, sending it a document, deciding it; and the athlete's own rules confirmation. */
+  "POST /orders/{id}/disputes": { source: "SCHOOL", reason: "Isolation sweep concern", documentsRequested: "Isolation sweep request" },
+  "POST /deal-disputes/{id}/documents": { filename: "letter.pdf", contentType: "application/pdf", bytes: 1000 },
+  "POST /deal-disputes/{id}/resolve": { outcome: "RESUME", note: "Isolation sweep" },
+  "POST /me/rules-attestation": { version: "2026-10-20" },
   /* 2S2-BE-05 — inviting tenant A's athlete, and answering tenant A's invitation. */
   "POST /team/invitations": { athleteId: A.athlete, teamShareBps: 100 },
   "POST /team-invitations/{id}/respond": { decision: "ACCEPT" },
@@ -534,6 +543,15 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     await prisma.reward.create({ data: { id: A.reward, tenantId: t, campaignId: A.campaign, offerText: "TI secret offer", terms: "t", expiresAt: new Date("2026-12-31") } });
     await prisma.rewardToken.create({ data: { id: A.token, tenantId: t, rewardId: A.reward, token: "ti-secret-token-a", athleteId: A.athlete } });
     await prisma.earning.create({ data: { id: A.earning, tenantId: t, athleteId: A.athlete, orderId: A.order, gross: 20000, taxYear: 2026 } });
+    /* P8-BE-03 — tenant A's order, paused by a concern, with a document in. */
+    await prisma.dealDispute.create({ data: {
+      id: A.dealDispute, tenantId: t, orderId: A.order, athleteId: A.athlete, source: "SCHOOL", sourceName: "TI Secret High",
+      reason: "TI Secret concern about the deal", documentsRequested: "TI Secret letter from the school", state: "DOCUMENTS_IN", openedBy: A.admin,
+    } });
+    await prisma.dealDisputeDocument.create({ data: {
+      id: A.dealDisputeDoc, tenantId: t, disputeId: A.dealDispute, filename: "ti-secret-letter.pdf", contentType: "application/pdf", bytes: 1000,
+      r2Key: `disputes/${t}/${A.dealDispute}/${A.dealDisputeDoc}/letter.pdf`, uploadedAt: new Date(),
+    } });
     await prisma.campaignInvoice.create({ data: { id: A.invoice, tenantId: t, campaignId: A.campaign, zohoInvoiceId: "ti_zinv_a", status: "sent", amount: 500000 } });
     await prisma.agreement.create({ data: { id: A.agreement, tenantId: t, kind: "ATHLETE_TERMS", version: 1, bodyHash: "x".repeat(64), effectiveAt: new Date("2026-01-01") } });
     await prisma.user.create({ data: { id: A.admin, tenantId: t, clerkId: A.admin, email: "admin@a.invalid", roles: ["BTG_ADMIN"] } });

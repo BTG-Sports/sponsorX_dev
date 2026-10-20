@@ -106,3 +106,51 @@ Drafted so counsel has something to approve. Each is marked "DRAFT for counsel r
   - Regression test in `pipeline-runs.test.ts` (the exact staging timeline); `health-full.test.ts` updated; doc row in `SponsorX-Pipeline-Monitoring.md`.
 - **Checked:** CI steps run locally. Build, lint, security scripts, secrets scan and audit all pass, and the backend suite is 3,465 of 3,465 with none skipped.
 - Staging recovers by itself after tonight's run, or as soon as this deploys.
+
+## Legal item 6 (P0-LEG-03): guardian sign-off draft for counsel
+
+- **The draft:** a question and guardian agreement in Drive ("6 - SponsorX Guardian Sign-off …"), recommending click-to-accept as built.
+- **Facts it relies on:**
+  - Automatic approval of minors was a deliberate decision (2S1-BE-10, 2026-10-01).
+  - BTG admins are emailed "was approved automatically" for every approval.
+  - The "BTG staff confirm minors" switch already exists if counsel asks for a person to check.
+- **Fix to the draft:** removed the promise of an emailed copy of the agreement, because the site doesn't send one.
+
+## P0-LEG-06 redefined; P8-BE-02 and P8-BE-03 built (Code review)
+
+- **Programme owner's decision (2026-10-20):** no state-by-state rules list from counsel ("like putting tabs on every ant on an ant hill").
+- **The athlete is responsible for their own school, league and local rules.** The athlete confirms this, or the guardian does for a minor.
+- **The built-in limits stay:** sensitive categories, a person reviewing every minor's content, and the athlete's own blocked categories.
+- **Forms only when there's a dispute.**
+
+**P8-BE-02, the rules confirmation:**
+- `rules-attestation.ts`, wording version `2026-10-20`, served at `GET /public/rules-attestation`.
+- **Recorded:**
+  - on the application (`rulesAttestationVersion`);
+  - on the guardian's agreement step;
+  - at `GET`/`POST /me/rules-attestation`.
+- A minor's own tick doesn't count, and a minor's own login is refused.
+- **Enforcement:** `Tenant.requireRulesAttestation` (in `/signup-rules/settings`, off by default) is checked in `assertMayCommit`, so it covers every accept and list path.
+
+**P8-BE-03, the dispute pause:**
+- **The model:** `DealDispute` and `DealDisputeDocument` (migration `20261020120000`, one open dispute per order) and `deal-disputes.ts`.
+- **While paused,** `deal-pause.ts` blocks:
+  - the deliverable moves and submitting a draft;
+  - order moves other than cancelling, and accepting the order;
+  - releasing the earning.
+- **Earning:** held when the dispute opens. On RESUME it goes back to where it was (APPROVED_FOR_PAYOUT returns as ELIGIBLE). On CANCEL the order is cancelled and the earning stays held.
+- **Emails:** `dealDispute.opened`, `documentsIn` and `resolved`.
+- **Access:** RBAC §39, resource `dealDispute`.
+
+**Tests and documents:**
+- `deal-disputes.test.ts` (13 tests), plus the tenant-isolation sweep, the matrix digest (`c38aba9da7b833e8`), the fact-coverage decisions and the fake transactions in four older tests.
+- Updated: the Phase 1 plan, the Legal Work Brief, the Go/No-Go review and the tracker (P8-BE-02 and -03 rows; the P0-LEG-06 row redefined).
+- Drive: item 1 is now draft v0.6, adding Section 9 (your own rules) and Section 10 (concerns about a deal). Item 6's guardian agreement gains Section 5 and a second tick box. The older versions are in the Drive trash.
+
+**Frontend still to do (not started; backend only):**
+- the tick on `/join` and on the guardian's page;
+- the athlete portal prompt;
+- BTG's dispute desk;
+- the athlete's order banner with the upload.
+
+The switch stays off until the frontend ships.

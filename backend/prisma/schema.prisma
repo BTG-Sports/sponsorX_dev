@@ -233,6 +233,11 @@ model Tenant {
   /// passes. On, a complete minor waits in New sign-ups for a person — the
   /// switch the open guardian e-signature question may need, with no rebuild.
   staffConfirmMinors Boolean  @default(false)
+  /// P8-BE-02 — "athletes confirm their own rules before a deal". Off by
+  /// default until the sign-up screen sends the confirmation; on, an athlete
+  /// (or a minor's guardian) who hasn't confirmed the current wording can't
+  /// accept a deal or list an item (guardian-acts.ts `assertMayCommit`).
+  requireRulesAttestation Boolean @default(false)
 
   inventoryItems    InventoryItem[]
   listings          Listing[]
@@ -476,6 +481,15 @@ model Athlete {
   /// cleared then, or when the guardian changes.
   guardianPendingSince DateTime?
 
+  /// P8-BE-02 (P0-LEG-06) — the athlete's own rules are their responsibility.
+  /// When, which wording (rules-attestation.ts), and where it was confirmed:
+  /// APPLICATION (the athlete), GUARDIAN_SETUP (a minor's guardian on their
+  /// page) or PORTAL (later, from the athlete's or guardian's login). A new
+  /// wording needs a new confirmation.
+  rulesAttestedAt         DateTime?
+  rulesAttestationVersion String?
+  rulesAttestedVia        String?
+
   // Zoho (§18 — Contacts are bi-directional)
   zohoId         String?     @unique
   lastSyncOrigin SyncOrigin?
@@ -509,6 +523,8 @@ model Athlete {
   /// 2S1-BE-15 — requests to become this minor's guardian.
   guardianHandoffs GuardianHandoff[]
   documents        AccountDocument[]
+  /// P8-BE-03 — complaints about this athlete's deals.
+  dealDisputes     DealDispute[]
 
   @@index([tenantId, state])
   @@index([tenantId, sport, stateCode])
@@ -1042,9 +1058,86 @@ model CampaignOrder {
   deliverables Deliverable[]
   earning      Earning?
   offer        Offer?
+  /// P8-BE-03 — a complaint pauses the order while one is open.
+  disputes     DealDispute[]
 
   @@unique([campaignId, athleteId, jobId])
   @@index([tenantId, state])
+}
+
+/// P8-BE-03 (P0-LEG-06) — a complaint about a deal, and the pause it puts on
+/// it. SponsorX doesn't research every school's, league's or country's rules:
+/// the athlete confirms they follow their own (Athlete.rulesAttestedAt), and
+/// when someone objects to a deal BTG pauses it here and asks the athlete for
+/// documents. While OPEN or DOCUMENTS_IN the order's deliverables can't move,
+/// the order can only be cancelled, and its earning is HELD. BTG then resumes
+/// it (the earning goes back to where it was) or cancels it. One open dispute
+/// per order (a partial unique index in the migration).
+model DealDispute {
+  id                 String            @id @default(cuid())
+  tenantId           String
+  orderId            String
+  athleteId          String
+  source             DealDisputeSource
+  /// Who complained, in words ("Riverside High athletic director").
+  sourceName         String?
+  /// What the complaint is, as BTG recorded it. The athlete reads it.
+  reason             String
+  /// What BTG asks the athlete to provide. The athlete reads it.
+  documentsRequested String
+  state              DealDisputeState  @default(OPEN)
+  openedBy           String
+  openedAt           DateTime          @default(now())
+  documentsInAt      DateTime?
+  resolvedAt         DateTime?
+  resolvedBy         String?
+  /// The athlete reads it with the outcome.
+  resolutionNote     String?
+  /// The earning's state when the pause began, restored on RESUMED (APPROVED_FOR_PAYOUT comes back as ELIGIBLE).
+  earningStateBefore EarningState?
+
+  order     CampaignOrder         @relation(fields: [orderId], references: [id])
+  athlete   Athlete               @relation(fields: [athleteId], references: [id])
+  documents DealDisputeDocument[]
+
+  @@index([tenantId, state])
+  @@index([orderId])
+}
+
+enum DealDisputeState {
+  OPEN
+  DOCUMENTS_IN
+  RESUMED
+  CANCELLED
+}
+
+enum DealDisputeSource {
+  SCHOOL
+  LEAGUE
+  PARENT
+  SPONSOR
+  OTHER
+}
+
+/// P8-BE-03 — a document the athlete (or a minor's guardian) sent for a
+/// dispute. The same two-step private upload as AccountDocument: the bytes go
+/// straight to the private bucket, and BTG reads them through five-minute,
+/// audited links. The uploader never gets a read link.
+model DealDisputeDocument {
+  id          String    @id
+  tenantId    String
+  disputeId   String
+  filename    String
+  contentType String
+  bytes       Int
+  r2Key       String    @unique
+  uploadedAt  DateTime?
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+
+  dispute DealDispute @relation(fields: [disputeId], references: [id])
+
+  @@index([tenantId, disputeId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

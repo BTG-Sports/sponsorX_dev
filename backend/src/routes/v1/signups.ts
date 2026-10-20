@@ -15,6 +15,7 @@
  *
  * Routes parse and hand over; every rule is in the domain.
  */
+import { rulesAttestationWording } from "../../domain/rules-attestation";
 import { Router, type Request, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
@@ -116,6 +117,10 @@ signupsRouter.post<{ token: string; documentId: string }>("/public/guardian-setu
   await limit("guardian-setup:document", clientIp(req), 30, 3600);
   res.json(await confirmGuardianDocument(req.params.token, req.params.documentId));
 });
+/* P8-BE-02 — the rules wording the application and the guardian's page show, with its version. */
+signupsRouter.get("/public/rules-attestation", (_req, res) => {
+  res.json(rulesAttestationWording());
+});
 signupsRouter.post<{ token: string }>("/public/guardian-setup/:token/accept", async (req, res) => {
   await limit("guardian-setup:write", clientIp(req), 30, 3600);
   const input = GuardianAgreementInput.parse(req.body ?? {});
@@ -202,8 +207,9 @@ signupsRouter.get("/signup-rules/settings", requireActor, async (req, res) => {
   res.json(await signupSettings(req.actor!));
 });
 signupsRouter.put("/signup-rules/settings", requireActor, async (req, res) => {
-  const result = await setSignupSettings(req.actor!, SignupSettingsInput.parse(req.body ?? {}));
+  const input = SignupSettingsInput.parse(req.body ?? {});
+  const result = await setSignupSettings(req.actor!, input);
   /* Switched off: the minors it was holding go through their checks again. */
-  if (!result.staffConfirmMinors) await recheckStaffHeld(req.actor!.tenantId);
+  if (input.staffConfirmMinors === false) await recheckStaffHeld(req.actor!.tenantId);
   res.json(result);
 });
