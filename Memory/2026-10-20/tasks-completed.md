@@ -78,3 +78,31 @@ The user asked for tasks only, nothing built: a socket connection for the game, 
 - **The owner's production switches,** listed: Stripe live (keys, webhooks, `PAYMENT_PROVIDER`, the Connect model), Zoho production keys and intel fields, Clerk Pro MFA, `SPONSORX_EDGE_KEY`, `GEOLITE2_CITY_PATH`, the Resend sending domain, the Phase 3 stage 3 switch, and a production check by someone with access.
 - **Recommendation:** no-go for real outside users until counsel answers; meanwhile, production readiness and a BTG-internal dry run. Not signed.
 - **Also:** CLAUDE.md's "Open decisions" was stale. The payment policy, residency, email (Resend) and PDF worker were decided weeks ago (P0-PMO-01/02/03/06). It now lists only the open legal questions, plus a "Decided" line and the Stack table's email row. Tracker: P8-PMO-06 In progress, owner rcfworks.
+
+## Legal drafts for counsel, items 1–5 (Google Drive, "SponsorX Legal" folder)
+
+Drafted so counsel has something to approve. Each is marked "DRAFT for counsel review. Not approved for use.", carries a version and date placeholder, matches how the product works today, and marks the decisions counsel must make as **[FOR COUNSEL]**. Once approved, each replaces placeholder text in the web app (a new agreement version, so acceptances are re-collected).
+
+1. **P0-LEG-01** Athlete Content Collaboration Agreement, draft v0.5. Built from the earlier draft. Adds click-wrap acceptance and versions, guardian process and age of majority, how payment is made, who sees athlete data, and account closure. Governing law is still blank.
+2. **P0-LEG-02** Campaign Order standard terms, draft v2. Part A is the order schedule; Part B the terms. Open: revision cap, minimum live time, payment timing, and whether the athlete is paid if BTG or the sponsor cancels (the product pays nothing today).
+3. **P0-LEG-04** Fan reward consent wording and fan privacy notice. Fixes the delivery-consent contradiction ("not shared with the sponsor" next to the opt-in that shares it). Open: fan email retention period (none in the product), age checks, CAN-SPAM address.
+4. **2S0-LEG-01** Marketplace seller and payout terms (Part A) plus sponsor order terms (Part B), draft v2. All fee rates are placeholders. Independent athletes who list items should accept seller terms (today they accept none). "First order reviewed" is replaced by the spending limit.
+5. **3S0-LEG-01** Sponsor attribution wording. Proposes dropping "ROI" from the report title and renaming the report's "Media value" to "Cost per 1,000 checked views".
+
+**Product follow-ups found while drafting** (no code changed):
+- the /join agreement tick is not recorded on the server, and there is no COLLAB text file;
+- no fan-data retention purge;
+- property terms acceptance captures no IP or user agent.
+
+**Still to discuss:** items 6–9 (P0-LEG-03, P0-LEG-06, P0-LEG-05, 2S0-LEG-02).
+
+## Fix (3S9-OPS-01): staging health alert "pipeline", a false stale-forecast alarm
+
+- **Alert:** staging `/health` answered 503 at 05:55 UTC, failing `pipeline` with `forecastsFresh: false`. Everything else was ok, including every nightly step.
+- **Cause:** the seeded UAT campaign (`sim_3s7int01_campaign`) had its forecast for 2026-10-19 made at 03:55 UTC. That night's run (19:59) correctly made none, because there is one forecast per campaign per day. The health rule "a forecast made in the last 26 hours" then went stale at 05:55 the next morning with nothing wrong. A manual `run-forecasts` earlier in the day would do the same.
+- **Fix:**
+  - Freshness is now by day: a forecast for today or yesterday (UTC), read as `max(day)` in `system-health.ts`.
+  - A night that makes none is still caught, from midnight UTC.
+  - Regression test in `pipeline-runs.test.ts` (the exact staging timeline); `health-full.test.ts` updated; doc row in `SponsorX-Pipeline-Monitoring.md`.
+- **Checked:** CI steps run locally. Build, lint, security scripts, secrets scan and audit all pass, and the backend suite is 3,465 of 3,465 with none skipped.
+- Staging recovers by itself after tonight's run, or as soon as this deploys.

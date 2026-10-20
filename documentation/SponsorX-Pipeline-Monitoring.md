@@ -33,7 +33,7 @@ next step runs, as before.
 |---|---|
 | Job failure | The latest record of any step is `failed` |
 | Pipeline lag | Nothing in the chain succeeded in the last **26 hours** |
-| Data freshness | There are active campaigns, but no forecast was made in the last 26 hours |
+| Data freshness | There are active campaigns, but no forecast for today or yesterday (UTC). By day, not by hours: each campaign gets one forecast a day, so one made early in the day (a seed, a manual run) leaves that night's run nothing to add. Under the old "made in the last 26 hours" rule, that raised a false alarm on staging on 2026-10-20 |
 | Model drift | A model version's newest real backtest error is **half again** its previous one, and at least **5 points** higher |
 | Unreadable | The record can't be read |
 
