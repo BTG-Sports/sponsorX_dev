@@ -176,3 +176,4 @@ The switch stays off until the frontend ships.
 - **Drive:** draft 7 (Tax Position) is new. Drafts 1 (now v0.7), 4 and 6 were replaced with the tax wording, and the older versions are in the Drive trash.
 - **The email to Rodney** (scratchpad `rodney-email.html`) now has all 7 current links, and asks Rodney to pass draft 7 to the accountant.
 - **Docs and tracker updated:** the Phase 2 plan, the Legal Work Brief, the Go/No-Go review and the tracker's Legal row (2S0-LEG-02 Ready, 0.5d, BTG's accountant).
+- **P8-BE-02 and P8-BE-03 are Done.** They merged in #273 with CI green, and the backend acceptance is met. The frontend half is P8-FE-03 to -06.
