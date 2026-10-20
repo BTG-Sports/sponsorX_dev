@@ -200,8 +200,8 @@ Code review. Committing one file is what makes a shared tracker actually shared.
 [Phase 1 · Managed Marketplace](documentation/SponsorX-Phase1-Managed-Marketplace.md) (221 tasks) ·
 [Phase 2 · Marketplace & Commerce](documentation/SponsorX-Phase2-Marketplace-Commerce.md) (123) ·
 [Phase 3 · Intelligence & Attribution](documentation/SponsorX-Phase3-Intelligence-Attribution.md) (44) ·
-[Phase 4 · INFINEX Integration](documentation/SponsorX-Phase4-INFINEX-Integration.md) (47, the web application) ·
-[Phase 5 · INFINEX Game](documentation/SponsorX-Phase5-INFINEX-Game.md) (7, waits for the game)
+[Phase 4 · INFINEX Integration](documentation/SponsorX-Phase4-INFINEX-Integration.md) (19, all Done and signed off as built; every open task moved to Phase 5 on 2026-10-20, the game being parked) ·
+[Phase 5 · INFINEX Game](documentation/SponsorX-Phase5-INFINEX-Game.md) (50, waits for the game, which is parked; player accounts, the live connection and all of Phase 4's open work added 2026-10-20)
 
 ## Architecture rules
 
