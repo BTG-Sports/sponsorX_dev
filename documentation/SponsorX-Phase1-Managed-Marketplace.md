@@ -2732,9 +2732,9 @@ Raised by `P8-QA-01`'s finding: a job's ID (`SX-02`) was unique across the whole
   [`SponsorX-Phase1-Acceptance.md`](./SponsorX-Phase1-Acceptance.md) criterion 2
 - **Reference:** §30
 
-### 🔎 `P8-BE-02` · The athlete's own rules are their responsibility
+### ✅ `P8-BE-02` · The athlete's own rules are their responsibility
 
-**Order** 157.6 · **BE** · **Where:** Code · **1d** · **Code review** · **Unblocks** 3 (P8-BE-03, P8-FE-03, P8-FE-04)
+**Order** 157.6 · **BE** · **Where:** Code · **1d** · **Done** · **Unblocks** 3 (P8-BE-03, P8-FE-03, P8-FE-04)
 
 Raised by `P0-LEG-06`'s redefinition (2026-10-20). SponsorX does not research every school's, league's or country's rules. The athlete confirms they follow their own; for a minor, the guardian confirms.
 
@@ -2746,7 +2746,7 @@ Raised by `P0-LEG-06`'s redefinition (2026-10-20). SponsorX does not research ev
   - **A minor's own tick doesn't count,** and a minor's own login is refused.
   - **A stale wording is refused.**
   - **With BTG's per-tenant switch on,** accepting a deal or listing an item waits on a confirmation that counts. With the switch off, nothing changes.
-- **Delivered:** 2026-10-20.
+- **Delivered:** 2026-10-20 (merged in #273).
   - **The wording:** `rules-attestation.ts` (version `2026-10-20`), at `GET /public/rules-attestation`.
   - **Where it's recorded:**
     - the application (`rulesAttestationVersion`);
@@ -2757,9 +2757,9 @@ Raised by `P0-LEG-06`'s redefinition (2026-10-20). SponsorX does not research ev
   - **The screens are frontend work:** the tick on `/join` and on the guardian's page, and the athlete portal prompt. The switch stays off until they ship.
 - **Reference:** §4, §26
 
-### 🔎 `P8-BE-03` · A concern raised about a deal pauses it
+### ✅ `P8-BE-03` · A concern raised about a deal pauses it
 
-**Order** 157.7 · **BE** · **Where:** Code · **2d** · **Code review** · **Unblocks** 2 (P8-FE-05, P8-FE-06)
+**Order** 157.7 · **BE** · **Where:** Code · **2d** · **Done** · **Unblocks** 2 (P8-FE-05, P8-FE-06)
 
 Raised by `P0-LEG-06`'s redefinition (2026-10-20): "if there are disputes, that's the time we should be strict with forms".
 
@@ -2777,7 +2777,7 @@ Raised by `P0-LEG-06`'s redefinition (2026-10-20): "if there are disputes, that'
     - **resume:** the earning goes back to where it was;
     - **cancel:** the order is cancelled and the earning is left held for Finance.
   - **Sponsors see none of it.**
-- **Delivered:** 2026-10-20.
+- **Delivered:** 2026-10-20 (merged in #273).
   - **Code and model:** `deal-disputes.ts` (`DealDispute` and `DealDisputeDocument`), with the pause check in `deal-pause.ts`. That check is called from the order, deliverable and earning moves.
   - **Routes:** `/orders/{id}/disputes` and `/deal-disputes…`.
   - **Access:** the RBAC matrix §39.
