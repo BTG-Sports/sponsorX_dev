@@ -26,6 +26,7 @@
  * places that decide who is a minor.
  */
 
+import { recordAttestationIn } from "./rules-attestation";
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit, type AuditActor } from "../db/audit";
@@ -163,6 +164,10 @@ export async function createApplicantIn(
     after: { state: "DRAFT", sport: input.sport, stateCode: input.stateCode, ...auditExtra },
   });
 
+  /* P8-BE-02 — the applicant's own confirmation of their rules. For a minor it is recorded but doesn't
+     count: their guardian confirms on the set-up page (rules-attestation.ts). */
+  if (input.rulesAttestationVersion) await recordAttestationIn(tx, { userId: actor.userId, tenantId }, athlete.id, "APPLICATION", input.rulesAttestationVersion);
+
   return athlete;
 }
 
@@ -236,6 +241,7 @@ export async function patchApplication(
     if (patch.level !== undefined) data.level = patch.level;
     if (patch.gradYear !== undefined) data.gradYear = patch.gradYear;
     if (patch.achievements !== undefined) data.achievements = patch.achievements;
+    if (patch.rulesAttestationVersion !== undefined) await recordAttestationIn(tx, { userId: actor.userId, tenantId }, athleteId, "APPLICATION", patch.rulesAttestationVersion);
 
     /* The slug is not repatched. It is a public URL that may already have been
        shared, and §11 gives no rule for changing one — renaming it silently

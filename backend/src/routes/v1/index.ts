@@ -27,6 +27,7 @@ import { sponsorOverviewRouter } from "./sponsor-overview";
 import { financeOverviewRouter } from "./finance-overview";
 import { rewardsRouter } from "./rewards";
 import { meRouter } from "./me";
+import { dealDisputesRouter } from "./deal-disputes";
 import { signupsRouter } from "./signups";
 import { propertiesRouter } from "./properties";
 import { editionsRouter } from "./editions";
@@ -80,6 +81,10 @@ v1Router.use("/profile-changes", profileChangesRouter);
    root of /v1 rather than under a prefix, because these hang off athletes,
    guardians and agreements rather than off one noun. */
 v1Router.use("/", guardiansRouter);
+
+/* P8-BE-03 (P0-LEG-06) — a concern raised about a deal pauses it until BTG
+   decides: opened on an order, documents from the athlete, BTG's decision. */
+v1Router.use("/", dealDisputesRouter);
 
 /* B3 — brief, matching, campaign and invitations (P4-BE-02..06). Mounted at
    the root for the same reason as guardians: these hang off several nouns

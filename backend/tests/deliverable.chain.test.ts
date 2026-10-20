@@ -92,6 +92,9 @@ vi.mock("../src/db/client", () => {
     /* P5-BE-10 — the athlete's content-trust lock (a row lock in SQL). */
     $queryRaw: () => Promise.resolve([]),
     /* 2S1-BE-11 — the upload asks whether the uploader is a minor whose guardian should hear of it: an adult here. */
+    /* P8-BE-03 / P8-BE-02 — no dispute pauses this order, and the rules confirmation is switched off. */
+    dealDispute: { findFirst: () => Promise.resolve(null) },
+    tenant: { findFirst: () => Promise.resolve({ requireRulesAttestation: false }) },
     athlete: { findFirst: () => Promise.resolve({ id: "ath_1", legalName: "Alex", displayName: "Alex", state: "ACTIVE", birthDate: null, ageBand: "18_PLUS", majorityAge: 18, guardianId: null, guardian: null }) },
     creativeAsset: {
       aggregate: () => Promise.resolve({ _max: { version: maxVersion } }),

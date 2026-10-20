@@ -192,7 +192,8 @@ export type Resource =
   | "virtualWorld"
   | "infinexCredential"
   | "infinexClient"
-  | "virtualEvent";
+  | "virtualEvent"
+  | "dealDispute";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -288,6 +289,7 @@ export const RESOURCES: readonly Resource[] = [
   "infinexCredential",
   "infinexClient",
   "virtualEvent",
+  "dealDispute",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -1239,6 +1241,17 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any"),
     BTG_ADMIN: rwa("own-tenant"),
     INFINEX_CLIENT: rwa(undefined, "own-tenant"),
+  },
+  /* P8-BE-03 (matrix §39) — a complaint about a deal, and its pause. BTG opens and settles it (approve); the
+     athlete — a minor's guardian, acting as them — reads their own and sends the documents asked for (write).
+     Campaign managers and Finance see why an order or an earning is paused. Sponsors see nothing of it. */
+  dealDispute: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    CAMPAIGN_MGR: rwa("own-tenant"),
+    FINANCE: rwa("own-tenant"),
+    ATHLETE: rwa("own", "own"),
+    GUARDIAN: rwa("ward", "deferred"),
   },
 };
 

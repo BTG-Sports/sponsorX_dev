@@ -21,6 +21,7 @@
  * the chain exists to serve.
  */
 
+import { assertNotPaused } from "./deal-pause";
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS, type AuditActor } from "../db/audit";
@@ -310,6 +311,8 @@ async function move(
     if (!canTransitionDeliverable(from, to)) {
       throw new IllegalDeliverableTransitionError(from, to);
     }
+    /* P8-BE-03 — nothing on a deal moves while a dispute pauses it. */
+    await assertNotPaused(tx, found.orderId);
     opts.guard?.(found);
     if (opts.beforeWrite) await opts.beforeWrite(tx, { tenantId: found.tenantId, athleteId: found.order.athleteId });
 
@@ -435,7 +438,7 @@ export async function submitDraft(
     const found = await tx.deliverable.findFirst({
       where: { ...whereFor(actor, "deliverable", "write"), id: deliverableId },
       select: {
-        id: true, state: true, title: true, tenantId: true,
+        id: true, state: true, title: true, tenantId: true, orderId: true,
         checks: true, checksPassed: true, checkedAt: true,
         /* P5-BE-10 — rule 4: BTG asked for changes on an earlier version. */
         btgRevisionAt: true,
@@ -461,6 +464,8 @@ export async function submitDraft(
       },
     });
     if (!found) throw new ForbiddenError("deliverable", "write");
+    /* P8-BE-03 — a paused deal takes no new drafts. */
+    await assertNotPaused(tx, found.orderId);
 
     const from = found.state as DeliverableState;
     const latest = found.assets[0] ?? null;

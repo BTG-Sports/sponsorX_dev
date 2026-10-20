@@ -16,6 +16,7 @@
  * elsewhere, not a credential, and not enough to move anything.
  */
 
+import { assertNotPaused } from "./deal-pause";
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
@@ -199,12 +200,14 @@ export async function transitionEarning(
   return prisma.$transaction(async (tx) => {
     const earning = await tx.earning.findFirst({
       where: { ...whereFor(actor, "earning", action), id: earningId },
-      select: { id: true, state: true },
+      select: { id: true, state: true, orderId: true },
     });
     if (!earning) throw new ForbiddenError("earning", action);
 
     const from = earning.state as EarningState;
     if (!canTransitionEarning(from, to)) throw new IllegalEarningTransitionError(from, to);
+    /* P8-BE-03 — a paused deal's earning stays held (or disputed) until BTG decides the dispute. */
+    if (to !== "HELD" && to !== "DISPUTED") await assertNotPaused(tx, earning.orderId);
 
     /* tenant-scope: the row loaded above through whereFor(earning). */
     const updated = await tx.earning.update({

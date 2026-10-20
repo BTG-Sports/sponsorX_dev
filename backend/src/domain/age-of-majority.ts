@@ -175,9 +175,9 @@ export async function signupSettings(actor: Actor) {
   assertAllowed(actor, "signupRules", "read");
   const t = await prisma.tenant.findFirst({
     /* tenant-scope: the actor's own tenant row. */
-    where: { id: actor.tenantId }, select: { staffConfirmMinors: true },
+    where: { id: actor.tenantId }, select: { staffConfirmMinors: true, requireRulesAttestation: true },
   });
-  return { staffConfirmMinors: t?.staffConfirmMinors ?? false };
+  return { staffConfirmMinors: t?.staffConfirmMinors ?? false, requireRulesAttestation: t?.requireRulesAttestation ?? false };
 }
 
 /**
@@ -185,21 +185,24 @@ export async function signupSettings(actor: Actor) {
  * off lets the minors it was holding through, by running their checks again
  * (the caller does that, after this commits — see routes/v1/signups.ts).
  */
-export async function setSignupSettings(actor: Actor, input: { staffConfirmMinors: boolean }) {
+export async function setSignupSettings(actor: Actor, input: { staffConfirmMinors?: boolean; requireRulesAttestation?: boolean }) {
   assertAllowed(actor, "signupRules", "write");
   return prisma.$transaction(async (tx) => {
     const before = await tx.tenant.findFirst({
       /* tenant-scope: the actor's own tenant row. */
-      where: { id: actor.tenantId }, select: { staffConfirmMinors: true },
+      where: { id: actor.tenantId }, select: { staffConfirmMinors: true, requireRulesAttestation: true },
     });
     if (!before) throw new ForbiddenError("signupRules", "write");
+    /* Only what was sent changes: either setting can be switched alone. */
+    const after = {
+      staffConfirmMinors: input.staffConfirmMinors ?? before.staffConfirmMinors,
+      requireRulesAttestation: input.requireRulesAttestation ?? before.requireRulesAttestation,
+    };
     await tx.tenant.update({
       /* tenant-scope: the actor's own tenant row. */
-      where: { id: actor.tenantId }, data: { staffConfirmMinors: input.staffConfirmMinors }, select: { id: true },
+      where: { id: actor.tenantId }, data: after, select: { id: true },
     });
-    await audit(tx, actor, "signupSettings.update", "Tenant", actor.tenantId, {
-      before: { staffConfirmMinors: before.staffConfirmMinors }, after: { staffConfirmMinors: input.staffConfirmMinors },
-    });
-    return { staffConfirmMinors: input.staffConfirmMinors };
+    await audit(tx, actor, "signupSettings.update", "Tenant", actor.tenantId, { before, after });
+    return after;
   });
 }

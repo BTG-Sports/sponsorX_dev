@@ -1964,3 +1964,40 @@ verifier and is never listed.
   and no test suite. This document is what they get built against.
 - **Resource names are provisional** and should be reconciled against the Prisma
   schema when it is written, so the test file's strings match real models.
+
+## 39 · Deal disputes *(added 2026-10-20)*
+
+`P8-BE-03` (from `P0-LEG-06`). SponsorX doesn't research every school's,
+league's or country's rules. The athlete (or, for a minor, the guardian)
+confirms they follow their own (`P8-BE-02`). When someone objects to a deal,
+BTG opens a dispute on the order, which pauses it until BTG decides:
+- deliverables can't move;
+- the order can only be cancelled;
+- the earning is held.
+
+### `dealDispute` — a concern raised about a deal, and the documents sent for it
+
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant | own-tenant | own-tenant |
+| `CAMPAIGN_MGR` | own-tenant | — | — |
+| `FINANCE` | own-tenant | — | — |
+| `ATHLETE` | own | own | — |
+| `GUARDIAN` | ward | deferred | — |
+
+- **Approve** is BTG's:
+  - opening a dispute (`POST /orders/{id}/disputes`);
+  - deciding it (`…/resolve`, RESUME or CANCEL);
+  - opening a document through a five-minute, audited link.
+- **Write** is the athlete's: sending the documents asked for (the private
+  two-step upload). A guardian writes by acting as their ward, as on every
+  athlete-side route. The uploader never gets a read link.
+- **Campaign managers and Finance read,** so they can see why an order or an
+  earning is paused.
+- **Sponsors see nothing of it.**
+- Every open, document and decision is audited.
+
+The rules confirmation itself (`/me/rules-attestation`, and the tenant switch
+in `/signup-rules/settings`) uses the existing `athlete` and `signupRules`
+rows. No new cells.

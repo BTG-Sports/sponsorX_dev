@@ -44,6 +44,8 @@ const MONEY_MODULES = [
   "payment-exceptions.ts",
   /* 2S5-BE-05 — payouts: every status a payout moves through, and card payments' confirmation. */
   "payouts.ts",
+  /* P8-BE-03 — a deal dispute holds the order's earning and, on RESUME, puts it back. */
+  "deal-disputes.ts",
 ] as const;
 
 /**
@@ -53,6 +55,11 @@ const MONEY_MODULES = [
  * because a prefix rule would let `readAndApplyCorrection` slip through.
  */
 const READ_ONLY = new Set([
+  /* P8-BE-03 — reads and a pure function in deal-disputes.ts (BTG's document link is audited as a grant by storage.ts). */
+  "listDealDisputes",
+  "getDealDispute",
+  "viewDealDisputeDocument",
+  "resumedEarningState",
   "readRateCard",
   "readEarning",
   "breakdown",

@@ -65,6 +65,9 @@ vi.mock("../src/db/client", () => ({
       const writes: string[] = [];
       const tx = {
         campaign: { findFirst: () => Promise.resolve(campaign) },
+        /* P8-BE-03 / P8-BE-02 — no dispute pauses this order, and the rules confirmation is switched off. */
+        dealDispute: { findFirst: () => Promise.resolve(null) },
+        tenant: { findFirst: () => Promise.resolve({ requireRulesAttestation: false }) },
         athlete: { findFirst: () => Promise.resolve({ tier: athleteTier }) },
         campaignOrder: {
           findFirst: () => Promise.resolve(order),

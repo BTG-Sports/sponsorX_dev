@@ -48,6 +48,7 @@ import { prisma } from "../db/client";
 import type { Actor } from "../auth/actor";
 import { guardianControls } from "./guardian-rules";
 import { comingOfAgeOpen } from "./age-of-majority-rules";
+import { assertAttested } from "./rules-attestation";
 import { env } from "../config/env";
 import { send } from "../lib/email";
 
@@ -146,6 +147,9 @@ export async function assertMayCommit(db: Db, actor: Actor, act: CommitAct): Pro
   /* The door (actForWard) already refused this; checked again where the commit happens, whoever built the actor. */
   if (actor.actingFor && (actor.actingFor.guardianId !== a.guardianId || !cleared(a))) throw new GuardianNotVerifiedError(first);
   if (comingOfAgeOpen(a) && PAUSED.has(act)) throw new ComingOfAgePausedError(first, a.comingOfAgeDueAt);
+  /* P8-BE-02 — a new deal or a new item waits on the athlete's (or guardian's) confirmation of their own
+     rules, where BTG has switched that on. Managing what exists, and asking for a payout, don't. */
+  if (act === "accept" || act === "list") await assertAttested(db, actor.tenantId, a.id);
 }
 
 /**

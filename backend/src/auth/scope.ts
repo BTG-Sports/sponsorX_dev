@@ -935,6 +935,21 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   infinexClient: (actor, scope) => (actor.machine?.clientId ? { tenantId: actor.tenantId, id: actor.machine.clientId } : tenantScoped(actor, scope)),
   /* 4S4-BE-01 — a game session reaches only its own client's events. */
   virtualEvent: (actor, scope) => (actor.machine?.clientId ? { tenantId: actor.tenantId, clientId: actor.machine.clientId } : tenantScoped(actor, scope)),
+  /* P8-BE-03 — a dispute carries its athleteId, so it scopes like that athlete's earning. */
+  dealDispute: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        return actor.athleteId ? { tenantId: actor.tenantId, athleteId: actor.athleteId } : MATCHES_NOTHING;
+      case "ward":
+        return actor.guardianId ? { tenantId: actor.tenantId, athlete: { is: { guardianId: actor.guardianId } } } : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

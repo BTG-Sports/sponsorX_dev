@@ -28,6 +28,7 @@
  * The token is not authentication: it grants no role and reaches nothing
  * but this guardian's set-up for this athlete.
  */
+import { assertCurrentWording, recordAttestationIn } from "./rules-attestation";
 import { readFile } from "node:fs/promises";
 
 import type { Prisma } from "../generated/prisma/client";
@@ -200,14 +201,26 @@ export async function confirmGuardianDocument(token: string, documentId: string)
 }
 
 /** The guardian agreement, accepted for this athlete with §12's evidence; then the checks run. */
-export async function acceptGuardianAgreement(token: string, input: { agreementId: string; bodyHashShown: string }, evidence: { ip: string; userAgent: string }) {
+export async function acceptGuardianAgreement(
+  token: string,
+  input: { agreementId: string; bodyHashShown: string; rulesAttestationVersion?: string },
+  evidence: { ip: string; userAgent: string },
+) {
   const { athlete: a, guardian: g } = await context(token);
   assertEditable(g);
   if (!requiresGuardian(a)) throw new SignupError(`${firstNameOf(a.legalName, a.displayName)} is an adult where they live, so no guardian agreement is needed.`, 422);
-  await prisma.$transaction((tx) => recordGuardianAcceptanceIn(tx, {
-    tenantId: a.tenantId, agreementId: input.agreementId, bodyHashShown: input.bodyHashShown,
-    athleteId: a.id, guardianId: g.id, ip: evidence.ip, userAgent: evidence.userAgent,
-  }));
+  /* P8-BE-02 — a stale wording is refused before anything is recorded. */
+  if (input.rulesAttestationVersion) assertCurrentWording(input.rulesAttestationVersion);
+  await prisma.$transaction(async (tx) => {
+    await recordGuardianAcceptanceIn(tx, {
+      tenantId: a.tenantId, agreementId: input.agreementId, bodyHashShown: input.bodyHashShown,
+      athleteId: a.id, guardianId: g.id, ip: evidence.ip, userAgent: evidence.userAgent,
+    });
+    /* P8-BE-02 — the guardian confirms the athlete's own rules; for a minor, theirs is the one that counts. */
+    if (input.rulesAttestationVersion) {
+      await recordAttestationIn(tx, { userId: null, tenantId: a.tenantId }, a.id, "GUARDIAN_SETUP", input.rulesAttestationVersion);
+    }
+  });
   await evaluateAthleteSignup(a.id);
   return guardianSetupStatus(token);
 }
