@@ -2728,7 +2728,7 @@ Raised by `P8-QA-01`'s finding: a job's ID (`SX-02`) was unique across the whole
 
 ### 🔎 `P8-BE-02` · The athlete's own rules are their responsibility
 
-**Order** 157.6 · **BE** · **Where:** Code · **1d** · **Code review**
+**Order** 157.6 · **BE** · **Where:** Code · **1d** · **Code review** · **Unblocks** 3 (P8-BE-03, P8-FE-03, P8-FE-04)
 
 Raised by `P0-LEG-06`'s redefinition (2026-10-20). SponsorX does not research every school's, league's or country's rules. The athlete confirms they follow their own; for a minor, the guardian confirms.
 
@@ -2753,7 +2753,7 @@ Raised by `P0-LEG-06`'s redefinition (2026-10-20). SponsorX does not research ev
 
 ### 🔎 `P8-BE-03` · A concern raised about a deal pauses it
 
-**Order** 157.7 · **BE** · **Where:** Code · **2d** · **Code review**
+**Order** 157.7 · **BE** · **Where:** Code · **2d** · **Code review** · **Unblocks** 2 (P8-FE-05, P8-FE-06)
 
 Raised by `P0-LEG-06`'s redefinition (2026-10-20): "if there are disputes, that's the time we should be strict with forms".
 
@@ -2778,6 +2778,73 @@ Raised by `P0-LEG-06`'s redefinition (2026-10-20): "if there are disputes, that'
   - **Tests:** `deal-disputes.test.ts`, plus the tenant-isolation sweep.
   - **The screens are frontend work:** BTG's dispute desk, and the athlete's order banner with the upload.
 - **Reference:** §4, §21, §26
+
+### ▶ `P8-FE-03` · The rules tick on the sign-up page and the guardian's page
+
+**Order** 157.8 · **FE** · **Where:** Code · **1d** · **Ready**
+
+Raised with `P8-BE-02` (2026-10-20).
+- **Show** the rules wording from `GET /public/rules-attestation` as a tick box on `/join` and on the guardian's set-up page.
+- **Send** its version with the application (`rulesAttestationVersion`) and with the guardian agreement acceptance.
+- **Afterwards,** BTG can switch on "athletes confirm their own rules".
+
+- **Depends on:** P8-BE-02
+- **Done when:** All of these hold.
+  - Both pages show the wording and send its version when it's ticked.
+  - A 422 `rules_attestation_stale` reloads the wording and asks again.
+  - For a minor, the guardian's page asks, not the minor's application.
+- **Reference:** §4, §26
+
+### ▶ `P8-FE-04` · The rules prompt in the athlete portal
+
+**Order** 157.9 · **FE** · **Where:** Code · **1d** · **Ready**
+
+Raised with `P8-BE-02`.
+- **Existing athletes confirm from their login,** and so do guardians acting for a minor: `GET`/`POST /me/rules-attestation`.
+- **A refused accept** (409 `rules_attestation_required`) leads to the prompt.
+- **BTG's sign-up settings screen** gains the `requireRulesAttestation` switch.
+
+- **Depends on:** P8-BE-02
+- **Done when:** All of these hold.
+  - The prompt shows when `current` is false and confirms with the version.
+  - A refused accept leads to the prompt.
+  - A minor's own login sees that the guardian confirms.
+  - BTG's sign-up settings show both switches.
+- **Reference:** §4, §26
+
+### ▶ `P8-FE-05` · BTG's deal dispute desk
+
+**Order** 157.91 · **FE** · **Where:** Code · **2d** · **Ready**
+
+Raised with `P8-BE-03`. In the admin workspace, a BTG admin:
+- **opens a dispute** from an order (`POST /orders/{id}/disputes`), with who raised it, the concern and what to send;
+- **lists and opens disputes** (`/deal-disputes`);
+- **views the documents** through the audited link;
+- **resumes or cancels** with a note (`…/resolve`).
+
+- **Depends on:** P8-BE-03
+- **Done when:** All of these hold.
+  - BTG can open, list, read, view documents and resolve a dispute.
+  - Campaign managers and Finance see it read-only.
+  - Paused orders and held earnings show why.
+- **Reference:** §4, §21, §26
+
+### ▶ `P8-FE-06` · The paused-deal banner and upload on the athlete's order
+
+**Order** 157.92 · **FE** · **Where:** Code · **1d** · **Ready**
+
+Raised with `P8-BE-03`. On the athlete's order page (and the guardian's, acting for a minor):
+- **show** the pause, the concern, what BTG asked for and the documents sent;
+- **upload** through `POST /deal-disputes/{id}/documents`, then `…/confirm`;
+- **show the outcome** once BTG decides;
+- **explain the pause** wherever an action is refused with 409 `deal_paused`.
+
+- **Depends on:** P8-BE-03
+- **Done when:** All of these hold.
+  - The order page shows the pause, the request and the outcome.
+  - The athlete or guardian uploads a document (PDF, JPEG, PNG or WebP, at most 10 MB) and sees it listed.
+  - Refused actions say why.
+- **Reference:** §4, §26
 
 ### ⏸ `P8-INT-04` · Webhook delivery recording
 

@@ -154,3 +154,4 @@ Drafted so counsel has something to approve. Each is marked "DRAFT for counsel r
 - the athlete's order banner with the upload.
 
 The switch stays off until the frontend ships.
+- **Frontend tasks raised** (Ready, for the teammate): `P8-FE-03` (the rules tick on `/join` and the guardian's page), `P8-FE-04` (the portal prompt and the settings switch), `P8-FE-05` (BTG's dispute desk) and `P8-FE-06` (the paused-deal banner and upload). They're on the tracker and in the Phase 1 plan.
