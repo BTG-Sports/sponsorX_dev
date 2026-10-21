@@ -119,6 +119,12 @@ OTHER goes to BTG. The kind is decided by `failureKindFor`.
 All Stripe deliveries go to **one URL**:
 `POST https://<api public domain>/api/v1/webhooks/payments/stripe`.
 
+**Production's API has no public address,** so there the URL is
+`https://sponsorx.net/api/v1/webhooks/payments/stripe`. The web server
+forwards that exact path to the private API untouched, so the signature check
+is unchanged (P8-OPS-03, `frontend/next.config.ts` `WEBHOOK_PATHS`). Staging
+uses its API's own public address.
+
 The `Stripe-Signature` header is checked over the raw body by the SDK
 (`webhooks.constructEvent`). Thin event notifications are checked with the
 same verifier that `constructEvent` runs, because `constructEvent` refuses thin
@@ -258,8 +264,8 @@ start the API in these cases:
    - Set the branding and the statement descriptor.
    - Confirm the Connect settings for Express-dashboard accounts (the platform
      pays fees and carries losses).
-2. **Register the three destinations** from §3 in live mode, at the
-   production API URL. Copy each signing secret.
+2. **Register the three destinations** from §3 in live mode, at
+   `https://sponsorx.net/api/v1/webhooks/payments/stripe`. Copy each signing secret.
 3. **Set the variables in Railway production (`api`):**
    - `STRIPE_SECRET_KEY` = the live `sk_live_…` (a restricted `rk_live_…` key
      with Checkout, PaymentIntents read, Refunds, Transfers, Accounts v2 and
