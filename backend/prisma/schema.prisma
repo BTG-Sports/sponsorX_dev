@@ -2407,6 +2407,10 @@ model PropertyOnboarding {
   termsAgreementId     String?
   termsHash            String?
   termsAcceptedAt      DateTime?
+  /// P8-BE-06 — §12's evidence for the terms acceptance, from the request, as
+  /// every other acceptance keeps (null for an acceptance made before it was recorded).
+  termsIp              String?
+  termsUserAgent       String?
   submittedAt          DateTime?
   reviewNotes          String?
   decidedAt            DateTime?

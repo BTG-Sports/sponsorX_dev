@@ -176,6 +176,12 @@ describe.skipIf(!hasDatabase)("property onboarding over the API", async () => {
       expect(terms).toEqual({ agreementId: "po_terms", version: 1, bodyHash: HASH, body: null });
       expect((await call("PATCH", `/public/onboarding/${tok}`, { step: "agreements", agreementId: "po_terms", bodyHashShown: "x".repeat(64) })).status).toBe(409);
       await call("PATCH", `/public/onboarding/${tok}`, { step: "agreements", agreementId: terms.agreementId, bodyHashShown: terms.bodyHash });
+      /* P8-BE-06 — the acceptance keeps the IP and browser, and is audited, as every other acceptance is. */
+      const accepted = await prisma.propertyOnboarding.findFirst({ where: { tenantId: T, termsAgreementId: "po_terms" }, select: { id: true, termsIp: true, termsUserAgent: true, termsAcceptedAt: true }, orderBy: { termsAcceptedAt: "desc" } });
+      expect(accepted?.termsAcceptedAt).toBeInstanceOf(Date);
+      expect(accepted?.termsIp).toBeTruthy();
+      expect(accepted?.termsUserAgent).toBeTruthy();
+      expect(await prisma.auditLog.count({ where: { tenantId: T, action: "agreement.accept", entityId: "po_terms", after: { path: ["onboardingId"], equals: accepted!.id } } })).toBe(1);
 
       const done = await call("POST", `/public/onboarding/${tok}/submit`);
       expect(done.status).toBe(200);
