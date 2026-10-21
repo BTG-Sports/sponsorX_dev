@@ -39,7 +39,7 @@ import { z } from "zod";
 
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
-import { audit, type AuditActor } from "../db/audit";
+import { audit, AUDIT_ACTIONS, type AuditActor } from "../db/audit";
 import { enqueue } from "../db/outbox";
 import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
@@ -505,9 +505,14 @@ export type StepInput =
  * Save one wizard step. Each step is validated on its own terms and saved,
  * so partial progress survives; completeness is judged only at submit.
  */
-export async function saveStep(token: string, input: StepInput) {
+export async function saveStep(
+  token: string,
+  input: StepInput,
+  /** P8-BE-06 — §12's evidence for the terms acceptance, from the request. */
+  evidence: { ip: string; userAgent: string } = { ip: "", userAgent: "" },
+) {
   try {
-    return await saveStepTx(token, input);
+    return await saveStepTx(token, input, evidence);
   } catch (e) {
     /* Two applications renamed to one name at the same moment: the database refused the second. */
     if (isUniqueViolation(e)) throw new OnboardingNameTakenError();
@@ -515,7 +520,7 @@ export async function saveStep(token: string, input: StepInput) {
   }
 }
 
-async function saveStepTx(token: string, input: StepInput) {
+async function saveStepTx(token: string, input: StepInput, evidence: { ip: string; userAgent: string }) {
   return prisma.$transaction(async (tx) => {
     const row = await byToken(tx, token);
     if (!EDITABLE.has(row.state as OnboardingState)) {
@@ -566,7 +571,16 @@ async function saveStepTx(token: string, input: StepInput) {
         if (terms.id !== input.agreementId || terms.bodyHash !== input.bodyHashShown) {
           throw new OnboardingError("The terms shown are not the current version — reload and accept again.", 409);
         }
-        data = { termsAgreementId: terms.id, termsHash: terms.bodyHash, termsAcceptedAt: new Date() };
+        data = {
+          termsAgreementId: terms.id, termsHash: terms.bodyHash, termsAcceptedAt: new Date(),
+          /* P8-BE-06 — the IP and browser, as every other acceptance records them. */
+          termsIp: evidence.ip, termsUserAgent: evidence.userAgent,
+        };
+        /* Audited like every other acceptance: which terms, which version, the text's fingerprint. The
+           IP and browser stay on the row, not repeated in the audit payload (§26). */
+        await audit(tx, { userId: null, tenantId: row.tenantId }, AUDIT_ACTIONS.agreement.accept, "Agreement", terms.id, {
+          after: { onboardingId: row.id, kind: PROPERTY_TERMS_KIND, version: terms.version, bodyHash: terms.bodyHash },
+        });
         break;
       }
     }

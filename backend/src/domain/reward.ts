@@ -757,7 +757,15 @@ export async function withdrawFanConsent(
       where: { id: eventId, type: "CLAIM", fanEmail: { not: null } },
       select: { id: true, tenantId: true, consentWithdrawnAt: true, sponsorContactVersion: true, sponsorContactWithdrawnAt: true },
     });
-    if (!row) return { withdrawn: false };
+    if (!row) {
+      /* P8-BE-05 — the address was deleted after 90 days (fan-data-retention.ts): nothing can be sent to
+         it any more, so a tap on an old link is answered as done. Asked without reading any address. */
+      const purged = await tx.rewardEvent.count({
+        /* tenant-scope: the claim named by the signed unsubscribe token; a public, token-authorised read with no tenant-bound actor. */
+        where: { id: eventId, type: "CLAIM", fanEmail: null, consentAt: { not: null } },
+      });
+      return { withdrawn: purged > 0 };
+    }
     if (row.consentWithdrawnAt) return { withdrawn: true };
 
     /* One tap withdraws BOTH: the fan unsubscribing from the voucher mail has

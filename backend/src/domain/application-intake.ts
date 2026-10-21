@@ -27,6 +27,7 @@
  */
 
 import { recordAttestationIn } from "./rules-attestation";
+import { recordApplicantCollabIn } from "./collab-agreement";
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit, type AuditActor } from "../db/audit";
@@ -83,12 +84,18 @@ function intakeActor(): AuditActor {
  */
 export async function submitApplication(
   input: AthleteApplicationInput,
+  /** P8-BE-04 — §12's evidence for the agreement acceptance, from the request. */
+  evidence: { ip: string; userAgent: string } = { ip: "", userAgent: "" },
 ): Promise<{ id: string; state: AthleteState; continuationToken: string }> {
   const tenantId = env.PUBLIC_INTAKE_TENANT_ID;
   const actor = intakeActor();
 
   const id = await prisma.$transaction(async (tx) => {
     const athlete = await createApplicantIn(tx, tenantId, actor, input);
+    /* P8-BE-04 — the Content Collaboration Agreement the applicant ticked, recorded with the application. */
+    if (input.agreement) {
+      await recordApplicantCollabIn(tx, { tenantId, athleteId: athlete.id, ...input.agreement, ...evidence });
+    }
 
     /* Through the state machine, not a direct write — P3-BE-01's invariant is
        that exactly one function changes `Athlete.state`, and "the applicant
@@ -211,6 +218,7 @@ export async function readOwnApplication(athleteId: string) {
 export async function patchApplication(
   athleteId: string,
   patch: AthleteApplicationPatch,
+  evidence: { ip: string; userAgent: string } = { ip: "", userAgent: "" },
 ): Promise<{ id: string; state: AthleteState }> {
   const tenantId = env.PUBLIC_INTAKE_TENANT_ID;
   const actor = intakeActor();
@@ -241,6 +249,7 @@ export async function patchApplication(
     if (patch.level !== undefined) data.level = patch.level;
     if (patch.gradYear !== undefined) data.gradYear = patch.gradYear;
     if (patch.achievements !== undefined) data.achievements = patch.achievements;
+    if (patch.agreement) await recordApplicantCollabIn(tx, { tenantId, athleteId, ...patch.agreement, ...evidence });
     if (patch.rulesAttestationVersion !== undefined) await recordAttestationIn(tx, { userId: actor.userId, tenantId }, athleteId, "APPLICATION", patch.rulesAttestationVersion);
 
     /* The slug is not repatched. It is a public URL that may already have been

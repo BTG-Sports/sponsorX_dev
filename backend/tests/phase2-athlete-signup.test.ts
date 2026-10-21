@@ -436,7 +436,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-09 / -10 / -12 · athletes and guardians a
     const held = await acceptAgreement(token);
     expect(held.state).toBe("HELD");
     expect(await athlete(kai.id)).toMatchObject({ state: "SUBMITTED", reviewReasons: [expect.stringMatching(/staff confirm minors/)] });
-    expect((await call("GET", "/signup-rules/settings", "as_netmgr")).json).toEqual({ staffConfirmMinors: true, requireRulesAttestation: false });
+    expect((await call("GET", "/signup-rules/settings", "as_netmgr")).json).toEqual({ staffConfirmMinors: true, requireRulesAttestation: false, requireCollabAcceptance: false });
     expect((await call("PUT", "/signup-rules/settings", "as_admin", { staffConfirmMinors: false })).status).toBe(200);
     expect((await athlete(kai.id)).state).toBe("ACTIVE");
   });

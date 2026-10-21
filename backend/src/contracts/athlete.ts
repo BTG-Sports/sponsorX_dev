@@ -146,6 +146,11 @@ const AthleteApplicationFields = z.object({
   socials: z.array(SocialAccountIntake).max(4).default([]),
 
   // P8-BE-02 — the applicant confirmed the wording GET /public/rules-attestation served: its version.
+  agreement: z
+    .object({ agreementId: z.string().min(1).max(100), bodyHashShown: z.string().min(1).max(200) })
+    .strict()
+    .optional()
+    .meta({ description: "P8-BE-04 — the Content Collaboration Agreement the applicant ticked (GET /public/agreements/collab): its id and the hash of the text shown. Recorded with the time, IP and user agent. Omitted when not ticked; a superseded version is refused (422 `not_collab_agreement`), changed text 409 `agreement_text_changed`." }),
   rulesAttestationVersion: z.string().trim().min(1).max(40).optional()
     .meta({ description: "The `version` of the rules confirmation the applicant ticked (GET /public/rules-attestation). Omitted when not ticked. A version that isn't the current wording is refused (422 `rules_attestation_stale`)." }),
 });

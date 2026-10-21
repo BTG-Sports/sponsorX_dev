@@ -2785,6 +2785,85 @@ Raised by `P0-LEG-06`'s redefinition (2026-10-20): "if there are disputes, that'
   - **The screens are frontend work:** BTG's dispute desk, and the athlete's order banner with the upload.
 - **Reference:** §4, §21, §26
 
+### ✅ `P8-BE-04` · The athlete's Content Collaboration Agreement is recorded
+
+**Order** 157.75 · **BE** · **Where:** Code · **1d** · **Done** · **Unblocks** 1 (P8-FE-07)
+
+Raised 2026-10-21. A gap found while drafting P0-LEG-01: `/join` showed the agreement and armed its button on the tick, but nothing reached the server. There was no text file and no acceptance, so once counsel approves the agreement there would be no proof that anyone accepted it.
+
+- **Depends on:** nothing
+- **Done when:** All of these hold.
+  - **The agreement in force is served** with its version, text and fingerprint. It's registered from `agreements/COLLAB.v<n>.txt` on first use, so counsel's approved text is simply a new file.
+  - **The application records the acceptance** with §12's evidence: the text's fingerprint, the time, the IP and the browser. Changed text is refused, and so is an agreement that isn't the one in force.
+  - **An existing athlete accepts from their login,** and the application's acceptance still counts once they have one.
+  - **A minor is covered** by their guardian's agreement.
+  - **With BTG's switch on,** a new deal waits for the acceptance, though accepting the agreement itself never does. With the switch off, nothing changes.
+- **Delivered:** 2026-10-21.
+  - **Code:** `collab-agreement.ts`, plus `current-agreement.ts`, which is now shared with the guardian agreement.
+  - **The text:** `agreements/COLLAB.v1.txt`, today's /join wording marked as a draft.
+  - **Routes:** `GET /public/agreements/collab`; the application's `agreement` field (with IP and browser from the request); `GET /me/collab-agreement`.
+  - **The switch:** `requireCollabAcceptance` in `/signup-rules/settings`, enforced in `assertMayCommit`.
+  - **Accepting the agreement itself** is checked as "manage", so the gate can't block its own acceptance.
+  - **Test:** `collab-agreement.test.ts`.
+- **Reference:** §12, §4
+
+### ✅ `P8-BE-05` · A fan's email is deleted after 90 days
+
+**Order** 157.76 · **BE** · **Where:** Code · **0.5d** · **Done**
+
+Raised 2026-10-21. A gap found while drafting P0-LEG-04: a fan's optional email was kept forever. The owner's decision is that it's kept for **90 days**.
+
+- **Depends on:** nothing
+- **Done when:** All of these hold.
+  - **90 days after the claim, every copy SponsorX holds is gone:** the claim's address, the sent-email log's, and the queued-email record's.
+  - **Nothing newer is touched,** and neither is any other kind of email.
+  - **The consent record** (when, which version) and **the counts** stay.
+  - **Each tenant's sweep is audited,** and a second sweep finds nothing.
+  - **An old unsubscribe link** still answers "done".
+- **Delivered:** 2026-10-21.
+  - **Code:** `fan-data-retention.ts`, run by the worker's hourly retention job.
+  - **Unsubscribe:** answers without ever reading an address, as `fan-pii.test.ts` requires.
+  - **Test:** `fan-data-retention.test.ts`.
+  - **Not touched:** a lead already pushed to BTG's CRM (Zoho), which is outside SponsorX. pg-boss drops its own finished jobs well inside the window.
+- **Reference:** §16, §26
+
+### 🔎 `P8-BE-06` · A team's or venue's terms acceptance keeps the IP and browser
+
+**Order** 157.77 · **BE** · **Where:** Code · **0.5d** · **Code review**
+
+Raised 2026-10-21. A gap found while drafting 2S0-LEG-01: an organisation's terms acceptance during onboarding saved only the version, fingerprint and time. Every other acceptance also keeps the IP and browser, and is audited.
+
+- **Depends on:** nothing
+- **Done when:** All of these hold.
+  - **The terms step records** the IP and browser from the request, on the onboarding row, next to the fingerprint and time.
+  - **It's audited** like every other acceptance: which terms, which version, the fingerprint.
+  - **Outdated terms** are still refused.
+  - **Past acceptances** are left without evidence rather than given invented evidence.
+- **Delivered:** 2026-10-21.
+  - **Model:** `PropertyOnboarding.termsIp` and `termsUserAgent` (migration `20261021120000`).
+  - **Code:** `saveStep` takes the request's evidence and audits `agreement.accept`.
+  - **Test:** `property-onboarding.test.ts`.
+  - **Not used:** `AgreementAcceptance`, which needs a user, athlete or student as the subject. An organisation signing up has none yet.
+- **Reference:** §12
+
+### ▶ `P8-FE-07` · Show the real agreement on /join and record it
+
+**Order** 157.93 · **FE** · **Where:** Code · **1d** · **Ready**
+
+Raised with `P8-BE-04`.
+- **/join** shows the text from `GET /public/agreements/collab`, replacing the hard-coded "v0.4 draft" clauses in `join-flow.ts`.
+- **When the box is ticked,** /join sends `agreement: { agreementId, bodyHashShown }` with the application.
+- **The athlete portal** prompts an athlete whose `GET /me/collab-agreement` says `current: false`, and accepts through `POST /agreements/accept`.
+- **BTG's sign-up settings** show the `requireCollabAcceptance` switch.
+
+- **Depends on:** P8-BE-04
+- **Done when:** All of these hold.
+  - /join shows the served text and its version, and a ticked application records the acceptance.
+  - A 409 `agreement_text_changed` or a 422 `not_collab_agreement` reloads the text.
+  - The portal prompt appears when it's needed and accepts the agreement.
+  - The switch is on the settings screen.
+- **Reference:** §12
+
 ### ▶ `P8-FE-03` · The rules tick on the sign-up page and the guardian's page
 
 **Order** 157.8 · **FE** · **Where:** Code · **1d** · **Ready**

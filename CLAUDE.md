@@ -243,14 +243,28 @@ Code review. Committing one file is what makes a shared tracker actually shared.
 - **Guardian e-signature for minors.** Click-wrap covers Phase 1 agreements;
   guardian authorization may need true e-sign. Legal question, not technical
   (`P0-LEG-03`, counsel).
-- **Tax ID collection and 1099s for marketplace payouts** (`2S0-LEG-02`,
-  counsel). Phase 1 collects no tax ID; flag any task that would store one.
+- **Tax position for marketplace payouts** (`2S0-LEG-02`): proposed on
+  2026-10-20 and waiting for BTG's accountant to confirm (draft 7 in the
+  SponsorX Legal folder).
+  - Stripe Connect collects W-9 and W-8 forms and files the 1099s.
+  - BTG finance handles campaign payments made outside SponsorX.
+  - A minor's form is in the minor's name.
 
-**Decided** (kept here so nobody reopens them): the Phase 1 payment policy
-(`P0-PMO-01`, earnings *status* only, no tax ID), data residency (`P0-PMO-02`,
-US East), the transactional email provider (`P0-PMO-03`, Resend) and the PDF
-worker (`P0-PMO-06`). Going live is decided by the go/no-go review
-(`P8-PMO-06`, `documentation/SponsorX-Go-No-Go-Review.md`).
+  SponsorX still never stores a tax ID; flag any task that would.
+
+**Decided** (kept here so nobody reopens them):
+- the Phase 1 payment policy (`P0-PMO-01`): earnings *status* only, no tax ID;
+- data residency (`P0-PMO-02`): US East;
+- the transactional email provider (`P0-PMO-03`): Resend;
+- the PDF worker (`P0-PMO-06`);
+- **local rules and rewards (2026-10-20, programme owner):** nobody researches every state's rules.
+  - An athlete's school, league and local rules are the athlete's responsibility (`P0-LEG-06`, built as `P8-BE-02`).
+  - A disputed deal is paused for documents (`P8-BE-03`).
+  - A fan reward is the sponsor's responsibility (`P0-LEG-05`).
+  - Counsel only approves those paragraphs.
+
+Going live is decided by the go/no-go review (`P8-PMO-06`,
+`documentation/SponsorX-Go-No-Go-Review.md`).
 
 ## Scope reality
 

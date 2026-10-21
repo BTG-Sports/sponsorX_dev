@@ -175,9 +175,13 @@ export async function signupSettings(actor: Actor) {
   assertAllowed(actor, "signupRules", "read");
   const t = await prisma.tenant.findFirst({
     /* tenant-scope: the actor's own tenant row. */
-    where: { id: actor.tenantId }, select: { staffConfirmMinors: true, requireRulesAttestation: true },
+    where: { id: actor.tenantId }, select: { staffConfirmMinors: true, requireRulesAttestation: true, requireCollabAcceptance: true },
   });
-  return { staffConfirmMinors: t?.staffConfirmMinors ?? false, requireRulesAttestation: t?.requireRulesAttestation ?? false };
+  return {
+    staffConfirmMinors: t?.staffConfirmMinors ?? false,
+    requireRulesAttestation: t?.requireRulesAttestation ?? false,
+    requireCollabAcceptance: t?.requireCollabAcceptance ?? false,
+  };
 }
 
 /**
@@ -185,18 +189,19 @@ export async function signupSettings(actor: Actor) {
  * off lets the minors it was holding through, by running their checks again
  * (the caller does that, after this commits — see routes/v1/signups.ts).
  */
-export async function setSignupSettings(actor: Actor, input: { staffConfirmMinors?: boolean; requireRulesAttestation?: boolean }) {
+export async function setSignupSettings(actor: Actor, input: { staffConfirmMinors?: boolean; requireRulesAttestation?: boolean; requireCollabAcceptance?: boolean }) {
   assertAllowed(actor, "signupRules", "write");
   return prisma.$transaction(async (tx) => {
     const before = await tx.tenant.findFirst({
       /* tenant-scope: the actor's own tenant row. */
-      where: { id: actor.tenantId }, select: { staffConfirmMinors: true, requireRulesAttestation: true },
+      where: { id: actor.tenantId }, select: { staffConfirmMinors: true, requireRulesAttestation: true, requireCollabAcceptance: true },
     });
     if (!before) throw new ForbiddenError("signupRules", "write");
     /* Only what was sent changes: either setting can be switched alone. */
     const after = {
       staffConfirmMinors: input.staffConfirmMinors ?? before.staffConfirmMinors,
       requireRulesAttestation: input.requireRulesAttestation ?? before.requireRulesAttestation,
+      requireCollabAcceptance: input.requireCollabAcceptance ?? before.requireCollabAcceptance,
     };
     await tx.tenant.update({
       /* tenant-scope: the actor's own tenant row. */
