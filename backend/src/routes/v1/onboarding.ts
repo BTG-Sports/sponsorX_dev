@@ -15,7 +15,7 @@ import { Router, type RequestHandler } from "express";
 import { requireActor } from "../../auth/actor";
 import { pageRequest } from "../../lib/paging";
 import { limit } from "../../lib/rate-limit";
-import { clientIp } from "../../lib/client-ip";
+import { clientIp, clientUserAgent } from "../../lib/client-ip";
 import {
   OnboardingConfirmEmailInput,
   OnboardingDecisionInput,
@@ -125,7 +125,8 @@ const read: RequestHandler<{ token: string }> = async (req, res) => {
 };
 const step: RequestHandler<{ token: string }> = async (req, res) => {
   await limit("onboarding:step", clientIp(req), 120, 3600);
-  res.json(await saveStep(req.params.token, OnboardingStepInput.parse(req.body) as StepInput));
+  /* P8-BE-06 — the terms step's §12 evidence, captured from the request. */
+  res.json(await saveStep(req.params.token, OnboardingStepInput.parse(req.body) as StepInput, { ip: clientIp(req) ?? "", userAgent: clientUserAgent(req) ?? "" }));
 };
 const submit: RequestHandler<{ token: string }> = async (req, res) => {
   await limit("onboarding:submit", clientIp(req), 20, 3600);

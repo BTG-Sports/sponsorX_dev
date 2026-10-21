@@ -40,3 +40,11 @@
 - **Tests:** `fan-data-retention.test.ts`. The fake transaction in `fan-unsubscribe.test.ts` gained `count`.
 - **CI run locally, all passing:** 231 files, 3,496 tests.
 - **Still to do:** draft 3 (fan consent wording) in Drive should say 90 days. The Drive connector was disconnected this session, so it isn't updated yet.
+
+## P8-BE-06: a team's or venue's terms acceptance keeps the IP and browser (Code review)
+
+- **What changed:** `PropertyOnboarding.termsIp` and `termsUserAgent` (migration `20261021120000`). `saveStep` takes the request's evidence and audits `agreement.accept` (terms, version, fingerprint).
+- **Why not the acceptance table:** `AgreementAcceptance` needs a user, athlete or student as the subject, and an organisation signing up has none yet.
+- **Past acceptances** are left without evidence.
+- **Test:** `property-onboarding.test.ts` gained the assertions. CI run locally, all passing: 3,496 tests.
+- **P8-BE-04 and P8-BE-05 are Done.** They merged in #276 with all four checks green.

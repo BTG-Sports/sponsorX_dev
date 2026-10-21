@@ -2785,9 +2785,9 @@ Raised by `P0-LEG-06`'s redefinition (2026-10-20): "if there are disputes, that'
   - **The screens are frontend work:** BTG's dispute desk, and the athlete's order banner with the upload.
 - **Reference:** §4, §21, §26
 
-### 🔎 `P8-BE-04` · The athlete's Content Collaboration Agreement is recorded
+### ✅ `P8-BE-04` · The athlete's Content Collaboration Agreement is recorded
 
-**Order** 157.75 · **BE** · **Where:** Code · **1d** · **Code review** · **Unblocks** 1 (P8-FE-07)
+**Order** 157.75 · **BE** · **Where:** Code · **1d** · **Done** · **Unblocks** 1 (P8-FE-07)
 
 Raised 2026-10-21. A gap found while drafting P0-LEG-01: `/join` showed the agreement and armed its button on the tick, but nothing reached the server. There was no text file and no acceptance, so once counsel approves the agreement there would be no proof that anyone accepted it.
 
@@ -2807,9 +2807,9 @@ Raised 2026-10-21. A gap found while drafting P0-LEG-01: `/join` showed the agre
   - **Test:** `collab-agreement.test.ts`.
 - **Reference:** §12, §4
 
-### 🔎 `P8-BE-05` · A fan's email is deleted after 90 days
+### ✅ `P8-BE-05` · A fan's email is deleted after 90 days
 
-**Order** 157.76 · **BE** · **Where:** Code · **0.5d** · **Code review**
+**Order** 157.76 · **BE** · **Where:** Code · **0.5d** · **Done**
 
 Raised 2026-10-21. A gap found while drafting P0-LEG-04: a fan's optional email was kept forever. The owner's decision is that it's kept for **90 days**.
 
@@ -2826,6 +2826,25 @@ Raised 2026-10-21. A gap found while drafting P0-LEG-04: a fan's optional email 
   - **Test:** `fan-data-retention.test.ts`.
   - **Not touched:** a lead already pushed to BTG's CRM (Zoho), which is outside SponsorX. pg-boss drops its own finished jobs well inside the window.
 - **Reference:** §16, §26
+
+### 🔎 `P8-BE-06` · A team's or venue's terms acceptance keeps the IP and browser
+
+**Order** 157.77 · **BE** · **Where:** Code · **0.5d** · **Code review**
+
+Raised 2026-10-21. A gap found while drafting 2S0-LEG-01: an organisation's terms acceptance during onboarding saved only the version, fingerprint and time. Every other acceptance also keeps the IP and browser, and is audited.
+
+- **Depends on:** nothing
+- **Done when:** All of these hold.
+  - **The terms step records** the IP and browser from the request, on the onboarding row, next to the fingerprint and time.
+  - **It's audited** like every other acceptance: which terms, which version, the fingerprint.
+  - **Outdated terms** are still refused.
+  - **Past acceptances** are left without evidence rather than given invented evidence.
+- **Delivered:** 2026-10-21.
+  - **Model:** `PropertyOnboarding.termsIp` and `termsUserAgent` (migration `20261021120000`).
+  - **Code:** `saveStep` takes the request's evidence and audits `agreement.accept`.
+  - **Test:** `property-onboarding.test.ts`.
+  - **Not used:** `AgreementAcceptance`, which needs a user, athlete or student as the subject. An organisation signing up has none yet.
+- **Reference:** §12
 
 ### ▶ `P8-FE-07` · Show the real agreement on /join and record it
 
