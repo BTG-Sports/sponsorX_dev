@@ -57,3 +57,11 @@
 - **The fix:** `frontend/next.config.ts` `WEBHOOK_PATHS` forwards exactly `/api/v1/webhooks/payments/stripe`, `/zoho/invoice` and `/zoho/crm`, untouched. Pinned by `security-review.test.ts`. The Stripe doc (§3/§6) now names `https://sponsorx.net/api/v1/webhooks/payments/stripe`.
 - **CI run locally, all passing:** backend 3,496 tests; frontend build, lint and 1,589 tests.
 - **Still to do:** after the deploy, prove a signed delivery passes through staging's web, and that `sponsorx.net` answers 401 rather than 404. Then hand the user the Stripe Dashboard steps (step 2).
+
+## Go-live switches, 2026-10-21 afternoon
+
+- **Stripe:**
+  - Connect business model chosen, account verified, Checkout chosen.
+  - Waiting on Rodney's identity verification. A guide for him is at https://claude.ai/artifact/Kx66ak2xW3UnUSyXQDn5eh (private until it's shared with him).
+  - The webhook forwarding (P8-OPS-03) merged and is on `release` `2630209a`, but Railway missed the push and then paused deploys ("Deploys have been paused temporarily"; its API also returned "Problem processing request"). Redeploy web with `railway redeploy --from-source` when Railway resumes, then check that `sponsorx.net` and staging answer 401 rather than 404 on `/api/v1/webhooks/payments/stripe`.
+- **Resend:** `sponsorx.net` is Verified (the user checked the dashboard). `RESEND_API_KEY` on the production api is still to confirm in the production check.
