@@ -67,12 +67,25 @@ export const CLAIM_CONFIRM_PATH = "/api/v1/public/athlete-claims/confirm";
    backup freshness — booleans and minutes, no hosts, rate-limited there). */
 export const PUBLIC_HEALTH_PATH = "/api/v1/public/health";
 
+/* P8-OPS-03 — the inbound webhooks. Production's API has no public address,
+   so without these Stripe's payment events and Zoho's invoice and CRM events
+   could never reach it: a sponsor's card payment would succeed at Stripe and
+   the order would never turn PAID. Forwarded untouched (a rewrite to another
+   host is a proxy: method, headers and raw body pass through), so the API's
+   signature checks run exactly as they do on staging, where the API is public. */
+export const WEBHOOK_PATHS = [
+  "/api/v1/webhooks/payments/stripe",
+  "/api/v1/webhooks/zoho/invoice",
+  "/api/v1/webhooks/zoho/crm",
+] as const;
+
 /** The only paths the web server forwards to the API. Exact paths, no wildcards. */
 export function apiRewrites(env: Env) {
   const api = (env.API_URL ?? "http://localhost:4000").replace(/\/+$/, "");
   return [
     ...[CSP_REPORT_PATH, CLAIM_CONFIRM_PATH].map((path) => ({ source: path, destination: `${api}${path}` })),
     { source: PUBLIC_HEALTH_PATH, destination: `${api}/health/full` },
+    ...WEBHOOK_PATHS.map((path) => ({ source: path, destination: `${api}${path}` })),
   ];
 }
 

@@ -151,12 +151,17 @@ describe("2S8-PMO-02 decision 1 · the full CSP, report-only", async () => {
     expect(dev["connect-src"]).toEqual(expect.arrayContaining(["ws:", "http://127.0.0.1:9100", "http://localhost:9000"]));
   });
 
-  it("reports (and the claim confirmation link, decision 5, and the health check, 2S8-OPS-01) go to the API through the web server — those three exact paths only", () => {
+  it("reports (and the claim confirmation link, decision 5, the health check, 2S8-OPS-01, and the Stripe and Zoho webhooks, P8-OPS-03) go to the API through the web server — those exact paths only", () => {
     expect(apiRewrites(PROD)).toEqual([
       { source: CSP_REPORT_PATH, destination: "http://api.railway.internal:8080/api/v1/public/csp-report" },
       { source: "/api/v1/public/athlete-claims/confirm", destination: "http://api.railway.internal:8080/api/v1/public/athlete-claims/confirm" },
       { source: "/api/v1/public/health", destination: "http://api.railway.internal:8080/health/full" },
+      { source: "/api/v1/webhooks/payments/stripe", destination: "http://api.railway.internal:8080/api/v1/webhooks/payments/stripe" },
+      { source: "/api/v1/webhooks/zoho/invoice", destination: "http://api.railway.internal:8080/api/v1/webhooks/zoho/invoice" },
+      { source: "/api/v1/webhooks/zoho/crm", destination: "http://api.railway.internal:8080/api/v1/webhooks/zoho/crm" },
     ]);
+    /* Only Stripe's provider path — never the stand-in's, which production refuses anyway. */
+    expect(apiRewrites(PROD).map((r) => r.source)).not.toContain("/api/v1/webhooks/payments/standin");
     expect(apiRewrites({})[0]!.destination).toBe("http://localhost:4000/api/v1/public/csp-report");
     for (const r of apiRewrites(PROD)) expect(r.source).not.toMatch(/[:*(]/);
   });

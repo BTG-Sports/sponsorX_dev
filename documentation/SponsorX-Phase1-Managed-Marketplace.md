@@ -2846,6 +2846,23 @@ Raised 2026-10-21. A gap found while drafting 2S0-LEG-01: an organisation's term
   - **Not used:** `AgreementAcceptance`, which needs a user, athlete or student as the subject. An organisation signing up has none yet.
 - **Reference:** §12
 
+### 🔎 `P8-OPS-03` · Stripe and Zoho webhooks reach production's private API
+
+**Order** 157.78 · **OPS** · **Where:** Code · **0.5d** · **Code review**
+
+Raised 2026-10-21, while preparing Stripe go-live. Production's API has no public address: `sponsorx.net` is the only public host, and it forwarded just three exact paths. So Stripe's payment events and Zoho's invoice and CRM events had no way in. A sponsor's card payment would succeed at Stripe, and the order would never turn PAID. Staging hid this because its API has a public address.
+
+- **Depends on:** nothing
+- **Done when:** All of these hold.
+  - **`sponsorx.net` forwards exactly** `/api/v1/webhooks/payments/stripe`, `/api/v1/webhooks/zoho/invoice` and `/api/v1/webhooks/zoho/crm` to the private API, untouched (method, headers, raw body).
+  - **The API's signature checks pass** on a forwarded, correctly signed delivery, and refuse a bad one.
+  - **Nothing else is forwarded,** and there are no wildcards.
+  - **The Stripe go-live steps** name the production URL.
+- **Delivered:** 2026-10-21.
+  - **Code:** `frontend/next.config.ts` `WEBHOOK_PATHS`, pinned by `frontend/tests/security-review.test.ts`.
+  - **Docs:** `SponsorX-Stripe-Integration.md` §3 and §6.
+- **Reference:** §18, §38
+
 ### ▶ `P8-FE-07` · Show the real agreement on /join and record it
 
 **Order** 157.93 · **FE** · **Where:** Code · **1d** · **Ready**

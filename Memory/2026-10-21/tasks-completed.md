@@ -50,3 +50,10 @@
 - **P8-BE-04 and P8-BE-05 are Done.** They merged in #276 with all four checks green.
 - **Deployed to staging** (release `e265e578`): P8-BE-04, -05 and -06, with both migrations. Health returns 200, `/public/agreements/collab` serves v1, and `/me/collab-agreement` returns 401 without a login.
 - **P8-BE-06 is Done.** It merged in #277, and main's CI passed including e2e.
+
+## P8-OPS-03: Stripe and Zoho webhooks reach production's private API (Code review)
+
+- **Found while preparing Stripe go-live.** Production's API has no public address, and `sponsorx.net` forwarded only the CSP, claim-confirm and health paths. So Stripe's and Zoho's webhooks could never reach production: a card payment would succeed at Stripe, and the order would never turn PAID. Staging hid it, because its API is public.
+- **The fix:** `frontend/next.config.ts` `WEBHOOK_PATHS` forwards exactly `/api/v1/webhooks/payments/stripe`, `/zoho/invoice` and `/zoho/crm`, untouched. Pinned by `security-review.test.ts`. The Stripe doc (§3/§6) now names `https://sponsorx.net/api/v1/webhooks/payments/stripe`.
+- **CI run locally, all passing:** backend 3,496 tests; frontend build, lint and 1,589 tests.
+- **Still to do:** after the deploy, prove a signed delivery passes through staging's web, and that `sponsorx.net` answers 401 rather than 404. Then hand the user the Stripe Dashboard steps (step 2).
