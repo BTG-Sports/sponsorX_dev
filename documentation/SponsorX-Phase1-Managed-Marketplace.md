@@ -2807,6 +2807,26 @@ Raised 2026-10-21. A gap found while drafting P0-LEG-01: `/join` showed the agre
   - **Test:** `collab-agreement.test.ts`.
 - **Reference:** §12, §4
 
+### 🔎 `P8-BE-05` · A fan's email is deleted after 90 days
+
+**Order** 157.76 · **BE** · **Where:** Code · **0.5d** · **Code review**
+
+Raised 2026-10-21. A gap found while drafting P0-LEG-04: a fan's optional email was kept forever. The owner's decision is that it's kept for **90 days**.
+
+- **Depends on:** nothing
+- **Done when:** All of these hold.
+  - **90 days after the claim, every copy SponsorX holds is gone:** the claim's address, the sent-email log's, and the queued-email record's.
+  - **Nothing newer is touched,** and neither is any other kind of email.
+  - **The consent record** (when, which version) and **the counts** stay.
+  - **Each tenant's sweep is audited,** and a second sweep finds nothing.
+  - **An old unsubscribe link** still answers "done".
+- **Delivered:** 2026-10-21.
+  - **Code:** `fan-data-retention.ts`, run by the worker's hourly retention job.
+  - **Unsubscribe:** answers without ever reading an address, as `fan-pii.test.ts` requires.
+  - **Test:** `fan-data-retention.test.ts`.
+  - **Not touched:** a lead already pushed to BTG's CRM (Zoho), which is outside SponsorX. pg-boss drops its own finished jobs well inside the window.
+- **Reference:** §16, §26
+
 ### ▶ `P8-FE-07` · Show the real agreement on /join and record it
 
 **Order** 157.93 · **FE** · **Where:** Code · **1d** · **Ready**

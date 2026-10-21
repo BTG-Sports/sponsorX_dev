@@ -26,3 +26,17 @@
 - **CI run locally, all passing:** backend 3,493 tests; frontend build and 1,589 tests.
 - **Frontend task raised:** `P8-FE-07` (the real agreement on /join, the portal prompt and the switch).
 - **Next:** P8-BE-05 (fan emails deleted after 90 days, as the user decided) and P8-BE-06 (team terms acceptance evidence; plan shown, waiting for the user's go-ahead).
+
+## P8-BE-05: a fan's email is deleted after 90 days (Code review)
+
+- **The owner's decision:** 90 days.
+- **The code:** `fan-data-retention.ts`, run by the worker's hourly retention job. 90 days after the claim, it clears:
+  - `RewardEvent.fanEmail`;
+  - the address in `EmailSendLog.to` for `reward.claimed` (the row stays, so the idempotency key still holds);
+  - the address in a dispatched reward email's `OutboxJob` payload.
+- **Kept:** the consent timestamps and the counts. Each tenant's sweep is audited.
+- **An old unsubscribe link** still answers "done", without reading any address (`fan-pii.test.ts`).
+- **Not touched:** a lead already in BTG's Zoho. pg-boss drops its own finished jobs within the window.
+- **Tests:** `fan-data-retention.test.ts`. The fake transaction in `fan-unsubscribe.test.ts` gained `count`.
+- **CI run locally, all passing:** 231 files, 3,496 tests.
+- **Still to do:** draft 3 (fan consent wording) in Drive should say 90 days. The Drive connector was disconnected this session, so it isn't updated yet.
