@@ -238,6 +238,10 @@ model Tenant {
   /// (or a minor's guardian) who hasn't confirmed the current wording can't
   /// accept a deal or list an item (guardian-acts.ts `assertMayCommit`).
   requireRulesAttestation Boolean @default(false)
+  /// P8-BE-04 — "athletes accept the Content Collaboration Agreement before a
+  /// deal". Off until /join sends the acceptance; on, a new deal or item waits
+  /// for an acceptance of the version in force (collab-agreement.ts).
+  requireCollabAcceptance Boolean @default(false)
 
   inventoryItems    InventoryItem[]
   listings          Listing[]

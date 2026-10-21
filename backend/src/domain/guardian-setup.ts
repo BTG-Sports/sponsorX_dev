@@ -28,15 +28,13 @@
  * The token is not authentication: it grants no role and reaches nothing
  * but this guardian's set-up for this athlete.
  */
+import { currentAgreementOf } from "./current-agreement";
 import { assertCurrentWording, recordAttestationIn } from "./rules-attestation";
-import { readFile } from "node:fs/promises";
 
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
 import { readGuardianSetupToken } from "../lib/signup-token";
-import { hashAgreementBody } from "./agreement-hash";
-import { agreementFile, loadAgreementBody } from "./agreement-text";
 import { GUARDIAN_AGREEMENT_KIND, recordGuardianAcceptanceIn } from "./agreement";
 import { documentsOf, finishAccountDocument, startAccountDocument } from "./account-documents";
 import { ATHLETE_SELECT, evaluateAthleteSignup, evaluateGuardianWards, firstNameOf, guardianAgreed, signupFacts, SignupError } from "./athlete-signup";
@@ -65,22 +63,8 @@ async function context(token: string) {
  * missing row can never stop a minor's sign-up.
  */
 async function currentAgreement(tenantId: string) {
-  let row = await prisma.agreement.findFirst({
-    where: { tenantId, kind: GUARDIAN_AGREEMENT_KIND }, orderBy: { version: "desc" }, select: { id: true, kind: true, version: true, bodyHash: true },
-  });
-  if (!row) {
-    const file = agreementFile(GUARDIAN_AGREEMENT_KIND, 1);
-    const body = file ? await readFile(file, "utf8").catch(() => null) : null;
-    if (!body) return null;
-    row = await prisma.agreement.upsert({
-      where: { tenantId_kind_version: { tenantId, kind: GUARDIAN_AGREEMENT_KIND, version: 1 } },
-      create: { tenantId, kind: GUARDIAN_AGREEMENT_KIND, version: 1, bodyHash: hashAgreementBody(body), effectiveAt: new Date() },
-      update: {},
-      select: { id: true, kind: true, version: true, bodyHash: true },
-    });
-  }
-  const body = await loadAgreementBody(row);
-  return body ? { agreementId: row.id, version: row.version, bodyHash: row.bodyHash, body } : null;
+  /* P8-BE-04 — the shared helper: the highest version with a file is in force, registered on first use. */
+  return currentAgreementOf(prisma, tenantId, GUARDIAN_AGREEMENT_KIND);
 }
 
 export type GuardianSetupState = "IN_PROGRESS" | "CHECKING" | "HELD" | "APPROVED" | "REJECTED";

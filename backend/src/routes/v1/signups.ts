@@ -16,6 +16,7 @@
  * Routes parse and hand over; every rule is in the domain.
  */
 import { rulesAttestationWording } from "../../domain/rules-attestation";
+import { publicCollabAgreement } from "../../domain/collab-agreement";
 import { Router, type Request, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
@@ -120,6 +121,10 @@ signupsRouter.post<{ token: string; documentId: string }>("/public/guardian-setu
 /* P8-BE-02 — the rules wording the application and the guardian's page show, with its version. */
 signupsRouter.get("/public/rules-attestation", (_req, res) => {
   res.json(rulesAttestationWording());
+});
+/* P8-BE-04 — the Content Collaboration Agreement /join shows: the version in force, its text and fingerprint. */
+signupsRouter.get("/public/agreements/collab", async (_req, res) => {
+  res.json(await publicCollabAgreement());
 });
 signupsRouter.post<{ token: string }>("/public/guardian-setup/:token/accept", async (req, res) => {
   await limit("guardian-setup:write", clientIp(req), 30, 3600);
