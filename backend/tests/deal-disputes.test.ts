@@ -141,7 +141,8 @@ describe.skipIf(!hasDatabase)("P8-BE-02 / P8-BE-03 · the athlete's own rules; a
       await prisma.nilJob.create({ data: { id: j, tenantId: T, name: `Post ${j}`, baseLow: 10_000, baseHigh: 20_000, sellLow: 20_000, sellHigh: 40_000, sellFloorEmerging: 15_000, sellFloorCreator: 20_000, sellFloorPremium: 30_000 } });
     }
     await prisma.campaign.create({ data: { id: "dd_campaign", tenantId: T, sponsorId: "dd_sponsor", name: "Spring", budget: 500_000, startDate: new Date(), endDate: new Date(Date.now() + 90 * DAY), state: "STAFFING" } });
-    await prisma.agreement.create({ data: { id: "dd_collab", tenantId: T, kind: "COLLAB", version: 1, bodyHash: "d".repeat(64), effectiveAt: new Date("2026-01-01") } });
+    /* A deal-like agreement the switch gates (the Content Collaboration Agreement itself never waits, P8-BE-04). */
+    await prisma.agreement.create({ data: { id: "dd_release", tenantId: T, kind: "RELEASE", version: 1, bodyHash: "d".repeat(64), effectiveAt: new Date("2026-01-01") } });
     /* Ada's live deal (earning approved for payout), Ben's live deal (pending), a completed one, a minor's, and one to cancel. */
     await prisma.campaignOrder.createMany({ data: [
       order("dd_order_ada", "dd_ada", "dd_job1", "ACTIVE"),
@@ -181,14 +182,14 @@ describe.skipIf(!hasDatabase)("P8-BE-02 / P8-BE-03 · the athlete's own rules; a
   });
 
   it("BE-02 · switched off, nothing waits on it; switched on, a deal waits on a confirmation that counts", async () => {
-    const accept = (who: string) => call("POST", "/agreements/accept", who, { agreementId: "dd_collab", bodyHashShown: "d".repeat(64) });
+    const accept = (who: string) => call("POST", "/agreements/accept", who, { agreementId: "dd_release", bodyHashShown: "d".repeat(64) });
     /* Off by default: Ben has confirmed nothing and still accepts. */
-    expect((await call("GET", "/signup-rules/settings", "dd_admin")).json).toEqual({ staffConfirmMinors: false, requireRulesAttestation: false });
+    expect((await call("GET", "/signup-rules/settings", "dd_admin")).json).toEqual({ staffConfirmMinors: false, requireRulesAttestation: false, requireCollabAcceptance: false });
     expect((await accept("dd_u_ben")).status).toBeLessThan(300);
 
     /* On, switched alone: staffConfirmMinors is untouched. */
     const set = await call("PUT", "/signup-rules/settings", "dd_admin", { requireRulesAttestation: true });
-    expect(set.json).toEqual({ staffConfirmMinors: false, requireRulesAttestation: true });
+    expect(set.json).toEqual({ staffConfirmMinors: false, requireRulesAttestation: true, requireCollabAcceptance: false });
     expect((await call("PUT", "/signup-rules/settings", "dd_admin", {})).status).toBe(400);
 
     const refused = await accept("dd_u_ada");

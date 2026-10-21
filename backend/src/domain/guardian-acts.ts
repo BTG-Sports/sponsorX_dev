@@ -49,6 +49,7 @@ import type { Actor } from "../auth/actor";
 import { guardianControls } from "./guardian-rules";
 import { comingOfAgeOpen } from "./age-of-majority-rules";
 import { assertAttested } from "./rules-attestation";
+import { assertCollabAccepted } from "./collab-agreement";
 import { env } from "../config/env";
 import { send } from "../lib/email";
 
@@ -149,7 +150,11 @@ export async function assertMayCommit(db: Db, actor: Actor, act: CommitAct): Pro
   if (comingOfAgeOpen(a) && PAUSED.has(act)) throw new ComingOfAgePausedError(first, a.comingOfAgeDueAt);
   /* P8-BE-02 — a new deal or a new item waits on the athlete's (or guardian's) confirmation of their own
      rules, where BTG has switched that on. Managing what exists, and asking for a payout, don't. */
-  if (act === "accept" || act === "list") await assertAttested(db, actor.tenantId, a.id);
+  if (act === "accept" || act === "list") {
+    await assertAttested(db, actor.tenantId, a.id);
+    /* P8-BE-04 — and on the Content Collaboration Agreement in force, where BTG has switched that on. */
+    await assertCollabAccepted(db, actor.tenantId, a.id);
+  }
 }
 
 /**

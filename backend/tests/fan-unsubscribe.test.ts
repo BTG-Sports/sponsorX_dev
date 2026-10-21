@@ -29,6 +29,9 @@ vi.mock("../src/db/client", () => {
     rewardEvent: {
       findFirst: ({ where }: { where: { id: string; type: string } }) =>
         Promise.resolve(rows.find((r) => r.id === where.id && r.type === where.type && r.fanEmail) ?? null),
+      /* P8-BE-05 — "was this claim's address deleted after 90 days?" — none here have been. */
+      count: ({ where }: { where: { id: string } }) =>
+        Promise.resolve(rows.filter((r) => r.id === where.id && !r.fanEmail && (r as { consentAt?: Date | null }).consentAt).length),
       update: ({ where, data }: { where: { id: string }; data: { consentWithdrawnAt: Date } }) => {
         const r = rows.find((x) => x.id === where.id)!;
         r.consentWithdrawnAt = data.consentWithdrawnAt;

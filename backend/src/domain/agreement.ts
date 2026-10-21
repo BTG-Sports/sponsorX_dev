@@ -106,15 +106,20 @@ export async function acceptAgreementIn(
   opts: { oncePerSigner?: boolean } = {},
 ): Promise<{ acceptanceId: string; acceptedAt: Date; guardianId: string | null }> {
   assertAllowed(actor, "agreement", "write");
-  /* 2S1-BE-11 — a minor's agreements come from their guardian's account; and
-     2S1-BE-12 — nothing new is agreed during the coming-of-age allowance. */
-  await assertMayCommit(tx, actor, "accept");
 
   const agreement = await tx.agreement.findFirst({
     where: { id: request.agreementId, tenantId: actor.tenantId },
     select: { id: true, kind: true, version: true, bodyHash: true },
   });
   if (!agreement) throw new ForbiddenError("agreement", "write");
+
+  /* 2S1-BE-11 — a minor's agreements come from their guardian's account; and
+     2S1-BE-12 — nothing new is agreed during the coming-of-age allowance.
+     P8-BE-04 — the Content Collaboration Agreement is what a new deal may
+     wait on (and the rules confirmation with it), so accepting IT can't wait
+     on itself: it is checked as managing the account, which still requires the
+     guardian for a minor. */
+  await assertMayCommit(tx, actor, agreement.kind === "COLLAB" ? "manage" : "accept");
 
   if (!bodyHashMatches(agreement.bodyHash, request.bodyHashShown)) {
     throw new AgreementTextChangedError();

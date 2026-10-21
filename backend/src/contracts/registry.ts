@@ -342,6 +342,9 @@ const PATHS: Row[] = [
   /* P8-BE-02 (P0-LEG-06) — the athlete's own rules are their responsibility. */
   { method: "get", path: "/me/rules-attestation", tag: "Identity", summary: "The rules wording, whether the athlete's confirmation counts for it (an athlete under a guardian's control needs the guardian's), and whether a deal waits on it here (P8-BE-02)." },
   { method: "post", path: "/me/rules-attestation", tag: "Identity", summary: "Confirm the current rules wording: an adult athlete, or a guardian acting for their minor. A minor's own login is refused (guardian_must_act). Audited.", body: RulesAttestationInput },
+  /* P8-BE-04 — the athlete's Content Collaboration Agreement, recorded. */
+  { method: "get", path: "/public/agreements/collab", tag: "Public", summary: "The Content Collaboration Agreement /join shows: the version in force, its text and the fingerprint the application sends back (P8-BE-04).", auth: false },
+  { method: "get", path: "/me/collab-agreement", tag: "Identity", summary: "The Content Collaboration Agreement in force, and whether the athlete has accepted it (a minor: their guardian's agreement covers it). Accept through POST /agreements/accept (P8-BE-04)." },
   { method: "get", path: "/public/rules-attestation", tag: "Public", summary: "The rules wording the application and the guardian's set-up page show, with its version (P8-BE-02).", auth: false },
   /* P8-BE-03 (P0-LEG-06) — a concern raised about a deal pauses it until BTG decides. */
   { method: "post", path: "/orders/{id}/disputes", tag: "Campaigns", summary: "BTG admin: record a concern about a sent, accepted or active order and what the athlete must send. The deal pauses (deliverables can't move, the order can only be cancelled) and its earning is held. The athlete, or a minor's guardian, is emailed. Audited.", body: DealDisputeOpenInput },

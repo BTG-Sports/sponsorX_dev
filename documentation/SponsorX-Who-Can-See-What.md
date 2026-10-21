@@ -52,9 +52,11 @@ email or phone number. Partly privacy — but mainly because a sponsor holding a
 athlete's mobile number does not need BTG for the next campaign.
 
 **And one rule protects people who never signed up.** When a fan scans a QR code
-and claims a coupon, they hand over contact details. Those go to nobody — not
-even the sponsor who paid for the reward. The fan agreed to a coupon, not to
-being passed to a brand.
+and claims a coupon, the only thing they may give is an optional email, used
+to send them the code. It goes to nobody else, unless the fan also ticks a
+separate, optional box asking for the sponsor's offers. Only then does the
+sponsor of that reward receive the email, and every message carries a one-tap
+unsubscribe. Athletes never see fans' details, only the counts.
 
 ## 3 · What was actually decided
 

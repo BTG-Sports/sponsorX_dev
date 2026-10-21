@@ -121,6 +121,7 @@ import { validateBenchmarks } from "../src/domain/benchmark-validation.ts";
 import { queueZohoIntelligence } from "../src/domain/zoho-intelligence.ts";
 import { env } from "../src/config/env.ts";
 import { trimZohoWebhookBodies } from "../src/domain/webhook-retention.ts";
+import { purgeFanEmails } from "../src/domain/fan-data-retention.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
 import { LISTING_DIGEST_HOUR_UTC, sendListingDigests } from "../src/domain/listing.ts";
 import { ORDER_DIGEST_HOUR_UTC, sendOrderApprovalDigests, sweepSellerApprovals } from "../src/domain/order-approval.ts";
@@ -1026,6 +1027,12 @@ async function main(): Promise<void> {
         }
       })
       .catch((error: unknown) => logError("[worker] retention sweep failed, will retry next hour:", error));
+    /* P8-BE-05 — a fan's email, deleted 90 days after the claim (every copy SponsorX holds). */
+    void purgeFanEmails()
+      .then(({ claims, sendLogs, outbox }) => {
+        if (claims || sendLogs || outbox) log(`[worker] retention — fan emails deleted after 90 days: ${claims} claim(s), ${sendLogs} sent-email record(s), ${outbox} queued-email record(s)`);
+      })
+      .catch((error: unknown) => logError("[worker] fan email retention failed, will retry next hour:", error));
     /* 2S0-SEC-01 (O4) — finished Zoho webhook bodies older than 90 days, trimmed to their ids. */
     void trimZohoWebhookBodies()
       .then(({ trimmed }) => {

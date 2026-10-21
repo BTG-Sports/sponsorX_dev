@@ -18,7 +18,7 @@ import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
 import { limit } from "../../lib/rate-limit";
-import { clientIp } from "../../lib/client-ip";
+import { clientIp, clientUserAgent } from "../../lib/client-ip";
 import { readIntakeToken } from "../../lib/intake-token";
 import { ForbiddenError } from "../../auth/errors";
 import { whereFor } from "../../auth/scope";
@@ -85,7 +85,8 @@ function applicationFromToken(req: { query: Record<string, unknown> }): string {
 applicationsRouter.post("/intake", async (req, res) => {
   await limit("intake:create", clientIp(req), 5, 3600);
   const input = AthleteApplicationInput.parse(req.body ?? {});
-  res.status(201).json(await submitApplication(input));
+  /* P8-BE-04 — §12's evidence for the agreement acceptance, captured from the request. */
+  res.status(201).json(await submitApplication(input, { ip: clientIp(req) ?? "", userAgent: clientUserAgent(req) ?? "" }));
 });
 
 /** GET /applications/intake/mine?token= — the applicant's own view. */
@@ -100,7 +101,7 @@ applicationsRouter.get("/intake/mine", async (req, res) => {
 applicationsRouter.patch("/intake/mine", async (req, res) => {
   await limit("intake:patch", clientIp(req), 30, 3600);
   const patch = AthleteApplicationPatch.parse(req.body ?? {});
-  res.json(await patchApplication(applicationFromToken(req), patch));
+  res.json(await patchApplication(applicationFromToken(req), patch, { ip: clientIp(req) ?? "", userAgent: clientUserAgent(req) ?? "" }));
 });
 
 /* --------------------------------------------------------------------------

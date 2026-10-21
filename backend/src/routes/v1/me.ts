@@ -19,6 +19,7 @@ import { listPreferences, setPreference } from "../../domain/notification-prefer
 import { controlView } from "../../domain/guardian-acts";
 import { RulesAttestationInput } from "../../contracts/deal-disputes";
 import { confirmRulesAttestation, myRulesAttestation } from "../../domain/rules-attestation";
+import { myCollabAgreement } from "../../domain/collab-agreement";
 
 export const meRouter = Router();
 
@@ -65,4 +66,10 @@ meRouter.get("/rules-attestation", requireActor, async (req, res) => {
 });
 meRouter.post("/rules-attestation", requireActor, async (req, res) => {
   res.json(await confirmRulesAttestation(req.actor!, RulesAttestationInput.parse(req.body ?? {}).version));
+});
+
+/* P8-BE-04 — the athlete's Content Collaboration Agreement: the version in force, its text, and whether
+   it is accepted (accept through POST /agreements/accept). */
+meRouter.get("/collab-agreement", requireActor, async (req, res) => {
+  res.json(await myCollabAgreement(req.actor!));
 });

@@ -92,10 +92,12 @@ export const SignupSettingsInput = z
     staffConfirmMinors: z.boolean().optional(),
     /* P8-BE-02 */
     requireRulesAttestation: z.boolean().optional(),
+    /* P8-BE-04 */
+    requireCollabAcceptance: z.boolean().optional(),
   })
   .strict()
-  .refine((v) => v.staffConfirmMinors !== undefined || v.requireRulesAttestation !== undefined, { message: "Set at least one setting." })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), { message: "Set at least one setting." })
   .meta({
     id: "SignupSettingsInput",
-    description: "\"BTG staff confirm minors before approval\" and \"athletes confirm their own rules before a deal\" (P8-BE-02) — both off by default. Send either or both.",
+    description: "\"BTG staff confirm minors before approval\", \"athletes confirm their own rules before a deal\" (P8-BE-02) and \"athletes accept the Content Collaboration Agreement before a deal\" (P8-BE-04) — all off by default. Send any of them.",
   });
