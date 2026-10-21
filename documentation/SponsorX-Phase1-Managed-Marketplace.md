@@ -2827,9 +2827,9 @@ Raised 2026-10-21. A gap found while drafting P0-LEG-04: a fan's optional email 
   - **Not touched:** a lead already pushed to BTG's CRM (Zoho), which is outside SponsorX. pg-boss drops its own finished jobs well inside the window.
 - **Reference:** §16, §26
 
-### 🔎 `P8-BE-06` · A team's or venue's terms acceptance keeps the IP and browser
+### ✅ `P8-BE-06` · A team's or venue's terms acceptance keeps the IP and browser
 
-**Order** 157.77 · **BE** · **Where:** Code · **0.5d** · **Code review**
+**Order** 157.77 · **BE** · **Where:** Code · **0.5d** · **Done**
 
 Raised 2026-10-21. A gap found while drafting 2S0-LEG-01: an organisation's terms acceptance during onboarding saved only the version, fingerprint and time. Every other acceptance also keeps the IP and browser, and is audited.
 
