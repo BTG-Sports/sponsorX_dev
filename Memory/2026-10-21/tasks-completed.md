@@ -48,3 +48,5 @@
 - **Past acceptances** are left without evidence.
 - **Test:** `property-onboarding.test.ts` gained the assertions. CI run locally, all passing: 3,496 tests.
 - **P8-BE-04 and P8-BE-05 are Done.** They merged in #276 with all four checks green.
+- **Deployed to staging** (release `e265e578`): P8-BE-04, -05 and -06, with both migrations. Health returns 200, `/public/agreements/collab` serves v1, and `/me/collab-agreement` returns 401 without a login.
+- **P8-BE-06 is Done.** It merged in #277, and main's CI passed including e2e.
