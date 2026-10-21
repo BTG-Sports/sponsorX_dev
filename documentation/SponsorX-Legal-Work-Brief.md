@@ -25,10 +25,11 @@ The legally relevant facts:
 - **Many athletes are high-school age**, so a parent or guardian authorises
   participation. This shapes most of what follows.
 - **Athletes are not employees.** They accept individual jobs, paid per job.
-- **Fans hand over personal details** — name, email, sometimes phone and postal
-  code — when scanning a QR code at a venue to claim an offer, and those details
-  pass to the sponsoring business as a lead. Venues frequently include **youth
-  sports events**.
+- **Fans claim rewards by scanning a QR code** at a venue. The only personal
+  detail is an **optional email**, used to send the reward code; a fan can claim
+  without one. It passes to the sponsor as a lead only if the fan ticks a
+  separate, optional box. Venues frequently include **youth sports events**.
+  *(Corrected 2026-10-21: no name, phone or postal code is collected.)*
 - **Initial target market is the DMV** (DC, Maryland, Virginia) and Baltimore.
   State-specific answers should cover those jurisdictions first.
 - **The platform does not move money in Phase 1.** BTG pays athletes outside the
