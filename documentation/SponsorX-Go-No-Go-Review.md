@@ -85,7 +85,7 @@ owner at go-live. None of them needs code.
 | Fan rate limiting | `SPONSORX_EDGE_KEY` unset, so all fans share one bucket | Set it on production web and api | P2-OPS-04 (P8-SEC-03) |
 | Fan geography | `GEOLITE2_CITY_PATH` unset | Set it on production | P2-OPS-04 |
 | Tax forms | Stripe Connect tax reporting off | Once BTG's accountant confirms 2S0-LEG-02, switch on tax reporting for connected accounts in the Stripe Dashboard. Stripe then collects W-9 and W-8 forms and files the 1099s. | Owner |
-| Email | Resend chosen (P0-PMO-03, G-04) | Confirm the production sending domain is verified (DKIM, SPF) and live | Owner |
+| Email | **Domain verified** in Resend (`sponsorx.net`, checked 2026-10-21; DKIM and sending records in DNS) | Confirm `RESEND_API_KEY` is set on the production api (part of the production check) | Owner |
 | Phase 3 rollout | Per-tenant feature switches | Stage 3 (outside sponsors and properties) only after 3S0-LEG-01 | Owner |
 | Production check | Not run by Claude (production reads are blocked for it) | Someone with production access runs the Deployment Runbook's production checks | Owner or rcfworks |
 
