@@ -255,7 +255,15 @@ async function declineOf(db: Tx | typeof prisma, r: Row): Promise<{ declinedBy: 
 /** GET /public/guardian-handoffs/:token — where the request stands; once declined, who declined it and BTG's reason. */
 export async function handoffStatus(token: string) {
   const r = await rowById(prisma, idFrom(token));
-  return { ...(await view(prisma, r, false)), ...(await declineOf(prisma, r)) };
+  /* P8-FE-08 — the Guardian Agreement in force, which the new guardian reads
+     and accepts on this page (submitHandoff records its version), so the
+     page shows the served words rather than a copy of its own. */
+  const a = await currentAgreementOf(prisma, r.tenantId, "GUARDIAN");
+  return {
+    ...(await view(prisma, r, false)),
+    ...(await declineOf(prisma, r)),
+    agreement: a ? { version: a.version, body: a.body } : null,
+  };
 }
 
 /** Step one of a document: a private-bucket PUT for exactly this file. Audited as a grant. */

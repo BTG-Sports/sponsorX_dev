@@ -11,6 +11,7 @@ import {
   parseDraft,
   validateSection,
   visibleSections,
+  type CollabAgreement,
   type FieldDef,
   type JoinDraft,
 } from "@/lib/join-flow";
@@ -69,7 +70,7 @@ function seed(demo: Demo): JoinDraft {
    getItem returns a stable string, so Object.is dedupes re-renders. */
 const emptySubscribe = () => () => {};
 
-export function JoinWizard({ demo }: { demo: Demo }) {
+export function JoinWizard({ demo, agreement = null }: { demo: Demo; agreement?: CollabAgreement | null }) {
   const storedRaw = useSyncExternalStore(
     emptySubscribe,
     () => {
@@ -155,6 +156,8 @@ export function JoinWizard({ demo }: { demo: Demo }) {
      mean and jumps back to the earliest offending step. The draft survives
      every failure — nothing typed is ever lost to a network blip. */
   const [submitting, setSubmitting] = useState(false);
+  /* The tick counts only for the agreement on screen; a demo never reaches the API. */
+  const acceptedCurrent = draft.accepted && (demo !== null || (agreement !== null && draft.acceptedAgreementId === agreement.agreementId));
   const [submitMsgs, setSubmitMsgs] = useState<string[]>([]);
 
   const submit = async () => {
@@ -167,7 +170,12 @@ export function JoinWizard({ demo }: { demo: Demo }) {
     }
     setSubmitting(true);
     setSubmitMsgs([]);
-    const result = await submitJoinApplication(draftToApplication(draft));
+    /* P8-FE-07 — the agreement ticked travels with the application, so the
+       acceptance is recorded with the text's fingerprint (P8-BE-04). */
+    const result = await submitJoinApplication({
+      ...draftToApplication(draft),
+      ...(agreement && acceptedCurrent ? { agreement: { agreementId: agreement.agreementId, bodyHashShown: agreement.bodyHash } } : {}),
+    });
     setSubmitting(false);
     if (result.ok) {
       persist({
@@ -470,7 +478,7 @@ export function JoinWizard({ demo }: { demo: Demo }) {
   /* ---------------------------------------------------------------- steps */
   const n = draft.step + 1;
   const total = sections.length;
-  const armed = section.kind !== "agreement" || draft.accepted;
+  const armed = section.kind !== "agreement" || acceptedCurrent;
 
   return (
     <div className="flex min-h-[calc(100dvh-8rem)] flex-col">
@@ -542,15 +550,12 @@ export function JoinWizard({ demo }: { demo: Demo }) {
             Enforced
           </span>
         )}
-        {section.kind === "agreement" && (
-          <span className="mb-3 inline-flex items-center rounded-lg border border-warn/60 bg-warn/12 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-warn">
-            Draft
-          </span>
-        )}
         <h1 ref={headingRef} tabIndex={-1} className="relative text-3xl font-semibold tracking-tight outline-none">
           {section.heading}
         </h1>
-        <p className="relative mt-2 text-sm leading-relaxed text-muted">{section.sub}</p>
+        <p className="relative mt-2 text-sm leading-relaxed text-muted">
+          {section.kind === "agreement" && agreement ? `${section.sub} · version ${agreement.version}` : section.sub}
+        </p>
 
         <div className="relative mt-6">
           {section.kind === "fields" && (
@@ -602,8 +607,9 @@ export function JoinWizard({ demo }: { demo: Demo }) {
           )}
           {section.kind === "agreement" && (
             <JoinAgreementStep
-              accepted={draft.accepted}
-              onAcceptedChange={(accepted) => setDraft({ ...draft, accepted })}
+              agreement={agreement}
+              accepted={acceptedCurrent}
+              onAcceptedChange={(accepted) => setDraft({ ...draft, accepted, acceptedAgreementId: accepted ? agreement?.agreementId : undefined })}
             />
           )}
         </div>
@@ -625,7 +631,7 @@ export function JoinWizard({ demo }: { demo: Demo }) {
           type="button"
           onClick={goNext}
           disabled={!armed || submitting}
-          data-armed={section.kind === "agreement" && draft.accepted}
+          data-armed={section.kind === "agreement" && acceptedCurrent}
           className={CTA}
         >
           {section.kind === "agreement"

@@ -59,18 +59,10 @@ function first(raw: string | string[] | undefined): string | undefined {
 export type AgreementTerm = { text: string; placeholder?: boolean };
 export type GuardianAgreement = { title: string; version: string; versionPending: boolean; terms: AgreementTerm[] };
 
-export function guardianAgreement(athlete: string): GuardianAgreement {
-  return {
-    title: "SponsorX Guardian Agreement",
-    version: "[x.y]",
-    versionPending: true,
-    terms: [
-      { text: `You approve every agreement and every payment for ${athlete} before it happens.` },
-      { text: `${athlete} can upload their own content. You get an email each time and can ask BTG to take it down.` },
-      { text: `Money ${athlete} earns is paid to the payout account you set up on Stripe.` },
-      { text: "[Remaining terms from counsel]", placeholder: true },
-    ],
-  };
+/** The acceptance line approved with the Guardian Agreement (2026-10-22,
+ *  document 6) — the guardian's set-up page and the handoff page alike. */
+export function guardianAcceptLine(athleteName: string, version: number | string): string {
+  return `I am ${athleteName}'s parent, legal guardian or authorised representative. I have read and accept the SponsorX Guardian Agreement (version ${version}) on their behalf.`;
 }
 
 /* --------------------------------------------- guardian set-up (2S1-BE-10) */
@@ -228,6 +220,10 @@ export type ApiHandoffRequest = {
   idUploaded?: boolean;
   proofUploaded?: boolean;
   agreementAccepted?: boolean;
+  /** P8-FE-08 — on the new guardian's status page: the Guardian Agreement in
+   *  force, which submitting accepts. Null when its text can't be served;
+   *  absent from an older API. */
+  agreement?: { version: number; body: string } | null;
   /** While REQUESTED: what the new guardian still has to do. */
   missing?: string[];
   supportEmail?: string;

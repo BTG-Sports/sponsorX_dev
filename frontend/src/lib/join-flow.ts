@@ -6,8 +6,8 @@
    the localStorage draft shape. The wizard island renders from this; the
    eventual P3-FE-01 API wiring replaces only where answers go on submit.
 
-   Agreement is click-wrap against v0.4 draft wording — G-05 stopped being a
-   gate on 2026-09-15 (documentation/Design/athlete-onboarding/README.md).
+   The agreement step is click-wrap against the Content Collaboration
+   Agreement in force, served by the API (P8-FE-07; v2 approved 2026-10-22).
    -------------------------------------------------------------------------- */
 
 export type FieldDef = {
@@ -148,7 +148,7 @@ export const SECTIONS: SectionDef[] = [
     id: "agreement",
     title: "Agreement",
     heading: "The agreement",
-    sub: "Content Collaboration Agreement · v0.4 draft · this wording is not final and will be reissued before launch.",
+    sub: "SponsorX Athlete Content Collaboration Agreement",
     kind: "agreement",
     fields: [],
   },
@@ -169,33 +169,19 @@ export const RESTRICTION_CATEGORIES = [
 
 export type Deal = { name: string; category: string; terms: string };
 
+/** The Content Collaboration Agreement in force, as GET /public/agreements/collab
+ *  serves it (P8-BE-04; v2 approved 2026-10-22, P8-BE-07). The body is shown
+ *  verbatim and its hash travels back with the application. */
+export type CollabAgreement = { agreementId: string; version: number; bodyHash: string; body: string };
+
+/** The click-wrap's words — the acceptance line approved with the agreement (document 1). */
 export const AGREEMENT = {
-  version: "v0.4 draft",
-  checkbox: "I have read and accept the Content Collaboration Agreement (v0.4 draft).",
+  checkbox: (version: number) =>
+    `I have read and accept the SponsorX Athlete Content Collaboration Agreement (version ${version}).`,
   recordNote:
-    "Ticking the box records your acceptance, the date and time, and the exact version of the text shown above. You'll be emailed a copy.",
-  clauses: [
-    {
-      title: "1. What this covers",
-      body: "This agreement governs content you create for a brand through SponsorX. A separate brief is issued for each campaign and sits on top of these terms.",
-    },
-    {
-      title: "2. Your content",
-      body: "You own what you make. You grant the brand a licence to use the agreed content on the channels named in the campaign brief, for the period named there.",
-    },
-    {
-      title: "3. Disclosure",
-      body: "You will disclose paid partnerships as required by law and by the platform you post on. SponsorX will tell you what is required for each campaign.",
-    },
-    {
-      title: "4. Eligibility",
-      body: "You confirm the details in this application are true, and that if you are under 18 your guardian's confirmation is required before you accept a campaign.",
-    },
-    {
-      title: "5. Ending it",
-      body: "Either side can end this agreement in writing. Campaigns already accepted are completed under their own briefs.",
-    },
-  ],
+    "Ticking the box records your acceptance, the date and time, and the exact version of the text shown above.",
+  unavailable:
+    "The agreement can't be shown right now, so the application can't be submitted yet. Your answers are saved on this device — try again in a minute.",
 } as const;
 
 /* ------------------------------------------------------------------ logic */
@@ -272,6 +258,9 @@ export type JoinDraft = {
   deals: Deal[];
   excluded: string[];
   accepted: boolean;
+  /** P8-FE-07 — which agreement the tick was for. A tick on an earlier
+   *  version doesn't carry over to new wording. */
+  acceptedAgreementId?: string;
   /** ISO timestamp, set at submit. */
   submittedAt?: string;
   /** P3-FE-01 — set by a successful real submission. The reference is shown
@@ -315,6 +304,8 @@ export type IntakePayload = {
   countryCode?: string;
   /** 2S1-BE-10 — a minor's guardian, emailed a link to their own page. */
   guardian?: { legalName: string; email: string; relationship: GuardianRelationshipCode };
+  /** P8-FE-07 — the agreement ticked: its id and the hash of the text shown. */
+  agreement?: { agreementId: string; bodyHashShown: string };
 };
 
 export type GuardianRelationshipCode = "PARENT" | "LEGAL_GUARDIAN" | "AUTHORIZED_REP";

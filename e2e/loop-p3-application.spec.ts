@@ -141,8 +141,8 @@ async function apply(page: Page, a: Applicant): Promise<string> {
   await expect(submit, "submit stays locked until the agreement is accepted").toBeDisabled();
   /* The box is visually replaced by its label (the tick draws in), so a
      person clicks the words — and so does this. */
-  const agree = page.getByRole("checkbox", { name: /I have read and accept the Content Collaboration Agreement/ });
-  await page.getByText(/I have read and accept the Content Collaboration Agreement/).click();
+  const agree = page.getByRole("checkbox", { name: /I have read and accept the SponsorX Athlete Content Collaboration Agreement \(version \d+\)/ });
+  await page.getByText(/I have read and accept the SponsorX Athlete Content Collaboration Agreement \(version \d+\)/).click();
   await expect(agree).toBeChecked();
   await submit.click();
 

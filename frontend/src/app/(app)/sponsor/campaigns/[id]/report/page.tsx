@@ -30,6 +30,7 @@ import type { SearchParams } from "@/lib/list-query";
 import type { ApiSponsorReport, Sourced } from "@/lib/report-live";
 import { monogramOf } from "@/lib/sponsor-live";
 import { rangeParam, type DailyPoint, type RangeKey, type SponsorOverview } from "@/lib/sponsor-overview-live";
+import { RESULTS_NOTE } from "@/lib/sponsor-intelligence-live";
 import { FUNNEL_WORDS, campaignWord, compactNumber, deliverableWord, orderWord, sourceWord } from "@/lib/sponsor-words";
 import { apiFetch, fetchActor } from "@/server/api";
 import { fetchSponsorOverview } from "@/server/sponsor-overview";
@@ -254,6 +255,7 @@ function Report({
           </StadiumPanel>
         </section>
       )}
+      <p className="max-w-3xl text-xs leading-relaxed text-faint" data-note="results">{RESULTS_NOTE}</p>
     </div>
   );
 }

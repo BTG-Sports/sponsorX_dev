@@ -149,12 +149,12 @@ export default async function SponsorCampaignDetailPage({
               : /* P7-QA-02: a real campaign id lands here (this page is
                    fixture-only), so point at the live ROI report rather than
                    telling a sponsor their own campaign isn't theirs. */
-                "This page only has sample campaigns so far — your campaign's live figures are in its ROI report."
+                "This page only has sample campaigns so far — your campaign's live figures are in its results report."
           }
           action={
             base
               ? { label: "Back to campaigns", href: "/sponsor/campaigns" }
-              : { label: "Open the ROI report", href: `/sponsor/campaigns/${encodeURIComponent(id)}/report` }
+              : { label: "Open the results report", href: `/sponsor/campaigns/${encodeURIComponent(id)}/report` }
           }
         />
       </div>
@@ -186,10 +186,10 @@ export default async function SponsorCampaignDetailPage({
           <StadiumPanel delay={0.3}>
             <p className="text-sm leading-relaxed text-muted">
               {base.state === "COMPLETED"
-                ? "This campaign has wrapped. The ROI report is your full read on what it returned."
+                ? "This campaign has wrapped. The results report is your full read on how it did."
                 : base.state === "REPORTING"
-                  ? "Delivery is done and the numbers are being finalised — the ROI report has the details."
-                  : "This campaign is still being staffed. Delivery metrics and the ROI report open up once athletes accept their Campaign Orders."}
+                  ? "Delivery is done and the numbers are being finalised — the results report has the details."
+                  : "This campaign is still being staffed. Delivery metrics and the results report open up once athletes accept their Campaign Orders."}
             </p>
           </StadiumPanel>
           <p className="text-[10px] text-faint">
@@ -412,7 +412,7 @@ function LiveDetail({
       <p className="text-[10px] leading-relaxed text-faint">
         Delivery, roster and spend are from Postgres; verified views are
         staff-checked metrics on published deliverables. People reached,
-        engagement, rewards and top content are in the ROI report.
+        engagement, rewards and top content are in the results report.
       </p>
     </div>
   );

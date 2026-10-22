@@ -9,7 +9,7 @@ import {
 import { GuardianAgreementText } from "@/components/guardian-agreement";
 import { IdUpload } from "@/components/id-upload";
 import {
-  PROOF_KINDS, RELATIONSHIP_OPTIONS, SETUP_STEPS, agreementFromBody, firstOpenStep, stepMove, stepsFor,
+  PROOF_KINDS, RELATIONSHIP_OPTIONS, SETUP_STEPS, agreementFromBody, firstOpenStep, guardianAcceptLine, stepMove, stepsFor,
   type ApiGuardianSetup, type ApiGuardianSetupLive, type RelationshipCode, type SetupStep,
 } from "@/lib/guardian-live";
 
@@ -232,7 +232,7 @@ function Live({ token, initial }: { token: string; initial: ApiGuardianSetupLive
             )}
             <label className="flex cursor-pointer items-start gap-2.5 text-sm leading-normal">
               <input type="checkbox" checked={accepted} disabled={Boolean(s.agreementAcceptedAt)} onChange={(e) => setAccepted(e.target.checked)} className="mt-0.5 size-4 accent-[var(--sx-primary)]" />
-              I&rsquo;m {a}&rsquo;s guardian and I accept the guardian agreement.
+              {guardianAcceptLine(s.athlete.name, agreement?.version ?? s.agreement?.version ?? "in force")}
             </label>
             {s.agreementAcceptedAt && <p className="text-xs text-success">Accepted — this records the version, the time, and your device.</p>}
           </div>
