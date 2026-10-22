@@ -118,3 +118,26 @@ Also rotate our own signing secrets (`SPONSORX_EDGE_KEY`, `INTAKE_TOKEN_SECRET`,
   - backend and frontend builds, lint, security scripts, secret scan and audit check;
   - frontend 1,595 tests and backend 3,509 tests;
   - the e2e specs `redeem-flow`, `public` and `public-links`: 15 passed, 1 skipped. The loop specs need Clerk, so CI runs them.
+- **P8-FE-08 is Done.** It merged in #287 with all four checks green, including the Clerk loop e2e through the new /join agreement step.
+
+## Railway → Slack deploy alerts: pause attempted, refused
+
+- The user asked to pause Railway's webhook to Slack (#deployment).
+- **Railway's API now exposes project webhooks** as notification rules, unlike on 2026-09-23. The Slack one is rule `dd9f0096-6c26-49d1-858d-88b136ba1acd` (whole project, both environments).
+- **Its event types, to restore later:** `Deployment.crashed`, `.failed`, `.deployed`, `.redeployed`, `.building`, `.resumed`.
+- **There's also a stray rule** `2ad75004-…` with eventTypes `__probe_invalid__` and no channel. It's harmless.
+- **The pause failed:** `notificationRuleUpdate` with `eventTypes: []` was refused with "Not Authorized". The infinex1 CLI login (OAuth `accessToken`) can read rules but not change them. The CLI's `token` field is refused even for `me`. Nothing was changed.
+
+## Secret rotation: started on staging, then paused (owner: no Railway until its incident is fixed)
+
+- **Staging, set but not deployed (`--skip-deploys`):** new random values for:
+  - `INTAKE_TOKEN_SECRET` (no `_PREVIOUS`, because of the leak);
+  - `SPONSORX_EDGE_KEY` (api and web match);
+  - `INFINEX_SIGNING_SECRET` and `STANDIN_PROVIDER_SECRET`;
+  - the tester's `TESTER_SESSION_SECRET`.
+  - Running services still use the old values. **The next staging deploy applies them.** Links emailed before that stop working (expected after a leak), and tester sessions end once.
+- **The staging deploy was started, then cancelled** when the owner said not to use Railway until its problem is fixed. The queued api deployment was cancelled; api and web still run the 2026-10-21 release.
+- **Production: nothing changed.** Writing production secrets is blocked by Claude's permission classifier. It needs the owner to set them, or to add a permission rule.
+- **Still to rotate**, owner in each vendor dashboard: Resend; Clerk live and test; R2; Stripe test keys and webhook secrets; Zoho; the GitHub monitor token; the database and Redis passwords.
+- **Sync PR #289** (main_development → main, the legal wording) is open and merges cleanly.
+- **Railway status at 10:15 UTC:** Major Outage. Builds are back for Pro and Enterprise only (our workspace is Pro).

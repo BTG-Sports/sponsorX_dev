@@ -2921,9 +2921,9 @@ Raised with `P8-BE-04`.
   - **Still open:** the athlete-portal prompt for `current: false`, and the `requireCollabAcceptance` switch on BTG's sign-up settings.
 - **Reference:** §12
 
-### 🔎 `P8-FE-08` · Show the approved fan-page and results wording
+### ✅ `P8-FE-08` · Show the approved fan-page and results wording
 
-**Order** 157.94 · **FE** · **Where:** Code · **1d** · **Code review**
+**Order** 157.94 · **FE** · **Where:** Code · **1d** · **Done**
 
 Raised with `P8-BE-07` (2026-10-22). The backend serves the approved wording; these screens still carry their own copies.
 - **The fan reward page** (`frontend/src/server/fan-page.ts`):
