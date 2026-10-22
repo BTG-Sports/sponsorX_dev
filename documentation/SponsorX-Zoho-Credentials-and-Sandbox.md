@@ -70,10 +70,10 @@ ZohoCRM.bulk.CREATE
 ### 2.1a · The same list, paste-ready
 
 The Generate Code field takes one line with no spaces and no newlines. This is
-§2.1 flattened — 24 scopes, 662 characters. Paste this, not the block above.
+§2.1 flattened, plus §2.4 — 29 scopes. Paste this, not the block above.
 
 ```
-ZohoCRM.modules.accounts.READ,ZohoCRM.modules.accounts.CREATE,ZohoCRM.modules.accounts.UPDATE,ZohoCRM.modules.contacts.READ,ZohoCRM.modules.contacts.CREATE,ZohoCRM.modules.contacts.UPDATE,ZohoCRM.modules.leads.READ,ZohoCRM.modules.leads.CREATE,ZohoCRM.modules.leads.UPDATE,ZohoCRM.modules.deals.READ,ZohoCRM.modules.deals.CREATE,ZohoCRM.modules.deals.UPDATE,ZohoCRM.modules.tasks.READ,ZohoCRM.modules.tasks.CREATE,ZohoCRM.modules.tasks.UPDATE,ZohoCRM.modules.custom.READ,ZohoCRM.modules.custom.CREATE,ZohoCRM.modules.custom.UPDATE,ZohoCRM.settings.fields.READ,ZohoCRM.settings.modules.READ,ZohoCRM.coql.READ,ZohoCRM.org.READ,ZohoCRM.bulk.READ,ZohoCRM.bulk.CREATE
+ZohoCRM.modules.accounts.READ,ZohoCRM.modules.accounts.CREATE,ZohoCRM.modules.accounts.UPDATE,ZohoCRM.modules.contacts.READ,ZohoCRM.modules.contacts.CREATE,ZohoCRM.modules.contacts.UPDATE,ZohoCRM.modules.leads.READ,ZohoCRM.modules.leads.CREATE,ZohoCRM.modules.leads.UPDATE,ZohoCRM.modules.deals.READ,ZohoCRM.modules.deals.CREATE,ZohoCRM.modules.deals.UPDATE,ZohoCRM.modules.tasks.READ,ZohoCRM.modules.tasks.CREATE,ZohoCRM.modules.tasks.UPDATE,ZohoCRM.modules.custom.READ,ZohoCRM.modules.custom.CREATE,ZohoCRM.modules.custom.UPDATE,ZohoCRM.settings.fields.READ,ZohoCRM.settings.modules.READ,ZohoCRM.coql.READ,ZohoCRM.org.READ,ZohoCRM.bulk.READ,ZohoCRM.bulk.CREATE,ZohoCRM.users.READ,ZohoCRM.notifications.READ,ZohoCRM.notifications.CREATE,ZohoCRM.notifications.UPDATE,ZohoCRM.settings.fields.CREATE
 ```
 
 ### 2.2 · What each one is for
@@ -102,6 +102,21 @@ ZohoCRM.modules.accounts.READ,ZohoCRM.modules.accounts.CREATE,ZohoCRM.modules.ac
 | `ZohoCRM.settings.ALL` | Would permit writing field and module definitions. Schema changes are deliberate click-work (`P0-OPS-05`, `P0-OPS-06`), not something a sync job should be able to do at 3am. |
 | `ZohoCRM.notifications.ALL` | Only needed if webhook subscriptions are **registered by API**. Addendum A9's inbound webhooks can equally be configured by hand in the CRM. Add it later if `P8-INT-03` chooses programmatic registration — deciding that is that task's job, not this one's. |
 | Anything `ZohoBooks.*` | Out of scope — §6. |
+
+### 2.4 · Added 2026-10-21 for the production key — what the built sync calls
+
+The 24 scopes above were chosen before the sync was written. The code that
+shipped also calls three APIs they don't cover. The production key (§9)
+therefore needs these as well, and the paste-ready line in §2.1a includes
+them:
+
+| Scope | Why the sync needs it | Code |
+|---|---|---|
+| `ZohoCRM.users.READ` | Reading active CRM users | `lib/zoho.ts` `activeUsers`, used by `zoho-sync.ts` |
+| `ZohoCRM.notifications.READ`, `.CREATE`, `.UPDATE` | P8-INT-03 chose programmatic registration: the worker subscribes and renews the Notifications channel itself (`/crm/v8/actions/watch`) | `lib/zoho.ts` `watch` |
+| `ZohoCRM.settings.fields.CREATE` | The one-off go-live script that creates the two intelligence fields (`npm run zoho:intel-fields -- --create`) | `POST /crm/v8/settings/fields` |
+
+Still no `DELETE` of any kind.
 
 ---
 
