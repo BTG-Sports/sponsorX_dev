@@ -364,7 +364,7 @@ ${d.portalUrl ?? ""}
      no login for them to use. */
   "reward.claimed": (d) => ({
     subject: `Your ${d.offerText ?? "reward"} — code ${d.code ?? ""}`,
-    text: `Here is your reward.\n\n${d.offerText ?? ""}\n\nCode: ${d.code ?? ""}\n\nShow this code to claim it. Valid until ${d.expiresOn ?? "the date on the offer"}.\n\n${d.terms ?? ""}\n\n— BTG SponsorX\n\nDon't want emails from us? Unsubscribe in one tap: ${d.unsubscribeUrl ?? ""}`,
+    text: `Here is your reward.\n\n${d.offerText ?? ""}\n\nCode: ${d.code ?? ""}\n\nShow this code to claim it. Valid until ${d.expiresOn ?? "the date on the offer"}.\n\n${d.terms ?? ""}\n\n— BTG SponsorX\n\n${fanFooter(d.unsubscribeUrl ?? "")}`,
   }),
 
   /* P5-INT-01 — the three deliverable messages. All to the athlete: BTG sees
@@ -796,6 +796,18 @@ export const FAN_TEMPLATES: ReadonlySet<string> = new Set(["reward.claimed"]);
 /** From address. A verified sending domain is required before any of this
  *  leaves the building — see the note in the task board for P3-INT-01. */
 const FROM = process.env.EMAIL_FROM ?? "SponsorX <noreply@sponsorx.net>";
+
+/**
+ * The footer of every fan email — P0-LEG-04, approved 2026-10-22 (fan consent
+ * wording, document 3 §7). CAN-SPAM wants a postal address in each one; it is
+ * BTG_POSTAL_ADDRESS, and the line is left out (never a placeholder) until it
+ * is set — a go-live item.
+ */
+export function fanFooter(unsubscribeUrl: string): string {
+  const address = process.env.BTG_POSTAL_ADDRESS?.trim();
+  return `You got this email because you claimed a reward on SponsorX. Unsubscribe — one tap, no login: ${unsubscribeUrl}` +
+    `\n\nBTG Sports Group${address ? `, ${address}` : ""}.`;
+}
 
 /**
  * Claim the key, send, and release the claim if the vendor rejects it.

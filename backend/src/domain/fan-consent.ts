@@ -29,10 +29,10 @@
  * means adding a version here and leaving the old one listed — a fan's record
  * must keep resolving to the text they actually saw.
  */
-export const CURRENT_CONSENT_VERSION = "2026-09-01" as const;
+export const CURRENT_CONSENT_VERSION = "2026-10-22" as const;
 
 /** Every version that has ever been shown. Never remove an entry. */
-export const KNOWN_CONSENT_VERSIONS: readonly string[] = ["2026-09-01"] as const;
+export const KNOWN_CONSENT_VERSIONS: readonly string[] = ["2026-09-01", "2026-10-22"] as const;
 
 /**
  * The words each version stands for — what the fan actually reads.
@@ -47,6 +47,13 @@ export const CONSENT_TEXT: Record<string, string> = {
   "2026-09-01":
     "Email me my reward code. SponsorX uses this address only to send this " +
     "reward — not for marketing — and does not share it with the sponsor.",
+  /* P0-LEG-04, approved 2026-10-22 (fan consent wording, document 3 §2): the
+     2026-09-01 line said the address is never shared with the sponsor,
+     which the optional second box contradicts. */
+  "2026-10-22":
+    "Email me my reward code. SponsorX, run by BTG Sports Group, uses this " +
+    "address only to send and support this reward. It is not used for " +
+    "marketing and is not given to the sponsor unless you tick the next box.",
 };
 
 /**
@@ -66,14 +73,44 @@ export type ConsentPurpose = (typeof CONSENT_PURPOSES)[number];
  * rule as the delivery text: a date, never edited in place, every version
  * ever shown kept so a stored claim always resolves to the words the fan saw.
  */
-export const CURRENT_SPONSOR_CONTACT_VERSION = "2026-09-28" as const;
+export const CURRENT_SPONSOR_CONTACT_VERSION = "2026-10-22" as const;
 export const SPONSOR_CONTACT_TEXT: Record<string, string> = {
   "2026-09-28":
     "Also let the sponsor of this reward contact me about their offers. " +
     "Optional — you get your reward either way, and every message has a " +
     "one-tap unsubscribe.",
+  /* P0-LEG-04, approved 2026-10-22 (document 3 §3): names the sponsor the
+     address goes to. `{sponsor}` is filled by sponsorContactText — the
+     version plus the reward's sponsor always resolve to the same words. */
+  "2026-10-22":
+    "Also share my email with {sponsor} so they can send me their offers. " +
+    "Optional — you get your reward either way. You can stop at any time " +
+    "with the unsubscribe link in any message.",
 };
 export const KNOWN_SPONSOR_CONTACT_VERSIONS: readonly string[] = Object.keys(SPONSOR_CONTACT_TEXT);
+
+/** The sponsor-contact words as the fan read them: the version's text with
+ *  the reward's sponsor named, or "the sponsor of this reward" without one. */
+export function sponsorContactText(version: string, sponsorName: string | null | undefined): string | null {
+  const text = SPONSOR_CONTACT_TEXT[version];
+  if (text === undefined) return null;
+  return text.replace("{sponsor}", sponsorName?.trim() || "the sponsor of this reward");
+}
+
+/**
+ * The short notice under the claim button (document 3 §6, approved
+ * 2026-10-22). "One reward per code" only where the code is single-use —
+ * a multi-use code would make it untrue. Rewards never need a purchase
+ * (Marketplace Order Terms B7: instant rewards only).
+ */
+export function rewardNotice(input: { singleUse: boolean; sponsorName: string | null | undefined }): string {
+  const by = input.sponsorName?.trim() ? `Reward offered by ${input.sponsorName.trim()}; ` : "";
+  return `${input.singleUse ? "One reward per code. " : ""}No purchase needed to claim. ${by}SponsorX is run by BTG Sports Group.`;
+}
+
+/** Under an age or ticket eligibility line (document 3 §5): the page has no
+ *  online age check, so it says where the check happens. */
+export const ELIGIBILITY_CHECK_NOTE = "Age and ticket are checked at the booth when you redeem.";
 
 /**
  * THE CONDITION under which a fan's address may be read for the sponsor —

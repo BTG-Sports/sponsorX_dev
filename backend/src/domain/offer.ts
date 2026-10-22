@@ -54,6 +54,7 @@ import { send } from "../lib/email";
 import { acceptAgreementIn, GuardianAuthorisationRequiredError, type AcceptanceRequest } from "./agreement";
 import { guardianReadiness } from "./guardian-rules";
 import { loadAgreementBody } from "./agreement-text";
+import { registerFileVersion } from "./current-agreement";
 import { assertBudgetCarriesLine, assertLineClearsFloor } from "./margin-floor";
 import { createEarningForOrder } from "./earning";
 import { assertNoRestriction, writeExclusivity } from "./restrictions";
@@ -311,6 +312,7 @@ export async function getOffer(actor: Actor, id: string) {
      so the offer screen can show the words and send back their hash. */
   let agreement: { id: string; version: number; bodyHash: string; body: string } | null = null;
   if (row.state === "SENT") {
+    await registerFileVersion(prisma, actor.tenantId, "CAMPAIGN_ORDER");
     const a = await prisma.agreement.findFirst({
       where: { tenantId: actor.tenantId, kind: "CAMPAIGN_ORDER", effectiveAt: { lte: new Date() } },
       orderBy: { version: "desc" },

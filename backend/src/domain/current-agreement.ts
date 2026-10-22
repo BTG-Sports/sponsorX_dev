@@ -37,25 +37,38 @@ export async function highestFileVersion(kind: string): Promise<number> {
 
 export type CurrentAgreement = { agreementId: string; kind: string; version: number; bodyHash: string; body: string };
 
+/**
+ * Make sure the highest version with a file has its row — the one step every
+ * loader of an agreement in force takes first, so issuing a version is adding
+ * its file (P0-LEG-01…05, 2026-10-22: v2 of every agreement went out this
+ * way). Idempotent: an existing row is left as it is.
+ */
+export async function registerFileVersion(db: Db, tenantId: string, kind: string): Promise<void> {
+  const fileVersion = await highestFileVersion(kind);
+  if (fileVersion === 0) return;
+  const row = await db.agreement.findFirst({
+    /* tenant-scope: the tenant's own agreements of this kind. */
+    where: { tenantId, kind }, orderBy: { version: "desc" }, select: { version: true },
+  });
+  if (fileVersion <= (row?.version ?? 0)) return;
+  const file = agreementFile(kind, fileVersion);
+  const body = file ? await readFile(file, "utf8").catch(() => null) : null;
+  if (!body) return;
+  await db.agreement.upsert({
+    where: { tenantId_kind_version: { tenantId, kind, version: fileVersion } },
+    create: { tenantId, kind, version: fileVersion, bodyHash: hashAgreementBody(body), effectiveAt: new Date() },
+    update: {},
+    select: { id: true },
+  });
+}
+
 /** The version in force, registering it from its file if needed; null when there is no usable text. */
 export async function currentAgreementOf(db: Db, tenantId: string, kind: string): Promise<CurrentAgreement | null> {
-  const fileVersion = await highestFileVersion(kind);
-  let row = await db.agreement.findFirst({
+  await registerFileVersion(db, tenantId, kind);
+  const row = await db.agreement.findFirst({
     /* tenant-scope: the tenant's own agreements of this kind. */
     where: { tenantId, kind }, orderBy: { version: "desc" }, select: { id: true, kind: true, version: true, bodyHash: true },
   });
-  if (fileVersion > (row?.version ?? 0)) {
-    const file = agreementFile(kind, fileVersion);
-    const body = file ? await readFile(file, "utf8").catch(() => null) : null;
-    if (body) {
-      row = await db.agreement.upsert({
-        where: { tenantId_kind_version: { tenantId, kind, version: fileVersion } },
-        create: { tenantId, kind, version: fileVersion, bodyHash: hashAgreementBody(body), effectiveAt: new Date() },
-        update: {},
-        select: { id: true, kind: true, version: true, bodyHash: true },
-      });
-    }
-  }
   if (!row) return null;
   const body = await loadAgreementBody(row);
   return body ? { agreementId: row.id, kind: row.kind, version: row.version, bodyHash: row.bodyHash, body } : null;

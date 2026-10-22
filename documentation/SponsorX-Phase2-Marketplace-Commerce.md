@@ -126,9 +126,9 @@ Choose the provider that handles checkout, connected-account onboarding, platfor
 - **Done when:** Provider selected, contract in place, sandbox credentials issued, and the adapter interface agreed so it stays swappable
 - **Reference:** Spec §10
 
-### ⏸ `2S0-LEG-01` · Marketplace terms, payout terms and revenue-share agreements
+### ✅ `2S0-LEG-01` · Marketplace terms, payout terms and revenue-share agreements
 
-**Order** 4 · **LEG** · **Where:** External · counsel · **5d** · **Blocked**
+**Order** 4 · **LEG** · **Where:** External · counsel · **5d** · **Done**
 
 > **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
@@ -136,11 +136,12 @@ Counsel drafts the documents external properties accept: platform terms, marketp
 
 - **Depends on:** Phase 1 complete
 - **Done when:** All marketplace agreements delivered, versioned and approved for production use
+- **Approved:** 2026-10-22 by rcfworks with Rodney's delegated authority — the Marketplace Seller and Payout Terms and the Marketplace Order Terms (document 4), issued as `PROPERTY_TERMS.v2.txt` and `MARKETPLACE_ORDER.v2.txt` (`P8-BE-07`).
 - **Reference:** Spec §7.1
 
-### ▶ `2S0-LEG-02` · Tax and withholding position for marketplace payouts
+### ✅ `2S0-LEG-02` · Tax and withholding position for marketplace payouts
 
-**Order** 5 · **LEG** · **Where:** External · BTG's accountant · **0.5d** · **Ready**
+**Order** 5 · **LEG** · **Where:** External · BTG's accountant · **0.5d** · **Done**
 
 > **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
@@ -157,6 +158,7 @@ The athlete agreement (Section 4), the guardian agreement (Section 6) and the se
 
 - **Depends on:** 2S0-PMO-02
 - **Done when:** BTG's accountant confirms the four proposed answers in draft 7 (or corrects them), and Stripe tax reporting is switched on for connected accounts
+- **Approved:** 2026-10-22 by rcfworks with Rodney's delegated authority — the four proposed answers in document 7 (Stripe collects W-9/W-8 and files the 1099s; a minor's in the minor's name; no change for managed campaigns). No change to the app; the Stripe tax-reporting switch is a go-live step.
 - **Reference:** Spec §9, §10
 
 ### ✅ `2S0-SEC-01` · Payments and PII security review

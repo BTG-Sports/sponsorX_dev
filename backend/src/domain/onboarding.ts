@@ -44,7 +44,8 @@ import { enqueue } from "../db/outbox";
 import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
 import { assertTenantWide, whereFor } from "../auth/scope";
-import { agreementFile } from "./agreement-text";
+import { agreementFile, loadAgreementBody } from "./agreement-text";
+import { registerFileVersion } from "./current-agreement";
 import { ForbiddenError } from "../auth/errors";
 import { emailTokenMatches, issueOnboardingEmailToken, issueOnboardingToken, onboardingIdOfEmailToken, readOnboardingToken } from "../lib/onboarding-token";
 import { send, type EmailTemplate } from "../lib/email";
@@ -148,7 +149,10 @@ function view(r: Row) {
   };
 }
 
+/** The seller terms in force — the highest `agreements/PROPERTY_TERMS.v<n>.txt`,
+ *  registered on first use like every other agreement (current-agreement.ts). */
 async function currentTerms(tx: Prisma.TransactionClient, tenantId: string) {
+  await registerFileVersion(tx, tenantId, PROPERTY_TERMS_KIND);
   return tx.agreement.findFirst({
     where: { tenantId, kind: PROPERTY_TERMS_KIND },
     orderBy: { version: "desc" },
@@ -480,10 +484,13 @@ export async function readOnboarding(token: string) {
 }
 
 /** The words behind a PROPERTY_TERMS version — `agreements/PROPERTY_TERMS.v<n>.txt`,
- *  served only while the file still hashes to the stored bodyHash (plain
- *  sha256 hex, the form this wizard's acceptance compares). Null otherwise:
- *  the wizard must not show words its acceptance would not match. */
+ *  served only while the file still hashes to the stored bodyHash. Versions
+ *  registered from their file (v2 on) carry the shared `sha256:` fingerprint
+ *  (agreement-hash.ts); the seeded v1 rows carry plain sha256 hex of the raw
+ *  file, so that form is still honoured for them. Null otherwise: the wizard
+ *  must not show words its acceptance would not match. */
 async function termsBody(version: number, bodyHash: string): Promise<string | null> {
+  if (bodyHash.startsWith("sha256:")) return loadAgreementBody({ kind: PROPERTY_TERMS_KIND, version, bodyHash });
   const file = agreementFile(PROPERTY_TERMS_KIND, version);
   if (!file) return null;
   try {
