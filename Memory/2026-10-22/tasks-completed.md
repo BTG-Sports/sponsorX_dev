@@ -118,3 +118,12 @@ Also rotate our own signing secrets (`SPONSORX_EDGE_KEY`, `INTAKE_TOKEN_SECRET`,
   - backend and frontend builds, lint, security scripts, secret scan and audit check;
   - frontend 1,595 tests and backend 3,509 tests;
   - the e2e specs `redeem-flow`, `public` and `public-links`: 15 passed, 1 skipped. The loop specs need Clerk, so CI runs them.
+- **P8-FE-08 is Done.** It merged in #287 with all four checks green, including the Clerk loop e2e through the new /join agreement step.
+
+## Railway → Slack deploy alerts: pause attempted, refused
+
+- The user asked to pause Railway's webhook to Slack (#deployment).
+- **Railway's API now exposes project webhooks** as notification rules, unlike on 2026-09-23. The Slack one is rule `dd9f0096-6c26-49d1-858d-88b136ba1acd` (whole project, both environments).
+- **Its event types, to restore later:** `Deployment.crashed`, `.failed`, `.deployed`, `.redeployed`, `.building`, `.resumed`.
+- **There's also a stray rule** `2ad75004-…` with eventTypes `__probe_invalid__` and no channel. It's harmless.
+- **The pause failed:** `notificationRuleUpdate` with `eventTypes: []` was refused with "Not Authorized". The infinex1 CLI login (OAuth `accessToken`) can read rules but not change them. The CLI's `token` field is refused even for `me`. Nothing was changed.
