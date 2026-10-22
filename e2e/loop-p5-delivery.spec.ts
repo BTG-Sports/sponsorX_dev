@@ -112,7 +112,8 @@ test("an accepted invite becomes a signed order, a reviewed and revised delivera
   await athlete.getByRole("link", { name: /Campaign Order ready to sign/ }).click();
   await expect(athlete).toHaveURL(new RegExp(`/athlete/orders/${order.id}`));
   await expect(athlete.getByText("Ready to sign").first()).toBeVisible();
-  await expect(athlete.getByText("SPONSORX CAMPAIGN ORDER — STANDARD TERMS, VERSION 1")).toBeVisible();
+  /* The terms in force, whatever their version (v2 since 2026-10-22, P8-BE-07). */
+  await expect(athlete.getByText(/SPONSORX CAMPAIGN ORDER — STANDARD TERMS, VERSION \d+/)).toBeVisible();
   await expect(athlete.getByText("$80"), "the athlete never sees the sponsor price").toHaveCount(0);
   const accept = athlete.getByRole("button", { name: "Accept this order" });
   await expect(accept).toBeDisabled();
