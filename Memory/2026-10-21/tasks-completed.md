@@ -65,3 +65,5 @@
   - Waiting on Rodney's identity verification. A guide for him is at https://claude.ai/artifact/Kx66ak2xW3UnUSyXQDn5eh (private until it's shared with him).
   - The webhook forwarding (P8-OPS-03) merged and is on `release` `2630209a`, but Railway missed the push and then paused deploys ("Deploys have been paused temporarily"; its API also returned "Problem processing request"). Redeploy web with `railway redeploy --from-source` when Railway resumes, then check that `sponsorx.net` and staging answer 401 rather than 404 on `/api/v1/webhooks/payments/stripe`.
 - **Resend:** `sponsorx.net` is Verified (the user checked the dashboard). `RESEND_API_KEY` on the production api is still to confirm in the production check.
+- **Zoho production key, second route:** a guide for Rodney to add `infinex1@icarrefound.org` to BTG's Zoho One and make it a CRM Administrator (role CEO), so the team creates the key itself: https://claude.ai/artifact/9XsaNZL6UxCs4za2YQadVp. The guide for Rodney to create the key himself is kept: https://claude.ai/artifact/QoaTwoEaUP5GJY2yodWHHg.
+- **Email to Rodney** drafted with the Stripe and Zoho guide links. The user sends it.
