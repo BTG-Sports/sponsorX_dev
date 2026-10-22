@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { CURRENT_CONSENT_VERSION } from "../src/domain/fan-consent";
+
 /* --------------------------------------------------------------------------
    The public surface's backend half — P6-FE-02 and P8-SEC-03.
 
@@ -116,8 +118,12 @@ describe.skipIf(!hasDatabase)("P6-FE-02 · GET /public/rewards/:token names ever
 
   it("LIVE with the offer and the exact consent wording for its version", async () => {
     const v = await viewToken(await token("live", {}));
-    expect(v).toMatchObject({ state: "LIVE", offerText: "Offer live", claimed: false, consent: { version: "2026-09-01", purpose: "reward-delivery" } });
-    if (v.state !== "UNKNOWN") expect(v.consent.text).toMatch(/only to send this reward/);
+    expect(v).toMatchObject({ state: "LIVE", offerText: "Offer live", claimed: false, consent: { version: CURRENT_CONSENT_VERSION, purpose: "reward-delivery" } });
+    if (v.state !== "UNKNOWN") {
+      expect(v.consent.text).toMatch(/only to send and support this reward/);
+      /* P0-LEG-04 — the line under the button, and no booth-check note for a reward open to anyone. */
+      expect(v).toMatchObject({ notice: expect.stringMatching(/No purchase needed to claim\..*SponsorX is run by BTG Sports Group\.$/), eligibilityCheck: null });
+    }
   });
 
   it("EXPIRED, NOT_LIVE and REDEEMED each render as themselves", async () => {

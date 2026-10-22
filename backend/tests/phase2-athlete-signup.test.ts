@@ -1,5 +1,6 @@
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { versionInForce } from "./support/agreements";
 
 import { signupVerdict, type AthleteFacts } from "../src/domain/signup-rules";
 import { DEFAULT_AGE_TABLE, countryCodeFrom, dueReminders, majorityFor } from "../src/domain/age-of-majority-rules";
@@ -185,7 +186,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-09 / -10 / -12 · athletes and guardians a
   };
   const acceptAgreement = async (token: string) => {
     const st = await call("GET", `/public/guardian-setup/${encodeURIComponent(token)}`);
-    expect(st.json.agreement, st.text).toMatchObject({ version: 1 });
+    expect(st.json.agreement, st.text).toMatchObject({ version: versionInForce("GUARDIAN") });
     const r = await call("POST", `/public/guardian-setup/${encodeURIComponent(token)}/accept`, undefined, { agreementId: st.json.agreement.agreementId, bodyHashShown: st.json.agreement.bodyHash });
     expect(r.status, r.text).toBe(200);
     return r.json;

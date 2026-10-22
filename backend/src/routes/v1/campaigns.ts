@@ -42,6 +42,7 @@ import type { Audience } from "../../domain/campaign-stage-rules";
 import { eligibleForBrief, eligiblePageForBrief } from "../../domain/matching";
 import { readinessFor, readyBriefIds, type Readiness } from "../../domain/brief-readiness";
 import { loadAgreementBody } from "../../domain/agreement-text";
+import { registerFileVersion } from "../../domain/current-agreement";
 import { guardianReadiness } from "../../domain/guardian-rules";
 import { assessDelivery, deliveryHealth } from "../../domain/delivery-health";
 import { isVerified, type MetricSource } from "../../domain/metric-source";
@@ -1214,6 +1215,7 @@ const readOrder: RequestHandler<{ id: string }> = async (req, res) => {
   });
   if (!order) throw new ForbiddenError("campaignOrder", "read");
 
+  await registerFileVersion(prisma, order.tenantId, "CAMPAIGN_ORDER");
   const agreement = await prisma.agreement.findFirst({
     where: { tenantId: order.tenantId, kind: "CAMPAIGN_ORDER", effectiveAt: { lte: new Date() } },
     orderBy: { version: "desc" },

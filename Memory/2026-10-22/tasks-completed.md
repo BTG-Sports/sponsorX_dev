@@ -39,3 +39,55 @@ Also rotate our own signing secrets (`SPONSORX_EDGE_KEY`, `INTAKE_TOKEN_SECRET`,
 - `railway redeploy --from-source -s web -e staging` was refused with "Paused temporarily". Railway's status page shows a platform outage, with builds paused.
 - Railway CLI re-signed in as infinex1@icarrefound.org.
 - Decision (programme owner): wait for Railway, no image workaround. When builds resume, redeploy web staging, check the webhooks answer 401, then production with approval.
+
+## Legal wording approved, and issued in the app as v2 (P8-BE-07, Done)
+
+- **Trigger:** the user said the drafts in the SponsorX Legal folder (Drive `1vA-ZbjgCjQ59_i05lo7_HUGPVZD1CZ0B`, documents 1–7) are all approved, and asked for them to be used in the web app. They approve with Rodney's delegated authority.
+- **Legal rows closed (Legal sheet, Done 2026-10-22, rcfworks):**
+  - Phase 1: P0-LEG-01 to P0-LEG-06.
+  - Phase 2: 2S0-LEG-01 and 2S0-LEG-02.
+  - Phase 3: 3S0-LEG-01.
+  - **P0-LEG-03's answer** is click-to-accept by a verified guardian (Option A); no e-sign vendor.
+- **How the counsel blanks were filled:** with what the product already does, as the user approved.
+  - Payment within 30 days.
+  - Nothing owed on cancellation.
+  - No revision cap; a post stays live for the campaign window.
+  - No indemnities.
+  - Records kept 7 years.
+  - 30 days' notice of fee changes.
+- **Governing law** is left out of v2, because BTG hasn't named it. Adding it later is v3, and everyone re-accepts.
+- **BTG's postal address** is unknown, so it is `BTG_POSTAL_ADDRESS`. Until that is set, the fan email footer and privacy notice leave the address line out. It's listed as a go-live switch in the go/no-go review.
+- **Fan email retention:** the fan privacy notice says 90 days, because P8-BE-05 already deletes fan emails 90 days after the claim.
+- **What changed (backend only):**
+  - **New agreement files:** `backend/agreements/{COLLAB,CAMPAIGN_ORDER,GUARDIAN,PROPERTY_TERMS,MARKETPLACE_ORDER}.v2.txt`. The Guardian Agreement is one term per line, as the guardian page parses it.
+  - **Registration:** `registerFileVersion` (current-agreement.ts) registers the newest file on first use. It's now called by the Campaign Order loaders (offer.ts, campaigns.ts `readOrder`), order-terms.ts, onboarding.ts and guardian-handoff.ts. Response shapes are unchanged.
+  - **Property terms fingerprint:** v1 rows keep their plain-hex fingerprint. v2 uses the shared `sha256:` form.
+  - **Fan consent:** both boxes re-versioned `2026-10-22`. Box 2 names the reward's sponsor (`sponsorContactText`). The public reward view adds `notice` and `eligibilityCheck`.
+  - **Fan privacy notice:** served at `GET /public/fan-privacy`.
+  - **Fan email footer:** `fanFooter` in send-email.mts.
+  - **Report:** "Campaign Results Report", "Cost per 1,000 checked views" and `RESULTS_NOTE`.
+- **Tests:**
+  - New: `approved-legal-wording.test.ts` and `tests/support/agreements.ts` (`versionInForce`, `agreementHash`).
+  - Suites that pinned v1 or the old consent version now read the version in force.
+  - The tenant-isolation seed pre-registers the three newly self-registering kinds, as it already did for COLLAB.
+- **CI run locally, all passing:**
+  - build, lint, security scripts, secret scan and audit check;
+  - backend 232 files, **3,509 tests**, 0 skipped.
+  - Docker isn't installed on this Mac. A portable Postgres 17.11 (zonky binaries) ran from the session scratchpad on port 5433, with its socket in `/tmp/sxpg`.
+- **Frontend split (backend-only rule):** `P8-FE-08` (new, Ready) covers:
+  - the fan page's notice, eligibility line, email label and privacy link;
+  - the unsubscribe confirmation;
+  - the guardian acceptance box;
+  - the results screen's labels and title.
+  - `/join` showing the v2 agreement is the existing `P8-FE-07`.
+- **Docs:**
+  - Phase 1, 2 and 3 plans: the LEG tasks are marked ✅. P8-BE-07 and P8-FE-08 are added.
+  - Go/no-go review: both pilot gates are recorded as met 2026-10-22, still unsigned, with the address and governing-law switches added.
+  - CLAUDE.md: the open decisions are moved to Decided.
+- **Tracker:**
+  - The 9 legal rows are Done.
+  - P8-BE-07 (Done) and P8-FE-08 (Ready) are added at Order 157.79 and 157.94.
+  - Phase 1's filter, conditional formatting and status list are extended to row 318.
+  - Stage Progress snapshot for 2026-10-22: 298 done, 23.5 days left.
+- **Not deployed:** Railway deploys are paused (security incident above). This ships with the next staging deploy.
+- **The Drive drafts** still carry their "DRAFT for counsel review" headers. Retitling them is the user's to do; the files weren't touched.

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Actor } from "../src/auth/actor";
+import { CURRENT_CONSENT_VERSION } from "../src/domain/fan-consent";
 
 /* --------------------------------------------------------------------------
    Reward reads — P6-FE-01 / P6-FE-03.
@@ -79,7 +80,7 @@ describe("GET /rewards", () => {
   });
   it("carries the central consent line, not a per-reward one", async () => {
     const b = await run(listRewards, admin);
-    expect((b.consent as { version: string }).version).toBe("2026-09-01");
+    expect((b.consent as { version: string }).version).toBe(CURRENT_CONSENT_VERSION);
   });
   it("never lists token strings", async () => {
     expect(JSON.stringify(await run(listRewards, admin))).not.toContain("secret-a");

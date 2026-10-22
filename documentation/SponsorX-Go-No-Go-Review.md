@@ -3,7 +3,7 @@
 **Task:** `P8-PMO-06` · Production go/no-go review
 **Done when:** §37's pre-pilot and pre-sponsor-pilot gates formally signed off
 **Prepared:** 2026-10-20 by rcfworks, from `main_development` at `08f10a6b` (staging and production run release `1b198d4b`)
-**Status:** **Draft, decision pending.** The software is ready. The two pilot gates are not met yet: they wait on counsel and on the owner's go-live switches. Nothing is signed.
+**Status:** **Draft, decision pending.** The software is ready. **Updated 2026-10-22:** every legal and policy item is approved and the wording is live in the app (`P8-BE-07`), so both pilot gates are met on paper. What remains is the owner's go-live switches and the production check. Nothing is signed.
 **For:** the programme owner (Rodney), the user signing with Rodney's delegated authority, and counsel for the items marked *counsel*
 
 ## The decision in one paragraph
@@ -12,13 +12,13 @@ Everything buildable for the SponsorX web app is built, tested and running on
 staging and production. That covers Phases 1–3, and Phase 4 as built.
 Phases 1, 2, 3 and 4 are each signed off. What stands between today and
 real users is not code:
-- **Counsel's approvals,** which §37 requires before the athlete pilot and the sponsor pilot.
+- ~~**Counsel's approvals,** which §37 requires before the athlete pilot and the sponsor pilot.~~ **Approved 2026-10-22** and issued as v2 of every agreement (`P8-BE-07`).
 - **The owner's production switches:** payments, Zoho, MFA and a few settings.
 
 **Recommendation:**
-- **No-go for real outside users today,** because the pilot gates are open.
-- **Go for getting production ready meanwhile:** the switches that don't need counsel, and a BTG-internal dry run on production with no real money.
-- **Then a second, short review** that signs the gates once counsel's answers arrive.
+- **No-go for real outside users today,** because the owner's production switches are off and production hasn't been checked. *(Until 2026-10-22 the pilot gates were open too; the legal approvals have since closed them.)*
+- **Go for getting production ready now:** the switches below, the production check, and a BTG-internal dry run on production with no real money.
+- **Then a second, short review** that signs the gates and the decision.
 
 ## Where each phase stands
 
@@ -46,22 +46,22 @@ completeness.
 | Zoho module mapping | P0-PMO-08 (`SponsorX-Zoho-Field-Mapping.md`) |
 | Phase 1 payment policy | P0-PMO-01 (`SponsorX-Phase1-Payment-Policy.md`) |
 
-### Before the athlete pilot — **Not met: waits on counsel**
+### Before the athlete pilot — **Met 2026-10-22** (to be signed below)
 
 | Condition | Status | What closes it | Owner |
 |---|---|---|---|
-| Agreement templates approved | **Open** | P0-LEG-01 (Content Collaboration Agreement) and P0-LEG-02 (Campaign Order template), each delivered, versioned and approved for production use | Counsel |
-| Athlete and guardian compliance checklist approved | **Open** | P0-LEG-06, redefined 2026-10-20: counsel approves the athlete-responsibility wording in the athlete agreement. The athlete (or guardian) confirms their own rules (P8-BE-02), and a disputed deal is paused for documents (P8-BE-03). P0-LEG-03: whether click-wrap is enough for a guardian, or which e-sign vendor (Blocked). | Counsel |
-| Data privacy defined | **Open** | P0-LEG-04: consent wording for scan → claim → redeem, purpose limitation, and what sponsors receive. Counsel's §37 pre-pilot privacy review (recorded open in `.claude/stack-decision.md` A7). | Counsel |
-| Payout process defined | **Partly** | **Phase 1:** the payment policy is written (status tracking only, no tax IDs). **Phase 2 moves real money by Stripe transfer,** so it also needs 2S0-LEG-01 (marketplace and payout terms) and 2S0-LEG-02: the tax position, which BTG's accountant confirms. Stripe collects tax forms and files the 1099s; SponsorX stores no tax ID. | Counsel |
+| Agreement templates approved | **Met** | P0-LEG-01 (Content Collaboration Agreement) and P0-LEG-02 (Campaign Order template). Approved 2026-10-22 by rcfworks with Rodney's delegated authority (SponsorX Legal folder); issued in the app as v2 (`P8-BE-07`). | — |
+| Athlete and guardian compliance checklist approved | **Met** | P0-LEG-06: the athlete-responsibility wording (athlete agreement §9–10, Guardian Agreement §5). The athlete (or guardian) confirms their own rules (P8-BE-02), and a disputed deal is paused for documents (P8-BE-03). P0-LEG-03: **click-to-accept by a verified guardian (Option A, as built).** Approved 2026-10-22 by rcfworks with Rodney's delegated authority (SponsorX Legal folder); issued in the app as v2 (`P8-BE-07`). | — |
+| Data privacy defined | **Met** | P0-LEG-04: the two consent boxes (the sponsor named in the second), the fan privacy notice (`GET /public/fan-privacy`: email deleted 90 days after the claim, data in the US) and the fan email footer. Approved 2026-10-22 by rcfworks with Rodney's delegated authority (SponsorX Legal folder); issued in the app as v2 (`P8-BE-07`). BTG's postal address is a go-live switch below. | — |
+| Payout process defined | **Met** | **Phase 1:** the payment policy (status tracking only, no tax IDs). **Phase 2:** 2S0-LEG-01 (marketplace seller, payout and order terms) and 2S0-LEG-02 (the tax position: Stripe collects tax forms and files the 1099s; a minor's in the minor's name; SponsorX stores no tax ID). Approved 2026-10-22 by rcfworks with Rodney's delegated authority (SponsorX Legal folder); issued in the app as v2 (`P8-BE-07`). | — |
 
-### Before the sponsor pilot — **Not met: one item waits on counsel**
+### Before the sponsor pilot — **Met 2026-10-22** (to be signed below)
 
 | Condition | Status | What closes it | Owner |
 |---|---|---|---|
 | Package economics approved | **Met** | P0-PMO-09, P0-PMO-10, P0-PMO-13 | — |
-| Tracking and report labels defined | **Met** | The report format (P0-PMO-05) and the attribution claim classes (3S0-PMO-01, `SponsorX-Attribution-Claims.md`). Counsel's review of the sponsor-facing attribution wording (3S0-LEG-01) is still open. Until it closes, Phase 3's attribution shows only on BTG's own desks (stage 1 of the staged rollout in `SponsorX-Phase3-UAT.md`). | Counsel for 3S0-LEG-01 |
-| Reward terms reviewed | **Open** | P0-LEG-05, redefined 2026-10-20: counsel approves the sponsor-responsibility paragraph for rewards in the sponsor's terms. The app runs instant rewards only, and BTG pauses a reward anyone objects to. | Counsel |
+| Tracking and report labels defined | **Met** | The report format (P0-PMO-05) and the attribution claim classes (3S0-PMO-01, `SponsorX-Attribution-Claims.md`). The sponsor-facing attribution wording (3S0-LEG-01) was approved 2026-10-22: the report is now the "Campaign Results Report", with the approved foot note (`P8-BE-07`); the results screen's labels are `P8-FE-08`. | — |
+| Reward terms reviewed | **Met** | P0-LEG-05: the sponsor-responsibility paragraph for rewards (Marketplace Order Terms B7). The app runs instant rewards only, and BTG pauses a reward anyone objects to. Approved 2026-10-22 by rcfworks with Rodney's delegated authority (SponsorX Legal folder); issued in the app as v2 (`P8-BE-07`). | — |
 
 ### Before Phases 2, 3 and 4 — **Met**, or **not applicable**
 
@@ -84,9 +84,11 @@ owner at go-live. None of them needs code.
 | MFA for admin and finance | Not available: needs Clerk Pro | Upgrade to Clerk Pro, then require MFA for privileged roles in production | P2-INT-02 |
 | Fan rate limiting | `SPONSORX_EDGE_KEY` unset, so all fans share one bucket | Set it on production web and api | P2-OPS-04 (P8-SEC-03) |
 | Fan geography | `GEOLITE2_CITY_PATH` unset | Set it on production | P2-OPS-04 |
-| Tax forms | Stripe Connect tax reporting off | Once BTG's accountant confirms 2S0-LEG-02, switch on tax reporting for connected accounts in the Stripe Dashboard. Stripe then collects W-9 and W-8 forms and files the 1099s. | Owner |
+| Tax forms | Stripe Connect tax reporting off | 2S0-LEG-02 approved 2026-10-22: switch on tax reporting for connected accounts in the Stripe Dashboard. Stripe then collects W-9 and W-8 forms and files the 1099s. | Owner |
 | Email | **Domain verified** in Resend (`sponsorx.net`, checked 2026-10-21; DKIM and sending records in DNS) | Confirm `RESEND_API_KEY` is set on the production api (part of the production check) | Owner |
-| Phase 3 rollout | Per-tenant feature switches | Stage 3 (outside sponsors and properties) only after 3S0-LEG-01 | Owner |
+| Phase 3 rollout | Per-tenant feature switches | Stage 3 (outside sponsors and properties): 3S0-LEG-01 approved 2026-10-22, so this is the owner's call | Owner |
+| BTG's postal address | `BTG_POSTAL_ADDRESS` unset: fan emails and the fan privacy notice leave the address out | Set it on the production api and worker before the first fan email goes out (CAN-SPAM wants it in each one) | Owner |
+| Governing law | The approved agreements (v2) name no governing law, venue or dispute process | Optional: when BTG chooses them, issue v3 of the agreements with that section; everyone re-accepts | Owner |
 | Production check | Not run by Claude (production reads are blocked for it) | Someone with production access runs the Deployment Runbook's production checks | Owner or rcfworks |
 
 ## Risks to accept or close
@@ -101,7 +103,7 @@ Choose one, and record it below:
 
 1. **No-go, with production readiness in parallel** *(recommended)*.
    - **Meanwhile:** turn on the switches that need no counsel (Clerk Pro MFA, the edge key, geography, the email domain), run the production check, and do a BTG-internal dry run on production with no real money.
-   - **When counsel's answers arrive:** sign the gates in a short second review, then switch on payments and Zoho and onboard the first real outside team (2S8-PMO-03).
+   - **Then** (the legal approvals arrived 2026-10-22): sign the gates in a short second review, switch on payments and Zoho, and onboard the first real outside team (2S8-PMO-03).
 2. **Go for a limited pilot now,** accepting the open counsel items as a stated risk. §37 says the pilot gates come first, so this needs the owner's explicit written acceptance of each open item.
 3. **No-go,** and revisit at a set date.
 

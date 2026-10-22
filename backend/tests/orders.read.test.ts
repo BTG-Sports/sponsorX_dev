@@ -1,8 +1,8 @@
-import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Actor } from "../src/auth/actor";
 import { hashAgreementBody } from "../src/domain/agreement-hash";
+import { agreementHash, versionInForce } from "./support/agreements";
 
 /* --------------------------------------------------------------------------
    GET /orders/:id — P5-FE-01, §12, §24.
@@ -16,15 +16,16 @@ import { hashAgreementBody } from "../src/domain/agreement-hash";
 
 vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://sponsorx.example" } }));
 
-const FILE = new URL("../agreements/CAMPAIGN_ORDER.v1.txt", import.meta.url);
-const REAL_HASH = hashAgreementBody(readFileSync(FILE, "utf8"));
+const VERSION = versionInForce("CAMPAIGN_ORDER");
+const REAL_HASH = agreementHash("CAMPAIGN_ORDER");
 
 let order: Record<string, unknown> | null = null;
 let agreement: Record<string, unknown> | null = null;
 vi.mock("../src/db/client", () => ({
   prisma: {
     campaignOrder: { findFirst: () => Promise.resolve(order) },
-    agreement: { findFirst: () => Promise.resolve(agreement) },
+    /* The version in force is issued (its row exists), so nothing is registered. */
+    agreement: { findFirst: () => Promise.resolve(agreement), upsert: () => Promise.resolve({ id: "agr_registered" }) },
   },
 }));
 
@@ -58,14 +59,14 @@ async function call(actor: Actor) {
 
 beforeEach(() => {
   order = orderRow();
-  agreement = { id: "agr_1", kind: "CAMPAIGN_ORDER", version: 1, bodyHash: REAL_HASH };
+  agreement = { id: "agr_1", kind: "CAMPAIGN_ORDER", version: VERSION, bodyHash: REAL_HASH };
 });
 
 describe("GET /orders/:id", () => {
   it("serves the agreement body when the file matches its issued hash", async () => {
     const b = await call(athlete);
     const a = b.agreement as Record<string, unknown>;
-    expect(a.version).toBe(1);
+    expect(a.version).toBe(VERSION);
     expect(typeof a.body).toBe("string");
     expect(hashAgreementBody(a.body as string)).toBe(REAL_HASH);
   });

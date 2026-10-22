@@ -1,0 +1,161 @@
+SPONSORX ATHLETE CONTENT COLLABORATION AGREEMENT — VERSION 2
+
+BTG Sports Group LLC · Effective 22 October 2026
+
+This SponsorX Athlete Content Collaboration Agreement ("Agreement") is between BTG Sports Group LLC, operating the SponsorX Athlete Network ("BTG" or "SponsorX"), and the athlete who accepts it online ("Athlete"). The Athlete's legal name, email and the date of acceptance are recorded by SponsorX at the time of acceptance. BTG and Athlete are each a "Party".
+
+1. PURPOSE
+
+SponsorX is an athlete content and brand activation network operated by BTG. BTG may present Athlete with opportunities to take part in paid or sponsored marketing campaigns, social-media content, appearances, product experiences, community activations, content-production sessions, ambassador programs or other promotional activities ("SponsorX Opportunities").
+
+Athlete is not obliged to accept any SponsorX Opportunity.
+
+2. NON-EXCLUSIVE RELATIONSHIP
+
+Unless the Parties sign a separate representation, NIL management, marketing or exclusivity agreement:
+
+- this Agreement does not appoint BTG as Athlete's exclusive representative;
+- Athlete does not have to accept every SponsorX Opportunity;
+- Athlete may carry on other lawful sponsorship, marketing, NIL, employment or business activities, subject to existing contracts and to the restrictions stated in an accepted Campaign Order; and
+- BTG does not promise any minimum number or value of SponsorX Opportunities.
+
+3. CAMPAIGN ORDERS
+
+Each SponsorX Opportunity that Athlete accepts is set out in a separate Campaign Order, accepted electronically in SponsorX. The Campaign Order states, as applicable: the sponsor; the campaign; the job (by SponsorX job code); the deliverables and their due dates; the publication window; Athlete's compensation; any product or non-cash consideration; content review requirements; usage rights and their duration; paid-media rights, if any; exclusivity; required tags, links, codes or QR codes; required disclosures; and payment terms.
+
+The terms on a Campaign Order are fixed when BTG sends it and do not change afterwards. If something needs to change, BTG issues a new Campaign Order. If this Agreement and a Campaign Order conflict, the Campaign Order governs for that campaign, except Sections 9 and 10, which apply to every Campaign Order.
+
+4. ATHLETE COMPENSATION
+
+Athlete receives the compensation stated in each accepted Campaign Order, once the deliverables on that order have been approved, published and verified by BTG, and subject to the payment terms of that order and to Section 10.
+
+BTG will not reduce agreed compensation except as the Campaign Order or another signed agreement expressly allows. The price a sponsor pays BTG is separate from Athlete's compensation and is not disclosed to Athlete; BTG's fee is not deducted from the compensation shown on the Campaign Order.
+
+How payment is made.
+
+- Managed campaigns. Payment is made by BTG outside SponsorX. SponsorX shows the status of Athlete's earnings but does not move money.
+- Marketplace sales (where available). Where Athlete sells through the SponsorX marketplace, payouts are made through BTG's payment provider (currently Stripe) to a payout account Athlete sets up directly with that provider, under the SponsorX Marketplace and Payout Terms, which Athlete accepts separately before listing.
+
+Tax. Athlete is responsible for Athlete's own taxes. Where the law requires BTG to report payments to Athlete (for example on Form 1099):
+
+- for marketplace payouts, BTG's payment provider collects Athlete's tax information (Form W-9, or Form W-8 for an athlete outside the United States) when Athlete sets up the payout account, and issues the tax forms on BTG's behalf. A payout can't be made until that information is given;
+- for managed campaigns, BTG's finance team asks Athlete for a Form W-9 outside SponsorX.
+
+SponsorX never asks for or stores a bank account or routing number, a card number, a Social Security number or a tax ID. Payment and tax details are given directly to the payment provider or to BTG's finance team outside SponsorX.
+
+5. CONTENT OWNERSHIP
+
+Athlete keeps ownership of the original content Athlete creates. Athlete grants BTG, SponsorX and the applicable sponsor only the licences and usage rights stated in the Campaign Order. No perpetual transfer of Athlete's content rights arises from joining SponsorX.
+
+Unless the Campaign Order says otherwise, the standard usage right is: organic posts on the sponsor's own social channels during the campaign and for 90 days after it ends.
+
+6. ATHLETE NAME, IMAGE AND LIKENESS
+
+Campaign-specific use of Athlete's name, image, likeness, voice, biography, social-media handle, photographs, video, audio, approved quotes and approved campaign content is governed by the applicable Campaign Order.
+
+BTG may show Athlete's public profile (display name, sport, school or team, region, public social handles and approved photos) to sponsors and BTG staff within SponsorX for the purpose of offering SponsorX Opportunities.
+
+7. PAID MEDIA AND EXTENDED USAGE
+
+A sponsor's right to repost approved content organically does not include paid use. Unless the Campaign Order expressly says so, none of the following is included: paid social advertising; boosted posts; digital, television, billboard or print advertising; perpetual use; merchandise; product packaging; artificial-intelligence training or synthetic recreation of Athlete; material alteration of Athlete's voice or likeness; or sublicensing to unrelated third parties. Any such right must be stated in the Campaign Order and compensated.
+
+8. ATHLETE RESPONSIBILITIES
+
+Athlete agrees to:
+
+- give accurate information to BTG, including in the sign-up application;
+- perform accepted campaign obligations professionally and on time, and tell BTG promptly if something may prevent that;
+- follow the approved campaign brief;
+- make the advertising and sponsorship disclosures the Campaign Order specifies and that the law and the posting platform require;
+- not buy or artificially generate followers, views, likes, clicks, comments, claims, redemptions or other campaign metrics;
+- not make false or misleading claims, or medical, nutritional, performance or product claims not authorised by the campaign; and
+- declare existing sponsorships, endorsement or NIL agreements, and category restrictions that may affect a SponsorX Opportunity.
+
+9. YOUR OWN RULES ARE YOUR RESPONSIBILITY
+
+Athletes on SponsorX come from many schools, leagues, athletic associations, states and countries, and each has its own rules about paid sponsorships. BTG does not check those rules for each athlete.
+
+Before accepting any Campaign Order, Athlete confirms, and keeps confirming by accepting each one, that:
+
+- Athlete has checked the rules of Athlete's school, league, athletic association and state or country that apply to paid sponsorships and to the use of Athlete's name, image and likeness;
+- Athlete is allowed to accept the deal under those rules, and will follow them, including any requirement to tell or get approval from Athlete's school before or after accepting a deal;
+- Athlete will not use school or team names, logos, uniforms or facilities in sponsored content unless Athlete has permission to; and
+- following those rules is Athlete's responsibility, not BTG's.
+
+For an Athlete under the age of majority, this confirmation is given by Athlete's Guardian (Section 15).
+
+Some limits apply to everyone regardless of local rules: SponsorX does not offer minors campaigns for alcohol, tobacco or vaping, cannabis or gambling; a person at BTG reviews all content involving a minor; and SponsorX will not offer Athlete a campaign in a category Athlete has blocked.
+
+SponsorX records the confirmation with its date and the version of this wording. If the wording changes, Athlete is asked to confirm it again before accepting another Campaign Order.
+
+10. CONCERNS ABOUT A DEAL
+
+If a school, league, athletic association, parent, sponsor or anyone else raises a concern that a deal may break the rules that apply to Athlete, BTG may pause that deal while it looks into the concern. While a deal is paused:
+
+- no content for it can be submitted, approved or published;
+- the compensation for it is held and not paid; and
+- Athlete's other deals carry on as normal.
+
+BTG will tell Athlete (or Athlete's Guardian) what concern was raised and what documents are needed to resolve it, such as written approval from Athlete's school. Athlete sends them through SponsorX. BTG then either:
+
+- resumes the deal, in which case everything carries on from where it stopped and the compensation is released as normal; or
+- cancels the deal, in which case BTG's finance team decides whether anything is owed for work already done.
+
+BTG tells Athlete its decision and the reason.
+
+11. CONTENT REVIEW AND APPROVAL
+
+Where a Campaign Order requires review, Athlete submits content through SponsorX before publishing. BTG and, where the Campaign Order allows, the sponsor may request reasonable revisions to bring content in line with the brief; each revision request states its reason. Athlete publishes only content that has been approved.
+
+BTG may allow an experienced adult athlete's content to skip BTG's own review when Athlete has a record of approved content and the campaign is not in a sensitive category. Content involving a minor, or alcohol, tobacco or vaping, cannabis or gambling, is always reviewed by a person at BTG.
+
+12. CAMPAIGN PERFORMANCE INFORMATION
+
+Athlete agrees to provide reasonably requested campaign performance information available to Athlete (such as views, reach, impressions, engagement, clicks, story analytics and promotional-code activity). Athlete authorises BTG to use that information, and the figures SponsorX measures itself, in SponsorX reporting to the sponsor. Figures Athlete reports are labelled as self-reported in sponsor reports.
+
+13. YOUR INFORMATION AND WHO SEES IT
+
+- Sponsors do not see Athlete's legal name, email, phone number, date of birth, compensation or rates, or Athlete's list of blocked categories.
+- BTG staff see the information needed to run SponsorX and verify eligibility, including any identity documents Athlete uploads, and any documents Athlete sends for a concern under Section 10.
+- BTG's sales and invoicing systems (currently Zoho) hold the commercial records BTG needs to invoice sponsors.
+
+14. INDEPENDENT CONTRACTOR
+
+Athlete participates as an independent contractor and content collaborator unless another written agreement says otherwise. Nothing in this Agreement creates an employment, partnership, joint-venture or franchise relationship. Athlete is responsible for Athlete's own taxes on compensation received, subject to applicable law (Section 4).
+
+15. ATHLETES UNDER THE AGE OF MAJORITY
+
+If Athlete is under the age of majority in Athlete's state or country (18 in most US states; 19 in Alabama and Nebraska; 21 in Mississippi and Puerto Rico; 18 or 19 in Canada depending on the province):
+
+- Athlete's parent, legal guardian or authorised representative ("Guardian") must be verified by SponsorX before Athlete can accept any campaign. Verification includes the Guardian confirming their email, providing government ID and proof of guardianship naming Athlete, and accepting the SponsorX Guardian Agreement.
+- Every agreement and every money action for Athlete — accepting offers and Campaign Orders, listing in the marketplace, setting up a payout account and requesting payouts — is made by the Guardian from the Guardian's own SponsorX login. The Guardian also gives the confirmation in Section 9. Athlete may upload Athlete's own content; the Guardian is notified each time.
+- Marketplace payouts for Athlete are paid to the payout account the Guardian sets up with the payment provider in the Guardian's name. The money is Athlete's income, so tax information for it is given in Athlete's name.
+- Content involving Athlete is always reviewed by a person at BTG before it is published.
+
+When Athlete reaches the age of majority, Athlete has 90 days to upload a government ID to take over the account. During those 90 days, no new campaigns can be started; work already accepted continues. If the 90 days pass without the ID, the Athlete and Guardian accounts are closed, and money already earned remains owed.
+
+16. TERM, TERMINATION AND CLOSING YOUR ACCOUNT
+
+This Agreement begins when Athlete accepts it and continues until either Party ends it in writing. Athlete may also end it by closing the account in SponsorX.
+
+Ending this Agreement does not cancel Campaign Orders already accepted (they are completed under their own terms), payment obligations already earned, usage rights already granted for an agreed period, or provisions that by their nature survive.
+
+When an account is closed, identity and verification files are kept for 30 days and then deleted, and the login email is released. A self-closed account can be reactivated within those 30 days. Money already earned is still paid. BTG keeps the record of each acceptance of this Agreement and of each Campaign Order, and the earnings records, for 7 years after the account closes.
+
+BTG may close or suspend an account that breaches this Agreement or the law, or that fails verification. While an account is closed by BTG, payouts are on hold, but money earned stays owed.
+
+17. NO GUARANTEE OF OPPORTUNITIES
+
+BTG does not guarantee any minimum number of campaigns, any minimum compensation, any sponsorship or endorsement, any increase in followers, or any athletic or professional representation opportunity because Athlete joins SponsorX.
+
+18. ELECTRONIC ACCEPTANCE AND NEW VERSIONS
+
+Athlete accepts this Agreement electronically by ticking the acceptance box in SponsorX. That acceptance has the same effect as a handwritten signature. SponsorX records the version accepted, the date and time, and a fingerprint of the exact text shown.
+
+BTG may issue a new version of this Agreement. A new version applies to Athlete only after Athlete accepts it; until then Athlete cannot accept new campaigns, and campaigns already accepted continue under the version in force when they were accepted.
+
+19. ENTIRE AGREEMENT
+
+This Agreement, with the Campaign Orders Athlete accepts, the SponsorX Guardian Agreement (where applicable) and the SponsorX Marketplace and Payout Terms (where Athlete uses the marketplace), is the whole agreement between the Parties about Athlete's SponsorX content-collaboration relationship. It can be changed only by a new version accepted under Section 18 or by a written agreement signed by both Parties.
+
+Acceptance. Ticking the box records your acceptance, the date and time, and a fingerprint of the exact text shown above.

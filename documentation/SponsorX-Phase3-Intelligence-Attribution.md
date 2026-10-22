@@ -238,9 +238,9 @@ Snowflake, BigQuery, Redshift or Postgres depending on scale, plus dbt or equiva
 - **Delivered:** `.claude/stack-decision.md` Addendum C; `Postgres-warehouse` (staging) and `Postgres-warehouse-production`, ingestion running hourly in both — 2026-10-12
 - **Reference:** Spec §20
 
-### ⏸ `3S0-LEG-01` · Attribution, consent and partner terms review
+### ✅ `3S0-LEG-01` · Attribution, consent and partner terms review
 
-**Order** 6 · **LEG** · **Where:** External · counsel · **3d** · **Blocked**
+**Order** 6 · **LEG** · **Where:** External · counsel · **3d** · **Done**
 
 > **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
@@ -248,6 +248,7 @@ Counsel reviews the attribution claims, the consent basis for using fan data thi
 
 - **Depends on:** 3S0-PMO-01
 - **Done when:** Written approval of attribution claims, consent basis and sponsor-facing reporting language
+- **Approved:** 2026-10-22 by rcfworks with Rodney's delegated authority — the sponsor-facing attribution wording (document 5). The rendered report is now the "Campaign Results Report" with the approved foot note (`P8-BE-07`); the results screen's labels are `P8-FE-08`.
 - **Reference:** Spec §23
 
 ## Sprint 1 · Warehouse & benchmarks

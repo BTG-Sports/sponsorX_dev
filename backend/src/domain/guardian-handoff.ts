@@ -54,6 +54,7 @@ import type { ARENA_HANDOFF_GROUPS, HANDOFF_GROUPS } from "../contracts/guardian
 import { issuePurposeToken, readPurposeToken } from "../lib/purpose-token";
 import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, SENSITIVE_DOCUMENT_TTL_SECONDS, uploadRefusal } from "../lib/storage";
 import { provisionGuardianLoginIn } from "./athlete-login";
+import { currentAgreementOf } from "./current-agreement";
 import { requiresGuardian } from "./guardian-rules";
 import { safeFilename } from "./onboarding-documents";
 import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
@@ -305,7 +306,7 @@ export async function confirmHandoffDocumentUpload(token: string, documentId: st
 
 /** The guardian agreement as it stands for this tenant, if one is published. */
 async function agreementVersionOf(tx: Tx, tenantId: string): Promise<string> {
-  const a = await tx.agreement.findFirst({ where: { tenantId, kind: "GUARDIAN" }, select: { version: true, bodyHash: true }, orderBy: { version: "desc" } });
+  const a = await currentAgreementOf(tx, tenantId, "GUARDIAN");
   return a ? `GUARDIAN v${a.version} ${a.bodyHash.slice(0, 12)}` : "GUARDIAN (draft, pending counsel)";
 }
 

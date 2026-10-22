@@ -240,19 +240,20 @@ Code review. Committing one file is what makes a shared tracker actually shared.
 
 ## Open decisions — do not code around these silently
 
-- **Guardian e-signature for minors.** Click-wrap covers Phase 1 agreements;
-  guardian authorization may need true e-sign. Legal question, not technical
-  (`P0-LEG-03`, counsel).
-- **Tax position for marketplace payouts** (`2S0-LEG-02`): proposed on
-  2026-10-20 and waiting for BTG's accountant to confirm (draft 7 in the
-  SponsorX Legal folder).
-  - Stripe Connect collects W-9 and W-8 forms and files the 1099s.
-  - BTG finance handles campaign payments made outside SponsorX.
-  - A minor's form is in the minor's name.
+- **Governing law, venue and disputes** for the agreements: BTG hasn't
+  chosen them, so the approved v2 agreements leave the section out. Naming
+  them later is a v3 of each agreement, which everyone re-accepts.
+- **BTG's postal address** for fan emails (CAN-SPAM) and the fan privacy
+  notice: `BTG_POSTAL_ADDRESS`, a go-live switch; until it is set the line is
+  left out.
 
-  SponsorX still never stores a tax ID; flag any task that would.
+SponsorX still never stores a tax ID; flag any task that would.
 
 **Decided** (kept here so nobody reopens them):
+- **the legal wording (2026-10-22, rcfworks with Rodney's delegated authority):** every draft in the SponsorX Legal folder is approved and issued in the app as v2 (`P8-BE-07`). Covers `P0-LEG-01`…`06`, `2S0-LEG-01`, `2S0-LEG-02` and `3S0-LEG-01`.
+  - Guardian sign-off is click-to-accept by a verified guardian; no e-sign vendor (`P0-LEG-03`).
+  - Tax: Stripe Connect collects W-9 and W-8 forms and files the 1099s, a minor's in the minor's name. BTG finance handles campaign payments made outside SponsorX (`2S0-LEG-02`).
+  - The text people accept is `backend/agreements/<KIND>.v<n>.txt`; new wording is a new file, never an edit.
 - the Phase 1 payment policy (`P0-PMO-01`): earnings *status* only, no tax ID;
 - data residency (`P0-PMO-02`): US East;
 - the transactional email provider (`P0-PMO-03`): Resend;

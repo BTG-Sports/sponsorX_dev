@@ -30,6 +30,7 @@ import { ForbiddenError } from "../../auth/errors";
 import { prisma } from "../../db/client";
 import { presignPrivateDownload } from "../../lib/storage";
 import { CONSENT_TEXT, CURRENT_CONSENT_VERSION } from "../../domain/fan-consent";
+import { fanPrivacyNotice } from "../../domain/fan-privacy-notice";
 import { limit } from "../../lib/rate-limit";
 import { pageRequest, readPage, searchTerm } from "../../lib/paging";
 import { clientIp } from "../../lib/client-ip";
@@ -246,6 +247,14 @@ const redeem: RequestHandler<{ token: string }> = async (req, res) => {
 const unsubscribe: RequestHandler<{ token: string }> = async (req, res) => {
   await limit("fan:unsubscribe", clientIp(req), 30, 60);
   res.status(200).json(await withdrawFanConsent(req.params.token));
+};
+
+/**
+ * GET /public/fan-privacy — the fan privacy notice the reward page links to
+ * (P0-LEG-04, document 3 §8). No login; the same words for every fan.
+ */
+const fanPrivacy: RequestHandler = (_req, res) => {
+  res.status(200).json(fanPrivacyNotice());
 };
 
 /* Staff — authenticated. */
@@ -593,5 +602,6 @@ rewardsRouter.post("/public/rewards/:token/landing", landing);
 rewardsRouter.post("/public/rewards/:token/claim", claim);
 rewardsRouter.post("/public/rewards/:token/redeem", redeem);
 rewardsRouter.post("/public/unsubscribe/:token", unsubscribe);
+rewardsRouter.get("/public/fan-privacy", fanPrivacy);
 
 export { listRewards, rewardSummary, readReward, tokenQrUrl };

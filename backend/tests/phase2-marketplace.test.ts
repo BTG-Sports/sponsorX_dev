@@ -1,6 +1,6 @@
-import { readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { agreementHash, versionInForce } from "./support/agreements";
 
 /* --------------------------------------------------------------------------
    Phase 2 batch 3, against the real API and database:
@@ -34,7 +34,6 @@ vi.mock("../src/auth/clerk", () => ({
 
 const { governanceProblems, canTransitionListing } = await import("../src/domain/listing-rules");
 const { inventoryProblems } = await import("../src/domain/inventory");
-const { hashAgreementBody } = await import("../src/domain/agreement-hash");
 
 describe("the rules, as written (pure)", () => {
   it("an item is priced by whole cents, with a window that closes after it opens and no category both offered and refused", () => {
@@ -76,8 +75,9 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
 
   const T = "mkt_btg";      // BTG's tenant: operates the teams
   const X = "mkt_other";    // an unrelated operator: operates nothing here
-  /* The real CAMPAIGN_ORDER v1 wording's fingerprint, so GET /offers/:id serves its text. */
-  const HASH = hashAgreementBody(readFileSync(new URL("../agreements/CAMPAIGN_ORDER.v1.txt", import.meta.url), "utf8"));
+  /* The CAMPAIGN_ORDER wording in force, and its fingerprint, so GET /offers/:id serves its text. */
+  const TERMS_VERSION = versionInForce("CAMPAIGN_ORDER");
+  const HASH = agreementHash("CAMPAIGN_ORDER");
   const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
   const E = { tenant: "", property: "" };
   const F = { tenant: "", property: "" };
@@ -153,7 +153,7 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
     await prisma.nilJob.create({ data: { id: "mkt_job", tenantId: T, name: "Game-day post", baseLow: 10_000, baseHigh: 20_000, sellLow: 20_000, sellHigh: 40_000, sellFloorEmerging: 15_000, sellFloorCreator: 20_000, sellFloorPremium: 30_000 } });
     await prisma.athleteRate.create({ data: { tenantId: T, athleteId: "mkt_ath", jobId: "mkt_job", amount: 20_000 } });
     await prisma.campaign.create({ data: { id: "mkt_campaign", tenantId: T, sponsorId: "mkt_sponsor", name: "Fall tacos", budget: 500_000, startDate: new Date(), endDate: new Date(Date.now() + 90 * 864e5), state: "STAFFING" } });
-    await prisma.agreement.create({ data: { id: "mkt_order_terms", tenantId: T, kind: "CAMPAIGN_ORDER", version: 1, bodyHash: HASH, effectiveAt: new Date("2026-01-01") } });
+    await prisma.agreement.create({ data: { id: "mkt_order_terms", tenantId: T, kind: "CAMPAIGN_ORDER", version: TERMS_VERSION, bodyHash: HASH, effectiveAt: new Date("2026-01-01") } });
     Object.assign(E, await approveTeam("mkt_onb_e", "Bowie Bulldogs MK", "mkt_mgr_e"));
     Object.assign(F, await approveTeam("mkt_onb_f", "Laurel Lions MK", "mkt_mgr_f"));
     server = createApp().listen(0, "127.0.0.1");
@@ -349,7 +349,7 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
       expect(mine.json).not.toHaveProperty("sellPrice");
       /* …with the sponsor named and the agreement the acceptance signs (2S2-FE-03). */
       expect(mine.json.sponsorName).toEqual(expect.any(String));
-      expect(mine.json.agreement).toMatchObject({ id: "mkt_order_terms", version: 1, bodyHash: HASH, body: expect.any(String) });
+      expect(mine.json.agreement).toMatchObject({ id: "mkt_order_terms", version: TERMS_VERSION, bodyHash: HASH, body: expect.any(String) });
       expect(mine.json.agreement.body.length).toBeGreaterThan(100);
       expect((await call("GET", `/offers/${id}`, "mkt_athlete2")).status).toBe(403);
       expect((await call("POST", `/offers/${id}/respond`, "mkt_athlete2", { decision: "ACCEPT" })).status).toBe(403);

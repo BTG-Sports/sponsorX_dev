@@ -34,7 +34,9 @@ import {
   consentFor,
   sponsorContactFor,
   CURRENT_SPONSOR_CONTACT_VERSION,
-  SPONSOR_CONTACT_TEXT,
+  sponsorContactText,
+  rewardNotice,
+  ELIGIBILITY_CHECK_NOTE,
   mayContact,
   type ConsentPurpose,
 } from "./fan-consent";
@@ -817,6 +819,10 @@ export type TokenView =
       /** 2S6-BE-03 — the optional second box's wording. The page renders it
        *  UNTICKED; the version it sends back is this one. */
       sponsorContact: { version: string; purpose: "sponsor-contact"; text: string };
+      /** P0-LEG-04 — the line under the claim button, shown as given. */
+      notice: string;
+      /** P0-LEG-04 — where an age or ticket limit is checked; null for ANYONE. */
+      eligibilityCheck: string | null;
       /** QA-04 — false: the code redeems more than once (up to any cap). */
       singleUse: boolean;
       /** How many times THIS code has been redeemed. */
@@ -845,6 +851,7 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
           state: true, expiresAt: true, singleUse: true, offerText: true, terms: true,
           eligibility: true, eligibilityNote: true, redemptionCap: true, redemptionCount: true,
           landingHeadline: true, landingSubhead: true,
+          campaign: { select: { sponsor: { select: { name: true } } } },
         },
       },
       /* Types and times only — never the address (P6-SEC-02). */
@@ -896,8 +903,12 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
     sponsorContact: {
       version: CURRENT_SPONSOR_CONTACT_VERSION,
       purpose: "sponsor-contact",
-      text: SPONSOR_CONTACT_TEXT[CURRENT_SPONSOR_CONTACT_VERSION]!,
+      text: sponsorContactText(CURRENT_SPONSOR_CONTACT_VERSION, r.campaign.sponsor?.name)!,
     },
+    /* P0-LEG-04 (document 3 §5–6): the line under the button, and where an
+       age or ticket limit is checked. The page shows them as given. */
+    notice: rewardNotice({ singleUse: r.singleUse, sponsorName: r.campaign.sponsor?.name }),
+    eligibilityCheck: r.eligibility === "ANYONE" ? null : ELIGIBILITY_CHECK_NOTE,
     singleUse: r.singleUse,
     timesRedeemed: redemptions.length,
     lastRedeemedAt: lastRedeemedAt?.toISOString() ?? null,
