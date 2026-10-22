@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  AGREEMENT,
   RESTRICTION_CATEGORIES,
+  SECTIONS,
   emptyDraft,
   isMinor,
   parseDraft,
@@ -94,5 +96,16 @@ describe("draft round-trip", () => {
     expect(parseDraft("garbage")).toBeNull();
     expect(parseDraft(null)).toBeNull();
     expect(parseDraft(JSON.stringify({ v: 99 }))).toBeNull();
+  });
+});
+
+describe("the click-wrap (P8-FE-07)", () => {
+  it("says the acceptance line approved with the agreement, naming the version shown", () => {
+    expect(AGREEMENT.checkbox(2)).toBe("I have read and accept the SponsorX Athlete Content Collaboration Agreement (version 2).");
+    expect(AGREEMENT.recordNote).toMatch(/records your acceptance, the date and time, and the exact version/);
+  });
+
+  it("no longer carries draft wording of its own", () => {
+    expect(JSON.stringify(SECTIONS)).not.toMatch(/v0\.4|draft/i);
   });
 });

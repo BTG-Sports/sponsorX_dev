@@ -67,7 +67,7 @@ const TARGETS: Record<string, BackTarget> = {
   },
   report: {
     href: "/sponsor/campaigns/c1/report",
-    label: "Back to ROI Report",
+    label: "Back to Results Report",
   },
   inventory: {
     href: "/sponsor/marketplace/SX-03",

@@ -37,6 +37,11 @@ export type TokenView =
       timesRedeemed?: number;
       lastRedeemedAt?: string | null;
       hold?: { until: string; active: boolean } | null;
+      /** P8-FE-08 (P0-LEG-04, approved 2026-10-22) — the line under the claim
+       *  button, and where an age or ticket limit is checked (null for anyone).
+       *  Absent from an older API — the page then reads as before. */
+      notice?: string;
+      eligibilityCheck?: string | null;
     };
 
 export function escapeHtml(s: string): string {
@@ -85,6 +90,8 @@ function shell(title: string, body: string): string {
   /* dark CTA ink, as the app's own buttons use: white on this blue was 2.9:1 and on
      the orange 2.7:1, under the 4.5:1 a fan at an event needs (frontend audit) */
   .note{font-size:12px;color:rgba(243,245,248,.5)}
+  .note a{color:#7fd0ff}
+  h2{font-size:15px;margin:20px 0 4px}
   .bad{color:#ff9c9c}
   .ok{color:#7ee2a8}
   .steps{list-style:none;display:flex;gap:6px;justify-content:center;padding:0;margin:24px 0 0}
@@ -106,7 +113,7 @@ type Known = Extract<TokenView, { offerText: string }>;
  *  shows only the note rather than inventing a rule. */
 function eligibilityLine(v: Known): string {
   const rule = v.eligibility ? ELIGIBILITY[v.eligibility]?.fan ?? null : null;
-  const text = [rule, v.eligibilityNote?.trim() || null].filter(Boolean).join(" ");
+  const text = [rule, v.eligibilityNote?.trim() || null, rule ? v.eligibilityCheck?.trim() || null : null].filter(Boolean).join(" ");
   return text ? `<p class="elig">${escapeHtml(text)}</p>` : "";
 }
 
@@ -235,13 +242,14 @@ export function renderFanPage(token: string, v: TokenView, flash: Flash, now = n
 
   const claimForm = v.claimed ? "" : `
     <form method="post" action="/r/${t}/claim">
-      <label for="email">Email for your code <span class="note">(optional)</span></label>
+      <label for="email">Email for your code <span class="note">(optional — you can claim without it)</span></label>
       <input id="email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
       <label class="consent"><input type="checkbox" name="consent" value="${escapeHtml(v.consent.version)}">
         <span>${escapeHtml(v.consent.text)}</span></label>${v.sponsorContact ? `
       <label class="consent"><input type="checkbox" name="sponsorContact" value="${escapeHtml(v.sponsorContact.version)}">
         <span>${escapeHtml(v.sponsorContact.text)}</span></label>` : ""}
       <button type="submit">Claim reward</button>
+      <p class="note">${v.notice ? `${escapeHtml(v.notice)} · ` : ""}<a href="/r/privacy">Privacy notice</a></p>
     </form>`;
 
   /* Eligibility is the booth's to check — nothing else can (no login). */
@@ -260,4 +268,16 @@ export function renderFanPage(token: string, v: TokenView, flash: Flash, now = n
     <h1${again ? ' class="ok"' : ""}>${escapeHtml(headline)}</h1>${subhead}
     ${offer(v)}${msg}${holdLine(v, now)}${claimForm}${redeemForm}
     ${steps(v.claimed ? 2 : 1)}${beacon}`) };
+}
+
+/** GET /public/fan-privacy — P8-FE-08 (P0-LEG-04, approved 2026-10-22). */
+export type FanPrivacyNotice = { version: string; title: string; sections: { heading: string; text: string }[] };
+
+/** The fan privacy notice the reward page links to, in the fan page's own
+ *  shell — the API's words, never a copy kept here. */
+export function renderFanPrivacy(n: FanPrivacyNotice): string {
+  return shell("Privacy notice", `
+    <h1>${escapeHtml(n.title)}</h1>
+    ${n.sections.map((sec) => `<h2>${escapeHtml(sec.heading)}</h2><p>${escapeHtml(sec.text)}</p>`).join("\n    ")}
+    <p class="note">Version ${escapeHtml(n.version)}</p>`);
 }

@@ -2901,7 +2901,7 @@ Raised 2026-10-21, while preparing Stripe go-live. Production's API has no publi
 
 ### ▶ `P8-FE-07` · Show the real agreement on /join and record it
 
-**Order** 157.93 · **FE** · **Where:** Code · **1d** · **Ready**
+**Order** 157.93 · **FE** · **Where:** Code · **1d** · **In progress**
 
 Raised with `P8-BE-04`.
 - **/join** shows the text from `GET /public/agreements/collab`, replacing the hard-coded "v0.4 draft" clauses in `join-flow.ts`.
@@ -2915,11 +2915,15 @@ Raised with `P8-BE-04`.
   - A 409 `agreement_text_changed` or a 422 `not_collab_agreement` reloads the text.
   - The portal prompt appears when it's needed and accepts the agreement.
   - The switch is on the settings screen.
+- **Progress 2026-10-22 (rcfworks, at the user's request):**
+  - **Done:** /join shows the served agreement (v2) verbatim with its version and the approved acceptance line, and sends `agreement: { agreementId, bodyHashShown }` with the application. A tick on an earlier version doesn't carry over. If the text can't be loaded, the step says so and waits.
+  - **A 409 or 422** shows the API's own "reload and accept again" message.
+  - **Still open:** the athlete-portal prompt for `current: false`, and the `requireCollabAcceptance` switch on BTG's sign-up settings.
 - **Reference:** §12
 
-### ▶ `P8-FE-08` · Show the approved fan-page and results wording
+### 🔎 `P8-FE-08` · Show the approved fan-page and results wording
 
-**Order** 157.94 · **FE** · **Where:** Code · **1d** · **Ready**
+**Order** 157.94 · **FE** · **Where:** Code · **1d** · **Code review**
 
 Raised with `P8-BE-07` (2026-10-22). The backend serves the approved wording; these screens still carry their own copies.
 - **The fan reward page** (`frontend/src/server/fan-page.ts`):
@@ -2932,6 +2936,14 @@ Raised with `P8-BE-07` (2026-10-22). The backend serves the approved wording; th
 
 - **Depends on:** P8-BE-07
 - **Done when:** Each screen above shows the approved words, taken from the API where the API serves them. No sponsor screen says "ROI".
+- **Delivered 2026-10-22 (rcfworks, at the user's request):**
+  - **Fan page:** `notice` and `eligibilityCheck`, the email label, and a privacy link to `/r/privacy`. That's a new fan route rendering `GET /public/fan-privacy`.
+  - **Unsubscribe page:** "You're unsubscribed…".
+  - **Guardian pages:** the approved acceptance line on both. The handoff page now shows the served Guardian Agreement, which the backend adds to `GET /public/guardian-handoffs/{token}`, instead of a hard-coded placeholder.
+  - **Sponsor screens:** "ROI" is gone from the report title, the export filename, the campaign page, the back link and the packages page. The approved confidence caption and the results foot note (`RESULTS_NOTE`) are shown.
+  - **Not changed:**
+    - The home page's marketing line "measurable ROI": a sales claim, not a report label.
+    - The sample-only PDF export's figures: its demo data still includes a "return multiple".
 - **Reference:** §16, §22, Legal folder documents 3 and 5
 
 ### ▶ `P8-FE-03` · The rules tick on the sign-up page and the guardian's page

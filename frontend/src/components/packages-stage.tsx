@@ -806,7 +806,7 @@ export function Catalogue({ pkgs }: { pkgs: PackageView[] }) {
 const STEPS = [
   ["Request a brief", "Tell BTG the goal, budget and market. No card, no checkout."],
   ["BTG matches athletes", "Eligibility, conflicts and rates are handled by BTG staff."],
-  ["Campaign goes live", "You approve content; fans redeem rewards; you get an ROI report."],
+  ["Campaign goes live", "You approve content; fans redeem rewards; you get a results report."],
 ] as const;
 
 /** Flat-topped hexagon, 0..48 box. */

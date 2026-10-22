@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { confirmDocAction, requestDocAction, submitAction } from "@/app/(public)/guardian/handoff/actions";
 import { GuardianAgreementText } from "@/components/guardian-agreement";
 import { PrivateFileUpload } from "@/components/private-file-upload";
-import { PROOF_KINDS, guardianAgreement, handoffReady, type ApiHandoffRequest } from "@/lib/guardian-live";
+import { PROOF_KINDS, agreementFromBody, guardianAcceptLine, handoffReady, type ApiHandoffRequest } from "@/lib/guardian-live";
 
 /* --------------------------------------------------------------------------
    The rest of the new guardian's request — 2S1-FE-10 (design
@@ -30,6 +30,8 @@ export function HandoffRequestSteps({ token, request }: { token: string; request
   const [error, setError] = useState<string | null>(null);
   const a = request.athlete.firstName;
   const cur = request.current.firstName;
+  /* P8-FE-08 — the agreement in force, as the API serves it; submitting accepts it. */
+  const agreement = request.agreement ? agreementFromBody(request.agreement.body, request.agreement.version) : null;
   const refresh = () => router.refresh();
 
   const send = () =>
@@ -88,12 +90,16 @@ export function HandoffRequestSteps({ token, request }: { token: string; request
             Read the guardian agreement <span aria-hidden="true" className="inline-block transition-transform group-open:rotate-90">→</span>
           </summary>
           <div className="mt-2.5">
-            <GuardianAgreementText agreement={guardianAgreement(a)} />
+            {agreement ? (
+              <GuardianAgreementText agreement={agreement} />
+            ) : (
+              <p className="text-xs text-warn">The guardian agreement can&rsquo;t be shown just now. Try again in a minute.</p>
+            )}
           </div>
         </details>
         <label className="flex cursor-pointer items-start gap-2.5 text-sm leading-normal">
-          <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 size-4 accent-[var(--sx-primary)]" />
-          I&rsquo;m {a}&rsquo;s guardian and I accept the guardian agreement.
+          <input type="checkbox" checked={agreed} disabled={!agreement} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 size-4 accent-[var(--sx-primary)]" />
+          {guardianAcceptLine(request.athlete.name, agreement?.version ?? "in force")}
         </label>
       </section>
 

@@ -114,6 +114,16 @@ export const sponsorIntelPath = (range: RangeKey) => `/intelligence/sponsor?rang
 
 /* ----------------------------------------------------------------- words */
 
+/** The standard note at the foot of every sponsor results screen and report —
+ *  3S0-LEG-01, approved 2026-10-22 (document 5 §6). The same words as the
+ *  rendered report's RESULTS_NOTE (backend report-render.ts). */
+export const RESULTS_NOTE =
+  "Checked figures are counted by SponsorX or taken from the platform. Likely figures come from a model and show " +
+  "their confidence; they are not proof that your campaign caused a sale. Estimated media value is what the exposure " +
+  "would have cost to buy as ads; it is not revenue or profit. Self-reported figures come from the athlete and are " +
+  "not checked. Figures can change as late data, refunds and corrections arrive. Prepared by SponsorX, run by BTG " +
+  "Sports Group.";
+
 /** The four classes in a sponsor's words — the hub's tiles. `none` is the caption's tail at zero. */
 export const CLASS_WORDS: Record<AttributionClass, { label: string; hint: string; none: string }> = {
   VERIFIED_REDEMPTION: {

@@ -34,6 +34,7 @@ import {
   renewalsDue,
   sourcedSegments,
   sponsorIntelPath,
+  RESULTS_NOTE,
   type SponsorIntel,
 } from "@/lib/sponsor-intelligence-live";
 import { rangeParam, type RangeKey } from "@/lib/sponsor-overview-live";
@@ -155,6 +156,7 @@ function Hub({ sp, range, data: d, pill }: { sp: SearchParams; range: RangeKey; 
           <Partners d={d} />
         </div>
       </div>
+      <p className="max-w-3xl text-xs leading-relaxed text-faint" data-note="results">{RESULTS_NOTE}</p>
     </div>
   );
 }
@@ -260,7 +262,7 @@ function Renewals({ d }: { d: SponsorIntel }) {
   return (
     <StadiumPanel flush delay={0.46} tone={rows.length ? "you" : undefined} className="min-w-0">
       <div className="px-5 pt-5">
-        <Title hint="Campaigns ending in the next 45 days or ended in the last 30, and whether they look worth running again. Worked out from each one's delivery against what was promised; the confidence says how sure we are.">
+        <Title hint="Campaigns ending in the next 45 days or ended in the last 30, and whether they look worth running again. Worked out from each one's delivery against what was promised; Confidence is how sure the model is, based on past campaigns. It is not a guarantee.">
           Worth renewing?
         </Title>
       </div>
@@ -309,7 +311,7 @@ function Partners({ d }: { d: SponsorIntel }) {
   return (
     <StadiumPanel flush delay={0.52} className="min-w-0">
       <div className="px-5 pt-5">
-        <Title hint="The athletes and teams that did best for you across your campaigns. An athlete's score is their posts delivered on time and the checked views each one got; a team's or school's is the share of your orders with them that were delivered. The confidence says how sure we are.">
+        <Title hint="The athletes and teams that did best for you across your campaigns. An athlete's score is their posts delivered on time and the checked views each one got; a team's or school's is the share of your orders with them that were delivered. Confidence is how sure the model is, based on past campaigns. It is not a guarantee.">
           Your best partners
         </Title>
       </div>

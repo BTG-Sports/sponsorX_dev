@@ -91,3 +91,30 @@ Also rotate our own signing secrets (`SPONSORX_EDGE_KEY`, `INTAKE_TOKEN_SECRET`,
   - Stage Progress snapshot for 2026-10-22: 298 done, 23.5 days left.
 - **Not deployed:** Railway deploys are paused (security incident above). This ships with the next staging deploy.
 - **The Drive drafts** still carry their "DRAFT for counsel review" headers. Retitling them is the user's to do; the files weren't touched.
+
+## The approved wording on every page: P8-FE-08 (Code review), P8-FE-07 (In progress)
+
+- **Trigger:** after #286 merged, the user asked for every page still carrying its own copy of the old wording to be replaced now. This is an explicit exception to the backend-only rule, scoped to these screens. No one else's branch touched them.
+- **/join (P8-FE-07):**
+  - The page reads `GET /public/agreements/collab` and shows the v2 body verbatim in a `<pre>`, with "· version n" and the approved line "I have read and accept the SponsorX Athlete Content Collaboration Agreement (version n)."
+  - The application now sends `agreement: { agreementId, bodyHashShown }`, so the acceptance is recorded.
+  - A tick only counts for the agreement on screen (`acceptedAgreementId` in the draft). If the text can't be loaded, submission waits. The "Draft" badge is gone.
+  - **Still open:** the portal prompt and the `requireCollabAcceptance` switch.
+- **Fan page (P8-FE-08):**
+  - Shows `notice` and `eligibilityCheck`, and the label "(optional — you can claim without it)".
+  - Privacy link to the new fan route `/r/privacy`. It's a static segment, so it wins over `/r/[token]`, and it renders `GET /public/fan-privacy`.
+  - Unsubscribe page: "You're unsubscribed. We won't email you again about this reward, and we've told the sponsor to stop too."
+- **Guardian pages:**
+  - Both use the approved line "I am X's parent, legal guardian or authorised representative. I have read and accept the SponsorX Guardian Agreement (version n) on their behalf."
+  - **Handoff page bug fixed:** it showed a hard-coded placeholder agreement ("[Remaining terms from counsel]") while the backend recorded the real version. The backend now adds `agreement: { version, body }` to `GET /public/guardian-handoffs/{token}`.
+  - The tenant-isolation seed pre-registers GUARDIAN too.
+- **Sponsor screens:**
+  - "ROI" is gone from the report title, the export filename, the campaign page (five lines), the back link, the packages page and the dev map.
+  - The approved confidence caption is used.
+  - The results foot note (`RESULTS_NOTE` in sponsor-intelligence-live.ts) is at the foot of the results hub and the campaign report.
+  - **Left as is:** the home page's "measurable ROI" marketing line, and the sample-only PDF export's demo "return multiple".
+- **e2e:** the /join checkbox regex is updated in `loop-p3-application` and `marketplace-path`.
+- **Run locally, all passing:**
+  - backend and frontend builds, lint, security scripts, secret scan and audit check;
+  - frontend 1,595 tests and backend 3,509 tests;
+  - the e2e specs `redeem-flow`, `public` and `public-links`: 15 passed, 1 skipped. The loop specs need Clerk, so CI runs them.

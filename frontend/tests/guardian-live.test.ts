@@ -1,7 +1,8 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
-  SUPPORT_EMAIL, contactTopic, declinedWords, guardianAgreement, handoffCarryOver, handoffDemo, handoffTrack, handoffViews, idFileProblem,
+  SUPPORT_EMAIL, contactTopic, declinedWords, agreementFromBody, guardianAcceptLine, handoffCarryOver, handoffDemo, handoffTrack, handoffViews, idFileProblem,
   firstOpenStep, sampleDeclined, sampleHandoff, sampleSwitched, setupDemo, stepMove, stepsFor, whenLabel,
 } from "@/lib/guardian-live";
 
@@ -42,11 +43,19 @@ describe("guardian set-up", () => {
     /* A returning guardian is never sent back to the details or ID they already gave. */
     expect(firstOpenStep({ ...g, guardian: { ...g.guardian, relationship: null }, idUploaded: false, returning: true, proof: null })).toBe("proof");
   });
-  it("marks counsel's missing terms as placeholders", () => {
-    const g = guardianAgreement("Jordan");
-    expect(g.versionPending).toBe(true);
-    expect(g.terms.filter((t) => t.placeholder).map((t) => t.text)).toEqual(["[Remaining terms from counsel]"]);
-    expect(g.terms[0]!.text).toContain("Jordan");
+  it("reads the approved agreement in force as final terms, one per line (P8-FE-08)", () => {
+    const dir = new URL("../../backend/agreements/", import.meta.url);
+    const version = Math.max(...readdirSync(dir).map((f) => /^GUARDIAN\.v(\d+)\.txt$/.exec(f)?.[1]).filter((v): v is string => v !== undefined).map(Number));
+    const g = agreementFromBody(readFileSync(new URL(`GUARDIAN.v${version}.txt`, dir), "utf8"), version);
+    expect(version).toBeGreaterThanOrEqual(2);
+    expect(g).toMatchObject({ title: "SponsorX Guardian Agreement", version: String(version), versionPending: false });
+    expect(g.terms.filter((t) => t.placeholder)).toEqual([]);
+    expect(g.terms.map((t) => t.text)).toEqual(expect.arrayContaining([expect.stringMatching(/^Your authority\. /)]));
+  });
+  it("says the approved acceptance line", () => {
+    expect(guardianAcceptLine("Jordan Reyes", 2)).toBe(
+      "I am Jordan Reyes's parent, legal guardian or authorised representative. I have read and accept the SponsorX Guardian Agreement (version 2) on their behalf.",
+    );
   });
   it("previews only done and approved", () => {
     expect(setupDemo("done")).toBe("done");
