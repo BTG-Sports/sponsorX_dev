@@ -1,0 +1,71 @@
+SPONSORX MARKETPLACE SELLER AND PAYOUT TERMS — VERSION 2
+
+BTG Sports Group LLC · Effective 22 October 2026
+
+A1. Who these terms are between
+
+These terms are between BTG Sports Group LLC ("BTG"), which runs the SponsorX marketplace, and the organisation or athlete that lists items for sale on it ("Seller"). A person accepting for an organisation confirms they have authority to bind it. An athlete under the age of majority sells only through their verified guardian, who accepts these terms.
+
+A2. Listing
+
+Seller confirms it has the right to sell everything it lists, including any rights of athletes, schools, leagues or venues involved, and that each listing describes accurately what the sponsor will receive, when, and any limits on use. BTG reviews listings before they are published and may decline, pause or remove a listing. A listing for a minor, or in a sensitive category, is always reviewed by a person at BTG.
+
+A3. Orders
+
+- Seller approval. Where an item needs Seller's approval, Seller has 48 hours to accept or decline. If Seller does not answer, the order is cancelled.
+- BTG approval. BTG may also review an order before the sponsor pays (for example, large orders or a sponsor above its spending limit).
+- Payment. The sponsor pays BTG. Seller delivers only once the order shows as paid.
+
+A4. Delivering
+
+Seller delivers each item as the listing describes and records delivery in SponsorX. The sponsor then has 24 hours to confirm or raise a problem; if the sponsor says nothing, the item counts as confirmed. If a delivery is late, SponsorX reminds Seller on day 1 and day 3, and BTG takes over the line on day 7.
+
+Problems. If the sponsor raises a problem, each side has 72 hours to answer. Seller may offer to redeliver within 90 days, or agree a refund. If the sides do not agree, BTG decides.
+
+A5. Cancellations by Seller
+
+If Seller cancels a paid line, the sponsor is refunded in full and Seller receives nothing for that line. If Seller cancels two lines within 90 days, BTG holds Seller's new listings for review.
+
+A6. Fees
+
+From the price of each order, BTG deducts, in this order:
+
+- any discount;
+- platform fee, 15% — BTG's commission for running the marketplace: listing, matching, checkout and support;
+- management fee, 5% — only where BTG manages Seller's account for it;
+- payment processing, 2.9% + 30¢ per order — the card processor's charge, passed through at cost;
+- referral fee, 2% — only where the sale came through a referral partner; it pays that partner;
+- reserve, 10% — not a fee: held until the order closes to cover refunds or card disputes, then paid to Seller.
+
+The rest is Seller's share. For an athlete on a team's roster, the share is split between the team and the athlete at the percentage agreed in the team's invitation.
+
+The fee rates that apply to an order are fixed when the order is placed and do not change for that order. BTG may change rates for future orders with 30 days' notice.
+
+A7. Payouts
+
+Seller sets up a payout account directly with BTG's payment provider (currently Stripe). Bank and tax details go to the provider, never to SponsorX. A minor's payouts go to the guardian's payout account, in the guardian's name.
+
+A payout for a line is made only when all four of these are true:
+
+1. the sponsor's payment has been received;
+2. the line has been delivered and confirmed;
+3. any holding period BTG sets has passed (currently none); and
+4. Seller's payout account is ready, including any tax information the payment provider needs (A9).
+
+Payouts are also held while a card dispute is open on the order, or while Seller's account is on hold. Payouts over $2,000, or above $5,000 in 7 days, or within 7 days of a change to the payout account, are approved by BTG's finance team before they are sent. A failed payout is retried after 1, 6 and 24 hours. The reserve is released when the order closes, 30 days after confirmation.
+
+A8. Refunds, disputes and money owed back
+
+A refund covers the whole line. When a line is refunded before payout, Seller receives nothing for it. If a card dispute is opened, the order's money is frozen until it is resolved. BTG responds to the dispute; Seller provides delivery evidence when asked. If the dispute is lost, the order is reversed: any payout not yet sent is cancelled, and any amount already paid to Seller for that order is owed back to BTG and may be deducted from Seller's future payouts. If Seller has no future payouts to deduct it from, Seller pays it back to BTG.
+
+A9. Taxes
+
+Seller is responsible for its own taxes. Where the law requires BTG to report payouts to Seller (for example on Form 1099), BTG's payment provider collects Seller's tax information (Form W-9, or Form W-8 for a Seller outside the United States) when Seller sets up its payout account, and issues the tax forms on BTG's behalf. A payout can't be made until that information is given. For an athlete under the age of majority, the tax information is given in the athlete's name, even though payouts go to the guardian's account. SponsorX itself never collects or stores a tax ID.
+
+A10. Closing or suspending a Seller
+
+BTG may suspend or close a Seller account for breach, fraud, repeated cancellations or failed verification. While closed, payouts are held, but money earned for delivered and confirmed lines stays owed, less any amounts owed back.
+
+A11. Acceptance and new versions
+
+Seller accepts these terms by ticking the box in onboarding; this has the same effect as a signature. SponsorX records the version, time and a fingerprint of the text. A new version applies once accepted; until then Seller cannot list new items.

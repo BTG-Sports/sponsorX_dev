@@ -58,7 +58,8 @@ describe("the order machine and the approval policy, as written (pure)", () => {
 
 const seededDb = await import("./support/seeded-db");
 /* 2S4-FE-02 — every order is placed through the contract gate. */
-const { issueOrderTerms, ORDER_TERMS_HASH, TEST_BILLING } = await import("./support/order-terms");
+const { issueOrderTerms, ORDER_TERMS_HASH, ORDER_TERMS_VERSION, TEST_BILLING } = await import("./support/order-terms");
+const { agreementBody } = await import("./support/agreements");
 const hasDatabase = await seededDb.databaseAvailable();
 
 describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }, async () => {
@@ -405,16 +406,16 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
 
   /* ── 2S4-FE-02 ─────────────────────────────────────────────────────────── */
   describe("2S4-FE-02 · the contract gate — terms accepted, billing confirmed, or no order", () => {
-    it("a live hold carries the order terms (the real v1 text and its hash) and the billing prefill", async () => {
+    it("a live hold carries the order terms (the text in force and its hash) and the billing prefill", async () => {
       const hold = await held("mo_s1_admin", [{ key: "sticker", quantity: 1, from: 40, to: 41 }]);
       L.gateHold = hold.id;
       const read = (await call("GET", `/reservations/${hold.id}`, "mo_s1_admin")).json;
       expect(read.checkout).toMatchObject({
         sponsorName: "Harbor Apparel",
         billingContact: { name: "Morgan Hale", email: "morgan@harbor.invalid" },
-        terms: { id: E.terms, kind: "MARKETPLACE_ORDER", version: 1, bodyHash: ORDER_TERMS_HASH },
+        terms: { id: E.terms, kind: "MARKETPLACE_ORDER", version: ORDER_TERMS_VERSION, bodyHash: ORDER_TERMS_HASH },
       });
-      expect(read.checkout.terms.body).toMatch(/^DRAFT — NOT COUNSEL-APPROVED/);
+      expect(read.checkout.terms.body).toBe(agreementBody("MARKETPLACE_ORDER"));
       /* The analyst reads the same hold and terms — placing is the admin's (below). */
       expect((await call("GET", `/reservations/${hold.id}`, "mo_s1_analyst")).json.checkout.terms.id).toBe(E.terms);
     });
@@ -448,10 +449,10 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
       const other = await call("POST", "/marketplace-orders", "mo_s1_admin", { reservationId: L.gateHold, agreementId: "mo_other_terms", bodyHashShown: ORDER_TERMS_HASH, billing: TEST_BILLING });
       expect(other.status, other.text).toBe(409);
       /* A version issued since checkout loaded: the old acceptance is refused. */
-      await prisma.agreement.create({ data: { id: "mo_terms_v2", tenantId: T, kind: "MARKETPLACE_ORDER", version: 2, bodyHash: "sha256:v2-not-yet-written", effectiveAt: new Date("2026-02-01") } });
+      await prisma.agreement.create({ data: { id: "mo_terms_v2", tenantId: T, kind: "MARKETPLACE_ORDER", version: ORDER_TERMS_VERSION + 1, bodyHash: "sha256:not-yet-written", effectiveAt: new Date("2026-02-01") } });
       const stale = await call("POST", "/marketplace-orders", "mo_s1_admin", { reservationId: L.gateHold, agreementId: E.terms, bodyHashShown: ORDER_TERMS_HASH, billing: TEST_BILLING });
       expect(stale.status, stale.text).toBe(409);
-      /* v2 has no servable text, so checkout shows no terms rather than the wrong ones. */
+      /* That version has no servable text, so checkout shows no terms rather than the wrong ones. */
       expect((await call("GET", `/reservations/${L.gateHold}`, "mo_s1_admin")).json.checkout.terms).toBeNull();
       await prisma.agreement.delete({ where: { id: "mo_terms_v2" } });
       await prisma.agreement.delete({ where: { id: "mo_other_terms" } });
@@ -467,14 +468,14 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
       expect(r.status, r.text).toBe(201);
       expect(r.json).toMatchObject({
         reservationId: L.gateHold, billingName: "Accounts Payable", billingEmail: "ap@harbor.invalid", billingReference: "PO-7781",
-        acceptance: { userId: "mo_s1_admin", bodyHash: ORDER_TERMS_HASH, user: { email: "mo_s1_admin@mo-test.invalid" }, agreement: { kind: "MARKETPLACE_ORDER", version: 1 } },
+        acceptance: { userId: "mo_s1_admin", bodyHash: ORDER_TERMS_HASH, user: { email: "mo_s1_admin@mo-test.invalid" }, agreement: { kind: "MARKETPLACE_ORDER", version: ORDER_TERMS_VERSION } },
       });
       const acceptance = await prisma.agreementAcceptance.findUniqueOrThrow({ where: { id: r.json.acceptanceId }, select: { agreementId: true, userId: true, bodyHash: true, ip: true, userAgent: true } });
       expect(acceptance).toMatchObject({ agreementId: E.terms, userId: "mo_s1_admin", bodyHash: ORDER_TERMS_HASH });
       expect(acceptance.ip).not.toBe("");
       const placed = await prisma.auditLog.findFirstOrThrow({ where: { tenantId: T, entityId: r.json.id, action: "marketplaceOrder.place" }, select: { actorId: true, after: true } });
       expect(placed.actorId).toBe("mo_s1_admin");
-      expect(placed.after).toMatchObject({ reservationId: L.gateHold, acceptanceId: r.json.acceptanceId, terms: { kind: "MARKETPLACE_ORDER", version: 1, bodyHash: ORDER_TERMS_HASH } });
+      expect(placed.after).toMatchObject({ reservationId: L.gateHold, acceptanceId: r.json.acceptanceId, terms: { kind: "MARKETPLACE_ORDER", version: ORDER_TERMS_VERSION, bodyHash: ORDER_TERMS_HASH } });
       expect(await prisma.auditLog.count({ where: { tenantId: T, entity: "Agreement", entityId: E.terms, action: "agreement.accept" } })).toBeGreaterThanOrEqual(1);
       /* BTG's view carries the same record. */
       expect((await call("GET", `/marketplace-orders/${r.json.id}`, "mo_admin")).json).toMatchObject({ billingEmail: "ap@harbor.invalid", acceptance: { userId: "mo_s1_admin" } });

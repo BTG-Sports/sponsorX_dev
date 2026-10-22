@@ -247,6 +247,10 @@ const schema = z.object({
      say the address is being set up. */
   SUPPORT_EMAIL: z.string().email().default("support@sponsorx.net"),
   SUPPORT_MAILBOX_READY: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  /* P0-LEG-04 — BTG's postal address, printed in every fan email footer (CAN-SPAM) and the fan
+     privacy notice. Empty until BTG supplies it (go-live item, P8-PMO-06): the footer then
+     leaves the line out rather than printing a placeholder to a member of the public. */
+  BTG_POSTAL_ADDRESS: z.string().trim().default(""),
   /* 3S1-QA-01 — the nightly fact check runs and records its result everywhere; it emails BTG's admins
      only where this is "on". Turned on per environment once that environment's fact history is filled
      (3S1-OPS-04) — before then every old campaign would show as "not matching". */

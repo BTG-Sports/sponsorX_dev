@@ -10,7 +10,7 @@ const ROUTES = [
   { href: "/sponsor", title: 'Sponsor Dashboard', ref: '§9 screen 3', surface: 'sponsor portal' },
   { href: "/sponsor/marketplace", title: 'Sponsor Marketplace', ref: '§9 screen 4', surface: 'sponsor portal' },
   { href: "/sponsor/marketplace/SX-03", title: 'NIL Job / Inventory Detail', ref: '§9 screen 7', surface: 'sponsor portal' },
-  { href: "/sponsor/campaigns/demo-campaign/report", title: 'Sponsor ROI / Campaign Report', ref: '§9 screen 12', surface: 'sponsor portal' },
+  { href: "/sponsor/campaigns/demo-campaign/report", title: 'Sponsor Results / Campaign Report', ref: '§9 screen 12', surface: 'sponsor portal' },
   { href: "/athlete", title: 'Athlete Portal', ref: '§9 screen 6 · §24', surface: 'athlete portal' },
   { href: "/athlete/invitations", title: 'Campaign Invitations', ref: '§21 · §13 step 5', surface: 'athlete portal' },
   { href: "/athlete/orders/demo-order", title: 'Campaign Order Acceptance', ref: '§12 · guide §08', surface: 'athlete portal' },

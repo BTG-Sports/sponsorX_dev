@@ -1,5 +1,6 @@
 import type { AddressInfo } from "node:net";
 import { describe, expect, it, vi, beforeAll, afterAll } from "vitest";
+import { versionInForce } from "./support/agreements";
 
 /* --------------------------------------------------------------------------
    2S1-BE-01 — "An external organisation can complete and submit onboarding
@@ -126,7 +127,7 @@ describe.skipIf(!hasDatabase)("property onboarding over the API", async () => {
   beforeAll(async () => {
     await clean();
     await prisma.tenant.create({ data: { id: T, name: "Onboarding test tenant" } });
-    await prisma.agreement.create({ data: { id: "po_terms", tenantId: T, kind: "PROPERTY_TERMS", version: 1, bodyHash: HASH, effectiveAt: new Date("2026-09-01") } });
+    await prisma.agreement.create({ data: { id: "po_terms", tenantId: T, kind: "PROPERTY_TERMS", version: versionInForce("PROPERTY_TERMS"), bodyHash: HASH, effectiveAt: new Date("2026-09-01") } });
     await prisma.user.createMany({ data: [
       { id: "po_reviewer", tenantId: T, clerkId: "po_reviewer", email: "r@po.invalid", roles: ["BTG_ADMIN"] },
       { id: "po_sponsor", tenantId: T, clerkId: "po_sponsor", email: "s@po.invalid", roles: ["SPONSOR_ADMIN"] },
@@ -173,7 +174,7 @@ describe.skipIf(!hasDatabase)("property onboarding over the API", async () => {
       await call("PATCH", `/public/onboarding/${tok}`, { step: "payout", acknowledged: true });
       const terms = (await call("GET", `/public/onboarding/${tok}`)).json.terms;
       /* No file hashes to HASH, so the wording is withheld rather than shown mismatched. */
-      expect(terms).toEqual({ agreementId: "po_terms", version: 1, bodyHash: HASH, body: null });
+      expect(terms).toEqual({ agreementId: "po_terms", version: versionInForce("PROPERTY_TERMS"), bodyHash: HASH, body: null });
       expect((await call("PATCH", `/public/onboarding/${tok}`, { step: "agreements", agreementId: "po_terms", bodyHashShown: "x".repeat(64) })).status).toBe(409);
       await call("PATCH", `/public/onboarding/${tok}`, { step: "agreements", agreementId: terms.agreementId, bodyHashShown: terms.bodyHash });
       /* P8-BE-06 — the acceptance keeps the IP and browser, and is audited, as every other acceptance is. */

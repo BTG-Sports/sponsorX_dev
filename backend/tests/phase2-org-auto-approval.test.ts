@@ -1,5 +1,6 @@
 import type { AddressInfo } from "node:net";
 import { describe, expect, it, vi, beforeAll, afterAll } from "vitest";
+import { versionInForce } from "./support/agreements";
 
 /* --------------------------------------------------------------------------
    2S1-BE-06 — "An organization with every required document, a confirmed
@@ -187,7 +188,7 @@ describe.skipIf(!hasDatabase)("organisations over the API", async () => {
   beforeAll(async () => {
     await clean();
     await prisma.tenant.create({ data: { id: T, name: "Org auto-approval test tenant" } });
-    await prisma.agreement.create({ data: { id: "oa_terms", tenantId: T, kind: "PROPERTY_TERMS", version: 1, bodyHash: HASH, effectiveAt: new Date("2026-09-01") } });
+    await prisma.agreement.create({ data: { id: "oa_terms", tenantId: T, kind: "PROPERTY_TERMS", version: versionInForce("PROPERTY_TERMS"), bodyHash: HASH, effectiveAt: new Date("2026-09-01") } });
     await prisma.user.createMany({ data: [
       { id: ADMIN, tenantId: T, clerkId: ADMIN, email: "admin@oa.invalid", roles: ["BTG_ADMIN"] },
       { id: "oa_sponsor", tenantId: T, clerkId: "oa_sponsor", email: "sponsor@oa.invalid", roles: ["SPONSOR_ADMIN"] },

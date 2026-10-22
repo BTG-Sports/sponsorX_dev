@@ -226,6 +226,37 @@ describe("P6-BE-08 · landing copy, who it's for, and a reward that has run out"
     expect(html).toContain("<strong>Check ID — 21+ only.</strong>");
   });
 
+  it("shows the approved notice under the button, where an age or ticket limit is checked, and the privacy link (P8-FE-08)", async () => {
+    const { html } = await page({
+      ...live, eligibility: "AGE_21_PLUS", eligibilityNote: null,
+      notice: "One reward per code. No purchase needed to claim. Reward offered by Rosa's Tacos; SponsorX is run by BTG Sports Group.",
+      eligibilityCheck: "Age and ticket are checked at the booth when you redeem.",
+    });
+    expect(html).toContain('<p class="elig">For fans 21 and over. Age and ticket are checked at the booth when you redeem.</p>');
+    expect(html).toContain("Email for your code <span class=\"note\">(optional — you can claim without it)</span>");
+    expect(html).toContain("No purchase needed to claim. Reward offered by Rosa&#39;s Tacos; SponsorX is run by BTG Sports Group. · <a href=\"/r/privacy\">Privacy notice</a>");
+  });
+
+  it("an older API with no notice still links the privacy notice", async () => {
+    const { html } = await page(live);
+    expect(html).toContain('<p class="note"><a href="/r/privacy">Privacy notice</a></p>');
+  });
+
+  it("serves the fan privacy notice in the API's own words, with no script (P8-FE-08)", async () => {
+    const { GET: PRIVACY } = await import("@/app/r/privacy/route");
+    const notice = { version: "2026-10-22", title: "SponsorX fan privacy notice", sections: [{ heading: "How long we keep it", text: "We delete your email 90 days after you claim the reward." }] };
+    const calls = stub(() => Response.json(notice));
+    const res = await PRIVACY(new Request("https://localhost:8080/r/privacy"));
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(calls[0]!.url).toMatch(/\/api\/v1\/public\/fan-privacy$/);
+    expect(html).toContain("<h1>SponsorX fan privacy notice</h1>");
+    expect(html).toContain("<h2>How long we keep it</h2><p>We delete your email 90 days after you claim the reward.</p>");
+    expect(html.toLowerCase()).not.toContain("<script");
+    stub(() => new Error("down"));
+    expect((await PRIVACY(new Request("https://localhost:8080/r/privacy"))).status).toBe(503);
+  });
+
   it("says nothing extra for a reward open to anyone", async () => {
     const { html } = await page({ ...live, eligibility: "ANYONE", eligibilityNote: null });
     expect(html).not.toContain('class="elig"');

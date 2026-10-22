@@ -1,5 +1,6 @@
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { versionInForce } from "./support/agreements";
 
 /* --------------------------------------------------------------------------
    P8-BE-04 — the athlete's Content Collaboration Agreement, recorded. Against
@@ -106,7 +107,7 @@ describe.skipIf(!hasDatabase)("P8-BE-04 · the athlete's Content Collaboration A
   it("serves the agreement in force, registered from its file on first use", async () => {
     const r = await call("GET", "/public/agreements/collab");
     expect(r.status, r.text).toBe(200);
-    expect(r.json).toMatchObject({ version: 1, bodyHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/), body: expect.stringMatching(/CONTENT COLLABORATION AGREEMENT/) });
+    expect(r.json).toMatchObject({ version: versionInForce("COLLAB"), bodyHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/), body: expect.stringMatching(/CONTENT COLLABORATION AGREEMENT/) });
     shown = r.json;
     expect(await prisma.agreement.count({ where: { tenantId: T, kind: "COLLAB" } })).toBe(1);
     expect((await call("GET", "/public/agreements/collab")).json.agreementId).toBe(shown.agreementId);
@@ -133,7 +134,7 @@ describe.skipIf(!hasDatabase)("P8-BE-04 · the athlete's Content Collaboration A
 
     /* Once the applicant has a login, the application's acceptance counts. */
     await prisma.user.create({ data: { id: "ca_u_noor", tenantId: T, clerkId: "ca_u_noor", email: "ca_noor@ca-test.invalid", roles: ["ATHLETE"], athleteId: ok.json.id } });
-    expect((await call("GET", "/me/collab-agreement", "ca_u_noor")).json).toMatchObject({ current: true, version: 1, byGuardian: false });
+    expect((await call("GET", "/me/collab-agreement", "ca_u_noor")).json).toMatchObject({ current: true, version: versionInForce("COLLAB"), byGuardian: false });
   });
 
   it("switched off, nothing waits on it; switched on, a deal waits — but accepting the agreement itself never does", async () => {

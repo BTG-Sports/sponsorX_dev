@@ -1,30 +1,43 @@
 "use client";
 
-import { AGREEMENT } from "@/lib/join-flow";
+import { AGREEMENT, type CollabAgreement } from "@/lib/join-flow";
 
 /* --------------------------------------------------------------------------
-   Section 10 — click-wrap (P1-ART-07 comp 10). Scrollable v0.4 draft terms,
-   a real checkbox whose tick draws in, and the recording note. The Submit
-   button itself lives in the wizard's action bar and is gated on `accepted`.
-   G-05 stopped being a gate 2026-09-15 — the wording is draft, labelled so.
+   Section 10 — click-wrap (P1-ART-07 comp 10). The Content Collaboration
+   Agreement in force, as the API serves it (P8-FE-07; v2 approved
+   2026-10-22), a real checkbox whose tick draws in, and the recording note.
+   The body is rendered verbatim: the application sends back its hash, so
+   nothing here may reflow or trim it. The Submit button itself lives in the
+   wizard's action bar and is gated on `accepted`.
    -------------------------------------------------------------------------- */
 
 export function JoinAgreementStep({
+  agreement,
   accepted,
   onAcceptedChange,
 }: {
+  agreement: CollabAgreement | null;
   accepted: boolean;
   onAcceptedChange: (accepted: boolean) => void;
 }) {
+  if (!agreement) {
+    return (
+      <p role="status" className="rounded-xl border border-line bg-surface-2 p-5 text-sm leading-relaxed text-muted">
+        {AGREEMENT.unavailable}
+      </p>
+    );
+  }
   return (
     <div className="space-y-4">
-      <div className="max-h-[46vh] space-y-5 overflow-y-auto rounded-xl border border-line bg-surface-2 p-5">
-        {AGREEMENT.clauses.map((c) => (
-          <div key={c.title}>
-            <h3 className="text-sm font-semibold text-text">{c.title}</h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted">{c.body}</p>
-          </div>
-        ))}
+      <div className="max-h-[46vh] overflow-y-auto rounded-xl border border-line bg-surface-2 p-5">
+        <pre
+          data-agreement-body
+          tabIndex={0}
+          aria-label="Content Collaboration Agreement text"
+          className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-muted"
+        >
+          {agreement.body}
+        </pre>
       </div>
 
       <label className="flex min-h-11 cursor-pointer items-start gap-3.5 rounded-xl border border-line bg-surface-2 p-4">
@@ -46,7 +59,7 @@ export function JoinAgreementStep({
             </svg>
           )}
         </span>
-        <span className="text-sm leading-relaxed text-text">{AGREEMENT.checkbox}</span>
+        <span className="text-sm leading-relaxed text-text">{AGREEMENT.checkbox(agreement.version)}</span>
       </label>
 
       <p className="text-xs leading-relaxed text-faint">{AGREEMENT.recordNote}</p>

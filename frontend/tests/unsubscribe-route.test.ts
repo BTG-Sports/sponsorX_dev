@@ -30,7 +30,7 @@ describe("/u/[token]", () => {
     const fetchSpy = vi.fn(async () => Response.json({ withdrawn: true }));
     vi.stubGlobal("fetch", fetchSpy);
     const res = await POST(req("POST"), ctx("ev.sig"));
-    expect(await res.text()).toContain("You are unsubscribed");
+    expect(await res.text()).toContain("You&#39;re unsubscribed");
     expect(String((fetchSpy.mock.calls[0] as unknown[])[0])).toContain("/api/v1/public/unsubscribe/ev.sig");
   });
 

@@ -78,12 +78,12 @@ export function buildCampaignRoiReport(campaignId: string): CampaignRoiReport {
 
   return {
     meta: {
-      title: "Campaign ROI Report",
+      title: "Campaign Results Report",
       campaign: roiReport.campaign,
       campaignId,
       presentedBy: roiReport.presentedBy,
       period: roiReport.period,
-      fileStem: `SponsorX-ROI-Report-${roiReport.campaign.replace(/\s+/g, "-")}-2026-05`,
+      fileStem: `SponsorX-Results-Report-${roiReport.campaign.replace(/\s+/g, "-")}-2026-05`,
       footnote:
         "Demo dataset — figures shaped to MetricDaily, RewardEvent, Deliverable and Zoho Books, provenance-labelled per §22.",
     },

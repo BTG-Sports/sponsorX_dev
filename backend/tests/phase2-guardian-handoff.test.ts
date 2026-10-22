@@ -1,5 +1,6 @@
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { agreementBody, versionInForce } from "./support/agreements";
 
 /* --------------------------------------------------------------------------
    2S1-BE-15 — changing a minor's guardian (the handoff), against the real
@@ -149,6 +150,8 @@ describe.skipIf(!hasDatabase)("2S1-BE-15 · changing a minor's guardian", { time
     luis = await request({ name: "Luis Reyes", email: "gh_luis@gh-test.invalid" });
     const s = await call("GET", pub(luis.token));
     expect(s.json).toMatchObject({ state: "REQUESTED", idUploaded: true, proofUploaded: true, emailConfirmed: false, missing: ["confirm your email", "accept the guardian agreement"] });
+    /* P8-FE-08 — the Guardian Agreement in force, for the new guardian to read before accepting. */
+    expect(s.json.agreement).toEqual({ version: versionInForce("GUARDIAN"), body: agreementBody("GUARDIAN") });
     expect((await call("POST", pub(luis.token, "/submit"), undefined, { acceptAgreement: true })).status).toBe(409);
     expect((await call("POST", pub(luis.token, "/submit"), undefined, {})).status).toBe(400);
     /* The browser's request token cannot confirm the mailbox. */

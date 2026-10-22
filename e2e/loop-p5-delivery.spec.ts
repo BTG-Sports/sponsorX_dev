@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
@@ -39,7 +39,14 @@ const CAMPAIGN = "e2e_p5_campaign";
 const CAMPAIGN_NAME = "E2E Pfive — summer stories";
 const ATHLETE = { id: "e2e_p5_athlete", name: "Dara Pfive" };
 const ADMIN = { key: "p5.admin", roles: ["BTG_ADMIN" as const] };
-const AGREEMENT = path.resolve(__dirname, "../backend/agreements/CAMPAIGN_ORDER.v1.txt");
+/* The Campaign Order terms in force: the highest CAMPAIGN_ORDER.v<n>.txt, which the API
+   registers on first use (v2 since 2026-10-22, P8-BE-07). */
+const AGREEMENTS_DIR = path.resolve(__dirname, "../backend/agreements");
+const AGREEMENT_VERSION = Math.max(...readdirSync(AGREEMENTS_DIR)
+  .map((f) => /^CAMPAIGN_ORDER\.v(\d+)\.txt$/.exec(f)?.[1])
+  .filter((v): v is string => v !== undefined)
+  .map(Number));
+const AGREEMENT = path.join(AGREEMENTS_DIR, `CAMPAIGN_ORDER.v${AGREEMENT_VERSION}.txt`);
 
 async function clean() {
   await releaseUser("p5.athlete");
@@ -112,7 +119,8 @@ test("an accepted invite becomes a signed order, a reviewed and revised delivera
   await athlete.getByRole("link", { name: /Campaign Order ready to sign/ }).click();
   await expect(athlete).toHaveURL(new RegExp(`/athlete/orders/${order.id}`));
   await expect(athlete.getByText("Ready to sign").first()).toBeVisible();
-  await expect(athlete.getByText("SPONSORX CAMPAIGN ORDER — STANDARD TERMS, VERSION 1")).toBeVisible();
+  /* The terms in force, whatever their version (v2 since 2026-10-22, P8-BE-07). */
+  await expect(athlete.getByText(/SPONSORX CAMPAIGN ORDER — STANDARD TERMS, VERSION \d+/)).toBeVisible();
   await expect(athlete.getByText("$80"), "the athlete never sees the sponsor price").toHaveCount(0);
   const accept = athlete.getByRole("button", { name: "Accept this order" });
   await expect(accept).toBeDisabled();

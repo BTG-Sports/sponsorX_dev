@@ -4,8 +4,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   CONSENT_PURPOSES,
   CURRENT_SPONSOR_CONTACT_VERSION,
+  KNOWN_SPONSOR_CONTACT_VERSIONS,
   SPONSOR_CONTACT_TEXT,
   sponsorContactFor,
+  sponsorContactText,
 } from "../src/domain/fan-consent";
 
 /* --------------------------------------------------------------------------
@@ -42,7 +44,16 @@ describe("2S6-BE-03 · a new purpose with its own dated wording (pure)", () => {
   it("adds sponsor-contact, versioned by date, with its own text", () => {
     expect(CONSENT_PURPOSES).toEqual(["reward-delivery", "sponsor-contact"]);
     expect(CURRENT_SPONSOR_CONTACT_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(SPONSOR_CONTACT_TEXT[CURRENT_SPONSOR_CONTACT_VERSION]).toMatch(/sponsor .* contact me/i);
+    expect(SPONSOR_CONTACT_TEXT[CURRENT_SPONSOR_CONTACT_VERSION]).toMatch(/share my email with \{sponsor\}/);
+    /* Every version ever shown stays listed — a stored claim resolves to the words the fan saw. */
+    expect(KNOWN_SPONSOR_CONTACT_VERSIONS).toEqual(expect.arrayContaining(["2026-09-28", "2026-10-22"]));
+  });
+
+  it("names the reward's sponsor in the box (P0-LEG-04), and falls back when there is none", () => {
+    expect(sponsorContactText(CURRENT_SPONSOR_CONTACT_VERSION, "Rosa's Tacos")).toMatch(/^Also share my email with Rosa's Tacos so they can send me their offers\./);
+    expect(sponsorContactText(CURRENT_SPONSOR_CONTACT_VERSION, null)).toMatch(/share my email with the sponsor of this reward/);
+    expect(sponsorContactText("2026-09-28", "Rosa's Tacos")).toBe(SPONSOR_CONTACT_TEXT["2026-09-28"]);
+    expect(sponsorContactText("1999-01-01", "x")).toBeNull();
   });
 
   it("is optional, and never stands without an address given with the delivery consent", () => {
@@ -119,7 +130,7 @@ describe.skipIf(!hasDatabase)("sponsor-contact consent and fan leads, on the pat
   describe("2S6-BE-03", () => {
     it("the fan page is told the second box's own wording and version", async () => {
       const r = await call("GET", "/public/rewards/fl-token-ticked", null);
-      expect(r.json.sponsorContact).toEqual({ version: CURRENT_SPONSOR_CONTACT_VERSION, purpose: "sponsor-contact", text: SPONSOR_CONTACT_TEXT[CURRENT_SPONSOR_CONTACT_VERSION] });
+      expect(r.json.sponsorContact).toEqual({ version: CURRENT_SPONSOR_CONTACT_VERSION, purpose: "sponsor-contact", text: sponsorContactText(CURRENT_SPONSOR_CONTACT_VERSION, "Rosa's Tacos") });
       expect(r.json.consent.purpose).toBe("reward-delivery");
     });
 

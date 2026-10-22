@@ -54,6 +54,7 @@ import type { ARENA_HANDOFF_GROUPS, HANDOFF_GROUPS } from "../contracts/guardian
 import { issuePurposeToken, readPurposeToken } from "../lib/purpose-token";
 import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, SENSITIVE_DOCUMENT_TTL_SECONDS, uploadRefusal } from "../lib/storage";
 import { provisionGuardianLoginIn } from "./athlete-login";
+import { currentAgreementOf } from "./current-agreement";
 import { requiresGuardian } from "./guardian-rules";
 import { safeFilename } from "./onboarding-documents";
 import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
@@ -254,7 +255,15 @@ async function declineOf(db: Tx | typeof prisma, r: Row): Promise<{ declinedBy: 
 /** GET /public/guardian-handoffs/:token — where the request stands; once declined, who declined it and BTG's reason. */
 export async function handoffStatus(token: string) {
   const r = await rowById(prisma, idFrom(token));
-  return { ...(await view(prisma, r, false)), ...(await declineOf(prisma, r)) };
+  /* P8-FE-08 — the Guardian Agreement in force, which the new guardian reads
+     and accepts on this page (submitHandoff records its version), so the
+     page shows the served words rather than a copy of its own. */
+  const a = await currentAgreementOf(prisma, r.tenantId, "GUARDIAN");
+  return {
+    ...(await view(prisma, r, false)),
+    ...(await declineOf(prisma, r)),
+    agreement: a ? { version: a.version, body: a.body } : null,
+  };
 }
 
 /** Step one of a document: a private-bucket PUT for exactly this file. Audited as a grant. */
@@ -305,7 +314,7 @@ export async function confirmHandoffDocumentUpload(token: string, documentId: st
 
 /** The guardian agreement as it stands for this tenant, if one is published. */
 async function agreementVersionOf(tx: Tx, tenantId: string): Promise<string> {
-  const a = await tx.agreement.findFirst({ where: { tenantId, kind: "GUARDIAN" }, select: { version: true, bodyHash: true }, orderBy: { version: "desc" } });
+  const a = await currentAgreementOf(tx, tenantId, "GUARDIAN");
   return a ? `GUARDIAN v${a.version} ${a.bodyHash.slice(0, 12)}` : "GUARDIAN (draft, pending counsel)";
 }
 

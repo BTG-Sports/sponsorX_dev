@@ -181,9 +181,9 @@ Create the Clerk account with separate dev and production instances. Clerk handl
 - **Delivered:** application `SponsorX` with its development and production instances (2026-09-21); production signs in on `clerk.sponsorx.net`, domain verified. Closed 2026-10-16.
 - **Reference:** Addendum A4, §26
 
-### ▶ `P0-LEG-01` · Commission Content Collaboration Agreement from counsel
+### ✅ `P0-LEG-01` · Commission Content Collaboration Agreement from counsel
 
-**Order** 4 · **LEG** · **Where:** External · counsel · **3d** · **Ready** · **Unblocks** 32
+**Order** 4 · **LEG** · **Where:** External · counsel · **3d** · **Done** · **Unblocks** 32
 
 > **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
@@ -191,11 +191,12 @@ DECISION GATE G-05 · Counsel-approved templates — both agreements signed off 
 
 - **Depends on:** nothing — startable now
 - **Done when:** Template delivered, versioned, approved for production use
+- **Approved:** 2026-10-22 by rcfworks with Rodney's delegated authority — the SponsorX Athlete Content Collaboration Agreement (Legal folder, document 1), issued as `COLLAB.v2.txt` (`P8-BE-07`).
 - **Reference:** §12, §26
 
-### ⏸ `P0-LEG-03` · Resolve guardian authorisation method for minors (G-03)
+### ✅ `P0-LEG-03` · Resolve guardian authorisation method for minors (G-03)
 
-**Order** 5 · **LEG** · **Where:** External · counsel · **1d** · **Blocked** · **Unblocks** 31
+**Order** 5 · **LEG** · **Where:** External · counsel · **1d** · **Done** · **Unblocks** 31
 
 > **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
@@ -203,11 +204,12 @@ DECISION GATE G-03 · Guardian e-signature — is click-to-accept enough for a p
 
 - **Depends on:** P0-LEG-01
 - **Done when:** Written answer: click-wrap sufficient, or an e-sign vendor named
+- **Approved:** 2026-10-22 by rcfworks with Rodney's delegated authority — **click-to-accept by a verified guardian is sufficient** (document 6, Option A, as built; no e-sign vendor). The Guardian Agreement is issued as `GUARDIAN.v2.txt` (`P8-BE-07`).
 - **Reference:** Addendum A5, §4
 
-### ▶ `P0-LEG-02` · Commission Campaign Order template from counsel
+### ✅ `P0-LEG-02` · Commission Campaign Order template from counsel
 
-**Order** 6 · **LEG** · **Where:** External · counsel · **3d** · **Ready** · **Unblocks** 30
+**Order** 6 · **LEG** · **Where:** External · counsel · **3d** · **Done** · **Unblocks** 30
 
 > **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
@@ -215,6 +217,7 @@ DECISION GATE G-05 · Counsel-approved templates — both agreements signed off 
 
 - **Depends on:** nothing — startable now
 - **Done when:** Template delivered with clause set for job code, deliverables, compensation, usage rights, exclusivity, deadlines, disclosure
+- **Approved:** 2026-10-22 by rcfworks with Rodney's delegated authority — the Campaign Order standard terms (document 2), issued as `CAMPAIGN_ORDER.v2.txt` (`P8-BE-07`).
 - **Reference:** §12
 
 ### ▶ `P0-DATA-01` · Define the metric provenance taxonomy
@@ -257,9 +260,9 @@ DECISION GATE G-01 · Phase 1 payment policy — do we track payment status only
 - **Done when:** One page, signed by whoever runs payouts, stating earnings-status-only and no tax ID collection
 - **Reference:** §37, Addendum A6
 
-### ▶ `P0-LEG-04` · Privacy review of the fan reward funnel
+### ✅ `P0-LEG-04` · Privacy review of the fan reward funnel
 
-**Order** 11 · **LEG** · **Where:** External · counsel · **3d** · **Ready** · **Unblocks** 5
+**Order** 11 · **LEG** · **Where:** External · counsel · **3d** · **Done** · **Unblocks** 5
 
 > **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
@@ -267,6 +270,7 @@ Have counsel approve the consent wording fans see when they scan a QR code and h
 
 - **Depends on:** nothing — startable now
 - **Done when:** Consent language approved for scan→claim→redeem; purpose limitation defined; what sponsors receive is specified
+- **Approved:** 2026-10-22 by rcfworks with Rodney's delegated authority — the fan consent wording (document 3): both boxes re-versioned `2026-10-22` (the sponsor named in the second), the notice under the button, the fan email footer and the fan privacy notice (`GET /public/fan-privacy`), issued in `P8-BE-07`.
 - **Reference:** §16, §26
 
 ### ▶ `P0-PMO-11` · Re-verify and pin all dependency versions
@@ -339,9 +343,9 @@ Agree the seven things that make up an athlete's score and how much each counts.
 - **Done when:** The seven §14 factors, their weights, and the manual inputs each depends on
 - **Reference:** §14
 
-### ▶ `P0-LEG-06` · NIL eligibility + athletic-association review for high-school athletes
+### ✅ `P0-LEG-06` · NIL eligibility + athletic-association review for high-school athletes
 
-**Order** 18 · **LEG** · **Where:** External · counsel · **3d** · **Ready** · **Unblocks** 1
+**Order** 18 · **LEG** · **Where:** External · counsel · **3d** · **Done** · **Unblocks** 1
 
 > **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
@@ -359,6 +363,7 @@ Agree the seven things that make up an athlete's score and how much each counts.
 
 - **Depends on:** nothing — startable now
 - **Done when:** Counsel approves the athlete-responsibility paragraph and the confirmation wording (in the `P0-LEG-01` draft). No state-by-state constraints list is produced.
+- **Approved:** 2026-10-22 by rcfworks with Rodney's delegated authority — the athlete-responsibility wording (document 1 §9–10; Guardian Agreement §5). The confirmation box was already word for word (`P8-BE-02`, version `2026-10-20`).
 - **Reference:** §26, §4
 
 ### ⏸ `P0-ART-01` · Produce the ERD as a distributable diagram (§38 deliverable)
@@ -391,9 +396,9 @@ Define exactly what counts as a scan, a landing, a claim and a redemption. If th
 - **Done when:** SCAN / LANDING / CLAIM / REDEEM defined with the exact trigger for each
 - **Reference:** §16, §38
 
-### ▶ `P0-LEG-05` · Reward terms review (sweepstakes / coupon legality)
+### ✅ `P0-LEG-05` · Reward terms review (sweepstakes / coupon legality)
 
-**Order** 22 · **LEG** · **Where:** External · counsel · **1d** · **Ready** · **Unblocks** 0
+**Order** 22 · **LEG** · **Where:** External · counsel · **1d** · **Done** · **Unblocks** 0
 
 > **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
@@ -407,6 +412,7 @@ Define exactly what counts as a scan, a landing, a claim and a redemption. If th
 
 - **Depends on:** nothing — startable now
 - **Done when:** Counsel approves the sponsor-responsibility paragraph for rewards. No state-by-state list of permitted reward types is produced.
+- **Approved:** 2026-10-22 by rcfworks with Rodney's delegated authority — the sponsor-responsibility paragraph for rewards (document 4, section B7), issued in `MARKETPLACE_ORDER.v2.txt` (`P8-BE-07`).
 - **Reference:** §16
 
 ### ▶ `P0-OPS-04` · Provision Zoho API credentials and sandbox
@@ -2846,6 +2852,36 @@ Raised 2026-10-21. A gap found while drafting 2S0-LEG-01: an organisation's term
   - **Not used:** `AgreementAcceptance`, which needs a user, athlete or student as the subject. An organisation signing up has none yet.
 - **Reference:** §12
 
+### ✅ `P8-BE-07` · Issue the approved legal wording in the app
+
+**Order** 157.79 · **BE** · **Where:** Code · **1d** · **Done** · **Unblocks** 1 (P8-FE-08)
+
+Raised 2026-10-22, when the legal drafts in the SponsorX Legal folder (documents 1–7) were approved by rcfworks with Rodney's delegated authority. What people accept is fingerprinted, so the approved words must be the ones on screen, as a new version of each agreement.
+
+- **Depends on:** P0-LEG-01 to P0-LEG-06, 2S0-LEG-01, 2S0-LEG-02, 3S0-LEG-01 (all approved 2026-10-22)
+- **Done when:** All of these hold.
+  - **Every agreement has an approved v2** in `backend/agreements/`: Content Collaboration Agreement, Campaign Order standard terms, Guardian Agreement, Marketplace Seller and Payout Terms, Marketplace Order Terms. No counsel brackets, draft banners or blanks. The v1 files stay, so a v1 acceptance still resolves to the words shown.
+  - **v2 is in force for every tenant without a manual step.** Each loader registers the highest file version on first use (`registerFileVersion`), as the athlete and guardian agreements already did. Earlier acceptances stay tied to v1; people accept v2 the next time they act.
+  - **The fan page wording is re-versioned `2026-10-22`.** Box 1 no longer says the email is never shared. Box 2 names the reward's sponsor. The public reward view adds the notice under the button and, for age or ticket rewards, where the check happens.
+  - **Fan emails carry the approved footer,** with BTG's postal address once `BTG_POSTAL_ADDRESS` is set (left out, never a placeholder, until then).
+  - **The fan privacy notice is served** at `GET /public/fan-privacy`. It states only what the product does: email deleted 90 days after the claim (`P8-BE-05`), contact `SUPPORT_EMAIL`, data in the US.
+  - **The rendered sponsor report** is the "Campaign Results Report". "Media value" is now "Cost per 1,000 checked views", and the approved foot note is added.
+- **Decided with the approval (2026-10-22):**
+  - **Fill-ins:** each counsel blank was filled with what the product already does:
+    - payment within 30 days, after verification and the sponsor's payment;
+    - nothing owed on cancellation (an order can only be cancelled before anything is published);
+    - no cap on revision rounds; a post stays live for the campaign window;
+    - no indemnities;
+    - acceptance and earnings records kept 7 years after closure;
+    - 30 days' notice of fee changes;
+    - guardian sign-off is click-to-accept (Option A).
+  - **Governing law is left out of v2.** BTG hasn't chosen it yet; naming it later is a v3, which everyone re-accepts.
+  - **BTG's postal address** is a go-live switch in `SponsorX-Go-No-Go-Review.md`.
+- **Delivered:** 2026-10-22.
+  - **Code:** `current-agreement.ts` `registerFileVersion`; `offer.ts`, `campaigns.ts` `readOrder`, `order-terms.ts`, `onboarding.ts`, `guardian-handoff.ts`; `fan-consent.ts`, `fan-privacy-notice.ts`, `reward.ts`, `rewards.ts`; `send-email.mts` `fanFooter`; `report-render.ts`.
+  - **Tests:** `approved-legal-wording.test.ts`. The suites that pinned v1 now read the version in force (`tests/support/agreements.ts`).
+- **Reference:** §12, §16, §22, §26
+
 ### 🔎 `P8-OPS-03` · Stripe and Zoho webhooks reach production's private API
 
 **Order** 157.78 · **OPS** · **Where:** Code · **0.5d** · **Code review**
@@ -2865,7 +2901,7 @@ Raised 2026-10-21, while preparing Stripe go-live. Production's API has no publi
 
 ### ▶ `P8-FE-07` · Show the real agreement on /join and record it
 
-**Order** 157.93 · **FE** · **Where:** Code · **1d** · **Ready**
+**Order** 157.93 · **FE** · **Where:** Code · **1d** · **In progress**
 
 Raised with `P8-BE-04`.
 - **/join** shows the text from `GET /public/agreements/collab`, replacing the hard-coded "v0.4 draft" clauses in `join-flow.ts`.
@@ -2879,7 +2915,36 @@ Raised with `P8-BE-04`.
   - A 409 `agreement_text_changed` or a 422 `not_collab_agreement` reloads the text.
   - The portal prompt appears when it's needed and accepts the agreement.
   - The switch is on the settings screen.
+- **Progress 2026-10-22 (rcfworks, at the user's request):**
+  - **Done:** /join shows the served agreement (v2) verbatim with its version and the approved acceptance line, and sends `agreement: { agreementId, bodyHashShown }` with the application. A tick on an earlier version doesn't carry over. If the text can't be loaded, the step says so and waits.
+  - **A 409 or 422** shows the API's own "reload and accept again" message.
+  - **Still open:** the athlete-portal prompt for `current: false`, and the `requireCollabAcceptance` switch on BTG's sign-up settings.
 - **Reference:** §12
+
+### ✅ `P8-FE-08` · Show the approved fan-page and results wording
+
+**Order** 157.94 · **FE** · **Where:** Code · **1d** · **Done**
+
+Raised with `P8-BE-07` (2026-10-22). The backend serves the approved wording; these screens still carry their own copies.
+- **The fan reward page** (`frontend/src/server/fan-page.ts`):
+  - shows `notice` under the claim button, and `eligibilityCheck` under an age or ticket line;
+  - labels the email field "Email for your code (optional — you can claim without it)";
+  - links the fan privacy notice from `GET /public/fan-privacy`.
+- **The unsubscribe confirmation** (`/u/[token]`) reads: "You're unsubscribed. We won't email you again about this reward, and we've told the sponsor to stop too."
+- **The guardian's set-up page** shows the acceptance box: "I am [Athlete name]'s parent, legal guardian or authorised representative. I have read and accept the SponsorX Guardian Agreement (version n) on their behalf."
+- **The sponsor results screen and report page** use the approved labels and captions. These are "Fans who redeemed", "Sales matched to you", "Sales likely from you" and "Estimated media value", plus the confidence caption. The page title becomes "Campaign Results Report", with no "ROI". The foot note is the same as the rendered report's (`RESULTS_NOTE`).
+
+- **Depends on:** P8-BE-07
+- **Done when:** Each screen above shows the approved words, taken from the API where the API serves them. No sponsor screen says "ROI".
+- **Delivered 2026-10-22 (rcfworks, at the user's request):**
+  - **Fan page:** `notice` and `eligibilityCheck`, the email label, and a privacy link to `/r/privacy`. That's a new fan route rendering `GET /public/fan-privacy`.
+  - **Unsubscribe page:** "You're unsubscribed…".
+  - **Guardian pages:** the approved acceptance line on both. The handoff page now shows the served Guardian Agreement, which the backend adds to `GET /public/guardian-handoffs/{token}`, instead of a hard-coded placeholder.
+  - **Sponsor screens:** "ROI" is gone from the report title, the export filename, the campaign page, the back link and the packages page. The approved confidence caption and the results foot note (`RESULTS_NOTE`) are shown.
+  - **Not changed:**
+    - The home page's marketing line "measurable ROI": a sales claim, not a report label.
+    - The sample-only PDF export's figures: its demo data still includes a "return multiple".
+- **Reference:** §16, §22, Legal folder documents 3 and 5
 
 ### ▶ `P8-FE-03` · The rules tick on the sign-up page and the guardian's page
 
@@ -3133,7 +3198,7 @@ The formal sign-off that the pre-pilot and pre-sponsor-pilot conditions are met 
 - **Done when:** §37's pre-pilot and pre-sponsor-pilot gates formally signed off
 - **Drafted 2026-10-20, decision pending:** [`SponsorX-Go-No-Go-Review.md`](./SponsorX-Go-No-Go-Review.md).
   - **The software is ready:** Phases 1–4 are signed off.
-  - **The athlete-pilot and sponsor-pilot gates wait on counsel:** P0-LEG-01 to P0-LEG-06, 2S0-LEG-01, 2S0-LEG-02 and 3S0-LEG-01.
+  - **The athlete-pilot and sponsor-pilot gates waited on counsel:** P0-LEG-01 to P0-LEG-06, 2S0-LEG-01, 2S0-LEG-02 and 3S0-LEG-01. **All approved 2026-10-22** and issued in the app (`P8-BE-07`).
   - **The owner's production switches** are listed in the record.
   - **The recommendation:** no-go for real outside users until counsel answers, with production readiness and a BTG-internal dry run in parallel.
 - **Reference:** §37

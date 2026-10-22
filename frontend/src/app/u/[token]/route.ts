@@ -52,7 +52,8 @@ export async function POST(req: Request, { params }: Params) {
   }
 
   return withdrawn
-    ? page("You are unsubscribed", "We will not email this address about this reward again. Your reward itself is unaffected.")
+    /* P8-FE-08 — the wording approved 2026-10-22 (P0-LEG-04, document 3 §7). */
+    ? page("You're unsubscribed", "We won't email you again about this reward, and we've told the sponsor to stop too. Your reward itself is unaffected.")
     : page(
         "That link did not work",
         "It may be incomplete — try opening it again from the email. If it keeps failing, reply to the email and we will remove you by hand.",

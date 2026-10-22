@@ -30,6 +30,18 @@ export const SOURCE_LABEL = {
 } as const;
 export type Source = keyof typeof SOURCE_LABEL;
 
+/**
+ * The standard note at the foot of every sponsor results screen and report —
+ * 3S0-LEG-01, approved 2026-10-22 (attribution wording, document 5 §6).
+ * Served as-is; a change is a new approval, not an edit.
+ */
+export const RESULTS_NOTE =
+  "Checked figures are counted by SponsorX or taken from the platform. Likely figures come from a model and show " +
+  "their confidence; they are not proof that your campaign caused a sale. Estimated media value is what the exposure " +
+  "would have cost to buy as ads; it is not revenue or profit. Self-reported figures come from the athlete and are " +
+  "not checked. Figures can change as late data, refunds and corrections arrive. Prepared by SponsorX, run by BTG " +
+  "Sports Group.";
+
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const n = (v: number) => v.toLocaleString("en-US");
 const usd = (cents: number) => `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -78,7 +90,7 @@ export function renderReportHtml(r: SponsorReport, renderedAt = new Date(), bran
   const clicks = r.deliveredAssets.reduce((s, a) => s + a.trackedClicks, 0);
   const f = r.funnel;
 
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Campaign ROI Report — ${esc(r.campaign.name)}</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Campaign Results Report — ${esc(r.campaign.name)}</title>
 <style>
   @page{size:A4;margin:18mm 16mm}
   body{font:12px/1.45 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#141414}
@@ -94,7 +106,7 @@ export function renderReportHtml(r: SponsorReport, renderedAt = new Date(), bran
   ${primary ? `h1{color:${primary}}` : ""}${accent ? `h2{color:${accent}}.card{border-color:${accent}}` : ""}
 </style></head><body>
 ${logo || brand.name ? `<div class="brand" data-brand="tenant">${logo ? `<img src="${logo}" alt="">` : ""}${brand.name ? `<b>${esc(brand.name)}</b>` : ""}</div>` : ""}
-<h1>Campaign ROI Report</h1>
+<h1>Campaign Results Report</h1>
 <p class="muted">${esc(r.campaign.name)} · ${day(r.campaign.startDate)} – ${day(r.campaign.endDate)} · ${esc(r.campaign.state.toLowerCase())}</p>
 ${r.objective ? `<p class="faint">Objective: ${esc(r.objective)}</p>` : ""}
 
@@ -106,7 +118,7 @@ ${r.objective ? `<p class="faint">Objective: ${esc(r.objective)}</p>` : ""}
 <p class="faint">Each layer stands alone — a self-reported or estimated view is never added to a verified one (§22).</p>
 
 <div class="grid" style="margin-top:12px">
-  <div class="card"><div class="muted">Media value ${chip("ESTIMATED")}</div><div class="big">${usd(r.mediaValue.amount)}</div><div class="faint">${esc(r.mediaValue.basis)}</div></div>
+  <div class="card"><div class="muted">Cost per 1,000 checked views ${chip("ESTIMATED")}</div><div class="big">${usd(r.mediaValue.amount)}</div><div class="faint">${esc(r.mediaValue.basis)}</div></div>
   <div class="card"><div class="muted">Delivery</div><div class="big">${verified} <span class="muted">of ${total} verified</span></div><div class="faint">deliverables confirmed live by BTG</div></div>
   <div class="card"><div class="muted">Link clicks ${chip("ATTRIBUTED")}</div><div class="big">${n(clicks)}</div><div class="faint">counted on our own tracking links, not a platform figure</div></div>
 </div>
@@ -135,7 +147,8 @@ ${r.virtualPlacements?.length ? `<h2>INFINEX placements</h2>
   <tr><td><b>${esc(v.placementName)}</b> <span class="faint">${esc(v.worldId)} · ${day(v.startsAt)} – ${day(v.endsAt)}</span></td><td class="r">${usd(v.priceCents)}</td></tr>`).join("")}</table>` : ""}
 
 ${brand.footer ? `<p class="faint" data-brand="footer" style="margin-top:28px">${esc(brand.footer)}</p>` : ""}
-<p class="faint" style="margin-top:${brand.footer ? "6px" : "28px"}">Rendered by SponsorX on ${day(renderedAt)} from the same figures as the live report.</p>
+<p class="faint" data-note="results" style="margin-top:28px">${esc(RESULTS_NOTE)}</p>
+<p class="faint" style="margin-top:6px">Rendered by SponsorX on ${day(renderedAt)} from the same figures as the live report.</p>
 </body></html>`;
 }
 

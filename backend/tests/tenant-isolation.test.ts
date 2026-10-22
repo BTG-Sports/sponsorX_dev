@@ -556,8 +556,12 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     await prisma.agreement.create({ data: { id: A.agreement, tenantId: t, kind: "ATHLETE_TERMS", version: 1, bodyHash: "x".repeat(64), effectiveAt: new Date("2026-01-01") } });
     /* P8-BE-04 — the Content Collaboration Agreement in force is registered from its file the first
        time anyone looks it up (GET /me/collab-agreement); register it now, as a live tenant would have,
-       so the sweep's own lookups change nothing of tenant A's. */
-    await (await import("../src/domain/current-agreement")).currentAgreementOf(prisma, t, "COLLAB");
+       so the sweep's own lookups change nothing of tenant A's. The Campaign Order, marketplace order
+       and seller terms are registered the same way since their v2 (2026-10-22), and the guardian
+       agreement the public handoff page now shows. */
+    const agreements = await import("../src/domain/current-agreement");
+    await agreements.currentAgreementOf(prisma, t, "COLLAB");
+    for (const kind of ["CAMPAIGN_ORDER", "MARKETPLACE_ORDER", "PROPERTY_TERMS", "GUARDIAN"]) await agreements.registerFileVersion(prisma, t, kind);
     await prisma.user.create({ data: { id: A.admin, tenantId: t, clerkId: A.admin, email: "admin@a.invalid", roles: ["BTG_ADMIN"] } });
     /* SponsorX NEXT (Stage 9 Batch A) — a masthead, a SELLING edition, one open slot. */
     await prisma.publication.create({ data: { id: A.publication, tenantId: t, name: "TI Secret Masthead" } });

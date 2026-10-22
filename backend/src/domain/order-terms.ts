@@ -20,6 +20,7 @@
 import type { Prisma } from "../generated/prisma/client";
 import type { prisma } from "../db/client";
 import { loadAgreementBody } from "./agreement-text";
+import { registerFileVersion } from "./current-agreement";
 import { MARKETPLACE_ORDER_TERMS_KIND } from "./marketplace-order-rules";
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -28,6 +29,7 @@ export type OrderTerms = { id: string; kind: string; version: number; bodyHash: 
 
 /** The terms in force for this tenant, or null when none is issued or its file no longer matches. */
 export async function currentOrderTerms(db: Db, tenantId: string, now = new Date()): Promise<OrderTerms | null> {
+  await registerFileVersion(db, tenantId, MARKETPLACE_ORDER_TERMS_KIND);
   const a = await db.agreement.findFirst({
     where: { tenantId, kind: MARKETPLACE_ORDER_TERMS_KIND, effectiveAt: { lte: now } },
     orderBy: { version: "desc" },
