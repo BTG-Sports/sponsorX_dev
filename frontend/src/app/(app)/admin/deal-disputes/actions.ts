@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { openDisputeBody, resolveNoteProblem, type OpenDisputeForm } from "@/lib/deal-dispute-desk";
+import { openDisputeBody, openDisputeRefusal, resolveNoteProblem, type OpenDisputeForm } from "@/lib/deal-dispute-desk";
 import { dealDisputeRefusal, type ApiDealDispute, type ApiDealDisputeLink } from "@/lib/deal-disputes-live";
 import { apiFetch } from "@/server/api";
 
@@ -61,8 +61,7 @@ export async function openDealDisputeAction(orderId: string, form: OpenDisputeFo
   const r = await call(`/orders/${encodeURIComponent(orderId.trim())}/disputes`, { method: "POST", body: JSON.stringify(checked.body) });
   if (!r) return { ok: false, message: unreachable };
   if (!r.res.ok) {
-    if (r.res.status === 404) return { ok: false, message: "No order matches that id in your scope." };
-    return { ok: false, message: dealDisputeRefusal(r.res.status, r.body as Parameters<typeof dealDisputeRefusal>[1], "The dispute wasn't opened") };
+    return { ok: false, message: openDisputeRefusal(r.res.status, r.body as Parameters<typeof dealDisputeRefusal>[1], "The dispute wasn't opened") };
   }
   const view = r.body as Partial<ApiDealDispute> | null;
   const id = typeof view?.id === "string" ? view.id : "";

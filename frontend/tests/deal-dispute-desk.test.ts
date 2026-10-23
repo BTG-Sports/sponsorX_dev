@@ -51,6 +51,7 @@ import {
   isDisputableOrder,
   linkLifeWords,
   openDisputeBody,
+  openDisputeRefusal,
   openFormProblem,
   orderStateWords,
   pausedByOrder,
@@ -135,6 +136,15 @@ describe("P8-FE-05 · the desk's pure half", () => {
     expect(openDisputeBody({ source: "LEAGUE", reason: "no", documentsRequested: "The ruling." })).toMatchObject({ ok: false });
   });
 
+  it("reads a refused open as 'no such order' on 403 as well as 404 — the API 403s an order it can't find", () => {
+    expect(openDisputeRefusal(404, null, "x")).toMatch(/No order matches that id/);
+    expect(openDisputeRefusal(403, { error: { code: "forbidden", message: "no" } }, "x")).toMatch(/No order matches that id/);
+    expect(openDisputeRefusal(403, null, "x")).not.toMatch(/only a BTG admin/);
+    expect(openDisputeRefusal(409, { error: { code: "deal_already_paused" } }, "x")).toMatch(/already has an open dispute/);
+    expect(openDisputeRefusal(409, { error: { code: "deal_not_disputable" } }, "x")).toMatch(/sent, accepted or live/);
+    expect(openDisputeRefusal(500, null, "The dispute wasn't opened")).toBe("The dispute wasn't opened");
+  });
+
   it("checks the resolve note (3–2000)", () => {
     expect(resolveNoteProblem("")).toMatch(/Write the note/);
     expect(resolveNoteProblem("  ab ")).toMatch(/Write the note/);
@@ -173,6 +183,19 @@ describe("P8-FE-05 · the admin desk", async () => {
       "/deal-disputes/dd_docs": { status: 200, body: LIST[1] },
       "/deal-disputes/dd_resumed": { status: 200, body: LIST[2] },
     };
+  });
+
+  it("shows a reader the empty state, not 'Not in your role', when the API 403s an id it won't read", async () => {
+    vars.responses["/deal-disputes/..%2F"] = { status: 403, body: { error: { code: "forbidden", message: "no" } } };
+    const html = await detail("../");
+    expect(html).toContain("No deal dispute matches this link");
+    expect(html).not.toContain("Not in your role");
+    /* A 403 on the list still names the viewer's own roles, never the desk's. */
+    vars.responses["/deal-disputes"] = { status: 403, body: { error: { code: "forbidden", message: "no" } } };
+    const refused = await list();
+    expect(refused).toContain("Not in your role");
+    expect(refused).not.toContain("CAMPAIGN_MGR");
+    expect(refused).toContain("BTG_ADMIN");
   });
 
   it("reads every dispute once, with no state, and computes the tiles and tab counts itself", async () => {

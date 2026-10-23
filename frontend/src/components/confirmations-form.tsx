@@ -43,6 +43,8 @@ export function ConfirmationsForm({ target, line, cta = "Confirm" }: { target: C
           id={id}
           type="checkbox"
           checked={ticked}
+          /* Back/forward must not restore a tick React doesn't hold — the box looked ticked over a dead button (QA 2026-10-23). */
+          autoComplete="off"
           disabled={pending}
           onChange={(e) => setTicked(e.target.checked)}
           className="mt-0.5 size-3.5 shrink-0 accent-[var(--sx-primary)]"

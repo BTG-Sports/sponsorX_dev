@@ -4,7 +4,7 @@ import { DealChip, DealDisputeDetail } from "@/components/deal-dispute-desk";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { EmptyState } from "@/components/states";
 import { orderStateTone, orderStateWords } from "@/lib/deal-dispute-desk";
-import { dealStateLabel, dealStateTone, dealTabFor, mayManageDisputes, type ApiDealDispute } from "@/lib/deal-disputes-live";
+import { dealStateLabel, dealStateTone, dealTabFor, mayManageDisputes, mayReadDisputes, type ApiDealDispute } from "@/lib/deal-disputes-live";
 import { apiFetch, fetchActor } from "@/server/api";
 
 /* --------------------------------------------------------------------------
@@ -25,15 +25,17 @@ import { apiFetch, fetchActor } from "@/server/api";
 export const dynamic = "force-dynamic";
 const LIST = "/admin/deal-disputes";
 const TITLE = "Deal dispute";
-const ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"];
 
 export default async function DealDisputePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const lacking = await staffWithoutAccess(LIST);
   if (lacking) return <NotInRole path={LIST} title={TITLE} roles={lacking} />;
   const [res, who] = await Promise.all([apiFetch(`/deal-disputes/${encodeURIComponent(id)}`), fetchActor()]);
-  if (res.status === 403) return <NotInRole path={LIST} title={TITLE} roles={ROLES} />;
-  if (res.status === 404) {
+  const roles = who.status === "linked" ? who.actor.roles : [];
+  /* The API answers 403, not 404, to an id it won't read (malformed, another tenant's). To a role this
+     desk admits that is "no such dispute", not "not your role" (QA 2026-10-23). */
+  if (res.status === 403 && !mayReadDisputes(roles)) return <NotInRole path={LIST} title={TITLE} roles={roles} />;
+  if (res.status === 404 || res.status === 403) {
     return (
       <div className="space-y-5">
         <Link href={LIST} className="text-xs text-muted hover:text-text">← Deal disputes</Link>
@@ -44,7 +46,6 @@ export default async function DealDisputePage({ params }: { params: Promise<{ id
   }
   if (!res.ok) throw new Error(`Deal dispute unavailable (${res.status}).`);
   const d = (await res.json()) as ApiDealDispute;
-  const roles = who.status === "linked" ? who.actor.roles : [];
   const manager = mayManageDisputes(roles);
   const back = `${LIST}?tab=${dealTabFor(d.state).key}`;
 

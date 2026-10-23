@@ -1,7 +1,9 @@
 import {
   DEAL_DISPUTE_SOURCES,
   DEAL_DISPUTE_STATES,
+  dealDisputeRefusal,
   type ApiDealDispute,
+  type ApiErrorBody,
   type ApiDealDisputeDocument,
   type DealDisputeSource,
   type DealDisputeState,
@@ -145,6 +147,14 @@ export function resolveNoteProblem(note: string | null | undefined): string | nu
   if (n.length < NOTE_MIN) return "Write the note — the athlete and the next person read it.";
   if (n.length > TEXT_MAX) return `Keep the note under ${TEXT_MAX} characters.`;
   return null;
+}
+
+/** What a refused POST /orders/:id/disputes means. The API answers 403 (not 404) to an order it
+ *  can't find or won't write — to a BTG admin that is "no such order", not "not your role"
+ *  (QA 2026-10-23: a typo in the id read "only a BTG admin can change it" to a BTG admin). */
+export function openDisputeRefusal(status: number, body: ApiErrorBody, fallback: string): string {
+  if (status === 404 || status === 403) return "No order matches that id in your scope.";
+  return dealDisputeRefusal(status, body, fallback);
 }
 
 /* -------------------------------------------------------- the documents */

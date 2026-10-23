@@ -25,7 +25,6 @@ import { apiFetch, fetchActor } from "@/server/api";
 export const dynamic = "force-dynamic";
 const PATH = "/admin/deal-disputes";
 const TITLE = "Deal disputes";
-const ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"];
 
 export default async function DealDisputesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const demo = await demoState(searchParams);
@@ -45,12 +44,13 @@ export default async function DealDisputesPage({ searchParams }: { searchParams:
   const tab = dealDisputeTab(sp.tab);
   const empty = demo === "empty";
   const [res, who] = await Promise.all([empty ? null : apiFetch("/deal-disputes"), fetchActor()]);
-  if (res?.status === 403) return <NotInRole path={PATH} title={TITLE} roles={ROLES} />;
+  const roles = who.status === "linked" ? who.actor.roles : [];
+  /* "Not in your role" names the viewer's own roles, never the desk's (QA 2026-10-23). */
+  if (res?.status === 403) return <NotInRole path={PATH} title={TITLE} roles={roles} />;
   if (res && !res.ok) throw new Error(`Deal disputes unavailable (${res.status}).`);
   const all = res ? ((await res.json()) as ApiDealDisputeList).disputes : [];
   const counts = dealDisputeCounts(all);
   const rows = dealDisputesForTab(all, tab);
-  const roles = who.status === "linked" ? who.actor.roles : [];
   const manager = mayManageDisputes(roles);
   const paused = counts.OPEN + counts.DOCUMENTS_IN;
   const now = new Date().getTime();

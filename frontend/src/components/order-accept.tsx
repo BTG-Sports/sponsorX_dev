@@ -66,6 +66,7 @@ export function OrderAccept({
         <input
           type="checkbox"
           checked={read}
+          autoComplete="off"
           onChange={(e) => setRead(e.target.checked)}
           className="mt-0.5 size-3.5 shrink-0 accent-[var(--sx-primary)]"
         />
@@ -97,7 +98,8 @@ export function OrderAccept({
           {error.confirmHref && (
             <Link
               href={error.confirmHref}
-              className="mt-2 inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
+              /* On its own line: inline, it sat over the end of the sentence (QA 2026-10-23). */
+              className="mt-2 flex w-fit items-center justify-center rounded-lg bg-primary px-4 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
             >
               Confirm now
             </Link>

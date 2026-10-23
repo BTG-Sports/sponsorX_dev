@@ -70,19 +70,20 @@ export function DealPauseBanner({
     >
       <div>
         <p className={`text-sm font-semibold ${skin.title}`}>{words.title}</p>
-        <p className="mt-1 text-[13px] leading-relaxed text-text/85">{words.text}</p>
+        {/* BTG's words, as typed: a long unbroken run must wrap, not widen the page (QA 2026-10-23). */}
+        <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-text/85 [overflow-wrap:anywhere]">{words.text}</p>
       </div>
 
       {words.ask && (
         <div>
           <p className="text-[11px] font-medium text-muted">What BTG asked for</p>
-          <p className="mt-1 rounded-lg border border-line bg-bg px-3.5 py-3 text-[13px] leading-relaxed">{words.ask}</p>
+          <p className="mt-1 whitespace-pre-wrap rounded-lg border border-line bg-bg px-3.5 py-3 text-[13px] leading-relaxed [overflow-wrap:anywhere]">{words.ask}</p>
         </div>
       )}
 
       <div>
         <p className="text-[11px] font-medium text-muted">The concern</p>
-        <p className="mt-1 text-[13px] leading-relaxed text-text/85">{d.reason}</p>
+        <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-text/85 [overflow-wrap:anywhere]">{d.reason}</p>
         <p className="mt-1 text-[11px] text-faint">
           Raised by {raisedByWords(d)} · opened {dayOf(d.openedAt)}
           {d.resolvedAt ? ` · decided ${dayOf(d.resolvedAt)}` : ""}

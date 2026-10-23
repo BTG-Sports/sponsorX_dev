@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import {
   getDealDisputeDocumentAction,
@@ -15,6 +16,7 @@ import { DialogError, NoteField, OrderDialog, btn } from "@/components/order-dia
 import { Primary, StageTable, Td, Tr, type Column } from "@/components/stage-table";
 import { Badge, Card } from "@/components/ui";
 import { useDialogFocus } from "@/components/use-dialog-focus";
+import { useMounted } from "@/components/use-mounted";
 import { VaultChip, VaultPanel, type VaultTone } from "@/components/vault-stage";
 import {
   DEAL_DISPUTE_SOURCES,
@@ -414,8 +416,9 @@ export function DealDisputeDocuments({
         <p className={`mt-2 text-xs ${muted}`}>Nothing sent yet.</p>
       ) : (
         <ul className="mt-2" aria-label="Documents">
+          {/* flex-wrap: on a phone the full-width Open button drops under the name instead of squeezing it to one letter a line (QA 2026-10-23). */}
           {documents.map((doc) => (
-            <li key={doc.id} className="flex items-center gap-3 border-t border-line-soft py-2.5 text-[13px]">
+            <li key={doc.id} className="flex flex-wrap items-center gap-3 border-t border-line-soft py-2.5 text-[13px]">
               <span className="min-w-0 flex-1">
                 <span className="block break-all">{doc.filename}</span>
                 <span className={`block text-[11px] ${muted}`}>{documentSub(doc)}</span>
@@ -446,7 +449,12 @@ function Viewer({ id, doc, getDocument, onClose }: { id: string; doc: ApiDealDis
       const r = await getDocument(id, doc.id);
       setLink(r.ok ? { url: r.url, expiresInSeconds: r.expiresInSeconds } : { error: r.message });
     });
-  return (
+  /* Portaled to <body> like OrderDialog: the admin stage's cards carry a backdrop-filter, which
+     makes `fixed` lay out against the card — the viewer sat inside the Documents panel with its
+     bottom cut off (QA 2026-10-23). */
+  const mounted = useMounted();
+  if (!mounted) return null;
+  return createPortal(
     <div ref={ref} className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="dd-vw-title">
       <button type="button" tabIndex={-1} aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-black/90" />
       <div className="absolute inset-0 flex items-start justify-center overflow-y-auto p-4 sm:py-10">
@@ -486,7 +494,8 @@ function Viewer({ id, doc, getDocument, onClose }: { id: string; doc: ApiDealDis
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

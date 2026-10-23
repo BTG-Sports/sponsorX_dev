@@ -53,12 +53,21 @@ describe("the confirmations page link", () => {
     expect(confirmationsHref("/athlete/orders/o1")).toBe("/athlete/confirmations?return=%2Fathlete%2Forders%2Fo1");
     expect(confirmationsHref("https://evil.example")).toBe("/athlete/confirmations");
     expect(confirmationsHref("//evil.example")).toBe("/athlete/confirmations");
+    /* A browser reads `/\host` as `//host` (QA 2026-10-23 — this one left the site). */
+    expect(confirmationsHref("/\\evil.example")).toBe("/athlete/confirmations");
+    expect(confirmationsHref("/\tevil")).toBe("/athlete/confirmations");
     expect(confirmationsHref(null)).toBe("/athlete/confirmations");
   });
   it("reads the return path back the same way", () => {
     expect(returnPath("/athlete/orders/o1")).toBe("/athlete/orders/o1");
     expect(returnPath(["/athlete/offers"])).toBe("/athlete/offers");
     expect(returnPath("//evil.example")).toBe("/athlete");
+    expect(returnPath("/\\evil.example")).toBe("/athlete");
+    expect(returnPath("/\\\\evil.example")).toBe("/athlete");
+    expect(returnPath("/\n/evil.example")).toBe("/athlete");
+    expect(returnPath("javascript:alert(1)")).toBe("/athlete");
+    expect(returnPath("https://evil.example")).toBe("/athlete");
+    expect(returnPath(["/a", "/b"])).toBe("/a");
     expect(returnPath(undefined, "/athlete/orders")).toBe("/athlete/orders");
   });
 });

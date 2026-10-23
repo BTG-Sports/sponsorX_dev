@@ -87,16 +87,26 @@ export const COLLAB_WORDS = {
 
 export const CONFIRMATIONS_PATH = "/athlete/confirmations";
 
+/**
+ * A path on this site, and nothing a browser would read as another host:
+ * one leading slash, never `//host`, and never `/\host` — a browser treats a
+ * backslash after the first slash as a second slash (QA 2026-10-23: a
+ * `?return=/\evil.example` link left the site). Tabs and newlines are
+ * stripped by the URL parser before it looks, so they are refused too.
+ */
+export function isSameSitePath(v: unknown): v is string {
+  return typeof v === "string" && /^\/(?![/\\])/.test(v) && !/[\\\t\n\r]/.test(v);
+}
+
 /** The portal page that asks for whatever is outstanding, returning afterwards. */
 export function confirmationsHref(returnTo?: string | null): string {
-  const to = returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : null;
-  return to ? `${CONFIRMATIONS_PATH}?return=${encodeURIComponent(to)}` : CONFIRMATIONS_PATH;
+  return isSameSitePath(returnTo) ? `${CONFIRMATIONS_PATH}?return=${encodeURIComponent(returnTo)}` : CONFIRMATIONS_PATH;
 }
 
 /** A safe place to send the athlete back to after confirming (same-site paths only). */
 export function returnPath(raw: string | string[] | undefined, fallback = "/athlete"): string {
   const v = Array.isArray(raw) ? raw[0] : raw;
-  return v && v.startsWith("/") && !v.startsWith("//") ? v : fallback;
+  return isSameSitePath(v) ? v : fallback;
 }
 
 export type ConfirmationKind = "rules" | "collab";
