@@ -73,23 +73,33 @@ completeness.
 
 ## Production: the owner's go-live switches
 
+**Where it stands, 2026-10-24.** Going live waits on **Stripe** (Rodney's identity verification). Zoho is switched on together with it. Still to do:
+- MFA (Clerk Pro);
+- fan geography;
+- Stripe tax reporting;
+- BTG's postal address;
+- the rest of the production check;
+- the signatures below.
+
+Done: the edge key and Resend email.
+
 Production runs the same code as staging. It is deployed from `release` by
 the same workflow, but it is effectively dark. These are switched on by the
 owner at go-live. None of them needs code.
 
 | Switch | Today | To go live | Task |
 |---|---|---|---|
-| Payments | `PAYMENT_PROVIDER` unset; no live Stripe secret key; no live webhooks. Connect is enabled on live, with 0 connected accounts. | Create the live keys, set them on Railway production, register the live webhooks in the Stripe Dashboard, set `PAYMENT_PROVIDER=stripe`, and confirm Connect's business model ("collect payments and pay recipients") | Owner |
-| Zoho | No production keys | Set the Zoho keys on the production worker (and the webhook secret on web), then create the two intelligence fields (`npm run zoho:intel-fields -- --create --confirm-production`) | P2-OPS-04 |
+| Payments | **Pending (2026-10-24).** Stripe is waiting on Rodney's identity verification (started 2026-10-21). The live restricted key was **cancelled 2026-10-22** after Railway's incident, so no live key exists. `PAYMENT_PROVIDER` unset; no live webhooks. Connect is enabled on live, with 0 connected accounts. | When Rodney's verification clears: create the live keys, set them on Railway production, register the live webhooks in the Stripe Dashboard, set `PAYMENT_PROVIDER=stripe`, and confirm Connect's business model ("collect payments and pay recipients") | Owner |
+| Zoho | **Waits for Stripe (decided 2026-10-24).** No production keys yet. The key owner is **rcfworks** (a CRM Service Admin), with its own production refresh token (`SponsorX-Zoho-Credentials-and-Sandbox.md` §9) | At go-live, with Stripe: generate the production grant (Production org `4857533000000020005`), set the Zoho keys and `ZOHO_EXPECTED_ORG_ID` on the production api, then create the two intelligence fields (`npm run zoho:intel-fields -- --create --confirm-production`) and check the first sync | P2-OPS-04 |
 | MFA for admin and finance | Not available: needs Clerk Pro | Upgrade to Clerk Pro, then require MFA for privileged roles in production | P2-INT-02 |
-| Fan rate limiting | `SPONSORX_EDGE_KEY` unset, so all fans share one bucket | Set it on production web and api | P2-OPS-04 (P8-SEC-03) |
+| Fan rate limiting | **Done 2026-10-23.** `SPONSORX_EDGE_KEY` is set on production web and api (rotated after Railway's incident) | — | P2-OPS-04 (P8-SEC-03) |
 | Fan geography | `GEOLITE2_CITY_PATH` unset | Set it on production | P2-OPS-04 |
 | Tax forms | Stripe Connect tax reporting off | 2S0-LEG-02 approved 2026-10-22: switch on tax reporting for connected accounts in the Stripe Dashboard. Stripe then collects W-9 and W-8 forms and files the 1099s. | Owner |
-| Email | **Domain verified** in Resend (`sponsorx.net`, checked 2026-10-21; DKIM and sending records in DNS) | Confirm `RESEND_API_KEY` is set on the production api (part of the production check) | Owner |
+| Email | **Done 2026-10-23.** Domain verified in Resend (`sponsorx.net`); `RESEND_API_KEY` is set on the production api (rotated after Railway's incident) | — | Owner |
 | Phase 3 rollout | Per-tenant feature switches | Stage 3 (outside sponsors and properties): 3S0-LEG-01 approved 2026-10-22, so this is the owner's call | Owner |
 | BTG's postal address | `BTG_POSTAL_ADDRESS` unset: fan emails and the fan privacy notice leave the address out | Set it on the production api and worker before the first fan email goes out (CAN-SPAM wants it in each one) | Owner |
 | Governing law | The approved agreements (v2) name no governing law, venue or dispute process | Optional: when BTG chooses them, issue v3 of the agreements with that section; everyone re-accepts | Owner |
-| Production check | Not run by Claude (production reads are blocked for it) | Someone with production access runs the Deployment Runbook's production checks | Owner or rcfworks |
+| Production check | **Partly done 2026-10-23:** health returns 200 with every check ok (database, Redis, storage, backups, queue); public pages and the webhook paths answer as expected | Someone with production access runs the rest of the Deployment Runbook's production checks | Owner or rcfworks |
 
 ## Risks to accept or close
 
