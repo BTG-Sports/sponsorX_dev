@@ -48,6 +48,8 @@ export type ApiOps = {
 export type LiveRosterRow = RosterRow & {
   live: {
     athleteId: string;
+    /** P8-FE-05 — the Campaign Order's id, so the drawer can pause it and find its dispute. */
+    orderId: string | null;
     orderState: string | null;
     inviteState: string | null;
     inviteJobId: string | null;
@@ -111,6 +113,7 @@ export function toRosterRow(r: ApiOpsRow): LiveRosterRow {
     flag,
     live: {
       athleteId: r.athleteId,
+      orderId: r.order?.id ?? null,
       orderState: r.order?.state ?? null,
       inviteState: r.invite?.state ?? null,
       inviteJobId: r.invite?.jobId ?? null,

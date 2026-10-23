@@ -70,6 +70,25 @@ describe("desks pinned to what the API enforces", () => {
   });
 });
 
+/* P8-FE-05 — the deal dispute desk (P8-BE-03): BTG admin decides, campaign
+   managers read; Finance has its own twin under /finance, Sales and network
+   managers have no read. The detail page shares the list's rule. */
+describe("the deal dispute desk", () => {
+  it("is BTG admin's and campaign managers', detail included", () => {
+    for (const role of ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"]) {
+      expect(mayUse("/admin/deal-disputes", [role]), role).toBe(true);
+      expect(mayUse("/admin/deal-disputes/dd_1", [role]), role).toBe(true);
+    }
+    for (const role of ["FINANCE", "SALES", "NETWORK_MGR"]) {
+      expect(mayUse("/admin/deal-disputes", [role]), role).toBe(false);
+    }
+    expect(accessFor("/admin/deal-disputes/dd_1")).toBe(accessFor("/admin/deal-disputes"));
+    /* The card-payment Disputes desk keeps its own, different rule. */
+    expect(mayUse("/admin/payments/disputes", ["FINANCE"])).toBe(true);
+    expect(mayUse("/admin/payments/disputes", ["CAMPAIGN_MGR"])).toBe(false);
+  });
+});
+
 /* Review follow-up — "/admin/next" governs no page of its own (every real
    desk below it — editions, inventory, prospects, rights, splits — has its
    own, narrower entry); it is only the fallback for a future desk with none

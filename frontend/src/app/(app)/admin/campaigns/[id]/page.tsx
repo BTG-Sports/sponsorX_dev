@@ -25,6 +25,8 @@ import {
 import { apiFetch, fetchActor } from "@/server/api";
 import { roleLabel } from "@/server/viewer";
 import { draftAndSendOrder, setAutoStaffingAction } from "./actions";
+import { openDealDisputeAction } from "@/app/(app)/admin/deal-disputes/actions";
+import { mayManageDisputes, type ApiDealDispute, type ApiDealDisputeList } from "@/lib/deal-disputes-live";
 import {
   launchLine,
   nextStepTone,
@@ -84,16 +86,37 @@ const OPS_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "S
    and every stage change with whether the system made it. */
 type LiveStage = Pick<ApiCampaign, "nextStep" | "stageChange" | "stageHistory" | "autoStaffing" | "staffing" | "state" | "startDate">;
 
-async function liveOps(id: string): Promise<{ ops: ApiOps; stage: LiveStage | null } | "missing" | { lacking: string; roles: string[] } | null> {
+type LiveBoard = {
+  ops: ApiOps;
+  stage: LiveStage | null;
+  /** P8-FE-05 — the tenant's deal disputes, so a paused row says why (joined by order id in RosterOps). */
+  disputes: ApiDealDispute[];
+  /** P8-FE-05 — a BTG admin can pause an order over a concern from the drawer. */
+  canRaiseConcern: boolean;
+};
+
+/** P8-FE-05 — a soft read: the board never fails because the dispute list did. */
+async function readDisputes(): Promise<ApiDealDispute[]> {
+  try {
+    const r = await apiFetch("/deal-disputes");
+    return r.ok ? ((await r.json()) as ApiDealDisputeList).disputes : [];
+  } catch {
+    return [];
+  }
+}
+
+async function liveOps(id: string): Promise<LiveBoard | "missing" | { lacking: string; roles: string[] } | null> {
   /* No catch — an outage is an error page, never fixtures dressed as a real
      campaign (QA pass 4 rule). */
   const who = await fetchActor();
   if (who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => OPS_ROLES.includes(r))) return null;
-  /* One round trip: the board, and the campaign read for its stage. */
-  const [res, c] = await Promise.all([
+  /* One round trip: the board, the campaign read for its stage, and the
+     deal disputes that pause its orders. */
+  const [res, c, disputes] = await Promise.all([
     apiFetch(`/campaigns/${encodeURIComponent(id)}/ops`),
     apiFetch(`/campaigns/${encodeURIComponent(id)}`),
+    readDisputes(),
   ]);
   if (res.status === 403) {
     if (!c.ok) return "missing";
@@ -102,7 +125,7 @@ async function liveOps(id: string): Promise<{ ops: ApiOps; stage: LiveStage | nu
   }
   if (!res.ok) throw new Error(`Campaign unavailable (${res.status}).`);
   const stage = c.ok ? ((await c.json()) as { campaign: LiveStage }).campaign : null;
-  return { ops: (await res.json()) as ApiOps, stage };
+  return { ops: (await res.json()) as ApiOps, stage, disputes, canRaiseConcern: mayManageDisputes(who.actor.roles) };
 }
 
 /** P4-FE-08 — the next step and the stage history, "Moved automatically"
@@ -206,11 +229,11 @@ const STATE_TONE: Record<string, "accent" | "warn" | "neutral" | "danger" | "pri
 function LiveOpsView({
   ops,
   stage,
+  disputes,
+  canRaiseConcern,
   back,
   initial,
-}: {
-  ops: ApiOps;
-  stage: LiveStage | null;
+}: LiveBoard & {
   back: ReturnType<typeof resolveBack>;
   initial: { q: string; show: string };
 }) {
@@ -321,7 +344,7 @@ function LiveOpsView({
           <RosterOps
             roster={rows}
             initial={initial}
-            live={{ campaignId: c.id, draftOrder: draftAndSendOrder }}
+            live={{ campaignId: c.id, draftOrder: draftAndSendOrder, disputes, openDispute: canRaiseConcern ? openDealDisputeAction : undefined }}
           />
         ) : (
           <EmptyState
@@ -376,7 +399,7 @@ export default async function CampaignDashboardPage({
     );
   }
   if (live) {
-    return <LiveOpsView ops={live.ops} stage={live.stage} back={back} initial={{ q: one(sp.q), show: one(sp.show) }} />;
+    return <LiveOpsView {...live} back={back} initial={{ q: one(sp.q), show: one(sp.show) }} />;
   }
 
   if (demo === "empty") {

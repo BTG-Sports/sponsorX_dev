@@ -47,6 +47,8 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   /* 2S5-FE-07 / 2S5-FE-08 — the provider's events and sponsors' disputes: paymentEvent and paymentDispute read are BTG admin and Finance (own tenant) and SUPER_ADMIN; only BTG admin resolves. */
   "/admin/payments/events": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
   "/admin/payments/disputes": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
+  /* P8-FE-05 — deal disputes (P8-BE-03): BTG admin opens, views documents and decides; campaign managers read. Finance reads its own twin at /finance/deal-disputes. */
+  "/admin/deal-disputes": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"], who: "BTG admins, who decide, and campaign managers, who read" },
   /* 2S1-FE-14 — a support message and its attachments: supportMessage read is BTG admin (own tenant) and SUPER_ADMIN. */
   "/admin/support": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   /* Governs no page itself — every /admin/next/* desk below has its own,

@@ -23,6 +23,7 @@ import {
   STATES,
   type ApiReconciliationPage,
 } from "@/lib/earnings-live";
+import type { ApiDealDispute, ApiDealDisputeList } from "@/lib/deal-disputes-live";
 import {
   PAY_STEPS,
   delta,
@@ -97,6 +98,8 @@ type Treasury = {
   sp: SearchParams;
   /** Fixtures, not the real books: the "Sample" pill instead of the read time. */
   sample?: boolean;
+  /** P8-FE-05 — the deal disputes pausing orders (earnings tab only): a HELD earning says why. */
+  disputes?: ApiDealDispute[];
 };
 
 /** One API read; anything not-ok is an error (the error page). */
@@ -104,6 +107,16 @@ async function readJson<T>(path: string): Promise<T> {
   const res = await apiFetch(path);
   if (!res.ok) throw new Error(`The books are unavailable (${res.status}).`);
   return (await res.json()) as T;
+}
+
+/** P8-FE-05 — a soft read: the books never fail because the dispute list did. */
+async function readDisputes(): Promise<ApiDealDispute[]> {
+  try {
+    const r = await apiFetch("/deal-disputes");
+    return r.ok ? ((await r.json()) as ApiDealDisputeList).disputes : [];
+  } catch {
+    return [];
+  }
 }
 
 async function liveTreasury(sp: SearchParams): Promise<Treasury | null> {
@@ -118,10 +131,13 @@ async function liveTreasury(sp: SearchParams): Promise<Treasury | null> {
   /* The earnings tab is every role's default, so its read starts beside the
      overview's; the other tabs wait to learn whether the role may see them. */
   const asked = textParam(sp, "tab");
-  const early = asked === "campaigns" || asked === "invoices" ? null : readJson<EarningsPage>(earningsPath);
-  const [{ overview: ov }, earlyEarnings] = await Promise.all([
+  const onEarnings = !(asked === "campaigns" || asked === "invoices");
+  const early = onEarnings ? readJson<EarningsPage>(earningsPath) : null;
+  const [{ overview: ov }, earlyEarnings, earlyDisputes] = await Promise.all([
     readJson<{ overview: ApiFinanceOverview }>(`/finance/overview?range=${range}`),
     early,
+    /* P8-FE-05 — the disputes ride beside the earnings read: a HELD earning says why. */
+    onEarnings ? readDisputes() : null,
   ]);
   const tab = tabOf(sp, !!ov.invoices);
   const books: Books =
@@ -130,7 +146,8 @@ async function liveTreasury(sp: SearchParams): Promise<Treasury | null> {
       : tab === "invoices"
         ? { tab, invoices: await readJson<InvoicesPage>(`/earnings/invoices${pagedQuery(pageParamsFor(sp, INVOICE_KEYS))}`) }
         : { tab, earnings: earlyEarnings ?? (await readJson<EarningsPage>(earningsPath)) };
-  return { ov, range, books, q, state, sp };
+  const disputes = books.tab === "earnings" ? (earlyDisputes ?? (await readDisputes())) : [];
+  return { ov, range, books, q, state, sp, disputes };
 }
 
 /* words ----------------------------------------------------------------- */
@@ -330,7 +347,7 @@ function TreasuryView({ t }: { t: Treasury }) {
           </TabStrip>
           <p className="text-[11.5px] text-[color:var(--vault-muted)]">Status only — no tax ID or bank details.</p>
         </div>
-        {books.tab === "earnings" && <EarningsTab data={books.earnings} q={t.q} state={t.state} sample={t.sample} />}
+        {books.tab === "earnings" && <EarningsTab data={books.earnings} q={t.q} state={t.state} sample={t.sample} disputes={t.disputes} />}
         {books.tab === "campaigns" && <CampaignsTab data={books.recon} />}
         {books.tab === "invoices" && (
           <InvoicesTab

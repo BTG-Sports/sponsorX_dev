@@ -17,6 +17,17 @@ describe("the admin nav per viewer", () => {
     expect(ADMIN_NAV.some((n) => n.label === "Treasury")).toBe(false);
   });
 
+  /* P8-FE-05 — "Deal disputes" sits with the campaign work, A to Z, and never
+     under the card-payment "Disputes" name in Money. */
+  it("keeps Deal disputes in Campaigns, apart from the card-payment Disputes", () => {
+    const campaigns = groupNav(ADMIN_NAV).groups.find((g) => g.label === "Campaigns")!;
+    expect(campaigns.items.map((i) => i.label)).toEqual(["Approvals", "Briefs", "Campaigns", "Deal disputes", "Offers", "Rewards"]);
+    expect(ADMIN_NAV.filter((n) => n.label === "Disputes").map((n) => n.href)).toEqual(["/admin/payments/disputes"]);
+    for (const role of ["SALES", "NETWORK_MGR", "FINANCE"]) {
+      expect(navFor([role]).some((n) => n.href === "/admin/deal-disputes"), role).toBe(false);
+    }
+  });
+
   it("gives a BTG admin the whole nav: Dashboard on top, Commission theirs, the dock resolving in full", () => {
     const nav = navFor(["BTG_ADMIN"]);
     expect(nav.map((n) => n.href)).toEqual(ADMIN_NAV.map((n) => n.href));
@@ -57,7 +68,7 @@ describe("the admin nav per viewer", () => {
       "/admin/intelligence/attribution", "/admin/intelligence/forecasts", "/admin/intelligence/matching", "/admin/intelligence/pricing", "/admin/intelligence/scenarios",
     ]);
     expect(navFor(["CAMPAIGN_MGR"]).map((n) => n.href)).toEqual([
-      "/admin", "/admin/approvals", "/admin/briefs", "/admin/campaigns", "/admin/offers", "/admin/rewards", "/admin/network",
+      "/admin", "/admin/approvals", "/admin/briefs", "/admin/campaigns", "/admin/deal-disputes", "/admin/offers", "/admin/rewards", "/admin/network",
       "/admin/intelligence/anomalies", "/admin/intelligence/attribution", "/admin/intelligence/forecasts", "/admin/intelligence/make-goods",
       "/admin/intelligence/matching", "/admin/intelligence/pricing", "/admin/intelligence/scenarios", "/admin/analytics",
     ]);

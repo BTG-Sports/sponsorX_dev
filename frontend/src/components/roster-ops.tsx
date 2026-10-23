@@ -5,8 +5,11 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge, Card } from "@/components/ui";
+import { OpenDealDispute, PausedLink, type OpenAction } from "@/components/deal-dispute-desk";
 import { MiniChip, Monogram, initials } from "@/components/hero";
 import { CloseIcon, SearchInput } from "@/components/filter-kit";
+import { isDisputableOrder } from "@/lib/deal-dispute-desk";
+import { openDisputeFor, pausedNote, type ApiDealDispute } from "@/lib/deal-disputes-live";
 import {
   FLAG_HINTS,
   ORDER_COPY,
@@ -25,7 +28,19 @@ import {
 export type LiveOps = {
   campaignId: string;
   draftOrder: (campaignId: string, input: DraftOrderInput, existingOrderId?: string) => Promise<DraftOrderResult>;
+  /** P8-FE-05 — present for a BTG admin: "Raise a concern" pauses a sent, accepted or live order. */
+  openDispute?: OpenAction;
+  /** P8-FE-05 — the tenant's deal disputes, joined by order id: a paused row says why. */
+  disputes?: ApiDealDispute[];
 };
+
+const DEAL_DISPUTES = "/admin/deal-disputes";
+
+/** P8-FE-05 — the open dispute pausing this row's order, if any. */
+function pausedFor(r: RosterRow, live?: LiveOps): ApiDealDispute | null {
+  if (!live?.disputes || !isLiveRow(r) || !r.live.orderId) return null;
+  return openDisputeFor(live.disputes, r.live.orderId);
+}
 
 /* --------------------------------------------------------------------------
    RosterOps — the §9.9 substance of the campaign dashboard as a client
@@ -462,6 +477,7 @@ export function RosterOps({
                           {r.name}
                         </span>
                         {r.flag && <Badge tone="danger">{r.flag}</Badge>}
+                        {pausedFor(r, live) && <Badge tone="warn">Paused</Badge>}
                         {acted[r.slug] && (
                           <Badge tone="neutral">{acted[r.slug].done}</Badge>
                         )}
@@ -554,6 +570,7 @@ function OrderDrawer({
 }) {
   const action = actionFor(r);
   const tone = ringTone(r);
+  const paused = pausedFor(r, live);
 
   /* Unmount normally rides the slide-out's animationend, but that event is
      lost if the animation never runs (stale-CSS HMR). A fallback timer
@@ -662,6 +679,12 @@ function OrderDrawer({
                 <strong className="font-semibold">{r.flag}.</strong>{" "}
                 {FLAG_HINTS[r.flag] ?? ""}
               </p>
+            )}
+            {paused && (
+              <div role="status" className="mt-4 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-[11px] leading-relaxed">
+                <p className="font-semibold text-warn">This deal is paused.</p>
+                <PausedLink note={pausedNote(paused)} href={`${DEAL_DISPUTES}/${encodeURIComponent(paused.id)}`} />
+              </div>
             )}
           </div>
 
@@ -895,6 +918,11 @@ function LiveActionBar({ row: r, live }: { row: LiveRosterRow; live: LiveOps }) 
     body = <p className="text-xs leading-relaxed text-muted">Nothing needed — this order is delivering on schedule.</p>;
   }
 
+  /* P8-FE-05 — a BTG admin can pause a sent, accepted or live order over a
+     concern; a paused one points to its dispute instead. */
+  const paused = pausedFor(r, live);
+  const canPause = Boolean(live.openDispute && r.live.orderId && isDisputableOrder(r.live.orderState) && !paused);
+
   return (
     <div className="sx-animate sx-delay-4 shrink-0 border-t border-line-soft p-5">
       {r.live.nextDue && (
@@ -907,6 +935,23 @@ function LiveActionBar({ row: r, live }: { row: LiveRosterRow; live: LiveOps }) 
         </p>
       )}
       {body}
+      {canPause && live.openDispute && r.live.orderId && (
+        <div className="mt-3 border-t border-line-soft pt-3">
+          <OpenDealDispute
+            base={DEAL_DISPUTES}
+            orderId={r.live.orderId}
+            athleteName={r.name}
+            open={live.openDispute}
+            label="Raise a concern (pause the deal)"
+            className="inline-flex w-full items-center justify-center rounded-lg border border-warn/40 px-3.5 py-2 text-xs font-medium text-warn transition-colors hover:bg-warn/10"
+          />
+        </div>
+      )}
+      {paused && (
+        <p className="mt-3 border-t border-line-soft pt-3 text-[11px] text-muted">
+          Nothing on this order moves while the dispute is open.
+        </p>
+      )}
     </div>
   );
 }
