@@ -95,3 +95,5 @@
   - **Checked from inside api, both environments:** every DB URL connects as its role; Redis answers PONG; admin `psql` works on each DB; the APIs booted.
   - **Backups:** pgBackRest `archive-push … completed successfully` on staging main and warehouse, and on production main. The production warehouse stanza started with no 403 and is idle. The 403s from the incident are gone after the redeploys.
 - **Rotation complete.** All items on the 2026-10-22 list are done. `~/Desktop/sponsorx-keys.txt` and the scratch `.env` backup were deleted, and the clipboard was cleared.
+- **Expected alert:** the 10:01 UTC health monitor reported production 503 "failing: redis". Redis had restarted with its new password at 10:03, and api picked it up at 10:04. Production returned 200 with every check ok at 10:09.
+  - **Next time:** set `REDIS_PASSWORD` and redeploy Redis and api back to back. Better, rotate Redis first and redeploy api the moment Redis is up, to keep the gap under a minute.
