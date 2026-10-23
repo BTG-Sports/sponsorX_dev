@@ -95,3 +95,13 @@
   - **Checked from inside api, both environments:** every DB URL connects as its role; Redis answers PONG; admin `psql` works on each DB; the APIs booted.
   - **Backups:** pgBackRest `archive-push … completed successfully` on staging main and warehouse, and on production main. The production warehouse stanza started with no 403 and is idle. The 403s from the incident are gone after the redeploys.
 - **Rotation complete.** All items on the 2026-10-22 list are done. `~/Desktop/sponsorx-keys.txt` and the scratch `.env` backup were deleted, and the clipboard was cleared.
+
+## P8-SEC-04 — Next.js and DOMPurify security advisories (Code review)
+
+- **Trigger:** CI's "dependency audit · secret scan" failed on main_development `a6dc04f3`. New advisories were out for Next.js 16.3.8 (two critical unauthenticated RCEs and a high DoS) and DOMPurify 3.4.16, through jspdf (one critical and one high). Staging and production run the vulnerable versions.
+- **Fix:** branch `fix/next-16.4.2-dompurify` from main_development. `next` and `eslint-config-next` 16.3.8 → 16.4.2; `dompurify` → 3.4.17 (lock file only).
+- **Run locally, all passing:**
+  - builds, lint, security scripts, secret scan and audit (now clean);
+  - frontend 1,681 tests and backend 3,511;
+  - e2e `redeem-flow`, `public` and `public-links`: 15 passed, 1 skipped.
+- **Found on the way:** `frontend/.env.local` still held the deleted Clerk development key (`…SR7c`), so local `next dev` failed Clerk's handshake. It now holds the new key, the same as the root `.env`. Both files are gitignored.

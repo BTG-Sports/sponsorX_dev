@@ -2948,6 +2948,22 @@ Raised with `P8-BE-07` (2026-10-22). The backend serves the approved wording; th
     - The sample-only PDF export's figures: its demo data still includes a "return multiple".
 - **Reference:** §16, §22, Legal folder documents 3 and 5
 
+### 🔎 `P8-SEC-04` · Patch the Next.js and DOMPurify advisories
+
+**Order** 157.95 · **SEC** · **Where:** Code · **0.5d** · **Code review**
+
+Raised 2026-10-23. New advisories turned CI's dependency scan red on every branch:
+- **Next.js 16.3.8:** two critical unauthenticated remote-code-execution issues (GHSA-2464-fhr4-w9xw in image optimisation with SVGs; GHSA-673q-mjm6-r5xr in `use cache` functions returning typed arrays) and a high denial of service (GHSA-p3m5-59mp-jv5r, Server Actions).
+- **DOMPurify 3.4.16**, through jspdf: one critical and one high.
+
+- **Depends on:** nothing
+- **Done when:** All of these hold.
+  - `npm run audit:check` is clean.
+  - The builds, lint and every frontend, backend and runnable e2e test pass.
+  - Staging and production run the patched build.
+- **Delivered:** 2026-10-23. `next` and `eslint-config-next` are at 16.4.2 and `dompurify` at 3.4.17 (lock file only). Locally: frontend 1,681 tests, backend 3,511, and e2e `redeem-flow`, `public` and `public-links` all pass.
+- **Reference:** §26
+
 ### ✅ `P8-FE-03` · The rules tick on the sign-up page and the guardian's page
 
 **Order** 157.8 · **FE** · **Where:** Code · **1d** · **Done** — 2026-10-23, HeckerCreatives
