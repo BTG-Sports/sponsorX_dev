@@ -144,6 +144,18 @@ async function apply(page: Page, a: Applicant): Promise<string> {
   const agree = page.getByRole("checkbox", { name: /I have read and accept the SponsorX Athlete Content Collaboration Agreement \(version \d+\)/ });
   await page.getByText(/I have read and accept the SponsorX Athlete Content Collaboration Agreement \(version \d+\)/).click();
   await expect(agree).toBeChecked();
+  /* P8-FE-03 — an adult also confirms their own rules on this step; a minor
+     is told their guardian does it on the guardian's page and sees no box. */
+  const rulesLine = /I confirm this \(rules wording .+\)\./;
+  if (a.guardian) {
+    await expect(page.getByText(/your guardian confirms this on their own page/)).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: rulesLine })).toHaveCount(0);
+  } else {
+    await expect(submit, "submit stays locked until the rules are confirmed too").toBeDisabled();
+    const rules = page.getByRole("checkbox", { name: rulesLine });
+    await page.getByText(rulesLine).click();
+    await expect(rules).toBeChecked();
+  }
   await submit.click();
 
   await expect(page.getByRole("heading", { level: 1, name: "Application submitted" })).toBeVisible({ timeout: 20_000 });

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 
 import {
@@ -8,8 +9,9 @@ import {
 } from "@/app/(public)/guardian/setup/actions";
 import { GuardianAgreementText } from "@/components/guardian-agreement";
 import { IdUpload } from "@/components/id-upload";
+import { RULES_WORDS, wordingMoved, type ApiRulesWording } from "@/lib/confirmations-live";
 import {
-  PROOF_KINDS, RELATIONSHIP_OPTIONS, SETUP_STEPS, agreementFromBody, firstOpenStep, guardianAcceptLine, stepMove, stepsFor,
+  PROOF_KINDS, RELATIONSHIP_OPTIONS, SETUP_STEPS, agreementFromBody, finishBlocker, firstOpenStep, guardianAcceptLine, stepMove, stepsFor,
   type ApiGuardianSetup, type ApiGuardianSetupLive, type RelationshipCode, type SetupStep,
 } from "@/lib/guardian-live";
 
@@ -32,6 +34,14 @@ import {
 
    PREVIEW (mode "preview", ?demo=done|approved on the sample guardian):
    the two after-finishing views only, and nothing is sent.
+
+   P8-FE-03 — the agreement step also carries the athlete's own rules
+   (school, league, local): the wording the page read, and a box the
+   guardian ticks for the minor. Both boxes before "Accept and finish"; the
+   version goes with the acceptance. Refused as stale (the wording moved
+   on), the box is unticked, the page refreshed so the new wording comes
+   down, and the guardian is asked again. Wording unreachable: said, not
+   blocking — the guardian can still finish, and no version is sent.
    -------------------------------------------------------------------------- */
 
 const field =
@@ -42,7 +52,7 @@ const secondaryBtn =
   "inline-flex min-h-11 items-center justify-center rounded-lg border border-line px-4 text-sm font-medium text-text hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40";
 
 type Mode =
-  | { kind: "live"; token: string; setup: ApiGuardianSetupLive }
+  | { kind: "live"; token: string; setup: ApiGuardianSetupLive; rules?: ApiRulesWording | null }
   | { kind: "preview"; setup: ApiGuardianSetup; preview: "done" | "approved" };
 
 function Label({ text, children }: { text: string; children: ReactNode }) {
@@ -88,12 +98,13 @@ function Steps({ idx, steps = SETUP_STEPS }: { idx: number; steps?: readonly { k
 
 export function GuardianSetupWizard({ mode }: { mode: Mode }) {
   if (mode.kind === "preview") return <Preview setup={mode.setup} view={mode.preview} />;
-  return <Live token={mode.token} initial={mode.setup} />;
+  return <Live token={mode.token} initial={mode.setup} rules={mode.rules ?? null} />;
 }
 
 /* ------------------------------------------------------------------ live */
 
-function Live({ token, initial }: { token: string; initial: ApiGuardianSetupLive }) {
+function Live({ token, initial, rules }: { token: string; initial: ApiGuardianSetupLive; rules: ApiRulesWording | null }) {
+  const router = useRouter();
   const [s, setS] = useState(initial);
   const [step, setStep] = useState<SetupStep>(firstOpenStep(initial));
   const [name, setName] = useState(initial.guardian.name);
@@ -101,7 +112,12 @@ function Live({ token, initial }: { token: string; initial: ApiGuardianSetupLive
   const [phone, setPhone] = useState(initial.guardian.phone ?? "");
   const [proof, setProof] = useState<string>(initial.proof?.kind ?? PROOF_KINDS[0].key);
   const [accepted, setAccepted] = useState(Boolean(initial.agreementAcceptedAt));
+  /* P8-FE-03 — the rules box. Once the agreement is accepted it shows ticked
+     and locked with the agreement's own box. */
+  const [rulesTicked, setRulesTicked] = useState(Boolean(initial.agreementAcceptedAt));
   const [error, setError] = useState<string | null>(null);
+  /* A moved-on wording: a note asking again, not an error of the guardian's. */
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   const a = s.athlete.firstName;
@@ -112,10 +128,15 @@ function Live({ token, initial }: { token: string; initial: ApiGuardianSetupLive
   const title = view === "approved" ? "Approved" : view === "rejected" ? "Closed by BTG" : steps[idx]!.title.replace("the guardian", `${a}’s guardian`);
   const agreement = s.agreement ? agreementFromBody(s.agreement.body, s.agreement.version) : null;
   const locked = s.state === "APPROVED";
+  const alreadyAccepted = Boolean(s.agreementAcceptedAt);
+  const blocker = finishBlocker({ agreementShown: Boolean(s.agreement), accepted, rulesShown: rules !== null, rulesTicked });
 
   const apply = (next: ApiGuardianSetupLive) => {
     setS(next);
-    if (next.agreementAcceptedAt) setAccepted(true);
+    if (next.agreementAcceptedAt) {
+      setAccepted(true);
+      setRulesTicked(true);
+    }
   };
 
   const saveDetails = () =>
@@ -131,9 +152,25 @@ function Live({ token, initial }: { token: string; initial: ApiGuardianSetupLive
   const accept = () =>
     start(async () => {
       setError(null);
+      setNotice(null);
       if (!s.agreement) return setError("The guardian agreement isn't available yet — try again in a minute.");
-      const r = await acceptGuardianAgreementAction(token, { agreementId: s.agreement.agreementId, bodyHash: s.agreement.bodyHash });
-      if (!r.ok) return setError(r.message);
+      const r = await acceptGuardianAgreementAction(token, {
+        agreementId: s.agreement.agreementId,
+        bodyHash: s.agreement.bodyHash,
+        /* P8-FE-03 — the rules version the guardian confirmed, when the wording loaded and they ticked it. */
+        rulesVersion: rules && rulesTicked ? rules.version : undefined,
+      });
+      if (!r.ok) {
+        /* The rules wording moved on since the page loaded: nothing was
+           written. Untick, pull the current wording down, ask again. */
+        if (wordingMoved(r.status, { error: { code: r.code, message: r.message } }) === "rules") {
+          setRulesTicked(false);
+          setNotice(RULES_WORDS.stale);
+          router.refresh();
+          return;
+        }
+        return setError(r.message);
+      }
       apply(r.data);
       setStep("done");
     });
@@ -224,17 +261,49 @@ function Live({ token, initial }: { token: string; initial: ApiGuardianSetupLive
         )}
 
         {view === "agreement" && (
-          <div className="space-y-2.5">
-            {agreement ? (
-              <GuardianAgreementText agreement={agreement} />
-            ) : (
-              <p className="text-xs text-warn">The guardian agreement can&rsquo;t be shown just now. Try again in a minute.</p>
+          <div className="space-y-4">
+            {notice && (
+              <p role="status" className="rounded-lg border border-warn/40 bg-warn/8 px-3 py-2.5 text-xs leading-relaxed text-warn">
+                {notice}
+              </p>
             )}
-            <label className="flex cursor-pointer items-start gap-2.5 text-sm leading-normal">
-              <input type="checkbox" checked={accepted} disabled={Boolean(s.agreementAcceptedAt)} onChange={(e) => setAccepted(e.target.checked)} className="mt-0.5 size-4 accent-[var(--sx-primary)]" />
-              {guardianAcceptLine(s.athlete.name, agreement?.version ?? s.agreement?.version ?? "in force")}
-            </label>
-            {s.agreementAcceptedAt && <p className="text-xs text-success">Accepted — this records the version, the time, and your device.</p>}
+            <div className="space-y-2.5">
+              {agreement ? (
+                <GuardianAgreementText agreement={agreement} />
+              ) : (
+                <p className="text-xs text-warn">The guardian agreement can&rsquo;t be shown just now. Try again in a minute.</p>
+              )}
+              <label className="flex cursor-pointer items-start gap-2.5 text-sm leading-normal">
+                <input type="checkbox" checked={accepted} disabled={alreadyAccepted} onChange={(e) => setAccepted(e.target.checked)} className="mt-0.5 size-4 accent-[var(--sx-primary)]" />
+                {guardianAcceptLine(s.athlete.name, agreement?.version ?? s.agreement?.version ?? "in force")}
+              </label>
+            </div>
+
+            {/* P8-FE-03 — the athlete's own rules, confirmed by the guardian for the minor. */}
+            <div className="space-y-2.5 border-t border-line-soft pt-4">
+              <p className="text-sm font-semibold">{RULES_WORDS.title}</p>
+              {rules ? (
+                <>
+                  <div
+                    role="region"
+                    aria-label="Rules wording"
+                    tabIndex={0}
+                    className="max-h-44 overflow-auto rounded-lg border border-line bg-bg px-3.5 py-3 text-xs leading-relaxed text-muted focus:border-primary/60 focus:outline-none"
+                  >
+                    <pre data-rules-body className="whitespace-pre-wrap break-words font-sans">{rules.text}</pre>
+                  </div>
+                  <label className="flex cursor-pointer items-start gap-2.5 text-sm leading-normal">
+                    <input type="checkbox" checked={rulesTicked} disabled={alreadyAccepted} onChange={(e) => setRulesTicked(e.target.checked)} className="mt-0.5 size-4 accent-[var(--sx-primary)]" />
+                    {RULES_WORDS.guardianCheckbox(s.athlete.name, rules.version)}
+                  </label>
+                  <p className="text-[11px] text-faint">{RULES_WORDS.recordNote}</p>
+                </>
+              ) : (
+                <p role="status" className="text-xs text-muted">{RULES_WORDS.unavailable}</p>
+              )}
+            </div>
+
+            {alreadyAccepted && <p className="text-xs text-success">Accepted — this records the version, the time, and your device.</p>}
           </div>
         )}
 
@@ -283,8 +352,7 @@ function Live({ token, initial }: { token: string; initial: ApiGuardianSetupLive
               s.agreementAcceptedAt ? (
                 <button type="button" className={primaryBtn} onClick={() => setStep("done")}>Continue</button>
               ) : (
-                <button type="button" className={primaryBtn} disabled={!accepted || pending || !s.agreement} onClick={accept}
-                  title={accepted ? undefined : "Tick the box to accept the agreement first."}>
+                <button type="button" className={primaryBtn} disabled={blocker !== null || pending} onClick={accept} title={blocker ?? undefined}>
                   {pending ? "Saving…" : "Accept and finish"}
                 </button>
               )

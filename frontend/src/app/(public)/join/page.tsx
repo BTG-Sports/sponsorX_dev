@@ -2,6 +2,7 @@ import { JoinWizard } from "@/components/join-wizard";
 import { JoinClose, JoinHero, JoinPath, JoinPromises } from "@/components/join-stage";
 import { StageReveal } from "@/components/packages-fx";
 import { InsideBand } from "@/components/packages-stage";
+import type { ApiRulesWording } from "@/lib/confirmations-live";
 import { rates } from "@/lib/fixtures";
 import type { CollabAgreement } from "@/lib/join-flow";
 
@@ -27,12 +28,28 @@ import { publicApi } from "../onboarding/public-api";
    P8-FE-07 — the click-wrap shows the Content Collaboration Agreement in
    force, read here from GET /public/agreements/collab (v2, approved
    2026-10-22). Unreachable, the step says so and the application waits.
+
+   P8-FE-03 — the same step shows the rules wording from
+   GET /public/rules-attestation as a second tick box for an adult; its
+   version travels with the application. A minor is told their guardian
+   confirms it instead. Unreachable, the box says so and the application
+   waits, like the agreement. When the API refuses because either wording
+   moved on, the wizard calls router.refresh() and this page re-reads both.
    -------------------------------------------------------------------------- */
 
 async function collabAgreement(): Promise<CollabAgreement | null> {
   try {
     const res = await publicApi("/public/agreements/collab");
     return res.ok ? ((await res.json()) as CollabAgreement) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function rulesWording(): Promise<ApiRulesWording | null> {
+  try {
+    const res = await publicApi("/public/rules-attestation");
+    return res.ok ? ((await res.json()) as ApiRulesWording) : null;
   } catch {
     return null;
   }
@@ -45,12 +62,12 @@ export default async function JoinPage({
 }) {
   const { demo } = await searchParams;
   const d = demo === "submitted" ? "submitted" : demo === "minor" ? "minor" : null;
-  const agreement = await collabAgreement();
+  const [agreement, rules] = await Promise.all([collabAgreement(), rulesWording()]);
 
   return (
     <StageReveal className="sx-stage sx-join relative -mt-[72px] w-full overflow-x-clip text-on-media">
       <JoinHero>
-        <JoinWizard demo={d} agreement={agreement} />
+        <JoinWizard demo={d} agreement={agreement} rules={rules} />
       </JoinHero>
       <InsideBand label="Jobs on the network" items={rates.map((r) => r.name)} />
       <JoinPath />

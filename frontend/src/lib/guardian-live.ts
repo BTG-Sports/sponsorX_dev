@@ -65,6 +65,18 @@ export function guardianAcceptLine(athleteName: string, version: number | string
   return `I am ${athleteName}'s parent, legal guardian or authorised representative. I have read and accept the SponsorX Guardian Agreement (version ${version}) on their behalf.`;
 }
 
+/** P8-FE-03 — why "Accept and finish" is still locked on the agreement step,
+ *  or null when the guardian can finish. The agreement is always required;
+ *  the rules box is required only when its wording loaded (unreachable, the
+ *  guardian must still be able to finish, and no version is sent). */
+export function finishBlocker(s: { agreementShown: boolean; accepted: boolean; rulesShown: boolean; rulesTicked: boolean }): string | null {
+  if (!s.agreementShown) return "The guardian agreement isn't available yet — try again in a minute.";
+  if (!s.accepted && s.rulesShown && !s.rulesTicked) return "Tick both boxes first: the agreement, and the rules.";
+  if (!s.accepted) return "Tick the box to accept the agreement first.";
+  if (s.rulesShown && !s.rulesTicked) return "Tick the rules box too.";
+  return null;
+}
+
 /* --------------------------------------------- guardian set-up (2S1-BE-10) */
 
 export type SetupStep = "details" | "id" | "proof" | "agreement" | "done";
