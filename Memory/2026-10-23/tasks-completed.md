@@ -35,3 +35,73 @@
 - **Verified correct and left alone:** sponsor → `/admin/deal-disputes` and `/athlete/confirmations` redirect to `/sponsor`; network manager and sales get Not in your role and no nav entry; `<img onerror>`, `{{7*7}}`, RTL and emoji render as text on every surface; `?tab=<script>` → the open tab; dialogs trap focus and Escape returns it; the second open on a paused order is refused with the right words and a new one is allowed on a resumed order; `.heic`, 0-byte and 11 MB files are refused before the PUT; `../../x.png` arrives as `x.png`; cross-tenant 403s are byte-identical to a random id's; two concurrent opens → one row.
 - **Not fixed, for a decision or the engine owner:** `GET /deal-disputes/:id` and `POST /orders/:id/disputes` answer 403 for an unknown id where `nope_dispute_123` gets 404 (inconsistent); dispute documents are accepted on declared type only (a PNG renamed `.pdf` is stored and the viewer shows an empty iframe); `dealDispute.documentsIn` mails every BTG admin in the tenant (19 on this one); `OrderNotSentError` has no `code`; the network manager cannot read `/admin/new-signups/rules` though the page says they read (access table says BTG admins only — product call); a pasted 2,001-character note is silently cut to 2,000 by the textarea; the "Choose file" label has no visible focus ring; the local `sponsorx-worker-1` container crash-loops on env validation and the host worker's `notify.email` jobs fail without `RESEND_API_KEY`, so no dispute email is delivered locally.
 - **DB after the round:** both probes restored what they took (user→athlete links, switches false, `qa_ord_5` back to ACTIVE, `qa_er_1` back to APPROVED_FOR_PAYOUT, probe rows deleted). Left: resumed disputes on `qa_ord_ath` (5 documents) and `qa_ord_dv`; `qa_ord_ath2` is now ACCEPTED (the probe's outcome); audit rows and outbox jobs (append-only).
+
+
+## Railway use resumed; secret rotation continues (staging done for Resend and Clerk)
+
+- **The owner resumed Railway use.** Railway's builds and deploys run normally on all plans. Its status page still says Major Outage while the incident report is pending, and it's emailing affected customers.
+- **The nightly deploy ran during the pause.** `deploy-daily.yml` moved `release` to `d5537124` (sync PR #289) at 16:50 UTC on 2026-10-22, and Railway deployed **staging and production** api and web. So:
+  - **Production** runs the approved legal wording, with its secrets unchanged.
+  - **Staging** picked up the signing secrets staged on 2026-10-22.
+  - The workflow isn't blocked by the "no Railway" decision. Pause it too next time.
+- **Staging checks:** health 200; the Stripe and Zoho webhook paths answer 401 through web (P8-OPS-03 is live); COLLAB is v2 and `/public/fan-privacy` is served.
+- **Resend:** new keys made (production and staging). Staging api has the new key and was redeployed. A test support message sent both emails (`support.message`, `support.copy`).
+- **Clerk:** new live and test keys made. Both were accepted by Clerk's API (read-only `GET /v1/users`). The test key is on staging api, web and tester (all redeployed), on GitHub `CLERK_SECRET_KEY_TEST`, and in the local `.env`.
+- **Production is still pending:** the Resend and Clerk live keys, plus the INTAKE and edge secrets. Claude's permission classifier blocks production secret writes, so the owner sets them by hand or adds a permission rule.
+- **The keys file** is `~/Desktop/sponsorx-keys.txt` (chmod 600). It's deleted when the rotation is done.
+- **Next:** R2, Stripe test, Zoho sandbox, the GitHub monitor token, then the database and Redis passwords.
+- **Production rotated** in manual mode, where the owner approves each command. In auto mode the classifier blocks production secret writes.
+  - **New values:** `RESEND_API_KEY` (api), `CLERK_SECRET_KEY` (api and web, live key), `INTAKE_TOKEN_SECRET` (api, no `_PREVIOUS`) and `SPONSORX_EDGE_KEY` (api and web, matching).
+  - **Redeployed** at 04:17 UTC. The API booted cleanly (`SponsorX API listening on :4000 (production)`); sponsorx.net returns 200.
+  - **Webhook paths through sponsorx.net:** the Zoho invoice and CRM paths answer 401. The Stripe path answers the API's own 404 ("no payment provider connected"), which is expected until `PAYMENT_PROVIDER=stripe` at go-live. So the P8-OPS-03 forwarding works in production.
+- **Old keys are now safe to delete:** Resend (production and staging) and Clerk (live and development).
+- **Cloudflare R2 rotated.** One account API token, scoped to `sponsorx-private` and `sponsorx-public`. Staging and production share both the buckets and the key, and the account also holds two `acps-staging-*` buckets that belong to something else.
+  - **Tested before use:** the new key listed both buckets, and wrote and deleted a test object.
+  - **Set on api** in staging and production, both redeployed (04:31 UTC).
+  - **Staging checked end to end:** a support message with a 1-px PNG. The presigned PUT returned 200, and `/send` returned 200, so the server found the object with the new key.
+  - **Production:** the API booted cleanly.
+  - The R2 dashboard deep link `?to=/:account/r2/api-tokens` lands on the plans page; the direct link is `/<accountId>/r2/api-tokens`.
+  - **The old R2 token is now safe to delete.**
+- **Stripe sandbox (staging, "BTG sandbox" `acct_1UNCvFKA9GZ8RRgK`) rotated.**
+  - **New on staging api, redeployed 08:19 UTC:** `STRIPE_SECRET_KEY` (checked as that account's key), plus `STRIPE_WEBHOOK_SECRET` (platform, snapshot endpoint `we_1UNPhwKA9GZ8RRgKLWZ30ogs`) and `STRIPE_THIN_WEBHOOK_SECRET` (accounts v2 destination `ed_test_61VWnf…`).
+  - **Webhook check:** a message self-signed with each new secret gets 202, and a wrong secret gets 401.
+  - **Side effect:** the thin check recorded an `account.updated` event for a made-up account, `acct_test_rotation`, on staging. It's a test record.
+  - **Mix-up:** the dashboard showed two sandboxes. The user first rolled the secret key in a **different** sandbox ("BTG", `acct_1UNCupGfl3hcz7a8`, publishable key ending `2l3ebxWP`). No SponsorX environment uses it (staging uses `pk_test_…5hSr`; local .env has no Stripe key), so letting that old key expire is harmless.
+  - **The restricted smoke-test key** (`rk_test_…2oCb`) was rolled too; its new value hasn't been copied yet. `STRIPE_SECRET_KEY_RESTRICTED_TEST` stops working when the old one expires.
+- **`STRIPE_SECRET_KEY_RESTRICTED_TEST` deleted from staging api** (owner's choice). `scripts/stripe-sandbox-smoke.mts` never read it; it uses `STRIPE_SECRET_KEY`. Nothing redeployed, since the variable was unused.
+- **Zoho sandbox (staging) rotated.**
+  - **The Self Client has no "regenerate secret" button.** The leaked client ID and secret are harmless without a refresh token, so the old refresh token was revoked instead.
+  - **New `ZOHO_REFRESH_TOKEN`:** minted from a Generate Code grant for **SponsorX-Dev** (Sandbox).
+    - **Watch out:** the sandbox and the production CRM are both named "iCARRe Foundation". Staging's `ZOHO_EXPECTED_ORG_ID 7554807000000020005` is the **sandbox**; `4857533000000020005` is production.
+    - A first grant for the production org was revoked unused, and checked dead.
+  - **New `ZOHO_NOTIFY_TOKEN`** and `ZOHO_WEBHOOK_SECRET` (no `_PREVIOUS`, because of the leak).
+  - **Staging redeployed.** The worker logged `zoho.watch {"renewed":true}`. The old refresh token was revoked, and minting with it now fails `invalid_code`.
+  - **Zoho Books holds no copy of the secret.** The invoice webhook was never wired (the Deluge workflow from 2026-10-02 was never built), so the new `ZOHO_WEBHOOK_SECRET` lives only on Railway.
+  - **Production:** a fresh `ZOHO_WEBHOOK_SECRET`, needed to boot. Redeployed 08:45 UTC, booted cleanly. Production Zoho is otherwise not configured.
+- **GitHub monitor token replaced.**
+  - **The new token:** a fine-grained PAT (infinex1; BTG-Sports/sponsorX_dev only; Actions read/write; 1 year; **renew before 2027-10**).
+  - **Checked:** reading the workflow returns 200; dispatching `health-monitor.yml` returns 204; reading repo contents returns 404, so it really is Actions-only.
+  - **Set on staging `monitor-trigger`.** `railway redeploy` refuses a cron service whose last run was REMOVED, so a fresh deployment was started with `serviceInstanceDeployV2`.
+  - The 09:00 cron fired a `workflow_dispatch` health-monitor run at 09:02. The 15-minute monitor is back.
+- **Staging redeployed** (api, web, tester; 09:08 UTC) at the owner's request. Health and `/join` return 200; protected API without a login returns 401; the webhook paths through web return 401; the tester redirects to its login (303); `zoho.watch renewed`.
+- **Database and Redis passwords rotated, staging then production.** Run in manual mode; the auto-mode classifier blocks credential changes.
+  - **Method:** `ALTER ROLE` inside each DB container (`railway ssh -s <db> -- psql -h localhost -U postgres`), then the matching Railway variables, then redeploys.
+  - **Main DBs** (`Postgres`, `Postgres-production`): `postgres`, `sponsorx_app`, `sponsorx_readonly` and `warehouse_reader`.
+    - api's `DATABASE_URL` and `READONLY_DATABASE_URL` reference `${{<db>.SPONSORX_*_PASSWORD}}`.
+    - `WAREHOUSE_SOURCE_DATABASE_URL` holds the `warehouse_reader` password **literally**, so it was rebuilt.
+    - Staging `Postgres` also has a literal `PGPASSWORD`, which was set too.
+  - **Warehouse DBs:** the `postgres` role (`PGPASSWORD` references `POSTGRES_PASSWORD`).
+  - **Redis** (`Redis-KM77`, `Redis`): `REDIS_PASSWORD`, which the start command reads via `--requirepass`. Redis was redeployed before api.
+  - **Checked from inside api, both environments:** every DB URL connects as its role; Redis answers PONG; admin `psql` works on each DB; the APIs booted.
+  - **Backups:** pgBackRest `archive-push … completed successfully` on staging main and warehouse, and on production main. The production warehouse stanza started with no 403 and is idle. The 403s from the incident are gone after the redeploys.
+- **Rotation complete.** All items on the 2026-10-22 list are done. `~/Desktop/sponsorx-keys.txt` and the scratch `.env` backup were deleted, and the clipboard was cleared.
+
+## P8-SEC-04 — Next.js and DOMPurify security advisories (Code review)
+
+- **Trigger:** CI's "dependency audit · secret scan" failed on main_development `a6dc04f3`. New advisories were out for Next.js 16.3.8 (two critical unauthenticated RCEs and a high DoS) and DOMPurify 3.4.16, through jspdf (one critical and one high). Staging and production run the vulnerable versions.
+- **Fix:** branch `fix/next-16.4.2-dompurify` from main_development. `next` and `eslint-config-next` 16.3.8 → 16.4.2; `dompurify` → 3.4.17 (lock file only).
+- **Run locally, all passing:**
+  - builds, lint, security scripts, secret scan and audit (now clean);
+  - frontend 1,681 tests and backend 3,511;
+  - e2e `redeem-flow`, `public` and `public-links`: 15 passed, 1 skipped.
+- **Found on the way:** `frontend/.env.local` still held the deleted Clerk development key (`…SR7c`), so local `next dev` failed Clerk's handshake. It now holds the new key, the same as the root `.env`. Both files are gitignored.
