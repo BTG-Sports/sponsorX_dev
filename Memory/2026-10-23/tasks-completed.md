@@ -25,3 +25,9 @@
   - **Production:** the API booted cleanly.
   - The R2 dashboard deep link `?to=/:account/r2/api-tokens` lands on the plans page; the direct link is `/<accountId>/r2/api-tokens`.
   - **The old R2 token is now safe to delete.**
+- **Stripe sandbox (staging, "BTG sandbox" `acct_1UNCvFKA9GZ8RRgK`) rotated.**
+  - **New on staging api, redeployed 08:19 UTC:** `STRIPE_SECRET_KEY` (checked as that account's key), plus `STRIPE_WEBHOOK_SECRET` (platform, snapshot endpoint `we_1UNPhwKA9GZ8RRgKLWZ30ogs`) and `STRIPE_THIN_WEBHOOK_SECRET` (accounts v2 destination `ed_test_61VWnf…`).
+  - **Webhook check:** a message self-signed with each new secret gets 202, and a wrong secret gets 401.
+  - **Side effect:** the thin check recorded an `account.updated` event for a made-up account, `acct_test_rotation`, on staging. It's a test record.
+  - **Mix-up:** the dashboard showed two sandboxes. The user first rolled the secret key in a **different** sandbox ("BTG", `acct_1UNCupGfl3hcz7a8`, publishable key ending `2l3ebxWP`). No SponsorX environment uses it (staging uses `pk_test_…5hSr`; local .env has no Stripe key), so letting that old key expire is harmless.
+  - **The restricted smoke-test key** (`rk_test_…2oCb`) was rolled too; its new value hasn't been copied yet. `STRIPE_SECRET_KEY_RESTRICTED_TEST` stops working when the old one expires.
