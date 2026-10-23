@@ -41,3 +41,9 @@
   - **Staging redeployed.** The worker logged `zoho.watch {"renewed":true}`. The old refresh token was revoked, and minting with it now fails `invalid_code`.
   - **Zoho Books holds no copy of the secret.** The invoice webhook was never wired (the Deluge workflow from 2026-10-02 was never built), so the new `ZOHO_WEBHOOK_SECRET` lives only on Railway.
   - **Production:** a fresh `ZOHO_WEBHOOK_SECRET`, needed to boot. Redeployed 08:45 UTC, booted cleanly. Production Zoho is otherwise not configured.
+- **GitHub monitor token replaced.**
+  - **The new token:** a fine-grained PAT (infinex1; BTG-Sports/sponsorX_dev only; Actions read/write; 1 year; **renew before 2027-10**).
+  - **Checked:** reading the workflow returns 200; dispatching `health-monitor.yml` returns 204; reading repo contents returns 404, so it really is Actions-only.
+  - **Set on staging `monitor-trigger`.** `railway redeploy` refuses a cron service whose last run was REMOVED, so a fresh deployment was started with `serviceInstanceDeployV2`.
+  - The 09:00 cron fired a `workflow_dispatch` health-monitor run at 09:02. The 15-minute monitor is back.
+- **Staging redeployed** (api, web, tester; 09:08 UTC) at the owner's request. Health and `/join` return 200; protected API without a login returns 401; the webhook paths through web return 401; the tester redirects to its login (303); `zoho.watch renewed`.
