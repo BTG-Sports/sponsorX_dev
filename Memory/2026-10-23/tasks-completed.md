@@ -105,3 +105,8 @@
   - frontend 1,681 tests and backend 3,511;
   - e2e `redeem-flow`, `public` and `public-links`: 15 passed, 1 skipped.
 - **Found on the way:** `frontend/.env.local` still held the deleted Clerk development key (`…SR7c`), so local `next dev` failed Clerk's handshake. It now holds the new key, the same as the root `.env`. Both files are gitignored.
+- **P8-SEC-04 is Done.**
+  - #292 was merged into main_development, then synced to main in #293, with all CI green both times (the first run was slow because the lock-file change missed the Playwright cache).
+  - **Staging:** deployed with `npm run deploy staging` at `38f800e`.
+  - **Production:** deployed with `gh workflow run deploy-daily.yml --ref main` once main's CI was green. `release` moved to `38f800e`, and api and web were live at 11:55 UTC.
+  - **Production checks:** health 200 with every check ok; `/`, `/join`, `/login` and `/packages` return 200; the Zoho webhook path returns 401.
