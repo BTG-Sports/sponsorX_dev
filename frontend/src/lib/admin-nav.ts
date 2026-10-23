@@ -30,6 +30,8 @@ export const ADMIN_NAV: NavItem[] = [
   /* P4-FE-07 — sponsor briefs, qualified here before the Matching Studio. */
   { href: "/admin/briefs", label: "Briefs", icon: "mail", group: "Campaigns" },
   { href: "/admin/campaigns", label: "Campaigns", icon: "megaphone", group: "Campaigns" },
+  /* P8-FE-05 — a concern raised about a deal pauses the order until a BTG admin decides; campaign managers read. Not the card-payment Disputes under Money. */
+  { href: "/admin/deal-disputes", label: "Deal disputes", icon: "flag", group: "Campaigns" },
   /* 2S2-FE-03 — BTG's formal offers: drafts, sending, answering change requests. */
   { href: "/admin/offers", label: "Offers", icon: "megaphone", group: "Campaigns" },
   { href: "/admin/rewards", label: "Rewards", icon: "gift", group: "Campaigns" },

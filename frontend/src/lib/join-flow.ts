@@ -7,8 +7,13 @@
    eventual P3-FE-01 API wiring replaces only where answers go on submit.
 
    The agreement step is click-wrap against the Content Collaboration
-   Agreement in force, served by the API (P8-FE-07; v2 approved 2026-10-22).
+   Agreement in force, served by the API (P8-FE-07; v2 approved 2026-10-22),
+   and — for an adult — the rules confirmation (P8-FE-03): the wording from
+   GET /public/rules-attestation, whose version travels with the application.
+   A minor's guardian confirms the rules on their own page instead.
    -------------------------------------------------------------------------- */
+
+import type { ApiRulesWording } from "@/lib/confirmations-live";
 
 export type FieldDef = {
   key: string;
@@ -261,6 +266,10 @@ export type JoinDraft = {
   /** P8-FE-07 — which agreement the tick was for. A tick on an earlier
    *  version doesn't carry over to new wording. */
   acceptedAgreementId?: string;
+  /** P8-FE-03 — the rules tick, and which wording version it was for. Older
+   *  drafts have neither; parseDraft tolerates absence. */
+  rulesAccepted?: boolean;
+  rulesVersion?: string;
   /** ISO timestamp, set at submit. */
   submittedAt?: string;
   /** P3-FE-01 — set by a successful real submission. The reference is shown
@@ -306,7 +315,20 @@ export type IntakePayload = {
   guardian?: { legalName: string; email: string; relationship: GuardianRelationshipCode };
   /** P8-FE-07 — the agreement ticked: its id and the hash of the text shown. */
   agreement?: { agreementId: string; bodyHashShown: string };
+  /** P8-FE-03 — the rules wording version an adult confirmed. Never sent for
+   *  a minor: their guardian confirms on the set-up page. */
+  rulesAttestationVersion?: string;
 };
+
+/** The rules tick counts only for the wording on screen: a tick stored
+ *  against an older version is asked again when the wording moves on
+ *  (the same rule as the agreement's acceptedAgreementId). */
+export function rulesTickCounts(
+  draft: Pick<JoinDraft, "rulesAccepted" | "rulesVersion">,
+  rules: Pick<ApiRulesWording, "version"> | null,
+): boolean {
+  return Boolean(draft.rulesAccepted && rules && draft.rulesVersion === rules.version);
+}
 
 export type GuardianRelationshipCode = "PARENT" | "LEGAL_GUARDIAN" | "AUTHORIZED_REP";
 
@@ -341,12 +363,13 @@ export function levelToEnum(raw: string): IntakePayload["level"] {
   return undefined;
 }
 
-export function draftToApplication(draft: JoinDraft): IntakePayload {
+export function draftToApplication(draft: JoinDraft, rules: ApiRulesWording | null = null): IntakePayload {
   const a = draft.answers;
   const val = (k: string) => (a[k] ?? "").trim();
   const opt = (k: string) => (val(k) ? val(k) : undefined);
 
   const legalName = `${val("firstName")} ${val("lastName")}`.trim();
+  const minor = isMinor(val("dob"));
 
   /* The wizard collects one self-reported follower total across platforms;
      the contract wants per-account numbers. Splitting a total by guesswork
@@ -381,9 +404,13 @@ export function draftToApplication(draft: JoinDraft): IntakePayload {
     /* 2S1-FE-06 — the guardian section's answers, for a minor. The API decides
        "minor" by the place's age of majority (Alabama's is 19), so it may
        still ask for a guardian after submitting; it ignores one for an adult. */
-    ...(isMinor(val("dob")) && val("guardianName") && val("guardianEmail")
+    ...(minor && val("guardianName") && val("guardianEmail")
       ? { guardian: { legalName: val("guardianName"), email: val("guardianEmail"), relationship: relationshipToCode(val("guardianRelation")) } }
       : {}),
+    /* P8-FE-03 — an adult's own rules confirmation, for the wording on screen.
+       A minor's tick is never sent: the API would store it but not count it,
+       and the plan says the guardian's page asks, not the minor's application. */
+    ...(!minor && rules && rulesTickCounts(draft, rules) ? { rulesAttestationVersion: rules.version } : {}),
   };
 }
 

@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
-  SUPPORT_EMAIL, contactTopic, declinedWords, agreementFromBody, guardianAcceptLine, handoffCarryOver, handoffDemo, handoffTrack, handoffViews, idFileProblem,
+  SUPPORT_EMAIL, contactTopic, declinedWords, agreementFromBody, finishBlocker, guardianAcceptLine, handoffCarryOver, handoffDemo, handoffTrack, handoffViews, idFileProblem,
   firstOpenStep, sampleDeclined, sampleHandoff, sampleSwitched, setupDemo, stepMove, stepsFor, whenLabel,
 } from "@/lib/guardian-live";
 
@@ -61,6 +61,18 @@ describe("guardian set-up", () => {
     expect(setupDemo("done")).toBe("done");
     expect(setupDemo(["approved"])).toBe("approved");
     expect(setupDemo("agreement")).toBeNull();
+  });
+  it("finishes only with both boxes ticked — the rules box only when its wording loaded (P8-FE-03)", () => {
+    const shown = { agreementShown: true, rulesShown: true };
+    expect(finishBlocker({ ...shown, accepted: true, rulesTicked: true })).toBeNull();
+    expect(finishBlocker({ ...shown, accepted: true, rulesTicked: false })).toMatch(/rules box/);
+    expect(finishBlocker({ ...shown, accepted: false, rulesTicked: true })).toMatch(/accept the agreement/);
+    expect(finishBlocker({ ...shown, accepted: false, rulesTicked: false })).toMatch(/both boxes/);
+    /* The rules wording didn't load: the guardian can still finish; no version is sent. */
+    expect(finishBlocker({ agreementShown: true, rulesShown: false, accepted: true, rulesTicked: false })).toBeNull();
+    expect(finishBlocker({ agreementShown: true, rulesShown: false, accepted: false, rulesTicked: false })).toMatch(/accept the agreement/);
+    /* The agreement itself didn't load: nothing can be accepted. */
+    expect(finishBlocker({ agreementShown: false, rulesShown: true, accepted: true, rulesTicked: true })).toMatch(/isn't available/);
   });
 });
 

@@ -1,6 +1,8 @@
+import { PausedLink } from "@/components/deal-dispute-desk";
 import { ListFilter, ListSearch } from "@/components/server-pager";
 import { PagedTable, Primary, Td, Tr, type Column } from "@/components/stage-table";
 import { VaultChip, type VaultTone } from "@/components/vault-stage";
+import { openDisputeFor, pausedNote, type ApiDealDispute } from "@/lib/deal-disputes-live";
 import { EARNING_COPY, type EarningState } from "@/lib/fixtures";
 import {
   earningApprovalNote,
@@ -123,7 +125,14 @@ function EarningsFoot() {
   );
 }
 
-export function EarningsTab({ data, q, state, sample }: { data: EarningsPage; q: string; state: string; sample?: boolean }) {
+export function EarningsTab({ data, q, state, sample, disputes = [] }: {
+  data: EarningsPage;
+  q: string;
+  state: string;
+  sample?: boolean;
+  /** P8-FE-05 — the deal disputes pausing orders: a HELD earning says why, with the way to its dispute (inside /finance). */
+  disputes?: ApiDealDispute[];
+}) {
   const filtered = Boolean(q || state);
   return (
     <div className="space-y-3">
@@ -150,6 +159,7 @@ export function EarningsTab({ data, q, state, sample }: { data: EarningsPage; q:
         ) : (
           data.earnings.map((e, i) => {
             const note = earningApprovalNote(e);
+            const pause = e.state === "HELD" ? openDisputeFor(disputes, e.order.id) : null;
             return (
               <Tr key={e.id} i={i}>
                 <Td>
@@ -167,6 +177,7 @@ export function EarningsTab({ data, q, state, sample }: { data: EarningsPage; q:
                     {note.reasons.length > 0 && (
                       <span className="text-[11px] leading-snug text-[color:var(--vault-gold-hi)]">For Finance: {note.reasons.join(" · ")}</span>
                     )}
+                    {pause && <PausedLink skin="vault" note={pausedNote(pause)} href={`/finance/deal-disputes/${encodeURIComponent(pause.id)}`} />}
                   </span>
                 </Td>
                 <Td label="Athlete" num>

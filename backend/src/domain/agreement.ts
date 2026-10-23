@@ -113,6 +113,14 @@ export async function acceptAgreementIn(
   });
   if (!agreement) throw new ForbiddenError("agreement", "write");
 
+  /* P8-BE-04 — the Content Collaboration Agreement is the athlete's to accept: the athlete's own
+     login, or their guardian acting for them (who carries the ATHLETE role and the ward's id for
+     the request). Staff and sponsors hold agreement.write for their own kinds, not this one; an
+     acceptance by a non-party would be false §12 evidence (QA round, 2026-10-23). */
+  if (agreement.kind === "COLLAB" && !(actor.athleteId && actor.roles.includes("ATHLETE"))) {
+    throw new ForbiddenError("agreement", "write");
+  }
+
   /* 2S1-BE-11 — a minor's agreements come from their guardian's account; and
      2S1-BE-12 — nothing new is agreed during the coming-of-age allowance.
      P8-BE-04 — the Content Collaboration Agreement is what a new deal may

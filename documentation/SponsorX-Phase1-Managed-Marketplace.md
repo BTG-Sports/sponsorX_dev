@@ -2899,9 +2899,9 @@ Raised 2026-10-21, while preparing Stripe go-live. Production's API has no publi
   - **Docs:** `SponsorX-Stripe-Integration.md` §3 and §6.
 - **Reference:** §18, §38
 
-### ▶ `P8-FE-07` · Show the real agreement on /join and record it
+### ✅ `P8-FE-07` · Show the real agreement on /join and record it
 
-**Order** 157.93 · **FE** · **Where:** Code · **1d** · **In progress**
+**Order** 157.93 · **FE** · **Where:** Code · **1d** · **Done** — 2026-10-23, rcfworks and HeckerCreatives
 
 Raised with `P8-BE-04`.
 - **/join** shows the text from `GET /public/agreements/collab`, replacing the hard-coded "v0.4 draft" clauses in `join-flow.ts`.
@@ -2919,6 +2919,8 @@ Raised with `P8-BE-04`.
   - **Done:** /join shows the served agreement (v2) verbatim with its version and the approved acceptance line, and sends `agreement: { agreementId, bodyHashShown }` with the application. A tick on an earlier version doesn't carry over. If the text can't be loaded, the step says so and waits.
   - **A 409 or 422** shows the API's own "reload and accept again" message.
   - **Still open:** the athlete-portal prompt for `current: false`, and the `requireCollabAcceptance` switch on BTG's sign-up settings.
+- **Delivered 2026-10-23 (HeckerCreatives), the rest:** `/athlete/confirmations` prompts when `GET /me/collab-agreement` says `current: false` and accepts through `POST /agreements/accept` (shared with the rules prompt, `P8-FE-04`); the `requireCollabAcceptance` switch is on `/admin/new-signups/rules`. On `/join`, a 422 `not_collab_agreement` or the text-changed 409 now clears the tick, refreshes the text and asks again, and the intake POST carries the applicant's IP and browser.
+  - **For the engine owner:** `AgreementTextChangedError` sets no `code`, so the text-changed 409 arrives as `bad_request`; the frontend matches the message. A real `agreement_text_changed` code would make that exact.
 - **Reference:** §12
 
 ### ✅ `P8-FE-08` · Show the approved fan-page and results wording
@@ -2946,9 +2948,9 @@ Raised with `P8-BE-07` (2026-10-22). The backend serves the approved wording; th
     - The sample-only PDF export's figures: its demo data still includes a "return multiple".
 - **Reference:** §16, §22, Legal folder documents 3 and 5
 
-### ▶ `P8-FE-03` · The rules tick on the sign-up page and the guardian's page
+### ✅ `P8-FE-03` · The rules tick on the sign-up page and the guardian's page
 
-**Order** 157.8 · **FE** · **Where:** Code · **1d** · **Ready**
+**Order** 157.8 · **FE** · **Where:** Code · **1d** · **Done** — 2026-10-23, HeckerCreatives
 
 Raised with `P8-BE-02` (2026-10-20).
 - **Show** the rules wording from `GET /public/rules-attestation` as a tick box on `/join` and on the guardian's set-up page.
@@ -2960,11 +2962,12 @@ Raised with `P8-BE-02` (2026-10-20).
   - Both pages show the wording and send its version when it's ticked.
   - A 422 `rules_attestation_stale` reloads the wording and asks again.
   - For a minor, the guardian's page asks, not the minor's application.
+- **Delivered 2026-10-23:** `/join`'s last step carries the rules wording as a second tick for an adult (`join-agreement-step.tsx`) and sends `rulesAttestationVersion`; a minor reads that the guardian confirms. The guardian's set-up page asks the same for the ward and sends the version with the agreement acceptance. A 422 `rules_attestation_stale` clears the tick, refreshes the wording and asks again. Walked on the local stack; `tests/join-flow.test.ts` and `guardian-live.test.ts` cover the rules.
 - **Reference:** §4, §26
 
-### ▶ `P8-FE-04` · The rules prompt in the athlete portal
+### ✅ `P8-FE-04` · The rules prompt in the athlete portal
 
-**Order** 157.9 · **FE** · **Where:** Code · **1d** · **Ready**
+**Order** 157.9 · **FE** · **Where:** Code · **1d** · **Done** — 2026-10-23, HeckerCreatives
 
 Raised with `P8-BE-02`.
 - **Existing athletes confirm from their login,** and so do guardians acting for a minor: `GET`/`POST /me/rules-attestation`.
@@ -2977,11 +2980,12 @@ Raised with `P8-BE-02`.
   - A refused accept leads to the prompt.
   - A minor's own login sees that the guardian confirms.
   - BTG's sign-up settings show both switches.
+- **Delivered 2026-10-23:** `/athlete/confirmations` shows both standings (rules and the collab agreement), the wording verbatim, and confirms through `POST /me/rules-attestation` and `POST /agreements/accept` with the signer's IP and browser. A banner on the athlete's home links there while something is outstanding. A minor's own login reads that the guardian confirms; a guardian acting for a ward confirms in their name. A 409 `rules_attestation_required` (or `collab_agreement_required`) on accepting an order links to the page. `/admin/new-signups/rules` shows all three switches. Walked: confirm, and the switch on and off.
 - **Reference:** §4, §26
 
-### ▶ `P8-FE-05` · BTG's deal dispute desk
+### ✅ `P8-FE-05` · BTG's deal dispute desk
 
-**Order** 157.91 · **FE** · **Where:** Code · **2d** · **Ready**
+**Order** 157.91 · **FE** · **Where:** Code · **2d** · **Done** — 2026-10-23, HeckerCreatives
 
 Raised with `P8-BE-03`. In the admin workspace, a BTG admin:
 - **opens a dispute** from an order (`POST /orders/{id}/disputes`), with who raised it, the concern and what to send;
@@ -2994,11 +2998,13 @@ Raised with `P8-BE-03`. In the admin workspace, a BTG admin:
   - BTG can open, list, read, view documents and resolve a dispute.
   - Campaign managers and Finance see it read-only.
   - Paused orders and held earnings show why.
+- **Delivered 2026-10-23:** `/admin/deal-disputes` (list with tabs and tiles from one read, detail with the concern, the ask, the documents through the audited five-minute link, and Resume or Cancel with a note). A BTG admin opens a dispute from the campaign roster drawer ("Raise a concern") or from the desk by order id. Campaign managers read along; Finance reads the same desk in the Vault at `/finance/deal-disputes`. A paused roster row and a `HELD` earning on the Finance Workspace and the Treasury show why and link to the dispute. Walked end to end on the local stack.
+  - **For the engine owner:** the dispute view carries `orderId` but no `campaignId`, so the detail can't link to the campaign; `GET /deal-disputes` has no `orderId` filter and caps at 200, so every "why" is a client-side join.
 - **Reference:** §4, §21, §26
 
-### ▶ `P8-FE-06` · The paused-deal banner and upload on the athlete's order
+### ✅ `P8-FE-06` · The paused-deal banner and upload on the athlete's order
 
-**Order** 157.92 · **FE** · **Where:** Code · **1d** · **Ready**
+**Order** 157.92 · **FE** · **Where:** Code · **1d** · **Done** — 2026-10-23, HeckerCreatives
 
 Raised with `P8-BE-03`. On the athlete's order page (and the guardian's, acting for a minor):
 - **show** the pause, the concern, what BTG asked for and the documents sent;
@@ -3011,6 +3017,8 @@ Raised with `P8-BE-03`. On the athlete's order page (and the guardian's, acting 
   - The order page shows the pause, the request and the outcome.
   - The athlete or guardian uploads a document (PDF, JPEG, PNG or WebP, at most 10 MB) and sees it listed.
   - Refused actions say why.
+- **Delivered 2026-10-23:** the athlete's order page joins `GET /deal-disputes` by order and shows the pause (`deal-pause-banner.tsx`): the concern, who raised it, what BTG asked for, the documents sent, and the outcome with BTG's note. The athlete, or the guardian acting for a minor, uploads a PDF, JPEG, PNG or WebP of up to 10 MB through the presigned grant and confirm, at most ten. A 409 `deal_paused` on accepting the order or moving a deliverable says the deal is paused and links to the order. A guardian acting for a minor can now accept the order (before, only the `ATHLETE` role could). Walked: upload, then Resume.
+  - **For the engine owner:** `GET /orders/:id` carries no pause flag, so every order view costs a second read.
 - **Reference:** §4, §26
 
 ### ⏸ `P8-INT-04` · Webhook delivery recording

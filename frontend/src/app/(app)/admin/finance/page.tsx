@@ -30,6 +30,9 @@ import { pageParams, pageParamsFor, textParam, type ListKeys, type SearchParams 
 import { ListFilter, ListSearch, PagerRow, PendingList, ServerList } from "@/components/server-pager";
 import { apiFetch, fetchActor } from "@/server/api";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
+import { PausedLink } from "@/components/deal-dispute-desk";
+import { openDisputeFor, pausedNote, type ApiDealDispute } from "@/lib/deal-disputes-live";
+import { readPausingDisputes } from "@/server/deal-disputes-read";
 
 /* --------------------------------------------------------------------------
    Finance Workspace — §10.
@@ -77,6 +80,8 @@ type LiveBooks = {
   earnings: { earnings: ApiEarning[]; page: ApiPage };
   recon: ApiReconciliationPage | null;
   invoices: { invoices: ApiInvoiceRow[]; page: ApiPage } | null;
+  /** P8-FE-05 — the deal disputes pausing orders: a HELD earning says why (joined by order id). */
+  disputes: ApiDealDispute[];
   q: string;
   state: string;
 };
@@ -98,13 +103,14 @@ async function liveBooks(sp: SearchParams): Promise<LiveBooks | null> {
   if (!who.actor.roles.some((r) => FINANCE_ROLES.includes(r))) return null;
   const q = textParam(sp, "q");
   const state = textParam(sp, "state", STATES);
-  const [summary, earnings, recon, invoices] = await Promise.all([
+  const [summary, earnings, recon, invoices, disputes] = await Promise.all([
     readJson<ApiEarningsSummary>("/earnings/summary"),
     readJson<{ earnings: ApiEarning[]; page: ApiPage }>(`/earnings${pagedQuery(pageParams(sp), { q, state })}`),
     readJson<ApiReconciliationPage>(`/earnings/reconciliation${pagedQuery(pageParamsFor(sp, RECON_KEYS))}`, true),
     readJson<{ invoices: ApiInvoiceRow[]; page: ApiPage }>(`/earnings/invoices${pagedQuery(pageParamsFor(sp, INVOICE_KEYS))}`, true),
+    readPausingDisputes(),
   ]);
-  return { summary: summary!, earnings: earnings!, recon, invoices, q, state };
+  return { summary: summary!, earnings: earnings!, recon, invoices, disputes, q, state };
 }
 
 const LIVE_INVOICE_TONE: Record<string, "neutral" | "primary" | "accent" | "danger"> = {
@@ -359,6 +365,8 @@ function LiveFinance({ books }: { books: LiveBooks }) {
                     <td className="px-4 py-3">
                       {(() => {
                         const note = earningApprovalNote(e);
+                        /* P8-FE-05 — a HELD earning says why when a deal dispute pauses its order. */
+                        const pause = e.state === "HELD" ? openDisputeFor(books.disputes, e.order.id) : null;
                         return (
                           <span className="flex flex-col items-start gap-1">
                             <Badge tone={EARNING_TONE[e.state]}>{EARNING_COPY[e.state]}</Badge>
@@ -366,6 +374,7 @@ function LiveFinance({ books }: { books: LiveBooks }) {
                             {note.reasons.length > 0 && (
                               <span className="text-[11px] leading-snug text-warn">For Finance: {note.reasons.join(" · ")}</span>
                             )}
+                            {pause && <PausedLink note={pausedNote(pause)} href={`/admin/deal-disputes/${encodeURIComponent(pause.id)}`} />}
                           </span>
                         );
                       })()}

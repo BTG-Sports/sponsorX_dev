@@ -214,7 +214,10 @@ export async function startDealDisputeDocument(actor: Actor, disputeId: string, 
   const d = await writableOpen(actor, disputeId);
   if (!DISPUTE_DOCUMENT_TYPES.has(input.contentType)) throw new DealDisputeError("A document is a PDF, JPEG, PNG or WebP.", 422, "deal_dispute_document");
   if (input.bytes > MAX_DISPUTE_DOCUMENT_BYTES) throw new DealDisputeError("A document is at most 10 MB.", 422, "deal_dispute_document");
-  const count = await prisma.dealDisputeDocument.count({ /* tenant-scope: the dispute loaded above through its scope. */ where: { tenantId: d.tenantId, disputeId: d.id } });
+  /* The cap counts documents that arrived, not starts: a dropped PUT or a closed tab leaves a row
+     with no uploadedAt, and ten of those must not lock the athlete out of sending what BTG asked for
+     (QA round, 2026-10-23). tenant-scope: the dispute loaded above through its scope. */
+  const count = await prisma.dealDisputeDocument.count({ where: { tenantId: d.tenantId, disputeId: d.id, uploadedAt: { not: null } } });
   if (count >= MAX_DISPUTE_DOCUMENTS) throw new DealDisputeError(`At most ${MAX_DISPUTE_DOCUMENTS} documents can be sent for one dispute.`, 409, "deal_dispute_document");
   const id = `ddoc_${randomBytes(12).toString("hex")}`;
   const filename = safeFilename(input.filename);

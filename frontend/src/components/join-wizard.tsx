@@ -1,6 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { COLLAB_WORDS, RULES_WORDS, wordingMoved, type ApiRulesWording } from "@/lib/confirmations-live";
 import {
   DRAFT_KEY,
   NEVER_ASKED,
@@ -9,6 +11,7 @@ import {
   emptyDraft,
   isMinor,
   parseDraft,
+  rulesTickCounts,
   validateSection,
   visibleSections,
   type CollabAgreement,
@@ -31,6 +34,12 @@ import { JoinSubmitted } from "./join-submitted";
    Motion rides the sx-join-* system in globals.css; direction is a CSS var;
    focus moves to the step heading on every transition so screen readers
    track the step change.
+
+   P8-FE-03 / P8-FE-07 — the last step carries two wordings read by the page
+   (the agreement and, for an adult, the rules). Each tick counts only for
+   the version on screen. When the API refuses because a wording moved on
+   (confirmations-live.ts: wordingMoved), the tick is cleared, the page is
+   refreshed so the new wording comes down, and the step asks again.
    -------------------------------------------------------------------------- */
 
 type Demo = "submitted" | "minor" | null;
@@ -70,7 +79,16 @@ function seed(demo: Demo): JoinDraft {
    getItem returns a stable string, so Object.is dedupes re-renders. */
 const emptySubscribe = () => () => {};
 
-export function JoinWizard({ demo, agreement = null }: { demo: Demo; agreement?: CollabAgreement | null }) {
+export function JoinWizard({
+  demo,
+  agreement = null,
+  rules = null,
+}: {
+  demo: Demo;
+  agreement?: CollabAgreement | null;
+  rules?: ApiRulesWording | null;
+}) {
+  const router = useRouter();
   const storedRaw = useSyncExternalStore(
     emptySubscribe,
     () => {
@@ -158,7 +176,13 @@ export function JoinWizard({ demo, agreement = null }: { demo: Demo; agreement?:
   const [submitting, setSubmitting] = useState(false);
   /* The tick counts only for the agreement on screen; a demo never reaches the API. */
   const acceptedCurrent = draft.accepted && (demo !== null || (agreement !== null && draft.acceptedAgreementId === agreement.agreementId));
+  /* P8-FE-03 — likewise the rules tick, for the wording on screen. A minor
+     has no box: their guardian confirms on the set-up page. */
+  const rulesCurrent = Boolean(draft.rulesAccepted) && (demo !== null || rulesTickCounts(draft, rules));
   const [submitMsgs, setSubmitMsgs] = useState<string[]>([]);
+  /* A wording moved on under the applicant: not an error of theirs, a note
+     above the step asking them to read and tick the new text. */
+  const [notice, setNotice] = useState<string | null>(null);
 
   const submit = async () => {
     /* Demo renders never reach the API — a shared ?demo=minor link walked to
@@ -170,10 +194,13 @@ export function JoinWizard({ demo, agreement = null }: { demo: Demo; agreement?:
     }
     setSubmitting(true);
     setSubmitMsgs([]);
+    setNotice(null);
     /* P8-FE-07 — the agreement ticked travels with the application, so the
-       acceptance is recorded with the text's fingerprint (P8-BE-04). */
+       acceptance is recorded with the text's fingerprint (P8-BE-04).
+       P8-FE-03 — and, for an adult, the rules wording version they confirmed
+       (draftToApplication adds it; never for a minor). */
     const result = await submitJoinApplication({
-      ...draftToApplication(draft),
+      ...draftToApplication(draft, rules),
       ...(agreement && acceptedCurrent ? { agreement: { agreementId: agreement.agreementId, bodyHashShown: agreement.bodyHash } } : {}),
     });
     setSubmitting(false);
@@ -185,6 +212,21 @@ export function JoinWizard({ demo, agreement = null }: { demo: Demo; agreement?:
         refId: result.id,
         intakeToken: result.token,
       });
+      return;
+    }
+    /* A wording moved on since the page loaded: clear that tick, pull the
+       current text down (the page re-reads both on refresh), and ask again
+       on the agreement step. Nothing typed is lost — the draft stays. */
+    const moved = result.status !== undefined ? wordingMoved(result.status, { error: { code: result.code, message: result.messages.join(" ") } }) : null;
+    if (moved) {
+      const agreementStep = sections.findIndex((s) => s.kind === "agreement");
+      persist(
+        moved === "rules"
+          ? { ...draft, rulesAccepted: false, rulesVersion: undefined, step: agreementStep }
+          : { ...draft, accepted: false, acceptedAgreementId: undefined, step: agreementStep },
+      );
+      setNotice(moved === "rules" ? RULES_WORDS.stale : COLLAB_WORDS.changed);
+      router.refresh();
       return;
     }
     setSubmitMsgs(result.messages);
@@ -245,6 +287,7 @@ export function JoinWizard({ demo, agreement = null }: { demo: Demo; agreement?:
   const finishLater = () => {
     setErrors({});
     setSubmitMsgs([]);
+    setNotice(null);
     persist({ ...draft, phase: "intro" });
   };
 
@@ -257,6 +300,7 @@ export function JoinWizard({ demo, agreement = null }: { demo: Demo; agreement?:
     setDir(1);
     setErrors({});
     setSubmitMsgs([]);
+    setNotice(null);
     persist({ ...emptyDraft(), phase: "steps" });
   };
 
@@ -478,7 +522,10 @@ export function JoinWizard({ demo, agreement = null }: { demo: Demo; agreement?:
   /* ---------------------------------------------------------------- steps */
   const n = draft.step + 1;
   const total = sections.length;
-  const armed = section.kind !== "agreement" || acceptedCurrent;
+  /* An adult's application confirms their own rules too; a minor's needs
+     only the agreement tick (the guardian's page asks about the rules). */
+  const ticked = acceptedCurrent && (minor || rulesCurrent);
+  const armed = section.kind !== "agreement" || ticked;
 
   return (
     <div className="flex min-h-[calc(100dvh-8rem)] flex-col">
@@ -606,11 +653,22 @@ export function JoinWizard({ demo, agreement = null }: { demo: Demo; agreement?:
             />
           )}
           {section.kind === "agreement" && (
-            <JoinAgreementStep
-              agreement={agreement}
-              accepted={acceptedCurrent}
-              onAcceptedChange={(accepted) => setDraft({ ...draft, accepted, acceptedAgreementId: accepted ? agreement?.agreementId : undefined })}
-            />
+            <>
+              {notice && (
+                <p role="status" className="mb-5 rounded-xl border border-accent/50 border-l-2 border-l-accent bg-surface-2 p-4 text-sm leading-relaxed text-accent">
+                  {notice}
+                </p>
+              )}
+              <JoinAgreementStep
+                agreement={agreement}
+                accepted={acceptedCurrent}
+                onAcceptedChange={(accepted) => setDraft({ ...draft, accepted, acceptedAgreementId: accepted ? agreement?.agreementId : undefined })}
+                rules={rules}
+                minor={minor}
+                rulesAccepted={rulesCurrent}
+                onRulesAcceptedChange={(rulesAccepted) => setDraft({ ...draft, rulesAccepted, rulesVersion: rulesAccepted ? rules?.version : undefined })}
+              />
+            </>
           )}
         </div>
       </div>
@@ -631,7 +689,7 @@ export function JoinWizard({ demo, agreement = null }: { demo: Demo; agreement?:
           type="button"
           onClick={goNext}
           disabled={!armed || submitting}
-          data-armed={section.kind === "agreement" && acceptedCurrent}
+          data-armed={section.kind === "agreement" && ticked}
           className={CTA}
         >
           {section.kind === "agreement"

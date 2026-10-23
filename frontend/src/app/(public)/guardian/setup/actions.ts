@@ -1,7 +1,10 @@
 "use server";
 
+import { headers } from "next/headers";
+
 import type { ApiGuardianSetupLive, RelationshipCode } from "@/lib/guardian-live";
-import { fileArgs, publicCall, requestUpload, type Answer, type UploadGrant } from "@/server/id-upload-actions";
+import { edgeHeadersFrom } from "@/server/edge";
+import { fileArgs, publicCall, refusal, requestUpload, type Answer, type Refusal, type UploadGrant } from "@/server/id-upload-actions";
 
 /* --------------------------------------------------------------------------
    2S1-FE-06 (guardian half) — the guardian's set-up page's writes. Public:
@@ -15,6 +18,7 @@ import { fileArgs, publicCall, requestUpload, type Answer, type UploadGrant } fr
    arguments are checked, not trusted.
    -------------------------------------------------------------------------- */
 
+const API_URL = process.env.API_URL ?? "http://localhost:4000";
 const base = (token: string) => `/public/guardian-setup/${encodeURIComponent(token)}`;
 const BAD: { ok: false; status: number; message: string } = { ok: false, status: 400, message: "This link is not valid. Open the whole link from the email." };
 const RELATIONSHIPS: readonly RelationshipCode[] = ["PARENT", "LEGAL_GUARDIAN", "AUTHORIZED_REP"];
@@ -49,12 +53,40 @@ export async function confirmGuardianDocumentAction(token: string, documentId: s
   return publicCall<ApiGuardianSetupLive>(`${base(token)}/documents/${encodeURIComponent(documentId)}/confirm`, { method: "POST" });
 }
 
-export async function acceptGuardianAgreementAction(token: string, agreement: { agreementId: string; bodyHash: string }): Promise<Answer<ApiGuardianSetupLive>> {
+/** A refusal that also names the API's code, so the page can tell a
+ *  moved-on rules wording (422 rules_attestation_stale) from a plain error. */
+export type AcceptAnswer = { ok: true; data: ApiGuardianSetupLive } | (Refusal & { code?: string });
+
+/**
+ * The guardian agreement, accepted against the text shown — and, P8-FE-03,
+ * the athlete's rules wording the guardian confirmed for them (its version;
+ * omitted when the wording didn't load). The call is made here rather than
+ * through publicCall because the wizard needs the refusal's code back: a
+ * stale version is refused before anything is written, and the page must
+ * reload the wording and ask again.
+ */
+export async function acceptGuardianAgreementAction(
+  token: string,
+  agreement: { agreementId: string; bodyHash: string; rulesVersion?: string | null },
+): Promise<AcceptAnswer> {
   if (!okToken(token) || !agreement || typeof agreement.agreementId !== "string" || typeof agreement.bodyHash !== "string") return BAD;
-  return publicCall<ApiGuardianSetupLive>(
-    `${base(token)}/accept`,
-    { method: "POST", body: JSON.stringify({ agreementId: agreement.agreementId, bodyHashShown: agreement.bodyHash }) },
-    /* §12 — the acceptance records the signer's address and browser. */
-    { signer: true },
-  );
+  const rulesAttestationVersion =
+    typeof agreement.rulesVersion === "string" && agreement.rulesVersion.trim() ? agreement.rulesVersion.trim().slice(0, 40) : undefined;
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/api/v1${base(token)}/accept`, {
+      method: "POST",
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+      /* §12 — the acceptance records the signer's address and browser. */
+      headers: { "content-type": "application/json", ...edgeHeadersFrom(await headers(), { signer: true }) },
+      body: JSON.stringify({ agreementId: agreement.agreementId, bodyHashShown: agreement.bodyHash, ...(rulesAttestationVersion ? { rulesAttestationVersion } : {}) }),
+    });
+  } catch {
+    return { ok: false, status: 0, message: "We couldn't reach SponsorX. Nothing was lost — check your connection and try again." };
+  }
+  if (res.ok) return { ok: true, data: (await res.json()) as ApiGuardianSetupLive };
+  const body = (await res.clone().json().catch(() => null)) as { error?: { code?: string } } | null;
+  const code = typeof body?.error?.code === "string" ? body.error.code : undefined;
+  return { ...(await refusal(res)), ...(code ? { code } : {}) };
 }

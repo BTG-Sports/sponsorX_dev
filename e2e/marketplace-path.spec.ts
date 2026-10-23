@@ -277,6 +277,9 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
   await section("Payment recipient", [["recipient", ATHLETE_NAME]]);
   await expect(applicant.getByRole("heading", { level: 1, name: "The agreement" })).toBeVisible();
   await applicant.getByText(/I have read and accept the SponsorX Athlete Content Collaboration Agreement \(version \d+\)/).click();
+  /* P8-FE-03 — an adult also confirms their own rules on this step (born 2004, so no guardian). */
+  await applicant.getByText(/I confirm this \(rules wording .+\)\./).click();
+  await expect(applicant.getByRole("checkbox", { name: /I confirm this \(rules wording .+\)\./ })).toBeChecked();
   await applicant.getByRole("button", { name: "Submit application" }).click();
   await expect(applicant.getByRole("heading", { name: "Application submitted" })).toBeVisible({ timeout: 30_000 });
 

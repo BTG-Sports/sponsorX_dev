@@ -3,6 +3,7 @@ import Link from "next/link";
 import { GuardianSetupWizard } from "@/components/guardian-setup-wizard";
 import { LinkExpired } from "@/components/link-expired";
 import { BlockedNotice } from "@/components/ui";
+import type { ApiRulesWording } from "@/lib/confirmations-live";
 import { linkExpiredFrom } from "@/lib/link-expired";
 import { refusalMessage } from "@/lib/onboarding-live";
 import { sampleGuardianSetup, setupDemo, type ApiGuardianSetupLive } from "@/lib/guardian-live";
@@ -26,10 +27,25 @@ import { publicApi } from "../../onboarding/public-api";
             POST  /public/guardian-setup/:token/accept       the agreement, against the text shown
    ?demo=done|approved previews the two after-finishing states on the sample
    guardian and never reaches the API.
+
+   P8-FE-03 — the agreement step also shows the athlete's rules wording
+   (GET /public/rules-attestation, read here; null when it can't be) with a
+   second box the guardian ticks for the minor; its version goes with the
+   acceptance. A stale version makes the wizard refresh this page, so the
+   current wording comes down and is asked again.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Guardian set-up · SponsorX", robots: { index: false } };
+
+async function rulesWording(): Promise<ApiRulesWording | null> {
+  try {
+    const res = await publicApi("/public/rules-attestation");
+    return res.ok ? ((await res.json()) as ApiRulesWording) : null;
+  } catch {
+    return null;
+  }
+}
 
 function Plain({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -68,7 +84,10 @@ export default async function GuardianSetupPage({ searchParams }: { searchParams
     );
   }
 
-  const res = await publicApi("/public/guardian-setup/open", { method: "POST", body: JSON.stringify({ token }) });
+  const [res, rules] = await Promise.all([
+    publicApi("/public/guardian-setup/open", { method: "POST", body: JSON.stringify({ token }) }),
+    rulesWording(),
+  ]);
   if (res.status === 410) {
     /* 2S8-FE-01: older than 14 days — a fresh one can be emailed. */
     const gone = linkExpiredFrom(410, await res.json().catch(() => null), "guardian-setup");
@@ -108,7 +127,7 @@ export default async function GuardianSetupPage({ searchParams }: { searchParams
 
   return (
     <Shell athleteName={live.athlete.name} first={live.athlete.firstName} emailConfirmed={live.guardian.emailConfirmed}>
-      <GuardianSetupWizard mode={{ kind: "live", token, setup: live }} />
+      <GuardianSetupWizard mode={{ kind: "live", token, setup: live, rules }} />
     </Shell>
   );
 }

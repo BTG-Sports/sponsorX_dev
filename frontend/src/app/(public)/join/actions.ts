@@ -1,8 +1,11 @@
 "use server";
 
+import { headers } from "next/headers";
+
 import type { IntakePayload } from "@/lib/join-flow";
 import type { ApiSignupStatus } from "@/lib/join-signup";
 import { linkExpiredFrom } from "@/lib/link-expired";
+import { edgeHeadersFrom } from "@/server/edge";
 import { fileArgs, refusal, requestUpload, type Answer, type UploadGrant } from "@/server/id-upload-actions";
 import { publicApi } from "../onboarding/public-api";
 
@@ -25,6 +28,12 @@ export type IntakeResult =
       fields: Record<string, string>;
       /** Everything else, for the banner. */
       messages: string[];
+      /** P8-FE-03 / P8-FE-07 — the API's refusal, so the wizard can tell a
+       *  moved-on wording (422 rules_attestation_stale, 422
+       *  not_collab_agreement, 409 "…text has changed") from a plain error
+       *  and ask again. Absent when the service was unreachable. */
+      status?: number;
+      code?: string;
     };
 
 /** Contract paths → wizard field keys, so a 400 lands on the input it means. */
@@ -68,9 +77,12 @@ export async function submitJoinApplication(
 ): Promise<IntakeResult> {
   let response: Response;
   try {
+    /* §12 — the agreement and rules ticks are recorded with the applicant's
+       own address and browser (edge.ts), not this server's. */
+    const signer = edgeHeadersFrom(await headers(), { signer: true });
     response = await fetch(`${API_URL}/api/v1/applications/intake`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...signer },
       body: JSON.stringify(payload),
       cache: "no-store",
     });
@@ -100,19 +112,23 @@ export async function submitJoinApplication(
       messages: [
         "Too many applications from this connection in the last hour. Your answers are saved — try again later.",
       ],
+      status: 429,
     };
   }
 
   /* Validation and anything else the API can articulate. */
   let messages: string[] = [`The application was not accepted (HTTP ${response.status}).`];
   const fields: Record<string, string> = {};
+  let code: string | undefined;
   try {
     const body = (await response.json()) as {
       error?: {
+        code?: string;
         message?: string;
         issues?: Array<{ path: string; message: string }>;
       };
     };
+    code = body.error?.code;
     if (body.error?.issues?.length) {
       messages = [];
       for (const issue of body.error.issues) {
@@ -129,7 +145,7 @@ export async function submitJoinApplication(
   } catch {
     /* Non-JSON error body — keep the status-line message. */
   }
-  return { ok: false, fields, messages };
+  return { ok: false, fields, messages, status: response.status, code };
 }
 
 /* --------------------------------------------------------------------------
