@@ -12,7 +12,25 @@ import { apiFetch } from "@/server/api";
      PUT    /signup-rules/settings        {staffConfirmMinors}             "BTG staff confirm minors"
    The API checks the role (BTG admin), audits each change and works out the
    age again for the athletes who live in the place.
+
+   P8-FE-04 / P8-FE-07 — the same PUT takes two more switches, each one
+   flag at a time: requireRulesAttestation (a confirmation that counts is
+   on file before a deal or a listing) and requireCollabAcceptance (the
+   current Content Collaboration Agreement is accepted). setSignupFlagAction
+   is the one action; the flag name is allowlisted here, never passed
+   through.
    -------------------------------------------------------------------------- */
+
+export const SIGNUP_FLAGS = ["staffConfirmMinors", "requireRulesAttestation", "requireCollabAcceptance"] as const;
+export type SignupFlag = (typeof SIGNUP_FLAGS)[number];
+
+const SAID: Record<SignupFlag, (on: boolean) => string> = {
+  staffConfirmMinors: (on) => (on ? "On — complete minors now wait for a person at BTG." : "Off — minors are approved by their checks, and any held are checked again."),
+  requireRulesAttestation: (on) =>
+    on ? "On — a new deal or listing waits until a rules confirmation that counts is on file." : "Off — athletes are still asked; nothing waits on it.",
+  requireCollabAcceptance: (on) =>
+    on ? "On — a new deal or listing waits until the current agreement is accepted." : "Off — athletes are still asked; nothing waits on it.",
+};
 
 export type RuleResult = { ok: true; message: string } | { ok: false; message: string };
 
@@ -52,9 +70,12 @@ export async function removeAgeRowAction(id: string): Promise<RuleResult> {
   return send(`/signup-rules/age-table/${encodeURIComponent(id)}`, { method: "DELETE" }, updated);
 }
 
-export async function setStaffConfirmAction(on: boolean): Promise<RuleResult> {
+export async function setSignupFlagAction(flag: SignupFlag, on: boolean): Promise<RuleResult> {
+  if (typeof flag !== "string" || !(SIGNUP_FLAGS as readonly string[]).includes(flag)) return { ok: false, message: "Unknown rule." };
   if (typeof on !== "boolean") return { ok: false, message: "On or off?" };
-  return send("/signup-rules/settings", { method: "PUT", body: JSON.stringify({ staffConfirmMinors: on }) }, () =>
-    on ? "On — complete minors now wait for a person at BTG." : "Off — minors are approved by their checks, and any held are checked again.",
-  );
+  return send("/signup-rules/settings", { method: "PUT", body: JSON.stringify({ [flag]: on }) }, () => SAID[flag](on));
+}
+
+export async function setStaffConfirmAction(on: boolean): Promise<RuleResult> {
+  return setSignupFlagAction("staffConfirmMinors", on);
 }

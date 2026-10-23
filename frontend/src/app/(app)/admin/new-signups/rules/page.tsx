@@ -4,7 +4,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { KpiTile } from "@/components/ops-stage";
 import { RulesBoard } from "@/components/rules-board";
-import { StaffConfirmSwitch } from "@/components/signup-rules-editor";
+import { COLLAB_REQUIRED_WORDS, FlagSwitch, RULES_REQUIRED_WORDS, StaffConfirmSwitch } from "@/components/signup-rules-editor";
 import type { AgeRow } from "@/lib/age-table";
 import { apiFetch } from "@/server/api";
 
@@ -25,6 +25,13 @@ import { apiFetch } from "@/server/api";
    minors switch, then the place board (rules-board.tsx: search, country
    rail, the country's places; adding and changing in a dialog).
 
+   P8-FE-04 / P8-FE-07 — two more switches on the same settings, under
+   "Before a deal": "Athletes confirm their own rules"
+   (requireRulesAttestation) and "Athletes accept the current Content
+   Collaboration Agreement" (requireCollabAcceptance). Off, each is asked on
+   sign-up and in the portal; on, a new deal or listing waits on it — for a
+   minor, the guardian's.
+
    Reads  GET /signup-rules/settings · GET /signup-rules/age-table
    Writes PUT /signup-rules/settings · PUT / DELETE /signup-rules/age-table   (./actions.ts)
    The network manager reads; only a BTG admin's changes are accepted.
@@ -34,6 +41,9 @@ export const dynamic = "force-dynamic";
 const PATH = "/admin/new-signups";
 
 type AgeTable = { rows: AgeRow[]; unknownPlaceAthletes: number };
+
+/** GET /signup-rules/settings — the three switches (2S1-BE-10, P8-BE-02, P8-BE-04). */
+type SignupSettings = { staffConfirmMinors: boolean; requireRulesAttestation?: boolean; requireCollabAcceptance?: boolean };
 
 const at = (seconds: number) => ({ "--sx-reveal-delay": `${seconds}s` }) as CSSProperties;
 
@@ -63,12 +73,16 @@ export default async function SignupRulesPage() {
     );
   }
   if (!settingsRes.ok || !tableRes.ok) throw new Error(`The sign-up rules couldn't be read (${settingsRes.ok ? tableRes.status : settingsRes.status}).`);
-  const settings = (await settingsRes.json()) as { staffConfirmMinors: boolean };
+  const settings = (await settingsRes.json()) as SignupSettings;
   const table = (await tableRes.json()) as AgeTable;
   const countries = new Set(table.rows.map((r) => r.countryCode)).size;
   const not18 = table.rows.filter((r) => r.age !== 18).length;
   const readAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   const on = settings.staffConfirmMinors;
+  /* The two "before a deal" switches, read as false when an older API leaves them out. */
+  const rulesOn = settings.requireRulesAttestation === true;
+  const collabOn = settings.requireCollabAcceptance === true;
+  const enforced = [rulesOn, collabOn].filter(Boolean).length;
 
   return (
     <Stage>
@@ -79,7 +93,7 @@ export default async function SignupRulesPage() {
             Postgres · read {readAt}
           </span>
         </div>
-        <dl className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <dl className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
           <KpiTile label="Places in the table" value={table.rows.length} caption={`across ${countries} ${countries === 1 ? "country" : "countries"}`} tone="blue" delay={0.1} />
           <KpiTile
             label="Unknown place"
@@ -89,7 +103,7 @@ export default async function SignupRulesPage() {
             delay={0.16}
           />
           <KpiTile label="Not 18" value={not18} caption="places with another age" tone="cyan" delay={0.22} />
-          {/* The rule's state in words — a figure tile would read "0 / 1". */}
+          {/* The rules' states in words — a figure tile would read "0 / 1". */}
           <div className="sx-ops-panel sx-ops-in relative px-4 pb-4 pt-3.5" style={at(0.28)}>
             <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px]" style={{ background: on ? "#f97a1f" : "#22c55e", boxShadow: `0 0 10px ${on ? "#f97a1f" : "#22c55e"}` }} />
             <dt className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#8a96a3]">Minors</dt>
@@ -98,12 +112,30 @@ export default async function SignupRulesPage() {
               <span className="mt-1.5 block text-[11px] font-normal text-[#7e88a0]">staff confirmation {on ? "on" : "off"}</span>
             </dd>
           </div>
+          <div className="sx-ops-panel sx-ops-in relative px-4 pb-4 pt-3.5" style={at(0.34)}>
+            <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px]" style={{ background: enforced ? "#f97a1f" : "#22c55e", boxShadow: `0 0 10px ${enforced ? "#f97a1f" : "#22c55e"}` }} />
+            <dt className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#8a96a3]">Before a deal</dt>
+            <dd className={`mt-2 text-lg font-bold leading-tight ${enforced ? "text-[#fdba74]" : "text-[#86efac]"}`}>
+              {enforced === 2 ? "Both confirmations wait" : enforced === 1 ? (rulesOn ? "Own rules wait" : "Agreement waits") : "Asked, not enforced"}
+              <span className="mt-1.5 block text-[11px] font-normal text-[#7e88a0]">{enforced} of 2 enforced</span>
+            </dd>
+          </div>
         </dl>
       </header>
 
       <section aria-labelledby="sr-minors" className="sx-ops-panel sx-ops-in relative mt-8 px-5 pb-5 pt-4" style={at(0.32)}>
         <h2 id="sr-minors" className="mb-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-[#cfe9ff]">Minors</h2>
         <StaffConfirmSwitch on={on} />
+      </section>
+
+      {/* P8-FE-04 / P8-FE-07 — what an athlete confirms before a new deal, and whether it waits on them. */}
+      <section aria-labelledby="sr-deal" className="sx-ops-panel sx-ops-in relative mt-6 px-5 pb-5 pt-4" style={at(0.38)}>
+        <h2 id="sr-deal" className="mb-1 text-[11px] font-semibold uppercase tracking-[0.3em] text-[#cfe9ff]">Before a deal</h2>
+        <p className="mb-5 text-xs text-[#8a96a3]">Both are asked on sign-up and in the portal either way. On, a new deal or listing waits until it is on file — for a minor, from the guardian.</p>
+        <div className="space-y-6">
+          <FlagSwitch flag="requireRulesAttestation" on={rulesOn} words={RULES_REQUIRED_WORDS} />
+          <FlagSwitch flag="requireCollabAcceptance" on={collabOn} words={COLLAB_REQUIRED_WORDS} />
+        </div>
       </section>
 
       <div className="mt-8">

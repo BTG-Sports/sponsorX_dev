@@ -28,8 +28,10 @@ import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 import { athletePayoutLinkAction } from "./payout-actions";
 import { ComingOfAgeReminder } from "@/components/coming-of-age-reminder";
+import { ConfirmationsBanner } from "@/components/confirmations-banner";
 import { GuardianControlNotice } from "@/components/guardian-control-notice";
 import { comingOfAgeView, type ApiComingOfAge } from "@/lib/account-live";
+import type { ApiMyCollab, ApiMyRules } from "@/lib/confirmations-live";
 
 /* --------------------------------------------------------------------------
    Athlete portal home — P3-FE-06, §9 screen 6. The signed-in athlete's own
@@ -72,6 +74,11 @@ import { comingOfAgeView, type ApiComingOfAge } from "@/lib/account-live";
    has no payee (a guardian's own) — leaves that block out; any other
    failure throws to the error page. Nothing is estimated.
 
+   P8-FE-04 / P8-FE-07 — GET /me/rules-attestation and GET /me/collab-
+   agreement feed the "something to confirm" banner (ConfirmationsBanner)
+   beside the coming-of-age reminder. Either read failing leaves the banner
+   out; neither fails the page.
+
    P1-ART-22 (2026-10-11) — redrawn on the Arena (components/arena-stage.tsx)
    as a dashboard, the admin desks' anatomy in the athlete's hand: a small
    title with the provenance pill and the athlete's status, four KPI plates
@@ -88,6 +95,16 @@ async function read<T>(path: string): Promise<T> {
   const res = await apiFetch(path);
   if (!res.ok) throw new Error(`${path} unavailable (${res.status}).`);
   return (await res.json()) as T;
+}
+
+/** A read whose failure costs only its banner: anything but 200 → null. */
+async function tolerant<T>(path: string): Promise<T | null> {
+  try {
+    const res = await apiFetch(path);
+    return res.ok ? ((await res.json()) as T) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** A read this login may not have (403/404 → null); any other failure throws. */
@@ -172,7 +189,7 @@ export default async function AthleteHomePage() {
      reads a whole list. */
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
-  const [me, inv, inbox, del, overdue, earnSummary, acctRes, ageRes, offersRes, shopRes, moneyRes] = await Promise.all([
+  const [me, inv, inbox, del, overdue, earnSummary, acctRes, ageRes, offersRes, shopRes, moneyRes, rules, collab] = await Promise.all([
     isAthlete ? apiFetch("/athletes/me") : Promise.resolve(null),
     read<{ invitations: ApiInvitation[] }>("/invitations?page=1&size=3&state=open&sort=expiry"),
     read<{ summary: { open: number } }>("/invitations/summary"),
@@ -187,6 +204,9 @@ export default async function AthleteHomePage() {
     isAthlete ? apiFetch("/offers") : Promise.resolve(null),
     isAthlete ? apiFetch("/sales/summary") : Promise.resolve(null),
     isAthlete ? apiFetch("/payouts/me") : Promise.resolve(null),
+    /* P8-FE-04 / P8-FE-07 — the two confirmations before a new deal. */
+    isAthlete ? tolerant<ApiMyRules>("/me/rules-attestation") : Promise.resolve(null),
+    isAthlete ? tolerant<ApiMyCollab>("/me/collab-agreement") : Promise.resolve(null),
   ]);
   const coming = ageRes?.ok ? ((await ageRes.json()) as { comingOfAge: ApiComingOfAge | null }).comingOfAge : null;
   const ageView = coming ? comingOfAgeView(coming, coming.seat ?? "athlete") : null;
@@ -290,6 +310,7 @@ export default async function AthleteHomePage() {
       </ArenaHead>
 
       {ageView && coming && <ComingOfAgeReminder view={ageView} seat={coming.seat ?? "athlete"} uploadPath={coming.uploadPath ?? null} />}
+      <ConfirmationsBanner rules={rules} collab={collab} viewerIsGuardian={Boolean(actor.actingFor)} />
       <GuardianControlNotice actor={actor} />
 
       {(payout?.show || waiting > 0) && (
