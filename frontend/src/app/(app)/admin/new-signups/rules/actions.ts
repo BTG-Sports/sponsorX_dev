@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { isSignupFlag, type SignupFlag } from "@/lib/signup-flags";
 import { refusalWords } from "@/lib/signups-live";
 import { apiFetch } from "@/server/api";
 
@@ -20,9 +21,6 @@ import { apiFetch } from "@/server/api";
    is the one action; the flag name is allowlisted here, never passed
    through.
    -------------------------------------------------------------------------- */
-
-export const SIGNUP_FLAGS = ["staffConfirmMinors", "requireRulesAttestation", "requireCollabAcceptance"] as const;
-export type SignupFlag = (typeof SIGNUP_FLAGS)[number];
 
 const SAID: Record<SignupFlag, (on: boolean) => string> = {
   staffConfirmMinors: (on) => (on ? "On — complete minors now wait for a person at BTG." : "Off — minors are approved by their checks, and any held are checked again."),
@@ -71,7 +69,7 @@ export async function removeAgeRowAction(id: string): Promise<RuleResult> {
 }
 
 export async function setSignupFlagAction(flag: SignupFlag, on: boolean): Promise<RuleResult> {
-  if (typeof flag !== "string" || !(SIGNUP_FLAGS as readonly string[]).includes(flag)) return { ok: false, message: "Unknown rule." };
+  if (!isSignupFlag(flag)) return { ok: false, message: "Unknown rule." };
   if (typeof on !== "boolean") return { ok: false, message: "On or off?" };
   return send("/signup-rules/settings", { method: "PUT", body: JSON.stringify({ [flag]: on }) }, () => SAID[flag](on));
 }

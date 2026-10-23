@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 
-import { setSignupFlagAction, type RuleResult, type SignupFlag } from "@/app/(app)/admin/new-signups/rules/actions";
+import { setSignupFlagAction, type RuleResult } from "@/app/(app)/admin/new-signups/rules/actions";
+import type { SignupFlag } from "@/lib/signup-flags";
 
 /* --------------------------------------------------------------------------
    2S1-FE-07 — the sign-up rules' controls (2S1-BE-10 / -12). Every change is

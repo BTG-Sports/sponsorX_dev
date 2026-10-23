@@ -183,7 +183,7 @@ export function DealDisputeDetail({
         <div className="space-y-6">
           <Panel skin={skin}>
             <h2 className="text-sm font-semibold">The concern</h2>
-            <p className={`mt-1 text-[11px] ${muted}`}>Raised by {raisedByWords(d).toLowerCase()}. The athlete reads this as written.</p>
+            <p className={`mt-1 text-[11px] ${muted}`}>Raised by {raisedByWords(d)}. The athlete reads this as written.</p>
             <p className="mt-3 whitespace-pre-wrap text-[13px] leading-relaxed [overflow-wrap:anywhere]">{d.reason}</p>
           </Panel>
           <Panel skin={skin}>

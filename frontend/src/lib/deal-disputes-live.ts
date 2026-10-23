@@ -228,7 +228,8 @@ export function pauseWords(d: Pick<ApiDealDispute, "state" | "reason" | "documen
 
 /** The one-line note on a paused order or a held earning elsewhere (admin lists, Finance). */
 export function pausedNote(d: Pick<ApiDealDispute, "state" | "source" | "sourceName" | "openedAt">): string {
-  const by = raisedByWords(d).toLowerCase();
+  const name = d.sourceName?.trim();
+  const by = `${sourceLabel(d.source).toLowerCase()}${name ? ` (${name})` : ""}`;
   return d.state === "OPEN"
     ? `Paused since ${dayOf(d.openedAt)} — a concern raised by ${by}; waiting on documents`
     : `Paused since ${dayOf(d.openedAt)} — a concern raised by ${by}; documents in, BTG deciding`;

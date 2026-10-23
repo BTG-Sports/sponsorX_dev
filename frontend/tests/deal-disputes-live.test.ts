@@ -111,7 +111,8 @@ describe("the pause on an order", () => {
     expect(cancelled.text).toMatch(/earning stays held/);
   });
   it("writes the one-line note for lists", () => {
-    expect(pausedNote(dispute())).toMatch(/^Paused since .* — a concern raised by school · northside high; waiting on documents$/);
+    expect(pausedNote(dispute())).toMatch(/^Paused since .* — a concern raised by school \(Northside High\); waiting on documents$/);
+    expect(pausedNote(dispute({ source: "PARENT", sourceName: null }))).toMatch(/raised by parent or guardian; waiting/);
     expect(pausedNote(dispute({ state: "DOCUMENTS_IN" }))).toMatch(/documents in, BTG deciding$/);
   });
 });
