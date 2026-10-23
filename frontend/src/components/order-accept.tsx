@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { AcceptResult } from "@/lib/order-live";
+import type { AcceptOutcome } from "@/lib/athlete-order-pause";
 
 /* --------------------------------------------------------------------------
    OrderAccept — the Campaign Order's acceptance control (P5-FE-01).
@@ -12,6 +13,10 @@ import type { AcceptResult } from "@/lib/order-live";
    action untouched, so the fingerprint is of the words on this screen. On a
    409 (the text changed, or someone already answered) the page reloads the
    truth rather than retrying.
+
+   P8-FE-06 — two 409s are not that: a paused deal (deal_paused) has nothing
+   to retry and says so; an owed confirmation (P8-FE-03/04) has a page to go
+   to, offered as "Confirm now".
    -------------------------------------------------------------------------- */
 
 export function OrderAccept({
@@ -28,12 +33,12 @@ export function OrderAccept({
   version: number | null;
   /** Why acceptance isn't possible, or null. Shown instead of the button. */
   blocker: string | null;
-  accept: (orderId: string, agreementId: string, body: string) => Promise<AcceptResult>;
+  accept: (orderId: string, agreementId: string, body: string) => Promise<AcceptOutcome>;
 }) {
   const router = useRouter();
   const [read, setRead] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<{ message: string; reload?: boolean } | null>(null);
+  const [error, setError] = useState<{ message: string; reload?: boolean; confirmHref?: string } | null>(null);
 
   if (blocker || !agreementId || body === null) {
     return (
@@ -49,7 +54,7 @@ export function OrderAccept({
     try {
       const r = await accept(orderId, agreementId, body);
       if (r.ok) router.refresh();
-      else setError({ message: r.message, reload: r.reload });
+      else setError({ message: r.message, reload: r.reload, confirmHref: r.confirmHref });
     } finally {
       setBusy(false);
     }
@@ -88,6 +93,14 @@ export function OrderAccept({
             >
               Reload the current version
             </button>
+          )}
+          {error.confirmHref && (
+            <Link
+              href={error.confirmHref}
+              className="mt-2 inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
+            >
+              Confirm now
+            </Link>
           )}
         </div>
       )}

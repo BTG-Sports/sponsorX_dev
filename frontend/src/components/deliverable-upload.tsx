@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   CAPTION_MAX,
@@ -33,7 +34,16 @@ import {
    -------------------------------------------------------------------------- */
 
 type Step = "idle" | "start" | "upload" | "record" | "submit" | "done";
-type Fail = { ok: false; message: string };
+/** P8-FE-06 — `orderHref` when the deal is paused: the order page says why. Nothing to retry. */
+type Fail = { ok: false; message: string; orderHref?: string };
+
+function PausedOrderLink({ href }: { href: string }) {
+  return (
+    <Link href={href} className="mt-1.5 block font-semibold underline underline-offset-2">
+      See the order and what BTG asked for →
+    </Link>
+  );
+}
 type Ok<T> = { ok: true } & T;
 
 const ACCEPT = "image/*,video/*,application/pdf";
@@ -105,7 +115,7 @@ export function DeliverableUpload({
   const missing = missingDisclosures(caption, requiredDisclosures);
   const [step, setStep] = useState<Step>("idle");
   const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<{ at: Step; message: string } | null>(null);
+  const [error, setError] = useState<{ at: Step; message: string; orderHref?: string } | null>(null);
   /* An upload that landed but was never recorded — finish it, don't redo
      it. Read from sessionStorage (null on the server), then owned locally. */
   const stored = useSyncExternalStore(noSubscribe, () => readPending(deliverableId), () => null);
@@ -146,7 +156,7 @@ export function DeliverableUpload({
     setStep("record");
     const r = await register(deliverableId, key);
     if (!r.ok) {
-      setError({ at: "record", message: r.message });
+      setError({ at: "record", message: r.message, orderHref: r.orderHref });
       return;
     }
     remember(null);
@@ -164,7 +174,7 @@ export function DeliverableUpload({
     setStep("submit");
     const s = await submit(deliverableId, caption);
     if (!s.ok) {
-      setError({ at: "submit", message: s.message });
+      setError({ at: "submit", message: s.message, orderHref: s.orderHref });
       return;
     }
     setStep("done");
@@ -178,7 +188,7 @@ export function DeliverableUpload({
     setStep("start");
     const p = await presign(deliverableId, f.type || "application/octet-stream", f.size);
     if (!p.ok) {
-      setError({ at: "start", message: p.message });
+      setError({ at: "start", message: p.message, orderHref: p.orderHref });
       return;
     }
     setStep("upload");
@@ -287,7 +297,8 @@ export function DeliverableUpload({
       {error && (
         <div role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] leading-relaxed text-danger">
           {error.message}
-          {error.at !== "idle" && (
+          {error.orderHref && <PausedOrderLink href={error.orderHref} />}
+          {error.at !== "idle" && !error.orderHref && (
             <button
               type="button"
               onClick={() => {
@@ -368,14 +379,14 @@ export function PublishProof({
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; orderHref?: string } | null>(null);
   const go = async () => {
     setBusy(true);
     setError(null);
     const r = await publish(deliverableId, url);
     setBusy(false);
     if (r.ok) router.refresh();
-    else setError(r.message);
+    else setError({ message: r.message, orderHref: r.orderHref });
   };
   return (
     <div className="space-y-2.5">
@@ -391,9 +402,10 @@ export function PublishProof({
         />
       </label>
       {error && (
-        <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] text-danger">
-          {error}
-        </p>
+        <div role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] leading-relaxed text-danger">
+          {error.message}
+          {error.orderHref && <PausedOrderLink href={error.orderHref} />}
+        </div>
       )}
       <button
         type="button"

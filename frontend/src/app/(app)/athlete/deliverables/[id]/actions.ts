@@ -2,6 +2,8 @@
 
 import { apiFetch } from "@/server/api";
 import { CAPTION_MAX, type ContentCheck } from "@/lib/content-checks";
+import { deliverablePausedRefusal } from "@/lib/athlete-order-pause";
+import { isDealPaused } from "@/lib/deal-disputes-live";
 
 /* --------------------------------------------------------------------------
    P5-FE-03 — the athlete's side of a deliverable, as server actions.
@@ -12,27 +14,50 @@ import { CAPTION_MAX, type ContentCheck } from "@/lib/content-checks";
    this server. Every step returns its failure as a VALUE, because every step
    is retryable on its own — a phone that loses signal mid-upload retries the
    PUT, not the whole flow.
+
+   P8-FE-06 — while a concern about the deal is open, every move is refused
+   with 409 deal_paused (P8-BE-03). That refusal says so in words and
+   carries `orderHref`: the order page, where the pause and what BTG asked
+   for are shown. The deliverable read carries the orderId; the component
+   doesn't, so the refusal path reads it.
    -------------------------------------------------------------------------- */
 
-type Fail = { ok: false; message: string };
+type Fail = { ok: false; message: string; orderHref?: string };
 
-async function reason(res: Response, fallback: string): Promise<string> {
+type ErrorBody = { error?: { code?: string; message?: string; issues?: Array<{ message: string }> } } | null;
+
+async function errorBody(res: Response): Promise<ErrorBody> {
   try {
-    const e = (await res.json()) as { error?: { message?: string; issues?: Array<{ message: string }> } };
-    return e.error?.issues?.[0]?.message ?? e.error?.message ?? fallback;
+    return (await res.json()) as ErrorBody;
   } catch {
-    return fallback;
+    return null;
   }
 }
 
-async function post<T>(path: string, body: unknown, fallback: string): Promise<({ ok: true } & T) | Fail> {
+/** The order this deliverable belongs to, for the paused refusal's link; null when it can't be read. */
+async function orderIdOf(deliverableId: string): Promise<string | null> {
+  try {
+    const res = await apiFetch(`/deliverables/${encodeURIComponent(deliverableId)}`);
+    if (!res.ok) return null;
+    const d = (await res.json()) as { orderId?: unknown };
+    return typeof d.orderId === "string" && d.orderId ? d.orderId : null;
+  } catch {
+    return null;
+  }
+}
+
+async function post<T>(deliverableId: string, path: string, body: unknown, fallback: string): Promise<({ ok: true } & T) | Fail> {
   let res: Response;
   try {
     res = await apiFetch(path, { method: "POST", body: JSON.stringify(body ?? {}) });
   } catch {
     return { ok: false, message: "Can't reach SponsorX right now — check your connection and try again." };
   }
-  if (!res.ok) return { ok: false, message: await reason(res, `${fallback} (HTTP ${res.status}).`) };
+  if (!res.ok) {
+    const e = await errorBody(res);
+    if (isDealPaused(res.status, e)) return deliverablePausedRefusal(await orderIdOf(deliverableId));
+    return { ok: false, message: e?.error?.issues?.[0]?.message ?? e?.error?.message ?? `${fallback} (HTTP ${res.status}).` };
+  }
   return { ok: true, ...((await res.json()) as T) };
 }
 
@@ -46,6 +71,7 @@ export async function presignUpload(deliverableId: string, contentType: string, 
   /* P5-BE-09 — the type, and the size when known, are signed into the PUT. */
   const size = typeof bytes === "number" && Number.isInteger(bytes) && bytes > 0 ? { bytes } : {};
   return post<{ url: string; key: string }>(
+    deliverableId,
     `/deliverables/${encodeURIComponent(deliverableId)}/uploads`,
     { contentType, ...size },
     "Couldn't start the upload",
@@ -58,6 +84,7 @@ export async function registerUpload(deliverableId: string, key: string) {
     return { ok: false, message: "Nothing to record." } as Fail;
   }
   return post<{ id: string; version: number }>(
+    deliverableId,
     `/deliverables/${encodeURIComponent(deliverableId)}/assets`,
     { r2Key: key },
     "The upload finished but couldn't be recorded",
@@ -75,6 +102,7 @@ export async function submitDraft(deliverableId: string, caption?: string) {
   const text = typeof caption === "string" ? caption.trim().slice(0, CAPTION_MAX) : "";
   /* P5-BE-10 — btgReviewSkipped: it went straight to the sponsor. */
   return post<{ state: string; passed: boolean; checks: ContentCheck[]; btgReviewSkipped?: boolean }>(
+    deliverableId,
     `/deliverables/${encodeURIComponent(deliverableId)}/submit`,
     text ? { caption: text } : {},
     "Couldn't submit your draft",
@@ -89,6 +117,7 @@ export async function markPublished(deliverableId: string, publishedUrl: string)
     return { ok: false, message: "Paste the full link to the live post, starting with https://" } as Fail;
   }
   return post<{ state: string }>(
+    deliverableId,
     `/deliverables/${encodeURIComponent(deliverableId)}/published`,
     { publishedUrl: url },
     "Couldn't record the published link",

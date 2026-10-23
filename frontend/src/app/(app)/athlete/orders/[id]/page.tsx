@@ -11,14 +11,17 @@ import {
   orderTerms,
   type InviteState,
 } from "@/lib/fixtures";
+import { DealPauseBanner } from "@/components/deal-pause-banner";
 import { OrderAccept } from "@/components/order-accept";
+import { mayUploadDisputeDocuments, viewerIsAthlete } from "@/lib/athlete-order-pause";
+import { latestDisputeFor, type ApiDealDispute, type ApiDealDisputeList } from "@/lib/deal-disputes-live";
 import {
   acceptBlocker,
   ORDER_STATE_COPY,
   type ApiOrder,
 } from "@/lib/order-live";
 import { apiFetch, fetchActor } from "@/server/api";
-import { acceptOrderAction } from "./actions";
+import { acceptOrderAction, confirmDisputeUploadAction, requestDisputeUploadAction } from "./actions";
 
 /* --------------------------------------------------------------------------
    Campaign Order — §12, guide §08. Athlete portal.
@@ -43,6 +46,14 @@ import { acceptOrderAction } from "./actions";
    DRAFT wording until counsel issues the template (G-05); the draft says so
    in its first line, and every draft acceptance is void (agreement-hash.ts).
    Anyone else, or any ?demo= state, keeps the fixture order below.
+
+   P8-FE-06 — a concern raised about the deal pauses it (P8-BE-03). The order
+   read carries no pause, so the page also reads GET /deal-disputes (the
+   athlete's own; the ward's, for a guardian acting for a minor) and joins
+   the latest one by orderId: the banner between the header and the grid
+   shows the pause, what BTG asked for, the documents sent, the upload
+   while it is open, and BTG's decision once made. A guardian acting for a
+   minor is the athlete here, as on the home page (2S1-BE-11).
    -------------------------------------------------------------------------- */
 
 const ORDER_TONE: Record<string, "primary" | "accent" | "neutral" | "danger" | "warn"> = {
@@ -55,7 +66,9 @@ const ORDER_TONE: Record<string, "primary" | "accent" | "neutral" | "danger" | "
   CANCELLED: "danger",
 };
 
-type LiveOrder = { kind: "order"; order: ApiOrder; isAthlete: boolean } | { kind: "missing" };
+type LiveOrder =
+  | { kind: "order"; order: ApiOrder; isAthlete: boolean; dispute: ApiDealDispute | null; viewerIsGuardian: boolean; canUpload: boolean }
+  | { kind: "missing" };
 
 /** The real order for a signed-in athlete or guardian, or null for the demo. */
 async function liveOrder(id: string): Promise<LiveOrder | null> {
@@ -63,13 +76,35 @@ async function liveOrder(id: string): Promise<LiveOrder | null> {
      the athlete's own contract (QA pass 4 rule). */
   const who = await fetchActor();
   if (who.status !== "linked") return null;
-  const isAthlete = who.actor.roles.includes("ATHLETE");
+  /* A guardian acting for their minor is the athlete here (2S1-BE-11). */
+  const isAthlete = viewerIsAthlete(who.actor);
   if (!isAthlete && !who.actor.roles.includes("GUARDIAN")) return null;
-  const res = await apiFetch(`/orders/${encodeURIComponent(id)}`);
+  const [res, dispute] = await Promise.all([apiFetch(`/orders/${encodeURIComponent(id)}`), latestDispute(id)]);
   /* 403 is the API's answer for "not yours" and "no such order" alike. */
   if (res.status === 403) return { kind: "missing" };
   if (!res.ok) throw new Error(`Order unavailable (${res.status}).`);
-  return { kind: "order", order: (await res.json()) as ApiOrder, isAthlete };
+  return {
+    kind: "order",
+    order: (await res.json()) as ApiOrder,
+    isAthlete,
+    dispute,
+    viewerIsGuardian: Boolean(who.actor.actingFor),
+    canUpload: mayUploadDisputeDocuments(who.actor),
+  };
+}
+
+/** The latest dispute on this order, open or decided. The list is the
+ *  athlete's own (max 200, newest first) and takes no orderId filter, so
+ *  the join is here. A failure hides the banner rather than the order. */
+async function latestDispute(orderId: string): Promise<ApiDealDispute | null> {
+  try {
+    const res = await apiFetch("/deal-disputes");
+    if (!res.ok) return null;
+    const { disputes } = (await res.json()) as ApiDealDisputeList;
+    return latestDisputeFor(Array.isArray(disputes) ? disputes : [], orderId);
+  } catch {
+    return null;
+  }
 }
 
 const fmtDate = (iso: string) =>
@@ -78,10 +113,16 @@ const fmtDate = (iso: string) =>
 function LiveOrderView({
   order: o,
   isAthlete,
+  dispute,
+  viewerIsGuardian,
+  canUpload,
   back,
 }: {
   order: ApiOrder;
   isAthlete: boolean;
+  dispute: ApiDealDispute | null;
+  viewerIsGuardian: boolean;
+  canUpload: boolean;
   back: ReturnType<typeof resolveBack>;
 }) {
   const blocker = acceptBlocker(o, isAthlete);
@@ -113,6 +154,16 @@ function LiveOrderView({
           </div>
         )}
       </div>
+
+      {dispute && (
+        <DealPauseBanner
+          dispute={dispute}
+          viewerIsGuardian={viewerIsGuardian}
+          canUpload={canUpload}
+          request={requestDisputeUploadAction}
+          confirm={confirmDisputeUploadAction}
+        />
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
         <div className="min-w-0 space-y-6">
@@ -280,7 +331,16 @@ export default async function CampaignOrderPage({
 
   const live = demo === null ? await liveOrder(id) : null;
   if (live?.kind === "order") {
-    return <LiveOrderView order={live.order} isAthlete={live.isAthlete} back={back} />;
+    return (
+      <LiveOrderView
+        order={live.order}
+        isAthlete={live.isAthlete}
+        dispute={live.dispute}
+        viewerIsGuardian={live.viewerIsGuardian}
+        canUpload={live.canUpload}
+        back={back}
+      />
+    );
   }
   if (live?.kind === "missing") {
     return (
