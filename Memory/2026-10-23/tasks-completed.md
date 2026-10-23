@@ -47,3 +47,14 @@
   - **Set on staging `monitor-trigger`.** `railway redeploy` refuses a cron service whose last run was REMOVED, so a fresh deployment was started with `serviceInstanceDeployV2`.
   - The 09:00 cron fired a `workflow_dispatch` health-monitor run at 09:02. The 15-minute monitor is back.
 - **Staging redeployed** (api, web, tester; 09:08 UTC) at the owner's request. Health and `/join` return 200; protected API without a login returns 401; the webhook paths through web return 401; the tester redirects to its login (303); `zoho.watch renewed`.
+- **Database and Redis passwords rotated, staging then production.** Run in manual mode; the auto-mode classifier blocks credential changes.
+  - **Method:** `ALTER ROLE` inside each DB container (`railway ssh -s <db> -- psql -h localhost -U postgres`), then the matching Railway variables, then redeploys.
+  - **Main DBs** (`Postgres`, `Postgres-production`): `postgres`, `sponsorx_app`, `sponsorx_readonly` and `warehouse_reader`.
+    - api's `DATABASE_URL` and `READONLY_DATABASE_URL` reference `${{<db>.SPONSORX_*_PASSWORD}}`.
+    - `WAREHOUSE_SOURCE_DATABASE_URL` holds the `warehouse_reader` password **literally**, so it was rebuilt.
+    - Staging `Postgres` also has a literal `PGPASSWORD`, which was set too.
+  - **Warehouse DBs:** the `postgres` role (`PGPASSWORD` references `POSTGRES_PASSWORD`).
+  - **Redis** (`Redis-KM77`, `Redis`): `REDIS_PASSWORD`, which the start command reads via `--requirepass`. Redis was redeployed before api.
+  - **Checked from inside api, both environments:** every DB URL connects as its role; Redis answers PONG; admin `psql` works on each DB; the APIs booted.
+  - **Backups:** pgBackRest `archive-push … completed successfully` on staging main and warehouse, and on production main. The production warehouse stanza started with no 403 and is idle. The 403s from the incident are gone after the redeploys.
+- **Rotation complete.** All items on the 2026-10-22 list are done. `~/Desktop/sponsorx-keys.txt` and the scratch `.env` backup were deleted, and the clipboard was cleared.
