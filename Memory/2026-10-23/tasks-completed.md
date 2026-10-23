@@ -18,3 +18,10 @@
   - **Redeployed** at 04:17 UTC. The API booted cleanly (`SponsorX API listening on :4000 (production)`); sponsorx.net returns 200.
   - **Webhook paths through sponsorx.net:** the Zoho invoice and CRM paths answer 401. The Stripe path answers the API's own 404 ("no payment provider connected"), which is expected until `PAYMENT_PROVIDER=stripe` at go-live. So the P8-OPS-03 forwarding works in production.
 - **Old keys are now safe to delete:** Resend (production and staging) and Clerk (live and development).
+- **Cloudflare R2 rotated.** One account API token, scoped to `sponsorx-private` and `sponsorx-public`. Staging and production share both the buckets and the key, and the account also holds two `acps-staging-*` buckets that belong to something else.
+  - **Tested before use:** the new key listed both buckets, and wrote and deleted a test object.
+  - **Set on api** in staging and production, both redeployed (04:31 UTC).
+  - **Staging checked end to end:** a support message with a 1-px PNG. The presigned PUT returned 200, and `/send` returned 200, so the server found the object with the new key.
+  - **Production:** the API booted cleanly.
+  - The R2 dashboard deep link `?to=/:account/r2/api-tokens` lands on the plans page; the direct link is `/<accountId>/r2/api-tokens`.
+  - **The old R2 token is now safe to delete.**
