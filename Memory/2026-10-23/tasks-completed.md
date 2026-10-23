@@ -32,3 +32,12 @@
   - **Mix-up:** the dashboard showed two sandboxes. The user first rolled the secret key in a **different** sandbox ("BTG", `acct_1UNCupGfl3hcz7a8`, publishable key ending `2l3ebxWP`). No SponsorX environment uses it (staging uses `pk_test_…5hSr`; local .env has no Stripe key), so letting that old key expire is harmless.
   - **The restricted smoke-test key** (`rk_test_…2oCb`) was rolled too; its new value hasn't been copied yet. `STRIPE_SECRET_KEY_RESTRICTED_TEST` stops working when the old one expires.
 - **`STRIPE_SECRET_KEY_RESTRICTED_TEST` deleted from staging api** (owner's choice). `scripts/stripe-sandbox-smoke.mts` never read it; it uses `STRIPE_SECRET_KEY`. Nothing redeployed, since the variable was unused.
+- **Zoho sandbox (staging) rotated.**
+  - **The Self Client has no "regenerate secret" button.** The leaked client ID and secret are harmless without a refresh token, so the old refresh token was revoked instead.
+  - **New `ZOHO_REFRESH_TOKEN`:** minted from a Generate Code grant for **SponsorX-Dev** (Sandbox).
+    - **Watch out:** the sandbox and the production CRM are both named "iCARRe Foundation". Staging's `ZOHO_EXPECTED_ORG_ID 7554807000000020005` is the **sandbox**; `4857533000000020005` is production.
+    - A first grant for the production org was revoked unused, and checked dead.
+  - **New `ZOHO_NOTIFY_TOKEN`** and `ZOHO_WEBHOOK_SECRET` (no `_PREVIOUS`, because of the leak).
+  - **Staging redeployed.** The worker logged `zoho.watch {"renewed":true}`. The old refresh token was revoked, and minting with it now fails `invalid_code`.
+  - **Zoho Books holds no copy of the secret.** The invoice webhook was never wired (the Deluge workflow from 2026-10-02 was never built), so the new `ZOHO_WEBHOOK_SECRET` lives only on Railway.
+  - **Production:** a fresh `ZOHO_WEBHOOK_SECRET`, needed to boot. Redeployed 08:45 UTC, booted cleanly. Production Zoho is otherwise not configured.
