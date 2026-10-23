@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import { acceptCollabAction, confirmRulesAction } from "@/app/(app)/athlete/confirmations/actions";
 import type { ConfirmResult } from "@/lib/athlete-confirmations";
@@ -25,16 +25,25 @@ export function ConfirmationsForm({ target, line, cta = "Confirm" }: { target: C
   const [pending, start] = useTransition();
   const id = `confirm-${target.kind}`;
 
-  const go = () =>
+  /* Two clicks in one tick both see pending=false; the ref is what stops the second (QA round, 2026-10-23). */
+  const busy = useRef(false);
+  const go = () => {
+    if (busy.current) return;
+    busy.current = true;
     start(async () => {
-      setSaid(null);
-      const r = target.kind === "rules" ? await confirmRulesAction(target.version) : await acceptCollabAction(target.agreementId, target.bodyHash);
-      setSaid(r);
-      if (r.ok || r.reload) {
-        setTicked(false);
-        router.refresh();
+      try {
+        setSaid(null);
+        const r = target.kind === "rules" ? await confirmRulesAction(target.version) : await acceptCollabAction(target.agreementId, target.bodyHash);
+        setSaid(r);
+        if (r.ok || r.reload) {
+          setTicked(false);
+          router.refresh();
+        }
+      } finally {
+        busy.current = false;
       }
     });
+  };
 
   return (
     <div className="space-y-3">

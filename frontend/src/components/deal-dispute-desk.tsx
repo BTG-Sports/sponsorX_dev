@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type ReactNode } from "react";
+import { useRef, useState, useTransition, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -261,16 +261,24 @@ function OpenDialog({ base, orderId, athleteName, open, onClose }: { base: strin
   const key = `dd-open-${orderId ?? "desk"}`;
   const who = athleteName ?? "The athlete";
 
+  /* Two submits in one tick both see pending=false; the ref stops the second POST (QA round, 2026-10-23). */
+  const busy = useRef(false);
   const submit = () => {
     setError(null);
     if (!order.trim()) return setError("Paste the order id.");
     const problem = openFormProblem(form);
     if (problem) return setError(problem);
+    if (busy.current) return;
+    busy.current = true;
     start(async () => {
-      const res = await open(order.trim(), form);
-      if (!res.ok) return setError(res.message);
-      setDone(res.id);
-      router.refresh();
+      try {
+        const res = await open(order.trim(), form);
+        if (!res.ok) return setError(res.message);
+        setDone(res.id);
+        router.refresh();
+      } finally {
+        busy.current = false;
+      }
     });
   };
 
@@ -348,15 +356,22 @@ function ResolveDialog({ dispute: d, resolve, onClose }: { dispute: ApiDealDispu
   const [pending, start] = useTransition();
   const off = resolveNoteProblem(note) !== null;
   const key = `dd-resolve-${d.id}`;
+  const busy = useRef(false);
   const submit = () => {
     setError(null);
     const problem = resolveNoteProblem(note);
     if (problem) return setError(problem);
+    if (busy.current) return;
+    busy.current = true;
     start(async () => {
-      const res = await resolve(d.id, outcome, note.trim());
-      if (!res.ok) return setError(res.message);
-      onClose();
-      router.refresh();
+      try {
+        const res = await resolve(d.id, outcome, note.trim());
+        if (!res.ok) return setError(res.message);
+        onClose();
+        router.refresh();
+      } finally {
+        busy.current = false;
+      }
     });
   };
   return (

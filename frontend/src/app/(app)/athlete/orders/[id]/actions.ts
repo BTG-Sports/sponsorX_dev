@@ -8,7 +8,8 @@ import { apiFetch } from "@/server/api";
 import { edgeHeadersFrom } from "@/server/edge";
 import { canonicaliseAgreementBody } from "@/lib/order-live";
 import { acceptRefusal, type AcceptOutcome } from "@/lib/athlete-order-pause";
-import { dealDisputeRefusal, type ApiDealDisputeGrant, type ApiErrorBody } from "@/lib/deal-disputes-live";
+import { uploadRefusal } from "@/lib/athlete-order-pause";
+import { type ApiDealDisputeGrant, type ApiErrorBody } from "@/lib/deal-disputes-live";
 
 /* --------------------------------------------------------------------------
    P5-FE-01 — accepting a Campaign Order, as a server action.
@@ -104,7 +105,7 @@ export async function requestDisputeUploadAction(
     return { ok: false, message: "Couldn't reach SponsorX just now. Nothing was sent — try again." };
   }
   if (!res.ok) {
-    return { ok: false, message: dealDisputeRefusal(res.status, await errorBody(res), `Couldn't start the upload (HTTP ${res.status}).`) };
+    return { ok: false, message: uploadRefusal(res.status, await errorBody(res), `Couldn't start the upload (HTTP ${res.status}).`) };
   }
   const g = (await res.json()) as ApiDealDisputeGrant;
   return { ok: true, id: g.document.id, uploadUrl: g.uploadUrl, contentType: g.contentType };
@@ -123,7 +124,7 @@ export async function confirmDisputeUploadAction(disputeId: string, documentId: 
     return { ok: false, message: "Couldn't reach SponsorX just now. Use Check again in a moment." };
   }
   if (!res.ok) {
-    return { ok: false, message: dealDisputeRefusal(res.status, await errorBody(res), `The upload isn't confirmed yet (HTTP ${res.status}).`) };
+    return { ok: false, message: uploadRefusal(res.status, await errorBody(res), `The upload isn't confirmed yet (HTTP ${res.status}).`) };
   }
   revalidatePath("/athlete/orders/[id]", "page");
   return { ok: true };

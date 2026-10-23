@@ -14,7 +14,8 @@ import {
 import { DealPauseBanner } from "@/components/deal-pause-banner";
 import { OrderAccept } from "@/components/order-accept";
 import { mayUploadDisputeDocuments, viewerIsAthlete } from "@/lib/athlete-order-pause";
-import { latestDisputeFor, type ApiDealDispute, type ApiDealDisputeList } from "@/lib/deal-disputes-live";
+import { latestDisputeFor, type ApiDealDispute } from "@/lib/deal-disputes-live";
+import { readAllDisputes } from "@/server/deal-disputes-read";
 import {
   acceptBlocker,
   ORDER_STATE_COPY,
@@ -97,14 +98,7 @@ async function liveOrder(id: string): Promise<LiveOrder | null> {
  *  athlete's own (max 200, newest first) and takes no orderId filter, so
  *  the join is here. A failure hides the banner rather than the order. */
 async function latestDispute(orderId: string): Promise<ApiDealDispute | null> {
-  try {
-    const res = await apiFetch("/deal-disputes");
-    if (!res.ok) return null;
-    const { disputes } = (await res.json()) as ApiDealDisputeList;
-    return latestDisputeFor(Array.isArray(disputes) ? disputes : [], orderId);
-  } catch {
-    return null;
-  }
+  return latestDisputeFor(await readAllDisputes(), orderId);
 }
 
 const fmtDate = (iso: string) =>

@@ -72,11 +72,13 @@ function Wording({ label, text }: { label: string; text: string }) {
 }
 
 function Standing({
-  mode, confirmed, required, viewer, wording, target, line,
+  mode, confirmed, required, enforced, viewer, wording, target, line,
 }: {
   mode: CardMode;
   confirmed: string;
   required: string | null;
+  /** BTG's switch is on for this one (the guardian line says a deal waits even when the athlete's own line is hidden). */
+  enforced: boolean;
   viewer: Viewer;
   wording: ReactNode;
   target: ConfirmationTarget;
@@ -93,7 +95,7 @@ function Standing({
       {required && <p className="text-sm font-semibold text-warn">{required}</p>}
       {wording}
       {mode === "guardianDoes" ? (
-        <p className="text-sm leading-relaxed">{guardianDoesLine(viewer, Boolean(required))}</p>
+        <p className="text-sm leading-relaxed">{guardianDoesLine(viewer, enforced)}</p>
       ) : (
         <>
           <ConfirmationsForm target={target} line={line} cta={target.kind === "rules" ? "Confirm" : "Accept"} />
@@ -141,6 +143,7 @@ export default async function ConfirmationsPage({ searchParams }: { searchParams
           mode={rulesMode}
           confirmed={rules ? confirmedLine(rules.attestedAt, rules.version, "rules") : ""}
           required={rules ? requiredLine(rules, viewer) : null}
+          enforced={Boolean(rules?.required)}
           viewer={viewer}
           wording={rules ? <Wording label="Your own rules wording" text={rules.text} /> : null}
           target={{ kind: "rules", version: rules?.version ?? "" }}
@@ -153,6 +156,7 @@ export default async function ConfirmationsPage({ searchParams }: { searchParams
           mode={collabMode}
           confirmed={collab ? confirmedLine(collab.acceptedAt, collab.version, "collab") : ""}
           required={collab ? requiredLine(collab, viewer) : null}
+          enforced={Boolean(collab?.required)}
           viewer={viewer}
           wording={collab ? <Wording label="Content Collaboration Agreement text" text={collab.body} /> : null}
           target={{ kind: "collab", agreementId: collab?.agreementId ?? "", bodyHash: collab?.bodyHash ?? "" }}

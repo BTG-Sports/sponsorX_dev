@@ -235,11 +235,14 @@ describe("the dispute document actions", async () => {
     vars.routes["/deal-disputes/dd_1/documents"] = { status: 422, body: { error: { code: "deal_dispute_document", message: "A document is at most 10 MB." } } };
     expect(await requestDisputeUploadAction("dd_1", { filename: "big.pdf", contentType: "application/pdf", bytes: 1 })).toEqual({ ok: false, message: "A document is at most 10 MB." });
     vars.routes["/deal-disputes/dd_1/documents"] = { status: 409, body: { error: { code: "deal_dispute_closed", message: "closed" } } };
-    expect(await requestDisputeUploadAction("dd_1", { filename: "late.pdf", contentType: "application/pdf", bytes: 1 })).toEqual({ ok: false, message: "This dispute has already been decided." });
+    expect(await requestDisputeUploadAction("dd_1", { filename: "late.pdf", contentType: "application/pdf", bytes: 1 })).toEqual({ ok: false, message: "BTG has decided this dispute, so nothing more can be sent for it." });
+    /* A 403 here is a guardian not acting for the ward, never "only a BTG admin can change it" (QA round). */
+    vars.routes["/deal-disputes/dd_1/documents"] = { status: 403, body: { error: { code: "forbidden", message: "Forbidden" } } };
+    expect(await requestDisputeUploadAction("dd_1", { filename: "x.pdf", contentType: "application/pdf", bytes: 1 })).toEqual({ ok: false, message: "To send documents, open the portal as the athlete you're acting for." });
     /* Bad arguments never reach the API. */
     expect(await requestDisputeUploadAction("", { filename: "x.pdf", contentType: "application/pdf", bytes: 1 })).toMatchObject({ ok: false });
     expect(await requestDisputeUploadAction("dd_1", { filename: "x.pdf", contentType: "application/pdf", bytes: 0 })).toMatchObject({ ok: false });
-    expect(vars.calls).toHaveLength(2);
+    expect(vars.calls).toHaveLength(3);
   });
 
   it("confirms by id and says when it isn't there yet", async () => {

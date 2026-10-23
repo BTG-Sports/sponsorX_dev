@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import { setSignupFlagAction, type RuleResult } from "@/app/(app)/admin/new-signups/rules/actions";
 import type { SignupFlag } from "@/lib/signup-flags";
@@ -24,7 +24,19 @@ import type { SignupFlag } from "@/lib/signup-flags";
 export function useRun() {
   const [result, setResult] = useState<RuleResult | null>(null);
   const [pending, start] = useTransition();
-  const run = (f: () => Promise<RuleResult>) => start(async () => setResult(await f()));
+  /* Two clicks in one tick both see pending=false; the ref stops the second PUT (QA round, 2026-10-23). */
+  const busy = useRef(false);
+  const run = (f: () => Promise<RuleResult>) => {
+    if (busy.current) return;
+    busy.current = true;
+    start(async () => {
+      try {
+        setResult(await f());
+      } finally {
+        busy.current = false;
+      }
+    });
+  };
   return { result, pending, run, clear: () => setResult(null) };
 }
 

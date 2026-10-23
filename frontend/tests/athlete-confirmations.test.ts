@@ -108,6 +108,8 @@ describe("the confirmations page", async () => {
     const html = await render();
     expect(html).toContain("Maria Lopez confirms this from their own login — a new deal waits until they do.");
     expect(html).toContain("Maria Lopez confirms this from their own login.");
+    /* The guardian line already says a deal waits; the minor must not also read "until you confirm" (QA round). */
+    expect(html).not.toContain("A new deal waits until you confirm this.");
     expect(html).not.toContain('type="checkbox"');
     expect(html).not.toContain(RULES_WORDS.checkbox("2026-09"));
   });

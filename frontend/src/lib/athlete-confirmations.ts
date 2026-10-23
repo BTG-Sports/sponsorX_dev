@@ -97,8 +97,10 @@ export function guardianDoesLine(viewer: Pick<Viewer, "guardianName">, required:
 }
 
 /** The "a new deal waits on this" note while BTG's switch is on. */
-export function requiredLine(standing: Pick<ApiMyRules | ApiMyCollab, "required">, viewer: Pick<Viewer, "actingForWard">): string | null {
+export function requiredLine(standing: Pick<ApiMyRules | ApiMyCollab, "required" | "byGuardian">, viewer: Pick<Viewer, "actingForWard">): string | null {
   if (!standing.required) return null;
+  /* A minor's own login reads guardianDoesLine instead, which already says a deal waits (QA round, 2026-10-23). */
+  if (standing.byGuardian && !viewer.actingForWard) return null;
   return viewer.actingForWard ? "A new deal for them waits until this is confirmed." : "A new deal waits until you confirm this.";
 }
 

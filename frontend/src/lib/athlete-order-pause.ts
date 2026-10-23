@@ -9,6 +9,7 @@
    -------------------------------------------------------------------------- */
 
 import { confirmationsHref, promptFor, type ConfirmationKind } from "@/lib/confirmations-live";
+import { bytesWords } from "@/lib/deal-dispute-desk";
 import { DEAL_PAUSED_WORDS, DISPUTE_MAX_DOCUMENTS, isDealPaused, type ApiErrorBody } from "@/lib/deal-disputes-live";
 
 /* ---------------------------------------------------------------- who */
@@ -46,9 +47,19 @@ export const DOCUMENTS_LIMIT_WORDS = `You've sent ${DISPUTE_MAX_DOCUMENTS} docum
 
 /** "240 KB" under a megabyte, "2.4 MB" from there. */
 export function fileSizeWords(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 KB";
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  /* One size wording for the athlete's banner and BTG's desk (QA round, 2026-10-23). */
+  return bytesWords(bytes);
+}
+
+/** What the athlete (or the guardian acting) reads when the API refuses an upload step. */
+export function uploadRefusal(status: number, body: ApiErrorBody, fallback: string): string {
+  const code = body?.error?.code;
+  const msg = body?.error?.message;
+  if (status === 403) return "To send documents, open the portal as the athlete you're acting for.";
+  if (code === "deal_dispute_closed") return "BTG has decided this dispute, so nothing more can be sent for it.";
+  if (code === "deal_dispute_document" && msg) return msg;
+  if (code === "validation") return "That file can't be sent. Choose a PDF, JPEG, PNG or WebP of up to 10 MB.";
+  return msg || fallback;
 }
 
 /* ------------------------------------------------------------- refusals */

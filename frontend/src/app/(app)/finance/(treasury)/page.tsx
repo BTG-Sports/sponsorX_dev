@@ -23,7 +23,8 @@ import {
   STATES,
   type ApiReconciliationPage,
 } from "@/lib/earnings-live";
-import type { ApiDealDispute, ApiDealDisputeList } from "@/lib/deal-disputes-live";
+import type { ApiDealDispute } from "@/lib/deal-disputes-live";
+import { readPausingDisputes } from "@/server/deal-disputes-read";
 import {
   PAY_STEPS,
   delta,
@@ -109,16 +110,6 @@ async function readJson<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-/** P8-FE-05 — a soft read: the books never fail because the dispute list did. */
-async function readDisputes(): Promise<ApiDealDispute[]> {
-  try {
-    const r = await apiFetch("/deal-disputes");
-    return r.ok ? ((await r.json()) as ApiDealDisputeList).disputes : [];
-  } catch {
-    return [];
-  }
-}
-
 async function liveTreasury(sp: SearchParams): Promise<Treasury | null> {
   /* No catch — an outage is an error page, never fixtures. */
   const who = await fetchActor();
@@ -137,7 +128,7 @@ async function liveTreasury(sp: SearchParams): Promise<Treasury | null> {
     readJson<{ overview: ApiFinanceOverview }>(`/finance/overview?range=${range}`),
     early,
     /* P8-FE-05 — the disputes ride beside the earnings read: a HELD earning says why. */
-    onEarnings ? readDisputes() : null,
+    onEarnings ? readPausingDisputes() : null,
   ]);
   const tab = tabOf(sp, !!ov.invoices);
   const books: Books =
@@ -146,7 +137,7 @@ async function liveTreasury(sp: SearchParams): Promise<Treasury | null> {
       : tab === "invoices"
         ? { tab, invoices: await readJson<InvoicesPage>(`/earnings/invoices${pagedQuery(pageParamsFor(sp, INVOICE_KEYS))}`) }
         : { tab, earnings: earlyEarnings ?? (await readJson<EarningsPage>(earningsPath)) };
-  const disputes = books.tab === "earnings" ? (earlyDisputes ?? (await readDisputes())) : [];
+  const disputes = books.tab === "earnings" ? (earlyDisputes ?? (await readPausingDisputes())) : [];
   return { ov, range, books, q, state, sp, disputes };
 }
 

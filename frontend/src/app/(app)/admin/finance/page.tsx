@@ -31,7 +31,8 @@ import { ListFilter, ListSearch, PagerRow, PendingList, ServerList } from "@/com
 import { apiFetch, fetchActor } from "@/server/api";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { PausedLink } from "@/components/deal-dispute-desk";
-import { openDisputeFor, pausedNote, type ApiDealDispute, type ApiDealDisputeList } from "@/lib/deal-disputes-live";
+import { openDisputeFor, pausedNote, type ApiDealDispute } from "@/lib/deal-disputes-live";
+import { readPausingDisputes } from "@/server/deal-disputes-read";
 
 /* --------------------------------------------------------------------------
    Finance Workspace — §10.
@@ -85,16 +86,6 @@ type LiveBooks = {
   state: string;
 };
 
-/** P8-FE-05 — a soft read: the books never fail because the dispute list did. */
-async function readDisputes(): Promise<ApiDealDispute[]> {
-  try {
-    const r = await apiFetch("/deal-disputes");
-    return r.ok ? ((await r.json()) as ApiDealDisputeList).disputes : [];
-  } catch {
-    return [];
-  }
-}
-
 /** One API read. `allow403` turns the invoice gate's refusal into null —
  *  the role simply doesn't see invoices; anything else not-ok is an error. */
 async function readJson<T>(path: string, allow403 = false): Promise<T | null> {
@@ -117,7 +108,7 @@ async function liveBooks(sp: SearchParams): Promise<LiveBooks | null> {
     readJson<{ earnings: ApiEarning[]; page: ApiPage }>(`/earnings${pagedQuery(pageParams(sp), { q, state })}`),
     readJson<ApiReconciliationPage>(`/earnings/reconciliation${pagedQuery(pageParamsFor(sp, RECON_KEYS))}`, true),
     readJson<{ invoices: ApiInvoiceRow[]; page: ApiPage }>(`/earnings/invoices${pagedQuery(pageParamsFor(sp, INVOICE_KEYS))}`, true),
-    readDisputes(),
+    readPausingDisputes(),
   ]);
   return { summary: summary!, earnings: earnings!, recon, invoices, disputes, q, state };
 }

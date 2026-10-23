@@ -26,7 +26,8 @@ import { apiFetch, fetchActor } from "@/server/api";
 import { roleLabel } from "@/server/viewer";
 import { draftAndSendOrder, setAutoStaffingAction } from "./actions";
 import { openDealDisputeAction } from "@/app/(app)/admin/deal-disputes/actions";
-import { mayManageDisputes, type ApiDealDispute, type ApiDealDisputeList } from "@/lib/deal-disputes-live";
+import { mayManageDisputes, type ApiDealDispute } from "@/lib/deal-disputes-live";
+import { readPausingDisputes } from "@/server/deal-disputes-read";
 import {
   launchLine,
   nextStepTone,
@@ -95,16 +96,6 @@ type LiveBoard = {
   canRaiseConcern: boolean;
 };
 
-/** P8-FE-05 — a soft read: the board never fails because the dispute list did. */
-async function readDisputes(): Promise<ApiDealDispute[]> {
-  try {
-    const r = await apiFetch("/deal-disputes");
-    return r.ok ? ((await r.json()) as ApiDealDisputeList).disputes : [];
-  } catch {
-    return [];
-  }
-}
-
 async function liveOps(id: string): Promise<LiveBoard | "missing" | { lacking: string; roles: string[] } | null> {
   /* No catch — an outage is an error page, never fixtures dressed as a real
      campaign (QA pass 4 rule). */
@@ -116,7 +107,7 @@ async function liveOps(id: string): Promise<LiveBoard | "missing" | { lacking: s
   const [res, c, disputes] = await Promise.all([
     apiFetch(`/campaigns/${encodeURIComponent(id)}/ops`),
     apiFetch(`/campaigns/${encodeURIComponent(id)}`),
-    readDisputes(),
+    readPausingDisputes(),
   ]);
   if (res.status === 403) {
     if (!c.ok) return "missing";
