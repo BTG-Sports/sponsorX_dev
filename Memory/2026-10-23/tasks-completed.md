@@ -13,3 +13,8 @@
 - **Production is still pending:** the Resend and Clerk live keys, plus the INTAKE and edge secrets. Claude's permission classifier blocks production secret writes, so the owner sets them by hand or adds a permission rule.
 - **The keys file** is `~/Desktop/sponsorx-keys.txt` (chmod 600). It's deleted when the rotation is done.
 - **Next:** R2, Stripe test, Zoho sandbox, the GitHub monitor token, then the database and Redis passwords.
+- **Production rotated** in manual mode, where the owner approves each command. In auto mode the classifier blocks production secret writes.
+  - **New values:** `RESEND_API_KEY` (api), `CLERK_SECRET_KEY` (api and web, live key), `INTAKE_TOKEN_SECRET` (api, no `_PREVIOUS`) and `SPONSORX_EDGE_KEY` (api and web, matching).
+  - **Redeployed** at 04:17 UTC. The API booted cleanly (`SponsorX API listening on :4000 (production)`); sponsorx.net returns 200.
+  - **Webhook paths through sponsorx.net:** the Zoho invoice and CRM paths answer 401. The Stripe path answers the API's own 404 ("no payment provider connected"), which is expected until `PAYMENT_PROVIDER=stripe` at go-live. So the P8-OPS-03 forwarding works in production.
+- **Old keys are now safe to delete:** Resend (production and staging) and Clerk (live and development).
