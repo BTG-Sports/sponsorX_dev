@@ -2964,9 +2964,9 @@ Raised 2026-10-23. New advisories turned CI's dependency scan red on every branc
 - **Delivered:** 2026-10-23. `next` and `eslint-config-next` are at 16.4.2 and `dompurify` at 3.4.17 (lock file only). Locally: frontend 1,681 tests, backend 3,511, and e2e `redeem-flow`, `public` and `public-links` all pass.
 - **Reference:** §26
 
-### ▶ `P8-OPS-04` · Zoho Books sends invoice changes to SponsorX
+### ✅ `P8-OPS-04` · Zoho Books sends invoice changes to SponsorX
 
-**Order** 157.96 · **OPS** · **Where:** Code + console · **0.5d** · **In progress**
+**Order** 157.96 · **OPS** · **Where:** Code + console · **0.5d** · **Done** — 2026-10-25, rcfworks
 
 Raised 2026-10-25. SponsorX's invoice webhook (`/api/v1/webhooks/zoho/invoice`) had nothing calling it. The Books workflow planned on 2026-10-02 was never built, so an invoice made, sent or paid in Zoho Books never reached SponsorX. An order paid by invoice would never turn PAID.
 
@@ -2981,7 +2981,8 @@ Raised 2026-10-25. SponsorX's invoice webhook (`/api/v1/webhooks/zoho/invoice`) 
   - **A paid invoice carries its paid date.**
 - **Progress 2026-10-25 (rcfworks):**
   - **Tested on staging** with test invoice INV-000001 (deal `7554807000012994002`, marketplace order `cmuw8iols005i0cljbk6hz86g`). Draft, sent and paid each arrived signed and APPLIED, and the order's invoice went draft → sent → paid.
-  - **Still open, the paid date.** The invoice Books hands a workflow rule leaves `last_payment_date` empty, so the paid update came without one. The function now reads the full invoice from Books for a paid invoice, and falls back to today's date if that read fails. The new version has to be pasted into Books and retested.
+  - **The paid date.** The invoice Books hands a workflow rule leaves `last_payment_date` empty, so the first paid update came without one. The function now reads the full invoice from Books (`zoho.books.getRecordsByID`) for a paid invoice, and falls back to today's date if that read fails.
+- **Delivered:** 2026-10-25. After the new function was saved in Books, an edit to INV-000001 reached staging at 04:32 UTC, signed and APPLIED, with `paidAt` 2026-10-25. Staging's invoice copy now carries that date.
   - **Not shown by this test:** an order moving AWAITING_PAYMENT → PAID. The test order was already PAID, and an order that is already paid is left alone, as designed.
 - **Reference:** §18
 
