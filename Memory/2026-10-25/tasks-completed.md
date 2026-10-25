@@ -24,3 +24,29 @@
   - The retest can't show which source supplied the date (the full invoice, or the today fallback), because both give 2026-10-25. If the read failed, Books' Workflow Logs would show "Could not read the full invoice".
 - **How to check staging:** `railway ssh --environment staging --service api`, then `cd /app/backend && npm run -s db:read -- "<SQL>"`. The staging database has no public address.
 - **Test records left in the live Books org:** the customer, INV-000001 and its payment. They are marked as tests.
+
+## P8-SEC-05 — body-parser, zod and fast-uri advisories patched → Done
+
+- **Why:** new advisories turned CI's dependency scan red on every branch (#297 included).
+  - `body-parser` 2.3.0, through express (high, production).
+  - `zod` 4.6.5 (high, production).
+  - `fast-uri` 3.1.8, through ajv (moderate ×4, dev only).
+- **Fix (#298):** `body-parser` 2.4.0, `zod` 4.6.7 (pinned in both workspaces) and `fast-uri` 3.1.9; no major-version changes.
+- **Checked locally:**
+  - `audit:check` and `secrets:scan` clean; both builds and lint pass.
+  - Backend 3,511 and frontend 1,681 tests pass.
+  - e2e `redeem-flow`, `public` and `public-links`: 31 pass, 1 skipped by design.
+  - Ran on a portable Postgres 17 again (the memory note's recipe).
+- **CI pinned to `ubuntu-24.04`:** `ubuntu-latest` moved to Ubuntu 26.04 today, and Playwright 1.63 won't install Chromium there ("does not support chromium on ubuntu26.04-x64"). Both test jobs failed before any test ran. A comment in `ci.yml` says to remove the pin once Playwright supports 26.04.
+- **Merge order:** #299 (the sync to `main`) merged 19 s before #297, so `main` missed the P8-OPS-04 Done records. The sync PR #300 brings them over (docs only).
+- **Deployed:** `deploy-daily.yml` moved `release` to `a87b4713`, and all four services (api and web, staging and production) deployed successfully.
+  - Staging runs `zod@4.6.7` and `body-parser@2.4.0`.
+  - Health, `/join`, the webhook paths (401 unsigned) and the protected API (401) answer as expected in both environments.
+- **Disk:** the Mac ran out of space mid-check. With the user's OK, `frontend/.next`, the npm cache and the VS Code and Skype updater caches were deleted, leaving about 7 GB free.
+
+## Tracker sync — the Sheet endpoint has been 404 since mid-October (diagnosed, not fixed)
+
+- **Last good write:** 2026-10-11 22:09 UTC (`Sheet: 0 cell(s) updated, 2 row(s) added`). Every run that has written to the Sheet since 2026-10-15 got `HTTP Error 404`. The two "successful" runs in between (10-15 09:40, 10-19 03:30) only did the end-of-day summary and never touched the Sheet.
+- **Not our side:** the GitHub secret `SHEET_ENDPOINT_URL` was last set 2026-09-25. The Apps Script web app behind it was most likely archived or redeployed under a new URL between 10-11 and 10-15.
+- **Can't be checked from here:** the Drive connector's account (infinex1) can't see the Sheet. Listing the script's deployments with the 2026-09-25 clasp login was blocked by the safety check.
+- **Fix (Sheet owner):** Extensions → Apps Script → Deploy → Manage deployments. If the web app is gone, create a new Web app deployment (execute as me, access: anyone). Then set the new `/exec` URL as `SHEET_ENDPOINT_URL` and re-run the failed workflow.
