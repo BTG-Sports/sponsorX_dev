@@ -2683,7 +2683,7 @@ Search the whole codebase to confirm no tax ID, bank or card field exists anywhe
 
 **Exit gate.** the §39 loop runs end-to-end on real data with Zoho in sync; the
 
-*26 tasks · 1 person-days*
+*27 tasks · 1 person-days*
 
 ### ▶ `P8-INT-01` · Zoho outbound push jobs for all four bi-directional objects
 
@@ -2985,6 +2985,27 @@ Raised 2026-10-25. SponsorX's invoice webhook (`/api/v1/webhooks/zoho/invoice`) 
 - **Delivered:** 2026-10-25. After the new function was saved in Books, an edit to INV-000001 reached staging at 04:32 UTC, signed and APPLIED, with `paidAt` 2026-10-25. Staging's invoice copy now carries that date.
   - **Not shown by this test:** an order moving AWAITING_PAYMENT → PAID. The test order was already PAID, and an order that is already paid is left alone, as designed.
 - **Reference:** §18
+
+### ✅ `P8-SEC-05` · Patch the body-parser, zod and fast-uri advisories
+
+**Order** 157.97 · **SEC** · **Where:** Code · **0.5d** · **Done** — 2026-10-25, rcfworks
+
+Raised 2026-10-25. New advisories turned CI's dependency scan red on every branch:
+- **body-parser 2.3.0** (through express, production): high, GHSA-27r3-jxmh-p828, a denial of service via trailing bytes after a compressed request body.
+- **zod 4.6.5** (production): high, GHSA-mrhx-c7xc-m3w5, memory exhaustion while validating oversized constrained collections.
+- **fast-uri 3.1.8** (through ajv, dev only): four moderate.
+
+- **Depends on:** nothing
+- **Done when:** All of these hold.
+  - `npm run audit:check` is clean.
+  - The builds, lint and every frontend, backend and runnable e2e test pass.
+  - Staging and production run the patched build.
+- **Delivered:** 2026-10-25 (#298, synced to `main` in #299).
+  - **Versions:** `body-parser` 2.4.0, `zod` 4.6.7 (pinned in both workspaces) and `fast-uri` 3.1.9. None is a major-version change.
+  - **Checked locally:** frontend 1,681 tests, backend 3,511, and e2e `redeem-flow`, `public` and `public-links` (31 pass, 1 skipped by design).
+  - **CI pinned to `ubuntu-24.04`.** On the same day `ubuntu-latest` moved to Ubuntu 26.04, where Playwright 1.63 won't install Chromium, so both test jobs failed before any test ran. Move off the pin once Playwright supports 26.04.
+  - **Deployed:** `release` moved to `a87b4713`, and all four services (api and web, staging and production) deployed successfully. Staging runs `zod@4.6.7` and `body-parser@2.4.0`; health, `/join`, the webhook paths (401 unsigned) and the protected API (401) answer as expected in both environments.
+- **Reference:** §26
 
 ### ✅ `P8-FE-03` · The rules tick on the sign-up page and the guardian's page
 
