@@ -20,6 +20,7 @@
 - **Paid-date fix (open):**
   - **Cause:** the function already sends `last_payment_date`, but the invoice Books hands a workflow rule leaves that field empty. The full invoice has it (2026-10-25).
   - **The fix:** `~/Desktop/sponsorx-books-script.txt` now reads the full invoice with `zoho.books.getRecordsByID` when a paid invoice has no date, and falls back to today.
-  - **Next:** paste it into Books, retest, and move P8-OPS-04 to Done.
+  - **Retested and fixed:** the user pasted the new function into Books. An edit to INV-000001 reached staging at 04:32 UTC, signed and APPLIED, with `paidAt` 2026-10-25, and the invoice copy now carries the date. **P8-OPS-04 is Done.**
+  - The retest can't show which source supplied the date (the full invoice, or the today fallback), because both give 2026-10-25. If the read failed, Books' Workflow Logs would show "Could not read the full invoice".
 - **How to check staging:** `railway ssh --environment staging --service api`, then `cd /app/backend && npm run -s db:read -- "<SQL>"`. The staging database has no public address.
 - **Test records left in the live Books org:** the customer, INV-000001 and its payment. They are marked as tests.
