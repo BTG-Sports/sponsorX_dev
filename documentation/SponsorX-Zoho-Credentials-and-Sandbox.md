@@ -354,6 +354,12 @@ gap is visible rather than assumed closed.
 
 ## 9 · Two keys, by purpose
 
+> **Changed 2026-10-24, by the user, with the programme owner's delegated authority: the production key is owned by `rcfworks@gmail.com`, not Rodney's account.**
+> - **Why:** Rodney added `infinex1@icarrefound.org` in Zoho One, and Zoho attached it as a second sign-in address on the `rcfworks` account (confirmed 2026-10-24), not as a separate user. `rcfworks` is already a CRM Service Admin in iCARRe Foundation (also Analytics, Bookings and Books).
+> - **What still holds:** production gets **its own refresh token**, granted for the Production org (`4857533000000020005`), separate from staging's sandbox token (`7554807000000020005`). §9.3's point, never run production on the development *token*, still stands.
+> - **Accepted trade-off:** records the production sync writes are attributed to `rcfworks` in Zoho's history, and the key stops working if `rcfworks` is removed from the org. Re-issuing under another admin is a five-minute fix (§4), and the sync waits in the outbox meanwhile.
+> - **The table and §9.1 below are the earlier plan**, kept for the record.
+
 Not one key that moves. **Two keys that coexist**, each created by the account
 that should own it:
 

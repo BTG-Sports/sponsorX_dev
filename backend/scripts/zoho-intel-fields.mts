@@ -13,10 +13,13 @@
 import { zohoFromEnv } from "../src/lib/zoho.ts";
 import { ZOHO_NEXT_ACTION, ZOHO_RENEWAL_SCORE } from "../src/domain/zoho-intelligence.ts";
 
-const PRODUCTION_ORG = "749122837";
+/* The production CRM org's two ids: `ZOHO_EXPECTED_ORG_ID` holds the org id
+   (what lib/zoho.ts checks against /org), and 749122837 is its zgid. This
+   used to list only the zgid, so the guard never fired (fixed 2026-10-24). */
+const PRODUCTION_ORG_IDS = new Set(["4857533000000020005", "749122837"]);
 const args = new Set(process.argv.slice(2));
 const create = args.has("--create");
-const isProduction = process.env.ZOHO_EXPECTED_ORG_ID === PRODUCTION_ORG;
+const isProduction = PRODUCTION_ORG_IDS.has(process.env.ZOHO_EXPECTED_ORG_ID ?? "");
 if (create && isProduction && !args.has("--confirm-production")) {
   console.error("This is the production Zoho org. Add --confirm-production once the user has OK'd it.");
   process.exit(2);
