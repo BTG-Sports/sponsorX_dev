@@ -11,6 +11,10 @@
 # repository moved to the BTG-Sports organisation and is public, where
 # standard runners cost no minutes, so CI runs on every commit again.
 #
+# 2026-10-25 — pinned to ubuntu-24.04 (P8-SEC-05). `ubuntu-latest` moved to
+# 26.04, where Playwright 1.63 refuses to install Chromium, so both test jobs
+# failed before a single test ran. Move off the pin once Playwright supports it.
+#
 # 2026-10-15 — faster merges. A push to a working branch no longer runs CI on
 # its own: its pull request runs the same checks on the same commit, so the
 # push run was a duplicate queueing beside it. And a pull request that only
@@ -67,7 +71,7 @@ jobs:
   # came back shorter than the pull request says — runs everything.
   changed:
     name: anything new on main
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       run: ${{ steps.check.outputs.run }}
     steps:
@@ -112,7 +116,7 @@ jobs:
   # tracked file. documentation/SponsorX-Security-Review-2026-10.md has why.
   security:
     name: dependency audit · secret scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -133,7 +137,7 @@ jobs:
     name: typecheck · lint · unit · authz matrix
     needs: changed
     if: needs.changed.outputs.run == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     services:
       # Nothing uses this yet, and it is here on purpose.
@@ -261,7 +265,7 @@ jobs:
     name: e2e · playwright
     needs: changed
     if: needs.changed.outputs.run == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     # The fan-flow specs (P6-QA-01/02) drive the real stack — web → API →
     # Postgres — so this job has its own database and Playwright starts the
