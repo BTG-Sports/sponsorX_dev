@@ -2683,7 +2683,7 @@ Search the whole codebase to confirm no tax ID, bank or card field exists anywhe
 
 **Exit gate.** the §39 loop runs end-to-end on real data with Zoho in sync; the
 
-*25 tasks · 1 person-days*
+*26 tasks · 1 person-days*
 
 ### ▶ `P8-INT-01` · Zoho outbound push jobs for all four bi-directional objects
 
@@ -2963,6 +2963,27 @@ Raised 2026-10-23. New advisories turned CI's dependency scan red on every branc
   - Staging and production run the patched build.
 - **Delivered:** 2026-10-23. `next` and `eslint-config-next` are at 16.4.2 and `dompurify` at 3.4.17 (lock file only). Locally: frontend 1,681 tests, backend 3,511, and e2e `redeem-flow`, `public` and `public-links` all pass.
 - **Reference:** §26
+
+### ▶ `P8-OPS-04` · Zoho Books sends invoice changes to SponsorX
+
+**Order** 157.96 · **OPS** · **Where:** Code + console · **0.5d** · **In progress**
+
+Raised 2026-10-25. SponsorX's invoice webhook (`/api/v1/webhooks/zoho/invoice`) had nothing calling it. The Books workflow planned on 2026-10-02 was never built, so an invoice made, sent or paid in Zoho Books never reached SponsorX. An order paid by invoice would never turn PAID.
+
+- **What was built:**
+  - **Books org** "The Coffee Stage" (`763851111`): an invoice field `CRM Deal ID` (`cf_crm_deal_id`).
+  - **Custom function** `sponsorx_send_invoice`: it signs the invoice with `ZOHO_WEBHOOK_SECRET` and posts it to staging.
+  - **Workflow rule** "Send to SponsorX" runs the function.
+- **Depends on:** nothing
+- **Done when:** All of these hold.
+  - **A draft, a sent and a paid invoice** each reach staging, with the signature verified and the delivery APPLIED.
+  - **Staging's copy of the invoice** follows Books through draft → sent → paid.
+  - **A paid invoice carries its paid date.**
+- **Progress 2026-10-25 (rcfworks):**
+  - **Tested on staging** with test invoice INV-000001 (deal `7554807000012994002`, marketplace order `cmuw8iols005i0cljbk6hz86g`). Draft, sent and paid each arrived signed and APPLIED, and the order's invoice went draft → sent → paid.
+  - **Still open, the paid date.** The invoice Books hands a workflow rule leaves `last_payment_date` empty, so the paid update came without one. The function now reads the full invoice from Books for a paid invoice, and falls back to today's date if that read fails. The new version has to be pasted into Books and retested.
+  - **Not shown by this test:** an order moving AWAITING_PAYMENT → PAID. The test order was already PAID, and an order that is already paid is left alone, as designed.
+- **Reference:** §18
 
 ### ✅ `P8-FE-03` · The rules tick on the sign-up page and the guardian's page
 
