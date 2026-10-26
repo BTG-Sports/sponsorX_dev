@@ -2971,7 +2971,8 @@ Raised 2026-10-23. New advisories turned CI's dependency scan red on every branc
 Raised 2026-10-25. SponsorX's invoice webhook (`/api/v1/webhooks/zoho/invoice`) had nothing calling it. The Books workflow planned on 2026-10-02 was never built, so an invoice made, sent or paid in Zoho Books never reached SponsorX. An order paid by invoice would never turn PAID.
 
 - **What was built:**
-  - **Books org** "The Coffee Stage" (`763851111`): an invoice field `CRM Deal ID` (`cf_crm_deal_id`).
+  - **Books org** `763851111`, renamed from "The Coffee Stage" to **SponsorX** on 2026-10-26 (the user's decision): an invoice field `CRM Deal ID` (`cf_crm_deal_id`).
+    It was the only Books org on the account and effectively unused; the 2026-10-02 note calling it "not BTG's" is superseded. The org ID is unchanged, so the rule and function carry on working.
   - **Custom function** `sponsorx_send_invoice`: it signs the invoice with `ZOHO_WEBHOOK_SECRET` and posts it to staging.
   - **Workflow rule** "Send to SponsorX" runs the function.
 - **Depends on:** nothing
