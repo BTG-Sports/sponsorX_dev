@@ -182,3 +182,34 @@
   - the panel rendered at 1440, 390 and 320 with QA athlete Jordan's profile completed for the walk. Jordan's fields, photo and home flags were restored to their original nulls afterwards.
 - **Not done:** the minor approve/withdraw buttons weren't clicked live (no minor QA athlete with a full profile). They're covered by unit tests and P8-BE-08's backend tests.
 - **Also:** the Phase 1 doc now shows P8-FE-09 as Done (merged in #307 and #308).
+
+### P8-FE-10 QA pass (the user's request: "QA test the backend and frontend regarding the task that you did")
+
+- **Scenario:** staged on existing QA athletes, with a backup table and an md5 of the rows before. Restored afterwards with an identical md5, and the `qa_fe10_*` socials deleted.
+  - SAM: an approved minor, pinned first.
+  - JORDAN: an adult, pinned second.
+  - QUINN: no age on file, approved, with a 35-character name.
+  - Rory: an adult, self-reported.
+  - THEO: no age on file, not approved.
+  - VAL: removed.
+  - a FEATURED athlete, complete.
+  - CORA: no school.
+- **API, 33 live probes, all pass:**
+  - pinned order, the four cap, exactly nine public keys, each exclusion;
+  - `/athletes/me` returns photoUrl and no key;
+  - upload refusals: GIF, over 5 MB, never arrived (409), another athlete's key (422), another athlete's upload;
+  - home-page status and actions refused for athlete, sponsor, finance, advisor, student and property; 401 with no login;
+  - approving an adult and pinning a removed athlete are refused with their reasons; an unknown action is 400.
+  - Two first-run "failures" were my seed: Rory's social had no count, so he was correctly blocked.
+- **Browser, 94 checks:**
+  - home panel on 11 devices, WebKit included: 4 rows in pin order, photos load, tags, profile links open, nothing outside the panel, no sideways scroll, no errors;
+  - BTG's section for 5 cases on 7 devices;
+  - the athlete photo on 7 devices, plus a 5 MB+ file, a storage 500, a dropped connection and the keyboard;
+  - axe clean ×3; minor approve and withdraw clicked live; the API down leaves the home page loading in 1.5 s without the panel.
+- **Fixed (commit `76c714c9`):**
+  - (1) `GET /athletes/me` called `publicObjectUrl` from the route, a third place reaching the public bucket, so `payments-pii` would fail on CI. The address now comes from `athletePhotoUrl()` in `domain/home-featured.ts`.
+  - (2) "Under 18" was shown for athletes with no age on file. It now reads "Under 18 or no age on file".
+- **Build and suite:**
+  - `npm run build` (backend + Next 16.4.2) is green in a detached worktree.
+  - Backend suite on `sponsorx_test`: 3,525 pass, plus the five known Windows-only and timing files.
+  - The worktree teardown again emptied `node_modules/rimraf`; restored 2.7.1 from `npm pack`.

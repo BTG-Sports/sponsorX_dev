@@ -3235,6 +3235,18 @@ The backend applies every rule (`P8-BE-08`, Done); this task only shows what it 
     - pin, unpin, remove and restore each showed their message, wrote their `homePage.*` audit row, and refused pinning while removed;
     - sponsor and finance logins can't reach the page.
     - With QA athlete Jordan's profile completed for the walk, the panel rendered him at 1440, 390 and 320. His record was restored afterwards.
+  - **QA pass (2026-10-27).** 33 live API probes and 94 browser checks on 11 devices, including WebKit iPhone SE and iPad Mini, on a staged scenario. The scenario: a pinned approved minor, a pinned adult, a no-age approved athlete with a long name, a self-reported adult, an unapproved no-age athlete, a removed one, a FEATURED one and an incomplete one, all restored byte-for-byte afterwards. All pass. Found and fixed:
+    - **`GET /athletes/me` reached the public bucket from the route.** `payments-pii`'s allowlist would fail on CI. The address is now built by `athletePhotoUrl()` in `domain/home-featured.ts`.
+    - **BTG's section said "Under 18" for athletes with no age on file**, whom the API counts as minors. It now says "Under 18 or no age on file".
+    - **Checked:**
+      - pinned order and the four cap; exactly nine public keys; each exclusion rule;
+      - every refusal: upload type and size, a photo that never arrived, another athlete's key, and the status and actions for athlete, sponsor, finance, advisor, student and property; 401 without a login; approving an adult and pinning a removed athlete, with their reasons;
+      - axe (WCAG 2.1 AA) is clean on all three surfaces;
+      - storage refusing the upload, or the connection dropping, says so and leaves the photo unchanged;
+      - keyboard Enter opens the file picker;
+      - with the API down, the home page still loads in 1.5 s without the panel;
+      - minor approve and withdraw clicked live.
+    - **Build and tests:** `npm run build` (backend and Next 16.4.2) passes in a detached worktree. Backend suite on `sponsorx_test`: 3,525 pass. The five failing files are the Windows-only static checks (spawn npx, CRLF, `\` paths) and a timing test that passes on its own.
 
 ### ✅ `P8-FE-03` · The rules tick on the sign-up page and the guardian's page
 
