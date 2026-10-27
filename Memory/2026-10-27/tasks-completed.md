@@ -293,3 +293,8 @@
 - **Cleanup:**
   - the scenario restored with identical md5s (athletes, the Network Manager's row); socials and rate counters removed;
   - the worktree teardown emptied rimraf again; restored 2.7.1.
+
+### P8-FE-10 Done (the user's request: "push the updates on both branch, also make the tickets done")
+
+- P8-FE-10 is marked Done in the tracker (Date Done 2026-10-27) and the Phase 1 doc (✅). P8-FE-09 was already Done.
+- It lands through a PR into `main_development`, waits for CI, then is promoted to `main`. The promotion also carries #309 (P8-BE-08, the backend this task needs), which was in `main_development` but not yet in `main`.

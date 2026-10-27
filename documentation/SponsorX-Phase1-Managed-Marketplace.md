@@ -3194,9 +3194,9 @@ The home page's "Featured athletes" panel shows sample athletes ([`landing-athle
     `home-featured.route.test.ts` covers the public route: no login, the public tenant from config, and the rate limit before the read. The cross-tenant sweep (`tenant-isolation`) now covers the three write routes, and the public-bucket allowlist (`payments-pii`) names the photo.
   - **Checked locally on Postgres 17:** backend build and lint pass; 3,540 backend tests across 237 files pass; the secret scan passes.
 
-### 🔎 `P8-FE-10` · Home page Featured athletes from the API
+### ✅ `P8-FE-10` · Home page Featured athletes from the API
 
-**Order** 157.995 · **FE** · **Where:** Code · **3d** · **Code review** — 2026-10-27, HeckerCreatives
+**Order** 157.995 · **FE** · **Where:** Code · **3d** · **Done** — 2026-10-27, HeckerCreatives (five QA passes; merged to `main_development` and promoted to `main`)
 
 The backend applies every rule (`P8-BE-08`, Done); this task only shows what it returns.
 
