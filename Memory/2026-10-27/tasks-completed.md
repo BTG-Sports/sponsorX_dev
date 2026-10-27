@@ -228,3 +228,25 @@
   - A minor's new photo, set by BTG, resets her approval (the reset is the API's rule). The section says "waiting for approval" again, the API drops her at once, and the home page caught up within its one-minute keep.
   - The public read's limit: 429 within 120 requests an hour, with Retry-After. The home page still loads while limited. The Redis counter was cleared afterwards so the dev server isn't locked out.
 - **Not repeated:** the production build and the API-down check. The code is unchanged since both passed on `76c714c9`. A light-theme check doesn't apply, since the app has one theme since 2026-10-14.
+
+### P8-FE-10 QA, third pass (the user's request: "thrid QA pass")
+
+- **Found and fixed: the Network Manager couldn't reach the home-page controls.** They lived only on `/admin/new-signups/athletes/{id}`, which is BTG admins' alone ("Not in your role"); the API and the task both give them to the Network Manager.
+  - The same section now opens in the review drawer of an approved athlete on `/admin/applications`, the Network Manager's desk. It is loaded on demand: `getHomeFeatureAction` in `server/home-feature-actions.ts` and `home-feature-loader.tsx`.
+  - Walked: the Network Manager at 1280 and 390, and BTG admin, unpin and pin from the drawer. It fits the drawer with no errors, and applicants under review get none.
+- **Production server** (`next start`, built in a worktree on port 3100): the panel's photos load, the athlete's direct upload works, and a server action (approve) works on the built app.
+  - The CSP is still report-only; only frame-ancestors is enforced. When it is enforced, the web service needs `R2_PUBLIC_BASE_URL` (or photos on `*.r2.dev`). Prod's img-src has no local storage host.
+- **More roles, all pass:**
+  - the Network Manager and super admin get status and actions;
+  - SAM's guardian may start an upload for SAM, not for another athlete, and can't see the status;
+  - another tenant's Network Manager (made by moving `e2e_u_ck_nm` to `e2e_fan_tenant` for a moment; its row md5 was identical after) gets 404/403 on everything, with nothing changed.
+  - Observation: a guardian has no screen to set the ward's photo. `/athlete/profile/edit` shows guardians the demo editor (pre-existing).
+- **Robustness:**
+  - a stale second tab pinning a removed athlete is refused with the API's reason;
+  - a double-click sends one action (one audit row);
+  - keyboard focus is visible;
+  - a display name with HTML, accents, emoji and Arabic renders as text (no script, no injected element). BTG's page heads with the legal name.
+- **Checks:**
+  - frontend vitest 1,729/1,729; tsc and eslint clean;
+  - the scenario was restored with an identical md5, and the QA socials and rate counters removed;
+  - the worktree teardown emptied `node_modules/rimraf` again; restored 2.7.1.

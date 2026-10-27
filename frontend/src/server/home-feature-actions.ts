@@ -6,10 +6,12 @@ import type { HomeAction, HomeFeatureStatus } from "@/lib/home-feature";
 import { apiFetch } from "@/server/api";
 
 /* --------------------------------------------------------------------------
-   BTG's home-page controls — P8-FE-10: POST /athletes/{id}/home-page with
-   pin / unpin / remove / restore / approve / unapprove (P8-BE-08). The API
-   allows BTG admin and the Network Manager only, and audits every change;
-   it answers with the athlete's new status.
+   BTG's home-page controls — P8-FE-10: GET /athletes/{id}/home-page for the
+   status, and POST with pin / unpin / remove / restore / approve / unapprove
+   (P8-BE-08). The API allows BTG admin and the Network Manager only, and
+   audits every change; it answers with the athlete's new status. The GET is
+   an action too, for the applications desk's drawer (a client island), which
+   is where the Network Manager meets an athlete.
 
    Errors come back as values, never as a throw (a thrown action lands on the
    portal error boundary). Only async functions are exported.
@@ -18,6 +20,17 @@ import { apiFetch } from "@/server/api";
 export type HomeActionResult = { ok: true; status: HomeFeatureStatus } | { ok: false; message: string };
 
 const ACTIONS: readonly HomeAction[] = ["pin", "unpin", "remove", "restore", "approve", "unapprove"];
+
+/** GET /athletes/{id}/home-page — the status, or null when this role may not see it (or no read). */
+export async function getHomeFeatureAction(athleteId: string): Promise<HomeFeatureStatus | null> {
+  if (typeof athleteId !== "string" || !athleteId) return null;
+  try {
+    const res = await apiFetch(`/athletes/${encodeURIComponent(athleteId)}/home-page`);
+    return res.ok ? ((await res.json()) as HomeFeatureStatus) : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function setHomeFeatureAction(athleteId: string, action: HomeAction): Promise<HomeActionResult> {
   if (typeof athleteId !== "string" || !ACTIONS.includes(action)) return { ok: false, message: "That isn't a home-page action." };
@@ -35,6 +48,7 @@ export async function setHomeFeatureAction(athleteId: string, action: HomeAction
   }
   if (res.ok) {
     revalidatePath(`/admin/new-signups/athletes/${athleteId}`);
+    revalidatePath("/admin/applications");
     revalidatePath("/");
     return { ok: true, status: (await res.json()) as HomeFeatureStatus };
   }

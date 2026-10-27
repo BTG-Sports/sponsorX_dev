@@ -3235,6 +3235,16 @@ The backend applies every rule (`P8-BE-08`, Done); this task only shows what it 
     - pin, unpin, remove and restore each showed their message, wrote their `homePage.*` audit row, and refused pinning while removed;
     - sponsor and finance logins can't reach the page.
     - With QA athlete Jordan's profile completed for the walk, the panel rendered him at 1440, 390 and 320. His record was restored afterwards.
+  - **Third QA pass (2026-10-27).** It found that **the Network Manager couldn't reach the controls**: BTG's athlete page (`/admin/new-signups`) is BTG admins' alone.
+    - **Fixed:** the same "Home page" section now opens in the review drawer of an approved athlete on the applications desk (`/admin/applications`, the Network Manager's desk). It is loaded on demand through `getHomeFeatureAction` (`home-feature-loader.tsx`). Applicants under review get none.
+    - **Also checked:**
+      - the built app under `next start`: the panel, uploads and a server action;
+      - the Network Manager and super admin; SAM's guardian, who may upload SAM's photo and nobody else's;
+      - another tenant's Network Manager, refused with nothing changed;
+      - a stale second tab (refused with the API's reason), a double-click (one audit row), visible keyboard focus, and a hostile display name (rendered as text).
+    - **Notes for the owner:**
+      - the CSP is report-only today. Once it is enforced, the web service needs `R2_PUBLIC_BASE_URL` (or `*.r2.dev`) for athlete photos and uploads.
+      - a guardian has no screen to set their ward's photo, though the API allows it. `/athlete/profile/edit` shows guardians the demo editor (pre-existing).
   - **QA pass (2026-10-27).** 33 live API probes and 94 browser checks on 11 devices, including WebKit iPhone SE and iPad Mini, on a staged scenario. The scenario: a pinned approved minor, a pinned adult, a no-age approved athlete with a long name, a self-reported adult, an unapproved no-age athlete, a removed one, a FEATURED one and an incomplete one, all restored byte-for-byte afterwards. All pass. Found and fixed:
     - **`GET /athletes/me` reached the public bucket from the route.** `payments-pii`'s allowlist would fail on CI. The address is now built by `athletePhotoUrl()` in `domain/home-featured.ts`.
     - **BTG's section said "Under 18" for athletes with no age on file**, whom the API counts as minors. It now says "Under 18 or no age on file".
