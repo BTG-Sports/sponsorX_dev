@@ -18,6 +18,20 @@
 - **Still to confirm:** the org address (Baltimore, 21239) prints on every invoice; replace it if it isn't BTG's. Use `https://sponsorx.net` as the website (no `www` before today's redirect).
 - **Test records** (customer "Test Sponsor (SponsorX test)", INV-000001, its $10 payment) are still in the org.
 
+## Tester guide: dry run on staging, guide corrected
+
+- **Guide:** "SponsorX Tester Guide.docx" in the user's Drive folder "Sponsor X Tester" (written through Google Drive for desktop). The older, uncorrected Google Doc was deleted at the user's request. Testers report through the staging Contact BTG page (`/contact`, which forwards to support@sponsorx.net); the Google Form was dropped.
+- **Dry run** as real sign-ups on staging (run tag `DRY 2610260300`, left in place):
+  - Athlete and sponsor sign-ups opened automatically.
+  - Item → listing went live; Shop → cart → checkout → paid with card 0077 (order PAID).
+  - The "SponsorX Test Drive" request became a campaign automatically; admin sent an offer from the Matching Studio; athlete accepted; draft → revision → v2 → approved → published.
+  - Reward + QR → fan claim → redeem → no second redeem; the redemption shows in the sponsor's results.
+  - Athlete earnings (pay only); audit log; the under-18 application waits for the guardian.
+- **Guide corrections:** two required ticks on the application's last page; no rate fields; listings start in Inventory; Shop, not the marketplace, for athletes' listings; request a ready-made package (a job type is a custom request, held for BTG); offers are under Offers; deliverables are a draft upload with #ad; "Send to sponsor", not "Approve", for sponsor review; card 0077, not 4242.
+- **Not run, left to the testers (user's decision):** the athlete's Stripe payout setup (Connect onboarding still shows an hCaptcha to scripts), and what follows it (sponsor confirms delivery, payout request); the guardian's own confirmation; the sponsor approving a post.
+- **Frontend problems found** (list sent to the user for HeckerCreatives): no PDF export on real campaigns (`{sample && <ExportReport/>}` in the report page); placeholder brands on the homepage; "POSTGRES · READ" label on athlete pages; the offer title repeats the sponsor; image drafts labelled "Video"; a duplicated sentence on the listing form; "BTG verifying" vs "Complete" after publishing.
+- **Stripe:** hosted Checkout now accepts a headless browser; Connect onboarding still doesn't.
+
 ## P8-FE-09 · The tester-guide dry run's screen findings (HeckerCreatives, Code review)
 
 Seven problems from the staging dry run, fixed on `fix/P8-FE-09-dry-run-screen-findings` (from `main_development`). Not committed, walked or deployed yet.
