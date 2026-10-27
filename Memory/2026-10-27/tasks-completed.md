@@ -213,3 +213,18 @@
   - `npm run build` (backend + Next 16.4.2) is green in a detached worktree.
   - Backend suite on `sponsorx_test`: 3,525 pass, plus the five known Windows-only and timing files.
   - The worktree teardown again emptied `node_modules/rimraf`; restored 2.7.1 from `npm pack`.
+
+### P8-FE-10 QA, second pass (the user's request: "QA test again frontend and backend based on the task you did for featured athletes")
+
+- **No code changed; nothing new on `main_development`.** Same staged scenario. Fingerprint `1f3eb39c…` before and after, the `qa_fe10_*` socials removed, and the rate-limit counter cleared.
+- **Repeated, all pass:**
+  - 33 API probes. The first run's 10 admin "failures" were the harness reading the Clerk token before Clerk loaded; fixed by waiting for `Clerk.loaded`.
+  - 101 browser checks: the first pass's 94 plus 844×390 landscape on the portal pages.
+  - frontend vitest 1,729/1,729; tsc and eslint clean.
+  - Backend suite on `sponsorx_test`: 3,519 pass. Failing: the four Windows-only files, plus `openapi.coverage`'s import hook timing out while the browser matrix loaded the machine (7/7 alone). The public-bucket guard with POSIX paths lists exactly branding, home-featured and storage.
+- **New checks (17, all pass):**
+  - The athlete uploads a real JPEG, then a WebP (each shown and loading), then removes the photo. The removal persists after a reload, and they drop off the home list.
+  - BTG sets the athlete's photo: "photo" leaves the missing list, and the athlete sees it.
+  - A minor's new photo, set by BTG, resets her approval (the reset is the API's rule). The section says "waiting for approval" again, the API drops her at once, and the home page caught up within its one-minute keep.
+  - The public read's limit: 429 within 120 requests an hour, with Retry-After. The home page still loads while limited. The Redis counter was cleared afterwards so the dev server isn't locked out.
+- **Not repeated:** the production build and the API-down check. The code is unchanged since both passed on `76c714c9`. A light-theme check doesn't apply, since the app has one theme since 2026-10-14.
