@@ -410,7 +410,7 @@ function LiveDetail({
       <PostsSection posts={detail.posts} page={detail.postsPage} unavailable={detail.postsUnavailable} />
 
       <p className="text-[10px] leading-relaxed text-faint">
-        Delivery, roster and spend are from Postgres; verified views are
+        Delivery, roster and spend are SponsorX&rsquo;s own records; verified views are
         staff-checked metrics on published deliverables. People reached,
         engagement, rewards and top content are in the results report.
       </p>

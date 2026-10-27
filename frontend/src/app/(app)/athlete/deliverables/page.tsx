@@ -1,4 +1,4 @@
-import { ArenaHead, ArenaTile, ArenaTiles } from "@/components/arena-stage";
+import { ArenaHead, ArenaUpdated, ArenaTile, ArenaTiles } from "@/components/arena-stage";
 import { BlockedNotice } from "@/components/ui";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { DeliverableCalendar } from "@/components/deliverable-calendar";
@@ -111,8 +111,7 @@ export default async function DeliverablesPage({
   const head = athleteHeadline(view.summary);
   /* Overdue as a share of everything not yet done — both from the summary. */
   const stillOpen = view.summary.total - head.tabs.done;
-  const readAt = today.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  const pill = live ? `Postgres · read ${readAt}` : "Sample data";
+  const pill = live ? <ArenaUpdated /> : "Sample data";
 
   return (
     <div className="space-y-6">

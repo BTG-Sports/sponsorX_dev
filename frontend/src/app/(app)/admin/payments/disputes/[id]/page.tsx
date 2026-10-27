@@ -79,7 +79,7 @@ export default async function DisputePage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
           <section>
             <SectionHeading title="The order’s lines" hint={d.lineIds.length ? "Marked: the lines the dispute was lost on." : undefined} />

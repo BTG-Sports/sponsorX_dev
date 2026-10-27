@@ -95,7 +95,7 @@ export function RulesBoard({ rows }: { rows: AgeRow[] }) {
         </p>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
         <CountryRail index={index} selected={country} onSelect={setPicked} />
         {detail && <CountryPanel key={detail.country} detail={detail} editingId={editingId} onLoad={load} />}
       </div>

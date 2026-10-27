@@ -181,7 +181,7 @@ export function DealDisputeDetail({
         )}
       </Panel>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
           <Panel skin={skin}>
             <h2 className="text-sm font-semibold">The concern</h2>

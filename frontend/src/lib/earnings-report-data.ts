@@ -109,32 +109,32 @@ export function buildAthleteEarningsReport(): AthleteEarningsReport {
       period: `2026 season · January – ${lastMonth}`,
       fileStem: `SponsorX-Earnings-Statement-${athlete.displayName.replace(/\s+/g, "-")}-2026`,
       footnote:
-        "Demo dataset — figures shaped to the Earning and Deliverable tables in Postgres (§21, §24).",
+        "Sample statement — the figures show how your own statement is laid out.",
     },
     summary: [
       {
         label: "Career earnings",
         value: money(athleteCareer.careerEarningsCents),
         detail: "everything earned across campaigns, to date",
-        provenance: "Postgres · canonical",
+        provenance: "SponsorX records",
       },
       {
         label: "On the way",
         value: money(athleteCareer.approvedCents),
         detail: `approved for payout — lands ${athleteCareer.nextPayout}`,
-        provenance: "Postgres · canonical",
+        provenance: "SponsorX records",
       },
       {
         label: "Monthly average",
         value: money(avgCents),
         detail: `January – ${lastMonth} 2026`,
-        provenance: "Postgres · canonical",
+        provenance: "SponsorX records",
       },
       {
         label: "On-time delivery",
         value: `${athleteCareer.onTimeRatePct}%`,
         detail: "Deliverable due vs submitted timestamps — sponsors notice",
-        provenance: "Postgres · canonical",
+        provenance: "SponsorX records",
       },
     ],
     journey: {
@@ -172,7 +172,7 @@ export function buildAthleteEarningsReport(): AthleteEarningsReport {
       totalCents: mine.reduce((s, e) => s + e.amount, 0),
     },
     notes: [
-      "Career figures are canonical Postgres totals; the money-journey buckets and activity rows are the current cycle's sample and will not sum to the career figure.",
+      "Career figures are your totals in SponsorX's records; the money-journey buckets and activity rows are the current cycle's sample and will not sum to the career figure.",
       "Phase 1 tracks earning status only — no money moves through SponsorX. BTG Finance handles the payout itself, outside the platform.",
       "Your bank account and tax ID never touch SponsorX (§26); paid orders carry a Zoho Books reference for your records.",
       "An order on hold is not lost — BTG Finance re-checks it and it re-enters the pipeline once cleared (§21).",

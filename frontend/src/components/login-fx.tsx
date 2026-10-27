@@ -28,9 +28,18 @@
                    reduced motion there is no animation and so no cycling.
                    Purely informative — the role comes from Postgres after
                    sign-in (/portal), never from this choice, and it says so.
+   - AfterHydration renders Clerk's <SignIn> only once the page has hydrated.
+                   On the server Clerk isn't loaded, so <SignIn> renders
+                   nothing; in the browser, if clerk-js finished loading
+                   before React hydrated (a slow hydration, or a cached
+                   script), it rendered its host <div> during hydration, the
+                   trees differed, and React threw the page away and
+                   re-rendered it on the client (2026-10-27 device QA: 9 of
+                   13 devices under load). Nothing shows before hydration
+                   either way, so the page looks the same.
    -------------------------------------------------------------------------- */
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 
 function reducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -89,6 +98,16 @@ export function LoginStage({ children, className = "" }: { children: ReactNode; 
       {children}
     </div>
   );
+}
+
+/* ------------------------------------------------------------- hydration */
+
+const noSubscribe = () => () => {};
+
+/** Its children, but only after hydration: the server and the hydrating client both render nothing. */
+export function AfterHydration({ children }: { children: ReactNode }) {
+  const hydrated = useSyncExternalStore(noSubscribe, () => true, () => false);
+  return hydrated ? children : null;
 }
 
 /* --------------------------------------------------------------- spotlight */

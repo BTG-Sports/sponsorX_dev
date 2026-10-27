@@ -62,7 +62,7 @@ export async function fetchPublicAthlete(slug: string): Promise<PublicLookup> {
 export function FeaturedProfile({ a }: { a: PublicAthlete }) {
   const meta = [a.sport, a.position, a.school, a.stateCode].filter(Boolean).join(" · ");
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="min-w-0 space-y-4">
         <Card className="relative overflow-hidden border-dashed border-next/40">
           <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-next opacity-[0.12] blur-[60px]" />

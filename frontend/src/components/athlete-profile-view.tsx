@@ -198,7 +198,7 @@ export function AthleteProfileView({
     <>
       <button
         type="button"
-        title="Opens a CampaignBrief with this athlete attached — not wired"
+        title="Starting a campaign brief with this athlete is coming soon"
         className="mt-4 w-full rounded-lg bg-primary py-2.5 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
       >
         Request Partnership

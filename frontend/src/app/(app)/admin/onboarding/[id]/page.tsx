@@ -134,7 +134,7 @@ export default async function OnboardingDetailPage({ params }: { params: Promise
         </section>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
           <section aria-label="Checklist" className={section}>
             <h2 className="text-sm font-semibold">{checklistHeading(p)}</h2>
@@ -305,7 +305,7 @@ export default async function OnboardingDetailPage({ params }: { params: Promise
           </Card>
           <section aria-label="Details" className={section}>
             <h2 className="text-sm font-semibold">At a glance</h2>
-            <dl className="mt-2 grid grid-cols-[7.5rem_1fr] text-[13px]">
+            <dl className="mt-2 grid grid-cols-[7.5rem_minmax(0,1fr)] text-[13px]">
               {p.details.map((d) => (
                 <div key={d.label} className="contents">
                   <dt className="border-t border-line-soft py-2 pr-3 text-muted">{d.label}</dt>

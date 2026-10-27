@@ -64,13 +64,13 @@ describe("transition safety", () => {
 
 describe("isSitePath", () => {
   it("covers the home and the public pages", () => {
-    for (const p of ["/", "/packages", "/join", "/next/about", "/athletes/jordan", "/s/abc", "/login"]) {
+    for (const p of ["/", "/packages", "/join", "/next/about", "/athletes/jordan", "/s/abc", "/login", "/get-started", "/how-it-works", "/about"]) {
       expect(isSitePath(p)).toBe(true);
     }
   });
 
   it("leaves the portals and look-alike prefixes alone", () => {
-    for (const p of ["/portal/sponsor", "/r/xyz", "/sponsors", "/joined", "/print/x", "/logins"]) {
+    for (const p of ["/portal/sponsor", "/r/xyz", "/sponsors", "/joined", "/print/x", "/logins", "/abouts"]) {
       expect(isSitePath(p)).toBe(false);
     }
   });
@@ -83,6 +83,9 @@ describe("routeLabel", () => {
     expect(routeLabel("/join")).toBe("For Athletes");
     expect(routeLabel("/next/about")).toBe("SponsorX NEXT");
     expect(routeLabel("/login")).toBe("Login");
+    expect(routeLabel("/get-started")).toBe("Get Started");
+    expect(routeLabel("/how-it-works")).toBe("How It Works");
+    expect(routeLabel("/about")).toBe("About");
   });
 
   it("falls back to the brand", () => {

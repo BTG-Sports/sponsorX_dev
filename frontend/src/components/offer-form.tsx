@@ -164,7 +164,7 @@ export function OfferForm({ offerId, initial, campaigns, jobs, athlete: fixedAth
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22.5rem]">
       <form aria-label={editing ? "Edit the draft" : "New offer"} className="flex min-w-0 flex-col gap-3.5 rounded-xl border border-line bg-surface p-4 sm:px-5"
         onSubmit={(e) => { e.preventDefault(); saveDraft(); }}>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className={label}>
             Campaign
             <select className={field} value={f.campaignId} disabled={editing} title={editing ? FIXED_TIP : undefined}
@@ -232,7 +232,7 @@ export function OfferForm({ offerId, initial, campaigns, jobs, athlete: fixedAth
           {filled("brief")}
         </label>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className={label}>
             Athlete&rsquo;s pay ($)
             <input type="text" inputMode="decimal" className={`${field} ${floor.tone === "danger" ? "border-danger" : ""}`} value={f.pay}
@@ -275,7 +275,7 @@ export function OfferForm({ offerId, initial, campaigns, jobs, athlete: fixedAth
           {filled("usageRights")}
         </label>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className={label}>
             <span>Exclusivity days <span className="font-normal text-muted">(optional)</span></span>
             <input type="number" min={0} max={730} className={field} value={f.exclusivityDays} onChange={(e) => set("exclusivityDays", e.target.value)} />

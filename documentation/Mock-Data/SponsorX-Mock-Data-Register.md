@@ -25,6 +25,8 @@ consumer counts is in §6 — re-run it before relying on the numbers.
 
 ## 2 · What replaces what
 
+> **2026-10-26 (P8-FE-09):** `networkStats` is replaced by a real read, `GET /public/network-stats`. The campaign ROI fixtures (`roiReport`, `roiGauge`, `roiTimeline`, `formatPerformance`, `formatInsight`, `platformSplit`, `geoMarkets`, `geoInsight`, `funnelDetail`, `efficiency`, `topContentX`, `roiRecommendation`, `roiDelivery`) are deleted. The results report and its export now read `GET /campaigns/{id}/report`. Their rows below are marked retired.
+
 `Model` names are from `prisma/schema.prisma`. `Block` is the roadmap milestone
 that makes the real data exist — a fixture cannot be retired before its block.
 
@@ -73,7 +75,7 @@ They survive the swap untouched, and only their type imports move.
 | `redemptionSeries` | RewardEvent | B6 | 1 | `app/(app)/admin/analytics/page.tsx` |
 | `topLocations` | RewardEvent (city/region) | B6 | 1 | `app/(app)/admin/analytics/page.tsx` |
 | `topOffers` | Reward + RewardEvent | B6 | 1 | `app/(app)/admin/analytics/page.tsx` |
-| `roiReport` | Campaign + MetricDaily + RewardEvent | B7 | 1 | `app/(app)/sponsor/campaigns/[id]/report/page.tsx` |
+| `roiReport` | Campaign + MetricDaily + RewardEvent | B7 | 0 | **retired 2026-10-26 (P8-FE-09)** |
 | `roiSeries` | MetricDaily | B7 | 0 | **unused** |
 | `applicationSections` | — *(§11 form structure)* | — | 1 | `app/(public)/join/page.tsx` |
 | `orderTerms` | CampaignOrder + Agreement | B4 | 1 | `app/(app)/athlete/orders/[id]/page.tsx` |
@@ -94,18 +96,18 @@ They survive the swap untouched, and only their type imports move.
 | `engagementSpark` | MetricDaily | B7 | 1 | `app/(app)/sponsor/page.tsx` |
 | `sponsorCampaignsX` | Campaign | B4 | 3 | `app/(app)/sponsor/campaigns/[id]/page.tsx`, `app/(app)/sponsor/campaigns/page.tsx`, `app/(app)/sponsor/page.tsx` |
 | `topAthletes` | Athlete + MetricDaily | B7 | 1 | `app/(app)/sponsor/page.tsx` |
-| `roiGauge` | Campaign + MetricDaily | B7 | 1 | `app/(app)/sponsor/campaigns/[id]/report/page.tsx` |
-| `roiTimeline` | MetricDaily | B7 | 1 | `app/(app)/sponsor/campaigns/[id]/report/page.tsx` |
-| `formatPerformance` | — *(formatter)* | — | 1 | `app/(app)/sponsor/campaigns/[id]/report/page.tsx` |
-| `formatInsight` | — *(formatter)* | — | 1 | `app/(app)/sponsor/campaigns/[id]/report/page.tsx` |
-| `platformSplit` | AthleteSocial + MetricDaily | B7 | 1 | `app/(app)/sponsor/campaigns/[id]/report/page.tsx` |
-| `geoMarkets` | LinkEvent + RewardEvent | B6/B7 | 1 | `app/(app)/sponsor/campaigns/[id]/report/page.tsx` |
-| `geoInsight` | LinkEvent + RewardEvent | B6/B7 | 1 | `app/(app)/sponsor/campaigns/[id]/report/page.tsx` |
-| `funnelDetail` | RewardEvent (4 types) | B6 | 2 | `app/(app)/sponsor/campaigns/[id]/report/page.tsx`, `app/(app)/sponsor/page.tsx` |
-| `efficiency` | Campaign + MetricDaily | B7 | 1 | `app/(app)/sponsor/campaigns/[id]/report/page.tsx` |
-| `topContentX` | Deliverable + MetricDaily | B7 | 1 | `app/(app)/sponsor/campaigns/[id]/report/page.tsx` |
-| `roiRecommendation` | EST · curated — NOT retrievable | — | 1 | `app/(app)/sponsor/campaigns/[id]/report/page.tsx` |
-| `roiDelivery` | CampaignOrder + Deliverable | B5 | 1 | `app/(app)/sponsor/campaigns/[id]/report/page.tsx` |
+| `roiGauge` | Campaign + MetricDaily | B7 | 0 | **retired 2026-10-26 (P8-FE-09)** |
+| `roiTimeline` | MetricDaily | B7 | 0 | **retired 2026-10-26 (P8-FE-09)** |
+| `formatPerformance` | — *(formatter)* | — | 0 | **retired 2026-10-26 (P8-FE-09)** |
+| `formatInsight` | — *(formatter)* | — | 0 | **retired 2026-10-26 (P8-FE-09)** |
+| `platformSplit` | AthleteSocial + MetricDaily | B7 | 0 | **retired 2026-10-26 (P8-FE-09)** |
+| `geoMarkets` | LinkEvent + RewardEvent | B6/B7 | 0 | **retired 2026-10-26 (P8-FE-09)** |
+| `geoInsight` | LinkEvent + RewardEvent | B6/B7 | 0 | **retired 2026-10-26 (P8-FE-09)** |
+| `funnelDetail` | RewardEvent (4 types) | B6 | 0 | **retired 2026-10-26 (P8-FE-09)** |
+| `efficiency` | Campaign + MetricDaily | B7 | 0 | **retired 2026-10-26 (P8-FE-09)** |
+| `topContentX` | Deliverable + MetricDaily | B7 | 0 | **retired 2026-10-26 (P8-FE-09)** |
+| `roiRecommendation` | EST · curated — NOT retrievable | — | 0 | **retired 2026-10-26 (P8-FE-09)** |
+| `roiDelivery` | CampaignOrder + Deliverable | B5 | 0 | **retired 2026-10-26 (P8-FE-09)** |
 | `adminOps` | CampaignOrder + Deliverable + OutboxJob | B0/B5 | 2 | `app/(app)/admin/finance/page.tsx`, `app/(app)/admin/page.tsx` |
 | `adminPipeline` | CampaignBrief + Campaign | B3 | 1 | `app/(app)/admin/applications/page.tsx` |
 | `adminApprovalsX` | Athlete + Deliverable | B1/B5 | 1 | `app/(app)/admin/approvals/page.tsx` |
@@ -113,7 +115,7 @@ They survive the swap untouched, and only their type imports move.
 | `athleteCareer` | CampaignOrder + Earning (aggregate) | B7 | 3 | `app/(app)/athlete/earnings/page.tsx`, `app/(app)/athlete/page.tsx`, `lib/earnings-ui.ts` |
 | `athleteEarningsTrend` | Earning | B7 | 2 | `app/(app)/athlete/earnings/page.tsx`, `app/(app)/athlete/page.tsx` |
 | `propertyShowcase` | Property + Athlete | B1 | 1 | `app/(app)/property/page.tsx` |
-| `networkStats` | Athlete + Campaign + RewardEvent (counts) | B7 | 1 | `app/(public)/page.tsx` |
+| `networkStats` | Athlete + Campaign + RewardEvent (counts) | B7 | 0 | **retired 2026-10-26 (P8-FE-09)** |
 
 ---
 

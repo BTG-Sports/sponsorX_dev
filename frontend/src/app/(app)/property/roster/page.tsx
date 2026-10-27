@@ -105,15 +105,16 @@ export default async function PropertyRosterPage({ searchParams }: { searchParam
                 </Card>
               ) : (
                 <Card className="p-0">
-                  <div className="grid grid-cols-[1fr_7.5rem_7.5rem] gap-x-4 border-b border-line-soft px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-faint">
-                    <span>Athlete</span>
-                    <span>State</span>
+                  {/* Below sm the athlete takes the first row and state + share the second (three fixed columns burst a 320px card). */}
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 border-b border-line-soft px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-faint sm:grid-cols-[minmax(0,1fr)_7.5rem_7.5rem]">
+                    <span>Athlete<span className="sm:hidden"> &middot; State</span></span>
+                    <span className="hidden sm:block">State</span>
                     <span className="text-right">Team share</span>
                   </div>
                   <ul className="divide-y divide-line-soft">
                     {rows.map((a) => (
-                      <li key={a.id} className="grid grid-cols-[1fr_7.5rem_7.5rem] items-center gap-x-4 px-4 py-3 text-xs">
-                        <span className="flex min-w-0 items-center gap-2">
+                      <li key={a.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-3 text-xs sm:grid-cols-[minmax(0,1fr)_7.5rem_7.5rem]">
+                        <span className="flex min-w-0 items-center gap-2 max-sm:col-span-2">
                           <Monogram text={initials(a.name)} tone="accent" shape="circle" className="size-7 text-[10px]" />
                           <span className="min-w-0">
                             <span className="block truncate font-medium">{a.name}</span>

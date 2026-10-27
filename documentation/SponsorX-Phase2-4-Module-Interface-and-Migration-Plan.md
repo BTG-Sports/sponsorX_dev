@@ -341,7 +341,7 @@ customer funds.
 - **Planned** adapter, `backend/src/lib/wallet.ts`: `issue(pass)`, `update(pass)` and `expire(pass)`, with Apple and Google as two implementations of one interface (`2S6-INT-01`: "Google Wallet is a second implementation, not a rewrite").
 - **Triggering.** Reward-state transitions (ACTIVE → PAUSED / EXPIRED / ARCHIVED) and REDEEM events enqueue `wallet.updatePass` **in the same transaction** as the transition. The pass mirrors `RewardState`; it never becomes a second source of truth.
 - **Pass web-service routes** (Apple's protocol): `/public/wallet/v1/…`. They are unauthenticated in the SponsorX sense and authorised by the per-pass token.
-- **In-world rewards** (Phase 4 `5S6-INT-01`) reuse this same path: completion → `RewardToken` → claim link → optional pass. See the companion document.
+- **In-world rewards** (Phase 6 `6S6-INT-01`) reuse this same path: completion → `RewardToken` → claim link → optional pass. See the companion document.
 
 ### What must not change
 

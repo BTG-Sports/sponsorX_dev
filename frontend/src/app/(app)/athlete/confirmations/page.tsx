@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { ArenaChip, ArenaHead, ArenaLink, ArenaPanel, ArenaSection } from "@/components/arena-stage";
+import { ArenaChip, ArenaHead, ArenaUpdated, ArenaLink, ArenaPanel, ArenaSection } from "@/components/arena-stage";
 import { ConfirmationsForm, type ConfirmationTarget } from "@/components/confirmations-form";
 import {
   cardMode,
@@ -116,13 +116,12 @@ export default async function ConfirmationsPage({ searchParams }: { searchParams
   const collabMode = cardMode(collab, viewer);
   const allDone = rulesMode === "confirmed" && collabMode === "confirmed";
   const guardianWithoutWard = !rules && !collab && actor.roles.includes("GUARDIAN") && !actor.roles.includes("ATHLETE") && !viewer.actingForWard;
-  const readAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
   return (
     <div className="space-y-8">
       <ArenaHead
         title="Confirmations"
-        pill={`Postgres · read ${readAt}`}
+        pill={<ArenaUpdated />}
         lede={
           viewer.actingForWard
             ? `What ${viewer.wardName} needs confirmed before a new deal. You confirm it for them.`

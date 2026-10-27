@@ -42,7 +42,7 @@ export default async function NewAthleteListingPage({ searchParams }: { searchPa
   const heading = (
     <ArenaHead
       title="List my item"
-      lede="Put an item from your inventory on the marketplace. It goes live as soon as the checks pass."
+      lede="Put an item from your inventory on the marketplace."
       actions={
         <Link href="/athlete/listings" className="rounded-md text-xs font-medium text-muted outline-none transition-colors hover:text-text focus-visible:ring-2 focus-visible:ring-athlete/50">
           ← Listings

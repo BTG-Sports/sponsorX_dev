@@ -40,7 +40,7 @@ export async function LiveSignupProfile({ owner, id }: { owner: "athletes" | "gu
     <>
       <section aria-label="Details" className={section}>
         <h2 className="text-sm font-semibold">Details</h2>
-        <dl className="mt-2 grid grid-cols-[7.5rem_1fr] text-[13px] sm:grid-cols-[10rem_1fr]">
+        <dl className="mt-2 grid grid-cols-[7.5rem_minmax(0,1fr)] text-[13px] sm:grid-cols-[10rem_minmax(0,1fr)]">
           {s.details.map((d) => (
             <div key={d.label} className="contents">
               <dt className="border-t border-line-soft py-2 pr-3 text-muted">{d.label}</dt>

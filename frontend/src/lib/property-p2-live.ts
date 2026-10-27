@@ -274,7 +274,8 @@ export type ApiListing = {
 };
 
 const LISTING_COPY: Record<ListingState, [string, "neutral" | "primary" | "accent" | "danger" | "warn", string]> = {
-  DRAFT: ["Draft", "neutral", "Only you can see it. Submit it when the checklist is clear — it goes live as soon as the checks pass."],
+  /* "It goes live as soon as the checks pass" is said once, under Submit (P8-FE-09). */
+  DRAFT: ["Draft", "neutral", "Only you can see it. Submit it when the checklist is clear."],
   PENDING_APPROVAL: ["With BTG", "warn", "BTG is taking a look — we'll email you. Editing it takes it back to a draft to submit again."],
   PUBLISHED: ["On sale", "accent", "Sponsors can find and buy it. Pause it to change the wording."],
   PAUSED: ["Paused", "primary", "Hidden from sponsors. Edit it, then resume — the checks run again."],

@@ -51,7 +51,8 @@ describe("states, in the design's words", () => {
     expect(listingTrack(listing()).map((s) => s.state)).toEqual(["current", "todo", "todo", "todo"]);
     expect(listingTrack(listing())[2]!.note).toBe("Only if you choose");
     expect(statusText(listing())).toMatch(/BTG is taking a look — we’ll email you/);
-    expect(statusText(listing({ state: "DRAFT" }))).toMatch(/goes live as soon as the checks pass/);
+    /* The "goes live" line is the checklist's, under Submit — said once (P8-FE-09). */
+    expect(statusText(listing({ state: "DRAFT" }))).toBe("Not submitted yet — only you can see it.");
     expect(statusText(listing())).not.toMatch(/once BTG approves/);
   });
   it("the owner's moves", () => {

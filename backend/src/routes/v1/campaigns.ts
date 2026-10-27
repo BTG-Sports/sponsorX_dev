@@ -1047,7 +1047,10 @@ async function invitationsOut(actor: Actor, rows: InviteRow[]) {
  *
  * One row per athlete on the campaign: their Campaign Order (non-DRAFT —
  * a draft is BTG's working copy) or, before an order exists, their
- * invitation. Per row: delivered (PUBLISHED or VERIFIED) of planned,
+ * invitation. Per row: delivered (PUBLISHED or VERIFIED) of planned, how
+ * many of those BTG has VERIFIED (a published post is not done until then —
+ * the board said "Complete" over posts still being checked, staging dry
+ * run 2026-10-26),
  * overdue (past due and not VERIFIED — delivery-health's own rule), what is
  * waiting on review, the next due date, and VERIFIED views only (a
  * self-reported figure can't evidence delivery). The campaign's health uses
@@ -1101,7 +1104,7 @@ const campaignOps: RequestHandler<{ id: string }> = async (req, res) => {
     /** Before an order exists: the latest invite, so BTG can draft the order
      *  from it. `offered` is athlete pay — only where §7.1 allows. */
     invite: { id: string; state: string; jobId: string; offered?: number } | null;
-    delivered: number; planned: number; overdue: number; inReview: number;
+    delivered: number; verified: number; planned: number; overdue: number; inReview: number;
     nextDue: string | null; verifiedViews: number;
   };
   const rows = new Map<string, Row>();
@@ -1110,7 +1113,7 @@ const campaignOps: RequestHandler<{ id: string }> = async (req, res) => {
     if (!r) {
       r = {
         athleteId: a.id, name: a.displayName, slug: a.slug, order: null, invite: null,
-        delivered: 0, planned: 0, overdue: 0, inReview: 0, nextDue: null, verifiedViews: 0,
+        delivered: 0, verified: 0, planned: 0, overdue: 0, inReview: 0, nextDue: null, verifiedViews: 0,
       };
       rows.set(a.id, r);
     }
@@ -1135,8 +1138,10 @@ const campaignOps: RequestHandler<{ id: string }> = async (req, res) => {
       r.planned += 1;
       if (DONE.has(d.state)) r.delivered += 1;
       if (REVIEW.has(d.state)) r.inReview += 1;
-      if (d.state === "VERIFIED") verified += 1;
-      else if (d.dueDate.getTime() < now.getTime()) {
+      if (d.state === "VERIFIED") {
+        verified += 1;
+        r.verified += 1;
+      } else if (d.dueDate.getTime() < now.getTime()) {
         overdue += 1;
         r.overdue += 1;
       }

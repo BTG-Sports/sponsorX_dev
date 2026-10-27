@@ -78,7 +78,7 @@ const LIST_SELECT = {
     },
   },
   assets: {
-    select: { version: true, uploadedAt: true },
+    select: { version: true, uploadedAt: true, contentType: true },
     orderBy: { version: "desc" as const },
   },
 } as const;
@@ -95,7 +95,7 @@ type ListRow = {
     campaign: { id: string; name: string; sponsor: { name: string } };
     offer: { disclosures: string[] } | null;
   };
-  assets: { version: number; uploadedAt: Date }[];
+  assets: { version: number; uploadedAt: Date; contentType?: string | null }[];
 };
 
 /** Latest revision request per deliverable, from the audit log. */
@@ -147,7 +147,13 @@ function rowOut(d: ListRow, revision: { reason: string; at: Date } | undefined, 
     appearance: APPEARANCE_JOBS.has(d.order.jobId),
     athlete: d.order.athlete,
     campaign: { id: d.order.campaign.id, name: d.order.campaign.name, sponsorName: d.order.campaign.sponsor.name },
-    latestAsset: latest ? { version: latest.version, uploadedAt: latest.uploadedAt.toISOString() } : null,
+    /* contentType — what the athlete actually uploaded (the MIME the signed
+       PUT enforced), so the approvals desk can call a PNG an image even on a
+       video job (staging dry run, 2026-10-26). Null for assets registered
+       before P5-BE-09 recorded it. */
+    latestAsset: latest
+      ? { version: latest.version, uploadedAt: latest.uploadedAt.toISOString(), contentType: latest.contentType ?? null }
+      : null,
     assetCount: d.assets.length,
     /* `by` SYSTEM: the automatic checks sent it back; `failed` lists them. */
     revision: back

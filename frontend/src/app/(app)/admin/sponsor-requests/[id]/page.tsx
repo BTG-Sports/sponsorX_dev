@@ -120,7 +120,7 @@ export default async function SponsorRequestPage({ params }: { params: Promise<{
       {r.state === "NEW" ? (
         <SponsorRequestReview request={r} details={details} decide={decideSponsorRequestAction.bind(null, r.id)} />
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="space-y-6">{details}</div>
           <aside>
             <Decided r={r} decide={decideSponsorRequestAction.bind(null, r.id)} />

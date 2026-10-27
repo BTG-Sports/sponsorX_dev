@@ -4607,7 +4607,7 @@ model VirtualPlacement {
   currency        String    @default("USD")
   availableFrom   DateTime?
   availableUntil  DateTime?
-  /// UNTESTED | PASSED | FAILED — the staging test is Phase 5 (5S1-QA-01).
+  /// UNTESTED | PASSED | FAILED — the staging test is Phase 6 (6S1-QA-01).
   testStatus      String    @default("UNTESTED")
   /// DRAFT | AVAILABLE | RETIRED
   state           String    @default("DRAFT")

@@ -65,7 +65,7 @@ anything outside them:
 - **capacity:** how many sponsors can share it at once (1 for most; a
   rotating screen may take more);
 - **its viewability rule:** what counts as "seen" (for example 50% of it on
-  screen for 1 second). Rules are versioned (`5S5-BE-01`).
+  screen for 1 second). Rules are versioned (`6S5-BE-01`).
 
 ## 4 · How each part maps to SponsorX
 

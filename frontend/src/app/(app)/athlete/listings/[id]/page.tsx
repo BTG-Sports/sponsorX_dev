@@ -60,7 +60,7 @@ export default async function AthleteListingPage({ params }: { params: Promise<{
       lede={
         <span className="flex flex-wrap items-center gap-2">
           <ListingPill listing={listing} />
-          <span>Put an item from your inventory on the marketplace. It goes live as soon as the checks pass.</span>
+          <span>Put an item from your inventory on the marketplace.</span>
         </span>
       }
       actions={

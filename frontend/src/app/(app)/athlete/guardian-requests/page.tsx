@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ArenaHead, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
+import { ArenaHead, ArenaUpdated, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
 import { HandoffRequestCard } from "@/components/handoff-request-card";
 import { HandoffStatusViews, HandoffTrack } from "@/components/handoff-status";
 import { PagerRow, PendingList, ServerList } from "@/components/server-pager";
@@ -98,7 +98,7 @@ export default async function GuardianRequestsPage({ searchParams }: { searchPar
   const pastPage = pageOrAll(past, pastList?.page);
   const seat = guardian ? 1 : 2; /* handoffViews: [new guardian, current guardian, athlete] */
   const now = new Date();
-  const pill = `Postgres · read ${now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+  const pill = <ArenaUpdated at={now} />;
   const nothing = counts.waiting === 0 && counts.past === 0 && waiting.length === 0 && past.length === 0;
 
   return (

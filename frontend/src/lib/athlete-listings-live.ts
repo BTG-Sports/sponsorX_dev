@@ -165,7 +165,10 @@ export function statusText(l: ApiAthleteListing, now = new Date()): string {
     case "DRAFT":
       return l.reviewNotes
         ? "BTG asked for changes. Make them below, then submit it again."
-        : "Not submitted yet — only you can see it. Submit it: it goes live as soon as the checks pass.";
+        /* "It goes live as soon as the checks pass" is said once, under the
+           Submit button in the checklist (P8-FE-09: the page used to say it
+           three times). */
+        : "Not submitted yet — only you can see it.";
     case "PENDING_APPROVAL":
       return `Submitted ${stamp(l.submittedAt)}. BTG is taking a look — we’ll email you. You can still edit what the sponsor gets; that takes it back to a draft to submit again.`;
     case "PUBLISHED":

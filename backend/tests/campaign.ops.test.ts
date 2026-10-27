@@ -73,10 +73,11 @@ describe("GET /campaigns/:id/ops", () => {
     expect((jordan.order as { jobIds: string[] }).jobIds.sort()).toEqual(["SX-01", "SX-02"]);
   });
 
-  it("counts delivered, planned, overdue and in-review per athlete", async () => {
+  it("counts delivered, verified, planned, overdue and in-review per athlete", async () => {
     const roster = (await call()).roster as Array<Record<string, unknown>>;
-    expect(roster.find((r) => r.athleteId === "a1")).toMatchObject({ delivered: 1, planned: 2, overdue: 1, inReview: 1 });
-    expect(roster.find((r) => r.athleteId === "a2")).toMatchObject({ delivered: 1, planned: 2, overdue: 0 });
+    expect(roster.find((r) => r.athleteId === "a1")).toMatchObject({ delivered: 1, verified: 1, planned: 2, overdue: 1, inReview: 1 });
+    /* PUBLISHED is delivered but not verified — not done until BTG checks it (staging dry run, 2026-10-26). */
+    expect(roster.find((r) => r.athleteId === "a2")).toMatchObject({ delivered: 1, verified: 0, planned: 2, overdue: 0 });
   });
 
   it("counts VERIFIED views only", async () => {

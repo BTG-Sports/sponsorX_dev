@@ -109,13 +109,13 @@ against Blueprint v2.0; **Addendum B (2026-09-21)** records the split into
 
 ## The task board
 
-The programme is five phases: the blueprint's four, plus Phase 5, the INFINEX game, split out of Phase 4 on 2026-10-16 (the game is not started; Phase 4 is SponsorX's web application only). **Three artefacts, three
+The programme is six phases: the blueprint's four; Phase 5, the Certified Recruiting partnership (added 2026-10-27: a SponsorX card linking to certified-recruiting.com, which is already built on GoDaddy and linked from BTG's site); and Phase 6, the INFINEX game, split out of Phase 4 on 2026-10-16 and renumbered from Phase 5 on 2026-10-27, its IDs moving from `5S…` to `6S…` (the game is not started; Phase 4 is SponsorX's web application only). **Three artefacts, three
 jobs** — keep them straight or they drift:
 
 | Artefact | Owns | Changes | Who |
 |---|---|---|---|
-| `documentation/SponsorX-Phase{1..5}-*.md` | The **plan** — every task's definition, plain-English detail, acceptance criteria | Only when scope changes | Anyone, by pull request |
-| `Claude outputs/SponsorX-Full-Programme-Task-Board.xlsx` | The **working tracker** — all five phases consolidated | Continuously, during the day | Every developer |
+| `documentation/SponsorX-Phase{1..6}-*.md` | The **plan** — every task's definition, plain-English detail, acceptance criteria | Only when scope changes | Anyone, by pull request |
+| `Claude outputs/SponsorX-Full-Programme-Task-Board.xlsx` | The **working tracker** — all six phases consolidated | Continuously, during the day | Every developer |
 | Google Sheet [SponsorXFullProgrammeTaskBoard](https://docs.google.com/spreadsheets/d/10PGtZb3jGBBHhbNOWwl__hS0b_HKN7EL0KRHrnSVoI0/) | The **published status** — what the team and stakeholders read | Once a day | Whoever worked that day |
 
 > **The daily rule.** During the day, tag your task **In progress** in the consolidated
@@ -200,8 +200,9 @@ Code review. Committing one file is what makes a shared tracker actually shared.
 [Phase 1 · Managed Marketplace](documentation/SponsorX-Phase1-Managed-Marketplace.md) (221 tasks) ·
 [Phase 2 · Marketplace & Commerce](documentation/SponsorX-Phase2-Marketplace-Commerce.md) (123) ·
 [Phase 3 · Intelligence & Attribution](documentation/SponsorX-Phase3-Intelligence-Attribution.md) (44) ·
-[Phase 4 · INFINEX Integration](documentation/SponsorX-Phase4-INFINEX-Integration.md) (19, all Done and signed off as built; every open task moved to Phase 5 on 2026-10-20, the game being parked) ·
-[Phase 5 · INFINEX Game](documentation/SponsorX-Phase5-INFINEX-Game.md) (50, waits for the game, which is parked; player accounts, the live connection and all of Phase 4's open work added 2026-10-20)
+[Phase 4 · INFINEX Integration](documentation/SponsorX-Phase4-INFINEX-Integration.md) (19, all Done and signed off as built; every open task moved to the game phase on 2026-10-20, the game being parked) ·
+[Phase 5 · Certified Recruiting](documentation/SponsorX-Phase5-Certified-Recruiting.md) (2, a SponsorX card linking to certified-recruiting.com and that site's footer links back; added 2026-10-27) ·
+[Phase 6 · INFINEX Game](documentation/SponsorX-Phase6-INFINEX-Game.md) (50, Phase 5 until 2026-10-27; waits for the game, which is parked; player accounts, the live connection and all of Phase 4's open work added 2026-10-20)
 
 ## Architecture rules
 
