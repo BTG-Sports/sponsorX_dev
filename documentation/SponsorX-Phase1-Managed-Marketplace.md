@@ -3143,8 +3143,75 @@ Raised 2026-10-26 from the tester-guide dry run on staging. Seven screen problem
     - BTG's four desks (§10) on the hexagon track, with what always reaches a person;
     - BTG Sports Group's two programmes, SponsorX and SponsorX NEXT, each with its next step; then a closing panel to `/get-started` and `/contact`.
     - Copy is the site's own (the brief's three minutes, `JOIN_MINUTES`, the NEXT programme's terms). No names, figures or address; the page reads nothing from the API.
-    - **Not fixed, needs the owner:** the home page's "Featured athletes" panel still shows sample athletes with "Verified" badges. Showing real athletes publicly needs a decision on which athletes, their consent, and minors.
+    - **Not fixed, needs the owner:** the home page's "Featured athletes" panel still shows sample athletes with "Verified" badges. Showing real athletes publicly needs a decision on which athletes, their consent, and minors. **Decided 2026-10-27, now `P8-BE-08` and `P8-FE-10`.**
 - **Reference:** §9, §21, §22
+
+### ✅ `P8-BE-08` · Featured athletes list for the home page
+
+**Order** 157.99 · **BE** · **Where:** Code · **3d** · **Done** — 2026-10-27, rcfworks
+
+The home page's "Featured athletes" panel shows sample athletes ([`landing-athletes.tsx`](../frontend/src/components/landing-athletes.tsx), the first four ACTIVE fixtures). This task gives it a real, public list. **The backend applies every rule below; the frontend only shows what it gets.**
+
+**The criteria (decided by the user, 2026-10-27).** An athlete appears only if all of these hold:
+
+1. **Active.** State `ACTIVE`. Featured (editorial), suspended and pending athletes never appear.
+2. **Nothing beyond their public page.** The panel shows only what `GET /public/athletes/:slug` already shows: display name, sport and position, city and state, social follower counts with their source. No rates, jobs, school, age or birth date.
+3. **A complete profile, photo included (the user, 2026-10-27: "miss one, it gets rejected").** All twelve are required: a profile photo, display name, sport, position, level, school, city, state, achievements, at least one content capability, at least one brand interest, and a social account with a follower count. Missing any one keeps the athlete off, and BTG's view names the missing field.
+4. **Under 18: a person approves.** A minor (by birth date or age band) appears only after BTG's Athlete Network Manager approves them for the home page. Their guardian has already signed off, since a minor can't be active without it. **No birth date and no age band counts as a minor.**
+5. **Not removed.** An athlete BTG has removed never appears until BTG restores them.
+
+**Which four.** Pinned athletes first, in pin order. The rest are filled automatically: the most recent verified deliverable first, then the most recently activated. At most four. If none qualify, the list is empty and the panel is hidden; nothing falls back to samples.
+
+**Follower figure.** The athlete's largest follower count, tagged "Verified" when that account's source is verified and "Self-reported" otherwise.
+
+**Who controls it.** `BTG_ADMIN` and `NETWORK_MGR` can pin, unpin, remove, restore, and approve a minor for the home page. Every change is audited and tenant-scoped.
+
+**The read.** A public `GET /public/featured-athletes` in the public tenant, rate-limited and kept for a minute by the web server, like `/public/network-stats`.
+
+- **Depends on:** nothing
+- **Done when:** Only athletes meeting the criteria are listed, pinned first, at most four; a minor appears only after a Network Manager approves; removed athletes stay off; nothing private is returned; tenant and role tests cover it
+- **Reference:** §9, §11, §26; the user, 2026-10-27
+- **Delivered 2026-10-27 (rcfworks):**
+  - **The rules** are in `domain/home-featured-rules.ts`, which is pure. The reads and BTG's controls are in `domain/home-featured.ts`.
+  - **The profile photo is new.** Athletes had none, so the photo rule needed one:
+    - `Athlete.photoKey`, a public-bucket key under `athletes/<tenant>/<athlete>/`;
+    - `POST /athletes/{id}/photo` grants an upload pinned to its type and size (JPEG, PNG or WebP, at most 5 MB);
+    - `PUT /athletes/{id}/photo` uses an upload once it has arrived, or clears it with null;
+    - the athlete, a minor's guardian or BTG can do this (athlete write).
+  - **A minor's approval resets when their photo changes,** so a person sees the new one first.
+  - **BTG's controls:**
+    - `GET /athletes/{id}/home-page` returns whether the athlete is on the panel now, and every reason if not, including the missing fields by name;
+    - `POST /athletes/{id}/home-page` takes `{action}`: pin, unpin, remove, restore, approve or unapprove;
+    - both require athlete approve held tenant-wide (BTG admin, Network Manager, super admin). Pinning a removed athlete is refused, and approval is only for a minor or an athlete with no age on file.
+  - **Records and docs:** migration `20261027120000_athlete_home_featured` adds four nullable columns (`photoKey`, `homePinnedAt`, `homeRemovedAt`, `homeApprovedAt`). Every change is audited (`homePage.*`, `athlete.photoSet`). All five routes are in the OpenAPI registry.
+  - **Tests:** `home-featured.test.ts` runs the pure rules (each missing field on its own, every minor case, the ranking), then every acceptance clause over HTTP and a real database:
+    - the twelve-field rule, the ranking, and at most four;
+    - pins first, and removal with restore;
+    - minor and no-age approval, and the reset on a new photo;
+    - the exact public keys, and the audit rows;
+    - four refused roles plus no login, and another tenant's admin.
+
+    `home-featured.route.test.ts` covers the public route: no login, the public tenant from config, and the rate limit before the read. The cross-tenant sweep (`tenant-isolation`) now covers the three write routes, and the public-bucket allowlist (`payments-pii`) names the photo.
+  - **Checked locally on Postgres 17:** backend build and lint pass; 3,540 backend tests across 237 files pass; the secret scan passes.
+
+### ▶ `P8-FE-10` · Home page Featured athletes from the API
+
+**Order** 157.995 · **FE** · **Where:** Code · **3d** · **Ready**
+
+The backend applies every rule (`P8-BE-08`, Done); this task only shows what it returns.
+
+1. **The panel.** "Featured athletes" reads `GET /public/featured-athletes` instead of `athleteInv`. Each row shows the photo (`photoUrl`), name, sport and position, city and state, and the follower figure with its "Verified" or "Self-reported" tag (`verified`), and links to `/athletes/{slug}`. Drop the job tag, which isn't public. An empty list or no read hides the panel; nothing falls back to samples.
+2. **The athlete's photo,** on the athlete's profile edit page (and BTG's athlete page): `POST /athletes/{id}/photo` with `{contentType, bytes}` returns `uploadUrl`; PUT the file there with that Content-Type, then `PUT /athletes/{id}/photo` with `{photoKey}`. JPEG, PNG or WebP, at most 5 MB. `{photoKey: null}` removes it.
+3. **BTG's controls,** on the admin's athlete page, for `BTG_ADMIN` and `NETWORK_MGR` only: `GET /athletes/{id}/home-page` for the state, `POST /athletes/{id}/home-page` with `{action}`:
+   - **Pin to home page** / **Unpin**;
+   - **Remove from home page** / **Restore**;
+   - for a minor, **Approve for home page** / **Withdraw approval**.
+
+   Show whether the athlete is on the home page now, and if not, why, from `blocks` and `missing`: for example "Missing: photo, school" or "Under 18 — waiting for approval".
+
+- **Depends on:** P8-BE-08
+- **Done when:** The panel shows the API's list and hides when empty; an athlete can add, change and remove their photo; BTG can pin, remove, restore and approve a minor, and sees why an athlete is off; other roles see none of these controls
+- **Reference:** §9, §10; the user, 2026-10-27
 
 ### ✅ `P8-FE-03` · The rules tick on the sign-up page and the guardian's page
 
