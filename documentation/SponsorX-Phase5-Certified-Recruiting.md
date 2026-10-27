@@ -7,7 +7,7 @@
 | **Goal** | Give Certified Recruiting a landing page inside BTG's website, so athletes on BTG's pathway find recruiting support, with BTG Sports Group and SponsorX shown as partners. |
 | **Tasks** | 2 · 2 person-days |
 | **Timeline** | Now; publishing waits for Certified Recruiting's approved services |
-| **Depends on** | Certified Recruiting's logo files and approved services (`5S1-PMO-01`), and editor access to BTG's WordPress |
+| **Depends on** | Certified Recruiting's approved services (`5S1-PMO-01`), and a login to BTG's WordPress for whoever builds the page |
 | **Source** | The user, 2026-10-27: a partnership plan written outside the team, step 1 of 4 |
 
 > **Why this phase exists (user, 2026-10-27).** Certified Recruiting already has its own site,
@@ -54,7 +54,6 @@ application-based.
 
 Ask Certified Recruiting for what the page cannot publish without, and record the answers here:
 
-- logo files and any co-branding rules;
 - the final list of services at launch, each marked free, paid or application-based;
 - who receives athlete inquiries, and how quickly they reply.
 
@@ -70,7 +69,7 @@ It blocks publishing `5S1-FE-01`, not building it.
 
 A new WordPress page on btgsportsgroup.com at `/certified-recruiting`. Certified Recruiting's branding
 leads; BTG Sports Group and SponsorX appear in an "In partnership with" strip under the hero. Use
-the logo from certified-recruiting.com until `5S1-PMO-01` brings the final files.
+Certified Recruiting's current logo, which the user already updated (2026-10-27).
 
 1. **Hero.** Headline "Your Talent. Your Story. Your Next Opportunity." Intro "Explore recruiting
    guidance, athlete exposure, media development, and brand readiness through Certified
