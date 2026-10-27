@@ -355,7 +355,7 @@ async function syncItem(tx: Tx, p: Prisma.VirtualPlacementGetPayload<{ select: t
  * DRAFT, in an active production world whose owner BTG has approved to sell
  * (onboarding), in an active zone. Creates its InventoryItem and marks it
  * AVAILABLE in one transaction; refused with every reason otherwise. Its
- * staging test (Phase 5, 5S1-QA-01) is not yet required: until then it says
+ * staging test (Phase 6, 6S1-QA-01) is not yet required: until then it says
  * UNTESTED.
  */
 export async function publishPlacement(actor: Actor, placementId: string) {
