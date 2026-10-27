@@ -18,6 +18,7 @@ import {
   ServerList,
   useListNav,
 } from "@/components/server-pager";
+import { HomeFeatureLoader } from "@/components/home-feature-loader";
 import {
   LIVE_FLAGS,
   LIVE_SORTS,
@@ -1021,6 +1022,16 @@ function ReviewDrawer({
         <div className="sx-animate sx-delay-4 p-5">
           <p className="text-xs leading-relaxed text-muted">{STATE_DETAIL[s]}</p>
         </div>
+
+        {/* P8-FE-10 — an approved athlete's place on the home page's Featured
+            athletes panel: the Network Manager's way to pin, remove and
+            approve (BTG's athlete page is BTG admins' alone). Drawn only when
+            the API answers this role. */}
+        {live && stateBucket(s) === "approved" && (
+          <div className="sx-animate sx-delay-4 px-5 pb-5">
+            <HomeFeatureLoader key={a.id} athleteId={a.id} name={a.name} />
+          </div>
+        )}
         </div>
 
         {/* decision bar — pinned */}

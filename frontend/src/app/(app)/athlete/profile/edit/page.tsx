@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ArenaHead, ArenaUpdated } from "@/components/arena-stage";
+import { AthletePhotoEditor } from "@/components/athlete-photo-editor";
 import { ProfileEditor } from "@/components/profile-editor";
 import { BlockedNotice } from "@/components/ui";
 import { EmptyState } from "@/components/states";
@@ -131,6 +132,19 @@ export default async function ProfileEditPage({
             {editable ? " Changes save straight away. A legal name, date of birth or guardian is sensitive: BTG is told and the checks run again." : ""}
           </p>
         </ArenaHead>
+        {/* P8-FE-10 — the profile photo: on the public profile, and one of the
+            fields the home page's Featured athletes panel needs. */}
+        {editable && (
+          <section aria-label="Profile photo" className="sx-arena-plate mt-4 px-4 py-4 pl-6">
+            <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Profile photo</h2>
+            <AthletePhotoEditor
+              athleteId={me.id}
+              name={me.displayName}
+              photoUrl={me.photoUrl ?? null}
+              minor={isMinorNow(me.birthDate, me.ageBand)}
+            />
+          </section>
+        )}
         <LiveProfileEditor
           athleteId={me.id}
           initialSection={section}

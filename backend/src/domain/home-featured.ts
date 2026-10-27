@@ -199,6 +199,10 @@ export async function setHomeFeature(
 
 export const photoPrefix = (tenantId: string, athleteId: string) => `athletes/${tenantId}/${athleteId}/`;
 
+/** The profile photo's CDN address, or null — for reads that show it (GET /athletes/me, P8-FE-10).
+ *  Built here so the public bucket stays reached from this file and branding.ts alone. */
+export const athletePhotoUrl = (photoKey: string | null): string | null => (photoKey ? publicObjectUrl(photoKey) : null);
+
 /** The athlete row this actor may edit, or a 404 — never a hint that it exists. */
 async function editable(actor: Actor, athleteId: string) {
   const a = await prisma.athlete.findFirst({

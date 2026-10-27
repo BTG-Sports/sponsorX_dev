@@ -22,7 +22,7 @@ import { prisma } from "../../db/client";
 import { ProfileChangeInput } from "../../contracts/profile-change";
 import { myProfileChanges, submitProfileChange } from "../../domain/athlete-profile-change";
 import { AthletePhotoInput, AthletePhotoUploadInput, HomePageActionInput } from "../../contracts/home-featured";
-import { homeFeatureStatus, requestPhotoUpload, setAthletePhoto, setHomeFeature } from "../../domain/home-featured";
+import { athletePhotoUrl, homeFeatureStatus, requestPhotoUpload, setAthletePhoto, setHomeFeature } from "../../domain/home-featured";
 
 export const athletesRouter = Router();
 
@@ -72,6 +72,9 @@ export const getMyProfile: RequestHandler = async (req, res) => {
       /* Counts, not contents: the meter asks "is this section done", and the
          rate card's own screen is P3-FE-04's. */
       _count: { select: { rates: true } },
+      /* P8-FE-10 — the profile photo (P8-BE-08), so the editor can show,
+         change and remove it. A public-bucket object: its CDN address, never the key. */
+      photoKey: true,
     },
   });
   if (!row) throw new ForbiddenError("athlete", "read");
@@ -80,9 +83,10 @@ export const getMyProfile: RequestHandler = async (req, res) => {
     where: { tenantId: actor.tenantId, userId: actor.userId },
   });
 
-  const { _count, ...profile } = row;
+  const { _count, photoKey, ...profile } = row;
   res.json({
     ...profile,
+    photoUrl: athletePhotoUrl(photoKey),
     ratesConfirmed: _count.rates,
     agreementsSigned,
   });

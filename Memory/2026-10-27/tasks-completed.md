@@ -152,3 +152,149 @@
   - the writes include the tenant.
 - **Verified** on a local Postgres 17: backend build and lint pass; 3,540 backend tests (237 files) pass; the secret scan passes.
 - **Next:** `P8-FE-10` (Ready, frontend) — the panel reads the API, the athlete photo upload, and BTG's controls.
+
+### P8-FE-10 · Home page Featured athletes from the API (Code review)
+
+- **Trigger:** the user pointed at the task the P8-BE-08 criteria raised.
+- **Branch:** `feature/P8-FE-10-featured-athletes`, from `main_development` at `66b0957b`.
+- **The panel** (`landing-athletes.tsx`) now reads `GET /public/featured-athletes` (`server/featured-athletes.ts`, the network-stats pattern: 1.5 s budget, one-minute keep, edge forward).
+  - It shows only the API's fields: photo, name, sport · position, city and state, and followers tagged Verified or Self-reported. Phones get a compact figure beside the arrow.
+  - Removed: the job tag, tier, the sample reach and engagement, and the name's "verified athlete" badge.
+  - No read or an empty list hides the panel, and nothing falls back to fixtures.
+- **Athlete photo** (`athlete-photo-editor.tsx` + `server/athlete-photo-actions.ts`):
+  - It is on the athlete's profile edit page once they're approved, and in BTG's section.
+  - The browser checks type and size, PUTs the file straight to the public bucket, then confirms with the API.
+  - A minor is told a new photo goes back to BTG.
+  - Backend: `GET /athletes/me` now returns `photoUrl`, the CDN address and never the key (test in `athletes.me.test.ts`, OpenAPI summary updated).
+- **BTG's controls** are a "Home page" section on `/admin/new-signups/athletes/{id}` (`home-feature-panel.tsx`, `lib/home-feature.ts`, `server/home-feature-actions.ts`).
+  - It shows the on-panel state, or every reason the athlete is off ("Missing: photo, school", "Under 18 — waiting for approval").
+  - Buttons: Pin / Unpin, Remove / Restore, and Approve / Withdraw for a minor. Pin is disabled while removed.
+  - The section is drawn only when the API's BTG-only status read answers.
+- **Bug caught in the walk:** keying the panel on its status remounted it on `router.refresh()`, so the confirmation message vanished after about a second. It now takes the server's fresh status without remounting.
+- **Checks:**
+  - frontend tsc and eslint clean; vitest 1,729/1,729;
+  - backend DB tests (`athlete-login`, `athletes.me`, `home-featured*`, `tenant-isolation`) 42/42 on `sponsorx_test`, and the OpenAPI test passes.
+- **Live walk** on the local stack, with MinIO:
+  - the admin upload took "photo" off the missing list;
+  - the athlete changed the photo, and a GIF was refused in the browser;
+  - pin, unpin, remove and restore each showed its message and wrote its audit row;
+  - sponsor and finance logins can't open the page;
+  - the panel rendered at 1440, 390 and 320 with QA athlete Jordan's profile completed for the walk. Jordan's fields, photo and home flags were restored to their original nulls afterwards.
+- **Not done:** the minor approve/withdraw buttons weren't clicked live (no minor QA athlete with a full profile). They're covered by unit tests and P8-BE-08's backend tests.
+- **Also:** the Phase 1 doc now shows P8-FE-09 as Done (merged in #307 and #308).
+
+### P8-FE-10 QA pass (the user's request: "QA test the backend and frontend regarding the task that you did")
+
+- **Scenario:** staged on existing QA athletes, with a backup table and an md5 of the rows before. Restored afterwards with an identical md5, and the `qa_fe10_*` socials deleted.
+  - SAM: an approved minor, pinned first.
+  - JORDAN: an adult, pinned second.
+  - QUINN: no age on file, approved, with a 35-character name.
+  - Rory: an adult, self-reported.
+  - THEO: no age on file, not approved.
+  - VAL: removed.
+  - a FEATURED athlete, complete.
+  - CORA: no school.
+- **API, 33 live probes, all pass:**
+  - pinned order, the four cap, exactly nine public keys, each exclusion;
+  - `/athletes/me` returns photoUrl and no key;
+  - upload refusals: GIF, over 5 MB, never arrived (409), another athlete's key (422), another athlete's upload;
+  - home-page status and actions refused for athlete, sponsor, finance, advisor, student and property; 401 with no login;
+  - approving an adult and pinning a removed athlete are refused with their reasons; an unknown action is 400.
+  - Two first-run "failures" were my seed: Rory's social had no count, so he was correctly blocked.
+- **Browser, 94 checks:**
+  - home panel on 11 devices, WebKit included: 4 rows in pin order, photos load, tags, profile links open, nothing outside the panel, no sideways scroll, no errors;
+  - BTG's section for 5 cases on 7 devices;
+  - the athlete photo on 7 devices, plus a 5 MB+ file, a storage 500, a dropped connection and the keyboard;
+  - axe clean ×3; minor approve and withdraw clicked live; the API down leaves the home page loading in 1.5 s without the panel.
+- **Fixed (commit `76c714c9`):**
+  - (1) `GET /athletes/me` called `publicObjectUrl` from the route, a third place reaching the public bucket, so `payments-pii` would fail on CI. The address now comes from `athletePhotoUrl()` in `domain/home-featured.ts`.
+  - (2) "Under 18" was shown for athletes with no age on file. It now reads "Under 18 or no age on file".
+- **Build and suite:**
+  - `npm run build` (backend + Next 16.4.2) is green in a detached worktree.
+  - Backend suite on `sponsorx_test`: 3,525 pass, plus the five known Windows-only and timing files.
+  - The worktree teardown again emptied `node_modules/rimraf`; restored 2.7.1 from `npm pack`.
+
+### P8-FE-10 QA, second pass (the user's request: "QA test again frontend and backend based on the task you did for featured athletes")
+
+- **No code changed; nothing new on `main_development`.** Same staged scenario. Fingerprint `1f3eb39c…` before and after, the `qa_fe10_*` socials removed, and the rate-limit counter cleared.
+- **Repeated, all pass:**
+  - 33 API probes. The first run's 10 admin "failures" were the harness reading the Clerk token before Clerk loaded; fixed by waiting for `Clerk.loaded`.
+  - 101 browser checks: the first pass's 94 plus 844×390 landscape on the portal pages.
+  - frontend vitest 1,729/1,729; tsc and eslint clean.
+  - Backend suite on `sponsorx_test`: 3,519 pass. Failing: the four Windows-only files, plus `openapi.coverage`'s import hook timing out while the browser matrix loaded the machine (7/7 alone). The public-bucket guard with POSIX paths lists exactly branding, home-featured and storage.
+- **New checks (17, all pass):**
+  - The athlete uploads a real JPEG, then a WebP (each shown and loading), then removes the photo. The removal persists after a reload, and they drop off the home list.
+  - BTG sets the athlete's photo: "photo" leaves the missing list, and the athlete sees it.
+  - A minor's new photo, set by BTG, resets her approval (the reset is the API's rule). The section says "waiting for approval" again, the API drops her at once, and the home page caught up within its one-minute keep.
+  - The public read's limit: 429 within 120 requests an hour, with Retry-After. The home page still loads while limited. The Redis counter was cleared afterwards so the dev server isn't locked out.
+- **Not repeated:** the production build and the API-down check. The code is unchanged since both passed on `76c714c9`. A light-theme check doesn't apply, since the app has one theme since 2026-10-14.
+
+### P8-FE-10 QA, third pass (the user's request: "thrid QA pass")
+
+- **Found and fixed: the Network Manager couldn't reach the home-page controls.** They lived only on `/admin/new-signups/athletes/{id}`, which is BTG admins' alone ("Not in your role"); the API and the task both give them to the Network Manager.
+  - The same section now opens in the review drawer of an approved athlete on `/admin/applications`, the Network Manager's desk. It is loaded on demand: `getHomeFeatureAction` in `server/home-feature-actions.ts` and `home-feature-loader.tsx`.
+  - Walked: the Network Manager at 1280 and 390, and BTG admin, unpin and pin from the drawer. It fits the drawer with no errors, and applicants under review get none.
+- **Production server** (`next start`, built in a worktree on port 3100): the panel's photos load, the athlete's direct upload works, and a server action (approve) works on the built app.
+  - The CSP is still report-only; only frame-ancestors is enforced. When it is enforced, the web service needs `R2_PUBLIC_BASE_URL` (or photos on `*.r2.dev`). Prod's img-src has no local storage host.
+- **More roles, all pass:**
+  - the Network Manager and super admin get status and actions;
+  - SAM's guardian may start an upload for SAM, not for another athlete, and can't see the status;
+  - another tenant's Network Manager (made by moving `e2e_u_ck_nm` to `e2e_fan_tenant` for a moment; its row md5 was identical after) gets 404/403 on everything, with nothing changed.
+  - Observation: a guardian has no screen to set the ward's photo. `/athlete/profile/edit` shows guardians the demo editor (pre-existing).
+- **Robustness:**
+  - a stale second tab pinning a removed athlete is refused with the API's reason;
+  - a double-click sends one action (one audit row);
+  - keyboard focus is visible;
+  - a display name with HTML, accents, emoji and Arabic renders as text (no script, no injected element). BTG's page heads with the legal name.
+- **Checks:**
+  - frontend vitest 1,729/1,729; tsc and eslint clean;
+  - the scenario was restored with an identical md5, and the QA socials and rate counters removed;
+  - the worktree teardown emptied `node_modules/rimraf` again; restored 2.7.1.
+
+### P8-FE-10 QA, fourth pass (the user's request: "fourth qa test pass")
+
+- **Full regression on `c5af391e`, all pass:**
+  - API probes 33/33;
+  - browser matrix 101/101 (11 devices, WebKit included);
+  - the Network Manager's drawer 8/8; roles 8/8 (incl. another tenant); robustness 5/5;
+  - pass-2 extras 17/17 (JPEG/WebP upload and removal, BTG's photo, the minor's photo resetting approval, the rate limit).
+- **New checks:**
+  - **The applications desk after the drawer change:**
+    - the four tabs open (Network Manager and BTG admin);
+    - Escape closes the drawer and focus returns to the row;
+    - a reviewable applicant keeps Approve / Request info / Reject;
+    - "Info requested" applicants have no decisions (by design), and no applicant gets the Home page section.
+    - The change only added lines (git diff: 0 removed).
+  - **The drawer with the Home page section passes axe** once its fade-in has settled. The contrast "failures" were measured mid-fade; settled, there are 0 violations there and on BTG's page.
+  - **The Network Manager uploads a photo from the drawer:** saved, the drawer stays open, and the new photo shows.
+  - **A photo whose object is gone from storage:** the row keeps its 72px circle, and the empty alt shows no broken-image text.
+  - **Reduced motion:** every row is fully shown.
+  - **Without JS:** the panel is in the server HTML with every listed athlete; no sample names.
+- **Fixed:**
+  - the largest follower count (int4, 2,147,483,647) printed "2147M". `followersLabel` now does billions ("2.1B"); tested, and seen live.
+- **Checks:**
+  - frontend vitest 1,729/1,729; tsc and eslint clean;
+  - the scenario was restored with identical md5s (athletes, and the Network Manager's user row); QA socials and rate counters removed.
+
+### P8-FE-10 QA, fifth pass (the user's request: "fifth qa test pass")
+
+- **No bugs found; no code changed.** Nothing new on `main_development`. Run on `55826e6a`.
+- **Upload security at the storage layer** (live MinIO), 12/12:
+  - the presigned PUT refuses another Content-Type, a bigger body than declared, and a redirected key; the stored object is served as `image/png`;
+  - the API refuses SVG, zero and fractional sizes, `..` keys, another tenant's prefix, over-long keys and non-string keys.
+  - One unreferenced test PNG was left under `athletes/seed_tenant_btg/seed_ath_adult/` in local MinIO.
+- **Contract alignment, 7/7:** the backend's live Zod shapes and constants match the frontend copies: both payloads' fields, the twelve required fields in order, block reasons, actions, photo types and the 5 MB limit.
+- **The team's e2e:** `public`, `landing-city` and `loop-p3-application` on chromium, 7 passed; `public` on mobile, 4 passed (incl. no sideways scroll at 390). `--workers=1`, against dev.
+- **The latest commit under `next start`** (worktree build, port 3100): prod checks 7/7.
+  - The drawer's on-demand server action works on the built app, with the Network Manager unpinning and pinning.
+  - Two "fits the drawer" failures were measurements taken mid slide-in. Prod is faster than dev; settled, it fits on both servers.
+- **Regression:** API probes 33/33. Home matrix 35/38; the three were the 4th row's lazy photo on short screens. That row is hidden there (ROW_FIT) and `loading="lazy"` correctly never fetches it; every shown row's photo loads (verified on 320, 844×390 and WebKit iPhone SE).
+- **Backend suite on `sponsorx_test`:** 3,526 pass; only the four Windows-only files fail.
+- **Cleanup:**
+  - the scenario restored with identical md5s (athletes, the Network Manager's row); socials and rate counters removed;
+  - the worktree teardown emptied rimraf again; restored 2.7.1.
+
+### P8-FE-10 Done (the user's request: "push the updates on both branch, also make the tickets done")
+
+- P8-FE-10 is marked Done in the tracker (Date Done 2026-10-27) and the Phase 1 doc (✅). P8-FE-09 was already Done.
+- It lands through a PR into `main_development`, waits for CI, then is promoted to `main`. The promotion also carries #309 (P8-BE-08, the backend this task needs), which was in `main_development` but not yet in `main`.
