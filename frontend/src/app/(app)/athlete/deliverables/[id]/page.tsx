@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArenaChip, ArenaHead, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, type ArenaTone } from "@/components/arena-stage";
+import { ArenaChip, ArenaHead, ArenaUpdated, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, type ArenaTone } from "@/components/arena-stage";
 import { Badge } from "@/components/ui";
 import { MiniChip } from "@/components/hero";
 import { DeliverableUpload, PublishProof } from "@/components/deliverable-upload";
@@ -14,6 +14,7 @@ import {
 import { submittedRoute } from "@/lib/content-trust";
 import { apiFetch, fetchActor } from "@/server/api";
 import { markPublished, presignUpload, registerUpload, submitDraft } from "./actions";
+import { campaignWithSponsor } from "@/lib/campaign-title";
 
 /* --------------------------------------------------------------------------
    One deliverable — where the athlete uploads a draft, answers a revision
@@ -85,18 +86,17 @@ export default async function DeliverablePage({ params }: { params: Promise<{ id
   const days = daysUntil(d.dueDate, today);
   const done = step.on === "done";
   const checksOk = d.checks ? d.checks.filter((c) => c.ok).length : 0;
-  const readAt = today.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
   return (
     <div className="space-y-6">
       <ArenaHead
         title={d.title}
-        pill={`Postgres · read ${readAt}`}
+        pill={<ArenaUpdated />}
         lede={
           <span className="flex flex-wrap items-center gap-2">
             <ArenaChip tone={TONE[step.tone]}>{step.label}</ArenaChip>
             {d.appearance && <MiniChip kind="warn">APPEARANCE</MiniChip>}
-            <span>{d.campaign.name} · {d.campaign.sponsorName} · {d.jobId} {d.jobName}</span>
+            <span>{campaignWithSponsor(d.campaign.name, d.campaign.sponsorName, { campaignFirst: true })} · {d.jobId} {d.jobName}</span>
           </span>
         }
         actions={<BackPill />}

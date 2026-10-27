@@ -14,10 +14,10 @@
                    intro, "Get Started →" and "Watch Our Story ▶".
    - ClosingPanel  chamfered glass, glowing cyan outline, stacked: four
                    feature tiles in a 2×2 grid over the "THE NUMBERS"
-                   sub-panel (its four counters in a 2×2 grid too) —
-                   fixtures.networkStats, the four counters with a named
-                   source (stats-must-be-retrievable), not the mockup's
-                   figures.
+                   sub-panel (its counters in a 2×2 grid too), read from
+                   GET /public/network-stats (stats-must-be-retrievable).
+                   Zero counters are left out; no read, no sub-panel
+                   (P8-FE-09).
    -------------------------------------------------------------------------- */
 
 import Link from "next/link";
@@ -26,7 +26,7 @@ import type { ReactNode } from "react";
 import { CountUp } from "./count-up";
 import { Magnetic, TiltSpot } from "./hero-fx";
 import { DashboardCta } from "./my-dashboard";
-import { networkStats } from "@/lib/fixtures";
+import { networkFigures, type NetworkKey, type PublicNetworkStats } from "@/lib/network-stats";
 
 const C = 24;
 const NC = 18;
@@ -153,8 +153,14 @@ const FEATURES: { icon: (p: { className?: string }) => ReactNode; title: string;
   { icon: GlobeIcon, title: "Global Reach", sub: "Athletes & brands worldwide." },
 ];
 
-/** In networkStats order: athletes, campaigns, fan value, rewards. */
-const NUMBER_ICONS = [AthletesIcon, MegaphoneIcon, PlayRingIcon, StarIcon] as const;
+/** The four counters, each with its glyph. */
+const NUMBER_KEYS = ["athletes", "campaignsDelivered", "postsVerified", "rewardsRedeemed"] as const satisfies readonly NetworkKey[];
+const NUMBER_ICONS: Record<NetworkKey, typeof AthletesIcon> = {
+  athletes: AthletesIcon,
+  campaignsDelivered: MegaphoneIcon,
+  postsVerified: PlayRingIcon,
+  rewardsRedeemed: StarIcon,
+};
 
 /* ------------------------------------------------------------------ copy */
 
@@ -210,7 +216,8 @@ export function ClosingCopy() {
 
 /* ----------------------------------------------------------------- panel */
 
-export function ClosingPanel({ className = "" }: { className?: string }) {
+export function ClosingPanel({ stats, className = "" }: { stats: PublicNetworkStats | null; className?: string }) {
+  const numbers = networkFigures(stats, NUMBER_KEYS);
   return (
     // Rises in on arrival (`sx-rise`); with a fine pointer it tilts gently
     // and a spotlight runs round its outline; a scan line crosses the glass.
@@ -245,41 +252,42 @@ export function ClosingPanel({ className = "" }: { className?: string }) {
           ))}
         </ul>
 
-        {/* THE NUMBERS */}
-        <aside className="relative" aria-labelledby="numbers-title">
-          <span aria-hidden="true" className="absolute inset-0 bg-[#061226]/70" style={{ clipPath: NUM_PLATE }} />
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 [filter:drop-shadow(0_0_3px_rgba(94,224,255,.7))_drop-shadow(0_0_12px_rgba(46,155,245,.4))]"
-          >
-            <span className="absolute inset-0 bg-gradient-to-b from-[#5ee0ff]/90 to-[#2e9bf5]/60" style={{ clipPath: NUM_RING }} />
-          </span>
-          <div className="relative px-[clamp(12px,3.5vw,16px)] pb-[clamp(10px,1.6svh,16px)] pt-[clamp(8px,1.3svh,12px)] lg:px-4 lg:pb-4 lg:pt-3">
-            <h3 id="numbers-title" className="text-[clamp(10px,1.4svh,11px)] font-semibold lg:text-[11px] uppercase tracking-[0.22em] text-[#5ee0ff]">
-              The numbers
-            </h3>
-            <ul className="mt-[clamp(6px,1.1svh,10px)] grid grid-cols-2 gap-x-4 gap-y-[clamp(6px,1.1svh,10px)] lg:mt-2.5 lg:gap-y-2.5">
-              {networkStats.map((s, i) => {
-                const Icon = NUMBER_ICONS[i];
-                return (
-                  <li key={s.label} className="flex items-center gap-3" title={`Sample figure — will read ${s.source}`}>
-                    <span className="grid size-[clamp(26px,3.8svh,32px)] shrink-0 place-items-center rounded-full border border-[#5ee0ff]/70 lg:size-8 text-[#5ee0ff] shadow-[0_0_10px_rgba(94,224,255,.4)]">
-                      <Icon className="size-4" />
-                    </span>
-                    <span>
-                      <span className="block text-[clamp(15px,2.2svh,17px)] font-bold leading-none text-[#5ee0ff] lg:text-[17px]">
-                        <CountUp value={s.value} prefix={s.prefix} />
+        {/* THE NUMBERS — real counts only; none to show, no sub-panel (P8-FE-09). */}
+        {numbers.length > 0 && (
+          <aside className="relative" aria-labelledby="numbers-title">
+            <span aria-hidden="true" className="absolute inset-0 bg-[#061226]/70" style={{ clipPath: NUM_PLATE }} />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 [filter:drop-shadow(0_0_3px_rgba(94,224,255,.7))_drop-shadow(0_0_12px_rgba(46,155,245,.4))]"
+            >
+              <span className="absolute inset-0 bg-gradient-to-b from-[#5ee0ff]/90 to-[#2e9bf5]/60" style={{ clipPath: NUM_RING }} />
+            </span>
+            <div className="relative px-[clamp(12px,3.5vw,16px)] pb-[clamp(10px,1.6svh,16px)] pt-[clamp(8px,1.3svh,12px)] lg:px-4 lg:pb-4 lg:pt-3">
+              <h3 id="numbers-title" className="text-[clamp(10px,1.4svh,11px)] font-semibold lg:text-[11px] uppercase tracking-[0.22em] text-[#5ee0ff]">
+                The numbers
+              </h3>
+              <ul className="mt-[clamp(6px,1.1svh,10px)] grid grid-cols-2 gap-x-4 gap-y-[clamp(6px,1.1svh,10px)] lg:mt-2.5 lg:gap-y-2.5">
+                {numbers.map((s) => {
+                  const Icon = NUMBER_ICONS[s.key];
+                  return (
+                    <li key={s.key} className="flex items-center gap-3" title={s.source}>
+                      <span className="grid size-[clamp(26px,3.8svh,32px)] shrink-0 place-items-center rounded-full border border-[#5ee0ff]/70 lg:size-8 text-[#5ee0ff] shadow-[0_0_10px_rgba(94,224,255,.4)]">
+                        <Icon className="size-4" />
                       </span>
-                      <span className="mt-1 block text-[10px] text-on-media/80">{s.label}</span>
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            {/* P7-QA-02: fixtures.networkStats — not live. */}
-            <p className="sr-only">Sample figures from fixture data. Live counts arrive with the public metrics read.</p>
-          </div>
-        </aside>
+                      <span>
+                        <span className="block text-[clamp(15px,2.2svh,17px)] font-bold leading-none text-[#5ee0ff] lg:text-[17px]">
+                          <CountUp value={s.value} />
+                        </span>
+                        <span className="mt-1 block text-[10px] text-on-media/80">{s.label}</span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="sr-only">Counted from SponsorX records.</p>
+            </div>
+          </aside>
+        )}
       </div>
       </TiltSpot>
     </div>

@@ -22,6 +22,7 @@ import {
   type ApiDeliverable,
   type TabKey,
 } from "@/lib/deliverables-live";
+import { campaignWithSponsor } from "@/lib/campaign-title";
 
 /* --------------------------------------------------------------------------
    DeliverableCalendar — the athlete's "what is due when" (P5-FE-02, §24).
@@ -243,7 +244,7 @@ function Calendar({ gridRows, agenda, counts, month, day, tab, todayIso, linked 
                               {d.appearance && <MiniChip kind="warn">APPEARANCE</MiniChip>}
                             </div>
                             <p className="mt-0.5 truncate text-[11px] text-muted">
-                              {d.campaign.name} · {d.campaign.sponsorName} · {d.jobId}
+                              {campaignWithSponsor(d.campaign.name, d.campaign.sponsorName, { campaignFirst: true })} · {d.jobId}
                             </p>
                             {d.revision && (
                               <p className="mt-1.5 line-clamp-2 rounded-md bg-danger/10 px-2 py-1 text-[11px] text-danger">

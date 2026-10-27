@@ -1,4 +1,4 @@
-import { ArenaHead, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles } from "@/components/arena-stage";
+import { ArenaHead, ArenaUpdated, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles } from "@/components/arena-stage";
 import { InventoryNewItem } from "@/components/inventory-controls";
 import { InventoryManager } from "@/components/inventory-manager";
 import { InventoryRestrictions } from "@/components/inventory-restrictions";
@@ -112,14 +112,13 @@ export default async function AthleteInventoryPage({ searchParams }: { searchPar
   const page = pageOrAll(rows, list.page);
   const counts = inventoryCounts(list);
   const hasAny = counts.total > 0 || filtered;
-  const readAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
   return (
     <ServerList>
       <div className="space-y-8">
         <ArenaHead
           title={TITLE}
-          pill={`Postgres · read ${readAt}`}
+          pill={<ArenaUpdated />}
           lede="What you sell, at your price. Sponsors buy these; BTG takes its fee on each order."
         >
           <ArenaTiles cols={counts.unlisted === null ? 3 : 4}>

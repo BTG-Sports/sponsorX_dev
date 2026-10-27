@@ -1,10 +1,8 @@
-import { funnelDetail } from "@/lib/fixtures";
-
 /* --------------------------------------------------------------------------
    SponsorReport — the serializable model the export island renders to PDF
    or XLSX without knowing where numbers came from (its fixture builder left
-   with the old sponsor dashboard, P1-ART-23; buildReportFunnel stays, the
-   campaign report uses it). §22 rides along: every KPI carries its provenance, and the exporters
+   with the old sponsor dashboard, P1-ART-23, and the fixture funnel builder
+   with the old campaign ROI export, P8-FE-09). §22 rides along: every KPI carries its provenance, and the exporters
    must print it — a figure that loses its VER/EST/ATT tag in the export is a
    figure the client will misquote.
 
@@ -83,19 +81,3 @@ export type SponsorReport = {
   trust: { label: string; pct: number }[];
   methodology: string[];
 };
-
-/** Both reports print §16's four-stage funnel with the same derived rates. */
-export function buildReportFunnel(): ReportFunnel {
-  const scans = funnelDetail.stages[0].value;
-  return {
-    stages: funnelDetail.stages.map((s, i) => ({
-      stage: s.label,
-      count: s.value,
-      ofScans: s.value / scans,
-      fromPrev: i === 0 ? null : s.value / funnelDetail.stages[i - 1].value,
-    })),
-    overallPct: funnelDetail.overallPct,
-    medianRedeemHours: funnelDetail.medianRedeemHours,
-    leadsPushed: funnelDetail.leadsPushed,
-  };
-}

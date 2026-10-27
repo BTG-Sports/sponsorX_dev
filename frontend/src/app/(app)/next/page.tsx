@@ -188,7 +188,7 @@ export default async function StudentHomePage({
               </span>
               {/* provenance (§22): the personal figure beside this carries
                   "recorded by SponsorX"; the edition number names its source too */}
-              <span className="uppercase tracking-wide">· AdSlot ledger</span>
+              <span className="uppercase tracking-wide">· Ad slot records</span>
             </p>
           </div>
         </div>

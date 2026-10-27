@@ -86,7 +86,13 @@ describe("GET /deliverables", () => {
     const d = ((await run(listDeliverables, {})).deliverables as Record<string, unknown>[])[0];
     expect(d.appearance).toBe(true);
     expect(d.campaign).toEqual({ id: "cmp_1", name: "Fall", sponsorName: "Bowie" });
-    expect(d.latestAsset).toEqual({ version: 1, uploadedAt: "2026-10-01T00:00:00.000Z" });
+    expect(d.latestAsset).toEqual({ version: 1, uploadedAt: "2026-10-01T00:00:00.000Z", contentType: null });
+  });
+
+  it("says what the latest upload is, so a PNG on a video job reads as an image (staging dry run, 2026-10-26)", async () => {
+    rows = [row({ assets: [{ version: 1, uploadedAt: new Date("2026-10-01T00:00:00Z"), contentType: "image/png" }] })];
+    const d = ((await run(listDeliverables, {})).deliverables as Record<string, unknown>[])[0];
+    expect(d.latestAsset).toEqual({ version: 1, uploadedAt: "2026-10-01T00:00:00.000Z", contentType: "image/png" });
   });
 
   it("says which platform a published deliverable went out on, and selects it (3S0-BE-06)", async () => {

@@ -46,6 +46,7 @@ import {
 } from "@/lib/approvals-ui";
 import { passedChecks, waitingWords } from "@/lib/content-checks";
 import { SKIPPED_LABEL } from "@/lib/content-trust";
+import { campaignWithSponsor } from "@/lib/campaign-title";
 
 /* --------------------------------------------------------------------------
    ApprovalsDesk — the content approval queue (2026-09-16 redesign). The
@@ -768,7 +769,8 @@ function DeskBody({
                       <span className="text-center">
                         <KindIcon kind={it.assetKind} className="mx-auto size-6" />
                         <span className="mt-1 block text-[10px] font-medium">
-                          {it.assetKind === "video" ? "Video" : "Image"} · v
+                          {it.assetKind === "video" ? "Video" : "Image"}
+                          {live && isLiveItem(it) && !it.live.kindFromUpload ? " job" : ""} · v
                           {it.version}
                         </span>
                       </span>
@@ -943,7 +945,7 @@ function ReviewDrawer({
               <Badge tone={STATE_TONE[s]}>{stateLabel(s)}</Badge>
             </p>
             <p className="mt-0.5 truncate text-[11px] text-muted">
-              {it.athlete} · {it.campaign} · {it.sponsor}
+              {it.athlete} · {campaignWithSponsor(it.campaign, it.sponsor, { campaignFirst: true })}
             </p>
           </div>
           <button
@@ -970,7 +972,7 @@ function ReviewDrawer({
                 <p className="mt-2 text-[11px] font-medium text-muted">
                   {live && isLiveItem(it)
                     ? it.live.latestVersion
-                      ? `${it.assetKind === "video" ? "Video" : "Image"} job · v${it.live.latestVersion}`
+                      ? `${it.assetKind === "video" ? "Video" : "Image"} ${it.live.kindFromUpload ? "draft" : "job"} · v${it.live.latestVersion}`
                       : "Nothing uploaded yet"
                     : `${it.assetKind === "video" ? "Video draft" : "Image draft"} · v${it.version}`}
                 </p>

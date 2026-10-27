@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import {
   ArenaChip,
-  ArenaHead,
+  ArenaHead, ArenaUpdated,
   ArenaLane,
   ArenaLink,
   ArenaPanel,
@@ -32,6 +32,7 @@ import { ConfirmationsBanner } from "@/components/confirmations-banner";
 import { GuardianControlNotice } from "@/components/guardian-control-notice";
 import { comingOfAgeView, type ApiComingOfAge } from "@/lib/account-live";
 import type { ApiMyCollab, ApiMyRules } from "@/lib/confirmations-live";
+import { campaignAfterSponsor } from "@/lib/campaign-title";
 
 /* --------------------------------------------------------------------------
    Athlete portal home — P3-FE-06, §9 screen 6. The signed-in athlete's own
@@ -250,7 +251,6 @@ export default async function AthleteHomePage() {
   const sales = shop ? upcomingSales(shop) : [];
   const overdueCount = overdue.page.total;
   const waiting = shop?.approvalsWaiting ?? 0;
-  const readAt = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   const paid = h.earnings.find((e) => e.label === "Paid");
   const eligible = h.earnings.find((e) => e.label === "Eligible");
   const approved = h.earnings.find((e) => e.label === "Approved");
@@ -260,7 +260,7 @@ export default async function AthleteHomePage() {
     <div className="space-y-8">
       <ArenaHead
         title="Dashboard"
-        pill={`Postgres · read ${readAt}`}
+        pill={<ArenaUpdated />}
         lede={
           <span className="flex flex-wrap items-center gap-2">
             <span>{h.firstName ? `Hi, ${h.firstName}` : "Hi there"}{h.subtitle ? ` · ${h.subtitle}` : ""}</span>
@@ -365,7 +365,7 @@ export default async function AthleteHomePage() {
                 href={`/athlete/offers/${encodeURIComponent(o.id)}`}
                 lead={<Mono text={o.mono} />}
                 title={o.sponsor}
-                sub={o.campaign}
+                sub={campaignAfterSponsor(o.campaign, o.sponsor)}
                 right={
                   <>
                     <span className="sx-arena-num block text-sm text-text">{o.pay}</span>
@@ -392,7 +392,7 @@ export default async function AthleteHomePage() {
               href="/athlete/invitations"
               lead={<Mono text={inv.mono} tone="flare" />}
               title={inv.sponsor}
-              sub={inv.campaign}
+              sub={campaignAfterSponsor(inv.campaign, inv.sponsor)}
               right={
                 <>
                   <span className="sx-arena-num block text-sm text-text">{inv.offer}</span>

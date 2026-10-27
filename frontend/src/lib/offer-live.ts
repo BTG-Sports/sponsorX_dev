@@ -25,6 +25,7 @@
 
 import { fmtDay, refusalMessage, usd } from "./inventory-live";
 import { apiListQuery, textParam, type PageInfo, type SearchParams } from "./list-query";
+import { campaignWithSponsor } from "./campaign-title";
 
 export { usd, fmtDay };
 
@@ -125,7 +126,7 @@ export function toOfferRow(o: ApiOffer, now: Date = new Date()): OfferRow {
         : STATUS_COPY[status].label;
   return {
     id: o.id,
-    title: `${o.sponsorName} · ${o.campaignName}`,
+    title: campaignWithSponsor(o.campaignName, o.sponsorName),
     sponsor: o.sponsorName,
     campaign: o.campaignName,
     pay: usd(o.compensation),

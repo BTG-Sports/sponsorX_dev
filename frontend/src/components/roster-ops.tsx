@@ -19,6 +19,8 @@ import {
 import { money } from "@/lib/fixtures";
 import {
   isLiveRow,
+  orderJourney,
+  type StepState,
   type DraftOrderInput,
   type DraftOrderResult,
   type LiveRosterRow,
@@ -183,8 +185,6 @@ function DeliveryRing({
 
 /* ---------------------------------------------------------------- Journey */
 
-type StepState = "done" | "current" | "todo" | "danger";
-
 const STEP_DOT: Record<StepState, string> = {
   done: "bg-accent/15 text-accent",
   current: "bg-primary/15 text-primary",
@@ -193,49 +193,10 @@ const STEP_DOT: Record<StepState, string> = {
 };
 
 /** The Campaign Order lifecycle, spelled out — this is where a new admin
-    learns what the states mean without leaving the drawer. */
+    learns what the states mean without leaving the drawer. The steps are
+    worked out in lib/ops-live.ts (orderJourney), where they are tested. */
 function Journey({ r }: { r: RosterRow }) {
-  const complete = r.order === "ACCEPTED" && r.delivered >= r.planned;
-  const steps: { label: string; note: string; state: StepState }[] =
-    r.order === "DECLINED"
-      ? [
-          {
-            label: "Order sent",
-            note: "The Campaign Order went out to the athlete.",
-            state: "done",
-          },
-          {
-            label: "Declined",
-            note: "The athlete turned this order down — the slot needs a new match.",
-            state: "danger",
-          },
-        ]
-      : [
-          {
-            label: "Order sent",
-            note: "The Campaign Order went out to the athlete.",
-            state: "done",
-          },
-          {
-            label: "Accepted",
-            note:
-              r.order === "ACCEPTED"
-                ? "The athlete committed to the deliverables."
-                : "Waiting on the athlete to accept.",
-            state: r.order === "ACCEPTED" ? "done" : "current",
-          },
-          {
-            label: "Delivering",
-            note: `${r.delivered} of ${r.planned} deliverables published.`,
-            state:
-              r.order !== "ACCEPTED" ? "todo" : complete ? "done" : "current",
-          },
-          {
-            label: "Complete",
-            note: "Every deliverable published and verified.",
-            state: complete ? "done" : "todo",
-          },
-        ];
+  const steps = orderJourney(r);
 
   return (
     <ol className="space-y-0">

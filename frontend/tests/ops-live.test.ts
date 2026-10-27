@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { daysRemaining, reachPct, toRosterRow, verifiedPct, type ApiOpsRow } from "../src/lib/ops-live";
+import { daysRemaining, orderJourney, reachPct, toRosterRow, verifiedPct, type ApiOpsRow } from "../src/lib/ops-live";
 
 /* --------------------------------------------------------------------------
    P5-FE-05 — the operations board's row vocabulary, pinned to §21: which
@@ -19,6 +19,12 @@ const order = (state: string) => ({ id: "o1", state, jobIds: ["SX-01"] });
 const invite = (state: string) => ({ id: "i1", state, jobId: "SX-01", offered: 40_000 });
 
 describe("toRosterRow", () => {
+  it("carries how many deliverables BTG has verified — published is not done (staging dry run, 2026-10-26)", () => {
+    const r = toRosterRow(row({ order: order("ACTIVE"), delivered: 2, verified: 1, planned: 2 }));
+    expect(r.delivered).toBe(2);
+    expect(r.live.verified).toBe(1);
+    expect(toRosterRow(row({ order: order("ACTIVE") })).live.verified).toBe(0);
+  });
   it.each([
     ["ACCEPTED", "ACCEPTED", null],
     ["ACTIVE", "ACCEPTED", null],
@@ -72,5 +78,40 @@ describe("hero numbers", () => {
     const now = new Date("2026-10-01T00:00:00Z");
     expect(daysRemaining("2026-10-11T00:00:00Z", now)).toBe(10);
     expect(daysRemaining("2026-09-01T00:00:00Z", now)).toBe(0);
+  });
+});
+
+describe("orderJourney — Complete waits for verification (staging dry run, 2026-10-26)", () => {
+  const live = (delivered: number, verified: number, planned = 2) =>
+    toRosterRow(row({ order: order("ACTIVE"), delivered, verified, planned }));
+  const step = (r: ReturnType<typeof live>, label: string) => orderJourney(r).find((s) => s.label === label)!;
+
+  it("every post published, none verified: delivering is done, Complete is current and says BTG is verifying", () => {
+    const r = live(2, 0);
+    expect(step(r, "Delivering").state).toBe("done");
+    expect(step(r, "Complete")).toEqual({
+      label: "Complete",
+      note: "Every deliverable published — BTG verifying (0 of 2 verified).",
+      state: "current",
+    });
+  });
+
+  it("some verified: still not complete", () => {
+    expect(step(live(2, 1), "Complete").state).toBe("current");
+    expect(step(live(2, 1), "Complete").note).toContain("(1 of 2 verified)");
+  });
+
+  it("every post verified: Complete is done", () => {
+    expect(step(live(2, 2), "Complete")).toEqual({ label: "Complete", note: "Every deliverable published and verified.", state: "done" });
+  });
+
+  it("still delivering: Complete waits, and nothing claims it is verified", () => {
+    const r = live(1, 0);
+    expect(step(r, "Delivering").state).toBe("current");
+    expect(step(r, "Complete").state).toBe("todo");
+  });
+
+  it("a declined order shows the declined path only", () => {
+    expect(orderJourney(toRosterRow(row({ order: order("REJECTED") }))).map((s) => s.label)).toEqual(["Order sent", "Declined"]);
   });
 });

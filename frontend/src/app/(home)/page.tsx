@@ -14,6 +14,7 @@ import { LandingLoader } from "@/components/landing-loader";
 import { SiteFooter } from "@/components/site-chrome";
 import { ForSponsors, SponsorsTag } from "@/components/landing-sponsors";
 import { HowItWorks } from "@/components/landing-steps";
+import { fetchNetworkStats } from "@/server/network-stats";
 
 /* --------------------------------------------------------------------------
    SponsorX Network Landing — §9 screen 1, mockup screen 1.
@@ -53,7 +54,9 @@ import { HowItWorks } from "@/components/landing-steps";
 /** Staggered entrance delay for one hero piece. */
 const reveal = (seconds: number) => ({ "--sx-reveal-delay": `${seconds}s` }) as React.CSSProperties;
 
-export default function HomePage() {
+export default async function HomePage() {
+  /* The network numbers are real counts (P8-FE-09); null hides them. */
+  const stats = await fetchNetworkStats();
   return (
     <>
       {/* No JS: the track collapses to normal flow and every stop is shown;
@@ -133,7 +136,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <ImpactCard className="sx-reveal w-full lg:justify-self-end" style={reveal(0.35)} />
+              <ImpactCard stats={stats} className="sx-reveal w-full lg:justify-self-end" style={reveal(0.35)} />
             </div>
 
             {/* Scroll cue — desktop, where there is room below the copy:
@@ -243,7 +246,7 @@ export default function HomePage() {
               className="pointer-events-none absolute inset-y-0 left-0 -z-10 w-full bg-gradient-to-r from-[#04080f]/90 via-[#04080f]/60 to-[#04080f]/25 lg:w-[40%] lg:to-transparent"
             />
             <ClosingCopy />
-            <ClosingPanel className="w-full short-landscape:w-[48%] short-landscape:shrink-0 lg:w-[27vw] lg:max-w-[500px]" />
+            <ClosingPanel stats={stats} className="w-full short-landscape:w-[48%] short-landscape:shrink-0 lg:w-[27vw] lg:max-w-[500px]" />
           </div>
           <SiteFooter compact />
         </FlightStop>

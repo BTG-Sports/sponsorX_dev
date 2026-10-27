@@ -28,7 +28,6 @@ export function HandoffRequestSteps({ token, request }: { token: string; request
   const [agreed, setAgreed] = useState(false);
   const [proofKind, setProofKind] = useState<string>(PROOF_KINDS[0].key);
   const [error, setError] = useState<string | null>(null);
-  const a = request.athlete.firstName;
   const cur = request.current.firstName;
   /* P8-FE-08 — the agreement in force, as the API serves it; submitting accepts it. */
   const agreement = request.agreement ? agreementFromBody(request.agreement.body, request.agreement.version) : null;

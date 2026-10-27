@@ -259,7 +259,7 @@ export function LiveAdvisorDesk({
           )}
         </section>
         <p className="flex items-center gap-1.5 text-[10px] text-faint">
-          Student records, scoped to your school <MiniChip kind="ver">POSTGRES</MiniChip>
+          Student records, scoped to your school <MiniChip kind="ver">SponsorX records</MiniChip>
         </p>
       </div>
     </ServerList>

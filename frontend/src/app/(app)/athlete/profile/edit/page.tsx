@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ArenaHead } from "@/components/arena-stage";
+import { ArenaHead, ArenaUpdated } from "@/components/arena-stage";
 import { ProfileEditor } from "@/components/profile-editor";
 import { BlockedNotice } from "@/components/ui";
 import { EmptyState } from "@/components/states";
@@ -118,12 +118,11 @@ export default async function ProfileEditPage({
     if (!chRes.ok) throw new Error(`Profile changes unavailable (${chRes.status}).`);
     const { changes } = (await chRes.json()) as { changes: ApiProfileChange[] };
     const editable = POST_APPROVAL.includes(me.state);
-    const readAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
     return (
       <div className="mx-auto w-full max-w-5xl">
         <ArenaHead
           title="Edit profile"
-          pill={`Postgres · read ${readAt}`}
+          pill={<ArenaUpdated />}
           actions={<BackPill href="/athlete/profile">Back to your profile</BackPill>}
         >
           <p className="sx-arena-in mt-3 max-w-2xl text-xs leading-relaxed text-muted" style={{ "--sx-reveal-delay": "0.1s" } as React.CSSProperties}>

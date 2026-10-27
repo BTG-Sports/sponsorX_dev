@@ -2683,7 +2683,7 @@ Search the whole codebase to confirm no tax ID, bank or card field exists anywhe
 
 **Exit gate.** the §39 loop runs end-to-end on real data with Zoho in sync; the
 
-*27 tasks · 1 person-days*
+*28 tasks · 1 person-days*
 
 ### ▶ `P8-INT-01` · Zoho outbound push jobs for all four bi-directional objects
 
@@ -3007,6 +3007,122 @@ Raised 2026-10-25. New advisories turned CI's dependency scan red on every branc
   - **CI pinned to `ubuntu-24.04`.** On the same day `ubuntu-latest` moved to Ubuntu 26.04, where Playwright 1.63 won't install Chromium, so both test jobs failed before any test ran. Move off the pin once Playwright supports 26.04.
   - **Deployed:** `release` moved to `a87b4713`, and all four services (api and web, staging and production) deployed successfully. Staging runs `zod@4.6.7` and `body-parser@2.4.0`; health, `/join`, the webhook paths (401 unsigned) and the protected API (401) answer as expected in both environments.
 - **Reference:** §26
+
+### 🔎 `P8-FE-09` · Fix the screen findings from the tester-guide dry run
+
+**Order** 157.98 · **FE** · **Where:** Code · **1d** · **Code review** — 2026-10-26, HeckerCreatives
+
+Raised 2026-10-26 from the tester-guide dry run on staging. Seven screen problems:
+1. **No report download on a real campaign.** The sponsor's results page showed "Export report" only on the sample campaigns.
+2. **Mockup brands on the live home page.** "Trusted by leading brands" listed Nike, adidas, Red Bull, Monster Energy and Under Armour. The "Sample" note was only a hover tooltip, so visitors read them as endorsements.
+3. **"Postgres · read" on athlete pages.** An internal label sat at the top of the athlete's pages.
+4. **The sponsor said twice on the offer.** "Harbor Coffee · Harbor Coffee · SponsorX Test Drive": the campaign's name already starts with the sponsor's.
+5. **A PNG draft called "Video · v1"** on BTG's approvals desk.
+6. **"This goes live as soon as the checks pass." twice** under Submit on a new listing.
+7. **"Complete" before verification.** The admin's order view said "every deliverable published and verified" while the athlete's page still said "Published — BTG verifying".
+
+- **Depends on:** nothing
+- **Done when:** All of these hold.
+  - A real campaign's results page exports a PDF and an Excel workbook built from its own report read, with reach by source kept apart.
+  - The home page shows no brand that hasn't agreed to be named.
+  - No athlete page names the database.
+  - Each finding above is fixed and covered by a test where the logic allows.
+- **Delivered 2026-10-26 (branch `fix/P8-FE-09-dry-run-screen-findings`):**
+  - **Report export:** a new export built from `GET /campaigns/{id}/report` and the overview's best athletes (`campaign-results-report.ts`, with PDF and XLSX renderers). Sample campaigns now export through the same model, labelled (sample) (QA pass 3).
+  - **Brands:** `trustedBrands` is empty and an empty list hides the strip. Add a brand only once it is a BTG sponsor that agreed to be named.
+  - **Athlete pages:** the pill reads "Updated 9:41 AM" in the viewer's own timezone (`ArenaUpdated`). Admin desks keep their "Postgres · read" pill.
+  - **Offer title:** `campaignWithSponsor` drops the sponsor when the campaign's name already starts with it. Used on the offer, the offers list, the deliverable page and the deliverable calendar.
+  - **Approvals desk:** `GET /deliverables` now sends `latestAsset.contentType`, and the desk names the upload's own kind. Assets with no recorded type fall back to the job's format, labelled "job".
+  - **Listing form:** the sentence under Submit is gone; the checklist's foot still says it.
+  - **Order view:** `GET /campaigns/{id}/ops` now sends a per-athlete `verified` count. "Complete" waits for every deliverable to be verified. While posts are published but unverified, it reads "Every deliverable published — BTG verifying".
+  - **QA 2026-10-26 (local stack):**
+    - **Suites:** root `npm run build` and `npm run lint` pass; frontend has 1,694 tests. Backend: 3,497 pass on `sponsorx_test`. The only failures are the four known Windows-only files (db-logins, payments-pii, security-hardening, sql-rules-in-migrations).
+    - **Browser walk:** a Playwright walk as the QA athlete, admin and sponsor, on seeded `qa_fe09_*` rows that were removed afterwards, confirmed all seven fixes:
+      - the export downloads a real PDF and XLSX;
+      - no brand strip on desktop or phone;
+      - "Updated" pills on eight athlete pages;
+      - the offer title reads "Bowie Auto Group · Walk Test";
+      - the desk card reads "Image · v1" and the drawer "Image draft · v1";
+      - one "goes live" line;
+      - the journey reads "BTG verifying (0 of 2 verified)".
+    - **Found and fixed in QA:**
+      - the athlete earnings page still had two "POSTGRES" source chips; they now read "SponsorX records";
+      - the PDF rounded the cost per 1,000 to whole dollars; it now prints cents, as the screen does.
+    - **Not deployed.**
+  - **Follow-up fixes 2026-10-26, from the QA findings:**
+    - **Real network numbers.** The home page's "Real Impact" card, its closing "The numbers" panel and the /login figures showed fixture constants on the live site: 148 athletes, 86 campaigns and "$2.3M attributed fan value". They now come from a new public read, `GET /public/network-stats` (`domain/public-network-stats.ts`). It returns four row counts in the public tenant:
+      - bookable athletes (ACTIVE or FEATURED);
+      - campaigns COMPLETED;
+      - deliverables VERIFIED;
+      - fan rewards REDEEMED.
+    - **Rules for showing them:**
+      - "Attributed fan value" is dropped, because no record holds that figure. "Posts verified" takes its place.
+      - A zero figure is left out. With no read, the hero card and the /login strip are hidden and the closing panel drops its "The numbers" block; nothing falls back to samples.
+      - The web server keeps a good read for a minute and forwards the visitor's address (P8-SEC-03).
+      - `networkStats` is removed from the fixtures.
+    - **Home page now dynamic.** It renders per request, like `/packages`.
+    - **Docker worker.** `docker-compose.yml`'s worker had only a database URL, so it exited at boot on the missing Clerk keys and restarted forever. The worker and the api now share one environment block (`x-backend-env`), and the worker also waits for Redis and MinIO.
+    - **Lint warning.** An unused variable left over in `handoff-request-steps.tsx` is removed; lint is now clean, warnings included.
+    - **Checked:**
+      - frontend 1,701 tests; backend 3,499 (the same four Windows-only files fail);
+      - root build and lint pass;
+      - live: the endpoint's counts match the database; the home and login pages show them on desktop and phone, and hide them with the API stopped;
+      - the worker container stays up with no restarts.
+  - **QA pass 2, 2026-10-26:** an independent code review of the whole branch and a wider browser walk. The walk covered:
+    - 20 athlete pages on desktop and phone;
+    - the order moving to Complete as posts are verified;
+    - an upload with no recorded type, and a video on an image job;
+    - the listing editor;
+    - the student, advisor and public pages;
+    - browser console errors everywhere.
+    - **Found and fixed:**
+      - a file a browser couldn't type (`application/octet-stream`) was called an image; unknown types now fall back to the job's format;
+      - "Postgres" still showed to sponsors, on the public property page, and in the student and advisor portals, plus one raw table name for students; all are now in plain words;
+      - the sponsor results roster keyed rows by athlete, so an athlete on two jobs gave a duplicate React key; rows are now keyed by athlete and job and show the job's name, in the export too;
+      - the sponsor's name still repeated on athlete list sub-lines and in the admin approvals drawer;
+      - "goes live as soon as the checks pass" still showed two or three times on the listing pages, and twice on a property's draft listing; each page now says it once.
+    - **Checked:** frontend 1,704 tests; backend 3,499 (the four Windows-only files only); build and lint clean; walk 6 of 6 with no console errors.
+    - **Left as they are:**
+      - the ≥1784 px "Real athletes. Real impact." tag goes with the hidden brand strip;
+      - an athlete with a cancelled line on a campaign still shows as "Replacement needed", not Complete, as before.
+  - **QA pass 3, 2026-10-26:** the team's own e2e suites, edge cases, and a second independent review of the pass-2 changes.
+    - **E2E suites:** public, public-links, landing-city, redeem-flow, the P4/P5/P7 loops and marketplace-path, on desktop and mobile. 35 passed.
+      - Two failed only on the Clerk dev instance's 100-user cap (they create new sign-ins).
+      - Two failed on first-compile dev timeouts and passed on re-run, including the full P5 delivery loop.
+    - **Checked:**
+      - the "Updated" pill in New York and Manila shows each viewer's own time, with no hydration error;
+      - `/public/network-stats` returns only the public tenant's counts;
+      - its rate limit answers 429 at the 120th call, and the page hides the figures cleanly when that happens;
+      - a hung API is dropped after 1.5 s;
+      - a property's draft listing says "goes live" once.
+    - **Found and fixed:**
+      - the sample report's roster read "demo · Active"; sample rows now carry real job codes, and an unknown code is left out;
+      - `campaignAfterSponsor` left "'s Fall Push" or "& Friends"; it now strips the sponsor only before a space or separator, and only when a real name is left;
+      - the approvals card now says "Video job" when the kind is the job's, as the drawer does;
+      - internal names (Postgres, CampaignBrief, AdSlot ledger, model names) removed from sample views an athlete, student, sponsor or visitor can reach;
+      - the sample report's export used a separate fixture that named a different campaign than the page and kept a "return multiple". Samples now export through `campaign-results`, labelled "(sample)" in the title, filename and footer. The old fixture export (`campaign-report-data/-pdf/-xlsx.ts`) had no other user and is deleted.
+    - **Final runs:**
+      - frontend 1,707 tests (the import-graph security test failed once in a full run, then passed alone and in the next full run);
+      - backend 3,498, with the four Windows-only files failing, plus `reward.reservations` once (34 of 40 concurrent claims under full-suite load; it passed alone);
+      - build and lint clean.
+  - **QA pass 4, 2026-10-27:**
+    - **Production mode:** the production build with `next start`, against the API in its Docker container.
+    - **Packages:** a third independent review checked docs and tests. The local `node_modules` was found to predate P8-SEC-04/05: Next 16.3.8, zod 4.6.5 and body-parser 2.3.0, where the lockfile pins 16.4.2, 4.6.7 and 2.4.0. So passes 1–3 ran on the old versions. `npm ci` brought it to the lockfile, and everything below ran on the patched versions.
+    - **Docker:** the api container boots with the shared `x-backend-env` (no restarts) and serves `/public/network-stats`. The OpenAPI document lists it as public (`security: []`).
+    - **Production walk** (5 of 5, 0 console errors): the public pages, athlete pills and titles, the approvals kinds, the order journey, real and sample exports with the menu working by keyboard, and the property draft listing.
+    - **Accessibility:** axe (WCAG 2 A/AA, serious and critical) on every changed page found only a pre-existing issue. The shared Arena tiles on `/athlete` and `/athlete/offers` wrap `<dt>`/`<dd>` in links inside a `<dl>`. That isn't changed here.
+    - **Fixed:**
+      - three stale code comments;
+      - "canonical (Postgres)" left in the sample earnings workbook;
+      - dead code from the removed sample export: 13 fixtures and `buildReportFunnel`;
+      - one test that could not fail, now replaced;
+      - the Complete rule had no frontend test; it now lives in `orderJourney` (`ops-live.ts`) with tests;
+      - a route-level test for `/public/network-stats`: no login, the public tenant from config, rate-limited before the read;
+      - the mock-data register, the design record and the P7-QA-02 review updated.
+    - **Final runs** on the patched packages: frontend 1,712 tests, lint and a Next 16.4.2 build clean; backend 3,503, with only the four Windows-only files failing.
+    - **Load note:** run alongside the api container and the production server, the backend suite gave 21 failing files. They were timeouts and one transaction-start timeout; all but the four passed alone and in a clean full run.
+    - **Not fixed, needs the owner:** the home page's "Featured athletes" panel still shows sample athletes with "Verified" badges. Showing real athletes publicly needs a decision on which athletes, their consent, and minors.
+- **Reference:** §9, §21, §22
 
 ### ✅ `P8-FE-03` · The rules tick on the sign-up page and the guardian's page
 

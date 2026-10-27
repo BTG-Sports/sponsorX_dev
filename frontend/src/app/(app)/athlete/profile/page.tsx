@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArenaChip, ArenaHead, ArenaLink, ArenaPanel, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
+import { ArenaChip, ArenaHead, ArenaUpdated, ArenaLink, ArenaPanel, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
 import { AthleteProfileView } from "@/components/athlete-profile-view";
 import { Badge, BlockedNotice, SourceLabel } from "@/components/ui";
 import { athlete, athletePublic, profileChecklist } from "@/lib/fixtures";
@@ -283,7 +283,6 @@ function LiveProfile({ p, rates }: { p: ApiMyProfile; rates: ApiRate[] }) {
   const states = sectionStates(p);
   const { percent, missing } = completion(states);
   const labelOf = (k: SectionKey) => SECTIONS.find((s) => s.key === k)?.label ?? k;
-  const readAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
   /* The KPI figures, every one from the same two reads as the plates below. */
   const answerable = (Object.keys(states) as SectionKey[]).filter((k) => states[k] !== "not-collected");
@@ -303,7 +302,7 @@ function LiveProfile({ p, rates }: { p: ApiMyProfile; rates: ApiRate[] }) {
     <div className="space-y-8">
       <ArenaHead
         title="Public profile"
-        pill={`Postgres · read ${readAt}`}
+        pill={<ArenaUpdated />}
         lede={
           <span className="flex flex-wrap items-center gap-2">
             <span>{lede}</span>

@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 
-import { ArenaHead, ArenaTile, ArenaTiles, at } from "@/components/arena-stage";
+import { ArenaHead, ArenaUpdated, ArenaTile, ArenaTiles, at } from "@/components/arena-stage";
 import { BlockedNotice } from "@/components/ui";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { InvitationsInbox, type InboxInitial } from "@/components/invitations-inbox";
@@ -111,8 +111,7 @@ export default async function InvitationsPage({
   const sp = await searchParams;
   const live = demo === null ? await liveInbox(sp) : null;
   const now = new Date();
-  const readAt = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  const pill = live ? `Postgres · read ${readAt}` : "Sample inbox";
+  const pill = live ? <ArenaUpdated /> : "Sample inbox";
   const rows: InboxRow[] = live
     ? live.list.invitations.map((r) => toInboxRow(r, now))
     : invitations.map(fixtureInboxRow);

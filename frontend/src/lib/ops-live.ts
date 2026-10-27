@@ -24,6 +24,8 @@ export type ApiOpsRow = {
   order: { id: string; state: string; jobIds: string[] } | null;
   invite: { id: string; state: string; jobId: string; offered?: number } | null;
   delivered: number;
+  /** Of `delivered`, how many BTG has VERIFIED — published is not done. */
+  verified?: number;
   planned: number;
   overdue: number;
   inReview: number;
@@ -55,6 +57,10 @@ export type LiveRosterRow = RosterRow & {
     inviteJobId: string | null;
     /** cents — the accepted invitation's offer, to prefill the order. */
     offered: number | null;
+    /** Deliverables BTG has verified — the order is complete only when this
+     *  reaches planned (staging dry run, 2026-10-26: "Complete" showed over
+     *  posts the athlete's own page still called "BTG verifying"). */
+    verified: number;
     overdue: number;
     inReview: number;
     nextDue: string | null;
@@ -118,6 +124,7 @@ export function toRosterRow(r: ApiOpsRow): LiveRosterRow {
       inviteState: r.invite?.state ?? null,
       inviteJobId: r.invite?.jobId ?? null,
       offered: r.invite?.offered ?? null,
+      verified: r.verified ?? 0,
       overdue: r.overdue,
       inReview: r.inReview,
       nextDue: r.nextDue,
@@ -127,6 +134,50 @@ export function toRosterRow(r: ApiOpsRow): LiveRosterRow {
 
 export function isLiveRow(r: RosterRow): r is LiveRosterRow {
   return "live" in r && Boolean((r as LiveRosterRow).live);
+}
+
+export type StepState = "done" | "current" | "todo" | "danger";
+export type JourneyStep = { label: string; note: string; state: StepState };
+
+/**
+ * A Campaign Order's lifecycle as the order drawer shows it (roster-ops
+ * Journey). Published is not done: the order is complete once BTG has
+ * VERIFIED every deliverable, matching the athlete's own "Published — BTG
+ * verifying" (staging dry run, 2026-10-26). The sample rows carry no
+ * verified count, so there delivered stands in, as before.
+ */
+export function orderJourney(r: RosterRow): JourneyStep[] {
+  if (r.order === "DECLINED") {
+    return [
+      { label: "Order sent", note: "The Campaign Order went out to the athlete.", state: "done" },
+      { label: "Declined", note: "The athlete turned this order down — the slot needs a new match.", state: "danger" },
+    ];
+  }
+  const accepted = r.order === "ACCEPTED";
+  const verified = isLiveRow(r) ? r.live.verified : r.delivered;
+  const published = accepted && r.planned > 0 && r.delivered >= r.planned;
+  const complete = accepted && r.planned > 0 && verified >= r.planned;
+  return [
+    { label: "Order sent", note: "The Campaign Order went out to the athlete.", state: "done" },
+    {
+      label: "Accepted",
+      note: accepted ? "The athlete committed to the deliverables." : "Waiting on the athlete to accept.",
+      state: accepted ? "done" : "current",
+    },
+    {
+      label: "Delivering",
+      note: `${r.delivered} of ${r.planned} deliverables published.`,
+      state: !accepted ? "todo" : published ? "done" : "current",
+    },
+    {
+      label: "Complete",
+      note:
+        published && !complete
+          ? `Every deliverable published — BTG verifying (${verified} of ${r.planned} verified).`
+          : "Every deliverable published and verified.",
+      state: complete ? "done" : published ? "current" : "todo",
+    },
+  ];
 }
 
 /** Whole days left in the window (0 once it has ended). */

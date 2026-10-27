@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ArenaChip, ArenaHead, ArenaLane, ArenaPanel, at } from "@/components/arena-stage";
+import { ArenaChip, ArenaHead, ArenaUpdated, ArenaLane, ArenaPanel, at } from "@/components/arena-stage";
 import { EmptyState, SkeletonRows } from "@/components/states";
 import { TeamInviteAnswer, TeamLeave } from "@/components/team-leave";
 import { demoState } from "@/lib/demo";
@@ -42,7 +42,7 @@ export default async function AthleteTeamPage({ searchParams }: { searchParams: 
   await requirePortalAccess("athlete");
   const demo = await demoState(searchParams);
   const now = new Date();
-  const pill = `Postgres · read ${now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+  const pill = <ArenaUpdated at={now} />;
 
   if (demo === "loading") {
     return (

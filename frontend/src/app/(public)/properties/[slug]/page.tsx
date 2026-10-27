@@ -219,7 +219,7 @@ export default async function PropertyProfilePage({
                 </span>
                 <button
                   type="button"
-                  title="Adds this opportunity to a CampaignBrief — not wired"
+                  title="Adding this to a campaign brief is coming soon"
                   className="rounded-lg bg-primary px-5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
                 >
                   Select
@@ -264,8 +264,8 @@ export default async function PropertyProfilePage({
 
       <p className="mt-8 text-[10px] text-faint">
         Sample property — requested slug{" "}
-        <code className="font-mono">{slug}</code>. Real properties render
-        from Postgres at their own slug.
+        <code className="font-mono">{slug}</code>. Real properties have their
+        own page at their own address.
       </p>
     </div>
   );
@@ -363,7 +363,7 @@ function LiveProfile({ p, back }: { p: PublicProperty; back: ReturnType<typeof r
       </section>
 
       <p className="mt-8 text-[10px] text-faint">
-        From Postgres. Athletes shown are public on the platform; contact
+        From SponsorX&rsquo;s records. Athletes shown are public on the platform; contact
         details and prices are never on this page.
       </p>
     </div>

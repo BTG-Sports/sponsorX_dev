@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ArenaHead } from "@/components/arena-stage";
+import { ArenaHead, ArenaUpdated } from "@/components/arena-stage";
 import { BlockedNotice } from "@/components/ui";
 import { ComingOfAgeReminder, PausedActions } from "@/components/coming-of-age-reminder";
 import { EmptyState } from "@/components/states";
@@ -78,12 +78,11 @@ export default async function ComingOfAgePage({ searchParams }: { searchParams: 
   if (!res.ok) throw new Error(`The coming-of-age allowance couldn't be read (${res.status}).`);
   const { comingOfAge: c } = (await res.json()) as { comingOfAge: ApiComingOfAge | null };
   const view = c ? comingOfAgeView(c, c.seat ?? "athlete") : null;
-  const readAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
   if (!c || !view) {
     return (
       <div className="space-y-5">
-        <ArenaHead title="Coming of age" pill={`Postgres · read ${readAt}`} actions={<BackPill />} />
+        <ArenaHead title="Coming of age" pill={<ArenaUpdated />} actions={<BackPill />} />
         <EmptyState
           mark="users"
           title="Nothing to do here"
@@ -95,7 +94,7 @@ export default async function ComingOfAgePage({ searchParams }: { searchParams: 
 
   return (
     <div className="space-y-5">
-      <ArenaHead title="Coming of age" pill={`Postgres · read ${readAt}`} lede={view.heading} actions={<BackPill />} />
+      <ArenaHead title="Coming of age" pill={<ArenaUpdated />} lede={view.heading} actions={<BackPill />} />
       <ComingOfAgeReminder view={view} seat={c.seat ?? "athlete"} uploadPath={c.uploadPath ?? null} />
       <PausedActions view={view} plate />
     </div>

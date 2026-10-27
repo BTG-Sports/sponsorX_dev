@@ -30,6 +30,7 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
 import { ArenaCount, type CountFormat } from "./arena-fx";
+import { StadiumUpdated } from "./stadium-time";
 
 /** Staggered entrance delay for one piece (`.sx-arena-in`). */
 export const at = (seconds: number, extra?: CSSProperties) =>
@@ -52,8 +53,17 @@ export function ArenaGround() {
 
 /* ------------------------------------------------------------------- head */
 
-/** The title row. `pill` is the provenance / live note ("Postgres · read
- *  9:41 AM"); `lede` one quiet sentence; `actions` sit at the right. */
+/** "Updated 9:41 AM" for the head's pill, in the viewer's own timezone.
+ *  An athlete reads plain words: the old "Postgres · read" pill named our
+ *  database to someone who has no use for it (staging dry run, 2026-10-26).
+ *  `at` is the read time; it defaults to now, since these pages render per
+ *  request. The time itself formats on the client (stadium-time.tsx). */
+export function ArenaUpdated({ at }: { at?: Date }) {
+  return <StadiumUpdated iso={(at ?? new Date()).toISOString()} />;
+}
+
+/** The title row. `pill` is the live note (`<ArenaUpdated />`) or a
+ *  "Sample data" label; `lede` one quiet sentence; `actions` sit at the right. */
 export function ArenaHead({
   title,
   pill,

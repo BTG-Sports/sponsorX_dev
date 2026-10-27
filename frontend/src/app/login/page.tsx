@@ -3,6 +3,7 @@ import { SignIn } from "@clerk/nextjs";
 import { LoginFigures, LoginGround, LoginHud, LoginMHero, LoginTopBar, SignInPanel } from "@/components/login-stage";
 import { LandingLoader } from "@/components/landing-loader";
 import { LoginStage } from "@/components/login-fx";
+import { fetchNetworkStats } from "@/server/network-stats";
 import { SiteFooter } from "@/components/site-chrome";
 
 /* --------------------------------------------------------------------------
@@ -38,7 +39,9 @@ export const metadata = {
   title: "Sign in — SponsorX",
 };
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  /* The network figures are real counts (P8-FE-09); null hides them. */
+  const stats = await fetchNetworkStats();
   return (
     <>
       {/* No JS: the boot screen never shows (the (public) layout's rule). */}
@@ -51,7 +54,7 @@ export default function LoginPage() {
         <LoginTopBar />
 
         <main className="relative mx-auto grid w-full max-w-[1320px] flex-1 grid-cols-1 content-center gap-7 px-5 pb-10 pt-8 sm:px-[6vw] sm:pt-10 lg:grid-cols-[minmax(0,1fr)_460px] lg:items-center lg:gap-16 lg:py-8 xl:gap-24 2xl:px-0 lg:[@media(max-height:780px)]:py-3">
-          <LoginHud />
+          <LoginHud stats={stats} />
           <LoginMHero />
 
           <SignInPanel>
@@ -96,7 +99,7 @@ export default function LoginPage() {
           </SignInPanel>
 
           <div className="sx-stage-in mx-auto w-full max-w-[460px] lg:hidden" style={{ "--sx-reveal-delay": "0.5s" } as React.CSSProperties}>
-            <LoginFigures />
+            <LoginFigures stats={stats} />
           </div>
         </main>
 

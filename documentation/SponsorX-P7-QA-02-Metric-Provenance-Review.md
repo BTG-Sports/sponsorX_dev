@@ -269,7 +269,7 @@ Retrieval path: `admin/next/live.ts` → `GET /editions`.
 
 | surface | metric | retrieval path | provenance label | verdict |
 |---|---|---|---|---|
-| Home `/` | Athletes 148, campaigns 86, $2.3M attributed fan value, 41,280 redemptions | **`fixtures.networkStats` constants**; no public read exists | was "Live network counts — Postgres · MetricDaily · RewardEvent"; now "Sample figures · fixture data — live counts … arrive with the public metrics read" | **fixed**. **Open:** public metrics endpoint |
+| Home `/` | Athletes 148, campaigns 86, $2.3M attributed fan value, 41,280 redemptions | **`fixtures.networkStats` constants**; no public read exists | was "Live network counts — Postgres · MetricDaily · RewardEvent"; now "Sample figures · fixture data — live counts … arrive with the public metrics read" | **fixed**. **Open:** public metrics endpoint **Closed 2026-10-26 (P8-FE-09):** real counts from `GET /public/network-stats` (athletes, campaigns delivered, posts verified, rewards redeemed); 'attributed fan value' dropped (no source) |
 | Home `/` | package prices; SX-01…07 pay ranges | hard-coded copy | "Launch ranges" | OK (disclosed); can drift from the catalogue |
 | Home build preview | "N built", `/r/tok123` link, "Sign-in is not wired yet" | hard-coded | "Pre-launch build preview" | **open**: stale in production; delete before launch |
 | `/packages` | price, athlete and duration ranges | `/public/catalogue/packages` → `SponsorPackage` | "Prices are indicative" | OK. **Open (minor):** NEXT packages are SIMULATED; the fixture fallback is unmarked |
