@@ -10,10 +10,11 @@
    two-line labels) and the two buttons. Right: the "FEATURED ATHLETES"
    glass panel (chamfered top-left and bottom-right, glowing cyan outline,
    header row with a rule, four athlete rows — avatar ring, name + verified
-   badge, sport | tier, tags, a hairline, two stats, "View Profile →").
-   The rows read `fixtures.marketplace`-style athlete records that already
-   have public profile pages, not the mockup's invented names; portraits
-   are monograms until photos exist.
+   sport · position, tags, a hairline, the follower figure, "View Profile →").
+   The rows are GET /public/featured-athletes (P8-FE-10 / P8-BE-08): real
+   athletes who meet the user's criteria, chosen by the backend, carrying
+   only what their public page shows. No read or nobody qualifying hides
+   the panel; it never falls back to samples (lib/featured-athletes.ts).
 
    The bottom band swaps the mockup's brand logos for the §5 standard-jobs
    ribbon (real product content, no partner claims, no logo artwork), with
@@ -25,7 +26,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { Magnetic, TiltSpot } from "./hero-fx";
-import { athleteInv } from "@/lib/fixtures";
+import { featuredRows, followersLabel, placeLine, sportLine, type PublicFeaturedAthlete, type PublicFeaturedAthletes } from "@/lib/featured-athletes";
 
 /** Panel chamfers: top-left small, bottom-right larger. */
 const TL = 12;
@@ -145,17 +146,6 @@ const JOBS = [
   "Monthly Ambassador",
 ];
 
-/** Four featured rows — the first four active inventory athletes. */
-const FEATURED = athleteInv.filter((a) => a.state === "ACTIVE").slice(0, 4);
-
-const reach = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M+` : `${Math.round(n / 1000)}K+`);
-const initials = (name: string) =>
-  name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 
 /* ----------------------------------------------------------------- parts */
 
@@ -169,8 +159,10 @@ const ROW_FIT = [
   "max-lg:[@media(max-height:650px)]:hidden",
 ];
 
-function AthleteRow({ a, index, last }: { a: (typeof FEATURED)[number]; index: number; last: boolean }) {
-  const tags = [a.jobName, a.geo, a.verified ? "Verified" : "Self-reported"];
+function AthleteRow({ a, index, last }: { a: PublicFeaturedAthlete; index: number; last: boolean }) {
+  const place = placeLine(a);
+  const source = a.verified ? "Verified" : "Self-reported";
+  const tags = [place, source].filter(Boolean);
   return (
     // --i staggers the row's slide-in on arrival (`sx-row`); on hover a
     // light sweeps across it.
@@ -182,22 +174,20 @@ function AthleteRow({ a, index, last }: { a: (typeof FEATURED)[number]; index: n
       ].join(" ")}
       style={{ "--i": index } as React.CSSProperties}
     >
-      {/* avatar ring — monogram until portraits exist */}
+      {/* avatar ring — the athlete's photo (every listed athlete has one; P8-BE-08) */}
       <span className="sx-avatar-ring grid size-[clamp(40px,6.2svh,64px)] shrink-0 place-items-center rounded-full p-[2px] shadow-[0_0_16px_rgba(94,224,255,.45)] lg:size-[76px] lg:[@media(max-height:800px)]:size-[58px]">
-        <span className="grid size-full place-items-center rounded-full bg-[#071426] text-[clamp(13px,2svh,18px)] font-semibold text-on-media lg:text-[20px]">
-          {initials(a.athlete)}
-        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element -- a public-bucket CDN photo; host-portable, no next/image optimizer */}
+        <img src={a.photoUrl} alt="" loading="lazy" decoding="async" className="size-full rounded-full bg-[#071426] object-cover" />
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-2 text-[clamp(14px,2.1svh,17px)] font-semibold leading-tight text-on-media lg:text-[17px]">
-          <span className="max-lg:truncate">{a.athlete}</span>
-          {a.verified && <VerifiedIcon className="size-4 shrink-0 text-[#5ee0ff]" />}
+        <p className="text-[clamp(14px,2.1svh,17px)] font-semibold leading-tight text-on-media lg:text-[17px]">
+          <span className="block max-lg:truncate">{a.displayName}</span>
         </p>
-        <p className="mt-1 text-[clamp(11px,1.5svh,12px)] text-[#9fdfff] lg:text-[12px]">
-          {a.sport}
-          <span className="mx-2 text-on-media/35">|</span>
-          {a.tier}
+        <p className="mt-1 truncate text-[clamp(11px,1.5svh,12px)] text-[#9fdfff] lg:text-[12px]">
+          {sportLine(a)}
+          {/* below lg the tags are hidden, so the place rides on this line */}
+          {place && <span className="lg:hidden"><span className="mx-2 text-on-media/35">|</span>{place}</span>}
         </p>
         <ul className="mt-2 hidden flex-wrap gap-1.5 lg:flex">
           {tags.map((t) => (
@@ -213,20 +203,29 @@ function AthleteRow({ a, index, last }: { a: (typeof FEATURED)[number]; index: n
 
       <span aria-hidden="true" className="hidden h-12 w-px bg-on-media/15 lg:block" />
 
-      <dl className="hidden shrink-0 gap-6 lg:flex" title={`Sample figures — ${a.source}`}>
-        <div>
-          <dd className="text-[15px] font-semibold leading-none text-on-media">{reach(a.reach)}</dd>
-          <dt className="mt-1.5 text-[10px] text-on-media/65">Total Reach</dt>
-        </div>
-        <div>
-          <dd className="text-[15px] font-semibold leading-none text-on-media">{a.engagementRate.toFixed(1)}%</dd>
-          <dt className="mt-1.5 text-[10px] text-on-media/65">Engagement Rate</dt>
-        </div>
+      {/* The athlete's largest follower count; its source is the tag above
+          ("Verified" or "Self-reported"), and the title says it in full. */}
+      <dl
+        className="hidden shrink-0 flex-col-reverse lg:flex"
+        title={a.verified ? "Followers on a verified account" : "Followers as the athlete reported them"}
+      >
+        {/* dt before dd in the markup; the figure shows on top */}
+        <dt className="mt-1.5 text-[10px] text-on-media/65">Followers</dt>
+        <dd className="flex items-center gap-1.5 text-[15px] font-semibold leading-none text-on-media">
+          {followersLabel(a.followers)}
+          {a.verified && <VerifiedIcon className="size-3.5 shrink-0 text-[#5ee0ff]" />}
+        </dd>
       </dl>
+
+      {/* below lg: the same figure, compact, beside the arrow */}
+      <p className="shrink-0 text-right leading-tight lg:hidden" title={a.verified ? "Followers on a verified account" : "Followers as the athlete reported them"}>
+        <span className="block text-[clamp(12px,1.9svh,14px)] font-semibold text-on-media">{followersLabel(a.followers)}</span>
+        <span className="block text-[10px] text-on-media/65">{source}</span>
+      </p>
 
       <Link
         href={`/athletes/${a.slug}`}
-        aria-label={`View ${a.athlete}'s profile`}
+        aria-label={`View ${a.displayName}'s profile`}
         className="inline-flex size-9 shrink-0 items-center justify-center gap-2 rounded-full border border-[#9fdfff]/55 bg-[#07132a]/50 text-[12px] font-medium text-white shadow-[0_0_10px_rgba(94,224,255,.2)] transition-colors hover:border-[#5ee0ff] hover:shadow-[0_0_16px_rgba(94,224,255,.45)] lg:h-9 lg:w-auto lg:rounded-md lg:px-4"
       >
         {/* A round arrow button on phones; the label from lg. */}
@@ -237,7 +236,10 @@ function AthleteRow({ a, index, last }: { a: (typeof FEATURED)[number]; index: n
   );
 }
 
-export function FeaturedAthletes({ className = "" }: { className?: string }) {
+/** The panel, or nothing: no read or nobody qualifying hides it (never samples). */
+export function FeaturedAthletes({ data, className = "" }: { data: PublicFeaturedAthletes | null; className?: string }) {
+  const rows = featuredRows(data);
+  if (rows.length === 0) return null;
   return (
     <aside className={`relative text-on-media ${className}`} aria-labelledby="featured-title">
       {/* With a fine pointer the panel tilts gently toward it and a
@@ -272,8 +274,8 @@ export function FeaturedAthletes({ className = "" }: { className?: string }) {
         <span aria-hidden="true" className="mt-[clamp(6px,1.2svh,12px)] block h-px bg-gradient-to-r from-[#5ee0ff]/70 via-[#5ee0ff]/35 to-[#5ee0ff]/10" />
 
         <ul>
-          {FEATURED.map((a, i) => (
-            <AthleteRow key={a.id} a={a} index={i} last={i === FEATURED.length - 1} />
+          {rows.map((a, i) => (
+            <AthleteRow key={a.slug} a={a} index={i} last={i === rows.length - 1} />
           ))}
         </ul>
       </div>

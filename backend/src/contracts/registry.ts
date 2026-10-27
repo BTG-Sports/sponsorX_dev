@@ -122,6 +122,7 @@ import {
   CommissionRuleInput, CommissionRuleRevision, CommissionPreviewInput,
 } from "./marketplace";
 import { NotificationPreferenceInput } from "./notification-preferences";
+import { AthletePhotoInput, AthletePhotoUploadInput, HomeFeatureStatus, HomePageActionInput, PublicFeaturedAthletes } from "./home-featured";
 import {
   DealDisputeDocumentInput, DealDisputeListQuery, DealDisputeOpenInput, DealDisputeResolveInput, RulesAttestationInput,
 } from "./deal-disputes";
@@ -378,10 +379,14 @@ const PATHS: Row[] = [
   { method: "post", path: "/applications/{id}/reject", tag: "Applications", summary: "Reject an application, with reasons.", body: ApplicationDecisionNotes },
 
   // athletes, guardians, agreements (P3-BE-03, P3-BE-14)
-  { method: "get", path: "/athletes/me", tag: "Athletes", summary: "The signed-in athlete's own profile — §11 fields, socials with provenance, and the section counts the §24 completion meter derives from." },
+  { method: "get", path: "/athletes/me", tag: "Athletes", summary: "The signed-in athlete's own profile — §11 fields, socials with provenance, the section counts the §24 completion meter derives from, and `photoUrl`, the profile photo's CDN address or null (P8-FE-10)." },
   // P3-BE-16, reshaped by 2S1-BE-14 — profile edits publish at once; sensitive ones re-run the checks
   { method: "get", path: "/athletes/me/profile-changes", tag: "Athletes", summary: "The signed-in athlete's own profile edits, newest first (at most 10): what changed, a legal name still waiting for its ID, and what the re-run checks found (2S1-BE-14)." },
   { method: "post", path: "/athletes/{id}/profile-changes", tag: "Athletes", summary: "Edit the athlete's own profile, by §11 section. Ordinary edits publish at once (no BTG step). Sensitive edits: a new date of birth re-works adulthood and a guardian is linked at once; a new legal name needs `idDocument` and waits (PENDING) for it, answering with `idUpload` (a private-bucket PUT). BTG admins are emailed for sensitive edits only. Every edit is audited (2S1-BE-14).", body: ProfileChangeInput, status: 201 },
+  { method: "post", path: "/athletes/{id}/photo", tag: "Athletes", summary: "Start a profile photo upload (the athlete, a minor's guardian, or BTG): a public-bucket PUT pinned to the declared type and size. JPEG, PNG or WebP, at most 5 MB (P8-BE-08).", body: AthletePhotoUploadInput, status: 201 },
+  { method: "put", path: "/athletes/{id}/photo", tag: "Athletes", summary: "Use an uploaded profile photo, or clear it with null. The upload must have arrived. A minor's home-page approval resets when their photo changes. Audited (P8-BE-08).", body: AthletePhotoInput },
+  { method: "get", path: "/athletes/{id}/home-page", tag: "Athletes", summary: "BTG admin or Network Manager: whether the athlete is on the home page's Featured athletes panel now, and if not, every reason (inactive, the missing profile fields, a minor awaiting approval, removed) (P8-BE-08).", response: HomeFeatureStatus },
+  { method: "post", path: "/athletes/{id}/home-page", tag: "Athletes", summary: "BTG admin or Network Manager: pin / unpin, remove / restore, or approve / unapprove a minor for the home page. Pinning a removed athlete is refused; approval is only for a minor or an athlete with no age on file. Audited (P8-BE-08).", body: HomePageActionInput, response: HomeFeatureStatus },
   { method: "get", path: "/profile-changes", tag: "Athletes", summary: "BTG: sensitive profile edits (legal name, date of birth, guardian), newest first, SERVER-PAGED (?page ?size) — what New sign-ups shows (2S1-BE-14).", query: z.object({ page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional() }) },
   { method: "post", path: "/profile-changes/{id}/id-document/confirm", tag: "Athletes", summary: "The athlete says the matching ID for a new legal name has uploaded. Counted only if it is in the private bucket; then the legal name is applied, audited, and BTG admins are emailed (2S1-BE-14)." },
   { method: "get", path: "/profile-changes/{id}/id-document", tag: "Athletes", summary: "BTG: a five-minute, audited link to the ID a legal-name change was matched against (2S1-BE-14)." },
@@ -468,6 +473,7 @@ const PATHS: Row[] = [
   { method: "get", path: "/invitations/summary", tag: "Campaigns", summary: "The inbox's headline numbers over the caller's whole scope, computed in the database: total, open, Σ offered on open, next expiry, accepted, resolved, and the jobs present (2026-09-29)." },
   { method: "get", path: "/public/catalogue/packages", tag: "Catalogue", summary: "The §7 package price list for the public marketing site — sponsor prices only, never athlete pay (P3-FE-05).", auth: false },
   { method: "get", path: "/public/network-stats", tag: "Catalogue", summary: "The public site's network numbers, each a row count in the public tenant: bookable athletes (ACTIVE or FEATURED), campaigns COMPLETED, deliverables VERIFIED and fan rewards REDEEMED, with `readAt`. No names, ids or money (P8-FE-09).", auth: false },
+  { method: "get", path: "/public/featured-athletes", tag: "Catalogue", summary: "The home page's Featured athletes panel: at most four ACTIVE athletes in the public tenant who have a profile photo and every public profile field, are adults or a minor a Network Manager approved, and were not removed by BTG. Pinned first, then by latest verified post. Only what each athlete's public page shows; empty when nobody qualifies (P8-BE-08).", auth: false, response: PublicFeaturedAthletes },
   { method: "get", path: "/catalogue/packages", tag: "Catalogue", summary: "The §7 packages at sponsor prices — never athlete pay (P4-FE-01)." },
   // SponsorX NEXT — editions and ad inventory (Stage 9 Batch A)
   { method: "post", path: "/publications", tag: "Editions", summary: "Create a masthead — a school's (propertyId) or the regional one (null) (P9-BE-02).", body: PublicationInput, status: 201 },

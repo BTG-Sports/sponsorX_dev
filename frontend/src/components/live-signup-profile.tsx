@@ -1,9 +1,11 @@
 import Link from "next/link";
 
+import { HomeFeaturePanel } from "@/components/home-feature-panel";
 import { LiveSignupReview } from "@/components/live-signup-review";
 import { Badge } from "@/components/ui";
 import { momentOf } from "@/lib/new-signups-live";
 import { trustHint, trustLine } from "@/lib/content-trust";
+import type { HomeFeatureStatus } from "@/lib/home-feature";
 import { LIVE_KIND_WORDS, liveBadge, signupHref, type ApiSignupDetail } from "@/lib/signups-live";
 import { apiFetch } from "@/server/api";
 
@@ -17,13 +19,32 @@ import { apiFetch } from "@/server/api";
 
    Reads GET /signups/athletes/:id or /signups/guardians/:id. A miss is the
    API's 403 (not found and not yours answer alike).
+
+   P8-FE-10 — for an athlete, also GET /athletes/:id/home-page: the "Home
+   page" section (home-feature-panel.tsx) — the photo, whether they are on
+   the Featured athletes panel and why not, and pin / remove / approve. The
+   API answers BTG admin and the Network Manager only; for anyone else the
+   read fails and the section isn't drawn.
    -------------------------------------------------------------------------- */
 
 const PATH = "/admin/new-signups";
 const section = "rounded-xl border border-line bg-surface p-4 sm:px-5";
 
+/** BTG's home-page status for this athlete, or null (another role, or no read) — then no controls. */
+async function homeStatus(id: string): Promise<HomeFeatureStatus | null> {
+  try {
+    const res = await apiFetch(`/athletes/${encodeURIComponent(id)}/home-page`);
+    return res.ok ? ((await res.json()) as HomeFeatureStatus) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function LiveSignupProfile({ owner, id }: { owner: "athletes" | "guardians"; id: string }) {
-  const res = await apiFetch(`/signups/${owner}/${encodeURIComponent(id)}`);
+  const [res, home] = await Promise.all([
+    apiFetch(`/signups/${owner}/${encodeURIComponent(id)}`),
+    owner === "athletes" ? homeStatus(id) : Promise.resolve(null),
+  ]);
   if (res.status === 403 || res.status === 404) {
     return (
       <div className="space-y-4">
@@ -61,6 +82,7 @@ export async function LiveSignupProfile({ owner, id }: { owner: "athletes" | "gu
           <p className="mt-2 text-xs leading-relaxed text-muted">{trustHint(s.contentTrust)}</p>
         </section>
       )}
+      {s.kind === "ATHLETE" && home && <HomeFeaturePanel initial={home} name={s.name} />}
       {s.guardianOf.length > 0 && (
         <section aria-label="Athletes" className={section}>
           <h2 className="text-sm font-semibold">Guardian of</h2>

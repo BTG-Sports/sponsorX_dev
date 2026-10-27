@@ -14,6 +14,7 @@ import { LandingLoader } from "@/components/landing-loader";
 import { SiteFooter } from "@/components/site-chrome";
 import { ForSponsors, SponsorsTag } from "@/components/landing-sponsors";
 import { HowItWorks } from "@/components/landing-steps";
+import { fetchFeaturedAthletes } from "@/server/featured-athletes";
 import { fetchNetworkStats } from "@/server/network-stats";
 
 /* --------------------------------------------------------------------------
@@ -55,8 +56,9 @@ import { fetchNetworkStats } from "@/server/network-stats";
 const reveal = (seconds: number) => ({ "--sx-reveal-delay": `${seconds}s` }) as React.CSSProperties;
 
 export default async function HomePage() {
-  /* The network numbers are real counts (P8-FE-09); null hides them. */
-  const stats = await fetchNetworkStats();
+  /* The network numbers are real counts (P8-FE-09); the Featured athletes are
+     the backend's pick (P8-FE-10). No read hides either; both run at once. */
+  const [stats, featured] = await Promise.all([fetchNetworkStats(), fetchFeaturedAthletes()]);
   return (
     <>
       {/* No JS: the track collapses to normal flow and every stop is shown;
@@ -221,7 +223,7 @@ export default async function HomePage() {
             />
             <div className="grid w-full grid-cols-1 items-center gap-[clamp(12px,2.6svh,28px)] short-landscape:grid-cols-2 short-landscape:gap-6 lg:grid-cols-[minmax(0,38%)_minmax(0,1fr)] lg:gap-[2vw] 2xl:grid-cols-[minmax(0,680px)_minmax(0,1fr)]">
               <ForAthletes />
-              <FeaturedAthletes className="w-full max-w-[735px] lg:justify-self-end" />
+              <FeaturedAthletes data={featured} className="w-full max-w-[735px] lg:justify-self-end" />
             </div>
           </div>
           <div className="short-landscape:hidden">

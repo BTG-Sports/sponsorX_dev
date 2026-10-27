@@ -176,9 +176,11 @@ describe("3 · verification documents stay private (static)", () => {
   const read = (f: string) => readFileSync(f, "utf8");
   const rel = (f: string) => f.slice(root.length + 1);
 
-  it("the public bucket is reached from one place only: the branding logo", () => {
+  /* P8-BE-08 added the athlete's profile photo: an image the athlete publishes
+     on purpose, for the home page, pinned to an image type and size like the logo. */
+  it("the public bucket is reached from two places only: the branding logo and the athlete's profile photo", () => {
     const users = src.filter((f) => /presignPublicUpload\(|publicObjectUrl\(|BUCKETS\.public\b/.test(read(f))).map(rel).sort();
-    expect(users).toEqual(["src/domain/branding.ts", "src/lib/storage.ts"]);
+    expect(users).toEqual(["src/domain/branding.ts", "src/domain/home-featured.ts", "src/lib/storage.ts"]);
   });
 
   it("every identity, guardianship, organisation and proof document is read through a five-minute signed link", () => {
