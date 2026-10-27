@@ -47,6 +47,9 @@ describe("the row's lines", () => {
     expect(followersLabel(12_840)).toBe("12.8K");
     expect(followersLabel(128_000)).toBe("128K");
     expect(followersLabel(1_450_000)).toBe("1.4M");
+    expect(followersLabel(999_999_999)).toBe("999M");
+    /* the column's ceiling (int4) — QA pass 4 saw "2147M" */
+    expect(followersLabel(2_147_483_647)).toBe("2.1B");
   });
 
   it("joins sport and position, and city and state, leaving a blank one out", () => {

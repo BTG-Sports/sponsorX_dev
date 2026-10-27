@@ -250,3 +250,28 @@
   - frontend vitest 1,729/1,729; tsc and eslint clean;
   - the scenario was restored with an identical md5, and the QA socials and rate counters removed;
   - the worktree teardown emptied `node_modules/rimraf` again; restored 2.7.1.
+
+### P8-FE-10 QA, fourth pass (the user's request: "fourth qa test pass")
+
+- **Full regression on `c5af391e`, all pass:**
+  - API probes 33/33;
+  - browser matrix 101/101 (11 devices, WebKit included);
+  - the Network Manager's drawer 8/8; roles 8/8 (incl. another tenant); robustness 5/5;
+  - pass-2 extras 17/17 (JPEG/WebP upload and removal, BTG's photo, the minor's photo resetting approval, the rate limit).
+- **New checks:**
+  - **The applications desk after the drawer change:**
+    - the four tabs open (Network Manager and BTG admin);
+    - Escape closes the drawer and focus returns to the row;
+    - a reviewable applicant keeps Approve / Request info / Reject;
+    - "Info requested" applicants have no decisions (by design), and no applicant gets the Home page section.
+    - The change only added lines (git diff: 0 removed).
+  - **The drawer with the Home page section passes axe** once its fade-in has settled. The contrast "failures" were measured mid-fade; settled, there are 0 violations there and on BTG's page.
+  - **The Network Manager uploads a photo from the drawer:** saved, the drawer stays open, and the new photo shows.
+  - **A photo whose object is gone from storage:** the row keeps its 72px circle, and the empty alt shows no broken-image text.
+  - **Reduced motion:** every row is fully shown.
+  - **Without JS:** the panel is in the server HTML with every listed athlete; no sample names.
+- **Fixed:**
+  - the largest follower count (int4, 2,147,483,647) printed "2147M". `followersLabel` now does billions ("2.1B"); tested, and seen live.
+- **Checks:**
+  - frontend vitest 1,729/1,729; tsc and eslint clean;
+  - the scenario was restored with identical md5s (athletes, and the Network Manager's user row); QA socials and rate counters removed.

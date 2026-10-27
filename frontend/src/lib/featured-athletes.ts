@@ -54,8 +54,9 @@ export function featuredRows(data: PublicFeaturedAthletes | null): PublicFeature
     .slice(0, FEATURED_MAX);
 }
 
-/** "842", "12.8K", "128K", "1.4M" — the follower figure as the panel prints it. */
+/** "842", "12.8K", "128K", "1.4M", "2.1B" — the follower figure as the panel prints it. */
 export function followersLabel(n: number): string {
+  if (n >= 1_000_000_000) return `${trim(n / 1_000_000_000)}B`;
   if (n >= 1_000_000) return `${trim(n / 1_000_000)}M`;
   if (n >= 1_000) return `${trim(n / 1_000)}K`;
   return String(Math.round(n));
