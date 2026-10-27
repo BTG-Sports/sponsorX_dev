@@ -13,7 +13,7 @@ import { ForbiddenError } from "../src/auth/errors";
    appear because `own` scope makes the caller the subject.
    -------------------------------------------------------------------------- */
 
-vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://sponsorx.example" } }));
+vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://sponsorx.example", R2_PUBLIC_BASE_URL: "https://cdn.sponsorx.example" } }));
 
 let found: Record<string, unknown> | null = null;
 let lastWhere: Record<string, unknown> = {};
@@ -107,6 +107,19 @@ describe("GET /athletes/me", () => {
       restrictedCategories: ["ALCOHOL"],
     });
     expect(body()).not.toHaveProperty("_count");
+  });
+
+  it("answers the profile photo as its public address, never the storage key (P8-FE-10)", async () => {
+    found = { ...ROW, photoKey: "athletes/t1/ath_1/photo-ab12.jpg" };
+    const { done, body } = call(actorWith({}));
+    await done;
+    expect(body().photoUrl).toBe("https://cdn.sponsorx.example/athletes/t1/ath_1/photo-ab12.jpg");
+    expect(body()).not.toHaveProperty("photoKey");
+
+    found = { ...ROW, photoKey: null };
+    const second = call(actorWith({}));
+    await second.done;
+    expect(second.body().photoUrl).toBeNull();
   });
 
   it("pins the query to the actor's own athlete id on top of the scope", async () => {

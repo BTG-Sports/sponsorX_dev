@@ -152,3 +152,33 @@
   - the writes include the tenant.
 - **Verified** on a local Postgres 17: backend build and lint pass; 3,540 backend tests (237 files) pass; the secret scan passes.
 - **Next:** `P8-FE-10` (Ready, frontend) — the panel reads the API, the athlete photo upload, and BTG's controls.
+
+### P8-FE-10 · Home page Featured athletes from the API (Code review)
+
+- **Trigger:** the user pointed at the task the P8-BE-08 criteria raised.
+- **Branch:** `feature/P8-FE-10-featured-athletes`, from `main_development` at `66b0957b`.
+- **The panel** (`landing-athletes.tsx`) now reads `GET /public/featured-athletes` (`server/featured-athletes.ts`, the network-stats pattern: 1.5 s budget, one-minute keep, edge forward).
+  - It shows only the API's fields: photo, name, sport · position, city and state, and followers tagged Verified or Self-reported. Phones get a compact figure beside the arrow.
+  - Removed: the job tag, tier, the sample reach and engagement, and the name's "verified athlete" badge.
+  - No read or an empty list hides the panel, and nothing falls back to fixtures.
+- **Athlete photo** (`athlete-photo-editor.tsx` + `server/athlete-photo-actions.ts`):
+  - It is on the athlete's profile edit page once they're approved, and in BTG's section.
+  - The browser checks type and size, PUTs the file straight to the public bucket, then confirms with the API.
+  - A minor is told a new photo goes back to BTG.
+  - Backend: `GET /athletes/me` now returns `photoUrl`, the CDN address and never the key (test in `athletes.me.test.ts`, OpenAPI summary updated).
+- **BTG's controls** are a "Home page" section on `/admin/new-signups/athletes/{id}` (`home-feature-panel.tsx`, `lib/home-feature.ts`, `server/home-feature-actions.ts`).
+  - It shows the on-panel state, or every reason the athlete is off ("Missing: photo, school", "Under 18 — waiting for approval").
+  - Buttons: Pin / Unpin, Remove / Restore, and Approve / Withdraw for a minor. Pin is disabled while removed.
+  - The section is drawn only when the API's BTG-only status read answers.
+- **Bug caught in the walk:** keying the panel on its status remounted it on `router.refresh()`, so the confirmation message vanished after about a second. It now takes the server's fresh status without remounting.
+- **Checks:**
+  - frontend tsc and eslint clean; vitest 1,729/1,729;
+  - backend DB tests (`athlete-login`, `athletes.me`, `home-featured*`, `tenant-isolation`) 42/42 on `sponsorx_test`, and the OpenAPI test passes.
+- **Live walk** on the local stack, with MinIO:
+  - the admin upload took "photo" off the missing list;
+  - the athlete changed the photo, and a GIF was refused in the browser;
+  - pin, unpin, remove and restore each showed its message and wrote its audit row;
+  - sponsor and finance logins can't open the page;
+  - the panel rendered at 1440, 390 and 320 with QA athlete Jordan's profile completed for the walk. Jordan's fields, photo and home flags were restored to their original nulls afterwards.
+- **Not done:** the minor approve/withdraw buttons weren't clicked live (no minor QA athlete with a full profile). They're covered by unit tests and P8-BE-08's backend tests.
+- **Also:** the Phase 1 doc now shows P8-FE-09 as Done (merged in #307 and #308).

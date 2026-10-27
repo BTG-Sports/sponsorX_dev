@@ -27,6 +27,8 @@ export type ApiSocial = {
 export type ApiMyProfile = {
   id: string;
   slug: string;
+  /** P8-FE-10 — the profile photo's CDN address (P8-BE-08), or null; absent from an older API. */
+  photoUrl?: string | null;
   displayName: string;
   legalName: string;
   city: string | null;

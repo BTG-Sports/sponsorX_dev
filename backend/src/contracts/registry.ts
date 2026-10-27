@@ -379,7 +379,7 @@ const PATHS: Row[] = [
   { method: "post", path: "/applications/{id}/reject", tag: "Applications", summary: "Reject an application, with reasons.", body: ApplicationDecisionNotes },
 
   // athletes, guardians, agreements (P3-BE-03, P3-BE-14)
-  { method: "get", path: "/athletes/me", tag: "Athletes", summary: "The signed-in athlete's own profile — §11 fields, socials with provenance, and the section counts the §24 completion meter derives from." },
+  { method: "get", path: "/athletes/me", tag: "Athletes", summary: "The signed-in athlete's own profile — §11 fields, socials with provenance, the section counts the §24 completion meter derives from, and `photoUrl`, the profile photo's CDN address or null (P8-FE-10)." },
   // P3-BE-16, reshaped by 2S1-BE-14 — profile edits publish at once; sensitive ones re-run the checks
   { method: "get", path: "/athletes/me/profile-changes", tag: "Athletes", summary: "The signed-in athlete's own profile edits, newest first (at most 10): what changed, a legal name still waiting for its ID, and what the re-run checks found (2S1-BE-14)." },
   { method: "post", path: "/athletes/{id}/profile-changes", tag: "Athletes", summary: "Edit the athlete's own profile, by §11 section. Ordinary edits publish at once (no BTG step). Sensitive edits: a new date of birth re-works adulthood and a guardian is linked at once; a new legal name needs `idDocument` and waits (PENDING) for it, answering with `idUpload` (a private-bucket PUT). BTG admins are emailed for sensitive edits only. Every edit is audited (2S1-BE-14).", body: ProfileChangeInput, status: 201 },

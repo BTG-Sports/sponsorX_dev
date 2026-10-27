@@ -3009,9 +3009,9 @@ Raised 2026-10-25. New advisories turned CI's dependency scan red on every branc
   - **Deployed:** `release` moved to `a87b4713`, and all four services (api and web, staging and production) deployed successfully. Staging runs `zod@4.6.7` and `body-parser@2.4.0`; health, `/join`, the webhook paths (401 unsigned) and the protected API (401) answer as expected in both environments.
 - **Reference:** §26
 
-### 🔎 `P8-FE-09` · Fix the screen findings from the tester-guide dry run
+### ✅ `P8-FE-09` · Fix the screen findings from the tester-guide dry run
 
-**Order** 157.98 · **FE** · **Where:** Code · **1d** · **Code review** — 2026-10-26, HeckerCreatives
+**Order** 157.98 · **FE** · **Where:** Code · **1d** · **Done** — 2026-10-27, HeckerCreatives (merged in #307, promoted to `main` in #308)
 
 Raised 2026-10-26 from the tester-guide dry run on staging. Seven screen problems:
 1. **No report download on a real campaign.** The sponsor's results page showed "Export report" only on the sample campaigns.
@@ -3194,9 +3194,9 @@ The home page's "Featured athletes" panel shows sample athletes ([`landing-athle
     `home-featured.route.test.ts` covers the public route: no login, the public tenant from config, and the rate limit before the read. The cross-tenant sweep (`tenant-isolation`) now covers the three write routes, and the public-bucket allowlist (`payments-pii`) names the photo.
   - **Checked locally on Postgres 17:** backend build and lint pass; 3,540 backend tests across 237 files pass; the secret scan passes.
 
-### ▶ `P8-FE-10` · Home page Featured athletes from the API
+### 🔎 `P8-FE-10` · Home page Featured athletes from the API
 
-**Order** 157.995 · **FE** · **Where:** Code · **3d** · **Ready**
+**Order** 157.995 · **FE** · **Where:** Code · **3d** · **Code review** — 2026-10-27, HeckerCreatives
 
 The backend applies every rule (`P8-BE-08`, Done); this task only shows what it returns.
 
@@ -3212,6 +3212,29 @@ The backend applies every rule (`P8-BE-08`, Done); this task only shows what it 
 - **Depends on:** P8-BE-08
 - **Done when:** The panel shows the API's list and hides when empty; an athlete can add, change and remove their photo; BTG can pin, remove, restore and approve a minor, and sees why an athlete is off; other roles see none of these controls
 - **Reference:** §9, §10; the user, 2026-10-27
+- **Delivered 2026-10-27 (HeckerCreatives), on `feature/P8-FE-10-featured-athletes`:**
+  - **The panel** (`landing-athletes.tsx`) reads `GET /public/featured-athletes` through `server/featured-athletes.ts`. Like `/public/network-stats`, the read has no login, a 1.5 s budget and a one-minute in-memory keep, and forwards the visitor's address.
+    - Each row shows the photo, the name, sport · position, city and state, and the follower figure tagged "Verified" or "Self-reported". On phones the figure is compact, beside the arrow. The row links to `/athletes/{slug}`.
+    - Removed: the job tag, tier, the sample reach and engagement figures, and the "verified athlete" badge beside the name. "Verified" now means only the follower count's source.
+    - No read, or an empty list, renders nothing; `athleteInv` is no longer used here (`lib/featured-athletes.ts`).
+  - **The athlete's photo** (`athlete-photo-editor.tsx`, actions in `server/athlete-photo-actions.ts`):
+    - It sits on the athlete's profile edit page once they're approved, and in BTG's "Home page" section.
+    - The browser checks the type and size first (`lib/athlete-photo.ts`), PUTs the file straight to the public bucket, then confirms it with the API. Change and Remove are there too.
+    - For a minor, the note says a new photo goes back to BTG.
+  - **Backend, one addition:** `GET /athletes/me` now returns `photoUrl` (the CDN address, never the key), so the editor can show the current photo. It is tested in `athletes.me.test.ts`.
+  - **BTG's controls** (`home-feature-panel.tsx`, `lib/home-feature.ts`, `server/home-feature-actions.ts`) are a "Home page" section on BTG's athlete page (`/admin/new-signups/athletes/{id}`):
+    - It shows whether the athlete is on the panel now, or qualifies but is outside the four, or every reason they're off. Missing fields are named, e.g. "Missing: photo, school", and a minor shows "Under 18 — waiting for approval".
+    - The buttons are Pin / Unpin, Remove / Restore, and Approve / Withdraw for a minor. "Pin" is disabled while the athlete is removed.
+    - The section is drawn only when `GET /athletes/{id}/home-page` answers, which the API allows BTG admin and the Network Manager alone, so no other role sees it.
+  - **Checked:**
+    - frontend tsc and eslint are clean, and vitest passes 1,729/1,729, including the new `featured-athletes` and `home-feature` tests;
+    - the backend DB tests (`athlete-login`, `athletes.me`, `home-featured`, `home-featured.route`, `tenant-isolation`) pass 42/42 on `sponsorx_test`.
+  - **Walked live on the local stack** (MinIO):
+    - BTG uploaded a photo, and "photo" left the missing list;
+    - the athlete saw it, changed it, and had a GIF refused in the browser;
+    - pin, unpin, remove and restore each showed their message, wrote their `homePage.*` audit row, and refused pinning while removed;
+    - sponsor and finance logins can't reach the page.
+    - With QA athlete Jordan's profile completed for the walk, the panel rendered him at 1440, 390 and 320. His record was restored afterwards.
 
 ### ✅ `P8-FE-03` · The rules tick on the sign-up page and the guardian's page
 
