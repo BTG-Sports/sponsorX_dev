@@ -9,8 +9,9 @@
 
    Every item is its own page (owner, 2026-09-30) — not a section of the
    landing: For Sponsors is the package catalogue (/packages), For
-   Athletes the application (/join), NEXT the programme page; How It Works
-   and About have no page yet. So "current" is the pathname alone: Home on
+   Athletes the application (/join), NEXT the programme page, How It Works
+   the full loop (/how-it-works, 2026-10-27), About who runs it (/about,
+   2026-10-27). So "current" is the pathname alone: Home on
    `/` exactly, the others on their route and anything under it. The
    landing's own buttons still fly the drone to its stops by hash
    (ScrollTrack); the nav doesn't.
@@ -42,13 +43,14 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { label: "Home", href: "/" },
-  /* No page yet (owner, 2026-09-30) — inert until one is built. */
-  { label: "How It Works", href: "/how-it-works", pending: true },
+  /* The full loop, its own page since 2026-10-27 (how-it-works-stage.tsx). */
+  { label: "How It Works", href: "/how-it-works" },
   { label: "For Sponsors", href: "/packages" },
   { label: "For Athletes", href: "/join" },
   /* P1-FE-24 — the NEXT programme landing (students and schools). */
   { label: "NEXT", href: "/next/about" },
-  { label: "About", href: "/about", pending: true },
+  /* Who runs SponsorX and what it stands for, since 2026-10-27 (about-stage.tsx). */
+  { label: "About", href: "/about" },
 ];
 
 /** Which nav item is the current one — shared by the row and the menu. */
@@ -224,11 +226,26 @@ export function HeaderActions() {
       )}
       <Magnetic maxX={8} maxY={4}>
         <Link
-          href={dashboard?.href ?? "/login"}
+          href={dashboard?.href ?? "/get-started"}
           data-dashboard={dashboard ? "" : undefined}
           className="sx-shine sx-roll-host group relative inline-flex h-10 items-center gap-3 overflow-hidden whitespace-nowrap rounded-xl bg-gradient-to-r from-primary-soft to-primary px-4 text-[14px] font-medium text-white shadow-[0_0_22px_rgba(46,155,245,.5)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_0_32px_rgba(46,155,245,.7)] sm:gap-4 sm:px-7 sm:text-[15px]"
         >
-          <RollLabel text={dashboard ? dashboard.label : "Get Started"} />
+          {/* On the narrowest phones "<Role> Dashboard" pushed the header past
+              the screen (+32px at 320, 2026-10-27 device QA): there it is just
+              "Dashboard" (the full label needs 372px, "Property Dashboard"); the
+              role is the visitor's own, and the menu names it. */}
+          {dashboard ? (
+            <>
+              <span className="max-[379px]:hidden">
+                <RollLabel text={dashboard.label} />
+              </span>
+              <span className="min-[380px]:hidden">
+                <RollLabel text="Dashboard" />
+              </span>
+            </>
+          ) : (
+            <RollLabel text="Get Started" />
+          )}
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -429,7 +446,7 @@ export function SiteMenu() {
                 </Link>
               )}
               <Link
-                href={dashboard?.href ?? "/login"}
+                href={dashboard?.href ?? "/get-started"}
                 data-dashboard={dashboard ? "" : undefined}
                 className={`group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#4fb0ff] to-[#2b8fe9] text-[15px] font-medium text-white shadow-[0_0_24px_rgba(46,155,245,.5)] ${dashboard ? "col-span-2" : ""}`}
               >

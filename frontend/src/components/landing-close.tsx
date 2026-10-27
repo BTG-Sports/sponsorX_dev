@@ -193,7 +193,7 @@ export function ClosingCopy() {
         <Magnetic className="sx-cta-pulse relative rounded-xl max-lg:flex-1" maxX={5} maxY={4}>
         {/* Signed in: "<Role> Dashboard", straight to their portal (P1-ART-27). */}
         <DashboardCta
-          href="/login"
+          href="/get-started"
           className="sx-sheen group relative inline-flex h-[clamp(40px,5.6svh,46px)] flex-1 overflow-hidden items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-[#5ee0ff] to-[#2e9bf5] px-2 text-[clamp(12.5px,3.6vw,15px)] font-medium lg:h-[46px] lg:flex-none lg:gap-4 lg:px-9 lg:text-[15px] text-[#041018] shadow-[0_0_28px_rgba(94,224,255,.5)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_0_38px_rgba(94,224,255,.7)]"
           icon={<ArrowIcon className="size-[18px] transition-transform group-hover:translate-x-0.5" />}
         >

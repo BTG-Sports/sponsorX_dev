@@ -187,6 +187,15 @@ body {
   scrollbar-color: var(--sx-line) transparent;
 }
 
+/* Safari doesn't clip a dropdown's chosen option to the box: a long label
+   ("Bowie Auto Group · QA Showroom Season") ran out of a full-width select and
+   scrolled a 320px page 22px sideways (2026-10-27 device QA, the offer form).
+   Single-line selects only — a listbox (`multiple` / `size`) scrolls itself. */
+select:not([multiple]):not([size]) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* --------------------------------------------------------------------------
    Sponsor-portal redesign utilities (spec 2026-09-11). Server-rendered wow:
    gradient headline text, entrance motion, mobile snap strips. Motion is
@@ -2719,7 +2728,11 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
    `data-label`. Rows rise in one after another on arrival (`--i`).
    -------------------------------------------------------------------------- */
 .sx-table-wrap { padding: 0; }
-.sx-table-scroll { overflow-x: auto; border-radius: inherit; }
+/* `relative` so the scroll box also contains its absolute descendants. Without
+   it a column's sr-only header (StageColumn `srOnly`) was positioned against an
+   ancestor outside the box, escaped the scroll, and widened the whole page
+   (+9 to +352px of empty sideways scroll on iPad, 2026-10-27 device QA). */
+.sx-table-scroll { position: relative; overflow-x: auto; border-radius: inherit; }
 .sx-table {
   width: 100%;
   border-collapse: collapse;

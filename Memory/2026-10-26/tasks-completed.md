@@ -146,3 +146,22 @@ Seven problems from the staging dry run, fixed on `fix/P8-FE-09-dry-run-screen-f
   - indentation in landing-close;
   - the register, the design record, P7-QA-02, the plan and this log.
 - **Final runs:** frontend 1,712; lint clean; Next 16.4.2 build; backend 3,503 (4 Windows-only). With the api container and the production server up at the same time, the backend suite showed 21 failures, all timeouts. Run it alone.
+
+### Get Started skips the sign-in page (2026-10-27, the user's request)
+
+- **Signed out,** "Get Started" in the header (`site-nav.tsx`, desktop and phone menu) and in the closing section (`landing-close.tsx`) now goes to a new static page, `/get-started` (`app/(public)/get-started/page.tsx`). It used to go to `/login`.
+- **The page** has three doors: athlete `/join`, sponsor `/brief`, and team or venue `/onboarding`. They are coloured athlete blue, sponsor orange and success green; the property blue is too close to the athlete's. Below them is a "Sign in" link.
+- **Unchanged:** the hero's Get Started still scrolls to `#start`; signed in, the buttons are still "‹Role› Dashboard".
+- **Also updated:** `page-transition.ts` (a site route labelled "Get Started"), the route map, `tests/page-transition.test.ts`, and `/get-started` added to `e2e/public.spec.ts`'s route sweep.
+- **Checked:** a Playwright walk on the owner's `next dev`: header, phone header, phone menu (opened by keyboard, because the dev-only Next badge covers the button at 412px), the doors' links and the signed-in dashboard button, with 0 console errors. Frontend has 1,712 tests, and tsc and lint are clean.
+- **Not done:** no production build, because the owner's dev server is live. It is uncommitted on the P8-FE-09 branch.
+
+### /get-started redesigned (2026-10-27, the user's request: "stale and simple")
+
+- **New** `components/get-started-stage.tsx`, on the /packages parts: `Glass`, `chamfer`, `Eyebrow`, `SectionHead`, `StepRule`, `PackageGrid` (now takes a `label`), `StageReveal`, `Magnetic`, `ScrambleText`, `TiltSpot`.
+  - **StartHero:** the grid floor, glows and outlined word "Start"; the headline "One Network. / Three Ways In. / Pick Yours."; "Choose your path" and "I have an account" buttons; and the landing's `ImpactCard` (new `linkBase` prop, so its rows link to `/#…` from another page).
+  - **PathCards:** athlete blue `#2e9bf5`, sponsor orange `#f97a1f`, venue green `#22c98d`. Each card has its "what to expect" list, taken from the destination's own copy (`JOIN_MINUTES`/`REVIEW_DAYS`, the brief's "no card, no checkout", the property application's automatic approval), and one CTA. The sponsor card adds "See the packages first".
+  - **StartSteps:** the hexagon rail.
+  - **StartClose:** "Sign in" and "Talk to BTG" (`/contact`).
+- **Page:** it now renders per request, because it reads `fetchNetworkStats`.
+- **Checked** on the owner's `next dev`, desktop 1440 and phone 412: every link correct, the impact links go to `/#…`, no horizontal overflow, 0 console errors. Frontend 1,712 tests and lint clean. Not built, because the owner's dev server is live. Uncommitted.

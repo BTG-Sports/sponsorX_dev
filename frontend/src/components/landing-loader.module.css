@@ -39,6 +39,9 @@
   position: fixed;
   inset: 0;
   z-index: 60;
+  /* The exit scales the stage 2.4× (~816px); unclipped, it widened a phone's
+     page for the length of the fade (2026-10-27 device QA, +32px at 320). */
+  overflow: hidden;
   display: grid;
   place-items: center;
   align-content: center;

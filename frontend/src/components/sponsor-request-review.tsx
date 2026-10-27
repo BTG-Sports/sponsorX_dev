@@ -65,7 +65,7 @@ export function SponsorRequestReview({ request, details, decide }: { request: Ap
   const toggle = (c: BrandCategory) => setPicked((p) => (p.includes(c) ? p.filter((x) => x !== c) : [...p, c]));
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="space-y-6">
         {details}
         <Card>

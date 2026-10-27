@@ -84,7 +84,7 @@ export default async function OperationsBoardPage() {
           </section>
         )}
 
-        <div className="mt-10 grid gap-x-3.5 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+        <div className="mt-10 grid grid-cols-1 gap-x-3.5 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] [&>section]:min-w-0">
           <section>
             <StageHeading
               title={`Live campaigns${campaigns ? ` · ${campaignTotal}` : ""}`}

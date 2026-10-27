@@ -133,7 +133,8 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
             <span className="mt-0.5 block text-[11px] text-[color:var(--vault-muted)]">{payeeKind(p.payeeType)}</span>
           </InfoTile>
           <InfoTile label="State" delay={0.16}>
-            <span className="flex flex-wrap gap-1">
+            {/* The tile is ~115px on an iPad: the chips may wrap inside it rather than run out of it. */}
+            <span className="flex flex-wrap gap-1 [&>.sx-vault-chip]:max-w-full [&>.sx-vault-chip]:whitespace-normal">
               <VaultChip tone={stateTone}>{STATE_WORD[p.state] ?? p.state}</VaultChip>
               {auto && <VaultChip tone="good">✓ {auto}</VaultChip>}
             </span>
@@ -159,7 +160,7 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
         </p>
       </VaultPanel>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
           <section>
             <VaultSection title="Orders" hint="Each order's split, frozen when the sale was approved." />

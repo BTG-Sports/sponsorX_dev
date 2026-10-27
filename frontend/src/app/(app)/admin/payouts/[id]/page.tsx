@@ -68,7 +68,7 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
         ← Payout approvals
       </Link>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
           <Card>
             <p className="text-sm font-semibold">{p.payeeName}</p>

@@ -4,6 +4,9 @@ import Link from "next/link";
 const ROUTES = [
   { href: "/", title: 'SponsorX Network Landing', ref: '§9 screen 1', surface: 'public' },
   { href: "/packages", title: 'Sponsor Package Catalog', ref: '§9 screen 4 · §7', surface: 'public' },
+  { href: "/get-started", title: 'Get Started (choose how to join)', ref: '§39 front doors', surface: 'public' },
+  { href: "/how-it-works", title: 'How It Works (the full loop)', ref: '§39 loop', surface: 'public' },
+  { href: "/about", title: 'About (BTG Sports Group, values, desks)', ref: '§9', surface: 'public' },
   { href: "/join", title: 'Athlete Application', ref: '§11', surface: 'public' },
   { href: "/athletes/demo-athlete", title: 'Athlete Profile', ref: '§9 screen 5', surface: 'public' },
   { href: "/properties/demo-property", title: 'Property Profile', ref: '§9 screen 5', surface: 'public' },

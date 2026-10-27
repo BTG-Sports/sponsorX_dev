@@ -22,7 +22,7 @@ test("the marketing page renders and is navigable", async ({ page }) => {
 test("every public route answers without a server error", async ({ page }) => {
   /* A smoke sweep. It has caught more in this codebase than any single
      assertion would: a fixture rename breaks one route and nothing else. */
-  for (const path of ["/packages", "/map", "/join", "/brief"]) {
+  for (const path of ["/packages", "/map", "/join", "/brief", "/get-started", "/how-it-works", "/about"]) {
     const response = await page.goto(path);
     expect(response?.status(), `${path} returned ${response?.status()}`).toBeLessThan(400);
     await expect(page.locator("body"), path).not.toContainText("Application error");

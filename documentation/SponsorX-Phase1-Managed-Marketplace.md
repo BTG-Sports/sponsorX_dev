@@ -3121,6 +3121,27 @@ Raised 2026-10-26 from the tester-guide dry run on staging. Seven screen problem
       - the mock-data register, the design record and the P7-QA-02 review updated.
     - **Final runs** on the patched packages: frontend 1,712 tests, lint and a Next 16.4.2 build clean; backend 3,503, with only the four Windows-only files failing.
     - **Load note:** run alongside the api container and the production server, the backend suite gave 21 failing files. They were timeouts and one transaction-start timeout; all but the four passed alone and in a clean full run.
+  - **Get Started skips the sign-in page (2026-10-27, the user's request).** For a signed-out visitor, the header, phone menu and closing-section "Get Started" buttons go to a new static page, `/get-started`. They used to go to `/login`, which put a sign-in form in front of someone new and repeated the header's own Login. The page offers three choices: apply as an athlete (`/join`), request a sponsor brief (`/brief`), or list a team or venue (`/onboarding`), plus "Already have an account? Sign in".
+    - Signed-in visitors still get "‹Role› Dashboard" (P1-ART-27).
+    - The hero's Get Started still scrolls to the closing section.
+    - **Redesigned the same day** in the landing's visual language (`components/get-started-stage.tsx`, built from the parts `/packages` uses):
+      - the HUD hero ("One Network. Three Ways In. Pick Yours."), with the landing's live "Real Impact" card;
+      - three tone-coloured glass path cards with pointer spotlight and tilt, each listing the destination page's own promises;
+      - the hexagon "What happens next" steps, and a closing "Already on SponsorX?" panel.
+      - Like the home page it renders per request, for the live card.
+  - **How It Works gets its page (2026-10-27, the user's request).** The nav's "How It Works" had been inert text since 2026-09-30. It now links to a new static page, `/how-it-works` (`components/how-it-works-stage.tsx`), built from the same parts as `/packages` and `/get-started`:
+    - a HUD hero ("Brands Brief. Athletes Deliver. Fans Redeem.") with a "The Loop" card showing sponsor, BTG, athlete and fan as nodes on one clockwise ring;
+    - the §39 loop as a marquee band, then as six stops on one track, each tagged with who does it;
+    - four tone-coloured side cards (sponsor, athlete, team or venue, fan), each with four steps and its own CTA;
+    - "What BTG checks": conflicts, minors, `NEVER_ASKED`, and reports from tracked events; then a closing panel to `/get-started` and `/contact`.
+    - Every promise reuses the destination's own copy (`JOIN_MINUTES`, `REVIEW_DAYS`, the brief's "no card", the property application's automatic approval). The page reads nothing from the API.
+  - **About gets its page (2026-10-27, the user's request).** The nav's "About", the last inert item, now links to a new static page, `/about` (`components/about-stage.tsx`), built from the same parts as `/how-it-works`:
+    - a HUD hero ("Real Athletes. Real Partnerships. On Record.") with an "On Record" card: what was promised, who delivered it, whether it worked;
+    - a "What we stand for" marquee, then "Why SponsorX" as three before → now cards;
+    - four tone-coloured commitment cards: fit over followers, the athlete decides, minors reach a person, real numbers only;
+    - BTG's four desks (§10) on the hexagon track, with what always reaches a person;
+    - BTG Sports Group's two programmes, SponsorX and SponsorX NEXT, each with its next step; then a closing panel to `/get-started` and `/contact`.
+    - Copy is the site's own (the brief's three minutes, `JOIN_MINUTES`, the NEXT programme's terms). No names, figures or address; the page reads nothing from the API.
     - **Not fixed, needs the owner:** the home page's "Featured athletes" panel still shows sample athletes with "Verified" badges. Showing real athletes publicly needs a decision on which athletes, their consent, and minors.
 - **Reference:** §9, §21, §22
 

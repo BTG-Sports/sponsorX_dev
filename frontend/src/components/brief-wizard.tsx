@@ -594,8 +594,9 @@ export function BriefWizard({
         </div>
       </div>
 
-      {/* action bar */}
-      <div className="sticky bottom-0 z-10 border-t border-line bg-bg/95 px-6 py-4 backdrop-blur lg:rounded-b-2xl">
+      {/* action bar — pinned, except on a short screen (a phone in landscape,
+          ~390px tall), where it covered all but one line of the step */}
+      <div className="sticky bottom-0 z-10 [@media(max-height:500px)]:static border-t border-line bg-bg/95 px-6 py-4 backdrop-blur lg:rounded-b-2xl">
         {sendError && step === BRIEF_STEPS.length - 1 && (
           <p role="alert" className="mb-3 rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 text-xs text-danger">
             {sendError}

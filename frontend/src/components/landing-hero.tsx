@@ -226,10 +226,14 @@ export function ImpactCard({
   stats,
   className = "",
   style,
+  linkBase = "",
 }: {
   stats: PublicNetworkStats | null;
   className?: string;
   style?: React.CSSProperties;
+  /** Where the rows' section anchors live — "" on the home page itself, "/"
+   *  when the card is shown on another page (/get-started). */
+  linkBase?: string;
 }) {
   /* Real counts only (P8-FE-09): the sample figures this card used to show
      read as facts on the live site. Nothing to show, no card. */
@@ -313,7 +317,7 @@ export function ImpactCard({
                 }
               >
                 <Link
-                  href={STAT_LINKS[s.key]}
+                  href={`${linkBase}${STAT_LINKS[s.key]}`}
                   title={s.source}
                   className="group flex flex-col items-center px-1 py-1.5 text-center transition-colors hover:text-primary-soft lg:grid lg:grid-cols-[auto_1fr_auto] lg:items-center lg:gap-5 lg:px-0 lg:py-2.5 lg:text-left"
                 >

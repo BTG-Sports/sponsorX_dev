@@ -102,7 +102,7 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
         <Badge tone={state.tone}>{state.label}</Badge>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
           {held && (
             <section aria-label="Held order" className="flex flex-col gap-2.5 rounded-xl border border-warn/50 bg-surface p-4 sm:p-5">
