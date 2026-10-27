@@ -34,8 +34,8 @@ describe("why an athlete is off the home page", () => {
 
   it("gives every reason, a minor's included", () => {
     const s = status({ blocks: ["incomplete", "minor_not_approved"], missing: ["photo", "school"], minor: true });
-    expect(blockLines(s)).toEqual(["Missing: photo, school", "Under 18 — waiting for approval"]);
-    expect(homeHeadline(s)).toMatchObject({ tone: "warn", label: "Not on the home page", hint: "Missing: photo, school · Under 18 — waiting for approval" });
+    expect(blockLines(s)).toEqual(["Missing: photo, school", "Under 18 or no age on file — waiting for approval"]);
+    expect(homeHeadline(s)).toMatchObject({ tone: "warn", label: "Not on the home page", hint: "Missing: photo, school · Under 18 or no age on file — waiting for approval" });
   });
 
   it("says when BTG removed them, and when they aren't active", () => {

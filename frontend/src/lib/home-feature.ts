@@ -62,7 +62,8 @@ export function blockLines(s: Pick<HomeFeatureStatus, "blocks" | "missing">): st
   if (s.blocks.includes("removed")) lines.push("Removed from the home page by BTG");
   if (s.blocks.includes("not_active")) lines.push("Not an active athlete");
   if (s.blocks.includes("incomplete")) lines.push(missingLine(s.missing) || "Profile incomplete");
-  if (s.blocks.includes("minor_not_approved")) lines.push("Under 18 — waiting for approval");
+  /* The API counts no age on file as a minor; say so rather than claim they are under 18. */
+  if (s.blocks.includes("minor_not_approved")) lines.push("Under 18 or no age on file — waiting for approval");
   return lines;
 }
 

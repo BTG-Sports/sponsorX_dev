@@ -56,7 +56,7 @@ export function HomeFeaturePanel({ initial, name }: { initial: HomeFeatureStatus
       <h2 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
         Home page
         <Badge tone={head.tone}>{head.label}</Badge>
-        {status.minor && <Badge>{status.approved ? "Under 18 · approved" : "Under 18"}</Badge>}
+        {status.minor && <Badge>{status.approved ? "Under 18 or no age · approved" : "Under 18 or no age on file"}</Badge>}
       </h2>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         The Featured athletes panel shows up to four: active athletes with every public profile field and a photo; a minor only

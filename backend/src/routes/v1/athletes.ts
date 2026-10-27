@@ -22,8 +22,7 @@ import { prisma } from "../../db/client";
 import { ProfileChangeInput } from "../../contracts/profile-change";
 import { myProfileChanges, submitProfileChange } from "../../domain/athlete-profile-change";
 import { AthletePhotoInput, AthletePhotoUploadInput, HomePageActionInput } from "../../contracts/home-featured";
-import { homeFeatureStatus, requestPhotoUpload, setAthletePhoto, setHomeFeature } from "../../domain/home-featured";
-import { publicObjectUrl } from "../../lib/storage";
+import { athletePhotoUrl, homeFeatureStatus, requestPhotoUpload, setAthletePhoto, setHomeFeature } from "../../domain/home-featured";
 
 export const athletesRouter = Router();
 
@@ -87,7 +86,7 @@ export const getMyProfile: RequestHandler = async (req, res) => {
   const { _count, photoKey, ...profile } = row;
   res.json({
     ...profile,
-    photoUrl: photoKey ? publicObjectUrl(photoKey) : null,
+    photoUrl: athletePhotoUrl(photoKey),
     ratesConfirmed: _count.rates,
     agreementsSigned,
   });
