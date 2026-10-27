@@ -277,6 +277,20 @@ export const AUDIT_ACTIONS = {
   metric: {
     record: "metric.record",
   },
+  /**
+   * The home page's Featured athletes panel (P8-BE-08). Who put an athlete on
+   * the public home page, took them off, or approved a minor for it — and the
+   * photo the panel shows.
+   */
+  homePage: {
+    photoSet: "athlete.photoSet",
+    pin: "homePage.pin",
+    unpin: "homePage.unpin",
+    remove: "homePage.remove",
+    restore: "homePage.restore",
+    approve: "homePage.approve",
+    unapprove: "homePage.unapprove",
+  },
 } as const;
 
 type Change = {

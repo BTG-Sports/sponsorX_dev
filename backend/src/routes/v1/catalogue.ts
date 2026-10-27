@@ -12,6 +12,7 @@ import { clientIp } from "../../lib/client-ip";
 import { env } from "../../config/env";
 import { listJobs, listPackages, listPublicPackages } from "../../domain/catalogue";
 import { readPublicNetworkStats } from "../../domain/public-network-stats";
+import { readHomeFeatured } from "../../domain/home-featured";
 
 export const catalogueRouter = Router();
 
@@ -35,6 +36,17 @@ catalogueRouter.get("/public/catalogue/packages", async (req, res) => {
 catalogueRouter.get("/public/network-stats", async (req, res) => {
   await limit("network-stats:public", clientIp(req), 120, 3600);
   res.json(await readPublicNetworkStats(env.PUBLIC_INTAKE_TENANT_ID));
+});
+
+/**
+ * GET /public/featured-athletes — the home page's Featured athletes panel
+ * (P8-BE-08). At most four athletes who meet every rule in
+ * domain/home-featured.ts, with only what their public page shows. No actor,
+ * pinned to the public tenant, the same limit as the network numbers.
+ */
+catalogueRouter.get("/public/featured-athletes", async (req, res) => {
+  await limit("featured-athletes:public", clientIp(req), 120, 3600);
+  res.json(await readHomeFeatured(env.PUBLIC_INTAKE_TENANT_ID));
 });
 
 /** GET /catalogue/packages — the §7 packages, sponsor prices. */

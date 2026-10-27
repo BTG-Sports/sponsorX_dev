@@ -21,6 +21,8 @@ import { whereFor } from "../../auth/scope";
 import { prisma } from "../../db/client";
 import { ProfileChangeInput } from "../../contracts/profile-change";
 import { myProfileChanges, submitProfileChange } from "../../domain/athlete-profile-change";
+import { AthletePhotoInput, AthletePhotoUploadInput, HomePageActionInput } from "../../contracts/home-featured";
+import { homeFeatureStatus, requestPhotoUpload, setAthletePhoto, setHomeFeature } from "../../domain/home-featured";
 
 export const athletesRouter = Router();
 
@@ -99,6 +101,32 @@ export const postProfileChange: RequestHandler<{ id: string }> = async (req, res
   res.status(201).json(await submitProfileChange(req.actor!, req.params.id, input));
 };
 
+/* P8-BE-08 — the profile photo (the athlete's own edit, through athlete.write)
+   and the home page's Featured athletes controls (athlete.approve, tenant-wide:
+   BTG admin and the Network Manager). Rules in domain/home-featured.ts. */
+export const postPhotoUpload: RequestHandler<{ id: string }> = async (req, res) => {
+  const input = AthletePhotoUploadInput.parse(req.body ?? {});
+  res.status(201).json(await requestPhotoUpload(req.actor!, req.params.id, input));
+};
+
+export const putPhoto: RequestHandler<{ id: string }> = async (req, res) => {
+  const { photoKey } = AthletePhotoInput.parse(req.body ?? {});
+  res.json(await setAthletePhoto(req.actor!, req.params.id, photoKey));
+};
+
+export const getHomePage: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await homeFeatureStatus(req.actor!, req.params.id));
+};
+
+export const postHomePage: RequestHandler<{ id: string }> = async (req, res) => {
+  const { action } = HomePageActionInput.parse(req.body ?? {});
+  res.json(await setHomeFeature(req.actor!, req.params.id, action));
+};
+
 athletesRouter.get("/me", requireActor, getMyProfile);
 athletesRouter.get("/me/profile-changes", requireActor, getMyProfileChanges);
 athletesRouter.post("/:id/profile-changes", requireActor, postProfileChange);
+athletesRouter.post("/:id/photo", requireActor, postPhotoUpload);
+athletesRouter.put("/:id/photo", requireActor, putPhoto);
+athletesRouter.get("/:id/home-page", requireActor, getHomePage);
+athletesRouter.post("/:id/home-page", requireActor, postHomePage);

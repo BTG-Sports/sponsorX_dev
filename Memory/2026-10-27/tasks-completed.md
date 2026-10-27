@@ -128,3 +128,27 @@
   - The CI skip list for phase plans, and `CLAUDE.md`.
   - Tracker: the Dashboard and Roadmap now show six phases; 15 formulas added, none lost.
 - **Verified:** backend build, lint, secret scan and the scanner self-tests pass. The CI skip pattern skips the two new plan names.
+
+## P8-BE-08 · Home page Featured athletes from real data (Done); P8-FE-10 raised
+
+- **Trigger:** the frontend asked for the criteria behind the home page's "Featured athletes" panel. It showed the first four ACTIVE sample athletes with "Verified" badges, and the `P8-FE-09` notes had flagged it as needing the owner.
+- **Criteria (decided by the user, 2026-10-27).** All must hold:
+  - the athlete is ACTIVE;
+  - the profile is complete: a photo plus every public field — "miss one, it gets rejected";
+  - they are an adult, or a minor a Network Manager approved (no age on file counts as a minor);
+  - BTG hasn't removed them.
+- **Who controls it:** pinned athletes show first, then the latest verified post. At most four. BTG admin and the Network Manager pin, remove, restore and approve. The backend applies every rule; the frontend only shows the list.
+- **Built:**
+  - `domain/home-featured-rules.ts` (pure) and `domain/home-featured.ts`;
+  - `GET /public/featured-athletes`;
+  - athlete photo upload: `POST` and `PUT /athletes/{id}/photo`, a public bucket, pinned type and size;
+  - `GET` and `POST /athletes/{id}/home-page`;
+  - migration `20261027120000_athlete_home_featured` (4 nullable columns);
+  - audit actions `homePage.*` and `athlete.photoSet`.
+- **Safety rule added:** a minor's new photo resets their home-page approval.
+- **Guard tests updated, with reasons:**
+  - the public-bucket allowlist (`payments-pii`) now names the photo;
+  - the cross-tenant sweep has sample bodies for the three write routes;
+  - the writes include the tenant.
+- **Verified** on a local Postgres 17: backend build and lint pass; 3,540 backend tests (237 files) pass; the secret scan passes.
+- **Next:** `P8-FE-10` (Ready, frontend) — the panel reads the API, the athlete photo upload, and BTG's controls.

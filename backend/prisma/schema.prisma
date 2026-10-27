@@ -478,6 +478,19 @@ model Athlete {
   /// only by account-closure.ts, cleared when the closure ends.
   accountClosedAt DateTime?
 
+  /// P8-BE-08 — the profile photo: a key in the PUBLIC bucket, under
+  /// athletes/<tenantId>/<athleteId>/. Required for the home page's Featured
+  /// athletes panel (domain/home-featured.ts).
+  photoKey       String?
+  /// P8-BE-08 — BTG pinned the athlete to the home page; pins show first,
+  /// oldest pin first. Cleared by unpin or remove.
+  homePinnedAt   DateTime?
+  /// P8-BE-08 — BTG took the athlete off the home page; they stay off until restored.
+  homeRemovedAt  DateTime?
+  /// P8-BE-08 — a Network Manager approved a minor for the home page. Reset
+  /// when a minor's photo changes, so a person sees the new one first.
+  homeApprovedAt DateTime?
+
   /// 2S1-BE-10 / -14 — a guardian ALREADY verified for another minor was
   /// named for this approved athlete by a profile edit. They act for this
   /// athlete only once their proof of guardianship naming this athlete and

@@ -315,9 +315,22 @@ export async function deletePrivateObject(key: string): Promise<void> {
  * (2S1-BE-02). Nothing is handed to anyone, so nothing is audited.
  */
 export async function privateObjectHead(key: string): Promise<{ bytes: number; contentType: string | null } | null> {
+  return objectHead(BUCKETS.private, key);
+}
+
+/**
+ * P8-BE-08 — the same HEAD on the PUBLIC bucket: whether a direct upload of a
+ * published image (an athlete's profile photo) actually landed, before a
+ * record points the world at it.
+ */
+export async function publicObjectHead(key: string): Promise<{ bytes: number; contentType: string | null } | null> {
+  return objectHead(BUCKETS.public, key);
+}
+
+async function objectHead(bucket: string, key: string): Promise<{ bytes: number; contentType: string | null } | null> {
   assertSafeKey(key);
   try {
-    const head = await s3.send(new HeadObjectCommand({ Bucket: BUCKETS.private, Key: key }));
+    const head = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
     return { bytes: head.ContentLength ?? 0, contentType: head.ContentType ?? null };
   } catch (error) {
     const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;

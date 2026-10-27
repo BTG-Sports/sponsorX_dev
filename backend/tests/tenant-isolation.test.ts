@@ -286,6 +286,10 @@ const BODY: Record<string, unknown> = {
   "POST /athletes/{id}/guardian": { legalName: "X", email: "x@x.invalid", relationship: "PARENT" },
   "PUT /athletes/{id}/socials": { socials: [{ platform: "INSTAGRAM", handle: "stolen" }] },
   "POST /athletes/{id}/profile-changes": { identity: { displayName: "Stolen Name" } },
+  /* P8-BE-08 — a valid photo grant, a key under tenant A's athlete, and a home-page action: each must die at scope, not at validation. */
+  "POST /athletes/{id}/photo": { contentType: "image/jpeg", bytes: 1000 },
+  "PUT /athletes/{id}/photo": { photoKey: null },
+  "POST /athletes/{id}/home-page": { action: "remove" },
   /* 2S1-BE-13 / 2S1-BE-15. POST /me/close is the actor's own account, so an empty body (refused: confirm is required) keeps the sweep from closing tenant B's logins. */
   "POST /account-closures/{id}/reactivation-decision": { decision: "DECLINE", note: "cross-tenant" },
   "POST /guardian-handoffs/{id}/decision": { decision: "HAND_OFF" },
