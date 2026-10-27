@@ -7,7 +7,8 @@
 - **New Phase 5** (`documentation/SponsorX-Phase5-Certified-Recruiting.md`, sheet `Phase 5`):
   - `5S1-FE-01` · Certified Recruiting card on SponsorX. A partner card linking to certified-recruiting.com, on the home page's "For athletes" section and the athlete dashboard. Status Ready, for the frontend.
 - **Corrected the same day:** I first wrote `5S1-FE-01` as a new landing page on BTG's WordPress site, plus `5S1-PMO-01` to collect the inputs for it. That duplicated the GoDaddy site the user had already built. Both were replaced by the card task above before merging.
-- **Found on certified-recruiting.com (for the user to fix in GoDaddy):**
+  - `5S1-FE-02` · Fix footer links on certified-recruiting.com (GoDaddy editor), the three problems below. Status Ready.
+- **Found on certified-recruiting.com:**
   - the footer's SponsorX link goes to `sponsorx.com`, a different company; it should be `https://sponsorx.net`;
   - "SponsorX Next" goes to `next.sponsorx.com`, which doesn't exist; it should be `https://sponsorx.net/next/about`;
   - the Instagram and X icons point to the bare instagram.com and x.com.
