@@ -4,19 +4,17 @@
 
 | | |
 |---|---|
-| **Goal** | Give Certified Recruiting a landing page inside BTG's website, so athletes on BTG's pathway find recruiting support, with BTG Sports Group and SponsorX shown as partners. |
-| **Tasks** | 2 · 2 person-days |
-| **Timeline** | Now; publishing waits for Certified Recruiting's approved services |
-| **Depends on** | Certified Recruiting's approved services (`5S1-PMO-01`), and a login to BTG's WordPress for whoever builds the page |
-| **Source** | The user, 2026-10-27: a partnership plan written outside the team, step 1 of 4 |
+| **Goal** | Athletes on SponsorX find Certified Recruiting's recruiting support, a BTG partner. |
+| **Tasks** | 1 · 1 person-day |
+| **Timeline** | Now |
+| **Depends on** | Nothing: [certified-recruiting.com](https://www.certified-recruiting.com/) is built and live |
+| **Source** | The user, 2026-10-27, from a partnership plan for Certified Recruiting, BTG Sports Group and SponsorX |
 
-> **Why this phase exists (user, 2026-10-27).** Certified Recruiting already has its own site,
-> [certified-recruiting.com](https://www.certified-recruiting.com/), built on GoDaddy. The partnership
-> plan has four steps: (1) a main landing page on BTG's website, (2) links to it from BTG's menu,
-> homepage, Athletes page and inquiry form, (3) a Certified Recruiting partner card on SponsorX, and
-> (4) one shared inquiry form that records which site the athlete came from. The user chose step 1
-> first. Steps 2–4 are raised as tasks when the user starts them. The INFINEX game, Phase 5 until
-> this date, is now Phase 6.
+> **Why this phase exists (user, 2026-10-27).** Certified Recruiting's site,
+> [certified-recruiting.com](https://www.certified-recruiting.com/), is already built on GoDaddy
+> and is the partnership's main page. BTG's website already links to it: the "Recruiting" item in
+> its menu. What is missing is a way in from SponsorX. The INFINEX game, Phase 5 until this date,
+> is now Phase 6.
 
 ### The six phase documents
 
@@ -26,80 +24,46 @@
 | 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 72 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md) | 47 | 18–22 weeks |
-| 5 | [`SponsorX-Phase5-Certified-Recruiting.md`](./SponsorX-Phase5-Certified-Recruiting.md) **← you are here** | 2 | not in the blueprint |
+| 5 | [`SponsorX-Phase5-Certified-Recruiting.md`](./SponsorX-Phase5-Certified-Recruiting.md) **← you are here** | 1 | not in the blueprint |
 | 6 | [`SponsorX-Phase6-INFINEX-Game.md`](./SponsorX-Phase6-INFINEX-Game.md) | 7 | after the game's staging world exists |
 
 Tracking, task fields and categories are the same as Phase 4's
 ([`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)).
 IDs are `5S{sprint}-{CAT}-{nn}`.
 
-**One rule for every page in this phase.** Scholarships, roster spots, media coverage and
-sponsorships are described as potential opportunities, never promised, and nothing implies that
-Certified Recruiting is affiliated with a college. Each service is labelled free, paid or
-application-based.
+**One rule for anything SponsorX says about Certified Recruiting.** Scholarships, roster spots,
+media coverage and sponsorships are potential opportunities, never promised, and nothing implies
+that Certified Recruiting is affiliated with a college.
 
 ---
 
 # The tasks
 
-## Sprint 1 · Landing page
+## Sprint 1 · Partner links
 
-*Certified Recruiting's main page on BTG's website, built now and published once its services are confirmed.*
+*A way from SponsorX to certified-recruiting.com.*
 
-*2 tasks · 2 person-days*
+*1 task · 1 person-day*
 
-### ▶ `5S1-PMO-01` · Get Certified Recruiting's inputs
+### ▶ `5S1-FE-01` · Certified Recruiting card on SponsorX
 
-**Order** 1 · **PMO** · **Where:** Document · **1d** · **Ready**
+**Order** 1 · **FE** · **Where:** Code · **1d** · **Ready**
 
-Ask Certified Recruiting for what the page cannot publish without, and record the answers here:
+A partner card that sends athletes to certified-recruiting.com, in two places:
 
-- the final list of services at launch, each marked free, paid or application-based;
-- who receives athlete inquiries, and how quickly they reply.
+1. **The home page** (`sponsorx.net`), in the "For athletes" section (`#for-athletes`).
+2. **The athlete dashboard** (`/athlete`), below the existing sections.
 
-It blocks publishing `5S1-FE-01`, not building it.
+The card carries Certified Recruiting's logo, from certified-recruiting.com, and this text:
+
+- **Heading:** "Preparing for your next athletic opportunity?"
+- **Line:** "Explore recruiting guidance through Certified Recruiting, a BTG partner."
+- **Button:** **Explore Recruiting Support** → `https://www.certified-recruiting.com/`, opening in a new tab.
+
+Use the existing card styles on each page. Fixed content only: no API call and no new route.
 
 - **Depends on:** nothing
-- **Done when:** Inputs received and written into this document
-- **Reference:** the partnership plan, 2026-10-27
-
-### ▶ `5S1-FE-01` · Certified Recruiting page on BTG site
-
-**Order** 2 · **FE** · **Where:** Vendor console · **1d** · **Ready**
-
-A new WordPress page on btgsportsgroup.com at `/certified-recruiting`. Certified Recruiting's branding
-leads; BTG Sports Group and SponsorX appear in an "In partnership with" strip under the hero. Use
-Certified Recruiting's current logo, which the user already updated (2026-10-27).
-
-1. **Hero.** Headline "Your Talent. Your Story. Your Next Opportunity." Intro "Explore recruiting
-   guidance, athlete exposure, media development, and brand readiness through Certified
-   Recruiting's partnership with BTG Sports Group and SponsorX." Main button **Request a Recruiting
-   Review** → `https://www.certified-recruiting.com/recruiting-review` (until the shared form of
-   step 4 exists). Smaller links **Explore BTG Events** → `https://btgsportsgroup.com/events/` and
-   **Discover SponsorX** → `https://sponsorx.net`.
-2. **Services.** Six cards, each with a title, one line from the matching card on
-   certified-recruiting.com, a "Led by" tag and a price label:
-
-   | Service | Led by | Label |
-   |---|---|---|
-   | Recruiting readiness review and action plan | Certified Recruiting | Paid |
-   | Athlete recruiting profile and college outreach preparation | Certified Recruiting | Free to submit |
-   | Highlight films, interviews and athlete storytelling | BTG | To be confirmed |
-   | Showcase and event opportunities | BTG | Application-based |
-   | Athlete branding and sponsor readiness | SponsorX | To be confirmed |
-   | Parent education and recruiting workshops | Joint | To be confirmed |
-
-3. **Disclaimer,** word for word, under the services: "Opportunities described — including
-   scholarships, roster spots, media coverage and sponsorships — represent potential outcomes. No
-   specific results are guaranteed. Certified Recruiting is not affiliated with any college or
-   university."
-4. **Closing band.** "Ready to take the next step?" with the **Request a Recruiting Review** button.
-
-Not in this task: BTG's menu, homepage and Athletes page (step 2), any form (step 4), and any
-statistic Certified Recruiting has not confirmed.
-
-- **Depends on:** 5S1-PMO-01, to publish only
-- **Done when:** Built, works on phone and desktop, links work, preview link shared; published once `5S1-PMO-01` is done
+- **Done when:** Card shows on both pages, opens certified-recruiting.com, works on phone and desktop
 - **Reference:** the partnership plan, 2026-10-27; certified-recruiting.com
 
 ---

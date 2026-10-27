@@ -109,7 +109,7 @@ against Blueprint v2.0; **Addendum B (2026-09-21)** records the split into
 
 ## The task board
 
-The programme is six phases: the blueprint's four; Phase 5, the Certified Recruiting partnership (added 2026-10-27: its landing page on BTG's website, then links from BTG and SponsorX); and Phase 6, the INFINEX game, split out of Phase 4 on 2026-10-16 and renumbered from Phase 5 on 2026-10-27, its IDs moving from `5S…` to `6S…` (the game is not started; Phase 4 is SponsorX's web application only). **Three artefacts, three
+The programme is six phases: the blueprint's four; Phase 5, the Certified Recruiting partnership (added 2026-10-27: a SponsorX card linking to certified-recruiting.com, which is already built on GoDaddy and linked from BTG's site); and Phase 6, the INFINEX game, split out of Phase 4 on 2026-10-16 and renumbered from Phase 5 on 2026-10-27, its IDs moving from `5S…` to `6S…` (the game is not started; Phase 4 is SponsorX's web application only). **Three artefacts, three
 jobs** — keep them straight or they drift:
 
 | Artefact | Owns | Changes | Who |
@@ -201,7 +201,7 @@ Code review. Committing one file is what makes a shared tracker actually shared.
 [Phase 2 · Marketplace & Commerce](documentation/SponsorX-Phase2-Marketplace-Commerce.md) (123) ·
 [Phase 3 · Intelligence & Attribution](documentation/SponsorX-Phase3-Intelligence-Attribution.md) (44) ·
 [Phase 4 · INFINEX Integration](documentation/SponsorX-Phase4-INFINEX-Integration.md) (19, all Done and signed off as built; every open task moved to the game phase on 2026-10-20, the game being parked) ·
-[Phase 5 · Certified Recruiting](documentation/SponsorX-Phase5-Certified-Recruiting.md) (2, the landing page on BTG's website; added 2026-10-27) ·
+[Phase 5 · Certified Recruiting](documentation/SponsorX-Phase5-Certified-Recruiting.md) (1, a SponsorX card linking to certified-recruiting.com; added 2026-10-27) ·
 [Phase 6 · INFINEX Game](documentation/SponsorX-Phase6-INFINEX-Game.md) (50, Phase 5 until 2026-10-27; waits for the game, which is parked; player accounts, the live connection and all of Phase 4's open work added 2026-10-20)
 
 ## Architecture rules
