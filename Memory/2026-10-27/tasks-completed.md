@@ -275,3 +275,21 @@
 - **Checks:**
   - frontend vitest 1,729/1,729; tsc and eslint clean;
   - the scenario was restored with identical md5s (athletes, and the Network Manager's user row); QA socials and rate counters removed.
+
+### P8-FE-10 QA, fifth pass (the user's request: "fifth qa test pass")
+
+- **No bugs found; no code changed.** Nothing new on `main_development`. Run on `55826e6a`.
+- **Upload security at the storage layer** (live MinIO), 12/12:
+  - the presigned PUT refuses another Content-Type, a bigger body than declared, and a redirected key; the stored object is served as `image/png`;
+  - the API refuses SVG, zero and fractional sizes, `..` keys, another tenant's prefix, over-long keys and non-string keys.
+  - One unreferenced test PNG was left under `athletes/seed_tenant_btg/seed_ath_adult/` in local MinIO.
+- **Contract alignment, 7/7:** the backend's live Zod shapes and constants match the frontend copies: both payloads' fields, the twelve required fields in order, block reasons, actions, photo types and the 5 MB limit.
+- **The team's e2e:** `public`, `landing-city` and `loop-p3-application` on chromium, 7 passed; `public` on mobile, 4 passed (incl. no sideways scroll at 390). `--workers=1`, against dev.
+- **The latest commit under `next start`** (worktree build, port 3100): prod checks 7/7.
+  - The drawer's on-demand server action works on the built app, with the Network Manager unpinning and pinning.
+  - Two "fits the drawer" failures were measurements taken mid slide-in. Prod is faster than dev; settled, it fits on both servers.
+- **Regression:** API probes 33/33. Home matrix 35/38; the three were the 4th row's lazy photo on short screens. That row is hidden there (ROW_FIT) and `loading="lazy"` correctly never fetches it; every shown row's photo loads (verified on 320, 844×390 and WebKit iPhone SE).
+- **Backend suite on `sponsorx_test`:** 3,526 pass; only the four Windows-only files fail.
+- **Cleanup:**
+  - the scenario restored with identical md5s (athletes, the Network Manager's row); socials and rate counters removed;
+  - the worktree teardown emptied rimraf again; restored 2.7.1.
