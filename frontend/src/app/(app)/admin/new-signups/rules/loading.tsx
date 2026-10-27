@@ -14,7 +14,7 @@ export default function Loading() {
           {[0, 1, 2, 3].map((i) => <div key={i} className="sx-ops-panel sx-ops-ghost relative h-[6.5rem]" />)}
         </div>
         <div className="sx-ops-panel sx-ops-ghost relative mt-8 h-40" />
-        <div className="mt-8 grid gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
+        <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
           <div className="sx-ops-panel sx-ops-ghost relative h-[24rem]" />
           <div className="sx-ops-panel sx-ops-ghost relative h-[24rem]" />
         </div>

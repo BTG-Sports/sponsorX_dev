@@ -673,8 +673,9 @@ export function JoinWizard({
         </div>
       </div>
 
-      {/* action bar */}
-      <div className="sticky bottom-0 border-t border-[#9cc7ff]/20 bg-[#040a16]/85 px-6 py-4 shadow-[0_-1px_0_rgba(127,208,255,.12),0_-18px_40px_-20px_rgba(46,155,245,.35)] backdrop-blur-xl sm:px-8">
+      {/* action bar — pinned, except on a short screen (a phone in landscape,
+          ~390px tall), where it covered most of the section */}
+      <div className="sticky bottom-0 [@media(max-height:500px)]:static border-t border-[#9cc7ff]/20 bg-[#040a16]/85 px-6 py-4 shadow-[0_-1px_0_rgba(127,208,255,.12),0_-18px_40px_-20px_rgba(46,155,245,.35)] backdrop-blur-xl sm:px-8">
         {submitMsgs.length > 0 && (
           <div
             role="alert"

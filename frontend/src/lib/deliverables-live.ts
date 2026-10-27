@@ -33,7 +33,9 @@ export type ApiDeliverable = {
   appearance: boolean;
   athlete: { id: string; displayName: string };
   campaign: { id: string; name: string; sponsorName: string };
-  latestAsset: { version: number; uploadedAt: string } | null;
+  /** contentType — the MIME the upload went up as; absent from older API
+   *  builds and null for assets registered before it was recorded. */
+  latestAsset: { version: number; uploadedAt: string; contentType?: string | null } | null;
   assetCount: number;
   /** Back with the athlete. `by` SYSTEM: the automatic checks sent it back,
    *  and `failed` lists each failure in words (P5-BE-09). */

@@ -30,6 +30,7 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
 import { ArenaCount, type CountFormat } from "./arena-fx";
+import { StadiumUpdated } from "./stadium-time";
 
 /** Staggered entrance delay for one piece (`.sx-arena-in`). */
 export const at = (seconds: number, extra?: CSSProperties) =>
@@ -52,8 +53,17 @@ export function ArenaGround() {
 
 /* ------------------------------------------------------------------- head */
 
-/** The title row. `pill` is the provenance / live note ("Postgres · read
- *  9:41 AM"); `lede` one quiet sentence; `actions` sit at the right. */
+/** "Updated 9:41 AM" for the head's pill, in the viewer's own timezone.
+ *  An athlete reads plain words: the old "Postgres · read" pill named our
+ *  database to someone who has no use for it (staging dry run, 2026-10-26).
+ *  `at` is the read time; it defaults to now, since these pages render per
+ *  request. The time itself formats on the client (stadium-time.tsx). */
+export function ArenaUpdated({ at }: { at?: Date }) {
+  return <StadiumUpdated iso={(at ?? new Date()).toISOString()} />;
+}
+
+/** The title row. `pill` is the live note (`<ArenaUpdated />`) or a
+ *  "Sample data" label; `lede` one quiet sentence; `actions` sit at the right. */
 export function ArenaHead({
   title,
   pill,
@@ -120,7 +130,7 @@ export function ArenaTile({
       <span aria-hidden="true" className="sx-arena-shine" />
       <dt className="pl-4 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">{label}</dt>
       <dd className="mt-1.5 pl-4">
-        <ArenaCount value={value} format={format} delay={delay} className={`sx-arena-num block text-[28px] leading-none ${t.text}`} />
+        <ArenaCount value={value} format={format} delay={delay} className={`sx-arena-num block whitespace-nowrap text-[28px] leading-none max-sm:text-[clamp(17px,13cqw,28px)] ${t.text}`} />
         <span className="mt-1.5 block truncate text-[11px] text-faint">{caption}</span>
         {share !== undefined && (
           <span className="mt-2.5 block">
@@ -136,7 +146,10 @@ export function ArenaTile({
     </>
   );
   const style = at(delay, { "--tone": t.edge } as CSSProperties);
-  const cls = "sx-arena-plate sx-arena-in relative block px-4 pb-4 pt-3.5";
+  /* A size container: the figure scales with the plate (13cqw) below sm, so money in
+     a half-width plate on a 320px phone — 134px wide — still fits whole
+     ("$1,400.00" was clipped to "$1,400.(" at a fixed 28px). */
+  const cls = "sx-arena-plate sx-arena-in relative block px-4 pb-4 pt-3.5 [container-type:inline-size]";
   return href ? (
     <Link href={href} data-spot="" className={`${cls} group`} style={style}>
       {body}
@@ -242,15 +255,18 @@ export function ArenaRow({
   const inner = (
     <>
       {lead && <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-athlete/25 bg-athlete/10 text-[12px] font-bold text-athlete">{lead}</span>}
-      <span className="min-w-0 flex-1">
+      {/* min width for the words: on a 320px phone the right slot wraps
+          to its own line (ml-auto keeps it right) instead of leaving the
+          title "Pre-e…" */}
+      <span className="min-w-[7.5rem] flex-1">
         <span className="block truncate text-[13px] font-semibold text-text">{title}</span>
         {sub && <span className="mt-0.5 block truncate text-[11px] text-muted">{sub}</span>}
       </span>
-      {right && <span className="shrink-0 text-right">{right}</span>}
+      {right && <span className="ml-auto shrink-0 text-right">{right}</span>}
       {href && <span aria-hidden="true" className="shrink-0 text-athlete transition-transform duration-300 group-hover:translate-x-1">→</span>}
     </>
   );
-  const cls = "sx-arena-in flex items-center gap-3.5 border-b border-line-soft px-5 py-3.5 last:border-0";
+  const cls = "sx-arena-in flex flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-line-soft px-5 py-3.5 last:border-0";
   return href ? (
     <Link href={href} className={`${cls} group transition-colors hover:bg-athlete/[0.06] focus-visible:bg-athlete/[0.08] focus-visible:outline-none`} style={at(0.3 + i * 0.05)}>
       {inner}

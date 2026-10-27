@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 
-import { ArenaChip, ArenaHead, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
+import { ArenaChip, ArenaHead, ArenaUpdated, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
 import { AreaChart } from "@/components/charts";
 import { MiniChip } from "@/components/hero";
 import { ActivityExplorer, ServerActivityExplorer } from "@/components/activity-explorer";
@@ -153,8 +153,7 @@ export default async function AthleteEarningsPage({
   const sp = await searchParams;
   const live = demo === null ? await liveEarnings(sp) : null;
   const now = new Date();
-  const readAt = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  const pill = live ? `Postgres · read ${readAt}` : "Sample statement";
+  const pill = live ? <ArenaUpdated /> : "Sample statement";
 
   if (demo === "empty" || (live && live.summary.count === 0)) {
     return (
@@ -293,7 +292,9 @@ export default async function AthleteEarningsPage({
                   </strong>
                   /month
                 </span>
-                <MiniChip kind="ver">POSTGRES</MiniChip>
+                {/* Provenance in the athlete's words, not our database's name
+                    (P8-FE-09, staging dry run 2026-10-26). */}
+                <MiniChip kind="ver">SponsorX records</MiniChip>
               </div>
             </div>
 
@@ -420,7 +421,7 @@ export default async function AthleteEarningsPage({
           handles the payout itself, outside the platform.
         </p>
         <span className="flex items-center gap-1.5 text-[10px] text-faint">
-          all figures <MiniChip kind="ver">POSTGRES</MiniChip>
+          all figures <MiniChip kind="ver">SponsorX records</MiniChip>
         </span>
       </div>
     </div>

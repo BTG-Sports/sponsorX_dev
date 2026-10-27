@@ -28,8 +28,9 @@
    - SignInPanel   chamfered glass with lit brackets, a scan line and an
                    outline spotlight; Clerk inside, then the two front doors
                    for someone without an account.
-   - LoginFigures  the network figures — fixtures, and they say so (the
-                   P7-QA-02 rule, same as the landing's impact card).
+   - LoginFigures  the network figures, real counts from
+                   GET /public/network-stats like the landing's impact card;
+                   zeros left out, hidden with no read (P8-FE-09).
    -------------------------------------------------------------------------- */
 
 import Link from "next/link";
@@ -43,7 +44,7 @@ import { Glass } from "./landing-sponsors";
 import { PortalCycler, SpotRing } from "./login-fx";
 import { Logo } from "./logo";
 import { StepRule, chamfer } from "./packages-stage";
-import { networkStats } from "@/lib/fixtures";
+import { networkFigures, type PublicNetworkStats } from "@/lib/network-stats";
 
 /* ----------------------------------------------------------------- shapes */
 
@@ -163,22 +164,22 @@ function Headline({ className = "" }: { className?: string }) {
 
 /* ---------------------------------------------------------------- figures */
 
-const [ATHLETES, CAMPAIGNS, , REDEEMED] = networkStats;
-const FIGURES = [ATHLETES, CAMPAIGNS, REDEEMED].map((s) => ({
-  ...s,
-  short: s.label.replace(/ in the network| delivered| redeemed/i, ""),
-}));
+const FIGURE_COLS = ["grid-cols-1", "grid-cols-1", "grid-cols-2", "grid-cols-3"] as const;
 
-export function LoginFigures({ className = "" }: { className?: string }) {
+/** Real counts from GET /public/network-stats (P8-FE-09) — they were
+ *  fixture constants. Zeros are left out; no read, no strip. */
+export function LoginFigures({ stats, className = "" }: { stats: PublicNetworkStats | null; className?: string }) {
+  const figures = networkFigures(stats, ["athletes", "campaignsDelivered", "rewardsRedeemed"]);
+  if (figures.length === 0) return null;
   return (
     <ul
       aria-label="The network"
-      className={`grid grid-cols-3 divide-x divide-[#a9d3ff]/15 rounded-lg border border-[#9cc7ff]/25 bg-[#06101f]/60 py-3 shadow-[0_0_18px_-6px_rgba(46,155,245,.6)] backdrop-blur-md ${className}`}
+      className={`grid ${FIGURE_COLS[figures.length]} divide-x divide-[#a9d3ff]/15 rounded-lg border border-[#9cc7ff]/25 bg-[#06101f]/60 py-3 shadow-[0_0_18px_-6px_rgba(46,155,245,.6)] backdrop-blur-md ${className}`}
     >
-      {FIGURES.map((s) => (
-        <li key={s.label} title={`Sample figure — will read ${s.source}`} className="min-w-0 px-3 text-center lg:px-5 lg:text-left">
+      {figures.map((s) => (
+        <li key={s.key} title={s.source} className="min-w-0 px-3 text-center lg:px-5 lg:text-left">
           <span className="block text-[22px] font-bold leading-none tracking-tight lg:text-[26px]">
-            <CountUp value={s.value} prefix={s.prefix} />
+            <CountUp value={s.value} />
           </span>
           <span className="mt-1.5 block truncate text-[9px] uppercase tracking-[0.12em] text-on-media/65 lg:whitespace-normal lg:text-[10px] lg:leading-snug">
             <span className="lg:hidden">{s.short}</span>
@@ -224,7 +225,7 @@ function LandCard() {
   );
 }
 
-export function LoginHud() {
+export function LoginHud({ stats }: { stats: PublicNetworkStats | null }) {
   return (
     <div className="hidden lg:block">
       <div className="sx-stage-in" style={reveal(0.05)}>
@@ -242,7 +243,7 @@ export function LoginHud() {
         <LandCard />
       </div>
       <div className="sx-stage-in mt-5 max-w-[480px] [@media(max-height:880px)]:hidden" style={reveal(0.58)}>
-        <LoginFigures />
+        <LoginFigures stats={stats} />
       </div>
     </div>
   );

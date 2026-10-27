@@ -106,7 +106,7 @@ export function LiveStudentHome({ live }: { live: Student }) {
         </Card>
       )}
       <p className="flex items-center gap-1.5 text-[10px] text-faint">
-        your own records <MiniChip kind="ver">POSTGRES</MiniChip>
+        your own records <MiniChip kind="ver">SponsorX records</MiniChip>
       </p>
     </div>
   );
@@ -404,7 +404,7 @@ export function LiveStudentPoints({ live }: { live: Student }) {
             </div>
           </Card>
           <p className="flex items-center gap-1.5 text-[10px] text-faint">
-            StudentPointAccrual — no cents, no link to Earning <MiniChip kind="ver">POSTGRES</MiniChip>
+            Points, not money — they never show up as earnings <MiniChip kind="ver">SponsorX records</MiniChip>
           </p>
         </>
       )}

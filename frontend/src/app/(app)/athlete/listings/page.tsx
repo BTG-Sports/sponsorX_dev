@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ArenaHead, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles } from "@/components/arena-stage";
+import { ArenaHead, ArenaUpdated, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles } from "@/components/arena-stage";
 import { ListingPill, RosteredPanel } from "@/components/athlete-listing-bits";
 import { ListFilter, ListSearch, ServerList } from "@/components/server-pager";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
@@ -130,7 +130,6 @@ export default async function AthleteListingsPage({ searchParams }: { searchPara
   const tiles = listingTiles(counts.byState, roster.onTeam ? null : unlisted);
   const filtered = Boolean(state || q);
   const tabTotal = scope === "own" ? counts.own : counts.team;
-  const readAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
   const listingsTable = (
     <PagedTable bare page={page} noun="Listings" tone="athlete" filtered={filtered} label={scope === "own" ? "Your listings" : "Your team's listings"} columns={LISTING_COLUMNS}>
@@ -155,7 +154,7 @@ export default async function AthleteListingsPage({ searchParams }: { searchPara
   return (
     <ServerList>
       <div className="space-y-8">
-        <ArenaHead title={TITLE} pill={`Postgres · read ${readAt}`} lede={INTRO}>
+        <ArenaHead title={TITLE} pill={<ArenaUpdated />} lede={INTRO}>
           <ArenaTiles cols={tiles.length === 3 ? 3 : 4}>
             {tiles.map((t, i) => (
               <ArenaTile
@@ -207,7 +206,7 @@ export default async function AthleteListingsPage({ searchParams }: { searchPara
               <ArenaPanel tone="ink" delay={0.4}>
                 <p className="text-sm font-semibold">{scope === "own" ? "No listings of your own yet" : "Your team hasn’t listed any of your items"}</p>
                 <p className="mt-1 text-xs text-muted">
-                  {scope === "own" ? "Pick an item under Ready to list below — it goes live as soon as the checks pass." : "When your team puts one of your items on the marketplace, it shows here."}
+                  {scope === "own" ? "Pick an item under Ready to list below." : "When your team puts one of your items on the marketplace, it shows here."}
                 </p>
               </ArenaPanel>
             ) : (

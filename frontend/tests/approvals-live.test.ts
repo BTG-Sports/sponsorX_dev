@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { jobFormat, liveMoves, toDeskItem } from "../src/lib/approvals-live";
+import { jobFormat, liveMoves, toDeskItem, uploadKind } from "../src/lib/approvals-live";
 import type { ApiDeliverable } from "../src/lib/deliverables-live";
 
 /* --------------------------------------------------------------------------
@@ -37,6 +37,25 @@ describe("toDeskItem", () => {
     expect(toDeskItem(d(), NOW).submittedAt).toBe("1 day ago");
     expect(toDeskItem(d({ state: "APPROVED" }), NOW).waitingHours).toBe(0);
     expect(toDeskItem(d({ state: "DRAFT_SUBMITTED", revision: { reason: "x", at: "y" } }), NOW).waitingHours).toBe(0);
+  });
+  it("names the upload's own kind — a PNG on a video job is an image (staging dry run, 2026-10-26)", () => {
+    const png = toDeskItem(d({ latestAsset: { version: 1, uploadedAt: "2026-10-13T09:00:00.000Z", contentType: "image/png" } }), NOW);
+    expect(png.assetKind).toBe("image");
+    expect(png.live.kindFromUpload).toBe(true);
+    const mp4 = toDeskItem(d({ jobId: "SX-02", latestAsset: { version: 1, uploadedAt: "2026-10-13T09:00:00.000Z", contentType: "video/mp4" } }), NOW);
+    expect(mp4.assetKind).toBe("video");
+  });
+  it("treats a type the browser couldn't tell as unknown, not as an image", () => {
+    const blob = toDeskItem(d({ latestAsset: { version: 1, uploadedAt: "2026-10-13T09:00:00.000Z", contentType: "application/octet-stream" } }), NOW);
+    expect(blob.assetKind).toBe("video"); // SX-03, the job's format
+    expect(blob.live.kindFromUpload).toBe(false);
+    expect(uploadKind("IMAGE/JPEG")).toBe("image");
+    expect(uploadKind("application/pdf")).toBeNull();
+  });
+  it("falls back to the job's format when the upload's type wasn't recorded", () => {
+    const old = toDeskItem(d({ latestAsset: { version: 1, uploadedAt: "2026-10-13T09:00:00.000Z", contentType: null } }), NOW);
+    expect(old.assetKind).toBe("video");
+    expect(old.live.kindFromUpload).toBe(false);
   });
   it("says so when nothing is uploaded", () => {
     const it = toDeskItem(d({ latestAsset: null }), NOW);

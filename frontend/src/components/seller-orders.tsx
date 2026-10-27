@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { ArenaChip, ArenaHead, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
+import { ArenaChip, ArenaHead, ArenaUpdated, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
 import { Badge, Card } from "@/components/ui";
 import { EmptyState, ErrorPanel, SkeletonRows } from "@/components/states";
 import { SellerMarkDelivered } from "@/components/seller-mark-delivered";
@@ -81,13 +81,11 @@ function Heading() {
   );
 }
 
-const readAt = (now: Date) => `Postgres · read ${now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
-
 /** The Orders title row: the Arena's head for the athlete (P1-ART-22), the plain heading for a team. */
 export function OrdersHead({ kind, now = new Date(), pill, children }: { kind: SellerKind; now?: Date; pill?: ReactNode; children?: ReactNode }) {
   if (kind !== "athlete") return <Heading />;
   return (
-    <ArenaHead title="Orders" pill={pill ?? readAt(now)} lede={LEDE}>
+    <ArenaHead title="Orders" pill={pill ?? <ArenaUpdated at={now} />} lede={LEDE}>
       {children}
     </ArenaHead>
   );

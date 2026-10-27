@@ -74,7 +74,7 @@ function StudentCard({ s }: { s: ApiStudent }) {
           {s.autoApprovedAt ? ` · approved automatically ${fmt(s.autoApprovedAt)}` : ""}
         </p>
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-2">
+      <div className="flex max-w-full shrink-0 flex-col items-end gap-2">
         <Badge tone={TONE[s.state] ?? "neutral"}>{STUDENT_STATE_COPY[s.state]}</Badge>
         {s.autoApprovedAt && <Badge tone="accent">Approved automatically</Badge>}
         <StudentDecision studentId={s.id} state={s.state} />
@@ -137,7 +137,7 @@ function ClaimCard({ c }: { c: ApiClaim }) {
           <Badge tone={c.rosterMatched ? "accent" : "warn"}>{c.rosterMatched ? "on your roster" : "not on your roster"}</Badge>
         </p>
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-2">
+      <div className="flex max-w-full shrink-0 flex-col items-end gap-2">
         <Badge tone={c.state === "SUBMITTED" ? "warn" : c.state === "VERIFIED" ? "accent" : "neutral"}>{c.state.toLowerCase()}</Badge>
         {c.state === "SUBMITTED" && <ClaimDecision claimId={c.id} rosterMatched={c.rosterMatched} />}
       </div>
@@ -259,7 +259,7 @@ export function LiveAdvisorDesk({
           )}
         </section>
         <p className="flex items-center gap-1.5 text-[10px] text-faint">
-          Student records, scoped to your school <MiniChip kind="ver">POSTGRES</MiniChip>
+          Student records, scoped to your school <MiniChip kind="ver">SponsorX records</MiniChip>
         </p>
       </div>
     </ServerList>

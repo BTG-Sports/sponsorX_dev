@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import { CountUp } from "./count-up";
 import { Magnetic, ScrambleText, TiltSpot } from "./hero-fx";
 import { DashboardCta } from "./my-dashboard";
-import { networkStats, trustedBrands } from "@/lib/fixtures";
+import { trustedBrands } from "@/lib/fixtures";
+import { networkFigures, type NetworkKey, type PublicNetworkStats } from "@/lib/network-stats";
 
 /* --------------------------------------------------------------------------
    Landing hero — the 2D UI of the plaza stop, a 1:1 of the hero mockup of
@@ -19,14 +20,15 @@ import { networkStats, trustedBrands } from "@/lib/fixtures";
 
    - HeroEyebrow    "CONNECTING BRANDS / ATHLETES / FANS ——"
    - HeroActions    "Get Started →" (gradient) and "Learn More ▶" (outlined)
-   - ImpactCard     the "REAL IMPACT" glass panel — three networkStats rows,
-                    each a link to the stop that explains it. Figures are
-                    fixtures and the card says so (P7-QA-02 — no public
-                    metrics read exists yet).
+   - ImpactCard     the "REAL IMPACT" glass panel — up to three rows read
+                    from GET /public/network-stats (athletes, campaigns,
+                    rewards), each a link to the stop that explains it. A
+                    zero row is left out; no read, no card (P8-FE-09).
    - TrustedBrands  the full-width "TRUSTED BY LEADING BRANDS" band with
                     slanted dividers; text wordmarks from
-                    fixtures.trustedBrands (mockup names, not partners —
-                    same fixture rule; no logo assets).
+                    fixtures.trustedBrands — named sponsors only, and
+                    hidden while that list is empty (it is, until BTG has
+                    sponsors who agree to be named).
    - PlatformStrip  the "THE PLATFORM · A smarter way to sponsor, engage and
                     grow." band with the "SPONSORX · BUILT FOR WHAT'S NEXT"
                     tag at its right — two tracked lines only. The mockup's
@@ -96,11 +98,20 @@ function FansIcon({ className = "size-5" }: { className?: string }) {
   );
 }
 
-/** The impact rows use these, in networkStats order. */
-const STAT_ICONS = [BarsIcon, MegaphoneIcon, FansIcon] as const;
-
-/** Where each impact row sends the reader — the stop that explains it. */
-const STAT_LINKS = ["#for-athletes", "#how-it-works", "#for-sponsors"] as const;
+/** The card's three figures, with each row's glyph and the stop that explains it. */
+const IMPACT_KEYS = ["athletes", "campaignsDelivered", "rewardsRedeemed"] as const satisfies readonly NetworkKey[];
+type ImpactKey = (typeof IMPACT_KEYS)[number];
+const STAT_ICONS: Record<ImpactKey, typeof BarsIcon> = {
+  athletes: BarsIcon,
+  campaignsDelivered: MegaphoneIcon,
+  rewardsRedeemed: FansIcon,
+};
+const STAT_LINKS: Record<ImpactKey, string> = {
+  athletes: "#for-athletes",
+  campaignsDelivered: "#how-it-works",
+  rewardsRedeemed: "#for-sponsors",
+};
+const COLS = ["grid-cols-1", "grid-cols-1", "grid-cols-2", "grid-cols-3"] as const;
 
 /* ------------------------------------------------------------------ hero */
 
@@ -152,10 +163,6 @@ export function HeroActions() {
 }
 
 /* ----------------------------------------------------------- impact card */
-
-/** The mockup shows three rows; the fourth counter (rewards redeemed)
- *  stays in the fixture for the portals. */
-const IMPACT_ROWS = networkStats.slice(0, 3);
 
 /** Chamfer on the panel's top-right corner, in px. */
 const CHAMFER = 14;
@@ -215,7 +222,23 @@ const ACCENT = "absolute bg-[#d6ecff]";
  * with a fine pointer the card tilts toward it and a spotlight runs round
  * the outline under it (TiltSpot, `sx-impact-spot`).
  */
-export function ImpactCard({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
+export function ImpactCard({
+  stats,
+  className = "",
+  style,
+  linkBase = "",
+}: {
+  stats: PublicNetworkStats | null;
+  className?: string;
+  style?: React.CSSProperties;
+  /** Where the rows' section anchors live — "" on the home page itself, "/"
+   *  when the card is shown on another page (/get-started). */
+  linkBase?: string;
+}) {
+  /* Real counts only (P8-FE-09): the sample figures this card used to show
+     read as facts on the live site. Nothing to show, no card. */
+  const rows = networkFigures(stats, IMPACT_KEYS);
+  if (rows.length === 0) return null;
   return (
     <aside
       className={["relative text-on-media", className].join(" ")}
@@ -281,12 +304,12 @@ export function ImpactCard({ className = "", style }: { className?: string; styl
           <path d="M0 19.5 H54 L64 6 H100" vectorEffect="non-scaling-stroke" strokeWidth="1" />
         </svg>
 
-        <ul className="mt-1 grid grid-cols-3 lg:block">
-          {IMPACT_ROWS.map((s, i) => {
-            const Icon = STAT_ICONS[i];
+        <ul className={`mt-1 grid lg:block ${COLS[rows.length]}`}>
+          {rows.map((s, i) => {
+            const Icon = STAT_ICONS[s.key];
             return (
               <li
-                key={s.label}
+                key={s.key}
                 className={
                   i > 0
                     ? "border-l border-[#a9d3ff]/20 lg:border-l-0 lg:border-t lg:border-transparent lg:[border-image:linear-gradient(90deg,rgba(169,211,255,.45),rgba(169,211,255,.08))_1]"
@@ -294,8 +317,8 @@ export function ImpactCard({ className = "", style }: { className?: string; styl
                 }
               >
                 <Link
-                  href={STAT_LINKS[i]}
-                  title={`Sample figure — will read ${s.source}`}
+                  href={`${linkBase}${STAT_LINKS[s.key]}`}
+                  title={s.source}
                   className="group flex flex-col items-center px-1 py-1.5 text-center transition-colors hover:text-primary-soft lg:grid lg:grid-cols-[auto_1fr_auto] lg:items-center lg:gap-5 lg:px-0 lg:py-2.5 lg:text-left"
                 >
                   <span className="hidden size-[52px] place-items-center rounded-full border-[1.5px] border-[#4fb0ff] bg-[#08172f]/55 text-[#4fb0ff] shadow-[0_0_14px_rgba(79,176,255,.55),inset_0_0_10px_rgba(79,176,255,.15)] lg:grid">
@@ -303,7 +326,7 @@ export function ImpactCard({ className = "", style }: { className?: string; styl
                   </span>
                   <span className="min-w-0">
                     <span className="block text-[22px] font-bold leading-none tracking-tight text-on-media lg:text-[26px]">
-                      <CountUp value={s.value} prefix={s.prefix} />
+                      <CountUp value={s.value} />
                     </span>
                     <span className="mt-1 block text-[9px] font-normal uppercase leading-tight tracking-[0.05em] text-on-media/85 lg:mt-1.5 lg:truncate lg:text-[11px]">
                       {s.label}
@@ -316,13 +339,8 @@ export function ImpactCard({ className = "", style }: { className?: string; styl
           })}
         </ul>
 
-        {/* P7-QA-02: fixtures.networkStats constants — no public metrics read
-            exists yet. The mockup carries no footnote, so the provenance
-            lives in each row's title tooltip and here for screen readers. */}
-        <p className="sr-only">
-          Sample figures from fixture data. Live counts arrive with the public
-          metrics read.
-        </p>
+        {/* Each row's title names its source; this says so for screen readers. */}
+        <p className="sr-only">Counted from SponsorX records.</p>
       </div>
       </TiltSpot>
     </aside>
@@ -392,6 +410,9 @@ function BrandItems({ from = 0, fit }: { from?: number; fit?: readonly string[] 
  * it is the three-column grid described at FIT.
  */
 export function TrustedBrands({ children }: { children?: ReactNode }) {
+  /* No named sponsors yet → no strip. Mockup names read as endorsements
+     (staging dry run, 2026-10-26), so nothing stands in for real ones. */
+  if (trustedBrands.length === 0) return null;
   return (
     <div
       className={[
@@ -402,7 +423,6 @@ export function TrustedBrands({ children }: { children?: ReactNode }) {
         "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-[#bfe0ff]/80 before:shadow-[0_0_10px_rgba(120,190,255,.9),0_0_22px_rgba(46,155,245,.55)]",
         "after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-[#9cc7ff]/50 after:shadow-[0_0_8px_rgba(99,180,248,.55)]",
       ].join(" ")}
-      title="Sample — mockup brand names, not confirmed partners"
     >
       {/* label sits in its own darker, slanted plate with a lit edge */}
       <div className="relative flex h-full shrink-0 items-center pl-5 pr-3 lg:justify-self-start lg:pl-[6vw] lg:pr-16">

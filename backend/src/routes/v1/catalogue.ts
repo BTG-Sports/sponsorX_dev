@@ -11,6 +11,7 @@ import { limit } from "../../lib/rate-limit";
 import { clientIp } from "../../lib/client-ip";
 import { env } from "../../config/env";
 import { listJobs, listPackages, listPublicPackages } from "../../domain/catalogue";
+import { readPublicNetworkStats } from "../../domain/public-network-stats";
 
 export const catalogueRouter = Router();
 
@@ -23,6 +24,17 @@ export const catalogueRouter = Router();
 catalogueRouter.get("/public/catalogue/packages", async (req, res) => {
   await limit("catalogue:public", clientIp(req), 120, 3600);
   res.json({ packages: await listPublicPackages(env.PUBLIC_INTAKE_TENANT_ID) });
+});
+
+/**
+ * GET /public/network-stats — the home page's network numbers (P8-FE-09).
+ * Four row counts, no names or money; see domain/public-network-stats.ts.
+ * No actor, pinned to the public tenant, the same generous limit as the
+ * price list.
+ */
+catalogueRouter.get("/public/network-stats", async (req, res) => {
+  await limit("network-stats:public", clientIp(req), 120, 3600);
+  res.json(await readPublicNetworkStats(env.PUBLIC_INTAKE_TENANT_ID));
 });
 
 /** GET /catalogue/packages — the §7 packages, sponsor prices. */

@@ -16,7 +16,7 @@ import {
 /* --------------------------------------------------------------------------
    AdminAnalyticsReport — the serializable model behind "Export report" on
    the admin analytics guided story. Same contract as SponsorReport /
-   CampaignRoiReport / AthleteEarningsReport: built from the exact fixtures
+   CampaignResultsReport / AthleteEarningsReport: built from the exact data
    and insight derivations the page renders (so the report can never
    disagree with the screen), printed with every §22 provenance label
    intact. Built CLIENT-side (unlike the other three) because the range

@@ -247,7 +247,7 @@ export function PackageFilters() {
 
 /* ------------------------------------------------------------------- grid */
 
-export function PackageGrid({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function PackageGrid({ children, className = "", label = "Sponsor packages" }: { children: ReactNode; className?: string; label?: string }) {
   const ref = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
@@ -295,7 +295,7 @@ export function PackageGrid({ children, className = "" }: { children: ReactNode;
   }, []);
 
   return (
-    <ul ref={ref} aria-label="Sponsor packages" className={`sx-pkg-row ${className}`}>
+    <ul ref={ref} aria-label={label} className={`sx-pkg-row ${className}`}>
       {children}
     </ul>
   );

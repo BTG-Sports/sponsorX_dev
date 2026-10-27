@@ -806,36 +806,6 @@ export const topLocations = [
   { place: "Kigali, RW", pct: 7 },
 ];
 
-/* ---- 12. Sponsor ROI Report (mockup screen 12) ---- */
-export const roiReport = {
-  campaign: "Player of the Week",
-  presentedBy: "Under Armour",
-  period: "May 1 \u2013 May 31, 2026",
-  roi: "2.73X",
-  left: [
-    { label: "Investment", value: "$19,200", source: "VERIFIED_MANUAL" as const },
-    // Rollups of per-athlete figures the athletes reported themselves, so they
-    // inherit SELF_REPORTED — a total cannot be more verified than its parts.
-    // Taxonomy §4.2. To make these verified, verify each athlete's contribution.
-    { label: "Total Views", value: "823,400", source: "SELF_REPORTED" as const },
-    { label: "Engagements", value: "42,815", source: "SELF_REPORTED" as const },
-    // F-4 · both come from SponsorX's own reward funnel, not an outside
-    // platform, so they are VERIFIED_SYSTEM — the strongest label, because we
-    // recorded the events ourselves and can audit them. Taxonomy §2.
-    { label: "Leads Generated", value: "4,300", source: "VERIFIED_SYSTEM" as const },
-    { label: "Rewards Redeemed", value: "1,870", source: "VERIFIED_SYSTEM" as const },
-    { label: "Revenue Attributed", value: "$52,500", source: "ATTRIBUTED" as const },
-  ],
-  right: [
-    { label: "Views priced at curated CPM", value: "$32,936", source: "ESTIMATED" as const },
-    // Derived from Investment ÷ the rollups above, so they take the weakest
-    // input — taxonomy §4.1. Verified investment ÷ self-reported views is not
-    // a verified cost.
-    { label: "Cost per View (CPV)", value: "$0.023", source: "SELF_REPORTED" as const },
-    { label: "Cost per Engagement", value: "$0.45", source: "SELF_REPORTED" as const },
-  ],
-};
-
 export const roiSeries = [
   { label: "May 1", a: 0.4 },
   { label: "May 8", a: 0.9 },
@@ -1370,108 +1340,6 @@ export const topAthletes = [
   { rank: 3, name: "Jalen Brooks", initials: "JB", views: 149_000, flag: "under-delivering" },
 ];
 
-/* ---- ROI report (c1) ---- */
-
-export const roiGauge = {
-  value: "2.73×",
-  /** Ring sweep — 2.73 on a 0–4× demo scale. */
-  sweep: 0.68,
-  invested: 1_920_000,
-  attributed: 5_250_000,
-  mediaValue: 3_293_600,
-};
-
-/** Return multiple over time; crosses 1.0× at breakEvenIndex. */
-export const roiTimeline = {
-  series: [
-    { label: "May 1", a: 0.1 },
-    { label: "May 5", a: 0.35 },
-    { label: "May 9", a: 0.68 },
-    { label: "May 14", a: 1.0 },
-    { label: "May 18", a: 1.42 },
-    { label: "May 22", a: 1.9 },
-    { label: "May 26", a: 2.31 },
-    { label: "May 31", a: 2.73 },
-  ],
-  breakEvenIndex: 3,
-  breakEvenLabel: "1.0× · May 14",
-};
-
-/** MetricDaily grouped by deliverable→NilJob (SX taxonomy). */
-export const formatPerformance = [
-  { label: "Reels", sub: "SX-03", value: 412_000, display: "412K", tone: "primary" as const },
-  { label: "Posts", sub: "SX-02", value: 218_400, display: "218K", tone: "soft" as const },
-  { label: "Stories", sub: "SX-01", value: 133_000, display: "133K", tone: "soft" as const },
-  { label: "Appearances", sub: "SX-05", value: 60_000, display: "60K ▼", tone: "warn" as const },
-];
-export const formatInsight = "Reels deliver 3.1× the views-per-dollar of stories";
-
-/** MetricDaily grouped by deliverable→platform. VERIFIED_MANUAL until OAuth. */
-export const platformSplit = {
-  segments: [
-    { label: "Instagram", value: 428_200, color: "var(--sx-primary)" },
-    { label: "TikTok", value: 264_100, color: "var(--sx-accent)" },
-    { label: "YouTube", value: 131_100, color: "var(--sx-primary-soft)" },
-  ],
-  leaderPct: "52%",
-  leader: "Instagram",
-  insight: "TikTok engagement rate is 2.4× Instagram's — despite fewer views",
-};
-
-/** RewardEvent × resolve-geo (city-level, no IP stored). */
-export const geoMarkets = [
-  { label: "Washington DC", value: 24, display: "24%" },
-  { label: "Baltimore", value: 18, display: "18%" },
-  { label: "Silver Spring", value: 12, display: "12%" },
-  { label: "Atlanta", value: 9, display: "9%" },
-  { label: "Kigali", value: 7, display: "7%" },
-];
-export const geoInsight = "54% of redemptions within 25mi of DC — city-level only, no IP stored";
-
-/** RewardEvent funnel with latency + lead push (consent-gated → Zoho CRM). */
-export const funnelDetail = {
-  stages: [
-    { label: "Scans", value: 8_200 },
-    { label: "Landing", value: 6_410 },
-    { label: "Claims", value: 4_300 },
-    { label: "Redeemed", value: 1_870 },
-  ],
-  overallPct: 23,
-  medianRedeemHours: 26,
-  leadsPushed: 4_300,
-};
-
-/** Computed from spend (Zoho) ÷ MetricDaily / RewardEvent counts.
-    benchDeltaPct compares against BTG-curated category medians (ESTIMATED). */
-export const efficiency = [
-  { label: "Cost per view", value: "$0.023", benchDeltaPct: -39 as number | null },
-  { label: "Cost per engagement", value: "$0.45", benchDeltaPct: -18 as number | null },
-  { label: "Cost per redemption", value: "$10.27", benchDeltaPct: -24 as number | null },
-  { label: "Cost per lead", value: "$4.47", benchDeltaPct: null as number | null },
-];
-
-/** MetricDaily per deliverable, top 3 — extends the old topContent shape. */
-export const topContentX = [
-  { rank: 1, title: "Week 5 — Highlight Reel", athlete: "Shammah Kwizera", initials: "SK", format: "Reel", platform: "Instagram", views: 185_000, engagementRate: 7.1 },
-  { rank: 2, title: "Week 4 — Interview", athlete: "Marcus Reed", initials: "MR", format: "Reel", platform: "TikTok", views: 162_000, engagementRate: 6.4 },
-  { rank: 3, title: "Week 3 — Game Winner", athlete: "Jalen Brooks", initials: "JB", format: "Post", platform: "Instagram", views: 149_000, engagementRate: 5.2 },
-];
-
-export const roiRecommendation = {
-  body: "Reels at the Creator tier drove your best views-per-dollar. Shift the appearance budget into 2 more reels and DC-area rewards for a projected +22% return.",
-  liftPct: 22,
-};
-
-/** Delivery block for the report — Deliverable + MetricDaily counts. */
-export const roiDelivery = {
-  views: 823_400,
-  engagements: 42_815,
-  deliverablesDone: 18,
-  deliverablesTotal: 24,
-  onTimePct: 94,
-  leads: 4_300,
-};
-
 /* --------------------------------------------------------------------------
    A2 admin operations board (spec 2026-09-11 A2 §2). Every number names its
    Block B retrieval path. Money in cents, like everything above.
@@ -1597,24 +1465,21 @@ export const propertyShowcase = {
   avgEngagementPct: 4.2,
 };
 
-/* --------------------------------------------------------------------------
-   A2 public landing counters (spec 2026-09-11 A2 §2). Replaces the page's
-   previously hardcoded hero stat tiles — every counter is a Block B count/sum
-   with a named source, per the stats-must-be-retrievable rule.
-   -------------------------------------------------------------------------- */
-
-export const networkStats = [
-  { label: "Athletes in the network", value: 148, prefix: "", source: "Postgres · Athlete ACTIVE" },
-  { label: "Campaigns delivered", value: 86, prefix: "", source: "Postgres · Campaign completed" },
-  { label: "Attributed fan value", value: 2_300_000, prefix: "$", source: "MetricDaily rollup" },
-  { label: "Fan rewards redeemed", value: 41_280, prefix: "", source: "RewardEvent · REDEEM" },
-];
+/* The public pages' network counters used to live here as fixture constants
+   (148 athletes, 86 campaigns, "$2.3M attributed fan value") and showed on
+   the live site as if real. They are now read from GET /public/network-stats
+   — see lib/network-stats.ts (P8-FE-09, 2026-10-26). Don't bring fixtures
+   back for them. */
 
 /**
  * "Trusted by leading brands" strip on the landing hero (mockup 2026-09-30).
- * The names are the mockup's and NOT confirmed partners — replace with BTG's
- * actual sponsors (Zoho CRM · Account, closed-won) before launch; until then
- * the strip labels itself as sample data (P7-QA-02).
+ *
+ * EMPTY ON PURPOSE, and an empty list hides the strip. It held the mockup's
+ * names (Nike, adidas, Red Bull, Monster Energy, Under Armour), which are
+ * NOT partners. The "Sample" note was only a hover tooltip, so visitors to
+ * sponsorx.net read the strip as real endorsements (staging dry run,
+ * 2026-10-26). Add a brand here only once it is a BTG sponsor that has
+ * agreed to be named (Zoho CRM · Account, closed-won).
  *
  * The mockup shows each brand's white logo. Those are brand artwork the repo
  * does not hold: drop the files under `public/brands/` and set `logo` (e.g.
@@ -1625,13 +1490,7 @@ export const trustedBrands: {
   name: string;
   style: "upper" | "lower" | "italic";
   logo?: string;
-}[] = [
-  { name: "Nike", style: "italic" },
-  { name: "adidas", style: "lower" },
-  { name: "Red Bull", style: "italic" },
-  { name: "Monster Energy", style: "upper" },
-  { name: "Under Armour", style: "upper" },
-];
+}[] = [];
 
 /* --------------------------------------------------------------------------
    SponsorX NEXT — student portal fixtures (P1-FE-19, NEXT spec §5, §8).

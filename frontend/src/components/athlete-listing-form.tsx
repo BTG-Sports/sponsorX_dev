@@ -164,7 +164,8 @@ export function AthleteListCompose({ itemId, itemTitle, initial, itemCard, check
         <button type="button" className={`${primary} w-full`} disabled={pending} onClick={submit}>
           {pending ? "Submitting…" : "Submit"}
         </button>
-        <p className="text-[11px] text-muted">{GOES_LIVE_COPY}</p>
+        {/* No "goes live" line here: the checklist's foot already says it
+            (it was printed twice — staging dry run, 2026-10-26). */}
         {failure && <FailureNote f={failure} />}
       </ListChecklist>
     </div>
@@ -296,7 +297,6 @@ export function AthleteListingEditor({
             >
               {pending ? "Working…" : held ? "Save and submit again" : "Submit"}
             </button>
-            <p className="text-[11px] text-muted">{GOES_LIVE_COPY}</p>
             <div className="flex flex-wrap items-center gap-2">
               {!held && (
                 <button type="button" className={secondary} disabled={pending || !dirty} onClick={() => run(() => saveListingDescriptionAction(listing.id, text), "Saved.")}>

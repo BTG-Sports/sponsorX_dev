@@ -156,10 +156,12 @@ export function OpsHeader({
           </div>
         )}
         {cards && total !== null && (
-          <div className="sx-ops-panel sx-ops-in relative flex items-center gap-4 px-4 py-3" style={at(0.28)}>
+          // Below sm the tile is half a 320px phone — the 96px ring left the
+          // list 0px wide and its counts spilled off-screen — so it stacks.
+          <div className="sx-ops-panel sx-ops-in relative flex items-center gap-4 px-4 py-3 max-sm:flex-col max-sm:items-start max-sm:gap-3" style={at(0.28)}>
             <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-[#9be0ff] shadow-[0_0_10px_#9be0ff]" />
             <ActionRing cards={cards} total={total} compact />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1 max-sm:w-full">
               <dt className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#8a96a3]">By queue</dt>
               <dd className="mt-1.5 space-y-0.5">
                 {cards.map((c) => (

@@ -192,7 +192,7 @@ export default async function AdminApprovalsPage({
 
       {/* ------------------------------------------------------- hero band */}
       <HeroBand border="border-admin/25" className="sx-animate">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center">
           <div>
             <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
               Approval queue

@@ -26,7 +26,9 @@ renders `Campaign.budget` (§26, guide §04).
 Public marketing site: hero with live network counters (count-up over
 `networkStats` — Postgres counts/sums, sourced per tile), the 12-screen
 gallery, package presentation and both sponsor/athlete CTAs. Hero imagery is
-placeholder pending `P1-ART-06`.
+placeholder pending `P1-ART-06`. *(2026-10-26, P8-FE-09: the counters now read real counts from
+`GET /public/network-stats`; `networkStats` is gone, and a zero or an
+unreachable API hides a counter rather than showing a sample.)*
 
 ## Screen 2 · Login — `/login`
 ![Screen 2](design-record/screen-02-login.png)

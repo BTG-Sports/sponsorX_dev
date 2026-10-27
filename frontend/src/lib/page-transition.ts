@@ -33,6 +33,9 @@ export const SITE_PREFIXES = [
   "/map",
   "/brief",
   "/onboarding",
+  "/get-started",
+  "/how-it-works",
+  "/about",
   "/s",
 ] as const;
 
@@ -52,6 +55,9 @@ const LABELS: ReadonlyArray<readonly [string, string]> = [
   ["/map", "The Map"],
   ["/brief", "Your Brief"],
   ["/onboarding", "Onboarding"],
+  ["/get-started", "Get Started"],
+  ["/how-it-works", "How It Works"],
+  ["/about", "About"],
   ["/s", "SponsorX"],
 ];
 

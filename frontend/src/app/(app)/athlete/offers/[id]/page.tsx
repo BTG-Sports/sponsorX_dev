@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ArenaChip, ArenaHead, ArenaLink, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, type ArenaTone } from "@/components/arena-stage";
+import { ArenaChip, ArenaHead, ArenaUpdated, ArenaLink, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, type ArenaTone } from "@/components/arena-stage";
 import { OfferRespond } from "@/components/offer-respond";
 import {
   STATUS_COPY,
@@ -18,6 +18,7 @@ import {
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 import { acceptOfferAction, declineOfferAction, requestOfferChangeAction } from "./actions";
+import { campaignWithSponsor } from "@/lib/campaign-title";
 
 /* --------------------------------------------------------------------------
    Campaign offer — 2S2-FE-03. Athlete portal.
@@ -103,13 +104,12 @@ export default async function AthleteOfferPage({ params }: { params: Promise<{ i
   const change = latestChangeRequest(o);
   const rows = deliverableRows(o);
   const daysToAnswer = Math.max(0, Math.ceil((new Date(o.expiresAt).getTime() - now.getTime()) / DAY));
-  const readAt = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
   return (
     <div className="space-y-6">
       <ArenaHead
-        title={`${o.sponsorName} · ${o.campaignName}`}
-        pill={`Postgres · read ${readAt}`}
+        title={campaignWithSponsor(o.campaignName, o.sponsorName)}
+        pill={<ArenaUpdated />}
         lede={
           <span className="flex flex-wrap items-center gap-2">
             <ArenaChip tone={TONE[copy.tone] ?? "ink"}>{status === "open" ? `Open · ${expiryLabel(o.expiresAt, now).replace(/^E/, "e")}` : copy.label}</ArenaChip>

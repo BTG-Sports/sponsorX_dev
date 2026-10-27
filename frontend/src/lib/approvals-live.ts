@@ -9,9 +9,12 @@ import type { ContentCheck } from "@/lib/content-checks";
    ONE ITEM SHAPE FOR BOTH MODES, like the applications desk: live items are
    ReviewContentItems plus a `live` block the drawer's real decision bar
    reads. Two fields the fixtures invent get honest sources here:
-     - assetKind — CreativeAsset stores no content type, so this is the JOB's
-       format (a reel is video, a sponsored post an image), which is what the
-       reviewer is checking against. Labelled as the job's format in the UI.
+     - assetKind — what the athlete actually uploaded, from the latest
+       asset's content type (P5-BE-09 records it). An athlete can upload a
+       PNG to a video job, and the desk called it "Video · v1" when this was
+       the job's format (staging dry run, 2026-10-26). Assets registered
+       before the type was recorded fall back to the JOB's format (a reel is
+       video, a sponsored post an image), labelled as the job's in the UI.
      - waitingHours — since the latest upload, the moment it landed on the
        desk; nothing uploaded means nothing is waiting.
    A revision request that is still open (derived by the API from the audit
@@ -23,6 +26,9 @@ export type LiveDeskItem = ReviewContentItem & {
     revisionReason: string | null;
     publishedUrl: string | null;
     latestVersion: number | null;
+    /** True when assetKind is the upload's own type; false when it is the
+     *  job's format, standing in for an asset with no recorded type. */
+    kindFromUpload: boolean;
     jobId: string;
     dueIso: string;
     /* P5-BE-09 — what the reviewer sees beside the draft: the automatic
@@ -57,6 +63,17 @@ export function jobFormat(jobId: string): "video" | "image" {
   return JOB_FORMAT[jobId] ?? "image";
 }
 
+/** The upload's kind from its MIME type: video/* or image/*. Anything else —
+ *  no type, or the `application/octet-stream` a browser sends when it can't
+ *  tell (deliverable-upload.tsx) — is null, so the desk falls back to the
+ *  job's format rather than calling a .mov an image. */
+export function uploadKind(contentType: string | null | undefined): "video" | "image" | null {
+  const t = contentType?.trim().toLowerCase() ?? "";
+  if (t.startsWith("video/")) return "video";
+  if (t.startsWith("image/")) return "image";
+  return null;
+}
+
 function ago(fromIso: string, now: Date): { hours: number; label: string } {
   const hours = Math.max(0, Math.floor((now.getTime() - Date.parse(fromIso)) / 3_600_000));
   if (hours < 1) return { hours, label: "just now" };
@@ -71,6 +88,7 @@ function monDay(iso: string): string {
 }
 
 export function toDeskItem(d: ApiDeliverable, now: Date): LiveDeskItem {
+  const uploaded = uploadKind(d.latestAsset?.contentType);
   const since = d.latestAsset ? ago(d.latestAsset.uploadedAt, now) : null;
   /* P5-BE-09 — the API says when it reached its reviewer; before that
      field existed, the latest upload was the measure. */
@@ -84,7 +102,7 @@ export function toDeskItem(d: ApiDeliverable, now: Date): LiveDeskItem {
     state: d.state,
     revisionRequested: Boolean(d.revision),
     athlete: d.athlete.displayName,
-    assetKind: jobFormat(d.jobId),
+    assetKind: uploaded ?? jobFormat(d.jobId),
     version: d.latestAsset?.version ?? 0,
     submittedAt: since ? since.label : "nothing uploaded yet",
     /* Only content actually sitting on a review desk is "waiting". */
@@ -97,6 +115,7 @@ export function toDeskItem(d: ApiDeliverable, now: Date): LiveDeskItem {
       revisionReason: d.revision?.reason ?? null,
       publishedUrl: d.publishedUrl,
       latestVersion: d.latestAsset?.version ?? null,
+      kindFromUpload: uploaded !== null,
       jobId: d.jobId,
       dueIso: d.dueDate,
       checks: d.checks ?? null,

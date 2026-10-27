@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AdminAnalyticsReport } from "@/lib/analytics-report-data";
-import type { CampaignRoiReport } from "@/lib/campaign-report-data";
+import type { CampaignResultsReport } from "@/lib/campaign-results-report";
 import type { AthleteEarningsReport } from "@/lib/earnings-report-data";
 import type { SponsorReport } from "@/lib/report-data";
 
 /* --------------------------------------------------------------------------
    ExportReport — the "Export report" button as a small client island, shared
-   by the sponsor dashboard and the campaign ROI report. A dropdown offers the
+   by the sponsor dashboard, the campaign results report (real or sample), the
+   athlete's earnings and the admin analytics story. A dropdown offers the
    two formats the client reads: a print-ready PDF and a pivotable XLSX
    workbook. The payload kind picks the renderer pair, and every renderer is
    dynamic-imported on click, so jspdf/exceljs stay out of the page bundles.
@@ -20,7 +21,8 @@ import type { SponsorReport } from "@/lib/report-data";
 
 export type ExportPayload =
   | { kind: "sponsor-dashboard"; report: SponsorReport }
-  | { kind: "campaign-roi"; report: CampaignRoiReport }
+  /** A campaign's results — the report the results page draws, real or sample. */
+  | { kind: "campaign-results"; report: CampaignResultsReport }
   | { kind: "athlete-earnings"; report: AthleteEarningsReport }
   | { kind: "admin-analytics"; report: AdminAnalyticsReport };
 
@@ -45,13 +47,13 @@ async function generate(payload: ExportPayload, format: Format): Promise<Blob> {
       const { generateReportXlsx } = await import("@/lib/report-xlsx");
       return generateReportXlsx(payload.report);
     }
-    case "campaign-roi": {
+    case "campaign-results": {
       if (format === "pdf") {
-        const { generateCampaignReportPdf } = await import("@/lib/campaign-report-pdf");
-        return generateCampaignReportPdf(payload.report);
+        const { generateCampaignResultsPdf } = await import("@/lib/campaign-results-pdf");
+        return generateCampaignResultsPdf(payload.report);
       }
-      const { generateCampaignReportXlsx } = await import("@/lib/campaign-report-xlsx");
-      return generateCampaignReportXlsx(payload.report);
+      const { generateCampaignResultsXlsx } = await import("@/lib/campaign-results-xlsx");
+      return generateCampaignResultsXlsx(payload.report);
     }
     case "athlete-earnings": {
       if (format === "pdf") {

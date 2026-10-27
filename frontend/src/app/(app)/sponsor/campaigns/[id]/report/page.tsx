@@ -22,9 +22,10 @@ import {
 } from "@/components/stadium-stage";
 import { StadiumTrend } from "@/components/stadium-trend";
 import { resolveBack } from "@/lib/back";
-import { buildCampaignRoiReport } from "@/lib/campaign-report-data";
+import { buildCampaignResultsReport } from "@/lib/campaign-results-report";
 import { demoState } from "@/lib/demo";
 import { formatCount } from "@/lib/format-count";
+import { knownJobName } from "@/lib/job-names";
 import { campaignDetailX, sponsorCampaigns } from "@/lib/fixtures";
 import type { SearchParams } from "@/lib/list-query";
 import type { ApiSponsorReport, Sourced } from "@/lib/report-live";
@@ -188,7 +189,16 @@ function Report({
         actions={
           <>
             <StadiumRange current={range} path={path} params={sp} />
-            {sample && <ExportReport payload={{ kind: "campaign-roi", report: buildCampaignRoiReport(r.campaign.id) }} />}
+            {/* The export is the report this page draws, real or sample
+                (staging dry run, 2026-10-26: it only rendered for the
+                samples, so a sponsor couldn't download theirs; QA pass 3:
+                the samples' own fixture export named another campaign). */}
+            <ExportReport
+              payload={{
+                kind: "campaign-results",
+                report: buildCampaignResultsReport(r, overview ? { window: range, athletes: overview.topAthletes } : null, new Date(), { sample }),
+              }}
+            />
           </>
         }
       >
@@ -483,13 +493,16 @@ function Athletes({ roster }: { roster: ApiSponsorReport["roster"] }) {
         </div>
       ) : (
         <div className="pb-1">
+          {/* One row per Campaign Order: an athlete on two jobs is two rows,
+              told apart by the job (and keyed by athlete + job, which the API
+              keeps unique — keying by athlete alone made React drop rows). */}
           {rows.map((a, i) => (
             <StadiumRow
-              key={a.athleteId}
+              key={`${a.athleteId}:${a.jobId}`}
               i={i}
               lead={monogramOf(a.athleteName)}
               title={a.athleteName}
-              sub={orderWord(a.orderState).text}
+              sub={[knownJobName(a.jobId), orderWord(a.orderState).text].filter(Boolean).join(" · ")}
               right={
                 <span className="block">
                   <span className="block text-[13px] font-bold tabular-nums text-text">
@@ -584,6 +597,8 @@ function PostsGallery({ assets }: { assets: ApiSponsorReport["deliveredAssets"] 
 
 /* ------------------------------------------------------------- demo build */
 
+const DEMO_JOBS = ["SX-03", "SX-02", "SX-01", "SX-05"] as const;
+
 const DEMO_WINDOWS: Record<string, [string, string]> = {
   c1: ["2026-09-01", "2026-10-23"],
   c3: ["2026-08-20", "2026-10-31"],
@@ -674,10 +689,11 @@ function demoReportFor(id: string): { report: ApiSponsorReport; overview: Report
   const report: ApiSponsorReport = {
     campaign: { id, name: base.name, state: base.state, startDate: `${window[0]}T00:00:00.000Z`, endDate: `${window[1]}T00:00:00.000Z`, budget: base.spend },
     objective: null,
-    roster: rich.roster.map((r) => ({
+    /* Real job codes — the roster row shows the job's name (P8-FE-09). */
+    roster: rich.roster.map((r, i) => ({
       athleteId: r.slug,
       athleteName: r.name,
-      jobId: "demo",
+      jobId: DEMO_JOBS[i % DEMO_JOBS.length],
       orderState: r.order,
       deliverablesTotal: r.planned,
       deliverablesVerified: r.delivered,

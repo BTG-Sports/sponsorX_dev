@@ -27,7 +27,7 @@ export function ActiveProfile({ a }: { a: PublicAthlete }) {
   const first = a.displayName.split(" ")[0] ?? a.displayName;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="min-w-0 space-y-4">
         <Card className="relative overflow-hidden">
           <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-athlete opacity-[0.12] blur-[60px]" />

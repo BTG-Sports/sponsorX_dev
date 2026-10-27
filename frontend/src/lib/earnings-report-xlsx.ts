@@ -38,7 +38,7 @@ export async function generateEarningsReportXlsx(
     4,
   );
 
-  sectionTitle(summary, "Your earnings at a glance — canonical (Postgres)");
+  sectionTitle(summary, "Your earnings at a glance");
   styleHeader(summary.addRow(["Metric", "Value", "", "Detail"]));
   for (const s of report.summary) {
     const row = summary.addRow([s.label, s.value, "", s.detail]);

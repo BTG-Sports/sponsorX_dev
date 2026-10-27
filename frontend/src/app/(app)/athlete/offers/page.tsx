@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ArenaChip, ArenaHead, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
+import { ArenaChip, ArenaHead, ArenaUpdated, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
 import { EmptyState } from "@/components/states";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
 import type { SearchParams } from "@/lib/list-query";
@@ -10,6 +10,7 @@ import {
 } from "@/lib/offer-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
+import { campaignAfterSponsor } from "@/lib/campaign-title";
 
 /* --------------------------------------------------------------------------
    Offers — 2S2-FE-03. Athlete portal.
@@ -66,8 +67,7 @@ export default async function AthleteOffersPage({ searchParams }: { searchParams
   const sp = await searchParams;
   const tab = offerTab(sp);
   const now = new Date();
-  const readAt = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  const pill = `Postgres · read ${readAt}`;
+  const pill = <ArenaUpdated />;
 
   const res = await apiFetch(`/offers${offersApiQuery(sp)}`);
   if (res.status === 403) {
@@ -146,7 +146,7 @@ export default async function AthleteOffersPage({ searchParams }: { searchParams
             return (
               <Tr key={o.id} i={i} tone={soon ? "warn" : undefined}>
                 <Td>
-                  <Primary sub={r.campaign}>{r.sponsor}</Primary>
+                  <Primary sub={campaignAfterSponsor(r.campaign, r.sponsor)}>{r.sponsor}</Primary>
                 </Td>
                 <Td label="Deliverables" num>
                   <span className="sx-arena-num">{r.deliverables}</span>

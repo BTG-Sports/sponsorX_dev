@@ -2,7 +2,7 @@ import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import type { CSSProperties } from "react";
 
-import { ArenaHead, at } from "@/components/arena-stage";
+import { ArenaHead, ArenaUpdated, at } from "@/components/arena-stage";
 import { BlockedNotice } from "@/components/ui";
 import { StripeLinkButton } from "@/components/payout-account-panel";
 import { CloseAccount, type CloseResult } from "@/components/account-close";
@@ -33,7 +33,7 @@ import { supportContact } from "@/server/support";
    screens that have no other way in yet.
 
    P1-ART-22 (2026-10-11): an optional `stage="arena"` draws the athlete's
-   copy on the Arena — ArenaHead (title, "Clerk · Postgres · read" pill,
+   copy on the Arena — ArenaHead (title, "Updated" pill,
    the name · account lede) and the three rows as plates that slide in and
    light under the pointer. Without it the property portal's settings are
    exactly as before. Every read, action and line is the same either way.
@@ -60,7 +60,6 @@ export async function AccountSettings({
 }) {
   const [user, acctRes, name, support] = await Promise.all([currentUser(), apiFetch("/payouts/account"), viewerName("You"), supportContact()]);
   const arena = stage === "arena";
-  const readAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   /* A row's frame: an arena plate (speed bar, slide-in, spotlight) or the plain card. */
   const plate = (delay: number, tone?: string) =>
     arena
@@ -77,7 +76,7 @@ export async function AccountSettings({
   return (
     <div className="space-y-3.5">
       {arena && (
-        <ArenaHead title="Settings" pill={`Clerk · Postgres · read ${readAt}`} lede={`${name} · ${accountWords}`} />
+        <ArenaHead title="Settings" pill={<ArenaUpdated />} lede={`${name} · ${accountWords}`} />
       )}
 
       {previews.length > 0 && (
