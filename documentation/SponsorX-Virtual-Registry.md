@@ -45,8 +45,8 @@ as a **draft**:
   example `video-50pct-2s@1`: half of it on screen for 2 seconds);
 - the dates it is available.
 
-**It also carries a test status,** `UNTESTED` until Phase 5's staging test
-(`5S1-QA-01`).
+**It also carries a test status,** `UNTESTED` until Phase 6's staging test
+(`6S1-QA-01`).
 
 **What can change, and when:**
 - **The name, price, capacity and dates:** any time until it retires.
@@ -123,7 +123,7 @@ and the sponsor report (its `virtualPlacements`). A window belongs to a real
 campaign (a foreign key). A campaign holding only INFINEX placements has
 nothing to staff, so it may go DRAFT → APPROVAL as an ad-only one does; a
 campaign with athlete work is still staffed. Counting a fan once across
-channels is `5S7-DATA-01`.
+channels is `6S7-DATA-01`.
 
 ## 5 · Creative, checked against the placement (`4S2-BE-02`)
 
@@ -257,7 +257,7 @@ to the private bucket, and `urlExpiresAt`.
 - **Audited:** one `virtual.creativeLinksGrant` row per grant, naming the
   keys, never the links (they are the credential).
 - **Served by Cloudflare R2.** The links point at R2 directly; they are not
-  cached at the edge. If the load test (`5S4-OPS-02`) shows that is too slow,
+  cached at the edge. If the load test (`6S4-OPS-02`) shows that is too slow,
   a caching layer in front is a separate task.
 
 **Still to come:**

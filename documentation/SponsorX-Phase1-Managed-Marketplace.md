@@ -11,7 +11,7 @@
 | **Depends on** | Nothing — this is the start |
 | **Source** | Master Development Blueprint v2.0 (§ references) + `.claude/stack-decision.md` Addendum A |
 
-### The five phase documents
+### The six phase documents
 
 | Phase | File | Tasks | Timeline |
 |---|---|---|---|
@@ -19,7 +19,8 @@
 | 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 72 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 47 | 18–22 weeks |
-| 5 | [`SponsorX-Phase5-INFINEX-Game.md`](./SponsorX-Phase5-INFINEX-Game.md)  | 7 | after the game's staging world exists |
+| 5 | [`SponsorX-Phase5-Certified-Recruiting.md`](./SponsorX-Phase5-Certified-Recruiting.md) | 2 | not in the blueprint |
+| 6 | [`SponsorX-Phase6-INFINEX-Game.md`](./SponsorX-Phase6-INFINEX-Game.md) | 7 | after the game's staging world exists |
 
 ---
 
@@ -30,7 +31,7 @@ Three artefacts, three jobs. Keeping them straight is what stops them drifting a
 | Artefact | Owns | When it changes | Who touches it |
 |---|---|---|---|
 | **These four Markdown files** | The **plan** — what each task is, in plain English, and what *done* means | Only when scope or a task's meaning changes | Anyone, by pull request, reviewed like code |
-| **`SponsorX-Full-Programme-Task-Board.xlsx`** | The **working tracker** — all five phases consolidated in one file | Continuously, during the day | Every developer, as they work |
+| **`SponsorX-Full-Programme-Task-Board.xlsx`** | The **working tracker** — all six phases consolidated in one file | Continuously, during the day | Every developer, as they work |
 | **Google Sheet** [SponsorXFullProgrammeTaskBoard](https://docs.google.com/spreadsheets/d/10PGtZb3jGBBHhbNOWwl__hS0b_HKN7EL0KRHrnSVoI0/) | The **published status** — what the team and stakeholders see | Once a day, at end of day | Whoever worked that day |
 
 ### 🔁 The daily rule

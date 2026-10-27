@@ -62,9 +62,9 @@ jobs:
   #   `main`: nothing new to test or deploy;
   # - a pull request whose every file (and every renamed file's old path) is
   #   under `Memory/`, `Claude outputs/` or `graphify-out/`, or is one of the
-  #   five phase plans (Phase1-Managed-Marketplace, Phase2-Marketplace-Commerce,
+  #   six phase plans (Phase1-Managed-Marketplace, Phase2-Marketplace-Commerce,
   #   Phase3-Intelligence-Attribution, Phase4-INFINEX-Integration,
-  #   Phase5-INFINEX-Game) — those
+  #   Phase5-Certified-Recruiting, Phase6-INFINEX-Game) — those
   #   exact files, not every document whose name starts with a phase.
   # A skipped job reports as passed, so the required check lets that pull
   # request merge. Anything uncertain — the file list can't be read, or it
@@ -91,7 +91,7 @@ jobs:
             LISTED=$(gh api --paginate "repos/${{ github.repository }}/pulls/$PR/files" --jq '.[].filename' 2>/dev/null) || LISTED=""
             OLD=$(gh api --paginate "repos/${{ github.repository }}/pulls/$PR/files" --jq '.[] | .previous_filename // empty' 2>/dev/null) || OLD=""
             COUNT=$(printf '%s\n' "$LISTED" | grep -c . || true)
-            OTHER=$(printf '%s\n%s\n' "$LISTED" "$OLD" | grep . | grep -vE '^(Memory|Claude outputs|graphify-out)/|^documentation/SponsorX-Phase(1-Managed-Marketplace|2-Marketplace-Commerce|3-Intelligence-Attribution|4-INFINEX-Integration|5-INFINEX-Game)\.md$' || true)
+            OTHER=$(printf '%s\n%s\n' "$LISTED" "$OLD" | grep . | grep -vE '^(Memory|Claude outputs|graphify-out)/|^documentation/SponsorX-Phase(1-Managed-Marketplace|2-Marketplace-Commerce|3-Intelligence-Attribution|4-INFINEX-Integration|5-Certified-Recruiting|6-INFINEX-Game)\.md$' || true)
             if [ "$COUNT" -gt 0 ] && [ "$COUNT" = "$PR_FILES" ] && [ -z "$OTHER" ]; then
               echo "Only the log, the tracker, the phase plans or the graph changed ($COUNT file(s)) — skipping the build and tests."
               printf '%s\n' "$LISTED"
