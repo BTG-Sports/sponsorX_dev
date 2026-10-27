@@ -11,11 +11,11 @@
 | **Depends on** | Stable SponsorX APIs, campaign/reward engine, identity/session model, metrics pipeline |
 | **Source** | Phases 2–4 Detailed Developer Specifications v1.0 (Spec § references) + Blueprint §34 |
 
-> **Changed 2026-10-20 (user): the game is parked; every open Phase 4 task moved to Phase 5.** "Do not make any preparation for the game at this point. Our priority is to ship the SponsorX web app. All game-related tasks should be … transferred to Phase 5." All of Phase 4 serves the game (it sells sponsorship inside the INFINEX game's worlds), so all 29 open tasks moved, renumbered (the table is in [Phase 5](./SponsorX-Phase5-INFINEX-Game.md)): the 20 that need the game's traffic first, then the virtual-inventory screens, the emergency pause, the incident log, UAT and rollout. Phase 4 is closed at what was built (all Done): the world and placement registry, bookings, creative and the manifest, pause and rollback, machine login, client endpoints and settings, the telemetry intake, and the cross-channel campaign model. Its criteria 1–4 are demonstrated and signed off (`4S9-PMO-03`, [`SponsorX-Phase4-Acceptance-Signoff.md`](./SponsorX-Phase4-Acceptance-Signoff.md)).
+> **Changed 2026-10-20 (user): the game is parked; every open Phase 4 task moved to the game phase (Phase 5 then, Phase 6 since 2026-10-27).** "Do not make any preparation for the game at this point. Our priority is to ship the SponsorX web app. All game-related tasks should be … transferred to Phase 6." All of Phase 4 serves the game (it sells sponsorship inside the INFINEX game's worlds), so all 29 open tasks moved, renumbered (the table is in [Phase 6](./SponsorX-Phase6-INFINEX-Game.md)): the 20 that need the game's traffic first, then the virtual-inventory screens, the emergency pause, the incident log, UAT and rollout. Phase 4 is closed at what was built (all Done): the world and placement registry, bookings, creative and the manifest, pause and rollback, machine login, client endpoints and settings, the telemetry intake, and the cross-channel campaign model. Its criteria 1–4 are demonstrated and signed off (`4S9-PMO-03`, [`SponsorX-Phase4-Acceptance-Signoff.md`](./SponsorX-Phase4-Acceptance-Signoff.md)).
 
-> **Changed 2026-10-16 (user): Phase 4 is the web application only.** The INFINEX game has not been started; SponsorX comes first, then the game. So Phase 4 builds SponsorX's side — the pages, API and database for worlds, placements, creative, telemetry, pricing, activations and reporting — and proves it with a **stand-in world** (a script that calls SponsorX the way the game will). Every task that needs the real game moved to [Phase 5](./SponsorX-Phase5-INFINEX-Game.md), renumbered: `4S3-INT-01` → `5S1-INT-01`, `4S3-QA-01` → `5S1-QA-01`, `4S9-QA-01` → `5S2-QA-01`, `4S9-PMO-01` → `5S2-PMO-01`; the game halves of `4S3-INT-02` and `4S3-INT-03` are `5S1-INT-02` and `5S1-INT-03`. Phase acceptance criterion 3 ("the INFINEX client renders a placement") moved with them.
+> **Changed 2026-10-16 (user): Phase 4 is the web application only.** The INFINEX game has not been started; SponsorX comes first, then the game. So Phase 4 builds SponsorX's side — the pages, API and database for worlds, placements, creative, telemetry, pricing, activations and reporting — and proves it with a **stand-in world** (a script that calls SponsorX the way the game will). Every task that needs the real game moved to [Phase 6](./SponsorX-Phase6-INFINEX-Game.md), renumbered: `4S3-INT-01` → `6S1-INT-01`, `4S3-QA-01` → `6S1-QA-01`, `4S9-QA-01` → `6S2-QA-01`, `4S9-PMO-01` → `6S2-PMO-01`; the game halves of `4S3-INT-02` and `4S3-INT-03` are `6S1-INT-02` and `6S1-INT-03`. Phase acceptance criterion 3 ("the INFINEX client renders a placement") moved with them.
 
-### The five phase documents
+### The six phase documents
 
 | Phase | File | Tasks | Timeline |
 |---|---|---|---|
@@ -23,7 +23,8 @@
 | 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 72 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md) **← you are here** | 47 | 18–22 weeks |
-| 5 | [`SponsorX-Phase5-INFINEX-Game.md`](./SponsorX-Phase5-INFINEX-Game.md) | 7 | after the game's staging world exists |
+| 5 | [`SponsorX-Phase5-Certified-Recruiting.md`](./SponsorX-Phase5-Certified-Recruiting.md) | 2 | not in the blueprint |
+| 6 | [`SponsorX-Phase6-INFINEX-Game.md`](./SponsorX-Phase6-INFINEX-Game.md) | 7 | after the game's staging world exists |
 
 ---
 
@@ -34,7 +35,7 @@ Three artefacts, three jobs. Keeping them straight is what stops them drifting a
 | Artefact | Owns | When it changes | Who touches it |
 |---|---|---|---|
 | **These four Markdown files** | The **plan** — what each task is, in plain English, and what *done* means | Only when scope or a task's meaning changes | Anyone, by pull request, reviewed like code |
-| **`SponsorX-Full-Programme-Task-Board.xlsx`** | The **working tracker** — all five phases consolidated in one file | Continuously, during the day | Every developer, as they work |
+| **`SponsorX-Full-Programme-Task-Board.xlsx`** | The **working tracker** — all six phases consolidated in one file | Continuously, during the day | Every developer, as they work |
 | **Google Sheet** [SponsorXFullProgrammeTaskBoard](https://docs.google.com/spreadsheets/d/10PGtZb3jGBBHhbNOWwl__hS0b_HKN7EL0KRHrnSVoI0/) | The **published status** — what the team and stakeholders see | Once a day, at end of day | Whoever worked that day |
 
 ### 🔁 The daily rule
@@ -96,7 +97,7 @@ The specification is explicit about what may and may not run in parallel:
 
 **Permitted.** Begin Phase 3 warehouse and event modelling during the final 4–6 weeks of Phase 2, so transaction data is captured correctly from launch. Begin the Phase 4 API contract and placement taxonomy during the final 4 weeks of Phase 3.
 
-**Forbidden.** Do not build ML pricing before there is enough clean history — launch Phase 3 on rules and statistics. Do not launch marketplace payouts before commission snapshots, reconciliation, refund and dispute behaviour and audit logs are fully tested. Do not report virtual impressions to sponsors until viewability and de-duplication criteria are validated against pilot-world telemetry. *(Since 2026-10-16 that validation is Phase 5's `5S2-QA-01`: through Phase 4, virtual impressions reach sponsors only labelled unvalidated, from the stand-in world.)*
+**Forbidden.** Do not build ML pricing before there is enough clean history — launch Phase 3 on rules and statistics. Do not launch marketplace payouts before commission snapshots, reconciliation, refund and dispute behaviour and audit logs are fully tested. Do not report virtual impressions to sponsors until viewability and de-duplication criteria are validated against pilot-world telemetry. *(Since 2026-10-16 that validation is Phase 6's `6S2-QA-01`: through Phase 4, virtual impressions reach sponsors only labelled unvalidated, from the stand-in world.)*
 
 ---
 
@@ -192,7 +193,7 @@ Billboards, LED surfaces, naming rights, branded rooms, courts, tunnels, kiosks.
 - **Done when:** A placement can be registered with specs, viewability rule and availability
 - **Delivered:** 2026-10-16 (merged in #243).
   - **What a placement records:** its kind, size, creative types, file and video limits, capacity, viewability rule (a default per kind), price and dates, starting as a draft.
-  - **Specs are fixed once on sale;** the test status stays `UNTESTED` until Phase 5.
+  - **Specs are fixed once on sale;** the test status stays `UNTESTED` until Phase 6.
 
   [`SponsorX-Virtual-Registry.md`](./SponsorX-Virtual-Registry.md) §2
 - **Reference:** Spec §30
@@ -322,7 +323,7 @@ A sponsor needs their creative down in minutes, not at the next release. Pausing
 
 ## Sprint 3 · INFINEX client endpoints
 
-*SponsorX's side of the world's connection: who the world clients are, whether they are alive, and the settings they read. The game's side is Phase 5 (`5S1-INT-01`…`03`).*
+*SponsorX's side of the world's connection: who the world clients are, whether they are alive, and the settings they read. The game's side is Phase 6 (`6S1-INT-01`…`03`).*
 
 *2 tasks · 3 person-days*
 
@@ -330,7 +331,7 @@ A sponsor needs their creative down in minutes, not at the next release. Pausing
 
 **Order** 20 · **INT** · **Where:** Code · **2d** · **Done**
 
-Trusted clients register with a key and report health, so you know when a world stops rendering sponsorship. SponsorX's side: the registry, the heartbeat endpoint and the missing-heartbeat alert, proven with the stand-in world. The game sending it is `5S1-INT-02`.
+Trusted clients register with a key and report health, so you know when a world stops rendering sponsorship. SponsorX's side: the registry, the heartbeat endpoint and the missing-heartbeat alert, proven with the stand-in world. The game sending it is `6S1-INT-02`.
 
 - **Depends on:** 4S2-BE-03
 - **Done when:** A registered client's heartbeat is recorded and a missing heartbeat raises an alert (proven with the stand-in world)
@@ -348,7 +349,7 @@ Trusted clients register with a key and report health, so you know when a world 
 
 **Order** 21 · **INT** · **Where:** Code · **1d** · **Done**
 
-Feature flags, telemetry limits and schema versions delivered to the client so behaviour can change without a client release. SponsorX's side: the endpoint and its limits; the game honouring them is `5S1-INT-03`.
+Feature flags, telemetry limits and schema versions delivered to the client so behaviour can change without a client release. SponsorX's side: the endpoint and its limits; the game honouring them is `6S1-INT-03`.
 
 - **Depends on:** 4S2-BE-03
 - **Done when:** Config is served per client with its telemetry limits, and the stand-in world honours them
@@ -438,7 +439,7 @@ One campaign holding real-world, social, athlete, reward and INFINEX inventory t
 
 ## Sprint 9 · Sign-off
 
-*Phase 4 accepted as built, after its open work moved to Phase 5 (2026-10-20).*
+*Phase 4 accepted as built, after its open work moved to Phase 6 (2026-10-20).*
 
 *1 task · 1 person-days*
 
@@ -446,7 +447,7 @@ One campaign holding real-world, social, athlete, reward and INFINEX inventory t
 
 **Order** 52 · **PMO** · **Where:** Document · **1d** · **Done**
 
-Raised 2026-10-20, when the game was parked and every open Phase 4 task moved to Phase 5 (the former UAT is `5S8-PMO-01`). It records Phase 4's criteria 1–4, each with the tasks, pull requests and tests that prove it.
+Raised 2026-10-20, when the game was parked and every open Phase 4 task moved to Phase 6 (the former UAT is `6S8-PMO-01`). It records Phase 4's criteria 1–4, each with the tasks, pull requests and tests that prove it.
 
 - **Depends on:** 4S1-BE-04, 4S2-BE-03, 4S2-BE-05, 4S4-BE-01
 - **Done when:** Phase 4's acceptance criteria 1–4 demonstrated and signed off
@@ -467,7 +468,7 @@ Every one of these must be demonstrated before the phase is signed off.
 2. Active campaign manifest returns only approved, in-window deployments for the requested world/time.
 3. Creative can be paused or rolled back from SponsorX without redeploying the entire INFINEX application.
 4. Telemetry batch endpoint supports idempotent event IDs and rejects malformed/unauthorized events.
-*The former criteria 5–11 (viewability, de-duplication, activations, cross-channel, operations console, the sponsor's virtual report and the load test) moved to Phase 5 with their tasks on 2026-10-20 (Phase 5's criteria 7–13), and so did the two added that day for the admin screens and the emergency pause (Phase 5's 14–15). Phase 4 has no open task left.*
+*The former criteria 5–11 (viewability, de-duplication, activations, cross-channel, operations console, the sponsor's virtual report and the load test) moved to Phase 6 with their tasks on 2026-10-20 (Phase 6's criteria 7–13), and so did the two added that day for the admin screens and the emergency pause (Phase 6's 14–15). Phase 4 has no open task left.*
 
 ---
 

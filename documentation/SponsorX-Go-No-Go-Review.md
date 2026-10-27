@@ -27,7 +27,7 @@ real users is not code:
 | 1 · Managed marketplace | 292 done of 301 (4 dropped) | Signed off 2026-10-16 (`SponsorX-Phase1-Acceptance.md`) | **This review** (P8-PMO-06). **MFA and production settings,** which are go-live switches (P2-INT-02, P2-OPS-04). **SponsorX NEXT edition one actually sold** (P9-DATA-01, P9-PMO-03), which is a business milestone, not code. |
 | 2 · Marketplace & commerce | 134 of 140 | Signed off 2026-10-09 (`SponsorX-Phase2-Acceptance-Signoff.md`), wallet deferred | **The wallet passes** (parked by Rodney). **The first real outside team** (2S8-PMO-03), which happens after go-live. |
 | 3 · Intelligence & attribution | 62 of 62 | Signed off 2026-10-16 (`SponsorX-Phase3-UAT.md`) | — |
-| 4 · INFINEX, as built | 19 of 19 | Signed off 2026-10-20 (`SponsorX-Phase4-Acceptance-Signoff.md`) | The rest waits for the game (parked), in Phase 5 |
+| 4 · INFINEX, as built | 19 of 19 | Signed off 2026-10-20 (`SponsorX-Phase4-Acceptance-Signoff.md`) | The rest waits for the game (parked), in Phase 6 |
 
 ## §37 · The gates, condition by condition
 
@@ -69,7 +69,7 @@ completeness.
 |---|---|
 | Before Phase 2: Phase 1 campaigns reliable; state machines, tenant isolation and earnings reconciliation stable | **Met.** Phase 1 accepted; the tenant-isolation sweep and the nightly fact check run in CI and on staging. |
 | Before Phase 3: clean history, or rules-based intelligence with explicit confidence labels | **Met** the second way: every figure carries its confidence and model version |
-| Before Phase 4: INFINEX runtime selected; stable world and placement IDs and telemetry schema | **Not applicable.** The game is parked. Stable IDs and the schema are built, and the runtime is Phase 5's. |
+| Before Phase 4: INFINEX runtime selected; stable world and placement IDs and telemetry schema | **Not applicable.** The game is parked. Stable IDs and the schema are built, and the runtime is Phase 6's. |
 
 ## Production: the owner's go-live switches
 

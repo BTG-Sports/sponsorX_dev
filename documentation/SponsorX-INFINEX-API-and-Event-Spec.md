@@ -7,7 +7,7 @@
 | **Status** | Draft contract. Phase 1 documents it **now** so that Phase 4 attaches without redesigning campaigns or inventory. Nothing in this document is built unless marked **exists**. |
 | **Acceptance** | The Phase 4 data contract is anticipated so campaigns and inventory need no redesign |
 | **Audience** | SponsorX engineers and the INFINEX integration team |
-| **Plan of record** | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md) (47 tasks, `4S0-*` … `4S9-*`) · Phase 5, the game side: [`SponsorX-Phase5-INFINEX-Game.md`](./SponsorX-Phase5-INFINEX-Game.md) (split out 2026-10-16) |
+| **Plan of record** | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md) (47 tasks, `4S0-*` … `4S9-*`) · Phase 6, the game side: [`SponsorX-Phase6-INFINEX-Game.md`](./SponsorX-Phase6-INFINEX-Game.md) (split out 2026-10-16) |
 | **Related** | [`SponsorX-Phase2-4-Module-Interface-and-Migration-Plan.md`](./SponsorX-Phase2-4-Module-Interface-and-Migration-Plan.md) (`P8-PMO-03`) · [`SponsorX-RBAC-Matrix.md`](./SponsorX-RBAC-Matrix.md) · live OpenAPI at `GET /api/v1/openapi.json` |
 
 **Labels used throughout:**
@@ -87,19 +87,19 @@ change, not a migration.
 | World operator (the company running a world) | `Property` with `kind = "VIRTUAL"` | **Exists** (the kind value, and onboarding via `/public/onboarding` → BTG decision → `Property` with `listingAccessAt`) | A property already owns inventory and has a portal (`PROPERTY_MGR`). |
 | World | `VirtualWorld { id, tenantId, propertyId, externalId @unique per tenant, name, environment (STAGING\|PRODUCTION), runtimeVersion, status }` | **Proposed** (`4S1-BE-01`) | `Publication` → `Edition`: a property-owned container of sellable positions. |
 | District / venue / zone | `VirtualZone { id, tenantId, worldId, parentId?, level, externalId, name, status }` | **Proposed** (`4S1-BE-01`) | — |
-| Placement (billboard, LED, naming right, branded room, court, tunnel, kiosk) | `VirtualPlacement { id, tenantId, zoneId, externalId, kind, widthPx?, heightPx?, aspect, allowedCreativeTypes[], constraints Json, viewabilityRuleId, capacity Int, rackPriceCents, currency, testStatus (UNTESTED\|PASSED\|FAILED), state (DRAFT\|AVAILABLE\|RETIRED) }` | **Proposed** (`4S1-BE-02`, `5S1-QA-01`: AVAILABLE only after a staging pass — Phase 5, once the game exists) | **`AdSlot`** (**exists**): `slotCode`, `kind` enum, `priceCents`, `quantity`, `campaignId?`, `soldCents?`, `soldAt?`, with a database constraint against double-selling (`backend/prisma/sql/adslot_inventory.sql`). A placement is an ad slot with a location and a time window instead of an edition. |
+| Placement (billboard, LED, naming right, branded room, court, tunnel, kiosk) | `VirtualPlacement { id, tenantId, zoneId, externalId, kind, widthPx?, heightPx?, aspect, allowedCreativeTypes[], constraints Json, viewabilityRuleId, capacity Int, rackPriceCents, currency, testStatus (UNTESTED\|PASSED\|FAILED), state (DRAFT\|AVAILABLE\|RETIRED) }` | **Proposed** (`4S1-BE-02`, `6S1-QA-01`: AVAILABLE only after a staging pass — Phase 6, once the game exists) | **`AdSlot`** (**exists**): `slotCode`, `kind` enum, `priceCents`, `quantity`, `campaignId?`, `soldCents?`, `soldAt?`, with a database constraint against double-selling (`backend/prisma/sql/adslot_inventory.sql`). A placement is an ad slot with a location and a time window instead of an edition. |
 | Sellable inventory record | Phase 2's `InventoryItem` / `Listing` (**planned**, `2S2-BE-01`, `2S3-BE-01`), with `VirtualPlacement` as one inventory kind | **Proposed** (`4S1-BE-03`) | `SponsorPackage.lineItems` / `includes` already carries non-athlete inventory as lines (for example the iMC feature, `backend/src/domain/sponsor-packages.ts`). Buying a placement bundle through a §7-style package needs no new purchase path. |
 | Availability window | `PlacementWindow { id, tenantId, placementId, startsAt, endsAt, capacity, campaignId?, soldCents?, state (OPEN\|HELD\|SOLD) }`, with a Postgres **exclusion constraint** on `(placementId, tstzrange(startsAt, endsAt))` for SOLD/HELD rows | **Proposed** (`4S1-BE-04`: "overlapping purchases of the same placement are rejected") | `adslot_inventory.sql` and `invite_one_open.sql` (**exist**): "at most one" rules live in the database. |
 | Purchase | `PlacementWindow.campaignId` + `soldCents` frozen at sale; `Campaign` unchanged | **Proposed** | Exactly how `POST /editions/:id/sales` books an `AdSlot` to a `Campaign` today (`backend/src/domain/edition.ts`). The campaign state machine already allows an **ad-only** campaign (no athlete orders) to go DRAFT → APPROVAL (`backend/src/domain/campaign-state.ts`, `isAdOnly`). |
 | Creative asset (versioned) | `DeploymentAsset { id, tenantId, campaignId, version, r2Key, mime, widthPx, heightPx, bytes, checksum, validatedAt?, validation Json }` | **Proposed** (`4S2-BE-02`: rejected at upload if it fails the placement's constraints) | **`CreativeAsset`** (**exists**): versioned per deliverable, `r2Key` in the private bucket, `derivatives Json`, uploaded direct-to-R2 via presigned URL (`POST /deliverables/:id/uploads`, `/assets`), with an `image.derive` worker job. |
 | Creative deployment | `CreativeDeployment { id, tenantId, campaignId, placementWindowId, assetId, assetVersion, state (DRAFT\|APPROVED\|SCHEDULED\|LIVE\|PAUSED\|ROLLED_BACK\|ENDED), startsAt, endsAt, approvedBy?, approvedAt?, sequence BigInt }` | **Proposed** (`4S2-BE-01`, `-05`) | The **deliverable approval chain** (**exists**, `backend/src/domain/deliverable-state.ts`): BTG review → sponsor review → approved, with each step stamped and audited. Virtual creative gets the same review desk before it can be LIVE. |
-| Activation (challenge, quest, hunt, skill test, product discovery, booth) | `Activation { id, tenantId, campaignId, worldId, zoneId?, kind, startCondition Json, completionCriteria Json, eligibility Json, rewardId, state (DRAFT\|LIVE\|PAUSED\|ENDED), startsAt, endsAt }` | **Proposed** (`5S6-BE-01`) | **`Reward`** (**exists**): `offerText`, `terms`, `singleUse`, `expiresAt`, `state`, and from P6-BE-08 `eligibility` (ANYONE / AGE_18_PLUS / AGE_21_PLUS / TICKET_HOLDERS), `eligibilityNote`, `redemptionCap` (race-safe, 410 when spent), `landingHeadline` / `landingSubhead`. An activation **references** a reward; it does not reinvent one. |
-| Activation completion → reward | `ActivationCompletion { id, tenantId, activationId, sessionRef, subjectRef, completedAt, eventId @unique, rewardTokenId? }`, with a unique index on `(activationId, subjectRef)` per eligibility rule | **Proposed** (`5S6-BE-03`: exactly once) | **`RewardToken` + `RewardEvent`** (**exist**). A completion issues (or binds) a token and records a CLAIM through the same code path the fan QR uses. The fan receives the `/r/<token>` link, and optionally a Wallet pass (Phase 2 `2S6-*`). |
+| Activation (challenge, quest, hunt, skill test, product discovery, booth) | `Activation { id, tenantId, campaignId, worldId, zoneId?, kind, startCondition Json, completionCriteria Json, eligibility Json, rewardId, state (DRAFT\|LIVE\|PAUSED\|ENDED), startsAt, endsAt }` | **Proposed** (`6S6-BE-01`) | **`Reward`** (**exists**): `offerText`, `terms`, `singleUse`, `expiresAt`, `state`, and from P6-BE-08 `eligibility` (ANYONE / AGE_18_PLUS / AGE_21_PLUS / TICKET_HOLDERS), `eligibilityNote`, `redemptionCap` (race-safe, 410 when spent), `landingHeadline` / `landingSubhead`. An activation **references** a reward; it does not reinvent one. |
+| Activation completion → reward | `ActivationCompletion { id, tenantId, activationId, sessionRef, subjectRef, completedAt, eventId @unique, rewardTokenId? }`, with a unique index on `(activationId, subjectRef)` per eligibility rule | **Proposed** (`6S6-BE-03`: exactly once) | **`RewardToken` + `RewardEvent`** (**exist**). A completion issues (or binds) a token and records a CLAIM through the same code path the fan QR uses. The fan receives the `/r/<token>` link, and optionally a Wallet pass (Phase 2 `2S6-*`). |
 | Raw telemetry | `VirtualEventRaw { eventId (PK, client-scoped), tenantId, clientId, schemaVersion, eventType, occurredAt, receivedAt, worldId, zoneId?, placementId?, deploymentId?, activationId?, sessionRef, dwellMs?, visiblePct?, interactionType?, payload Json, signatureOk, flags[] }`, partitioned by `receivedAt` | **Proposed** (`4S4-BE-01`, `4S4-DATA-01`) | `RewardEvent`, `LinkEvent`, `EditionEvent` (**exist**): raw, append-only, tenant-scoped event rows, aggregated elsewhere. |
-| Aggregates | `VirtualMetricDaily { tenantId, deploymentId, day, visits, grossImpressions, viewableImpressions, dwellMsTotal, interactions, uniqueSessions, ruleVersion, source }`, unique on (deploymentId, day, ruleVersion) | **Proposed** (`5S5-DATA-01`) | **`MetricDaily`** (**exists**): unique on (deliverableId, day, source), with `source MetricSource`. Dashboards read aggregates, never raw rows. |
-| Viewability rule | `ViewabilityRule { id, version, minVisiblePct, minDwellMs, effectiveAt }`, immutable once used | **Proposed** (`5S5-BE-01`) | `AthleteScore.method` / `content-value-rules.ts` (**exist**): versioned rules stored with every result, so a number can be explained later. |
+| Aggregates | `VirtualMetricDaily { tenantId, deploymentId, day, visits, grossImpressions, viewableImpressions, dwellMsTotal, interactions, uniqueSessions, ruleVersion, source }`, unique on (deploymentId, day, ruleVersion) | **Proposed** (`6S5-DATA-01`) | **`MetricDaily`** (**exists**): unique on (deliverableId, day, source), with `source MetricSource`. Dashboards read aggregates, never raw rows. |
+| Viewability rule | `ViewabilityRule { id, version, minVisiblePct, minDwellMs, effectiveAt }`, immutable once used | **Proposed** (`6S5-BE-01`) | `AthleteScore.method` / `content-value-rules.ts` (**exist**): versioned rules stored with every result, so a number can be explained later. |
 | Client (game build / server) | `InfinexClient { id, tenantId, worldId?, kind (SERVER\|CLIENT_BUILD), keyId, publicKey or secretHash, schemaVersions[], lastHeartbeatAt?, status }` | **Proposed** (`4S3-INT-02`) | `WebhookDelivery` + integration health (**exist**) for operational visibility. |
-| Incident | `DeploymentIncident { id, tenantId, type, severity, openedAt, closedAt?, notes, deploymentIds[] }` | **Proposed** (`5S8-BE-02`) | `AuditLog` (**exists**) records every pause and rollback that causes one. |
+| Incident | `DeploymentIncident { id, tenantId, type, severity, openedAt, closedAt?, notes, deploymentIds[] }` | **Proposed** (`6S8-BE-02`) | `AuditLog` (**exists**) records every pause and rollback that causes one. |
 
 ### 3.3 · Provenance for virtual numbers
 
@@ -108,7 +108,7 @@ change, not a migration.
 
 - `VIRTUAL_GROSS` — renders reported by a trusted client
 - `VIRTUAL_VIEWABLE` — passes rule version *n*
-- `VIRTUAL_UNVALIDATED` — before pilot validation (`5S2-QA-01`, Phase 5)
+- `VIRTUAL_UNVALIDATED` — before pilot validation (`6S2-QA-01`, Phase 6)
 
 Before validation, sponsor-facing surfaces **must not** show virtual
 impressions at all (the forbidden overlap in §1). The sponsor report builder
@@ -155,7 +155,7 @@ touching portal routes.
 | `POST /virtual/worlds` | `{propertyId, externalId, name, environment}` | `201 VirtualWorld` | BTG_ADMIN / PROPERTY_MGR (own-property). Audited as `virtualWorld.create`. |
 | `PUT /virtual/worlds/:id/zones` | `[{externalId, parentExternalId?, level, name}]` | `200 {zones}` | Idempotent upsert by `externalId`. A zone is never deleted — it is retired. |
 | `POST /virtual/zones/:id/placements` | placement spec (§3.2) | `201 VirtualPlacement` (state DRAFT) | |
-| `POST /virtual/placements/:id/test-result` | `{status: PASSED\|FAILED, buildId, evidenceUrl?}` | `200` | SERVICE (staging client) or BTG. PASSED unlocks AVAILABLE (`5S1-QA-01`, Phase 5). |
+| `POST /virtual/placements/:id/test-result` | `{status: PASSED\|FAILED, buildId, evidenceUrl?}` | `200` | SERVICE (staging client) or BTG. PASSED unlocks AVAILABLE (`6S1-QA-01`, Phase 6). |
 | `POST /virtual/placements/:id/windows` | `{startsAt, endsAt, capacity, rackPriceCents, currency}` | `201 PlacementWindow` | Overlap → `409 window-overlap`. |
 | `POST /virtual/windows/:id/sale` | `{campaignId, soldCents}` | `200` | Mirrors `POST /editions/:id/sales`. Audited `placementWindow.sell`. |
 
@@ -166,7 +166,7 @@ touching portal routes.
 | `POST /campaigns/:id/virtual-assets/uploads` → presigned PUT; then `POST /campaigns/:id/virtual-assets` `{r2Key, version, …}` | Same direct-to-R2 pattern as deliverables. Validation against the placement's constraints runs on the worker (`virtualAsset.validate`); a failure leaves the asset `REJECTED` with reasons. |
 | `POST /virtual/deployments` `{campaignId, placementWindowId, assetId, assetVersion, startsAt, endsAt}` | Creates DRAFT. |
 | `POST /virtual/deployments/:id/transition` `{to, reason?}` | APPROVE / SCHEDULE / PAUSE / RESUME / ROLLBACK / END. Each transition bumps `sequence`, is audited, and enqueues `infinex.manifestChanged` in the same transaction. |
-| `POST /virtual/emergency-pause` `{scope: {sponsorId? , campaignId?, deploymentIds?}, reason}` | Kill switch (`5S8-BE-01`). BTG_ADMIN only, MFA session required. Pauses every matching deployment in one transaction. |
+| `POST /virtual/emergency-pause` `{scope: {sponsorId? , campaignId?, deploymentIds?}, reason}` | Kill switch (`6S8-BE-01`). BTG_ADMIN only, MFA session required. Pauses every matching deployment in one transaction. |
 
 **Manifest — what INFINEX calls at runtime (`4S2-BE-03`)**
 
@@ -202,7 +202,7 @@ touching portal routes.
 - Asset URLs are **signed and short-lived** (`4S2-BE-04`). Today's private-bucket signed reads (`GET /deliverables/:id/assets/:version/url`, `GET /reward-tokens/:id/qr-url`) are the pattern.
 - The manifest carries **no sponsor pricing and no athlete pay**. The `FIELD_DENIALS` rules in `backend/src/auth/fields.ts` apply to `SERVICE` like anyone else.
 
-**Client config and heartbeat (`4S3-INT-02`, `-03`; the game's side is Phase 5's `5S1-INT-02`, `-03`)**
+**Client config and heartbeat (`4S3-INT-02`, `-03`; the game's side is Phase 6's `6S1-INT-02`, `-03`)**
 
 | Method + path | Response |
 |---|---|
@@ -222,7 +222,7 @@ touching portal routes.
 | Method + path | Notes |
 |---|---|
 | `GET /campaigns/:id/virtual-metrics?from&to&granularity=day` | Reads `VirtualMetricDaily` only. Gross and viewable are always separate fields, each with its label and rule version. |
-| `GET /campaigns/:id/report` | **Exists.** Gains a virtual section when the campaign has deployments. Cross-channel de-duplication (`5S7-DATA-01`) is applied here, not in the client. |
+| `GET /campaigns/:id/report` | **Exists.** Gains a virtual section when the campaign has deployments. Cross-channel de-duplication (`6S7-DATA-01`) is applied here, not in the client. |
 
 ---
 
@@ -254,14 +254,14 @@ Every event, in both directions, uses one envelope. **Proposed:**
 
 | `eventType` | `data` fields | Counts toward | Phase 4 task |
 |---|---|---|---|
-| `zone.visit` | `{enteredAt, exitedAt?}` | visits, unique sessions | `5S5-DATA-01` |
+| `zone.visit` | `{enteredAt, exitedAt?}` | visits, unique sessions | `6S5-DATA-01` |
 | `placement.render` | `{assetId, assetVersion, lod?}` | **gross** impressions | `4S4-BE-01` |
-| `placement.visible` | `{visiblePct (0–100), dwellMs, viewportPct?, occluded?: bool}` | **viewable** impressions if the rule passes | `5S5-BE-01` |
-| `placement.interaction` | `{interactionType: CLICK\|TOUCH\|ENTER\|USE\|SHARE, targetRef?}` | interactions | `5S5-DATA-01` |
-| `placement.error` | `{code, message, assetId?, assetVersion?}` | ops console: creative mismatch, load failure | `5S7-FE-04` |
-| `activation.start` | `{activationId}` | activation funnel | `5S6-BE-02` |
-| `activation.progress` | `{activationId, step, of}` | activation funnel | `5S6-BE-02` |
-| `activation.complete` | `{activationId, evidence}` | Sent through the **dedicated** complete endpoint (§4.2), not the batch, because it produces a reward synchronously | `5S6-BE-03` |
+| `placement.visible` | `{visiblePct (0–100), dwellMs, viewportPct?, occluded?: bool}` | **viewable** impressions if the rule passes | `6S5-BE-01` |
+| `placement.interaction` | `{interactionType: CLICK\|TOUCH\|ENTER\|USE\|SHARE, targetRef?}` | interactions | `6S5-DATA-01` |
+| `placement.error` | `{code, message, assetId?, assetVersion?}` | ops console: creative mismatch, load failure | `6S7-FE-04` |
+| `activation.start` | `{activationId}` | activation funnel | `6S6-BE-02` |
+| `activation.progress` | `{activationId, step, of}` | activation funnel | `6S6-BE-02` |
+| `activation.complete` | `{activationId, evidence}` | Sent through the **dedicated** complete endpoint (§4.2), not the batch, because it produces a reward synchronously | `6S6-BE-03` |
 | `client.heartbeat` | `{manifestVersion, fps?, errorCount}` | ops console | `4S3-INT-02` |
 
 **Why render and visible are separate events.** Acceptance criterion 6 says
@@ -322,9 +322,9 @@ Content-Encoding: gzip            (optional)
 
 **Delivery semantics:**
 
-- **At-least-once from the client; exactly-once in the counts.** Clients retry any batch that did not return 2xx, with the same `eventId`s. Duplicates never inflate a sponsor's numbers, because aggregation reads distinct `eventId`s only (acceptance criterion 7, `5S4-BE-01`).
+- **At-least-once from the client; exactly-once in the counts.** Clients retry any batch that did not return 2xx, with the same `eventId`s. Duplicates never inflate a sponsor's numbers, because aggregation reads distinct `eventId`s only (acceptance criterion 7, `6S4-BE-01`).
 - **No ordering guarantee.** The server orders by `(occurredAt, sequence)` at aggregation time. Aggregates for a day are recomputed when late events arrive inside the window, and a `ruleVersion`-stamped row is replaced, never incremented.
-- **Buffering** (`5S4-OPS-01`). The intake handler does the minimum synchronously — verify, validate, insert raw — and enqueues `telemetry.aggregate` through the outbox. **Decision `5S4-PMO-01`:** if the measured volume exceeds what Postgres inserts sustain, put a stream buffer in front of the raw insert. That buffer would be the first non-Postgres queue in the system, so it needs its own stack-decision addendum; Addendum A3/B4 keep the job queue in Postgres.
+- **Buffering** (`6S4-OPS-01`). The intake handler does the minimum synchronously — verify, validate, insert raw — and enqueues `telemetry.aggregate` through the outbox. **Decision `6S4-PMO-01`:** if the measured volume exceeds what Postgres inserts sustain, put a stream buffer in front of the raw insert. That buffer would be the first non-Postgres queue in the system, so it needs its own stack-decision addendum; Addendum A3/B4 keep the job queue in Postgres.
 
 ### 5.4 · Outbound events (SponsorX → INFINEX)
 
@@ -358,7 +358,7 @@ SponsorX-Delivery-Attempt: 2
 | `manifest.changed` | Any deployment transition in a world | `{worldId, manifestVersion}` | Re-fetch the manifest |
 | `deployment.paused` | `…/transition {to: PAUSE}` | `{deploymentId, sequence, reason}` | Stop rendering within the agreed time target |
 | `deployment.rolledBack` | `…/transition {to: ROLLBACK}` | `{deploymentId, sequence, toAssetVersion}` | Render the prior version |
-| `emergency.pause` | `POST /virtual/emergency-pause` | `{deploymentIds[], reason, issuedAt}` | Remove immediately; acknowledge via heartbeat `manifestVersion` (`5S8-BE-01`) |
+| `emergency.pause` | `POST /virtual/emergency-pause` | `{deploymentIds[], reason, issuedAt}` | Remove immediately; acknowledge via heartbeat `manifestVersion` (`6S8-BE-01`) |
 | `placement.statusChanged` | Placement AVAILABLE / RETIRED, or a test result | `{placementId, state, testStatus}` | Registry sync |
 | `activation.changed` | Activation LIVE / PAUSED / ENDED | `{activationId, state, sequence}` | Enable or disable the in-world trigger |
 | `reward.issued` | Activation completion transaction | `{activationId, completionId, rewardTokenId, claimUrl}` | Show the fan their claim link |
@@ -380,7 +380,7 @@ rejections, failed worker jobs and outbox lag. **Proposed additions:**
 - rejected-event rate by reason
 - dead-lettered outbound deliveries
 
-These are the ops-console inputs for `5S7-FE-04`.
+These are the ops-console inputs for `6S7-FE-04`.
 
 ### 5.6 · Privacy
 
@@ -389,7 +389,7 @@ The same rule as the fan QR page: **no fan identity reaches a sponsor.**
 - `sessionRef` and `subjectRef` are **pseudonymous identifiers minted by INFINEX**. `subjectRef` should be a keyed hash that INFINEX can reproduce and SponsorX cannot reverse.
 - SponsorX stores no email, name, IP or device identifier from telemetry. Geo, if any, is resolved to city and region and then discarded, as `tracking.resolveGeo` does today.
 - `rewardEvent` stays aggregate-only for every staff and sponsor role (RBAC Matrix §10). The one exception remains a fan who explicitly ticks sponsor-contact consent on the SponsorX claim page (`backend/src/domain/fan-consent.ts`, `2S6-BE-03`).
-- **Cross-channel de-duplication** (`5S7-DATA-01`: "a fan who scans a QR and completes an in-world challenge is one person") must work on these pseudonymous references — for example, a keyed join inside the warehouse. **Decision `3S0-LEG-01` / `4S0-PMO-01`:** whether any linkage is permitted at all.
+- **Cross-channel de-duplication** (`6S7-DATA-01`: "a fan who scans a QR and completes an in-world challenge is one person") must work on these pseudonymous references — for example, a keyed join inside the warehouse. **Decision `3S0-LEG-01` / `4S0-PMO-01`:** whether any linkage is permitted at all.
 
 ---
 
@@ -443,7 +443,7 @@ role could otherwise do; it can never grant something `policy.ts` denies.
 events with its session key for that session's 15 minutes. That is true of
 any client a player holds. It is bounded by the session's life and the config
 limits (`4S3-INT-03`), and caught by the fraud and anomaly checks
-(`5S7-DATA-02`).
+(`6S7-DATA-02`).
 
 **Endpoints:**
 - `POST /infinex/token`: public and rate-limited; any failure is the same 401.
@@ -495,7 +495,7 @@ Per credential, enforced in Redis (cache and rate limiting only, Addendum B4 —
 | Endpoint | Limit |
 |---|---|
 | Manifest | 10 req/s per world |
-| Telemetry | per the config endpoint's `maxBatch` × expected clients, **Decision `5S4-PMO-01`** |
+| Telemetry | per the config endpoint's `maxBatch` × expected clients, **Decision `6S4-PMO-01`** |
 | Everything else | 20 req/s |
 
 ---
@@ -533,7 +533,7 @@ changing an existing column's meaning or a state machine's existing moves.
 | 9 | Cross-channel dashboard without double counting (AC 9) | One `Campaign` already holds athlete orders, rewards and ad slots; the sponsor report builder (`sponsor-report.ts`) | Deployments hang off `Campaign` by `campaignId`, like `AdSlot`. De-duplication is a warehouse concern (Phase 3). |
 | 10 | Ops console: lag, heartbeat, failures, incidents (AC 10) | `integration-health.ts` + `/admin/integrations` | New `InfinexClient.lastHeartbeatAt`, `DeploymentIncident`, extra health rows |
 | 11 | Pilot sponsor report with virtual delivery, reward funnel, creative proof (AC 11) | `report-render.ts` + `report.render` job (`2S7-BE-02`) + `ReportFile` | A virtual section in the report builder |
-| 12 | Load targets (AC 12) | Postgres + pg-boss | **Decision `5S4-PMO-01`** on stream buffering (§5.3) |
+| 12 | Load targets (AC 12) | Postgres + pg-boss | **Decision `6S4-PMO-01`** on stream buffering (§5.3) |
 
 **The one place redesign risk is real.** `CampaignState` is a single
 lifecycle for the whole campaign. A campaign mixing athlete work and virtual
@@ -558,7 +558,7 @@ machine carries per-placement status, the way `CampaignOrder` and
 7. **Sprint 0 decisions:**
    - `4S0-PMO-01` runtime and identity model, including whether `subjectRef` may ever be linked across channels. **Settled 2026-10-16:** [`SponsorX-INFINEX-World-Contract.md`](./SponsorX-INFINEX-World-Contract.md) (any engine; no linking across channels by default)
    - `4S0-PMO-02` taxonomy. **Settled 2026-10-16:** [`SponsorX-Virtual-Taxonomy.md`](./SponsorX-Virtual-Taxonomy.md)
-   - `5S4-PMO-01` volume and cost (stream buffer or not)
+   - `6S4-PMO-01` volume and cost (stream buffer or not)
    - `4S0-SEC-01` client authentication and signing
 
 ---
