@@ -40,6 +40,8 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, SENSITIVE_DOCUMENT_TTL_SECONDS, uploadRefusal } from "../lib/storage";
+import { checkView, documentHolds, readDocument } from "./document-reading";
+import { deleteSentBackFile, recordSendBack, returnedColumns, SendBackError, sendBackReason } from "./document-send-back";
 import { issueSponsorRequestToken, readSponsorEmailToken, readSponsorRequestToken } from "../lib/sponsor-request-token";
 import type { BrandCategory } from "./brand-categories";
 import { normalizeBusinessName } from "./business-name-rules";
@@ -140,9 +142,18 @@ export async function getSponsorRequest(actor: Actor, id: string) {
   const [checks, documents] = await Promise.all([
     checksFor(prisma, row),
     prisma.inquiryDocument.findMany({
-      where: { tenantId: row.tenantId, inquiryId: row.id }, select: { id: true, kind: true, filename: true, contentType: true, bytes: true, uploadedAt: true },
+      where: { tenantId: row.tenantId, inquiryId: row.id },
+      select: {
+        id: true, kind: true, filename: true, contentType: true, bytes: true, uploadedAt: true,
+        checkState: true, checkFindings: true, checkedAt: true, returnedAt: true, returnedReason: true,
+      },
       orderBy: { createdAt: "asc" },
-    }),
+    }).then((docs) => docs.map(({ checkState, checkFindings, checkedAt, returnedAt, returnedReason, ...d }) => ({
+      ...d,
+      /* P8-BE-11 — what reading it found; P8-BE-10 — sent back (its file is gone). */
+      check: checkView({ checkState, checkFindings, checkedAt }),
+      returned: returnedAt ? { at: returnedAt.toISOString(), reason: returnedReason ?? "" } : null,
+    }))),
   ]);
   return {
     ...summary(row), phone: row.phone, message: row.message, answers: briefAnswers(row.message),
@@ -152,13 +163,52 @@ export async function getSponsorRequest(actor: Actor, id: string) {
   };
 }
 
+/**
+ * P8-BE-10 — POST /sponsor-requests/:id/documents/:documentId/send-back —
+ * BTG sends a proof of business back with a reason while the request is
+ * still NEW. It stops counting, its file is deleted, the business is
+ * emailed the reason and its request link, and the request waits for a new
+ * proof — the automatic checks run again when it arrives.
+ */
+export async function sendBackSponsorDocument(actor: Actor, id: string, documentId: string, reasonIn: unknown) {
+  const reason = sendBackReason(reasonIn);
+  assertAllowed(actor, "inquiry", "approve");
+  const row = await prisma.inquiry.findFirst({ where: { ...whereFor(actor, "inquiry", "approve"), id }, select: SELECT });
+  if (!row) throw new ForbiddenError("inquiry", "approve");
+  if (row.state !== "NEW") throw new SendBackError("This request has been decided; its documents can't be sent back now.", 409);
+  const doc = await prisma.inquiryDocument.findFirst({
+    where: { tenantId: row.tenantId, inquiryId: row.id, id: documentId }, select: { id: true, r2Key: true, uploadedAt: true, returnedAt: true },
+  });
+  if (!doc) throw new ForbiddenError("inquiry", "approve");
+  if (!doc.uploadedAt) throw new SendBackError("That document never finished uploading — there's nothing to send back.", 409);
+  if (doc.returnedAt) throw new SendBackError("That document was already sent back.", 409);
+  await prisma.$transaction(async (tx) => {
+    const moved = await tx.inquiryDocument.updateMany({
+      /* tenant-scope: the request's own document, loaded above; only once. */
+      where: { tenantId: row.tenantId, id: doc.id, returnedAt: null }, data: returnedColumns(actor, reason),
+    });
+    if (moved.count !== 1) throw new SendBackError("That document was already sent back.", 409);
+    /* Waiting for the business again, not for BTG: the old reasons no longer apply. */
+    await tx.inquiry.update({ /* tenant-scope: the request loaded through whereFor above. */ where: { id: row.id }, data: { reviewReasons: [] } });
+    await recordSendBack(tx, actor, {
+      tenantId: row.tenantId, entity: "InquiryDocument", entityId: doc.id, documentName: "proof of business", reason,
+      to: row.email, name: firstNameOf(row) ?? "", uploadUrl: `${appUrl()}/sponsor-request/${encodeURIComponent(issueSponsorRequestToken(row.id))}`,
+      about: { inquiryId: row.id },
+    });
+  });
+  await deleteSentBackFile(doc.r2Key);
+  await evaluateSponsorRequest(row.id);
+  return getSponsorRequest(actor, row.id);
+}
+
 /** BTG reads a proof of business through a five-minute, audited link. */
 export async function viewSponsorDocument(actor: Actor, id: string, documentId: string) {
   const row = await prisma.inquiry.findFirst({ where: { ...whereFor(actor, "inquiry", "read"), id }, select: { id: true, tenantId: true } });
   if (!row) throw new ForbiddenError("inquiry", "read");
-  const doc = await prisma.inquiryDocument.findFirst({ where: { tenantId: row.tenantId, inquiryId: row.id, id: documentId }, select: { id: true, r2Key: true, uploadedAt: true } });
+  const doc = await prisma.inquiryDocument.findFirst({ where: { tenantId: row.tenantId, inquiryId: row.id, id: documentId }, select: { id: true, r2Key: true, uploadedAt: true, returnedAt: true } });
   if (!doc) throw new ForbiddenError("inquiry", "read");
   if (!doc.uploadedAt) throw new SponsorRequestError("That document never finished uploading.");
+  if (doc.returnedAt) throw new SponsorRequestError("That document was sent back; its file was deleted.", 409);
   const url = await presignPrivateDownload(actor, doc.r2Key, { entity: "InquiryDocument", entityId: doc.id }, SENSITIVE_DOCUMENT_TTL_SECONDS);
   return { url, expiresInSeconds: SENSITIVE_DOCUMENT_TTL_SECONDS };
 }
@@ -277,14 +327,19 @@ export async function evaluateSponsorRequest(id: string) {
       where: { id }, select: SELECT,
     });
     if (!row || row.state !== "NEW") return { outcome: "decided" as const };
-    const [proof, inUse, same, words] = await Promise.all([
-      tx.inquiryDocument.count({ where: { tenantId: row.tenantId, inquiryId: row.id, kind: "PROOF_OF_BUSINESS", uploadedAt: { not: null } } }),
+    const [proofs, inUse, same, words] = await Promise.all([
+      tx.inquiryDocument.findMany({
+        where: { tenantId: row.tenantId, inquiryId: row.id, kind: "PROOF_OF_BUSINESS", uploadedAt: { not: null }, returnedAt: null },
+        select: { checkState: true, checkFindings: true }, orderBy: { uploadedAt: "asc" },
+      }),
       emailInUse(tx, row.email),
       sameNameSponsors(tx, row.tenantId, sponsorNameFor(row)),
       row.businessType === "OTHER" ? checkRestricted(tx, row.tenantId, row.businessTypeOther) : Promise.resolve([]),
     ]);
     const verdict = sponsorApprovalVerdict({
-      emailConfirmed: Boolean(row.emailConfirmedAt), proofUploaded: proof > 0,
+      emailConfirmed: Boolean(row.emailConfirmedAt), proofUploaded: proofs.length > 0,
+      /* P8-BE-11 — what reading the proof found. */
+      documentHolds: documentHolds("Proof of business", proofs),
       businessType: row.businessType, businessTypeOther: row.businessTypeOther,
       restrictedWords: words, emailInUse: inUse, sameNameSponsors: same.map((s) => s.name),
     });
@@ -327,7 +382,7 @@ async function applicantRow(id: string) {
 /** What the applicant sees: where their request stands, and what is still needed. */
 export async function sponsorRequestStatus(token: string) {
   const row = await applicantRow(requestFromToken(token));
-  const uploaded = await prisma.inquiryDocument.count({ where: { tenantId: row.tenantId, inquiryId: row.id, kind: "PROOF_OF_BUSINESS", uploadedAt: { not: null } } });
+  const uploaded = await prisma.inquiryDocument.count({ where: { tenantId: row.tenantId, inquiryId: row.id, kind: "PROOF_OF_BUSINESS", uploadedAt: { not: null }, returnedAt: null } });
   const missing: string[] = [];
   if (!row.emailConfirmedAt) missing.push("confirm your email");
   if (!uploaded) missing.push("upload your proof of business");
@@ -369,20 +424,31 @@ export async function requestSponsorDocumentUpload(token: string, input: { filen
   return { document: doc, uploadUrl, contentType: input.contentType };
 }
 
-/** Step two: the applicant says it has uploaded. Counted only if it is there; then the checks run. */
+/**
+ * Step two: the applicant says it has uploaded. Counted only if it is there
+ * and can be read (P8-BE-09); then read — it should name the business
+ * (P8-BE-11) — and the checks run.
+ */
 export async function confirmSponsorDocumentUpload(token: string, documentId: string) {
   const row = await applicantRow(requestFromToken(token));
-  const doc = await prisma.inquiryDocument.findFirst({ where: { tenantId: row.tenantId, inquiryId: row.id, id: documentId }, select: { id: true, r2Key: true, contentType: true, bytes: true } });
+  const doc = await prisma.inquiryDocument.findFirst({
+    where: { tenantId: row.tenantId, inquiryId: row.id, id: documentId }, select: { id: true, r2Key: true, contentType: true, bytes: true, uploadedAt: true, returnedAt: true },
+  });
   if (!doc) throw new SponsorRequestError("That document isn't part of this request.", 404);
-  /* 2S8-SEC-03 — what arrived must be what the grant pinned; anything else is deleted. */
+  if (doc.returnedAt) throw new SponsorRequestError("BTG sent that document back — upload a new one.", 409);
+  if (doc.uploadedAt) return sponsorRequestStatus(token);
+  /* 2S8-SEC-03 — what arrived must be what the grant pinned; P8-BE-09 — and readable. Anything else is deleted. */
   const arrived = await checkPrivateUpload(SYSTEM(row.tenantId), doc.r2Key,
-    { contentType: doc.contentType, bytes: doc.bytes, maxBytes: MAX_DOCUMENT_BYTES }, { entity: "InquiryDocument", entityId: doc.id });
+    { contentType: doc.contentType, bytes: doc.bytes, maxBytes: MAX_DOCUMENT_BYTES, document: true }, { entity: "InquiryDocument", entityId: doc.id });
   if (!arrived.ok && arrived.problem === "missing") throw new SponsorRequestError("That document has not arrived yet — upload it, then confirm.");
-  if (!arrived.ok) throw new SponsorRequestError(uploadRefusal(arrived.problem, "That document"), 422);
+  if (!arrived.ok) throw new SponsorRequestError(uploadRefusal(arrived, "That document"), 422);
   const size = arrived.bytes;
+  const check = await readDocument(arrived.document, {
+    label: "Proof of business", names: [{ who: "The business", name: sponsorNameFor(row), kind: "business" }], kind: null, expires: false, birthDate: null,
+  });
   await prisma.inquiryDocument.update({
     /* tenant-scope: the row loaded above, within this request. */
-    where: { id: doc.id }, data: { uploadedAt: new Date(), bytes: size },
+    where: { id: doc.id }, data: { uploadedAt: new Date(), bytes: size, ...check },
   });
   await evaluateSponsorRequest(row.id);
   return sponsorRequestStatus(token);
@@ -455,7 +521,7 @@ export async function decideSponsorRequest(actor: Actor, id: string, d: SponsorR
     }
 
     /* Proof of business is required of every sponsor, the same rule whoever opens the account (2S1-BE-17). */
-    const proof = await tx.inquiryDocument.count({ where: { tenantId: row.tenantId, inquiryId: row.id, kind: "PROOF_OF_BUSINESS", uploadedAt: { not: null } } });
+    const proof = await tx.inquiryDocument.count({ where: { tenantId: row.tenantId, inquiryId: row.id, kind: "PROOF_OF_BUSINESS", uploadedAt: { not: null }, returnedAt: null } });
     if (!proof) throw new SponsorRequestError("This business hasn't uploaded a proof of business yet — every sponsor needs one before the account opens.");
     const checks = await checksFor(tx, row);
     if (checks.emailInUse) {

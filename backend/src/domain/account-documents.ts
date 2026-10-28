@@ -29,6 +29,8 @@ import { randomBytes } from "node:crypto";
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { checkPrivateUpload, presignPrivateUpload, uploadRefusal } from "../lib/storage";
+import type { ExpectedName, ReadExpectation, ReadKind } from "./document-check-rules";
+import { documentHolds, readDocument } from "./document-reading";
 import { safeFilename } from "./onboarding-documents";
 import {
   ATHLETE_DOCUMENT_KINDS, GUARDIAN_DOCUMENT_KINDS, GUARDIAN_PROOF_KINDS, MAX_ACCOUNT_DOCUMENTS, MAX_ID_DOCUMENT_BYTES, idUploadProblem,
@@ -94,26 +96,79 @@ export async function startAccountDocument(
   return { document, uploadUrl, contentType: input.contentType };
 }
 
-/** Step two: count it only if it is really in the bucket. Returns the document. */
+/**
+ * What a document should show (P8-BE-11), from the owner's record: the
+ * athlete's own ID names them, and their government ID carries their date
+ * of birth; a guardian's ID names the guardian; proof of guardianship names
+ * both the guardian and the athlete it is for.
+ */
+async function expectationFor(owner: DocumentOwner, doc: { kind: string; proofKind: string | null; wardId: string | null }): Promise<ReadExpectation> {
+  if (owner.athleteId) {
+    const a = await prisma.athlete.findFirst({ /* tenant-scope: the owner's own athlete. */ where: { tenantId: owner.tenantId, id: owner.athleteId }, select: { legalName: true, birthDate: true } });
+    const name: ExpectedName[] = [{ who: "The athlete", name: a?.legalName ?? "", kind: "person" }];
+    return doc.kind === "SCHOOL_ID"
+      ? { label: "Athlete's school ID", names: name, kind: "SCHOOL_ID", expires: false, birthDate: null }
+      : { label: "Athlete's government ID", names: name, kind: "GOVERNMENT_ID", expires: true, birthDate: a?.birthDate ?? null };
+  }
+  const g = await prisma.guardian.findFirst({ /* tenant-scope: the owner's own guardian. */ where: { tenantId: owner.tenantId, id: owner.guardianId }, select: { legalName: true } });
+  const guardian: ExpectedName = { who: "The guardian", name: g?.legalName ?? "", kind: "person" };
+  if (doc.kind === "GUARDIAN_ID") return { label: "Guardian's government ID", names: [guardian], kind: "GOVERNMENT_ID", expires: true, birthDate: null };
+  const ward = doc.wardId
+    ? await prisma.athlete.findFirst({ /* tenant-scope: the athlete the proof names, in the guardian's tenant. */ where: { tenantId: owner.tenantId, id: doc.wardId }, select: { legalName: true } })
+    : null;
+  return {
+    label: "Proof of guardianship",
+    names: [guardian, ...(ward ? [{ who: "The athlete", name: ward.legalName, kind: "person" as const }] : [])],
+    kind: (GUARDIAN_PROOF_KINDS as readonly string[]).includes(doc.proofKind ?? "") ? (doc.proofKind as ReadKind) : null,
+    expires: false, birthDate: null,
+  };
+}
+
+/**
+ * Step two: count it only if it is really in the bucket, and a file that can
+ * be read (P8-BE-09) — then read what it says (P8-BE-11). Returns the document.
+ */
 export async function finishAccountDocument(owner: DocumentOwner, documentId: string) {
-  const doc = await prisma.accountDocument.findFirst({ /* tenant-scope: ownerWhere carries the owner's tenantId. */ where: { ...ownerWhere(owner), id: documentId }, select: { id: true, r2Key: true, kind: true, uploadedAt: true, contentType: true, bytes: true } });
+  const doc = await prisma.accountDocument.findFirst({
+    /* tenant-scope: ownerWhere carries the owner's tenantId. */
+    where: { ...ownerWhere(owner), id: documentId },
+    select: { id: true, r2Key: true, kind: true, proofKind: true, wardId: true, uploadedAt: true, returnedAt: true, contentType: true, bytes: true },
+  });
   if (!doc) throw new AccountDocumentError("That document isn't one of yours.", 404);
+  if (doc.returnedAt) throw new AccountDocumentError("BTG sent that document back — upload a new one.", 409);
   const view = { id: doc.id, r2Key: doc.r2Key, kind: doc.kind, uploadedAt: doc.uploadedAt };
   if (doc.uploadedAt) return view;
-  /* 2S8-SEC-03 — what arrived must be what the grant pinned; anything else is deleted. */
+  /* 2S8-SEC-03 — what arrived must be what the grant pinned; P8-BE-09 — and readable. Anything else is deleted. */
   const arrived = await checkPrivateUpload({ userId: null, tenantId: owner.tenantId }, doc.r2Key,
-    { contentType: doc.contentType, bytes: doc.bytes, maxBytes: MAX_ID_DOCUMENT_BYTES }, { entity: "AccountDocument", entityId: doc.id });
+    { contentType: doc.contentType, bytes: doc.bytes, maxBytes: MAX_ID_DOCUMENT_BYTES, document: true }, { entity: "AccountDocument", entityId: doc.id });
   if (!arrived.ok && arrived.problem === "missing") throw new AccountDocumentError("That document hasn't arrived yet — upload it, then confirm.", 409);
-  if (!arrived.ok) throw new AccountDocumentError(uploadRefusal(arrived.problem, "That document"));
+  if (!arrived.ok) throw new AccountDocumentError(uploadRefusal(arrived, "That document"));
+  const check = await readDocument(arrived.document, await expectationFor(owner, doc));
   return prisma.accountDocument.update({
     /* tenant-scope: the row loaded above within this owner. */
-    where: { id: doc.id }, data: { uploadedAt: new Date(), bytes: arrived.bytes }, select: { id: true, r2Key: true, kind: true, uploadedAt: true },
+    where: { id: doc.id }, data: { uploadedAt: new Date(), bytes: arrived.bytes, ...check }, select: { id: true, r2Key: true, kind: true, uploadedAt: true },
   });
+}
+
+/**
+ * P8-BE-11 — what holds this owner's automatic approval: the findings of the
+ * documents that count (uploaded, not sent back), one requirement at a time.
+ * `kinds` are the kinds that meet one requirement (an athlete's ID: either).
+ */
+export async function documentHoldsFor(
+  db: Prisma.TransactionClient | typeof prisma, owner: DocumentOwner, requirements: readonly { label: string; kinds: readonly string[]; wardId?: string }[],
+): Promise<string[]> {
+  const rows = await db.accountDocument.findMany({
+    /* tenant-scope: ownerWhere carries the owner's tenantId. */
+    where: { ...ownerWhere(owner), uploadedAt: { not: null }, returnedAt: null },
+    select: { kind: true, wardId: true, checkState: true, checkFindings: true }, orderBy: { uploadedAt: "asc" },
+  });
+  return requirements.flatMap((r) => documentHolds(r.label, rows.filter((d) => r.kinds.includes(d.kind) && (r.wardId === undefined || d.wardId === r.wardId))));
 }
 
 /** The kinds this owner has actually uploaded. */
 export async function uploadedKinds(db: Prisma.TransactionClient | typeof prisma, owner: DocumentOwner): Promise<Set<string>> {
-  const rows = await db.accountDocument.findMany({ /* tenant-scope: ownerWhere carries the owner's tenantId. */ where: { ...ownerWhere(owner), uploadedAt: { not: null } }, select: { kind: true } });
+  const rows = await db.accountDocument.findMany({ /* tenant-scope: ownerWhere carries the owner's tenantId. */ where: { ...ownerWhere(owner), uploadedAt: { not: null }, returnedAt: null }, select: { kind: true } });
   return new Set(rows.map((r) => r.kind));
 }
 
@@ -125,7 +180,7 @@ export async function uploadedKinds(db: Prisma.TransactionClient | typeof prisma
 export async function guardianUploadsFor(db: Prisma.TransactionClient | typeof prisma, tenantId: string, guardianId: string, wardId: string) {
   const rows = await db.accountDocument.findMany({
     /* tenant-scope: the guardian's own documents, in their tenant. */
-    where: { tenantId, guardianId, uploadedAt: { not: null }, OR: [{ kind: "GUARDIAN_ID" }, { kind: "GUARDIANSHIP_PROOF", wardId }] },
+    where: { tenantId, guardianId, uploadedAt: { not: null }, returnedAt: null, OR: [{ kind: "GUARDIAN_ID" }, { kind: "GUARDIANSHIP_PROOF", wardId }] },
     select: { kind: true },
   });
   return { idUploaded: rows.some((r) => r.kind === "GUARDIAN_ID"), proofUploaded: rows.some((r) => r.kind === "GUARDIANSHIP_PROOF") };

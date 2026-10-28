@@ -7,7 +7,8 @@ import { Router, type RequestHandler } from "express";
 import { requireActor } from "../../auth/actor";
 import { pageRequest } from "../../lib/paging";
 import { SponsorRequestDecisionInput, SponsorRequestListQuery } from "../../contracts/sponsor-requests";
-import { decideSponsorRequest, getSponsorRequest, listSponsorRequests, viewSponsorDocument } from "../../domain/sponsor-requests";
+import { decideSponsorRequest, getSponsorRequest, listSponsorRequests, sendBackSponsorDocument, viewSponsorDocument } from "../../domain/sponsor-requests";
+import { DocumentSendBackInput } from "../../contracts/documents";
 
 export const sponsorRequestsRouter = Router();
 type Id = { id: string };
@@ -26,4 +27,8 @@ sponsorRequestsRouter.post("/sponsor-requests/:id/decision", requireActor, (asyn
 /* 2S1-BE-17 — BTG reads a proof of business through a five-minute, audited link. */
 sponsorRequestsRouter.get("/sponsor-requests/:id/documents/:documentId", requireActor, (async (req, res) => {
   res.json(await viewSponsorDocument(req.actor!, req.params.id, req.params.documentId));
+}) as RequestHandler<DocId>);
+/* P8-BE-10 — BTG sends a proof of business back with a reason; the business is emailed its request link. */
+sponsorRequestsRouter.post("/sponsor-requests/:id/documents/:documentId/send-back", requireActor, (async (req, res) => {
+  res.json(await sendBackSponsorDocument(req.actor!, req.params.id, req.params.documentId, DocumentSendBackInput.parse(req.body ?? {}).reason));
 }) as RequestHandler<DocId>);

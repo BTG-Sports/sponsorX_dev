@@ -15,6 +15,7 @@
  *
  * Routes parse and hand over; every rule is in the domain.
  */
+import { DocumentSendBackInput } from "../../contracts/documents";
 import { rulesAttestationWording } from "../../domain/rules-attestation";
 import { publicCollabAgreement } from "../../domain/collab-agreement";
 import { Router, type Request, type RequestHandler } from "express";
@@ -40,7 +41,7 @@ import {
 } from "../../domain/guardian-setup";
 import {
   approveHeldAthlete, getAthleteSignup, getGuardianSignup, listSignups, reinstateAthleteSignup, reinstateGuardianSignup,
-  rejectAthleteSignup, rejectGuardianSignup, viewSignupDocument,
+  rejectAthleteSignup, rejectGuardianSignup, sendBackSignupDocument, viewSignupDocument,
 } from "../../domain/signups-desk";
 import { listAgeTable, removeAgeRow, setAgeRow, setSignupSettings, signupSettings } from "../../domain/age-of-majority";
 import {
@@ -182,6 +183,12 @@ const viewDocument = (owner: "athletes" | "guardians"): RequestHandler<{ id: str
 };
 signupsRouter.get<{ id: string; documentId: string }>("/signups/athletes/:id/documents/:documentId", requireActor, viewDocument("athletes"));
 signupsRouter.get<{ id: string; documentId: string }>("/signups/guardians/:id/documents/:documentId", requireActor, viewDocument("guardians"));
+/* P8-BE-10 — BTG sends one document back with a reason; the person is emailed their upload link. */
+const sendBack = (owner: "athletes" | "guardians"): RequestHandler<{ id: string; documentId: string }> => async (req, res) => {
+  res.json(await sendBackSignupDocument(req.actor!, owner, req.params.id, req.params.documentId, DocumentSendBackInput.parse(req.body ?? {}).reason));
+};
+signupsRouter.post<{ id: string; documentId: string }>("/signups/athletes/:id/documents/:documentId/send-back", requireActor, sendBack("athletes"));
+signupsRouter.post<{ id: string; documentId: string }>("/signups/guardians/:id/documents/:documentId/send-back", requireActor, sendBack("guardians"));
 signupsRouter.post<{ id: string }>("/signups/athletes/:id/approve", requireActor, async (req, res) => {
   res.json(await approveHeldAthlete(req.actor!, req.params.id));
 });

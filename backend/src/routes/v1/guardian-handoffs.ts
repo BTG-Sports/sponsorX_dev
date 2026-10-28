@@ -17,6 +17,7 @@
  *   POST /guardian-handoffs/:id/staff-decision              BTG: CONFIRM | DECLINE, when staff confirm minors
  *   GET  /guardian-handoffs/:id/documents/:documentId       BTG: the new guardian's ID or proof, a 5-minute audited link
  */
+import { DocumentSendBackInput } from "../../contracts/documents";
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
@@ -26,7 +27,7 @@ import {
 } from "../../contracts/guardian-handoff";
 import {
   confirmHandoffDocumentUpload, confirmHandoffEmail, decideHandoff, decideStaffHandoff, getHandoff, handoffStatus, listHandoffs, lookupAthleteForHandoff,
-  requestHandoffDocumentUpload, startHandoff, submitHandoff, viewHandoffDocument,
+  requestHandoffDocumentUpload, sendBackHandoffDocument, startHandoff, submitHandoff, viewHandoffDocument,
 } from "../../domain/guardian-handoff";
 import { clientIp } from "../../lib/client-ip";
 import { limit } from "../../lib/rate-limit";
@@ -82,6 +83,11 @@ const staffDecide: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await decideStaffHandoff(req.actor!, req.params.id, HandoffStaffDecisionInput.parse(req.body ?? {})));
 };
 
+/* P8-BE-10 — BTG sends the new guardian's ID or proof back with a reason. */
+const sendBack: RequestHandler<{ id: string; documentId: string }> = async (req, res) => {
+  res.json(await sendBackHandoffDocument(req.actor!, req.params.id, req.params.documentId, DocumentSendBackInput.parse(req.body ?? {}).reason));
+};
+
 guardianHandoffsRouter.get("/public/guardian-handoffs/lookup", lookup);
 guardianHandoffsRouter.post("/public/guardian-handoffs", start);
 guardianHandoffsRouter.post("/public/guardian-handoffs/confirm-email", confirmEmail);
@@ -95,3 +101,4 @@ guardianHandoffsRouter.get("/guardian-handoffs/:id", requireActor, one);
 guardianHandoffsRouter.post("/guardian-handoffs/:id/decision", requireActor, decide);
 guardianHandoffsRouter.post("/guardian-handoffs/:id/staff-decision", requireActor, staffDecide);
 guardianHandoffsRouter.get("/guardian-handoffs/:id/documents/:documentId", requireActor, document);
+guardianHandoffsRouter.post("/guardian-handoffs/:id/documents/:documentId/send-back", requireActor, sendBack);

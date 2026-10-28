@@ -1021,12 +1021,13 @@ async function checkProof(actor: Actor, row: { id: string; tenantId: string; lin
     const pinned = (grant?.after ?? null) as { contentType?: unknown; bytes?: unknown } | null;
     if (!pinned || typeof pinned.contentType !== "string") throw new DeliveryError("That photo wasn't uploaded for this line.", 422);
     /* 2S8-SEC-02 — the 10 MB limit checked on the file that actually
-       arrived; 2S8-SEC-03 — and its type and exact size, or it is deleted. */
+       arrived; 2S8-SEC-03 — and its type and exact size, or it is deleted;
+       P8-BE-09 — and a photo someone can make out. */
     const arrived = await checkPrivateUpload(actor, proofKey,
-      { contentType: pinned.contentType, bytes: typeof pinned.bytes === "number" ? pinned.bytes : null, maxBytes: PROOF_MAX_BYTES },
+      { contentType: pinned.contentType, bytes: typeof pinned.bytes === "number" ? pinned.bytes : null, maxBytes: PROOF_MAX_BYTES, document: true },
       { entity: "OrderLineDelivery", entityId: row.id });
     if (!arrived.ok && arrived.problem === "missing") throw new DeliveryError(`The photo hasn't arrived in storage yet — upload it again, or ${without} without it.`, 422);
-    if (!arrived.ok) throw new DeliveryError(uploadRefusal(arrived.problem, "That photo"), 422);
+    if (!arrived.ok) throw new DeliveryError(uploadRefusal(arrived, "That photo"), 422);
   }
   const proofLink = input.proofLink?.trim() || null;
   if (proofLink && !/^https:\/\//i.test(proofLink)) throw new DeliveryError("A link starts with https://", 422);

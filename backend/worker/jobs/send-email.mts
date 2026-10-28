@@ -754,6 +754,11 @@ ${d.portalUrl ?? ""}
     subject: `Guardian handoff to confirm: ${d.athleteName ?? "an athlete"}`,
     text: `${d.previousName ?? "The current guardian"} has handed ${d.athleteName ?? "an athlete"}'s account to ${d.requesterName ?? "a new guardian"} (${d.relationship ?? ""}). Their email is confirmed, their ID and proof of guardianship are uploaded and they accepted the guardian agreement.\n\n"BTG staff confirm minors" is on, so nothing has switched yet: ${d.previousName ?? "the current guardian"} stays in control until you confirm or decline it:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
   }),
+  /* P8-BE-10 — BTG sent one document back. */
+  "document.sentBack": (d) => ({
+    subject: `Please upload your ${d.documentName ?? "document"} again`,
+    text: `Hi ${d.name || "there"},\n\nBTG looked at your ${d.documentName ?? "document"} and needs a new one:\n\n${d.reason ?? ""}\n\nUpload it here:\n\n${d.uploadUrl ?? ""}\n\nThe one you sent has been deleted. Questions: ${d.supportEmail ?? "BTG support"}.\n\n— BTG SponsorX`,
+  }),
   /* 2S1-BE-15 — a dispute decided by hand: a BTG admin replaced the guardian. Each of the three reads their own version. */
   "guardian.replacedByBtg": (d) => ({
     subject: `${d.athleteFirstName ?? "An athlete"}'s guardian on SponsorX has changed`,

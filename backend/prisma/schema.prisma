@@ -574,6 +574,15 @@ model AccountDocument {
   bytes       Int
   r2Key       String    @unique
   uploadedAt  DateTime?
+  /// P8-BE-11 — what reading the document found: CLEAR, FLAGGED or UNREAD (null: not read — uploaded before the check).
+  checkState     String?
+  /// P8-BE-11 — the findings, [{ code, says }]. The document's words are never stored.
+  checkFindings  Json?
+  checkedAt      DateTime?
+  /// P8-BE-10 — BTG sent it back: it no longer counts, its file is deleted, and the person was told why.
+  returnedAt     DateTime?
+  returnedReason String?
+  returnedBy     String?
   createdAt   DateTime  @default(now())
 
   athlete  Athlete?  @relation(fields: [athleteId], references: [id])
@@ -637,6 +646,13 @@ model AthleteProfileChange {
   idDocumentContentType String?
   idDocumentBytes       Int?
   idDocumentUploadedAt  DateTime?
+  /// P8-BE-11 — what reading the new legal name's ID found and the findings; FLAGGED or UNREAD holds the change for BTG.
+  idDocumentCheckState     String?
+  idDocumentCheckFindings  Json?
+  idDocumentCheckedAt      DateTime?
+  /// P8-BE-10 — BTG sent the ID back: the change waits for a new one.
+  idDocumentReturnedAt     DateTime?
+  idDocumentReturnedReason String?
   /// What the re-run checks found, in plain words ("Now a minor — a guardian is needed").
   checkNotes            String[]           @default([])
   createdAt             DateTime           @default(now())
@@ -1661,6 +1677,15 @@ model InquiryDocument {
   bytes       Int
   r2Key       String
   uploadedAt  DateTime?
+  /// P8-BE-11 — what reading the document found: CLEAR, FLAGGED or UNREAD (null: not read — uploaded before the check).
+  checkState     String?
+  /// P8-BE-11 — the findings, [{ code, says }]. The document's words are never stored.
+  checkFindings  Json?
+  checkedAt      DateTime?
+  /// P8-BE-10 — BTG sent it back: it no longer counts, its file is deleted, and the person was told why.
+  returnedAt     DateTime?
+  returnedReason String?
+  returnedBy     String?
   createdAt   DateTime  @default(now())
 
   inquiry Inquiry @relation(fields: [inquiryId], references: [id])
@@ -2480,6 +2505,15 @@ model OnboardingDocument {
   r2Key        String    @unique
   /// Set when the applicant confirms and the object is found in the bucket.
   uploadedAt   DateTime?
+  /// P8-BE-11 — what reading the document found: CLEAR, FLAGGED or UNREAD (null: not read — uploaded before the check).
+  checkState     String?
+  /// P8-BE-11 — the findings, [{ code, says }]. The document's words are never stored.
+  checkFindings  Json?
+  checkedAt      DateTime?
+  /// P8-BE-10 — BTG sent it back: it no longer counts, its file is deleted, and the person was told why.
+  returnedAt     DateTime?
+  returnedReason String?
+  returnedBy     String?
   /// 2S1-BE-08 — the state a BUSINESS_REGISTRATION is for (an agency needs
   /// one per state it operates in). Null for every other kind.
   stateCode    String?
@@ -3834,6 +3868,15 @@ model GuardianHandoffDocument {
   bytes       Int
   r2Key       String    @unique
   uploadedAt  DateTime?
+  /// P8-BE-11 — what reading the document found: CLEAR, FLAGGED or UNREAD (null: not read — uploaded before the check).
+  checkState     String?
+  /// P8-BE-11 — the findings, [{ code, says }]. The document's words are never stored.
+  checkFindings  Json?
+  checkedAt      DateTime?
+  /// P8-BE-10 — BTG sent it back: it no longer counts, its file is deleted, and the person was told why.
+  returnedAt     DateTime?
+  returnedReason String?
+  returnedBy     String?
   createdAt   DateTime  @default(now())
 
   handoff GuardianHandoff @relation(fields: [handoffId], references: [id])

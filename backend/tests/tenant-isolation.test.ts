@@ -290,6 +290,14 @@ const BODY: Record<string, unknown> = {
   "POST /athletes/{id}/photo": { contentType: "image/jpeg", bytes: 1000 },
   "PUT /athletes/{id}/photo": { photoKey: null },
   "POST /athletes/{id}/home-page": { action: "remove" },
+  /* P8-BE-10 / -11 — sending a document back and answering a held legal name: each must die at scope, not at validation. */
+  "POST /signups/athletes/{id}/documents/{documentId}/send-back": { reason: "Too dark to read." },
+  "POST /signups/guardians/{id}/documents/{documentId}/send-back": { reason: "Too dark to read." },
+  "POST /guardian-handoffs/{id}/documents/{documentId}/send-back": { reason: "Too dark to read." },
+  "POST /sponsor-requests/{id}/documents/{documentId}/send-back": { reason: "Too dark to read." },
+  "POST /onboarding/{id}/documents/{documentId}/send-back": { reason: "Too dark to read." },
+  "POST /profile-changes/{id}/id-document/send-back": { reason: "Too dark to read." },
+  "POST /profile-changes/{id}/decision": { decision: "APPLY" },
   /* 2S1-BE-13 / 2S1-BE-15. POST /me/close is the actor's own account, so an empty body (refused: confirm is required) keeps the sweep from closing tenant B's logins. */
   "POST /account-closures/{id}/reactivation-decision": { decision: "DECLINE", note: "cross-tenant" },
   "POST /guardian-handoffs/{id}/decision": { decision: "HAND_OFF" },

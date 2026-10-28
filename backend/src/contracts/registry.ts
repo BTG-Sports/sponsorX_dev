@@ -149,6 +149,7 @@ import {
   AgeRowInput, AthleteDocumentInput, GuardianAgreementInput, GuardianDetailsInput, GuardianDocumentInput, IdDocumentInput,
   SignupRejectInput, SignupSettingsInput, SignupStreamQuery, SignupTokenInput,
 } from "./signups";
+import { DocumentSendBackInput, LegalNameDecisionInput } from "./documents";
 import {
   AgreementAcceptanceInput,
   GuardianInput,
@@ -229,6 +230,8 @@ registry.register("BriefState", BriefState);
 registry.register("CampaignState", CampaignState);
 registry.register("InviteState", InviteState);
 registry.register("CampaignBriefInput", CampaignBriefInput);
+registry.register("DocumentSendBackInput", DocumentSendBackInput);
+registry.register("LegalNameDecisionInput", LegalNameDecisionInput);
 registry.register("BriefTransitionInput", BriefTransitionInput);
 registry.register("CampaignBriefPatch", CampaignBriefPatch);
 registry.register("BriefSubmitted", BriefSubmitted);
@@ -390,6 +393,8 @@ const PATHS: Row[] = [
   { method: "get", path: "/profile-changes", tag: "Athletes", summary: "BTG: sensitive profile edits (legal name, date of birth, guardian), newest first, SERVER-PAGED (?page ?size) — what New sign-ups shows (2S1-BE-14).", query: z.object({ page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional() }) },
   { method: "post", path: "/profile-changes/{id}/id-document/confirm", tag: "Athletes", summary: "The athlete says the matching ID for a new legal name has uploaded. Counted only if it is in the private bucket; then the legal name is applied, audited, and BTG admins are emailed (2S1-BE-14)." },
   { method: "get", path: "/profile-changes/{id}/id-document", tag: "Athletes", summary: "BTG: a five-minute, audited link to the ID a legal-name change was matched against (2S1-BE-14)." },
+  { method: "post", path: "/profile-changes/{id}/id-document/send-back", tag: "Athletes", summary: "BTG sends the ID for a new legal name back with a reason while the change waits for BTG: the change is DECLINED, the file deleted, and the athlete emailed to submit the name again with a clearer ID; audited (P8-BE-10).", body: DocumentSendBackInput },
+  { method: "post", path: "/profile-changes/{id}/decision", tag: "Athletes", summary: "BTG answers a new legal name the ID check held (P8-BE-11): APPLY makes it live; DECLINE closes it with a note the athlete reads. Only once its ID has arrived; audited.", body: LegalNameDecisionInput },
   { method: "post", path: "/profile-changes/{id}/withdraw", tag: "Athletes", summary: "The athlete (or guardian) takes back a new legal name still waiting for its ID." },
   { method: "put", path: "/athletes/{id}/tier", tag: "Athletes", summary: "Set an athlete's pricing tier.", body: AthleteTierInput },
   { method: "post", path: "/athletes/{id}/rates", tag: "Athletes", summary: "Set an athlete's rate for a NIL job.", body: AthleteRateInput, status: 201 },
@@ -562,6 +567,7 @@ const PATHS: Row[] = [
   { method: "get", path: "/onboarding/signups", tag: "Onboarding", summary: "Every submitted organisation as BTG's New sign-ups desk shows it: approved automatically, waiting with reasons, flagged, rejected (2S1-BE-06)." },
   { method: "get", path: "/onboarding/{id}/profile", tag: "Onboarding", summary: "The organisation's profile BTG's email links to: details, the checklist as approved, documents and history, activity, open decisions (2S1-BE-06)." },
   { method: "get", path: "/onboarding/{id}/documents/{documentId}", tag: "Onboarding", summary: "One verification document through a five-minute audited link (2S1-BE-06)." },
+  { method: "post", path: "/onboarding/{id}/documents/{documentId}/send-back", tag: "Onboarding", summary: "BTG sends one document back with a reason. An application waiting on the checks goes back to the applicant (CHANGES_REQUESTED); an approved organisation missing a required document is flagged. The document stops counting, its file is deleted, and the person is emailed the reason and their upload link; audited (P8-BE-10). Answers { documents }.", body: DocumentSendBackInput },
   { method: "get", path: "/property/documents", tag: "Onboarding", summary: "The organisation's own documents: what is on file, missing or expired, and each one's history (2S1-BE-07)." },
   { method: "post", path: "/property/documents", tag: "Onboarding", summary: "A private-bucket upload grant for a new or replacement document — the manager's own organisation only (2S1-BE-07).", body: OrganizationDocumentInput, status: 201 },
   { method: "post", path: "/property/documents/{documentId}/confirm", tag: "Onboarding", summary: "Confirm an upload: the earlier file is kept as history, the checklist re-runs, BTG admins are emailed (2S1-BE-07)." },
@@ -614,6 +620,7 @@ const PATHS: Row[] = [
   { method: "get", path: "/sponsor-requests/{id}", tag: "Sponsor requests", summary: "One request: who is asking, what they told us, the business type, the uploaded proof of business, why it is waiting (reviewReasons) or whether it was approved automatically, and the checks that gate approval — email already in use, same-named sponsors." },
   { method: "post", path: "/sponsor-requests/{id}/decision", tag: "Sponsor requests", summary: "APPROVE opens the account — the sponsor, its primary contact and a SPONSOR_ADMIN login for the request's email — and emails a sign-in link; DECLINE emails the note. Once only (409 after). After approval, REJECT switches the sponsor's logins off and emails the note; REINSTATE switches them back on (2S1-BE-17).", body: SponsorRequestDecisionInput },
   { method: "get", path: "/sponsor-requests/{id}/documents/{documentId}", tag: "Sponsor requests", summary: "A five-minute, audited link to read one proof of business (2S1-BE-17)." },
+  { method: "post", path: "/sponsor-requests/{id}/documents/{documentId}/send-back", tag: "Sponsor requests", summary: "BTG sends a proof of business back with a reason while the request is NEW; it waits for a new one and the checks run again. The document stops counting, its file is deleted, and the person is emailed the reason and their upload link; audited (P8-BE-10).", body: DocumentSendBackInput },
   { method: "get", path: "/public/sponsor-requests/{token}", tag: "Public", summary: "The applicant's view of their request: confirmed email, proof uploaded, what is still missing, and whether it is with BTG (2S1-BE-17).", auth: false },
   { method: "post", path: "/public/sponsor-requests/{token}/documents", tag: "Public", summary: "Start uploading a proof of business: a presigned PUT to the private bucket (2S1-BE-17).", auth: false, body: SponsorDocumentInput, status: 201 },
   { method: "post", path: "/public/sponsor-requests/{token}/documents/{documentId}/confirm", tag: "Public", summary: "Say the upload finished. Counted only if the file is there; then the automatic checks run (2S1-BE-17).", auth: false },
@@ -634,6 +641,8 @@ const PATHS: Row[] = [
   { method: "get", path: "/signups/guardians/{id}", tag: "New sign-ups", summary: "One guardian: details, checks, documents, the athletes they look after, activity." },
   { method: "get", path: "/signups/athletes/{id}/documents/{documentId}", tag: "New sign-ups", summary: "A five-minute, audited link to read one of the athlete's ID documents. BTG only." },
   { method: "get", path: "/signups/guardians/{id}/documents/{documentId}", tag: "New sign-ups", summary: "A five-minute, audited link to read one of the guardian's documents. BTG only." },
+  { method: "post", path: "/signups/athletes/{id}/documents/{documentId}/send-back", tag: "New sign-ups", summary: "BTG sends an athlete's ID back with a reason; a held sign-up waits for a new one and the checks run again. The document stops counting, its file is deleted, and the person is emailed the reason and their upload link; audited (P8-BE-10).", body: DocumentSendBackInput },
+  { method: "post", path: "/signups/guardians/{id}/documents/{documentId}/send-back", tag: "New sign-ups", summary: "BTG sends a guardian's ID or proof of guardianship back with a reason; their athletes' checks run again. The document stops counting, its file is deleted, and the person is emailed the reason and their upload link; audited (P8-BE-10).", body: DocumentSendBackInput },
   { method: "post", path: "/signups/athletes/{id}/approve", tag: "New sign-ups", summary: "Approve a sign-up the system held (a likely duplicate, the staff-confirmation setting): the same steps, by BTG." },
   { method: "post", path: "/signups/athletes/{id}/reject", tag: "New sign-ups", summary: "Reject an athlete, with a reason that is emailed. After approval: logins off, suspended, listings ended, payouts held. Their guardian is untouched.", body: SignupRejectInput },
   { method: "post", path: "/signups/athletes/{id}/reinstate", tag: "New sign-ups", summary: "Undo a rejection after approval: logins back on, active again." },
@@ -856,6 +865,7 @@ const PATHS: Row[] = [
   { method: "post", path: "/guardian-handoffs/{id}/decision", tag: "Guardians", summary: "The current guardian only: HAND_OFF switches the athlete to the new guardian in one transaction (agreed work and earned money stay put; other children unaffected) — refused if the new guardian can't sign in, and held for BTG (HANDED_OFF) when BTG staff confirm minors; DECLINE closes it and points the requester to BTG support (2S1-BE-15).", body: HandoffDecisionInput },
   { method: "post", path: "/guardian-handoffs/{id}/staff-decision", tag: "Guardians", summary: "BTG admin: a handed-off request waiting for staff confirmation — CONFIRM runs the switch, DECLINE (a reason the requester reads — emailed as written, handoff.declinedByBtg, and on their status page) closes it (2S1-BE-15).", body: HandoffStaffDecisionInput },
   { method: "get", path: "/guardian-handoffs/{id}/documents/{documentId}", tag: "Guardians", summary: "BTG only: a five-minute, audited link to the new guardian's government ID or proof of guardianship (2S1-BE-15)." },
+  { method: "post", path: "/guardian-handoffs/{id}/documents/{documentId}/send-back", tag: "Guardians", summary: "BTG sends the new guardian's ID or proof back with a reason while the request is open; a request already sent goes back to the new guardian, and nothing switches until it is sent again. The document stops counting, its file is deleted, and the person is emailed the reason and their upload link; audited (P8-BE-10).", body: DocumentSendBackInput },
 
   // 2S1-BE-16 — contacting BTG support
   { method: "get", path: "/public/support", tag: "Public", summary: "The support address (SUPPORT_EMAIL), whether the mailbox is set up yet, and the topics (2S1-BE-16).", auth: false },
