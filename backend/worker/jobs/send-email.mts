@@ -161,9 +161,19 @@ ${d.portalUrl ?? ""}
     text: `${d.count ?? "0"} order(s), ${d.total ?? ""} in all, were within their sponsor's spending limit and were approved on their own in the last 24 hours:\n\n${d.orders ?? ""}\n\nThe marketplace console:\n\n${d.consoleUrl ?? ""}\n\n— SponsorX`,
   }),
   /* 2S4-BE-10 — the payment window. */
-  "order.approved": (d) => ({
-    subject: `Your order ${d.orderRef ?? ""} is approved — please pay by ${d.payBy ?? "the date shown"}`,
-    text: `Hi ${d.firstName ?? "there"},\n\n${d.approvedBy ?? "Your order was approved"} (${d.orderRef ?? ""}):\n\n${d.lines ?? ""}\n\nTotal: ${d.amount ?? ""}\n\nPlease pay by ${d.payBy ?? "the date shown on your order"}. If it isn't paid by then, the order is cancelled and the stock goes back on sale.\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
+  /* POL-BE-04 — no pay-by date means card payment isn't open yet: the order is held, and nothing is cancelled meanwhile. */
+  "order.approved": (d) => d.payBy
+    ? {
+      subject: `Your order ${d.orderRef ?? ""} is approved — please pay by ${d.payBy}`,
+      text: `Hi ${d.firstName ?? "there"},\n\n${d.approvedBy ?? "Your order was approved"} (${d.orderRef ?? ""}):\n\n${d.lines ?? ""}\n\nTotal: ${d.amount ?? ""}\n\nPlease pay by ${d.payBy}. If it isn't paid by then, the order is cancelled and the stock goes back on sale.\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
+    }
+    : {
+      subject: `Your order ${d.orderRef ?? ""} is approved — it's held for you`,
+      text: `Hi ${d.firstName ?? "there"},\n\n${d.approvedBy ?? "Your order was approved"} (${d.orderRef ?? ""}):\n\n${d.lines ?? ""}\n\nTotal: ${d.amount ?? ""}\n\nYour order is held for you. Card payment opens soon, and we'll email you your pay-by date when it does. Nothing is cancelled meanwhile.\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
+    },
+  "order.paymentOpen": (d) => ({
+    subject: `Payment is open — please pay for order ${d.orderRef ?? ""} by ${d.payBy ?? "the date shown"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\nCard payment is now open on SponsorX. Your order ${d.orderRef ?? ""} (${d.amount ?? ""}) has been held for you; please pay by ${d.payBy ?? "the date shown on your order"}. If it isn't paid by then, the order is cancelled and the stock goes back on sale.\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "order.paymentReminder": (d) => ({
     subject: `${d.final ? "Last reminder: " : "Reminder: "}order ${d.orderRef ?? ""} is waiting for payment`,

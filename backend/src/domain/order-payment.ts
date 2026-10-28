@@ -16,6 +16,17 @@
  *     and every email keyed by the order and the step, so overlapping runs
  *     and retries do nothing twice.
  *
+ *   - PAYMENT CLOSED (POL-BE-04). While a sponsor can't pay by card
+ *     (`paymentsOpen()` false: no provider yet, or BTG has switched payment
+ *     off), an approved order waits with no deadline (`paymentDueAt` null).
+ *     It is never reminded and never cancelled for non-payment. A window
+ *     already running when payment closed is paused. Once payment opens,
+ *     the sweep gives each waiting order a fresh three days from that moment
+ *     and tells the sponsor once ("payment is open, pay by …"). Reminders
+ *     count from when the window opened (`paymentWindowStart`), not from
+ *     approval. An invoice or a payment BTG records by hand still pays the
+ *     order meanwhile.
+ *
  *   - PAID BY INVOICE. A Zoho Books invoice webhook for a marketplace
  *     order's Deal (2S7-INT-01 pushes the order as a Deal) lands in the same
  *     queue as a campaign's (routes/v1/zoho-webhooks.ts → worker
@@ -40,10 +51,11 @@ import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
 import { cancelOrderAsSystem, lockOrder, OrderStateConflictError, payOrderIn } from "./marketplace-order";
-import { remindersDue, usd, zohoInvoicePaid } from "./marketplace-order-rules";
+import { PAYMENT_WINDOW_DAYS, paymentWindowStart, remindersDue, usd, zohoInvoicePaid } from "./marketplace-order-rules";
 import { appUrl, orderRef, sellerRecipients, sponsorRecipient, tell, utc } from "./order-mail";
 import { refuseIfBackwards } from "./invoice-replay";
 import { logError } from "../lib/redact";
+import { paymentsOpen } from "../lib/payment-provider";
 
 type Tx = Prisma.TransactionClient;
 
@@ -172,14 +184,24 @@ async function paymentInProgress(tx: Tx, orderId: string, now: Date) {
  * The worker's sweep over orders waiting for payment. Reminder 1 a day in,
  * reminder 2 two days in (a sweep that missed day one sends only the
  * second); cancelled at `paymentDueAt` unless a payment is in progress.
+ * While card payment is closed it pauses windows instead, and once payment
+ * opens it starts them (POL-BE-04, above).
  * `tenantIds` limits the pass to named order books (a test, or a re-run for
  * one marketplace); the worker passes none — every one.
  */
 export async function sweepUnpaidOrders(now = new Date(), opts: { tenantIds?: string[] } = {}) {
   const scope = opts.tenantIds ? { tenantId: { in: opts.tenantIds } } : {};
+  const open = paymentsOpen();
+  const DAY = 86_400_000;
   const waiting = await prisma.marketplaceOrder.findMany({
     /* tenant-scope: the worker's sweep across every tenant (or the named ones); each order is handled in its own books. */
-    where: { ...scope, state: "AWAITING_PAYMENT", awaitingPaymentAt: { not: null, lte: new Date(now.getTime() - 86_400_000) } },
+    where: {
+      ...scope, state: "AWAITING_PAYMENT", awaitingPaymentAt: { not: null },
+      /* Open: windows to start, and windows a day or more old. Closed: windows to pause. */
+      ...(open
+        ? { OR: [{ paymentDueAt: null }, { paymentDueAt: { lte: new Date(now.getTime() + (PAYMENT_WINDOW_DAYS - 1) * DAY) } }] }
+        : { paymentDueAt: { not: null } }),
+    },
     select: { id: true }, orderBy: { awaitingPaymentAt: "asc" }, take: 1000,
   });
   let reminded = 0;
@@ -187,6 +209,8 @@ export async function sweepUnpaidOrders(now = new Date(), opts: { tenantIds?: st
   let deferred = 0;
   let failed = 0;
   let skipped = 0;
+  let paused = 0;
+  let opened = 0;
   for (const { id } of waiting) {
     await prisma.$transaction(async (tx) => {
       /* The row lock first: a payment committing now (or starting) is waited
@@ -196,9 +220,41 @@ export async function sweepUnpaidOrders(now = new Date(), opts: { tenantIds?: st
         /* tenant-scope: the order the sweep just listed, by id; re-read inside its transaction. */
         where: { id, state: "AWAITING_PAYMENT" }, select: ORDER,
       });
-      if (!o?.awaitingPaymentAt || !o.paymentDueAt) return;
+      if (!o?.awaitingPaymentAt) return;
+      const actor = { userId: null, tenantId: o.tenantId };
+      /* POL-BE-04 — payment closed: the window stops, and starts afresh when payment opens. */
+      if (!open) {
+        if (!o.paymentDueAt) return;
+        const stopped = await tx.marketplaceOrder.updateMany({
+          /* tenant-scope: the order just re-read by id; conditional on its deadline, so a second pass changes nothing. */
+          where: { id: o.id, state: "AWAITING_PAYMENT", paymentDueAt: o.paymentDueAt }, data: { paymentDueAt: null, paymentRemindersSent: 0 },
+        });
+        if (stopped.count === 0) return;
+        await audit(tx, actor, "marketplaceOrder.paymentWindowPaused", "MarketplaceOrder", o.id, {
+          before: { paymentDueAt: o.paymentDueAt.toISOString(), paymentRemindersSent: o.paymentRemindersSent }, after: { paymentDueAt: null, reason: "card payment is closed" },
+        });
+        paused++;
+        return;
+      }
       const sponsor = await sponsorRecipient(tx, o);
       const orderUrl = appUrl(`/sponsor/orders/${o.id}`);
+      /* POL-BE-04 — payment has opened: three days from now, and the sponsor told once. */
+      if (!o.paymentDueAt) {
+        const dueAt = new Date(now.getTime() + PAYMENT_WINDOW_DAYS * DAY);
+        const started = await tx.marketplaceOrder.updateMany({
+          /* tenant-scope: the order just re-read by id; conditional on it having no deadline, so a second pass changes nothing. */
+          where: { id: o.id, state: "AWAITING_PAYMENT", paymentDueAt: null }, data: { paymentDueAt: dueAt, paymentRemindersSent: 0 },
+        });
+        if (started.count === 0) return;
+        await audit(tx, actor, "marketplaceOrder.paymentWindowOpened", "MarketplaceOrder", o.id, { after: { paymentDueAt: dueAt.toISOString() } });
+        opened++;
+        if (sponsor) {
+          await tell(tx, sponsor, "order.paymentOpen", `${o.id}:${dueAt.toISOString()}`, {
+            firstName: sponsor.firstName, orderRef: orderRef(o.id), amount: usd(o.totalCents), payBy: utc(dueAt), orderUrl,
+          });
+        }
+        return;
+      }
       if (now >= o.paymentDueAt) {
         if (await paymentInProgress(tx, o.id, now)) { deferred++; return; }
         const lines = await tx.orderLineDelivery.findMany({
@@ -229,7 +285,7 @@ export async function sweepUnpaidOrders(now = new Date(), opts: { tenantIds?: st
         }
         return;
       }
-      const due = remindersDue(o.awaitingPaymentAt, now);
+      const due = remindersDue(paymentWindowStart(o.paymentDueAt), now);
       if (due <= o.paymentRemindersSent) return;
       const claimed = await tx.marketplaceOrder.updateMany({
         /* tenant-scope: the order just re-read by id; conditional on the count, so a second pass sends nothing. */
@@ -249,5 +305,5 @@ export async function sweepUnpaidOrders(now = new Date(), opts: { tenantIds?: st
       logError(`[unpaid orders] order ${id} failed, will retry next pass:`, error);
     });
   }
-  return { reminded, cancelled, deferred, failed, skipped };
+  return { reminded, cancelled, deferred, failed, skipped, paused, opened };
 }

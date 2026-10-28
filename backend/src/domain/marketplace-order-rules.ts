@@ -74,6 +74,9 @@ export function remindersDue(since: Date, now: Date): number {
   return PAYMENT_REMINDER_DAYS.filter((d) => days >= d).length;
 }
 
+/** POL-BE-04 — when an order's payment window opened: its deadline, less the window. Reminders count from here. Pure. */
+export const paymentWindowStart = (dueAt: Date) => new Date(dueAt.getTime() - PAYMENT_WINDOW_DAYS * 86_400_000);
+
 /** "$12,000.00" — the way the reasons and emails write money. */
 export const usd = (cents: number) => `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 

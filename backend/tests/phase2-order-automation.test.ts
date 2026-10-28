@@ -747,4 +747,112 @@ describe.skipIf(!hasDatabase)("2S4-BE-09 / 2S4-BE-10 over the API", { timeout: 9
       expect((await prisma.marketplaceOrder.findUniqueOrThrow({ where: { id: o.id }, select: { state: true, cancelReason: true } }))).toEqual({ state: "CANCELLED", cancelReason: "UNPAID" });
     });
   });
+
+  /* ── POL-BE-04 · while card payment is closed, nothing is reminded or cancelled ── */
+  describe("POL-BE-04 · while card payment is closed an order is held; its three days start when payment opens", async () => {
+    const { env } = await import("../src/config/env");
+    const setProvider = (p: "none" | "standin") => { (env as { PAYMENT_PROVIDER?: string }).PAYMENT_PROVIDER = p; };
+    const was = env.PAYMENT_PROVIDER;
+    afterAll(() => { (env as { PAYMENT_PROVIDER?: string }).PAYMENT_PROVIDER = was; });
+    const sweep = () => sweepUnpaidOrders(new Date(), { tenantIds: [T] });
+    const row = (id: string) => prisma.marketplaceOrder.findUniqueOrThrow({ where: { id }, select: { state: true, paymentDueAt: true, paymentRemindersSent: true } });
+    const auditCount = (id: string, action: string) => prisma.auditLog.count({ where: { entityId: id, action } });
+    const mine = async (template: string, id: string) => (await mails(template)).filter((m) => m.data.orderRef === ref(id));
+    /** Move an order back in time, as if approved `hours` ago (its deadline, if any, moves with it). */
+    const approvedAgo = async (id: string, hours: number) => {
+      const { paymentDueAt } = await row(id);
+      await prisma.marketplaceOrder.update({ where: { id }, data: {
+        awaitingPaymentAt: new Date(Date.now() - hours * HOUR), ...(paymentDueAt ? { paymentDueAt: new Date(Date.now() + (72 - hours) * HOUR) } : {}),
+      } });
+    };
+
+    it("approved while closed: no pay-by date, the sponsor told it's held, and the screen says it can't be paid yet", async () => {
+      setProvider("none");
+      const o = await order("ox_s4_admin", [{ key: "poster", quantity: 1 }]);
+      O.held = o.id;
+      expect(await row(o.id)).toEqual({ state: "AWAITING_PAYMENT", paymentDueAt: null, paymentRemindersSent: 0 });
+      expect((await call("GET", `/marketplace-orders/${o.id}`, "ox_s4_admin")).json).toMatchObject({ waitingOn: "PAYMENT", deadlineAt: null });
+      expect((await call("GET", `/marketplace-orders/${o.id}/payment`, "ox_s4_admin")).json).toMatchObject({ due: true, canPay: false });
+      expect(await mine("order.approved", o.id)).toEqual([expect.objectContaining({ to: "ox_s4_admin@ox-test.invalid", data: expect.objectContaining({ payBy: "" }) })]);
+      const { EMAIL_TEMPLATES: templates } = await import("../worker/jobs/send-email.mts");
+      const held = templates["order.approved"]!({ orderRef: ref(o.id), payBy: "" });
+      expect(held.subject).toMatch(/held for you/);
+      expect(held.text).toMatch(/Card payment opens soon[\s\S]*Nothing is cancelled meanwhile/);
+      expect(templates["order.approved"]!({ payBy: "1 Nov 2026" }).subject).toMatch(/please pay by 1 Nov 2026/);
+    });
+
+    it("however long it waits while closed, it is never reminded and never cancelled", async () => {
+      await approvedAgo(O.held, 24 * 10);
+      expect((await sweep()).failed).toBe(0);
+      await sweep();
+      expect(await row(O.held)).toEqual({ state: "AWAITING_PAYMENT", paymentDueAt: null, paymentRemindersSent: 0 });
+      expect(await mine("order.paymentReminder", O.held)).toEqual([]);
+      expect(await mine("order.cancelledUnpaid", O.held)).toEqual([]);
+    });
+
+    it("payment closing pauses a window already running: its deadline and reminders cleared, audited once", async () => {
+      setProvider("standin");
+      const o = await order("ox_s4_admin", [{ key: "poster", quantity: 1 }]);
+      O.paused = o.id;
+      expect((await row(o.id)).paymentDueAt).not.toBeNull();
+      /* Two days into its window, both reminders sent (set directly: a sweep now would also start O.held's window). */
+      await approvedAgo(o.id, 49);
+      await prisma.marketplaceOrder.update({ where: { id: o.id }, data: { paymentRemindersSent: 2 } });
+      setProvider("none");
+      expect((await sweep()).paused).toBeGreaterThanOrEqual(1);
+      await sweep();
+      expect(await row(o.id)).toEqual({ state: "AWAITING_PAYMENT", paymentDueAt: null, paymentRemindersSent: 0 });
+      expect(await auditCount(o.id, "marketplaceOrder.paymentWindowPaused")).toBe(1);
+    });
+
+    it("payment opening gives each held order a fresh three days from that moment, and tells the sponsor once", async () => {
+      setProvider("standin");
+      const before = Date.now();
+      expect((await sweep()).opened).toBeGreaterThanOrEqual(2);
+      await sweep();
+      for (const id of [O.held, O.paused]) {
+        const r = await row(id);
+        expect(r.state).toBe("AWAITING_PAYMENT");
+        expect(r.paymentRemindersSent).toBe(0);
+        expect(r.paymentDueAt!.getTime()).toBeGreaterThanOrEqual(before + 72 * HOUR);
+        expect(r.paymentDueAt!.getTime()).toBeLessThanOrEqual(Date.now() + 72 * HOUR);
+        expect(await auditCount(id, "marketplaceOrder.paymentWindowOpened")).toBe(1);
+        expect(await mine("order.paymentOpen", id)).toEqual([expect.objectContaining({ to: "ox_s4_admin@ox-test.invalid", data: expect.objectContaining({ payBy: expect.any(String), amount: "$100.00" }) })]);
+      }
+      /* Approved ten days ago, but the window opened just now: no reminder yet. */
+      expect((await row(O.held)).paymentRemindersSent).toBe(0);
+      expect(await mine("order.paymentReminder", O.held)).toEqual([]);
+      expect((await call("GET", `/marketplace-orders/${O.held}/payment`, "ox_s4_admin")).json).toMatchObject({ canPay: true });
+    });
+
+    it("then the usual: reminded on days one and two after payment opened, cancelled on day three", async () => {
+      /** As if payment opened `hours` ago. */
+      const openedAgo = (id: string, hours: number) => prisma.marketplaceOrder.update({ where: { id }, data: { paymentDueAt: new Date(Date.now() + (72 - hours) * HOUR) } });
+      await openedAgo(O.held, 25);
+      await sweep();
+      expect((await mine("order.paymentReminder", O.held)).map((m) => m.data.final)).toEqual([""]);
+      await openedAgo(O.held, 49);
+      await sweep();
+      expect((await mine("order.paymentReminder", O.held)).map((m) => m.data.final)).toEqual(["", "yes"]);
+      await openedAgo(O.held, 73);
+      await sweep();
+      expect(await row(O.held)).toMatchObject({ state: "CANCELLED" });
+      expect(await mine("order.cancelledUnpaid", O.held)).toHaveLength(1);
+    });
+
+    it("while closed, BTG can still record a payment by hand, and a paid Zoho invoice still pays the order", async () => {
+      setProvider("none");
+      const byHand = await order("ox_s4_admin", [{ key: "poster", quantity: 1 }]);
+      expect((await row(byHand.id)).paymentDueAt).toBeNull();
+      expect((await move(byHand.id, "PAID")).json.state).toBe("PAID");
+      const byInvoice = await order("ox_s4_admin", [{ key: "poster", quantity: 1 }]);
+      const zoho = new FakeZoho();
+      await handlePushMarketplaceOrder({ db: prisma, zoho: () => zoho as never }, { tenantId: T, orderId: byInvoice.id });
+      const dealId = (await prisma.marketplaceOrder.findUniqueOrThrow({ where: { id: byInvoice.id }, select: { zohoDealId: true } })).zohoDealId!;
+      const paid = { invoiceId: "ox_zinv_closed", dealId, number: "INV-OX-0009", status: "paid", amount: 10_000, balance: 0, currency: "USD", paidAt: new Date().toISOString() };
+      expect(await prisma.$transaction((tx) => ingestZohoInvoice(tx, paid as never))).toMatchObject({ applied: true });
+      expect((await row(byInvoice.id)).state).toBe("PAID");
+      setProvider("standin");
+    });
+  });
 });
