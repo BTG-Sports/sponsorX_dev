@@ -22,7 +22,7 @@
 import sharp from "sharp";
 
 import {
-  fileProblemWords, mediaTypeOf, pictureProblem, sniffType,
+  fileProblemWords, mediaTypeOf, MIN_READ_CHARACTERS, pictureProblem, sniffType,
   type FileProblem, type PictureMeasure,
 } from "../domain/document-check-rules";
 
@@ -42,8 +42,8 @@ export type Inspection =
 const SCAN_PAGES = 2;
 /** A PDF's own words, from at most this many pages. */
 const TEXT_PAGES = 3;
-/** Words enough to call a PDF a real text document rather than a scan. */
-const TEXT_LAYER_CHARACTERS = 40;
+/** Words enough to call a PDF a typed document rather than a scan: as many as the reader needs to call it read. */
+const TEXT_LAYER_CHARACTERS = MIN_READ_CHARACTERS;
 const INSPECT_TIMEOUT_MS = 20_000;
 const MAX_PIXELS = 50_000_000;
 
@@ -96,7 +96,7 @@ async function inspectPicture(bytes: Buffer, what: "photo" | "page"): Promise<In
   } catch {
     return refuse("damaged");
   }
-  const problem = pictureProblem(measure);
+  const problem = pictureProblem(measure, what);
   if (problem) return refuse(problem, what);
   return { ok: true, document: { text: "", pictures: [bytes], measure } };
 }

@@ -80,13 +80,17 @@ export const PICTURE_LIMITS = {
 
 export type PictureProblem = "too_small" | "too_dark" | "blank" | "washed_out" | "blurry";
 
-/** The first reason this picture can't be read, or null: size, then dark, washed out, blank, blurred. */
-export function pictureProblem(m: PictureMeasure): PictureProblem | null {
+/**
+ * The first reason this picture can't be read, or null: size, then dark,
+ * washed out, blank, blurred. A scanned PDF's `page` is white paper by
+ * nature, so it is never "washed out" — only blank when there's nothing on it.
+ */
+export function pictureProblem(m: PictureMeasure, what: "photo" | "page" = "photo"): PictureProblem | null {
   const short = Math.min(m.width, m.height), long = Math.max(m.width, m.height);
   if (short < PICTURE_LIMITS.minShortSide || long < PICTURE_LIMITS.minLongSide) return "too_small";
   if (m.mean < PICTURE_LIMITS.darkMean) return "too_dark";
   /* Almost white and flat reads as glare before it reads as blank: retaking it without the light is the fix. */
-  if (m.mean > PICTURE_LIMITS.washedMean && m.spread < PICTURE_LIMITS.washedSpread) return "washed_out";
+  if (what === "photo" && m.mean > PICTURE_LIMITS.washedMean && m.spread < PICTURE_LIMITS.washedSpread) return "washed_out";
   if (m.spread < PICTURE_LIMITS.blankSpread) return "blank";
   if (m.sharpness < PICTURE_LIMITS.blurSharpness) return "blurry";
   return null;

@@ -287,7 +287,7 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
 
   // The ID, straight to the private bucket, from the receipt's checklist.
   await expect(applicant.getByText("A driver’s license, passport or state ID.")).toBeVisible({ timeout: 30_000 });
-  await applicant.locator("input[type=file]").setInputFiles(pdf(testInfo.outputPath("athlete-id.pdf"), `${ATHLETE_NAME} driver's licence`));
+  await applicant.locator("input[type=file]").setInputFiles(pdf(testInfo.outputPath("athlete-id.pdf"), `${ATHLETE_NAME} driver's licence DOB 03/14/2004`));
   await expect(applicant.getByText("A driver’s license, passport or state ID.")).toBeHidden({ timeout: 30_000 });
   // The email link — the last thing missing, so the system approves.
   await applicant.goto(await emailLink(ATHLETE.email, "/join/confirm"));

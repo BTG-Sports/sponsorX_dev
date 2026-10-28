@@ -108,6 +108,19 @@ describe("P8-BE-09 · a PDF", () => {
     expect(r.ok && r.document.pictures).toHaveLength(0);
   });
 
+  it("passes a typed PDF with only a line of words — a white page is not a washed-out photo", async () => {
+    const r = await inspectDocument(textPdf(["Rory Mkt4821 driver's licence"]), "application/pdf");
+    expect(r.ok).toBe(true);
+    expect(r.ok && r.document.text).toContain("Rory Mkt4821");
+  });
+
+  it("calls a PDF page with nothing on it blank, never washed out", async () => {
+    const r = await inspectDocument(textPdf(["x"]), "application/pdf");
+    expect(r).toMatchObject({ ok: false, problem: "blank" });
+    expect(!r.ok && r.reason).toMatch(/^There's nothing readable on the first page of that PDF/);
+    expect(pictureProblem({ width: 1000, height: 1294, mean: 252, spread: 14, sharpness: 128 }, "page")).toBeNull();
+  });
+
   it("refuses a password-locked PDF", async () => {
     const r = await inspectDocument(textPdf(ID_LINES, { locked: true }), "application/pdf");
     expect(r).toMatchObject({ ok: false, problem: "locked" });
