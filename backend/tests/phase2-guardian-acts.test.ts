@@ -28,6 +28,17 @@ vi.mock("../src/lib/storage", async (importOriginal) => {
   return { ...real, checkPrivateUpload: async (_actor: unknown, key: string) => (uploaded.has(key) ? { ok: true as const, bytes: 20_480 } : { ok: false as const, problem: "missing" as const }) };
 });
 vi.mock("../src/lib/rate-limit", () => ({ limit: async () => {} }));
+/* POL-BE-02 — a switch to make reading an ID find a different date of birth. */
+const { readFlags } = vi.hoisted(() => ({ readFlags: { birthDate: false } }));
+vi.mock("../src/domain/document-reading", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../src/domain/document-reading")>();
+  return {
+    ...real,
+    readDocument: async (...args: Parameters<typeof real.readDocument>) => (readFlags.birthDate
+      ? { checkState: "FLAGGED" as const, checkFindings: [{ code: "BIRTH_DATE_NOT_FOUND", says: "the date of birth on file wasn't found on it" }], checkedAt: new Date() }
+      : real.readDocument(...args)),
+  };
+});
 /* The test's NIL job isn't one of the catalogue's: give it a one-post template. */
 vi.mock("../src/domain/deliverable-template", async (importOriginal) => {
   const real = await importOriginal<typeof import("../src/domain/deliverable-template")>();
@@ -360,5 +371,54 @@ describe.skipIf(!hasDatabase)("2S1-BE-11 / -12 · the guardian acts for the mino
     const danaToken = decodeURIComponent(danaLink.split("/coming-of-age/")[1]!);
     expect((await call("GET", `/public/coming-of-age/${encodeURIComponent(danaToken)}`)).json.window).toBe("expired");
     expect((await call("POST", `/public/coming-of-age/${encodeURIComponent(danaToken)}/documents`, undefined, { filename: "id.pdf", contentType: "application/pdf", bytes: 20_480 })).status).toBe(409);
+  });
+
+  it("POL-BE-02 · an ID that doesn't read clear holds the takeover for BTG: the guardian keeps control, the 90 days don't run out; BTG sends it back or confirms", async () => {
+    await prisma.athlete.create({ data: { id: "ga_finn", tenantId: T, slug: "ga-finn", legalName: "Finn Reyes", displayName: "Finn", email: "ga_finn@ga-test.invalid", sport: "Track", birthDate: birth(18, 5), state: "ACTIVE", guardianId: "ga_g" } });
+    await prisma.user.create({ data: { id: "ga_u_finn", tenantId: T, clerkId: "ga_u_finn", email: "ga_finn@ga-test.invalid", roles: ["ATHLETE"], athleteId: "ga_finn" } });
+    await sweepComingOfAge(new Date(), { tenantIds: [T] });
+    const link = (await mailTo("comingOfAge.started", "ga_finn@ga-test.invalid"))[0]!.data.uploadUrl!;
+    const token = encodeURIComponent(decodeURIComponent(link.split("/coming-of-age/")[1]!));
+    const upload = async () => {
+      const up = await call("POST", `/public/coming-of-age/${token}/documents`, undefined, { filename: "id.jpg", contentType: "image/jpeg", bytes: 20_480 });
+      expect(up.status, up.text).toBe(201);
+      uploaded.add((await prisma.accountDocument.findUniqueOrThrow({ where: { id: up.json.document.id }, select: { r2Key: true } })).r2Key);
+      const done = await call("POST", `/public/coming-of-age/${token}/documents/${up.json.document.id}/confirm`);
+      expect(done.status, done.text).toBe(200);
+      return { documentId: up.json.document.id as string, page: done.json };
+    };
+    const finn = () => prisma.athlete.findUniqueOrThrow({ where: { id: "ga_finn" }, select: { guardianId: true, comingOfAgeCompletedAt: true, comingOfAgeHeldAt: true, comingOfAgeHeldReasons: true, comingOfAgeTerminatedAt: true } });
+
+    readFlags.birthDate = true;
+    try {
+      const first = await upload();
+      expect(first.page).toMatchObject({ checking: true, idUploaded: false });
+      expect(await finn()).toMatchObject({ guardianId: "ga_g", comingOfAgeCompletedAt: null, comingOfAgeHeldAt: expect.any(Date), comingOfAgeHeldReasons: [expect.stringMatching(/date of birth/)] });
+      expect((await mailTo("comingOfAge.heldForBtg", "ga_admin@ga-test.invalid"))).toHaveLength(1);
+      expect((await call("GET", "/coming-of-age/mine", "ga_u_finn")).json.comingOfAge).toMatchObject({ checking: true });
+      /* BTG's desk shows why, with Confirm. */
+      expect((await call("GET", "/signups/athletes/ga_finn", "ga_admin")).json).toMatchObject({ comingOfAgeHeld: { reasons: [expect.stringMatching(/date of birth/)] }, can: { confirmComingOfAge: true } });
+
+      /* BTG sends the ID back: the hold ends, and the athlete is asked for a clearer one. */
+      const back = await call("POST", `/signups/athletes/ga_finn/documents/${first.documentId}/send-back`, "ga_admin", { reason: "The date of birth isn't readable." });
+      expect(back.status, back.text).toBe(200);
+      expect(await finn()).toMatchObject({ comingOfAgeHeldAt: null, comingOfAgeHeldReasons: [], guardianId: "ga_g" });
+
+      /* A second unclear one: held again. The 90 days pass meanwhile — nothing ends. */
+      await upload();
+      expect((await finn()).comingOfAgeHeldAt).toEqual(expect.any(Date));
+    } finally {
+      readFlags.birthDate = false;
+    }
+    await sweepComingOfAge(new Date(Date.now() + 91 * DAY), { tenantIds: [T] });
+    expect(await finn()).toMatchObject({ comingOfAgeTerminatedAt: null, guardianId: "ga_g" });
+
+    /* Only BTG confirms. */
+    for (const who of ["ga_u_finn", "ga_guardian"]) expect((await call("POST", "/signups/athletes/ga_finn/coming-of-age/confirm", who)).status).toBe(403);
+    const ok = await call("POST", "/signups/athletes/ga_finn/coming-of-age/confirm", "ga_admin");
+    expect(ok.status, ok.text).toBe(200);
+    expect(await finn()).toMatchObject({ guardianId: null, comingOfAgeCompletedAt: expect.any(Date), comingOfAgeHeldAt: null, comingOfAgeHeldReasons: [] });
+    expect(await prisma.auditLog.count({ where: { tenantId: T, entityId: "ga_finn", action: { in: ["comingOfAge.held", "comingOfAge.confirmedByBtg", "comingOfAge.complete"] } } })).toBe(4);
+    expect((await call("POST", "/signups/athletes/ga_finn/coming-of-age/confirm", "ga_admin")).status).toBe(409);
   });
 });

@@ -103,6 +103,48 @@ isn't held for a person to check.
   even when the ID reads clear. The screen shows "waiting for approval".
 - **Done when:** a minor's DOB change doesn't apply until approved; coming of
   age never removes a guardian without BTG; tests.
+- **Decided 2026-10-28 (rcfworks, with Rodney's authority):**
+  - BTG alone approves a change that would make a minor an adult. The guardian
+    is told.
+  - A takeover is automatic only when the ID reads clear. Otherwise BTG
+    decides. This replaces "always held for BTG" above.
+- **Backend delivered (`POL-BE-02`, 2026-10-28):**
+  - **Edits:** a new date of birth, or a move, that would make a minor an
+    adult is not applied by the edit, whoever makes it (athlete or guardian).
+    - Those fields become a `PENDING` profile change: `fields` holds
+      `birthDate` and/or `stateCode`, and there's no ID upload. The rest of
+      the edit applies.
+    - BTG is emailed (`athlete.sensitiveEdit`, now saying it waits), and so
+      is the guardian (`athlete.adulthoodChangeHeld`). Audited
+      `athlete.adulthoodChangeHeld`.
+    - BTG answers on the existing `POST /profile-changes/:id/decision`:
+      `APPLY` applies it and starts coming of age; `DECLINE` needs a note,
+      which the athlete reads.
+    - A minor asking to be an adult can't also name a guardian.
+    - A change that makes someone a minor still applies at once.
+  - **Takeover:** the coming-of-age ID completes it only when it reads clear.
+    - A flagged or unread ID holds it (`Athlete.comingOfAgeHeldAt`, with
+      reasons). The guardian keeps control, the 90-day sweep neither ends
+      nor reminds it, and BTG is emailed (`comingOfAge.heldForBtg`).
+    - BTG confirms (`POST /signups/athletes/:id/coming-of-age/confirm`) or
+      sends the ID back (the existing send-back, which now also ends the
+      hold).
+  - Migration: `20261028150000_coming_of_age_held`.
+  - Tests: `phase2-profile-edits.test.ts` and `phase2-guardian-acts.test.ts`.
+- **For `POL-FE-02` (screens):**
+  - **Profile edit:** a held change comes back as a `PENDING` change, with
+    `checkNotes` "BTG checks this change before it applies…". Show
+    "Waiting for BTG", and let the athlete withdraw it (the existing
+    withdraw).
+  - **BTG's sensitive-edits list:** show **Apply** and **Decline (with a
+    reason)** for a pending change that has no ID.
+  - **Coming-of-age page** (`GET /public/coming-of-age/:token`) and the
+    portal reminder (`GET /coming-of-age/mine`): `checking: true` means "ID
+    received — BTG is checking it".
+  - **BTG's athlete page** (`GET /signups/athletes/:id`): `comingOfAgeHeld`
+    gives the reasons, and `can.confirmComingOfAge` shows a **Confirm
+    takeover** button. Sending the ID back uses the existing document
+    send-back.
 
 ### 3. A team can raise its cut of an athlete's earnings to 100%
 `POL-BE-03` · `POL-FE-03` · *Money · Minors · Consent* · confirmed

@@ -586,6 +586,10 @@ ${d.portalUrl ?? ""}
       ? `Hi ${d.firstName ?? "there"},\n\n${d.athleteFirstName ?? "Your athlete"} has ${d.daysLeft ?? "a few"} days left (until ${d.dueDate ?? "the deadline"}) to upload a government ID. If it isn't uploaded in time, the account is closed.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`
       : `Hi ${d.firstName ?? "there"},\n\nYou have ${d.daysLeft ?? "a few"} days left (until ${d.dueDate ?? "the deadline"}) to upload a government ID and take over your account. If it isn't uploaded in time, your account is closed.\n\n${d.uploadUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  "comingOfAge.heldForBtg": (d) => ({
+    subject: `Coming-of-age takeover held for you: ${d.athleteName ?? "an athlete"}`,
+    text: `${d.athleteName ?? "An athlete"} uploaded a government ID to take over their account from their guardian, but reading it raised a question:\n\n${d.reasons ?? ""}\n\nThe guardian stays in control and the 90 days don't run out until you decide. Confirm the takeover, or send the ID back with a reason:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
   "comingOfAge.completed": (d) => ({
     subject: d.seat === "guardian" ? `${d.athleteFirstName ?? "Your athlete"} has taken over their SponsorX account` : "You're in control of your SponsorX account",
     text: d.seat === "guardian"
@@ -722,7 +726,12 @@ ${d.portalUrl ?? ""}
   /* 2S1-BE-14 — a sensitive profile edit, to BTG admins. */
   "athlete.sensitiveEdit": (d) => ({
     subject: `Sensitive profile change: ${d.athleteName ?? "an athlete"}`,
-    text: `${d.athleteName ?? "An athlete"} changed ${d.what ?? "a sensitive detail"} on their SponsorX profile. It is live now; the automatic checks ran again:\n\n${d.checks ?? ""}\n\nOpen them on New sign-ups — Reject is there if this looks wrong:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+    text: `${d.athleteName ?? "An athlete"} changed ${d.what ?? "a sensitive detail"} on their SponsorX profile. ${d.held ? "It is waiting for you to apply or decline it:" : "It is live now; the automatic checks ran again:"}\n\n${d.checks ?? ""}\n\nOpen them on New sign-ups — Reject is there if this looks wrong:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* POL-BE-02 — the guardian of a minor whose edit would make them an adult: it waits for BTG. */
+  "athlete.adulthoodChangeHeld": (d) => ({
+    subject: `${d.athleteFirstName ?? "Your athlete"} asked to change ${d.what ?? "their date of birth"} — BTG is checking it`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.athleteFirstName ?? "Your athlete"}'s SponsorX profile was changed: ${d.what ?? "their date of birth"}. That would make them an adult and end your control of their account, so BTG checks it before it applies. Nothing changes until then, and you stay their guardian.\n\nIf this change is wrong, tell BTG: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
   }),
 
   /* 2S1-BE-15 — the guardian handoff. */
