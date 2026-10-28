@@ -53,3 +53,24 @@ Each is defined in the Phase 1 doc (Stage 8) and is a row in the tracker.
   - Rodney is listed as owner and representative.
 - **What the key can't see:** the identity-check status, outstanding requirements and the bank account all come back blank. The dashboard's setup guide still shows "Verify your identity" unticked, so Stripe may ask Rodney for his ID later; a dashboard banner and email would say so.
 - **So:** Stripe is not what's blocking go-live any more. Switching payment on (a new live key for production, the live webhook, `PAYMENT_PROVIDER=stripe`, with Zoho production at the same time) is the owner's call.
+
+## Stripe live key and webhooks installed, payments still off (2026-10-28)
+
+- **The owner's decision:** have the live key ready today, but keep payments **off** until the polish list is done. Today the switch is `PAYMENT_PROVIDER` on Railway; later a BTG admin switch takes over (`POL-BE-36` / `POL-FE-36`, added to the Polish sheet).
+- **Live key `SponsorX production (restricted)`** (made by the user):
+  - grants Checkout Sessions W, Payment Intents R, Charges and Refunds W, Transfers W, Login Links W, Accounts v2, and Recipient Configuration W;
+  - the user chose to leave several unused permissions on; Payouts, the bank vaults, and Customer/Merchant Configuration are off;
+  - Stripe still allows payouts with it (bundled, as with the sandbox key on 10-26), but a payout can only reach BTG's own verified bank.
+  - Tested: every call SponsorX makes answers 200.
+- **Live webhooks**, created through the API with a temporary key `SponsorX webhook setup (temporary)`:
+  - `SponsorX payments` (13 events; Stripe added `transfer.canceled`);
+  - `SponsorX connected accounts` (3, Connect);
+  - `SponsorX payout accounts` (thin, 5 events, Your account);
+  - all at `https://sponsorx.net/api/v1/webhooks/payments/stripe`, API version `2026-09-30.endive` (stripe-node 23.0.0's version).
+  - The thin destination's secret can't be read through the API, so the user copied it from the dashboard.
+- **Railway production `api`:** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_THIN_WEBHOOK_SECRET` and `STRIPE_CONNECT_WEBHOOK_SECRET` set; `PAYMENT_PROVIDER=none` unchanged.
+  - Deployment `5d5fe387` SUCCESS; `/api/v1/public/health` is ok on every check.
+  - The webhook path answers "No payment provider of that name is connected here" (expected while off).
+- **Local copies** live in `~/.config/sponsorx/` (mode 600, outside the repo): `stripe-production.env`, `stripe-live-readonly.key`, and `stripe-webhook-setup.key`, which goes once its key is deleted.
+- **Go/no-go doc** Payments row updated.
+- **To switch on:** set `PAYMENT_PROVIDER=stripe`, then do the $1 payment and refund (Stripe doc §6.4).
