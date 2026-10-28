@@ -297,6 +297,12 @@ describe.skipIf(!hasDatabase)("2S1-BE-11 / -12 · the guardian acts for the mino
   });
 
   it("uploading a government ID moves control from the guardian to the athlete", async () => {
+    /* POL-BE-01 — the payout account the guardian set up for Casey. */
+    const setUp = { provider: "standin", providerAccountId: "acct_standin_guardian_casey", status: "READY" };
+    await prisma.payoutAccount.upsert({
+      where: { payeeType_payeeId: { payeeType: "ATHLETE", payeeId: "ga_casey" } },
+      create: { tenantId: T, payeeType: "ATHLETE", payeeId: "ga_casey", ...setUp }, update: setUp,
+    });
     const link = (await mailTo("comingOfAge.uploadLink", "ga_casey@ga-test.invalid"))[0]!.data.uploadUrl!;
     const token = decodeURIComponent(link.split("/coming-of-age/")[1]!);
     const page = await call("GET", `/public/coming-of-age/${encodeURIComponent(token)}`);
@@ -313,6 +319,15 @@ describe.skipIf(!hasDatabase)("2S1-BE-11 / -12 · the guardian acts for the mino
     expect((await call("POST", "/inventory", "ga_u_casey", { title: "My camp", kind: "OTHER", priceCents: 10_000 })).status).toBe(201);
     expect((await call("GET", "/coming-of-age/mine", "ga_u_casey")).json.comingOfAge).toBeNull();
     expect((await call("GET", "/me", "ga_guardian", undefined, "ga_casey")).json.actingFor).toBeNull();
+    /* POL-BE-01 — the guardian's payout account no longer receives Casey's money; Casey sets up their own. */
+    expect(await prisma.payoutAccount.findUniqueOrThrow({ where: { payeeType_payeeId: { payeeType: "ATHLETE", payeeId: "ga_casey" } }, select: { status: true, providerAccountId: true, changedAt: true } }))
+      .toEqual({ status: "NOT_SET_UP", providerAccountId: null, changedAt: expect.any(Date) });
+    expect((await prisma.auditLog.findFirstOrThrow({ where: { tenantId: T, action: "payoutAccount.detached", entityId: "ATHLETE:ga_casey" }, select: { after: true } })).after).toMatchObject({ reason: "came of age" });
+    const { EMAIL_TEMPLATES } = await import("../worker/jobs/send-email.mts");
+    const toCasey = (await mailTo("comingOfAge.completed", "ga_casey@ga-test.invalid"))[0]!;
+    expect(EMAIL_TEMPLATES["comingOfAge.completed"]!(toCasey.data).text).toMatch(/set up your own payout account from the Payouts page\. Payouts not yet sent wait for it and go to your account\./);
+    const toGuardian = (await mailTo("comingOfAge.completed", GE))[0]!;
+    expect(EMAIL_TEMPLATES["comingOfAge.completed"]!(toGuardian.data).text).toMatch(/anything not yet paid out now goes to Casey's own payout account, and yours is no longer used for them\./);
   });
 
   it("90 days without the ID: both accounts end — but a guardian with other minors keeps theirs, only the link ends", async () => {

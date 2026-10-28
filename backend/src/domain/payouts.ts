@@ -63,6 +63,7 @@ import { assertMayCommit } from "./guardian-acts";
 import { payoutHoldReason } from "./payout-holds";
 import { applied, deferred, emitStandinEvent, held, ignored, processPaymentEvent, standinDecline, type Handler } from "./payment-events";
 import { moneyHoldsOn } from "./payment-exceptions";
+import { wasDetached } from "./payout-account-holder";
 import {
   autoApprovalReasons, autoApproveSettings, autoApprovedByTenant, autoWindowFor, claimsMoney, lockPayee, nextChangedAt, planFailure,
   SYSTEM, waitingOnOf, waitingOnWhere, windowStart, type FailureKind, type WaitingOn,
@@ -215,9 +216,10 @@ async function stripeAccountLink(actor: Actor, payee: Payee, back: string, now: 
     const opened = accountRef;
     await prisma.$transaction(async (tx) => {
       await lockPayee(tx, payee);
-      const row = await tx.payoutAccount.findFirst({ where: whereFor(actor, "payoutAccount", "write"), select: { id: true, provider: true, providerAccountId: true, status: true } });
+      const row = await tx.payoutAccount.findFirst({ where: whereFor(actor, "payoutAccount", "write"), select: { id: true, provider: true, providerAccountId: true, status: true, changedAt: true } });
       if (row?.provider === "stripe" && row.providerAccountId === opened) return; // recorded by a request at the same moment
-      const data = { provider: "stripe", providerAccountId: opened, status: "NOT_SET_UP", changedAt: row?.providerAccountId ? now : null };
+      /* POL-BE-01 — an account detached at a handoff or coming of age keeps its changedAt, so the new holder's first payouts are checked. */
+      const data = { provider: "stripe", providerAccountId: opened, status: "NOT_SET_UP", changedAt: row?.providerAccountId ? now : (row?.changedAt ?? null) };
       if (row) {
         await tx.payoutAccount.update({ /* tenant-scope: the row just loaded through whereFor(payoutAccount, write). */ where: { id: row.id }, data, select: { id: true } });
       } else {
@@ -1548,6 +1550,8 @@ export const onAccountUpdated: Handler = async (tx, ev, data, now) => {
     where: { provider: ev.provider, providerAccountId: accountRef }, select: { tenantId: true, payeeType: true, payeeId: true, status: true },
   });
   if (!row) {
+    /* POL-BE-01 — the previous holder's account, detached at a handoff or coming of age: theirs now, not SponsorX's. */
+    if (await wasDetached(tx, accountRef)) return ignored("A payout account detached from its athlete at a guardian handoff or coming of age — no longer SponsorX's; nothing to do");
     /* Not tagged as SponsorX's: another account on BTG's Stripe — nothing to wait for. */
     if (!(await isSponsorXPayoutAccount(accountRef))) return ignored("Not a SponsorX payout account — another account on the payment provider; nothing to do");
     return deferred("No payout account in SponsorX matches this provider account yet — tried again shortly");
