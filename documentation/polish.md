@@ -31,6 +31,7 @@ also has a back-end row waits for it.
 | B · Waiting or stuck | 9–15 | People wait with no message |
 | C · Confusing or extra work | 16–30 | Users find a workaround, or give up |
 | D · Polish | 31–35 | Wording and links |
+| E · Payments switch | 36 | Turn live payments on when polish is done |
 
 **Do number 4 first.** It is hurting sponsors now, while Stripe is paused.
 
@@ -357,6 +358,29 @@ Fan emails come from a no-reply address.
 | 33 | `POL-FE-33` | Real athletes' Settings link to "sample screens" for a made-up athlete, Riley | Remove it for real users |
 | 34 | `POL-FE-34` | "You're approved" at /join has no sign-in button | Add a Sign in button |
 | 35 | `POL-FE-35` | "Contact BTG" on the team's Documents and Roster pages has no link or address | Link to the support address |
+
+---
+
+## E · Payments switch (added 2026-10-28)
+
+### 36. Payments on/off switch in BTG admin
+`POL-BE-36` · `POL-FE-36` · *Money* · requested by the user
+
+Stripe's live account is enabled (2026-10-28), and the live key is installed in
+production with payment still **off**. Today the only switch is the Railway
+setting `PAYMENT_PROVIDER` (`none` / `stripe`): changing it restarts
+production, and only someone with Railway access can do it.
+
+- **Fix:** a Payments switch on BTG's admin screen, for BTG Admin and Finance.
+  It goes on or off at once, with no deploy. It needs a reason, is audited, and
+  shows who changed it and when. It only works when production has a live key
+  and webhook secrets, so it can never turn on a half-set-up provider; the
+  Railway setting stays as the master off. While it's off, every pay and
+  payout button says payments open soon, and the unpaid-order sweep waits
+  (`POL-BE-04`).
+- **Done when:** BTG can switch payments on and off from the admin screen; each
+  change is audited with a reason; no other role can change it; off means no
+  checkout, no transfer and no cancellation for non-payment; tests.
 
 ---
 
