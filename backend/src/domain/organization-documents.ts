@@ -35,7 +35,7 @@ import { ForbiddenError } from "../auth/errors";
 import { checkPrivateUpload, presignPrivateUpload, uploadRefusal } from "../lib/storage";
 import { DOCUMENT_LABEL, documentChecklist, isCurrent, meets, type DocumentKind } from "./onboarding-rules";
 import { btgAdmins, OnboardingError } from "./onboarding";
-import { APPLICANT_VIEW, checkUpload, documentKey, DOCUMENT_TYPES, MAX_DOCUMENT_BYTES, MAX_ID_DOCUMENT_BYTES, maxBytesFor, safeFilename } from "./onboarding-documents";
+import { APPLICANT_VIEW, checkUpload, documentKey, DOCUMENT_TYPES, MAX_DOCUMENT_BYTES, MAX_ID_DOCUMENT_BYTES, maxBytesFor, readOrganisationDocument, safeFilename } from "./onboarding-documents";
 
 type Tx = Prisma.TransactionClient;
 
@@ -45,7 +45,7 @@ const MAX_DOCUMENTS_EVER = 100;
 const OPEN_STATES = new Set(["APPROVED", "SUSPENDED"]);
 
 const ONBOARDING = {
-  id: true, tenantId: true, state: true, orgName: true, orgType: true, stateCode: true, details: true, flags: true, flaggedAt: true,
+  id: true, tenantId: true, state: true, orgName: true, contacts: true, orgType: true, stateCode: true, details: true, flags: true, flaggedAt: true,
   documents: { select: { ...APPLICANT_VIEW }, orderBy: { createdAt: "asc" } },
 } as const;
 type Own = Prisma.PropertyOnboardingGetPayload<{ select: typeof ONBOARDING }>;
@@ -192,17 +192,19 @@ export async function confirmOrganizationUpload(actor: Actor, documentId: string
   if (!doc) throw new OnboardingError("That document isn't one of your organisation's.", 404);
   if (doc.uploadedAt) return listOrganizationDocuments(actor);
   const row = await prisma.onboardingDocument.findFirstOrThrow({ where: { tenantId: o.tenantId, onboardingId: o.id, id: doc.id }, select: { r2Key: true, contentType: true, bytes: true } });
-  /* 2S8-SEC-03 — what arrived must be what the grant pinned; anything else is deleted. */
+  /* 2S8-SEC-03 — what arrived must be what the grant pinned; P8-BE-09 — and readable. Anything else is deleted. */
   const arrived = await checkPrivateUpload(actor, row.r2Key,
-    { contentType: row.contentType, bytes: row.bytes, maxBytes: maxBytesFor(doc.kind) }, { entity: "OnboardingDocument", entityId: doc.id });
+    { contentType: row.contentType, bytes: row.bytes, maxBytes: maxBytesFor(doc.kind), document: true }, { entity: "OnboardingDocument", entityId: doc.id });
   if (!arrived.ok && arrived.problem === "missing") throw new OnboardingError("That document has not arrived yet — upload it, then confirm.", 409);
-  if (!arrived.ok) throw new OnboardingError(uploadRefusal(arrived.problem, "That document"), 422);
+  if (!arrived.ok) throw new OnboardingError(uploadRefusal(arrived, "That document"), 422);
   const size = arrived.bytes;
+  /* P8-BE-11 — read and kept on the paper for BTG; an approved organisation isn't held by it. */
+  const check = await readOrganisationDocument(o, doc.kind, arrived.document);
   await prisma.$transaction(async (tx) => {
     const now = new Date();
     const confirmed = await tx.onboardingDocument.updateMany({
       /* tenant-scope: the organisation's own document, loaded above within its onboarding. */
-      where: { tenantId: o.tenantId, id: doc.id, uploadedAt: null }, data: { uploadedAt: now, bytes: size },
+      where: { tenantId: o.tenantId, id: doc.id, uploadedAt: null }, data: { uploadedAt: now, bytes: size, ...check },
     });
     if (confirmed.count !== 1) return;
     let replaced = false;

@@ -40,6 +40,16 @@ vi.mock("../src/lib/rate-limit", () => ({
   RateLimitedError: class extends Error {},
 }));
 
+/* P8-BE-09 — a document is opened at its confirm step, so the right file for
+   a document flow is a real one: an ID as a PDF with its own words, or as a
+   photo. Each names whoever its flow reads it against. */
+const { idCard, textPdf } = await import("./support/document-fixtures");
+const { default: sharp } = await import("sharp");
+const { stopReader } = await import("../src/lib/ocr");
+const ID_PDF = textPdf(["STATE OF MARYLAND DRIVER LICENSE", "RENAMED, PU ATHLETE", "EXP 03/14/2029"]);
+const ID_PNG = await idCard(["STATE OF MARYLAND DRIVER LICENSE", "GUARDIAN, PU NEW", "EXP 03/14/2029"]);
+const ID_JPG = await sharp(ID_PNG).jpeg().toBuffer();
+
 const { startObjectStore } = await import("./support/object-store");
 const store = await startObjectStore();
 /* The API's S3 client reads S3_ENDPOINT when storage.ts is first imported, below. */
@@ -154,6 +164,7 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
   afterAll(async () => {
     await wipe();
     await store.close();
+    await stopReader();
     if (previousEndpoint === undefined) delete process.env.S3_ENDPOINT;
     else process.env.S3_ENDPOINT = previousEndpoint;
     if (previousIntake === undefined) delete process.env.PUBLIC_INTAKE_TENANT_ID;
@@ -168,6 +179,9 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
     name: string;
     type: string;
     bytes: number;
+    /** P8-BE-09 — a document a person sends: the right file must be a real one, and an unreadable one is refused. */
+    body?: Buffer;
+    document?: true;
     grant: () => Promise<string>;
     confirm: () => Promise<unknown>;
     /** What the record says once a confirm has been accepted (or not). */
@@ -177,9 +191,9 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
   const ctx: Record<string, string> = {};
   const FLOWS: Flow[] = [
     {
-      name: "account document (sign-up, guardian set-up and coming-of-age IDs)", type: "application/pdf", bytes: 2_345,
+      name: "account document (sign-up, guardian set-up and coming-of-age IDs)", type: "application/pdf", bytes: ID_PDF.length, body: ID_PDF, document: true,
       grant: async () => {
-        const g = await startAccountDocument({ tenantId: T, athleteId: `pu_athlete_${R}` }, { kind: "GOVERNMENT_ID", filename: "id.pdf", contentType: "application/pdf", bytes: 2_345 });
+        const g = await startAccountDocument({ tenantId: T, athleteId: `pu_athlete_${R}` }, { kind: "GOVERNMENT_ID", filename: "id.pdf", contentType: "application/pdf", bytes: ID_PDF.length });
         ctx.account = g.document.id;
         return g.uploadUrl;
       },
@@ -187,9 +201,9 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
       confirmed: async () => Boolean((await prisma.accountDocument.findUniqueOrThrow({ where: { id: ctx.account! }, select: { uploadedAt: true } })).uploadedAt),
     },
     {
-      name: "onboarding document (the public wizard)", type: "application/pdf", bytes: 3_210,
+      name: "onboarding document (the public wizard)", type: "application/pdf", bytes: ID_PDF.length, body: ID_PDF, document: true,
       grant: async () => {
-        const g = await requestDocumentUpload(issueOnboardingToken(`pu_onb_draft_${R}`), { kind: "BUSINESS_REGISTRATION", filename: "reg.pdf", contentType: "application/pdf", bytes: 3_210 });
+        const g = await requestDocumentUpload(issueOnboardingToken(`pu_onb_draft_${R}`), { kind: "BUSINESS_REGISTRATION", filename: "reg.pdf", contentType: "application/pdf", bytes: ID_PDF.length });
         ctx.onboarding = g.document.id;
         return g.uploadUrl;
       },
@@ -197,9 +211,9 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
       confirmed: async () => Boolean((await prisma.onboardingDocument.findUniqueOrThrow({ where: { id: ctx.onboarding! }, select: { uploadedAt: true } })).uploadedAt),
     },
     {
-      name: "organisation document (the property portal)", type: "image/png", bytes: 4_321,
+      name: "organisation document (the property portal)", type: "image/png", bytes: ID_PNG.length, body: ID_PNG, document: true,
       grant: async () => {
-        const g = await requestOrganizationUpload(manager, { kind: "OTHER", filename: "extra.png", contentType: "image/png", bytes: 4_321 });
+        const g = await requestOrganizationUpload(manager, { kind: "OTHER", filename: "extra.png", contentType: "image/png", bytes: ID_PNG.length });
         ctx.org = g.document.id;
         return g.uploadUrl;
       },
@@ -207,9 +221,9 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
       confirmed: async () => Boolean((await prisma.onboardingDocument.findUniqueOrThrow({ where: { id: ctx.org! }, select: { uploadedAt: true } })).uploadedAt),
     },
     {
-      name: "sponsor-request proof of business", type: "application/pdf", bytes: 5_432,
+      name: "sponsor-request proof of business", type: "application/pdf", bytes: ID_PDF.length, body: ID_PDF, document: true,
       grant: async () => {
-        const g = await requestSponsorDocumentUpload(issueSponsorRequestToken(`pu_inquiry_${R}`), { filename: "licence.pdf", contentType: "application/pdf", bytes: 5_432 });
+        const g = await requestSponsorDocumentUpload(issueSponsorRequestToken(`pu_inquiry_${R}`), { filename: "licence.pdf", contentType: "application/pdf", bytes: ID_PDF.length });
         ctx.inquiry = g.document.id;
         return g.uploadUrl;
       },
@@ -217,9 +231,9 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
       confirmed: async () => Boolean((await prisma.inquiryDocument.findUniqueOrThrow({ where: { id: ctx.inquiry! }, select: { uploadedAt: true } })).uploadedAt),
     },
     {
-      name: "guardian hand-off document", type: "image/jpeg", bytes: 6_543,
+      name: "guardian hand-off document", type: "image/jpeg", bytes: ID_JPG.length, body: ID_JPG, document: true,
       grant: async () => {
-        const g = await requestHandoffDocumentUpload(issuePurposeToken("handoff", `pu_handoff_${R}`), { kind: "GUARDIAN_ID", filename: "id.jpg", contentType: "image/jpeg", bytes: 6_543 });
+        const g = await requestHandoffDocumentUpload(issuePurposeToken("handoff", `pu_handoff_${R}`), { kind: "GUARDIAN_ID", filename: "id.jpg", contentType: "image/jpeg", bytes: ID_JPG.length });
         ctx.handoff = g.document.id;
         return g.uploadUrl;
       },
@@ -238,10 +252,10 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
       confirmed: async () => Boolean((await prisma.supportAttachment.findUniqueOrThrow({ where: { id: ctx.support! }, select: { uploadedAt: true } })).uploadedAt),
     },
     {
-      name: "profile-change ID (a new legal name)", type: "application/pdf", bytes: 8_765,
+      name: "profile-change ID (a new legal name)", type: "application/pdf", bytes: ID_PDF.length, body: ID_PDF, document: true,
       grant: async () => {
         const g = await submitProfileChange(athlete, `pu_athlete_${R}`, {
-          identity: { legalName: "PU Athlete Renamed" }, idDocument: { filename: "passport.pdf", contentType: "application/pdf", bytes: 8_765 },
+          identity: { legalName: "PU Athlete Renamed" }, idDocument: { filename: "passport.pdf", contentType: "application/pdf", bytes: ID_PDF.length },
         });
         ctx.change = g.idUpload!.changeId;
         return g.idUpload!.uploadUrl;
@@ -250,9 +264,9 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
       confirmed: async () => (await prisma.athleteProfileChange.findUniqueOrThrow({ where: { id: ctx.change! }, select: { state: true } })).state === "APPROVED",
     },
     {
-      name: "delivery proof (the seller marking a line delivered)", type: "image/jpeg", bytes: 9_876,
+      name: "delivery proof (the seller marking a line delivered)", type: "image/jpeg", bytes: ID_JPG.length, body: ID_JPG, document: true,
       grant: async () => {
-        const g = await requestProofUpload(manager, `pu_line_${R}`, { contentType: "image/jpeg", bytes: 9_876 });
+        const g = await requestProofUpload(manager, `pu_line_${R}`, { contentType: "image/jpeg", bytes: ID_JPG.length });
         ctx.proof = g.key;
         return g.uploadUrl;
       },
@@ -286,7 +300,7 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
       const url = await flow.grant();
       const key = keyOf(url);
       const id = `${BUCKET}/${key}`;
-      const right = Buffer.alloc(flow.bytes, 7);
+      const right = flow.body ?? Buffer.alloc(flow.bytes, 7);
 
       /* 1. Signed for one type and one size. */
       expect(new URL(url).searchParams.get("X-Amz-SignedHeaders")).toBe("content-length;content-type;host");
@@ -309,6 +323,14 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
       expect(store.objects.has(id)).toBe(false);
       expect(await flow.confirmed()).toBe(false);
 
+      /* 4b. P8-BE-09 — a document of the right type and size that isn't a readable file: refused as unusable, deleted, audited. */
+      if (flow.document) {
+        store.objects.set(id, { body: Buffer.alloc(flow.bytes, 7), type: flow.type });
+        await expect(flow.confirm()).rejects.toMatchObject({ status: 422, message: expect.stringMatching(/isn't really the kind of file its name says/) });
+        expect(store.objects.has(id)).toBe(false);
+        expect(await flow.confirmed()).toBe(false);
+      }
+
       const refusals = await prisma.auditLog.findMany({
         where: { tenantId: T, action: "storage.privateUploadRefused", after: { path: ["key"], equals: key } },
         select: { after: true }, orderBy: { at: "asc" },
@@ -316,6 +338,7 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
       expect(refusals.map((r) => r.after)).toEqual([
         expect.objectContaining({ problem: "type", deleted: true, arrived: { contentType: "text/html", bytes: flow.bytes }, expected: expect.objectContaining({ contentType: flow.type, bytes: flow.bytes }) }),
         expect.objectContaining({ problem: "size", deleted: true, arrived: { contentType: flow.type, bytes: flow.bytes + 10 } }),
+        ...(flow.document ? [expect.objectContaining({ problem: "unusable", fileProblem: "not_its_type", deleted: true, reason: expect.stringMatching(/renamed/) })] : []),
       ]);
 
       /* 5. The right file, through the URL: stored, and the confirm accepts it. */

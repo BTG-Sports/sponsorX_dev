@@ -50,6 +50,8 @@ export type AthleteFacts = {
   /** The address already has a SponsorX login somewhere — logins are claimed by email. */
   emailInUse: boolean;
   staffConfirmMinors: boolean;
+  /** P8-BE-11 — "Document check — Athlete's government ID: …": what reading the documents found. */
+  documentHolds?: readonly string[];
 };
 
 export type SignupVerdict =
@@ -93,6 +95,7 @@ export function signupVerdict(f: AthleteFacts): SignupVerdict {
   if (f.emailInUse) reasons.push("Their email already has a SponsorX login");
   if (f.minor && f.guardian?.rejected) reasons.push(`Their guardian, ${f.guardian.name}, was rejected by BTG`);
   if (f.minor && f.staffConfirmMinors) reasons.push(STAFF_CONFIRM_REASON);
+  reasons.push(...(f.documentHolds ?? []));
   return reasons.length ? { outcome: "review", reasons } : { outcome: "approve" };
 }
 

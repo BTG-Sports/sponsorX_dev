@@ -57,6 +57,10 @@ import { provisionGuardianLoginIn } from "./athlete-login";
 import { currentAgreementOf } from "./current-agreement";
 import { requiresGuardian } from "./guardian-rules";
 import { safeFilename } from "./onboarding-documents";
+import type { ExpectedName, ReadKind } from "./document-check-rules";
+import { checkView, documentHolds, readDocument } from "./document-reading";
+import { deleteSentBackFile, recordSendBack, returnedColumns, SendBackError, sendBackReason } from "./document-send-back";
+import { GUARDIAN_PROOF_KINDS } from "./signup-rules";
 import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
 
 type Tx = Prisma.TransactionClient;
@@ -84,14 +88,30 @@ const SELECT = {
   relationship: true, state: true, emailConfirmedAt: true, agreementAcceptedAt: true, agreementVersion: true, submittedAt: true,
   decidedAt: true, declineNote: true, documentsCheckedAt: true, switchedAt: true, newGuardianId: true, createdAt: true,
   athlete: { select: { displayName: true, legalName: true, sport: true, email: true } },
-  documents: { select: { id: true, kind: true, proofKind: true, filename: true, uploadedAt: true } },
+  documents: {
+    select: {
+      id: true, kind: true, proofKind: true, filename: true, uploadedAt: true,
+      checkState: true, checkFindings: true, checkedAt: true, returnedAt: true, returnedReason: true,
+    },
+    orderBy: { createdAt: "asc" as const },
+  },
 } as const;
 type Row = Prisma.GuardianHandoffGetPayload<{ select: typeof SELECT }>;
 
+/** The documents that count: arrived, and not sent back by BTG (P8-BE-10). */
+const counted = (r: Pick<Row, "documents">, kind: string) => r.documents.filter((d) => d.kind === kind && d.uploadedAt && !d.returnedAt);
+
 /** Which of the two documents have really arrived. */
 function uploaded(r: Pick<Row, "documents">) {
-  const has = (k: string) => r.documents.some((d) => d.kind === k && d.uploadedAt);
-  return { id: has("GUARDIAN_ID"), proof: has("GUARDIANSHIP_PROOF") };
+  return { id: counted(r, "GUARDIAN_ID").length > 0, proof: counted(r, "GUARDIANSHIP_PROOF").length > 0 };
+}
+
+/** P8-BE-11 — what reading the new guardian's documents found: any reason sends the switch to BTG. */
+function documentHoldsOf(r: Pick<Row, "documents">): string[] {
+  return [
+    ...documentHolds("New guardian's government ID", counted(r, "GUARDIAN_ID")),
+    ...documentHolds("Proof of guardianship", counted(r, "GUARDIANSHIP_PROOF")),
+  ];
 }
 
 /** What is still needed before the request can go to the current guardian. */
@@ -291,23 +311,39 @@ export async function requestHandoffDocumentUpload(token: string, input: { kind:
   return { document: doc, uploadUrl, contentType: input.contentType };
 }
 
-/** Step two: counted only if the file is really in the bucket. */
+/**
+ * Step two: counted only if the file is really in the bucket and can be
+ * read (P8-BE-09); then read (P8-BE-11) — the new guardian's ID must name
+ * them, and the proof both them and the athlete.
+ */
 export async function confirmHandoffDocumentUpload(token: string, documentId: string) {
   const r = await rowById(prisma, idFrom(token));
-  const doc = await prisma.guardianHandoffDocument.findFirst({ where: { tenantId: r.tenantId, handoffId: r.id, id: documentId }, select: { id: true, r2Key: true, contentType: true, bytes: true } });
+  const doc = await prisma.guardianHandoffDocument.findFirst({
+    where: { tenantId: r.tenantId, handoffId: r.id, id: documentId },
+    select: { id: true, kind: true, proofKind: true, r2Key: true, contentType: true, bytes: true, uploadedAt: true, returnedAt: true },
+  });
   if (!doc) throw new HandoffError("That file isn't part of this request.", 404);
-  /* 2S8-SEC-03 — what arrived must be what the grant pinned; anything else is deleted. */
+  if (doc.returnedAt) throw new HandoffError("BTG sent that file back — upload a new one.", 409);
+  if (doc.uploadedAt) return view(prisma, r, false);
+  /* 2S8-SEC-03 — what arrived must be what the grant pinned; P8-BE-09 — and readable. Anything else is deleted. */
   const arrived = await checkPrivateUpload(SYSTEM(r.tenantId), doc.r2Key,
-    { contentType: doc.contentType, bytes: doc.bytes, maxBytes: MAX_ID_BYTES }, { entity: "GuardianHandoffDocument", entityId: doc.id });
+    { contentType: doc.contentType, bytes: doc.bytes, maxBytes: MAX_ID_BYTES, document: true }, { entity: "GuardianHandoffDocument", entityId: doc.id });
   if (!arrived.ok && arrived.problem === "missing") throw new HandoffError("That file hasn't arrived yet — upload it, then confirm.");
-  if (!arrived.ok) throw new HandoffError(uploadRefusal(arrived.problem), 422);
+  if (!arrived.ok) throw new HandoffError(uploadRefusal(arrived), 422);
+  const requester: ExpectedName = { who: "The new guardian", name: r.requesterName, kind: "person" };
+  const check = await readDocument(arrived.document, doc.kind === "GUARDIAN_ID"
+    ? { label: "New guardian's government ID", names: [requester], kind: "GOVERNMENT_ID", expires: true, birthDate: null }
+    : {
+      label: "Proof of guardianship", names: [requester, { who: "The athlete", name: r.athlete.legalName, kind: "person" }],
+      kind: (GUARDIAN_PROOF_KINDS as readonly string[]).includes(doc.proofKind ?? "") ? (doc.proofKind as ReadKind) : null, expires: false, birthDate: null,
+    });
   const size = arrived.bytes;
   await prisma.$transaction(async (tx) => {
     await tx.guardianHandoffDocument.update({
       /* tenant-scope: the document loaded above, within this request. */
-      where: { id: doc.id }, data: { uploadedAt: new Date(), bytes: size },
+      where: { id: doc.id }, data: { uploadedAt: new Date(), bytes: size, ...check },
     });
-    await audit(tx, SYSTEM(r.tenantId), "guardianHandoff.documentUploaded", "GuardianHandoff", r.id, { after: { documentId: doc.id } });
+    await audit(tx, SYSTEM(r.tenantId), "guardianHandoff.documentUploaded", "GuardianHandoff", r.id, { after: { documentId: doc.id, check: check?.checkState ?? null } });
   });
   return view(prisma, await rowById(prisma, r.id), false);
 }
@@ -506,7 +542,11 @@ async function staffDetails(rows: Row[]) {
       documents: r.documents.map((d) => ({
         id: d.id, kind: d.kind as "GUARDIAN_ID" | "GUARDIANSHIP_PROOF", label: DOCUMENT_WORDS[d.kind] ?? d.kind,
         proof: d.proofKind ? PROOF_WORDS[d.proofKind] ?? d.proofKind : null, filename: d.filename, uploadedAt: d.uploadedAt?.toISOString() ?? null,
+        /* P8-BE-11 — what reading it found; P8-BE-10 — sent back (its file is gone). */
+        check: checkView(d),
+        returned: d.returnedAt ? { at: d.returnedAt.toISOString(), reason: d.returnedReason ?? "" } : null,
       })),
+      documentHolds: documentHoldsOf(r),
       /* The current guardian's Hand off: kept on the row unless BTG declined it afterwards. */
       handedOffAt: (handedOff?.at ?? (r.state === "SWITCHED" || r.state === "HANDED_OFF" ? r.decidedAt : null))?.toISOString() ?? null,
       decision,
@@ -522,11 +562,55 @@ export async function viewHandoffDocument(actor: Actor, id: string, documentId: 
   assertTenantWide(actor, "guardianHandoff", "read");
   const r = await prisma.guardianHandoff.findFirst({ where: { ...whereFor(actor, "guardianHandoff", "read"), id }, select: { id: true, tenantId: true } });
   if (!r) throw new ForbiddenError("guardianHandoff", "read");
-  const doc = await prisma.guardianHandoffDocument.findFirst({ where: { tenantId: r.tenantId, handoffId: r.id, id: documentId }, select: { id: true, r2Key: true, uploadedAt: true } });
+  const doc = await prisma.guardianHandoffDocument.findFirst({ where: { tenantId: r.tenantId, handoffId: r.id, id: documentId }, select: { id: true, r2Key: true, uploadedAt: true, returnedAt: true } });
   if (!doc) throw new ForbiddenError("guardianHandoff", "read");
   if (!doc.uploadedAt) throw new HandoffError("That document never finished uploading.");
+  if (doc.returnedAt) throw new HandoffError("That document was sent back; its file was deleted.", 409);
   const url = await presignPrivateDownload(actor, doc.r2Key, { entity: "GuardianHandoffDocument", entityId: doc.id }, SENSITIVE_DOCUMENT_TTL_SECONDS);
   return { url, expiresInSeconds: SENSITIVE_DOCUMENT_TTL_SECONDS };
+}
+
+/**
+ * P8-BE-10 — POST /guardian-handoffs/:id/documents/:documentId/send-back —
+ * BTG sends the new guardian's ID or proof back with a reason, while the
+ * request is still open. It stops counting and its file is deleted; a
+ * request already sent to the current guardian (or waiting for BTG) goes
+ * back to the new guardian to fill in, and nothing switches until it is
+ * sent again. The new guardian is emailed the reason and their request link.
+ */
+export async function sendBackHandoffDocument(actor: Actor, id: string, documentId: string, reasonIn: unknown) {
+  const reason = sendBackReason(reasonIn);
+  assertAllowed(actor, "guardianHandoff", "approve");
+  const r = await prisma.guardianHandoff.findFirst({ where: { ...whereFor(actor, "guardianHandoff", "approve"), id }, select: SELECT });
+  if (!r) throw new ForbiddenError("guardianHandoff", "approve");
+  if (!["REQUESTED", "WAITING", "HANDED_OFF"].includes(r.state)) throw new SendBackError(`This request is ${r.state.toLowerCase().replace("_", " ")}; its documents can't be sent back now.`, 409);
+  const doc = await prisma.guardianHandoffDocument.findFirst({
+    where: { tenantId: r.tenantId, handoffId: r.id, id: documentId }, select: { id: true, kind: true, proofKind: true, r2Key: true, uploadedAt: true, returnedAt: true },
+  });
+  if (!doc) throw new ForbiddenError("guardianHandoff", "approve");
+  if (!doc.uploadedAt) throw new SendBackError("That document never finished uploading — there's nothing to send back.", 409);
+  if (doc.returnedAt) throw new SendBackError("That document was already sent back.", 409);
+  await prisma.$transaction(async (tx) => {
+    const moved = await tx.guardianHandoffDocument.updateMany({
+      /* tenant-scope: the request's own document, loaded above; only once. */
+      where: { tenantId: r.tenantId, id: doc.id, returnedAt: null }, data: returnedColumns(actor, reason),
+    });
+    if (moved.count !== 1) throw new SendBackError("That document was already sent back.", 409);
+    if (r.state !== "REQUESTED") {
+      await tx.guardianHandoff.updateMany({
+        /* tenant-scope: the request loaded through whereFor(guardianHandoff, approve); only from the state it was read in. */
+        where: { id: r.id, tenantId: r.tenantId, state: r.state }, data: { state: "REQUESTED", submittedAt: null, decidedAt: null, decidedBy: null },
+      });
+    }
+    await recordSendBack(tx, actor, {
+      tenantId: r.tenantId, entity: "GuardianHandoffDocument", entityId: doc.id, reason,
+      documentName: doc.kind === "GUARDIANSHIP_PROOF" ? (doc.proofKind ? PROOF_WORDS[doc.proofKind] ?? "proof of guardianship" : "proof of guardianship") : "government ID",
+      to: r.requesterEmail, name: r.requesterName, uploadUrl: `${appUrl()}/guardian/handoff?r=${encodeURIComponent(requestToken(r.id))}`,
+      about: { handoffId: r.id, stateBefore: r.state },
+    });
+  });
+  await deleteSentBackFile(doc.r2Key);
+  return getHandoff(actor, r.id);
 }
 
 /**
@@ -551,7 +635,9 @@ export async function decideHandoff(actor: Actor, id: string, d: { decision: "HA
       /* tenant-scope: the request's own tenant row. */
       where: { id: r.tenantId }, select: { staffConfirmMinors: true },
     });
-    return tenant?.staffConfirmMinors ? toStaffReview(tx, actor, r) : handOff(tx, actor, r);
+    /* P8-BE-11 — and so does a document whose reading raised a question: a person checks it before anything switches. */
+    const holds = documentHoldsOf(r);
+    return tenant?.staffConfirmMinors || holds.length ? toStaffReview(tx, actor, r, holds) : handOff(tx, actor, r);
   });
 }
 
@@ -560,7 +646,7 @@ export async function decideHandoff(actor: Actor, id: string, d: { decision: "HA
  * nothing switches yet. The request waits for a BTG admin (HANDED_OFF);
  * the current guardian stays in control until then.
  */
-async function toStaffReview(tx: Tx, actor: Actor, r: Row) {
+async function toStaffReview(tx: Tx, actor: Actor, r: Row, reasons: readonly string[] = []) {
   assertComplete(r);
   const at = new Date();
   const moved = await tx.guardianHandoff.updateMany({
@@ -568,7 +654,7 @@ async function toStaffReview(tx: Tx, actor: Actor, r: Row) {
     where: { id: r.id, tenantId: r.tenantId, state: "WAITING" }, data: { state: "HANDED_OFF", decidedAt: at, decidedBy: actor.userId },
   });
   if (moved.count !== 1) throw new HandoffError("This request changed a moment ago — reload it.");
-  await audit(tx, actor, "guardianHandoff.handOffForReview", "GuardianHandoff", r.id, { before: { state: "WAITING" }, after: { state: "HANDED_OFF" } });
+  await audit(tx, actor, "guardianHandoff.handOffForReview", "GuardianHandoff", r.id, { before: { state: "WAITING" }, after: { state: "HANDED_OFF", ...(reasons.length ? { reasons } : {}) } });
   const [from, admins] = await Promise.all([
     tx.guardian.findFirst({ where: { tenantId: r.tenantId, id: r.fromGuardianId }, select: { legalName: true } }),
     tx.user.findMany({ where: { tenantId: r.tenantId, disabledAt: null, roles: { has: "BTG_ADMIN" } }, select: { id: true, email: true } }),

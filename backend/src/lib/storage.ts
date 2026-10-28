@@ -43,6 +43,8 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "../config/env";
 import { prisma } from "../db/client";
 import { AUDIT_ACTIONS, audit, type AuditActor } from "../db/audit";
+import type { FileProblem } from "../domain/document-check-rules";
+import { inspectDocument, type InspectedDocument } from "./document-inspect";
 
 export const s3 = new S3Client({
   endpoint: env.S3_ENDPOINT,
@@ -350,11 +352,14 @@ export type ExpectedUpload = {
   bytes?: number | null;
   /** The flow's own ceiling, checked whatever the grant said. */
   maxBytes: number;
+  /** P8-BE-09 — a document a person sent: open it, and refuse a file nobody could read. */
+  document?: boolean;
 };
 
 export type UploadCheck =
-  | { ok: true; bytes: number }
-  | { ok: false; problem: "missing" | "type" | "size" };
+  | { ok: true; bytes: number; /** A document's contents as opened (P8-BE-09), for reading (P8-BE-11). */ document?: InspectedDocument }
+  | { ok: false; problem: "missing" | "type" | "size" }
+  | { ok: false; problem: "unusable"; fileProblem: FileProblem; reason: string };
 
 /**
  * 2S8-SEC-03 — the confirm step of every private document upload.
@@ -366,6 +371,11 @@ export type UploadCheck =
  * mismatch is refused AND DELETED, so a file nobody vetted never sits in the
  * private bucket waiting for a reviewer's signed link to serve it. The
  * refusal is audited with what was expected and what arrived.
+ *
+ * P8-BE-09 — a DOCUMENT (`expected.document`) is also opened: it must be
+ * what its first bytes say, open, and — a photo, or a scanned PDF's first
+ * page — be readable (lib/document-inspect.ts). An unusable file is refused,
+ * deleted and audited the same way, with the reason the person reads.
  *
  * Nothing is handed to anyone here; the audit row records the refusal, not
  * a credential.
@@ -380,25 +390,42 @@ export async function checkPrivateUpload(
   if (!head) return { ok: false, problem: "missing" };
   const typeOk = mediaType(head.contentType) === mediaType(expected.contentType);
   const sizeOk = head.bytes <= expected.maxBytes && (expected.bytes == null || head.bytes === expected.bytes);
-  if (typeOk && sizeOk) return { ok: true, bytes: head.bytes };
+  const refuse = async (problem: "type" | "size" | "unusable", detail: Record<string, unknown> = {}) => {
+    await deletePrivateObject(key);
+    await prisma.$transaction((tx) =>
+      audit(tx, actor, AUDIT_ACTIONS.storage.privateUploadRefused, context.entity, context.entityId, {
+        after: {
+          bucket: BUCKETS.private, key, problem, deleted: true, ...detail,
+          expected: { contentType: expected.contentType, bytes: expected.bytes ?? null, maxBytes: expected.maxBytes },
+          arrived: { contentType: head.contentType, bytes: head.bytes },
+        },
+      }),
+    );
+  };
+  if (!typeOk || !sizeOk) {
+    const problem = typeOk ? "size" : "type";
+    await refuse(problem);
+    return { ok: false, problem };
+  }
+  if (!expected.document) return { ok: true, bytes: head.bytes };
 
-  await deletePrivateObject(key);
-  const problem = typeOk ? "size" : "type";
-  await prisma.$transaction((tx) =>
-    audit(tx, actor, AUDIT_ACTIONS.storage.privateUploadRefused, context.entity, context.entityId, {
-      after: {
-        bucket: BUCKETS.private, key, problem, deleted: true,
-        expected: { contentType: expected.contentType, bytes: expected.bytes ?? null, maxBytes: expected.maxBytes },
-        arrived: { contentType: head.contentType, bytes: head.bytes },
-      },
-    }),
-  );
-  return { ok: false, problem };
+  const inspection = await inspectDocument(await getPrivateObject(key), expected.contentType);
+  if (inspection.ok) return { ok: true, bytes: head.bytes, document: inspection.document };
+  await refuse("unusable", { fileProblem: inspection.problem, reason: inspection.reason });
+  return { ok: false, problem: "unusable", fileProblem: inspection.problem, reason: inspection.reason };
 }
 
-/** The words a person reads when their upload is refused on confirm. */
-export function uploadRefusal(problem: "missing" | "type" | "size", what = "That file"): string {
+type UploadRefused = Extract<UploadCheck, { ok: false }>;
+
+/**
+ * The words a person reads when their upload is refused on confirm: from
+ * the problem, or — an unusable document (P8-BE-09) — the check's own reason.
+ */
+export function uploadRefusal(refused: UploadRefused["problem"] | UploadRefused, what = "That file"): string {
+  if (typeof refused === "object" && refused.problem === "unusable") return refused.reason;
+  const problem = typeof refused === "object" ? refused.problem : refused;
   if (problem === "missing") return `${what} hasn't arrived yet — upload it, then confirm.`;
+  if (problem === "unusable") return `${what} can't be read, so it was removed. Upload a clearer copy.`;
   return problem === "type"
     ? `${what} isn't the type of file that was asked for, so it was removed. Upload it again.`
     : `${what} isn't the size that was declared, so it was removed. Upload it again.`;

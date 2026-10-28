@@ -247,9 +247,10 @@ export async function finishDealDisputeDocument(actor: Actor, disputeId: string,
   });
   if (!doc) throw new DealDisputeError("That document isn't one sent for this dispute.", 404, "deal_dispute_document");
   if (!doc.uploadedAt) {
-    const arrived = await checkPrivateUpload(actor, doc.r2Key, { contentType: doc.contentType, bytes: doc.bytes, maxBytes: MAX_DISPUTE_DOCUMENT_BYTES }, { entity: "DealDisputeDocument", entityId: doc.id });
+    /* P8-BE-09 — a document: opened, and refused if nobody could read it. */
+    const arrived = await checkPrivateUpload(actor, doc.r2Key, { contentType: doc.contentType, bytes: doc.bytes, maxBytes: MAX_DISPUTE_DOCUMENT_BYTES, document: true }, { entity: "DealDisputeDocument", entityId: doc.id });
     if (!arrived.ok && arrived.problem === "missing") throw new DealDisputeError("That document hasn't arrived yet — upload it, then confirm.", 409, "deal_dispute_document");
-    if (!arrived.ok) throw new DealDisputeError(uploadRefusal(arrived.problem, "That document"), 422, "deal_dispute_document");
+    if (!arrived.ok) throw new DealDisputeError(uploadRefusal(arrived, "That document"), 422, "deal_dispute_document");
     await prisma.$transaction(async (tx) => {
       /* tenant-scope: the document loaded above within the dispute's tenant. */
       await tx.dealDisputeDocument.update({ where: { id: doc.id }, data: { uploadedAt: new Date(), bytes: arrived.bytes }, select: { id: true } });

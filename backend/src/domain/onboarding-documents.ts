@@ -24,9 +24,17 @@ import type { Actor } from "../auth/actor";
 import { assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, SENSITIVE_DOCUMENT_TTL_SECONDS, uploadRefusal } from "../lib/storage";
-import { readOnboardingToken } from "../lib/onboarding-token";
-import { DOCUMENT_KINDS, EDITABLE, requiredDocuments, US_STATES, type DocumentKind, type OnboardingShape, type OnboardingState } from "./onboarding-rules";
-import { evaluateOnboarding, OnboardingError, OnboardingNotFoundError } from "./onboarding";
+import { issueOnboardingToken, readOnboardingToken } from "../lib/onboarding-token";
+import { audit } from "../db/audit";
+import { env } from "../config/env";
+import type { InspectedDocument } from "../lib/document-inspect";
+import { checkView, readDocument, type DocumentCheck } from "./document-reading";
+import {
+  DOCUMENT_KINDS, DOCUMENT_LABEL, documentChecklist, EDITABLE, organisationDocumentExpectation, primaryContactName, requiredDocuments, US_STATES,
+  type DocumentKind, type OnboardingShape, type OnboardingState,
+} from "./onboarding-rules";
+import { evaluateOnboarding, OnboardingError, OnboardingNotFoundError, primaryEmail } from "./onboarding";
+import { deleteSentBackFile, recordSendBack, returnedColumns, SendBackError, sendBackReason } from "./document-send-back";
 
 export { DOCUMENT_KINDS, type DocumentKind };
 
@@ -73,7 +81,20 @@ export function documentKey(onboardingId: string, documentId: string, filename: 
 export const APPLICANT_VIEW = {
   id: true, kind: true, filename: true, contentType: true, bytes: true, uploadedAt: true, createdAt: true,
   stateCode: true, expiresOn: true, replacesId: true, replacedAt: true, removedAt: true,
+  /* P8-BE-10 — BTG sent it back, and why: the applicant reads this too. */
+  returnedAt: true, returnedReason: true,
 } as const;
+
+/** BTG's view adds what reading each document found (P8-BE-11). */
+const CHECK_VIEW = { checkState: true, checkFindings: true, checkedAt: true } as const;
+
+/** P8-BE-11 — read an organisation's document as it is confirmed: null for a kind nothing says what it should show. */
+export async function readOrganisationDocument(
+  o: { orgName: string; contacts: unknown }, kind: string, document: InspectedDocument | undefined,
+): Promise<DocumentCheck | null> {
+  const expect = organisationDocumentExpectation(o, kind, DOCUMENT_LABEL[kind as DocumentKind] ?? kind);
+  return expect ? readDocument(document, expect) : null;
+}
 
 async function applicantOnboarding(token: string) {
   const id = readOnboardingToken(token);
@@ -81,7 +102,7 @@ async function applicantOnboarding(token: string) {
   const row = await prisma.propertyOnboarding.findFirst({
     /* tenant-scope: public resume token — it names its own application, whose tenantId is on the row. */
     where: { id },
-    select: { id: true, tenantId: true, state: true, orgType: true, stateCode: true, details: true },
+    select: { id: true, tenantId: true, state: true, orgType: true, orgName: true, contacts: true, stateCode: true, details: true },
   });
   if (!row) throw new OnboardingNotFoundError();
   return row;
@@ -127,7 +148,7 @@ export async function requestDocumentUpload(
   return { document: doc, uploadUrl, contentType: input.contentType };
 }
 
-/** Step two: the applicant says it has uploaded. Counted only if it is there. */
+/** Step two: the applicant says it has uploaded. Counted only if it is there and can be read (P8-BE-09); then read (P8-BE-11). */
 export async function confirmDocumentUpload(token: string, documentId: string) {
   const o = await applicantOnboarding(token);
   assertEditable(o.state);
@@ -136,16 +157,17 @@ export async function confirmDocumentUpload(token: string, documentId: string) {
     select: { id: true, r2Key: true, kind: true, contentType: true, bytes: true },
   });
   if (!doc) throw new OnboardingNotFoundError();
-  /* 2S8-SEC-03 — what arrived must be what the grant pinned; anything else is deleted. */
+  /* 2S8-SEC-03 — what arrived must be what the grant pinned; P8-BE-09 — and readable. Anything else is deleted. */
   const arrived = await checkPrivateUpload({ userId: null, tenantId: o.tenantId }, doc.r2Key,
-    { contentType: doc.contentType, bytes: doc.bytes, maxBytes: maxBytesFor(doc.kind) }, { entity: "OnboardingDocument", entityId: doc.id });
+    { contentType: doc.contentType, bytes: doc.bytes, maxBytes: maxBytesFor(doc.kind), document: true }, { entity: "OnboardingDocument", entityId: doc.id });
   if (!arrived.ok && arrived.problem === "missing") throw new OnboardingError("That document has not arrived yet — upload it, then confirm.", 409);
-  if (!arrived.ok) throw new OnboardingError(uploadRefusal(arrived.problem, "That document"), 422);
+  if (!arrived.ok) throw new OnboardingError(uploadRefusal(arrived, "That document"), 422);
   const size = arrived.bytes;
+  const check = await readOrganisationDocument(o, doc.kind, arrived.document);
   return prisma.$transaction(async (tx) => {
     /* tenant-scope: the document loaded above within this application's tenant and onboarding. */
     const confirmed = await tx.onboardingDocument.update({
-      where: { id: doc.id }, data: { uploadedAt: new Date(), bytes: size }, select: APPLICANT_VIEW,
+      where: { id: doc.id }, data: { uploadedAt: new Date(), bytes: size, ...check }, select: APPLICANT_VIEW,
     });
     /* 2S1-BE-06 — waiting on the automatic checks: this may be the last thing missing. */
     if (o.state === "PENDING_REVIEW") await evaluateOnboarding(tx, o.id);
@@ -166,14 +188,83 @@ export async function reviewDocuments(actor: Actor, onboardingId: string) {
   if (!o) throw new ForbiddenError("propertyOnboarding", "read");
   const docs = await prisma.onboardingDocument.findMany({
     where: { tenantId: o.tenantId, onboardingId: o.id },
-    select: { ...APPLICANT_VIEW, r2Key: true },
+    select: { ...APPLICANT_VIEW, ...CHECK_VIEW, r2Key: true },
     orderBy: { createdAt: "asc" },
   });
-  /* 2S1-BE-06 — five minutes, the identity-document rule, for every one of them. */
-  return Promise.all(docs.map(async ({ r2Key, ...d }) => ({
+  /* 2S1-BE-06 — five minutes, the identity-document rule, for every one of them. A document sent back has no file left. */
+  return Promise.all(docs.map(async ({ r2Key, checkState, checkFindings, checkedAt, ...d }) => ({
     ...d,
-    downloadUrl: d.uploadedAt ? await presignPrivateDownload(actor, r2Key, { entity: "OnboardingDocument", entityId: d.id }, SENSITIVE_DOCUMENT_TTL_SECONDS) : null,
+    check: checkView({ checkState, checkFindings, checkedAt }),
+    downloadUrl: d.uploadedAt && !d.returnedAt ? await presignPrivateDownload(actor, r2Key, { entity: "OnboardingDocument", entityId: d.id }, SENSITIVE_DOCUMENT_TTL_SECONDS) : null,
   })));
+}
+
+/**
+ * P8-BE-10 — POST /onboarding/:id/documents/:documentId/send-back — BTG
+ * sends one of an organisation's documents back with a reason. It stops
+ * counting and its file is deleted. An application waiting on the automatic
+ * checks goes back to the applicant (CHANGES_REQUESTED, the reason as the
+ * review note) so they can upload a new one and submit again; an approved
+ * organisation that loses a required document is flagged for BTG, as when
+ * it removes one itself — nothing is suspended. The primary contact is
+ * emailed the reason and where to upload.
+ */
+export async function sendBackOnboardingDocument(actor: Actor, onboardingId: string, documentId: string, reasonIn: unknown) {
+  const reason = sendBackReason(reasonIn);
+  assertTenantWide(actor, "propertyOnboarding", "approve");
+  const o = await prisma.propertyOnboarding.findFirst({
+    where: { ...whereFor(actor, "propertyOnboarding", "approve"), id: onboardingId },
+    select: { id: true, tenantId: true, state: true, orgName: true, orgType: true, stateCode: true, details: true, contacts: true, flaggedAt: true },
+  });
+  if (!o) throw new ForbiddenError("propertyOnboarding", "approve");
+  if (o.state === "REJECTED") throw new SendBackError("This organisation was rejected; its documents can't be sent back.", 409);
+  const doc = await prisma.onboardingDocument.findFirst({
+    where: { tenantId: o.tenantId, onboardingId: o.id, id: documentId },
+    select: { id: true, kind: true, stateCode: true, r2Key: true, uploadedAt: true, returnedAt: true, replacedAt: true, removedAt: true },
+  });
+  if (!doc) throw new ForbiddenError("propertyOnboarding", "approve");
+  if (!doc.uploadedAt) throw new SendBackError("That document never finished uploading — there's nothing to send back.", 409);
+  if (doc.returnedAt) throw new SendBackError("That document was already sent back.", 409);
+  const approved = o.state === "APPROVED" || o.state === "SUSPENDED";
+  const app = env.APP_URL.replace(/\/+$/, "");
+  await prisma.$transaction(async (tx) => {
+    const moved = await tx.onboardingDocument.updateMany({
+      /* tenant-scope: the organisation's own document, loaded above; only once. */
+      where: { tenantId: o.tenantId, id: doc.id, returnedAt: null }, data: returnedColumns(actor, reason),
+    });
+    if (moved.count !== 1) throw new SendBackError("That document was already sent back.", 409);
+    if (o.state === "PENDING_REVIEW") {
+      const back = await tx.propertyOnboarding.updateMany({
+        /* tenant-scope: the application loaded through whereFor above; only while it waits on the checks. */
+        where: { id: o.id, tenantId: o.tenantId, state: "PENDING_REVIEW" }, data: { state: "CHANGES_REQUESTED", reviewNotes: reason, reviewReasons: [] },
+      });
+      if (back.count === 1) {
+        await audit(tx, actor, "onboarding.documentSentBack", "PropertyOnboarding", o.id, { before: { state: "PENDING_REVIEW" }, after: { state: "CHANGES_REQUESTED", documentId: doc.id, reason } });
+      }
+    }
+    if (approved) {
+      /* As removeOrganizationDocument: a required document no longer on file flags the organisation. */
+      const docs = await tx.onboardingDocument.findMany({
+        /* tenant-scope: the same organisation's documents. */
+        where: { tenantId: o.tenantId, onboardingId: o.id },
+        select: { id: true, kind: true, stateCode: true, filename: true, uploadedAt: true, replacedAt: true, removedAt: true, returnedAt: true },
+      });
+      const flags = documentChecklist(o, docs).filter((c) => !c.document).map((c) => `Document missing after an update: ${c.label}`);
+      await tx.propertyOnboarding.update({
+        /* tenant-scope: the same row. */
+        where: { id: o.id }, data: { flags, flaggedAt: flags.length ? (o.flaggedAt ?? new Date()) : null }, select: { id: true },
+      });
+    }
+    await recordSendBack(tx, actor, {
+      tenantId: o.tenantId, entity: "OnboardingDocument", entityId: doc.id, reason,
+      documentName: (DOCUMENT_LABEL[doc.kind as DocumentKind] ?? "document").replace(/^./, (c) => c.toLowerCase()),
+      to: primaryEmail(o), name: primaryContactName(o.contacts),
+      uploadUrl: approved ? `${app}/property/documents` : `${app}/onboarding/${issueOnboardingToken(o.id)}`,
+      about: { onboardingId: o.id, stateBefore: o.state },
+    });
+  });
+  await deleteSentBackFile(doc.r2Key);
+  return reviewDocuments(actor, o.id);
 }
 
 /** One document, opened by BTG through a five-minute audited link — the profile page's viewer. */
@@ -184,10 +275,11 @@ export async function viewOnboardingDocument(actor: Actor, onboardingId: string,
   });
   if (!o) throw new ForbiddenError("propertyOnboarding", "read");
   const doc = await prisma.onboardingDocument.findFirst({
-    where: { tenantId: o.tenantId, onboardingId: o.id, id: documentId }, select: { id: true, r2Key: true, uploadedAt: true },
+    where: { tenantId: o.tenantId, onboardingId: o.id, id: documentId }, select: { id: true, r2Key: true, uploadedAt: true, returnedAt: true },
   });
   if (!doc) throw new ForbiddenError("propertyOnboarding", "read");
   if (!doc.uploadedAt) throw new OnboardingError("That document never finished uploading.", 409);
+  if (doc.returnedAt) throw new OnboardingError("That document was sent back; its file was deleted.", 409);
   const url = await presignPrivateDownload(actor, doc.r2Key, { entity: "OnboardingDocument", entityId: doc.id }, SENSITIVE_DOCUMENT_TTL_SECONDS);
   return { url, expiresInSeconds: SENSITIVE_DOCUMENT_TTL_SECONDS };
 }
