@@ -9,7 +9,9 @@ import { agreementBody, versionInForce } from "./support/agreements";
      A handoff can happen only after the new guardian's request and the
      current guardian's Hand off; the current guardian keeps control until
      the switch, which is atomic; agreed work and earned money stay where
-     they were; a guardian's other children are unaffected; a declined or
+     they were — but the payout account the previous guardian set up is
+     detached, and payouts not yet sent wait for the new guardian's own
+     (POL-BE-01); a guardian's other children are unaffected; a declined or
      disputed request goes to BTG support and is never automated; every step
      is audited.
    -------------------------------------------------------------------------- */
@@ -55,11 +57,12 @@ describe.skipIf(!hasDatabase)("2S1-BE-15 · changing a minor's guardian", { time
     .map((j) => j.payload as { template: string; to: string; data: Record<string, string> });
   const pub = (token: string, rest = "") => `/public/guardian-handoffs/${encodeURIComponent(token)}${rest}`;
 
-  /** The money and the work the switch must never touch. */
+  /** The money and the work the switch must never touch — and Mia's payout account (her guardian doesn't change). */
   const moneyAndWork = async () => JSON.stringify(await Promise.all([
     prisma.earning.findMany({ where: { tenantId: T }, select: { id: true, athleteId: true, orderId: true, gross: true, state: true }, orderBy: { id: "asc" } }),
     prisma.campaignOrder.findMany({ where: { tenantId: T }, select: { id: true, athleteId: true, state: true, compensation: true }, orderBy: { id: "asc" } }),
-    prisma.payoutAccount.findMany({ where: { tenantId: T }, select: { id: true, payeeType: true, payeeId: true, status: true }, orderBy: { id: "asc" } }),
+    prisma.payoutAccount.findMany({ where: { tenantId: T, payeeId: "gh_mia" }, select: { id: true, payeeType: true, payeeId: true, status: true, providerAccountId: true }, orderBy: { id: "asc" } }),
+    prisma.payout.findMany({ where: { tenantId: T }, select: { id: true, state: true, amountCents: true }, orderBy: { id: "asc" } }),
   ]));
 
   async function clean() {
@@ -118,7 +121,12 @@ describe.skipIf(!hasDatabase)("2S1-BE-15 · changing a minor's guardian", { time
     await prisma.campaign.create({ data: { id: "gh_camp", tenantId: T, sponsorId: "gh_sp", name: "Fall", budget: 100000, startDate: new Date("2026-10-01"), endDate: new Date("2026-12-01"), state: "ACTIVE" } });
     await prisma.campaignOrder.create({ data: { id: "gh_order", tenantId: T, campaignId: "gh_camp", athleteId: "gh_jordan", jobId: "gh_job", compensation: 20000, sellPrice: 40000, usageRights: "90 days", dueDate: new Date("2026-11-15"), state: "ACCEPTED" } });
     await prisma.earning.create({ data: { id: "gh_earn", tenantId: T, athleteId: "gh_jordan", orderId: "gh_order", gross: 20000, taxYear: 2026 } });
-    await prisma.payoutAccount.create({ data: { id: "gh_pa", tenantId: T, payeeType: "ATHLETE", payeeId: "gh_jordan", provider: "standin", status: "READY" } });
+    /* Jordan's and Mia's payout accounts, both set up by Carmen; and a payout of Jordan's, approved but not yet sent. */
+    await prisma.payoutAccount.createMany({ data: [
+      { id: "gh_pa", tenantId: T, payeeType: "ATHLETE", payeeId: "gh_jordan", provider: "standin", providerAccountId: "acct_standin_carmen_jordan", status: "READY" },
+      { id: "gh_pa_mia", tenantId: T, payeeType: "ATHLETE", payeeId: "gh_mia", provider: "standin", providerAccountId: "acct_standin_carmen_mia", status: "READY" },
+    ] });
+    await prisma.payout.create({ data: { id: "gh_payout", tenantId: T, payeeType: "ATHLETE", payeeId: "gh_jordan", payeeTenantId: T, amountCents: 20_000, state: "APPROVED", decidedAt: new Date() } });
     server = createApp().listen(0, "127.0.0.1");
     await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -209,6 +217,52 @@ describe.skipIf(!hasDatabase)("2S1-BE-15 · changing a minor's guardian", { time
     ]);
     expect(sent.find((m) => m.template === "handoff.switchedPrevious")!.data.otherChildren).toBe("yes");
     expect(sent.find((m) => m.template === "handoff.btgNotice")).toMatchObject({ to: "gh_admin@gh-test.invalid", data: { reviewUrl: expect.stringContaining("/admin/new-signups/guardians/") } });
+  });
+
+  it("POL-BE-01 · Carmen's payout account is detached from Jordan: the waiting payout isn't sent to her, and goes to Luis's own once he sets it up", async () => {
+    const { sendPayout } = await import("../src/domain/payouts");
+    const { EMAIL_TEMPLATES } = await import("../worker/jobs/send-email.mts");
+    expect(await prisma.payoutAccount.findUniqueOrThrow({ where: { id: "gh_pa" }, select: { status: true, providerAccountId: true, changedAt: true } }))
+      .toEqual({ status: "NOT_SET_UP", providerAccountId: null, changedAt: expect.any(Date) });
+    expect(await prisma.auditLog.findFirstOrThrow({ where: { tenantId: T, action: "payoutAccount.detached", entityId: "ATHLETE:gh_jordan" }, select: { before: true, after: true } })).toEqual({
+      before: { provider: "standin", providerAccountId: "acct_standin_carmen_jordan", status: "READY" },
+      after: { providerAccountId: null, status: "NOT_SET_UP", reason: "guardian handoff" },
+    });
+    expect((await prisma.auditLog.findFirstOrThrow({ where: { tenantId: T, action: "guardianHandoff.switch" }, select: { after: true } })).after).toMatchObject({ payoutAccountDetached: true });
+    /* Approved before the switch, but never sent to Carmen's account: it waits. */
+    expect(await sendPayout("gh_payout")).toEqual({ sent: false });
+    expect((await prisma.payout.findUniqueOrThrow({ where: { id: "gh_payout" }, select: { state: true } })).state).toBe("APPROVED");
+
+    const sent = await emails();
+    const previous = sent.find((m) => m.template === "handoff.switchedPrevious")!;
+    expect(EMAIL_TEMPLATES["handoff.switchedPrevious"]!(previous.data).text).toMatch(/Payouts already sent to you are unaffected\. Anything not yet paid out now goes to Luis Reyes's own payout account; yours is no longer used for Jordan\./);
+    const fresh = sent.find((m) => m.template === "handoff.switchedNew")!;
+    expect(EMAIL_TEMPLATES["handoff.switchedNew"]!(fresh.data).text).toMatch(/set up your own payout account for Jordan from the Payouts page\. Payouts not yet sent wait for it and go to your account\./);
+
+    /* Luis opens his own account — a new one, in his name. */
+    const luisLogin = await prisma.user.findFirstOrThrow({ where: { tenantId: T, email: "gh_luis@gh-test.invalid" }, select: { id: true } });
+    await prisma.user.update({ where: { id: luisLogin.id }, data: { clerkId: "gh_luis" } });
+    const link = await call("POST", "/payouts/account/link", "gh_luis", {});
+    expect(link.status, link.text).toBe(200);
+    const ready = await call("POST", "/public/test-provider/account", undefined, { token: new URL(link.json.url).searchParams.get("t"), outcome: "READY" });
+    expect(ready.status, ready.text).toBe(200);
+    const his = await prisma.payoutAccount.findUniqueOrThrow({ where: { id: "gh_pa" }, select: { status: true, providerAccountId: true, changedAt: true } });
+    expect(his.status).toBe("READY");
+    expect(his.providerAccountId).toBeTruthy();
+    expect(his.providerAccountId).not.toBe("acct_standin_carmen_jordan");
+    /* A changed account: its first payouts go to BTG for a check (2S5-BE-06). */
+    expect(his.changedAt).toEqual(expect.any(Date));
+    /* The waiting payout is queued for his account, and goes. */
+    expect(await prisma.outboxJob.count({ where: { tenantId: T, name: "payouts.send", payload: { path: ["payoutId"], equals: "gh_payout" } } })).toBe(1);
+    expect(await sendPayout("gh_payout")).toEqual({ sent: true });
+    /* Mia's account, still Carmen's, is untouched. */
+    expect(await prisma.payoutAccount.findUniqueOrThrow({ where: { id: "gh_pa_mia" }, select: { status: true, providerAccountId: true } })).toEqual({ status: "READY", providerAccountId: "acct_standin_carmen_mia" });
+  });
+
+  it("POL-BE-01 · news from the provider about Carmen's old account is recognised as no longer SponsorX's", async () => {
+    const { wasDetached } = await import("../src/domain/payout-account-holder");
+    expect(await prisma.$transaction((tx) => wasDetached(tx, "acct_standin_carmen_jordan"))).toBe(true);
+    expect(await prisma.$transaction((tx) => wasDetached(tx, "acct_standin_carmen_mia"))).toBe(false);
   });
 
   it("every step is audited", async () => {

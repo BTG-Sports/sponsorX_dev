@@ -94,3 +94,18 @@ Each is defined in the Phase 1 doc (Stage 8) and is a row in the tracker.
   - reminders and cancel after opening;
   - paid by hand and by Zoho invoice while closed.
 - **`POL-FE-04`:** what the screens can rely on is written into `documentation/polish.md` #4.
+
+## POL-BE-01 — the payout account follows whoever is responsible for the athlete (2026-10-28)
+
+- **The problem:** an athlete has one payout account, and it is the Stripe account of the person who set it up. After a guardian handoff or coming of age, it still pointed at the old guardian, so every payout went to them, and the new holder's "Set up payouts" button reopened the old guardian's account. SponsorX had no way to switch it.
+- **The user's decision (with Rodney's authority):** everything not yet paid out follows the athlete to the new holder's account. This replaces the 2026-10-01 rule "money already earned stays with the account it was earned under". Updated in the Phase 2 doc, the handoff and coming-of-age module headers, and the emails.
+- **The fix:**
+  - New `domain/payout-account-holder.ts` `detachAthletePayoutAccountIn`, called inside the switch transaction in `guardian-handoff.ts` `handOff` and `coming-of-age.ts` `completeIn`. It sets status `NOT_SET_UP`, clears the provider account, sets `changedAt`, and audits `payoutAccount.detached` with the old account id. Nothing is deleted at Stripe.
+  - Approved payouts wait (the existing readiness check), then go to the new account once READY.
+  - `stripeAccountLink` now keeps `changedAt` when an account was detached, so the change-review window applies to the new holder's first payouts. Before, it reset `changedAt` to null.
+  - `onAccountUpdated` ignores Stripe news about a detached account (`wasDetached`, read from the audit trail) instead of deferring it forever.
+- **Tests:**
+  - handoff: detach, payout waits, emails, the new guardian's own account is created and READY, the waiting payout is queued and sent, the sibling's account is untouched, `wasDetached`;
+  - coming of age: detach and both emails;
+  - the existing "money and work untouched" check was narrowed to earnings, orders, payouts and the sibling's account.
+- **For HeckerCreatives (`POL-FE-01`):** the setup prompt, plus wording in `frontend/src/lib/guardian-live.ts` `handoffCarryOver` that still states the old rule. Noted in `documentation/polish.md` #1.

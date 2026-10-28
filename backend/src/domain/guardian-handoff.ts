@@ -20,11 +20,14 @@
  *      — only if it still points at the guardian who handed off — the new
  *      guardian's login provisioned, the request closed, and every other
  *      open request for this athlete cancelled.
- *   5. WHAT STAYS: orders and campaigns already agreed are not touched;
- *      money already earned stays with the payout account it was earned
- *      under (nothing here reads or writes earnings, the ledger or payout
- *      accounts); the new guardian sets up their own payout account for
- *      anything new. A guardian's other children keep their guardian.
+ *   5. WHAT STAYS: orders and campaigns already agreed are not touched.
+ *      Payouts already sent stay sent. The athlete's payout account is
+ *      DETACHED from the previous guardian at the switch
+ *      (payout-account-holder.ts, POL-BE-01, decided 2026-10-28 in place of
+ *      "money already earned stays with the account it was earned under"):
+ *      anything not yet sent waits for the new guardian's own payout
+ *      account and goes to it. A guardian's other children keep their
+ *      guardian and their accounts.
  *   4a. NEVER A SWITCH TO SOMEONE WHO CAN'T SIGN IN. The new guardian's
  *      login is provisioned inside the switch; if it can't be (the address
  *      is another account's sign-in, or their login is switched off), the
@@ -54,6 +57,7 @@ import type { ARENA_HANDOFF_GROUPS, HANDOFF_GROUPS } from "../contracts/guardian
 import { issuePurposeToken, readPurposeToken } from "../lib/purpose-token";
 import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, SENSITIVE_DOCUMENT_TTL_SECONDS, uploadRefusal } from "../lib/storage";
 import { provisionGuardianLoginIn } from "./athlete-login";
+import { detachAthletePayoutAccountIn } from "./payout-account-holder";
 import { currentAgreementOf } from "./current-agreement";
 import { requiresGuardian } from "./guardian-rules";
 import { safeFilename } from "./onboarding-documents";
@@ -799,8 +803,10 @@ async function handOff(tx: Tx, actor: Actor, r: Row) {
     where: { tenantId: r.tenantId, athleteId: r.athleteId, id: { not: r.id }, state: { in: [...OPEN_STATES, "HANDED_OFF"] } },
     data: { state: "CANCELLED", decidedAt: at },
   });
+  /* POL-BE-01 — the previous guardian's payout account stops receiving this athlete's money, in the same transaction as the switch. */
+  const payoutAccountDetached = await detachAthletePayoutAccountIn(tx, actor, r.athleteId, "guardian handoff", at);
   await audit(tx, actor, "guardianHandoff.switch", "Athlete", r.athleteId, {
-    before: { guardianId: r.fromGuardianId }, after: { guardianId, handoffId: r.id, login, othersCancelled: others.count, ...(r.state === "HANDED_OFF" ? { confirmedByBtg: true } : {}) },
+    before: { guardianId: r.fromGuardianId }, after: { guardianId, handoffId: r.id, login, othersCancelled: others.count, payoutAccountDetached, ...(r.state === "HANDED_OFF" ? { confirmedByBtg: true } : {}) },
   });
 
   const [from, otherWards, admins] = await Promise.all([

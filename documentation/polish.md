@@ -57,6 +57,36 @@ wrong person.
   to set up their account.
 - **Done when:** after a handoff or coming of age, no payout reaches the old
   account; the new holder is asked to set up; tests cover both cases.
+- **The rule (decided 2026-10-28, rcfworks with Rodney's authority):**
+  everything not yet paid out follows the athlete to the new holder's account.
+  This replaces 2026-10-01's "money already earned stays with the account it
+  was earned under". Payouts already sent stay sent.
+- **Backend delivered (`POL-BE-01`, 2026-10-28):**
+  - At the switch, `backend/src/domain/payout-account-holder.ts`
+    *detaches* the athlete's payout account (status `NOT_SET_UP`, no
+    provider account, `changedAt` set; audited `payoutAccount.detached`).
+    It runs in the same transaction as the handoff or coming-of-age switch.
+  - Nothing is deleted at Stripe.
+  - An approved payout waits (never sent to a non-ready account).
+  - "Set up payouts" (`POST /payouts/account/link`) opens a new account in
+    the new holder's name. When it's READY, the waiting payouts are queued
+    to it.
+  - The first payouts to it go to BTG for a check (the change-review
+    window; opening the new account no longer forgets that it changed).
+  - Stripe's news about the old account is ignored, not retried forever.
+  - The handoff and coming-of-age emails were reworded to match.
+  - A guardian's other children keep their accounts.
+  - Tests are in `phase2-guardian-handoff.test.ts` and
+    `phase2-guardian-acts.test.ts`.
+- **For `POL-FE-01` (screens):**
+  - After a switch, `GET /payouts/account` reads `NOT_SET_UP` for the
+    athlete. The payouts screen should say "Set up your own payout account —
+    payouts are waiting for it", with the setup button.
+  - Also fix the handoff card's wording in
+    `frontend/src/lib/guardian-live.ts` (`handoffCarryOver`). It still says
+    "Money … already earned is paid as before, to your payout account". It
+    should say "Payouts already sent stay sent; anything not yet paid out
+    goes to [new guardian]'s own payout account once they set it up."
 
 ### 2. A minor can make themselves an adult
 `POL-BE-02` · `POL-FE-02` · *Minors* · confirmed

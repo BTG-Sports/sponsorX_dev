@@ -589,8 +589,8 @@ ${d.portalUrl ?? ""}
   "comingOfAge.completed": (d) => ({
     subject: d.seat === "guardian" ? `${d.athleteFirstName ?? "Your athlete"} has taken over their SponsorX account` : "You're in control of your SponsorX account",
     text: d.seat === "guardian"
-      ? `Hi ${d.firstName ?? "there"},\n\n${d.athleteFirstName ?? "Your athlete"} uploaded a government ID and now manages their own account. You no longer approve their agreements and payments. Money already earned is paid as before.\n\n— BTG SponsorX`
-      : `Hi ${d.firstName ?? "there"},\n\nYour government ID is in, and your account is yours: you accept your own agreements and manage your own money from now on.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+      ? `Hi ${d.firstName ?? "there"},\n\n${d.athleteFirstName ?? "Your athlete"} uploaded a government ID and now manages their own account. You no longer approve their agreements and payments. Payouts already sent are unaffected; anything not yet paid out now goes to ${d.athleteFirstName ?? "the athlete"}'s own payout account, and yours is no longer used for them.\n\n— BTG SponsorX`
+      : `Hi ${d.firstName ?? "there"},\n\nYour government ID is in, and your account is yours: you accept your own agreements and manage your own money from now on.\n\nNext: set up your own payout account from the Payouts page. Payouts not yet sent wait for it and go to your account.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "comingOfAge.terminated": (d) => ({
     subject: "A SponsorX account has been closed",
@@ -745,11 +745,11 @@ ${d.portalUrl ?? ""}
   }),
   "handoff.switchedNew": (d) => ({
     subject: `You are now ${d.athleteFirstName ?? "your athlete"}'s guardian on SponsorX`,
-    text: `Hi ${d.name ?? "there"},\n\n${d.currentFirstName ?? "The previous guardian"} handed off, and you are now ${d.athleteFirstName ?? "the athlete"}'s guardian. You approve their agreements and payments from now on. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\nNext: set up your own payout account for ${d.athleteFirstName ?? "their"} new deals. Orders already agreed continue as they are, and money already earned is paid as before.\n\n— BTG SponsorX`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.currentFirstName ?? "The previous guardian"} handed off, and you are now ${d.athleteFirstName ?? "the athlete"}'s guardian. You approve their agreements and payments from now on. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\nNext: set up your own payout account for ${d.athleteFirstName ?? "the athlete"} from the Payouts page. Payouts not yet sent wait for it and go to your account. Orders already agreed continue as they are.\n\n— BTG SponsorX`,
   }),
   "handoff.switchedPrevious": (d) => ({
     subject: `You handed off ${d.athleteFirstName ?? "your athlete"}'s SponsorX account`,
-    text: `Hi ${d.name ?? "there"},\n\n${d.requesterName ?? "The new guardian"} is now ${d.athleteFirstName ?? "the athlete"}'s guardian on SponsorX. Money ${d.athleteFirstName ?? "they"} already earned is still paid to the payout account it was earned under, and orders already agreed continue.${d.otherChildren ? "\n\nYour other athletes are not affected." : ""}\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.requesterName ?? "The new guardian"} is now ${d.athleteFirstName ?? "the athlete"}'s guardian on SponsorX. Payouts already sent to you are unaffected. Anything not yet paid out now goes to ${d.requesterName ?? "the new guardian"}'s own payout account; yours is no longer used for ${d.athleteFirstName ?? "the athlete"}. Orders already agreed continue.${d.otherChildren ? "\n\nYour other athletes are not affected." : ""}\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
   }),
   "handoff.switchedAthlete": (d) => ({
     subject: "Your guardian on SponsorX has changed",
