@@ -41,3 +41,15 @@ Each is defined in the Phase 1 doc (Stage 8) and is a row in the tracker.
 - **Tracker:** new **Polish** sheet (placed before Phase 1), 51 rows: 19 `POL-BE-nn` (rcfworks), 32 `POL-FE-nn` (HeckerCreatives), all Ready, about 43 days. `nn` = the item number in polish.md; an FE row waits on its BE row. Dashboard rows 23–25 count it, kept apart from the phase totals.
 - **Do first:** `POL-BE-04` — while Stripe is paused, the unpaid-order sweep still cancels sponsors' orders.
 - **Also:** PR #314 had merged, so `main_development` was fast-forwarded to `main` (ed3b9639).
+
+## Stripe live account — checked with a read-only key (2026-10-28)
+
+- **Read-only live key made by the user:** `SponsorX read-only check (Claude)` (Read on Core, Accounts v2 and Connect, own account only). It is kept outside the repo at `~/.config/sponsorx/stripe-live-readonly.key`. Delete it at go-live.
+- **Correction to 2026-10-23:** `acct_1UNCupGfl3hcz7a8` is **BTG's live account ("BTG Sports Group")**, not a spare sandbox. The secret key rolled there on 10-23 was this account's own test-mode key.
+- **What Stripe reports:**
+  - card payments are on (`charges_enabled`), and so are payouts (`payouts_enabled`);
+  - details submitted; `card_payments` and `transfers` are active;
+  - balance $0; no charges and no payouts yet;
+  - Rodney is listed as owner and representative.
+- **What the key can't see:** the identity-check status, outstanding requirements and the bank account all come back blank. The dashboard's setup guide still shows "Verify your identity" unticked, so Stripe may ask Rodney for his ID later; a dashboard banner and email would say so.
+- **So:** Stripe is not what's blocking go-live any more. Switching payment on (a new live key for production, the live webhook, `PAYMENT_PROVIDER=stripe`, with Zoho production at the same time) is the owner's call.
