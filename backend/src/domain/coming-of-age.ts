@@ -16,7 +16,9 @@
  *     before the end.
  *
  * Uploading a government ID (the coming-of-age page, by signed link) moves
- * control to the athlete — the guardian's link ends and they are told.
+ * control to the athlete — the guardian's link ends and they are told. The
+ * payout account the guardian set up is detached (POL-BE-01,
+ * payout-account-holder.ts): payouts not yet sent wait for the athlete's own.
  *
  * If the 90 days run out, BOTH accounts are terminated: the athlete's login
  * is switched off and they are suspended, and so is the guardian's — unless
@@ -41,6 +43,7 @@ import { COMING_OF_AGE_DAYS, comingOfAgeOpen, dayOfMajority, dueReminders, isMin
 import { finishAccountDocument, startAccountDocument, uploadedKinds } from "./account-documents";
 import { appUrl, firstNameOf, SignupError } from "./athlete-signup";
 import { recordClosureIn, reopenClosureIn, REJECT_TAKES_LOGINS } from "./account-closure";
+import { detachAthletePayoutAccountIn } from "./payout-account-holder";
 
 type Tx = Prisma.TransactionClient;
 const DAY = 86_400_000;
@@ -297,7 +300,9 @@ async function completeIn(tx: Tx, a: Row, now: Date) {
     await reopenClosureIn(tx, SYSTEM(a.tenantId), "ATHLETE", a.id);
     reactivated = true;
   }
-  await audit(tx, SYSTEM(a.tenantId), "comingOfAge.complete", "Athlete", a.id, { after: { previousGuardianId: a.guardianId, reactivated } });
+  /* POL-BE-01 — the guardian's payout account stops receiving the athlete's money; the athlete sets up their own. */
+  const payoutAccountDetached = await detachAthletePayoutAccountIn(tx, SYSTEM(a.tenantId), a.id, "came of age", now);
+  await audit(tx, SYSTEM(a.tenantId), "comingOfAge.complete", "Athlete", a.id, { after: { previousGuardianId: a.guardianId, reactivated, payoutAccountDetached } });
   const first = firstNameOf(a.legalName, a.displayName);
   if (a.email) {
     await send(tx, a.tenantId, {
