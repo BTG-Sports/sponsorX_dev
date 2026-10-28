@@ -158,6 +158,8 @@ export type EmailTemplate =
      handoff waiting for BTG because "BTG staff confirm minors" is on. */
   | "guardian.replacedByBtg"
   | "handoff.staffConfirm"
+  /* P8-BE-10 — BTG sent one document back: the reason, and the link the person uploads from. */
+  | "document.sentBack"
   /* 2S1-BE-16 — a contact-form message to the support mailbox, and the
      sender's copy. */
   | "support.message"

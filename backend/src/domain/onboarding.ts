@@ -68,6 +68,7 @@ import {
   type OrgType,
 } from "./onboarding-rules";
 import { readPage, type PageRequest } from "../lib/paging";
+import { documentHolds } from "./document-reading";
 
 type Tx = Prisma.TransactionClient;
 const SYSTEM = (tenantId: string): AuditActor => ({ userId: null, tenantId });
@@ -109,6 +110,8 @@ const SELECT = {
     select: {
       id: true, kind: true, filename: true, contentType: true, bytes: true, uploadedAt: true, createdAt: true,
       stateCode: true, expiresOn: true, replacesId: true, replacedAt: true, removedAt: true,
+      /* P8-BE-11 — what reading it found; P8-BE-10 — BTG sent it back, and why. */
+      checkState: true, checkFindings: true, checkedAt: true, returnedAt: true, returnedReason: true,
     },
     orderBy: { createdAt: "asc" },
   },
@@ -322,6 +325,8 @@ export async function approvalFactsFor(tx: Tx | typeof prisma, row: Row) {
     emailConfirmed: emailConfirmed(row),
     nameTakenBy,
     emailHasLogin: await emailHasLogin(tx, email),
+    /* P8-BE-11 — the document on file for each requirement, as reading it found. */
+    documentHolds: documentChecklist(row, row.documents).flatMap((c) => (c.document ? documentHolds(c.label, [c.document]) : [])),
   };
 }
 

@@ -233,7 +233,9 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
   expect(labels.length, "the team's required documents").toBeGreaterThan(0);
   for (const [i, label] of labels.entries()) {
     const name = `team-document-${i + 1}.pdf`;
-    await page.locator(`input[type=file][aria-label="${label}"]`).setInputFiles(pdf(testInfo.outputPath(name), `${TEAM.orgName} ${label}`));
+    /* P8-BE-11 reads each paper: the signer's ID must name the primary contact and read like an ID; the others name the team. */
+    const says = /government id/i.test(label) ? `STATE OF MARYLAND DRIVER LICENSE ${TEAM.contact.name} EXP 01/01/2031` : `${TEAM.orgName} ${label}`;
+    await page.locator(`input[type=file][aria-label="${label}"]`).setInputFiles(pdf(testInfo.outputPath(name), says));
     await expect(page.getByText(`${name} · received`)).toBeVisible({ timeout: 30_000 });
   }
   await page.getByRole("button", { name: "Continue" }).click();
@@ -285,7 +287,7 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
 
   // The ID, straight to the private bucket, from the receipt's checklist.
   await expect(applicant.getByText("A driver’s license, passport or state ID.")).toBeVisible({ timeout: 30_000 });
-  await applicant.locator("input[type=file]").setInputFiles(pdf(testInfo.outputPath("athlete-id.pdf"), `${ATHLETE_NAME} driver's licence`));
+  await applicant.locator("input[type=file]").setInputFiles(pdf(testInfo.outputPath("athlete-id.pdf"), `${ATHLETE_NAME} driver's licence DOB 03/14/2004`));
   await expect(applicant.getByText("A driver’s license, passport or state ID.")).toBeHidden({ timeout: 30_000 });
   // The email link — the last thing missing, so the system approves.
   await applicant.goto(await emailLink(ATHLETE.email, "/join/confirm"));

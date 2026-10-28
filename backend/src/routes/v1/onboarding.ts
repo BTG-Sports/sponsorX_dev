@@ -26,7 +26,8 @@ import {
   OnboardingStepInput,
   OrganizationDocumentInput,
 } from "../../contracts/onboarding";
-import { confirmDocumentUpload, requestDocumentUpload, reviewDocuments, viewOnboardingDocument } from "../../domain/onboarding-documents";
+import { confirmDocumentUpload, requestDocumentUpload, reviewDocuments, sendBackOnboardingDocument, viewOnboardingDocument } from "../../domain/onboarding-documents";
+import { DocumentSendBackInput } from "../../contracts/documents";
 import { getOrganizationProfile, listOrganizationSignups } from "../../domain/onboarding-profile";
 import {
   confirmOrganizationUpload,
@@ -93,6 +94,11 @@ const viewDocument: RequestHandler<{ id: string; documentId: string }> = async (
   res.json(await viewOnboardingDocument(req.actor!, req.params.id, req.params.documentId));
 };
 onboardingRouter.get("/onboarding/:id/documents/:documentId", requireActor, viewDocument);
+/* P8-BE-10 — BTG sends one document back with a reason; the primary contact is emailed where to upload a new one. */
+const sendBackDocument: RequestHandler<{ id: string; documentId: string }> = async (req, res) => {
+  res.json({ documents: await sendBackOnboardingDocument(req.actor!, req.params.id, req.params.documentId, DocumentSendBackInput.parse(req.body ?? {}).reason) });
+};
+onboardingRouter.post("/onboarding/:id/documents/:documentId/send-back", requireActor, sendBackDocument);
 
 /* ── the organisation's own manager: its documents (2S1-BE-07) ─────────── */
 

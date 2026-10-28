@@ -29,6 +29,8 @@ export type ApprovalFacts = {
   restrictedWords: { word: string; kind: string }[];
   emailInUse: boolean;
   sameNameSponsors: string[];
+  /** P8-BE-11 — "Document check — Proof of business: …": what reading the proof found. */
+  documentHolds?: readonly string[];
 };
 
 export type ApprovalVerdict =
@@ -67,6 +69,7 @@ export function sponsorApprovalVerdict(f: ApprovalFacts): ApprovalVerdict {
   if (f.restrictedWords.length) reasons.push(`Restricted words in their description: ${f.restrictedWords.map((w) => `"${w.word}"`).join(", ")}`);
   if (f.emailInUse) reasons.push("Their email already has a SponsorX login");
   if (f.sameNameSponsors.length) reasons.push(`A sponsor with the same name already exists: ${f.sameNameSponsors.join(", ")}`);
+  reasons.push(...(f.documentHolds ?? []));
   return reasons.length ? { outcome: "review", reasons } : { outcome: "approve", categories };
 }
 

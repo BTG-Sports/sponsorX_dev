@@ -19,6 +19,7 @@ import { prisma } from "../db/client";
 import type { Actor } from "../auth/actor";
 import { assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
+import { checkView } from "./document-reading";
 import { ContactSchema, DECISIONS, DOCUMENT_LABEL, approvalVerdict, isCurrent, type Decision, type DocumentKind, type OnboardingState } from "./onboarding-rules";
 import { approvalFactsFor, checklistOf, decisionAllowed, emailConfirmed, ONBOARDING_SELECT, primaryEmail, type OnboardingRow } from "./onboarding";
 
@@ -175,6 +176,9 @@ export async function getOrganizationProfile(actor: Actor, id: string) {
         id: d.id, kind: d.kind, stateCode: d.stateCode, filename: d.filename, contentType: d.contentType, bytes: d.bytes,
         label: d.stateCode ? `${DOCUMENT_LABEL[d.kind as DocumentKind] ?? d.kind} (${d.stateCode})` : DOCUMENT_LABEL[d.kind as DocumentKind] ?? d.kind,
         uploadedAt: d.uploadedAt, expiresOn: d.expiresOn, current: isCurrent(d), replacedAt: d.replacedAt, removedAt: d.removedAt,
+        /* P8-BE-11 — what reading it found; P8-BE-10 — sent back (its file is gone). */
+        check: checkView(d),
+        returned: d.returnedAt ? { at: d.returnedAt, reason: d.returnedReason ?? "" } : null,
       })),
     activity: trail
       .map((t) => ({ at: t.at, text: activityText(t.action, isRecord(t.after) ? t.after : {}), byBtg: Boolean(t.actorId) }))

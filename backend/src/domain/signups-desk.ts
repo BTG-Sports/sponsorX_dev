@@ -49,9 +49,12 @@ import { env } from "../config/env";
 import type { AthleteState } from "./athlete-state";
 import { requiresGuardian } from "./guardian-rules";
 import { contentTrustOf } from "./content-trust";
+import { checkView, type StoredCheck } from "./document-reading";
 import {
-  ATHLETE_SELECT, appUrl, approveSignupIn, evaluateAthleteSignup, firstNameOf, guardianAgreed, signupFacts, SignupError, type SignupAthlete,
+  ATHLETE_SELECT, appUrl, approveSignupIn, evaluateAthleteSignup, evaluateGuardianWards, firstNameOf, guardianAgreed, signupFacts, SignupError, type SignupAthlete,
 } from "./athlete-signup";
+import { deleteSentBackFile, recordSendBack, returnedColumns, SendBackError, sendBackReason } from "./document-send-back";
+import { issueAthleteEmailToken, issueComingOfAgeToken, issueGuardianSetupToken } from "../lib/signup-token";
 import { checksPassed, DOCUMENT_WORDS, idKindFor, PROOF_WORDS, signupFlags, signupMissing, type AccountDocumentKind, type GuardianProofKind } from "./signup-rules";
 
 type Tx = Prisma.TransactionClient;
@@ -205,12 +208,30 @@ async function activityOf(tenantId: string, entity: "Athlete" | "Guardian", id: 
   return items.sort((x, y) => x.at.getTime() - y.at.getTime());
 }
 
-const DOC_VIEW = { id: true, kind: true, proofKind: true, wardId: true, filename: true, uploadedAt: true } as const;
+const DOC_VIEW = {
+  id: true, kind: true, proofKind: true, wardId: true, filename: true, uploadedAt: true,
+  checkState: true, checkFindings: true, checkedAt: true, returnedAt: true, returnedReason: true,
+} as const;
 const day = (d: Date) => d.toISOString().slice(0, 10);
 
-function docItem(d: { id: string; kind: string; proofKind: string | null; filename: string; uploadedAt: Date | null }, forWhom?: string) {
+type DocRow = StoredCheck & {
+  id: string; kind: string; proofKind: string | null; filename: string; uploadedAt: Date | null;
+  checkedAt: Date | null; returnedAt: Date | null; returnedReason: string | null;
+};
+
+/**
+ * One document as BTG reads it: what reading it found (P8-BE-11 — null when
+ * it was never read), and whether BTG sent it back (P8-BE-10 — its file is
+ * gone, so it can't be opened).
+ */
+function docItem(d: DocRow, forWhom?: string) {
   const word = d.kind === "GUARDIANSHIP_PROOF" && d.proofKind ? PROOF_WORDS[d.proofKind as GuardianProofKind] : DOCUMENT_WORDS[d.kind as AccountDocumentKind];
-  return { id: d.id, name: word ?? "Document", sub: `${forWhom ? `For ${forWhom} · ` : ""}${d.filename} · uploaded ${d.uploadedAt ? day(d.uploadedAt) : "—"}`, viewable: true };
+  return {
+    id: d.id, name: word ?? "Document", sub: `${forWhom ? `For ${forWhom} · ` : ""}${d.filename} · uploaded ${d.uploadedAt ? day(d.uploadedAt) : "—"}`,
+    viewable: !d.returnedAt,
+    check: checkView(d),
+    returned: d.returnedAt ? { at: d.returnedAt.toISOString(), reason: d.returnedReason ?? "" } : null,
+  };
 }
 
 async function athleteFor(actor: Actor, id: string, action: "read" | "approve" = "read"): Promise<SignupAthlete & { school: string | null; sport: string; reviewedAt: Date | null; signupRejectNote: string | null; signupRejectedVia: string | null }> {
@@ -345,15 +366,87 @@ export async function viewSignupDocument(actor: Actor, owner: "athletes" | "guar
   }
   const doc = await prisma.accountDocument.findFirst({
     where: { tenantId, id: documentId, ...(owner === "athletes" ? { athleteId: ownerId } : { guardianId: ownerId }) },
-    select: { id: true, r2Key: true, uploadedAt: true },
+    select: { id: true, r2Key: true, uploadedAt: true, returnedAt: true },
   });
   if (!doc) throw new ForbiddenError(owner === "athletes" ? "athleteApplication" : "guardian", "read");
   if (!doc.uploadedAt) throw new SignupError("That document never finished uploading.");
+  if (doc.returnedAt) throw new SignupError("That document was sent back; its file was deleted.");
   const url = await presignPrivateDownload(actor, doc.r2Key, { entity: "AccountDocument", entityId: doc.id }, SENSITIVE_DOCUMENT_TTL_SECONDS);
   return { url, expiresInSeconds: SENSITIVE_DOCUMENT_TTL_SECONDS };
 }
 
 /* ═══════════════════════ BTG's acts ══════════════════════════════════ */
+
+/**
+ * P8-BE-10 — POST /signups/:owner/:ownerId/documents/:documentId/send-back —
+ * BTG sends one sign-up document back with a reason (document-send-back.ts):
+ * it stops counting, its file is deleted, and the athlete or guardian is
+ * emailed the reason and their own upload link — the athlete's sign-up page
+ * while they are signing up, the coming-of-age page after; the guardian's
+ * set-up page. A held sign-up goes back to waiting for the document, and
+ * the automatic checks run again on the new one.
+ */
+export async function sendBackSignupDocument(actor: Actor, owner: "athletes" | "guardians", ownerId: string, documentId: string, reasonIn: unknown) {
+  const reason = sendBackReason(reasonIn);
+  let athlete: { id: string; tenantId: string; state: string; email: string | null; legalName: string; displayName: string } | null = null;
+  let guardian: { id: string; tenantId: string; email: string; legalName: string; wards: { id: string; state: string }[] } | null = null;
+  if (owner === "athletes") {
+    assertTenantWide(actor, "athleteApplication", "approve");
+    athlete = await athleteFor(actor, ownerId, "approve");
+  } else {
+    assertTenantWide(actor, "guardian", "write");
+    guardian = await guardianFor(actor, ownerId);
+  }
+  const tenantId = (athlete ?? guardian)!.tenantId;
+  const doc = await prisma.accountDocument.findFirst({
+    where: { tenantId, id: documentId, ...(athlete ? { athleteId: athlete.id } : { guardianId: guardian!.id }) },
+    select: { id: true, kind: true, proofKind: true, wardId: true, r2Key: true, uploadedAt: true, returnedAt: true },
+  });
+  if (!doc) throw new ForbiddenError(owner === "athletes" ? "athleteApplication" : "guardian", "read");
+  if (!doc.uploadedAt) throw new SendBackError("That document never finished uploading — there's nothing to send back.", 409);
+  if (doc.returnedAt) throw new SendBackError("That document was already sent back.", 409);
+
+  const documentName = (doc.kind === "GUARDIANSHIP_PROOF" && doc.proofKind ? PROOF_WORDS[doc.proofKind as GuardianProofKind] : DOCUMENT_WORDS[doc.kind as AccountDocumentKind]) ?? "document";
+  let uploadUrl: string;
+  if (athlete) {
+    const signingUp = ["DRAFT", "SUBMITTED", "CHANGES_REQUESTED", "UNDER_REVIEW"].includes(athlete.state);
+    uploadUrl = signingUp
+      ? `${appUrl()}/join/confirm?t=${encodeURIComponent(issueAthleteEmailToken(athlete.id))}`
+      : `${appUrl()}/coming-of-age/${encodeURIComponent(issueComingOfAgeToken(athlete.id))}`;
+  } else {
+    /* The set-up page is per child: the athlete the proof names, else the one still signing up, else the first. */
+    const ward = guardian!.wards.find((w) => w.id === doc.wardId) ?? guardian!.wards.find((w) => w.state === "SUBMITTED") ?? guardian!.wards[0];
+    uploadUrl = ward ? `${appUrl()}/guardian/setup?t=${encodeURIComponent(issueGuardianSetupToken(guardian!.id, ward.id))}` : appUrl();
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const moved = await tx.accountDocument.updateMany({
+      /* tenant-scope: the document loaded above, within its owner and tenant; only once. */
+      where: { tenantId, id: doc.id, returnedAt: null }, data: returnedColumns(actor, reason),
+    });
+    if (moved.count !== 1) throw new SendBackError("That document was already sent back.", 409);
+    /* A held sign-up is waiting for the applicant again, not for BTG: its old reasons no longer apply. */
+    if (athlete?.state === "SUBMITTED") {
+      await tx.athlete.update({ /* tenant-scope: the athlete loaded through whereFor above. */ where: { id: athlete.id }, data: { reviewReasons: [] }, select: { id: true } });
+    }
+    /* A guardian's document: the minors it held wait for the guardian again — every ward for their ID, the one it names for a proof. */
+    if (guardian) {
+      await tx.athlete.updateMany({
+        /* tenant-scope: the guardian's own wards, in the guardian's tenant (loaded through whereFor above). */
+        where: { tenantId, guardianId: guardian.id, state: "SUBMITTED", ...(doc.wardId ? { id: doc.wardId } : {}) }, data: { reviewReasons: [] },
+      });
+    }
+    await recordSendBack(tx, actor, {
+      tenantId, entity: "AccountDocument", entityId: doc.id, documentName, reason, uploadUrl,
+      to: athlete ? athlete.email : guardian!.email, name: athlete ? (athlete.legalName || athlete.displayName) : guardian!.legalName,
+      about: { owner, ownerId },
+    });
+  });
+  await deleteSentBackFile(doc.r2Key);
+  if (athlete) await evaluateAthleteSignup(athlete.id);
+  else await evaluateGuardianWards(guardian!.id, tenantId);
+  return owner === "athletes" ? getAthleteSignup(actor, ownerId) : getGuardianSignup(actor, ownerId);
+}
 
 /** Approve a sign-up the system held: the same steps it would have taken, by BTG. */
 export async function approveHeldAthlete(actor: Actor, id: string) {

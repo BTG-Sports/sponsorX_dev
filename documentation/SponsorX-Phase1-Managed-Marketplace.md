@@ -3258,9 +3258,9 @@ The backend applies every rule (`P8-BE-08`, Done); this task only shows what it 
       - minor approve and withdraw clicked live.
     - **Build and tests:** `npm run build` (backend and Next 16.4.2) passes in a detached worktree. Backend suite on `sponsorx_test`: 3,525 pass. The five failing files are the Windows-only static checks (spawn npx, CRLF, `\` paths) and a timing test that passes on its own.
 
-### ▶ `P8-BE-09` · Every document upload checked for a usable file
+### ✅ `P8-BE-09` · Every document upload checked for a usable file
 
-**Order** 157.996 · **BE** · **Where:** Code · **2d** · **In progress** — 2026-10-28, rcfworks
+**Order** 157.996 · **BE** · **Where:** Code · **2d** · **Done** — 2026-10-28, rcfworks
 
 Found 2026-10-28: a government ID arrived as an almost black, blurred photo, and nothing stopped it. The upload checked only the declared type, the size and that the file arrived. Nothing opened the file. **The user, 2026-10-28: "do 1 and 2", then "do A and B", across "all documents".**
 
@@ -3293,10 +3293,26 @@ A refused file is deleted from the private bucket and audited (`storage.privateU
 - **Depends on:** nothing
 - **Done when:** Each of the ten uploads refuses a dark, blurred, blank, too-small, renamed, damaged or locked file with its reason, deletes it and audits it; a good photo or PDF passes; tests cover every rule and every flow
 - **Reference:** §26; 2S8-SEC-03; the user, 2026-10-28
+- **Delivered 2026-10-28 (rcfworks), on `feature/P8-BE-09-document-checks`:**
+  - **One place.** `storage.checkPrivateUpload` (the confirm step every private upload already uses) takes `document: true`. It then downloads the file and opens it (`lib/document-inspect.ts`), and an unusable file is deleted and audited (`storage.privateUploadRefused`, `problem: "unusable"`, with `fileProblem` and the reason). The verdicts and their wording are pure, in `domain/document-check-rules.ts`.
+  - **The ten uploads:** sign-up, guardian, coming-of-age and new-legal-name IDs, handoff papers, organisation papers (the wizard and the portal), sponsor proof, dispute papers and delivery photos all pass `document: true`. Creative, artwork, support attachments, logos and profile photos don't.
+  - **How the file is opened:**
+    - Photos go through sharp. A scanned PDF's first page is drawn with pdf.js and @napi-rs/canvas. Libraries added, pinned to releases at least two weeks old: `pdfjs-dist` 6.4.299, `@napi-rs/canvas` 1.0.11, `tesseract.js` 7.0.0 and `@tesseract.js-data/eng` 1.0.0.
+    - pdf.js runs with no font loading, and pdf.js 6 never evaluates code from a file. Opening has a 20-second limit, and sharp refuses pictures over 50 million pixels.
+  - **The limits,** calibrated on a drawn ID card and on the real upload of the day:
+    - shorter side at least 400 px, longer at least 600 px;
+    - average brightness at least 50 (the real upload measured 12);
+    - washed out when the average is over 240 and the spread under 18;
+    - blank when the spread is under 10;
+    - blurred when the strongest 1% of edges score under 9 (a crisp card scores 128, a phone photo about 70, a 3 px blur that OCR still reads 11, a 4 px blur 6, the real upload 6).
+  - **Tests:**
+    - `document-checks.test.ts` covers each rule, each refusal with its words, PDFs (text, scanned, locked) and real OCR.
+    - `document-flows.test.ts` checks every flow's refusal over HTTP, plus one run of the real confirm step against the in-process S3: deleted and audited.
+    - `private-upload-pins.test.ts` gives every document flow a real file and proves an unreadable one of the right type and size is refused, deleted and audited.
 
-### ▶ `P8-BE-10` · BTG sends a document back
+### ✅ `P8-BE-10` · BTG sends a document back
 
-**Order** 157.997 · **BE** · **Where:** Code · **2d** · **In progress** — 2026-10-28, rcfworks
+**Order** 157.997 · **BE** · **Where:** Code · **2d** · **Done** — 2026-10-28, rcfworks
 
 BTG's only answer to a bad document today is rejecting the whole application. This task lets BTG send one document back with a reason.
 
@@ -3317,10 +3333,31 @@ BTG's only answer to a bad document today is rejecting the whole application. Th
 - **Depends on:** P8-BE-09
 - **Done when:** BTG can send back each kind of document with a reason; it stops counting and its file is gone; the person is emailed the reason and their upload link; the new upload re-runs the checks; other roles and other tenants are refused; tests cover each flow
 - **Reference:** §10, §26; the user, 2026-10-28
+- **Delivered 2026-10-28 (rcfworks):**
+  - **Shared parts** are in `domain/document-send-back.ts`:
+    - the reason is required (5–1,000 characters);
+    - `returnedAt`, `returnedReason` and `returnedBy` are set on the document, which then stops counting everywhere (counts, checklists, `isCurrent`);
+    - the file is deleted after the commit;
+    - the `document.sentBack` email carries the reason and the person's own upload link;
+    - the action is audited as `document.sentBack`.
+  - **The routes,** each tenant-scoped and refusing other roles:
+    - `POST /signups/{athletes|guardians}/{id}/documents/{documentId}/send-back` (athlete-application approve, or guardian write, tenant-wide);
+    - `POST /onboarding/{id}/documents/{documentId}/send-back` (property-onboarding approve);
+    - `POST /sponsor-requests/{id}/documents/{documentId}/send-back` (inquiry approve);
+    - `POST /guardian-handoffs/{id}/documents/{documentId}/send-back` (guardian-handoff approve);
+    - `POST /profile-changes/{id}/id-document/send-back` (athlete-profile-change approve).
+  - **What each flow does afterwards:**
+    - **Sign-up:** a held athlete's reasons are cleared, and so are those of a guardian's held wards. The checks run again, so the sign-up waits for the document. The link is the athlete's sign-up link, or their coming-of-age page once approved, or the guardian's set-up page.
+    - **Organisation:** PENDING_REVIEW goes to CHANGES_REQUESTED, with the reason as the review note. An APPROVED organisation missing a required paper is flagged, not suspended, and pointed at `/property/documents`.
+    - **Sponsor request:** a NEW request waits for a new proof.
+    - **Handoff:** WAITING or HANDED_OFF goes back to REQUESTED, and nothing switches.
+    - **New legal name:** the change is DECLINED with the reason, and the athlete submits again with a clearer ID.
+  - **Viewing:** a sent-back document can't be opened (409), and BTG's views show `returned`.
+  - **Tests:** `document-flows.test.ts` covers all five flows. Each shows that the document stops counting, the file is deleted, the email carries the reason and link, and the state afterwards is right. Each also shows another role refused 403, another tenant's BTG refused, a short reason refused 400, and a second send-back refused 409.
 
-### ▶ `P8-BE-11` · Documents read and compared
+### ✅ `P8-BE-11` · Documents read and compared
 
-**Order** 157.998 · **BE** · **Where:** Code · **3d** · **In progress** — 2026-10-28, rcfworks
+**Order** 157.998 · **BE** · **Where:** Code · **3d** · **Done** — 2026-10-28, rcfworks
 
 After a file passes `P8-BE-09`, the server reads the words on it. It uses a PDF's own text, or reads a photo or scan with OCR (tesseract.js) **on our own server**. Nothing is sent to an outside service. **None of the text is kept**, only what was found.
 
@@ -3352,16 +3389,43 @@ Each is held with the findings as its reasons. Clear documents change nothing. T
 - **Depends on:** P8-BE-09
 - **Done when:** Every listed document gets a result after upload; a wrong name, a wrong kind, an expired date or a wrong date of birth is flagged in words; no text is stored; each automatic approval is held with the findings, and goes ahead when clear; BTG reads each result beside its document and a held legal name can be applied or declined; tests cover the rules, each flow, roles and tenants
 - **Reference:** §10, §26; Phase 2 automation rule (2026-10-03); the user, 2026-10-28
+- **Delivered 2026-10-28 (rcfworks):**
+  - **Rules and storage.** The rules are `readFindings` in `domain/document-check-rules.ts`. The reading is `domain/document-reading.ts`: a PDF's own words, or OCR (`lib/ocr.ts`), which uses one tesseract worker with a queue, a 20-second limit, and turns a low-confidence picture a quarter turn at a time. The result is stored on the document's own row (`checkState`, `checkFindings`, `checkedAt`; for a legal name, `idDocumentCheck*`), in migration `20261028120000_document_checks`.
+  - **Holds:**
+    - `signupVerdict`, `approvalVerdict` (organisation, adding a "Documents read and match the application" check) and `sponsorApprovalVerdict` take `documentHolds` as reasons.
+    - A late guardian's verification is held the same way.
+    - `decideHandoff` sends a flagged handoff to BTG (HANDED_OFF).
+    - A flagged legal-name ID keeps the change PENDING, and BTG answers it with `POST /profile-changes/{id}/decision`.
+    - Of several documents for one requirement, any that reads CLEAR, or was never read, meets it.
+  - **Tests:** `document-checks.test.ts` covers names, kinds, dates and expiry, the birth date, UNREAD, which documents hold, and real OCR of a phone photo, a scanned PDF and a sideways card. `document-flows.test.ts` shows each flow held with its reason and approved automatically on a clear document. It also covers BTG's apply and decline of a held legal name, and the check shown in every BTG view.
 
-### ⏸ `P8-FE-11` · Document checks on screen
+### ▶ `P8-FE-11` · Document checks on screen
 
-**Order** 157.999 · **FE** · **Where:** Code · **2d** · **Blocked** (waits for P8-BE-09, -10, -11)
+**Order** 157.999 · **FE** · **Where:** Code · **2d** · **Ready** — HeckerCreatives (P8-BE-09, -10, -11 are done)
 
-1. **Upload screens.** Show the refusal reason the API returns, for example "That photo is too dark to read…", under the upload, with a "Try again" button. Show "Checking your document…" while the confirm call runs, because reading takes a few seconds.
-2. **BTG's review screens** (New sign-ups, sensitive edits, guardian handoffs, organisation documents, sponsor requests):
-   - each document shows its check result: Clear, Flagged with each finding, or Couldn't read;
-   - a **Send back** button opens a reason box and sends the document back.
-3. **Held legal names.** BTG can Apply or Reject a legal-name change held by the check.
+1. **Upload screens:**
+   - Every document confirm call can now answer 422 with a reason in plain words, for example "That photo is too dark to read. Retake it in good light, with no shadow on it." Show that reason under the upload, with a "Try again" button.
+   - While the confirm call runs, show "Checking your document…": reading takes a few seconds.
+   - A document BTG sent back carries `returned: { at, reason }` (`returnedAt` and `returnedReason` on the organisation's own list). Show "BTG asked for a new one: …" and the upload again.
+2. **BTG's review screens.** Each document in these responses now carries `check`, which is null when the document was never read, or `{ state: "CLEAR" | "FLAGGED" | "UNREAD", findings: string[], checkedAt }`:
+   - `GET /signups/athletes/{id}` and `GET /signups/guardians/{id}` (`documents[]`);
+   - `GET /onboarding/{id}/documents` and `GET /onboarding/{id}/profile`;
+   - `GET /sponsor-requests/{id}`;
+   - `GET /guardian-handoffs/{id}` (`documents[]`, plus `documentHolds`).
+
+   Show Clear, Flagged with each finding, or "Couldn't read — check it by eye".
+
+   A **Send back** button opens a reason box (5–1,000 characters) and calls one of:
+   - `POST /signups/athletes/{id}/documents/{documentId}/send-back` and the same under `guardians`;
+   - `POST /onboarding/{id}/documents/{documentId}/send-back`;
+   - `POST /sponsor-requests/{id}/documents/{documentId}/send-back`;
+   - `POST /guardian-handoffs/{id}/documents/{documentId}/send-back`.
+
+   Each takes `{ reason }`. A sent-back document has no file left, so hide its View button.
+3. **Held legal names.** The sensitive-edits list (`GET /profile-changes`) carries `idDocumentCheckState` and `idDocumentCheckFindings`. A PENDING change with `idDocumentUploadedAt` is waiting for BTG:
+   - **Apply** calls `POST /profile-changes/{id}/decision` `{ decision: "APPLY" }`;
+   - **Decline** calls `{ decision: "DECLINE", note }`;
+   - **Send ID back** calls `POST /profile-changes/{id}/id-document/send-back` `{ reason }`, which declines the change and asks the athlete to submit again.
 
 - **Depends on:** P8-BE-09, P8-BE-10, P8-BE-11
 - **Done when:** People see why a file was refused; BTG sees each document's result and can send it back; a held legal name can be applied or rejected from the screen

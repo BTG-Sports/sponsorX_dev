@@ -41,7 +41,7 @@ import { IllegalTransitionError, type AthleteState } from "./athlete-state";
 import { provisionAthleteLoginsIn } from "./athlete-login";
 import { requiresGuardian, GUARDIAN_RELATIONSHIPS, type GuardianRelationship } from "./guardian-rules";
 import { GUARDIAN_AGREEMENT_KIND } from "./agreement";
-import { documentsOf, finishAccountDocument, guardianUploadsFor, startAccountDocument, uploadedKinds } from "./account-documents";
+import { documentHoldsFor, documentsOf, finishAccountDocument, guardianUploadsFor, startAccountDocument, uploadedKinds } from "./account-documents";
 import { signupMissing, signupVerdict, idKindFor, STAFF_CONFIRM_REASON, type AthleteFacts, type GuardianProofKind, type SignupVerdict } from "./signup-rules";
 
 type Tx = Prisma.TransactionClient;
@@ -88,10 +88,22 @@ export async function guardianAgreed(db: Db, tenantId: string, athleteId: string
   return row?.acceptedAt ?? null;
 }
 
+/**
+ * P8-BE-11 — what reading the guardian's documents for this athlete found.
+ * A guardian already verified was checked as a person: their ID isn't weighed again.
+ */
+function guardianDocumentHolds(db: Db, a: SignupAthlete): Promise<string[]> {
+  const g = a.guardian!;
+  return documentHoldsFor(db, { tenantId: a.tenantId, guardianId: g.id }, [
+    ...(g.verifiedAt ? [] : [{ label: "Guardian's government ID", kinds: ["GUARDIAN_ID"] }]),
+    { label: "Proof of guardianship", kinds: ["GUARDIANSHIP_PROOF"], wardId: a.id },
+  ]);
+}
+
 /** Everything the verdict weighs, read from where it is recorded. */
 export async function signupFacts(db: Db, a: SignupAthlete): Promise<AthleteFacts> {
   const minor = requiresGuardian(a);
-  const [kinds, gUploads, agreed, dupes, login, tenant] = await Promise.all([
+  const [kinds, gUploads, agreed, dupes, login, tenant, athleteHolds, guardianHolds] = await Promise.all([
     uploadedKinds(db, { tenantId: a.tenantId, athleteId: a.id }),
     /* 2S1-BE-10 — the guardian's ID is theirs; their proof must name THIS athlete. */
     a.guardian ? guardianUploadsFor(db, a.tenantId, a.guardian.id, a.id) : Promise.resolve({ idUploaded: false, proofUploaded: false }),
@@ -104,6 +116,11 @@ export async function signupFacts(db: Db, a: SignupAthlete): Promise<AthleteFact
         })
       : Promise.resolve(null),
     db.tenant.findFirst({ where: { id: a.tenantId }, select: { staffConfirmMinors: true } }),
+    /* P8-BE-11 — what reading the documents found holds the approval for BTG. */
+    documentHoldsFor(db, { tenantId: a.tenantId, athleteId: a.id }, [
+      minor ? { label: "Athlete's ID", kinds: ["SCHOOL_ID", "GOVERNMENT_ID"] } : { label: "Athlete's government ID", kinds: ["GOVERNMENT_ID"] },
+    ]),
+    a.guardian ? guardianDocumentHolds(db, a) : Promise.resolve([] as string[]),
   ]);
   return {
     missingFields: missingApplicationFields(a),
@@ -125,6 +142,7 @@ export async function signupFacts(db: Db, a: SignupAthlete): Promise<AthleteFact
     duplicates: dupes,
     emailInUse: Boolean(login),
     staffConfirmMinors: tenant?.staffConfirmMinors ?? false,
+    documentHolds: [...athleteHolds, ...(minor ? guardianHolds : [])],
   };
 }
 
@@ -218,6 +236,12 @@ async function verifyLateGuardianIn(tx: Tx, a: SignupAthlete): Promise<SignupVer
   const f = await signupFacts(tx, a);
   const missing = signupMissing(f).filter((m) => m.startsWith("your guardian"));
   if (missing.length) return { outcome: "waiting", missing };
+  /* P8-BE-11 — a guardian document whose reading was flagged waits for a person. */
+  const holds = await guardianDocumentHolds(tx, a);
+  if (holds.length) {
+    await tellBtg(tx, a.tenantId, { kind: "guardian", id: g.id, name: g.legalName }, "review", holds);
+    return { outcome: "review", reasons: holds };
+  }
   if (g.verifiedAt) {
     /* Already verified for another child (BTG or the system checked them):
        proof naming THIS athlete and the agreement for them are what was

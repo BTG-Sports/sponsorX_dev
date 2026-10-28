@@ -11,6 +11,8 @@
  */
 import { z } from "zod";
 
+import type { ExpectedName, ReadExpectation } from "./document-check-rules";
+
 /** 2S1-BE-08 — AGENCY: an athlete management or talent agency. Like a team
  *  it holds a roster and takes an agreed share of its athletes' sales. */
 export const ORG_TYPES = ["TEAM", "SCHOOL", "EVENT", "MEDIA", "VIRTUAL", "AGENCY"] as const;
@@ -200,9 +202,12 @@ export function requiredDocuments(o: Pick<OnboardingShape, "orgType" | "stateCod
 export type DocumentOnFile = {
   id: string; kind: string; stateCode: string | null; filename: string;
   uploadedAt: Date | null; replacedAt: Date | null; removedAt: Date | null;
+  /** P8-BE-10 — BTG sent it back: no longer on file. */
+  returnedAt?: Date | null;
 };
 
-export const isCurrent = (d: Pick<DocumentOnFile, "uploadedAt" | "replacedAt" | "removedAt">) => Boolean(d.uploadedAt) && !d.replacedAt && !d.removedAt;
+export const isCurrent = (d: Pick<DocumentOnFile, "uploadedAt" | "replacedAt" | "removedAt" | "returnedAt">) =>
+  Boolean(d.uploadedAt) && !d.replacedAt && !d.removedAt && !d.returnedAt;
 
 /** Does this document meet that requirement? A registration counts for its own state only. */
 export function meets(r: DocumentRequirement, d: Pick<DocumentOnFile, "kind" | "stateCode">): boolean {
@@ -228,6 +233,8 @@ export type ApprovalFacts = {
   nameTakenBy: string | null;
   /** The primary contact's email already has a SponsorX login — approval would be refused. */
   emailHasLogin: boolean;
+  /** P8-BE-11 — "Document check — Business registration: …": what reading the documents on file found. */
+  documentHolds?: readonly string[];
 };
 
 export type ApprovalCheck = { key: string; label: string; ok: boolean };
@@ -248,6 +255,7 @@ export function approvalVerdict(f: ApprovalFacts): { outcome: "approve" | "revie
     { key: "email", label: f.contactEmail ? `Contact email confirmed (${f.contactEmail})` : "Contact email confirmed", ok: f.emailConfirmed },
     { key: "name", label: f.nameTakenBy ? `Name not already registered — “${f.nameTakenBy}” holds it` : "Name not already registered", ok: !f.nameTakenBy },
     { key: "login", label: "Contact email has no other SponsorX login", ok: !f.emailHasLogin },
+    { key: "documentsRead", label: "Documents read and match the application", ok: !f.documentHolds?.length },
   ];
   const reasons: string[] = [];
   if (f.answersMissing.length) reasons.push("Some answers are still missing");
@@ -256,5 +264,28 @@ export function approvalVerdict(f: ApprovalFacts): { outcome: "approve" | "revie
   /* The other organisation is not named: the applicant reads these reasons too. */
   if (f.nameTakenBy) reasons.push("This name is already registered on SponsorX — add your town to tell it apart, or contact BTG");
   if (f.emailHasLogin) reasons.push(`${f.contactEmail ?? "The contact's email"} already has a SponsorX login — name a different primary contact, or contact BTG`);
+  reasons.push(...(f.documentHolds ?? []));
   return { outcome: reasons.length ? "review" : "approve", checks, reasons };
+}
+
+/** The primary contact's name, as saved — "" until there is one. */
+export function primaryContactName(contacts: unknown): string {
+  const parsed = z.array(ContactSchema).safeParse(contacts);
+  return parsed.success ? parsed.data.find((c) => c.primary)?.name ?? "" : "";
+}
+
+/**
+ * P8-BE-11 — what an organisation's document should show: the organisation's
+ * name, and for the signer's government ID the primary contact's. An OTHER
+ * paper isn't read: nothing says what it should show.
+ */
+export function organisationDocumentExpectation(o: { orgName: string; contacts: unknown }, kind: string, label: string): ReadExpectation | null {
+  const org: ExpectedName = { who: "The organisation", name: o.orgName, kind: "business" };
+  switch (kind) {
+    case "IDENTITY": return { label, names: [{ who: "The primary contact", name: primaryContactName(o.contacts), kind: "person" }], kind: "GOVERNMENT_ID", expires: true, birthDate: null };
+    case "BUSINESS_REGISTRATION": return { label, names: [org], kind: "BUSINESS_REGISTRATION", expires: false, birthDate: null };
+    case "REPRESENTATION_AGREEMENT": return { label, names: [org], kind: "AGREEMENT", expires: false, birthDate: null };
+    case "RIGHTS_PROOF": return { label, names: [org], kind: null, expires: false, birthDate: null };
+    default: return null;
+  }
 }
