@@ -204,6 +204,10 @@ Code review. Committing one file is what makes a shared tracker actually shared.
 [Phase 5 · Certified Recruiting](documentation/SponsorX-Phase5-Certified-Recruiting.md) (2, a SponsorX card linking to certified-recruiting.com and that site's footer links back; added 2026-10-27) ·
 [Phase 6 · INFINEX Game](documentation/SponsorX-Phase6-INFINEX-Game.md) (50, Phase 5 until 2026-10-27; waits for the game, which is parked; player accounts, the live connection and all of Phase 4's open work added 2026-10-20)
 
+**Polish — urgent, before any other board clean-up (2026-10-28):** [polish.md](documentation/polish.md)
+(35 user-experience flaws: money, minors, consent, people left waiting). Tracked on the
+**Polish** sheet as `POL-BE-nn` (rcfworks) / `POL-FE-nn` (HeckerCreatives); `POL-BE-04` first.
+
 ## Architecture rules
 
 - **The Zoho boundary.** Zoho knows who we're selling to and whether they've
