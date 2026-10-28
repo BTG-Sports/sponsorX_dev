@@ -233,7 +233,9 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
   expect(labels.length, "the team's required documents").toBeGreaterThan(0);
   for (const [i, label] of labels.entries()) {
     const name = `team-document-${i + 1}.pdf`;
-    await page.locator(`input[type=file][aria-label="${label}"]`).setInputFiles(pdf(testInfo.outputPath(name), `${TEAM.orgName} ${label}`));
+    /* P8-BE-11 reads each paper: the signer's ID must name the primary contact and read like an ID; the others name the team. */
+    const says = /government id/i.test(label) ? `STATE OF MARYLAND DRIVER LICENSE ${TEAM.contact.name} EXP 01/01/2031` : `${TEAM.orgName} ${label}`;
+    await page.locator(`input[type=file][aria-label="${label}"]`).setInputFiles(pdf(testInfo.outputPath(name), says));
     await expect(page.getByText(`${name} · received`)).toBeVisible({ timeout: 30_000 });
   }
   await page.getByRole("button", { name: "Continue" }).click();
