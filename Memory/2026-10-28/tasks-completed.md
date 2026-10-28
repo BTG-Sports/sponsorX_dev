@@ -32,3 +32,12 @@ Each is defined in the Phase 1 doc (Stage 8) and is a row in the tracker.
   - build, lint, security scripts, the secret scan and the dependency audit all pass;
   - **3,592 / 3,592** backend tests pass, including the new `document-checks` (27) and `document-flows` (24) tests and the updated `private-upload-pins` and `tenant-isolation` tests.
 - **The user's question, "send back the photo via email?":** no. The email carries the reason and the upload link only. An ID is never emailed, and the sent-back file is deleted.
+
+## Polish list — UX review of every user's flow (2026-10-28)
+
+- **What:** a review of SponsorX as each kind of user would meet it — sponsor, athlete and guardian, team, BTG staff, fan — looking for flaws in the experience, not the code (the same kind as the blurry ID and Rodney's cancel/change question). 35 found and checked against the code.
+- **The user's call:** this is **urgent, before cleaning up any other task on the board.**
+- **Plan:** [documentation/polish.md](../../documentation/polish.md) — four groups: A money, minors, consent (1–8); B waiting or stuck (9–15); C confusing (16–30); D wording and links (31–35).
+- **Tracker:** new **Polish** sheet (placed before Phase 1), 51 rows: 19 `POL-BE-nn` (rcfworks), 32 `POL-FE-nn` (HeckerCreatives), all Ready, about 43 days. `nn` = the item number in polish.md; an FE row waits on its BE row. Dashboard rows 23–25 count it, kept apart from the phase totals.
+- **Do first:** `POL-BE-04` — while Stripe is paused, the unpaid-order sweep still cancels sponsors' orders.
+- **Also:** PR #314 had merged, so `main_development` was fast-forwarded to `main` (ed3b9639).
