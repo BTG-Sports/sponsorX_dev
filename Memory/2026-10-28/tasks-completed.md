@@ -74,3 +74,23 @@ Each is defined in the Phase 1 doc (Stage 8) and is a row in the tracker.
 - **Local copies** live in `~/.config/sponsorx/` (mode 600, outside the repo): `stripe-production.env`, `stripe-live-readonly.key`, and `stripe-webhook-setup.key`, which goes once its key is deleted.
 - **Go/no-go doc** Payments row updated.
 - **To switch on:** set `PAYMENT_PROVIDER=stripe`, then do the $1 payment and refund (Stripe doc §6.4).
+
+## POL-BE-04 — orders are held, not cancelled, while card payment is closed (2026-10-28)
+
+- **The problem:** with payments off in production, an approved order still got "pay by" reminders on days 1 and 2 and was cancelled as unpaid on day 3, while its pay button was greyed out.
+- **The fix:**
+  - `paymentsOpen()` in `lib/payment-provider.ts` is now the one test of whether payment is open. It reads `PAYMENT_PROVIDER` today; `POL-BE-36` will hook BTG's switch in there.
+  - **Approval while closed:** `paymentDueAt` is left null (no deadline). The `order.approved` email says the order is held and that payment opens soon.
+  - **`sweepUnpaidOrders` while closed:** no reminders and no cancelling. A running window is paused (deadline and reminders cleared, audited `marketplaceOrder.paymentWindowPaused`).
+  - **`sweepUnpaidOrders` once open:** each held order gets a fresh three days (`marketplaceOrder.paymentWindowOpened`), and the sponsor gets the new `order.paymentOpen` email once.
+  - Reminders now count from `paymentWindowStart(paymentDueAt)`, not from approval. For an order approved while open, nothing changes.
+  - `GET /marketplace-orders/:id/payment` `canPay` now reads `paymentsOpen()`.
+- **No migration.** `paymentDueAt` was already nullable; only the schema comment changed.
+- **Tests:** 6 new in `phase2-order-automation.test.ts`, covering:
+  - held while closed;
+  - never reminded or cancelled;
+  - pause;
+  - open with a fresh window, and one email;
+  - reminders and cancel after opening;
+  - paid by hand and by Zoho invoice while closed.
+- **`POL-FE-04`:** what the screens can rely on is written into `documentation/polish.md` #4.

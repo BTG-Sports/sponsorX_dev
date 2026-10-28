@@ -51,7 +51,7 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, can, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import {
-  createPayoutAccount, isSponsorXPayoutAccount, openCheckout, payoutAccountLinkUrl, payoutAccountStatus, ProviderRefusedError, providerName, readStandinToken, sendPayoutToProvider, standinLink, standinRef,
+  createPayoutAccount, isSponsorXPayoutAccount, openCheckout, paymentsOpen, payoutAccountLinkUrl, payoutAccountStatus, ProviderRefusedError, providerName, readStandinToken, sendPayoutToProvider, standinLink, standinRef,
   StandinTokenError,
 } from "../lib/payment-provider";
 import { postPayout, postPayoutReturn } from "./ledger";
@@ -255,7 +255,8 @@ export async function orderPayment(actor: Actor, orderId: string) {
     amountCents: order.totalCents,
     due: order.state === "APPROVED" || order.state === "AWAITING_PAYMENT",
     provider,
-    canPay: provider !== "none",
+    /* POL-BE-04 — false while card payment is closed: the order is held, with no pay-by date yet. */
+    canPay: paymentsOpen(),
     testProvider: provider === "standin",
     latest,
   };
