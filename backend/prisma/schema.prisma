@@ -3003,6 +3003,8 @@ model MarketplaceOrder {
   cancelReason         String?
   /// 2S4-BE-10 — the payment window. Set when it reaches AWAITING_PAYMENT
   /// (at approval); reminders after 1 and 2 days, cancelled at paymentDueAt.
+  /// POL-BE-04 — paymentDueAt is null while card payment is closed: no
+  /// deadline yet. The window's three days count back from paymentDueAt.
   awaitingPaymentAt    DateTime?
   paymentDueAt         DateTime?
   /// How many of the two payment reminders have been sent.

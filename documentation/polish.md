@@ -103,6 +103,34 @@ Checkout never says payment is switched off.
   plainly that payment opens later and the order is held.
 - **Done when:** with payment off, no reminder and no cancellation; with it
   on, unchanged; checkout says so; tests.
+- **Backend delivered (`POL-BE-04`, 2026-10-28):**
+  - `paymentsOpen()` in `backend/src/lib/payment-provider.ts` is the single
+    test of whether payment is open. Today it reads `PAYMENT_PROVIDER`;
+    `POL-BE-36` will plug into it.
+  - **While closed:**
+    - An order approved now waits with **no pay-by date** (`paymentDueAt`
+      null).
+    - The approval email says it's held and that payment opens soon.
+    - The sweep never reminds or cancels it.
+    - A window already running is paused (audited
+      `marketplaceOrder.paymentWindowPaused`).
+  - **When payment opens:**
+    - Each held order gets a fresh three days from that moment (audited
+      `marketplaceOrder.paymentWindowOpened`).
+    - The sponsor gets `order.paymentOpen` once ("Payment is open — please
+      pay by …").
+    - Reminders on days 1 and 2 and the cancel on day 3 then count from
+      that moment.
+  - Payment by Zoho invoice or by hand still works while closed.
+  - Tests are in `backend/tests/phase2-order-automation.test.ts` (POL-BE-04
+    block).
+- **For `POL-FE-04` (screens), nothing new to call:**
+  - `GET /marketplace-orders/:id/payment` returns `canPay: false` while
+    payment is closed.
+  - `GET /marketplace-orders/:id` returns `waitingOn: "PAYMENT"` with
+    `deadlineAt: null` (and `paymentDueAt: null`) while the order is held.
+  - Show "Held for you — card payment opens soon; we'll email your pay-by
+    date", not a countdown, and say the same at checkout.
 
 ### 5. Sponsors agree to the order terms before seeing the total
 `POL-BE-05` · `POL-FE-05` · *Money · Consent* · confirmed

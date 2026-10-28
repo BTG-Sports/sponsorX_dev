@@ -228,6 +228,8 @@ export type EmailTemplate =
   | "order.approved"
   | "order.paymentReminder"
   | "order.cancelledUnpaid"
+  /* POL-BE-04 — card payment opened: an order held meanwhile now has its pay-by date. */
+  | "order.paymentOpen"
   | "sale.cancelled"
   | "payment.received"
   /* 2S4-BE-10 — a card payment confirmed for an order no longer waiting for it: BTG's admins refund the sponsor. */

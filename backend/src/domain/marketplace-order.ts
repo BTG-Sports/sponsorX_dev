@@ -100,6 +100,7 @@ import { tellBtgHeld, tellSponsorApproved, tellSponsorPaid } from "./order-mail"
 import { orderRefundCause, recordRefund, refundsForOrders, type RefundContext } from "./refunds";
 import { claimsMoney } from "./payout-auto";
 import { assertRefundable } from "./payment-exceptions";
+import { paymentsOpen } from "../lib/payment-provider";
 import {
   approvalReasons,
   billingProblems,
@@ -669,8 +670,10 @@ async function moveIn(
   const updated = await claim(tx, order.id, from, to, {
     /* 2S5-BE-04 — the payout holding period runs from fulfilment. */
     ...(to === "FULFILLED" ? { fulfilledAt: now } : {}),
-    /* 2S4-BE-10 — the payment window opens: reminders after 1 and 2 days, cancelled at 3. */
-    ...(to === "AWAITING_PAYMENT" ? { awaitingPaymentAt: now, paymentDueAt: new Date(now.getTime() + PAYMENT_WINDOW_DAYS * DAY), paymentRemindersSent: 0 } : {}),
+    /* 2S4-BE-10 — the payment window opens: reminders after 1 and 2 days, cancelled at 3.
+       POL-BE-04 — not while card payment is closed: the order waits with no
+       deadline, and the sweep opens its three days once payment opens. */
+    ...(to === "AWAITING_PAYMENT" ? { awaitingPaymentAt: now, paymentDueAt: paymentsOpen() ? new Date(now.getTime() + PAYMENT_WINDOW_DAYS * DAY) : null, paymentRemindersSent: 0 } : {}),
     ...(to === "PAID" ? { paidAt: now } : {}),
     /* 2S4-BE-09 — a refund stops the sponsor's limit rising, from this moment —
        2S4-BE-12: unless it is a cancellation's, which nobody is at fault for. */
