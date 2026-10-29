@@ -20,6 +20,7 @@ import { ForbiddenError } from "../auth/errors";
 import { scopeFor, type Resource } from "../auth/policy";
 import { whereFor } from "../auth/scope";
 import { prisma } from "../db/client";
+import { waitingOnWhere } from "./payout-auto";
 
 /** The Applications page's own aging rule (frontend `AGING_HOURS`). */
 export const AGING_HOURS = 48;
@@ -29,6 +30,8 @@ export type OperationsQueues = {
   approvals: { waiting: number } | null;
   briefs: { toQualify: number; toMatch: number } | null;
   finance: { held: number; disputed: number } | null;
+  /** POL-BE-12 — payouts waiting for BTG (held at request, or failed and handed to BTG), and since when the oldest has waited. */
+  payouts: { waiting: number; oldestSince: string | null } | null;
 };
 
 /**
@@ -50,13 +53,14 @@ export async function operationsQueues(actor: Actor, now = new Date()): Promise<
     approvals: tenantWide(actor, "deliverable"),
     briefs: tenantWide(actor, "campaignBrief"),
     finance: tenantWide(actor, "earning"),
+    payouts: tenantWide(actor, "payout"),
   };
   if (!Object.values(may).some(Boolean)) throw new ForbiddenError("metricAggregate", "read");
 
   const agedBefore = new Date(now.getTime() - AGING_HOURS * 3_600_000);
   const waitingStates = { state: { in: ["SUBMITTED", "UNDER_REVIEW"] as ("SUBMITTED" | "UNDER_REVIEW")[] } };
 
-  const [applications, approvals, briefs, finance] = await Promise.all([
+  const [applications, approvals, briefs, finance, payouts] = await Promise.all([
     may.applications
       ? Promise.all([
           prisma.athlete.count({ where: { ...whereFor(actor, "athleteApplication", "read"), ...waitingStates } }),
@@ -89,7 +93,13 @@ export async function operationsQueues(actor: Actor, now = new Date()): Promise<
           prisma.earning.count({ where: { ...whereFor(actor, "earning", "read"), state: "DISPUTED" } }),
         ]).then(([held, disputed]) => ({ held, disputed }))
       : null,
+    may.payouts
+      ? Promise.all([
+          prisma.payout.count({ where: { AND: [whereFor(actor, "payout", "read"), waitingOnWhere("BTG")] } }),
+          prisma.payout.findFirst({ where: { AND: [whereFor(actor, "payout", "read"), waitingOnWhere("BTG")] }, orderBy: { requestedAt: "asc" }, select: { requestedAt: true } }),
+        ]).then(([waiting, oldest]) => ({ waiting, oldestSince: oldest?.requestedAt.toISOString() ?? null }))
+      : null,
   ]);
 
-  return { applications, approvals, briefs, finance };
+  return { applications, approvals, briefs, finance, payouts };
 }

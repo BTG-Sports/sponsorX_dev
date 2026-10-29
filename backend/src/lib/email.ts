@@ -274,6 +274,8 @@ export type EmailTemplate =
   | "payout.accountNeedsFix"
   /* 2S5-BE-05 — a payout the provider couldn't send (or the bank returned) that now waits on BTG: its admins, with the reason. */
   | "payout.failedForBtg"
+  /* POL-BE-12 — a payout the automatic approval held for BTG's review: Finance and BTG's admins, with the reasons. */
+  | "payout.heldForReview"
   /* 2S5-INT-01 — Stripe refused a card refund SponsorX queued: it is back on Finance's "Refunds to send" list. BTG's admins, with Stripe's reason. */
   | "refund.providerRefused"
   /* 3S1-QA-01 — the nightly fact check: the figures stopped matching the app; they match again. */
