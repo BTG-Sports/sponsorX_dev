@@ -8,9 +8,10 @@ each problem we ran into was solved. Newest first within each day.
 | 4 · Orders cancelled for "not paying" while payment is off | `POL-BE-04` | #317 | Merged |
 | 1 · Payouts kept going to the old guardian | `POL-BE-01` | #319 | Merged |
 | 2 · A minor could make themselves an adult | `POL-BE-02` | #321 | In review |
+| 3 · A team could raise its share to 100% without asking | `POL-BE-03` | #322 | Merged |
 | 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
 
-The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`) are for
+The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`) are for
 HeckerCreatives. Each item in `polish.md` says exactly what the screens can
 rely on.
 
@@ -129,6 +130,35 @@ rely on.
     names included. It now says when a change is waiting.
   - An older test still expected the old "starts at once" behaviour. It was
     updated to the new rule.
+
+## 2026-10-29
+
+### `POL-BE-03` — a team's share goes up only with the athlete's yes
+- **Problem:** a team could raise its share of any athlete it added
+  directly, minors included, with one click and without telling them. Only
+  invited athletes were protected.
+- **Loophole found while planning:** the share typed at "Add athlete" was
+  never agreed either, so a team could add a minor at 100% from the start.
+- **Decision** (with Rodney's authority): that first share needs a yes too.
+  Until then BTG's standard team share applies.
+- **Approach:**
+  - Anything that can raise the share becomes a **request** the athlete
+    answers, stored in a new small table: a raise, a clear back to BTG's
+    standard share, and the first share. It was modelled on the team
+    invitation, which already asked an athlete to accept a share.
+  - Lowering applies at once.
+  - For a minor, only the guardian can accept, using the same check as
+    joining a team. The minor's own "accept" is refused.
+  - A yes counts only while the athlete is still on that team, at the share
+    the request was made from. Leaving the team ends the request.
+- **Snags:**
+  - About ten older money tests had added an athlete at 20% and expected
+    that split at once. They now record the athlete's yes first, through a
+    small test helper, so they still test the money, not the asking.
+  - One payout test passed in the first full run and then failed alone. It
+    turned out to depend on the 20% split too, and was fixed the same way.
+  - The temporary folders were cleared overnight, so the portable test
+    database was downloaded and set up again.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.
