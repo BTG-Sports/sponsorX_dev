@@ -262,6 +262,31 @@ leaves the fees out. The real total appears only after the sponsor has committed
   checkout shows the full total next to the button that commits. If the API
   already has the quote, this needs front-end work only.
 - **Done when:** the total shown before placing equals the total charged; tests.
+- **Backend delivered (`POL-BE-05`, 2026-10-29):**
+  - **What was missing:** the API had no quote. The buyer fee
+    (`MARKETPLACE_BUYER_FEE_BPS`) was added only at the moment of placing.
+  - **One quote:** `orderQuote` (in `marketplace-order-rules.ts`) gives the
+    subtotal, BTG's buyer fee and the total. The cart, checkout and placing
+    all use it, so the total shown is the total charged. The card charge is
+    the order's `totalCents`.
+  - **The guard:** placing can carry `totalCentsShown`. If it differs from
+    the server's total, the order is refused with 409 `total_changed`
+    ("now $X"). Nothing is placed or accepted, and the hold is kept. It is
+    optional, so today's checkout keeps working.
+  - Tests: `backend/tests/phase2-orders.test.ts` (POL-BE-05 block, with a 3%
+    fee switched on).
+- **For `POL-FE-05` (screens):**
+  - **Where to read the quote:**
+    - `GET /cart` → `cart.quote`;
+    - `GET /reservations/:id` → `checkout.quote`.
+    - Both are `{ currency, subtotalCents, feesCents, totalCents }`.
+  - On checkout, show subtotal, fees and **Total** next to Place order.
+  - Remove "Fees: added when the order is placed" and "Total so far".
+  - The cart's own `totalCents` is still the lines' sum, so use `quote` for
+    the total.
+  - Send `totalCentsShown: checkout.quote.totalCents` with
+    `POST /marketplace-orders`.
+  - On a 409 `total_changed`, show the message and reload the quote.
 
 ### 6. A sponsor who pays twice gets no refund
 `POL-BE-06` · `POL-FE-06` · *Money · Silent* · likely
@@ -273,6 +298,37 @@ payment and has no refund button, and nothing is added to "Refunds to send".
 - **Fix:** a duplicate payment creates a refund to send and flags the order.
   The order page shows it, and BTG can mark it refunded.
 - **Done when:** a duplicate shows on the order and in "Refunds to send"; tests.
+- **Backend delivered (`POL-BE-06`, 2026-10-29):**
+  - A card payment confirmed for an order that no longer needs it is a
+    **refund row of its own**, one per card payment, with a new cause:
+    - `PAID_TWICE`: the order was already paid;
+    - `PAID_AFTER_REFUND`: the order was already refunded;
+    - `PAID_AFTER_CANCELLATION`: unchanged, the order was cancelled.
+  - It is refunded to the card where the provider can: Stripe queues it, the
+    test provider on staging sends it at once. With payments off it stays
+    open on "Refunds to send" for Finance, who marks it sent as any other.
+  - BTG's admins get the "refund needed" email only when Finance must send
+    it by hand. The email now links to "Refunds to send". The sponsor gets
+    the usual "refund sent" email once it is sent.
+  - **The order's own refunds are unaffected.** A later refund of the order
+    (a line cancelled, a delivery problem, BTG's refund, a refund made at
+    Stripe) still returns its whole total: refunds of extra payments are
+    never counted against it.
+  - Tests: `backend/tests/phase2-line-cancellation.test.ts` (paid twice by
+    card and with no provider; paid after a refund; the order's own refund
+    still whole), `payment-disputes.test.ts` (a Stripe refund of the real
+    payment still applies).
+- **For `POL-FE-06` (screens):**
+  - The order view (`GET /marketplace-orders/:id`, sponsor's and BTG's)
+    already carries `refunds[]`. A row with `cause: "PAID_TWICE"` or
+    `"PAID_AFTER_REFUND"` and `lineId: null` is the extra payment. Show it
+    as "You paid twice: {amount} is being refunded" (sponsor) or "Paid
+    twice: refund {on its way | sent on …}" (BTG).
+  - "Refunds to send" (`GET /refunds`) lists it with `causeWords`. Add the
+    two causes to `causeLabel` in `frontend/src/lib/refunds-live.ts`, e.g.
+    "Paid twice" and "Paid after it was refunded". Until then they show as
+    "Refund".
+  - Marking it refunded is the existing "Mark sent" (`POST /refunds/:id/sent`).
 
 ### 7. Anyone holding the fan's phone can use up their reward
 `POL-BE-07` · `POL-FE-07` · *Consent* · confirmed
@@ -286,6 +342,44 @@ undone.
   per reward or event. A redeem can be undone within a few minutes.
 - **Done when:** no redeem without the venue code; an accidental redeem can be
   undone; tests.
+- **Decided (2026-10-29):** the code requirement goes live behind a switch,
+  `REWARD_STAFF_CODE_REQUIRED`, off until the fan page asks for the code. So
+  no event is left unable to redeem in between. Every switch is listed in
+  [SponsorX-Switches.md](SponsorX-Switches.md).
+- **Backend delivered (`POL-BE-07`, 2026-10-29):**
+  - Each reward has a **six-digit staff code**, made when it is created
+    (existing rewards were given one). Only the reward's managers see it:
+    BTG, and the sponsor's admins.
+  - **Redeem** checks the code: required once the switch is on, and checked
+    whenever one is sent, even while it is off.
+  - **Five wrong codes** lock that fan's code for 15 minutes, on top of the
+    limit of 20 tries a minute per device.
+  - **Undo:** the booth can undo the code's latest redeem within 5 minutes,
+    with the staff code. The redeem is removed, so every count is right, and
+    on a reward with a limit the unit goes back to the pool. Each undo is
+    audited and counted on the code.
+  - Tests: `backend/tests/reward.staff-code.test.ts`, and
+    `rewards.read.test.ts` for who sees the code.
+- **For `POL-FE-07` (screens):**
+  - **Fan page** (`GET /public/rewards/:token` now carries
+    `staffCodeRequired` and `undoUntil`):
+    - "Staff: redeem now" asks for the staff code and confirms, then sends
+      `POST /public/rewards/:token/redeem` with `{ staffCode }`. Send it even
+      while `staffCodeRequired` is false.
+    - Refusals by `error.code`:
+      - `staff_code_required`;
+      - `wrong_staff_code` (the message says how many tries are left);
+      - `staff_code_locked` (429).
+    - While `undoUntil` is in the future, show **Undo**, which asks for the
+      code and sends `POST /public/rewards/:token/redeem/undo` with
+      `{ staffCode }`. Refused: `nothing_to_undo`, `undo_window_closed`.
+  - **Reward page** (BTG and the sponsor's admins): `GET /rewards/:id`
+    carries `staffCode`. Show it, with **New code**
+    (`POST /rewards/:id/staff-code`), which replaces it at once.
+  - Each token carries `undoneRedeems` and `lastUndoneRedeemAt`, beside
+    `refusedRedeems`.
+  - **When the fan page ships:** tell rcfworks, who turns
+    `REWARD_STAFF_CODE_REQUIRED` on, staging first.
 
 ### 8. Only the first fan can claim a shared QR code
 `POL-BE-08` · `POL-FE-08` · *Silent · Dead end* · likely

@@ -102,7 +102,7 @@ import { reverseOrder } from "./ledger";
 import { assertRefundable } from "./payment-exceptions";
 import { lockOrder, moveOrderAsSystem, moveOrderIn, OrderStateConflictError } from "./marketplace-order";
 import { usd } from "./marketplace-order-rules";
-import { recordRefund, refundsForOrders, type RefundCause, type RefundContext, type SponsorRefund } from "./refunds";
+import { ownRefunds, recordRefund, refundsForOrders, type RefundCause, type RefundContext, type SponsorRefund } from "./refunds";
 import { SELLER_CANCELLATION_LIMIT, SELLER_CANCELLATION_WINDOW_DAYS } from "./listing-rules";
 import { sellerCancellationCount, sellerOfLine } from "./seller-standing";
 import { readPage, type PageRequest } from "../lib/paging";
@@ -866,8 +866,9 @@ async function refundBases(rows: SaleRow[]) {
         }),
         prisma.refundDue.groupBy({
           by: ["orderId"],
-          /* tenant-scope: the refunds of orders whose lines the caller loaded through whereFor(orderDelivery) — a sum only. */
-          where: { orderId: { in: orderIds } }, _sum: { amountCents: true },
+          /* tenant-scope: the refunds of orders whose lines the caller loaded through whereFor(orderDelivery) — a sum only.
+             POL-BE-06 — of the orders' own totals: not an extra card payment's refund (ownRefunds). */
+          where: { orderId: { in: orderIds }, attemptId: null }, _sum: { amountCents: true },
         }),
       ])
     : [[], []];
@@ -1635,8 +1636,8 @@ async function termsIn(db: Db, row: ExchangeRow, now: Date) {
     where: { orderId: row.orderId }, select: { lineId: true, state: true },
   });
   const refunded = await db.refundDue.aggregate({
-    /* tenant-scope: this order's own refunds, named by its id. */
-    where: { orderId: row.orderId }, _sum: { amountCents: true },
+    /* tenant-scope: this order's own refunds, named by its id — of its own total, not an extra card payment's (POL-BE-06). */
+    where: ownRefunds(row.orderId), _sum: { amountCents: true },
   });
   const open = await db.deliveryIssue.findFirst({
     /* tenant-scope: the open issue of the row the caller loaded through its scope. */

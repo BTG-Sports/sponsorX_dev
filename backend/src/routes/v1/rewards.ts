@@ -37,6 +37,8 @@ import { clientIp } from "../../lib/client-ip";
 import {
   RewardClaimInput,
   RewardInput,
+  RewardRedeemInput,
+  RewardUndoInput,
   RewardTokenInput,
   RewardTransitionInput,
   TrackingLinkInput,
@@ -44,12 +46,15 @@ import {
 import {
   createReward,
   issueRewardToken,
+  mayManageStaffCode,
   recordClaim,
   recordLanding,
   recordScan,
   redeemToken,
+  replaceStaffCode,
   rewardFunnel,
   transitionReward,
+  undoRedeem,
   viewToken,
   withdrawFanConsent,
 } from "../../domain/reward";
@@ -234,7 +239,19 @@ const claim: RequestHandler<{ token: string }> = async (req, res) => {
  */
 const redeem: RequestHandler<{ token: string }> = async (req, res) => {
   await limit("reward:redeem", clientIp(req), 20, 60);
-  res.status(201).json(await redeemToken(req.params.token));
+  const body = RewardRedeemInput.parse(req.body ?? {});
+  res.status(201).json(await redeemToken(req.params.token, new Date(), body.staffCode));
+};
+
+/**
+ * POST /public/rewards/:token/redeem/undo — POL-BE-07. The booth undoes the
+ * code's latest redeem within 5 minutes, with the reward's staff code. The
+ * same per-device limit as redeem, and the same lock after wrong codes.
+ */
+const undo: RequestHandler<{ token: string }> = async (req, res) => {
+  await limit("reward:redeem", clientIp(req), 20, 60);
+  const body = RewardUndoInput.parse(req.body ?? {});
+  res.status(200).json(await undoRedeem(req.params.token, body.staffCode));
 };
 
 /**
@@ -292,7 +309,7 @@ async function funnelsFor(actor: Parameters<typeof can>[0], tokenToReward: Map<s
 }
 
 const TOKEN_SELECT = {
-  id: true, token: true, qrKey: true, refusedRedeems: true, lastRefusedRedeemAt: true,
+  id: true, token: true, qrKey: true, refusedRedeems: true, lastRefusedRedeemAt: true, undoneRedeems: true, lastUndoneRedeemAt: true,
   athlete: { select: { id: true, displayName: true } },
 } as const;
 
@@ -302,7 +319,7 @@ function rewardSelect(tokenWhere: Prisma.RewardTokenWhereInput | null) {
   return {
     id: true, offerText: true, terms: true, singleUse: true, expiresAt: true, state: true,
     eligibility: true, eligibilityNote: true, redemptionCap: true, landingHeadline: true, landingSubhead: true, venueCity: true, venueStateCode: true,
-    redemptionCount: true, reserveMinutes: true,
+    redemptionCount: true, reserveMinutes: true, staffCode: true,
     campaign: { select: { id: true, name: true, endDate: true, state: true, sponsor: { select: { name: true } } } },
     tokens: tokenWhere ? { where: tokenWhere, select: TOKEN_SELECT } : { select: TOKEN_SELECT },
   } satisfies Prisma.RewardSelect;
@@ -330,8 +347,10 @@ type RewardRow = {
   landingHeadline: string | null; landingSubhead: string | null;
   venueCity: string | null; venueStateCode: string | null;
   redemptionCount: number; reserveMinutes: number;
+  /** POL-BE-07 — read with the row; only GET /rewards/:id shows it, and only to the reward's managers. */
+  staffCode: string;
   campaign: { id: string; name: string; endDate: Date; state: string; sponsor: { name: string } };
-  tokens: { id: string; token: string; qrKey: string | null; refusedRedeems: number; lastRefusedRedeemAt: Date | null; athlete: { id: string; displayName: string } | null }[];
+  tokens: { id: string; token: string; qrKey: string | null; refusedRedeems: number; lastRefusedRedeemAt: Date | null; undoneRedeems: number; lastUndoneRedeemAt: Date | null; athlete: { id: string; displayName: string } | null }[];
 };
 
 /**
@@ -388,6 +407,9 @@ function rewardOut(r: RewardRow, funnel: Record<string, number> | undefined, wit
             /* 3S0-BE-04 — tries of this code after it was used, refused. */
             refusedRedeems: t.refusedRedeems,
             lastRefusedRedeemAt: t.lastRefusedRedeemAt?.toISOString() ?? null,
+            /* POL-BE-07 — redeems undone at the booth. */
+            undoneRedeems: t.undoneRedeems,
+            lastUndoneRedeemAt: t.lastUndoneRedeemAt?.toISOString() ?? null,
             ...(printable ? { token: t.token } : {}),
           })),
         }
@@ -555,10 +577,17 @@ const readReward: RequestHandler<{ id: string }> = async (req, res) => {
   if (!r) throw new ForbiddenError("reward", "read");
   const funnels = await funnelsFor(actor, new Map(r.tokens.map((t) => [t.id, r.id])));
   const held = reach ? null : r.redemptionCap != null ? (await heldFor([r.id])).get(r.id) ?? 0 : 0;
+  /* POL-BE-07 — the booth's staff code, for the reward's managers only (BTG, the sponsor's admins). */
   res.json({
     ...rewardOut(r, funnels.get(r.id) ?? { SCAN: 0, LANDING: 0, CLAIM: 0, REDEEM: 0 }, true, can(actor, "reward", "write"), held),
+    ...(mayManageStaffCode(actor) ? { staffCode: r.staffCode } : {}),
     consent: { version: CURRENT_CONSENT_VERSION, text: CONSENT_TEXT[CURRENT_CONSENT_VERSION] },
   });
+};
+
+/** POST /rewards/:id/staff-code — POL-BE-07: a new staff code; the old one stops working at once. */
+const newCode: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await replaceStaffCode(req.actor!, req.params.id));
 };
 
 /**
@@ -586,6 +615,7 @@ rewardsRouter.get("/reward-tokens/:id/qr-url", requireActor, tokenQrUrl);
 rewardsRouter.post("/campaigns/:id/rewards", requireActor, addReward);
 rewardsRouter.post("/rewards/:id/transition", requireActor, moveReward);
 rewardsRouter.post("/rewards/:id/tokens", requireActor, addToken);
+rewardsRouter.post("/rewards/:id/staff-code", requireActor, newCode);
 rewardsRouter.get("/rewards/:id/funnel", requireActor, funnel);
 rewardsRouter.post("/deliverables/:id/tracking-link", requireActor, addTrackingLink);
 rewardsRouter.get("/campaigns/:id/tracking-codes", requireActor, campaignCodes);
@@ -601,6 +631,7 @@ rewardsRouter.post("/public/rewards/:token/scan", scan);
 rewardsRouter.post("/public/rewards/:token/landing", landing);
 rewardsRouter.post("/public/rewards/:token/claim", claim);
 rewardsRouter.post("/public/rewards/:token/redeem", redeem);
+rewardsRouter.post("/public/rewards/:token/redeem/undo", undo);
 rewardsRouter.post("/public/unsubscribe/:token", unsubscribe);
 rewardsRouter.get("/public/fan-privacy", fanPrivacy);
 

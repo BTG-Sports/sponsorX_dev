@@ -115,7 +115,7 @@ ${d.portalUrl ?? ""}
   /* 2S4-BE-10 — a card payment confirmed for an order no longer waiting for it: BTG refunds the sponsor. */
   "payment.refundNeeded": (d) => ({
     subject: `Refund the sponsor: a card payment of ${d.amount ?? ""} for order ${d.orderRef ?? ""}, which is ${d.orderState ?? "no longer waiting for payment"}`,
-    text: `${d.why ?? "A card payment was confirmed for an order that was no longer waiting for payment"} (order ${d.orderRef ?? ""}, ${d.amount ?? ""}). The order has not been reopened — refund the sponsor's payment with the payment provider${d.providerRef ? ` (payment ${d.providerRef})` : ""}.\n\n${d.orderUrl ?? ""}\n\n— SponsorX`,
+    text: `${d.why ?? "A card payment was confirmed for an order that was no longer waiting for payment"} (order ${d.orderRef ?? ""}, ${d.amount ?? ""}). The order has not been reopened. The refund is on "Refunds to send" — send it to the sponsor${d.providerRef ? ` (card payment ${d.providerRef})` : ""} and mark it sent:\n\n${d.refundsUrl ?? d.orderUrl ?? ""}\n\nThe order: ${d.orderUrl ?? ""}\n\n— SponsorX`,
   }),
   /* 2S5-INT-02 — a provider event SponsorX held for BTG instead of applying it. */
   "payment.heldForBtg": (d) => ({

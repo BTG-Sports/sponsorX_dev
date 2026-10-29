@@ -12,14 +12,18 @@
  * own transaction. An order that was never paid gets no row. The row is
  * unique per (order, line), and per order for a whole-order row
  * (RefundDue_one_whole_order), so a retry never makes two. Money a card
- * brought in after the order was cancelled (PAID_AFTER_CANCELLATION) is one
- * row per card attempt instead (RefundDue_one_per_attempt), so a second
- * payment is never missing from the list.
+ * brought in after the order was cancelled (PAID_AFTER_CANCELLATION), after
+ * it was refunded (PAID_AFTER_REFUND) or after it was already paid
+ * (PAID_TWICE — POL-BE-06) is one row per card attempt instead
+ * (RefundDue_one_per_attempt), so a second payment is never missing from the
+ * list. Those rows return money the order never needed: they carry the card
+ * attempt (attemptId), and are never counted against the order's own total.
  *
  * HOW MUCH. A line's refund is the line's total (the buyer's fee stays with
  * the order, as the ledger keeps it — ledger.ts `reverseOrder(…, lineId)`).
  * A whole-order refund is what is left: the order's total less every refund
- * already recorded for it — so the last line's refund returns the fee too.
+ * of it already recorded (`ownRefunds` — not the extra payments' rows) — so
+ * the last line's refund returns the fee too.
  *
  * CARD. A card payment the provider can refund is refunded through the
  * adapter (lib/payment-provider.ts `refundCard`) and the row marked SENT at
@@ -65,6 +69,9 @@ export const REFUND_CAUSES = [
   "SPONSOR_CANCELLED", "SELLER_CANCELLED", "CANCELLATION_AGREED", "PROBLEM_AGREED", "BTG_DECIDED", "BTG_REFUNDED_ORDER",
   /* A card payment the provider confirmed after the order was cancelled (payouts.ts `confirmPayment`). */
   "PAID_AFTER_CANCELLATION",
+  /* POL-BE-06 — one confirmed after the order was refunded, or after it was already paid (the sponsor paid twice). */
+  "PAID_AFTER_REFUND",
+  "PAID_TWICE",
   /* P9-BE-19 — a paid ad sale in a NEXT edition BTG cancelled (`recordEditionRefund`). */
   "EDITION_CANCELLED",
   /* P9-BE-19 — Zoho marked the sale's invoice paid after the edition was cancelled (`refundPaymentAfterEditionCancel`). */
@@ -89,6 +96,8 @@ export const CAUSE_WORDS: Record<RefundCause, string> = {
   BTG_DECIDED: "BTG decided to refund the line",
   BTG_REFUNDED_ORDER: "BTG refunded the order",
   PAID_AFTER_CANCELLATION: "Paid after the order was cancelled",
+  PAID_AFTER_REFUND: "Paid after the order was refunded",
+  PAID_TWICE: "Paid twice — the order was already paid",
   EDITION_CANCELLED: "BTG cancelled the edition the ad was sold in",
   PAID_AFTER_EDITION_CANCELLED: "Paid after BTG cancelled the edition the ad was sold in",
   PROVIDER_REFUNDED: "Refunded at the payment provider",
@@ -112,6 +121,14 @@ export type RefundContext = {
   /** 2S5-BE-03 — the money already went back at the provider (its refund reference): the row is written SENT and nothing is refunded again. */
   returned?: { provider: string; reference: string };
 };
+
+/**
+ * POL-BE-06 — the refunds of an order's own total: not the rows returning a
+ * card payment it never needed (cancelled, refunded or paid twice), which
+ * carry that card attempt. Every sum of what is still owed on an order reads
+ * through this, or a later refund would come out short.
+ */
+export const ownRefunds = (orderId: string) => ({ orderId, attemptId: null });
 
 /** The order's refundCause for a whole-order refund. Pure. */
 export function orderRefundCause(ctx: Pick<RefundContext, "cause" | "cancellation">): "CANCELLATION" | "PROBLEM" | "BTG" {
@@ -183,7 +200,7 @@ export async function recordRefund(
   } else if (opts.whole) {
     const already = await tx.refundDue.aggregate({
       /* tenant-scope: this order's own refunds, named by its id. */
-      where: { orderId }, _sum: { amountCents: true },
+      where: ownRefunds(orderId), _sum: { amountCents: true },
     });
     amountCents = order.totalCents - (already._sum.amountCents ?? 0);
   } else {

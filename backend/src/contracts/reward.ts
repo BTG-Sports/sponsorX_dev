@@ -93,6 +93,20 @@ export const RewardTokenInput = z
   })
   .meta({ id: "RewardTokenInput" });
 
+/** POL-BE-07 — the reward's staff code, typed at the booth: six digits. */
+const StaffCode = z.string().trim().regex(/^\d{6}$/, "The staff code is six digits.");
+
+export const RewardRedeemInput = z
+  .object({
+    /** The booth's code. Required once REWARD_STAFF_CODE_REQUIRED is on; checked whenever sent. */
+    staffCode: StaffCode.optional(),
+  })
+  .meta({ id: "RewardRedeemInput" });
+
+export const RewardUndoInput = z
+  .object({ staffCode: StaffCode })
+  .meta({ id: "RewardUndoInput" });
+
 export const RewardClaimInput = z
   .object({
     /** Optional. §16's fan page has no login, and asking for an email as a

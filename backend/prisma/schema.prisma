@@ -1348,6 +1348,10 @@ model Reward {
   /// 2026-09-28): the unit is theirs until claimedAt + this, then it is
   /// released. 5 min – 7 days, CHECK-constrained. Ignored when uncapped.
   reserveMinutes  Int               @default(60)
+  /// POL-BE-07 — the booth's six-digit code: redeem (once
+  /// REWARD_STAFF_CODE_REQUIRED is on) and undo need it. Shown only to the
+  /// reward's managers (BTG, the sponsor's admins), who can replace it.
+  staffCode       String            @default(dbgenerated("lpad(((floor((random() * (1000000)::double precision)))::integer)::text, 6, '0'::text)"))
   /// The fan page's own words; null falls back to the page's default copy.
   /// Consent wording is deliberately NOT here — it is versioned centrally
   /// (fan-consent.ts, P6-SEC-01) so the claim records the text the fan saw.
@@ -1384,6 +1388,13 @@ model RewardToken {
   /// shows itself. Only "already used" refusals count.
   refusedRedeems      Int       @default(0)
   lastRefusedRedeemAt DateTime?
+  /// POL-BE-07 — wrong staff codes typed for this code; 5 lock it until
+  /// staffCodeLockedUntil (15 minutes), and the count starts again.
+  staffCodeFailures    Int       @default(0)
+  staffCodeLockedUntil DateTime?
+  /// POL-BE-07 — redeems undone at the booth (within 5 minutes), and the last.
+  undoneRedeems        Int       @default(0)
+  lastUndoneRedeemAt   DateTime?
 
   reward  Reward        @relation(fields: [rewardId], references: [id])
   athlete Athlete?      @relation(fields: [athleteId], references: [id])
@@ -3627,6 +3638,7 @@ model RefundDue {
   amountCents Int
   /// SPONSOR_CANCELLED | SELLER_CANCELLED | CANCELLATION_AGREED | PROBLEM_AGREED | BTG_DECIDED | BTG_REFUNDED_ORDER
   /// | PAID_AFTER_CANCELLATION (a card payment confirmed after the order was cancelled)
+  /// | PAID_AFTER_REFUND, PAID_TWICE (POL-BE-06 — one confirmed after the order was refunded, or already paid)
   /// | EDITION_CANCELLED (P9-BE-19 — a paid ad sale in an edition BTG cancelled)
   /// | PROVIDER_REFUNDED (2S5-BE-03 — the provider refunded the whole payment itself: written SENT, never refunded again)
   /// | PAID_AFTER_EDITION_CANCELLED (P9-BE-19 — Zoho marked an invoice paid after that edition was cancelled)
@@ -3644,7 +3656,7 @@ model RefundDue {
   sentOn      DateTime? @db.Date
   /// The provider that refunded a card ("standin" on staging: a test, no money moved).
   provider    String?
-  /// PAID_AFTER_CANCELLATION: the card attempt the money came from — one row per attempt.
+  /// PAID_AFTER_CANCELLATION, PAID_AFTER_REFUND, PAID_TWICE: the card attempt the money came from — one row per attempt.
   /// PAID_AFTER_EDITION_CANCELLED (P9-BE-19): the CampaignInvoice the late payment came from.
   attemptId   String?
   /// P9-BE-19 — EDITION_CANCELLED only: the campaign whose paid ad sale the

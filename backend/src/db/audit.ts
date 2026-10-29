@@ -253,6 +253,9 @@ export const AUDIT_ACTIONS = {
     create: "reward.create",
     transition: "reward.transition",
     tokenIssue: "reward.tokenIssue",
+    /** POL-BE-07 — the booth's staff code replaced; a redeem undone at the booth (no actor: the code is the authority). */
+    staffCodeReplace: "reward.staffCodeReplace",
+    redeemUndo: "reward.redeemUndo",
   },
   tracking: {
     linkCreate: "tracking.linkCreate",

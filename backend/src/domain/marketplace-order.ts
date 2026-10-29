@@ -83,13 +83,13 @@ import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit, type AuditActor } from "../db/audit";
 import { enqueue } from "../db/outbox";
-import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { readPage, type PageRequest } from "../lib/paging";
 import { unitsTaken } from "./availability";
 import { convertReservation, lockItems } from "./reservation";
+import { sponsorQuote } from "./cart";
 import { acceptAgreementIn, AgreementTextChangedError } from "./agreement";
 import { currentOrderTerms } from "./order-terms";
 import { bookOrder, markOrderPaid, releaseReserve, reverseOrder } from "./ledger";
@@ -105,7 +105,6 @@ import {
   approvalReasons,
   billingProblems,
   canTransitionMarketplaceOrder,
-  feeFor,
   IllegalMarketplaceOrderTransitionError,
   manualPaymentProblems,
   PAYMENT_WINDOW_DAYS,
@@ -115,6 +114,7 @@ import {
   type ManualPayment,
   type MarketplaceOrderState,
   type PaymentMethod,
+  usd,
 } from "./marketplace-order-rules";
 
 export class MarketplaceOrderError extends Error {
@@ -123,6 +123,15 @@ export class MarketplaceOrderError extends Error {
     super(message);
     this.name = "MarketplaceOrderError";
     this.status = status;
+  }
+}
+
+/** POL-BE-05 — the total changed after checkout showed it: nothing was placed (409). */
+export class OrderTotalChangedError extends MarketplaceOrderError {
+  readonly code = "total_changed";
+  constructor(readonly totalCents: number) {
+    super(`The total changed since it was shown: it is now ${usd(totalCents)}. Nothing was placed — review the new total and place the order again.`, 409);
+    this.name = "OrderTotalChangedError";
   }
 }
 
@@ -370,6 +379,8 @@ export type PlaceOrderRequest = {
   /** The MARKETPLACE_ORDER agreement checkout showed, and the hash of its text as rendered. */
   agreementId?: string;
   bodyHashShown?: string;
+  /** POL-BE-05 — the total checkout showed; a different total refuses the order. */
+  totalCentsShown?: number;
   /** The billing contact the sponsor confirmed. */
   billing?: BillingContact;
   /** §12 evidence — from the request, never the body. */
@@ -416,9 +427,10 @@ export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now =
     });
     await lockItems(tx, lines.flatMap((l) => [l.listing.inventoryItemId, ...l.listing.item.components.map((c) => c.componentItemId)]));
 
-    const subtotalCents = lines.reduce((s, l) => s + l.quantity * l.unitPriceCents, 0);
-    const feesCents = feeFor(subtotalCents, env.MARKETPLACE_BUYER_FEE_BPS);
-    const totalCents = subtotalCents + feesCents;
+    /* POL-BE-05 — the same quote the cart and checkout showed; a sponsor who
+       saw another total hasn't agreed to this one. */
+    const { subtotalCents, feesCents, totalCents } = sponsorQuote(lines.reduce((s, l) => s + l.quantity * l.unitPriceCents, 0));
+    if (request.totalCentsShown !== undefined && request.totalCentsShown !== totalCents) throw new OrderTotalChangedError(totalCents);
     /* 2S4-BE-09 — the sponsor's spending limit, replayed from their own orders. */
     const sponsor = await tx.sponsor.findFirst({ where: { tenantId: actor.tenantId, id: actor.sponsorId! }, select: { name: true } });
     const limit = await sponsorLimit(tx, actor.tenantId, actor.sponsorId!);
