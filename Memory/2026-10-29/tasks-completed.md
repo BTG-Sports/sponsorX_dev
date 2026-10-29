@@ -40,3 +40,18 @@
 - **Notes:** `polish-progress.md` has the 2026-10-29 entry.
 - **Where this landed:** on the `POL-BE-02` branch (PR #321), after merging `main_development` into it. That PR already changes the xlsx, so one PR carries both and there is no binary conflict.
 - **Next:** merge #321, then the sync PR from `main_development` to `main`. Both migrations (`20261028150000`, `20261029120000`) reach production together.
+
+### `POL-BE-05` Code review (rcfworks), on `feature/POL-BE-05-total-before-placing`
+
+- **Problem (polish.md item 5):**
+  - Checkout showed "Fees: added when the order is placed".
+  - The API had no quote: the buyer fee (`MARKETPLACE_BUYER_FEE_BPS`) was added only when placing.
+- **Built:**
+  - **One quote:** `orderQuote` (pure, in `marketplace-order-rules.ts`), wrapped by `sponsorQuote` in `cart.ts` at the fee in force. It is used by:
+    - `GET /cart` (`cart.quote`);
+    - `GET /reservations/:id` (`checkout.quote`);
+    - `placeOrder`.
+  - **The guard:** optional `totalCentsShown` on `POST /marketplace-orders`. A different total gives 409 `total_changed`; nothing is placed or accepted, and the hold is kept.
+- **Tests:** a POL-BE-05 block in `phase2-orders.test.ts`, with a 3% fee. It checks that the quote equals the order total and the card amount, that a stale total is refused, and that placing without the field still works.
+- **For HeckerCreatives:** `POL-FE-05`, as spelled out in `polish.md` item 5.
+- **Sync PR #323** (`POL-BE-02` + `POL-BE-03` to `main`) was opened after #321 merged.
