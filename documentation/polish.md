@@ -507,6 +507,48 @@ just been switched off.
   live deals before confirming.
 - **Done when:** no closure leaves a live deal unsettled or unannounced; a
   minor can't close alone; earned money still pays; tests.
+- **Decided (2026-10-29):**
+  - Money earned with no payout account holds the closure for BTG, as a
+    live deal does.
+  - A guardian who still acts for a minor is held for BTG too, who arranges
+    a new guardian (or closes the minor's account) first.
+- **Backend delivered (`POL-BE-11`, 2026-10-29):**
+  - **Held for BTG** (`ClosureRequest`, filed in BTG's tenant) when closing
+    would leave something behind:
+    - a **live deal**: a campaign order sent, accepted or under way, or a
+      marketplace sale unpaid, in delivery, delivered but not confirmed, or
+      with a problem;
+    - money earned with no payout account;
+    - a guardian still acting for a minor.
+  - While held, the account stays open and nothing is switched off. The
+    owner, BTG's admins and the sponsor on each live deal are emailed.
+  - **BTG** settles each deal with the existing tools, then **closes it**
+    (refused, listing what is still open, until nothing is), or
+    **declines** it with a reason. The owner can **withdraw** it.
+  - **A minor's account is closed by their guardian**, never the minor's
+    own login (`guardian_must_act`), by the same rule as accepting.
+  - Closing **declines the account's open invitations**, and **requests its
+    earned money** as the system to the payout account on file: at once,
+    and hourly while it is closed, for money whose holding period ends later.
+  - Tests: `backend/tests/phase2-closure-live-deals.test.ts`.
+- **For `POL-FE-11` (screens):**
+  - **Before confirming,** call `GET /me/close/preview` (`?account=` when
+    the login has more than one). Show `liveDeals` (title, sponsor, state,
+    and for a guardian the minor's name), `openInvitations`, `money`
+    (`owedCents`, `accountReady`) and `wards`. When `wouldHold` is true, say
+    BTG will settle these first, with `holdReasons`.
+  - `POST /me/close` answers **202 `state: HELD`** (with `requestId`,
+    `holdReasons`, `liveDeals`) instead of 200 when held. Show "Waiting for
+    BTG", with **Withdraw** (`POST /me/close/withdraw`). The preview's
+    `heldRequest` shows it on a later visit.
+  - A minor's own login gets 403 `guardian_must_act`: say "Your guardian
+    closes your account". The guardian closes it while acting for the
+    minor, with `account: "athlete"`.
+  - **BTG desk:** `GET /account-closure-requests` (held, oldest first) and
+    `GET /account-closure-requests/:id`, which carries `now` (what is still
+    live) and `canClose`. Buttons: **Close now**
+    (`POST …/:id/close`, 409 with what is open until `canClose`) and
+    **Decline** (`POST …/:id/decline`, `{ note }`).
 
 ### 12. Payouts held for review are silent
 `POL-BE-12` · `POL-FE-12` · *Money · Silent* · confirmed

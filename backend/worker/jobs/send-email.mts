@@ -718,6 +718,23 @@ ${d.portalUrl ?? ""}
     subject: "Your SponsorX account is closed",
     text: `Hi ${d.name ?? "there"},\n\nYour SponsorX account is closed. You can't sign in, and your listings have stopped.\n\nYour documents are kept until ${d.retainUntil ?? "30 days from today"}, then deleted for good. Changed your mind? Reactivate before then and everything comes back:\n\n${d.reactivateUrl ?? ""}\n\nThis link works for 14 days. If it has expired, contact ${d.supportEmail ?? "BTG support"} and we'll send you a new one.\n\nMoney you already earned is still paid out to your payout account.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* POL-BE-11 — closing held for BTG: something would be left behind. */
+  "account.closeHeld": (d) => ({
+    subject: "Your account is closing once BTG settles a few things",
+    text: `Hi ${d.name ?? "there"},\n\nWe got your request to close your SponsorX account. It can't close straight away, because:\n\n- ${d.reasons ?? ""}\n\nBTG will sort these out with you and close the account after. Until then it stays open and nothing changes. If you change your mind, you can withdraw the request from your account page.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "account.closeHeldBtg": (d) => ({
+    subject: `Account closure waiting for BTG: ${d.accountName ?? "an account"}`,
+    text: `${d.accountName ?? "An account"} (${d.kind ?? "account"}) asked to close, and it can't close yet:\n\n- ${d.reasons ?? ""}${d.deals ? `\n\nLive deals:\n- ${d.deals}` : ""}\n\nSettle each one (the sponsors on them have been told), then close it — or decline the request:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "account.closingSponsor": (d) => ({
+    subject: `${d.accountName ?? "An athlete"} is leaving SponsorX`,
+    text: `Hi,\n\n${d.accountName ?? "An athlete you work with"} has asked to close their SponsorX account. You have work with them that isn't finished:\n\n- ${d.deals ?? ""}\n\nNothing has been cancelled. BTG will be in touch to settle each one with you — finishing it, or cancelling and refunding it.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "account.closeDeclined": (d) => ({
+    subject: "About your request to close your SponsorX account",
+    text: `Hi ${d.name ?? "there"},\n\nBTG looked at your request to close your account and kept it open:\n\n${d.note ?? ""}\n\nNothing has changed. If you still want to close it, contact ${d.supportEmail ?? "BTG support"}.\n\n— BTG SponsorX`,
+  }),
   "account.reactivationLink": (d) => ({
     subject: "Your link to reactivate your SponsorX account",
     text: `Hi ${d.name ?? "there"},\n\nHere is the link you asked for. It works for 24 hours:\n\n${d.reactivateUrl ?? ""}\n\nIf you didn't ask for it, you can ignore this email — nothing changes.\n\n— BTG SponsorX`,
