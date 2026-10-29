@@ -45,9 +45,9 @@ that Certified Recruiting is affiliated with a college.
 
 *2 tasks · 2 person-days*
 
-### ▶ `5S1-FE-01` · Certified Recruiting card on SponsorX
+### ✅ `5S1-FE-01` · Certified Recruiting card on SponsorX
 
-**Order** 1 · **FE** · **Where:** Code · **1d** · **Ready**
+**Order** 1 · **FE** · **Where:** Code · **1d** · **Done** — 2026-10-29, HeckerCreatives
 
 A partner card that sends athletes to certified-recruiting.com, in two places:
 
@@ -65,6 +65,7 @@ Use the existing card styles on each page. Fixed content only: no API call and n
 - **Depends on:** nothing
 - **Done when:** Card shows on both pages, opens certified-recruiting.com, works on phone and desktop
 - **Reference:** the partnership plan, 2026-10-27; certified-recruiting.com
+- **Delivered 2026-10-29 (HeckerCreatives):** `components/certified-recruiting-card.tsx` with the fixed content in `lib/certified-recruiting.ts`, in two variants: the home page's For athletes stop (`#for-athletes`, under the section's own copy) and the bottom of the athlete dashboard. The logo is the site's own file (`/airo-assets/images/logo/horizontal`, a square JPEG on a white plate; the alt text stands in if GoDaddy moves it); its host was added to the report-only CSP `img-src`. The button opens certified-recruiting.com in a new tab with `rel="noopener noreferrer"`. Walked on the dashboard and the home page at phone width.
 
 ### ▶ `5S1-FE-02` · Fix footer links on certified-recruiting.com
 
