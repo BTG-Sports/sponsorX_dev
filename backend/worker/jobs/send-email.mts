@@ -213,6 +213,11 @@ ${d.portalUrl ?? ""}
     subject: `A payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"} couldn't be sent — it's yours to look at`,
     text: `The payment provider couldn't send a payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"}, and SponsorX won't retry it by itself.\n\nWhy: ${d.reason ?? ""}\n\nCheck it with the provider, then retry it — or send it back to the payee with a note:\n\n${d.payoutUrl ?? ""}\n\n— SponsorX`,
   }),
+  /* POL-BE-12 — a payout the automatic approval didn't pass: BTG reviews it. */
+  "payout.heldForReview": (d) => ({
+    subject: `Payout to review: ${d.amount ?? ""} to ${d.payeeName ?? "a payee"}`,
+    text: `A payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"} wasn't approved automatically, so it waits for you:\n\n- ${d.reasons ?? ""}\n\nThe payee has been told BTG reviews it next. Approve it, or send it back with a note:\n\n${d.payoutUrl ?? ""}\n\n— SponsorX`,
+  }),
   /* 2S5-INT-01 — Stripe refused a queued card refund; it is Finance's to send by hand. */
   /* 3S1-QA-01 — the nightly fact check, to BTG's admins: once when the figures stop matching the
      app's records, once when they match again. The app's records are the truth and are untouched;

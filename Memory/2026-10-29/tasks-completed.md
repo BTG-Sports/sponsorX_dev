@@ -157,3 +157,18 @@
 - **Tests:** new `tests/phase2-closure-live-deals.test.ts` (4; all fail with the hold off); tenant isolation covers the new routes; `payment-world` helper takes a ward. Locally: 3,651 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
 - **For HeckerCreatives:** `POL-FE-11`, as spelled out in `polish.md` item 11.
 - **Tracker:** `POL-BE-11` is Code review; Done once the PR merges.
+
+### `POL-BE-11` Done (rcfworks): PR #335 merged; `main` already level (#334 picked it up)
+
+- **Tracker:** the Polish sheet row for `POL-BE-11` is Done (carried on the `POL-BE-12` branch). The formula count is still 180.
+
+### `POL-BE-12` (rcfworks): a payout held for review reaches BTG
+
+- **Problem:** a payout the automatic approval held told the payee "BTG reviews it next", but BTG got no email and the board didn't count it.
+- **Built:**
+  - `payouts.ts`: a payout created REQUESTED (held) emails `payout.heldForReview` to the books' Finance team and BTG admins (`payoutReviewers`, once each), with the reasons and a link. `payout.failedForBtg` now goes to the same people.
+  - `operations-board.ts`: `payouts: { waiting, oldestSince }` (`waitingOnWhere("BTG")`), for roles that read payouts tenant-wide.
+- **Tests:** `phase2-payout-automation.test.ts` (held emails Finance and admins; an automatic approval emails nobody at BTG; the board count drops once decided; a payee can't read the board; three fail with the email off) and `operations-board.test.ts` (the count, the oldest, tenant B never sees A's). Locally: 3,651 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
+- **Snag:** lint caught two unneeded backslashes in the registry text.
+- **For HeckerCreatives:** `POL-FE-12`, as spelled out in `polish.md` item 12.
+- **Tracker:** `POL-BE-12` is Code review; Done once the PR merges.

@@ -96,6 +96,18 @@ const PAID_OR_LATER = new Set(["PAID", "IN_DELIVERY", "FULFILLED", "CLOSED"]);
 const providerUnavailable = (what: string) =>
   new PayoutError(`${what} opens once SponsorX's payment provider is connected. Nothing has been charged or sent.`, 409);
 
+/**
+ * POL-BE-12 — who hears of a payout waiting for BTG: the books' Finance team
+ * and its admins, once each.
+ */
+async function payoutReviewers(tx: Tx, tenantId: string) {
+  const people = await tx.user.findMany({
+    /* tenant-scope: the payout's own books. */
+    where: { tenantId, disabledAt: null, roles: { hasSome: ["FINANCE", "BTG_ADMIN"] } }, select: { email: true }, orderBy: { createdAt: "asc" },
+  });
+  return [...new Set(people.map((u) => u.email.toLowerCase()))];
+}
+
 /** The actor as a payee: an athlete for themselves, a property manager for their property. */
 function payeeOf(actor: Actor, resource: "payout" | "payoutAccount", action: "read" | "write"): Payee {
   const scope = assertAllowed(actor, resource, action);
@@ -1007,6 +1019,15 @@ async function requestPayoutIn(tx: Tx, payee: Payee, actor: AuditActor, now: Dat
       await notifyPayee(tx, { ...row, ...payee }, "payout.approved");
       byTenant.set(books, (byTenant.get(books) ?? 0) + amountCents);
     }
+    if (!auto) {
+      /* POL-BE-12 — held for BTG's review: Finance hears of it, with why, instead of finding it by chance. */
+      const name = await payeeName(tx, payee);
+      for (const email of await payoutReviewers(tx, books)) {
+        await tell(tx, { tenantId: books, email }, "payout.heldForReview", row.id, {
+          payeeName: name, amount: usd(amountCents), reasons: reasons.join("\n- "), payoutUrl: appUrl(`/admin/payouts/${row.id}`),
+        });
+      }
+    }
     created.push(payeePayoutView(row));
   }
   return { payouts: created };
@@ -1399,8 +1420,9 @@ async function payoutFailedIn(tx: Tx, row: PayoutRow, from: "SENDING" | "PAID", 
   if (plan.tellPayee) await notifyPayee(tx, { ...row, ...payee }, "payout.accountNeedsFix", {}, `payout.accountNeedsFix:${row.id}:${now.toISOString()}`);
   if (plan.waitingOn === "BTG") {
     const name = await payeeName(tx, payee);
-    for (const u of await btgAdmins(tx, row.tenantId)) {
-      await tell(tx, { tenantId: row.tenantId, email: u.email }, "payout.failedForBtg", `${row.id}:${row.sendAttempts}:${from}`, {
+    /* POL-BE-12 — Finance too, as for a payout held at request. */
+    for (const email of await payoutReviewers(tx, row.tenantId)) {
+      await tell(tx, { tenantId: row.tenantId, email }, "payout.failedForBtg", `${row.id}:${row.sendAttempts}:${from}`, {
         payeeName: name, amount: usd(row.amountCents), reason: [reason, ...plan.reviewReasons].join(" — "),
         payoutUrl: appUrl(`/admin/payouts/${row.id}`),
       });

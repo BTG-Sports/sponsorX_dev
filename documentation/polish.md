@@ -559,6 +559,24 @@ doesn't count it (`backend/src/domain/payouts.ts`, around lines 942–962).
 - **Fix:** a held payout emails BTG Finance with the reason and is counted on
   the BTG dashboard.
 - **Done when:** every held payout emails and is counted; tests.
+- **Backend delivered (`POL-BE-12`, 2026-10-29):**
+  - **Email when held.** A payout the automatic approval holds for BTG emails
+    the books' Finance team and BTG admins, once each
+    (`payout.heldForReview`). It gives the payee, the amount, the reasons and
+    a link to the payout. This includes payouts SponsorX requests for a
+    closed account.
+  - **Failed payouts** handed to BTG (`payout.failedForBtg`) now reach
+    Finance too, not only the admins.
+  - **Counted on BTG's board.** `GET /operations/board` carries
+    `payouts: { waiting, oldestSince }`: held at request, or failed and
+    handed to BTG. It is null for roles that don't read every payout.
+  - Tests: `backend/tests/phase2-payout-automation.test.ts` (who is emailed
+    or not, and the count going down once decided), and
+    `operations-board.test.ts` (the count, the oldest, the tenants kept
+    apart).
+- **For `POL-FE-12` (screens):** add a "Payouts to review" card to BTG's
+  board from `queues.payouts.waiting`, with "oldest waiting since"
+  `oldestSince`, linked to `/admin/payouts` (waiting on BTG).
 
 ### 13. Sponsors can't see or pay BTG's invoices
 `POL-FE-13` · *Money · Dead end* · confirmed
