@@ -14,6 +14,7 @@ import {
   campaignAthletesAction,
   createRewardAction,
   moveRewardAction,
+  newStaffCodeAction,
   qrLinkAction,
   rewardDetailAction,
   searchCampaignsAction,
@@ -137,6 +138,7 @@ export default async function AdminRewardsPage({
               move: moveRewardAction,
               detail: rewardDetailAction,
               qrLink: qrLinkAction,
+              newStaffCode: newStaffCodeAction,
               athletes: campaignAthletesAction,
               campaigns: searchCampaignsAction,
             }}

@@ -13,6 +13,7 @@ import {
   type ArenaTone,
 } from "@/components/arena-stage";
 import { ArenaCount } from "@/components/arena-fx";
+import { CertifiedRecruitingCard } from "@/components/certified-recruiting-card";
 import {
   DUE_STATES, buildHome, openOffers, payoutStatusTiles, shopTiles, upcomingSales, type ApiSellerSummary, type HomeTile,
 } from "@/lib/athlete-home-live";
@@ -531,6 +532,9 @@ export default async function AthleteHomePage() {
           <Tiles tiles={payoutStatusTiles(money)} label="Payouts" from={0.84} />
         </section>
       )}
+
+      {/* 5S1-FE-01 — the Certified Recruiting partner card, below the dashboard's own sections. Fixed content, no read. */}
+      <CertifiedRecruitingCard variant="arena" />
     </div>
   );
 }

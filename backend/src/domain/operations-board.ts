@@ -32,6 +32,8 @@ export type OperationsQueues = {
   finance: { held: number; disputed: number } | null;
   /** POL-BE-12 — payouts waiting for BTG (held at request, or failed and handed to BTG), and since when the oldest has waited. */
   payouts: { waiting: number; oldestSince: string | null } | null;
+  /** POL-BE-14 — make-goods waiting for a person (OPEN), and since when the oldest has waited. */
+  makeGoods: { waiting: number; oldestSince: string | null } | null;
 };
 
 /**
@@ -54,13 +56,14 @@ export async function operationsQueues(actor: Actor, now = new Date()): Promise<
     briefs: tenantWide(actor, "campaignBrief"),
     finance: tenantWide(actor, "earning"),
     payouts: tenantWide(actor, "payout"),
+    makeGoods: tenantWide(actor, "makeGood"),
   };
   if (!Object.values(may).some(Boolean)) throw new ForbiddenError("metricAggregate", "read");
 
   const agedBefore = new Date(now.getTime() - AGING_HOURS * 3_600_000);
   const waitingStates = { state: { in: ["SUBMITTED", "UNDER_REVIEW"] as ("SUBMITTED" | "UNDER_REVIEW")[] } };
 
-  const [applications, approvals, briefs, finance, payouts] = await Promise.all([
+  const [applications, approvals, briefs, finance, payouts, makeGoods] = await Promise.all([
     may.applications
       ? Promise.all([
           prisma.athlete.count({ where: { ...whereFor(actor, "athleteApplication", "read"), ...waitingStates } }),
@@ -99,7 +102,13 @@ export async function operationsQueues(actor: Actor, now = new Date()): Promise<
           prisma.payout.findFirst({ where: { AND: [whereFor(actor, "payout", "read"), waitingOnWhere("BTG")] }, orderBy: { requestedAt: "asc" }, select: { requestedAt: true } }),
         ]).then(([waiting, oldest]) => ({ waiting, oldestSince: oldest?.requestedAt.toISOString() ?? null }))
       : null,
+    may.makeGoods
+      ? Promise.all([
+          prisma.makeGoodShortfall.count({ where: { ...whereFor(actor, "makeGood", "read"), status: "OPEN" } }),
+          prisma.makeGoodShortfall.findFirst({ where: { ...whereFor(actor, "makeGood", "read"), status: "OPEN" }, orderBy: { openedAt: "asc" }, select: { openedAt: true } }),
+        ]).then(([waiting, oldest]) => ({ waiting, oldestSince: oldest?.openedAt.toISOString() ?? null }))
+      : null,
   ]);
 
-  return { applications, approvals, briefs, finance, payouts };
+  return { applications, approvals, briefs, finance, payouts, makeGoods };
 }

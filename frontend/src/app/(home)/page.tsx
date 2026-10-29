@@ -8,6 +8,7 @@ import {
   PlatformStrip,
   TrustedBrands,
 } from "@/components/landing-hero";
+import { CertifiedRecruitingCard } from "@/components/certified-recruiting-card";
 import { FeaturedAthletes, ForAthletes, JobsBand } from "@/components/landing-athletes";
 import { ClosingCopy, ClosingPanel } from "@/components/landing-close";
 import { LandingLoader } from "@/components/landing-loader";
@@ -222,7 +223,13 @@ export default async function HomePage() {
               className="pointer-events-none absolute inset-y-0 left-0 -z-10 w-full bg-gradient-to-r from-[#04080f]/90 via-[#04080f]/60 to-[#04080f]/25 lg:w-[45%] lg:to-transparent"
             />
             <div className="grid w-full grid-cols-1 items-center gap-[clamp(12px,2.6svh,28px)] short-landscape:grid-cols-2 short-landscape:gap-6 lg:grid-cols-[minmax(0,38%)_minmax(0,1fr)] lg:gap-[2vw] 2xl:grid-cols-[minmax(0,680px)_minmax(0,1fr)]">
-              <ForAthletes />
+              <div className="min-w-0">
+                <ForAthletes />
+                {/* 5S1-FE-01 — the Certified Recruiting partner card, under the
+                    marketplace copy. The stop scrolls (overflow-y-auto) when
+                    a short screen can't hold it. */}
+                <CertifiedRecruitingCard variant="landing" className="mt-[clamp(10px,2svh,24px)] max-w-[680px] lg:mt-6 lg:[@media(max-height:800px)]:mt-4" />
+              </div>
               <FeaturedAthletes data={featured} className="w-full max-w-[735px] lg:justify-self-end" />
             </div>
           </div>

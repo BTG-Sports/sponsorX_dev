@@ -2,10 +2,11 @@ import Link from "next/link";
 
 import { ArenaChip, ArenaHead, ArenaUpdated, ArenaLane, ArenaPanel, at } from "@/components/arena-stage";
 import { EmptyState, SkeletonRows } from "@/components/states";
-import { TeamInviteAnswer, TeamLeave } from "@/components/team-leave";
+import { ShareChangeAnswer, TeamInviteAnswer, TeamLeave } from "@/components/team-leave";
 import { demoState } from "@/lib/demo";
 import {
-  EXAMPLE_ORDER, joinedOn, keepPct, sharePct, splitExample, teamInitials, usd, type ApiMyTeam, type ApiTeamInvitation, type ApiTeamMembership,
+  EXAMPLE_ORDER, joinedOn, keepPct, shareChangeView, sharePct, splitExample, teamInitials, usd,
+  type ApiMyTeam, type ApiTeamInvitation, type ApiTeamMembership, type ShareViewer,
 } from "@/lib/team-invite-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
@@ -32,6 +33,13 @@ import { requirePortalAccess } from "@/server/portal";
    the share as a jersey numeral over a lane (what the athlete keeps) and
    the worked split as two inner plates. The read, the two writes and
    TeamInviteAnswer / TeamLeave are unchanged.
+
+   POL-FE-03 (POL-BE-03) — `membership.shareChange` is the team's open
+   request to change its share: shown from → to on the membership plate
+   with Accept and Decline (POST /me/team/share-changes/:id/respond). A
+   minor's own login (GET /me `guardianControl`, not a guardian acting for
+   them) sees it with "Your guardian accepts this" and no buttons; a
+   guardian acting for their ward answers for them.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -39,10 +47,17 @@ export const dynamic = "force-dynamic";
 const LEDE = "Teams can sell your items for you and take an agreed share.";
 
 export default async function AthleteTeamPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  await requirePortalAccess("athlete");
+  const actor = await requirePortalAccess("athlete");
   const demo = await demoState(searchParams);
   const now = new Date();
   const pill = <ArenaUpdated at={now} />;
+  /* POL-FE-03 — who answers a share request: the minor's own login can't; a guardian acting for a ward does, for them. */
+  const ward = actor.actingFor ? actor.wards?.find((w) => w.athleteId === actor.actingFor) ?? null : null;
+  const viewer: ShareViewer = {
+    minor: Boolean(actor.guardianControl) && !actor.actingFor,
+    ward: ward ? ward.firstName || ward.displayName : null,
+    paused: ward ? ward.comingOfAge : Boolean(actor.guardianControl?.comingOfAge),
+  };
 
   if (demo === "loading") {
     return (
@@ -75,7 +90,9 @@ export default async function AthleteTeamPage({ searchParams }: { searchParams: 
         lede={
           <span className="flex flex-wrap items-center gap-2">
             <span>{LEDE}</span>
-            {data.membership ? (
+            {data.membership?.shareChange ? (
+              <ArenaChip tone="warn">Share change waiting</ArenaChip>
+            ) : data.membership ? (
               <ArenaChip tone="win">✓ Member</ArenaChip>
             ) : waiting > 0 ? (
               <ArenaChip tone="flare">{waiting === 1 ? "1 invitation waiting" : `${waiting} invitations waiting`}</ArenaChip>
@@ -83,7 +100,7 @@ export default async function AthleteTeamPage({ searchParams }: { searchParams: 
           </span>
         }
       />
-      {data.membership && <Joined m={data.membership} />}
+      {data.membership && <Joined m={data.membership} viewer={viewer} />}
       {data.invitations.map((inv, i) => <Invitation key={inv.id} inv={inv} onTeam={Boolean(data.membership)} i={i + (data.membership ? 1 : 0)} />)}
       {!data.membership && waiting === 0 && (
         <EmptyState mark="users" title="You're not on a team" hint="When a team invites you to its roster, the invitation shows here and we email you. Nothing changes unless you accept." />
@@ -171,12 +188,13 @@ function Invitation({ inv, onTeam, i }: { inv: ApiTeamInvitation; onTeam: boolea
   );
 }
 
-function Joined({ m }: { m: ApiTeamMembership }) {
+function Joined({ m, viewer }: { m: ApiTeamMembership; viewer: ShareViewer }) {
   const share = m.teamShareBps === null ? "not set" : sharePct(m.teamShareBps);
   const keep = m.teamShareBps === null ? null : keepPct(m.teamShareBps);
   const short = m.team.name.split(" ").pop()!;
+  const change = m.shareChange ? shareChangeView(m.shareChange, m.team.name, viewer) : null;
   return (
-    <ArenaPanel tone="win" delay={0.14} spot>
+    <ArenaPanel tone={change ? "warn" : "win"} delay={0.14} spot>
       <section aria-label="Your team" className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <Crest name={m.team.name} />
@@ -184,8 +202,45 @@ function Joined({ m }: { m: ApiTeamMembership }) {
             <strong className="block text-base font-semibold">{m.team.name}</strong>
             <span className="text-xs text-muted">{[m.team.city, "on the roster"].filter(Boolean).join(" · ")}</span>
           </span>
-          <ArenaChip tone="win"><span aria-hidden="true" className="mr-1">✓</span>Member</ArenaChip>
+          {change ? (
+            <ArenaChip tone="warn"><span aria-hidden="true" className="mr-1">!</span>{viewer.minor ? "Your guardian answers" : "Waiting for your answer"}</ArenaChip>
+          ) : (
+            <ArenaChip tone="win"><span aria-hidden="true" className="mr-1">✓</span>Member</ArenaChip>
+          )}
         </div>
+
+        {change && (
+          <section aria-label="Share change request" className="sx-arena-in rounded-2xl border border-warn/40 bg-warn/5 px-4 py-3.5" style={at(0.2)}>
+            <h3 className="text-[15px] font-semibold leading-snug">{change.headline}</h3>
+            <div className="mt-3 grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
+              <p className="flex items-baseline gap-2" aria-label={`From ${change.from} to ${change.to}`}>
+                <span className="sx-arena-num text-[22px] leading-none text-muted line-through decoration-2">{change.from}</span>
+                <span aria-hidden="true" className="text-muted">→</span>
+                <span className="sx-arena-num text-[34px] leading-none text-warn">{change.to}</span>
+              </p>
+              <div className="min-w-0">
+                {change.keepShare !== null && (
+                  <div role="img" aria-label={`You would keep ${change.keep}, the team would take ${change.to}`}>
+                    <ArenaLane value={change.keepShare} tone="flare" delay={0.4} />
+                    <p className="mt-1.5 flex justify-between text-[11px] text-faint">
+                      <span>{viewer.ward ? `${viewer.ward} keeps` : "You keep"} <strong className="text-text">{change.keep}</strong></span>
+                      <span>{short} <strong className="text-text">{change.to}</strong></span>
+                    </p>
+                  </div>
+                )}
+                <p className="mt-2 text-xs leading-relaxed text-text/85">{change.effect}</p>
+              </div>
+            </div>
+            <div className="mt-3 border-t border-line-soft pt-3">
+              {change.canAnswer ? (
+                <ShareChangeAnswer view={change} team={m.team.name} />
+              ) : (
+                <p className="text-[13px] font-medium text-warn">{change.cannotLine}</p>
+              )}
+              <p className="mt-2 text-[11px] text-faint">Asked {change.askedOn}. The team can lower its share without asking; only a raise, or a change back to BTG&rsquo;s standard share, needs a yes.</p>
+            </div>
+          </section>
+        )}
 
         <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div className="sx-arena-in rounded-2xl border border-line bg-surface/60 px-4 py-3" style={at(0.24)}>

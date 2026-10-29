@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { cleanup, eventCounts, hasDatabase, seedToken } from "./support/fan-db";
+import { cleanup, eventCounts, hasDatabase, seedToken, STAFF_CODE } from "./support/fan-db";
 
 /**
  * P6-QA-01 — E2E: scan → landing → claim → redeem.
@@ -43,8 +43,12 @@ test("a fan scans, lands, claims and redeems — once", async ({ page, request }
   await expect(page.getByText(/Claimed\./)).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your reward is ready");
 
-  // REDEEM — the booth taps once.
-  await page.getByRole("button", { name: "Staff: redeem now" }).click();
+  // REDEEM — the booth opens the staff panel, types the reward's staff code
+  // and confirms (POL-FE-07): two taps, and a native <details>, so still no
+  // script. The code is checked whenever it is sent, switch on or off.
+  await page.getByText("Staff: redeem now").click();
+  await page.getByLabel(/Staff code/).fill(STAFF_CODE);
+  await page.getByRole("button", { name: "Confirm redeem" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Redeemed ✓");
 
   // A SECOND redeem is refused — the redeemed page offers no button, so the

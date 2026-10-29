@@ -20,19 +20,24 @@ import type { AgeView } from "@/lib/account-live";
    with the reason, and what carries on.
 
    Both take an `AgeView` (lib/account-live comingOfAgeView), from
-   GET /coming-of-age/mine.
+   GET /coming-of-age/mine. POL-FE-02 — `checking` (the API's
+   `checking: true`): the ID is received and BTG is checking it, so the
+   banner says so and carries no CTA.
    -------------------------------------------------------------------------- */
 
 const ctaClass = "inline-flex min-h-12 items-center rounded-lg bg-primary px-5 text-sm font-bold text-cta-ink hover:bg-primary-soft";
 
 export function ComingOfAgeReminder({ view, seat, uploadPath }: { view: AgeView; seat: "athlete" | "guardian"; uploadPath: string | null }) {
   return (
-    <section role="alert" aria-label="Coming of age" className="flex flex-wrap items-center gap-3.5 rounded-xl border border-warn/50 bg-warn/8 px-4.5 py-4">
+    <section role={view.checking ? "status" : "alert"} aria-label="Coming of age"
+      className={`flex flex-wrap items-center gap-3.5 rounded-xl border px-4.5 py-4 ${view.checking ? "border-primary/40 bg-primary/8" : "border-warn/50 bg-warn/8"}`}>
       <span className="min-w-0 grow basis-60">
-        <strong className="block text-sm text-warn">{view.title}</strong>
+        <strong className={`block text-sm ${view.checking ? "text-primary-soft" : "text-warn"}`}>{view.title}</strong>
         <span className="mt-1 block text-sm leading-relaxed">{view.line}</span>
       </span>
-      {seat === "guardian" ? (
+      {view.checking ? (
+        <Badge tone="primary"><span aria-hidden="true" className="mr-1">●</span>Checking</Badge>
+      ) : seat === "guardian" ? (
         <SendComingOfAgeLink label={view.cta} />
       ) : uploadPath ? (
         <Link href={uploadPath} className={ctaClass}>{view.cta}</Link>

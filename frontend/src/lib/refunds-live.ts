@@ -19,6 +19,10 @@ import { dayOf, money, type Pill } from "@/lib/order-automation-live";
 
 export const REFUND_CAUSES = [
   "SPONSOR_CANCELLED", "SELLER_CANCELLED", "CANCELLATION_AGREED", "PROBLEM_AGREED", "BTG_DECIDED", "BTG_REFUNDED_ORDER", "PAID_AFTER_CANCELLATION",
+  /* POL-FE-06 / POL-BE-06 — a card payment confirmed for an order that was already paid, or already refunded: one refund row per
+     such payment, `lineId` null, never counted against the order's own refunds. */
+  "PAID_TWICE",
+  "PAID_AFTER_REFUND",
   /* P9-BE-19 — a paid NEXT ad sale in an edition BTG cancelled: no order, a campaign and an edition. */
   "EDITION_CANCELLED",
   /* P9-BE-19 — Zoho marked the ad's invoice paid after its edition was cancelled. */
@@ -102,11 +106,46 @@ export function causeLabel(cause: string): string {
     case "BTG_DECIDED": return "Decided by BTG";
     case "BTG_REFUNDED_ORDER": return "Order refunded by BTG";
     case "PAID_AFTER_CANCELLATION": return "Paid after it was cancelled";
+    case "PAID_TWICE": return "Paid twice";
+    case "PAID_AFTER_REFUND": return "Paid after it was refunded";
     case "EDITION_CANCELLED": return "Edition cancelled";
     case "PAID_AFTER_EDITION_CANCELLED": return "Paid after the edition was cancelled";
     case "PROVIDER_REFUNDED": return "Provider refund";
     default: return "Refund";
   }
+}
+
+/* ------------------------------------------- an extra payment (POL-FE-06) */
+
+/** The causes that mean the sponsor paid when the order no longer needed it: the refund is of that payment, not of the order. */
+export const EXTRA_PAYMENT_CAUSES = ["PAID_TWICE", "PAID_AFTER_REFUND"] as const;
+
+/** Whether a refund on the order is of an extra payment — the sponsor paid twice, or paid after the order was refunded — rather than one of the order's own. */
+export function isExtraPayment(r: Pick<SponsorRefund, "cause" | "lineId">): boolean {
+  return r.lineId === null && (EXTRA_PAYMENT_CAUSES as readonly string[]).includes(r.cause);
+}
+
+/** The order's refunds in two: its own (a line, the rest, the whole order) and the extra payments going back. */
+export function splitRefunds<R extends Pick<SponsorRefund, "cause" | "lineId">>(refunds: readonly R[]): { own: R[]; extra: R[] } {
+  const own: R[] = [];
+  const extra: R[] = [];
+  for (const r of refunds) (isExtraPayment(r) ? extra : own).push(r);
+  return { own, extra };
+}
+
+/**
+ * One line for an extra payment going back. The sponsor: "You paid twice:
+ * $500.00 is being refunded" / "… was refunded on Oct 18". BTG: "Paid twice:
+ * refund on its way" / "… refund sent on Oct 18". Never how it was sent.
+ */
+export function extraPaymentWords(r: Pick<SponsorRefund, "cause" | "amountCents" | "state" | "sentOn">, viewer: "sponsor" | "btg"): string {
+  const when = r.state === "SENT" ? (r.sentOn ? ` on ${dayOf(r.sentOn)}` : "") : null;
+  if (viewer === "sponsor") {
+    const lead = r.cause === "PAID_AFTER_REFUND" ? "You paid after this order was refunded" : "You paid twice";
+    return when === null ? `${lead}: ${money(r.amountCents)} is being refunded` : `${lead}: ${money(r.amountCents)} was refunded${when}`;
+  }
+  const lead = r.cause === "PAID_AFTER_REFUND" ? "Paid after the refund" : "Paid twice";
+  return when === null ? `${lead}: refund on its way` : `${lead}: refund sent${when}`;
 }
 
 /** The row's name: the order's reference, or the cancelled edition's ("Fall 2026 ad"). */

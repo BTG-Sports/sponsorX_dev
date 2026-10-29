@@ -69,8 +69,9 @@ export async function saveSocials(athleteId: string, socials: SocialInput[]): Pr
    -------------------------------------------------------------------------- */
 
 export type ChangeBody = Record<string, unknown>;
+/** `held` — POL-FE-02 / POL-BE-02: a minor's date of birth or move that would make them an adult came back PENDING with no ID: it waits for BTG. */
 export type ChangeResult =
-  | { ok: true; id: string; checkNotes: string[]; idUpload: { changeId: string; uploadUrl: string; contentType: string } | null }
+  | { ok: true; id: string; checkNotes: string[]; idUpload: { changeId: string; uploadUrl: string; contentType: string } | null; held?: boolean }
   | { ok: false; message: string };
 /** `held` — P8-FE-11: the ID arrived but didn't read clear, so the new name waits for BTG. */
 export type SimpleResult = { ok: true; held?: boolean } | { ok: false; message: string };
@@ -98,8 +99,14 @@ export async function submitProfileChange(athleteId: string, body: ChangeBody): 
   if (res.ok) {
     revalidatePath("/athlete/profile/edit");
     revalidatePath("/athlete/profile");
-    const d = (await res.json()) as { id: string; checkNotes?: string[]; idUpload?: { changeId: string; uploadUrl: string; contentType: string } | null };
-    return { ok: true, id: d.id, checkNotes: d.checkNotes ?? [], idUpload: d.idUpload ?? null };
+    const d = (await res.json()) as {
+      id: string; checkNotes?: string[]; idUpload?: { changeId: string; uploadUrl: string; contentType: string } | null;
+      changes?: { id?: string; state?: string }[];
+    };
+    const idUpload = d.idUpload ?? null;
+    /* A PENDING record that isn't the legal name waiting for its ID is an adulthood change held for BTG (POL-BE-02). */
+    const held = Array.isArray(d.changes) && d.changes.some((c) => c?.state === "PENDING" && c?.id !== idUpload?.changeId);
+    return { ok: true, id: d.id, checkNotes: d.checkNotes ?? [], idUpload, held };
   }
   const err = await apiError(res);
   if (res.status === 400) return { ok: false, message: "Something here wasn't accepted — check the values and try again." };
@@ -136,7 +143,7 @@ export async function withdrawProfileChange(id: string): Promise<ChangeResult> {
   try {
     res = await apiFetch(`/profile-changes/${encodeURIComponent(id)}/withdraw`, { method: "POST" });
   } catch {
-    return { ok: false, message: "Couldn't reach SponsorX just now — the new name is still waiting for its ID." };
+    return { ok: false, message: "Couldn't reach SponsorX just now — the change is still waiting." };
   }
   if (res.ok) {
     revalidatePath("/athlete/profile/edit");

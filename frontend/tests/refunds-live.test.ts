@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { mayUse } from "@/lib/admin-access";
 import { submitOutcome } from "@/lib/listing-outcome";
 import {
-  REFUND_CAUSES, causeLabel, openSummary, refundRefusal, refundTab, refundWhat, refundWords, sentProblems, sentWords, today, waitingSince, type ApiRefund,
+  EXTRA_PAYMENT_CAUSES, REFUND_CAUSES, causeLabel, extraPaymentWords, isExtraPayment, openSummary, refundRefusal, refundTab, refundWhat, refundWords,
+  sentProblems, sentWords, splitRefunds, today, waitingSince, type ApiRefund, type SponsorRefund,
 } from "@/lib/refunds-live";
 
 /* 2S4-FE-06 — refunds (OrderCancellations.dc.html CX-5b, CX-10 … CX-14): the sponsor's words for a refund's
@@ -85,6 +86,48 @@ describe("Mark refunded", () => {
     expect(refundRefusal(409, { error: { message: "This refund was already marked sent on 2026-10-18." } }, "x")).toBe("This refund was already marked sent on 2026-10-18.");
     expect(refundRefusal(403, null, "x")).toBe("Only BTG admins and Finance can mark refunds sent.");
     expect(refundRefusal(500, null, "It wasn't marked sent")).toBe("It wasn't marked sent (HTTP 500).");
+  });
+});
+
+/* POL-FE-06 — a sponsor who paid twice: the extra payment is a refund row of its own
+   (cause PAID_TWICE or PAID_AFTER_REFUND, no line), shown apart from the order's refunds
+   and listed on Refunds to send with a cause of its own. */
+describe("an extra payment going back (POL-FE-06)", () => {
+  const twice: SponsorRefund = { id: "rf-x", lineId: null, amountCents: 50_000, cause: "PAID_TWICE", state: "OPEN", sentOn: null, text: "Refund on its way" };
+  const afterRefund: SponsorRefund = { ...twice, id: "rf-y", cause: "PAID_AFTER_REFUND", state: "SENT", sentOn: "2026-10-18", text: "Refund sent on 2026-10-18" };
+  const ownLine: SponsorRefund = { ...twice, id: "rf-l", lineId: "l1", cause: "SELLER_CANCELLED" };
+  const ownWhole: SponsorRefund = { ...twice, id: "rf-w", cause: "BTG_REFUNDED_ORDER" };
+
+  it("Refunds to send names the two causes", () => {
+    expect(REFUND_CAUSES).toContain("PAID_TWICE");
+    expect(REFUND_CAUSES).toContain("PAID_AFTER_REFUND");
+    expect(causeLabel("PAID_TWICE")).toBe("Paid twice");
+    expect(causeLabel("PAID_AFTER_REFUND")).toBe("Paid after it was refunded");
+  });
+
+  it("is the two causes with no line — the order's own refunds, whole or by line, are not", () => {
+    expect(EXTRA_PAYMENT_CAUSES).toEqual(["PAID_TWICE", "PAID_AFTER_REFUND"]);
+    expect(isExtraPayment(twice)).toBe(true);
+    expect(isExtraPayment(afterRefund)).toBe(true);
+    expect(isExtraPayment(ownLine)).toBe(false);
+    expect(isExtraPayment(ownWhole)).toBe(false);
+    expect(isExtraPayment({ cause: "PAID_AFTER_CANCELLATION", lineId: null })).toBe(false);
+    expect(splitRefunds([ownLine, twice, ownWhole, afterRefund])).toEqual({ own: [ownLine, ownWhole], extra: [twice, afterRefund] });
+    expect(splitRefunds([])).toEqual({ own: [], extra: [] });
+  });
+
+  it("tells the sponsor the amount is being refunded, or was on a day", () => {
+    expect(extraPaymentWords(twice, "sponsor")).toBe("You paid twice: $500.00 is being refunded");
+    expect(extraPaymentWords({ ...twice, state: "SENT", sentOn: "2026-10-18" }, "sponsor")).toBe("You paid twice: $500.00 was refunded on Oct 18");
+    expect(extraPaymentWords({ ...twice, state: "SENT", sentOn: null }, "sponsor")).toBe("You paid twice: $500.00 was refunded");
+    expect(extraPaymentWords(afterRefund, "sponsor")).toBe("You paid after this order was refunded: $500.00 was refunded on Oct 18");
+  });
+
+  it("tells BTG the refund is on its way, or sent on a day — never how", () => {
+    expect(extraPaymentWords(twice, "btg")).toBe("Paid twice: refund on its way");
+    expect(extraPaymentWords({ ...twice, state: "SENT", sentOn: "2026-10-18" }, "btg")).toBe("Paid twice: refund sent on Oct 18");
+    expect(extraPaymentWords({ ...afterRefund, state: "OPEN", sentOn: null }, "btg")).toBe("Paid after the refund: refund on its way");
+    expect(extraPaymentWords(afterRefund, "btg")).toBe("Paid after the refund: refund sent on Oct 18");
   });
 });
 

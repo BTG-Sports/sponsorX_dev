@@ -2,13 +2,13 @@ import Link from "next/link";
 
 import { viewEditIdAction } from "@/app/(app)/admin/new-signups/sensitive-edit-actions";
 import { DocumentCheck } from "@/components/document-check";
-import { LegalNameDecision } from "@/components/legal-name-decision";
+import { SensitiveEditDecision } from "@/components/legal-name-decision";
 import { PagerRow, PendingList } from "@/components/server-pager";
 import { StageHeading } from "@/components/ops-stage";
 import { Badge } from "@/components/ui";
 import { dayOf } from "@/lib/account-live";
 import { pageParamsFor, type ListKeys, type PageInfo, type SearchParams } from "@/lib/list-query";
-import { STATE_COPY, awaitingBtg, changeRows, editIdCheck, editStatusLabel, type ApiSensitiveEdit } from "@/lib/profile-changes-live";
+import { STATE_COPY, awaitingBtg, changeRows, editIdCheck, editStatusLabel, heldForBtg, sensitiveWhat, type ApiSensitiveEdit } from "@/lib/profile-changes-live";
 import { signupHref } from "@/lib/signups-live";
 import { apiFetch } from "@/server/api";
 
@@ -21,6 +21,11 @@ import { apiFetch } from "@/server/api";
    re-ran the sign-up checks. This section lists them, newest first, with
    what changed, what the checks found, and the ID through a five-minute
    audited link. Reject is the athlete's own Reject on New sign-ups.
+
+   Two kinds wait here for BTG's Apply / Decline (legal-name-decision.tsx):
+   a legal name whose ID didn't read clear (P8-FE-11), and — POL-FE-02 — a
+   minor's date of birth or move that would make them an adult, held with
+   no ID at all (POL-BE-02).
 
    P1-ART-15: a glass panel on the Intake Stream's stage, SERVER-PAGED by the
    house rule (12 / 24 / 60) on its own URL keys — `epage` / `esize` — so it
@@ -73,7 +78,11 @@ export async function SensitiveEdits({ searchParams }: { searchParams: SearchPar
                 {/* P8-FE-11 — what reading the ID found (P8-BE-11); a held name is answered here. */}
                 <DocumentCheck check={editIdCheck(e)} />
                 {awaitingBtg(e) && (
-                  <LegalNameDecision changeId={e.id} athlete={e.athlete.legalName || e.athlete.displayName} newName={String(e.fields.legalName ?? "")} />
+                  heldForBtg(e) ? (
+                    <SensitiveEditDecision changeId={e.id} athlete={e.athlete.legalName || e.athlete.displayName} kind="adulthood" what={sensitiveWhat(e).toLowerCase()} />
+                  ) : (
+                    <SensitiveEditDecision changeId={e.id} athlete={e.athlete.legalName || e.athlete.displayName} kind="legalName" what={String(e.fields.legalName ?? "")} />
+                  )
                 )}
                 <div className="flex flex-wrap items-center gap-4">
                   {e.idDocument && (
@@ -98,7 +107,7 @@ export async function SensitiveEdits({ searchParams }: { searchParams: SearchPar
     <section id="sensitive-edits" aria-label="Sensitive profile edits">
       <StageHeading
         title="Sensitive profile edits"
-        hint="Edits publish at once; you’re told only about legal name, date of birth and guardian changes. Reject is on the athlete."
+        hint="Edits publish at once; you’re told only about legal name, date of birth and guardian changes. A change that would make a minor an adult waits here for you. Reject is on the athlete."
         delay={0.7}
       />
       {body}

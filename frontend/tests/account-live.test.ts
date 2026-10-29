@@ -57,4 +57,20 @@ describe("coming of age", () => {
   it("never counts below zero", () => {
     expect(daysLeft(new Date(now.getTime() - DAY), now)).toBe(0);
   });
+  /* POL-FE-02 / POL-BE-02 — the ID is in but didn't read clear: BTG is checking it; no CTA, the countdown is paused. */
+  it("says the ID is received and BTG is checking it, from either side, with no CTA", () => {
+    const c = { ...sampleComingOfAge(now), checking: true };
+    const athlete = comingOfAgeView(c, "athlete", now)!;
+    expect(athlete).toMatchObject({ title: "ID received — BTG is checking it", cta: "", checking: true, heading: "Hi, Jordan" });
+    expect(athlete.line).toMatch(/^Your government ID is in\. .*your guardian stays in control, and the 90 days don’t run out\./);
+    expect(athlete.pausedItems).toBe("Paused until BTG confirms your ID.");
+    const guardian = comingOfAgeView(c, "guardian", now)!;
+    expect(guardian).toMatchObject({ title: "ID received — BTG is checking it", cta: "", checking: true, heading: "Jordan’s account" });
+    expect(guardian.line).toMatch(/^Jordan’s government ID is in\. .*you stay in control/);
+    expect(guardian.pausedDeals).toBe("Sponsors can’t start new deals with Jordan until BTG confirms the ID.");
+    /* Not checking: the usual countdown, and `checking` is false. */
+    expect(comingOfAgeView(sampleComingOfAge(now), "athlete", now)).toMatchObject({ checking: false, cta: "Upload government ID" });
+    /* Once it's in and confirmed, nothing to show. */
+    expect(comingOfAgeView({ ...c, idUploaded: true }, "athlete", now)).toBeNull();
+  });
 });

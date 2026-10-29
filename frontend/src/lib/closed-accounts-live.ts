@@ -12,9 +12,94 @@
      GET  /account-closures/:id                                one, with where its Reinstate is
      POST /account-closures/:id/reactivation-decision          { decision: "DECLINE", note } — emailed as written
 
+   POL-FE-11 (POL-BE-11, 2026-10-29) — closures HELD for BTG join the desk:
+     GET  /account-closure-requests                 held, oldest first (?state=)
+     GET  /account-closure-requests/:id             one, with `now` (what is still live) and `canClose`
+     POST /account-closure-requests/:id/close       closes it; 409 with what is still open until canClose
+     POST /account-closure-requests/:id/decline     { note } — the owner reads it; the account stays open
+
    Pure: shapes, tabs and the words the screens derive. `now` is a parameter.
    -------------------------------------------------------------------------- */
 import type { PageInfo } from "@/lib/list-query";
+import {
+  liveDealLine, usd, type ApiClosureImpact, type ApiClosureRequest, type ClosingAccount, type LiveDealLine,
+} from "@/lib/account-closure-live";
+
+/* ═══════════════════ POL-FE-11 · closures held for BTG ═══════════════════ */
+
+/** One held closure on the desk (GET /account-closure-requests). */
+export type ApiClosureRequestRow = ApiClosureRequest & { accountName: string };
+export type ApiClosureRequestList = { requests: ApiClosureRequestRow[] };
+
+/** GET /account-closure-requests/:id — `now` is read fresh; null once decided. */
+export type ApiClosureRequestDetail = ApiClosureRequestRow & { now: ApiClosureImpact | null; canClose: boolean };
+
+/** The desk's extra tab: the key the page reads from ?tab=, not one the API's /account-closures knows. */
+export const CLOSING_TAB = { key: "closing", label: "Waiting to close", empty: ["Nobody is waiting to close.", "An account with a live deal, money and no payout account, or a minor still in its care waits here for you to settle those."] } as const;
+export type DeskTabKey = ClosureTabKey | typeof CLOSING_TAB.key;
+
+export function deskTab(raw: string | string[] | undefined): DeskTabKey {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return v === CLOSING_TAB.key ? CLOSING_TAB.key : closedTab(raw).key;
+}
+
+const REQUEST_STATE: Record<ApiClosureRequest["state"], Mark> = {
+  HELD: { label: "Waiting for BTG", tone: "warn", mark: "!" },
+  CLOSED: { label: "Closed", tone: "neutral", mark: "○" },
+  DECLINED: { label: "Kept open", tone: "primary", mark: "✓" },
+  WITHDRAWN: { label: "Withdrawn by the owner", tone: "neutral", mark: "○" },
+};
+export const requestStateBadge = (state: ApiClosureRequest["state"]): Mark => REQUEST_STATE[state];
+
+/** The list's "Why it's held" cell: the first reason, and how many more. */
+export function heldWhyCell(reasons: string[]): { first: string; more: string | null } {
+  const first = reasons[0] ?? "Nothing is left — it can close now";
+  const rest = reasons.length - 1;
+  return { first, more: rest > 0 ? `+ ${rest} more` : null };
+}
+
+/** "Asked Oct 29, 2:10 PM · 3 days waiting" */
+export function heldSinceLine(requestedAt: string, now = new Date()): string {
+  const days = Math.floor((now.getTime() - new Date(requestedAt).getTime()) / 86_400_000);
+  const waiting = days <= 0 ? "today" : days === 1 ? "1 day waiting" : `${days} days waiting`;
+  return `Asked ${momentOf(requestedAt)} · ${waiting}`;
+}
+
+export type NowView = {
+  /** "Still live now" or "Nothing is left". */
+  title: string;
+  deals: LiveDealLine[];
+  /** Money, wards, invitations — the lines BTG reads. */
+  lines: string[];
+  /** The API's own reasons, as the Close button's 409 would say them. */
+  reasons: string[];
+  canClose: boolean;
+};
+
+/** What is still live on a held request, read fresh (`now`). */
+export function nowView(r: Pick<ApiClosureRequestDetail, "now" | "canClose" | "account" | "accountName">): NowView {
+  const n = r.now;
+  if (!n) return { title: "Decided", deals: [], lines: [], reasons: [], canClose: false };
+  const lines: string[] = [];
+  if (n.money && n.money.owedCents > 0) {
+    lines.push(n.money.accountReady
+      ? `${usd(n.money.owedCents)} earned, with a payout account ready: it is requested when the account closes.`
+      : `${usd(n.money.owedCents)} earned and no payout account to send it to.`);
+  }
+  if (n.wards.length) lines.push(`Still the guardian for ${n.wards.map((w) => w.name).join(", ")}.`);
+  if (n.openInvitations > 0) lines.push(`${n.openInvitations} open invitation${n.openInvitations === 1 ? "" : "s"} — declined when it closes.`);
+  return {
+    title: r.canClose ? "Nothing is left — it can close now" : "Still live now",
+    deals: n.liveDeals.map((d) => liveDealLine(d, r.account as ClosingAccount)),
+    lines, reasons: n.holdReasons, canClose: r.canClose,
+  };
+}
+
+/** The desk's words for a refused Close now / Decline — a 409 carries what is still open. */
+export function requestRefusal(status: number, body: unknown, fallback: string): string {
+  if (status === 403) return "Only a BTG admin can close or decline a held closure.";
+  return deskRefusal(status, body, fallback);
+}
 
 
 export type ClosureKind = "ATHLETE" | "GUARDIAN" | "PROPERTY" | "SPONSOR" | "ONBOARDING" | "INQUIRY";

@@ -12,7 +12,7 @@ import { StatePill, StatusBox } from "@/components/order-bits";
 import { StadiumChip, StadiumHead, StadiumPanel, StadiumSteps, StadiumTile, StadiumTiles, StadiumUpdated } from "@/components/stadium-stage";
 import { sellerCancelledBanner } from "@/lib/cancellations-live";
 import { sponsorBadge, sponsorStatus } from "@/lib/order-automation-live";
-import { refundWords } from "@/lib/refunds-live";
+import { extraPaymentWords, refundWords, splitRefunds } from "@/lib/refunds-live";
 import type { ApiOrderDeliveries } from "@/lib/sponsor-delivery-live";
 import { NOT_CONNECTED_NOTE, TEST_PROVIDER_BADGE, paymentHint, paymentView, type ApiOrderPayment, type PaymentView } from "@/lib/order-payment-live";
 import { canCancel, fmtStamp, orderCopy, orderRef, usd, type ApiOrder } from "@/lib/shop-live";
@@ -56,7 +56,10 @@ import { supportContact } from "@/server/support";
    the box on top when a seller cancelled a line (CX-5), and the Refunds
    card — each refund of the order from GET /marketplace-orders/:id
    `refunds`, on its way or sent on a date. Never how it was sent, nor any
-   reference: the API doesn't give the sponsor either.
+   reference: the API doesn't give the sponsor either. POL-FE-06: a refund
+   with cause PAID_TWICE or PAID_AFTER_REFUND and no line is an EXTRA
+   payment going back — "You paid twice: $X is being refunded" — shown in
+   its own box, apart from the order's refunds.
 
    2S3-FE-03 — each line names who sells it (the line's `seller`: the team,
    or the independent athlete — such a line has no property).
@@ -130,7 +133,8 @@ export default async function OrderPage({
     const b = sellerCancelledBanner(l);
     return b ? [{ id: l.lineId, ...b }] : [];
   });
-  const refunds = o.refunds ?? [];
+  /* POL-FE-06 — an extra payment (paid twice, or after the refund) going back is shown apart from the order's own refunds. */
+  const { own: refunds, extra: extraPayments } = splitRefunds(o.refunds ?? []);
   const lineTitle = new Map(o.lines.map((l) => [l.id, l.title]));
 
   return (
@@ -242,6 +246,16 @@ export default async function OrderPage({
               <span className="text-lg font-semibold tabular-nums">{usd(o.totalCents)}</span>
             </div>
           </Card>
+          {extraPayments.length > 0 && (
+            <StatusBox tone="warn" title={extraPayments.length === 1 ? "An extra payment is going back to you" : "Extra payments are going back to you"}>
+              <ul className="space-y-1 text-[13px] leading-relaxed text-text/85">
+                {extraPayments.map((r) => (
+                  <li key={r.id}>{extraPaymentWords(r, "sponsor")}</li>
+                ))}
+              </ul>
+              <p className="text-[11px] text-muted">Your order stands as it is — this is the extra payment only. It goes back the way you paid.</p>
+            </StatusBox>
+          )}
           {refunds.length > 0 && (
             <Card className="space-y-2">
               <p className="text-[11px] uppercase tracking-wide text-muted">Refunds</p>
