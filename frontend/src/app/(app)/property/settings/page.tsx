@@ -2,7 +2,7 @@ import { AccountSettings } from "@/components/account-settings";
 import { SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { requirePortalAccess } from "@/server/portal";
-import { propertyCloseAccountAction, propertySettingsLinkAction } from "./actions";
+import { propertyCloseAccountAction, propertySettingsLinkAction, propertyWithdrawCloseAction } from "./actions";
 
 /* --------------------------------------------------------------------------
    Settings — 2S1-FE-08, the property portal (Claude Design Account.dc.html,
@@ -34,6 +34,7 @@ export default async function PropertySettingsPage({ searchParams }: { searchPar
       accountWords="property manager account"
       linkAction={propertySettingsLinkAction}
       closeAction={propertyCloseAccountAction}
+      withdrawAction={propertyWithdrawCloseAction}
       noPayeeLine="There’s no payout account for this login. Ask BTG to link it to your property."
       previews={[
         { href: "/reactivate?demo=self", label: "reactivate within 30 days" },

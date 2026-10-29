@@ -5,9 +5,10 @@ import type { CSSProperties } from "react";
 import { ArenaHead, ArenaUpdated, at } from "@/components/arena-stage";
 import { BlockedNotice } from "@/components/ui";
 import { StripeLinkButton } from "@/components/payout-account-panel";
-import { CloseAccount, type CloseResult } from "@/components/account-close";
+import { CloseAccount, type CloseResult, type WithdrawResult } from "@/components/account-close";
 import { closeLine, payoutLine, signInLine, type Seat } from "@/lib/account-live";
 import { accountPanel, type ApiPayoutAccount, type PayoutWriteFailure } from "@/lib/payouts-live";
+import { closurePreview } from "@/server/account";
 import { apiFetch } from "@/server/api";
 import { viewerName } from "@/server/viewer";
 import { supportContact } from "@/server/support";
@@ -37,13 +38,22 @@ import { supportContact } from "@/server/support";
    the name · account lede) and the three rows as plates that slide in and
    light under the pointer. Without it the property portal's settings are
    exactly as before. Every read, action and line is the same either way.
+
+   POL-FE-11 (2026-10-29): GET /me/close/preview?account= is read here and
+   handed to the close row, so the dialog lists the live deals before the
+   owner confirms, the row says "Waiting for BTG" (with Withdraw) while a
+   closure is held, and a minor's own login reads that their guardian
+   closes it. A guardian acting for a minor gets a second row (`ward`)
+   that closes the minor's account — POST /me/close {account: "athlete"}
+   with the ward header the portal already sends.
    -------------------------------------------------------------------------- */
 
 type LinkAction = () => Promise<PayoutWriteFailure>;
 type CloseAction = () => Promise<CloseResult>;
+type WithdrawAction = () => Promise<WithdrawResult>;
 
 export async function AccountSettings({
-  seat, accountWords, linkAction, closeAction, previews, noPayeeLine, stage, minor = false,
+  seat, accountWords, linkAction, closeAction, withdrawAction, previews, noPayeeLine, stage, minor = false, guardianName = null, ward,
 }: {
   seat: Seat;
   /** "athlete account", "guardian account", "property manager account". */
@@ -51,6 +61,8 @@ export async function AccountSettings({
   linkAction: LinkAction;
   /** 2S1-BE-13 — POST /me/close, through the page's own action. */
   closeAction: CloseAction;
+  /** POL-FE-11 — POST /me/close/withdraw, through the page's own action. */
+  withdrawAction: WithdrawAction;
   /** Links to the scaffolded screens that have no other way in yet. */
   previews: { href: string; label: string }[];
   /** Shown when this login has no payout account of its own. */
@@ -59,8 +71,18 @@ export async function AccountSettings({
   stage?: "arena";
   /** POL-FE-26 — a minor's own login: their guardian sets the payout account up, so no Stripe button here. */
   minor?: boolean;
+  /** POL-FE-11 — a minor's own login: who closes it for them. */
+  guardianName?: string | null;
+  /** POL-FE-11 — a guardian acting for a minor: the row that closes the minor's account. */
+  ward?: { name: string; closeAction: CloseAction; withdrawAction: WithdrawAction };
 }) {
-  const [user, acctRes, name, support] = await Promise.all([currentUser(), apiFetch("/payouts/account"), viewerName("You"), supportContact()]);
+  const [user, acctRes, name, support, closing, wardClosing] = await Promise.all([
+    currentUser(), apiFetch("/payouts/account"), viewerName("You"), supportContact(),
+    closurePreview(seat, guardianName),
+    ward ? closurePreview("athlete") : Promise.resolve(null),
+  ]);
+  /* The island resets its "held just now" state when the server's answer changes. */
+  const panelKey = (p: typeof closing) => `${p.kind}:${p.kind === "held" ? p.request.id : ""}`;
   const arena = stage === "arena";
   /* A row's frame: an arena plate (speed bar, slide-in, spotlight) or the plain card. */
   const plate = (delay: number, tone?: string) =>
@@ -115,7 +137,14 @@ export async function AccountSettings({
         {panel && !panel.guardianOnly && <StripeLinkButton cta={panel.cta} action={linkAction} testBadge={panel.testBadge} />}
       </section>
 
-      <CloseAccount line={closeLine(seat)} action={closeAction} skin={arena ? plate(0.28, "var(--sx-danger)") : undefined} />
+      {ward && wardClosing && (
+        <CloseAccount key={`ward:${panelKey(wardClosing)}`} whose={ward.name} panel={wardClosing}
+          line={`${ward.name}’s listings end and they can’t sign in. They can come back within 30 days.`}
+          action={ward.closeAction} withdraw={ward.withdrawAction} skin={arena ? plate(0.28, "var(--sx-danger)") : undefined} />
+      )}
+
+      <CloseAccount key={panelKey(closing)} line={closeLine(seat)} panel={closing} action={closeAction} withdraw={withdrawAction}
+        skin={arena ? plate(ward ? 0.34 : 0.28, "var(--sx-danger)") : undefined} />
 
       {/* 2S1-BE-16 — the support address on account pages. */}
       <p className="text-xs leading-relaxed text-muted">
