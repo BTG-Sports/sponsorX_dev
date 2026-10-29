@@ -95,7 +95,7 @@ const A = {
   dueReservation: "ti_reservation_due_a", dueOrder: "ti_mkt_order_due_a", failedAttempt: "ti_attempt_failed_a",
   /* 2S4-BE-06 / -07 — a sold line of that order, marked delivered and waiting
      for the sponsor; 2S2-BE-05 — tenant A's school inviting tenant A's athlete. */
-  mktLine: "ti_mkt_line_a", delivery: "ti_delivery_a", teamInvite: "ti_team_invite_a",
+  mktLine: "ti_mkt_line_a", delivery: "ti_delivery_a", teamInvite: "ti_team_invite_a", shareChange: "ti_share_change_a",
   /* 2S4-BE-09 — tenant A's school asked to accept that order (its listing asks), unanswered. */
   sellerApproval: "ti_seller_approval_a",
   /* 2S1-BE-13 — a rejected tenant-A account asking to come back; 2S1-BE-15 — a request to become its guardian, waiting. */
@@ -211,6 +211,8 @@ const PARAM_FOR: Record<string, string> = {
   /* 2S4-BE-06 / -07 — the seller's sold line, the sponsor's answer and BTG's
      desk all take an order-line id; 2S2-BE-05 — an invitation. */
   sales: A.mktLine, deliveries: A.mktLine, "delivery-issues": A.mktLine, "team-invitations": A.teamInvite,
+  /* POL-BE-03 — the team's request to change its share, answered by the athlete. */
+  "share-changes": A.shareChange,
   /* 2S4-BE-09 — a seller's answer to an order. */
   "seller-approvals": A.sellerApproval,
   /* P3-BE-16 — no tenant-A change is seeded: an unknown id must answer
@@ -412,6 +414,8 @@ const BODY: Record<string, unknown> = {
   /* 2S2-BE-05 — inviting tenant A's athlete, and answering tenant A's invitation. */
   "POST /team/invitations": { athleteId: A.athlete, teamShareBps: 100 },
   "POST /team-invitations/{id}/respond": { decision: "ACCEPT" },
+  /* POL-BE-03 — answering tenant A's share request. */
+  "POST /me/team/share-changes/{id}/respond": { decision: "ACCEPT" },
   /* 2S4-BE-09 — a seller answering tenant A's order. */
   "POST /seller-approvals/{id}/decision": { decision: "ACCEPT" },
   /* 3S2-BE-03 — overriding tenant A's suggested price. */
@@ -700,6 +704,7 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       lineIds: [A.mktLine], dueAt: new Date(Date.now() + 3650 * 864e5),
     } });
     await prisma.teamInvitation.create({ data: { id: A.teamInvite, tenantId: t, propertyId: A.school, athleteId: A.athlete, athleteTenantId: t, teamShareBps: 1500 } });
+    await prisma.teamShareChange.create({ data: { id: A.shareChange, tenantId: t, propertyId: A.school, athleteId: A.athlete, toBps: 2000 } });
     await prisma.refundDue.create({ data: {
       id: A.refund, tenantId: t, orderId: A.mktOrder, lineId: A.mktLine, sponsorId: A.sponsor, amountCents: 9000, cause: "SELLER_CANCELLED", paidVia: "BANK_TRANSFER",
     } });

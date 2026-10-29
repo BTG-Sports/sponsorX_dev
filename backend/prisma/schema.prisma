@@ -3751,6 +3751,35 @@ model TeamInvitation {
   @@index([athleteTenantId, athleteId, state])
 }
 
+/// POL-BE-03 — a team's share of an athlete's earnings goes up only with the
+/// athlete's yes (their guardian's, for a minor), however the athlete joined.
+/// A raise, a clear back to BTG's standard share (null), and the share typed
+/// at "Add athlete" are each a request; Athlete.teamShareBps changes only when
+/// it is accepted. Lowering applies at once and needs no row. Lives in the
+/// athlete's tenant; one PENDING row per athlete (a partial unique index).
+model TeamShareChange {
+  id          String    @id @default(cuid())
+  /// The athlete's tenant.
+  tenantId    String
+  /// The team asking.
+  propertyId  String
+  athleteId   String
+  /// The share when asked (null: none set, so BTG's standard share applies).
+  fromBps     Int?
+  /// The share asked for (null: BTG's standard team share).
+  toBps       Int?
+  /// PENDING | ACCEPTED | DECLINED | WITHDRAWN | LAPSED
+  state       String    @default("PENDING")
+  requestedBy String?
+  decidedAt   DateTime?
+  decidedBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@index([tenantId, athleteId, state])
+  @@index([propertyId, state])
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 2S1-BE-13 · 2S1-BE-15 · 2S1-BE-16 — closing and coming back, the guardian
 // handoff, and BTG support (added 2026-10-01).
