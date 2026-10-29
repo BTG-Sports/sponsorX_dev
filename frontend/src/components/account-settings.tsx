@@ -43,7 +43,7 @@ type LinkAction = () => Promise<PayoutWriteFailure>;
 type CloseAction = () => Promise<CloseResult>;
 
 export async function AccountSettings({
-  seat, accountWords, linkAction, closeAction, previews, noPayeeLine, stage,
+  seat, accountWords, linkAction, closeAction, previews, noPayeeLine, stage, minor = false,
 }: {
   seat: Seat;
   /** "athlete account", "guardian account", "property manager account". */
@@ -57,6 +57,8 @@ export async function AccountSettings({
   noPayeeLine: string;
   /** P1-ART-22 — "arena" draws the athlete portal's skin; omitted, the plain one. */
   stage?: "arena";
+  /** POL-FE-26 — a minor's own login: their guardian sets the payout account up, so no Stripe button here. */
+  minor?: boolean;
 }) {
   const [user, acctRes, name, support] = await Promise.all([currentUser(), apiFetch("/payouts/account"), viewerName("You"), supportContact()]);
   const arena = stage === "arena";
@@ -70,7 +72,7 @@ export async function AccountSettings({
   if (!acctRes.ok && acctRes.status !== 403 && acctRes.status !== 404) {
     throw new Error(`/payouts/account unavailable (${acctRes.status}).`);
   }
-  const panel = acctRes.ok ? accountPanel((await acctRes.json()) as ApiPayoutAccount, "you") : null;
+  const panel = acctRes.ok ? accountPanel((await acctRes.json()) as ApiPayoutAccount, "you", { minor }) : null;
   const email = user?.primaryEmailAddress;
 
   return (
@@ -108,8 +110,9 @@ export async function AccountSettings({
         <span className="min-w-0 grow basis-56">
           <strong className="block text-sm font-semibold">Payout account</strong>
           <span className="text-xs leading-relaxed text-muted">{panel ? payoutLine(panel) : noPayeeLine}</span>
+          {panel?.guardianLine && <span className="mt-1 block text-xs leading-relaxed text-muted">{panel.guardianLine}</span>}
         </span>
-        {panel && <StripeLinkButton cta={panel.cta} action={linkAction} testBadge={panel.testBadge} />}
+        {panel && !panel.guardianOnly && <StripeLinkButton cta={panel.cta} action={linkAction} testBadge={panel.testBadge} />}
       </section>
 
       <CloseAccount line={closeLine(seat)} action={closeAction} skin={arena ? plate(0.28, "var(--sx-danger)") : undefined} />

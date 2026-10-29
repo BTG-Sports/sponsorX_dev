@@ -28,6 +28,7 @@ export function SponsorCampaignTable({
   now,
   filtered,
   empty,
+  needsYou = false,
 }: {
   rows: ApiCampaign[];
   page: PageInfo;
@@ -35,6 +36,9 @@ export function SponsorCampaignTable({
   filtered: boolean;
   /** What to say when this page has no rows. */
   empty: ReactNode;
+  /** POL-FE-20 — the rows are the API's ?review=true page: every one has a
+   *  post waiting for the sponsor's OK, so each says so and links to it. */
+  needsYou?: boolean;
 }) {
   if (rows.length === 0) {
     return (
@@ -72,6 +76,7 @@ export function SponsorCampaignTable({
             <Td label="Status">
               <span className="flex flex-wrap gap-1.5">
                 <StadiumChip tone={word.tone}>{word.text}</StadiumChip>
+                {needsYou && <StadiumChip tone="you">Needs your OK</StadiumChip>}
                 {behind && <StadiumChip tone="late">Behind</StadiumChip>}
               </span>
             </Td>
@@ -106,9 +111,15 @@ export function SponsorCampaignTable({
               {upper(windowLabel(c, now))}
             </Td>
             <Td act>
-              <Link href={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report`} aria-label={`See results for ${c.name}`} className="text-xs font-medium text-sponsor hover:underline">
-                See results →
-              </Link>
+              {needsYou ? (
+                <Link href={`/sponsor/campaigns/${encodeURIComponent(c.id)}`} aria-label={`Approve the posts waiting on ${c.name}`} className="text-xs font-semibold text-sponsor hover:underline">
+                  Approve posts →
+                </Link>
+              ) : (
+                <Link href={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report`} aria-label={`See results for ${c.name}`} className="text-xs font-medium text-sponsor hover:underline">
+                  See results →
+                </Link>
+              )}
             </Td>
           </Tr>
         );

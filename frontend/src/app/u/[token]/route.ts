@@ -19,9 +19,24 @@
    -------------------------------------------------------------------------- */
 
 import { edgeHeaders } from "@/server/edge";
+import { supportContact } from "@/server/support";
+import { SUPPORT_EMAIL } from "@/lib/guardian-live";
 
 /** Server-side only, as in src/server/api.ts. */
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
+
+/* POL-FE-30 — fan emails come from a no-reply address, so "reply to the
+   email" went nowhere. The fallback names the support address the backend
+   configures (SUPPORT_EMAIL, read as /contact reads it); the frontend's
+   default stands in if the API can't be reached or answers something odd. */
+async function supportAddress(): Promise<string> {
+  try {
+    const email = (await supportContact()).email;
+    return typeof email === "string" && email.includes("@") ? email : SUPPORT_EMAIL.address;
+  } catch {
+    return SUPPORT_EMAIL.address;
+  }
+}
 
 type Params = { params: Promise<{ token: string }> };
 
@@ -51,15 +66,18 @@ export async function POST(req: Request, { params }: Params) {
     withdrawn = false;
   }
 
-  return withdrawn
+  if (withdrawn) {
     /* P8-FE-08 — the wording approved 2026-10-22 (P0-LEG-04, document 3 §7). */
-    ? page("You're unsubscribed", "We won't email you again about this reward, and we've told the sponsor to stop too. Your reward itself is unaffected.")
-    : page(
-        "That link did not work",
-        "It may be incomplete — try opening it again from the email. If it keeps failing, reply to the email and we will remove you by hand.",
-        undefined,
-        400,
-      );
+    return page("You're unsubscribed", "We won't email you again about this reward, and we've told the sponsor to stop too. Your reward itself is unaffected.");
+  }
+  /* POL-FE-30 — the email can't be replied to; the way out is the support address. */
+  const support = await supportAddress();
+  return page(
+    "That link did not work",
+    "It may be incomplete — try opening it again from the email. If it keeps failing, email us and we will remove you by hand:",
+    `<p><a href="mailto:${escape(support)}?subject=${encodeURIComponent("Unsubscribe me from reward emails")}">${escape(support)}</a></p>`,
+    400,
+  );
 }
 
 function page(title: string, body: string, action = "", status = 200): Response {
@@ -76,6 +94,7 @@ function page(title: string, body: string, action = "", status = 200): Response 
   .mark{font-weight:700;font-size:14px}.mark span{color:#2e9bf5}
   h1{font-size:28px;margin:32px 0 12px}
   p{color:rgba(243,245,248,.72);font-size:15px}
+  a{color:#9be0ff;font-weight:600;text-decoration:underline;overflow-wrap:anywhere}
   button{margin-top:24px;width:100%;padding:14px;border:0;border-radius:12px;
     background:#2e9bf5;color:#fff;font:600 16px system-ui,sans-serif;cursor:pointer}
 </style></head>

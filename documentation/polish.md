@@ -87,6 +87,14 @@ wrong person.
     "Money … already earned is paid as before, to your payout account". It
     should say "Payouts already sent stay sent; anything not yet paid out
     goes to [new guardian]'s own payout account once they set it up."
+- **Frontend delivered (`POL-FE-01`, 2026-10-29, HeckerCreatives):**
+  `payouts-live.ts` `accountPanel` takes the waiting count (from
+  `byState.APPROVED.count`, else the listed payouts) and shows "Set up your
+  own payout account — payouts are waiting for it" with the setup button;
+  `handoffCarryOver` reworded as above. Tests updated.
+  - QA 2026-10-29: BTG's own handoff page ("What changes when you confirm",
+    `guardian-handoffs-desk-live.ts` `confirmPoints`) still carried the old
+    rule; it now says the same as the guardian's card.
 
 ### 2. A minor can make themselves an adult
 `POL-BE-02` · `POL-FE-02` · *Minors* · confirmed
@@ -250,6 +258,18 @@ Checkout never says payment is switched off.
     `deadlineAt: null` (and `paymentDueAt: null`) while the order is held.
   - Show "Held for you — card payment opens soon; we'll email your pay-by
     date", not a countdown, and say the same at checkout.
+- **Frontend delivered (`POL-FE-04`, 2026-10-29, HeckerCreatives):**
+  `order-payment-live.ts` has a `held` payment kind (`canPay: false`, nothing
+  processing or failed): no CTA, no poll, no deadline chip, badge "Confirmed
+  · held for you"; the order page and the just-placed card say the line
+  above. Checkout (`checkout-gate.ts`, `shop-checkout.tsx`) shows a held
+  notice under Place order when the reservation's `checkout.paymentsOpen`
+  is false.
+  - **Gap for the backend:** nothing tells the frontend payment is closed
+    *before* an order exists. One line in `backend/src/domain/reservation.ts`
+    (around line 127), `paymentsOpen: paymentsOpen()` on the `checkout`
+    object, makes the checkout notice live; until then checkout states the
+    rule for both cases.
 
 ### 5. Sponsors agree to the order terms before seeing the total
 `POL-BE-05` · `POL-FE-05` · *Money · Consent* · confirmed
@@ -588,6 +608,19 @@ The API already has `GET /campaigns/{id}/invoices`.
 - **Fix:** an invoices screen listing each invoice, its status and a pay link,
   reached from the count and from Billing.
 - **Done when:** a sponsor can open, see and pay every invoice.
+- **Frontend delivered (`POL-FE-13`, 2026-10-29, HeckerCreatives):**
+  `/sponsor/invoices` (`sponsor-invoices-live.ts`, `server/sponsor-invoices.ts`)
+  lists one server page of the sponsor's campaigns and reads each
+  `GET /campaigns/:id/invoices` in parallel; tiles for to pay, overdue and
+  paid (summing the page, and saying so); void invoices hidden; `sent` past
+  `dueAt` reads as overdue. "Invoices to pay" on the dashboard and Billing in
+  the menu both open it.
+  - **Gaps for the backend:** `GET /earnings/invoices` is gated on `earning`
+    read, which sponsors don't have, so there is no single sponsor list; and
+    the Zoho mirror (`CampaignInvoice`) carries **no pay URL**, so "Pay →" is
+    a `mailto:` to support naming the invoice, with a note that the secure
+    link is in the invoice email. A `payUrl` field on the invoice row would
+    make it a real pay link.
 
 ### 14. Held make-goods reach no one
 `POL-BE-14` · *Silent* · likely
@@ -625,6 +658,10 @@ These queues have no count, so staff have to click every menu item to find work:
 The resend button sends to the same wrong address. The API already allows
 changing it.
 **Fix:** a "Change guardian email" option on the /join status page.
+**Delivered (`POL-FE-16`, 2026-10-29):** `join-checklist.tsx` offers "Change
+guardian email", which reopens the guardian form pre-filled (email blank) and
+posts through the existing `POST /applications/intake/guardian`, allowed until
+BTG approves the guardian.
 
 ### 17. A sponsor can't open, edit or withdraw a sent request
 `POL-BE-17` · `POL-FE-17` · *Dead end* · likely
@@ -654,12 +691,21 @@ missing. Hide the menu items that don't work yet.
 It tells sponsors a campaign is waiting on them, but there is no action for
 them to take.
 **Fix:** show it only when there is a sponsor action, and link straight to it.
+**Delivered (`POL-FE-20`, 2026-10-29):** campaign state `APPROVAL` means fully
+staffed and launching by itself, so it now reads "Ready to start". The only
+sponsor-side action the API signals is a post in `SPONSOR_REVIEW`
+(`GET /campaigns?review=true`), so "Needs your OK" shows only when that count
+is above zero, links to the review filter, and the campaign table's chip
+links "Approve posts →" to the campaign.
 
 ### 21. The request progress steps say things that haven't happened
 `POL-FE-21` · likely
 
 The steps say "Price agreed" and "Campaign live" before either has happened.
 **Fix:** the steps follow the request's real state.
+**Delivered (`POL-FE-21`, 2026-10-29):** steps are now Sent · BTG review ·
+Athletes signed · Campaign live, driven by the brief's state and its
+campaign's state (`brief-status.ts` `requestStepNow`).
 
 ### 22. A sponsor isn't told when staffing stalls
 `POL-BE-22` · `POL-FE-22` · *Silent* · likely
@@ -674,6 +720,16 @@ more athletes" with a date.
 The dashboard link also lands on the campaigns list, not the post.
 **Fix:** show the due date and link straight to the post. The back end adds
 the date if it isn't returned.
+**Delivered (`POL-FE-23`, 2026-10-29):** each card on the content desk shows
+"review by …" (warn colour once overdue) and the drawer has a Review by row;
+`/admin/approvals?open=<id>` opens a post directly, and the BTG board lists
+posts to review, soonest first, each opening its post.
+- **Gap for the backend:** the API returns no review deadline. The screen
+  computes it as `waitingSince` + 48 h (the reminder policy in
+  `review-reminders.ts`), falling back to the latest upload time, never later
+  than the post's `dueDate`. A `reviewBy` field on the deliverable row would
+  replace `reviewBy()` in `approvals-live.ts` in one place. The BTG reminder
+  email could also deep-link to `/admin/approvals?open=<id>`.
 
 ### 24. Athletes can't decline a Campaign Order, and there's no list of orders
 `POL-FE-24` · *Dead end* · likely
@@ -681,6 +737,12 @@ the date if it isn't returned.
 The API allows declining. "Orders" in the menu goes to marketplace sales.
 **Fix:** a Campaign Orders list with Accept and Decline, and the menu labelled
 to match.
+**Delivered (`POL-FE-24`, 2026-10-29):** `/athlete/orders` lists Campaign
+Orders with Review & accept and a confirmed Decline (`POST
+/orders/:id/transition { to: "REJECTED" }`); the menu has "Campaign orders"
+under Campaigns and the marketplace item is "Sales". There is no `GET /orders`
+list in the API, so the page is built from `GET /invitations?state=accepted`,
+whose rows carry the order each accepted invitation became.
 
 ### 25. Earnings and Payouts contradict each other
 `POL-FE-25` · confirmed
@@ -688,6 +750,9 @@ to match.
 Earnings says "BTG handles payouts outside the platform", while Payouts asks the
 athlete to set up Stripe.
 **Fix:** one consistent message.
+**Delivered (`POL-FE-25`, 2026-10-29):** both pages use one sentence
+(`PAYOUT_ROUTE_LINE`) and Earnings links to Payouts; "outside the platform" is
+gone.
 
 ### 26. Minors see a Stripe button that always fails
 `POL-FE-26` · *Minors* · likely
@@ -696,17 +761,26 @@ Only the guardian can set up payouts, but the screen doesn't know the athlete
 is a minor.
 **Fix:** a minor sees "your guardian sets this up", and the guardian sees the
 button.
+**Delivered (`POL-FE-26`, 2026-10-29):** a minor is `guardianControl` without
+`actingFor`; the payout panel, the money checklist, the home banner and
+Settings show "your guardian sets this up from their own login" instead of
+the Stripe button. A guardian acting for the ward still sees the button.
 
 ### 27. Declining an invitation is one tap with no "are you sure?"
 `POL-FE-27` · likely
 
 Offers already ask.
 **Fix:** a confirmation, as offers have.
+**Delivered (`POL-FE-27`, 2026-10-29):** both Decline paths in the inbox open
+the same "Yes, decline / Keep it open" confirmation as offers.
 
 ### 28. "Confirm delivered" releases payment in one click
 `POL-FE-28` · *Money* · likely
 
 **Fix:** a confirmation that says the seller is paid.
+**Delivered (`POL-FE-28`, 2026-10-29):** a confirm dialog names the seller and
+the amount released and says a problem can't be reported afterwards; focus
+lands on "Not yet".
 
 ### 29. The guardian-handoff queue lists newest first
 `POL-BE-29` · *Minors* · likely
@@ -719,6 +793,10 @@ The oldest requests involving minors slip down the list.
 
 Fan emails come from a no-reply address.
 **Fix:** point the fallback at the support address.
+**Delivered (`POL-FE-30`, 2026-10-29):** the wording lives only in the
+frontend unsubscribe page (`app/u/[token]/route.ts`); it now says "email us
+and we will remove you by hand" with a `mailto:` to the configured support
+address. No backend template says "reply".
 
 ---
 
@@ -731,6 +809,14 @@ Fan emails come from a no-reply address.
 | 33 | `POL-FE-33` | Real athletes' Settings link to "sample screens" for a made-up athlete, Riley | Remove it for real users |
 | 34 | `POL-FE-34` | "You're approved" at /join has no sign-in button | Add a Sign in button |
 | 35 | `POL-FE-35` | "Contact BTG" on the team's Documents and Roster pages has no link or address | Link to the support address |
+
+**All five delivered 2026-10-29 (HeckerCreatives):** 31 maps Stripe decline
+codes to plain words with what to do and the support address, the reference
+in small text; 32 says "Welcome" when the session's sign-in is within 24 h of
+the Clerk account's creation (the API's actor carries no dates); 33 passes the
+sample screens only in demo mode or to a BTG preview; 34 adds a Sign in
+button to the approved state on /join; 35 emails support with a pre-filled
+subject from the Documents and Roster empty states.
 
 ---
 

@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { handoffDocumentAction, staffDecisionAction } from "@/app/(app)/admin/guardian-handoffs/actions";
+import { handoffDocumentAction, handoffSendBackAction, staffDecisionAction } from "@/app/(app)/admin/guardian-handoffs/actions";
+import { DocumentCheck, SendBackButton } from "@/components/document-check";
 import { confirmPoints, documentSub, type ApiDeskHandoff, type ApiHandoffStaff } from "@/lib/guardian-handoffs-desk-live";
 import { momentOf } from "@/lib/new-signups-live";
 import { useDialogFocus } from "./use-dialog-focus";
@@ -139,27 +140,49 @@ function DeclineDialog({ handoff, onClose }: { handoff: ApiDeskHandoff; onClose:
   );
 }
 
-/** The new guardian's government ID and proof of guardianship, each behind the 5-minute viewer. */
-export function HandoffDocuments({ id, documents }: { id: string; documents: ApiHandoffStaff["documents"] }) {
+/**
+ * The new guardian's government ID and proof of guardianship, each behind
+ * the 5-minute viewer. P8-FE-11 — with what reading each found, why the
+ * documents hold the handoff (`documentHolds`), Send back with a reason,
+ * and no View once BTG sent one back (its file is gone).
+ */
+export function HandoffDocuments({ id, documents, holds = [], who }: { id: string; documents: ApiHandoffStaff["documents"]; holds?: string[]; who: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState<ApiHandoffStaff["documents"][number] | null>(null);
   return (
     <section aria-label="Documents" className="rounded-xl border border-line bg-surface p-4 sm:px-5">
       <h2 className="text-sm font-semibold">Documents</h2>
+      {holds.length > 0 && (
+        <ul aria-label="Why the documents hold this handoff" className="mt-2 rounded-lg border border-warn/40 bg-warn/8 px-3 py-2 text-[12px] leading-relaxed">
+          {holds.map((h) => (
+            <li key={h} className="flex gap-2">
+              <span aria-hidden="true" className="text-warn">!</span>
+              <span className="min-w-0 break-words">{h}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       {documents.length === 0 ? (
         <p className="mt-2 text-xs text-muted">No documents uploaded yet.</p>
       ) : (
         <ul className="mt-2">
           {documents.map((d) => (
-            <li key={d.id} className="flex items-center gap-3 border-t border-line-soft py-2.5 text-[13px]">
+            <li key={d.id} className="flex flex-wrap items-start gap-3 border-t border-line-soft py-2.5 text-[13px]">
               <span className="min-w-0 flex-1">
                 {d.label}
                 <span className="block break-words text-[11px] text-muted">{documentSub(d)}</span>
+                <DocumentCheck check={d.check ?? null} returned={d.returned ?? null} className="mt-1" />
               </span>
-              {d.uploadedAt ? (
-                <button type="button" onClick={() => setOpen(d)} aria-label={`View ${d.label}`}
-                  className="min-h-9 rounded-lg border border-line px-3.5 text-xs font-semibold text-text hover:bg-surface-2">
-                  View
-                </button>
+              {d.returned ? (
+                <span className="text-[11px] text-muted">File deleted</span>
+              ) : d.uploadedAt ? (
+                <span className="flex flex-wrap items-center gap-2">
+                  <button type="button" onClick={() => setOpen(d)} aria-label={`View ${d.label}`}
+                    className="min-h-9 rounded-lg border border-line px-3.5 text-xs font-semibold text-text hover:bg-surface-2">
+                    View
+                  </button>
+                  <SendBackButton name={d.label} who={who} send={(reason) => handoffSendBackAction(id, d.id, reason)} onDone={() => router.refresh()} />
+                </span>
               ) : (
                 <span className="text-[11px] text-muted">Not uploaded yet</span>
               )}

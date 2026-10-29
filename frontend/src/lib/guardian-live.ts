@@ -379,12 +379,14 @@ export function declinedWords(r: Pick<ApiHandoffRequest, "current" | "athlete" |
   };
 }
 
-/** Holds for every state — the agreed carry-over rules (2S1-BE-15 §4). */
+/** Holds for every state — the agreed carry-over rules (2S1-BE-15 §4).
+ *  POL-FE-01 (rule of 2026-10-28): everything not yet paid out follows the
+ *  athlete to the new holder's own account; payouts already sent stay sent. */
 export function handoffCarryOver(r: ApiHandoffRequest): string[] {
   return [
     "Agreed orders continue as they are.",
-    `Money ${r.athlete.firstName} already earned is paid as before, to your payout account.`,
-    `${r.requester.firstName} sets up their own payout account for anything new.`,
+    `Payouts already sent stay sent; anything not yet paid out goes to ${r.requester.firstName}'s own payout account once they set it up.`,
+    `${r.requester.firstName} sets up their own payout account — until then, ${r.athlete.firstName}'s payouts wait. Nothing more goes to the account that was there before.`,
   ];
 }
 

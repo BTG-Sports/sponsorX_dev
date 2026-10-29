@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import { confirmOrgUploadAction, removeOrgDocumentAction, requestOrgUploadAction } from "@/app/(app)/property/documents/actions";
 import { Badge } from "@/components/ui";
+import { CHECKING_WORDS } from "@/lib/document-checks-live";
 import { US_STATES } from "@/lib/onboarding-live";
 import {
   ADDABLE_KINDS, checkFile, dayOf, dialogCopy, documentAction, documentBadge, documentLine, historyLine, needsYou, removeWarning, uploadHint,
@@ -168,6 +169,7 @@ function DocumentDialog({ open, data, onClose, onDone }: { open: Open; data: Api
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const picker = useRef<HTMLInputElement>(null);
 
   const added = ADDABLE_KINDS.find((k) => k.kind === kind)?.label ?? "Document";
   const copy = row
@@ -196,8 +198,13 @@ function DocumentDialog({ open, data, onClose, onDone }: { open: Open; data: Api
         return setError("The upload didn't reach storage. Check your connection and try again — it's listed under the documents to check again.");
       }
       if (!put.ok) return setError("Storage refused the upload. Try the file again.");
+      /* P8-FE-11 — the API opens and reads the file before it counts (P8-BE-09 / -11); a refused one comes back with its reason. */
+      setBusy(CHECKING_WORDS);
       const c = await confirmOrgUploadAction(g.documentId);
-      if (!c.ok) return setError(c.message);
+      if (!c.ok) {
+        setFile(null);
+        return setError(c.message);
+      }
       onDone(c.data);
     } finally {
       setBusy(null);
@@ -253,6 +260,7 @@ function DocumentDialog({ open, data, onClose, onDone }: { open: Open; data: Api
             <span>{uploadHint(data.upload, kind)}</span>
             <span className="mt-1 inline-flex min-h-9 items-center rounded-lg border border-line px-3.5 text-xs font-semibold text-text">Choose file</span>
             <input
+              ref={picker}
               type="file"
               accept={data.upload.types.join(",")}
               className="sr-only"
@@ -306,7 +314,17 @@ function DocumentDialog({ open, data, onClose, onDone }: { open: Open; data: Api
               )}
             </div>
           )}
-          {error && <p role="alert" className="text-[11px] text-danger">{error}</p>}
+          {error && (
+            <div role="alert" className="flex flex-wrap items-center gap-2.5 text-[11px] text-danger">
+              <span className="min-w-0 break-words">{error}</span>
+              {!file && busy === null && (
+                <button type="button" onClick={() => picker.current?.click()}
+                  className="min-h-9 rounded-lg border border-danger/50 px-3.5 text-xs font-semibold text-danger hover:bg-danger/10">
+                  Try again
+                </button>
+              )}
+            </div>
+          )}
           {row?.file?.uploadedAt && <p className="text-[11px] text-faint">On file since {dayOf(row.file.uploadedAt)}.</p>}
         </div>
       </div>

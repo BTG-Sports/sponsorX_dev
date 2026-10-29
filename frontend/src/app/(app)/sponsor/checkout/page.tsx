@@ -215,7 +215,8 @@ export default async function CheckoutPage({
               )}
             </StadiumPanel>
           )}
-          <ShopPaymentNote />
+          {/* POL-FE-04 — says the order is held while card payment is closed. */}
+          <ShopPaymentNote paymentsOpen={hold.checkout?.paymentsOpen} />
         </aside>
       </div>
     </>

@@ -245,17 +245,21 @@ export default async function OnboardingDetailPage({ params }: { params: Promise
             ) : (
               <ul className="divide-y divide-line-soft">
                 {p.documents.map((d) => (
-                  <li key={d.id} className={`flex flex-wrap items-center justify-between gap-2 py-2 ${d.current ? "" : "opacity-70"}`}>
+                  <li key={d.id} className={`flex flex-wrap items-start justify-between gap-2 py-2 ${d.current ? "" : "opacity-70"}`}>
                     <div className="min-w-0">
                       <p className="break-words text-sm font-medium">
                         {d.filename}
-                        {!d.current && <span className="ml-1.5 text-[11px] font-normal text-faint">earlier file</span>}
+                        {!d.current && <span className="ml-1.5 text-[11px] font-normal text-faint">{d.returned ? "sent back" : "earlier file"}</span>}
                       </p>
                       <p className="text-[11px] text-muted">
                         {profileDocumentLine(d)} · {fileSize(d.bytes)}
                       </p>
                     </div>
-                    <OrgDocumentOpen onboardingId={o.id} documentId={d.id} filename={d.filename} />
+                    {/* P8-FE-11 — what reading it found, Send back, and no View once its file is gone. */}
+                    <OrgDocumentOpen
+                      onboardingId={o.id} documentId={d.id} filename={d.filename}
+                      check={d.check ?? null} returned={d.returned ?? null} who={o.orgName} canSendBack={d.current}
+                    />
                   </li>
                 ))}
               </ul>

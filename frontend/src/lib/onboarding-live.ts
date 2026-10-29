@@ -72,7 +72,28 @@ export type ApiOnboardingDocument = {
   removedAt?: string | null;
   /** Staff read only (GET /onboarding/:id/documents): a 5-minute audited link. */
   downloadUrl?: string | null;
+  /** P8-BE-10 — BTG sent it back, and why; its file is gone and it no longer counts. */
+  returnedAt?: string | null;
+  returnedReason?: string | null;
 };
+
+/**
+ * P8-FE-11 — the document BTG sent back for a checklist row that is still
+ * open: the newest returned one of that kind (and state), so the row can
+ * say "BTG asked for a new one: …" over its Upload. Null once the row is
+ * done, or when nothing of that kind was returned.
+ */
+export function returnedFor(
+  item: Pick<ApiChecklistItem, "kind" | "stateCode" | "done">,
+  documents: readonly Pick<ApiOnboardingDocument, "kind" | "stateCode" | "returnedAt" | "returnedReason">[],
+): { at: string; reason: string } | null {
+  if (item.done) return null;
+  const returned = documents
+    .filter((d) => d.kind === item.kind && d.returnedAt && (item.stateCode === null || (d.stateCode ?? null) === item.stateCode))
+    .sort((a, b) => new Date(b.returnedAt!).getTime() - new Date(a.returnedAt!).getTime());
+  const d = returned[0];
+  return d ? { at: d.returnedAt!, reason: d.returnedReason ?? "" } : null;
+}
 
 /** 2S1-BE-06 — one required document, ticked by the API from what is uploaded. */
 export type ApiChecklistItem = { key: string; kind: string; stateCode: string | null; label: string; documentId: string | null; done: boolean };

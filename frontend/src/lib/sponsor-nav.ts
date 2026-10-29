@@ -21,8 +21,9 @@ export const SPONSOR_NAV: NavItem[] = [
   { href: "/sponsor/marketplace", label: "Packages", icon: "box", group: "Marketplace" },
   { href: "/sponsor/shop", label: "Shop", icon: "store", group: "Marketplace" },
 
-  /* The sponsor's own account. Not wired yet — inert text, not dead links. */
-  { href: "#", label: "Billing", icon: "card", group: "Account", groupIcon: "gear", pending: true },
+  /* The sponsor's own account. Billing is the invoices screen (POL-FE-13);
+     the rest are not wired yet — inert text, not dead links. */
+  { href: "/sponsor/invoices", label: "Billing", icon: "card", group: "Account", groupIcon: "gear" },
   { href: "#", label: "Messages", icon: "mail", group: "Account", pending: true },
   { href: "#", label: "Settings", icon: "gear", group: "Account", pending: true },
 ];

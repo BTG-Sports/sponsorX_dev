@@ -232,7 +232,8 @@ export default async function AthleteHomePage() {
   if (acctRes && !acctRes.ok && acctRes.status !== 403 && acctRes.status !== 404) {
     throw new Error(`/payouts/account unavailable (${acctRes.status}).`);
   }
-  const payout = acctRes?.ok ? athleteBanner((await acctRes.json()) as ApiPayoutAccount) : null;
+  /* POL-FE-26 — the minor's own login (guardianControl) is told their guardian sets this up; no button. */
+  const payout = acctRes?.ok ? athleteBanner((await acctRes.json()) as ApiPayoutAccount, { minor: Boolean(actor.guardianControl) && !actor.actingFor }) : null;
   const h = buildHome({
     profile,
     invitations: inv.invitations,
@@ -323,7 +324,7 @@ export default async function AthleteHomePage() {
                   <p className="mt-1 text-xs leading-relaxed text-muted">{payout.body}</p>
                   {payout.minorLine && <p className="mt-1 text-xs leading-relaxed text-muted">{payout.minorLine}</p>}
                 </div>
-                <StripeLinkButton cta={payout.cta} action={athletePayoutLinkAction} testBadge={payout.testBadge} />
+                {!payout.guardianOnly && <StripeLinkButton cta={payout.cta} action={athletePayoutLinkAction} testBadge={payout.testBadge} />}
               </section>
             </ArenaPanel>
           )}

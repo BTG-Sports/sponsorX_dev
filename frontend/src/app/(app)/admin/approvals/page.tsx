@@ -9,6 +9,7 @@ import {
   deskFilters,
   deskHeadline,
   deskListQuery,
+  deskOpenId,
   toDeskItem,
   type DeskSummary,
 } from "@/lib/approvals-live";
@@ -94,13 +95,24 @@ async function liveDesk(sp: SearchParams) {
   const filters = deskFilters(sp);
   /* A stale or hand-typed campaign id is dropped, not sent. */
   if (filters.camp && !summary.campaigns.some((c) => c.id === filters.camp)) filters.camp = "";
-  if (summary.total === 0) return { summary, filters, rows: [], page: null, artwork };
+  const now = new Date();
+  /* POL-FE-23 — ?open=<id>: a dashboard or email link lands on the post
+     itself, drawer open, whichever page of the queue it is on. A post that
+     can't be read (gone, or outside the scope) just opens the desk. */
+  const openId = deskOpenId(sp);
+  const open = openId ? await readPost(openId, now) : null;
+  if (summary.total === 0) return { summary, filters, rows: [], page: null, artwork, open };
 
   const res = await apiFetch(`/deliverables${deskListQuery(filters, pageParams(sp))}`);
   if (!res.ok) throw new Error(`Content queue unavailable (${res.status}).`);
   const body = (await res.json()) as { deliverables: ApiDeliverable[]; page: PageInfo };
-  const now = new Date();
-  return { summary, filters, rows: body.deliverables.map((d) => toDeskItem(d, now)), page: body.page, artwork };
+  return { summary, filters, rows: body.deliverables.map((d) => toDeskItem(d, now)), page: body.page, artwork, open };
+}
+
+async function readPost(id: string, now: Date) {
+  const res = await apiFetch(`/deliverables/${encodeURIComponent(id)}`);
+  if (!res.ok) return null;
+  return toDeskItem((await res.json()) as ApiDeliverable, now);
 }
 
 const PIPELINE_HINTS = [
@@ -307,6 +319,7 @@ export default async function AdminApprovalsPage({
             campaigns={live.summary.campaigns}
             filters={live.filters}
             live={{ act: approvalAction, link: assetLink }}
+            open={live.open}
           />
         ) : (
           <ApprovalsDesk

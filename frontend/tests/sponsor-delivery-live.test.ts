@@ -1,8 +1,25 @@
 import { describe, expect, it } from "vitest";
 
-import { answerRefusal, deliveryBadge, deliveryNote, stamp, timeLeft, type ApiDeliveryLine } from "@/lib/sponsor-delivery-live";
+import { answerRefusal, confirmDeliveryWords, deliveryBadge, deliveryNote, stamp, timeLeft, type ApiDeliveryLine } from "@/lib/sponsor-delivery-live";
 
 /* 2S4-FE-04 (sponsor half) — confirming a delivery: the 24-hour countdown and the words. */
+
+describe("confirming pays the seller (POL-FE-28)", () => {
+  it("the dialog says who is paid, how much, and that a problem can't be reported afterwards", () => {
+    const w = confirmDeliveryWords({ title: "Youth basketball clinic", seller: "Westfield Hawks", markedBy: "Riley Carter" }, 120_000);
+    expect(w.title).toBe("Confirm “Youth basketball clinic” as delivered?");
+    expect(w.points[0]).toBe("Westfield Hawks is paid for this line — $1,200.00 is released to them. This can’t be undone.");
+    expect(w.points[1]).toMatch(/no longer report a problem/);
+    expect(w.points[2]).toBe("Riley Carter marked it delivered; confirming says you agree.");
+    expect(w.button).toBe("Yes, confirm — pay Westfield Hawks");
+    expect(w.cancel).toBe("Not yet");
+  });
+  it("without the line's total it still says the payment is released", () => {
+    const w = confirmDeliveryWords({ title: "Banner", seller: "Westfield Hawks", markedBy: null });
+    expect(w.points[0]).toBe("Westfield Hawks is paid for this line — their payment is released. This can’t be undone.");
+    expect(w.points[2]).toMatch(/^Westfield Hawks marked it delivered/);
+  });
+});
 
 const delivered: ApiDeliveryLine = {
   lineId: "line-1", title: "Youth basketball clinic", state: "DELIVERED", seller: "Westfield Hawks",

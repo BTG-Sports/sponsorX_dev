@@ -12,7 +12,7 @@ import {
 import { HeroBand, MiniChip, Monogram, initials } from "@/components/hero";
 import { RosterOps } from "@/components/roster-ops";
 import { EmptyState, SkeletonPage } from "@/components/states";
-import { CampaignLauncher } from "@/components/campaign-launcher";
+import { CampaignChangeControls } from "@/components/campaign-change";
 import { notFound } from "next/navigation";
 import { resolveBack } from "@/lib/back";
 import {
@@ -24,7 +24,8 @@ import {
 } from "@/lib/ops-live";
 import { apiFetch, fetchActor } from "@/server/api";
 import { roleLabel } from "@/server/viewer";
-import { draftAndSendOrder, setAutoStaffingAction } from "./actions";
+import { adminCancelCampaign, adminCancelImpact, adminChangeCampaign, adminChangeImpact, draftAndSendOrder, setAutoStaffingAction } from "./actions";
+import { campaignButtons } from "@/lib/campaign-change-live";
 import { openDealDisputeAction } from "@/app/(app)/admin/deal-disputes/actions";
 import { mayManageDisputes, type ApiDealDispute } from "@/lib/deal-disputes-live";
 import { readPausingDisputes } from "@/server/deal-disputes-read";
@@ -42,14 +43,10 @@ import { AutoStaffingToggle } from "@/components/auto-staffing-toggle";
 import type { ApiCampaign } from "@/lib/sponsor-live";
 import { PACE_COPY, fmtRate, paceFor, paceProjection } from "@/lib/campaign-ui";
 import { demoState } from "@/lib/demo";
-import {
-  builderDraft,
-  builderSteps,
-  campaignDetailX,
-  eligibleAthletes,
-  mediaInv,
-  rewardDraft,
-} from "@/lib/fixtures";
+import { campaignDetailX } from "@/lib/fixtures";
+
+/** P8-FE-12 — the four server actions behind Change / Cancel campaign. */
+const CHANGE_ACTIONS = { cancelImpact: adminCancelImpact, changeImpact: adminChangeImpact, cancel: adminCancelCampaign, change: adminChangeCampaign };
 
 /* --------------------------------------------------------------------------
    Campaign Operations Dashboard — §9 screen 9, mockup screen 9.
@@ -85,7 +82,7 @@ const OPS_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "S
    gets "not in your role" — not "this page doesn't exist". */
 /* P4-FE-08 — the campaign read's stage fields (P4-BE-09): what happens next,
    and every stage change with whether the system made it. */
-type LiveStage = Pick<ApiCampaign, "nextStep" | "stageChange" | "stageHistory" | "autoStaffing" | "staffing" | "state" | "startDate">;
+type LiveStage = Pick<ApiCampaign, "nextStep" | "stageChange" | "stageHistory" | "autoStaffing" | "staffing" | "state" | "startDate" | "endDate" | "name" | "budget">;
 
 type LiveBoard = {
   ops: ApiOps;
@@ -94,6 +91,8 @@ type LiveBoard = {
   disputes: ApiDealDispute[];
   /** P8-FE-05 — a BTG admin can pause an order over a concern from the drawer. */
   canRaiseConcern: boolean;
+  /** P8-FE-12 — which of Change campaign / Cancel campaign this role sees at this stage. */
+  buttons: { change: boolean; cancel: boolean };
 };
 
 async function liveOps(id: string): Promise<LiveBoard | "missing" | { lacking: string; roles: string[] } | null> {
@@ -116,7 +115,14 @@ async function liveOps(id: string): Promise<LiveBoard | "missing" | { lacking: s
   }
   if (!res.ok) throw new Error(`Campaign unavailable (${res.status}).`);
   const stage = c.ok ? ((await c.json()) as { campaign: LiveStage }).campaign : null;
-  return { ops: (await res.json()) as ApiOps, stage, disputes, canRaiseConcern: mayManageDisputes(who.actor.roles) };
+  const ops = (await res.json()) as ApiOps;
+  return {
+    ops,
+    stage,
+    disputes,
+    canRaiseConcern: mayManageDisputes(who.actor.roles),
+    buttons: campaignButtons(stage?.state ?? ops.campaign.state, who.actor.roles),
+  };
 }
 
 /** P4-FE-08 — the next step and the stage history, "Moved automatically"
@@ -222,6 +228,7 @@ function LiveOpsView({
   stage,
   disputes,
   canRaiseConcern,
+  buttons,
   back,
   initial,
 }: LiveBoard & {
@@ -254,12 +261,21 @@ function LiveOpsView({
             </p>
           </div>
         </div>
-        <Link
-          href={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report?from=campaign`}
-          className="rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
-        >
-          Sponsor report
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* P8-FE-12 — Change campaign / Cancel campaign for BTG admins and
+              campaign managers; the modal shows what it affects first. */}
+          <CampaignChangeControls
+            campaign={{ id: c.id, name: stage?.name ?? c.name, startDate: stage?.startDate ?? c.startDate, endDate: stage?.endDate ?? c.endDate, budget: stage?.budget }}
+            show={buttons}
+            actions={CHANGE_ACTIONS}
+          />
+          <Link
+            href={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report?from=campaign`}
+            className="rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
+          >
+            Sponsor report
+          </Link>
+        </div>
       </div>
 
       <HeroBand border="border-admin/25" className="sx-animate sx-delay-1">
@@ -442,15 +458,15 @@ export default async function CampaignDashboardPage({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <CampaignLauncher
-            label="Edit campaign"
-            variant="secondary"
-            inventory={mediaInv}
-            athletes={eligibleAthletes}
-            steps={builderSteps}
-            draft={builderDraft}
-            reward={rewardDraft}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* P8-FE-12 — "Edit campaign" (which saved nothing) is now Change
+              campaign, beside Cancel campaign. On sample data the buttons
+              say so instead of calling the API. */}
+          <CampaignChangeControls
+            campaign={{ id, name: c.name, startDate: "", endDate: "" }}
+            show={{ change: true, cancel: true }}
+            actions={CHANGE_ACTIONS}
+            demo
           />
           <Link
             href={`/sponsor/campaigns/${id}/report?from=campaign`}

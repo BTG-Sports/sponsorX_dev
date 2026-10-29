@@ -3,18 +3,22 @@ import {
   OpsHeader,
   OutsideRole,
   QueueDeck,
+  ReviewPanel,
   StageHeading,
   StageLink,
   SystemsPanel,
 } from "@/components/ops-stage";
 import {
   actionTotal,
+  BOARD_REVIEWS,
   campaignLines,
   healthRows,
   queueCards,
+  reviewLines,
   type ApiDeliveryHealth,
   type ApiIntegrationHealth,
   type ApiQueues,
+  type ApiReviewRow,
 } from "@/lib/ops-board-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
@@ -50,12 +54,21 @@ async function read<T>(path: string): Promise<T | null> {
  *  the server-paged Campaigns desk (P2-FE-02 — no board renders every row). */
 const BOARD_CAMPAIGNS = 5;
 
+/* POL-FE-23 — BTG's own review queue (the desk's "review" tab, minus the
+   sponsor's turn), longest wait first. The API's smallest page (12) is read
+   and the board shows the first BOARD_REVIEWS by review-by date. */
+const REVIEW_QUERY = "/deliverables?state=DRAFT_SUBMITTED,BTG_REVIEW&systemReturned=exclude&sort=waiting&page=1&size=12";
+
 export default async function OperationsBoardPage() {
   const actor = await requirePortalAccess("admin");
-  const [board, delivery, health] = await Promise.all([
+  const [board, delivery, health, reviews] = await Promise.all([
     read<{ queues: ApiQueues }>("/operations/board"),
     read<{ campaigns: ApiDeliveryHealth[]; page: { total: number } }>(`/operations/delivery-health?page=1&size=${BOARD_CAMPAIGNS}`),
     read<ApiIntegrationHealth>("/operations/integration-health"),
+    /* Only a role whose desk it is — the link must land on a page that is theirs. */
+    mayUse("/admin/approvals", actor.roles)
+      ? read<{ deliverables: ApiReviewRow[]; page: { total: number } }>(REVIEW_QUERY)
+      : Promise.resolve(null),
   ]);
 
   /* A queue the role can READ but whose desk isn't theirs (C-1 — e.g. FINANCE
@@ -70,7 +83,9 @@ export default async function OperationsBoardPage() {
   const campaigns = delivery ? campaignLines(delivery.campaigns) : null;
   const campaignTotal = delivery?.page.total ?? 0;
   const rows = health ? healthRows(health) : null;
-  const readAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const now = new Date();
+  const toReview = reviews ? reviewLines(reviews.deliverables, now, BOARD_REVIEWS) : null;
+  const readAt = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
   return (
     <>
@@ -81,6 +96,20 @@ export default async function OperationsBoardPage() {
           <section className="mt-10">
             <StageHeading title="Needs BTG action" hint="Each card opens the page it counts." delay={0.5} />
             <QueueDeck cards={cards} />
+          </section>
+        )}
+
+        {/* POL-FE-23 — the posts themselves, with their review-by dates; each
+            link opens that post on the desk, not a list. */}
+        {toReview && reviews && (
+          <section className="mt-10">
+            <StageHeading
+              title={`Content to review${reviews.page.total ? ` · ${reviews.page.total}` : ""}`}
+              hint="Soonest review-by first. Each line opens the post."
+              action={<StageLink href="/admin/approvals">Approvals desk →</StageLink>}
+              delay={0.7}
+            />
+            <ReviewPanel lines={toReview} total={reviews.page.total} allHref="/admin/approvals" />
           </section>
         )}
 

@@ -18,7 +18,36 @@ export type ApiCheckout = {
   terms: ApiOrderTerms | null;
   sponsorName: string | null;
   billingContact: { name: string; email: string } | null;
+  /** POL-FE-04 — whether card payment is open right now (the API's
+   *  `paymentsOpen()`, POL-BE-04). Absent on an API that doesn't send it
+   *  yet: checkout then states the rule, never a guess either way. */
+  paymentsOpen?: boolean;
 };
+
+/* ------------------------------------------------- payment at checkout (POL-FE-04) */
+
+/** What checkout says about paying — the approval condition, then card
+ *  payment on the order page. While card payment is CLOSED the order is
+ *  held with no pay-by date, and the sponsor is told so here, plainly, not
+ *  only on the order page afterwards. `undefined` is an API that doesn't
+ *  say: the rule is stated for both cases rather than a countdown promised. */
+export function checkoutPaymentWords(paymentsOpen: boolean | undefined): { title: string; text: string; held: boolean } {
+  if (paymentsOpen === false) {
+    return {
+      held: true,
+      title: "Approval, then payment — card payment opens soon",
+      text: "Card payment isn’t open yet. When your order is approved it’s held for you with no pay-by date: nothing is cancelled for non-payment, no countdown runs, and we’ll email your pay-by date as soon as card payment opens. Nothing is charged at checkout, and no card or bank details are asked for here.",
+    };
+  }
+  return {
+    held: false,
+    title: "Approval, then payment",
+    text:
+      paymentsOpen === true
+        ? "Orders within your spending limit are approved straight away; a listing may ask its seller to accept first (they have 48 hours), and an order above your limit is checked by BTG. Then you pay the full total by card from the order page, on the payment provider’s own page, within 3 days. Nothing is charged at checkout, and no card or bank details are asked for here."
+        : "Orders within your spending limit are approved straight away; a listing may ask its seller to accept first (they have 48 hours), and an order above your limit is checked by BTG. Then you pay the full total by card from the order page, on the payment provider’s own page, within 3 days of card payment being open — if it isn’t open yet when your order is approved, the order is held for you and we’ll email your pay-by date. Nothing is charged at checkout, and no card or bank details are asked for here.",
+  };
+}
 
 export type BillingDraft = { name: string; email: string; reference: string };
 

@@ -57,8 +57,12 @@ describe("P1-ART-21 · sidebar groups", () => {
     const items = [...src.matchAll(/\{ href: "([^"]+)", label: "([^"]+)", icon: "[a-z]+"(?:, group: "([^"]+)")?(?:, groupIcon: "([a-z]+)")? \}/g)].map((m) => ({
       href: m[1]!, label: m[2]!, group: m[3], groupIcon: m[4],
     }));
-    expect(items.length).toBe(13);
+    /* 14 since POL-FE-24 added Campaign orders to the Campaigns group. */
+    expect(items.length).toBe(14);
     const { top, groups } = groupNav(items);
+    expect(groups.find((g) => g.label === "Campaigns")?.items.map((i) => i.label)).toEqual(["Campaign orders", "Deliverables", "Invitations", "Offers"]);
+    /* "Orders" in Marketplace meant marketplace sales — it is named so now. */
+    expect(groups.find((g) => g.label === "Marketplace")?.items.map((i) => i.label)).toEqual(["Inventory", "Listings", "Sales", "Team"]);
     expect(top.map((i) => i.label)).toEqual(["Dashboard"]);
     expect(groups.map((g) => g.label)).toEqual(["Campaigns", "Marketplace", "Money", "Account"]);
     for (const g of groups) {

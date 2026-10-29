@@ -4,6 +4,7 @@
    pages and from the shop-* client islands alike.
    -------------------------------------------------------------------------- */
 
+import { checkoutPaymentWords } from "@/lib/checkout-gate";
 import { fmtDay, lineSeller, usd, type ShopLine } from "@/lib/shop-live";
 
 /** A refusal: the message, then every reason the API gave as a list. */
@@ -23,17 +24,15 @@ export function ShopRefusal({ message, reasons }: { message: string; reasons: st
 }
 
 /** How the order is paid (2S4-FE-02): the approval condition, then card
- *  payment on the order page. Nothing is charged at checkout. */
-export function ShopPaymentNote() {
+ *  payment on the order page. Nothing is charged at checkout. POL-FE-04:
+ *  with card payment closed (`paymentsOpen` false) it says the order is held
+ *  and a pay-by date is emailed when payment opens. */
+export function ShopPaymentNote({ paymentsOpen }: { paymentsOpen?: boolean } = {}) {
+  const w = checkoutPaymentWords(paymentsOpen);
   return (
-    <div className="rounded-xl border border-dashed border-line bg-surface-2 px-4 py-3">
-      <p className="text-xs font-semibold">Approval, then payment</p>
-      <p className="mt-1 text-xs text-muted">
-        Orders within your spending limit are approved straight away; a listing may ask its seller to accept first (they
-        have 48 hours), and an order above your limit is checked by BTG. Then you pay the full total by card from the order
-        page, on the payment provider&rsquo;s own page, within 3 days. Nothing is charged at checkout, and no card or bank
-        details are asked for here.
-      </p>
+    <div role={w.held ? "status" : undefined} className={`rounded-xl border border-dashed px-4 py-3 ${w.held ? "border-primary/40 bg-primary/8" : "border-line bg-surface-2"}`}>
+      <p className="text-xs font-semibold">{w.title}</p>
+      <p className="mt-1 text-xs text-muted">{w.text}</p>
     </div>
   );
 }

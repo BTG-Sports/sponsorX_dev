@@ -39,8 +39,10 @@ export type ApiOrderPayment = {
 /* ------------------------------------------------------------- the card */
 
 /** Which design the Payment card shows. `not-open` is before BTG approves;
- *  `none` is an order that will never be paid here (cancelled, refunded). */
-export type PaymentKind = "due" | "processing" | "paid" | "failed" | "not-open" | "none";
+ *  `held` (POL-FE-04) is approved while card payment is closed — the order
+ *  waits with no pay-by date; `none` is an order that will never be paid
+ *  here (cancelled, refunded). */
+export type PaymentKind = "due" | "held" | "processing" | "paid" | "failed" | "not-open" | "none";
 
 type Tone = "neutral" | "primary" | "accent" | "danger" | "warn";
 
@@ -63,8 +65,63 @@ const PAID_OR_LATER: ReadonlySet<string> = new Set(["PAID", "IN_DELIVERY", "FULF
 const DUE: ReadonlySet<string> = new Set(["APPROVED", "AWAITING_PAYMENT"]);
 
 export const PAY_NOTE = "You’ll pay on Stripe’s secure page. SponsorX never sees your card.";
-export const NOT_CONNECTED_NOTE = "Opens once our payment provider is connected.";
+/** POL-FE-04 — card payment is closed (GET …/payment `canPay: false`): the
+ *  order is held with no pay-by date, and the sponsor is emailed one when
+ *  payment opens (POL-BE-04). Never a countdown while this is true. */
+export const HELD_TITLE = "Held for you — card payment opens soon; we’ll email your pay-by date";
+export const HELD_TEXT = "Your order is approved and waiting for you. No pay-by date is running: your three days start only when card payment opens, and we’ll email you then. Nothing has been charged.";
+export const NOT_CONNECTED_NOTE = `${HELD_TITLE}.`;
 export const TEST_PROVIDER_BADGE = "Test payment provider — staging only, no real money";
+
+/* ---------------------------------------------- a failed card payment (POL-FE-31) */
+
+/** Stripe's decline codes in plain words; anything else is left out of the
+ *  headline and kept, verbatim, in the small reference line for support. */
+const PLAIN_FAILURE: Record<string, string> = {
+  card_declined: "your bank declined the card",
+  generic_decline: "your bank declined the card",
+  insufficient_funds: "the card didn’t have enough funds",
+  expired_card: "the card has expired",
+  incorrect_cvc: "the security code didn’t match",
+  incorrect_number: "the card number didn’t match",
+  invalid_number: "the card number didn’t match",
+  processing_error: "Stripe couldn’t process the card just then",
+  authentication_required: "your bank asked for extra authentication and it wasn’t completed",
+  do_not_honor: "your bank declined the card",
+  fraudulent: "your bank declined the card",
+  lost_card: "your bank declined the card",
+  stolen_card: "your bank declined the card",
+};
+
+/** The reason in words, or null when Stripe gave none we can translate. */
+export function plainFailure(reason: string | null | undefined): string | null {
+  if (!reason) return null;
+  return PLAIN_FAILURE[reason.trim().toLowerCase()] ?? null;
+}
+
+/**
+ * What a sponsor reads after a failed card payment: what happened (in plain
+ * words when Stripe's code has them), what to do next, and how to reach
+ * support. The provider's code and reference stay out of the headline and
+ * go in `reference`, a small line a sponsor can quote to support.
+ */
+export function failedPaymentWords(
+  latest: Pick<ApiPaymentAttempt, "failureReason" | "providerRef"> | null,
+  supportEmail: string | null | undefined,
+): { text: string; reference: string | null } {
+  const why = plainFailure(latest?.failureReason);
+  const help = supportEmail ? `write to ${supportEmail}` : "contact BTG";
+  const text = [
+    why ? `Nothing was charged — ${why}.` : "Nothing was charged.",
+    "Your order is still approved. Try again on Stripe’s page with the same card or another one.",
+    `If it keeps failing, call the number on your card or ${help} and we’ll sort it out with you.`,
+  ].join(" ");
+  const parts = [
+    latest?.providerRef ? `Reference for support: ${latest.providerRef}` : null,
+    latest?.failureReason && !why ? `Stripe’s code: ${latest.failureReason}` : null,
+  ].filter(Boolean);
+  return { text, reference: parts.length ? parts.join(" · ") : null };
+}
 
 /** "Pay $1,000.00 by card. Leaves SponsorX and opens Stripe." — every Stripe CTA ends so. */
 export function stripeCta(label: string): { label: string; ariaLabel: string } {
@@ -81,10 +138,14 @@ export function stripeCta(label: string): { label: string; ariaLabel: string } {
  *  - due otherwise (no attempt, or one the
  *    sponsor walked away from — PENDING)   → E1
  *
+ *  - due, card payment closed (canPay false,
+ *    POL-FE-04)                             → held: no countdown, no button
+ *
  * `payment` may be null when its read failed — the card then says so rather
- * than guessing, and offers no button.
+ * than guessing, and offers no button. `opts.supportEmail` is the address a
+ * failed payment's banner points to (POL-FE-31).
  */
-export function paymentView(orderState: string, payment: ApiOrderPayment | null): PaymentView {
+export function paymentView(orderState: string, payment: ApiOrderPayment | null, opts: { supportEmail?: string | null } = {}): PaymentView {
   const latest = payment?.latest ?? null;
 
   if (PAID_OR_LATER.has(orderState)) {
@@ -165,21 +226,37 @@ export function paymentView(orderState: string, payment: ApiOrderPayment | null)
 
   const amount = usd(payment.amountCents);
   if (latest?.state === "FAILED") {
-    const detail = [latest.failureReason ? `Reason: ${latest.failureReason}` : null, latest.providerRef ? `ref: ${latest.providerRef}` : null]
-      .filter(Boolean)
-      .join(" · ");
+    const words = failedPaymentWords(latest, opts.supportEmail);
+    /* The failure is still worth reading while card payment is closed, but a
+       "Try again" that the API would refuse is not offered (review 2026-10-29). */
+    const closed = !payment.canPay;
     return {
       kind: "failed",
-      status: "Not paid",
+      status: closed ? "Not paid · held" : "Not paid",
       tone: "danger",
       banner: {
         title: "Your card payment didn’t go through",
-        text: "Nothing was charged. Your order is still approved — check the card details or use another card on Stripe’s page.",
-        detail: detail || null,
+        text: closed ? `${words.text} Card payment is closed right now; we’ll email you when it opens again.` : words.text,
+        detail: words.reference,
         role: "alert",
       },
-      cta: stripeCta("Try again on Stripe"),
-      note: payment.canPay ? PAY_NOTE : NOT_CONNECTED_NOTE,
+      cta: closed ? null : stripeCta("Try again on Stripe"),
+      note: closed ? NOT_CONNECTED_NOTE : PAY_NOTE,
+      poll: false,
+    };
+  }
+
+  /* POL-FE-04 — approved while card payment is closed: held, no pay-by
+     date, no countdown, no button. The API's deadlineAt / paymentDueAt are
+     null meanwhile, so nothing here could count down even if it tried. */
+  if (!payment.canPay) {
+    return {
+      kind: "held",
+      status: "Held for you",
+      tone: "primary",
+      banner: { title: HELD_TITLE, text: HELD_TEXT, detail: null, role: "status" },
+      cta: null,
+      note: null,
       poll: false,
     };
   }
@@ -202,8 +279,11 @@ export function paymentView(orderState: string, payment: ApiOrderPayment | null)
 
 /** The line under the lines list, where the order's generic hint would talk
  *  about invoicing — replaced while payment is by card. */
-export function paymentHint(kind: PaymentKind): string | null {
+export function paymentHint(kind: PaymentKind, closed = false): string | null {
+  /* A failed attempt while card payment is closed reads like a held order: there is nothing to pay yet. */
+  if (kind === "failed" && closed) return "Your order is approved and held for you. Card payment is closed right now — we’ll email you when it opens again.";
   if (kind === "due" || kind === "failed") return "Your order is approved. Pay the total by card to start delivery.";
+  if (kind === "held") return "Your order is approved and held for you. Card payment opens soon — we’ll email your pay-by date.";
   if (kind === "processing") return "Your payment is being confirmed by the payment provider.";
   return null;
 }

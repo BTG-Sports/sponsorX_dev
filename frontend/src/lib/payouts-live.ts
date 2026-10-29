@@ -130,6 +130,28 @@ export const STRIPE_ARIA_SUFFIX = "Leaves SponsorX and opens Stripe.";
 export const PROVIDER_NOT_CONNECTED = "Opens once our payment provider is connected.";
 export const TEST_PROVIDER_BADGE = "Test payment provider — staging only, no real money";
 
+/** POL-FE-25 — the one sentence Earnings and Payouts both use for where
+ *  money lands. Never "outside the platform": payouts go through the payee's
+ *  own payout account, set up and managed on the Payouts page. */
+export const PAYOUT_ROUTE_LINE = "Payouts go to your payout account on Stripe — set up and managed on the Payouts page.";
+export const PAYOUTS_PATH = "/athlete/money";
+
+/** POL-FE-26 — a minor's own login never gets the Stripe button: their
+ *  guardian sets the account up from their own login (2S1-BE-11). */
+export const GUARDIAN_SETS_UP_LINE = "Because you're under 18, your guardian sets this up from their own login. You'll see it here once it's ready.";
+
+/** POL-FE-01 — after a guardian handoff or coming of age the account reads
+ *  NOT_SET_UP again while approved payouts wait for the new holder's own
+ *  account (POL-BE-01). The API never sends to a non-ready account. */
+export const WAITING_SET_UP_HEADLINE = "Set up your own payout account — payouts are waiting for it";
+
+/** How many approved payouts are waiting to be sent — counted by the API
+ *  (`byState`), or over the listed payouts on an older read. */
+export function waitingPayouts(me: Pick<ApiMyPayouts, "payouts"> & Partial<Pick<ApiMyPayouts, "byState">>): number {
+  if (me.byState) return me.byState.APPROVED?.count ?? 0;
+  return me.payouts.filter((p) => p.state === "APPROVED").length;
+}
+
 /** A same-site path to come back to — never another site. */
 export function safeReturnPath(p: unknown, fallback: string): string {
   return isSafeLocalPath(p) ? p.slice(0, 300) : fallback;
@@ -165,10 +187,24 @@ export type AccountPanelView = {
   testBadge: string | null;
   /** Whether the payee still has something to do on Stripe. */
   actionNeeded: boolean;
+  /** POL-FE-26 — a minor's own login: the step is the guardian's, so the
+   *  screen says so (`guardianLine`) and shows no Stripe button. */
+  guardianOnly: boolean;
+  guardianLine: string | null;
+  /** POL-FE-01 — approved payouts waiting for this account to be set up. */
+  waiting: number;
 };
 
-export function accountPanel(a: ApiPayoutAccount, payeeLabel: string): AccountPanelView {
+export type AccountPanelOpts = {
+  /** The viewer is the minor themself (GET /me `guardianControl`), not the guardian acting for them. */
+  minor?: boolean;
+  /** Approved payouts waiting to be sent (`waitingPayouts`). */
+  waiting?: number;
+};
+
+export function accountPanel(a: ApiPayoutAccount, payeeLabel: string, opts: AccountPanelOpts = {}): AccountPanelView {
   const disabled = !a.canSetUp;
+  const waiting = Math.max(0, opts.waiting ?? 0);
   const cta = (label: string, variant: "primary" | "outline") => ({
     label: `${label} ↗`,
     ariaLabel: `${label}. ${STRIPE_ARIA_SUFFIX}`,
@@ -176,46 +212,70 @@ export function accountPanel(a: ApiPayoutAccount, payeeLabel: string): AccountPa
     disabled,
     disabledNote: disabled ? PROVIDER_NOT_CONNECTED : null,
   });
-  const base = { status: a.status, testBadge: a.testProvider ? TEST_PROVIDER_BADGE : null };
+  const base = { status: a.status, testBadge: a.testProvider ? TEST_PROVIDER_BADGE : null, waiting };
   if (a.status === "READY") {
     return {
       ...base,
       chip: { label: "Active", mark: "✓", tone: "accent" },
       headline: "Payout account · Active ✓",
-      body: "Payouts go to the bank account you added on Stripe. To change it, update it on Stripe.",
+      body: opts.minor
+        ? "Payouts go to the bank account your guardian added on Stripe. Changing it is theirs to do, from their own login."
+        : "Payouts go to the bank account you added on Stripe. To change it, update it on Stripe.",
       cta: cta("Manage payouts on Stripe", "outline"),
       actionNeeded: false,
+      guardianOnly: Boolean(opts.minor),
+      guardianLine: null,
     };
   }
+  /* The step is the guardian's: the minor sees who does it, never a button that would fail. */
+  const guardian = opts.minor
+    ? { guardianOnly: true, guardianLine: GUARDIAN_SETS_UP_LINE }
+    : { guardianOnly: false, guardianLine: null };
   if (a.status === "NEEDS_INFO") {
     return {
       ...base,
       chip: { label: "Needs information", mark: "●", tone: "warn" },
-      headline: "Stripe needs a bit more information",
-      body: "Pick up where you left off on Stripe, then you come straight back here. Bank and tax details stay with Stripe.",
+      headline: opts.minor ? "Stripe needs a bit more from your guardian" : "Stripe needs a bit more information",
+      body: opts.minor
+        ? "Your guardian picks up where they left off on Stripe. Bank and tax details stay with Stripe."
+        : "Pick up where you left off on Stripe, then you come straight back here. Bank and tax details stay with Stripe.",
       cta: cta("Continue on Stripe", "primary"),
       actionNeeded: true,
+      ...guardian,
     };
   }
+  const waitingWords = waiting === 1 ? "An approved payout is waiting" : `${waiting} approved payouts are waiting`;
   return {
     ...base,
     chip: { label: "Not set up", mark: "●", tone: "warn" },
-    headline: "Payout account not set up",
-    body: `Set up where ${payeeLabel} gets paid. It takes about 5 minutes on Stripe, then you come straight back here.`,
+    headline: waiting > 0
+      ? (opts.minor ? "Your guardian sets up the payout account — payouts are waiting for it" : WAITING_SET_UP_HEADLINE)
+      : (opts.minor ? "Your guardian sets up the payout account" : "Payout account not set up"),
+    body: waiting > 0
+      ? `${waitingWords} for a payout account in the name of whoever is responsible for ${payeeLabel === "you" ? "you" : payeeLabel} now. Nothing goes to the account that was there before; it is sent as soon as the new one is ready.`
+      : opts.minor
+        /* POL-FE-26 — the minor never does this themselves, so no "you come straight back here". */
+        ? `Where ${payeeLabel === "you" ? "you get" : `${payeeLabel} gets`} paid is set up on Stripe by your guardian. It takes them about 5 minutes.`
+        : `Set up where ${payeeLabel} gets paid. It takes about 5 minutes on Stripe, then you come straight back here.`,
     cta: cta("Set up payouts with Stripe", "primary"),
     actionNeeded: true,
+    ...guardian,
   };
 }
 
 /** The athlete home's compact banner — only while something is left to do. */
 export function athleteBanner(a: ApiPayoutAccount, opts: { minor?: boolean } = {}) {
-  const panel = accountPanel(a, "you");
+  const panel = accountPanel(a, "you", { minor: opts.minor });
   if (!panel.actionNeeded) return { show: false as const, readyLine: "Payout account ready ✓ · managed by Stripe" };
   return {
     show: true as const,
     title: a.status === "NEEDS_INFO" ? "Stripe needs a bit more information" : "Payout account not set up",
-    body: "Payouts go through Stripe. Set it up now so your first payout isn't held up.",
-    minorLine: opts.minor ? "Because you're under 18, a parent or guardian finishes this on Stripe." : null,
+    body: opts.minor
+      ? "Payouts go through Stripe, to an account your guardian sets up."
+      : "Payouts go through Stripe. Set it up now so your first payout isn't held up.",
+    minorLine: opts.minor ? GUARDIAN_SETS_UP_LINE : null,
+    /* POL-FE-26 — no button for the minor: it would always fail. */
+    guardianOnly: panel.guardianOnly,
     cta: panel.cta,
     testBadge: panel.testBadge,
   };

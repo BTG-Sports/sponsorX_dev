@@ -68,7 +68,8 @@ export async function acceptOrderAction(
 /* ------------------------------------------------------ dispute documents */
 
 type Grant = { ok: true; id: string; uploadUrl: string; contentType: string } | { ok: false; message: string };
-type Done = { ok: true } | { ok: false; message: string };
+/** P8-FE-11 — `status` lets the upload tell a refused file (Try again) from a call nothing answered (Check again). */
+type Done = { ok: true } | { ok: false; message: string; status?: number };
 
 const ID = /^[A-Za-z0-9_-]{1,120}$/;
 const validId = (v: unknown): v is string => typeof v === "string" && ID.test(v);
@@ -121,10 +122,10 @@ export async function confirmDisputeUploadAction(disputeId: string, documentId: 
       { method: "POST" },
     );
   } catch {
-    return { ok: false, message: "Couldn't reach SponsorX just now. Use Check again in a moment." };
+    return { ok: false, status: 0, message: "Couldn't reach SponsorX just now. Use Check again in a moment." };
   }
   if (!res.ok) {
-    return { ok: false, message: uploadRefusal(res.status, await errorBody(res), `The upload isn't confirmed yet (HTTP ${res.status}).`) };
+    return { ok: false, status: res.status, message: uploadRefusal(res.status, await errorBody(res), `The upload isn't confirmed yet (HTTP ${res.status}).`) };
   }
   revalidatePath("/athlete/orders/[id]", "page");
   return { ok: true };

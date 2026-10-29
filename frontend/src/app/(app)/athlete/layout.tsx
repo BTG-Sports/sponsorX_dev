@@ -14,8 +14,10 @@ import "../../mobile-nav.css";
 const NAV: NavItem[] = [
   { href: "/athlete", label: "Dashboard", icon: "grid" },
 
-  /* What BTG sends and what the athlete owes back. */
-  { href: "/athlete/deliverables", label: "Deliverables", icon: "calendar", group: "Campaigns", groupIcon: "megaphone" },
+  /* What BTG sends and what the athlete owes back. POL-FE-24 — the Campaign
+     Orders the athlete signs or declines, named apart from marketplace sales. */
+  { href: "/athlete/orders", label: "Campaign orders", icon: "file", group: "Campaigns", groupIcon: "megaphone" },
+  { href: "/athlete/deliverables", label: "Deliverables", icon: "calendar", group: "Campaigns" },
   { href: "/athlete/invitations", label: "Invitations", icon: "inbox", group: "Campaigns" },
   { href: "/athlete/offers", label: "Offers", icon: "mail", group: "Campaigns" },
 
@@ -24,7 +26,8 @@ const NAV: NavItem[] = [
      sell through (2S2-FE-05). */
   { href: "/athlete/inventory", label: "Inventory", icon: "box", group: "Marketplace", groupIcon: "store" },
   { href: "/athlete/listings", label: "Listings", icon: "megaphone", group: "Marketplace" },
-  { href: "/athlete/sales", label: "Orders", icon: "store", group: "Marketplace" },
+  /* POL-FE-24 — "Orders" here meant marketplace sales; say so. */
+  { href: "/athlete/sales", label: "Sales", icon: "store", group: "Marketplace" },
   { href: "/athlete/team", label: "Team", icon: "users", group: "Marketplace" },
 
   /* Earned, paid and where it lands. */

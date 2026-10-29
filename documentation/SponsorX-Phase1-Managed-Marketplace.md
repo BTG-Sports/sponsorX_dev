@@ -3399,9 +3399,9 @@ Each is held with the findings as its reasons. Clear documents change nothing. T
     - Of several documents for one requirement, any that reads CLEAR, or was never read, meets it.
   - **Tests:** `document-checks.test.ts` covers names, kinds, dates and expiry, the birth date, UNREAD, which documents hold, and real OCR of a phone photo, a scanned PDF and a sideways card. `document-flows.test.ts` shows each flow held with its reason and approved automatically on a clear document. It also covers BTG's apply and decline of a held legal name, and the check shown in every BTG view.
 
-### ▶ `P8-FE-11` · Document checks on screen
+### ✅ `P8-FE-11` · Document checks on screen
 
-**Order** 157.999 · **FE** · **Where:** Code · **2d** · **Ready** — HeckerCreatives (P8-BE-09, -10, -11 are done)
+**Order** 157.999 · **FE** · **Where:** Code · **2d** · **Done** — 2026-10-29, HeckerCreatives (walked end to end on the local stack with the real OCR; see Memory/2026-10-29)
 
 1. **Upload screens:**
    - Every document confirm call can now answer 422 with a reason in plain words, for example "That photo is too dark to read. Retake it in good light, with no shadow on it." Show that reason under the upload, with a "Try again" button.
@@ -3430,6 +3430,14 @@ Each is held with the findings as its reasons. Clear documents change nothing. T
 - **Depends on:** P8-BE-09, P8-BE-10, P8-BE-11
 - **Done when:** People see why a file was refused; BTG sees each document's result and can send it back; a held legal name can be applied or rejected from the screen
 - **Reference:** §10; the user, 2026-10-28
+- **Delivered 2026-10-29 (HeckerCreatives), on `feature/POL-FE-batch-P8-FE-11-12`:**
+  - **Words and shapes** are pure in `frontend/src/lib/document-checks-live.ts`: the check badge (Clear / Flagged / "Couldn't read — check it by eye"), the findings, the sent-back lines, the send-back reason rule (5–1,000, mirroring the API), and which confirm failures get Try again (4xx) versus Check again (no answer or 5xx). Tested in `tests/document-checks-live.test.ts`.
+  - **Upload screens.** `id-upload.tsx`, `private-file-upload.tsx`, `sponsor-proof-upload.tsx`, `onboarding-checklist.tsx`, `org-documents.tsx`, the athlete's profile editor and the delivery-proof form show "Checking your document…" while the confirm runs, the API's 422 reason with **Try again** when it refuses, and "BTG asked for a new one: …" with the picker again where the person's own read carries the sent-back document (the organisation's checklist and the athlete's profile edit). The intake status, guardian set-up, coming-of-age, public handoff status and `GET /property/documents` filter sent-back documents out, so there the row goes back to "still needed" and the reason arrives by email; the `returned` prop is already wired so those screens light up when the API exposes it.
+  - **BTG's review screens.** `live-signup-review.tsx`, `org-document-open.tsx`, `sponsor-request-review.tsx` and `guardian-handoff-desk.tsx` (with `documentHolds`) show each document's check and findings, a **Send back** button with a reason dialog (`components/document-check.tsx`), and no View on a sent-back document ("File deleted"). The actions post to the four send-back routes and revalidate.
+  - **Held legal names.** `sensitive-edits-section.tsx` shows the ID's check and `components/legal-name-decision.tsx`: Apply, Decline (note) and Send ID back, through `decideLegalNameAction` and `sendBackLegalNameIdAction`.
+  - Not touched: `deliverable-upload.tsx` (creative, not a document under `P8-BE-09`).
+  - Checked: the whole frontend suite (159 files, 1,814 tests), eslint and `next build` pass.
+  - **QA 2026-10-29 (three browser passes):** a dark 120×90 photo refused in plain words with Try again and a crisp ID accepted through MinIO; flagged findings, Send back (reason rule, Escape) on new sign-ups, an organisation and a sponsor request, the organisation going to CHANGES_REQUESTED and its public checklist saying "BTG asked for a new one"; and the whole legal-name loop with the real OCR — held with findings, Send ID back, the athlete told, resubmitted, applied. One fix from it: `GET /profile-changes` sends `idDocumentCheckFindings` as the stored `{ code, says }` objects, not the `says` strings the other views send, so `editIdCheck` now reads both. **For `rcfworks`:** flattening that route through `checkView` like the others would make the shapes match.
 
 ### ▶ `P8-BE-12` · Cancel and change a campaign, automatically
 
@@ -3475,7 +3483,7 @@ Cancelling stays impossible from REPORTING or COMPLETED.
 
 ### ▶ `P8-FE-12` · Cancel and Change buttons, with what they affect
 
-**Order** 157.9992 · **FE** · **Where:** Code · **2d** · **Ready** — HeckerCreatives (the API is `P8-BE-12`, in progress; build against the shapes above)
+**Order** 157.9992 · **FE** · **Where:** Code · **2d** · **Code review** — 2026-10-29, HeckerCreatives (built against the `P8-BE-12` contract; wires up when the API lands)
 
 1. **Two buttons** on the campaign page, for the sponsor's admin (`/sponsor/campaigns/{id}`) and for BTG (`/admin/campaigns/{id}`): **Change campaign** and **Cancel campaign**. Hide Cancel once the campaign is in reporting or completed. The existing "Edit campaign" button, which saves nothing, becomes Change campaign.
 2. **Change** opens a form with the name, dates and budget. On Continue it calls `change-impact` and opens the modal below.
@@ -3492,6 +3500,11 @@ Cancelling stays impossible from REPORTING or COMPLETED.
 - **Depends on:** P8-BE-12 (build against its contract now; wire when it lands)
 - **Done when:** The sponsor's admin and BTG can cancel and change a campaign from its page; the modal shows the affected products, their outcomes and the money before confirming; a held request says it went to BTG; BTG can approve or decline held requests; other roles see no buttons
 - **Reference:** §7, §10; the user, 2026-10-28
+- **Delivered 2026-10-29 (HeckerCreatives), on `feature/POL-FE-batch-P8-FE-11-12`:**
+  - **The contract** is typed once in `frontend/src/lib/campaign-change-live.ts` (impact, proposal, action result, request row) with the pure rules: who sees which button (SPONSOR_ADMIN, BTG_ADMIN, SUPER_ADMIN, CAMPAIGN_MGR; Cancel hidden from REPORTING, COMPLETED and CANCELLED; Change hidden once CANCELLED), the headline, groups, money lines, hold note, "Send to BTG", refusals, the outcome words, the change form (whole dollars in, cents out, only the changed fields sent) and the queue helpers. Tested in `tests/campaign-change-live.test.ts`.
+  - **The calls** are in `frontend/src/server/campaign-change.ts`, on the paths above. **A 404 answers "Not available yet"** in the UI rather than an error, so the screens are safe to ship before the API.
+  - **The screens.** `components/campaign-change.tsx` (the two buttons, the Change form, the shared impact modal — Cancel needs a reason, Back keeps the form — and the outcome dialog) sits beside the sponsor report on `/sponsor/campaigns/{id}` (only when the viewer is the sponsor's admin, `canManageCampaign`) and on `/admin/campaigns/{id}` (by role and stage); BTG's fixture page's dead "Edit campaign" is replaced. `/admin/campaign-requests` is the BTG desk (`campaign-requests-desk.tsx`: counts, Approve, Decline with a note, the same impact view), added to the admin nav and access list for SUPER_ADMIN, BTG_ADMIN and CAMPAIGN_MGR.
+  - **For `P8-BE-12`:** the contract gives no row shape for `GET /campaign-requests`, so the desk reads `requests` or `campaignRequests` with `state`, `decision`, `requestedBy`, `proposed` and `impact` all optional; if the names differ on arrival, only the types in `campaign-change-live.ts` and `readCampaignRequests` need changing.
 
 ### ✅ `P8-FE-03` · The rules tick on the sign-up page and the guardian's page
 

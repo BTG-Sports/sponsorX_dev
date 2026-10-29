@@ -18,7 +18,7 @@ import { demoState } from "@/lib/demo";
 import { formatCount } from "@/lib/format-count";
 import { demoRequestPage } from "@/lib/fixtures/sponsor-overview";
 import { textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
-import { REQUEST_STEPS, requestStepNow, type ApiSponsorRequest } from "@/lib/brief-status";
+import { REQUEST_STEPS, requestStepNow, requestStepsClosedWord, type ApiSponsorRequest } from "@/lib/brief-status";
 import { briefWord } from "@/lib/sponsor-words";
 import { BRIEF_STATE_FILTERS, liveSponsorRequestPage, type BriefCounts } from "@/server/sponsor";
 
@@ -180,7 +180,8 @@ function Requests({
           <PagedTable bare tone="sponsor" page={page} noun="Requests" filtered={filtered} label="Your requests" columns={columns}>
             {rows.map((r, i) => {
               const word = briefWord(r.state);
-              const now = requestStepNow(r.state);
+              /* POL-FE-21 — the steps follow the brief AND its campaign's real state. */
+              const now = requestStepNow(r.state, r.campaign?.state);
               return (
                 <Tr key={r.id} i={i}>
                   <Td>
@@ -195,7 +196,7 @@ function Requests({
                     {now >= 0 ? (
                       <StadiumSteps steps={REQUEST_STEPS} now={now} label={`Where ${r.objective} stands`} />
                     ) : (
-                      <span className="text-xs text-muted">Closed</span>
+                      <span className="text-xs text-muted">{requestStepsClosedWord(r.state, r.campaign?.state)}</span>
                     )}
                   </Td>
                   <Td act>
