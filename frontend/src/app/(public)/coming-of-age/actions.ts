@@ -19,6 +19,8 @@ export type ApiComingOfAgePage = {
   window: "allowance" | "reactivate" | "done" | "expired" | "not-started";
   until: string | null;
   idUploaded: boolean;
+  /** POL-BE-02 — the ID is in but didn't read clear: BTG is checking it before control moves. Absent from an older API. */
+  checking?: boolean;
 };
 
 const base = (token: string) => `/public/coming-of-age/${encodeURIComponent(token)}`;

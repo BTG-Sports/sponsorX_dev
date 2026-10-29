@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 
 import { handoffDocumentAction, handoffSendBackAction, staffDecisionAction } from "@/app/(app)/admin/guardian-handoffs/actions";
 import { DocumentCheck, SendBackButton } from "@/components/document-check";
-import { confirmPoints, documentSub, type ApiDeskHandoff, type ApiHandoffStaff } from "@/lib/guardian-handoffs-desk-live";
+import { confirmPoints, decisionWords, documentSub, mayDecide, type ApiDeskHandoff, type ApiHandoffStaff } from "@/lib/guardian-handoffs-desk-live";
 import { momentOf } from "@/lib/new-signups-live";
 import { useDialogFocus } from "./use-dialog-focus";
 
@@ -17,7 +17,9 @@ import { useDialogFocus } from "./use-dialog-focus";
    - "Confirm the switch" and "Decline" (a required reason the new guardian
      reads exactly as written) post through staffDecisionAction
      (POST /guardian-handoffs/:id/staff-decision); the page then re-reads.
-     Only a HANDED_OFF request has them; anything else is read only.
+     They show whenever the API says `btgMayDecide` (POL-FE-10): a
+     HANDED_OFF request, or one escalated after 7 days with no answer from
+     the current guardian. Anything else is read only.
    - Documents open in the viewer through a five-minute link the API signs
      and records (handoffDocumentAction) — fetched when it is opened, never
      before, and never stored.
@@ -26,18 +28,13 @@ import { useDialogFocus } from "./use-dialog-focus";
 export function HandoffDecision({ handoff, staffConfirmMinors }: { handoff: ApiDeskHandoff; staffConfirmMinors: boolean | null }) {
   const [open, setOpen] = useState<null | "confirm" | "decline">(null);
   const cur = handoff.current.firstName;
-  const waiting = handoff.state === "HANDED_OFF";
+  const waiting = mayDecide(handoff);
   return (
     <>
       <aside aria-label="Decision" className="flex flex-col gap-2.5 rounded-xl border border-line bg-surface p-4">
         {waiting ? (
           <>
-            <p className="text-xs text-muted">
-              {cur} handed off.{" "}
-              {staffConfirmMinors === false
-                ? "BTG staff confirm minors was on when they did, so it still waits for you."
-                : "BTG staff confirm minors is on, so it waits for you."}
-            </p>
+            <p className="text-xs leading-relaxed text-muted">{decisionWords(handoff, staffConfirmMinors) ?? "This request waits for you."}</p>
             <button type="button" onClick={() => setOpen("confirm")}
               className="min-h-12 rounded-lg bg-primary px-5 text-sm font-bold text-cta-ink hover:bg-primary-soft">
               Confirm the switch

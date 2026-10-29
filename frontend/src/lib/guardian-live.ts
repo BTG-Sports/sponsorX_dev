@@ -250,7 +250,43 @@ export type ApiHandoffRequest = {
   /** BTG's reason, as written (it was emailed too). The current guardian's
    *  decline carries no note to the requester. */
   declineNote?: string | null;
+  /* POL-BE-10 (2026-10-29) — how long it has waited for the current guardian,
+     the reminder, and BTG stepping in. Absent from an older API. */
+  /** When the request reached the current guardian. */
+  sentAt?: string | null;
+  /** Whole days with the current guardian (WAITING only; null otherwise). */
+  waitingDays?: number | null;
+  /** The one reminder the current guardian got, 3 days in. */
+  remindedAt?: string | null;
+  /** 7 days with no answer: escalated to BTG, who may decide with the documents. The current guardian can still answer. */
+  escalatedAt?: string | null;
+  /** BTG may confirm or decline it now: handed off for BTG's check, or escalated with no answer. */
+  btgMayDecide?: boolean;
 };
+
+const DAY_MS = 86_400_000;
+
+/** POL-FE-10 — "waiting 9 days" (or "sent today"): from the API's `waitingDays`, else counted from `sentAt`. Null when it isn't with the current guardian. */
+export function waitingAge(r: Pick<ApiHandoffRequest, "state" | "waitingDays" | "sentAt">, now = new Date()): string | null {
+  if (r.state !== "WAITING") return null;
+  const days = typeof r.waitingDays === "number"
+    ? r.waitingDays
+    : r.sentAt
+      ? Math.floor((now.getTime() - new Date(r.sentAt).getTime()) / DAY_MS)
+      : null;
+  if (days === null) return null;
+  if (days <= 0) return "sent today";
+  return `waiting ${days} day${days === 1 ? "" : "s"}`;
+}
+
+/** POL-FE-10 — escalated (7 days with no answer) and still open: BTG may decide, the current guardian still can. */
+export const isEscalated = (r: Pick<ApiHandoffRequest, "state" | "escalatedAt">) => r.state === "WAITING" && Boolean(r.escalatedAt);
+
+/** The current guardian's card once a request is escalated: what happens if they don't answer. Null before that. */
+export function escalationNotice(r: Pick<ApiHandoffRequest, "state" | "escalatedAt" | "requester">): string | null {
+  if (!isEscalated(r)) return null;
+  return `BTG will review this if you don’t answer. You can still hand off to ${r.requester.firstName} or decline — the first answer, yours or BTG’s, decides.`;
+}
 
 export const sampleHandoff: ApiHandoffRequest = {
   id: "ho_sample",
@@ -334,11 +370,18 @@ export function handoffViews(r: ApiHandoffRequest): PersonView[] {
       ["This request was closed.", `You were no longer ${a}’s guardian when it reached you.`],
       ["This request was closed.", "Nothing changed because of it."],
     ],
-    WAITING: [
-      [`${cur} has your request.`, `${cur} stays ${a}’s guardian until they hand off and your documents are checked.`],
-      [`${r.requester.name} asked to become ${a}’s guardian.`, "Only you can hand off or decline. Nothing changes until you do."],
-      [`${r.requester.name} asked to become your guardian.`, `${cur} decides. ${cur} still approves your agreements and payments.`],
-    ],
+    WAITING: isEscalated(r)
+      /* POL-FE-10 — 7 days with no answer: BTG may decide with the documents; the current guardian still can. */
+      ? [
+          [`${cur} hasn’t answered. BTG is reviewing your request.`, `${cur} stays ${a}’s guardian until BTG confirms or ${cur} hands off, and your documents are checked.`],
+          [`${r.requester.name} asked to become ${a}’s guardian.`, `You can still hand off or decline. BTG will review this if you don’t answer.`],
+          [`${r.requester.name} asked to become your guardian.`, `${cur} hasn’t answered, so BTG may decide. ${cur} still approves your agreements and payments.`],
+        ]
+      : [
+          [`${cur} has your request.`, `${cur} stays ${a}’s guardian until they hand off and your documents are checked.`],
+          [`${r.requester.name} asked to become ${a}’s guardian.`, "Only you can hand off or decline. Nothing changes until you do."],
+          [`${r.requester.name} asked to become your guardian.`, `${cur} decides. ${cur} still approves your agreements and payments.`],
+        ],
     HANDED_OFF: [
       [`${cur} handed off. BTG is confirming the switch.`, "You become the guardian as soon as BTG confirms."],
       [`You handed off ${a}’s account.`, `You keep approving things for ${a} until BTG confirms the switch to ${req}.`],

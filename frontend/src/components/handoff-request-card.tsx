@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui";
-import { handoffCarryOver, whenLabel, type ApiHandoffRequest } from "@/lib/guardian-live";
+import { escalationNotice, handoffCarryOver, waitingAge, whenLabel, type ApiHandoffRequest } from "@/lib/guardian-live";
 import { useDialogFocus } from "./use-dialog-focus";
 
 /* --------------------------------------------------------------------------
@@ -18,6 +18,10 @@ import { useDialogFocus } from "./use-dialog-focus";
    both stay off with the reason in their tooltip — only the current
    guardian answers, and a preview never looks like it handed anyone's
    child over.
+
+   POL-FE-10 / POL-BE-10 — the card says how long it has waited, when the
+   reminder went, and — once escalated after 7 days with no answer — that
+   BTG will review it. Hand off and Decline stay: the first answer decides.
    -------------------------------------------------------------------------- */
 
 const primaryBtn =
@@ -85,6 +89,8 @@ export function HandoffRequestCard({ request, decide, offReason = "Only the athl
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const { athlete, requester } = request;
+  const age = waitingAge(request);
+  const escalated = escalationNotice(request);
   const decline = () =>
     start(async () => {
       if (!decide) return;
@@ -100,14 +106,25 @@ export function HandoffRequestCard({ request, decide, offReason = "Only the athl
           {requester.name} asked to become {athlete.firstName}&rsquo;s guardian
         </h2>
         <Badge tone="warn">
-          <span aria-hidden="true" className="mr-1">!</span>Waiting for you
+          <span aria-hidden="true" className="mr-1">!</span>Waiting for you{age ? ` · ${age}` : ""}
         </Badge>
       </div>
+      {escalated && (
+        <p role="status" className="rounded-lg border border-warn/45 bg-warn/8 px-3.5 py-2.5 text-[13px] leading-relaxed">
+          <strong className="text-warn">{requester.firstName}&rsquo;s request has waited 7 days.</strong> {escalated}
+        </p>
+      )}
       <dl className="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm sm:grid-cols-[150px_minmax(0,1fr)]">
         <dt className="text-muted">Relationship</dt>
         <dd>{requester.relationship}</dd>
         <dt className="text-muted">Asked</dt>
         <dd>{whenLabel(request.requestedAt)}</dd>
+        {request.remindedAt && (
+          <>
+            <dt className="text-muted">Reminded</dt>
+            <dd>{whenLabel(request.remindedAt)}</dd>
+          </>
+        )}
         <dt className="text-muted">{requester.firstName}&rsquo;s documents</dt>
         <dd>{request.documentsUploaded ? "ID and proof of guardianship uploaded · checked when you hand off" : "Not uploaded yet"}</dd>
       </dl>
