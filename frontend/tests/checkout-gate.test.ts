@@ -6,6 +6,7 @@ import {
   billingDraftFrom,
   billingIssues,
   billingLines,
+  checkoutPaymentWords,
   gateHint,
   gateStatus,
   looksLikeCardNumber,
@@ -18,6 +19,25 @@ import {
 
 const terms: ApiOrderTerms = { id: "agr_1", kind: "MARKETPLACE_ORDER", version: 1, bodyHash: "sha256:abc", body: "DRAFT — terms" };
 const good = { name: "Morgan Hale", email: "morgan@harbor.example", reference: "" };
+
+describe("payment at checkout (POL-FE-04)", () => {
+  it("with card payment closed, checkout says the order is held and a pay-by date is emailed — no countdown", () => {
+    const w = checkoutPaymentWords(false);
+    expect(w.held).toBe(true);
+    expect(w.title).toMatch(/card payment opens soon/);
+    expect(w.text).toMatch(/held for you/);
+    expect(w.text).toMatch(/email your pay-by date/);
+    expect(w.text).toMatch(/no countdown runs/);
+    expect(w.text).not.toMatch(/within 3 days/);
+  });
+  it("open: the three-day rule; unknown: the rule for both cases, never a promise either way", () => {
+    expect(checkoutPaymentWords(true)).toMatchObject({ held: false, title: "Approval, then payment" });
+    expect(checkoutPaymentWords(true).text).toMatch(/within 3 days\./);
+    const unknown = checkoutPaymentWords(undefined);
+    expect(unknown.held).toBe(false);
+    expect(unknown.text).toMatch(/if it isn’t open yet when your order is approved, the order is held for you/);
+  });
+});
 
 describe("billing contact", () => {
   it("prefills from the sponsor's primary contact, or starts empty", () => {

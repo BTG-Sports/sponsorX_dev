@@ -20,6 +20,7 @@
    domain/spending-limit.ts, domain/delivery.ts (issue, timeline, desk).
    -------------------------------------------------------------------------- */
 
+import { HELD_TEXT, HELD_TITLE } from "@/lib/order-payment-live";
 import type { TrackStep } from "@/lib/seller-orders-live";
 
 /* The day and time words, as the Orders pages print them (seller-orders-live
@@ -408,6 +409,11 @@ const approvedHow = (o: Pick<OrderAutomation, "decidedBy" | "sellerApprovals">) 
 export function sponsorStatus(o: OrderAutomation, payKind: string, now: Date): StatusCard | null {
   const approvals = o.sellerApprovals ?? [];
   if (o.state === "APPROVED" || o.state === "AWAITING_PAYMENT") {
+    /* POL-FE-04 — card payment is closed: held, no pay-by date, no
+       countdown and no button. The API sends no deadline meanwhile. */
+    if (payKind === "held") {
+      return { tag: approvedHow(o), tone: "primary", pay: false, again: false, title: HELD_TITLE, text: HELD_TEXT };
+    }
     if (payKind !== "due") return null;
     const due = o.paymentDueAt ?? o.deadlineAt ?? null;
     const left = due ? hoursLeft(due, now) : null;
@@ -493,6 +499,9 @@ export function sponsorStatus(o: OrderAutomation, payKind: string, now: Date): S
 
 /** The pill beside the order's title, where the automation has a better word than the bare state. Null → the state's own. */
 export function sponsorBadge(o: OrderAutomation, payKind: string, now: Date): Pill | null {
+  if ((o.state === "APPROVED" || o.state === "AWAITING_PAYMENT") && payKind === "held") {
+    return { label: "Confirmed · held for you", tone: "primary", mark: "●" };
+  }
   if ((o.state === "APPROVED" || o.state === "AWAITING_PAYMENT") && payKind === "due") {
     const due = o.paymentDueAt ?? o.deadlineAt ?? null;
     if (due && hoursLeft(due, now) < 24) return { label: "Last day to pay", tone: "danger", mark: "!" };
