@@ -31,6 +31,12 @@ import { shopWrite } from "../shop/shop-api";
    address and user-agent go on the edge-keyed headers, so the acceptance
    records the signer, not this server. Payment is not taken here — it is
    the order page's card step, after BTG approves. SPONSOR_ADMIN only.
+
+   POL-FE-05. Place order also carries `totalCentsShown`, the total checkout
+   showed from the API's quote. The API refuses with 409 `total_changed` if
+   its own total differs — nothing is placed, the hold stands — and the
+   island re-reads the quote so the sponsor sees the new total first. The
+   refusal's `code` comes back with it for that.
    -------------------------------------------------------------------------- */
 
 export async function placeOrderAction(
@@ -38,6 +44,8 @@ export async function placeOrderAction(
   terms: { id: string; body: string },
   billing: BillingDraft,
   accepted: boolean,
+  /** The total checkout showed, in cents; undefined when it had no quote to show (an older API). */
+  totalCentsShown?: number,
 ): Promise<ShopResult> {
   if (typeof reservationId !== "string" || !reservationId) return { ok: false, message: "Unknown hold.", reasons: [] };
   if (!terms || typeof terms.id !== "string" || !terms.id || typeof terms.body !== "string" || !terms.body) {
@@ -47,11 +55,14 @@ export async function placeOrderAction(
   if (!billing || ![billing.name, billing.email, billing.reference].every((v) => typeof v === "string") || !billingComplete(billing)) {
     return { ok: false, message: "Complete the billing contact first.", reasons: [] };
   }
+  if (totalCentsShown !== undefined && !(typeof totalCentsShown === "number" && Number.isInteger(totalCentsShown) && totalCentsShown >= 0)) {
+    return { ok: false, message: "The total on this page can't be read — reload checkout to see it before placing the order.", reasons: [] };
+  }
   const bodyHashShown = "sha256:" + createHash("sha256").update(canonicaliseAgreementBody(terms.body), "utf8").digest("hex");
   const r = await shopWrite<ApiOrder>(
     "/marketplace-orders",
     "POST",
-    { ...placeOrderPayload({ reservationId, agreementId: terms.id, billing }), bodyHashShown },
+    { ...placeOrderPayload({ reservationId, agreementId: terms.id, billing, totalCentsShown }), bodyHashShown },
     edgeHeadersFrom(await headers(), { signer: true }),
   );
   if (!r.ok) {

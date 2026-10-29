@@ -16,10 +16,12 @@ import {
   gateHint,
   gateStatus,
   termsLabel,
+  totalChanged,
   type ApiCheckout,
   type BillingDraft,
+  type Quote,
 } from "@/lib/checkout-gate";
-import { usd, type ShopResult } from "@/lib/shop-live";
+import { feeText, usd, type ShopResult } from "@/lib/shop-live";
 
 /* --------------------------------------------------------------------------
    2S4-FE-01 / -02 — the buying buttons: Reserve & check out (cart, and "hold
@@ -28,14 +30,21 @@ import { usd, type ShopResult } from "@/lib/shop-live";
    (order detail). Each calls its server action; a success redirects
    (reserve, place, release) or refreshes (cancel), a refusal is listed with
    every reason the API gave.
+
+   POL-FE-05 — Place order sits next to the full total (subtotal, BTG's buyer
+   fee, total) from the API's quote, and sends that total back as
+   `totalCentsShown`. A 409 `total_changed` is shown in the API's words and
+   the page is refreshed, so the figures the sponsor sees — and the total
+   the next try sends — are the new ones.
    -------------------------------------------------------------------------- */
 
 type Refusal = { message: string; reasons: string[] } | null;
+type Refused = Extract<ShopResult, { ok: false }>;
 
 function useShopAction() {
   const [refusal, setRefusal] = useState<Refusal>(null);
   const [pending, begin] = useTransition();
-  const run = (fn: () => Promise<ShopResult>, onOk?: () => void) => {
+  const run = (fn: () => Promise<ShopResult>, onOk?: () => void, onRefused?: (r: Refused) => void) => {
     setRefusal(null);
     begin(async () => {
       const r = await fn();
@@ -43,7 +52,10 @@ function useShopAction() {
          may resolve with nothing — there is then nothing to show here. */
       if (!r) return;
       if (r.ok) onOk?.();
-      else setRefusal({ message: r.message, reasons: r.reasons });
+      else {
+        setRefusal({ message: r.message, reasons: r.reasons });
+        onRefused?.(r);
+      }
     });
   };
   return { refusal, pending, run };
@@ -79,19 +91,21 @@ const CHECKOUT_STEP_NOW: Record<"billing" | "terms" | "place", number> = { billi
  * server action exactly as rendered here, so the fingerprint the API checks
  * is of the words on this screen. `children` is step 1 (the hold's countdown,
  * lines and summary, rendered by the page), so the step strip above it can
- * follow where the sponsor has got to.
+ * follow where the sponsor has got to. `quote` is what placing it charges
+ * (POL-FE-05), shown again beside Place order and sent back with it.
  */
 export function ShopCheckoutGate({
   reservationId,
   checkout,
-  subtotalCents,
+  quote,
   children,
 }: {
   reservationId: string;
   checkout: ApiCheckout;
-  subtotalCents: number;
+  quote: Quote;
   children: ReactNode;
 }) {
+  const router = useRouter();
   const [billing, setBilling] = useState<BillingDraft>(() => billingDraftFrom(checkout.billingContact));
   const [touched, setTouched] = useState<Partial<Record<keyof BillingDraft, boolean>>>({});
   const [accepted, setAccepted] = useState(false);
@@ -181,8 +195,25 @@ export function ShopCheckoutGate({
 
           <section aria-labelledby="checkout-place" className="space-y-3 rounded-xl border border-line bg-surface px-4 py-4">
             <h2 id="checkout-place" className="text-sm font-semibold tracking-tight">4 · Place order</h2>
+            {/* POL-FE-05 — the full total, right where the order is committed. */}
+            <dl aria-label="What you will be charged" className="space-y-1 rounded-lg border border-line-soft bg-surface-2 px-3 py-2.5 text-xs">
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-muted">Subtotal</dt>
+                <dd className="font-semibold tabular-nums text-text">{usd(quote.subtotalCents)}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-muted">Fees</dt>
+                <dd className={quote.feesCents === null ? "text-faint" : "font-semibold tabular-nums text-text"}>{feeText(quote)}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3 border-t border-line-soft pt-1.5">
+                <dt className="font-semibold text-text">Total</dt>
+                <dd className="text-base font-semibold tabular-nums text-text">{usd(quote.totalCents)}</dd>
+              </div>
+            </dl>
             <p className="text-xs text-muted">
-              Subtotal <span className="font-semibold tabular-nums text-text">{usd(subtotalCents)}</span> · fees are added when the order is placed.{" "}
+              {quote.quoted
+                ? "This total is what you pay — nothing more is added when the order is placed."
+                : "The fee couldn’t be quoted right now; the order page shows the exact total once it’s placed."}{" "}
               {APPROVAL_CONDITION} Nothing is charged when you place it.
             </p>
             {/* POL-FE-04 — card payment is closed: the order is held, no pay-by date runs. */}
@@ -197,7 +228,15 @@ export function ShopCheckoutGate({
                 type="button"
                 disabled={!gate.ready || pending}
                 aria-describedby={hint ? "checkout-gate-hint" : undefined}
-                onClick={() => terms && run(() => placeOrderAction(reservationId, { id: terms.id, body: terms.body }, billing, accepted))}
+                onClick={() =>
+                  terms &&
+                  run(
+                    () => placeOrderAction(reservationId, { id: terms.id, body: terms.body }, billing, accepted, quote.quoted ? quote.totalCents : undefined),
+                    undefined,
+                    /* The total moved: re-read the quote so the figures above, and the next try's totalCentsShown, are the new ones. */
+                    (r) => totalChanged(r) && router.refresh(),
+                  )
+                }
                 className={`${primary} disabled:cursor-not-allowed`}
               >
                 {pending ? "Working…" : "Place order"}

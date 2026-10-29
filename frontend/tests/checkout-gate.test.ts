@@ -11,9 +11,13 @@ import {
   gateStatus,
   looksLikeCardNumber,
   placeOrderPayload,
+  quoteFor,
   termsLabel,
+  totalChanged,
+  TOTAL_CHANGED,
   type ApiOrderTerms,
 } from "@/lib/checkout-gate";
+import { feeText } from "@/lib/shop-live";
 
 /* 2S4-FE-02 — the checkout's contract gate, its pure pieces. */
 
@@ -97,6 +101,39 @@ describe("the gate", () => {
       billing: { name: "Morgan", email: "m@h.example" },
     });
     expect(placeOrderPayload({ reservationId: "res_1", agreementId: "agr_1", billing: { ...good, reference: " PO-1 " } }).billing).toEqual({ ...good, reference: "PO-1" });
+  });
+});
+
+/* POL-FE-05 — the full total before committing: the API's quote is what the
+   cart and checkout show, and what Place order sends back as totalCentsShown. */
+describe("the total before placing (POL-FE-05)", () => {
+  const quote = { currency: "USD", subtotalCents: 150_000, feesCents: 4_500, totalCents: 154_500 };
+
+  it("shows the quote's subtotal, fee and total — not the lines' sum", () => {
+    expect(quoteFor(quote, 150_000)).toEqual({ subtotalCents: 150_000, feesCents: 4_500, totalCents: 154_500, quoted: true });
+    expect(feeText(quoteFor(quote, 150_000))).toBe("$45.00");
+    expect(feeText(quoteFor({ ...quote, feesCents: 0, totalCents: 150_000 }, 150_000))).toBe("None");
+  });
+
+  it("without a quote (an older API) gives the lines' sum, the fee unknown — never guessed at zero", () => {
+    const q = quoteFor(undefined, 150_000);
+    expect(q).toEqual({ subtotalCents: 150_000, feesCents: null, totalCents: 150_000, quoted: false });
+    expect(feeText(q)).toBe("Not quoted");
+    expect(quoteFor({ currency: "USD", subtotalCents: 1, feesCents: Number.NaN, totalCents: 1 }, 150_000).quoted).toBe(false);
+    expect(quoteFor({ currency: "USD", subtotalCents: 1, feesCents: -1, totalCents: 0 }, 150_000).quoted).toBe(false);
+  });
+
+  it("Place order carries the total shown, and only when there was one", () => {
+    expect(placeOrderPayload({ reservationId: "res_1", agreementId: "agr_1", billing: good, totalCentsShown: 154_500 })).toMatchObject({ totalCentsShown: 154_500 });
+    expect(placeOrderPayload({ reservationId: "res_1", agreementId: "agr_1", billing: good })).not.toHaveProperty("totalCentsShown");
+  });
+
+  it("a 409 total_changed is the one refusal that re-reads the quote", () => {
+    expect(TOTAL_CHANGED).toBe("total_changed");
+    expect(totalChanged({ ok: false, code: "total_changed" })).toBe(true);
+    expect(totalChanged({ ok: false, code: "conflict" })).toBe(false);
+    expect(totalChanged({ ok: false })).toBe(false);
+    expect(totalChanged({ ok: true })).toBe(false);
   });
 });
 

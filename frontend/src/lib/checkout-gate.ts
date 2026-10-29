@@ -14,6 +14,12 @@
 
 export type ApiOrderTerms = { id: string; kind: string; version: number; bodyHash: string; body: string };
 
+/** POL-FE-05 — what placing the order charges, as the API quotes it
+ *  (`orderQuote`, POL-BE-05): the lines, BTG's buyer fee on them, and the
+ *  total — the same sum placing it charges. On `GET /cart` → `cart.quote`
+ *  and `GET /reservations/:id` → `checkout.quote`. */
+export type ApiQuote = { currency: string; subtotalCents: number; feesCents: number; totalCents: number };
+
 export type ApiCheckout = {
   terms: ApiOrderTerms | null;
   sponsorName: string | null;
@@ -22,7 +28,43 @@ export type ApiCheckout = {
    *  `paymentsOpen()`, POL-BE-04). Absent on an API that doesn't send it
    *  yet: checkout then states the rule, never a guess either way. */
   paymentsOpen?: boolean;
+  /** POL-FE-05 — the quote for this hold. Absent on an API that doesn't send it yet. */
+  quote?: ApiQuote;
 };
+
+/* ------------------------------------------------- the total before placing (POL-FE-05) */
+
+/** The figures the cart and checkout show before the order is placed. */
+export type Quote = {
+  subtotalCents: number;
+  /** BTG's buyer fee; null when the API gave no quote (an older API), so it is unknown rather than guessed at zero. */
+  feesCents: number | null;
+  totalCents: number;
+  /** Whether these came from the API's quote — only then is the total the total charged, and only then is it sent back as `totalCentsShown`. */
+  quoted: boolean;
+};
+
+/**
+ * What the sponsor will be charged, from the API's quote. An API that sends
+ * none can only give the lines' sum: the fee is then unknown and the total is
+ * the subtotal, said so on screen rather than promised. `linesCents` is the
+ * cart's own `totalCents`, which is still the lines' sum.
+ */
+export function quoteFor(quote: ApiQuote | null | undefined, linesCents: number): Quote {
+  const whole = (n: unknown): n is number => typeof n === "number" && Number.isInteger(n) && n >= 0;
+  if (quote && whole(quote.subtotalCents) && whole(quote.feesCents) && whole(quote.totalCents)) {
+    return { subtotalCents: quote.subtotalCents, feesCents: quote.feesCents, totalCents: quote.totalCents, quoted: true };
+  }
+  return { subtotalCents: linesCents, feesCents: null, totalCents: linesCents, quoted: false };
+}
+
+/** The API's `error.code` when the total moved between checkout showing it and the order being placed (409). */
+export const TOTAL_CHANGED = "total_changed";
+
+/** Whether a refused placing was the total changing — nothing was placed, the hold stands, and the quote is re-read before the sponsor tries again. */
+export function totalChanged(r: { ok: boolean; code?: string }): boolean {
+  return !r.ok && r.code === TOTAL_CHANGED;
+}
 
 /* ------------------------------------------------- payment at checkout (POL-FE-04) */
 
@@ -123,13 +165,17 @@ export function gateHint(missing: string[]): string | null {
   return `To place the order, complete ${list}.`;
 }
 
-/** The body the place-order action sends, trimmed. The terms' hash is added by the action, from the body shown. */
-export function placeOrderPayload(g: { reservationId: string; agreementId: string; billing: BillingDraft }) {
+/** The body the place-order action sends, trimmed. The terms' hash is added
+ *  by the action, from the body shown. POL-FE-05: `totalCentsShown` is the
+ *  total checkout showed — the API refuses (409 `total_changed`) if its own
+ *  differs; left out when checkout had no quote to show. */
+export function placeOrderPayload(g: { reservationId: string; agreementId: string; billing: BillingDraft; totalCentsShown?: number }) {
   const reference = g.billing.reference.trim();
   return {
     reservationId: g.reservationId,
     agreementId: g.agreementId,
     billing: { name: g.billing.name.trim(), email: g.billing.email.trim(), ...(reference ? { reference } : {}) },
+    ...(g.totalCentsShown !== undefined ? { totalCentsShown: g.totalCentsShown } : {}),
   };
 }
 
