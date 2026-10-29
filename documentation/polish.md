@@ -262,6 +262,31 @@ leaves the fees out. The real total appears only after the sponsor has committed
   checkout shows the full total next to the button that commits. If the API
   already has the quote, this needs front-end work only.
 - **Done when:** the total shown before placing equals the total charged; tests.
+- **Backend delivered (`POL-BE-05`, 2026-10-29):**
+  - **What was missing:** the API had no quote. The buyer fee
+    (`MARKETPLACE_BUYER_FEE_BPS`) was added only at the moment of placing.
+  - **One quote:** `orderQuote` (in `marketplace-order-rules.ts`) gives the
+    subtotal, BTG's buyer fee and the total. The cart, checkout and placing
+    all use it, so the total shown is the total charged. The card charge is
+    the order's `totalCents`.
+  - **The guard:** placing can carry `totalCentsShown`. If it differs from
+    the server's total, the order is refused with 409 `total_changed`
+    ("now $X"). Nothing is placed or accepted, and the hold is kept. It is
+    optional, so today's checkout keeps working.
+  - Tests: `backend/tests/phase2-orders.test.ts` (POL-BE-05 block, with a 3%
+    fee switched on).
+- **For `POL-FE-05` (screens):**
+  - **Where to read the quote:**
+    - `GET /cart` → `cart.quote`;
+    - `GET /reservations/:id` → `checkout.quote`.
+    - Both are `{ currency, subtotalCents, feesCents, totalCents }`.
+  - On checkout, show subtotal, fees and **Total** next to Place order.
+  - Remove "Fees: added when the order is placed" and "Total so far".
+  - The cart's own `totalCents` is still the lines' sum, so use `quote` for
+    the total.
+  - Send `totalCentsShown: checkout.quote.totalCents` with
+    `POST /marketplace-orders`.
+  - On a 409 `total_changed`, show the message and reload the quote.
 
 ### 6. A sponsor who pays twice gets no refund
 `POL-BE-06` · `POL-FE-06` · *Money · Silent* · likely
