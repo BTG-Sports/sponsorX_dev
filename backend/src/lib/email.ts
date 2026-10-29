@@ -137,6 +137,11 @@ export type EmailTemplate =
      told when it is back; a rejected account's request reaches BTG admins,
      and BTG's "no" reaches the person. */
   | "account.closed"
+  /* POL-BE-11 — a closure held for BTG: the owner, BTG's admins, the sponsor on each live deal; BTG's decline. */
+  | "account.closeHeld"
+  | "account.closeHeldBtg"
+  | "account.closingSponsor"
+  | "account.closeDeclined"
   | "account.reactivationLink"
   | "account.reactivated"
   | "account.reactivationRequested"

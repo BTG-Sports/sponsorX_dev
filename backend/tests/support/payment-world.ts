@@ -41,9 +41,10 @@ export async function paymentWorld(o: { T: string; OTHER_T: string; prefix: stri
     (env as unknown as Env)[k] = v;
   };
 
-  const call = async (method: string, path: string, clerk?: string, body?: unknown) => {
+  /** `ward`: a guardian's login acting for one of their minors (the x-sponsorx-ward header). */
+  const call = async (method: string, path: string, clerk?: string, body?: unknown, ward?: string) => {
     const res = await fetch(`${base}/api/v1${path}`, {
-      method, headers: { "content-type": "application/json", ...(clerk ? { "x-test-clerk": clerk } : {}) },
+      method, headers: { "content-type": "application/json", ...(clerk ? { "x-test-clerk": clerk } : {}), ...(ward ? { "x-sponsorx-ward": ward } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const text = await res.text();

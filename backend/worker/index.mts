@@ -105,7 +105,7 @@ import { sweepCampaignLaunches } from "../src/domain/campaign-launch.ts";
 import { STUDENT_DIGEST_HOUR_UTC, sendStudentApprovalDigests, sweepStudentAutomation } from "../src/domain/student-auto.ts";
 import { sweepEditionStages } from "../src/domain/edition-automation.ts";
 import { sweepHeldSales } from "../src/domain/ad-sale-auto.ts";
-import { purgeExpiredClosures } from "../src/domain/account-closure.ts";
+import { payOutClosedAccounts, purgeExpiredClosures } from "../src/domain/account-closure.ts";
 import { runNightlyFactCheck, FACT_CHECK_HOUR_UTC } from "../src/domain/fact-nightly.ts";
 import { refreshBenchmarks } from "../src/domain/benchmarks.ts";
 import { takeFeatureSnapshots } from "../src/domain/feature-snapshots.ts";
@@ -831,6 +831,12 @@ async function main(): Promise<void> {
         if (reminded || escalated) log(`[worker] guardian handoffs — reminded ${reminded}, escalated to BTG ${escalated}`);
       })
       .catch((error: unknown) => logError("[worker] guardian handoff sweep failed, will retry next hour:", error));
+    /* POL-BE-11 — a closed account's money that passes its holding period is requested to its payout account on file. */
+    void payOutClosedAccounts()
+      .then(({ requested }) => {
+        if (requested) log(`[worker] closed accounts — ${requested} payout(s) requested`);
+      })
+      .catch((error: unknown) => logError("[worker] closed-account payouts failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
   /* 2S3-BE-06 — BTG's daily summary of the listings that went live on their

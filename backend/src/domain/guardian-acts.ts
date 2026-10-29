@@ -106,7 +106,9 @@ export type CommitAct =
   /** Set up the payout account, or change an existing item or listing — not new, so not paused by coming of age. */
   | "manage"
   /** Ask for a payout. */
-  | "payoutRequest";
+  | "payoutRequest"
+  /** POL-BE-11 — close the athlete's account: their guardian does it while they act for the athlete. */
+  | "close";
 
 const PAUSED: ReadonlySet<CommitAct> = new Set(["accept", "list", "payoutRequest"]);
 

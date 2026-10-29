@@ -99,7 +99,7 @@ const A = {
   /* 2S4-BE-09 — tenant A's school asked to accept that order (its listing asks), unanswered. */
   sellerApproval: "ti_seller_approval_a",
   /* 2S1-BE-13 — a rejected tenant-A account asking to come back; 2S1-BE-15 — a request to become its guardian, waiting. */
-  closure: "ti_closure_a", handoff: "ti_handoff_a",
+  closure: "ti_closure_a", handoff: "ti_handoff_a", closureRequest: "ti_closure_request_a",
   /* P9-BE-16 — a slot sold to tenant A's campaign, and its artwork on the approval board. */
   soldSlot: "ti_slot_sold_a", artwork: "ti_artwork_a",
   /* 2S4-BE-13 — a refund owed to tenant A's sponsor, still to send. */
@@ -219,7 +219,7 @@ const PARAM_FOR: Record<string, string> = {
      exactly as another tenant's would, so a made-up one is the right probe. */
   "profile-changes": "pc_not_yours",
   /* 2S1-BE-13 / 2S1-BE-15. */
-  "account-closures": A.closure, "guardian-handoffs": A.handoff,
+  "account-closures": A.closure, "guardian-handoffs": A.handoff, "account-closure-requests": A.closureRequest,
   /* P9-BE-16 — a sold slot's artwork uploads, and the artwork's review steps. */
   "ad-slots": A.soldSlot, "edition-artwork": A.artwork,
   /* 2S4-BE-13 — Finance's refunds to send. */
@@ -302,6 +302,7 @@ const BODY: Record<string, unknown> = {
   "POST /profile-changes/{id}/decision": { decision: "APPLY" },
   /* 2S1-BE-13 / 2S1-BE-15. POST /me/close is the actor's own account, so an empty body (refused: confirm is required) keeps the sweep from closing tenant B's logins. */
   "POST /account-closures/{id}/reactivation-decision": { decision: "DECLINE", note: "cross-tenant" },
+  "POST /account-closure-requests/{id}/decline": { note: "cross-tenant" },
   "POST /guardian-handoffs/{id}/decision": { decision: "HAND_OFF" },
   "POST /guardian-handoffs/{id}/staff-decision": { decision: "CONFIRM" },
   "POST /guardians/{id}/verify": { method: "DOCUMENT" },
@@ -752,6 +753,11 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       id: A.closure, tenantId: t, subjectKind: "ATHLETE", subjectId: A.athlete, cause: "REJECTED", reason: "TI Secret reason",
       retainUntil: new Date(Date.now() + 3650 * 864e5), contactEmail: "ath@a.invalid", displayName: "TI Secret Closed",
       reactivationRequestedAt: new Date(), reactivationRequestNote: "TI Secret request",
+    } });
+    /* POL-BE-11 — a closure held for BTG. */
+    await prisma.closureRequest.create({ data: {
+      id: A.closureRequest, tenantId: t, subjectKind: "ATHLETE", subjectId: A.athlete, subjectTenantId: t, requestedBy: "ti_a_athlete_user", reason: "TI Secret closing",
+      holdReasons: ["TI Secret live deal"],
     } });
     await prisma.guardianHandoff.create({ data: {
       id: A.handoff, tenantId: t, athleteId: A.athlete, fromGuardianId: A.guardian, requesterName: "TI Secret New Guardian",
