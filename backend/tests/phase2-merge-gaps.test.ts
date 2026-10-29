@@ -372,9 +372,14 @@ describe.skipIf(!hasDatabase)("merge gaps · closures, closed sellers, the hando
       expect((await emails("athlete.sensitiveEdit")).at(-1)).toMatchObject({ data: { what: expect.stringMatching(/where they live/), reviewUrl: expect.stringMatching(/\/admin\/new-signups\/athletes\/mg_tx$/) } });
     });
 
-    it("a new date of birth that makes a minor an adult with a guardian starts the coming-of-age allowance at once", async () => {
+    it("a new date of birth that makes a minor an adult with a guardian starts the coming-of-age allowance once BTG applies it (POL-BE-02)", async () => {
       const r = await call("POST", "/athletes/mg_zoe/profile-changes", "mg_zed", { identity: { birthDate: "2001-01-01" } }, { "x-sponsorx-ward": "mg_zoe" });
       expect(r.status, r.text).toBe(201);
+      /* POL-BE-02 — held for BTG first: nothing starts until BTG applies it. */
+      expect(r.json.changes).toEqual([expect.objectContaining({ state: "PENDING" })]);
+      expect((await prisma.athlete.findUniqueOrThrow({ where: { id: "mg_zoe" }, select: { comingOfAgeStartedAt: true } })).comingOfAgeStartedAt).toBeNull();
+      const applied = await call("POST", `/profile-changes/${r.json.id}/decision`, "mg_admin", { decision: "APPLY" });
+      expect(applied.status, applied.text).toBe(200);
       const z = await prisma.athlete.findUniqueOrThrow({ where: { id: "mg_zoe" }, select: { comingOfAgeStartedAt: true, comingOfAgeDueAt: true, ageBand: true } });
       expect(z.comingOfAgeStartedAt).not.toBeNull();
       expect(z.ageBand).toBe("18_PLUS");

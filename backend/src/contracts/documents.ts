@@ -13,4 +13,4 @@ export const LegalNameDecisionInput = z
     z.object({ decision: z.literal("APPLY") }),
     z.object({ decision: z.literal("DECLINE"), note: z.string().trim().min(1).max(1000) }),
   ])
-  .meta({ id: "LegalNameDecisionInput", description: "BTG's answer to a new legal name the ID check held: APPLY makes it live; DECLINE closes it with a note the athlete reads." });
+  .meta({ id: "LegalNameDecisionInput", description: "BTG's answer to a profile change held for it — a new legal name the ID check held, or a date of birth or move that would make a minor an adult (POL-BE-02): APPLY makes it live; DECLINE closes it with a note the athlete reads." });

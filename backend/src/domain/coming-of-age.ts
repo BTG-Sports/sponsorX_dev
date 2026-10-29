@@ -19,6 +19,13 @@
  * control to the athlete — the guardian's link ends and they are told. The
  * payout account the guardian set up is detached (POL-BE-01,
  * payout-account-holder.ts): payouts not yet sent wait for the athlete's own.
+ * POL-BE-02 — only when the ID reads clear (the athlete's name and the date
+ * of birth on record, which a minor can no longer change without BTG —
+ * athlete-profile-change.ts). Flagged or unread, the takeover is HELD for
+ * BTG (`comingOfAgeHeldAt`, with the reasons): the guardian stays in
+ * control, the 90 days don't run out, and BTG confirms it
+ * (`confirmHeldComingOfAge`) or sends the ID back (signups-desk.ts), which
+ * ends the hold.
  *
  * If the 90 days run out, BOTH accounts are terminated: the athlete's login
  * is switched off and they are suspended, and so is the guardian's — unless
@@ -35,6 +42,8 @@ import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit, type AuditActor } from "../db/audit";
 import type { Actor } from "../auth/actor";
+import { assertAllowed } from "../auth/scope";
+import { ForbiddenError } from "../auth/errors";
 import { send } from "../lib/email";
 import { issueComingOfAgeToken, readComingOfAgeToken } from "../lib/signup-token";
 import { transitionAthleteIn, type SystemActor } from "./athlete";
@@ -44,6 +53,7 @@ import { finishAccountDocument, startAccountDocument, uploadedKinds } from "./ac
 import { appUrl, firstNameOf, SignupError } from "./athlete-signup";
 import { recordClosureIn, reopenClosureIn, REJECT_TAKES_LOGINS } from "./account-closure";
 import { detachAthletePayoutAccountIn } from "./payout-account-holder";
+import { documentHolds } from "./document-reading";
 
 type Tx = Prisma.TransactionClient;
 const DAY = 86_400_000;
@@ -56,7 +66,7 @@ const AUTO = (tenantId: string): SystemActor => ({ system: true, tenantId, userI
 const SELECT = {
   id: true, tenantId: true, state: true, legalName: true, displayName: true, email: true, birthDate: true, ageBand: true,
   majorityAge: true, guardianId: true, comingOfAgeStartedAt: true, comingOfAgeDueAt: true, comingOfAgeReminders: true,
-  comingOfAgeCompletedAt: true, comingOfAgeTerminatedAt: true,
+  comingOfAgeCompletedAt: true, comingOfAgeTerminatedAt: true, comingOfAgeHeldAt: true,
   guardian: { select: { id: true, legalName: true, email: true } },
 } as const;
 type Row = Prisma.AthleteGetPayload<{ select: typeof SELECT }>;
@@ -252,6 +262,8 @@ export async function sweepComingOfAge(now = new Date(), opts: { tenantIds?: str
     select: SELECT, take: 2000,
   });
   for (const a of open) {
+    /* POL-BE-02 — the ID is in and BTG is checking it: the 90 days don't run out, and there's nothing to remind about. */
+    if (a.comingOfAgeHeldAt) continue;
     if (a.comingOfAgeDueAt! <= now) {
       if (await prisma.$transaction((tx) => terminateIn(tx, a, now))) terminated++;
       continue;
@@ -285,7 +297,7 @@ async function completeIn(tx: Tx, a: Row, now: Date) {
   const moved = await tx.athlete.updateMany({
     /* tenant-scope: the athlete named by the signed link, in its own tenant. */
     where: { id: a.id, tenantId: a.tenantId, comingOfAgeCompletedAt: null },
-    data: { comingOfAgeCompletedAt: now, guardianId: null },
+    data: { comingOfAgeCompletedAt: now, guardianId: null, comingOfAgeHeldAt: null, comingOfAgeHeldReasons: [] },
   });
   if (moved.count !== 1) return;
   let reactivated = false;
@@ -352,6 +364,8 @@ export async function comingOfAgeByToken(token: string) {
     window: w.reason,
     until: "until" in w ? w.until : null,
     idUploaded: Boolean(a.comingOfAgeCompletedAt),
+    /* POL-BE-02 — the ID is in and BTG is checking it before control moves. */
+    checking: Boolean(a.comingOfAgeHeldAt && !a.comingOfAgeCompletedAt),
   };
 }
 
@@ -367,8 +381,61 @@ export async function confirmComingOfAgeUpload(token: string, documentId: string
   if (!windowOf(a).open) throw new SignupError("This link has expired. Contact BTG to come back.");
   const doc = await finishAccountDocument({ tenantId: a.tenantId, athleteId: a.id }, documentId);
   if (doc.kind !== "GOVERNMENT_ID") throw new SignupError("Taking over needs a government ID.", 422);
-  await prisma.$transaction((tx) => completeIn(tx, a, new Date()));
+  /* POL-BE-02 — automatic only when reading the ID found the right name and date of birth. */
+  const read = await prisma.accountDocument.findFirstOrThrow({
+    /* tenant-scope: the document just confirmed, within this athlete's own tenant. */
+    where: { tenantId: a.tenantId, id: doc.id }, select: { checkState: true, checkFindings: true },
+  });
+  const holds = documentHolds(TAKEOVER_ID, [read]);
+  await prisma.$transaction((tx) => (holds.length ? holdIn(tx, a, holds, new Date()) : completeIn(tx, a, new Date())));
   return comingOfAgeByToken(token);
+}
+
+const TAKEOVER_ID = "Government ID to take over";
+
+/** POL-BE-02 — the ID raised a question: the takeover waits for BTG, who is emailed why. The guardian stays in control. */
+async function holdIn(tx: Tx, a: Row, reasons: string[], now: Date) {
+  const moved = await tx.athlete.updateMany({
+    /* tenant-scope: the athlete named by the signed link, in its own tenant; only while still to complete. */
+    where: { id: a.id, tenantId: a.tenantId, comingOfAgeCompletedAt: null },
+    data: { comingOfAgeHeldAt: now, comingOfAgeHeldReasons: reasons },
+  });
+  if (moved.count !== 1) return;
+  await audit(tx, SYSTEM(a.tenantId), "comingOfAge.held", "Athlete", a.id, { after: { reasons } });
+  const admins = await tx.user.findMany({
+    /* tenant-scope: BTG admins of the athlete's own tenant. */
+    where: { tenantId: a.tenantId, disabledAt: null, roles: { has: "BTG_ADMIN" } }, select: { id: true, email: true },
+  });
+  for (const u of admins) {
+    await send(tx, a.tenantId, {
+      template: "comingOfAge.heldForBtg", to: u.email, idempotencyKey: `comingOfAge.heldForBtg:${a.id}:${now.toISOString()}:${u.id}`,
+      data: {
+        athleteName: a.displayName || a.legalName, reasons: reasons.map((r) => `• ${r}`).join("\n"),
+        reviewUrl: `${appUrl()}/admin/new-signups/athletes/${a.id}`,
+      },
+    });
+  }
+}
+
+/**
+ * POL-BE-02 — POST /signups/athletes/:id/coming-of-age/confirm — BTG confirms a
+ * takeover the ID check held: control moves to the athlete exactly as a
+ * clear ID would have. To refuse it, BTG sends the ID back instead
+ * (POST /signups/athletes/:id/documents/:documentId/send-back), which ends
+ * the hold and asks the athlete for a clearer one.
+ */
+export async function confirmHeldComingOfAge(actor: Actor, athleteId: string) {
+  /* The same people who answer a held profile change (BTG admin, the network manager); their tenant only, unless platform-wide. */
+  const scope = assertAllowed(actor, "athleteProfileChange", "approve");
+  return prisma.$transaction(async (tx) => {
+    const a = await tx.athlete.findFirst({ where: { ...(scope === "any" ? {} : { tenantId: actor.tenantId }), id: athleteId }, select: SELECT });
+    if (!a) throw new ForbiddenError("athleteProfileChange", "approve");
+    if (!a.comingOfAgeHeldAt || a.comingOfAgeCompletedAt) throw new SignupError("This athlete's takeover isn't waiting for BTG.", 409);
+    await audit(tx, actor, "comingOfAge.confirmedByBtg", "Athlete", a.id, { after: { heldAt: a.comingOfAgeHeldAt.toISOString() } });
+    await completeIn(tx, a, new Date());
+    const done = await tx.athlete.findFirstOrThrow({ /* tenant-scope: the athlete just loaded in its tenant. */ where: { tenantId: a.tenantId, id: a.id }, select: { id: true, guardianId: true, comingOfAgeCompletedAt: true } });
+    return { athleteId: done.id, completedAt: done.comingOfAgeCompletedAt, guardianId: done.guardianId };
+  });
 }
 
 /* ═══════════════════════ the portals' reminder ═══════════════════════ */
@@ -391,6 +458,7 @@ export async function myComingOfAge(actor: Actor) {
       startedAt: a.comingOfAgeStartedAt,
       dueAt: a.comingOfAgeDueAt,
       idUploaded: kinds.has("GOVERNMENT_ID") && Boolean(a.comingOfAgeCompletedAt),
+      checking: Boolean(a.comingOfAgeHeldAt),
       seat: actor.actingFor ? ("guardian" as const) : ("athlete" as const),
       uploadPath: actor.actingFor ? null : `/coming-of-age/${encodeURIComponent(issueComingOfAgeToken(a.id))}`,
     },

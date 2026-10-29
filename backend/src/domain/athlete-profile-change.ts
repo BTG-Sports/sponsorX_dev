@@ -18,7 +18,11 @@
  *     · a new DATE OF BIRTH works out adulthood again: now a minor → the
  *       guardian process starts (no new agreements or payments until a
  *       guardian is confirmed — guardianReadiness); now an adult → the
- *       coming-of-age allowance starts (2S1-BE-12);
+ *       coming-of-age allowance starts (2S1-BE-12). POL-BE-02: a minor made
+ *       an adult — by a new date of birth or a move, whoever made the edit —
+ *       is NOT applied by the edit: those fields wait (PENDING) for BTG to
+ *       apply or decline (decideHeldLegalName), BTG and the guardian are
+ *       emailed, and the rest of the edit goes on;
  *     · a new GUARDIAN goes through the guardian's page and documents
  *       (2S1-BE-10): they are emailed its signed set-up link. Replacing a
  *       guardian who already exists is the handoff's job (2S1-BE-15), which
@@ -200,7 +204,7 @@ export function adulthoodNotes(before: AgeFacts, after: AgeFacts, hasGuardian: b
 }
 
 /** BTG admins, told about a sensitive edit — with the link to the athlete on New sign-ups, where Reject is. */
-async function tellBtg(tx: Tx, tenantId: string, a: { id: string; displayName: string; legalName: string }, changeId: string, what: string, checks: string[]) {
+async function tellBtg(tx: Tx, tenantId: string, a: { id: string; displayName: string; legalName: string }, changeId: string, what: string, checks: string[], held = false) {
   const admins = await tx.user.findMany({
     where: { tenantId, disabledAt: null, roles: { has: "BTG_ADMIN" } }, select: { id: true, email: true },
   });
@@ -208,7 +212,7 @@ async function tellBtg(tx: Tx, tenantId: string, a: { id: string; displayName: s
     await send(tx, tenantId, {
       template: "athlete.sensitiveEdit", to: u.email, idempotencyKey: `athlete.sensitiveEdit:${changeId}:${u.id}`,
       data: {
-        athleteName: a.displayName || a.legalName, what, checks: checks.map((c) => `• ${c}`).join("\n"),
+        athleteName: a.displayName || a.legalName, what, checks: checks.map((c) => `• ${c}`).join("\n"), held: held ? "yes" : "",
         /* The athlete's profile on New sign-ups (2S1-BE-09), where Reject is. */
         reviewUrl: `${appUrl()}/admin/new-signups/athletes/${a.id}`,
       },
@@ -261,17 +265,33 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
     const sensitiveWhat: string[] = [];
 
     /* ── the date of birth and the place: applied now, adulthood worked out again (2S1-BE-12) ── */
-    const birthDate = birthChanges ? new Date(`${newBirth}T00:00:00.000Z`) : athlete.birthDate;
-    const moved = "stateCode" in ordinary.fields;
-    const majority = moved
+    let birthDate = birthChanges ? new Date(`${newBirth}T00:00:00.000Z`) : athlete.birthDate;
+    let moved = "stateCode" in ordinary.fields;
+    let majority = moved
       ? await majorityOf(tx, athlete.tenantId, athlete.countryCode, (ordinary.fields.stateCode as string | null | undefined) ?? null)
       : { age: athlete.majorityAge };
     /* With a date of birth on file the band follows it, so a stale band can't keep an adult a minor (or the reverse). */
-    const ageBand = birthDate && (birthChanges || moved) ? ageBandFor(birthDate, majority.age, now) : athlete.ageBand;
+    let ageBand = birthDate && (birthChanges || moved) ? ageBandFor(birthDate, majority.age, now) : athlete.ageBand;
+    /* POL-BE-02 — a minor made an adult by their own edit (or their guardian's) is never applied by the edit:
+       the new date of birth and the move wait for BTG (heldAdulthood, below). The rest of the edit goes on. */
+    let heldAdulthood: { birthDate?: string; stateCode?: string | null } | null = null;
+    const asked = { birthDate, ageBand, majorityAge: majority.age };
+    if ((birthChanges || moved) && requiresGuardian(athlete) && !requiresGuardian(asked)) {
+      heldAdulthood = {
+        ...(birthChanges ? { birthDate: newBirth! } : {}),
+        ...(moved ? { stateCode: (ordinary.fields.stateCode as string | null | undefined) ?? null } : {}),
+      };
+      delete applied.stateCode;
+      birthDate = athlete.birthDate;
+      moved = false;
+      majority = { age: athlete.majorityAge };
+      ageBand = athlete.ageBand;
+    }
+    const birthApplies = birthChanges && !heldAdulthood;
     if (ageBand !== athlete.ageBand) applied.ageBand = ageBand;
     const ageAfter = { birthDate, ageBand, majorityAge: majority.age };
     const adulthood = adulthoodNotes(athlete, ageAfter, Boolean(athlete.guardianId));
-    if (birthChanges) {
+    if (birthApplies) {
       applied.birthDate = birthDate;
       sections.add("identity");
       sensitiveWhat.push("their date of birth");
@@ -285,7 +305,8 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
     /* ── a guardian: only a minor, and only one with none yet ── */
     let guardian: { id: string; legalName: string; email: string; verifiedAt: Date | null } | null = null;
     if (guardianIn) {
-      if (!requiresGuardian(ageAfter)) {
+      /* The age asked for, held or not: a minor asking to be an adult names no guardian in the same breath. */
+      if (!requiresGuardian(ageAfter) || !requiresGuardian(asked)) {
         throw new SensitiveEditError("Only an athlete under the age of majority has a guardian.", "guardian_not_required");
       }
       if (athlete.guardianId) {
@@ -327,7 +348,7 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
       await tx.athlete.update({ where: { id: athlete.id }, data: applied as Prisma.AthleteUpdateInput, select: { id: true } });
       /* 2S1-BE-12 — a move is a new age of majority; a new date of birth may cross it. */
       if (moved) await refreshMajorityIn(tx, athlete.tenantId, athlete.id);
-      if (moved || birthChanges) {
+      if (moved || birthApplies) {
         const coming = await rerunComingOfAgeIn(tx, athlete.tenantId, athlete.id, now);
         if (coming === "started") checkNotes.push("Your coming-of-age allowance has started: you and your guardian are emailed how to take over.");
       }
@@ -367,11 +388,51 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
       if (sensitiveWhat.length) await tellBtg(tx, athlete.tenantId, athlete, appliedChange.id, sensitiveWhat.join(" and "), checkNotes);
     }
 
+    /* ── POL-BE-02 — becoming an adult: waits for BTG to apply or decline ── */
+    let heldChange: { id: string } | null = null;
+    if (heldAdulthood) {
+      const what = [heldAdulthood.birthDate ? "their date of birth" : null, "stateCode" in heldAdulthood ? "where they live" : null].filter(Boolean).join(" and ");
+      const open = await tx.athleteProfileChange.findMany({
+        /* tenant-scope: this athlete's own earlier held adulthood change (no ID upload), superseded by this one. */
+        where: { tenantId: athlete.tenantId, athleteId: athlete.id, state: "PENDING", idDocumentKey: null }, select: { id: true },
+      });
+      if (open.length) {
+        await tx.athleteProfileChange.updateMany({
+          /* tenant-scope: this athlete's own open changes, found just above. */
+          where: { id: { in: open.map((o) => o.id) } }, data: { state: "WITHDRAWN", reviewedAt: now },
+        });
+        for (const o of open) await audit(tx, actor, "athlete.profileChangeWithdraw", "AthleteProfileChange", o.id, { after: { reason: "superseded" } });
+      }
+      const notes = [`BTG checks this change before it applies: it would make ${athlete.guardianId ? "you an adult, which ends your guardian's control" : "you an adult"}. Nothing changes until then.`];
+      heldChange = await tx.athleteProfileChange.create({
+        data: {
+          tenantId: athlete.tenantId, athleteId: athlete.id, sections: ["identity"],
+          fields: heldAdulthood as Prisma.InputJsonObject, note, state: "PENDING", sensitive: true, checkNotes: notes,
+        },
+        select: { id: true },
+      });
+      checkNotes.push(...notes);
+      await audit(tx, actor, "athlete.adulthoodChangeHeld", "AthleteProfileChange", heldChange.id, {
+        before: { birthDate: isoDay(athlete.birthDate), stateCode: athlete.stateCode ?? null }, after: { athleteId: athlete.id, ...heldAdulthood },
+      });
+      await tellBtg(tx, athlete.tenantId, athlete, heldChange.id, `${what} — held for you to apply or decline: it would make a minor an adult`, notes, true);
+      if (athlete.guardianId) {
+        const g = await tx.guardian.findFirst({ /* tenant-scope: the athlete's own guardian, in its tenant. */ where: { tenantId: athlete.tenantId, id: athlete.guardianId }, select: { legalName: true, email: true } });
+        if (g) {
+          await send(tx, athlete.tenantId, {
+            template: "athlete.adulthoodChangeHeld", to: g.email, idempotencyKey: `athlete.adulthoodChangeHeld:${heldChange.id}`,
+            data: { name: g.legalName.split(/\s+/)[0] ?? "", athleteFirstName: (athlete.displayName || athlete.legalName).split(/\s+/)[0] ?? "", what, supportEmail: env.SUPPORT_EMAIL },
+          });
+        }
+      }
+    }
+
     /* ── a legal name: waits for its matching ID ── */
     let pendingLegal: { id: string; idDocumentKey: string; contentType: string; bytes: number } | null = null;
     if (legalChanges) {
       const open = await tx.athleteProfileChange.findMany({
-        where: { tenantId: athlete.tenantId, athleteId: athlete.id, state: "PENDING" }, select: { id: true },
+        /* POL-BE-02 — only an earlier legal name is superseded; a held adulthood change stays with BTG. */
+        where: { tenantId: athlete.tenantId, athleteId: athlete.id, state: "PENDING", idDocumentKey: { not: null } }, select: { id: true },
       });
       if (open.length) {
         await tx.athleteProfileChange.updateMany({
@@ -395,7 +456,7 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
       await audit(tx, actor, "athlete.legalNameRequested", "AthleteProfileChange", id, { after: { athleteId: athlete.id, legalName: newLegal } });
       pendingLegal = { id, idDocumentKey: key, contentType: input.idDocument!.contentType, bytes: input.idDocument!.bytes };
     }
-    return { athleteTenantId: athlete.tenantId, appliedId: appliedChange?.id ?? null, pendingLegal, checkNotes };
+    return { athleteTenantId: athlete.tenantId, appliedId: appliedChange?.id ?? null, heldId: heldChange?.id ?? null, pendingLegal, checkNotes };
   });
 
   const idUpload = out.pendingLegal
@@ -408,7 +469,7 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
       }),
     }
     : null;
-  const ids = [out.appliedId, out.pendingLegal?.id].filter((x): x is string => Boolean(x));
+  const ids = [out.appliedId, out.heldId, out.pendingLegal?.id].filter((x): x is string => Boolean(x));
   const changes = await prisma.athleteProfileChange.findMany({
     where: { ...whereFor(actor, "athleteProfileChange", "read"), id: { in: ids } }, select: CHANGE_SELECT, orderBy: { createdAt: "asc" },
   });
@@ -472,7 +533,7 @@ export async function confirmLegalNameDocument(actor: Actor, id: string) {
       await audit(tx, actor, "athlete.legalNameHeld", "AthleteProfileChange", c.id, {
         after: { athleteId: c.athleteId, legalName: String((c.fields as { legalName?: string }).legalName ?? ""), reasons: holds },
       });
-      await tellBtg(tx, c.tenantId, c.athlete, c.id, "their legal name — held for you to apply or decline: reading the matching ID raised a question", holds);
+      await tellBtg(tx, c.tenantId, c.athlete, c.id, "their legal name — held for you to apply or decline: reading the matching ID raised a question", holds, true);
       return tx.athleteProfileChange.findFirstOrThrow({ where: { tenantId: c.tenantId, id: c.id }, select: CHANGE_SELECT });
     }
     const notes = ["Matching ID uploaded; the new legal name is live. BTG can see the ID and reject the change if it doesn't match."];
@@ -500,23 +561,58 @@ async function applyLegalNameIn(
 }
 
 /**
- * POST /profile-changes/:id/decision — BTG answers a new legal name the ID
- * check held (P8-BE-11): APPLY makes it live, exactly as a clear ID would
- * have; DECLINE closes it with a note the athlete reads. Only a change whose
- * ID has arrived and is waiting for BTG.
+ * POL-BE-02 — make a held adulthood change live, as an edit would have
+ * before: the new date of birth and/or place, the age of majority and band
+ * worked out again, and the coming-of-age allowance started if they are now
+ * an adult with a guardian (coming-of-age.ts).
+ */
+async function applyAdulthoodIn(tx: Tx, actor: Actor, c: { id: string; tenantId: string; athleteId: string; fields: Prisma.JsonValue }, now: Date) {
+  const f = c.fields as { birthDate?: string; stateCode?: string | null };
+  const before = await tx.athlete.findFirstOrThrow({
+    /* tenant-scope: the change's own athlete, in the change's tenant. */
+    where: { tenantId: c.tenantId, id: c.athleteId }, select: { birthDate: true, stateCode: true, ageBand: true },
+  });
+  const birthDate = f.birthDate ? new Date(`${f.birthDate}T00:00:00.000Z`) : before.birthDate;
+  /* tenant-scope: the change's own athlete, loaded just above. */
+  await tx.athlete.update({ where: { id: c.athleteId }, data: { ...(f.birthDate ? { birthDate } : {}), ...("stateCode" in f ? { stateCode: f.stateCode } : {}) }, select: { id: true } });
+  const majority = "stateCode" in f ? await refreshMajorityIn(tx, c.tenantId, c.athleteId) : null;
+  const age = majority?.age ?? (await tx.athlete.findFirstOrThrow({ /* tenant-scope: as above. */ where: { tenantId: c.tenantId, id: c.athleteId }, select: { majorityAge: true } })).majorityAge;
+  const ageBand = birthDate ? ageBandFor(birthDate, age, now) : before.ageBand;
+  /* tenant-scope: as above. */
+  if (ageBand !== before.ageBand) await tx.athlete.update({ where: { id: c.athleteId }, data: { ageBand }, select: { id: true } });
+  const coming = await rerunComingOfAgeIn(tx, c.tenantId, c.athleteId, now);
+  const notes = ["BTG checked it; the change is live.", ...(coming === "started" ? ["The coming-of-age allowance has started: you and your guardian are emailed how to take over."] : [])];
+  /* tenant-scope: the change loaded through whereFor(athleteProfileChange, approve); still pending. */
+  const moved = await tx.athleteProfileChange.updateMany({ where: { id: c.id, state: "PENDING" }, data: { state: "APPROVED", appliedAt: now, reviewedAt: now, reviewedBy: actor.userId, checkNotes: notes } });
+  if (moved.count !== 1) throw new ChangeNotPendingError("gone");
+  await audit(tx, actor, "athlete.sensitiveEdit", "Athlete", c.athleteId, {
+    before: { birthDate: isoDay(before.birthDate), stateCode: before.stateCode ?? null }, after: { ...f, changeId: c.id, appliedBy: "BTG", comingOfAge: coming },
+  });
+}
+
+/**
+ * POST /profile-changes/:id/decision — BTG answers a change held for it:
+ *   - a new legal name the ID check held (P8-BE-11): APPLY makes it live,
+ *     exactly as a clear ID would have — only once its ID has arrived;
+ *   - a date of birth or move that would make a minor an adult (POL-BE-02):
+ *     APPLY makes it live, and the coming-of-age allowance starts.
+ * DECLINE closes either with a note the athlete reads.
  */
 export async function decideHeldLegalName(actor: Actor, id: string, d: { decision: "APPLY" } | { decision: "DECLINE"; note: string }) {
   assertAllowed(actor, "athleteProfileChange", "approve");
   return prisma.$transaction(async (tx) => {
     const c = await tx.athleteProfileChange.findFirst({
       where: { ...whereFor(actor, "athleteProfileChange", "approve"), id },
-      select: { id: true, tenantId: true, athleteId: true, state: true, fields: true, idDocumentUploadedAt: true, athlete: { select: { legalName: true } } },
+      select: { id: true, tenantId: true, athleteId: true, state: true, fields: true, idDocumentKey: true, idDocumentUploadedAt: true, athlete: { select: { legalName: true } } },
     });
     if (!c) throw new ForbiddenError("athleteProfileChange", "approve");
     if (c.state !== "PENDING") throw new ChangeNotPendingError(c.state);
-    if (!c.idDocumentUploadedAt) throw new SensitiveEditError("This change is still waiting for its ID.", "id_not_arrived", 409);
+    const adulthood = !c.idDocumentKey;
+    if (!adulthood && !c.idDocumentUploadedAt) throw new SensitiveEditError("This change is still waiting for its ID.", "id_not_arrived", 409);
     const now = new Date();
-    if (d.decision === "APPLY") {
+    if (d.decision === "APPLY" && adulthood) {
+      await applyAdulthoodIn(tx, actor, c, now);
+    } else if (d.decision === "APPLY") {
       await applyLegalNameIn(tx, actor, c, { appliedAt: now, reviewedAt: now, reviewedBy: actor.userId, checkNotes: ["BTG checked the ID; the new legal name is live."] });
     } else {
       const note = d.note?.trim() ?? "";
@@ -526,7 +622,7 @@ export async function decideHeldLegalName(actor: Actor, id: string, d: { decisio
         where: { id: c.id, state: "PENDING" }, data: { state: "DECLINED", reviewerNotes: note, reviewedBy: actor.userId, reviewedAt: now },
       });
       if (moved.count !== 1) throw new ChangeNotPendingError("gone");
-      await audit(tx, actor, "athlete.legalNameDeclined", "AthleteProfileChange", c.id, { after: { athleteId: c.athleteId, note } });
+      await audit(tx, actor, adulthood ? "athlete.adulthoodChangeDeclined" : "athlete.legalNameDeclined", "AthleteProfileChange", c.id, { after: { athleteId: c.athleteId, note } });
     }
     return tx.athleteProfileChange.findFirstOrThrow({ where: { tenantId: c.tenantId, id: c.id }, select: CHANGE_SELECT });
   });

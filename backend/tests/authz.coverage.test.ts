@@ -134,6 +134,8 @@ const GOVERNED_BY: Record<string, Resource> = {
   DeliveryIssue: "orderDelivery",
   /* 2S2-BE-05 — a team's invitation to an athlete already on SponsorX. */
   TeamInvitation: "teamInvitation",
+  /* POL-BE-03 — a team's request to change its share: asked through the roster (teamMember), answered on the athlete's side of teamInvitation. */
+  TeamShareChange: "teamInvitation",
   Payout: "payout",
   PayoutLine: "payout",
   PaymentAttempt: "marketplaceOrder",

@@ -126,6 +126,12 @@ export type EmailTemplate =
   | "team.invited"
   | "team.invitationAnswered"
   | "team.linkEnded"
+  /* POL-BE-03 — a team asks to change its share (the athlete, and the
+     guardian who answers for a minor); a lowered share, told to the same;
+     the athlete's answer, to the team. */
+  | "team.shareChangeAsked"
+  | "team.shareLowered"
+  | "team.shareChangeAnswered"
   /* 2S1-BE-13 — closing an account and coming back: the owner is told it
      closed (with the reactivation link), sent a fresh link on request, and
      told when it is back; a rejected account's request reaches BTG admins,
@@ -142,6 +148,8 @@ export type EmailTemplate =
   | "athleteClaim.confirmEmail"
   /* 2S1-BE-14 — BTG admins are told about sensitive profile edits only. */
   | "athlete.sensitiveEdit"
+  /* POL-BE-02 — a minor's edit that would make them an adult, held for BTG: their guardian is told. */
+  | "athlete.adulthoodChangeHeld"
   /* 2S1-BE-15 — the guardian handoff: the new guardian confirms their email;
      the current guardian is asked; a decline points to BTG support; the
      switch is told to all three and to BTG admins. */
@@ -194,6 +202,8 @@ export type EmailTemplate =
   | "comingOfAge.started"
   | "comingOfAge.reminder"
   | "comingOfAge.completed"
+  /* POL-BE-02 — a takeover whose ID raised a question, held for BTG to confirm or send back. */
+  | "comingOfAge.heldForBtg"
   | "comingOfAge.terminated"
   | "comingOfAge.uploadLink"
   | "comingOfAge.btgSettle"

@@ -234,10 +234,13 @@ function docItem(d: DocRow, forWhom?: string) {
   };
 }
 
-async function athleteFor(actor: Actor, id: string, action: "read" | "approve" = "read"): Promise<SignupAthlete & { school: string | null; sport: string; reviewedAt: Date | null; signupRejectNote: string | null; signupRejectedVia: string | null }> {
+async function athleteFor(actor: Actor, id: string, action: "read" | "approve" = "read"): Promise<SignupAthlete & {
+  school: string | null; sport: string; reviewedAt: Date | null; signupRejectNote: string | null; signupRejectedVia: string | null;
+  comingOfAgeHeldAt: Date | null; comingOfAgeHeldReasons: string[]; comingOfAgeCompletedAt: Date | null;
+}> {
   const a = await prisma.athlete.findFirst({
     where: { ...whereFor(actor, "athleteApplication", action), id },
-    select: { ...ATHLETE_SELECT, school: true, reviewedAt: true, signupRejectNote: true, signupRejectedVia: true },
+    select: { ...ATHLETE_SELECT, school: true, reviewedAt: true, signupRejectNote: true, signupRejectedVia: true, comingOfAgeHeldAt: true, comingOfAgeHeldReasons: true, comingOfAgeCompletedAt: true },
   });
   if (!a) throw new ForbiddenError("athleteApplication", action);
   return a;
@@ -287,8 +290,11 @@ export async function getAthleteSignup(actor: Actor, id: string) {
     rejectNote: a.signupRejectNote,
     rejectedWithGuardian: a.signupRejectedVia === "GUARDIAN",
     contentTrust,
+    /* POL-BE-02 — a coming-of-age takeover the ID check held: why, and BTG's Confirm (or send the ID back). */
+    comingOfAgeHeld: a.comingOfAgeHeldAt && !a.comingOfAgeCompletedAt ? { at: a.comingOfAgeHeldAt, reasons: a.comingOfAgeHeldReasons } : null,
     can: {
       approve: state === "NEEDS_REVIEW",
+      confirmComingOfAge: Boolean(a.comingOfAgeHeldAt && !a.comingOfAgeCompletedAt),
       reject: state !== "REJECTED",
       reinstate: Boolean(a.signupRejectedAt) && !(a.signupRejectedVia === "GUARDIAN" && a.guardian?.rejectedAt),
     },
@@ -428,6 +434,13 @@ export async function sendBackSignupDocument(actor: Actor, owner: "athletes" | "
     /* A held sign-up is waiting for the applicant again, not for BTG: its old reasons no longer apply. */
     if (athlete?.state === "SUBMITTED") {
       await tx.athlete.update({ /* tenant-scope: the athlete loaded through whereFor above. */ where: { id: athlete.id }, data: { reviewReasons: [] }, select: { id: true } });
+    }
+    /* POL-BE-02 — a coming-of-age takeover held over this ID waits for the athlete's clearer one: the hold ends, the 90 days run again. */
+    if (athlete && doc.kind === "GOVERNMENT_ID") {
+      await tx.athlete.updateMany({
+        /* tenant-scope: the athlete loaded through whereFor above; only a takeover still held. */
+        where: { tenantId, id: athlete.id, comingOfAgeHeldAt: { not: null }, comingOfAgeCompletedAt: null }, data: { comingOfAgeHeldAt: null, comingOfAgeHeldReasons: [] },
+      });
     }
     /* A guardian's document: the minors it held wait for the guardian again — every ward for their ID, the one it names for a proof. */
     if (guardian) {

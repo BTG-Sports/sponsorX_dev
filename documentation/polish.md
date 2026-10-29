@@ -103,6 +103,48 @@ isn't held for a person to check.
   even when the ID reads clear. The screen shows "waiting for approval".
 - **Done when:** a minor's DOB change doesn't apply until approved; coming of
   age never removes a guardian without BTG; tests.
+- **Decided 2026-10-28 (rcfworks, with Rodney's authority):**
+  - BTG alone approves a change that would make a minor an adult. The guardian
+    is told.
+  - A takeover is automatic only when the ID reads clear. Otherwise BTG
+    decides. This replaces "always held for BTG" above.
+- **Backend delivered (`POL-BE-02`, 2026-10-28):**
+  - **Edits:** a new date of birth, or a move, that would make a minor an
+    adult is not applied by the edit, whoever makes it (athlete or guardian).
+    - Those fields become a `PENDING` profile change: `fields` holds
+      `birthDate` and/or `stateCode`, and there's no ID upload. The rest of
+      the edit applies.
+    - BTG is emailed (`athlete.sensitiveEdit`, now saying it waits), and so
+      is the guardian (`athlete.adulthoodChangeHeld`). Audited
+      `athlete.adulthoodChangeHeld`.
+    - BTG answers on the existing `POST /profile-changes/:id/decision`:
+      `APPLY` applies it and starts coming of age; `DECLINE` needs a note,
+      which the athlete reads.
+    - A minor asking to be an adult can't also name a guardian.
+    - A change that makes someone a minor still applies at once.
+  - **Takeover:** the coming-of-age ID completes it only when it reads clear.
+    - A flagged or unread ID holds it (`Athlete.comingOfAgeHeldAt`, with
+      reasons). The guardian keeps control, the 90-day sweep neither ends
+      nor reminds it, and BTG is emailed (`comingOfAge.heldForBtg`).
+    - BTG confirms (`POST /signups/athletes/:id/coming-of-age/confirm`) or
+      sends the ID back (the existing send-back, which now also ends the
+      hold).
+  - Migration: `20261028150000_coming_of_age_held`.
+  - Tests: `phase2-profile-edits.test.ts` and `phase2-guardian-acts.test.ts`.
+- **For `POL-FE-02` (screens):**
+  - **Profile edit:** a held change comes back as a `PENDING` change, with
+    `checkNotes` "BTG checks this change before it applies…". Show
+    "Waiting for BTG", and let the athlete withdraw it (the existing
+    withdraw).
+  - **BTG's sensitive-edits list:** show **Apply** and **Decline (with a
+    reason)** for a pending change that has no ID.
+  - **Coming-of-age page** (`GET /public/coming-of-age/:token`) and the
+    portal reminder (`GET /coming-of-age/mine`): `checking: true` means "ID
+    received — BTG is checking it".
+  - **BTG's athlete page** (`GET /signups/athletes/:id`): `comingOfAgeHeld`
+    gives the reasons, and `can.confirmComingOfAge` shows a **Confirm
+    takeover** button. Sending the ID back uses the existing document
+    send-back.
 
 ### 3. A team can raise its cut of an athlete's earnings to 100%
 `POL-BE-03` · `POL-FE-03` · *Money · Minors · Consent* · confirmed
@@ -118,6 +160,53 @@ invited athletes are protected.
   screen.
 - **Done when:** no share goes up without the athlete's or guardian's yes;
   tests cover directly added athletes, invited athletes and minors.
+- **Decided (2026-10-29, with Rodney's authority):** the share typed at "Add
+  athlete" needs the athlete's yes too. Until they answer, BTG's standard
+  team share applies.
+- **Backend delivered (`POL-BE-03`, 2026-10-29):**
+  - Anything that can raise the share is a **request** (`TeamShareChange`):
+    - a higher share;
+    - clearing it back to BTG's standard share;
+    - the share typed at "Add athlete" (zero needs no answer).
+  - The share stays where it was until the athlete accepts. One request is
+    open per athlete, and a newer one replaces it.
+  - **Lowering applies at once**, ends any open request, and is emailed
+    (`team.shareLowered`).
+  - **Who answers:**
+    - an adult answers for themselves;
+    - for a minor, only the guardian accepts (their login acting for the
+      ward), the same rule as joining a team. The minor's own "accept" is
+      refused with `guardian_must_act`;
+    - nobody accepts during the coming-of-age pause.
+  - A yes applies only while the athlete is still on that team at the share
+    the request was made from. Otherwise it is refused as out of date.
+  - **Emails:**
+    - `team.shareChangeAsked` goes to the athlete, and to the guardian while
+      the guardian acts for them;
+    - `team.shareChangeAnswered` goes to the team's managers.
+  - Leaving or being removed from the team lapses an open request.
+  - Tests:
+    - `backend/tests/phase2-team-share.test.ts`: an athlete added directly, a
+      minor, the guardian, lowering, withdrawing, and a stale or lapsed
+      request;
+    - `phase2-team-invites.test.ts`: an invited athlete.
+- **For `POL-FE-03` (screens):**
+  - **Team side:**
+    - `PATCH /team/roster/:id` now answers `{ id, displayName, teamShareBps,
+      shareChange }`.
+    - `shareChange` (`{ id, fromBps, toBps, askedAt }`, `toBps: null` =
+      BTG's standard share) means it is waiting for the athlete's answer.
+      Show "Waiting for {athlete}'s answer", not "Saved".
+    - `POST /team/roster` answers the same way.
+    - `GET /team/roster` and `GET /team/athletes` carry `shareChange` on each
+      athlete.
+    - `POST /team/roster/:id/share-change/withdraw` takes a request back.
+  - **Athlete side** (the guardian's view of the ward too):
+    - `GET /me/team` carries `membership.shareChange`.
+    - Show the change from → to with Accept and Decline, calling
+      `POST /me/team/share-changes/:id/respond` with
+      `{ decision: "ACCEPT" | "DECLINE" }`.
+    - A minor sees it but can't accept; say "Your guardian accepts this".
 
 ### 4. With Stripe paused, sponsors' orders are cancelled for "not paying"
 `POL-BE-04` · `POL-FE-04` · *Money · Dead end* · confirmed · **hurting now**

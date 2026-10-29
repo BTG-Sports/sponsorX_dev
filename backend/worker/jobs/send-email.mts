@@ -361,6 +361,19 @@ ${d.portalUrl ?? ""}
     subject: `${d.athleteName ?? "The athlete"} ${d.answer ?? "answered"} your invitation`,
     text: `Hi there,\n\n${d.athleteName ?? "The athlete"} ${d.answer ?? "answered"} your invitation to join ${d.teamName ?? "your team"}${d.share ? ` at a ${d.share} team share` : ""}.\n\n${d.rosterUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* POL-BE-03 — a team's share goes up only with the athlete's (or guardian's) yes. */
+  "team.shareChangeAsked": (d) => ({
+    subject: `${d.teamName ?? "Your team"} asks to change its share of ${d.who ?? "your"} earnings`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.teamName ?? "Your team"} asks to change its share of ${d.who ?? "your"} earnings on SponsorX from ${d.from ?? "the current share"} to ${d.to ?? "a new share"}. The team's share is taken from what's left after BTG's fees and card processing.\n\nNothing changes unless ${d.answerer ?? "you accept"}. Orders already placed keep their split either way.\n\n${d.teamUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "team.shareLowered": (d) => ({
+    subject: `${d.teamName ?? "Your team"} lowered its share of ${d.who ?? "your"} earnings`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.teamName ?? "Your team"} lowered its share of ${d.who ?? "your"} earnings on SponsorX from ${d.from ?? "the old share"} to ${d.to ?? "a lower share"}. It applies to new orders from now on; orders already placed keep their split.\n\n${d.teamUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "team.shareChangeAnswered": (d) => ({
+    subject: `${d.athleteName ?? "The athlete"} ${d.answer ?? "answered"} your share request`,
+    text: `Hi there,\n\n${d.athleteName ?? "The athlete"} ${d.answer ?? "answered"} your request to change your team's share from ${d.from ?? "the current share"} to ${d.to ?? "a new share"}.${d.answer === "accepted" ? " It applies to new orders from now on." : " The share stays as it was."}\n\n${d.rosterUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
   "team.linkEnded": (d) => ({
     subject: `${d.athleteName ?? "An athlete"} is no longer on ${d.teamName ?? "the team"}`,
     text: `Hi ${d.firstName ?? "there"},\n\n${d.who ?? "The link between the athlete and the team has ended."}\n\nOrders already placed carry on and pay as agreed when they were placed. New sales of the athlete's items no longer go through the team.\n\n${d.link ?? ""}\n\n— BTG SponsorX`,
@@ -586,6 +599,10 @@ ${d.portalUrl ?? ""}
       ? `Hi ${d.firstName ?? "there"},\n\n${d.athleteFirstName ?? "Your athlete"} has ${d.daysLeft ?? "a few"} days left (until ${d.dueDate ?? "the deadline"}) to upload a government ID. If it isn't uploaded in time, the account is closed.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`
       : `Hi ${d.firstName ?? "there"},\n\nYou have ${d.daysLeft ?? "a few"} days left (until ${d.dueDate ?? "the deadline"}) to upload a government ID and take over your account. If it isn't uploaded in time, your account is closed.\n\n${d.uploadUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  "comingOfAge.heldForBtg": (d) => ({
+    subject: `Coming-of-age takeover held for you: ${d.athleteName ?? "an athlete"}`,
+    text: `${d.athleteName ?? "An athlete"} uploaded a government ID to take over their account from their guardian, but reading it raised a question:\n\n${d.reasons ?? ""}\n\nThe guardian stays in control and the 90 days don't run out until you decide. Confirm the takeover, or send the ID back with a reason:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
   "comingOfAge.completed": (d) => ({
     subject: d.seat === "guardian" ? `${d.athleteFirstName ?? "Your athlete"} has taken over their SponsorX account` : "You're in control of your SponsorX account",
     text: d.seat === "guardian"
@@ -722,7 +739,12 @@ ${d.portalUrl ?? ""}
   /* 2S1-BE-14 — a sensitive profile edit, to BTG admins. */
   "athlete.sensitiveEdit": (d) => ({
     subject: `Sensitive profile change: ${d.athleteName ?? "an athlete"}`,
-    text: `${d.athleteName ?? "An athlete"} changed ${d.what ?? "a sensitive detail"} on their SponsorX profile. It is live now; the automatic checks ran again:\n\n${d.checks ?? ""}\n\nOpen them on New sign-ups — Reject is there if this looks wrong:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+    text: `${d.athleteName ?? "An athlete"} changed ${d.what ?? "a sensitive detail"} on their SponsorX profile. ${d.held ? "It is waiting for you to apply or decline it:" : "It is live now; the automatic checks ran again:"}\n\n${d.checks ?? ""}\n\nOpen them on New sign-ups — Reject is there if this looks wrong:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* POL-BE-02 — the guardian of a minor whose edit would make them an adult: it waits for BTG. */
+  "athlete.adulthoodChangeHeld": (d) => ({
+    subject: `${d.athleteFirstName ?? "Your athlete"} asked to change ${d.what ?? "their date of birth"} — BTG is checking it`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.athleteFirstName ?? "Your athlete"}'s SponsorX profile was changed: ${d.what ?? "their date of birth"}. That would make them an adult and end your control of their account, so BTG checks it before it applies. Nothing changes until then, and you stay their guardian.\n\nIf this change is wrong, tell BTG: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
   }),
 
   /* 2S1-BE-15 — the guardian handoff. */
