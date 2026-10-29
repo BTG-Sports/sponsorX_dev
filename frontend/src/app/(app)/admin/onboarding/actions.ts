@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { sendBackProblem, sendBackRefusal } from "@/lib/document-checks-live";
 import { legalDecisions, decisionNeedsNote, refusalMessage, type OnboardingDecision, type OnboardingState } from "@/lib/onboarding-live";
 import { explainStaffRefusal } from "@/lib/marketplace-ops-live";
 import { apiFetch } from "@/server/api";
@@ -77,4 +78,39 @@ export async function viewOrgDocumentAction(id: string, documentId: string): Pro
     /* no body */
   }
   return { ok: false, message: explainStaffRefusal(res.status, refusalMessage(body)) };
+}
+
+export type SendBackResult = { ok: true } | { ok: false; message: string };
+
+/**
+ * P8-FE-11 / P8-BE-10 — send one of the organisation's documents back with a
+ * reason: POST /onboarding/:id/documents/:documentId/send-back { reason }.
+ * The document stops counting and its file is deleted; a PENDING_REVIEW
+ * application goes back to the applicant (CHANGES_REQUESTED), an approved
+ * organisation missing a required paper is flagged; the primary contact is
+ * emailed the reason and where to upload.
+ */
+export async function sendBackOrgDocumentAction(id: string, documentId: string, reason: string): Promise<SendBackResult> {
+  const ok = (v: unknown) => typeof v === "string" && /^[A-Za-z0-9_-]{1,60}$/.test(v);
+  if (!ok(id) || !ok(documentId)) return { ok: false, message: "Unknown document." };
+  const problem = sendBackProblem(typeof reason === "string" ? reason : "");
+  if (problem) return { ok: false, message: problem };
+  let res: Response;
+  try {
+    res = await apiFetch(`/onboarding/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}/send-back`, {
+      method: "POST",
+      body: JSON.stringify({ reason: reason.trim() }),
+    });
+  } catch {
+    return { ok: false, message: "The API is unreachable — nothing changed. Try again in a minute." };
+  }
+  let body: unknown = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* no body */
+  }
+  revalidatePath("/admin/onboarding");
+  revalidatePath(`/admin/onboarding/${id}`);
+  return res.ok ? { ok: true } : { ok: false, message: sendBackRefusal(res.status, body) };
 }

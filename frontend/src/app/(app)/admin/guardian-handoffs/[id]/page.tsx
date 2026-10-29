@@ -123,7 +123,8 @@ export default async function GuardianHandoffPage({ params }: { params: Promise<
             </section>
           </div>
 
-          <HandoffDocuments id={h.id} documents={s.documents} />
+          {/* P8-FE-11 — each document's check, why they hold the handoff, and Send back. */}
+          <HandoffDocuments id={h.id} documents={s.documents} holds={s.documentHolds ?? []} who={h.requester.firstName} />
 
           {h.state === "HANDED_OFF" && (
             <section aria-label="What changes when you confirm" className={section}>

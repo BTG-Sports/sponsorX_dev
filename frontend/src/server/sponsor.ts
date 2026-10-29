@@ -32,23 +32,33 @@ async function isSponsor(): Promise<boolean> {
  *  for the demo. */
 export async function liveSponsorCampaignPage(
   sp: SearchParams,
-): Promise<{ rows: ApiCampaign[]; page: PageInfo; summary: CampaignSummary; requestsOpen?: number } | null> {
+): Promise<{ rows: ApiCampaign[]; page: PageInfo; summary: CampaignSummary; requestsOpen?: number; needsYou?: number } | null> {
   if (!(await isSponsor())) return null;
-  const [pg, summary, briefsRes] = await Promise.all([
+  const [pg, summary, briefsRes, reviewRes] = await Promise.all([
     fetchCampaignPage(sp),
     fetchCampaignSummary(),
     apiFetch("/briefs?page=1&size=1"),
+    /* POL-FE-20 — the one sponsor action a campaign can wait on is a post
+       in SPONSOR_REVIEW: the API's own ?review=true filter, read for its
+       total only (the same minimal-page trick as the briefs count). */
+    apiFetch("/campaigns?review=true&page=1&size=1"),
   ]);
   let requestsOpen: number | undefined;
   if (briefsRes.ok) {
     const { counts } = (await briefsRes.json()) as { counts: BriefCounts };
     requestsOpen = (counts.DRAFT ?? 0) + (counts.QUALIFIED ?? 0) + (counts.APPROVED ?? 0);
   }
+  let needsYou: number | undefined;
+  if (reviewRes.ok) {
+    const { page } = (await reviewRes.json()) as { page: PageInfo };
+    needsYou = page.total;
+  }
   return {
     rows: pg?.campaigns ?? [],
     page: pg?.page ?? { page: 1, size: 12, total: 0, pages: 1 },
     summary: summary ?? EMPTY_SUMMARY,
     requestsOpen,
+    needsYou,
   };
 }
 
@@ -112,6 +122,8 @@ export type LiveCampaignDetail =
       review: ApiDeliverable[];
       /** SPONSOR_ADMIN approves or asks for changes; an analyst only sees it. */
       canDecideContent: boolean;
+      /** P8-FE-12 — SPONSOR_ADMIN can cancel or change the campaign; an analyst sees no buttons. */
+      canManageCampaign: boolean;
       /** P1-ART-23 — every post this campaign includes, oldest due first,
        *  server-paged (own URL keys: a second paged read on this page).
        *  null when that read failed — the rest of the page still renders,
@@ -173,6 +185,7 @@ export async function liveSponsorCampaign(id: string, sp: SearchParams): Promise
     canDecideArtwork: who.actor.roles.includes("SPONSOR_ADMIN"),
     review,
     canDecideContent: who.actor.roles.includes("SPONSOR_ADMIN"),
+    canManageCampaign: who.actor.roles.includes("SPONSOR_ADMIN"),
     ...posts,
     readAt,
   };

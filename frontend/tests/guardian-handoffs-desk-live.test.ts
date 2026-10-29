@@ -79,7 +79,7 @@ describe("Guardian handoffs desk", () => {
     expect(confirmPoints(waiting)).toEqual([
       "Luis becomes Jordan’s guardian and can sign in to act for Jordan.",
       "Carmen stops being Jordan’s guardian. Any other children Carmen looks after are not affected.",
-      "Money Jordan has earned and work already agreed stay exactly where they are.",
+      "Work already agreed stays as it is. Payouts already sent stay sent; anything not yet paid out goes to Luis’s own payout account once they set it up.",
       "All three, and BTG, are emailed.",
     ]);
     expect(agreementWords("GUARDIAN v1 0123456789ab", "2026-10-01T09:02:00.000Z")).toBe("Guardian agreement v1 accepted Oct 1, 9:02 AM");

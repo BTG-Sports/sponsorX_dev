@@ -15,10 +15,11 @@ each problem we ran into was solved. Newest first within each day.
 | 8 · Only the first fan could claim a shared QR code | `POL-BE-08` | #329 | Merged |
 | 9 · A minor's invitations never reached the guardian | `POL-BE-09` | #331 | Merged |
 | 10 · A guardian handoff could wait forever | `POL-BE-10` | #333 | Merged |
-| 11 · Closing an account ignored live deals | `POL-BE-11` | — | In review |
+| 11 · Closing an account ignored live deals | `POL-BE-11` | #335 | Merged |
+| 12 · Payouts held for review were silent | `POL-BE-12` | — | In review |
 | 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
 
-The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`, `POL-FE-10`, `POL-FE-11`) are for
+The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`, `POL-FE-10`, `POL-FE-11`, `POL-FE-12`) are for
 HeckerCreatives. Each item in `polish.md` says exactly what the screens can
 rely on.
 
@@ -289,6 +290,21 @@ rely on.
     closing happens in the account's own tenant.
   - A guardian's login acts for their one child by default, so their own
     closure must name the guardian account.
+
+### `POL-BE-12` — a payout held for review reaches BTG
+- **Problem:** a payout the automatic approval didn't pass told the payee
+  "BTG reviews it next", but BTG got no email and the board didn't count it.
+- **Approach:**
+  - Every held payout emails Finance and BTG's admins with the reasons.
+    Failed payouts handed to BTG now reach Finance too, so both routes reach
+    the same people.
+  - BTG's board counts payouts waiting for BTG, with the oldest.
+- **Snags:**
+  - The payout code had been moved into its own function for `POL-BE-11`,
+    so the first edit didn't match its new indentation. Nothing was written,
+    and it was redone.
+  - The board test expected exactly the old four queues. It now seeds
+    payouts in one tenant and checks the other never sees them.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.

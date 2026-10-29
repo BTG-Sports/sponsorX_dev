@@ -35,6 +35,7 @@ import {
   type CampaignLine,
   type HealthRow,
   type QueueCard,
+  type ReviewLine,
 } from "@/lib/ops-board-live";
 
 /** Staggered entrance delay for one piece (`.sx-ops-in` and friends). */
@@ -411,6 +412,59 @@ export function CampaignPanel({
               <span className="ml-2 text-xs font-normal text-[#8a96a3]">
                 {total - campaigns.length} more not shown
               </span>
+            </span>
+            <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1 group-focus-visible:translate-x-1">
+              →
+            </span>
+          </Link>
+        </li>
+      )}
+    </ul>
+  );
+}
+
+/* ---------------------------------------------------------------- reviews */
+
+/** POL-FE-23 — the posts waiting on BTG, each with its review-by date, each
+ *  a link straight to the post (the desk opens on it). `total`: how many are
+ *  waiting in all; `allHref`: the desk. */
+export function ReviewPanel({ lines, total, allHref }: { lines: ReviewLine[]; total: number; allHref: string }) {
+  if (lines.length === 0) {
+    return (
+      <div className="sx-ops-panel sx-ops-in relative px-6 py-6" style={at(0.75)}>
+        <p className="text-sm font-semibold">Nothing waiting on BTG review</p>
+        <p className="mt-1 text-xs text-[#8a96a3]">A post lands here when an athlete submits a draft and it passes the automatic checks.</p>
+      </div>
+    );
+  }
+  return (
+    <ul className="sx-ops-panel sx-ops-in relative py-1.5" style={at(0.75)}>
+      {lines.map((l, i) => (
+        <li key={l.id} className="border-b border-white/5 last:border-0">
+          <Link
+            href={l.href}
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3.5 px-5 py-3 transition-colors hover:bg-[#2e9bf5]/[0.07] focus-visible:bg-[#2e9bf5]/[0.1] focus-visible:outline-none"
+            style={at(0.85 + i * 0.06)}
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold">{l.title}</span>
+              <span className="mt-0.5 block truncate text-xs text-[#8a96a3]">
+                {l.athlete} · {l.campaign}
+              </span>
+            </span>
+            <StageChip tone={l.late ? "warn" : "primary"}>{l.late ? `${l.by} — overdue` : l.by}</StageChip>
+          </Link>
+        </li>
+      ))}
+      {total > lines.length && (
+        <li>
+          <Link
+            href={allHref}
+            className="group flex items-center justify-between gap-3 px-5 py-3.5 text-sm font-semibold text-[#63b4f8] transition-colors hover:bg-[#2e9bf5]/[0.07] hover:text-[#9be0ff] focus-visible:bg-[#2e9bf5]/[0.1] focus-visible:outline-none"
+          >
+            <span>
+              See all {total} waiting
+              <span className="ml-2 text-xs font-normal text-[#8a96a3]">{total - lines.length} more not shown</span>
             </span>
             <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1 group-focus-visible:translate-x-1">
               →

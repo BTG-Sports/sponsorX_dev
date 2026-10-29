@@ -116,10 +116,13 @@ describe("guardian handoff", () => {
     expect(v[0]!.foot).toMatch(/Stripe/);
     expect(handoffViews(sampleDeclined)[0]!.foot).toMatch(/contact BTG/);
   });
-  it("agreed work and earned money stay put", () => {
+  /* POL-FE-01 (rule of 2026-10-28): what's unpaid follows the athlete to the new holder; sent payouts stay sent. */
+  it("agreed work stays put; unpaid money follows the athlete to the new guardian's own account", () => {
     const c = handoffCarryOver(sampleHandoff);
     expect(c[0]).toBe("Agreed orders continue as they are.");
-    expect(c[1]).toMatch(/already earned is paid as before/);
+    expect(c[1]).toBe("Payouts already sent stay sent; anything not yet paid out goes to Luis's own payout account once they set it up.");
+    expect(c[2]).toMatch(/^Luis sets up their own payout account/);
+    expect(c.join(" ")).not.toMatch(/paid as before/);
   });
   it("previews only status and declined", () => {
     expect(handoffDemo("status")).toBe("status");

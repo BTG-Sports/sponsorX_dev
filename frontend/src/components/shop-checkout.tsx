@@ -185,6 +185,13 @@ export function ShopCheckoutGate({
               Subtotal <span className="font-semibold tabular-nums text-text">{usd(subtotalCents)}</span> · fees are added when the order is placed.{" "}
               {APPROVAL_CONDITION} Nothing is charged when you place it.
             </p>
+            {/* POL-FE-04 — card payment is closed: the order is held, no pay-by date runs. */}
+            {checkout.paymentsOpen === false && (
+              <p role="status" className="rounded-lg border border-primary/40 bg-primary/8 px-3 py-2 text-xs text-text">
+                Card payment isn&rsquo;t open yet. Once approved, your order is <strong>held for you</strong> — no pay-by date runs and nothing is cancelled for
+                non-payment. We&rsquo;ll email your pay-by date as soon as card payment opens.
+              </p>
+            )}
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"

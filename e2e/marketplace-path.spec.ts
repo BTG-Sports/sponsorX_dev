@@ -452,6 +452,8 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
     `select d.state from "OrderLineDelivery" d join "MarketplaceOrderLine" l on l.id = d."lineId" where l."orderId" = $1`, [orderId]))[0]?.state;
   await expect.poll(deliveryState, { message: "the seller marked it delivered" }).toBe("DELIVERED");
   await sponsor.getByRole("button", { name: "Confirm delivered" }).click();
+  /* POL-FE-28 — confirming pays the seller, so a dialog asks first and names them. */
+  await sponsor.getByRole("dialog").getByRole("button", { name: /^Yes, confirm/ }).click();
   /* The button reads "Confirming…" while the answer is recorded; the line
      closes its answer controls once it is. */
   await expect(sponsor.getByRole("button", { name: "Report a problem" })).toBeHidden({ timeout: 30_000 });

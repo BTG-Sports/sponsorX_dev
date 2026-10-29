@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 
-import { ArenaChip, ArenaHead, ArenaUpdated, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
+import { ArenaChip, ArenaHead, ArenaLink, ArenaUpdated, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
+import { PAYOUT_ROUTE_LINE, PAYOUTS_PATH } from "@/lib/payouts-live";
 import { AreaChart } from "@/components/charts";
 import { MiniChip } from "@/components/hero";
 import { ActivityExplorer, ServerActivityExplorer } from "@/components/activity-explorer";
@@ -416,9 +417,10 @@ export default async function AthleteEarningsPage({
           <rect x="4" y="11" width="16" height="9" rx="2" />
           <path d="M8 11V7a4 4 0 0 1 8 0v4" />
         </svg>
+        {/* POL-FE-25 — the same sentence as the Payouts page: never "outside the platform". */}
         <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-muted">
-          Your bank account and tax ID never touch SponsorX — BTG Finance
-          handles the payout itself, outside the platform.
+          Your bank account and tax ID never touch SponsorX. {PAYOUT_ROUTE_LINE}{" "}
+          <ArenaLink href={PAYOUTS_PATH}>Payouts</ArenaLink>
         </p>
         <span className="flex items-center gap-1.5 text-[10px] text-faint">
           all figures <MiniChip kind="ver">SponsorX records</MiniChip>

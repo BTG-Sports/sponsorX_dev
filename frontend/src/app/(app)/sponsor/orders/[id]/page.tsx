@@ -14,11 +14,12 @@ import { sellerCancelledBanner } from "@/lib/cancellations-live";
 import { sponsorBadge, sponsorStatus } from "@/lib/order-automation-live";
 import { refundWords } from "@/lib/refunds-live";
 import type { ApiOrderDeliveries } from "@/lib/sponsor-delivery-live";
-import { TEST_PROVIDER_BADGE, paymentHint, paymentView, type ApiOrderPayment, type PaymentView } from "@/lib/order-payment-live";
+import { NOT_CONNECTED_NOTE, TEST_PROVIDER_BADGE, paymentHint, paymentView, type ApiOrderPayment, type PaymentView } from "@/lib/order-payment-live";
 import { canCancel, fmtStamp, orderCopy, orderRef, usd, type ApiOrder } from "@/lib/shop-live";
 import { orderWord } from "@/lib/sponsor-words";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
+import { supportContact } from "@/server/support";
 
 /* --------------------------------------------------------------------------
    Order — 2S4-FE-02, payment 2S5-FE-05. One marketplace order: its state,
@@ -88,10 +89,12 @@ export default async function OrderPage({
     </Link>
   );
 
-  const [res, payRes, deliveryRes] = await Promise.all([
+  const [res, payRes, deliveryRes, support] = await Promise.all([
     apiFetch(`/marketplace-orders/${encodeURIComponent(id)}`),
     apiFetch(`/marketplace-orders/${encodeURIComponent(id)}/payment`).catch(() => null),
     apiFetch(`/marketplace-orders/${encodeURIComponent(id)}/deliveries`).catch(() => null),
+    /* POL-FE-31 — the support address a failed card payment points to. */
+    supportContact(),
   ]);
   if (res.status === 403 || res.status === 404) {
     return (
@@ -109,11 +112,12 @@ export default async function OrderPage({
   if (!res.ok) throw new Error(`Order unavailable (${res.status}).`);
   const o = (await res.json()) as ApiOrder;
   const c = orderCopy(o.state);
-  const word = orderWord(o.state);
   const cancelledLike = o.state === "CANCELLED" || o.state === "REFUNDED";
   /* A failed payment read degrades the card to "couldn't be loaded", never the page. */
   const payment = payRes?.ok ? ((await payRes.json()) as ApiOrderPayment) : null;
-  const pay = paymentView(o.state, payment);
+  const pay = paymentView(o.state, payment, { supportEmail: support.email });
+  /* POL-FE-04 — "Ready to pay" beside "held for you" contradicts itself while card payment is closed. */
+  const word = pay.kind === "held" ? { ...orderWord(o.state), text: "Approved" } : orderWord(o.state);
   /* Delivery rows exist from contract time; a failed read hides the section, never the page. */
   const deliveries = deliveryRes?.ok ? ((await deliveryRes.json()) as ApiOrderDeliveries) : null;
   const now = new Date();
@@ -170,6 +174,8 @@ export default async function OrderPage({
               ? "Nothing was charged — you pay by card once it is accepted."
               : o.state === "PENDING_APPROVAL"
               ? "Nothing was charged — you pay by card once BTG approves it."
+              : pay.kind === "held"
+              ? "Nothing was charged yet — it’s held for you. Card payment opens soon and we’ll email your pay-by date."
               : "Nothing was charged yet — pay the total by card within 3 days."}
           </p>
         </Card>
@@ -179,7 +185,8 @@ export default async function OrderPage({
         <SponsorOrderStatus card={status} orderId={o.id} amount={usd(payment?.amountCents ?? o.totalCents)} canWrite={canWrite} canPay={Boolean(payment?.canPay)} unavailable={!payment} />
       )}
 
-      {pay.banner && !(status && pay.kind === "due") && <PaymentBanner banner={pay.banner} kind={pay.kind} />}
+      {/* The status card already says "due" or "held" (POL-FE-04) — one box, not two. */}
+      {pay.banner && !(status && (pay.kind === "due" || pay.kind === "held")) && <PaymentBanner banner={pay.banner} kind={pay.kind} />}
 
       {sellerCancels.map((b) => (
         <div key={b.id} className="space-y-1.5">
@@ -205,7 +212,7 @@ export default async function OrderPage({
               <ShopLineRow key={l.id} line={l} />
             ))}
           </ul>
-          <p className="text-[11px] text-muted">{paymentHint(pay.kind) ?? c.hint}</p>
+          <p className="text-[11px] text-muted">{paymentHint(pay.kind, pay.kind === "failed" && !pay.cta) ?? c.hint}</p>
           {deliveries && deliveries.lines.length > 0 && (
             <div className="pt-2">
               <SponsorOrderDelivery
@@ -355,12 +362,14 @@ function OrderTiles({
 
 const BANNER_TONE: Record<string, string> = {
   due: "border-warn/40 bg-warn/8",
+  held: "border-primary/40 bg-primary/8",
   processing: "border-primary/40 bg-primary/8",
   paid: "border-accent/40 bg-accent/8",
   failed: "border-danger/40 bg-danger/8",
 };
 const BANNER_TITLE: Record<string, string> = {
   due: "text-warn",
+  held: "text-primary-soft",
   processing: "text-primary-soft",
   paid: "text-accent",
   failed: "text-danger",
@@ -376,7 +385,8 @@ function PaymentBanner({ banner, kind }: { banner: NonNullable<PaymentView["bann
     >
       <p className={`text-sm font-semibold ${BANNER_TITLE[kind] ?? ""}`}>{banner.title}</p>
       <p className="mt-1 text-xs text-muted">{banner.text}</p>
-      {banner.detail && <p className="mt-1.5 font-mono text-[11px] text-muted">{banner.detail}</p>}
+      {/* POL-FE-31 — the provider's reference, small, for a sponsor to quote to support; never the headline. */}
+      {banner.detail && <p className="mt-1.5 text-[11px] text-faint">{banner.detail}</p>}
     </div>
   );
 }
@@ -421,6 +431,7 @@ function PaymentCard({
       )}
       {pay.note && !ctaAbove && (!cta || canWrite) && <p className="text-[11px] text-muted">{pay.note}</p>}
       {ctaAbove && <p className="text-[11px] text-muted">Not paid yet — pay from the box at the top of the page.</p>}
+      {pay.kind === "held" && <p className="text-[11px] text-muted">{NOT_CONNECTED_NOTE}</p>}
       {pay.poll && <PaymentRefresher />}
       {payment?.testProvider && (pay.cta || pay.kind === "processing") && (
         <p>

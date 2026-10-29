@@ -1,4 +1,5 @@
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "@/lib/brand-categories";
+import type { ApiDocumentCheck, ApiDocumentReturned } from "@/lib/document-checks-live";
 import type { PageInfo } from "@/lib/list-query";
 
 /* --------------------------------------------------------------------------
@@ -69,7 +70,11 @@ export type ApiSponsorRequestDetail = ApiSponsorRequest & {
   };
 };
 
-export type ApiSponsorDocument = { id: string; kind: string; filename: string; contentType: string; bytes: number; uploadedAt: string | null };
+/** P8-FE-11 — `check`: what reading it found (null until read); `returned`: BTG sent it back (its file is gone). */
+export type ApiSponsorDocument = {
+  id: string; kind: string; filename: string; contentType: string; bytes: number; uploadedAt: string | null;
+  check?: ApiDocumentCheck; returned?: ApiDocumentReturned;
+};
 
 /* ------------------------------------------------------------------ tabs */
 

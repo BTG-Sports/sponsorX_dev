@@ -250,7 +250,8 @@ describe("the dispute document actions", async () => {
     expect(await confirmDisputeUploadAction("dd_1", "ddoc_a")).toEqual({ ok: true });
     expect(vars.calls[0]!.init?.method).toBe("POST");
     vars.routes["/deal-disputes/dd_1/documents/ddoc_a/confirm"] = { status: 409, body: { error: { code: "deal_dispute_document", message: "That file hasn't arrived yet." } } };
-    expect(await confirmDisputeUploadAction("dd_1", "ddoc_a")).toEqual({ ok: false, message: "That file hasn't arrived yet." });
+    /* P8-FE-11 — the status rides along, so the upload offers Try again (the API answered) rather than Check again. */
+    expect(await confirmDisputeUploadAction("dd_1", "ddoc_a")).toEqual({ ok: false, status: 409, message: "That file hasn't arrived yet." });
     expect(await confirmDisputeUploadAction("dd_1", "../x")).toMatchObject({ ok: false });
   });
 });

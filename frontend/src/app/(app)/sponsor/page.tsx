@@ -273,7 +273,8 @@ function NeedsYou({ o }: { o: SponsorOverview }) {
   const items = [
     { key: "posts", title: "Posts waiting for your OK", sub: "Open a running campaign to look at them", count: n.postsToReview, href: "/sponsor/campaigns?review=1" },
     { key: "orders", title: "Orders to pay", sub: "Approved and ready for payment", count: n.ordersToPay, href: "/sponsor/orders?tab=to_pay" },
-    ...(n.invoicesUnpaid !== undefined ? [{ key: "invoices", title: "Invoices to pay", sub: "Sent to you by BTG", count: n.invoicesUnpaid, href: undefined }] : []),
+    /* POL-FE-13 — opens the invoices screen, where each one can be paid. */
+    ...(n.invoicesUnpaid !== undefined ? [{ key: "invoices", title: "Invoices to pay", sub: "Sent to you by BTG", count: n.invoicesUnpaid, href: "/sponsor/invoices" }] : []),
   ];
   const waiting = items.some((i) => i.count > 0);
   return (

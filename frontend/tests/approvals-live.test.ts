@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { jobFormat, liveMoves, toDeskItem, uploadKind } from "../src/lib/approvals-live";
+import { deskOpenId, jobFormat, liveMoves, postHref, reviewBy, toDeskItem, uploadKind } from "../src/lib/approvals-live";
 import type { ApiDeliverable } from "../src/lib/deliverables-live";
 
 /* --------------------------------------------------------------------------
@@ -91,5 +91,54 @@ describe("jobFormat", () => {
     expect(jobFormat("SX-02")).toBe("image");
     expect(jobFormat("SX-03")).toBe("video");
     expect(jobFormat("SX-99")).toBe("image");
+  });
+});
+
+/* POL-FE-23 — "review by": the backend's 48-hour reminder window from when
+   the draft reached its reviewer (P5-BE-09), never past the post's own due
+   date. Until the API carries a review deadline of its own, this is it. */
+describe("reviewBy", () => {
+  it("is 48 hours from when the draft reached the desk", () => {
+    const by = reviewBy(d({ waitingSince: "2026-10-14T09:00:00.000Z" }), NOW);
+    expect(by).toEqual({ iso: "2026-10-16T09:00:00.000Z", label: "Oct 16", late: false, from: "window" });
+  });
+  it("falls back to the latest upload for a draft submitted before waitingSince existed", () => {
+    const by = reviewBy(d(), NOW); // uploaded 2026-10-13T09:00
+    expect(by?.label).toBe("Oct 15");
+    expect(by?.from).toBe("window");
+  });
+  it("never lands after the END of the post's own due day on BTG's desk (America/New_York), whatever the server's clock", () => {
+    const by = reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z" }), NOW); // due Oct 20 — EDT, UTC−4
+    expect(by?.iso).toBe("2026-10-21T03:59:59.999Z");
+    expect(by?.label).toBe("Oct 20");
+    expect(by?.from).toBe("due");
+    /* 11 pm on Oct 20 in New York: not late. 00:01 on Oct 21: late. */
+    expect(reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z" }), new Date("2026-10-21T03:00:00.000Z"))?.late).toBe(false);
+    expect(reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z" }), new Date("2026-10-21T04:01:00.000Z"))?.late).toBe(true);
+    /* A due date that isn't a real day falls back to the 48 h window instead of rolling over. */
+    expect(reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z", dueDate: "2026-02-30" }), NOW)?.from).toBe("window");
+    expect(reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z", dueDate: "2026-13-45" }), NOW)?.from).toBe("window");
+  });
+  it("is late once now is past it", () => {
+    expect(reviewBy(d({ waitingSince: "2026-10-11T09:00:00.000Z" }), NOW)?.late).toBe(true);
+    expect(reviewBy(d({ waitingSince: "2026-10-14T09:00:00.000Z" }), NOW)?.late).toBe(false);
+  });
+  it("is null off the review desks, when sent back, or with nothing to count from", () => {
+    expect(reviewBy(d({ state: "APPROVED", waitingSince: "2026-10-14T09:00:00.000Z" }), NOW)).toBeNull();
+    expect(reviewBy(d({ revision: { reason: "x", at: "y" } }), NOW)).toBeNull();
+    expect(reviewBy(d({ latestAsset: null, waitingSince: null }), NOW)).toBeNull();
+  });
+  it("rides on the desk item", () => {
+    expect(toDeskItem(d({ waitingSince: "2026-10-14T09:00:00.000Z" }), NOW).live.reviewBy?.label).toBe("Oct 16");
+    expect(toDeskItem(d({ state: "VERIFIED" }), NOW).live.reviewBy).toBeNull();
+  });
+});
+
+describe("postHref / deskOpenId — a link straight to the post", () => {
+  it("opens the desk on the post, and reads it back from the URL", () => {
+    expect(postHref("dl 1/2")).toBe("/admin/approvals?open=dl%201%2F2");
+    expect(deskOpenId({ open: " dl_1 " })).toBe("dl_1");
+    expect(deskOpenId({ open: ["a", "b"] })).toBe("a");
+    expect(deskOpenId({})).toBe("");
   });
 });

@@ -231,6 +231,8 @@ describe.skipIf(!hasDatabase)("payouts approved and retried automatically", { ti
       /* Exactly as BTG's approval: handed to the provider, the payee emailed. */
       expect(await sendJobs(p.id)).toBe(1);
       expect(await emails()).toContainEqual(expect.objectContaining({ template: "payout.approved", to: "pa_riley@pa-test.invalid" }));
+      /* POL-BE-12 — nothing waits for BTG, so nobody at BTG is emailed. */
+      expect((await emails()).filter((m) => m.template === "payout.heldForReview" && m.idempotencyKey.includes(p.id))).toEqual([]);
       /* BTG sees it, with the badge's field and no reasons; nothing for BTG to decide. */
       const list = (await call("GET", "/payouts?state=APPROVED", "pa_admin")).json;
       expect(list.payouts.find((x: { id: string }) => x.id === p.id)).toMatchObject({ approvedAutomatically: true, reviewReasons: [], waitingOn: null });
@@ -250,9 +252,20 @@ describe.skipIf(!hasDatabase)("payouts approved and retried automatically", { ti
       expect("reviewReasons" in p).toBe(false);
       expect((await call("GET", `/payouts/${p.id}`, "pa_admin")).json).toMatchObject({ reviewReasons: ["Over $2,000"], waitingOn: "BTG" });
       expect(await sendJobs(p.id)).toBe(0);
+      /* POL-BE-12 — held: Finance and BTG's admins are emailed, once each, with the reason and the link. */
+      const held = (await emails()).filter((m) => m.template === "payout.heldForReview" && m.idempotencyKey.includes(p.id));
+      expect(held.map((m) => m.to).sort()).toEqual(["pa_admin@pa-test.invalid", "pa_finance@pa-test.invalid"]);
+      expect(held[0]!.data).toMatchObject({ reasons: "Over $2,000", payoutUrl: expect.stringContaining(`/admin/payouts/${p.id}`), amount: expect.stringMatching(/^\$/) });
+      /* And counted on BTG's board until decided. */
+      const board = async () => (await call("GET", "/operations/board", "pa_admin")).json.queues.payouts;
+      expect((await board()).waiting).toBeGreaterThanOrEqual(1);
+      const before = (await board()).waiting;
       /* BTG's own decisions are unchanged. */
       await settle(p.id);
       expect(await payout(p.id)).toMatchObject({ decidedBy: "pa_admin", approvedAutomatically: false });
+      expect((await board()).waiting).toBe(before - 1);
+      /* A payee can't read the board. */
+      expect((await call("GET", "/operations/board", "pa_riley")).status).toBe(403);
     });
 
     it("exactly at the limit waits for BTG; a cent over the amount passes", async () => {

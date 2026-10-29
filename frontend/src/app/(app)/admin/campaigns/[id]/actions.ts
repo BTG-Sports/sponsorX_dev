@@ -4,6 +4,56 @@ import { revalidatePath } from "next/cache";
 import { apiFetch } from "@/server/api";
 import { autoStaffingReasonProblem } from "@/lib/campaign-stage";
 import type { DraftOrderInput, DraftOrderResult } from "@/lib/ops-live";
+import { proposalOf, validCampaignId as validId, type ChangeProposal } from "@/lib/campaign-change-live";
+import { postCancel, postChange, readCancelImpact, readChangeImpact, type ActResult, type ImpactRead } from "@/server/campaign-change";
+
+/* --------------------------------------------------------------------------
+   P8-FE-12 — Cancel and Change a campaign (P8-BE-12), from BTG's campaign
+   page. The same rules as the sponsor's admin: the impact first, then
+   applied at once or held for BTG with the reasons. The API's matrix
+   decides who may (BTG admin, campaign manager), audits, and emails. Until
+   the API lands, a 404 reads as "Not available yet".
+   -------------------------------------------------------------------------- */
+
+function refreshCampaign(campaignId: string) {
+  revalidatePath(`/admin/campaigns/${campaignId}`);
+  revalidatePath("/admin/campaigns");
+  revalidatePath("/admin/campaign-requests");
+}
+
+/** GET /campaigns/{id}/cancel-impact — what cancelling would affect. */
+export async function adminCancelImpact(campaignId: string): Promise<ImpactRead> {
+  if (!validId(campaignId)) return { ok: false, message: "No campaign." };
+  return readCancelImpact(campaignId);
+}
+
+/** POST /campaigns/{id}/change-impact — what the proposed change would affect. */
+export async function adminChangeImpact(campaignId: string, proposal: ChangeProposal): Promise<ImpactRead> {
+  if (!validId(campaignId)) return { ok: false, message: "No campaign." };
+  const p = proposalOf(proposal);
+  if (!p.ok) return { ok: false, message: p.message };
+  return readChangeImpact(campaignId, p.proposal);
+}
+
+/** POST /campaigns/{id}/cancel { reason } */
+export async function adminCancelCampaign(campaignId: string, reason: string): Promise<ActResult> {
+  if (!validId(campaignId)) return { ok: false, message: "No campaign." };
+  const text = typeof reason === "string" ? reason.trim() : "";
+  if (!text) return { ok: false, message: "Write a reason first." };
+  const r = await postCancel(campaignId, text);
+  if (r.ok) refreshCampaign(campaignId);
+  return r;
+}
+
+/** POST /campaigns/{id}/change { name?, startDate?, endDate?, budget?, reason? } */
+export async function adminChangeCampaign(campaignId: string, proposal: ChangeProposal, reason: string): Promise<ActResult> {
+  if (!validId(campaignId)) return { ok: false, message: "No campaign." };
+  const p = proposalOf(proposal);
+  if (!p.ok) return { ok: false, message: p.message };
+  const r = await postChange(campaignId, p.proposal, typeof reason === "string" ? reason : undefined);
+  if (r.ok) refreshCampaign(campaignId);
+  return r;
+}
 
 /**
  * P4-FE-09 — BTG turns a campaign's automatic staffing off or on, with a

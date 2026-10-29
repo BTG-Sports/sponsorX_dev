@@ -11,6 +11,7 @@
    Pure: the API's shape and the words the page derives.
    -------------------------------------------------------------------------- */
 
+import type { ApiDocumentCheck, ApiDocumentReturned } from "@/lib/document-checks-live";
 import type { OnboardingDecision, OnboardingState } from "@/lib/onboarding-live";
 
 export type SignupState = "AUTO_APPROVED" | "NEEDS_REVIEW" | "REJECTED";
@@ -45,6 +46,8 @@ export type ApiOrgProfile = {
   documents: {
     id: string; kind: string; stateCode: string | null; filename: string; contentType: string; bytes: number; label: string;
     uploadedAt: string; expiresOn: string | null; current: boolean; replacedAt: string | null; removedAt: string | null;
+    /** P8-FE-11 — `check`: what reading it found (null until read); `returned`: BTG sent it back (its file is gone). */
+    check?: ApiDocumentCheck; returned?: ApiDocumentReturned;
   }[];
   activity: { at: string; text: string; byBtg: boolean }[];
   logins: { email: string; switchedOff: boolean; signedIn: boolean }[];
@@ -78,6 +81,8 @@ export function profileStanding(p: Pick<ApiOrgProfile, "onboardingState" | "auto
 
 /** One document's line: what it is, and where it stands in the history. */
 export function profileDocumentLine(d: ApiOrgProfile["documents"][number]): string {
-  const when = d.removedAt ? `removed ${momentOf(d.removedAt)}` : d.replacedAt ? `replaced ${momentOf(d.replacedAt)}` : `uploaded ${momentOf(d.uploadedAt)}`;
+  const when = d.returned
+    ? `sent back ${momentOf(d.returned.at)}`
+    : d.removedAt ? `removed ${momentOf(d.removedAt)}` : d.replacedAt ? `replaced ${momentOf(d.replacedAt)}` : `uploaded ${momentOf(d.uploadedAt)}`;
   return [d.label, when, d.expiresOn ? `valid until ${momentOf(d.expiresOn).split(",")[0]}` : null].filter(Boolean).join(" · ");
 }

@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { apiFetch } from "@/server/api";
 import type { SponsorMove } from "@/lib/edition-artwork-live";
+import { proposalOf, validCampaignId, type ChangeProposal } from "@/lib/campaign-change-live";
+import { postCancel, postChange, readCancelImpact, readChangeImpact, type ActResult, type ImpactRead } from "@/server/campaign-change";
 
 /* --------------------------------------------------------------------------
    P9-BE-16 — the sponsor's side of their SponsorX NEXT ad artwork.
@@ -38,7 +40,7 @@ async function post<T>(path: string, body: unknown, fallback: string): Promise<(
   return { ok: true, ...((await res.json()) as T) };
 }
 
-const valid = (id: unknown): id is string => typeof id === "string" && id.length > 0 && id.length < 200;
+const valid = validCampaignId;
 
 function refresh() {
   revalidatePath("/(app)/sponsor/campaigns/[id]", "page");
@@ -112,6 +114,57 @@ export async function sponsorContentLink(id: string, version: number): Promise<{
   }
   if (!res.ok) return { ok: false, message: await reason(res, `No link (HTTP ${res.status}).`) };
   return { ok: true, url: ((await res.json()) as { url: string }).url };
+}
+
+/* --------------------------------------------------------------------------
+   P8-FE-12 — Cancel and Change a campaign (P8-BE-12), the sponsor's admin
+   on their own campaigns. The impact reads show what it affects first; the
+   actions apply at once when every check passes, or are held for BTG with
+   the reasons. The API's matrix decides who may (SPONSOR_ADMIN, own
+   campaigns), audits, and emails. Until the API lands, a 404 reads as
+   "Not available yet".
+   -------------------------------------------------------------------------- */
+
+/** GET /campaigns/{id}/cancel-impact — what cancelling would affect. */
+export async function sponsorCancelImpact(campaignId: string): Promise<ImpactRead> {
+  if (!valid(campaignId)) return { ok: false, message: "No campaign." };
+  return readCancelImpact(campaignId);
+}
+
+/** POST /campaigns/{id}/change-impact — what the proposed change would affect. */
+export async function sponsorChangeImpact(campaignId: string, proposal: ChangeProposal): Promise<ImpactRead> {
+  if (!valid(campaignId)) return { ok: false, message: "No campaign." };
+  const p = proposalOf(proposal);
+  if (!p.ok) return { ok: false, message: p.message };
+  return readChangeImpact(campaignId, p.proposal);
+}
+
+/** POST /campaigns/{id}/cancel { reason } */
+export async function sponsorCancelCampaign(campaignId: string, reason: string): Promise<ActResult> {
+  if (!valid(campaignId)) return { ok: false, message: "No campaign." };
+  const text = typeof reason === "string" ? reason.trim() : "";
+  if (!text) return { ok: false, message: "Write a reason first." };
+  const r = await postCancel(campaignId, text);
+  if (r.ok) {
+    refresh();
+    revalidatePath("/(app)/sponsor/campaigns", "page");
+    revalidatePath("/(app)/sponsor", "page");
+  }
+  return r;
+}
+
+/** POST /campaigns/{id}/change { name?, startDate?, endDate?, budget?, reason? } */
+export async function sponsorChangeCampaign(campaignId: string, proposal: ChangeProposal, reason: string): Promise<ActResult> {
+  if (!valid(campaignId)) return { ok: false, message: "No campaign." };
+  const p = proposalOf(proposal);
+  if (!p.ok) return { ok: false, message: p.message };
+  const r = await postChange(campaignId, p.proposal, typeof reason === "string" ? reason : undefined);
+  if (r.ok) {
+    refresh();
+    revalidatePath("/(app)/sponsor/campaigns", "page");
+    revalidatePath("/(app)/sponsor", "page");
+  }
+  return r;
 }
 
 /** A short-lived signed link to the artwork file (audited by the API). */

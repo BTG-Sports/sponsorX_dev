@@ -46,10 +46,22 @@ export function openRequests(rows: ApiSponsorRequest[]): ApiSponsorRequest[] {
 }
 
 /** P1-ART-23 — the Requests page's mini `StadiumSteps`: where a request
- *  stands in plain steps. -1 (CLOSED, or anything unrecognised) shows no
- *  step lit rather than guess one. */
-export const REQUEST_STEPS = ["Sent", "Matching athletes", "Price agreed", "Campaign live"];
-export function requestStepNow(state: string): number {
+ *  stands in plain steps. `now` is the CURRENT step (the ones before it are
+ *  done; `steps.length` means every step is done). -1 (CLOSED, a cancelled
+ *  campaign, or anything unrecognised) shows no step lit rather than guess.
+ *
+ *  POL-FE-21 — each step is something that has actually happened, from the
+ *  brief's state and, once it became one, the campaign's:
+ *    Sent          the brief exists (DRAFT / QUALIFIED are BTG's review)
+ *    BTG review    done when the brief is APPROVED
+ *    Athletes signed  done when the campaign is fully staffed (APPROVAL:
+ *                  every athlete signed, the campaign waits for its start
+ *                  date) — before that it is STAFFING / DRAFT
+ *    Campaign live done once the campaign is ACTIVE (or past it)
+ *  Nothing here says a price was agreed or a campaign is live before the
+ *  API's own state does. */
+export const REQUEST_STEPS = ["Sent", "BTG review", "Athletes signed", "Campaign live"];
+export function requestStepNow(state: string, campaignState?: string | null): number {
   switch (state) {
     case "DRAFT":
     case "QUALIFIED":
@@ -57,10 +69,27 @@ export function requestStepNow(state: string): number {
     case "APPROVED":
       return 2;
     case "CAMPAIGN_CREATED":
-      return 4;
+      switch (campaignState) {
+        case "ACTIVE":
+        case "REPORTING":
+        case "COMPLETED":
+          return 4;
+        case "APPROVAL":
+          return 3;
+        case "CANCELLED":
+          return -1;
+        default:
+          /* DRAFT / STAFFING, or an older API that sent no campaign state: athletes are still being signed. */
+          return 2;
+      }
     default:
       return -1;
   }
+}
+
+/** The word under a request's steps when no step is lit. */
+export function requestStepsClosedWord(state: string, campaignState?: string | null): string {
+  return state === "CAMPAIGN_CREATED" && campaignState === "CANCELLED" ? "Campaign cancelled" : "Closed";
 }
 
 /** The campaign page's line while it is being staffed: it was approved. */

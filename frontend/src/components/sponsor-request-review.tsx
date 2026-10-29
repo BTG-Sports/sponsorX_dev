@@ -3,8 +3,10 @@
 import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
+import { DocumentCheck, SendBackButton } from "@/components/document-check";
 import { Badge, Card } from "@/components/ui";
 import type { BrandCategory } from "@/lib/brand-categories";
+import type { ApiDocumentCheck, ApiDocumentReturned } from "@/lib/document-checks-live";
 import {
   approveBlock, categoryOptions, decisionChecks, rejectSteps, reinstateSteps, stateBadge, whatHappens,
   type ApiSponsorRequestDetail, type LinkChoice, type RequestWriteFailure,
@@ -322,9 +324,19 @@ function AccountDialog({ request, rejecting, decide, onClose }: { request: ApiSp
 /* ------------------------------------------------------- proof of business */
 
 type ViewDocument = () => Promise<{ ok: true; url: string; expiresInSeconds: number } | RequestWriteFailure>;
+type SendBackDocument = (reason: string) => Promise<{ ok: true } | RequestWriteFailure>;
 
-/** One proof of business: a five-minute, audited link, asked for on click. */
-export function SponsorDocumentOpen({ filename, uploaded, view }: { filename: string; uploaded: boolean; view: ViewDocument }) {
+/**
+ * One proof of business: a five-minute, audited link, asked for on click.
+ * P8-FE-11 — and what reading it found, Send back with a reason (POST
+ * …/documents/:id/send-back), and no View once BTG sent it back (its file
+ * is gone).
+ */
+export function SponsorDocumentOpen({ filename, uploaded, view, check = null, returned = null, who, sendBack }: {
+  filename: string; uploaded: boolean; view: ViewDocument;
+  check?: ApiDocumentCheck; returned?: ApiDocumentReturned; who?: string; sendBack?: SendBackDocument;
+}) {
+  const router = useRouter();
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -337,19 +349,27 @@ export function SponsorDocumentOpen({ filename, uploaded, view }: { filename: st
       setUrl(r.url);
     });
   return (
-    <span className="flex flex-wrap items-center gap-2">
-      {url ? (
-        <>
-          <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-primary hover:underline">Open {filename} →</a>
-          <span className="text-[11px] text-faint">the link lasts 5 minutes ·</span>
-          <button type="button" onClick={ask} disabled={pending} className="text-[11px] text-muted underline disabled:opacity-40">new link</button>
-        </>
-      ) : (
-        <button type="button" disabled={pending} aria-label={`View ${filename}`} onClick={ask}
-          className="min-h-8 rounded-lg border border-line px-3 text-xs font-medium text-text hover:bg-surface-2 disabled:opacity-40">
-          {pending ? "Opening…" : "View"}
-        </button>
-      )}
+    <span className="flex min-w-0 flex-col gap-1.5 sm:items-end">
+      <span className="flex flex-wrap items-center gap-2">
+        {returned ? (
+          <span className="text-[11px] text-muted">File deleted</span>
+        ) : url ? (
+          <>
+            <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-primary hover:underline">Open {filename} →</a>
+            <span className="text-[11px] text-faint">the link lasts 5 minutes ·</span>
+            <button type="button" onClick={ask} disabled={pending} className="text-[11px] text-muted underline disabled:opacity-40">new link</button>
+          </>
+        ) : (
+          <button type="button" disabled={pending} aria-label={`View ${filename}`} onClick={ask}
+            className="min-h-8 rounded-lg border border-line px-3 text-xs font-medium text-text hover:bg-surface-2 disabled:opacity-40">
+            {pending ? "Opening…" : "View"}
+          </button>
+        )}
+        {!returned && sendBack && (
+          <SendBackButton name={filename} who={who ?? "The sponsor"} send={sendBack} onDone={() => router.refresh()} />
+        )}
+      </span>
+      <DocumentCheck check={check} returned={returned} className="sm:text-right" />
       {error && <span role="alert" className="text-[11px] text-danger">{error}</span>}
     </span>
   );

@@ -13,6 +13,8 @@ import {
 } from "@/lib/fixtures";
 import { DealPauseBanner } from "@/components/deal-pause-banner";
 import { OrderAccept } from "@/components/order-accept";
+import { OrderDecline } from "@/components/order-decline";
+import { declineOrderAction } from "../actions";
 import { mayUploadDisputeDocuments, viewerIsAthlete } from "@/lib/athlete-order-pause";
 import { latestDisputeFor, type ApiDealDispute } from "@/lib/deal-disputes-live";
 import { readAllDisputes } from "@/server/deal-disputes-read";
@@ -226,6 +228,12 @@ function LiveOrderView({
                   blocker={blocker}
                   accept={acceptOrderAction}
                 />
+                {/* POL-FE-24 — declining is the athlete's own move and needs no evidence; it asks once more. */}
+                {isAthlete && (
+                  <div className="mt-3">
+                    <OrderDecline orderId={o.id} decline={declineOrderAction} />
+                  </div>
+                )}
               </>
             ) : (
               <>

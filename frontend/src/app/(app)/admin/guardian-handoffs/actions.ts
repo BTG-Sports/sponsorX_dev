@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { sendBackProblem, sendBackRefusal } from "@/lib/document-checks-live";
 import { deskRefusal } from "@/lib/guardian-handoffs-desk-live";
 import { apiFetch } from "@/server/api";
 
@@ -64,4 +65,25 @@ export async function handoffDocumentAction(id: string, documentId: string): Pro
   if (!r.res.ok) return { ok: false, message: deskRefusal(r.res.status, r.body, "The document couldn't be opened") };
   const d = r.body as { url?: unknown; expiresInSeconds?: unknown } | null;
   return { ok: true, url: String(d?.url ?? ""), expiresInSeconds: Number(d?.expiresInSeconds ?? 300) };
+}
+
+/**
+ * P8-FE-11 / P8-BE-10 — send one of the new guardian's documents back with a
+ * reason: POST /guardian-handoffs/:id/documents/:documentId/send-back
+ * { reason }. The document stops counting and its file is deleted; a
+ * WAITING or HANDED_OFF request goes back to REQUESTED and nothing
+ * switches; the new guardian is emailed the reason and their upload link.
+ */
+export async function handoffSendBackAction(id: string, documentId: string, reason: string): Promise<DeskWrite> {
+  if (typeof id !== "string" || !ID.test(id) || typeof documentId !== "string" || !ID.test(documentId)) return { ok: false, message: "Unknown document." };
+  const problem = sendBackProblem(typeof reason === "string" ? reason : "");
+  if (problem) return { ok: false, message: problem };
+  const r = await call(`/guardian-handoffs/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}/send-back`, {
+    method: "POST",
+    body: JSON.stringify({ reason: reason.trim() }),
+  });
+  if (!r) return { ok: false, message: unreachable };
+  revalidatePath(PATH);
+  revalidatePath(`${PATH}/${id}`);
+  return r.res.ok ? { ok: true } : { ok: false, message: sendBackRefusal(r.res.status, r.body) };
 }

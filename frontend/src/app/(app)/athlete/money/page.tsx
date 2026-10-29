@@ -9,11 +9,11 @@ import { ListFilter, ServerList } from "@/components/server-pager";
 import { PagedTable, Primary, Td, Tr, type Column } from "@/components/stage-table";
 import { apiListQuery, apiListQueryFor, pageOrAll, type PageInfo } from "@/lib/list-query";
 import {
-  FROZEN_LINE, HISTORY_KEYS, HISTORY_STATES, HISTORY_STATE_PARAM, accountPanel, approvalBadge, historyRows, historyState, moneyTiles, orderAvailable,
-  orderStatusLabel, owedBackNotice, payeeFixPrompt, payoutTracker, requestButton, requestOrders, usd,
+  FROZEN_LINE, HISTORY_KEYS, HISTORY_STATES, HISTORY_STATE_PARAM, PAYOUT_ROUTE_LINE, accountPanel, approvalBadge, historyRows, historyState, moneyTiles, orderAvailable,
+  orderStatusLabel, owedBackNotice, payeeFixPrompt, payoutTracker, requestButton, requestOrders, usd, waitingPayouts,
   type ApiMyPayoutHistory, type ApiMyPayoutOrders, type ApiMyPayouts, type ApiPayout, type ApiPayoutOrder,
 } from "@/lib/payouts-live";
-import { apiFetch } from "@/server/api";
+import { apiFetch, fetchActor } from "@/server/api";
 import { moneyAccountLinkAction, moneyRequestAction } from "./actions";
 
 /* --------------------------------------------------------------------------
@@ -85,11 +85,14 @@ export default async function MyMoneyPage({ searchParams }: { searchParams: Prom
   const state = historyState(sp[HISTORY_STATE_PARAM]);
   const ordersQuery = apiListQuery(sp, {});
   const historyQuery = apiListQueryFor(sp, HISTORY_KEYS, { state });
-  const [res, ordRes, histRes] = await Promise.all([
+  const [res, ordRes, histRes, who] = await Promise.all([
     apiFetch("/payouts/me"),
     apiFetch(`/payouts/me/orders${ordersQuery}`).catch(() => null),
     apiFetch(`/payouts/me/history${historyQuery}`).catch(() => null),
+    /* POL-FE-26 — a minor's own login (GET /me `guardianControl`) sees who sets the account up, never the Stripe button. */
+    fetchActor(),
   ]);
+  const minor = who.status === "linked" && Boolean(who.actor.guardianControl) && !who.actor.actingFor;
   if (res.status === 403) {
     return (
       <div className="space-y-6">
@@ -118,7 +121,9 @@ export default async function MyMoneyPage({ searchParams }: { searchParams: Prom
   const requestable = requestOrders(me.orders);
   const reserve = me.totals.heldCents > 0 ? `${usd(me.totals.heldCents)} stays in reserve and is paid when the order closes.` : null;
   const linkAction = moneyAccountLinkAction.bind(null, "/athlete/money");
-  const panel = accountPanel(me.account, me.payee.name);
+  /* POL-FE-01 — after a guardian handoff or coming of age the account reads
+     NOT_SET_UP while approved payouts wait for the new holder's own account. */
+  const panel = accountPanel(me.account, me.payee.name, { minor, waiting: waitingPayouts(me) });
   const unmet = me.checks.filter((c) => !c.ok);
   const done = me.checks.length - unmet.length;
   const hasMoney = me.orders.length > 0 || ordersPage.total > 0;
@@ -132,7 +137,7 @@ export default async function MyMoneyPage({ searchParams }: { searchParams: Prom
       <ArenaHead
         title="Payouts"
         pill="Ledger · to the cent"
-        lede="Payouts go to your payout account on Stripe."
+        lede={PAYOUT_ROUTE_LINE}
         actions={<PayoutRequest view={request} amount={usd(me.totals.requestableCents)} orders={requestable} action={moneyRequestAction} note={reserve} />}
       >
         <ArenaTiles>
@@ -178,8 +183,14 @@ export default async function MyMoneyPage({ searchParams }: { searchParams: Prom
                   </span>
                   {!c.ok && c.key === "account" && (
                     <span className="basis-full pl-7">
-                      <StripeLinkButton cta={panel.cta} action={linkAction} testBadge={panel.testBadge} />
-                      <span className="mt-1 block text-[11px] text-muted">You add bank and tax details on Stripe&rsquo;s secure page, then come back here. SponsorX never sees them.</span>
+                      {panel.guardianOnly ? (
+                        <span className="block text-[11px] text-muted">{panel.guardianLine}</span>
+                      ) : (
+                        <>
+                          <StripeLinkButton cta={panel.cta} action={linkAction} testBadge={panel.testBadge} />
+                          <span className="mt-1 block text-[11px] text-muted">You add bank and tax details on Stripe&rsquo;s secure page, then come back here. SponsorX never sees them.</span>
+                        </>
+                      )}
                     </span>
                   )}
                 </li>

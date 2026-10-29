@@ -18,7 +18,9 @@ import { apiFetch } from "@/server/api";
    item it is, only while the line is in delivery); these add no authority.
    -------------------------------------------------------------------------- */
 
-export type SaleWrite = { ok: true } | { ok: false; message: string };
+/** `photoRefused`: the API's 422 on a mark-delivered that carried a photo — the
+ *  file was refused (and deleted) or never arrived, so the dialog drops it. */
+export type SaleWrite = { ok: true } | { ok: false; message: string; photoRefused?: boolean };
 export type ProofGrant = { ok: true; uploadUrl: string; key: string; contentType: string } | { ok: false; message: string };
 
 const unreachable = "The API is unreachable — nothing was saved. Try again in a minute.";
@@ -66,7 +68,9 @@ export async function markDeliveredAction(lineId: string, input: { note: string;
     revalidatePath(base);
     revalidatePath(`${base}/${lineId}`);
   }
-  if (!r.res.ok) return { ok: false, message: apiRefusal(r.res.status, r.json, "It wasn't marked delivered") };
+  if (!r.res.ok) {
+    return { ok: false, message: apiRefusal(r.res.status, r.json, "It wasn't marked delivered"), photoRefused: r.res.status === 422 && Boolean(input.proofKey) };
+  }
   return { ok: true };
 }
 

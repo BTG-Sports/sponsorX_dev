@@ -118,6 +118,15 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
     for (const [o, state] of [["o1", "HELD"], ["o2", "DISPUTED"], ["o3", "PAID"]] as const) {
       await prisma.earning.create({ data: { id: p(`earn_${o}`), tenantId: T, athleteId: await orderOf(o), orderId: p(o), gross: 10000, taxYear: 2026, state } });
     }
+    /* POL-BE-12 — payouts waiting for BTG in tenant A only: one held at request, one failed and handed to BTG; one approved (not waiting). */
+    if (T === A) {
+      const payout = (id: string, state: string, requestedAt: Date, waitingOn: string | null = null) => ({
+        id: p(id), tenantId: T, payeeType: "ATHLETE", payeeId: p("live_o1"), payeeTenantId: T, amountCents: 50_000, state, requestedAt, waitingOn,
+      });
+      await prisma.payout.createMany({ data: [
+        payout("po_held", "REQUESTED", daysAgo(3)), payout("po_failed", "FAILED", daysAgo(1), "BTG"), payout("po_ok", "APPROVED", daysAgo(5)),
+      ] });
+    }
     const users: Array<[string, string]> = [
       ["admin", "BTG_ADMIN"], ["network", "NETWORK_MGR"], ["finance", "FINANCE"], ["campaigns", "CAMPAIGN_MGR"], ["sales", "SALES"],
     ];
@@ -155,7 +164,10 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
       approvals: { waiting: 4 },
       briefs: { toQualify: 2, toMatch: 2 },
       finance: { held: 1, disputed: 1 },
+      payouts: { waiting: 2, oldestSince: expect.any(String) },
     });
+    /* The oldest waiting is the one held three days ago — never the approved one, older still. */
+    expect(Math.round((Date.now() - new Date(body.payouts.oldestSince).getTime()) / 86_400_000)).toBe(3);
   });
 
   it("tenant B's board counts tenant B only — never A's items", async () => {
@@ -165,13 +177,14 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
       approvals: { waiting: 7 },
       briefs: { toQualify: 5, toMatch: 2 },
       finance: { held: 1, disputed: 1 },
+      payouts: { waiting: 0, oldestSince: null },
     });
   });
 
   it("each role gets only the queues it reads tenant-wide", async () => {
-    expect((await board(`${A}_network`)).body).toMatchObject({ applications: { waiting: 3 }, finance: null });
+    expect((await board(`${A}_network`)).body).toMatchObject({ applications: { waiting: 3 }, finance: null, payouts: null });
     const finance = (await board(`${A}_finance`)).body;
-    expect(finance).toMatchObject({ applications: null, approvals: null, finance: { held: 1, disputed: 1 } });
+    expect(finance).toMatchObject({ applications: null, approvals: null, finance: { held: 1, disputed: 1 }, payouts: { waiting: 2 } });
     expect((await board(`${A}_campaigns`)).body).toMatchObject({ approvals: { waiting: 4 }, briefs: { toQualify: 2, toMatch: 2 } });
   });
 

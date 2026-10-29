@@ -8,7 +8,7 @@ import { DeadlineChip } from "@/components/order-bits";
 import { Badge } from "@/components/ui";
 import { sponsorCancelView } from "@/lib/cancellations-live";
 import { ANSWER_WINDOW_HOURS, answerForSponsor, deadline, sponsorIssueStatus, type ApiIssue } from "@/lib/order-automation-live";
-import { deliveryBadge, deliveryNote, stamp, timeLeft, type ApiDeliveryLine } from "@/lib/sponsor-delivery-live";
+import { confirmDeliveryWords, deliveryBadge, deliveryNote, stamp, timeLeft, type ApiDeliveryLine } from "@/lib/sponsor-delivery-live";
 import { DialogError, NoteField, OrderDialog, btn } from "./order-dialog";
 import { SponsorCancelControls } from "./sponsor-order-cancel";
 import { useDialogFocus } from "./use-dialog-focus";
@@ -70,6 +70,8 @@ export function SponsorOrderDelivery({ orderId, lines, canWrite, now, lineTotals
 function DeliveryLine({ orderId, line: l, canWrite, clock, refundCents }: { orderId: string; line: ApiDeliveryLine; canWrite: boolean; clock: Date; refundCents?: number }) {
   const router = useRouter();
   const [reporting, setReporting] = useState(false);
+  /* POL-FE-28 — Confirm delivered pays the seller, so it asks first. */
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   /* 2S4-FE-06 — a cancellation's words, where it has any, come first. */
@@ -85,6 +87,7 @@ function DeliveryLine({ orderId, line: l, canWrite, clock, refundCents }: { orde
       setError(null);
       const r = await confirmDeliveryAction(orderId, l.lineId);
       if (!r.ok) return setError(r.message);
+      setConfirming(false);
       router.refresh();
     });
 
@@ -149,7 +152,7 @@ function DeliveryLine({ orderId, line: l, canWrite, clock, refundCents }: { orde
           </p>
           {canWrite ? (
             <div className="flex flex-wrap gap-2">
-              <button type="button" className={primary} disabled={pending} onClick={confirm}>
+              <button type="button" className={primary} disabled={pending} onClick={() => setConfirming(true)}>
                 {pending ? "Confirming…" : "Confirm delivered"}
               </button>
               <button type="button" className={quiet} disabled={pending} onClick={() => setReporting(true)}>
@@ -165,7 +168,40 @@ function DeliveryLine({ orderId, line: l, canWrite, clock, refundCents }: { orde
         </div>
       )}
       {reporting && <ProblemDialog orderId={orderId} line={l} onClose={() => setReporting(false)} />}
+      {confirming && (
+        <ConfirmDialog line={l} refundCents={refundCents} pending={pending} error={error} onConfirm={confirm} onClose={() => setConfirming(false)} />
+      )}
     </li>
+  );
+}
+
+/** POL-FE-28 — "Confirm delivered" releases the seller's payment, so it
+ *  asks first and says so: the same shell as every other order dialog. */
+function ConfirmDialog({ line, refundCents, pending, error, onConfirm, onClose }: {
+  line: ApiDeliveryLine; refundCents?: number; pending: boolean; error: string | null; onConfirm: () => void; onClose: () => void;
+}) {
+  const w = confirmDeliveryWords(line, refundCents);
+  return (
+    <OrderDialog id="confirm-delivered" title={w.title} onClose={onClose} onSubmit={onConfirm}>
+      <ul className="space-y-1.5 text-[13px] leading-relaxed text-text/90">
+        {w.points.map((p) => (
+          <li key={p} className="flex gap-2">
+            <span aria-hidden="true" className="text-primary-soft">•</span>
+            <span>{p}</span>
+          </li>
+        ))}
+      </ul>
+      <DialogError message={error} />
+      <div className="flex flex-wrap justify-end gap-2">
+        {/* Focus lands on "Not yet": an accidental Enter never pays anyone. */}
+        <button type="button" data-autofocus onClick={onClose} disabled={pending} className={btn.quiet}>
+          {w.cancel}
+        </button>
+        <button type="submit" disabled={pending} className={btn.primary}>
+          {pending ? "Confirming…" : w.button}
+        </button>
+      </div>
+    </OrderDialog>
   );
 }
 
