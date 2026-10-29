@@ -1,5 +1,7 @@
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type { PrismaClient } from "../src/generated/prisma/client";
+import { agreeTeamShare } from "./support/team-share";
 
 /* --------------------------------------------------------------------------
    Sellers' orders and delivery, against the real API and database.
@@ -184,6 +186,7 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
     const riley = await call("POST", "/team/roster", "dl_mgr", { legalName: "Riley Carter", displayName: "RILEY.CARTER", email: "dl_riley@dl-test.invalid", sport: "Basketball", ageBand: "18_PLUS", teamShareBps: 2000 });
     expect(riley.status, riley.text).toBe(201);
     E.riley = riley.json.id;
+    await agreeTeamShare(prisma as unknown as PrismaClient, E.riley);
     const clinic = await call("POST", "/inventory", "dl_riley", { title: "Basketball clinic", kind: "CAMP", priceCents: 50_000, quantity: 20 });
     expect(clinic.status, clinic.text).toBe(201);
     E.hawksListing = await publish("dl_mgr", clinic.json.id, "Youth basketball clinic with Riley Carter");

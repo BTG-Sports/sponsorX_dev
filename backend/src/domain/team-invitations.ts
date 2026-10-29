@@ -34,6 +34,7 @@ import { assertMayCommit } from "./guardian-acts";
 import { ForbiddenError } from "../auth/errors";
 import { send } from "../lib/email";
 import { SELLING_ATHLETE_STATES } from "./listing-rules";
+import { endOpenShareChange, SHARE_CHANGE_SELECT, shareText } from "./team-share";
 
 type Tx = Prisma.TransactionClient;
 
@@ -231,9 +232,16 @@ export async function myTeam(actor: Actor) {
   });
   const team = new Map(teams.map((t) => [t.id, { name: t.name, city: [t.city, t.stateCode].filter(Boolean).join(", ") }]));
   const joined = me.propertyId ? invites.find((i) => i.propertyId === me.propertyId && i.state === "ACCEPTED") : null;
+  /* POL-BE-03 — the team's open request to change its share, waiting for the athlete's (or guardian's) answer. */
+  const asked = me.propertyId
+    ? await prisma.teamShareChange.findFirst({ where: { tenantId: actor.tenantId, athleteId, propertyId: me.propertyId, state: "PENDING" }, select: SHARE_CHANGE_SELECT })
+    : null;
   return {
     membership: me.propertyId
-      ? { teamId: me.propertyId, team: team.get(me.propertyId) ?? { name: "Your team", city: "" }, teamShareBps: me.teamShareBps, joinedAt: joined?.decidedAt ?? me.createdAt }
+      ? {
+          teamId: me.propertyId, team: team.get(me.propertyId) ?? { name: "Your team", city: "" }, teamShareBps: me.teamShareBps, joinedAt: joined?.decidedAt ?? me.createdAt,
+          shareChange: asked && { id: asked.id, fromBps: asked.fromBps, toBps: asked.toBps, askedAt: asked.createdAt },
+        }
       : null,
     invitations: invites
       .filter((i) => i.state === "PENDING")
@@ -293,6 +301,48 @@ export async function respondToInvitation(actor: Actor, id: string, decision: "A
   });
 }
 
+/**
+ * POL-BE-03 — the athlete answers their team's request to change its share.
+ * Accepting is an agreement, like joining: a minor's guardian accepts for
+ * them, never the minor's own login, and nobody does during the coming-of-age
+ * pause. It applies only while the athlete is still on that team at the share
+ * the request was made from. Orders already placed keep their split.
+ */
+export async function respondToShareChange(actor: Actor, id: string, decision: "ACCEPT" | "DECLINE", now = new Date()) {
+  const athleteId = athleteOf(actor, "write");
+  return prisma.$transaction(async (tx) => {
+    if (decision === "ACCEPT") await assertMayCommit(tx, actor, "accept");
+    const row = await tx.teamShareChange.findFirst({ where: { tenantId: actor.tenantId, athleteId, id }, select: SHARE_CHANGE_SELECT });
+    if (!row) throw new ForbiddenError("teamInvitation", "write");
+    if (row.state !== "PENDING") throw new TeamInvitationError(`This request was already ${row.state.toLowerCase()}.`);
+    const me = await tx.athlete.findFirst({ where: { tenantId: actor.tenantId, id: athleteId }, select: { displayName: true, legalName: true } });
+    const team = await tx.property.findFirst({
+      /* tenant-scope: the team named by the athlete's own request (loaded in their tenant above). */
+      where: { id: row.propertyId }, select: { tenantId: true, name: true },
+    });
+    if (!me || !team) throw new ForbiddenError("teamInvitation", "write");
+    if (decision === "ACCEPT") {
+      const applied = await tx.athlete.updateMany({
+        where: { tenantId: actor.tenantId, id: athleteId, propertyId: row.propertyId, teamShareBps: row.fromBps }, data: { teamShareBps: row.toBps },
+      });
+      if (!applied.count) throw new TeamInvitationError("This request is out of date: your team or your share has changed since it was sent.");
+      await audit(tx, actor, "team.setShare", "Athlete", athleteId, { before: { teamShareBps: row.fromBps }, after: { teamShareBps: row.toBps, agreed: row.id } });
+    }
+    const updated = await tx.teamShareChange.update({
+      /* tenant-scope: the row just loaded in the athlete's own tenant. */
+      where: { id: row.id }, data: { state: decision === "ACCEPT" ? "ACCEPTED" : "DECLINED", decidedAt: now, decidedBy: actor.userId }, select: SHARE_CHANGE_SELECT,
+    });
+    await audit(tx, actor, decision === "ACCEPT" ? "teamShareChange.accept" : "teamShareChange.decline", "TeamShareChange", row.id, {
+      before: { state: "PENDING" }, after: { state: updated.state },
+    });
+    await tellTeam(tx, team.tenantId, row.propertyId, "team.shareChangeAnswered", `team.shareChangeAnswered:${row.id}`, {
+      athleteName: me.legalName || me.displayName, answer: decision === "ACCEPT" ? "accepted" : "declined",
+      from: shareText(row.fromBps), to: shareText(row.toBps), rosterUrl: appUrl("/property/roster"),
+    });
+    return updated;
+  });
+}
+
 /** The athlete leaves their team. Past orders carry on, at their split. */
 export async function leaveTeam(actor: Actor, now = new Date()) {
   const athleteId = athleteOf(actor, "write");
@@ -324,6 +374,8 @@ async function endLink(tx: Tx, actor: Actor, athleteId: string, propertyId: stri
     where: { id: athleteId, propertyId }, data: { propertyId: null, teamShareBps: null },
   });
   if (!moved.count) throw new TeamInvitationError("That athlete isn't on this team any more.");
+  /* POL-BE-03 — a share request still waiting has nothing left to apply to. */
+  await endOpenShareChange(tx, actor, athlete.tenantId, athleteId, "LAPSED", now);
   const live = await tx.listing.findMany({
     /* tenant-scope: the team's own listings (by its property) of this athlete's items. */
     where: { propertyId, state: "PUBLISHED", item: { athleteId } }, select: { id: true, tenantId: true },
@@ -366,7 +418,7 @@ async function endLink(tx: Tx, actor: Actor, athleteId: string, propertyId: stri
   return { listingsPaused: live.length };
 }
 
-async function tellTeam(tx: Tx, tenantId: string, propertyId: string, template: "team.invitationAnswered" | "team.linkEnded", key: string, data: Record<string, string>) {
+async function tellTeam(tx: Tx, tenantId: string, propertyId: string, template: "team.invitationAnswered" | "team.linkEnded" | "team.shareChangeAnswered", key: string, data: Record<string, string>) {
   const managers = await tx.user.findMany({
     /* tenant-scope: the team's own managers, in its own tenant. */
     where: { tenantId, propertyId, roles: { has: "PROPERTY_MGR" }, disabledAt: null }, select: { email: true },

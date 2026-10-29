@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { transitionBody } from "./support/order-payment";
 import { settleDeliveries } from "./support/delivery";
+import type { PrismaClient } from "../src/generated/prisma/client";
+import { agreeTeamShare } from "./support/team-share";
 
 /* --------------------------------------------------------------------------
    Phase 2 batch 6, against the real API and database — the money side:
@@ -174,6 +176,7 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
     await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     E.riley = (await call("POST", "/team/roster", "lg_mgr_e", { legalName: "Riley Chen", displayName: "RILEY", email: "lg_riley@lg-test.invalid", sport: "Basketball", ageBand: "18_PLUS", teamShareBps: 2000 })).json.id;
+    await agreeTeamShare(prisma as unknown as PrismaClient, E.riley);
     await publish("banner", { title: "Courtside banner", kind: "SIGNAGE", priceCents: 120_000, quantity: 1 });
     await publish("clinic", { title: "Riley's clinic", kind: "CAMP", priceCents: 50_000, quantity: 5 }, "lg_riley");
     await publish("shout", { title: "Scoreboard shout-out", kind: "SIGNAGE", priceCents: 19_999, quantity: 100 });

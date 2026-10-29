@@ -1,6 +1,8 @@
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { manualPayment } from "./support/order-payment";
+import type { PrismaClient } from "../src/generated/prisma/client";
+import { agreeTeamShare } from "./support/team-share";
 
 /* --------------------------------------------------------------------------
    2S8-QA-03 · Financial reconciliation testing — Spec §38.
@@ -207,6 +209,7 @@ describe.skipIf(!hasDatabase)("2S8-QA-03 · a full marketplace cycle reconciles 
     await ok("GET", "/me", "rc_mgr_herons");
     await ok("GET", "/me", "rc_mgr_foxes");
     E.casey = (await ok("POST", "/team/roster", "rc_mgr_herons", { legalName: "Casey Lin RC", displayName: "CASEY.LIN.RC", email: "rc_casey@rc-test.invalid", sport: "Basketball", ageBand: "18_PLUS", teamShareBps: 2000 })).id;
+    await agreeTeamShare(prisma as unknown as PrismaClient, E.casey);
     const caseyItem = await ok("POST", "/inventory", "rc_casey", { title: "Ball-handling clinic", kind: "CAMP", priceCents: PRICE.casey, quantity: 40 });
     E.L.casey = await publish("rc_mgr_herons", caseyItem.id, "Ball-handling clinic with Casey Lin");
     const foxesItem = await ok("POST", "/inventory", "rc_mgr_foxes", { title: "Team scrimmage", kind: "CAMP", priceCents: PRICE.foxes, quantity: 40 });
