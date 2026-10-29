@@ -305,3 +305,17 @@ Built against the backend merged on `main_development` this afternoon, five comm
 - **Snag:** lint caught two unneeded backslashes in the registry text.
 - **For HeckerCreatives:** `POL-FE-12`, as spelled out in `polish.md` item 12.
 - **Tracker:** `POL-BE-12` is Code review; Done once the PR merges.
+
+### `POL-BE-12` Done (rcfworks): PR #336 merged
+
+- **Tracker:** the Polish sheet row for `POL-BE-12` is Done (carried on the `POL-BE-14` branch). The formula count is still 180.
+
+### `POL-BE-14` (rcfworks): a held make-good reaches its approvers
+
+- **Problem:** a campaign's make-good held for BTG sent no email and had no count, so the campaign kept under-delivering.
+- **Built:**
+  - `makegood-engine.ts` `tellHeld`: when the nightly run holds a shortfall, `makegood.held` to BTG admins and campaign managers (the `makeGood` approvers), keyed per shortfall and address, so the nightly refresh sends nothing more.
+  - `operations-board.ts`: `makeGoods: { waiting, oldestSince }` (OPEN shortfalls), for roles that read make-goods tenant-wide.
+- **Tests:** `makegood.test.ts` (the two held emailed to both approvers, the automatic one to nobody, the same keys on a second run, the board count, Finance sees null; fails with the email off) and `operations-board.test.ts`. Locally: 3,651 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
+- **For HeckerCreatives:** the board card, part of `POL-FE-15`.
+- **Tracker:** `POL-BE-14` is Code review; Done once the PR merges.

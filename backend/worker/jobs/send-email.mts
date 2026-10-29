@@ -213,6 +213,11 @@ ${d.portalUrl ?? ""}
     subject: `A payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"} couldn't be sent — it's yours to look at`,
     text: `The payment provider couldn't send a payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"}, and SponsorX won't retry it by itself.\n\nWhy: ${d.reason ?? ""}\n\nCheck it with the provider, then retry it — or send it back to the payee with a note:\n\n${d.payoutUrl ?? ""}\n\n— SponsorX`,
   }),
+  /* POL-BE-14 — a campaign under-delivering, its make-good held for a person. */
+  "makegood.held": (d) => ({
+    subject: `Make-good to decide: ${d.campaignName ?? "a campaign"}${d.sponsorName ? ` (${d.sponsorName})` : ""}`,
+    text: `${d.campaignName ?? "A campaign"}${d.sponsorName ? ` for ${d.sponsorName}` : ""} is projected to fall ${d.shortfall ?? "short"} of its guarantee. SponsorX found replacement inventory but didn't approve it on its own:\n\n- ${d.reasons ?? ""}${d.best ? `\n\nBest substitute: ${d.best}` : ""}\n\nThe campaign keeps under-delivering until someone decides. Review the substitutes and approve one:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
   /* POL-BE-12 — a payout the automatic approval didn't pass: BTG reviews it. */
   "payout.heldForReview": (d) => ({
     subject: `Payout to review: ${d.amount ?? ""} to ${d.payeeName ?? "a payee"}`,
