@@ -9,7 +9,8 @@ import { SECTIONS, type SectionKey } from "@/lib/profile-sections";
 import type { SectionState } from "@/lib/profile-live";
 import { BRAND_CATEGORIES, categoryLabel } from "@/lib/brand-categories";
 import { CONTENT_CAPABILITIES, capabilityLabel } from "@/lib/content-capabilities";
-import { SECTION_LABELS, STATE_COPY, changeRows, latestForBanner, legalNameNeedsId, type ApiProfileChange } from "@/lib/profile-changes-live";
+import { CHECKING_WORDS } from "@/lib/document-checks-live";
+import { SECTION_LABELS, STATE_COPY, changeRows, latestForBanner, legalNameNeedsId, sentBackAsk, type ApiProfileChange } from "@/lib/profile-changes-live";
 import { RELATIONSHIPS, idFileProblem, relationshipCode, ID_UPLOAD } from "@/lib/guardian-live";
 import {
   confirmLegalNameIdAction,
@@ -254,10 +255,17 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
         } catch {
           put = null;
         }
+        /* P8-FE-11 — the API opens and reads the ID before the name goes live (P8-BE-09 / -11): a few seconds, and a
+           refused file comes back with its reason. A flagged one keeps the name waiting for BTG (the API says so). */
+        if (put?.ok) setResult({ ok: true, text: CHECKING_WORDS });
         const confirmed = put?.ok ? await confirmLegalNameIdAction(r.idUpload.changeId).catch(() => unreachable) : null;
         setResult(confirmed?.ok
-          ? { ok: true, text: `Saved — your new legal name is live. ${SENSITIVE_NOTE}${checks}` }
-          : { ok: false, text: "Your other changes are saved, but the ID didn't arrive — your new legal name waits for it. Choose the file and save again, or withdraw it above." });
+          ? confirmed.held
+            ? { ok: true, text: `Saved — your ID is in. BTG is checking it before the new legal name takes effect; we'll email you. ${SENSITIVE_NOTE}${checks}` }
+            : { ok: true, text: `Saved — your new legal name is live. ${SENSITIVE_NOTE}${checks}` }
+          : confirmed
+            ? { ok: false, text: `${confirmed.message} Your other changes are saved; your new legal name waits for its ID. Choose a clearer file and save again, or withdraw it above.` }
+            : { ok: false, text: "Your other changes are saved, but the ID didn't arrive — your new legal name waits for it. Choose the file and save again, or withdraw it above." });
         setIdFile(null);
       } else {
         setResult({ ok: true, text: r.checkNotes.length ? `Saved. ${SENSITIVE_NOTE}${checks}` : "Saved — live on your profile now." });
@@ -433,8 +441,12 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
               <Badge tone={STATE_COPY[banner.state].tone}>{STATE_COPY[banner.state].label}</Badge>{" "}
               <span className="text-text">{banner.sections.map((s) => SECTION_LABELS[s] ?? s).join(", ")}</span>
               {banner.state === "PENDING"
-                ? " — your new legal name goes live once its matching ID arrives."
-                : ` — live on your profile. ${SENSITIVE_NOTE}`}
+                ? banner.idDocumentUploadedAt
+                  ? " — your ID is in. BTG is checking it; your new legal name goes live once they apply it."
+                  : " — your new legal name goes live once its matching ID arrives."
+                : banner.state === "DECLINED"
+                  ? ` — ${sentBackAsk(banner) ?? "declined."} Enter the name again and save it with a clearer ID.`
+                  : ` — live on your profile. ${SENSITIVE_NOTE}`}
             </p>
             <ul className="mt-1 text-[10px] text-faint">
               {changeRows(banner).map((r) => (

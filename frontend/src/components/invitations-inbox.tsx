@@ -161,6 +161,8 @@ function Inbox({
   const [answered, setAnswered] = useState<Record<string, InviteState>>({});
   const [pending, setPending] = useState<string | null>(null);
   const [armed, setArmed] = useState<string | null>(null);
+  /* POL-FE-27 — the invite whose Decline is waiting for "are you sure?", as offers ask. */
+  const [declining, setDeclining] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const rows = useMemo(
@@ -174,6 +176,7 @@ function Inbox({
     if (!respond || pending) return;
     setPending(id);
     setArmed(null);
+    setDeclining(null);
     setErrors((e) => {
       const rest = { ...e };
       delete rest[id];
@@ -599,7 +602,7 @@ function Inbox({
                           {busy ? "Opening…" : "Open offer"}
                         </Button>
                       )}
-                      {live && (moves.accept || moves.decline) && !moves.open && (
+                      {live && (moves.accept || moves.decline) && !moves.open && declining !== inv.id && (
                         <div className="flex gap-2">
                           <div className="min-w-0 flex-1">
                             <Button
@@ -621,21 +624,50 @@ function Inbox({
                           <Button
                             variant="secondary"
                             disabled={busy}
-                            onClick={() => move(inv.id, "DECLINED")}
+                            onClick={() => {
+                              setArmed(null);
+                              setDeclining(inv.id);
+                            }}
                           >
                             Decline
                           </Button>
                         </div>
                       )}
-                      {live && moves.open && (
+                      {live && moves.open && declining !== inv.id && (
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() => move(inv.id, "DECLINED")}
+                          onClick={() => setDeclining(inv.id)}
                           className="block w-full text-center text-[11px] font-medium text-muted transition-colors hover:text-text disabled:opacity-50"
                         >
                           Decline without opening
                         </button>
+                      )}
+                      {/* POL-FE-27 — one more tap before a decline is recorded, as offers ask (offer-respond.tsx). */}
+                      {live && declining === inv.id && (
+                        <div role="group" aria-label="Confirm decline" className="space-y-2 rounded-lg border border-line p-3">
+                          <p className="text-[11px] leading-relaxed text-text">
+                            Decline this invitation? It can&rsquo;t be reopened — BTG would have to send a new one.
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => move(inv.id, "DECLINED")}
+                              className="flex-1 rounded-lg border border-danger/40 px-3 py-2 text-[11px] font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
+                            >
+                              {busy ? "Declining…" : "Yes, decline"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => setDeclining(null)}
+                              className="flex-1 rounded-lg border border-line px-3 py-2 text-[11px] text-muted hover:text-text"
+                            >
+                              Keep it open
+                            </button>
+                          </div>
+                        </div>
                       )}
                       {live && armed === inv.id && (
                         <p className="text-[11px] leading-relaxed text-muted">

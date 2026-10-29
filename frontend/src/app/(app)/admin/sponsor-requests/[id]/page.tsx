@@ -9,7 +9,7 @@ import {
   accountTracker, documentLine, initials, reviewLine, roleWords, stampOf, stateBadge, tabFor, tabLabel, type ApiSponsorRequestDetail,
 } from "@/lib/sponsor-requests-live";
 import { apiFetch } from "@/server/api";
-import { decideSponsorRequestAction, viewSponsorDocumentAction } from "../actions";
+import { decideSponsorRequestAction, sendBackSponsorDocumentAction, viewSponsorDocumentAction } from "../actions";
 
 /* --------------------------------------------------------------------------
    One sponsor request — 2S1-FE-03 (Claude Design SponsorRequests.dc.html,
@@ -58,7 +58,7 @@ export default async function SponsorRequestPage({ params }: { params: Promise<{
             <p className="text-sm font-semibold">{r.businessName}</p>
             <p className="text-[11px] text-muted">Asked {stampOf(r.createdAt)} through &ldquo;Become a sponsor&rdquo;</p>
             <dl className="mt-3 grid grid-cols-[6rem_1fr] gap-y-1.5 text-xs">
-              <dt className="text-muted">Contact</dt><dd>{r.contactName}</dd>
+              <dt className="text-muted">Contact</dt><dd className="min-w-0 break-words">{r.contactName}</dd>
               <dt className="text-muted">Email</dt><dd className="break-all">{r.email}</dd>
               {r.phone && (<><dt className="text-muted">Phone</dt><dd>{r.phone}</dd></>)}
             </dl>
@@ -72,7 +72,7 @@ export default async function SponsorRequestPage({ params }: { params: Promise<{
             {r.answers.map((a) => (
               <div key={a.label} className="contents">
                 <dt className="text-muted">{a.label}</dt>
-                <dd>{a.value}</dd>
+                <dd className="min-w-0 break-words">{a.value}</dd>
               </div>
             ))}
           </dl>
@@ -96,9 +96,13 @@ export default async function SponsorRequestPage({ params }: { params: Promise<{
         {r.documents.length ? (
           <ul className="mt-2 divide-y divide-line-soft">
             {r.documents.map((d) => (
-              <li key={d.id} className="flex flex-col gap-1.5 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+              <li key={d.id} className="flex flex-col gap-1.5 py-2 text-xs sm:flex-row sm:items-start sm:justify-between">
                 <span className="min-w-0 break-words">{documentLine(d)}</span>
-                <SponsorDocumentOpen filename={d.filename} uploaded={Boolean(d.uploadedAt)} view={viewSponsorDocumentAction.bind(null, r.id, d.id)} />
+                {/* P8-FE-11 — what reading it found, Send back, and no View once its file is gone. */}
+                <SponsorDocumentOpen
+                  filename={d.filename} uploaded={Boolean(d.uploadedAt)} check={d.check ?? null} returned={d.returned ?? null} who={r.businessName}
+                  view={viewSponsorDocumentAction.bind(null, r.id, d.id)} sendBack={sendBackSponsorDocumentAction.bind(null, r.id, d.id)}
+                />
               </li>
             ))}
           </ul>

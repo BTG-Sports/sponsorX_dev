@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 
-import { signupDecisionAction, signupDocumentAction } from "@/app/(app)/admin/new-signups/actions";
+import { signupDecisionAction, signupDocumentAction, signupSendBackAction } from "@/app/(app)/admin/new-signups/actions";
+import { DocumentCheck, SendBackButton } from "@/components/document-check";
 import { cascadeWords, type ApiSignupDetail } from "@/lib/signups-live";
 import { useDialogFocus } from "./use-dialog-focus";
 
@@ -51,18 +52,24 @@ export function LiveSignupReview({ signup, before, after }: { signup: ApiSignupD
           ) : (
             <ul className="mt-2">
               {signup.documents.map((d) => (
-                <li key={d.id} className="flex items-center gap-3 border-t border-line-soft py-2.5 text-[13px]">
+                <li key={d.id} className="flex flex-wrap items-start gap-3 border-t border-line-soft py-2.5 text-[13px]">
                   <span className="min-w-0 flex-1">
                     {d.name}
                     <span className="block break-words text-[11px] text-muted">{d.sub}</span>
+                    {/* P8-FE-11 — what reading it found; sent back, with the reason (its file is gone). */}
+                    <DocumentCheck check={d.check ?? null} returned={d.returned ?? null} className="mt-1" />
                   </span>
                   {d.viewable ? (
-                    <button type="button" onClick={() => setOpen({ doc: d.id, name: d.name })} aria-label={`View ${d.name}`}
-                      className="min-h-9 rounded-lg border border-line px-3.5 text-xs font-semibold text-text hover:bg-surface-2">
-                      View
-                    </button>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <button type="button" onClick={() => setOpen({ doc: d.id, name: d.name })} aria-label={`View ${d.name}`}
+                        className="min-h-9 rounded-lg border border-line px-3.5 text-xs font-semibold text-text hover:bg-surface-2">
+                        View
+                      </button>
+                      <SendBackButton name={d.name} who={first} disabled={pending}
+                        send={(reason) => signupSendBackAction(owner, signup.id, d.id, reason)} onDone={() => router.refresh()} />
+                    </span>
                   ) : (
-                    <span className="text-[11px] text-muted">Recorded</span>
+                    <span className="text-[11px] text-muted">{d.returned ? "File deleted" : "Recorded"}</span>
                   )}
                 </li>
               ))}

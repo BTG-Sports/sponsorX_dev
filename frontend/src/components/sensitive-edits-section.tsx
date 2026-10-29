@@ -1,12 +1,14 @@
 import Link from "next/link";
 
 import { viewEditIdAction } from "@/app/(app)/admin/new-signups/sensitive-edit-actions";
+import { DocumentCheck } from "@/components/document-check";
+import { LegalNameDecision } from "@/components/legal-name-decision";
 import { PagerRow, PendingList } from "@/components/server-pager";
 import { StageHeading } from "@/components/ops-stage";
 import { Badge } from "@/components/ui";
 import { dayOf } from "@/lib/account-live";
 import { pageParamsFor, type ListKeys, type PageInfo, type SearchParams } from "@/lib/list-query";
-import { STATE_COPY, changeRows, type ApiSensitiveEdit } from "@/lib/profile-changes-live";
+import { STATE_COPY, awaitingBtg, changeRows, editIdCheck, editStatusLabel, type ApiSensitiveEdit } from "@/lib/profile-changes-live";
 import { signupHref } from "@/lib/signups-live";
 import { apiFetch } from "@/server/api";
 
@@ -56,7 +58,7 @@ export async function SensitiveEdits({ searchParams }: { searchParams: SearchPar
               <li key={e.id} className="space-y-2 border-b border-white/5 px-5 py-4 text-xs last:border-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <strong className="text-sm font-semibold">{e.athlete.displayName || e.athlete.legalName}</strong>
-                  <Badge tone={STATE_COPY[e.state].tone}>{e.state === "PENDING" ? "Waiting for the ID" : STATE_COPY[e.state].label}</Badge>
+                  <Badge tone={STATE_COPY[e.state].tone}>{editStatusLabel(e)}</Badge>
                   <span className="text-[#8a96a3]">{dayOf(e.createdAt)}</span>
                 </div>
                 <dl className="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)] gap-x-3 gap-y-0.5">
@@ -68,6 +70,11 @@ export async function SensitiveEdits({ searchParams }: { searchParams: SearchPar
                   ))}
                 </dl>
                 {(e.checkNotes?.length ?? 0) > 0 && <p className="text-[#9aa4b2]">{e.checkNotes!.join(" ")}</p>}
+                {/* P8-FE-11 — what reading the ID found (P8-BE-11); a held name is answered here. */}
+                <DocumentCheck check={editIdCheck(e)} />
+                {awaitingBtg(e) && (
+                  <LegalNameDecision changeId={e.id} athlete={e.athlete.legalName || e.athlete.displayName} newName={String(e.fields.legalName ?? "")} />
+                )}
                 <div className="flex flex-wrap items-center gap-4">
                   {e.idDocument && (
                     <form action={viewEditIdAction.bind(null, e.id)}>

@@ -70,13 +70,17 @@ export function PayoutAccountPanel({ view, action }: { view: AccountPanelView; a
               <span aria-hidden="true" className="ml-1">{view.chip.mark}</span>
             </Badge>
           </div>
-          {view.status !== "READY" && <p className="mt-2 text-sm font-medium">{view.headline}</p>}
+          {view.status !== "READY" && <p role={view.waiting > 0 ? "status" : undefined} className="mt-2 text-sm font-medium">{view.headline}</p>}
           <p className="mt-1 text-xs leading-relaxed text-muted">{view.body}</p>
+          {/* POL-FE-26 — the minor's own login: who does this, instead of a button that would fail. */}
+          {view.guardianLine && <p className="mt-2 text-xs leading-relaxed text-text">{view.guardianLine}</p>}
         </div>
         {/* Never wider than the panel: on a phone the button and the staging badge wrap under the text (QA 2026-10-07). */}
-        <div className="min-w-0 max-w-full">
-          <StripeLinkButton cta={view.cta} action={action} testBadge={view.testBadge} />
-        </div>
+        {!view.guardianOnly && (
+          <div className="min-w-0 max-w-full">
+            <StripeLinkButton cta={view.cta} action={action} testBadge={view.testBadge} />
+          </div>
+        )}
       </div>
     </section>
   );

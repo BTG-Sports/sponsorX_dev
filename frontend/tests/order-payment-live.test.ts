@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  HELD_TITLE,
   NOT_CONNECTED_NOTE,
   PAY_NOTE,
   PAYMENT_BUSY,
   PAY_NOT_ALLOWED,
   accountStatusLabel,
+  failedPaymentWords,
   parseStandinDetails,
+  plainFailure,
   payRefusal,
   paymentHint,
   paymentView,
@@ -58,9 +61,29 @@ describe("paymentView", () => {
     expect(paymentView("AWAITING_PAYMENT", pay(attempt("PENDING"))).kind).toBe("due");
   });
 
-  it("E1 — provider not connected: CTA still there, with the not-connected line", () => {
+  it("POL-FE-04 — card payment closed: held for you, no countdown, no pay-by date, no button", () => {
     const v = paymentView("APPROVED", pay(null, { canPay: false, provider: "none", testProvider: false }));
-    expect(v.cta?.label).toBe("Pay $1,000.00 by card");
+    expect(v.kind).toBe("held");
+    expect(v.status).toBe("Held for you");
+    expect(v.cta).toBeNull();
+    expect(v.poll).toBe(false);
+    expect(v.banner?.title).toBe(HELD_TITLE);
+    expect(v.banner?.title).toBe("Held for you — card payment opens soon; we’ll email your pay-by date");
+    expect(v.banner?.text).not.toMatch(/3 days|within/);
+    expect(v.banner?.role).toBe("status");
+    expect(paymentHint("held")).toMatch(/held for you/i);
+    /* The side card's line and the status card's share the same words. */
+    expect(NOT_CONNECTED_NOTE).toBe(`${HELD_TITLE}.`);
+    /* A walked-away (PENDING) attempt while closed is held too — not due. */
+    expect(paymentView("AWAITING_PAYMENT", pay(attempt("PENDING"), { canPay: false })).kind).toBe("held");
+  });
+
+  it("POL-FE-04 — a failed attempt while closed keeps its own banner, offers no retry, and says held", () => {
+    const v = paymentView("AWAITING_PAYMENT", pay(attempt("FAILED"), { canPay: false }));
+    expect(v.kind).toBe("failed");
+    expect(v.cta).toBeNull();
+    expect(v.status).toBe("Not paid · held");
+    expect(v.banner?.text).toMatch(/Card payment is closed right now/);
     expect(v.note).toBe(NOT_CONNECTED_NOTE);
   });
 
@@ -92,14 +115,34 @@ describe("paymentView", () => {
     expect(paymentView("PAID", pay(null)).banner?.title).toBe("Paid ✓ · payment recorded by BTG");
   });
 
-  it("E4 — FAILED and still due: try again on Stripe, with the reason", () => {
-    const v = paymentView("AWAITING_PAYMENT", pay(attempt("FAILED", { failureReason: "The card was declined (test payment provider)." })));
+  it("E4 — FAILED and still due: try again on Stripe, in plain words (POL-FE-31)", () => {
+    const v = paymentView("AWAITING_PAYMENT", pay(attempt("FAILED", { failureReason: "The card was declined (test payment provider).", providerRef: "pi_3Q1abc" })), { supportEmail: "support@sponsorx.net" });
     expect(v.kind).toBe("failed");
     expect(v.status).toBe("Not paid");
     expect(v.cta).toEqual(stripeCta("Try again on Stripe"));
     expect(v.cta?.ariaLabel.endsWith("Leaves SponsorX and opens Stripe.")).toBe(true);
-    expect(v.banner?.detail).toBe("Reason: The card was declined (test payment provider).");
     expect(v.banner?.role).toBe("alert");
+    /* The headline and text say what to do and who to write to — never the raw code. */
+    expect(v.banner?.title).toBe("Your card payment didn’t go through");
+    expect(v.banner?.text).toMatch(/Nothing was charged/);
+    expect(v.banner?.text).toMatch(/Try again on Stripe’s page/);
+    expect(v.banner?.text).toMatch(/write to support@sponsorx.net/);
+    expect(v.banner?.text).not.toMatch(/pi_/);
+    /* The reference is kept, small, for support; an untranslatable reason travels with it. */
+    expect(v.banner?.detail).toBe("Reference for support: pi_3Q1abc · Stripe’s code: The card was declined (test payment provider).");
+  });
+
+  it("POL-FE-31 — Stripe's decline codes read as plain words; no support address falls back to BTG", () => {
+    expect(plainFailure("card_declined")).toBe("your bank declined the card");
+    expect(plainFailure("insufficient_funds")).toBe("the card didn’t have enough funds");
+    expect(plainFailure("something_else")).toBeNull();
+    expect(plainFailure(null)).toBeNull();
+    const w = failedPaymentWords({ failureReason: "expired_card", providerRef: "pi_9" }, null);
+    expect(w.text).toMatch(/^Nothing was charged — the card has expired\./);
+    expect(w.text).toMatch(/contact BTG/);
+    expect(w.reference).toBe("Reference for support: pi_9");
+    expect(failedPaymentWords(null, "support@sponsorx.net").reference).toBeNull();
+    expect(failedPaymentWords({ failureReason: null, providerRef: null }, undefined).text).toMatch(/^Nothing was charged\. Your order is still approved/);
   });
 
   it("before approval there is no CTA; cancelled and refunded show no card", () => {

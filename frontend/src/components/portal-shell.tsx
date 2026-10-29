@@ -142,6 +142,7 @@ export function PortalShell({
   orgBrand,
   userName,
   userRole,
+  greeting = "Welcome back",
   stage = false,
   dock,
   children,
@@ -150,6 +151,9 @@ export function PortalShell({
   nav: NavItem[];
   /** Portal index route — matched exactly for nav highlighting. */
   rootHref: string;
+  /** The small line over the name. POL-FE-32: a layout that knows this is
+   *  the person's first sign-in passes "Welcome" instead. */
+  greeting?: string;
   /** Tenant / account the actor is acting for, e.g. "Under Armour". */
   orgName?: string;
   /** 2S7-FE-03 — an outside organisation's own branding (GET /branding):
@@ -285,7 +289,7 @@ export function PortalShell({
           )}
           <div className="min-w-0 flex-1">
             <p className="whitespace-nowrap text-[10px] uppercase leading-tight tracking-[0.2em] text-faint">
-              Welcome back
+              {greeting}
             </p>
             <p className="truncate text-base font-semibold leading-tight tracking-tight">
               {orgName ?? userName}

@@ -3,6 +3,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { requirePortalAccess } from "@/server/portal";
 import { PortalShell } from "@/components/portal-shell";
 import { SPONSOR_NAV } from "@/lib/sponsor-nav";
+import { welcomeWord } from "@/lib/sponsor-words";
 
 import "./stadium.css";
 import "../../mobile-nav.css";
@@ -43,6 +44,10 @@ export default async function SponsorLayout({ children }: LayoutProps<"/sponsor"
       dock={DOCK}
       userName={clerkName || user?.primaryEmailAddress?.emailAddress || "Sponsor"}
       userRole={role}
+      /* POL-FE-32 — "Welcome", not "Welcome back", on a first sign-in: the
+         sign-in that opened this session came within a day of the Clerk
+         account being created (approved minutes ago, signing in now). */
+      greeting={welcomeWord({ createdAt: user?.createdAt, lastSignInAt: user?.lastSignInAt })}
       /* P1-ART-23 — the whole sponsor portal on the Stadium Board. */
       stage="stadium"
     >

@@ -11,6 +11,9 @@
    estimated. Every card links to the page whose count it shows.
    -------------------------------------------------------------------------- */
 
+import { postHref, reviewBy } from "@/lib/approvals-live";
+import type { ApiDeliverable } from "@/lib/deliverables-live";
+
 export type ApiQueues = {
   applications: { waiting: number; over48h: number } | null;
   approvals: { waiting: number } | null;
@@ -166,6 +169,60 @@ export function campaignLines(rows: ApiDeliveryHealth[]): CampaignLine[] {
       ends: `Ends ${new Date(r.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`,
     }))
     .sort((a, b) => b.overdue - a.overdue || a.name.localeCompare(b.name));
+}
+
+/* --------------------------------------------------------------------------
+   POL-FE-23 — the posts waiting on BTG, each with its review-by date and a
+   link straight to the post (the desk with its drawer open), not to a
+   list. From GET /deliverables?state=DRAFT_SUBMITTED,BTG_REVIEW
+   &systemReturned=exclude&sort=waiting — BTG's own queue, longest wait
+   first — the board shows the first few, soonest review-by first.
+   -------------------------------------------------------------------------- */
+
+/** The fields of a GET /deliverables row the board reads. */
+export type ApiReviewRow = Pick<ApiDeliverable, "id" | "title" | "state" | "dueDate" | "revision"> & {
+  athlete: { displayName: string };
+  campaign: { name: string };
+  waitingSince?: string | null;
+  latestAsset?: { uploadedAt: string } | null;
+};
+
+export type ReviewLine = {
+  id: string;
+  title: string;
+  athlete: string;
+  campaign: string;
+  /** "Review by Oct 16"; "Review date unknown" when the API gave nothing to count from. */
+  by: string;
+  late: boolean;
+  /** The post itself — /admin/approvals?open=<id>. */
+  href: string;
+};
+
+/** How many waiting posts the board lists; the rest are on the desk. */
+export const BOARD_REVIEWS = 5;
+
+export function reviewLines(rows: ApiReviewRow[], now: Date, limit = BOARD_REVIEWS): ReviewLine[] {
+  return rows
+    .map((r): [number, ReviewLine] => {
+      const by = reviewBy(r, now);
+      return [
+        /* sort key — never shown; nothing to count from sorts last */
+        by ? Date.parse(by.iso) : Number.POSITIVE_INFINITY,
+        {
+          id: r.id,
+          title: r.title,
+          athlete: r.athlete.displayName,
+          campaign: r.campaign.name,
+          by: by ? `Review by ${by.label}` : "Review date unknown",
+          late: by?.late ?? false,
+          href: postHref(r.id),
+        },
+      ];
+    })
+    .sort((a, b) => a[0] - b[0] || a[1].title.localeCompare(b[1].title))
+    .slice(0, limit)
+    .map(([, line]) => line);
 }
 
 /** Outbox work older than this means the worker isn't draining (the Integrations page's rule). */

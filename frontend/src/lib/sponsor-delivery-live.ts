@@ -25,6 +25,7 @@
 import type { ApiCancellationTerms, LineCancelled } from "@/lib/cancellations-live";
 import type { ApiIssue, ApiTimelineItem } from "@/lib/order-automation-live";
 import type { SponsorRefund } from "@/lib/refunds-live";
+import { usd } from "@/lib/shop-live";
 
 export type DeliveryLineState = "UNPAID" | "IN_DELIVERY" | "DELIVERED" | "CONFIRMED" | "PROBLEM" | "REFUNDED" | "CANCELLED";
 
@@ -120,6 +121,33 @@ export function deliveryNote(l: ApiDeliveryLine): string | null {
 }
 
 const dayWord = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00Z` : iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
+/* ------------------------------------------- confirming pays (POL-FE-28) */
+
+/**
+ * The dialog behind "Confirm delivered". Confirming is the moment the
+ * seller is paid for the line (the hold on the money is released) and the
+ * 24 hours to report a problem end — so it says both, in the sponsor's
+ * words, before the one click that does it. `lineCents` is the line's
+ * total when the page knows it.
+ */
+export function confirmDeliveryWords(
+  l: Pick<ApiDeliveryLine, "title" | "seller" | "markedBy">,
+  lineCents?: number,
+): { title: string; points: string[]; button: string; cancel: string } {
+  const who = l.seller;
+  const amount = typeof lineCents === "number" ? ` ${usd(lineCents)}` : "";
+  return {
+    title: `Confirm “${l.title}” as delivered?`,
+    points: [
+      `${who} is paid for this line${amount ? ` —${amount} is released to them` : " — their payment is released"}. This can’t be undone.`,
+      "Once confirmed, you can no longer report a problem with it. If anything is wrong, choose Report a problem instead — the seller isn’t paid while a problem is open.",
+      `${l.markedBy ?? who} marked it delivered; confirming says you agree.`,
+    ],
+    button: `Yes, confirm — pay ${who}`,
+    cancel: "Not yet",
+  };
+}
 
 /** The sponsor's words for a refused answer, from the API's error body. */
 export function answerRefusal(status: number, body: unknown, fallback: string): string {

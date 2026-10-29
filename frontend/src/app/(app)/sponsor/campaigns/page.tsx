@@ -34,11 +34,16 @@ import { liveSponsorCampaignPage } from "@/server/sponsor";
      GET /campaigns?page&size&q&state&sort  the paged table (one page)
    Nothing is summed from the rows on screen. Money is in cents.
 
-   The "Posts to review" 5th tab (extra to the spec, P1-ART-23 Task 9: the
-   dashboard's "Posts waiting for your OK" link lands here) sets ?review=1,
-   which fetchCampaignPage already forwards as the API's ?review=true. It
-   carries no count — that would need its own /sponsor/overview read, which
-   this page has no other reason to make.
+   The "Needs your OK" 5th tab (P1-ART-23 Task 9: the dashboard's "Posts
+   waiting for your OK" link lands here) sets ?review=1, which
+   fetchCampaignPage forwards as the API's ?review=true. POL-FE-20: it is
+   the ONLY thing here that waits on the sponsor — a post in SPONSOR_REVIEW.
+   Its count is the API's ?review=true total (one minimal page read in
+   liveSponsorCampaignPage); the tile "Needs your OK" shows only when that
+   count is above zero and links straight to those campaigns, and on that
+   tab each row says so and links to the campaign to approve the post.
+   APPROVAL — fully staffed, launching by itself on its start date — reads
+   "Ready to start", never "Needs your OK".
 
    LIVE vs DEMO. A signed-in sponsor sees their own campaigns. Anyone else,
    and ?demo=empty|loading|error, gets the fixture deck under a "Sample
@@ -51,7 +56,8 @@ const SORT_WORDS: Record<(typeof CAMPAIGN_SORTS)[number], string> = { name: "Nam
 const STATE_TABS = [
   { key: "all", label: "All", state: "" },
   { key: "running", label: "Running", state: "ACTIVE" },
-  { key: "approval", label: "Needs your OK", state: "APPROVAL" },
+  /* POL-FE-20 — APPROVAL waits for its start date, not for the sponsor. */
+  { key: "approval", label: "Ready to start", state: "APPROVAL" },
   { key: "finished", label: "Finished", state: "COMPLETED,CANCELLED" },
 ] as const;
 
@@ -77,6 +83,7 @@ export default async function SponsorCampaignsPage({ searchParams }: { searchPar
         filters={filters}
         summary={live.summary}
         requestsOpen={live.requestsOpen}
+        needsYou={live.needsYou}
         rows={live.rows}
         page={live.page}
         now={now}
@@ -113,12 +120,15 @@ export default async function SponsorCampaignsPage({ searchParams }: { searchPar
 /* ------------------------------------------------------------- the page */
 
 function Campaigns({
-  sp, filters, summary, requestsOpen, rows, page, now, updatedAt, sample,
+  sp, filters, summary, requestsOpen, needsYou, rows, page, now, updatedAt, sample,
 }: {
   sp: SearchParams;
   filters: { q: string; state: string; sort: string; review: string };
   summary: CampaignSummary;
   requestsOpen?: number;
+  /** POL-FE-20 — campaigns with a post waiting for the sponsor's OK (the
+   *  API's ?review=true total); undefined when that read wasn't made. */
+  needsYou?: number;
   rows: ApiCampaign[];
   page: PageInfo;
   now: Date;
@@ -172,14 +182,28 @@ function Campaigns({
             hint="Campaigns currently live."
             delay={0.1}
           />
-          <StadiumTile
-            label="Needs your OK"
-            value={approval}
-            tone={approval > 0 ? "you" : undefined}
-            href={tabHref(sp, "APPROVAL")}
-            hint="Campaigns waiting for a decision from you."
-            delay={0.16}
-          />
+          {/* POL-FE-20 — "Needs your OK" only when a post is waiting for the
+              sponsor, and it links straight to those campaigns. Otherwise
+              the tile is the honest one: fully staffed, starts by itself. */}
+          {needsYou ? (
+            <StadiumTile
+              label="Needs your OK"
+              value={needsYou}
+              tone="you"
+              href={tabHref(sp, "", "1")}
+              caption={needsYou === 1 ? "campaign with a post to approve" : "campaigns with posts to approve"}
+              hint="Campaigns where an athlete's post is waiting for your approval. Open one to approve it or ask for changes."
+              delay={0.16}
+            />
+          ) : (
+            <StadiumTile
+              label="Ready to start"
+              value={approval}
+              href={tabHref(sp, "APPROVAL")}
+              hint="Fully staffed campaigns. Each one starts by itself on its start date — nothing is waiting on you."
+              delay={0.16}
+            />
+          )}
           <StadiumTile
             label="Behind schedule"
             value={summary.behind}
@@ -223,6 +247,7 @@ function Campaigns({
         filters={filters}
         running={summary.active}
         approval={approval}
+        needsYou={needsYou}
         finished={finished}
         rows={rows}
         page={page}
@@ -236,12 +261,13 @@ function Campaigns({
 /* ------------------------------------------------------------ campaigns */
 
 function CampaignList({
-  sp, filters, running, approval, finished, rows, page, now, total,
+  sp, filters, running, approval, needsYou, finished, rows, page, now, total,
 }: {
   sp: SearchParams;
   filters: { q: string; state: string; sort: string; review: string };
   running: number;
   approval: number;
+  needsYou?: number;
   finished: number;
   rows: ApiCampaign[];
   page: PageInfo;
@@ -285,8 +311,8 @@ function CampaignList({
                 {t.label}
               </TabLink>
             ))}
-            <TabLink href={tabHref(sp, "", "1")} on={onReview}>
-              Posts to review
+            <TabLink href={tabHref(sp, "", "1")} on={onReview} count={needsYou} hot>
+              Needs your OK
             </TabLink>
           </TabStrip>
         </div>
@@ -303,7 +329,8 @@ function CampaignList({
             tone="sponsor"
           />
         </div>
-        <SponsorCampaignTable rows={rows} page={page} now={now} filtered={filtered} empty={empty} />
+        {/* On the "Needs your OK" tab every row has a post waiting, so each says so and links to it. */}
+        <SponsorCampaignTable rows={rows} page={page} now={now} filtered={filtered} empty={empty} needsYou={onReview} />
       </ServerList>
     </section>
   );

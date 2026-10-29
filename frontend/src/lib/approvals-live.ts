@@ -43,8 +43,101 @@ export type LiveDeskItem = ReviewContentItem & {
        for changes while it is with the sponsor. */
     btgSkipped: boolean;
     skipReason: string | null;
+    /* POL-FE-23 — when this draft should be reviewed by (reviewBy below);
+       null once it is off the review desks. */
+    reviewBy: ReviewBy | null;
   };
 };
+
+/* --------------------------------------------------------------------------
+   POL-FE-23 — "review by". The API returns no review deadline of its own
+   (POL-BE-23 is the field); until it does, the date is computed from what
+   it does return, and the rule is the backend's own:
+
+     - review-reminders.ts reminds a reviewer once a draft has waited more
+       than REVIEW_REMINDER_HOURS (48) on their desk, counted from
+       `waitingSince` (P5-BE-09) — so that is when the review is due;
+     - a draft submitted before `waitingSince` existed counts from its latest
+       upload, the measure the desk already used for "waiting";
+     - and never later than the post's own due date: content due to publish
+       on Friday can't be reviewed on Saturday.
+
+   Only a draft actually on a review desk (not sent back) has a review-by.
+   -------------------------------------------------------------------------- */
+
+/** Mirrors REVIEW_REMINDER_HOURS in backend/src/domain/content-check-rules.ts. */
+export const REVIEW_WINDOW_HOURS = 48;
+
+export type ReviewBy = {
+  iso: string;
+  /** "Oct 16", the desk's date style. */
+  label: string;
+  /** Past the review-by moment at `now`. */
+  late: boolean;
+  /** Which of the two bounds set it. */
+  from: "window" | "due";
+};
+
+type ReviewByInput = Pick<ApiDeliverable, "state" | "revision" | "dueDate"> & {
+  waitingSince?: string | null;
+  latestAsset?: { uploadedAt: string } | null;
+};
+
+/** Where BTG's desk keeps its days: the review-by bound and its labels are read
+ *  in this zone whatever the server's clock says (the reviewers are US-based,
+ *  as the rewards' day is). */
+export const DESK_TIME_ZONE = "America/New_York";
+
+/** How far `tz` is ahead of UTC at `utcMs`, in ms. */
+function zoneOffsetMs(utcMs: number, tz: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).formatToParts(new Date(utcMs));
+  const n = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  return Date.UTC(n("year"), n("month") - 1, n("day"), n("hour"), n("minute"), n("second")) - Math.floor(utcMs / 1000) * 1000;
+}
+
+/** 23:59:59.999 in the desk's zone on a YYYY-MM-DD (or the day of an ISO
+ *  datetime); NaN when it isn't a real date (a rolled-over "2026-02-30" too). */
+function endOfDay(day: string | null | undefined): number {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(day ?? "");
+  if (!m) return Number.NaN;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const asUtc = Date.UTC(y, mo - 1, d, 23, 59, 59, 999);
+  const probe = new Date(asUtc);
+  if (probe.getUTCFullYear() !== y || probe.getUTCMonth() !== mo - 1 || probe.getUTCDate() !== d) return Number.NaN;
+  /* Two rounds so a DST change on the day itself is read at the right side of it. */
+  const first = asUtc - zoneOffsetMs(asUtc, DESK_TIME_ZONE);
+  return asUtc - zoneOffsetMs(first, DESK_TIME_ZONE);
+}
+
+export function reviewBy(d: ReviewByInput, now: Date): ReviewBy | null {
+  if (!REVIEW_STATES.includes(d.state) || d.revision) return null;
+  const since = d.waitingSince ?? d.latestAsset?.uploadedAt ?? null;
+  if (!since) return null;
+  const sinceMs = Date.parse(since);
+  /* The due date is a calendar day, not an instant: the bound is the END of
+     that day where the reviewer sits, so "overdue" doesn't flip the evening
+     before in US time zones (review 2026-10-29). */
+  const dueMs = endOfDay(d.dueDate);
+  if (Number.isNaN(sinceMs)) return null;
+  const windowMs = sinceMs + REVIEW_WINDOW_HOURS * 3_600_000;
+  const byMs = Number.isNaN(dueMs) ? windowMs : Math.min(windowMs, dueMs);
+  const iso = new Date(byMs).toISOString();
+  const from = byMs === windowMs ? "window" : "due";
+  /* The due bound is a calendar day: label it as that day, not as its last instant read in UTC. */
+  const label = from === "due" ? monDay(`${d.dueDate.slice(0, 10)}T12:00:00.000Z`) : monDay(iso);
+  return { iso, label, late: now.getTime() > byMs, from };
+}
+
+/** The desk with this post's drawer open — where a dashboard or email link lands (POL-FE-23). */
+export function postHref(id: string): string {
+  return `/admin/approvals?open=${encodeURIComponent(id)}`;
+}
+
+/** The post a link asked the desk to open, from the URL; "" for none. */
+export function deskOpenId(sp: Record<string, string | string[] | undefined>): string {
+  const v = sp.open;
+  return ((Array.isArray(v) ? v[0] : v) ?? "").trim().slice(0, 100);
+}
 
 export type ApprovalActionKind = "btg-review" | "sponsor-review" | "approve" | "revision" | "verify";
 export type ApprovalResult = { ok: true; state: string } | { ok: false; message: string };
@@ -124,6 +217,7 @@ export function toDeskItem(d: ApiDeliverable, now: Date): LiveDeskItem {
       waitingSince: d.waitingSince ?? null,
       btgSkipped: Boolean(d.btgReviewSkipped),
       skipReason: d.skipReason ?? null,
+      reviewBy: reviewBy(d, now),
     },
   };
 }

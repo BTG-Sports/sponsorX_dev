@@ -21,8 +21,9 @@ import { publicApi } from "../../onboarding/public-api";
      submitAction     POST /public/guardian-handoffs/:t/submit {acceptAgreement: true}
    -------------------------------------------------------------------------- */
 
-type Fail = { ok: false; message: string };
-const UNREACHABLE: Fail = { ok: false, message: "We couldn’t reach SponsorX. Nothing was lost — check your connection and try again." };
+/** P8-FE-11 — `status` lets the upload tell a refused file (Try again) from a call nothing answered (Check again). */
+type Fail = { ok: false; message: string; status?: number };
+const UNREACHABLE: Fail = { ok: false, status: 0, message: "We couldn’t reach SponsorX. Nothing was lost — check your connection and try again." };
 
 async function call(path: string, init: RequestInit = {}): Promise<Response | null> {
   try {
@@ -39,9 +40,9 @@ async function refusal(res: Response, fallback: string): Promise<Fail> {
   } catch {
     /* no body */
   }
-  if (res.status === 429) return { ok: false, message: "That’s a lot of tries from this connection. Wait a few minutes, then try again." };
-  if (res.status >= 500) return { ok: false, message: "Something went wrong on our side. Try again in a minute." };
-  return { ok: false, message: said ?? fallback };
+  if (res.status === 429) return { ok: false, status: 429, message: "That’s a lot of tries from this connection. Wait a few minutes, then try again." };
+  if (res.status >= 500) return { ok: false, status: res.status, message: "Something went wrong on our side. Try again in a minute." };
+  return { ok: false, status: res.status, message: said ?? fallback };
 }
 
 const path = (token: string, rest = "") => `/public/guardian-handoffs/${encodeURIComponent(token)}${rest}`;

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { sendBackProblem, sendBackRefusal } from "@/lib/document-checks-live";
 import { refusalWords } from "@/lib/signups-live";
 import { apiFetch } from "@/server/api";
 
@@ -66,4 +67,30 @@ export async function signupDocumentAction(owner: Owner, id: string, documentId:
   if (!res.ok) return { ok: false, message: refusalWords(b, res.status) };
   const d = b as { url: string; expiresInSeconds: number };
   return { ok: true, url: d.url, expiresInSeconds: d.expiresInSeconds };
+}
+
+/**
+ * P8-FE-11 / P8-BE-10 — send one document back with a reason:
+ * POST /signups/{athletes|guardians}/:id/documents/:documentId/send-back
+ * { reason }. The document stops counting and its file is deleted; the
+ * person is emailed the reason and their upload link; the checks run again
+ * on the new one.
+ */
+export async function signupSendBackAction(owner: Owner, id: string, documentId: string, reason: string): Promise<SignupActionResult> {
+  if (!OWNERS.includes(owner) || !ID.test(id) || !ID.test(documentId)) return { ok: false, message: "Unknown document." };
+  const problem = sendBackProblem(typeof reason === "string" ? reason : "");
+  if (problem) return { ok: false, message: problem };
+  let res: Response;
+  try {
+    res = await apiFetch(`/signups/${owner}/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}/send-back`, {
+      method: "POST",
+      body: JSON.stringify({ reason: reason.trim() }),
+    });
+  } catch {
+    return { ok: false, message: "The API is unreachable — nothing changed. Try again in a minute." };
+  }
+  const b = await body(res);
+  revalidatePath("/admin/new-signups");
+  revalidatePath(`/admin/new-signups/${owner}/${id}`);
+  return res.ok ? { ok: true } : { ok: false, message: sendBackRefusal(res.status, b) };
 }

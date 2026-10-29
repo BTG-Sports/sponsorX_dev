@@ -213,6 +213,18 @@ describe("the sponsor's order status", () => {
     expect(sponsorStatus({ ...order, state: "PAID" }, "paid", NOW)).toBeNull();
   });
 
+  it("POL-FE-04 — held while card payment is closed: no deadline, no countdown, no pay button", () => {
+    const held = { ...order, paymentDueAt: null, deadlineAt: null };
+    const c = sponsorStatus(held, "held", NOW)!;
+    expect(c).toMatchObject({ tag: "Approved automatically", tone: "primary", pay: false, again: false, title: "Held for you — card payment opens soon; we’ll email your pay-by date" });
+    expect(c.deadline).toBeUndefined();
+    expect(c.text).not.toMatch(/cancelled|3 days/);
+    expect(sponsorBadge(held, "held", NOW)).toMatchObject({ label: "Confirmed · held for you", tone: "primary" });
+    /* Even with a stale date on the row, "held" never counts down. */
+    expect(sponsorStatus(order, "held", NOW)!.deadline).toBeUndefined();
+    expect(sponsorStatus({ ...held, decidedBy: "u-btg" }, "held", NOW)!.tag).toBe("Approved by BTG");
+  });
+
   it("waiting for the seller (SP waiting)", () => {
     const w = { ...order, state: "PENDING_SELLER", waitingOn: "SELLER" as const, paymentDueAt: null, deadlineAt: "2026-10-03T16:00:00.000Z",
       sellerApprovals: [{ id: "a", seller: { type: "PROPERTY", id: "p", name: "Westfield Hawks" }, lineIds: ["l-1"], state: "PENDING", dueAt: "2026-10-03T16:00:00.000Z", decidedAt: null, reason: null }] };

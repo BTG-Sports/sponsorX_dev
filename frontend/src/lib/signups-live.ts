@@ -13,6 +13,7 @@
    -------------------------------------------------------------------------- */
 
 import type { ContentTrust } from "@/lib/content-trust";
+import type { ApiDocumentCheck, ApiDocumentReturned } from "@/lib/document-checks-live";
 
 export type LiveSignupKind = "ATHLETE" | "GUARDIAN";
 export type LiveSignupState = "AUTO_APPROVED" | "APPROVED" | "NEEDS_REVIEW" | "REJECTED";
@@ -43,7 +44,8 @@ export type ApiSignupDetail = ApiSignupRow & {
   checks: string[];
   /** What a held sign-up still waits on from the applicant. */
   missing: string[];
-  documents: { id: string; name: string; sub: string; viewable: boolean }[];
+  /** P8-FE-11 — `check`: what reading it found (null until read); `returned`: BTG sent it back (its file is gone, so `viewable` is false). */
+  documents: { id: string; name: string; sub: string; viewable: boolean; check?: ApiDocumentCheck; returned?: ApiDocumentReturned }[];
   activity: { at: string; text: string }[];
   guardian: { id: string; name: string; rejected: boolean } | null;
   guardianOf: (ApiSignupRow & { rejectedWithGuardian?: boolean })[];

@@ -18,7 +18,10 @@ const pick = (map: Record<string, Word>, key: string): Word => map[key] ?? { tex
 const CAMPAIGN: Record<string, Word> = {
   DRAFT: { text: "Being set up", tone: "info" },
   STAFFING: { text: "Finding athletes", tone: "info" },
-  APPROVAL: { text: "Needs your OK", tone: "you" },
+  /* POL-FE-20 — APPROVAL is fully staffed and launches by itself on its
+     start date (P4-BE-13): nothing waits on the sponsor, so it is not
+     "Needs your OK". A sponsor action is a post in SPONSOR_REVIEW. */
+  APPROVAL: { text: "Ready to start", tone: "info" },
   ACTIVE: { text: "Running", tone: "live" },
   REPORTING: { text: "Wrapping up", tone: "info" },
   COMPLETED: { text: "Finished", tone: "done" },
@@ -74,6 +77,27 @@ export function sourceWord(source: string, platform?: string): string {
     case "ATTRIBUTED": return "Linked to your campaign";
     default: return humanize(source);
   }
+}
+
+/* ------------------------------------------------------------- greeting */
+
+/** How long after the account's creation a sign-in still counts as the
+ *  first: a sponsor approved this morning and back after lunch is still
+ *  new here, and "Welcome back" to someone who has never been is the
+ *  wrong one of the two mistakes (POL-FE-32). */
+export const FIRST_SIGN_IN_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * "Welcome" on a first sign-in, "Welcome back" after. Decided from what the
+ * layout already holds — Clerk's `createdAt` and `lastSignInAt` (ms): the
+ * sign-in that opened this session is the first when there is none on
+ * record, or when it came within a day of the account being created. With
+ * no dates at all nothing is assumed: the long-standing "Welcome back".
+ */
+export function welcomeWord(u: { createdAt?: number | null; lastSignInAt?: number | null }): "Welcome" | "Welcome back" {
+  if (u.createdAt === null || u.createdAt === undefined) return "Welcome back";
+  if (u.lastSignInAt === null || u.lastSignInAt === undefined) return "Welcome";
+  return u.lastSignInAt - u.createdAt <= FIRST_SIGN_IN_WINDOW_MS ? "Welcome" : "Welcome back";
 }
 
 /** The fan journey's steps, in order. */

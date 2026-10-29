@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { checklist, needsGuardian, standing, type ApiSignupStatus } from "../src/lib/join-signup";
+import { SIGN_IN_HREF, canChangeGuardian, checklist, guardianChangeDraft, guardianEmailLine, needsGuardian, standing, type ApiSignupStatus } from "../src/lib/join-signup";
 import { countryToCode, draftToApplication, emptyDraft, relationshipToCode } from "../src/lib/join-flow";
 import { agreementFromBody, firstOpenStep, type ApiGuardianSetupLive } from "../src/lib/guardian-live";
 import { comingOfAgeView } from "../src/lib/account-live";
@@ -39,6 +39,32 @@ describe("the athlete's checklist", () => {
     expect(checklist(named).filter((r) => r.key.startsWith("g-")).map((r) => [r.label, r.done])).toEqual([
       ["Carmen opened their link", true], ["Their ID and proof of guardianship", false], ["The guardian agreement", false],
     ]);
+  });
+  /* POL-FE-34 — approved carries the way in. */
+  it("'You're approved' carries a Sign in button to the public sign-in; nothing else does", () => {
+    const ok = standing(status({ approved: true, emailConfirmed: true, idUploaded: true, missing: [] }));
+    expect(ok.cta).toEqual({ label: "Sign in", href: SIGN_IN_HREF });
+    expect(SIGN_IN_HREF).toBe("/login");
+    expect(standing(status({})).cta).toBeNull();
+    expect(standing(status({ underReview: true, missing: [] })).cta).toBeNull();
+    expect(standing(status({ closed: true })).cta).toBeNull();
+  });
+  /* POL-FE-16 — a mistyped guardian email is changed, not resent to. */
+  it("the guardian's email can be changed until BTG approves them", () => {
+    const g = { name: "Carmen Reyes", email: "c@exmaple.com", relationship: "LEGAL_GUARDIAN", emailConfirmed: false, idUploaded: false, proofUploaded: false, agreementAccepted: false, approved: false };
+    const named = status({ minor: true, idKind: "SCHOOL_ID", guardian: g });
+    expect(canChangeGuardian(named)).toBe(true);
+    expect(canChangeGuardian(status({ minor: true, idKind: "SCHOOL_ID", guardian: { ...g, approved: true } }))).toBe(false);
+    expect(canChangeGuardian(status({ minor: true, idKind: "SCHOOL_ID", guardian: null }))).toBe(false);
+    expect(canChangeGuardian(status({ minor: true, idKind: "SCHOOL_ID", guardian: g, closed: true }))).toBe(false);
+    expect(canChangeGuardian(status({ minor: true, idKind: "SCHOOL_ID", guardian: g, approved: true }))).toBe(false);
+    expect(canChangeGuardian(status({ guardian: g }))).toBe(false);
+    /* The form starts from the guardian already named — the email blank so the wrong one isn't resent. */
+    expect(guardianChangeDraft(named)).toEqual({ legalName: "Carmen Reyes", email: "", relationship: "LEGAL_GUARDIAN" });
+    expect(guardianChangeDraft(status({ minor: true, guardian: { ...g, relationship: "Mother" } })).relationship).toBe("PARENT");
+    expect(guardianChangeDraft(status({ guardian: null }))).toEqual({ legalName: "", email: "", relationship: "PARENT" });
+    expect(guardianEmailLine(named)).toBe("We're emailing c@exmaple.com. Wrong address? Change it and we email the new one.");
+    expect(guardianEmailLine(status({}))).toBeNull();
   });
 });
 

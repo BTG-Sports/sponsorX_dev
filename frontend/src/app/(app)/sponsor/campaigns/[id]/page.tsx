@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { BackLink } from "@/components/back-link";
+import { CampaignChangeControls } from "@/components/campaign-change";
 import { EmptyState } from "@/components/states";
 import { SponsorArtwork } from "@/components/edition-artwork";
 import { PendingList, ServerList } from "@/components/server-pager";
@@ -22,6 +23,7 @@ import {
 import { PagedTable, Primary, StageTable, Td, Tr, type Column } from "@/components/stage-table";
 import { SponsorContentReview } from "@/components/sponsor-content-review";
 import { campaignApprovalLine } from "@/lib/brief-status";
+import { campaignButtons } from "@/lib/campaign-change-live";
 import { launchLine, sponsorNextStep, sponsorStaffing } from "@/lib/campaign-stage";
 import { FLAG_HINTS, ORDER_COPY } from "@/lib/campaign-ui";
 import { demoState } from "@/lib/demo";
@@ -39,6 +41,10 @@ import {
   registerArtwork,
   sponsorArtworkAction,
   sponsorArtworkLink,
+  sponsorCancelCampaign,
+  sponsorCancelImpact,
+  sponsorChangeCampaign,
+  sponsorChangeImpact,
   sponsorContentAction,
   sponsorContentLink,
 } from "./actions";
@@ -297,6 +303,18 @@ function LiveDetail({
       : null;
   const nextDue = roster.reduce<string | null>((min, r) => (r.nextDue && (!min || r.nextDue < min) ? r.nextDue : min), null);
 
+  /* P8-FE-12 — Change campaign and Cancel campaign, for the sponsor's admin
+     only (an analyst sees no buttons); Cancel goes once the campaign is in
+     reporting or completed. The modal shows what it affects first. */
+  const buttons = campaignButtons(c.state, detail.canManageCampaign ? ["SPONSOR_ADMIN"] : []);
+  const manage = (buttons.change || buttons.cancel) && (
+    <CampaignChangeControls
+      campaign={{ id: c.id, name: c.name, startDate: c.startDate, endDate: c.endDate, budget: c.budget }}
+      show={buttons}
+      actions={{ cancelImpact: sponsorCancelImpact, changeImpact: sponsorChangeImpact, cancel: sponsorCancelCampaign, change: sponsorChangeCampaign }}
+    />
+  );
+
   const rows = roster.map((r) => ({
     id: r.athleteId,
     name: r.name,
@@ -325,6 +343,7 @@ function LiveDetail({
         hasReport={hasReport}
         reportHref={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report?from=sponsor-campaign`}
         pill={<StadiumUpdated iso={detail.readAt} />}
+        extra={manage || undefined}
       />
 
       <StadiumSteps steps={CAMPAIGN_STEPS} now={campaignStepNow(c.state)} label="Where this campaign stands" />
@@ -428,6 +447,7 @@ function Head({
   hasReport,
   reportHref,
   pill,
+  extra,
 }: {
   name: string;
   sub: string;
@@ -436,8 +456,10 @@ function Head({
   hasReport: boolean;
   reportHref: string;
   pill?: ReactNode;
+  /** P8-FE-12 — the Change / Cancel buttons, before the results link. */
+  extra?: ReactNode;
 }) {
-  const action = hasReport ? (
+  const report = hasReport ? (
     <Link
       href={reportHref}
       className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
@@ -460,6 +482,14 @@ function Head({
     <span className="rounded-lg border border-line bg-surface px-3.5 py-2 text-[11px] font-medium text-faint">
       Results available once delivery begins
     </span>
+  );
+  const action = extra ? (
+    <>
+      {extra}
+      {report}
+    </>
+  ) : (
+    report
   );
   return (
     <StadiumHead title={name} pill={pill} actions={action}>
