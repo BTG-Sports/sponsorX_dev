@@ -30,6 +30,11 @@
  *
  * WHO. BTG admins and campaign managers read and approve (`makeGood`, RBAC
  * matrix §31). Sales, sponsors and athletes never see a make-good.
+ *
+ * POL-BE-14 — A HELD MAKE-GOOD REACHES THEM. Each night a shortfall is held
+ * for a person, its approvers (BTG admins and campaign managers) are emailed
+ * — once per shortfall each, by the email's key, however many nights it is
+ * refreshed — and BTG's Operations Board counts the open ones.
  */
 import type { Actor } from "../auth/actor";
 import { assertTenantWide } from "../auth/scope";
@@ -51,6 +56,8 @@ import { gatherCandidates } from "./match-engine";
 import { activeModel, assertFeature, featureEnabled, tenantsWithout } from "./model-registry";
 import { filterCandidate, type BriefForMatch } from "./match-rules";
 import { lockItems } from "./reservation";
+import { send } from "../lib/email";
+import { env } from "../config/env";
 
 type Tx = Prisma.TransactionClient;
 
@@ -251,6 +258,31 @@ export type MakeGoodReport = { tenants: number; shortfalls: number; opened: numb
  * shortfalls of campaigns back on track, and approves automatically where
  * every safety check passes.
  */
+/**
+ * POL-BE-14 — a shortfall held for a person: its approvers hear of it, once
+ * each (the key is the shortfall and the address, so the nightly refresh
+ * sends nothing more).
+ */
+async function tellHeld(tx: Tx, tenantId: string, shortfallId: string, campaignId: string, shortfall: number, metric: string, reasons: string[], best: string | null) {
+  const [campaign, people] = await Promise.all([
+    tx.campaign.findFirst({ where: { tenantId, id: campaignId }, select: { name: true, sponsor: { select: { name: true } } } }),
+    tx.user.findMany({
+      /* tenant-scope: the make-good's own tenant — the people who approve make-goods (makeGood, matrix §31). */
+      where: { tenantId, disabledAt: null, roles: { hasSome: ["BTG_ADMIN", "CAMPAIGN_MGR"] } }, select: { email: true }, orderBy: { createdAt: "asc" },
+    }),
+  ]);
+  for (const email of new Set(people.map((u) => u.email.toLowerCase()))) {
+    await send(tx, tenantId, {
+      template: "makegood.held", to: email, idempotencyKey: `makegood.held:${shortfallId}:${email}`,
+      data: {
+        campaignName: campaign?.name ?? "", sponsorName: campaign?.sponsor.name ?? "",
+        shortfall: `${shortfall.toLocaleString("en-US")} ${metric}`, reasons: reasons.join("\n- "), best: best ?? "",
+        reviewUrl: `${env.APP_URL.replace(/\/+$/, "")}/admin/intelligence/make-goods/${shortfallId}`,
+      },
+    });
+  }
+}
+
 export async function runMakeGoods(db: PrismaClient, now: Date, opts: { tenantId?: string; skipTenants?: string[] } = {}): Promise<MakeGoodReport> {
   /* 3S8-OPS-01 — a tenant with make-goods switched off makes none. */
   const skip = new Set([...(opts.skipTenants ?? []), ...(await tenantsWithout(db, "makegood"))]);
@@ -332,6 +364,7 @@ export async function runMakeGoods(db: PrismaClient, now: Date, opts: { tenantId
           }
         }
         await tx.makeGoodShortfall.update({ where: { id, tenantId }, data: { heldReasons: held }, select: { id: true } });
+        await tellHeld(tx, tenantId, id!, f.campaignId, built.figures.shortfall, f.metric, held, built.options[0]?.inventoryName ?? null);
         return open ? ("held" as const) : ("opened" as const);
       });
       if (outcome === "decided") continue;

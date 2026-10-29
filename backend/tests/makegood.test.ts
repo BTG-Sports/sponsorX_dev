@@ -113,6 +113,7 @@ describe.skipIf(!hasDatabase)("3S5 · shortfalls, substitutes and approvals, nig
   const { runForecasts, forecastDetail, setGuarantee } = await import("../src/domain/forecast-engine");
   const { runMakeGoods, makeGoodList, approveMakeGood, MakeGoodCheckError, MakeGoodDecidedError, MakeGoodNoteError, MakeGoodNotFoundError } = await import("../src/domain/makegood-engine");
   const { ForbiddenError } = await import("../src/auth/errors");
+  const { operationsQueues } = await import("../src/domain/operations-board");
 
   const T = "mgd_t";
   const OTHER = "mgd_o";
@@ -200,9 +201,28 @@ describe.skipIf(!hasDatabase)("3S5 · shortfalls, substitutes and approvals, nig
 
   it("nightly: a shortfall for each at-risk campaign; the one 90% gone with a safe, close, affordable substitute is approved automatically", async () => {
     expect(await runMakeGoods(prisma, NOW, { tenantId: T })).toEqual({ tenants: 1, shortfalls: 3, opened: 3, closed: 0, autoApproved: 1, held: 2, skipped: [] });
+    /* POL-BE-14 — the two held reach their approvers (the admin and the campaign manager), once each; the automatic one emails nobody. */
+    const held = async () => (await prisma.outboxJob.findMany({ where: { tenantId: T, name: "notify.email" }, select: { payload: true } }))
+      .map((j) => j.payload as { template: string; to: string; idempotencyKey: string; data: Record<string, string> })
+      .filter((m) => m.template === "makegood.held");
+    const first = await held();
+    expect(first.map((m) => m.to).sort()).toEqual(["ana@mgd.invalid", "ana@mgd.invalid", "cam@mgd.invalid", "cam@mgd.invalid"]);
+    const [e, f, b] = [await shortfallOf("mgd_E"), await shortfallOf("mgd_F"), await shortfallOf("mgd_B")];
+    expect(new Set(first.map((m) => m.idempotencyKey.split(":")[1]))).toEqual(new Set([e, f]));
+    expect(first.some((m) => m.idempotencyKey.includes(b))).toBe(false);
+    expect(first.find((m) => m.idempotencyKey.includes(e))!.data).toMatchObject({
+      sponsorName: expect.any(String), reasons: expect.stringContaining("50% of the flight"), shortfall: expect.stringMatching(/impressions$/),
+      reviewUrl: expect.stringContaining(`/admin/intelligence/make-goods/${e}`),
+    });
     /* A second run the same night refreshes the two still open and opens nothing. */
     expect(await runMakeGoods(prisma, NOW, { tenantId: T })).toMatchObject({ shortfalls: 2, opened: 0, autoApproved: 0, held: 2 });
     expect(await prisma.makeGoodShortfall.count({ where: { tenantId: T } })).toBe(3);
+    /* …and sends nothing new: the same four keys, which the send log sends once. */
+    expect(new Set((await held()).map((m) => m.idempotencyKey))).toEqual(new Set(first.map((m) => m.idempotencyKey)));
+    /* Counted on BTG's board while they wait. */
+    const board = await operationsQueues(actor(T, "BTG_ADMIN"), NOW);
+    expect(board.makeGoods).toEqual({ waiting: 2, oldestSince: expect.any(String) });
+    expect((await operationsQueues(actor(T, "FINANCE"), NOW)).makeGoods).toBeNull();
   });
 
   it("B: the substitutes respect the target, availability, exclusivity and equivalence — and SponsorX approved Ava's", async () => {

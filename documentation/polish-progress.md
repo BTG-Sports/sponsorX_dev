@@ -16,7 +16,8 @@ each problem we ran into was solved. Newest first within each day.
 | 9 · A minor's invitations never reached the guardian | `POL-BE-09` | #331 | Merged |
 | 10 · A guardian handoff could wait forever | `POL-BE-10` | #333 | Merged |
 | 11 · Closing an account ignored live deals | `POL-BE-11` | #335 | Merged |
-| 12 · Payouts held for review were silent | `POL-BE-12` | — | In review |
+| 12 · Payouts held for review were silent | `POL-BE-12` | #336 | Merged |
+| 14 · Held make-goods reached no one | `POL-BE-14` | — | In review |
 | 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
 
 The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`, `POL-FE-10`, `POL-FE-11`, `POL-FE-12`) are for
@@ -305,6 +306,20 @@ rely on.
     and it was redone.
   - The board test expected exactly the old four queues. It now seeds
     payouts in one tenant and checks the other never sees them.
+
+### `POL-BE-14` — a held make-good reaches its approvers
+- **Problem:** when a campaign under-delivered, its replacement inventory
+  (the make-good) was held for BTG with no email and no count, so the
+  campaign kept under-delivering.
+- **Approach:**
+  - The nightly run emails the make-good's approvers when it holds one. The
+    email's key is the make-good and the person, so the nightly refresh
+    never sends a second.
+  - BTG's board counts open make-goods, as it does held payouts
+    (`POL-BE-12`).
+- **Snag:** a first draft of the test used a helper that doesn't exist, and
+  a check that proved nothing. Both were replaced with checks against each
+  make-good's own id.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.
