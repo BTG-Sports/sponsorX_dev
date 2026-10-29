@@ -14,6 +14,21 @@ export const CloseAccountInput = z
   .strict()
   .meta({ id: "CloseAccountInput", description: "Close the account this login is. confirm must be true." });
 
+/* POL-BE-11 — before closing: what it would affect; withdrawing a closure held for BTG. */
+export const ClosureAccountQuery = z
+  .object({ account: z.enum(["athlete", "guardian", "property"]).optional() })
+  .strict()
+  .meta({ id: "ClosureAccountQuery", description: "Which of this login's accounts, when it is more than one." });
+
+export const ClosureRequestListQuery = z
+  .object({ state: z.enum(["HELD", "CLOSED", "DECLINED", "WITHDRAWN"]).optional() })
+  .meta({ id: "ClosureRequestListQuery" });
+
+export const ClosureRequestDeclineInput = z
+  .object({ note: z.string().trim().min(1).max(1000) })
+  .strict()
+  .meta({ id: "ClosureRequestDeclineInput", description: "Why BTG keeps the account open; the owner reads it." });
+
 export const ReactivationLinkInput = z
   .object({ email: z.email().max(254) })
   .strict()

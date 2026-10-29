@@ -122,3 +122,38 @@
 - **Tests:** new `tests/invitation-guardian-mail.test.ts` (the real jobs), `b2b4.test.ts` (recipients and wording; three fail without the rule), and the log-redaction guard in `security-hardening.test.ts`. Locally: 3,639 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
 - **No frontend work.**
 - **Tracker:** `POL-BE-09` is Code review; Done once the PR merges.
+
+### `POL-BE-09` Done (rcfworks): PR #331 merged; sync PR #332 to `main` opened
+
+- **Tracker:** the Polish sheet row for `POL-BE-09` is Done (carried on the `POL-BE-10` branch). The formula count is still 180.
+
+### `POL-BE-10` (rcfworks): a guardian handoff never waits forever
+
+- **Problem:** a handoff request waited for the current guardian with no reminder or end; BTG couldn't step in until they answered.
+- **Built:**
+  - Migration `20261029210000_handoff_reminder_escalation`: `GuardianHandoff.remindedAt`, `escalatedAt`, index `(state, submittedAt)`.
+  - `sweepGuardianHandoffs` (`guardian-handoff.ts`), run hourly by the worker beside coming of age: reminder to the current guardian at 3 days (`handoff.reminder`); at 7 days escalated, with BTG's admins (`handoff.escalated`), the requester and the current guardian told. Each step conditional on the row, audited as the system, one email key per handoff.
+  - `decideStaffHandoff` now also takes an escalated WAITING request (CONFIRM switches, DECLINE needs a reason); before 7 days, 409. The current guardian can still answer; both decisions lock the request's row first (`lockHandoff`), so the first answer decides.
+  - A switch BTG confirmed after no answer says so in its emails (`byBtg`).
+  - The view carries `sentAt`, `waitingDays`, `remindedAt`, `escalatedAt`, `btgMayDecide`; the desk's "Waiting for BTG" tab and count include escalated requests.
+- **Tests:** new `tests/phase2-guardian-handoff-escalation.test.ts` (5; three fail with escalation off). Locally: 3,644 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
+- **For HeckerCreatives:** `POL-FE-10`, as spelled out in `polish.md` item 10.
+- **Tracker:** `POL-BE-10` is Code review; Done once the PR merges.
+
+### `POL-BE-10` Done (rcfworks): PR #333 merged; sync PR #334 to `main` opened
+
+- **Tracker:** the Polish sheet row for `POL-BE-10` is Done (carried on the `POL-BE-11` branch). The formula count is still 180.
+
+### `POL-BE-11` (rcfworks): closing an account leaves no live deal behind
+
+- **Problem:** closing switched an account off whatever was open, with nobody told; a minor could close their own; earned money waited on a login that no longer worked.
+- **Decided (the user, 2026-10-29):** money with no payout account holds the closure for BTG, and so does a guardian still acting for a minor.
+- **Built:**
+  - `account-closure-impact.ts` (`closureImpact`): live deals (campaign orders SENT/ACCEPTED/ACTIVE; marketplace sales UNPAID/IN_DELIVERY/DELIVERED/PROBLEM), open invitations, a guardian's minors, money owed and whether a payout account is ready; `holdReasons`.
+  - Migration `20261029230000_closure_request`: `ClosureRequest` (HELD | CLOSED | DECLINED | WITHDRAWN), filed in BTG's tenant (the account's operator), `subjectTenantId` the account's own; one HELD per account.
+  - `POST /me/close`: held → 202, nothing switched off, the owner, BTG's admins and each live deal's sponsor emailed. A minor's account only by the guardian (`assertMayCommit("close")`). Closing declines open invitations and requests the earned money as the system (`payouts.ts requestPayoutAsSystem`, split out of `requestPayout`); the worker repeats it hourly for closed accounts (`payOutClosedAccounts`).
+  - New routes: `GET /me/close/preview`, `POST /me/close/withdraw`, `GET /account-closure-requests(/:id)`, `POST /account-closure-requests/:id/close` (409 until nothing is left), `…/decline`.
+- **Snags:** a roster athlete lives in the team's tenant, so the request is filed with the operator (BTG) and the closing done in the account's own tenant; a guardian's login acts for their one child by default, so their own closure names `account: "guardian"`; the money read is listed as read-only in the financial audit guard.
+- **Tests:** new `tests/phase2-closure-live-deals.test.ts` (4; all fail with the hold off); tenant isolation covers the new routes; `payment-world` helper takes a ward. Locally: 3,651 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
+- **For HeckerCreatives:** `POL-FE-11`, as spelled out in `polish.md` item 11.
+- **Tracker:** `POL-BE-11` is Code review; Done once the PR merges.

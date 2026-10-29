@@ -10,6 +10,20 @@
  * listing access, and records an AccountClosure kept for 30 days. Money
  * already earned is untouched: it is still paid out.
  *
+ * POL-BE-11 — NOTHING LEFT BEHIND.
+ *   · A closure that can't close yet is HELD for BTG (a ClosureRequest), the
+ *     account staying open: a live deal (account-closure-impact.ts — BTG
+ *     settles each with the sponsor, who is told), money earned with no
+ *     payout account to send it to, or a guardian still acting for a minor.
+ *     BTG closes it once nothing is left ("Close now"), or declines; the
+ *     owner can withdraw it.
+ *   · A minor's account is closed by their guardian (assertMayCommit
+ *     "close"), never the minor's own login.
+ *   · Closing declines the account's open invitations, and requests its
+ *     earned money as the system, to the payout account on file
+ *     (payouts.ts requestPayoutAsSystem) — at once, and hourly while it is
+ *     closed for whatever passes its holding period later.
+ *
  * A REJECTED ACCOUNT is closed by BTG's Reject, in the code that owns that
  * Reject: sponsors (sponsor-requests.ts — and a request declined before an
  * account opened, subject INQUIRY), organisations (onboarding.ts `withdraw`
@@ -56,6 +70,10 @@ import { issueComingOfAgeToken } from "../lib/signup-token";
 import { deletePrivateObject } from "../lib/storage";
 import { ABANDONED_SUPPORT_DRAFT_DAYS, SUPPORT_ATTACHMENT_RETENTION_DAYS } from "../contracts/support";
 import { mayParticipate } from "./guardian-rules";
+import { assertMayCommit } from "./guardian-acts";
+import { closureImpact, type ClosingKind } from "./account-closure-impact";
+import { requestPayoutAsSystem, type Payee } from "./payouts";
+import { advanceCampaign } from "./campaign-stages";
 import { relistAfterReactivation } from "./listing";
 import {
   CLOSURE_TABS, closureMarker, dayWords, reactivationStanding, retainUntilFrom, retentionDaysLeft,
@@ -124,44 +142,64 @@ async function ownSubject(tx: Tx, actor: Actor, input: CloseInput): Promise<Subj
   if (pick === "athlete") {
     assertAllowed(actor, "athlete", "write");
     const a = actor.athleteId
-      ? await tx.athlete.findFirst({ where: { ...whereFor(actor, "athlete", "write"), id: actor.athleteId }, select: { id: true, email: true, displayName: true } })
+      ? await tx.athlete.findFirst({ where: { ...whereFor(actor, "athlete", "write"), id: actor.athleteId }, select: { id: true } })
       : null;
     if (!a) throw new ForbiddenError("athlete", "write");
-    return {
-      kind: "ATHLETE", id: a.id, contactEmail: (a.email ?? me?.email ?? "").toLowerCase(), displayName: firstWord(a.displayName),
-      users: { tenantId: actor.tenantId, athleteId: a.id },
-      /* Their own listings, and the team's listings of their items (a roster
-         athlete's items are listed by the team, 2S2-BE-05) — none sells while
-         the account is closed. */
-      listings: { tenantId: actor.tenantId, state: "PUBLISHED", OR: [{ sellerAthleteId: a.id }, { propertyId: { not: null }, item: { is: { athleteId: a.id } } }] },
-    };
+    /* POL-BE-11 — a minor's account is closed by their guardian, never the minor's own login. */
+    await assertMayCommit(tx, actor, "close");
+    return subjectOf(tx, actor.tenantId, "ATHLETE", a.id, me?.email ?? "");
   }
   if (pick === "guardian") {
     assertAllowed(actor, "guardian", "write");
     const g = actor.guardianId
-      ? await tx.guardian.findFirst({ where: { ...whereFor(actor, "guardian", "write"), id: actor.guardianId }, select: { id: true, email: true, legalName: true } })
+      ? await tx.guardian.findFirst({ where: { ...whereFor(actor, "guardian", "write"), id: actor.guardianId }, select: { id: true } })
       : null;
     if (!g) throw new ForbiddenError("guardian", "write");
-    return {
-      kind: "GUARDIAN", id: g.id, contactEmail: g.email.toLowerCase(), displayName: firstWord(g.legalName),
-      /* The guardian's own login — never their ward's, which is the athlete's own account. */
-      users: { tenantId: actor.tenantId, guardianId: g.id, athleteId: null },
-      listings: null,
-    };
+    return subjectOf(tx, actor.tenantId, "GUARDIAN", g.id, me?.email ?? "");
   }
   if (pick === "property") {
     assertAllowed(actor, "property", "write");
     const p = actor.propertyId
-      ? await tx.property.findFirst({ where: { ...whereFor(actor, "property", "write"), id: actor.propertyId }, select: { id: true, name: true } })
+      ? await tx.property.findFirst({ where: { ...whereFor(actor, "property", "write"), id: actor.propertyId }, select: { id: true } })
       : null;
     if (!p) throw new ForbiddenError("property", "write");
-    return {
-      kind: "PROPERTY", id: p.id, contactEmail: (me?.email ?? "").toLowerCase(), displayName: p.name,
-      users: { tenantId: actor.tenantId, propertyId: p.id, roles: { has: "PROPERTY_MGR" } },
-      listings: { tenantId: actor.tenantId, propertyId: p.id, state: "PUBLISHED" },
-    };
+    return subjectOf(tx, actor.tenantId, "PROPERTY", p.id, me?.email ?? "");
   }
   throw new AccountClosureError("This login has no athlete, guardian or organization account to close.", 403);
+}
+
+/**
+ * The account as closing handles it — its logins, its listings, where its
+ * email goes — by kind and id. `loginEmail` is the closing login's address,
+ * used where the account has none of its own (an organisation).
+ */
+async function subjectOf(tx: Tx, tenantId: string, kind: ClosingKind, id: string, loginEmail: string): Promise<Subject> {
+  if (kind === "ATHLETE") {
+    const a = await tx.athlete.findFirstOrThrow({ /* tenant-scope: the account being closed, in its tenant. */ where: { tenantId, id }, select: { id: true, email: true, displayName: true } });
+    return {
+      kind: "ATHLETE", id: a.id, contactEmail: (a.email ?? loginEmail).toLowerCase(), displayName: firstWord(a.displayName),
+      users: { tenantId, athleteId: a.id },
+      /* Their own listings, and the team's listings of their items (a roster
+         athlete's items are listed by the team, 2S2-BE-05) — none sells while
+         the account is closed. */
+      listings: { tenantId, state: "PUBLISHED", OR: [{ sellerAthleteId: a.id }, { propertyId: { not: null }, item: { is: { athleteId: a.id } } }] },
+    };
+  }
+  if (kind === "GUARDIAN") {
+    const g = await tx.guardian.findFirstOrThrow({ /* tenant-scope: the account being closed, in its tenant. */ where: { tenantId, id }, select: { id: true, email: true, legalName: true } });
+    return {
+      kind: "GUARDIAN", id: g.id, contactEmail: g.email.toLowerCase(), displayName: firstWord(g.legalName),
+      /* The guardian's own login — never their ward's, which is the athlete's own account. */
+      users: { tenantId, guardianId: g.id, athleteId: null },
+      listings: null,
+    };
+  }
+  const p = await tx.property.findFirstOrThrow({ /* tenant-scope: the account being closed, in its tenant. */ where: { tenantId, id }, select: { id: true, name: true } });
+  return {
+    kind: "PROPERTY", id: p.id, contactEmail: loginEmail.toLowerCase(), displayName: p.name,
+    users: { tenantId, propertyId: p.id, roles: { has: "PROPERTY_MGR" } },
+    listings: { tenantId, propertyId: p.id, state: "PUBLISHED" },
+  };
 }
 
 /**
@@ -170,72 +208,305 @@ async function ownSubject(tx: Tx, actor: Actor, input: CloseInput): Promise<Subj
  * the next request is refused), the listings paused, the audit row, and the
  * email with the way back.
  */
-export async function closeOwnAccount(actor: Actor, input: CloseInput) {
+export async function closeOwnAccount(actor: Actor, input: CloseInput, now = new Date()) {
   const reason = input.reason?.trim() || null;
+  const out = await prisma.$transaction(async (tx) => {
+    const s = await ownSubject(tx, actor, input);
+    await assertNotClosed(tx, actor.tenantId, s);
+    /* POL-BE-11 — anything closing would leave behind holds it for BTG; the account stays open. */
+    const impact = await closureImpact(tx, actor.tenantId, s.kind as ClosingKind, s.id, now);
+    if (impact.holdReasons.length) return holdClosureIn(tx, actor, s, reason, impact, now);
+    return { state: "CLOSED" as const, ...(await closeSubjectIn(tx, actor, actor.tenantId, s, reason, actor.userId, now)) };
+  });
+  if (out.state === "CLOSED") await payOutClosed(out.account, out.subjectId, actor.tenantId, now);
+  return out;
+}
+
+async function assertNotClosed(tx: Tx, tenantId: string, s: Subject) {
+  const open = await tx.accountClosure.findFirst({
+    where: { tenantId, subjectKind: s.kind, subjectId: s.id, state: "CLOSED" }, select: { id: true },
+  });
+  if (open) throw new AccountClosureError("This account is already closed.");
+}
+
+/**
+ * Close it: the closure, the logins switched off, the listings paused, its
+ * open invitations declined (POL-BE-11), the audit row, and the email with
+ * the way back, in the account's own tenant. `by` is who acts (the owner, or
+ * BTG closing a held request); `closedBy` the login the closure is recorded
+ * against.
+ */
+async function closeSubjectIn(tx: Tx, by: AuditActor, tenantId: string, s: Subject, reason: string | null, closedBy: string | null, closedAt: Date) {
+  const retainUntil = retainUntilFrom(closedAt);
+  const closure = await tx.accountClosure.create({
+    data: {
+      tenantId, subjectKind: s.kind, subjectId: s.id, cause: "SELF", reason, closedAt, closedBy,
+      retainUntil, contactEmail: s.contactEmail, displayName: s.displayName,
+    },
+    select: { id: true },
+  });
+
+  const users = await tx.user.findMany({
+    /* tenant-scope: Subject.users carries the account's tenantId. */
+    where: { ...s.users, disabledAt: null }, select: { id: true },
+  });
+  await tx.user.updateMany({
+    /* tenant-scope: the logins found just above, in the account's tenant. */
+    where: { id: { in: users.map((u) => u.id) } },
+    data: { disabledAt: closedAt, disabledReason: closureMarker(closure.id) },
+  });
+  const listings = s.listings
+    ? await tx.listing.findMany({
+      /* tenant-scope: Subject.listings carries the account's tenantId. */
+      where: s.listings, select: { id: true },
+    })
+    : [];
+  if (listings.length) {
+    await tx.listing.updateMany({
+      /* tenant-scope: the account's own published listings, found just above. */
+      where: { id: { in: listings.map((l) => l.id) }, state: "PUBLISHED" }, data: { state: "PAUSED" },
+    });
+  }
+  await markAthleteClosedIn(tx, s.kind, s.id, closedAt);
+  let listingAccessWithdrawn = false;
+  if (s.kind === "PROPERTY") {
+    const p = await tx.property.findFirst({ where: { tenantId, id: s.id }, select: { listingAccessAt: true } });
+    if (p?.listingAccessAt) {
+      /* tenant-scope: the closing organisation's own property, loaded just above within its tenant. */
+      await tx.property.update({ where: { id: s.id }, data: { listingAccessAt: null }, select: { id: true } });
+      listingAccessWithdrawn = true;
+    }
+  }
+  /* POL-BE-11 — offers it can no longer answer are declined, so no campaign waits on them. */
+  const invites = s.kind === "ATHLETE"
+    ? await tx.campaignInvite.findMany({
+      /* tenant-scope: the closing athlete's own open invitations, by its globally unique id (the campaign's books may be BTG's). */
+      where: { athleteId: s.id, state: { in: ["INVITED", "VIEWED"] } }, select: { id: true, tenantId: true, campaignId: true },
+    })
+    : [];
+  for (const inv of invites) {
+    /* tenant-scope: an invitation found just above; only while still open. */
+    const moved = await tx.campaignInvite.updateMany({ where: { id: inv.id, state: { in: ["INVITED", "VIEWED"] } }, data: { state: "DECLINED", respondedAt: closedAt } });
+    if (!moved.count) continue;
+    await audit(tx, by, "invite.declinedAtClosure", "CampaignInvite", inv.id, { after: { state: "DECLINED", closureId: closure.id } });
+    await advanceCampaign(tx, inv.tenantId, inv.campaignId);
+  }
+  await tx.accountClosure.update({
+    /* tenant-scope: the closure created above. */
+    where: { id: closure.id },
+    data: { userIds: users.map((u) => u.id), pausedListingIds: listings.map((l) => l.id), listingAccessWithdrawn },
+  });
+  await audit(tx, by, "account.close", s.kind === "PROPERTY" ? "Property" : s.kind === "GUARDIAN" ? "Guardian" : "Athlete", s.id, {
+    after: { closureId: closure.id, cause: "SELF", loginsSwitchedOff: users.length, listingsPaused: listings.length, listingAccessWithdrawn, invitationsDeclined: invites.length, retainUntil: retainUntil.toISOString() },
+  });
+  if (s.contactEmail) {
+    await send(tx, tenantId, {
+      template: "account.closed", to: s.contactEmail, idempotencyKey: `account.closed:${closure.id}`,
+      data: { name: s.displayName, retainUntil: dayWords(retainUntil), reactivateUrl: reactivateUrl(closure.id, retainUntil), supportEmail: env.SUPPORT_EMAIL },
+    });
+  }
+  return { closureId: closure.id, account: s.kind, subjectId: s.id, closedAt, retainUntil, loginsSwitchedOff: users.length, listingsPaused: listings.length, invitationsDeclined: invites.length };
+}
+
+/** POL-BE-11 — a closed athlete's or organisation's earned money, requested as the system to the payout account on file. */
+async function payOutClosed(kind: string, id: string, tenantId: string, now: Date) {
+  if (kind !== "ATHLETE" && kind !== "PROPERTY") return null;
+  const payee: Payee = { payeeType: kind, payeeId: id, payeeTenantId: tenantId };
+  return requestPayoutAsSystem(payee, now);
+}
+
+/* ═══════════════ POL-BE-11 · a closure held for BTG ═══════════════ */
+
+const REQUEST_SELECT = {
+  id: true, tenantId: true, subjectKind: true, subjectId: true, subjectTenantId: true, reason: true, requestedBy: true, holdReasons: true, state: true,
+  decidedAt: true, decidedBy: true, declineNote: true, closureId: true, createdAt: true,
+} as const;
+type RequestRow = Prisma.ClosureRequestGetPayload<{ select: typeof REQUEST_SELECT }>;
+
+/** BTG's tenant for an account's: the tenant that operates it, or itself. */
+async function operatorOf(tx: Tx, tenantId: string) {
+  const t = await tx.tenant.findUnique({ /* tenant-scope: the account's own tenant row. */ where: { id: tenantId }, select: { operatorTenantId: true } });
+  return t?.operatorTenantId ?? tenantId;
+}
+
+/** Held: nothing is switched off. The owner, BTG's admins and the sponsor on each live deal are told. */
+async function holdClosureIn(tx: Tx, actor: Actor, s: Subject, reason: string | null, impact: Awaited<ReturnType<typeof closureImpact>>, now: Date) {
+  const existing = await tx.closureRequest.findFirst({
+    /* tenant-scope: this account's own request, by its kind and its globally unique id (filed in BTG's tenant). */
+    where: { subjectKind: s.kind, subjectId: s.id, state: "HELD" }, select: { id: true },
+  });
+  if (existing) throw new AccountClosureError("Your request to close this account is already with BTG.");
+  /* Filed with BTG: the tenant that operates this account's (a team's roster athlete lives in the team's). */
+  const btg = await operatorOf(tx, actor.tenantId);
+  const row = await tx.closureRequest.create({
+    data: { tenantId: btg, subjectKind: s.kind, subjectId: s.id, subjectTenantId: actor.tenantId, reason, requestedBy: actor.userId, holdReasons: impact.holdReasons },
+    select: { id: true },
+  });
+  await audit(tx, actor, "account.closeHeld", "ClosureRequest", row.id, {
+    after: { subjectKind: s.kind, subjectId: s.id, holdReasons: impact.holdReasons, liveDeals: impact.liveDeals.map((d) => ({ kind: d.kind, id: d.id })) },
+  });
+  if (s.contactEmail) {
+    await send(tx, actor.tenantId, {
+      template: "account.closeHeld", to: s.contactEmail, idempotencyKey: `account.closeHeld:${row.id}`,
+      data: { name: s.displayName, reasons: impact.holdReasons.join("\n- "), supportEmail: env.SUPPORT_EMAIL },
+    });
+  }
+  const admins = await tx.user.findMany({
+    /* tenant-scope: BTG's admins, in the tenant that operates the account's. */
+    where: { tenantId: btg, disabledAt: null, roles: { has: "BTG_ADMIN" } }, select: { id: true, email: true },
+  });
+  for (const u of admins) {
+    await send(tx, btg, {
+      template: "account.closeHeldBtg", to: u.email, idempotencyKey: `account.closeHeldBtg:${row.id}:${u.id}`,
+      data: {
+        accountName: s.displayName, kind: s.kind.toLowerCase(), reasons: impact.holdReasons.join("\n- "),
+        deals: impact.liveDeals.map((d) => `${d.title} (${d.sponsorName}${d.athleteName ? `, ${d.athleteName}` : ""}): ${d.state.toLowerCase().replace("_", " ")}`).join("\n- "),
+        reviewUrl: `${appUrl()}/admin/closures/requests/${row.id}`,
+      },
+    });
+  }
+  /* The sponsor on each live deal hears it from SponsorX, not from silence. */
+  for (const sponsorId of new Set(impact.liveDeals.map((d) => d.sponsorId))) {
+    const theirs = impact.liveDeals.filter((d) => d.sponsorId === sponsorId);
+    const people = await tx.user.findMany({
+      /* tenant-scope: the sponsor's own admins, by the sponsor the deal names. */
+      where: { sponsorId, disabledAt: null, roles: { has: "SPONSOR_ADMIN" } }, select: { id: true, tenantId: true, email: true },
+    });
+    for (const u of people) {
+      await send(tx, u.tenantId, {
+        template: "account.closingSponsor", to: u.email, idempotencyKey: `account.closingSponsor:${row.id}:${u.id}`,
+        data: { accountName: s.displayName, deals: theirs.map((d) => d.title).join("\n- "), supportEmail: env.SUPPORT_EMAIL },
+      });
+    }
+  }
+  return { state: "HELD" as const, requestId: row.id, account: s.kind, holdReasons: impact.holdReasons, liveDeals: impact.liveDeals, createdAt: now };
+}
+
+/** GET /me/close/preview — what closing this account would affect, before the owner confirms. */
+export async function closurePreview(actor: Actor, input: Pick<CloseInput, "account">, now = new Date()) {
   return prisma.$transaction(async (tx) => {
     const s = await ownSubject(tx, actor, input);
-    const open = await tx.accountClosure.findFirst({
-      where: { tenantId: actor.tenantId, subjectKind: s.kind, subjectId: s.id, state: "CLOSED" }, select: { id: true },
+    const impact = await closureImpact(tx, actor.tenantId, s.kind as ClosingKind, s.id, now);
+    const held = await tx.closureRequest.findFirst({
+      /* tenant-scope: this account's own request, by its kind and its globally unique id (filed in BTG's tenant). */
+      where: { subjectKind: s.kind, subjectId: s.id, subjectTenantId: actor.tenantId, state: "HELD" }, select: REQUEST_SELECT,
     });
-    if (open) throw new AccountClosureError("This account is already closed.");
-
-    const closedAt = new Date();
-    const retainUntil = retainUntilFrom(closedAt);
-    const closure = await tx.accountClosure.create({
-      data: {
-        tenantId: actor.tenantId, subjectKind: s.kind, subjectId: s.id, cause: "SELF", reason, closedAt, closedBy: actor.userId,
-        retainUntil, contactEmail: s.contactEmail, displayName: s.displayName,
-      },
-      select: { id: true },
-    });
-
-    const users = await tx.user.findMany({
-      /* tenant-scope: Subject.users carries the actor's tenantId. */
-      where: { ...s.users, disabledAt: null }, select: { id: true },
-    });
-    await tx.user.updateMany({
-      /* tenant-scope: the logins found just above, in the actor's tenant. */
-      where: { id: { in: users.map((u) => u.id) } },
-      data: { disabledAt: closedAt, disabledReason: closureMarker(closure.id) },
-    });
-    const listings = s.listings
-      ? await tx.listing.findMany({
-        /* tenant-scope: Subject.listings carries the actor's tenantId. */
-        where: s.listings, select: { id: true },
-      })
-      : [];
-    if (listings.length) {
-      await tx.listing.updateMany({
-        /* tenant-scope: the account's own published listings, found just above. */
-        where: { id: { in: listings.map((l) => l.id) }, state: "PUBLISHED" }, data: { state: "PAUSED" },
-      });
-    }
-    await markAthleteClosedIn(tx, s.kind, s.id, closedAt);
-    let listingAccessWithdrawn = false;
-    if (s.kind === "PROPERTY") {
-      const p = await tx.property.findFirst({ where: { tenantId: actor.tenantId, id: s.id }, select: { listingAccessAt: true } });
-      if (p?.listingAccessAt) {
-        /* tenant-scope: the closing organisation's own property, loaded just above within actor.tenantId. */
-        await tx.property.update({ where: { id: s.id }, data: { listingAccessAt: null }, select: { id: true } });
-        listingAccessWithdrawn = true;
-      }
-    }
-    await tx.accountClosure.update({
-      /* tenant-scope: the closure created above. */
-      where: { id: closure.id },
-      data: { userIds: users.map((u) => u.id), pausedListingIds: listings.map((l) => l.id), listingAccessWithdrawn },
-    });
-    await audit(tx, actor, "account.close", s.kind === "PROPERTY" ? "Property" : s.kind === "GUARDIAN" ? "Guardian" : "Athlete", s.id, {
-      after: { closureId: closure.id, cause: "SELF", loginsSwitchedOff: users.length, listingsPaused: listings.length, listingAccessWithdrawn, retainUntil: retainUntil.toISOString() },
-    });
-    if (s.contactEmail) {
-      await send(tx, actor.tenantId, {
-        template: "account.closed", to: s.contactEmail, idempotencyKey: `account.closed:${closure.id}`,
-        data: { name: s.displayName, retainUntil: dayWords(retainUntil), reactivateUrl: reactivateUrl(closure.id, retainUntil), supportEmail: env.SUPPORT_EMAIL },
-      });
-    }
-    return { closureId: closure.id, account: s.kind, closedAt, retainUntil, loginsSwitchedOff: users.length, listingsPaused: listings.length };
+    return { account: s.kind, ...impact, wouldHold: impact.holdReasons.length > 0, heldRequest: held ? requestView(held) : null };
   });
+}
+
+/** POST /me/close/withdraw — the owner takes back a closure still held for BTG. */
+export async function withdrawClosureRequest(actor: Actor, input: Pick<CloseInput, "account">) {
+  return prisma.$transaction(async (tx) => {
+    const s = await ownSubject(tx, actor, input);
+    const moved = await tx.closureRequest.updateMany({
+      /* tenant-scope: this account's own held request, by its kind and id, in its own tenant (filed in BTG's). */
+      where: { subjectKind: s.kind, subjectId: s.id, subjectTenantId: actor.tenantId, state: "HELD" },
+      data: { state: "WITHDRAWN", decidedAt: new Date(), decidedBy: actor.userId },
+    });
+    if (!moved.count) throw new AccountClosureError("There is no request to close this account waiting for BTG.");
+    await audit(tx, actor, "account.closeWithdrawn", s.kind === "PROPERTY" ? "Property" : s.kind === "GUARDIAN" ? "Guardian" : "Athlete", s.id, { after: { state: "WITHDRAWN" } });
+    return { withdrawn: true };
+  });
+}
+
+function requestView(r: RequestRow) {
+  return {
+    id: r.id, account: r.subjectKind, subjectId: r.subjectId, state: r.state, reason: r.reason, holdReasons: r.holdReasons,
+    requestedAt: r.createdAt.toISOString(), decidedAt: r.decidedAt?.toISOString() ?? null, declineNote: r.declineNote, closureId: r.closureId,
+  };
+}
+
+/** GET /account-closure-requests — BTG: closures held for it, with each account's name; ?state= (default HELD). */
+export async function listClosureRequests(actor: Actor, state: "HELD" | "CLOSED" | "DECLINED" | "WITHDRAWN" = "HELD") {
+  assertAllowed(actor, "accountClosure", "read");
+  const rows = await prisma.closureRequest.findMany({
+    where: { ...whereFor(actor, "accountClosure", "read"), state }, select: REQUEST_SELECT, orderBy: { createdAt: "asc" }, take: 200,
+  });
+  const names = await subjectNames(prisma, rows.map((r) => ({ ...r, tenantId: r.subjectTenantId })));
+  return { requests: rows.map((r) => ({ ...requestView(r), accountName: names.get(`${r.subjectKind}:${r.subjectId}`) ?? "" })) };
+}
+
+/** GET /account-closure-requests/:id — BTG: one, with what is still live now (read fresh). */
+export async function getClosureRequest(actor: Actor, id: string, now = new Date()) {
+  assertAllowed(actor, "accountClosure", "read");
+  const r = await prisma.closureRequest.findFirst({ where: { ...whereFor(actor, "accountClosure", "read"), id }, select: REQUEST_SELECT });
+  if (!r) throw new ForbiddenError("accountClosure", "read");
+  const names = await subjectNames(prisma, [{ ...r, tenantId: r.subjectTenantId }]);
+  const impact = r.state === "HELD" ? await closureImpact(prisma, r.subjectTenantId, r.subjectKind as ClosingKind, r.subjectId, now) : null;
+  return { ...requestView(r), accountName: names.get(`${r.subjectKind}:${r.subjectId}`) ?? "", now: impact, canClose: impact ? impact.holdReasons.length === 0 : false };
+}
+
+async function heldRequest(tx: Tx, actor: Actor, id: string) {
+  assertAllowed(actor, "accountClosure", "approve");
+  await tx.$queryRaw`SELECT id FROM "ClosureRequest" WHERE id = ${id} FOR UPDATE`;
+  const r = await tx.closureRequest.findFirst({ where: { ...whereFor(actor, "accountClosure", "approve"), id }, select: REQUEST_SELECT });
+  if (!r) throw new ForbiddenError("accountClosure", "approve");
+  if (r.state !== "HELD") throw new AccountClosureError(`This request is ${r.state.toLowerCase()}, not waiting for BTG.`);
+  return r;
+}
+
+/**
+ * POST /account-closure-requests/:id/close — BTG closes a held account once
+ * nothing is left: every live deal settled, the money arranged, a minor's
+ * guardian changed. Refused, with what is still open, until then.
+ */
+export async function closeHeldRequest(actor: Actor, id: string, now = new Date()) {
+  const out = await prisma.$transaction(async (tx) => {
+    const r = await heldRequest(tx, actor, id);
+    const impact = await closureImpact(tx, r.subjectTenantId, r.subjectKind as ClosingKind, r.subjectId, now);
+    if (impact.holdReasons.length) throw new AccountClosureError(`It can't close yet: ${impact.holdReasons.join("; ")}.`);
+    const login = await tx.user.findFirst({ /* tenant-scope: the login that asked, in the account's own tenant. */ where: { tenantId: r.subjectTenantId, id: r.requestedBy }, select: { email: true } });
+    const s = await subjectOf(tx, r.subjectTenantId, r.subjectKind as ClosingKind, r.subjectId, login?.email ?? "");
+    await assertNotClosed(tx, r.subjectTenantId, s);
+    const closed = await closeSubjectIn(tx, actor, r.subjectTenantId, s, r.reason, r.requestedBy, now);
+    /* tenant-scope: the request locked above. */
+    await tx.closureRequest.update({ where: { id: r.id }, data: { state: "CLOSED", decidedAt: now, decidedBy: actor.userId, closureId: closed.closureId } });
+    await audit(tx, actor, "account.closeHeldClosed", "ClosureRequest", r.id, { before: { state: "HELD" }, after: { state: "CLOSED", closureId: closed.closureId } });
+    return { tenantId: r.subjectTenantId, view: { ...requestView({ ...r, state: "CLOSED", decidedAt: now, closureId: closed.closureId }), closure: closed } };
+  });
+  await payOutClosed(out.view.closure.account, out.view.closure.subjectId, out.tenantId, now);
+  return out.view;
+}
+
+/** POST /account-closure-requests/:id/decline — BTG keeps the account open, with a reason the owner reads. */
+export async function declineClosureRequest(actor: Actor, id: string, note: string) {
+  if (!note.trim()) throw new AccountClosureError("Declining needs a reason — the account's owner reads it.", 422);
+  return prisma.$transaction(async (tx) => {
+    const r = await heldRequest(tx, actor, id);
+    const at = new Date();
+    /* tenant-scope: the request locked above. */
+    await tx.closureRequest.update({ where: { id: r.id }, data: { state: "DECLINED", decidedAt: at, decidedBy: actor.userId, declineNote: note.trim() } });
+    await audit(tx, actor, "account.closeHeldDeclined", "ClosureRequest", r.id, { before: { state: "HELD" }, after: { state: "DECLINED", note: note.trim() } });
+    const login = await tx.user.findFirst({ /* tenant-scope: the login that asked, in the account's own tenant. */ where: { tenantId: r.subjectTenantId, id: r.requestedBy }, select: { email: true } });
+    const s = await subjectOf(tx, r.subjectTenantId, r.subjectKind as ClosingKind, r.subjectId, login?.email ?? "");
+    if (s.contactEmail) {
+      await send(tx, r.subjectTenantId, {
+        template: "account.closeDeclined", to: s.contactEmail, idempotencyKey: `account.closeDeclined:${r.id}`,
+        data: { name: s.displayName, note: note.trim(), supportEmail: env.SUPPORT_EMAIL },
+      });
+    }
+    return requestView({ ...r, state: "DECLINED", decidedAt: at, declineNote: note.trim() });
+  });
+}
+
+/**
+ * The hourly sweep: a self-closed athlete's or organisation's money that
+ * passed its holding period after closing is requested as the system, while
+ * the account is still within its 30 days.
+ */
+export async function payOutClosedAccounts(now = new Date(), opts: { tenantIds?: string[] } = {}) {
+  const closed = await prisma.accountClosure.findMany({
+    /* tenant-scope: the system's own sweep, across tenants (or the tenants a test names). */
+    where: { ...(opts.tenantIds ? { tenantId: { in: opts.tenantIds } } : {}), state: "CLOSED", cause: "SELF", subjectKind: { in: ["ATHLETE", "PROPERTY"] }, retainUntil: { gt: now } },
+    select: { tenantId: true, subjectKind: true, subjectId: true },
+  });
+  let requested = 0;
+  for (const c of closed) {
+    const r = await payOutClosed(c.subjectKind, c.subjectId, c.tenantId, now);
+    if (r?.payouts.length) requested += r.payouts.length;
+  }
+  return { requested };
 }
 
 /* ══════════════════ rejected accounts (called by each Reject) ═════════════ */

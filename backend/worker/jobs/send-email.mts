@@ -718,6 +718,23 @@ ${d.portalUrl ?? ""}
     subject: "Your SponsorX account is closed",
     text: `Hi ${d.name ?? "there"},\n\nYour SponsorX account is closed. You can't sign in, and your listings have stopped.\n\nYour documents are kept until ${d.retainUntil ?? "30 days from today"}, then deleted for good. Changed your mind? Reactivate before then and everything comes back:\n\n${d.reactivateUrl ?? ""}\n\nThis link works for 14 days. If it has expired, contact ${d.supportEmail ?? "BTG support"} and we'll send you a new one.\n\nMoney you already earned is still paid out to your payout account.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* POL-BE-11 — closing held for BTG: something would be left behind. */
+  "account.closeHeld": (d) => ({
+    subject: "Your account is closing once BTG settles a few things",
+    text: `Hi ${d.name ?? "there"},\n\nWe got your request to close your SponsorX account. It can't close straight away, because:\n\n- ${d.reasons ?? ""}\n\nBTG will sort these out with you and close the account after. Until then it stays open and nothing changes. If you change your mind, you can withdraw the request from your account page.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "account.closeHeldBtg": (d) => ({
+    subject: `Account closure waiting for BTG: ${d.accountName ?? "an account"}`,
+    text: `${d.accountName ?? "An account"} (${d.kind ?? "account"}) asked to close, and it can't close yet:\n\n- ${d.reasons ?? ""}${d.deals ? `\n\nLive deals:\n- ${d.deals}` : ""}\n\nSettle each one (the sponsors on them have been told), then close it — or decline the request:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "account.closingSponsor": (d) => ({
+    subject: `${d.accountName ?? "An athlete"} is leaving SponsorX`,
+    text: `Hi,\n\n${d.accountName ?? "An athlete you work with"} has asked to close their SponsorX account. You have work with them that isn't finished:\n\n- ${d.deals ?? ""}\n\nNothing has been cancelled. BTG will be in touch to settle each one with you — finishing it, or cancelling and refunding it.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "account.closeDeclined": (d) => ({
+    subject: "About your request to close your SponsorX account",
+    text: `Hi ${d.name ?? "there"},\n\nBTG looked at your request to close your account and kept it open:\n\n${d.note ?? ""}\n\nNothing has changed. If you still want to close it, contact ${d.supportEmail ?? "BTG support"}.\n\n— BTG SponsorX`,
+  }),
   "account.reactivationLink": (d) => ({
     subject: "Your link to reactivate your SponsorX account",
     text: `Hi ${d.name ?? "there"},\n\nHere is the link you asked for. It works for 24 hours:\n\n${d.reactivateUrl ?? ""}\n\nIf you didn't ask for it, you can ignore this email — nothing changes.\n\n— BTG SponsorX`,
@@ -778,11 +795,11 @@ ${d.portalUrl ?? ""}
   }),
   "handoff.switchedNew": (d) => ({
     subject: `You are now ${d.athleteFirstName ?? "your athlete"}'s guardian on SponsorX`,
-    text: `Hi ${d.name ?? "there"},\n\n${d.currentFirstName ?? "The previous guardian"} handed off, and you are now ${d.athleteFirstName ?? "the athlete"}'s guardian. You approve their agreements and payments from now on. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\nNext: set up your own payout account for ${d.athleteFirstName ?? "the athlete"} from the Payouts page. Payouts not yet sent wait for it and go to your account. Orders already agreed continue as they are.\n\n— BTG SponsorX`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.byBtg ? `${d.currentFirstName ?? "The previous guardian"} didn't answer, so BTG reviewed your request and confirmed it` : `${d.currentFirstName ?? "The previous guardian"} handed off`}, and you are now ${d.athleteFirstName ?? "the athlete"}'s guardian. You approve their agreements and payments from now on. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\nNext: set up your own payout account for ${d.athleteFirstName ?? "the athlete"} from the Payouts page. Payouts not yet sent wait for it and go to your account. Orders already agreed continue as they are.\n\n— BTG SponsorX`,
   }),
   "handoff.switchedPrevious": (d) => ({
-    subject: `You handed off ${d.athleteFirstName ?? "your athlete"}'s SponsorX account`,
-    text: `Hi ${d.name ?? "there"},\n\n${d.requesterName ?? "The new guardian"} is now ${d.athleteFirstName ?? "the athlete"}'s guardian on SponsorX. Payouts already sent to you are unaffected. Anything not yet paid out now goes to ${d.requesterName ?? "the new guardian"}'s own payout account; yours is no longer used for ${d.athleteFirstName ?? "the athlete"}. Orders already agreed continue.${d.otherChildren ? "\n\nYour other athletes are not affected." : ""}\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
+    subject: d.byBtg ? `${d.athleteFirstName ?? "Your athlete"} has a new guardian on SponsorX` : `You handed off ${d.athleteFirstName ?? "your athlete"}'s SponsorX account`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.byBtg ? `You didn't answer ${d.requesterName ?? "the new guardian"}'s request, so BTG reviewed it with their documents and confirmed it. ` : ""}${d.requesterName ?? "The new guardian"} is now ${d.athleteFirstName ?? "the athlete"}'s guardian on SponsorX. Payouts already sent to you are unaffected. Anything not yet paid out now goes to ${d.requesterName ?? "the new guardian"}'s own payout account; yours is no longer used for ${d.athleteFirstName ?? "the athlete"}. Orders already agreed continue.${d.otherChildren ? "\n\nYour other athletes are not affected." : ""}\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
   }),
   "handoff.switchedAthlete": (d) => ({
     subject: "Your guardian on SponsorX has changed",
@@ -790,12 +807,29 @@ ${d.portalUrl ?? ""}
   }),
   "handoff.btgNotice": (d) => ({
     subject: `Guardian changed: ${d.athleteName ?? "an athlete"}`,
-    text: `${d.previousName ?? "The previous guardian"} handed ${d.athleteName ?? "an athlete"}'s account to ${d.requesterName ?? "a new guardian"} (${d.relationship ?? ""}), who was approved automatically: email confirmed, ID and proof of guardianship uploaded, guardian agreement accepted.\n\nReview them on New sign-ups — Reject is there if this looks wrong:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+    text: `${d.byBtg ? `BTG confirmed a request ${d.previousName ?? "the previous guardian"} never answered, moving` : `${d.previousName ?? "The previous guardian"} handed`} ${d.athleteName ?? "an athlete"}'s account to ${d.requesterName ?? "a new guardian"} (${d.relationship ?? ""}), who was approved automatically: email confirmed, ID and proof of guardianship uploaded, guardian agreement accepted.\n\nReview them on New sign-ups — Reject is there if this looks wrong:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
   }),
   /* 2S1-BE-15 — "BTG staff confirm minors" is on: the current guardian handed off, and the switch waits for BTG. */
   "handoff.staffConfirm": (d) => ({
     subject: `Guardian handoff to confirm: ${d.athleteName ?? "an athlete"}`,
     text: `${d.previousName ?? "The current guardian"} has handed ${d.athleteName ?? "an athlete"}'s account to ${d.requesterName ?? "a new guardian"} (${d.relationship ?? ""}). Their email is confirmed, their ID and proof of guardianship are uploaded and they accepted the guardian agreement.\n\n"BTG staff confirm minors" is on, so nothing has switched yet: ${d.previousName ?? "the current guardian"} stays in control until you confirm or decline it:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* POL-BE-10 — a handoff the current guardian hasn't answered. */
+  "handoff.reminder": (d) => ({
+    subject: `Reminder: ${d.requesterName ?? "someone"} asked to become ${d.athleteFirstName ?? "your athlete"}'s guardian`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.requesterName ?? "Someone"} (${d.relationship ?? "guardian"}) is still waiting for your answer to their request to become ${d.athleteFirstName ?? "your athlete"}'s guardian on SponsorX. Only you can hand off or decline:\n\n${d.portalUrl ?? ""}\n\nIf there's no answer in ${d.days ?? "a few"} days, BTG reviews the request and its documents and decides. If you don't know them, or this is about custody, decline and contact BTG at ${d.supportEmail ?? "BTG support"}.\n\n— BTG SponsorX`,
+  }),
+  "handoff.escalated": (d) => ({
+    subject: `Guardian handoff for BTG to decide: ${d.athleteName ?? "an athlete"}`,
+    text: `${d.requesterName ?? "Someone"} (${d.relationship ?? ""}) asked to become ${d.athleteName ?? "an athlete"}'s guardian ${d.days ?? "7"} days ago, and ${d.currentName ?? "the current guardian"} hasn't answered (they were reminded). Their email is confirmed, their ID and proof of guardianship are uploaded and they accepted the guardian agreement.\n\nReview the documents, then confirm or decline it. ${d.currentName ?? "The current guardian"} stays in control until then, and can still answer — the first answer decides:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "handoff.escalatedRequester": (d) => ({
+    subject: `BTG is reviewing your request to become ${d.athleteFirstName ?? "an athlete"}'s guardian`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.currentFirstName ?? "The current guardian"} hasn't answered your request yet, so BTG will now review it with your documents and decide. ${d.currentFirstName ?? "They"} can still answer in the meantime. We'll email you either way.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "handoff.escalatedGuardian": (d) => ({
+    subject: `BTG will review the request about ${d.athleteFirstName ?? "your athlete"}'s guardian`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.requesterName ?? "Someone"}'s request to become ${d.athleteFirstName ?? "your athlete"}'s guardian has had no answer for a week, so BTG will now review it with their documents and decide. You are still the guardian until then, and you can still hand off or decline — the first answer decides:\n\n${d.portalUrl ?? ""}\n\nIf this is about custody, contact BTG at ${d.supportEmail ?? "BTG support"}.\n\n— BTG SponsorX`,
   }),
   /* P8-BE-10 — BTG sent one document back. */
   "document.sentBack": (d) => ({

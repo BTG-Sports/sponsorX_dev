@@ -13,10 +13,12 @@ each problem we ran into was solved. Newest first within each day.
 | 6 · A sponsor who paid twice got no refund | `POL-BE-06` | #325 | Merged |
 | 7 · Anyone holding the fan's phone could use up their reward | `POL-BE-07` | #328 | Merged |
 | 8 · Only the first fan could claim a shared QR code | `POL-BE-08` | #329 | Merged |
-| 9 · A minor's invitations never reached the guardian | `POL-BE-09` | — | In review |
+| 9 · A minor's invitations never reached the guardian | `POL-BE-09` | #331 | Merged |
+| 10 · A guardian handoff could wait forever | `POL-BE-10` | #333 | Merged |
+| 11 · Closing an account ignored live deals | `POL-BE-11` | — | In review |
 | 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
 
-The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`) are for
+The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`, `POL-FE-10`, `POL-FE-11`) are for
 HeckerCreatives. Each item in `polish.md` says exactly what the screens can
 rely on.
 
@@ -244,6 +246,49 @@ rely on.
     each, so the new email and the sweep can't drift apart.
 - **Snag:** the new test loaded the app's settings without the placeholder
   login keys the other database tests set; added.
+
+### `POL-BE-10` — a guardian handoff never waits forever
+- **Problem:** a request to change a minor's guardian waited for the current
+  guardian with no reminder and no end, and BTG couldn't step in.
+- **Approach:**
+  - An hourly check reminds the current guardian at 3 days and hands the
+    request to BTG at 7, telling everyone.
+  - BTG decides with the existing confirm and decline buttons, which now
+    also accept an escalated request.
+  - The current guardian keeps the right to answer. The request is locked
+    while an answer is saved, so the first answer wins and a second is
+    refused.
+  - The switch emails say "BTG confirmed it" when the guardian never
+    answered.
+- **Snag:** a test expected a blank reason to be refused by the decline
+  rule (422), but the request check already refuses it (400). The test was
+  corrected.
+
+### `POL-BE-11` — closing an account leaves no live deal behind
+- **Problem:**
+  - Closing switched an account off whatever was open: signed deals and due
+    work stayed open, and nobody was told.
+  - A minor could close their own account.
+  - The money it had earned waited on a login that no longer worked.
+- **Decisions** (the user): money with no payout account holds the
+  closure, and so does a guardian still acting for a minor.
+- **Approach:**
+  - One read works out what closing would affect: live deals, open
+    invitations, money and minors in the person's care. The closing screen
+    can show it first.
+  - Anything left behind holds the closure for BTG. The account stays open,
+    and the sponsors on the deals are told. BTG closes it once nothing is
+    left, or declines.
+  - A minor's account is closed by the guardian.
+  - Closing declines open invitations and requests the earned money as the
+    system, at once and hourly after.
+- **Snags:**
+  - A roster athlete's account lives in the team's tenant, but BTG works
+    from the tenant above it. The first test run showed BTG wasn't told and
+    couldn't see the request. The request is now filed with BTG, and the
+    closing happens in the account's own tenant.
+  - A guardian's login acts for their one child by default, so their own
+    closure must name the guardian account.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.

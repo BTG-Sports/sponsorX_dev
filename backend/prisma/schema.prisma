@@ -3865,6 +3865,39 @@ model AccountClosure {
   @@index([tenantId, subjectKind, subjectId])
 }
 
+/// POL-BE-11 — closing an account that can't close yet, held for BTG: a live
+/// deal (a signed campaign order, a marketplace sale not yet finished), money
+/// earned with no payout account to send it to, or a guardian still acting
+/// for a minor. The account stays open; BTG settles each deal, then closes it
+/// (CLOSED, closureId) or declines; the owner can withdraw. One HELD request
+/// per account (partial unique index).
+model ClosureRequest {
+  id              String    @id @default(cuid())
+  /// BTG's tenant — the account's operator — which reads and answers it.
+  tenantId        String
+  /// ATHLETE | GUARDIAN | PROPERTY
+  subjectKind     String
+  subjectId       String
+  /// The account's own tenant (a roster athlete's, or a team's, is the team's).
+  subjectTenantId String
+  /// The owner's own words.
+  reason      String?
+  requestedBy String
+  /// Why it was held, in the words BTG and the owner read.
+  holdReasons String[]  @default([])
+  /// HELD | CLOSED | DECLINED | WITHDRAWN
+  state       String    @default("HELD")
+  decidedAt   DateTime?
+  decidedBy   String?
+  declineNote String?
+  /// The AccountClosure BTG's "Close now" made.
+  closureId   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@index([tenantId, state])
+}
+
 /// 2S1-BE-15 — a new guardian asking to take over a minor's account. It
 /// starts only here, on the public request page; the current guardian hands
 /// off or declines from their portal. The switch is one transaction, and
@@ -3898,6 +3931,11 @@ model GuardianHandoff {
   switchedAt          DateTime?
   /// The Guardian row the athlete moved to (new, or the requester's existing one).
   newGuardianId       String?
+  /// POL-BE-10 — the current guardian was reminded (3 days after it was sent).
+  remindedAt          DateTime?
+  /// POL-BE-10 — 7 days with no answer: BTG may decide it (confirm or decline),
+  /// on the desk's "Waiting for BTG"; the current guardian can still answer.
+  escalatedAt         DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @default(now()) @updatedAt
 
@@ -3906,6 +3944,7 @@ model GuardianHandoff {
 
   @@index([tenantId, athleteId, state])
   @@index([tenantId, fromGuardianId, state])
+  @@index([state, submittedAt])
 }
 
 /// 2S1-BE-15 — the new guardian's government ID and proof of guardianship,

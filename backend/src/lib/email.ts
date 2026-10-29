@@ -137,6 +137,11 @@ export type EmailTemplate =
      told when it is back; a rejected account's request reaches BTG admins,
      and BTG's "no" reaches the person. */
   | "account.closed"
+  /* POL-BE-11 — a closure held for BTG: the owner, BTG's admins, the sponsor on each live deal; BTG's decline. */
+  | "account.closeHeld"
+  | "account.closeHeldBtg"
+  | "account.closingSponsor"
+  | "account.closeDeclined"
   | "account.reactivationLink"
   | "account.reactivated"
   | "account.reactivationRequested"
@@ -166,6 +171,11 @@ export type EmailTemplate =
      handoff waiting for BTG because "BTG staff confirm minors" is on. */
   | "guardian.replacedByBtg"
   | "handoff.staffConfirm"
+  /* POL-BE-10 — a handoff the current guardian hasn't answered: reminded at 3 days; at 7, BTG may decide (admins, the requester and the current guardian are told). */
+  | "handoff.reminder"
+  | "handoff.escalated"
+  | "handoff.escalatedRequester"
+  | "handoff.escalatedGuardian"
   /* P8-BE-10 — BTG sent one document back: the reason, and the link the person uploads from. */
   | "document.sentBack"
   /* 2S1-BE-16 — a contact-form message to the support mailbox, and the

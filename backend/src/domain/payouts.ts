@@ -44,7 +44,7 @@ import { randomUUID } from "node:crypto";
 
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
-import { audit } from "../db/audit";
+import { audit, type AuditActor } from "../db/audit";
 import { enqueue } from "../db/outbox";
 import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
@@ -915,67 +915,101 @@ export async function requestPayout(actor: Actor, now = new Date()) {
   const payee = payeeOf(actor, "payout", "write");
   /* 2S1-BE-11 — a minor's payouts are requested by their guardian; 2S1-BE-12 — none during the coming-of-age allowance. */
   await assertMayCommit(prisma, actor, "payoutRequest");
-  return prisma.$transaction(async (tx) => {
-    await lockPayee(tx, payee);
-    /* Held (2S1-BE-06 organisations, 2S1-BE-09 / -10 athletes): payout-holds.ts. */
-    const held = await payoutHoldReason(tx, payee);
-    if (held) throw new PayoutError(held, 409, ["Payouts not on hold"]);
-    const account = await tx.payoutAccount.findUnique({
-      /* tenant-scope: the payee's own account, by its unique payee key from the actor. */
-      where: { payeeType_payeeId: { payeeType: payee.payeeType, payeeId: payee.payeeId } }, select: { status: true, changedAt: true },
-    });
-    if (account?.status !== "READY") throw new PayoutError("Set up your payout account first — payouts are sent to it.", 409, ["Payout account ready"]);
-    const money = await balanceOf(tx, payee, now);
-    const orders = money.filter((o) => o.requestableCents > 0);
-    if (!orders.length) {
-      /* 2S5-BE-04 — say so when the only money there is is frozen by a payment problem BTG is reviewing. */
-      const frozenOnly = money.some((o) => o.frozen && o.availableCents - o.inFlightCents > 0);
-      throw new PayoutError(
-        frozenOnly ? "Nothing can be paid out yet — BTG is reviewing a problem with a sponsor's payment, and that money is held until it is resolved." : "Nothing is ready to pay out yet.",
-        409, ["An order that is paid, delivered and past its holding period", ...(frozenOnly ? [FROZEN_CHECK] : [])],
-      );
-    }
-    const byBooks = new Map<string, OrderMoney[]>();
-    for (const o of orders) byBooks.set(o.books, [...(byBooks.get(o.books) ?? []), o]);
-    const settings = autoApproveSettings();
-    /* Read after the lock: every automatic approval for this payee that committed before it. */
-    const byTenant = await autoApprovedByTenant(tx, payee, windowStart(now, settings));
-    const created = [];
-    for (const [books, os] of byBooks) {
-      const amountCents = os.reduce((s, o) => s + o.requestableCents, 0);
-      const checks = payoutChecks(os, account.status, now);
-      /* The cap counts every tenant; this payout's books are who reads the reason. */
-      const window = autoWindowFor(byTenant, books);
-      const windowCents = window.totalCents;
-      const reasons = autoApprovalReasons({
-        amountCents, held: false, unmetChecks: checks.filter((c) => !c.ok).map((c) => c.label),
-        accountChangedAt: account.changedAt, windowCents, windowIncludesOtherTenants: window.includesOtherTenants, now,
-      }, settings);
-      const auto = reasons.length === 0;
-      const row = await tx.payout.create({
-        data: {
-          tenantId: books, ...payee, amountCents, requestedBy: actor.userId, requestedAt: now,
-          ...(auto
-            ? { state: "APPROVED", decidedBy: SYSTEM, decidedAt: now, approvedAutomatically: true, reviewReasons: [] }
-            : { state: "REQUESTED", reviewReasons: reasons }),
-          lines: { create: os.map((o) => ({ orderId: o.orderId, amountCents: o.requestableCents })) },
-        },
-        select: PAYOUT_SELECT,
-      });
-      await audit(tx, actor, "payout.request", "Payout", row.id, { after: { amountCents, orders: os.length, ...(auto ? {} : { reviewReasons: reasons }) } });
-      if (auto) {
-        await audit(tx, { userId: null, tenantId: books }, "payout.autoApprove", "Payout", row.id, {
-          before: { state: "REQUESTED" },
-          after: { state: "APPROVED", decidedBy: SYSTEM, approvedAutomatically: true, checks, rule: { ...settings, windowCentsBefore: window.includesOtherTenants ? null : windowCents, windowIncludesOtherTenants: window.includesOtherTenants } },
-        });
-        await enqueue(tx, books, "payouts.send", { payoutId: row.id });
-        await notifyPayee(tx, { ...row, ...payee }, "payout.approved");
-        byTenant.set(books, (byTenant.get(books) ?? 0) + amountCents);
-      }
-      created.push(payeePayoutView(row));
-    }
-    return { payouts: created };
+  return prisma.$transaction((tx) => requestPayoutIn(tx, payee, actor, now));
+}
+
+/**
+ * POL-BE-11 — a closed account's earned money, requested as the system: its
+ * owner can't sign in to ask. The same request, checks and automatic approval
+ * as the payee's own, to the payout account on file; null when nothing is
+ * ready (or payouts are held, or there is no ready account — a closure with
+ * money and no account is held for BTG instead).
+ */
+export async function requestPayoutAsSystem(payee: Payee, now = new Date()) {
+  try {
+    return await prisma.$transaction((tx) => requestPayoutIn(tx, payee, { userId: null, tenantId: payee.payeeTenantId }, now));
+  } catch (error) {
+    if (error instanceof PayoutError) return null;
+    throw error;
+  }
+}
+
+/**
+ * POL-BE-11 — what closing an account would leave behind in money: earned
+ * and not yet paid out (any holding period included), and whether a payout
+ * account is ready to send it to.
+ */
+export async function moneyLeftFor(db: Db, payee: Payee, now = new Date()) {
+  const [money, account] = await Promise.all([
+    balanceOf(db, payee, now),
+    db.payoutAccount.findUnique({
+      /* tenant-scope: the payee's own account, by its unique payee key. */
+      where: { payeeType_payeeId: { payeeType: payee.payeeType, payeeId: payee.payeeId } }, select: { status: true },
+    }),
+  ]);
+  return { owedCents: money.reduce((s, o) => s + Math.max(0, o.balanceCents), 0), accountReady: account?.status === "READY" };
+}
+
+async function requestPayoutIn(tx: Tx, payee: Payee, actor: AuditActor, now: Date) {
+  await lockPayee(tx, payee);
+  /* Held (2S1-BE-06 organisations, 2S1-BE-09 / -10 athletes): payout-holds.ts. */
+  const held = await payoutHoldReason(tx, payee);
+  if (held) throw new PayoutError(held, 409, ["Payouts not on hold"]);
+  const account = await tx.payoutAccount.findUnique({
+    /* tenant-scope: the payee's own account, by its unique payee key from the actor. */
+    where: { payeeType_payeeId: { payeeType: payee.payeeType, payeeId: payee.payeeId } }, select: { status: true, changedAt: true },
   });
+  if (account?.status !== "READY") throw new PayoutError("Set up your payout account first — payouts are sent to it.", 409, ["Payout account ready"]);
+  const money = await balanceOf(tx, payee, now);
+  const orders = money.filter((o) => o.requestableCents > 0);
+  if (!orders.length) {
+    /* 2S5-BE-04 — say so when the only money there is is frozen by a payment problem BTG is reviewing. */
+    const frozenOnly = money.some((o) => o.frozen && o.availableCents - o.inFlightCents > 0);
+    throw new PayoutError(
+      frozenOnly ? "Nothing can be paid out yet — BTG is reviewing a problem with a sponsor's payment, and that money is held until it is resolved." : "Nothing is ready to pay out yet.",
+      409, ["An order that is paid, delivered and past its holding period", ...(frozenOnly ? [FROZEN_CHECK] : [])],
+    );
+  }
+  const byBooks = new Map<string, OrderMoney[]>();
+  for (const o of orders) byBooks.set(o.books, [...(byBooks.get(o.books) ?? []), o]);
+  const settings = autoApproveSettings();
+  /* Read after the lock: every automatic approval for this payee that committed before it. */
+  const byTenant = await autoApprovedByTenant(tx, payee, windowStart(now, settings));
+  const created = [];
+  for (const [books, os] of byBooks) {
+    const amountCents = os.reduce((s, o) => s + o.requestableCents, 0);
+    const checks = payoutChecks(os, account.status, now);
+    /* The cap counts every tenant; this payout's books are who reads the reason. */
+    const window = autoWindowFor(byTenant, books);
+    const windowCents = window.totalCents;
+    const reasons = autoApprovalReasons({
+      amountCents, held: false, unmetChecks: checks.filter((c) => !c.ok).map((c) => c.label),
+      accountChangedAt: account.changedAt, windowCents, windowIncludesOtherTenants: window.includesOtherTenants, now,
+    }, settings);
+    const auto = reasons.length === 0;
+    const row = await tx.payout.create({
+      data: {
+        tenantId: books, ...payee, amountCents, requestedBy: actor.userId ?? SYSTEM, requestedAt: now,
+        ...(auto
+          ? { state: "APPROVED", decidedBy: SYSTEM, decidedAt: now, approvedAutomatically: true, reviewReasons: [] }
+          : { state: "REQUESTED", reviewReasons: reasons }),
+        lines: { create: os.map((o) => ({ orderId: o.orderId, amountCents: o.requestableCents })) },
+      },
+      select: PAYOUT_SELECT,
+    });
+    await audit(tx, actor, "payout.request", "Payout", row.id, { after: { amountCents, orders: os.length, ...(auto ? {} : { reviewReasons: reasons }) } });
+    if (auto) {
+      await audit(tx, { userId: null, tenantId: books }, "payout.autoApprove", "Payout", row.id, {
+        before: { state: "REQUESTED" },
+        after: { state: "APPROVED", decidedBy: SYSTEM, approvedAutomatically: true, checks, rule: { ...settings, windowCentsBefore: window.includesOtherTenants ? null : windowCents, windowIncludesOtherTenants: window.includesOtherTenants } },
+      });
+      await enqueue(tx, books, "payouts.send", { payoutId: row.id });
+      await notifyPayee(tx, { ...row, ...payee }, "payout.approved");
+      byTenant.set(books, (byTenant.get(books) ?? 0) + amountCents);
+    }
+    created.push(payeePayoutView(row));
+  }
+  return { payouts: created };
 }
 
 /* ── BTG's side — 2S5-BE-05 ───────────────────────────────────────────── */
