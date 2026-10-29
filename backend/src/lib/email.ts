@@ -166,6 +166,11 @@ export type EmailTemplate =
      handoff waiting for BTG because "BTG staff confirm minors" is on. */
   | "guardian.replacedByBtg"
   | "handoff.staffConfirm"
+  /* POL-BE-10 — a handoff the current guardian hasn't answered: reminded at 3 days; at 7, BTG may decide (admins, the requester and the current guardian are told). */
+  | "handoff.reminder"
+  | "handoff.escalated"
+  | "handoff.escalatedRequester"
+  | "handoff.escalatedGuardian"
   /* P8-BE-10 — BTG sent one document back: the reason, and the link the person uploads from. */
   | "document.sentBack"
   /* 2S1-BE-16 — a contact-form message to the support mailbox, and the

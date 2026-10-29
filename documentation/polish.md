@@ -466,6 +466,31 @@ answers, so an unreachable guardian leaves the minor stuck.
   handoff is and has a decide button.
 - **Done when:** reminders and escalation run on schedule; BTG can decide an
   escalated handoff; tests.
+- **Backend delivered (`POL-BE-10`, 2026-10-29):**
+  - **Hourly check:**
+    - 3 days after a request reaches the current guardian, they get one
+      reminder (`handoff.reminder`).
+    - At 7 days with no answer it is **escalated** (`escalatedAt`). BTG's
+      admins, the requester and the current guardian are told.
+  - **BTG decides an escalated request** on the existing staff decision
+    (`POST /guardian-handoffs/:id/staff-decision`): `CONFIRM` runs the
+    switch, `DECLINE` needs a reason the requester reads. Before 7 days it is
+    refused: still with the current guardian.
+  - **The current guardian can still answer** after escalation. The first
+    answer decides: the request's row is locked while either is saved.
+  - When BTG confirms a request the guardian never answered, the emails say
+    so (`byBtg`), never "you handed off".
+  - Tests: `backend/tests/phase2-guardian-handoff-escalation.test.ts`.
+- **For `POL-FE-10` (screens):**
+  - Each request now carries `sentAt`, `waitingDays` (while with the current
+    guardian), `remindedAt`, `escalatedAt` and `btgMayDecide`.
+  - **Desk:** "Waiting for BTG" (`?group=WAITING_FOR_BTG`) now also holds
+    escalated requests, and its count includes them. Show the age ("waiting
+    9 days"), and "No answer from the current guardian" when `escalatedAt`
+    is set. Show Confirm and Decline whenever `btgMayDecide` is true.
+  - **Current guardian's card:** still shows Hand off and Decline after
+    escalation. Add "BTG will review this if you don't answer" once
+    `escalatedAt` is set.
 
 ### 11. Closing an account ignores live deals
 `POL-BE-11` · `POL-FE-11` · *Money · Minors* · likely

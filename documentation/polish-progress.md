@@ -13,10 +13,11 @@ each problem we ran into was solved. Newest first within each day.
 | 6 · A sponsor who paid twice got no refund | `POL-BE-06` | #325 | Merged |
 | 7 · Anyone holding the fan's phone could use up their reward | `POL-BE-07` | #328 | Merged |
 | 8 · Only the first fan could claim a shared QR code | `POL-BE-08` | #329 | Merged |
-| 9 · A minor's invitations never reached the guardian | `POL-BE-09` | — | In review |
+| 9 · A minor's invitations never reached the guardian | `POL-BE-09` | #331 | Merged |
+| 10 · A guardian handoff could wait forever | `POL-BE-10` | — | In review |
 | 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
 
-The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`) are for
+The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`, `POL-FE-10`) are for
 HeckerCreatives. Each item in `polish.md` says exactly what the screens can
 rely on.
 
@@ -244,6 +245,23 @@ rely on.
     each, so the new email and the sweep can't drift apart.
 - **Snag:** the new test loaded the app's settings without the placeholder
   login keys the other database tests set; added.
+
+### `POL-BE-10` — a guardian handoff never waits forever
+- **Problem:** a request to change a minor's guardian waited for the current
+  guardian with no reminder and no end, and BTG couldn't step in.
+- **Approach:**
+  - An hourly check reminds the current guardian at 3 days and hands the
+    request to BTG at 7, telling everyone.
+  - BTG decides with the existing confirm and decline buttons, which now
+    also accept an escalated request.
+  - The current guardian keeps the right to answer. The request is locked
+    while an answer is saved, so the first answer wins and a second is
+    refused.
+  - The switch emails say "BTG confirmed it" when the guardian never
+    answered.
+- **Snag:** a test expected a blank reason to be refused by the decline
+  rule (422), but the request check already refuses it (400). The test was
+  corrected.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.

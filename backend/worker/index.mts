@@ -123,6 +123,7 @@ import { env } from "../src/config/env.ts";
 import { trimZohoWebhookBodies } from "../src/domain/webhook-retention.ts";
 import { purgeFanEmails } from "../src/domain/fan-data-retention.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
+import { sweepGuardianHandoffs } from "../src/domain/guardian-handoff.ts";
 import { LISTING_DIGEST_HOUR_UTC, sendListingDigests } from "../src/domain/listing.ts";
 import { ORDER_DIGEST_HOUR_UTC, sendOrderApprovalDigests, sweepSellerApprovals } from "../src/domain/order-approval.ts";
 import { sweepUnpaidOrders } from "../src/domain/order-payment.ts";
@@ -824,6 +825,12 @@ async function main(): Promise<void> {
         if (started || reminded || terminated) log(`[worker] coming of age — started ${started}, reminded ${reminded}, terminated ${terminated}`);
       })
       .catch((error: unknown) => logError("[worker] coming-of-age sweep failed, will retry next hour:", error));
+    /* POL-BE-10 — a guardian handoff never waits forever: the current guardian reminded at 3 days, BTG may decide at 7. */
+    void sweepGuardianHandoffs()
+      .then(({ reminded, escalated }) => {
+        if (reminded || escalated) log(`[worker] guardian handoffs — reminded ${reminded}, escalated to BTG ${escalated}`);
+      })
+      .catch((error: unknown) => logError("[worker] guardian handoff sweep failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
   /* 2S3-BE-06 — BTG's daily summary of the listings that went live on their

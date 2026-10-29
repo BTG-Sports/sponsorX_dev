@@ -37,6 +37,11 @@
  *      here too: when it is on, Hand off moves the request to HANDED_OFF
  *      and BTG admins are emailed; the current guardian keeps control until
  *      a BTG admin confirms (the switch) or declines it.
+ *   5a. NEVER STUCK (POL-BE-10). A request with the current guardian is
+ *      reminded after 3 days; after 7 with no answer it is ESCALATED: on
+ *      BTG's desk under "Waiting for BTG", where an admin confirms (the
+ *      switch) or declines it with the documents. The current guardian can
+ *      still answer; the first answer decides, under the request's row lock.
  *   6. A DISPUTE IS NEVER AUTOMATED. A decline (or a custody question, a
  *      court order, an unreachable guardian) points the new guardian to BTG
  *      support (2S1-BE-16); BTG decides by hand.
@@ -91,6 +96,7 @@ const SELECT = {
   id: true, tenantId: true, athleteId: true, fromGuardianId: true, requesterName: true, requesterEmail: true, requesterPhone: true,
   relationship: true, state: true, emailConfirmedAt: true, agreementAcceptedAt: true, agreementVersion: true, submittedAt: true,
   decidedAt: true, declineNote: true, documentsCheckedAt: true, switchedAt: true, newGuardianId: true, createdAt: true,
+  remindedAt: true, escalatedAt: true,
   athlete: { select: { displayName: true, legalName: true, sport: true, email: true } },
   documents: {
     select: {
@@ -155,8 +161,28 @@ async function view(db: Tx | typeof prisma, r: Row, full: boolean) {
     decidedAt: r.decidedAt?.toISOString() ?? null,
     documentsCheckedAt: r.documentsCheckedAt?.toISOString() ?? null,
     switchedAt: r.switchedAt?.toISOString() ?? null,
+    /* POL-BE-10 — how long it has waited for the current guardian, the reminder, and BTG stepping in. */
+    sentAt: r.submittedAt?.toISOString() ?? null,
+    waitingDays: r.state === "WAITING" && r.submittedAt ? Math.floor((Date.now() - r.submittedAt.getTime()) / DAY_MS) : null,
+    remindedAt: r.remindedAt?.toISOString() ?? null,
+    escalatedAt: r.escalatedAt?.toISOString() ?? null,
+    /** BTG may confirm or decline it now: handed off for BTG's check, or escalated with no answer. */
+    btgMayDecide: btgMayDecide(r),
     supportEmail: env.SUPPORT_EMAIL,
   };
+}
+
+const DAY_MS = 86_400_000;
+/** POL-BE-10 — days after it was sent: the current guardian is reminded, then BTG may decide. */
+export const HANDOFF_REMIND_AFTER_DAYS = 3;
+export const HANDOFF_ESCALATE_AFTER_DAYS = 7;
+
+/** Waiting for BTG: handed off for BTG's check, or escalated after 7 days with no answer. */
+const btgMayDecide = (r: Pick<Row, "state" | "escalatedAt">) => r.state === "HANDED_OFF" || (r.state === "WAITING" && r.escalatedAt !== null);
+
+/** The request's row, locked for this transaction: the current guardian and BTG may answer at once, and the first decides. */
+async function lockHandoff(tx: Tx, id: string) {
+  await tx.$queryRaw`SELECT id FROM "GuardianHandoff" WHERE id = ${id} FOR UPDATE`;
 }
 export type HandoffView = Awaited<ReturnType<typeof view>>;
 
@@ -413,7 +439,13 @@ export async function listHandoffs(actor: Actor, q: { group?: HandoffGroup | Are
   /* A guardian or an athlete never sees a request before it is sent. (whereFor's own `AND` is the scope: never overwrite it.) */
   const grouped = q.group ? (isArenaGroup(q.group) ? ARENA_GROUP_STATES[q.group] : GROUP_STATES[q.group]) : null;
   const states = grouped ? grouped.filter((st) => staff || st !== "REQUESTED") : null;
-  const where = { ...whereFor(actor, "guardianHandoff", "read"), ...(states ? { state: { in: states } } : staff ? {} : { state: { not: "REQUESTED" } }) };
+  /* POL-BE-10 — a request escalated after 7 days is BTG's to decide: "Waiting for BTG", no longer "In progress". */
+  const escalated = { state: "WAITING", escalatedAt: { not: null } };
+  const groupWhere =
+    q.group === "WAITING_FOR_BTG" ? { OR: [{ state: { in: states! } }, escalated] }
+    : q.group === "IN_PROGRESS" ? { state: { in: states! }, NOT: escalated }
+    : states ? { state: { in: states } } : staff ? {} : { state: { not: "REQUESTED" } };
+  const where = { ...whereFor(actor, "guardianHandoff", "read"), ...groupWhere };
   const read = (skip: number, take: number) =>
     prisma.guardianHandoff.findMany({ where /* tenant-scope: whereFor(guardianHandoff) above */, select: SELECT, orderBy: { createdAt: "desc" }, skip, take });
   const paged = q.page
@@ -432,13 +464,17 @@ export async function listHandoffs(actor: Actor, q: { group?: HandoffGroup | Are
     });
     return { handoffs: out, counts: { waiting: n(mine, ARENA_GROUP_STATES.waiting), past: n(mine, ARENA_GROUP_STATES.past) }, page: paged.page };
   }
-  const [details, byState] = await Promise.all([
+  const [details, byState, escalatedCount] = await Promise.all([
     staffDetails(rows),
     prisma.guardianHandoff.groupBy({ by: ["state"], where: whereFor(actor, "guardianHandoff", "read"), _count: { _all: true } }),
+    prisma.guardianHandoff.count({ where: { ...whereFor(actor, "guardianHandoff", "read"), state: "WAITING", escalatedAt: { not: null } } }),
   ]);
+  const counts = Object.fromEntries(Object.entries(GROUP_STATES).map(([g, states]) => [g, n(byState, states)])) as Record<HandoffGroup, number>;
+  counts.WAITING_FOR_BTG += escalatedCount;
+  counts.IN_PROGRESS -= escalatedCount;
   return {
     handoffs: out.map((h) => ({ ...h, staff: details.get(h.id)! })),
-    counts: Object.fromEntries(Object.entries(GROUP_STATES).map(([g, states]) => [g, n(byState, states)])) as Record<HandoffGroup, number>,
+    counts,
     ...(paged.page ? { page: paged.page } : {}),
   };
 }
@@ -458,7 +494,8 @@ export async function getHandoff(actor: Actor, id: string) {
 
 type HandoffGroup = (typeof HANDOFF_GROUPS)[number];
 type ArenaHandoffGroup = (typeof ARENA_HANDOFF_GROUPS)[number];
-/** The desk's tabs. IN_PROGRESS holds REQUESTED only for BTG — a guardian never sees a request before it is sent. */
+/** The desk's tabs. IN_PROGRESS holds REQUESTED only for BTG — a guardian never sees a request before it is sent.
+ *  POL-BE-10 — WAITING_FOR_BTG also holds a WAITING request escalated after 7 days (listHandoffs). */
 const GROUP_STATES: Record<HandoffGroup, string[]> = {
   WAITING_FOR_BTG: ["HANDED_OFF"], IN_PROGRESS: ["REQUESTED", "WAITING"], SWITCHED: ["SWITCHED"], DECLINED: ["DECLINED"], CANCELLED: ["CANCELLED"],
 };
@@ -626,6 +663,7 @@ export async function sendBackHandoffDocument(actor: Actor, id: string, document
 export async function decideHandoff(actor: Actor, id: string, d: { decision: "HAND_OFF" } | { decision: "DECLINE"; note?: string }) {
   assertAllowed(actor, "guardianHandoff", "write");
   return prisma.$transaction(async (tx) => {
+    await lockHandoff(tx, id);
     const r = await tx.guardianHandoff.findFirst({ where: { ...whereFor(actor, "guardianHandoff", "write"), id }, select: SELECT });
     if (!r || !actor.guardianId) throw new ForbiddenError("guardianHandoff", "write");
     if (r.state !== "WAITING") throw new HandoffError(r.state === "REQUESTED" ? "This request hasn't been sent to you yet." : `This request is already ${r.state.toLowerCase()}.`);
@@ -684,18 +722,24 @@ async function toStaffReview(tx: Tx, actor: Actor, r: Row, reasons: readonly str
 export async function decideStaffHandoff(actor: Actor, id: string, d: { decision: "CONFIRM" } | { decision: "DECLINE"; note: string }) {
   assertAllowed(actor, "guardianHandoff", "approve");
   return prisma.$transaction(async (tx) => {
+    await lockHandoff(tx, id);
     const r = await tx.guardianHandoff.findFirst({ where: { ...whereFor(actor, "guardianHandoff", "approve"), id }, select: SELECT });
     if (!r) throw new ForbiddenError("guardianHandoff", "approve");
-    if (r.state !== "HANDED_OFF") throw new HandoffError(`This request is ${r.state.toLowerCase().replace("_", " ")}, not waiting for BTG.`);
+    /* POL-BE-10 — or escalated: 7 days with the current guardian and no answer. */
+    if (!btgMayDecide(r)) {
+      throw new HandoffError(r.state === "WAITING"
+        ? `This request is still with the current guardian. BTG can decide it once it has waited ${HANDOFF_ESCALATE_AFTER_DAYS} days.`
+        : `This request is ${r.state.toLowerCase().replace("_", " ")}, not waiting for BTG.`);
+    }
     const athlete = await tx.athlete.findFirst({ where: { tenantId: r.tenantId, id: r.athleteId }, select: { guardianId: true } });
     if (athlete?.guardianId !== r.fromGuardianId) {
       throw new HandoffError("This athlete's guardian changed another way since the handoff, so there is nothing to confirm.");
     }
     if (d.decision === "DECLINE") {
       if (!d.note.trim()) throw new HandoffError("Declining needs a reason — the requester reads it.", 422);
-      return decline(tx, actor, r, d.note, "HANDED_OFF");
+      return decline(tx, actor, r, d.note, true);
     }
-    return handOff(tx, actor, r);
+    return handOff(tx, actor, r, { byBtg: r.state === "WAITING" });
   });
 }
 
@@ -707,14 +751,14 @@ function assertComplete(r: Row) {
   }
 }
 
-async function decline(tx: Tx, actor: Actor, r: Row, note?: string, fromState: "WAITING" | "HANDED_OFF" = "WAITING") {
+async function decline(tx: Tx, actor: Actor, r: Row, note?: string, byBtg = false) {
   const at = new Date();
   await tx.guardianHandoff.update({
     /* tenant-scope: loaded through whereFor(guardianHandoff, write / approve). */
     where: { id: r.id }, data: { state: "DECLINED", decidedAt: at, decidedBy: actor.userId, declineNote: note?.trim() || null },
   });
-  await audit(tx, actor, fromState === "HANDED_OFF" ? "guardianHandoff.staffDecline" : "guardianHandoff.decline", "GuardianHandoff", r.id, {
-    before: { state: fromState }, after: { state: "DECLINED", ...(fromState === "HANDED_OFF" ? { note: note?.trim() ?? null } : {}) },
+  await audit(tx, actor, byBtg ? "guardianHandoff.staffDecline" : "guardianHandoff.decline", "GuardianHandoff", r.id, {
+    before: { state: r.state }, after: { state: "DECLINED", ...(byBtg ? { note: note?.trim() ?? null } : {}) },
   });
   const from = await tx.guardian.findFirst({ where: { tenantId: r.tenantId, id: r.fromGuardianId }, select: { legalName: true } });
   const data = {
@@ -724,7 +768,7 @@ async function decline(tx: Tx, actor: Actor, r: Row, note?: string, fromState: "
   /* Nothing more happens automatically: the decline email points to BTG support, and a person decides.
      BTG's decline (found in review) is its own email, carrying BTG's reason as written — never
      "the current guardian declined", which they did not: they handed off. */
-  if (fromState === "HANDED_OFF") {
+  if (byBtg) {
     await send(tx, r.tenantId, {
       template: "handoff.declinedByBtg", to: r.requesterEmail, idempotencyKey: `handoff.declinedByBtg:${r.id}`,
       data: { ...data, note: note?.trim() ?? "" },
@@ -739,7 +783,7 @@ async function decline(tx: Tx, actor: Actor, r: Row, note?: string, fromState: "
  * The switch. One transaction, so there is never a moment with no guardian:
  * either all of it lands or none of it does.
  */
-async function handOff(tx: Tx, actor: Actor, r: Row) {
+async function handOff(tx: Tx, actor: Actor, r: Row, opts: { byBtg?: boolean } = {}) {
   assertComplete(r);
   const at = new Date();
 
@@ -806,7 +850,7 @@ async function handOff(tx: Tx, actor: Actor, r: Row) {
   /* POL-BE-01 — the previous guardian's payout account stops receiving this athlete's money, in the same transaction as the switch. */
   const payoutAccountDetached = await detachAthletePayoutAccountIn(tx, actor, r.athleteId, "guardian handoff", at);
   await audit(tx, actor, "guardianHandoff.switch", "Athlete", r.athleteId, {
-    before: { guardianId: r.fromGuardianId }, after: { guardianId, handoffId: r.id, login, othersCancelled: others.count, payoutAccountDetached, ...(r.state === "HANDED_OFF" ? { confirmedByBtg: true } : {}) },
+    before: { guardianId: r.fromGuardianId }, after: { guardianId, handoffId: r.id, login, othersCancelled: others.count, payoutAccountDetached, ...(r.state === "HANDED_OFF" ? { confirmedByBtg: true } : {}), ...(opts.byBtg ? { decidedByBtgAfterNoAnswer: true } : {}) },
   });
 
   const [from, otherWards, admins] = await Promise.all([
@@ -815,7 +859,8 @@ async function handOff(tx: Tx, actor: Actor, r: Row) {
     tx.user.findMany({ where: { tenantId: r.tenantId, disabledAt: null, roles: { has: "BTG_ADMIN" } }, select: { id: true, email: true } }),
   ]);
   const athleteFirstName = firstWord(r.athlete.displayName || r.athlete.legalName);
-  const common = { athleteFirstName, requesterName: r.requesterName, currentFirstName: firstWord(from?.legalName), supportEmail: env.SUPPORT_EMAIL };
+  /* POL-BE-10 — BTG decided a request the current guardian never answered: the emails say so, never "handed off". */
+  const common = { athleteFirstName, requesterName: r.requesterName, currentFirstName: firstWord(from?.legalName), supportEmail: env.SUPPORT_EMAIL, ...(opts.byBtg ? { byBtg: "yes" } : {}) };
   await send(tx, r.tenantId, {
     template: "handoff.switchedNew", to: r.requesterEmail, idempotencyKey: `handoff.switchedNew:${r.id}`,
     data: { ...common, name: firstWord(r.requesterName), portalUrl: `${appUrl()}/athlete` },
@@ -838,8 +883,97 @@ async function handOff(tx: Tx, actor: Actor, r: Row) {
       data: {
         athleteName: r.athlete.displayName || r.athlete.legalName, previousName: from?.legalName ?? "", requesterName: r.requesterName,
         relationship: RELATIONSHIP_WORDS[r.relationship] ?? r.relationship, reviewUrl: `${appUrl()}/admin/new-signups/guardians/${guardianId}`,
+        ...(opts.byBtg ? { byBtg: "yes" } : {}),
       },
     });
   }
   return view(tx, await rowById(tx, r.id), true);
+}
+
+/* ═══════════════════════ POL-BE-10 · never stuck ═══════════════════════ */
+
+/**
+ * The hourly sweep (worker): a request with the current guardian 3 days is
+ * reminded to them, once; at 7 days with no answer it is escalated — BTG's
+ * admins and the requester are told, and so is the current guardian, who can
+ * still answer. Each step is conditional on the row (a second run, or a
+ * worker restarted mid-pass, does nothing twice) and audited as the system.
+ */
+export async function sweepGuardianHandoffs(now = new Date(), opts: { tenantIds?: string[] } = {}) {
+  const tenant = opts.tenantIds ? { tenantId: { in: opts.tenantIds } } : {};
+  const before = (days: number) => new Date(now.getTime() - days * DAY_MS);
+  let reminded = 0;
+  let escalated = 0;
+
+  const toEscalate = await prisma.guardianHandoff.findMany({
+    /* tenant-scope: the system's own sweep, across tenants (or the tenants a test names). */
+    where: { ...tenant, state: "WAITING", escalatedAt: null, submittedAt: { lte: before(HANDOFF_ESCALATE_AFTER_DAYS) } }, select: { id: true },
+  });
+  for (const { id } of toEscalate) {
+    await prisma.$transaction(async (tx) => {
+      const r = await rowById(tx, id);
+      const moved = await tx.guardianHandoff.updateMany({
+        /* tenant-scope: the row just read by id; only while still waiting and not yet escalated. */
+        where: { id, state: "WAITING", escalatedAt: null }, data: { escalatedAt: now, remindedAt: r.remindedAt ?? now },
+      });
+      if (moved.count !== 1) return;
+      escalated += 1;
+      await audit(tx, SYSTEM(r.tenantId), "guardianHandoff.escalate", "GuardianHandoff", id, {
+        after: { escalatedAt: now.toISOString(), waitedDays: HANDOFF_ESCALATE_AFTER_DAYS },
+      });
+      const [from, admins] = await Promise.all([
+        tx.guardian.findFirst({ where: { tenantId: r.tenantId, id: r.fromGuardianId }, select: { legalName: true, email: true } }),
+        tx.user.findMany({ where: { tenantId: r.tenantId, disabledAt: null, roles: { has: "BTG_ADMIN" } }, select: { id: true, email: true } }),
+      ]);
+      const athleteFirstName = firstWord(r.athlete.displayName || r.athlete.legalName);
+      for (const u of admins) {
+        await send(tx, r.tenantId, {
+          template: "handoff.escalated", to: u.email, idempotencyKey: `handoff.escalated:${id}:${u.id}`,
+          data: {
+            athleteName: r.athlete.displayName || r.athlete.legalName, currentName: from?.legalName ?? "", requesterName: r.requesterName,
+            relationship: RELATIONSHIP_WORDS[r.relationship] ?? r.relationship, days: String(HANDOFF_ESCALATE_AFTER_DAYS),
+            reviewUrl: `${appUrl()}/admin/guardian-handoffs/${id}`,
+          },
+        });
+      }
+      await send(tx, r.tenantId, {
+        template: "handoff.escalatedRequester", to: r.requesterEmail, idempotencyKey: `handoff.escalatedRequester:${id}`,
+        data: { name: firstWord(r.requesterName), athleteFirstName, currentFirstName: firstWord(from?.legalName), supportEmail: env.SUPPORT_EMAIL },
+      });
+      if (from) {
+        await send(tx, r.tenantId, {
+          template: "handoff.escalatedGuardian", to: from.email, idempotencyKey: `handoff.escalatedGuardian:${id}`,
+          data: { name: firstWord(from.legalName), athleteFirstName, requesterName: r.requesterName, portalUrl: `${appUrl()}/athlete/guardian-requests`, supportEmail: env.SUPPORT_EMAIL },
+        });
+      }
+    });
+  }
+
+  const toRemind = await prisma.guardianHandoff.findMany({
+    /* tenant-scope: the system's own sweep, across tenants (or the tenants a test names). */
+    where: { ...tenant, state: "WAITING", remindedAt: null, escalatedAt: null, submittedAt: { lte: before(HANDOFF_REMIND_AFTER_DAYS) } }, select: { id: true },
+  });
+  for (const { id } of toRemind) {
+    await prisma.$transaction(async (tx) => {
+      const r = await rowById(tx, id);
+      const moved = await tx.guardianHandoff.updateMany({
+        /* tenant-scope: the row just read by id; only while still waiting and not yet reminded. */
+        where: { id, state: "WAITING", remindedAt: null }, data: { remindedAt: now },
+      });
+      if (moved.count !== 1) return;
+      reminded += 1;
+      await audit(tx, SYSTEM(r.tenantId), "guardianHandoff.remind", "GuardianHandoff", id, { after: { remindedAt: now.toISOString() } });
+      const from = await tx.guardian.findFirst({ where: { tenantId: r.tenantId, id: r.fromGuardianId }, select: { legalName: true, email: true } });
+      if (!from) return;
+      await send(tx, r.tenantId, {
+        template: "handoff.reminder", to: from.email, idempotencyKey: `handoff.reminder:${id}`,
+        data: {
+          name: firstWord(from.legalName), requesterName: r.requesterName, relationship: RELATIONSHIP_WORDS[r.relationship] ?? r.relationship,
+          athleteFirstName: firstWord(r.athlete.displayName || r.athlete.legalName), days: String(HANDOFF_ESCALATE_AFTER_DAYS - HANDOFF_REMIND_AFTER_DAYS),
+          portalUrl: `${appUrl()}/athlete/guardian-requests`, supportEmail: env.SUPPORT_EMAIL,
+        },
+      });
+    });
+  }
+  return { reminded, escalated };
 }
