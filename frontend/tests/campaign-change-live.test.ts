@@ -152,13 +152,17 @@ describe("the change form", () => {
     expect(proposalFrom(odd, { ...changeFormFrom(odd), endDate: "2026-12-31" })).toEqual({ ok: true, proposal: { endDate: "2026-12-31" } });
   });
 
-  it("proposalOf keeps only well-formed fields for the server actions", () => {
-    expect(proposalOf({ name: " New ", startDate: "2026-11-02", endDate: "next week", budget: 1_500_000.4, extra: 1 })).toEqual({ name: "New", startDate: "2026-11-02", budget: 1_500_000 });
-    expect(proposalOf({ name: "   " })).toBeNull();
-    expect(proposalOf({ budget: -5 })).toBeNull();
-    expect(proposalOf(null)).toBeNull();
+  it("proposalOf, for the server actions, forwards well-formed fields and refuses a wrong one with its reason — never drops it", () => {
+    expect(proposalOf({ name: " New ", startDate: "2026-11-02", budget: 1_500_000.4, extra: 1 })).toEqual({ ok: true, proposal: { name: "New", startDate: "2026-11-02", budget: 1_500_000 } });
+    expect(proposalOf({ name: "x".repeat(201), endDate: "2026-12-31" })).toEqual({ ok: false, message: "The name is too long — 200 characters at most." });
+    expect(proposalOf({ endDate: "next week" })).toEqual({ ok: false, message: "The end date isn't a date." });
+    expect(proposalOf({ name: "   " })).toEqual({ ok: false, message: "The campaign needs a name." });
+    expect(proposalOf({ budget: -5 })).toEqual({ ok: false, message: "The budget must be whole dollars, like 12400." });
+    expect(proposalOf(null)).toEqual({ ok: false, message: "Nothing has changed yet." });
+    expect(proposalOf({ extra: 1 })).toEqual({ ok: false, message: "Nothing has changed yet." });
     expect(validCampaignId("qa_cmp_live")).toBe(true);
     expect(validCampaignId("")).toBe(false);
+    expect(validCampaignId("..")).toBe(false);
   });
 
   it("refuses an empty name, a bad date, an end before the start and a budget that isn't whole dollars", () => {

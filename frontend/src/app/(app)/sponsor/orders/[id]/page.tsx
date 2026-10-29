@@ -212,7 +212,7 @@ export default async function OrderPage({
               <ShopLineRow key={l.id} line={l} />
             ))}
           </ul>
-          <p className="text-[11px] text-muted">{paymentHint(pay.kind) ?? c.hint}</p>
+          <p className="text-[11px] text-muted">{paymentHint(pay.kind, pay.kind === "failed" && !pay.cta) ?? c.hint}</p>
           {deliveries && deliveries.lines.length > 0 && (
             <div className="pt-2">
               <SponsorOrderDelivery

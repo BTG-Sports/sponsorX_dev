@@ -107,14 +107,17 @@ describe("reviewBy", () => {
     expect(by?.label).toBe("Oct 15");
     expect(by?.from).toBe("window");
   });
-  it("never lands after the END of the post's own due day, where the reviewer sits", () => {
-    const by = reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z" }), NOW); // due Oct 20
-    expect(by?.iso).toBe(new Date(2026, 9, 20, 23, 59, 59, 999).toISOString());
+  it("never lands after the END of the post's own due day on BTG's desk (America/New_York), whatever the server's clock", () => {
+    const by = reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z" }), NOW); // due Oct 20 — EDT, UTC−4
+    expect(by?.iso).toBe("2026-10-21T03:59:59.999Z");
     expect(by?.label).toBe("Oct 20");
     expect(by?.from).toBe("due");
-    /* Not late at 8:30 pm on Oct 20 local — the due day hasn't ended. */
-    expect(reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z" }), new Date(2026, 9, 20, 20, 30))?.late).toBe(false);
-    expect(reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z" }), new Date(2026, 9, 21, 0, 1))?.late).toBe(true);
+    /* 11 pm on Oct 20 in New York: not late. 00:01 on Oct 21: late. */
+    expect(reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z" }), new Date("2026-10-21T03:00:00.000Z"))?.late).toBe(false);
+    expect(reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z" }), new Date("2026-10-21T04:01:00.000Z"))?.late).toBe(true);
+    /* A due date that isn't a real day falls back to the 48 h window instead of rolling over. */
+    expect(reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z", dueDate: "2026-02-30" }), NOW)?.from).toBe("window");
+    expect(reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z", dueDate: "2026-13-45" }), NOW)?.from).toBe("window");
   });
   it("is late once now is past it", () => {
     expect(reviewBy(d({ waitingSince: "2026-10-11T09:00:00.000Z" }), NOW)?.late).toBe(true);

@@ -31,8 +31,8 @@ export async function adminCancelImpact(campaignId: string): Promise<ImpactRead>
 export async function adminChangeImpact(campaignId: string, proposal: ChangeProposal): Promise<ImpactRead> {
   if (!validId(campaignId)) return { ok: false, message: "No campaign." };
   const p = proposalOf(proposal);
-  if (!p) return { ok: false, message: "Nothing has changed yet." };
-  return readChangeImpact(campaignId, p);
+  if (!p.ok) return { ok: false, message: p.message };
+  return readChangeImpact(campaignId, p.proposal);
 }
 
 /** POST /campaigns/{id}/cancel { reason } */
@@ -49,8 +49,8 @@ export async function adminCancelCampaign(campaignId: string, reason: string): P
 export async function adminChangeCampaign(campaignId: string, proposal: ChangeProposal, reason: string): Promise<ActResult> {
   if (!validId(campaignId)) return { ok: false, message: "No campaign." };
   const p = proposalOf(proposal);
-  if (!p) return { ok: false, message: "Nothing has changed yet." };
-  const r = await postChange(campaignId, p, typeof reason === "string" ? reason : undefined);
+  if (!p.ok) return { ok: false, message: p.message };
+  const r = await postChange(campaignId, p.proposal, typeof reason === "string" ? reason : undefined);
   if (r.ok) refreshCampaign(campaignId);
   return r;
 }

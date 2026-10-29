@@ -72,9 +72,13 @@ export default async function SponsorInvoicesPage({ searchParams }: { searchPara
   const rows = invoiceRows(live.campaigns);
   const totals = invoiceTotals(rows, now);
   const unavailable = live.campaigns.filter((c) => c.unavailable).map((c) => c.name);
+  /* Every campaign on the page failed to read: say so instead of "no invoices yet" under $0 tiles. */
+  const allUnavailable = live.campaigns.length > 0 && unavailable.length === live.campaigns.length;
   const { page } = live;
   const outOfRange = page.page > page.pages;
-  const empty: ReactNode = outOfRange ? (
+  const empty: ReactNode = allUnavailable ? (
+    "Your invoices couldn’t be read just now. Nothing here has changed — refresh in a minute."
+  ) : outOfRange ? (
     "No campaigns on this page. Go back to the first page to see them."
   ) : page.total === 0 ? (
     <>
@@ -99,7 +103,7 @@ export default async function SponsorInvoicesPage({ searchParams }: { searchPara
   return (
     <div className="space-y-6">
       <StadiumHead title="Your invoices" pill={<StadiumUpdated iso={now.toISOString()} />}>
-        <StadiumTiles cols={3}>
+        {!allUnavailable && <StadiumTiles cols={3}>
           <StadiumTile
             label="To pay"
             value={totals.owedCents}
@@ -125,9 +129,9 @@ export default async function SponsorInvoicesPage({ searchParams }: { searchPara
             hint="What you've paid on these campaigns, as Zoho Books last reported it."
             delay={0.22}
           />
-        </StadiumTiles>
+        </StadiumTiles>}
       </StadiumHead>
-      {unavailable.length > 0 && (
+      {unavailable.length > 0 && !allUnavailable && (
         <p role="status" className="rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 text-xs text-text">
           The invoices for {unavailable.length === 1 ? unavailable[0] : `${unavailable.length} campaigns (${unavailable.join(", ")})`} couldn&rsquo;t be read just now. The rest are listed; refresh in a minute for the others.
         </p>

@@ -83,11 +83,30 @@ type ReviewByInput = Pick<ApiDeliverable, "state" | "revision" | "dueDate"> & {
   latestAsset?: { uploadedAt: string } | null;
 };
 
-/** 23:59:59.999 local on a YYYY-MM-DD (or the day of an ISO datetime); NaN when it isn't a date. */
+/** Where BTG's desk keeps its days: the review-by bound and its labels are read
+ *  in this zone whatever the server's clock says (the reviewers are US-based,
+ *  as the rewards' day is). */
+export const DESK_TIME_ZONE = "America/New_York";
+
+/** How far `tz` is ahead of UTC at `utcMs`, in ms. */
+function zoneOffsetMs(utcMs: number, tz: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).formatToParts(new Date(utcMs));
+  const n = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  return Date.UTC(n("year"), n("month") - 1, n("day"), n("hour"), n("minute"), n("second")) - Math.floor(utcMs / 1000) * 1000;
+}
+
+/** 23:59:59.999 in the desk's zone on a YYYY-MM-DD (or the day of an ISO
+ *  datetime); NaN when it isn't a real date (a rolled-over "2026-02-30" too). */
 function endOfDay(day: string | null | undefined): number {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(day ?? "");
   if (!m) return Number.NaN;
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 23, 59, 59, 999).getTime();
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const asUtc = Date.UTC(y, mo - 1, d, 23, 59, 59, 999);
+  const probe = new Date(asUtc);
+  if (probe.getUTCFullYear() !== y || probe.getUTCMonth() !== mo - 1 || probe.getUTCDate() !== d) return Number.NaN;
+  /* Two rounds so a DST change on the day itself is read at the right side of it. */
+  const first = asUtc - zoneOffsetMs(asUtc, DESK_TIME_ZONE);
+  return asUtc - zoneOffsetMs(first, DESK_TIME_ZONE);
 }
 
 export function reviewBy(d: ReviewByInput, now: Date): ReviewBy | null {
@@ -103,7 +122,10 @@ export function reviewBy(d: ReviewByInput, now: Date): ReviewBy | null {
   const windowMs = sinceMs + REVIEW_WINDOW_HOURS * 3_600_000;
   const byMs = Number.isNaN(dueMs) ? windowMs : Math.min(windowMs, dueMs);
   const iso = new Date(byMs).toISOString();
-  return { iso, label: monDay(iso), late: now.getTime() > byMs, from: byMs === windowMs ? "window" : "due" };
+  const from = byMs === windowMs ? "window" : "due";
+  /* The due bound is a calendar day: label it as that day, not as its last instant read in UTC. */
+  const label = from === "due" ? monDay(`${d.dueDate.slice(0, 10)}T12:00:00.000Z`) : monDay(iso);
+  return { iso, label, late: now.getTime() > byMs, from };
 }
 
 /** The desk with this post's drawer open — where a dashboard or email link lands (POL-FE-23). */

@@ -64,8 +64,12 @@ export function CampaignChangeControls({ campaign, show, actions, demo = false }
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step | null>(null);
-  /* Lives here so "Back" from the impact modal keeps what was typed. */
+  /* Lives here so "Back" from the impact modal keeps what was typed. `seed`
+     remembers which campaign values the form started from: when the campaign
+     itself changes (a saved change, then the refresh) the form restarts from
+     it; otherwise a draft closed by accident is still there. */
   const [form, setForm] = useState<ChangeForm>(() => changeFormFrom(campaign));
+  const [seed, setSeed] = useState<string>(() => JSON.stringify(changeFormFrom(campaign)));
   const [notice, setNotice] = useState<{ tone: "info" | "bad"; text: string } | null>(null);
   const [pending, start] = useTransition();
   if (!show.change && !show.cancel) return null;
@@ -82,9 +86,12 @@ export function CampaignChangeControls({ campaign, show, actions, demo = false }
   const openChange = () => {
     setNotice(null);
     if (demo) return setNotice({ tone: "info", text: "Sample data — Cancel and Change work on a real campaign." });
-    /* Start from where the campaign stands now — after a saved change and the
-       refresh, the old values would otherwise propose a silent revert. */
-    setForm(changeFormFrom(campaign));
+    /* Start from where the campaign stands now when it moved — after a saved
+       change and the refresh, the old values would otherwise propose a silent
+       revert. An unchanged campaign keeps the draft. */
+    const fresh = changeFormFrom(campaign);
+    const key = JSON.stringify(fresh);
+    if (key !== seed) { setForm(fresh); setSeed(key); }
     setStep({ kind: "form" });
   };
   const finished = (r: ActResult) => {

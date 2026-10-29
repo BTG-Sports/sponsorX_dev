@@ -44,7 +44,10 @@ export async function liveSponsorInvoicePage(sp: SearchParams): Promise<LiveInvo
       if (!res.ok) return { id: c.id, name: c.name, invoices: [] as ApiCampaignInvoice[], unavailable: true };
       const { invoices } = (await res.json()) as { invoices?: ApiCampaignInvoice[] };
       return { id: c.id, name: c.name, invoices: Array.isArray(invoices) ? invoices : [] };
-    } catch {
+    } catch (e) {
+      /* Only a read that failed is "unavailable"; a session that ended, or a bug, still surfaces. */
+      if (e instanceof Error && /signed in/i.test(e.message)) throw e;
+      if (e instanceof TypeError && !/fetch/i.test(e.message)) throw e;
       return { id: c.id, name: c.name, invoices: [] as ApiCampaignInvoice[], unavailable: true };
     }
   };

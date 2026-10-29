@@ -279,7 +279,9 @@ export function paymentView(orderState: string, payment: ApiOrderPayment | null,
 
 /** The line under the lines list, where the order's generic hint would talk
  *  about invoicing — replaced while payment is by card. */
-export function paymentHint(kind: PaymentKind): string | null {
+export function paymentHint(kind: PaymentKind, closed = false): string | null {
+  /* A failed attempt while card payment is closed reads like a held order: there is nothing to pay yet. */
+  if (kind === "failed" && closed) return "Your order is approved and held for you. Card payment is closed right now — we’ll email you when it opens again.";
   if (kind === "due" || kind === "failed") return "Your order is approved. Pay the total by card to start delivery.";
   if (kind === "held") return "Your order is approved and held for you. Card payment opens soon — we’ll email your pay-by date.";
   if (kind === "processing") return "Your payment is being confirmed by the payment provider.";

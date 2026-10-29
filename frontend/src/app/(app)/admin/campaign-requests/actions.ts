@@ -13,7 +13,8 @@ import { decideCampaignRequest, type DecisionResult } from "@/server/campaign-ch
    as "Not available yet".
    -------------------------------------------------------------------------- */
 
-const validId = (id: unknown): id is string => typeof id === "string" && id.length > 0 && id.length < 200;
+/* The house id shape, so a dotted segment can never reshape the API path (security review 2026-10-29). */
+const validId = (id: unknown): id is string => typeof id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(id);
 
 export async function decideCampaignRequestAction(requestId: string, decision: "APPROVE" | "DECLINE", note?: string): Promise<DecisionResult> {
   if (!validId(requestId)) return { ok: false, message: "No request." };

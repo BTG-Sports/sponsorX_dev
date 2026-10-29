@@ -94,6 +94,21 @@ Every frontend task whose backend is done, or that needs no backend, in five com
 - **Browser:** with the real API stopped, `/sponsor`, `/sponsor/campaigns` and `/sponsor/invoices` render without a crash or page error. **axe-core (WCAG 2A/AA)** over the campaign-requests desk, the content desk with a post open, the sign-up review, sensitive edits, the Cancel modal, the Send back dialog, invoices, campaigns, an order page, Campaign orders, Payouts and Invitations: no violations except one serious — the review drawer's scroll region was not keyboard-focusable — fixed with `tabIndex={0}`.
 - **Checked:** the full frontend suite, eslint and `next build`.
 
+### QA pass 7 — a security review of the branch, and a second code review of the pass-6 fixes (HeckerCreatives, same day)
+
+- **Security review** (`/security-review`, frontend/src vs `main_development`): **no newly introduced vulnerability.** Every sink traced — the unsubscribe route's raw HTML (escaped, env-sourced address), the three `mailto:` builders (encoded subjects, env addresses), `?open=` (trimmed, capped, encoded, API decides), every new server action (house id regexes, `encodeURIComponent`, the caller's own token, the API's matrix), the ward cookie (unchanged), presigned PUTs (unchanged). One hardening note taken: the campaign and request ids in the P8-FE-12 actions were length-only checks; they now use the house `[A-Za-z0-9_-]{1,64}` shape like every other new action.
+- **Second code review** (`/code-review ee67fcbd~1 high`, the pass-6 fixes only) found ten more, all fixed:
+  - the review-by "end of day" was computed in the **server's** zone (UTC on Railway, so nothing had changed) and labelled in UTC; it is now the end of the due day in `America/New_York` (BTG's desk, the same zone the rewards use), the label is the due day itself, and a date that isn't real ("2026-02-30") falls back to the window instead of rolling over; tests are now zone-independent;
+  - the line under the order lines still said "Pay the total by card" for a failed payment while payment is closed — `paymentHint` takes the closed flag;
+  - the seller's photo was kept or dropped by sniffing English wording — the action now returns `photoRefused` from the API's 422, a structured signal;
+  - when every campaign on the invoices page failed to read, the page said "No invoices yet" under $0 tiles — it now says the invoices couldn't be read and hides the tiles;
+  - the sponsor's actions re-implemented the id regex — they import `validCampaignId`;
+  - `proposalOf` dropped a wrong field and forwarded the rest (a 201-character name plus a new end date changed only the end date) — it now refuses with the reason;
+  - `aria-label` on a plain div is prohibited — the drawer's scroll region is `role="region"`;
+  - the per-campaign invoice catch swallowed a lapsed session and programming errors — those surface again;
+  - resetting the Change form on every open also threw away a draft closed by accident — it resets only when the campaign's own values changed.
+- **Checked:** the full frontend suite, eslint and `next build`.
+
 ### Still open for the frontend
 
 - Waiting on a backend row: `POL-FE-02, 03, 05, 06, 07, 08, 10, 11, 12, 15, 17, 18, 19, 22, 36`.

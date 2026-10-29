@@ -209,8 +209,9 @@ export function proposalFrom(current: CampaignCurrent, form: ChangeForm): { ok: 
   return { ok: true, proposal };
 }
 
-/** A campaign id as a server action may trust it. */
-export const validCampaignId = (id: unknown): id is string => typeof id === "string" && id.length > 0 && id.length < 200;
+/** A campaign id as a server action may trust it — the house id shape, so a
+ *  dotted segment can never reshape the API path (security review 2026-10-29). */
+export const validCampaignId = (id: unknown): id is string => typeof id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(id);
 
 /**
  * The proposal a server action may forward: only the four fields, each in
@@ -218,15 +219,30 @@ export const validCampaignId = (id: unknown): id is string => typeof id === "str
  * name under 200 characters). Null when nothing usable is in it. Shared by
  * the sponsor's and BTG's actions so the two portals can't drift.
  */
-export function proposalOf(p: unknown): ChangeProposal | null {
-  if (!p || typeof p !== "object") return null;
+export function proposalOf(p: unknown): { ok: true; proposal: ChangeProposal } | { ok: false; message: string } {
+  if (!p || typeof p !== "object") return { ok: false, message: "Nothing has changed yet." };
   const x = p as Record<string, unknown>;
   const out: ChangeProposal = {};
-  if (typeof x.name === "string" && x.name.trim() && x.name.trim().length <= 200) out.name = x.name.trim();
-  if (typeof x.startDate === "string" && DATE.test(x.startDate)) out.startDate = x.startDate;
-  if (typeof x.endDate === "string" && DATE.test(x.endDate)) out.endDate = x.endDate;
-  if (typeof x.budget === "number" && Number.isFinite(x.budget) && x.budget >= 0) out.budget = Math.round(x.budget);
-  return Object.keys(out).length ? out : null;
+  /* A field that is there but wrong is refused with its reason — never dropped
+     so the rest goes through as a different change (review 2026-10-29). */
+  if (x.name !== undefined) {
+    if (typeof x.name !== "string" || !x.name.trim()) return { ok: false, message: "The campaign needs a name." };
+    if (x.name.trim().length > 200) return { ok: false, message: "The name is too long — 200 characters at most." };
+    out.name = x.name.trim();
+  }
+  if (x.startDate !== undefined) {
+    if (typeof x.startDate !== "string" || !DATE.test(x.startDate)) return { ok: false, message: "The start date isn't a date." };
+    out.startDate = x.startDate;
+  }
+  if (x.endDate !== undefined) {
+    if (typeof x.endDate !== "string" || !DATE.test(x.endDate)) return { ok: false, message: "The end date isn't a date." };
+    out.endDate = x.endDate;
+  }
+  if (x.budget !== undefined) {
+    if (typeof x.budget !== "number" || !Number.isFinite(x.budget) || x.budget < 0) return { ok: false, message: "The budget must be whole dollars, like 12400." };
+    out.budget = Math.round(x.budget);
+  }
+  return Object.keys(out).length ? { ok: true, proposal: out } : { ok: false, message: "Nothing has changed yet." };
 }
 
 /** The change, line by line, for the modal and BTG's queue: "Name → Spring Launch". */
