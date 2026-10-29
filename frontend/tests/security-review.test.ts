@@ -284,5 +284,7 @@ describe("2S8-SEC-05 · the API client, edge forwarding and payout helpers are s
       }
     }
     expect(offenders).toEqual([]);
-  });
+  /* Walks every client module's import graph: ~3 s alone, 5–8 s under the
+     full parallel run on a loaded laptop (2026-10-29). Not a 5 s test. */
+  }, 30_000);
 });
