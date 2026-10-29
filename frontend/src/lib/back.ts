@@ -43,6 +43,11 @@ const TARGETS: Record<string, BackTarget> = {
     href: "/athlete/invitations",
     label: "Back to invitations",
   },
+  /* POL-FE-24 — the athlete's Campaign Orders list. */
+  "athlete-orders": {
+    href: "/athlete/orders",
+    label: "Back to Campaign orders",
+  },
   applications: {
     href: "/admin/applications",
     label: "Back to applications",

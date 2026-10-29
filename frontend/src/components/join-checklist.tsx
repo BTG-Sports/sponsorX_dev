@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 
 import { confirmIdAction, nameGuardianAction, requestIdAction, resendAction, signupStatusAction, type JoinAnswer } from "@/app/(public)/join/actions";
 import { IdUpload } from "@/components/id-upload";
 import { LinkExpired } from "@/components/link-expired";
-import { checklist, needsGuardian, standing, type ApiSignupStatus } from "@/lib/join-signup";
+import { canChangeGuardian, checklist, guardianChangeDraft, guardianEmailLine, needsGuardian, standing, type ApiSignupStatus, type GuardianDraft } from "@/lib/join-signup";
 
 /* --------------------------------------------------------------------------
    After applying — 2S1-FE-06 (athlete half). What is still needed before
@@ -16,7 +17,12 @@ import { checklist, needsGuardian, standing, type ApiSignupStatus } from "@/lib/
    - the government ID — or, under the place's age of majority, a school ID
      — straight to the private bucket (IdUpload);
    - a minor names their guardian if the wizard didn't (the API decides
-     "minor" by the place: Alabama's age is 19), and can email them again.
+     "minor" by the place: Alabama's age is 19), and can email them again;
+   - POL-FE-16 — a mistyped guardian email is changed here, not resent to:
+     "Change guardian email" opens the same form, name and relationship
+     filled in, and POST /applications/intake/guardian re-names them (the
+     API allows it until BTG has approved the guardian);
+   - POL-FE-34 — "You're approved" carries the Sign in button.
 
    Reads GET /applications/intake/status?token= on mount; every write answers
    with the new status. The intake token is the only key.
@@ -32,7 +38,9 @@ export function JoinChecklist({ token, initial }: { token: string; initial?: Api
   /* 2S8-FE-01: the link this device holds is older than 14 days (the API's 410). */
   const [expired, setExpired] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const [g, setG] = useState({ legalName: "", email: "", relationship: "PARENT" as "PARENT" | "LEGAL_GUARDIAN" | "AUTHORIZED_REP" });
+  const [g, setG] = useState<GuardianDraft>({ legalName: "", email: "", relationship: "PARENT" });
+  /* POL-FE-16 — the guardian form open to change the email of the guardian already named. */
+  const [changing, setChanging] = useState(false);
 
   useEffect(() => {
     if (initial) return;
@@ -75,6 +83,12 @@ export function JoinChecklist({ token, initial }: { token: string; initial?: Api
       <div>
         <h2 id="jc-title" className={`text-base font-semibold ${st.tone === "success" ? "text-success" : st.tone === "warn" ? "text-text" : "text-muted"}`}>{st.title}</h2>
         <p className="mt-1 text-sm leading-relaxed text-muted">{st.line}</p>
+        {/* POL-FE-34 — approved: the way in, right here. */}
+        {st.cta && (
+          <Link href={st.cta.href} className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-primary px-5 text-sm font-semibold text-cta-ink hover:bg-primary-soft">
+            {st.cta.label}
+          </Link>
+        )}
       </div>
 
       <ol className="space-y-2.5">
@@ -107,15 +121,19 @@ export function JoinChecklist({ token, initial }: { token: string; initial?: Api
               onDone={(next) => setS(next)}
             />
           )}
-          {needsGuardian(s) && (
+          {(needsGuardian(s) || (changing && canChangeGuardian(s))) && (
             <form
               className="space-y-2.5"
+              aria-label={changing ? "Change guardian email" : "Your guardian"}
               onSubmit={(e) => {
                 e.preventDefault();
-                run(() => nameGuardianAction(token, g), "We’ve emailed your guardian a link to their own page.");
+                const was = changing;
+                run(() => nameGuardianAction(token, g), was ? "Changed — we’ve emailed your guardian’s new address a link to their own page." : "We’ve emailed your guardian a link to their own page.");
+                setChanging(false);
               }}
             >
-              <p className="text-sm font-semibold">Your guardian</p>
+              <p className="text-sm font-semibold">{changing ? "Change guardian email" : "Your guardian"}</p>
+              {changing && <p className="text-xs text-muted">The link goes to the new address. Their name and relationship stay as named unless you change them too.</p>}
               <label className="block text-xs font-medium">
                 Guardian legal name
                 <input className={field} value={g.legalName} onChange={(e) => setG({ ...g, legalName: e.target.value })} autoComplete="off" required />
@@ -132,13 +150,39 @@ export function JoinChecklist({ token, initial }: { token: string; initial?: Api
                   <option value="AUTHORIZED_REP">Authorized representative</option>
                 </select>
               </label>
-              <button type="submit" className={smallBtn} disabled={pending}>Email my guardian</button>
+              <div className="flex flex-wrap gap-2">
+                <button type="submit" className={smallBtn} disabled={pending}>{changing ? "Email the new address" : "Email my guardian"}</button>
+                {changing && (
+                  <button type="button" className="min-h-11 rounded-lg px-4 text-sm text-muted hover:text-text" disabled={pending} onClick={() => setChanging(false)}>
+                    Keep {s.guardian?.email ?? "the current address"}
+                  </button>
+                )}
+              </div>
             </form>
           )}
-          {s.guardian && !s.guardian.approved && (
-            <button type="button" className={smallBtn} disabled={pending} onClick={() => run(() => resendAction(token, "guardian"), `Sent to ${s.guardian!.email}.`)}>
-              Email {s.guardian.name.split(/\s+/)[0]} the link again
-            </button>
+          {s.guardian && !s.guardian.approved && !changing && (
+            <div className="space-y-2">
+              {canChangeGuardian(s) && <p className="text-xs text-muted">{guardianEmailLine(s)}</p>}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={smallBtn} disabled={pending} onClick={() => run(() => resendAction(token, "guardian"), `Sent to ${s.guardian!.email}.`)}>
+                  Email {s.guardian.name.split(/\s+/)[0]} the link again
+                </button>
+                {/* POL-FE-16 — the resend goes to the same address; this is how a wrong one gets fixed. */}
+                {canChangeGuardian(s) && (
+                  <button
+                    type="button"
+                    className={smallBtn}
+                    disabled={pending}
+                    onClick={() => {
+                      setG(guardianChangeDraft(s));
+                      setChanging(true);
+                    }}
+                  >
+                    Change guardian email
+                  </button>
+                )}
+              </div>
+            </div>
           )}
         </div>
       )}

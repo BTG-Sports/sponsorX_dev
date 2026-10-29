@@ -34,6 +34,9 @@ export default async function AthleteSettingsPage({ searchParams }: { searchPara
   if (demo === "error") throw new Error("Demo error state");
 
   const guardian = actor.roles.includes("GUARDIAN") && !actor.roles.includes("ATHLETE");
+  /* POL-FE-33 — the sample screens (Riley's) are for a BTG preview or the
+     demo switch, never for a real athlete's or guardian's settings. */
+  const showPreviews = demo !== null || !(actor.roles.includes("ATHLETE") || actor.roles.includes("GUARDIAN"));
 
   return (
     <AccountSettings
@@ -42,15 +45,17 @@ export default async function AthleteSettingsPage({ searchParams }: { searchPara
       accountWords={guardian ? "guardian account" : "athlete account"}
       linkAction={athleteSettingsLinkAction}
       closeAction={athleteCloseAccountAction}
+      /* POL-FE-26 — a minor's own login (not the guardian acting for them). */
+      minor={Boolean(actor.guardianControl) && !actor.actingFor}
       noPayeeLine={guardian
         ? "Payouts go to the athlete’s own payout account on Stripe. There’s nothing to set up from this login."
         : "There’s no payout account on this login yet."}
-      previews={[
+      previews={showPreviews ? [
         /* In-portal previews (portal views stay in the portal), not the public /reactivate. */
         { href: "/athlete/settings/reactivate?case=self", label: "reactivate within 30 days" },
         { href: "/athlete/settings/reactivate?case=btg", label: "closed by BTG" },
         { href: `/athlete/settings/coming-of-age?as=${guardian ? "guardian" : "athlete"}`, label: "coming-of-age reminder" },
-      ]}
+      ] : []}
     />
   );
 }

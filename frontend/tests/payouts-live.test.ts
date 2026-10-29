@@ -95,6 +95,58 @@ describe("accountPanel", () => {
   it("stand-in provider — the staging badge", () => {
     expect(accountPanel(acct({ testProvider: true }), "X").testBadge).toBe(TEST_PROVIDER_BADGE);
   });
+  /* POL-FE-01 — after a handoff or coming of age: NOT_SET_UP with approved payouts waiting. */
+  it("NOT_SET_UP with payouts waiting — asks for the holder's own account and says the money waits", () => {
+    const v = accountPanel(acct(), "Jordan Reyes", { waiting: 2 });
+    expect(v.headline).toBe(L.WAITING_SET_UP_HEADLINE);
+    expect(v.headline).toBe("Set up your own payout account — payouts are waiting for it");
+    expect(v.body).toMatch(/^2 approved payouts are waiting/);
+    expect(v.body).toMatch(/Nothing goes to the account that was there before/);
+    expect(v.waiting).toBe(2);
+    expect(v.cta.label).toBe("Set up payouts with Stripe ↗");
+    expect(v.actionNeeded).toBe(true);
+    expect(v.guardianOnly).toBe(false);
+    expect(accountPanel(acct(), "you", { waiting: 1 }).body).toMatch(/^An approved payout is waiting/);
+    /* READY with waiting payouts is the ordinary active panel — they are being sent. */
+    expect(accountPanel(acct({ status: "READY" }), "you", { waiting: 2 }).headline).toBe("Payout account · Active ✓");
+  });
+  /* POL-FE-26 — a minor's own login: no Stripe button, their guardian does it. */
+  it("a minor sees who sets it up and gets no button", () => {
+    const v = accountPanel(acct(), "you", { minor: true });
+    expect(v.guardianOnly).toBe(true);
+    expect(v.guardianLine).toBe(L.GUARDIAN_SETS_UP_LINE);
+    expect(v.headline).toBe("Your guardian sets up the payout account");
+    const waiting = accountPanel(acct(), "you", { minor: true, waiting: 1 });
+    expect(waiting.headline).toMatch(/^Your guardian sets up the payout account — payouts are waiting/);
+    const info = accountPanel(acct({ status: "NEEDS_INFO" }), "you", { minor: true });
+    expect(info.guardianOnly).toBe(true);
+    expect(info.headline).toMatch(/from your guardian/);
+    const ready = accountPanel(acct({ status: "READY" }), "you", { minor: true });
+    expect(ready.guardianOnly).toBe(true);
+    expect(ready.guardianLine).toBeNull();
+    expect(ready.body).toMatch(/your guardian added/);
+    /* An adult (or the guardian acting) keeps the button. */
+    expect(accountPanel(acct(), "you").guardianOnly).toBe(false);
+    expect(accountPanel(acct(), "you").guardianLine).toBeNull();
+  });
+});
+
+describe("waitingPayouts", () => {
+  it("counts approved payouts from the API's byState, or over the listed payouts on an older read", () => {
+    const byState = { REQUESTED: { count: 1, amountCents: 1 }, APPROVED: { count: 3, amountCents: 3 }, SENDING: { count: 0, amountCents: 0 }, PAID: { count: 0, amountCents: 0 }, REJECTED: { count: 0, amountCents: 0 }, FAILED: { count: 0, amountCents: 0 } };
+    expect(L.waitingPayouts({ payouts: [], byState })).toBe(3);
+    expect(L.waitingPayouts({ payouts: [payout({ state: "APPROVED" }), payout({ id: "p2", state: "PAID" }), payout({ id: "p3", state: "APPROVED" })] })).toBe(2);
+    expect(L.waitingPayouts({ payouts: [] })).toBe(0);
+  });
+});
+
+describe("the one payout sentence (POL-FE-25)", () => {
+  it("names the payout account and the Payouts page, never 'outside the platform'", () => {
+    expect(L.PAYOUT_ROUTE_LINE).toMatch(/payout account/);
+    expect(L.PAYOUT_ROUTE_LINE).toMatch(/Payouts page/);
+    expect(L.PAYOUT_ROUTE_LINE).not.toMatch(/outside/);
+    expect(L.PAYOUTS_PATH).toBe("/athlete/money");
+  });
 });
 
 describe("athleteBanner", () => {
@@ -106,6 +158,15 @@ describe("athleteBanner", () => {
       expect(b.body).toBe("Payouts go through Stripe. Set it up now so your first payout isn't held up.");
       expect(b.cta.label).toBe("Set up payouts with Stripe ↗");
       expect(b.minorLine).toBeNull();
+      expect(b.guardianOnly).toBe(false);
+    }
+    /* POL-FE-26 — the minor's banner names the guardian and carries no button. */
+    const m = athleteBanner(acct(), { minor: true });
+    expect(m.show).toBe(true);
+    if (m.show) {
+      expect(m.guardianOnly).toBe(true);
+      expect(m.minorLine).toBe(L.GUARDIAN_SETS_UP_LINE);
+      expect(m.body).toMatch(/your guardian sets up/);
     }
     const r = athleteBanner(acct({ status: "READY" }));
     expect(r.show).toBe(false);
@@ -115,7 +176,9 @@ describe("athleteBanner", () => {
     const b = athleteBanner(acct({ status: "NEEDS_INFO" }), { minor: true });
     expect(b.show && b.title).toBe("Stripe needs a bit more information");
     expect(b.show && b.cta.label).toBe("Continue on Stripe ↗");
-    expect(b.show && b.minorLine).toBe("Because you're under 18, a parent or guardian finishes this on Stripe.");
+    /* POL-FE-26 — the line names the guardian's own login; the button is theirs, not the minor's. */
+    expect(b.show && b.minorLine).toBe(L.GUARDIAN_SETS_UP_LINE);
+    expect(b.show && b.guardianOnly).toBe(true);
   });
 });
 

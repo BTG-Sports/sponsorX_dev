@@ -64,14 +64,52 @@ export function checklist(s: ApiSignupStatus): CheckRow[] {
   return rows;
 }
 
-export function standing(s: ApiSignupStatus): { title: string; line: string; tone: "success" | "warn" | "muted" } {
-  if (s.approved) return { title: "You’re approved", line: `Sign in with ${s.email ?? "your email"} to reach your athlete portal.`, tone: "success" };
-  if (s.closed) return { title: "This application is closed", line: "We emailed you about it. You can apply again, or contact BTG.", tone: "muted" };
-  if (s.underReview) return { title: "With BTG", line: "Everything’s in. A person at BTG is checking it — usually within a day. We’ll email you either way.", tone: "warn" };
-  return { title: "What’s still needed", line: s.missing.length ? `Still to do: ${s.missing.join("; ")}.` : "Nothing more — the checks are running.", tone: "warn" };
+export const SIGN_IN_HREF = "/login";
+
+export type Standing = {
+  title: string;
+  line: string;
+  tone: "success" | "warn" | "muted";
+  /** POL-FE-34 — "You're approved" carries the way in: the public site's sign-in. */
+  cta: { label: string; href: string } | null;
+};
+
+export function standing(s: ApiSignupStatus): Standing {
+  if (s.approved) {
+    return { title: "You’re approved", line: `Sign in with ${s.email ?? "your email"} to reach your athlete portal.`, tone: "success", cta: { label: "Sign in", href: SIGN_IN_HREF } };
+  }
+  if (s.closed) return { title: "This application is closed", line: "We emailed you about it. You can apply again, or contact BTG.", tone: "muted", cta: null };
+  if (s.underReview) return { title: "With BTG", line: "Everything’s in. A person at BTG is checking it — usually within a day. We’ll email you either way.", tone: "warn", cta: null };
+  return { title: "What’s still needed", line: s.missing.length ? `Still to do: ${s.missing.join("; ")}.` : "Nothing more — the checks are running.", tone: "warn", cta: null };
 }
 
 /** Does the applicant still need to name a guardian here? */
 export function needsGuardian(s: ApiSignupStatus): boolean {
   return s.minor && !s.guardian && !s.closed && !s.approved;
+}
+
+/** POL-FE-16 — can the applicant change the guardian's email here? The API
+ *  (POST /applications/intake/guardian) re-names the guardian until BTG has
+ *  approved them; after that it is BTG's to change. */
+export function canChangeGuardian(s: ApiSignupStatus): boolean {
+  return s.minor && Boolean(s.guardian) && !s.guardian!.approved && !s.closed && !s.approved;
+}
+
+export type GuardianDraft = { legalName: string; email: string; relationship: "PARENT" | "LEGAL_GUARDIAN" | "AUTHORIZED_REP" };
+
+/** The change form starts from the guardian already named — same name and
+ *  relationship, the email blank so the mistyped one is not resent. */
+export function guardianChangeDraft(s: ApiSignupStatus): GuardianDraft {
+  const g = s.guardian;
+  const rel = g?.relationship;
+  return {
+    legalName: g?.name ?? "",
+    email: "",
+    relationship: rel === "LEGAL_GUARDIAN" || rel === "AUTHORIZED_REP" ? rel : "PARENT",
+  };
+}
+
+/** The email the resend would go to, so the change control says what it fixes. */
+export function guardianEmailLine(s: ApiSignupStatus): string | null {
+  return s.guardian ? `We're emailing ${s.guardian.email}. Wrong address? Change it and we email the new one.` : null;
 }
