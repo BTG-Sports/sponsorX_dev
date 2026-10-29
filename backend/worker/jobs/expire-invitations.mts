@@ -20,6 +20,8 @@
  */
 import type pg from "pg";
 
+import { INVITEE_COLUMNS, invitationRecipients, type InviteeRow } from "./notify-invitation.mts";
+
 export type ExpiryOutcome = { expired: number; reminded: number; warned: number };
 
 /* 2S8-OPS-02 — THE CLOCK IS READ IN UTC. The timestamp columns hold UTC as
@@ -80,58 +82,66 @@ export async function expireInvitations(
        an idempotency key per invitation per kind. The sweep runs hourly, so
        without the key an athlete would be reminded once an hour for three
        days; EmailSendLog's unique key is what actually stops that, and the
-       key is what makes it stop at one. */
-    const reminded = await client.query(
-      `INSERT INTO "OutboxJob" (id, "tenantId", name, payload)
-       SELECT gen_random_uuid()::text, i."tenantId", 'notify.email',
-              jsonb_build_object(
-                'template', 'invitation.reminder',
-                'to', a.email,
-                'data', jsonb_build_object(
-                  'firstName', split_part(a."legalName", ' ', 1),
-                  'sponsorName', s.name,
-                  'portalUrl', $1::text || '/athlete/invitations'),
-                'idempotencyKey', 'invitation.reminder:' || i.id)
-         FROM "CampaignInvite" i
-         JOIN "Athlete" a  ON a.id = i."athleteId"
-         JOIN "Campaign" c ON c.id = i."campaignId"
-         JOIN "Sponsor" s  ON s.id = c."sponsorId"
-        WHERE i.state = 'INVITED'
-          AND i."viewedAt" IS NULL
-          AND i."sentAt" <= ${NOW} - ($2 || ' days')::interval
-          AND i."expiresAt" > ${NOW}
-          AND ($3::text[] IS NULL OR i."tenantId" = ANY($3::text[]))`,
-      [appUrl, REMINDER_AFTER_DAYS, tenants],
-    );
+       key is what makes it stop at one.
 
-    const warned = await client.query(
-      `INSERT INTO "OutboxJob" (id, "tenantId", name, payload)
-       SELECT gen_random_uuid()::text, i."tenantId", 'notify.email',
-              jsonb_build_object(
-                'template', 'invitation.expiring',
-                'to', a.email,
-                'data', jsonb_build_object(
-                  'firstName', split_part(a."legalName", ' ', 1),
-                  'sponsorName', s.name,
-                  'expiresOn', to_char(i."expiresAt", 'YYYY-MM-DD'),
-                  'portalUrl', $1::text || '/athlete/invitations'),
-                'idempotencyKey', 'invitation.expiring:' || i.id)
-         FROM "CampaignInvite" i
-         JOIN "Athlete" a  ON a.id = i."athleteId"
-         JOIN "Campaign" c ON c.id = i."campaignId"
-         JOIN "Sponsor" s  ON s.id = c."sponsorId"
-        WHERE i.state IN ('INVITED', 'VIEWED')
+       POL-BE-09 — each email goes to whoever decides: the guardian while
+       the guardian acts for the athlete, with a copy to the minor
+       (invitationRecipients). The rows are chosen here; who is emailed is
+       decided per row, with one key per recipient. */
+    const due = async (sql: string, params: unknown[]) =>
+      (await client.query<InviteeRow & { id: string; tenantId: string; sponsorName: string; expiresOn: string }>(
+        `SELECT i.id, i."tenantId", s.name AS "sponsorName", to_char(i."expiresAt", 'YYYY-MM-DD') AS "expiresOn",
+                ${INVITEE_COLUMNS}
+           FROM "CampaignInvite" i
+           JOIN "Athlete" a  ON a.id = i."athleteId"
+           LEFT JOIN "Guardian" g ON g.id = a."guardianId"
+           JOIN "Campaign" c ON c.id = i."campaignId"
+           JOIN "Sponsor" s  ON s.id = c."sponsorId"
+          WHERE ${sql}`,
+        params,
+      )).rows;
+    const queue = async (template: string, rows: Awaited<ReturnType<typeof due>>, withExpiry: boolean) => {
+      const jobs = rows.flatMap((r) => invitationRecipients(r).map((e) => ({
+        tenantId: r.tenantId,
+        payload: {
+          template, to: e.to,
+          data: { ...e.data, sponsorName: r.sponsorName, ...(withExpiry ? { expiresOn: r.expiresOn } : {}), portalUrl: `${appUrl}/athlete/invitations` },
+          idempotencyKey: `${template}:${r.id}${e.key}`,
+        },
+      })));
+      if (!jobs.length) return 0;
+      await client.query(
+        `INSERT INTO "OutboxJob" (id, "tenantId", name, payload)
+         SELECT gen_random_uuid()::text, t."tenantId", 'notify.email', t.payload
+           FROM unnest($1::text[], $2::jsonb[]) AS t("tenantId", payload)`,
+        [jobs.map((j) => j.tenantId), jobs.map((j) => JSON.stringify(j.payload))],
+      );
+      return rows.length;
+    };
+
+    /* Keyed `${template}:${invitation id}`, plus ':guardian' for the guardian's. */
+    const reminded = await queue("invitation.reminder", await due(
+      `i.state = 'INVITED'
+          AND i."viewedAt" IS NULL
+          AND i."sentAt" <= ${NOW} - ($1 || ' days')::interval
           AND i."expiresAt" > ${NOW}
-          AND i."expiresAt" <= ${NOW} + ($2 || ' days')::interval
-          AND ($3::text[] IS NULL OR i."tenantId" = ANY($3::text[]))`,
-      [appUrl, WARN_WITHIN_DAYS, tenants],
-    );
+          AND ($2::text[] IS NULL OR i."tenantId" = ANY($2::text[]))`,
+      [REMINDER_AFTER_DAYS, tenants],
+    ), false);
+
+    const warned = await queue("invitation.expiring", await due(
+      `i.state IN ('INVITED', 'VIEWED')
+          AND i."expiresAt" > ${NOW}
+          AND i."expiresAt" <= ${NOW} + ($1 || ' days')::interval
+          AND ($2::text[] IS NULL OR i."tenantId" = ANY($2::text[]))`,
+      [WARN_WITHIN_DAYS, tenants],
+    ), true);
 
     await client.query("COMMIT");
     return {
       expired: expired.rowCount ?? 0,
-      reminded: reminded.rowCount ?? 0,
-      warned: warned.rowCount ?? 0,
+      reminded,
+      warned,
     };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});

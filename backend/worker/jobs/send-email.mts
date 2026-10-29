@@ -99,9 +99,16 @@ ${d.portalUrl ?? ""}
     subject: "About your SponsorX application",
     text: `Hi ${d.firstName ?? "there"},\n\nWe are not able to approve your application at this time.\n\n${d.reviewerNotes ?? ""}\n\nThis is not necessarily permanent — the network grows, and sponsor demand changes by sport and region.\n\nQuestions? Contact BTG support at ${supportAddress(d)}.\n\n— BTG SponsorX`,
   }),
+  /* POL-BE-09 — the three invitation emails, worded for who reads them: the
+     athlete; their guardian while the guardian decides (`wardName`); or the
+     minor's copy then (`guardianDecides`). */
   "invitation.sent": (d) => ({
-    subject: `${d.sponsorName ?? "A sponsor"} wants to work with you`,
-    text: `Hi ${d.firstName ?? "there"},\n\nYou have a new campaign invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""}.\n\n${d.jobName ?? "The work"}${d.offered ? ` — ${d.offered}` : ""}\n\nOpen it to see the full terms and decide:\n\n${d.portalUrl ?? ""}\n\nIt expires on ${d.expiresOn ?? "the date shown in your portal"}.\n\n— BTG SponsorX`,
+    subject: d.wardName
+      ? `${d.sponsorName ?? "A sponsor"} wants to work with ${d.wardName}`
+      : `${d.sponsorName ?? "A sponsor"} wants to work with you`,
+    text: d.wardName
+      ? `Hi ${d.firstName ?? "there"},\n\n${d.wardName} has a new campaign invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""}.\n\n${d.jobName ?? "The work"}${d.offered ? ` — ${d.offered}` : ""}\n\nAs ${d.wardName}'s guardian, you accept or decline it. Open it to see the full terms:\n\n${d.portalUrl ?? ""}\n\nIt expires on ${d.expiresOn ?? "the date shown in the portal"}.\n\n— BTG SponsorX`
+      : `Hi ${d.firstName ?? "there"},\n\nYou have a new campaign invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""}.\n\n${d.jobName ?? "The work"}${d.offered ? ` — ${d.offered}` : ""}\n\n${d.guardianDecides ? `Your guardian accepts or declines it for you, and we have sent it to them too. You can see the full terms here:` : "Open it to see the full terms and decide:"}\n\n${d.portalUrl ?? ""}\n\nIt expires on ${d.expiresOn ?? "the date shown in your portal"}.\n\n— BTG SponsorX`,
   }),
   /* 2S5-INT-02 — the sponsor's receipt, sent once the payment provider
      confirms the card payment. No card details: SponsorX never had them. */
@@ -451,12 +458,16 @@ ${d.portalUrl ?? ""}
   }),
 
   "invitation.reminder": (d) => ({
-    subject: "You have an open SponsorX invitation",
-    text: `Hi ${d.firstName ?? "there"},\n\nYou still have an invitation waiting${d.sponsorName ? ` from ${d.sponsorName}` : ""}. There is nothing wrong — we just did not want it to get lost.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+    subject: d.wardName ? `${d.wardName} has an open SponsorX invitation` : "You have an open SponsorX invitation",
+    text: d.wardName
+      ? `Hi ${d.firstName ?? "there"},\n\n${d.wardName} still has an invitation waiting${d.sponsorName ? ` from ${d.sponsorName}` : ""}. As ${d.wardName}'s guardian, you accept or decline it. There is nothing wrong — we just did not want it to get lost.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`
+      : `Hi ${d.firstName ?? "there"},\n\nYou still have an invitation waiting${d.sponsorName ? ` from ${d.sponsorName}` : ""}.${d.guardianDecides ? " Your guardian accepts or declines it for you, and we have reminded them too." : ""} There is nothing wrong — we just did not want it to get lost.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "invitation.expiring": (d) => ({
-    subject: "Your SponsorX invitation expires soon",
-    text: `Hi ${d.firstName ?? "there"},\n\nYour invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""} expires on ${d.expiresOn ?? "shortly"}. After that the sponsor may offer the work to someone else.\n\nIf you are not interested, declining is genuinely helpful — it lets us fill the slot.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+    subject: d.wardName ? `${d.wardName}'s SponsorX invitation expires soon` : "Your SponsorX invitation expires soon",
+    text: d.wardName
+      ? `Hi ${d.firstName ?? "there"},\n\n${d.wardName}'s invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""} expires on ${d.expiresOn ?? "shortly"}. After that the sponsor may offer the work to someone else. As ${d.wardName}'s guardian, you accept or decline it.\n\nIf it isn't right for ${d.wardName}, declining is genuinely helpful — it lets us fill the slot.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`
+      : `Hi ${d.firstName ?? "there"},\n\nYour invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""} expires on ${d.expiresOn ?? "shortly"}. After that the sponsor may offer the work to someone else.${d.guardianDecides ? " Your guardian accepts or declines it for you, and we have told them too." : "\n\nIf you are not interested, declining is genuinely helpful — it lets us fill the slot."}\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   /* P9-BE-13, §5.6 — SponsorX declined a business a student brought in.
      It says plainly that their sales credit is untouched, because that is a
