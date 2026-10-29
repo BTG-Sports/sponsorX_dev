@@ -122,3 +122,20 @@
 - **Tests:** new `tests/invitation-guardian-mail.test.ts` (the real jobs), `b2b4.test.ts` (recipients and wording; three fail without the rule), and the log-redaction guard in `security-hardening.test.ts`. Locally: 3,639 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
 - **No frontend work.**
 - **Tracker:** `POL-BE-09` is Code review; Done once the PR merges.
+
+### `POL-BE-09` Done (rcfworks): PR #331 merged; sync PR #332 to `main` opened
+
+- **Tracker:** the Polish sheet row for `POL-BE-09` is Done (carried on the `POL-BE-10` branch). The formula count is still 180.
+
+### `POL-BE-10` (rcfworks): a guardian handoff never waits forever
+
+- **Problem:** a handoff request waited for the current guardian with no reminder or end; BTG couldn't step in until they answered.
+- **Built:**
+  - Migration `20261029210000_handoff_reminder_escalation`: `GuardianHandoff.remindedAt`, `escalatedAt`, index `(state, submittedAt)`.
+  - `sweepGuardianHandoffs` (`guardian-handoff.ts`), run hourly by the worker beside coming of age: reminder to the current guardian at 3 days (`handoff.reminder`); at 7 days escalated, with BTG's admins (`handoff.escalated`), the requester and the current guardian told. Each step conditional on the row, audited as the system, one email key per handoff.
+  - `decideStaffHandoff` now also takes an escalated WAITING request (CONFIRM switches, DECLINE needs a reason); before 7 days, 409. The current guardian can still answer; both decisions lock the request's row first (`lockHandoff`), so the first answer decides.
+  - A switch BTG confirmed after no answer says so in its emails (`byBtg`).
+  - The view carries `sentAt`, `waitingDays`, `remindedAt`, `escalatedAt`, `btgMayDecide`; the desk's "Waiting for BTG" tab and count include escalated requests.
+- **Tests:** new `tests/phase2-guardian-handoff-escalation.test.ts` (5; three fail with escalation off). Locally: 3,644 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
+- **For HeckerCreatives:** `POL-FE-10`, as spelled out in `polish.md` item 10.
+- **Tracker:** `POL-BE-10` is Code review; Done once the PR merges.

@@ -3898,6 +3898,11 @@ model GuardianHandoff {
   switchedAt          DateTime?
   /// The Guardian row the athlete moved to (new, or the requester's existing one).
   newGuardianId       String?
+  /// POL-BE-10 — the current guardian was reminded (3 days after it was sent).
+  remindedAt          DateTime?
+  /// POL-BE-10 — 7 days with no answer: BTG may decide it (confirm or decline),
+  /// on the desk's "Waiting for BTG"; the current guardian can still answer.
+  escalatedAt         DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @default(now()) @updatedAt
 
@@ -3906,6 +3911,7 @@ model GuardianHandoff {
 
   @@index([tenantId, athleteId, state])
   @@index([tenantId, fromGuardianId, state])
+  @@index([state, submittedAt])
 }
 
 /// 2S1-BE-15 — the new guardian's government ID and proof of guardianship,
