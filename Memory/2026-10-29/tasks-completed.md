@@ -40,3 +40,17 @@
 - **Notes:** `polish-progress.md` has the 2026-10-29 entry.
 - **Where this landed:** on the `POL-BE-02` branch (PR #321), after merging `main_development` into it. That PR already changes the xlsx, so one PR carries both and there is no binary conflict.
 - **Next:** merge #321, then the sync PR from `main_development` to `main`. Both migrations (`20261028150000`, `20261029120000`) reach production together.
+
+### `POL-BE-06` (rcfworks): a sponsor who pays twice is refunded
+
+- **Problem:** a card payment confirmed for an order that was already paid, or already refunded, only emailed BTG. Nothing appeared on the order or on "Refunds to send".
+- **Built:**
+  - Each such payment is a refund row of its own, one per card payment, with a new cause: `PAID_TWICE` (already paid) or `PAID_AFTER_REFUND` (already refunded). It is the same path a payment after a cancellation already took.
+  - Migration `20261029150000_refund_paid_twice` widens the cause and card-attempt checks and the one-row-per-attempt index.
+  - Refunded to the card where the provider can (Stripe queued, the stand-in at once). With payments off it stays open for Finance, who marks it sent as usual.
+  - BTG's "refund needed" email now goes out only when Finance must send it by hand, and links to "Refunds to send". The rule applies to the cancelled case too.
+  - **Trap fixed:** three sums of an order's refunds (whole-order refund, last-line cancellation, delivery-problem terms) and the check on a refund made at Stripe counted every refund row on the order. An extra payment's refund would have shortened the order's own refund, or held a Stripe refund for BTG. All now read `ownRefunds(orderId)`, which leaves out rows that carry a card attempt.
+  - **Not changed:** the "refunds sent" report figure still includes these refunds. It records money sent back and is not subtracted from revenue anywhere. Changing it would also make the nightly figures check flag refunds already recorded.
+- **Tests:** two new tests in `phase2-line-cancellation` and one in `payment-disputes`. Each was confirmed to fail without the fix. Locally: 3,620 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
+- **For HeckerCreatives:** `POL-FE-06`, as spelled out in `polish.md` item 6.
+- **Not yet done:** the tracker row and `polish-progress.md`, once the PR merges.

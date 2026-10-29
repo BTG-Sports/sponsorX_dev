@@ -387,9 +387,11 @@ export async function startCardPayment(actor: Actor, orderId: string, now = new 
  * The money is the sponsor's either way, so a confirmation for an order that
  * is no longer waiting for it is never dropped: it is RECORDED FOR REFUND —
  * audited (`payment.paidAfterCancel` for an order cancelled or refunded,
- * `payment.afterPaid` for one already paid another way) and BTG's admins
- * emailed to refund the sponsor. Under the order's row lock, so it reads
- * what a cancel committing at the same moment did.
+ * `payment.afterPaid` for one already paid) and a row on "Refunds to send"
+ * for that payment (POL-BE-06), refunded to the card where the provider can;
+ * BTG's admins are emailed when Finance must send it by hand. Under the
+ * order's row lock, so it reads what a cancel committing at the same moment
+ * did.
  */
 export async function confirmPayment(attemptId: string, now = new Date()) {
   return prisma.$transaction(async (tx) => {
@@ -433,28 +435,36 @@ async function succeededIn(tx: Tx, a: ConfirmedAttempt, now: Date): Promise<{ co
     await audit(tx, { userId: null, tenantId: a.tenantId }, ended ? "payment.paidAfterCancel" : "payment.afterPaid", "MarketplaceOrder", a.orderId, {
       after: { attemptId: a.id, amountCents: a.amountCents, orderState: order.state, providerRef: a.providerRef, refundNeeded: true },
     });
-    /* 2S4-BE-13 — money received for a cancelled order: a whole-order row on
-       Finance's "Refunds to send" for the amount received (refunded to the
-       card at once through the stand-in). That row is the refund, so BTG's
-       "refund needed" email is not sent for it. (A cancelled order was never
-       paid, so it has no other refund row. One row per card attempt — two
-       attempts confirmed after one cancellation are two rows — and the
-       attempt's claim above means a redelivery never reaches here twice.) */
-    if (order.state === "CANCELLED") {
-      await recordRefund(tx, { userId: null, tenantId: a.tenantId }, a.orderId, { cause: "PAID_AFTER_CANCELLATION", lineId: null, cancellation: false }, {
-        whole: true, received: { attemptId: a.id, amountCents: a.amountCents, paidVia: "CARD", paymentReference: a.providerRef },
-      }, now);
-      return { confirmed: true, refundNeeded: true };
-    }
-    /* Refunded, or already paid another way: BTG's to sort out by hand. */
-    for (const u of await btgAdmins(tx, a.tenantId)) {
-      await tell(tx, { tenantId: a.tenantId, email: u.email }, "payment.refundNeeded", a.id, {
-        orderRef: orderRef(a.orderId), amount: usd(a.amountCents), orderState: order.state.toLowerCase().replace("_", " "),
-        why: ended
-          ? "The card payment was confirmed after the order was refunded"
-          : "The card payment was confirmed for an order that had already been paid another way",
-        providerRef: a.providerRef ?? "", orderUrl: appUrl(`/admin/marketplace/orders/${a.orderId}`),
-      });
+    /* 2S4-BE-13 / POL-BE-06 — money the order didn't need: a row of its own on
+       the order and on Finance's "Refunds to send" for the amount received —
+       cancelled, refunded, or already paid (the sponsor paid twice). Refunded
+       to the card through the provider where it can be (recordRefund). One row
+       per card attempt — two attempts confirmed after one cancellation are two
+       rows — and the attempt's claim above means a redelivery never reaches
+       here twice. */
+    const cause = order.state === "CANCELLED" ? "PAID_AFTER_CANCELLATION" : order.state === "REFUNDED" ? "PAID_AFTER_REFUND" : "PAID_TWICE";
+    const row = await recordRefund(tx, { userId: null, tenantId: a.tenantId }, a.orderId, { cause, lineId: null, cancellation: false }, {
+      whole: true, received: { attemptId: a.id, amountCents: a.amountCents, paidVia: "CARD", paymentReference: a.providerRef },
+    }, now);
+    /* BTG's admins hear of it only when Finance must send it by hand: not when
+       the provider refunded it, nor while it is queued to the provider (a
+       refusal there tells them — refund.providerRefused). */
+    const left = row && (await tx.refundDue.findUnique({
+      /* tenant-scope: the row just written for this attempt, by id. */
+      where: { id: row.id }, select: { state: true, provider: true },
+    }));
+    if (left && left.state === "OPEN" && !left.provider) {
+      for (const u of await btgAdmins(tx, a.tenantId)) {
+        await tell(tx, { tenantId: a.tenantId, email: u.email }, "payment.refundNeeded", a.id, {
+          orderRef: orderRef(a.orderId), amount: usd(a.amountCents), orderState: order.state.toLowerCase().replace("_", " "),
+          why: order.state === "CANCELLED"
+            ? "The card payment was confirmed after the order was cancelled"
+            : ended
+              ? "The card payment was confirmed after the order was refunded"
+              : "The sponsor paid twice: the card payment was confirmed for an order that had already been paid",
+          providerRef: a.providerRef ?? "", orderUrl: appUrl(`/admin/marketplace/orders/${a.orderId}`), refundsUrl: appUrl("/admin/refunds"),
+        });
+      }
     }
     return { confirmed: true, refundNeeded: true };
   }

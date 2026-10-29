@@ -273,6 +273,37 @@ payment and has no refund button, and nothing is added to "Refunds to send".
 - **Fix:** a duplicate payment creates a refund to send and flags the order.
   The order page shows it, and BTG can mark it refunded.
 - **Done when:** a duplicate shows on the order and in "Refunds to send"; tests.
+- **Backend delivered (`POL-BE-06`, 2026-10-29):**
+  - A card payment confirmed for an order that no longer needs it is a
+    **refund row of its own**, one per card payment, with a new cause:
+    - `PAID_TWICE`: the order was already paid;
+    - `PAID_AFTER_REFUND`: the order was already refunded;
+    - `PAID_AFTER_CANCELLATION`: unchanged, the order was cancelled.
+  - It is refunded to the card where the provider can: Stripe queues it, the
+    test provider on staging sends it at once. With payments off it stays
+    open on "Refunds to send" for Finance, who marks it sent as any other.
+  - BTG's admins get the "refund needed" email only when Finance must send
+    it by hand. The email now links to "Refunds to send". The sponsor gets
+    the usual "refund sent" email once it is sent.
+  - **The order's own refunds are unaffected.** A later refund of the order
+    (a line cancelled, a delivery problem, BTG's refund, a refund made at
+    Stripe) still returns its whole total: refunds of extra payments are
+    never counted against it.
+  - Tests: `backend/tests/phase2-line-cancellation.test.ts` (paid twice by
+    card and with no provider; paid after a refund; the order's own refund
+    still whole), `payment-disputes.test.ts` (a Stripe refund of the real
+    payment still applies).
+- **For `POL-FE-06` (screens):**
+  - The order view (`GET /marketplace-orders/:id`, sponsor's and BTG's)
+    already carries `refunds[]`. A row with `cause: "PAID_TWICE"` or
+    `"PAID_AFTER_REFUND"` and `lineId: null` is the extra payment. Show it
+    as "You paid twice: {amount} is being refunded" (sponsor) or "Paid
+    twice: refund {on its way | sent on …}" (BTG).
+  - "Refunds to send" (`GET /refunds`) lists it with `causeWords`. Add the
+    two causes to `causeLabel` in `frontend/src/lib/refunds-live.ts`, e.g.
+    "Paid twice" and "Paid after it was refunded". Until then they show as
+    "Refund".
+  - Marking it refunded is the existing "Mark sent" (`POST /refunds/:id/sent`).
 
 ### 7. Anyone holding the fan's phone can use up their reward
 `POL-BE-07` · `POL-FE-07` · *Consent* · confirmed

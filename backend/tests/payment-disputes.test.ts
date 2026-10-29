@@ -86,6 +86,26 @@ describe.skipIf(!hasDatabase)("2S5-BE-03 · refunds and disputes", { timeout: 12
       await w.assertConsistent();
     });
 
+    it("POL-BE-06 · a sponsor who paid twice: the extra payment's refund doesn't stop the whole payment refunded at the provider from applying", async () => {
+      const { confirmPayment } = await import("../src/domain/payouts");
+      const orderId = await w.freshOrder();
+      const pay = await w.startPaying(orderId);
+      await events.standinConfirmPayment(pay.attemptId);
+      const first = await prisma.paymentAttempt.findUniqueOrThrow({ where: { id: pay.attemptId }, select: { sponsorId: true, providerRef: true } });
+      const extra = await prisma.paymentAttempt.create({
+        data: { tenantId: T, orderId, sponsorId: first.sponsorId, amountCents: pay.amountCents, provider: "standin", providerRef: "standin_pay_pdx_twice", state: "PROCESSING" },
+        select: { id: true },
+      });
+      expect(await confirmPayment(extra.id)).toMatchObject({ confirmed: true, refundNeeded: true });
+      expect(await refundsOf(orderId)).toEqual([expect.objectContaining({ cause: "PAID_TWICE", state: "SENT", amountCents: pay.amountCents })]);
+      const r = await provider("payment.refunded", { attemptId: pay.attemptId, paymentRef: first.providerRef, refundRef: "re_pdx_twice_whole", amountCents: pay.amountCents });
+      expect(r).toMatchObject({ status: "APPLIED", outcome: expect.stringMatching(/order is refunded/) });
+      expect(await w.orderState(orderId)).toBe("REFUNDED");
+      expect((await refundsOf(orderId)).map((x) => [x.cause, x.amountCents])).toEqual(expect.arrayContaining([
+        ["PAID_TWICE", pay.amountCents], ["PROVIDER_REFUNDED", pay.amountCents],
+      ]));
+    });
+
     it("a refund SponsorX sent is confirmed by the provider's event — nothing reversed twice", async () => {
       const orderId = await w.freshOrder();
       const pay = await w.startPaying(orderId);
