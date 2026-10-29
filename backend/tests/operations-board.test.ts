@@ -165,6 +165,8 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
       briefs: { toQualify: 2, toMatch: 2 },
       finance: { held: 1, disputed: 1 },
       payouts: { waiting: 2, oldestSince: expect.any(String) },
+      /* POL-BE-14 — no make-goods here (makegood.test.ts counts them). */
+      makeGoods: { waiting: 0, oldestSince: null },
     });
     /* The oldest waiting is the one held three days ago — never the approved one, older still. */
     expect(Math.round((Date.now() - new Date(body.payouts.oldestSince).getTime()) / 86_400_000)).toBe(3);
@@ -178,6 +180,7 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
       briefs: { toQualify: 5, toMatch: 2 },
       finance: { held: 1, disputed: 1 },
       payouts: { waiting: 0, oldestSince: null },
+      makeGoods: { waiting: 0, oldestSince: null },
     });
   });
 

@@ -630,6 +630,25 @@ held for BTG, with no email and no count. The campaign keeps under-delivering.
 
 - **Fix:** a held make-good emails BTG and is counted on the dashboard (see 15).
 - **Done when:** every held make-good emails and is counted; tests.
+- **Backend delivered (`POL-BE-14`, 2026-10-29):**
+  - **Email when held.** Each night a make-good is held for a person, its
+    approvers (BTG admins and campaign managers) get `makegood.held`, once
+    per make-good each, however many nights it is refreshed. It gives:
+    - the campaign and sponsor;
+    - how far short it is projected to fall;
+    - why it wasn't approved automatically;
+    - the best substitute;
+    - a link to it in the make-good centre.
+  - **Counted on BTG's board.** `GET /operations/board` carries
+    `makeGoods: { waiting, oldestSince }` (open make-goods). It is null for
+    roles that don't see make-goods.
+  - Make-goods already waiting are emailed on the first night after this
+    ships.
+  - Tests: `backend/tests/makegood.test.ts` (who is emailed, once; the
+    automatic one emails nobody; the count; Finance doesn't see it).
+- **For screens:** the board card is part of `POL-FE-15`. Show "Make-goods
+  to decide" from `queues.makeGoods.waiting`, linked to
+  `/admin/intelligence/make-goods`.
 
 ### 15. BTG's dashboard counts only 4 of about 15 queues
 `POL-BE-15` · `POL-FE-15` · *Silent* · confirmed
