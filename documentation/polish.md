@@ -597,6 +597,15 @@ doesn't count it (`backend/src/domain/payouts.ts`, around lines 942–962).
 - **For `POL-FE-12` (screens):** add a "Payouts to review" card to BTG's
   board from `queues.payouts.waiting`, with "oldest waiting since"
   `oldestSince`, linked to `/admin/payouts` (waiting on BTG).
+- **Frontend delivered (`POL-FE-12`, 2026-10-30, HeckerCreatives):** a fifth
+  "Needs BTG action" card on `/admin`, **Payouts to review**, from
+  `queues.payouts` (`ops-board-live.ts`). It counts in the board's total and
+  the action ring with its own arc, carries "oldest waiting since Oct 7" on
+  the desk's clock (America/New_York) when something waits, and opens
+  `/admin/payouts`. A role the API gives `null` to, or an API without the
+  field, gets no card; the deck goes five across at desktop width. Walked
+  locally at 0 and at 1 waiting (the failed payout flipped to BTG, then put
+  back). The make-goods card (`queues.makeGoods`) stays with `POL-FE-15`.
 
 ### 13. Sponsors can't see or pay BTG's invoices
 `POL-FE-13` · *Money · Dead end* · confirmed
