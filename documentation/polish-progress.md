@@ -12,7 +12,8 @@ each problem we ran into was solved. Newest first within each day.
 | 5 · Sponsors agreed to the terms before seeing the total | `POL-BE-05` | #324 | Merged |
 | 6 · A sponsor who paid twice got no refund | `POL-BE-06` | #325 | Merged |
 | 7 · Anyone holding the fan's phone could use up their reward | `POL-BE-07` | #328 | Merged |
-| 8 · Only the first fan could claim a shared QR code | `POL-BE-08` | — | In review |
+| 8 · Only the first fan could claim a shared QR code | `POL-BE-08` | #329 | Merged |
+| 9 · A minor's invitations never reached the guardian | `POL-BE-09` | — | In review |
 | 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
 
 The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`) are for
@@ -229,6 +230,20 @@ rely on.
   - Behind a switch, `REWARD_FAN_CODES`, as with `POL-BE-07`.
 - **Snag:** a test used an address with a trailing space, which the API
   rightly refuses.
+
+### `POL-BE-09` — a minor's invitations reach the guardian
+- **Problem:** only the guardian can accept a minor's invitation, but all
+  three emails (new, reminder, expiring) went to the minor alone. The deal
+  quietly expired.
+- **Approach:**
+  - One rule decides who is emailed, the same one that decides who may
+    accept. The guardian gets each email, worded as the person who decides,
+    and the minor gets a copy saying so.
+  - The hourly sweep used to write the reminder and warning in one SQL
+    statement. It now picks the invitations in SQL and applies the rule to
+    each, so the new email and the sweep can't drift apart.
+- **Snag:** the new test loaded the app's settings without the placeholder
+  login keys the other database tests set; added.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.

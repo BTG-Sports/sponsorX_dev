@@ -440,6 +440,20 @@ quietly expires.
 - **Fix:** for a minor, invitation, reminder and expiry emails go to the
   guardian, with a copy to the minor.
 - **Done when:** the guardian gets every email for a minor's invitation; tests.
+- **Backend delivered (`POL-BE-09`, 2026-10-29):**
+  - The new-invitation email, the 3-day reminder and the expiry warning go
+    to the **guardian while the guardian acts for the athlete**: the same
+    rule as accepting, so through the coming-of-age period until the ID
+    check too. Worded for them: "Mia has a new campaign invitation… As
+    Mia's guardian, you accept or decline it."
+  - The minor gets a **copy** saying their guardian decides, when they have
+    an address. An adult's emails are unchanged.
+  - One once-only key per recipient (`…:guardian` for the guardian's), so
+    the hourly sweep sends each person one.
+  - Tests: `backend/tests/invitation-guardian-mail.test.ts` (the real jobs),
+    `b2b4.test.ts` (who is emailed, and the wording).
+  - No screen work: the guardian already answers on the ward's invitations
+    page, which the emails link to.
 
 ### 10. A guardian handoff can wait forever
 `POL-BE-10` · `POL-FE-10` · *Minors · Silent* · likely
