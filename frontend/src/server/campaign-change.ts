@@ -96,7 +96,20 @@ export async function readCampaignRequests(): Promise<RequestsRead> {
   const r = await call<{ requests?: ApiCampaignRequest[]; campaignRequests?: ApiCampaignRequest[] }>("/campaign-requests", {}, "Couldn't read the campaign requests");
   if (!r.ok) return r;
   const rows = r.requests ?? r.campaignRequests;
-  return Array.isArray(rows) ? { ok: true, requests: rows } : { ok: false, message: "Couldn't read the campaign requests — the answer wasn't in the expected shape." };
+  if (!Array.isArray(rows)) return { ok: false, message: "Couldn't read the campaign requests — the answer wasn't in the expected shape." };
+  /* The P8-BE-12 contract gives no row shape: accept `campaign: { id, name }`
+     or flat `campaignId` / `campaignName`, and never let a row without a
+     campaign crash the desk (QA 2026-10-29). */
+  const requests = rows
+    .filter((row): row is ApiCampaignRequest => Boolean(row && typeof row === "object" && typeof (row as { id?: unknown }).id === "string"))
+    .map((row) => {
+      const flat = row as ApiCampaignRequest & { campaignId?: string; campaignName?: string };
+      const campaign = row.campaign && typeof row.campaign.id === "string"
+        ? row.campaign
+        : { id: flat.campaignId ?? "", name: flat.campaignName ?? "Campaign" };
+      return { ...row, campaign };
+    });
+  return { ok: true, requests };
 }
 
 /** POST /campaign-requests/{id}/decision { decision: "APPROVE" } | { decision: "DECLINE", note } */
