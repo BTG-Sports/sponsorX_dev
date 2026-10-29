@@ -83,12 +83,22 @@ type ReviewByInput = Pick<ApiDeliverable, "state" | "revision" | "dueDate"> & {
   latestAsset?: { uploadedAt: string } | null;
 };
 
+/** 23:59:59.999 local on a YYYY-MM-DD (or the day of an ISO datetime); NaN when it isn't a date. */
+function endOfDay(day: string | null | undefined): number {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(day ?? "");
+  if (!m) return Number.NaN;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 23, 59, 59, 999).getTime();
+}
+
 export function reviewBy(d: ReviewByInput, now: Date): ReviewBy | null {
   if (!REVIEW_STATES.includes(d.state) || d.revision) return null;
   const since = d.waitingSince ?? d.latestAsset?.uploadedAt ?? null;
   if (!since) return null;
   const sinceMs = Date.parse(since);
-  const dueMs = Date.parse(d.dueDate);
+  /* The due date is a calendar day, not an instant: the bound is the END of
+     that day where the reviewer sits, so "overdue" doesn't flip the evening
+     before in US time zones (review 2026-10-29). */
+  const dueMs = endOfDay(d.dueDate);
   if (Number.isNaN(sinceMs)) return null;
   const windowMs = sinceMs + REVIEW_WINDOW_HOURS * 3_600_000;
   const byMs = Number.isNaN(dueMs) ? windowMs : Math.min(windowMs, dueMs);

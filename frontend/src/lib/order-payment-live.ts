@@ -227,18 +227,21 @@ export function paymentView(orderState: string, payment: ApiOrderPayment | null,
   const amount = usd(payment.amountCents);
   if (latest?.state === "FAILED") {
     const words = failedPaymentWords(latest, opts.supportEmail);
+    /* The failure is still worth reading while card payment is closed, but a
+       "Try again" that the API would refuse is not offered (review 2026-10-29). */
+    const closed = !payment.canPay;
     return {
       kind: "failed",
-      status: "Not paid",
+      status: closed ? "Not paid · held" : "Not paid",
       tone: "danger",
       banner: {
         title: "Your card payment didn’t go through",
-        text: words.text,
+        text: closed ? `${words.text} Card payment is closed right now; we’ll email you when it opens again.` : words.text,
         detail: words.reference,
         role: "alert",
       },
-      cta: stripeCta("Try again on Stripe"),
-      note: payment.canPay ? PAY_NOTE : NOT_CONNECTED_NOTE,
+      cta: closed ? null : stripeCta("Try again on Stripe"),
+      note: closed ? NOT_CONNECTED_NOTE : PAY_NOTE,
       poll: false,
     };
   }

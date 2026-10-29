@@ -81,6 +81,19 @@ Every frontend task whose backend is done, or that needs no backend, in five com
 - **No code changes this pass.** Every upload surface the Phase 1 doc lists for `P8-BE-09` has now been exercised except the coming-of-age ID (needs a minor turning 18) and dispute papers (needs a dispute opened on an order); both use the same `PrivateFileUpload` / `IdUpload` components walked above.
 - **Left as found:** the inquiry's uploaded proof deleted and its review reasons cleared, the repro cart line removed, servers stopped.
 
+### QA pass 6 — a code review of the branch, then resilience and accessibility in the browser (HeckerCreatives, same day)
+
+- **Code review** (`/code-review main_development high`) of the whole diff found ten things the walks could not; nine fixed, one judged fine:
+  - **P8-FE-12:** a request row or impact missing `items`, `count`, `refusals` or a money field crashed BTG's desk or the modal — `impactOf` now normalises every group and item and the desk's rows go through it (walked: a deliberately half-shaped row renders beside the good ones, no page error); the Change form restarts from the campaign each time it opens (after a saved change it proposed a silent revert); a budget that isn't whole dollars ($12,400.50 prefills as 12401) no longer proposes a budget nobody touched; `proposalOf` / `validCampaignId` now live once in `campaign-change-live.ts` and validate dates and the name length for both portals' actions.
+  - **POL-FE-04/31:** a failed card payment while payment is closed offered "Try again on Stripe" under a "held" note; now no retry, "Not paid · held", and the banner says payment is closed.
+  - **POL-FE-13:** one campaign's invoice read answering 500 threw inside `Promise.all` and took the whole invoices page down; each campaign is now read on its own, six at a time, and a failed one shows "couldn't be read just now" above the rest.
+  - **POL-FE-16:** the Change guardian email form closed before the API answered, so a refusal lost what was typed; it closes only on success.
+  - **P8-FE-11:** the seller's uploaded proof photo was dropped on any failed Mark delivered, not only when the photo was refused.
+  - **POL-FE-23:** the review-by bound used the due date as a UTC-midnight instant, so "overdue" flipped the evening before in US time zones; it is now the end of the due day where the reviewer sits (tests updated).
+  - Judged fine: the ordering of the FAILED and held branches is now explicit in the fix above.
+- **Browser:** with the real API stopped, `/sponsor`, `/sponsor/campaigns` and `/sponsor/invoices` render without a crash or page error. **axe-core (WCAG 2A/AA)** over the campaign-requests desk, the content desk with a post open, the sign-up review, sensitive edits, the Cancel modal, the Send back dialog, invoices, campaigns, an order page, Campaign orders, Payouts and Invitations: no violations except one serious — the review drawer's scroll region was not keyboard-focusable — fixed with `tabIndex={0}`.
+- **Checked:** the full frontend suite, eslint and `next build`.
+
 ### Still open for the frontend
 
 - Waiting on a backend row: `POL-FE-02, 03, 05, 06, 07, 08, 10, 11, 12, 15, 17, 18, 19, 22, 36`.

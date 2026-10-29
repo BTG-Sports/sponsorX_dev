@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { apiFetch } from "@/server/api";
 import type { SponsorMove } from "@/lib/edition-artwork-live";
-import type { ChangeProposal } from "@/lib/campaign-change-live";
+import { proposalOf, type ChangeProposal } from "@/lib/campaign-change-live";
 import { postCancel, postChange, readCancelImpact, readChangeImpact, type ActResult, type ImpactRead } from "@/server/campaign-change";
 
 /* --------------------------------------------------------------------------
@@ -124,17 +124,6 @@ export async function sponsorContentLink(id: string, version: number): Promise<{
    campaigns), audits, and emails. Until the API lands, a 404 reads as
    "Not available yet".
    -------------------------------------------------------------------------- */
-
-const proposalOf = (p: unknown): ChangeProposal | null => {
-  if (!p || typeof p !== "object") return null;
-  const x = p as Record<string, unknown>;
-  const out: ChangeProposal = {};
-  if (typeof x.name === "string") out.name = x.name;
-  if (typeof x.startDate === "string") out.startDate = x.startDate;
-  if (typeof x.endDate === "string") out.endDate = x.endDate;
-  if (typeof x.budget === "number" && Number.isFinite(x.budget)) out.budget = x.budget;
-  return Object.keys(out).length ? out : null;
-};
 
 /** GET /campaigns/{id}/cancel-impact — what cancelling would affect. */
 export async function sponsorCancelImpact(campaignId: string): Promise<ImpactRead> {

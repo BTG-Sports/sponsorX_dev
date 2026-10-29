@@ -107,10 +107,14 @@ describe("reviewBy", () => {
     expect(by?.label).toBe("Oct 15");
     expect(by?.from).toBe("window");
   });
-  it("never lands after the post's own due date", () => {
-    const by = reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z" }), NOW); // due Oct 20 00:00
-    expect(by?.iso).toBe("2026-10-20T00:00:00.000Z");
+  it("never lands after the END of the post's own due day, where the reviewer sits", () => {
+    const by = reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z" }), NOW); // due Oct 20
+    expect(by?.iso).toBe(new Date(2026, 9, 20, 23, 59, 59, 999).toISOString());
+    expect(by?.label).toBe("Oct 20");
     expect(by?.from).toBe("due");
+    /* Not late at 8:30 pm on Oct 20 local — the due day hasn't ended. */
+    expect(reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z" }), new Date(2026, 9, 20, 20, 30))?.late).toBe(false);
+    expect(reviewBy(d({ waitingSince: "2026-10-19T09:00:00.000Z" }), new Date(2026, 9, 21, 0, 1))?.late).toBe(true);
   });
   it("is late once now is past it", () => {
     expect(reviewBy(d({ waitingSince: "2026-10-11T09:00:00.000Z" }), NOW)?.late).toBe(true);

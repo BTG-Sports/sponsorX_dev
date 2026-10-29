@@ -982,7 +982,8 @@ function ReviewDrawer({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* Keyboard users scroll the drawer too (axe scrollable-region-focusable, QA 2026-10-29). */}
+        <div className="min-h-0 flex-1 overflow-y-auto" tabIndex={0} aria-label="Review details">
           {/* asset preview — stands in for the signed R2 fetch */}
           <div className="sx-animate sx-delay-2 border-b border-line-soft p-5">
             <div className="grid aspect-video w-full place-items-center rounded-xl border border-line bg-surface-2">

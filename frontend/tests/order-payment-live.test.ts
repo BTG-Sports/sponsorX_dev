@@ -78,9 +78,12 @@ describe("paymentView", () => {
     expect(paymentView("AWAITING_PAYMENT", pay(attempt("PENDING"), { canPay: false })).kind).toBe("held");
   });
 
-  it("POL-FE-04 — a failed attempt while closed keeps its own banner, and the retry says held", () => {
+  it("POL-FE-04 — a failed attempt while closed keeps its own banner, offers no retry, and says held", () => {
     const v = paymentView("AWAITING_PAYMENT", pay(attempt("FAILED"), { canPay: false }));
     expect(v.kind).toBe("failed");
+    expect(v.cta).toBeNull();
+    expect(v.status).toBe("Not paid · held");
+    expect(v.banner?.text).toMatch(/Card payment is closed right now/);
     expect(v.note).toBe(NOT_CONNECTED_NOTE);
   });
 

@@ -68,7 +68,7 @@ export function JoinChecklist({ token, initial }: { token: string; initial?: Api
 
   const st = standing(s);
   const rows = checklist(s);
-  const run = (f: () => Promise<JoinAnswer<ApiSignupStatus>>, done?: string) =>
+  const run = (f: () => Promise<JoinAnswer<ApiSignupStatus>>, done?: string, after?: () => void) =>
     start(async () => {
       setError(null);
       setNote(null);
@@ -76,6 +76,7 @@ export function JoinChecklist({ token, initial }: { token: string; initial?: Api
       if (!r.ok) return "expired" in r ? setExpired(r.expired.kind) : setError(r.message);
       setS(r.data);
       if (done) setNote(done);
+      after?.();
     });
 
   return (
@@ -128,8 +129,8 @@ export function JoinChecklist({ token, initial }: { token: string; initial?: Api
               onSubmit={(e) => {
                 e.preventDefault();
                 const was = changing;
-                run(() => nameGuardianAction(token, g), was ? "Changed — we’ve emailed your guardian’s new address a link to their own page." : "We’ve emailed your guardian a link to their own page.");
-                setChanging(false);
+                /* The form stays open until the API says yes: a refusal ("that's your own address") must leave what was typed. */
+                run(() => nameGuardianAction(token, g), was ? "Changed — we’ve emailed your guardian’s new address a link to their own page." : "We’ve emailed your guardian a link to their own page.", () => setChanging(false));
               }}
             >
               <p className="text-sm font-semibold">{changing ? "Change guardian email" : "Your guardian"}</p>

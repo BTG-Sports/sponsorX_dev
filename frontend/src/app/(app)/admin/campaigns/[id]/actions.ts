@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { apiFetch } from "@/server/api";
 import { autoStaffingReasonProblem } from "@/lib/campaign-stage";
 import type { DraftOrderInput, DraftOrderResult } from "@/lib/ops-live";
-import type { ChangeProposal } from "@/lib/campaign-change-live";
+import { proposalOf, validCampaignId as validId, type ChangeProposal } from "@/lib/campaign-change-live";
 import { postCancel, postChange, readCancelImpact, readChangeImpact, type ActResult, type ImpactRead } from "@/server/campaign-change";
 
 /* --------------------------------------------------------------------------
@@ -14,19 +14,6 @@ import { postCancel, postChange, readCancelImpact, readChangeImpact, type ActRes
    decides who may (BTG admin, campaign manager), audits, and emails. Until
    the API lands, a 404 reads as "Not available yet".
    -------------------------------------------------------------------------- */
-
-const validId = (id: unknown): id is string => typeof id === "string" && id.length > 0 && id.length < 200;
-
-const proposalOf = (p: unknown): ChangeProposal | null => {
-  if (!p || typeof p !== "object") return null;
-  const x = p as Record<string, unknown>;
-  const out: ChangeProposal = {};
-  if (typeof x.name === "string") out.name = x.name;
-  if (typeof x.startDate === "string") out.startDate = x.startDate;
-  if (typeof x.endDate === "string") out.endDate = x.endDate;
-  if (typeof x.budget === "number" && Number.isFinite(x.budget)) out.budget = x.budget;
-  return Object.keys(out).length ? out : null;
-};
 
 function refreshCampaign(campaignId: string) {
   revalidatePath(`/admin/campaigns/${campaignId}`);

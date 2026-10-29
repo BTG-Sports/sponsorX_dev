@@ -19,7 +19,7 @@ import { fetchCampaignPage } from "@/server/campaigns";
 import type { PageInfo, SearchParams } from "@/lib/list-query";
 
 export type LiveInvoicePage =
-  | { status: "ok"; campaigns: { id: string; name: string; invoices: ApiCampaignInvoice[] }[]; page: PageInfo }
+  | { status: "ok"; campaigns: { id: string; name: string; invoices: ApiCampaignInvoice[]; unavailable?: boolean }[]; page: PageInfo }
   /** The role reads campaigns but the matrix withholds invoices (SPONSOR_* may; a BTG preview may not). */
   | { status: "forbidden" };
 
@@ -34,15 +34,22 @@ export async function liveSponsorInvoicePage(sp: SearchParams): Promise<LiveInvo
   const rows: ApiCampaign[] = pg.campaigns;
   if (rows.length > 0 && rows.every((r) => r.invoiced === undefined)) return { status: "forbidden" };
 
-  const campaigns = await Promise.all(
-    rows.map(async (c) => {
+  /* One read per campaign, a few at a time (a page can hold 60), and a
+     campaign whose read fails is marked unavailable — never the whole page
+     (review 2026-10-29). A 403/404 is simply a campaign with nothing to show. */
+  const one = async (c: ApiCampaign) => {
+    try {
       const res = await apiFetch(`/campaigns/${encodeURIComponent(c.id)}/invoices`);
-      /* A single campaign the matrix won't open is left empty, never the whole page. */
       if (res.status === 403 || res.status === 404) return { id: c.id, name: c.name, invoices: [] as ApiCampaignInvoice[] };
-      if (!res.ok) throw new Error(`Invoices unavailable (${res.status}).`);
-      const { invoices } = (await res.json()) as { invoices: ApiCampaignInvoice[] };
-      return { id: c.id, name: c.name, invoices };
-    }),
-  );
+      if (!res.ok) return { id: c.id, name: c.name, invoices: [] as ApiCampaignInvoice[], unavailable: true };
+      const { invoices } = (await res.json()) as { invoices?: ApiCampaignInvoice[] };
+      return { id: c.id, name: c.name, invoices: Array.isArray(invoices) ? invoices : [] };
+    } catch {
+      return { id: c.id, name: c.name, invoices: [] as ApiCampaignInvoice[], unavailable: true };
+    }
+  };
+  const campaigns: Awaited<ReturnType<typeof one>>[] = [];
+  const BATCH = 6;
+  for (let i = 0; i < rows.length; i += BATCH) campaigns.push(...(await Promise.all(rows.slice(i, i + BATCH).map(one))));
   return { status: "ok", campaigns, page: pg.page };
 }

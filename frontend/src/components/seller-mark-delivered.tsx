@@ -97,8 +97,9 @@ function MarkDialog({ lineId, sponsor, summary, onClose }: { lineId: string; spo
       const r = await markDeliveredAction(lineId, { note, proofKey: photo?.key ?? null, proofLink: link.trim() || null });
       if (!r.ok) {
         /* P8-FE-11 — the API opens the photo before it counts (P8-BE-09); a refused one is deleted, so it
-           can't be sent again: the reason is shown and the picker offers another photo. */
-        if (photo) setPhoto(null);
+           can't be sent again: the reason is shown and the picker offers another photo. Any other
+           refusal (a line already marked, no connection) keeps the photo that storage still holds. */
+        if (photo && /photo|too dark|too small|blurr|washed|blank|couldn.t be read|unusable|renamed|damaged/i.test(r.message)) setPhoto(null);
         return setError(r.message);
       }
       onClose();

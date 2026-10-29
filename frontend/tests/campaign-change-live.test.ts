@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { proposalOf, validCampaignId } from "../src/lib/campaign-change-live";
 import {
   NO_MONEY_MOVES,
   NOT_AVAILABLE_YET,
@@ -145,6 +146,19 @@ describe("the change form", () => {
     expect(proposalFrom(current, { ...form, endDate: "2026-12-31", budget: "15000" })).toEqual({ ok: true, proposal: { endDate: "2026-12-31", budget: 1_500_000 } });
     /* The name cleared then retyped the same is no change. */
     expect(proposalFrom(current, { ...form, name: "Spring Launch " })).toEqual({ ok: false, message: "Nothing has changed yet." });
+    /* A budget that isn't whole dollars ($12,400.50) prefills as 12401 — an untouched form proposes no budget (review 2026-10-29). */
+    const odd = { ...current, budget: 1_240_050 };
+    expect(proposalFrom(odd, changeFormFrom(odd))).toEqual({ ok: false, message: "Nothing has changed yet." });
+    expect(proposalFrom(odd, { ...changeFormFrom(odd), endDate: "2026-12-31" })).toEqual({ ok: true, proposal: { endDate: "2026-12-31" } });
+  });
+
+  it("proposalOf keeps only well-formed fields for the server actions", () => {
+    expect(proposalOf({ name: " New ", startDate: "2026-11-02", endDate: "next week", budget: 1_500_000.4, extra: 1 })).toEqual({ name: "New", startDate: "2026-11-02", budget: 1_500_000 });
+    expect(proposalOf({ name: "   " })).toBeNull();
+    expect(proposalOf({ budget: -5 })).toBeNull();
+    expect(proposalOf(null)).toBeNull();
+    expect(validCampaignId("qa_cmp_live")).toBe(true);
+    expect(validCampaignId("")).toBe(false);
   });
 
   it("refuses an empty name, a bad date, an end before the start and a budget that isn't whole dollars", () => {

@@ -199,11 +199,34 @@ export function proposalFrom(current: CampaignCurrent, form: ChangeForm): { ok: 
   if (budgetText) {
     const cents = parseBudget(budgetText);
     if (cents === null) return { ok: false, message: "The budget must be whole dollars, like 12400." };
-    if (cents !== current.budget) proposal.budget = cents;
+    /* The form shows whole dollars, so compare with the budget rounded the same way:
+       a $12,400.50 campaign must not propose a budget nobody touched. */
+    const currentWhole = current.budget === undefined ? undefined : Math.round(current.budget / 100) * 100;
+    if (cents !== currentWhole) proposal.budget = cents;
   }
 
   if (Object.keys(proposal).length === 0) return { ok: false, message: "Nothing has changed yet." };
   return { ok: true, proposal };
+}
+
+/** A campaign id as a server action may trust it. */
+export const validCampaignId = (id: unknown): id is string => typeof id === "string" && id.length > 0 && id.length < 200;
+
+/**
+ * The proposal a server action may forward: only the four fields, each in
+ * its own shape (dates YYYY-MM-DD, a finite non-negative budget in cents, a
+ * name under 200 characters). Null when nothing usable is in it. Shared by
+ * the sponsor's and BTG's actions so the two portals can't drift.
+ */
+export function proposalOf(p: unknown): ChangeProposal | null {
+  if (!p || typeof p !== "object") return null;
+  const x = p as Record<string, unknown>;
+  const out: ChangeProposal = {};
+  if (typeof x.name === "string" && x.name.trim() && x.name.trim().length <= 200) out.name = x.name.trim();
+  if (typeof x.startDate === "string" && DATE.test(x.startDate)) out.startDate = x.startDate;
+  if (typeof x.endDate === "string" && DATE.test(x.endDate)) out.endDate = x.endDate;
+  if (typeof x.budget === "number" && Number.isFinite(x.budget) && x.budget >= 0) out.budget = Math.round(x.budget);
+  return Object.keys(out).length ? out : null;
 }
 
 /** The change, line by line, for the modal and BTG's queue: "Name → Spring Launch". */

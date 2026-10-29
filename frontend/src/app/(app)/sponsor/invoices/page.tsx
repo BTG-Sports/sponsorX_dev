@@ -71,6 +71,7 @@ export default async function SponsorInvoicesPage({ searchParams }: { searchPara
 
   const rows = invoiceRows(live.campaigns);
   const totals = invoiceTotals(rows, now);
+  const unavailable = live.campaigns.filter((c) => c.unavailable).map((c) => c.name);
   const { page } = live;
   const outOfRange = page.page > page.pages;
   const empty: ReactNode = outOfRange ? (
@@ -126,6 +127,11 @@ export default async function SponsorInvoicesPage({ searchParams }: { searchPara
           />
         </StadiumTiles>
       </StadiumHead>
+      {unavailable.length > 0 && (
+        <p role="status" className="rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 text-xs text-text">
+          The invoices for {unavailable.length === 1 ? unavailable[0] : `${unavailable.length} campaigns (${unavailable.join(", ")})`} couldn&rsquo;t be read just now. The rest are listed; refresh in a minute for the others.
+        </p>
+      )}
 
       <section className="min-w-0" aria-labelledby="sx-your-invoices">
         <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">

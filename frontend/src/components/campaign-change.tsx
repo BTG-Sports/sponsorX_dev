@@ -82,6 +82,9 @@ export function CampaignChangeControls({ campaign, show, actions, demo = false }
   const openChange = () => {
     setNotice(null);
     if (demo) return setNotice({ tone: "info", text: "Sample data — Cancel and Change work on a real campaign." });
+    /* Start from where the campaign stands now — after a saved change and the
+       refresh, the old values would otherwise propose a silent revert. */
+    setForm(changeFormFrom(campaign));
     setStep({ kind: "form" });
   };
   const finished = (r: ActResult) => {
