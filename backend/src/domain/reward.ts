@@ -179,7 +179,7 @@ async function checkStaffCode(token: string, staffCode: string | undefined, requ
   const t = await prisma.rewardToken.findUnique({
     /* tenant-scope: a public bearer token, unique across tenants — the token IS the authorisation. */
     where: { token },
-    select: { id: true, tenantId: true, staffCodeFailures: true, staffCodeLockedUntil: true, reward: { select: { staffCode: true } } },
+    select: { id: true, tenantId: true, parentTokenId: true, staffCodeFailures: true, staffCodeLockedUntil: true, reward: { select: { staffCode: true } } },
   });
   if (!t) throw new UnknownTokenError();
   if (staffCode === undefined) {
@@ -764,6 +764,22 @@ export async function recordClaim(
   const sponsorOk = sponsorContactFor(agreed, sponsorContact, now);
   const email = agreed ? fanEmail!.trim() : null;
 
+  /* POL-BE-08 — through a shared code (an athlete's QR), the fan claims on a code of their own. */
+  if (env.REWARD_FAN_CODES) {
+    const shared = await sharedCode(token);
+    if (shared) return claimThroughShared(shared, email, agreed, sponsorOk, now);
+  }
+  return claimOnCode(token, email, agreed, sponsorOk, now);
+}
+
+/** The claim on one code — the fan's own, or (switch off) any code. */
+async function claimOnCode(
+  token: string,
+  email: string | null,
+  agreed: ReturnType<typeof consentFor>,
+  sponsorOk: ReturnType<typeof sponsorContactFor>,
+  now: Date,
+): Promise<{ id: string; type: RewardEventType; heldUntil: string | null; code?: string }> {
   /* QA-09 — on a capped reward the claim first RESERVES a unit, in its own
      single database call, so the Reward row lock is never held across the
      transaction below (QA-01). A reward with no unit left to set aside takes
@@ -822,6 +838,79 @@ export async function recordClaim(
           data: { reservedUntil: null },
         })
         .catch(() => {});
+    }
+    throw error;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   POL-BE-08 · A shared code: each fan gets their own
+   ──────────────────────────────────────────────────────────────────────────── */
+
+export class ClaimFirstError extends Error {
+  readonly status = 409;
+  readonly code = "claim_first";
+  constructor() {
+    super("This is a shared code. The fan claims it first and gets a code of their own, which the booth redeems.");
+    this.name = "ClaimFirstError";
+  }
+}
+
+/** The code, when it is a shared one (issued from the desk, not a fan's own); null otherwise. */
+async function sharedCode(token: string) {
+  if (!isOpaqueToken(token)) throw new UnknownTokenError();
+  const t = await prisma.rewardToken.findUnique({
+    /* tenant-scope: a public bearer token, unique across tenants — the token IS the authorisation. */
+    where: { token },
+    select: { id: true, token: true, tenantId: true, rewardId: true, athleteId: true, parentTokenId: true },
+  });
+  if (!t) throw new UnknownTokenError();
+  return t.parentTokenId === null ? t : null;
+}
+
+/**
+ * A fan claims through a shared code: a code of their own is made (or, for
+ * an address already used on this reward, the one it was given), and the
+ * claim — hold, voucher email, consent — is made on it exactly as on any
+ * code. Returns the fan's code for the page to send them on to. A claim
+ * refused on the new code (the reward ran out, paused, expired) leaves no
+ * code behind.
+ */
+async function claimThroughShared(
+  shared: { id: string; token: string; tenantId: string; rewardId: string; athleteId: string | null },
+  email: string | null,
+  agreed: ReturnType<typeof consentFor>,
+  sponsorOk: ReturnType<typeof sponsorContactFor>,
+  now: Date,
+) {
+  const picked = await failFast(() => prisma.$transaction(async (tx) => {
+    assertUsable(await contextFor(tx, shared.token), now);
+    /* Two claims at once with one address make one code: serialised on the shared code's row. */
+    await tx.$queryRaw`SELECT set_config('lock_timeout', '3s', true)`;
+    await tx.$queryRaw`SELECT id FROM "RewardToken" WHERE id = ${shared.id} FOR NO KEY UPDATE`;
+    if (email) {
+      const mine = await tx.rewardEvent.findFirst({
+        /* tenant-scope: this reward's own fans' codes, in the shared code's tenant. */
+        where: {
+          tenantId: shared.tenantId, type: "CLAIM", fanEmail: { equals: email, mode: "insensitive" },
+          token: { is: { rewardId: shared.rewardId, parentTokenId: { not: null } } },
+        },
+        orderBy: { at: "asc" }, select: { token: { select: { token: true } } },
+      });
+      if (mine) return { token: mine.token.token, made: false };
+    }
+    const made = await tx.rewardToken.create({
+      data: { tenantId: shared.tenantId, rewardId: shared.rewardId, athleteId: shared.athleteId, parentTokenId: shared.id, token: generateToken() },
+      select: { token: true },
+    });
+    return { token: made.token, made: true };
+  }));
+  try {
+    return { ...(await claimOnCode(picked.token, email, agreed, sponsorOk, now)), code: picked.token };
+  } catch (error) {
+    if (picked.made) {
+      /* tenant-scope: the code this call just made, by its unique token; only while nothing happened on it. */
+      await prisma.rewardToken.deleteMany({ where: { token: picked.token, events: { none: {} } } }).catch(() => {});
     }
     throw error;
   }
@@ -989,6 +1078,9 @@ export type TokenView =
       staffCodeRequired: boolean;
       /** POL-BE-07 — the latest redeem can be undone (with the staff code) until then; null when it can't. */
       undoUntil: string | null;
+      /** POL-BE-08 — SHARED: an athlete's code, shown to many fans; a claim gives the fan a code of their
+       *  own (`code` in the claim's answer). FAN: one fan's own code. CODE: one code, one claim (switch off). */
+      kind: "SHARED" | "FAN" | "CODE";
     };
 
 export async function viewToken(token: string, now = new Date()): Promise<TokenView> {
@@ -1002,6 +1094,7 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
       tenantId: true,
       rewardId: true,
       reservedUntil: true,
+      parentTokenId: true,
       reward: {
         select: {
           state: true, expiresAt: true, singleUse: true, offerText: true, terms: true,
@@ -1016,6 +1109,12 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
   });
   if (!row) return { state: "UNKNOWN" };
   const r = row.reward;
+  /* POL-BE-08 — a shared code's page is the offer, never one fan's claim, hold or redeem. */
+  const kind = !env.REWARD_FAN_CODES ? "CODE" : row.parentTokenId === null ? "SHARED" : "FAN";
+  if (kind === "SHARED") {
+    row.events = [];
+    row.reservedUntil = null;
+  }
   const redemptions = row.events.filter((e) => e.type === "REDEEM");
   const lastRedeemedAt = redemptions.reduce<Date | null>((m, e) => (!m || e.at > m ? e.at : m), null);
   const redeemed = r.singleUse && redemptions.length > 0;
@@ -1075,6 +1174,7 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
     undoUntil: lastRedeemedAt && lastRedeemedAt.getTime() + UNDO_MINUTES * 60_000 > now.getTime()
       ? new Date(lastRedeemedAt.getTime() + UNDO_MINUTES * 60_000).toISOString()
       : null,
+    kind,
   };
 }
 
@@ -1122,7 +1222,9 @@ export async function redeemToken(
 ): Promise<{ id: string; type: RewardEventType }> {
   if (!isOpaqueToken(token)) throw new UnknownTokenError();
   /* POL-BE-07 — the booth's code, before anything is decided: required once the switch is on, checked whenever sent. */
-  await checkStaffCode(token, staffCode, env.REWARD_STAFF_CODE_REQUIRED, now);
+  const code = await checkStaffCode(token, staffCode, env.REWARD_STAFF_CODE_REQUIRED, now);
+  /* POL-BE-08 — a shared code is redeemed through each fan's own code, never itself: one fan can't use it up for everyone. */
+  if (env.REWARD_FAN_CODES && code.parentTokenId === null) throw new ClaimFirstError();
   type Out = { outcome: string; event_id: string | null; reward_state: string | null };
   let row: Out | undefined;
   try {

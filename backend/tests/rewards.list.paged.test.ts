@@ -31,7 +31,7 @@ vi.mock("../src/db/client", () => ({
     rewardEvent: {
       groupBy: (a: Record<string, unknown>) => (eventArgs.push(a), Promise.resolve(eventGroups)),
     },
-    rewardToken: { groupBy: () => Promise.resolve([]) },
+    rewardToken: { groupBy: () => Promise.resolve([]), findMany: () => Promise.resolve([]) },
   },
 }));
 
