@@ -88,3 +88,21 @@
 - **Tests:** new `tests/reward.staff-code.test.ts` (6), and `rewards.read.test.ts` for who sees the code. The tests fail with the code check disabled. Locally: 3,631 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
 - **For HeckerCreatives:** `POL-FE-07`, as spelled out in `polish.md` item 7. When it ships, the switch is turned on, staging first.
 - **Not yet done:** the tracker row and `polish-progress.md`, once the PR merges.
+
+### `POL-BE-07` Done (rcfworks): PR #328 merged; #327 synced `main`
+
+- **Tracker:** the Polish sheet row for `POL-BE-07` is Done, started and done 2026-10-29. The formula count is still 180.
+- **Notes:** `polish-progress.md` has the entry. Carried on the `POL-BE-08` branch, so no extra PR touches the xlsx.
+
+### `POL-BE-08` (rcfworks): each fan who scans a shared code gets their own claim
+
+- **Problem:** an athlete's QR, shown to many fans, was treated as one fan's code. Later fans saw the first fan's hold and their emails were never taken; on a one-use reward the QR worked once for everyone.
+- **Decided:** behind a switch, `REWARD_FAN_CODES` (off), as with `POL-BE-07`, until HeckerCreatives' fan page sends the fan on to their own code (`POL-FE-08`). Added to `SponsorX-Switches.md`.
+- **Built:**
+  - Migration `20261029190000_reward_fan_codes`: `RewardToken.parentTokenId`. A code issued from the desk is a shared code; a fan claiming through it gets their own code (same athlete, never printed). The claim, hold, voucher email and redeem are on the fan's code.
+  - An address already used on the reward gets its code back (serialised on the shared code's row).
+  - The shared code's page shows the offer only (`kind: SHARED`), "all claimed" once the limit is held or used; redeeming it answers `claim_first`.
+  - The desk lists printed codes only; their funnel, refused and undone counts include fans' codes. Reports join through the reward and athlete, so they are unchanged.
+- **Tests:** new `tests/reward.fan-codes.test.ts` (4; three fail with the fan-code step disabled), and a desk-totals test in `rewards.read.test.ts`. Locally: 3,636 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
+- **For HeckerCreatives:** `POL-FE-08`, as spelled out in `polish.md` item 8.
+- **Tracker:** `POL-BE-08` is Code review; Done once the PR merges.

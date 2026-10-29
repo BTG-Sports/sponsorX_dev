@@ -392,6 +392,39 @@ hold, and their email is never collected.
 - **Fix:** each fan who scans a shared code gets their own claim, up to the
   reward's limit. The page shows the fan's own claim, or "all claimed".
 - **Done when:** two fans on one code each get their own claim; tests.
+- **Decided (2026-10-29):** behind a switch, `REWARD_FAN_CODES`, off until the
+  fan page sends the fan on to their own code (as with item 7). Listed in
+  [SponsorX-Switches.md](SponsorX-Switches.md).
+- **Backend delivered (`POL-BE-08`, 2026-10-29):**
+  - A code issued from the desk is a **shared code** (an athlete's QR). A fan
+    claiming through it gets a **code of their own** (`parentTokenId`), with
+    the shared code's athlete. The claim, the hold on a reward with a limit,
+    the voucher email and the redeem are all on the fan's code; it is never
+    printed.
+  - **An address already used** on the reward gets its own code back, not a
+    second one. A fan who gave no address can't be recognised by the API.
+  - **The shared code's page** is the offer: never another fan's claim or
+    hold. "All claimed" (`state: EXHAUSTED`) once the limit is held or used.
+    Redeeming the shared code itself is refused (`claim_first`).
+  - **The desk** lists the printed codes only; each one's funnel, refused and
+    undone redeems include its fans' codes. Reports count through the reward
+    and the athlete, so they include fans' codes unchanged.
+  - Existing codes are treated as shared codes; claims already made on them
+    stay as they were.
+  - Tests: `backend/tests/reward.fan-codes.test.ts`, and
+    `rewards.read.test.ts` for the desk's totals.
+- **For `POL-FE-08` (screens):**
+  - `GET /public/rewards/:token` carries `kind`: `SHARED` (an athlete's QR),
+    `FAN` (one fan's own code) or `CODE` (switch off: as before).
+  - On a `SHARED` page, "Claim" posts as today. The answer carries `code`:
+    the fan's own code. Redirect to `/r/{code}`, and remember it in the
+    browser for this shared code, so a fan who scans again goes straight to
+    their code instead of making another.
+  - The staff redeem and undo belong on the `FAN` page, never the `SHARED`
+    one. A redeem on a shared code answers `claim_first`.
+  - `state: EXHAUSTED` on a shared page: show "All claimed".
+  - **When it ships:** tell rcfworks, who turns `REWARD_FAN_CODES` on,
+    staging first.
 
 ---
 

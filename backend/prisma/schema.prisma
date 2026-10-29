@@ -1395,13 +1395,21 @@ model RewardToken {
   /// POL-BE-07 — redeems undone at the booth (within 5 minutes), and the last.
   undoneRedeems        Int       @default(0)
   lastUndoneRedeemAt   DateTime?
+  /// POL-BE-08 — a fan's own code, made when they claimed through this shared
+  /// code (an athlete's QR, shown to many fans). Null: a code issued from the
+  /// desk. The fan's claim, hold and redeem are on their own code; it carries
+  /// the shared code's athlete and is never printed.
+  parentTokenId        String?
 
-  reward  Reward        @relation(fields: [rewardId], references: [id])
-  athlete Athlete?      @relation(fields: [athleteId], references: [id])
-  events  RewardEvent[]
+  reward   Reward        @relation(fields: [rewardId], references: [id])
+  athlete  Athlete?      @relation(fields: [athleteId], references: [id])
+  events   RewardEvent[]
+  parent   RewardToken?  @relation("FanCodes", fields: [parentTokenId], references: [id], onDelete: Restrict)
+  fanCodes RewardToken[] @relation("FanCodes")
 
   @@index([tenantId])
   @@index([rewardId, reservedUntil])
+  @@index([parentTokenId])
 }
 
 /// One row per event. The single-use rule is enforced by a partial unique
