@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import type { BrandCategory } from "@/lib/brand-categories";
+import { sendBackProblem, sendBackRefusal } from "@/lib/document-checks-live";
 import { requestRefusal, type RequestWriteFailure } from "@/lib/sponsor-requests-live";
 import { apiFetch } from "@/server/api";
 
@@ -70,4 +71,36 @@ export async function viewSponsorDocumentAction(id: string, documentId: string):
   }
   if (!res.ok) return requestRefusal(res.status, body);
   return { ok: true, ...(body as { url: string; expiresInSeconds: number }) };
+}
+
+/**
+ * P8-FE-11 / P8-BE-10 — send a proof of business back with a reason:
+ * POST /sponsor-requests/:id/documents/:documentId/send-back { reason }.
+ * The document stops counting and its file is deleted; a NEW request waits
+ * for a new proof; the contact is emailed the reason and their upload link.
+ */
+export async function sendBackSponsorDocumentAction(id: string, documentId: string, reason: string): Promise<{ ok: true } | RequestWriteFailure> {
+  const ok = (v: unknown) => typeof v === "string" && /^[A-Za-z0-9_-]{1,60}$/.test(v);
+  if (!ok(id) || !ok(documentId)) return { ok: false, status: 400, message: "Unknown document." };
+  const problem = sendBackProblem(typeof reason === "string" ? reason : "");
+  if (problem) return { ok: false, status: 400, message: problem };
+  let res: Response;
+  try {
+    res = await apiFetch(`/sponsor-requests/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}/send-back`, {
+      method: "POST",
+      body: JSON.stringify({ reason: reason.trim() }),
+    });
+  } catch {
+    return { ok: false, status: 0, message: "The API is unreachable — nothing changed. Try again in a minute." };
+  }
+  let body: unknown = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* no body */
+  }
+  revalidatePath("/admin/sponsor-requests");
+  revalidatePath(`/admin/sponsor-requests/${id}`);
+  if (!res.ok) return { ok: false, status: res.status, message: sendBackRefusal(res.status, body) };
+  return { ok: true };
 }

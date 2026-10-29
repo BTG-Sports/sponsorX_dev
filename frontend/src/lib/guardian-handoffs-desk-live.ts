@@ -1,3 +1,4 @@
+import type { ApiDocumentCheck, ApiDocumentReturned } from "@/lib/document-checks-live";
 import type { ApiHandoffRequest } from "@/lib/guardian-live";
 import type { PageInfo } from "@/lib/list-query";
 import { dayOf, momentOf } from "@/lib/new-signups-live";
@@ -29,7 +30,13 @@ export type ApiHandoffStaff = {
   current: { id: string; relationship: string | null };
   newGuardian: { id: string; name: string } | null;
   requester: { email: string; phone: string | null; emailConfirmedAt: string | null; agreementVersion: string | null; agreementAcceptedAt: string | null };
-  documents: { id: string; kind: "GUARDIAN_ID" | "GUARDIANSHIP_PROOF"; label: string; proof: string | null; filename: string; uploadedAt: string | null }[];
+  /** P8-FE-11 — `check`: what reading it found (null until read); `returned`: BTG sent it back (its file is gone). */
+  documents: {
+    id: string; kind: "GUARDIAN_ID" | "GUARDIANSHIP_PROOF"; label: string; proof: string | null; filename: string; uploadedAt: string | null;
+    check?: ApiDocumentCheck; returned?: ApiDocumentReturned;
+  }[];
+  /** P8-BE-11 — why the documents hold the handoff for BTG, one reason each; empty when they read clear. */
+  documentHolds?: string[];
   /** When the current guardian handed off — null when they haven't (or declined). */
   handedOffAt: string | null;
   /** Who closed it: the current guardian or BTG (with the BTG login's email). */

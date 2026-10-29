@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { confirmRefusal } from "@/lib/document-checks-live";
 import { apiFetch } from "@/server/api";
 
 /* --------------------------------------------------------------------------
@@ -71,7 +72,8 @@ export type ChangeBody = Record<string, unknown>;
 export type ChangeResult =
   | { ok: true; id: string; checkNotes: string[]; idUpload: { changeId: string; uploadUrl: string; contentType: string } | null }
   | { ok: false; message: string };
-export type SimpleResult = { ok: true } | { ok: false; message: string };
+/** `held` — P8-FE-11: the ID arrived but didn't read clear, so the new name waits for BTG. */
+export type SimpleResult = { ok: true; held?: boolean } | { ok: false; message: string };
 
 async function apiError(res: Response): Promise<{ code?: string; message?: string }> {
   try {
@@ -119,10 +121,13 @@ export async function confirmLegalNameIdAction(changeId: string): Promise<Simple
   if (res.ok) {
     revalidatePath("/athlete/profile/edit");
     revalidatePath("/athlete/profile");
-    return { ok: true };
+    /* P8-BE-11 — a flagged or unreadable ID keeps the change PENDING for BTG; the editor says so rather than "live". */
+    const c = (await res.json().catch(() => null)) as { state?: unknown } | null;
+    return { ok: true, held: c?.state === "PENDING" };
   }
+  /* P8-FE-11 — a refused file (422) comes back with its reason in plain words; the athlete reads it, not a status. */
   const err = await apiError(res);
-  return { ok: false, message: err.message ?? `Couldn't confirm the upload (HTTP ${res.status}).` };
+  return { ok: false, message: confirmRefusal(res.status, { error: err }, `Couldn't confirm the upload (HTTP ${res.status}).`) };
 }
 
 export async function withdrawProfileChange(id: string): Promise<ChangeResult> {
