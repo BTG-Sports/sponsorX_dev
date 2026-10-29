@@ -15,6 +15,7 @@ import {
   boardHeadline,
   campaignLines,
   healthRows,
+  QUEUE_TONE,
   queueCards,
   ringSegments,
   type ApiIntegrationHealth,
@@ -118,6 +119,27 @@ describe("P7-FE-06 · the Operations Board", () => {
     expect(cards[0]?.chips).toEqual([{ text: "2 over 48 hours", tone: "warn" }]);
     expect(cards[3]?.chips).toEqual([]);
     expect(actionTotal(cards)).toBe(15);
+  });
+
+  it("POL-FE-12 · payouts waiting for BTG are a card of their own, with the oldest's day", () => {
+    const none = { applications: null, approvals: null, briefs: null, finance: null };
+    const cards = queueCards({ ...none, payouts: { waiting: 3, oldestSince: "2026-10-24T15:10:00.000Z" } });
+    expect(cards.map((c) => c.key)).toEqual(["payouts"]);
+    expect(cards[0]).toMatchObject({ label: "Payouts to review", count: 3, href: "/admin/payouts", chips: [{ text: "oldest waiting since Oct 24", tone: "warn" }] });
+    /* The day is the desk's (New York): 03:30Z on the 24th is still the 23rd there. */
+    expect(queueCards({ ...none, payouts: { waiting: 1, oldestSince: "2026-10-24T03:30:00.000Z" } })[0]?.chips[0]?.text).toBe("oldest waiting since Oct 23");
+    /* Nothing waiting: a zero card, no chip — not a stale "since". */
+    expect(queueCards({ ...none, payouts: { waiting: 0, oldestSince: null } })[0]).toMatchObject({ count: 0, chips: [] });
+    expect(queueCards({ ...none, payouts: { waiting: 0, oldestSince: "2026-10-24T15:10:00.000Z" } })[0]?.chips).toEqual([]);
+    expect(queueCards({ ...none, payouts: { waiting: 2, oldestSince: "not a time" } })[0]?.chips).toEqual([]);
+    /* A role that doesn't read every payout, and an API from before the field: no card. */
+    expect(queueCards({ ...none, payouts: null })).toEqual([]);
+    expect(queueCards(none)).toEqual([]);
+    /* With the other four it comes last, counts in the total and has its own ring colour. */
+    const five = queueCards({ applications: { waiting: 1, over48h: 0 }, approvals: { waiting: 1 }, briefs: { toQualify: 1, toMatch: 0 }, finance: { held: 1, disputed: 0 }, payouts: { waiting: 2, oldestSince: null } });
+    expect(five.map((c) => c.key)).toEqual(["applications", "approvals", "briefs", "finance", "payouts"]);
+    expect(actionTotal(five)).toBe(6);
+    expect(new Set(five.map((c) => QUEUE_TONE[c.key])).size).toBe(5);
   });
 
   it("campaigns show done of due, overdue first", () => {
