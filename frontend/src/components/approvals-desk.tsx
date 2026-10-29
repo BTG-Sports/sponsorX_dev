@@ -473,6 +473,9 @@ export function ApprovalsDeskServer(props: {
   campaigns: { id: string; name: string }[];
   filters: DeskFilters;
   live?: LiveDesk;
+  /** POL-FE-23 — the post a link asked for (?open=), drawer open on arrival;
+   *  it need not be on this page of the queue. */
+  open?: Item | null;
 }) {
   return (
     <ServerList>
@@ -488,12 +491,14 @@ function ServerDesk({
   campaigns,
   filters: f,
   live,
+  open,
 }: Parameters<typeof ApprovalsDeskServer>[0]) {
   const { set } = useListNav();
   const [moves, setMoves] = useState<Moves>({});
   const isFiltered = Boolean(f.q || f.camp || f.kind);
   return (
     <DeskBody
+      initialOpen={open}
       rows={rows}
       counts={counts}
       tabs={LIVE_TABS}
@@ -574,9 +579,12 @@ function DeskBody({
   moves,
   setMoves,
   live,
+  initialOpen = null,
 }: {
   /** The visible page only. */
   rows: Item[];
+  /** POL-FE-23 — a post to open on arrival (a dashboard or email link). */
+  initialOpen?: Item | null;
   counts: Record<TabKey, number>;
   tabs?: readonly { key: TabKey; label: string }[];
   tab: TabKey;
@@ -601,7 +609,7 @@ function DeskBody({
   /* The open item is kept as well as its id: after a live decision the page
      refreshes and the row may leave this page (it changed tab) — the drawer
      stays on it to show what happened. */
-  const [opened, setOpened] = useState<Item | null>(null);
+  const [opened, setOpened] = useState<Item | null>(initialOpen);
   /* Closing keeps the drawer mounted while the -out animation plays;
      unmount happens on its animationend (fallback timer in the drawer). */
   const [closing, setClosing] = useState(false);
@@ -809,8 +817,14 @@ function DeskBody({
 
                     <span className="mt-auto flex items-center justify-between gap-2 pt-3 text-[11px]">
                       <span className="truncate text-muted">{it.sponsor}</span>
-                      <span className="shrink-0 text-faint">
-                        due {it.dueDate}
+                      <span className="shrink-0 text-right text-faint">
+                        {/* POL-FE-23 — when the review is due, beside when the post is. */}
+                        {isLiveItem(it) && it.live.reviewBy && inQueue(s) && s !== "REVISION" && (
+                          <span className={["block", it.live.reviewBy.late ? "font-medium text-warn" : ""].join(" ")}>
+                            review by {it.live.reviewBy.label}
+                          </span>
+                        )}
+                        <span className="block">due {it.dueDate}</span>
                       </span>
                     </span>
                   </button>
@@ -900,6 +914,10 @@ function ReviewDrawer({
     ["Due", it.dueDate],
     ["Submitted", it.submittedAt],
   ];
+  /* POL-FE-23 — the review's own deadline, while it is on a desk. */
+  if (isLiveItem(it) && it.live.reviewBy && inQueue(s) && s !== "REVISION") {
+    details.push(["Review by", it.live.reviewBy.late ? `${it.live.reviewBy.label} — overdue` : it.live.reviewBy.label]);
+  }
   if (it.clearedAt) details.push(["Cleared", it.clearedAt]);
 
   return (

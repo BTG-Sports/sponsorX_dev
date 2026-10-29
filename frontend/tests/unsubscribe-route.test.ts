@@ -41,6 +41,17 @@ describe("/u/[token]", () => {
     expect(await res.text()).toContain("That link did not work");
   });
 
+  it("POL-FE-30 — a failed link points at the support address, not 'reply to the email'", async () => {
+    /* The fan email comes from a no-reply address. Outside a request the
+       support read falls back to the frontend's default, which is what a
+       stuck fan sees if the API is down too. */
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ withdrawn: false })));
+    const html = await (await POST(req("POST"), ctx("junk"))).text();
+    expect(html).not.toContain("reply to the email");
+    expect(html).toContain('href="mailto:support@sponsorx.net?subject=');
+    expect(html).toContain(">support@sponsorx.net</a>");
+  });
+
   it("escapes the token into the form action", async () => {
     vi.stubGlobal("fetch", vi.fn());
     const html = await (await GET(req("GET"), ctx('"><script>'))).text();

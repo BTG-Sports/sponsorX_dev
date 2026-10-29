@@ -7,8 +7,10 @@ import { RosterRemove, TeamInvitePanel } from "@/components/team-invite-panel";
 import type { ApiSentInvitation } from "@/lib/team-invite-live";
 import { apiListQuery, textParam, type SearchParams } from "@/lib/list-query";
 import { ATHLETE_STATES, ATHLETE_STATE_OPTIONS, rosterRow, type ApiAthletesPage } from "@/lib/property-p2-live";
+import { contactBtgAction } from "@/lib/contact-btg";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
+import { supportContact } from "@/server/support";
 
 /* --------------------------------------------------------------------------
    Roster — 2S2-FE-04 (Team dashboard, design Team.dc.html). The manager's
@@ -50,10 +52,17 @@ export default async function PropertyRosterPage({ searchParams }: { searchParam
     apiFetch("/team/invitations").catch(() => null),
   ]);
   if (res.status === 403) {
+    /* POL-FE-35 — "Ask BTG" is a link to the support address. */
+    const support = await supportContact();
     return (
       <div className="space-y-6">
         {heading}
-        <EmptyState mark="users" title="No property is linked to this login" hint="The roster belongs to a property's manager. Ask BTG to link your login to your team or school." />
+        <EmptyState
+          mark="users"
+          title="No property is linked to this login"
+          hint="The roster belongs to a property's manager. Email BTG to link your login to your team or school."
+          action={contactBtgAction(support.email, "Link my login to my team or school on SponsorX")}
+        />
       </div>
     );
   }

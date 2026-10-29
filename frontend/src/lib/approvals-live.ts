@@ -43,8 +43,69 @@ export type LiveDeskItem = ReviewContentItem & {
        for changes while it is with the sponsor. */
     btgSkipped: boolean;
     skipReason: string | null;
+    /* POL-FE-23 — when this draft should be reviewed by (reviewBy below);
+       null once it is off the review desks. */
+    reviewBy: ReviewBy | null;
   };
 };
+
+/* --------------------------------------------------------------------------
+   POL-FE-23 — "review by". The API returns no review deadline of its own
+   (POL-BE-23 is the field); until it does, the date is computed from what
+   it does return, and the rule is the backend's own:
+
+     - review-reminders.ts reminds a reviewer once a draft has waited more
+       than REVIEW_REMINDER_HOURS (48) on their desk, counted from
+       `waitingSince` (P5-BE-09) — so that is when the review is due;
+     - a draft submitted before `waitingSince` existed counts from its latest
+       upload, the measure the desk already used for "waiting";
+     - and never later than the post's own due date: content due to publish
+       on Friday can't be reviewed on Saturday.
+
+   Only a draft actually on a review desk (not sent back) has a review-by.
+   -------------------------------------------------------------------------- */
+
+/** Mirrors REVIEW_REMINDER_HOURS in backend/src/domain/content-check-rules.ts. */
+export const REVIEW_WINDOW_HOURS = 48;
+
+export type ReviewBy = {
+  iso: string;
+  /** "Oct 16", the desk's date style. */
+  label: string;
+  /** Past the review-by moment at `now`. */
+  late: boolean;
+  /** Which of the two bounds set it. */
+  from: "window" | "due";
+};
+
+type ReviewByInput = Pick<ApiDeliverable, "state" | "revision" | "dueDate"> & {
+  waitingSince?: string | null;
+  latestAsset?: { uploadedAt: string } | null;
+};
+
+export function reviewBy(d: ReviewByInput, now: Date): ReviewBy | null {
+  if (!REVIEW_STATES.includes(d.state) || d.revision) return null;
+  const since = d.waitingSince ?? d.latestAsset?.uploadedAt ?? null;
+  if (!since) return null;
+  const sinceMs = Date.parse(since);
+  const dueMs = Date.parse(d.dueDate);
+  if (Number.isNaN(sinceMs)) return null;
+  const windowMs = sinceMs + REVIEW_WINDOW_HOURS * 3_600_000;
+  const byMs = Number.isNaN(dueMs) ? windowMs : Math.min(windowMs, dueMs);
+  const iso = new Date(byMs).toISOString();
+  return { iso, label: monDay(iso), late: now.getTime() > byMs, from: byMs === windowMs ? "window" : "due" };
+}
+
+/** The desk with this post's drawer open — where a dashboard or email link lands (POL-FE-23). */
+export function postHref(id: string): string {
+  return `/admin/approvals?open=${encodeURIComponent(id)}`;
+}
+
+/** The post a link asked the desk to open, from the URL; "" for none. */
+export function deskOpenId(sp: Record<string, string | string[] | undefined>): string {
+  const v = sp.open;
+  return ((Array.isArray(v) ? v[0] : v) ?? "").trim().slice(0, 100);
+}
 
 export type ApprovalActionKind = "btg-review" | "sponsor-review" | "approve" | "revision" | "verify";
 export type ApprovalResult = { ok: true; state: string } | { ok: false; message: string };
@@ -124,6 +185,7 @@ export function toDeskItem(d: ApiDeliverable, now: Date): LiveDeskItem {
       waitingSince: d.waitingSince ?? null,
       btgSkipped: Boolean(d.btgReviewSkipped),
       skipReason: d.skipReason ?? null,
+      reviewBy: reviewBy(d, now),
     },
   };
 }

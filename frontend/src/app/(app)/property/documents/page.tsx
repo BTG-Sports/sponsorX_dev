@@ -2,8 +2,10 @@ import { EmptyState, ErrorPanel, SkeletonPage } from "@/components/states";
 import { OrgDocumentsPage } from "@/components/org-documents";
 import { demoState } from "@/lib/demo";
 import type { ApiOrgDocuments } from "@/lib/org-documents-live";
+import { contactBtgAction } from "@/lib/contact-btg";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
+import { supportContact } from "@/server/support";
 
 /* --------------------------------------------------------------------------
    Documents — 2S1-FE-04, the documents half (Claude Design
@@ -41,10 +43,17 @@ export default async function PropertyDocumentsPage({ searchParams }: { searchPa
     return <ErrorPanel title="Documents didn't load" hint="We couldn't reach SponsorX. Reload the page in a minute." />;
   }
   if (res.status === 404 || res.status === 403) {
+    /* POL-FE-35 — "Contact BTG" is a link to the support address. */
+    const support = await supportContact();
     return (
       <div className="space-y-4">
         <h1 className="text-xl font-semibold tracking-tight">Documents</h1>
-        <EmptyState mark="inbox" title="No documents to keep here" hint="This property didn't join through the onboarding wizard, so BTG holds its paperwork. Contact BTG to change it." />
+        <EmptyState
+          mark="inbox"
+          title="No documents to keep here"
+          hint="This property didn't join through the onboarding wizard, so BTG holds its paperwork. Email BTG to change it."
+          action={contactBtgAction(support.email, "Our organization's documents on SponsorX")}
+        />
       </div>
     );
   }
