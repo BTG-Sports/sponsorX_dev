@@ -28,7 +28,7 @@ import { sponsorSpendingLimit } from "../../domain/spending-limit";
 import { searchMarketplace, searchMarketplacePage } from "../../domain/marketplace-search";
 import { addLine, currentCart, openCart, removeLine, updateLine } from "../../domain/cart";
 import { createInventoryItem, getInventoryItem, listInventory, listInventoryPage, updateInventoryItem } from "../../domain/inventory";
-import { addRosterAthlete, setTeamShare, teamAthletesPage, teamInventoryPage, teamRoster } from "../../domain/team";
+import { addRosterAthlete, setTeamShare, teamAthletesPage, teamInventoryPage, teamRoster, withdrawShareChange } from "../../domain/team";
 import {
   autoPublishedListings, btgActOnListing, liveListings, createListing, decideListing, getListing, LISTING_SCOPES, listListings, listListingsPage, submitListing, transitionListing, updateListing,
 } from "../../domain/listing";
@@ -52,7 +52,7 @@ import {
 import { listRefunds, markRefundSent } from "../../domain/refunds";
 import { sellerSummary } from "../../domain/seller-summary";
 import {
-  inviteAthlete, invitableAthletes, leaveTeam, myTeam, removeFromRoster, respondToInvitation, teamInvitations, withdrawInvitation,
+  inviteAthlete, invitableAthletes, leaveTeam, myTeam, removeFromRoster, respondToInvitation, respondToShareChange, teamInvitations, withdrawInvitation,
 } from "../../domain/team-invitations";
 const ATHLETE_STATES = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "CHANGES_REQUESTED", "REJECTED", "ACTIVE", "SUSPENDED", "FEATURED"] as const;
 
@@ -107,6 +107,8 @@ marketplaceRouter.get("/team/athletes", requireActor, athletesPage);
 marketplaceRouter.get("/team/inventory", requireActor, inventoryPage);
 marketplaceRouter.post("/team/roster", requireActor, addAthlete);
 marketplaceRouter.patch("/team/roster/:id", requireActor, share);
+/* POL-BE-03 — the team takes back a share request the athlete hasn't answered. */
+marketplaceRouter.post("/team/roster/:id/share-change/withdraw", requireActor, (async (req, res) => { res.json(await withdrawShareChange(req.actor!, req.params.id)); }) as RequestHandler<Id>);
 
 /* ── listings ───────────────────────────────────────────────────────────── */
 /* P1-ART-22 — ?page= turns on the house pager (lib/paging.ts) with ?scope=own|team ?state ?q and counts; without it the old whole list. */
@@ -390,3 +392,7 @@ marketplaceRouter.post("/team-invitations/:id/respond", requireActor, (async (re
 marketplaceRouter.post("/team/roster/:id/remove", requireActor, (async (req, res) => { res.json(await removeFromRoster(req.actor!, req.params.id)); }) as RequestHandler<Id>);
 marketplaceRouter.get("/me/team", requireActor, (async (req, res) => { res.json(await myTeam(req.actor!)); }) as RequestHandler);
 marketplaceRouter.post("/me/team/leave", requireActor, (async (req, res) => { res.json(await leaveTeam(req.actor!)); }) as RequestHandler);
+/* POL-BE-03 — the athlete (the guardian, for a minor) answers the team's request to change its share. */
+marketplaceRouter.post("/me/team/share-changes/:id/respond", requireActor, (async (req, res) => {
+  res.json(await respondToShareChange(req.actor!, req.params.id, TeamInvitationResponseInput.parse(req.body).decision));
+}) as RequestHandler<Id>);

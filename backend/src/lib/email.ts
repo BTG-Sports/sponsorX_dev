@@ -126,11 +126,22 @@ export type EmailTemplate =
   | "team.invited"
   | "team.invitationAnswered"
   | "team.linkEnded"
+  /* POL-BE-03 — a team asks to change its share (the athlete, and the
+     guardian who answers for a minor); a lowered share, told to the same;
+     the athlete's answer, to the team. */
+  | "team.shareChangeAsked"
+  | "team.shareLowered"
+  | "team.shareChangeAnswered"
   /* 2S1-BE-13 — closing an account and coming back: the owner is told it
      closed (with the reactivation link), sent a fresh link on request, and
      told when it is back; a rejected account's request reaches BTG admins,
      and BTG's "no" reaches the person. */
   | "account.closed"
+  /* POL-BE-11 — a closure held for BTG: the owner, BTG's admins, the sponsor on each live deal; BTG's decline. */
+  | "account.closeHeld"
+  | "account.closeHeldBtg"
+  | "account.closingSponsor"
+  | "account.closeDeclined"
   | "account.reactivationLink"
   | "account.reactivated"
   | "account.reactivationRequested"
@@ -142,6 +153,8 @@ export type EmailTemplate =
   | "athleteClaim.confirmEmail"
   /* 2S1-BE-14 — BTG admins are told about sensitive profile edits only. */
   | "athlete.sensitiveEdit"
+  /* POL-BE-02 — a minor's edit that would make them an adult, held for BTG: their guardian is told. */
+  | "athlete.adulthoodChangeHeld"
   /* 2S1-BE-15 — the guardian handoff: the new guardian confirms their email;
      the current guardian is asked; a decline points to BTG support; the
      switch is told to all three and to BTG admins. */
@@ -158,6 +171,11 @@ export type EmailTemplate =
      handoff waiting for BTG because "BTG staff confirm minors" is on. */
   | "guardian.replacedByBtg"
   | "handoff.staffConfirm"
+  /* POL-BE-10 — a handoff the current guardian hasn't answered: reminded at 3 days; at 7, BTG may decide (admins, the requester and the current guardian are told). */
+  | "handoff.reminder"
+  | "handoff.escalated"
+  | "handoff.escalatedRequester"
+  | "handoff.escalatedGuardian"
   /* P8-BE-10 — BTG sent one document back: the reason, and the link the person uploads from. */
   | "document.sentBack"
   /* 2S1-BE-16 — a contact-form message to the support mailbox, and the
@@ -194,6 +212,8 @@ export type EmailTemplate =
   | "comingOfAge.started"
   | "comingOfAge.reminder"
   | "comingOfAge.completed"
+  /* POL-BE-02 — a takeover whose ID raised a question, held for BTG to confirm or send back. */
+  | "comingOfAge.heldForBtg"
   | "comingOfAge.terminated"
   | "comingOfAge.uploadLink"
   | "comingOfAge.btgSettle"

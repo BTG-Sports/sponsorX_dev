@@ -30,7 +30,7 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { checkListing, UnavailableError, unitsTaken } from "./availability";
-import { liveCart } from "./cart";
+import { liveCart, sponsorQuote } from "./cart";
 import { billingPrefill, currentOrderTerms } from "./order-terms";
 
 export const HOLD_MS = 15 * 60 * 1000;
@@ -121,10 +121,14 @@ export async function getReservation(actor: Actor, id: string) {
   if (out.state === "HELD" && out.expiresAt <= new Date()) return { ...out, state: "EXPIRED" as const, checkout: null };
   /* 2S4-FE-02 — a live hold carries what checkout shows before the order is
      placed: the order terms the sponsor accepts (body + hash) and the billing
-     contact to prefill. Nothing else does. */
+     contact to prefill. POL-BE-05 — and the quote: subtotal, fees and the
+     total placing it would charge. Nothing else does. */
   if (out.state !== "HELD") return { ...out, checkout: null };
-  const [terms, prefill] = await Promise.all([currentOrderTerms(prisma, tenantId), billingPrefill(prisma, tenantId, out.sponsorId)]);
-  return { ...out, checkout: { terms, ...prefill } };
+  const [terms, prefill, lines] = await Promise.all([
+    currentOrderTerms(prisma, tenantId), billingPrefill(prisma, tenantId, out.sponsorId),
+    prisma.cartLine.findMany({ where: { tenantId, cartId: out.cartId }, select: { quantity: true, unitPriceCents: true } }),
+  ]);
+  return { ...out, checkout: { terms, ...prefill, quote: sponsorQuote(lines.reduce((s, l) => s + l.quantity * l.unitPriceCents, 0)) } };
 }
 
 /** The sponsor lets go of a hold. */

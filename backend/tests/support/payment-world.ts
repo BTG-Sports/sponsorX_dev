@@ -6,6 +6,7 @@ import type { PrismaClient } from "../../src/generated/prisma/client";
 import { transitionBody } from "./order-payment";
 import { settleDeliveries } from "./delivery";
 import { issueOrderTerms, placeOrderBody } from "./order-terms";
+import { agreeTeamShare } from "./team-share";
 
 /* --------------------------------------------------------------------------
    A small marketplace for the payment-exception suites (2S5-INT-02,
@@ -40,9 +41,10 @@ export async function paymentWorld(o: { T: string; OTHER_T: string; prefix: stri
     (env as unknown as Env)[k] = v;
   };
 
-  const call = async (method: string, path: string, clerk?: string, body?: unknown) => {
+  /** `ward`: a guardian's login acting for one of their minors (the x-sponsorx-ward header). */
+  const call = async (method: string, path: string, clerk?: string, body?: unknown, ward?: string) => {
     const res = await fetch(`${base}/api/v1${path}`, {
-      method, headers: { "content-type": "application/json", ...(clerk ? { "x-test-clerk": clerk } : {}) },
+      method, headers: { "content-type": "application/json", ...(clerk ? { "x-test-clerk": clerk } : {}), ...(ward ? { "x-sponsorx-ward": ward } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const text = await res.text();
@@ -228,6 +230,7 @@ export async function paymentWorld(o: { T: string; OTHER_T: string; prefix: stri
     const riley = await call("POST", "/team/roster", id("mgr"), { legalName: `Riley Carter ${P}`, displayName: `RILEY.${P.toUpperCase()}`, email: `${id("riley")}@${domain}`, sport: "Basketball", ageBand: "18_PLUS", teamShareBps: 2000 });
     expect(riley.status, riley.text).toBe(201);
     E.riley = riley.json.id;
+    await agreeTeamShare(prisma as unknown as PrismaClient, E.riley);
     const clinic = await call("POST", "/inventory", id("riley"), { title: `Basketball clinic ${P}`, kind: "CAMP", priceCents: 50_000, quantity: 500 });
     expect(clinic.status, clinic.text).toBe(201);
     E.clinic = (await call("POST", "/listings", id("mgr"), { inventoryItemId: clinic.json.id, title: `Youth basketball clinic with Riley ${P}`, description: "A 90-minute youth clinic at your venue, for up to 20 kids." })).json.id;

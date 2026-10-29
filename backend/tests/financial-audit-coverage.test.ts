@@ -131,6 +131,8 @@ const READ_ONLY = new Set([
   "myPayoutHistoryPage",
   "payoutChecks",
   "listPayouts",
+  /* POL-BE-11 — what closing an account would leave behind in money: a read of the balance and the payout account. */
+  "moneyLeftFor",
   "getPayout",
   "payoutHandlerFor",
   /* A delegate: completeStandinPayout writes only through the provider

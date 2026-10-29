@@ -111,6 +111,48 @@ isn't held for a person to check.
   even when the ID reads clear. The screen shows "waiting for approval".
 - **Done when:** a minor's DOB change doesn't apply until approved; coming of
   age never removes a guardian without BTG; tests.
+- **Decided 2026-10-28 (rcfworks, with Rodney's authority):**
+  - BTG alone approves a change that would make a minor an adult. The guardian
+    is told.
+  - A takeover is automatic only when the ID reads clear. Otherwise BTG
+    decides. This replaces "always held for BTG" above.
+- **Backend delivered (`POL-BE-02`, 2026-10-28):**
+  - **Edits:** a new date of birth, or a move, that would make a minor an
+    adult is not applied by the edit, whoever makes it (athlete or guardian).
+    - Those fields become a `PENDING` profile change: `fields` holds
+      `birthDate` and/or `stateCode`, and there's no ID upload. The rest of
+      the edit applies.
+    - BTG is emailed (`athlete.sensitiveEdit`, now saying it waits), and so
+      is the guardian (`athlete.adulthoodChangeHeld`). Audited
+      `athlete.adulthoodChangeHeld`.
+    - BTG answers on the existing `POST /profile-changes/:id/decision`:
+      `APPLY` applies it and starts coming of age; `DECLINE` needs a note,
+      which the athlete reads.
+    - A minor asking to be an adult can't also name a guardian.
+    - A change that makes someone a minor still applies at once.
+  - **Takeover:** the coming-of-age ID completes it only when it reads clear.
+    - A flagged or unread ID holds it (`Athlete.comingOfAgeHeldAt`, with
+      reasons). The guardian keeps control, the 90-day sweep neither ends
+      nor reminds it, and BTG is emailed (`comingOfAge.heldForBtg`).
+    - BTG confirms (`POST /signups/athletes/:id/coming-of-age/confirm`) or
+      sends the ID back (the existing send-back, which now also ends the
+      hold).
+  - Migration: `20261028150000_coming_of_age_held`.
+  - Tests: `phase2-profile-edits.test.ts` and `phase2-guardian-acts.test.ts`.
+- **For `POL-FE-02` (screens):**
+  - **Profile edit:** a held change comes back as a `PENDING` change, with
+    `checkNotes` "BTG checks this change before it applies…". Show
+    "Waiting for BTG", and let the athlete withdraw it (the existing
+    withdraw).
+  - **BTG's sensitive-edits list:** show **Apply** and **Decline (with a
+    reason)** for a pending change that has no ID.
+  - **Coming-of-age page** (`GET /public/coming-of-age/:token`) and the
+    portal reminder (`GET /coming-of-age/mine`): `checking: true` means "ID
+    received — BTG is checking it".
+  - **BTG's athlete page** (`GET /signups/athletes/:id`): `comingOfAgeHeld`
+    gives the reasons, and `can.confirmComingOfAge` shows a **Confirm
+    takeover** button. Sending the ID back uses the existing document
+    send-back.
 
 ### 3. A team can raise its cut of an athlete's earnings to 100%
 `POL-BE-03` · `POL-FE-03` · *Money · Minors · Consent* · confirmed
@@ -126,6 +168,53 @@ invited athletes are protected.
   screen.
 - **Done when:** no share goes up without the athlete's or guardian's yes;
   tests cover directly added athletes, invited athletes and minors.
+- **Decided (2026-10-29, with Rodney's authority):** the share typed at "Add
+  athlete" needs the athlete's yes too. Until they answer, BTG's standard
+  team share applies.
+- **Backend delivered (`POL-BE-03`, 2026-10-29):**
+  - Anything that can raise the share is a **request** (`TeamShareChange`):
+    - a higher share;
+    - clearing it back to BTG's standard share;
+    - the share typed at "Add athlete" (zero needs no answer).
+  - The share stays where it was until the athlete accepts. One request is
+    open per athlete, and a newer one replaces it.
+  - **Lowering applies at once**, ends any open request, and is emailed
+    (`team.shareLowered`).
+  - **Who answers:**
+    - an adult answers for themselves;
+    - for a minor, only the guardian accepts (their login acting for the
+      ward), the same rule as joining a team. The minor's own "accept" is
+      refused with `guardian_must_act`;
+    - nobody accepts during the coming-of-age pause.
+  - A yes applies only while the athlete is still on that team at the share
+    the request was made from. Otherwise it is refused as out of date.
+  - **Emails:**
+    - `team.shareChangeAsked` goes to the athlete, and to the guardian while
+      the guardian acts for them;
+    - `team.shareChangeAnswered` goes to the team's managers.
+  - Leaving or being removed from the team lapses an open request.
+  - Tests:
+    - `backend/tests/phase2-team-share.test.ts`: an athlete added directly, a
+      minor, the guardian, lowering, withdrawing, and a stale or lapsed
+      request;
+    - `phase2-team-invites.test.ts`: an invited athlete.
+- **For `POL-FE-03` (screens):**
+  - **Team side:**
+    - `PATCH /team/roster/:id` now answers `{ id, displayName, teamShareBps,
+      shareChange }`.
+    - `shareChange` (`{ id, fromBps, toBps, askedAt }`, `toBps: null` =
+      BTG's standard share) means it is waiting for the athlete's answer.
+      Show "Waiting for {athlete}'s answer", not "Saved".
+    - `POST /team/roster` answers the same way.
+    - `GET /team/roster` and `GET /team/athletes` carry `shareChange` on each
+      athlete.
+    - `POST /team/roster/:id/share-change/withdraw` takes a request back.
+  - **Athlete side** (the guardian's view of the ward too):
+    - `GET /me/team` carries `membership.shareChange`.
+    - Show the change from → to with Accept and Decline, calling
+      `POST /me/team/share-changes/:id/respond` with
+      `{ decision: "ACCEPT" | "DECLINE" }`.
+    - A minor sees it but can't accept; say "Your guardian accepts this".
 
 ### 4. With Stripe paused, sponsors' orders are cancelled for "not paying"
 `POL-BE-04` · `POL-FE-04` · *Money · Dead end* · confirmed · **hurting now**
@@ -193,6 +282,31 @@ leaves the fees out. The real total appears only after the sponsor has committed
   checkout shows the full total next to the button that commits. If the API
   already has the quote, this needs front-end work only.
 - **Done when:** the total shown before placing equals the total charged; tests.
+- **Backend delivered (`POL-BE-05`, 2026-10-29):**
+  - **What was missing:** the API had no quote. The buyer fee
+    (`MARKETPLACE_BUYER_FEE_BPS`) was added only at the moment of placing.
+  - **One quote:** `orderQuote` (in `marketplace-order-rules.ts`) gives the
+    subtotal, BTG's buyer fee and the total. The cart, checkout and placing
+    all use it, so the total shown is the total charged. The card charge is
+    the order's `totalCents`.
+  - **The guard:** placing can carry `totalCentsShown`. If it differs from
+    the server's total, the order is refused with 409 `total_changed`
+    ("now $X"). Nothing is placed or accepted, and the hold is kept. It is
+    optional, so today's checkout keeps working.
+  - Tests: `backend/tests/phase2-orders.test.ts` (POL-BE-05 block, with a 3%
+    fee switched on).
+- **For `POL-FE-05` (screens):**
+  - **Where to read the quote:**
+    - `GET /cart` → `cart.quote`;
+    - `GET /reservations/:id` → `checkout.quote`.
+    - Both are `{ currency, subtotalCents, feesCents, totalCents }`.
+  - On checkout, show subtotal, fees and **Total** next to Place order.
+  - Remove "Fees: added when the order is placed" and "Total so far".
+  - The cart's own `totalCents` is still the lines' sum, so use `quote` for
+    the total.
+  - Send `totalCentsShown: checkout.quote.totalCents` with
+    `POST /marketplace-orders`.
+  - On a 409 `total_changed`, show the message and reload the quote.
 
 ### 6. A sponsor who pays twice gets no refund
 `POL-BE-06` · `POL-FE-06` · *Money · Silent* · likely
@@ -204,6 +318,37 @@ payment and has no refund button, and nothing is added to "Refunds to send".
 - **Fix:** a duplicate payment creates a refund to send and flags the order.
   The order page shows it, and BTG can mark it refunded.
 - **Done when:** a duplicate shows on the order and in "Refunds to send"; tests.
+- **Backend delivered (`POL-BE-06`, 2026-10-29):**
+  - A card payment confirmed for an order that no longer needs it is a
+    **refund row of its own**, one per card payment, with a new cause:
+    - `PAID_TWICE`: the order was already paid;
+    - `PAID_AFTER_REFUND`: the order was already refunded;
+    - `PAID_AFTER_CANCELLATION`: unchanged, the order was cancelled.
+  - It is refunded to the card where the provider can: Stripe queues it, the
+    test provider on staging sends it at once. With payments off it stays
+    open on "Refunds to send" for Finance, who marks it sent as any other.
+  - BTG's admins get the "refund needed" email only when Finance must send
+    it by hand. The email now links to "Refunds to send". The sponsor gets
+    the usual "refund sent" email once it is sent.
+  - **The order's own refunds are unaffected.** A later refund of the order
+    (a line cancelled, a delivery problem, BTG's refund, a refund made at
+    Stripe) still returns its whole total: refunds of extra payments are
+    never counted against it.
+  - Tests: `backend/tests/phase2-line-cancellation.test.ts` (paid twice by
+    card and with no provider; paid after a refund; the order's own refund
+    still whole), `payment-disputes.test.ts` (a Stripe refund of the real
+    payment still applies).
+- **For `POL-FE-06` (screens):**
+  - The order view (`GET /marketplace-orders/:id`, sponsor's and BTG's)
+    already carries `refunds[]`. A row with `cause: "PAID_TWICE"` or
+    `"PAID_AFTER_REFUND"` and `lineId: null` is the extra payment. Show it
+    as "You paid twice: {amount} is being refunded" (sponsor) or "Paid
+    twice: refund {on its way | sent on …}" (BTG).
+  - "Refunds to send" (`GET /refunds`) lists it with `causeWords`. Add the
+    two causes to `causeLabel` in `frontend/src/lib/refunds-live.ts`, e.g.
+    "Paid twice" and "Paid after it was refunded". Until then they show as
+    "Refund".
+  - Marking it refunded is the existing "Mark sent" (`POST /refunds/:id/sent`).
 
 ### 7. Anyone holding the fan's phone can use up their reward
 `POL-BE-07` · `POL-FE-07` · *Consent* · confirmed
@@ -217,6 +362,44 @@ undone.
   per reward or event. A redeem can be undone within a few minutes.
 - **Done when:** no redeem without the venue code; an accidental redeem can be
   undone; tests.
+- **Decided (2026-10-29):** the code requirement goes live behind a switch,
+  `REWARD_STAFF_CODE_REQUIRED`, off until the fan page asks for the code. So
+  no event is left unable to redeem in between. Every switch is listed in
+  [SponsorX-Switches.md](SponsorX-Switches.md).
+- **Backend delivered (`POL-BE-07`, 2026-10-29):**
+  - Each reward has a **six-digit staff code**, made when it is created
+    (existing rewards were given one). Only the reward's managers see it:
+    BTG, and the sponsor's admins.
+  - **Redeem** checks the code: required once the switch is on, and checked
+    whenever one is sent, even while it is off.
+  - **Five wrong codes** lock that fan's code for 15 minutes, on top of the
+    limit of 20 tries a minute per device.
+  - **Undo:** the booth can undo the code's latest redeem within 5 minutes,
+    with the staff code. The redeem is removed, so every count is right, and
+    on a reward with a limit the unit goes back to the pool. Each undo is
+    audited and counted on the code.
+  - Tests: `backend/tests/reward.staff-code.test.ts`, and
+    `rewards.read.test.ts` for who sees the code.
+- **For `POL-FE-07` (screens):**
+  - **Fan page** (`GET /public/rewards/:token` now carries
+    `staffCodeRequired` and `undoUntil`):
+    - "Staff: redeem now" asks for the staff code and confirms, then sends
+      `POST /public/rewards/:token/redeem` with `{ staffCode }`. Send it even
+      while `staffCodeRequired` is false.
+    - Refusals by `error.code`:
+      - `staff_code_required`;
+      - `wrong_staff_code` (the message says how many tries are left);
+      - `staff_code_locked` (429).
+    - While `undoUntil` is in the future, show **Undo**, which asks for the
+      code and sends `POST /public/rewards/:token/redeem/undo` with
+      `{ staffCode }`. Refused: `nothing_to_undo`, `undo_window_closed`.
+  - **Reward page** (BTG and the sponsor's admins): `GET /rewards/:id`
+    carries `staffCode`. Show it, with **New code**
+    (`POST /rewards/:id/staff-code`), which replaces it at once.
+  - Each token carries `undoneRedeems` and `lastUndoneRedeemAt`, beside
+    `refusedRedeems`.
+  - **When the fan page ships:** tell rcfworks, who turns
+    `REWARD_STAFF_CODE_REQUIRED` on, staging first.
 
 ### 8. Only the first fan can claim a shared QR code
 `POL-BE-08` · `POL-FE-08` · *Silent · Dead end* · likely
@@ -229,6 +412,39 @@ hold, and their email is never collected.
 - **Fix:** each fan who scans a shared code gets their own claim, up to the
   reward's limit. The page shows the fan's own claim, or "all claimed".
 - **Done when:** two fans on one code each get their own claim; tests.
+- **Decided (2026-10-29):** behind a switch, `REWARD_FAN_CODES`, off until the
+  fan page sends the fan on to their own code (as with item 7). Listed in
+  [SponsorX-Switches.md](SponsorX-Switches.md).
+- **Backend delivered (`POL-BE-08`, 2026-10-29):**
+  - A code issued from the desk is a **shared code** (an athlete's QR). A fan
+    claiming through it gets a **code of their own** (`parentTokenId`), with
+    the shared code's athlete. The claim, the hold on a reward with a limit,
+    the voucher email and the redeem are all on the fan's code; it is never
+    printed.
+  - **An address already used** on the reward gets its own code back, not a
+    second one. A fan who gave no address can't be recognised by the API.
+  - **The shared code's page** is the offer: never another fan's claim or
+    hold. "All claimed" (`state: EXHAUSTED`) once the limit is held or used.
+    Redeeming the shared code itself is refused (`claim_first`).
+  - **The desk** lists the printed codes only; each one's funnel, refused and
+    undone redeems include its fans' codes. Reports count through the reward
+    and the athlete, so they include fans' codes unchanged.
+  - Existing codes are treated as shared codes; claims already made on them
+    stay as they were.
+  - Tests: `backend/tests/reward.fan-codes.test.ts`, and
+    `rewards.read.test.ts` for the desk's totals.
+- **For `POL-FE-08` (screens):**
+  - `GET /public/rewards/:token` carries `kind`: `SHARED` (an athlete's QR),
+    `FAN` (one fan's own code) or `CODE` (switch off: as before).
+  - On a `SHARED` page, "Claim" posts as today. The answer carries `code`:
+    the fan's own code. Redirect to `/r/{code}`, and remember it in the
+    browser for this shared code, so a fan who scans again goes straight to
+    their code instead of making another.
+  - The staff redeem and undo belong on the `FAN` page, never the `SHARED`
+    one. A redeem on a shared code answers `claim_first`.
+  - `state: EXHAUSTED` on a shared page: show "All claimed".
+  - **When it ships:** tell rcfworks, who turns `REWARD_FAN_CODES` on,
+    staging first.
 
 ---
 
@@ -244,6 +460,20 @@ quietly expires.
 - **Fix:** for a minor, invitation, reminder and expiry emails go to the
   guardian, with a copy to the minor.
 - **Done when:** the guardian gets every email for a minor's invitation; tests.
+- **Backend delivered (`POL-BE-09`, 2026-10-29):**
+  - The new-invitation email, the 3-day reminder and the expiry warning go
+    to the **guardian while the guardian acts for the athlete**: the same
+    rule as accepting, so through the coming-of-age period until the ID
+    check too. Worded for them: "Mia has a new campaign invitation… As
+    Mia's guardian, you accept or decline it."
+  - The minor gets a **copy** saying their guardian decides, when they have
+    an address. An adult's emails are unchanged.
+  - One once-only key per recipient (`…:guardian` for the guardian's), so
+    the hourly sweep sends each person one.
+  - Tests: `backend/tests/invitation-guardian-mail.test.ts` (the real jobs),
+    `b2b4.test.ts` (who is emailed, and the wording).
+  - No screen work: the guardian already answers on the ward's invitations
+    page, which the emails link to.
 
 ### 10. A guardian handoff can wait forever
 `POL-BE-10` · `POL-FE-10` · *Minors · Silent* · likely
@@ -256,6 +486,31 @@ answers, so an unreachable guardian leaves the minor stuck.
   handoff is and has a decide button.
 - **Done when:** reminders and escalation run on schedule; BTG can decide an
   escalated handoff; tests.
+- **Backend delivered (`POL-BE-10`, 2026-10-29):**
+  - **Hourly check:**
+    - 3 days after a request reaches the current guardian, they get one
+      reminder (`handoff.reminder`).
+    - At 7 days with no answer it is **escalated** (`escalatedAt`). BTG's
+      admins, the requester and the current guardian are told.
+  - **BTG decides an escalated request** on the existing staff decision
+    (`POST /guardian-handoffs/:id/staff-decision`): `CONFIRM` runs the
+    switch, `DECLINE` needs a reason the requester reads. Before 7 days it is
+    refused: still with the current guardian.
+  - **The current guardian can still answer** after escalation. The first
+    answer decides: the request's row is locked while either is saved.
+  - When BTG confirms a request the guardian never answered, the emails say
+    so (`byBtg`), never "you handed off".
+  - Tests: `backend/tests/phase2-guardian-handoff-escalation.test.ts`.
+- **For `POL-FE-10` (screens):**
+  - Each request now carries `sentAt`, `waitingDays` (while with the current
+    guardian), `remindedAt`, `escalatedAt` and `btgMayDecide`.
+  - **Desk:** "Waiting for BTG" (`?group=WAITING_FOR_BTG`) now also holds
+    escalated requests, and its count includes them. Show the age ("waiting
+    9 days"), and "No answer from the current guardian" when `escalatedAt`
+    is set. Show Confirm and Decline whenever `btgMayDecide` is true.
+  - **Current guardian's card:** still shows Hand off and Decline after
+    escalation. Add "BTG will review this if you don't answer" once
+    `escalatedAt` is set.
 
 ### 11. Closing an account ignores live deals
 `POL-BE-11` · `POL-FE-11` · *Money · Minors* · likely
@@ -272,6 +527,48 @@ just been switched off.
   live deals before confirming.
 - **Done when:** no closure leaves a live deal unsettled or unannounced; a
   minor can't close alone; earned money still pays; tests.
+- **Decided (2026-10-29):**
+  - Money earned with no payout account holds the closure for BTG, as a
+    live deal does.
+  - A guardian who still acts for a minor is held for BTG too, who arranges
+    a new guardian (or closes the minor's account) first.
+- **Backend delivered (`POL-BE-11`, 2026-10-29):**
+  - **Held for BTG** (`ClosureRequest`, filed in BTG's tenant) when closing
+    would leave something behind:
+    - a **live deal**: a campaign order sent, accepted or under way, or a
+      marketplace sale unpaid, in delivery, delivered but not confirmed, or
+      with a problem;
+    - money earned with no payout account;
+    - a guardian still acting for a minor.
+  - While held, the account stays open and nothing is switched off. The
+    owner, BTG's admins and the sponsor on each live deal are emailed.
+  - **BTG** settles each deal with the existing tools, then **closes it**
+    (refused, listing what is still open, until nothing is), or
+    **declines** it with a reason. The owner can **withdraw** it.
+  - **A minor's account is closed by their guardian**, never the minor's
+    own login (`guardian_must_act`), by the same rule as accepting.
+  - Closing **declines the account's open invitations**, and **requests its
+    earned money** as the system to the payout account on file: at once,
+    and hourly while it is closed, for money whose holding period ends later.
+  - Tests: `backend/tests/phase2-closure-live-deals.test.ts`.
+- **For `POL-FE-11` (screens):**
+  - **Before confirming,** call `GET /me/close/preview` (`?account=` when
+    the login has more than one). Show `liveDeals` (title, sponsor, state,
+    and for a guardian the minor's name), `openInvitations`, `money`
+    (`owedCents`, `accountReady`) and `wards`. When `wouldHold` is true, say
+    BTG will settle these first, with `holdReasons`.
+  - `POST /me/close` answers **202 `state: HELD`** (with `requestId`,
+    `holdReasons`, `liveDeals`) instead of 200 when held. Show "Waiting for
+    BTG", with **Withdraw** (`POST /me/close/withdraw`). The preview's
+    `heldRequest` shows it on a later visit.
+  - A minor's own login gets 403 `guardian_must_act`: say "Your guardian
+    closes your account". The guardian closes it while acting for the
+    minor, with `account: "athlete"`.
+  - **BTG desk:** `GET /account-closure-requests` (held, oldest first) and
+    `GET /account-closure-requests/:id`, which carries `now` (what is still
+    live) and `canClose`. Buttons: **Close now**
+    (`POST …/:id/close`, 409 with what is open until `canClose`) and
+    **Decline** (`POST …/:id/decline`, `{ note }`).
 
 ### 12. Payouts held for review are silent
 `POL-BE-12` · `POL-FE-12` · *Money · Silent* · confirmed

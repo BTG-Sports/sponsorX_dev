@@ -229,6 +229,7 @@ export const PlaceOrderInput = z
     agreementId: z.string().min(1).describe("The MARKETPLACE_ORDER agreement checkout showed (GET /reservations/:id → checkout.terms.id)").optional(),
     /* The agreement's own fingerprint form ("sha256:<hex>"), as offers take it. */
     bodyHashShown: z.string().min(1).max(200).describe("Hash of the order terms as rendered to the sponsor").optional(),
+    totalCentsShown: z.number().int().min(0).describe("POL-BE-05 — the total checkout showed (checkout.quote.totalCents); a different total refuses the order, 409 total_changed").optional(),
     billing: OrderBillingContact.optional(),
   })
   .strict()

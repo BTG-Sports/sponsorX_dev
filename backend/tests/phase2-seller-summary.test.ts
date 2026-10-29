@@ -1,5 +1,7 @@
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type { PrismaClient } from "../src/generated/prisma/client";
+import { agreeTeamShare } from "./support/team-share";
 
 /* --------------------------------------------------------------------------
    The athlete portal home's marketplace reads, against the real API and
@@ -160,6 +162,7 @@ describe.skipIf(!hasDatabase)("the seller's summary, payouts by state and order-
     const riley = await call("POST", "/team/roster", "ss_mgr", { legalName: "Riley Cole SS", displayName: "RILEY.COLE.SS", email: "ss_riley@ss-test.invalid", sport: "Basketball", ageBand: "18_PLUS", teamShareBps: 2000 });
     expect(riley.status, riley.text).toBe(201);
     E.riley = riley.json.id;
+    await agreeTeamShare(prisma as unknown as PrismaClient, E.riley);
     E.hawksListing = await listing("ss_mgr", await item("ss_riley", { title: "Basketball clinic SS", priceCents: 50_000 }), "Youth clinic with Riley Cole SS");
 
     /* Jordan: one live, one asking to approve each order, one draft, one held for BTG, and one item never listed (inactive). */

@@ -99,9 +99,16 @@ ${d.portalUrl ?? ""}
     subject: "About your SponsorX application",
     text: `Hi ${d.firstName ?? "there"},\n\nWe are not able to approve your application at this time.\n\n${d.reviewerNotes ?? ""}\n\nThis is not necessarily permanent — the network grows, and sponsor demand changes by sport and region.\n\nQuestions? Contact BTG support at ${supportAddress(d)}.\n\n— BTG SponsorX`,
   }),
+  /* POL-BE-09 — the three invitation emails, worded for who reads them: the
+     athlete; their guardian while the guardian decides (`wardName`); or the
+     minor's copy then (`guardianDecides`). */
   "invitation.sent": (d) => ({
-    subject: `${d.sponsorName ?? "A sponsor"} wants to work with you`,
-    text: `Hi ${d.firstName ?? "there"},\n\nYou have a new campaign invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""}.\n\n${d.jobName ?? "The work"}${d.offered ? ` — ${d.offered}` : ""}\n\nOpen it to see the full terms and decide:\n\n${d.portalUrl ?? ""}\n\nIt expires on ${d.expiresOn ?? "the date shown in your portal"}.\n\n— BTG SponsorX`,
+    subject: d.wardName
+      ? `${d.sponsorName ?? "A sponsor"} wants to work with ${d.wardName}`
+      : `${d.sponsorName ?? "A sponsor"} wants to work with you`,
+    text: d.wardName
+      ? `Hi ${d.firstName ?? "there"},\n\n${d.wardName} has a new campaign invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""}.\n\n${d.jobName ?? "The work"}${d.offered ? ` — ${d.offered}` : ""}\n\nAs ${d.wardName}'s guardian, you accept or decline it. Open it to see the full terms:\n\n${d.portalUrl ?? ""}\n\nIt expires on ${d.expiresOn ?? "the date shown in the portal"}.\n\n— BTG SponsorX`
+      : `Hi ${d.firstName ?? "there"},\n\nYou have a new campaign invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""}.\n\n${d.jobName ?? "The work"}${d.offered ? ` — ${d.offered}` : ""}\n\n${d.guardianDecides ? `Your guardian accepts or declines it for you, and we have sent it to them too. You can see the full terms here:` : "Open it to see the full terms and decide:"}\n\n${d.portalUrl ?? ""}\n\nIt expires on ${d.expiresOn ?? "the date shown in your portal"}.\n\n— BTG SponsorX`,
   }),
   /* 2S5-INT-02 — the sponsor's receipt, sent once the payment provider
      confirms the card payment. No card details: SponsorX never had them. */
@@ -115,7 +122,7 @@ ${d.portalUrl ?? ""}
   /* 2S4-BE-10 — a card payment confirmed for an order no longer waiting for it: BTG refunds the sponsor. */
   "payment.refundNeeded": (d) => ({
     subject: `Refund the sponsor: a card payment of ${d.amount ?? ""} for order ${d.orderRef ?? ""}, which is ${d.orderState ?? "no longer waiting for payment"}`,
-    text: `${d.why ?? "A card payment was confirmed for an order that was no longer waiting for payment"} (order ${d.orderRef ?? ""}, ${d.amount ?? ""}). The order has not been reopened — refund the sponsor's payment with the payment provider${d.providerRef ? ` (payment ${d.providerRef})` : ""}.\n\n${d.orderUrl ?? ""}\n\n— SponsorX`,
+    text: `${d.why ?? "A card payment was confirmed for an order that was no longer waiting for payment"} (order ${d.orderRef ?? ""}, ${d.amount ?? ""}). The order has not been reopened. The refund is on "Refunds to send" — send it to the sponsor${d.providerRef ? ` (card payment ${d.providerRef})` : ""} and mark it sent:\n\n${d.refundsUrl ?? d.orderUrl ?? ""}\n\nThe order: ${d.orderUrl ?? ""}\n\n— SponsorX`,
   }),
   /* 2S5-INT-02 — a provider event SponsorX held for BTG instead of applying it. */
   "payment.heldForBtg": (d) => ({
@@ -361,6 +368,19 @@ ${d.portalUrl ?? ""}
     subject: `${d.athleteName ?? "The athlete"} ${d.answer ?? "answered"} your invitation`,
     text: `Hi there,\n\n${d.athleteName ?? "The athlete"} ${d.answer ?? "answered"} your invitation to join ${d.teamName ?? "your team"}${d.share ? ` at a ${d.share} team share` : ""}.\n\n${d.rosterUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* POL-BE-03 — a team's share goes up only with the athlete's (or guardian's) yes. */
+  "team.shareChangeAsked": (d) => ({
+    subject: `${d.teamName ?? "Your team"} asks to change its share of ${d.who ?? "your"} earnings`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.teamName ?? "Your team"} asks to change its share of ${d.who ?? "your"} earnings on SponsorX from ${d.from ?? "the current share"} to ${d.to ?? "a new share"}. The team's share is taken from what's left after BTG's fees and card processing.\n\nNothing changes unless ${d.answerer ?? "you accept"}. Orders already placed keep their split either way.\n\n${d.teamUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "team.shareLowered": (d) => ({
+    subject: `${d.teamName ?? "Your team"} lowered its share of ${d.who ?? "your"} earnings`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.teamName ?? "Your team"} lowered its share of ${d.who ?? "your"} earnings on SponsorX from ${d.from ?? "the old share"} to ${d.to ?? "a lower share"}. It applies to new orders from now on; orders already placed keep their split.\n\n${d.teamUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "team.shareChangeAnswered": (d) => ({
+    subject: `${d.athleteName ?? "The athlete"} ${d.answer ?? "answered"} your share request`,
+    text: `Hi there,\n\n${d.athleteName ?? "The athlete"} ${d.answer ?? "answered"} your request to change your team's share from ${d.from ?? "the current share"} to ${d.to ?? "a new share"}.${d.answer === "accepted" ? " It applies to new orders from now on." : " The share stays as it was."}\n\n${d.rosterUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
   "team.linkEnded": (d) => ({
     subject: `${d.athleteName ?? "An athlete"} is no longer on ${d.teamName ?? "the team"}`,
     text: `Hi ${d.firstName ?? "there"},\n\n${d.who ?? "The link between the athlete and the team has ended."}\n\nOrders already placed carry on and pay as agreed when they were placed. New sales of the athlete's items no longer go through the team.\n\n${d.link ?? ""}\n\n— BTG SponsorX`,
@@ -438,12 +458,16 @@ ${d.portalUrl ?? ""}
   }),
 
   "invitation.reminder": (d) => ({
-    subject: "You have an open SponsorX invitation",
-    text: `Hi ${d.firstName ?? "there"},\n\nYou still have an invitation waiting${d.sponsorName ? ` from ${d.sponsorName}` : ""}. There is nothing wrong — we just did not want it to get lost.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+    subject: d.wardName ? `${d.wardName} has an open SponsorX invitation` : "You have an open SponsorX invitation",
+    text: d.wardName
+      ? `Hi ${d.firstName ?? "there"},\n\n${d.wardName} still has an invitation waiting${d.sponsorName ? ` from ${d.sponsorName}` : ""}. As ${d.wardName}'s guardian, you accept or decline it. There is nothing wrong — we just did not want it to get lost.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`
+      : `Hi ${d.firstName ?? "there"},\n\nYou still have an invitation waiting${d.sponsorName ? ` from ${d.sponsorName}` : ""}.${d.guardianDecides ? " Your guardian accepts or declines it for you, and we have reminded them too." : ""} There is nothing wrong — we just did not want it to get lost.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "invitation.expiring": (d) => ({
-    subject: "Your SponsorX invitation expires soon",
-    text: `Hi ${d.firstName ?? "there"},\n\nYour invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""} expires on ${d.expiresOn ?? "shortly"}. After that the sponsor may offer the work to someone else.\n\nIf you are not interested, declining is genuinely helpful — it lets us fill the slot.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+    subject: d.wardName ? `${d.wardName}'s SponsorX invitation expires soon` : "Your SponsorX invitation expires soon",
+    text: d.wardName
+      ? `Hi ${d.firstName ?? "there"},\n\n${d.wardName}'s invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""} expires on ${d.expiresOn ?? "shortly"}. After that the sponsor may offer the work to someone else. As ${d.wardName}'s guardian, you accept or decline it.\n\nIf it isn't right for ${d.wardName}, declining is genuinely helpful — it lets us fill the slot.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`
+      : `Hi ${d.firstName ?? "there"},\n\nYour invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""} expires on ${d.expiresOn ?? "shortly"}. After that the sponsor may offer the work to someone else.${d.guardianDecides ? " Your guardian accepts or declines it for you, and we have told them too." : "\n\nIf you are not interested, declining is genuinely helpful — it lets us fill the slot."}\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   /* P9-BE-13, §5.6 — SponsorX declined a business a student brought in.
      It says plainly that their sales credit is untouched, because that is a
@@ -586,6 +610,10 @@ ${d.portalUrl ?? ""}
       ? `Hi ${d.firstName ?? "there"},\n\n${d.athleteFirstName ?? "Your athlete"} has ${d.daysLeft ?? "a few"} days left (until ${d.dueDate ?? "the deadline"}) to upload a government ID. If it isn't uploaded in time, the account is closed.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`
       : `Hi ${d.firstName ?? "there"},\n\nYou have ${d.daysLeft ?? "a few"} days left (until ${d.dueDate ?? "the deadline"}) to upload a government ID and take over your account. If it isn't uploaded in time, your account is closed.\n\n${d.uploadUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  "comingOfAge.heldForBtg": (d) => ({
+    subject: `Coming-of-age takeover held for you: ${d.athleteName ?? "an athlete"}`,
+    text: `${d.athleteName ?? "An athlete"} uploaded a government ID to take over their account from their guardian, but reading it raised a question:\n\n${d.reasons ?? ""}\n\nThe guardian stays in control and the 90 days don't run out until you decide. Confirm the takeover, or send the ID back with a reason:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
   "comingOfAge.completed": (d) => ({
     subject: d.seat === "guardian" ? `${d.athleteFirstName ?? "Your athlete"} has taken over their SponsorX account` : "You're in control of your SponsorX account",
     text: d.seat === "guardian"
@@ -690,6 +718,23 @@ ${d.portalUrl ?? ""}
     subject: "Your SponsorX account is closed",
     text: `Hi ${d.name ?? "there"},\n\nYour SponsorX account is closed. You can't sign in, and your listings have stopped.\n\nYour documents are kept until ${d.retainUntil ?? "30 days from today"}, then deleted for good. Changed your mind? Reactivate before then and everything comes back:\n\n${d.reactivateUrl ?? ""}\n\nThis link works for 14 days. If it has expired, contact ${d.supportEmail ?? "BTG support"} and we'll send you a new one.\n\nMoney you already earned is still paid out to your payout account.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* POL-BE-11 — closing held for BTG: something would be left behind. */
+  "account.closeHeld": (d) => ({
+    subject: "Your account is closing once BTG settles a few things",
+    text: `Hi ${d.name ?? "there"},\n\nWe got your request to close your SponsorX account. It can't close straight away, because:\n\n- ${d.reasons ?? ""}\n\nBTG will sort these out with you and close the account after. Until then it stays open and nothing changes. If you change your mind, you can withdraw the request from your account page.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "account.closeHeldBtg": (d) => ({
+    subject: `Account closure waiting for BTG: ${d.accountName ?? "an account"}`,
+    text: `${d.accountName ?? "An account"} (${d.kind ?? "account"}) asked to close, and it can't close yet:\n\n- ${d.reasons ?? ""}${d.deals ? `\n\nLive deals:\n- ${d.deals}` : ""}\n\nSettle each one (the sponsors on them have been told), then close it — or decline the request:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "account.closingSponsor": (d) => ({
+    subject: `${d.accountName ?? "An athlete"} is leaving SponsorX`,
+    text: `Hi,\n\n${d.accountName ?? "An athlete you work with"} has asked to close their SponsorX account. You have work with them that isn't finished:\n\n- ${d.deals ?? ""}\n\nNothing has been cancelled. BTG will be in touch to settle each one with you — finishing it, or cancelling and refunding it.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "account.closeDeclined": (d) => ({
+    subject: "About your request to close your SponsorX account",
+    text: `Hi ${d.name ?? "there"},\n\nBTG looked at your request to close your account and kept it open:\n\n${d.note ?? ""}\n\nNothing has changed. If you still want to close it, contact ${d.supportEmail ?? "BTG support"}.\n\n— BTG SponsorX`,
+  }),
   "account.reactivationLink": (d) => ({
     subject: "Your link to reactivate your SponsorX account",
     text: `Hi ${d.name ?? "there"},\n\nHere is the link you asked for. It works for 24 hours:\n\n${d.reactivateUrl ?? ""}\n\nIf you didn't ask for it, you can ignore this email — nothing changes.\n\n— BTG SponsorX`,
@@ -722,7 +767,12 @@ ${d.portalUrl ?? ""}
   /* 2S1-BE-14 — a sensitive profile edit, to BTG admins. */
   "athlete.sensitiveEdit": (d) => ({
     subject: `Sensitive profile change: ${d.athleteName ?? "an athlete"}`,
-    text: `${d.athleteName ?? "An athlete"} changed ${d.what ?? "a sensitive detail"} on their SponsorX profile. It is live now; the automatic checks ran again:\n\n${d.checks ?? ""}\n\nOpen them on New sign-ups — Reject is there if this looks wrong:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+    text: `${d.athleteName ?? "An athlete"} changed ${d.what ?? "a sensitive detail"} on their SponsorX profile. ${d.held ? "It is waiting for you to apply or decline it:" : "It is live now; the automatic checks ran again:"}\n\n${d.checks ?? ""}\n\nOpen them on New sign-ups — Reject is there if this looks wrong:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* POL-BE-02 — the guardian of a minor whose edit would make them an adult: it waits for BTG. */
+  "athlete.adulthoodChangeHeld": (d) => ({
+    subject: `${d.athleteFirstName ?? "Your athlete"} asked to change ${d.what ?? "their date of birth"} — BTG is checking it`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.athleteFirstName ?? "Your athlete"}'s SponsorX profile was changed: ${d.what ?? "their date of birth"}. That would make them an adult and end your control of their account, so BTG checks it before it applies. Nothing changes until then, and you stay their guardian.\n\nIf this change is wrong, tell BTG: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
   }),
 
   /* 2S1-BE-15 — the guardian handoff. */
@@ -745,11 +795,11 @@ ${d.portalUrl ?? ""}
   }),
   "handoff.switchedNew": (d) => ({
     subject: `You are now ${d.athleteFirstName ?? "your athlete"}'s guardian on SponsorX`,
-    text: `Hi ${d.name ?? "there"},\n\n${d.currentFirstName ?? "The previous guardian"} handed off, and you are now ${d.athleteFirstName ?? "the athlete"}'s guardian. You approve their agreements and payments from now on. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\nNext: set up your own payout account for ${d.athleteFirstName ?? "the athlete"} from the Payouts page. Payouts not yet sent wait for it and go to your account. Orders already agreed continue as they are.\n\n— BTG SponsorX`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.byBtg ? `${d.currentFirstName ?? "The previous guardian"} didn't answer, so BTG reviewed your request and confirmed it` : `${d.currentFirstName ?? "The previous guardian"} handed off`}, and you are now ${d.athleteFirstName ?? "the athlete"}'s guardian. You approve their agreements and payments from now on. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\nNext: set up your own payout account for ${d.athleteFirstName ?? "the athlete"} from the Payouts page. Payouts not yet sent wait for it and go to your account. Orders already agreed continue as they are.\n\n— BTG SponsorX`,
   }),
   "handoff.switchedPrevious": (d) => ({
-    subject: `You handed off ${d.athleteFirstName ?? "your athlete"}'s SponsorX account`,
-    text: `Hi ${d.name ?? "there"},\n\n${d.requesterName ?? "The new guardian"} is now ${d.athleteFirstName ?? "the athlete"}'s guardian on SponsorX. Payouts already sent to you are unaffected. Anything not yet paid out now goes to ${d.requesterName ?? "the new guardian"}'s own payout account; yours is no longer used for ${d.athleteFirstName ?? "the athlete"}. Orders already agreed continue.${d.otherChildren ? "\n\nYour other athletes are not affected." : ""}\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
+    subject: d.byBtg ? `${d.athleteFirstName ?? "Your athlete"} has a new guardian on SponsorX` : `You handed off ${d.athleteFirstName ?? "your athlete"}'s SponsorX account`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.byBtg ? `You didn't answer ${d.requesterName ?? "the new guardian"}'s request, so BTG reviewed it with their documents and confirmed it. ` : ""}${d.requesterName ?? "The new guardian"} is now ${d.athleteFirstName ?? "the athlete"}'s guardian on SponsorX. Payouts already sent to you are unaffected. Anything not yet paid out now goes to ${d.requesterName ?? "the new guardian"}'s own payout account; yours is no longer used for ${d.athleteFirstName ?? "the athlete"}. Orders already agreed continue.${d.otherChildren ? "\n\nYour other athletes are not affected." : ""}\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
   }),
   "handoff.switchedAthlete": (d) => ({
     subject: "Your guardian on SponsorX has changed",
@@ -757,12 +807,29 @@ ${d.portalUrl ?? ""}
   }),
   "handoff.btgNotice": (d) => ({
     subject: `Guardian changed: ${d.athleteName ?? "an athlete"}`,
-    text: `${d.previousName ?? "The previous guardian"} handed ${d.athleteName ?? "an athlete"}'s account to ${d.requesterName ?? "a new guardian"} (${d.relationship ?? ""}), who was approved automatically: email confirmed, ID and proof of guardianship uploaded, guardian agreement accepted.\n\nReview them on New sign-ups — Reject is there if this looks wrong:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+    text: `${d.byBtg ? `BTG confirmed a request ${d.previousName ?? "the previous guardian"} never answered, moving` : `${d.previousName ?? "The previous guardian"} handed`} ${d.athleteName ?? "an athlete"}'s account to ${d.requesterName ?? "a new guardian"} (${d.relationship ?? ""}), who was approved automatically: email confirmed, ID and proof of guardianship uploaded, guardian agreement accepted.\n\nReview them on New sign-ups — Reject is there if this looks wrong:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
   }),
   /* 2S1-BE-15 — "BTG staff confirm minors" is on: the current guardian handed off, and the switch waits for BTG. */
   "handoff.staffConfirm": (d) => ({
     subject: `Guardian handoff to confirm: ${d.athleteName ?? "an athlete"}`,
     text: `${d.previousName ?? "The current guardian"} has handed ${d.athleteName ?? "an athlete"}'s account to ${d.requesterName ?? "a new guardian"} (${d.relationship ?? ""}). Their email is confirmed, their ID and proof of guardianship are uploaded and they accepted the guardian agreement.\n\n"BTG staff confirm minors" is on, so nothing has switched yet: ${d.previousName ?? "the current guardian"} stays in control until you confirm or decline it:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* POL-BE-10 — a handoff the current guardian hasn't answered. */
+  "handoff.reminder": (d) => ({
+    subject: `Reminder: ${d.requesterName ?? "someone"} asked to become ${d.athleteFirstName ?? "your athlete"}'s guardian`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.requesterName ?? "Someone"} (${d.relationship ?? "guardian"}) is still waiting for your answer to their request to become ${d.athleteFirstName ?? "your athlete"}'s guardian on SponsorX. Only you can hand off or decline:\n\n${d.portalUrl ?? ""}\n\nIf there's no answer in ${d.days ?? "a few"} days, BTG reviews the request and its documents and decides. If you don't know them, or this is about custody, decline and contact BTG at ${d.supportEmail ?? "BTG support"}.\n\n— BTG SponsorX`,
+  }),
+  "handoff.escalated": (d) => ({
+    subject: `Guardian handoff for BTG to decide: ${d.athleteName ?? "an athlete"}`,
+    text: `${d.requesterName ?? "Someone"} (${d.relationship ?? ""}) asked to become ${d.athleteName ?? "an athlete"}'s guardian ${d.days ?? "7"} days ago, and ${d.currentName ?? "the current guardian"} hasn't answered (they were reminded). Their email is confirmed, their ID and proof of guardianship are uploaded and they accepted the guardian agreement.\n\nReview the documents, then confirm or decline it. ${d.currentName ?? "The current guardian"} stays in control until then, and can still answer — the first answer decides:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "handoff.escalatedRequester": (d) => ({
+    subject: `BTG is reviewing your request to become ${d.athleteFirstName ?? "an athlete"}'s guardian`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.currentFirstName ?? "The current guardian"} hasn't answered your request yet, so BTG will now review it with your documents and decide. ${d.currentFirstName ?? "They"} can still answer in the meantime. We'll email you either way.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "handoff.escalatedGuardian": (d) => ({
+    subject: `BTG will review the request about ${d.athleteFirstName ?? "your athlete"}'s guardian`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.requesterName ?? "Someone"}'s request to become ${d.athleteFirstName ?? "your athlete"}'s guardian has had no answer for a week, so BTG will now review it with their documents and decide. You are still the guardian until then, and you can still hand off or decline — the first answer decides:\n\n${d.portalUrl ?? ""}\n\nIf this is about custody, contact BTG at ${d.supportEmail ?? "BTG support"}.\n\n— BTG SponsorX`,
   }),
   /* P8-BE-10 — BTG sent one document back. */
   "document.sentBack": (d) => ({

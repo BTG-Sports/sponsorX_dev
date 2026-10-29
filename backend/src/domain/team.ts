@@ -8,6 +8,10 @@
  * team's tenant with an account to sign in to (claimed by email, like every
  * provisioned user) — and sets the team's revenue share on each.
  *
+ * The share is the athlete's to agree (POL-BE-03, team-share.ts): the share
+ * typed at "Add athlete", and any later raise, wait for the athlete's yes (the
+ * guardian's, for a minor); lowering applies at once.
+ *
  * Roster athletes start APPROVED rather than going through BTG's athlete
  * application: BTG verified the organisation, and the organisation vouches
  * for its own roster. Minors still need a verified guardian before any paid
@@ -25,6 +29,7 @@ import { audit } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
+import { askShareChange, endOpenShareChange, needsAgreement, openShareChanges, SHARE_ATHLETE_SELECT, tellShareLowered } from "./team-share";
 
 export class TeamError extends Error {
   readonly status: number;
@@ -82,7 +87,8 @@ export async function teamRoster(actor: Actor) {
     }),
   ]);
   if (!property) throw new ForbiddenError("teamMember", "read");
-  return { property, athletes, inventory: teamItems };
+  const asked = await openShareChanges(prisma, propertyId, athletes.map((a) => a.id));
+  return { property, athletes: athletes.map((a) => ({ ...a, shareChange: asked.get(a.id) ?? null })), inventory: teamItems };
 }
 
 /* --- the property portal's lists, SERVER-PAGED (2026-09-29) --------------
@@ -128,7 +134,8 @@ export async function teamAthletesPage(
     prisma.athlete.count({ /* tenant-scope: `where`/`base`/`mine` are built from whereFor(actor, …, "read") above; only filters are added. */ where: { AND: [base, { state: { in: [...PUBLIC_ATHLETE_STATES] } }] } }),
   ]);
   if (!property) throw new ForbiddenError("teamMember", "read");
-  return { property, athletes: paged.rows, page: paged.page, counts: { athletes: total, active } };
+  const asked = await openShareChanges(prisma, propertyId, paged.rows.map((a) => a.id));
+  return { property, athletes: paged.rows.map((a) => ({ ...a, shareChange: asked.get(a.id) ?? null })), page: paged.page, counts: { athletes: total, active } };
 }
 
 export async function teamInventoryPage(
@@ -176,14 +183,20 @@ export async function teamInventoryPage(
   };
 }
 
-/** Add an athlete to the roster, with an account to claim. */
-export async function addRosterAthlete(actor: Actor, input: RosterAthleteInput) {
+/**
+ * Add an athlete to the roster, with an account to claim. A share typed here
+ * is a request the athlete answers once they're in (POL-BE-03) — until then
+ * BTG's standard team share applies. Zero needs no answer.
+ */
+export async function addRosterAthlete(actor: Actor, input: RosterAthleteInput, now = new Date()) {
   const propertyId = managedProperty(actor, "write");
   assertShare(input.teamShareBps);
   const email = input.email.trim().toLowerCase();
   return prisma.$transaction(async (tx) => {
-    const property = await tx.property.findFirst({ where: { tenantId: actor.tenantId, id: propertyId }, select: { id: true } });
+    const property = await tx.property.findFirst({ where: { tenantId: actor.tenantId, id: propertyId }, select: { id: true, name: true } });
     if (!property) throw new ForbiddenError("teamMember", "write");
+    const asked = input.teamShareBps ?? null;
+    const agreed = needsAgreement(null, asked) ? null : asked;
     const existing = await tx.user.findFirst({
       /* tenant-scope: identity is global — a sign-in is claimed by email across every tenant, so uniqueness is checked across them. */
       where: { email: { equals: email, mode: "insensitive" } },
@@ -197,9 +210,9 @@ export async function addRosterAthlete(actor: Actor, input: RosterAthleteInput) 
         tenantId: actor.tenantId, propertyId, slug: `${base}-${randomBytes(3).toString("hex")}`,
         legalName: input.legalName.trim(), displayName: input.displayName.trim(), email, sport: input.sport.trim(),
         position: input.position?.trim() || null, gradYear: input.gradYear ?? null, birthDate: input.birthDate ?? null,
-        ageBand: input.ageBand ?? null, state: "APPROVED", teamShareBps: input.teamShareBps ?? null,
+        ageBand: input.ageBand ?? null, state: "APPROVED", teamShareBps: agreed,
       },
-      select: { id: true, displayName: true, state: true, teamShareBps: true },
+      select: SHARE_ATHLETE_SELECT,
     });
     const user = await tx.user.create({
       data: {
@@ -209,32 +222,38 @@ export async function addRosterAthlete(actor: Actor, input: RosterAthleteInput) 
       select: { id: true },
     });
     await audit(tx, actor, "team.addAthlete", "Athlete", athlete.id, {
-      after: { propertyId, userId: user.id, teamShareBps: athlete.teamShareBps, state: athlete.state },
+      after: { propertyId, userId: user.id, teamShareBps: athlete.teamShareBps, state: "APPROVED" },
     });
-    return athlete;
+    const shareChange = agreed === asked ? null : await askShareChange(tx, actor, athlete, property, asked, now);
+    return {
+      id: athlete.id, displayName: athlete.displayName, state: "APPROVED" as const, teamShareBps: athlete.teamShareBps,
+      shareChange: shareChange && { id: shareChange.id, fromBps: shareChange.fromBps, toBps: shareChange.toBps, askedAt: shareChange.createdAt },
+    };
   });
 }
 
-/** Set the team's share of one roster athlete's earnings. */
-export async function setTeamShare(actor: Actor, athleteId: string, teamShareBps: number | null) {
-  managedProperty(actor, "write");
+/**
+ * Change the team's share of one roster athlete's earnings. Lowering applies
+ * at once and ends any open request; anything that can raise it is a request
+ * the athlete (or guardian) answers — POL-BE-03, whether the athlete was added
+ * here or invited (2S2-BE-05 protected only the invited).
+ */
+export async function setTeamShare(actor: Actor, athleteId: string, teamShareBps: number | null, now = new Date()) {
+  const propertyId = managedProperty(actor, "write");
   assertShare(teamShareBps);
   return prisma.$transaction(async (tx) => {
     const athlete = await tx.athlete.findFirst({
-      where: { ...whereFor(actor, "teamMember", "write"), id: athleteId }, select: { id: true, teamShareBps: true },
+      where: { ...whereFor(actor, "teamMember", "write"), id: athleteId }, select: SHARE_ATHLETE_SELECT,
     });
     if (!athlete) throw new ForbiddenError("teamMember", "write");
-    /* 2S2-BE-05 — an athlete who joined by accepting an invitation agreed to that
-       share. The team may lower its own share; it can't raise it, or clear it,
-       without the athlete's agreement. */
-    const invited = await tx.teamInvitation.findFirst({
-      /* tenant-scope: the invitation this team (actor.propertyId) sent to this athlete, in the team's own tenant. */
-      where: { propertyId: actor.propertyId!, athleteId, state: "ACCEPTED" }, select: { id: true },
-    });
-    const raises = teamShareBps === null || athlete.teamShareBps === null || teamShareBps > athlete.teamShareBps;
-    if (invited && raises) {
-      throw new TeamError("This athlete agreed to their share when they accepted your invitation — you can lower it, but raising it needs their agreement.", 409);
+    const team = await tx.property.findFirstOrThrow({ where: { tenantId: actor.tenantId, id: propertyId }, select: { id: true, name: true } });
+    const view = { id: athlete.id, displayName: athlete.displayName, teamShareBps: athlete.teamShareBps };
+    if (needsAgreement(athlete.teamShareBps, teamShareBps)) {
+      const row = await askShareChange(tx, actor, athlete, team, teamShareBps, now);
+      return { ...view, shareChange: { id: row.id, fromBps: row.fromBps, toBps: row.toBps, askedAt: row.createdAt } };
     }
+    await endOpenShareChange(tx, actor, athlete.tenantId, athlete.id, "WITHDRAWN", now);
+    if (teamShareBps === athlete.teamShareBps) return { ...view, shareChange: null };
     /* tenant-scope: the row loaded above through whereFor(teamMember, write). */
     const updated = await tx.athlete.update({
       where: { id: athlete.id }, data: { teamShareBps }, select: { id: true, displayName: true, teamShareBps: true },
@@ -242,7 +261,23 @@ export async function setTeamShare(actor: Actor, athleteId: string, teamShareBps
     await audit(tx, actor, "team.setShare", "Athlete", athleteId, {
       before: { teamShareBps: athlete.teamShareBps }, after: { teamShareBps },
     });
-    return updated;
+    await tellShareLowered(tx, athlete, team, athlete.teamShareBps, teamShareBps!, now);
+    return { ...updated, shareChange: null };
+  });
+}
+
+/** The team takes back a share request the athlete hasn't answered. */
+export async function withdrawShareChange(actor: Actor, athleteId: string, now = new Date()) {
+  managedProperty(actor, "write");
+  return prisma.$transaction(async (tx) => {
+    const athlete = await tx.athlete.findFirst({
+      where: { ...whereFor(actor, "teamMember", "write"), id: athleteId }, select: { id: true, tenantId: true, teamShareBps: true },
+    });
+    if (!athlete) throw new ForbiddenError("teamMember", "write");
+    if (!(await endOpenShareChange(tx, actor, athlete.tenantId, athlete.id, "WITHDRAWN", now))) {
+      throw new TeamError("There's no share request waiting for this athlete's answer.", 409);
+    }
+    return { id: athlete.id, teamShareBps: athlete.teamShareBps, shareChange: null };
   });
 }
 

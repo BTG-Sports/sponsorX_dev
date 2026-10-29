@@ -197,4 +197,67 @@ describe.skipIf(!hasDatabase)("2S1-BE-14 · profile edits without BTG review", {
     const audited = await prisma.auditLog.groupBy({ by: ["action"], where: { tenantId: T, action: { in: ["athlete.profileEdit", "athlete.sensitiveEdit"] } }, _count: true });
     expect(Object.fromEntries(audited.map((a) => [a.action, a._count]))).toEqual({ "athlete.profileEdit": 1, "athlete.sensitiveEdit": 3 });
   });
+
+  /* ── POL-BE-02 — a minor can't make themselves an adult ───────────────── */
+  const jo = () => prisma.athlete.findUniqueOrThrow({ where: { id: "pe_jo" }, select: { displayName: true, birthDate: true, ageBand: true, stateCode: true, guardianId: true, comingOfAgeStartedAt: true } });
+
+  it("POL-BE-02 · a minor's new date of birth that would make them an adult waits for BTG; the rest of the edit applies; the guardian and BTG are told", async () => {
+    const r = await call("POST", "/athletes/pe_jo/profile-changes", "pe_jo", { identity: { birthDate: "2001-06-01", displayName: "Jo L." } });
+    expect(r.status, r.text).toBe(201);
+    expect(r.json.changes).toEqual([
+      expect.objectContaining({ state: "APPROVED", sensitive: false }),
+      expect.objectContaining({ state: "PENDING", sensitive: true, fields: { birthDate: "2001-06-01" } }),
+    ]);
+    expect(r.json.checkNotes).toEqual([expect.stringMatching(/BTG checks this change before it applies: it would make you an adult, which ends your guardian's control/)]);
+    expect(await jo()).toMatchObject({ displayName: "Jo L.", birthDate: new Date("2011-06-01"), guardianId: "pe_g_jo", comingOfAgeStartedAt: null });
+    const { EMAIL_TEMPLATES } = await import("../worker/jobs/send-email.mts");
+    const toGuardian = (await emails("athlete.adulthoodChangeHeld"))[0]!;
+    expect(toGuardian.to).toBe("pe_samjo@pe-test.invalid");
+    expect(EMAIL_TEMPLATES["athlete.adulthoodChangeHeld"]!(toGuardian.data).text).toMatch(/Jo's SponsorX profile was changed: their date of birth\. That would make them an adult[\s\S]*Nothing changes until then, and you stay their guardian/);
+    const toBtg = (await emails("athlete.sensitiveEdit")).at(-1)!;
+    expect(toBtg.data).toMatchObject({ held: "yes", what: expect.stringMatching(/held for you to apply or decline: it would make a minor an adult/) });
+    expect(EMAIL_TEMPLATES["athlete.sensitiveEdit"]!(toBtg.data).text).toMatch(/It is waiting for you to apply or decline it/);
+    expect(await prisma.auditLog.count({ where: { tenantId: T, action: "athlete.adulthoodChangeHeld" } })).toBe(1);
+  });
+
+  it("POL-BE-02 · BTG declines it with a reason; the athlete can't decide it; nothing changed", async () => {
+    const held = await prisma.athleteProfileChange.findFirstOrThrow({ where: { tenantId: T, athleteId: "pe_jo", state: "PENDING" }, select: { id: true } });
+    expect((await call("POST", `/profile-changes/${held.id}/decision`, "pe_jo", { decision: "APPLY" })).status).toBe(403);
+    expect((await call("POST", `/profile-changes/${held.id}/decision`, "pe_admin", { decision: "DECLINE" })).status).toBe(400);
+    const no = await call("POST", `/profile-changes/${held.id}/decision`, "pe_admin", { decision: "DECLINE", note: "That date doesn't match the ID we have." });
+    expect(no.status, no.text).toBe(200);
+    expect(no.json).toMatchObject({ state: "DECLINED", reviewerNotes: "That date doesn't match the ID we have." });
+    expect(await jo()).toMatchObject({ birthDate: new Date("2011-06-01"), guardianId: "pe_g_jo", comingOfAgeStartedAt: null });
+  });
+
+  it("POL-BE-02 · a correction is held whoever makes it — BTG applies it, and the coming-of-age allowance starts", async () => {
+    /* Jo's guardian makes it this time. */
+    await prisma.user.create({ data: { id: "pe_u_samjo", tenantId: T, clerkId: "pe_samjo", email: "pe_samjo@pe-test.invalid", roles: ["GUARDIAN"], guardianId: "pe_g_jo" } });
+    await prisma.athlete.update({ where: { id: "pe_jo" }, data: { guardianPendingSince: null } });
+    const r = await call("POST", "/athletes/pe_jo/profile-changes", "pe_samjo", { identity: { birthDate: "2007-06-01" } });
+    expect(r.status, r.text).toBe(201);
+    expect(r.json.changes).toEqual([expect.objectContaining({ state: "PENDING", fields: { birthDate: "2007-06-01" } })]);
+    expect((await jo()).birthDate).toEqual(new Date("2011-06-01"));
+    const ok = await call("POST", `/profile-changes/${r.json.id}/decision`, "pe_admin", { decision: "APPLY" });
+    expect(ok.status, ok.text).toBe(200);
+    expect(ok.json).toMatchObject({ state: "APPROVED", appliedAt: expect.any(String) });
+    expect(await jo()).toMatchObject({ birthDate: new Date("2007-06-01"), ageBand: "18_PLUS", guardianId: "pe_g_jo", comingOfAgeStartedAt: expect.any(Date) });
+  });
+
+  it("POL-BE-02 · a move across the age line is held too; a minor asking to be an adult names no guardian in the same breath", async () => {
+    /* Kai is 14; a place where 14 is adult makes them one. */
+    await prisma.ageOfMajority.create({ data: { tenantId: T, countryCode: "US", regionCode: "AL", age: 14 } });
+    const r = await call("POST", "/athletes/pe_kai/profile-changes", "pe_kai", { identity: { stateCode: "AL", city: "Mobile" } });
+    expect(r.status, r.text).toBe(201);
+    expect(r.json.changes).toEqual([
+      expect.objectContaining({ state: "APPROVED" }),
+      expect.objectContaining({ state: "PENDING", fields: { stateCode: "AL" } }),
+    ]);
+    expect(await prisma.athlete.findUniqueOrThrow({ where: { id: "pe_kai" }, select: { city: true, stateCode: true } })).toMatchObject({ city: "Mobile" });
+    expect((await prisma.athlete.findUniqueOrThrow({ where: { id: "pe_kai" }, select: { stateCode: true } })).stateCode).not.toBe("AL");
+    /* An adult in the making can't also name a guardian. */
+    const both = await call("POST", "/athletes/pe_riley/profile-changes", "pe_riley", { identity: { birthDate: "2000-01-01" }, guardian: { legalName: "Y", email: "pe_y@pe-test.invalid", relationship: "PARENT" } });
+    expect(both.status).toBe(422);
+    expect(both.json.error.code).toBe("guardian_not_required");
+  });
 });

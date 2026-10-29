@@ -2,6 +2,8 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { transitionBody } from "./support/order-payment";
 import { settleDeliveries } from "./support/delivery";
+import type { PrismaClient } from "../src/generated/prisma/client";
+import { agreeTeamShare } from "./support/team-share";
 
 /* --------------------------------------------------------------------------
    Payouts approved and retried automatically, against the real API and
@@ -189,6 +191,7 @@ describe.skipIf(!hasDatabase)("payouts approved and retried automatically", { ti
     const riley = await call("POST", "/team/roster", "pa_mgr", { legalName: "Riley Carter PA", displayName: "RILEY.CARTER.PA", email: "pa_riley@pa-test.invalid", sport: "Basketball", ageBand: "18_PLUS", teamShareBps: 2000 });
     expect(riley.status, riley.text).toBe(201);
     E.riley = riley.json.id;
+    await agreeTeamShare(prisma as unknown as PrismaClient, E.riley);
     const clinic = await call("POST", "/inventory", "pa_riley", { title: "Basketball clinic PA", kind: "CAMP", priceCents: 50_000, quantity: 100 });
     expect(clinic.status, clinic.text).toBe(201);
     E.clinic = (await call("POST", "/listings", "pa_mgr", { inventoryItemId: clinic.json.id, title: "Youth basketball clinic with Riley Carter PA", description: "A 90-minute youth clinic at your venue, for up to 20 kids." })).json.id;

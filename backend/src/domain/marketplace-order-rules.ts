@@ -163,6 +163,16 @@ export function feeFor(subtotalCents: number, bps: number): number {
   return Math.round((subtotalCents * bps) / 10_000);
 }
 
+/**
+ * POL-BE-05 — what the sponsor will be charged: the lines, BTG's buyer fee
+ * on them, and the total. The cart, checkout and placing the order all take
+ * it from here, so the total shown before placing is the total charged. Pure.
+ */
+export function orderQuote(subtotalCents: number, feeBps: number) {
+  const feesCents = feeFor(subtotalCents, feeBps);
+  return { currency: "USD" as const, subtotalCents, feesCents, totalCents: subtotalCents + feesCents };
+}
+
 /* ── the contract gate — 2S4-FE-02 ──────────────────────────────────────── */
 
 /** The agreement kind a sponsor accepts to place a marketplace order —

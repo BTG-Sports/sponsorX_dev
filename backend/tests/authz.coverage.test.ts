@@ -134,6 +134,8 @@ const GOVERNED_BY: Record<string, Resource> = {
   DeliveryIssue: "orderDelivery",
   /* 2S2-BE-05 — a team's invitation to an athlete already on SponsorX. */
   TeamInvitation: "teamInvitation",
+  /* POL-BE-03 — a team's request to change its share: asked through the roster (teamMember), answered on the athlete's side of teamInvitation. */
+  TeamShareChange: "teamInvitation",
   Payout: "payout",
   PayoutLine: "payout",
   PaymentAttempt: "marketplaceOrder",
@@ -177,6 +179,7 @@ const GOVERNED_BY: Record<string, Resource> = {
   LedgerEntry: "ledgerEntry",
   /* 2S1-BE-13 — closed accounts; 2S1-BE-15 — a guardian handoff and its documents. */
   AccountClosure: "accountClosure",
+  ClosureRequest: "accountClosure",
   GuardianHandoff: "guardianHandoff",
   GuardianHandoffDocument: "guardianHandoff",
   /* 2S1-BE-16 — written by the public contact form; 2S0-SEC-01 — read by

@@ -470,6 +470,11 @@ model Athlete {
   comingOfAgeReminders    Int[]     @default([])
   comingOfAgeCompletedAt  DateTime?
   comingOfAgeTerminatedAt DateTime?
+  /// POL-BE-02 — the government ID is in, but reading it raised a question
+  /// (flagged or unread): the takeover waits for BTG to confirm it, or to
+  /// send the ID back. The 90 days don't run out meanwhile. Internal reasons.
+  comingOfAgeHeldAt       DateTime?
+  comingOfAgeHeldReasons  String[]  @default([])
 
   /// 2S1-BE-13 — the athlete's account has an open AccountClosure (closed by
   /// them, rejected by BTG, or ended by the coming-of-age rule). Mirrors the
@@ -1343,6 +1348,10 @@ model Reward {
   /// 2026-09-28): the unit is theirs until claimedAt + this, then it is
   /// released. 5 min – 7 days, CHECK-constrained. Ignored when uncapped.
   reserveMinutes  Int               @default(60)
+  /// POL-BE-07 — the booth's six-digit code: redeem (once
+  /// REWARD_STAFF_CODE_REQUIRED is on) and undo need it. Shown only to the
+  /// reward's managers (BTG, the sponsor's admins), who can replace it.
+  staffCode       String            @default(dbgenerated("lpad(((floor((random() * (1000000)::double precision)))::integer)::text, 6, '0'::text)"))
   /// The fan page's own words; null falls back to the page's default copy.
   /// Consent wording is deliberately NOT here — it is versioned centrally
   /// (fan-consent.ts, P6-SEC-01) so the claim records the text the fan saw.
@@ -1379,13 +1388,28 @@ model RewardToken {
   /// shows itself. Only "already used" refusals count.
   refusedRedeems      Int       @default(0)
   lastRefusedRedeemAt DateTime?
+  /// POL-BE-07 — wrong staff codes typed for this code; 5 lock it until
+  /// staffCodeLockedUntil (15 minutes), and the count starts again.
+  staffCodeFailures    Int       @default(0)
+  staffCodeLockedUntil DateTime?
+  /// POL-BE-07 — redeems undone at the booth (within 5 minutes), and the last.
+  undoneRedeems        Int       @default(0)
+  lastUndoneRedeemAt   DateTime?
+  /// POL-BE-08 — a fan's own code, made when they claimed through this shared
+  /// code (an athlete's QR, shown to many fans). Null: a code issued from the
+  /// desk. The fan's claim, hold and redeem are on their own code; it carries
+  /// the shared code's athlete and is never printed.
+  parentTokenId        String?
 
-  reward  Reward        @relation(fields: [rewardId], references: [id])
-  athlete Athlete?      @relation(fields: [athleteId], references: [id])
-  events  RewardEvent[]
+  reward   Reward        @relation(fields: [rewardId], references: [id])
+  athlete  Athlete?      @relation(fields: [athleteId], references: [id])
+  events   RewardEvent[]
+  parent   RewardToken?  @relation("FanCodes", fields: [parentTokenId], references: [id], onDelete: Restrict)
+  fanCodes RewardToken[] @relation("FanCodes")
 
   @@index([tenantId])
   @@index([rewardId, reservedUntil])
+  @@index([parentTokenId])
 }
 
 /// One row per event. The single-use rule is enforced by a partial unique
@@ -3622,6 +3646,7 @@ model RefundDue {
   amountCents Int
   /// SPONSOR_CANCELLED | SELLER_CANCELLED | CANCELLATION_AGREED | PROBLEM_AGREED | BTG_DECIDED | BTG_REFUNDED_ORDER
   /// | PAID_AFTER_CANCELLATION (a card payment confirmed after the order was cancelled)
+  /// | PAID_AFTER_REFUND, PAID_TWICE (POL-BE-06 — one confirmed after the order was refunded, or already paid)
   /// | EDITION_CANCELLED (P9-BE-19 — a paid ad sale in an edition BTG cancelled)
   /// | PROVIDER_REFUNDED (2S5-BE-03 — the provider refunded the whole payment itself: written SENT, never refunded again)
   /// | PAID_AFTER_EDITION_CANCELLED (P9-BE-19 — Zoho marked an invoice paid after that edition was cancelled)
@@ -3639,7 +3664,7 @@ model RefundDue {
   sentOn      DateTime? @db.Date
   /// The provider that refunded a card ("standin" on staging: a test, no money moved).
   provider    String?
-  /// PAID_AFTER_CANCELLATION: the card attempt the money came from — one row per attempt.
+  /// PAID_AFTER_CANCELLATION, PAID_AFTER_REFUND, PAID_TWICE: the card attempt the money came from — one row per attempt.
   /// PAID_AFTER_EDITION_CANCELLED (P9-BE-19): the CampaignInvoice the late payment came from.
   attemptId   String?
   /// P9-BE-19 — EDITION_CANCELLED only: the campaign whose paid ad sale the
@@ -3751,6 +3776,35 @@ model TeamInvitation {
   @@index([athleteTenantId, athleteId, state])
 }
 
+/// POL-BE-03 — a team's share of an athlete's earnings goes up only with the
+/// athlete's yes (their guardian's, for a minor), however the athlete joined.
+/// A raise, a clear back to BTG's standard share (null), and the share typed
+/// at "Add athlete" are each a request; Athlete.teamShareBps changes only when
+/// it is accepted. Lowering applies at once and needs no row. Lives in the
+/// athlete's tenant; one PENDING row per athlete (a partial unique index).
+model TeamShareChange {
+  id          String    @id @default(cuid())
+  /// The athlete's tenant.
+  tenantId    String
+  /// The team asking.
+  propertyId  String
+  athleteId   String
+  /// The share when asked (null: none set, so BTG's standard share applies).
+  fromBps     Int?
+  /// The share asked for (null: BTG's standard team share).
+  toBps       Int?
+  /// PENDING | ACCEPTED | DECLINED | WITHDRAWN | LAPSED
+  state       String    @default("PENDING")
+  requestedBy String?
+  decidedAt   DateTime?
+  decidedBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@index([tenantId, athleteId, state])
+  @@index([propertyId, state])
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 2S1-BE-13 · 2S1-BE-15 · 2S1-BE-16 — closing and coming back, the guardian
 // handoff, and BTG support (added 2026-10-01).
@@ -3811,6 +3865,39 @@ model AccountClosure {
   @@index([tenantId, subjectKind, subjectId])
 }
 
+/// POL-BE-11 — closing an account that can't close yet, held for BTG: a live
+/// deal (a signed campaign order, a marketplace sale not yet finished), money
+/// earned with no payout account to send it to, or a guardian still acting
+/// for a minor. The account stays open; BTG settles each deal, then closes it
+/// (CLOSED, closureId) or declines; the owner can withdraw. One HELD request
+/// per account (partial unique index).
+model ClosureRequest {
+  id              String    @id @default(cuid())
+  /// BTG's tenant — the account's operator — which reads and answers it.
+  tenantId        String
+  /// ATHLETE | GUARDIAN | PROPERTY
+  subjectKind     String
+  subjectId       String
+  /// The account's own tenant (a roster athlete's, or a team's, is the team's).
+  subjectTenantId String
+  /// The owner's own words.
+  reason      String?
+  requestedBy String
+  /// Why it was held, in the words BTG and the owner read.
+  holdReasons String[]  @default([])
+  /// HELD | CLOSED | DECLINED | WITHDRAWN
+  state       String    @default("HELD")
+  decidedAt   DateTime?
+  decidedBy   String?
+  declineNote String?
+  /// The AccountClosure BTG's "Close now" made.
+  closureId   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@index([tenantId, state])
+}
+
 /// 2S1-BE-15 — a new guardian asking to take over a minor's account. It
 /// starts only here, on the public request page; the current guardian hands
 /// off or declines from their portal. The switch is one transaction, and
@@ -3844,6 +3931,11 @@ model GuardianHandoff {
   switchedAt          DateTime?
   /// The Guardian row the athlete moved to (new, or the requester's existing one).
   newGuardianId       String?
+  /// POL-BE-10 — the current guardian was reminded (3 days after it was sent).
+  remindedAt          DateTime?
+  /// POL-BE-10 — 7 days with no answer: BTG may decide it (confirm or decline),
+  /// on the desk's "Waiting for BTG"; the current guardian can still answer.
+  escalatedAt         DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @default(now()) @updatedAt
 
@@ -3852,6 +3944,7 @@ model GuardianHandoff {
 
   @@index([tenantId, athleteId, state])
   @@index([tenantId, fromGuardianId, state])
+  @@index([state, submittedAt])
 }
 
 /// 2S1-BE-15 — the new guardian's government ID and proof of guardianship,

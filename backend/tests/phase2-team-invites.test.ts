@@ -218,17 +218,21 @@ describe.skipIf(!hasDatabase)("2S2-BE-05 · a team invites an athlete already on
     /* The other team still can't reach him. */
     expect((await call("GET", "/team/athletes", "tv_mgr2")).json.athletes).toEqual([]);
     expect((await call("PATCH", "/team/roster/tv_ath_jordan", "tv_mgr2", { teamShareBps: 1 })).status).toBe(403);
-    /* The share he accepted holds: his team can lower it, never raise it without him. */
+    /* The share he accepted holds: his team can lower it at once, but a raise
+       — or a clear back to BTG's standard share — is a request he answers (POL-BE-03). */
     const raise = await call("PATCH", "/team/roster/tv_ath_jordan", "tv_mgr", { teamShareBps: 5000 });
-    expect(raise.status, raise.text).toBe(409);
-    expect(raise.json.error.message).toMatch(/raising it needs their agreement/);
-    expect((await call("PATCH", "/team/roster/tv_ath_jordan", "tv_mgr", { teamShareBps: null })).status).toBe(409);
+    expect(raise.status, raise.text).toBe(200);
+    expect(raise.json).toMatchObject({ teamShareBps: 2000, shareChange: { fromBps: 2000, toBps: 5000 } });
+    expect((await call("PATCH", "/team/roster/tv_ath_jordan", "tv_mgr", { teamShareBps: null })).json).toMatchObject({ teamShareBps: 2000, shareChange: { fromBps: 2000, toBps: null } });
     expect(await jordan()).toEqual({ propertyId: E.hawks, teamShareBps: 2000 });
     const lower = await call("PATCH", "/team/roster/tv_ath_jordan", "tv_mgr", { teamShareBps: 1500 });
     expect(lower.status, lower.text).toBe(200);
     expect(await jordan()).toEqual({ propertyId: E.hawks, teamShareBps: 1500 });
-    expect((await call("PATCH", "/team/roster/tv_ath_jordan", "tv_mgr", { teamShareBps: 2000 })).status).toBe(409);
-    await prisma.athlete.update({ where: { id: "tv_ath_jordan" }, data: { teamShareBps: 2000 } });
+    expect((await call("PATCH", "/team/roster/tv_ath_jordan", "tv_mgr", { teamShareBps: 2000 })).json).toMatchObject({ teamShareBps: 1500, shareChange: { toBps: 2000 } });
+    expect(await jordan()).toEqual({ propertyId: E.hawks, teamShareBps: 1500 });
+    const askedBack = (await call("GET", "/me/team", "tv_jordan")).json.membership.shareChange;
+    expect((await call("POST", `/me/team/share-changes/${askedBack.id}/respond`, "tv_jordan", { decision: "ACCEPT" })).status).toBe(200);
+    expect(await jordan()).toEqual({ propertyId: E.hawks, teamShareBps: 2000 });
   });
 
   it("his own listing is not ended — it stops selling while he is on the team; the team lists his items", async () => {

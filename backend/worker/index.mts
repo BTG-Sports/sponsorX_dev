@@ -105,7 +105,7 @@ import { sweepCampaignLaunches } from "../src/domain/campaign-launch.ts";
 import { STUDENT_DIGEST_HOUR_UTC, sendStudentApprovalDigests, sweepStudentAutomation } from "../src/domain/student-auto.ts";
 import { sweepEditionStages } from "../src/domain/edition-automation.ts";
 import { sweepHeldSales } from "../src/domain/ad-sale-auto.ts";
-import { purgeExpiredClosures } from "../src/domain/account-closure.ts";
+import { payOutClosedAccounts, purgeExpiredClosures } from "../src/domain/account-closure.ts";
 import { runNightlyFactCheck, FACT_CHECK_HOUR_UTC } from "../src/domain/fact-nightly.ts";
 import { refreshBenchmarks } from "../src/domain/benchmarks.ts";
 import { takeFeatureSnapshots } from "../src/domain/feature-snapshots.ts";
@@ -123,6 +123,7 @@ import { env } from "../src/config/env.ts";
 import { trimZohoWebhookBodies } from "../src/domain/webhook-retention.ts";
 import { purgeFanEmails } from "../src/domain/fan-data-retention.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
+import { sweepGuardianHandoffs } from "../src/domain/guardian-handoff.ts";
 import { LISTING_DIGEST_HOUR_UTC, sendListingDigests } from "../src/domain/listing.ts";
 import { ORDER_DIGEST_HOUR_UTC, sendOrderApprovalDigests, sweepSellerApprovals } from "../src/domain/order-approval.ts";
 import { sweepUnpaidOrders } from "../src/domain/order-payment.ts";
@@ -502,7 +503,7 @@ async function main(): Promise<void> {
       pool, job.data, process.env.APP_URL ?? "http://localhost:3000");
     log(
       outcome.sent
-        ? `[worker] notify.invitationSent queued mail to ${maskEmail(outcome.to)}`
+        ? `[worker] notify.invitationSent queued mail to ${outcome.to.map(maskEmail).join(", ")}`
         : `[worker] notify.invitationSent skipped: ${outcome.reason}`,
     );
   });
@@ -824,6 +825,18 @@ async function main(): Promise<void> {
         if (started || reminded || terminated) log(`[worker] coming of age — started ${started}, reminded ${reminded}, terminated ${terminated}`);
       })
       .catch((error: unknown) => logError("[worker] coming-of-age sweep failed, will retry next hour:", error));
+    /* POL-BE-10 — a guardian handoff never waits forever: the current guardian reminded at 3 days, BTG may decide at 7. */
+    void sweepGuardianHandoffs()
+      .then(({ reminded, escalated }) => {
+        if (reminded || escalated) log(`[worker] guardian handoffs — reminded ${reminded}, escalated to BTG ${escalated}`);
+      })
+      .catch((error: unknown) => logError("[worker] guardian handoff sweep failed, will retry next hour:", error));
+    /* POL-BE-11 — a closed account's money that passes its holding period is requested to its payout account on file. */
+    void payOutClosedAccounts()
+      .then(({ requested }) => {
+        if (requested) log(`[worker] closed accounts — ${requested} payout(s) requested`);
+      })
+      .catch((error: unknown) => logError("[worker] closed-account payouts failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
   /* 2S3-BE-06 — BTG's daily summary of the listings that went live on their

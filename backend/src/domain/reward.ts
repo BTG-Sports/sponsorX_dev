@@ -19,14 +19,15 @@
  * updates, no deletes, nothing that reads across tenants.
  */
 
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
 import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
-import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
+import { assertAllowed, assertTenantWide, can, whereFor } from "../auth/scope";
+import { env } from "../config/env";
 import { ForbiddenError } from "../auth/errors";
 import {
   CONSENT_TEXT,
@@ -105,6 +106,155 @@ export class AlreadyRedeemedError extends Error {
     super("This code has already been redeemed.");
     this.name = "AlreadyRedeemedError";
   }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   POL-BE-07 · The booth's staff code, and undo
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/** Wrong codes for one fan's code before it locks, and for how long. */
+export const STAFF_CODE_TRIES = 5;
+export const STAFF_CODE_LOCK_MINUTES = 15;
+/** How long after a redeem the booth can undo it. */
+export const UNDO_MINUTES = 5;
+
+/** A new six-digit staff code. */
+export const newStaffCode = () => String(randomInt(0, 1_000_000)).padStart(6, "0");
+
+export class StaffCodeRequiredError extends Error {
+  readonly status = 403;
+  readonly code = "staff_code_required";
+  constructor() {
+    super("The staff member at the booth enters the reward's staff code to redeem it.");
+    this.name = "StaffCodeRequiredError";
+  }
+}
+
+export class WrongStaffCodeError extends Error {
+  readonly status = 403;
+  readonly code = "wrong_staff_code";
+  constructor(readonly triesLeft: number) {
+    super(`That staff code is not right. ${triesLeft} ${triesLeft === 1 ? "try" : "tries"} left before this code locks for ${STAFF_CODE_LOCK_MINUTES} minutes.`);
+    this.name = "WrongStaffCodeError";
+  }
+}
+
+export class StaffCodeLockedError extends Error {
+  readonly status = 429;
+  readonly code = "staff_code_locked";
+  constructor(readonly until: Date) {
+    super(`Too many wrong staff codes. This code can be redeemed again after ${until.toISOString()}.`);
+    this.name = "StaffCodeLockedError";
+  }
+}
+
+export class NothingToUndoError extends Error {
+  readonly status = 409;
+  readonly code = "nothing_to_undo";
+  constructor() {
+    super("This code has no redeem to undo.");
+    this.name = "NothingToUndoError";
+  }
+}
+
+export class UndoWindowClosedError extends Error {
+  readonly status = 409;
+  readonly code = "undo_window_closed";
+  constructor() {
+    super(`A redeem can only be undone within ${UNDO_MINUTES} minutes. Ask the sponsor if it needs putting right.`);
+    this.name = "UndoWindowClosedError";
+  }
+}
+
+const sameCode = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+
+/**
+ * Check the booth's code for this fan's code. Nothing sent: refused only when
+ * `required`. A wrong code counts against this fan's code; the fifth locks it
+ * for 15 minutes (on top of the per-device rate limit), so the six digits
+ * can't be guessed. A right one clears the count. Returns the token's row.
+ */
+async function checkStaffCode(token: string, staffCode: string | undefined, required: boolean, now: Date) {
+  if (!isOpaqueToken(token)) throw new UnknownTokenError();
+  const t = await prisma.rewardToken.findUnique({
+    /* tenant-scope: a public bearer token, unique across tenants — the token IS the authorisation. */
+    where: { token },
+    select: { id: true, tenantId: true, parentTokenId: true, staffCodeFailures: true, staffCodeLockedUntil: true, reward: { select: { staffCode: true } } },
+  });
+  if (!t) throw new UnknownTokenError();
+  if (staffCode === undefined) {
+    if (required) throw new StaffCodeRequiredError();
+    return t;
+  }
+  if (t.staffCodeLockedUntil && t.staffCodeLockedUntil > now) throw new StaffCodeLockedError(t.staffCodeLockedUntil);
+  if (sameCode(staffCode, t.reward.staffCode)) {
+    if (t.staffCodeFailures > 0) {
+      /* tenant-scope: the bearer token's own row. */
+      await prisma.rewardToken.updateMany({ where: { id: t.id }, data: { staffCodeFailures: 0 } });
+    }
+    return t;
+  }
+  /* tenant-scope: the bearer token's own row; the increment is atomic, so two wrong tries at once both count. */
+  const counted = await prisma.rewardToken.update({ where: { id: t.id }, data: { staffCodeFailures: { increment: 1 } }, select: { staffCodeFailures: true } });
+  if (counted.staffCodeFailures >= STAFF_CODE_TRIES) {
+    const until = new Date(now.getTime() + STAFF_CODE_LOCK_MINUTES * 60_000);
+    /* tenant-scope: the bearer token's own row. */
+    await prisma.rewardToken.updateMany({ where: { id: t.id }, data: { staffCodeFailures: 0, staffCodeLockedUntil: until } });
+    throw new StaffCodeLockedError(until);
+  }
+  throw new WrongStaffCodeError(STAFF_CODE_TRIES - counted.staffCodeFailures);
+}
+
+/**
+ * Undo the code's latest redeem, within 5 minutes, with the staff code — an
+ * accidental tap, or a redeem nobody at the booth made. The REDEEM row is
+ * removed, so every count that reads redeems (the funnel, the cap's counter,
+ * by trigger; reports, forecasts, attribution) is right with no change of
+ * its own; on a capped reward the unit goes back to the pool. The undo is
+ * kept: audited, and counted on the code beside its refused redeems.
+ */
+export async function undoRedeem(token: string, staffCode: string, now = new Date()): Promise<{ undone: true; timesRedeemed: number }> {
+  const t = await checkStaffCode(token, staffCode, true, now);
+  return prisma.$transaction(async (tx) => {
+    const last = await tx.rewardEvent.findFirst({
+      /* tenant-scope: the bearer token's own events. */
+      where: { tokenId: t.id, type: "REDEEM" }, orderBy: { at: "desc" }, select: { id: true, at: true },
+    });
+    if (!last) throw new NothingToUndoError();
+    if (now.getTime() - last.at.getTime() > UNDO_MINUTES * 60_000) throw new UndoWindowClosedError();
+    /* tenant-scope: the event just read for this token; conditional, so two undos at once remove it once. */
+    const gone = await tx.rewardEvent.deleteMany({ where: { id: last.id, type: "REDEEM" } });
+    if (!gone.count) throw new NothingToUndoError();
+    /* tenant-scope: the bearer token's own row. */
+    await tx.rewardToken.update({ where: { id: t.id }, data: { undoneRedeems: { increment: 1 }, lastUndoneRedeemAt: now } });
+    await audit(tx, { userId: null, tenantId: t.tenantId }, AUDIT_ACTIONS.reward.redeemUndo, "RewardToken", t.id, {
+      before: { redeemedAt: last.at.toISOString() }, after: { undoneAt: now.toISOString() },
+    });
+    const timesRedeemed = await tx.rewardEvent.count({ /* tenant-scope: the bearer token's own events. */ where: { tokenId: t.id, type: "REDEEM" } });
+    return { undone: true as const, timesRedeemed };
+  });
+}
+
+/** May this caller see and replace a reward's staff code? BTG (who write rewards) and the sponsor's admins. */
+export const mayManageStaffCode = (actor: Actor) => can(actor, "reward", "write") || actor.roles.includes("SPONSOR_ADMIN");
+
+/** Replace a reward's staff code — it leaked, or staff changed. The old one stops working at once. */
+export async function replaceStaffCode(actor: Actor, rewardId: string): Promise<{ id: string; staffCode: string }> {
+  if (!mayManageStaffCode(actor)) throw new ForbiddenError("reward", "write");
+  const scope = can(actor, "reward", "write") ? whereFor(actor, "reward", "write") : whereFor(actor, "reward", "read");
+  return prisma.$transaction(async (tx) => {
+    const reward = await tx.reward.findFirst({
+      /* tenant-scope: `scope` is whereFor(actor, "reward", write — or read for a sponsor's admin). */
+      where: { ...scope, id: rewardId }, select: { id: true },
+    });
+    if (!reward) throw new ForbiddenError("reward", "read");
+    const staffCode = newStaffCode();
+    /* tenant-scope: the reward just found through the caller's scope. */
+    await tx.reward.update({ where: { id: reward.id }, data: { staffCode }, select: { id: true } });
+    /* The code itself is never written to the audit log. */
+    await audit(tx, actor, AUDIT_ACTIONS.reward.staffCodeReplace, "Reward", reward.id, { after: { replaced: true } });
+    return { id: reward.id, staffCode };
+  });
 }
 
 /**
@@ -303,6 +453,8 @@ export async function createReward(
         landingSubhead: copyOrNull(input.landingSubhead),
         venueCity: input.venue?.city ?? null,
         venueStateCode: input.venue?.stateCode ?? null,
+        /* POL-BE-07 — the booth's code. */
+        staffCode: newStaffCode(),
         /* Always DRAFT. A reward that arrived already ACTIVE would be live
            before anyone read the terms it commits a merchant to. */
         state: "DRAFT",
@@ -612,6 +764,22 @@ export async function recordClaim(
   const sponsorOk = sponsorContactFor(agreed, sponsorContact, now);
   const email = agreed ? fanEmail!.trim() : null;
 
+  /* POL-BE-08 — through a shared code (an athlete's QR), the fan claims on a code of their own. */
+  if (env.REWARD_FAN_CODES) {
+    const shared = await sharedCode(token);
+    if (shared) return claimThroughShared(shared, email, agreed, sponsorOk, now);
+  }
+  return claimOnCode(token, email, agreed, sponsorOk, now);
+}
+
+/** The claim on one code — the fan's own, or (switch off) any code. */
+async function claimOnCode(
+  token: string,
+  email: string | null,
+  agreed: ReturnType<typeof consentFor>,
+  sponsorOk: ReturnType<typeof sponsorContactFor>,
+  now: Date,
+): Promise<{ id: string; type: RewardEventType; heldUntil: string | null; code?: string }> {
   /* QA-09 — on a capped reward the claim first RESERVES a unit, in its own
      single database call, so the Reward row lock is never held across the
      transaction below (QA-01). A reward with no unit left to set aside takes
@@ -670,6 +838,79 @@ export async function recordClaim(
           data: { reservedUntil: null },
         })
         .catch(() => {});
+    }
+    throw error;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   POL-BE-08 · A shared code: each fan gets their own
+   ──────────────────────────────────────────────────────────────────────────── */
+
+export class ClaimFirstError extends Error {
+  readonly status = 409;
+  readonly code = "claim_first";
+  constructor() {
+    super("This is a shared code. The fan claims it first and gets a code of their own, which the booth redeems.");
+    this.name = "ClaimFirstError";
+  }
+}
+
+/** The code, when it is a shared one (issued from the desk, not a fan's own); null otherwise. */
+async function sharedCode(token: string) {
+  if (!isOpaqueToken(token)) throw new UnknownTokenError();
+  const t = await prisma.rewardToken.findUnique({
+    /* tenant-scope: a public bearer token, unique across tenants — the token IS the authorisation. */
+    where: { token },
+    select: { id: true, token: true, tenantId: true, rewardId: true, athleteId: true, parentTokenId: true },
+  });
+  if (!t) throw new UnknownTokenError();
+  return t.parentTokenId === null ? t : null;
+}
+
+/**
+ * A fan claims through a shared code: a code of their own is made (or, for
+ * an address already used on this reward, the one it was given), and the
+ * claim — hold, voucher email, consent — is made on it exactly as on any
+ * code. Returns the fan's code for the page to send them on to. A claim
+ * refused on the new code (the reward ran out, paused, expired) leaves no
+ * code behind.
+ */
+async function claimThroughShared(
+  shared: { id: string; token: string; tenantId: string; rewardId: string; athleteId: string | null },
+  email: string | null,
+  agreed: ReturnType<typeof consentFor>,
+  sponsorOk: ReturnType<typeof sponsorContactFor>,
+  now: Date,
+) {
+  const picked = await failFast(() => prisma.$transaction(async (tx) => {
+    assertUsable(await contextFor(tx, shared.token), now);
+    /* Two claims at once with one address make one code: serialised on the shared code's row. */
+    await tx.$queryRaw`SELECT set_config('lock_timeout', '3s', true)`;
+    await tx.$queryRaw`SELECT id FROM "RewardToken" WHERE id = ${shared.id} FOR NO KEY UPDATE`;
+    if (email) {
+      const mine = await tx.rewardEvent.findFirst({
+        /* tenant-scope: this reward's own fans' codes, in the shared code's tenant. */
+        where: {
+          tenantId: shared.tenantId, type: "CLAIM", fanEmail: { equals: email, mode: "insensitive" },
+          token: { is: { rewardId: shared.rewardId, parentTokenId: { not: null } } },
+        },
+        orderBy: { at: "asc" }, select: { token: { select: { token: true } } },
+      });
+      if (mine) return { token: mine.token.token, made: false };
+    }
+    const made = await tx.rewardToken.create({
+      data: { tenantId: shared.tenantId, rewardId: shared.rewardId, athleteId: shared.athleteId, parentTokenId: shared.id, token: generateToken() },
+      select: { token: true },
+    });
+    return { token: made.token, made: true };
+  }));
+  try {
+    return { ...(await claimOnCode(picked.token, email, agreed, sponsorOk, now)), code: picked.token };
+  } catch (error) {
+    if (picked.made) {
+      /* tenant-scope: the code this call just made, by its unique token; only while nothing happened on it. */
+      await prisma.rewardToken.deleteMany({ where: { token: picked.token, events: { none: {} } } }).catch(() => {});
     }
     throw error;
   }
@@ -833,6 +1074,13 @@ export type TokenView =
       /** QA-09 — the unit this code's claim holds on a capped reward; `active`
        *  false once it has lapsed. null when nothing is (or was) held. */
       hold: { until: string; active: boolean } | null;
+      /** POL-BE-07 — the booth must enter the reward's staff code to redeem. */
+      staffCodeRequired: boolean;
+      /** POL-BE-07 — the latest redeem can be undone (with the staff code) until then; null when it can't. */
+      undoUntil: string | null;
+      /** POL-BE-08 — SHARED: an athlete's code, shown to many fans; a claim gives the fan a code of their
+       *  own (`code` in the claim's answer). FAN: one fan's own code. CODE: one code, one claim (switch off). */
+      kind: "SHARED" | "FAN" | "CODE";
     };
 
 export async function viewToken(token: string, now = new Date()): Promise<TokenView> {
@@ -846,6 +1094,7 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
       tenantId: true,
       rewardId: true,
       reservedUntil: true,
+      parentTokenId: true,
       reward: {
         select: {
           state: true, expiresAt: true, singleUse: true, offerText: true, terms: true,
@@ -860,6 +1109,12 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
   });
   if (!row) return { state: "UNKNOWN" };
   const r = row.reward;
+  /* POL-BE-08 — a shared code's page is the offer, never one fan's claim, hold or redeem. */
+  const kind = !env.REWARD_FAN_CODES ? "CODE" : row.parentTokenId === null ? "SHARED" : "FAN";
+  if (kind === "SHARED") {
+    row.events = [];
+    row.reservedUntil = null;
+  }
   const redemptions = row.events.filter((e) => e.type === "REDEEM");
   const lastRedeemedAt = redemptions.reduce<Date | null>((m, e) => (!m || e.at > m ? e.at : m), null);
   const redeemed = r.singleUse && redemptions.length > 0;
@@ -915,6 +1170,11 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
     hold: r.redemptionCap !== null && row.reservedUntil
       ? { until: row.reservedUntil.toISOString(), active: held }
       : null,
+    staffCodeRequired: env.REWARD_STAFF_CODE_REQUIRED,
+    undoUntil: lastRedeemedAt && lastRedeemedAt.getTime() + UNDO_MINUTES * 60_000 > now.getTime()
+      ? new Date(lastRedeemedAt.getTime() + UNDO_MINUTES * 60_000).toISOString()
+      : null,
+    kind,
   };
 }
 
@@ -947,6 +1207,10 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
  *     always redeems — the unit is its own; any other code needs
  *     redeemed + other codes' live holds < cap, else 410 "run out"
  *
+ * POL-BE-07 — first, the booth's staff code (`checkStaffCode`): required
+ * once REWARD_STAFF_CODE_REQUIRED is on, checked whenever sent. A wrong one
+ * redeems nothing; five lock the fan's code for 15 minutes.
+ *
  * THE INDEX STAYS THE LAST WORD on single use: `reward_single_redeem` (now
  * partial on single-use REDEEMs) rejects a duplicate from any path, and its
  * violation is translated to 409 here.
@@ -954,8 +1218,13 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
 export async function redeemToken(
   token: string,
   now = new Date(),
+  staffCode?: string,
 ): Promise<{ id: string; type: RewardEventType }> {
   if (!isOpaqueToken(token)) throw new UnknownTokenError();
+  /* POL-BE-07 — the booth's code, before anything is decided: required once the switch is on, checked whenever sent. */
+  const code = await checkStaffCode(token, staffCode, env.REWARD_STAFF_CODE_REQUIRED, now);
+  /* POL-BE-08 — a shared code is redeemed through each fan's own code, never itself: one fan can't use it up for everyone. */
+  if (env.REWARD_FAN_CODES && code.parentTokenId === null) throw new ClaimFirstError();
   type Out = { outcome: string; event_id: string | null; reward_state: string | null };
   let row: Out | undefined;
   try {

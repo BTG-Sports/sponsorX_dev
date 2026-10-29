@@ -229,9 +229,12 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
 
       const roster = (await call("GET", "/team/roster", "mkt_mgr_e")).json;
       expect(roster.property).toMatchObject({ id: E.property, name: "Bowie Bulldogs MK" });
-      expect(roster.athletes).toEqual([expect.objectContaining({ id: rileyId, teamShareBps: 1500, inventory: [expect.objectContaining({ id: rileyItem })] })]);
+      /* POL-BE-03 — the 15% typed at "Add athlete" waits for Riley's yes; until then BTG's standard team share applies. */
+      expect(roster.athletes).toEqual([expect.objectContaining({ id: rileyId, teamShareBps: null, shareChange: expect.objectContaining({ fromBps: null, toBps: 1500 }), inventory: [expect.objectContaining({ id: rileyItem })] })]);
       expect(roster.inventory.map((i: { id: string }) => i.id)).toEqual([teamItem]);
-      expect((await call("PATCH", `/team/roster/${rileyId}`, "mkt_mgr_e", { teamShareBps: 2000 })).json.teamShareBps).toBe(2000);
+      const asked = (await call("GET", "/me/team", "mkt_riley")).json.membership.shareChange;
+      expect((await call("POST", `/me/team/share-changes/${asked.id}/respond`, "mkt_riley", { decision: "ACCEPT" })).json.state).toBe("ACCEPTED");
+      expect((await call("PATCH", `/team/roster/${rileyId}`, "mkt_mgr_e", { teamShareBps: 1000 })).json.teamShareBps).toBe(1000);
       /* The manager reads a roster athlete's item but does not reprice it — it is hers. */
       expect((await call("GET", `/inventory/${rileyItem}`, "mkt_mgr_e")).status).toBe(200);
       expect((await call("PATCH", `/inventory/${rileyItem}`, "mkt_mgr_e", { priceCents: 100 })).status).toBe(403);
