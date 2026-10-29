@@ -1,5 +1,7 @@
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type { PrismaClient } from "../src/generated/prisma/client";
+import { agreeTeamShare } from "./support/team-share";
 
 /* --------------------------------------------------------------------------
    2S4-BE-12 — cancelling a paid order line; 2S4-BE-13 — refunds to send
@@ -206,6 +208,7 @@ describe.skipIf(!hasDatabase)("2S4-BE-12 / 2S4-BE-13 · cancelling a paid line, 
     const ari = await call("POST", "/team/roster", "lc_mgr", { legalName: "Ari Moss", displayName: "ARI.MOSS", email: "lc_ari@lc-test.invalid", sport: "Basketball", ageBand: "18_PLUS", teamShareBps: 2000 });
     expect(ari.status, ari.text).toBe(201);
     E.ari = ari.json.id;
+    await agreeTeamShare(prisma as unknown as PrismaClient, E.ari);
     const clinic = await call("POST", "/inventory", "lc_ari", { title: "Footwork clinic", kind: "CAMP", priceCents: 40_000, quantity: 40 });
     expect(clinic.status, clinic.text).toBe(201);
     const g = await listing("lc_mgr", clinic.json.id, "Footwork clinic with Ari Moss");

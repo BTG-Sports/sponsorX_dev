@@ -24,6 +24,7 @@ vi.mock("../src/db/client", () => ({
     property: model("property", () => []),
     athlete: model("athlete", () => athletes),
     inventoryItem: model("inventoryItem", () => items),
+    teamShareChange: model("teamShareChange", () => []),
   },
 }));
 
@@ -50,6 +51,9 @@ describe("GET /team/athletes", () => {
     expect(read.args.select.inventory).toBeUndefined();
     expect(r.page).toEqual({ page: 1, size: 12, total: 1, pages: 1 });
     expect(r.counts).toEqual({ athletes: 1, active: 1 });
+    /* POL-BE-03 — each athlete carries the team's open share request, if any, read for this page's athletes only. */
+    expect(r.athletes).toEqual([{ id: "a1", displayName: "Ada", shareChange: null }]);
+    expect(calls.find((c) => c.model === "teamShareChange")!.args.where).toEqual({ propertyId: "prop_1", athleteId: { in: ["a1"] }, state: "PENDING" });
   });
 
   it("refuses a caller who doesn't manage a property", async () => {

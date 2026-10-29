@@ -126,6 +126,12 @@ export type EmailTemplate =
   | "team.invited"
   | "team.invitationAnswered"
   | "team.linkEnded"
+  /* POL-BE-03 — a team asks to change its share (the athlete, and the
+     guardian who answers for a minor); a lowered share, told to the same;
+     the athlete's answer, to the team. */
+  | "team.shareChangeAsked"
+  | "team.shareLowered"
+  | "team.shareChangeAnswered"
   /* 2S1-BE-13 — closing an account and coming back: the owner is told it
      closed (with the reactivation link), sent a fresh link on request, and
      told when it is back; a rejected account's request reaches BTG admins,

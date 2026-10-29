@@ -160,6 +160,53 @@ invited athletes are protected.
   screen.
 - **Done when:** no share goes up without the athlete's or guardian's yes;
   tests cover directly added athletes, invited athletes and minors.
+- **Decided (2026-10-29, with Rodney's authority):** the share typed at "Add
+  athlete" needs the athlete's yes too. Until they answer, BTG's standard
+  team share applies.
+- **Backend delivered (`POL-BE-03`, 2026-10-29):**
+  - Anything that can raise the share is a **request** (`TeamShareChange`):
+    - a higher share;
+    - clearing it back to BTG's standard share;
+    - the share typed at "Add athlete" (zero needs no answer).
+  - The share stays where it was until the athlete accepts. One request is
+    open per athlete, and a newer one replaces it.
+  - **Lowering applies at once**, ends any open request, and is emailed
+    (`team.shareLowered`).
+  - **Who answers:**
+    - an adult answers for themselves;
+    - for a minor, only the guardian accepts (their login acting for the
+      ward), the same rule as joining a team. The minor's own "accept" is
+      refused with `guardian_must_act`;
+    - nobody accepts during the coming-of-age pause.
+  - A yes applies only while the athlete is still on that team at the share
+    the request was made from. Otherwise it is refused as out of date.
+  - **Emails:**
+    - `team.shareChangeAsked` goes to the athlete, and to the guardian while
+      the guardian acts for them;
+    - `team.shareChangeAnswered` goes to the team's managers.
+  - Leaving or being removed from the team lapses an open request.
+  - Tests:
+    - `backend/tests/phase2-team-share.test.ts`: an athlete added directly, a
+      minor, the guardian, lowering, withdrawing, and a stale or lapsed
+      request;
+    - `phase2-team-invites.test.ts`: an invited athlete.
+- **For `POL-FE-03` (screens):**
+  - **Team side:**
+    - `PATCH /team/roster/:id` now answers `{ id, displayName, teamShareBps,
+      shareChange }`.
+    - `shareChange` (`{ id, fromBps, toBps, askedAt }`, `toBps: null` =
+      BTG's standard share) means it is waiting for the athlete's answer.
+      Show "Waiting for {athlete}'s answer", not "Saved".
+    - `POST /team/roster` answers the same way.
+    - `GET /team/roster` and `GET /team/athletes` carry `shareChange` on each
+      athlete.
+    - `POST /team/roster/:id/share-change/withdraw` takes a request back.
+  - **Athlete side** (the guardian's view of the ward too):
+    - `GET /me/team` carries `membership.shareChange`.
+    - Show the change from → to with Accept and Decline, calling
+      `POST /me/team/share-changes/:id/respond` with
+      `{ decision: "ACCEPT" | "DECLINE" }`.
+    - A minor sees it but can't accept; say "Your guardian accepts this".
 
 ### 4. With Stripe paused, sponsors' orders are cancelled for "not paying"
 `POL-BE-04` · `POL-FE-04` · *Money · Dead end* · confirmed · **hurting now**

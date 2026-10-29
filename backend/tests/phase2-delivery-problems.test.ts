@@ -1,5 +1,7 @@
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type { PrismaClient } from "../src/generated/prisma/client";
+import { agreeTeamShare } from "./support/team-share";
 
 /* --------------------------------------------------------------------------
    2S4-BE-11 — delivery problems settled between the seller and the sponsor
@@ -191,6 +193,7 @@ describe.skipIf(!hasDatabase)("2S4-BE-11 · delivery problems settled between se
     const casey = await call("POST", "/team/roster", "dp_mgr", { legalName: "Casey Lin", displayName: "CASEY.LIN", email: "dp_casey@dp-test.invalid", sport: "Basketball", ageBand: "18_PLUS", teamShareBps: 2000 });
     expect(casey.status, casey.text).toBe(201);
     E.casey = casey.json.id;
+    await agreeTeamShare(prisma as unknown as PrismaClient, E.casey);
     const clinic = await call("POST", "/inventory", "dp_casey", { title: "Ball-handling clinic", kind: "CAMP", priceCents: 40_000, quantity: 40 });
     expect(clinic.status, clinic.text).toBe(201);
     E.owlsListing = await publish("dp_mgr", clinic.json.id, "Ball-handling clinic with Casey Lin");
