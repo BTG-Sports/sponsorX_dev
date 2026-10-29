@@ -69,3 +69,9 @@
 - **Tests:** two new tests in `phase2-line-cancellation` and one in `payment-disputes`. Each was confirmed to fail without the fix. Locally: 3,620 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
 - **For HeckerCreatives:** `POL-FE-06`, as spelled out in `polish.md` item 6.
 - **Not yet done:** the tracker row and `polish-progress.md`, once the PR merges.
+
+### `POL-BE-05` and `POL-BE-06` Done (rcfworks): PRs #324 and #325 merged into `main_development`
+
+- **Tracker:** both Polish sheet rows are Done, started and done 2026-10-29. The formula count is still 180.
+- **Notes:** `polish-progress.md` has both entries; the table also shows `POL-BE-02` merged.
+- **Next:** the sync PR from `main_development` to `main`. It carries migration `20261029150000_refund_paid_twice`.
