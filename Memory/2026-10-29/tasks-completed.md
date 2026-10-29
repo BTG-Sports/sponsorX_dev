@@ -75,3 +75,16 @@
 - **Tracker:** both Polish sheet rows are Done, started and done 2026-10-29. The formula count is still 180.
 - **Notes:** `polish-progress.md` has both entries; the table also shows `POL-BE-02` merged.
 - **Next:** the sync PR from `main_development` to `main`. It carries migration `20261029150000_refund_paid_twice`.
+
+### `POL-BE-07` (rcfworks): staff redeem needs the booth's code, and can be undone
+
+- **Problem:** the fan page's "Staff: redeem now" used the reward up with one tap, by anyone holding the phone, with no undo.
+- **Decided (the user, 2026-10-29):** the code requirement goes live behind a switch, `REWARD_STAFF_CODE_REQUIRED` (off), turned on once HeckerCreatives' fan page asks for the code (`POL-FE-07`). The user also asked for every switch to be listed in one document: new `documentation/SponsorX-Switches.md`, linked from `CLAUDE.md`.
+- **Built:**
+  - Each reward has a six-digit staff code (`Reward.staffCode`, migration `20261029170000_reward_staff_code`; existing rewards were given one). `GET /rewards/:id` shows it to BTG and the sponsor's admins only; `POST /rewards/:id/staff-code` replaces it.
+  - Redeem checks the code: required when the switch is on, checked whenever sent. Five wrong codes lock that fan's code for 15 minutes.
+  - `POST /public/rewards/:token/redeem/undo` undoes the latest redeem within 5 minutes, with the code. The redeem row is removed, so the cap's counter (trigger), the funnel and every report stay right; the undo is audited (`reward.redeemUndo`) and counted on the code.
+  - The fan view carries `staffCodeRequired` and `undoUntil`.
+- **Tests:** new `tests/reward.staff-code.test.ts` (6), and `rewards.read.test.ts` for who sees the code. The tests fail with the code check disabled. Locally: 3,631 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
+- **For HeckerCreatives:** `POL-FE-07`, as spelled out in `polish.md` item 7. When it ships, the switch is turned on, staging first.
+- **Not yet done:** the tracker row and `polish-progress.md`, once the PR merges.

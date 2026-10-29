@@ -257,6 +257,10 @@ const schema = z.object({
   FACT_CHECK_EMAILS: z.enum(["on", "off"]).default("off").transform((v) => v === "on"),
   /* 3S4-BE-02 — email BTG admins and campaign managers when an active campaign becomes at risk, and when it recovers. The forecast and its dashboard alert run either way. */
   FORECAST_EMAILS: z.enum(["on", "off"]).default("off").transform((v) => v === "on"),
+  /* POL-BE-07 — a fan's reward is redeemed only with the reward's staff code (the booth's PIN).
+     "off" until the fan page asks for it (POL-FE-07): redeem then works as before, though a code
+     that is sent is still checked. Undo always needs the code. Every switch: documentation/SponsorX-Switches.md. */
+  REWARD_STAFF_CODE_REQUIRED: z.enum(["on", "off"]).default("off").transform((v) => v === "on"),
 });
 
 /* A development default that reached production would make every continuation
