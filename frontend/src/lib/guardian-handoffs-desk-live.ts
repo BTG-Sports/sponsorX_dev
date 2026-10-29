@@ -174,7 +174,8 @@ export function confirmPoints(h: Pick<ApiHandoffRequest, "athlete" | "current" |
   return [
     `${req} becomes ${a}’s guardian and can sign in to act for ${a}.`,
     `${cur} stops being ${a}’s guardian. Any other children ${cur} looks after are not affected.`,
-    `Money ${a} has earned and work already agreed stay exactly where they are.`,
+    /* POL-BE-01 (2026-10-28): what is not yet paid out follows the athlete to the new holder's account. */
+    `Work already agreed stays as it is. Payouts already sent stay sent; anything not yet paid out goes to ${req}’s own payout account once they set it up.`,
     "All three, and BTG, are emailed.",
   ];
 }

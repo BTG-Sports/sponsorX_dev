@@ -92,6 +92,9 @@ wrong person.
   `byState.APPROVED.count`, else the listed payouts) and shows "Set up your
   own payout account — payouts are waiting for it" with the setup button;
   `handoffCarryOver` reworded as above. Tests updated.
+  - QA 2026-10-29: BTG's own handoff page ("What changes when you confirm",
+    `guardian-handoffs-desk-live.ts` `confirmPoints`) still carried the old
+    rule; it now says the same as the guardian's card.
 
 ### 2. A minor can make themselves an adult
 `POL-BE-02` · `POL-FE-02` · *Minors* · confirmed
