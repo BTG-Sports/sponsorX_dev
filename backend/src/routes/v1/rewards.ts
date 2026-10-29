@@ -288,9 +288,15 @@ const fanPrivacy: RequestHandler = (_req, res) => {
 
 type EventType = "SCAN" | "LANDING" | "CLAIM" | "REDEEM";
 
-async function funnelsFor(actor: Parameters<typeof can>[0], tokenToReward: Map<string, string>) {
+async function funnelsFor(actor: Parameters<typeof can>[0], printed: Map<string, string>) {
   const out = new Map<string, Record<EventType, number>>();
-  if (!can(actor, "rewardEvent", "read") || tokenToReward.size === 0) return out;
+  if (!can(actor, "rewardEvent", "read") || printed.size === 0) return out;
+  /* POL-BE-08 — each fan's own code counts toward its reward, beside the shared code it came from. */
+  const tokenToReward = new Map(printed);
+  for (const f of await prisma.rewardToken.findMany({
+    /* tenant-scope: fans' codes made from codes the caller loaded through whereFor. */
+    where: { parentTokenId: { in: [...printed.keys()] } }, select: { id: true, parentTokenId: true },
+  })) tokenToReward.set(f.id, printed.get(f.parentTokenId!)!);
   const grouped = await prisma.rewardEvent.groupBy({
     by: ["tokenId", "type"],
     /* The caller's OWN event scope, not just the reward's: an athlete may
@@ -321,7 +327,8 @@ function rewardSelect(tokenWhere: Prisma.RewardTokenWhereInput | null) {
     eligibility: true, eligibilityNote: true, redemptionCap: true, landingHeadline: true, landingSubhead: true, venueCity: true, venueStateCode: true,
     redemptionCount: true, reserveMinutes: true, staffCode: true,
     campaign: { select: { id: true, name: true, endDate: true, state: true, sponsor: { select: { name: true } } } },
-    tokens: tokenWhere ? { where: tokenWhere, select: TOKEN_SELECT } : { select: TOKEN_SELECT },
+    /* POL-BE-08 — the codes issued from the desk; fans' own codes count under theirs (fanCodeTotals). */
+    tokens: { where: { ...(tokenWhere ?? {}), parentTokenId: null }, select: TOKEN_SELECT },
   } satisfies Prisma.RewardSelect;
 }
 
@@ -566,15 +573,45 @@ const rewardSummary: RequestHandler = async (req, res) => {
   res.json({ tabs, live: tabs.live, funnel });
 };
 
+/**
+ * POL-BE-08 — each printed code's refused and undone redeems include its fans'
+ * own codes, so a shared code being misused still shows on the desk.
+ */
+async function fanCodeTotals(r: RewardRow): Promise<RewardRow> {
+  if (!r.tokens.length) return r;
+  const fans = await prisma.rewardToken.groupBy({
+    /* tenant-scope: fans' codes made from codes loaded through whereFor. */
+    by: ["parentTokenId"],
+    where: { parentTokenId: { in: r.tokens.map((t) => t.id) } },
+    _sum: { refusedRedeems: true, undoneRedeems: true },
+    _max: { lastRefusedRedeemAt: true, lastUndoneRedeemAt: true },
+  });
+  const later = (a: Date | null, b: Date | null) => (!a ? b : !b ? a : a > b ? a : b);
+  return {
+    ...r,
+    tokens: r.tokens.map((t) => {
+      const f = (fans ?? []).find((x) => x.parentTokenId === t.id);
+      return f ? {
+        ...t,
+        refusedRedeems: t.refusedRedeems + (f._sum.refusedRedeems ?? 0),
+        undoneRedeems: t.undoneRedeems + (f._sum.undoneRedeems ?? 0),
+        lastRefusedRedeemAt: later(t.lastRefusedRedeemAt, f._max.lastRefusedRedeemAt),
+        lastUndoneRedeemAt: later(t.lastUndoneRedeemAt, f._max.lastUndoneRedeemAt),
+      } : t;
+    }),
+  };
+}
+
 /** GET /rewards/:id — one reward, with its tokens (strings for BTG only). */
 const readReward: RequestHandler<{ id: string }> = async (req, res) => {
   const actor = req.actor!;
   const reach = tokenReach(actor);
-  const r = (await prisma.reward.findFirst({
+  const row = (await prisma.reward.findFirst({
     where: { ...whereFor(actor, "reward", "read"), id: req.params.id },
     select: rewardSelect(reach),
   })) as RewardRow | null;
-  if (!r) throw new ForbiddenError("reward", "read");
+  if (!row) throw new ForbiddenError("reward", "read");
+  const r = await fanCodeTotals(row);
   const funnels = await funnelsFor(actor, new Map(r.tokens.map((t) => [t.id, r.id])));
   const held = reach ? null : r.redemptionCap != null ? (await heldFor([r.id])).get(r.id) ?? 0 : 0;
   /* POL-BE-07 — the booth's staff code, for the reward's managers only (BTG, the sponsor's admins). */

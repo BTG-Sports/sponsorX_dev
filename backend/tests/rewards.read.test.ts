@@ -17,6 +17,7 @@ let rewards: unknown[] = [];
 let groups: unknown[] = [];
 let groupArgs: Record<string, unknown> = {};
 let token: unknown = null;
+let fanTotals: unknown[] = [];
 const grants: string[] = [];
 
 vi.mock("../src/db/client", () => ({
@@ -26,7 +27,7 @@ vi.mock("../src/db/client", () => ({
       findFirst: () => Promise.resolve(rewards[0] ?? null),
     },
     rewardEvent: { groupBy: (a: Record<string, unknown>) => ((groupArgs = a), Promise.resolve(groups)) },
-    rewardToken: { findFirst: () => Promise.resolve(token) },
+    rewardToken: { findFirst: () => Promise.resolve(token), findMany: () => Promise.resolve([]), groupBy: () => Promise.resolve(fanTotals) },
   },
 }));
 vi.mock("../src/lib/storage", () => ({
@@ -105,6 +106,18 @@ describe("GET /rewards/:id", () => {
     expect((await run(readReward, sponsor, { params: { id: "rw_1" } })).staffCode).toBe("482913");
     expect(await run(readReward, athlete, { params: { id: "rw_1" } })).not.toHaveProperty("staffCode");
     expect(JSON.stringify(await run(listRewards, admin))).not.toContain("482913");
+  });
+  it("POL-BE-08 · a shared code's refused and undone redeems include its fans' own codes", async () => {
+    fanTotals = [{ parentTokenId: "tk_2", _sum: { refusedRedeems: 2, undoneRedeems: 1 }, _max: { lastRefusedRedeemAt: new Date("2026-10-12T10:00:00Z"), lastUndoneRedeemAt: null } }];
+    try {
+      const b = await run(readReward, admin, { params: { id: "rw_1" } });
+      expect((b.tokens as Record<string, unknown>[]).find((t) => t.id === "tk_2")).toMatchObject({
+        refusedRedeems: 2, undoneRedeems: 1, lastRefusedRedeemAt: "2026-10-12T10:00:00.000Z", lastUndoneRedeemAt: null,
+      });
+      expect((b.tokens as Record<string, unknown>[]).find((t) => t.id === "tk_1")).toMatchObject({ refusedRedeems: 3, undoneRedeems: 1 });
+    } finally {
+      fanTotals = [];
+    }
   });
   it("a sponsor sees tokens but never their strings", async () => {
     const b = await run(readReward, sponsor, { params: { id: "rw_1" } });

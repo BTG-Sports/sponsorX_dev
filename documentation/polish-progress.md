@@ -11,9 +11,11 @@ each problem we ran into was solved. Newest first within each day.
 | 3 · A team could raise its share to 100% without asking | `POL-BE-03` | #322 | Merged |
 | 5 · Sponsors agreed to the terms before seeing the total | `POL-BE-05` | #324 | Merged |
 | 6 · A sponsor who paid twice got no refund | `POL-BE-06` | #325 | Merged |
+| 7 · Anyone holding the fan's phone could use up their reward | `POL-BE-07` | #328 | Merged |
+| 8 · Only the first fan could claim a shared QR code | `POL-BE-08` | — | In review |
 | 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
 
-The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`) are for
+The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`) are for
 HeckerCreatives. Each item in `polish.md` says exactly what the screens can
 rely on.
 
@@ -194,6 +196,39 @@ rely on.
 - **Snags:** a step that put back a test change also undid real edits, and
   they were restored. Another PR's log entry clashed with this one; both
   were kept.
+
+### `POL-BE-07` — staff redeem needs the booth's code, and can be undone
+- **Problem:** "Staff: redeem now" used a fan's reward up with one tap, by
+  anyone holding the phone, and it couldn't be undone.
+- **Decision** (the user): the code requirement goes live behind a switch,
+  off until the fan page asks for the code, so no event is ever left unable
+  to redeem.
+- **Approach:**
+  - Each reward has a six-digit staff code, seen and replaced only by BTG and
+    the sponsor's admins.
+  - Five wrong codes lock that fan's code for 15 minutes.
+  - Undo within 5 minutes removes the redeem, so every count stays right, and
+    is recorded.
+- **Also asked for:** one document listing every switch,
+  `SponsorX-Switches.md`, now linked from `CLAUDE.md`.
+- **Snags:** a read test mocked the database, so the code is read with the
+  reward rather than separately. Another PR's log entry clashed; both kept.
+
+### `POL-BE-08` — each fan who scans a shared code gets their own claim
+- **Problem:** an athlete's QR is shown to many fans, but it was treated as
+  one fan's code. Later fans saw the first fan's hold, and on a one-use
+  reward the QR worked once for everyone.
+- **Approach:**
+  - Claiming through a shared QR makes the fan a code of their own, where the
+    claim, hold, email and redeem happen. Everything already built for one
+    code (holds, limits, the staff code, undo) works on it unchanged.
+  - The same address gets its code back.
+  - The shared QR can't be redeemed itself.
+  - Reports already counted through the reward and the athlete, so they
+    needed no change. The desk adds each fan's code to its QR's counts.
+  - Behind a switch, `REWARD_FAN_CODES`, as with `POL-BE-07`.
+- **Snag:** a test used an address with a trailing space, which the API
+  rightly refuses.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.
