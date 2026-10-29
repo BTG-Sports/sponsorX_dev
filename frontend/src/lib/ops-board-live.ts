@@ -1,7 +1,8 @@
 /* --------------------------------------------------------------------------
    P7-FE-06 — the admin Operations Board, from three live reads:
 
-     GET /operations/board             the four "needs BTG action" queues
+     GET /operations/board             the "needs BTG action" queues — four,
+                                       plus payouts waiting for BTG (POL-FE-12)
                                        (null where the role doesn't read one)
      GET /operations/delivery-health   live campaigns, deliverables done / due
      GET /operations/integration-health  dependencies, Zoho, worker queue
@@ -11,14 +12,24 @@
    estimated. Every card links to the page whose count it shows.
    -------------------------------------------------------------------------- */
 
-import { postHref, reviewBy } from "@/lib/approvals-live";
+import { DESK_TIME_ZONE, postHref, reviewBy } from "@/lib/approvals-live";
 import type { ApiDeliverable } from "@/lib/deliverables-live";
+
+/** A queue with a "since": how many wait, and when the oldest started waiting. */
+export type ApiWaitingQueue = { waiting: number; oldestSince: string | null };
 
 export type ApiQueues = {
   applications: { waiting: number; over48h: number } | null;
   approvals: { waiting: number } | null;
   briefs: { toQualify: number; toMatch: number } | null;
   finance: { held: number; disputed: number } | null;
+  /** POL-BE-12 — payouts waiting for BTG: held at request, or failed and
+   *  handed to BTG. Null for a role that doesn't read every payout; absent
+   *  from an API older than 2026-10-29. */
+  payouts?: ApiWaitingQueue | null;
+  /** POL-BE-14 — open make-goods. Its card is POL-FE-15's; typed so the read
+   *  is honest, not drawn yet. */
+  makeGoods?: ApiWaitingQueue | null;
 };
 
 export type ApiDeliveryHealth = {
@@ -43,7 +54,7 @@ export type ApiIntegrationHealth = {
 
 type Tone = "warn" | "danger" | "primary" | "neutral";
 export type QueueCard = {
-  key: "applications" | "approvals" | "briefs" | "finance";
+  key: "applications" | "approvals" | "briefs" | "finance" | "payouts";
   label: string;
   hint: string;
   count: number;
@@ -85,7 +96,28 @@ export function queueCards(q: ApiQueues): QueueCard[] {
       count: q.finance.held + q.finance.disputed, href: "/admin/finance", chips,
     });
   }
+  /* POL-FE-12 — a held payout used to be silent: the payee read "BTG reviews
+     it next" and nobody at BTG was counting. The card opens the payouts desk,
+     whose Waiting tab is the held ones and whose Failed tab is what the
+     provider handed back. */
+  if (q.payouts) {
+    const since = q.payouts.waiting > 0 ? sinceDay(q.payouts.oldestSince) : null;
+    cards.push({
+      key: "payouts", label: "Payouts to review", hint: "Held for BTG, or failed and handed back",
+      count: q.payouts.waiting, href: "/admin/payouts",
+      chips: since ? [{ text: `oldest waiting since ${since}`, tone: "warn" }] : [],
+    });
+  }
   return cards;
+}
+
+/** "Oct 24" — the day the oldest started waiting, on the desk's clock
+ *  (America/New_York, as review-by dates are); null without a usable time. */
+export function sinceDay(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const t = new Date(iso);
+  if (Number.isNaN(t.getTime())) return null;
+  return t.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: DESK_TIME_ZONE });
 }
 
 export function actionTotal(cards: QueueCard[]): number {
@@ -106,6 +138,9 @@ export const QUEUE_TONE: Record<QueueCard["key"], string> = {
   approvals: "#9be0ff",
   briefs: "#fb923c",
   finance: "#f97a1f",
+  /* POL-FE-12 — amber, so money waiting for a person reads apart from the
+     two oranges beside it. */
+  payouts: "#ffb020",
 };
 
 export type BoardHeadline = { lead: string; hand: string; tail: string };

@@ -282,7 +282,8 @@ export function StageChip({ tone, children }: { tone: keyof typeof CHIP; childre
 
 export function QueueDeck({ cards }: { cards: QueueCard[] }) {
   return (
-    <ul className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
+    // POL-FE-12 made a fifth card; five across at xl rather than four and an orphan.
+    <ul className={`grid gap-3.5 sm:grid-cols-2 ${cards.length >= 5 ? "lg:grid-cols-3 xl:grid-cols-5" : "xl:grid-cols-4"}`}>
       {cards.map((c, i) => {
         const delay = 0.55 + i * 0.08;
         return (
