@@ -70,6 +70,12 @@
 - **For HeckerCreatives:** `POL-FE-06`, as spelled out in `polish.md` item 6.
 - **Not yet done:** the tracker row and `polish-progress.md`, once the PR merges.
 
+### `POL-BE-05` and `POL-BE-06` Done (rcfworks): PRs #324 and #325 merged into `main_development`
+
+- **Tracker:** both Polish sheet rows are Done, started and done 2026-10-29. The formula count is still 180.
+- **Notes:** `polish-progress.md` has both entries; the table also shows `POL-BE-02` merged.
+- **Next:** the sync PR from `main_development` to `main`. It carries migration `20261029150000_refund_paid_twice`.
+
 ### `POL-BE-07` (rcfworks): staff redeem needs the booth's code, and can be undone
 
 - **Problem:** the fan page's "Staff: redeem now" used the reward up with one tap, by anyone holding the phone, with no undo.
