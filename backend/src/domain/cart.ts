@@ -29,6 +29,8 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { checkListing, UnavailableError } from "./availability";
+import { env } from "../config/env";
+import { orderQuote } from "./marketplace-order-rules";
 
 export const CART_TTL_MS = 24 * 60 * 60 * 1000;
 export const CART_CURRENCY = "USD";
@@ -54,9 +56,14 @@ const SELECT = {
 } as const;
 type Row = Prisma.CartGetPayload<{ select: typeof SELECT }>;
 
+/** POL-BE-05 — the quote at the buyer fee in force: the same sum placeOrder charges. */
+export const sponsorQuote = (subtotalCents: number) => orderQuote(subtotalCents, env.MARKETPLACE_BUYER_FEE_BPS);
+
 function view(c: Row) {
   const lines = c.lines.map(({ listing, ...l }) => ({ ...l, title: listing.title, propertyName: listing.property?.name ?? null, sellerName: listing.property?.name ?? listing.sellerAthlete?.displayName ?? null, lineTotalCents: l.quantity * l.unitPriceCents }));
-  return { ...c, lines, totalCents: lines.reduce((s, l) => s + l.lineTotalCents, 0) };
+  /* `totalCents` is the lines' sum (kept for the screens that read it); `quote` adds the fees — what placing it would charge. */
+  const totalCents = lines.reduce((s, l) => s + l.lineTotalCents, 0);
+  return { ...c, lines, totalCents, quote: sponsorQuote(totalCents) };
 }
 
 function sponsorOf(actor: Actor, action: "read" | "write"): string {

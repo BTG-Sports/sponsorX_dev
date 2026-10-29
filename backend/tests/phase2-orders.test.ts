@@ -69,6 +69,7 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
   const { expireReservations } = await import("../src/domain/reservation");
   const { handlePushMarketplaceOrder } = await import("../worker/jobs/zoho-sync.mts");
   const { FakeZoho } = await import("./support/fake-zoho");
+  const { env } = await import("../src/config/env");
 
   const T = "mo_btg";
   const L: Record<string, string> = {};
@@ -499,6 +500,65 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
       expect((await call("POST", "/marketplace-orders", "mo_s1_analyst", body)).status).toBe(403);
       await call("POST", `/reservations/${hold.id}/release`, "mo_s1_admin");
       await prisma.cart.updateMany({ where: { tenantId: T, state: "ACTIVE" }, data: { state: "EXPIRED" } });
+    });
+  });
+
+  /* ── POL-BE-05 ─────────────────────────────────────────────────────────── */
+  describe("POL-BE-05 · the sponsor sees the total, fees included, before placing — and is charged exactly that", () => {
+    const FEE_BPS = 300;
+    let feeWas = 0;
+    beforeAll(async () => {
+      feeWas = env.MARKETPLACE_BUYER_FEE_BPS;
+      (env as { MARKETPLACE_BUYER_FEE_BPS: number }).MARKETPLACE_BUYER_FEE_BPS = FEE_BPS;
+      /* A clean cart: earlier blocks leave holds and lines behind. */
+      await prisma.reservation.updateMany({ where: { tenantId: T, state: "HELD" }, data: { state: "RELEASED", releasedAt: new Date() } });
+      await prisma.cart.updateMany({ where: { tenantId: T, state: "ACTIVE" }, data: { state: "EXPIRED" } });
+    });
+    afterAll(() => {
+      (env as { MARKETPLACE_BUYER_FEE_BPS: number }).MARKETPLACE_BUYER_FEE_BPS = feeWas;
+    });
+    /* Two shout-outs at $200: $400.00, a 3% buyer fee of $12.00, $412.00 in all. */
+    const QUOTE = { currency: "USD", subtotalCents: 40_000, feesCents: 1_200, totalCents: 41_200 };
+
+    it("the cart and the live hold both quote the fees and the total; the cart's own sum is unchanged", async () => {
+      await call("POST", "/cart", "mo_s2_admin");
+      expect((await call("POST", "/cart/lines", "mo_s2_admin", { listingId: L.sticker, quantity: 2, startsOn: at(60), endsOn: at(61) })).status).toBe(201);
+      const cart = (await call("GET", "/cart", "mo_s2_admin")).json.cart;
+      expect(cart.totalCents).toBe(40_000);
+      expect(cart.quote).toEqual(QUOTE);
+      const hold = (await call("POST", "/cart/reserve", "mo_s2_admin")).json;
+      L.quoteHold = hold.id;
+      expect((await call("GET", `/reservations/${hold.id}`, "mo_s2_admin")).json.checkout.quote).toEqual(QUOTE);
+    });
+
+    it("a total other than the one shown is refused, 409 total_changed — nothing placed, nothing accepted, the hold kept", async () => {
+      const checkout = (await call("GET", `/reservations/${L.quoteHold}`, "mo_s2_admin")).json.checkout;
+      const acceptancesBefore = await prisma.agreementAcceptance.count({ where: { tenantId: T } });
+      const stale = await call("POST", "/marketplace-orders", "mo_s2_admin", { ...accepted(L.quoteHold, checkout), totalCentsShown: 40_000 });
+      expect(stale.status, stale.text).toBe(409);
+      expect(stale.json.error).toMatchObject({ code: "total_changed" });
+      expect(stale.json.error.message).toMatch(/now \$412\.00/);
+      expect(await prisma.marketplaceOrder.count({ where: { reservationId: L.quoteHold } })).toBe(0);
+      expect(await prisma.agreementAcceptance.count({ where: { tenantId: T } })).toBe(acceptancesBefore);
+      expect((await call("GET", `/reservations/${L.quoteHold}`, "mo_s2_admin")).json.state).toBe("HELD");
+    });
+
+    it("placed with the total it showed, the order and the card charge are exactly that total", async () => {
+      const checkout = (await call("GET", `/reservations/${L.quoteHold}`, "mo_s2_admin")).json.checkout;
+      const placed = await call("POST", "/marketplace-orders", "mo_s2_admin", { ...accepted(L.quoteHold, checkout), totalCentsShown: checkout.quote.totalCents });
+      expect(placed.status, placed.text).toBe(201);
+      expect(placed.json).toMatchObject({ subtotalCents: 40_000, feesCents: 1_200, totalCents: 41_200 });
+      expect((await call("GET", `/marketplace-orders/${placed.json.id}/payment`, "mo_s2_admin")).json).toMatchObject({ amountCents: 41_200 });
+    });
+
+    it("placing without totalCentsShown still works (today's checkout), at the same quote", async () => {
+      const hold = await held("mo_s2_admin", [{ key: "sticker", quantity: 1, from: 62, to: 63 }]);
+      const quote = (await call("GET", `/reservations/${hold.id}`, "mo_s2_admin")).json.checkout.quote;
+      expect(quote).toEqual({ currency: "USD", subtotalCents: 20_000, feesCents: 600, totalCents: 20_600 });
+      const read = (await call("GET", `/reservations/${hold.id}`, "mo_s2_admin")).json;
+      const placed = await call("POST", "/marketplace-orders", "mo_s2_admin", accepted(hold.id, read.checkout));
+      expect(placed.status, placed.text).toBe(201);
+      expect(placed.json.totalCents).toBe(quote.totalCents);
     });
   });
 
