@@ -52,6 +52,18 @@ Every frontend task whose backend is done, or that needs no backend, in five com
 - **Tracker:** `POL-FE-01, 16, 27, 28, 31, 34, 35` to **Done**. `P8-FE-11` stays at Code review only because a held legal name's Apply / Decline had no data to walk; `P8-FE-12` until the real API lands; `POL-FE-32` until a new login can be created (Clerk cap).
 - **Left as found:** every seeded row reverted or deleted (invite, delivery line, attempt, order, payout, the two applicants and their guardians); the QA logins' links restored; servers stopped.
 
+### QA pass 3 — the document loop end to end, the last P8-FE-12 outcomes, a width sweep (HeckerCreatives, same day)
+
+- **How:** same stack and stub (the stub now answers `CANCELLED` when the reason contains `[auto]`). Seeded a FLAGGED identity document on the Bowie Bay Sox onboarding and a FLAGGED proof on the Zoë & Co sponsor request; minted the organisation's public checklist link with `issueOnboardingToken`. The athlete flow used no seed at all: the real profile editor, the real upload to MinIO, the real OCR. 111 checks, 2 reruns for timing.
+- **The loop, with the real OCR:** the athlete changes the legal name to "Jordan Reed-Carter", the ID picker appears, the crisp drawn ID (which names Riley Carter) goes up, the save answers "BTG is checking it"; BTG's sensitive-edits list shows the change Flagged, "Waiting for you", with the two findings tesseract produced ("The new legal name … isn't named on it", "The date of birth on the account … isn't on it"); **Send ID back** with a reason declines it; the athlete's editor reads "BTG asked for a new one: …" with the reason and "Enter the name again…"; a second submission is held again; **Apply** makes "Jordan Reed-Carter" the legal name in the database and clears the athlete's banner. (Reverted afterwards.)
+- **Organisation and sponsor-request documents:** Flagged with the finding, Send back with a reason; the organisation goes to CHANGES_REQUESTED with the reason as its review note, View disappears, and its public checklist says "BTG asked for a new one: …" with the upload offered again; the sponsor request's proof shows as sent back.
+- **P8-FE-12:** "Campaign cancelled" outcome; a blank name and an end date before the start date are refused before any call; Tab stays inside the dialog.
+- **Links:** "Needs your OK" lands on `?review=1` with the campaign and "Approve posts →" opens it; the board's content list opens the post's drawer within a second; "Pay →" is a mailto naming the invoice and campaign.
+- **Width sweep:** 24 changed pages × 375 and 768 across admin, sponsor, athlete and property — no horizontal overflow, no page errors.
+- **Bug found and fixed:** the sensitive-edits list showed "Something on it didn't match" with no findings, because `GET /profile-changes` sends `idDocumentCheckFindings` as the stored `{ code, says }` objects while every other document view flattens them to `says` strings. `editIdCheck` now reads both; unit test added. **For rcfworks:** flattening that route through `checkView` would make the shapes match.
+- **Tracker:** `P8-FE-11` to **Done** (eighteen of twenty). `P8-FE-12` stays at Code review only for the live API; `POL-FE-32` for a new login.
+- **Left as found:** legal name back to "Jordan Reed", the two profile-change rows and the seeded documents deleted, Bowie Bay Sox back to PENDING_REVIEW, the QA logins' links restored, servers stopped.
+
 ### Still open for the frontend
 
 - Waiting on a backend row: `POL-FE-02, 03, 05, 06, 07, 08, 10, 11, 12, 15, 17, 18, 19, 22, 36`.

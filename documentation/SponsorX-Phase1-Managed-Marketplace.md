@@ -3399,9 +3399,9 @@ Each is held with the findings as its reasons. Clear documents change nothing. T
     - Of several documents for one requirement, any that reads CLEAR, or was never read, meets it.
   - **Tests:** `document-checks.test.ts` covers names, kinds, dates and expiry, the birth date, UNREAD, which documents hold, and real OCR of a phone photo, a scanned PDF and a sideways card. `document-flows.test.ts` shows each flow held with its reason and approved automatically on a clear document. It also covers BTG's apply and decline of a held legal name, and the check shown in every BTG view.
 
-### ▶ `P8-FE-11` · Document checks on screen
+### ✅ `P8-FE-11` · Document checks on screen
 
-**Order** 157.999 · **FE** · **Where:** Code · **2d** · **Code review** — 2026-10-29, HeckerCreatives (built and tested; not yet walked in a browser)
+**Order** 157.999 · **FE** · **Where:** Code · **2d** · **Done** — 2026-10-29, HeckerCreatives (walked end to end on the local stack with the real OCR; see Memory/2026-10-29)
 
 1. **Upload screens:**
    - Every document confirm call can now answer 422 with a reason in plain words, for example "That photo is too dark to read. Retake it in good light, with no shadow on it." Show that reason under the upload, with a "Try again" button.
@@ -3437,6 +3437,7 @@ Each is held with the findings as its reasons. Clear documents change nothing. T
   - **Held legal names.** `sensitive-edits-section.tsx` shows the ID's check and `components/legal-name-decision.tsx`: Apply, Decline (note) and Send ID back, through `decideLegalNameAction` and `sendBackLegalNameIdAction`.
   - Not touched: `deliverable-upload.tsx` (creative, not a document under `P8-BE-09`).
   - Checked: the whole frontend suite (159 files, 1,814 tests), eslint and `next build` pass.
+  - **QA 2026-10-29 (three browser passes):** a dark 120×90 photo refused in plain words with Try again and a crisp ID accepted through MinIO; flagged findings, Send back (reason rule, Escape) on new sign-ups, an organisation and a sponsor request, the organisation going to CHANGES_REQUESTED and its public checklist saying "BTG asked for a new one"; and the whole legal-name loop with the real OCR — held with findings, Send ID back, the athlete told, resubmitted, applied. One fix from it: `GET /profile-changes` sends `idDocumentCheckFindings` as the stored `{ code, says }` objects, not the `says` strings the other views send, so `editIdCheck` now reads both. **For `rcfworks`:** flattening that route through `checkView` like the others would make the shapes match.
 
 ### ▶ `P8-BE-12` · Cancel and change a campaign, automatically
 

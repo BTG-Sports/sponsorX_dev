@@ -143,6 +143,24 @@ describe("a held legal name", () => {
     expect(editIdCheck({ ...base, idDocumentCheckState: "UNREAD", idDocumentCheckFindings: null })).toEqual({ state: "UNREAD", findings: [], checkedAt: null });
   });
 
+  it("reads the API's stored { code, says } findings as well as plain strings (QA 2026-10-29: the live route sends objects)", () => {
+    expect(editIdCheck({
+      ...base,
+      idDocumentCheckState: "FLAGGED",
+      idDocumentCheckFindings: [
+        { code: "NAME_NOT_FOUND", says: "The new legal name (Jordan Reed-Carter) isn't named on it" },
+        { code: "BIRTH_DATE_NOT_FOUND", says: "The date of birth on the account (04/02/2003) isn't on it" },
+        "A plain string still counts",
+        { code: "NO_TEXT" },
+      ],
+      idDocumentCheckedAt: "2026-10-29T10:00:00.000Z",
+    })).toEqual({
+      state: "FLAGGED",
+      findings: ["The new legal name (Jordan Reed-Carter) isn't named on it", "The date of birth on the account (04/02/2003) isn't on it", "A plain string still counts"],
+      checkedAt: "2026-10-29T10:00:00.000Z",
+    });
+  });
+
   it("waits for BTG only once the ID is in and the change is still pending", () => {
     expect(awaitingBtg(base)).toBe(false);
     expect(awaitingBtg({ ...base, idDocumentUploadedAt: "2026-10-28T09:04:00.000Z" })).toBe(true);

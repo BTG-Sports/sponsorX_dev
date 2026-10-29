@@ -40,7 +40,9 @@ export type ApiProfileChange = {
   idDocumentUploadedAt?: string | null;
   /** P8-BE-11 — what reading the ID found (null until read); P8-BE-10 — BTG sent it back, and why. */
   idDocumentCheckState?: DocumentCheckState | null;
-  idDocumentCheckFindings?: string[] | null;
+  /** The API sends the stored findings as written: `{ code, says }` objects (the
+   *  other document views flatten them to `says` strings). Either is read. */
+  idDocumentCheckFindings?: Array<string | { code?: string; says?: string }> | null;
   idDocumentCheckedAt?: string | null;
   idDocumentReturnedAt?: string | null;
   idDocumentReturnedReason?: string | null;
@@ -59,7 +61,11 @@ export function editIdCheck(c: Pick<ApiProfileChange, "idDocumentCheckState" | "
   if (!c.idDocumentCheckState) return null;
   return {
     state: c.idDocumentCheckState,
-    findings: Array.isArray(c.idDocumentCheckFindings) ? c.idDocumentCheckFindings.filter((f): f is string => typeof f === "string") : [],
+    findings: Array.isArray(c.idDocumentCheckFindings)
+      ? c.idDocumentCheckFindings
+          .map((f) => (typeof f === "string" ? f : f && typeof f === "object" && typeof f.says === "string" ? f.says : ""))
+          .filter((f) => f.trim().length > 0)
+      : [],
     checkedAt: c.idDocumentCheckedAt ?? null,
   };
 }
