@@ -12,6 +12,7 @@ import {
   type LinkResult,
   type NewReward,
   type SimpleResult,
+  type StaffCodeResult,
 } from "@/lib/rewards-live";
 
 /* --------------------------------------------------------------------------
@@ -136,6 +137,20 @@ export async function rewardDetailAction(id: string): Promise<{ ok: true; reward
     const res = await apiFetch(`/rewards/${encodeURIComponent(id)}`);
     if (!res.ok) return { ok: false, message: await reason(res, `Unavailable (HTTP ${res.status}).`) };
     return { ok: true, reward: (await res.json()) as ApiRewardDetail };
+  } catch {
+    return { ok: false, message: unreachable };
+  }
+}
+
+/** POL-FE-07 — a new staff code for the reward (POST /rewards/:id/staff-code).
+ *  The old one stops working at once; the API audits the change. */
+export async function newStaffCodeAction(id: string): Promise<StaffCodeResult> {
+  if (!id) return { ok: false, message: "No reward." };
+  try {
+    const res = await apiFetch(`/rewards/${encodeURIComponent(id)}/staff-code`, { method: "POST" });
+    if (!res.ok) return { ok: false, message: await reason(res, `The code was not replaced (HTTP ${res.status}).`) };
+    const body = (await res.json()) as { staffCode?: unknown };
+    return typeof body.staffCode === "string" ? { ok: true, staffCode: body.staffCode } : { ok: false, message: "The API answered without a code." };
   } catch {
     return { ok: false, message: unreachable };
   }

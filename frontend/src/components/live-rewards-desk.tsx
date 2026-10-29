@@ -28,6 +28,7 @@ import {
   redemptionRate,
   rewardMoves,
   STATE_COPY,
+  tokenActivityLine,
   type ApiReward,
   type ApiRewardDetail,
   type ApiRewardState,
@@ -37,6 +38,7 @@ import {
   type NewReward,
   type RewardEligibility,
   type SimpleResult,
+  type StaffCodeResult,
 } from "@/lib/rewards-live";
 import { parseVenue, venueLabel } from "@/lib/reward-venue";
 import { RewardVenueFields } from "@/components/reward-venue-fields";
@@ -67,6 +69,8 @@ type Actions = {
   move: (id: string, to: ApiRewardState) => Promise<SimpleResult>;
   detail: (id: string) => Promise<{ ok: true; reward: ApiRewardDetail } | { ok: false; message: string }>;
   qrLink: (tokenId: string) => Promise<LinkResult>;
+  /** POL-FE-07 — replace the reward's staff code; the old one stops at once. */
+  newStaffCode: (id: string) => Promise<StaffCodeResult>;
   athletes: (campaignId: string) => Promise<{ ok: true; athletes: { id: string; name: string }[] } | { ok: false; message: string }>;
   /** The creator's picker — one page of rewardable campaigns for a search. */
   campaigns: (q: string) => Promise<CampaignSearch>;
@@ -384,6 +388,11 @@ function QrPanel({ rewardId, actions, onClose }: { rewardId: string; actions: Ac
   /* F-05: focus in, Tab trapped, Escape closes, focus back to the trigger. */
   const dialogRef = useDialogFocus<HTMLDivElement>(onClose);
   const [linkErr, setLinkErr] = useState<Record<string, string>>({});
+  /* POL-FE-07 — "New code" is two clicks: the first asks, the second
+     replaces. The old code stops working at once, so a booth mid-event
+     must be told before it changes. */
+  const [codeStep, setCodeStep] = useState<"idle" | "confirm" | "busy">("idle");
+  const [codeErr, setCodeErr] = useState<string | null>(null);
 
   /* Tokens load when the panel opens — they're per reward, and a desk of
      a hundred rewards shouldn't fetch a hundred token lists up front. */
@@ -405,6 +414,15 @@ function QrPanel({ rewardId, actions, onClose }: { rewardId: string; actions: Ac
       w?.close();
       setLinkErr((e) => ({ ...e, [tokenId]: r.ok ? "Your browser blocked the new tab." : r.message }));
     }
+  };
+
+  const replaceCode = async () => {
+    setCodeStep("busy");
+    setCodeErr(null);
+    const r = await actions.newStaffCode(rewardId);
+    if (r.ok) setState((s) => (s.reward ? { reward: { ...s.reward, staffCode: r.staffCode } } : s));
+    else setCodeErr(r.message);
+    setCodeStep("idle");
   };
 
   const rw = state?.reward;
@@ -429,6 +447,44 @@ function QrPanel({ rewardId, actions, onClose }: { rewardId: string; actions: Ac
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {state?.error && <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] text-danger">{state.error}</p>}
           {!rw && !state?.error && <p className="text-xs text-muted">Loading tokens…</p>}
+          {/* POL-FE-07 — the booth's code. Shown to the reward's managers only;
+              an API that sends none (an older one, or a role without it) shows
+              nothing here rather than a blank. */}
+          {rw?.staffCode && (
+            <section aria-label="Staff code" className="mb-4 rounded-xl border border-line-soft bg-surface-2 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Staff code</p>
+                  <p className="mt-0.5 font-mono text-2xl tracking-[.3em] text-text" data-testid="staff-code">{rw.staffCode}</p>
+                </div>
+                {codeStep === "confirm" ? (
+                  <span className="flex shrink-0 flex-col items-end gap-1.5">
+                    <button type="button" onClick={replaceCode} className="rounded-lg bg-danger px-2.5 py-1 text-[11px] font-medium text-white hover:bg-danger/90">
+                      Yes, replace it
+                    </button>
+                    <button type="button" onClick={() => setCodeStep("idle")} className="rounded-lg border border-line px-2.5 py-1 text-[11px] font-medium text-text hover:bg-surface">
+                      Keep the code
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={codeStep === "busy"}
+                    onClick={() => setCodeStep("confirm")}
+                    className="shrink-0 rounded-lg border border-line px-2.5 py-1 text-[11px] font-medium text-text hover:bg-surface disabled:opacity-60"
+                  >
+                    {codeStep === "busy" ? "Replacing…" : "New code"}
+                  </button>
+                )}
+              </div>
+              <p className="mt-2 text-[10px] leading-relaxed text-faint">
+                {codeStep === "confirm"
+                  ? "The old code stops working the moment it is replaced — tell every booth the new one first."
+                  : "The booth types this to redeem a fan's code, and to undo one within five minutes. Give it to venue staff only."}
+              </p>
+              {codeErr && <p role="alert" className="mt-2 text-[10px] text-danger">{codeErr}</p>}
+            </section>
+          )}
           {rw && rw.tokens.length === 0 && <p className="text-xs text-muted">No tokens on this reward yet.</p>}
           {rw && rw.tokens.length > 0 && (
             <ul className="divide-y divide-line-soft">
@@ -464,6 +520,9 @@ function QrPanel({ rewardId, actions, onClose }: { rewardId: string; actions: Ac
                       {fanPath(t.token)}
                     </a>
                   )}
+                  {/* POL-FE-07 — what the booth refused and undid on this code
+                      (its fans' own codes included, POL-BE-08). */}
+                  {tokenActivityLine(t) && <p className="mt-1 text-[10px] text-faint">Booth: {tokenActivityLine(t)}</p>}
                   {linkErr[t.id] && <p className="mt-1 text-[10px] text-danger">{linkErr[t.id]}</p>}
                 </li>
               ))}

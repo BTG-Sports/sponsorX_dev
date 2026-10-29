@@ -18,38 +18,70 @@
 import { after } from "next/server";
 
 import { edgeHeaders } from "@/server/edge";
-import { renderFanPage, renderUnavailable, type Flash, type TokenView } from "@/server/fan-page";
+import { FLASHES, fanCookie, readFanCookie, renderFanPage, renderUnavailable, type Flash, type TokenView } from "@/server/fan-page";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
-/* `notlive` / `expired`: a claim or redeem refused because the reward was
-   paused or ran past its expiry between the page load and the tap (QA pass
-   6, P6-BE-05 — they used to come back as "used"). */
-const FLASHES = new Set(["claimed", "redeemed", "used", "consent", "failed", "soldout", "notlive", "expired"]);
+/* The flashes are the page's own list (src/server/fan-page.ts). `notlive` /
+   `expired`: a claim or redeem refused because the reward was paused or ran
+   past its expiry between the page load and the tap (QA pass 6, P6-BE-05 —
+   they used to come back as "used"). The staff-code and undo flashes are
+   POL-FE-07's; `claimfirst` POL-FE-08's. */
 
 type Params = { params: Promise<{ token: string }> };
+
+const HTML = { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" };
+
+async function readView(t: string, forward: Record<string, string>): Promise<TokenView> {
+  /* Timeout: a hung (not down) API otherwise hangs the QR page exactly
+     where fans stand — the caller renders the 503 retry page either way. */
+  const res = await fetch(`${API_URL}/api/v1/public/rewards/${t}`, {
+    cache: "no-store",
+    headers: forward,
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!res.ok && res.status !== 404) throw new Error(`view ${res.status}`);
+  return res.status === 404 ? { state: "UNKNOWN" } : ((await res.json()) as TokenView);
+}
 
 export async function GET(req: Request, { params }: Params) {
   const { token } = await params;
   const t = encodeURIComponent(token);
-  const flashParam = new URL(req.url).searchParams.get("flash");
+  const url = new URL(req.url);
+  const flashParam = url.searchParams.get("flash");
   const flash = (flashParam && FLASHES.has(flashParam) ? flashParam : null) as Flash;
+  /* POL-FE-07 — `wrong_staff_code` carries how many tries are left; the
+     redeem route passes it on as ?left=. A single digit, or nothing. */
+  const leftParam = url.searchParams.get("left");
+  const triesLeft = leftParam && /^\d$/.test(leftParam) ? Number(leftParam) : null;
   const forward = edgeHeaders(req);
 
   let view: TokenView;
   try {
-    /* Timeout: a hung (not down) API otherwise hangs the QR page exactly
-       where fans stand — the catch renders the 503 retry page either way. */
-    const res = await fetch(`${API_URL}/api/v1/public/rewards/${t}`, {
-      cache: "no-store",
-      headers: forward,
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok && res.status !== 404) throw new Error(`view ${res.status}`);
-    view = res.status === 404 ? { state: "UNKNOWN" } : ((await res.json()) as TokenView);
+    view = await readView(t, forward);
   } catch {
-    return new Response(renderUnavailable(), {
-      status: 503, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "retry-after": "5" },
-    });
+    return new Response(renderUnavailable(), { status: 503, headers: { ...HTML, "retry-after": "5" } });
+  }
+
+  /* POL-FE-08 — a fan who scans an athlete's shared QR again, on the phone
+     that claimed, goes straight to their own code instead of making another.
+     The cookie is the claim route's; it is believed only once the API still
+     knows that code (a stale one is forgotten). No SCAN here: the fan's own
+     page records the one scan, and its beacon the landing. */
+  if (view.state !== "UNKNOWN" && view.kind === "SHARED" && !flash) {
+    const own = readFanCookie(req.headers.get("cookie"), token);
+    if (own) {
+      const secure = url.protocol === "https:" || req.headers.get("x-forwarded-proto") === "https";
+      try {
+        const ownView = await readView(encodeURIComponent(own), forward);
+        if (ownView.state !== "UNKNOWN") {
+          return new Response(null, { status: 303, headers: { Location: `/r/${encodeURIComponent(own)}`, "cache-control": "no-store" } });
+        }
+        const { html, status } = renderFanPage(token, view, flash, new Date(), { triesLeft });
+        return new Response(html, { status, headers: { ...HTML, "set-cookie": fanCookie(token, "", { secure, forget: true }) } });
+      } catch {
+        /* The API answered for the shared code a moment ago; render that. */
+      }
+    }
   }
 
   if (view.state === "LIVE" && !flash) {
@@ -58,9 +90,6 @@ export async function GET(req: Request, { params }: Params) {
     });
   }
 
-  const { html, status } = renderFanPage(token, view, flash);
-  return new Response(html, {
-    status,
-    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
-  });
+  const { html, status } = renderFanPage(token, view, flash, new Date(), { triesLeft });
+  return new Response(html, { status, headers: HTML });
 }

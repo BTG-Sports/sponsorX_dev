@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui";
 import { momentOf } from "@/lib/new-signups-live";
 import { trustHint, trustLine } from "@/lib/content-trust";
 import type { HomeFeatureStatus } from "@/lib/home-feature";
-import { LIVE_KIND_WORDS, liveBadge, signupHref, type ApiSignupDetail } from "@/lib/signups-live";
+import { LIVE_KIND_WORDS, comingOfAgeHold, liveBadge, signupHref, type ApiSignupDetail } from "@/lib/signups-live";
 import { apiFetch } from "@/server/api";
 
 /* --------------------------------------------------------------------------
@@ -56,9 +56,25 @@ export async function LiveSignupProfile({ owner, id }: { owner: "athletes" | "gu
   if (!res.ok) throw new Error(`This sign-up couldn't be read (${res.status}).`);
   const s = (await res.json()) as ApiSignupDetail;
   const badge = liveBadge(s, s.approvedAt);
+  const hold = comingOfAgeHold(s);
 
   const before = (
     <>
+      {/* POL-FE-02 / POL-BE-02 — a coming-of-age takeover the ID check held: why, and what Confirm takeover (the Actions panel) or Send back does. */}
+      {hold && (
+        <section aria-label="Coming of age held" className="rounded-xl border border-warn/45 bg-warn/8 p-4 sm:px-5">
+          <h2 className="text-sm font-semibold text-warn">{hold.title}</h2>
+          <ul className="mt-2">
+            {hold.reasons.map((r) => (
+              <li key={r} className="flex items-center gap-2.5 border-t border-warn/20 py-2.5 text-[13px]">
+                <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full bg-warn/15 text-[10px] font-bold text-warn">!</span>
+                <span className="min-w-0 flex-1">{r}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs leading-relaxed text-muted">{hold.confirm} {hold.refuse}</p>
+        </section>
+      )}
       <section aria-label="Details" className={section}>
         <h2 className="text-sm font-semibold">Details</h2>
         <dl className="mt-2 grid grid-cols-[7.5rem_minmax(0,1fr)] text-[13px] sm:grid-cols-[10rem_minmax(0,1fr)]">

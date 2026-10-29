@@ -9,9 +9,15 @@
    A refusal is mapped by the API's stable `error.code` (QA pass 6,
    P6-BE-05) — a used code, a paused or expired reward, a missing consent —
    with the status only as the fallback for a body that has none.
+
+   POL-FE-08: a claim through an athlete's SHARED code answers with `code`,
+   the fan's own code. The fan is sent there (their claim, hold, voucher and
+   redeem all live on it), and a cookie remembers it for this shared code so
+   a second scan of the same QR opens their code instead of making another.
+   With the switch off the answer carries no `code`, and nothing changes.
    -------------------------------------------------------------------------- */
 import { edgeHeaders } from "@/server/edge";
-import type { Flash } from "@/server/fan-page";
+import { fanCookie, type Flash } from "@/server/fan-page";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
@@ -45,7 +51,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
           : {},
       ),
     });
-    flash = res.ok ? "claimed" : await claimRefusal(res);
+    if (res.ok) {
+      const own = await res.json().then((b: { code?: unknown }) => b?.code, () => undefined);
+      if (typeof own === "string" && own && own !== token) {
+        const url = new URL(req.url);
+        const secure = url.protocol === "https:" || req.headers.get("x-forwarded-proto") === "https";
+        return new Response(null, {
+          status: 303,
+          headers: { Location: `/r/${encodeURIComponent(own)}?flash=claimed`, "set-cookie": fanCookie(token, own, { secure }) },
+        });
+      }
+      flash = "claimed";
+    } else {
+      flash = await claimRefusal(res);
+    }
   } catch {
     flash = "failed";
   }

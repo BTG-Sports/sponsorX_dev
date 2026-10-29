@@ -50,10 +50,44 @@ export type ApiReward = {
   venue?: RewardVenue | null;
 };
 
-export type ApiRewardDetail = ApiReward & {
-  tokens: { id: string; athlete: { id: string; displayName: string } | null; qrReady: boolean; token?: string }[];
-  consent: { version: string; text: string };
+/** One printed code on the desk. POL-BE-07/08: its refused and undone
+ *  redeems (counting its fans' own codes, POL-BE-08) — optional so a desk
+ *  against an older API still renders. */
+export type ApiRewardToken = {
+  id: string;
+  athlete: { id: string; displayName: string } | null;
+  qrReady: boolean;
+  token?: string;
+  refusedRedeems?: number;
+  lastRefusedRedeemAt?: string | null;
+  undoneRedeems?: number;
+  lastUndoneRedeemAt?: string | null;
 };
+
+export type ApiRewardDetail = ApiReward & {
+  tokens: ApiRewardToken[];
+  consent: { version: string; text: string };
+  /** POL-BE-07 — the booth's six-digit staff code; only for the reward's
+   *  managers (BTG, the sponsor's admins), absent for anyone else. */
+  staffCode?: string;
+};
+
+export type StaffCodeResult = { ok: true; staffCode: string } | { ok: false; message: string };
+
+/** POL-FE-07 — a token's booth activity in one line: redeems the booth had
+ *  refused (wrong code, used code, run out…) and redeems it undid, each
+ *  with when it last happened. Empty when there is nothing to say. */
+export function tokenActivityLine(
+  t: Pick<ApiRewardToken, "refusedRedeems" | "lastRefusedRedeemAt" | "undoneRedeems" | "lastUndoneRedeemAt">,
+  now = new Date(),
+): string {
+  const parts: string[] = [];
+  const count = (n: number, word: string, last: string | null | undefined) =>
+    `${n} ${word}${last ? ` · last ${fmtEtWhen(last, now)}` : ""}`;
+  if (t.refusedRedeems) parts.push(count(t.refusedRedeems, "refused", t.lastRefusedRedeemAt));
+  if (t.undoneRedeems) parts.push(count(t.undoneRedeems, "undone", t.lastUndoneRedeemAt));
+  return parts.join(" · ");
+}
 
 export type NewReward = {
   campaignId: string;

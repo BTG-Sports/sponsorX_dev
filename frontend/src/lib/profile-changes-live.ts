@@ -10,6 +10,14 @@
    it re-ran in `checkNotes`; a new legal name alone waits (PENDING) for its
    matching ID. DECLINED appears only on records from before 2S1-BE-14.
 
+   POL-FE-02 / POL-BE-02 (2026-10-28) — a minor's new date of birth, or a
+   move, that would make them an adult is NOT applied by the edit: it comes
+   back as a PENDING change with `fields` holding `birthDate` and/or
+   `stateCode`, no ID upload, and `checkNotes` "BTG checks this change
+   before it applies…". The athlete sees "Waiting for BTG" and can withdraw
+   it; BTG applies or declines it (with a note) on the same decision route
+   as a held legal name.
+
    Pure: shapes and the words both screens derive. No fetch, no clock.
    -------------------------------------------------------------------------- */
 
@@ -70,15 +78,43 @@ export function editIdCheck(c: Pick<ApiProfileChange, "idDocumentCheckState" | "
   };
 }
 
-/** A new legal name whose ID arrived but didn't read clear: PENDING, with the ID in — it waits for BTG to apply or decline it. */
-export function awaitingBtg(c: Pick<ApiProfileChange, "state" | "idDocumentUploadedAt"> & { idDocument?: { uploadedAt: string } | null }): boolean {
-  return c.state === "PENDING" && Boolean(c.idDocumentUploadedAt ?? c.idDocument?.uploadedAt);
+type PendingShape = Pick<ApiProfileChange, "state" | "idDocumentUploadedAt"> & { fields?: Record<string, unknown>; idDocument?: { uploadedAt: string } | null };
+
+const idIn = (c: PendingShape) => Boolean(c.idDocumentUploadedAt ?? c.idDocument?.uploadedAt);
+
+/** POL-FE-02 — a held adulthood change: PENDING with no ID in play (a date of birth and/or a move, never a legal name). It waits for BTG alone. */
+export function heldForBtg(c: PendingShape): boolean {
+  return c.state === "PENDING" && !idIn(c) && !("legalName" in (c.fields ?? {}));
 }
 
-/** The chip on BTG's list: a PENDING change is waiting either for the athlete's ID or, once it is in, for BTG. */
-export function editStatusLabel(c: Pick<ApiProfileChange, "state" | "idDocumentUploadedAt"> & { idDocument?: { uploadedAt: string } | null }): string {
+/** PENDING and BTG's to answer: a legal name whose ID arrived but didn't read clear, or an adulthood change held with no ID at all. */
+export function awaitingBtg(c: PendingShape): boolean {
+  return c.state === "PENDING" && (idIn(c) || heldForBtg(c));
+}
+
+/** The chip on BTG's list: a PENDING change is waiting either for the athlete's ID or for BTG. */
+export function editStatusLabel(c: PendingShape): string {
   if (c.state === "PENDING") return awaitingBtg(c) ? "Waiting for you" : "Waiting for the ID";
   return STATE_COPY[c.state].label;
+}
+
+/** The athlete's banner chip: "Waiting for BTG" once it is BTG's turn, else the ID is still theirs to send. */
+export function bannerLabel(c: PendingShape): string {
+  if (c.state === "PENDING") return awaitingBtg(c) ? "Waiting for BTG" : "Waiting for your ID";
+  return STATE_COPY[c.state].label;
+}
+
+/** What the athlete's banner says after the chip and the sections, for a PENDING change. */
+export function pendingLine(c: PendingShape): string {
+  if (heldForBtg(c)) return "BTG checks this change before it applies. Nothing changes until they do; you can withdraw it meanwhile.";
+  if (idIn(c)) return "Your ID is in. BTG is checking it; your new legal name goes live once they apply it.";
+  return "Your new legal name goes live once its matching ID arrives.";
+}
+
+/** "Withdrawn. Your date of birth stays as it is." — after the athlete's own withdraw. */
+export function withdrawnLine(c: { fields: Record<string, unknown> }): string {
+  const what = sensitiveWhat(c).toLowerCase() || "profile";
+  return `Withdrawn. Your ${what} stays as it is.`;
 }
 
 /** BTG sent the ID back (the change is declined with that reason): "BTG asked for a new one: …", for the athlete. */

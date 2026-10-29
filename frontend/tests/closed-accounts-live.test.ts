@@ -1,14 +1,75 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  APPLY_AGAIN_TEXT, askedLine, byLine, closedTab, daysLeftWords, deskRefusal, historyOf, keptCell, keptLine, kindWords,
-  possessive, readOnlyLine, statusBadge, whyBadge, whyTitle, type ApiClosure,
+  APPLY_AGAIN_TEXT, askedLine, byLine, CLOSING_TAB, closedTab, daysLeftWords, deskRefusal, deskTab, heldSinceLine, heldWhyCell, historyOf,
+  keptCell, keptLine, kindWords, nowView, possessive, readOnlyLine, requestRefusal, requestStateBadge, statusBadge, whyBadge, whyTitle,
+  type ApiClosure, type ApiClosureRequestDetail,
 } from "../src/lib/closed-accounts-live";
 
 /* --------------------------------------------------------------------------
    2S1-FE-08 (BTG half) — the Closed accounts desk's words, over
    GET /account-closures and GET /account-closures/:id.
+   POL-FE-11 — the "Waiting to close" tab, over GET /account-closure-requests
+   and GET /account-closure-requests/:id (now, canClose).
    -------------------------------------------------------------------------- */
+
+/** Riley's closure held for a live sale — the backend test's first case, as GET /account-closure-requests/:id answers it. */
+const rileyHeld: ApiClosureRequestDetail = {
+  id: "r1", account: "ATHLETE", subjectId: "a1", state: "HELD", reason: "Moving abroad",
+  holdReasons: ["1 live deal with Bay Brewing: BTG settles it with the sponsor first"],
+  requestedAt: "2026-09-28T16:15:00Z", decidedAt: null, declineNote: null, closureId: null, accountName: "Riley Carter",
+  now: {
+    liveDeals: [{ kind: "MARKETPLACE_SALE", id: "d1", title: "Signed jersey", state: "DELIVERED", sponsorId: "sp1", sponsorName: "Bay Brewing", athleteName: "Riley" }],
+    openInvitations: 1, wards: [], money: { owedCents: 12_500, accountReady: true },
+    holdReasons: ["1 live deal with Bay Brewing: BTG settles it with the sponsor first"],
+  },
+  canClose: false,
+};
+
+describe("closures waiting for BTG (POL-FE-11)", () => {
+  it("is the desk's first tab, by its own key", () => {
+    expect(deskTab("closing")).toBe("closing");
+    expect(deskTab(["closing"])).toBe("closing");
+    expect(deskTab(undefined)).toBe("asking");
+    expect(deskTab("btg")).toBe("btg");
+    expect(CLOSING_TAB.empty[0]).toBe("Nobody is waiting to close.");
+  });
+
+  it("names the state and why it's held", () => {
+    expect(requestStateBadge("HELD")).toMatchObject({ label: "Waiting for BTG", tone: "warn" });
+    expect(requestStateBadge("DECLINED").label).toBe("Kept open");
+    expect(heldWhyCell(rileyHeld.holdReasons)).toEqual({ first: rileyHeld.holdReasons[0], more: null });
+    expect(heldWhyCell(["a", "b", "c"]).more).toBe("+ 2 more");
+    expect(heldWhyCell([]).first).toMatch(/can close now/);
+    expect(heldSinceLine("2026-09-28T16:15:00Z", new Date("2026-10-01T12:00:00Z"))).toBe("Asked Sep 28, 4:15 PM · 2 days waiting");
+    expect(heldSinceLine("2026-10-01T09:00:00Z", new Date("2026-10-01T12:00:00Z"))).toMatch(/· today$/);
+  });
+
+  it("shows what is still live now, and when nothing is left", () => {
+    const v = nowView(rileyHeld);
+    expect(v.title).toBe("Still live now");
+    expect(v.deals).toEqual([{ id: "d1", title: "Signed jersey", sponsor: "Bay Brewing", state: "delivered, not yet confirmed", who: null }]);
+    expect(v.lines).toEqual([
+      "$125.00 earned, with a payout account ready: it is requested when the account closes.",
+      "1 open invitation — declined when it closes.",
+    ]);
+    expect(v.canClose).toBe(false);
+    const settled = nowView({ ...rileyHeld, canClose: true, now: { ...rileyHeld.now!, liveDeals: [], holdReasons: [] } });
+    expect(settled.title).toBe("Nothing is left — it can close now");
+    expect(settled.deals).toEqual([]);
+    const guardian = nowView({ ...rileyHeld, account: "GUARDIAN", now: { liveDeals: [{ ...rileyHeld.now!.liveDeals[0]!, athleteName: "Mia" }], openInvitations: 0, wards: [{ id: "m", name: "Mia" }], money: null, holdReasons: ["x"] } });
+    expect(guardian.deals[0]!.who).toBe("for Mia");
+    expect(guardian.lines).toEqual(["Still the guardian for Mia."]);
+    const decided: ApiClosureRequestDetail = { ...rileyHeld, state: "CLOSED", now: null };
+    expect(nowView(decided).title).toBe("Decided");
+  });
+
+  it("a refused Close now carries what is still open", () => {
+    expect(requestRefusal(409, { error: { message: "It can't close yet: 1 live deal with Bay Brewing: BTG settles it with the sponsor first." } }, "x")).toMatch(/can't close yet: 1 live deal/);
+    expect(requestRefusal(403, null, "x")).toMatch(/BTG admin/);
+    expect(requestRefusal(500, null, "It wasn't closed")).toBe("It wasn't closed (HTTP 500).");
+  });
+});
 
 /** Bay Brewing asking to come back — the design's CA-2, as the API returns it. */
 const bay: ApiClosure = {

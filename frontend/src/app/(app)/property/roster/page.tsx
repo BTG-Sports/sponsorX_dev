@@ -2,7 +2,7 @@ import { Badge, Card, SectionHeading } from "@/components/ui";
 import { Monogram, initials } from "@/components/hero";
 import { EmptyState } from "@/components/states";
 import { ListFilter, ListSearch, PagerRow, PendingList, ServerList } from "@/components/server-pager";
-import { PropertyRosterAdd, PropertyShareEdit } from "@/components/property-roster";
+import { PropertyRosterAdd, PropertyShareAsked, PropertyShareEdit } from "@/components/property-roster";
 import { RosterRemove, TeamInvitePanel } from "@/components/team-invite-panel";
 import type { ApiSentInvitation } from "@/lib/team-invite-live";
 import { apiListQuery, textParam, type SearchParams } from "@/lib/list-query";
@@ -20,6 +20,10 @@ import { supportContact } from "@/server/support";
    Writes POST /team/roster                        add an athlete (409 when
                                                    the email has an account)
           PATCH /team/roster/:athleteId            { teamShareBps | null }
+   POL-FE-03 (POL-BE-03) — a raise, a first share or clearing one waits for
+   the athlete's yes (the guardian's, for a minor); each athlete carries the
+   open request (`shareChange`), shown on the row with Withdraw:
+          POST /team/roster/:athleteId/share-change/withdraw
    2S2-FE-05 — inviting an athlete already on SponsorX, and removing one
    (TeamInvitePanel / RosterRemove → ./actions.ts, 2S2-BE-05):
    Reads  GET  /team/invitations                    sent invitations and their state
@@ -94,7 +98,7 @@ export default async function PropertyRosterPage({ searchParams }: { searchParam
       {(data.property.kind === "TEAM" || data.property.kind === "AGENCY") && <TeamInvitePanel teamName={data.property.name} invitations={invitations} />}
 
       <section>
-        <SectionHeading title="Athletes" hint="Click a team share to change it. It applies to what the athlete earns from here on." />
+        <SectionHeading title="Athletes" hint="Click a team share to change it. Lowering applies at once; raising it, setting a first one or clearing it waits for the athlete's yes — the guardian's, for a minor." />
         {data.counts.athletes === 0 ? (
           <EmptyState mark="users" title="No athletes on your roster yet" hint="Add your athletes. Each one sets up their own profile; you set the team’s share of what they earn." />
         ) : (
@@ -131,13 +135,14 @@ export default async function PropertyRosterPage({ searchParams }: { searchParam
                               {[a.sport, a.detail, a.legalName ? `Legal name ${a.legalName}` : null].filter(Boolean).join(" · ")}
                             </span>
                             <RosterRemove athleteId={a.id} name={a.name} team={data.property.name} />
+                            {a.shareChange && <PropertyShareAsked athleteId={a.id} name={a.legalName ?? a.name} asked={a.shareChange} />}
                           </span>
                         </span>
                         <span>
                           <Badge tone={a.stateTone}>{a.stateLabel}</Badge>
                         </span>
                         <span className="text-right">
-                          <PropertyShareEdit athleteId={a.id} name={a.name} bps={a.shareBps} />
+                          <PropertyShareEdit athleteId={a.id} name={a.legalName ?? a.name} bps={a.shareBps} asked={a.shareChange} />
                         </span>
                       </li>
                     ))}

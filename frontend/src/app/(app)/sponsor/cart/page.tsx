@@ -4,7 +4,8 @@ import { EmptyState } from "@/components/states";
 import { ShopCartLine } from "@/components/shop-cart-line";
 import { ShopReserveButton } from "@/components/shop-checkout";
 import { StadiumHead, StadiumPanel, StadiumUpdated } from "@/components/stadium-stage";
-import { fmtStamp, lineSummary, usd, type ApiCart } from "@/lib/shop-live";
+import { quoteFor } from "@/lib/checkout-gate";
+import { feeText, fmtStamp, lineSummary, usd, type ApiCart } from "@/lib/shop-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 
@@ -16,7 +17,9 @@ import { requirePortalAccess } from "@/server/portal";
    checkout.
 
    Reads  GET /cart                     ({cart: null} → the empty state;
-                                        activeReservation → the frozen state)
+                                        activeReservation → the frozen state;
+                                        `quote` → subtotal, fees and the total
+                                        placing it charges — POL-FE-05)
    Writes (ShopCartLine / ShopReserveButton → actions.ts)
           PATCH /cart/lines/:id, DELETE /cart/lines/:id, POST /cart/reserve
 
@@ -84,6 +87,8 @@ export default async function CartPage() {
   /* The frozen state: the cart's live hold, if any. */
   const hold = cart.activeReservation;
   const editable = canWrite && !hold;
+  /* POL-FE-05 — the cart's own totalCents is the lines' sum; the quote adds BTG's buyer fee. */
+  const quote = quoteFor(cart.quote, cart.totalCents);
 
   return (
     <div className="space-y-6">
@@ -122,17 +127,22 @@ export default async function CartPage() {
             <div className="mt-3 space-y-1.5 border-t border-line-soft pt-3">
               <div className="flex items-baseline justify-between">
                 <span className="text-xs text-muted">Subtotal</span>
-                <span className="text-sm font-semibold tabular-nums text-text">{usd(cart.totalCents)}</span>
+                <span className="text-sm font-semibold tabular-nums text-text">{usd(quote.subtotalCents)}</span>
               </div>
               <div className="flex items-baseline justify-between">
                 <span className="text-xs text-muted">Fees</span>
-                <span className="text-[11px] text-faint">Added when you place the order</span>
+                <span className={quote.feesCents === null ? "text-[11px] text-faint" : "text-sm font-semibold tabular-nums text-text"}>{feeText(quote)}</span>
               </div>
               <div className="flex items-baseline justify-between border-t border-line-soft pt-1.5">
-                <span className="text-xs font-semibold text-text">Total so far</span>
-                <span className="text-lg font-semibold tabular-nums text-text">{usd(cart.totalCents)}</span>
+                <span className="text-xs font-semibold text-text">Total</span>
+                <span className="text-lg font-semibold tabular-nums text-text">{usd(quote.totalCents)}</span>
               </div>
             </div>
+            {quote.quoted ? (
+              <p className="mt-2 text-[11px] text-faint">The total is what you pay when you place the order.</p>
+            ) : (
+              <p className="mt-2 text-[11px] text-faint">The fee couldn&rsquo;t be quoted right now; checkout shows the total before you place the order.</p>
+            )}
             {canWrite && !hold && (
               <div className="mt-3">
                 <ShopReserveButton />
