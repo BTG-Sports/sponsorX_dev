@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useTransition, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { useMounted } from "./use-mounted";
 
 import { CLOSE_DIALOG } from "@/lib/account-live";
 import {
@@ -162,6 +164,7 @@ function CloseDialog({ panel, whose, action, onClose, onHeld, onMinor }: {
   panel: ClosePanel; whose?: string; action: CloseAction; onClose: () => void; onHeld: (h: ApiClosureHeld) => void; onMinor: () => void;
 }) {
   const ref = useDialogFocus<HTMLDivElement>(onClose);
+  const mounted = useMounted();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const view = panel.kind === "ready" ? closePreviewView(panel.preview, whose) : null;
@@ -177,7 +180,11 @@ function CloseDialog({ panel, whose, action, onClose, onHeld, onMinor }: {
       if (r.code === GUARDIAN_MUST_ACT) return onMinor();
       setError(r.message);
     });
-  return (
+  /* Portaled to <body>: the settings card's entrance animation leaves a
+     transform on an ancestor, which traps this fixed overlay inside the card
+     (seen in QA 2026-10-29, the same cause as the content desk's drawer). */
+  if (!mounted) return null;
+  return createPortal(
     <div ref={ref} className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="cl-title">
       <button type="button" tabIndex={-1} aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-black/55" />
       <div className="absolute inset-0 flex items-end justify-center overflow-y-auto p-4 sm:items-center">
@@ -239,6 +246,7 @@ function CloseDialog({ panel, whose, action, onClose, onHeld, onMinor }: {
           {error && <p role="alert" className="text-[11px] text-danger">{error}</p>}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

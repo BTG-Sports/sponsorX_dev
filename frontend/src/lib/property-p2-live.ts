@@ -184,8 +184,14 @@ export function askedShareText(bps: number | null): string {
   return bps === null ? "BTG's standard share" : shareText(bps);
 }
 
+/** "Jordan" from "Jordan Reed" — or from a handle like "JORDAN.REED" when
+ *  that is all the API's reply carries (QA 2026-10-29: "waiting for
+ *  JORDAN.REED's answer" read as a username, not a person). */
 function firstName(name: string): string {
-  return name.trim().split(/\s+/)[0] || name;
+  const t = name.trim();
+  if (/\s/.test(t)) return t.split(/\s+/)[0] || t;
+  const handle = t.split(".")[0] ?? t;
+  return handle ? handle.charAt(0).toUpperCase() + handle.slice(1).toLowerCase() : t;
 }
 
 /** The roster row's note while a request waits: "Asked 25% on Oct 29 — waiting for Jordan's answer". */

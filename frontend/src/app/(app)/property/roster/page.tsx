@@ -135,14 +135,14 @@ export default async function PropertyRosterPage({ searchParams }: { searchParam
                               {[a.sport, a.detail, a.legalName ? `Legal name ${a.legalName}` : null].filter(Boolean).join(" · ")}
                             </span>
                             <RosterRemove athleteId={a.id} name={a.name} team={data.property.name} />
-                            {a.shareChange && <PropertyShareAsked athleteId={a.id} name={a.name} asked={a.shareChange} />}
+                            {a.shareChange && <PropertyShareAsked athleteId={a.id} name={a.legalName ?? a.name} asked={a.shareChange} />}
                           </span>
                         </span>
                         <span>
                           <Badge tone={a.stateTone}>{a.stateLabel}</Badge>
                         </span>
                         <span className="text-right">
-                          <PropertyShareEdit athleteId={a.id} name={a.name} bps={a.shareBps} asked={a.shareChange} />
+                          <PropertyShareEdit athleteId={a.id} name={a.legalName ?? a.name} bps={a.shareBps} asked={a.shareChange} />
                         </span>
                       </li>
                     ))}
