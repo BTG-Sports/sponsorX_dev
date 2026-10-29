@@ -112,11 +112,12 @@ export default async function OrderPage({
   if (!res.ok) throw new Error(`Order unavailable (${res.status}).`);
   const o = (await res.json()) as ApiOrder;
   const c = orderCopy(o.state);
-  const word = orderWord(o.state);
   const cancelledLike = o.state === "CANCELLED" || o.state === "REFUNDED";
   /* A failed payment read degrades the card to "couldn't be loaded", never the page. */
   const payment = payRes?.ok ? ((await payRes.json()) as ApiOrderPayment) : null;
   const pay = paymentView(o.state, payment, { supportEmail: support.email });
+  /* POL-FE-04 — "Ready to pay" beside "held for you" contradicts itself while card payment is closed. */
+  const word = pay.kind === "held" ? { ...orderWord(o.state), text: "Approved" } : orderWord(o.state);
   /* Delivery rows exist from contract time; a failed read hides the section, never the page. */
   const deliveries = deliveryRes?.ok ? ((await deliveryRes.json()) as ApiOrderDeliveries) : null;
   const now = new Date();

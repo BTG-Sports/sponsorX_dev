@@ -104,7 +104,7 @@ export function CampaignChangeControls({ campaign, show, actions, demo = false }
         </button>
       )}
       {notice && (
-        <p role={notice.tone === "bad" ? "alert" : "status"} className={`basis-full text-[11px] ${notice.tone === "bad" ? "text-danger" : "text-muted"}`}>
+        <p role={notice.tone === "bad" ? "alert" : "status"} className={`order-last basis-full text-[11px] ${notice.tone === "bad" ? "text-danger" : "text-muted"}`}>
           {notice.text}
         </p>
       )}

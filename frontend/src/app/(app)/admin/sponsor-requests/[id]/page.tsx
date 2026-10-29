@@ -58,7 +58,7 @@ export default async function SponsorRequestPage({ params }: { params: Promise<{
             <p className="text-sm font-semibold">{r.businessName}</p>
             <p className="text-[11px] text-muted">Asked {stampOf(r.createdAt)} through &ldquo;Become a sponsor&rdquo;</p>
             <dl className="mt-3 grid grid-cols-[6rem_1fr] gap-y-1.5 text-xs">
-              <dt className="text-muted">Contact</dt><dd>{r.contactName}</dd>
+              <dt className="text-muted">Contact</dt><dd className="min-w-0 break-words">{r.contactName}</dd>
               <dt className="text-muted">Email</dt><dd className="break-all">{r.email}</dd>
               {r.phone && (<><dt className="text-muted">Phone</dt><dd>{r.phone}</dd></>)}
             </dl>
@@ -72,7 +72,7 @@ export default async function SponsorRequestPage({ params }: { params: Promise<{
             {r.answers.map((a) => (
               <div key={a.label} className="contents">
                 <dt className="text-muted">{a.label}</dt>
-                <dd>{a.value}</dd>
+                <dd className="min-w-0 break-words">{a.value}</dd>
               </div>
             ))}
           </dl>

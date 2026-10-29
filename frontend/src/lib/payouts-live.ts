@@ -253,7 +253,10 @@ export function accountPanel(a: ApiPayoutAccount, payeeLabel: string, opts: Acco
       : (opts.minor ? "Your guardian sets up the payout account" : "Payout account not set up"),
     body: waiting > 0
       ? `${waitingWords} for a payout account in the name of whoever is responsible for ${payeeLabel === "you" ? "you" : payeeLabel} now. Nothing goes to the account that was there before; it is sent as soon as the new one is ready.`
-      : `Set up where ${payeeLabel} gets paid. It takes about 5 minutes on Stripe, then you come straight back here.`,
+      : opts.minor
+        /* POL-FE-26 — the minor never does this themselves, so no "you come straight back here". */
+        ? `Where ${payeeLabel === "you" ? "you get" : `${payeeLabel} gets`} paid is set up on Stripe by your guardian. It takes them about 5 minutes.`
+        : `Set up where ${payeeLabel} gets paid. It takes about 5 minutes on Stripe, then you come straight back here.`,
     cta: cta("Set up payouts with Stripe", "primary"),
     actionNeeded: true,
     ...guardian,

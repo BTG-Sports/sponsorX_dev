@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { useMounted } from "@/components/use-mounted";
 import { Badge, Card } from "@/components/ui";
 import { MiniChip } from "@/components/hero";
 import {
@@ -613,6 +614,7 @@ function DeskBody({
   /* Closing keeps the drawer mounted while the -out animation plays;
      unmount happens on its animationend (fallback timer in the drawer). */
   const [closing, setClosing] = useState(false);
+  const mounted = useMounted();
   const lastFocus = useRef<HTMLElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const openId = opened?.id ?? null;
@@ -841,7 +843,10 @@ function DeskBody({
       {/* Review drawer — portaled to <body>: the section's sx-animate
           entrance leaves a transform on an ancestor (fill-mode: both), which
           would otherwise trap this position:fixed overlay inside it. */}
+      {/* POL-FE-23 — ?open=<id> opens the drawer on arrival, so the portal
+          must wait for the browser: document does not exist on the server. */}
       {sel &&
+        mounted &&
         createPortal(
           <ReviewDrawer
             item={sel}
