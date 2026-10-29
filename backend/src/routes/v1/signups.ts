@@ -45,7 +45,7 @@ import {
 } from "../../domain/signups-desk";
 import { listAgeTable, removeAgeRow, setAgeRow, setSignupSettings, signupSettings } from "../../domain/age-of-majority";
 import {
-  comingOfAgeByToken, confirmComingOfAgeUpload, myComingOfAge, requestComingOfAgeUpload, sendComingOfAgeLink,
+  comingOfAgeByToken, confirmComingOfAgeUpload, confirmHeldComingOfAge, myComingOfAge, requestComingOfAgeUpload, sendComingOfAgeLink,
 } from "../../domain/coming-of-age";
 
 export const signupsRouter = Router();
@@ -188,6 +188,10 @@ const sendBack = (owner: "athletes" | "guardians"): RequestHandler<{ id: string;
   res.json(await sendBackSignupDocument(req.actor!, owner, req.params.id, req.params.documentId, DocumentSendBackInput.parse(req.body ?? {}).reason));
 };
 signupsRouter.post<{ id: string; documentId: string }>("/signups/athletes/:id/documents/:documentId/send-back", requireActor, sendBack("athletes"));
+/* POL-BE-02 — BTG confirms a coming-of-age takeover the ID check held (to refuse it, send the ID back, above). */
+signupsRouter.post<{ id: string }>("/signups/athletes/:id/coming-of-age/confirm", requireActor, async (req, res) => {
+  res.json(await confirmHeldComingOfAge(req.actor!, req.params.id));
+});
 signupsRouter.post<{ id: string; documentId: string }>("/signups/guardians/:id/documents/:documentId/send-back", requireActor, sendBack("guardians"));
 signupsRouter.post<{ id: string }>("/signups/athletes/:id/approve", requireActor, async (req, res) => {
   res.json(await approveHeldAthlete(req.actor!, req.params.id));

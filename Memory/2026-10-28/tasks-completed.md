@@ -109,3 +109,26 @@ Each is defined in the Phase 1 doc (Stage 8) and is a row in the tracker.
   - coming of age: detach and both emails;
   - the existing "money and work untouched" check was narrowed to earnings, orders, payouts and the sibling's account.
 - **For HeckerCreatives (`POL-FE-01`):** the setup prompt, plus wording in `frontend/src/lib/guardian-live.ts` `handoffCarryOver` that still states the old rule. Noted in `documentation/polish.md` #1.
+
+## POL-BE-02 — a minor can no longer make themselves an adult (2026-10-28)
+
+- **The problem:** a minor (or anyone editing their profile) could change their date of birth, or move to a place with a lower age of majority. It applied at once, started coming of age, and an ID upload then removed the guardian, whatever the ID check said.
+- **The user's decisions (with Rodney's authority):**
+  - BTG alone approves a change that would make a minor an adult, and the guardian is told;
+  - a takeover is automatic only when the ID reads clear, otherwise BTG decides.
+- **Edits** (`athlete-profile-change.ts`):
+  - `submitProfileChange` splits off `birthDate`/`stateCode` that would turn a minor into an adult into a `PENDING` change with no ID upload. The rest of the edit applies.
+  - It emails BTG (`athlete.sensitiveEdit`, now with a `held` flag; the template says it waits, which also fixes held legal names) and the guardian (new `athlete.adulthoodChangeHeld`).
+  - `decideHeldLegalName` (the existing `POST /profile-changes/:id/decision`) now also answers these. `APPLY` runs `applyAdulthoodIn`: date of birth/state, majority, band, then `rerunComingOfAgeIn`.
+  - A new legal-name request no longer withdraws a held adulthood change.
+  - The guardian rule checks the age asked for.
+- **Takeover** (`coming-of-age.ts`):
+  - `confirmComingOfAgeUpload` reads the document's check: clear → `completeIn`; flagged or unread → `holdIn` (new `Athlete.comingOfAgeHeldAt`/`comingOfAgeHeldReasons`, migration `20261028150000_coming_of_age_held`), and BTG is emailed `comingOfAge.heldForBtg`.
+  - The sweep skips held takeovers (no termination, no reminders).
+  - New `POST /signups/athletes/:id/coming-of-age/confirm` (BTG; the `athleteProfileChange.approve` cell).
+  - The document send-back clears the hold.
+  - The page, the portal reminder and BTG's athlete view expose `checking` / `comingOfAgeHeld` / `can.confirmComingOfAge`.
+- **Tests:**
+  - 4 new in `phase2-profile-edits.test.ts`: the minor's own edit is held, the guardian's is too, BTG declines and applies, a move is held;
+  - 1 in `phase2-guardian-acts.test.ts`: a flagged ID holds the takeover, send-back clears it, the 90 days don't end it, only BTG confirms.
+- **For HeckerCreatives (`POL-FE-02`):** the screens are listed in `documentation/polish.md` #2.

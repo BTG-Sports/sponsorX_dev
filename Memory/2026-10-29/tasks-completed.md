@@ -33,3 +33,10 @@
   - Locally: 3,612 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
 - **For HeckerCreatives:** `POL-FE-03`, as spelled out in `polish.md` item 3.
 - **Not yet done:** the tracker row and `polish-progress.md`. Both are changed on PR #321 (`POL-BE-02`), and the xlsx can't be merged, so they are updated once #321 merges.
+
+### `POL-BE-03` Done (rcfworks): PR #322 merged into `main_development`
+
+- **Tracker:** the Polish sheet row for `POL-BE-03` is Done, started and done 2026-10-29. The formula count is still 180.
+- **Notes:** `polish-progress.md` has the 2026-10-29 entry.
+- **Where this landed:** on the `POL-BE-02` branch (PR #321), after merging `main_development` into it. That PR already changes the xlsx, so one PR carries both and there is no binary conflict.
+- **Next:** merge #321, then the sync PR from `main_development` to `main`. Both migrations (`20261028150000`, `20261029120000`) reach production together.

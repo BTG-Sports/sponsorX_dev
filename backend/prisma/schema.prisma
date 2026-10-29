@@ -470,6 +470,11 @@ model Athlete {
   comingOfAgeReminders    Int[]     @default([])
   comingOfAgeCompletedAt  DateTime?
   comingOfAgeTerminatedAt DateTime?
+  /// POL-BE-02 — the government ID is in, but reading it raised a question
+  /// (flagged or unread): the takeover waits for BTG to confirm it, or to
+  /// send the ID back. The 90 days don't run out meanwhile. Internal reasons.
+  comingOfAgeHeldAt       DateTime?
+  comingOfAgeHeldReasons  String[]  @default([])
 
   /// 2S1-BE-13 — the athlete's account has an open AccountClosure (closed by
   /// them, rejected by BTG, or ended by the coming-of-age rule). Mirrors the
