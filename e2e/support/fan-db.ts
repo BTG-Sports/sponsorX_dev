@@ -19,6 +19,10 @@ function pool() {
 
 const T = "e2e_fan_tenant";
 
+/** POL-BE-07 — the staff code every seeded reward gets, so the redeem walk
+ *  can type it at the booth (the column otherwise draws a random one). */
+export const STAFF_CODE = "482913";
+
 /* Tokens this process seeded — cleanup removes only these, so specs running
    side by side never delete each other's rows. */
 const seeded: string[] = [];
@@ -37,8 +41,8 @@ export async function seedToken(label: string): Promise<string> {
       `insert into "Campaign"(id,"tenantId","sponsorId",name,budget,"startDate","endDate",state)
        values('e2e_fan_campaign',$1,'e2e_fan_sponsor','E2E Campaign',1,now(),now()+interval '30 day','ACTIVE') on conflict (id) do nothing`, [T]);
     await db.query(
-      `insert into "Reward"(id,"tenantId","campaignId","offerText",terms,"expiresAt",state)
-       values($1,$2,'e2e_fan_campaign','E2E free slice','One per fan',now()+interval '7 day','ACTIVE')`, [`${id}_r`, T]);
+      `insert into "Reward"(id,"tenantId","campaignId","offerText",terms,"expiresAt",state,"staffCode")
+       values($1,$2,'e2e_fan_campaign','E2E free slice','One per fan',now()+interval '7 day','ACTIVE',$3)`, [`${id}_r`, T, STAFF_CODE]);
     await db.query(
       `insert into "RewardToken"(id,"tenantId","rewardId",token,"athleteId") values($1,$2,$3,$4,'e2e_fan_athlete')`,
       [`${id}_t`, T, `${id}_r`, token]);

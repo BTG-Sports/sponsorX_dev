@@ -13,6 +13,8 @@
    a reason (btgActOnListing).
    -------------------------------------------------------------------------- */
 
+import type { SponsorRefund } from "@/lib/refunds-live";
+
 export type MarketplaceOrderState =
   | "PENDING_SELLER" | "PENDING_APPROVAL" | "APPROVED" | "AWAITING_PAYMENT" | "PAID" | "IN_DELIVERY" | "FULFILLED" | "CLOSED" | "CANCELLED" | "REFUNDED";
 
@@ -274,6 +276,9 @@ export type ApiMarketplaceOrder = {
   contractedAt: string | null;
   createdAt: string;
   lines: ApiOrderLine[];
+  /** 2S4-BE-13 — each refund of the order (optional: older reads). POL-FE-06: a row with cause PAID_TWICE or
+   *  PAID_AFTER_REFUND and no line is an extra payment the sponsor made, going back — not one of the order's own. */
+  refunds?: SponsorRefund[];
 };
 
 export type ApiLineFinancials = {

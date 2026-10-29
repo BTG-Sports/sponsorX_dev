@@ -3,9 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 
-import { signupDecisionAction, signupDocumentAction, signupSendBackAction } from "@/app/(app)/admin/new-signups/actions";
+import { confirmComingOfAgeAction, signupDecisionAction, signupDocumentAction, signupSendBackAction } from "@/app/(app)/admin/new-signups/actions";
 import { DocumentCheck, SendBackButton } from "@/components/document-check";
-import { cascadeWords, type ApiSignupDetail } from "@/lib/signups-live";
+import { cascadeWords, comingOfAgeHold, type ApiSignupDetail } from "@/lib/signups-live";
 import { useDialogFocus } from "./use-dialog-focus";
 
 /* --------------------------------------------------------------------------
@@ -20,18 +20,24 @@ import { useDialogFocus } from "./use-dialog-focus";
    - Approve (a held athlete), Reject (a required reason, emailed exactly as
      written) and Reinstate go through signupDecisionAction; the page then
      re-reads itself. A guardian's Reject names the athletes it takes with it.
+   - POL-FE-02 / POL-BE-02 — Confirm takeover (`can.confirmComingOfAge`): a
+     coming-of-age ID that didn't read clear held the takeover for BTG;
+     confirming moves control to the athlete (confirmComingOfAgeAction). To
+     refuse it, BTG sends the ID back from Documents — the existing send-back.
    -------------------------------------------------------------------------- */
 
 type Owner = "athletes" | "guardians";
 
 export function LiveSignupReview({ signup, before, after }: { signup: ApiSignupDetail; before: ReactNode; after: ReactNode }) {
   const router = useRouter();
-  const [open, setOpen] = useState<null | "reject" | { doc: string; name: string }>(null);
+  const [open, setOpen] = useState<null | "reject" | "takeover" | { doc: string; name: string }>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const owner: Owner = signup.kind === "ATHLETE" ? "athletes" : "guardians";
   const first = signup.name.split(/\s+/)[0] ?? signup.name;
   const cascade = cascadeWords(signup);
+  const hold = comingOfAgeHold(signup);
+  const mayConfirmTakeover = Boolean(signup.can.confirmComingOfAge);
 
   const act = (decision: "approve" | "reinstate") =>
     start(async () => {
@@ -81,6 +87,18 @@ export function LiveSignupReview({ signup, before, after }: { signup: ApiSignupD
       </div>
 
       <aside aria-label="Actions" className="flex flex-col gap-2.5 rounded-xl border border-line bg-surface p-4">
+        {mayConfirmTakeover && (
+          <div className="flex flex-col gap-2 rounded-lg border border-warn/45 bg-warn/8 p-3">
+            <p className="text-xs leading-relaxed text-warn">
+              <strong>Coming of age held for you.</strong> {hold ? hold.reasons.join(" · ") : "The ID didn’t read clear."}
+            </p>
+            <button type="button" disabled={pending} onClick={() => setOpen("takeover")}
+              className="min-h-11 rounded-lg bg-primary px-4 text-[13px] font-semibold text-cta-ink hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40">
+              Confirm takeover
+            </button>
+            <p className="text-[11px] leading-relaxed text-muted">Not convinced? Send the ID back from Documents — {first} is asked for a clearer one and the guardian stays in control.</p>
+          </div>
+        )}
         {signup.state === "NEEDS_REVIEW" ? (
           <>
             <p className="text-xs text-muted">Held for your review: {signup.reasons.join(" · ")}</p>
@@ -118,7 +136,54 @@ export function LiveSignupReview({ signup, before, after }: { signup: ApiSignupD
       {open === "reject" && (
         <RejectDialog signup={signup} owner={owner} first={first} cascade={cascade} onClose={() => setOpen(null)} onDone={() => { setOpen(null); router.refresh(); }} />
       )}
-      {open && open !== "reject" && <Viewer owner={owner} id={signup.id} doc={open.doc} name={open.name} who={signup.name} onClose={() => setOpen(null)} />}
+      {open === "takeover" && (
+        <ConfirmTakeoverDialog signup={signup} first={first} reasons={hold?.reasons ?? []} onClose={() => setOpen(null)} onDone={() => { setOpen(null); router.refresh(); }} />
+      )}
+      {open && typeof open === "object" && <Viewer owner={owner} id={signup.id} doc={open.doc} name={open.name} who={signup.name} onClose={() => setOpen(null)} />}
+    </div>
+  );
+}
+
+/** POL-FE-02 — BTG confirms a held coming-of-age takeover: control moves to the athlete and the guardian is removed. */
+function ConfirmTakeoverDialog({ signup, first, reasons, onClose, onDone }: {
+  signup: ApiSignupDetail; first: string; reasons: string[]; onClose: () => void; onDone: () => void;
+}) {
+  const ref = useDialogFocus<HTMLDivElement>(onClose);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const submit = () =>
+    start(async () => {
+      setError(null);
+      const r = await confirmComingOfAgeAction(signup.id).catch(() => ({ ok: false as const, message: "Couldn't reach SponsorX just now — nothing changed." }));
+      if (r.ok) onDone();
+      else setError(r.message);
+    });
+  return (
+    <div ref={ref} className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="ct-title">
+      <button type="button" tabIndex={-1} aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-black/70" />
+      <div className="absolute inset-0 flex items-start justify-center overflow-y-auto p-4 pt-24 sm:pt-36">
+        <div className="sx-pop relative flex w-full max-w-md flex-col gap-3.5 rounded-2xl border border-primary/40 bg-surface p-6 shadow-2xl">
+          <h2 id="ct-title" className="text-lg font-semibold">Confirm {first}&rsquo;s takeover?</h2>
+          {reasons.length > 0 && (
+            <p role="note" className="rounded-lg border border-warn/45 bg-warn/8 px-3 py-2.5 text-[13px] leading-relaxed">
+              <strong className="text-warn">The ID check held it:</strong> {reasons.join(" · ")}
+            </p>
+          )}
+          <ul className="list-disc space-y-1 pl-4 text-[13px] leading-relaxed text-muted">
+            <li>{first} takes control of the account: they accept their own agreements and manage their own money.</li>
+            <li>{signup.guardian ? `${signup.guardian.name} stops being ${first}’s guardian and is told.` : `Their guardian is removed and told.`}</li>
+            <li>Items and new deals un-pause. Orders already agreed carry on as they are.</li>
+          </ul>
+          {error && <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] text-danger">{error}</p>}
+          <div className="flex flex-wrap justify-end gap-2.5">
+            <button type="button" data-autofocus onClick={onClose} className="min-h-11 rounded-lg border border-line px-4 text-[13px] font-medium text-text hover:bg-surface-2">Cancel</button>
+            <button type="button" disabled={pending} onClick={submit}
+              className="min-h-11 rounded-lg bg-primary px-4 text-[13px] font-semibold text-cta-ink hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40">
+              {pending ? "Confirming…" : "Confirm takeover"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

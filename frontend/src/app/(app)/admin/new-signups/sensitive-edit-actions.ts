@@ -31,7 +31,10 @@ export async function viewEditIdAction(changeId: string): Promise<void> {
 
 /* --------------------------------------------------------------------------
    P8-FE-11 / P8-BE-11 — a held legal name. The ID arrived but didn't read
-   clear (or couldn't be read), so the change stays PENDING for BTG:
+   clear (or couldn't be read), so the change stays PENDING for BTG.
+   POL-FE-02 / POL-BE-02 — a minor's date of birth or move that would make
+   them an adult is held the same way, with no ID: APPLY applies it and
+   starts coming of age; DECLINE needs the note the athlete reads.
 
      POST /profile-changes/:id/decision          { decision: "APPLY" } | { decision: "DECLINE", note }
      POST /profile-changes/:id/id-document/send-back  { reason }   (P8-BE-10:
@@ -64,7 +67,7 @@ async function post(path: string, body: unknown): Promise<{ res: Response; body:
 
 function refusal(status: number, body: unknown, fallback: string): string {
   const e = (body as { error?: { message?: unknown; issues?: { message?: unknown }[] } } | null)?.error;
-  if (status === 403) return "Your role can't decide legal names here.";
+  if (status === 403) return "Your role can't decide sensitive edits here.";
   if (status >= 500) return "Something went wrong on our side — nothing changed. Try again in a minute.";
   const issue = e?.issues?.[0]?.message;
   if (typeof issue === "string") return issue;
@@ -72,8 +75,8 @@ function refusal(status: number, body: unknown, fallback: string): string {
   return `${fallback} (HTTP ${status}).`;
 }
 
-/** Apply the held legal name, or decline it with a note the athlete reads. */
-export async function decideLegalNameAction(changeId: string, decision: "APPLY" | "DECLINE", note?: string): Promise<LegalNameWrite> {
+/** Apply a held change (a legal name, or an adulthood change), or decline it with a note the athlete reads. */
+export async function decideSensitiveEditAction(changeId: string, decision: "APPLY" | "DECLINE", note?: string): Promise<LegalNameWrite> {
   if (typeof changeId !== "string" || !ID.test(changeId)) return { ok: false, message: "Unknown change." };
   if (decision !== "APPLY" && decision !== "DECLINE") return { ok: false, message: "Choose apply or decline." };
   const text = typeof note === "string" ? note.trim() : "";

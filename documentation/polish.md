@@ -153,6 +153,15 @@ isn't held for a person to check.
     gives the reasons, and `can.confirmComingOfAge` shows a **Confirm
     takeover** button. Sending the ID back uses the existing document
     send-back.
+- **Frontend delivered (`POL-FE-02`, 2026-10-29, HeckerCreatives):** the
+  profile editor shows a held change as "Waiting for BTG" with Withdraw;
+  BTG's sensitive-edits list applies or declines (with a note) a pending
+  change that has no ID (`legal-name-decision.tsx` generalised to
+  `SensitiveEditDecision`); the coming-of-age page and the portal reminder
+  read "ID received — BTG is checking it" when `checking` is true; BTG's
+  athlete page shows the hold's reasons and **Confirm takeover** behind a
+  confirm dialog. Walked on the local stack: a minor's DOB change held, BTG's
+  Decline with a note, the held takeover and its button.
 
 ### 3. A team can raise its cut of an athlete's earnings to 100%
 `POL-BE-03` · `POL-FE-03` · *Money · Minors · Consent* · confirmed
@@ -215,6 +224,14 @@ invited athletes are protected.
       `POST /me/team/share-changes/:id/respond` with
       `{ decision: "ACCEPT" | "DECLINE" }`.
     - A minor sees it but can't accept; say "Your guardian accepts this".
+- **Frontend delivered (`POL-FE-03`, 2026-10-29, HeckerCreatives):** the
+  roster says "Waiting for {athlete}'s answer" after a raise, a first share
+  or a clearing, with Withdraw, and that lowering applied at once; the Add
+  form says a typed share waits for the athlete's yes. The athlete's team
+  page shows the change from → to with Accept (behind a confirm naming the
+  share) and Decline; a minor reads "Your guardian accepts this", and the
+  guardian accepts for the ward. Walked: a raise to 25% waited, the athlete
+  accepted, the share applied.
 
 ### 4. With Stripe paused, sponsors' orders are cancelled for "not paying"
 `POL-BE-04` · `POL-FE-04` · *Money · Dead end* · confirmed · **hurting now**
@@ -307,6 +324,12 @@ leaves the fees out. The real total appears only after the sponsor has committed
   - Send `totalCentsShown: checkout.quote.totalCents` with
     `POST /marketplace-orders`.
   - On a 409 `total_changed`, show the message and reload the quote.
+- **Frontend delivered (`POL-FE-05`, 2026-10-29, HeckerCreatives):** cart
+  and checkout read the quote and show Subtotal, Fees and **Total** beside
+  Place order; the two old lines are gone; the order carries
+  `totalCentsShown`, and a 409 `total_changed` shows the message and
+  refreshes the figures. Walked with a 3% fee: $500 + $15 = $515 at the cart
+  and at checkout.
 
 ### 6. A sponsor who pays twice gets no refund
 `POL-BE-06` · `POL-FE-06` · *Money · Silent* · likely
@@ -349,6 +372,11 @@ payment and has no refund button, and nothing is added to "Refunds to send".
     "Paid twice" and "Paid after it was refunded". Until then they show as
     "Refund".
   - Marking it refunded is the existing "Mark sent" (`POST /refunds/:id/sent`).
+- **Frontend delivered (`POL-FE-06`, 2026-10-29, HeckerCreatives):** the
+  sponsor's order reads "You paid twice: $X is being refunded" and BTG's
+  "Paid twice: refund on its way / sent on …", apart from the order's own
+  refunds; Refunds to send labels "Paid twice" and "Paid after it was
+  refunded". Walked on a seeded duplicate.
 
 ### 7. Anyone holding the fan's phone can use up their reward
 `POL-BE-07` · `POL-FE-07` · *Consent* · confirmed
@@ -400,6 +428,15 @@ undone.
     `refusedRedeems`.
   - **When the fan page ships:** tell rcfworks, who turns
     `REWARD_STAFF_CODE_REQUIRED` on, staging first.
+- **Frontend delivered (`POL-FE-07`, 2026-10-29, HeckerCreatives):** "Staff:
+  redeem now" is a no-script `<details>` panel asking for the six-digit code
+  and confirming; refusals read in plain words (tries left, locked for 15
+  minutes); **Undo that redeem** while `undoUntil` is open; BTG's reward QR
+  panel shows the staff code with a two-click **New code** and each token's
+  refused / undone counts. The page is still 0 scripts, 0 fonts. Walked with
+  the switch on: wrong code, right code, undo, new code.
+  **rcfworks:** the fan page has shipped — turn `REWARD_STAFF_CODE_REQUIRED`
+  on in staging, then production.
 
 ### 8. Only the first fan can claim a shared QR code
 `POL-BE-08` · `POL-FE-08` · *Silent · Dead end* · likely
@@ -445,6 +482,13 @@ hold, and their email is never collected.
   - `state: EXHAUSTED` on a shared page: show "All claimed".
   - **When it ships:** tell rcfworks, who turns `REWARD_FAN_CODES` on,
     staging first.
+- **Frontend delivered (`POL-FE-08`, 2026-10-29, HeckerCreatives):** a claim
+  on a shared code follows the answer's own code to `/r/{code}`, remembered
+  per shared code in an httpOnly cookie so a second scan lands straight on
+  it; the shared page shows only the offer and "All claimed" when exhausted;
+  staff redeem and undo live on the fan's page. Walked with the switch on:
+  two scans, one own code. **rcfworks:** turn `REWARD_FAN_CODES` on in
+  staging, then production.
 
 ---
 
@@ -511,6 +555,12 @@ answers, so an unreachable guardian leaves the minor stuck.
   - **Current guardian's card:** still shows Hand off and Decline after
     escalation. Add "BTG will review this if you don't answer" once
     `escalatedAt` is set.
+- **Frontend delivered (`POL-FE-10`, 2026-10-29, HeckerCreatives):** the desk
+  shows each request's age ("waiting 9 days"), "No answer from the current
+  guardian" once escalated, the reminded / escalated dates, and Confirm and
+  Decline whenever `btgMayDecide`; the guardian's card keeps Hand off and
+  Decline and adds "BTG will review this if you don't answer". Walked on a
+  seeded escalated request.
 
 ### 11. Closing an account ignores live deals
 `POL-BE-11` · `POL-FE-11` · *Money · Minors* · likely
@@ -569,6 +619,18 @@ just been switched off.
     live) and `canClose`. Buttons: **Close now**
     (`POST …/:id/close`, 409 with what is open until `canClose`) and
     **Decline** (`POST …/:id/decline`, `{ note }`).
+- **Frontend delivered (`POL-FE-11`, 2026-10-29, HeckerCreatives):** the
+  closing dialog lists live deals, open invitations, money and wards before
+  confirming and says BTG settles these first; a held closure reads "Waiting
+  for BTG" with Withdraw, now and on a later visit; a minor's own login reads
+  "Your guardian closes your account" and the guardian closes it for the
+  ward; BTG's Closed accounts desk gains a **Waiting to close** tab with each
+  request's detail, Close now (a 409 lists what is still open) and Decline
+  with a note. Walked: five live deals held the closure, the desk refused
+  Close now with the list, the athlete withdrew. One fix from the walk: the
+  close dialog was trapped inside the settings card by the card's entrance
+  animation — the `sx-fade-up` keyframe now ends on `transform: none`, which
+  frees every fixed dialog on the site, and the dialog is portaled too.
 
 ### 12. Payouts held for review are silent
 `POL-BE-12` · `POL-FE-12` · *Money · Silent* · confirmed

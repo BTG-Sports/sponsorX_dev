@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cascadeWords, liveBadge, liveChecksWord, needsReview, refusalWords, signupHref, type ApiSignupRow } from "../src/lib/signups-live";
+import { cascadeWords, comingOfAgeHold, liveBadge, liveChecksWord, needsReview, refusalWords, signupHref, type ApiSignupRow } from "../src/lib/signups-live";
 
 /* --------------------------------------------------------------------------
    2S1-FE-07 — the live athlete and guardian rows on BTG's New sign-ups desk
@@ -45,5 +45,21 @@ describe("rejecting a guardian", () => {
     expect(refusalWords({ error: { message: "This athlete is already rejected." } }, 409)).toBe("This athlete is already rejected.");
     expect(refusalWords({ error: { message: "stack trace" } }, 500)).toMatch(/our side/);
     expect(refusalWords(null, 403)).toMatch(/role/);
+  });
+});
+
+/* POL-FE-02 / POL-BE-02 — a coming-of-age takeover the ID check held: BTG reads why, then confirms or sends the ID back. */
+describe("a held coming-of-age takeover", () => {
+  it("names when and why it was held, and what Confirm takeover or Send back does", () => {
+    const h = comingOfAgeHold({ name: "Finn Reyes", comingOfAgeHeld: { at: "2026-10-28T10:00:00.000Z", reasons: ["The date of birth on the ID doesn't match the profile."] } })!;
+    expect(h.title).toBe("Coming of age · held since Oct 28");
+    expect(h.reasons).toEqual(["The date of birth on the ID doesn't match the profile."]);
+    expect(h.confirm).toMatch(/^Confirm takeover moves control to Finn: .*guardian is removed and told\.$/);
+    expect(h.refuse).toMatch(/send the ID back from Documents — Finn is emailed/);
+  });
+  it("still has a reason when the API gave none, and is null when nothing is held", () => {
+    expect(comingOfAgeHold({ name: "Finn Reyes", comingOfAgeHeld: { at: "2026-10-28T10:00:00.000Z", reasons: [] } })!.reasons).toEqual(["The ID couldn’t be read."]);
+    expect(comingOfAgeHold({ name: "Finn Reyes", comingOfAgeHeld: null })).toBeNull();
+    expect(comingOfAgeHold({ name: "Finn Reyes" })).toBeNull();
   });
 });

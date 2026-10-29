@@ -1,5 +1,5 @@
 import type { ApiDocumentCheck, ApiDocumentReturned } from "@/lib/document-checks-live";
-import type { ApiHandoffRequest } from "@/lib/guardian-live";
+import { isEscalated, waitingAge, type ApiHandoffRequest } from "@/lib/guardian-live";
 import type { PageInfo } from "@/lib/list-query";
 import { dayOf, momentOf } from "@/lib/new-signups-live";
 
@@ -18,6 +18,14 @@ import { dayOf, momentOf } from "@/lib/new-signups-live";
      POST /guardian-handoffs/:id/staff-decision       { decision: CONFIRM | DECLINE, note }
      GET  /guardian-handoffs/:id/documents/:docId     a 5-minute audited link
      GET  /signup-rules/settings                      { staffConfirmMinors }
+
+   POL-FE-10 / POL-BE-10 (2026-10-29) — a handoff can no longer wait
+   forever: 3 days in, the current guardian is reminded; at 7 days with no
+   answer it is escalated (`escalatedAt`) and "Waiting for BTG" holds it
+   too, with its count. BTG then has Confirm / Decline (`btgMayDecide`) on
+   the same staff decision; the current guardian can still answer, and the
+   first answer decides. The desk shows the age ("waiting 9 days") and "No
+   answer from <guardian>".
 
    Pure: shapes, tabs and the words the screens derive.
    -------------------------------------------------------------------------- */
@@ -50,7 +58,7 @@ export type ApiHandoffDesk = { handoffs: ApiDeskHandoff[]; counts: Record<Handof
 export const DESK_PAGE = 100;
 
 export const HANDOFF_TABS = [
-  { key: "waiting", group: "WAITING_FOR_BTG", label: "Waiting for BTG", empty: ["Nothing waiting", "Nothing waiting — handoffs you need to confirm appear here."] },
+  { key: "waiting", group: "WAITING_FOR_BTG", label: "Waiting for BTG", empty: ["Nothing waiting", "Nothing waiting — handoffs you need to confirm, and requests the current guardian hasn’t answered in 7 days, appear here."] },
   { key: "progress", group: "IN_PROGRESS", label: "In progress", empty: ["Nothing in progress", "Handoffs still being set up by the guardians appear here."] },
   { key: "switched", group: "SWITCHED", label: "Switched", empty: ["None switched yet", "Finished handoffs appear here as a record."] },
   { key: "declined", group: "DECLINED", label: "Declined", empty: ["Nothing declined", "Declined handoffs appear here with their reason."] },
@@ -83,6 +91,12 @@ export function settingBanner(staffConfirmMinors: boolean | null): Banner {
 export type Tone = "neutral" | "primary" | "accent" | "danger" | "warn";
 export type StepBadge = { label: string; tone: Tone; mark: string };
 
+/** POL-FE-10 — BTG may confirm or decline now: the API's `btgMayDecide`; an older API only ever held HANDED_OFF for BTG. */
+export const mayDecide = (h: Pick<ApiHandoffRequest, "state" | "btgMayDecide">): boolean => h.btgMayDecide ?? h.state === "HANDED_OFF";
+
+/** "waiting 9 days" — the row's age while it is with the current guardian; null elsewhere. */
+export const deskAge = (h: Pick<ApiHandoffRequest, "state" | "waitingDays" | "sentAt">, now = new Date()): string | null => waitingAge(h, now);
+
 /** The list's "Step", in words. */
 export function stepBadge(h: ApiDeskHandoff): StepBadge {
   const cur = h.current.firstName;
@@ -91,6 +105,8 @@ export function stepBadge(h: ApiDeskHandoff): StepBadge {
     case "HANDED_OFF":
       return { label: "Waiting for BTG", tone: "warn", mark: "!" };
     case "WAITING":
+      /* POL-FE-10 — 7 days with no answer: it is BTG's to decide, though the current guardian still can. */
+      if (isEscalated(h)) return { label: `No answer from ${cur} — your call`, tone: "warn", mark: "!" };
       return { label: `Waiting for ${cur} to answer`, tone: "primary", mark: "●" };
     case "REQUESTED":
       if (!h.idUploaded || !h.proofUploaded) return { label: `${req} is uploading documents`, tone: "primary", mark: "●" };
@@ -130,11 +146,17 @@ export function deskTrack(h: ApiDeskHandoff): DeskStep[] {
   let handed: DeskStep;
   if (h.staff.handedOffAt) handed = { label: `${cur} handed off`, note: momentOf(h.staff.handedOffAt), status: "done" };
   else if (h.state === "DECLINED") handed = { label: `${cur} declined`, note: at(d?.at, "Declined"), status: "stopped" };
-  else if (h.state === "WAITING") handed = { label: `${cur} hands off`, note: `Waiting for ${cur}`, status: "current" };
-  else handed = { label: `${cur} hands off`, note: h.state === "CANCELLED" ? "Not needed" : "Not yet", status: "todo" };
+  else if (h.state === "WAITING") {
+    /* POL-FE-10 — escalated: no answer in 7 days; the age says how long. */
+    const age = deskAge(h);
+    handed = isEscalated(h)
+      ? { label: `${cur} hands off`, note: `No answer${age ? ` · ${age}` : ""}`, status: "current" }
+      : { label: `${cur} hands off`, note: `Waiting for ${cur}${age ? ` · ${age}` : ""}`, status: "current" };
+  } else handed = { label: `${cur} hands off`, note: h.state === "CANCELLED" ? "Not needed" : "Not yet", status: "todo" };
 
   let btg: DeskStep;
   if (h.state === "HANDED_OFF") btg = { label: "BTG confirms", note: "Now — your turn", status: "current" };
+  else if (h.state === "WAITING" && isEscalated(h)) btg = { label: "BTG decides", note: `Now — your turn, or ${cur}’s`, status: "current" };
   else if (h.state === "SWITCHED") {
     btg = d?.by === "BTG"
       ? { label: "BTG confirmed", note: at(d.at, "Done"), status: "done" }
@@ -166,8 +188,8 @@ export function outcomeOf(h: ApiDeskHandoff): { text: string; tone: "accent" | "
   return null;
 }
 
-/** "What changes when you confirm" — the four agreed points, in this request's names. */
-export function confirmPoints(h: Pick<ApiHandoffRequest, "athlete" | "current" | "requester">): string[] {
+/** "What changes when you confirm" — the four agreed points, in this request's names; a fifth once the current guardian never answered. */
+export function confirmPoints(h: Pick<ApiHandoffRequest, "athlete" | "current" | "requester"> & Partial<Pick<ApiHandoffRequest, "state" | "escalatedAt">>): string[] {
   const a = h.athlete.firstName;
   const cur = h.current.firstName;
   const req = h.requester.firstName;
@@ -177,7 +199,27 @@ export function confirmPoints(h: Pick<ApiHandoffRequest, "athlete" | "current" |
     /* POL-BE-01 (2026-10-28): what is not yet paid out follows the athlete to the new holder's account. */
     `Work already agreed stays as it is. Payouts already sent stay sent; anything not yet paid out goes to ${req}’s own payout account once they set it up.`,
     "All three, and BTG, are emailed.",
+    /* POL-BE-10: when BTG confirms a request the guardian never answered, the emails say so — never "you handed off". */
+    ...(h.state && isEscalated({ state: h.state, escalatedAt: h.escalatedAt ?? null }) ? [`${cur} never answered: the emails say BTG confirmed it, not that ${cur} handed off.`] : []),
   ];
+}
+
+/**
+ * POL-FE-10 — the decision panel's words while BTG may decide: handed off
+ * for BTG's check (the setting), or escalated after 7 days with no answer.
+ * Null when it isn't BTG's turn.
+ */
+export function decisionWords(h: ApiDeskHandoff, staffConfirmMinors: boolean | null, now = new Date()): string | null {
+  const cur = h.current.firstName;
+  if (h.state === "HANDED_OFF") {
+    return `${cur} handed off. ${staffConfirmMinors === false
+      ? "BTG staff confirm minors was on when they did, so it still waits for you."
+      : "BTG staff confirm minors is on, so it waits for you."}`;
+  }
+  if (!isEscalated(h) || !mayDecide(h)) return null;
+  const age = deskAge(h, now);
+  const reminded = h.remindedAt ? ` ${cur} was reminded ${dayOf(h.remindedAt)}.` : "";
+  return `No answer from ${cur}${age ? ` — ${age}` : ""}.${reminded} It is yours to decide with the documents. ${cur} can still hand off or decline until you do; the first answer decides.`;
 }
 
 /** "Guardian agreement v1 accepted Oct 1, 9:02 AM", from the version the API recorded. */

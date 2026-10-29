@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  addOutcome,
   apiErrorMessage,
+  askedShareText,
   athleteState,
   buildAnalytics,
   buildEarnings,
@@ -20,7 +22,10 @@ import {
   publishDateInput,
   publishDateIso,
   rosterRow,
+  shareAskedLine,
+  shareAskedTag,
   shareInput,
+  shareOutcome,
   shareText,
   usdCents,
   validateBranding,
@@ -81,7 +86,37 @@ describe("2S2-FE-04 · roster", () => {
     const r = rosterRow({ id: "a1", displayName: "Jordan R.", legalName: "Jordan Reyes", sport: "Basketball", position: "Guard", gradYear: 2027, state: "UNDER_REVIEW", teamShareBps: null });
     expect(r).toMatchObject({ name: "Jordan R.", legalName: "Jordan Reyes", detail: "Guard · Class of 2027", stateLabel: "Under review", stateTone: "warn", share: "Not set", shareSet: false });
     expect(r).not.toHaveProperty("earned");
+    expect(r.shareChange).toBeNull();
     expect(athleteState("SOMETHING_NEW").label).toBe("Something new");
+  });
+
+  /* POL-FE-03 (POL-BE-03) — a raise waits for the athlete's yes; lowering applies at once. */
+  it("a row carries the team's open share request", () => {
+    const asked = { id: "sc_1", fromBps: 1000, toBps: 2500, askedAt: "2026-10-29T10:00:00.000Z" };
+    const r = rosterRow({ id: "a1", displayName: "Jordan Reyes", legalName: "Jordan Reyes", sport: "Basketball", position: null, gradYear: null, state: "APPROVED", teamShareBps: 1000, shareChange: asked });
+    expect(r.shareChange).toEqual(asked);
+    expect(shareAskedLine(asked, "Jordan Reyes")).toBe("Asked 25% on Oct 29, 2026 — waiting for Jordan's answer");
+    expect(shareAskedTag(asked)).toBe("25% asked");
+    expect(shareAskedLine({ ...asked, toBps: null }, "Jordan Reyes")).toBe("Asked BTG's standard share on Oct 29, 2026 — waiting for Jordan's answer");
+    expect(askedShareText(null)).toBe("BTG's standard share");
+  });
+
+  it("tells the team 'waiting', never 'saved', while the athlete has to say yes", () => {
+    const waiting = shareOutcome({ displayName: "Jordan Reyes", teamShareBps: 1000, shareChange: { id: "sc_1", fromBps: 1000, toBps: 2500, askedAt: "2026-10-29T10:00:00.000Z" } });
+    expect(waiting.waiting).toBe(true);
+    expect(waiting.message).toBe("Waiting for Jordan's answer. Their share stays at 10% until they accept 25%; they're emailed.");
+    expect(waiting.message).not.toMatch(/saved/i);
+    const lowered = shareOutcome({ displayName: "Jordan Reyes", teamShareBps: 500, shareChange: null });
+    expect(lowered).toEqual({ waiting: false, message: "Saved — 5% applies at once, and Jordan is emailed." });
+    const first = shareOutcome({ displayName: "Jordan Reyes", teamShareBps: null, shareChange: { id: "sc_2", fromBps: null, toBps: 1500, askedAt: "2026-10-29T10:00:00.000Z" } });
+    expect(first.message).toContain("stays at Not set until they accept 15%");
+  });
+
+  it("says when the share typed at 'Add athlete' waits for their yes", () => {
+    expect(addOutcome({ displayName: "Jordan R.", teamShareBps: null, shareChange: { id: "sc_3", fromBps: null, toBps: 1000, askedAt: "2026-10-29T10:00:00.000Z" } })).toBe(
+      "Jordan R. is on the roster. The 10% share waits for their yes — BTG's standard share applies until they accept.",
+    );
+    expect(addOutcome({ displayName: "Jordan R.", teamShareBps: null, shareChange: null })).toBe("Jordan R. is on the roster.");
   });
 
   it("validates the add-athlete form like RosterAthleteInput", () => {

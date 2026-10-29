@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  agreementWords, confirmPoints, deskRefusal, deskTrack, detailBadge, documentSub, handoffTab, outcomeOf, settingBanner, stepBadge, withRelationship,
-  type ApiDeskHandoff,
+  HANDOFF_TABS, agreementWords, confirmPoints, decisionWords, deskAge, deskRefusal, deskTrack, detailBadge, documentSub, handoffTab, mayDecide, outcomeOf, settingBanner,
+  stepBadge, withRelationship, type ApiDeskHandoff,
 } from "../src/lib/guardian-handoffs-desk-live";
 
 /* --------------------------------------------------------------------------
@@ -93,5 +93,49 @@ describe("Guardian handoffs desk", () => {
     expect(deskRefusal(409, { error: { message: "This request is switched, not waiting for BTG." } }, "x")).toBe("This request is switched, not waiting for BTG.");
     expect(deskRefusal(403, null, "x")).toMatch(/BTG admin/);
     expect(deskRefusal(500, { error: { message: "internal" } }, "The decision wasn't saved")).toBe("The decision wasn't saved (HTTP 500).");
+  });
+});
+
+/* POL-FE-10 / POL-BE-10 — a handoff can't wait forever: Waiting for BTG also holds requests the current guardian hasn't answered in 7 days. */
+describe("an escalated handoff on the desk", () => {
+  const now = new Date("2026-10-10T08:20:00.000Z");
+  /** Carmen never answered: sent Oct 1, reminded Oct 4, escalated Oct 8 — as the API returns it. */
+  const escalated: ApiDeskHandoff = {
+    ...waiting, state: "WAITING", decidedAt: null,
+    sentAt: "2026-10-01T08:20:00.000Z", waitingDays: 9, remindedAt: "2026-10-04T08:20:00.000Z", escalatedAt: "2026-10-08T08:20:00.000Z", btgMayDecide: true,
+    staff: { ...waiting.staff, handedOffAt: null },
+  };
+  const stillWaiting: ApiDeskHandoff = { ...escalated, waitingDays: 2, remindedAt: null, escalatedAt: null, btgMayDecide: false };
+
+  it("is BTG's to decide when the API says so — and, from an older API, only once handed off", () => {
+    expect(mayDecide(escalated)).toBe(true);
+    expect(mayDecide(stillWaiting)).toBe(false);
+    expect(mayDecide(waiting)).toBe(true);
+    expect(mayDecide({ state: "HANDED_OFF" })).toBe(true);
+    expect(mayDecide({ state: "WAITING" })).toBe(false);
+  });
+  it("shows the age, and 'No answer from Carmen' once escalated", () => {
+    expect(deskAge(escalated, now)).toBe("waiting 9 days");
+    expect(deskAge(waiting, now)).toBeNull();
+    expect(stepBadge(escalated)).toEqual({ label: "No answer from Carmen — your call", tone: "warn", mark: "!" });
+    expect(stepBadge(stillWaiting)).toMatchObject({ label: "Waiting for Carmen to answer", tone: "primary" });
+    expect(deskTrack(escalated).map((s) => [s.label, s.status, s.note])).toEqual([
+      ["Luis asked", "done", "Oct 1, 8:20 AM"],
+      ["Carmen hands off", "current", "No answer · waiting 9 days"],
+      ["BTG decides", "current", "Now — your turn, or Carmen’s"],
+    ]);
+    expect(deskTrack(stillWaiting)[1]).toMatchObject({ note: "Waiting for Carmen · waiting 2 days", status: "current" });
+    expect(deskTrack(stillWaiting)[2]).toMatchObject({ label: "BTG confirms", status: "todo" });
+  });
+  it("tells BTG why it's their call, that Carmen can still answer, and what the emails will say", () => {
+    expect(decisionWords(escalated, true, now)).toBe(
+      "No answer from Carmen — waiting 9 days. Carmen was reminded Oct 4. It is yours to decide with the documents. Carmen can still hand off or decline until you do; the first answer decides.",
+    );
+    expect(decisionWords(waiting, true, now)).toBe("Carmen handed off. BTG staff confirm minors is on, so it waits for you.");
+    expect(decisionWords(waiting, false, now)).toMatch(/was on when they did/);
+    expect(decisionWords(stillWaiting, true, now)).toBeNull();
+    expect(confirmPoints(escalated).at(-1)).toBe("Carmen never answered: the emails say BTG confirmed it, not that Carmen handed off.");
+    expect(confirmPoints(waiting)).toHaveLength(4);
+    expect(HANDOFF_TABS[0].empty[1]).toMatch(/hasn’t answered in 7 days/);
   });
 });

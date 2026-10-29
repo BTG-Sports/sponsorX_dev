@@ -4,8 +4,9 @@ import { HandoffDecision, HandoffDocuments } from "@/components/guardian-handoff
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { Badge } from "@/components/ui";
 import {
-  agreementWords, confirmPoints, deskTrack, detailBadge, outcomeOf, withRelationship, type ApiDeskHandoff, type DeskStep,
+  agreementWords, confirmPoints, deskAge, deskTrack, detailBadge, mayDecide, outcomeOf, withRelationship, type ApiDeskHandoff, type DeskStep,
 } from "@/lib/guardian-handoffs-desk-live";
+import { isEscalated } from "@/lib/guardian-live";
 import { dayOf } from "@/lib/new-signups-live";
 import { apiFetch } from "@/server/api";
 import { supportContact } from "@/server/support";
@@ -17,6 +18,10 @@ import { supportContact } from "@/server/support";
    the new guardian's details and documents, what changes when BTG confirms,
    and — for a request waiting for BTG — Confirm the switch or Decline with a
    reason. A custody dispute is never decided here: it goes to support.
+
+   POL-FE-10 / POL-BE-10 — a request the current guardian hasn't answered in
+   7 days is escalated: the page says so (how long, when they were reminded),
+   and Confirm / Decline are on whenever the API's `btgMayDecide` is.
 
    Reads  GET  /guardian-handoffs/:id                       with `staff` (2S1-BE-15)
           GET  /signup-rules/settings                       the decision panel's words
@@ -58,6 +63,9 @@ export default async function GuardianHandoffPage({ params }: { params: Promise<
   const outcome = outcomeOf(h);
   const section = "rounded-xl border border-line bg-surface p-4 sm:px-5";
   const switched = h.state === "SWITCHED";
+  const yours = mayDecide(h);
+  const escalated = isEscalated(h);
+  const age = deskAge(h);
   const asking = switched ? "now the guardian" : h.state === "DECLINED" || h.state === "CANCELLED" ? "asked to become the guardian" : "asking to become the guardian";
   const guardianLine = switched
     ? `${withRelationship(s.newGuardian?.name ?? h.requester.name, h.requester.relationship)} · was ${h.current.name}`
@@ -69,7 +77,7 @@ export default async function GuardianHandoffPage({ params }: { params: Promise<
   return (
     <div className="space-y-5">
       <div>
-        <Link href={h.state === "HANDED_OFF" ? PATH : `${PATH}?tab=${tabOf(h.state)}`} className="text-xs text-muted hover:text-text">← Guardian handoffs</Link>
+        <Link href={yours ? PATH : `${PATH}?tab=${tabOf(h.state)}`} className="text-xs text-muted hover:text-text">← Guardian handoffs</Link>
         <h1 className="sx-page-title mt-2">{TITLE}</h1>
       </div>
 
@@ -92,6 +100,17 @@ export default async function GuardianHandoffPage({ params }: { params: Promise<
           );
         })}
       </ol>
+
+      {/* POL-FE-10 — escalated: no answer from the current guardian in 7 days. */}
+      {escalated && (
+        <div role="status" className="rounded-lg border border-warn/45 bg-warn/8 px-3.5 py-3">
+          <p className="text-sm font-semibold text-warn">No answer from {h.current.name}{age ? ` — ${age}` : ""}</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-text">
+            Sent {h.sentAt ? dayOf(h.sentAt) : "to them"}{h.remindedAt ? `, reminded ${dayOf(h.remindedAt)}` : ""}{h.escalatedAt ? `, escalated to BTG ${dayOf(h.escalatedAt)}` : ""}.
+            {" "}You may confirm or decline it with the documents; {h.current.firstName} can still answer until you do, and the first answer decides.
+          </p>
+        </div>
+      )}
 
       {outcome && (
         <div role="status" className={`rounded-lg border bg-surface px-3.5 py-3 ${OUTCOME[outcome.tone]}`}>
@@ -126,7 +145,7 @@ export default async function GuardianHandoffPage({ params }: { params: Promise<
           {/* P8-FE-11 — each document's check, why they hold the handoff, and Send back. */}
           <HandoffDocuments id={h.id} documents={s.documents} holds={s.documentHolds ?? []} who={h.requester.firstName} />
 
-          {h.state === "HANDED_OFF" && (
+          {yours && (
             <section aria-label="What changes when you confirm" className={section}>
               <h2 className="text-sm font-semibold">What changes when you confirm</h2>
               <ul className="mt-2 list-disc space-y-1 pl-4 text-[13px] leading-relaxed text-muted">

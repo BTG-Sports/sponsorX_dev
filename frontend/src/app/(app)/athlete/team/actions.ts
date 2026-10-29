@@ -12,6 +12,11 @@ import { apiFetch } from "@/server/api";
      POST /team-invitations/:id/respond  { decision: ACCEPT | DECLINE }
      POST /me/team/leave
 
+   POL-FE-03 (POL-BE-03) — answering the team's request to change its share:
+     POST /me/team/share-changes/:id/respond  { decision: ACCEPT | DECLINE }
+   A minor's own login is refused (403 guardian_must_act, the API's own
+   sentence); the guardian accepts from their login acting for the ward.
+
    The API decides (teamInvitation: the athlete's own invitations only);
    these add no authority.
    -------------------------------------------------------------------------- */
@@ -46,4 +51,10 @@ export async function respondToTeamAction(invitationId: string, decision: "ACCEP
 
 export async function leaveTeamAction(): Promise<TeamResult> {
   return post("/me/team/leave");
+}
+
+export async function respondToShareChangeAction(changeId: string, decision: "ACCEPT" | "DECLINE"): Promise<TeamResult> {
+  if (typeof changeId !== "string" || !changeId) return { ok: false, message: "Unknown request." };
+  if (decision !== "ACCEPT" && decision !== "DECLINE") return { ok: false, message: "Accept or decline." };
+  return post(`/me/team/share-changes/${encodeURIComponent(changeId)}/respond`, { decision });
 }

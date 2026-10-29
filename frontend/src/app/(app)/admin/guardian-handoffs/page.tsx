@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui";
 import { EmptyState, SkeletonRows } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import {
-  HANDOFF_TABS, handoffTab, settingBanner, stepBadge, type ApiHandoffDesk, type HandoffGroup,
+  HANDOFF_TABS, deskAge, handoffTab, mayDecide, settingBanner, stepBadge, type ApiHandoffDesk, type HandoffGroup,
 } from "@/lib/guardian-handoffs-desk-live";
 import { apiListQuery, type SearchParams } from "@/lib/list-query";
 import { dayOf } from "@/lib/new-signups-live";
@@ -22,6 +22,11 @@ import { apiFetch } from "@/server/api";
 
    P1-FE-31 (2026-10-07): one SERVER-PAGED table per tab (the house pager)
    in place of "the latest 100".
+
+   POL-FE-10 / POL-BE-10 (2026-10-29): Waiting for BTG also holds requests
+   the current guardian hasn't answered in 7 days (escalated), and its count
+   includes them. Each waiting row shows its age ("waiting 9 days"), and an
+   escalated one "No answer from <guardian>"; Open leads to Confirm / Decline.
 
    Reads  GET /signup-rules/settings                        { staffConfirmMinors } (the banner)
           GET /guardian-handoffs?group=…&page&size          one tab's page, with every tab's count (2S1-BE-15)
@@ -110,13 +115,17 @@ export default async function GuardianHandoffsPage({ searchParams }: { searchPar
         <PagedTable page={page} noun="Handoffs" label={`${tab.label} guardian handoffs`} columns={COLUMNS}>
           {rows.map((h, i) => {
             const b = stepBadge(h);
-            const yours = h.state === "HANDED_OFF";
+            const yours = mayDecide(h);
+            const age = deskAge(h);
             return (
               <Tr key={h.id} i={i} tone={yours ? "warn" : undefined}>
                 <Td><Primary>{h.athlete.name}</Primary></Td>
                 <Td label="From">{h.current.name}</Td>
                 <Td label="To">{h.requester.name}<span className="block text-[11px] text-muted">{h.requester.relationship}</span></Td>
-                <Td label="Step"><Badge tone={b.tone}><span aria-hidden="true" className="mr-1">{b.mark}</span>{b.label}</Badge></Td>
+                <Td label="Step">
+                  <Badge tone={b.tone}><span aria-hidden="true" className="mr-1">{b.mark}</span>{b.label}</Badge>
+                  {age && <span className="mt-1 block text-[11px] text-muted">{age}{h.remindedAt ? " · reminded" : ""}</span>}
+                </Td>
                 <Td label="Asked" muted>{dayOf(h.requestedAt)}</Td>
                 <Td act>
                   <Link href={`${PATH}/${h.id}`} aria-label={`Open ${h.athlete.name}`}

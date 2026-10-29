@@ -434,3 +434,174 @@ describe("QA pass 6 · P6-BE-05 · a refusal is read by the API's code, not its 
     expect(exp.html).not.toContain("already been redeemed");
   });
 });
+
+/* --------------------------------------------------------------------------
+   POL-FE-07 — the booth's code travels with the redeem; the undo is its own
+   route; both refusals come back by the API's code.
+   -------------------------------------------------------------------------- */
+const { POST: UNDO } = await import("@/app/r/[token]/redeem/undo/route");
+
+describe("POL-FE-07 · redeem sends the staff code; undo is a route of its own", () => {
+  const post = (path: string, fields: Record<string, string> = {}) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(fields)) f.set(k, v);
+    return new Request(`https://localhost:8080/r/tok_abc/${path}`, { method: "POST", body: f });
+  };
+  const refuse = (code: string, status: number, message = "") =>
+    stub(() => Response.json({ error: { code, message } }, { status }));
+
+  it("posts { staffCode } as JSON when one was typed, and {} when left blank", async () => {
+    const calls = stub(() => Response.json({ type: "REDEEM" }, { status: 201 }));
+    const res = await REDEEM(post("redeem", { staffCode: " 482913 " }), ctx());
+    expect(res.headers.get("location")).toBe("/r/tok_abc?flash=redeemed");
+    expect(calls[0]!.url).toContain("/api/v1/public/rewards/tok_abc/redeem");
+    expect(JSON.parse(String(calls[0]!.init!.body))).toEqual({ staffCode: "482913" });
+    expect((calls[0]!.init!.headers as Record<string, string>)["content-type"]).toBe("application/json");
+    await REDEEM(post("redeem"), ctx());
+    expect(JSON.parse(String(calls[1]!.init!.body))).toEqual({});
+    /* The raw POST a replay sends — no form body at all (e2e/redeem-flow.spec.ts). */
+    await REDEEM(new Request("https://localhost:8080/r/tok_abc/redeem", { method: "POST" }), ctx());
+    expect(JSON.parse(String(calls[2]!.init!.body))).toEqual({});
+  });
+
+  it("a code that isn't six digits never reaches the API — it would cost a try", async () => {
+    const calls = stub(() => Response.json({}, { status: 201 }));
+    const res = await REDEEM(post("redeem", { staffCode: "12" }), ctx());
+    expect(res.headers.get("location")).toBe("/r/tok_abc?flash=needcode");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("maps the refusals: required, wrong (with tries left), locked, claim first", async () => {
+    refuse("staff_code_required", 403, "The staff member at the booth enters the reward's staff code to redeem it.");
+    expect((await REDEEM(post("redeem"), ctx())).headers.get("location")).toBe("/r/tok_abc?flash=needcode");
+    refuse("wrong_staff_code", 403, "That staff code is not right. 3 tries left before this code locks for 15 minutes.");
+    expect((await REDEEM(post("redeem", { staffCode: "000000" }), ctx())).headers.get("location")).toBe("/r/tok_abc?flash=wrongcode&left=3");
+    refuse("staff_code_locked", 429, "Too many wrong staff codes.");
+    expect((await REDEEM(post("redeem", { staffCode: "000000" }), ctx())).headers.get("location")).toBe("/r/tok_abc?flash=locked");
+    refuse("claim_first", 409, "Claim first.");
+    expect((await REDEEM(post("redeem", { staffCode: "000000" }), ctx())).headers.get("location")).toBe("/r/tok_abc?flash=claimfirst");
+    /* The older refusals are untouched by the new ones. */
+    refuse("already_redeemed", 409);
+    expect((await REDEEM(post("redeem", { staffCode: "482913" }), ctx())).headers.get("location")).toBe("/r/tok_abc?flash=used");
+  });
+
+  it("the page shows the tries left from the URL, and ignores a forged count", async () => {
+    expect((await page({ ...live, claimed: true }, "?flash=wrongcode&left=2")).html).toContain("2 tries left");
+    expect((await page({ ...live, claimed: true }, "?flash=wrongcode&left=99")).html).toContain("That staff code isn't right.</p>");
+    expect((await page({ ...live, claimed: true }, "?flash=locked")).html).toContain("locked for 15 minutes");
+  });
+
+  it("undo posts the code to …/redeem/undo and comes back 'undone'", async () => {
+    const calls = stub(() => Response.json({ undone: true, timesRedeemed: 0 }, { status: 200 }));
+    const res = await UNDO(post("redeem/undo", { staffCode: "482913" }), ctx());
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe("/r/tok_abc?flash=undone");
+    expect(calls[0]!.url).toContain("/api/v1/public/rewards/tok_abc/redeem/undo");
+    expect(JSON.parse(String(calls[0]!.init!.body))).toEqual({ staffCode: "482913" });
+  });
+
+  it("undo always needs the code, and maps its own refusals", async () => {
+    const calls = stub(() => Response.json({}, { status: 200 }));
+    expect((await UNDO(post("redeem/undo"), ctx())).headers.get("location")).toBe("/r/tok_abc?flash=needcode");
+    expect(calls).toHaveLength(0);
+    refuse("nothing_to_undo", 409);
+    expect((await UNDO(post("redeem/undo", { staffCode: "482913" }), ctx())).headers.get("location")).toBe("/r/tok_abc?flash=noundo");
+    refuse("undo_window_closed", 409);
+    expect((await UNDO(post("redeem/undo", { staffCode: "482913" }), ctx())).headers.get("location")).toBe("/r/tok_abc?flash=undolate");
+    refuse("wrong_staff_code", 403, "That staff code is not right. 1 try left before this code locks for 15 minutes.");
+    expect((await UNDO(post("redeem/undo", { staffCode: "000000" }), ctx())).headers.get("location")).toBe("/r/tok_abc?flash=wrongcode&left=1");
+    stub(() => { throw new Error("down"); });
+    expect((await UNDO(post("redeem/undo", { staffCode: "482913" }), ctx())).headers.get("location")).toBe("/r/tok_abc?flash=failed");
+  });
+
+  it("the undone page confirms it, and a used page with an open window offers Undo", async () => {
+    expect((await page({ ...live, claimed: true }, "?flash=undone")).html).toContain("Redeem undone");
+    const used = await page({
+      ...live, state: "REDEEMED", claimed: true,
+      lastRedeemedAt: new Date(Date.now() - 60_000).toISOString(),
+      undoUntil: new Date(Date.now() + 4 * 60_000).toISOString(),
+    });
+    expect(used.html).toContain('action="/r/tok_abc/redeem/undo"');
+    expect(used.html.toLowerCase()).not.toContain("<script");
+  });
+});
+
+/* --------------------------------------------------------------------------
+   POL-FE-08 — a claim on a shared code sends the fan to their own code and
+   remembers it; a second scan of the same QR goes straight there.
+   -------------------------------------------------------------------------- */
+describe("POL-FE-08 · the fan's own code", () => {
+  const claimReq = (headers: Record<string, string> = {}) =>
+    new Request("https://localhost:8080/r/tok_abc/claim", { method: "POST", body: new FormData(), headers });
+
+  it("a claim answered with `code` redirects to that code and sets the cookie for this shared one", async () => {
+    stub(() => Response.json({ id: "ev1", type: "CLAIM", heldUntil: null, code: "fan_own_1" }, { status: 201 }));
+    const res = await CLAIM(claimReq(), ctx());
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe("/r/fan_own_1?flash=claimed");
+    expect(res.headers.get("set-cookie")).toBe("sx-fan-tok_abc=fan_own_1; Path=/r; Max-Age=31536000; HttpOnly; SameSite=Lax; Secure");
+  });
+
+  it("the cookie is Secure on https, or behind a proxy that says so", async () => {
+    stub(() => Response.json({ code: "fan_own_1" }, { status: 201 }));
+    const plain = await CLAIM(new Request("http://localhost:3000/r/tok_abc/claim", { method: "POST", body: new FormData() }), ctx());
+    expect(plain.headers.get("set-cookie")).not.toContain("Secure");
+    const proxied = await CLAIM(
+      new Request("http://web.railway.internal/r/tok_abc/claim", { method: "POST", body: new FormData(), headers: { "x-forwarded-proto": "https" } }),
+      ctx(),
+    );
+    expect(proxied.headers.get("set-cookie")).toContain("Secure");
+  });
+
+  it("with the switch off the answer has no `code`, and the claim goes back to the same page as before", async () => {
+    stub(() => Response.json({ id: "ev1", type: "CLAIM", heldUntil: null }, { status: 201 }));
+    const res = await CLAIM(claimReq(), ctx());
+    expect(res.headers.get("location")).toBe("/r/tok_abc?flash=claimed");
+    expect(res.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("scanning the shared QR again, with the cookie, goes straight to the fan's own code — and records no second scan", async () => {
+    const calls = stub((u) =>
+      u.endsWith("/public/rewards/fan_own_1")
+        ? Response.json({ ...live, kind: "FAN", claimed: true })
+        : Response.json({ ...live, kind: "SHARED" }),
+    );
+    const res = await GET(new Request("https://localhost:8080/r/tok_abc", { headers: { cookie: "sx-fan-tok_abc=fan_own_1" } }), ctx());
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe("/r/fan_own_1");
+    expect(afterCalls).toHaveLength(0);
+    expect(calls.map((c) => c.url)).toEqual([
+      expect.stringContaining("/public/rewards/tok_abc"),
+      expect.stringContaining("/public/rewards/fan_own_1"),
+    ]);
+  });
+
+  it("a stale cookie (the API no longer knows that code) is forgotten and the shared page renders", async () => {
+    stub((u) => (u.endsWith("/public/rewards/gone") ? Response.json({}, { status: 404 }) : Response.json({ ...live, kind: "SHARED" })));
+    const res = await GET(new Request("https://localhost:8080/r/tok_abc", { headers: { cookie: "sx-fan-tok_abc=gone" } }), ctx());
+    expect(res.status).toBe(200);
+    expect(res.headers.get("set-cookie")).toContain("sx-fan-tok_abc=; Path=/r; Max-Age=0");
+    expect(await res.text()).toContain('action="/r/tok_abc/claim"');
+  });
+
+  it("the cookie means nothing on a code that isn't shared, or on a post-redirect-get return", async () => {
+    const own = stub(() => Response.json({ ...live, kind: "FAN", claimed: true }));
+    const res = await GET(new Request("https://localhost:8080/r/tok_abc", { headers: { cookie: "sx-fan-tok_abc=fan_own_1" } }), ctx());
+    expect(res.status).toBe(200);
+    expect(own).toHaveLength(1);
+    const back = stub(() => Response.json({ ...live, kind: "SHARED" }));
+    const ret = await GET(new Request("https://localhost:8080/r/tok_abc?flash=claimfirst", { headers: { cookie: "sx-fan-tok_abc=fan_own_1" } }), ctx());
+    expect(ret.status).toBe(200);
+    expect(back).toHaveLength(1);
+    expect(await ret.text()).toContain("Claim the reward first");
+  });
+
+  it("the shared page carries the claim form only; 'All claimed' once the limit is held or used", async () => {
+    const shared = await page({ ...live, kind: "SHARED" });
+    expect(shared.html).toContain('action="/r/tok_abc/claim"');
+    expect(shared.html).not.toContain("Staff: redeem now");
+    const done = await page({ ...live, kind: "SHARED", state: "EXHAUSTED" });
+    expect(done.html).toContain("All claimed");
+    expect(done.html).not.toContain('action="/r/tok_abc/claim"');
+  });
+});
