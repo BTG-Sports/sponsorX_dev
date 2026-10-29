@@ -13,6 +13,14 @@
    not checked: there is no login to check it against, so the redeem step
    tells staff what to look at — and the EXHAUSTED state once the reward's
    redemption cap is used up.
+
+   POL-FE-07: "Staff: redeem now" is a panel, not a button — it opens, asks
+   for the reward's six-digit staff code and confirms (a native <details>,
+   still no script), and a redeem can be undone for a few minutes with the
+   same code. POL-FE-08: an athlete's shared QR gives each fan a code of
+   their own on claim; the claim route sends them there and remembers it in
+   a cookie, so the shared page is only ever the offer. Both go live behind
+   the API's switches; off, the page reads as before.
    -------------------------------------------------------------------------- */
 import { ELIGIBILITY, fmtEt, fmtEtWhen, type RewardEligibility } from "@/lib/rewards-live";
 
@@ -42,10 +50,124 @@ export type TokenView =
        *  Absent from an older API — the page then reads as before. */
       notice?: string;
       eligibilityCheck?: string | null;
+      /** POL-FE-07 — the booth must type the reward's six-digit staff code
+       *  to redeem (`REWARD_STAFF_CODE_REQUIRED`). The page asks for the code
+       *  either way and sends whatever was typed; off, a blank is allowed. */
+      staffCodeRequired?: boolean;
+      /** POL-FE-07 — the latest redeem can be undone (with the staff code)
+       *  until then; null, or absent from an older API, when it can't. */
+      undoUntil?: string | null;
+      /** POL-FE-08 — SHARED: an athlete's QR, shown to many fans; a claim
+       *  gives the fan a code of their own. FAN: that code. CODE: the switch
+       *  (`REWARD_FAN_CODES`) is off and one code is one claim, as before. */
+      kind?: "SHARED" | "FAN" | "CODE";
     };
 
 export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
+/* ------------------------------------------------------------------------
+   POL-FE-08 · remembering a fan's own code for a shared QR — a cookie set
+   by the claim route handler (there is no JavaScript on this page). A fan
+   who scans the athlete's QR again is sent straight to their own code
+   instead of making another. One cookie per shared code, so a fan can hold
+   codes on several athletes' rewards; the own code is the only value.
+   ------------------------------------------------------------------------ */
+
+/** A year: the longest a reward could plausibly run, and then some. */
+export const FAN_COOKIE_MAX_AGE = 365 * 24 * 60 * 60;
+
+/** The cookie name for one shared code. Tokens are base64url, so this is
+ *  the identity for every real token; anything else is kept to the cookie
+ *  name's safe alphabet so a hostile path can never break the header. */
+export function fanCookieName(sharedToken: string): string {
+  return `sx-fan-${sharedToken.replace(/[^A-Za-z0-9_-]/g, "")}`;
+}
+
+/** The Set-Cookie header value that remembers `ownCode` for `sharedToken`
+ *  (max-age 0 forgets it). HttpOnly: nothing on the page reads it; the
+ *  route handler does. Path /r: sent to the fan routes only. */
+export function fanCookie(sharedToken: string, ownCode: string, opts: { secure: boolean; forget?: boolean }): string {
+  const parts = [
+    `${fanCookieName(sharedToken)}=${encodeURIComponent(ownCode)}`,
+    "Path=/r",
+    `Max-Age=${opts.forget ? 0 : FAN_COOKIE_MAX_AGE}`,
+    "HttpOnly",
+    "SameSite=Lax",
+  ];
+  if (opts.secure) parts.push("Secure");
+  return parts.join("; ");
+}
+
+/** The fan's own code remembered for `sharedToken`, from the request's
+ *  Cookie header — or null when none (or an unreadable value) is there. */
+export function readFanCookie(cookieHeader: string | null | undefined, sharedToken: string): string | null {
+  if (!cookieHeader) return null;
+  const name = fanCookieName(sharedToken);
+  for (const part of cookieHeader.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    if (part.slice(0, eq).trim() !== name) continue;
+    try {
+      const v = decodeURIComponent(part.slice(eq + 1).trim());
+      return v && /^[A-Za-z0-9_-]+$/.test(v) ? v : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/* ------------------------------------------------------------------------
+   POL-FE-07 · the staff code at the booth.
+   ------------------------------------------------------------------------ */
+
+/** The code is six digits (the API's `StaffCode` contract). */
+export const STAFF_CODE_RE = /^\d{6}$/;
+/** The API's lock after five wrong codes, in minutes — quoted to staff. */
+export const STAFF_CODE_LOCK_MINUTES = 15;
+/** The API's undo window, in minutes — quoted to staff. */
+export const UNDO_MINUTES = 5;
+
+/** How many tries are left, from the API's `wrong_staff_code` message
+ *  ("… 3 tries left before this code locks …"). The body carries only the
+ *  code and the message, so the number is read from the words; null when
+ *  the words have changed. */
+export function triesLeftFrom(message: unknown): number | null {
+  if (typeof message !== "string") return null;
+  const m = /(\d+)\s+(?:try|tries)\s+left/.exec(message);
+  return m ? Number(m[1]) : null;
+}
+
+/** The API's error body, as the routes read it: `{ error: { code, message } }`. */
+export type ApiError = { code?: unknown; message?: unknown };
+
+/**
+ * The staff-code refusals every booth form shares (POL-FE-07, and
+ * POL-FE-08's `claim_first`), as the flash to redirect with and the query
+ * that carries the tries left (`&left=N`). Null when it is not one of
+ * them — the form's own mapping then applies. A 429 with no readable code
+ * is the lock; the API's own contract check (a code that isn't six digits)
+ * reads as "enter the code".
+ */
+export function staffRefusal(err: ApiError, status: number): { flash: NonNullable<Flash>; query: string } | null {
+  switch (err.code) {
+    case "staff_code_required": return { flash: "needcode", query: "" };
+    case "wrong_staff_code": {
+      const left = triesLeftFrom(err.message);
+      return { flash: "wrongcode", query: left === null ? "" : `&left=${left}` };
+    }
+    case "staff_code_locked": return { flash: "locked", query: "" };
+    case "claim_first": return { flash: "claimfirst", query: "" };
+    case "validation": return { flash: "needcode", query: "" };
+  }
+  return status === 429 ? { flash: "locked", query: "" } : null;
+}
+
+/** The parsed `error` of a refusal, or an empty one for a body without it. */
+export async function apiError(res: Response): Promise<ApiError> {
+  return res.json().then((b: { error?: ApiError }) => b?.error ?? {}, () => ({}));
 }
 
 const STEPS = ["Scan", "Claim", "Redeem"] as const;
@@ -82,11 +204,22 @@ function shell(title: string, body: string): string {
   .lede{font-size:16px;color:rgba(243,245,248,.85)}
   form{margin:16px 0 0;text-align:left}
   label{display:block;font-size:13px;color:rgba(243,245,248,.8);margin:12px 0 4px}
-  input[type=email]{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(243,245,248,.2);background:#11151c;color:#fff;font-size:16px}
+  input[type=email],input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(243,245,248,.2);background:#11151c;color:#fff;font-size:16px}
+  input.code{font-size:22px;letter-spacing:.3em;text-align:center;font-variant-numeric:tabular-nums}
   .consent{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.4}
   .consent input{margin-top:3px;width:18px;height:18px}
   button{margin-top:16px;width:100%;padding:14px;border:0;border-radius:12px;background:#2e9bf5;color:#0a0c10;font:600 16px system-ui,sans-serif}
   button.alt{background:#f97a1f}
+  button.ghost{background:transparent;border:1px solid rgba(243,245,248,.35);color:#fff}
+  /* POL-FE-07: the booth's panel. A native <details> is the confirm step —
+     the first tap opens it, the code goes in, the second tap confirms —
+     with no script to load or fail. */
+  details.staff{margin:20px 0 0;padding:0 14px 14px;border:1px dashed rgba(243,245,248,.25);border-radius:12px;text-align:left}
+  details.staff summary{list-style:none;cursor:pointer;padding:14px 0;font-weight:600;color:#ffb27a}
+  details.staff summary::-webkit-details-marker{display:none}
+  details.staff summary::before{content:"\\25B8  "}
+  details.staff[open] summary::before{content:"\\25BE  "}
+  details.staff form{margin:0}
   /* dark CTA ink, as the app's own buttons use: white on this blue was 2.9:1 and on
      the orange 2.7:1, under the 4.5:1 a fan at an event needs (frontend audit) */
   .note{font-size:12px;color:rgba(243,245,248,.5)}
@@ -137,7 +270,52 @@ export function renderUnavailable(): string {
    because the reward changed state between the page load and the tap. The
    page renders them whatever state the reload shows; an older route that
    never sends them loses nothing. */
-export type Flash = "claimed" | "redeemed" | "used" | "consent" | "failed" | "soldout" | "notlive" | "expired" | null;
+export type Flash =
+  | "claimed" | "redeemed" | "used" | "consent" | "failed" | "soldout" | "notlive" | "expired"
+  /* POL-FE-07 — the booth's code: missing or malformed, wrong (with tries
+     left), locked after five wrong ones; an undo that worked, had nothing
+     to undo, or came too late. POL-FE-08 — a redeem on a shared code. */
+  | "needcode" | "wrongcode" | "locked" | "undone" | "noundo" | "undolate" | "claimfirst"
+  | null;
+
+/** Every flash the page renders — the route honours only these. */
+export const FLASHES: ReadonlySet<string> = new Set<NonNullable<Flash>>([
+  "claimed", "redeemed", "used", "consent", "failed", "soldout", "notlive", "expired",
+  "needcode", "wrongcode", "locked", "undone", "noundo", "undolate", "claimfirst",
+]);
+
+/** The extra a flash may carry, parsed by the route from the query. */
+export type FlashExtra = { triesLeft?: number | null };
+
+/** The booth's line for a staff-code or undo flash — on whichever page the
+ *  reload shows (a failed undo leaves the code redeemed; a refused redeem
+ *  leaves it live). Empty for the fan's own flashes. */
+function staffLine(flash: Flash, extra: FlashExtra): string {
+  switch (flash) {
+    case "needcode":
+      return `<p class="bad">Enter the reward's six-digit staff code — the booth has it.</p>`;
+    case "wrongcode": {
+      const n = extra.triesLeft;
+      const left = n === null || n === undefined ? "" : ` ${n} ${n === 1 ? "try" : "tries"} left before this code locks for ${STAFF_CODE_LOCK_MINUTES} minutes.`;
+      return `<p class="bad">That staff code isn't right.${left}</p>`;
+    }
+    case "locked":
+      return `<p class="bad">Too many wrong staff codes. This code is locked for ${STAFF_CODE_LOCK_MINUTES} minutes — wait, then try again.</p>`;
+    case "undone":
+      return `<p class="ok">Redeem undone. This code can be used again.</p>`;
+    case "noundo":
+      return `<p class="bad">There's no redeem to undo on this code.</p>`;
+    case "undolate":
+      return `<p class="bad">Too late to undo — a redeem can only be undone within ${UNDO_MINUTES} minutes of it. Ask the sponsor if it needs putting right.</p>`;
+    case "claimfirst":
+      return `<p class="bad">Claim the reward first — the booth redeems your own code, not this one.</p>`;
+    default:
+      return "";
+  }
+}
+
+/** A staff flash that should re-open the panel it came from. */
+const STAFF_FLASHES: ReadonlySet<Flash> = new Set<Flash>(["needcode", "wrongcode", "locked", "noundo", "undolate"]);
 
 /**
  * F-07 — how long after a redemption its "Redeemed ✓ Enjoy!" confirmation
@@ -165,8 +343,45 @@ function holdLine(v: Known, now: Date): string {
     : `<p class="bad">Your hold lapsed at ${at}.${v.state === "LIVE" ? " You can still redeem while any are left." : ""}</p>`;
 }
 
+/** The six-digit code field the booth types into — shared by both panels. */
+function codeField(id: string, required: boolean): string {
+  return `<label for="${id}">Staff code <span class="note">(six digits${required ? "" : " — leave blank if this reward has none"})</span></label>
+      <input id="${id}" class="code" name="staffCode" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="••••••"${required ? " required" : ""}>`;
+}
+
+/** POL-FE-07 — "Staff: redeem now", as a panel the booth opens, types the
+ *  code into and confirms: two taps, never one. Never on a shared code
+ *  (POL-FE-08): the fan claims first and the booth redeems their own code. */
+function redeemPanel(v: Known, t: string, flash: Flash): string {
+  if (v.kind === "SHARED") return "";
+  /* Eligibility is the booth's to check — nothing else can (no login). */
+  const staffCheck = v.eligibility ? ELIGIBILITY[v.eligibility]?.staff ?? null : null;
+  const open = STAFF_FLASHES.has(flash) && flash !== "noundo" && flash !== "undolate";
+  return `
+    <details class="staff"${open ? " open" : ""}><summary>Staff: redeem now</summary>
+    <form method="post" action="/r/${t}/redeem">
+      <p class="note">At the booth: the staff member enters the reward's staff code and confirms. ${v.singleUse === false ? "This code can be redeemed more than once." : "Each code redeems once."}${staffCheck ? ` <strong>${escapeHtml(staffCheck)}</strong>` : ""}</p>
+      ${codeField("staff-code", v.staffCodeRequired === true)}
+      <button type="submit" class="alt">Confirm redeem</button>
+    </form></details>`;
+}
+
+/** POL-FE-07 — Undo, while the API says the latest redeem still can be. */
+function undoPanel(v: Known, t: string, flash: Flash, now: Date): string {
+  if (v.kind === "SHARED" || !v.undoUntil) return "";
+  if (new Date(v.undoUntil).getTime() <= now.getTime()) return "";
+  const open = flash === "noundo" || flash === "undolate" || (flash === "needcode" && v.state === "REDEEMED");
+  return `
+    <details class="staff"${open ? " open" : ""}><summary>Undo that redeem</summary>
+    <form method="post" action="/r/${t}/redeem/undo">
+      <p class="note">Redeemed by mistake? The booth can undo this code's latest redeem until ${escapeHtml(fmtEtWhen(v.undoUntil, now))}, with the staff code.</p>
+      ${codeField("undo-code", true)}
+      <button type="submit" class="ghost">Undo redeem</button>
+    </form></details>`;
+}
+
 /** One page, every state §16 needs — rendered from the API's own view. */
-export function renderFanPage(token: string, v: TokenView, flash: Flash, now = new Date()): { html: string; status: number } {
+export function renderFanPage(token: string, v: TokenView, flash: Flash, now = new Date(), extra: FlashExtra = {}): { html: string; status: number } {
   const t = encodeURIComponent(token);
   /* The LANDING beacon only on a first visit — never on a post/redirect/get
      return (?flash=…), exactly as the route records SCAN. Without this, the
@@ -185,8 +400,9 @@ export function renderFanPage(token: string, v: TokenView, flash: Flash, now = n
     const just = justRedeemed(v, flash, now);
     return { status: 200, html: shell(just ? "Redeemed" : "Already used", `
       <h1 class="${just ? "ok" : "bad"}">${just ? "Redeemed ✓" : "Already used"}</h1>
-      ${offer(v)}
+      ${offer(v)}${staffLine(flash, extra)}
       <p>${just ? "Show this screen at the booth. Enjoy!" : "This reward has already been redeemed. Each code works once."}</p>
+      ${undoPanel(v, t, flash, now)}
       ${steps(3)}`) };
   }
   if (v.state === "EXPIRED") {
@@ -205,11 +421,20 @@ export function renderFanPage(token: string, v: TokenView, flash: Flash, now = n
       ${offer(v)}
       <p class="ok">Show this screen at the booth. Enjoy!${v.timesRedeemed ? ` Redeemed ${v.timesRedeemed} time${v.timesRedeemed === 1 ? "" : "s"} with this code.` : ""}</p>
       <p class="note">That was the last one — this reward has now run out.</p>
+      ${undoPanel(v, t, flash, now)}
       ${steps(3)}`) };
     }
+    /* POL-FE-08: a shared code's page is the offer, never one fan's claim —
+       so "run out" there means every claim has been made: "All claimed". */
+    if (v.kind === "SHARED") {
+      return { status: 200, html: shell("All claimed", `
+      <h1 class="bad">All claimed</h1>${offer(v)}
+      <p>Every one of these has been claimed by a fan who scanned before you. Thanks for scanning — keep an eye out for the next one.</p>`) };
+    }
     return { status: 200, html: shell("All gone", `
-      <h1 class="bad">This reward has run out</h1>${offer(v)}${holdLine(v, now)}
-      <p>Every one of these has been redeemed or is held for a fan who claimed it. Thanks for scanning — keep an eye out for the next one.</p>`) };
+      <h1 class="bad">This reward has run out</h1>${offer(v)}${holdLine(v, now)}${staffLine(flash, extra)}
+      <p>Every one of these has been redeemed or is held for a fan who claimed it. Thanks for scanning — keep an eye out for the next one.</p>
+      ${undoPanel(v, t, flash, now)}`) };
   }
   if (v.state === "NOT_LIVE") {
     return { status: 200, html: shell("Not active", `
@@ -238,7 +463,7 @@ export function renderFanPage(token: string, v: TokenView, flash: Flash, now = n
        happened to the tap rather than nothing. */
     : flash === "notlive" ? `<p class="bad">That didn't go through — the offer was paused for a moment. Please try again.</p>`
     : flash === "expired" ? `<p class="bad">That didn't go through — please try again.</p>`
-    : "";
+    : staffLine(flash, extra);
 
   const claimForm = v.claimed ? "" : `
     <form method="post" action="/r/${t}/claim">
@@ -252,13 +477,9 @@ export function renderFanPage(token: string, v: TokenView, flash: Flash, now = n
       <p class="note">${v.notice ? `${escapeHtml(v.notice)} · ` : ""}<a href="/r/privacy">Privacy notice</a></p>
     </form>`;
 
-  /* Eligibility is the booth's to check — nothing else can (no login). */
-  const staffCheck = v.eligibility ? ELIGIBILITY[v.eligibility]?.staff ?? null : null;
-  const redeemForm = `
-    <form method="post" action="/r/${t}/redeem">
-      <p class="note">At the booth: the staff member taps below. ${v.singleUse === false ? "This code can be redeemed more than once." : "Each code redeems once."}${staffCheck ? ` <strong>${escapeHtml(staffCheck)}</strong>` : ""}</p>
-      <button type="submit" class="alt">Staff: redeem now</button>
-    </form>`;
+  /* POL-FE-08: a fan's own code (made by their claim on a shared QR) is
+     theirs alone — say so, since the page they scanned was the athlete's. */
+  const ownCode = v.kind === "FAN" && v.claimed ? `<p class="note">This code is yours alone. Keep this page open, or use the link in your email.</p>` : "";
 
   /* The reward's own landing copy greets a fan on arrival; once claimed, the
      page's job changes to "show this at the booth", and so do its words. */
@@ -266,7 +487,7 @@ export function renderFanPage(token: string, v: TokenView, flash: Flash, now = n
   const subhead = !v.claimed && !again && v.landing?.subhead?.trim() ? `<p class="lede">${escapeHtml(v.landing.subhead.trim())}</p>` : "";
   return { status: 200, html: shell("Your reward", `
     <h1${again ? ' class="ok"' : ""}>${escapeHtml(headline)}</h1>${subhead}
-    ${offer(v)}${msg}${holdLine(v, now)}${claimForm}${redeemForm}
+    ${offer(v)}${msg}${holdLine(v, now)}${ownCode}${claimForm}${redeemPanel(v, t, flash)}${undoPanel(v, t, flash, now)}
     ${steps(v.claimed ? 2 : 1)}${beacon}`) };
 }
 
