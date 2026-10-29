@@ -93,7 +93,12 @@ export type ApiTeamAthlete = {
   gradYear: number | null;
   state: string;
   teamShareBps: number | null;
+  /** POL-BE-03 — the team's share request waiting for this athlete's answer. Absent on older replies. */
+  shareChange?: ApiTeamShareChange | null;
 };
+
+/** POL-BE-03 — a share request the athlete (the guardian, for a minor) hasn't answered. `toBps: null` asks for BTG's standard share. */
+export type ApiTeamShareChange = { id: string; fromBps: number | null; toBps: number | null; askedAt: string };
 
 export type ApiPage = { page: number; size: number; total: number; pages: number };
 
@@ -162,7 +167,59 @@ export function rosterRow(a: ApiTeamAthlete) {
     share: shareText(a.teamShareBps),
     shareSet: a.teamShareBps !== null,
     shareBps: a.teamShareBps,
+    shareChange: a.shareChange ?? null,
   };
+}
+
+/* ------------------------------------------------------ share requests */
+
+/* POL-FE-03 (POL-BE-03): lowering the team's share applies at once; a
+   raise, a first share, or clearing one back to BTG's standard share is a
+   request the athlete answers — the guardian, for a minor. Until they do,
+   the share stays where it was. PATCH /team/roster/:id and POST
+   /team/roster answer { …, teamShareBps, shareChange }. */
+
+/** The share a request asks for, in the team's words. */
+export function askedShareText(bps: number | null): string {
+  return bps === null ? "BTG's standard share" : shareText(bps);
+}
+
+function firstName(name: string): string {
+  return name.trim().split(/\s+/)[0] || name;
+}
+
+/** The roster row's note while a request waits: "Asked 25% on Oct 29 — waiting for Jordan's answer". */
+export function shareAskedLine(c: ApiTeamShareChange, name: string): string {
+  const on = dateLabel(c.askedAt);
+  return `Asked ${askedShareText(c.toBps)}${on ? ` on ${on}` : ""} — waiting for ${firstName(name)}'s answer`;
+}
+
+/** The short tag under the share figure while a request waits: "25% asked". */
+export function shareAskedTag(c: ApiTeamShareChange): string {
+  return `${askedShareText(c.toBps)} asked`;
+}
+
+/** What the team is told after it changes a share. `waiting` means the athlete still has to say yes. */
+export type ShareOutcome = { waiting: boolean; message: string };
+
+export function shareOutcome(r: { displayName: string; teamShareBps: number | null; shareChange: ApiTeamShareChange | null }): ShareOutcome {
+  const name = firstName(r.displayName);
+  if (r.shareChange) {
+    return {
+      waiting: true,
+      message: `Waiting for ${name}'s answer. Their share stays at ${shareText(r.shareChange.fromBps)} until they accept ${askedShareText(r.shareChange.toBps)}; they're emailed.`,
+    };
+  }
+  return { waiting: false, message: `Saved — ${shareText(r.teamShareBps)} applies at once, and ${name} is emailed.` };
+}
+
+/** What the team is told after "Add athlete": on the roster, and whether the typed share waits for their yes. */
+export function addOutcome(r: { displayName: string; teamShareBps: number | null; shareChange: ApiTeamShareChange | null }): string {
+  const name = r.displayName.trim();
+  if (r.shareChange) {
+    return `${name} is on the roster. The ${askedShareText(r.shareChange.toBps)} share waits for their yes — BTG's standard share applies until they accept.`;
+  }
+  return `${name} is on the roster.`;
 }
 
 export type RosterDraft = {

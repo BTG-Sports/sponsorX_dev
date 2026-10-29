@@ -3,14 +3,23 @@
 import { useState, useTransition, type InputHTMLAttributes } from "react";
 import { useRouter } from "next/navigation";
 
-import { addRosterAthleteAction, setTeamShareAction } from "@/app/(app)/property/roster/actions";
-import { EMPTY_ROSTER_DRAFT, shareInput, shareText, validateRosterDraft, type RosterDraft } from "@/lib/property-p2-live";
+import { addRosterAthleteAction, setTeamShareAction, withdrawShareChangeAction } from "@/app/(app)/property/roster/actions";
+import {
+  EMPTY_ROSTER_DRAFT, shareAskedLine, shareAskedTag, shareInput, shareText, validateRosterDraft, type ApiTeamShareChange, type RosterDraft, type ShareOutcome,
+} from "@/lib/property-p2-live";
 
 /* --------------------------------------------------------------------------
    2S2-FE-04 — the roster's two interactive pieces: the "Add athlete" form
    (POST /team/roster) and the inline team-share editor per row (PATCH
    /team/roster/:athleteId). The share is typed as a percentage and stored
    in basis points; an emptied field clears it ("Not set").
+
+   POL-FE-03 (POL-BE-03) — a raise, a first share, or clearing one is a
+   request the athlete answers (the guardian, for a minor): the editor says
+   "Waiting for Jordan's answer", never "Saved", and the row carries the
+   open request with Withdraw (PropertyShareAsked → POST
+   /team/roster/:id/share-change/withdraw). Lowering applies at once and
+   says so. "Add athlete" says when the typed share waits for their yes.
    -------------------------------------------------------------------------- */
 
 const field =
@@ -41,7 +50,7 @@ export function PropertyRosterAdd({ teamName }: { teamName: string }) {
     start(async () => {
       const r = await addRosterAthleteAction(draft);
       if (r.ok) {
-        setAdded(draft.displayName.trim());
+        setAdded(r.note ?? `${draft.displayName.trim()} is on the roster.`);
         setDraft(EMPTY_ROSTER_DRAFT);
         setErrors({});
         setOpen(false);
@@ -68,7 +77,7 @@ export function PropertyRosterAdd({ teamName }: { teamName: string }) {
         </button>
         {added && (
           <p className="text-[11px] text-accent" role="status">
-            {added} is on the roster.
+            {added}
           </p>
         )}
       </div>
@@ -123,6 +132,7 @@ export function PropertyRosterAdd({ teamName }: { teamName: string }) {
         </label>
         {input("teamShare", "Team share % (optional)", { inputMode: "decimal", placeholder: "e.g. 10" })}
       </div>
+      <p className="text-[11px] text-faint">A share typed here waits for the athlete&rsquo;s yes (the guardian&rsquo;s, for a minor); BTG&rsquo;s standard share applies until they accept.</p>
       {message && (
         <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] text-danger">
           {message}
@@ -153,28 +163,39 @@ export function PropertyRosterAdd({ teamName }: { teamName: string }) {
   );
 }
 
-export function PropertyShareEdit({ athleteId, name, bps }: { athleteId: string; name: string; bps: number | null }) {
+export function PropertyShareEdit({ athleteId, name, bps, asked = null }: { athleteId: string; name: string; bps: number | null; asked?: ApiTeamShareChange | null }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(shareInput(bps));
   const [error, setError] = useState<string | null>(null);
+  /* POL-FE-03 — what the last save came to: waiting for the athlete, or applied at once. */
+  const [outcome, setOutcome] = useState<ShareOutcome | null>(null);
   const [pending, start] = useTransition();
 
   if (!editing) {
     return (
-      <button
-        type="button"
-        onClick={() => {
-          setValue(shareInput(bps));
-          setError(null);
-          setEditing(true);
-        }}
-        className={`rounded-md px-1.5 py-0.5 text-right tabular-nums hover:bg-surface-2 ${bps === null ? "text-warn" : ""}`}
-        aria-label={`Edit the team's share for ${name}`}
-        title="Edit the team's share"
-      >
-        {shareText(bps)}
-      </button>
+      <span className="flex flex-col items-end gap-0.5">
+        <button
+          type="button"
+          onClick={() => {
+            setValue(shareInput(bps));
+            setError(null);
+            setOutcome(null);
+            setEditing(true);
+          }}
+          className={`rounded-md px-1.5 py-0.5 text-right tabular-nums hover:bg-surface-2 ${bps === null ? "text-warn" : ""}`}
+          aria-label={`Edit the team's share for ${name}`}
+          title="Edit the team's share"
+        >
+          {shareText(bps)}
+        </button>
+        {asked && <span className="text-[10px] text-warn">{shareAskedTag(asked)}</span>}
+        {outcome && (
+          <span role="status" title={outcome.message} className={`max-w-[9rem] text-right text-[10px] leading-snug ${outcome.waiting ? "text-warn" : "text-accent"}`}>
+            {outcome.waiting ? `Waiting for ${name.split(/\s+/)[0]}'s answer` : "Saved · applies at once"}
+          </span>
+        )}
+      </span>
     );
   }
 
@@ -182,6 +203,7 @@ export function PropertyShareEdit({ athleteId, name, bps }: { athleteId: string;
     start(async () => {
       const r = await setTeamShareAction(athleteId, value);
       if (r.ok) {
+        setOutcome(r.outcome);
         setEditing(false);
         router.refresh();
       } else setError(r.message);
@@ -213,7 +235,44 @@ export function PropertyShareEdit({ athleteId, name, bps }: { athleteId: string;
           Cancel
         </button>
       </span>
-      {error ? <span className="text-[11px] text-danger">{error}</span> : <span className="text-[10px] text-faint">Empty clears it</span>}
+      {error ? (
+        <span className="text-[11px] text-danger">{error}</span>
+      ) : (
+        <span className="max-w-[9rem] text-right text-[10px] leading-snug text-faint">Lower applies now · higher, or empty, needs their yes</span>
+      )}
     </form>
+  );
+}
+
+/**
+ * POL-FE-03 — the open share request on a roster row: what was asked and
+ * when, the outcome of the last save in full, and Withdraw.
+ */
+export function PropertyShareAsked({ athleteId, name, asked }: { athleteId: string; name: string; asked: ApiTeamShareChange }) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const withdraw = () =>
+    start(async () => {
+      setError(null);
+      const r = await withdrawShareChangeAction(athleteId);
+      if (!r.ok) return setError(r.message);
+      router.refresh();
+    });
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
+      <span className="text-warn">{shareAskedLine(asked, name)}</span>
+      <span className="text-faint">· their share stays at {shareText(asked.fromBps)} until they accept</span>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={withdraw}
+        aria-label={`Withdraw the share request to ${name}`}
+        className="text-[11px] text-muted underline-offset-2 hover:text-danger hover:underline disabled:opacity-40"
+      >
+        {pending ? "Withdrawing…" : "Withdraw"}
+      </button>
+      {error && <span role="alert" className="text-danger">{error}</span>}
+    </span>
   );
 }

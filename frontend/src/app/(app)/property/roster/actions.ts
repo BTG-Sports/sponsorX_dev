@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 
 import { apiFetch } from "@/server/api";
-import { apiErrorMessage, parseSharePercent, validateRosterDraft, type RosterDraft } from "@/lib/property-p2-live";
+import {
+  addOutcome, apiErrorMessage, parseSharePercent, shareOutcome, validateRosterDraft, type ApiTeamShareChange, type RosterDraft, type ShareOutcome,
+} from "@/lib/property-p2-live";
 import { parseInviteShare, teamRefusal, type ApiInvitableAthlete } from "@/lib/team-invite-live";
 
 /* --------------------------------------------------------------------------
@@ -13,12 +15,23 @@ import { parseInviteShare, teamRefusal, type ApiInvitableAthlete } from "@/lib/t
                                      when the email already has an account
      PATCH /team/roster/:athleteId   the team's share, { teamShareBps | null }
 
+   POL-FE-03 (POL-BE-03): both answer { id, displayName, teamShareBps,
+   shareChange }. A `shareChange` means the share waits for the athlete's
+   yes (the guardian's, for a minor) — the team is told "waiting", never
+   "saved". Lowering applies at once.
+     POST  /team/roster/:athleteId/share-change/withdraw   take a request back
+
    The API decides (teamMember: PROPERTY_MGR, own property only); these add
    no authority. They re-validate what the form built and turn a refusal
    into the API's own sentence.
    -------------------------------------------------------------------------- */
 
-export type RosterResult = { ok: true } | { ok: false; message: string; errors?: Partial<Record<keyof RosterDraft, string>> };
+export type RosterResult = { ok: true; note?: string } | { ok: false; message: string; errors?: Partial<Record<keyof RosterDraft, string>> };
+
+/** PATCH /team/roster/:id — saved at once, or waiting for the athlete. */
+export type ShareResult = { ok: true; outcome: ShareOutcome } | { ok: false; message: string };
+
+type ShareReply = { id: string; displayName: string; teamShareBps: number | null; shareChange: ApiTeamShareChange | null };
 
 const unreachable = "The API is unreachable — nothing was saved. Try again in a minute.";
 
@@ -45,7 +58,14 @@ export async function addRosterAthleteAction(draft: RosterDraft): Promise<Roster
   if (!res.ok) return { ok: false, message: await refusal(res, "The athlete was not added") };
   revalidatePath("/property/roster");
   revalidatePath("/property");
-  return { ok: true };
+  /* The reply carries whether the typed share waits for the athlete's yes; without one, say only that they're on the roster. */
+  let reply: ShareReply | null = null;
+  try {
+    reply = (await res.json()) as ShareReply;
+  } catch {
+    /* no body */
+  }
+  return { ok: true, note: reply && typeof reply.displayName === "string" ? addOutcome({ ...reply, shareChange: reply.shareChange ?? null }) : undefined };
 }
 
 /* --------------------------------------------------------------------------
@@ -110,7 +130,7 @@ async function inviteWrite(path: string, body: unknown, fallback: string): Promi
   return res.ok ? { ok: true } : { ok: false, message: await inviteRefusal(res, fallback) };
 }
 
-export async function setTeamShareAction(athleteId: string, percent: string): Promise<RosterResult> {
+export async function setTeamShareAction(athleteId: string, percent: string): Promise<ShareResult> {
   if (typeof athleteId !== "string" || !athleteId) return { ok: false, message: "Unknown athlete." };
   const share = parseSharePercent(percent);
   if (!share.ok) return { ok: false, message: share.message };
@@ -126,5 +146,18 @@ export async function setTeamShareAction(athleteId: string, percent: string): Pr
   if (!res.ok) return { ok: false, message: await refusal(res, "The share was not saved") };
   revalidatePath("/property/roster");
   revalidatePath("/property");
-  return { ok: true };
+  /* POL-FE-03 — "waiting for their answer" or "applies at once", from the reply, never assumed. */
+  let reply: ShareReply;
+  try {
+    reply = (await res.json()) as ShareReply;
+  } catch {
+    return { ok: false, message: "The API answered, but not in a shape this page understands. Reload to see where the share stands." };
+  }
+  return { ok: true, outcome: shareOutcome({ displayName: reply.displayName ?? "the athlete", teamShareBps: reply.teamShareBps ?? share.bps, shareChange: reply.shareChange ?? null }) };
+}
+
+/** POL-FE-03 — the team takes back a share request the athlete hasn't answered. */
+export async function withdrawShareChangeAction(athleteId: string): Promise<RosterResult> {
+  if (typeof athleteId !== "string" || !athleteId) return { ok: false, message: "Unknown athlete." };
+  return inviteWrite(`/team/roster/${encodeURIComponent(athleteId)}/share-change/withdraw`, undefined, "The request wasn't withdrawn");
 }

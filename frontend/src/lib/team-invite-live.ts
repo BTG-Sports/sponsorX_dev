@@ -17,9 +17,19 @@
    share, and either side can leave or remove. The athlete's own listings
    stop selling while they are on the team (the team lists their items) and
    sell again after leaving. Orders already placed carry on and pay as before.
+
+   POL-FE-03 (POL-BE-03): a team raising its share — or clearing it back to
+   BTG's standard share — is a request the athlete answers; lowering applies
+   at once. `membership.shareChange` on GET /me/team is the open request,
+   answered with POST /me/team/share-changes/:id/respond. A minor's own
+   login sees it but can't accept: the guardian does, from their own login
+   acting for the ward (the API refuses the minor with guardian_must_act).
    -------------------------------------------------------------------------- */
 
 export type ApiTeamPlace = { name: string; city: string };
+
+/** POL-BE-03 — the team's open request to change its share. `toBps: null` asks for BTG's standard share. */
+export type ApiShareChange = { id: string; fromBps: number | null; toBps: number | null; askedAt: string };
 
 export type ApiTeamInvitation = {
   id: string;
@@ -35,6 +45,8 @@ export type ApiTeamMembership = {
   team: ApiTeamPlace;
   teamShareBps: number | null;
   joinedAt: string;
+  /** POL-BE-03 — a share change waiting for the athlete's (or guardian's) answer. Absent on older replies. */
+  shareChange?: ApiShareChange | null;
 };
 
 export type ApiMyTeam = { membership: ApiTeamMembership | null; invitations: ApiTeamInvitation[] };
@@ -123,10 +135,87 @@ export function parseInviteShare(raw: string): { ok: true; bps: number } | { ok:
 
 /** Words for a refused team write, from the API's error body. */
 export function teamRefusal(status: number, body: unknown, fallback: string): string {
-  if (status === 403) return "That isn't yours to change.";
-  const e = (body as { error?: { message?: unknown; issues?: { message?: unknown }[] } } | null)?.error;
+  const e = (body as { error?: { code?: unknown; message?: unknown; issues?: { message?: unknown }[] } } | null)?.error;
+  /* A coded 403 says why (guardian_must_act — the guardian answers for a minor); only a bare one means "not yours". */
+  if (status === 403 && !(typeof e?.code === "string" && e.code !== "forbidden" && typeof e?.message === "string")) return "That isn't yours to change.";
   const issue = e?.issues?.[0]?.message;
   if (typeof issue === "string") return issue;
   if (typeof e?.message === "string") return e.message;
   return `${fallback} (HTTP ${status}).`;
+}
+
+/* ---------------------------------------------------------- share change */
+
+/** A share in words: null is BTG's standard team share, which applies while none is set. */
+export function shareWords(bps: number | null): string {
+  return bps === null ? "BTG's standard share" : sharePct(bps);
+}
+
+/** Who is looking at the athlete's team page, as far as the share change is concerned. */
+export type ShareViewer = {
+  /** The minor's own login (GET /me `guardianControl`), not the guardian acting for them. */
+  minor: boolean;
+  /** The ward's first name when a guardian is acting for them (`actingFor`), else null. */
+  ward?: string | null;
+  /** The 90-day coming-of-age pause, during which nobody accepts (2S1-BE-12). */
+  paused?: boolean;
+};
+
+export type ShareChangeView = {
+  id: string;
+  from: string;
+  to: string;
+  /** What the athlete keeps at the asked share; null when BTG's standard share is asked. */
+  keep: string | null;
+  /** 0..1 — the lane under the asked share; null when BTG's standard share is asked. */
+  keepShare: number | null;
+  headline: string;
+  effect: string;
+  askedOn: string;
+  /** Accept and Decline are shown. */
+  canAnswer: boolean;
+  /** Why they aren't, when they aren't (the minor's own login, or the pause). */
+  cannotLine: string | null;
+  /** The accept dialog's title and its one sentence. */
+  acceptTitle: string;
+  acceptLine: string;
+  /** The accept button, named for who is accepting. */
+  acceptLabel: string;
+};
+
+/**
+ * The team's request, in the athlete's words. A minor's own login sees it
+ * but the guardian answers; a guardian acting for the ward answers for them.
+ */
+export function shareChangeView(c: ApiShareChange, team: string, viewer: ShareViewer): ShareChangeView {
+  const from = shareWords(c.fromBps);
+  const to = shareWords(c.toBps);
+  const whose = viewer.ward ? `${viewer.ward}'s` : "your";
+  const you = viewer.ward ? viewer.ward : "you";
+  const toStandard = c.toBps === null;
+  const effect = toStandard
+    ? `The team would go back to BTG's standard share of what ${you} earn${viewer.ward ? "s" : ""} from here on. Nothing changes until ${you} accept${viewer.ward ? "s" : ""}; orders already placed keep their split.`
+    : `From here on the ${team} would take ${to} of what's left after BTG's fees and card processing. Nothing changes until ${viewer.ward ? "you accept for them" : "you accept"}; orders already placed keep their split.`;
+  const cannotLine = viewer.minor
+    ? "Your guardian accepts this, from their own login. You can see it here; nothing changes until they answer."
+    : viewer.paused
+      ? "Nobody can accept this during the coming-of-age pause. It waits until the pause ends."
+      : null;
+  return {
+    id: c.id,
+    from,
+    to,
+    keep: toStandard ? null : keepPct(c.toBps!),
+    keepShare: toStandard ? null : 1 - c.toBps! / 10_000,
+    headline: `The ${team} ask to change their share of ${whose} earnings from ${from} to ${to}.`,
+    effect,
+    askedOn: joinedOn(c.askedAt),
+    canAnswer: !cannotLine,
+    cannotLine,
+    acceptTitle: `Accept ${to} for the ${team}?`,
+    acceptLine: toStandard
+      ? `The ${team} go back to BTG's standard share of ${whose} earnings from here on. Orders already placed keep their split.`
+      : `The ${team} take ${to} of what's left after BTG's fees on ${whose} sales from here on. Orders already placed keep their split.`,
+    acceptLabel: viewer.ward ? `Accept for ${viewer.ward}` : "Accept",
+  };
 }
