@@ -707,6 +707,90 @@ describe.skipIf(!hasDatabase)("2S4-BE-12 / 2S4-BE-13 · cancelling a paid line, 
       } })).rejects.toThrow();
     });
 
+    /* POL-BE-06 — a sponsor who pays twice is refunded: the extra payment is a row of its own, on the order and on Finance's list. */
+    const secondAttempt = async (orderId: string, ref: string) => {
+      const paid = await prisma.paymentAttempt.findFirst({ where: { orderId }, select: { sponsorId: true } });
+      const o = await prisma.marketplaceOrder.findUniqueOrThrow({ where: { id: orderId }, select: { totalCents: true, sponsorId: true } });
+      return prisma.paymentAttempt.create({
+        data: { tenantId: T, orderId, sponsorId: paid?.sponsorId ?? o.sponsorId, amountCents: o.totalCents, provider: "standin", providerRef: ref, state: "PROCESSING" },
+        select: { id: true, amountCents: true },
+      });
+    };
+
+    it("POL-BE-06 · paid twice by card: the extra payment is refunded on its own, shows on the order, and never shortens the order's own refund", async () => {
+      const { orderId, line } = await joLine(78, "CARD", "lc_cedar_buyer");
+      const extra = await secondAttempt(orderId, "standin_pay_lc_twice_a");
+      expect(await confirmPayment(extra.id)).toMatchObject({ confirmed: true, refundNeeded: true });
+      expect((await orderOf(orderId)).state).not.toBe("REFUNDED");
+      const [twice] = await refundsOf(orderId);
+      expect(await refundsOf(orderId)).toEqual([expect.objectContaining({
+        lineId: null, cause: "PAID_TWICE", amountCents: extra.amountCents, paidVia: "CARD", state: "SENT", method: "CARD", provider: "standin",
+      })]);
+      expect(await mailsFor("refund.sent", twice!.id)).toEqual(["lc_cedar_buyer@lc-test.invalid"]);
+      /* Refunded by the provider: nothing for BTG to do, so no "refund needed" email. */
+      expect(await mailsFor("payment.refundNeeded", extra.id)).toEqual([]);
+      /* On the sponsor's order, and on Finance's list in words. */
+      expect((await call("GET", `/marketplace-orders/${orderId}`, "lc_cedar_buyer")).json.refunds)
+        .toEqual([expect.objectContaining({ id: twice!.id, lineId: null, cause: "PAID_TWICE", state: "SENT" })]);
+      expect((await call("GET", "/refunds?state=SENT", "lc_finance")).json.refunds.find((r: { id: string }) => r.id === twice!.id))
+        .toMatchObject({ wholeOrder: true, causeWords: "Paid twice — the order was already paid" });
+      /* A redelivery of the confirmation: no second row. */
+      expect(await confirmPayment(extra.id)).toMatchObject({ confirmed: false });
+      expect(await refundsOf(orderId)).toHaveLength(1);
+
+      /* The sponsor then cancels the only line: the order's own refund is still its whole total. */
+      const c = await call("POST", `/deliveries/${line}/cancel`, "lc_cedar_buyer", {});
+      expect(c.status, c.text).toBe(200);
+      const total = (await orderOf(orderId)).totalCents;
+      expect(c.json).toMatchObject({ outcome: "REFUNDED", refundCents: total, refund: { amountCents: total } });
+      expect(await orderOf(orderId)).toMatchObject({ state: "REFUNDED" });
+
+      /* Another card payment, confirmed after the order was refunded: its own row too. */
+      const late = await secondAttempt(orderId, "standin_pay_lc_twice_late");
+      expect(await confirmPayment(late.id)).toMatchObject({ confirmed: true, refundNeeded: true });
+      expect((await refundsOf(orderId)).map((r) => [r.cause, r.amountCents, r.state])).toEqual([
+        ["PAID_TWICE", extra.amountCents, "SENT"], ["SPONSOR_CANCELLED", total, "SENT"], ["PAID_AFTER_REFUND", late.amountCents, "SENT"],
+      ]);
+      expect((await call("GET", "/refunds?state=SENT", "lc_finance")).json.refunds.find((r: { cause: string; orderId: string }) => r.cause === "PAID_AFTER_REFUND"))
+        .toMatchObject({ causeWords: "Paid after the order was refunded" });
+      /* The database refuses a second row for one attempt. */
+      await expect(prisma.refundDue.create({ data: {
+        tenantId: T, orderId, sponsorId: "lc_cedar", amountCents: 1, cause: "PAID_TWICE", attemptId: extra.id,
+      } })).rejects.toThrow();
+    });
+
+    it("POL-BE-06 · paid twice with no payment provider: left on Finance's list, BTG emailed with the link, and BTG's own refund still the order's whole total", async () => {
+      const { env } = await import("../src/config/env");
+      const { orderId } = await joLine(80, "BANK", "lc_cedar_buyer");
+      const extra = await secondAttempt(orderId, "standin_pay_lc_twice_b");
+      const was = env.PAYMENT_PROVIDER;
+      (env as { PAYMENT_PROVIDER?: string }).PAYMENT_PROVIDER = "none";
+      try {
+        expect(await confirmPayment(extra.id)).toMatchObject({ confirmed: true, refundNeeded: true });
+      } finally {
+        (env as { PAYMENT_PROVIDER?: string }).PAYMENT_PROVIDER = was;
+      }
+      const [twice] = await refundsOf(orderId);
+      expect(twice).toMatchObject({ lineId: null, cause: "PAID_TWICE", amountCents: extra.amountCents, paidVia: "CARD", state: "OPEN", provider: null });
+      expect(await mailsFor("payment.refundNeeded", extra.id)).toEqual(["lc_admin@lc-test.invalid"]);
+      const mail = (await emails()).find((e) => e.template === "payment.refundNeeded" && e.idempotencyKey.includes(extra.id))!;
+      expect(mail.data).toMatchObject({ refundsUrl: expect.stringMatching(/\/admin\/refunds$/), why: expect.stringMatching(/paid twice/) });
+      expect(EMAIL_TEMPLATES["payment.refundNeeded"]!(mail.data).text).toContain("Refunds to send");
+      expect((await call("GET", "/refunds?state=OPEN", "lc_finance")).json.refunds.find((r: { id: string }) => r.id === twice!.id))
+        .toMatchObject({ causeWords: "Paid twice — the order was already paid" });
+
+      /* BTG refunds the order: the whole total, beside the extra payment's row. */
+      const r = await call("POST", `/marketplace-orders/${orderId}/transition`, "lc_admin", { to: "REFUNDED" });
+      expect(r.status, r.text).toBe(200);
+      const total = (await orderOf(orderId)).totalCents;
+      expect((await refundsOf(orderId)).map((x) => [x.cause, x.amountCents])).toEqual([["PAID_TWICE", extra.amountCents], ["BTG_REFUNDED_ORDER", total]]);
+
+      /* Finance sends the extra payment back by hand and marks it sent. */
+      const sent = await call("POST", `/refunds/${twice!.id}/sent`, "lc_finance", { method: "CARD", reference: "RF-TWICE-1", sentOn: today() });
+      expect(sent.status, sent.text).toBe(200);
+      expect(sent.json).toMatchObject({ id: twice!.id, state: "SENT" });
+    });
+
     it("Finance's list: BTG admin and Finance only, tenant-wide, with what each needs — and a Zoho invoice's credit note", async () => {
       for (const who of ["lc_buyer", "lc_analyst", "lc_jo", "lc_mgr"]) expect((await call("GET", "/refunds", who)).status, who).toBe(403);
       const open = await call("GET", "/refunds?state=OPEN", "lc_finance");

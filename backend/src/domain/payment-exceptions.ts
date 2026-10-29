@@ -55,6 +55,7 @@ import { lockOrder, moveOrderIn } from "./marketplace-order";
 import { refuseCardNumber } from "./marketplace-order-rules";
 import { appUrl, btgAdmins, orderRef, tell, usd } from "./order-mail";
 import { resumePayoutsCovering, sendBackPayoutsCovering } from "./payouts";
+import { ownRefunds } from "./refunds";
 import { applied, deferred, findAttempt, held, ignored, type EventRow, type Handler } from "./payment-events";
 
 type Tx = Prisma.TransactionClient;
@@ -186,7 +187,8 @@ export const onRefunded: Handler = async (tx, ev, data, now) => {
   if (order.paidVia !== "CARD" || order.paymentReference !== a.providerRef) reasons.push("this card payment is not the one that paid the order");
   if (!REFUNDABLE.has(order.state)) reasons.push(`the order is ${order.state.toLowerCase().replace("_", " ")}`);
   if (await tx.paymentDispute.findFirst({ /* tenant-scope: this order's own disputes. */ where: { orderId: order.id }, select: { id: true } })) reasons.push("the payment has been disputed");
-  if (await tx.refundDue.findFirst({ /* tenant-scope: this order's own refunds. */ where: { orderId: order.id }, select: { id: true } })) reasons.push("part of the order was already refunded in SponsorX");
+  /* POL-BE-06 — a refund of the order's own total; an extra card payment's refund (paid twice) is not part of the order. */
+  if (await tx.refundDue.findFirst({ /* tenant-scope: this order's own refunds. */ where: ownRefunds(order.id), select: { id: true } })) reasons.push("part of the order was already refunded in SponsorX");
   const sending = await tx.payoutLine.findFirst({
     /* tenant-scope: payout lines naming this order (loaded above). */
     where: { orderId: order.id, payout: { state: "SENDING" } }, select: { id: true },
