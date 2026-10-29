@@ -89,6 +89,19 @@ describe("the deal dispute desk", () => {
   });
 });
 
+/* P8-FE-12 — held cancel / change requests (P8-BE-12): BTG admins and
+   campaign managers approve or decline; nobody else sees the desk. */
+describe("the campaign requests desk", () => {
+  it("is BTG admin's and campaign managers'", () => {
+    for (const role of ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"]) {
+      expect(mayUse("/admin/campaign-requests", [role]), role).toBe(true);
+    }
+    for (const role of ["FINANCE", "SALES", "NETWORK_MGR"]) {
+      expect(mayUse("/admin/campaign-requests", [role]), role).toBe(false);
+    }
+  });
+});
+
 /* Review follow-up — "/admin/next" governs no page of its own (every real
    desk below it — editions, inventory, prospects, rights, splits — has its
    own, narrower entry); it is only the fallback for a future desk with none
