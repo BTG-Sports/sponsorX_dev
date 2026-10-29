@@ -72,6 +72,15 @@ Every frontend task whose backend is done, or that needs no backend, in five com
 - **Worth knowing:** the seller's photo is only checked when Mark delivered is submitted, not on pick — "dark-id.jpg attached" shows until then. Acceptable (the refusal is clear and the photo is dropped), noted here in case BTG wants the check on pick.
 - **Left as found:** the delivery line back to IN_DELIVERY with no proof, the handoff and its documents, the guardian's seeded document and the applicant deleted, the QA athlete link restored, servers stopped.
 
+### QA pass 5 — regression with the team's own e2e suite; the last upload path (HeckerCreatives, same day)
+
+- **The repo's Playwright suite on the branch** (`npx playwright test --project=chromium --workers=1 --timeout=90000 --grep-invert loop-`, web on `next dev` against the real API): **45 passed, 3 skipped, 2 failed — both environmental, neither from the batch.**
+  - `marketplace-path.spec.ts`: Clerk refuses to create `e2e.mkt.team` (the 100-user cap).
+  - `qa-phase2.spec.ts` 2S5-FE-12: "Add to cart" never shows "Added." because the seeded clinic is bookable Oct 17 – Nov 16, 2026 and `buy(sponsor, 1, 12)` fills an end date of today + 19 days — Nov 17 as of today — so the browser's own date `max` blocks the form ("Value must be 11/16/2026 or earlier"). Reproduced the step by hand with dates inside the window: "Added. View cart →" appears, no errors. The spec's dates have drifted past its seed; re-seeding the clinic's window (or deriving the dates from it) fixes the spec.
+- **Public sponsor-request proof (the last upload path):** the status page shows "Checking your document…", refuses the dark photo with Try again, accepts the crisp one; the real OCR flags it ("The business name Zoë & Co wasn't found on it"), the request stays held for BTG with that reason, and BTG's page shows Flagged with the finding and Send back.
+- **No code changes this pass.** Every upload surface the Phase 1 doc lists for `P8-BE-09` has now been exercised except the coming-of-age ID (needs a minor turning 18) and dispute papers (needs a dispute opened on an order); both use the same `PrivateFileUpload` / `IdUpload` components walked above.
+- **Left as found:** the inquiry's uploaded proof deleted and its review reasons cleared, the repro cart line removed, servers stopped.
+
 ### Still open for the frontend
 
 - Waiting on a backend row: `POL-FE-02, 03, 05, 06, 07, 08, 10, 11, 12, 15, 17, 18, 19, 22, 36`.
