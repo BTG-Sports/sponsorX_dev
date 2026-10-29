@@ -27,6 +27,22 @@ Every frontend task whose backend is done, or that needs no backend, in five com
 - **`POL-FE-23`:** the API returns no review deadline; the screen computes `waitingSince` + 48 h, never past `dueDate`. A `reviewBy` field would replace one function. The BTG reminder email could deep-link to `/admin/approvals?open=<id>`.
 - **`POL-FE-24`:** there is no `GET /orders` list; the page is built from `GET /invitations?state=accepted`.
 
+### QA walk of the batch on the local stack (HeckerCreatives, same day)
+
+- **How:** Docker infra, `prisma migrate deploy` + `generate`, the combined API on :4000 and `next dev` on :3000, a throwaway Playwright spec signing in with the existing `e2e.qa7-*` Clerk identities (admin, sponsor, athlete, minor, property). 94 checks over 30 screen loads at 1280, 768 and 375, with page errors and horizontal overflow recorded on every load. Screenshots were read by eye for the new screens.
+- **Needed first:** `npm ci` (the pulled backend imports `tesseract.js`, which the local node_modules lacked) and a fresh Prisma client.
+- **To see the held order (`POL-FE-04`)** the API must run with `PAYMENT_PROVIDER=none`; the local default is the test provider, which counts as open.
+- **Bugs found and fixed** (commit `fix(POL-FE-23,04,26,P8-FE-12)`):
+  - `/admin/approvals?open=<id>` crashed server rendering: the drawer's `createPortal(…, document.body)` ran on the server. It now waits for `useMounted()`.
+  - The sponsor-request review page was 17,000px wide on a request whose answer is one unbroken word (fuzz data). The `<dd>` cells wrap now. Pre-existing, found by the overflow check.
+  - The campaign page's "Not available yet" note pushed "Sponsor report" under it; the note now sits after the button row.
+  - A held order's chip read "Ready to pay" beside "held for you"; it reads "Approved".
+  - A minor's payout panel said "then you come straight back here"; it now says the guardian does it.
+- **Passed in the browser:** campaign requests desk and nav; Change / Cancel on both campaign pages with the inline "Not available yet"; flagged document findings, Send back dialog, short-reason refusal and Escape on new sign-ups; onboarding, sponsor request and sensitive-edits pages; review-by on the content desk, the deep link and the board; sponsor dashboard, invoices page and Billing link, "Needs your OK" only with a post to approve and "Ready to start", request steps; held / paid / cancelled order pages; checkout; athlete Campaign orders list with Decline confirmation, nav labels, money and earnings wording, settings without sample screens; the minor's "your guardian sets this up"; property documents and roster; the unsubscribe failure page's support mailto; no horizontal overflow at any width.
+- **Not exercised locally (left at Code review with a note in the tracker):** `POL-FE-01` waiting-payouts panel, `POL-FE-16` and `-34` (/join states), `POL-FE-27` (no open invitation), `POL-FE-28` (no delivered line), `POL-FE-31` (no failed payment), `POL-FE-32` first sign-in, `POL-FE-35` empty-state mailto, `P8-FE-11`'s upload refusal path (needs a real upload through MinIO), `P8-FE-12`'s impact modal (waits for `P8-BE-12`). No guardian handoff exists locally.
+- **Tracker:** ten rows to **Done** (`POL-FE-04, 13, 20, 21, 23, 24, 25, 26, 30, 33`); the rest stay at Code review with what remains to walk.
+- **Left as found:** the seeded order back to CANCELLED, the flagged test document deleted, the QA logins' athlete and property links restored, my API and web servers stopped. Docker Desktop was started for the walk and is still running.
+
 ### Still open for the frontend
 
 - Waiting on a backend row: `POL-FE-02, 03, 05, 06, 07, 08, 10, 11, 12, 15, 17, 18, 19, 22, 36`.
