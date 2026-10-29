@@ -342,6 +342,44 @@ undone.
   per reward or event. A redeem can be undone within a few minutes.
 - **Done when:** no redeem without the venue code; an accidental redeem can be
   undone; tests.
+- **Decided (2026-10-29):** the code requirement goes live behind a switch,
+  `REWARD_STAFF_CODE_REQUIRED`, off until the fan page asks for the code. So
+  no event is left unable to redeem in between. Every switch is listed in
+  [SponsorX-Switches.md](SponsorX-Switches.md).
+- **Backend delivered (`POL-BE-07`, 2026-10-29):**
+  - Each reward has a **six-digit staff code**, made when it is created
+    (existing rewards were given one). Only the reward's managers see it:
+    BTG, and the sponsor's admins.
+  - **Redeem** checks the code: required once the switch is on, and checked
+    whenever one is sent, even while it is off.
+  - **Five wrong codes** lock that fan's code for 15 minutes, on top of the
+    limit of 20 tries a minute per device.
+  - **Undo:** the booth can undo the code's latest redeem within 5 minutes,
+    with the staff code. The redeem is removed, so every count is right, and
+    on a reward with a limit the unit goes back to the pool. Each undo is
+    audited and counted on the code.
+  - Tests: `backend/tests/reward.staff-code.test.ts`, and
+    `rewards.read.test.ts` for who sees the code.
+- **For `POL-FE-07` (screens):**
+  - **Fan page** (`GET /public/rewards/:token` now carries
+    `staffCodeRequired` and `undoUntil`):
+    - "Staff: redeem now" asks for the staff code and confirms, then sends
+      `POST /public/rewards/:token/redeem` with `{ staffCode }`. Send it even
+      while `staffCodeRequired` is false.
+    - Refusals by `error.code`:
+      - `staff_code_required`;
+      - `wrong_staff_code` (the message says how many tries are left);
+      - `staff_code_locked` (429).
+    - While `undoUntil` is in the future, show **Undo**, which asks for the
+      code and sends `POST /public/rewards/:token/redeem/undo` with
+      `{ staffCode }`. Refused: `nothing_to_undo`, `undo_window_closed`.
+  - **Reward page** (BTG and the sponsor's admins): `GET /rewards/:id`
+    carries `staffCode`. Show it, with **New code**
+    (`POST /rewards/:id/staff-code`), which replaces it at once.
+  - Each token carries `undoneRedeems` and `lastUndoneRedeemAt`, beside
+    `refusedRedeems`.
+  - **When the fan page ships:** tell rcfworks, who turns
+    `REWARD_STAFF_CODE_REQUIRED` on, staging first.
 
 ### 8. Only the first fan can claim a shared QR code
 `POL-BE-08` · `POL-FE-08` · *Silent · Dead end* · likely

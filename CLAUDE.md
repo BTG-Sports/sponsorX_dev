@@ -288,6 +288,9 @@ Cut from the self-service ecommerce end, never from that loop.
 
 - `.claude/stack-decision.md` — current stack decision plus Addendum A
   (blueprint reconciliation); supersedes the PDF's hosting section
+- `documentation/SponsorX-Switches.md` — every on/off setting (payments,
+  the reward staff code, go-live items), what it does and when to turn it on.
+  Add or update a switch there in the same PR that adds or flips it.
 - `documentation/SponsorX-Stack-Summary.pdf` — original Phase 1 summary;
   hosting section is now out of date
 - **Master Development Blueprint v2.0** — **not in this repo**; all `§`
