@@ -7,11 +7,13 @@ each problem we ran into was solved. Newest first within each day.
 |---|---|---|---|
 | 4 · Orders cancelled for "not paying" while payment is off | `POL-BE-04` | #317 | Merged |
 | 1 · Payouts kept going to the old guardian | `POL-BE-01` | #319 | Merged |
-| 2 · A minor could make themselves an adult | `POL-BE-02` | #321 | In review |
+| 2 · A minor could make themselves an adult | `POL-BE-02` | #321 | Merged |
 | 3 · A team could raise its share to 100% without asking | `POL-BE-03` | #322 | Merged |
+| 5 · Sponsors agreed to the terms before seeing the total | `POL-BE-05` | #324 | Merged |
+| 6 · A sponsor who paid twice got no refund | `POL-BE-06` | #325 | Merged |
 | 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
 
-The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`) are for
+The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`) are for
 HeckerCreatives. Each item in `polish.md` says exactly what the screens can
 rely on.
 
@@ -159,6 +161,39 @@ rely on.
     turned out to depend on the 20% split too, and was fixed the same way.
   - The temporary folders were cleared overnight, so the portable test
     database was downloaded and set up again.
+
+### `POL-BE-05` — the sponsor sees the total, fees included, before placing
+- **Problem:** checkout showed "Fees: added when the order is placed". The
+  real total appeared only after the sponsor had committed.
+- **Approach:**
+  - The cart, the held checkout and placing the order all work out the
+    total the same way, so the quote is exactly what is charged.
+  - Each now carries a quote: subtotal, fees and total.
+  - The screen can send the total it showed. If it has changed, the order
+    is not placed and the sponsor is told the new total.
+- **Snag:** a test read the cart in the wrong shape, and carts left by
+  earlier tests got in the way. Both fixed in the test.
+
+### `POL-BE-06` — a sponsor who pays twice is refunded
+- **Problem:** a card payment for an order already paid, or already
+  refunded, only emailed BTG. Nothing showed on the order or on "Refunds to
+  send".
+- **Approach:**
+  - Each such payment is a refund row of its own ("paid twice", "paid after
+    the order was refunded"), the same way a payment after a cancellation
+    already worked.
+  - Stripe refunds it automatically. With payments off it waits for
+    Finance, and BTG is emailed with a link to the list.
+- **Trap found while planning:** the code that works out what is still owed
+  on an order added up every refund on it. An extra payment's refund would
+  have made a later refund of the order come out short. Those sums now count
+  only refunds of the order's own money. One more such place was found while
+  building: a refund made in Stripe would have been held for BTG.
+- **Dropped from the plan:** changing the "refunds sent" report figure. It
+  records money actually sent back, so these refunds belong in it.
+- **Snags:** a step that put back a test change also undid real edits, and
+  they were restored. Another PR's log entry clashed with this one; both
+  were kept.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.
