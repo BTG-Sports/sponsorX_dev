@@ -502,7 +502,7 @@ async function main(): Promise<void> {
       pool, job.data, process.env.APP_URL ?? "http://localhost:3000");
     log(
       outcome.sent
-        ? `[worker] notify.invitationSent queued mail to ${maskEmail(outcome.to)}`
+        ? `[worker] notify.invitationSent queued mail to ${outcome.to.map(maskEmail).join(", ")}`
         : `[worker] notify.invitationSent skipped: ${outcome.reason}`,
     );
   });

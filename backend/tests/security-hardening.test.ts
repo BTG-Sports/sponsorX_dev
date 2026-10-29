@@ -99,7 +99,8 @@ describe("4 · the worker logs no one's email address", async () => {
     expect(raw).toEqual([]);
     /* The two that used to: notify.email and notify.invitationSent. */
     expect(index).toMatch(/: maskEmail\(job\.data\.to\);/);
-    expect(index).toMatch(/queued mail to \$\{maskEmail\(outcome\.to\)\}/);
+    /* POL-BE-09 — an invitation can go to the guardian and the minor: every recipient masked. */
+    expect(index).toMatch(/queued mail to \$\{outcome\.to\.map\(maskEmail\)\.join\(", "\)\}/);
   });
 });
 

@@ -107,21 +107,54 @@ describe("P4-INT-01 · the invitation notification", () => {
     state: "INVITED", expiresAt: new Date(Date.now() + 86400000),
     email: "jordan@example.com", legalName: "Jordan Reed", displayName: "J.REED",
     sponsorName: "Bowie Auto", jobName: "Sponsored Post", offered: 12500,
+    birthDate: new Date("1999-04-01"), ageBand: null, majorityAge: 18, guardianId: null,
+    comingOfAgeStartedAt: null, comingOfAgeCompletedAt: null, comingOfAgeTerminatedAt: null,
+    guardianEmail: null, guardianLegalName: null,
   };
 
   it("builds a message for an open invitation", () => {
     const out = buildInvitationEmail(row, "https://sponsorx.example");
     expect("skip" in out).toBe(false);
     if ("skip" in out) return;
-    expect(out.to).toBe("jordan@example.com");
-    expect(out.data).toMatchObject({ firstName: "Jordan", sponsorName: "Bowie Auto" });
+    expect(out.emails.map((e) => e.to)).toEqual(["jordan@example.com"]);
+    expect(out.emails[0]!.data).toMatchObject({ firstName: "Jordan", sponsorName: "Bowie Auto" });
+    expect(out.emails[0]!.data).not.toHaveProperty("guardianDecides");
   });
 
   it("prints money as money, never as cents", () => {
     const out = buildInvitationEmail(row, "https://x");
     if ("skip" in out) throw new Error("expected a message");
-    expect(out.data.offered).toBe("$125.00");
-    expect(out.data.offered).not.toContain("12500");
+    expect(out.emails[0]!.data.offered).toBe("$125.00");
+    expect(out.emails[0]!.data.offered).not.toContain("12500");
+  });
+
+  it("POL-BE-09 · a minor's goes to the guardian, who decides, with a copy to the minor", () => {
+    const minor = {
+      ...row, email: "mia@example.com", legalName: "Mia Lopez", displayName: "MIA",
+      birthDate: new Date(Date.now() - 13 * 365.25 * 86400000), guardianId: "g1",
+      guardianEmail: "carmen@example.com", guardianLegalName: "Carmen Lopez",
+    };
+    const out = buildInvitationEmail(minor, "https://x");
+    if ("skip" in out) throw new Error("expected a message");
+    expect(out.emails.map((e) => [e.to, e.key])).toEqual([["carmen@example.com", ":guardian"], ["mia@example.com", ""]]);
+    expect(out.emails[0]!.data).toMatchObject({ firstName: "Carmen", wardName: "Mia", sponsorName: "Bowie Auto" });
+    expect(out.emails[1]!.data).toMatchObject({ firstName: "Mia", guardianDecides: "yes" });
+    const toGuardian = EMAIL_TEMPLATES["invitation.sent"]!(out.emails[0]!.data);
+    expect(toGuardian.subject).toBe("Bowie Auto wants to work with Mia");
+    expect(toGuardian.text).toContain("As Mia's guardian, you accept or decline it.");
+    expect(EMAIL_TEMPLATES["invitation.sent"]!(out.emails[1]!.data).text).toContain("Your guardian accepts or declines it for you");
+    /* No address for the minor: the guardian alone. */
+    const noEmail = buildInvitationEmail({ ...minor, email: null }, "https://x");
+    if ("skip" in noEmail) throw new Error("expected a message");
+    expect(noEmail.emails.map((e) => e.to)).toEqual(["carmen@example.com"]);
+    /* Coming of age, before the ID check: still the guardian's to decide. */
+    const turning = buildInvitationEmail({ ...minor, birthDate: new Date(Date.now() - 18.1 * 365.25 * 86400000), comingOfAgeStartedAt: new Date() }, "https://x");
+    if ("skip" in turning) throw new Error("expected a message");
+    expect(turning.emails[0]!.to).toBe("carmen@example.com");
+    /* Control passed to the athlete: the athlete alone. */
+    const adult = buildInvitationEmail({ ...minor, birthDate: new Date(Date.now() - 19 * 365.25 * 86400000), comingOfAgeCompletedAt: new Date() }, "https://x");
+    if ("skip" in adult) throw new Error("expected a message");
+    expect(adult.emails.map((e) => e.to)).toEqual(["mia@example.com"]);
   });
 
   it.each(["ACCEPTED", "DECLINED", "EXPIRED"])("skips an invitation that is %s", (state) => {
@@ -181,9 +214,10 @@ describe("P4-INT-01 · all three emails are enqueued by something", () => {
     expect(sweep).toContain(t);
   });
 
-  it("keys each one per invitation, so an hourly sweep does not nag", () => {
-    expect(sweep).toContain("'invitation.reminder:' || i.id");
-    expect(sweep).toContain("'invitation.expiring:' || i.id");
+  it("keys each one per invitation and recipient, so an hourly sweep does not nag", () => {
+    expect(sweep).toContain("idempotencyKey: `${template}:${r.id}${e.key}`");
+    expect(sweep).toContain('queue("invitation.reminder"');
+    expect(sweep).toContain('queue("invitation.expiring"');
   });
 
   it("only reminds an athlete who has not opened it", () => {

@@ -106,3 +106,19 @@
 - **Tests:** new `tests/reward.fan-codes.test.ts` (4; three fail with the fan-code step disabled), and a desk-totals test in `rewards.read.test.ts`. Locally: 3,636 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
 - **For HeckerCreatives:** `POL-FE-08`, as spelled out in `polish.md` item 8.
 - **Tracker:** `POL-BE-08` is Code review; Done once the PR merges.
+
+### `POL-BE-08` Done (rcfworks): PR #329 merged; sync PR #330 to `main` opened
+
+- **Tracker:** the Polish sheet row for `POL-BE-08` is Done (carried on the `POL-BE-09` branch). The formula count is still 180.
+
+### `POL-BE-09` (rcfworks): a minor's invitation emails go to the guardian
+
+- **Problem:** only the guardian can accept a minor's invitation, but the new-invitation email, the reminder and the expiry warning went to the minor alone.
+- **Built:**
+  - `invitationRecipients` (`worker/jobs/notify-invitation.mts`): while the guardian acts for the athlete (`guardianControls`, the rule `assertMayCommit` uses), each email goes to the guardian (`wardName` wording) with a copy to the minor (`guardianDecides`); an adult's is unchanged.
+  - The sweep (`expire-invitations.mts`) now picks invitations in SQL and applies the same rule per row, instead of one INSERT…SELECT to the athlete.
+  - One idempotency key per recipient: `…:guardian` for the guardian's.
+  - The three templates have guardian and minor-copy wording; the worker log masks every recipient.
+- **Tests:** new `tests/invitation-guardian-mail.test.ts` (the real jobs), `b2b4.test.ts` (recipients and wording; three fail without the rule), and the log-redaction guard in `security-hardening.test.ts`. Locally: 3,639 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
+- **No frontend work.**
+- **Tracker:** `POL-BE-09` is Code review; Done once the PR merges.
