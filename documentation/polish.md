@@ -894,6 +894,47 @@ There's no invite screen, and "Settings" and "Messages" are dead menu items.
 **Fix:** a team screen to invite by email and set roles, with the API added if
 missing. Hide the menu items that don't work yet.
 
+- **Backend delivered (`POL-BE-19`, 2026-10-30).** All of these are for a
+  sponsor admin of one sponsor; analysts, BTG staff and other roles get 403.
+  - **`GET /sponsor/team`** returns `{ sponsorName, members }`. Each member
+    has `{ id, email, role, status, addedAt, you }`:
+    - `role` is `SPONSOR_ADMIN` (admin) or `SPONSOR_ANALYST` (viewer, read
+      only);
+    - `status` is `INVITED` (hasn't signed in yet), `ACTIVE` or `REMOVED`.
+  - **`POST /sponsor/team` `{ email, role }`** invites a colleague and emails
+    them (`sponsor.teamInvite`). Their first sign-in with that address
+    joins the team in that role, the same way the first sponsor login is
+    claimed.
+    - An address that already has a SponsorX login is refused (409), since
+      sign-in finds logins by address.
+    - At most 20 invites an hour per sponsor (429).
+  - **`PATCH /sponsor/team/:id` `{ role }`** switches someone between admin
+    and viewer.
+  - **`POST /sponsor/team/:id/resend`** sends an unused invite again, at
+    most 3 an hour.
+  - **`POST /sponsor/team/:id/remove`** cancels an unused invite, or
+    switches a member's login off. A removed member can't sign in, and
+    their history stays.
+  - **No changing or removing yourself (422).** So a sponsor always keeps
+    an admin.
+  - Every invite, role change, resend and removal is audited.
+  - **Not built:** re-adding a removed person. Their address still has a
+    (switched-off) login, so it can't be invited again; BTG can switch it
+    back on.
+  - Tests: `backend/tests/pol-be-19-sponsor-team.test.ts` (10).
+- **For screens (`POL-FE-19`):**
+  - A **Team** page in the sponsor portal, for admins only. Hide it from
+    viewers, who get 403.
+  - List the members with a status chip: Invited, Active or Removed. Mark
+    `you` and give that row no actions.
+  - **Invite:** an email field and an Admin / Viewer choice. A 409 means
+    "That address already has a SponsorX login."
+  - **Each row:** change role, and remove (ask "are you sure?" first). On
+    Invited rows, also "Resend invite". A 429 means "Too many tries. Try
+    again in an hour."
+  - **Hide "Settings" and "Messages"** until they work. There's no backend
+    for either yet.
+
 ### 20. "Needs your OK" points at nothing to approve
 `POL-FE-20` · confirmed
 

@@ -85,4 +85,29 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
   - 3 new unit tests; 26 pass.
 - **Checked:** a dry run on the #351 merge now produces "✅ POL-BE-17 … → Done".
 - The Google Sheet has no Polish tab. Its sync writes nothing there, as before; the Sheet stays a hand mirror.
+
+### `POL-BE-19` — a sponsor admin can add teammates (rcfworks), on `feature/POL-BE-19-sponsor-team`
+
+- **Built:** `domain/sponsor-team.ts` and `routes/v1/sponsor-team.ts`:
+  - `GET /sponsor/team`;
+  - `POST /sponsor/team` `{ email, role }`;
+  - `PATCH /sponsor/team/:id` `{ role }`;
+  - `POST /sponsor/team/:id/resend`;
+  - `POST /sponsor/team/:id/remove`.
+- **Access:** a SPONSOR_ADMIN of one sponsor only (the policy's `user` write `own-sponsor`); everyone else gets 403.
+- **How invites work:** an invite is a User row with an `invite:` placeholder clerkId, which the first sign-in with that address claims (actor.ts). It's emailed as `sponsor.teamInvite`.
+- **Rules:**
+  - an address that already has any login gets 409;
+  - 20 invites an hour per sponsor; 3 resends an hour per invite;
+  - no self-change or self-removal (422);
+  - removing a member sets `disabledAt`; removing an unused invite deletes the row.
+- **Audit actions:** `sponsorTeam.invite`, `.role`, `.inviteResent`, `.remove`.
+- **Not built (in polish.md):** re-inviting a removed person (their address still has a switched-off login).
+- **Tests:** `backend/tests/pol-be-19-sponsor-team.test.ts` (10). It checks:
+  - claiming an invite at first sign-in, as admin and as a read-only viewer;
+  - conflicts, roles, resends, removal and the caps;
+  - another sponsor's people are out of reach.
+- **For HeckerCreatives:** the team page, and hiding "Settings" and "Messages", are `POL-FE-19`. Notes are in polish.md.
+- **Guards updated:** `openapi.coverage.test.ts` (route file list) and `tenant-isolation.test.ts` (`PARAM_FOR.team`, and a PATCH body). The first full run failed on both. Both pass, covering cross-tenant and same-tenant other-sponsor access.
 - **POL-BE-18 merged:** #352 into `main_development`; the row is Done and went to both branches. It is the first Done row the fixed tracker-notify announces in Slack.
+- **POL-BE-19 merged:** #358 into `main_development`. The row is Done and rides #356/#357 with POL-BE-18's, to both branches.

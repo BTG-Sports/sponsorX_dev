@@ -21,6 +21,7 @@ each problem we ran into was solved. Newest first within each day.
 | 15 · BTG's dashboard counted only 4 of about 15 queues | `POL-BE-15` | #345 | Merged |
 | 17 · A sponsor couldn't open, edit or withdraw a sent request | `POL-BE-17` | #349 | Merged |
 | 18 · A sponsor couldn't resend the confirmation or fix a mistyped address | `POL-BE-18` | #352 | Merged |
+| 19 · A sponsor admin couldn't add teammates | `POL-BE-19` | #358 | Merged |
 | 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
 
 The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`, `POL-FE-10`, `POL-FE-11`, `POL-FE-12`) are for
@@ -392,6 +393,32 @@ rely on.
     matches only a request whose address never changed. The full test run
     caught it, through the link-lifetime tests that call the old function
     names.
+
+### `POL-BE-19` — a sponsor admin can add teammates
+- **Problem:** a sponsor had exactly one login, the one opened when it was
+  approved. Nobody could invite a colleague.
+- **Approach:**
+  - The access rules already let a sponsor admin manage their own
+    sponsor's logins, but no endpoint used them. Five endpoints were added
+    under `/sponsor/team`.
+  - An invite is a login waiting to be claimed, the same shape the approval
+    already makes. The colleague's first sign-in with that address joins
+    the team, so nothing new was needed in sign-in.
+  - Removing someone switches their login off rather than deleting it, so
+    their history keeps its name. An unused invite is simply deleted.
+  - Nobody can change or remove themselves, so a sponsor always keeps an
+    admin.
+- **Snags:**
+  - Sign-in looks a login up by address across every tenant, so one
+    address can only ever have one login. Inviting an address that already
+    has one is refused. The same reason means a removed person can't be
+    re-invited; that's noted for later.
+  - The repo's guard tests caught two gaps in the first full run:
+    - the API-documentation test needed the new route file in its list;
+    - the tenant-isolation test needed a tenant-A record to aim
+      `/sponsor/team/{id}` at, and a valid body for the role change.
+    Both now pass. They confirm another tenant's sponsor admin, and
+    another sponsor in the same tenant, can't reach this team.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.
