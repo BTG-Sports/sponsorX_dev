@@ -19,13 +19,13 @@ import { env } from "../../config/env";
 import { limit } from "../../lib/rate-limit";
 import { clientIp } from "../../lib/client-ip";
 import { InquiryInput } from "../../contracts/zoho";
-import { SponsorDocumentInput, SponsorEmailConfirmInput } from "../../contracts/sponsor-requests";
+import { SponsorDocumentInput, SponsorEmailChangeInput, SponsorEmailConfirmInput } from "../../contracts/sponsor-requests";
 import {
-  confirmSponsorDocumentUpload, confirmSponsorEmail, requestSponsorDocumentUpload, sponsorRequestStatus,
+  changeSponsorEmail, confirmSponsorDocumentUpload, confirmSponsorEmail, queueSponsorConfirmEmail, requestSponsorDocumentUpload,
+  resendSponsorConfirmation, sponsorRequestStatus,
 } from "../../domain/sponsor-requests";
-import { categoryText, sponsorNameFor } from "../../domain/sponsor-request-rules";
-import { send } from "../../lib/email";
-import { issueSponsorEmailToken, issueSponsorRequestToken } from "../../lib/sponsor-request-token";
+import { categoryText } from "../../domain/sponsor-request-rules";
+import { issueSponsorRequestToken } from "../../lib/sponsor-request-token";
 
 export const inquiriesRouter = Router();
 
@@ -51,18 +51,11 @@ export const submitInquiry: RequestHandler = async (req, res) => {
         businessType: input.businessType ?? null,
         businessTypeOther: input.businessType === "OTHER" ? input.businessTypeOther ?? null : null,
       },
-      select: { id: true },
+      select: { id: true, tenantId: true, email: true, companyName: true, firstName: true, lastName: true },
     });
     await enqueue(tx, tenantId, "zoho.pushLead", { inquiryId: row.id });
     /* The link that proves the contact reads this mailbox — automatic approval's first condition. */
-    await send(tx, tenantId, {
-      template: "sponsor.confirmEmail", to: input.email, idempotencyKey: `sponsor.confirmEmail:${row.id}`,
-      data: {
-        firstName: input.firstName ?? input.lastName,
-        businessName: sponsorNameFor({ companyName: input.companyName ?? null, firstName: input.firstName ?? null, lastName: input.lastName }),
-        confirmUrl: `${env.APP_URL.replace(/\/+$/, "")}/sponsor-request/confirm?t=${encodeURIComponent(issueSponsorEmailToken(row.id))}`,
-      },
-    });
+    await queueSponsorConfirmEmail(tx, row, `sponsor.confirmEmail:${row.id}`);
     return row;
   });
 
@@ -95,3 +88,17 @@ inquiriesRouter.get("/public/sponsor-requests/:token", status);
 inquiriesRouter.post("/public/sponsor-requests/:token/documents", upload);
 inquiriesRouter.post("/public/sponsor-requests/:token/documents/:documentId/confirm", confirmUpload);
 inquiriesRouter.post("/public/sponsor-requests/confirm-email", confirmEmail);
+
+/* POL-BE-18 — "Resend email" and "Change email" on the status page: the
+   request token only, while the address is unconfirmed. Each is capped per
+   request in the domain (3 an hour) and per network address here. */
+const resend: RequestHandler<{ token: string }> = async (req, res) => {
+  await limit("sponsor-request:resend", clientIp(req), 10, 3600);
+  res.status(202).json(await resendSponsorConfirmation(req.params.token));
+};
+const changeEmail: RequestHandler<{ token: string }> = async (req, res) => {
+  await limit("sponsor-request:email", clientIp(req), 10, 3600);
+  res.json(await changeSponsorEmail(req.params.token, SponsorEmailChangeInput.parse(req.body ?? {}).email));
+};
+inquiriesRouter.post("/public/sponsor-requests/:token/resend-confirmation", resend);
+inquiriesRouter.post("/public/sponsor-requests/:token/email", changeEmail);

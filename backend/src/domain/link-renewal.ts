@@ -126,18 +126,23 @@ async function onboarding(token: string, emailLink: boolean): Promise<Fresh | nu
 }
 
 async function sponsorRequest(token: string, spec: LinkSpec): Promise<Fresh | null> {
-  const id = signed(spec, token);
+  const id = linkSubject(token);
   if (!id) return null;
   const row = await prisma.inquiry.findFirst({
-    /* tenant-scope: found by the id inside a signed sponsor-request link. */
+    /* tenant-scope: found by the id inside a signed sponsor-request link; the signature is checked below before anything is sent. */
     where: { id },
-    select: { id: true, tenantId: true, email: true, firstName: true, lastName: true },
+    select: { id: true, tenantId: true, email: true, firstName: true, lastName: true, emailChangedAt: true },
   });
   if (!row?.email) return null;
+  /* POL-BE-18 — the email link is bound to the address: one sent to a corrected-away address renews nothing. */
+  const ok = spec === SPONSOR_EMAIL_LINK
+    ? signed(spec, token, row.email.trim().toLowerCase()) === row.id || (row.emailChangedAt === null && signed(spec, token) === row.id)
+    : signed(spec, token) === row.id;
+  if (!ok) return null;
   return {
     tenantId: row.tenantId, entity: "Inquiry", entityId: row.id, to: row.email, name: firstWord(row.firstName ?? row.lastName),
     what: "carry on with your request to sponsor on SponsorX",
-    url: `${appUrl()}/sponsor-request/confirm?t=${encodeURIComponent(issueSponsorEmailToken(row.id))}`,
+    url: `${appUrl()}/sponsor-request/confirm?t=${encodeURIComponent(issueSponsorEmailToken(row.id, row.email))}`,
   };
 }
 

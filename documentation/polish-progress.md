@@ -20,6 +20,7 @@ each problem we ran into was solved. Newest first within each day.
 | 14 · Held make-goods reached no one | `POL-BE-14` | #338 | Merged |
 | 15 · BTG's dashboard counted only 4 of about 15 queues | `POL-BE-15` | #345 | Merged |
 | 17 · A sponsor couldn't open, edit or withdraw a sent request | `POL-BE-17` | #349 | Merged |
+| 18 · A sponsor couldn't resend the confirmation or fix a mistyped address | `POL-BE-18` | — | In review |
 | 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
 
 The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`, `POL-FE-10`, `POL-FE-11`, `POL-FE-12`) are for
@@ -364,6 +365,33 @@ rely on.
 - **Snag:** the test's held draft was first saved without a hold reason.
   The database requires a held request to carry its reasons, so the sample
   was given one.
+
+### `POL-BE-18` — a sponsor can resend the confirmation or fix the address
+- **Problem:** a sponsor who mistyped their address, or lost the email,
+  had no way forward until the request's links ran out after 14 days.
+- **Approach:**
+  - Two actions on the status page: resend, and change the address. Each
+    is allowed 3 times an hour per request, counted from the request's own
+    audit rows, so trying from a new browser doesn't reset it.
+  - Confirmation links are now tied to the address they were sent to, the
+    way onboarding's already were. A link at a corrected-away address
+    confirms nothing.
+  - A new `emailChangedAt` field records the last correction. Links sent
+    before this shipped name no address, so they keep working only if the
+    address was never changed.
+  - The intake form, resend and change share one confirmation sender.
+- **Snags:**
+  - The route tests stub the rate limiter. A per-request limit built on it
+    couldn't have been tested, so the per-request cap lives in the domain
+    and is tested for real.
+  - The Zoho lead keeps the first address (the sync never updates a lead).
+    This is recorded rather than built here.
+  - **A loophole in very old links.** Links from before links carried a
+    date are checked by a fallback rule that ignored the address, so one
+    could still have confirmed a corrected request. The fallback now
+    matches only a request whose address never changed. The full test run
+    caught it, through the link-lifetime tests that call the old function
+    names.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.
