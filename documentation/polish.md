@@ -964,6 +964,32 @@ The sponsor keeps seeing "1 of 3 athletes signed", with no sign BTG is stepping 
 **Fix:** the API marks a stalled campaign, and the sponsor sees "BTG is finding
 more athletes" with a date.
 
+- **Backend delivered (`POL-BE-22`, 2026-10-30):**
+  - **When a campaign is stalled:** before launch (draft or staffing),
+    short of its package's minimum, and either:
+    - automatic staffing stopped and handed it to BTG (out of athletes or
+      out of budget). The date is the stop.
+    - BTG staffs it by hand and nobody is being asked: every offer and
+      invite has been declined or has expired. The ten-minute staffing
+      check marks it (new `Campaign.staffingStalledAt`) and clears it as
+      soon as someone is asked again or the minimum is reached. Reads stop
+      showing it at once in that case.
+  - **What the API shows:**
+    - a sponsor's `staffing` gains `btgFinding: { since } | null`. It never
+      says why, or who was asked;
+    - BTG's staff get the same as `staffing.stalled`, beside the stop
+      reason.
+    - Both are on `GET /campaigns` and `GET /campaigns/:id`.
+    - The sponsor's `nextStep` already reads "BTG is finding more athletes
+      since Oct 28: 1 of 2–3 signed so far", with `who: "BTG"`. A screen
+      that shows `nextStep` gets this without a change.
+  - No email to the sponsor; the item asks only for the screen.
+  - Tests: `backend/tests/pol-be-22-staffing-stalled.test.ts` (8).
+- **For screens (`POL-FE-22`):** where the sponsor sees "1 of 3 athletes
+  signed", show "BTG is finding more athletes · since {date}" whenever
+  `staffing.btgFinding` is set. Keep the count beside it. Show nothing extra
+  when it's null.
+
 ### 23. Content review has no "review by" date
 `POL-FE-23` · likely
 

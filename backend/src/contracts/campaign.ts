@@ -266,10 +266,14 @@ export const CampaignStaffing = z
     skipped: z.number().int().describe("Athletes automatic staffing skipped because an offer could not be made."),
     needed: z.strictObject({ min: z.number().int(), max: z.number().int() }).describe("The package's athlete range."),
     stop: z.strictObject({ reason: z.string(), at: z.iso.datetime() }).nullable().describe("Why automatic staffing stopped and handed the campaign to BTG."),
+    stalled: z.strictObject({ since: z.iso.datetime() }).nullable().optional()
+      .describe("POL-BE-22, BTG's staff: BTG is finding more athletes, since when — before launch and short of the minimum, automatic staffing stopped or nobody is being asked."),
+    btgFinding: z.strictObject({ since: z.iso.datetime() }).nullable().optional()
+      .describe("POL-BE-22, a sponsor's read: the same mark, without the reason — the screen shows \"BTG is finding more athletes\" with the date."),
     skips: z.array(z.strictObject({ athleteId: z.string(), displayName: z.string().nullable(), reason: z.string(), at: z.iso.datetime() }))
       .optional().describe("GET /campaigns/{id}, BTG's staff only: who was skipped, and why."),
   })
-  .meta({ id: "CampaignStaffing", description: "A campaign's staffing, counted by athlete (P4-BE-12). BTG's staff get every field and `autoStaffing` beside it; a sponsor gets only `signed` and `needed`. Null for a campaign with no package to staff from." });
+  .meta({ id: "CampaignStaffing", description: "A campaign's staffing, counted by athlete (P4-BE-12). BTG's staff get every field and `autoStaffing` beside it; a sponsor gets only `signed`, `needed` and `btgFinding` (POL-BE-22). Null for a campaign with no package to staff from." });
 
 export const CampaignLaunchResult = z
   .strictObject({

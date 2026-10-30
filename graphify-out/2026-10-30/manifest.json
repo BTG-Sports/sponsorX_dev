@@ -3378,9 +3378,9 @@
     "semantic_hash": ""
   },
   "backend/tests/openapi.coverage.test.ts": {
-    "mtime": 1792823470.4170737,
-    "seen": 1793327169.826421,
-    "ast_hash": "f2df8e066d0c88b5e61098fe524518dd",
+    "mtime": 1793333925.4652371,
+    "seen": 1793334162.9448361,
+    "ast_hash": "bca7800d85128cfdfccf190fb6e1d1ba",
     "semantic_hash": ""
   },
   "frontend/src/app/u/[token]/route.ts": {
@@ -3456,9 +3456,9 @@
     "semantic_hash": ""
   },
   "backend/tests/tenant-isolation.test.ts": {
-    "mtime": 1793274289.0124512,
-    "seen": 1793327169.8265128,
-    "ast_hash": "e7cda3d74786e6ac848be706e0908248",
+    "mtime": 1793333974.571561,
+    "seen": 1793334162.9498408,
+    "ast_hash": "d049ea20b89ff6171e5eb0eb7faf4719",
     "semantic_hash": ""
   },
   "backend/tests/tenant-scope.static.test.ts": {
@@ -13050,15 +13050,15 @@
     "semantic_hash": ""
   },
   "documentation/polish-progress.md": {
-    "mtime": 1793333598.4711258,
-    "seen": 1793333840.685179,
-    "ast_hash": "5be2f9cde9df424830ec866d9b144748",
+    "mtime": 1793333994.8799531,
+    "seen": 1793334162.996214,
+    "ast_hash": "33073872ba2c03f4bcc5c406a316d537",
     "semantic_hash": ""
   },
   "Memory/2026-10-30/tasks-completed.md": {
-    "mtime": 1793333782.119313,
-    "seen": 1793333840.670702,
-    "ast_hash": "3a9082dc7d19e6d4c2761d677899c87f",
+    "mtime": 1793333994.8804526,
+    "seen": 1793334162.9909859,
+    "ast_hash": "eb3d62e56b5e91c016f0b6d056455f4d",
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {

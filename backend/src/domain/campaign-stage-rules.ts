@@ -160,7 +160,7 @@ export function nextStep(f: StageFacts, audience: Audience): NextStep {
       if (f.staffing) {
         const st = f.staffing;
         if (sponsor) {
-          return { who: st.outstanding > 0 ? "ATHLETES" : st.auto && !st.stop ? "SYSTEM" : "BTG", text: sponsorStaffingLine(st) };
+          return { who: st.stalled ? "BTG" : st.outstanding > 0 ? "ATHLETES" : st.auto && !st.stop ? "SYSTEM" : "BTG", text: sponsorStaffingLine(st) };
         }
         if (st.auto && st.stop) return { who: "BTG", text: `Automatic staffing stopped — ${st.stop.reason}` };
         if (st.auto && !(f.athleteRange && f.athletesSigned >= f.athleteRange.max)) {
