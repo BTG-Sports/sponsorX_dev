@@ -60,3 +60,4 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
   - the email goes once, with the note;
   - a plain draft and a staff close send no email.
 - **Also today:** the `POL-BE-15` Done row went to both branches (#346, #347), and #348 syncs #346's merge commit to main.
+- **Merged:** #349 into `main_development`. The `POL-BE-17` row is Done, and the row went to both branches.
