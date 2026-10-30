@@ -20,7 +20,7 @@ each problem we ran into was solved. Newest first within each day.
 | 14 · Held make-goods reached no one | `POL-BE-14` | #338 | Merged |
 | 15 · BTG's dashboard counted only 4 of about 15 queues | `POL-BE-15` | #345 | Merged |
 | 17 · A sponsor couldn't open, edit or withdraw a sent request | `POL-BE-17` | #349 | Merged |
-| 18 · A sponsor couldn't resend the confirmation or fix a mistyped address | `POL-BE-18` | — | In review |
+| 18 · A sponsor couldn't resend the confirmation or fix a mistyped address | `POL-BE-18` | #352 | Merged |
 | 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
 
 The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`, `POL-FE-10`, `POL-FE-11`, `POL-FE-12`) are for

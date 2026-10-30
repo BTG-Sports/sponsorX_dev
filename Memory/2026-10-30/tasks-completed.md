@@ -85,3 +85,4 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
   - 3 new unit tests; 26 pass.
 - **Checked:** a dry run on the #351 merge now produces "✅ POL-BE-17 … → Done".
 - The Google Sheet has no Polish tab. Its sync writes nothing there, as before; the Sheet stays a hand mirror.
+- **POL-BE-18 merged:** #352 into `main_development`; the row is Done and went to both branches. It is the first Done row the fixed tracker-notify announces in Slack.
