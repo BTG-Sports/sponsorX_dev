@@ -24,7 +24,7 @@ each problem we ran into was solved. Newest first within each day.
 | 19 · A sponsor admin couldn't add teammates | `POL-BE-19` | #358 | Merged |
 | 22 · A sponsor wasn't told when staffing stalled | `POL-BE-22` | #359 | Merged |
 | 29 · The guardian-handoff queue listed newest first | `POL-BE-29` | #360 | Merged |
-| 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
+| 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #361 | Merged |
 
 The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`, `POL-FE-10`, `POL-FE-11`, `POL-FE-12`) are for
 HeckerCreatives. Each item in `polish.md` says exactly what the screens can
@@ -456,6 +456,36 @@ rely on.
   segments (`readSegments`), so paging keeps that order. A same-time
   tiebreak on id keeps pages stable.
 - **Snag:** none. The existing handoff tests still pass with the new order.
+
+### `POL-BE-36` — BTG's payments switch
+- **Problem:** the only way to open or close payment was the Railway setting,
+  which restarts production and needs Railway access.
+- **Approach:**
+  - One platform-wide switch, read through the single function every money
+    path already asked (`paymentsOpen()`, plus `activeProvider()` for the
+    provider calls). Checkout, payout sending, payout set-up and POL-BE-04's
+    order windows all follow it. Webhooks deliberately don't, so money
+    already moving settles.
+  - The Railway setting stays the master off. The switch can't turn payment
+    on without a provider, and in production it starts off.
+- **Snags:**
+  - **Can't identify BTG by the intake setting.** `PUBLIC_INTAKE_TENANT_ID`
+    isn't set in production, and its default isn't production's BTG
+    organisation. So "BTG" is a top-level organisation (no operator) whose
+    Admin or Finance staff make the change.
+  - **Parallel tests.** The switch is one row and test files run in parallel
+    on one database. Real-database tests only ever turn it on (the default
+    there). The off cases run against a stand-in for that one row in their
+    own file.
+  - **The matrix guard.** The authorisation matrix's fingerprint test caught
+    the new resource as intended. The matrix document gained the
+    `paymentSwitch` section and the fingerprint was updated, with a note.
+  - **The first full run caught two more:**
+    - one read without an explicit field list, which lint rejects;
+    - an older payouts test matching the previous "payment provider is
+      connected" wording.
+    Both were fixed. The same wording on two payout detail screens is noted
+    for `POL-FE-36`.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.
