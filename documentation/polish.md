@@ -852,6 +852,41 @@ The sponsor is stuck for the 14 days until the request lapses.
 **Fix:** "Resend email" and "Change email" on the request status page, rate
 limited.
 
+- **Backend delivered (`POL-BE-18`, 2026-10-30):**
+  - **Resend email.** `POST /public/sponsor-requests/:token/resend-confirmation`
+    sends a fresh confirmation link to the address on file. It answers 202
+    with `{ sent: true, email }`.
+  - **Change email.** `POST /public/sponsor-requests/:token/email`
+    `{ email }` corrects the address and sends the confirmation to the new
+    one. It answers `{ sent: true, email }`. The audit log keeps both
+    addresses.
+  - **When they work.** Both use the status page's own token, and only
+    while the request is open and the address is unconfirmed. They answer
+    409 once the address is confirmed or the request is decided.
+  - **Limits.** Each is limited to 3 an hour per request (429), counted
+    however many browsers try. There is also a limit per network address.
+  - **Old links stop working.** Confirmation links are now tied to the
+    address they were sent to, as onboarding's already were. After a
+    change, a link sent to the mistyped address confirms nothing. Links
+    sent before this shipped still work if the address was never changed.
+    The expired-link renewal follows the same rule.
+  - **Not done here:** the Zoho lead keeps the address first typed, because
+    the Zoho sync never updates a lead after creating it. SponsorX and the
+    BTG desk show the corrected one. Updating Zoho as well would be its own
+    change.
+  - Tests: `backend/tests/pol-be-18-sponsor-email-fix.test.ts` (7).
+- **For screens (`POL-FE-18`):** on the request status page
+  (`GET /public/sponsor-requests/:token`), while `state` is `NEW` and
+  `emailConfirmed` is false:
+  - **Resend email** calls `resend-confirmation`. Show "Sent to {email}".
+  - **Change email** opens a field for the address, then calls `/email`.
+    Show "Sent to {email}" and update the address shown.
+  - **Error messages to show:**
+    - 422: "That is already the address on your request."
+    - 429: "Too many tries. Try again in an hour."
+    - 409: reload the status page, because something changed (for
+      example, the address was just confirmed).
+
 ### 19. A sponsor admin can't add teammates
 `POL-BE-19` · `POL-FE-19` · *Dead end* · likely
 

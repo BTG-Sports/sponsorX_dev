@@ -42,7 +42,9 @@ import { ForbiddenError } from "../auth/errors";
 import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, SENSITIVE_DOCUMENT_TTL_SECONDS, uploadRefusal } from "../lib/storage";
 import { checkView, documentHolds, readDocument } from "./document-reading";
 import { deleteSentBackFile, recordSendBack, returnedColumns, SendBackError, sendBackReason } from "./document-send-back";
-import { issueSponsorRequestToken, readSponsorEmailToken, readSponsorRequestToken } from "../lib/sponsor-request-token";
+import { issueSponsorEmailToken, issueSponsorRequestToken, readSponsorRequestToken, sponsorEmailTokenMatches } from "../lib/sponsor-request-token";
+import { linkSubject } from "../lib/signed-link";
+import { RateLimitedError } from "../lib/rate-limit";
 import type { BrandCategory } from "./brand-categories";
 import { normalizeBusinessName } from "./business-name-rules";
 import { checkRestricted } from "./restricted-words";
@@ -67,7 +69,7 @@ export class SponsorRequestError extends Error {
 export const INQUIRY_SELECT = {
   id: true, tenantId: true, companyName: true, firstName: true, lastName: true, email: true, phone: true, message: true, source: true,
   categoryText: true, zohoLeadId: true, state: true, decidedAt: true, decidedBy: true, decisionNote: true, sponsorId: true, createdAt: true,
-  businessType: true, businessTypeOther: true, emailConfirmedAt: true, reviewReasons: true, autoApproved: true,
+  businessType: true, businessTypeOther: true, emailConfirmedAt: true, emailChangedAt: true, reviewReasons: true, autoApproved: true,
 } as const;
 const SELECT = INQUIRY_SELECT;
 type Row = Prisma.InquiryGetPayload<{ select: typeof INQUIRY_SELECT }>;
@@ -456,9 +458,11 @@ export async function confirmSponsorDocumentUpload(token: string, documentId: st
 
 /** The link in the confirmation email: proves the contact reads that mailbox; then the checks run. */
 export async function confirmSponsorEmail(emailToken: string) {
-  const id = readSponsorEmailToken(emailToken);
-  if (!id) throw new SponsorRequestError("This confirmation link is not valid.", 400);
-  const row = await applicantRow(id);
+  const id = linkSubject(emailToken);
+  const found = id ? await prisma.inquiry.findFirst({ /* tenant-scope: the request a signed email token names; checked against its address next. */ where: { id }, select: SELECT }) : null;
+  /* POL-BE-18 — bound to the address: a link sent to a corrected-away address confirms nothing. */
+  if (!found || !sponsorEmailTokenMatches(emailToken, found)) throw new SponsorRequestError("This confirmation link is not valid.", 400);
+  const row = found;
   if (!row.emailConfirmedAt) {
     await prisma.$transaction(async (tx) => {
       await tx.inquiry.update({
@@ -476,6 +480,71 @@ export async function confirmSponsorEmail(emailToken: string) {
     /* Opening the emailed link proves the mailbox, so it may carry on from any device: upload the proof, read the status. */
     requestToken: issueSponsorRequestToken(fresh.id),
   };
+}
+
+/* ═══════════ POL-BE-18 — resend the confirmation, or fix the address ═══════════ */
+
+/** The confirmation email: a link bound to this request and address. Used by the intake form too. */
+export async function queueSponsorConfirmEmail(
+  tx: Prisma.TransactionClient,
+  r: { id: string; tenantId: string; email: string; companyName: string | null; firstName: string | null; lastName: string },
+  idempotencyKey: string,
+) {
+  await send(tx, r.tenantId, {
+    template: "sponsor.confirmEmail", to: r.email, idempotencyKey,
+    data: {
+      firstName: firstNameOf(r),
+      businessName: sponsorNameFor(r),
+      confirmUrl: `${appUrl()}/sponsor-request/confirm?t=${encodeURIComponent(issueSponsorEmailToken(r.id, r.email))}`,
+    },
+  });
+}
+
+/** Per request, per hour — counted from its own audit rows, so a new browser or network address doesn't reset it. */
+export const SPONSOR_EMAIL_SENDS_PER_HOUR = 3;
+async function underHourlyCap(r: { id: string; tenantId: string }, action: string, now: Date) {
+  const n = await prisma.auditLog.count({
+    where: { tenantId: r.tenantId, entity: "Inquiry", entityId: r.id, action, at: { gt: new Date(now.getTime() - 3_600_000) } },
+  });
+  if (n >= SPONSOR_EMAIL_SENDS_PER_HOUR) throw new RateLimitedError(3600);
+}
+
+/** Only an open request whose address nobody has proved yet: a confirmed address isn't the applicant's to swap. */
+function assertUnconfirmed(r: Row) {
+  if (r.state !== "NEW") throw new SponsorRequestError("This request has already been decided.");
+  if (r.emailConfirmedAt) throw new SponsorRequestError("Your email is already confirmed.");
+}
+
+/** "Resend email": a fresh confirmation link to the address on file. */
+export async function resendSponsorConfirmation(token: string, now = new Date()) {
+  const row = await applicantRow(requestFromToken(token));
+  assertUnconfirmed(row);
+  await underHourlyCap(row, "sponsorRequest.confirmationResent", now);
+  await prisma.$transaction(async (tx) => {
+    await audit(tx, SYSTEM(row.tenantId), "sponsorRequest.confirmationResent", "Inquiry", row.id, { after: { email: row.email } });
+    await queueSponsorConfirmEmail(tx, row, `sponsor.confirmEmail:${row.id}:${now.getTime()}`);
+  });
+  return { sent: true, email: row.email };
+}
+
+/** "Change email": correct a mistyped address, and confirm the new one. Links sent to the old one stop working. */
+export async function changeSponsorEmail(token: string, email: string, now = new Date()) {
+  const row = await applicantRow(requestFromToken(token));
+  assertUnconfirmed(row);
+  const next = email.trim();
+  if (next.toLowerCase() === row.email.trim().toLowerCase()) throw new SponsorRequestError("That is already the address on your request.", 422);
+  await underHourlyCap(row, "sponsorRequest.emailChanged", now);
+  await prisma.$transaction(async (tx) => {
+    const moved = await tx.inquiry.updateMany({
+      /* tenant-scope: the request named inside the signed token, still open and unconfirmed. */
+      where: { id: row.id, tenantId: row.tenantId, state: "NEW", emailConfirmedAt: null },
+      data: { email: next, emailChangedAt: now },
+    });
+    if (moved.count !== 1) throw new SponsorRequestError("This request changed while you were editing it. Reload and try again.");
+    await audit(tx, SYSTEM(row.tenantId), "sponsorRequest.emailChanged", "Inquiry", row.id, { before: { email: row.email }, after: { email: next } });
+    await queueSponsorConfirmEmail(tx, { ...row, email: next }, `sponsor.confirmEmail:${row.id}:${now.getTime()}`);
+  });
+  return { sent: true, email: next };
 }
 
 /* ═══════════════════════ BTG's decisions ══════════════════════════════ */

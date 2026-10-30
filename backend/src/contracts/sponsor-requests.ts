@@ -50,3 +50,9 @@ export const SponsorEmailConfirmInput = z
   .object({ token: z.string().min(1).max(500) })
   .strict()
   .meta({ id: "SponsorEmailConfirmInput", description: "The token from the confirmation email's link." });
+
+/** POL-BE-18 — the applicant corrects a mistyped address (the same rule as the form's). */
+export const SponsorEmailChangeInput = z
+  .object({ email: z.email().max(100) })
+  .strict()
+  .meta({ id: "SponsorEmailChangeInput", description: "The corrected address; the confirmation is sent to it." });

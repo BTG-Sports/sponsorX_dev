@@ -71,7 +71,7 @@ describe("one lifetime: 14 days", () => {
     ["onboarding", (n) => onb.issueOnboardingToken("onb_pmo", n), (t, n) => onb.readOnboardingToken(t, n), "onb_pmo"],
     ["onboarding-email", (n) => onb.issueOnboardingEmailToken("onb_pmo", "Lee@Club.example", n), (t, n) => onb.emailTokenMatches(t, "onb_pmo", "lee@club.example", n), true],
     ["sponsor-request", (n) => sr.issueSponsorRequestToken("inq_pmo", n), (t, n) => sr.readSponsorRequestToken(t, n), "inq_pmo"],
-    ["sponsor-request-email", (n) => sr.issueSponsorEmailToken("inq_pmo", n), (t, n) => sr.readSponsorEmailToken(t, n), "inq_pmo"],
+    ["sponsor-request-email", (n) => sr.issueSponsorEmailToken("inq_pmo", "Ana@Biz.example", n), (t, n) => sr.sponsorEmailTokenMatches(t, { id: "inq_pmo", email: "ana@biz.example", emailChangedAt: null }, n), true],
     ["handoff", (n) => pt.issuePurposeToken("handoff", "gh_pmo", new Date(n.getTime() + 30 * DAY), n), (t, n) => pt.readPurposeToken("handoff", t, n), "gh_pmo"],
     ["handoff-email", (n) => pt.issuePurposeToken("handoff-email", "gh_pmo", undefined, n), (t, n) => pt.readPurposeToken("handoff-email", t, n), "gh_pmo"],
   ];
@@ -166,7 +166,7 @@ describe("links sent before the change (undated)", () => {
       ["athlete-email", legacy(s, "athlete-email:ath_old", "ath_old"), (t, n) => su.readAthleteEmailToken(t, n)],
       ["onboarding", legacy(s, "property-onboarding:onb_old", "onb_old"), (t, n) => onb.readOnboardingToken(t, n)],
       ["onboarding-email", legacy(s, "property-onboarding-email:onb_old:lee@club.example", "onb_old"), (t, n) => onb.emailTokenMatches(t, "onb_old", "lee@club.example", n)],
-      ["sponsor-request-email", legacy(s, "sponsor-request-email:inq_old", "inq_old"), (t, n) => sr.readSponsorEmailToken(t, n)],
+      ["sponsor-request-email", legacy(s, "sponsor-request-email:inq_old", "inq_old"), (t, n) => sr.sponsorEmailTokenMatches(t, { id: "inq_old", email: "ana@old.example", emailChangedAt: null }, n)],
     ];
     for (const [kind, token, read] of checks) {
       expect(read(token, before), kind).toBeTruthy();
@@ -325,7 +325,8 @@ describe.skipIf(!hasDatabase)("an expired link over HTTP, and getting a fresh on
     await call("POST", "/public/links/renew", { kind: "sponsor-request", token: old });
     const mail = (await emails()).filter((m) => m.template === "link.fresh" && m.to === "ana@pmo02.invalid");
     expect(mail).toHaveLength(1);
-    expect(sr.readSponsorEmailToken(decodeURIComponent(mail[0]!.data.url!.split("/sponsor-request/confirm?t=")[1]!))).toBe("pmo02_inq");
+    /* POL-BE-18 — the fresh link is bound to the request's own address. */
+    expect(sr.sponsorEmailTokenMatches(decodeURIComponent(mail[0]!.data.url!.split("/sponsor-request/confirm?t=")[1]!), { id: "pmo02_inq", email: "ana@pmo02.invalid", emailChangedAt: new Date() })).toBe(true);
   });
 
   it("an onboarding email link renews only for the contact it was sent to", async () => {
