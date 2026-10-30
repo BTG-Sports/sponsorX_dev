@@ -301,3 +301,38 @@ export async function signupStreamSummary(actor: Actor): Promise<{ kinds: Partia
     all: { total: sum(per.map(([, s]) => s.total)), held: sum(per.map(([, s]) => s.held)), auto: sum(per.map(([, s]) => s.auto)) },
   };
 }
+
+/**
+ * POL-BE-15 — the Operations Board's sign-ups card: every sign-up held for a
+ * person (the page's "Needs review", the same `held` figure as
+ * signupStreamSummary) and since when the oldest has waited. Null where
+ * /signups would refuse. A held sponsor is also a sponsor request, and a
+ * waiting organisation also an onboarding — the board must not add them up.
+ */
+export async function signupsHeld(actor: Actor): Promise<{ waiting: number; oldestSince: string | null } | null> {
+  if (!tenantWide(actor, "athleteApplication", "approve") || !tenantWide(actor, "guardian", "write")) return null;
+  const kinds = kindsFor(actor);
+  const held = { review: true } as StreamFilter;
+  const none = Promise.resolve([0, null] as const);
+  const [athletes, sponsors, orgs] = await Promise.all([
+    Promise.all([
+      prisma.athlete.count({ where: athleteWhere(actor, held) /* tenant-scope: athleteWhere starts with whereFor */ }),
+      prisma.athlete.findFirst({ where: athleteWhere(actor, held) /* tenant-scope: athleteWhere starts with whereFor */, orderBy: { createdAt: "asc" }, select: { createdAt: true } }).then((r) => r?.createdAt ?? null),
+    ]),
+    kinds.includes("SPONSOR")
+      ? Promise.all([
+          prisma.inquiry.count({ where: inquiryWhere(actor, held, true) /* tenant-scope: inquiryWhere starts with whereFor */ }),
+          prisma.inquiry.findFirst({ where: inquiryWhere(actor, held, true) /* tenant-scope: inquiryWhere starts with whereFor */, orderBy: { createdAt: "asc" }, select: { createdAt: true } }).then((r) => r?.createdAt ?? null),
+        ])
+      : none,
+    kinds.includes("ORGANIZATION")
+      ? Promise.all([
+          prisma.propertyOnboarding.count({ where: organizationWhere(actor, held) /* tenant-scope: organizationWhere starts with whereFor */ }),
+          prisma.propertyOnboarding.findFirst({ where: organizationWhere(actor, held) /* tenant-scope: organizationWhere starts with whereFor */, orderBy: { createdAt: "asc" }, select: { submittedAt: true, createdAt: true } }).then((r) => (r ? r.submittedAt ?? r.createdAt : null)),
+        ])
+      : none,
+  ]);
+  const dates = [athletes[1], sponsors[1], orgs[1]].filter((d): d is Date => d !== null);
+  const oldest = dates.length ? new Date(Math.min(...dates.map((d) => d.getTime()))) : null;
+  return { waiting: athletes[0] + sponsors[0] + orgs[0], oldestSince: oldest?.toISOString() ?? null };
+}

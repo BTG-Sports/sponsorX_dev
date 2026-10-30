@@ -737,6 +737,59 @@ These queues have no count, so staff have to click every menu item to find work:
 - **Fix:** one counts endpoint covering every queue that waits on BTG. The
   dashboard shows each count, linked to its queue, oldest first.
 - **Done when:** every BTG queue has a count on the dashboard; tests.
+- **Backend delivered (`POL-BE-15`, 2026-10-30):**
+  - **One endpoint.** `GET /operations/board` now counts every queue that
+    waits on BTG. Each new queue is `{ waiting, oldestSince }`:
+    `oldestSince` is when the oldest item started waiting, or null when
+    nothing waits.
+  - **Each count is its page's own set.** It uses the filter of the page
+    its card links to, so the card and the page always show one number.
+  - **Who gets what.** A queue is null for a role that doesn't read it
+    across the tenant. A sponsor or an athlete is refused the board, as
+    before.
+  - **Existing queues.** `applications` and `briefs` gain `oldestSince`.
+    `approvals` and `finance` have none, because a deliverable and an
+    earning record no time they started waiting.
+  - **Not counted, and why:**
+    - Support messages: they are answered in the mailbox, and there is no
+      list to count.
+    - Campaign requests: the page exists, but nothing behind it was built.
+  - Tests: `backend/tests/pol-be-15-queue-counts.test.ts` checks:
+    - each count, and its oldest date;
+    - tenant B never sees tenant A's items;
+    - each role gets only its own queues;
+    - each count equals the list its card links to.
+- **For screens (`POL-FE-15`):** one card per queue, from
+  `queues.<key>.waiting`, sorted by `oldestSince`, oldest first. Skip a
+  queue that is null. Draw a card only if the role can open its page
+  (`lib/admin-access.ts`). For example, Finance gets the `dealDisputes`
+  count, but the Deal disputes page is for BTG admins and campaign
+  managers.
+
+  | Key | Card | Links to |
+  |---|---|---|
+  | `signups` | New sign-ups to review | `/admin/new-signups?review=1` |
+  | `organisations` | Organisations to review | `/admin/onboarding` |
+  | `sponsorRequests` | Sponsor requests | `/admin/sponsor-requests` |
+  | `guardianHandoffs` | Guardian handoffs | `/admin/guardian-handoffs?tab=waiting` |
+  | `heldListings` | Listings to approve | `/admin/marketplace?queue=listings` |
+  | `heldOrders` | Orders to approve | `/admin/marketplace?queue=orders` |
+  | `deliveryIssues` | Delivery issues | `/admin/delivery-issues` |
+  | `offers` | Offers needing BTG | `/admin/offers` |
+  | `dealDisputes` | Deal disputes to decide | `/admin/deal-disputes?tab=documents` |
+  | `refunds` | Refunds to send | `/admin/refunds` |
+  | `heldClosures` | Account closures held | `/admin/closed-accounts?tab=closing` |
+  | `reactivations` | Reactivation requests | `/admin/closed-accounts` |
+  | `paymentDisputes` | Payment disputes | `/admin/payments/disputes` |
+  | `paymentEvents` | Payment events for BTG | `/admin/payments/events` |
+  | `profileChanges` | ID and name changes | `/admin/new-signups#sensitive-edits` |
+  | `payouts` | Payouts to review (already drawn) | `/admin/payouts` |
+  | `makeGoods` | Make-goods to decide | `/admin/intelligence/make-goods` |
+
+  **Don't add the cards into one total.** Some items sit on two desks:
+  - a held sponsor sign-up is also a sponsor request;
+  - a waiting organisation is counted under both sign-ups and
+    organisations.
 
 ---
 
