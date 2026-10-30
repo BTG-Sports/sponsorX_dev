@@ -70,7 +70,7 @@ import type { ExpectedName, ReadKind } from "./document-check-rules";
 import { checkView, documentHolds, readDocument } from "./document-reading";
 import { deleteSentBackFile, recordSendBack, returnedColumns, SendBackError, sendBackReason } from "./document-send-back";
 import { GUARDIAN_PROOF_KINDS } from "./signup-rules";
-import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
+import { readPage, readSegments, type PageInfo, type PageRequest } from "../lib/paging";
 
 type Tx = Prisma.TransactionClient;
 
@@ -446,11 +446,26 @@ export async function listHandoffs(actor: Actor, q: { group?: HandoffGroup | Are
     : q.group === "IN_PROGRESS" ? { state: { in: states! }, NOT: escalated }
     : states ? { state: { in: states } } : staff ? {} : { state: { not: "REQUESTED" } };
   const where = { ...whereFor(actor, "guardianHandoff", "read"), ...groupWhere };
-  const read = (skip: number, take: number) =>
-    prisma.guardianHandoff.findMany({ where /* tenant-scope: whereFor(guardianHandoff) above */, select: SELECT, orderBy: { createdAt: "desc" }, skip, take });
-  const paged = q.page
-    ? await readPage(q.page, () => prisma.guardianHandoff.count({ where /* tenant-scope: whereFor(guardianHandoff) above */ }), read)
-    : { rows: await read(0, staff ? 100 : 25), page: null as PageInfo | null };
+  /* POL-BE-29 — what still waits reads oldest first, so the longest-waiting
+     minor's request is on top; what is finished, newest first. Unfiltered,
+     the open requests come first (oldest on top), then the finished ones. */
+  const reader = (w: Prisma.GuardianHandoffWhereInput, dir: "asc" | "desc") => (skip: number, take: number) =>
+    prisma.guardianHandoff.findMany({ where: w /* tenant-scope: whereFor(guardianHandoff) above, narrowed */, select: SELECT, orderBy: [{ createdAt: dir }, { id: dir }], skip, take });
+  const count = (w: Prisma.GuardianHandoffWhereInput) => prisma.guardianHandoff.count({ where: w /* tenant-scope: whereFor(guardianHandoff) above, narrowed */ });
+  const limit = staff ? 100 : 25;
+  let paged: { rows: Awaited<ReturnType<ReturnType<typeof reader>>>; page: PageInfo | null };
+  if (q.group) {
+    const read = reader(where, OPEN_HANDOFF_GROUPS.has(q.group) ? "asc" : "desc");
+    paged = q.page ? await readPage(q.page, () => count(where), read) : { rows: await read(0, limit), page: null };
+  } else {
+    const open = { AND: [where, { state: { in: [...OPEN_HANDOFF_STATES] } }] };
+    const done = { AND: [where, { state: { notIn: [...OPEN_HANDOFF_STATES] } }] };
+    const segments = [
+      { count: await count(open), read: reader(open, "asc") },
+      { count: await count(done), read: reader(done, "desc") },
+    ];
+    paged = q.page ? await readSegments(q.page, segments) : await readSegments({ page: 1, size: limit, skip: 0, take: limit }, segments).then((r) => ({ rows: r.rows, page: null }));
+  }
   const rows = paged.rows;
   const out = [];
   for (const r of rows) out.push(await view(prisma, r, true));
@@ -504,6 +519,9 @@ const ARENA_GROUP_STATES: Record<ArenaHandoffGroup, string[]> = {
   waiting: ["REQUESTED", "WAITING", "HANDED_OFF"], past: ["SWITCHED", "DECLINED", "CANCELLED"],
 };
 const isArenaGroup = (g: HandoffGroup | ArenaHandoffGroup): g is ArenaHandoffGroup => g === "waiting" || g === "past";
+/** POL-BE-29 — the states still waiting on someone, and the tabs that hold only them: read oldest first. */
+const OPEN_HANDOFF_STATES = ["REQUESTED", "WAITING", "HANDED_OFF"] as const;
+const OPEN_HANDOFF_GROUPS = new Set<string>(["WAITING_FOR_BTG", "IN_PROGRESS", "waiting"]);
 const DOCUMENT_WORDS: Record<string, string> = { GUARDIAN_ID: "Government ID", GUARDIANSHIP_PROOF: "Proof of guardianship" };
 const PROOF_WORDS: Record<string, string> = { BIRTH_CERTIFICATE: "Birth certificate", COURT_ORDER: "Court order", SCHOOL_RECORD: "School record" };
 

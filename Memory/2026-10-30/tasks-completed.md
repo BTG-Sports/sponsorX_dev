@@ -127,3 +127,12 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
 - **For HeckerCreatives:** `POL-FE-22` shows "BTG is finding more athletes · since {date}". Notes are in polish.md.
 - **Next-step wording:** `sponsorStaffingLine` now reads "BTG is finding more athletes since {Mon d}: x of range signed so far" (who BTG) when stalled. `auto-staffing-launch.test.ts` was updated for the new field and line.
 - **Flaky test:** `invitation-guardian-mail` failed once in the full run; it passed alone twice, and again in the full rerun.
+
+### `POL-BE-29` — the guardian-handoff queue reads oldest first (rcfworks), on `feature/POL-BE-29-handoffs-oldest-first`
+
+- **Built:** `listHandoffs` in `guardian-handoff.ts`.
+  - Open groups (`WAITING_FOR_BTG`, `IN_PROGRESS`, arena `waiting`) order by `createdAt` then `id`, ascending.
+  - Closed groups order descending.
+  - No group: two `readSegments` segments (open states ascending, then the rest descending), paged or not.
+- **Tests:** `backend/tests/pol-be-29-handoffs-oldest-first.test.ts` (5) checks each tab's order, the unfiltered order, and the order across pages. The existing handoff desk, flow and escalation tests still pass.
+- **Left on the backend polish list:** `POL-BE-36` (the payments switch).
