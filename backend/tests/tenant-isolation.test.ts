@@ -168,6 +168,8 @@ const PARAM_FOR: Record<string, string> = {
   students: A.student, prospects: A.prospect, sponsors: A.sponsor,
   "edition-assets": A.asset, claims: A.claim, properties: A.school, onboarding: A.onboarding,
   inventory: A.item, listings: A.listing, offers: A.offer, roster: A.athlete,
+  /* POL-BE-19 — /sponsor/team/{id}: tenant A's sponsor admin. */
+  team: "ti_a_sponsor",
   /* GET /intelligence/pricing/{inventoryId} (3S2-BE-02). */
   pricing: A.item,
   /* POST /intelligence/pricing/recommendations/{recommendationId}/overrides (3S2-BE-03). */
@@ -378,6 +380,7 @@ const BODY: Record<string, unknown> = {
   "POST /branding/logo": { contentType: "image/png", bytes: 10 },
   "POST /restrictions": { athleteId: A.athlete, category: "CRYPTO", type: "PROHIBITED" },
   "PUT /sponsors/{id}/categories": { categories: ["APPAREL"] },
+  "PATCH /sponsor/team/{id}": { role: "SPONSOR_ANALYST" },
   "POST /cart/lines": { listingId: A.listing, quantity: 1, startsOn: "2027-01-01T00:00:00.000Z", endsOn: "2027-01-02T00:00:00.000Z" },
   "PATCH /cart/lines/{id}": { quantity: 2 },
   /* 2S4-FE-02 — a whole contract gate (terms accepted, billing confirmed), so the call reaches the hold's scope check. */

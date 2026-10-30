@@ -76,6 +76,8 @@ export type EmailTemplate =
   | "onboarding.documentChanged"
   /* 2S1-BE-05 — BTG's decision on a business asking to sponsor. */
   | "sponsor.accountOpened"
+  /* POL-BE-19 — a sponsor admin invited a colleague to their team. */
+  | "sponsor.teamInvite"
   | "sponsor.requestDeclined"
   /* 2S1-BE-17 — automatic approval: the applicant confirms their email; BTG
      hears of every new sponsor; a rejection after approval, and a reinstatement. */

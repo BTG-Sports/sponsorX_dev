@@ -542,6 +542,11 @@ ${d.portalUrl ?? ""}
     subject: "Your SponsorX sponsor account is ready",
     text: `Hi ${d.firstName ?? "there"},\n\nYour sponsor account for ${d.businessName ?? "your business"} is open on SponsorX. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\nFrom there you can browse athletes and teams, and send BTG a brief.\n\n— BTG SponsorX`,
   }),
+  /* POL-BE-19 — a colleague's invite to their sponsor's team. */
+  "sponsor.teamInvite": (d) => ({
+    subject: `You're invited to ${d.businessName ?? "a sponsor"}'s team on SponsorX`,
+    text: `Hi,\n\n${d.inviter ?? "A colleague"} invited you to join ${d.businessName ?? "their"} team on SponsorX as ${d.roleName ?? "a member"}.\n\nSign in or create your login with this email address, ${d.email ?? "the one this was sent to"}:\n\n${d.portalUrl ?? ""}\n\nIf you weren't expecting this, you can ignore it.\n\n— BTG SponsorX`,
+  }),
   "sponsor.requestDeclined": (d) => ({
     subject: "About your SponsorX sponsor request",
     text: `Hi ${d.firstName ?? "there"},\n\nThanks for asking to sponsor on SponsorX. BTG can't open an account for ${d.businessName ?? "you"} yet:\n\n${d.note ?? ""}\n\nQuestions? Write to BTG support at ${d.supportEmail ?? "the support address"}${d.supportUrl ? `, or use the contact page:\n\n${d.supportUrl}` : "."}\n\n— BTG SponsorX`,
