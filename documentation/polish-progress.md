@@ -23,6 +23,7 @@ each problem we ran into was solved. Newest first within each day.
 | 18 · A sponsor couldn't resend the confirmation or fix a mistyped address | `POL-BE-18` | #352 | Merged |
 | 19 · A sponsor admin couldn't add teammates | `POL-BE-19` | #358 | Merged |
 | 22 · A sponsor wasn't told when staffing stalled | `POL-BE-22` | #359 | Merged |
+| 29 · The guardian-handoff queue listed newest first | `POL-BE-29` | #360 | Merged |
 | 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
 
 The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`, `POL-FE-10`, `POL-FE-11`, `POL-FE-12`) are for
@@ -445,6 +446,16 @@ rely on.
     sponsor's "next step" still said "We're staffing your campaign" after
     BTG took over. It now says "BTG is finding more athletes since …", so
     the fix shows even before the screen work.
+
+### `POL-BE-29` — the guardian-handoff queue reads oldest first
+- **Problem:** every tab sorted newest first, so the longest-waiting
+  minors' requests slipped down the list.
+- **Approach:** tabs with requests still waiting sort oldest first, and
+  finished tabs keep newest first. The unfiltered list puts every waiting
+  request first, oldest on top, then the finished ones. It is read in two
+  segments (`readSegments`), so paging keeps that order. A same-time
+  tiebreak on id keeps pages stable.
+- **Snag:** none. The existing handoff tests still pass with the new order.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.

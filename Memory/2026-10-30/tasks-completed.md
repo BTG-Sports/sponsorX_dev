@@ -127,6 +127,16 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
 - **For HeckerCreatives:** `POL-FE-22` shows "BTG is finding more athletes · since {date}". Notes are in polish.md.
 - **Next-step wording:** `sponsorStaffingLine` now reads "BTG is finding more athletes since {Mon d}: x of range signed so far" (who BTG) when stalled. `auto-staffing-launch.test.ts` was updated for the new field and line.
 - **Flaky test:** `invitation-guardian-mail` failed once in the full run; it passed alone twice, and again in the full rerun.
+
+### `POL-BE-29` — the guardian-handoff queue reads oldest first (rcfworks), on `feature/POL-BE-29-handoffs-oldest-first`
+
+- **Built:** `listHandoffs` in `guardian-handoff.ts`.
+  - Open groups (`WAITING_FOR_BTG`, `IN_PROGRESS`, arena `waiting`) order by `createdAt` then `id`, ascending.
+  - Closed groups order descending.
+  - No group: two `readSegments` segments (open states ascending, then the rest descending), paged or not.
+- **Tests:** `backend/tests/pol-be-29-handoffs-oldest-first.test.ts` (5) checks each tab's order, the unfiltered order, and the order across pages. The existing handoff desk, flow and escalation tests still pass.
+- **Left on the backend polish list:** `POL-BE-36` (the payments switch).
 - **POL-BE-18 merged:** #352 into `main_development`; the row is Done and went to both branches. It is the first Done row the fixed tracker-notify announces in Slack.
 - **POL-BE-19 merged:** #358 into `main_development`. The row is Done and rides #356/#357 with POL-BE-18's, to both branches.
 - **POL-BE-22 merged:** #359 into `main_development` (its first CI run hit a Google Fonts fetch failure in the web build; the rerun passed). The row is Done and rides #356/#357 with 18's and 19's.
+- **POL-BE-29 merged:** #360 into `main_development`. The row is Done and rides #356/#357 with 18's, 19's and 22's.

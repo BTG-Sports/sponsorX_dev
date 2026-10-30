@@ -1260,8 +1260,8 @@
     "semantic_hash": ""
   },
   "backend/src/contracts/campaign.ts": {
-    "mtime": 1793336911.834705,
-    "seen": 1793337316.948677,
+    "mtime": 1793339902.279983,
+    "seen": 1793341211.283419,
     "ast_hash": "ae42ec0f2870b77c568b150feecaad96",
     "semantic_hash": ""
   },
@@ -1302,8 +1302,8 @@
     "semantic_hash": ""
   },
   "backend/src/contracts/registry.ts": {
-    "mtime": 1793336889.1922567,
-    "seen": 1793337316.949423,
+    "mtime": 1793339902.2855241,
+    "seen": 1793341211.284153,
     "ast_hash": "b65506427fc6d7ac73b08b0e347b25b8",
     "semantic_hash": ""
   },
@@ -1644,8 +1644,8 @@
     "semantic_hash": ""
   },
   "backend/src/routes/v1/campaigns.ts": {
-    "mtime": 1793336742.3236306,
-    "seen": 1793337316.9589849,
+    "mtime": 1793339902.3088424,
+    "seen": 1793341211.293291,
     "ast_hash": "a4a053a82292e2ab91534768ea0886ed",
     "semantic_hash": ""
   },
@@ -1974,8 +1974,8 @@
     "semantic_hash": ""
   },
   "backend/worker/index.mts": {
-    "mtime": 1793336781.0227442,
-    "seen": 1793337316.968524,
+    "mtime": 1793339902.3126593,
+    "seen": 1793341211.302531,
     "ast_hash": "b418efa4904cf50039348651af9769d5",
     "semantic_hash": ""
   },
@@ -6744,9 +6744,9 @@
     "semantic_hash": ""
   },
   "backend/src/domain/guardian-handoff.ts": {
-    "mtime": 1793270765.8210914,
-    "seen": 1793327169.8261309,
-    "ast_hash": "b4ca6e60ee63249096a181d114304da9",
+    "mtime": 1793340951.772964,
+    "seen": 1793341211.288085,
+    "ast_hash": "b958763fced8bccdef908740b4707c43",
     "semantic_hash": ""
   },
   "backend/src/domain/guardian-setup.ts": {
@@ -8826,14 +8826,14 @@
     "semantic_hash": ""
   },
   "backend/src/domain/auto-staffing-rules.ts": {
-    "mtime": 1793337117.9509566,
-    "seen": 1793337316.9513862,
+    "mtime": 1793339902.2932105,
+    "seen": 1793341211.28559,
     "ast_hash": "609dc4ef7e7b511a4a4b755f01ceee6b",
     "semantic_hash": ""
   },
   "backend/src/domain/auto-staffing.ts": {
-    "mtime": 1793336781.0219522,
-    "seen": 1793337316.9513931,
+    "mtime": 1793339902.3045375,
+    "seen": 1793341211.28559,
     "ast_hash": "9d9c145d69209e853a27eeb68eeda9bc",
     "semantic_hash": ""
   },
@@ -8910,14 +8910,14 @@
     "semantic_hash": ""
   },
   "backend/src/domain/campaign-stage-rules.ts": {
-    "mtime": 1793337117.9512284,
-    "seen": 1793337316.9521239,
+    "mtime": 1793339902.3061593,
+    "seen": 1793341211.2861938,
     "ast_hash": "d663b092d72bdb8c07fc761597cb89fa",
     "semantic_hash": ""
   },
   "backend/src/domain/campaign-stages.ts": {
-    "mtime": 1793336742.3187468,
-    "seen": 1793337316.9521239,
+    "mtime": 1793339902.3070316,
+    "seen": 1793341211.2861938,
     "ast_hash": "59d8bcd0b004cf8aae8f3720cedd744b",
     "semantic_hash": ""
   },
@@ -9498,8 +9498,8 @@
     "semantic_hash": ""
   },
   "backend/tests/auto-staffing-launch.test.ts": {
-    "mtime": 1793337117.9521484,
-    "seen": 1793337316.960918,
+    "mtime": 1793339902.3098476,
+    "seen": 1793341211.295187,
     "ast_hash": "59171d06c8e5d8016c896c2ba7e184a5",
     "semantic_hash": ""
   },
@@ -12942,9 +12942,9 @@
     "semantic_hash": ""
   },
   "documentation/polish.md": {
-    "mtime": 1793337143.640483,
-    "seen": 1793337317.0129158,
-    "ast_hash": "dce2bd75ac1c3134f46874601f390a39",
+    "mtime": 1793341027.6574497,
+    "seen": 1793341211.344676,
+    "ast_hash": "de0d98ddff1eabc6b29027780ad5c6b3",
     "semantic_hash": ""
   },
   "backend/src/domain/account-closure-impact.ts": {
@@ -13050,15 +13050,15 @@
     "semantic_hash": ""
   },
   "documentation/polish-progress.md": {
-    "mtime": 1793337143.6416519,
-    "seen": 1793337317.012915,
-    "ast_hash": "38fab0a3fa91b7aa77dc6104f68d963f",
+    "mtime": 1793341027.6580956,
+    "seen": 1793341211.344675,
+    "ast_hash": "e2c04b7498ce68dd5766f2ec27cbefe9",
     "semantic_hash": ""
   },
   "Memory/2026-10-30/tasks-completed.md": {
-    "mtime": 1793337143.6422675,
-    "seen": 1793337317.007775,
-    "ast_hash": "8441343765b04af55b3afb0896718600",
+    "mtime": 1793341027.6581466,
+    "seen": 1793341211.339945,
+    "ast_hash": "bb0259dd6c446e522c9b497616793b0a",
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {
@@ -13116,9 +13116,15 @@
     "semantic_hash": ""
   },
   "backend/tests/pol-be-22-staffing-stalled.test.ts": {
-    "mtime": 1793337117.9525204,
-    "seen": 1793337316.966203,
+    "mtime": 1793339902.310794,
+    "seen": 1793341211.300273,
     "ast_hash": "6fddcefcd95b239b178ceceb43395d3a",
+    "semantic_hash": ""
+  },
+  "backend/tests/pol-be-29-handoffs-oldest-first.test.ts": {
+    "mtime": 1793341005.5757418,
+    "seen": 1793341211.300274,
+    "ast_hash": "d828aa0999dd6389db314f0bd5fc2257",
     "semantic_hash": ""
   }
 }
