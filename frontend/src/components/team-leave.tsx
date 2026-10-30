@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { leaveTeamAction, respondToTeamAction } from "@/app/(app)/athlete/team/actions";
+import { leaveTeamAction, respondToShareChangeAction, respondToTeamAction } from "@/app/(app)/athlete/team/actions";
+import type { ShareChangeView } from "@/lib/team-invite-live";
 import { useDialogFocus } from "./use-dialog-focus";
 
 /* --------------------------------------------------------------------------
@@ -14,6 +15,10 @@ import { useDialogFocus } from "./use-dialog-focus";
    The design's first leave bullet ("the team's listings of your items
    end") is replaced by what happens (2S2-BE-05): the team's listings of the
    athlete's items are paused, and orders already placed carry on.
+
+   POL-FE-03 — ShareChangeAnswer: Accept (behind a one-sentence confirm,
+   since it changes what the athlete is paid from here on) and Decline on
+   the team's request to change its share (respondToShareChangeAction).
    -------------------------------------------------------------------------- */
 
 const danger =
@@ -46,6 +51,70 @@ export function TeamInviteAnswer({ invitationId, team }: { invitationId: string;
         </button>
       </div>
       {error && <p role="alert" className="text-[11px] text-danger">{error}</p>}
+    </div>
+  );
+}
+
+/** POL-FE-03 — Accept (confirmed in a dialog) or Decline the team's share request. */
+export function ShareChangeAnswer({ view, team }: { view: ShareChangeView; team: string }) {
+  const router = useRouter();
+  const [confirm, setConfirm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const decline = () =>
+    start(async () => {
+      setError(null);
+      const r = await respondToShareChangeAction(view.id, "DECLINE");
+      if (!r.ok) return setError(r.message);
+      router.refresh();
+    });
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2.5">
+        <button type="button" className={primary} disabled={pending} onClick={() => setConfirm(true)} aria-label={`${view.acceptLabel}: ${view.to} for ${team}`}>
+          {view.acceptLabel}
+        </button>
+        <button type="button" className={secondary} disabled={pending} onClick={decline} aria-label={`Decline ${team}'s share request`}>
+          {pending ? "Saving…" : "Decline"}
+        </button>
+      </div>
+      {error && <p role="alert" className="text-[11px] text-danger">{error}</p>}
+      {confirm && <ShareAcceptDialog view={view} onClose={() => setConfirm(false)} />}
+    </div>
+  );
+}
+
+function ShareAcceptDialog({ view, onClose }: { view: ShareChangeView; onClose: () => void }) {
+  const ref = useDialogFocus<HTMLDivElement>(onClose);
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const accept = () =>
+    start(async () => {
+      setError(null);
+      const r = await respondToShareChangeAction(view.id, "ACCEPT");
+      if (!r.ok) return setError(r.message);
+      onClose();
+      router.refresh();
+    });
+  return (
+    <div ref={ref} className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="sc-title">
+      <button type="button" tabIndex={-1} aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-black/55" />
+      <div className="absolute inset-0 flex items-end justify-center p-4 sm:items-center">
+        <div className="sx-pop relative w-full max-w-md space-y-4 rounded-2xl border border-primary/40 bg-bg p-5 shadow-2xl">
+          <h2 id="sc-title" className="text-base font-semibold tracking-tight">{view.acceptTitle}</h2>
+          <p className="text-[13px] leading-relaxed text-text/85">{view.acceptLine}</p>
+          {error && <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] text-danger">{error}</p>}
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" data-autofocus onClick={onClose} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line px-4 text-[13px] font-medium text-text hover:bg-surface-2">
+              Not now
+            </button>
+            <button type="button" className={primary} disabled={pending} onClick={accept}>
+              {pending ? "Saving…" : view.acceptLabel}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

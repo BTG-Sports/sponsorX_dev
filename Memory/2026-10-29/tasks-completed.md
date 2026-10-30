@@ -109,6 +109,25 @@ Every frontend task whose backend is done, or that needs no backend, in five com
   - resetting the Change form on every open also threw away a draft closed by accident — it resets only when the campaign's own values changed.
 - **Checked:** the full frontend suite, eslint and `next build`.
 
+### Batch 2 — the eight items rcfworks unblocked today, plus the Certified Recruiting card (HeckerCreatives), on `feature/POL-FE-batch-2`
+
+Built against the backend merged on `main_development` this afternoon, five commits by task group, then walked on the local stack (API with `REWARD_STAFF_CODE_REQUIRED=on`, `REWARD_FAN_CODES=on`, `MARKETPLACE_BUYER_FEE_BPS=300`), 94 checks across six roles.
+
+- **`POL-FE-02`** held adulthood changes: "Waiting for BTG" + Withdraw in the profile editor; Apply / Decline (note) on the sensitive-edits list (`legal-name-decision.tsx` generalised); "ID received — BTG is checking it" on the coming-of-age page and reminder; the hold's reasons and **Confirm takeover** on BTG's athlete page.
+- **`POL-FE-03`** a share change needs the athlete's yes: roster "Waiting for {athlete}'s answer" + Withdraw, lowering applies at once; athlete's team page Accept (confirm) / Decline; minor → "Your guardian accepts this"; guardian accepts for the ward.
+- **`POL-FE-05`** cart and checkout show Subtotal / Fees / Total from the API's quote; `totalCentsShown` on placing; 409 `total_changed` refreshes.
+- **`POL-FE-06`** "You paid twice: $X is being refunded" (sponsor) / "Paid twice: refund on its way" (BTG); Refunds to send labels the causes.
+- **`POL-FE-07`** fan page: no-script `<details>` staff-code panel with confirm, plain-words refusals, Undo within the window; BTG's reward QR panel shows the staff code, two-click New code, refused / undone counts. Still 0 scripts, 0 fonts (5.8 KB at its richest).
+- **`POL-FE-08`** a claim on a shared QR follows the answer's own code to `/r/{code}`; an httpOnly cookie per shared code sends a second scan straight there; shared page = offer only, "All claimed" when exhausted.
+- **`POL-FE-10`** handoff desk age / "No answer from the current guardian" / Confirm and Decline when BTG may decide; guardian's card "BTG will review this if you don't answer".
+- **`POL-FE-11`** closing shows live deals, invitations, money, wards, "BTG settles these first"; held → "Waiting for BTG" + Withdraw; minor → "Your guardian closes your account"; BTG's Closed accounts desk gains **Waiting to close** with Close now (409 lists what's open) and Decline. The `/admin/closures/requests/:id` link in the backend's email lands on it.
+- **`5S1-FE-01`** the Certified Recruiting card on the home page's For athletes stop and the athlete dashboard (logo host added to the report-only CSP).
+- **Walked and passing:** cart/checkout $500 + $15 = $515; the duplicate payment on both order pages and in Refunds to send; a minor's DOB change held and declined by BTG; the held takeover and its Confirm button; the escalated handoff on the desk (waiting 9 days, no answer, Confirm/Decline) and on the guardian's card; a raise to 25% waiting, accepted by the athlete, applied; the closing preview with five live deals, held, the desk's Waiting to close tab and detail, Close now refused with the open list, Withdraw, the minor's message; the fan page: own code from the shared QR, second scan straight to it, wrong code ("tries left"), right code, Undo, token counts; New code on the desk; both cards.
+- **Bug found and fixed:** the close dialog opened clipped inside the settings card. Root cause is global: `.sx-animate`'s keyframe ended on `transform: translateY(0)` with fill-mode `both`, so every animated card kept a transform and became the containing block for any `position: fixed` dialog inside it (the content desk's drawer hit the same thing on 10-19 and was portaled). The keyframe now ends on `transform: none`, which frees all 20 un-portaled dialogs at once; the close dialog is portaled too.
+- **For rcfworks:** the fan page has shipped — turn `REWARD_STAFF_CODE_REQUIRED` and `REWARD_FAN_CODES` on in staging first (one reward: wrong then right code, undo; two phones on one QR), then production.
+- **Not a screen:** there is no sponsor-side rewards page, so the sponsor's admins can't see the staff code yet (the API sends it to them). A new screen, not in this batch.
+- **Checked:** 160 files / 1,893 tests, eslint, `next build`. Seeds reverted (athlete off the Hawks roster, the minor's coming-of-age cleared, the handoff, refund, attempt, closure request, share change, cart line, fan codes deleted, the reward's expiry restored); the QA logins' links restored; servers stopped.
+
 ### Still open for the frontend
 
 - Waiting on a backend row: `POL-FE-02, 03, 05, 06, 07, 08, 10, 11, 12, 15, 17, 18, 19, 22, 36`.

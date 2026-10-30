@@ -71,7 +71,9 @@ export default async function ComingOfAgeTokenPage({ params }: { params: Promise
       </div>
       {c.window === "allowance" && (
         <p className="text-sm leading-relaxed text-muted">
-          You&rsquo;ve reached {c.ageOfMajority}, the age of majority where you live. Upload a government ID by {c.until ? dayOf(c.until) : "the deadline"} — {left} day{left === 1 ? "" : "s"} left — and your account is yours: you accept your own agreements and manage your own money. Until then, new items and new deals are paused; orders already agreed carry on.
+          {c.checking
+            ? `You’ve reached ${c.ageOfMajority}, the age of majority where you live, and your government ID is in. Once BTG confirms it your account is yours: you accept your own agreements and manage your own money. Until then, new items and new deals stay paused; orders already agreed carry on.`
+            : `You’ve reached ${c.ageOfMajority}, the age of majority where you live. Upload a government ID by ${c.until ? dayOf(c.until) : "the deadline"} — ${left} day${left === 1 ? "" : "s"} left — and your account is yours: you accept your own agreements and manage your own money. Until then, new items and new deals are paused; orders already agreed carry on.`}
         </p>
       )}
       {c.window === "reactivate" && (

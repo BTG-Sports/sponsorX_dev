@@ -10,7 +10,9 @@ import type { SectionState } from "@/lib/profile-live";
 import { BRAND_CATEGORIES, categoryLabel } from "@/lib/brand-categories";
 import { CONTENT_CAPABILITIES, capabilityLabel } from "@/lib/content-capabilities";
 import { CHECKING_WORDS } from "@/lib/document-checks-live";
-import { SECTION_LABELS, STATE_COPY, changeRows, latestForBanner, legalNameNeedsId, sentBackAsk, type ApiProfileChange } from "@/lib/profile-changes-live";
+import {
+  SECTION_LABELS, STATE_COPY, bannerLabel, changeRows, latestForBanner, legalNameNeedsId, pendingLine, sentBackAsk, withdrawnLine, type ApiProfileChange,
+} from "@/lib/profile-changes-live";
 import { RELATIONSHIPS, idFileProblem, relationshipCode, ID_UPLOAD } from "@/lib/guardian-live";
 import {
   confirmLegalNameIdAction,
@@ -267,6 +269,9 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
             ? { ok: false, text: `${confirmed.message} Your other changes are saved; your new legal name waits for its ID. Choose a clearer file and save again, or withdraw it above.` }
             : { ok: false, text: "Your other changes are saved, but the ID didn't arrive — your new legal name waits for it. Choose the file and save again, or withdraw it above." });
         setIdFile(null);
+      } else if (r.held) {
+        /* POL-FE-02 — a minor's new date of birth (or move) that would make them an adult waits for BTG; the rest applied. */
+        setResult({ ok: true, text: `Saved — but a change that would make you an adult waits for BTG. Nothing changes until they apply it; we'll email you. Your other changes are live.${checks}` });
       } else {
         setResult({ ok: true, text: r.checkNotes.length ? `Saved. ${SENSITIVE_NOTE}${checks}` : "Saved — live on your profile now." });
       }
@@ -274,10 +279,10 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
       router.refresh();
     });
 
-  const withdraw = (id: string) =>
+  const withdraw = (change: ApiProfileChange) =>
     start(async () => {
-      const r = await withdrawProfileChange(id).catch(() => ({ ok: false as const, message: "Couldn't reach SponsorX just now." }));
-      setResult(r.ok ? { ok: true, text: "Withdrawn. Your legal name stays as it is." } : { ok: false, text: r.message });
+      const r = await withdrawProfileChange(change.id).catch(() => ({ ok: false as const, message: "Couldn't reach SponsorX just now." }));
+      setResult(r.ok ? { ok: true, text: withdrawnLine(change) } : { ok: false, text: r.message });
       if (r.ok) router.refresh();
     });
 
@@ -438,12 +443,10 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
         >
           <div className="min-w-0 flex-1 text-[11px] leading-relaxed text-muted">
             <p>
-              <Badge tone={STATE_COPY[banner.state].tone}>{STATE_COPY[banner.state].label}</Badge>{" "}
+              <Badge tone={STATE_COPY[banner.state].tone}>{bannerLabel(banner)}</Badge>{" "}
               <span className="text-text">{banner.sections.map((s) => SECTION_LABELS[s] ?? s).join(", ")}</span>
               {banner.state === "PENDING"
-                ? banner.idDocumentUploadedAt
-                  ? " — your ID is in. BTG is checking it; your new legal name goes live once they apply it."
-                  : " — your new legal name goes live once its matching ID arrives."
+                ? ` — ${pendingLine(banner)}`
                 : banner.state === "DECLINED"
                   ? ` — ${sentBackAsk(banner) ?? "declined."} Enter the name again and save it with a clearer ID.`
                   : ` — live on your profile. ${SENSITIVE_NOTE}`}
@@ -456,7 +459,7 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
             {(banner.checkNotes?.length ?? 0) > 0 && <p className="mt-1 text-text">{banner.checkNotes!.join(" ")}</p>}
           </div>
           {banner.state === "PENDING" && (
-            <button type="button" onClick={() => withdraw(banner.id)} disabled={pending} className="rounded-lg border border-line px-3 py-1.5 text-[11px] text-muted hover:text-text disabled:opacity-50">
+            <button type="button" onClick={() => withdraw(banner)} disabled={pending} className="rounded-lg border border-line px-3 py-1.5 text-[11px] text-muted hover:text-text disabled:opacity-50">
               Withdraw
             </button>
           )}

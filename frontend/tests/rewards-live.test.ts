@@ -1,6 +1,26 @@
 import { describe, expect, it } from "vitest";
 
-import { capLine, ELIGIBILITY, expiryFor, fanPath, fmtEt, fmtEtTime, fmtEtWhen, holdLabel, holdPreset, parseCap, redeemRate, redemptionRate, rewardMoves } from "../src/lib/rewards-live";
+import { capLine, ELIGIBILITY, expiryFor, fanPath, fmtEt, fmtEtTime, fmtEtWhen, holdLabel, holdPreset, parseCap, redeemRate, redemptionRate, rewardMoves, tokenActivityLine } from "../src/lib/rewards-live";
+
+describe("POL-FE-07 · tokenActivityLine — what the booth refused and undid on a code", () => {
+  const now = new Date("2026-10-11T20:00:00.000Z"); // Sun, Oct 11, 4:00 PM ET
+
+  it("says nothing for a quiet code, or against an older API", () => {
+    expect(tokenActivityLine({ refusedRedeems: 0, undoneRedeems: 0, lastRefusedRedeemAt: null, lastUndoneRedeemAt: null }, now)).toBe("");
+    expect(tokenActivityLine({}, now)).toBe("");
+  });
+
+  it("counts each, with when it last happened, in Eastern", () => {
+    expect(
+      tokenActivityLine(
+        { refusedRedeems: 3, lastRefusedRedeemAt: "2026-10-11T18:00:00.000Z", undoneRedeems: 1, lastUndoneRedeemAt: "2026-10-11T18:05:00.000Z" },
+        now,
+      ),
+    ).toBe("3 refused · last 2:00 PM ET · 1 undone · last 2:05 PM ET");
+    expect(tokenActivityLine({ refusedRedeems: 2, lastRefusedRedeemAt: "2026-10-09T10:00:00.000Z", undoneRedeems: 0 }, now)).toBe("2 refused · last Fri, Oct 9, 6:00 AM ET");
+    expect(tokenActivityLine({ undoneRedeems: 1, lastUndoneRedeemAt: null }, now)).toBe("1 undone");
+  });
+});
 
 /* --------------------------------------------------------------------------
    P6-FE-01 — the reward desk's rules. Moves are reward-state.ts's exactly;

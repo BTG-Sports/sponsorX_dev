@@ -46,6 +46,8 @@ export type ApiComingOfAge = {
   seat?: "athlete" | "guardian";
   /** The athlete's own login: where "Upload government ID" goes. */
   uploadPath?: string | null;
+  /** POL-BE-02 — the ID is in but didn't read clear: BTG is checking it before control moves. Absent from an older API. */
+  checking?: boolean;
 };
 
 /* ---------------------------------------------------------------- shared */
@@ -109,6 +111,8 @@ export type AgeView = {
   pausedItems: string;
   pausedDeals: string;
   daysLeft: number;
+  /** POL-FE-02 — the ID is received and BTG is checking it: no CTA, the countdown is paused. */
+  checking: boolean;
 };
 
 /** The reminder, from the athlete's side or the guardian's. Null once the ID is in. */
@@ -118,6 +122,23 @@ export function comingOfAgeView(c: ApiComingOfAge, seat: "athlete" | "guardian",
   const n = daysLeft(c.dueAt ? new Date(c.dueAt) : new Date(reached.getTime() + ALLOWANCE_DAYS * DAY), now);
   const who = c.athleteFirstName;
   const left = `${plural(n, "day")} left`;
+  if (c.checking) {
+    /* POL-BE-02 — the ID raised a question, so a person at BTG checks it. The 90 days don't run out meanwhile. */
+    const you = seat === "guardian" ? who : "you";
+    const your = seat === "guardian" ? `${who}’s` : "your";
+    return {
+      title: "ID received — BTG is checking it",
+      line: seat === "guardian"
+        ? `${who}’s government ID is in. A person at BTG checks it before the account moves to ${who}; until then you stay in control, and the ${ALLOWANCE_DAYS} days don’t run out. We’ll email you both.`
+        : `Your government ID is in. A person at BTG checks it before the account becomes yours; until then your guardian stays in control, and the ${ALLOWANCE_DAYS} days don’t run out. We’ll email you.`,
+      cta: "",
+      heading: seat === "guardian" ? `${who}’s account` : `Hi, ${who}`,
+      pausedItems: `Paused until BTG confirms ${your} ID.`,
+      pausedDeals: `Sponsors can’t start new deals with ${you} until BTG confirms the ID.`,
+      daysLeft: n,
+      checking: true,
+    };
+  }
   if (seat === "guardian") {
     return {
       title: `${who} can now take over the account`,
@@ -127,6 +148,7 @@ export function comingOfAgeView(c: ApiComingOfAge, seat: "athlete" | "guardian",
       pausedItems: `Paused until ${who} uploads a government ID.`,
       pausedDeals: `Sponsors can’t start new deals with ${who} until the ID is uploaded.`,
       daysLeft: n,
+      checking: false,
     };
   }
   return {
@@ -137,6 +159,7 @@ export function comingOfAgeView(c: ApiComingOfAge, seat: "athlete" | "guardian",
     pausedItems: "Paused until you upload a government ID.",
     pausedDeals: "Sponsors can’t start new deals with you until the ID is uploaded.",
     daysLeft: n,
+    checking: false,
   };
 }
 

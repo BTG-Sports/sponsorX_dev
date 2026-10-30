@@ -21,6 +21,7 @@ import type { OrderGateRecord } from "@/lib/checkout-gate";
 import { dateLabel } from "@/lib/onboarding-live";
 import { lineSeller } from "@/lib/shop-live";
 import { paymentView, type ApiOrderPayment } from "@/lib/order-payment-live";
+import { extraPaymentWords, splitRefunds } from "@/lib/refunds-live";
 import { apiFetch } from "@/server/api";
 
 /* --------------------------------------------------------------------------
@@ -40,6 +41,11 @@ import { apiFetch } from "@/server/api";
    sponsor's name and limit card; an order held above it gets the Held order
    card (Approve / Reject → POST …/decision), and Mark paid by hand is the
    design's dialog (POST …/transition {to: PAID, payment}).
+
+   POL-FE-06: a refund on the order with cause PAID_TWICE or
+   PAID_AFTER_REFUND and no line is an extra payment the sponsor made — the
+   Payment card says "Paid twice: refund on its way | sent on …" and links to
+   Refunds to send, where Finance marks it sent like any other.
 
    Honest gap: a role that can't read the sponsor's limit sees the sponsor
    only by id.
@@ -83,6 +89,8 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
   const state = ORDER_STATE_COPY[order.state];
   const byLine = new Map((financials ?? []).map((f) => [f.lineId, f]));
   const wait = order.state === "PENDING_APPROVAL" ? waitLabel(order.createdAt, new Date().getTime()) : null;
+  /* POL-FE-06 — the sponsor's extra payments (paid twice, or after the refund) going back. */
+  const extraPayments = splitRefunds(order.refunds ?? []).extra;
 
   return (
     <div className="space-y-6">
@@ -229,6 +237,21 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
                     <p className="text-muted">The sponsor pays by card from their order page once it&rsquo;s approved.</p>
                   )}
                   {payment?.testProvider && <p className="text-[11px] text-faint">Test payment provider — staging only, no real money.</p>}
+                  {extraPayments.length > 0 && (
+                    <div role="status" className="mt-2 space-y-1 rounded-lg border border-warn/40 bg-warn/8 px-3 py-2">
+                      {extraPayments.map((r) => (
+                        <p key={r.id} className="font-semibold text-text">
+                          {extraPaymentWords(r, "btg")} · <span className="tabular-nums">{usd(r.amountCents)}</span>
+                        </p>
+                      ))}
+                      <p className="text-[11px] text-muted">
+                        The order&rsquo;s own payment stands; only the extra goes back.{" "}
+                        {extraPayments.some((r) => r.state === "OPEN") ? (
+                          <>Finance sends it from <Link href="/admin/refunds" className="underline">Refunds to send</Link> and marks it sent there.</>
+                        ) : null}
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })()}

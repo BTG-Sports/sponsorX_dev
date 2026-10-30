@@ -164,7 +164,8 @@ export function buildReportOnlyCsp(env: Env): string {
     ["default-src", ["'self'"]],
     ["script-src", ["'self'", "'unsafe-inline'", ...(dev ? ["'unsafe-eval'"] : []), ...clerk, turnstile]],
     ["style-src", ["'self'", "'unsafe-inline'"]],
-    ["img-src", ["'self'", "data:", "blob:", "https://img.clerk.com", ...storage]],
+    /* 5S1-FE-01 — the Certified Recruiting partner card links the partner's own logo. */
+    ["img-src", ["'self'", "data:", "blob:", "https://img.clerk.com", "https://www.certified-recruiting.com", ...storage]],
     ["font-src", ["'self'", "data:"]],
     ["connect-src", ["'self'", ...clerk, turnstile, ...storage, ...(devInstance ? ["https://clerk-telemetry.com"] : []), ...(dev ? ["ws:"] : [])]],
     ["frame-src", ["'self'", turnstile, ...storage]],

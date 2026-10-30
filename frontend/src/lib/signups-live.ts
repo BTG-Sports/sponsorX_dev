@@ -53,8 +53,23 @@ export type ApiSignupDetail = ApiSignupRow & {
   rejectedWithGuardian: boolean;
   /** P5-BE-10 — an athlete's content standing (BTG only; absent for a guardian). */
   contentTrust?: ContentTrust;
-  can: { approve: boolean; reject: boolean; reinstate: boolean };
+  /** POL-BE-02 — a coming-of-age takeover the ID check held: when, and why (BTG's words). Null or absent when nothing is held. */
+  comingOfAgeHeld?: { at: string; reasons: string[] } | null;
+  can: { approve: boolean; reject: boolean; reinstate: boolean; /** POL-BE-02 — Confirm takeover is on. */ confirmComingOfAge?: boolean };
 };
+
+/** POL-FE-02 — the held takeover as BTG reads it: a heading, the reasons, and what Confirm / Send back do. Null when nothing is held. */
+export function comingOfAgeHold(d: Pick<ApiSignupDetail, "name" | "comingOfAgeHeld">): { title: string; reasons: string[]; confirm: string; refuse: string } | null {
+  const h = d.comingOfAgeHeld;
+  if (!h) return null;
+  const first = d.name.split(/\s+/)[0] ?? d.name;
+  return {
+    title: `Coming of age · held since ${dayOf(h.at)}`,
+    reasons: h.reasons.length ? h.reasons : ["The ID couldn’t be read."],
+    confirm: `Confirm takeover moves control to ${first}: they accept their own agreements and manage their own money, and their guardian is removed and told.`,
+    refuse: `To refuse it, send the ID back from Documents — ${first} is emailed to upload a clearer one and their guardian stays in control.`,
+  };
+}
 
 export const LIVE_KIND_WORDS: Record<LiveSignupKind, string> = { ATHLETE: "Athlete", GUARDIAN: "Guardian" };
 

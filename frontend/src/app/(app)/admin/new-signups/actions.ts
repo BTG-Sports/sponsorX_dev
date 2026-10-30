@@ -14,6 +14,7 @@ import { apiFetch } from "@/server/api";
      POST /signups/athletes/:id/approve                 a held sign-up, approved by BTG
      POST /signups/{athletes|guardians}/:id/reject      {note} — emailed exactly as written
      POST /signups/{athletes|guardians}/:id/reinstate
+     POST /signups/athletes/:id/coming-of-age/confirm   POL-BE-02: a takeover the ID check held
      GET  /signups/{athletes|guardians}/:id/documents/:documentId   a 5-minute audited link
 
    Every export of a "use server" file is a callable endpoint, so the
@@ -51,6 +52,26 @@ export async function signupDecisionAction(owner: Owner, id: string, decision: "
   const b = await body(res);
   revalidatePath("/admin/new-signups");
   revalidatePath(`/admin/new-signups/${owner}/${id}`);
+  return res.ok ? { ok: true } : { ok: false, message: refusalWords(b, res.status) };
+}
+
+/**
+ * POL-FE-02 / POL-BE-02 — BTG confirms a coming-of-age takeover the ID check
+ * held: control moves to the athlete exactly as a clear ID would have, and
+ * the guardian is removed and told. To refuse it, BTG sends the ID back
+ * instead (signupSendBackAction), which ends the hold.
+ */
+export async function confirmComingOfAgeAction(id: string): Promise<SignupActionResult> {
+  if (typeof id !== "string" || !ID.test(id)) return { ok: false, message: "Unknown sign-up." };
+  let res: Response;
+  try {
+    res = await apiFetch(`/signups/athletes/${encodeURIComponent(id)}/coming-of-age/confirm`, { method: "POST", body: JSON.stringify({}) });
+  } catch {
+    return { ok: false, message: "The API is unreachable — nothing changed. Try again in a minute." };
+  }
+  const b = await body(res);
+  revalidatePath("/admin/new-signups");
+  revalidatePath(`/admin/new-signups/athletes/${id}`);
   return res.ok ? { ok: true } : { ok: false, message: refusalWords(b, res.status) };
 }
 

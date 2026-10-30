@@ -7,7 +7,9 @@ import { ShopLineRow, ShopPaymentNote } from "@/components/shop-bits";
 import { CHECKOUT_STEPS, ShopCheckoutGate, ShopReserveButton } from "@/components/shop-checkout";
 import { StadiumHead, StadiumPanel, StadiumSteps } from "@/components/stadium-stage";
 import { StadiumHoldCountdown } from "@/components/stadium-hold-countdown";
+import { quoteFor } from "@/lib/checkout-gate";
 import {
+  feeText,
   fmtStamp,
   lineSummary,
   reservationCopy,
@@ -28,14 +30,17 @@ import { requirePortalAccess } from "@/server/portal";
                                   (EXPIRED once past expiresAt), expiresAt;
                                   a live hold's `checkout` — the tenant's
                                   MARKETPLACE_ORDER terms (body + hash), the
-                                  sponsor's name and the primary contact to
-                                  prefill billing with
-          GET /cart               the held lines and their total
-                                  (a CONVERTED hold carries its orderId)
+                                  sponsor's name, the primary contact to
+                                  prefill billing with, and the `quote`
+                                  (POL-FE-05: subtotal, fees, total)
+          GET /cart               the held lines, their sum and the same
+                                  `quote` (a CONVERTED hold carries its orderId)
    Writes (ShopCheckoutGate → actions.ts)
           POST /marketplace-orders {reservationId, agreementId, bodyHashShown,
-                                    billing{name, email, reference?}}
+                                    billing{name, email, reference?},
+                                    totalCentsShown}
                                   → /sponsor/orders/:id?placed=1
+                                  409 total_changed → the quote is re-read
           POST /reservations/:id/release             → /sponsor/cart
           POST /cart/reserve ("hold again" after a hold ends)
 
@@ -50,10 +55,11 @@ import { requirePortalAccess } from "@/server/portal";
    and hold countdown are drawn by the Stadium kit; the gate itself (billing,
    terms, place) keeps its exact logic, markup and accessible names —
    shop-checkout.tsx is shared with the order page and carries the e2e path.
-   Honest gap: no fee or total preview — the fee rate and approval threshold
-   are not exposed, so the cart total is shown as the subtotal, fees added
-   when the order is placed. The order terms are placeholder wording pending
-   counsel (the text says so at its top).
+   POL-FE-05: the summary and the Place order step both show the API's
+   quote — subtotal, BTG's buyer fee and the total that is charged — and
+   placing sends that total back; if it moved, the API refuses and the
+   quote is re-read before the sponsor tries again. The order terms are
+   placeholder wording pending counsel (the text says so at its top).
    Roles. SPONSOR_ADMIN places and releases; SPONSOR_ANALYST reads only.
    -------------------------------------------------------------------------- */
 
@@ -126,6 +132,8 @@ export default async function CheckoutPage({
   const serverNow = new Date().getTime();
 
   const gate = hold.state === "HELD" && canWrite && lines && hold.checkout ? hold.checkout : null;
+  /* POL-FE-05 — the total charged, from the hold's quote (or the cart's, the same figures). */
+  const quote = lines ? quoteFor(hold.checkout?.quote ?? lines.quote, lines.totalCents) : null;
 
   /* Step 1 — the hold, its countdown and its lines. Wrapped by the gate
      island when the sponsor can place the order; shown alone otherwise. */
@@ -192,24 +200,29 @@ export default async function CheckoutPage({
         </section>
 
         <aside className="mt-5 space-y-3 lg:mt-0">
-          {lines && (
+          {lines && quote && (
             <StadiumPanel delay={0.16}>
               <p className="text-[11px] uppercase tracking-wide text-muted">Summary</p>
               <p className="mt-1 text-xs text-muted">{lineSummary(lines.lines)}</p>
               <div className="mt-3 space-y-1.5 border-t border-line-soft pt-3">
                 <div className="flex items-baseline justify-between">
                   <span className="text-xs text-muted">Subtotal</span>
-                  <span className="text-sm font-semibold tabular-nums text-text">{usd(lines.totalCents)}</span>
+                  <span className="text-sm font-semibold tabular-nums text-text">{usd(quote.subtotalCents)}</span>
                 </div>
                 <div className="flex items-baseline justify-between">
                   <span className="text-xs text-muted">Fees</span>
-                  <span className="text-[11px] text-faint">Added when the order is placed</span>
+                  <span className={quote.feesCents === null ? "text-[11px] text-faint" : "text-sm font-semibold tabular-nums text-text"}>{feeText(quote)}</span>
                 </div>
                 <div className="flex items-baseline justify-between border-t border-line-soft pt-1.5">
-                  <span className="text-xs font-semibold text-text">Total so far</span>
-                  <span className="text-lg font-semibold tabular-nums text-text">{usd(lines.totalCents)}</span>
+                  <span className="text-xs font-semibold text-text">Total</span>
+                  <span className="text-lg font-semibold tabular-nums text-text">{usd(quote.totalCents)}</span>
                 </div>
               </div>
+              {quote.quoted ? (
+                <p className="mt-2 text-[11px] text-faint">The total is what you pay — nothing more is added when the order is placed.</p>
+              ) : (
+                <p className="mt-2 text-[11px] text-faint">The fee couldn&rsquo;t be quoted right now; the order page shows the exact total once it&rsquo;s placed.</p>
+              )}
               {hold.state === "HELD" && !canWrite && (
                 <p className="mt-2 text-[11px] text-muted">A Sponsor Admin places the order.</p>
               )}
@@ -225,8 +238,8 @@ export default async function CheckoutPage({
   return (
     <div className="space-y-6">
       {head}
-      {gate && lines ? (
-        <ShopCheckoutGate reservationId={hold.id} checkout={gate} subtotalCents={lines.totalCents}>
+      {gate && lines && quote ? (
+        <ShopCheckoutGate reservationId={hold.id} checkout={gate} quote={quote}>
           {review}
         </ShopCheckoutGate>
       ) : (

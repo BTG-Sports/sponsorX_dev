@@ -12,7 +12,7 @@
    -------------------------------------------------------------------------- */
 
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "@/lib/brand-categories";
-import type { ApiCheckout, ApiOrderAcceptance } from "@/lib/checkout-gate";
+import type { ApiCheckout, ApiOrderAcceptance, ApiQuote, Quote } from "@/lib/checkout-gate";
 import type { SponsorRefund } from "@/lib/refunds-live";
 import { US_STATES, isUsState } from "@/lib/onboarding-live";
 
@@ -87,7 +87,10 @@ export type ApiCart = {
   createdAt: string;
   updatedAt: string;
   lines: ApiCartLine[];
+  /** The lines' sum. POL-FE-05: the total charged is `quote.totalCents`, which adds BTG's buyer fee. */
   totalCents: number;
+  /** POL-FE-05 — subtotal, fees and total as placing the order would charge them. Absent on an API that doesn't send it yet. */
+  quote?: ApiQuote;
   /** The live hold on this cart, or null (2S4-FE-01). */
   activeReservation: { id: string; expiresAt: string } | null;
 };
@@ -181,13 +184,24 @@ export type ApiOrder = {
 
 /** What a server action hands back to its island. `reasons` is every
  *  availability reason the API gave (409), never only the first. */
-export type ShopResult = { ok: true } | { ok: false; message: string; reasons: string[] };
+export type ShopResult =
+  | { ok: true }
+  | { ok: false; message: string; reasons: string[];
+      /** The API's `error.code` when it sent one — POL-FE-05 reads `total_changed` on a refused placing. */
+      code?: string };
 
 /* ------------------------------------------------------------------ money */
 
 /** Integer cents → "$1,234.50". Commerce always shows the cents. */
 export function usd(cents: number): string {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+
+/** POL-FE-05 — the Fees row of the cart's and checkout's summary: the buyer
+ *  fee, "None" when BTG charges none, or that the API gave no quote. */
+export function feeText(q: Pick<Quote, "feesCents">): string {
+  if (q.feesCents === null) return "Not quoted";
+  return q.feesCents === 0 ? "None" : usd(q.feesCents);
 }
 
 /* ------------------------------------------------------------------ days */

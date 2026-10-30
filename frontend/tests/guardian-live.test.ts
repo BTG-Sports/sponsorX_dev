@@ -2,8 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
-  SUPPORT_EMAIL, contactTopic, declinedWords, agreementFromBody, finishBlocker, guardianAcceptLine, handoffCarryOver, handoffDemo, handoffTrack, handoffViews, idFileProblem,
-  firstOpenStep, sampleDeclined, sampleHandoff, sampleSwitched, setupDemo, stepMove, stepsFor, whenLabel,
+  SUPPORT_EMAIL, contactTopic, declinedWords, agreementFromBody, escalationNotice, finishBlocker, guardianAcceptLine, handoffCarryOver, handoffDemo, handoffTrack, handoffViews, idFileProblem,
+  firstOpenStep, isEscalated, sampleDeclined, sampleHandoff, sampleSwitched, setupDemo, stepMove, stepsFor, waitingAge, whenLabel,
 } from "@/lib/guardian-live";
 
 /* 2S1-FE-06 (guardian half) and 2S1-FE-10 — the guardian and contact
@@ -128,6 +128,36 @@ describe("guardian handoff", () => {
     expect(handoffDemo("status")).toBe("status");
     expect(handoffDemo("declined")).toBe("declined");
     expect(handoffDemo("request")).toBeNull();
+  });
+
+  /* POL-FE-10 / POL-BE-10 — a handoff can't wait forever: its age, the reminder, and BTG stepping in after 7 days. */
+  describe("waiting, reminded, escalated", () => {
+    const now = new Date("2026-10-10T08:20:00.000Z");
+    it("says how long it has been with the current guardian — the API's count first, else from when it was sent", () => {
+      expect(waitingAge({ ...sampleHandoff, waitingDays: 9 }, now)).toBe("waiting 9 days");
+      expect(waitingAge({ ...sampleHandoff, waitingDays: 1 }, now)).toBe("waiting 1 day");
+      expect(waitingAge({ ...sampleHandoff, waitingDays: 0 }, now)).toBe("sent today");
+      expect(waitingAge({ ...sampleHandoff, sentAt: "2026-10-01T08:20:00.000Z" }, now)).toBe("waiting 9 days");
+      expect(waitingAge(sampleHandoff, now)).toBeNull();
+      expect(waitingAge({ ...sampleSwitched, waitingDays: 9 }, now)).toBeNull();
+    });
+    it("is escalated only while WAITING with `escalatedAt`", () => {
+      const escalated = { ...sampleHandoff, escalatedAt: "2026-10-08T08:20:00.000Z" };
+      expect(isEscalated(escalated)).toBe(true);
+      expect(isEscalated(sampleHandoff)).toBe(false);
+      expect(isEscalated({ ...sampleSwitched, escalatedAt: "2026-10-08T08:20:00.000Z" })).toBe(false);
+    });
+    it("tells the current guardian BTG will review it if they don't answer, and that they still can", () => {
+      const escalated = { ...sampleHandoff, escalatedAt: "2026-10-08T08:20:00.000Z" };
+      expect(escalationNotice(escalated)).toBe("BTG will review this if you don’t answer. You can still hand off to Luis or decline — the first answer, yours or BTG’s, decides.");
+      expect(escalationNotice(sampleHandoff)).toBeNull();
+      const v = handoffViews(escalated);
+      expect(v[0]!.head).toBe("Carmen hasn’t answered. BTG is reviewing your request.");
+      expect(v[1]!.foot).toBe("You can still hand off or decline. BTG will review this if you don’t answer.");
+      expect(v[2]!.foot).toMatch(/^Carmen hasn’t answered, so BTG may decide\./);
+      /* Before escalation the words are unchanged. */
+      expect(handoffViews(sampleHandoff)[1]!.foot).toBe("Only you can hand off or decline. Nothing changes until you do.");
+    });
   });
 });
 
