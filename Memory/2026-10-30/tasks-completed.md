@@ -140,3 +140,4 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
 - **POL-BE-19 merged:** #358 into `main_development`. The row is Done and rides #356/#357 with POL-BE-18's, to both branches.
 - **POL-BE-22 merged:** #359 into `main_development` (its first CI run hit a Google Fonts fetch failure in the web build; the rerun passed). The row is Done and rides #356/#357 with 18's and 19's.
 - **POL-BE-29 merged:** #360 into `main_development`. The row is Done and rides #356/#357 with 18's, 19's and 22's.
+- **POL-BE-15 accepted with two exceptions (owner, 2026-10-30):** support messages and campaign requests have no count, because neither has a list in the app to count. This is noted on the tracker row.
