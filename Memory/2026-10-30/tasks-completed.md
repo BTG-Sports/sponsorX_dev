@@ -192,3 +192,25 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
 - **For HeckerCreatives:** a `VOIDED` label on the earnings screens. The campaign-requests desk's row shape matches.
 - **P8-BE-12, first full run:** lint caught an unused helper. `earning-state.test.ts` failed as a whole file because its hand-written transition table lacked VOIDED; it now pins PENDING → VOIDED, with VOIDED final. My earlier guard run had missed this file-level failure: it prints "FAIL", not "×", and the filter only looked for "×".
 - **P8-BE-12 merged:** #362 into `main_development`. The row is Done and went to both branches, and the Phase 1 plan heads it ✅ Done. With it, every backend task the web app can start is done; what remains is blocked (`2S6-BE-01` wallet passes, which need an Apple Pass Type ID, and the parked INFINEX game in Phase 6).
+
+## Wrap-up, 2026-10-30 (rcfworks)
+
+- **Merged today:**
+  - backend polish: `POL-BE-15` (#345), `POL-BE-17` (#349), `POL-BE-18` (#352), `POL-BE-19` (#358), `POL-BE-22` (#359), `POL-BE-29` (#360) and `POL-BE-36` (#361);
+  - Phase 1: `P8-BE-12` (#362);
+  - the tracker-to-Slack fix (#353/#354).
+- **Every `POL-BE` row is Done** (20 of 20). `POL-BE-15` has one exception left (support messages); campaign requests are now counted.
+- **Every startable backend task is done.** What's left is blocked: `2S6-BE-01` (Apple Pass Type ID certificate) and Phase 6 (the game, parked).
+- **New standing rule:** every Done row goes to both `main_development` and `main`, so `tracker-notify` posts it.
+- **Production:** `PUBLIC_INTAKE_TENANT_ID=tenant_btg` was set on the `api` service (owner-approved), and verified live.
+- **Daily deploy:** run after #356/#357; `release` = `main` = `c8f72638`. `tracker-notify` posted to Slack; its Google Sheet step hit the known 404.
+- **Stage Progress, 2026-10-30:** updated at day's end to S8 47, Done 315, Days left 18.5. The method was checked against the morning row: it reproduces 21.5 on `c8f72638`. Note that the sheet's "Days left" counts every row not Done, Dropped included.
+- **For HeckerCreatives** (notes in polish.md and the Phase 1 plan):
+  - `POL-FE-15`, 17, 18, 19, 22 and 36;
+  - wiring `P8-FE-12` to the new endpoints;
+  - a `VOIDED` earnings label;
+  - the payout-detail wording ("until payments open").
+- **Open notes, not built:**
+  - re-inviting a removed sponsor teammate;
+  - keeping the Zoho lead's address in step with a corrected sponsor email.
+- **Tests:** backend 3,745 and frontend 1,894, all passing locally.
