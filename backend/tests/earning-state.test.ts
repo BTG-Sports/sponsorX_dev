@@ -22,18 +22,20 @@ import {
 
 /** Written out independently of the implementation. */
 const LEGAL: Record<EarningState, EarningState[]> = {
-  PENDING: ["ELIGIBLE", "HELD", "DISPUTED"],
+  /* P8-BE-12 — an order cancelled before any work: VOIDED, nothing owed. */
+  PENDING: ["ELIGIBLE", "HELD", "DISPUTED", "VOIDED"],
   ELIGIBLE: ["APPROVED_FOR_PAYOUT", "HELD", "DISPUTED"],
   APPROVED_FOR_PAYOUT: ["PAID", "HELD", "DISPUTED"],
   HELD: ["PENDING", "ELIGIBLE", "DISPUTED"],
   DISPUTED: ["ELIGIBLE", "HELD"],
   PAID: [],
+  VOIDED: [],
 };
 
 describe("the earning lifecycle", () => {
-  it("has exactly the six §21 states", () => {
+  it("has exactly the six §21 states, and VOIDED (P8-BE-12)", () => {
     expect([...EARNING_STATES]).toEqual([
-      "PENDING", "ELIGIBLE", "APPROVED_FOR_PAYOUT", "PAID", "HELD", "DISPUTED",
+      "PENDING", "ELIGIBLE", "APPROVED_FOR_PAYOUT", "PAID", "HELD", "DISPUTED", "VOIDED",
     ]);
   });
 

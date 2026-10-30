@@ -3480,6 +3480,75 @@ Cancelling stays impossible from REPORTING or COMPLETED.
 - **Depends on:** nothing
 - **Done when:** The impact read lists every affected product with its outcome and the money; a safe cancel or change applies at once and settles every order, offer, invitation, reward, placement and ad under the campaign; an unsafe one is held with its reasons and BTG admins are emailed; BTG can approve or decline a held request; a sponsor reaches only their own campaigns; tests cover each outcome, roles and tenants
 - **Reference:** §7, §21; Phase 2 automation rule (2026-10-03); Rodney's questions and the user, 2026-10-28
+- **Delivered 2026-10-30 (rcfworks), on `feature/P8-BE-12-campaign-cancel-change`:**
+  - **The six endpoints, in exactly the contract above.** Their code:
+    - `domain/campaign-change.ts` reads the facts and applies, holds and
+      decides;
+    - `domain/campaign-change-rules.ts` is pure: it decides the impact;
+    - `routes/v1/campaign-change.ts` holds the routes.
+  - **Groups**, by `key`:
+    - `withdrawn`: offers, invitations and draft orders;
+    - `cancelled`: accepted, not started;
+    - `inProgress`: cancelled only if BTG approves, and Finance settles the
+      work done;
+    - `delivered`: still paid;
+    - `rewards`: paused;
+    - `placements`: released;
+    - `adsReleased`: in an edition still selling;
+    - `adsRefunded`: in an edition that has closed;
+    - `deal`: Closed Lost.
+  - **Money:**
+    - owed = delivered and started work, at sell price;
+    - refund = paid Zoho invoices, less owed, less refunds already recorded.
+  - **Held for BTG when** any of these is true: work has started, work has
+    been delivered, money paid would need refunding, a deal dispute is open,
+    a minor's order is involved, or an ad is in a closed edition.
+    - For a change, only things falling outside new dates (or an open
+      dispute when dates or budget move) hold it.
+    - A rename and a budget rise apply at once.
+  - **Refused:**
+    - cancelling a campaign that is reporting, completed or already
+      cancelled;
+    - changing a cancelled or completed campaign;
+    - dates or budget once reporting;
+    - an end date before the start;
+    - a budget below committed (the figure is named);
+    - nothing to change;
+    - a request already with BTG (one at a time per campaign).
+  - **A safe cancel**, in one transaction under the campaign's lock:
+    - offers are WITHDRAWN and invitations EXPIRED;
+    - orders not started are CANCELLED, the athlete (or the guardian, while
+      one acts) is emailed `campaign.orderCancelled`, and their PENDING
+      earning becomes **VOIDED**: a new final state, nothing owed;
+    - ads in selling editions are released (`releaseAdSlotsIn`, pulled out of
+      the edition cancel);
+    - rewards are paused, placements released, and the Zoho deal goes to
+      Closed Lost, all through the existing stage move.
+  - **On BTG's approval of a cancel:**
+    - started work is cancelled too, its earning HELD for Finance;
+    - a `RefundDue` with the new cause `CAMPAIGN_CANCELLED` is queued
+      (invoiced money, a credit note in Zoho Books; at most one per
+      campaign).
+    These are the owner's decisions of 2026-10-30.
+  - **Held requests:**
+    - stored as `CampaignChangeRequest` (HELD, APPLIED or DECLINED);
+    - BTG admins are emailed `campaign.changeHeld`;
+    - `GET /campaign-requests` answers `{ requests: [{ id, kind, state,
+      campaign: { id, name, sponsorName }, requestedBy: { email, role },
+      requestedAt, reason, proposed, holdReasons, impact, decision }],
+      counts: { held } }`;
+    - on a decision, the requester is emailed `campaign.changeDecided`.
+  - **The board** counts held requests: `queues.campaignRequests`.
+  - **Who:** the new `campaignChange` resource. A sponsor's admin reaches
+    only their own campaigns (and never decides); BTG admins and campaign
+    managers can do everything. The RBAC matrix and its fingerprint are
+    updated.
+  - **Tests:** `backend/tests/p8-be-12-campaign-cancel-change.test.ts` (13),
+    plus the guard tests: tenant isolation, API documentation, the
+    authorisation matrix, money audit, and fact coverage.
+  - **For `P8-FE-12`:** the request row is in the shape the desk already
+    reads. Earnings screens need a label for the new `VOIDED` state ("Cancelled —
+    nothing owed").
 
 ### ▶ `P8-FE-12` · Cancel and Change buttons, with what they affect
 

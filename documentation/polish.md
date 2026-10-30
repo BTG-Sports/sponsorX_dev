@@ -753,7 +753,9 @@ These queues have no count, so staff have to click every menu item to find work:
   - **Not counted, and why:**
     - Support messages: they are answered in the mailbox, and there is no
       list to count.
-    - Campaign requests: the page exists, but nothing behind it was built.
+    - Campaign requests: the page existed, but nothing behind it was built.
+      **Since 2026-10-30 (`P8-BE-12`) they are counted** as
+      `queues.campaignRequests`, linked to `/admin/campaign-requests`.
   - Tests: `backend/tests/pol-be-15-queue-counts.test.ts` checks:
     - each count, and its oldest date;
     - tenant B never sees tenant A's items;

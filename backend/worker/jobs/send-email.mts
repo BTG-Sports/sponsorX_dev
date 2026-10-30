@@ -286,6 +286,21 @@ ${d.portalUrl ?? ""}
     subject: `Request withdrawn: ${d.sponsorName ?? "a sponsor"}`,
     text: `${d.sponsorName ?? "A sponsor"} withdrew their request (${d.packageName ?? "custom request"}). It is closed, and there is nothing more to do on it.${d.note ? `\n\nTheir note:\n\n${d.note}` : ""}\n\nThe request:\n\n${d.briefUrl ?? ""}\n\n— SponsorX`,
   }),
+  /* P8-BE-12 — the campaign was cancelled before this athlete's work began. */
+  "campaign.orderCancelled": (d) => ({
+    subject: `${d.campaignName ?? "A campaign"} was cancelled`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.sponsorName ?? "The sponsor"} cancelled ${d.campaignName ?? "the campaign"} before your work on it began, so your order is cancelled. Nothing is owed either way, and there's nothing for you to do.\n\nYour portal:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* P8-BE-12 — a cancel or change that couldn't apply at once, for BTG to decide. */
+  "campaign.changeHeld": (d) => ({
+    subject: `Campaign ${d.kind ?? "change"} to decide: ${d.campaignName ?? "a campaign"}`,
+    text: `${d.requestedBy ?? "Someone"} asked to ${d.kind ?? "change"} ${d.campaignName ?? "a campaign"}${d.sponsorName ? ` (${d.sponsorName})` : ""}. It couldn't apply on its own:\n\n${d.reasons ?? ""}\n\nReview what it affects, then approve or decline:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* P8-BE-12 — BTG's answer to a held cancel or change. */
+  "campaign.changeDecided": (d) => ({
+    subject: `Your request to ${d.kind ?? "change"} ${d.campaignName ?? "the campaign"}`,
+    text: `Hi,\n\nBTG ${d.decision ?? "decided"} your request to ${d.kind ?? "change"} ${d.campaignName ?? "the campaign"}.${d.note ? `\n\nTheir note:\n\n${d.note}` : ""}\n\nThe campaign:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
   "campaign.finalReportReady": (d) => ({
     subject: `Your final report for ${d.campaignName ?? "your campaign"} is ready`,
     text: `Hi${d.sponsorName ? ` ${d.sponsorName}` : ""},\n\nEvery piece of content on ${d.campaignName ?? "your campaign"} has been checked, and your final report is ready:\n\n${d.reportUrl ?? ""}\n\nThe campaign is now complete. Thank you for working with our athletes.\n\n— BTG SponsorX`,

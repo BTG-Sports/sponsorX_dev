@@ -498,7 +498,13 @@ describe("the whole matrix is pinned", () => {
       // top-level organisation); every other cell deny, nobody approves —
       // matrix §paymentSwitch. With its rows removed the grid hashes to the
       // previous c38aba9da7b833e8.
-    ).toBe("49765fb6b2173f73");
+      // Updated 2026-10-30 (P8-BE-12): new `campaignChange` resource —
+      // cancelling or changing a campaign, and BTG's queue of held requests.
+      // SUPER_ADMIN any read/write/approve; BTG_ADMIN and CAMPAIGN_MGR
+      // own-tenant read/write/approve; SPONSOR_ADMIN own read/write (their own
+      // campaigns), no approve; every other cell deny — matrix §campaignChange.
+      // With its rows removed the grid hashes to the previous 49765fb6b2173f73.
+    ).toBe("ccff7a5c36e74972");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

@@ -25,6 +25,7 @@ import { inquiriesRouter } from "./inquiries";
 import { catalogueRouter } from "./catalogue";
 import { sponsorOverviewRouter } from "./sponsor-overview";
 import { sponsorTeamRouter } from "./sponsor-team";
+import { campaignChangeRouter } from "./campaign-change";
 import { financeOverviewRouter } from "./finance-overview";
 import { rewardsRouter } from "./rewards";
 import { meRouter } from "./me";
@@ -137,6 +138,8 @@ v1Router.use("/", catalogueRouter);
 v1Router.use("/", sponsorOverviewRouter);
 /* POL-BE-19 — a sponsor admin's team. */
 v1Router.use("/", sponsorTeamRouter);
+/* P8-BE-12 — cancel and change a campaign. */
+v1Router.use("/", campaignChangeRouter);
 
 /* P1-ART-25 — the Treasury, Finance's home: one scoped read over the
    tenant's books, computed in the database. */

@@ -365,6 +365,39 @@ export type EditionCancellation = {
  * refund on Finance's list (refunds.ts `recordEditionRefund`). Campaigns are
  * locked in id order, after the edition — the order the sale takes them in.
  */
+/**
+ * A campaign's sold slots in one edition, released: the sale undone, as when
+ * the edition is cancelled (below) or the campaign is (P8-BE-12,
+ * campaign-change.ts). The undone sale is recorded (`CancelledAdSale`, what
+ * a payment arriving later is matched against — refunds.ts
+ * `refundPaymentAfterEditionCancel`), the student who originated it stops
+ * counting it, each sale is reversed as a fact before the slot is cleared,
+ * and the release is audited. Any refund is the caller's.
+ */
+export async function releaseAdSlotsIn(
+  tx: Prisma.TransactionClient,
+  by: AuditActor,
+  r: { tenantId: string; editionId: string; campaignId: string; sponsorId: string; slots: { id: string; slotCode: string; soldCents: number | null }[]; reason: string; now: Date },
+) {
+  const soldCents = r.slots.reduce((n, s) => n + (s.soldCents ?? 0), 0);
+  await tx.cancelledAdSale.createMany({
+    data: [{ tenantId: r.tenantId, editionId: r.editionId, campaignId: r.campaignId, sponsorId: r.sponsorId, soldCents }],
+    skipDuplicates: true,
+  });
+  await reverseSaleAttributions(tx, by, { tenantId: r.tenantId, campaignId: r.campaignId, editionId: r.editionId, reason: r.reason });
+  /* 3S1-BE-02 — each sale reversed as a fact, before the sale is cleared (the writer reads it). */
+  for (const s of r.slots) await factAdSlotReleased(tx, r.tenantId, s.id, r.now);
+  const released = await tx.adSlot.updateMany({
+    where: { tenantId: r.tenantId, editionId: r.editionId, campaignId: r.campaignId, id: { in: r.slots.map((s) => s.id) } },
+    data: { campaignId: null, soldCents: null, soldAt: null },
+  });
+  await audit(tx, by, "adSlot.release", "Campaign", r.campaignId, {
+    before: { editionId: r.editionId, slots: r.slots.map((s) => s.slotCode), soldCents },
+    after: { editionId: r.editionId, released: released.count, reason: r.reason },
+  });
+  return released.count;
+}
+
 async function cancelEditionIn(
   tx: Prisma.TransactionClient,
   by: AuditActor,
@@ -390,28 +423,10 @@ async function cancelEditionIn(
       select: { ...CAMPAIGN_FOR_MOVE, _count: { select: { orders: true, adSlots: true, placementWindows: { where: { state: "BOOKED" } } } } },
     });
     const soldCents = slots.reduce((n, s) => n + (s.soldCents ?? 0), 0);
-    /* The record of the sale undone — what a payment arriving later is matched
-       against (refunds.ts `refundPaymentAfterEditionCancel`). */
-    await tx.cancelledAdSale.createMany({
-      data: [{ tenantId, editionId: edition.id, campaignId, sponsorId: campaign.sponsorId, soldCents }],
-      skipDuplicates: true,
-    });
-    /* The student who originated the sale no longer counts it (attribution-reversal.ts). */
-    await reverseSaleAttributions(tx, by, { tenantId, campaignId, editionId: edition.id, reason: `The edition ${edition.label} was cancelled.` });
     const refund = await recordEditionRefund(tx, by, { tenantId, editionId: edition.id, campaignId, sponsorId: campaign.sponsorId, soldCents });
     if (refund) out.refunds.push({ campaignId, refundId: refund.id, amountCents: refund.amountCents });
-
-    /* 3S1-BE-02 — each sale reversed as a fact, before the sale is cleared (the writer reads it). */
-    for (const s of slots) await factAdSlotReleased(tx, tenantId, s.id, now);
-    const released = await tx.adSlot.updateMany({
-      where: { tenantId, editionId: edition.id, campaignId },
-      data: { campaignId: null, soldCents: null, soldAt: null },
-    });
+    await releaseAdSlotsIn(tx, by, { tenantId, editionId: edition.id, campaignId, sponsorId: campaign.sponsorId, slots, reason: `The edition ${edition.label} was cancelled.`, now });
     out.released.push(...slots.map((s) => s.slotCode));
-    await audit(tx, by, "adSlot.release", "Campaign", campaignId, {
-      before: { editionId: edition.id, slots: slots.map((s) => s.slotCode), soldCents },
-      after: { editionId: edition.id, released: released.count, reason: `The edition ${edition.label} was cancelled.` },
-    });
 
     const shape = { orders: campaign._count.orders, adSlots: campaign._count.adSlots };
     const onlyHere = shape.orders === 0 && shape.adSlots === slots.length;

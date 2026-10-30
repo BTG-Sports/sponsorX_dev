@@ -92,7 +92,11 @@ const DECISIONS: Record<string, Decision> = {
 
   /* NEXT ad slots */
   ["src/domain/edition.ts › sellIn › adSlot.updateMany"]: { calls: { factAdSlotSold: 1 } },
-  ["src/domain/edition.ts › cancelEditionIn › adSlot.updateMany"]: { calls: { factAdSlotReleased: 1 } },
+  ["src/domain/edition.ts › releaseAdSlotsIn › adSlot.updateMany"]: { calls: { factAdSlotReleased: 1 } },
+  /* P8-BE-12 — cancelling a campaign. */
+  ["src/domain/campaign-change.ts › applyCancelIn › campaignOrder.updateMany"]: { calls: { factOrderCancelled: 1 } },
+  ["src/domain/campaign-change.ts › applyCancelIn › earning.updateMany"]: { none: "PENDING → VOIDED (no work, nothing owed) or HELD (work under way, Finance settles it): nothing is paid." },
+  ["src/domain/campaign-change.ts › applyCancelIn › refundDue.createMany"]: { none: "A cancelled campaign's refund starts OPEN, and is invoiced money, not marketplace money (fact-classification.ts REFUND_CAUSE_FACTS)." },
   ["src/domain/edition.ts › addSlot › adSlot.create"]: { none: "A new slot is unsold." },
 
   /* INFINEX placement windows (4S7-BE-01) */
