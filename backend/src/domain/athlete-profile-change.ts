@@ -740,3 +740,26 @@ export async function listSensitiveEditsPage(actor: Actor, req: PageRequest) {
     page,
   };
 }
+
+/**
+ * POL-BE-15 — a sensitive change PENDING and BTG's to answer: a legal name
+ * whose ID arrived but didn't read clear, or an adulthood change (a date of
+ * birth, a move) held with no ID at all. A legal name still missing its ID
+ * waits on the athlete. The same rule as the list's "Waiting for you" chip
+ * (frontend lib/profile-changes-live.ts awaitingBtg).
+ */
+export function awaitingBtg(c: { idDocumentUploadedAt: Date | null; fields: Prisma.JsonValue }): boolean {
+  const fields = c.fields && typeof c.fields === "object" && !Array.isArray(c.fields) ? c.fields : {};
+  return c.idDocumentUploadedAt !== null || !("legalName" in fields);
+}
+
+/** POL-BE-15 — the Operations Board's count of sensitive changes awaiting BTG, and since when the oldest has waited. */
+export async function sensitiveEditsAwaitingBtg(actor: Actor): Promise<{ waiting: number; oldestSince: string | null }> {
+  const pending = await prisma.athleteProfileChange.findMany({
+    where: { ...whereFor(actor, "athleteProfileChange", "approve"), sensitive: true, state: "PENDING" },
+    select: { createdAt: true, idDocumentUploadedAt: true, fields: true },
+    orderBy: { createdAt: "asc" },
+  });
+  const waiting = pending.filter(awaitingBtg);
+  return { waiting: waiting.length, oldestSince: waiting[0]?.createdAt.toISOString() ?? null };
+}
