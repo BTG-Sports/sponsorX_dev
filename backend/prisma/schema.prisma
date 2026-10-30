@@ -1673,6 +1673,10 @@ model Inquiry {
   businessTypeOther String?
   /// When the contact clicked the confirmation link in their email.
   emailConfirmedAt  DateTime?
+  /// POL-BE-18 — when the applicant last corrected their address. Set, a
+  /// confirmation link must be bound to the current address; links sent
+  /// before binding existed confirm only an address never changed.
+  emailChangedAt    DateTime?
   /// Why it waits for BTG instead of being approved automatically (empty
   /// when it was, or hasn't been checked yet).
   reviewReasons     String[]  @default([])

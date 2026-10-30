@@ -62,6 +62,19 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
 - **Also today:** the `POL-BE-15` Done row went to both branches (#346, #347), and #348 syncs #346's merge commit to main.
 - **Merged:** #349 into `main_development`. The `POL-BE-17` row is Done, and the row went to both branches.
 
+### `POL-BE-18` — a sponsor can resend the confirmation or fix a mistyped address (rcfworks), on `feature/POL-BE-18-sponsor-email-fix`
+
+- **Built:**
+  - `POST /public/sponsor-requests/:token/resend-confirmation` and `POST /public/sponsor-requests/:token/email`, using the status page's request token. Both work only while the request is NEW and the address unconfirmed; each is capped at 3 an hour per request (audit-row count, 429), plus a network-address limit.
+  - `resendSponsorConfirmation`, `changeSponsorEmail` and `queueSponsorConfirmEmail` in `domain/sponsor-requests.ts`. The intake route uses the shared sender.
+- **Safety:**
+  - The sponsor email token is now bound to the address (`issueSponsorEmailToken(id, email)`, `sponsorEmailTokenMatches`), as onboarding's is.
+  - Migration `20261030120000_inquiry_email_changed` adds `Inquiry.emailChangedAt`. Unbound links sent before this ship confirm only a never-changed address.
+  - `link-renewal.ts` follows the same rule.
+- **Caught by the full run:** `pmo02-link-lifetimes` used the removed `readSponsorEmailToken`. Updating it exposed that undated legacy sponsor email links verified whatever address was asked for. `SPONSOR_EMAIL_LINK.legacy` now matches only unbound, so only a never-changed request accepts one.
+- **Open, recorded in polish.md:** the Zoho Lead keeps the first-typed address (pushLead never updates a lead).
+- **Tests:** `backend/tests/pol-be-18-sponsor-email-fix.test.ts` (7). It checks resend and the cap; change, then the old link fails and the new one confirms; refusals after confirmation or decision, for the same address, a bad address or a forged token; old unbound links; renewal to the current address only.
+
 ### Tracker → Slack wasn't announcing polish tasks (rcfworks), on `fix/tracker-notify-polish-sheet`
 
 - **Cause:** `scripts/tracker/tracker_sync.py` read only `PHASES = ("Phase 1", "Phase 2", "Phase 3", "Phase 4")`. The Polish, Phase 5 and Phase 6 sheets were added later and never watched. So `tracker-notify` ran green after #347 and #351 (POL-BE-15 and POL-BE-17 Done) but logged "No task changes in this push — nothing to post".
