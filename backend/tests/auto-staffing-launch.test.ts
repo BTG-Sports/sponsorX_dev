@@ -298,9 +298,11 @@ describe.skipIf(!hasDatabase)("P4-BE-12 / P4-BE-13 · on a real database", { tim
       expect(list.find((r) => r.id === campaignId)!.staffing.stop).not.toBeNull();
 
       const sponsor = (await call("GET", `/campaigns/${campaignId}`, `${T}_sp`)).json.campaign;
-      expect(sponsor.staffing).toEqual({ signed: 0, needed: { min: 2, max: 3 } });
+      /* POL-BE-22 — stopped short of the minimum: the sponsor sees BTG finding more athletes, since the stop, never why. */
+      expect(sponsor.staffing).toEqual({ signed: 0, needed: { min: 2, max: 3 }, btgFinding: { since: staff.staffing.stop.at } });
       expect("autoStaffing" in sponsor).toBe(false);
-      expect(sponsor.nextStep).toEqual({ who: "ATHLETES", text: "We're staffing your campaign: 0 of 2–3 athletes signed" });
+      const since = new Date(staff.staffing.stop.at).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+      expect(sponsor.nextStep).toEqual({ who: "BTG", text: `BTG is finding more athletes since ${since}: 0 of 2–3 signed so far` });
     });
   });
 

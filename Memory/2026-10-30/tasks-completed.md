@@ -109,3 +109,21 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
   - another sponsor's people are out of reach.
 - **For HeckerCreatives:** the team page, and hiding "Settings" and "Messages", are `POL-FE-19`. Notes are in polish.md.
 - **Guards updated:** `openapi.coverage.test.ts` (route file list) and `tenant-isolation.test.ts` (`PARAM_FOR.team`, and a PATCH body). The first full run failed on both. Both pass, covering cross-tenant and same-tenant other-sponsor access.
+
+### `POL-BE-22` — the sponsor is told when staffing stalls (rcfworks), on `feature/POL-BE-22-staffing-stalled`
+
+- **Rule:** `stalledSince` / `stuckByHand` in `auto-staffing-rules.ts`. A campaign is stalled before launch (DRAFT or STAFFING), short of the package minimum, and either `staffingStoppedAt` is set, or it is hand-staffed with nobody being asked (the mark is honoured only while still true).
+- **Mark:** new `Campaign.staffingStalledAt` (migration `20261030150000_campaign_staffing_stalled`). It is set and cleared by `sweepStalledStaffing` in `auto-staffing.ts`, which runs after `sweepAutoStaffing` in the worker's ten-minute timer.
+- **Reads:**
+  - `staffingView` adds `stalled: { since } | null` for BTG;
+  - the sponsor's `staffing` adds `btgFinding` (never the reason or names);
+  - the `CampaignStaffing` schema and registry summaries are updated.
+- **Tests:** `backend/tests/pol-be-22-staffing-stalled.test.ts` (8). It checks:
+  - the pure rule;
+  - the stop shows since the stop date, without the reason;
+  - a campaign that met its minimum or already launched is not stalled;
+  - by hand: not stalled while someone is asked, marked once the last offer is declined (the date is kept), cleared when someone is asked again;
+  - another sponsor gets 403.
+- **For HeckerCreatives:** `POL-FE-22` shows "BTG is finding more athletes · since {date}". Notes are in polish.md.
+- **Next-step wording:** `sponsorStaffingLine` now reads "BTG is finding more athletes since {Mon d}: x of range signed so far" (who BTG) when stalled. `auto-staffing-launch.test.ts` was updated for the new field and line.
+- **Flaky test:** `invitation-guardian-mail` failed once in the full run; it passed alone twice, and again in the full rerun.

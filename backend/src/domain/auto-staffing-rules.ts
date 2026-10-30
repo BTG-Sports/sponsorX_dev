@@ -65,7 +65,34 @@ export type StaffingStop = { reason: string; at: string };
 export type StaffingView = StaffingCounts & {
   needed: { min: number; max: number };
   stop: StaffingStop | null;
+  /** POL-BE-22 — BTG is finding more athletes, since when; null while staffing is moving or done. */
+  stalled: { since: string } | null;
 };
+
+/** Campaigns still being staffed: before launch. */
+export const PRE_LAUNCH_STATES: readonly string[] = ["DRAFT", "STAFFING"];
+
+/** POL-BE-22 — staffed by hand, short of the minimum, and nobody is being asked: BTG has to find more. */
+export function stuckByHand(t: Pick<StaffingCounts, "signed" | "outstanding">, min: number): boolean {
+  return t.signed < min && t.outstanding === 0;
+}
+
+/**
+ * POL-BE-22 — since when BTG has been finding more athletes for a campaign
+ * still short of its minimum, or null: automatic staffing handed it to BTG
+ * (its stop), or BTG staffs it by hand and nobody is being asked (the
+ * sweep's mark, honoured only while that is still true).
+ */
+export function stalledSince(
+  c: { state: string; autoStaffing: boolean; staffingStoppedAt: Date | null; staffingStalledAt: Date | null },
+  t: Pick<StaffingCounts, "signed" | "outstanding">,
+  min: number,
+): Date | null {
+  if (!PRE_LAUNCH_STATES.includes(c.state) || t.signed >= min) return null;
+  if (c.staffingStoppedAt) return c.staffingStoppedAt;
+  if (!c.autoStaffing && c.staffingStalledAt && stuckByHand(t, min)) return c.staffingStalledAt;
+  return null;
+}
 
 /** What the tally reads: the campaign's orders, offers, invitations and skips. */
 export type StaffingRows = {
@@ -172,9 +199,14 @@ export function staffingLine(s: StaffingCounts): string {
 }
 
 /** The sponsor's line, e.g. "We're staffing your campaign: 4 of 5–9 athletes signed". */
-export function sponsorStaffingLine(s: { signed: number; needed: { min: number; max: number } }): string {
+export function sponsorStaffingLine(s: { signed: number; needed: { min: number; max: number }; stalled?: { since: string } | null }): string {
   const { min, max } = s.needed;
   const range = min === max ? `${max}` : `${min}–${max}`;
+  /* POL-BE-22 — stalled: BTG is finding more, since when. Never why. */
+  if (s.stalled) {
+    const since = new Date(s.stalled.since).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+    return `BTG is finding more athletes since ${since}: ${s.signed} of ${range} signed so far`;
+  }
   return `We're staffing your campaign: ${s.signed} of ${range} athletes signed`;
 }
 
