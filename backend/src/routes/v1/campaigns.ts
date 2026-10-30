@@ -468,7 +468,8 @@ function stageOut(id: string, stages: Stages) {
    who is being asked, or why staffing stopped. Null with no package to
    staff from. */
 function staffingOut(st: StageView["staffing"], audience: Audience) {
-  if (audience === "sponsor") return { staffing: st ? { signed: st.signed, needed: st.needed } : null };
+  /* POL-BE-22 — and, when staffing has stalled, that BTG is finding more athletes and since when: never why, or who was asked. */
+  if (audience === "sponsor") return { staffing: st ? { signed: st.signed, needed: st.needed, btgFinding: st.stalled } : null };
   if (!st) return { autoStaffing: false, staffing: null };
   const { auto, ...staffing } = st;
   return { autoStaffing: auto, staffing };

@@ -45,7 +45,7 @@ import {
   type StageFacts,
   type StageStaffing,
 } from "./campaign-stage-rules";
-import { staffsAthletes, tallyStaffing, type StaffingRows } from "./auto-staffing-rules";
+import { stalledSince, staffsAthletes, tallyStaffing, type StaffingRows } from "./auto-staffing-rules";
 import { OPEN_INVITE_STATES } from "./invite-state";
 import { notReadyToGoLive, type RewardState } from "./reward-state";
 import { raiseSyncTask } from "./sync-tasks";
@@ -141,7 +141,7 @@ export async function loadStageFacts(db: Tx, campaignIds: string[], now: Date): 
         /* The package's athlete range — fully staffed is its maximum. */
         brief: { select: { package: { select: { athleteCountMin: true, athleteCountMax: true, lineItems: true } } } },
         /* P4-BE-12 / P4-BE-13 — automatic staffing, and the launch day. */
-        startDate: true, autoStaffing: true, staffingStopReason: true, staffingStoppedAt: true,
+        startDate: true, autoStaffing: true, staffingStopReason: true, staffingStoppedAt: true, staffingStalledAt: true,
       },
     }),
     db.campaignOrder.findMany({
@@ -266,7 +266,7 @@ export async function staffingRows(db: Tx, campaignIds: string[]): Promise<Map<s
 /** The staffing a read shows, or null for a campaign with no package to staff from. */
 function staffingView(
   c: {
-    autoStaffing: boolean; staffingStopReason: string | null; staffingStoppedAt: Date | null;
+    state: string; autoStaffing: boolean; staffingStopReason: string | null; staffingStoppedAt: Date | null; staffingStalledAt: Date | null;
     brief: { package: { athleteCountMin: number; athleteCountMax: number } | null } | null;
   },
   rows: StaffingRows | undefined,
@@ -280,6 +280,7 @@ function staffingView(
     sent: t.sent, signed: t.signed, outstanding: t.outstanding, declined: t.declined, expired: t.expired, skipped: t.skipped,
     needed: { min: pkg.athleteCountMin, max: pkg.athleteCountMax },
     stop: c.staffingStopReason && c.staffingStoppedAt ? { reason: c.staffingStopReason, at: c.staffingStoppedAt.toISOString() } : null,
+    stalled: ((since) => (since ? { since: since.toISOString() } : null))(stalledSince(c, t, pkg.athleteCountMin)),
   };
 }
 

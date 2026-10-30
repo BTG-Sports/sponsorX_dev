@@ -80,7 +80,9 @@ import {
   exhaustedBelowMinimum,
   fitsBudget,
   STOP_REASONS,
+  PRE_LAUNCH_STATES,
   staffsAthletes,
+  stuckByHand,
   tallyStaffing,
 } from "./auto-staffing-rules";
 import { logError } from "../lib/redact";
@@ -438,6 +440,53 @@ export async function sweepAutoStaffing(now = new Date(), opts: { tenantIds?: st
         out.failed++;
         logError(`[auto-staffing] staffing ${c.id} failed, will retry:`, error);
       }
+    }
+  }
+  return out;
+}
+
+/**
+ * POL-BE-22 — the mark for a campaign BTG staffs by hand: short of its
+ * minimum with nobody being asked. Set the first time the sweep finds it so
+ * (that is the "since" the sponsor sees), cleared once someone is asked
+ * again or the minimum is reached. A campaign staffing itself needs no mark —
+ * it either sends the next offer or stops, and its stop is its date.
+ */
+export async function sweepStalledStaffing(now = new Date(), opts: { tenantIds?: string[] } = {}) {
+  const out = { checked: 0, marked: 0, cleared: 0 };
+  const books = opts.tenantIds ? { tenantId: { in: opts.tenantIds } } : {};
+  let after: string | undefined;
+  for (;;) {
+    const batch = await prisma.campaign.findMany({
+      /* tenant-scope: the system sweep — every tenant's (or opts.tenantIds') campaigns staffed by hand, or still carrying a mark. */
+      where: {
+        ...books,
+        OR: [
+          { autoStaffing: false, state: { in: [...PRE_LAUNCH_STATES] as CampaignState[] }, brief: { package: { isNot: null } } },
+          { staffingStalledAt: { not: null } },
+        ],
+        ...(after ? { id: { gt: after } } : {}),
+      },
+      select: { id: true, tenantId: true, state: true, autoStaffing: true, staffingStalledAt: true, brief: { select: { package: { select: { athleteCountMin: true } } } } },
+      orderBy: { id: "asc" },
+      take: 200,
+    });
+    if (batch.length === 0) break;
+    after = batch[batch.length - 1]!.id;
+    const rows = await staffingRows(prisma, batch.map((c) => c.id));
+    for (const c of batch) {
+      out.checked++;
+      const min = c.brief?.package?.athleteCountMin;
+      const r = rows.get(c.id);
+      const stuck = !c.autoStaffing && PRE_LAUNCH_STATES.includes(c.state) && min !== undefined && r !== undefined && stuckByHand(tallyStaffing(r, now), min);
+      if (stuck === Boolean(c.staffingStalledAt)) continue;
+      await prisma.campaign.updateMany({
+        /* tenant-scope: the campaign the sweep read, in its own tenant; only when the mark is still as read. */
+        where: { id: c.id, tenantId: c.tenantId, staffingStalledAt: c.staffingStalledAt },
+        data: { staffingStalledAt: stuck ? now : null },
+      });
+      if (stuck) out.marked++;
+      else out.cleared++;
     }
   }
   return out;

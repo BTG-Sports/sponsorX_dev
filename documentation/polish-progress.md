@@ -22,6 +22,7 @@ each problem we ran into was solved. Newest first within each day.
 | 17 · A sponsor couldn't open, edit or withdraw a sent request | `POL-BE-17` | #349 | Merged |
 | 18 · A sponsor couldn't resend the confirmation or fix a mistyped address | `POL-BE-18` | #352 | Merged |
 | 19 · A sponsor admin couldn't add teammates | `POL-BE-19` | #358 | Merged |
+| 22 · A sponsor wasn't told when staffing stalled | `POL-BE-22` | #359 | Merged |
 | 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
 
 The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`, `POL-FE-10`, `POL-FE-11`, `POL-FE-12`) are for
@@ -419,6 +420,31 @@ rely on.
       `/sponsor/team/{id}` at, and a valid body for the role change.
     Both now pass. They confirm another tenant's sponsor admin, and
     another sponsor in the same tenant, can't reach this team.
+
+### `POL-BE-22` — the sponsor is told when staffing stalls
+- **Problem:** the sponsor saw "1 of 3 athletes signed" and nothing else,
+  even when staffing had stopped and the campaign was with BTG.
+- **Approach:**
+  - One rule decides "stalled", kept beside the staffing rules: before
+    launch, short of the minimum, and either automatic staffing stopped, or
+    BTG staffs it by hand and nobody is being asked.
+  - Automatic staffing already recorded when it stopped. For hand-staffed
+    campaigns nothing recorded when the last ask ended, so the existing
+    ten-minute check now marks it and clears it, and that mark is the
+    date.
+  - The sponsor sees only that BTG is finding athletes, and since when.
+    Never the reason or who was asked; that stays BTG's.
+- **Snags:**
+  - **Test setup:** a sent offer's expiry can't be changed, which the
+    database enforces. The test makes the offer lapse by having the
+    athlete decline it.
+  - **Response shape:** the campaign read wraps its data in `campaign`.
+  - **Strict schema:** the staffing schema is strict, so both new fields
+    were added to it.
+  - **The next-step line.** The full run's staffing test showed the
+    sponsor's "next step" still said "We're staffing your campaign" after
+    BTG took over. It now says "BTG is finding more athletes since …", so
+    the fix shows even before the screen work.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.
