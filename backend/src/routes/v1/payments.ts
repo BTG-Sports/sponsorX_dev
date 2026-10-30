@@ -18,6 +18,8 @@ import {
   DisputeResolveInput, DisputeReviewInput, DisputesQuery, PaymentEventResolveInput, PaymentEventsQuery, StandinEventInput,
 } from "../../contracts/payment-events";
 import { getDispute, listDisputes, resolveDispute, reviewDispute } from "../../domain/payment-exceptions";
+import { readPaymentSwitch, setPaymentSwitch } from "../../domain/payment-switch";
+import { PaymentSwitchInput } from "../../contracts/payment-switch";
 import {
   acceptPaymentWebhook, isPaymentEventStatus, listPaymentEvents, PaymentWebhookError, resolvePaymentEvent, standinSendEvent,
 } from "../../domain/payment-events";
@@ -54,6 +56,11 @@ paymentsRouter.post("/payment-events/:id/resolve", requireActor, (async (req, re
 }) as RequestHandler<Id>);
 
 /* 2S5-BE-03 — disputes, worked by BTG support; never resolved by the system. */
+/* POL-BE-36 — BTG's payments switch: BTG Admin and Finance of a top-level organisation. */
+paymentsRouter.get("/payments/switch", requireActor, (async (req, res) => { res.json(await readPaymentSwitch(req.actor!)); }) as RequestHandler);
+paymentsRouter.put("/payments/switch", requireActor, (async (req, res) => {
+  res.json(await setPaymentSwitch(req.actor!, PaymentSwitchInput.parse(req.body ?? {})));
+}) as RequestHandler);
 paymentsRouter.get("/disputes", requireActor, (async (req, res) => {
   res.json(await listDisputes(req.actor!, DisputesQuery.parse(req.query).state, pageRequest(req.query as Record<string, unknown>) ?? undefined));
 }) as RequestHandler);

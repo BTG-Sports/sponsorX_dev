@@ -177,6 +177,8 @@ export type Resource =
   | "guardianHandoff"
   | "signupRules"
   | "paymentEvent"
+  /* POL-BE-36 — BTG's platform-wide payments switch. */
+  | "paymentSwitch"
   | "paymentDispute"
   | "supportMessage"
   | "pricingRecommendation"
@@ -273,6 +275,7 @@ export const RESOURCES: readonly Resource[] = [
   "guardianHandoff",
   "signupRules",
   "paymentEvent",
+  "paymentSwitch",
   "paymentDispute",
   "supportMessage",
   "pricingRecommendation",
@@ -1091,6 +1094,16 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
     FINANCE: rwa("own-tenant"),
+  },
+
+  /* POL-BE-36 — the payments switch (polish item 36): BTG Admin and Finance
+     read and flip it. It is one platform-wide row, so the domain also
+     requires a top-level organisation (one no other runs) — an operated
+     school's staff never reach it (domain/payment-switch.ts). */
+  paymentSwitch: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    FINANCE: rwa("own-tenant", "own-tenant"),
   },
 
   /* 2S5-BE-03 (matrix §26) — a sponsor's dispute of a card payment. Opened

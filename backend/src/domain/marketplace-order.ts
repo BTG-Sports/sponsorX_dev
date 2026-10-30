@@ -100,7 +100,7 @@ import { tellBtgHeld, tellSponsorApproved, tellSponsorPaid } from "./order-mail"
 import { orderRefundCause, recordRefund, refundsForOrders, type RefundContext } from "./refunds";
 import { claimsMoney } from "./payout-auto";
 import { assertRefundable } from "./payment-exceptions";
-import { paymentsOpen } from "../lib/payment-provider";
+import { paymentsOpen } from "./payment-switch";
 import {
   approvalReasons,
   billingProblems,
@@ -675,6 +675,8 @@ async function moveIn(
 ) {
   const from = order.state as MarketplaceOrderState;
   if (!canTransitionMarketplaceOrder(from, to)) throw new IllegalMarketplaceOrderTransitionError(from, to);
+  /* POL-BE-04 / POL-BE-36 — read before the claim: the window starts only while payment is open. */
+  const payOpen = to === "AWAITING_PAYMENT" ? await paymentsOpen() : false;
   /* 2S5-BE-03 — never under a dispute (its money is frozen), nor after one was lost (the bank already returned it). */
   if (to === "REFUNDED") await assertRefundable(tx, order.id);
   /* Claimed on the state it was read in (see CONCURRENCY above): an order
@@ -685,7 +687,7 @@ async function moveIn(
     /* 2S4-BE-10 — the payment window opens: reminders after 1 and 2 days, cancelled at 3.
        POL-BE-04 — not while card payment is closed: the order waits with no
        deadline, and the sweep opens its three days once payment opens. */
-    ...(to === "AWAITING_PAYMENT" ? { awaitingPaymentAt: now, paymentDueAt: paymentsOpen() ? new Date(now.getTime() + PAYMENT_WINDOW_DAYS * DAY) : null, paymentRemindersSent: 0 } : {}),
+    ...(to === "AWAITING_PAYMENT" ? { awaitingPaymentAt: now, paymentDueAt: payOpen ? new Date(now.getTime() + PAYMENT_WINDOW_DAYS * DAY) : null, paymentRemindersSent: 0 } : {}),
     ...(to === "PAID" ? { paidAt: now } : {}),
     /* 2S4-BE-09 — a refund stops the sponsor's limit rising, from this moment —
        2S4-BE-12: unless it is a cancellation's, which nobody is at fault for. */

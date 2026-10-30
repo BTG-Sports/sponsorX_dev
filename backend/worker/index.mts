@@ -100,7 +100,7 @@ import { sweepDeliveries } from "../src/domain/delivery.ts";
 import { sweepReviewReminders } from "../src/domain/review-reminders.ts";
 import { sweepCampaignStages } from "../src/domain/campaign-stages.ts";
 import { recheckHeldBriefs } from "../src/domain/brief-auto.ts";
-import { sweepAutoStaffing } from "../src/domain/auto-staffing.ts";
+import { sweepAutoStaffing, sweepStalledStaffing } from "../src/domain/auto-staffing.ts";
 import { sweepCampaignLaunches } from "../src/domain/campaign-launch.ts";
 import { STUDENT_DIGEST_HOUR_UTC, sendStudentApprovalDigests, sweepStudentAutomation } from "../src/domain/student-auto.ts";
 import { sweepEditionStages } from "../src/domain/edition-automation.ts";
@@ -903,7 +903,11 @@ async function main(): Promise<void> {
   const autoStaffingSweep = () =>
     void sweepAutoStaffing()
       .then((r) => { if (r.sent || r.skipped || r.stopped || r.failed) log(`[worker] auto staffing ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => logError("[worker] auto staffing sweep failed, will retry:", error));
+      .catch((error: unknown) => logError("[worker] auto staffing sweep failed, will retry:", error))
+      /* POL-BE-22 — then mark (or clear) the hand-staffed campaigns nobody is being asked for. */
+      .then(() => sweepStalledStaffing())
+      .then((r) => { if (r?.marked || r?.cleared) log(`[worker] stalled staffing ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => logError("[worker] stalled-staffing sweep failed, will retry:", error));
   autoStaffingTimer = setInterval(autoStaffingSweep, AUTO_CAMPAIGN_SWEEP_INTERVAL_MS);
   setTimeout(autoStaffingSweep, 60_000).unref();
 

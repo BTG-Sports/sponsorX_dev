@@ -85,3 +85,85 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
   - 3 new unit tests; 26 pass.
 - **Checked:** a dry run on the #351 merge now produces "✅ POL-BE-17 … → Done".
 - The Google Sheet has no Polish tab. Its sync writes nothing there, as before; the Sheet stays a hand mirror.
+
+### `POL-BE-19` — a sponsor admin can add teammates (rcfworks), on `feature/POL-BE-19-sponsor-team`
+
+- **Built:** `domain/sponsor-team.ts` and `routes/v1/sponsor-team.ts`:
+  - `GET /sponsor/team`;
+  - `POST /sponsor/team` `{ email, role }`;
+  - `PATCH /sponsor/team/:id` `{ role }`;
+  - `POST /sponsor/team/:id/resend`;
+  - `POST /sponsor/team/:id/remove`.
+- **Access:** a SPONSOR_ADMIN of one sponsor only (the policy's `user` write `own-sponsor`); everyone else gets 403.
+- **How invites work:** an invite is a User row with an `invite:` placeholder clerkId, which the first sign-in with that address claims (actor.ts). It's emailed as `sponsor.teamInvite`.
+- **Rules:**
+  - an address that already has any login gets 409;
+  - 20 invites an hour per sponsor; 3 resends an hour per invite;
+  - no self-change or self-removal (422);
+  - removing a member sets `disabledAt`; removing an unused invite deletes the row.
+- **Audit actions:** `sponsorTeam.invite`, `.role`, `.inviteResent`, `.remove`.
+- **Not built (in polish.md):** re-inviting a removed person (their address still has a switched-off login).
+- **Tests:** `backend/tests/pol-be-19-sponsor-team.test.ts` (10). It checks:
+  - claiming an invite at first sign-in, as admin and as a read-only viewer;
+  - conflicts, roles, resends, removal and the caps;
+  - another sponsor's people are out of reach.
+- **For HeckerCreatives:** the team page, and hiding "Settings" and "Messages", are `POL-FE-19`. Notes are in polish.md.
+- **Guards updated:** `openapi.coverage.test.ts` (route file list) and `tenant-isolation.test.ts` (`PARAM_FOR.team`, and a PATCH body). The first full run failed on both. Both pass, covering cross-tenant and same-tenant other-sponsor access.
+
+### `POL-BE-22` — the sponsor is told when staffing stalls (rcfworks), on `feature/POL-BE-22-staffing-stalled`
+
+- **Rule:** `stalledSince` / `stuckByHand` in `auto-staffing-rules.ts`. A campaign is stalled before launch (DRAFT or STAFFING), short of the package minimum, and either `staffingStoppedAt` is set, or it is hand-staffed with nobody being asked (the mark is honoured only while still true).
+- **Mark:** new `Campaign.staffingStalledAt` (migration `20261030150000_campaign_staffing_stalled`). It is set and cleared by `sweepStalledStaffing` in `auto-staffing.ts`, which runs after `sweepAutoStaffing` in the worker's ten-minute timer.
+- **Reads:**
+  - `staffingView` adds `stalled: { since } | null` for BTG;
+  - the sponsor's `staffing` adds `btgFinding` (never the reason or names);
+  - the `CampaignStaffing` schema and registry summaries are updated.
+- **Tests:** `backend/tests/pol-be-22-staffing-stalled.test.ts` (8). It checks:
+  - the pure rule;
+  - the stop shows since the stop date, without the reason;
+  - a campaign that met its minimum or already launched is not stalled;
+  - by hand: not stalled while someone is asked, marked once the last offer is declined (the date is kept), cleared when someone is asked again;
+  - another sponsor gets 403.
+- **For HeckerCreatives:** `POL-FE-22` shows "BTG is finding more athletes · since {date}". Notes are in polish.md.
+- **Next-step wording:** `sponsorStaffingLine` now reads "BTG is finding more athletes since {Mon d}: x of range signed so far" (who BTG) when stalled. `auto-staffing-launch.test.ts` was updated for the new field and line.
+- **Flaky test:** `invitation-guardian-mail` failed once in the full run; it passed alone twice, and again in the full rerun.
+
+### `POL-BE-29` — the guardian-handoff queue reads oldest first (rcfworks), on `feature/POL-BE-29-handoffs-oldest-first`
+
+- **Built:** `listHandoffs` in `guardian-handoff.ts`.
+  - Open groups (`WAITING_FOR_BTG`, `IN_PROGRESS`, arena `waiting`) order by `createdAt` then `id`, ascending.
+  - Closed groups order descending.
+  - No group: two `readSegments` segments (open states ascending, then the rest descending), paged or not.
+- **Tests:** `backend/tests/pol-be-29-handoffs-oldest-first.test.ts` (5) checks each tab's order, the unfiltered order, and the order across pages. The existing handoff desk, flow and escalation tests still pass.
+- **Left on the backend polish list:** `POL-BE-36` (the payments switch).
+
+### `POL-BE-36` — BTG's payments switch (rcfworks), on `feature/POL-BE-36-payments-switch`
+
+- **Built:** `domain/payment-switch.ts`, with `paymentsOpen()` (moved from lib/payment-provider), `activeProvider()`, and `readPaymentSwitch`/`setPaymentSwitch`.
+  - New `PaymentSwitch` table (migration `20261030170000_payment_switch`): one row, id "payments".
+  - Routes: `GET`/`PUT /payments/switch`.
+  - New policy resource `paymentSwitch` (SUPER_ADMIN any; BTG_ADMIN and FINANCE own-tenant), plus a top-level-organisation check. Matrix doc and digest updated (`49765fb6b2173f73`).
+- **Gates:** `startCardPayment`, `sendPayout`, `payoutAccountLink` and `accountView.canSetUp` use `activeProvider()`. `canPay`, the checkout's `paymentsOpen` (new on `GET /reservations/:id`), the AWAITING_PAYMENT window and `sweepUnpaidOrders` use `paymentsOpen()`. Webhooks use the configured `providerName()`.
+- **Rules:**
+  - with no row it's off in production, on elsewhere;
+  - "on" needs a provider (409);
+  - a reason is required;
+  - each change is audited;
+  - turning it from off to on queues APPROVED payouts (`tenantIds` limit for tests).
+- **Checked against the acceptance criteria clause by clause:**
+  - Admin and Finance switch it ✔;
+  - audited with a reason ✔;
+  - other roles refused, and operated organisations too ✔;
+  - off means no checkout, no transfer, no cancellation ✔;
+  - can't turn on without keys ✔;
+  - tests ✔.
+- **Tests:** `pol-be-36-payments-switch.test.ts` (5, real DB, only ever turns it on) and `pol-be-36-payments-off.test.ts` (7, a stand-in for the one row, so parallel files never see payment off).
+- **Found, not fixed (reported to the owner):** `PUBLIC_INTAKE_TENANT_ID` is unset in production and staging, so it defaults to `seed_tenant_btg`. Production's BTG organisation is `tenant_btg`, so public sign-ups in production likely point at a tenant that doesn't exist.
+- **Switches doc:** the Payments switch row and the two steps to open payments were added. Staging's `PAYMENT_PROVIDER` is corrected to `stripe` (checked in Railway).
+- **POL-BE-36, first full run:** lint (a bare `findUnique` in `view` needed a `select`) and `phase2-payouts.test.ts:378` (the old refusal wording, matched by a regex the exact-string search missed) both failed. Both are fixed, and the frontend payout-detail wording is noted in polish.md for `POL-FE-36`.
+- **POL-BE-18 merged:** #352 into `main_development`; the row is Done and went to both branches. It is the first Done row the fixed tracker-notify announces in Slack.
+- **POL-BE-19 merged:** #358 into `main_development`. The row is Done and rides #356/#357 with POL-BE-18's, to both branches.
+- **POL-BE-22 merged:** #359 into `main_development` (its first CI run hit a Google Fonts fetch failure in the web build; the rerun passed). The row is Done and rides #356/#357 with 18's and 19's.
+- **POL-BE-29 merged:** #360 into `main_development`. The row is Done and rides #356/#357 with 18's, 19's and 22's.
+- **POL-BE-15 accepted with two exceptions (owner, 2026-10-30):** support messages and campaign requests have no count, because neither has a list in the app to count. This is noted on the tracker row.
+- **POL-BE-36 merged:** #361 into `main_development`. The row is Done, so all 20 `POL-BE` rows are Done (POL-BE-15 with its two accepted exceptions). Its Done row rides #356/#357 with 18's, 19's, 22's and 29's.

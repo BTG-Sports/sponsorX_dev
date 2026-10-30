@@ -390,9 +390,9 @@
     "semantic_hash": ""
   },
   "documentation/SponsorX-RBAC-Matrix.md": {
-    "mtime": 1792823470.4596364,
-    "seen": 1793327169.827727,
-    "ast_hash": "5028e1aa9a9a05c32539f3b7f53dc94e",
+    "mtime": 1793343602.7702024,
+    "seen": 1793345098.990324,
+    "ast_hash": "c4039b3a970c1a93f490ea45b87d4718",
     "semantic_hash": ""
   },
   "documentation/SponsorX-Who-Can-See-What.md": {
@@ -1230,9 +1230,9 @@
     "semantic_hash": ""
   },
   "backend/src/auth/policy.ts": {
-    "mtime": 1792823470.3556242,
-    "seen": 1793327169.826005,
-    "ast_hash": "5c1469b4453fb5ea1752136db9edcdca",
+    "mtime": 1793343233.2848847,
+    "seen": 1793345098.929488,
+    "ast_hash": "c08fe4a07d509859bd3004c78f6058aa",
     "semantic_hash": ""
   },
   "backend/src/auth/scope.ts": {
@@ -1260,9 +1260,9 @@
     "semantic_hash": ""
   },
   "backend/src/contracts/campaign.ts": {
-    "mtime": 1792823470.3575785,
-    "seen": 1793327169.8260128,
-    "ast_hash": "48bb374026d1a9d234051d4e792650d9",
+    "mtime": 1793339902.279983,
+    "seen": 1793341211.283419,
+    "ast_hash": "ae42ec0f2870b77c568b150feecaad96",
     "semantic_hash": ""
   },
   "backend/src/contracts/common.ts": {
@@ -1302,9 +1302,9 @@
     "semantic_hash": ""
   },
   "backend/src/contracts/registry.ts": {
-    "mtime": 1793330023.7595944,
-    "seen": 1793330216.959807,
-    "ast_hash": "263f89905639c7b35f70ffd61754f443",
+    "mtime": 1793343395.200929,
+    "seen": 1793345098.930866,
+    "ast_hash": "b0716f8f5cddc9a26b08738a3ad4e6a7",
     "semantic_hash": ""
   },
   "backend/src/contracts/reward.ts": {
@@ -1602,9 +1602,9 @@
     "semantic_hash": ""
   },
   "backend/src/lib/email.ts": {
-    "mtime": 1793327753.8049192,
-    "seen": 1793328009.4471512,
-    "ast_hash": "0e8e65722410608e990dfe556caf4626",
+    "mtime": 1793335488.1895742,
+    "seen": 1793337316.958047,
+    "ast_hash": "8cd4211dc4593025dd4b07f88ab1ee56",
     "semantic_hash": ""
   },
   "backend/src/lib/intake-token.ts": {
@@ -1644,9 +1644,9 @@
     "semantic_hash": ""
   },
   "backend/src/routes/v1/campaigns.ts": {
-    "mtime": 1793327693.4107928,
-    "seen": 1793328009.4485068,
-    "ast_hash": "8e9aa9b744011c6b5727560436a85c40",
+    "mtime": 1793339902.3088424,
+    "seen": 1793341211.293291,
+    "ast_hash": "a4a053a82292e2ab91534768ea0886ed",
     "semantic_hash": ""
   },
   "backend/src/routes/v1/deliverables.ts": {
@@ -1668,9 +1668,9 @@
     "semantic_hash": ""
   },
   "backend/src/routes/v1/index.ts": {
-    "mtime": 1792823470.400426,
-    "seen": 1793327169.826262,
-    "ast_hash": "36694b19913c4264c70ee5c85e65ec14",
+    "mtime": 1793335488.1898842,
+    "seen": 1793337316.959321,
+    "ast_hash": "b620a323060b53c8a51cf20591d91602",
     "semantic_hash": ""
   },
   "backend/src/routes/v1/me.ts": {
@@ -1758,9 +1758,9 @@
     "semantic_hash": ""
   },
   "backend/tests/authz.matrix.test.ts": {
-    "mtime": 1792823470.407407,
-    "seen": 1793327169.826335,
-    "ast_hash": "311f6d4a99b4a5913ee270a8a33d8a6d",
+    "mtime": 1793343602.7720737,
+    "seen": 1793345098.942862,
+    "ast_hash": "2f56edf5b2deb8b61f968ae4966a4eea",
     "semantic_hash": ""
   },
   "backend/tests/authz.row-scope.test.ts": {
@@ -1974,9 +1974,9 @@
     "semantic_hash": ""
   },
   "backend/worker/index.mts": {
-    "mtime": 1793274289.013139,
-    "seen": 1793327169.826526,
-    "ast_hash": "866351f9941c637e71c0e257152261bd",
+    "mtime": 1793339902.3126593,
+    "seen": 1793341211.302531,
+    "ast_hash": "b418efa4904cf50039348651af9769d5",
     "semantic_hash": ""
   },
   "backend/worker/jobs/deliverable-reminders.mts": {
@@ -2040,9 +2040,9 @@
     "semantic_hash": ""
   },
   "backend/worker/jobs/send-email.mts": {
-    "mtime": 1793327753.8063402,
-    "seen": 1793328009.489494,
-    "ast_hash": "09c89e16fc26bf8c76ca3483ca92ca34",
+    "mtime": 1793335488.19687,
+    "seen": 1793337316.968908,
+    "ast_hash": "3fe48656f9168ecd9fda2040a53b9f39",
     "semantic_hash": ""
   },
   "documentation/sponsorxNext/build-docx.js": {
@@ -3378,9 +3378,9 @@
     "semantic_hash": ""
   },
   "backend/tests/openapi.coverage.test.ts": {
-    "mtime": 1792823470.4170737,
-    "seen": 1793327169.826421,
-    "ast_hash": "f2df8e066d0c88b5e61098fe524518dd",
+    "mtime": 1793335488.1906292,
+    "seen": 1793337316.9643872,
+    "ast_hash": "bca7800d85128cfdfccf190fb6e1d1ba",
     "semantic_hash": ""
   },
   "frontend/src/app/u/[token]/route.ts": {
@@ -3438,15 +3438,15 @@
     "semantic_hash": ""
   },
   "backend/src/routes/v1/inquiries.ts": {
-    "mtime": 1793330001.5549376,
-    "seen": 1793330216.970697,
+    "mtime": 1793331753.848246,
+    "seen": 1793333840.4794,
     "ast_hash": "3ca75b627c25af70db74311c9790e91c",
     "semantic_hash": ""
   },
   "backend/tests/authz.coverage.test.ts": {
-    "mtime": 1793274289.0109286,
-    "seen": 1793327169.826333,
-    "ast_hash": "26349033413d5b94904306775790a6a7",
+    "mtime": 1793343233.285676,
+    "seen": 1793345098.942831,
+    "ast_hash": "2877fc83321630567799d5abb032b206",
     "semantic_hash": ""
   },
   "backend/tests/support/fake-zoho.ts": {
@@ -3456,9 +3456,9 @@
     "semantic_hash": ""
   },
   "backend/tests/tenant-isolation.test.ts": {
-    "mtime": 1793274289.0124512,
-    "seen": 1793327169.8265128,
-    "ast_hash": "e7cda3d74786e6ac848be706e0908248",
+    "mtime": 1793335488.1938155,
+    "seen": 1793337316.9680488,
+    "ast_hash": "d049ea20b89ff6171e5eb0eb7faf4719",
     "semantic_hash": ""
   },
   "backend/tests/tenant-scope.static.test.ts": {
@@ -3924,9 +3924,9 @@
     "semantic_hash": ""
   },
   "backend/src/domain/marketplace-order.ts": {
-    "mtime": 1793260007.5193992,
-    "seen": 1793327169.826151,
-    "ast_hash": "b5133a990baf97d84d32826e896f7c1e",
+    "mtime": 1793343304.5660386,
+    "seen": 1793345098.936895,
+    "ast_hash": "b1f2414b5b5adcdec2323cc358e3f81a",
     "semantic_hash": ""
   },
   "backend/src/domain/marketplace-search.ts": {
@@ -4002,9 +4002,9 @@
     "semantic_hash": ""
   },
   "backend/src/domain/reservation.ts": {
-    "mtime": 1793260007.521656,
-    "seen": 1793327169.826188,
-    "ast_hash": "e99a362196da6ce422efd81baaa150ff",
+    "mtime": 1793343348.8950129,
+    "seen": 1793345098.938433,
+    "ast_hash": "7e2563df9a86d6b4da4e12473455816f",
     "semantic_hash": ""
   },
   "backend/src/domain/restrictions.ts": {
@@ -5436,15 +5436,15 @@
     "semantic_hash": ""
   },
   "scripts/tracker/tests/test_tracker_sync.py": {
-    "mtime": 1791345503.665029,
-    "seen": 1793327169.827551,
-    "ast_hash": "dbb3104c6651d1aba256e69c70f88841",
+    "mtime": 1793331754.8271153,
+    "seen": 1793333840.664899,
+    "ast_hash": "7667b65914fc5a8bdacf4d7696b0914c",
     "semantic_hash": ""
   },
   "scripts/tracker/tracker_sync.py": {
-    "mtime": 1791345503.6636934,
-    "seen": 1793327169.827552,
-    "ast_hash": "6fea9d0528d3a88dc20c303df666b222",
+    "mtime": 1793331754.8275259,
+    "seen": 1793333840.6649039,
+    "ast_hash": "6ab9d94c30fa27e88296bbc1017672bf",
     "semantic_hash": ""
   },
   ".github/workflows/tracker-digest.yml": {
@@ -6294,15 +6294,15 @@
     "semantic_hash": ""
   },
   "backend/src/domain/payouts.ts": {
-    "mtime": 1793276362.4905,
-    "seen": 1793327169.826178,
-    "ast_hash": "d5fa6dc47ba36222093749bc6373d0de",
+    "mtime": 1793343395.1997473,
+    "seen": 1793345098.9380522,
+    "ast_hash": "68e70bc473e4e6071a7322a386ac8239",
     "semantic_hash": ""
   },
   "backend/src/lib/payment-provider.ts": {
-    "mtime": 1793185691.1682217,
-    "seen": 1793327169.826236,
-    "ast_hash": "73455e0034bb40f475858611046cb0d9",
+    "mtime": 1793343304.561994,
+    "seen": 1793345098.9403892,
+    "ast_hash": "a25ea884c84679bd6205229207b355f0",
     "semantic_hash": ""
   },
   "backend/src/routes/v1/payouts.ts": {
@@ -6318,9 +6318,9 @@
     "semantic_hash": ""
   },
   "backend/tests/phase2-payouts.test.ts": {
-    "mtime": 1793247208.8344505,
-    "seen": 1793327169.826451,
-    "ast_hash": "4941f09b80096231181a88d41fdc60de",
+    "mtime": 1793343785.6333246,
+    "seen": 1793345098.9469829,
+    "ast_hash": "bd30d59d501b6eef7fcf6dd3170e95c3",
     "semantic_hash": ""
   },
   "frontend/src/app/(app)/admin/payouts/[id]/page.tsx": {
@@ -6492,8 +6492,8 @@
     "semantic_hash": ""
   },
   "backend/src/contracts/sponsor-requests.ts": {
-    "mtime": 1793330001.554083,
-    "seen": 1793330216.9599402,
+    "mtime": 1793331753.8456721,
+    "seen": 1793333840.457678,
     "ast_hash": "2aed02926065f21e5820dbbe908ceaef",
     "semantic_hash": ""
   },
@@ -6504,8 +6504,8 @@
     "semantic_hash": ""
   },
   "backend/src/domain/sponsor-requests.ts": {
-    "mtime": 1793329980.6104467,
-    "seen": 1793330216.968437,
+    "mtime": 1793331753.847637,
+    "seen": 1793333840.472873,
     "ast_hash": "e67dce360b21bf693e56ea657eae5100",
     "semantic_hash": ""
   },
@@ -6744,9 +6744,9 @@
     "semantic_hash": ""
   },
   "backend/src/domain/guardian-handoff.ts": {
-    "mtime": 1793270765.8210914,
-    "seen": 1793327169.8261309,
-    "ast_hash": "b4ca6e60ee63249096a181d114304da9",
+    "mtime": 1793342019.6570234,
+    "seen": 1793345098.936078,
+    "ast_hash": "b958763fced8bccdef908740b4707c43",
     "semantic_hash": ""
   },
   "backend/src/domain/guardian-setup.ts": {
@@ -6834,8 +6834,8 @@
     "semantic_hash": ""
   },
   "backend/src/lib/sponsor-request-token.ts": {
-    "mtime": 1793330306.373859,
-    "seen": 1793330513.814858,
+    "mtime": 1793331753.847976,
+    "seen": 1793333840.477036,
     "ast_hash": "b87a0850b65fa8557ab78f3e8f25d71f",
     "semantic_hash": ""
   },
@@ -8826,15 +8826,15 @@
     "semantic_hash": ""
   },
   "backend/src/domain/auto-staffing-rules.ts": {
-    "mtime": 1791012944.6307425,
-    "seen": 1793327169.826068,
-    "ast_hash": "142f6f0d7ea3cd391e33b9d86610d7b6",
+    "mtime": 1793339902.2932105,
+    "seen": 1793341211.28559,
+    "ast_hash": "609dc4ef7e7b511a4a4b755f01ceee6b",
     "semantic_hash": ""
   },
   "backend/src/domain/auto-staffing.ts": {
-    "mtime": 1792823470.3685908,
-    "seen": 1793327169.8260689,
-    "ast_hash": "14a6ddbf4b05105376712e846a2791d3",
+    "mtime": 1793339902.3045375,
+    "seen": 1793341211.28559,
+    "ast_hash": "9d9c145d69209e853a27eeb68eeda9bc",
     "semantic_hash": ""
   },
   "backend/src/domain/backtest-engine.ts": {
@@ -8910,15 +8910,15 @@
     "semantic_hash": ""
   },
   "backend/src/domain/campaign-stage-rules.ts": {
-    "mtime": 1792823470.3722801,
-    "seen": 1793327169.826085,
-    "ast_hash": "40ff3a02bd564607205a1634ec3a77c5",
+    "mtime": 1793339902.3061593,
+    "seen": 1793341211.2861938,
+    "ast_hash": "d663b092d72bdb8c07fc761597cb89fa",
     "semantic_hash": ""
   },
   "backend/src/domain/campaign-stages.ts": {
-    "mtime": 1792823470.372886,
-    "seen": 1793327169.8260858,
-    "ast_hash": "9a81b34b9dce0eef114568d820237dd3",
+    "mtime": 1793339902.3070316,
+    "seen": 1793341211.2861938,
+    "ast_hash": "59d8bcd0b004cf8aae8f3720cedd744b",
     "semantic_hash": ""
   },
   "backend/src/domain/consent-rights-rules.ts": {
@@ -9078,8 +9078,8 @@
     "semantic_hash": ""
   },
   "backend/src/domain/link-renewal.ts": {
-    "mtime": 1793329937.2353256,
-    "seen": 1793330216.965785,
+    "mtime": 1793331753.847092,
+    "seen": 1793333840.4671009,
     "ast_hash": "81b752b0f2ce214d6dbc4fe8c48d47b7",
     "semantic_hash": ""
   },
@@ -9156,9 +9156,9 @@
     "semantic_hash": ""
   },
   "backend/src/domain/order-payment.ts": {
-    "mtime": 1793185691.165285,
-    "seen": 1793327169.8261702,
-    "ast_hash": "137487f1ec0e61a59040491fbe87e20b",
+    "mtime": 1793343304.5669641,
+    "seen": 1793345098.937738,
+    "ast_hash": "1a6ce58491fef1715c891f8e27c9f0c2",
     "semantic_hash": ""
   },
   "backend/src/domain/overview-window.ts": {
@@ -9444,9 +9444,9 @@
     "semantic_hash": ""
   },
   "backend/src/routes/v1/payments.ts": {
-    "mtime": 1791370549.5245838,
-    "seen": 1793327169.826269,
-    "ast_hash": "ed747c1608436dd68696716e4d596ef3",
+    "mtime": 1793343375.2370293,
+    "seen": 1793345098.941739,
+    "ast_hash": "890741202834e1c0b8a6c832f308d1d6",
     "semantic_hash": ""
   },
   "backend/src/routes/v1/sponsor-overview.ts": {
@@ -9498,9 +9498,9 @@
     "semantic_hash": ""
   },
   "backend/tests/auto-staffing-launch.test.ts": {
-    "mtime": 1791013151.1829123,
-    "seen": 1793327169.826337,
-    "ast_hash": "e7b08ba3f1a3886363c65fe6fba430eb",
+    "mtime": 1793339902.3098476,
+    "seen": 1793341211.295187,
+    "ast_hash": "59171d06c8e5d8016c896c2ba7e184a5",
     "semantic_hash": ""
   },
   "backend/tests/backtest.test.ts": {
@@ -9834,8 +9834,8 @@
     "semantic_hash": ""
   },
   "backend/tests/pmo02-link-lifetimes.test.ts": {
-    "mtime": 1793330306.3767679,
-    "seen": 1793330513.8220491,
+    "mtime": 1793331753.8486578,
+    "seen": 1793333840.488608,
     "ast_hash": "71e4e48b478ac370de4ca25ab5724bf1",
     "semantic_hash": ""
   },
@@ -12942,9 +12942,9 @@
     "semantic_hash": ""
   },
   "documentation/polish.md": {
-    "mtime": 1793330134.8409657,
-    "seen": 1793330217.099808,
-    "ast_hash": "7c97d11c5438f6cfc7f72a92103978ac",
+    "mtime": 1793344823.0383995,
+    "seen": 1793345098.990766,
+    "ast_hash": "fe427f6a93a0c867ddcbfb38929ad5b6",
     "semantic_hash": ""
   },
   "backend/src/domain/account-closure-impact.ts": {
@@ -13044,21 +13044,21 @@
     "semantic_hash": ""
   },
   "documentation/SponsorX-Switches.md": {
-    "mtime": 1793266339.7879272,
-    "seen": 1793327169.827734,
-    "ast_hash": "5bbfa0e0e7de1fa543c8353d6ff08acd",
+    "mtime": 1793343563.9702098,
+    "seen": 1793345098.990516,
+    "ast_hash": "1912d0a6beb912cde4cfe6fe92c7fc73",
     "semantic_hash": ""
   },
   "documentation/polish-progress.md": {
-    "mtime": 1793330332.4326682,
-    "seen": 1793330513.86818,
-    "ast_hash": "5be2f9cde9df424830ec866d9b144748",
+    "mtime": 1793344833.2375965,
+    "seen": 1793345098.990765,
+    "ast_hash": "307c798b30a17280e06155b1be284281",
     "semantic_hash": ""
   },
   "Memory/2026-10-30/tasks-completed.md": {
-    "mtime": 1793330332.4344158,
-    "seen": 1793330513.863422,
-    "ast_hash": "16e6d8a5883e9c012bd9bc7fc13bd14f",
+    "mtime": 1793344833.2383769,
+    "seen": 1793345098.986091,
+    "ast_hash": "6725307ee6a1e17ee89b6c15e06f9935",
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {
@@ -13086,9 +13086,69 @@
     "semantic_hash": ""
   },
   "backend/tests/pol-be-18-sponsor-email-fix.test.ts": {
-    "mtime": 1793330306.377187,
-    "seen": 1793330513.822112,
+    "mtime": 1793331753.8490798,
+    "seen": 1793333840.488846,
     "ast_hash": "6d4fc89ef91a018981e512bc2cc4ac08",
+    "semantic_hash": ""
+  },
+  "backend/src/contracts/sponsor-team.ts": {
+    "mtime": 1793335488.1876836,
+    "seen": 1793337316.949756,
+    "ast_hash": "e2c4313c8a29a551b4fc8ede2d153760",
+    "semantic_hash": ""
+  },
+  "backend/src/domain/sponsor-team.ts": {
+    "mtime": 1793335488.1892188,
+    "seen": 1793337316.957189,
+    "ast_hash": "b14bd291c2441b2b60afee8e7f107dca",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/v1/sponsor-team.ts": {
+    "mtime": 1793335488.1900992,
+    "seen": 1793337316.9599628,
+    "ast_hash": "1038f3f44c15f0fd408ca79b2d063620",
+    "semantic_hash": ""
+  },
+  "backend/tests/pol-be-19-sponsor-team.test.ts": {
+    "mtime": 1793335488.191515,
+    "seen": 1793337316.966201,
+    "ast_hash": "7a5178e0a8f868c58616bfa9ce3cd66c",
+    "semantic_hash": ""
+  },
+  "backend/tests/pol-be-22-staffing-stalled.test.ts": {
+    "mtime": 1793339902.310794,
+    "seen": 1793341211.300273,
+    "ast_hash": "6fddcefcd95b239b178ceceb43395d3a",
+    "semantic_hash": ""
+  },
+  "backend/tests/pol-be-29-handoffs-oldest-first.test.ts": {
+    "mtime": 1793342019.6573505,
+    "seen": 1793345098.947684,
+    "ast_hash": "d828aa0999dd6389db314f0bd5fc2257",
+    "semantic_hash": ""
+  },
+  "backend/src/contracts/payment-switch.ts": {
+    "mtime": 1793343375.212677,
+    "seen": 1793345098.930709,
+    "ast_hash": "a90450c37df57bf54ff36794a59cf609",
+    "semantic_hash": ""
+  },
+  "backend/src/domain/payment-switch.ts": {
+    "mtime": 1793343785.3114493,
+    "seen": 1793345098.937938,
+    "ast_hash": "ce24d85d3ecb61c8d5dc476b7f50f3f0",
+    "semantic_hash": ""
+  },
+  "backend/tests/pol-be-36-payments-off.test.ts": {
+    "mtime": 1793343538.8543901,
+    "seen": 1793345098.947685,
+    "ast_hash": "6241a0124329b9c322885afd19bf45b0",
+    "semantic_hash": ""
+  },
+  "backend/tests/pol-be-36-payments-switch.test.ts": {
+    "mtime": 1793343502.6543028,
+    "seen": 1793345098.947686,
+    "ast_hash": "c0fd3872bafb22dc8d85fdd7c7ce34e9",
     "semantic_hash": ""
   }
 }

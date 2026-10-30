@@ -957,6 +957,10 @@ model Campaign {
   /// cleared when BTG turns it back on.
   staffingStopReason String?
   staffingStoppedAt  DateTime?
+  /// POL-BE-22 — a campaign BTG staffs by hand, short of its minimum with
+  /// nobody being asked: when the ten-minute sweep first found it so. Cleared
+  /// as soon as someone is asked again or the minimum is reached.
+  staffingStalledAt  DateTime?
 
   // Zoho (§18 — Deals are bi-directional)
   zohoDealId        String?     @unique
@@ -4990,3 +4994,17 @@ model VirtualEventRaw {
   @@index([tenantId, receivedAt])
 }
 
+
+/// POL-BE-36 — BTG's payments switch: one row for the platform (one payment
+/// provider account), id "payments". Payment is open only while the Railway
+/// setting has a provider AND this is on (domain/payment-switch.ts). No row
+/// yet: off in production, on elsewhere. Every change is audited
+/// (`paymentSwitch.change`) with the reason; this row is the latest.
+model PaymentSwitch {
+  id             String   @id @default("payments")
+  open           Boolean
+  reason         String
+  changedAt      DateTime @default(now())
+  changedById    String?
+  changedByEmail String?
+}

@@ -492,7 +492,13 @@ describe("the whole matrix is pinned", () => {
       // theirs, sends documents); GUARDIAN ward read, write deferred (acts as
       // the ward); every other cell deny — matrix §39. With its rows removed
       // the grid hashes to the previous e42f713e01538f23.
-    ).toBe("c38aba9da7b833e8");
+      // Updated 2026-10-30 (POL-BE-36): new `paymentSwitch` resource — BTG's
+      // platform-wide payments switch. SUPER_ADMIN any read/write; BTG_ADMIN
+      // and FINANCE own-tenant read/write (the domain also requires a
+      // top-level organisation); every other cell deny, nobody approves —
+      // matrix §paymentSwitch. With its rows removed the grid hashes to the
+      // previous c38aba9da7b833e8.
+    ).toBe("49765fb6b2173f73");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

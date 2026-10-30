@@ -20,8 +20,11 @@ each problem we ran into was solved. Newest first within each day.
 | 14 · Held make-goods reached no one | `POL-BE-14` | #338 | Merged |
 | 15 · BTG's dashboard counted only 4 of about 15 queues | `POL-BE-15` | #345 | Merged |
 | 17 · A sponsor couldn't open, edit or withdraw a sent request | `POL-BE-17` | #349 | Merged |
-| 18 · A sponsor couldn't resend the confirmation or fix a mistyped address | `POL-BE-18` | — | In review |
-| 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
+| 18 · A sponsor couldn't resend the confirmation or fix a mistyped address | `POL-BE-18` | #352 | Merged |
+| 19 · A sponsor admin couldn't add teammates | `POL-BE-19` | #358 | Merged |
+| 22 · A sponsor wasn't told when staffing stalled | `POL-BE-22` | #359 | Merged |
+| 29 · The guardian-handoff queue listed newest first | `POL-BE-29` | #360 | Merged |
+| 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #361 | Merged |
 
 The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`, `POL-FE-10`, `POL-FE-11`, `POL-FE-12`) are for
 HeckerCreatives. Each item in `polish.md` says exactly what the screens can
@@ -392,6 +395,97 @@ rely on.
     matches only a request whose address never changed. The full test run
     caught it, through the link-lifetime tests that call the old function
     names.
+
+### `POL-BE-19` — a sponsor admin can add teammates
+- **Problem:** a sponsor had exactly one login, the one opened when it was
+  approved. Nobody could invite a colleague.
+- **Approach:**
+  - The access rules already let a sponsor admin manage their own
+    sponsor's logins, but no endpoint used them. Five endpoints were added
+    under `/sponsor/team`.
+  - An invite is a login waiting to be claimed, the same shape the approval
+    already makes. The colleague's first sign-in with that address joins
+    the team, so nothing new was needed in sign-in.
+  - Removing someone switches their login off rather than deleting it, so
+    their history keeps its name. An unused invite is simply deleted.
+  - Nobody can change or remove themselves, so a sponsor always keeps an
+    admin.
+- **Snags:**
+  - Sign-in looks a login up by address across every tenant, so one
+    address can only ever have one login. Inviting an address that already
+    has one is refused. The same reason means a removed person can't be
+    re-invited; that's noted for later.
+  - The repo's guard tests caught two gaps in the first full run:
+    - the API-documentation test needed the new route file in its list;
+    - the tenant-isolation test needed a tenant-A record to aim
+      `/sponsor/team/{id}` at, and a valid body for the role change.
+    Both now pass. They confirm another tenant's sponsor admin, and
+    another sponsor in the same tenant, can't reach this team.
+
+### `POL-BE-22` — the sponsor is told when staffing stalls
+- **Problem:** the sponsor saw "1 of 3 athletes signed" and nothing else,
+  even when staffing had stopped and the campaign was with BTG.
+- **Approach:**
+  - One rule decides "stalled", kept beside the staffing rules: before
+    launch, short of the minimum, and either automatic staffing stopped, or
+    BTG staffs it by hand and nobody is being asked.
+  - Automatic staffing already recorded when it stopped. For hand-staffed
+    campaigns nothing recorded when the last ask ended, so the existing
+    ten-minute check now marks it and clears it, and that mark is the
+    date.
+  - The sponsor sees only that BTG is finding athletes, and since when.
+    Never the reason or who was asked; that stays BTG's.
+- **Snags:**
+  - **Test setup:** a sent offer's expiry can't be changed, which the
+    database enforces. The test makes the offer lapse by having the
+    athlete decline it.
+  - **Response shape:** the campaign read wraps its data in `campaign`.
+  - **Strict schema:** the staffing schema is strict, so both new fields
+    were added to it.
+  - **The next-step line.** The full run's staffing test showed the
+    sponsor's "next step" still said "We're staffing your campaign" after
+    BTG took over. It now says "BTG is finding more athletes since …", so
+    the fix shows even before the screen work.
+
+### `POL-BE-29` — the guardian-handoff queue reads oldest first
+- **Problem:** every tab sorted newest first, so the longest-waiting
+  minors' requests slipped down the list.
+- **Approach:** tabs with requests still waiting sort oldest first, and
+  finished tabs keep newest first. The unfiltered list puts every waiting
+  request first, oldest on top, then the finished ones. It is read in two
+  segments (`readSegments`), so paging keeps that order. A same-time
+  tiebreak on id keeps pages stable.
+- **Snag:** none. The existing handoff tests still pass with the new order.
+
+### `POL-BE-36` — BTG's payments switch
+- **Problem:** the only way to open or close payment was the Railway setting,
+  which restarts production and needs Railway access.
+- **Approach:**
+  - One platform-wide switch, read through the single function every money
+    path already asked (`paymentsOpen()`, plus `activeProvider()` for the
+    provider calls). Checkout, payout sending, payout set-up and POL-BE-04's
+    order windows all follow it. Webhooks deliberately don't, so money
+    already moving settles.
+  - The Railway setting stays the master off. The switch can't turn payment
+    on without a provider, and in production it starts off.
+- **Snags:**
+  - **Can't identify BTG by the intake setting.** `PUBLIC_INTAKE_TENANT_ID`
+    isn't set in production, and its default isn't production's BTG
+    organisation. So "BTG" is a top-level organisation (no operator) whose
+    Admin or Finance staff make the change.
+  - **Parallel tests.** The switch is one row and test files run in parallel
+    on one database. Real-database tests only ever turn it on (the default
+    there). The off cases run against a stand-in for that one row in their
+    own file.
+  - **The matrix guard.** The authorisation matrix's fingerprint test caught
+    the new resource as intended. The matrix document gained the
+    `paymentSwitch` section and the fingerprint was updated, with a note.
+  - **The first full run caught two more:**
+    - one read without an explicit field list, which lint rejects;
+    - an older payouts test matching the previous "payment provider is
+      connected" wording.
+    Both were fixed. The same wording on two payout detail screens is noted
+    for `POL-FE-36`.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.

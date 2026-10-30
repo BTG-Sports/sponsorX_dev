@@ -55,7 +55,7 @@ import { PAYMENT_WINDOW_DAYS, paymentWindowStart, remindersDue, usd, zohoInvoice
 import { appUrl, orderRef, sellerRecipients, sponsorRecipient, tell, utc } from "./order-mail";
 import { refuseIfBackwards } from "./invoice-replay";
 import { logError } from "../lib/redact";
-import { paymentsOpen } from "../lib/payment-provider";
+import { paymentsOpen } from "./payment-switch";
 
 type Tx = Prisma.TransactionClient;
 
@@ -191,7 +191,7 @@ async function paymentInProgress(tx: Tx, orderId: string, now: Date) {
  */
 export async function sweepUnpaidOrders(now = new Date(), opts: { tenantIds?: string[] } = {}) {
   const scope = opts.tenantIds ? { tenantId: { in: opts.tenantIds } } : {};
-  const open = paymentsOpen();
+  const open = await paymentsOpen();
   const DAY = 86_400_000;
   const waiting = await prisma.marketplaceOrder.findMany({
     /* tenant-scope: the worker's sweep across every tenant (or the named ones); each order is handled in its own books. */

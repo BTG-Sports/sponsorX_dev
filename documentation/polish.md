@@ -894,6 +894,47 @@ There's no invite screen, and "Settings" and "Messages" are dead menu items.
 **Fix:** a team screen to invite by email and set roles, with the API added if
 missing. Hide the menu items that don't work yet.
 
+- **Backend delivered (`POL-BE-19`, 2026-10-30).** All of these are for a
+  sponsor admin of one sponsor; analysts, BTG staff and other roles get 403.
+  - **`GET /sponsor/team`** returns `{ sponsorName, members }`. Each member
+    has `{ id, email, role, status, addedAt, you }`:
+    - `role` is `SPONSOR_ADMIN` (admin) or `SPONSOR_ANALYST` (viewer, read
+      only);
+    - `status` is `INVITED` (hasn't signed in yet), `ACTIVE` or `REMOVED`.
+  - **`POST /sponsor/team` `{ email, role }`** invites a colleague and emails
+    them (`sponsor.teamInvite`). Their first sign-in with that address
+    joins the team in that role, the same way the first sponsor login is
+    claimed.
+    - An address that already has a SponsorX login is refused (409), since
+      sign-in finds logins by address.
+    - At most 20 invites an hour per sponsor (429).
+  - **`PATCH /sponsor/team/:id` `{ role }`** switches someone between admin
+    and viewer.
+  - **`POST /sponsor/team/:id/resend`** sends an unused invite again, at
+    most 3 an hour.
+  - **`POST /sponsor/team/:id/remove`** cancels an unused invite, or
+    switches a member's login off. A removed member can't sign in, and
+    their history stays.
+  - **No changing or removing yourself (422).** So a sponsor always keeps
+    an admin.
+  - Every invite, role change, resend and removal is audited.
+  - **Not built:** re-adding a removed person. Their address still has a
+    (switched-off) login, so it can't be invited again; BTG can switch it
+    back on.
+  - Tests: `backend/tests/pol-be-19-sponsor-team.test.ts` (10).
+- **For screens (`POL-FE-19`):**
+  - A **Team** page in the sponsor portal, for admins only. Hide it from
+    viewers, who get 403.
+  - List the members with a status chip: Invited, Active or Removed. Mark
+    `you` and give that row no actions.
+  - **Invite:** an email field and an Admin / Viewer choice. A 409 means
+    "That address already has a SponsorX login."
+  - **Each row:** change role, and remove (ask "are you sure?" first). On
+    Invited rows, also "Resend invite". A 429 means "Too many tries. Try
+    again in an hour."
+  - **Hide "Settings" and "Messages"** until they work. There's no backend
+    for either yet.
+
 ### 20. "Needs your OK" points at nothing to approve
 `POL-FE-20` · confirmed
 
@@ -922,6 +963,32 @@ campaign's state (`brief-status.ts` `requestStepNow`).
 The sponsor keeps seeing "1 of 3 athletes signed", with no sign BTG is stepping in.
 **Fix:** the API marks a stalled campaign, and the sponsor sees "BTG is finding
 more athletes" with a date.
+
+- **Backend delivered (`POL-BE-22`, 2026-10-30):**
+  - **When a campaign is stalled:** before launch (draft or staffing),
+    short of its package's minimum, and either:
+    - automatic staffing stopped and handed it to BTG (out of athletes or
+      out of budget). The date is the stop.
+    - BTG staffs it by hand and nobody is being asked: every offer and
+      invite has been declined or has expired. The ten-minute staffing
+      check marks it (new `Campaign.staffingStalledAt`) and clears it as
+      soon as someone is asked again or the minimum is reached. Reads stop
+      showing it at once in that case.
+  - **What the API shows:**
+    - a sponsor's `staffing` gains `btgFinding: { since } | null`. It never
+      says why, or who was asked;
+    - BTG's staff get the same as `staffing.stalled`, beside the stop
+      reason.
+    - Both are on `GET /campaigns` and `GET /campaigns/:id`.
+    - The sponsor's `nextStep` already reads "BTG is finding more athletes
+      since Oct 28: 1 of 2–3 signed so far", with `who: "BTG"`. A screen
+      that shows `nextStep` gets this without a change.
+  - No email to the sponsor; the item asks only for the screen.
+  - Tests: `backend/tests/pol-be-22-staffing-stalled.test.ts` (8).
+- **For screens (`POL-FE-22`):** where the sponsor sees "1 of 3 athletes
+  signed", show "BTG is finding more athletes · since {date}" whenever
+  `staffing.btgFinding` is set. Keep the count beside it. Show nothing extra
+  when it's null.
 
 ### 23. Content review has no "review by" date
 `POL-FE-23` · likely
@@ -997,6 +1064,19 @@ lands on "Not yet".
 The oldest requests involving minors slip down the list.
 **Fix:** oldest first.
 
+- **Backend delivered (`POL-BE-29`, 2026-10-30):** `GET /guardian-handoffs`
+  orders requests like this:
+  - **Tabs with requests still waiting** ("Waiting for BTG", "In progress",
+    and the athlete and guardian "waiting" list): **oldest first**, by when
+    the request was made.
+  - **Tabs with finished requests** ("Switched", "Declined", "Cancelled",
+    "past"): newest first.
+  - **Unfiltered:** every waiting request first, oldest on top, then the
+    finished ones, newest first.
+  - Paging follows the same order, so the oldest is always on page 1.
+  - No screen change is needed; the queue just arrives in the new order.
+  - Tests: `backend/tests/pol-be-29-handoffs-oldest-first.test.ts` (5).
+
 ### 30. "Reply to the email" to unsubscribe goes nowhere
 `POL-FE-30` · likely
 
@@ -1049,6 +1129,51 @@ production, and only someone with Railway access can do it.
 - **Done when:** BTG can switch payments on and off from the admin screen; each
   change is audited with a reason; no other role can change it; off means no
   checkout, no transfer and no cancellation for non-payment; tests.
+- **Backend delivered (`POL-BE-36`, 2026-10-30):**
+  - **Endpoints.** `GET /payments/switch` returns `{ on, open, provider,
+    canTurnOn, changed: { at, by, reason } | null, history }`.
+    `PUT /payments/switch` `{ open, reason }` changes it at once, with no
+    deploy.
+  - **When payment is open:** only while Railway's `PAYMENT_PROVIDER` names a
+    provider (it stays the master off) AND the switch is on. With nothing
+    set, it's off in production and on elsewhere, so setting Railway to
+    Stripe opens nothing by itself.
+  - **Off means:**
+    - no checkout: the card link answers 409 "isn't open yet", and `canPay`
+      and the checkout's `paymentsOpen` are false;
+    - no payout sent and no payout account set up (`canSetUp` false);
+    - no order cancelled for non-payment: overdue orders are paused, and get
+      three fresh days when it reopens (POL-BE-04).
+  - **Webhooks still settle** what is already moving.
+  - **Turning it back on** queues every approved payout that waited.
+  - **Who:** BTG Admin and Finance of a top-level organisation, or a super
+    admin; anyone else gets 403. A reason is required (at least 5
+    characters). Every change is audited (`paymentSwitch.change`) and shown
+    in `history`. Turning it on while `PAYMENT_PROVIDER` is `none` answers
+    409.
+  - **Matrix and Switches doc:** the RBAC matrix gains `paymentSwitch`, and
+    `SponsorX-Switches.md` has the switch and the two steps to open
+    payments in production.
+  - **Tests:**
+    - `backend/tests/pol-be-36-payments-switch.test.ts` (5, real database);
+    - `backend/tests/pol-be-36-payments-off.test.ts` (7: off stops checkout,
+      transfers and cancellation; reopening releases them; the production
+      default).
+- **For screens (`POL-FE-36`):**
+  - **Payments panel in BTG admin**, for BTG Admin and Finance only:
+    - show on or off, plus `open`;
+    - show `changed` (who, when, why) and `history`;
+    - when `canTurnOn` is false, say "Payment provider not set up in
+      Railway yet" and disable "Turn on".
+  - **Changing it:** ask for a reason (at least 5 characters) and confirm
+    first.
+  - **Everywhere money moves:** when `canPay`, `paymentsOpen` or
+    `canSetUp` is false, the pay and payout buttons say "Payments open
+    soon".
+  - **Wording to update:** the payout detail pages (`admin/payouts/[id]`,
+    `finance/payouts/[id]`) say an approved payout "waits here until the
+    payment provider is connected". With the switch, it waits until payments
+    open, so "until payments open" is right in both cases.
 
 ---
 
