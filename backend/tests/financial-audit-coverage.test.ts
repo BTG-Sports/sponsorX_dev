@@ -46,6 +46,8 @@ const MONEY_MODULES = [
   "payouts.ts",
   /* P8-BE-03 — a deal dispute holds the order's earning and, on RESUME, puts it back. */
   "deal-disputes.ts",
+  /* P8-BE-12 — cancelling a campaign voids or holds its orders' earnings and queues its refund. */
+  "campaign-change.ts",
 ] as const;
 
 /**
@@ -94,6 +96,12 @@ const READ_ONLY = new Set([
   "refundSentProblems",
   "listRefunds",
   "refundsForOrders",
+  /* P8-BE-12 — what a campaign's sponsor has paid, from the Zoho mirror (a read). */
+  "campaignPaidCents",
+  /* P8-BE-12 — reads in campaign-change.ts: the impact before a cancel or change, and BTG's queue. */
+  "readCancelImpact",
+  "readChangeImpact",
+  "listCampaignRequests",
   /* P9-BE-18 / -19 — reads in the rate card and the split lock. */
   "rateCardPrice",
   "readEditionRateCard",

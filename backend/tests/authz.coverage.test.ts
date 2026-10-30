@@ -24,6 +24,8 @@ const GOVERNED_BY: Record<string, Resource> = {
   Tenant: "tenant",
   /* POL-BE-36 — BTG's payments switch. */
   PaymentSwitch: "paymentSwitch",
+  /* P8-BE-12 — a cancel or change held for BTG. */
+  CampaignChangeRequest: "campaignChange",
   User: "user",
   Property: "property",
   Guardian: "guardian",

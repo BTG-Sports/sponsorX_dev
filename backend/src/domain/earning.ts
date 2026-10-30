@@ -436,6 +436,7 @@ const EARNING_AUDIT_ACTIONS: Record<EarningState, `${string}.${string}`> = {
   PAID: AUDIT_ACTIONS.payout.markPaid,
   HELD: AUDIT_ACTIONS.payout.hold,
   DISPUTED: AUDIT_ACTIONS.payout.dispute,
+  VOIDED: "earning.void",
 };
 
 export { EARNING_AUDIT_ACTIONS };

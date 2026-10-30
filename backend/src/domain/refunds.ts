@@ -78,6 +78,8 @@ export const REFUND_CAUSES = [
   "PAID_AFTER_EDITION_CANCELLED",
   /* 2S5-BE-03 — the provider refunded the whole payment itself (payment-exceptions.ts): recorded SENT, never refunded again. */
   "PROVIDER_REFUNDED",
+  /* P8-BE-12 — a cancelled campaign's invoiced money, when BTG approves the cancel (campaign-change.ts). */
+  "CAMPAIGN_CANCELLED",
 ] as const;
 /** The two causes that refund a cancelled edition's ad sale — capped together. */
 export const EDITION_REFUND_CAUSES = ["EDITION_CANCELLED", "PAID_AFTER_EDITION_CANCELLED"] as const;
@@ -101,6 +103,7 @@ export const CAUSE_WORDS: Record<RefundCause, string> = {
   EDITION_CANCELLED: "BTG cancelled the edition the ad was sold in",
   PAID_AFTER_EDITION_CANCELLED: "Paid after BTG cancelled the edition the ad was sold in",
   PROVIDER_REFUNDED: "Refunded at the payment provider",
+  CAMPAIGN_CANCELLED: "The campaign was cancelled — its paid invoice is refunded",
 };
 
 const PAID_VIA_WORDS: Record<string, string> = {
@@ -447,7 +450,7 @@ export async function recordEditionRefund(
 }
 
 /** What a campaign's sponsor has actually paid, from the Zoho mirror: invoices marked paid (or with a paid date), never a void one. */
-async function campaignPaidCents(tx: Tx, tenantId: string, campaignId: string): Promise<number> {
+export async function campaignPaidCents(tx: Tx, tenantId: string, campaignId: string): Promise<number> {
   const invoices = await tx.campaignInvoice.findMany({
     where: { tenantId, campaignId },
     select: { status: true, amount: true, paidAt: true },

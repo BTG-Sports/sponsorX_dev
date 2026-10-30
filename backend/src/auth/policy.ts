@@ -179,6 +179,8 @@ export type Resource =
   | "paymentEvent"
   /* POL-BE-36 — BTG's platform-wide payments switch. */
   | "paymentSwitch"
+  /* P8-BE-12 — cancelling or changing a campaign, and BTG's queue of held requests. */
+  | "campaignChange"
   | "paymentDispute"
   | "supportMessage"
   | "pricingRecommendation"
@@ -276,6 +278,7 @@ export const RESOURCES: readonly Resource[] = [
   "signupRules",
   "paymentEvent",
   "paymentSwitch",
+  "campaignChange",
   "paymentDispute",
   "supportMessage",
   "pricingRecommendation",
@@ -1104,6 +1107,17 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
     FINANCE: rwa("own-tenant", "own-tenant"),
+  },
+
+  /* P8-BE-12 — cancel and change a campaign. Read: the impact; write: ask
+     (applied at once when safe, else held); approve: decide a held request.
+     A sponsor's admin reaches only their own campaigns (the campaign is
+     found through their own campaign scope, domain/campaign-change.ts). */
+  campaignChange: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    CAMPAIGN_MGR: rwa("own-tenant", "own-tenant", "own-tenant"),
+    SPONSOR_ADMIN: rwa("own", "own"),
   },
 
   /* 2S5-BE-03 (matrix §26) — a sponsor's dispute of a card payment. Opened

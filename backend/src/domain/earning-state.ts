@@ -26,6 +26,10 @@
  * disagreement is worked out. Both are reachable from any live state, because
  * a problem can surface at any point before the transfer.
  *
+ * VOIDED (P8-BE-12) — the order was cancelled before any work began, so
+ * nothing is owed. Only from PENDING (no work, no money), and final: the
+ * earning stays as the record, never paid.
+ *
  * WHY PAID IS TERMINAL. The transfer left the bank. Any correction after that
  * is a new earning or an adjustment on this one — never a state change that
  * quietly un-pays somebody.
@@ -37,14 +41,15 @@ export type EarningState =
   | "APPROVED_FOR_PAYOUT"
   | "PAID"
   | "HELD"
-  | "DISPUTED";
+  | "DISPUTED"
+  | "VOIDED";
 
 export const EARNING_STATES: readonly EarningState[] = [
-  "PENDING", "ELIGIBLE", "APPROVED_FOR_PAYOUT", "PAID", "HELD", "DISPUTED",
+  "PENDING", "ELIGIBLE", "APPROVED_FOR_PAYOUT", "PAID", "HELD", "DISPUTED", "VOIDED",
 ] as const;
 
 const TRANSITIONS: Readonly<Record<EarningState, readonly EarningState[]>> = {
-  PENDING: ["ELIGIBLE", "HELD", "DISPUTED"],
+  PENDING: ["ELIGIBLE", "HELD", "DISPUTED", "VOIDED"],
   ELIGIBLE: ["APPROVED_FOR_PAYOUT", "HELD", "DISPUTED"],
   APPROVED_FOR_PAYOUT: ["PAID", "HELD", "DISPUTED"],
   /* A hold is resolved by returning to the queue, not by skipping ahead. */
@@ -53,6 +58,7 @@ const TRANSITIONS: Readonly<Record<EarningState, readonly EarningState[]>> = {
      It never goes straight to PAID — that is the whole point of raising it. */
   DISPUTED: ["ELIGIBLE", "HELD"],
   PAID: [],
+  VOIDED: [],
 };
 
 /** States where the money has not moved and the amount may still change. */

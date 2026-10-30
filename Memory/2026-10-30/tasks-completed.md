@@ -167,3 +167,27 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
 - **POL-BE-29 merged:** #360 into `main_development`. The row is Done and rides #356/#357 with 18's, 19's and 22's.
 - **POL-BE-15 accepted with two exceptions (owner, 2026-10-30):** support messages and campaign requests have no count, because neither has a list in the app to count. This is noted on the tracker row.
 - **POL-BE-36 merged:** #361 into `main_development`. The row is Done, so all 20 `POL-BE` rows are Done (POL-BE-15 with its two accepted exceptions). Its Done row rides #356/#357 with 18's, 19's, 22's and 29's.
+
+### `P8-BE-12` — cancel and change a campaign, automatically (rcfworks), on `feature/P8-BE-12-campaign-cancel-change`
+
+- **Owner's decisions (2026-10-30):**
+  - a new **VOIDED** earning state for an order cancelled before any work;
+  - a **queued refund row**, `RefundDue` cause `CAMPAIGN_CANCELLED`, when BTG approves a cancel with money paid;
+  - **one PR**.
+- **Built:**
+  - `campaign-change-rules.ts` (pure: impact, hold reasons, refusals) and `campaign-change.ts` (facts, apply, hold, decide);
+  - routes `GET /campaigns/:id/cancel-impact`, `POST /campaigns/:id/change-impact`, `POST /campaigns/:id/cancel`, `POST /campaigns/:id/change`, `GET /campaign-requests` and `POST /campaign-requests/:id/decision`;
+  - the `campaignChange` policy resource;
+  - migration `20261030190000_campaign_cancel_change`: the VOIDED enum value, the `CampaignChangeRequest` table (one HELD per campaign), and the RefundDue cause and source check plus a one-per-campaign index;
+  - emails `campaign.orderCancelled`, `campaign.changeHeld` and `campaign.changeDecided`;
+  - the board's `campaignRequests` count, which closes POL-BE-15's campaign-requests exception;
+  - `releaseAdSlotsIn`, extracted from `edition.ts` cancelEditionIn; the edition tests still pass.
+- **Guards updated:**
+  - authz coverage, plus the matrix doc and digest `ccff7a5c36e74972`;
+  - the openapi route list;
+  - tenant-isolation targets and bodies (a seeded held request);
+  - financial-audit (`campaign-change.ts` is now a money module; its reads are allowlisted);
+  - fact-coverage decisions.
+- **Tests:** `p8-be-12-campaign-cancel-change.test.ts` (13) covers every impact group, a safe cancel settling everything, the hold with each reason, BTG approve and decline, change at once / refused / held then approved, and roles and tenants.
+- **For HeckerCreatives:** a `VOIDED` label on the earnings screens. The campaign-requests desk's row shape matches.
+- **P8-BE-12, first full run:** lint caught an unused helper. `earning-state.test.ts` failed as a whole file because its hand-written transition table lacked VOIDED; it now pins PENDING → VOIDED, with VOIDED final. My earlier guard run had missed this file-level failure: it prints "FAIL", not "×", and the filter only looked for "×".
