@@ -24,6 +24,7 @@ import { infinexRouter } from "./infinex";
 import { inquiriesRouter } from "./inquiries";
 import { catalogueRouter } from "./catalogue";
 import { sponsorOverviewRouter } from "./sponsor-overview";
+import { sponsorTeamRouter } from "./sponsor-team";
 import { financeOverviewRouter } from "./finance-overview";
 import { rewardsRouter } from "./rewards";
 import { meRouter } from "./me";
@@ -134,6 +135,8 @@ v1Router.use("/", catalogueRouter);
 /* P1-ART-23 — the sponsor's Stadium Board dashboard: one scoped read over
    the caller's own campaigns, computed in the database. */
 v1Router.use("/", sponsorOverviewRouter);
+/* POL-BE-19 — a sponsor admin's team. */
+v1Router.use("/", sponsorTeamRouter);
 
 /* P1-ART-25 — the Treasury, Finance's home: one scoped read over the
    tenant's books, computed in the database. */
