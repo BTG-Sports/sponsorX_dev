@@ -42,3 +42,5 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
   - the backend and frontend "awaiting BTG" rules agree.
   - `operations-board.test.ts` was loosened to check only its own six queues.
 - **For HeckerCreatives:** `POL-FE-15`'s card list (keys, labels, links) and the "don't sum the cards" rule are in polish.md item 15.
+- **Merged:** #345 into `main_development` (it carried #341, yesterday's wrap-up, which GitHub then marked merged). The `POL-BE-15` row is Done.
+- **New standing rule (owner, 2026-10-30):** every task moved to Done gets its tracker change PR'd to both `main_development` and `main`. `tracker-notify.yml` fires only on a push to `main` that changes the xlsx. This Done row went out that way.
