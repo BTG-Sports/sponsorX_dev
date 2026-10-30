@@ -10,13 +10,16 @@
  * sponsor requests, guardian handoffs, held listings and orders, delivery
  * issues, offers, deal disputes, refunds, closures, payment disputes and
  * events, and sensitive profile changes. Each says how many wait and since
- * when the oldest has, so the board can put the oldest first. Two desks have
- * no countable queue yet: support messages are answered in the mailbox (no
- * list), and campaign requests have no backend.
+ * when the oldest has, so the board can put the oldest first. Support
+ * messages have no countable queue: they are answered in the mailbox (no
+ * list).
  *
  * Some items sit on two desks — a held sponsor sign-up is also a sponsor
  * request, a waiting organisation is under sign-ups and onboarding — so each
  * card is right on its own, and the counts must not be summed into one total.
+ *
+ * P8-BE-12 added `campaignRequests` — campaign cancels and changes held for
+ * BTG — so campaign requests now have a count too.
  *
  * EACH QUEUE IS THE CALLER'S OWN. A queue is counted only when the caller
  * reads that resource tenant-wide — the network manager sees applications,
@@ -84,6 +87,8 @@ export type OperationsQueues = {
   paymentEvents: WaitingQueue | null;
   /** Sensitive profile changes BTG must answer (not those waiting for the athlete's ID). */
   profileChanges: WaitingQueue | null;
+  /** P8-BE-12 — campaign cancels and changes held for BTG. */
+  campaignRequests: WaitingQueue | null;
 };
 
 /**
@@ -132,6 +137,7 @@ export async function operationsQueues(actor: Actor, now = new Date()): Promise<
     paymentDisputes: tenantWide(actor, "paymentDispute"),
     paymentEvents: tenantWide(actor, "paymentEvent"),
     profileChanges: tenantWide(actor, "athleteProfileChange", "approve"),
+    campaignRequests: tenantWide(actor, "campaignChange", "approve"),
   };
   if (!Object.values(may).some(Boolean)) throw new ForbiddenError("metricAggregate", "read");
 
@@ -278,10 +284,16 @@ export async function operationsQueues(actor: Actor, now = new Date()): Promise<
       : null,
     may.profileChanges ? sensitiveEditsAwaitingBtg(actor) : null,
   ]);
+  const campaignRequests = may.campaignRequests
+    ? await queue(
+        prisma.campaignChangeRequest.count({ where: { tenantId: actor.tenantId, state: "HELD" } }),
+        prisma.campaignChangeRequest.findFirst({ where: { tenantId: actor.tenantId, state: "HELD" }, orderBy: { createdAt: "asc" }, select: { createdAt: true } }).then((r) => r?.createdAt),
+      )
+    : null;
 
   return {
     applications, approvals, briefs, finance, payouts, makeGoods,
     signups, organisations, sponsorRequests, guardianHandoffs, heldListings, heldOrders, deliveryIssues,
-    offers, dealDisputes, refunds, heldClosures, reactivations, paymentDisputes, paymentEvents, profileChanges,
+    offers, dealDisputes, refunds, heldClosures, reactivations, paymentDisputes, paymentEvents, profileChanges, campaignRequests,
   };
 }

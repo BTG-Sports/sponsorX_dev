@@ -55,6 +55,7 @@ export const EARNING_STATE_FACTS: Readonly<Record<EarningState, Classified>> = {
   PAID: leads(["EARNING_PAID"], "Paid: gross plus adjustment, on the paid day. PAID is final, so it is never reversed."),
   HELD: none("On hold; no money has moved."),
   DISPUTED: none("In dispute; no money has moved."),
+  VOIDED: none("Its order was cancelled before any work: nothing is owed, and no money moves."),
 };
 
 /** Where a day's views and engagements are filed, by their label (§22). */
@@ -118,6 +119,7 @@ export const REFUND_CAUSE_FACTS: Readonly<Record<(typeof REFUND_CAUSES)[number],
   PROVIDER_REFUNDED: MARKETPLACE_REFUND,
   EDITION_CANCELLED: EDITION_REFUND,
   PAID_AFTER_EDITION_CANCELLED: EDITION_REFUND,
+  CAMPAIGN_CANCELLED: none("A cancelled campaign's invoiced money back to the sponsor, by credit note in Zoho Books: not marketplace money."),
 };
 
 export const REFUND_STATE_FACTS: Readonly<Record<(typeof REFUND_STATES)[number], Classified>> = {

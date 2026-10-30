@@ -293,6 +293,10 @@ export type EmailTemplate =
   /* 3S0-BE-02 — the campaign is live: to the sponsor's admins, its athletes and a minor's guardian. */
   | "campaign.live"
   | "campaign.finalReportReady"
+  /* P8-BE-12 — a campaign cancelled: each athlete whose order was cancelled; a cancel or change held for BTG; BTG's answer. */
+  | "campaign.orderCancelled"
+  | "campaign.changeHeld"
+  | "campaign.changeDecided"
   /* P4-BE-11 — sponsor briefs approved automatically: the sponsor hears
      their request is approved; BTG's campaign managers hear of each brief
      held for them, with the reasons (which the sponsor never sees). */

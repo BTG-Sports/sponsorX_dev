@@ -160,6 +160,8 @@ enum EarningState {
   PAID
   HELD
   DISPUTED
+  /// P8-BE-12 — the order was cancelled before any work: nothing is owed. Final.
+  VOIDED
 }
 
 enum RewardState {
@@ -987,6 +989,8 @@ model Campaign {
   editionAssets    EditionAsset[]
   /// P9-BE-18 — its automatic ad sale, held for SALES with the reasons.
   adSaleHold       AdSaleHold?
+  /// P8-BE-12 — cancels and changes held for BTG.
+  changeRequests   CampaignChangeRequest[]
   /// P9-BE-19 — sales an edition's cancellation undid.
   cancelledAdSales CancelledAdSale[]
   /// P9-BE-19 — money owed back because an edition it bought into was cancelled.
@@ -5007,4 +5011,41 @@ model PaymentSwitch {
   changedAt      DateTime @default(now())
   changedById    String?
   changedByEmail String?
+}
+
+/// P8-BE-12 — a cancel or change of a campaign that couldn't apply at once,
+/// held for BTG (domain/campaign-change.ts). BTG approves (it is applied then,
+/// after the impact is read again) or declines with a note; the requester is
+/// emailed either way. One HELD request per campaign at a time.
+model CampaignChangeRequest {
+  id               String    @id @default(cuid())
+  /// The campaign's own tenant — BTG's books, where it is read and decided.
+  tenantId         String
+  campaignId       String
+  /// CANCEL | CHANGE
+  kind             String
+  /// HELD | APPLIED | DECLINED
+  state            String    @default("HELD")
+  /// The requester's own words.
+  reason           String?
+  /// CHANGE: { name?, startDate?, endDate?, budget? } as asked.
+  proposed         Json?
+  /// Why it was held, in the words BTG and the requester read.
+  holdReasons      String[]  @default([])
+  /// The impact read when it was asked (what BTG decides on is read again).
+  impact           Json
+  requestedById    String
+  requestedByEmail String?
+  requestedByRole  String?
+  decidedAt        DateTime?
+  decidedById      String?
+  decidedByEmail   String?
+  decisionNote     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now()) @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  @@index([tenantId, state, createdAt])
+  @@index([campaignId])
 }

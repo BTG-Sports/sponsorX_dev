@@ -1584,6 +1584,24 @@ Railway setting `PAYMENT_PROVIDER` names a provider and this is on.
 - **Every other role is denied.** Sponsors and payees see only its effect: the
   pay and payout buttons say payments open soon.
 
+### `campaignChange` (P8-BE-12)
+Cancelling or changing a campaign, and BTG's queue of the requests held for
+it (`CampaignChangeRequest`).
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant (the impact, and the queue) | own-tenant (cancels and changes) | own-tenant (approves or declines a held request) |
+| `CAMPAIGN_MGR` | own-tenant (the same) | own-tenant (the same) | own-tenant (the same) |
+| `SPONSOR_ADMIN` | own (the impact, on their own campaigns) | own (asks to cancel or change their own campaigns) | — |
+
+- **The campaign is found through the caller's own campaign scope**, so a
+  sponsor reaches only their own sponsor's campaigns.
+- **Safe ones apply at once; unsafe ones are held** (work under way or
+  delivered, money paid to refund, an open dispute, a minor's order, an ad in
+  a closed edition, things outside new dates). BTG's admins are emailed, and
+  BTG decides.
+- **Every other role is denied**, including the sponsor's analysts.
+
 ### `paymentDispute` (2S5-BE-03)
 A sponsor's dispute of a card payment with their bank, in the order's books.
 Never resolved by the system: it goes to BTG support.
