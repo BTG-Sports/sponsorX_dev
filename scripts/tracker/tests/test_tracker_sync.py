@@ -221,5 +221,37 @@ class SheetEndpointRetry(unittest.TestCase):
         self.assertEqual(self.calls, 1)
 
 
+class EverySheetIsWatched(unittest.TestCase):
+    """2026-10-30 — Polish, Phase 5 and Phase 6 moves went unannounced: the list predated them."""
+
+    def test_a_polish_task_moving_to_done_is_announced(self):
+        old = board(task("POL-BE-15", "Code review", phase="Polish", owner="rcfworks"))
+        new = board(task("POL-BE-15", "Done", phase="Polish", owner="rcfworks"))
+        text = ts.render_changes(ts.diff(old, new), "rcfworks")
+        self.assertIn("✅ `POL-BE-15` Task POL-BE-15 — Code review → *Done* · rcfworks", text)
+
+    def test_every_task_sheet_is_in_the_list_with_phase_one_first(self):
+        self.assertEqual(ts.PHASES[0], "Phase 1")
+        for sheet in ("Phase 5", "Phase 6", "Polish"):
+            self.assertIn(sheet, ts.PHASES)
+
+    def test_an_older_tracker_without_a_sheet_reads_as_empty_not_an_error(self):
+        row = (1, "P1-X", 3, "", "", "", "A task", "", "Done", 2) + (None,) * 8
+
+        class Sheet:
+            def iter_rows(self, **_):
+                return iter([row])
+
+        class Book:
+            sheetnames = ["Phase 1"]
+
+            def __getitem__(self, name):
+                return Sheet()
+
+        b = ts._read_board(Book())
+        self.assertEqual(list(b["Phase 1"]), ["P1-X"])
+        self.assertEqual(b["Polish"], {})
+
+
 if __name__ == "__main__":
     unittest.main()
