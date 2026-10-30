@@ -18,6 +18,7 @@ import {
   type PageInfo, type Segment,
 } from "../../lib/paging";
 import { can, scopeOf, whereFor } from "../../auth/scope";
+import { scopeFor } from "../../auth/policy";
 import { canReadField } from "../../auth/fields";
 import { ForbiddenError } from "../../auth/errors";
 import { clientIp, clientUserAgent } from "../../lib/client-ip";
@@ -32,7 +33,7 @@ import {
   InvitationInput,
   InvitationResponseInput,
 } from "../../contracts/campaign";
-import { createBrief, transitionBrief, updateBrief } from "../../domain/brief";
+import { briefActions, createBrief, transitionBrief, updateBrief, type BriefState } from "../../domain/brief";
 import { sponsorBriefStatus } from "../../domain/brief-auto-rules";
 import { createCampaignFromBrief, launchCampaign, transitionCampaign } from "../../domain/campaign";
 import { stageViews, type StageView } from "../../domain/campaign-stages";
@@ -132,8 +133,10 @@ type BriefRow = {
  *  own (`own`) and never does — the same rule as listing holds. */
 const seesHolds = (actor: Actor) => ["own-tenant", "any"].includes(scopeOf(actor, "campaignBrief", "read"));
 
-function briefOut(b: BriefRow, readiness?: Readiness, holds = false) {
+function briefOut(b: BriefRow, readiness?: Readiness, holds = false, actor?: Actor) {
   return {
+    /* POL-BE-17 — what the caller may do to it: Edit while a draft, Withdraw for the sponsor's own people. */
+    ...(actor ? { youCan: briefActions(scopeFor(actor.roles, "campaignBrief", "write"), b.state as BriefState) } : {}),
     /* P4-BE-07 — BTG's readiness checklist; absent for a caller who doesn't
        see it (a sponsor), never a guessed "not ready". */
     ...(readiness ? { readiness } : {}),
@@ -198,7 +201,7 @@ const listBriefs: RequestHandler = async (req, res) => {
   const readyWhere = [...(readyOnly ? [{ id: { in: await readyBriefIds(req.actor!) } }] : []), ...heldWhere];
   const withReadiness = async (rows: BriefRow[]) => {
     const readiness = await readinessFor(req.actor!, rows);
-    return rows.map((b) => briefOut(b, readiness.get(b.id), holds));
+    return rows.map((b) => briefOut(b, readiness.get(b.id), holds, req.actor!));
   };
   if (paged) {
     const actor = req.actor!;
@@ -352,7 +355,7 @@ const readBrief: RequestHandler<{ id: string }> = async (req, res) => {
   });
 
   const readiness = (await readinessFor(actor, [brief])).get(brief.id);
-  res.json({ ...briefOut(brief, readiness, seesHolds(actor)), jobs, ...(invites ? { invites } : {}) });
+  res.json({ ...briefOut(brief, readiness, seesHolds(actor), actor), jobs, ...(invites ? { invites } : {}) });
 };
 
 /* --- the campaign portfolio (P4-FE-05) ----------------------------------

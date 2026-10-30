@@ -296,6 +296,8 @@ export type EmailTemplate =
      held for them, with the reasons (which the sponsor never sees). */
   | "brief.autoApproved"
   | "brief.heldForBtg"
+  /* POL-BE-17 — a sponsor withdrew a brief BTG had started on; its campaign managers hear. */
+  | "brief.withdrawn"
   /* P4-BE-12 — automatic staffing stopped and handed the campaign to BTG's
      campaign managers, with the reason. */
   | "campaign.staffingStopped"

@@ -55,3 +55,20 @@ export function canTransitionBrief(from: BriefState, to: BriefState): boolean {
 export function legalBriefTransitions(from: BriefState): readonly BriefState[] {
   return TRANSITIONS[from];
 }
+
+/**
+ * POL-BE-17 — what the caller may do to a brief, so a screen shows Edit and
+ * Withdraw without copying these rules. `writeScope` is the caller's scope
+ * for writing a brief (policy's `campaignBrief.write`).
+ *
+ * Edit: anyone who may write it, while it is a DRAFT (updateBrief refuses
+ * after). Withdraw: the sponsor's own people (`own` scope) before a campaign
+ * exists. BTG staff close a brief instead, with a reason (P4-FE-07).
+ */
+export function briefActions(writeScope: string, state: BriefState): { edit: boolean; withdraw: boolean } {
+  const writes = writeScope !== "deny";
+  return {
+    edit: writes && state === "DRAFT",
+    withdraw: writeScope === "own" && canTransitionBrief(state, "CLOSED"),
+  };
+}
