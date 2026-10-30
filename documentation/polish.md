@@ -1129,6 +1129,51 @@ production, and only someone with Railway access can do it.
 - **Done when:** BTG can switch payments on and off from the admin screen; each
   change is audited with a reason; no other role can change it; off means no
   checkout, no transfer and no cancellation for non-payment; tests.
+- **Backend delivered (`POL-BE-36`, 2026-10-30):**
+  - **Endpoints.** `GET /payments/switch` returns `{ on, open, provider,
+    canTurnOn, changed: { at, by, reason } | null, history }`.
+    `PUT /payments/switch` `{ open, reason }` changes it at once, with no
+    deploy.
+  - **When payment is open:** only while Railway's `PAYMENT_PROVIDER` names a
+    provider (it stays the master off) AND the switch is on. With nothing
+    set, it's off in production and on elsewhere, so setting Railway to
+    Stripe opens nothing by itself.
+  - **Off means:**
+    - no checkout: the card link answers 409 "isn't open yet", and `canPay`
+      and the checkout's `paymentsOpen` are false;
+    - no payout sent and no payout account set up (`canSetUp` false);
+    - no order cancelled for non-payment: overdue orders are paused, and get
+      three fresh days when it reopens (POL-BE-04).
+  - **Webhooks still settle** what is already moving.
+  - **Turning it back on** queues every approved payout that waited.
+  - **Who:** BTG Admin and Finance of a top-level organisation, or a super
+    admin; anyone else gets 403. A reason is required (at least 5
+    characters). Every change is audited (`paymentSwitch.change`) and shown
+    in `history`. Turning it on while `PAYMENT_PROVIDER` is `none` answers
+    409.
+  - **Matrix and Switches doc:** the RBAC matrix gains `paymentSwitch`, and
+    `SponsorX-Switches.md` has the switch and the two steps to open
+    payments in production.
+  - **Tests:**
+    - `backend/tests/pol-be-36-payments-switch.test.ts` (5, real database);
+    - `backend/tests/pol-be-36-payments-off.test.ts` (7: off stops checkout,
+      transfers and cancellation; reopening releases them; the production
+      default).
+- **For screens (`POL-FE-36`):**
+  - **Payments panel in BTG admin**, for BTG Admin and Finance only:
+    - show on or off, plus `open`;
+    - show `changed` (who, when, why) and `history`;
+    - when `canTurnOn` is false, say "Payment provider not set up in
+      Railway yet" and disable "Turn on".
+  - **Changing it:** ask for a reason (at least 5 characters) and confirm
+    first.
+  - **Everywhere money moves:** when `canPay`, `paymentsOpen` or
+    `canSetUp` is false, the pay and payout buttons say "Payments open
+    soon".
+  - **Wording to update:** the payout detail pages (`admin/payouts/[id]`,
+    `finance/payouts/[id]`) say an approved payout "waits here until the
+    payment provider is connected". With the switch, it waits until payments
+    open, so "until payments open" is right in both cases.
 
 ---
 

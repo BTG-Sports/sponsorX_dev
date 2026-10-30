@@ -24,6 +24,7 @@
  * reservation EXPIRED and its holds released, for the record.
  */
 import type { Prisma } from "../generated/prisma/client";
+import { paymentsOpen } from "./payment-switch";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
 import type { Actor } from "../auth/actor";
@@ -128,7 +129,8 @@ export async function getReservation(actor: Actor, id: string) {
     currentOrderTerms(prisma, tenantId), billingPrefill(prisma, tenantId, out.sponsorId),
     prisma.cartLine.findMany({ where: { tenantId, cartId: out.cartId }, select: { quantity: true, unitPriceCents: true } }),
   ]);
-  return { ...out, checkout: { terms, ...prefill, quote: sponsorQuote(lines.reduce((s, l) => s + l.quantity * l.unitPriceCents, 0)) } };
+  /* POL-BE-36 — and whether card payment is open right now (the checkout says payments open soon while it isn't). */
+  return { ...out, checkout: { terms, ...prefill, quote: sponsorQuote(lines.reduce((s, l) => s + l.quantity * l.unitPriceCents, 0)), paymentsOpen: await paymentsOpen() } };
 }
 
 /** The sponsor lets go of a hold. */

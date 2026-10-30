@@ -39,16 +39,11 @@ export function providerName(): ProviderName {
   return env.RAILWAY_ENVIRONMENT_NAME?.toLowerCase() === "production" ? "none" : "standin";
 }
 
-/**
- * POL-BE-04 — can a sponsor pay by card right now? While they can't, an
- * approved order waits with no deadline: no reminders and no cancelling for
- * non-payment (order-payment.ts `sweepUnpaidOrders`). Its three days start
- * when payment opens. Today this is the provider setting; BTG's own switch
- * (POL-BE-36) is to be added here, so every caller follows it.
- */
-export function paymentsOpen(): boolean {
-  return providerName() !== "none";
-}
+/* POL-BE-04 / POL-BE-36 — whether payment is open right now (this setting
+   AND BTG's switch) is domain/payment-switch.ts `paymentsOpen()`, and the
+   provider money moves through is its `activeProvider()`. `providerName()`
+   is the configured provider alone: webhooks and the stand-in use it, since
+   what is already moving still settles while BTG has payment switched off. */
 
 /* ── the stand-in's signed links ─────────────────────────────────────── */
 

@@ -1566,6 +1566,24 @@ applied by the worker, in the books of what it is about.
   a payee its payouts. Neither ever sees the provider's events.
 - A refund the provider reported (`PaymentRefund`) is read with the events.
 
+### `paymentSwitch` (POL-BE-36)
+BTG's payments switch: one platform-wide row (one payment provider account),
+on or off, with who changed it, when and why. Payment is open only while the
+Railway setting `PAYMENT_PROVIDER` names a provider and this is on.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant (where it stands, and the recent changes) | own-tenant (turns payment on or off, with a reason) | — |
+| `FINANCE` | own-tenant (the same) | own-tenant (the same) | — |
+
+- **Top-level organisations only.** The row is platform-wide, so the domain
+  also refuses staff of an organisation another runs (`operatorTenantId` set),
+  whatever their role.
+- **Every change needs a reason and is audited** (`paymentSwitch.change`).
+  Turning it on is refused while no provider is set up.
+- **Every other role is denied.** Sponsors and payees see only its effect: the
+  pay and payout buttons say payments open soon.
+
 ### `paymentDispute` (2S5-BE-03)
 A sponsor's dispute of a card payment with their bank, in the order's books.
 Never resolved by the system: it goes to BTG support.

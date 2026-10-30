@@ -140,6 +140,7 @@ import {
   DisputeResolveInput, DisputeReviewInput, DisputesQuery, PaymentEventResolveInput, PaymentEventsQuery, ProviderWebhookEnvelope, StandinEventInput,
 } from "./payment-events";
 import { SponsorDocumentInput, SponsorEmailConfirmInput, SponsorEmailChangeInput, SponsorRequestDecisionInput, SponsorRequestListQuery } from "./sponsor-requests";
+import { PaymentSwitchInput } from "./payment-switch";
 import { SponsorTeamInviteInput, SponsorTeamRoleInput } from "./sponsor-team";
 import { RestrictedTextInput, RestrictedWordInput } from "./restricted-words";
 import { LinkRenewInput, LinkRenewReceipt } from "./links";
@@ -846,6 +847,8 @@ const PATHS: Row[] = [
   { method: "post", path: "/payment-events/test-provider", tag: "Payments", summary: "Staging only, BTG admin: have the stand-in provider send an event about an order's latest card payment or a payout in your books — once or up to three times (a provider retrying), in any order. The queue applies it as it would a real delivery. 400 where the stand-in is off.", body: StandinEventInput, status: 202 },
 
   // 2S5-BE-03 — disputes (BTG support; never resolved by the system)
+  { method: "get", path: "/payments/switch", tag: "Payments", summary: "POL-BE-36 — BTG's payments switch: `{ on, open, provider, canTurnOn, changed: { at, by, reason } | null, history }`. `open` is whether payment is actually open: the Railway setting names a provider (`provider` not \"none\" — the master off) AND the switch is on. With no change recorded it is off in production, on elsewhere. BTG Admin and Finance of a top-level organisation (not one another runs), or a super admin; everyone else 403." },
+  { method: "put", path: "/payments/switch", tag: "Payments", summary: "POL-BE-36 — turn payment on or off at once, no deploy, with a reason (audited `paymentSwitch.change`). On needs a provider configured (409 otherwise); off always works. Off: no checkout (the card link answers 409 and `canPay`/`paymentsOpen` read false), no payout sent or set up, and no order cancelled for non-payment — approved orders wait and get three fresh days once it opens. Webhooks still settle what is already moving. Turning it on queues every approved payout that waited. Same people as the read.", body: PaymentSwitchInput },
   { method: "get", path: "/disputes", tag: "Payments", summary: "BTG admin and Finance, in their own books: sponsors' disputes of card payments, open ones first, with counts by state. Each: `{ id, orderId, orderRef, sponsorName, amountCents, reason, state: OPEN|UNDER_REVIEW|WON|LOST, providerOutcome: WON|LOST|null (the provider's decision), frozen (its order's money can't move), canResolve, reviewNote, resolutionNote, lineIds, ledgerReversed, owedBackCents, lines, payouts: [{ id, state, payeeType, payeeId, amountCents }] }`. ?page&size pages it, newest opened first (the answer adds `page: { page, size, total, pages }`); unpaged and capped at 200 without.", query: DisputesQuery },
   { method: "get", path: "/disputes/{id}", tag: "Payments", summary: "One dispute, as GET /disputes shows it. 404 outside the caller's books." },
   { method: "post", path: "/disputes/{id}/review", tag: "Payments", summary: "BTG admin or Finance takes a dispute for review (OPEN → UNDER_REVIEW), saying what was sent to the provider. 409 if it isn't open.", body: DisputeReviewInput },
