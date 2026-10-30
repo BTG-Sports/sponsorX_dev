@@ -161,3 +161,14 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
 - **Found, not fixed (reported to the owner):** `PUBLIC_INTAKE_TENANT_ID` is unset in production and staging, so it defaults to `seed_tenant_btg`. Production's BTG organisation is `tenant_btg`, so public sign-ups in production likely point at a tenant that doesn't exist.
 - **Switches doc:** the Payments switch row and the two steps to open payments were added. Staging's `PAYMENT_PROVIDER` is corrected to `stripe` (checked in Railway).
 - **POL-BE-36, first full run:** lint (a bare `findUnique` in `view` needed a `select`) and `phase2-payouts.test.ts:378` (the old refusal wording, matched by a regex the exact-string search missed) both failed. Both are fixed, and the frontend payout-detail wording is noted in polish.md for `POL-FE-36`.
+
+### Production: `PUBLIC_INTAKE_TENANT_ID=tenant_btg` (rcfworks, the owner's go-ahead)
+
+- **Found while building POL-BE-36:** it was unset in production, so it defaulted to `seed_tenant_btg`, which doesn't exist there. Production's BTG organisation is `tenant_btg` (created 2026-10-29).
+- **Effect:** the sign-up tables have no database link to Tenant, so a public sign-up would have **saved silently** in an organisation no BTG staff can see. Zoho inbound updates, support messages and orphan payment events would have gone there too.
+- **Checked first:**
+  - production had zero inquiries and athletes, so nothing was stranded;
+  - the seed job never runs in production;
+  - `scope.ts` only mentions the setting in a comment.
+- **Set** on the production `api` service (the code that reads it runs there; `web` doesn't read it). The redeploy `d4409e6b` succeeded, and the live container reads `tenant_btg`, which exists. The first attempt was blocked by the permission check until the owner approved.
+- **Switches doc** section 5 now lists it. Staging is unset; its default `seed_tenant_btg` is staging's real BTG organisation.

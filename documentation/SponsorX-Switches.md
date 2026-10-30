@@ -92,6 +92,7 @@ be empty in production.**
 
 | Setting | What it does | Empty means |
 |---|---|---|
+| `PUBLIC_INTAKE_TENANT_ID` | BTG's own organisation: where public sign-ups (athletes, sponsors, organisations, guardian handoffs), support messages, incoming Zoho updates and payment events with no other owner land. **Production: `tenant_btg`** (set 2026-10-30). Staging: unset (its BTG organisation is the default). | `seed_tenant_btg`. In production that organisation doesn't exist, so a sign-up would be saved where no BTG staff can see it. |
 | `RESEND_API_KEY` | Sends email. | No email goes out; the email jobs fail and retry. |
 | `SPONSORX_EDGE_KEY` | Lets the web server pass on a fan's real address, for rate limits and city counts. Same value on `web` and `api`. | Forwarded addresses are ignored. |
 | `COHORT_IMPORT_APPROVED_SHA256` | Which pilot cohort files may be imported in production, after running cleanly on staging. | No cohort import runs in production. |
