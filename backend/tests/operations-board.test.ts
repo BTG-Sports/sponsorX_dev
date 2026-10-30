@@ -159,10 +159,11 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
   it("BTG admin sees all four queues, counted from tenant A's own rows", async () => {
     const { status, body } = await board(`${A}_admin`);
     expect(status).toBe(200);
-    expect(body).toEqual({
-      applications: { waiting: 3, over48h: 2 },
+    /* POL-BE-15 — the other queues are pol-be-15-queue-counts.test.ts's; these six keep their figures. */
+    expect(body).toMatchObject({
+      applications: { waiting: 3, over48h: 2, oldestSince: expect.any(String) },
       approvals: { waiting: 4 },
-      briefs: { toQualify: 2, toMatch: 2 },
+      briefs: { toQualify: 2, toMatch: 2, oldestSince: expect.any(String) },
       finance: { held: 1, disputed: 1 },
       payouts: { waiting: 2, oldestSince: expect.any(String) },
       /* POL-BE-14 — no make-goods here (makegood.test.ts counts them). */
@@ -174,7 +175,7 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
 
   it("tenant B's board counts tenant B only — never A's items", async () => {
     const { body } = await board(`${B}_admin`);
-    expect(body).toEqual({
+    expect(body).toMatchObject({
       applications: { waiting: 6, over48h: 5 },
       approvals: { waiting: 7 },
       briefs: { toQualify: 5, toMatch: 2 },
@@ -201,7 +202,7 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
     const { briefs } = (await res.json()) as { briefs: Array<{ state: string }> };
     const count = (s: string[]) => briefs.filter((b) => s.includes(b.state)).length;
     const q = (await board(`${A}_admin`)).body;
-    expect(q.briefs).toEqual({ toQualify: count(["DRAFT"]), toMatch: count(["QUALIFIED", "APPROVED"]) });
+    expect(q.briefs).toMatchObject({ toQualify: count(["DRAFT"]), toMatch: count(["QUALIFIED", "APPROVED"]) });
   });
 
   /* ---- P4-FE-07 · closing a brief ---- */
@@ -222,7 +223,7 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
     });
     expect(row.after).toMatchObject({ state: "CLOSED", reason: "Budget below the package minimum" });
     /* and the board's draft count drops with it */
-    expect((await board(`${A}_admin`)).body.briefs).toEqual({ toQualify: 1, toMatch: 2 });
+    expect((await board(`${A}_admin`)).body.briefs).toMatchObject({ toQualify: 1, toMatch: 2 });
   });
 
   it("a sponsor withdrawing their own brief owes no reason", async () => {
@@ -234,7 +235,7 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
   it("qualifying still needs no reason, and the brief moves on to matching", async () => {
     const res = await call("POST", `/briefs/${B}_draft0/transition`, `${B}_campaigns`, { to: "QUALIFIED" });
     expect(res.status).toBe(200);
-    expect((await board(`${B}_admin`)).body.briefs).toEqual({ toQualify: 4, toMatch: 3 });
+    expect((await board(`${B}_admin`)).body.briefs).toMatchObject({ toQualify: 4, toMatch: 3 });
   });
 });
 

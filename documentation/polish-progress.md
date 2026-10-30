@@ -17,7 +17,8 @@ each problem we ran into was solved. Newest first within each day.
 | 10 · A guardian handoff could wait forever | `POL-BE-10` | #333 | Merged |
 | 11 · Closing an account ignored live deals | `POL-BE-11` | #335 | Merged |
 | 12 · Payouts held for review were silent | `POL-BE-12` | #336 | Merged |
-| 14 · Held make-goods reached no one | `POL-BE-14` | — | In review |
+| 14 · Held make-goods reached no one | `POL-BE-14` | #338 | Merged |
+| 15 · BTG's dashboard counted only 4 of about 15 queues | `POL-BE-15` | — | In review |
 | 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
 
 The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`, `POL-FE-10`, `POL-FE-11`, `POL-FE-12`) are for
@@ -320,6 +321,31 @@ rely on.
 - **Snag:** a first draft of the test used a helper that doesn't exist, and
   a check that proved nothing. Both were replaced with checks against each
   make-good's own id.
+
+### `POL-BE-15` — BTG's board counts every queue that waits on it
+- **Problem:** the board counted 6 queues. Staff had to open every other
+  desk to find work waiting, so things sat unseen.
+- **Approach:**
+  - The board's one endpoint now counts 15 more queues. Each count gives
+    how many wait, and since when the oldest has.
+  - Each count reuses the filter of the page its card links to. A test
+    reads each list and checks the two numbers agree.
+  - The "ID and name changes waiting for BTG" rule had existed only in the
+    frontend. It now lives in the backend too, and a test checks the two
+    give the same answer for every kind of change.
+- **Snags:**
+  - **Listings would have been blank for BTG admins.** BTG admins reach
+    listings through a wider kind of access than other records, and the
+    board's role check didn't accept it. The check now does.
+  - **Overlapping desks.** Some desks overlap, so the counts can't be
+    added up. That is written into the API description and the screen
+    notes.
+  - **Strict sample data.** The database's shape rules rejected the test's
+    first sample data for refunds, closed disputes and resolved payment
+    events. Each sample row was filled in as the real flow would leave it.
+  - **List formats.** The delivery-issues and offers lists only give their
+    tab counts in their paged form, so the test reads them that way, as
+    the pages do.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.

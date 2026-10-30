@@ -319,3 +319,25 @@ Built against the backend merged on `main_development` this afternoon, five comm
 - **Tests:** `makegood.test.ts` (the two held emailed to both approvers, the automatic one to nobody, the same keys on a second run, the board count, Finance sees null; fails with the email off) and `operations-board.test.ts`. Locally: 3,651 backend and 1,729 frontend tests, both builds, lint, security scripts, secrets scan and audit all pass.
 - **For HeckerCreatives:** the board card, part of `POL-FE-15`.
 - **Tracker:** `POL-BE-14` is Code review; Done once the PR merges.
+
+## Three new BTG admins on staging (owner's request)
+
+- **Who:** Rodney Carr and Chantelle (two addresses, so two logins), at the addresses the owner gave.
+- **What each got:**
+  - a Clerk login on the staging (test) instance with a random 16-character temporary password (staging's Clerk requires 15 or more);
+  - a `BTG_ADMIN` row in `seed_tenant_btg`;
+  - a "Your SponsorX admin account" email from noreply@sponsorx.net via Resend, with the sign-in link (https://web-staging-904a.up.railway.app/login) and the password, asking them to change it under Profile → Security.
+- **How:** the passwords were made inside the api service by a one-off script piped over `railway ssh`. They were never printed and exist only in the emails.
+- **Production, same day, on the owner's word ("Create BTG account + admins"):** production's database had no tenants and no users. The script created BTG's tenant there (`tenant_btg`, name "BTG", default settings), refusing to do so if any tenant already existed. It then added the same three logins on the live Clerk instance with `BTG_ADMIN` rows, and emailed each a sign-in for https://sponsorx.net/login.
+- **Not on production yet:** infinex1 and infinex2 have no logins there; production has no athletes, sponsors or catalogue.
+- **Delivery status unreadable:** Resend accepted all six emails, but its key is send-only (reading an email's status returns 401).
+
+
+## Wrap-up, 2026-10-29
+
+- **Merged today (backend polish):** POL-BE-06 (#325), 07 (#328), 08 (#329), 09 (#331), 10 (#333), 11 (#335), 12 (#336) and 14 (#338). All are Done on the Polish sheet, and POL-BE-14 was moved to Done in this wrap-up. HeckerCreatives merged their frontend batch (#337) and synced main (#339).
+- **Main sync:** #338 merged after #339, so #340 (main_development → main) carries it.
+- **Switches:** documentation/SponsorX-Switches.md now lists every on/off setting (REWARD_STAFF_CODE_REQUIRED and REWARD_FAN_CODES are off; payments come later).
+- **Stage Progress:** today's row was already there and matches the Phase 1 sheet (314 done, 21.5 days left). The polish work lives on its own sheet and doesn't move it.
+- **Backend polish left (7):** POL-BE-15 (one counts endpoint for every BTG queue) is next, then 17, 18, 19, 22, 29 and 36.
+- **Local CI before every PR:** 3,651 backend and 1,729 frontend tests.
