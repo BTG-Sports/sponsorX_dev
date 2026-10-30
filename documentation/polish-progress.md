@@ -19,6 +19,7 @@ each problem we ran into was solved. Newest first within each day.
 | 12 · Payouts held for review were silent | `POL-BE-12` | #336 | Merged |
 | 14 · Held make-goods reached no one | `POL-BE-14` | #338 | Merged |
 | 15 · BTG's dashboard counted only 4 of about 15 queues | `POL-BE-15` | #345 | Merged |
+| 17 · A sponsor couldn't open, edit or withdraw a sent request | `POL-BE-17` | — | In review |
 | 36 · Payments on/off switch in BTG admin | `POL-BE-36` / `POL-FE-36` | #315 | Added to the list |
 
 The frontend halves (`POL-FE-04`, `POL-FE-01`, `POL-FE-02`, `POL-FE-03`, `POL-FE-05`, `POL-FE-06`, `POL-FE-07`, `POL-FE-08`, `POL-FE-10`, `POL-FE-11`, `POL-FE-12`) are for
@@ -346,6 +347,23 @@ rely on.
   - **List formats.** The delivery-issues and offers lists only give their
     tab counts in their paged form, so the test reads them that way, as
     the pages do.
+
+### `POL-BE-17` — a sponsor can open, edit and withdraw a sent request
+- **Problem:** nothing on screen let a sponsor open, change or withdraw a
+  request after sending it.
+- **Approach:**
+  - Open, edit and withdraw already existed in the API, so no new route
+    was added.
+  - Each request now says what the caller may do (`youCan: { edit,
+    withdraw }`), from one rule beside the request's state machine.
+  - A sponsor withdrawing a request BTG had started on now emails its
+    campaign managers once, with the sponsor's note. Staff are no longer
+    left working a dropped request.
+  - The "who are this tenant's campaign managers, or else its admins"
+    lookup was shared between the held-request email and the new one.
+- **Snag:** the test's held draft was first saved without a hold reason.
+  The database requires a held request to carry its reasons, so the sample
+  was given one.
 
 ### How each task was run
 - A plan was agreed first, with the open decisions put as questions.

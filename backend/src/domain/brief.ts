@@ -23,7 +23,7 @@ import type { BriefState } from "./brief-state";
 import type { BrandCategory } from "./brand-categories";
 import { assertNoWantedExcluded, type AudienceTier, type MatchChannel } from "./match-vocabulary";
 import { applyBriefMove, BRIEF_AUDIT_ACTIONS, lockBrief } from "./brief-moves";
-import { autoApproveOrHold } from "./brief-auto";
+import { autoApproveOrHold, notifyBriefWithdrawn } from "./brief-auto";
 import { startAutoStaffing } from "./auto-staffing";
 import { startAutoSale } from "./ad-sale-auto";
 
@@ -311,6 +311,8 @@ export async function transitionBrief(
      audit row keeps it. A sponsor withdrawing their own brief owes no reason. */
   const closeReason = to === "CLOSED" ? reason?.trim() || null : null;
   const staffClose = to === "CLOSED" && ["own-tenant", "any"].includes(scopeFor(actor.roles, "campaignBrief", "approve"));
+  /* POL-BE-17 — the sponsor's own people withdrawing their request. */
+  const sponsorWithdraw = to === "CLOSED" && scopeFor(actor.roles, "campaignBrief", "write") === "own";
   if (staffClose && !closeReason) throw new BriefCloseReasonRequiredError();
 
   return prisma.$transaction(async (tx) => {
@@ -327,16 +329,23 @@ export async function transitionBrief(
     const brief = await tx.campaignBrief.findFirstOrThrow({
       /* tenant-scope: the brief found through whereFor(campaignBrief) and locked. */
       where: { id: found.id, tenantId: found.tenantId },
-      select: { objective: true, sponsor: { select: { name: true } } },
+      select: { objective: true, heldAt: true, sponsor: { select: { name: true } }, package: { select: { name: true } } },
     });
 
-    return applyBriefMove(
+    const moved = await applyBriefMove(
       tx,
       actor,
       { id: found.id, tenantId: found.tenantId, state: from as BriefState, objective: brief.objective, sponsorName: brief.sponsor.name },
       to,
       { closeReason },
     );
+    if (sponsorWithdraw) {
+      await notifyBriefWithdrawn(tx, {
+        id: found.id, tenantId: found.tenantId, from: from as BriefState, heldAt: brief.heldAt,
+        sponsorName: brief.sponsor.name, packageName: brief.package?.name ?? null, note: closeReason,
+      });
+    }
+    return moved;
   });
 }
 
