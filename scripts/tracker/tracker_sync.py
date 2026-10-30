@@ -37,7 +37,10 @@ import urllib.request
 from dataclasses import dataclass, field
 
 TRACKER_PATH = "Claude outputs/SponsorX-Full-Programme-Task-Board.xlsx"
-PHASES = ("Phase 1", "Phase 2", "Phase 3", "Phase 4")
+# Every task sheet the board has, Phase 1 first (the digest's days-left line
+# reads it). Phase 5, Phase 6 and Polish were added to the workbook after this
+# list was written, and their moves went unannounced until 2026-10-30.
+PHASES = ("Phase 1", "Phase 2", "Phase 3", "Phase 4", "Phase 5", "Phase 6", "Polish")
 HEADER_ROW = 4
 DEFAULT_SHEET_ID = "10PGtZb3jGBBHhbNOWwl__hS0b_HKN7EL0KRHrnSVoI0"
 MANILA = dt.timezone(dt.timedelta(hours=8))
@@ -91,6 +94,9 @@ def _read_board(wb) -> dict[str, dict[str, Task]]:
     board: dict[str, dict[str, Task]] = {}
     for phase in PHASES:
         rows: dict[str, Task] = {}
+        board[phase] = rows
+        if phase not in wb.sheetnames:
+            continue  # an older tracker, from before the sheet existed
         for r in wb[phase].iter_rows(min_row=HEADER_ROW + 1, values_only=True):
             if not r or not r[COL["id"] - 1]:
                 continue
@@ -102,7 +108,6 @@ def _read_board(wb) -> dict[str, dict[str, Task]]:
                 notes=_s(g("notes")), cells=[_s(c) for c in r[:18]],
             )
             rows[t.id] = t
-        board[phase] = rows
     return board
 
 
@@ -155,7 +160,8 @@ def bar(pct: int, width: int = 20) -> str:
 
 
 def render_progress(board) -> str:
-    lines = [f"{p.phase}  {bar(p.pct)}  {p.pct:>3}%  {p.done:>3}/{p.total:<3}" for p in progress(board)]
+    w = max(len(p) for p in PHASES)  # "Polish" is shorter than "Phase 1": keep the bars in one column
+    lines = [f"{p.phase:<{w}}  {bar(p.pct)}  {p.pct:>3}%  {p.done:>3}/{p.total:<3}" for p in progress(board)]
     return "*📊 SponsorX progress*\n```\n" + "\n".join(lines) + "\n```\n_Phase 1 includes SponsorX NEXT._"
 
 
