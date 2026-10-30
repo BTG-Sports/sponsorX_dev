@@ -136,3 +136,28 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
   - No group: two `readSegments` segments (open states ascending, then the rest descending), paged or not.
 - **Tests:** `backend/tests/pol-be-29-handoffs-oldest-first.test.ts` (5) checks each tab's order, the unfiltered order, and the order across pages. The existing handoff desk, flow and escalation tests still pass.
 - **Left on the backend polish list:** `POL-BE-36` (the payments switch).
+
+### `POL-BE-36` — BTG's payments switch (rcfworks), on `feature/POL-BE-36-payments-switch`
+
+- **Built:** `domain/payment-switch.ts`, with `paymentsOpen()` (moved from lib/payment-provider), `activeProvider()`, and `readPaymentSwitch`/`setPaymentSwitch`.
+  - New `PaymentSwitch` table (migration `20261030170000_payment_switch`): one row, id "payments".
+  - Routes: `GET`/`PUT /payments/switch`.
+  - New policy resource `paymentSwitch` (SUPER_ADMIN any; BTG_ADMIN and FINANCE own-tenant), plus a top-level-organisation check. Matrix doc and digest updated (`49765fb6b2173f73`).
+- **Gates:** `startCardPayment`, `sendPayout`, `payoutAccountLink` and `accountView.canSetUp` use `activeProvider()`. `canPay`, the checkout's `paymentsOpen` (new on `GET /reservations/:id`), the AWAITING_PAYMENT window and `sweepUnpaidOrders` use `paymentsOpen()`. Webhooks use the configured `providerName()`.
+- **Rules:**
+  - with no row it's off in production, on elsewhere;
+  - "on" needs a provider (409);
+  - a reason is required;
+  - each change is audited;
+  - turning it from off to on queues APPROVED payouts (`tenantIds` limit for tests).
+- **Checked against the acceptance criteria clause by clause:**
+  - Admin and Finance switch it ✔;
+  - audited with a reason ✔;
+  - other roles refused, and operated organisations too ✔;
+  - off means no checkout, no transfer, no cancellation ✔;
+  - can't turn on without keys ✔;
+  - tests ✔.
+- **Tests:** `pol-be-36-payments-switch.test.ts` (5, real DB, only ever turns it on) and `pol-be-36-payments-off.test.ts` (7, a stand-in for the one row, so parallel files never see payment off).
+- **Found, not fixed (reported to the owner):** `PUBLIC_INTAKE_TENANT_ID` is unset in production and staging, so it defaults to `seed_tenant_btg`. Production's BTG organisation is `tenant_btg`, so public sign-ups in production likely point at a tenant that doesn't exist.
+- **Switches doc:** the Payments switch row and the two steps to open payments were added. Staging's `PAYMENT_PROVIDER` is corrected to `stripe` (checked in Railway).
+- **POL-BE-36, first full run:** lint (a bare `findUnique` in `view` needed a `select`) and `phase2-payouts.test.ts:378` (the old refusal wording, matched by a regex the exact-string search missed) both failed. Both are fixed, and the frontend payout-detail wording is noted in polish.md for `POL-FE-36`.

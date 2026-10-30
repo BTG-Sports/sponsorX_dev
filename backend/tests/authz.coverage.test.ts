@@ -22,6 +22,8 @@ const MODELS = [...SCHEMA.matchAll(/^model (\w+) \{/gm)].map((m) => m[1]!);
 /** Which matrix resource governs each model. */
 const GOVERNED_BY: Record<string, Resource> = {
   Tenant: "tenant",
+  /* POL-BE-36 — BTG's payments switch. */
+  PaymentSwitch: "paymentSwitch",
   User: "user",
   Property: "property",
   Guardian: "guardian",

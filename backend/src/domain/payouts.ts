@@ -51,9 +51,11 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, can, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import {
-  createPayoutAccount, isSponsorXPayoutAccount, openCheckout, paymentsOpen, payoutAccountLinkUrl, payoutAccountStatus, ProviderRefusedError, providerName, readStandinToken, sendPayoutToProvider, standinLink, standinRef,
+  createPayoutAccount, isSponsorXPayoutAccount, openCheckout, payoutAccountLinkUrl, payoutAccountStatus, ProviderRefusedError, providerName, readStandinToken, sendPayoutToProvider, standinLink, standinRef,
   StandinTokenError,
 } from "../lib/payment-provider";
+import { activeProvider, paymentsOpen } from "./payment-switch";
+import type { ProviderName } from "../lib/payment-provider";
 import { postPayout, postPayoutReturn } from "./ledger";
 import { recordRefund } from "./refunds";
 import { lockOrder, moveOrderAsSystem, payOrderIn } from "./marketplace-order";
@@ -94,7 +96,8 @@ const RELEASING = new Set(["IN_DELIVERY", "FULFILLED", "CLOSED"]);
 const PAID_OR_LATER = new Set(["PAID", "IN_DELIVERY", "FULFILLED", "CLOSED"]);
 
 const providerUnavailable = (what: string) =>
-  new PayoutError(`${what} opens once SponsorX's payment provider is connected. Nothing has been charged or sent.`, 409);
+  /* POL-BE-36 — no provider yet, or BTG has payment switched off: the same answer, and nothing moved. */
+  new PayoutError(`${what} isn't open yet — payments open soon. Nothing has been charged or sent.`, 409);
 
 /**
  * POL-BE-12 — who hears of a payout waiting for BTG: the books' Finance team
@@ -162,13 +165,13 @@ const orderRef = (id: string) => `SX-${id.slice(-8).toUpperCase()}`;
 
 const ACCOUNT_SELECT = { status: true, provider: true, providerAccountId: true, changedAt: true, updatedAt: true } as const;
 
-function accountView(row: { status: string; provider: string; updatedAt: Date } | null) {
+function accountView(row: { status: string; provider: string; updatedAt: Date } | null, active: ProviderName) {
   const provider = providerName();
   return {
     status: (row?.status ?? "NOT_SET_UP") as "NOT_SET_UP" | "NEEDS_INFO" | "READY",
     provider,
-    /** False until a provider is connected: the set-up button says so. */
-    canSetUp: provider !== "none",
+    /** False until payment is open (a provider connected, and BTG's switch on — POL-BE-36): the set-up button says so. */
+    canSetUp: active !== "none",
     testProvider: provider === "standin",
     updatedAt: row?.updatedAt ?? null,
   };
@@ -177,7 +180,7 @@ function accountView(row: { status: string; provider: string; updatedAt: Date } 
 export async function myPayoutAccount(actor: Actor) {
   payeeOf(actor, "payoutAccount", "read");
   const row = await prisma.payoutAccount.findFirst({ where: whereFor(actor, "payoutAccount", "read"), select: ACCOUNT_SELECT });
-  return accountView(row);
+  return accountView(row, await activeProvider());
 }
 
 /** The link to the provider's set-up page (or back to it, to finish or manage). */
@@ -185,7 +188,8 @@ export async function payoutAccountLink(actor: Actor, returnPath: unknown, now =
   const payee = payeeOf(actor, "payoutAccount", "write");
   /* 2S1-BE-11 — a minor's payout account is set up by their guardian, in the guardian's name. */
   await assertMayCommit(prisma, actor, "manage");
-  const provider = providerName();
+  /* POL-BE-36 — closed while BTG has payment switched off, as when no provider is set up. */
+  const provider = await activeProvider();
   if (provider === "none") throw providerUnavailable("Payout set-up");
   const back = safeReturnPath(returnPath, payee.payeeType === "ATHLETE" ? "/athlete" : "/property/earnings");
   if (provider === "stripe") return { url: await stripeAccountLink(actor, payee, back, now) };
@@ -270,7 +274,7 @@ export async function orderPayment(actor: Actor, orderId: string) {
     due: order.state === "APPROVED" || order.state === "AWAITING_PAYMENT",
     provider,
     /* POL-BE-04 — false while card payment is closed: the order is held, with no pay-by date yet. */
-    canPay: paymentsOpen(),
+    canPay: await paymentsOpen(),
     testProvider: provider === "standin",
     latest,
   };
@@ -346,7 +350,8 @@ export async function failedPayments(actor: Actor) {
 export async function startCardPayment(actor: Actor, orderId: string, now = new Date()) {
   const scope = assertAllowed(actor, "marketplaceOrder", "write");
   if (scope !== "own-sponsor" || !actor.sponsorId) throw new ForbiddenError("marketplaceOrder", "write");
-  const provider = providerName();
+  /* POL-BE-36 — no checkout while BTG has payment switched off. */
+  const provider = await activeProvider();
   if (provider === "none") throw providerUnavailable("Card payment");
   const opened = await prisma.$transaction(async (tx) => {
     const found = await tx.marketplaceOrder.findFirst({
@@ -793,7 +798,7 @@ export async function myPayouts(actor: Actor, now = new Date()) {
     const g = grouped.find((x) => x.state === st);
     return [st, { count: g?._count._all ?? 0, amountCents: g?._sum.amountCents ?? 0 }];
   })) as Record<(typeof STATES)[number], { count: number; amountCents: number }>;
-  const account = accountView(accountRow && accountRow.status ? accountRow : null);
+  const account = accountView(accountRow && accountRow.status ? accountRow : null, await activeProvider());
   const sum = (f: (o: OrderMoney) => number) => orders.reduce((s, o) => s + f(o), 0);
   const requestableCents = sum((o) => o.requestableCents);
   const owedBackCents = sum((o) => o.owedBackCents);
@@ -1102,7 +1107,7 @@ export async function getPayout(actor: Actor, id: string, now = new Date()) {
   const [view] = await withPayee(prisma, [row], viewFor(actor));
   return {
     ...view!,
-    account: accountView(account),
+    account: accountView(account, await activeProvider()),
     orders: orders.map((o) => ({ orderId: o.id, orderRef: orderRef(o.id), state: o.state, fulfilledAt: o.fulfilledAt, totalCents: o.totalCents, title: o.lines.map((l) => l.title).join(" · ") })),
     checks: payoutChecks(
       orders.map((o) => ({ state: o.state, confirmedLines: money.get(o.id)?.confirmedLines ?? 0, holdUntil: money.get(o.id)?.holdUntil ?? null, frozen: money.get(o.id)?.frozen ?? false })),
@@ -1284,7 +1289,8 @@ export async function resumePayoutsCovering(tx: Tx, orderId: string) {
  * whole step back and the queue retries it with the same key.
  */
 export async function sendPayout(payoutId: string, now = new Date()): Promise<{ sent: boolean; refused?: boolean }> {
-  const provider = providerName();
+  /* POL-BE-36 — no transfer while BTG has payment switched off: the payout stays APPROVED, and is queued again when it opens. */
+  const provider = await activeProvider();
   if (provider === "none") return { sent: false };
   return prisma.$transaction(async (tx) => {
     const row = await tx.payout.findUnique({
