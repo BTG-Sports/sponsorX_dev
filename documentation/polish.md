@@ -814,6 +814,37 @@ withdraw.
 **Fix:** the request opens to a detail page with Edit (while still editable)
 and Withdraw. The API adds withdraw if it's missing.
 
+- **Backend delivered (`POL-BE-17`, 2026-10-30):**
+  - **Withdraw wasn't missing.** A sponsor already withdraws their own
+    request with `POST /briefs/:id/transition` `{ to: "CLOSED" }`. It works
+    any time before a campaign exists, and a `reason` is optional. No
+    second route was added.
+  - **`youCan: { edit, withdraw }`** is now on `GET /briefs/:id` and on
+    every row of `GET /briefs`, so a screen doesn't need to copy the rules:
+    - `edit` is true while the request is a draft and the caller may change
+      it;
+    - `withdraw` is true for the sponsor's own people before a campaign
+      exists;
+    - a read-only sponsor gets neither;
+    - BTG staff never get `withdraw`, because they close a request with a
+      reason instead.
+  - **BTG hears about a withdrawal.** When BTG had started on the request
+    (qualified it, approved it, or had it held for review), the tenant's
+    campaign managers get `brief.withdrawn` once. If there are no campaign
+    managers, its BTG admins get it. The email includes the sponsor's
+    note. A draft BTG never saw emails nobody.
+  - Tests: `backend/tests/pol-be-17-brief-actions.test.ts` (9).
+- **For screens (`POL-FE-17`):**
+  - Make each sent request open to a detail page from `GET /briefs/:id`.
+  - Show **Edit** when `youCan.edit` is true. Save with
+    `PATCH /briefs/:id`; the fields are the ones the request form already
+    sends. A 409 means BTG has moved it on, so reload the page.
+  - Show **Withdraw** when `youCan.withdraw` is true. Ask "Are you sure?"
+    with an optional note, then send
+    `POST /briefs/:id/transition` `{ to: "CLOSED", reason?: note }`.
+  - Afterwards, `status` reads as closed. The sponsor never sees BTG's
+    internal close reasons.
+
 ### 18. A sponsor can't resend the confirmation email or fix a mistyped address
 `POL-BE-18` · `POL-FE-18` · *Dead end* · likely
 

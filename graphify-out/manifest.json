@@ -1302,9 +1302,9 @@
     "semantic_hash": ""
   },
   "backend/src/contracts/registry.ts": {
-    "mtime": 1793326972.010865,
-    "seen": 1793327169.8260329,
-    "ast_hash": "3e0003091652a4639d9dbb42445ac5f3",
+    "mtime": 1793327860.613612,
+    "seen": 1793328009.432756,
+    "ast_hash": "157ef32baafd241651972bca0b25d248",
     "semantic_hash": ""
   },
   "backend/src/contracts/reward.ts": {
@@ -1398,15 +1398,15 @@
     "semantic_hash": ""
   },
   "backend/src/domain/brief-state.ts": {
-    "mtime": 1790061027.0779703,
-    "seen": 1793327169.82608,
-    "ast_hash": "43ce279741a20b7bab9c7e0957bb3609",
+    "mtime": 1793327688.3976264,
+    "seen": 1793328009.4370098,
+    "ast_hash": "21b4c01a5dba2b02c6bdc025c9cbcc72",
     "semantic_hash": ""
   },
   "backend/src/domain/brief.ts": {
-    "mtime": 1792823470.3695962,
-    "seen": 1793327169.82608,
-    "ast_hash": "256463e24aecb14b5ded331b23496bc9",
+    "mtime": 1793327765.2346597,
+    "seen": 1793328009.437011,
+    "ast_hash": "45c751b1795a5bd3655a6b7daf674cdf",
     "semantic_hash": ""
   },
   "backend/src/domain/campaign-order.ts": {
@@ -1602,9 +1602,9 @@
     "semantic_hash": ""
   },
   "backend/src/lib/email.ts": {
-    "mtime": 1793276394.0811124,
-    "seen": 1793327169.82623,
-    "ast_hash": "8a159d7bc8087470bd01ab2e58db660e",
+    "mtime": 1793327753.8049192,
+    "seen": 1793328009.4471512,
+    "ast_hash": "0e8e65722410608e990dfe556caf4626",
     "semantic_hash": ""
   },
   "backend/src/lib/intake-token.ts": {
@@ -1644,9 +1644,9 @@
     "semantic_hash": ""
   },
   "backend/src/routes/v1/campaigns.ts": {
-    "mtime": 1793180591.2544835,
-    "seen": 1793327169.826253,
-    "ast_hash": "ffe132a949dbf3957dc0bec08bc31ca5",
+    "mtime": 1793327693.4107928,
+    "seen": 1793328009.4485068,
+    "ast_hash": "8e9aa9b744011c6b5727560436a85c40",
     "semantic_hash": ""
   },
   "backend/src/routes/v1/deliverables.ts": {
@@ -2040,9 +2040,9 @@
     "semantic_hash": ""
   },
   "backend/worker/jobs/send-email.mts": {
-    "mtime": 1793276394.0817504,
-    "seen": 1793327169.826535,
-    "ast_hash": "a8adae03cb265eb12a0067f1a97daf79",
+    "mtime": 1793327753.8063402,
+    "seen": 1793328009.489494,
+    "ast_hash": "09c89e16fc26bf8c76ca3483ca92ca34",
     "semantic_hash": ""
   },
   "documentation/sponsorxNext/build-docx.js": {
@@ -8868,9 +8868,9 @@
     "semantic_hash": ""
   },
   "backend/src/domain/brief-auto.ts": {
-    "mtime": 1791278127.9457304,
-    "seen": 1793327169.826077,
-    "ast_hash": "ddd8d64503b1c262b3d998f7d02c6a0a",
+    "mtime": 1793327753.8030427,
+    "seen": 1793328009.436877,
+    "ast_hash": "814d285af8f122f2954c4470ce206e9d",
     "semantic_hash": ""
   },
   "backend/src/domain/brief-moves.ts": {
@@ -12942,9 +12942,9 @@
     "semantic_hash": ""
   },
   "documentation/polish.md": {
-    "mtime": 1793327084.6707265,
-    "seen": 1793327169.8277419,
-    "ast_hash": "ff24e0032ca9a96d52c32897d0c3e49f",
+    "mtime": 1793327890.3402944,
+    "seen": 1793328009.6348941,
+    "ast_hash": "64f124129ba5b7f5c9b932090eb39c91",
     "semantic_hash": ""
   },
   "backend/src/domain/account-closure-impact.ts": {
@@ -13050,15 +13050,15 @@
     "semantic_hash": ""
   },
   "documentation/polish-progress.md": {
-    "mtime": 1793327093.9236193,
-    "seen": 1793327169.8277419,
-    "ast_hash": "821d7f0103b6bd570ca77a60d79be9d0",
+    "mtime": 1793327909.920242,
+    "seen": 1793328009.634892,
+    "ast_hash": "b4193ce55067b798b1ae6d0b99117765",
     "semantic_hash": ""
   },
   "Memory/2026-10-30/tasks-completed.md": {
-    "mtime": 1793327108.2579048,
-    "seen": 1793327169.827608,
-    "ast_hash": "db301c132d95fac5e568bf3d166c32f0",
+    "mtime": 1793327910.8272142,
+    "seen": 1793328009.589704,
+    "ast_hash": "ec4dacf4855196a1309d0e8126cd75cc",
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {
@@ -13077,6 +13077,12 @@
     "mtime": 1793326960.0990071,
     "seen": 1793327169.826467,
     "ast_hash": "6060f4b1bbe0d58a43e0217abad96edc",
+    "semantic_hash": ""
+  },
+  "backend/tests/pol-be-17-brief-actions.test.ts": {
+    "mtime": 1793327846.4796526,
+    "seen": 1793328009.474598,
+    "ast_hash": "bd53774b80f793e9cd8bc96b148399c6",
     "semantic_hash": ""
   }
 }

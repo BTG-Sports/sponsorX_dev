@@ -281,6 +281,11 @@ ${d.portalUrl ?? ""}
     subject: `Brief held for you: ${d.sponsorName ?? "a sponsor"}`,
     text: `${d.sponsorName ?? "A sponsor"}'s request (${d.packageName ?? "custom request"}) couldn't be approved automatically, so it is waiting for you:\n\n${d.reasons ?? ""}\n\nThe sponsor has been told only that BTG is reviewing it. Qualify, approve or close it here:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
   }),
+  /* POL-BE-17 — a sponsor withdrew a request BTG had started on. */
+  "brief.withdrawn": (d) => ({
+    subject: `Request withdrawn: ${d.sponsorName ?? "a sponsor"}`,
+    text: `${d.sponsorName ?? "A sponsor"} withdrew their request (${d.packageName ?? "custom request"}). It is closed, and there is nothing more to do on it.${d.note ? `\n\nTheir note:\n\n${d.note}` : ""}\n\nThe request:\n\n${d.briefUrl ?? ""}\n\n— SponsorX`,
+  }),
   "campaign.finalReportReady": (d) => ({
     subject: `Your final report for ${d.campaignName ?? "your campaign"} is ready`,
     text: `Hi${d.sponsorName ? ` ${d.sponsorName}` : ""},\n\nEvery piece of content on ${d.campaignName ?? "your campaign"} has been checked, and your final report is ready:\n\n${d.reportUrl ?? ""}\n\nThe campaign is now complete. Thank you for working with our athletes.\n\n— BTG SponsorX`,

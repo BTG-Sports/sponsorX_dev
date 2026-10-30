@@ -44,3 +44,20 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
 - **For HeckerCreatives:** `POL-FE-15`'s card list (keys, labels, links) and the "don't sum the cards" rule are in polish.md item 15.
 - **Merged:** #345 into `main_development` (it carried #341, yesterday's wrap-up, which GitHub then marked merged). The `POL-BE-15` row is Done.
 - **New standing rule (owner, 2026-10-30):** every task moved to Done gets its tracker change PR'd to both `main_development` and `main`. `tracker-notify.yml` fires only on a push to `main` that changes the xlsx. This Done row went out that way.
+
+### `POL-BE-17` — a sponsor can open, edit and withdraw a sent request (rcfworks), on `feature/POL-BE-17-sponsor-request-actions`
+
+- **Found:** open (`GET /briefs/:id`), edit (`PATCH`, DRAFT only) and withdraw (`POST /briefs/:id/transition` to CLOSED, sponsor's reason optional) already existed. No new route was added.
+- **Built:**
+  - `youCan: { edit, withdraw }` on `GET /briefs/:id` and on each `GET /briefs` row. The rule is `briefActions` in `domain/brief-state.ts`:
+    - edit: anyone who writes the brief, while it is a DRAFT;
+    - withdraw: `own` write scope (the sponsor's people) before a campaign exists.
+  - A sponsor withdrawing a brief BTG had started on (QUALIFIED, APPROVED, or a held DRAFT) queues `brief.withdrawn` to the tenant's campaign managers (admins if none), once each, with the note. This is `notifyBriefWithdrawn` in `brief-auto.ts`. Its staff lookup is now shared with `brief.heldForBtg` (`briefStaff`).
+  - Template in `worker/jobs/send-email.mts`; registry summaries updated.
+- **Tests:** `backend/tests/pol-be-17-brief-actions.test.ts` (9) checks:
+  - the flags by state and role, and in the list;
+  - a late edit gets 409; another sponsor gets 403;
+  - the email goes once, with the note;
+  - a plain draft and a staff close send no email.
+- **Also today:** the `POL-BE-15` Done row went to both branches (#346, #347), and #348 syncs #346's merge commit to main.
+- **Merged:** #349 into `main_development`. The `POL-BE-17` row is Done, and the row went to both branches.

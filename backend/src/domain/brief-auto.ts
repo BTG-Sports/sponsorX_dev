@@ -214,20 +214,8 @@ async function holdForBtg(tx: Tx, b: BriefRow, holds: Hold[], now: Date, via: st
   });
 
   if (newHold) {
-    /* BTG's campaign managers in the brief's tenant — its admins where it has
-       none, so a hold never goes unseen. Once per hold: the key is its start. */
-    const where = (role: "CAMPAIGN_MGR" | "BTG_ADMIN") => ({ tenantId: b.tenantId, roles: { has: role }, disabledAt: null });
-    let staff = await tx.user.findMany({
-      /* tenant-scope: the brief's own tenant — its campaign managers. */
-      where: where("CAMPAIGN_MGR"), select: { id: true, email: true },
-    });
-    if (staff.length === 0) {
-      staff = await tx.user.findMany({
-        /* tenant-scope: the brief's own tenant — its BTG admins. */
-        where: where("BTG_ADMIN"), select: { id: true, email: true },
-      });
-    }
-    for (const u of staff) {
+    /* Once per hold: the key is its start. */
+    for (const u of await briefStaff(tx, b.tenantId)) {
       await send(tx, b.tenantId, {
         template: "brief.heldForBtg",
         to: u.email,
@@ -242,6 +230,48 @@ async function holdForBtg(tx: Tx, b: BriefRow, holds: Hold[], now: Date, via: st
     }
   }
   return { outcome: "HELD", reasons, newHold };
+}
+
+/** BTG's campaign managers in the brief's tenant — its admins where it has none, so a brief's news never goes unseen. */
+async function briefStaff(tx: Tx, tenantId: string): Promise<{ id: string; email: string }[]> {
+  const where = (role: "CAMPAIGN_MGR" | "BTG_ADMIN") => ({ tenantId, roles: { has: role }, disabledAt: null });
+  const managers = await tx.user.findMany({
+    /* tenant-scope: the brief's own tenant — its campaign managers. */
+    where: where("CAMPAIGN_MGR"), select: { id: true, email: true },
+  });
+  if (managers.length) return managers;
+  return tx.user.findMany({
+    /* tenant-scope: the brief's own tenant — its BTG admins. */
+    where: where("BTG_ADMIN"), select: { id: true, email: true },
+  });
+}
+
+/**
+ * POL-BE-17 — a sponsor withdrew a brief BTG had started on (qualified,
+ * approved, or held for BTG): its campaign managers hear, with the sponsor's
+ * note, so nobody keeps working a request the sponsor dropped. Once each —
+ * withdrawing is final. A draft BTG never saw tells nobody.
+ */
+export async function notifyBriefWithdrawn(
+  tx: Tx,
+  b: { id: string; tenantId: string; from: string; heldAt: Date | null; sponsorName: string; packageName: string | null; note: string | null },
+): Promise<number> {
+  if (b.from === "DRAFT" && !b.heldAt) return 0;
+  const staff = await briefStaff(tx, b.tenantId);
+  for (const u of staff) {
+    await send(tx, b.tenantId, {
+      template: "brief.withdrawn",
+      to: u.email,
+      idempotencyKey: `brief.withdrawn:${b.id}:${u.id}`,
+      data: {
+        sponsorName: b.sponsorName,
+        packageName: b.packageName ?? "Custom request",
+        note: b.note ?? "",
+        briefUrl: `${app()}/admin/briefs?tab=CLOSED#brief-${b.id}`,
+      },
+    });
+  }
+  return staff.length;
 }
 
 /** Bound on one pass of the sweep. */
