@@ -61,3 +61,14 @@ Unblocked by rcfworks' `POL-BE-12` (PR #336). `GET /operations/board` now carrie
   - a plain draft and a staff close send no email.
 - **Also today:** the `POL-BE-15` Done row went to both branches (#346, #347), and #348 syncs #346's merge commit to main.
 - **Merged:** #349 into `main_development`. The `POL-BE-17` row is Done, and the row went to both branches.
+
+### Tracker → Slack wasn't announcing polish tasks (rcfworks), on `fix/tracker-notify-polish-sheet`
+
+- **Cause:** `scripts/tracker/tracker_sync.py` read only `PHASES = ("Phase 1", "Phase 2", "Phase 3", "Phase 4")`. The Polish, Phase 5 and Phase 6 sheets were added later and never watched. So `tracker-notify` ran green after #347 and #351 (POL-BE-15 and POL-BE-17 Done) but logged "No task changes in this push — nothing to post".
+- **Fix:**
+  - `PHASES` now lists all seven task sheets, with Phase 1 still first for the days-left line.
+  - `_read_board` treats a sheet missing from an older tracker as empty.
+  - The progress bars are padded so "Polish" lines up.
+  - 3 new unit tests; 26 pass.
+- **Checked:** a dry run on the #351 merge now produces "✅ POL-BE-17 … → Done".
+- The Google Sheet has no Polish tab. Its sync writes nothing there, as before; the Sheet stays a hand mirror.
