@@ -1064,6 +1064,19 @@ lands on "Not yet".
 The oldest requests involving minors slip down the list.
 **Fix:** oldest first.
 
+- **Backend delivered (`POL-BE-29`, 2026-10-30):** `GET /guardian-handoffs`
+  orders requests like this:
+  - **Tabs with requests still waiting** ("Waiting for BTG", "In progress",
+    and the athlete and guardian "waiting" list): **oldest first**, by when
+    the request was made.
+  - **Tabs with finished requests** ("Switched", "Declined", "Cancelled",
+    "past"): newest first.
+  - **Unfiltered:** every waiting request first, oldest on top, then the
+    finished ones, newest first.
+  - Paging follows the same order, so the oldest is always on page 1.
+  - No screen change is needed; the queue just arrives in the new order.
+  - Tests: `backend/tests/pol-be-29-handoffs-oldest-first.test.ts` (5).
+
 ### 30. "Reply to the email" to unsubscribe goes nowhere
 `POL-FE-30` · likely
 
