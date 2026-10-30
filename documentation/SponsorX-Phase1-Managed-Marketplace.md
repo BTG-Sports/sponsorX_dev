@@ -3439,9 +3439,9 @@ Each is held with the findings as its reasons. Clear documents change nothing. T
   - Checked: the whole frontend suite (159 files, 1,814 tests), eslint and `next build` pass.
   - **QA 2026-10-29 (three browser passes):** a dark 120×90 photo refused in plain words with Try again and a crisp ID accepted through MinIO; flagged findings, Send back (reason rule, Escape) on new sign-ups, an organisation and a sponsor request, the organisation going to CHANGES_REQUESTED and its public checklist saying "BTG asked for a new one"; and the whole legal-name loop with the real OCR — held with findings, Send ID back, the athlete told, resubmitted, applied. One fix from it: `GET /profile-changes` sends `idDocumentCheckFindings` as the stored `{ code, says }` objects, not the `says` strings the other views send, so `editIdCheck` now reads both. **For `rcfworks`:** flattening that route through `checkView` like the others would make the shapes match.
 
-### ▶ `P8-BE-12` · Cancel and change a campaign, automatically
+### ✅ `P8-BE-12` · Cancel and change a campaign, automatically
 
-**Order** 157.9991 · **BE** · **Where:** Code · **3d** · **Ready** — rcfworks
+**Order** 157.9991 · **BE** · **Where:** Code · **3d** · **Done** — 2026-10-30, rcfworks (#362)
 
 Rodney asked, 2026-10-28: how do you cancel a campaign, and how do you change one? Today the API can cancel (`POST /campaigns/{id}/transition` to CANCELLED, BTG only), but nothing settles the athlete orders under it, and nothing changes a campaign once it is set up. **The user, 2026-10-28:** add Cancel and Change, automate them as far as possible, email BTG admins when a person is needed, and show the person what will be affected before they confirm.
 
