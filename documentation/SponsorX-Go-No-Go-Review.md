@@ -80,11 +80,10 @@ The production check is done. Still to do:
 - the $1 live payment and refund;
 - MFA (Clerk Pro);
 - Stripe tax forms (needs Rodney's login; guide prepared);
-- BTG's postal address;
 - the signatures below.
 
-Done: the edge key, Resend email, Zoho (2026-10-24), the production check and
-the Stripe connection (2026-11-03). Fan geography is optional (below).
+Done: the edge key, Resend email, Zoho (2026-10-24), the production check,
+the Stripe connection and BTG's postal address (2026-11-03). Fan geography is optional (below).
 
 Production runs the same code as staging. It is deployed from `release` by
 the same workflow, but it is effectively dark. These are switched on by the
@@ -100,7 +99,7 @@ owner at go-live. None of them needs code.
 | Tax forms | Stripe Connect tax reporting off. **2026-11-03:** the Tax forms page sends the team's Stripe login back to the Dashboard, most likely because it needs the account owner. A step-by-step guide for Rodney: [Turning on 1099 tax forms in Stripe](https://claude.ai/artifact/LyTKuTGGstJncrTQiqn8ns) | 2S0-LEG-02 approved 2026-10-22: Rodney switches on tax reporting for connected accounts. Stripe then collects W-9 and W-8 forms and files the 1099s. Needed before the first payout to an athlete or team, not before the first payment | Owner (Rodney) |
 | Email | **Done 2026-10-23.** Domain verified in Resend (`sponsorx.net`); `RESEND_API_KEY` is set on the production api (rotated after Railway's incident) | — | Owner |
 | Phase 3 rollout | Per-tenant feature switches | Stage 3 (outside sponsors and properties): 3S0-LEG-01 approved 2026-10-22, so this is the owner's call | Owner |
-| BTG's postal address | `BTG_POSTAL_ADDRESS` unset: fan emails and the fan privacy notice leave the address out | Set it on the production api and worker before the first fan email goes out (CAN-SPAM wants it in each one) | Owner |
+| BTG's postal address | **Done 2026-11-03.** `BTG_POSTAL_ADDRESS=2601 Pennsylvania Ave, Baltimore, MD 21217` on production `api` (the worker runs in it), the address on BTG's Stripe account, confirmed by the user. Fan email footers read "BTG Sports Group, 2601 …" and the fan privacy notice "BTG Sports Group LLC, 2601 …" | — | Owner |
 | Governing law | The approved agreements (v2) name no governing law, venue or dispute process | Optional: when BTG chooses them, issue v3 of the agreements with that section; everyone re-accepts | Owner |
 | Production check | **Done 2026-11-03 (rcfworks)**, on release `67de51ed` (`api` and `web`). Health 200 with every check ok, 0 queue failures in 24h. Worker drained and seeded (catalogue only; demo seed skipped in production). `facts:check`: summaries and app records match. Database logins: `api` runs as `sponsorx_app`, `db:read` as `sponsorx_readonly` (Runbook §6). Backups: point-in-time recovery on, restorable to minutes before the check. Clerk is the live instance on web and api, accepting only `https://sponsorx.net`. Both webhook paths refuse unsigned posts (401). Support mail: `sponsorx.net` has MX records; `support@sponsorx.net` forwards to `infinex1@icarrefound.org`. Not run: a restore against production data (there is none) | — | rcfworks |
 

@@ -28,4 +28,5 @@ Part of `P8-PMO-06` (go/no-go) and `P2-OPS-04` (production settings). Neither ro
 - **Docs:**
   - `SponsorX-Switches.md`: production values, and the key and account status;
   - `SponsorX-Go-No-Go-Review.md`: status 2026-11-03, the Payments, Tax forms, Fan geography (now optional) and Production check rows, and the risk about the unchecked production closed. Its production table had lost its header row and carried a stray fragment; both fixed.
-- **Still open for go-live:** the $1 live payment and refund; the webhook destinations confirmed in the Dashboard; MFA (Clerk Pro); tax forms (Rodney); `BTG_POSTAL_ADDRESS`. BTG's Stripe address is 2601 Pennsylvania Ave, Baltimore MD 21217, which is not yet confirmed as the mailing address. Then the signatures.
+- **BTG's postal address set.** The user confirmed the Stripe address, so `BTG_POSTAL_ADDRESS=2601 Pennsylvania Ave, Baltimore, MD 21217` is now on production `api`. The code adds "BTG Sports Group" in front, in both the fan email footer (`fanFooter`) and the privacy notice, so the setting holds the street address only. Staging is unchanged.
+- **Still open for go-live:** the $1 live payment and refund; the webhook destinations confirmed in the Dashboard; MFA (Clerk Pro); tax forms (Rodney). Then the signatures.
