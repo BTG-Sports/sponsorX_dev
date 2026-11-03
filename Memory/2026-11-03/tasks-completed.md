@@ -39,3 +39,18 @@ Part of `P8-PMO-06` (go/no-go) and `P2-OPS-04` (production settings). Neither ro
     - backend build, lint, `audit:check`, `test:security-scripts`, `secrets:scan`;
     - the full backend suite: 254 files and 3745 tests passed, none skipped, no unhandled errors.
 - **Still open for go-live:** the $1 live payment and refund; the webhook destinations confirmed in the Dashboard; MFA (Clerk Pro); tax forms (Rodney). Then the signatures.
+
+### The last six Polish frontend rows, plus two Code review rows closed (HeckerCreatives), on `feature/POL-FE-batch-3`
+
+Unblocked by rcfworks' backend rows that landed 2026-10-30 (`POL-BE-15/17/18/19/22/36`, pulled today with `P8-BE-12` and the production check). Six screens built in one pass, each on its own files, then integrated:
+
+- **`POL-FE-15`** — BTG's dashboard draws one card per queue that waits on BTG (all 22 from `GET /operations/board`), oldest wait first, each linked to its desk and tab and drawn only for roles that can open it (`deskPath` strips the query/hash before `mayUse`). The headline counts queues with work instead of summing cards, because an item can sit on two desks; the ring is one equal arc per queue.
+- **`POL-FE-17`** — `/sponsor/requests/:id`: what was asked for, where it stands, the campaign it became; Edit (draft only, only changed fields sent) and Withdraw (confirm + optional note), from the API's `youCan` flags. `lib/brief-actions.ts`.
+- **`POL-FE-18`** — Resend email / Change email on the public request status page (`components/sponsor-email-fix.tsx`), with the 422 / 429 / 409 / 400 wording.
+- **`POL-FE-19`** — `/sponsor/team` for Sponsor Admins: invite (Admin / Viewer), change role, resend, remove with confirm; Team under Account for admins only (`sponsorNavFor`); the inert Messages and Settings items removed.
+- **`POL-FE-22`** — the sponsor's campaign page shows "BTG is finding more athletes · since Oct 28" with the signed count and bar when `staffing.btgFinding` is set (draft or staffing), never repeating the API's own next-step sentence.
+- **`POL-FE-36`** — the Payments switch desk at `/admin/payments` (Mission Control) and `/finance/payments` (Vault), sharing one island: on/off, open, provider, last change, history; reason + confirm; "Turn on" disabled without a provider. "Payments open soon" on every pay / payout button while closed; payout and refund desks say "until payments open". Switches doc updated.
+- **`POL-FE-32` and `P8-FE-12`** were already merged (PRs #342-era and #337); their rows just moved to Done.
+- **Checked:** full frontend vitest (164 files, 1957 tests), eslint, tsc, and `npm run build` (see the PR). Not walked in a browser: no dev server was running and the stack was brought up only for the migrations. The live round-trips (switch PUT, team invites, email change) follow the backend contracts and tests, not a run.
+- **Also today, before the build:** pulled `main_development`, started Docker, applied the four 2026-10-30 migrations from the host (the compose migrate container had reported "no pending" from a stale run), regenerated the Prisma client, rebuilt the worker image.
+- **Tracker:** the six Polish rows, `POL-FE-32` and Phase 1's `P8-FE-12` Done; Stage Progress snapshot for 2026-11-03 appended. Every row on the Polish sheet is now Done.

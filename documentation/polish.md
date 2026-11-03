@@ -793,6 +793,8 @@ These queues have no count, so staff have to click every menu item to find work:
   - a waiting organisation is counted under both sign-ups and
     organisations.
 
+**Delivered (`POL-FE-15`, 2026-11-03):** BTG's dashboard draws one card per queue that waits on BTG — all 22 from `GET /operations/board` (`lib/ops-board-live.ts`), oldest wait first, each with "oldest waiting since …" on the desk's clock and a link to the desk and tab where it is cleared, drawn only for roles that can open that desk (`deskPath` strips the query and hash before the `mayUse` check). The headline counts queues with work ("7 queues need BTG's hand") rather than adding the cards up, because an item can sit on two desks; the action ring is one equal arc per queue. Tests: `tests/ops-board-queues.test.ts`.
+
 ---
 
 ## C · Confusing or extra work
@@ -847,6 +849,8 @@ and Withdraw. The API adds withdraw if it's missing.
   - Afterwards, `status` reads as closed. The sponsor never sees BTG's
     internal close reasons.
 
+**Delivered (`POL-FE-17`, 2026-11-03):** a sponsor's request has its own page (`/sponsor/requests/:id`, linked from every row of the list) showing what was asked for, where it stands and the campaign it became; while it is still a draft the sponsor edits it inline (only changed fields are sent, `lib/brief-actions.ts` `requestPatch`), and until it becomes a campaign they can withdraw it after an "Are you sure?" with an optional note. The buttons are exactly the API's `youCan` flags, so a read-only sponsor sees none; a 409 says BTG moved it on and refreshes; BTG's hold and close reasons never reach the page. Tests: `tests/brief-actions.test.ts`.
+
 ### 18. A sponsor can't resend the confirmation email or fix a mistyped address
 `POL-BE-18` · `POL-FE-18` · *Dead end* · likely
 
@@ -888,6 +892,8 @@ limited.
     - 429: "Too many tries. Try again in an hour."
     - 409: reload the status page, because something changed (for
       example, the address was just confirmed).
+
+**Delivered (`POL-FE-18`, 2026-11-03):** the status page's "Check your email" section offers Resend email and Change email (`components/sponsor-email-fix.tsx`) against the two routes above, shows "Sent to {email}", updates the shown address at once and refreshes the server page. Refusals say why — same address (422), too many tries with the buttons held off (429), something changed with an automatic refresh (409), not an email address (400, also checked before the call) — and `canFixEmail`, `looksLikeEmail` and `emailFixRefusal` are pinned in `tests/sponsor-request-live.test.ts`.
 
 ### 19. A sponsor admin can't add teammates
 `POL-BE-19` · `POL-FE-19` · *Dead end* · likely
@@ -936,6 +942,8 @@ missing. Hide the menu items that don't work yet.
     again in an hour."
   - **Hide "Settings" and "Messages"** until they work. There's no backend
     for either yet.
+
+**Delivered (`POL-FE-19`, 2026-11-03):** `/sponsor/team` lists everyone on the account with an Invited / Active / Removed chip, role word and added date; a Sponsor Admin invites by email as Admin or Viewer, switches roles, resends an unused invite and removes (after an are-you-sure dialog), with the 409 / 422 / 429 wording above and no actions on their own row or a removed one, whose copy says re-adding is BTG's to do. Team appears under Account for admins only (`sponsorNavFor`; an analyst who types the URL gets the not-in-your-role panel), and the inert Messages and Settings menu items are gone. Tests: `tests/sponsor-team-live.test.ts`, `tests/nav-groups.test.ts`.
 
 ### 20. "Needs your OK" points at nothing to approve
 `POL-FE-20` · confirmed
@@ -991,6 +999,8 @@ more athletes" with a date.
   signed", show "BTG is finding more athletes · since {date}" whenever
   `staffing.btgFinding` is set. Keep the count beside it. Show nothing extra
   when it's null.
+
+**Delivered (`POL-FE-22`, 2026-11-03):** the sponsor's campaign page says when BTG has stepped in: a stalled campaign (draft or staffing) shows the "x of y athletes signed" count and bar with a "BTG is finding more athletes · since Oct 28" chip beneath, from `staffing.btgFinding` (`lib/campaign-stage.ts` `btgFindingLine`, `showsStaffing`). When the API's own next step already says it, that sentence stays the headline and only the date is repeated, so the sponsor is never told twice. Nothing extra shows when it is null.
 
 ### 23. Content review has no "review by" date
 `POL-FE-23` · likely
@@ -1176,6 +1186,8 @@ production, and only someone with Railway access can do it.
     `finance/payouts/[id]`) say an approved payout "waits here until the
     payment provider is connected". With the switch, it waits until payments
     open, so "until payments open" is right in both cases.
+
+**Delivered (`POL-FE-36`, 2026-11-03):** BTG turns payments on or off from the app: a Payments desk in Mission Control (`/admin/payments`, Money group) and its Vault twin (`/finance/payments`) show the switch, whether payment is actually open, the Railway provider, who last changed it and why, and the history (`components/payment-switch.tsx`, `lib/payment-switch-live.ts`). A change asks for a reason and confirms what on and off mean; "Turn on" is disabled with "Payment provider not set up in Railway yet" while Railway names no provider. Everywhere a sponsor or payee would pay or set up payouts while payment is closed, the button says "Payments open soon", and the payout and refund desks say money waits "until payments open". Tests: `tests/payment-switch-live.test.ts`.
 
 ---
 
