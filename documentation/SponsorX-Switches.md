@@ -9,7 +9,7 @@ service restarts after the variable is saved.
 same pull request or on the same day. The "Now" column is what the team last
 recorded. Railway is the truth: check it there before relying on it.
 
-Last reviewed: 2026-10-29.
+Last reviewed: 2026-11-03 (production values read from the running `api`).
 
 ---
 
@@ -19,14 +19,14 @@ These are the ones to watch. Each one is waiting on something outside the code.
 
 | Switch | What it does | Default (empty) | Now: staging / production | Turn it on when |
 |---|---|---|---|---|
-| `PAYMENT_PROVIDER` | **The master payments switch.** `none`: nobody is charged or paid, the pay buttons say payment opens later, and approved orders wait with no deadline (POL-BE-04). `standin`: a test provider that moves no money; refused in production. `stripe`: real card payments, payouts and refunds. | `none` in production, `standin` elsewhere | `stripe` / `none` (checked 2026-10-30) | The polish list is done and BTG decides to take payments. Stripe's keys and webhook secrets must be set first (section 2). |
-| **Payments switch** (BTG admin, `POL-BE-36`) | **BTG's own on/off, on the admin screen** (`GET`/`PUT /payments/switch`). It works at once, with no deploy. Payment is open only while `PAYMENT_PROVIDER` names a provider AND this is on. Off means no checkout, no payout sent or set up, and no order cancelled for non-payment (orders wait, then get three fresh days); webhooks still settle what is already moving. Changing it needs a reason, is audited, and records who changed it and when. Only BTG Admin and Finance can change it. It can't be turned on while `PAYMENT_PROVIDER` is `none`. Turning it on sends the payouts that waited. | off in production, on elsewhere (nothing set yet) | on / off (nothing set yet) | BTG is ready to take payments: first set `PAYMENT_PROVIDER=stripe` (section 2); nothing opens until BTG turns this on. |
+| `PAYMENT_PROVIDER` | **The master payments switch.** `none`: nobody is charged or paid, the pay buttons say payment opens later, and approved orders wait with no deadline (POL-BE-04). `standin`: a test provider that moves no money; refused in production. `stripe`: real card payments, payouts and refunds. | `none` in production, `standin` elsewhere | `stripe` / `stripe` (production set 2026-11-03; checkout stays closed while the Payments switch below is off) | The polish list is done and BTG decides to take payments. Stripe's keys and webhook secrets must be set first (section 2). |
+| **Payments switch** (BTG admin, `POL-BE-36`) | **BTG's own on/off, on the admin screen** (`GET`/`PUT /payments/switch`). It works at once, with no deploy. Payment is open only while `PAYMENT_PROVIDER` names a provider AND this is on. Off means no checkout, no payout sent or set up, and no order cancelled for non-payment (orders wait, then get three fresh days); webhooks still settle what is already moving. Changing it needs a reason, is audited, and records who changed it and when. Only BTG Admin and Finance can change it. It can't be turned on while `PAYMENT_PROVIDER` is `none`. Turning it on sends the payouts that waited. | off in production, on elsewhere (nothing set yet) | on / off (production: nothing set, checked 2026-11-03) | BTG is ready to take payments: first set `PAYMENT_PROVIDER=stripe` (section 2); nothing opens until BTG turns this on. |
 | `REWARD_STAFF_CODE_REQUIRED` | `on`: a fan's reward is redeemed only with the reward's six-digit staff code (the booth's PIN). `off`: redeem works as before, though a code that is sent is still checked. Undo always needs the code. (POL-BE-07) | `off` | `off` / `off` | HeckerCreatives' fan page asks for the code (POL-FE-07). Turn on in staging first, test a redeem and an undo, then production. |
 | `REWARD_FAN_CODES` | `on`: a fan claiming through an athlete's shared QR gets a code of their own, so every fan who scans it can claim and redeem, up to the reward's limit. The shared QR can't be redeemed itself. `off`: one claim per code, so only the first fan can claim a shared QR. (POL-BE-08) | `off` | `off` / `off` | HeckerCreatives' fan page sends the fan on to their own code after claiming (POL-FE-08). Staging first: two phones on one QR should each get their own reward. |
-| `BTG_POSTAL_ADDRESS` | BTG's postal address in every fan email footer (CAN-SPAM) and the fan privacy notice. Empty: the line is left out. | empty | not recorded | BTG supplies the address (go-live item, `P8-PMO-06`). |
-| `SUPPORT_MAILBOX_READY` | `true`: pages show the support address as working. `false`: they say it is being set up. | `false` | not recorded | The support mailbox is set up (`2S1-OPS-01`). |
-| `FACT_CHECK_EMAILS` | `on`: the nightly figures check emails BTG's admins when the figures don't match. It runs and records its result either way. | `off` | not recorded | That environment's history of figures is filled (`3S1-OPS-04`). Before then every old campaign shows as "not matching". |
-| `FORECAST_EMAILS` | `on`: BTG admins and campaign managers are emailed when a live campaign becomes at risk, and when it recovers. The dashboard alert shows either way. | `off` | not recorded | BTG wants the emails. |
+| `BTG_POSTAL_ADDRESS` | BTG's postal address in every fan email footer (CAN-SPAM) and the fan privacy notice. Empty: the line is left out. | empty | not recorded / empty (2026-11-03) | BTG supplies the address (go-live item, `P8-PMO-06`). |
+| `SUPPORT_MAILBOX_READY` | `true`: pages show the support address as working. `false`: they say it is being set up. | `false` | `true` / `true` (production checked 2026-11-03) | The support mailbox is set up (`2S1-OPS-01`). Done 2026-10-07: `support@sponsorx.net` forwards to `infinex1@icarrefound.org` until Zoho Desk takes over. |
+| `FACT_CHECK_EMAILS` | `on`: the nightly figures check emails BTG's admins when the figures don't match. It runs and records its result either way. | `off` | not recorded / `on` (2026-11-03; production has no campaigns yet, so nothing old to mismatch) | That environment's history of figures is filled (`3S1-OPS-04`). Before then every old campaign shows as "not matching". |
+| `FORECAST_EMAILS` | `on`: BTG admins and campaign managers are emailed when a live campaign becomes at risk, and when it recovers. The dashboard alert shows either way. | `off` | not recorded / `on` (2026-11-03) | BTG wants the emails. |
 
 **Built (`POL-BE-36`, 2026-10-30):** the Payments switch above. `PAYMENT_PROVIDER`
 stays the master off: the admin switch can only turn payments on where the
@@ -55,8 +55,14 @@ start with a live key outside production, or a test key inside it.
 
 Each secret also has a `…_PREVIOUS` partner, used only while rotating it.
 
-Production status (2026-10-28): the live key and the three webhook secrets
-are installed, with `PAYMENT_PROVIDER=none`.
+Production status (2026-11-03): the live key and the three webhook secrets
+are installed, and `PAYMENT_PROVIDER=stripe` (the `api` restarted healthy, which
+the key guard only allows when they are). The restricted key was probed from
+inside `api` with calls that cannot create anything: Checkout Sessions,
+PaymentIntents, Refunds, Transfers, Accounts v2 and v2 Account Links are all
+allowed. It cannot read the account itself, v1 Account Links or the webhook
+list, none of which the code uses. Stripe's own account status (Dashboard,
+2026-11-03): payments and payouts active, no tasks due.
 
 ---
 

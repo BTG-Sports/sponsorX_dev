@@ -3,7 +3,7 @@
 **Task:** `P8-PMO-06` · Production go/no-go review
 **Done when:** §37's pre-pilot and pre-sponsor-pilot gates formally signed off
 **Prepared:** 2026-10-20 by rcfworks, from `main_development` at `08f10a6b` (staging and production run release `1b198d4b`)
-**Status:** **Draft, decision pending.** The software is ready. **Updated 2026-10-22:** every legal and policy item is approved and the wording is live in the app (`P8-BE-07`), so both pilot gates are met on paper. What remains is the owner's go-live switches and the production check. Nothing is signed.
+**Status:** **Draft, decision pending.** The software is ready. **Updated 2026-10-22:** every legal and policy item is approved and the wording is live in the app (`P8-BE-07`), so both pilot gates are met on paper. What remains is the owner's go-live switches and the production check. Nothing is signed. **Updated 2026-11-03:** the production check is done and Stripe is connected in production with checkout closed; see "Production" below.
 **For:** the programme owner (Rodney), the user signing with Rodney's delegated authority, and counsel for the items marked *counsel*
 
 ## The decision in one paragraph
@@ -73,35 +73,40 @@ completeness.
 
 ## Production: the owner's go-live switches
 
-**Where it stands, 2026-10-28.** Stripe is ready but switched **off** on purpose: payments go on once the polish list (`documentation/polish.md`) is done. Still to do:
+**Where it stands, 2026-11-03.** Stripe is connected in production
+(`PAYMENT_PROVIDER=stripe`) but checkout is still **closed**: BTG's Payments switch
+stays off until the frontend polish items are done and the $1 live test is run.
+The production check is done. Still to do:
+- the $1 live payment and refund;
 - MFA (Clerk Pro);
-- fan geography;
-- Stripe tax reporting;
+- Stripe tax forms (needs Rodney's login; guide prepared);
 - BTG's postal address;
-- the rest of the production check;
 - the signatures below.
 
-Done: the edge key, Resend email and Zoho (2026-10-24).
+Done: the edge key, Resend email, Zoho (2026-10-24), the production check and
+the Stripe connection (2026-11-03). Fan geography is optional (below).
 
 Production runs the same code as staging. It is deployed from `release` by
 the same workflow, but it is effectively dark. These are switched on by the
 owner at go-live. None of them needs code.
 
-| Payments | **Ready, switched off (2026-10-28).** Stripe reports BTG's live account (`acct_1UNCupGfl3hcz7a8`, BTG Sports Group) with card payments and payouts enabled. Rodney's photo-ID step still shows open in the setup guide, so Stripe may ask for it later. Railway production `api` has the restricted live key `SponsorX production (restricted)` and the three live webhook secrets (`SponsorX payments`, `SponsorX payout accounts` thin, `SponsorX connected accounts`, all at `https://sponsorx.net/api/v1/webhooks/payments/stripe`, API version `2026-09-30.endive`). `PAYMENT_PROVIDER=none`. Production restarted healthy. | After the polish list: set `PAYMENT_PROVIDER=stripe` (the BTG admin switch `POL-BE-36` / `POL-FE-36` replaces this later), then do one $1 payment and refund (Stripe doc §6.4). Have Rodney finish the photo-ID step. | Owner |s model ("collect payments and pay recipients") | Owner |
+| Item | Where it stands | What's left | Owner |
+|---|---|---|---|
+| Payments | **Connected, checkout closed (2026-11-03).** `PAYMENT_PROVIDER=stripe` on production `api`, which restarted healthy (the key guard refuses to start without the live key and webhook secrets). BTG's Payments switch (`POL-BE-36`) has never been set, so it is off and nobody can pay yet. Stripe's account status: payments and payouts active, no tasks due (the photo-ID step is no longer listed). The restricted key `SponsorX production (restricted)` was probed with calls that create nothing: Checkout Sessions, PaymentIntents, Refunds, Transfers, Accounts v2 and v2 Account Links are allowed. The three live webhook destinations (`SponsorX payments`, `SponsorX payout accounts` thin, `SponsorX connected accounts`, at `https://sponsorx.net/api/v1/webhooks/payments/stripe`, API version `2026-09-30.endive`) refuse an unsigned post (401). | When the frontend polish is done: turn the Payments switch on, do one $1 payment and refund on a hidden test listing (Stripe doc §6.4), and switch it off again until go-live. Confirm in the Stripe Dashboard that the three webhook destinations are enabled: the key cannot list them. | Owner |
 | Zoho | **Done 2026-10-24.** Production is connected to the real CRM (org `4857533000000020005`) with its own refresh token, owned by **rcfworks** (`SponsorX-Zoho-Credentials-and-Sandbox.md` §9). `ZOHO_EXPECTED_ORG_ID` pins the org. The CRM notification channel is live at `https://sponsorx.net/api/v1/webhooks/zoho/crm` (`zoho.watch renewed`). The two intelligence fields were created on Accounts | — | P2-OPS-04 |
 | MFA for admin and finance | Not available: needs Clerk Pro | Upgrade to Clerk Pro, then require MFA for privileged roles in production | P2-INT-02 |
 | Fan rate limiting | **Done 2026-10-23.** `SPONSORX_EDGE_KEY` is set on production web and api (rotated after Railway's incident) | — | P2-OPS-04 (P8-SEC-03) |
-| Fan geography | `GEOLITE2_CITY_PATH` unset | Set it on production | P2-OPS-04 |
-| Tax forms | Stripe Connect tax reporting off | 2S0-LEG-02 approved 2026-10-22: switch on tax reporting for connected accounts in the Stripe Dashboard. Stripe then collects W-9 and W-8 forms and files the 1099s. | Owner |
+| Fan geography | `GEOLITE2_CITY_PATH` unset. **Optional:** market geography no longer depends on it (`SponsorX-Event-Taxonomy-Audit.md` G3); it only adds a city to fan clicks | After launch: a free MaxMind account and a build step that ships the database file | P2-OPS-04 |
+| Tax forms | Stripe Connect tax reporting off. **2026-11-03:** the Tax forms page sends the team's Stripe login back to the Dashboard, most likely because it needs the account owner. A step-by-step guide for Rodney: [Turning on 1099 tax forms in Stripe](https://claude.ai/artifact/LyTKuTGGstJncrTQiqn8ns) | 2S0-LEG-02 approved 2026-10-22: Rodney switches on tax reporting for connected accounts. Stripe then collects W-9 and W-8 forms and files the 1099s. Needed before the first payout to an athlete or team, not before the first payment | Owner (Rodney) |
 | Email | **Done 2026-10-23.** Domain verified in Resend (`sponsorx.net`); `RESEND_API_KEY` is set on the production api (rotated after Railway's incident) | — | Owner |
 | Phase 3 rollout | Per-tenant feature switches | Stage 3 (outside sponsors and properties): 3S0-LEG-01 approved 2026-10-22, so this is the owner's call | Owner |
 | BTG's postal address | `BTG_POSTAL_ADDRESS` unset: fan emails and the fan privacy notice leave the address out | Set it on the production api and worker before the first fan email goes out (CAN-SPAM wants it in each one) | Owner |
 | Governing law | The approved agreements (v2) name no governing law, venue or dispute process | Optional: when BTG chooses them, issue v3 of the agreements with that section; everyone re-accepts | Owner |
-| Production check | **Partly done 2026-10-23:** health returns 200 with every check ok (database, Redis, storage, backups, queue); public pages and the webhook paths answer as expected | Someone with production access runs the rest of the Deployment Runbook's production checks | Owner or rcfworks |
+| Production check | **Done 2026-11-03 (rcfworks)**, on release `67de51ed` (`api` and `web`). Health 200 with every check ok, 0 queue failures in 24h. Worker drained and seeded (catalogue only; demo seed skipped in production). `facts:check`: summaries and app records match. Database logins: `api` runs as `sponsorx_app`, `db:read` as `sponsorx_readonly` (Runbook §6). Backups: point-in-time recovery on, restorable to minutes before the check. Clerk is the live instance on web and api, accepting only `https://sponsorx.net`. Both webhook paths refuse unsigned posts (401). Support mail: `sponsorx.net` has MX records; `support@sponsorx.net` forwards to `infinex1@icarrefound.org`. Not run: a restore against production data (there is none) | — | rcfworks |
 
 ## Risks to accept or close
 
-- **Production has never been checked by the person preparing this.** The production switches above, and a production health check, need someone with production access.
+- ~~**Production has never been checked by the person preparing this.**~~ **Closed 2026-11-03:** the production check above was run with production access.
 - **The "Tracker sync" workflow fails on and off** (the Google Sheet endpoint answers 404). It's not part of the product, but the published status Sheet can lag.
 - **SponsorX NEXT is built but unproven commercially** (P9-DATA-01: one edition sold, 20 local advertisers). It can launch with the rest, but whether it works is still a business question.
 
