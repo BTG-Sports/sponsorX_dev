@@ -75,7 +75,23 @@ export default async function SponsorTeamPage() {
 
   const live = await liveTeam();
   if (live.status === "forbidden") {
-    /* An admin role without a sponsor of its own (a BTG preview carrying SPONSOR_ADMIN) — the API knows better. */
+    /* An admin role the API still refuses. Two cases (QA pass 4, 2026-11-03):
+       a login that carries SPONSOR_ADMIN but points at no sponsor account the
+       API can find (its `sponsorId` is unset or dangling) is told that, not
+       that it is "a BTG preview"; a preview without a sponsor keeps that copy. */
+    if (actor.roles.includes("SPONSOR_ADMIN") && actor.sponsorId) {
+      return (
+        <div className="space-y-6">
+          {head()}
+          <EmptyState
+            mark="users"
+            title="This login isn't linked to a sponsor account"
+            hint="You're a Sponsor Admin, but SponsorX can't find the sponsor account this login belongs to, so there's no team to show. Ask BTG to link it."
+            action={{ label: "Back to the Stadium Board", href: "/sponsor" }}
+          />
+        </div>
+      );
+    }
     return (
       <div className="space-y-6">
         {head()}

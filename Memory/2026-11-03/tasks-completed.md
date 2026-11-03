@@ -91,3 +91,15 @@ WebKit, keyboard and naming, double submits, the request once it became a campai
 - **Not applicable:** a light-theme check — dark is the only screen theme, `data-theme="light"` exists for printing alone (`lib/print-light.ts`).
 - **Observation, not changed:** `PUT /payments/switch` records a change even when the state didn't change (off → off), so the history keeps every intent. Fine as an audit; worth knowing when reading it.
 
+### QA pass 4 of the six polish screens (HeckerCreatives), same branch
+
+Console and hydration errors, four concurrent sessions, cross-sponsor isolation, odd data, and whether the screens' actions leave the right trail behind them.
+
+- **No console or hydration errors** on the seven pages in Chromium, each in a fresh context. **Four roles at once** (admin, Finance, two sponsors) over two rounds of their desks: no errors, no error boundary, no load over ten seconds.
+- **Isolation.** Signed in as Harbor Coffee's admin: seed_spn_1's request and campaign pages say "not one of yours" and leak nothing; the API answers 403 on the brief and 404 on another sponsor's team members (role change, removal); the analyst's role is unchanged afterwards.
+- **A custom request** (no package) renders with "Custom request" and no stray `undefined`.
+- **The trail.** From the UI: BTG qualified a request, the sponsor withdrew it with a note, an admin invited a teammate, an applicant corrected their address. The database then shows `brief.qualify`, `brief.close` (with the note), `sponsorTeam.invite` and `sponsorRequest.emailChanged` audit rows, and the outbox holds `brief.withdrawn` to each of the tenant's three campaign managers with the note and a link to the closed tab, `sponsor.teamInvite` to the invited address and `sponsor.confirmEmail` to the corrected one. Earlier passes had also queued `order.paymentOpen` when the switch was turned on.
+- **Public links.** An expired status token lands on "This link has expired" with no Resend / Change buttons; a malformed one on "This link isn't valid".
+- **One copy fix.** A login carrying SPONSOR_ADMIN whose sponsor account the API can't find (the walk identity `qa7-empty` points at a sponsor row that doesn't exist) was told it was "a BTG preview". `/sponsor/team` now says the login isn't linked to a sponsor account and to ask BTG; a preview without a sponsor keeps the old copy.
+- **Seed note:** `e2e_u_qa7_empty`'s `sponsorId` (`qa7_spn_empty`) has no `Sponsor` row — use `seed_spn_harbor` for a second-sponsor walk.
+
