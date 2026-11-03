@@ -47,7 +47,7 @@ Part of `P8-PMO-06` (go/no-go) and `P2-OPS-04` (production settings). Neither ro
   - Production had no stored files, so nothing was moved. Staging is unchanged, except that `https://sponsorx.net` was removed from its upload rule (the staging site still gets 204, `sponsorx.net` 403).
   - **Wrangler:** the `.env` `CLOUDFLARE_API_TOKEN` is the DNS-only key ("SponsorX DNS"), so `wrangler login` refuses inside the repo. Run wrangler from outside the repo with `CLOUDFLARE_API_TOKEN` unset; infinex1@icarrefound.org's OAuth login reaches Rcarr's account. The `sponsorx.net` zone ID is `978643d2c0ad717bf832cc2c92e4fef4`.
   - Docs: a "File storage" row in `SponsorX-Go-No-Go-Review.md`; `SponsorX-Secrets-Rotation.md` §4 now names the four buckets on the shared key.
-- **Still open for go-live:** the $1 live payment and refund; the webhook destinations confirmed in the Dashboard; MFA (Clerk Pro); tax forms (Rodney). Then the signatures.
+- **Still open for go-live:** the $1 live payment and refund; MFA (Clerk Pro); tax forms (Rodney). Then the signatures. (The webhook destinations were confirmed later the same day, below.)
 
 ### The last six Polish frontend rows, plus two Code review rows closed (HeckerCreatives), on `feature/POL-FE-batch-3`
 
@@ -118,3 +118,16 @@ Console and hydration errors, four concurrent sessions, cross-sponsor isolation,
 - **The e2e job failed on one spec**, `admin-sidebar-groups.spec.ts`: it finds the sidebar's Dashboard link with `getByRole("link", { name: "Dashboard" })`, and pass 3's `aria-label="SponsorX — dashboard"` on the logo link made that a strict-mode violation (two matches; Playwright's name match is a substring). The logo link is now named plain "SponsorX". Local run of the spec, then a fix PR into `main_development`.
 - **Lesson:** an accessible name added to a link must not contain another link's visible name on the same page; the team's loop specs are the regression net for that (memory: [[push-to-protected-branches]] already said CI's e2e catches what the local run can't).
 
+### Afternoon: webhooks confirmed, polish release deployed, tax-forms guide sent, P2-OPS-04 closed (rcfworks)
+
+- **Stripe webhooks confirmed (Dashboard, read by the user).** Workbench → Webhooks, live: three destinations, all **Active**, 0% error rate, all at `https://sponsorx.net/api/v1/webhooks/payments/stripe`.
+  - Connected accounts, snapshot: 3 events, as `SponsorX-Stripe-Integration.md` §3 lists.
+  - "SponsorX payout accounts", thin: 5 events, as listed.
+  - Your account, snapshot: **14 events, the doc lists 13.** An extra event is acknowledged and ignored, so it's harmless; the event list itself wasn't seen. Worth one look next time someone is in that Dashboard page.
+  - Production `api` holds all three signing secrets (`STRIPE_WEBHOOK_SECRET`, `STRIPE_THIN_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET`, each `whsec_…`, checked by prefix only).
+  - Stripe has never sent production a real event: its 3 `WebhookDelivery` rows are our own unsigned probes ("no signature"). The $1 test proves the payments destination's secret; the first payout account proves the other two.
+- **The Stripe CLI can't be used on BTG's account:** "CLI disabled" on every environment, and the team's login can't enable it. Same likely cause as the Tax forms redirect (needs the owner). Webhook and account checks go through the Dashboard.
+- **Branding and statement descriptor:** the user keeps Stripe's defaults.
+- **Polish release in production.** Opened #371 (`main_development` → `main`, the six polish screens #369 and #370); all checks passed, the user merged it. Ran the daily deploy: `release` → `80980364`, production `api` and `web` deployed, health ok, `sponsorx.net` 200. The Payments switch still has no row in production, so payments stay closed until the $1 test, which can now use the admin button (`POL-FE-36`).
+- **Tax-forms guide:** three of the user's Stripe screenshots added (Connect menu, the Compliance page's "Issue 1099 tax forms" card, and Settings → Tax as the page not to use). An email to Rodney was drafted for the user to send. The guide must be shared with him from its Share button.
+- **Tracker:** `P2-OPS-04` Done (its last gaps were the postal address, set today, and GeoLite, now optional); a note on `P8-PMO-06`, which stays In progress. Today's Stage Progress row refreshed to match: 317 done, 15.5 days left.
