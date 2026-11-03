@@ -19,7 +19,11 @@ import { REASON_MAX, confirmWords, historyLine, reasonProblem, switchWords, type
    "Turn on" stays visible but disabled while Railway names no provider.
    -------------------------------------------------------------------------- */
 
-export function PaymentSwitch({ state, chip }: { state: ApiPaymentSwitch; chip: (label: string, tone: "accent" | "warn") => ReactNode }) {
+/** `chip` is the desk's own chip for `switchWords(state).chip`, rendered by the
+ *  server page — a render function can't cross into a client island (QA walk
+ *  2026-11-03: it crashed the page), a node can. router.refresh() after a
+ *  change re-renders it with the new state. */
+export function PaymentSwitch({ state, chip }: { state: ApiPaymentSwitch; chip: ReactNode }) {
   const router = useRouter();
   const w = switchWords(state);
   const [confirming, setConfirming] = useState(false);
@@ -64,7 +68,7 @@ export function PaymentSwitch({ state, chip }: { state: ApiPaymentSwitch; chip: 
         <div className="min-w-0 max-w-xl space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-sm font-semibold tracking-tight">{w.headline}</h2>
-            {chip(w.chip.label, w.chip.tone)}
+            {chip}
           </div>
           <p className="text-xs leading-relaxed text-muted">{w.text}</p>
           <dl className="mt-2 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2">

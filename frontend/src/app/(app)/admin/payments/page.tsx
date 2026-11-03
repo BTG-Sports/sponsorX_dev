@@ -3,7 +3,7 @@ import Link from "next/link";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { PaymentSwitch } from "@/components/payment-switch";
 import { Badge, Card, StatTile } from "@/components/ui";
-import { providerLabel, switchStamp, type ApiPaymentSwitch } from "@/lib/payment-switch-live";
+import { providerLabel, switchStamp, switchWords, type ApiPaymentSwitch } from "@/lib/payment-switch-live";
 import { apiFetch } from "@/server/api";
 
 /* --------------------------------------------------------------------------
@@ -47,7 +47,7 @@ export default async function PaymentsPage() {
       </div>
 
       <Card>
-        <PaymentSwitch state={s} chip={(label, tone) => <Badge tone={tone}>{label}</Badge>} />
+        <PaymentSwitch state={s} chip={<Badge tone={switchWords(s).chip.tone}>{switchWords(s).chip.label}</Badge>} />
       </Card>
 
       <p className="text-[11px] text-muted">

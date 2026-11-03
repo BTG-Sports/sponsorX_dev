@@ -1,7 +1,7 @@
 import { PaymentSwitch } from "@/components/payment-switch";
 import { StadiumHint } from "@/components/stadium-hint";
 import { VaultChip, VaultHead, VaultPanel, VaultUpdated } from "@/components/vault-stage";
-import { type ApiPaymentSwitch } from "@/lib/payment-switch-live";
+import { switchWords, type ApiPaymentSwitch } from "@/lib/payment-switch-live";
 import { apiFetch } from "@/server/api";
 import { Refused } from "../refused";
 
@@ -44,7 +44,7 @@ export default async function PaymentsPage() {
       />
 
       <VaultPanel tone={s.open ? undefined : "late"} delay={0.12}>
-        <PaymentSwitch state={s} chip={(label, tone) => <VaultChip tone={tone === "accent" ? "good" : "late"}>{label}</VaultChip>} />
+        <PaymentSwitch state={s} chip={<VaultChip tone={switchWords(s).chip.tone === "accent" ? "good" : "late"}>{switchWords(s).chip.label}</VaultChip>} />
       </VaultPanel>
     </div>
   );
