@@ -21,8 +21,10 @@ export const FINANCE_NAV: NavItem[] = [
   { href: "/finance/disputes", label: "Disputes", icon: "flag", group: "Money" },
   /* 2S5-FE-07 — the payment provider's events SponsorX could not apply. */
   { href: "/finance/payment-events", label: "Payment events", icon: "card", group: "Money" },
+  /* POL-FE-36 — BTG's payments switch: on or off at once, no deploy. */
+  { href: "/finance/payments", label: "Payments", icon: "card", group: "Money" },
   { href: "/finance/payouts", label: "Payouts", icon: "wallet", group: "Money" },
-  /* 2S4-FE-06 — money owed back to sponsors, sent by hand until a payment provider is connected. */
+  /* 2S4-FE-06 — money owed back to sponsors, sent by hand until payments open. */
   { href: "/finance/refunds", label: "Refunds to send", icon: "wallet", group: "Money" },
 
   /* SponsorX NEXT — revenue splits: Finance reads and locks them (P9-BE-19). */

@@ -42,7 +42,9 @@ export type ApiCampaign = {
   stageHistory?: StageChange[];
   /* P4-BE-12 — automatic staffing. BTG's staff get `autoStaffing` and every
      count with the stop; a sponsor only `signed` against the package's
-     range. Null with no package to staff from. */
+     range. Null with no package to staff from. POL-BE-22 — while a campaign
+     before launch waits on BTG, short of its minimum, a sponsor's read adds
+     `btgFinding: { since }` and BTG's `stalled: { since }`; never why. */
   autoStaffing?: boolean;
   staffing?: CampaignStaffing | SponsorStaffing | null;
 };

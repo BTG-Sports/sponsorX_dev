@@ -9,9 +9,15 @@
      POST /public/sponsor-requests/:token/documents                → a private-bucket PUT URL
      POST /public/sponsor-requests/:token/documents/:id/confirm    → ApiSponsorRequestStatus
      POST /public/sponsor-requests/confirm-email {token}           → ApiEmailConfirmation
+     POST /public/sponsor-requests/:token/resend-confirmation      → { sent: true, email }   (POL-BE-18)
+     POST /public/sponsor-requests/:token/email {email}            → { sent: true, email }   (POL-BE-18)
 
    The applicant is only ever told *that* BTG is looking (`underReview`),
    never why — BTG's review reasons stay on BTG's desk.
+
+   POL-FE-18 — while the request is NEW and the address unconfirmed, the
+   status page offers "Resend email" and "Change email" (sponsor-email-fix.tsx);
+   `canFixEmail`, `looksLikeEmail` and `emailFixRefusal` are its pure half.
    -------------------------------------------------------------------------- */
 
 export type SponsorRequestState = "NEW" | "APPROVED" | "DECLINED" | "REJECTED";
@@ -42,6 +48,41 @@ export type ApiEmailConfirmation = {
 };
 
 export type ApiSponsorDocument = { id: string; filename: string; contentType: string; bytes: number };
+
+/** POST …/:token/resend-confirmation (202) and POST …/:token/email (200): the address the link went to. */
+export type ApiEmailSent = { sent: true; email: string };
+
+/* ── fixing the email (POL-FE-18) ─────────────────────────────────────── */
+
+/** The API's own rule for both routes (409 otherwise): still open, and nobody has proved the address yet. */
+export function canFixEmail(s: { state: SponsorRequestState; emailConfirmed: boolean }): boolean {
+  return s.state === "NEW" && !s.emailConfirmed;
+}
+
+/** The API's `z.email().max(100)`, cheaply: something@something.tld, no spaces. Checked before the call, and again by the action. */
+export function looksLikeEmail(value: string): boolean {
+  const v = value.trim();
+  return v.length > 0 && v.length <= 100 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
+
+/** The Next server, or the API behind it, didn't answer. The same words wherever the status page talks to the API. */
+export const SPONSORX_UNREACHABLE = "We couldn't reach SponsorX. Nothing was lost — check your connection and try again.";
+
+/**
+ * What a refused resend or change says. `said` is the API's own message when it sent one
+ * (refusalMessage); the 409 keeps it, because it names what changed — "Your email is already
+ * confirmed." / "This request has already been decided." — and the island reloads the page after.
+ */
+export function emailFixRefusal(status: number, said?: string | null): string {
+  if (status === 0) return SPONSORX_UNREACHABLE;
+  if (status === 400) return "That doesn't look like an email address.";
+  if (status === 409) return said ? `${said} This page will update.` : "Something changed on this request — the address may have just been confirmed. This page will update.";
+  if (status === 422) return "That is already the address on your request.";
+  if (status === 429) return "Too many tries. Try again in an hour.";
+  if (status === 404 || status === 410) return "This link no longer works. Reload the page.";
+  if (status >= 500) return "Something went wrong on our side. Try again in a minute.";
+  return said ?? "That didn't go through. Try again.";
+}
 
 /* ── the proof of business ────────────────────────────────────────────── */
 

@@ -14,6 +14,7 @@ import { apiListQuery, apiListQueryFor, pageOrAll, textParam, type ListKeys, typ
 import type { ApiCampaignArtworkSlot } from "@/lib/edition-artwork-live";
 import type { ApiDeliverable } from "@/lib/deliverables-live";
 import type { ApiSponsorRequest } from "@/lib/brief-status";
+import type { ApiSponsorRequestDetail } from "@/lib/brief-actions";
 import type { RangeKey, SponsorOverview } from "@/lib/sponsor-overview-live";
 import { fetchSponsorOverview } from "@/server/sponsor-overview";
 import type { ApiOrder } from "@/lib/shop-live";
@@ -104,6 +105,19 @@ export async function liveSponsorRequestPage(
   if (!res.ok) throw new Error(`Requests unavailable (${res.status}).`);
   const data = (await res.json()) as { briefs: ApiSponsorRequest[]; page: PageInfo; counts: BriefCounts };
   return { rows: data.briefs, page: data.page, counts: data.counts };
+}
+
+/** POL-FE-17 — one request (GET /briefs/:id) for the sponsor's own detail
+ *  page. "missing" is the API's 403 — not theirs and nonexistent answer
+ *  alike (no existence oracle). Null for the demo. */
+export type LiveRequestDetail = { status: "found"; request: ApiSponsorRequestDetail; readAt: string } | { status: "missing" };
+
+export async function liveSponsorRequest(id: string): Promise<LiveRequestDetail | null> {
+  if (!(await isSponsor())) return null;
+  const res = await apiFetch(`/briefs/${encodeURIComponent(id)}`);
+  if (res.status === 403 || res.status === 404) return { status: "missing" };
+  if (!res.ok) throw new Error(`Request unavailable (${res.status}).`);
+  return { status: "found", request: (await res.json()) as ApiSponsorRequestDetail, readAt: new Date().toISOString() };
 }
 
 const EMPTY_SUMMARY: CampaignSummary = { total: 0, byState: {}, active: 0, athletes: 0, behind: 0, pacing: [] };

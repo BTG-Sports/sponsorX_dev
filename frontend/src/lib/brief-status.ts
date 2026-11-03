@@ -38,6 +38,9 @@ export type ApiSponsorRequest = {
   package: { name: string } | null;
   campaign: { id: string; name: string; state: string } | null;
   status?: BriefStatus;
+  /** POL-BE-17 — what this caller may do to it (on every row and on the
+   *  detail). Absent for a read-only sponsor and for an older API: no buttons. */
+  youCan?: { edit: boolean; withdraw: boolean };
 };
 
 /** The requests still waiting to become a campaign — the campaign list shows the rest. */

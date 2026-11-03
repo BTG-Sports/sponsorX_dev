@@ -47,6 +47,8 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   /* 2S5-FE-07 / 2S5-FE-08 — the provider's events and sponsors' disputes: paymentEvent and paymentDispute read are BTG admin and Finance (own tenant) and SUPER_ADMIN; only BTG admin resolves. */
   "/admin/payments/events": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
   "/admin/payments/disputes": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
+  /* POL-FE-36 — the payments switch (POL-BE-36): paymentSwitch read and write are BTG admin and Finance of a top-level organisation, and SUPER_ADMIN. The two desks above keep their own, longer entries. */
+  "/admin/payments": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
   /* P8-FE-05 — deal disputes (P8-BE-03): BTG admin opens, views documents and decides; campaign managers read. Finance reads its own twin at /finance/deal-disputes. */
   "/admin/deal-disputes": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"], who: "BTG admins, who decide, and campaign managers, who read" },
   /* P8-FE-12 — held cancel / change requests (P8-BE-12): BTG admins and campaign managers approve or decline. */

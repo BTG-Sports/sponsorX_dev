@@ -14,8 +14,8 @@ import { shopWrite } from "../../shop/shop-api";
 
    SPONSOR_ADMIN of that order only — the API refuses anyone else (403). A 409
    says why in the API's words: not approved yet, not waiting for payment, a
-   payment already being confirmed ("please don't pay again"), or the
-   provider not connected. Those are shown as given.
+   payment already being confirmed ("please don't pay again"), or payments
+   closed (POL-BE-36's switch off, or no provider). Those are shown as given.
 
    2S5-FE-11 — a 503 with code `busy` is the provider being down, nothing
    recorded: "The payment service is busy. Try again in a minute." The pay

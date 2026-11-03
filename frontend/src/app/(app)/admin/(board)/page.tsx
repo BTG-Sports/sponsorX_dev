@@ -9,11 +9,12 @@ import {
   SystemsPanel,
 } from "@/components/ops-stage";
 import {
-  actionTotal,
   BOARD_REVIEWS,
   campaignLines,
+  deskPath,
   healthRows,
   queueCards,
+  queuesWaiting,
   reviewLines,
   type ApiDeliveryHealth,
   type ApiIntegrationHealth,
@@ -74,12 +75,15 @@ export default async function OperationsBoardPage() {
   /* A queue the role can READ but whose desk isn't theirs (C-1 — e.g. FINANCE
      reads deliverables, but Approvals is BTG's and campaign managers') isn't
      a card: "each card opens the page it counts", and that page would say
-     "not in your role". */
-  const mine = board ? queueCards(board.queues).filter((c) => mayUse(c.href, actor.roles)) : [];
+     "not in your role". A card's href may carry the tab it opens
+     (`?tab=waiting`, `#sensitive-edits`); the access map matches the path. */
+  const mine = board ? queueCards(board.queues).filter((c) => mayUse(deskPath(c.href), actor.roles)) : [];
   /* No card of its own and the role gets no queue section, ring or count —
      not an "all clear" it isn't in a position to give. */
   const cards = mine.length > 0 ? mine : null;
-  const total = cards ? actionTotal(cards) : null;
+  /* POL-FE-15 — the headline counts queues with work, never items: a held
+     sponsor sign-up is also a sponsor request, so the cards don't add up. */
+  const waiting = cards ? queuesWaiting(cards) : null;
   const campaigns = delivery ? campaignLines(delivery.campaigns) : null;
   const campaignTotal = delivery?.page.total ?? 0;
   const rows = health ? healthRows(health) : null;
@@ -90,11 +94,11 @@ export default async function OperationsBoardPage() {
   return (
     <>
       <div>
-        <OpsHeader cards={cards} total={total} campaignTotal={campaigns ? campaignTotal : null} rows={rows} readAt={readAt} />
+        <OpsHeader cards={cards} waiting={waiting} campaignTotal={campaigns ? campaignTotal : null} rows={rows} readAt={readAt} />
 
         {cards && (
           <section className="mt-10">
-            <StageHeading title="Needs BTG action" hint="Each card opens the page it counts." delay={0.5} />
+            <StageHeading title="Needs BTG action" hint="Oldest wait first. Each card opens the page it counts; an item can sit on two desks." delay={0.5} />
             <QueueDeck cards={cards} />
           </section>
         )}
