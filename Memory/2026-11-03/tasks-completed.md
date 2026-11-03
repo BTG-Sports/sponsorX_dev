@@ -29,4 +29,13 @@ Part of `P8-PMO-06` (go/no-go) and `P2-OPS-04` (production settings). Neither ro
   - `SponsorX-Switches.md`: production values, and the key and account status;
   - `SponsorX-Go-No-Go-Review.md`: status 2026-11-03, the Payments, Tax forms, Fan geography (now optional) and Production check rows, and the risk about the unchecked production closed. Its production table had lost its header row and carried a stray fragment; both fixed.
 - **BTG's postal address set.** The user confirmed the Stripe address, so `BTG_POSTAL_ADDRESS=2601 Pennsylvania Ave, Baltimore, MD 21217` is now on production `api`. The code adds "BTG Sports Group" in front, in both the fan email footer (`fanFooter`) and the privacy notice, so the setting holds the street address only. Staging is unchanged.
+- **CI went red for everyone today, from the calendar rather than code. Fixed on this branch.**
+  - **Two tests had a close date that passed.** `student-auto.test.ts` and `cross-channel-campaign.test.ts` created a SELLING edition with `closeDate` 2026-11-01. The `adslot_edition_closed` trigger rightly refuses a slot sale after it. Both editions' close and publish dates now run from today (+30 and +40 days); nothing else in either test depends on them.
+  - **A new moderate advisory, minimatch GHSA-g3hv-75wg-m249.** It's allowlisted in `scripts/audit-allowlist.json` with `devOnly: false` and `reviewBy` 2027-01-05, and recorded in `SponsorX-Security-Review-2026-10.md`.
+    - Not exploitable: it needs an attacker-supplied glob pattern.
+    - In production it ships only via `exceljs > archiver > readdir-glob`, and exceljs never calls `archiver.glob()` or `directory()`.
+    - An override isn't clean: the fix is minimatch 11.0.1, which drops the default export that ESLint and its plugins call.
+  - **Checked locally,** on a portable Postgres 17 in the scratchpad:
+    - backend build, lint, `audit:check`, `test:security-scripts`, `secrets:scan`;
+    - the full backend suite: 254 files and 3745 tests passed, none skipped, no unhandled errors.
 - **Still open for go-live:** the $1 live payment and refund; the webhook destinations confirmed in the Dashboard; MFA (Clerk Pro); tax forms (Rodney). Then the signatures.
