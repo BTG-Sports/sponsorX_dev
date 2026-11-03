@@ -38,4 +38,13 @@ Part of `P8-PMO-06` (go/no-go) and `P2-OPS-04` (production settings). Neither ro
   - **Checked locally,** on a portable Postgres 17 in the scratchpad:
     - backend build, lint, `audit:check`, `test:security-scripts`, `secrets:scan`;
     - the full backend suite: 254 files and 3745 tests passed, none skipped, no unhandled errors.
+- **Production has its own file storage (user's go-ahead).** Until today production used staging's R2 buckets.
+  - **New buckets** in Rcarr@icarrefound.org's Cloudflare account, US East, matching staging's settings: `sponsorx-production-private` (no public access) and `sponsorx-production-public`. Both clear unfinished uploads after 7 days.
+  - **Upload rule** on the private bucket: PUT/GET from `https://sponsorx.net` only. A preflight from `sponsorx.net` returns 204; one from the staging site returns 403.
+  - **Public address `https://files.sponsorx.net`** (R2 custom domain, TLS 1.2 minimum), not `r2.dev`. A test file served 200 over HTTPS, then was deleted.
+  - **The key:** the 2026-10-23 token, shared with staging, edited by the user to add the two new buckets. Four buckets, never "all buckets". The user chose this over a production-only key. Checked from inside production `api`: list, write, read and delete in both new buckets.
+  - **Production variables:** `api` has `S3_BUCKET_PRIVATE`, `S3_BUCKET_PUBLIC` and `R2_PUBLIC_BASE_URL=https://files.sponsorx.net`; `web` has `R2_PUBLIC_BASE_URL` (the CSP is built from it at build time). Deployments `a69e9240` (api) and `9bd4c1cc` (web) succeeded. Health 200 with storage ok, and the CSP `img-src` lists `files.sponsorx.net`.
+  - Production had no stored files, so nothing was moved. Staging is unchanged, except that `https://sponsorx.net` was removed from its upload rule (the staging site still gets 204, `sponsorx.net` 403).
+  - **Wrangler:** the `.env` `CLOUDFLARE_API_TOKEN` is the DNS-only key ("SponsorX DNS"), so `wrangler login` refuses inside the repo. Run wrangler from outside the repo with `CLOUDFLARE_API_TOKEN` unset; infinex1@icarrefound.org's OAuth login reaches Rcarr's account. The `sponsorx.net` zone ID is `978643d2c0ad717bf832cc2c92e4fef4`.
+  - Docs: a "File storage" row in `SponsorX-Go-No-Go-Review.md`; `SponsorX-Secrets-Rotation.md` §4 now names the four buckets on the shared key.
 - **Still open for go-live:** the $1 live payment and refund; the webhook destinations confirmed in the Dashboard; MFA (Clerk Pro); tax forms (Rodney). Then the signatures.
