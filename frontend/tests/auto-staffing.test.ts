@@ -45,8 +45,8 @@ describe("automatic staffing on BTG's screens", () => {
 
 describe("the sponsor's count and the launch day", () => {
   it("says how many signed against the package's range", () => {
-    expect(sponsorStaffing({ signed: 4, needed: { min: 5, max: 9 } })).toEqual({ line: "We're staffing your campaign: 4 of 5–9 athletes signed", pct: 44 });
-    expect(sponsorStaffing({ signed: 3, needed: { min: 3, max: 3 } })).toEqual({ line: "We're staffing your campaign: 3 of 3 athletes signed", pct: 100 });
+    expect(sponsorStaffing({ signed: 4, needed: { min: 5, max: 9 } })).toEqual({ line: "We're staffing your campaign: 4 of 5–9 athletes signed", count: "4 of 5–9 athletes signed", pct: 44 });
+    expect(sponsorStaffing({ signed: 3, needed: { min: 3, max: 3 } })).toEqual({ line: "We're staffing your campaign: 3 of 3 athletes signed", count: "3 of 3 athletes signed", pct: 100 });
     expect(sponsorStaffing(null)).toBeNull();
     expect(sponsorStaffing({ signed: 0, needed: { min: 0, max: 0 } })).toBeNull();
     expect(rangeWords({ min: 5, max: 9 })).toBe("5–9");

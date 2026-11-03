@@ -16,8 +16,8 @@ import type { AccountPanelView, PayoutWriteFailure } from "@/lib/payouts-live";
 
    The action posts POST /payouts/account/link and redirects to the provider;
    it returns only on a refusal, whose message is shown. The CTA is mandatory:
-   when the provider isn't connected it stays visible, disabled, with the
-   line saying why.
+   while payments are closed (POL-FE-36) it stays visible, disabled, reading
+   "Payments open soon", with the line saying what opens with them.
    -------------------------------------------------------------------------- */
 
 type LinkAction = () => Promise<PayoutWriteFailure>;

@@ -19,9 +19,11 @@
    - OpsGround     brand glows, a light that follows the pointer, the floor
                    grid drifting against the pointer, a horizon line, rising
                    motes, a slow scan sweep, the outlined word OPS.
-   - OpsHeader     the dashboard header: title row + four tiles (what needs
-                   BTG, live campaigns, systems, the ring by queue).
-   - QueueDeck     one chamfered glass card per queue the role reads.
+   - OpsHeader     the dashboard header: title row + four tiles (queues
+                   waiting on BTG, live campaigns, systems, the ring by queue).
+   - QueueDeck     one chamfered glass card per queue the role reads — up to
+                   22 since POL-FE-15, oldest wait first. The cards are never
+                   summed: an item can sit on two desks.
    - CampaignPanel / SystemsPanel   the lower row.
    -------------------------------------------------------------------------- */
 
@@ -109,19 +111,26 @@ export function OpsGround({ word = "OPS" }: { word?: string }) {
 
 /* ------------------------------------------------------------------- hero */
 
+/** How many queues the header's legend names before pointing at the deck. */
+const LEGEND_MAX = 6;
+
 /** A dashboard header, not a hero (owner, 2026-10-05): the title row, then
- *  four tiles — what needs BTG, the live campaigns, the systems, and the
- *  action ring by queue. Every figure is one of the board's three reads. */
+ *  four tiles — the queues waiting on BTG, the live campaigns, the systems,
+ *  and the action ring by queue. Every figure is one of the board's three
+ *  reads. `waiting` is how many queues have work (queuesWaiting), never a
+ *  sum of the cards: an item can sit on two desks, so the board states no
+ *  total (POL-FE-15). */
 export function OpsHeader({
-  cards, total, campaignTotal, rows, readAt,
+  cards, waiting, campaignTotal, rows, readAt,
 }: {
   cards: QueueCard[] | null;
-  total: number | null;
+  waiting: number | null;
   campaignTotal: number | null;
   rows: HealthRow[] | null;
   readAt: string;
 }) {
   const ok = rows ? rows.filter((r) => r.status === "Operational").length : 0;
+  const live = cards ? cards.filter((c) => c.count > 0) : [];
   return (
     <header>
       <div className="sx-ops-in flex flex-wrap items-center gap-3" style={at(0.05)}>
@@ -132,12 +141,12 @@ export function OpsHeader({
         <p className="basis-full text-xs text-[#8a96a3] sm:ml-auto sm:basis-auto">What needs BTG&rsquo;s action today. Every figure is a live read.</p>
       </div>
       <dl className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {cards && total !== null && (
+        {cards && waiting !== null && (
           <KpiTile
-            label="Needs BTG action"
-            value={total}
-            caption={total ? `across ${cards.length} ${cards.length === 1 ? "queue" : "queues"} · each card opens its desk` : "nothing waiting for BTG"}
-            tone={total ? "orange" : "green"}
+            label="Queues waiting on BTG"
+            value={waiting}
+            caption={waiting ? `of ${cards.length} ${cards.length === 1 ? "queue" : "queues"} · each card opens its desk` : "nothing waiting for BTG"}
+            tone={waiting ? "orange" : "green"}
             delay={0.1}
           />
         )}
@@ -156,22 +165,29 @@ export function OpsHeader({
             </dd>
           </div>
         )}
-        {cards && total !== null && (
+        {cards && waiting !== null && (
           // Below sm the tile is half a 320px phone — the 96px ring left the
           // list 0px wide and its counts spilled off-screen — so it stacks.
           <div className="sx-ops-panel sx-ops-in relative flex items-center gap-4 px-4 py-3 max-sm:flex-col max-sm:items-start max-sm:gap-3" style={at(0.28)}>
             <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-[#9be0ff] shadow-[0_0_10px_#9be0ff]" />
-            <ActionRing cards={cards} total={total} compact />
+            <ActionRing cards={cards} waiting={waiting} compact />
             <div className="min-w-0 flex-1 max-sm:w-full">
               <dt className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#8a96a3]">By queue</dt>
+              {/* The queues with work, oldest wait first as the cards are;
+                  past LEGEND_MAX the tile points at the deck rather than
+                  growing to 22 lines (POL-FE-15). */}
               <dd className="mt-1.5 space-y-0.5">
-                {cards.map((c) => (
+                {live.length === 0 && <span className="block text-[11px] text-[#7e88a0]">nothing waiting</span>}
+                {live.slice(0, LEGEND_MAX).map((c) => (
                   <span key={c.key} className="flex items-center gap-2 text-[11px] text-[#9aa4b2]">
                     <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full" style={{ background: QUEUE_TONE[c.key] }} />
                     <span className="truncate">{c.label}</span>
                     <span className="ml-auto font-mono font-semibold text-[#cfe9ff]">{c.count}</span>
                   </span>
                 ))}
+                {live.length > LEGEND_MAX && (
+                  <span className="block text-[11px] text-[#7e88a0]">+ {live.length - LEGEND_MAX} more in the cards below</span>
+                )}
               </dd>
             </div>
           </div>
@@ -187,13 +203,16 @@ const R = 96;
 const C = 2 * Math.PI * R;
 const GAP = 4;
 
-/** `compact`: the header tile's small ring. */
-export function ActionRing({ cards, total, compact = false }: { cards: QueueCard[]; total: number; compact?: boolean }) {
+/** `compact`: the header tile's small ring. `waiting`: how many queues have
+ *  work — the figure in the middle; the arcs are one equal segment per such
+ *  queue, so the ring states no sum (POL-FE-15). */
+export function ActionRing({ cards, waiting, compact = false }: { cards: QueueCard[]; waiting: number; compact?: boolean }) {
   const segs = ringSegments(cards, C, GAP);
+  const live = cards.filter((c) => c.count > 0);
   const label =
-    total === 0
+    waiting === 0
       ? "All clear: nothing waiting for BTG."
-      : `${total} actions waiting: ${cards.map((c) => `${c.count} ${c.label.toLowerCase()}`).join(", ")}.`;
+      : `${waiting} ${waiting === 1 ? "queue waits" : "queues wait"} on BTG: ${live.map((c) => `${c.count} ${c.label.toLowerCase()}`).join(", ")}.`;
 
   return (
     <div
@@ -226,18 +245,18 @@ export function ActionRing({ cards, total, compact = false }: { cards: QueueCard
         ))}
       </svg>
       <div aria-hidden="true" className="absolute inset-0 grid place-content-center text-center">
-        {total === 0 ? (
+        {waiting === 0 ? (
           <>
             <span className={`font-bold leading-none text-[#86efac] ${compact ? "text-2xl" : "text-[44px]"}`}>✓</span>
             {!compact && <span className="mt-2 text-[10px] uppercase tracking-[0.3em] text-[#9aa4b2]">All clear</span>}
           </>
         ) : (
           <>
-            <OpsCount value={total} delay={0.5} className={`font-bold leading-none tracking-tight ${compact ? "text-2xl" : "text-[clamp(44px,4.4vw,64px)]"}`} />
+            <OpsCount value={waiting} delay={0.5} className={`font-bold leading-none tracking-tight ${compact ? "text-2xl" : "text-[clamp(44px,4.4vw,64px)]"}`} />
             {/* wraps to two lines inside the phone-size ring */}
             {!compact && (
               <span className="mx-auto mt-2 max-w-[6.5rem] text-[10px] uppercase leading-snug tracking-[0.3em] text-[#9aa4b2] sm:max-w-none">
-                Actions waiting
+                Queues waiting
               </span>
             )}
           </>
@@ -280,12 +299,17 @@ export function StageChip({ tone, children }: { tone: keyof typeof CHIP; childre
   return <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${CHIP[tone]}`}>{children}</span>;
 }
 
+/** The last card whose entrance is staggered; the rest rise with it, so a
+ *  22-card deck (POL-FE-15) isn't still arriving two seconds in. */
+const DECK_STAGGER_MAX = 11;
+
 export function QueueDeck({ cards }: { cards: QueueCard[] }) {
   return (
-    // POL-FE-12 made a fifth card; five across at xl rather than four and an orphan.
-    <ul className={`grid gap-3.5 sm:grid-cols-2 ${cards.length >= 5 ? "lg:grid-cols-3 xl:grid-cols-5" : "xl:grid-cols-4"}`}>
+    // POL-FE-15 — anything from one card to twenty-two: the same grid at
+    // every count, no special case for an orphan.
+    <ul className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {cards.map((c, i) => {
-        const delay = 0.55 + i * 0.08;
+        const delay = 0.55 + Math.min(i, DECK_STAGGER_MAX) * 0.08;
         return (
           <li key={c.key} className="sx-ops-in" style={at(delay)}>
             <Link

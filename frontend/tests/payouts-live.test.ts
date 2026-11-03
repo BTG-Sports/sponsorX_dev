@@ -86,11 +86,19 @@ describe("accountPanel", () => {
     expect(v.cta.ariaLabel).toBe(`Manage payouts on Stripe. ${STRIPE_ARIA_SUFFIX}`);
     expect(v.actionNeeded).toBe(false);
   });
-  it("provider not connected — CTA still shown, disabled, with the reason", () => {
+  /* POL-FE-36 — payments closed (no provider, or BTG's switch off): the
+     button stays, disabled, and says "Payments open soon" — never a Stripe
+     promise it can't keep. */
+  it("payments closed — CTA still shown, disabled, saying payments open soon", () => {
     const v = accountPanel(acct({ canSetUp: false, provider: "none" }), "Westfield Hawks");
-    expect(v.cta.label).toBe("Set up payouts with Stripe ↗");
+    expect(v.cta.label).toBe("Payments open soon");
+    expect(v.cta.ariaLabel).toBe("Payments open soon — set up payouts with Stripe then.");
     expect(v.cta.disabled).toBe(true);
     expect(v.cta.disabledNote).toBe(PROVIDER_NOT_CONNECTED);
+    expect(PROVIDER_NOT_CONNECTED).toMatch(/^Payments open soon/);
+    expect(PROVIDER_NOT_CONNECTED).not.toMatch(/connected/);
+    /* The switch alone being off reads the same: the API says canSetUp false with the provider still named. */
+    expect(accountPanel(acct({ canSetUp: false, provider: "stripe" }), "X").cta.label).toBe("Payments open soon");
   });
   it("stand-in provider — the staging badge", () => {
     expect(accountPanel(acct({ testProvider: true }), "X").testBadge).toBe(TEST_PROVIDER_BADGE);

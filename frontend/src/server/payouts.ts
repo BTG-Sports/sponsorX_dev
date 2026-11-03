@@ -33,8 +33,8 @@ export async function payoutWrite<T>(path: string, body: unknown = {}): Promise<
 }
 
 /** POST /payouts/account/link, then off to the provider's page. Returns only
- *  on a refusal (e.g. the 409 "Payout set-up opens once SponsorX's payment
- *  provider is connected…"); on success it redirects and never returns. */
+ *  on a refusal (e.g. the 409 while payments are closed — POL-BE-36's switch
+ *  off, or no provider); on success it redirects and never returns. */
 export async function openPayoutAccountLink(returnPath: unknown, fallback: string): Promise<PayoutWriteFailure> {
   const r = await payoutWrite<{ url?: unknown }>("/payouts/account/link", { returnPath: safeReturnPath(returnPath, fallback) });
   if (!r.ok) return r;

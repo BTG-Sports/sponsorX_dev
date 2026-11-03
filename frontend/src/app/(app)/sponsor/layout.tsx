@@ -2,7 +2,7 @@ import { currentUser } from "@clerk/nextjs/server";
 
 import { requirePortalAccess } from "@/server/portal";
 import { PortalShell } from "@/components/portal-shell";
-import { SPONSOR_NAV } from "@/lib/sponsor-nav";
+import { sponsorNavFor } from "@/lib/sponsor-nav";
 import { welcomeWord } from "@/lib/sponsor-words";
 
 import "./stadium.css";
@@ -39,7 +39,8 @@ export default async function SponsorLayout({ children }: LayoutProps<"/sponsor"
   return (
     <PortalShell
       portal="sponsor"
-      nav={SPONSOR_NAV}
+      /* POL-FE-19 — Team only for a Sponsor Admin; the array itself is unchanged. */
+      nav={sponsorNavFor(actor.roles)}
       rootHref="/sponsor"
       dock={DOCK}
       userName={clerkName || user?.primaryEmailAddress?.emailAddress || "Sponsor"}

@@ -205,7 +205,8 @@ export function PortalShell({
           {accent.label.split(" ")[0].toUpperCase()}
         </span>
 
-        <Link href={rootHref} className="sx-animate relative block px-5 pb-4 pt-5">
+        {/* The logo is decorative SVG, so the link names itself (QA pass 3, 2026-11-03: it was the one nameless link on every desk). */}
+        <Link href={rootHref} aria-label="SponsorX — dashboard" className="sx-animate relative block px-5 pb-4 pt-5">
           <Logo className="h-7" />
         </Link>
 

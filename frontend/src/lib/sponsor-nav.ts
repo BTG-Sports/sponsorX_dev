@@ -22,8 +22,20 @@ export const SPONSOR_NAV: NavItem[] = [
   { href: "/sponsor/shop", label: "Shop", icon: "store", group: "Marketplace" },
 
   /* The sponsor's own account. Billing is the invoices screen (POL-FE-13);
-     the rest are not wired yet — inert text, not dead links. */
+     Team is the admin's people (POL-FE-19). The inert "Messages" and
+     "Settings" entries went with POL-FE-19 — nothing is behind them, and
+     polish.md §19 says hide what isn't built. */
   { href: "/sponsor/invoices", label: "Billing", icon: "card", group: "Account", groupIcon: "gear" },
-  { href: "#", label: "Messages", icon: "mail", group: "Account", pending: true },
-  { href: "#", label: "Settings", icon: "gear", group: "Account", pending: true },
+  { href: "/sponsor/team", label: "Team", icon: "users", group: "Account" },
 ];
+
+/**
+ * POL-FE-19 — the sidebar for this sign-in: Team only for a SPONSOR_ADMIN.
+ * An analyst (read only) or a BTG preview never sees the link; the page
+ * itself refuses them too (the API's 403 → "not in your role"). The full
+ * array stays exported for tests/nav-groups.test.ts.
+ */
+export function sponsorNavFor(roles: readonly string[]): NavItem[] {
+  if (roles.includes("SPONSOR_ADMIN")) return SPONSOR_NAV;
+  return SPONSOR_NAV.filter((i) => i.href !== "/sponsor/team");
+}

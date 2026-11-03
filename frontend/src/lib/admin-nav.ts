@@ -53,8 +53,10 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/admin/finance", label: "Finance", icon: "wallet", group: "Money" },
   /* 2S5-FE-07 — the payment provider's events SponsorX could not apply (BTG admin and Finance). */
   { href: "/admin/payments/events", label: "Payment events", icon: "card", group: "Money" },
+  /* POL-FE-36 — BTG's payments switch: on or off at once, no deploy (BTG admin and Finance). */
+  { href: "/admin/payments", label: "Payments", icon: "card", group: "Money" },
   { href: "/admin/payouts", label: "Payouts", icon: "wallet", group: "Money" },
-  /* 2S4-FE-06 — money owed back to sponsors, sent by hand until a payment provider is connected (BTG admin and Finance). */
+  /* 2S4-FE-06 — money owed back to sponsors, sent by hand until payments open (BTG admin and Finance). */
   { href: "/admin/refunds", label: "Refunds to send", icon: "wallet", group: "Money" },
 
   /* The people on the platform. */

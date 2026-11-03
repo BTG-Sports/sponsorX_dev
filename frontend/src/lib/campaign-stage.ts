@@ -57,6 +57,10 @@ export function stageChangeLine(change: StageChange, timeZone = "UTC"): string {
 
 export type StaffingStop = { reason: string; at: string };
 export type StaffingSkip = { athleteId: string; displayName: string | null; reason: string; at: string };
+/** POL-BE-22 — set while a campaign, before launch (DRAFT or STAFFING) and
+ *  short of its minimum, waits on BTG. The API never says why; `since` is
+ *  when the wait began. */
+export type StaffingWait = { since: string };
 /** BTG's staffing read. */
 export type CampaignStaffing = {
   sent: number;
@@ -68,9 +72,17 @@ export type CampaignStaffing = {
   needed: { min: number; max: number };
   stop: StaffingStop | null;
   skips?: StaffingSkip[];
+  /** POL-BE-22 — BTG's own word for the wait. */
+  stalled?: StaffingWait | null;
+  btgFinding?: StaffingWait | null;
 };
 /** The sponsor's staffing read. */
-export type SponsorStaffing = { signed: number; needed: { min: number; max: number } };
+export type SponsorStaffing = {
+  signed: number;
+  needed: { min: number; max: number };
+  /** POL-BE-22 — the sponsor's word for the wait: BTG is finding more athletes. */
+  btgFinding?: StaffingWait | null;
+};
 
 /** The stop on a campaign's staffing, or null — the board's "Staffing stopped" badge. */
 export function staffingStop(s: CampaignStaffing | SponsorStaffing | null | undefined): StaffingStop | null {
@@ -95,13 +107,49 @@ export function staffingTiles(s: CampaignStaffing): Array<{ label: string; value
   return tiles;
 }
 
-/** "We're staffing your campaign: 4 of 5–9 athletes signed", and how full the package is (0–100, against its maximum). */
-export function sponsorStaffing(s: SponsorStaffing | CampaignStaffing | null | undefined): { line: string; pct: number } | null {
+/** "We're staffing your campaign: 4 of 5–9 athletes signed", the bare count
+ *  ("4 of 5–9 athletes signed") and how full the package is (0–100, against its maximum). */
+export function sponsorStaffing(s: SponsorStaffing | CampaignStaffing | null | undefined): { line: string; count: string; pct: number } | null {
   if (!s || s.needed.max <= 0) return null;
+  const count = `${s.signed} of ${rangeWords(s.needed)} athletes signed`;
   return {
-    line: `We're staffing your campaign: ${s.signed} of ${rangeWords(s.needed)} athletes signed`,
+    line: `We're staffing your campaign: ${count}`,
+    count,
     pct: Math.min(100, Math.round((100 * s.signed) / s.needed.max)),
   };
+}
+
+/* --------------------------------------------------------------------------
+   POL-FE-22 — a sponsor is told when staffing stalls (POL-BE-22). The
+   sponsor's `staffing.btgFinding` carries only when the wait began; these
+   lines say BTG is on it without inventing a reason.
+   -------------------------------------------------------------------------- */
+
+/** The day BTG stepped in, "Oct 28" — or null when the API sent no wait, or a date it can't place. */
+export function btgFindingDay(s: SponsorStaffing | CampaignStaffing | null | undefined, timeZone = "UTC"): string | null {
+  const since = s?.btgFinding?.since;
+  if (!since) return null;
+  const d = new Date(since);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone });
+}
+
+/** "BTG is finding more athletes · since Oct 28", or null when BTG isn't. */
+export function btgFindingLine(s: SponsorStaffing | CampaignStaffing | null | undefined, timeZone = "UTC"): string | null {
+  const day = btgFindingDay(s, timeZone);
+  return day ? `BTG is finding more athletes · since ${day}` : null;
+}
+
+/** Whether a headline (the API's own next step, say) already tells the
+ *  sponsor BTG is finding athletes — so the screen doesn't print it twice. */
+export function saysBtgFinding(text: string | null | undefined): boolean {
+  return /^\s*BTG is finding\b/i.test(text ?? "");
+}
+
+/** Whether the staffing count belongs on screen: while the campaign is being
+ *  staffed, or earlier, as a draft, once BTG is finding athletes for it. */
+export function showsStaffing(state: string, s: SponsorStaffing | CampaignStaffing | null | undefined): boolean {
+  return state === "STAFFING" || (state === "DRAFT" && !!s?.btgFinding);
 }
 
 /** "Launches on Oct 10" — from 00:00 UTC on the start date; "Launches in the next few minutes" once that has come. */

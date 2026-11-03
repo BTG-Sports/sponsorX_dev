@@ -1,10 +1,11 @@
 import Link from "next/link";
 
 import { LinkExpired } from "@/components/link-expired";
+import { SponsorEmailFix } from "@/components/sponsor-email-fix";
 import { SponsorProofUpload } from "@/components/sponsor-proof-upload";
 import { SponsorRequestStanding } from "@/components/sponsor-request-standing";
 import { linkExpiredFrom } from "@/lib/link-expired";
-import { standingOf, type ApiSponsorRequestStatus } from "@/lib/sponsor-request-live";
+import { canFixEmail, standingOf, type ApiSponsorRequestStatus } from "@/lib/sponsor-request-live";
 import { publicApi } from "../../onboarding/public-api";
 
 /* --------------------------------------------------------------------------
@@ -18,6 +19,10 @@ import { publicApi } from "../../onboarding/public-api";
    Writes POST /public/sponsor-requests/:token/documents[/:id/confirm]
           — the proof upload, through sponsor-proof-upload.tsx, which PUTs
           the file straight to the private bucket; this page re-renders after.
+          POST /public/sponsor-requests/:token/resend-confirmation and
+          POST /public/sponsor-requests/:token/email — POL-FE-18, "Resend
+          email" / "Change email" through sponsor-email-fix.tsx while the
+          address is unconfirmed (POL-BE-18); a change re-renders this page.
 
    Shows what is still missing; "We're opening your account" or "BTG is
    taking a look" once everything is in; "Your account is open" with Sign in
@@ -102,7 +107,9 @@ export default async function SponsorRequestStatusPage({ params }: { params: Pro
               </h2>
               <p className="mt-1 text-sm text-muted">
                 We sent a link to the address you gave on the form. Open it to show the address is yours, then reload this page.
+                Didn&rsquo;t get it, or typed it wrong? Fix that here.
               </p>
+              {canFixEmail(status) && <SponsorEmailFix token={token} email={status.email} />}
             </section>
           )}
           {needsProof && (

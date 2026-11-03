@@ -312,7 +312,7 @@ export const PAY_NOT_ALLOWED = "Your role can't pay for orders — a Sponsor Adm
  * A 503 with code `busy` is the provider being down — nothing was recorded,
  * so the sponsor is told to try again (the button stays enabled). A 403 is
  * the role rule in words; anything else is the API's own message (a 409 says
- * exactly why — including "provider not connected", which is NOT busy).
+ * exactly why — including payments being closed, which is NOT busy).
  */
 export function payRefusal(r: { status: number; code?: string | null; message: string }): string {
   if (r.status === 503 && r.code === "busy") return PAYMENT_BUSY;
