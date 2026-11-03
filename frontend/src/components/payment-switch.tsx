@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { setPaymentSwitchAction } from "@/app/(app)/admin/payments/actions";
@@ -33,6 +33,19 @@ export function PaymentSwitch({ state, chip }: { state: ApiPaymentSwitch; chip: 
   const [done, setDone] = useState<string | null>(null);
   const id = useId();
   const c = confirmWords(w.next.open);
+  /* QA pass 3 (2026-11-03): the confirm step is role="dialog", so it takes
+     focus when it opens (the reason field) and hands it back to the button
+     that opened it when it closes; Escape cancels, as the house dialogs do. */
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
+  const wasConfirming = useRef(false);
+  /* QA pass 3 (2026-11-03): a double click fired the write twice — React batches the busy state, so each click's closure still saw it idle. A ref flips synchronously. */
+  const inFlight = useRef(false);
+  useEffect(() => {
+    if (confirming) reasonRef.current?.focus();
+    else if (wasConfirming.current) triggerRef.current?.focus();
+    wasConfirming.current = confirming;
+  }, [confirming]);
   const problem = reasonProblem(reason);
 
   const cancel = () => {
@@ -46,6 +59,8 @@ export function PaymentSwitch({ state, chip }: { state: ApiPaymentSwitch; chip: 
       setError(problem);
       return;
     }
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -58,6 +73,7 @@ export function PaymentSwitch({ state, chip }: { state: ApiPaymentSwitch; chip: 
       cancel();
       router.refresh();
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
@@ -93,6 +109,7 @@ export function PaymentSwitch({ state, chip }: { state: ApiPaymentSwitch; chip: 
               type="button"
               disabled={w.next.disabled || busy}
               aria-describedby={w.next.disabledNote ? `${id}-why` : undefined}
+              ref={triggerRef}
               onClick={() => {
                 setDone(null);
                 setConfirming(true);
@@ -119,7 +136,18 @@ export function PaymentSwitch({ state, chip }: { state: ApiPaymentSwitch; chip: 
       )}
 
       {confirming && (
-        <section role="dialog" aria-labelledby={`${id}-title`} aria-describedby={`${id}-text`} className="space-y-3 rounded-xl border border-primary/40 bg-primary/5 p-4">
+        <section
+          role="dialog"
+          aria-labelledby={`${id}-title`}
+          aria-describedby={`${id}-text`}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && !busy) {
+              e.stopPropagation();
+              cancel();
+            }
+          }}
+          className="space-y-3 rounded-xl border border-primary/40 bg-primary/5 p-4"
+        >
           <h3 id={`${id}-title`} className="text-sm font-semibold">
             {c.title}
           </h3>
@@ -130,6 +158,7 @@ export function PaymentSwitch({ state, chip }: { state: ApiPaymentSwitch; chip: 
             Why <span className="text-warn">(required — kept with the change)</span>
           </label>
           <textarea
+            ref={reasonRef}
             id={`${id}-reason`}
             value={reason}
             onChange={(e) => setReason(e.target.value)}

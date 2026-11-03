@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type ReactNode } from "react";
+import { useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { CampaignDialog, dialogBtn, fieldCls } from "@/components/campaign-impact";
@@ -55,6 +55,19 @@ export function RequestControls({ request, actions }: { request: ApiSponsorReque
   const [withdrawing, setWithdrawing] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [pending, start] = useTransition();
+  /* QA pass 3 (2026-11-03): a double click fired the write twice — React batches the busy state, so each click's closure still saw it idle. A ref flips synchronously. */
+  const inFlight = useRef(false);
+  const once = (job: () => Promise<void>) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    start(async () => {
+      try {
+        await job();
+      } finally {
+        inFlight.current = false;
+      }
+    });
+  };
   const why = noActionsLine(request);
 
   /* A refused write: the words, and on a 409 the fresh truth. */
@@ -91,7 +104,7 @@ export function RequestControls({ request, actions }: { request: ApiSponsorReque
           pending={pending}
           onCancel={() => setEditing(false)}
           onSave={(patch) =>
-            start(async () => {
+            once(async () => {
               const r = await actions.edit(request.id, patch);
               if (!r.ok) return refused(r);
               setEditing(false);
@@ -108,7 +121,7 @@ export function RequestControls({ request, actions }: { request: ApiSponsorReque
           pending={pending}
           onClose={() => setWithdrawing(false)}
           onConfirm={(note) =>
-            start(async () => {
+            once(async () => {
               const r = await actions.withdraw(request.id, { note });
               setWithdrawing(false);
               if (!r.ok) return refused(r);

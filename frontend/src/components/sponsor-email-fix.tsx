@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 
 import { changeRequestEmailAction, resendConfirmationAction } from "@/app/(public)/sponsor-request/actions";
 import { Button } from "@/components/ui";
@@ -40,6 +40,8 @@ export function SponsorEmailFix({ token, email }: { token: string; email: string
   const [error, setError] = useState<string | null>(null);
   /** After a 429 the API refuses for an hour; the buttons say so instead of inviting a fourth try. */
   const [locked, setLocked] = useState(false);
+  /* QA pass 3 (2026-11-03): a double click fired the write twice — React batches the busy state, so each click's closure still saw it idle. A ref flips synchronously. */
+  const inFlight = useRef(false);
 
   const off = busy !== null || locked;
 
@@ -51,6 +53,8 @@ export function SponsorEmailFix({ token, email }: { token: string; email: string
   };
 
   const resend = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setError(null);
     setSent(null);
     setBusy("resend");
@@ -59,6 +63,7 @@ export function SponsorEmailFix({ token, email }: { token: string; email: string
       if (!r.ok) return refused(r.status, r.message);
       setSent(r.email);
     } finally {
+      inFlight.current = false;
       setBusy(null);
     }
   };
@@ -69,6 +74,8 @@ export function SponsorEmailFix({ token, email }: { token: string; email: string
     const next = draft.trim();
     if (!looksLikeEmail(next)) return setError(emailFixRefusal(400));
     if (next.toLowerCase() === current.toLowerCase()) return setError(emailFixRefusal(422));
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy("change");
     try {
       const r = await changeRequestEmailAction(token, next).catch(() => ({ ok: false as const, status: 0, message: SPONSORX_UNREACHABLE }));
@@ -80,6 +87,7 @@ export function SponsorEmailFix({ token, email }: { token: string; email: string
       /* The standing card and the heading read the address from the server page: let it re-read. */
       router.refresh();
     } finally {
+      inFlight.current = false;
       setBusy(null);
     }
   };

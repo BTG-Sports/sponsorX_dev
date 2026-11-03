@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { inviteTeammateAction, removeTeammateAction, resendInviteAction, setTeammateRoleAction, type TeamWrite } from "@/app/(app)/sponsor/team/actions";
@@ -50,8 +50,12 @@ export function SponsorTeam({ members }: { members: ApiTeamMember[] }) {
   const [rowNote, setRowNote] = useState<{ id: string; text: string; tone: "ok" | "bad" } | null>(null);
   const [confirm, setConfirm] = useState<ApiTeamMember | null>(null);
   const [, start] = useTransition();
+  /* QA pass 3 (2026-11-03): a double click fired the write twice — React batches the busy state, so each click's closure still saw it idle. A ref flips synchronously. */
+  const inFlight = useRef(false);
 
   const run = (m: ApiTeamMember, what: NonNullable<Busy>["what"], write: () => Promise<TeamWrite>) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy({ id: m.id, what });
     setRowNote(null);
     start(async () => {
@@ -62,6 +66,7 @@ export function SponsorTeam({ members }: { members: ApiTeamMember[] }) {
         else setRowNote({ id: m.id, text: doneLine(what, what === "remove" ? m : (r.member ?? m)), tone: "ok" });
         router.refresh();
       } finally {
+        inFlight.current = false;
         setBusy(null);
       }
     });
@@ -193,18 +198,25 @@ function InviteForm({ onSent }: { onSent: () => void }) {
   const [role, setRole] = useState<TeamRole>("SPONSOR_ANALYST");
   const [note, setNote] = useState<{ text: string; tone: "ok" | "bad" } | null>(null);
   const [pending, start] = useTransition();
+  const inFlight = useRef(false);
   const problem = emailProblem(email);
   const off = email.trim().length > 0 && problem !== null;
 
   const submit = () => {
     setNote(null);
     if (problem) return setNote({ text: problem, tone: "bad" });
+    if (inFlight.current) return;
+    inFlight.current = true;
     start(async () => {
-      const r = await inviteTeammateAction({ email, role });
-      if (!r.ok) return setNote({ text: r.message, tone: "bad" });
-      setNote({ text: doneLine("invite", r.member ?? { email: email.trim().toLowerCase(), role, status: "INVITED" }), tone: "ok" });
-      setEmail("");
-      onSent();
+      try {
+        const r = await inviteTeammateAction({ email, role });
+        if (!r.ok) return setNote({ text: r.message, tone: "bad" });
+        setNote({ text: doneLine("invite", r.member ?? { email: email.trim().toLowerCase(), role, status: "INVITED" }), tone: "ok" });
+        setEmail("");
+        onSent();
+      } finally {
+        inFlight.current = false;
+      }
     });
   };
 
