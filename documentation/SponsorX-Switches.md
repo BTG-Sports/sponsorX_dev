@@ -20,7 +20,7 @@ These are the ones to watch. Each one is waiting on something outside the code.
 | Switch | What it does | Default (empty) | Now: staging / production | Turn it on when |
 |---|---|---|---|---|
 | `PAYMENT_PROVIDER` | **The master payments switch.** `none`: nobody is charged or paid, the pay buttons say payment opens later, and approved orders wait with no deadline (POL-BE-04). `standin`: a test provider that moves no money; refused in production. `stripe`: real card payments, payouts and refunds. | `none` in production, `standin` elsewhere | `stripe` / `stripe` (production set 2026-11-03; checkout stays closed while the Payments switch below is off) | The polish list is done and BTG decides to take payments. Stripe's keys and webhook secrets must be set first (section 2). |
-| **Payments switch** (BTG admin, `POL-BE-36`) | **BTG's own on/off, on the admin screen** (`GET`/`PUT /payments/switch`). It works at once, with no deploy. Payment is open only while `PAYMENT_PROVIDER` names a provider AND this is on. Off means no checkout, no payout sent or set up, and no order cancelled for non-payment (orders wait, then get three fresh days); webhooks still settle what is already moving. Changing it needs a reason, is audited, and records who changed it and when. Only BTG Admin and Finance can change it. It can't be turned on while `PAYMENT_PROVIDER` is `none`. Turning it on sends the payouts that waited. | off in production, on elsewhere (nothing set yet) | on / off (production: nothing set, checked 2026-11-03) | BTG is ready to take payments: first set `PAYMENT_PROVIDER=stripe` (section 2); nothing opens until BTG turns this on. |
+| **Payments switch** (BTG admin, `POL-BE-36` / `POL-FE-36`) | **BTG's own on/off, in the app** at `/admin/payments` (BTG Admin) and `/finance/payments` (Finance) (`GET`/`PUT /payments/switch`). It works at once, with no deploy. Payment is open only while `PAYMENT_PROVIDER` names a provider AND this is on. Off means no checkout, no payout sent or set up, and no order cancelled for non-payment (orders wait, then get three fresh days); webhooks still settle what is already moving. Changing it needs a reason, is audited, and records who changed it and when. Only BTG Admin and Finance can change it. It can't be turned on while `PAYMENT_PROVIDER` is `none`. Turning it on sends the payouts that waited. | off in production, on elsewhere (nothing set yet) | on / off (production: nothing set, checked 2026-11-03) | BTG is ready to take payments: first set `PAYMENT_PROVIDER=stripe` (section 2); nothing opens until BTG turns this on. |
 | `REWARD_STAFF_CODE_REQUIRED` | `on`: a fan's reward is redeemed only with the reward's six-digit staff code (the booth's PIN). `off`: redeem works as before, though a code that is sent is still checked. Undo always needs the code. (POL-BE-07) | `off` | `off` / `off` | HeckerCreatives' fan page asks for the code (POL-FE-07). Turn on in staging first, test a redeem and an undo, then production. |
 | `REWARD_FAN_CODES` | `on`: a fan claiming through an athlete's shared QR gets a code of their own, so every fan who scans it can claim and redeem, up to the reward's limit. The shared QR can't be redeemed itself. `off`: one claim per code, so only the first fan can claim a shared QR. (POL-BE-08) | `off` | `off` / `off` | HeckerCreatives' fan page sends the fan on to their own code after claiming (POL-FE-08). Staging first: two phones on one QR should each get their own reward. |
 | `BTG_POSTAL_ADDRESS` | BTG's postal address in every fan email footer (CAN-SPAM) and the fan privacy notice. Empty: the line is left out. | empty | not recorded / `2601 Pennsylvania Ave, Baltimore, MD 21217` (set 2026-11-03; the address on BTG's Stripe account, confirmed by the user) | BTG supplies the address (go-live item, `P8-PMO-06`). |
@@ -33,7 +33,13 @@ stays the master off: the admin switch can only turn payments on where the
 provider is set up. To open payments in production:
 1. set `PAYMENT_PROVIDER=stripe` in Railway (the keys in section 2 must be there,
    or the service won't start);
-2. turn the Payments switch on in BTG admin, with a reason.
+2. turn the Payments switch on at `/admin/payments` (or `/finance/payments`), with a reason.
+
+**Built (`POL-FE-36`, 2026-11-03):** the screens for it — the Payments desk in the admin
+portal and its Finance twin, each change with a reason and a confirmation, showing who
+changed it, when and why, plus the history; "Turn on" is disabled with "Payment provider
+not set up in Railway yet" while `PAYMENT_PROVIDER` is `none`. While payment is closed,
+every pay and payout button says "Payments open soon".
 
 Closing them again is step 2 alone.
 

@@ -20,7 +20,8 @@ describe("P1-ART-25 · the Finance portal's nav", () => {
     const { top, groups } = groupNav(FINANCE_NAV);
     expect(top.map((i) => [i.label, i.href])).toEqual([["Treasury", "/finance"]]);
     expect(groups.map((g) => [g.label, g.items.map((i) => i.label)])).toEqual([
-      ["Money", ["Deal disputes", "Disputes", "Payment events", "Payouts", "Refunds to send"]],
+      /* POL-FE-36 — "Payments" (the switch) sits between Payment events and Payouts. */
+      ["Money", ["Deal disputes", "Disputes", "Payment events", "Payments", "Payouts", "Refunds to send"]],
       ["NEXT", ["Splits"]],
     ]);
     expect(groups.every((g) => g.icon)).toBe(true);
@@ -52,6 +53,8 @@ describe("P1-ART-25 · the Finance portal's nav", () => {
       "disputes/page.tsx", "disputes/[id]/page.tsx", "disputes/actions.ts", "splits/page.tsx", "splits/live-splits.tsx", "splits/actions.ts",
       /* P8-FE-05 — the read-only deal-dispute twin and the held-earning "why" note stay inside /finance too. */
       "deal-disputes/page.tsx", "deal-disputes/[id]/page.tsx",
+      /* POL-FE-36 — the payments switch's Vault twin. */
+      "payments/page.tsx",
     ];
     for (const f of files) {
       const code = readFileSync(new URL(`../src/app/(app)/finance/${f}`, import.meta.url), "utf8")

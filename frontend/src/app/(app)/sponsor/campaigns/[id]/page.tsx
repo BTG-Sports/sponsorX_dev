@@ -24,7 +24,7 @@ import { PagedTable, Primary, StageTable, Td, Tr, type Column } from "@/componen
 import { SponsorContentReview } from "@/components/sponsor-content-review";
 import { campaignApprovalLine } from "@/lib/brief-status";
 import { campaignButtons } from "@/lib/campaign-change-live";
-import { launchLine, sponsorNextStep, sponsorStaffing } from "@/lib/campaign-stage";
+import { btgFindingDay, btgFindingLine, launchLine, saysBtgFinding, showsStaffing, sponsorNextStep, sponsorStaffing } from "@/lib/campaign-stage";
 import { FLAG_HINTS, ORDER_COPY } from "@/lib/campaign-ui";
 import { demoState } from "@/lib/demo";
 import { formatCount } from "@/lib/format-count";
@@ -287,9 +287,15 @@ function LiveDetail({
   /* P4-FE-09 — while it is being staffed, the request it came from is approved. */
   const approved = campaignApprovalLine(c.state);
   /* P4-FE-09 — while athletes are signing: how full the package is (P4-BE-12);
-     once confirmed, the launch day (P4-BE-13) when the API sent no step. */
-  const staffing = c.state === "STAFFING" ? sponsorStaffing(c.staffing) : null;
+     once confirmed, the launch day (P4-BE-13) when the API sent no step.
+     POL-FE-22 — a draft short of its minimum that BTG is finding athletes for
+     (POL-BE-22) shows the count too, with when BTG stepped in. */
+  const staffing = showsStaffing(c.state, c.staffing) ? sponsorStaffing(c.staffing) : null;
   const nextLine = next ?? staffing?.line ?? (c.state === "APPROVAL" ? launchLine(c.startDate, now) : null);
+  /* The API's own step may already open "BTG is finding more athletes since
+     Oct 28…" — then the chip carries only the date, never the sentence twice. */
+  const findingDay = staffing ? btgFindingDay(c.staffing) : null;
+  const finding = findingDay && (saysBtgFinding(nextLine) ? `Since ${findingDay}` : btgFindingLine(c.staffing));
 
   /* Only when a spend figure is visible — a budget alone would read "$0 of
      $X", a zero the role simply can't see past. */
@@ -368,6 +374,12 @@ function LiveDetail({
           {staffing && (
             <div className="mt-2.5" aria-label={staffing.line}>
               <StadiumBar value={staffing.pct / 100} />
+            </div>
+          )}
+          {staffing && finding && (
+            <div className="mt-2.5 flex min-w-0 flex-wrap items-center gap-2">
+              <StadiumChip tone="info">{finding}</StadiumChip>
+              <span className="min-w-0 text-xs tabular-nums text-muted [overflow-wrap:anywhere]">{staffing.count}</span>
             </div>
           )}
         </StadiumPanel>

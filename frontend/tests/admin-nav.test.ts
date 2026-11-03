@@ -13,7 +13,8 @@ import { groupNav } from "@/lib/nav-groups";
 describe("the admin nav per viewer", () => {
   it("keeps Finance's desk under its own name, inside Money", () => {
     const money = groupNav(ADMIN_NAV).groups.find((g) => g.label === "Money")!;
-    expect(money.items.map((i) => i.label)).toEqual(["Commission", "Disputes", "Finance", "Payment events", "Payouts", "Refunds to send"]);
+    /* POL-FE-36 — "Payments" (the switch) sits between Payment events and Payouts, A to Z. */
+    expect(money.items.map((i) => i.label)).toEqual(["Commission", "Disputes", "Finance", "Payment events", "Payments", "Payouts", "Refunds to send"]);
     expect(ADMIN_NAV.some((n) => n.label === "Treasury")).toBe(false);
   });
 

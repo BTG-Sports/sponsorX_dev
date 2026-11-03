@@ -16,8 +16,8 @@ import { Refused } from "../refused";
 
 /* --------------------------------------------------------------------------
    Refunds to send — 2S4-FE-06 (Claude Design OrderCancellations.dc.html,
-   CX-11 to send · CX-12 Mark refunded · CX-13 sent · CX-14 empty). Until a
-   payment provider is connected, money goes back by hand: every refund of a
+   CX-11 to send · CX-12 Mark refunded · CX-13 sent · CX-14 empty). Until
+   payments open (POL-FE-36), money goes back by hand: every refund of a
    paid order — a cancellation, a settled problem, BTG's decision — leaves
    one row here (2S4-BE-13). A card refunded by the stand-in arrives already
    sent, "Refunded automatically (test provider)".
@@ -71,7 +71,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="space-y-5">
-      <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>} actions={<StadiumHint skin="vault" label="About this desk" text="Money owed back to sponsors, sent by hand for now. Card payments are refunded automatically once the payment provider is connected." />}>
+      <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>} actions={<StadiumHint skin="vault" label="About this desk" text="Money owed back to sponsors, sent by hand for now. Card payments are refunded automatically once payments open." />}>
         <VaultTiles cols={2}>
           <VaultTile label="To send" value={list.counts.open} format="int" caption={list.counts.open > 0 ? openSummary(list) : undefined} tone={list.counts.open ? "you" : undefined} badge={list.counts.open > 0 ? list.counts.open : undefined} delay={0.08} />
           <VaultTile label="Sent" value={list.counts.sent} format="int" delay={0.12} />

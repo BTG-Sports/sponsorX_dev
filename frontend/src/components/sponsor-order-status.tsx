@@ -23,7 +23,7 @@ export function SponsorOrderStatus({ card, orderId, amount, canWrite, canPay, un
   /** "$1,000.00" — what the button pays. */
   amount: string;
   canWrite: boolean;
-  /** The provider is connected (GET …/payment canPay). */
+  /** Payments are open (GET …/payment canPay) — false while BTG's switch is off or no provider is set (POL-FE-36): the button then reads "Payments open soon". */
   canPay: boolean;
   /** The payment read failed — say so rather than blame the provider. */
   unavailable?: boolean;

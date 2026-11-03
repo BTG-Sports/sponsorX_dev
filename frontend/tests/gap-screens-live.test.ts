@@ -11,12 +11,12 @@ import {
   type ApiBrief,
 } from "../src/lib/briefs-live";
 import {
-  actionTotal,
   boardHeadline,
   campaignLines,
   healthRows,
   QUEUE_TONE,
   queueCards,
+  queuesWaiting,
   ringSegments,
   type ApiIntegrationHealth,
 } from "../src/lib/ops-board-live";
@@ -107,7 +107,7 @@ describe("P7-FE-06 · the Operations Board", () => {
     expect(finance[0]?.chips.map((c) => c.text)).toEqual(["1 held", "1 disputed"]);
   });
 
-  it("an admin's four cards link to the pages they count, and total them", () => {
+  it("an admin's four cards link to the pages they count, and the headline counts the queues with work", () => {
     const cards = queueCards({
       applications: { waiting: 7, over48h: 2 }, approvals: { waiting: 4 },
       briefs: { toQualify: 2, toMatch: 2 }, finance: { held: 0, disputed: 0 },
@@ -118,7 +118,8 @@ describe("P7-FE-06 · the Operations Board", () => {
     ]);
     expect(cards[0]?.chips).toEqual([{ text: "2 over 48 hours", tone: "warn" }]);
     expect(cards[3]?.chips).toEqual([]);
-    expect(actionTotal(cards)).toBe(15);
+    /* POL-FE-15 — never a sum of the cards (an item can sit on two desks): three queues have work. */
+    expect(queuesWaiting(cards)).toBe(3);
   });
 
   it("POL-FE-12 · payouts waiting for BTG are a card of their own, with the oldest's day", () => {
@@ -135,10 +136,12 @@ describe("P7-FE-06 · the Operations Board", () => {
     /* A role that doesn't read every payout, and an API from before the field: no card. */
     expect(queueCards({ ...none, payouts: null })).toEqual([]);
     expect(queueCards(none)).toEqual([]);
-    /* With the other four it comes last, counts in the total and has its own ring colour. */
+    /* With the other four it comes last (nothing has a time to sort by), is a
+       queue with work in the headline's count (POL-FE-15: queues, not a sum of
+       items) and has its own ring colour. */
     const five = queueCards({ applications: { waiting: 1, over48h: 0 }, approvals: { waiting: 1 }, briefs: { toQualify: 1, toMatch: 0 }, finance: { held: 1, disputed: 0 }, payouts: { waiting: 2, oldestSince: null } });
     expect(five.map((c) => c.key)).toEqual(["applications", "approvals", "briefs", "finance", "payouts"]);
-    expect(actionTotal(five)).toBe(6);
+    expect(queuesWaiting(five)).toBe(5);
     expect(new Set(five.map((c) => QUEUE_TONE[c.key])).size).toBe(5);
   });
 
@@ -188,25 +191,27 @@ describe("P1-ART-14 · the Operations Board stage", () => {
       finance: counts.finance === undefined ? null : { held: counts.finance, disputed: 0 },
     });
 
-  it("the headline counts the day's actions in words", () => {
-    expect(boardHeadline(23)).toEqual({ lead: "23 things need", hand: "BTG’s hand", tail: "today." });
-    expect(boardHeadline(1)).toEqual({ lead: "1 thing needs", hand: "BTG’s hand", tail: "today." });
+  it("the headline counts the queues with work in words — never a sum of items (POL-FE-15)", () => {
+    expect(boardHeadline(23)).toEqual({ lead: "23 queues need", hand: "BTG’s hand", tail: "today." });
+    expect(boardHeadline(1)).toEqual({ lead: "1 queue needs", hand: "BTG’s hand", tail: "today." });
     expect(boardHeadline(0)).toEqual({ lead: "Nothing needs", hand: "BTG’s hand", tail: "right now." });
-    expect(boardHeadline(1234).lead).toBe("1,234 things need");
+    expect(boardHeadline(1234).lead).toBe("1,234 queues need");
   });
 
   it("a role with no queues gets a headline without a count", () => {
     expect(boardHeadline(null)).toEqual({ lead: "Operations,", hand: "live", tail: "today." });
   });
 
-  it("ring arcs are sized by count, gapped, and go round exactly once", () => {
+  it("ring arcs are one equal segment per queue with work, gapped, and go round exactly once", () => {
+    /* POL-FE-15 — equal, not sized by count: the cards don't add up, so the
+       ring shows which queues wait, not a share of a sum. */
     const segs = ringSegments(cards({ applications: 7, approvals: 4, briefs: 6, finance: 6 }), C, 4);
     expect(segs.map((s) => s.key)).toEqual(["applications", "approvals", "briefs", "finance"]);
     const drawn = segs.reduce((n, s) => n + s.len, 0) + segs.length * 4;
     expect(drawn).toBeCloseTo(C, 6);
-    expect(segs[0]?.len).toBeCloseTo((7 / 23) * C - 4, 6);
+    expect(segs[0]?.len).toBeCloseTo(C / 4 - 4, 6);
     expect(segs[0]?.offset).toBe(0);
-    expect(segs[1]?.offset).toBeCloseTo((7 / 23) * C, 6);
+    expect(segs[1]?.offset).toBeCloseTo(C / 4, 6);
     expect(segs.map((s) => s.color)).toEqual(["#2e9bf5", "#9be0ff", "#fb923c", "#f97a1f"]);
   });
 
@@ -218,9 +223,10 @@ describe("P1-ART-14 · the Operations Board stage", () => {
     expect(ringSegments(cards({ applications: 0, finance: 0 }), C, 4)).toEqual([]);
   });
 
-  it("a sliver of a queue still shows as an arc", () => {
+  it("a queue of one beside thousands draws the same arc", () => {
     const segs = ringSegments(cards({ applications: 1, finance: 5000 }), C, 4);
     expect(segs[0]?.len).toBeGreaterThan(0);
+    expect(segs[0]?.len).toBeCloseTo(segs[1]?.len ?? 0, 6);
   });
 });
 

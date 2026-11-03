@@ -11,8 +11,8 @@ import { fetchActor } from "@/server/api";
 
    POST /payouts/account/link {returnPath:"/athlete/settings"} → redirect to
    the provider's set-up / manage page. The athlete only (payoutAccount
-   own); the API applies the matrix. A refusal (409 provider not connected)
-   comes back as the API's message.
+   own); the API applies the matrix. A refusal (409 payments closed —
+   POL-BE-36's switch off, or no provider) comes back as the API's message.
 
    POST /me/close (2S1-BE-13) → the public reactivation page. Which account
    closes is the login's own: the athlete's, or for a guardian-only login

@@ -14,8 +14,8 @@ import { apiFetch } from "@/server/api";
 
 /* --------------------------------------------------------------------------
    Refunds to send — 2S4-FE-06 (Claude Design OrderCancellations.dc.html,
-   CX-11 to send · CX-12 Mark refunded · CX-13 sent · CX-14 empty). Until a
-   payment provider is connected, money goes back by hand: every refund of a
+   CX-11 to send · CX-12 Mark refunded · CX-13 sent · CX-14 empty). Until
+   payments open (POL-FE-36), money goes back by hand: every refund of a
    paid order — a cancellation, a settled problem, BTG's decision — leaves
    one row here (2S4-BE-13). A card refunded by the stand-in arrives already
    sent, "Refunded automatically (test provider)".
@@ -74,7 +74,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
       <div>
         <h1 className="sx-page-title">{TITLE}</h1>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">
-          Money owed back to sponsors, sent by hand for now. Card payments are refunded automatically once the payment provider is connected.
+          Money owed back to sponsors, sent by hand for now. Card payments are refunded automatically once payments open.
         </p>
         {list.counts.open > 0 && <p className="mt-2 text-sm font-semibold tabular-nums">{openSummary(list)}</p>}
       </div>

@@ -162,7 +162,7 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
               {(p.state === "APPROVED" || p.state === "SENDING") && (
                 <p className="text-[11px] text-muted">
                   {p.provider === "none"
-                    ? "Approved. It waits here until the payment provider is connected — nothing is sent before then."
+                    ? "Approved. It waits here until payments open — nothing is sent before then."
                     : "The payment provider is sending it to the payee's payout account. Nothing more to do."}
                 </p>
               )}

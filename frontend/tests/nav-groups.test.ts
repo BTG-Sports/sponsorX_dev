@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { ADMIN_NAV } from "../src/lib/admin-nav";
 import { activeGroup, groupNav, isActiveHref } from "../src/lib/nav-groups";
-import { SPONSOR_NAV } from "../src/lib/sponsor-nav";
+import { SPONSOR_NAV, sponsorNavFor } from "../src/lib/sponsor-nav";
 
 /* P1-ART-21 — the sidebar's collapsible groups (owner: "too many …
    collapsable … sort them orderly"). */
@@ -81,8 +81,23 @@ describe("P1-ART-21 · sidebar groups", () => {
       expect(groups.map((g) => [g.label, g.items.map((i) => i.label)])).toEqual([
         ["Campaigns", ["Campaigns", "Intelligence", "Requests"]],
         ["Marketplace", ["Cart", "Orders", "Packages", "Shop"]],
-        ["Account", ["Billing", "Messages", "Settings"]],
+        /* POL-FE-19: Team joins Billing; the inert Messages and Settings are gone. */
+        ["Account", ["Billing", "Team"]],
       ]);
+      expect(SPONSOR_NAV.every((i) => i.href !== "#" && !i.pending)).toBe(true);
+    });
+
+    it("POL-FE-19 — Team is shown to a Sponsor Admin only; the rest of the nav is the same for everyone", () => {
+      const admin = sponsorNavFor(["SPONSOR_ADMIN"]);
+      const analyst = sponsorNavFor(["SPONSOR_ANALYST"]);
+      const preview = sponsorNavFor(["BTG_ADMIN"]);
+      expect(admin.some((i) => i.href === "/sponsor/team")).toBe(true);
+      expect(analyst.some((i) => i.href === "/sponsor/team")).toBe(false);
+      expect(preview.some((i) => i.href === "/sponsor/team")).toBe(false);
+      expect(analyst.map((i) => i.href)).toEqual(SPONSOR_NAV.map((i) => i.href).filter((h) => h !== "/sponsor/team"));
+      expect(sponsorNavFor(["SPONSOR_ANALYST", "SPONSOR_ADMIN"])).toBe(SPONSOR_NAV);
+      /* The exported array is never mutated by the filter. */
+      expect(SPONSOR_NAV.some((i) => i.href === "/sponsor/team")).toBe(true);
     });
   });
 });

@@ -127,7 +127,11 @@ export function shortDate(iso: string | null | undefined): string {
 }
 
 export const STRIPE_ARIA_SUFFIX = "Leaves SponsorX and opens Stripe.";
-export const PROVIDER_NOT_CONNECTED = "Opens once our payment provider is connected.";
+/** POL-FE-36 — payout set-up is closed while payments are (`canSetUp` false:
+ *  BTG's switch is off, or no provider is set). The button says so, and the
+ *  line under it says what opens with them. */
+export const PAYMENTS_OPEN_SOON = "Payments open soon";
+export const PROVIDER_NOT_CONNECTED = "Payments open soon — setting up payouts on Stripe opens with them.";
 export const TEST_PROVIDER_BADGE = "Test payment provider — staging only, no real money";
 
 /** POL-FE-25 — the one sentence Earnings and Payouts both use for where
@@ -205,9 +209,10 @@ export type AccountPanelOpts = {
 export function accountPanel(a: ApiPayoutAccount, payeeLabel: string, opts: AccountPanelOpts = {}): AccountPanelView {
   const disabled = !a.canSetUp;
   const waiting = Math.max(0, opts.waiting ?? 0);
+  /* Disabled, the button says "Payments open soon" rather than promising Stripe (POL-FE-36). */
   const cta = (label: string, variant: "primary" | "outline") => ({
-    label: `${label} ↗`,
-    ariaLabel: `${label}. ${STRIPE_ARIA_SUFFIX}`,
+    label: disabled ? PAYMENTS_OPEN_SOON : `${label} ↗`,
+    ariaLabel: disabled ? `${PAYMENTS_OPEN_SOON} — ${label.charAt(0).toLowerCase()}${label.slice(1)} then.` : `${label}. ${STRIPE_ARIA_SUFFIX}`,
     variant,
     disabled,
     disabledNote: disabled ? PROVIDER_NOT_CONNECTED : null,

@@ -1,6 +1,6 @@
 /* --------------------------------------------------------------------------
    2S4-FE-06 — refunds, on screen (Claude Design OrderCancellations.dc.html,
-   CX-5b and CX-11 … CX-14). Until a payment provider is connected, money
+   CX-5b and CX-11 … CX-14). Until payments open (POL-FE-36), money
    goes back by hand: Finance works from "Refunds to send" (2S4-BE-13).
 
      GET  /refunds?state=OPEN|SENT   BTG admin and Finance — the list

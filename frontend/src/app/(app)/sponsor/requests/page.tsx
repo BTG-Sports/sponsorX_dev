@@ -185,7 +185,10 @@ function Requests({
               return (
                 <Tr key={r.id} i={i}>
                   <Td>
-                    <Primary sub={r.package?.name ?? "Custom request"}>{r.objective}</Primary>
+                    {/* POL-FE-17 — each request opens its own page. */}
+                    <Primary sub={r.package?.name ?? "Custom request"}>
+                      <Link href={`/sponsor/requests/${encodeURIComponent(r.id)}`} className="hover:underline">{r.objective}</Link>
+                    </Primary>
                   </Td>
                   <Td label="Status">
                     <StadiumChip tone={word.tone}>{word.text}</StadiumChip>
@@ -200,11 +203,16 @@ function Requests({
                     )}
                   </Td>
                   <Td act>
-                    {r.campaign ? (
-                      <Link href={`/sponsor/campaigns/${encodeURIComponent(r.campaign.id)}`} aria-label={`Open ${r.campaign.name}`} className="text-xs font-medium text-sponsor hover:underline">
-                        Open campaign →
+                    <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+                      {r.campaign ? (
+                        <Link href={`/sponsor/campaigns/${encodeURIComponent(r.campaign.id)}`} aria-label={`Open ${r.campaign.name}`} className="text-xs font-medium text-sponsor hover:underline">
+                          Open campaign →
+                        </Link>
+                      ) : null}
+                      <Link href={`/sponsor/requests/${encodeURIComponent(r.id)}`} aria-label={`Open the request ${r.objective}`} className="text-xs font-medium text-sponsor hover:underline">
+                        Open →
                       </Link>
-                    ) : null}
+                    </span>
                   </Td>
                 </Tr>
               );

@@ -102,6 +102,22 @@ describe("the campaign requests desk", () => {
   });
 });
 
+/* POL-FE-36 — the payments switch desk (POL-BE-36): BTG admins and Finance;
+   its two older sub-desks keep their own, longer entries. */
+describe("the payments desk", () => {
+  it("is BTG admin's and Finance's, and never shadows events or disputes", () => {
+    for (const role of ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"]) {
+      expect(mayUse("/admin/payments", [role]), role).toBe(true);
+    }
+    for (const role of ["SALES", "CAMPAIGN_MGR", "NETWORK_MGR"]) {
+      expect(mayUse("/admin/payments", [role]), role).toBe(false);
+    }
+    expect(accessFor("/admin/payments")).not.toBeNull();
+    expect(accessFor("/admin/payments/events")).not.toBe(accessFor("/admin/payments"));
+    expect(accessFor("/admin/payments/disputes/d_1")).toBe(accessFor("/admin/payments/disputes"));
+  });
+});
+
 /* Review follow-up — "/admin/next" governs no page of its own (every real
    desk below it — editions, inventory, prospects, rights, splits — has its
    own, narrower entry); it is only the fallback for a future desk with none

@@ -605,7 +605,7 @@ export type ApiAnalytics = {
   reconciles: boolean;
 };
 
-export const PAYOUTS_NOTE = "Payouts start once the payment provider is connected.";
+export const PAYOUTS_NOTE = "Payouts start once payments open.";
 
 export function buildEarnings(l: ApiLedger, months: ApiAnalytics["revenue"]["byMonth"]) {
   const p = l.pendingEarnings;
