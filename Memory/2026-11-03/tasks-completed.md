@@ -112,3 +112,9 @@ Console and hydration errors, four concurrent sessions, cross-sponsor isolation,
 - **One copy fix.** A login carrying SPONSOR_ADMIN whose sponsor account the API can't find (the walk identity `qa7-empty` points at a sponsor row that doesn't exist) was told it was "a BTG preview". `/sponsor/team` now says the login isn't linked to a sponsor account and to ask BTG; a preview without a sponsor keeps the old copy.
 - **Seed note:** `e2e_u_qa7_empty`'s `sponsorId` (`qa7_spn_empty`) has no `Sponsor` row — use `seed_spn_harbor` for a second-sponsor walk.
 
+### PR #369 merged to `main_development`; CI's e2e caught one regression, fixed in a follow-up (HeckerCreatives)
+
+- `feature/POL-FE-batch-3` was brought level with `main_development` (one docs commit; the shared Memory log merged cleanly with both sides kept), opened as PR #369 and merged as `7fbda1b2`. The typecheck/lint/unit/authz check, the dependency audit and "anything new on main" passed on the merge.
+- **The e2e job failed on one spec**, `admin-sidebar-groups.spec.ts`: it finds the sidebar's Dashboard link with `getByRole("link", { name: "Dashboard" })`, and pass 3's `aria-label="SponsorX — dashboard"` on the logo link made that a strict-mode violation (two matches; Playwright's name match is a substring). The logo link is now named plain "SponsorX". Local run of the spec, then a fix PR into `main_development`.
+- **Lesson:** an accessible name added to a link must not contain another link's visible name on the same page; the team's loop specs are the regression net for that (memory: [[push-to-protected-branches]] already said CI's e2e catches what the local run can't).
+
