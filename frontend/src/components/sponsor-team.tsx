@@ -101,8 +101,11 @@ export function SponsorTeam({ members }: { members: ApiTeamMember[] }) {
                     </Primary>
                   </Td>
                   <Td label="Role">
-                    <span className="text-[13px]">{roleWord(m.role)}</span>
-                    <span className="block text-[11px] text-muted">{m.role === "SPONSOR_ANALYST" ? "Read only" : "Full access"}</span>
+                    {/* One block, as Primary does — a stacked cell lays its children out in a row, which ran "Admin" and "Full access" together at phone width (QA pass 2, 2026-11-03). */}
+                    <span className="block min-w-0">
+                      <span className="block text-[13px]">{roleWord(m.role)}</span>
+                      <span className="block text-[11px] text-muted">{m.role === "SPONSOR_ANALYST" ? "Read only" : "Full access"}</span>
+                    </span>
                   </Td>
                   <Td label="Status">
                     <span className="flex flex-wrap items-center gap-1.5">
