@@ -101,8 +101,9 @@ The same steps apply to every row below:
 
 - **Where it lives:** `api` and `worker`. The worker derives images and QR codes, and reads files to attach to emails.
 - **Owner:** the Cloudflare account owner (R2 → Manage API tokens).
+- **One key, two environments (2026-11-03).** Staging and production use the same token, scoped to four buckets: `sponsorx-private` and `sponsorx-public` (staging), `sponsorx-production-private` and `sponsorx-production-public` (production). A rotation sets it on `api` in **both** environments.
 - **Rotate:**
-  1. Cloudflare → R2 → **Manage R2 API Tokens** → **Create API token**. Give it the **same** permission (Object Read & Write) and the same bucket scope (`S3_BUCKET_PUBLIC` and `S3_BUCKET_PRIVATE`).
+  1. Cloudflare → R2 → **Manage R2 API Tokens** → **Create API token** (direct link: `https://dash.cloudflare.com/<accountId>/r2/api-tokens`). Give it the **same** permission (Object Read & Write) and the same bucket scope: the four buckets above, never "all buckets" (the account holds other projects' buckets).
   2. On Railway, set both variables on `api` and `worker`, then deploy.
   3. Check: `/health` on `api` reports storage reachable. An upload from a portal and a download link both work.
   4. **Wait 15 minutes.** That is the longest a presigned URL issued under the old key lives (`PRESIGN_TTL_SECONDS`).
