@@ -9,6 +9,15 @@
       "path": "frontend devDependency eslint-config-next@16.3.8 > @next/eslint-plugin-next > fast-glob > micromatch > braces@3.0.3",
       "reason": "Stack-exhaustion DoS when braces expands an attacker-supplied pattern. No patched braces exists (every version is in range), and npm's only 'fix' is downgrading eslint-config-next to 14.2 — two majors behind Next 16. braces runs only inside ESLint, on glob patterns written in our own lint config, on a developer machine or CI runner; it is never installed in the production image (--omit=dev) and never sees user input.",
       "reviewBy": "2027-01-05"
+    },
+    {
+      "id": "GHSA-g3hv-75wg-m249",
+      "package": "minimatch",
+      "severity": "moderate",
+      "devOnly": false,
+      "path": "minimatch@3.1.5 (backend devDependency eslint@9.39.5 and frontend devDependency eslint-config-next@16.4.2 plugins), minimatch@10.2.6 (@typescript-eslint/typescript-estree, dev), minimatch@5.1.9 (frontend dependency exceljs@4.4.0 > archiver@5.3.2 > readdir-glob, production)",
+      "reason": "DoS through glob-pattern amplification: it needs an attacker to supply the pattern. Fixed only in minimatch 11.0.1, whose API drops the default export eslint and its plugins call, and npm's only 'fix' is a downgrade of eslint. In dev, minimatch matches the glob patterns in our own lint config. In production it ships inside exceljs > archiver > readdir-glob, but readdir-glob runs only from archiver.glob()/directory(), which exceljs never calls (it appends buffers to the zip); no request ever reaches a glob pattern.",
+      "reviewBy": "2027-01-05"
     }
   ]
 }

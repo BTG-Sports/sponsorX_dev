@@ -29,6 +29,8 @@ describe.skipIf(!hasDatabase)("4S7-BE-01 · a cross-channel campaign: virtual an
 
   const T = `xc_t_${randomBytes(3).toString("hex")}`;
   const D = (s: string) => new Date(`${s}T00:00:00Z`);
+  /* An edition's dates run from today: the database refuses a slot sale once closeDate has passed. */
+  const inDays = (n: number) => new Date(Date.now() + n * 86_400_000);
   const actor = (role: string) =>
     ({ userId: `xc_${role}`, tenantId: T, roles: [role], sponsorId: null, athleteId: null, guardianId: null, propertyId: null }) as unknown as Actor;
   const admin = actor("BTG_ADMIN");
@@ -65,7 +67,7 @@ describe.skipIf(!hasDatabase)("4S7-BE-01 · a cross-channel campaign: virtual an
     await prisma.$transaction((tx) => factOrderBooked(tx, `${T}_o1`));
     /* An edition ad: a slot sold to the campaign. */
     await prisma.publication.create({ data: { id: `${T}_pub`, tenantId: T, name: "Regional Record" }, select: { id: true } });
-    await prisma.edition.create({ data: { id: `${T}_ed`, tenantId: T, publicationId: `${T}_pub`, label: "Fall", closeDate: D("2026-11-01"), publishTarget: D("2026-11-10"), thresholdCents: 1, state: "SELLING" }, select: { id: true } });
+    await prisma.edition.create({ data: { id: `${T}_ed`, tenantId: T, publicationId: `${T}_pub`, label: "Fall", closeDate: inDays(30), publishTarget: inDays(40), thresholdCents: 1, state: "SELLING" }, select: { id: true } });
     await prisma.adSlot.create({ data: { id: `${T}_slot`, tenantId: T, editionId: `${T}_ed`, slotCode: "BACK", kind: "BACK_COVER", priceCents: SLOT, campaignId: MIXED, soldCents: SLOT, soldAt: D("2026-10-19") }, select: { id: true } });
     await prisma.$transaction((tx) => factAdSlotSold(tx, `${T}_slot`));
     /* An INFINEX placement on sale. */

@@ -362,7 +362,7 @@ Every number below comes from running `npm audit --json` on the root lockfile. T
 
 **The lockfile change is limited to these fixes.** Comparing package versions before and after: 19 entries removed and 45 added. They are exactly the packages above, plus `vite` 7.3's own `esbuild` 0.28.2 and its 26 platform binaries, plus `sql-escaper` (a dependency of mysql2 3.24). Nothing else moved. The line-based `git diff` looks large only because hoisting reordered entries.
 
-### The allowlist: one advisory, dev-only
+### The allowlist
 
 `scripts/audit-allowlist.json`:
 
@@ -373,6 +373,12 @@ Every number below comes from running `npm audit --json` on the root lockfile. T
 This one advisory accounts for all five remaining "high" rows, which are the chain `braces → micromatch → fast-glob → @next/eslint-plugin-next → eslint-config-next`.
 
 The entry has `reviewBy: 2027-01-05`. After that date CI fails until someone re-checks it. Remove the entry as soon as a fixed `braces` or `fast-glob` ships.
+
+**Added 2026-11-03:** a second entry, for an advisory published after this review. It is moderate, and one copy of the package ships in production. The production allowlist rule covers only high and critical, so a moderate entry is allowed there. It is marked `devOnly: false` because it ships.
+
+| Advisory | Package | Path | Why it is not exploitable here |
+|---|---|---|---|
+| GHSA-g3hv-75wg-m249 (moderate, DoS through glob-pattern amplification) | `minimatch` 3.1.5, 5.1.9, 10.2.6 | ESLint and its plugins (dev, both workspaces); `exceljs@4.4.0 > archiver@5.3.2 > readdir-glob` (frontend, **production**) | It needs an attacker to supply the glob pattern. The fix is only in `minimatch` 11.0.1, which drops the default export that ESLint and its plugins call, and npm's only "fix" is an ESLint downgrade. In dev, the patterns are our own lint config. In production, `readdir-glob` runs only from `archiver.glob()` or `directory()`, and exceljs never calls either: it appends buffers to the zip. No request reaches a glob pattern. Remove the entry once ESLint and archiver move to a fixed `minimatch`. |
 
 ### What CI enforces
 

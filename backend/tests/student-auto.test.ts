@@ -343,7 +343,8 @@ describe.skipIf(!hasDatabase)("P9-BE-20 / P9-BE-21 · students and prospects dec
       await prisma.campaignBrief.create({ data: { id: "sa20_brief", tenantId: T, sponsorId: "sa20_presenter", objective: "Presenting", budget: 300_000, startDate: new Date("2026-10-01"), endDate: new Date("2026-12-01"), categories: ["RESTAURANT"] } });
       await prisma.campaign.create({ data: { id: "sa20_campaign", tenantId: T, sponsorId: "sa20_presenter", briefId: "sa20_brief", name: "SA20 presenting", budget: 300_000, startDate: new Date("2026-10-01"), endDate: new Date("2026-12-01") } });
       await prisma.publication.create({ data: { id: "sa20_pub", tenantId: T, propertyId: "sa20_north", name: "SA20 Record" } });
-      await prisma.edition.create({ data: { id: "sa20_edition", tenantId: T, publicationId: "sa20_pub", label: "Fall", state: "SELLING", closeDate: new Date("2026-11-01"), publishTarget: new Date("2026-12-01"), thresholdCents: 1 } });
+      /* Dates from today: the database refuses a slot sale once closeDate has passed. */
+      await prisma.edition.create({ data: { id: "sa20_edition", tenantId: T, publicationId: "sa20_pub", label: "Fall", state: "SELLING", closeDate: new Date(Date.now() + 30 * 86_400_000), publishTarget: new Date(Date.now() + 40 * 86_400_000), thresholdCents: 1 } });
       await prisma.adSlot.create({ data: { tenantId: T, editionId: "sa20_edition", slotCode: "PR", kind: "PRESENTING", priceCents: 300_000, campaignId: "sa20_campaign" } });
       /* North restricts LOCAL_RETAIL; an athlete at North is restricted from AUTOMOTIVE. */
       await prisma.brandRestriction.create({ data: { tenantId: T, propertyId: "sa20_north", category: "LOCAL_RETAIL", type: "SCHOOL_POLICY", reason: "Board rule" } });
