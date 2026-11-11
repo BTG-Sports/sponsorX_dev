@@ -7,9 +7,8 @@ import { Card } from "./ui";
    whichever stage it sits in: Mission Control, the Stadium Board, the
    property portal.
 
-   Staff see which tasks it waits on and the route it will read — the
-   information that tells them who to ask. A sponsor or a property sees one
-   plain sentence and the list of what will appear: no task ids, no routes.
+   Everyone sees plain words and the list of what will appear — no task ids
+   or routes (POL-FE-37: those read as developer notes in production).
    Never a number, never a sample figure.
    -------------------------------------------------------------------------- */
 
@@ -23,9 +22,9 @@ export function EnginePending({ engine, audience = "staff" }: { engine: Engine; 
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-muted">
             <span aria-hidden="true" className="size-1.5 rounded-full bg-warn" />
-            {off ? "Switched off" : staff ? "Engine not live yet" : "Coming soon"}
+            {off ? "Switched off" : staff ? "Not available yet" : "Coming soon"}
           </span>
-          {staff && <span className="text-[11px] text-faint">{engine.screen} · {engine.name}</span>}
+          {staff && <span className="text-[11px] text-faint">{engine.name}</span>}
         </div>
 
         <p className="max-w-2xl text-sm">
@@ -34,7 +33,7 @@ export function EnginePending({ engine, audience = "staff" }: { engine: Engine; 
               ? "A BTG admin switched this feature off for this organisation. The engine is live; nothing is wrong with it. Switch it back on under Models → Feature flags to see figures here."
               : "This feature is switched off for your organisation. Ask your BTG contact if you need it."
             : staff
-              ? "No figures are shown until the engine answers. A placeholder number would be a statistic nobody can trace."
+              ? "Figures appear here once this feature is running. Until then nothing is shown, so no number here is ever a guess."
               : engine.plain}
         </p>
 
@@ -50,22 +49,6 @@ export function EnginePending({ engine, audience = "staff" }: { engine: Engine; 
           </ul>
         </div>
 
-        {staff && !off && (
-          <div className="grid gap-3 border-t border-line pt-3 text-xs sm:grid-cols-2">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-faint">Waits on</p>
-              <ul className="mt-1.5 space-y-1 text-muted">
-                {engine.waitsOn.map((w) => (
-                  <li key={w}>{w}</li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-faint">Reads</p>
-              <code className="mt-1.5 inline-block rounded bg-surface-2 px-2 py-0.5 text-[11px] text-muted">/api/v1{engine.endpoint.replace(/^[A-Z]+ /, "")}</code>
-            </div>
-          </div>
-        )}
       </Card>
     </div>
   );

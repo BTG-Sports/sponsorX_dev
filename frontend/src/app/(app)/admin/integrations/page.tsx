@@ -122,7 +122,7 @@ export default async function IntegrationsPage() {
       </Card>
 
       <section>
-        <SectionHeading title="Zoho sync" hint="§18 — records linked to Zoho, and when the last sync landed." />
+        <SectionHeading title="Zoho sync" hint="Records linked to Zoho, and when the last sync finished." />
         <Card className="p-0">
           <ul className="divide-y divide-line-soft">
             {h.sync.map((s) => (
@@ -138,7 +138,7 @@ export default async function IntegrationsPage() {
       </section>
 
       <section>
-        <SectionHeading title="Inbound webhooks · last 7 days" hint="P8-INT-04 records every attempt, valid or not. Payloads are never shown here." />
+        <SectionHeading title="Inbound webhooks · last 7 days" hint="Every attempt is recorded, valid or not. Their contents are never shown here." />
         <Card className="p-0">
           {h.webhooks.bySource.length === 0 ? (
             <p className="px-4 py-6 text-center text-xs text-muted">No deliveries received this week.</p>
@@ -262,7 +262,7 @@ function FiguresCheck({ v }: { v: ReturnType<typeof factCheckView> }) {
   const tone = v.state === "matching" ? "border-success/30 bg-success/5" : v.state === "mismatch" ? "border-warn/40 bg-warn/5" : "";
   return (
     <section data-testid="figures-check" data-state={v.state}>
-      <SectionHeading title="Figures check · nightly" hint="3S1-QA-01 — every night the report figures are compared with the app's own records, campaign by campaign." />
+      <SectionHeading title="Figures check · nightly" hint="Every night the report figures are compared with the app's own records, campaign by campaign." />
       <Card className={tone}>
         {v.state === "never" && (
           <>
@@ -308,7 +308,7 @@ function FiguresCheck({ v }: { v: ReturnType<typeof factCheckView> }) {
         <p className="mt-3 text-[11px] text-faint">
           {v.emails
             ? "BTG admins are emailed once when the figures stop matching, and once when they match again."
-            : "Emails are off in this environment — the check still runs and is recorded here."}
+            : "Emails about this check are turned off. The check still runs and is recorded here."}
         </p>
       </Card>
       <p className="mt-2 flex items-center gap-1.5 text-[10px] text-faint">

@@ -38,7 +38,7 @@ export default async function PaymentsPage() {
           <StadiumHint
             skin="vault"
             label="About this desk"
-            text="Whether money moves on SponsorX right now. Payments are open only while Railway names a provider and this switch is on; every change is recorded with who and why."
+            text="Turn card payments and payouts on or off. Payments are open only while this switch is on and Stripe is set up. Every change is recorded with who made it and why."
           />
         }
       />

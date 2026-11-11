@@ -1201,8 +1201,7 @@ shows them exactly as development does. Four kinds:
 
 - **Wrong now:** says something that is no longer true. Examples: payouts
   "blocked on the written Phase 1 payment policy"; "acceptance stays disabled
-  until counsel approves"; "no self-service checkout until Phase 2"; "payout
-  happens outside the system".
+  until counsel approves"; "no self-service checkout until Phase 2".
 - **Fake numbers:** a signed-in person whose role can't read a desk is shown
   sample figures ("Demo data — … every figure below is sample data").
 - **Developer note:** blueprint sections (`§26`), task IDs (`P9-FE-04`) and
@@ -1212,10 +1211,16 @@ shows them exactly as development does. Four kinds:
 
 **What is true now (write to this):**
 - Sponsors pay by card through Stripe, while BTG's Payments switch is on.
-  Athletes and teams are paid through Stripe; their payout account is set up
-  in SponsorX.
-- Stripe collects W-9 and W-8 forms and files the 1099s. SponsorX never
-  stores a tax ID or bank details.
+- **Shop and marketplace payouts** go to athletes and teams through Stripe;
+  their payout account is set up in SponsorX, and Stripe collects W-9 and
+  W-8 forms and files those 1099s.
+- **Campaign earnings** (BTG's managed campaigns) are still paid by BTG
+  Finance outside SponsorX, by bank transfer. SponsorX tracks their status,
+  approves those under $2,000 automatically when they become eligible, and
+  Finance marks each one paid. So "paid outside SponsorX" is true for them —
+  only the "Phase 1" and "until the policy is written" framing is wrong.
+  (Corrected 2026-11-11, on POL-FE-37.)
+- SponsorX never stores a tax ID or bank details.
 - The agreements are approved and issued in the app (v2, 2026-10-22).
   Acceptance works.
 - The marketplace and shop have checkout. Managed briefs still exist beside
@@ -1248,6 +1253,24 @@ agreed 2026-11-11 to split the load). 39–40 are HeckerCreatives'.
   `model-registry.tsx`, `models-live.ts`): the raw `/api/v1/…` address,
   "seeded simulated history (SponsorX-Backtest.md §4)".
 - `/admin/network`: §15, P0-PMO-13.
+
+- **Delivered (`POL-FE-37`, 2026-11-11, rcfworks):**
+  - Finance (admin and Finance portal): the banner now says campaign
+    earnings are paid by BTG Finance outside SponsorX, approved
+    automatically under $2,000, marked paid by Finance, and that shop and
+    marketplace payouts go through Stripe. Section notes are plain; no §,
+    "Phase 1", "open gate" or Addendum.
+  - Payments: no Railway wording ("Stripe isn't set up yet", "Not changed
+    yet. This is the starting setting."); the reason box asks "Why are you
+    turning payments on/off?".
+  - Integrations, Network, Intelligence (8 admin pages and the property
+    page): no task IDs, no API address, no "this environment"; the model page
+    says "practice data".
+  - Splits (admin and Finance portal): plain wording; the Finance-portal page
+    now shows "not in your role" to signed-in staff instead of sample editions.
+  - `node scripts/ui-copy-scan.cjs` finds nothing on these pages. Frontend build, lint and all 1,957 unit tests pass. Unit and
+    e2e expectations updated (`payment-switch-live.test.ts`,
+    `loop-p7-earnings-report.spec.ts`).
 
 ### 38. Athlete, campaign and agreement wording
 `POL-FE-38` · *Money · Consent* · **rcfworks** · confirmed

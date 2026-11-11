@@ -116,10 +116,9 @@ function EarningsFoot() {
         sponsor price.
       </p>
       <p>
-        Payout actions are blocked on the written Phase 1 payment policy. This screen shows real states; it does not
-        approve, pay or collect payout details until the policy is written. Earnings under $2,000 move to &ldquo;approved
-        for payout&rdquo; on their own as they become eligible; the ones left for Finance say why. Paid is still recorded
-        by Finance.
+        Campaign earnings are paid by BTG Finance outside SponsorX. When an earning becomes eligible, it&rsquo;s
+        approved for payout automatically if it&rsquo;s under $2,000; the others wait here with the reason. Finance marks
+        each one paid once the transfer is sent. Shop and marketplace payouts go through Stripe, on the Payouts page.
       </p>
     </div>
   );

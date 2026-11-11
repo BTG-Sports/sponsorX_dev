@@ -3,6 +3,7 @@ import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { liveEditions } from "@/server/next-editions";
 import { LiveSplits } from "./live-splits";
+import { fetchActor } from "@/server/api";
 import {
   editionSplits,
   money,
@@ -51,6 +52,17 @@ export default async function RevenueSplitsPage({
     const sp = await searchParams;
     const live = await liveEditions(typeof sp.edition === "string" ? sp.edition : undefined);
     if (live) return <LiveSplits live={live} />;
+    /* POL-FE-37: a signed-in person whose role can't read splits is told so,
+       never shown the sample editions. The sample stays for ?demo= and
+       signed-out visitors. */
+    if ((await fetchActor()).status === "linked") {
+      return (
+        <div className="space-y-6">
+          <h1 className="sx-page-title">Revenue splits</h1>
+          <EmptyState mark="chart" title="Not in your role" hint="Your role can't see revenue splits. Ask a BTG admin." />
+        </div>
+      );
+    }
   }
 
   const heading = (
@@ -111,8 +123,8 @@ export default async function RevenueSplitsPage({
           edition, rack and split figures below are sample data. */}
       {!demo && (
         <BlockedNotice>
-          Demo data — your role doesn&rsquo;t read the live NEXT edition ledger,
-          so every figure below is a sample edition&rsquo;s.
+          Sample figures. Sign in with a BTG admin or Finance account to see the
+          real editions.
         </BlockedNotice>
       )}
 
@@ -153,7 +165,7 @@ export default async function RevenueSplitsPage({
       <section className="sx-animate sx-delay-1">
         <SectionHeading
           title="The four payees"
-          hint="Fixed kinds from spec §5.7 — a fifth payee is a schema change, not a row"
+          hint="The four payee types are fixed."
         />
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {rows.map((r) => (
@@ -187,18 +199,15 @@ export default async function RevenueSplitsPage({
       <Card className="sx-animate sx-delay-2 border-next/25">
         <p className="text-sm font-medium">Why this page looks nothing like Earnings</p>
         <p className="mt-1.5 text-xs leading-relaxed text-muted">
-          An Earning means one athlete, one campaign order, NIL compensation
-          with a tax-year rollup — finance reconciles payouts from it. A
-          revenue split is an allocation on an edition: schools and internal
-          funds, in basis points. Keeping the two visibly and structurally
-          apart is what stops a finance reconciliation returning a minor&rsquo;s
-          scholarship pool (spec §5.7) — nothing on this page reaches an
-          athlete, a student, or a payout run.
+          An earning is what one athlete is owed for one campaign order. A
+          revenue split shares an edition&rsquo;s money between schools and
+          funds. They are kept apart on purpose: nothing on this page pays an
+          athlete or a student, or joins a payout.
         </p>
         <div className="mt-3">
           <Button
             disabled
-            title="Shares are edition policy — editing is wired by P9-FE-05 against RevenueSplit (Stage 9)"
+            title="Shares are set per edition. They can't be edited here yet."
           >
             Adjust shares
           </Button>

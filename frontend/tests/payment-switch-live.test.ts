@@ -47,8 +47,8 @@ describe("switchWords", () => {
   it("no provider in Railway: Turn on stays visible but disabled, and says why", () => {
     const w = switchWords(sw({ on: false, open: false, provider: "none", canTurnOn: false, changed: null }));
     expect(w.state).toBe("no-provider");
-    expect(w.providerLine).toBe("Provider: No provider set in Railway");
-    expect(w.text).toMatch(/^Payment provider not set up in Railway yet\./);
+    expect(w.providerLine).toBe("Provider: Not set up");
+    expect(w.text).toMatch(/^Stripe isn't set up yet\./);
     expect(w.next).toEqual({ open: true, label: "Turn on", disabled: true, disabledNote: PROVIDER_NOT_SET_UP });
     expect(w.changedLine).toBeNull();
   });
@@ -74,8 +74,8 @@ describe("providerLabel and switchStamp", () => {
   it("names the provider the API sent, capitalised, and 'none' as no provider", () => {
     expect(providerLabel("stripe")).toBe("Stripe");
     expect(providerLabel("standin")).toBe("Standin");
-    expect(providerLabel("none")).toBe("No provider set in Railway");
-    expect(providerLabel("")).toBe("No provider set in Railway");
+    expect(providerLabel("none")).toBe("Not set up");
+    expect(providerLabel("")).toBe("Not set up");
   });
   it("stamps in UTC, and reads '' for nothing or a bad date", () => {
     expect(switchStamp("2026-10-30T14:05:00.000Z")).toBe("Oct 30, 2026, 14:05 UTC");
