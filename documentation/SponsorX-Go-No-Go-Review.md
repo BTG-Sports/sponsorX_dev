@@ -74,11 +74,12 @@ completeness.
 ## Production: the owner's go-live switches
 
 **Where it stands, 2026-11-11.** Stripe is connected in production
-(`PAYMENT_PROVIDER=stripe`) but checkout is still **closed**: BTG's Payments switch
-has never been set. A BTG Admin turns it on at `/admin/payments`, then runs the
-$1 live test. The polish screens are all on production (release of 2026-11-03).
+(`PAYMENT_PROVIDER=stripe`) and checkout is **open**: a BTG Admin (infinex1)
+turned the Payments switch on at `/admin/payments` on 2026-11-11. No payment has
+been taken yet. Production runs the release of 2026-11-11 (all of POL-BE, POL-FE-37
+and 38, and the embedded fonts). The launch email went to Rodney the same day.
 Still to do:
-- turn the Payments switch on, then the $1 live payment and refund;
+- the $1 live payment and refund;
 - MFA (Clerk Pro): Rodney gave the go-ahead 2026-11-11; the plan is not yet confirmed in Clerk;
 - the signatures below.
 
@@ -92,7 +93,7 @@ owner at go-live. None of them needs code.
 
 | Item | Where it stands | What's left | Owner |
 |---|---|---|---|
-| Payments | **Connected, checkout closed (2026-11-03).** `PAYMENT_PROVIDER=stripe` on production `api`, which restarted healthy (the key guard refuses to start without the live key and webhook secrets). BTG's Payments switch (`POL-BE-36`) has never been set, so it is off and nobody can pay yet. Stripe's account status: payments and payouts active, no tasks due (the photo-ID step is no longer listed). The restricted key `SponsorX production (restricted)` was probed with calls that create nothing: Checkout Sessions, PaymentIntents, Refunds, Transfers, Accounts v2 and v2 Account Links are allowed. The three live webhook destinations (`SponsorX payments`, `SponsorX payout accounts` thin, `SponsorX connected accounts`, at `https://sponsorx.net/api/v1/webhooks/payments/stripe`, API version `2026-09-30.endive`) refuse an unsigned post (401). | When the frontend polish is done: turn the Payments switch on, do one $1 payment and refund on a hidden test listing (Stripe doc §6.4), and switch it off again until go-live. Confirm in the Stripe Dashboard that the three webhook destinations are enabled: the key cannot list them. | Owner |
+| Payments | **Connected 2026-11-03; checkout open 2026-11-11.** A BTG Admin (infinex1) turned the Payments switch (`POL-BE-36`) on at 05:07 UTC on 2026-11-11; no payment has been recorded yet. Before that: `PAYMENT_PROVIDER=stripe` on production `api`, which restarted healthy (the key guard refuses to start without the live key and webhook secrets). Stripe's account status: payments and payouts active, no tasks due (the photo-ID step is no longer listed). The restricted key `SponsorX production (restricted)` was probed with calls that create nothing: Checkout Sessions, PaymentIntents, Refunds, Transfers, Accounts v2 and v2 Account Links are allowed. The three live webhook destinations (`SponsorX payments`, `SponsorX payout accounts` thin, `SponsorX connected accounts`, at `https://sponsorx.net/api/v1/webhooks/payments/stripe`, API version `2026-09-30.endive`) refuse an unsigned post (401). | Do one $1 payment and refund on a hidden test listing (Stripe doc §6.4). Confirm in the Stripe Dashboard that the three webhook destinations are enabled: the key cannot list them. | Owner |
 | Zoho | **Done 2026-10-24.** Production is connected to the real CRM (org `4857533000000020005`) with its own refresh token, owned by **rcfworks** (`SponsorX-Zoho-Credentials-and-Sandbox.md` §9). `ZOHO_EXPECTED_ORG_ID` pins the org. The CRM notification channel is live at `https://sponsorx.net/api/v1/webhooks/zoho/crm` (`zoho.watch renewed`). The two intelligence fields were created on Accounts | — | P2-OPS-04 |
 | MFA for admin and finance | Needs Clerk Pro. **2026-11-11:** Rodney gave the go-ahead; Clerk's API doesn't show the plan, and none of the four production users (the three BTG Admins and infinex1@icarrefound.org) has two-step sign-in turned on yet | Confirm Clerk Pro in Clerk's billing page, then require MFA for privileged roles in production, and each admin sets up two-step sign-in | P2-INT-02 |
 | Fan rate limiting | **Done 2026-10-23.** `SPONSORX_EDGE_KEY` is set on production web and api (rotated after Railway's incident) | — | P2-OPS-04 (P8-SEC-03) |
