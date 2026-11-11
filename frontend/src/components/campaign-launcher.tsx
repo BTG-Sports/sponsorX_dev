@@ -131,8 +131,7 @@ export function CampaignLauncher({
                       Create Campaign
                     </h2>
                     <p className="truncate text-[11px] text-muted">
-                      Managed workflow · §13 — nothing sends until counsel clears
-                      the template (§08)
+                      Sample builder · nothing is sent or saved
                     </p>
                   </div>
                   <button

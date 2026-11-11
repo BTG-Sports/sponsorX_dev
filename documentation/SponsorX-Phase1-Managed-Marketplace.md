@@ -3009,6 +3009,22 @@ Raised 2026-10-25. New advisories turned CI's dependency scan red on every branc
   - **Deployed:** `release` moved to `a87b4713`, and all four services (api and web, staging and production) deployed successfully. Staging runs `zod@4.6.7` and `body-parser@2.4.0`; health, `/join`, the webhook paths (401 unsigned) and the protected API (401) answer as expected in both environments.
 - **Reference:** §26
 
+### ✅ `P8-OPS-05` · Embed the web fonts so the build needs no network
+
+**Order** 157.9993 · **OPS** · **Where:** Code · **0.25d** · **Done** — 2026-11-11, rcfworks
+
+Raised 2026-11-11. `next/font/google` downloaded the app's three fonts (Poppins, Bebas Neue, Source Serif 4) from Google Fonts on every `next build`. When that download failed, the build failed: CI on PR #380 stopped with "Can't resolve … next/font/google" on Source Serif 4. Visitors were never affected, since the fonts were already served from the app; only the build depended on Google.
+
+- **What changes:** the same Latin woff2 files Google served are committed under `frontend/src/app/fonts`, with each font's SIL Open Font Licence (`OFL-*.txt`), and `app/layout.tsx` loads them with `next/font/local`. The CSS variables (`--font-poppins`, `--font-bebas`, `--font-source-serif`), weights, styles and `preload: false` on the two magazine faces are unchanged. Source Serif 4 is a variable font, so one file per style covers 400 and 600.
+- **Depends on:** nothing
+- **Done when:** All of these hold.
+  - `next build` makes no request to Google Fonts.
+  - The built CSS declares the same faces: Poppins 400/500/600/700, Bebas Neue 400, Source Serif 4 400–600 normal and italic.
+  - The licences are committed beside the files.
+  - Build, lint, typecheck and unit tests pass, and CI is green.
+- **Delivered:** 2026-11-11 (#381). The built CSS declares the same faces, and all four CI checks passed.
+- **Reference:** §36
+
 ### ✅ `P8-FE-09` · Fix the screen findings from the tester-guide dry run
 
 **Order** 157.98 · **FE** · **Where:** Code · **1d** · **Done** — 2026-10-27, HeckerCreatives (merged in #307, promoted to `main` in #308)

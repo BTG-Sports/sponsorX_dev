@@ -371,7 +371,7 @@ export function ProfileEditor({ initialSection }: { initialSection?: string }) {
                 <Field label="Profile photo">
                   <button
                     type="button"
-                    title="Uploads go direct to R2 via presigned URL — not wired in the prototype"
+                    title="Sample profile: uploads are off here"
                     className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-line px-3 py-4 text-[11px] text-muted transition-colors hover:border-athlete/40 hover:text-text"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="size-4" aria-hidden="true">
@@ -445,9 +445,9 @@ export function ProfileEditor({ initialSection }: { initialSection?: string }) {
                 </div>
                 <p className="text-[10px] leading-relaxed text-faint">
                   Counts you enter are labelled{" "}
-                  <Badge tone="warn">self-reported</Badge> on your profile until
-                  platform verification connects in Phase 3 (§22) — sponsors
-                  always see which is which.
+                  <Badge tone="warn">self-reported</Badge> on your profile, so
+                  sponsors always see which figures are measured and which
+                  aren&rsquo;t.
                 </p>
                 {saveBar("socials", "Every account needs a handle.")}
               </>
@@ -469,7 +469,7 @@ export function ProfileEditor({ initialSection }: { initialSection?: string }) {
                 </div>
                 <p className="text-[10px] leading-relaxed text-faint">
                   Selected jobs appear as your Available Inventory at catalogue
-                  prices (§5). Unselecting removes them from what sponsors can
+                  prices. Unselecting removes them from what sponsors can
                   request.
                 </p>
                 {saveBar("capabilities", "Pick at least one job you'll deliver.")}
@@ -503,7 +503,7 @@ export function ProfileEditor({ initialSection }: { initialSection?: string }) {
               <>
                 <LockNote>
                   Never shown to sponsors or fans. BTG runs every invitation
-                  against this list before it reaches you (§26) — a declared
+                  against this list before it reaches you — a declared
                   conflict means the invitation is never sent.
                 </LockNote>
                 <div className="flex flex-wrap gap-1.5">
@@ -555,7 +555,7 @@ export function ProfileEditor({ initialSection }: { initialSection?: string }) {
               <>
                 <LockNote>
                   BTG sets these with you (your {athlete.tier} tier applies a{" "}
-                  {athlete.tierMultiplier} multiplier — §6). Sponsors never see
+                  {athlete.tierMultiplier} multiplier). Sponsors never see
                   these numbers; they see catalogue prices. To change a rate,
                   talk to your BTG manager — this screen only confirms them.
                 </LockNote>
@@ -587,10 +587,10 @@ export function ProfileEditor({ initialSection }: { initialSection?: string }) {
             {active === "payment" && (
               <>
                 <LockNote>
-                  SponsorX never holds bank details or a tax ID (§26, stack
-                  decision A6). Payouts are sent by BTG Finance outside the
-                  platform — this section only says who to pay and where to
-                  send the remittance note.
+                  SponsorX never holds bank details or a tax ID. Campaign
+                  earnings are paid by BTG Finance outside SponsorX — this
+                  section only says who to pay and where to send the
+                  remittance note.
                 </LockNote>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Legal payee name" hint="The person or company BTG Finance pays.">
@@ -636,7 +636,7 @@ export function ProfileEditor({ initialSection }: { initialSection?: string }) {
                       </span>
                       <span className="min-w-0 flex-1 text-xs">
                         NIL Platform Terms{" "}
-                        <span className="text-[10px] text-faint">v2 · updated for Phase 1</span>
+                        <span className="text-[10px] text-faint">v2</span>
                       </span>
                       {agreementSigned ? (
                         <Badge tone="accent">accepted just now</Badge>
@@ -678,9 +678,8 @@ export function ProfileEditor({ initialSection }: { initialSection?: string }) {
                   </p>
                 )}
                 <p className="text-[10px] leading-relaxed text-faint">
-                  Minors additionally need a verified guardian to authorize —
-                  whether that requires true e-sign is an open legal decision,
-                  so the guardian branch isn&rsquo;t prototyped here.
+                  Minors also need a verified parent or guardian, who accepts
+                  each agreement on their behalf.
                 </p>
               </>
             )}

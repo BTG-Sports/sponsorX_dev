@@ -167,7 +167,7 @@ export default async function CampaignsListPage({
         <EmptyState
           mark="inbox"
           title="Campaigns are outside your role"
-          hint="The campaign roster is read by BTG's campaign and network desks; your role reads its own slice elsewhere (§15)."
+          hint="The campaign roster is read by BTG's campaign and network desks; your role sees its own part elsewhere."
         />
       </div>
     );

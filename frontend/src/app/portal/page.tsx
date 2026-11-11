@@ -65,13 +65,17 @@ export default async function PortalPage() {
               as <span className="text-text">{email}</span>
             </>
           ) : null}
-          , but no SponsorX account has been prepared for you. SponsorX is a
-          managed marketplace in Phase 1 — BTG staff set up sponsor, athlete and
-          property accounts, so access is granted rather than self-served.
+          , but this address doesn&rsquo;t have a SponsorX account yet. Athletes,
+          sponsors and teams or venues get one by applying on{" "}
+          <Link href="/get-started" className="text-text underline underline-offset-2">
+            Get started
+          </Link>
+          .
         </p>
 
         <p className="mt-3 text-xs leading-relaxed text-muted">
-          Ask your BTG contact to provision access for this address.
+          Already applied? Ask your BTG contact to check on access for this
+          address.
         </p>
 
         <div className="mt-7 flex items-center justify-center gap-4 text-[11px]">

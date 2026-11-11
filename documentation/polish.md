@@ -1293,6 +1293,30 @@ agreed 2026-11-11 to split the load). 39–40 are HeckerCreatives'.
 - `/join` form hints and status (`join-flow.ts`, `join-submitted.tsx`):
   "money moves outside SponsorX in Phase 1", §4/§13/§22, P3-FE-02.
 
+- **Delivered (`POL-FE-38`, 2026-11-11, rcfworks):**
+  - Order acceptance works for real athletes and guardians on the v2
+    agreements. The "not wired / until counsel approves" text was only on the
+    sample order and inbox; those now say "Sample order. Only the athlete, or
+    their guardian, can accept a real one."
+  - Earnings wording everywhere on these screens: SponsorX holds no bank
+    details or tax ID; campaign earnings are paid by BTG Finance outside
+    SponsorX; shop and marketplace payouts are set up with Stripe on the
+    Payouts page. "Phase 1", "later phase" and "Not collected in Phase 1"
+    are gone ("Not collected by SponsorX").
+  - The sample campaign builder and launcher say they're a sample and send
+    nothing; the no-account page points to Get started instead of "managed
+    marketplace in Phase 1". The join form's "never asked" line (also shown
+    on the public join and how-it-works pages) no longer says Phase 1.
+  - Section signs, task IDs and "guide §" removed. The sample order's
+    agreement terms are no longer read from `lib/fixtures.ts`'s stale
+    `orderTerms` strings (that file is `POL-FE-40`'s).
+  - Still open, not wording: the join confirmation's "Resend email" and
+    "Change guardian" stay disabled ("contact BTG") — the backend has a
+    guardian resend (`POST /applications/intake/guardian/resend`) that no
+    screen calls yet.
+  - `node scripts/ui-copy-scan.cjs` finds nothing on these screens. Frontend
+    build, lint, typecheck and all 1,957 unit tests pass.
+
 ### 39. Public pages, menus and the route map
 `POL-FE-39` · *Dead end* · **HeckerCreatives** · confirmed
 

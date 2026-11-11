@@ -1,5 +1,5 @@
 import { BackLink } from "@/components/back-link";
-import { Badge, BlockedNotice, Button, Card, SectionHeading } from "@/components/ui";
+import { Badge, Button, Card, SectionHeading } from "@/components/ui";
 import { resolveBack } from "@/lib/back";
 import { demoState } from "@/lib/demo";
 import {
@@ -277,7 +277,7 @@ function LiveOrderView({
               <SectionHeading title="Guardian authorization" />
               <p className="text-[11px] leading-relaxed text-muted">
                 You&rsquo;re under 18, so a verified parent or guardian must
-                authorize this order before it can be accepted (§4). Their
+                authorize this order before it can be accepted. Their
                 authorization is recorded with your acceptance.
               </p>
               <div className="mt-2">
@@ -295,8 +295,8 @@ function LiveOrderView({
               <p className="text-[11px] font-medium text-muted">Earnings, not payment</p>
               <p className="mt-1.5 text-[11px] leading-relaxed text-faint">
                 Accepting starts this order&rsquo;s earning at pending. SponsorX
-                holds no bank details and no tax ID; payment happens outside
-                the system in Phase 1 (§26).
+                holds no bank details and no tax ID. Campaign earnings are paid
+                by BTG Finance outside SponsorX.
               </p>
             </Card>
           )}
@@ -434,7 +434,9 @@ export default async function CampaignOrderPage({
                 ))}
               </dl>
               <p className="mt-4 border-t border-line-soft pt-3 text-[11px] leading-relaxed text-faint">
-                {orderTerms.paymentSchedule}
+                SponsorX tracks where this earning stands. Campaign earnings are
+                paid by BTG Finance outside SponsorX, and SponsorX never holds
+                bank details or a tax ID.
               </p>
             </Card>
           </section>
@@ -443,7 +445,7 @@ export default async function CampaignOrderPage({
           <section>
             <SectionHeading
               title="Deliverables"
-              hint="Auto-created on acceptance, then tracked NOT_STARTED → … → VERIFIED (§21)"
+              hint="Created when the order is accepted, then tracked from not started to verified"
             />
             <Card>
               <ol className="space-y-0">
@@ -478,21 +480,21 @@ export default async function CampaignOrderPage({
           <section>
             <SectionHeading
               title="Campaign Order agreement"
-              hint={orderTerms.agreementVersion}
+              hint="Campaign Order · version 2"
             />
             <Card>
               <ul className="space-y-2">
                 {orderTerms.clauses.map((c, i) => (
                   <li key={c} className="flex gap-2.5 text-xs">
                     <span className="text-faint tabular-nums">{i + 1}.</span>
-                    <span className="text-muted">{c}</span>
+                    <span className="text-muted">{c.replace(/\s*\(§\d+\)/g, "")}</span>
                   </li>
                 ))}
               </ul>
               <p className="mt-4 border-t border-line-soft pt-3 text-[11px] leading-relaxed text-faint">
-                On acceptance, SponsorX stores a hash of the rendered agreement
-                body — not the checkbox alone — so what was agreed to can be
-                proven later (guide §08).
+                On acceptance, SponsorX keeps a fingerprint of the exact agreement
+                text you saw, not just the tick box, so what was agreed can be
+                proven later.
               </p>
             </Card>
           </section>
@@ -507,7 +509,7 @@ export default async function CampaignOrderPage({
                 <Button
                   full
                   disabled
-                  title="Blocked: the Campaign Order template needs counsel approval (guide §08)"
+                  title="Sample order. Only the athlete, or their guardian, can accept a real one."
                 >
                   Review &amp; accept
                 </Button>
@@ -516,11 +518,10 @@ export default async function CampaignOrderPage({
                 </Button>
               </div>
 
-              <BlockedNotice>
-                Acceptance is not wired. Guide §08 blocks it until counsel approves
-                the Campaign Order template — the acceptOrder domain function (B4)
-                hashes whatever text it is shown.
-              </BlockedNotice>
+              <p className="mt-3 text-[11px] leading-relaxed text-muted">
+                Sample order. Only the athlete, or their guardian, can accept a
+                real one.
+              </p>
             </Card>
           ) : (
             <Card>
@@ -549,8 +550,8 @@ export default async function CampaignOrderPage({
             <Card>
               <SectionHeading title="Guardian authorization" />
               <p className="text-[11px] leading-relaxed text-muted">
-                {a.firstName} is a minor. §4 requires a verified guardian
-                to authorize this order before it can be accepted.
+                {a.firstName} is a minor, so a verified guardian must authorize
+                this order before it can be accepted.
               </p>
               <div className="mt-2">
                 {a.guardian?.verifiedAt ? (
@@ -567,8 +568,8 @@ export default async function CampaignOrderPage({
               </p>
               <p className="mt-1.5 text-[11px] leading-relaxed text-faint">
                 Accepting tracks this order&rsquo;s earning through its states.
-                SponsorX holds no bank details and no tax ID; payout happens
-                outside the system in Phase 1 (§26).
+                SponsorX holds no bank details and no tax ID. Campaign earnings
+                are paid by BTG Finance outside SponsorX.
               </p>
             </Card>
           )}

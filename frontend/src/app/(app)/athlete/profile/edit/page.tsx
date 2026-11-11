@@ -190,8 +190,8 @@ export default async function ProfileEditPage({
         </svg>
         <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-muted">
           Signed-in athletes&rsquo; changes save straight away; a legal name, date
-          of birth or guardian also tells BTG and re-runs the checks. In this
-          prototype, edits live in this tab only.
+          of birth or guardian also tells BTG and re-runs the checks. On this
+          sample profile, edits stay in this tab only.
         </p>
       </div>
 
@@ -200,8 +200,8 @@ export default async function ProfileEditPage({
           athlete's, and must not read as the signed-in athlete's own. */}
       <div className="mt-3">
         <BlockedNotice>
-          Demo data — the values in this editor are a sample profile, not
-          yours. Your real details are on Your profile.
+          Sample profile. The values in this editor aren&rsquo;t yours; your
+          real details are on Your profile.
         </BlockedNotice>
       </div>
 

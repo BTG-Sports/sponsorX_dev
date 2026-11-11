@@ -53,3 +53,18 @@ Part of `P8-PMO-06` (go/no-go) and `P2-OPS-04` (production settings).
 ### 3S7-BE-02 test fix, PR #376
 
 - `hub-intelligence.test.ts` seeded a marketplace order with the real clock's `createdAt`, which fell after the test's pinned date, so main CI failed. The order now gets `createdAt` 2026-10-05.
+
+### POL-FE-38 Done (rcfworks), PR #380
+
+- **Athlete, campaign and agreement screens now say what's true now.** The pages covered are the order page, invitations, profile, profile edit, earnings, deliverables, the admin campaign list, builder and detail, the no-account page and the join form.
+  - **Accepting an order already works** for real athletes and guardians on the v2 agreements. The "until counsel approves" text appeared only on the sample order and inbox; those now say only the athlete, or their guardian, can accept a real one.
+  - **Earnings wording:** SponsorX holds no bank details or tax ID; campaign earnings are paid by BTG Finance outside SponsorX; shop and marketplace payouts are set up with Stripe on the Payouts page. "Not collected in Phase 1" now reads "Not collected by SponsorX".
+  - **Section signs, task IDs and "guide §" are removed.** The scanner is clean on these screens.
+- **Left alone:** `lib/fixtures.ts` is POL-FE-40's (HeckerCreatives). The sample order no longer reads its stale `orderTerms` strings.
+- **Not wording, still open:** the join confirmation's "Resend email" and "Change guardian" stay disabled ("contact BTG"). The backend's `POST /applications/intake/guardian/resend` isn't called by any screen.
+
+### P8-OPS-05 Done (rcfworks), PR #381: fonts embedded
+
+- **Why:** #380's CI build failed because `next/font/google` couldn't download Source Serif 4 from Google Fonts, which every build did.
+- **What changed:** the same Latin woff2 files are now committed under `frontend/src/app/fonts` with their OFL licences (about 140 KB) and loaded with `next/font/local`. The variables, weights, styles and preload settings are unchanged, so nothing looks different, and the build needs no network for fonts.
+- **Raised and closed the same day.** It's on the Phase 1 sheet (row 331) and in the Phase 1 plan. The sheet's Status list, colour rules and filter now reach row 331; the Dashboard and Stage Progress formulas already reach row 400.
