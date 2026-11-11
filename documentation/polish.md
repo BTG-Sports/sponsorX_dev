@@ -32,6 +32,7 @@ also has a back-end row waits for it.
 | C · Confusing or extra work | 16–30 | Users find a workaround, or give up |
 | D · Polish | 31–35 | Wording and links |
 | E · Payments switch | 36 | Turn live payments on when polish is done |
+| F · Clean pass | 37–40 | Production shows outdated wording, developer notes and sample figures |
 
 **Do number 4 first.** It is hurting sponsors now, while Stripe is paused.
 
@@ -1188,6 +1189,123 @@ production, and only someone with Railway access can do it.
     open, so "until payments open" is right in both cases.
 
 **Delivered (`POL-FE-36`, 2026-11-03):** BTG turns payments on or off from the app: a Payments desk in Mission Control (`/admin/payments`, Money group) and its Vault twin (`/finance/payments`) show the switch, whether payment is actually open, the Railway provider, who last changed it and why, and the history (`components/payment-switch.tsx`, `lib/payment-switch-live.ts`). A change asks for a reason and confirms what on and off mean; "Turn on" is disabled with "Payment provider not set up in Railway yet" while Railway names no provider. Everywhere a sponsor or payee would pay or set up payouts while payment is closed, the button says "Payments open soon", and the payout and refund desks say money waits "until payments open". Tests: `tests/payment-switch-live.test.ts`.
+
+---
+
+## F · Clean pass: outdated wording and developer notes (added 2026-11-11)
+
+Found 2026-11-11, on the go-live check, by scanning the text people see on
+screen in the code production runs (code comments excluded):
+`node scripts/ui-copy-scan.cjs`. About 180 lines on 45 pages. Production
+shows them exactly as development does. Four kinds:
+
+- **Wrong now:** says something that is no longer true. Examples: payouts
+  "blocked on the written Phase 1 payment policy"; "acceptance stays disabled
+  until counsel approves"; "no self-service checkout until Phase 2"; "payout
+  happens outside the system".
+- **Fake numbers:** a signed-in person whose role can't read a desk is shown
+  sample figures ("Demo data — … every figure below is sample data").
+- **Developer note:** blueprint sections (`§26`), task IDs (`P9-FE-04`) and
+  internal words (Railway, fixture, stand-in, Stage 9, "this environment",
+  "guide §08", the API address).
+- **Unfinished label:** "Not built yet", "not wired", "in the prototype".
+
+**What is true now (write to this):**
+- Sponsors pay by card through Stripe, while BTG's Payments switch is on.
+  Athletes and teams are paid through Stripe; their payout account is set up
+  in SponsorX.
+- Stripe collects W-9 and W-8 forms and files the 1099s. SponsorX never
+  stores a tax ID or bank details.
+- The agreements are approved and issued in the app (v2, 2026-10-22).
+  Acceptance works.
+- The marketplace and shop have checkout. Managed briefs still exist beside
+  them.
+
+**One owner per page,** so two people never edit the same file. Items 37–38
+are frontend work done by rcfworks (an exception to "`POL-FE` = HeckerCreatives",
+agreed 2026-11-11 to split the load). 39–40 are HeckerCreatives'.
+
+**Done when (all four):**
+- the scan finds no section sign, task ID or internal word on the item's pages;
+- no sentence on them contradicts "What is true now";
+- in production, a signed-in person never sees sample figures: they see
+  "Your role can't see this. Ask a BTG admin." (Visitors' sample pages stay,
+  clearly labelled, as before.);
+- the page still builds and its tests pass.
+
+### 37. Money and operations screens
+`POL-FE-37` · *Money* · **rcfworks** · confirmed
+
+- `/admin/finance` and `/finance` (books): the "Payout actions are blocked"
+  banner, "SponsorX observes; it does not invoice or pay", §10/§18/§21/§26/§37,
+  Addendum A6, "payout policy is still an open gate", sample books.
+- `/finance/splits` and `/admin/next/splits`: shares `live-splits` copy (§15.3, spec §5.7, P9-PMO-01, "wired by P9-FE-05").
+- `/admin/payments` (`payment-switch.tsx`): "while Railway names a provider",
+  "the default for this environment", and the reason-box examples dated
+  2026-11-03.
+- `/admin/integrations`: P8-INT-04, 3S1-QA-01, "Emails are off in this environment".
+- `/admin/intelligence/*` and `/property/intelligence` (`engine-pending.tsx`,
+  `model-registry.tsx`, `models-live.ts`): the raw `/api/v1/…` address,
+  "seeded simulated history (SponsorX-Backtest.md §4)".
+- `/admin/network`: §15, P0-PMO-13.
+
+### 38. Athlete, campaign and agreement wording
+`POL-FE-38` · *Money · Consent* · **rcfworks** · confirmed
+
+- `/athlete/orders/[id]`: "Acceptance is not wired… until counsel approves",
+  "payout happens outside the system in Phase 1", §4/§21/§26, "guide §08",
+  "acceptOrder domain function (B4)".
+- `/athlete/invitations` (`invitations-inbox.tsx`): "Acceptance stays disabled
+  until counsel approves", "not wired in the fixture build", sample inbox.
+- `/athlete/profile` (`athlete-profile-view.tsx`, `profile-sections.ts`) and
+  `/athlete/profile/edit` (`profile-editor.tsx`, `live-profile-editor.tsx`):
+  "the payment recipient record arrives in a later phase", "Payouts are sent
+  by BTG Finance outside the platform", "Not collected in Phase 1",
+  "Uploads… not wired in the prototype", §5/§6/§12/§22/§26/§30.
+- `/athlete/earnings` (`activity-explorer.tsx`) and `/athlete/deliverables`.
+- `/admin/campaigns` (`campaign-launcher.tsx`, `campaign-builder.tsx`) and
+  `/admin/campaigns/[id]`: "nothing sends until counsel clears the template",
+  "fixture data", §13/§14/§15/§26.
+- `/portal` (no account yet): "a managed marketplace in Phase 1".
+- `/join` form hints and status (`join-flow.ts`, `join-submitted.tsx`):
+  "money moves outside SponsorX in Phase 1", §4/§13/§22, P3-FE-02.
+
+### 39. Public pages, menus and the route map
+`POL-FE-39` · *Dead end* · **HeckerCreatives** · confirmed
+
+- `/packages`, `/about`, `/how-it-works`, `/join`, `/next/about`
+  (`packages-stage.tsx`): "no self-service checkout until Phase 2", "Phase 1
+  is a managed marketplace".
+- `/properties/[slug]`: "Phase 1 is managed — Select opens a brief, it does
+  not check out (§17)", §4.
+- `/brief` (`brief-flow.ts`), `/athletes/[slug]` (§22), §13/§26.
+- `/map` ("Skeleton routes for Phase 1… Master Development Blueprint") and
+  the admin menu's "route map" link: not reachable in production.
+- Menus and header (`site-nav`, `mobile-nav`, `portal-nav`, `portal-shell`,
+  `screen-stub`): "Not built yet" entries, "Notifications — not wired",
+  "Help — not wired".
+
+### 40. Admin desks, sponsor and NEXT screens
+`POL-FE-40` · *Silent* · **HeckerCreatives** · confirmed
+
+- `/admin/applications` (`applications-desk.tsx`), `/admin/approvals` and
+  `/advisor/review` (`approvals-desk.tsx`): sample queues, "platform
+  verification comes in a later phase", "Open the signed asset URL — not
+  wired", NEXT spec §5.2.
+- `/admin/rewards` (`rewards-desk`, `live-rewards-desk`, `reward-creator`):
+  §16/§26, "guide §06", sample rewards.
+- `/admin/analytics` (`analytics-story.tsx`): §9/§15/§16/§22.
+- `/admin/campaigns/match` (`matching-studio.tsx`, `matching.ts`): §14/§15/§26, sample athletes.
+- `/admin/next/editions`, `inventory`, `rights`: "wired by P9-FE-04 (Stage 9)",
+  "Repricing is wired in Stage 9", V3 §6, §15.3, sample editions
+  (`server/next-editions.ts`, `lib/fixtures.ts`).
+- Sponsor: `/sponsor/campaigns/[id]` and `/report`, `/sponsor/marketplace`
+  ("waitlist not wired"), `/sponsor/marketplace/[jobId]`, `/sponsor/requests/[id]`,
+  `/sponsor/shop`, and `campaign-change.tsx`: "fixture data", "Sample data".
+- NEXT: `/next`, `/next/points`, `/next/code`, `/next/sales`,
+  `/next/assignments`, `/advisor`: "nothing converts in Phase 1",
+  "Messaging is not in Phase 1", "The QR shown here is a stand-in", "arrives
+  with Stage 9 (P9-FE-01)", spec §5.1/§5.5/§14.
 
 ---
 
