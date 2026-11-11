@@ -73,17 +73,18 @@ completeness.
 
 ## Production: the owner's go-live switches
 
-**Where it stands, 2026-11-03.** Stripe is connected in production
+**Where it stands, 2026-11-11.** Stripe is connected in production
 (`PAYMENT_PROVIDER=stripe`) but checkout is still **closed**: BTG's Payments switch
-stays off until the frontend polish items are done and the $1 live test is run.
-The production check is done. Still to do:
-- the $1 live payment and refund;
-- MFA (Clerk Pro);
-- Stripe tax forms (needs Rodney's login; guide prepared);
+has never been set. A BTG Admin turns it on at `/admin/payments`, then runs the
+$1 live test. The polish screens are all on production (release of 2026-11-03).
+Still to do:
+- turn the Payments switch on, then the $1 live payment and refund;
+- MFA (Clerk Pro): Rodney gave the go-ahead 2026-11-11; the plan is not yet confirmed in Clerk;
 - the signatures below.
 
 Done: the edge key, Resend email, Zoho (2026-10-24), the production check,
-the Stripe connection and BTG's postal address (2026-11-03). Fan geography is optional (below).
+the Stripe connection and BTG's postal address (2026-11-03), Stripe tax forms and
+the two reward switches (2026-11-11). Fan geography is optional (below).
 
 Production runs the same code as staging. It is deployed from `release` by
 the same workflow, but it is effectively dark. These are switched on by the
@@ -93,10 +94,10 @@ owner at go-live. None of them needs code.
 |---|---|---|---|
 | Payments | **Connected, checkout closed (2026-11-03).** `PAYMENT_PROVIDER=stripe` on production `api`, which restarted healthy (the key guard refuses to start without the live key and webhook secrets). BTG's Payments switch (`POL-BE-36`) has never been set, so it is off and nobody can pay yet. Stripe's account status: payments and payouts active, no tasks due (the photo-ID step is no longer listed). The restricted key `SponsorX production (restricted)` was probed with calls that create nothing: Checkout Sessions, PaymentIntents, Refunds, Transfers, Accounts v2 and v2 Account Links are allowed. The three live webhook destinations (`SponsorX payments`, `SponsorX payout accounts` thin, `SponsorX connected accounts`, at `https://sponsorx.net/api/v1/webhooks/payments/stripe`, API version `2026-09-30.endive`) refuse an unsigned post (401). | When the frontend polish is done: turn the Payments switch on, do one $1 payment and refund on a hidden test listing (Stripe doc §6.4), and switch it off again until go-live. Confirm in the Stripe Dashboard that the three webhook destinations are enabled: the key cannot list them. | Owner |
 | Zoho | **Done 2026-10-24.** Production is connected to the real CRM (org `4857533000000020005`) with its own refresh token, owned by **rcfworks** (`SponsorX-Zoho-Credentials-and-Sandbox.md` §9). `ZOHO_EXPECTED_ORG_ID` pins the org. The CRM notification channel is live at `https://sponsorx.net/api/v1/webhooks/zoho/crm` (`zoho.watch renewed`). The two intelligence fields were created on Accounts | — | P2-OPS-04 |
-| MFA for admin and finance | Not available: needs Clerk Pro | Upgrade to Clerk Pro, then require MFA for privileged roles in production | P2-INT-02 |
+| MFA for admin and finance | Needs Clerk Pro. **2026-11-11:** Rodney gave the go-ahead; Clerk's API doesn't show the plan, and none of the four production users (the three BTG Admins and infinex1@icarrefound.org) has two-step sign-in turned on yet | Confirm Clerk Pro in Clerk's billing page, then require MFA for privileged roles in production, and each admin sets up two-step sign-in | P2-INT-02 |
 | Fan rate limiting | **Done 2026-10-23.** `SPONSORX_EDGE_KEY` is set on production web and api (rotated after Railway's incident) | — | P2-OPS-04 (P8-SEC-03) |
 | Fan geography | `GEOLITE2_CITY_PATH` unset. **Optional:** market geography no longer depends on it (`SponsorX-Event-Taxonomy-Audit.md` G3); it only adds a city to fan clicks | After launch: a free MaxMind account and a build step that ships the database file | P2-OPS-04 |
-| Tax forms | Stripe Connect tax reporting off. **2026-11-03:** the Tax forms page sends the team's Stripe login back to the Dashboard, most likely because it needs the account owner. A step-by-step guide for Rodney: [Turning on 1099 tax forms in Stripe](https://claude.ai/artifact/LyTKuTGGstJncrTQiqn8ns) | 2S0-LEG-02 approved 2026-10-22: Rodney switches on tax reporting for connected accounts. Stripe then collects W-9 and W-8 forms and files the 1099s. Needed before the first payout to an athlete or team, not before the first payment | Owner (Rodney) |
+| Tax forms | **Done 2026-11-11, confirmed by Rodney** (account owner); not seen by the team, whose Stripe login can't open the Tax forms page. herseyblack@hotmail.com opened the BTG account (`acct_1UNCupGfl3hcz7a8`, the one SponsorX's live key and webhooks use) on 2026-11-09, so it was set up on the right account, not a separate one. Stripe now collects W-9 and W-8 forms and files the 1099s (2S0-LEG-02). Guide used: [Turning on 1099 tax forms in Stripe](https://claude.ai/artifact/LyTKuTGGstJncrTQiqn8ns) | Optional: a screenshot of Connect → Tax forms → Settings from Rodney, to move this from confirmed to seen | Owner (Rodney) |
 | Email | **Done 2026-10-23.** Domain verified in Resend (`sponsorx.net`); `RESEND_API_KEY` is set on the production api (rotated after Railway's incident) | — | Owner |
 | File storage | **Done 2026-11-03.** Production has its own R2 buckets, `sponsorx-production-private` and `sponsorx-production-public` (US East); until today it shared staging's. Uploads to the private bucket are allowed only from `https://sponsorx.net`. Public files are served at `https://files.sponsorx.net`, not `r2.dev`. `R2_PUBLIC_BASE_URL` is set on production `api` and `web`. Nothing needed moving: production had no stored files. The R2 key is still the one shared with staging (rotated 2026-10-23), now scoped to all four buckets, by the user's choice | Optional: a production-only key, so a leak from staging can't reach production's files | Owner |
 | Phase 3 rollout | Per-tenant feature switches | Stage 3 (outside sponsors and properties): 3S0-LEG-01 approved 2026-10-22, so this is the owner's call | Owner |
