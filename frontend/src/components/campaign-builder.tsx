@@ -597,16 +597,14 @@ export function CampaignBuilder({
         </Card>
 
         <BlockedNotice>
-          Sending invitations creates Campaign Orders, and acceptance stays
-          blocked until counsel approves the Campaign Order template (guide
-          §08). The builder can be finished; the invitations cannot go out yet.
+          Sample builder. In a real campaign, sending invitations creates a
+          Campaign Order for each athlete to accept. Nothing here is sent.
         </BlockedNotice>
 
         <Card className="p-4">
           <p className="text-[11px] font-medium text-muted">Conflict check</p>
           <p className="mt-1.5 text-[11px] leading-relaxed text-faint">
-            §26 requires category conflicts to be checked before an invitation
-            is sent.{" "}
+            Category conflicts are checked before an invitation is sent.{" "}
             {blockedCount > 0
               ? `${blockedCount} athlete on a competing deal is shown blocked — not silently filtered — so you know why the roster is short.`
               : "No conflicts on the current roster."}
@@ -975,9 +973,8 @@ function StepAthletes({
       )}
 
       <p className="mt-3 text-[10px] leading-relaxed text-faint">
-        Score is the Content Value Score (§14) — engagement, content quality,
+        Score is the Content Value Score — engagement, content quality,
         audience, reliability, geography, fit and sponsor performance.
-        Rules-based in Phase 1; algorithmic scoring is a Phase 3 job.
       </p>
     </section>
   );
@@ -1261,7 +1258,7 @@ function StepReview({
       <StepHead
         n={5}
         title="Review & launch"
-        blurb="One last look. Nothing is sent until counsel clears the Campaign Order template — this assembles the draft."
+        blurb="One last look. This is a sample builder: it assembles the draft and sends nothing."
       />
 
       {launched && (
@@ -1277,10 +1274,9 @@ function StepReview({
               Draft assembled — {name || "Untitled campaign"}
             </p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted">
-              On a live system this would create the Campaign Orders and move
+              In a real campaign this creates the Campaign Orders and moves
               the campaign to <span className="font-medium text-text">STAFFING</span>.
-              Invitations stay held until counsel approves the template (§08).
-              This is a demo — nothing was saved.
+              This is a sample — nothing was saved.
             </p>
           </div>
         </div>

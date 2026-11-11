@@ -689,7 +689,7 @@ export default async function CampaignDashboardPage({
 
       {/* ------------------------------------------------------ trust note */}
       <p className="sx-animate sx-delay-4 text-[10px] leading-relaxed text-faint">
-        Campaign <code className="font-mono">{id}</code> · fixture data.
+        Campaign <code className="font-mono">{id}</code> · sample campaign.
         Under-delivery and awaiting-acceptance flags are raised automatically
         as deliverables track against the order schedule.
       </p>

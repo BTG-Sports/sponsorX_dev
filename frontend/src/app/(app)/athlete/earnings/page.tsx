@@ -351,7 +351,7 @@ export default async function AthleteEarningsPage({
             <span className="min-w-0 flex-1 text-xs leading-relaxed text-muted">
               {live
                 ? `${held.count === 1 ? "One earning is" : `${held.count} earnings are`} on hold while BTG Finance checks the work behind ${held.count === 1 ? "it" : "them"} — nothing is lost; it moves again once cleared.`
-                : heldNote.replace(" (§21)", "")}
+                : heldNote.replace(/\s*\(§\d+\)/g, "")}
             </span>
           </div>
         </ArenaPanel>

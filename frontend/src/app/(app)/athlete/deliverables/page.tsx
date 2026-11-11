@@ -153,7 +153,7 @@ export default async function DeliverablesPage({
 
       {!live && demo !== "empty" && (
         <BlockedNotice>
-          Demo data — sign in as an athlete to see your real deliverables.
+          Sample deliverables. Sign in as an athlete to see your real ones.
         </BlockedNotice>
       )}
 

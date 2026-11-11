@@ -129,7 +129,7 @@ export function JoinSubmitted({
             <button
               type="button"
               disabled
-              title="Guardian reminders arrive with the application-status screen (P3-FE-02)"
+              title="Not available here yet. To resend your guardian's email, contact BTG."
               className="min-h-11 cursor-not-allowed rounded-lg border border-warn/60 px-4 py-2.5 text-sm font-semibold text-warn opacity-50"
             >
               Resend email
@@ -137,7 +137,7 @@ export function JoinSubmitted({
             <button
               type="button"
               disabled
-              title="Guardian changes arrive with the application-status screen (P3-FE-02)"
+              title="Not available here yet. To change your guardian, contact BTG."
               className="min-h-11 cursor-not-allowed rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-text opacity-50"
             >
               Change guardian

@@ -70,7 +70,7 @@ async function liveProfile(): Promise<{ p: ApiMyProfile; rates: ApiRate[] } | nu
 const STATE_CHIP: Record<SectionState, { tone: ArenaTone; label: string }> = {
   done: { tone: "win", label: "Complete" },
   missing: { tone: "warn", label: "Missing" },
-  "not-collected": { tone: "ink", label: "Not collected in Phase 1" },
+  "not-collected": { tone: "ink", label: "Not collected by SponsorX" },
 };
 
 /* The two owner actions, as the arena's pills (globals.css skins both). */
@@ -243,9 +243,10 @@ function SectionContent({ p, k, rates }: { p: ApiMyProfile; k: SectionKey; rates
     case "payment":
       return (
         <p className="text-xs text-muted">
-          Phase 1 tracks earnings status only. No bank details or tax IDs are
-          ever stored, and the payment recipient record arrives in a later
-          phase — this section doesn&rsquo;t count against your meter.
+          SponsorX never stores bank details or tax IDs. Campaign earnings are
+          paid by BTG Finance outside SponsorX; shop and marketplace payouts
+          are set up with Stripe on the Payouts page. This section
+          doesn&rsquo;t count against your meter.
         </p>
       );
     case "agreements":
@@ -328,14 +329,14 @@ function LiveProfile({ p, rates }: { p: ApiMyProfile; rates: ApiRate[] }) {
             format="pct"
             share={percent / 100}
             tone={percent === 100 ? "win" : "blue"}
-            caption={missing.length > 0 ? `finish ${missing.map((k) => labelOf(k).toLowerCase()).join(", ")}` : "every section Phase 1 collects is filled in"}
+            caption={missing.length > 0 ? `finish ${missing.map((k) => labelOf(k).toLowerCase()).join(", ")}` : "every section is filled in"}
             href="/athlete/profile/edit"
             delay={0.1}
           />
           <ArenaTile
             label="Sections done"
             value={done}
-            caption={`of ${answerable.length} that count · ${notCollected} not collected in Phase 1`}
+            caption={`of ${answerable.length} that count · ${notCollected} not collected by SponsorX`}
             tone={done === answerable.length ? "win" : "ink"}
             delay={0.16}
           />
@@ -426,8 +427,8 @@ export default async function ProfilePage({
           staff previewing — reaches this fixture view; it must never read as
           their own profile. */}
       <BlockedNotice>
-        Demo data — this is a sample profile, not a real one. A guardian
-        view of the athlete&rsquo;s profile isn&rsquo;t built yet.
+        Sample profile, not a real one. Only the athlete sees their own
+        profile here.
       </BlockedNotice>
 
       <ArenaHead

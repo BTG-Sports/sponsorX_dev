@@ -746,7 +746,7 @@ function Drawer({
               <Badge tone="danger">{EARNING_COPY[e.state]}</Badge>
               <p className="min-w-0 flex-1 text-xs leading-relaxed text-muted">
                 {e.state === "HELD"
-                  ? heldNote.replace(" (§21)", "")
+                  ? heldNote.replace(/\s*\(§\d+\)/g, "")
                   : STATUS_DETAIL[e.state]}
               </p>
             </div>
