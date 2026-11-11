@@ -1,15 +1,24 @@
 import type { Metadata } from "next";
-import { Bebas_Neue, Poppins, Source_Serif_4 } from "next/font/google";
+import localFont from "next/font/local";
 import { ClerkProvider } from "@clerk/nextjs";
 
 import { PageTransition } from "@/components/page-transition";
 import "./globals.css";
 
-// next/font self-hosts at build time, so this carries no host coupling.
-const poppins = Poppins({
+/* The fonts are committed under app/fonts and loaded with next/font/local,
+   so `next build` needs no network. next/font/google downloaded them from
+   Google Fonts on every build, and a failed download failed the build
+   (CI, 2026-11-11). Same files Google served: the Latin subset, woff2.
+   Licences: app/fonts/OFL-*.txt (SIL Open Font Licence 1.1). */
+const poppins = localFont({
   variable: "--font-poppins",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  src: [
+    { path: "./fonts/poppins-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/poppins-500.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/poppins-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/poppins-700.woff2", weight: "700", style: "normal" },
+  ],
+  fallback: ["system-ui", "Arial", "sans-serif"],
 });
 
 /* The two magazine faces for /next/about (design spec 2026-09-30 §2):
@@ -18,17 +27,21 @@ const poppins = Poppins({
    @theme); nothing outside `.sx-mag` uses them. `preload: false` because
    only /next/about draws them; the browser fetches the files when
    `font-mag` / `font-mag-serif` is first used. */
-const bebas = Bebas_Neue({
+const bebas = localFont({
   variable: "--font-bebas",
-  subsets: ["latin"],
-  weight: "400",
+  src: [{ path: "./fonts/bebas-neue-400.woff2", weight: "400", style: "normal" }],
+  fallback: ["Impact", "Arial Narrow", "sans-serif"],
   preload: false,
 });
-const sourceSerif = Source_Serif_4({
+/* Source Serif 4 is a variable font: one file per style covers 400 and 600. */
+const sourceSerif = localFont({
   variable: "--font-source-serif",
-  subsets: ["latin"],
-  weight: ["400", "600"],
-  style: ["normal", "italic"],
+  src: [
+    { path: "./fonts/source-serif-4-roman.woff2", weight: "400 600", style: "normal" },
+    { path: "./fonts/source-serif-4-italic.woff2", weight: "400 600", style: "italic" },
+  ],
+  fallback: ["Georgia", "Times New Roman", "serif"],
+  adjustFontFallback: "Times New Roman",
   preload: false,
 });
 
