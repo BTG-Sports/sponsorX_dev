@@ -100,7 +100,7 @@ export function PaymentSwitch({ state, chip }: { state: ApiPaymentSwitch; chip: 
           {w.changedLine ? (
             <p className="text-[11px] leading-relaxed text-muted">{w.changedLine}</p>
           ) : (
-            <p className="text-[11px] text-muted">Nobody has set the switch yet — this is the default for this environment.</p>
+            <p className="text-[11px] text-muted">Not changed yet. This is the starting setting.</p>
           )}
         </div>
         {!confirming && (
@@ -164,7 +164,7 @@ export function PaymentSwitch({ state, chip }: { state: ApiPaymentSwitch; chip: 
             onChange={(e) => setReason(e.target.value)}
             rows={3}
             maxLength={REASON_MAX}
-            placeholder={w.next.open ? "e.g. Stripe live keys verified, go-live approved 2026-11-03." : "e.g. Stripe webhook failing since 09:40, closing while we look."}
+            placeholder={w.next.open ? "Why are you turning payments on?" : "Why are you turning payments off?"}
             className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-xs outline-none focus:border-primary"
           />
           {reason.trim().length > 0 && problem && <p className="text-[11px] text-warn">{problem}</p>}

@@ -65,7 +65,7 @@ export async function LiveSplits({ live }: { live: LiveEditions }) {
     return (
       <div className="space-y-6">
         {heading}
-        <EmptyState mark="chart" title="Publishing economics are finance's" hint="The matrix (§15.3) gives revenue splits to BTG admin and finance — never to an advisor or a student." />
+        <EmptyState mark="chart" title="Publishing economics are finance's" hint="Revenue splits are visible to BTG admin and Finance only." />
       </div>
     );
   }
@@ -131,13 +131,13 @@ export async function LiveSplits({ live }: { live: LiveEditions }) {
               shares, and every amount derived from them, say so. */}
           <span className="mt-1 flex flex-wrap items-center gap-1.5">
             Shares are working numbers pending BTG sign-off
-            <MiniChip kind="est">EST · curated · simulated split (P9-PMO-01, 2026-09-25)</MiniChip>
+            <MiniChip kind="est">Estimate · sample split</MiniChip>
           </span>
         </p>
       </Card>
 
       <section className="sx-animate sx-delay-1">
-        <SectionHeading title="The four payees" hint="Fixed kinds from spec §5.7 — a fifth payee is a schema change, not a row" />
+        <SectionHeading title="The four payees" hint="The four payee types are fixed." />
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {rows.map((r) => (
             <Card key={r.payeeKind} className="min-w-0 p-4">
@@ -153,7 +153,7 @@ export async function LiveSplits({ live }: { live: LiveEditions }) {
                   <span className="text-xl font-semibold tabular-nums tracking-tight">{money(r.amountCents)}</span>
                 )}
                 <span className="text-[11px] tabular-nums text-faint">{r.bps.toLocaleString("en-US")} bps</span>
-                <MiniChip kind="est">EST · curated</MiniChip>
+                <MiniChip kind="est">Estimate</MiniChip>
               </p>
               <p className="mt-2 text-[11px] leading-relaxed text-muted">{payeeBlurb(r.payeeKind, regional)}</p>
             </Card>

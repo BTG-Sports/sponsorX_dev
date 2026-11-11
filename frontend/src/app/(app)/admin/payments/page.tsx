@@ -36,14 +36,14 @@ export default async function PaymentsPage() {
       <div>
         <h1 className="sx-page-title">{TITLE}</h1>
         <p className="mt-1 max-w-3xl text-xs text-muted">
-          Whether money moves on SponsorX right now. Payments are open only while Railway names a provider and this switch is on; every change is recorded with who and why.
+          Turn card payments and payouts on or off. Payments are open only while this switch is on and Stripe is set up. Every change is recorded with who made it and why.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatTile label="Payments" value={s.open ? "Open" : "Off"} sub={s.open ? "checkout and payouts moving" : "nothing moves until it's on"} />
-        <StatTile label="Provider" value={providerLabel(s.provider)} sub={s.canTurnOn ? "set in Railway" : "the Railway setting is the master off"} />
-        <StatTile label="Last changed" value={s.changed ? switchStamp(s.changed.at) : "Never"} sub={s.changed ? `by ${s.changed.by ?? "someone at BTG"}` : "the environment's default applies"} />
+        <StatTile label="Provider" value={providerLabel(s.provider)} sub={s.canTurnOn ? "set up" : "not set up yet"} />
+        <StatTile label="Last changed" value={s.changed ? switchStamp(s.changed.at) : "Never"} sub={s.changed ? `by ${s.changed.by ?? "someone at BTG"}` : "this is the starting setting"} />
       </div>
 
       <Card>

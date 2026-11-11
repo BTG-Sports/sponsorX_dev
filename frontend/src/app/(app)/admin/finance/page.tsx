@@ -145,15 +145,15 @@ function LiveFinance({ books }: { books: LiveBooks }) {
       <div>
         <h1 className="sx-page-title">Finance</h1>
         <p className="mt-1 text-xs text-muted">
-          Invoice status from Zoho Books and athlete earnings status — §10. SponsorX observes; it does not invoice or pay.
+          Sponsor invoices from Zoho Books, and where each athlete earning stands.
         </p>
       </div>
 
       <BlockedNotice>
-        Payout actions are blocked on the written Phase 1 payment policy (§37 gate one, an open A-gate). This screen
-        shows real states; it does not approve, pay or collect payout details until the policy is written. Earnings
-        under $2,000 move to &ldquo;approved for payout&rdquo; on their own as they become eligible (2S5-BE-08); the
-        ones left for Finance say why. Paid is still recorded by Finance.
+        Campaign earnings are paid by BTG Finance outside SponsorX. When an earning becomes eligible, it&rsquo;s
+        approved for payout automatically if it&rsquo;s under $2,000; the others wait here with the reason. Finance
+        marks each one paid once the transfer is sent. Shop and marketplace payouts go through Stripe, on the Payouts
+        page.
       </BlockedNotice>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -193,7 +193,7 @@ function LiveFinance({ books }: { books: LiveBooks }) {
             />
           </div>
           <p className="mt-3 flex items-center gap-1.5 text-[10px] text-faint">
-            Σ Earning by state — balance in each, not a conversion <MiniChip kind="ver">POSTGRES</MiniChip>
+            Earnings by status — the balance in each, not a conversion <MiniChip kind="ver">SPONSORX</MiniChip>
           </p>
         </Card>
       </div>
@@ -264,7 +264,7 @@ function LiveFinance({ books }: { books: LiveBooks }) {
       )}
 
       <section>
-        <SectionHeading title="Sponsor invoices" hint="§18 — from Zoho Books, inbound only; SponsorX never writes an invoice." />
+        <SectionHeading title="Sponsor invoices" hint="From Zoho Books. Invoices are made there, not in SponsorX." />
         {books.invoices && books.invoices.page.total > 0 && (
           <div className="mb-3">
             <PagerRow page={books.invoices.page} noun="Invoices" tone="admin" position="top" keys={INVOICE_KEYS} />
@@ -314,7 +314,7 @@ function LiveFinance({ books }: { books: LiveBooks }) {
       </section>
 
       <section>
-        <SectionHeading title="Athlete earnings" hint="§21 — status only, no tax ID or bank details (§26)" />
+        <SectionHeading title="Athlete earnings" hint="Where each earning stands. SponsorX never stores tax IDs or bank details." />
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <ListSearch initial={books.q} label="Search earnings" placeholder="Athlete, campaign, sponsor, job or reference…" tone="admin" />
           <ListFilter
@@ -392,7 +392,7 @@ function LiveFinance({ books }: { books: LiveBooks }) {
         <PagerRow page={books.earnings.page} noun="Earnings" tone="admin" position="bottom" filtered={earningsFiltered} />
         <p className="mt-2 text-[10px] leading-relaxed text-faint">
           Commission is BTG&rsquo;s cut: the sponsor price minus the athlete&rsquo;s net earning. The athlete never sees
-          the sponsor price (§7.1).
+          the sponsor price.
         </p>
       </section>
     </div>
@@ -435,8 +435,7 @@ export default async function AdminFinancePage({
     <div>
       <h1 className="sx-page-title">Finance</h1>
       <p className="mt-1 text-xs text-muted">
-        Invoice status from Zoho Books and athlete earnings status — §10.
-        SponsorX observes; it does not invoice or pay.
+        Sponsor invoices from Zoho Books, and where each athlete earning stands.
       </p>
     </div>
   );
@@ -474,17 +473,17 @@ export default async function AdminFinancePage({
           verified chips must not read as the real books. */}
       {demo === null && (
         <BlockedNotice>
-          Demo data — the real books are read by BTG admin and Finance only, so
-          every figure below is sample data.
+          Sample figures. Sign in with a BTG admin or Finance account to see the
+          real books.
         </BlockedNotice>
       )}
 
       {/* -------------------------------------------------------- gate ---- */}
       <BlockedNotice>
-        Payout actions are blocked on the written Phase 1 payment policy (§37
-        gate one, an open A-gate). Expected: earnings status only, no tax ID
-        collected. Until it is written and linked from the stack decision,
-        nothing here approves a payout.
+        Campaign earnings are paid by BTG Finance outside SponsorX. When an earning becomes eligible, it&rsquo;s
+        approved for payout automatically if it&rsquo;s under $2,000; the others wait here with the reason. Finance
+        marks each one paid once the transfer is sent. Shop and marketplace payouts go through Stripe, on the Payouts
+        page.
       </BlockedNotice>
 
       {/* ------------------------------------------------ collection + aging */}
@@ -559,7 +558,7 @@ export default async function AdminFinancePage({
       <section>
         <SectionHeading
           title="Sponsor invoices"
-          hint={`Latest invoices — most recent ${sponsorInvoices.length} shown, not the quarter total. §18 — from Zoho Books, inbound only; SponsorX never writes an invoice.`}
+          hint={`Latest invoices — most recent ${sponsorInvoices.length} shown, not the quarter total. From Zoho Books; invoices are made there, not in SponsorX.`}
         />
         <Card className="p-0">
           <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Finance — scrollable table">
@@ -601,7 +600,7 @@ export default async function AdminFinancePage({
       <section>
         <SectionHeading
           title="Athlete earnings"
-          hint="§21 state machine — status only, no tax ID or bank details (§26)"
+          hint="Where each earning stands. SponsorX never stores tax IDs or bank details."
         />
         <Card className="p-0">
           <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Finance — scrollable table">
@@ -646,8 +645,8 @@ export default async function AdminFinancePage({
         </Card>
         <p className="mt-2 text-[10px] leading-relaxed text-faint">
           Commission is BTG&rsquo;s cut of the sponsor price; the athlete&rsquo;s
-          rate and the sponsor price are different numbers, and reconciliation
-          against Zoho happens in the worker (§18), never on this screen.
+          rate and the sponsor price are different numbers. Zoho Books is checked
+          against these figures automatically, not on this screen.
         </p>
       </section>
 
@@ -655,7 +654,7 @@ export default async function AdminFinancePage({
       <section>
         <SectionHeading
           title="Earnings flow"
-          hint="§21 — Σ Earning by state, cents"
+          hint="What is owed, by status"
         />
         <Card className="p-4">
           <FunnelSteps
@@ -673,15 +672,14 @@ export default async function AdminFinancePage({
             ))}
           </ul>
           <p className="mt-3 flex items-center gap-1.5 text-[10px] text-faint">
-            Σ Earning by state <MiniChip kind="ver">POSTGRES</MiniChip>
+            Earnings by status <MiniChip kind="ver">SPONSORX</MiniChip>
           </p>
           <p className="mt-2 text-[10px] leading-relaxed text-faint">
             Balance sitting in each state — not a conversion funnel.
           </p>
           <p className="mt-2 text-[10px] leading-relaxed text-faint">
-            Earnings are status-tracked only — no tax ID or bank details are
-            collected in Phase 1 (§26, Addendum A6); payout policy is still an
-            open gate (§37).
+            SponsorX never stores tax IDs or bank details. Campaign earnings are
+            paid by BTG Finance outside SponsorX.
           </p>
         </Card>
       </section>

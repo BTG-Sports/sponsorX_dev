@@ -173,8 +173,8 @@ test("a verified post releases the earning, shows in finance, and lands in the s
   // 5. FINANCE — BTG admin: the earning with commission, and the reconciliation.
   await desk.goto("/admin/finance");
   await expect(desk.getByRole("heading", { level: 1, name: "Finance" })).toBeVisible();
-  await expect(desk.getByText(/Payout actions are blocked on the written Phase 1 payment policy/)).toBeVisible();
-  await expect(desk.getByText(/under \$2,000 move to .approved for payout. on their own/)).toBeVisible();
+  await expect(desk.getByText(/Campaign earnings are paid by BTG Finance outside SponsorX/)).toBeVisible();
+  await expect(desk.getByText(/approved for payout automatically if it.s under \$2,000/)).toBeVisible();
   const earningRow = rowWith(desk, ATHLETE.name, CAMPAIGN_NAME);
   await expect(earningRow).toContainText("Approved for payout");
   await expect(earningRow).toContainText("$30");
