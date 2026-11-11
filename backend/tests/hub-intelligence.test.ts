@@ -164,6 +164,8 @@ describe.skipIf(!hasDatabase)("3S7-BE-02 · the hubs, against the database", { t
     await prisma.marketplaceOrder.create({ data: {
       id: "hbi_mo1", tenantId: T, sponsorId: "hbi_s1", reservationId: "hbi_res1", state: "FULFILLED", subtotalCents: 30000, feesCents: 0, totalCents: 30000,
       requiresApproval: false, approvalReasons: [], paidAt: D("2026-10-05"), fulfilledAt: D("2026-10-20"),
+      /* Placed before NOW: left to the database, createdAt is the real clock, and once that passes NOW the range drops the order. */
+      createdAt: D("2026-10-05"),
     } });
     await prisma.marketplaceOrderLine.create({ data: {
       tenantId: T, orderId: "hbi_mo1", listingId: "hbi_l1", inventoryItemId: "hbi_i1", itemTenantId: T, propertyId: "hbi_p", title: "Gym banner",

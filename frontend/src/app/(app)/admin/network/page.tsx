@@ -100,7 +100,7 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
         <EmptyState
           mark="chart"
           title="Network figures are BTG's"
-          hint="These are tenant-wide numbers; your role reads its own slice elsewhere (§15)."
+          hint="These figures cover all of BTG. Your role sees its own figures elsewhere."
         />
       </div>
     );
@@ -171,7 +171,7 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
             )}
           </Card>
           <p className="mt-2 text-[10px] text-faint">
-            A margin rate under {pct(1 - 1 / 1.4)} means lines sold below the 1.4× floor on average (P0-PMO-13).
+            A margin rate under {pct(1 - 1 / 1.4)} means lines sold below the 1.4× floor on average.
           </p>
         </section>
       )}

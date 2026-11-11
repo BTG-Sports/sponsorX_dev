@@ -39,3 +39,17 @@ Part of `P8-PMO-06` (go/no-go) and `P2-OPS-04` (production settings).
   - All four are Ready on the Polish sheet (rows 58–61). The Status list, colour rules and filter were extended to row 61, and the sheet's count now reads 57 tasks.
 - **Plan:** `documentation/polish.md` section F, with "What is true now" to write to and a shared "Done when".
 - **Scanner:** `scripts/ui-copy-scan.cjs`. Run `node scripts/ui-copy-scan.cjs [folder]`; it exits 1 while anything is found. It found 178 lines in 84 files on 2026-11-11. It doesn't catch text built in expressions, such as the payment switch's placeholder examples, which are listed by hand.
+
+### POL-FE-37 Done (rcfworks), PR #377
+
+- **Money and operations screens now say what's true now.** The pages covered are Finance (admin and Finance portal), Payments, Integrations, Intelligence, Network and Splits.
+  - The banner reads: campaign earnings are paid by BTG Finance outside SponsorX, approved automatically under $2,000 when eligible, and marked paid by Finance; shop and marketplace payouts go through Stripe.
+  - The payment switch says "Stripe isn't set up yet" or "set up", never "connected", and it has no example-reason placeholders.
+  - Section signs and task IDs are gone, and pages that aren't running yet say "Not available yet".
+  - The Finance-portal Splits page shows "Not in your role" to a linked staff account that can't read it, instead of sample editions.
+- **Corrected fact in `polish.md`.** Campaign earnings *are* paid outside SponsorX (status-only, `earning-state.ts`). Only the "Phase 1 / blocked" framing was wrong. Shop and marketplace payouts go through Stripe.
+- **Checks:** build, lint and tsc pass; frontend unit tests pass; e2e passes, with the earnings-report spec updated to the new banner; the scanner is clean on these pages.
+
+### 3S7-BE-02 test fix, PR #376
+
+- `hub-intelligence.test.ts` seeded a marketplace order with the real clock's `createdAt`, which fell after the test's pinned date, so main CI failed. The order now gets `createdAt` 2026-10-05.

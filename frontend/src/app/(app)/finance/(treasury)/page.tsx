@@ -177,7 +177,7 @@ function TreasuryView({ t }: { t: Treasury }) {
       >
         {t.sample && (
           <p className="sx-vault-in mt-2 text-[11.5px] text-[color:var(--vault-muted)]" style={at(0.06)}>
-            Demo data — the real books are read by BTG admin and Finance only, so every figure below is sample data.
+            Sample figures. Sign in with a BTG admin or Finance account to see the real books.
           </p>
         )}
         {/* ② the five money numbers: two across on a phone, the fifth

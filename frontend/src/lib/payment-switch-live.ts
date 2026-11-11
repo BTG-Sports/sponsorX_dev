@@ -47,7 +47,7 @@ export type ApiPaymentSwitch = {
 /** Everywhere money would move while payment is closed, the button says so. */
 export const PAYMENTS_OPEN_SOON = "Payments open soon";
 /** Why "Turn on" is disabled while Railway names no provider. */
-export const PROVIDER_NOT_SET_UP = "Payment provider not set up in Railway yet";
+export const PROVIDER_NOT_SET_UP = "Stripe isn't set up yet";
 /** The reason's floor — the API's (PaymentSwitchInput: trimmed, 5 to 500). */
 export const REASON_MIN = 5;
 export const REASON_MAX = 500;
@@ -57,7 +57,7 @@ type Tone = "neutral" | "primary" | "accent" | "danger" | "warn";
 /** "Stripe" from "stripe"; "No provider" from "none". Never a name the API didn't send. */
 export function providerLabel(provider: string): string {
   const p = provider.trim();
-  if (!p || p.toLowerCase() === "none") return "No provider set in Railway";
+  if (!p || p.toLowerCase() === "none") return "Not set up";
   return p.charAt(0).toUpperCase() + p.slice(1);
 }
 
@@ -97,7 +97,7 @@ export function switchWords(s: ApiPaymentSwitch): SwitchWords {
   const text = s.open
     ? "Sponsors pay by card from the order page, approved payouts are sent, and an approved order unpaid after its three days is cancelled."
     : noProvider
-      ? `${PROVIDER_NOT_SET_UP}. Nothing opens until Railway names one — the switch alone can't.`
+      ? `${PROVIDER_NOT_SET_UP}. Payments can't open until it is, even with the switch on.`
       : "No checkout, no payout sent or set up, and no order cancelled for non-payment — approved orders and payouts wait.";
   const changedLine = s.changed
     ? `${s.on ? "Turned on" : "Turned off"} by ${s.changed.by ?? "someone at BTG"} on ${switchStamp(s.changed.at)}: ${s.changed.reason}`

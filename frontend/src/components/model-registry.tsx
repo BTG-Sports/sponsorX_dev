@@ -301,7 +301,7 @@ export function VersionCompare({ versions, thresholds, initial }: { versions: Mo
               </div>
             </div>
           )}
-          {simulated && <p className="text-[11px] text-faint">&ldquo;(simulated)&rdquo; metrics come from the seeded simulated history (SponsorX-Backtest.md §4), not from real campaigns.</p>}
+          {simulated && <p className="text-[11px] text-faint">Metrics marked &ldquo;(simulated)&rdquo; come from practice data, not from real campaigns.</p>}
         </>
       )}
     </div>
