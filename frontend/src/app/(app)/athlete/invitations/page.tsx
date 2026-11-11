@@ -209,15 +209,16 @@ export default async function InvitationsPage({
           their own. (Signed-out visitors can't reach this portal.) */}
       {!demo && !live && (
         <BlockedNotice>
-          Demo data — this is a sample inbox, not a real one. Invitations are
-          answered by the athlete; a guardian view of them isn&rsquo;t built yet.
+          Sample inbox, not a real one. Invitations are answered by the
+          athlete. A guardian authorizes each order from the order&rsquo;s own
+          page.
         </BlockedNotice>
       )}
 
       {demo === "minor" && (
         <BlockedNotice>
-          Guardian authorization pending (§4) — invitations can be reviewed
-          but not accepted until {athleteMinor.guardian.legalName} is
+          Guardian authorization pending. Invitations can be reviewed but
+          not accepted until {athleteMinor.guardian.legalName} is
           verified.
         </BlockedNotice>
       )}
@@ -244,10 +245,9 @@ export default async function InvitationsPage({
       />
 
       {!live && <BlockedNotice>
-        Accepting an invitation creates a Campaign Order and hashes the rendered
-        agreement body (guide §08). Acceptance stays disabled until counsel
-        approves the Campaign Order template. Viewing, declining and expiry are
-        the wireable transitions; acceptance waits for B4.
+        Sample inbox. Accepting an invitation creates a Campaign Order for the
+        athlete to accept. Only the athlete, or their guardian, can answer a
+        real one.
       </BlockedNotice>}
     </div>
   );

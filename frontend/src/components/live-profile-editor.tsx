@@ -62,7 +62,7 @@ const LEVEL_LABEL: Record<(typeof LEVELS)[number], string> = {
 const STATE_BADGE: Record<SectionState, { tone: "accent" | "warn" | "neutral"; label: string }> = {
   done: { tone: "accent", label: "Complete" },
   missing: { tone: "warn", label: "Missing" },
-  "not-collected": { tone: "neutral", label: "Not collected in Phase 1" },
+  "not-collected": { tone: "neutral", label: "Not collected by SponsorX" },
 };
 
 const INPUT_CLS =
@@ -605,7 +605,7 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
               )}
               <p className="rounded-lg border border-line bg-surface-2/50 px-3 py-2 text-[11px] leading-relaxed text-muted">
                 {states[active] === "not-collected"
-                  ? "SponsorX doesn't collect this in Phase 1 — BTG Finance arranges it with you directly."
+                  ? "SponsorX doesn't collect this. Campaign earnings are paid by BTG Finance, who arrange it with you directly; shop and marketplace payouts are set up with Stripe on the Payouts page."
                   : REQUEST_SECTIONS.includes(active) && !editable
                     ? "Your application is still with BTG — until it's approved, changes go through the application itself."
                     : "This section can't be edited here — BTG sets it with you."}

@@ -681,14 +681,14 @@ function Inbox({
                             <Button
                               full
                               disabled
-                              title="Blocked: the Campaign Order template needs counsel approval (guide §08)"
+                              title="Sample invitation. Only the athlete can accept a real one."
                             >
                               Review &amp; accept
                             </Button>
                           </div>
                           <Button
                             variant="secondary"
-                            title="Records the decline — a wireable transition, not wired in the fixture build"
+                            title="Sample invitation. Only the athlete can decline a real one."
                           >
                             Decline
                           </Button>

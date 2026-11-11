@@ -190,8 +190,8 @@ export function AthleteProfileView({
         </Link>
       </div>
       <p className="mt-3 text-[10px] leading-relaxed text-faint">
-        These are sponsor prices from the SX job catalogue (§5) — what you are
-        paid is your rate card, which never appears on this page.
+        These are sponsor prices from the SX job catalogue. What you are paid
+        is your rate card, which never appears on this page.
       </p>
     </>
   ) : (
@@ -204,9 +204,8 @@ export function AthleteProfileView({
         Request Partnership
       </button>
       <p className="mt-3 text-[10px] leading-relaxed text-faint">
-        Sponsor prices, mapped to the SX job catalogue (§5). What the athlete
-        is paid is a different number and does not appear here — guide §04,
-        enforced as a §30 test.
+        Sponsor prices, from the SX job catalogue. What the athlete is paid is
+        a different number and never appears here.
       </p>
     </>
   );
@@ -420,8 +419,8 @@ export function AthleteProfileView({
                 </h2>
                 <Card>
                   <p className="text-[11px] leading-relaxed text-muted">
-                    Category conflicts are checked before an invitation is sent
-                    (§26). Nothing is declared for this athlete yet.
+                    Category conflicts are checked before an invitation is sent.
+                    Nothing is declared for this athlete yet.
                   </p>
                 </Card>
               </section>
@@ -448,7 +447,7 @@ export function AthleteProfileView({
             title="No media yet"
             hint={
               owner
-                ? "Highlights and campaign content you deliver will appear here once the content pipeline (§12) ships."
+                ? "Highlights and campaign content you deliver appear here."
                 : "Highlights and campaign content appear here as this athlete delivers on campaigns."
             }
           />
@@ -480,9 +479,9 @@ export function AthleteProfileView({
               </ul>
             </Card>
             <p className="mt-3 text-[10px] leading-relaxed text-faint">
-              Every metric declares where it came from (§22). Verified,
-              API-measured analytics arrive with Phase 3 attribution — until
-              then nothing self-reported can be mistaken for a measurement.
+              Every metric says where it came from. Self-reported figures are
+              labelled as such, so they&rsquo;re never mistaken for a
+              measurement.
             </p>
           </section>
         )}

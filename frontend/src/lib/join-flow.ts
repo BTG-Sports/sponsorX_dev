@@ -72,7 +72,7 @@ export const SECTIONS: SectionDef[] = [
     id: "location",
     title: "Location",
     heading: "Where you are",
-    sub: "Your home market, plus any secondary markets. Geography feeds matching (§13).",
+    sub: "Your home market, plus any secondary markets. Location is used to match you with sponsors.",
     kind: "fields",
     fields: [
       { key: "city", label: "City", placeholder: "Silver Spring", type: "text", required: true, half: true },
@@ -85,7 +85,7 @@ export const SECTIONS: SectionDef[] = [
     id: "social",
     title: "Social accounts",
     heading: "Your channels",
-    sub: "At least one handle. Anything you type here is self-reported until verified (§22).",
+    sub: "At least one handle. Anything you type here is self-reported until verified.",
     kind: "fields",
     fields: [
       { key: "instagram", label: "Instagram", placeholder: "@handle", type: "text", required: false },
@@ -129,7 +129,7 @@ export const SECTIONS: SectionDef[] = [
     id: "guardian",
     title: "Guardian / authorized rep",
     heading: "Your guardian",
-    sub: "Because you're under 18, a parent, guardian or authorized representative must confirm by email before you can accept a campaign (§4).",
+    sub: "Because you're under 18, a parent, guardian or authorized representative must confirm by email before you can accept a campaign.",
     kind: "fields",
     minorOnly: true,
     fields: [
@@ -142,7 +142,7 @@ export const SECTIONS: SectionDef[] = [
     id: "payment",
     title: "Payment recipient",
     heading: "Payment recipient",
-    sub: "Who earnings are attributed to. Status only — money moves outside SponsorX in Phase 1.",
+    sub: "Who earnings are attributed to. SponsorX tracks where earnings stand and never holds bank details.",
     kind: "fields",
     railNote: "Name only — no bank details",
     fields: [
@@ -161,7 +161,7 @@ export const SECTIONS: SectionDef[] = [
 
 /** What §26/A6 never asks for — printed verbatim on the payment step. */
 export const NEVER_ASKED =
-  "SponsorX never asks for a bank account or routing number, a card, a Social Security number or a tax ID. Money moves outside the system in Phase 1.";
+  "SponsorX never asks for a bank account or routing number, a card, a Social Security number or a tax ID. Campaign earnings are paid by BTG Finance, and shop and marketplace payouts are set up with Stripe once you're approved.";
 
 export const RESTRICTION_CATEGORIES = [
   "Betting",
