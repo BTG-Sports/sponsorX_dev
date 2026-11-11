@@ -68,3 +68,15 @@ Part of `P8-PMO-06` (go/no-go) and `P2-OPS-04` (production settings).
 - **Why:** #380's CI build failed because `next/font/google` couldn't download Source Serif 4 from Google Fonts, which every build did.
 - **What changed:** the same Latin woff2 files are now committed under `frontend/src/app/fonts` with their OFL licences (about 140 KB) and loaded with `next/font/local`. The variables, weights, styles and preload settings are unchanged, so nothing looks different, and the build needs no network for fonts.
 - **Raised and closed the same day.** It's on the Phase 1 sheet (row 331) and in the Phase 1 plan. The sheet's Status list, colour rules and filter now reach row 331; the Dashboard and Stage Progress formulas already reach row 400.
+
+### Production launch (rcfworks)
+
+- **Payments switch on.** infinex1 turned it on at `/admin/payments` at 05:07 UTC. Production has `PAYMENT_PROVIDER=stripe`, and no payment has been recorded yet (`PaymentEvent` is empty). The $1 live payment and refund is still to do.
+- **Deployed.** `deploy-daily.yml` moved `release` to main at f56cd1f5 (PRs #377–#383). Production web and api both deployed successfully.
+  - `/join` and `/how-it-works` show the new wording.
+  - The CSS loads seven local woff2 fonts and nothing from Google.
+  - The API's `/health` returns 200 ok.
+- **Launch email** to Rodney drafted for the user to send. It asks him to confirm three things: the go-ahead, that the three Stripe webhook destinations are enabled, and Clerk Pro.
+- **Two-step sign-in** is planned for the coming days. Clerk Pro must be confirmed first; then MFA is required for privileged roles, and each admin sets it up.
+- **Go/no-go review** "Where it stands" is updated to match: checkout open, release of 2026-11-11.
+- **Still open elsewhere:** POL-FE-39 and 40 (HeckerCreatives), so some public and admin pages still show developer notes.
