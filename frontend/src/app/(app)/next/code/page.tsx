@@ -90,8 +90,8 @@ export default async function StudentCodePage({
               exclusivities), you keep the credit for developing it.
             </li>
             <li>
-              · The QR shown here is a stand-in; the live resolver link goes
-              real when the portal is wired (Stage 9, P9-FE-04).
+              · The QR shown here is for illustration — share the code or the
+              link, not the picture.
             </li>
           </ul>
         </Card>

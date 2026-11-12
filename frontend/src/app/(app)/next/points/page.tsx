@@ -204,7 +204,7 @@ export default async function StudentPointsPage({
                 <Button
                   full
                   disabled
-                  title="Redemption is a separately gated decision (spec §5.5, open question §14) — nothing converts in Phase 1"
+                  title="Points can't be redeemed yet. Whether they ever convert is a decision still to be made."
                 >
                   Redeem points
                 </Button>

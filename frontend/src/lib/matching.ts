@@ -576,7 +576,7 @@ export const CONFLICT_DETAILS: Record<string, ConflictDetail> = {
       { k: "Waiver on file", v: "None", tone: "danger", sub: "a written waiver would clear the block" },
     ],
     why:
-      "His declared deal is category-exclusive in beverages — sports hydration: exactly the category this sponsor sells. §26 requires the category conflict to block the invitation outright; a category-limited clause cannot be worked around by scoping deliverables.",
+      "His declared deal is category-exclusive in beverages — sports hydration: exactly the category this sponsor sells. A category conflict blocks the invitation outright; a category-limited clause cannot be worked around by scoping deliverables.",
     provenance:
       "Declared by the athlete on 2 Jul 2026 · reviewed by J. Okafor, Compliance",
     actions: [

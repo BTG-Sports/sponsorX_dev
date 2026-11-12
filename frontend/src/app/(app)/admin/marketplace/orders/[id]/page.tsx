@@ -236,7 +236,7 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
                   ) : (
                     <p className="text-muted">The sponsor pays by card from their order page once it&rsquo;s approved.</p>
                   )}
-                  {payment?.testProvider && <p className="text-[11px] text-faint">Test payment provider — staging only, no real money.</p>}
+                  {payment?.testProvider && <p className="text-[11px] text-faint">Test payment provider — no real money.</p>}
                   {extraPayments.length > 0 && (
                     <div role="status" className="mt-2 space-y-1 rounded-lg border border-warn/40 bg-warn/8 px-3 py-2">
                       {extraPayments.map((r) => (

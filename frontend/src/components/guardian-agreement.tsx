@@ -20,13 +20,13 @@ export function GuardianAgreementText({ agreement }: { agreement: GuardianAgreem
     >
       <p className="mb-2 flex flex-wrap items-center gap-2 font-semibold text-text">
         {agreement.title} · version {agreement.version}
-        {draft && <Badge tone="warn">Draft — terms pending counsel</Badge>}
+        {draft && <Badge tone="warn">Draft — not the final wording</Badge>}
       </p>
       <ol className="space-y-2">
         {agreement.terms.map((t, i) => (
           <li key={i} className={t.placeholder ? "rounded border border-dashed border-warn/40 px-2 py-1 text-warn" : undefined}>
             {i + 1}. {t.text}
-            {t.placeholder && <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide">· placeholder</span>}
+            {t.placeholder && <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide">· wording to come</span>}
           </li>
         ))}
       </ol>

@@ -34,6 +34,7 @@ import { rangeParam, type DailyPoint, type RangeKey, type SponsorOverview } from
 import { RESULTS_NOTE } from "@/lib/sponsor-intelligence-live";
 import { FUNNEL_WORDS, campaignWord, compactNumber, deliverableWord, orderWord, sourceWord } from "@/lib/sponsor-words";
 import { apiFetch, fetchActor } from "@/server/api";
+import { RoleCannotSee, isSignedIn } from "@/components/not-in-role";
 import { fetchSponsorOverview } from "@/server/sponsor-overview";
 
 /* --------------------------------------------------------------------------
@@ -131,6 +132,12 @@ export default async function CampaignResultsPage({
     );
   }
 
+  /* POL-FE-40: a signed-in person whose role has no report read is told so,
+     never shown the sample report. The sample stays for ?demo= walks. */
+  if (demo === null && (await isSignedIn())) {
+    return <RoleCannotSee title="Results" what="a sponsor's campaign results" back={{ label: "Back to campaigns", href: "/sponsor/campaigns" }} />;
+  }
+
   /* Results build from verified deliverables and rolled-up metrics —
      nothing to show until the first ones land. */
   if (demo === "empty") {
@@ -153,7 +160,7 @@ export default async function CampaignResultsPage({
         <EmptyState
           mark="chart"
           title="Not a sample campaign"
-          hint="This page only has sample campaigns so far — a real campaign's results come from a real read, not a fixture."
+          hint="This page only has sample campaigns so far. A real campaign's results come from its own records."
           action={{ label: "Back to campaigns", href: "/sponsor/campaigns" }}
         />
       </div>

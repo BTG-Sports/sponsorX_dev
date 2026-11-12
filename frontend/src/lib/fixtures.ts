@@ -630,16 +630,16 @@ export const REWARD_COPY: Record<RewardState, string> = {
   SCHEDULED: "Ready to go; tokens generate when the start date hits.",
   ACTIVE: "Live — athletes are distributing tokens and fans can redeem.",
   EXPIRED: "Past its end date. Tokens stopped resolving; history is kept.",
-  PENDING_LEGAL: "Sweepstakes-style rewards need legal approval before launch (§16).",
+  PENDING_LEGAL: "Sweepstakes-style rewards need legal approval before launch.",
 };
 
 /** Fan reward types — §16's redemption models, one line each for the creator. */
 export const REWARD_TYPES = [
-  { value: "One-time use", blurb: "Each token redeems once — enforced by a partial unique index on RewardEvent, not an app check (guide §03)." },
+  { value: "One-time use", blurb: "Each token redeems once — enforced by the database, not an app check." },
   { value: "Campaign code", blurb: "A shared code fans can reuse until the reward expires. Good for online checkouts." },
   { value: "Event check-in", blurb: "Redeems only at the venue on event day — staff scan the fan's screen." },
-  { value: "Lead capture", blurb: "Fan trades contact details for the reward. §26 consent copy is mandatory." },
-  { value: "Sweepstakes entry", blurb: "Entry into a prize draw. Blocked until counsel approves the rules (§16).", blocked: true },
+  { value: "Lead capture", blurb: "Fan trades contact details for the reward. Consent wording is mandatory." },
+  { value: "Sweepstakes entry", blurb: "Entry into a prize draw. Needs legal approval of the rules before launch.", blocked: true },
 ] as const;
 
 /* Reward list — §16 event counts (scans/claims/redeemed) roll up exactly to
@@ -1929,7 +1929,7 @@ export const editionSplits: Array<{
     bps: 2_000,
     payee: "Student pool",
     blurb:
-      "Funds the points program. Never paid to a student directly — points are recognition, not wages (§5.5).",
+      "Funds the points program. Never paid to a student directly — points are recognition, not wages.",
   },
   {
     payeeKind: "EDITORIAL_FUND",

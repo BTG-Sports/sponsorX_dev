@@ -426,7 +426,7 @@ export default async function StudentHomePage({
                   variant="secondary"
                   full
                   disabled
-                  title="Messaging is not in Phase 1 — talk to your advisor in the newsroom"
+                  title="Messaging isn't available yet. Talk to your advisor in the newsroom."
                 >
                   Message advisor
                 </Button>

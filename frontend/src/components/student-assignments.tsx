@@ -371,7 +371,7 @@ export function StudentAssignments({
               <Button
                 full
                 disabled
-                title="Uploads arrive when Stage 9 wires the portal (P9-FE-01)"
+                title="Uploading a draft isn't available yet."
               >
                 Submit draft
               </Button>
@@ -379,7 +379,7 @@ export function StudentAssignments({
                 variant="secondary"
                 full
                 disabled
-                title="Messaging is not in Phase 1 — talk to your advisor in the newsroom"
+                title="Messaging isn't available yet. Talk to your advisor in the newsroom."
               >
                 Ask your advisor
               </Button>

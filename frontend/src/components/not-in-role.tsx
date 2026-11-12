@@ -37,3 +37,29 @@ export function NotInRole({ path, title, roles }: { path: string; title: string;
     </div>
   );
 }
+
+/* POL-FE-40 (2026-11-12). A page's sample branch — the fixtures it shows
+   visitors and ?demo= walks — must never reach a signed-in person in
+   production: they are told their role can't see it instead. `isSignedIn`
+   is the check; `RoleCannotSee` is what they get. */
+export async function isSignedIn(): Promise<boolean> {
+  return (await fetchActor()).status === "linked";
+}
+
+export function RoleCannotSee({
+  title,
+  what,
+  back,
+}: {
+  title: string;
+  /** What the page shows, in the sentence "Your role can't see {what}." */
+  what: string;
+  back?: { label: string; href: string };
+}) {
+  return (
+    <div className="space-y-5">
+      <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+      <EmptyState mark="users" title="Not in your role" hint={`Your role can't see ${what}. Ask a BTG admin.`} action={back} />
+    </div>
+  );
+}

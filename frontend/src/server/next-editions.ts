@@ -56,7 +56,7 @@ export function noEditionHint(live: LiveEditions, fallback: string): { title: st
   return live.refused
     ? {
         title: "Editions are outside your role's scope",
-        hint: "The RBAC matrix (§15.3) gives edition reads to BTG admin, advisors and students — ask BTG admin to open this screen.",
+        hint: "Edition reads are for BTG admins, advisors and students. Ask a BTG admin to open this screen.",
       }
     : { title: "No edition yet", hint: fallback };
 }

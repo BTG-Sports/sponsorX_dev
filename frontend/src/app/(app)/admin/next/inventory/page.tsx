@@ -67,7 +67,7 @@ export default async function InventoryLedgerPage({
       </div>
       <Button
         disabled
-        title="Slots are authored at the editorial meeting — creation and repricing are wired by P9-FE-04 against the AdSlot ledger (Stage 9)"
+        title="Slots are added at the editorial meeting. Adding one here isn't available yet."
       >
         Add a slot
       </Button>
@@ -151,13 +151,12 @@ export default async function InventoryLedgerPage({
     <div className="space-y-6">
       {heading}
 
-      {/* P7-QA-02: without ?demo= this fixture render reaches only signed-in
-          staff outside NEXT_DESK_ROLES (CAMPAIGN_MGR, NETWORK_MGR) — the
-          edition, rack and split figures below are sample data. */}
+      {/* Without ?demo= this sample reaches only signed-out visitors: a staff
+          role the desk isn't for got "not in your role" above, and BTG admins
+          get the live ledger (POL-FE-40). */}
       {!demo && (
         <BlockedNotice>
-          Demo data — your role doesn&rsquo;t read the live NEXT edition ledger,
-          so every figure below is a sample edition&rsquo;s.
+          Sample figures — sign in as a BTG admin to see the real editions.
         </BlockedNotice>
       )}
 

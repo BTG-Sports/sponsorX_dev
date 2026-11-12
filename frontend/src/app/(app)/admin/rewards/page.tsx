@@ -121,7 +121,7 @@ export default async function AdminRewardsPage({
           <h1 className="sx-page-title">Fan Rewards</h1>
           <p className="mt-1 text-xs text-muted">
             QR rewards fans scan at events — reward → per-athlete tokens → scan →
-            claim → redeem (§16).
+            claim → redeem.
           </p>
         </div>
         <ServerList>
@@ -154,16 +154,16 @@ export default async function AdminRewardsPage({
         <h1 className="sx-page-title">Fan Rewards</h1>
         <p className="mt-1 text-xs text-muted">
           QR rewards fans scan at events — reward → per-athlete tokens → scan →
-          claim → redeem (§16).
+          claim → redeem.
         </p>
       </div>
 
-      {/* P7-QA-02: this fixture branch also reaches signed-in staff outside
-          the desk's roles (NETWORK_MGR, SALES, FINANCE). */}
+      {/* Without ?demo= this sample reaches only signed-out visitors: a staff
+          role the desk isn't for got "not in your role" above (POL-FE-40). */}
       {demo === null && (
         <BlockedNotice>
-          Demo data — the live rewards desk is read by BTG admin and the
-          Campaign Manager, so every reward and count below is sample data.
+          Sample figures — sign in as a BTG admin or campaign manager to see
+          the real rewards.
         </BlockedNotice>
       )}
 

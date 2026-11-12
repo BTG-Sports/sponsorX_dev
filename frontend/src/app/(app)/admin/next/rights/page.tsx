@@ -59,8 +59,7 @@ function PermMark({ granted, label }: { granted: boolean; label: string }) {
   );
 }
 
-const WIRING_TITLE =
-  "Consent capture and licence records are wired by P9-FE-09 against ContentRight (Stage 9)";
+const WIRING_TITLE = "Recording consent here isn't available yet.";
 
 export default async function RightsLedgerPage({
   searchParams,
@@ -127,13 +126,12 @@ export default async function RightsLedgerPage({
     <div className="space-y-6">
       {heading}
 
-      {/* P7-QA-02: without ?demo= this fixture render reaches only signed-in
-          staff outside NEXT_DESK_ROLES (CAMPAIGN_MGR, NETWORK_MGR) — the
-          edition, rack and split figures below are sample data. */}
+      {/* Without ?demo= this sample reaches only signed-out visitors: a staff
+          role the desk isn't for got "not in your role" above, and BTG admins
+          get the live ledger (POL-FE-40). */}
       {!demo && (
         <BlockedNotice>
-          Demo data — your role doesn&rsquo;t read the live NEXT edition ledger,
-          so every figure below is a sample edition&rsquo;s.
+          Sample figures — sign in as a BTG admin to see the real editions.
         </BlockedNotice>
       )}
 
@@ -271,7 +269,7 @@ export default async function RightsLedgerPage({
         </div>
         <p className="mt-2 text-[10px] leading-relaxed text-faint">
           SponsorX&rsquo;s own editorial content defaults to no commercial
-          reuse (V3 §6): editorial use is not a licence to resell journalism
+          reuse: editorial use is not a licence to resell journalism
           inside a sponsor&rsquo;s campaign. Granting it is a deliberate act,
           recorded here like any other.
         </p>
