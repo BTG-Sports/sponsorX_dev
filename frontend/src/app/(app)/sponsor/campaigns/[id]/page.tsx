@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { BackLink } from "@/components/back-link";
 import { CampaignChangeControls } from "@/components/campaign-change";
 import { EmptyState } from "@/components/states";
+import { RoleCannotSee, isSignedIn } from "@/components/not-in-role";
 import { SponsorArtwork } from "@/components/edition-artwork";
 import { PendingList, ServerList } from "@/components/server-pager";
 import {
@@ -138,6 +139,11 @@ export default async function SponsorCampaignDetailPage({
     }
     return <LiveDetail detail={live} back={back} />;
   }
+  /* POL-FE-40: a signed-in person whose role has no sponsor read is told so,
+     never shown the sample campaign. The sample stays for ?demo= walks. */
+  if (demo === null && (await isSignedIn())) {
+    return <RoleCannotSee title="Campaign" what="a sponsor's campaign" back={{ label: "Back to campaigns", href: "/sponsor/campaigns" }} />;
+  }
 
   const base = sponsorCampaigns.find((c) => c.id === id);
   const x = sponsorCampaignsX[id];
@@ -199,7 +205,7 @@ export default async function SponsorCampaignDetailPage({
             </p>
           </StadiumPanel>
           <p className="text-[10px] text-faint">
-            Campaign <code className="font-mono">{id}</code> · fixture data.
+            Campaign <code className="font-mono">{id}</code> · a sample campaign.
           </p>
         </>
       ) : (
@@ -240,8 +246,8 @@ function DemoRich({ rich, id }: { rich: DemoRichData; id: string }) {
       )}
       <RosterSection rows={rows} viewsLabel="Views" />
       <p className="text-[10px] leading-relaxed text-faint">
-        Campaign <code className="font-mono">{id}</code> · sample data. Every figure comes from
-        your campaign&rsquo;s posts, fan rewards and invoices.
+        Campaign <code className="font-mono">{id}</code> · a sample campaign. On a real one every
+        figure comes from your campaign&rsquo;s posts, fan rewards and invoices.
       </p>
     </>
   );

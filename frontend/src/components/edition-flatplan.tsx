@@ -38,8 +38,7 @@ const STATE_TONE = {
   OPEN: "neutral",
 } as const;
 
-const WIRING_TITLE =
-  "Wired by P9-FE-03 against the AdSlot ledger (Stage 9 — gated behind B8 and a sold edition)";
+const WIRING_TITLE = "Positions sell with a campaign's package. Changing them here isn't available yet.";
 
 /** A live slot carries its own rack price; a fixture slot takes the card's. */
 const rackOf = (s: EditionSlot) => s.rackCents ?? SLOT_RACK_CENTS[s.kind];

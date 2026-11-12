@@ -5,6 +5,8 @@ import { MiniChip } from "@/components/hero";
 import { StadiumHead, StadiumPanel, StadiumTile, StadiumTiles, at } from "@/components/stadium-stage";
 import { inventoryItem } from "@/lib/fixtures";
 import { resolveBack } from "@/lib/back";
+import { EmptyState } from "@/components/states";
+import { isSignedIn } from "@/components/not-in-role";
 
 /* --------------------------------------------------------------------------
    One job — §9 screen 7, restyled on the Stadium Board (P1-ART-23, spec
@@ -26,12 +28,29 @@ export default async function InventoryDetailPage({
   searchParams,
 }: {
   params: Promise<{ jobId: string }>;
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; demo?: string }>;
 }) {
   await params;
-  const { from } = await searchParams;
+  const { from, demo } = await searchParams;
   const back = resolveBack(from, "mk-media");
   const it = inventoryItem;
+
+  /* POL-FE-40: this page is a sample listing with no live read behind it. A
+     signed-in person is told plainly that media properties aren't bookable
+     yet instead of being shown sample prices. The sample stays for ?demo=. */
+  if (!demo && (await isSignedIn())) {
+    return (
+      <div className="space-y-5">
+        <BackLink target={back} />
+        <EmptyState
+          mark="inbox"
+          title="Not available yet"
+          hint="BTG's own media properties aren't bookable yet. Browse the packages and job types on the marketplace."
+          action={{ label: "Back to the marketplace", href: "/sponsor/marketplace" }}
+        />
+      </div>
+    );
+  }
 
   const requestThis = (
     <button
@@ -51,13 +70,12 @@ export default async function InventoryDetailPage({
           only from the demo "Media properties" tab, but reachable by URL, so
           it must say what it is to a signed-in sponsor. */}
       <BlockedNotice>
-        Demo data — a sample media-property listing. BTG&rsquo;s own media
-        properties aren&rsquo;t bookable yet; browse the packages and
-        job types on the{" "}
+        A sample media-property listing. BTG&rsquo;s own media properties
+        aren&rsquo;t bookable yet; browse the packages and job types on the{" "}
         <Link href="/sponsor/marketplace" className="underline">marketplace</Link>.
       </BlockedNotice>
 
-      <StadiumHead title={it.name} pill="Sample data" actions={requestThis}>
+      <StadiumHead title={it.name} pill="Sample" actions={requestThis}>
         <div className="sx-stadium-in flex flex-wrap items-center gap-2" style={at(0.04)}>
           {it.exclusive && (
             <MiniChip kind="neutral">
@@ -175,7 +193,7 @@ export default async function InventoryDetailPage({
       </div>
 
       <p className="text-[10px] text-faint">
-        Sample data. The prices shown are what you pay.
+        A sample listing. The prices shown are what you would pay.
       </p>
     </div>
   );

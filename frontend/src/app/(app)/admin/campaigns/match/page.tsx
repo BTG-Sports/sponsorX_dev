@@ -150,7 +150,7 @@ export default async function MatchingStudioPage({
         <EmptyState
           mark="inbox"
           title="Matching is outside your role"
-          hint="The matching desk reads sponsor briefs and the eligible roster together; your role doesn't read one of them (§15)."
+          hint="The matching desk reads sponsor briefs and the eligible roster together. Your role can't see one of them. Ask a BTG admin."
           action={{ label: "Back to campaigns", href: "/admin/campaigns" }}
         />
       ) : live?.kind === "none" ? (
@@ -172,14 +172,13 @@ export default async function MatchingStudioPage({
         />
       ) : (
         <>
-          {/* P7-QA-02: reached without ?demo= only by staff outside the desk's
-              roles (SALES, FINANCE) — the scores, reach and margins below
-              are the fixture roster. */}
+          {/* Without ?demo= this sample reaches only signed-out visitors: a
+              staff role the desk isn't for got "not in your role" above
+              (POL-FE-40). */}
           {!str(sp.demo) && (
             <BlockedNotice>
-              Demo data — the live matching desk is BTG admin, Network and
-              Campaign Managers&rsquo;, so every athlete and figure below is
-              sample data.
+              Sample figures — sign in as a BTG admin, network manager or
+              campaign manager to see the real desk.
             </BlockedNotice>
           )}
           <MatchingStudio initial={initial} />

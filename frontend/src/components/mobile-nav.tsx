@@ -9,6 +9,7 @@ import { Logo } from "./logo";
 import type { NavItem } from "./portal-nav";
 import { sheetGroups } from "@/lib/mobile-dock";
 import { groupNav, isActiveHref, type NavGroup } from "@/lib/nav-groups";
+import { ROUTE_MAP_SHOWN } from "@/lib/route-map";
 
 /* --------------------------------------------------------------------------
    Mobile portal navigation: the sidebar is hidden below `md`, so the top-bar
@@ -162,7 +163,7 @@ export function MobileNav({
                 return (
                   <span
                     key={item.label}
-                    title="Not built yet"
+                    title="Coming soon"
                     className="sx-animate flex cursor-default items-baseline gap-4 py-[clamp(2px,0.8vh,6px)]"
                     style={delay}
                   >
@@ -219,9 +220,13 @@ export function MobileNav({
             className="sx-animate flex items-center justify-between border-t border-line px-6 py-[clamp(0.6rem,1.8vh,1rem)]"
             style={{ animationDelay: `${180 + nav.length * 50}ms` }}
           >
-            <Link href="/map" className="text-[11px] text-faint hover:text-muted">
-              ← route map
-            </Link>
+            {ROUTE_MAP_SHOWN ? (
+              <Link href="/map" className="text-[11px] text-faint hover:text-muted">
+                ← route map
+              </Link>
+            ) : (
+              <span />
+            )}
             <span className="text-[10px] uppercase tracking-[0.2em] text-faint">
               SponsorX
             </span>
@@ -244,7 +249,7 @@ function GroupedLinks({
     const delay = { animationDelay: `${140 + gi * 60}ms` };
     if (item.pending) {
       return (
-        <span key={item.label} title="Not built yet" style={delay} className="sx-animate py-1 text-[15px] font-semibold leading-tight text-faint">
+        <span key={item.label} title="Coming soon" style={delay} className="sx-animate py-1 text-[15px] font-semibold leading-tight text-faint">
           {item.label} <span className="rounded-full border border-line px-1.5 text-[9px] uppercase tracking-wider">soon</span>
         </span>
       );
@@ -422,9 +427,11 @@ export function StageMenu({
           <span className="sx-sheet-name">{userName}</span>
           <span className="sx-sheet-role">{userRole}</span>
         </span>
-        <Link href="/map" className="sx-sheet-map">
-          route map
-        </Link>
+        {ROUTE_MAP_SHOWN && (
+          <Link href="/map" className="sx-sheet-map">
+            route map
+          </Link>
+        )}
       </div>
     </div>
   );

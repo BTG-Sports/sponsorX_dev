@@ -996,7 +996,7 @@ function ReviewDrawer({
             {a.followers !== null && (
               <CheckRow status="neutral">
                 {a.followers.toLocaleString("en-US")} followers — self-reported by the
-                athlete; platform verification comes in a later phase.
+                athlete, not checked by BTG.
               </CheckRow>
             )}
             {a.reviewerNotes && (

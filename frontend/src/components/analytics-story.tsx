@@ -420,7 +420,7 @@ export function AnalyticsStory({
             id="funnel"
             no={2}
             title="The funnel"
-            hint="Every fan takes the same four steps; each one is a separate §16 event row."
+            hint="Every fan takes the same four steps; each one is a separate event row."
           >
             <InsightBanner insight={funnelInsight(d)} />
             <Card>
@@ -488,7 +488,7 @@ export function AnalyticsStory({
             id="who-drove-it"
             no={5}
             title="Who drove it"
-            hint="§9 screen 11 — athlete performance behind the fan numbers."
+            hint="Athlete performance behind the fan numbers."
           >
             <InsightBanner insight={athleteInsight(athletes)} />
             <Card className="p-0">
@@ -557,10 +557,10 @@ export function AnalyticsStory({
                 </table>
               </div>
               <p className="border-t border-line px-4 py-3 text-[10px] leading-relaxed text-faint">
-                ⓘ §22&rsquo;s layers side by side: views &amp; engagement are
+                ⓘ The layers side by side: views &amp; engagement are
                 verified, self-reported or estimated, and carry their own
-                data-quality label per row; claims &amp; redemptions are our §16 event rows
-                (Postgres); Score is the §14 Content Value Score. No unlabeled
+                data-quality label per row; claims &amp; redemptions are our own event rows
+                (Postgres); Score is the Content Value Score. No unlabeled
                 numbers.
               </p>
             </Card>

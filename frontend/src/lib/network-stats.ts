@@ -29,25 +29,34 @@ export type NetworkKey = "athletes" | "campaignsDelivered" | "postsVerified" | "
 
 export type NetworkFigure = {
   key: NetworkKey;
+  /** Agrees with the count: "Campaigns delivered", or "Campaign delivered" for one. */
   label: string;
-  /** The label without its tail, for narrow screens ("Athletes"). */
+  /** The label without its tail, for narrow screens ("Athletes" / "Athlete"). */
   short: string;
   value: number;
   /** Where the count comes from, in plain words (the row's title). */
   source: string;
 };
 
-const FIGURES: Record<NetworkKey, Omit<NetworkFigure, "key" | "value">> = {
-  athletes: { label: "Athletes in the network", short: "Athletes", source: "Athletes active on SponsorX now" },
-  campaignsDelivered: { label: "Campaigns delivered", short: "Campaigns", source: "Campaigns completed on SponsorX" },
-  postsVerified: { label: "Posts verified", short: "Posts", source: "Sponsored posts checked by the platform or BTG" },
-  rewardsRedeemed: { label: "Fan rewards redeemed", short: "Rewards", source: "Fan offers used at events, counted by SponsorX" },
+type Words = { one: string; many: string; shortOne: string; shortMany: string; source: string };
+
+const FIGURES: Record<NetworkKey, Words> = {
+  athletes: { many: "Athletes in the network", one: "Athlete in the network", shortMany: "Athletes", shortOne: "Athlete", source: "Athletes active on SponsorX now" },
+  campaignsDelivered: { many: "Campaigns delivered", one: "Campaign delivered", shortMany: "Campaigns", shortOne: "Campaign", source: "Campaigns completed on SponsorX" },
+  postsVerified: { many: "Posts verified", one: "Post verified", shortMany: "Posts", shortOne: "Post", source: "Sponsored posts checked by the platform or BTG" },
+  rewardsRedeemed: { many: "Fan rewards redeemed", one: "Fan reward redeemed", shortMany: "Rewards", shortOne: "Reward", source: "Fan offers used at events, counted by SponsorX" },
 };
 
-/** The figures for `keys`, in that order, leaving out zeros; [] with no read. */
+/** The figures for `keys`, in that order, leaving out zeros; [] with no read.
+    A count of one gets the singular words ("1 Campaign delivered", never "1 Campaigns"). */
 export function networkFigures<K extends NetworkKey>(stats: PublicNetworkStats | null, keys: readonly K[]): (NetworkFigure & { key: K })[] {
   if (!stats) return [];
   return keys
-    .map((key) => ({ key, ...FIGURES[key], value: stats[key] }))
+    .map((key) => {
+      const value = stats[key];
+      const w = FIGURES[key];
+      const one = value === 1;
+      return { key, label: one ? w.one : w.many, short: one ? w.shortOne : w.shortMany, value, source: w.source };
+    })
     .filter((f) => Number.isFinite(f.value) && f.value > 0);
 }

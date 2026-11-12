@@ -33,6 +33,7 @@ also has a back-end row waits for it.
 | D · Polish | 31–35 | Wording and links |
 | E · Payments switch | 36 | Turn live payments on when polish is done |
 | F · Clean pass | 37–40 | Production shows outdated wording, developer notes and sample figures |
+| G · Support and help desk | 41–43 | Support messages live only in Gmail, and admins can't see what is wrong with a held request |
 
 **Do number 4 first.** It is hurting sponsors now, while Stripe is paused.
 
@@ -1332,6 +1333,25 @@ agreed 2026-11-11 to split the load). 39–40 are HeckerCreatives'.
   `screen-stub`): "Not built yet" entries, "Notifications — not wired",
   "Help — not wired".
 
+- **Delivered (`POL-FE-39`, 2026-11-12, HeckerCreatives):**
+  - `/packages`, `/about`, `/how-it-works`, `/join`: no "Phase 1" or "no
+    self-service checkout until Phase 2". They now say sponsors can send BTG
+    a brief or buy listings in the marketplace and shop by card, that
+    campaign earnings are paid by BTG Finance outside SponsorX, and that shop
+    and marketplace payouts go through Stripe. The package filters say they
+    aren't available yet, without the section sign.
+  - Property page, brief flow, athlete profile: section signs removed;
+    "Select opens a brief to BTG, who match and quote".
+  - `/map` is a 404 in production (`lib/route-map.ts`, one flag), and the
+    footer, portal sidebar and both mobile sheets hide the link there. The
+    page's intro no longer cites the blueprint. The unused `ScreenStub` is
+    deleted.
+  - Menus: "Not built yet" tooltips read "Coming soon"; the two inert entries
+    (advisor Roster, property Campaigns) are dropped, since neither screen
+    exists. The portal header's inert Notifications and Help icons are gone.
+  - `node scripts/ui-copy-scan.cjs` finds nothing on these pages. Frontend
+    build, lint and all 1,957 unit tests pass.
+
 ### 40. Admin desks, sponsor and NEXT screens
 `POL-FE-40` · *Silent* · **HeckerCreatives** · confirmed
 
@@ -1353,6 +1373,121 @@ agreed 2026-11-11 to split the load). 39–40 are HeckerCreatives'.
   `/next/assignments`, `/advisor`: "nothing converts in Phase 1",
   "Messaging is not in Phase 1", "The QR shown here is a stand-in", "arrives
   with Stage 9 (P9-FE-01)", spec §5.1/§5.5/§14.
+
+- **Delivered (`POL-FE-40`, 2026-11-12, HeckerCreatives):**
+  - Admin desks (applications, approvals, matching, rewards, analytics) and
+    the NEXT admin pages (editions, inventory, rights): no section signs,
+    task IDs or "Stage 9". Disabled buttons say "isn't available here yet".
+    The sample banners now read "Sample figures — sign in as a BTG admin or
+    … to see the real …"; a signed-in staff role the desk isn't for already
+    got "Not in your role", so in production the sample reaches only
+    visitors.
+  - Sponsor pages: the campaign, results, request and shop pages show
+    "Not in your role. Your role can't see …. Ask a BTG admin." to a
+    signed-in person whose role has no sponsor read, instead of the sample
+    (`isSignedIn` / `RoleCannotSee` in `components/not-in-role.tsx`). The
+    sample media-property listing tells a signed-in person "Not available
+    yet" instead of sample prices. "Fixture data" and "Sample data" read "a
+    sample campaign", "sample listings"; "waitlist not wired" is "Sold out".
+  - NEXT student and advisor screens: "Messaging isn't available yet",
+    "Points can't be redeemed yet", "Uploading a draft isn't available yet";
+    the QR "is for illustration — share the code or the link"; no spec
+    sections.
+  - Shared wording: reward creator, rewards desks, analytics story and
+    report, matching studio, fixtures, the guardian agreement's draft badge
+    ("Draft — not the final wording"), and the athlete earnings notes (which
+    still said "Phase 1 tracks earning status only").
+  - `node scripts/ui-copy-scan.cjs` finds nothing on these pages. What it
+    still lists (9 lines) is CSS class names, the intelligence pages'
+    deliberate "(simulated)" labels and the development-only engine preview.
+    Frontend build, lint and all 1,957 unit tests pass.
+
+---
+
+## G · Support and help desk (added 2026-11-12)
+
+Found 2026-11-12. A tester on staging (following the Tester Guide) wrote "Need
+full access to complete test run" through the Contact page. Her athlete sign-up
+and sponsor brief had both been held by the document check: the ID didn't read
+as a government ID, and the proof of business didn't name the business. Nobody
+could see that from the message:
+- the whole message went to Gmail (support@sponsorx.net forwards to
+  infinex1@icarrefound.org), and the reply came from a personal address;
+- the site has no support list, menu entry, reply box or "handled" state;
+  `/admin/support/[id]` is reached only from an email with an attachment;
+- nothing links a message to the sender's sign-ups, so the admin had to ask
+  a developer what was wrong.
+
+The case list for the form is
+[SponsorX-Helpdesk-Cases.md](SponsorX-Helpdesk-Cases.md): 380 cases in 8
+topics, each matched to the code that causes it.
+
+**Order:** POL-BE-41 → POL-BE-42 → POL-BE-43, then POL-FE-41 → POL-FE-42 →
+POL-FE-43. Each front-end task waits for its back-end one.
+
+**Decided 2026-11-12 (the user):**
+- people can tick more than one case;
+- replies go by email only; there's no conversation page on the site;
+- all six rows are rcfworks', front end included (an exception to
+  "`POL-FE` = HeckerCreatives", as with items 37–38).
+
+### 41. Support inbox
+`POL-BE-41` / `POL-FE-41` · *Silent* · confirmed
+
+- **Backend (`POL-BE-41`):**
+  - each support message has a status (New, Answered, Closed);
+  - BTG can list messages and filter them by status and case;
+  - a reply is written in SponsorX, kept with the message and emailed to the
+    sender from noreply@sponsorx.net;
+  - the email to support@ becomes a notice only (who wrote, the topic and an
+    "Open in SponsorX" link) and carries none of the message text, so nothing
+    a guardian writes about a minor sits in Gmail;
+  - each message finds what its sender has on SponsorX by email address
+    (athlete, sponsor request, organisation, guardian, student) and shows
+    which of those are held.
+- **Frontend (`POL-FE-41`):**
+  - a Support page in the admin menu, with a count of new messages;
+  - on each message: the reply box, earlier replies, "Mark closed" and a
+    "This person on SponsorX" card listing their records, each tagged with
+    what is wrong and linked to its page.
+- **Done when:** a contact-form message appears in the inbox as New; a reply
+  sent from it reaches the sender from noreply@ and marks it Answered; the
+  support@ email has no message text; a sender with held sign-ups shows them
+  with their reasons; BTG admins only (cross-tenant and role tests pass).
+
+### 42. "What's wrong" at a glance
+`POL-BE-42` / `POL-FE-42` · *Silent* · confirmed
+
+- **Backend (`POL-BE-42`):** one shared summary of a held record's problems
+  for athlete sign-ups, sponsor requests and organisations. Each problem has
+  a plain label, a type (Upload doesn't match · Couldn't read · Missing ·
+  Email not confirmed · Already registered) and the document or field it is
+  about. The lists and pages read it.
+- **Frontend (`POL-FE-42`):** a "What's wrong" panel at the top of each review
+  page, one coloured tag per problem (red: upload doesn't match; amber: missing
+  or unconfirmed; grey: couldn't read), each jumping to its document; the same
+  tags on every row of New sign-ups, Sponsor requests and Onboarding.
+- **Done when:** a held record shows each problem as a tag on its list row and
+  at the top of its page; a record with no problems shows none; the tags match
+  the stored reasons exactly (tests on each type).
+
+### 43. Help desk form (tick a case)
+`POL-BE-43` / `POL-FE-43` · *Dead end* · confirmed
+
+- **Backend (`POL-BE-43`):**
+  - the topics and cases from SponsorX-Helpdesk-Cases.md, kept in SponsorX so
+    their wording can change; each has a stable ID (e.g. `ACC-30`) and the
+    roles that see it;
+  - a message stores the ticked case IDs; text is required only with "Other";
+  - a message sent while signed in is linked to that account;
+  - the inbox filters by case.
+- **Frontend (`POL-FE-43`):** the form on the public Contact page and behind
+  the **?** in every portal: pick a topic, tick the cases that apply, Submit;
+  "Other" opens the message box; attachments as today. A visitor sees only
+  public cases; a signed-in person sees their role's.
+- **Done when:** each topic shows only the person's cases; ticking cases with
+  no text submits; "Other" without text is refused; the message reaches the
+  inbox labelled with its cases; the existing contact-form tests still pass.
 
 ---
 

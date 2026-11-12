@@ -69,7 +69,7 @@ export function ActiveProfile({ a }: { a: PublicAthlete }) {
               ))}
             </ul>
           )}
-          <p className="mt-2 text-[10px] text-faint">Every number says where it came from (§22). Self-reported counts have not been checked by BTG.</p>
+          <p className="mt-2 text-[10px] text-faint">Every number says where it came from. Self-reported counts have not been checked by BTG.</p>
         </Card>
 
         <div className="grid gap-4 sm:grid-cols-2">

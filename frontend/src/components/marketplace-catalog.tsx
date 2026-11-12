@@ -738,7 +738,7 @@ export function AthleteCatalog({
                   <button
                     type="button"
                     disabled={soldOut}
-                    title={soldOut ? "Sold out — waitlist not wired" : undefined}
+                    title={soldOut ? "Sold out" : undefined}
                     onClick={
                       soldOut
                         ? undefined

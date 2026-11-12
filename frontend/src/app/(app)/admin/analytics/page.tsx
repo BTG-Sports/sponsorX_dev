@@ -102,7 +102,7 @@ export default async function AdminAnalyticsPage({
         <EmptyState
           mark="chart"
           title="Analytics are BTG's"
-          hint="These are tenant-wide reward and athlete figures; your role reads its own slice elsewhere (§15)."
+          hint="These are tenant-wide reward and athlete figures. Your role can't see them. Ask a BTG admin."
         />
       </div>
     );

@@ -72,7 +72,7 @@ const FILTERS = [
   ["Budget", "From $750 to $30K+"],
 ] as const;
 
-const NOT_WIRED = "Filters not wired — needs the §13 eligibility query";
+const NOT_WIRED = "Filters aren't available here yet";
 
 function SlidersIcon({ className = "size-4" }: { className?: string }) {
   return (

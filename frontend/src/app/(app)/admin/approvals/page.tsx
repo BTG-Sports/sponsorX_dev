@@ -192,13 +192,13 @@ export default async function AdminApprovalsPage({
       {/* -------------------------------------------------------- headline */}
       {heading}
 
-      {/* P7-QA-02: this fixture branch also reaches signed-in staff outside
-          the desk's roles (NETWORK_MGR, SALES, FINANCE) — its POSTGRES-chipped
-          turnaround / approval rate are sample data. */}
+      {/* Without ?demo= this sample reaches only signed-out visitors: a staff
+          role the desk isn't for got "not in your role" above, and the desk's
+          own roles get the live queue (POL-FE-40). */}
       {demo === null && !live && (
         <BlockedNotice>
-          Demo data — the live approvals queue is read by BTG admin and the
-          Campaign Manager, so every figure below is sample data.
+          Sample figures — sign in as a BTG admin or campaign manager to see
+          the real queue.
         </BlockedNotice>
       )}
 

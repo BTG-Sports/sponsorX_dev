@@ -76,7 +76,7 @@ export function CampaignChangeControls({ campaign, show, actions, demo = false }
 
   const openCancel = () => {
     setNotice(null);
-    if (demo) return setNotice({ tone: "info", text: "Sample data — Cancel and Change work on a real campaign." });
+    if (demo) return setNotice({ tone: "info", text: "This is a sample campaign. Cancel and Change work on a real one." });
     start(async () => {
       const r = await actions.cancelImpact(campaign.id);
       if (!r.ok) return setNotice({ tone: r.unavailable ? "info" : "bad", text: r.message });
@@ -85,7 +85,7 @@ export function CampaignChangeControls({ campaign, show, actions, demo = false }
   };
   const openChange = () => {
     setNotice(null);
-    if (demo) return setNotice({ tone: "info", text: "Sample data — Cancel and Change work on a real campaign." });
+    if (demo) return setNotice({ tone: "info", text: "This is a sample campaign. Cancel and Change work on a real one." });
     /* Start from where the campaign stands now when it moved — after a saved
        change and the refresh, the old values would otherwise propose a silent
        revert. An unchanged campaign keeps the draft. */

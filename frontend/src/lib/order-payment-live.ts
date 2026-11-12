@@ -71,7 +71,7 @@ export const PAY_NOTE = "You’ll pay on Stripe’s secure page. SponsorX never 
 export const HELD_TITLE = "Held for you — card payment opens soon; we’ll email your pay-by date";
 export const HELD_TEXT = "Your order is approved and waiting for you. No pay-by date is running: your three days start only when card payment opens, and we’ll email you then. Nothing has been charged.";
 export const NOT_CONNECTED_NOTE = `${HELD_TITLE}.`;
-export const TEST_PROVIDER_BADGE = "Test payment provider — staging only, no real money";
+export const TEST_PROVIDER_BADGE = "Test payment provider — no real money";
 
 /* ---------------------------------------------- a failed card payment (POL-FE-31) */
 
@@ -326,7 +326,7 @@ export type StandinDetails =
   | { kind: "account"; payeeName: string; status: string; returnPath: string }
   | { kind: "checkout"; orderRef: string; amountCents: number; sponsorName: string; state: PaymentAttemptState | string; returnPath: string };
 
-export const STANDIN_BANNER = "Test payment provider — staging only. This page stands in for Stripe. No real money moves.";
+export const STANDIN_BANNER = "Test payment provider. This page stands in for Stripe. No real money moves.";
 
 /**
  * Where the stand-in sends the browser back to: a path on SponsorX, never

@@ -330,7 +330,7 @@ export function payeeBlurb(kind: SplitPayeeKind, regional: boolean): string {
         ? "Shared across the participating schools by the sales and content pool formula."
         : "The school's share — paid to the program, not a person.";
     case "STUDENT_POOL":
-      return "Funds the points program. Never paid to a student directly — points are recognition, not wages (§5.5).";
+      return "Funds the points program. Never paid to a student directly — points are recognition, not wages.";
     case "EDITORIAL_FUND":
       return "Cameras, recorders, section budgets — the newsroom's gear money.";
   }

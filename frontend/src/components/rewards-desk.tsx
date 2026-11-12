@@ -342,8 +342,8 @@ export function RewardsDesk({
           <FunnelStat label="Redeemed" value={totals.redeemed.toLocaleString("en-US")} />
         </div>
         <p className="border-t border-line-soft px-4 py-2 text-[10px] text-faint">
-          Summed from RewardEvent — scan, landing, claim and redeem are four
-          separate events (§16).{" "}
+          Summed from reward events — scan, landing, claim and redeem are four
+          separate events.{" "}
           <Link
             href="/admin/analytics"
             className="font-medium text-accent transition-colors hover:text-accent-soft"
@@ -470,7 +470,7 @@ export function RewardsDesk({
           <p className="mx-auto mt-1 max-w-xs text-xs text-muted">
             {filtered
               ? "Nothing fits those filters. Try a broader search or clear them."
-              : "Rewards are what fans scan at events — create the first one and every athlete gets their own token (§16)."}
+              : "Rewards are what fans scan at events — create the first one and every athlete gets their own token."}
           </p>
           {filtered ? (
             <button
@@ -620,7 +620,7 @@ export function RewardsDesk({
                       Create Fan Reward
                     </h2>
                     <p className="truncate text-[11px] text-muted">
-                      §16 · one reward, one token per athlete · scan → claim →
+                      One reward, one token per athlete · scan → claim →
                       redeem
                     </p>
                   </div>
