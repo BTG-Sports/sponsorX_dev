@@ -121,3 +121,24 @@ task.
   `day` and `page>3` to one page. Click timeouts on `/admin/rewards/new`
   and `?open=` drawer pages are the dialog's backdrop correctly covering
   the page behind, not a defect.
+
+### Landing page, looked at by hand after the second walk (HeckerCreatives)
+
+- Desktop and phone widths, loader allowed to finish, every link listed,
+  the three package cards and the phone menu opened, the page scrolled to
+  the end; text, tooltips and the console all clean.
+- **Fixed:** the hero's network figure read "1 Campaigns delivered".
+  `lib/network-stats.ts` now gives each figure singular words for a count
+  of one ("Campaign delivered", "Fan reward redeemed", …), with a test.
+- **Seen and left:**
+  - At phone width under `next dev` the Next dev-tools badge
+    (`devIndicators.position: "top-right"`) sits on the hamburger, so the
+    menu can't be tapped in dev; remove `nextjs-portal` and it opens.
+    Production has no badge. Not changed — the position was chosen on
+    purpose, and the fix is a one-line config call for the owner.
+  - "Watch Our Story ▶" (`landing-close.tsx`) links to `#how-it-works`;
+    there is no video on the page. Design wording from P1-ART; raised, not
+    changed.
+  - Nav labels read "HomeHomeHome" in extracted text: an `sr-only` copy
+    plus two `aria-hidden` animation layers, so assistive tech reads each
+    once. Not a defect.
