@@ -20,7 +20,7 @@ const TRUST = [
   },
   {
     title: "Conflicts checked first",
-    body: "Every athlete on your shortlist is screened against their declared restrictions before you ever see a name (§26).",
+    body: "Every athlete on your shortlist is screened against their declared restrictions before you ever see a name.",
   },
   {
     title: "A person replies",

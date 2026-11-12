@@ -190,7 +190,7 @@ function Item({
   if (item.pending) {
     return (
       <span
-        title="Not built yet"
+        title="Coming soon"
         style={delay}
         className="sx-animate flex cursor-default items-center gap-3 rounded-xl px-2.5 py-1.5 text-xs font-medium text-faint"
       >

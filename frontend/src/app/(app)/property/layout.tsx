@@ -23,7 +23,6 @@ const NAV: NavItem[] = [
   /* 2S1-FE-04 / 2S1-FE-08 — documents on file, and the account itself. */
   { href: "/property/documents", label: "Documents", icon: "file" },
   { href: "/property/settings", label: "Settings", icon: "gear" },
-  { href: "/property/campaigns", label: "Campaigns", icon: "calendar", pending: true },
 ];
 
 type Branding = { displayName: string | null; logoUrl: string | null; primaryColor: string | null };

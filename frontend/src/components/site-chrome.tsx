@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ROUTE_MAP_SHOWN } from "@/lib/route-map";
 import { Logo } from "./logo";
 import { HeaderBar } from "./header-fx";
 import { HeaderActions, SiteMenu, SiteNav } from "./site-nav";
@@ -84,7 +85,8 @@ const FOOTER_COLUMNS: { title: string; links: { label: string; href: string }[] 
     title: "Internal",
     links: [
       { label: "Admin", href: "/admin" },
-      { label: "Route Map", href: "/map" },
+      /* POL-FE-39: the route map is a development screen, never linked in production. */
+      ...(ROUTE_MAP_SHOWN ? [{ label: "Route Map", href: "/map" }] : []),
     ],
   },
 ];
