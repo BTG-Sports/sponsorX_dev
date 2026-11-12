@@ -1008,7 +1008,7 @@ function ReviewDrawer({
               ) : (
                 <button
                   type="button"
-                  title="Open the signed asset URL — not wired"
+                  title="Open full asset — available on a real submission"
                   className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
                 >
                   Open full asset

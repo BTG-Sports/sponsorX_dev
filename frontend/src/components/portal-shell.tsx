@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ROUTE_MAP_SHOWN } from "@/lib/route-map";
 import type { ReactNode } from "react";
 import { Logo } from "./logo";
 import { MobileDock } from "./mobile-dock";
@@ -112,28 +113,6 @@ const ACCENT: Record<
   },
 };
 
-function TopIcon({ path, label }: { path: string; label: string }) {
-  return (
-    <span
-      title={label}
-      className="grid size-9 cursor-pointer place-items-center rounded-full border border-line/70 bg-surface-2/40 text-muted transition-all duration-300 hover:-translate-y-0.5 hover:border-line hover:text-text hover:shadow-lg hover:shadow-black/30"
-    >
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="size-4"
-        aria-hidden="true"
-      >
-        <path d={path} />
-      </svg>
-    </span>
-  );
-}
-
 export function PortalShell({
   portal,
   nav,
@@ -242,23 +221,30 @@ export function PortalShell({
         </div>
 
         <div className="relative border-t border-line/70 px-5 py-4">
-          <Link
-            href="/map"
-            className="group flex items-center justify-between text-[11px] text-faint transition-colors hover:text-muted"
-          >
-            <span className="flex items-center gap-1.5">
-              <span
-                aria-hidden="true"
-                className="transition-transform duration-300 group-hover:-translate-x-0.5"
-              >
-                ←
+          {/* POL-FE-39: the route map is a development screen; production shows the wordmark alone. */}
+          {ROUTE_MAP_SHOWN ? (
+            <Link
+              href="/map"
+              className="group flex items-center justify-between text-[11px] text-faint transition-colors hover:text-muted"
+            >
+              <span className="flex items-center gap-1.5">
+                <span
+                  aria-hidden="true"
+                  className="transition-transform duration-300 group-hover:-translate-x-0.5"
+                >
+                  ←
+                </span>
+                route map
               </span>
-              route map
-            </span>
-            <span className="text-[9px] uppercase tracking-[0.2em] text-faint/70">
+              <span className="text-[9px] uppercase tracking-[0.2em] text-faint/70">
+                SponsorX
+              </span>
+            </Link>
+          ) : (
+            <span className="block text-right text-[9px] uppercase tracking-[0.2em] text-faint/70">
               SponsorX
             </span>
-          </Link>
+          )}
         </div>
       </aside>
 
@@ -303,19 +289,9 @@ export function PortalShell({
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Both inert until their features ship — on a phone they only
-               crowd the actor's name out of the header, so they wait for sm. */}
-            <div className="hidden items-center gap-3 sm:flex">
-              <TopIcon
-                path="M6 16V10a6 6 0 1 1 12 0v6l2 3H4l2-3Zm4 3a2 2 0 0 0 4 0"
-                label="Notifications — not wired"
-              />
-              <TopIcon
-                path="M12 17h.01M12 13.5c0-1.5 2-1.8 2-3.5a2 2 0 1 0-4 0M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"
-                label="Help — not wired"
-              />
-            </div>
-            <span className="hidden h-6 w-px bg-gradient-to-b from-transparent via-line to-transparent sm:block" />
+            {/* POL-FE-39: the inert notifications and help icons are gone —
+               a button that does nothing is a dead end. They return with
+               their features. */}
             <UserMenu
               userName={userName}
               userRole={userRole}

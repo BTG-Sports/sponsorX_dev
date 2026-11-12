@@ -534,7 +534,7 @@ export function MatchingStudio({
                   <span className="text-faint">
                     · of {server ? `${server.facets.total} eligible` : `${roster.length} eligible returned`}
                     {live
-                      ? " · conflicted athletes are excluded by the query (§26)"
+                      ? " · conflicted athletes are excluded by the query"
                       : ` · ${blocked.length} blocked by conflict, kept visible`}
                   </span>
                 </p>
@@ -611,7 +611,7 @@ export function MatchingStudio({
               )}
 
               <p className="text-[10px] leading-relaxed text-faint">
-                Score is the §14 Content Value Score — a stored snapshot
+                Score is the Content Value Score — a stored snapshot
                 ({brief.scoreMethod}, {brief.scoreSnapshot}), not a live
                 calculation{live ? "; a dash means not scored yet, never zero" : ""}.
                 Reach is verified (by BTG, or a platform where connected), otherwise

@@ -483,7 +483,7 @@ export function RewardCreator({
 
                 <Labelled
                   label="Terms & conditions"
-                  hint="§26 requires consent and version tracking for fan marketing — terms are versioned with the reward."
+                  hint="Terms are versioned with the reward, so every fan's consent is recorded against the wording they saw."
                 >
                   <textarea
                     rows={3}
@@ -557,7 +557,7 @@ export function RewardCreator({
               <StepHead
                 n={3}
                 title="Who hands it out?"
-                blurb="Each athlete gets their own opaque token and URL, so relative performance is measurable — one reward, many tokens (§16)."
+                blurb="Each athlete gets their own opaque token and URL, so relative performance is measurable — one reward, many tokens."
               />
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[11px] text-muted">
@@ -636,7 +636,7 @@ export function RewardCreator({
               <p className="text-[10px] leading-relaxed text-faint">
                 Tokens are opaque — never the record id — and scan, landing,
                 claim and redeem are four separate events, so the funnel is
-                real (§16). §26 shows conflicted athletes blocked, not hidden.
+                real. Conflicted athletes are shown blocked, not hidden.
               </p>
             </section>
           )}
@@ -735,8 +735,8 @@ export function RewardCreator({
           Open the fan redeem page →
         </Link>
         <p className="text-[10px] leading-relaxed text-faint">
-          That page renders without JavaScript — it is hit on a phone, on venue
-          wifi, once (guide §06).
+          That page works without JavaScript — it is opened on a phone, on venue
+          wifi, once.
         </p>
       </aside>
     </div>

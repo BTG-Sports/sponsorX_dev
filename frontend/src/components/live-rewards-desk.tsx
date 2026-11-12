@@ -222,7 +222,7 @@ export function LiveRewardsDesk({
           <p className="mx-auto mt-1 max-w-xs text-xs text-muted">
             {summary.tabs.all || filtered
               ? "Try another tab or search."
-              : "Create the first one — every athlete on the campaign gets their own QR token (§16)."}
+              : "Create the first one — every athlete on the campaign gets their own QR token."}
           </p>
         </div>
       ) : (
@@ -807,7 +807,7 @@ function Creator({
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line-soft bg-surface px-5 py-3.5">
             <div>
               <h2 className="text-sm font-semibold tracking-tight">Create Fan Reward</h2>
-              <p className="text-[11px] text-muted">§16 · one reward, one token per athlete · scan → claim → redeem</p>
+              <p className="text-[11px] text-muted">One reward, one token per athlete · scan → claim → redeem</p>
             </div>
             <button type="button" onClick={onClose} aria-label="Close" className="grid size-8 place-items-center rounded-full border border-line text-muted hover:text-text">
               <CloseIcon />

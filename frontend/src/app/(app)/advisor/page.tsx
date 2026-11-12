@@ -33,8 +33,7 @@ const STATE_TONE: Record<StudentApplicationState, "warn" | "primary" | "accent">
   APPROVED: "accent",
 };
 
-const WIRING_TITLE =
-  "Advisor decisions are wired by P9-FE-02 against the Student model (Stage 9 — gated behind B8 and a sold edition)";
+const WIRING_TITLE = "Decisions aren't available on the sample desk. Sign in as an advisor to review real applications.";
 
 export default async function AdvisorHomePage({
   searchParams,
@@ -206,9 +205,9 @@ export default async function AdvisorHomePage({
       </section>
 
       <p className="sx-animate sx-delay-2 text-[10px] leading-relaxed text-faint">
-        A student application mirrors an athlete application deliberately
-        (NEXT spec §5.1): same review shape, same audit expectations. School
-        email is a signal, never a requirement.
+        A student application mirrors an athlete application deliberately:
+        same review shape, same audit expectations. School email is a signal,
+        never a requirement.
       </p>
     </div>
   );

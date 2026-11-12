@@ -362,7 +362,7 @@ const PATH = [
   ["Rate card", "Once approved, BTG sets your NIL rate for each of the seven job types, by tier."],
   ["Invitations", "BTG matches you to sponsor briefs. Every invitation is yours to accept or decline."],
   ["Deliver", "Post the content or make the appearance; fans redeem the reward by QR."],
-  ["Earnings", "Each completed deliverable shows in your earnings. Payment happens outside SponsorX in Phase 1."],
+  ["Earnings", "Each completed deliverable shows in your earnings. Campaign earnings are paid by BTG Finance; shop and marketplace payouts go through Stripe."],
 ] as const;
 
 const PATH_TONES = ["#7fd0ff", "#7fd0ff", "#4fb0ff", "#2e9bf5", "#fb923c", "#fb923c"];

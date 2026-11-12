@@ -788,8 +788,9 @@ export function HowClose() {
       </div>
 
       <p data-reveal="" className="mt-8 max-w-3xl text-[11px] leading-relaxed text-on-media/50">
-        SponsorX is a managed marketplace: sponsors request a brief and BTG quotes after matching. There is no
-        self-service checkout, and money moves outside SponsorX.
+        Sponsors can send BTG a brief and let BTG match and quote, or buy listings directly in the marketplace and
+        shop, paying by card. Campaign earnings are paid by BTG Finance outside SponsorX; shop and marketplace payouts
+        go through Stripe.
       </p>
     </section>
   );

@@ -153,7 +153,7 @@ export function SiteNav() {
               key={n.label}
               className="sx-nav-item relative cursor-default whitespace-nowrap px-4 py-2 text-[15px] text-faint"
               style={stagger}
-              title="Not built yet"
+              title="Coming soon"
             >
               {n.label}
             </span>
@@ -387,7 +387,7 @@ export function SiteMenu() {
                   return (
                     <span
                       key={n.label}
-                      title="Not built yet"
+                      title="Coming soon"
                       className="sx-animate flex cursor-default items-center gap-4 py-[clamp(4px,1.1svh,10px)]"
                       style={delay}
                     >

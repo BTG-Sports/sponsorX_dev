@@ -5,9 +5,6 @@ import { roleLabel, viewerName } from "@/server/viewer";
 const NAV: NavItem[] = [
   { href: "/advisor", label: "Applications", icon: "users" },
   { href: "/advisor/review", label: "Content review", icon: "inbox" },
-  /* The roster (active students, masthead, standing) has no Stage 1 row —
-     visible and inert rather than hidden. */
-  { href: "/advisor/roster", label: "Roster", icon: "book", pending: true },
 ];
 
 /* The advisor desk — SponsorX NEXT (P1-FE-20, spec §3, §7, §8). One school's

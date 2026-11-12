@@ -95,8 +95,7 @@ export default async function AdvisorReviewPage({
 
       <p className="sx-animate sx-delay-1 text-[10px] leading-relaxed text-faint">
         The advisor approves school-specific content and student participation;
-        publishing economics and rights decisions stay with SponsorX (NEXT spec
-        §5.2). A sponsor previewing a paid feature sees placement only — never
+        publishing economics and rights decisions stay with SponsorX. A sponsor previewing a paid feature sees placement only — never
         edits copy.
       </p>
     </div>

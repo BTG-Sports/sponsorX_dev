@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ROUTE_MAP_SHOWN } from "@/lib/route-map";
 
-// Development route map. Not a product screen - delete before launch.
+// Development route map. Not a product screen: in production it is a 404
+// (POL-FE-39), and every link to it is hidden there too.
 const ROUTES = [
   { href: "/", title: 'SponsorX Network Landing', ref: '§9 screen 1', surface: 'public' },
   { href: "/packages", title: 'Sponsor Package Catalog', ref: '§9 screen 4 · §7', surface: 'public' },
@@ -46,14 +49,13 @@ const ROUTES = [
 ];
 
 export default function RouteMap() {
+  if (!ROUTE_MAP_SHOWN) notFound();
   const groups = Array.from(new Set(ROUTES.map((r) => r.surface)));
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-12">
       <h1 className="text-2xl font-semibold tracking-tight">SponsorX route map</h1>
       <p className="mt-2 text-sm text-muted">
-        Skeleton routes for Phase 1. Structure follows §02 of the
-        implementation guide; screen references point into Master
-        Development Blueprint v2.0.
+        Every screen in the app, for development. Not shown in production.
       </p>
       {groups.map((g) => (
         <section key={g} className="mt-8">

@@ -398,7 +398,7 @@ export function LiveStudentPoints({ live }: { live: Student }) {
               programme recognises them as scholarships or something else is a decision that has not been made.
             </p>
             <div className="mt-3">
-              <Button full disabled title="Redemption is a separately gated decision (spec §5.5, open question §14) — nothing converts in Phase 1">
+              <Button full disabled title="Points can't be redeemed yet. Whether they ever convert is a decision still to be made.">
                 Redeem points
               </Button>
             </div>

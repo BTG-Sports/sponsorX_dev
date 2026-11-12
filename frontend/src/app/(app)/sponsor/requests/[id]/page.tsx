@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { BackLink } from "@/components/back-link";
 import { EmptyState } from "@/components/states";
+import { RoleCannotSee, isSignedIn } from "@/components/not-in-role";
 import {
   StadiumChip,
   StadiumDate,
@@ -62,6 +63,11 @@ export default async function SponsorRequestDetailPage({ params, searchParams }:
       );
     }
     return <Detail request={live.request} updatedAt={live.readAt} sample={false} />;
+  }
+  /* POL-FE-40: a signed-in person whose role has no sponsor read is told so,
+     never shown a sample request. The sample stays for ?demo= walks. */
+  if (demo === null && (await isSignedIn())) {
+    return <RoleCannotSee title="Request" what="a sponsor's request" back={BACK} />;
   }
 
   /* Demo: the sample row with this id, shown with what the list knows. */
@@ -210,7 +216,7 @@ function SampleDetail({ request: r }: { request: { id: string; state: string; ob
         ) : (
           <p className="text-sm text-muted">{requestStepsClosedWord(r.state, r.campaign?.state)}</p>
         )}
-        <p className="mt-4 border-t border-line-soft pt-4 text-[11px] text-muted">Sample data — Edit and Withdraw work on a real request once you sign in as a sponsor.</p>
+        <p className="mt-4 border-t border-line-soft pt-4 text-[11px] text-muted">This is a sample request. Edit and Withdraw work on a real one once you sign in as a sponsor.</p>
       </StadiumPanel>
     </div>
   );

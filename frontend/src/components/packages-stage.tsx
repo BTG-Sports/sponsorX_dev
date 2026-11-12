@@ -352,7 +352,7 @@ export function PackagesHero({ pkgs, live }: { pkgs: PackageView[]; live: boolea
               <span>
                 <ScrambleText text="Sponsor Packages" delay={0.1} />
                 <span className="mx-2 text-on-media/40 sm:mx-3">/</span>
-                <ScrambleText text="Phase 1" delay={0.35} />
+                <ScrambleText text="BTG Sports Group" delay={0.35} />
               </span>
               <span aria-hidden="true" className="h-px w-16 min-w-0 shrink bg-on-media/60 sm:w-24" />
             </p>
@@ -817,7 +817,7 @@ export function BriefSteps() {
     <section aria-labelledby="steps-title" className="relative mx-auto w-full max-w-[1320px] px-5 pb-20 sm:px-[6vw] lg:pb-28 2xl:px-0">
       <div id="steps-title">
         <SectionHead eyebrow="How it works" title="Managed," accent="end to end.">
-          Phase 1 is a managed marketplace: you pick the play, BTG runs it.
+          You pick the play, BTG runs it.
         </SectionHead>
       </div>
 
@@ -919,8 +919,8 @@ export function PackagesClose() {
       </div>
 
       <p data-reveal="" className="mt-8 max-w-3xl text-[11px] leading-relaxed text-on-media/50">
-        Phase 1 sponsors request or reserve &mdash; there is no self-service checkout until Phase 2. Prices are
-        indicative; the final quote comes from BTG after matching.
+        Request a package here and BTG quotes after matching. Prices are indicative; the final quote comes from BTG.
+        Signed-in sponsors can also buy listings directly in the marketplace and shop, paying by card.
       </p>
     </section>
   );

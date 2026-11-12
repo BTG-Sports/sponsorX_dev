@@ -7,6 +7,7 @@ import { ShopStadiumCard } from "@/components/shop-stadium-card";
 import { ListFilter, ListSearch, PagerRow, PendingList, ServerList } from "@/components/server-pager";
 import { StadiumGhost, StadiumHead, StadiumPanel, StadiumTile, StadiumTiles, StadiumUpdated } from "@/components/stadium-stage";
 import { demoState } from "@/lib/demo";
+import { RoleCannotSee } from "@/components/not-in-role";
 import { apiListQuery, pageParams, type PageInfo, type SearchParams } from "@/lib/list-query";
 import {
   CATEGORY_OPTIONS,
@@ -124,6 +125,13 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
         updatedAt={new Date().toISOString()}
       />
     );
+  }
+
+  /* POL-FE-40: everyone here is signed in (the layout saw to that), so a
+     refused shop read means the role can't see it — say so, never show the
+     sample listings. They stay for ?demo= walks. */
+  if (demo === null) {
+    return <RoleCannotSee title="Shop" what="the shop" back={{ label: "Back to your dashboard", href: "/sponsor" }} />;
   }
 
   const empty = demo === "empty";
@@ -280,7 +288,7 @@ function Shop({
 
       {sample && (
         <p className="text-[10px] text-faint">
-          Sample data — {DEMO_LISTINGS.length} demo listings, shown the way a linked sponsor&rsquo;s own shop would be.
+          Sample listings — {DEMO_LISTINGS.length} examples, shown the way a linked sponsor&rsquo;s own shop would be.
         </p>
       )}
     </div>
@@ -297,7 +305,7 @@ function cardAction(r: ApiSearchResult, canWrite: boolean, sample: boolean, toda
       <button
         type="button"
         disabled
-        title="Sample data — add to cart once your account is linked to a sponsor organisation."
+        title="This is a sample listing. Add to cart once your account is linked to a sponsor organisation."
         className="cursor-not-allowed self-start rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink opacity-40"
       >
         Add to cart

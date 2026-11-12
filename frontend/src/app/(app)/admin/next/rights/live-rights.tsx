@@ -60,7 +60,7 @@ export async function LiveRights({ live, today }: { live: LiveEditions; today: s
     return (
       <div className="space-y-6">
         <NextHeading title="Rights" sub={e.label} right={switcher} />
-        <EmptyState mark="chart" title="The rights ledger is outside your scope" hint="Edition assets are read by BTG admin and the school's advisor and students (matrix §15.3)." />
+        <EmptyState mark="chart" title="The rights ledger is outside your scope" hint="Edition assets are read by BTG admins and the school's advisor and students. Ask a BTG admin." />
       </div>
     );
   }
@@ -211,7 +211,7 @@ export async function LiveRights({ live, today }: { live: LiveEditions; today: s
           </div>
         )}
         <p className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] leading-relaxed text-faint">
-          SponsorX&rsquo;s own editorial content defaults to no commercial reuse (V3 §6) — granting it is a deliberate act, recorded here like any other.
+          SponsorX&rsquo;s own editorial content defaults to no commercial reuse — granting it is a deliberate act, recorded here like any other.
           <MiniChip kind="ver">POSTGRES</MiniChip>
         </p>
       </section>

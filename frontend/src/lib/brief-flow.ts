@@ -65,7 +65,7 @@ export const BRIEF_STEPS: BriefStepDef[] = [
   {
     id: "market",
     heading: "Where should it land?",
-    sub: "Campaigns are matched to athletes in your market (§13). Today the network is strongest in the DMV, with a hub in Kigali.",
+    sub: "Campaigns are matched to athletes in your market. Today the network is strongest in the DMV, with a hub in Kigali.",
     fields: [
       { key: "market", label: "City / region", placeholder: "Silver Spring, MD", required: true },
     ],

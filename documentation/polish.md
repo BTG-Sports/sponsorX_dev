@@ -1333,6 +1333,25 @@ agreed 2026-11-11 to split the load). 39–40 are HeckerCreatives'.
   `screen-stub`): "Not built yet" entries, "Notifications — not wired",
   "Help — not wired".
 
+- **Delivered (`POL-FE-39`, 2026-11-12, HeckerCreatives):**
+  - `/packages`, `/about`, `/how-it-works`, `/join`: no "Phase 1" or "no
+    self-service checkout until Phase 2". They now say sponsors can send BTG
+    a brief or buy listings in the marketplace and shop by card, that
+    campaign earnings are paid by BTG Finance outside SponsorX, and that shop
+    and marketplace payouts go through Stripe. The package filters say they
+    aren't available yet, without the section sign.
+  - Property page, brief flow, athlete profile: section signs removed;
+    "Select opens a brief to BTG, who match and quote".
+  - `/map` is a 404 in production (`lib/route-map.ts`, one flag), and the
+    footer, portal sidebar and both mobile sheets hide the link there. The
+    page's intro no longer cites the blueprint. The unused `ScreenStub` is
+    deleted.
+  - Menus: "Not built yet" tooltips read "Coming soon"; the two inert entries
+    (advisor Roster, property Campaigns) are dropped, since neither screen
+    exists. The portal header's inert Notifications and Help icons are gone.
+  - `node scripts/ui-copy-scan.cjs` finds nothing on these pages. Frontend
+    build, lint and all 1,957 unit tests pass.
+
 ### 40. Admin desks, sponsor and NEXT screens
 `POL-FE-40` · *Silent* · **HeckerCreatives** · confirmed
 
@@ -1354,6 +1373,34 @@ agreed 2026-11-11 to split the load). 39–40 are HeckerCreatives'.
   `/next/assignments`, `/advisor`: "nothing converts in Phase 1",
   "Messaging is not in Phase 1", "The QR shown here is a stand-in", "arrives
   with Stage 9 (P9-FE-01)", spec §5.1/§5.5/§14.
+
+- **Delivered (`POL-FE-40`, 2026-11-12, HeckerCreatives):**
+  - Admin desks (applications, approvals, matching, rewards, analytics) and
+    the NEXT admin pages (editions, inventory, rights): no section signs,
+    task IDs or "Stage 9". Disabled buttons say "isn't available here yet".
+    The sample banners now read "Sample figures — sign in as a BTG admin or
+    … to see the real …"; a signed-in staff role the desk isn't for already
+    got "Not in your role", so in production the sample reaches only
+    visitors.
+  - Sponsor pages: the campaign, results, request and shop pages show
+    "Not in your role. Your role can't see …. Ask a BTG admin." to a
+    signed-in person whose role has no sponsor read, instead of the sample
+    (`isSignedIn` / `RoleCannotSee` in `components/not-in-role.tsx`). The
+    sample media-property listing tells a signed-in person "Not available
+    yet" instead of sample prices. "Fixture data" and "Sample data" read "a
+    sample campaign", "sample listings"; "waitlist not wired" is "Sold out".
+  - NEXT student and advisor screens: "Messaging isn't available yet",
+    "Points can't be redeemed yet", "Uploading a draft isn't available yet";
+    the QR "is for illustration — share the code or the link"; no spec
+    sections.
+  - Shared wording: reward creator, rewards desks, analytics story and
+    report, matching studio, fixtures, the guardian agreement's draft badge
+    ("Draft — not the final wording"), and the athlete earnings notes (which
+    still said "Phase 1 tracks earning status only").
+  - `node scripts/ui-copy-scan.cjs` finds nothing on these pages. What it
+    still lists (9 lines) is CSS class names, the intelligence pages'
+    deliberate "(simulated)" labels and the development-only engine preview.
+    Frontend build, lint and all 1,957 unit tests pass.
 
 ---
 

@@ -132,7 +132,7 @@ export const STRIPE_ARIA_SUFFIX = "Leaves SponsorX and opens Stripe.";
  *  line under it says what opens with them. */
 export const PAYMENTS_OPEN_SOON = "Payments open soon";
 export const PROVIDER_NOT_CONNECTED = "Payments open soon — setting up payouts on Stripe opens with them.";
-export const TEST_PROVIDER_BADGE = "Test payment provider — staging only, no real money";
+export const TEST_PROVIDER_BADGE = "Test payment provider — no real money";
 
 /** POL-FE-25 — the one sentence Earnings and Payouts both use for where
  *  money lands. Never "outside the platform": payouts go through the payee's

@@ -173,9 +173,9 @@ export function buildAthleteEarningsReport(): AthleteEarningsReport {
     },
     notes: [
       "Career figures are your totals in SponsorX's records; the money-journey buckets and activity rows are the current cycle's sample and will not sum to the career figure.",
-      "Phase 1 tracks earning status only — no money moves through SponsorX. BTG Finance handles the payout itself, outside the platform.",
-      "Your bank account and tax ID never touch SponsorX (§26); paid orders carry a Zoho Books reference for your records.",
-      "An order on hold is not lost — BTG Finance re-checks it and it re-enters the pipeline once cleared (§21).",
+      "SponsorX tracks the status of campaign earnings only. BTG Finance pays them outside SponsorX; shop and marketplace payouts go through Stripe.",
+      "Your bank account and tax ID never touch SponsorX; paid orders carry a Zoho Books reference for your records.",
+      "An order on hold is not lost — BTG Finance re-checks it and it re-enters the pipeline once cleared.",
     ],
   };
 }

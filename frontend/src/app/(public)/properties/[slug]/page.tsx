@@ -194,7 +194,7 @@ export default async function PropertyProfilePage({
       <section className="mt-10">
         <SectionHeading
           title="Sponsorship Opportunities"
-          hint="Phase 1 is managed — Select opens a brief, it does not check out (§17)"
+          hint="Select opens a brief to BTG, who match and quote"
         />
         <Card className="p-0">
           <ul className="divide-y divide-line-soft">
@@ -234,7 +234,7 @@ export default async function PropertyProfilePage({
       <section className="mt-10">
         <SectionHeading
           title="Property roster"
-          hint="§4 — these athletes can be activated individually or through the property"
+          hint="These athletes can be activated individually or through the property"
         />
         <div className="grid gap-3 sm:grid-cols-3">
           {p.roster.map((a) => (
@@ -301,8 +301,7 @@ function LiveProfile({ p, back }: { p: PublicProperty; back: ReturnType<typeof r
             <p className="text-sm font-semibold tracking-tight">Sponsor {p.name} through BTG</p>
             <p className="mt-1.5 text-xs leading-relaxed text-muted">
               Tell BTG what you want to achieve. BTG matches the athletes,
-              checks category conflicts and sends one invoice — no checkout
-              (§17).
+              checks category conflicts and sends one invoice.
             </p>
           </div>
           <Link
@@ -317,7 +316,7 @@ function LiveProfile({ p, back }: { p: PublicProperty; back: ReturnType<typeof r
       <section className="mt-10">
         <SectionHeading
           title="Property roster"
-          hint="§4 — these athletes can be activated individually or through the property"
+          hint="These athletes can be activated individually or through the property"
         />
         {listed === 0 ? (
           <Card>

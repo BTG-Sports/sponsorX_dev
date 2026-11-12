@@ -193,12 +193,13 @@ export default async function AdminApplicationsPage({
 
   return (
     <Stage>
-      {/* P7-QA-02: this fixture branch also reaches signed-in staff who may
-          not review (SALES, CAMPAIGN_MGR, FINANCE) — every figure is sample data. */}
+      {/* Without ?demo= this sample reaches only signed-out visitors: a staff
+          role the desk isn't for got "not in your role" above, and reviewers
+          get the live queue (POL-FE-40). */}
       {demo === null && (
         <p role="note" className="sx-ops-in mb-6 inline-flex items-center gap-2 rounded-full border border-[#f97a1f]/40 bg-[#f97a1f]/10 px-3.5 py-1.5 text-xs font-medium text-[#fdba74]">
           <span aria-hidden="true">●</span>
-          Demo data — the live review queue is read by BTG admin and the Network Manager, so every figure below is sample data.
+          Sample figures — sign in as a BTG admin or network manager to see the real queue.
         </p>
       )}
       <ScoutHeader figures={figures} readAt={null} />
