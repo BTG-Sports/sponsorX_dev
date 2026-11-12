@@ -31,6 +31,17 @@ describe("networkFigures", () => {
     expect(networkFigures(stats({ athletes: 0, campaignsDelivered: 0, postsVerified: 0, rewardsRedeemed: 0 }), ["athletes", "campaignsDelivered", "postsVerified", "rewardsRedeemed"])).toEqual([]);
   });
 
+  it("uses the singular words for a count of one, so the page never reads '1 Campaigns delivered'", () => {
+    const one = networkFigures(stats({ athletes: 1, campaignsDelivered: 1, postsVerified: 1, rewardsRedeemed: 1 }), ["athletes", "campaignsDelivered", "postsVerified", "rewardsRedeemed"]);
+    expect(one.map((f) => [f.label, f.short])).toEqual([
+      ["Athlete in the network", "Athlete"],
+      ["Campaign delivered", "Campaign"],
+      ["Post verified", "Post"],
+      ["Fan reward redeemed", "Reward"],
+    ]);
+    expect(networkFigures(stats({ campaignsDelivered: 2 }), ["campaignsDelivered"])[0].label).toBe("Campaigns delivered");
+  });
+
   it("has exactly the four real counts — the old 'Attributed fan value' has no source and is gone", () => {
     const all = networkFigures(stats(), ["athletes", "campaignsDelivered", "postsVerified", "rewardsRedeemed"]);
     expect(all.map((f) => [f.label, f.value])).toEqual([
