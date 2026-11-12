@@ -34,3 +34,10 @@
   - no fan lookup;
   - nothing starts a campaign's final report.
 - **Tracker:** Polish rows 62–67 added (Order 58–63, stage 7 "G · Support and help desk"). Autofilter, the Status list and the colour ranges now reach row 67, and the header says 63 tasks across 43 flaws.
+
+## Wrap-up
+
+- No board tasks moved to Done today: the day was the tester's support message and planning Polish group G.
+- **Stage Progress:** 2026-11-12 row appended. 318 Done, 15.5 days left, same as 2026-11-11.
+- **Next:** POL-BE-41 (support inbox, backend), once the plan PR is merged. Then 42 and 43, then the three front-end rows.
+- **Waiting on the user:** approve the tester's two staging sign-ups, then send the two drafted replies (to the tester and to Rodney) from Gmail.
