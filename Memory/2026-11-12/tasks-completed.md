@@ -93,3 +93,31 @@ task.
     pre-existing, no page affected.
 - Nothing else: no "Phase 1/2", "Stage 9", "Not built yet", "not wired",
   "Demo data" or "Sample data" on any rendered page for any role.
+
+### Second QA walk: every page plus everything that opens on it (HeckerCreatives)
+
+- **How:** the crawler (`crawl2.mjs` in the session scratchpad) now also scans
+  hidden pre-rendered text and `<option>` labels, then clicks every opener
+  that does not change data (user menu, filters, per-page and sort menus,
+  tabs, accordions, row drawers, wizards, full-screen dialogs, validation
+  summaries) and scans what appears: `role=dialog`/`alertdialog`, menus,
+  listboxes, tooltips, tab panels, `role=status`/`alert` toasts, open
+  `details`, popovers, and any new text. Buttons that navigate add their
+  target to the queue, which reached about 800 pages links never did.
+  Openers that mutate (approve, pay, delete, sign out, submit …) are never
+  clicked; the local DB is unchanged.
+- **Coverage:** 770 pages, about 7,700 clicks, about 6,300 popups, drawers,
+  menus and panels (about 400 dialogs and drawers) across signed-out, admin
+  (400, the cap), sponsor, finance, athlete, property, advisor and student.
+  Every page 200 except `/r/DEMO_TOKEN` (no such token locally).
+- **Found:** nothing new. Every popup, drawer, menu, tooltip and panel is
+  clean for section signs, task IDs, Phase/Stage talk, "not built", sample
+  banners and error pages. The only hits are the three data items already
+  noted above (the local "standin" provider name, the origin-based
+  localhost sales link, the seeded "QA walk data (P1-ART-22)" descriptions).
+- **Harness notes:** the athlete deliverables calendar is a button per day,
+  each a new `?month=&day=` URL; the first athlete run walked 269 days in
+  four hours before being stopped, and the crawler now collapses `month`,
+  `day` and `page>3` to one page. Click timeouts on `/admin/rewards/new`
+  and `?open=` drawer pages are the dialog's backdrop correctly covering
+  the page behind, not a defect.
