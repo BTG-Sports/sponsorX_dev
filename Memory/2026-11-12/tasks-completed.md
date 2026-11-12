@@ -56,3 +56,40 @@ task.
   sheet is not in the stage counts).
 - **Still to do:** open the PR, merge, then flip both rows to Done and
   mirror the Google Sheet.
+
+### Live QA walk of every frontend page (HeckerCreatives)
+
+- **How:** a Playwright crawler (scratchpad, rebuilt from the pattern in the
+  memory notes) signed in as each QA login with a Clerk sign-in token and
+  crawled from the seeded routes through every same-portal link, scanning
+  `innerText` plus `title` / `aria-label` / `placeholder` attributes for
+  section signs, task IDs, Phase/Stage talk, internal words, "not wired",
+  "Demo data", "Sample data" and error pages. Eight roles: signed-out,
+  admin, athlete, sponsor, finance, advisor, student, property.
+- **Coverage:** 472 pages in the first pass (admin capped at 140), then an
+  admin re-walk of 337 pages that reached every detail route (offers,
+  payouts, sponsor requests, onboarding, deal disputes, delivery issues,
+  new sign-ups, payment disputes, campaigns, forecasts, pricing). Every
+  page answered 200 except `/r/DEMO_TOKEN` (no such token locally).
+- **Found and fixed (commit on the same branch):** the test-provider badge
+  on the athlete and property money and settings pages and the stand-in
+  provider's banner said "staging only" (`order-payment-live.ts`,
+  `payouts-live.ts`); the live revenue-splits blurb for the student pool
+  still carried "(§5.5)" (`editions-live.ts`). All three are strings in
+  libs the static scanner doesn't treat as copy.
+- **Seen and left, with the reason:**
+  - "Standin" / "standin · evt_standin_…" on `/admin/payments`,
+    `/finance/payments`, payment events and disputes: the provider's name
+    from the API. Local and staging run the test provider; production runs
+    Stripe, so it reads "Stripe" there.
+  - `http://localhost:3000/s/JORDAN-NS` on `/next/code`: the student's
+    link is built from the current origin, so production shows the real
+    host.
+  - "QA walk data (P1-ART-22)" on athlete listing previews and the sponsor
+    shop: listing descriptions a previous walk seeded into the local DB,
+    not UI copy.
+  - A signed-out visit to `/finance/payouts` logs "Not signed in." from
+    `apiFetch` before the layout's redirect to `/login` lands (307). Noise,
+    pre-existing, no page affected.
+- Nothing else: no "Phase 1/2", "Stage 9", "Not built yet", "not wired",
+  "Demo data" or "Sample data" on any rendered page for any role.
