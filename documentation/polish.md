@@ -1378,10 +1378,11 @@ topics, each matched to the code that causes it.
 **Order:** POL-BE-41 → POL-BE-42 → POL-BE-43, then POL-FE-41 → POL-FE-42 →
 POL-FE-43. Each front-end task waits for its back-end one.
 
-**Open (decide before POL-FE-43):** whether more than one case can be ticked
-(assumed yes); whether signed-in people also see replies on the site (one more
-page) or by email only; who builds the front-end rows (rcfworks or
-HeckerCreatives).
+**Decided 2026-11-12 (the user):**
+- people can tick more than one case;
+- replies go by email only; there's no conversation page on the site;
+- all six rows are rcfworks', front end included (an exception to
+  "`POL-FE` = HeckerCreatives", as with items 37–38).
 
 ### 41. Support inbox
 `POL-BE-41` / `POL-FE-41` · *Silent* · confirmed

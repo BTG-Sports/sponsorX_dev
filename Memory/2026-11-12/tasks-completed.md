@@ -21,7 +21,7 @@
   - **POL-BE-42 / POL-FE-42, "What's wrong" tags** on held sign-ups, sponsor requests and organisations, in lists and pages.
   - **POL-BE-43 / POL-FE-43, help desk form:** pick a topic, tick cases, Submit; "Other" opens the message box.
   - IDs follow polish.md's rule (number = item number), so the backend rows are 41–43, not the 37–39 first mentioned in chat.
-  - **Front-end owner not decided** (rcfworks or HeckerCreatives); the FE rows have no owner yet.
+  - **Decided (later the same day):** all six rows are rcfworks', front end included; people can tick more than one case; replies go by email only (no conversation page).
 - **New doc:** `documentation/SponsorX-Helpdesk-Cases.md`.
   - 380 cases in 8 topics: Account 90, Payments 79, Guardians 63, Campaigns 58, Shop 49, Rewards 23, NEXT 17, Other 1.
   - Each case is matched to the code that causes it (main_development `db34ceb7`).
@@ -34,3 +34,10 @@
   - no fan lookup;
   - nothing starts a campaign's final report.
 - **Tracker:** Polish rows 62–67 added (Order 58–63, stage 7 "G · Support and help desk"). Autofilter, the Status list and the colour ranges now reach row 67, and the header says 63 tasks across 43 flaws.
+
+## Wrap-up
+
+- No board tasks moved to Done today: the day was the tester's support message and planning Polish group G.
+- **Stage Progress:** 2026-11-12 row appended. 318 Done, 15.5 days left, same as 2026-11-11.
+- **Next:** POL-BE-41 (support inbox, backend), once the plan PR is merged. Then 42 and 43, then the three front-end rows.
+- **Waiting on the user:** approve the tester's two staging sign-ups, then send the two drafted replies (to the tester and to Rodney) from Gmail.

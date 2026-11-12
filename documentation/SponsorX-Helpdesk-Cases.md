@@ -639,11 +639,12 @@ are **not** part of tasks 41–43. Raise them separately when you choose.
 - Sponsor brief closed (CMP-10), deal paused (CMP-80) and make-good shortfall (CMP-60).
 - Stripe's reason for "needs more information" isn't kept (PAY-44, PAY-71).
 
-## Open questions for the build
+## Decided, and still open
 
-1. Can people tick more than one case? The plan assumes yes.
-2. Is a reply by email enough, or should signed-in people also see the
-   conversation on the site? A thread adds one page.
-3. Should a few cases answer themselves before sending? For example, ACC-30
-   ("I didn't get the confirmation email") could show the Resend button instead of
-   opening a ticket.
+**Decided 2026-11-12 (the user):**
+- People can tick more than one case.
+- Replies go by email only. Signed-in people don't get a conversation page.
+
+**Still open:** should a few cases answer themselves before sending? For
+example, ACC-30 ("I didn't get the confirmation email") could show the Resend
+button instead of opening a ticket.
