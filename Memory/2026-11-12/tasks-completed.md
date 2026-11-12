@@ -21,7 +21,7 @@
   - **POL-BE-42 / POL-FE-42, "What's wrong" tags** on held sign-ups, sponsor requests and organisations, in lists and pages.
   - **POL-BE-43 / POL-FE-43, help desk form:** pick a topic, tick cases, Submit; "Other" opens the message box.
   - IDs follow polish.md's rule (number = item number), so the backend rows are 41–43, not the 37–39 first mentioned in chat.
-  - **Front-end owner not decided** (rcfworks or HeckerCreatives); the FE rows have no owner yet.
+  - **Decided (later the same day):** all six rows are rcfworks', front end included; people can tick more than one case; replies go by email only (no conversation page).
 - **New doc:** `documentation/SponsorX-Helpdesk-Cases.md`.
   - 380 cases in 8 topics: Account 90, Payments 79, Guardians 63, Campaigns 58, Shop 49, Rewards 23, NEXT 17, Other 1.
   - Each case is matched to the code that causes it (main_development `db34ceb7`).
