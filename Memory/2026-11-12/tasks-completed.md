@@ -96,8 +96,8 @@ task.
   owner HeckerCreatives, notes appended. Stage Progress row 2026-11-12
   appended (unchanged from 11-11: 318 done, 15.5 days left; the Polish
   sheet is not in the stage counts).
-- **Still to do:** open the PR, merge, then flip both rows to Done and
-  mirror the Google Sheet.
+- **Merged:** PR #388 into `main_development` (2026-11-12); both rows are
+  **Done** on the Polish sheet. Still to do by hand: mirror the Google Sheet.
 
 ## Live QA walk of every frontend page (HeckerCreatives)
 
