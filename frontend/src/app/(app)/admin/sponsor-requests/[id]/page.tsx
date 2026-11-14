@@ -3,11 +3,13 @@ import Link from "next/link";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { Badge, Card } from "@/components/ui";
 import { PayoutTracker } from "@/components/payout-history";
+import { WhatsWrongPanel } from "@/components/problem-tags";
 import { SponsorAccountDecision, SponsorDocumentOpen, SponsorRequestReview } from "@/components/sponsor-request-review";
 import { categoryLabel, type BrandCategory } from "@/lib/brand-categories";
 import {
   accountTracker, documentLine, initials, reviewLine, roleWords, stampOf, stateBadge, tabFor, tabLabel, type ApiSponsorRequestDetail,
 } from "@/lib/sponsor-requests-live";
+import { DOCUMENTS_ANCHOR, docAnchor } from "@/lib/support-inbox-live";
 import { apiFetch } from "@/server/api";
 import { decideSponsorRequestAction, sendBackSponsorDocumentAction, viewSponsorDocumentAction } from "../actions";
 
@@ -48,9 +50,12 @@ export default async function SponsorRequestPage({ params }: { params: Promise<{
   const r = (await res.json()) as ApiSponsorRequestDetail;
   const tab = tabFor(r.state);
   const review = reviewLine(r);
+  /* POL-FE-42 — a waiting request's problems, as tags at the top; they replace the plain list under "How it reached BTG". */
+  const problems = r.state === "NEW" ? r.problems ?? [] : [];
 
   const details = (
     <>
+      <WhatsWrongPanel problems={problems} documents={r.documents.map((d) => ({ id: d.id, name: "Proof of business" }))} />
       <Card>
         <div className="flex items-start gap-3">
           <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/15 text-sm font-semibold text-primary">{initials(r.businessName)}</span>
@@ -84,7 +89,7 @@ export default async function SponsorRequestPage({ params }: { params: Promise<{
         <Card>
           <h2 className="text-sm font-semibold">How it reached BTG</h2>
           <p className="mt-2 text-xs">{review.text}</p>
-          {review.reasons.length > 0 && (
+          {review.reasons.length > 0 && problems.length === 0 && (
             <ul className="mt-1.5 list-disc space-y-1 pl-4 text-xs text-warn">
               {review.reasons.map((why) => <li key={why}>{why}</li>)}
             </ul>
@@ -92,11 +97,11 @@ export default async function SponsorRequestPage({ params }: { params: Promise<{
         </Card>
       )}
       <Card>
-        <h2 className="text-sm font-semibold">Proof of business</h2>
+        <h2 id={DOCUMENTS_ANCHOR} className="scroll-mt-24 text-sm font-semibold">Proof of business</h2>
         {r.documents.length ? (
           <ul className="mt-2 divide-y divide-line-soft">
             {r.documents.map((d) => (
-              <li key={d.id} className="flex flex-col gap-1.5 py-2 text-xs sm:flex-row sm:items-start sm:justify-between">
+              <li key={d.id} id={docAnchor(d.id)} className="flex scroll-mt-24 flex-col gap-1.5 py-2 text-xs target:bg-warn/10 sm:flex-row sm:items-start sm:justify-between">
                 <span className="min-w-0 break-words">{documentLine(d)}</span>
                 {/* P8-FE-11 — what reading it found, Send back, and no View once its file is gone. */}
                 <SponsorDocumentOpen

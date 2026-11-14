@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
+import { ProblemTags } from "@/components/problem-tags";
 import { Badge } from "@/components/ui";
 import { EmptyState } from "@/components/states";
 import { apiListQuery } from "@/lib/list-query";
@@ -43,6 +44,8 @@ export default async function SponsorRequestsPage({ searchParams }: { searchPara
     { key: "business", label: "Business" },
     { key: "category", label: "Their category (their words)" },
     { key: "budget", label: "Budget" },
+    /* POL-FE-42 — a waiting request's problems, as tags. */
+    ...(fresh ? [{ key: "wrong", label: "What's wrong" }] : []),
     { key: "when", label: fresh ? "Asked" : "Decided" },
     { key: "status", label: fresh ? "Zoho" : "Status" },
     { key: "action", label: "Action", srOnly: true },
@@ -78,6 +81,7 @@ export default async function SponsorRequestsPage({ searchParams }: { searchPara
                 <Td><Primary sub={r.contactName}>{r.businessName}</Primary></Td>
                 <Td label="Category" muted>{r.categoryText ?? "—"}</Td>
                 <Td label="Budget" muted className="tabular-nums">{r.budget ?? "—"}</Td>
+                {fresh && <Td label="What's wrong">{r.problems?.length ? <ProblemTags problems={r.problems} compact /> : <span className="text-faint">—</span>}</Td>}
                 <Td label={fresh ? "Asked" : "Decided"} muted>{fresh ? askedAgo(r.createdAt, now) : stampOf(r.decidedAt)}</Td>
                 <Td label={fresh ? "Zoho" : "Status"}>
                   {fresh

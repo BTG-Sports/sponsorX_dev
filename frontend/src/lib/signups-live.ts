@@ -12,6 +12,7 @@
    their own section (new-signups-live.ts). Pure: shapes and words.
    -------------------------------------------------------------------------- */
 
+import type { ApiProblem } from "@/lib/support-inbox-live";
 import type { ContentTrust } from "@/lib/content-trust";
 import type { ApiDocumentCheck, ApiDocumentReturned } from "@/lib/document-checks-live";
 
@@ -46,6 +47,8 @@ export type ApiSignupDetail = ApiSignupRow & {
   missing: string[];
   /** P8-FE-11 — `check`: what reading it found (null until read); `returned`: BTG sent it back (its file is gone, so `viewable` is false). */
   documents: { id: string; name: string; sub: string; viewable: boolean; check?: ApiDocumentCheck; returned?: ApiDocumentReturned }[];
+  /** POL-BE-42 — a held sign-up's reasons as typed tags ([] when not held). */
+  problems?: ApiProblem[];
   activity: { at: string; text: string }[];
   guardian: { id: string; name: string; rejected: boolean } | null;
   guardianOf: (ApiSignupRow & { rejectedWithGuardian?: boolean })[];

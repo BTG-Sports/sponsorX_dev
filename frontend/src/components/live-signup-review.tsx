@@ -6,6 +6,7 @@ import { useState, useTransition, type ReactNode } from "react";
 import { confirmComingOfAgeAction, signupDecisionAction, signupDocumentAction, signupSendBackAction } from "@/app/(app)/admin/new-signups/actions";
 import { DocumentCheck, SendBackButton } from "@/components/document-check";
 import { cascadeWords, comingOfAgeHold, type ApiSignupDetail } from "@/lib/signups-live";
+import { DOCUMENTS_ANCHOR, docAnchor } from "@/lib/support-inbox-live";
 import { useDialogFocus } from "./use-dialog-focus";
 
 /* --------------------------------------------------------------------------
@@ -51,14 +52,14 @@ export function LiveSignupReview({ signup, before, after }: { signup: ApiSignupD
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="min-w-0 space-y-4">
         {before}
-        <section aria-label="Documents" className="rounded-xl border border-line bg-surface p-4 sm:px-5">
+        <section id={DOCUMENTS_ANCHOR} aria-label="Documents" className="scroll-mt-24 rounded-xl border border-line bg-surface p-4 sm:px-5">
           <h2 className="text-sm font-semibold">Documents</h2>
           {signup.documents.length === 0 ? (
             <p className="mt-2 text-xs text-muted">No documents uploaded.</p>
           ) : (
             <ul className="mt-2">
               {signup.documents.map((d) => (
-                <li key={d.id} className="flex flex-wrap items-start gap-3 border-t border-line-soft py-2.5 text-[13px]">
+                <li key={d.id} id={docAnchor(d.id)} className="flex scroll-mt-24 flex-wrap items-start gap-3 border-t border-line-soft py-2.5 text-[13px] target:bg-warn/10">
                   <span className="min-w-0 flex-1">
                     {d.name}
                     <span className="block break-words text-[11px] text-muted">{d.sub}</span>
