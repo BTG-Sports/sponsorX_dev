@@ -54,6 +54,7 @@ import {
   briefAnswers, sponsorApprovalVerdict, sponsorNameFor, suggestCategories, type SponsorRequestState,
 } from "./sponsor-request-rules";
 import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
+import { problemsOf } from "./hold-problems";
 
 type Tx = Prisma.TransactionClient;
 
@@ -86,6 +87,8 @@ export function summary(r: Row) {
     budget: briefAnswers(r.message).find((a) => a.label === "Budget")?.value ?? null,
     zoho: r.zohoLeadId ? "LEAD" as const : "PENDING" as const,
     emailConfirmed: Boolean(r.emailConfirmedAt), autoApproved: r.autoApproved, reviewReasons: r.reviewReasons,
+    /* POL-BE-42 — the reasons as tags, while it waits for BTG. */
+    problems: r.state === "NEW" ? problemsOf(r.reviewReasons) : [],
     createdAt: r.createdAt, decidedAt: r.decidedAt, sponsorId: r.sponsorId,
   };
 }
