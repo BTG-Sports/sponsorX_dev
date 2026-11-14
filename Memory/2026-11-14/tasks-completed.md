@@ -44,3 +44,6 @@
 - `/admin/support`: New / Answered / Closed tabs with API counts, house pager, filter by topic or case (GET form).
 - `/admin/support/[id]` (originally HeckerCreatives' 2S1-FE-14 page, now part of this rcfworks row): status, cases ticked, signed-in account, replies, `SupportReply` (Send / Mark closed via `reply-actions.ts`), "This person on SponsorX" card with `ProblemTags` (shared with POL-FE-42). Back link goes to Support.
 - Helpers in `lib/support-inbox-live.ts`; tests in `frontend/tests/support-inbox-live.test.ts`. Frontend build, lint, 1,970 tests pass. E2E left to CI (needs Clerk test keys and Redis).
+
+### POL-FE-41 closed
+- PR #400 merged to main_development (CI incl. E2E green); acceptance checked clause by clause; tracker row set to Done (2026-11-14). Same branch PR'd to main to carry the screens.
