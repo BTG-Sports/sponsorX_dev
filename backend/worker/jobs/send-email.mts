@@ -892,7 +892,7 @@ ${d.portalUrl ?? ""}
     const open = d.openUrl || d.attachmentsUrl || "";
     return {
       subject: `[${d.topic ?? "Other"}] New support message from ${d.name ?? "someone"} — SponsorX`,
-      text: `${d.name ?? "Someone"} <${d.email ?? ""}> wrote to BTG support.\n\nTopic: ${d.topic ?? ""}\nSent: ${d.sentAt ?? ""}\nReference: ${d.reference ?? ""}\nAttachments: ${files === 0 ? "none" : files === 1 ? "1 file" : `${files} files`}\n\nRead it and reply in SponsorX (BTG sign-in required):\n${open || `the Support page, reference ${d.reference ?? ""}`}\n\nThe message isn't in this email, and replying here won't reach them — answer from SponsorX so the reply is kept with the message.`,
+      text: `${d.name ?? "Someone"} <${d.email ?? ""}> wrote to BTG support.\n\nTopic: ${d.topic ?? ""}\nSent: ${d.sentAt ?? ""}\nReference: ${d.reference ?? ""}\nAttachments: ${files === 0 ? "none" : files === 1 ? "1 file" : `${files} files`}${d.cases ? `\nCases ticked: ${d.cases}` : ""}${d.signedIn === "yes" ? "\nSent while signed in to SponsorX" : ""}\n\nRead it and reply in SponsorX (BTG sign-in required):\n${open || `the Support page, reference ${d.reference ?? ""}`}\n\nThe message isn't in this email, and replying here won't reach them — answer from SponsorX so the reply is kept with the message.`,
     };
   },
   /* 2S8-SEC-02 — this goes to an address nobody has confirmed, from the
@@ -900,10 +900,11 @@ ${d.portalUrl ?? ""}
      name and message let anyone send their own text (a phishing link) from
      SponsorX's domain to any inbox. The topic is one of our own words and the
      reference is ours. POL-BE-41 — no Reply-To: to add something, they send
-     the form again. */
+     the form again. POL-BE-43 — the ticked cases are our own wording too
+     (helpdesk-cases.ts), checked against the list before the message is kept. */
   "support.copy": (d) => ({
     subject: "We have your message — BTG SponsorX",
-    text: `Hi,\n\nThanks — your message reached BTG and a person reads every one. We'll reply to this email address.\n\nTopic: ${d.topic ?? ""}\nReference: ${d.reference ?? ""}\n\nReplies to this email aren't read. To add something, send the form again${d.contactUrl ? `: ${d.contactUrl}` : ""}.\n\nIf you did not write to us, you can ignore this email.\n\n— BTG SponsorX`,
+    text: `Hi,\n\nThanks — your message reached BTG and a person reads every one. We'll reply to this email address.\n\nTopic: ${d.topic ?? ""}\nReference: ${d.reference ?? ""}${d.ticked ? `\n\nWhat you ticked:\n${d.ticked}` : ""}\n\nReplies to this email aren't read. To add something, send the form again${d.contactUrl ? `: ${d.contactUrl}` : ""}.\n\nIf you did not write to us, you can ignore this email.\n\n— BTG SponsorX`,
   }),
   /* POL-BE-41 — BTG's reply, written in SponsorX and sent from noreply@ in
      the sender's thread. The text is BTG's; nothing the sender typed is
