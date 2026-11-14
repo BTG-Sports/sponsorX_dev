@@ -22,6 +22,7 @@ import { ForbiddenError } from "../auth/errors";
 import { checkView } from "./document-reading";
 import { ContactSchema, DECISIONS, DOCUMENT_LABEL, approvalVerdict, isCurrent, type Decision, type DocumentKind, type OnboardingState } from "./onboarding-rules";
 import { approvalFactsFor, checklistOf, decisionAllowed, emailConfirmed, ONBOARDING_SELECT, primaryEmail, type OnboardingRow } from "./onboarding";
+import { problemsOf } from "./hold-problems";
 
 /** The desk's three words for a sign-up (frontend lib/new-signups-live.ts SignupState). */
 export type SignupState = "AUTO_APPROVED" | "NEEDS_REVIEW" | "REJECTED";
@@ -46,6 +47,8 @@ export function signupRow(r: OnboardingRow) {
     signedUpAt: r.submittedAt ?? r.createdAt,
     state,
     reasons: r.state === "PENDING_REVIEW" ? r.reviewReasons : r.state === "SUSPENDED" ? [`Suspended by BTG${r.reviewNotes ? `: ${r.reviewNotes}` : ""}`] : r.flags,
+    /* POL-BE-42 — the held reasons as tags; a suspension note or a flag is not a hold. */
+    problems: r.state === "PENDING_REVIEW" ? problemsOf(r.reviewReasons) : [],
     /* The raw facts, for a screen that wants more than the desk's three words. */
     onboardingState: r.state as OnboardingState,
     autoApproved: r.autoApproved,

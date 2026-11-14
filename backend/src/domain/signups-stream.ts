@@ -40,6 +40,7 @@ import { signupRow as organizationRow } from "./onboarding-profile";
 import { ONBOARDING_SELECT } from "./onboarding";
 
 import { mergeNewest, STREAM_KINDS, type StreamKey, type StreamKind } from "./signups-stream-rules";
+import type { Problem } from "./hold-problems";
 
 export type { StreamKind } from "./signups-stream-rules";
 export type StreamState = "AUTO_APPROVED" | "APPROVED" | "NEEDS_REVIEW" | "REJECTED";
@@ -57,6 +58,8 @@ export type StreamRow = {
   reasons: string[];
   /** Athletes only: a place the age table doesn't know (counted as adult at 18). */
   flags: string[];
+  /** POL-BE-42 — a held row's reasons as tags (hold-problems.ts); empty otherwise. */
+  problems: Problem[];
 };
 
 /** A null sort date sorts last (Prisma `nulls: "last"`), so it merges as the oldest. */
@@ -209,11 +212,11 @@ async function rowsFor(actor: Actor, keys: StreamKey[]): Promise<StreamRow[]> {
   const byId = new Map<string, StreamRow>();
   for (const a of athletes) {
     const r = athleteRow(a);
-    byId.set(`ATHLETE:${a.id}`, { kind: "ATHLETE", id: r.id, name: r.name, sub: r.sub, signedUpAt: r.signedUpAt, state: r.state, reasons: r.reasons, flags: r.flags });
+    byId.set(`ATHLETE:${a.id}`, { kind: "ATHLETE", id: r.id, name: r.name, sub: r.sub, signedUpAt: r.signedUpAt, state: r.state, reasons: r.reasons, flags: r.flags, problems: r.problems });
   }
   for (const g of guardians) {
     const r = guardianRow(g);
-    byId.set(`GUARDIAN:${g.id}`, { kind: "GUARDIAN", id: r.id, name: r.name, sub: r.sub, signedUpAt: r.signedUpAt, state: r.state, reasons: [], flags: [] });
+    byId.set(`GUARDIAN:${g.id}`, { kind: "GUARDIAN", id: r.id, name: r.name, sub: r.sub, signedUpAt: r.signedUpAt, state: r.state, reasons: [], flags: [], problems: [] });
   }
   for (const i of inquiries) {
     const s = sponsorSummary(i);
@@ -222,14 +225,14 @@ async function rowsFor(actor: Actor, keys: StreamKey[]): Promise<StreamRow[]> {
       kind: "SPONSOR", id: s.id, name: s.businessName, sub: s.contactName,
       signedUpAt: held ? s.createdAt : s.decidedAt ?? s.createdAt,
       state: held ? "NEEDS_REVIEW" : s.autoApproved ? "AUTO_APPROVED" : "APPROVED",
-      reasons: held ? s.reviewReasons : [], flags: [],
+      reasons: held ? s.reviewReasons : [], flags: [], problems: s.problems,
     });
   }
   for (const o of orgs) {
     const r = organizationRow(o);
     /* The organisation desk's "approved" covers BTG's hand approvals too; the stream tells them apart. */
     const state: StreamState = r.state === "AUTO_APPROVED" && !r.autoApproved ? "APPROVED" : r.state;
-    byId.set(`ORGANIZATION:${o.id}`, { kind: "ORGANIZATION", id: r.id, name: r.name, sub: r.sub, signedUpAt: r.signedUpAt, state, reasons: r.reasons, flags: [] });
+    byId.set(`ORGANIZATION:${o.id}`, { kind: "ORGANIZATION", id: r.id, name: r.name, sub: r.sub, signedUpAt: r.signedUpAt, state, reasons: r.reasons, flags: [], problems: r.problems });
   }
   /* A row that vanished between the key read and this one (deleted, rescoped) is skipped, not invented. */
   return keys.map((k) => byId.get(`${k.kind}:${k.id}`)).filter((r): r is StreamRow => Boolean(r));

@@ -47,6 +47,7 @@ import { safeFilename } from "./onboarding-documents";
 import { MAX_SUPPORT_ATTACHMENT_BYTES, SUPPORT_STATUSES, SUPPORT_TOPICS } from "../contracts/support";
 import type { Prisma } from "../generated/prisma/client";
 import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
+import { problemsOf, type Problem } from "./hold-problems";
 
 type Tx = Prisma.TransactionClient;
 
@@ -261,6 +262,8 @@ export type SenderRecord = {
   /** Waiting for BTG, with `reasons` saying why (the stored reasons, word for word). */
   held: boolean;
   reasons: string[];
+  /** POL-BE-42 — the same reasons as typed, coded tags (hold-problems.ts). */
+  problems: Problem[];
   emailConfirmed: boolean;
   /** BTG's page for it, or null where there is none yet. */
   adminPath: string | null;
@@ -284,11 +287,11 @@ async function senderRecords(tenantId: string, email: string): Promise<SenderRec
     prisma.guardian.findMany({ where: { tenantId, email: byEmail } /* tenant-scope: the message's own tenant */, select: { id: true, legalName: true, emailConfirmedAt: true, rejectedAt: true, wards: { select: ATHLETE_SELECT, take: 20 } }, take: 20 }),
     prisma.student.findMany({ where: { tenantId, email: byEmail } /* tenant-scope: the message's own tenant */, select: { id: true, legalName: true, state: true, reviewReasons: true, createdAt: true }, take: 20 }),
   ]);
-  const athlete = (a: (typeof athletes)[number], relation: SenderRecord["relation"]): SenderRecord => {
+  const athlete = (a: (typeof athletes)[number], relation: SenderRecord["relation"]): Omit<SenderRecord, "problems"> => {
     const held = a.state === "SUBMITTED" && a.reviewReasons.length > 0;
     return { kind: "ATHLETE", relation, id: a.id, label: a.legalName, state: a.state, held, reasons: held ? a.reviewReasons : [], emailConfirmed: a.emailConfirmedAt !== null, adminPath: `/admin/new-signups/athletes/${a.id}`, createdAt: a.createdAt };
   };
-  const out: SenderRecord[] = athletes.map((a) => athlete(a, "SELF"));
+  const out: Omit<SenderRecord, "problems">[] = athletes.map((a) => athlete(a, "SELF"));
   for (const r of requests) {
     const held = r.state === "NEW" && r.reviewReasons.length > 0;
     out.push({ kind: "SPONSOR_REQUEST", relation: "SELF", id: r.id, label: r.companyName || [r.firstName, r.lastName].filter(Boolean).join(" "), state: r.state, held, reasons: held ? r.reviewReasons : [], emailConfirmed: r.emailConfirmedAt !== null, adminPath: `/admin/sponsor-requests/${r.id}`, createdAt: r.createdAt });
@@ -308,7 +311,7 @@ async function senderRecords(tenantId: string, email: string): Promise<SenderRec
     out.push({ kind: "STUDENT", relation: "SELF", id: st.id, label: st.legalName, state: st.state, held, reasons: held ? st.reviewReasons : [], emailConfirmed: true, adminPath: null, createdAt: st.createdAt });
   }
   /* Held first, then newest. */
-  return out.sort((x, y) => Number(y.held) - Number(x.held) || (y.createdAt?.getTime() ?? 0) - (x.createdAt?.getTime() ?? 0));
+  return out.map((r) => ({ ...r, problems: problemsOf(r.reasons) })).sort((x, y) => Number(y.held) - Number(x.held) || (y.createdAt?.getTime() ?? 0) - (x.createdAt?.getTime() ?? 0));
 }
 const ATHLETE_SELECT = { id: true, legalName: true, state: true, reviewReasons: true, emailConfirmedAt: true, createdAt: true } as const;
 

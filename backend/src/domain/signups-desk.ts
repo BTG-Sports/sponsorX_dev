@@ -56,6 +56,7 @@ import {
 import { deleteSentBackFile, recordSendBack, returnedColumns, SendBackError, sendBackReason } from "./document-send-back";
 import { issueAthleteEmailToken, issueComingOfAgeToken, issueGuardianSetupToken } from "../lib/signup-token";
 import { checksPassed, DOCUMENT_WORDS, idKindFor, PROOF_WORDS, signupFlags, signupMissing, type AccountDocumentKind, type GuardianProofKind } from "./signup-rules";
+import { problemsOf, type Problem } from "./hold-problems";
 
 type Tx = Prisma.TransactionClient;
 
@@ -101,6 +102,8 @@ export function athleteRow(a: Prisma.AthleteGetPayload<{ select: typeof LIST_ATH
     id: a.id, kind: "ATHLETE" as SignupKind, name: a.legalName || a.displayName,
     sub: [a.sport, team, age !== null ? String(age) : null, minor && a.guardian ? `guardian ${a.guardian.legalName}` : null].filter(Boolean).join(" · "),
     signedUpAt: a.createdAt, state: athleteState(a), reasons: a.reviewReasons, flags: signupFlags(a),
+    /* POL-BE-42 — the reasons as tags, while it waits for BTG. */
+    problems: athleteState(a) === "NEEDS_REVIEW" ? problemsOf(a.reviewReasons) : [],
   };
 }
 
@@ -136,7 +139,7 @@ export function guardianRow(g: Prisma.GuardianGetPayload<{ select: typeof LIST_G
     sub: g.wards.length
       ? `Guardian of ${g.wards[0]!.legalName || g.wards[0]!.displayName}${g.wards.length > 1 ? ` and ${g.wards.length - 1} more` : ""}`
       : "Guardian",
-    signedUpAt: g.verifiedAt ?? g.rejectedAt!, state: guardianState(g), reasons: [] as string[], flags: [] as string[],
+    signedUpAt: g.verifiedAt ?? g.rejectedAt!, state: guardianState(g), reasons: [] as string[], flags: [] as string[], problems: [] as Problem[],
   };
 }
 
@@ -267,6 +270,8 @@ export async function getAthleteSignup(actor: Actor, id: string) {
   return {
     id: a.id, kind: "ATHLETE" as SignupKind, name: a.legalName || a.displayName, state,
     reasons: a.reviewReasons, flags: signupFlags(a), signedUpAt: a.createdAt,
+    /* POL-BE-42 — the "What's wrong" panel. */
+    problems: state === "NEEDS_REVIEW" ? problemsOf(a.reviewReasons) : [],
     approvedAt: APPROVED_STATES.includes(a.state as AthleteState) ? approval?.at ?? a.reviewedAt : null,
     details: [
       { label: "Sport", value: a.sport },
@@ -328,7 +333,7 @@ export async function getGuardianSignup(actor: Actor, id: string) {
   /* 2S1-BE-10 — proof is per child: say which child each one names. */
   const wardName = (athleteId: string | null) => { const w = nameOf(athleteId); return w ? w.legalName || w.displayName : undefined; };
   return {
-    id: g.id, kind: "GUARDIAN" as SignupKind, name: g.legalName, state: guardianState(g), reasons: [] as string[], flags: [] as string[],
+    id: g.id, kind: "GUARDIAN" as SignupKind, name: g.legalName, state: guardianState(g), reasons: [] as string[], flags: [] as string[], problems: [] as Problem[],
     signedUpAt: g.verifiedAt ?? g.rejectedAt, approvedAt: g.verifiedAt,
     details: [
       { label: "Relationship", value: g.relationship },

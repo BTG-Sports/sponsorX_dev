@@ -69,6 +69,7 @@ import {
 } from "./onboarding-rules";
 import { readPage, type PageRequest } from "../lib/paging";
 import { documentHolds } from "./document-reading";
+import { problemsOf } from "./hold-problems";
 
 type Tx = Prisma.TransactionClient;
 const SYSTEM = (tenantId: string): AuditActor => ({ userId: null, tenantId });
@@ -149,6 +150,8 @@ function view(r: Row) {
     checklist: checklistOf(r),
     emailConfirmed: emailConfirmed(r),
     contactEmail: primaryEmail(r),
+    /* POL-BE-42 — the reasons as tags, while it waits for BTG. */
+    problems: r.state === "PENDING_REVIEW" ? problemsOf(r.reviewReasons) : [],
   };
 }
 
