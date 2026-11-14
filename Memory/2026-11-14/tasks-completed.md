@@ -10,5 +10,5 @@
   - BTG admins get write on `supportMessage` (policy, RBAC Matrix §27, matrix digest updated).
 - **Decided with the user:** the inbox filters by status now; the filter by case is added in POL-BE-43, where the cases are stored.
 - **Checks:** backend build, lint, security scripts, secret scan, audit and the full backend suite pass on a local Postgres.
-- **Tracker:** POL-BE-41 is in Code review.
+- **Merged:** PR #391 into `main_development` (2026-11-14); POL-BE-41 is **Done** on the Polish sheet.
 - **Next:** POL-BE-42 ("what's wrong" tags), then POL-BE-43, then the three front-end rows.
