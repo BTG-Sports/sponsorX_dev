@@ -16,6 +16,12 @@ have the plan.
    beside what that person has on SponsorX and what is wrong with it
    (`POL-BE-42` / `POL-FE-42`).
 
+**Where it lives in the app (`POL-BE-43`, 2026-11-14).** The cases are kept in
+`backend/src/domain/helpdesk-cases.ts`, which the form and the inbox read. To
+change a case's wording or who sees it, change it there **and** here in the
+same pull request; a test fails when the two differ. To drop a case, move its
+ID to `RETIRED_CASE_IDS` there and delete its row here; never reuse an ID.
+
 **How it was made.** A sweep of the code on main_development at `db34ceb7`
 (2026-11-12): every error, hold reason, check finding and state a user can reach.
 A case is listed only if the code produces it. Near-duplicates were merged.
