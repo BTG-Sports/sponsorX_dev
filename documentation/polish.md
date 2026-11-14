@@ -1540,6 +1540,29 @@ POL-FE-43. Each front-end task waits for its back-end one.
 - **Done when:** each topic shows only the person's cases; ticking cases with
   no text submits; "Other" without text is refused; the message reaches the
   inbox labelled with its cases; the existing contact-form tests still pass.
+- **Delivered (`POL-BE-43`, 2026-11-14, rcfworks):**
+  - `backend/src/domain/helpdesk-cases.ts` holds the 375 cases of
+    SponsorX-Helpdesk-Cases.md: ID, topic, section, the words ticked and who
+    sees them. A test fails when it and the document differ. A dropped case's
+    ID goes on a retired list and is never reused.
+  - Eight topics: Account, Payment, Guardianship, Campaigns, Shop, Rewards,
+    NEXT, Other. The first four keep the contact form's keys and words, so
+    stored messages are unchanged.
+  - `GET /public/support/cases` gives the topics with the cases the person
+    may tick: a visitor the public ones (and the fan's and booth staff's,
+    who have no login); a signed-in person their role's and those for
+    anyone; BTG staff all.
+  - `POST /public/support/messages` takes the ticked case IDs. The text is
+    needed only when nothing is ticked or "Something else" (`OTH-01`) is.
+    A case that isn't on the topic, isn't the person's or doesn't exist is
+    refused by name. Sent while signed in, the message is linked to the
+    account; an expired session is asked to sign in again. Signed in
+    without a SponsorX account, a person uses the desk as a visitor.
+  - The inbox shows each message's cases in today's words and the account
+    it came from, and filters by `?case=` or `?topic=`. The support
+    mailbox's notice lists the case IDs; the sender's copy lists what they
+    ticked.
+  - The contact form's tests pass unchanged.
 
 ---
 

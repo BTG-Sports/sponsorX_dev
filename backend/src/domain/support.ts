@@ -18,6 +18,13 @@
  * to the sender from noreply@ in the same thread, and the message shows
  * what the sender has on SponsorX and which of it is held.
  *
+ * POL-BE-43 — THE HELP DESK FORM. The sender picks a topic and ticks the
+ * cases that apply (domain/helpdesk-cases.ts); the text is needed only when
+ * nothing is ticked or "Something else" is. A visitor may tick only public
+ * cases; sent while signed in, the message is linked to that account and
+ * only that role's cases may be ticked. The inbox labels each message with
+ * its cases and filters by case or topic.
+ *
  * ATTACHMENTS stay private: each gets a presigned PUT to the private bucket
  * (an audited grant), the browser uploads it directly, and the message is
  * queued only once every declared file has arrived.
@@ -45,6 +52,7 @@ import { issuePurposeToken, readPurposeToken } from "../lib/purpose-token";
 import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, SENSITIVE_DOCUMENT_TTL_SECONDS, uploadRefusal } from "../lib/storage";
 import { safeFilename } from "./onboarding-documents";
 import { MAX_SUPPORT_ATTACHMENT_BYTES, SUPPORT_STATUSES, SUPPORT_TOPICS } from "../contracts/support";
+import { caseLabel, HELPDESK_TOPIC_LABELS, OTHER_CASE_ID, refusedCases, type HelpdeskTopic } from "./helpdesk-cases";
 import type { Prisma } from "../generated/prisma/client";
 import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
 import { problemsOf, type Problem } from "./hold-problems";
@@ -60,8 +68,9 @@ export class SupportError extends Error {
   }
 }
 
-export type SupportTopic = (typeof SUPPORT_TOPICS)[number];
-const TOPIC_WORDS: Record<SupportTopic, string> = { GUARDIANSHIP: "Guardianship", ACCOUNT: "Account", PAYMENT: "Payment", OTHER: "Other" };
+export type SupportTopic = HelpdeskTopic;
+/* The four contact-form topics keep their words; POL-BE-43 adds four more. */
+const TOPIC_WORDS: Record<SupportTopic, string> = HELPDESK_TOPIC_LABELS;
 const SYSTEM = (tenantId: string): AuditActor => ({ userId: null, tenantId });
 
 /** What every page that shows the support address reads (GET /public/support). */
@@ -70,6 +79,7 @@ export function supportContact() {
     email: env.SUPPORT_EMAIL,
     /* Whether 2S1-OPS-01 has set the mailbox up; until then pages say "being set up". */
     ready: env.SUPPORT_MAILBOX_READY,
+    /* The contact form's four, unchanged; the help desk reads its eight, with their cases, from GET /public/support/cases. */
     topics: SUPPORT_TOPICS.map((key) => ({ key, label: TOPIC_WORDS[key] })),
   };
 }
@@ -78,7 +88,10 @@ export type SupportInput = {
   name: string;
   email: string;
   topic: SupportTopic;
-  message: string;
+  /** POL-BE-43 — the ticked case IDs. */
+  cases?: string[];
+  /** Required when nothing is ticked, or "Something else" is. */
+  message?: string;
   attachments?: { filename: string; contentType: string; bytes: number }[];
 };
 
@@ -101,41 +114,60 @@ const messageIdOf = (id: string) => `<support-${id}@sponsorx.net>`;
  * SponsorX, so the reply is kept and leaves from noreply@. The sender's copy
  * carries only our words (2S8-SEC-02), so only those go in its payload.
  */
-async function queue(tx: Tx, m: { id: string; tenantId: string; name: string; email: string; topic: string; createdAt: Date }) {
+async function queue(tx: Tx, m: { id: string; tenantId: string; name: string; email: string; topic: string; caseIds: string[]; userId: string | null; createdAt: Date }) {
   const files = await tx.supportAttachment.count({
     where: { tenantId: m.tenantId, messageId: m.id, uploadedAt: { not: null } },
   });
   const topic = TOPIC_WORDS[m.topic as SupportTopic] ?? m.topic;
+  /* POL-BE-43 — the cases: IDs for the desk, our own words for the sender. */
+  const ticked = m.caseIds.map(caseLabel).map((c) => `- ${c.text ?? c.id}`).join("\n");
   await send(tx, m.tenantId, {
     template: "support.message", to: env.SUPPORT_EMAIL, idempotencyKey: `support.message:${m.id}`,
-    data: { name: m.name, email: m.email, topic, reference: m.id, sentAt: m.createdAt.toISOString(), attachmentCount: String(files), openUrl: supportPageUrl(m.id) },
+    data: {
+      name: m.name, email: m.email, topic, reference: m.id, sentAt: m.createdAt.toISOString(), attachmentCount: String(files), openUrl: supportPageUrl(m.id),
+      ...(m.caseIds.length ? { cases: m.caseIds.join(", ") } : {}), ...(m.userId ? { signedIn: "yes" } : {}),
+    },
     headers: { "Message-ID": messageIdOf(m.id) },
   });
   await send(tx, m.tenantId, {
     /* No Reply-To either: an answer to the copy would put the sender's text in
        the mailbox. The copy points them back to the form instead. */
-    template: "support.copy", to: m.email, idempotencyKey: `support.copy:${m.id}`, data: { topic, reference: m.id, contactUrl: contactPageUrl() },
+    template: "support.copy", to: m.email, idempotencyKey: `support.copy:${m.id}`, data: { topic, reference: m.id, contactUrl: contactPageUrl(), ...(ticked ? { ticked } : {}) },
     headers: { "In-Reply-To": messageIdOf(m.id), References: messageIdOf(m.id) },
   });
   await tx.supportMessage.update({
     /* tenant-scope: the message being queued, in its own tenant. */
     where: { id: m.id }, data: { state: "QUEUED", queuedAt: new Date() },
   });
-  await audit(tx, SYSTEM(m.tenantId), "support.messageQueued", "SupportMessage", m.id, { after: { topic: m.topic, attachments: files } });
+  await audit(tx, SYSTEM(m.tenantId), "support.messageQueued", "SupportMessage", m.id, { after: { topic: m.topic, cases: m.caseIds, attachments: files, signedIn: m.userId !== null } });
 }
+
+const QUEUE_SELECT = { id: true, tenantId: true, name: true, email: true, topic: true, caseIds: true, userId: true, createdAt: true } as const;
 
 /**
  * POST /public/support/messages. No attachments: queued now. With
  * attachments: each is granted a private upload, and the browser finishes
  * with POST /public/support/messages/:token/send.
+ *
+ * POL-BE-43 — `sender` is who is signed in, or null for a visitor: it decides
+ * which cases may be ticked, and a signed-in sender's message is linked to
+ * their account.
  */
-export async function submitSupportMessage(input: SupportInput) {
+export async function submitSupportMessage(input: SupportInput, sender: Actor | null = null) {
   const tenantId = env.PUBLIC_INTAKE_TENANT_ID;
   const declared = input.attachments ?? [];
+  const caseIds = [...new Set(input.cases ?? [])];
+  const text = (input.message ?? "").trim();
+  const refused = refusedCases(sender ? { roles: sender.roles } : null, input.topic, caseIds);
+  if (refused) throw new SupportError(refused, 422);
+  if (!caseIds.length && !text) throw new SupportError("Tick what's wrong, or tell us in the message box.", 422);
+  if (caseIds.includes(OTHER_CASE_ID) && !text) throw new SupportError("You ticked \"Something else\": tell us what's wrong in the message box.", 422);
+  /* Linked only within the help desk's own tenant: an account elsewhere is a visitor here. */
+  const userId = sender && sender.tenantId === tenantId ? sender.userId : null;
   const created = await prisma.$transaction(async (tx) => {
     const m = await tx.supportMessage.create({
-      data: { tenantId, name: input.name.trim(), email: input.email.trim().toLowerCase(), topic: input.topic, message: input.message.trim() },
-      select: { id: true, tenantId: true, name: true, email: true, topic: true, createdAt: true },
+      data: { tenantId, name: input.name.trim(), email: input.email.trim().toLowerCase(), topic: input.topic, caseIds, message: text, userId },
+      select: QUEUE_SELECT,
     });
     const files = [];
     for (const a of declared) {
@@ -177,7 +209,7 @@ export async function sendSupportMessage(token: string) {
   return prisma.$transaction(async (tx) => {
     const m = await tx.supportMessage.findFirst({
       /* tenant-scope: found by the id inside a signed token only the sending browser holds. */
-      where: { id }, select: { id: true, tenantId: true, name: true, email: true, topic: true, state: true, createdAt: true },
+      where: { id }, select: { ...QUEUE_SELECT, state: true },
     });
     if (!m) throw new SupportError("This message no longer exists.", 404);
     if (m.state === "QUEUED") return { id: m.id, queued: true, supportEmail: env.SUPPORT_EMAIL };
@@ -227,13 +259,15 @@ const inbox = (actor: Actor) => ({ ...whereFor(actor, "supportMessage", "read"),
  * counts.NEW). A row is who wrote, the topic and when — the text is read on
  * the message. BTG admin only.
  */
-export async function listSupportMessages(actor: Actor, status: SupportStatus = "NEW", page?: PageRequest) {
+export async function listSupportMessages(actor: Actor, filter: { status?: SupportStatus; case?: string; topic?: SupportTopic } = {}, page?: PageRequest) {
   assertTenantWide(actor, "supportMessage", "read");
-  const where = inbox(actor);
+  const status = filter.status ?? "NEW";
+  /* POL-BE-43 — one case (or one topic): the tabs and their counts both narrow to it. */
+  const where = { ...inbox(actor), ...(filter.case ? { caseIds: { has: filter.case } } : {}), ...(filter.topic ? { topic: filter.topic } : {}) };
   const tab = { ...where, status };
   const read = (skip: number, take: number) => prisma.supportMessage.findMany({
     where: tab /* tenant-scope: whereFor(supportMessage) in inbox() */,
-    select: { id: true, name: true, email: true, topic: true, status: true, createdAt: true, answeredAt: true, closedAt: true, _count: { select: { attachments: { where: { uploadedAt: { not: null } } }, replies: true } } },
+    select: { id: true, name: true, email: true, topic: true, caseIds: true, userId: true, status: true, createdAt: true, answeredAt: true, closedAt: true, _count: { select: { attachments: { where: { uploadedAt: { not: null } } }, replies: true } } },
     orderBy: { createdAt: "desc" }, skip, take,
   });
   const [paged, grouped] = await Promise.all([
@@ -245,7 +279,10 @@ export async function listSupportMessages(actor: Actor, status: SupportStatus = 
   const counts: Record<SupportStatus, number> = { NEW: 0, ANSWERED: 0, CLOSED: 0 };
   for (const g of grouped) counts[g.status as SupportStatus] = g._count._all;
   return {
-    messages: paged.rows.map(({ _count, ...m }) => ({ ...m, topicLabel: TOPIC_WORDS[m.topic as SupportTopic] ?? m.topic, attachments: _count.attachments, replies: _count.replies })),
+    messages: paged.rows.map(({ _count, caseIds, userId, ...m }) => ({
+      ...m, topicLabel: TOPIC_WORDS[m.topic as SupportTopic] ?? m.topic, cases: caseIds.map(caseLabel), signedIn: userId !== null,
+      attachments: _count.attachments, replies: _count.replies,
+    })),
     counts,
     ...(paged.page ? { page: paged.page } : {}),
   };
@@ -326,7 +363,11 @@ export async function getSupportMessage(actor: Actor, id: string) {
   assertTenantWide(actor, "supportMessage", "read");
   const m = await prisma.supportMessage.findFirst({
     where: { ...whereFor(actor, "supportMessage", "read"), id },
-    select: { id: true, tenantId: true, name: true, email: true, topic: true, message: true, state: true, status: true, createdAt: true, queuedAt: true, answeredAt: true, closedAt: true, closedById: true },
+    select: {
+      id: true, tenantId: true, name: true, email: true, topic: true, caseIds: true, message: true, state: true, status: true, createdAt: true, queuedAt: true, answeredAt: true, closedAt: true, closedById: true,
+      /* POL-BE-43 — the account it was sent from, when signed in. */
+      user: { select: { id: true, email: true, roles: true } },
+    },
   });
   if (!m) throw new ForbiddenError("supportMessage", "read");
   const [files, replies, sender] = await Promise.all([
@@ -340,10 +381,12 @@ export async function getSupportMessage(actor: Actor, id: string) {
     }),
     senderRecords(m.tenantId, m.email),
   ]);
-  const { tenantId: _tenant, ...rest } = m;
+  const { tenantId: _tenant, caseIds, user, ...rest } = m;
   return {
     ...rest,
     topicLabel: TOPIC_WORDS[m.topic as SupportTopic] ?? m.topic,
+    cases: caseIds.map(caseLabel),
+    account: user,
     attachments: files.map((f) => ({ ...f, arrived: f.uploadedAt !== null })),
     replies,
     sender: { records: sender, held: sender.filter((r) => r.held).length },
