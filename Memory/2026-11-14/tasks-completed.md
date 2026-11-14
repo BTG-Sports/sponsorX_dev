@@ -35,3 +35,6 @@
 - Migration 20261114180000_helpdesk_cases: `caseIds TEXT[]` (GIN index), `userId` FK (SET NULL), CHECK text-or-cases.
 - Inbox: rows and detail carry `cases` (today's wording, `retired` flag) and `signedIn` / `account`; `?case=` / `?topic=` narrow the tab and counts. Notice email lists case IDs; sender's copy lists the ticked wording.
 - Tests: helpdesk-cases.test.ts, helpdesk-form.test.ts; full suite 3,782 passed locally.
+
+### POL-BE-43 closed
+- PR #397 merged to main_development; tracker row set to Done (2026-11-14). Same branch PR'd to main to carry the code (incl. migration 20261114180000_helpdesk_cases).
