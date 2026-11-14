@@ -65,6 +65,8 @@ export const ADMIN_NAV: NavItem[] = [
   /* 2S1-BE-15 — handed-off guardian requests BTG confirms when staff confirm minors. */
   { href: "/admin/guardian-handoffs", label: "Guardian handoffs", icon: "shield", group: "Accounts" },
   { href: "/admin/network", label: "Network", icon: "users", group: "Accounts" },
+  /* POL-FE-41 — BTG's support inbox: contact-form messages, answered and closed here (BTG admins). The menu shows how many are New. */
+  { href: "/admin/support", label: "Support", icon: "mail", group: "Accounts" },
 
   /* SponsorX NEXT workspaces (spec §8) — editions first (P1-FE-21); the
      inventory ledger, rights queue and splits screens join as they're built. */

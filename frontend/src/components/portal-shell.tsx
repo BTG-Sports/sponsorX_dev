@@ -115,7 +115,8 @@ const ACCENT: Record<
 
 export function PortalShell({
   portal,
-  nav,
+  nav: items,
+  counts,
   rootHref,
   orgName,
   orgBrand,
@@ -128,6 +129,9 @@ export function PortalShell({
 }: {
   portal: Portal;
   nav: NavItem[];
+  /** POL-FE-41 — things waiting on a desk, by its href (e.g. new support
+   *  messages on "/admin/support"); shown on that menu item above zero. */
+  counts?: Readonly<Record<string, number | null | undefined>>;
   /** Portal index route — matched exactly for nav highlighting. */
   rootHref: string;
   /** The small line over the name. POL-FE-32: a layout that knows this is
@@ -155,6 +159,7 @@ export function PortalShell({
   children: ReactNode;
 }) {
   const accent = ACCENT[portal];
+  const nav = counts ? items.map((n) => (counts[n.href] ? { ...n, count: counts[n.href]! } : n)) : items;
   const kind = stage === true ? "ops" : stage || null;
   const stageCls = kind === "ops" ? "sx-ops" : kind === "arena" ? "sx-arena" : kind === "stadium" ? "sx-stadium" : kind === "vault" ? "sx-ops sx-vault" : "";
   const docked = kind !== null && !!dock;
