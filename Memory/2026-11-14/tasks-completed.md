@@ -23,3 +23,6 @@
 - **Left out:** a "check couldn't run" code, because no rule writes that reason today.
 - **Checks:** backend build, lint, security scripts, secret scan, audit and the full backend suite (3,766 tests) pass.
 - **Tracker:** POL-BE-42 is in Code review.
+
+### POL-BE-42 closed
+- PR #394 merged to main_development; tracker row set to Done (2026-11-14). Same branch PR'd to main to carry the code there.
