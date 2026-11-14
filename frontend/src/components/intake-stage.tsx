@@ -22,6 +22,7 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
 import { KpiTile } from "./ops-stage";
+import { ProblemTags } from "./problem-tags";
 import { STREAM_CHIPS, type ApiStreamSummary, type StreamKind, type StreamRowView } from "@/lib/new-signups-live";
 
 const at = (seconds: number, extra?: CSSProperties) => ({ "--sx-reveal-delay": `${seconds}s`, ...extra }) as CSSProperties;
@@ -160,7 +161,10 @@ export function StreamRows({ rows, label }: { rows: StreamRowView[]; label: stri
               />
               {r.badge.label}
             </span>
-            <span className="col-start-2 min-w-0 break-words text-xs text-[#9aa4b2] md:col-start-auto">{r.reason}</span>
+            <span className="col-start-2 min-w-0 break-words text-xs text-[#9aa4b2] md:col-start-auto">
+              {/* POL-FE-42 — a held row's problems as tags (the reason on hover); otherwise the line as before. */}
+              {r.problems.length ? <ProblemTags problems={r.problems} compact /> : r.reason}
+            </span>
             <span className="col-start-2 md:col-start-auto md:text-right">
               <Link
                 href={r.href}

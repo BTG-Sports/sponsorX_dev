@@ -1,4 +1,5 @@
 import type { ApiSponsorRequest } from "@/lib/sponsor-requests-live";
+import type { ApiProblem } from "@/lib/support-inbox-live";
 
 /* --------------------------------------------------------------------------
    2S1-FE-07 — BTG's New sign-ups desk (Claude Design NewSignups.dc.html,
@@ -182,6 +183,8 @@ export type ApiStreamRow = {
   state: SignupState;
   reasons: string[];
   flags: string[];
+  /** POL-BE-42 — a held row's reasons as typed tags ([] when not held). */
+  problems?: ApiProblem[];
 };
 export type KindFigures = { total: number; held: number; auto: number };
 export type ApiStreamSummary = { kinds: Partial<Record<StreamKind, KindFigures>>; all: KindFigures };
@@ -237,6 +240,8 @@ export type StreamRowView = {
   when: string;
   badge: { label: string; tone: "accent" | "warn" | "neutral"; mark: string };
   reason: string;
+  /** POL-FE-42 — the held row's problems as tags; when there are any they stand in for `reason`. */
+  problems: ApiProblem[];
   href: string;
   /** Held or flagged — what Needs review shows, and the row BTG acts on. */
   held: boolean;
@@ -266,6 +271,6 @@ export function streamRowView(r: ApiStreamRow): StreamRowView {
     : "All checks passed";
   return {
     key: `${r.kind}-${r.id}`, kind: r.kind, mono: MONO[r.kind], kindWord: KIND_WORD[r.kind], name: r.name, sub: r.sub,
-    when: dayOf(r.signedUpAt), badge, reason, href: streamHref(r.kind, r.id), held,
+    when: dayOf(r.signedUpAt), badge, reason, problems: r.state === "NEEDS_REVIEW" ? r.problems ?? [] : [], href: streamHref(r.kind, r.id), held,
   };
 }

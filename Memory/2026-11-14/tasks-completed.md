@@ -47,3 +47,10 @@
 
 ### POL-FE-41 closed
 - PR #400 merged to main_development (CI incl. E2E green); acceptance checked clause by clause; tracker row set to Done (2026-11-14). Same branch PR'd to main to carry the screens.
+
+### POL-FE-42 — "What's wrong" panel and row tags (Code review)
+- `WhatsWrongPanel` + `ProblemTags` (compact mode, optional links) in `components/problem-tags.tsx`; `problemTarget` / `docAnchor` in `lib/support-inbox-live.ts`.
+- Panel at the top of the athlete sign-up page (live-signup-profile.tsx), sponsor request page and organisation page; replaces the plain reasons list when problems exist (org flags keep their list). Document rows got `id="doc-<id>"` anchors and the Documents section `id="documents"`.
+- Matching: reason names differ from row names ("Athlete's government ID" vs "Government ID"), so longest contained name wins; no match → Documents section. Sponsor proofs are all named "Proof of business".
+- Rows: New sign-ups stream (intake-stage.tsx StreamRows), Sponsor requests New tab (new column), Onboarding queue ("Held because" column renamed "What's wrong").
+- Tests: `frontend/tests/whats-wrong-live.test.ts`. Build, lint, 1,978 frontend tests pass.

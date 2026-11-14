@@ -1537,6 +1537,22 @@ POL-FE-43. Each front-end task waits for its back-end one.
     sign-ups (list, stream and athlete page), Sponsor requests (list and
     page), Onboarding (queue and page), and the support inbox's sender card.
     Only held records have problems; any other record has an empty list.
+- **Delivered (`POL-FE-42`, 2026-11-14, rcfworks):**
+  - A **What's wrong** panel at the top of the athlete sign-up, sponsor
+    request and organisation pages: one coloured tag per problem, its type
+    then the reason word for word. It replaces the plain list of reasons
+    on those pages (an approved organisation's flags keep their list).
+  - A tag about a document jumps to that document's row. The reasons name
+    documents a little differently from the rows ("Athlete's government
+    ID" / "Government ID"), so the longest row name that fits wins; with no
+    match (a missing document) it jumps to the Documents section.
+  - New sign-ups, Sponsor requests (New tab) and the Onboarding queue show
+    the tags on each held row: the type, with the reason on hover and for
+    screen readers. A record that isn't held shows none.
+  - Colours: red, upload doesn't match; amber, missing or email not
+    confirmed; grey, couldn't read; blue, already registered; accent,
+    Technical Decision. The type is always written, so colour is never the
+    only cue.
 
 ### 43. Help desk form (tick a case)
 `POL-BE-43` / `POL-FE-43` · *Dead end* · confirmed

@@ -190,3 +190,30 @@ export function supportNavCount(body: unknown): number | null {
   const n = (body as { counts?: { NEW?: unknown } } | null)?.counts?.NEW;
   return typeof n === "number" && Number.isFinite(n) && n >= 0 ? n : null;
 }
+
+/* ── POL-FE-42 — "What's wrong" at a glance ───────────────────────────── */
+
+/** The link target a document row carries, so a tag can jump to it. */
+export const docAnchor = (id: string) => `doc-${id.replace(/[^A-Za-z0-9_-]/g, "")}`;
+/** The Documents section's target: where a tag jumps when no single row matches. */
+export const DOCUMENTS_ANCHOR = "documents";
+
+const plain = (s: string) => s.toLowerCase().replace(/['’]s\b/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+
+/**
+ * Where a problem's tag jumps on its review page: the document row the
+ * reason names ("Athlete's government ID" → the "Government ID" row; the
+ * longest name that fits wins), else the Documents section, or nowhere for
+ * a problem that isn't about a document.
+ */
+export function problemTarget(p: Pick<ApiProblem, "document">, docs: readonly { id: string; name: string }[]): string | null {
+  if (!p.document) return null;
+  const want = plain(p.document);
+  let best: { id: string; len: number } | null = null;
+  for (const d of docs) {
+    const name = plain(d.name);
+    if (!name) continue;
+    if ((want.includes(name) || name.includes(want)) && (!best || name.length > best.len)) best = { id: d.id, len: name.length };
+  }
+  return `#${best ? docAnchor(best.id) : DOCUMENTS_ANCHOR}`;
+}

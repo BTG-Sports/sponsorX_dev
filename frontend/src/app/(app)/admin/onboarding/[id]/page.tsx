@@ -3,6 +3,7 @@ import Link from "next/link";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { OnboardingDecisionPanel } from "@/components/onboarding-decision";
 import { OrgDocumentOpen } from "@/components/org-document-open";
+import { WhatsWrongPanel } from "@/components/problem-tags";
 import { EmptyState } from "@/components/states";
 import { Badge, Card, SectionHeading } from "@/components/ui";
 import { waitLabel } from "@/lib/marketplace-ops-live";
@@ -19,6 +20,7 @@ import {
   type ApiOnboarding,
 } from "@/lib/onboarding-live";
 import { checklistHeading, momentOf, profileDocumentLine, profileStanding, type ApiOrgProfile } from "@/lib/org-profile-live";
+import { DOCUMENTS_ANCHOR, docAnchor } from "@/lib/support-inbox-live";
 import { apiFetch } from "@/server/api";
 
 /* --------------------------------------------------------------------------
@@ -82,6 +84,7 @@ export default async function OnboardingDetailPage({ params }: { params: Promise
   if (!profileRes.ok) throw new Error(`The organization's profile didn't load (${profileRes.status}).`);
   const o = (await res.json()) as ApiOnboarding;
   const p = (await profileRes.json()) as ApiOrgProfile;
+  const problems = o.state === "PENDING_REVIEW" ? o.problems ?? [] : [];
   const standing = profileStanding(p);
   const section = "rounded-xl border border-line bg-surface p-4 sm:px-5";
 
@@ -117,7 +120,12 @@ export default async function OnboardingDetailPage({ params }: { params: Promise
         </div>
       </div>
 
-      {(p.reasons.length > 0 || p.nameTakenBy) && (
+      {/* POL-FE-42 — a waiting application's problems, as tags; they replace the plain list below, which stays for an approved one's flags. */}
+      {problems.length > 0 ? (
+        <WhatsWrongPanel problems={problems} documents={p.documents.filter((d) => d.current).map((d) => ({ id: d.id, name: d.label }))}>
+          {p.nameTakenBy && <>The name is already held by &ldquo;{p.nameTakenBy}&rdquo;.</>}
+        </WhatsWrongPanel>
+      ) : (p.reasons.length > 0 || p.nameTakenBy) && (
         <section aria-label="Why it needs review" className={`${section} border-warn/40`}>
           <h2 className="text-sm font-semibold">{p.onboardingState === "PENDING_REVIEW" ? "Why it is waiting" : "Flagged for you"}</h2>
           <ul className="mt-2">
@@ -224,6 +232,7 @@ export default async function OnboardingDetailPage({ params }: { params: Promise
           </Card>
 
           <Card>
+            <span id={DOCUMENTS_ANCHOR} aria-hidden="true" className="block scroll-mt-24" />
             <SectionHeading
               title="Documents"
               hint="View opens the file for five minutes and is recorded in the audit log against you. Earlier files stay listed after a replacement or removal."
@@ -245,7 +254,7 @@ export default async function OnboardingDetailPage({ params }: { params: Promise
             ) : (
               <ul className="divide-y divide-line-soft">
                 {p.documents.map((d) => (
-                  <li key={d.id} className={`flex flex-wrap items-start justify-between gap-2 py-2 ${d.current ? "" : "opacity-70"}`}>
+                  <li key={d.id} id={docAnchor(d.id)} className={`flex scroll-mt-24 flex-wrap items-start justify-between gap-2 py-2 target:bg-warn/10 ${d.current ? "" : "opacity-70"}`}>
                     <div className="min-w-0">
                       <p className="break-words text-sm font-medium">
                         {d.filename}

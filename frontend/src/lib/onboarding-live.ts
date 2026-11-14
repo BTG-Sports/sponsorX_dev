@@ -10,6 +10,7 @@
    organisation type allows and nothing else — never a bank or tax field.
    -------------------------------------------------------------------------- */
 import type { PageInfo } from "@/lib/list-query";
+import type { ApiProblem } from "@/lib/support-inbox-live";
 
 
 export const ORG_TYPES = ["TEAM", "SCHOOL", "EVENT", "MEDIA", "VIRTUAL", "AGENCY"] as const;
@@ -127,6 +128,8 @@ export type ApiOnboarding = {
   contactEmail: string | null;
   /** Why a submitted application waits — shown to the applicant as-is. */
   reviewReasons: string[];
+  /** POL-BE-42 — a PENDING_REVIEW application's reasons as typed tags ([] otherwise). */
+  problems?: ApiProblem[];
   autoApproved: boolean;
   /** 2S1-BE-07 — an approved organisation flagged for BTG after a document change. */
   flags: string[];
