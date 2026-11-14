@@ -74,3 +74,5 @@
 - PRs today: #391-#408.
 - Polish sheet: 63 of 63 rows Done.
 - Stage Progress row appended for 2026-11-14 (Phase 1 unchanged from 2026-11-12: 318 done, 15.5 days left).
+- Verified live 2026-11-14 (staging and production API): 8 topics, visitor gets 58 public cases, inbox 401 unsigned, OTH-01 without text 422, visitor ticking ACC-01 422; staging /contact renders the topic step and only public cases.
+- Tomorrow (agreed with the user): on staging, sign in as a test athlete and a test sponsor to check each sees only their role's cases; send one Support reply to a test address and confirm it arrives from noreply@.
