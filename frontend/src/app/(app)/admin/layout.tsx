@@ -2,6 +2,7 @@ import { requirePortalAccess } from "@/server/portal";
 import { PortalShell } from "@/components/portal-shell";
 import { roleLabel, viewerName } from "@/server/viewer";
 import { ADMIN_DOCK, navFor } from "@/lib/admin-nav";
+import { newSupportCount } from "@/server/support-inbox";
 
 import "../../mobile-nav.css";
 
@@ -26,6 +27,8 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       /* C-1: each desk's link only for the roles it's for (lib/admin-access);
          commission stays BTG-admin only as before. */
       nav={navFor(actor.roles)}
+      /* POL-FE-41 — new support messages, on the Support entry. */
+      counts={{ "/admin/support": await newSupportCount(actor.roles) }}
       rootHref="/admin"
       dock={ADMIN_DOCK}
       orgName="BTG Sports Group"

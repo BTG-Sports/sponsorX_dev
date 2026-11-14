@@ -1478,6 +1478,21 @@ POL-FE-43. Each front-end task waits for its back-end one.
     them to the Contact page to add something.
   - BTG admins only. Finance, campaign managers and other tenants' admins
     are refused (tests in `backend/tests/support-inbox.test.ts`).
+- **Delivered (`POL-FE-41`, 2026-11-14, rcfworks):**
+  - **Support** in the admin menu (under Accounts, BTG admins only), with
+    the number of New messages beside it.
+  - `/admin/support` is the inbox: New, Answered and Closed tabs with their
+    counts, 12 / 24 / 60 a page, and a filter by topic or case. Each row
+    shows who wrote, the topic, the cases ticked, whether they were signed
+    in, when, and how many files and replies.
+  - The message page adds the status, the cases ticked, the account it
+    came from, earlier replies, the reply box with Send, and "Mark closed".
+    "This person on SponsorX" lists the sender's records, held ones first,
+    each with its problem tags (shared with `POL-FE-42`) and a link to its
+    review page.
+  - The menu count is an optional `count` on a menu item, passed to the
+    shared portal shell as `counts`; nothing else in the shared menu
+    changed.
 
 ### 42. "What's wrong" at a glance
 `POL-BE-42` / `POL-FE-42` · *Silent* · confirmed
