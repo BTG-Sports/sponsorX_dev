@@ -54,3 +54,6 @@
 - Matching: reason names differ from row names ("Athlete's government ID" vs "Government ID"), so longest contained name wins; no match → Documents section. Sponsor proofs are all named "Proof of business".
 - Rows: New sign-ups stream (intake-stage.tsx StreamRows), Sponsor requests New tab (new column), Onboarding queue ("Held because" column renamed "What's wrong").
 - Tests: `frontend/tests/whats-wrong-live.test.ts`. Build, lint, 1,978 frontend tests pass.
+
+### POL-FE-42 closed
+- PR #403 merged to main_development (CI incl. E2E green); acceptance checked; tracker row set to Done (2026-11-14). Same branch PR'd to main.
