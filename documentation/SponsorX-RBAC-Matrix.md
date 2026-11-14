@@ -1620,19 +1620,23 @@ Never resolved by the system: it goes to BTG support.
 
 ## 27 · BTG's support desk *(added 2026-10-06)*
 
-### `supportMessage` (2S1-BE-16, 2S0-SEC-01)
+### `supportMessage` (2S1-BE-16, 2S0-SEC-01, POL-BE-41)
 A message sent through the public contact form, and its attachments (often a
 guardianship proof or an ID), in the tenant whose form it came through.
 | Role | Read | Write | Approve |
 |---|---|---|---|
-| `SUPER_ADMIN` | any | — | — |
-| `BTG_ADMIN` | own-tenant (the message, and each attachment through a five-minute, audited link) | — | — |
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant (the inbox, the message, the sender's SponsorX records, and each attachment through a five-minute, audited link) | own-tenant (a reply, emailed from noreply@; "Mark closed") | — |
 
-- **Written by the public form only** (no actor), and queued by the worker.
-  No role writes a message through this matrix.
-- **The desk's email names the files and links to the signed-in page; it
-  never carries them** (the owner's decision O1, 2026-10-06, in
-  `SponsorX-Payments-PII-Review-2026-10.md`).
+- **The message itself is written by the public form only** (no actor), and
+  queued by the worker. What a BTG admin writes is a reply or a close
+  (POL-BE-41); the message's text never changes.
+- **The support mailbox gets a notice only** (POL-BE-41): who wrote, the topic,
+  how many files and an "Open in SponsorX" link — never the message text or a
+  file name, so nothing written about a minor sits in Gmail.
+- **The desk's email never carries the files** (the owner's decision O1,
+  2026-10-06, in `SponsorX-Payments-PII-Review-2026-10.md`); since POL-BE-41
+  it doesn't name them either.
 - **Nobody else reaches it**, the sender included: they get a copy that
   carries only the topic and the reference.
 

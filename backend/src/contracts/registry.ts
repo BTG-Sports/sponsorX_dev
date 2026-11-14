@@ -74,7 +74,7 @@ import { CloseAccountInput, ClosureAccountQuery, ClosureListQuery, ClosureReques
 import {
   HandoffDecisionInput, HandoffDocumentInput, HandoffEmailConfirmInput, HandoffListQuery, HandoffLookupQuery, HandoffStaffDecisionInput, HandoffStartInput, HandoffSubmitInput,
 } from "./guardian-handoff";
-import { SupportMessageInput } from "./support";
+import { SupportMessageInput, SupportMessageListQuery, SupportReplyInput } from "./support";
 import { InquiryInput, ZohoCrmNotification } from "./zoho";
 import {
   AdSaleInput,
@@ -900,9 +900,12 @@ const PATHS: Row[] = [
 
   // 2S1-BE-16 — contacting BTG support
   { method: "get", path: "/public/support", tag: "Public", summary: "The support address (SUPPORT_EMAIL), whether the mailbox is set up yet, and the topics (2S1-BE-16).", auth: false },
-  { method: "post", path: "/public/support/messages", tag: "Public", summary: "A message to BTG support. Queued through the worker to the support mailbox (Reply-To the sender) with a copy to the sender; with attachments, each gets a private-bucket PUT and the message is queued by /send. Rate-limited (2S1-BE-16).", auth: false, body: SupportMessageInput, status: 201 },
+  { method: "post", path: "/public/support/messages", tag: "Public", summary: "A message to BTG support. Lands in BTG's support inbox as NEW; the support mailbox gets a notice through the worker (who wrote, the topic, a link — never the text, POL-BE-41) and the sender a copy; with attachments, each gets a private-bucket PUT and the message is queued by /send. Rate-limited (2S1-BE-16).", auth: false, body: SupportMessageInput, status: 201 },
   { method: "post", path: "/public/support/messages/{token}/send", tag: "Public", summary: "Every attachment has uploaded: queue the message. The support mailbox's email names the attachments and links to BTG's signed-in support page; it never carries the files (2S1-BE-16, 2S0-SEC-01).", auth: false },
-  { method: "get", path: "/support-messages/{id}", tag: "Support", summary: "BTG admin only: one contact-form message — sender, topic, text — and its attachments' names, types, sizes and whether each arrived. No file content and no link (2S0-SEC-01)." },
+  { method: "get", path: "/support-messages", tag: "Support", summary: "BTG admin only: the support inbox, one tab at a time (?status=NEW|ANSWERED|CLOSED, default NEW), newest first, with every tab's count — counts.NEW is the menu's badge. A row is the sender, topic, status, when, and how many files and replies; never the text. Paged with ?page (?size default 12, max 100) → `page: { page, size, total, pages }` (POL-BE-41).", query: SupportMessageListQuery },
+  { method: "get", path: "/support-messages/{id}", tag: "Support", summary: "BTG admin only: one contact-form message — sender, topic, text, status, BTG's replies — its attachments' names, types, sizes and whether each arrived, and `sender.records`: what the sender has on SponsorX by email address (athlete, sponsor request, organisation, guardian and their athletes, student), each with whether it is held and the stored reasons, and BTG's page for it. No file content and no link (2S0-SEC-01, POL-BE-41)." },
+  { method: "post", path: "/support-messages/{id}/replies", tag: "Support", summary: "BTG admin only: reply to a message. Kept with it and emailed to the sender from noreply@ through the worker, in the sender's thread; the message becomes ANSWERED (a closed one reopens). 409 while its files are still uploading (POL-BE-41).", body: SupportReplyInput, status: 201 },
+  { method: "post", path: "/support-messages/{id}/close", tag: "Support", summary: "BTG admin only: \"Mark closed\". Closing a closed message changes nothing (POL-BE-41)." },
   { method: "get", path: "/support-messages/{id}/attachments/{attachmentId}", tag: "Support", summary: "BTG admin only: a five-minute, audited link to one attachment in the private bucket — how the support desk opens a guardianship proof or an ID (2S0-SEC-01)." },
   { method: "post", path: "/public/support/messages/{token}/attachments/{attachmentId}/drop", tag: "Public", summary: "Send without an attachment that won't upload (2S1-BE-16).", auth: false },
 

@@ -35,3 +35,20 @@ export const SupportMessageInput = z
     id: "SupportMessageInput",
     description: "A message to BTG support (2S1-BE-16). With no attachments it is queued at once; with attachments, each gets a presigned PUT and the message is queued by /send once they have arrived.",
   });
+
+/* POL-BE-41 — BTG's support inbox. */
+export const SUPPORT_STATUSES = ["NEW", "ANSWERED", "CLOSED"] as const;
+
+export const SupportMessageListQuery = z
+  .object({
+    status: z.enum(SUPPORT_STATUSES).optional(),
+    /* The house pager (lib/paging.ts): present → one page and its count. */
+    page: z.coerce.number().int().optional(),
+    size: z.coerce.number().int().optional(),
+  })
+  .meta({ id: "SupportMessageListQuery", description: "Which tab of BTG's support inbox: NEW (the default), ANSWERED or CLOSED." });
+
+export const SupportReplyInput = z
+  .object({ body: z.string().trim().min(1).max(5000) })
+  .strict()
+  .meta({ id: "SupportReplyInput", description: "BTG's reply to a support message: kept with it and emailed to the sender from noreply@ (POL-BE-41)." });
