@@ -253,6 +253,8 @@ const BODY: Record<string, unknown> = {
   "POST /applications/intake/guardian": { legalName: "Sweep Guardian", email: "sweep-guardian@b.invalid", relationship: "PARENT" },
   "POST /applications/intake/documents": { kind: "GOVERNMENT_ID", filename: "id.pdf", contentType: "application/pdf", bytes: 1000 },
   "POST /sponsor-requests/{id}/decision": { decision: "APPROVE", categories: ["RESTAURANT"], newSponsor: true },
+  /* POL-BE-41 — BTG's reply from the support inbox. */
+  "POST /support-messages/{id}/replies": { body: "Isolation sweep reply" },
   "PUT /athletes/{id}/tier": { tier: "CREATOR" },
   "POST /athletes/{id}/rates": { jobId: A.job, amount: 20000 },
   "POST /campaigns/{id}/orders": {

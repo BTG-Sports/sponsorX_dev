@@ -4006,10 +4006,35 @@ model SupportMessage {
   state     String    @default("DRAFT")
   queuedAt  DateTime?
   createdAt DateTime  @default(now())
+  /// POL-BE-41 — where BTG's inbox has it: NEW | ANSWERED | CLOSED. A reply
+  /// sent from SponsorX makes it ANSWERED; "Mark closed" makes it CLOSED.
+  status     String    @default("NEW")
+  answeredAt DateTime?
+  closedAt   DateTime?
+  closedById String?
 
   attachments SupportAttachment[]
+  replies     SupportReply[]
 
   @@index([tenantId, createdAt])
+  @@index([tenantId, status, createdAt])
+}
+
+/// POL-BE-41 — BTG's reply to a support message, written in SponsorX, kept
+/// with the message and emailed to the sender from noreply@ (never from a
+/// personal mailbox). Never edited: a correction is another reply.
+model SupportReply {
+  id        String   @id @default(cuid())
+  tenantId  String
+  messageId String
+  body      String
+  /// The BTG user who sent it (User.id).
+  authorId  String
+  createdAt DateTime @default(now())
+
+  message SupportMessage @relation(fields: [messageId], references: [id])
+
+  @@index([tenantId, messageId, createdAt])
 }
 
 /// 2S1-BE-16 — an optional attachment to a support message, in the private bucket.

@@ -191,6 +191,8 @@ const GOVERNED_BY: Record<string, Resource> = {
      instead of receiving it by email. */
   SupportMessage: "supportMessage",
   SupportAttachment: "supportMessage",
+  /* POL-BE-41 — BTG's reply, written and read through its message. */
+  SupportReply: "supportMessage",
 };
 
 /** Models no API path reads or writes, and why. */

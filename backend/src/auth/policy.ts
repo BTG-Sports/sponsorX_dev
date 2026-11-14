@@ -1136,11 +1136,12 @@ export const POLICY: Record<Resource, RolePolicy> = {
      as BTG's support desk opens them. The desk's email names the files and
      links here; it no longer carries them, so a guardianship proof or an ID
      is read only through a five-minute, audited link. Written by the public
-     form (no actor) and the worker, never through this matrix. BTG admin
-     reads; nobody else. */
+     form (no actor) and the worker. BTG admin reads; nobody else.
+     POL-BE-41 — and writes: a reply (kept and emailed from noreply@) and
+     "Mark closed", from BTG's support inbox. */
   supportMessage: {
-    SUPER_ADMIN: rwa("any"),
-    BTG_ADMIN: rwa("own-tenant"),
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
   },
   /* 3S2-BE-02 (matrix §28) — the CPM engine's suggested prices, tenant-wide.
      Read by the people who price and sell; write is the override with a
