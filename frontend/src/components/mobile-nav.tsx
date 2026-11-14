@@ -459,6 +459,7 @@ function SheetTile({
       <span className="sx-tile-glyph"><Glyph icon={item.icon} className={hero ? "size-6" : "size-5"} /></span>
       <span className="sx-tile-text">
         <span className="sx-tile-label">{item.label}</span>
+        {!!item.count && item.count > 0 && <span className="sx-tile-sub text-warn">{item.count > 99 ? "99+" : item.count} new</span>}
         {hero && <span className="sx-tile-sub">{active ? "You are here" : "Back to the overview"}</span>}
       </span>
       {hero &&

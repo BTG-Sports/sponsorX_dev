@@ -31,7 +31,19 @@ export type NavItem = {
   group?: string;
   /** The group's glyph, set on one of its items. */
   groupIcon?: NavIcon;
+  /** POL-FE-41 — things waiting on this desk (e.g. new support messages); shown only above zero. */
+  count?: number;
 };
+
+/** POL-FE-41 — a nav item's waiting count, as a small pill after its label. Nothing at zero. */
+export function NavCount({ count, label }: { count?: number; label: string }) {
+  if (!count || count < 1) return null;
+  return (
+    <span className="ml-auto min-w-5 rounded-full bg-warn/15 px-1.5 py-px text-center text-[10px] font-semibold tabular-nums text-warn" aria-label={`${count} waiting on ${label}`}>
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
 
 function Glyph({ icon }: { icon: NavIcon }) {
   return (
@@ -237,7 +249,8 @@ function Item({
       <span className="transition-transform duration-300 group-hover:translate-x-0.5">
         {item.label}
       </span>
-      {active && (
+      <NavCount count={item.count} label={item.label} />
+      {active && !item.count && (
         <span
           aria-hidden="true"
           className={`ml-auto size-1 rounded-full ${accentDot}`}
