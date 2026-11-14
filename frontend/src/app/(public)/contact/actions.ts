@@ -1,6 +1,8 @@
 "use server";
 
+import type { HelpdeskTopicKey } from "@/lib/helpdesk-live";
 import { refusalMessage } from "@/lib/onboarding-live";
+import { helpdeskApi } from "@/server/helpdesk";
 import { publicApi } from "../onboarding/public-api";
 
 /* --------------------------------------------------------------------------
@@ -11,7 +13,12 @@ import { publicApi } from "../onboarding/public-api";
      dropAttachmentAction  POST …/:token/attachments/:id/drop         send without one that won't upload
 
    Nothing is mailed from here or from the API's request path: the API
-   queues the message for the worker. The attachments never pass through
+   queues the message for the worker.
+
+   POL-FE-43 — the help desk: the message carries the ticked case IDs, and
+   is sent with the person's session when they are signed in (helpdeskApi),
+   so the API checks the cases against their role and links the message to
+   their account. Finishing and dropping a file stay keyed by the token. The attachments never pass through
    this server — the browser PUTs them to the private bucket.
    -------------------------------------------------------------------------- */
 
@@ -33,6 +40,7 @@ async function refusal(res: Response): Promise<Fail> {
   } catch {
     /* no body */
   }
+  if (res.status === 401) return { ok: false, message: "Your sign-in has expired. Sign in again, then send — nothing was sent." };
   if (res.status === 429) return { ok: false, message: "That’s a lot of messages from here. Wait a while, or email us directly." };
   if (res.status === 400) return { ok: false, message: said ? `Check the form: ${said}` : "Check each field and try again." };
   if (res.status >= 500) return { ok: false, message: "Something went wrong on our side. Try again in a minute, or email us directly." };
@@ -42,7 +50,9 @@ async function refusal(res: Response): Promise<Fail> {
 export type ContactInput = {
   name: string;
   email: string;
-  topic: "GUARDIANSHIP" | "ACCOUNT" | "PAYMENT" | "OTHER";
+  topic: HelpdeskTopicKey;
+  /** POL-FE-43 — the ticked case IDs (ACC-30 …). */
+  cases?: string[];
   message: string;
   attachments: { filename: string; contentType: string; bytes: number }[];
 };
@@ -56,10 +66,17 @@ export type ContactSubmitted = {
 export async function submitContactAction(input: ContactInput): Promise<ContactSubmitted | Fail> {
   if (!input || typeof input !== "object") return { ok: false, message: "Fill in the form first." };
   const body = {
-    name: String(input.name ?? "").trim(), email: String(input.email ?? "").trim(), topic: input.topic, message: String(input.message ?? "").trim(),
+    name: String(input.name ?? "").trim(), email: String(input.email ?? "").trim(), topic: input.topic,
+    ...(Array.isArray(input.cases) && input.cases.length ? { cases: input.cases.filter((c) => typeof c === "string" && /^[A-Z]{3}-\d{2}$/.test(c)).slice(0, 30) } : {}),
+    ...(String(input.message ?? "").trim() ? { message: String(input.message).trim() } : {}),
     ...(Array.isArray(input.attachments) && input.attachments.length ? { attachments: input.attachments.slice(0, 3) } : {}),
   };
-  const res = await call("/public/support/messages", { method: "POST", body: JSON.stringify(body) });
+  let res: Response | null;
+  try {
+    res = await helpdeskApi("/public/support/messages", { method: "POST", body: JSON.stringify(body) });
+  } catch {
+    res = null;
+  }
   if (!res) return UNREACHABLE;
   if (res.status !== 201) return refusal(res);
   const d = (await res.json()) as Omit<ContactSubmitted, "ok">;

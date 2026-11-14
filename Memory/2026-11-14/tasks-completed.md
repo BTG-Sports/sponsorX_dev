@@ -57,3 +57,14 @@
 
 ### POL-FE-42 closed
 - PR #403 merged to main_development (CI incl. E2E green); acceptance checked; tracker row set to Done (2026-11-14). Same branch PR'd to main.
+
+### POL-FE-43 — help desk form (Code review)
+- `/contact` is the help desk: step 1 section (topic radios + case tick boxes from GET /public/support/cases, "Something else" OTH-01 last on every topic), step 2 the existing "Message BTG" form (name, email, message, files). Message optional once a case is ticked; required when nothing ticked or OTH-01 ticked.
+- Signed in: `server/helpdesk.ts` sends the Clerk session (cases by role, message linked); name/email prefilled from Clerk; expired → sign-in notice. Visitor: no token. Cases unreadable → the old form.
+- `?` link in portal-shell header → `/contact?back=<rootHref>`; `backHref` only allows portal roots. Old `?topic=` links still work (`helpdeskTopic`).
+- Picker kept outside the form on purpose: e2e/qa-phase2's `form.getByLabel("Email")` would otherwise also match GRD-01/03/05 (case-insensitive substring).
+- Tests: `frontend/tests/helpdesk-live.test.ts`; build, lint, 1,990 frontend tests pass.
+
+### POL-FE-43 closed — help desk group (Polish G, items 41–43) complete
+- PR #406 merged to main_development (CI incl. E2E green); acceptance checked; tracker row set to Done (2026-11-14). Same branch PR'd to main.
+- POL-BE-41/42/43 and POL-FE-41/42/43 all Done on 2026-11-14. Deployed so far: BE-41/42/43 + FE-41 (release 3bd0b2a), FE-42 (release 176280d); FE-43 goes with the next deploy once the main PR merges.

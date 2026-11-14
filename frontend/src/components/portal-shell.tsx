@@ -297,6 +297,15 @@ export function PortalShell({
             {/* POL-FE-39: the inert notifications and help icons are gone —
                a button that does nothing is a dead end. They return with
                their features. */}
+            {/* POL-FE-43 — help returns with its feature: the help desk, signed in, with the way back here. */}
+            <Link
+              href={`/contact?back=${encodeURIComponent(rootHref)}`}
+              aria-label="Help: contact BTG"
+              title="Help: contact BTG"
+              className="grid size-9 shrink-0 place-items-center rounded-full border border-line text-sm font-semibold text-muted transition-colors hover:bg-surface-2 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              ?
+            </Link>
             <UserMenu
               userName={userName}
               userRole={userRole}
