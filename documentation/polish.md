@@ -1494,6 +1494,34 @@ POL-FE-43. Each front-end task waits for its back-end one.
 - **Done when:** a held record shows each problem as a tag on its list row and
   at the top of its page; a record with no problems shows none; the tags match
   the stored reasons exactly (tests on each type).
+- **Decided 2026-11-14 (the user):** a sixth type, **Technical Decision**, for
+  BTG rules a person decides on rather than something the applicant got
+  wrong. Every problem also carries a code, so each tag says exactly what is
+  wrong.
+- **Delivered (`POL-BE-42`, 2026-11-14, rcfworks):**
+  - `backend/src/domain/hold-problems.ts` reads a held record's stored
+    reasons as problems. Each has a type, a code, the reason word for word
+    and the document or field it is about. Nothing new is stored.
+
+    | Type | Codes |
+    |---|---|
+    | Upload doesn't match | `DOC_NAME_NOT_FOUND`, `DOC_WRONG_KIND`, `DOC_EXPIRED`, `DOC_BIRTH_DATE_NOT_FOUND` |
+    | Couldn't read | `DOC_UNREADABLE` |
+    | Missing | `MISSING_DOCUMENT`, `MISSING_ANSWERS` |
+    | Email not confirmed | `EMAIL_NOT_CONFIRMED` |
+    | Already registered | `EMAIL_HAS_LOGIN`, `NAME_TAKEN`, `LIKELY_DUPLICATE`, `SAME_NAME_SPONSOR` |
+    | Technical Decision | `RESTRICTED_BUSINESS_TYPE`, `RESTRICTED_WORDS`, `STAFF_CONFIRM_MINORS`, `GUARDIAN_REJECTED`, `UNCLASSIFIED` |
+
+  - `UNCLASSIFIED` is only for a reason with older wording already stored.
+    A test runs every rule with every hold switched on and fails on any
+    sentence without a code. It also counts the sentences in the rule files,
+    so a new one can't be added without a code.
+  - A "check couldn't run" code was considered and left out: no rule writes
+    such a reason today. A document that can't be read is `DOC_UNREADABLE`.
+  - `problems` is on every list row and review page BTG works from: New
+    sign-ups (list, stream and athlete page), Sponsor requests (list and
+    page), Onboarding (queue and page), and the support inbox's sender card.
+    Only held records have problems; any other record has an empty list.
 
 ### 43. Help desk form (tick a case)
 `POL-BE-43` / `POL-FE-43` · *Dead end* · confirmed

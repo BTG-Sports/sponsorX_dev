@@ -12,3 +12,14 @@
 - **Checks:** backend build, lint, security scripts, secret scan, audit and the full backend suite pass on a local Postgres.
 - **Merged:** PR #391 into `main_development` (2026-11-14); POL-BE-41 is **Done** on the Polish sheet.
 - **Next:** POL-BE-42 ("what's wrong" tags), then POL-BE-43, then the three front-end rows.
+
+## POL-BE-42: "What's wrong" tags, backend (rcfworks)
+
+- **Decided with the user:** six types, the five planned plus **Technical Decision** (for BTG rules a person decides on: restricted business type or words, staff confirm minors, guardian rejected). Every problem carries a code (`MISSING_DOCUMENT`, `EMAIL_NOT_CONFIRMED`, …).
+- **Built** on `feat/POL-BE-42-whats-wrong`, which sits on top of `chore/POL-BE-41-done` because both change the tracker:
+  - `backend/src/domain/hold-problems.ts` reads the stored reasons; nothing new is stored;
+  - `problems` added to New sign-ups (list, stream, athlete page), Sponsor requests (list, page), Onboarding (queue, page) and the support inbox's sender card;
+  - only held records have problems.
+- **Left out:** a "check couldn't run" code, because no rule writes that reason today.
+- **Checks:** backend build, lint, security scripts, secret scan, audit and the full backend suite (3,766 tests) pass.
+- **Tracker:** POL-BE-42 is in Code review.
