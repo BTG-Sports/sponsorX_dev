@@ -184,6 +184,8 @@ export type EmailTemplate =
      sender's copy. */
   | "support.message"
   | "support.copy"
+  /* POL-BE-41 — BTG's reply, written in SponsorX's support inbox. */
+  | "support.reply"
   /* 2S1-BE-09 / -10 — athletes and guardians approved automatically: the
      athlete's email confirmation, the guardian's set-up link and approval,
      BTG told of every new sign-up, and BTG's Reject / Reinstate after it. */

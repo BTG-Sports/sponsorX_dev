@@ -1454,6 +1454,30 @@ POL-FE-43. Each front-end task waits for its back-end one.
   sent from it reaches the sender from noreply@ and marks it Answered; the
   support@ email has no message text; a sender with held sign-ups shows them
   with their reasons; BTG admins only (cross-tenant and role tests pass).
+- **Delivered (`POL-BE-41`, 2026-11-14, rcfworks):**
+  - Each message has a status (New, Answered, Closed). Messages already
+    received start as New. A message whose files are still uploading isn't
+    in the inbox yet.
+  - `GET /support-messages` is the inbox: one status at a time (New by
+    default), newest first, with each status's count for the menu badge.
+    It filters by status; the filter by case comes with `POL-BE-43`, which
+    stores the cases.
+  - `GET /support-messages/{id}` adds the status, BTG's replies and
+    "This person on SponsorX": the sender's athlete sign-ups, sponsor
+    requests, organisations, guardian account (with the athletes they look
+    after) and student records, found by email address. Held ones come
+    first, with their stored reasons and the link to their review page. A
+    student has no BTG page yet, so it has no link.
+  - `POST /support-messages/{id}/replies` keeps the reply and emails it to
+    the sender from noreply@, in the same email thread as their message. The
+    message becomes Answered (a closed one reopens). `POST
+    /support-messages/{id}/close` is "Mark closed".
+  - The support@ email is now a notice: who wrote, the topic, how many files
+    and the "Open in SponsorX" link. It has no message text, no file names
+    and no reply-to. The sender's copy has no reply-to either; it points
+    them to the Contact page to add something.
+  - BTG admins only. Finance, campaign managers and other tenants' admins
+    are refused (tests in `backend/tests/support-inbox.test.ts`).
 
 ### 42. "What's wrong" at a glance
 `POL-BE-42` / `POL-FE-42` · *Silent* · confirmed

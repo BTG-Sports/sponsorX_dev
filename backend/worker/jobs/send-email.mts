@@ -881,22 +881,36 @@ ${d.portalUrl ?? ""}
         : `Hi ${d.name ?? "there"},\n\nBTG has changed your guardian on SponsorX from ${d.previousGuardianName ?? "your previous guardian"} to ${d.newGuardianName ?? "a new guardian"}:\n\n${d.reason ?? ""}\n\nYour orders and campaigns carry on. Questions: ${d.supportEmail ?? "BTG support"}.\n\n— BTG SponsorX`,
   }),
 
-  /* 2S1-BE-16 — the contact form. The support mailbox (Zoho Desk or a shared
-     inbox) receives the message with Reply-To set to the sender.
-     2S0-SEC-01 — attachments are NAMED, never attached: BTG opens them on
-     the signed-in support page, each through a five-minute, audited link. */
-  "support.message": (d) => ({
-    subject: `[${d.topic ?? "Other"}] ${d.name ?? "Someone"} — SponsorX contact form`,
-    text: `From: ${d.name ?? ""} <${d.email ?? ""}>\nTopic: ${d.topic ?? ""}\nSent: ${d.sentAt ?? ""}\nReference: ${d.reference ?? ""}\nAttachments: ${d.attachments ? `${d.attachments} — not attached to this email. Open them in SponsorX (BTG sign-in required): ${d.attachmentsUrl || `the support page, reference ${d.reference ?? ""}`}` : "none"}\n\n${d.message ?? ""}\n\n— Reply to this email to answer ${d.name ?? "them"} directly.`,
-  }),
+  /* 2S1-BE-16 — the contact form.
+     POL-BE-41 — the support mailbox gets a NOTICE: who wrote, the topic, how
+     many files and the link to the message in SponsorX, where BTG reads and
+     answers it. Never the text and never a file name (2S0-SEC-01 already kept
+     the files out): nothing a guardian writes about a minor sits in Gmail.
+     A job queued before the change still carries `message`; it isn't printed. */
+  "support.message": (d) => {
+    const files = Number(d.attachmentCount ?? 0) || 0;
+    const open = d.openUrl || d.attachmentsUrl || "";
+    return {
+      subject: `[${d.topic ?? "Other"}] New support message from ${d.name ?? "someone"} — SponsorX`,
+      text: `${d.name ?? "Someone"} <${d.email ?? ""}> wrote to BTG support.\n\nTopic: ${d.topic ?? ""}\nSent: ${d.sentAt ?? ""}\nReference: ${d.reference ?? ""}\nAttachments: ${files === 0 ? "none" : files === 1 ? "1 file" : `${files} files`}\n\nRead it and reply in SponsorX (BTG sign-in required):\n${open || `the Support page, reference ${d.reference ?? ""}`}\n\nThe message isn't in this email, and replying here won't reach them — answer from SponsorX so the reply is kept with the message.`,
+    };
+  },
   /* 2S8-SEC-02 — this goes to an address nobody has confirmed, from the
      public contact form, so it carries nothing the sender typed: echoing the
      name and message let anyone send their own text (a phishing link) from
      SponsorX's domain to any inbox. The topic is one of our own words and the
-     reference is ours. */
+     reference is ours. POL-BE-41 — no Reply-To: to add something, they send
+     the form again. */
   "support.copy": (d) => ({
     subject: "We have your message — BTG SponsorX",
-    text: `Hi,\n\nThanks — your message reached BTG and a person reads every one. We'll reply to this email address.\n\nTopic: ${d.topic ?? ""}\nReference: ${d.reference ?? ""}\n\nIf you did not write to us, you can ignore this email.\n\n— BTG SponsorX`,
+    text: `Hi,\n\nThanks — your message reached BTG and a person reads every one. We'll reply to this email address.\n\nTopic: ${d.topic ?? ""}\nReference: ${d.reference ?? ""}\n\nReplies to this email aren't read. To add something, send the form again${d.contactUrl ? `: ${d.contactUrl}` : ""}.\n\nIf you did not write to us, you can ignore this email.\n\n— BTG SponsorX`,
+  }),
+  /* POL-BE-41 — BTG's reply, written in SponsorX and sent from noreply@ in
+     the sender's thread. The text is BTG's; nothing the sender typed is
+     echoed (2S8-SEC-02), not even their name. */
+  "support.reply": (d) => ({
+    subject: `Re: your message to BTG SponsorX (${d.topic ?? "Support"})`,
+    text: `Hi,\n\n${d.body ?? ""}\n\nReference: ${d.reference ?? ""}\n\nReplies to this email aren't read. To write back, use the contact form${d.contactUrl ? `: ${d.contactUrl}` : ""}.\n\n— BTG SponsorX support`,
   }),
 };
 

@@ -504,7 +504,12 @@ describe("the whole matrix is pinned", () => {
       // own-tenant read/write/approve; SPONSOR_ADMIN own read/write (their own
       // campaigns), no approve; every other cell deny — matrix §campaignChange.
       // With its rows removed the grid hashes to the previous 49765fb6b2173f73.
-    ).toBe("ccff7a5c36e74972");
+      // Updated 2026-11-14 (POL-BE-41): `supportMessage` gains write — BTG's
+      // support inbox replies to a message (kept, emailed from noreply@) and
+      // marks it closed. SUPER_ADMIN any write; BTG_ADMIN own-tenant write;
+      // reads unchanged; every other cell still deny (matrix §27). Before
+      // this the grid hashed to ccff7a5c36e74972.
+    ).toBe("8fbb5b68f1e14851");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {
