@@ -1594,6 +1594,24 @@ POL-FE-43. Each front-end task waits for its back-end one.
     mailbox's notice lists the case IDs; the sender's copy lists what they
     ticked.
   - The contact form's tests pass unchanged.
+- **Delivered (`POL-FE-43`, 2026-11-14, rcfworks):**
+  - The Contact page is the help desk. Step one: pick one of the eight
+    topics and tick the cases that apply, grouped by section, with
+    "Something else" last on every topic. Step two: name, email, message
+    and attachments, as before.
+  - The message box stays: optional once a case is ticked, needed when
+    nothing is ticked or "Something else" is. Send says what is missing.
+  - A visitor sees the public cases. Signed in, the page lists the cases
+    for that account, fills in the name and email, and sends with the
+    sign-in, so the message is linked to the account. An expired sign-in
+    is asked to sign in again.
+  - A **?** in every portal's header opens the help desk, with a link back
+    to the portal. Old links that pick a topic (`?topic=guardianship`)
+    still work. If the cases can't be read, the form works as it did.
+  - The topic and tick boxes are a step above the message form, not inside
+    it. Besides being clearer, this keeps the existing browser test (which
+    fills in the form's Name, Email and Message) passing unchanged: three
+    public guardianship cases mention "email".
 
 ---
 
