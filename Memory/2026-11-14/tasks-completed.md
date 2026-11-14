@@ -68,3 +68,9 @@
 ### POL-FE-43 closed — help desk group (Polish G, items 41–43) complete
 - PR #406 merged to main_development (CI incl. E2E green); acceptance checked; tracker row set to Done (2026-11-14). Same branch PR'd to main.
 - POL-BE-41/42/43 and POL-FE-41/42/43 all Done on 2026-11-14. Deployed so far: BE-41/42/43 + FE-41 (release 3bd0b2a), FE-42 (release 176280d); FE-43 goes with the next deploy once the main PR merges.
+
+### Wrap-up (end of day)
+- Help desk group (Polish G) complete and live: POL-BE-41/42/43 and POL-FE-41/42/43 all Done. Production now runs c3b400b8 (deploys: 3bd0b2a8 with the support_inbox and helpdesk_cases migrations, 176280d7 with FE-42, c3b400b8 with FE-43); api and web SUCCESS in staging and production.
+- PRs today: #391-#408.
+- Polish sheet: 63 of 63 rows Done.
+- Stage Progress row appended for 2026-11-14 (Phase 1 unchanged from 2026-11-12: 318 done, 15.5 days left).
