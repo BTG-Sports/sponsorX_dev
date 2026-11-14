@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
+import { ProblemTags } from "@/components/problem-tags";
 import { EmptyState } from "@/components/states";
 import { Badge } from "@/components/ui";
 import { apiListQuery } from "@/lib/list-query";
@@ -71,7 +72,7 @@ export default async function OnboardingQueuePage({ searchParams }: { searchPara
     { key: "org", label: "Organization" },
     { key: "when", label: list === "auto" ? "Approved" : "Submitted" },
     { key: "docs", label: "Documents", num: true },
-    { key: "why", label: list === "flagged" ? "Flag" : "Held because" },
+    { key: "why", label: list === "flagged" ? "Flag" : "What's wrong" },
     { key: "wait", label: waiting ? "Waiting" : !list && tab === "DRAFT" ? "Missing" : "Status" },
     { key: "action", label: "Open", srOnly: true },
   ];
@@ -131,8 +132,10 @@ export default async function OnboardingQueuePage({ searchParams }: { searchPara
                   {list === "auto" && o.decidedAt ? dateLabel(o.decidedAt) : o.submittedAt ? dateLabel(o.submittedAt) : `started ${dateLabel(o.createdAt)}`}
                 </Td>
                 <Td label="Documents" num muted>{o.documents.length ? `${uploaded} / ${o.documents.length}` : "—"}</Td>
-                <Td label={list === "flagged" ? "Flag" : "Held because"}>
-                  {why?.length > 0 ? <span className="text-[11px] text-warn">{why.join(" · ")}</span> : <span className="text-faint">—</span>}
+                <Td label={list === "flagged" ? "Flag" : "What's wrong"}>
+                  {/* POL-FE-42 — a waiting application's problems, as tags (the reason on hover); a flag stays a line. */}
+                  {o.state === "PENDING_REVIEW" && o.problems?.length ? <ProblemTags problems={o.problems} compact />
+                    : why?.length > 0 ? <span className="text-[11px] text-warn">{why.join(" · ")}</span> : <span className="text-faint">—</span>}
                 </Td>
                 <Td label={waiting ? "Waiting" : "Status"}>
                   {wait ? (

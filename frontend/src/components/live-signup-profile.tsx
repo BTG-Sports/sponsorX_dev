@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { HomeFeaturePanel } from "@/components/home-feature-panel";
 import { LiveSignupReview } from "@/components/live-signup-review";
+import { WhatsWrongPanel } from "@/components/problem-tags";
 import { Badge } from "@/components/ui";
 import { momentOf } from "@/lib/new-signups-live";
 import { trustHint, trustLine } from "@/lib/content-trust";
@@ -57,9 +58,12 @@ export async function LiveSignupProfile({ owner, id }: { owner: "athletes" | "gu
   const s = (await res.json()) as ApiSignupDetail;
   const badge = liveBadge(s, s.approvedAt);
   const hold = comingOfAgeHold(s);
+  /* POL-FE-42 — a held sign-up's problems, as tags at the top; they replace the plain "Why it needs review" list. */
+  const problems = s.state === "NEEDS_REVIEW" ? s.problems ?? [] : [];
 
   const before = (
     <>
+      <WhatsWrongPanel problems={problems} documents={s.documents} />
       {/* POL-FE-02 / POL-BE-02 — a coming-of-age takeover the ID check held: why, and what Confirm takeover (the Actions panel) or Send back does. */}
       {hold && (
         <section aria-label="Coming of age held" className="rounded-xl border border-warn/45 bg-warn/8 p-4 sm:px-5">
@@ -119,7 +123,7 @@ export async function LiveSignupProfile({ owner, id }: { owner: "athletes" | "gu
         </section>
       )}
       {s.state === "NEEDS_REVIEW" ? (
-        <ReasonList title="Why it needs review" items={s.reasons} />
+        problems.length ? null : <ReasonList title="Why it needs review" items={s.reasons} />
       ) : s.checks.length > 0 ? (
         <section aria-label="Checklist when approved" className={section}>
           <h2 className="text-sm font-semibold">Checklist when approved{s.approvedAt ? ` · ${momentOf(s.approvedAt)}` : ""}</h2>

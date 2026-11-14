@@ -1,6 +1,7 @@
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "@/lib/brand-categories";
 import type { ApiDocumentCheck, ApiDocumentReturned } from "@/lib/document-checks-live";
 import type { PageInfo } from "@/lib/list-query";
+import type { ApiProblem } from "@/lib/support-inbox-live";
 
 /* --------------------------------------------------------------------------
    2S1-FE-03 — BTG's sponsor-request screens (Claude Design
@@ -42,6 +43,8 @@ export type ApiSponsorRequest = {
   autoApproved: boolean;
   /** Why the system could not approve it by itself: what BTG is to look at. */
   reviewReasons: string[];
+  /** POL-BE-42 — a NEW request's reasons as typed tags ([] otherwise). */
+  problems?: ApiProblem[];
 };
 
 export type ApiSponsorRequestList = { requests: ApiSponsorRequest[]; counts: Record<SponsorRequestState, number>; /** P1-FE-31 — present on a paged read. */ page?: PageInfo };
