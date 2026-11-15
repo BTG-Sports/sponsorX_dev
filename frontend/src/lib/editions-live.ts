@@ -153,6 +153,18 @@ export function splitLockLine(lock: SplitLock): string {
   return `Locked ${shortDate(lock.at)} by ${lock.by.email ?? "Finance"} — ${lock.note}`;
 }
 
+/* POL-FE-50 — the Content ready box's confirmation, toned by what it means.
+   Marking ready is good news (green, with the tick); marking not ready is an
+   undo, said as one and shown muted, so it never reads as a green "success"
+   that contradicts the box. The note clears itself after a few seconds. */
+export type ContentReadyNoteTone = "success" | "muted";
+export function contentReadyNote(contentReady: boolean): { message: string; tone: ContentReadyNoteTone } {
+  return contentReady
+    ? { message: "Content marked ready ✓", tone: "success" }
+    : { message: "Undone: content is back to not ready.", tone: "muted" };
+}
+export const CONTENT_READY_NOTE_MS = 4000;
+
 export type ApiSlotKind = AdSlotKind | "PRESENTING";
 
 export type ApiLedgerSlot = {

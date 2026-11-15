@@ -1801,6 +1801,44 @@ POL-FE-43. Each front-end task waits for its back-end one.
     student who is not ACTIVE still sees the button disabled ("You can log a
     business once you're on the masthead"), as the API would refuse them.
 
+### 50. Editions: the Content ready confirmation reads as a contradiction
+`POL-FE-50` · *Friction* · confirmed (found in walkthrough practice, 2026-11-15)
+
+- **Problem:** on BTG's Editions page (`/admin/next/editions`), after
+  **Mark content ready** and then **Mark not ready**, the Content ready box
+  said "not yet marked ready" with the link "Mark content ready", and under
+  it, in green, the leftover note "Content marked not ready." A presenter
+  read the green "success" line saying "not ready" as a contradiction, and
+  it stayed there until the page was reloaded.
+- **Frontend (`POL-FE-50`):** the note is toned by what it means and clears
+  itself:
+  - marking ready: "Content marked ready ✓", green;
+  - marking not ready: "Undone: content is back to not ready.", muted (not
+    green);
+  - either confirmation clears after about four seconds, and any note
+    clears when the link is clicked again. A refusal from the API stays, in
+    red, until the next click.
+- **The box itself was already right:** green border and a green ✓ with
+  "marked ready by BTG" when ready, a grey ○ with "not yet marked ready"
+  when not. Unchanged.
+- **Done when:** BTG → NEXT → Editions → Mark content ready shows the green
+  tick note, Mark not ready shows the muted "Undone: …" note, and neither
+  lingers; build and tests pass.
+- **Delivered (2026-11-15, infinex1):**
+  - `frontend/src/lib/editions-live.ts`: `contentReadyNote()` (wording and
+    tone) and `CONTENT_READY_NOTE_MS` (4000).
+  - `frontend/src/app/(app)/admin/next/actions.ts`: `setContentReadyAction`
+    returns that wording in place of "Content marked ready." / "Content
+    marked not ready.".
+  - `frontend/src/components/edition-controls.tsx`: `NoteLine` takes an
+    optional `tone` ("muted" draws a success in the muted colour; errors are
+    always red); `useAction` takes an opt-in `clearOkAfterMs` that clears
+    only success notes. Only `ContentReadyToggle` passes it, so the other
+    six users of the hook (advance, add asset, record a right, sales-open
+    date, rate card, split lock) behave as before.
+  - `frontend/tests/content-ready-note.test.ts`.
+  - No backend change.
+
 ---
 
 ## Checked and fine
