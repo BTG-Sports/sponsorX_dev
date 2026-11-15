@@ -1658,6 +1658,32 @@ POL-FE-43. Each front-end task waits for its back-end one.
   - The team manager's inventory pages have no restrictions section, so
     nothing to change there.
 
+### 46. Live listing: a button to see it in the marketplace
+`POL-FE-46` · *Dead end* · confirmed (found in walkthrough practice, 2026-11-15)
+
+- **Problem:** when a listing goes live, the page says "Live ✓ / Sponsors can
+  find it on the marketplace now." but gives the seller no way to see it
+  there. An athlete can't open the sponsor Shop, so they're left wondering what
+  sponsors actually see.
+- **Frontend (`POL-FE-46`):** a **Check in marketplace now** button in the
+  Live banner, opening the listing as a sponsor sees it (the page's existing
+  "Preview as a sponsor sees it" view). Shown only when the listing is live.
+- **Done when:** the button shows in the "Live ✓" banner and opens that
+  listing's preview; it doesn't show for a draft, a held, paused or ended
+  listing, or one that goes live on a later day; build and tests pass.
+- **Delivered (2026-11-15, infinex1):**
+  - `frontend/src/lib/listing-outcome.ts`: `liveNow()` says whether a listing
+    is live now (published, no later publish day); "Live ✓" uses it too.
+  - `frontend/src/components/athlete-listing-form.tsx`: the button in the
+    athlete's Live banner, to `/athlete/listings/<id>/preview`, in the page's
+    secondary button style.
+  - `frontend/src/components/property-listing-form.tsx`: the team manager's
+    listing page shows the same banner, so it gets the button too, to
+    `/property/listings/<id>/preview` (that route exists).
+  - `frontend/tests/listing-outcome.test.ts`: a test for `liveNow()`.
+  - The banner shows right after Submit or Resume, as before, so that is
+    when the button appears.
+
 ---
 
 ## Checked and fine

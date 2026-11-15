@@ -14,7 +14,7 @@ import {
   type ApiListing,
   type ListingDraft,
 } from "@/lib/property-p2-live";
-import { btgNote, GOES_LIVE_COPY, submitOutcome } from "@/lib/listing-outcome";
+import { btgNote, GOES_LIVE_COPY, liveNow, submitOutcome } from "@/lib/listing-outcome";
 
 /* --------------------------------------------------------------------------
    2S3-FE-01 — the listing editor's client island.
@@ -146,6 +146,12 @@ function Outcome({ listing, justSubmitted }: { listing: ApiListing; justSubmitte
               {l}
             </p>
           ))}
+          {/* POL-FE-46 — the sponsor's-eye preview, as the page's own Preview link. */}
+          {liveNow(listing) && (
+            <Link href={`/property/listings/${encodeURIComponent(listing.id)}/preview`} className={`${secondaryBtn} mt-2 inline-flex`}>
+              Check in marketplace now
+            </Link>
+          )}
         </div>
       )}
       {note && <p className="rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 text-[11px] text-danger">{note}</p>}
