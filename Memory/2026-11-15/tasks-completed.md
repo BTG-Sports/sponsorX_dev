@@ -84,3 +84,13 @@
 - 64: the acceptance, order-ready and brief-closed emails; BTG's close reason stays internal; an "Athletes to activate" card.
 - 65: the request form enforces the 8-word objective and the edit dates; honest wording; held requests are followed on Requests; results show only once live.
 - Remaining: 66–78.
+
+## App review: POL-66 to POL-70 Done (rcfworks)
+
+- 66: a NEXT ad request is never held for athletes, asks no athlete questions, and reads "booked".
+- 67: the sponsor sees their fan reward (QR, staff code) and leads; loose links fixed.
+- 68: a minor's coded refusals are shown as the API words them; the guardian accepts the order; the Guardian seat label; the notice is on every page.
+- 69: the athlete's earnings, invitations, profile and orders say true things; the rate card is out of profile completion.
+- 70: the changes-requested email links to `/join/edit`, where the applicant edits and resubmits.
+- **Checks:** backend 3829 tests, frontend 2113; lint, build and scans all clean.
+- **Remaining:** 71–78.

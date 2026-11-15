@@ -49,3 +49,13 @@ describe("POL-FE-69 · athlete orders, earnings and profile say true things", as
     expect(src("lib/profile-live.ts")).toContain('rates: "not-collected",');
   });
 });
+
+describe("POL-FE-70 · an applicant asked for changes can make them", () => {
+  it("/join/edit reads their application on the email's token, shows BTG's note, and sends it back", () => {
+    const page = src("app/(public)/join/edit/page.tsx");
+    expect(page).toContain("/api/v1/applications/intake/mine?token=${encodeURIComponent(token)}");
+    expect(page).toContain("What BTG asked you to change");
+    expect(src("app/(public)/join/edit/actions.ts")).toContain('method: "PATCH"');
+    expect(src("components/application-edit-form.tsx")).toContain("Send it back to BTG");
+  });
+});

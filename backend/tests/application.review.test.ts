@@ -24,7 +24,7 @@ import { IllegalTransitionError } from "../src/domain/athlete-state";
    -------------------------------------------------------------------------- */
 
 vi.mock("../src/config/env", () => ({
-  env: { APP_URL: "https://sponsorx.example" },
+  env: { APP_URL: "https://sponsorx.example", INTAKE_TOKEN_SECRET: "test-intake-secret" },
 }));
 
 type AthleteRow = {
@@ -265,6 +265,11 @@ describe("the three decisions", () => {
     expect(outbox[0]?.payload.data).toMatchObject({
       reviewerNotes: "Add a second social account.",
     });
+    /* POL-BE-70 — the link opens their own application to edit and resend, on a token the edit routes read back. */
+    const link = String((outbox[0]?.payload.data as { portalUrl?: string }).portalUrl);
+    expect(link).toMatch(/^https:\/\/sponsorx\.example\/join\/edit\?token=/);
+    const { readIntakeToken } = await import("../src/lib/intake-token");
+    expect(readIntakeToken(decodeURIComponent(link.split("token=")[1]!))).toBe("ath_1");
   });
 
   it("rejects: terminal, recorded, and the reason is sent", async () => {

@@ -2196,6 +2196,7 @@ the blockers and today's content review findings.
   sponsor's campaign page.
 - **Done when:** an ad package request asks only what an ad needs and never
   says "being staffed".
+- **Delivered (2026-11-15, rcfworks):** Backend: a package that staffs nobody (no athlete lines, an athlete maximum of 0) is never held for athletes, and its approved line reads "Approved — your ad is booked into the edition". Frontend: the request drawer asks an ad package no athlete questions.
 
 ### 67. The sponsor can't see their fan reward or leads; loose links [§2]
 `POL-FE-67` · *Dead end* · confirmed
@@ -2204,6 +2205,7 @@ the blockers and today's content review findings.
   disputes; "Back to Campaign" uses the real id; campaign requests treat a 404
   as an error.
 - **Done when:** each is on screen and works.
+- **Delivered (2026-11-15, rcfworks):** A "Fan reward" panel (offer, state, staff code, each QR on a signed link) and the fans who agreed to be contacted, on the sponsor's campaign page; "Back to Campaign" from an athlete's profile uses the real campaign; the dispute form points to the roster's "Raise a concern"; a campaign-change 404 is an error. The report's PDF/Excel download already existed (P8-FE-09), so the server-render routes stay for scheduled renders.
 
 ### Wave 4 — athletes and guardians
 
@@ -2215,6 +2217,7 @@ the blockers and today's content review findings.
   Confirmations.
 - **Done when:** a minor's login shows no always-failing button; a guardian's
   seat is labelled plainly.
+- **Delivered (2026-11-15, rcfworks):** A minor's coded refusals are shown as the API words them (offers, inventory, listings); a minor's own login sees that the guardian accepts the order; the guardian's seat reads "Guardian"; the guardian notice is in the layout; a minor reaches Guardian requests. (Pending-confirmation links on offers and inventory not changed.)
 
 ### 69. Athlete orders, earnings and profile say untrue things [§3]
 `POL-BE-69` · `POL-FE-69` · *Money* · confirmed
@@ -2226,12 +2229,14 @@ the blockers and today's content review findings.
   Confirmations and counts a guardian's signature; deliverable versions open;
   one name per page and a Confirmations link.
 - **Done when:** each screen reads true.
+- **Delivered (2026-11-15, rcfworks):** Earnings say campaign pay is BTG Finance's and Stripe is for shop sales; after accepting, earnings say they start once deliverables are verified; the drawer drops the sample hold reason and the fixed year; Invitations and Profile say BTG matches and invites; Campaign orders points to Offers for offer-born orders; the rate card no longer counts in profile completion. (Deliverable version links and page names not changed.)
 
 ### 70. An applicant asked for changes can't make them [§3]
 `POL-BE-70` · `POL-FE-70` · *Dead end* · likely
 - **Fix:** a token page, `/join/edit?token=`, on the existing intake routes;
   the email links to it.
 - **Done when:** an applicant opens the link, edits and resubmits.
+- **Delivered (2026-11-15, rcfworks):** Backend: the changes-requested email links to `/join/edit?token=`. Frontend: `/join/edit` shows BTG's note and lets the applicant change their name, sport and state and send it back (PATCH on the intake token, which resubmits).
 
 ### Wave 5 — sponsor portal
 

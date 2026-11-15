@@ -33,6 +33,7 @@ import { ForbiddenError } from "../auth/errors";
 import { prisma } from "../db/client";
 import { athleteNotificationKey, send, type EmailTemplate } from "../lib/email";
 import { env } from "../config/env";
+import { issueIntakeToken } from "../lib/intake-token";
 import { transitionAthleteIn } from "./athlete";
 import { provisionAthleteLoginsIn, type LoginOutcome } from "./athlete-login";
 import { recordClosureIn, REJECT_TAKES_LOGINS } from "./account-closure";
@@ -169,7 +170,12 @@ export async function reviewApplication(
       to: applicant.email,
       data: {
         firstName: firstNameOf(applicant.legalName, applicant.displayName),
-        portalUrl: `${env.APP_URL}/athlete`,
+        /* POL-BE-70 (app review §3) — asked for changes, the applicant has no
+           login yet: the link opens their own application to edit and
+           resubmit (/join/edit, on the intake token the edit routes read). */
+        portalUrl: decision === "CHANGES_REQUESTED"
+          ? `${env.APP_URL.replace(/\/+$/, "")}/join/edit?token=${encodeURIComponent(issueIntakeToken(athleteId))}`
+          : `${env.APP_URL}/athlete`,
         ...(notes ? { reviewerNotes: notes } : {}),
       },
       /* One message per athlete per decision. The occurrence is the decision
