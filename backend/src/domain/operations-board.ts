@@ -92,6 +92,8 @@ export type OperationsQueues = {
   /** POL-BE-61 (app review §2) — posts the athlete marked published, waiting for BTG to verify the link
    *  (verifying releases the earning and moves the campaign on); oldest by when it was published. */
   toVerify: WaitingQueue | null;
+  /** POL-BE-64 (app review §2) — athletes approved but not activated: invisible to matching until BTG activates them. */
+  toActivate: WaitingQueue | null;
 };
 
 /**
@@ -142,6 +144,7 @@ export async function operationsQueues(actor: Actor, now = new Date()): Promise<
     profileChanges: tenantWide(actor, "athleteProfileChange", "approve"),
     campaignRequests: tenantWide(actor, "campaignChange", "approve"),
     toVerify: tenantWide(actor, "deliverable"),
+    toActivate: tenantWide(actor, "athleteApplication", "approve"),
   };
   if (!Object.values(may).some(Boolean)) throw new ForbiddenError("metricAggregate", "read");
 
@@ -307,5 +310,11 @@ export async function operationsQueues(actor: Actor, now = new Date()): Promise<
     signups, organisations, sponsorRequests, guardianHandoffs, heldListings, heldOrders, deliveryIssues,
     offers, dealDisputes, refunds, heldClosures, reactivations, paymentDisputes, paymentEvents, profileChanges, campaignRequests,
     toVerify,
+    toActivate: may.toActivate
+      ? await queue(
+          prisma.athlete.count({ where: { AND: [whereFor(actor, "athleteApplication", "read"), { state: "APPROVED" }] } }),
+          prisma.athlete.findFirst({ where: { AND: [whereFor(actor, "athleteApplication", "read"), { state: "APPROVED" }] }, orderBy: { reviewedAt: "asc" }, select: { reviewedAt: true, createdAt: true } }).then((r) => r?.reviewedAt ?? r?.createdAt),
+        )
+      : null,
   };
 }

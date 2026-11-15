@@ -336,7 +336,7 @@ function Desk({
               {closing ? (
                 <div className="space-y-2">
                   <label htmlFor="close-reason" className="text-xs font-medium">
-                    Why close this brief?
+                    Why close this brief? <span className="font-normal text-muted">Kept internal — the sponsor is emailed that it&apos;s closed, never this note.</span>
                   </label>
                   <textarea
                     id="close-reason"

@@ -27,6 +27,8 @@ import { autoApproveOrHold, notifyBriefWithdrawn } from "./brief-auto";
 import { startAutoStaffing } from "./auto-staffing";
 import { startAutoSale } from "./ad-sale-auto";
 import { createCampaignIn } from "./campaign-create";
+import { env } from "../config/env";
+import { send } from "../lib/email";
 
 /** A matching list is a set: a repeat in the body is stored once, in the order first sent (QA 2026-10-15). */
 const uniq = <T>(xs: readonly T[] | undefined): T[] => [...new Set(xs ?? [])];
@@ -351,6 +353,29 @@ export async function transitionBrief(
         id: found.id, tenantId: found.tenantId, from: from as BriefState, heldAt: brief.heldAt,
         sponsorName: brief.sponsor.name, packageName: brief.package?.name ?? null, note: closeReason,
       });
+    }
+    /* POL-BE-64 (app review §2) — BTG closing a request emailed nobody. Their
+       admins are now told it's closed, with the way to their request and to
+       ask BTG. BTG's reason stays internal (it never reaches a sponsor — the
+       close panel says so), so the email carries none. */
+    if (staffClose && closeReason) {
+      const admins = await tx.user.findMany({
+        where: { tenantId: found.tenantId, disabledAt: null, sponsorId: brief.sponsorId, roles: { has: "SPONSOR_ADMIN" } },
+        select: { id: true, email: true },
+        take: 20,
+      });
+      for (const u of admins) {
+        await send(tx, found.tenantId, {
+          template: "brief.closedForSponsor",
+          to: u.email,
+          idempotencyKey: `brief.closedForSponsor:${found.id}:${u.id}`,
+          data: {
+            sponsorName: brief.sponsor.name, packageName: brief.package?.name ?? "your request",
+            contactUrl: `${env.APP_URL.replace(/\/+$/, "")}/contact?topic=campaigns`,
+            reviewUrl: `${env.APP_URL.replace(/\/+$/, "")}/sponsor/requests/${encodeURIComponent(found.id)}`,
+          },
+        });
+      }
     }
     /* POL-BE-63 (app review §2) — BTG approving a held brief by hand makes its
        campaign at once, exactly as the automatic approval does (brief-auto.ts),

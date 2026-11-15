@@ -458,6 +458,21 @@ ${d.portalUrl ?? ""}
     subject: `Fix before review: your ad artwork for ${d.slotCode ?? "your ad slot"}, ${d.editionLabel ?? "the edition"}`,
     text: `Hi,\n\nVersion ${d.version ?? "1"} of the artwork for ${d.slotCode ?? "your ad slot"} in ${d.editionLabel ?? "the edition"} didn't pass our automatic checks, so it hasn't gone to BTG:\n\n${d.reasons ?? ""}\n\nFix these and upload it again here:\n\n${d.reviewUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* POL-BE-64 — the three hand-offs nobody was told about. */
+  "invitation.acceptedForBtg": (d) => ({
+    subject: `Accepted: ${d.athleteName ?? "an athlete"} — ${d.campaignName ?? "a campaign"}`,
+    text: `${d.athleteName ?? "An athlete"} accepted the invitation to ${d.campaignName ?? "the campaign"}. Draft and send their Campaign Order from the campaign's roster:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "order.readyToSign": (d) => ({
+    subject: `Your Campaign Order is ready to sign — ${d.campaignName ?? "a campaign"}`,
+    text: d.forGuardian === "yes"
+      ? `Hi,\n\nBTG sent ${d.athleteName ?? "the athlete you look after"}'s Campaign Order for ${d.campaignName ?? "the campaign"}. As their guardian, please review it and accept it (or decline it) here:\n\n${d.reviewUrl ?? ""}\n\n— BTG SponsorX`
+      : `Hi ${d.athleteName ?? "there"},\n\nBTG sent your Campaign Order for ${d.campaignName ?? "the campaign"}: what you'll deliver, by when, and what you'll earn. Review it and accept it (or decline it) here:\n\n${d.reviewUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "brief.closedForSponsor": (d) => ({
+    subject: `BTG closed your request — ${d.packageName ?? "your request"}`,
+    text: `Hi,\n\nBTG closed your request for ${d.packageName ?? "a campaign"}, so it won't go ahead as it stands. You can see it, and send a new request, here:\n\n${d.reviewUrl ?? ""}\n\nTo ask BTG why, or what would work instead:\n\n${d.contactUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
   /* POL-BE-61 — a post marked published, for BTG to verify. */
   "deliverable.publishedForBtg": (d) => ({
     subject: `Post to verify: ${d.title ?? "a deliverable"} — ${d.campaignName ?? "a campaign"}`,

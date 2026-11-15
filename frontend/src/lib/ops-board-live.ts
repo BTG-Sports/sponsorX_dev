@@ -23,6 +23,7 @@ export type ApiWaitingQueue = { waiting: number; oldestSince: string | null };
  *  is null for a role that doesn't read it and absent from an older API. */
 export type WaitingQueueKey =
   | "toVerify"
+  | "toActivate"
   | "payouts"
   | "makeGoods"
   | "signups"
@@ -95,6 +96,8 @@ const WAITING_QUEUES: ReadonlyArray<{ key: WaitingQueueKey; label: string; hint:
      held ones; its Failed tab is what the provider handed back. */
   /* POL-FE-61 (app review §2) — a post marked published waited on no queue; verifying it releases the earning. */
   { key: "toVerify", label: "Posts to verify", hint: "Marked published by the athlete; check the link", href: "/admin/approvals?tab=verify" },
+  /* POL-FE-64 (app review §2) — approved athletes can't be invited until activated, and they left the default tab. */
+  { key: "toActivate", label: "Athletes to activate", hint: "Approved, not active — not matchable yet", href: "/admin/applications?tab=approved" },
   { key: "payouts", label: "Payouts to review", hint: "Held for BTG, or failed and handed back", href: "/admin/payouts" },
   { key: "makeGoods", label: "Make-goods to decide", hint: "Open make-goods waiting for a person", href: "/admin/intelligence/make-goods" },
   { key: "signups", label: "New sign-ups to review", hint: "Athletes, sponsors and organisations held for a person", href: "/admin/new-signups?review=1" },
@@ -218,6 +221,8 @@ export const QUEUE_TONE: Record<QueueKey, string> = {
   approvals: "#9be0ff",
   /* POL-FE-61 — teal: the verifying step after approval. */
   toVerify: "#2dd4bf",
+  /* POL-FE-64 — the last step into the network, a hue of its own. */
+  toActivate: "#f0abfc",
   briefs: "#fb923c",
   finance: "#f97a1f",
   /* POL-FE-12 — amber, so money waiting for a person reads apart from the
