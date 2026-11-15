@@ -24,6 +24,8 @@
    saving, not discovered by a refused order.
    -------------------------------------------------------------------------- */
 
+import { signupHref } from "@/lib/signups-live";
+
 /** Who may set a rate (and the tier a rate needs). */
 export const RATE_WRITERS = ["SUPER_ADMIN", "BTG_ADMIN", "NETWORK_MGR"] as const;
 
@@ -156,13 +158,42 @@ export function validId(id: unknown): id is string {
 }
 
 /** The editor for one athlete, with the job to open and, from the Matching
- *  Studio, the brief to go back to. */
-export function rateEditorHref(athleteId: string, opts: { job?: string | null; brief?: string | null } = {}): string {
+ *  Studio, the brief to go back to — or, from the athlete's profile, a way
+ *  back there. */
+export function rateEditorHref(
+  athleteId: string,
+  opts: { job?: string | null; brief?: string | null; from?: "profile" } = {},
+): string {
   const u = new URLSearchParams();
   if (opts.job && validId(opts.job)) u.set("job", opts.job);
   if (opts.brief && validId(opts.brief)) u.set("brief", opts.brief);
+  if (opts.from === "profile") u.set("from", "profile");
   const q = u.toString();
   return `/admin/athletes/${encodeURIComponent(athleteId)}/rates${q ? `?${q}` : ""}`;
+}
+
+/** Where the rate card's back link goes. The Studio's brief wins (that is
+ *  the work in hand); `from=profile` goes back to the athlete's profile;
+ *  anything else goes to the Studio. Built from ids, never from the URL. */
+export function rateBackLink(
+  athleteId: string,
+  opts: { brief?: string | null; from?: string | null },
+): { href: string; label: string } {
+  if (!(opts.brief && validId(opts.brief)) && opts.from === "profile" && validId(athleteId)) {
+    return { href: signupHref("ATHLETE", athleteId), label: "Back to the athlete's profile" };
+  }
+  return { href: studioHref(opts.brief), label: "Back to the Matching Studio" };
+}
+
+/** POL-FE-51 close-out — the rate card from the athlete's profile, for an
+ *  approved athlete and a role that sets rates; otherwise no link. */
+export function profileRateCardHref(
+  s: { kind: string; state: string; id: string },
+  roles: readonly string[],
+): string | null {
+  if (s.kind !== "ATHLETE" || (s.state !== "APPROVED" && s.state !== "AUTO_APPROVED")) return null;
+  if (!mayWriteRates(roles) || !validId(s.id)) return null;
+  return rateEditorHref(s.id, { from: "profile" });
 }
 
 /** Back to the Matching Studio on that brief — built here from an id, never

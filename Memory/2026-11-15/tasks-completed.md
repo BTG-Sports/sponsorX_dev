@@ -47,3 +47,9 @@
   - Emails: a new piece goes to the student; a draft goes to the school's advisor(s) only; changes asked (with the note) and approval go to the student. Each is sent inside the step's own transaction, so a retry never sends twice.
   - A resubmission keeps the last file by default (a ticked box), unless the student unticks it or attaches a new one (`keepFile`).
   - Backend now has 16 tests, frontend 13.
+
+## Polish closed: POL-FE-45 and POL-FE-51 (HeckerCreatives, with Claude)
+
+- All 51 Polish items are Done (71 rows). #45 and #51 were walked live; the walk found and fixed a phone-only dead end in #45 (the menu sat under the bottom bar) and "Running" next to "starts in 10 days" after an early launch (#51). The rate card is now also reached from the athlete's profile.
+- The Tester Facility seeding (#51) is in the facility's own repo and was handed on, not closed here.
+- Details: `POL-close-out.md`. Branch `fix/POL-FE-51-close-polish`.
