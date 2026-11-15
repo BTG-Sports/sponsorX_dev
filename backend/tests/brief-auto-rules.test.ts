@@ -61,6 +61,15 @@ describe("P4-BE-11 · autoApprovalHolds", () => {
     expect(holds({ budget: 150_000 })).toEqual([]);
   });
 
+  it("POL-BE-66 · a NEXT ad (no athlete lines, an athlete maximum of 0) is never held for athletes", () => {
+    expect(holds({ package: { name: "NEXT Half-Page Ad", priceLow: 500, athleteCountMin: 0, athleteCountMax: 0, lineItems: [] }, fitCount: 0 }).map((h) => h.key)).not.toContain("ATHLETES");
+    /* The sponsor reads "booked", not "being staffed". */
+    expect(sponsorBriefStatus("CAMPAIGN_CREATED", true).text).toBe("Approved — your ad is booked into the edition");
+    expect(sponsorBriefStatus("APPROVED").text).toBe("Approved — your campaign is being staffed");
+    /* An athlete package with no lines recorded keeps the old rule. */
+    expect(holds({ package: { name: "Solo", priceLow: 100, athleteCountMin: 0, athleteCountMax: 3, lineItems: [] }, fitCount: 0 }).map((h) => h.key)).toContain("ATHLETES");
+  });
+
   it("too few athletes: the package's minimum, never fewer than one", () => {
     expect(holds({ fitCount: 3 })).toEqual([{ key: "ATHLETES", text: "Only 3 athletes fit; the package needs 5" }]);
     expect(holds({ fitCount: 1 })[0]!.text).toBe("Only 1 athlete fits; the package needs 5");

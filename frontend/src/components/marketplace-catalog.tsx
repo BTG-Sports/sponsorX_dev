@@ -586,7 +586,7 @@ export function PackagesCatalog({
                   <button
                     type="button"
                     onClick={() =>
-                      setSeed({ kind: "package", name: p.name, price: p.price, packageId: p.id })
+                      setSeed({ kind: "package", name: p.name, price: p.price, packageId: p.id, adOnly: p.athletes === "0" })
                     }
                     className="mt-3 w-full rounded-lg bg-primary py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
                   >

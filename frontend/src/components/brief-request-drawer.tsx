@@ -60,7 +60,8 @@ const CATEGORY_OPTIONS = BRAND_CATEGORIES.map((c) => ({ value: c, label: categor
    -------------------------------------------------------------------------- */
 
 export type BriefSeed =
-  | { kind: "package"; name: string; price: string; packageId?: string }
+  /** POL-FE-66 — `adOnly`: a package that staffs nobody (a NEXT ad); the drawer asks no athlete questions. */
+  | { kind: "package"; name: string; price: string; packageId?: string; adOnly?: boolean }
   | { kind: "job"; name: string; jobId: string; price: string }
   | {
       kind: "athlete";
@@ -519,6 +520,8 @@ function BriefForm({
           </Field>
         </div>
 
+        {/* POL-FE-66 (app review §2) — an ad staffs nobody: no athlete targeting to ask about. */}
+        {!(seed.kind === "package" && seed.adOnly) && (
         <fieldset className="space-y-3 rounded-xl border border-line-soft p-3">
           <legend className="px-1 text-[10px] font-medium uppercase tracking-wide text-faint">
             Who to reach
@@ -570,6 +573,7 @@ function BriefForm({
             />
           </Field>
         </fieldset>
+        )}
 
         <Field label="Student code (optional)" htmlFor="brief-student-code" hint="A SponsorX NEXT student sent you? Their code credits the sale to them.">
           <input

@@ -59,3 +59,10 @@ describe("POL-FE-65 · the sponsor's request form promises and allows only what'
     expect(src("components/sponsor-campaign-table.tsx")).toContain('["ACTIVE", "REPORTING", "COMPLETED"].includes(c.state)');
   });
 });
+
+describe("POL-FE-66 · a NEXT ad request is an ad request", () => {
+  it("the catalog marks an ad package; the drawer asks it no athlete questions", () => {
+    expect(src("components/marketplace-catalog.tsx")).toContain('adOnly: p.athletes === "0"');
+    expect(src("components/brief-request-drawer.tsx")).toContain('{!(seed.kind === "package" && seed.adOnly) && (');
+  });
+});
