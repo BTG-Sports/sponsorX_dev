@@ -29,7 +29,7 @@ import { startAutoSale } from "./ad-sale-auto";
 
 /** A matching list is a set: a repeat in the body is stored once, in the order first sent (QA 2026-10-15). */
 const uniq = <T>(xs: readonly T[] | undefined): T[] => [...new Set(xs ?? [])];
-import { sponsorBriefStatus, type SponsorBriefStatus } from "./brief-auto-rules";
+import { sponsorBriefStatus, sponsorWaitingOn, type SponsorBriefStatus, type SponsorWaitingOn } from "./brief-auto-rules";
 
 export type BriefInput = {
   sponsorId: string;
@@ -93,6 +93,8 @@ export type BriefSubmitted = {
   autoApproved: boolean;
   /** P4-BE-11 — what the sponsor is told; never why a brief waits. */
   status: SponsorBriefStatus;
+  /** POL-FE-51 — who it waits on: ATHLETES (held only for too few athletes), BTG, or null. */
+  waitingOn: SponsorWaitingOn;
   campaignId: string | null;
 };
 
@@ -186,13 +188,14 @@ async function submitted(tx: Prisma.TransactionClient, tenantId: string, id: str
   const b = await tx.campaignBrief.findFirstOrThrow({
     /* tenant-scope: the brief this transaction just wrote, in its own tenant. */
     where: { id, tenantId },
-    select: { id: true, state: true, autoApproved: true, campaign: { select: { id: true } } },
+    select: { id: true, state: true, autoApproved: true, heldKeys: true, campaign: { select: { id: true } } },
   });
   return {
     id: b.id,
     state: b.state as BriefState,
     autoApproved: b.autoApproved,
     status: sponsorBriefStatus(b.state),
+    waitingOn: sponsorWaitingOn(b.state, b.heldKeys),
     campaignId: b.campaign?.id ?? null,
   };
 }

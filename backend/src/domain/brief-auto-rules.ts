@@ -49,7 +49,7 @@ export type AutoApprovalInput = Omit<ReadinessInput, "package" | "eligibleCount"
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /** How many athletes must fit: the package's minimum, and never fewer than one. */
-export function athletesNeeded(pkg: AutoApprovalInput["package"]): number {
+export function athletesNeeded(pkg: { athleteCountMin: number } | null | undefined): number {
   return Math.max(1, pkg?.athleteCountMin ?? 1);
 }
 
@@ -131,7 +131,34 @@ export function heldOnlyForAthletes(keys: readonly string[]): boolean {
   return keys.length === 1 && keys[0] === "ATHLETES";
 }
 
+/**
+ * POL-FE-51 — could this package be staffed for a sponsor today? Yes when at
+ * least its `athleteCountMin` athletes fit (`athleteFit`, the same count
+ * check 3 above holds a brief on); null for a package with no athlete job
+ * lines (a NEXT magazine ad), which no athlete staffs. A yes / no only: the
+ * count itself never leaves BTG. Pure.
+ */
+export function packageStaffable(pkg: { lineItems: unknown; athleteCountMin: number }, fitCount: number): boolean | null {
+  if (!Array.isArray(pkg.lineItems) || pkg.lineItems.length === 0) return null;
+  return fitCount >= athletesNeeded(pkg);
+}
+
 /* --- what the sponsor is told ----------------------------------------- */
+
+/**
+ * POL-FE-51 — who a sponsor's open request is waiting on, in one word:
+ * `ATHLETES` when it is held ONLY because too few athletes fit (the one
+ * thing a sponsor can act on: another package, sport or area), `BTG` for any
+ * other request still before approval, null once it is approved, a campaign
+ * or closed. Never the hold's text, never a count or a name — and a brief
+ * held for any other reason reads exactly like one BTG hasn't reached yet.
+ * Pure.
+ */
+export type SponsorWaitingOn = "ATHLETES" | "BTG" | null;
+export function sponsorWaitingOn(state: BriefState | string, heldKeys: readonly string[] | null | undefined): SponsorWaitingOn {
+  if (state !== "DRAFT" && state !== "QUALIFIED") return null;
+  return state === "DRAFT" && heldOnlyForAthletes(heldKeys ?? []) ? "ATHLETES" : "BTG";
+}
 
 export const SPONSOR_REVIEWING = "BTG is reviewing your request — usually within a working day";
 export const SPONSOR_APPROVED = "Approved — your campaign is being staffed";

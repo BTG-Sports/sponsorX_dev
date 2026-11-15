@@ -34,7 +34,7 @@ import {
   InvitationResponseInput,
 } from "../../contracts/campaign";
 import { briefActions, createBrief, transitionBrief, updateBrief, type BriefState } from "../../domain/brief";
-import { sponsorBriefStatus } from "../../domain/brief-auto-rules";
+import { sponsorBriefStatus, sponsorWaitingOn } from "../../domain/brief-auto-rules";
 import { createCampaignFromBrief, launchCampaign, transitionCampaign } from "../../domain/campaign";
 import { stageViews, type StageView } from "../../domain/campaign-stages";
 import { setAutoStaffing, staffingSkips } from "../../domain/auto-staffing";
@@ -102,6 +102,8 @@ const BRIEF_SELECT = {
   createdAt: true,
   /* P4-BE-11 — how it was approved, and (BTG only) why it was held. */
   autoApproved: true, heldAt: true, heldReasons: true,
+  /* POL-FE-51 — the hold's keys, read only to say who a request waits on. */
+  heldKeys: true,
   /* P4-BE-07 — the readiness checklist's inputs; not in the response. */
   tenantId: true, sponsorId: true,
   sponsor: { select: { name: true } },
@@ -117,6 +119,8 @@ type BriefRow = {
   excludedCategories: string[]; channels: string[]; audienceTiers: string[]; audienceMinFollowers: number | null;
   createdAt: Date;
   autoApproved: boolean; heldAt: Date | null; heldReasons: string[];
+  /** POL-FE-51 — never sent; only `waitingOn` is derived from it. Absent from an older fixture. */
+  heldKeys?: string[];
   tenantId: string; sponsorId: string;
   sponsor: { name: string };
   package: {
@@ -144,6 +148,10 @@ function briefOut(b: BriefRow, readiness?: Readiness, holds = false, actor?: Act
        for BTG only, when and why the brief was held. */
     autoApproved: b.autoApproved,
     status: sponsorBriefStatus(b.state),
+    /* POL-FE-51 — who it waits on, in one sponsor-safe word: ATHLETES when it
+       is held only because too few athletes fit, BTG otherwise before
+       approval, null after. The hold's keys themselves are never sent. */
+    waitingOn: sponsorWaitingOn(b.state, b.heldKeys),
     /* P4-FE-07's close reason is BTG's internal note, like a hold's reasons:
        BTG only. A sponsor reads a closed brief through `status` alone. */
     ...(holds ? { heldAt: b.heldAt?.toISOString() ?? null, heldReasons: b.heldReasons, closeReason: b.closeReason } : {}),
