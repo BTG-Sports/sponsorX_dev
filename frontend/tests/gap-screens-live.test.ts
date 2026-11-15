@@ -244,8 +244,8 @@ describe("P3-FE-06 · the athlete home", () => {
     const h = buildHome({ profile: profile(), invitations: [], deliverables: [], earnings: [], now });
     expect(h.firstName).toBe("Riley");
     expect(h.status?.label).toBe("Approved");
-    expect(h.profile).toMatchObject({ done: 2, total: 8 });
-    expect(h.profile?.missing).toContain("Rate card");
+    expect(h.profile).toMatchObject({ done: 2, total: 7 }); // POL-FE-69: the rate card is BTG's, not counted
+    expect(h.profile?.missing).not.toContain("Rate card");
     expect(h.inviteCount).toBe(0);
     expect(h.dueCount).toBe(0);
     expect(h.hasEarnings).toBe(false);

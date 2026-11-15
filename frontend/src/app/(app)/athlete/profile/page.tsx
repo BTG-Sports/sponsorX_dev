@@ -277,7 +277,8 @@ function OwnerPointer({ delay }: { delay: number }) {
     <ArenaPanel tone="flare" delay={delay} spot>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="min-w-0 flex-1 text-xs leading-relaxed text-muted">
-          Sponsors see a <span className="font-medium text-text">Request Partnership</span> button on your public page — every request arrives in your Invitations, never here.
+          {/* POL-FE-69 (app review §3) — there is no "Request Partnership" button; BTG matches and invites. */}
+          Sponsors find you through BTG: BTG matches you to their campaigns, and every invitation arrives in your Invitations, never here.
         </p>
         <ArenaLink href="/athlete/invitations">Invitations</ArenaLink>
       </div>

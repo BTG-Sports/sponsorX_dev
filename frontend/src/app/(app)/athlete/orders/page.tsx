@@ -73,8 +73,9 @@ export default async function AthleteOrdersPage({ searchParams }: { searchParams
         <EmptyState
           mark="inbox"
           title="No Campaign Orders yet"
-          hint="Accept an invitation and BTG drafts the order with its full terms for you to sign — it lands here."
-          action={{ label: "Open invitations", href: "/athlete/invitations" }}
+          /* POL-FE-69 (app review §3) — an order from an accepted offer is on Offers, not here. */
+          hint="Accept an invitation and BTG drafts the order with its full terms for you to sign — it lands here. An order from an offer you accepted is on Offers."
+          action={{ label: "Open offers", href: "/athlete/offers" }}
         />
       </div>
     );

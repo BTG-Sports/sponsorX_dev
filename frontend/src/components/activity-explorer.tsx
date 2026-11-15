@@ -14,7 +14,7 @@ import { DateRangePicker as SharedDateRangePicker } from "@/components/date-rang
 import { dayOf, partsOf } from "@/lib/day-range";
 import { ListSearch, PagerRow, PendingList, ServerList, useListNav } from "@/components/server-pager";
 import type { PageInfo } from "@/lib/list-query";
-import { EARNING_COPY, earningItems, heldNote, money } from "@/lib/fixtures";
+import { EARNING_COPY, earningItems, money } from "@/lib/fixtures";
 import {
   EARNING_TONE,
   JOURNEY,
@@ -735,7 +735,7 @@ function Drawer({
           </p>
           <p className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-faint">
             <Badge tone={EARNING_TONE[e.state]}>{EARNING_COPY[e.state]}</Badge>
-            updated {e.updatedAt}, 2026
+            updated {e.updatedAt} {/* POL-FE-69 — no fixed year */}
           </p>
         </div>
 
@@ -745,9 +745,8 @@ function Drawer({
             <div className="flex flex-wrap items-start gap-2 rounded-lg border border-danger/25 bg-danger/8 px-3 py-2.5">
               <Badge tone="danger">{EARNING_COPY[e.state]}</Badge>
               <p className="min-w-0 flex-1 text-xs leading-relaxed text-muted">
-                {e.state === "HELD"
-                  ? heldNote.replace(/\s*\(§\d+\)/g, "")
-                  : STATUS_DETAIL[e.state]}
+                {/* POL-FE-69 (app review §3) — the live held wording, never the sample's made-up reason. */}
+                {STATUS_DETAIL[e.state]}
               </p>
             </div>
           ) : (
@@ -818,7 +817,7 @@ function Drawer({
             </div>
             <div>
               <dt className="text-faint">Last update</dt>
-              <dd className="mt-0.5 text-muted">{e.updatedAt}, 2026</dd>
+              <dd className="mt-0.5 text-muted">{e.updatedAt}</dd>
             </div>
           </dl>
         </div>

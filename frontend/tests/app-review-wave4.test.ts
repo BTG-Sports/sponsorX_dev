@@ -31,3 +31,21 @@ describe("POL-FE-68 · a minor's and a guardian's screens tell the truth", () =>
     expect(src("app/(app)/athlete/page.tsx")).not.toContain("<GuardianControlNotice");
   });
 });
+
+describe("POL-FE-69 · athlete orders, earnings and profile say true things", async () => {
+  const { STATUS_DETAIL } = await import("@/lib/earnings-ui");
+  it("earnings: campaign pay is BTG Finance's; after accepting it's the athlete's turn; no sample payout day", () => {
+    expect(src("app/(app)/athlete/earnings/page.tsx")).toContain("Campaign earnings are paid by BTG Finance; shop and marketplace sales go to your payout account on Stripe");
+    expect(STATUS_DETAIL.PENDING).toMatch(/once your deliverables are posted and verified/);
+    expect(STATUS_DETAIL.APPROVED_FOR_PAYOUT).not.toMatch(/payout run/);
+    expect(src("components/activity-explorer.tsx")).not.toContain(", 2026");
+    expect(src("components/activity-explorer.tsx")).not.toContain("heldNote");
+  });
+
+  it("invitations and profile say BTG matches and invites; orders point to Offers; rates leave the completion", () => {
+    expect(src("app/(app)/athlete/invitations/page.tsx")).toContain("BTG matches athletes to sponsors' campaigns and sends the invitations");
+    expect(src("app/(app)/athlete/profile/page.tsx")).not.toContain("Request Partnership");
+    expect(src("app/(app)/athlete/orders/page.tsx")).toContain('action={{ label: "Open offers", href: "/athlete/offers" }}');
+    expect(src("lib/profile-live.ts")).toContain('rates: "not-collected",');
+  });
+});

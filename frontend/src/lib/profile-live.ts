@@ -83,7 +83,8 @@ export function sectionStates(p: ApiMyProfile): Record<SectionKey, SectionState>
     restrictions: p.restrictedCategories.length > 0 || has(p.restrictionNotes)
       ? "done"
       : "missing",
-    rates: p.ratesConfirmed > 0 ? "done" : "missing",
+    /* POL-FE-69 (app review §3) — only BTG sets a rate card, so it never counts against the athlete's percent. */
+    rates: "not-collected",
     payment: "not-collected",
     agreements: p.agreementsSigned > 0 ? "done" : "missing",
   };

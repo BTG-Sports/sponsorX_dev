@@ -127,8 +127,9 @@ export default async function InvitationsPage({
         <EmptyState
           mark="inbox"
           title="No invitations yet"
-          hint="Your rate card is what sponsors see when they browse the marketplace — a complete one is how the first invitation arrives."
-          action={{ label: "Review rate card", href: "/athlete" }}
+          /* POL-FE-69 (app review §3) — BTG matches and invites; a complete profile is what BTG matches on. */
+          hint="BTG matches athletes to sponsors' campaigns and sends the invitations — a complete profile is how you get matched."
+          action={{ label: "Open your profile", href: "/athlete/profile" }}
         />
       </div>
     );
