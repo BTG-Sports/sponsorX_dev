@@ -184,7 +184,8 @@ export default async function AthleteInventoryPage({ searchParams }: { searchPar
           {restrictions && (
             <section aria-label="Categories you won't promote">
               <ArenaSection title="Categories you won't promote" hint="Applies to every item and every offer, for the dates shown." delay={0.5} />
-              <ArenaPanel tone="flare" delay={0.54} spot>
+              {/* POL-FE-45 — "open": the category menu must show past the panel's edge. */}
+              <ArenaPanel tone="flare" delay={0.54} spot className="sx-arena-plate-open">
                 <InventoryRestrictions
                   rows={restrictions.map(toRestrictionRow)}
                   add={addRestrictionAction}

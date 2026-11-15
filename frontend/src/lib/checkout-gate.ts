@@ -93,9 +93,34 @@ export function checkoutPaymentWords(paymentsOpen: boolean | undefined): { title
 
 export type BillingDraft = { name: string; email: string; reference: string };
 
-/** The billing step starts from the sponsor's primary contact, or empty. */
-export function billingDraftFrom(prefill: ApiCheckout["billingContact"]): BillingDraft {
-  return { name: prefill?.name ?? "", email: prefill?.email ?? "", reference: "" };
+/** POL-FE-47 — the signed-in person, from Clerk: their name ("" when none is set) and sign-in email. */
+export type BillingViewer = { name: string; email: string };
+
+/** Where the billing step's starting values came from. */
+export type BillingPrefillSource = "contact" | "account" | "none";
+
+/**
+ * POL-FE-47 — the sponsor's primary contact when it has one; otherwise the
+ * signed-in person (a sponsor made with the test-account tool has no
+ * contact, and the fields started empty). A viewer counts only with an
+ * email; a missing name is left blank for them to type.
+ */
+export function billingPrefillSource(prefill: ApiCheckout["billingContact"], viewer?: BillingViewer | null): BillingPrefillSource {
+  if (prefill) return "contact";
+  return viewer?.email.trim() ? "account" : "none";
+}
+
+/** The billing step starts from the sponsor's primary contact, else the signed-in person, else empty. */
+export function billingDraftFrom(prefill: ApiCheckout["billingContact"], viewer?: BillingViewer | null): BillingDraft {
+  const from = billingPrefillSource(prefill, viewer) === "account" ? { name: viewer!.name.trim(), email: viewer!.email.trim() } : prefill;
+  return { name: from?.name ?? "", email: from?.email ?? "", reference: "" };
+}
+
+/** The line under "Billing contact" saying where its values came from. */
+export function billingPrefillNote(source: BillingPrefillSource): string {
+  if (source === "contact") return "Filled in from your primary contact — change it if someone else handles billing.";
+  if (source === "account") return "Filled in from your account — change it if someone else handles billing.";
+  return "You have no contact on file, so add one here.";
 }
 
 /**

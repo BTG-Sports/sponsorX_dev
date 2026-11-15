@@ -40,6 +40,11 @@ export function restrictedWordsLine(words: readonly string[]): string | null {
 
 export type Outcome = { tone: "accent" | "warn"; headline: string; lines: string[] };
 
+/** Published with no later publish day: sponsors can find it now ("Live ✓"). */
+export function liveNow(l: Pick<OutcomeListing, "state" | "publishAt">, now = new Date()): boolean {
+  return l.state === "PUBLISHED" && !(l.publishAt && new Date(l.publishAt) > now);
+}
+
 /**
  * After a submit or a resume: "Live ✓", "Goes live on …", or "BTG is taking a
  * look — we'll email you" with the restricted words (to fix) and, for
@@ -48,10 +53,9 @@ export type Outcome = { tone: "accent" | "warn"; headline: string; lines: string
  */
 export function submitOutcome(l: OutcomeListing, now = new Date()): Outcome | null {
   if (l.state === "PUBLISHED") {
-    const later = l.publishAt && new Date(l.publishAt) > now;
-    return later
-      ? { tone: "accent", headline: `Checks passed ✓ Goes live on ${day(l.publishAt!)}`, lines: [] }
-      : { tone: "accent", headline: "Live ✓", lines: ["Sponsors can find it on the marketplace now."] };
+    return liveNow(l, now)
+      ? { tone: "accent", headline: "Live ✓", lines: ["Sponsors can find it on the marketplace now."] }
+      : { tone: "accent", headline: `Checks passed ✓ Goes live on ${day(l.publishAt!)}`, lines: [] };
   }
   if (l.state !== "PENDING_APPROVAL") return null;
   const h = l.hold;

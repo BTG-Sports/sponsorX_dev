@@ -99,7 +99,7 @@ export function InventoryItemView({
       {writable ? panel(
         <>
           <SectionHeading title={`Edit: ${item.title}`} hint={`Last changed ${fmtDay(item.updatedAt)}`} />
-          <InventoryForm mode="edit" item={item} update={update} tone={arena ? "athlete" : "property"} />
+          <InventoryForm mode="edit" item={item} update={update} doneHref={backHref} tone={arena ? "athlete" : "property"} />
         </>,
       ) : panel(
         <>
