@@ -154,6 +154,7 @@ const GOVERNED_BY: Record<string, Resource> = {
   RosterEntry: "rosterEntry",
   AthleteClaim: "athleteClaim",
   ContentContribution: "contentContribution",
+  StudentAssignment: "studentAssignment",
   SchoolPoolAllocation: "schoolPoolAllocation",
   ReportFile: "sponsorReport",
   PropertyOnboarding: "propertyOnboarding",

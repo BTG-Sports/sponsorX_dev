@@ -332,6 +332,24 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
         return MATCHES_NOTHING;
     }
   },
+  /* P9-BE-24 — `own` the student's own assignments; `own-property` the
+     advisor's school (the row's own propertyId); `ward` a guardian's child. */
+  studentAssignment: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        return actor.studentId ? { tenantId: actor.tenantId, studentId: actor.studentId } : MATCHES_NOTHING;
+      case "own-property":
+        return actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
+      case "ward":
+        return actor.guardianId ? { tenantId: actor.tenantId, student: { is: { guardianId: actor.guardianId } } } : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
   contentRight: (actor, scope) => {
     /* A student reads the rights on their OWN work — the asset they made. */
     if (scope === "own") {

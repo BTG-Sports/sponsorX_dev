@@ -432,18 +432,3 @@ export function LiveStudentPoints({ live }: { live: Student }) {
     </div>
   );
 }
-
-/* --------------------------------------------------------- assignments */
-export function LiveAssignmentsNotice() {
-  return (
-    <div className="space-y-6">
-      <h1 className="text-xl font-semibold tracking-tight">Assignments</h1>
-      <EmptyState
-        mark="chart"
-        title="Assignments aren't connected yet"
-        hint="Editorial assignments need a workflow the backend doesn't have yet. Your sales, code and points are live."
-        action={{ label: "My sales", href: "/next/sales" }}
-      />
-    </div>
-  );
-}
