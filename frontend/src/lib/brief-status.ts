@@ -8,6 +8,8 @@
    and nothing here invents one.
    -------------------------------------------------------------------------- */
 
+import { stateName } from "./brief-request";
+
 export type BriefStatusKey = "REVIEWING" | "APPROVED" | "CLOSED";
 export type BriefStatus = { key: BriefStatusKey; text: string };
 
@@ -41,7 +43,42 @@ export type ApiSponsorRequest = {
   /** POL-BE-17 — what this caller may do to it (on every row and on the
    *  detail). Absent for a read-only sponsor and for an older API: no buttons. */
   youCan?: { edit: boolean; withdraw: boolean };
+  /** POL-FE-51 — who it waits on, in one word. Absent from an older API. */
+  waitingOn?: WaitingOn;
+  /** The sponsor's own targeting, as they sent it. */
+  sports?: string[];
+  stateCodes?: string[];
 };
+
+/* --- POL-FE-51: a request waiting for athletes ---------------------------
+
+   The API says who an open request waits on — ATHLETES when BTG holds it
+   only because too few athletes fit, BTG otherwise — and never why beyond
+   that. Too few athletes is the one thing a sponsor can act on, so it is
+   said plainly, in the sponsor's own targeting words. */
+
+export type WaitingOn = "ATHLETES" | "BTG" | null;
+
+const andList = (xs: string[]) =>
+  xs.length <= 1 ? (xs[0] ?? "") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`;
+
+/** "Lacrosse in Maryland", "Soccer", "Maryland and Virginia" — "" for any. */
+export function targetWords(sports: readonly string[], stateCodes: readonly string[]): string {
+  const what = andList([...sports].filter(Boolean));
+  const where = andList([...stateCodes].filter(Boolean).map(stateName));
+  return what && where ? `${what} in ${where}` : what || where;
+}
+
+/** The line a sponsor reads while a request waits for athletes. */
+export function athletesWaitingText(r: { package?: { name: string } | null; sports?: readonly string[]; stateCodes?: readonly string[] }): string {
+  const target = targetWords(r.sports ?? [], r.stateCodes ?? []);
+  return `We don't have enough athletes for this ${r.package ? "package" : "request"}${target ? ` in ${target}` : ""} yet. Try another package, sport or area, or BTG will be in touch.`;
+}
+
+/** That line when the API says the request waits on athletes; null otherwise. */
+export function waitingOnAthletesLine(r: { waitingOn?: WaitingOn; package?: { name: string } | null; sports?: readonly string[]; stateCodes?: readonly string[] }): string | null {
+  return r.waitingOn === "ATHLETES" ? athletesWaitingText(r) : null;
+}
 
 /** The requests still waiting to become a campaign — the campaign list shows the rest. */
 export function openRequests(rows: ApiSponsorRequest[]): ApiSponsorRequest[] {

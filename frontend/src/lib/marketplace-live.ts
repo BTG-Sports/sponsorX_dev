@@ -14,6 +14,10 @@ export type ApiPackage = {
   lineItems: { jobCode: string; quantityPerAthlete: number }[];
   includes: { kind: string; code: string }[];
   exclusivity: boolean; durationWeeks: number | null;
+  /** POL-FE-51 — an athlete campaign package or a NEXT magazine ad. Absent from an older API. */
+  kind?: "ATHLETE" | "NEXT_AD";
+  /** POL-FE-51 — could BTG staff it now (yes / no, never a count); null for an ad. */
+  staffable?: boolean | null;
 };
 export type ApiJob = { id: string; name: string; sellLow: number; sellHigh: number };
 
@@ -34,6 +38,8 @@ export function toPkg(p: ApiPackage): Pkg {
     includes: parts.join(" · "),
     note: p.exclusivity ? "Category exclusivity" : p.durationWeeks ? `${p.durationWeeks}-week run` : "Managed by BTG",
     state: "ACTIVE",
+    kind: p.kind ?? "ATHLETE",
+    staffable: p.staffable ?? null,
   } as Pkg;
 }
 
