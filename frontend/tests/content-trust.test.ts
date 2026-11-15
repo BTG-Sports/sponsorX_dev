@@ -86,7 +86,7 @@ describe("BTG's content desk · the Skipped BTG review tab and badge", () => {
 
   it("counts the tab from the summary", () => {
     const summary = { total: 4, states: { SPONSOR_REVIEW: 3, APPROVED: 1 }, openRevisions: 0, aging: 0, campaigns: [] };
-    expect(deskHeadline({ ...summary, btgSkipped: 2 }).tabs).toEqual({ review: 3, cleared: 1, all: 4, skipped: 2 });
+    expect(deskHeadline({ ...summary, btgSkipped: 2 }).tabs).toEqual({ review: 3, verify: 0, cleared: 1, all: 4, skipped: 2 }); // POL-FE-61 verify
     expect(deskHeadline(summary).tabs.skipped).toBe(0);
   });
 });

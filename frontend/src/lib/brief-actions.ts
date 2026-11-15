@@ -25,6 +25,8 @@ import {
   stateCodesFor,
   type AudienceTier,
   type MatchChannel,
+  objectiveProblem,
+  MIN_CAMPAIGN_DAYS,
 } from "./brief-request";
 import type { ApiSponsorRequest } from "./brief-status";
 
@@ -172,14 +174,24 @@ export function stateCodeList(text: string): string[] {
  * the sponsor's words, before anything is sent. An empty object means
  * nothing changed.
  */
-export function requestPatch(form: RequestEditForm, original: ApiSponsorRequestDetail): BriefPatch {
+export function requestPatch(form: RequestEditForm, original: ApiSponsorRequestDetail, today: string = new Date().toISOString().slice(0, 10)): BriefPatch {
   const objective = form.objective.trim();
-  if (!objective) throw new BriefRequestInvalid("Say what the campaign should achieve.");
+  /* POL-FE-65 (app review §2) — the same rules the API holds a request for, said before it's sent:
+     8 words of objective, a start after today, a run of at least 7 days. */
   if (objective.length > 2000) throw new BriefRequestInvalid("Keep the objective under 2,000 characters.");
+  const tooShort = objectiveProblem(objective);
+  if (tooShort) throw new BriefRequestInvalid(tooShort);
   const budget = budgetCents(form.budget);
   const startDate = calendarDay(form.startDate, "start");
   const endDate = calendarDay(form.endDate, "end");
   if (endDate <= startDate) throw new BriefRequestInvalid("The end date must be after the start date.");
+  /* Only when the dates are what changed: editing the budget of a request whose start has passed isn't refused here. */
+  const startMoved = startDate !== isoDay(original.startDate);
+  const datesMoved = startMoved || endDate !== isoDay(original.endDate);
+  if (startMoved && startDate <= today) throw new BriefRequestInvalid("Start the campaign tomorrow at the earliest.");
+  if (datesMoved && (Date.parse(endDate) - Date.parse(startDate)) / 864e5 < MIN_CAMPAIGN_DAYS) {
+    throw new BriefRequestInvalid(`A campaign runs at least ${MIN_CAMPAIGN_DAYS} days — move the end date later.`);
+  }
   const sports = sportsList(form.sports);
   const stateCodes = stateCodeList(form.stateCodes);
   const categories = inVocabulary(BRAND_CATEGORIES, form.categories);

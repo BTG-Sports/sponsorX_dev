@@ -83,6 +83,18 @@ export type BriefBody = {
 
 export class BriefRequestInvalid extends Error {}
 
+/** POL-FE-65 (app review §2) — the API holds an objective under 8 words for BTG (brief-readiness-rules.ts);
+ *  the form asks for them up front instead of letting the request wait in silence. */
+export const OBJECTIVE_MIN_WORDS = 8;
+export const MIN_CAMPAIGN_DAYS = 7;
+export const wordCount = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
+export function objectiveProblem(objective: string): string | null {
+  const n = wordCount(objective);
+  if (n === 0) return "Say what the campaign should achieve.";
+  if (n < OBJECTIVE_MIN_WORDS) return `Say a little more about what the campaign should achieve — at least ${OBJECTIVE_MIN_WORDS} words (you have ${n}).`;
+  return null;
+}
+
 /** POL-FE-58 — a student code as typed → the code the API matches, or "" for none. */
 export function studentCodeOf(raw: string | null | undefined): string {
   const t = (raw ?? "").trim().toUpperCase();
@@ -202,7 +214,8 @@ export function startDateProblem(start: string, now = new Date()): string | null
 
 export function toBriefBody(r: BriefRequest, today = new Date()): BriefBody {
   const objective = r.objective.trim();
-  if (!objective) throw new BriefRequestInvalid("Say what the campaign should achieve.");
+  const tooShort = objectiveProblem(objective);
+  if (tooShort) throw new BriefRequestInvalid(tooShort);
   const start = new Date(`${r.start || defaultStart(today)}T00:00:00Z`);
   if (Number.isNaN(start.getTime())) throw new BriefRequestInvalid("That start date is not a date.");
   const end = new Date(start.getTime() + Math.max(1, r.durationWeeks) * 7 * 864e5);

@@ -248,8 +248,8 @@ function LiveMarketplace({ live, initial }: { live: LiveCatalogue; initial: Cata
         <JobsCatalog jobs={live.jobs} submit={submitBrief} targeting={live.targeting} />
       </section>
       <p className="text-[10px] leading-relaxed text-faint">
-        Sponsor prices. A request, not a purchase — BTG matches athletes, checks
-        category conflicts and prices the campaign, then follows up.
+        Sponsor prices. A request that passes every check — budget, dates, category
+        conflicts, athletes to staff it — is approved at once; otherwise BTG reviews it and tells you why.
       </p>
     </div>
   );
