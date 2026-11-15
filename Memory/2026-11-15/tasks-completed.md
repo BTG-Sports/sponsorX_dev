@@ -43,3 +43,7 @@
   - the go/no-go review notes the gap and its fix;
   - both rows were added to the tracker as Done (Order 209.86 and 209.87).
 - **Not yet walked in a browser:** check on staging after the deploy, as an advisor and a student from the tester facility.
+- **Follow-up, same day (the owner's ask):**
+  - Emails: a new piece goes to the student; a draft goes to the school's advisor(s) only; changes asked (with the note) and approval go to the student. Each is sent inside the step's own transaction, so a retry never sends twice.
+  - A resubmission keeps the last file by default (a ticked box), unless the student unticks it or attaches a new one (`keepFile`).
+  - Backend now has 16 tests, frontend 13.

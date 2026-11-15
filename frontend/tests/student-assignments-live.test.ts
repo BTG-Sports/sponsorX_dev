@@ -75,6 +75,17 @@ describe("the student's list", () => {
     expect(html).not.toContain("Uploading a draft isn&#x27;t available yet.");
   });
 
+  it("a resubmission keeps the last file by default — a ticked box the student can untick", async () => {
+    const { StudentAssignments } = await import("@/components/student-assignments");
+    const row = toAssignmentRow(api({ stage: "CHANGES_REQUESTED", state: "DRAFT_SUBMITTED", revisionNote: "Add captions.", hasFile: true, version: 1 }));
+    const html = renderToStaticMarkup(createElement(StudentAssignments, { rows: [row], initialOpen: "sa1" }));
+    expect(html).toMatch(/<input type="checkbox" name="keepFile" checked=""/);
+    expect(html).toContain("Keep the file from your last version");
+    expect(draftProblem({ text: "", file: null, keepFile: true })).toBeNull();
+    const actions = readFileSync(new URL("../src/app/(app)/next/assignments/actions.ts", import.meta.url), "utf8");
+    expect(actions).toMatch(/keepFile: keepFile !== false/);
+  });
+
   it("mid-review the drawer shows the draft but no form", async () => {
     const { StudentAssignments } = await import("@/components/student-assignments");
     const row = toAssignmentRow(api({ stage: "IN_REVIEW", state: "BTG_REVIEW", draftText: "Final words.", version: 2 }));

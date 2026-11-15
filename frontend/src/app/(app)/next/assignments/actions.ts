@@ -34,12 +34,12 @@ export async function presignDraftAction(id: string, contentType: string, bytes:
   }
 }
 
-export async function submitDraftAction(id: string, text: string, r2Key: string | null): Promise<Result> {
+export async function submitDraftAction(id: string, text: string, r2Key: string | null, keepFile = true): Promise<Result> {
   if (typeof id !== "string" || !id) return { ok: false, message: "That assignment isn't offered here." };
   try {
     const res = await apiFetch(`/student-assignments/${encodeURIComponent(id)}/submit`, {
       method: "POST",
-      body: JSON.stringify({ text: typeof text === "string" ? text.slice(0, 40_000) : null, r2Key: r2Key || null }),
+      body: JSON.stringify({ text: typeof text === "string" ? text.slice(0, 40_000) : null, r2Key: r2Key || null, keepFile: keepFile !== false }),
     });
     if (!res.ok) return refusal(res);
     revalidatePath("/next/assignments");

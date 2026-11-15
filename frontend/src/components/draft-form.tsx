@@ -11,8 +11,10 @@ import { Button } from "./ui";
 /* --------------------------------------------------------------------------
    P9-FE-12 — the student's draft, in the assignment drawer. Words, a file
    (JPG, PNG or PDF — straight to the private bucket on a signed PUT), or
-   both. Submitting sends it to the advisor; while they review it, it can't
-   change. A change request reopens it, prefilled with the last draft.
+   both. Submitting sends it to the advisor (who is emailed); while they
+   review it, it can't change. A change request reopens it, prefilled with
+   the last draft, and the last file is kept unless the student unticks it
+   or attaches a new one.
    -------------------------------------------------------------------------- */
 
 /* The primary Button's look, on a real submit button (Button is type="button"). */
@@ -52,7 +54,7 @@ export function DraftForm({ id, live }: { id: string; live: NonNullable<Assignme
   }
 
   const submit = async () => {
-    const problem = draftProblem({ text, file: file ? { type: file.type, size: file.size } : null, keepFile });
+    const problem = draftProblem({ text, file: file ? { type: file.type, size: file.size } : null, keepFile: live.hasFile && keepFile });
     if (problem) {
       setMessage({ ok: false, text: problem });
       return;
@@ -75,9 +77,8 @@ export function DraftForm({ id, live }: { id: string; live: NonNullable<Assignme
       }
       key = g.key;
     }
-    /* The advisor reviews exactly what is sent: words only drops an earlier
-       file (the API's rule), which is why the form asks to attach it again. */
-    const r = await submitDraftAction(id, text, key);
+    /* No new file: the last version's file stays unless the student unticked it. */
+    const r = await submitDraftAction(id, text, key, keepFile);
     setBusy(false);
     if (!r.ok) {
       setMessage({ ok: false, text: r.message });
@@ -118,16 +119,18 @@ export function DraftForm({ id, live }: { id: string; live: NonNullable<Assignme
         type="file"
         accept={DRAFT_FILE_TYPES.join(",")}
         className="block w-full text-[11px] text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-1.5 file:text-text"
-        onChange={(e) => {
-          setFile(e.target.files?.[0] ?? null);
-          setKeepFile(false);
-        }}
+        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
       />
-      {keepFile && !file && (
-        <p className="text-[11px] text-muted">
-          Your last version had a file. <button type="button" className="underline" onClick={openFile}>Open it</button> — attach it again to keep it in this version.
+      {live.hasFile && !file && (
+        <p className="flex flex-wrap items-center gap-2 text-[11px] text-muted">
+          <label className="inline-flex items-center gap-1.5">
+            <input type="checkbox" name="keepFile" checked={keepFile} onChange={(e) => setKeepFile(e.target.checked)} />
+            Keep the file from your last version
+          </label>
+          <button type="button" className="underline" onClick={openFile}>Open it</button>
         </p>
       )}
+      {live.hasFile && file && <p className="text-[11px] text-muted">Your new file replaces the one from your last version.</p>}
       {message && (
         <p role={message.ok ? "status" : "alert"} className={message.ok ? "text-[11px] text-accent" : "text-[11px] text-danger"}>
           {message.text}

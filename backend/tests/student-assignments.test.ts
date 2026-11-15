@@ -94,7 +94,7 @@ describe.skipIf(!hasDatabase)("P9-BE-24 · on the path a request takes", async (
   };
 
   async function clean() {
-    for (const t of ["StudentAssignment", "EditionAsset", "AuditLog", "Edition", "Publication", "User", "Student", "Guardian", "Property"]) {
+    for (const t of ["StudentAssignment", "EditionAsset", "OutboxJob", "AuditLog", "Edition", "Publication", "User", "Student", "Guardian", "Property"]) {
       await prisma.$executeRawUnsafe(`DELETE FROM "${t}" WHERE "tenantId" = $1`, T);
     }
     await prisma.tenant.deleteMany({ where: { id: T } });
@@ -267,6 +267,35 @@ describe.skipIf(!hasDatabase)("P9-BE-24 · on the path a request takes", async (
     expect((await call("POST", `/student-assignments/${b.id}/submit`, "sa_casey_u", { text: "late" })).status).toBe(409);
     expect((await call("POST", `/editions/${editionId}/assignments`, "sa_advisor", { studentId: "sa_casey", ...piece })).status).toBe(409);
     await prisma.edition.update({ where: { id: editionId }, data: { state: "PLANNING" } });
+  });
+
+  it("each step emails whoever it hands the piece to — the student, or only their own school's advisor", async () => {
+    const mail = (await prisma.outboxJob.findMany({ where: { tenantId: T, name: "notify.email" }, select: { payload: true } }))
+      .map((j) => j.payload as { template: string; to: string; idempotencyKey: string; data: Record<string, string> })
+      .filter((p) => p.idempotencyKey.includes(`:${id}:`));
+    const sent = (template: string) => mail.filter((m) => m.template === template).map((m) => m.to).sort();
+    expect(sent("studentAssignment.assigned")).toEqual(["jordan@sa.invalid"]);
+    /* Two versions in, each to Northside's advisor — never Southside's. */
+    expect(sent("studentAssignment.submitted")).toEqual(["adv@sa.invalid", "adv@sa.invalid"]);
+    expect(sent("studentAssignment.revisionRequested")).toEqual(["jordan@sa.invalid"]);
+    expect(mail.find((m) => m.template === "studentAssignment.revisionRequested")!.data.reason).toBe("Good start. Add the coach's quote and cut the second paragraph.");
+    expect(sent("studentAssignment.approved")).toEqual(["jordan@sa.invalid"]);
+    expect(mail.find((m) => m.template === "studentAssignment.submitted")!.data.reviewUrl).toMatch(new RegExp(`/advisor/review\\?open=${id}$`));
+    /* Display name only, never the legal name. */
+    expect(JSON.stringify(mail)).not.toContain("Jordan Legal");
+  });
+
+  it("a resubmission keeps the last file unless a new one is attached or the student drops it", async () => {
+    const a = (await call("POST", `/editions/${editionId}/assignments`, "sa_advisor", { studentId: "sa_jordan", kind: "PHOTO", title: "Bench shots", brief: "Two photos." })).json;
+    const up = (await call("POST", `/student-assignments/${a.id}/uploads`, "sa_jordan_u", { contentType: "image/png", bytes: 4096 })).json;
+    expect((await call("POST", `/student-assignments/${a.id}/submit`, "sa_jordan_u", { r2Key: up.key })).json).toMatchObject({ version: 1, hasFile: true });
+    await call("POST", `/student-assignments/${a.id}/revision`, "sa_advisor", { note: "Add captions." });
+    const kept = await call("POST", `/student-assignments/${a.id}/submit`, "sa_jordan_u", { text: "1. Captains. 2. The bench." });
+    expect(kept.json).toMatchObject({ version: 2, hasFile: true, fileType: "image/png", draftText: "1. Captains. 2. The bench." });
+    const dropped = await call("POST", `/student-assignments/${a.id}/submit`, "sa_jordan_u", { text: "Words only now.", keepFile: false });
+    expect(dropped.json).toMatchObject({ version: 3, hasFile: false });
+    /* Nothing at all to send is still refused. */
+    expect((await call("POST", `/student-assignments/${a.id}/submit`, "sa_jordan_u", { keepFile: true })).status).toBe(422);
   });
 
   it("the database holds the rules too: four states, a note only while back with the student, approved only with its content item", async () => {

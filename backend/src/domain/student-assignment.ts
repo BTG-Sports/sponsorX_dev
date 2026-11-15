@@ -28,13 +28,17 @@
  * minor's verified guardian (P9-BE-04/-20).
  *
  * Every write is conditional on the row being as it was read, so two
- * decisions racing record one and refuse the other.
+ * decisions racing record one and refuse the other. Each step emails whoever
+ * it hands the piece to: a new piece and a decision to the student, a draft
+ * to the school's advisor(s).
  */
 import { randomUUID } from "node:crypto";
 
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
+import { env } from "../config/env";
+import { send, type EmailTemplate } from "../lib/email";
 import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, uploadRefusal } from "../lib/storage";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, scopeOf, whereFor } from "../auth/scope";
@@ -100,6 +104,48 @@ export class AssignmentTurnError extends Http {
 export class AssignmentInputError extends Http {
   constructor(message: string) {
     super(422, message, "AssignmentInputError");
+  }
+}
+
+/* ── notifications ──────────────────────────────────────────────────────── */
+
+const appUrl = () => env.APP_URL.replace(/\/+$/, "");
+
+const KIND_WORD: Record<AssignmentKind, string> = { ARTICLE: "article", INTERVIEW: "interview", PHOTO: "photo", DESIGN: "design" };
+
+/**
+ * Email whoever's turn it now is, inside the step's own transaction (the
+ * outbox: a rolled-back step sends nothing). Keyed on the piece, the step
+ * and the version, so a retry never sends twice and a second round of
+ * review sends again. The student: their own login. The advisor: every
+ * active ADVISOR login at the piece's school.
+ */
+async function tell(
+  tx: Tx,
+  r: { id: string; tenantId: string; propertyId: string; studentId: string; title: string; kind: string; edition: { label: string }; student: { displayName: string } },
+  to: "STUDENT" | "ADVISOR",
+  template: EmailTemplate,
+  occurrence: string,
+  data: Record<string, string> = {},
+) {
+  const people = await tx.user.findMany({
+    where: to === "STUDENT"
+      ? { tenantId: r.tenantId, disabledAt: null, studentId: r.studentId }
+      : { tenantId: r.tenantId, disabledAt: null, propertyId: r.propertyId, roles: { has: "ADVISOR" } },
+    select: { id: true, email: true },
+    take: 20,
+  });
+  const reviewUrl = to === "STUDENT" ? `${appUrl()}/next/assignments?open=${r.id}` : `${appUrl()}/advisor/review?open=${r.id}`;
+  for (const u of people) {
+    await send(tx, r.tenantId, {
+      template,
+      to: u.email,
+      idempotencyKey: `${template}:${r.id}:${occurrence}:${u.id}`,
+      data: {
+        title: r.title, kindWord: KIND_WORD[r.kind as AssignmentKind] ?? "piece", editionLabel: r.edition.label,
+        studentName: r.student.displayName, reviewUrl, ...data,
+      },
+    });
   }
 }
 
@@ -270,6 +316,10 @@ export async function createAssignment(actor: Actor, editionId: string, input: A
     await audit(tx, actor, AUDIT_ACTIONS.studentAssignment.create, "StudentAssignment", created.id, {
       after: { editionId: edition.id, studentId: student.id, kind: input.kind },
     });
+    await tell(tx, created, "STUDENT", "studentAssignment.assigned", "assigned", {
+      brief: created.brief,
+      ...(created.dueAt ? { due: created.dueAt.toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" }) } : {}),
+    });
     return assignmentOut(created);
   });
 }
@@ -323,14 +373,21 @@ export async function presignDraftUpload(actor: Actor, id: string, contentType: 
  * the version up and answers an open change request. The piece then waits
  * for the advisor.
  */
-export async function submitDraft(actor: Actor, id: string, input: { text?: string | null; r2Key?: string | null }): Promise<AssignmentOut> {
+export async function submitDraft(
+  actor: Actor,
+  id: string,
+  input: { text?: string | null; r2Key?: string | null; keepFile?: boolean | null },
+): Promise<AssignmentOut> {
   const text = input.text?.trim() || null;
   const key = input.r2Key || null;
-  if (!text && !key) throw new AssignmentInputError("Write your piece or attach its file before you submit.");
+  /* Keep the last version's file unless a new one is attached or the student
+     drops it — a resubmission that fixes the words keeps the photo. */
+  const keepFile = input.keepFile !== false;
   if (text && text.length > MAX_DRAFT_TEXT) throw new AssignmentInputError(`Keep the text under ${MAX_DRAFT_TEXT.toLocaleString("en-US")} characters.`);
 
   const row = await ownForWrite(prisma, actor, id);
   if (!canSubmit(row)) throw new AssignmentTurnError(turnRefusal(row));
+  if (!text && !key && !(keepFile && row.r2Key)) throw new AssignmentInputError("Write your piece or attach its file before you submit.");
   if (row.student.state !== "ACTIVE") throw new AssignmentTurnError("Your student account isn't active, so you can't submit work.");
   if (!OPEN_EDITION_STATES.includes(row.edition.state)) throw new AssignmentTurnError(`${row.edition.label} is in production — its content is final.`);
 
@@ -356,9 +413,8 @@ export async function submitDraft(actor: Actor, id: string, input: { text?: stri
     fileType = granted.contentType;
     r2Key = key;
   }
-  if (!key) {
-    /* Words only this time: a file from an earlier version is dropped, so
-       the advisor reviews exactly what was submitted. */
+  if (!key && !keepFile) {
+    /* The student dropped the earlier file: the advisor reviews exactly what was sent. */
     fileType = null;
     r2Key = null;
   }
@@ -377,6 +433,7 @@ export async function submitDraft(actor: Actor, id: string, input: { text?: stri
       before: { state: row.reviewState, version: row.version, revisionNote: row.revisionNote },
       after: { state: "DRAFT_SUBMITTED", version: row.version + 1, words: text ? text.split(/\s+/).length : 0, file: r2Key !== null },
     });
+    await tell(tx, row, "ADVISOR", "studentAssignment.submitted", `v${row.version + 1}`, { version: String(row.version + 1) });
     return assignmentOut(await tx.studentAssignment.findFirstOrThrow({ where: { id: row.id, tenantId: row.tenantId }, select: SELECT }));
   });
 }
@@ -474,6 +531,7 @@ export async function approveAssignment(actor: Actor, id: string): Promise<Assig
     await audit(tx, actor, AUDIT_ACTIONS.studentAssignment.approve, "StudentAssignment", row.id, {
       before: { state: "BTG_REVIEW" }, after: { state: "APPROVED", version: row.version, assetId: asset.id },
     });
+    await tell(tx, row, "STUDENT", "studentAssignment.approved", `v${row.version}`);
     return assignmentOut(await tx.studentAssignment.findFirstOrThrow({ where: { id: row.id, tenantId: row.tenantId }, select: SELECT }));
   });
 }
@@ -506,6 +564,7 @@ export async function requestAssignmentRevision(actor: Actor, id: string, note: 
     await audit(tx, actor, AUDIT_ACTIONS.studentAssignment.requestRevision, "StudentAssignment", row.id, {
       before: { state: "BTG_REVIEW" }, after: { state: "DRAFT_SUBMITTED", version: row.version, note: reason },
     });
+    await tell(tx, row, "STUDENT", "studentAssignment.revisionRequested", `v${row.version}`, { reason });
     return assignmentOut(await tx.studentAssignment.findFirstOrThrow({ where: { id: row.id, tenantId: row.tenantId }, select: SELECT }));
   });
 }

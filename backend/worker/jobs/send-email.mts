@@ -458,6 +458,24 @@ ${d.portalUrl ?? ""}
     subject: `Fix before review: your ad artwork for ${d.slotCode ?? "your ad slot"}, ${d.editionLabel ?? "the edition"}`,
     text: `Hi,\n\nVersion ${d.version ?? "1"} of the artwork for ${d.slotCode ?? "your ad slot"} in ${d.editionLabel ?? "the edition"} didn't pass our automatic checks, so it hasn't gone to BTG:\n\n${d.reasons ?? ""}\n\nFix these and upload it again here:\n\n${d.reviewUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* P9-BE-24 — student assignments. A student is named by display name only. */
+  "studentAssignment.assigned": (d) => ({
+    subject: `New assignment: ${d.title ?? "a piece"} — ${d.editionLabel ?? "the edition"}`,
+    text: `Hi ${d.studentName ?? "there"},\n\nYou have a new ${d.kindWord ?? "piece"} to make for ${d.editionLabel ?? "the edition"}: ${d.title ?? ""}.${d.due ? `\nDue: ${d.due}.` : ""}\n\nThe brief:\n\n${d.brief ?? ""}\n\nWrite it and submit it here:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX NEXT`,
+  }),
+  "studentAssignment.submitted": (d) => ({
+    subject: `Draft in for review: ${d.title ?? "a piece"} by ${d.studentName ?? "a student"}`,
+    text: `Hi,\n\n${d.studentName ?? "A student"} sent version ${d.version ?? "1"} of ${d.title ?? "their piece"} for ${d.editionLabel ?? "the edition"}. It's waiting for you: approve it, or send it back with a note.\n\n${d.reviewUrl ?? ""}\n\n— SponsorX NEXT`,
+  }),
+  "studentAssignment.revisionRequested": (d) => ({
+    subject: `Changes asked for: ${d.title ?? "your piece"}`,
+    /* The note is required upstream, so it is quoted, not defaulted. */
+    text: `Hi ${d.studentName ?? "there"},\n\nYour advisor asked for changes to ${d.title ?? "your piece"} for ${d.editionLabel ?? "the edition"}:\n\n"${d.reason ?? ""}"\n\nYou don't need to start again — update it and send the new version here:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX NEXT`,
+  }),
+  "studentAssignment.approved": (d) => ({
+    subject: `Approved: ${d.title ?? "your piece"} is in ${d.editionLabel ?? "the edition"}`,
+    text: `Hi ${d.studentName ?? "there"},\n\nYour advisor approved ${d.title ?? "your piece"}. It's now part of ${d.editionLabel ?? "the edition"}.\n\n${d.reviewUrl ?? ""}\n\n— SponsorX NEXT`,
+  }),
   "editionArtwork.revisionRequested": (d) => ({
     subject: `Changes asked for: ad artwork for ${d.slotCode ?? "an ad slot"}, ${d.editionLabel ?? "the edition"}`,
     /* The note is mandatory upstream (ArtworkRevisionNoteRequiredError), so it is quoted, not defaulted. */

@@ -272,6 +272,12 @@ export type EmailTemplate =
   | "editionArtwork.approved"
   /* P9-BE-22 — the automatic checks sent an upload back: every reason, to the sponsor. */
   | "editionArtwork.checksFailed"
+  /* P9-BE-24 — student assignments: a new piece to the student; a draft in,
+     to the school's advisor(s); changes asked for and approval, to the student. */
+  | "studentAssignment.assigned"
+  | "studentAssignment.submitted"
+  | "studentAssignment.revisionRequested"
+  | "studentAssignment.approved"
   /* 2S5-BE-07 — the payment provider couldn't send a payout because the
      payee's payout account needs attention: fix it (on the provider's page,
      from the money page) and it is sent again on its own. */

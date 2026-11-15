@@ -31,6 +31,8 @@ export const DraftSubmitInput = z
     text: z.string().max(40_000).nullish(),
     /** A key a draft upload presign returned for this assignment. */
     r2Key: z.string().max(512).nullish(),
+    /** Keep the last version's file when no new one is attached (default true); false drops it. */
+    keepFile: z.boolean().nullish(),
   })
   .meta({ id: "DraftSubmitInput", description: "The student's draft: words, the uploaded file's key, or both." });
 
