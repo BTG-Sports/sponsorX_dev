@@ -274,6 +274,8 @@ export type EmailTemplate =
   | "editionArtwork.checksFailed"
   /* P9-BE-24 — student assignments: a new piece to the student; a draft in,
      to the school's advisor(s); changes asked for and approval, to the student. */
+  /* POL-BE-57 — a minor's NEXT application: their guardian is told, and that BTG will verify them. */
+  | "student.guardianNotice"
   | "studentAssignment.assigned"
   | "studentAssignment.submitted"
   | "studentAssignment.revisionRequested"

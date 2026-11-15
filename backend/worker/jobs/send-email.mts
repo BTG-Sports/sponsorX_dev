@@ -458,6 +458,11 @@ ${d.portalUrl ?? ""}
     subject: `Fix before review: your ad artwork for ${d.slotCode ?? "your ad slot"}, ${d.editionLabel ?? "the edition"}`,
     text: `Hi,\n\nVersion ${d.version ?? "1"} of the artwork for ${d.slotCode ?? "your ad slot"} in ${d.editionLabel ?? "the edition"} didn't pass our automatic checks, so it hasn't gone to BTG:\n\n${d.reasons ?? ""}\n\nFix these and upload it again here:\n\n${d.reviewUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* POL-BE-57 — a minor applied to a school's NEXT media team; the guardian they named is told. */
+  "student.guardianNotice": (d) => ({
+    subject: `${d.studentName ?? "Your child"} applied to ${d.schoolName ?? "their school"}'s student media team`,
+    text: `Hi ${d.guardianName ?? "there"},\n\n${d.studentName ?? "Your child"} applied to join ${d.schoolName ?? "their school"}'s student media team on SponsorX NEXT and named you as their parent or guardian.\n\nBecause they are under 18, BTG confirms you are their guardian before they can join. BTG will contact you at this address. If you have a question, or you did not expect this, tell us here:\n\n${d.contactUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
   /* P9-BE-24 — student assignments. A student is named by display name only. */
   "studentAssignment.assigned": (d) => ({
     subject: `New assignment: ${d.title ?? "a piece"} — ${d.editionLabel ?? "the edition"}`,

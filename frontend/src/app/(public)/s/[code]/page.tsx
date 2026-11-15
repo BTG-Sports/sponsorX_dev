@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Card } from "@/components/ui";
+import { KeepStudentCode } from "@/components/keep-student-code";
 
 /* --------------------------------------------------------------------------
    /s/[code] — PUBLIC (P9-FE-01, over P9-BE-07's resolver). What a business
@@ -10,10 +11,10 @@ import { Card } from "@/components/ui";
    (usually minor) student (P9-SEC-01). An unknown code, or one whose student
    is no longer active, is a 404.
 
-   The code is shown back so the owner can quote it when they talk to
-   SponsorX. Carrying it into a brief automatically is not built yet — the
-   brief form has no code field on the page (flagged), so the words on this
-   page say to mention it.
+   POL-FE-58 (app review B7): the code now travels into the sponsor's
+   request form — the button opens it with ?code=, and this browser keeps
+   the code (30 days) so it's filled in even after signing up first. The
+   request carries it, and the sale is credited to the student.
    -------------------------------------------------------------------------- */
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
@@ -50,13 +51,20 @@ export default async function StudentCodeLanding({ params }: PageProps<"/s/[code
         <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Their code</p>
         <p className="mt-1 font-mono text-2xl font-semibold tracking-wider text-next">{r.code}</p>
         <p className="mt-2 text-xs leading-relaxed text-muted">
-          Mention this code when you talk to SponsorX so the sale is credited to {r.studentName}.
+          It goes with your request automatically, so the sale is credited to {r.studentName}. If you talk to BTG instead, mention it.
         </p>
       </Card>
+      <KeepStudentCode code={r.code} />
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
-          href="/packages"
+          href={`/sponsor/marketplace?code=${encodeURIComponent(r.code)}`}
           className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-cta-ink hover:bg-primary-soft"
+        >
+          Request advertising — code included
+        </Link>
+        <Link
+          href="/packages"
+          className="inline-flex items-center justify-center rounded-lg border border-line px-4 py-2 text-sm font-medium text-text hover:bg-surface-2"
         >
           See advertising packages
         </Link>

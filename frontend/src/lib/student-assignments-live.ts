@@ -38,6 +38,8 @@ export type ApiAssignment = {
   revisionNote: string | null;
   approvedAt: string | null;
   assetId: string | null;
+  /** POL-BE-59 — an approved piece's usage right: false = no consent on file yet, so it can't go to print. */
+  usageRight?: boolean | null;
   points: number;
   createdAt: string;
 };
@@ -155,4 +157,12 @@ export function assignmentRefusal(status: number, body: unknown): string {
   if (status === 403) return "This isn't yours to change.";
   if (status === 409) return "This piece changed — reload the page and try again.";
   return `SponsorX couldn't save that (HTTP ${status}). Nothing changed.`;
+}
+
+/** POL-FE-59 — what an approved piece's line says about printing it. */
+export function approvedLine(a: Pick<ApiAssignment, "usageRight">): { text: string; ok: boolean } {
+  if (a.usageRight === false) {
+    return { text: "It can't go to print yet: no media consent is on file for this student (a minor's comes from their verified guardian). BTG records the right once consent is given.", ok: false };
+  }
+  return { text: "Its usage right is recorded — it can go to print with the edition.", ok: true };
 }

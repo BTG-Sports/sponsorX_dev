@@ -105,3 +105,27 @@ export async function decideClaimAction(claimId: string, decision: "verify" | "r
     return { ok: false, message: "The API is unreachable — try again in a minute." };
   }
 }
+
+/** POL-FE-57 (app review B6) — BTG verifies a NEXT student's guardian (POST /guardians/:id/verify).
+ *  The API takes the student on to the masthead if that was all they waited for. */
+export async function verifyGuardianAction(guardianId: string): Promise<{ ok: boolean; message: string }> {
+  if (typeof guardianId !== "string" || !guardianId) return { ok: false, message: "No guardian." };
+  try {
+    const res = await apiFetch(`/guardians/${encodeURIComponent(guardianId)}/verify`, { method: "POST", body: "{}" });
+    if (!res.ok) {
+      let message = `The guardian wasn't verified (HTTP ${res.status}).`;
+      try {
+        const e = (await res.json()) as { error?: { message?: string } };
+        if (e.error?.message) message = e.error.message;
+      } catch {
+        /* keep the status line */
+      }
+      if (res.status === 403) message = "Only BTG verifies a guardian.";
+      return { ok: false, message };
+    }
+    revalidatePath("/advisor");
+    return { ok: true, message: "Guardian verified. An approved student waiting only on this joins the masthead now." };
+  } catch {
+    return { ok: false, message: "The API is unreachable — try again in a minute." };
+  }
+}

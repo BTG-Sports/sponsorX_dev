@@ -7,6 +7,7 @@ import { apiFetch, fetchActor } from "@/server/api";
 import { advisorContentQueue, student, studentEdition } from "@/lib/fixtures";
 import {
   KIND_WORDS,
+  approvedLine,
   OPEN_EDITION_STATES,
   REVIEW_TABS,
   reviewTab,
@@ -33,6 +34,8 @@ import {
    -------------------------------------------------------------------------- */
 
 type Params = Record<string, string | string[] | undefined>;
+/** Who reviews student content live: the school's advisor, and BTG (studentAssignment read / write / approve). */
+const LIVE_REVIEW_ROLES = ["ADVISOR", "BTG_ADMIN", "SUPER_ADMIN"];
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : "");
 
 async function readJson<T>(path: string): Promise<T> {
@@ -109,7 +112,13 @@ async function LiveReview({ sp }: { sp: Params }) {
             </p>
           )}
           {(opened.stage === "WAITING_FOR_ADVISOR" || opened.stage === "IN_REVIEW") && <ReviewDecision id={opened.id} title={opened.title} />}
-          {opened.stage === "APPROVED" && <p className="text-xs text-accent">Approved {shortDate(opened.approvedAt)} — it&apos;s one of the edition&apos;s content items.</p>}
+          {opened.stage === "APPROVED" && (
+            <div className="space-y-1">
+              <p className="text-xs text-accent">Approved {shortDate(opened.approvedAt)} — it&apos;s one of the edition&apos;s content items.{opened.points > 0 ? ` +${opened.points} points to ${opened.student.displayName}.` : ""}</p>
+              {/* POL-FE-59 — whether it can go to print (a usage right from the student's consent). */}
+              <p className={`text-xs ${approvedLine(opened).ok ? "text-muted" : "text-warn"}`}>{approvedLine(opened).text}</p>
+            </div>
+          )}
           <a href={href({ tab, page })} className="inline-block text-xs text-muted underline">Close</a>
         </Card>
       )}
@@ -180,7 +189,8 @@ export default async function AdvisorReviewPage({
      the fixture queue stays for ?demo= and signed-out visitors. */
   if (!demo) {
     const who = await fetchActor();
-    if (who.status === "linked" && who.actor.roles.includes("ADVISOR")) {
+    /* POL-FE-59 (app review §6) — BTG staff too (studentAssignment is tenant-wide for them), never the sample. */
+    if (who.status === "linked" && who.actor.roles.some((r) => LIVE_REVIEW_ROLES.includes(r))) {
       return <LiveReview sp={await searchParams} />;
     }
   }

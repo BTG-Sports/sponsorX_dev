@@ -60,6 +60,8 @@ export type BriefRequest = {
   audienceTiers?: string[];
   /** As typed — "10,000", "10k", "1.5m", or "" for no minimum. */
   minFollowers?: string;
+  /** POL-FE-58 (app review B7) — a NEXT student's code (from /s/<code>): the sale is credited to them. */
+  studentCode?: string | null;
 };
 
 export type BriefBody = {
@@ -76,9 +78,18 @@ export type BriefBody = {
   channels: MatchChannel[];
   audienceTiers: AudienceTier[];
   audienceMinFollowers: number | null;
+  studentCode?: string;
 };
 
 export class BriefRequestInvalid extends Error {}
+
+/** POL-FE-58 — a student code as typed → the code the API matches, or "" for none. */
+export function studentCodeOf(raw: string | null | undefined): string {
+  const t = (raw ?? "").trim().toUpperCase();
+  if (!t) return "";
+  if (!/^[A-Z0-9-]{3,64}$/.test(t)) throw new BriefRequestInvalid("That student code doesn't look right — check it against the card the student gave you, or leave it blank.");
+  return t;
+}
 
 /** "10,000" → 10000, "10k" → 10000, "1.5m" → 1500000; "" → null (no minimum). */
 export function followersCount(text: string): number | null {
@@ -232,5 +243,6 @@ export function toBriefBody(r: BriefRequest, today = new Date()): BriefBody {
     channels: inVocabulary(MATCH_CHANNELS, r.channels),
     audienceTiers,
     audienceMinFollowers: followersCount(r.minFollowers ?? ""),
+    ...(studentCodeOf(r.studentCode) ? { studentCode: studentCodeOf(r.studentCode) } : {}),
   };
 }

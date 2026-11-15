@@ -16,6 +16,8 @@
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
+import { env } from "../config/env";
+import { send } from "../lib/email";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { scopeFor } from "../auth/policy";
@@ -106,7 +108,12 @@ const STUDENT_SELECT = {
  *  application waits for them, and whether the system approved it. Never a
  *  student's or a guardian's read — they are told "your school is
  *  reviewing", not what the roster said. */
-const REVIEWER_SELECT = { ...STUDENT_SELECT, reviewReasons: true, autoApprovedAt: true } as const;
+const REVIEWER_SELECT = {
+  ...STUDENT_SELECT, reviewReasons: true, autoApprovedAt: true,
+  /* POL-BE-57 (app review B6) — the guardian a minor named, and whether BTG
+     has verified them: what the desk's "Verify guardian" needs. Reviewers only. */
+  guardian: { select: { id: true, legalName: true, email: true, relationship: true, verifiedAt: true } },
+} as const;
 
 /** Those who may decide an application (student.approve) read the review; nobody else does. */
 const isReviewer = (actor: Actor) => !["deny", "deferred"].includes(scopeFor(actor.roles, "student", "approve"));
@@ -164,7 +171,7 @@ export async function applyAsStudent(
     const school = await tx.property.findFirst({
       /* tenant-scope: public application — the school's own tenant is the one the student joins. */
       where: { slug: input.schoolSlug, kind: "SCHOOL" },
-      select: { id: true, tenantId: true },
+      select: { id: true, tenantId: true, name: true },
     });
     if (!school) throw new NotASchoolError();
     const { schoolSlug: _slug, guardian: g, ...fields } = input;
@@ -184,6 +191,21 @@ export async function applyAsStudent(
     await audit(tx, { tenantId: school.tenantId, userId: null }, "student.apply", "Student", student.id, {
       after: { propertyId: school.id, guardianId: guardian?.id ?? null },
     });
+    /* POL-BE-57 (app review B6) — the guardian is told, in the application's
+       own transaction: their child applied, and BTG will verify them before the
+       student can join the masthead. Until now nobody was emailed and nobody
+       could verify, so an under-18 student never became active. */
+    if (guardian && g) {
+      await send(tx, school.tenantId, {
+        template: "student.guardianNotice",
+        to: g.email.toLowerCase(),
+        idempotencyKey: `student.guardianNotice:${student.id}:${guardian.id}`,
+        data: {
+          guardianName: g.legalName, studentName: fields.displayName, schoolName: school.name,
+          contactUrl: `${env.APP_URL.replace(/\/+$/, "")}/contact?topic=guardianship`,
+        },
+      });
+    }
     await autoReviewStudentIn(tx, school.tenantId, student.id);
     return { id: student.id, state: "SUBMITTED", guardianRequired: minor };
   });

@@ -2043,11 +2043,21 @@ by rcfworks, who owns both rows of every item here (programme owner's
 decision: "do all the waves"). Waves 1–8 are the order of work; wave 1 is
 the blockers and today's content review findings.
 
-**Two decisions taken with the plan (rcfworks, 2026-11-15):** approving a
-student's piece stays refused while the student's consent isn't on file,
-with that reason in words (the advisor's approval is never taken as a
-minor's consent); approving and paying campaign earnings stays Finance's
-(BTG_ADMIN gains no `earning.approve`).
+**Two decisions taken with the plan (rcfworks, 2026-11-15):**
+- **Approving a student's piece never counts as consent.** A minor's
+  consent is their verified guardian's, so the advisor's approval is never
+  taken as it.
+  - The plan first said approval would be *refused* without consent on file.
+  - While building #59 it turned out no consent agreement (FEATURE, RELEASE
+    or COMMERCIAL) exists in the system and no screen records one, so that
+    rule would have refused every approval.
+  - Approval now goes ahead. It records the usage right when a consent is in
+    force, and otherwise says the piece can't go to print.
+  - The edition's production gate keeps refusing an asset without a right, so
+    nothing is published without consent.
+  - **Open:** the media release text and the screen to accept it.
+- **Approving and paying campaign earnings stays Finance's.** BTG_ADMIN
+  gains no `earning.approve`.
 
 ### Wave 1 — blockers and content review (today)
 
@@ -2060,6 +2070,7 @@ minor's consent); approving and paying campaign earnings stays Finance's
   admin campaign page, on the existing `POST /campaigns/:id/transition`.
 - **Done when:** BTG moves a campaign DRAFT → STAFFING → APPROVAL (and back)
   from the campaign page, then launches it; a refused move shows the API's reason.
+- **Delivered (2026-11-15, rcfworks):** `stageMoves` / `StageMoveButtons` on the admin campaign page (`moveCampaignStage` → `POST /campaigns/:id/transition`); `frontend/tests/campaign-stage-moves.test.ts`.
 
 ### 53. Campaign earnings can't be approved or paid [B2]
 `POL-FE-53` · *Money* · confirmed
@@ -2069,6 +2080,7 @@ minor's consent); approving and paying campaign earnings stays Finance's
   (with a reference) and Adjust (with a reason). Finance-only, as the matrix has it.
 - **Done when:** Finance takes an earning Eligible → Approved → Paid, holds and
   releases one, and adjusts one with a reason, from the Finance books.
+- **Delivered (2026-11-15, rcfworks):** `EarningRowActions` in Finance's books (`moveEarningAction`, `adjustEarningAction`), Finance and SUPER_ADMIN only; `frontend/tests/earning-actions.test.ts`.
 
 ### 54. BTG and Finance can't find an ordinary marketplace order [B3]
 `POL-BE-54` · `POL-FE-54` · *Dead end* · confirmed
@@ -2077,6 +2089,7 @@ minor's consent); approving and paying campaign earnings stays Finance's
   order from payouts, refunds and delivery issues.
 - **Done when:** BTG or Finance finds any order by state or reference and opens
   it; Finance records a bank transfer on it.
+- **Delivered (2026-11-15, rcfworks):** API search widened (billing reference / name / email, sponsor name) and `sponsorName` on each row; `/admin/marketplace/orders` and `/finance/orders` (+ `/finance/orders/[id]`, the shared `MarketplaceOrderDetail`); order links from refunds, payouts and delivery issues; menus; `backend/tests/phase2-orders.test.ts`, `frontend/tests/all-orders-live.test.ts`.
 
 ### 55. A minor's invitation can't be answered; a guardian sees sample pages [B4, §3]
 `POL-FE-55` · *Minors* · confirmed
@@ -2085,6 +2098,7 @@ minor's consent); approving and paying campaign earnings stays Finance's
   Profile and Profile edit.
 - **Done when:** a guardian acting for a minor sees and answers the minor's real
   invitations and opens the real profile, never a sample.
+- **Delivered (2026-11-15, rcfworks):** Invitations, Profile and Profile edit use `viewerIsAthlete`; `frontend/tests/guardian-acting-pages.test.ts`.
 
 ### 56. NEXT: BTG can't create or change a publication or an edition [B5]
 `POL-BE-56` · `POL-FE-56` · *Dead end* · confirmed
@@ -2093,6 +2107,7 @@ minor's consent); approving and paying campaign earnings stays Finance's
   Cancel offered.
 - **Done when:** BTG creates a publication for a school (it then appears on
   `/next/apply`), creates an edition, edits its dates, and cancels one.
+- **Delivered (2026-11-15, rcfworks):** `GET /publications` (with the schools), `PATCH /editions/:id` (PLANNING or SELLING, dates in order, audited); a Set up panel on BTG's Editions page (new publication, new edition, edit, cancel); `backend/tests/pol-be-56-next-setup.test.ts`, `frontend/tests/next-setup-live.test.ts`.
 
 ### 57. NEXT: an under-18 student can never join the masthead [B6]
 `POL-BE-57` · `POL-FE-57` · *Minors* · confirmed
@@ -2100,6 +2115,7 @@ minor's consent); approving and paying campaign earnings stays Finance's
   BTG gets "Verify guardian" on the advisor desk's Approved group.
 - **Done when:** a minor's application emails the guardian; BTG verifies the
   guardian from the desk; the advisor then adds the student to the masthead.
+- **Delivered (2026-11-15, rcfworks):** `student.guardianNotice` emailed on a minor's application; reviewers read the guardian and its verified state; "Verify guardian" for BTG on the advisor desk (`POST /guardians/:id/verify` activates an approved student); `backend/tests/pol-be-57-student-guardian.test.ts`, `frontend/tests/student-guardian-live.test.ts`.
 
 ### 58. NEXT: no sale is ever credited to a student [B7]
 `POL-FE-58` · *Money* · confirmed
@@ -2107,6 +2123,7 @@ minor's consent); approving and paying campaign earnings stays Finance's
   "Student code" field, sent with the brief.
 - **Done when:** a request filed with a student code credits the student's sale
   when its campaign is sold.
+- **Delivered (2026-11-15, rcfworks):** "Student code (optional)" on the request drawer, filled from `?code=` or what `/s/<code>` kept in the browser; `/s/<code>` opens the form with it; a refused code shows the API's words; `frontend/tests/student-code-brief.test.ts`.
 
 ### 59. Content review: points, rights, the list badge, BTG's view [§6]
 `POL-BE-59` · `POL-FE-59` · *Money* · *Consent* · confirmed
@@ -2117,6 +2134,7 @@ minor's consent); approving and paying campaign earnings stays Finance's
 - **Done when:** approval adds the points and a right, so the piece doesn't
   block production; no consent → refused in words; the list badge matches the
   drawer; BTG opens Advisor → Content review live.
+- **Delivered (2026-11-15, rcfworks):** Approval accrues the points (ARTICLE 50, INTERVIEW 25, PHOTO 25) and records the usage right from a consent in force; `usageRight` on each piece; the list badge and bucket follow the stage; BTG gets the live desk; `backend/tests/student-assignments.test.ts`, `frontend/tests/student-assignments-live.test.ts`.
 
 ### Wave 2 — the walkthrough loop
 
