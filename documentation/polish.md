@@ -2142,6 +2142,7 @@ the blockers and today's content review findings.
 `POL-FE-60` · *Dead end* · confirmed
 - **Fix:** the report served for staff under `/admin/campaigns/[id]/report`.
 - **Done when:** BTG's "Sponsor report" opens the report.
+- **Delivered (2026-11-15, rcfworks):** `/admin/campaigns/[id]/report` serves the report page inside the admin portal; the campaign page links there with `?from=admin-campaign`.
 
 ### 61. A published post waits on no queue [§2]
 `POL-BE-61` · `POL-FE-61` · *Silent* · confirmed
@@ -2149,6 +2150,7 @@ the blockers and today's content review findings.
   marks a post published.
 - **Done when:** a post marked published appears under To verify and BTG is
   emailed; verifying it moves it on.
+- **Delivered (2026-11-15, rcfworks):** "To verify" tab (PUBLISHED) on the approvals desk, a "Posts to verify" dashboard card, and `deliverable.publishedForBtg` emailed to BTG admins and campaign managers when an athlete marks a post published.
 
 ### 62. Reach is always zero; no tracking links [§2]
 `POL-FE-62` · *Dead end* · confirmed
@@ -2156,6 +2158,7 @@ the blockers and today's content review findings.
   "Create tracking link"; "Reach short" hidden until a metric exists.
 - **Done when:** recorded views show in the report; a tracking link can be made
   and copied.
+- **Delivered (2026-11-15, rcfworks):** "Record views" (VERIFIED_MANUAL) and "Create tracking link" in the approvals drawer for a published or verified post; backend `assessDelivery` no longer flags "Reach short" before any figures exist.
 
 ### Wave 3 — campaign pipeline
 
@@ -2167,6 +2170,7 @@ the blockers and today's content review findings.
   before hand-picked sends also start automatic offers; Send hidden for the
   network manager, saying who sends.
 - **Done when:** each of the five behaves as described.
+- **Delivered (2026-11-15, rcfworks):** Approving a held brief by hand creates its campaign and starts staffing (the Studio and `POST /briefs/:id/campaign` reuse it); the Campaigns list always opens the campaign page, which has "Open in Matching Studio" on its own brief; replacement and empty-roster links pass `?brief=`; the Studio warns that sending starts automatic offers; the network manager sees who sends instead of Send.
 
 ### 64. Nobody is told at three hand-offs [§2]
 `POL-BE-64` · `POL-FE-64` · *Silent* · confirmed
@@ -2175,6 +2179,7 @@ the blockers and today's content review findings.
   ("Orders to sign" tile); the sponsor emailed, with a safe reason, when BTG
   closes a brief; approved-not-active athletes reworded and counted ("To activate").
 - **Done when:** each email is queued at its step; each card or count shows.
+- **Delivered (2026-11-15, rcfworks):** Emails `invitation.acceptedForBtg` (BTG admins and campaign managers), `order.readyToSign` (the athlete and the linked guardian) and `brief.closedForSponsor` (sponsor admins — BTG's reason stays internal); approved-not-active reworded; an "Athletes to activate" dashboard card.
 
 ### 65. The sponsor's request form promises and allows the wrong things [§2]
 `POL-FE-65` · *Friction* · confirmed
@@ -2183,6 +2188,7 @@ the blockers and today's content review findings.
   wording says a passing request is approved at once; a held request links to
   Requests; "See results" only once ACTIVE ("Open campaign" before).
 - **Done when:** each is visible on the sponsor's screens.
+- **Delivered (2026-11-15, rcfworks):** 8-word objective in the drawer and edit form; the edit form refuses a start not after today and a run under 7 days when the dates change; wording says a passing request is approved at once; a held request links to Requests; "Open campaign" until a campaign is live, then "See results".
 
 ### 66. A NEXT ad package request uses the athlete form [§2]
 `POL-BE-66` · `POL-FE-66` · *Friction* · suspected in part

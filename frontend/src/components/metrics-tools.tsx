@@ -59,7 +59,7 @@ export function MetricsTools({ deliverableId, publishedUrl, today }: { deliverab
           });
         }}
       >
-        <p className="text-[11px] font-medium text-muted">Create tracking link — where should a fan's click go?</p>
+        <p className="text-[11px] font-medium text-muted">Create tracking link — where should a fan&apos;s click go?</p>
         <input aria-label="Destination" className={field} placeholder={publishedUrl ? "The sponsor's page, e.g. https://…" : "https://…"} value={dest} onChange={(e) => setDest(e.target.value)} />
         <button type="submit" disabled={pending} className={btn}>Create tracking link</button>
         {link && <p className="break-all font-mono text-[11px] text-text">{link}</p>}

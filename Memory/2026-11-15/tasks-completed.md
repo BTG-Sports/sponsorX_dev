@@ -74,3 +74,13 @@
   - backend: 264 files, 3825 tests;
   - frontend: 181 files, 2093 tests;
   - lint, build, security scripts, secret scan and audit all clean.
+
+## App review waves 2–3 (part): POL-60 to POL-65 Done (rcfworks)
+
+- 60: BTG opens a campaign's sponsor report inside the admin portal.
+- 61: a "To verify" tab and dashboard card, and BTG is emailed when a post is marked published.
+- 62: "Record views" and "Create tracking link" in the approvals drawer; "Reach short" waits for figures.
+- 63: approving a held brief creates its campaign; the desk links fixed; the Studio warns about automatic offers; the network manager isn't offered Send.
+- 64: the acceptance, order-ready and brief-closed emails; BTG's close reason stays internal; an "Athletes to activate" card.
+- 65: the request form enforces the 8-word objective and the edit dates; honest wording; held requests are followed on Requests; results show only once live.
+- Remaining: 66–78.
