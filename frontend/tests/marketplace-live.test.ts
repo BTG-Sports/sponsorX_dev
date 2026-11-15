@@ -109,6 +109,8 @@ describe("submitBrief files a real brief for the signed-in sponsor only", async 
     /* P4-FE-09 — with the sponsor-safe status (from the state when the API sent none). */
     expect(await submitBrief(base)).toEqual({
       ok: true, id: "brief_new", status: { key: "REVIEWING", text: "BTG is reviewing your request — usually within a working day" },
+      /* POL-FE-51 — an older API sent no waitingOn: nothing is assumed. */
+      waitingOn: null,
     });
     expect(vars.calls[0]!.path).toBe("/briefs");
     expect(vars.calls[0]!.init!.method).toBe("POST");

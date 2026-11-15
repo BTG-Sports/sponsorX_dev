@@ -17,7 +17,7 @@ import {
   at,
 } from "@/components/stadium-stage";
 import { askedLines, athleteCountWord, type ApiSponsorRequestDetail } from "@/lib/brief-actions";
-import { REQUEST_STEPS, requestStatus, requestStepNow, requestStepsClosedWord } from "@/lib/brief-status";
+import { REQUEST_STEPS, requestStatus, requestStepNow, requestStepsClosedWord, waitingOnAthletesLine } from "@/lib/brief-status";
 import { demoState } from "@/lib/demo";
 import { demoRequestPage } from "@/lib/fixtures/sponsor-overview";
 import { formatCount } from "@/lib/format-count";
@@ -91,7 +91,10 @@ export default async function SponsorRequestDetailPage({ params, searchParams }:
 /* ------------------------------------------------------------- the page */
 
 function Detail({ request: r, updatedAt, sample }: { request: ApiSponsorRequestDetail; updatedAt: string; sample: boolean }) {
-  const word = briefWord(r.state);
+  /* POL-FE-51 — held because too few athletes fit: the one wait a sponsor
+     can act on, said plainly. Never the hold's text — the API sends none. */
+  const athletesLine = waitingOnAthletesLine(r);
+  const word = athletesLine ? { text: "Waiting for athletes", tone: "late" as const } : briefWord(r.state);
   const status = requestStatus(r);
   const now = requestStepNow(r.state, r.campaign?.state);
   const pill = sample ? "Sample data" : <StadiumUpdated iso={updatedAt} />;
@@ -131,6 +134,14 @@ function Detail({ request: r, updatedAt, sample }: { request: ApiSponsorRequestD
 
       <StadiumPanel delay={0.1}>
         <StadiumSection title="Where it stands" hint={status.text} />
+        {athletesLine && (
+          <div role="status" className="mb-4 rounded-lg border border-warn/30 bg-warn/8 p-3">
+            <p className="text-sm leading-relaxed text-text">{athletesLine}</p>
+            <Link href="/sponsor/marketplace" className="mt-2 inline-block text-xs font-medium text-sponsor hover:underline">
+              Browse packages →
+            </Link>
+          </div>
+        )}
         {now >= 0 ? (
           <StadiumSteps steps={REQUEST_STEPS} now={now} label={`Where ${r.objective} stands`} />
         ) : (

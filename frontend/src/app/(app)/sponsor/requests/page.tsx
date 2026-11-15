@@ -18,7 +18,7 @@ import { demoState } from "@/lib/demo";
 import { formatCount } from "@/lib/format-count";
 import { demoRequestPage } from "@/lib/fixtures/sponsor-overview";
 import { textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
-import { REQUEST_STEPS, requestStepNow, requestStepsClosedWord, type ApiSponsorRequest } from "@/lib/brief-status";
+import { REQUEST_STEPS, requestStepNow, requestStepsClosedWord, waitingOnAthletesLine, type ApiSponsorRequest } from "@/lib/brief-status";
 import { briefWord } from "@/lib/sponsor-words";
 import { BRIEF_STATE_FILTERS, liveSponsorRequestPage, type BriefCounts } from "@/server/sponsor";
 
@@ -45,7 +45,8 @@ const PATH = "/sponsor/requests";
 const TABS = [
   { key: "all", label: "All", state: "" },
   { key: "matching", label: "Being matched by BTG", state: "DRAFT,QUALIFIED" },
-  { key: "ready", label: "Ready for you", state: "APPROVED" },
+  /* POL-FE-51 — approved and being staffed; nothing for the sponsor to do. */
+  { key: "ready", label: "Approved — finding athletes", state: "APPROVED" },
   { key: "became", label: "Became a campaign", state: "CAMPAIGN_CREATED" },
   { key: "closed", label: "Closed", state: "CLOSED" },
 ] as const;
@@ -140,10 +141,9 @@ function Requests({
             delay={0.1}
           />
           <StadiumTile
-            label="Ready for you"
+            label="Approved — finding athletes"
             value={counts.APPROVED ?? 0}
-            tone={(counts.APPROVED ?? 0) > 0 ? "you" : undefined}
-            hint="Approved and about to be staffed into a campaign."
+            hint="Approved and about to be staffed into a campaign. Nothing for you to do yet."
             delay={0.16}
           />
           <StadiumTile
@@ -180,6 +180,8 @@ function Requests({
           <PagedTable bare tone="sponsor" page={page} noun="Requests" filtered={filtered} label="Your requests" columns={columns}>
             {rows.map((r, i) => {
               const word = briefWord(r.state);
+              /* POL-FE-51 — held because too few athletes fit: said plainly. */
+              const athletesLine = waitingOnAthletesLine(r);
               /* POL-FE-21 — the steps follow the brief AND its campaign's real state. */
               const now = requestStepNow(r.state, r.campaign?.state);
               return (
@@ -191,7 +193,8 @@ function Requests({
                     </Primary>
                   </Td>
                   <Td label="Status">
-                    <StadiumChip tone={word.tone}>{word.text}</StadiumChip>
+                    <StadiumChip tone={athletesLine ? "late" : word.tone}>{athletesLine ? "Waiting for athletes" : word.text}</StadiumChip>
+                    {athletesLine && <p className="mt-1.5 max-w-xs text-[11px] leading-relaxed text-muted">{athletesLine}</p>}
                   </Td>
                   <Td label="Sent" muted><StadiumDate iso={r.createdAt} format="date" /></Td>
                   <Td label="Budget" num>{formatCount(r.budget, "usd0")}</Td>

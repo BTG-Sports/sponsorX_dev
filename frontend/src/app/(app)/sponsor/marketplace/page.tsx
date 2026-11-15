@@ -13,7 +13,8 @@ import {
 import { parseAmount } from "@/lib/amount";
 import { apiFetch, fetchActor } from "@/server/api";
 import { toJob, toPkg, type ApiJob, type ApiPackage } from "@/lib/marketplace-live";
-import { submitBrief } from "./actions";
+import type { Targeting } from "@/lib/brief-request";
+import { checkStaffing, submitBrief } from "./actions";
 import {
   athleteInv,
   marketplacePackages,
@@ -51,7 +52,9 @@ import { TabLink, TabStrip } from "@/components/stage-table";
    -------------------------------------------------------------------------- */
 
 /** Real catalogue for a signed-in sponsor, or null for the fixture demo. */
-async function liveCatalogue(): Promise<{ packages: Pkg[]; jobs: LiveJob[]; fromCents: number } | null> {
+type LiveCatalogue = { packages: Pkg[]; jobs: LiveJob[]; fromCents: number; targeting: Targeting };
+
+async function liveCatalogue(): Promise<LiveCatalogue | null> {
   /* No catch: fetchActor answers anonymous/unprovisioned as VALUES and throws
      only when the API itself is broken. Swallowing that throw dropped a real
      signed-in sponsor into the fixture demo on any API blip — and the demo
@@ -63,8 +66,11 @@ async function liveCatalogue(): Promise<{ packages: Pkg[]; jobs: LiveJob[]; from
   if (!who.actor.roles.some((r) => r === "SPONSOR_ADMIN" || r === "SPONSOR_ANALYST")) return null;
   /* A signed-in sponsor gets the truth or an error page — never fixtures
      presented as their marketplace. */
-  const [p, j] = await Promise.all([apiFetch("/catalogue/packages"), apiFetch("/catalogue/jobs")]);
+  const [p, j, t] = await Promise.all([apiFetch("/catalogue/packages"), apiFetch("/catalogue/jobs"), apiFetch("/catalogue/targeting")]);
   if (!p.ok || !j.ok) throw new Error(`Catalogue unavailable (${p.status}/${j.status}).`);
+  /* POL-FE-51 — the drawer's Sport and Geography come from the live pool.
+     Without them the drawer offers "Any" only — never the fixture lists. */
+  const targeting: Targeting = t.ok ? ((await t.json()) as Targeting) : { sports: [], stateCodes: [] };
   const { packages } = (await p.json()) as { packages: ApiPackage[] };
   const { jobs } = (await j.json()) as { jobs: ApiJob[] };
   /* The live "From" tile reads the API's own numeric priceLow (whole
@@ -72,7 +78,7 @@ async function liveCatalogue(): Promise<{ packages: Pkg[]; jobs: LiveJob[]; from
      `toPkg` builds for the card — a round trip through text that can only
      lose precision. */
   const fromCents = packages.length ? Math.min(...packages.map((pk) => pk.priceLow)) * 100 : 0;
-  return { packages: packages.map(toPkg), jobs: jobs.map(toJob), fromCents };
+  return { packages: packages.map(toPkg), jobs: jobs.map(toJob), fromCents, targeting };
 }
 
 const TABS = [
@@ -224,7 +230,7 @@ export default async function MarketplacePage({
 }
 
 /** The signed-in sponsor's marketplace — real packages, real jobs, real briefs. */
-function LiveMarketplace({ live, initial }: { live: { packages: Pkg[]; jobs: LiveJob[]; fromCents: number }; initial: CatalogInitial }) {
+function LiveMarketplace({ live, initial }: { live: LiveCatalogue; initial: CatalogInitial }) {
   return (
     <div className="space-y-6">
       <StadiumHead title="Packages" pill={<StadiumUpdated iso={new Date().toISOString()} />}>
@@ -235,11 +241,11 @@ function LiveMarketplace({ live, initial }: { live: { packages: Pkg[]; jobs: Liv
             screen reader (and this page's own e2e) shouldn't hit two
             same-named headings. */}
         <h2 className="sx-section-title">Ready-made packages</h2>
-        <PackagesCatalog items={live.packages} initial={initial} submit={submitBrief} />
+        <PackagesCatalog items={live.packages} initial={initial} submit={submitBrief} targeting={live.targeting} checkStaffing={checkStaffing} />
       </section>
       <section className="space-y-3">
         <h2 className="sx-section-title">Job types</h2>
-        <JobsCatalog jobs={live.jobs} submit={submitBrief} />
+        <JobsCatalog jobs={live.jobs} submit={submitBrief} targeting={live.targeting} />
       </section>
       <p className="text-[10px] leading-relaxed text-faint">
         Sponsor prices. A request, not a purchase — BTG matches athletes, checks

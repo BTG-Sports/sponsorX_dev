@@ -7,7 +7,8 @@ import { MiniChip, Monogram, initials } from "@/components/hero";
 import { compact } from "@/components/charts";
 import { Dropdown, FilterChip, SearchInput } from "@/components/filter-kit";
 import { Pagination } from "@/components/pagination";
-import { BriefRequestDrawer, type BriefSeed, type BriefSubmit } from "@/components/brief-request-drawer";
+import { BriefRequestDrawer, type BriefSeed, type BriefSubmit, type StaffingCheck } from "@/components/brief-request-drawer";
+import type { Targeting } from "@/lib/brief-request";
 import { parseAmount } from "@/lib/amount";
 import {
   INVENTORY_COPY,
@@ -428,7 +429,24 @@ function cardWrap(i: number, node: React.ReactNode, key: string) {
 
 /* ============================================================== Packages */
 
-export type Pkg = (typeof marketplacePackages)[number];
+/** A catalogue card. The live catalogue adds POL-FE-51's two facts: `kind`
+ *  (an athlete campaign package, or a NEXT magazine ad) and `staffable`
+ *  (the API's yes / no: could BTG staff it now; null for an ad). The
+ *  fixture deck has neither, and shows neither. */
+export type Pkg = (typeof marketplacePackages)[number] & {
+  kind?: "ATHLETE" | "NEXT_AD";
+  staffable?: boolean | null;
+};
+
+/** POL-FE-51 — the line under a live athlete package: can BTG staff it? */
+function StaffableLine({ staffable }: { staffable: boolean }) {
+  return (
+    <p className={["mt-2 flex items-center gap-1.5 text-[11px] font-medium", staffable ? "text-accent" : "text-warn"].join(" ")}>
+      <span aria-hidden="true" className={["size-1.5 rounded-full", staffable ? "bg-accent" : "bg-warn"].join(" ")} />
+      {staffable ? "Ready to staff" : "Not enough athletes yet"}
+    </p>
+  );
+}
 
 const PKG_FILTERS: CatalogFilter<Pkg>[] = [
   {
@@ -464,6 +482,8 @@ export function PackagesCatalog({
   demoParam,
   items,
   submit,
+  targeting,
+  checkStaffing,
 }: {
   initial?: CatalogInitial;
   demoParam?: string;
@@ -471,6 +491,10 @@ export function PackagesCatalog({
   items?: Pkg[];
   /** Live brief submission; absent in demo mode. */
   submit?: BriefSubmit;
+  /** POL-FE-51 — the drawer's live Sport and Geography options; absent in demo. */
+  targeting?: Targeting;
+  /** POL-FE-51 — the drawer's live staffing check; absent in demo. */
+  checkStaffing?: StaffingCheck;
 }) {
   const [seed, setSeed] = useState<BriefSeed | null>(null);
   const ctl = useCatalog<Pkg>({
@@ -515,7 +539,11 @@ export function PackagesCatalog({
                       </p>
                       <p className="mt-0.5 truncate text-[11px] text-muted">{p.note}</p>
                     </div>
-                    {p.featured ? (
+                    {/* POL-FE-51 — a NEXT magazine ad is labelled apart from the
+                        athlete campaign packages it shares the list with. */}
+                    {p.kind === "NEXT_AD" ? (
+                      <Badge tone="primary">Magazine ad (NEXT)</Badge>
+                    ) : p.featured ? (
                       <Badge tone="accent">Popular</Badge>
                     ) : (
                       <Badge tone={STATE_TONE[p.state]}>{INVENTORY_COPY[p.state]}</Badge>
@@ -531,16 +559,30 @@ export function PackagesCatalog({
                     <p className="mt-0.5 text-[10px] text-faint">price</p>
                   </div>
                   <div className="px-4 py-2.5">
-                    <p className="text-sm font-semibold tabular-nums tracking-tight">
-                      {p.athletes}
-                    </p>
-                    <p className="mt-0.5 text-[10px] text-faint">athletes</p>
+                    {p.kind === "NEXT_AD" ? (
+                      <>
+                        <p className="text-sm font-semibold tracking-tight">Print</p>
+                        <p className="mt-0.5 text-[10px] text-faint">no athletes</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-semibold tabular-nums tracking-tight">
+                          {p.athletes}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-faint">athletes</p>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="p-4">
                   <p className="min-h-8 text-[11px] leading-relaxed text-muted">
                     {p.includes}
                   </p>
+                  {p.kind === "NEXT_AD" ? (
+                    <p className="mt-2 text-[11px] text-muted">An ad in a NEXT magazine edition — not an athlete campaign.</p>
+                  ) : typeof p.staffable === "boolean" ? (
+                    <StaffableLine staffable={p.staffable} />
+                  ) : null}
                   <button
                     type="button"
                     onClick={() =>
@@ -558,7 +600,7 @@ export function PackagesCatalog({
         </div>
       )}
     </CatalogShell>
-    <BriefRequestDrawer seed={seed} onClose={() => setSeed(null)} submit={submit} />
+    <BriefRequestDrawer seed={seed} onClose={() => setSeed(null)} submit={submit} targeting={targeting} checkStaffing={checkStaffing} />
     </>
   );
 }
@@ -974,7 +1016,7 @@ function JobsPageBar({
   );
 }
 
-export function JobsCatalog({ jobs, submit }: { jobs: LiveJob[]; submit?: BriefSubmit }) {
+export function JobsCatalog({ jobs, submit, targeting }: { jobs: LiveJob[]; submit?: BriefSubmit; targeting?: Targeting }) {
   const [seed, setSeed] = useState<BriefSeed | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -1012,7 +1054,7 @@ export function JobsCatalog({ jobs, submit }: { jobs: LiveJob[]; submit?: BriefS
       <div className="pt-2">
         <JobsPageBar {...barProps} placement="up" />
       </div>
-      <BriefRequestDrawer seed={seed} onClose={() => setSeed(null)} submit={submit} />
+      <BriefRequestDrawer seed={seed} onClose={() => setSeed(null)} submit={submit} targeting={targeting} />
     </>
   );
 }

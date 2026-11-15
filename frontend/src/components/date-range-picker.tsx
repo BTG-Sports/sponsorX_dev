@@ -41,6 +41,9 @@ import {
      trigger. An outside click closes it and is swallowed, so dismissing
      never also activates whatever sat underneath (useOutsideClose).
    - sx-pop entrance, like every other filter-kit popover.
+   - `single` (POL-FE-51): a one-day picker — every click sets the day and
+     `to` stays null; with `clearable={false}` the day can't be cleared
+     (the brief drawer's Start date always holds a day after today).
 
    Days are UTC calendar days throughout (lib/day-range.ts) — a day never
    shifts with the viewer's timezone.
@@ -71,6 +74,9 @@ export function DateRangePicker({
   allLabel = "Any dates",
   triggerText,
   markerHint = "Dots mark days with activity",
+  single = false,
+  clearable = true,
+  align = "right",
 }: {
   /** Start day "YYYY-MM-DD", or null for no date filter. */
   from: string | null;
@@ -91,6 +97,13 @@ export function DateRangePicker({
   triggerText?: string;
   /** Footer hint shown when markers are present. */
   markerHint?: string;
+  /** One day, not a range: each click replaces the day; `to` is always null. */
+  single?: boolean;
+  /** False hides the footer's clear action — the value always holds a day. */
+  clearable?: boolean;
+  /** Which edge of the trigger the calendar lines up with. "left" for a
+   *  picker in a narrow left-hand column, so the panel opens inward. */
+  align?: "left" | "right";
 }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<MonthView>(() => monthOf(clampDay(todayDay(), min, max)));
@@ -148,6 +161,7 @@ export function DateRangePicker({
 
   const pick = (day: string) => {
     setFocusDay(day);
+    if (single) return onChange(day, null);
     const r = pickDay(from, to, day);
     onChange(r.from, r.to);
   };
@@ -174,8 +188,9 @@ export function DateRangePicker({
     setFocusDay(next);
   };
 
-  const hint =
-    from !== null && (to === null || to === from)
+  const hint = single
+    ? "Pick a day"
+    : from !== null && (to === null || to === from)
       ? "Pick another day to make it a range"
       : markers && markers.size
         ? markerHint
@@ -209,7 +224,7 @@ export function DateRangePicker({
       </button>
 
       {open && (
-        <div id={dialogId} className={`${PANEL_CLS} w-72 p-3`} role="dialog" aria-modal="false" aria-labelledby={titleId}>
+        <div id={dialogId} className={`${align === "left" ? PANEL_CLS.replace("right-0", "left-0") : PANEL_CLS} w-72 p-3`} role="dialog" aria-modal="false" aria-labelledby={titleId}>
           {/* month + year header */}
           <div className="flex items-center gap-1">
             <NavBtn kind="year" dir={-1} disabled={!canBack} onClick={() => go(-12)} />
@@ -285,17 +300,19 @@ export function DateRangePicker({
             <p className="text-[10px] text-faint" aria-live="polite">
               {hint}
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                onChange(null, null);
-                setFocusDay(null);
-              }}
-              disabled={from === null}
-              className={`shrink-0 text-[11px] font-medium transition-colors hover:opacity-80 disabled:pointer-events-none disabled:opacity-40 ${c.link}`}
-            >
-              {allLabel}
-            </button>
+            {clearable && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(null, null);
+                  setFocusDay(null);
+                }}
+                disabled={from === null}
+                className={`shrink-0 text-[11px] font-medium transition-colors hover:opacity-80 disabled:pointer-events-none disabled:opacity-40 ${c.link}`}
+              >
+                {allLabel}
+              </button>
+            )}
           </div>
         </div>
       )}
