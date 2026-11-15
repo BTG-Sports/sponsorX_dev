@@ -18,6 +18,8 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   "/admin/profile-changes": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   "/admin/approvals": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"], who: "BTG admins and campaign managers" },
   "/admin/campaigns/match": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "NETWORK_MGR", "CAMPAIGN_MGR"], who: "BTG admins, network managers and campaign managers" },
+  /* POL-FE-51 — an athlete's rate card editor: the API's athleteRate write (and the athlete write a tier needs) is BTG admin and network manager, own tenant, and SUPER_ADMIN. Campaign managers read rates but never set them. */
+  "/admin/athletes": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "NETWORK_MGR"], who: "BTG admins and athlete network managers" },
   "/admin/rewards": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"], who: "BTG admins and campaign managers" },
   "/admin/finance": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
   "/admin/commission": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },

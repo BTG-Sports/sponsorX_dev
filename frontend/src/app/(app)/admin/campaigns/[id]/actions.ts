@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { apiFetch } from "@/server/api";
-import { autoStaffingReasonProblem } from "@/lib/campaign-stage";
+import { autoStaffingReasonProblem, launchedLines, launchRefusal, type LaunchResult } from "@/lib/campaign-stage";
 import type { DraftOrderInput, DraftOrderResult } from "@/lib/ops-live";
 import { proposalOf, validCampaignId as validId, type ChangeProposal } from "@/lib/campaign-change-live";
 import { postCancel, postChange, readCancelImpact, readChangeImpact, type ActResult, type ImpactRead } from "@/server/campaign-change";
@@ -141,4 +141,28 @@ export async function draftAndSendOrder(
     };
   }
   return { ok: true, orderId };
+}
+
+/* --------------------------------------------------------------------------
+   POL-FE-51 — BTG launches a campaign now (POST /campaigns/{id}/launch,
+   P5-BE-04) instead of waiting for 00:00 UTC on its start date. The API
+   decides: only APPROVAL may go live, and only BTG admins and campaign
+   managers launch. One transaction there activates the signed orders and
+   queues the Zoho push and the "campaign live" notification.
+   -------------------------------------------------------------------------- */
+export async function launchCampaignNow(campaignId: string): Promise<{ ok: true; lines: string[] } | { ok: false; message: string }> {
+  if (!validId(campaignId)) return { ok: false, message: "No campaign." };
+  let res: Response;
+  try {
+    res = await apiFetch(`/campaigns/${encodeURIComponent(campaignId)}/launch`, { method: "POST", body: "{}" });
+  } catch {
+    return { ok: false, message: "Can't reach SponsorX right now, so the campaign wasn't launched. Try again in a minute." };
+  }
+  const body = (await res.json().catch(() => null)) as LaunchResult | null;
+  if (!res.ok) return { ok: false, message: launchRefusal(res.status, body) };
+  refreshCampaign(campaignId);
+  /* The sponsor's page shows "See results" once the campaign is ACTIVE. */
+  revalidatePath(`/sponsor/campaigns/${campaignId}`);
+  revalidatePath("/sponsor/campaigns");
+  return { ok: true, lines: body ? launchedLines(body) : ["Launched. The campaign is live from today."] };
 }
