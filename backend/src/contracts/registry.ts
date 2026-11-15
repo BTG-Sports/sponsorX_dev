@@ -405,6 +405,7 @@ const PATHS: Row[] = [
   { method: "put", path: "/athletes/{id}/tier", tag: "Athletes", summary: "Set an athlete's pricing tier.", body: AthleteTierInput },
   { method: "post", path: "/athletes/{id}/rates", tag: "Athletes", summary: "Set an athlete's rate for a NIL job.", body: AthleteRateInput, status: 201 },
   { method: "get", path: "/athletes/{id}/rates", tag: "Athletes", summary: "An athlete's rate card." },
+  { method: "get", path: "/athletes/{id}/rate-editor", tag: "Athletes", summary: "BTG admin or network manager: what the rate card editor needs — the athlete (name, sport, state, tier), every NIL job in the catalogue with its pay and sponsor bands in WHOLE DOLLARS, and the current card in CENTS (POL-BE-51)." },
   { method: "post", path: "/athletes/{id}/guardian", tag: "Athletes", summary: "Link a guardian to a minor athlete.", body: GuardianInput, status: 201 },
   { method: "put", path: "/athletes/{id}/socials", tag: "Athletes", summary: "Replace an athlete's social accounts.", body: z.object({ socials: z.array(SocialAccount).max(4) }) },
   { method: "get", path: "/athletes/{id}/guardian-readiness", tag: "Athletes", summary: "Whether the guardian gate is satisfied today.", response: GuardianReadiness },

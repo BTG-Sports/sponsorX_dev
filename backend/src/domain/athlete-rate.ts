@@ -249,4 +249,67 @@ export async function readRateCard(actor: Actor, athleteId: string) {
   return [...current.values()];
 }
 
+/**
+ * POL-BE-51 — what BTG's rate card editor needs on one screen: the athlete
+ * (name, tier, state), every NIL job in the tenant's catalogue with its pay
+ * and sponsor bands, and the current card.
+ *
+ * WHY A READ OF ITS OWN. Walkthrough practice (2026-11-15) found the Matching
+ * Studio refusing to shortlist an athlete with no rate, and no screen that
+ * wrote one: the API existed, the editor did not. The editor needs the
+ * athlete's tier before anything else — a rate cannot be set without one
+ * (TierRequiredError) — and there was no BTG read of one athlete to get it.
+ *
+ * WHO. Exactly the people who may set a rate: tenant-wide athleteRate write
+ * (BTG admin, network manager, SUPER_ADMIN). Nothing here is more than those
+ * roles already read — the athlete through `athlete` read, the catalogue
+ * through `nilJob` read, the card through `athleteRate` read — so no grant
+ * is widened; a campaign manager, who reads rates but never sets them, is
+ * refused like everyone else who cannot use the editor.
+ *
+ * UNITS. The catalogue bands are WHOLE DOLLARS (nil-jobs.ts); the rates are
+ * CENTS. Both are returned as stored and named for their unit, so the screen
+ * converts once, knowingly.
+ */
+export async function readRateEditor(actor: Actor, athleteId: string): Promise<{
+  athlete: { id: string; displayName: string; sport: string; stateCode: string | null; tier: string | null; state: string };
+  jobs: Array<{ id: string; name: string; baseLowDollars: number; baseHighDollars: number; sellLowDollars: number; sellHighDollars: number }>;
+  rates: Array<{ jobId: string; jobName: string; amount: number; version: number }>;
+}> {
+  assertTenantWide(actor, "athleteRate", "write");
+
+  const athlete = await prisma.athlete.findFirst({
+    where: { ...whereFor(actor, "athlete", "read"), id: athleteId },
+    select: { id: true, displayName: true, sport: true, stateCode: true, tier: true, state: true },
+  });
+  if (!athlete) throw new ForbiddenError("athleteRate", "write");
+
+  /* The caller's own catalogue — the one setAthleteRate checks a job against. */
+  const jobs = await prisma.nilJob.findMany({
+    where: { ...whereFor(actor, "nilJob", "read"), tenantId: actor.tenantId },
+    select: { id: true, name: true, baseLow: true, baseHigh: true, sellLow: true, sellHigh: true },
+    orderBy: { id: "asc" },
+  });
+
+  return {
+    athlete: {
+      id: athlete.id,
+      displayName: athlete.displayName,
+      sport: athlete.sport,
+      stateCode: athlete.stateCode,
+      tier: athlete.tier,
+      state: athlete.state,
+    },
+    jobs: jobs.map((j) => ({
+      id: j.id,
+      name: j.name,
+      baseLowDollars: j.baseLow,
+      baseHighDollars: j.baseHigh,
+      sellLowDollars: j.sellLow,
+      sellHighDollars: j.sellHigh,
+    })),
+    rates: await readRateCard(actor, athleteId),
+  };
+}
+
 export { TIER_MULTIPLIERS };

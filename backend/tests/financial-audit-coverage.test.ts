@@ -63,6 +63,8 @@ const READ_ONLY = new Set([
   "viewDealDisputeDocument",
   "resumedEarningState",
   "readRateCard",
+  /* POL-BE-51 — the rate card editor's read: the athlete, the catalogue and readRateCard, nothing written. */
+  "readRateEditor",
   "readEarning",
   "breakdown",
   "clearsFloor",

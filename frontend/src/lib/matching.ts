@@ -65,6 +65,10 @@ export type MatchAthlete = {
   /** P4-FE-08 — the new-offer form, pre-filled for this athlete on this
    *  brief's campaign; null when there is no campaign yet or no job. */
   offerHref?: string | null;
+  /** POL-FE-51 — the rate card editor, opened on the missing job, for a
+   *  viewer who may set rates; null for everyone else (they see "Needs a
+   *  rate" with no link). Only set on a row with `noRate`. */
+  rateHref?: string | null;
 };
 
 /** One signal behind a match score (GET /briefs/{id}/eligible-athletes). */
@@ -221,11 +225,13 @@ export function statusFor(a: MatchAthlete): RowStatus {
       label: INVITE_LABEL[a.invite] ?? a.invite,
       sub: "already on this campaign",
     };
+  /* POL-FE-51 — said as the thing to do, not a bare hold: a network manager
+     or BTG admin sets the rate, and the row can be added on refresh. */
   if (a.noRate)
     return {
       kind: "inactive",
-      label: "No rate on file",
-      sub: `set a ${a.noRate} rate before inviting`,
+      label: "Needs a rate",
+      sub: `no ${a.noRate} rate on file — set one to add them`,
     };
   if (!a.active)
     return {

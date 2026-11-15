@@ -220,7 +220,11 @@ function SectionContent({ p, k, rates }: { p: ApiMyProfile; k: SectionKey; rates
          are NOT what sponsors pay (catalogue prices are higher and live on
          the sponsor side); §7.1 keeps the two apart in both directions. */
       return rates.length === 0 ? (
-        <p className="text-xs text-muted">No rates confirmed yet — BTG sets these with you.</p>
+        /* POL-FE-51 — true now that BTG has a screen that writes rates
+           (/admin/athletes/{id}/rates): say who, and that they appear here. */
+        <p className="text-xs text-muted">
+          No rates set yet. Your BTG manager sets them with you, and they show here as soon as they&apos;re saved.
+        </p>
       ) : (
         <div>
           <ul className="divide-y divide-line-soft">

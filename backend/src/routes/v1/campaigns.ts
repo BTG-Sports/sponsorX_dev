@@ -48,7 +48,7 @@ import { guardianReadiness } from "../../domain/guardian-rules";
 import { assessDelivery, deliveryHealth } from "../../domain/delivery-health";
 import { isVerified, type MetricSource } from "../../domain/metric-source";
 import { inviteAthlete, transitionInvite } from "../../domain/invitation";
-import { setAthleteRate, setAthleteTier, readRateCard } from "../../domain/athlete-rate";
+import { setAthleteRate, setAthleteTier, readRateCard, readRateEditor } from "../../domain/athlete-rate";
 import { acceptOrder, createOrder, transitionOrder, updateOrderTerms } from "../../domain/campaign-order";
 import {
   AthleteRateInput, AthleteTierInput, CampaignOrderInput,
@@ -1302,6 +1302,13 @@ const setRate: RequestHandler<{ id: string }> = async (req, res) => {
   res.status(201).json(await setAthleteRate(req.actor!, req.params.id, body.jobId, body.amount));
 };
 
+/** GET /athletes/:id/rate-editor — POL-BE-51: BTG's rate card editor in one
+ *  read (the athlete's name and tier, the catalogue's bands, the current
+ *  card). Only for those who may set a rate. */
+const rateEditor: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await readRateEditor(req.actor!, req.params.id));
+};
+
 /** GET /athletes/:id/rates — the current card: newest version per job. */
 const rateCard: RequestHandler<{ id: string }> = async (req, res) => {
   res.json({ rates: await readRateCard(req.actor!, req.params.id) });
@@ -1368,6 +1375,7 @@ const accept: RequestHandler<{ id: string }> = async (req, res) => {
 campaignsRouter.put("/athletes/:id/tier", requireActor, setTier);
 campaignsRouter.post("/athletes/:id/rates", requireActor, setRate);
 campaignsRouter.get("/athletes/:id/rates", requireActor, rateCard);
+campaignsRouter.get("/athletes/:id/rate-editor", requireActor, rateEditor);
 campaignsRouter.post("/campaigns/:id/orders", requireActor, addOrder);
 campaignsRouter.patch("/orders/:id", requireActor, editOrder);
 campaignsRouter.post("/orders/:id/transition", requireActor, moveOrder);

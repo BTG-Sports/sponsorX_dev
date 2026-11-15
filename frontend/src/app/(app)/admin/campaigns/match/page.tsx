@@ -18,6 +18,7 @@ import { sendInvitations } from "./actions";
 import { BriefPicker } from "./brief-picker";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { mayWriteOffers } from "@/lib/admin-offers-live";
+import { mayWriteRates } from "@/lib/athlete-rates-live";
 
 /* --------------------------------------------------------------------------
    /admin/campaigns/match — the Matching Studio (P4-ART-01 in-app).
@@ -49,7 +50,7 @@ type BriefList = { briefs: ApiBrief[]; page: PageInfo };
 type Live =
   | { kind: "denied" }
   | { kind: "none"; list: BriefList }
-  | { kind: "brief"; list: BriefList; brief: ApiBrief; eligible: ApiEligiblePage; offers: boolean };
+  | { kind: "brief"; list: BriefList; brief: ApiBrief; eligible: ApiEligiblePage; offers: boolean; rates: boolean };
 
 async function liveDesk(sp: SearchParams): Promise<Live | null> {
   /* No catch — an outage is an error page, never fixtures dressed as a real
@@ -88,7 +89,8 @@ async function liveDesk(sp: SearchParams): Promise<Live | null> {
   const brief = (await detailRes.json()) as ApiBrief;
   const eligible = (await eligibleRes.json()) as ApiEligiblePage;
   /* P4-FE-08 — an offer writer's rows link to the pre-filled offer form. */
-  return { kind: "brief", list, brief, eligible, offers: mayWriteOffers(who.actor.roles) };
+  /* POL-FE-51 — a rate setter's no-rate rows link to the rate card editor. */
+  return { kind: "brief", list, brief, eligible, offers: mayWriteOffers(who.actor.roles), rates: mayWriteRates(who.actor.roles) };
 }
 
 export default async function MatchingStudioPage({
@@ -113,7 +115,7 @@ export default async function MatchingStudioPage({
     if (lacking) return <NotInRole path="/admin/campaigns/match" title="Matching Studio" roles={lacking} />;
   }
   const live = str(sp.demo) ? null : await liveDesk(sp);
-  const data = live?.kind === "brief" ? toMatchData(live.brief, live.eligible.athletes, { offers: live.offers }) : null;
+  const data = live?.kind === "brief" ? toMatchData(live.brief, live.eligible.athletes, { offers: live.offers, rates: live.rates }) : null;
   const bq = textParam(sp, "bq");
   const campaignName = data ? data.brief.campaign : MATCH_BRIEF.campaign;
 
