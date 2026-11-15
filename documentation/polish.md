@@ -34,6 +34,14 @@ also has a back-end row waits for it.
 | E · Payments switch | 36 | Turn live payments on when polish is done |
 | F · Clean pass | 37–40 | Production shows outdated wording, developer notes and sample figures |
 | G · Support and help desk | 41–43 | Support messages live only in Gmail, and admins can't see what is wrong with a held request |
+| H · Found in walkthrough practice | 44–51 | Testers getting the feel of the app hit dead ends and silent waits |
+
+**Closed 2026-11-15.** Every item, 1 to 51, is Done on the Polish sheet (71
+rows). The last two, #45 and #51, were walked live and closed on
+`fix/POL-FE-51-close-polish`. One piece of #51 lives outside this repo and
+was handed on rather than closed here: the Tester Facility seeding a
+staffable network (see #51). A new flaw found from here on is a new
+numbered item and a new row, not a reopened one.
 
 **Do number 4 first.** It is hurting sponsors now, while Stripe is paused.
 
@@ -1657,6 +1665,16 @@ POL-FE-43. Each front-end task waits for its back-end one.
     uses it. Other panels and the shared `Dropdown` are unchanged.
   - The team manager's inventory pages have no restrictions section, so
     nothing to change there.
+- **Closed (2026-11-15, HeckerCreatives):**
+  - Walked live on desktop and a phone (Pixel 7): pick a category, press
+    Add, the row appears; Remove clears it.
+  - The walk found one more dead end, on the phone. The form is the last
+    thing on the page, so the menu opened downward ran past the screen's
+    bottom edge. Its last categories sat under the bottom navigation bar at
+    every scroll (menu bottom 841px, bar top 759px) and couldn't be tapped.
+  - `frontend/src/components/inventory-restrictions.tsx`: the menu opens
+    upward (`Dropdown` `placement="up"`, made for controls near the bottom
+    of a page). Every category can now be reached and tapped on a phone.
 
 ### 46. Live listing: a button to see it in the marketplace
 `POL-FE-46` · *Dead end* · confirmed (found in walkthrough practice, 2026-11-15)
@@ -1873,7 +1891,14 @@ POL-FE-43. Each front-end task waits for its back-end one.
     the next athlete whose offers don't fit the budget left stops staffing;
     running out of athletes below the minimum stops it too. A stop is only
     shown to the sponsor as "BTG is finding more athletes" (#22).
-  - **The rate card is not a hard gate.** The finding as first reported said
+  - **Correction (same day, walkthrough):** for BTG's *manual* path the rate
+    card **is** a hard gate. The Matching Studio refuses to shortlist an
+    athlete with no rate for a package job (`canShortlist` in
+    `frontend/src/lib/matching.ts`; the row showed a dashed "Hold"), and no
+    screen could write a rate (`POST /athletes/:id/rates` had no caller), so
+    a held brief could not be staffed by hand at all. The paragraph below
+    holds for *automatic* staffing only.
+  - **The rate card is not a hard gate (automatic staffing).** The finding as first reported said
     an athlete needs a rate for every job in the package. The code does not
     require one: with no rate on file the offer's pay is the middle of the
     job's base range (`offer-draft.ts`, "No rate on file for …"), and the
@@ -1957,6 +1982,43 @@ POL-FE-43. Each front-end task waits for its back-end one.
   - **Tell the two kinds of package apart:** a "Magazine ad (NEXT)" label or
     its own tab on Packages, so a sponsor testing athlete campaigns doesn't
     pick an ad package by accident.
+- **Built (2026-11-15, Code review):**
+  - **Sponsor side, PR #420:** the start date opens at today + 14, can't be today
+    or earlier, and today is refused in words; live Sport and Geography lists
+    (`GET /catalogue/targeting`); `waitingOn` and "Waiting for athletes" on
+    the sponsor's requests; "Ready for you" renamed "Approved — finding
+    athletes"; "Ready to staff" / "Not enough athletes yet" on packages;
+    "Magazine ad (NEXT)" label.
+  - **BTG side, PR #421:** a rate card editor at `/admin/athletes/[id]/rates`
+    (tier first, then a rate per NIL job; new read
+    `GET /athletes/:id/rate-editor`, `POL-BE-51`); the Matching Studio's
+    no-rate row reads "Needs a rate" with a **Set a rate** link; **Launch
+    now** on a campaign in APPROVAL.
+  - **Still open (at the time):** the Tester Facility seeding a staffable
+    network (other repo); no admin athlete list leads to the rate editor yet
+    (the Studio's link is the only way in).
+- **Closed (2026-11-15, HeckerCreatives):**
+  - **Launch now → See results, walked live:** a BTG admin launched a
+    campaign waiting in APPROVAL ("Yes, launch today"), and the sponsor's
+    page then showed **See results**.
+  - **A second way to the rate card:** the athlete's profile
+    (`/admin/new-signups/athletes/[id]`, the page BTG's emails link to) has
+    a **Rate card** section with **Open the rate card**, for an approved
+    athlete and only for the roles that set rates (BTG admin, network
+    manager, SUPER_ADMIN). The editor leads back to the profile
+    (`?from=profile`); from the Studio it still leads back to the Studio.
+    (`profileRateCardHref`, `rateBackLink` in `lib/athlete-rates-live.ts`.)
+  - **Found in the walk and fixed:** after an early launch the start date
+    stays where it was, so the sponsor's campaign read "Running" and
+    "starts in 10 days" at once. A running campaign now reads "ends in N
+    days" (`windowLabel`, `lib/sponsor-live.ts`), on the campaign page and
+    in the campaigns table.
+  - **Moved out, not closed here:** the Tester Facility seeding a staffable
+    network. The facility is its own Railway service (`tester`) and its
+    source is not in this repo, so that change belongs to the facility's
+    owner. The first clause of "Done when" below ("a tester who picks any
+    athlete package from the Tester Facility's seeded network gets an
+    approved, staffed request") is theirs. Every other clause is met here.
 - **Done when:** a tester who picks any athlete package from the Tester
   Facility's seeded network gets an approved, staffed request; a package
   that can't be staffed says so before or right after submitting, in plain

@@ -8,7 +8,8 @@ import { momentOf } from "@/lib/new-signups-live";
 import { trustHint, trustLine } from "@/lib/content-trust";
 import type { HomeFeatureStatus } from "@/lib/home-feature";
 import { LIVE_KIND_WORDS, comingOfAgeHold, liveBadge, signupHref, type ApiSignupDetail } from "@/lib/signups-live";
-import { apiFetch } from "@/server/api";
+import { profileRateCardHref } from "@/lib/athlete-rates-live";
+import { apiFetch, fetchActor } from "@/server/api";
 
 /* --------------------------------------------------------------------------
    One athlete's or guardian's sign-up, live — 2S1-FE-07 (design
@@ -42,9 +43,10 @@ async function homeStatus(id: string): Promise<HomeFeatureStatus | null> {
 }
 
 export async function LiveSignupProfile({ owner, id }: { owner: "athletes" | "guardians"; id: string }) {
-  const [res, home] = await Promise.all([
+  const [res, home, who] = await Promise.all([
     apiFetch(`/signups/${owner}/${encodeURIComponent(id)}`),
     owner === "athletes" ? homeStatus(id) : Promise.resolve(null),
+    fetchActor(),
   ]);
   if (res.status === 403 || res.status === 404) {
     return (
@@ -60,6 +62,8 @@ export async function LiveSignupProfile({ owner, id }: { owner: "athletes" | "gu
   const hold = comingOfAgeHold(s);
   /* POL-FE-42 — a held sign-up's problems, as tags at the top; they replace the plain "Why it needs review" list. */
   const problems = s.state === "NEEDS_REVIEW" ? s.problems ?? [] : [];
+  /* POL-FE-51 close-out — the rate card, for an approved athlete and a role that sets rates. */
+  const rateCard = profileRateCardHref(s, who.status === "linked" ? who.actor.roles : []);
 
   const before = (
     <>
@@ -103,6 +107,25 @@ export async function LiveSignupProfile({ owner, id }: { owner: "athletes" | "gu
         </section>
       )}
       {s.kind === "ATHLETE" && home && <HomeFeaturePanel initial={home} name={s.name} />}
+      {rateCard && (
+        <section aria-label="Rate card" className={section}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold">Rate card</h2>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                What {s.name} is paid for each NIL job. The Matching Studio can&rsquo;t shortlist an athlete for a job
+                with no rate on it.
+              </p>
+            </div>
+            <Link
+              href={rateCard}
+              className="inline-flex min-h-9 shrink-0 items-center rounded-lg border border-primary/40 px-3 text-xs font-semibold text-primary hover:bg-primary/10"
+            >
+              Open the rate card
+            </Link>
+          </div>
+        </section>
+      )}
       {s.guardianOf.length > 0 && (
         <section aria-label="Athletes" className={section}>
           <h2 className="text-sm font-semibold">Guardian of</h2>

@@ -69,12 +69,14 @@ export function isBehind(c: ApiCampaign, now: Date): boolean {
   return progress + BEHIND_SLACK < elapsedShare(c.startDate, c.endDate, now);
 }
 
-/** "ends in 12 days", "starts in 3 days", "ended Nov 30". */
+/** "ends in 12 days", "starts in 3 days", "ended Nov 30". A campaign BTG
+ *  launched before its start date ("Launch now", POL-FE-51) is ACTIVE with
+ *  the start still ahead: it reads as running, never "starts in …". */
 export function windowLabel(c: ApiCampaign, now: Date): string {
   const start = new Date(c.startDate).getTime();
   const end = new Date(c.endDate).getTime();
   const t = now.getTime();
-  if (t < start) {
+  if (t < start && c.state !== "ACTIVE") {
     const d = Math.ceil((start - t) / DAY);
     return `starts in ${d} ${d === 1 ? "day" : "days"}`;
   }

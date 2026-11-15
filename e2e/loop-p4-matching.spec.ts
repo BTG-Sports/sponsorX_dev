@@ -112,7 +112,7 @@ test("a sponsor brief is approved, staffs itself, and is answered — accept, de
   await drawer.getByRole("button", { name: "Target sport" }).click();
   await sponsor.getByRole("option", { name: "Soccer", exact: true }).click();
   await drawer.getByRole("button", { name: "Target geography" }).click();
-  await sponsor.getByRole("option", { name: "Silver Spring, MD" }).click();
+  await sponsor.getByRole("option", { name: "Maryland", exact: true }).click();
   await drawer.getByRole("button", { name: "Submit brief to BTG" }).click();
   await expect(drawer.getByText("Approved — your campaign is being staffed")).toBeVisible({ timeout: 20_000 });
 

@@ -45,9 +45,16 @@ describe("pacing", () => {
 
 describe("windowLabel", () => {
   it("reads before, during and after", () => {
-    expect(windowLabel(c({ startDate: "2026-11-03T00:00:00Z" }), NOW)).toBe("starts in 3 days");
+    expect(windowLabel(c({ state: "STAFFING", startDate: "2026-11-03T00:00:00Z" }), NOW)).toBe("starts in 3 days");
     expect(windowLabel(c(), NOW)).toBe("ends in 30 days");
     expect(windowLabel(c({ endDate: "2026-10-20T00:00:00Z" }), NOW)).toBe("ended Oct 20");
+  });
+
+  /* POL-FE-51 close-out (2026-11-15): BTG's "Launch now" takes a campaign live before its start
+     date, and the start date stays put. A running campaign never reads "starts in 10 days". */
+  it("reads a campaign BTG launched early as running, not as starting later", () => {
+    expect(windowLabel(c({ state: "ACTIVE", startDate: "2026-11-10T00:00:00Z" }), NOW)).toBe("ends in 30 days");
+    expect(windowLabel(c({ state: "APPROVAL", startDate: "2026-11-10T00:00:00Z" }), NOW)).toBe("starts in 10 days");
   });
 });
 

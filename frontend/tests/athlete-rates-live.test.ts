@@ -5,7 +5,9 @@ import {
   impliedFloor,
   mayWriteRates,
   parseRateDollars,
+  profileRateCardHref,
   rateAdvice,
+  rateBackLink,
   rateEditorHref,
   rateRefusal,
   rateRows,
@@ -116,6 +118,43 @@ describe("links", () => {
     expect(studioHref("//evil.example")).toBe("/admin/campaigns/match");
     expect(studioHref("https://evil.example/x")).toBe("/admin/campaigns/match");
     expect(rateEditorHref("ath_1", { job: "../x", brief: "a b" })).toBe("/admin/athletes/ath_1/rates");
+  });
+
+  /* POL-FE-51 close-out (2026-11-15): the Studio's "Set a rate" was the only way in. */
+  it("open from the athlete's profile, and lead back to it", () => {
+    expect(rateEditorHref("ath_1", { from: "profile" })).toBe("/admin/athletes/ath_1/rates?from=profile");
+    expect(rateBackLink("ath_1", { from: "profile" })).toEqual({
+      href: "/admin/new-signups/athletes/ath_1",
+      label: "Back to the athlete's profile",
+    });
+  });
+
+  it("go back to the Studio when there is no profile to go back to, and the Studio's brief wins", () => {
+    expect(rateBackLink("ath_1", {})).toEqual({ href: "/admin/campaigns/match", label: "Back to the Matching Studio" });
+    expect(rateBackLink("ath_1", { brief: "brf_1", from: "profile" })).toEqual({
+      href: "/admin/campaigns/match?brief=brf_1",
+      label: "Back to the Matching Studio",
+    });
+    expect(rateBackLink("ath_1", { from: "elsewhere" })).toEqual({ href: "/admin/campaigns/match", label: "Back to the Matching Studio" });
+  });
+});
+
+describe("the profile's way in", () => {
+  const athlete = { kind: "ATHLETE", state: "APPROVED", id: "ath_1" } as const;
+
+  it("is offered on an approved athlete to the roles that set rates", () => {
+    for (const r of ["BTG_ADMIN", "NETWORK_MGR", "SUPER_ADMIN"]) {
+      expect(profileRateCardHref(athlete, [r]), r).toBe("/admin/athletes/ath_1/rates?from=profile");
+    }
+    expect(profileRateCardHref({ ...athlete, state: "AUTO_APPROVED" }, ["NETWORK_MGR"])).toBe("/admin/athletes/ath_1/rates?from=profile");
+  });
+
+  it("is not offered to a role that can't set rates, a held or rejected athlete, or a guardian", () => {
+    expect(profileRateCardHref(athlete, ["CAMPAIGN_MGR"])).toBeNull();
+    expect(profileRateCardHref(athlete, [])).toBeNull();
+    expect(profileRateCardHref({ ...athlete, state: "NEEDS_REVIEW" }, ["BTG_ADMIN"])).toBeNull();
+    expect(profileRateCardHref({ ...athlete, state: "REJECTED" }, ["BTG_ADMIN"])).toBeNull();
+    expect(profileRateCardHref({ ...athlete, kind: "GUARDIAN" }, ["BTG_ADMIN"])).toBeNull();
   });
 });
 

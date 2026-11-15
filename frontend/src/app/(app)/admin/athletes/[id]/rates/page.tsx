@@ -3,7 +3,7 @@ import { EmptyState } from "@/components/states";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { RateCardEditor } from "@/components/rate-card-editor";
 import { textParam, type SearchParams } from "@/lib/list-query";
-import { studioHref, validId, type ApiRateEditor } from "@/lib/athlete-rates-live";
+import { rateBackLink, validId, type ApiRateEditor } from "@/lib/athlete-rates-live";
 import { apiFetch, fetchActor } from "@/server/api";
 import { saveAthleteRate, saveAthleteTier } from "./actions";
 
@@ -20,7 +20,8 @@ import { saveAthleteRate, saveAthleteTier } from "./actions";
    Writes POST /athletes/{id}/rates, PUT /athletes/{id}/tier   (./actions.ts)
 
    ?job=SX-01 opens that job's editor (the Studio's "Set a rate" link);
-   ?brief=… adds the way back to the Studio on that brief. Only BTG admins
+   ?brief=… adds the way back to the Studio on that brief; ?from=profile
+   (the athlete profile's "Rate card" section) leads back there. Only BTG admins
    and network managers — the API's athleteRate write — reach it.
    -------------------------------------------------------------------------- */
 
@@ -53,7 +54,7 @@ export default async function AthleteRatesPage({
   const sp = await searchParams;
   const brief = textParam(sp, "brief");
   const job = textParam(sp, "job");
-  const back = { href: studioHref(validId(brief) ? brief : null), label: "Back to the Matching Studio" };
+  const back = rateBackLink(id, { brief, from: textParam(sp, "from") });
 
   const data = validId(id) ? await load(id) : ({ kind: "denied" } as const);
 
@@ -70,7 +71,7 @@ export default async function AthleteRatesPage({
               ? "Rates are set by BTG admins and athlete network managers."
               : "Either the athlete isn't in your organisation, or your role can't set rates. BTG admins and athlete network managers set them."
           }
-          action={{ label: "Back to the Matching Studio", href: back.href }}
+          action={{ label: back.label, href: back.href }}
         />
       </div>
     );
