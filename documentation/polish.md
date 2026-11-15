@@ -1746,6 +1746,61 @@ POL-FE-43. Each front-end task waits for its back-end one.
   - `frontend/tests/student-apply-link.test.ts`: pins the card, where it
     shows, and the footer link.
 
+### 49. NEXT student: log a business from My sales
+`POL-FE-49` · *Friction* · confirmed (found in walkthrough practice, 2026-11-15)
+
+- **Problem:** the student portal felt view-only. On My sales the button
+  was disabled with "Adding one yourself isn't available yet", although the
+  API has taken a student's prospects since P9-BE-13
+  (`POST /students/:id/prospects`, STUDENT `rwa("own", "own")` on
+  `studentProspect`).
+- **Frontend (`POL-FE-49`):** a **Log a business** form (business name and
+  kind of business, the two fields `ProspectInput` takes). The API decides
+  it straight away, so the form says where it landed:
+  - accepted: "… is accepted. Go ahead and pitch them, and give them your
+    code.";
+  - refused: "… can't be accepted: another sponsor already has that kind of
+    business. You keep the credit for bringing it in.";
+  - held: "… is waiting for SponsorX to check it. You'll hear back either
+    way." (never the internal reasons, which the API does not send).
+  The list refreshes, back to page one with no filter, so the new business
+  shows at the top.
+- **The automatic rules (backend, unchanged — `submitProspect` in
+  `backend/src/domain/student.ts`, `autoDecideProspectIn` in
+  `student-auto.ts`, `prospectVerdict` in `student-auto-rules.ts`):**
+  - refused at once (HTTP 422) for an unknown category or one the student
+    programme never sells; refused (HTTP 409) unless the student is ACTIVE;
+  - **refused** (`CATEGORY_EXCLUSIVE`, with the categories still open) when
+    another sponsor holds that category at the student's school (a
+    presenting ad slot with a campaign in a live edition of the school's
+    publication);
+  - **held** for SALES (or BTG admins when the tenant has no SALES user),
+    with reasons, for a sensitive category, a school restriction, an athlete restriction
+    at the school, the business is already a sponsor (or its name has no
+    letters to match), or another student already has it open;
+  - **accepted** when nothing is in the way. One business name is decided at
+    a time, so two students cannot both be accepted for it.
+- **Done when:** an ACTIVE student logs a business, sees the outcome, and
+  finds it in their list; BTG sees it on Admin → NEXT → Prospects
+  (`/admin/next/prospects`: held ones under "Waiting on you", decided ones
+  under "Decided automatically", all under "All"); build and tests pass.
+- **Delivered (2026-11-15, infinex1):**
+  - `frontend/src/components/student-prospect.tsx`: "Log a business",
+    plainer labels, the outcome in its tone, list reset and refresh.
+  - `frontend/src/app/(app)/next/actions.ts`: reads `{ id, state }` from the
+    API and returns the state with its message. The student id still comes
+    from `/me`, never the form.
+  - `frontend/src/lib/students-live.ts`: `prospectOutcome()`.
+  - `frontend/src/app/(app)/next/sales/page.tsx`: the fixture screen uses
+    the same form in place of the disabled button. A BTG preview is not a
+    student, so sending there says "Only a signed-in student can log a
+    business."
+  - `frontend/src/app/(app)/next/live-views.tsx`: the not-yet-active wording.
+  - `frontend/tests/student-log-business.test.ts`.
+  - No backend change. Nothing on the backend blocks an ACTIVE student. A
+    student who is not ACTIVE still sees the button disabled ("You can log a
+    business once you're on the masthead"), as the API would refuse them.
+
 ---
 
 ## Checked and fine

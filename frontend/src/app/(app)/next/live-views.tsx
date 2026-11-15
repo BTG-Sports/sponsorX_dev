@@ -191,7 +191,7 @@ export function LiveStudentSales({ live, pstate = "" }: { live: Student; pstate?
             code <span className="font-semibold text-next">{live.code ?? "not issued yet"}</span>
           </p>
         </div>
-        <ProspectForm disabledReason={s.state === "ACTIVE" ? undefined : "Prospects open once you're on the masthead"} />
+        <ProspectForm disabledReason={s.state === "ACTIVE" ? undefined : "You can log a business once you're on the masthead"} />
       </div>
       <ActiveOnly s={s} />
 

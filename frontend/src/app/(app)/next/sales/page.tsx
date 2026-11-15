@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Meter, SectionHeading } from "@/components/ui";
+import { Badge, Card, Meter, SectionHeading } from "@/components/ui";
 import { MiniChip } from "@/components/hero";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
@@ -6,6 +6,7 @@ import { liveStudent } from "../live";
 import { apiListQuery, textParam } from "@/lib/list-query";
 import { LEDGER_KEYS, PROSPECT_FILTERS, keyedListQuery, prospectStatesFor } from "@/lib/students-live";
 import { LiveStudentSales, StudentUnlinked } from "../live-views";
+import { ProspectForm } from "@/components/student-prospect";
 import {
   PROSPECT_COPY,
   money,
@@ -69,12 +70,9 @@ export default async function StudentSalesPage({
           <span className="font-semibold text-next">{student.salesCode}</span>
         </p>
       </div>
-      <Button
-        disabled
-        title="Prospects are logged by SponsorX when your code is used. Adding one yourself isn't available yet."
-      >
-        Add a prospect
-      </Button>
+      {/* POL-FE-49 — the same form the live screen uses. On a preview
+          nobody is a student, so sending says so instead of logging. */}
+      <ProspectForm />
     </div>
   );
 
