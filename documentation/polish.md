@@ -1633,6 +1633,31 @@ POL-FE-43. Each front-end task waits for its back-end one.
   and `inventory-item.tsx` (passes the page's "All items" link). Not yet
   deployed.
 
+### 45. "Categories you won't promote": the category list is cut off
+`POL-FE-45` · *Dead end* · confirmed (found in walkthrough practice, 2026-11-15)
+
+- **Problem:** on the athlete's Inventory page, the "Add a category…" menu in
+  "Categories you won't promote" opens as a thin empty strip just under the
+  button. The rest of the list is hidden by the panel around it, so the athlete
+  can't pick a category and can't add a restriction at all.
+- **Frontend (`POL-FE-45`):** let the menu show past the panel's edge, so the
+  whole list shows and every category can be picked. Nothing else on the page
+  changes.
+- **Done when:** the menu shows all 25 categories (scrolling within itself);
+  picking one and pressing Add adds the restriction; the panel looks as before
+  when the menu is closed.
+- **Delivered (2026-11-15, infinex1):**
+  - The cause: every arena panel (`.sx-arena-plate`) hides whatever spills past
+    its edge, and the menu opens below the button, past the panel's bottom.
+  - `frontend/src/app/globals.css`: a new `.sx-arena-plate-open` modifier lets
+    one panel show what spills past its edge; its pointer spotlight keeps the
+    rounded corners. (A Tailwind `overflow-visible` class would not work: the
+    panel rule sits outside Tailwind's layers, so it wins.)
+  - `frontend/src/app/(app)/athlete/inventory/page.tsx`: the restrictions panel
+    uses it. Other panels and the shared `Dropdown` are unchanged.
+  - The team manager's inventory pages have no restrictions section, so
+    nothing to change there.
+
 ---
 
 ## Checked and fine
