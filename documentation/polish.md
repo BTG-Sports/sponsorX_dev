@@ -1839,6 +1839,134 @@ POL-FE-43. Each front-end task waits for its back-end one.
   - `frontend/tests/content-ready-note.test.ts`.
   - No backend change.
 
+### 51. A campaign request from a random package can stall, and the sponsor isn't told why
+`POL-FE-51` · *Silent* · *Dead end* · confirmed (found in walkthrough practice, 2026-11-15)
+
+- **Problem:** the walkthrough lets a tester get the feel of the app by
+  picking freely. A sponsor goes Marketplace → Packages → **Request this** →
+  **Submit brief to BTG**. Whether that request ever becomes a staffed,
+  running campaign depends on facts the sponsor can't see, so a package
+  picked at random can end in a request that is held, or a campaign nobody
+  can be offered. Nothing on screen says why: the sponsor's request pages
+  never show BTG's hold reasons (`sponsor/requests/[id]/page.tsx`, by design
+  of `sponsorBriefStatus`).
+- **Why it matters:** a tester, and later a real sponsor, reads the silence
+  as "the app is broken". It also hides that the network has no one for that
+  package yet, which is the one thing a sponsor could act on (pick another
+  package, widen the sport or area, raise the budget).
+- **What gates it (checked in the code, 2026-11-15):**
+  - **Automatic approval** (`backend/src/domain/brief-auto-rules.ts`,
+    `autoApprovalHolds`) holds the brief for BTG unless all of these pass: a
+    package still on sale; the budget at least the package's `priceLow`; at
+    least the package's `athleteCountMin` athletes **fit**; no sensitive
+    category; the sponsor in good standing.
+  - **"Fit"** (`athleteFit` in `backend/src/domain/matching.ts`) means
+    ACTIVE, in one of the brief's sports and states (an exact match on the
+    words), and not restricted for the brief's or the sponsor's categories.
+    So a sport or area no live athlete has gives a fit count of 0 and an
+    `ATHLETES` hold ("No athletes fit yet; the package needs 5").
+  - **Automatic staffing** (`backend/src/domain/auto-staffing.ts`) then
+    walks that shortlist and, for each athlete, drafts and sends **one offer
+    per package job line** (`offer-draft.ts`, `offer.ts`, the same rules as
+    `invitation.ts`). An athlete who fails any line (a category restriction
+    over the dates, a minor's guardian not verified, a pay floor) is skipped;
+    the next athlete whose offers don't fit the budget left stops staffing;
+    running out of athletes below the minimum stops it too. A stop is only
+    shown to the sponsor as "BTG is finding more athletes" (#22).
+  - **The rate card is not a hard gate.** The finding as first reported said
+    an athlete needs a rate for every job in the package. The code does not
+    require one: with no rate on file the offer's pay is the middle of the
+    job's base range (`offer-draft.ts`, "No rate on file for …"), and the
+    match score gives 0 rate points (`match-score.ts`), so those athletes
+    rank lower but are still offered. A rate only matters as a floor the pay
+    may not go under. Worth knowing when seeding test data: athletes need
+    the right **sport, state, ACTIVE state and no conflicting restriction**,
+    and rates make them rank and price well.
+- **Related, found in the same walk:**
+  - **Sport and Geography in the brief drawer come from fixtures, even on
+    live.** `frontend/src/components/brief-request-drawer.tsx` (lines 56–60)
+    builds `SPORT_OPTIONS` and `GEO_OPTIONS` from `athleteInv` in
+    `@/lib/fixtures`, and `brief-request.ts` sends the pick as `sports` and
+    `stateCodes`. A sport listed there that no live athlete plays is a
+    guaranteed `ATHLETES` hold.
+  - **There is no "launch now" for BTG on screen.** A campaign goes ACTIVE
+    on its own at 00:00 UTC on its start date (`campaign-launch.ts`), and a
+    blank start date in the drawer means **14 days from today**
+    (`frontend/src/lib/brief-request.ts`, line 124). The API has
+    `POST /campaigns/:id/launch` (BTG's manual launch, P5-BE-04) and the
+    campaign page even says "BTG can still launch it sooner", but no screen
+    calls it. So the sponsor's **See results** never appears during a test.
+  - **The Start date showed today, and today is always held.** On staging
+    (2026-11-15) the drawer's Start date showed **11/15/2026** already
+    filled in, and a brief sent as it stood was held with "Dates: the start
+    date (Nov 15, 2026) isn't in the future". So every untouched request
+    went to BTG.
+    - **Where the date comes from (checked):** not from our code. The field
+      starts empty (`useState("")`, `brief-request-drawer.tsx` line 263) and
+      is the browser's native `<input type="date">` with no `min` and no
+      default. Only an empty value becomes today + 14 days
+      (`brief-request.ts` line 124), and `origin/main` has the same code. So
+      the date on screen came from the browser: some browsers (Safari, iOS)
+      draw today's date in an empty date field, browser autofill can fill
+      it, and a native picker opens on today, so one tap selects it. Once
+      today is the value, it is sent as is.
+    - **Why it is held:** the readiness rule
+      (`backend/src/domain/brief-readiness-rules.ts`, line 92) needs the
+      start strictly after now. Today at 00:00 UTC is already past, so
+      today can never pass. Nothing in the drawer stops it: no `min`, no
+      check before sending, and the sponsor never sees the hold.
+    - **Also:** the owner rejects the native date input in portal UIs
+      (`date-range-picker.tsx`, header comment, P1-ART-23). The brief
+      drawer still uses one.
+  - **NEXT magazine ad packages sit in the same Packages list** as the
+    athlete campaign packages (`backend/src/domain/sponsor-packages.ts`
+    seeds both), with nothing that tells a sponsor which is which. An
+    ad-only package has no athlete job lines, so automatic staffing has
+    nothing to do for it (`auto-staffing.ts`: "nothing to staff
+    automatically").
+- **Suggested fix (mostly frontend, `POL-FE-51`; the two reads marked API
+  are small backend additions, to split out as `POL-BE-51` if rcfworks
+  takes them):**
+  - **Tell the sponsor plainly when a request can't be staffed yet.** On
+    the request page, when the brief is held only for `ATHLETES`, say "We
+    don't have enough athletes for this package in {sport / area} yet. Try
+    another package, sport or area, or BTG will be in touch." (API: a
+    sponsor-safe `waitingOn: "ATHLETES" | "BTG" | null` on the brief, never
+    the full hold text, never athlete names.)
+  - **Show which packages are staffable.** On Packages, and in the drawer
+    once a sport and area are picked, a line such as "Ready to staff" or
+    "Not enough athletes in your area yet". (API: a yes/no per package for
+    the sponsor's targeting; a count or names never leave BTG.)
+  - **Live Sport and Geography options**, from the API's own vocabulary or
+    the live athlete pool, with the fixture lists kept for `?demo=` only.
+  - **Tester Facility seeds a staffable network:** for every athlete package,
+    at least `athleteCountMin` ACTIVE adult athletes in one sport and state,
+    with no restrictions and a rate for each job line (rates are not
+    required, but they keep test prices realistic). The facility's source is
+    not in this repo; record the change there.
+  - **A BTG "Launch now" button** on the admin campaign page for a campaign
+    in APPROVAL, calling the existing `POST /campaigns/:id/launch`, with an
+    "are you sure?". Or, for staging only, a test-mode start date of today.
+  - **A start date that can't be held:** show the date that will be sent.
+    Fill the field with today + 14 days (the rule a blank already follows)
+    or with tomorrow, so it never looks empty and the value matches the
+    screen. Set the earliest pick to tomorrow. Refuse today or a past date
+    in the drawer, in words ("The start date must be after today"), before
+    sending. Preferably use the house date picker (`DateRangePicker` in
+    single-day use, with `min` set to tomorrow) instead of the native field.
+  - **Tell the two kinds of package apart:** a "Magazine ad (NEXT)" label or
+    its own tab on Packages, so a sponsor testing athlete campaigns doesn't
+    pick an ad package by accident.
+- **Done when:** a tester who picks any athlete package from the Tester
+  Facility's seeded network gets an approved, staffed request; a package
+  that can't be staffed says so before or right after submitting, in plain
+  words, with no hold text or athlete details shown; Sport and Geography
+  list live values on live; the Start date shows a date after today when
+  the drawer opens, today and past days can't be picked, and an untouched
+  brief is never held for `DATES`; BTG can launch an approved campaign on the spot
+  and the sponsor then sees **See results**; NEXT ad packages are labelled
+  apart from athlete packages; build and tests pass.
+
 ---
 
 ## Checked and fine
