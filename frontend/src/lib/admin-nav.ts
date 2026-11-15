@@ -42,6 +42,8 @@ export const ADMIN_NAV: NavItem[] = [
   /* 2S4-FE-04 — lines a sponsor reported, or a seller is late marking delivered. */
   { href: "/admin/delivery-issues", label: "Delivery issues", icon: "flag", group: "Marketplace", groupIcon: "store" },
   { href: "/admin/marketplace", label: "Marketplace", icon: "store", group: "Marketplace" },
+  /* POL-FE-54 (app review B3) — every marketplace order, searchable. */
+  { href: "/admin/marketplace/orders", label: "All orders", icon: "store", group: "Marketplace" },
   /* 2S1-FE-11 — the restricted-words list. */
   { href: "/admin/restricted-words", label: "Restricted words", icon: "ban", group: "Marketplace" },
 

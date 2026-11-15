@@ -13,6 +13,7 @@ import {
 } from "@/lib/profile-live";
 import { money } from "@/lib/fixtures";
 import { apiFetch, fetchActor } from "@/server/api";
+import { viewerIsAthlete } from "@/lib/athlete-order-pause";
 
 /* --------------------------------------------------------------------------
    Your public profile — inside the Athlete Portal (2026-09-14 UX pass).
@@ -51,7 +52,7 @@ async function liveProfile(): Promise<{ p: ApiMyProfile; rates: ApiRate[] } | nu
      presented as the athlete's own profile (QA pass 4 rule). */
   const who = await fetchActor();
   if (who.status !== "linked") return null;
-  if (!who.actor.roles.includes("ATHLETE")) return null;
+  if (!viewerIsAthlete(who.actor) /* POL-FE-55 (app review B4): a guardian acting for a minor too */) return null;
 
   const res = await apiFetch("/athletes/me");
   /* A 403 here is an athlete role with no athlete row — a provisioning gap,

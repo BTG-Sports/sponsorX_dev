@@ -23,6 +23,7 @@ import {
   EditionConditionsInput,
   EditionEventInput,
   EditionInput,
+  EditionPatch,
   EditionTransitionInput,
   PublicationInput,
   RateCardInput,
@@ -49,7 +50,7 @@ import {
   setEditionConditions,
   transitionEdition,
 } from "../../domain/edition";
-import { EditionNotFoundError } from "../../domain/edition";
+import { EditionNotFoundError, listPublications, updateEdition } from "../../domain/edition";
 import { PUBLISHED_STATES } from "../../domain/edition-state";
 
 export const editionsRouter = Router();
@@ -318,6 +319,19 @@ const saleCandidates: RequestHandler<{ id: string }> = async (req, res) => {
   });
 };
 
+/** POL-BE-56 — GET /publications: the mastheads, and (for BTG) the schools a new one may be for. */
+const publications: RequestHandler = async (req, res) => { res.json(await listPublications(req.actor!)); };
+/** POL-BE-56 — PATCH /editions/:id: dates, page count, threshold, while PLANNING or SELLING. */
+const editEdition: RequestHandler<{ id: string }> = async (req, res) => {
+  const b = EditionPatch.parse(req.body ?? {});
+  const d = (v: string | null | undefined) => (v === undefined ? undefined : v === null ? null : new Date(v));
+  res.json(await updateEdition(req.actor!, req.params.id, {
+    label: b.label, closeDate: b.closeDate ? new Date(b.closeDate) : undefined, publishTarget: b.publishTarget ? new Date(b.publishTarget) : undefined,
+    printDate: d(b.printDate), pageCount: b.pageCount, thresholdCents: b.thresholdCents, salesOpenAt: d(b.salesOpenAt),
+  }));
+};
+editionsRouter.get("/publications", requireActor, publications);
+editionsRouter.patch("/editions/:id", requireActor, editEdition);
 editionsRouter.post("/publications", requireActor, newPublication);
 editionsRouter.post("/publications/:id/editions", requireActor, newEdition);
 editionsRouter.get("/editions", requireActor, listEditions);

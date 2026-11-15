@@ -88,7 +88,7 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
                 const line = p.lines.find((l) => l.orderId === o.orderId);
                 return (
                   <Card key={o.orderId}>
-                    <p className="text-xs font-medium tabular-nums">{o.orderRef}</p>
+                    <p className="text-xs font-medium tabular-nums"><Link className="underline" href={`/admin/marketplace/orders/${encodeURIComponent(o.orderId)}`}>{o.orderRef}</Link></p>
                     <p className="text-[11px] text-muted">{o.title}</p>
                     {splits[i]!.map((f) => {
                       const s = payeeShare(f, p.payeeType);

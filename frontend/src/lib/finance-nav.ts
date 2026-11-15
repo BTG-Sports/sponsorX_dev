@@ -17,6 +17,8 @@ export const FINANCE_NAV: NavItem[] = [
   /* Money in and out. */
   /* P8-FE-05 — a concern raised about a deal pauses the order and holds its earning; Finance reads along, a BTG admin decides. */
   { href: "/finance/deal-disputes", label: "Deal disputes", icon: "flag", group: "Money", groupIcon: "card" },
+  /* POL-FE-54 (app review B3) — every marketplace order, to record a bank transfer on it. */
+  { href: "/finance/orders", label: "All orders", icon: "store", group: "Money" },
   /* 2S5-FE-08 — sponsors' card disputes: Finance takes them for review; a BTG admin resolves. */
   { href: "/finance/disputes", label: "Disputes", icon: "flag", group: "Money" },
   /* 2S5-FE-07 — the payment provider's events SponsorX could not apply. */

@@ -38,6 +38,7 @@ import {
 import { formatCount } from "@/lib/format-count";
 import { pageParams, pageParamsFor, textParam, type SearchParams } from "@/lib/list-query";
 import { apiFetch, fetchActor } from "@/server/api";
+import { mayActOnEarnings } from "@/lib/earning-actions";
 import { CampaignsTab, EarningsTab, INVOICE_KEYS, InvoicesTab, PATH, RECON_KEYS, tabHref, tabOf, type Books, type EarningsPage, type InvoicesPage } from "./books";
 import { demoBooks, demoOverview } from "./demo";
 import { Aging, DialLedger } from "./pieces";
@@ -101,6 +102,8 @@ type Treasury = {
   sample?: boolean;
   /** P8-FE-05 — the deal disputes pausing orders (earnings tab only): a HELD earning says why. */
   disputes?: ApiDealDispute[];
+  /** POL-FE-53 — whether this viewer approves and pays earnings (FINANCE, SUPER_ADMIN). */
+  canAct?: boolean;
 };
 
 /** One API read; anything not-ok is an error (the error page). */
@@ -138,7 +141,7 @@ async function liveTreasury(sp: SearchParams): Promise<Treasury | null> {
         ? { tab, invoices: await readJson<InvoicesPage>(`/earnings/invoices${pagedQuery(pageParamsFor(sp, INVOICE_KEYS))}`) }
         : { tab, earnings: earlyEarnings ?? (await readJson<EarningsPage>(earningsPath)) };
   const disputes = books.tab === "earnings" ? (earlyDisputes ?? (await readPausingDisputes())) : [];
-  return { ov, range, books, q, state, sp, disputes };
+  return { ov, range, books, q, state, sp, disputes, canAct: mayActOnEarnings(who.actor.roles) };
 }
 
 /* words ----------------------------------------------------------------- */
@@ -338,7 +341,7 @@ function TreasuryView({ t }: { t: Treasury }) {
           </TabStrip>
           <p className="text-[11.5px] text-[color:var(--vault-muted)]">Status only — no tax ID or bank details.</p>
         </div>
-        {books.tab === "earnings" && <EarningsTab data={books.earnings} q={t.q} state={t.state} sample={t.sample} disputes={t.disputes} />}
+        {books.tab === "earnings" && <EarningsTab data={books.earnings} q={t.q} state={t.state} sample={t.sample} disputes={t.disputes} canAct={t.canAct} />}
         {books.tab === "campaigns" && <CampaignsTab data={books.recon} />}
         {books.tab === "invoices" && (
           <InvoicesTab

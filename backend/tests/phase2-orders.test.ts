@@ -403,6 +403,19 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
       expect((await call("GET", "/marketplace-orders?state=PENDING_APPROVAL", "mo_admin")).json.orders.length).toBeGreaterThanOrEqual(1);
       expect((await call("GET", "/marketplace-orders", "mo_mgr")).status).toBe(403);
     });
+
+    it("POL-BE-54 · BTG and Finance find any order by sponsor name or id, and each row names its sponsor", async () => {
+      for (const who of ["mo_admin", "mo_finance"]) {
+        const bySponsor = (await call("GET", "/marketplace-orders?page=1&size=50&q=harbor", who)).json;
+        expect(bySponsor.orders.length, who).toBeGreaterThanOrEqual(1);
+        expect(bySponsor.orders.every((o: { sponsorId: string; sponsorName: string }) => o.sponsorId === "mo_s1" && o.sponsorName === "Harbor Apparel"), who).toBe(true);
+        const byId = (await call("GET", `/marketplace-orders?page=1&q=${approvedId.slice(-8)}`, who)).json;
+        expect(byId.orders.map((o: { id: string }) => o.id), who).toContain(approvedId);
+        expect(byId.tabs.find((t: { key: string }) => t.key === "all").count, who).toBeGreaterThanOrEqual(1);
+      }
+      /* Another sponsor's name finds nothing of theirs for a sponsor — the match only narrows inside the caller's scope. */
+      expect((await call("GET", "/marketplace-orders?page=1&q=harbor", "mo_s2_admin")).json.orders).toEqual([]);
+    });
   });
 
   /* ── 2S4-FE-02 ─────────────────────────────────────────────────────────── */

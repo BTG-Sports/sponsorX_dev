@@ -25,6 +25,8 @@ import {
 import { noEditionHint, readJson, type LiveEditions } from "../live";
 import { artworkGate, artworkStatus } from "@/lib/edition-artwork-live";
 import { EditionSwitcher, NextHeading } from "@/components/next-heading";
+import { CancelEditionButton, EditEditionForm, NewEditionForm, NewPublicationForm } from "@/components/next-setup";
+import { maySetUpNext, type ApiPublications } from "@/lib/next-setup-live";
 
 /* P1-ART-25 restructure — the heading and the edition switcher moved to
    components/next-heading.tsx (the Finance portal's Splits uses them too);
@@ -68,6 +70,36 @@ const STATE_TONE: Record<string, "primary" | "warn" | "neutral" | "accent" | "da
   CANCELLED: "danger",
 };
 
+/** POL-FE-56 (app review B5) — BTG's "Set up": new publication, new edition, and the current edition's edit and cancel. */
+async function SetupPanel({ live }: { live: LiveEditions }) {
+  if (!maySetUpNext(live.roles)) return null;
+  const pubs = (await readJson<ApiPublications>("/publications")).body ?? { publications: [], schools: [] };
+  const e = live.current;
+  const box = "rounded-xl border border-line-soft p-4";
+  return (
+    <section aria-label="Set up NEXT" className="space-y-3">
+      <h2 className="text-sm font-semibold tracking-tight">Set up</h2>
+      <details className={box}>
+        <summary className="cursor-pointer text-xs font-medium">New edition</summary>
+        <div className="mt-3"><NewEditionForm publications={pubs.publications} /></div>
+      </details>
+      <details className={box}>
+        <summary className="cursor-pointer text-xs font-medium">New publication</summary>
+        <div className="mt-3"><NewPublicationForm schools={pubs.schools} /></div>
+      </details>
+      {e && (
+        <details className={box}>
+          <summary className="cursor-pointer text-xs font-medium">Edit or cancel {e.label}</summary>
+          <div className="mt-3 space-y-4">
+            <EditEditionForm edition={e} />
+            <CancelEditionButton edition={e} />
+          </div>
+        </details>
+      )}
+    </section>
+  );
+}
+
 export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live: LiveEditions; initialOpenPage?: number; now: number }) {
   const e = live.current;
   if (!e) {
@@ -78,6 +110,7 @@ export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live
           mark="chart"
           {...noEditionHint(live, "An edition is created on its publication with a close date and a threshold, then laid out at the editorial meeting.")}
         />
+        <SetupPanel live={live} />
       </div>
     );
   }
@@ -421,6 +454,7 @@ export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live
           )}
         </div>
       </div>
+      <SetupPanel live={live} />
     </div>
   );
 }

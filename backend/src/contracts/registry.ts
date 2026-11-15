@@ -84,6 +84,7 @@ import {
   EditionConditionsInput,
   EditionEventInput,
   EditionInput,
+  EditionPatch,
   EditionTransitionInput,
   RateCardInput,
   SaleHoldsQuery,
@@ -504,6 +505,8 @@ const PATHS: Row[] = [
   // SponsorX NEXT — editions and ad inventory (Stage 9 Batch A)
   { method: "post", path: "/publications", tag: "Editions", summary: "Create a masthead — a school's (propertyId) or the regional one (null) (P9-BE-02).", body: PublicationInput, status: 201 },
   { method: "post", path: "/publications/{id}/editions", tag: "Editions", summary: "Create an edition in PLANNING (P9-BE-02).", body: EditionInput, status: 201 },
+  { method: "get", path: "/publications", tag: "Editions", summary: "The mastheads in the caller's scope, each with `schoolName`; for those who may create one, `schools` — the tenant's schools a new publication may be for (POL-BE-56)." },
+  { method: "patch", path: "/editions/{id}", tag: "Editions", summary: "Change an edition's label, close / publish / print dates, page count, threshold or sales-open day while PLANNING or SELLING (409 after); close before print before publish (422 otherwise). Audited (POL-BE-56).", body: EditionPatch },
   { method: "get", path: "/editions", tag: "Editions", summary: "Editions in the caller's scope, with inventory counts, committed revenue, the digital rights gap and — for artwork readers — `artworkPending`, the sold slots whose artwork is not yet approved (P9-FE-03, P9-BE-16)." },
   { method: "get", path: "/editions/{id}", tag: "Editions", summary: "An edition, with its production conditions and state; `salesOpenAt`; `nextStep: { who: SYSTEM|BTG|NONE, text }` — what happens next and, when a gate fails, why (\"Waiting for content ready\", \"2 sold ads have no approved artwork\") (P9-BE-17); `stageHistory: [{ from, to, at, movedAutomatically, reason }]`, newest first; and `splitLocked: { at, by: { userId, email }, note } | null` (P9-BE-19)." },
   { method: "get", path: "/editions/{id}/ledger", tag: "Editions", summary: "The inventory ledger: each slot's page, state, value, — for campaign readers — buyer, and — for artwork readers — each sold slot's artwork on the approval board (P9-FE-04, P9-BE-16)." },

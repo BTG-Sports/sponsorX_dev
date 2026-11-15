@@ -224,3 +224,49 @@ export function launchRefusal(status: number, body: unknown): string {
   if (status >= 500) return "Something went wrong on our side, so the campaign wasn't launched. Try again in a minute.";
   return said ? `It wasn't launched: ${said}` : `It wasn't launched (HTTP ${status}).`;
 }
+
+/* --------------------------------------------------------------------------
+   POL-FE-52 (app review B1) — moving a campaign between DRAFT, STAFFING and
+   APPROVAL by hand. Automatic staffing stops below the package minimum and
+   the automatic STAFFING → APPROVAL move needs the maximum, so a partly
+   staffed campaign never reached APPROVAL (where "Launch now" lives). These
+   buttons call the existing POST /campaigns/{id}/transition. The API stays
+   the gate (campaign-state.ts and campaign.write); this only decides what
+   to show, to BTG's launch roles.
+   -------------------------------------------------------------------------- */
+
+export type StageMove = { to: "STAFFING" | "APPROVAL" | "DRAFT"; label: string; hint: string; primary: boolean };
+
+/** The hand moves BTG is offered from this state. */
+export function stageMoves(state: string, roles: readonly string[]): StageMove[] {
+  if (!roles.some((r) => (LAUNCH_ROLES as readonly string[]).includes(r))) return [];
+  if (state === "DRAFT") {
+    return [{ to: "STAFFING", label: "Start staffing", hint: "Opens the campaign to invitations and offers.", primary: true }];
+  }
+  if (state === "STAFFING") {
+    return [
+      { to: "APPROVAL", label: "Move to approval", hint: "Staffing is done — the campaign waits to launch.", primary: true },
+      { to: "DRAFT", label: "Back to draft", hint: "The brief needs changing before anyone is staffed.", primary: false },
+    ];
+  }
+  if (state === "APPROVAL") {
+    return [{ to: "STAFFING", label: "Back to staffing", hint: "More athletes are needed before launch.", primary: false }];
+  }
+  return [];
+}
+
+/** What BTG reads after a move. */
+export function stageMovedLine(to: StageMove["to"]): string {
+  if (to === "STAFFING") return "Moved to staffing.";
+  if (to === "APPROVAL") return "Moved to approval — it launches on its start date, or use Launch now.";
+  return "Moved back to draft.";
+}
+
+/** The API's refusal of a move, in words. */
+export function stageMoveRefusal(status: number, body: unknown): string {
+  const said = (body as { error?: { message?: string } } | null)?.error?.message;
+  if (typeof said === "string" && said) return said;
+  if (status === 403) return "Your role can't move this campaign.";
+  if (status === 409) return "The campaign moved on meanwhile — reload the page.";
+  return `SponsorX couldn't move the campaign (HTTP ${status}). Nothing changed.`;
+}

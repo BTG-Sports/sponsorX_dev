@@ -35,6 +35,7 @@ also has a back-end row waits for it.
 | F · Clean pass | 37–40 | Production shows outdated wording, developer notes and sample figures |
 | G · Support and help desk | 41–43 | Support messages live only in Gmail, and admins can't see what is wrong with a held request |
 | H · Found in walkthrough practice | 44–51 | Testers getting the feel of the app hit dead ends and silent waits |
+| I · Whole-app review | 52–78 | The 2026-11-15 review: 7 blockers, then every major and minor finding, in eight waves |
 
 **Closed 2026-11-15.** Every item, 1 to 51, is Done on the Polish sheet (71
 rows). The last two, #45 and #51, were walked live and closed on
@@ -42,6 +43,9 @@ rows). The last two, #45 and #51, were walked live and closed on
 was handed on rather than closed here: the Tester Facility seeding a
 staffable network (see #51). A new flaw found from here on is a new
 numbered item and a new row, not a reopened one.
+
+**Group I opened 2026-11-15** from the whole-app review: items 52–78,
+owned by rcfworks on both sides. Wave 1 (52–59) first.
 
 **Do number 4 first.** It is hurting sponsors now, while Stripe is paused.
 
@@ -2028,6 +2032,248 @@ POL-FE-43. Each front-end task waits for its back-end one.
   brief is never held for `DATES`; BTG can launch an approved campaign on the spot
   and the sponsor then sees **See results**; NEXT ad packages are labelled
   apart from athlete packages; build and tests pass.
+
+---
+
+## I · Whole-app review (2026-11-15)
+
+From `documentation/SponsorX-App-Review-2026-11-15.md` (the review's own IDs
+in brackets: B1–B7 are its blockers, §2–§8 its sections). Logged 2026-11-15
+by rcfworks, who owns both rows of every item here (programme owner's
+decision: "do all the waves"). Waves 1–8 are the order of work; wave 1 is
+the blockers and today's content review findings.
+
+**Two decisions taken with the plan (rcfworks, 2026-11-15):** approving a
+student's piece stays refused while the student's consent isn't on file,
+with that reason in words (the advisor's approval is never taken as a
+minor's consent); approving and paying campaign earnings stays Finance's
+(BTG_ADMIN gains no `earning.approve`).
+
+### Wave 1 — blockers and content review (today)
+
+### 52. A campaign can't leave Staffing short of the package maximum [B1]
+`POL-FE-52` · *Dead end* · confirmed
+- **Problem:** nothing on screen moves a campaign between DRAFT, STAFFING and
+  APPROVAL; automatic staffing stops below the minimum and the automatic move
+  needs the maximum, so a partly staffed campaign never launches.
+- **Fix:** "Start staffing", "Move to approval" and "Back to staffing" on the
+  admin campaign page, on the existing `POST /campaigns/:id/transition`.
+- **Done when:** BTG moves a campaign DRAFT → STAFFING → APPROVAL (and back)
+  from the campaign page, then launches it; a refused move shows the API's reason.
+
+### 53. Campaign earnings can't be approved or paid [B2]
+`POL-FE-53` · *Money* · confirmed
+- **Problem:** no screen calls `POST /earnings/:id/transition` or
+  `/adjustment`; earnings sit at Eligible or Approved for ever.
+- **Fix:** Finance's earnings rows get Approve, Hold / Release, Mark paid
+  (with a reference) and Adjust (with a reason). Finance-only, as the matrix has it.
+- **Done when:** Finance takes an earning Eligible → Approved → Paid, holds and
+  releases one, and adjusts one with a reason, from the Finance books.
+
+### 54. BTG and Finance can't find an ordinary marketplace order [B3]
+`POL-BE-54` · `POL-FE-54` · *Dead end* · confirmed
+- **Fix:** an "All orders" list (state filter, reference search) for BTG and
+  Finance; the order page open to Finance for recording a payment; links to the
+  order from payouts, refunds and delivery issues.
+- **Done when:** BTG or Finance finds any order by state or reference and opens
+  it; Finance records a bank transfer on it.
+
+### 55. A minor's invitation can't be answered; a guardian sees sample pages [B4, §3]
+`POL-FE-55` · *Minors* · confirmed
+- **Fix:** the athlete pages use `viewerIsAthlete(actor)` instead of
+  `roles.includes("ATHLETE")`: Invitations, the dashboard's Finish profile,
+  Profile and Profile edit.
+- **Done when:** a guardian acting for a minor sees and answers the minor's real
+  invitations and opens the real profile, never a sample.
+
+### 56. NEXT: BTG can't create or change a publication or an edition [B5]
+`POL-BE-56` · `POL-FE-56` · *Dead end* · confirmed
+- **Fix:** "New publication" and "New edition" forms on Admin → NEXT; a route
+  and form to edit an edition's dates and threshold while PLANNING or SELLING;
+  Cancel offered.
+- **Done when:** BTG creates a publication for a school (it then appears on
+  `/next/apply`), creates an edition, edits its dates, and cancels one.
+
+### 57. NEXT: an under-18 student can never join the masthead [B6]
+`POL-BE-57` · `POL-FE-57` · *Minors* · confirmed
+- **Fix:** the student's guardian is emailed when the application comes in;
+  BTG gets "Verify guardian" on the advisor desk's Approved group.
+- **Done when:** a minor's application emails the guardian; BTG verifies the
+  guardian from the desk; the advisor then adds the student to the masthead.
+
+### 58. NEXT: no sale is ever credited to a student [B7]
+`POL-FE-58` · *Money* · confirmed
+- **Fix:** `/s/<code>` carries the code into the sponsor's request form as a
+  "Student code" field, sent with the brief.
+- **Done when:** a request filed with a student code credits the student's sale
+  when its campaign is sold.
+
+### 59. Content review: points, rights, the list badge, BTG's view [§6]
+`POL-BE-59` · `POL-FE-59` · *Money* · *Consent* · confirmed
+- **Fix:** approving a piece accrues its points and records its usage right
+  from the student's consent (refused, with the reason, while no consent is on
+  file); the student's list says "Changes requested" for a piece sent back;
+  BTG staff see the live review desk, not the sample.
+- **Done when:** approval adds the points and a right, so the piece doesn't
+  block production; no consent → refused in words; the list badge matches the
+  drawer; BTG opens Advisor → Content review live.
+
+### Wave 2 — the walkthrough loop
+
+### 60. BTG can't open a campaign's sponsor report [§2]
+`POL-FE-60` · *Dead end* · confirmed
+- **Fix:** the report served for staff under `/admin/campaigns/[id]/report`.
+- **Done when:** BTG's "Sponsor report" opens the report.
+
+### 61. A published post waits on no queue [§2]
+`POL-BE-61` · `POL-FE-61` · *Silent* · confirmed
+- **Fix:** a "To verify" tab and dashboard card; BTG emailed when an athlete
+  marks a post published.
+- **Done when:** a post marked published appears under To verify and BTG is
+  emailed; verifying it moves it on.
+
+### 62. Reach is always zero; no tracking links [§2]
+`POL-FE-62` · *Dead end* · confirmed
+- **Fix:** "Record views" on the deliverable and the Approvals drawer;
+  "Create tracking link"; "Reach short" hidden until a metric exists.
+- **Done when:** recorded views show in the report; a tracking link can be made
+  and copied.
+
+### Wave 3 — campaign pipeline
+
+### 63. The BTG campaign desk sends people to the wrong place [§2]
+`POL-BE-63` · `POL-FE-63` · *Dead end* · confirmed
+- **Fix:** approving a held brief creates the campaign and starts staffing;
+  the Campaigns list always opens the campaign page ("Open in Matching Studio"
+  there); "Find a replacement" and the empty roster pass `?brief=`; a warning
+  before hand-picked sends also start automatic offers; Send hidden for the
+  network manager, saying who sends.
+- **Done when:** each of the five behaves as described.
+
+### 64. Nobody is told at three hand-offs [§2]
+`POL-BE-64` · `POL-FE-64` · *Silent* · confirmed
+- **Fix:** campaign managers emailed when an athlete accepts ("Orders to
+  draft" card); the athlete (or guardian) emailed when an order is SENT
+  ("Orders to sign" tile); the sponsor emailed, with a safe reason, when BTG
+  closes a brief; approved-not-active athletes reworded and counted ("To activate").
+- **Done when:** each email is queued at its step; each card or count shows.
+
+### 65. The sponsor's request form promises and allows the wrong things [§2]
+`POL-FE-65` · *Friction* · confirmed
+- **Fix:** objective needs 8 words, in the drawer and the edit form; the edit
+  form reuses the drawer's dates and live options and shows the new status;
+  wording says a passing request is approved at once; a held request links to
+  Requests; "See results" only once ACTIVE ("Open campaign" before).
+- **Done when:** each is visible on the sponsor's screens.
+
+### 66. A NEXT ad package request uses the athlete form [§2]
+`POL-BE-66` · `POL-FE-66` · *Friction* · suspected in part
+- **Fix:** a shorter ad request form, no athlete check, ad wording on the
+  sponsor's campaign page.
+- **Done when:** an ad package request asks only what an ad needs and never
+  says "being staffed".
+
+### 67. The sponsor can't see their fan reward or leads; loose links [§2]
+`POL-FE-67` · *Dead end* · confirmed
+- **Fix:** a "Fan reward" panel (QR, staff code) and a "Leads" tab on the
+  sponsor's campaign; "Download PDF" of the report; an order picker for
+  disputes; "Back to Campaign" uses the real id; campaign requests treat a 404
+  as an error.
+- **Done when:** each is on screen and works.
+
+### Wave 4 — athletes and guardians
+
+### 68. A minor's and a guardian's screens mislead [§3]
+`POL-FE-68` · *Minors* · confirmed
+- **Fix:** coded 403s pass through and guardian-controlled buttons are hidden;
+  the seat reads "Guardian"; the acting-for notice moves into the layout; a
+  minor reaches their Guardian requests page; pending confirmations link to
+  Confirmations.
+- **Done when:** a minor's login shows no always-failing button; a guardian's
+  seat is labelled plainly.
+
+### 69. Athlete orders, earnings and profile say untrue things [§3]
+`POL-BE-69` · `POL-FE-69` · *Money* · confirmed
+- **Fix:** Campaign orders lists offer-born orders and links deliverables;
+  Earnings says campaign pay is by BTG Finance (Stripe for shop sales); the
+  earnings drawer drops sample text; after accepting, Earnings says it starts
+  when deliverables are verified; the empty Invitations page says BTG matches
+  and invites; profile completion leaves rates out, links Agreements to
+  Confirmations and counts a guardian's signature; deliverable versions open;
+  one name per page and a Confirmations link.
+- **Done when:** each screen reads true.
+
+### 70. An applicant asked for changes can't make them [§3]
+`POL-BE-70` · `POL-FE-70` · *Dead end* · likely
+- **Fix:** a token page, `/join/edit?token=`, on the existing intake routes;
+  the email links to it.
+- **Done when:** an applicant opens the link, edits and resubmits.
+
+### Wave 5 — sponsor portal
+
+### 71. Sponsor dashboard, `/brief`, roles and teammates [§4]
+`POL-BE-71` · `POL-FE-71` · *Dead end* · confirmed
+- **Fix:** "Needs you" inside the empty dashboard; `/brief`'s timeline reworded;
+  request buttons hidden for non-admins and one role name; a sponsor admin can
+  re-invite a removed teammate.
+- **Done when:** each holds on screen; a removed teammate is re-invited.
+
+### 72. Sponsor portal loose ends [§4]
+`POL-BE-72` · `POL-FE-72` · *Friction* · confirmed
+- **Fix:** "Approved" while card payment is closed; the spending limit beside
+  the total; a "More" on shop listings; "Order again" to Shop; availability
+  filter and job names from `GET /catalogue/jobs`; one name for Intelligence;
+  Billing points Shop-only sponsors to Orders; "Not in your role" for staff on
+  `/sponsor/marketplace`; categories editable on the sponsor record.
+- **Done when:** each holds on screen.
+
+### Wave 6 — BTG admin, Finance, property
+
+### 73. Finance and payouts mislead [§5]
+`POL-BE-73` · `POL-FE-73` · *Money* · confirmed
+- **Fix:** payout emails open Finance's own payout page; an approved payout
+  says why it is waiting when payments are off; the Treasury tile opens a tab
+  with something in it; a "Sent back" tab; VOIDED reads "nothing owed"; refunds
+  wording; Finance sees committed revenue on editions.
+- **Done when:** each holds.
+
+### 74. System health, intelligence and staff accounts [§5]
+`POL-BE-74` · `POL-FE-74` · *Friction* · confirmed
+- **Fix:** parked Zoho jobs left out of the queue health ("Zoho not
+  connected"); Pricing and Forecasts say when they update; an attribution
+  Partners panel; staff test accounts noted for the Tester Facility.
+- **Done when:** each holds.
+
+### 75. Property, closures and email preferences [§5]
+`POL-FE-75` · *Friction* · confirmed
+- **Fix:** a team manager's dashboard buttons and Settings gated; a "Package
+  rules" block on the item form; closure deals linked; a Notifications section
+  in Settings.
+- **Done when:** each holds.
+
+### Wave 7 — NEXT
+
+### 76. NEXT applicants are never told anything [§6]
+`POL-BE-76` · `POL-FE-76` · *Silent* · confirmed
+- **Fix:** emails for received, approved (with sign-in steps), changes asked
+  and declined; the advisor sees whether a login was made.
+- **Done when:** each decision emails the applicant; the desk shows the login outcome.
+
+### 77. NEXT public pages, the QR and the student's edition [§6]
+`POL-BE-77` · `POL-FE-77` · *Dead end* · confirmed
+- **Fix:** a real QR of `/s/<code>`; the public edition shows approved text and
+  records clicks; "View the public edition" after publishing and linked school
+  list; a read-only "This edition" card for students and advisors; a roster
+  paste box on the advisor desk.
+- **Done when:** each holds.
+
+### Wave 8 — records
+
+### 78. `polish.md` says five things work that don't [§8]
+`POL-FE-78` · *Docs* · confirmed
+- **Fix:** correct items 9, 38, 40 and 51 and the Finance lines, once the
+  fixes above land.
+- **Done when:** this file matches the code.
 
 ---
 

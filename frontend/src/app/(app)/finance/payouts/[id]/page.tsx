@@ -169,7 +169,7 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
                 const line = p.lines.find((l) => l.orderId === o.orderId);
                 return (
                   <Tr key={o.orderId} i={i}>
-                    <Td><Primary sub={o.title}>{o.orderRef}</Primary></Td>
+                    <Td><Primary sub={o.title}><Link className="underline" href={`/finance/orders/${encodeURIComponent(o.orderId)}`}>{o.orderRef}</Link></Primary></Td>
                     <Td label="Split">
                       <span className="block space-y-1.5">
                         {splits[i]!.map((f) => {

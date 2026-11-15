@@ -21,6 +21,7 @@ import {
 import { textParam, type SearchParams } from "@/lib/list-query";
 import { apiFetch, fetchActor } from "@/server/api";
 import { respondToInvite } from "./actions";
+import { viewerIsAthlete } from "@/lib/athlete-order-pause";
 
 /* --------------------------------------------------------------------------
    Campaign Invitations — §21, §13 step 5. Athlete portal. Reworked
@@ -70,7 +71,7 @@ async function liveInbox(sp: SearchParams): Promise<LiveInbox | null> {
      athlete's own offers (QA pass 4 rule). */
   const who = await fetchActor();
   if (who.status !== "linked") return null;
-  if (!who.actor.roles.includes("ATHLETE")) return null;
+  if (!viewerIsAthlete(who.actor) /* POL-FE-55 (app review B4): a guardian acting for a minor too */) return null;
 
   const [res, sum] = await Promise.all([
     apiFetch(`/invitations${inboxApiQuery(sp)}`),

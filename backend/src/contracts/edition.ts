@@ -46,6 +46,19 @@ export const EditionInput = z
   })
   .meta({ id: "EditionInput" });
 
+/** POL-BE-56 — change an edition while PLANNING or SELLING; every field optional. */
+export const EditionPatch = z
+  .object({
+    label: z.string().min(1).max(100).optional(),
+    closeDate: z.iso.datetime().optional(),
+    publishTarget: z.iso.datetime().optional(),
+    printDate: z.iso.datetime().nullable().optional(),
+    pageCount: z.number().int().positive().max(500).nullable().optional(),
+    thresholdCents: z.number().int().nonnegative().max(INT4_MAX).optional(),
+    salesOpenAt: z.iso.datetime().nullable().optional(),
+  })
+  .meta({ id: "EditionPatch" });
+
 /* P9-BE-17 — the day an edition's sales open by themselves (null: by hand). */
 export const SalesOpenInput = z
   .object({ salesOpenAt: z.iso.datetime().nullable() })

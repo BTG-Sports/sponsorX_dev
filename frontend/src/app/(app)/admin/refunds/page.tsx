@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { MarkRefunded } from "@/components/refunds-desk";
 import { StatePill } from "@/components/order-bits";
@@ -95,7 +96,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
         <PagedTable page={page} noun="Refunds" label={sent ? "Sent refunds" : "Refunds to send"} columns={columns}>
           {rows.map((r, i) => (
             <Tr key={r.id} i={i} tone={sent ? undefined : "warn"}>
-              <Td><Primary>{refundRef(r)}</Primary></Td>
+              <Td><Primary>{r.orderId ? <Link className="underline" href={`/admin/marketplace/orders/${encodeURIComponent(r.orderId)}`}>{refundRef(r)}</Link> : refundRef(r)}</Primary></Td>
               <Td label="Sponsor">{r.sponsor.name}</Td>
               <Td label="Line" muted>{refundWhat(r)}</Td>
               <Td label="Amount" num className="font-semibold">{money(r.amountCents)}</Td>

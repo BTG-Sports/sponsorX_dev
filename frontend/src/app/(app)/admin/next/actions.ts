@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { apiFetch } from "@/server/api";
+import { editionBody, editionFormProblem, type EditionForm } from "@/lib/next-setup-live";
 import { contentReadyNote, type ApiEditionState, type ApiSlotKind } from "@/lib/editions-live";
 import { CONSENT_GRANTORS, type AssetKind, type GrantorKind, type SourceKind } from "@/lib/rights-live";
 
@@ -263,4 +264,44 @@ export async function splitLockAction(editionId: string, lock: boolean, text: st
   } catch {
     return { ok: false, message: unreachable };
   }
+}
+
+/* ── POL-FE-56 (app review B5) — BTG sets NEXT up ─────────────────────── */
+
+async function send(path: string, method: "POST" | "PATCH", body: unknown, ok: string, fallback: string): Promise<EditionActionResult> {
+  try {
+    const res = await apiFetch(path, { method, body: JSON.stringify(body) });
+    if (!res.ok) return { ok: false, message: await reason(res, `${fallback} (HTTP ${res.status}).`) };
+    refresh();
+    revalidatePath("/next/apply");
+    return { ok: true, message: ok };
+  } catch {
+    return { ok: false, message: unreachable };
+  }
+}
+
+export async function createPublicationAction(name: string, propertyId: string | null): Promise<EditionActionResult> {
+  const n = typeof name === "string" ? name.trim().slice(0, 200) : "";
+  if (!n) return { ok: false, message: "Name the publication, e.g. \"The Northside Record\"." };
+  return send("/publications", "POST", { name: n, propertyId: propertyId || null }, `Publication "${n}" created. Its school now appears on the student application.`, "The publication wasn't created");
+}
+
+export async function createEditionAction(publicationId: string, form: EditionForm): Promise<EditionActionResult> {
+  if (typeof publicationId !== "string" || !publicationId) return { ok: false, message: "Pick the publication." };
+  const problem = editionFormProblem(form);
+  if (problem) return { ok: false, message: problem };
+  return send(`/publications/${encodeURIComponent(publicationId)}/editions`, "POST", editionBody(form), `Edition "${form.label.trim()}" created — it's planning; open sales when the page plan is ready.`, "The edition wasn't created");
+}
+
+export async function updateEditionAction(editionId: string, form: EditionForm): Promise<EditionActionResult> {
+  if (typeof editionId !== "string" || !editionId) return { ok: false, message: "No edition." };
+  const problem = editionFormProblem(form);
+  if (problem) return { ok: false, message: problem };
+  const b = editionBody(form);
+  return send(`/editions/${encodeURIComponent(editionId)}`, "PATCH", { ...b, salesOpenAt: form.salesOpenAt ? b.salesOpenAt : null }, "Edition updated.", "The edition wasn't changed");
+}
+
+export async function cancelEditionAction(editionId: string): Promise<EditionActionResult> {
+  if (typeof editionId !== "string" || !editionId) return { ok: false, message: "No edition." };
+  return send(`/editions/${encodeURIComponent(editionId)}/transition`, "POST", { to: "CANCELLED" }, "Edition cancelled.", "The edition wasn't cancelled");
 }
