@@ -111,6 +111,7 @@ owner at go-live. None of them needs code.
 - ~~**Production has never been checked by the person preparing this.**~~ **Closed 2026-11-03:** the production check above was run with production access.
 - **The "Tracker sync" workflow fails on and off** (the Google Sheet endpoint answers 404). It's not part of the product, but the published status Sheet can lag.
 - **SponsorX NEXT is built but unproven commercially** (P9-DATA-01: one edition sold, 20 local advertisers). It can launch with the rest, but whether it works is still a business question.
+- **A NEXT gap this review missed, closed 2026-11-15.** The advisor's Content review and the student's Assignments said "not connected yet": the backend had no student-draft model. P9-FE-01 and P9-FE-02 noted the gap on 2026-09-28, but no backend row was raised, so the board counted NEXT as finished. P9-BE-24 (student assignments and the advisor's review) and P9-FE-12 (both screens wired) close it. Lesson for this review: a Done row whose note says "needs a backend row" is not finished until that row exists.
 
 ## The decision
 

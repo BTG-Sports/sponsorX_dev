@@ -1111,6 +1111,23 @@ A student **sells** against this inventory and must see what is open, sold and
 reserved; they do not set a price or mark a slot sold. The sale is a
 `Campaign`, and creating one is already `CAMPAIGN_MGR`'s.
 
+#### `studentAssignment` *(added 2026-11-15, P9-BE-24)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant | own-tenant | own-tenant |
+| `ADVISOR` | own-property | own-property | own-property |
+| `STUDENT` | own | own | — |
+| `GUARDIAN` | ward | — | — |
+
+A piece of an edition a student is assigned, writes and submits, and the
+school's advisor approves or sends back. The advisor assigns work to their own
+school's students (`write`) and reviews what they submit (`approve`); BTG can
+do either. The student reads their own assignments and submits their own
+draft (`write`, own) — nobody submits for them, and a student never reviews.
+A guardian reads their child's. An approved piece becomes an `editionAsset`
+(source STUDENT); rights stay with `contentRight`.
+
 #### `contentRight`
 | Role | Read | Write | Approve |
 |---|---|---|---|

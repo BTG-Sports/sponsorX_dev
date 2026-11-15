@@ -102,6 +102,8 @@ const A = {
   closure: "ti_closure_a", handoff: "ti_handoff_a", closureRequest: "ti_closure_request_a",
   /* P9-BE-16 — a slot sold to tenant A's campaign, and its artwork on the approval board. */
   soldSlot: "ti_slot_sold_a", artwork: "ti_artwork_a",
+  /* P9-BE-24 — a student's submitted draft, waiting on tenant A's advisor. */
+  assignment: "ti_assignment_a",
   /* 2S4-BE-13 — a refund owed to tenant A's sponsor, still to send. */
   refund: "ti_refund_a",
   /* 2S5-INT-02 — a provider event held for tenant A's BTG. */
@@ -226,6 +228,8 @@ const PARAM_FOR: Record<string, string> = {
   "account-closures": A.closure, "guardian-handoffs": A.handoff, "account-closure-requests": A.closureRequest,
   /* P9-BE-16 — a sold slot's artwork uploads, and the artwork's review steps. */
   "ad-slots": A.soldSlot, "edition-artwork": A.artwork,
+  /* P9-BE-24 — a student's assignment, its draft and its review. */
+  "student-assignments": A.assignment,
   /* 2S4-BE-13 — Finance's refunds to send. */
   refunds: A.refund,
   /* 2S5-INT-02 — BTG's provider-event exceptions. */
@@ -350,6 +354,10 @@ const BODY: Record<string, unknown> = {
   "POST /ad-slots/{id}/artwork/uploads": { contentType: "image/png", bytes: 48_213 },
   "POST /ad-slots/{id}/artwork": { r2Key: "t/ti_tenant_a/ad-slot/ti_slot_sold_a/x" },
   "POST /edition-artwork/{id}/revision": { reason: "Isolation sweep" },
+  "POST /editions/{id}/assignments": { studentId: A.student, kind: "ARTICLE", title: "Isolation sweep", brief: "Isolation sweep" },
+  "POST /student-assignments/{id}/uploads": { contentType: "image/png", bytes: 48_213 },
+  "POST /student-assignments/{id}/submit": { text: "Isolation sweep" },
+  "POST /student-assignments/{id}/revision": { note: "Isolation sweep" },
   "POST /consents": { agreementId: A.agreement, subjectKind: "ATHLETE", subjectId: A.athlete, bodyHashShown: "x".repeat(64) },
   "POST /featured-athletes": { displayName: "Stolen", sport: "Soccer", propertyId: A.school },
   "POST /claims/{id}/verify": {},
@@ -610,6 +618,11 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     await prisma.studentProspect.create({ data: { id: A.prospect, tenantId: t, studentId: A.student, businessName: "TI Secret Deli", category: "RESTAURANT" } });
     /* Batch C — an edition asset and a claim on a profile. */
     await prisma.editionAsset.create({ data: { id: A.asset, tenantId: t, editionId: A.edition, kind: "ARTICLE", title: "TI Secret Article", sourceKind: "BTG" } });
+    /* P9-BE-24 — a student's draft, submitted and waiting on the school's advisor. */
+    await prisma.studentAssignment.create({ data: {
+      id: A.assignment, tenantId: t, editionId: A.edition, studentId: A.student, propertyId: A.school, kind: "ARTICLE",
+      title: "TI Secret Assignment", brief: "TI Secret Brief", reviewState: "DRAFT_SUBMITTED", draftText: "TI Secret Draft", version: 1, submittedAt: new Date(),
+    } });
     /* P9-BE-16 — a slot sold to tenant A's campaign, with its artwork waiting on the sponsor. */
     await prisma.adSlot.create({ data: { id: A.soldSlot, tenantId: t, editionId: A.edition, slotCode: "TI-SECRET-FULL", kind: "FULL", priceCents: 80000, campaignId: A.campaign, soldCents: 80000, soldAt: new Date() } });
     await prisma.editionAsset.create({ data: {

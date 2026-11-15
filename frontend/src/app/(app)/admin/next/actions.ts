@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { apiFetch } from "@/server/api";
-import type { ApiEditionState, ApiSlotKind } from "@/lib/editions-live";
+import { contentReadyNote, type ApiEditionState, type ApiSlotKind } from "@/lib/editions-live";
 import { CONSENT_GRANTORS, type AssetKind, type GrantorKind, type SourceKind } from "@/lib/rights-live";
 
 /* --------------------------------------------------------------------------
@@ -82,7 +82,7 @@ export async function setContentReadyAction(editionId: string, contentReady: boo
     });
     if (!res.ok) return { ok: false, message: await reason(res, `Not saved (HTTP ${res.status}).`) };
     refresh();
-    return { ok: true, message: contentReady ? "Content marked ready." : "Content marked not ready." };
+    return { ok: true, message: contentReadyNote(contentReady).message };
   } catch {
     return { ok: false, message: unreachable };
   }

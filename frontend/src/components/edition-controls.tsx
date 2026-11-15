@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "./ui";
@@ -14,7 +14,14 @@ import {
   transitionEditionAction,
   type GrantInput,
 } from "@/app/(app)/admin/next/actions";
-import { rateCardPrice, type ApiEditionState, type ApiRateCard, type ApiSlotKind } from "@/lib/editions-live";
+import {
+  CONTENT_READY_NOTE_MS,
+  contentReadyNote,
+  rateCardPrice,
+  type ApiEditionState,
+  type ApiRateCard,
+  type ApiSlotKind,
+} from "@/lib/editions-live";
 import {
   CONSENT_GRANTORS,
   NEXT_STATE,
@@ -31,22 +38,34 @@ import {
    and their refusals are shown verbatim ("No digital right covers: …").
    -------------------------------------------------------------------------- */
 
-type Note = { ok: boolean; message: string } | null;
+/* POL-FE-50 — `tone` lets a successful note read as neutral ("muted") when
+   it reports an undo; without it a success is green, as before. Errors are
+   always red. */
+type Note = { ok: boolean; message: string; tone?: "success" | "muted" } | null;
 
 function NoteLine({ note }: { note: Note }) {
   if (!note) return null;
+  const color = !note.ok ? "text-danger" : note.tone === "muted" ? "text-muted" : "text-success";
   return (
-    <p role="status" className={`text-[11px] ${note.ok ? "text-success" : "text-danger"}`}>
+    <p role="status" className={`text-[11px] ${color}`}>
       {note.message}
     </p>
   );
 }
 
-function useAction() {
+/** `clearOkAfterMs` (POL-FE-50, opt-in): a success note clears itself after
+ *  that long so a stale confirmation does not linger. Error notes are never
+ *  cleared by the timer; any note clears when the action is run again. */
+function useAction({ clearOkAfterMs }: { clearOkAfterMs?: number } = {}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [note, setNote] = useState<Note>(null);
-  const run = (fn: () => Promise<{ ok: boolean; message: string }>, after?: () => void) => {
+  useEffect(() => {
+    if (!note?.ok || !clearOkAfterMs) return;
+    const t = setTimeout(() => setNote(null), clearOkAfterMs);
+    return () => clearTimeout(t);
+  }, [note, clearOkAfterMs]);
+  const run = (fn: () => Promise<{ ok: boolean; message: string; tone?: "success" | "muted" }>, after?: () => void) => {
     setNote(null);
     start(async () => {
       const r = await fn();
@@ -74,14 +93,23 @@ export function EditionAdvance({ editionId, state }: { editionId: string; state:
   );
 }
 
+/** POL-FE-50 — marking ready confirms in green with a tick; marking not ready
+ *  says "Undone: …" muted. Either clears after a few seconds; a refusal stays. */
 export function ContentReadyToggle({ editionId, ready }: { editionId: string; ready: boolean }) {
-  const { pending, note, run } = useAction();
+  const { pending, note, run } = useAction({ clearOkAfterMs: CONTENT_READY_NOTE_MS });
+  const toggle = () => {
+    const next = !ready;
+    run(async () => {
+      const r = await setContentReadyAction(editionId, next);
+      return r.ok ? { ...r, ...contentReadyNote(next) } : r;
+    });
+  };
   return (
     <div className="flex flex-col items-start gap-1">
       <button
         type="button"
         disabled={pending}
-        onClick={() => run(() => setContentReadyAction(editionId, !ready))}
+        onClick={toggle}
         className="text-[11px] font-medium text-next transition-colors hover:text-next-soft disabled:opacity-40"
       >
         {ready ? "Mark not ready" : "Mark content ready"}
