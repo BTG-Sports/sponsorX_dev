@@ -98,6 +98,10 @@ export function InventoryRestrictions({
           options={BRAND_CATEGORIES.map((c) => ({ value: c, label: categoryLabel(c) }))}
           onChange={setCategory}
           tone="athlete"
+          /* POL-FE-45 — this form is the last thing on the page. Opened downward on a phone, the
+             menu's last categories sat under the bottom navigation bar at any scroll, so they
+             couldn't be tapped (walked 2026-11-15, Pixel 7). Upward keeps all of it in reach. */
+          placement="up"
         />
         <input aria-label="Reason (optional)" className={`${INPUT} min-w-0 flex-1 basis-40`} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (optional)" />
         <button
