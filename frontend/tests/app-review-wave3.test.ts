@@ -36,7 +36,7 @@ describe("POL-FE-63 · the BTG campaign desk sends people to the right place", (
 
 describe("POL-FE-65 · the sponsor's request form promises and allows only what's true", async () => {
   const { objectiveProblem, toBriefBody } = await import("@/lib/brief-request");
-  const { requestPatch } = await import("@/lib/brief-actions");
+  const { requestPatch, editFormFrom } = await import("@/lib/brief-actions");
   it("an objective needs 8 words, in the drawer and the edit form", () => {
     expect(objectiveProblem("Grand opening traffic")).toMatch(/at least 8 words \(you have 3\)/);
     expect(objectiveProblem("Bring grand opening traffic to our new downtown store")).toBeNull();
@@ -45,7 +45,7 @@ describe("POL-FE-65 · the sponsor's request form promises and allows only what'
 
   it("the edit form refuses a start that isn't after today, and a run under 7 days — only when the dates moved", () => {
     const original = { objective: "Spring footwear launch across DMV high schools this season", budget: 300_000, startDate: "2026-12-01T00:00:00.000Z", endDate: "2026-12-29T00:00:00.000Z", sports: [], stateCodes: [], categories: [], excludedCategories: [], channels: [], audienceTiers: [], audienceMinFollowers: null } as unknown as Parameters<typeof requestPatch>[1];
-    const form = { objective: original.objective, budget: "$3,000", startDate: "2026-12-01", endDate: "2026-12-29", sports: [], stateCodes: [], categories: [], excludedCategories: [], channels: [], audienceTiers: [], minFollowers: "" } as unknown as Parameters<typeof requestPatch>[0];
+    const form = editFormFrom(original);
     expect(() => requestPatch({ ...form, startDate: "2026-11-15" }, original, "2026-11-15")).toThrow(/tomorrow at the earliest/);
     expect(() => requestPatch({ ...form, endDate: "2026-12-04" }, original, "2026-11-15")).toThrow(/at least 7 days/);
     expect(requestPatch({ ...form, budget: "$3,500" }, original, "2027-01-10")).toEqual({ budget: 350_000 });
