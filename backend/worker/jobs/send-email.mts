@@ -458,6 +458,11 @@ ${d.portalUrl ?? ""}
     subject: `Fix before review: your ad artwork for ${d.slotCode ?? "your ad slot"}, ${d.editionLabel ?? "the edition"}`,
     text: `Hi,\n\nVersion ${d.version ?? "1"} of the artwork for ${d.slotCode ?? "your ad slot"} in ${d.editionLabel ?? "the edition"} didn't pass our automatic checks, so it hasn't gone to BTG:\n\n${d.reasons ?? ""}\n\nFix these and upload it again here:\n\n${d.reviewUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* POL-BE-61 — a post marked published, for BTG to verify. */
+  "deliverable.publishedForBtg": (d) => ({
+    subject: `Post to verify: ${d.title ?? "a deliverable"} — ${d.campaignName ?? "a campaign"}`,
+    text: `${d.athleteName ?? "An athlete"} marked ${d.title ?? "their deliverable"} for ${d.campaignName ?? "the campaign"} as published. Check the link and verify it — that releases their earning and moves the campaign on:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
   /* POL-BE-57 — a minor applied to a school's NEXT media team; the guardian they named is told. */
   "student.guardianNotice": (d) => ({
     subject: `${d.studentName ?? "Your child"} applied to ${d.schoolName ?? "their school"}'s student media team`,

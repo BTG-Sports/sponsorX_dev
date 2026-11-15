@@ -23,6 +23,7 @@ import {
 
 /** Every POL-BE-15 queue, with the desk (and tab) its card opens. */
 const WAITING: Record<WaitingQueueKey, { label: string; href: string }> = {
+  toVerify: { label: "Posts to verify", href: "/admin/approvals?tab=verify" },
   payouts: { label: "Payouts to review", href: "/admin/payouts" },
   makeGoods: { label: "Make-goods to decide", href: "/admin/intelligence/make-goods" },
   signups: { label: "New sign-ups to review", href: "/admin/new-signups?review=1" },
@@ -177,17 +178,17 @@ describe("POL-FE-15 · one card per queue that waits on BTG", () => {
 
   it("every queue has a ring colour of its own", () => {
     const keys = queueCards(all(1)).map((c) => c.key);
-    expect(keys).toHaveLength(22);
+    expect(keys).toHaveLength(23); // POL-FE-61 added Posts to verify
     expect(new Set(keys.map((k) => QUEUE_TONE[k])).size).toBe(keys.length);
     for (const k of Object.keys(QUEUE_TONE) as QueueKey[]) expect(QUEUE_TONE[k]).toMatch(/^#[0-9a-f]{6}$/);
   });
 
-  it("the ring draws one equal arc per queue with work, 22 included, and goes round exactly once", () => {
+  it("the ring draws one equal arc per queue with work, 23 included, and goes round exactly once", () => {
     const C = 2 * Math.PI * 96;
     const segs = ringSegments(queueCards(all(1)), C, 4);
-    expect(segs).toHaveLength(22);
+    expect(segs).toHaveLength(23);
     expect(segs.every((s) => s.len > 0)).toBe(true);
-    expect(segs.reduce((n, s) => n + s.len, 0) + 22 * 4).toBeCloseTo(C, 6);
+    expect(segs.reduce((n, s) => n + s.len, 0) + 23 * 4).toBeCloseTo(C, 6);
     expect(segs.at(-1)!.offset + segs.at(-1)!.len + 4).toBeCloseTo(C, 6);
     /* an empty queue draws no arc; a lone queue closes the circle */
     expect(ringSegments(queueCards({ ...NONE, offers: at(0, null), refunds: at(2, null) }), C, 4)).toMatchObject([{ key: "refunds", len: C, offset: 0 }]);

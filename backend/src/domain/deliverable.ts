@@ -340,6 +340,30 @@ async function move(
     const at = new Date();
     if (to === "PUBLISHED") await factDeliverablePublished(tx, deliverableId, at);
     else if (to === "VERIFIED") await factDeliverableVerified(tx, deliverableId, at);
+
+    /* POL-BE-61 (app review §2) — a post marked published waited on no queue and
+       told nobody, though verifying it is what releases the earning and moves the
+       campaign on. BTG's desk (admins and campaign managers) is emailed, in this
+       transaction, with the way to the post on the To verify tab. */
+    if (to === "PUBLISHED") {
+      const desk = await tx.user.findMany({
+        where: { tenantId: found.tenantId, disabledAt: null, roles: { hasSome: ["BTG_ADMIN", "CAMPAIGN_MGR"] } },
+        select: { id: true, email: true },
+        take: 50,
+      });
+      const base = env.APP_URL.replace(/\/+$/, "");
+      for (const u of desk) {
+        await send(tx, found.tenantId, {
+          template: "deliverable.publishedForBtg",
+          to: u.email,
+          idempotencyKey: `deliverable.publishedForBtg:${deliverableId}:${at.getTime()}:${u.id}`,
+          data: {
+            title: found.title, athleteName: found.order.athlete.displayName, campaignName: found.order.campaign.name,
+            reviewUrl: `${base}/admin/approvals?tab=verify&open=${encodeURIComponent(deliverableId)}`,
+          },
+        });
+      }
+    }
     else if (opts.auditAction === AUDIT_ACTIONS.deliverable.requestRevision) await factRevisionRequested(tx, deliverableId, at);
 
     /* P5-INT-01 — queued inside the transaction, for the same reason the

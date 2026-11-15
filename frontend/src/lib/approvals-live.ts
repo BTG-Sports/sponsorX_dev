@@ -258,7 +258,10 @@ const CLEARED_STATES = ["APPROVED", "PUBLISHED", "VERIFIED"];
 
 /* P5-BE-10 — "skipped": the drafts that skipped BTG's review, every state,
    for BTG's spot checks. */
-export const DESK_TABS = ["review", "cleared", "all", "skipped"] as const;
+/* POL-FE-61 (app review §2) — "verify": posts the athlete marked published, waiting for BTG to
+   check the link. Verifying is what releases the earning and moves the campaign to Reporting,
+   and these waited on no queue. */
+export const DESK_TABS = ["review", "verify", "cleared", "all", "skipped"] as const;
 export type DeskTab = (typeof DESK_TABS)[number];
 export const DESK_KINDS = ["video", "image"] as const;
 /** "" is the desk's default, "Waiting longest". */
@@ -285,7 +288,7 @@ export function deskFilters(sp: Params): DeskFilters {
 
 /** A tab as the API's state list — a revision sent back is still DRAFT_SUBMITTED, so still "review". */
 export function tabStates(tab: DeskTab): readonly string[] {
-  return tab === "review" ? REVIEW_STATES : tab === "cleared" ? CLEARED_STATES : DESK_STATES;
+  return tab === "review" ? REVIEW_STATES : tab === "verify" ? ["PUBLISHED"] : tab === "cleared" ? CLEARED_STATES : DESK_STATES;
 }
 
 /** The GET /deliverables query for one page of the desk. */
@@ -328,7 +331,7 @@ export function deskHeadline(s: DeskSummary) {
     aging: s.aging,
     /* A revision sent back is with the athlete, not on the submit desk. */
     stageCounts: [Math.max(0, n("DRAFT_SUBMITTED") - s.openRevisions), n("BTG_REVIEW"), n("SPONSOR_REVIEW"), cleared],
-    tabs: { review: waiting, cleared, all: waiting + cleared, skipped: s.btgSkipped ?? 0 },
+    tabs: { review: waiting, verify: n("PUBLISHED"), cleared, all: waiting + cleared, skipped: s.btgSkipped ?? 0 },
   };
 }
 

@@ -89,6 +89,9 @@ export type OperationsQueues = {
   profileChanges: WaitingQueue | null;
   /** P8-BE-12 — campaign cancels and changes held for BTG. */
   campaignRequests: WaitingQueue | null;
+  /** POL-BE-61 (app review §2) — posts the athlete marked published, waiting for BTG to verify the link
+   *  (verifying releases the earning and moves the campaign on); oldest by when it was published. */
+  toVerify: WaitingQueue | null;
 };
 
 /**
@@ -138,6 +141,7 @@ export async function operationsQueues(actor: Actor, now = new Date()): Promise<
     paymentEvents: tenantWide(actor, "paymentEvent"),
     profileChanges: tenantWide(actor, "athleteProfileChange", "approve"),
     campaignRequests: tenantWide(actor, "campaignChange", "approve"),
+    toVerify: tenantWide(actor, "deliverable"),
   };
   if (!Object.values(may).some(Boolean)) throw new ForbiddenError("metricAggregate", "read");
 
@@ -291,9 +295,17 @@ export async function operationsQueues(actor: Actor, now = new Date()): Promise<
       )
     : null;
 
+  const toVerify = may.toVerify
+    ? await queue(
+        prisma.deliverable.count({ where: { AND: [whereFor(actor, "deliverable", "read"), { state: "PUBLISHED" }] } }),
+        prisma.deliverable.findFirst({ where: { AND: [whereFor(actor, "deliverable", "read"), { state: "PUBLISHED" }] }, orderBy: { publishedAt: "asc" }, select: { publishedAt: true } }).then((r) => r?.publishedAt),
+      )
+    : null;
+
   return {
     applications, approvals, briefs, finance, payouts, makeGoods,
     signups, organisations, sponsorRequests, guardianHandoffs, heldListings, heldOrders, deliveryIssues,
     offers, dealDisputes, refunds, heldClosures, reactivations, paymentDisputes, paymentEvents, profileChanges, campaignRequests,
+    toVerify,
   };
 }

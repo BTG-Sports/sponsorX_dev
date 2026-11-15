@@ -299,7 +299,7 @@ function LiveOpsView({
             actions={CHANGE_ACTIONS}
           />
           <Link
-            href={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report?from=campaign`}
+            href={`/admin/campaigns/${encodeURIComponent(c.id)}/report?from=admin-campaign`}
             className="rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
           >
             Sponsor report
@@ -498,7 +498,7 @@ export default async function CampaignDashboardPage({
             demo
           />
           <Link
-            href={`/sponsor/campaigns/${id}/report?from=campaign`}
+            href={`/admin/campaigns/${encodeURIComponent(id)}/report?from=admin-campaign`}
             className="rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
           >
             Sponsor report

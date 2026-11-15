@@ -111,7 +111,12 @@ export default async function CampaignResultsPage({
   const sp = await searchParams;
   const range = rangeParam(sp);
   const fromParam = Array.isArray(sp.from) ? sp.from[0] : sp.from;
-  const back = fromParam === "sponsor-campaign" ? { href: `/sponsor/campaigns/${id}`, label: "Back to campaign" } : resolveBack(fromParam, "sponsor");
+  const back = fromParam === "sponsor-campaign"
+    ? { href: `/sponsor/campaigns/${id}`, label: "Back to campaign" }
+    /* POL-FE-60 — BTG reading the report inside the admin portal. */
+    : fromParam === "admin-campaign"
+      ? { href: `/admin/campaigns/${id}`, label: "Back to campaign" }
+      : resolveBack(fromParam, "sponsor");
 
   const live = demo === null ? await liveReport(id, range) : null;
   if (live === "missing") notFound();

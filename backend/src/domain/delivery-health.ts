@@ -69,10 +69,13 @@ export function assessDelivery(input: {
 }): { underDeliveringWork: boolean; underDeliveringReach: boolean } {
   return {
     underDeliveringWork: input.deliverablesOverdue > 0,
-    /* No projection means no claim to fall short of. Silence is correct. */
+    /* No projection means no claim to fall short of. Silence is correct.
+       POL-BE-62 (app review §2): nor do no figures — before anyone records a
+       view, every campaign read "Reach short". Short only once figures exist. */
     underDeliveringReach:
       input.projectedImpressions !== null &&
       input.projectedImpressions > 0 &&
+      input.verifiedImpressions > 0 &&
       input.verifiedImpressions <
         input.projectedImpressions * REACH_SHORTFALL_THRESHOLD,
   };
