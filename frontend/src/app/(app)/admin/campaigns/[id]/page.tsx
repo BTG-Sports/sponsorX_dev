@@ -24,13 +24,15 @@ import {
 } from "@/lib/ops-live";
 import { apiFetch, fetchActor } from "@/server/api";
 import { roleLabel } from "@/server/viewer";
-import { adminCancelCampaign, adminCancelImpact, adminChangeCampaign, adminChangeImpact, draftAndSendOrder, setAutoStaffingAction } from "./actions";
+import { adminCancelCampaign, adminCancelImpact, adminChangeCampaign, adminChangeImpact, draftAndSendOrder, launchCampaignNow, setAutoStaffingAction } from "./actions";
+import { LaunchNowButton } from "@/components/launch-now-button";
 import { campaignButtons } from "@/lib/campaign-change-live";
 import { openDealDisputeAction } from "@/app/(app)/admin/deal-disputes/actions";
 import { mayManageDisputes, type ApiDealDispute } from "@/lib/deal-disputes-live";
 import { readPausingDisputes } from "@/server/deal-disputes-read";
 import {
   launchLine,
+  mayLaunchNow,
   nextStepTone,
   nextStepWho,
   rangeWords,
@@ -93,6 +95,8 @@ type LiveBoard = {
   canRaiseConcern: boolean;
   /** P8-FE-12 — which of Change campaign / Cancel campaign this role sees at this stage. */
   buttons: { change: boolean; cancel: boolean };
+  /** POL-FE-51 — "Launch now": a campaign in APPROVAL, for a role that launches (BTG admin, campaign manager). */
+  canLaunch: boolean;
 };
 
 async function liveOps(id: string): Promise<LiveBoard | "missing" | { lacking: string; roles: string[] } | null> {
@@ -122,6 +126,7 @@ async function liveOps(id: string): Promise<LiveBoard | "missing" | { lacking: s
     disputes,
     canRaiseConcern: mayManageDisputes(who.actor.roles),
     buttons: campaignButtons(stage?.state ?? ops.campaign.state, who.actor.roles),
+    canLaunch: mayLaunchNow(stage?.state ?? ops.campaign.state, who.actor.roles),
   };
 }
 
@@ -157,10 +162,12 @@ function StagePanel({ stage }: { stage: LiveStage }) {
 /** P4-FE-09 — automatic staffing (P4-BE-12) and the launch day (P4-BE-13):
  *  the counts by athlete, why it stopped, who was skipped, the switch with
  *  its reason dialog, and "Launches on …" once the campaign is in APPROVAL. */
-function StaffingPanel({ campaignId, stage, now }: { campaignId: string; stage: LiveStage; now: Date }) {
+function StaffingPanel({ campaignId, stage, now, canLaunch }: { campaignId: string; stage: LiveStage; now: Date; canLaunch: boolean }) {
   const s = stage.staffing && "sent" in stage.staffing ? (stage.staffing as CampaignStaffing) : null;
   const launch = stage.state === "APPROVAL" && stage.startDate ? launchLine(stage.startDate, now) : null;
-  if (!s && !launch) return null;
+  /* POL-FE-51 — a launcher sees "Launch now" in APPROVAL even with no staffing record. */
+  const launchNow = canLaunch && stage.state === "APPROVAL";
+  if (!s && !launch && !launchNow) return null;
   const stop = staffingStop(s);
   const editable = s && (stage.state === "DRAFT" || stage.state === "STAFFING");
   return (
@@ -173,8 +180,16 @@ function StaffingPanel({ campaignId, stage, now }: { campaignId: string; stage: 
         <p className="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-sm">
           <Badge tone="accent">Automatic</Badge>
           <span className="font-medium">{launch}</span>
-          <span className="text-xs text-muted">— BTG can still launch it sooner.</span>
+          <span className="text-xs text-muted">
+            {launchNow ? "— or launch it now, starting today." : "— BTG can still launch it sooner."}
+          </span>
         </p>
+      )}
+      {/* POL-FE-51 — BTG takes it live today (POST /campaigns/{id}/launch), after an "are you sure". */}
+      {launchNow && (
+        <div className="mt-3">
+          <LaunchNowButton campaignId={campaignId} name={stage.name} launch={launchCampaignNow} />
+        </div>
       )}
       {s && (
         <>
@@ -229,6 +244,7 @@ function LiveOpsView({
   disputes,
   canRaiseConcern,
   buttons,
+  canLaunch,
   back,
   initial,
 }: LiveBoard & {
@@ -340,7 +356,7 @@ function LiveOpsView({
       </HeroBand>
 
       {stage && <StagePanel stage={stage} />}
-      {stage && <StaffingPanel campaignId={c.id} stage={stage} now={now} />}
+      {stage && <StaffingPanel campaignId={c.id} stage={stage} now={now} canLaunch={canLaunch} />}
 
       <section className="sx-animate sx-delay-2">
         <SectionHeading

@@ -83,11 +83,13 @@ export const BriefSubmitted = z
     state: BriefState,
     autoApproved: z.boolean(),
     status: z.object({ key: z.enum(["REVIEWING", "APPROVED", "CLOSED"]), text: z.string() }),
+    /* POL-FE-51 — who it waits on, in one word; never the hold's text. */
+    waitingOn: z.enum(["ATHLETES", "BTG"]).nullable(),
     campaignId: z.string().nullable(),
   })
   .meta({
     id: "BriefSubmitted",
-    description: "The brief as its submitter is answered: approved automatically (with its campaign) or waiting for BTG. `status` is the sponsor-safe line — never why a brief waits.",
+    description: "The brief as its submitter is answered: approved automatically (with its campaign) or waiting for BTG. `status` is the sponsor-safe line — never why a brief waits. `waitingOn` (POL-FE-51) is ATHLETES when it is held only because too few athletes fit, BTG for any other request before approval, null after.",
   });
 
 export const BriefTransitionInput = z

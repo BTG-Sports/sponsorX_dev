@@ -34,7 +34,9 @@ const BRIEF: Record<string, Word> = {
      DRAFT and QUALIFIED; the distinction is BTG's to track, not theirs. */
   DRAFT: { text: "Being matched by BTG", tone: "info" },
   QUALIFIED: { text: "Being matched by BTG", tone: "info" },
-  APPROVED: { text: "Ready for you", tone: "you" },
+  /* POL-FE-51 — APPROVED is approved and about to be staffed: nothing waits
+     on the sponsor, so it is not "Ready for you" (which read as theirs to act on). */
+  APPROVED: { text: "Approved — finding athletes", tone: "info" },
   CAMPAIGN_CREATED: { text: "Became a campaign", tone: "live" },
   CLOSED: { text: "Closed", tone: "done" },
 };

@@ -18,6 +18,7 @@
    -------------------------------------------------------------------------- */
 
 import { BRAND_CATEGORIES, type BrandCategory } from "./brand-categories";
+import { addDays, parseDay } from "./day-range";
 
 /** backend/src/domain/match-vocabulary.ts MATCH_CHANNELS, in its order. */
 export const MATCH_CHANNELS = ["INSTAGRAM", "TIKTOK", "YOUTUBE", "X", "FACEBOOK", "IN_PERSON"] as const;
@@ -116,12 +117,82 @@ export function stateCodesFor(geo: string): string[] {
   return code && US_STATES.has(code) ? [code] : [];
 }
 
+/** The 50 states and DC by name, for the drawer's Geography options (POL-FE-51). */
+export const STATE_NAMES: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut",
+  DE: "Delaware", DC: "District of Columbia", FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois",
+  IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri", MT: "Montana",
+  NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey", NM: "New Mexico", NY: "New York",
+  NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania",
+  RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah",
+  VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+};
+
+/** A state code in words: "MD" → "Maryland"; an unknown code stays as sent. */
+export const stateName = (code: string) => STATE_NAMES[code] ?? code;
+
+/** GET /catalogue/targeting — the sports and state codes live athletes cover (POL-FE-51). */
+export type Targeting = { sports: string[]; stateCodes: string[] };
+
+/**
+ * POL-FE-51 — the drawer's Sport and Geography options from the live pool:
+ * a sport as the API spells it (matching is an exact match on the word), a
+ * state as its code, labelled by name. Only US states — the brief targets
+ * nothing else (`stateCodesFor`), so any other code would be a silent no-op.
+ */
+export function targetingOptions(t: Targeting): { sports: { value: string; label: string }[]; geos: { value: string; label: string }[] } {
+  return {
+    sports: [...new Set(t.sports)].filter(Boolean).map((s) => ({ value: s, label: s })),
+    geos: [...new Set(t.stateCodes)]
+      .filter((c) => US_STATES.has(c))
+      .map((c) => ({ value: c, label: stateName(c) }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+  };
+}
+
 const day = (d: Date) => d.toISOString().slice(0, 10);
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/* --- the start date (POL-FE-51) -------------------------------------------
+
+   The API holds a brief whose start isn't strictly in the future
+   (brief-readiness-rules.ts), and a start is sent as midnight UTC. So
+   "today" is the LATER of the viewer's own calendar day and UTC's: a
+   sponsor in Maryland at 9 pm is already on tomorrow in UTC, and their
+   "tomorrow" would be held. The day after that is always safe. */
+
+/** The latest calendar day it is for this brief: the viewer's or UTC's. */
+export function briefToday(now = new Date()): string {
+  const local = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+  const utc = day(now);
+  return local > utc ? local : utc;
+}
+
+/** The earliest start a sponsor may pick: the day after `briefToday`. */
+export function earliestStart(now = new Date()): string {
+  return addDays(briefToday(now), 1);
+}
+
+/** What the drawer shows when it opens — the same day a blank start is sent
+ *  as (UTC today + 14, `toBriefBody`), so the screen and the brief agree. */
+export function defaultStart(now = new Date()): string {
+  return day(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 14)));
+}
+
+export const START_AFTER_TODAY = "The start date must be after today";
+
+/** Why a start date can't be sent, or null. A blank one becomes `defaultStart`. */
+export function startDateProblem(start: string, now = new Date()): string | null {
+  if (!start) return null;
+  if (!parseDay(start)) return "That start date is not a date.";
+  return start <= briefToday(now) ? START_AFTER_TODAY : null;
+}
 
 export function toBriefBody(r: BriefRequest, today = new Date()): BriefBody {
   const objective = r.objective.trim();
   if (!objective) throw new BriefRequestInvalid("Say what the campaign should achieve.");
-  const start = r.start ? new Date(`${r.start}T00:00:00Z`) : new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + 14));
+  const start = new Date(`${r.start || defaultStart(today)}T00:00:00Z`);
   if (Number.isNaN(start.getTime())) throw new BriefRequestInvalid("That start date is not a date.");
   const end = new Date(start.getTime() + Math.max(1, r.durationWeeks) * 7 * 864e5);
 

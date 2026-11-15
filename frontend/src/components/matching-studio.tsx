@@ -1260,6 +1260,26 @@ function AthleteRow({
           >
             {picked ? "Added" : "Add"}
           </button>
+        ) : a.noRate ? (
+          /* POL-FE-51 — no rate is a step to take, not a dead end: the
+             rate card editor, opened on the missing job, for a viewer who
+             may set one; everyone else is told who does. */
+          a.rateHref ? (
+            <Link
+              href={a.rateHref}
+              className="block w-full rounded-lg border border-warn/40 px-2.5 py-1.5 text-center text-[11px] font-medium text-warn transition-colors hover:bg-warn/10 lg:w-auto"
+              aria-label={`Set ${a.name}'s ${a.noRate} rate`}
+            >
+              Set a rate
+            </Link>
+          ) : (
+            <span
+              className="block w-full rounded-lg border border-dashed border-warn/40 px-2.5 py-1.5 text-center text-[11px] text-warn lg:w-auto"
+              title="A BTG admin or network manager sets rates"
+            >
+              Needs a rate
+            </span>
+          )
         ) : (
           <span
             className="block w-full rounded-lg border border-dashed border-line px-2.5 py-1.5 text-center text-[11px] text-faint lg:w-auto"

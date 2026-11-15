@@ -75,7 +75,24 @@ describe("toMatchAthlete", () => {
     expect(a.noRate).toBe("SX-02");
     expect(a.lines).toEqual([]);
     expect(canShortlist(a)).toBe(false);
-    expect(statusFor(a).label).toBe("No rate on file");
+    expect(statusFor(a).label).toBe("Needs a rate");
+    expect(statusFor(a).sub).toContain("SX-02");
+    /* Nobody was named as able to set it: no link. */
+    expect(a.rateHref).toBeNull();
+  });
+
+  /* POL-FE-51 — a no-rate row is a step to take, not a dead end. */
+  it("links a rate setter to the rate card editor on the missing job, and back to this brief", () => {
+    const a = toMatchAthlete(athlete({ rates: [] }), [SX02], "P", null, null, { briefId: "brf_1" });
+    expect(a.rateHref).toBe("/admin/athletes/ath_1/rates?job=SX-02&brief=brf_1");
+    /* A priced row needs no link. */
+    expect(toMatchAthlete(athlete(), [SX02], "P", null, null, { briefId: "brf_1" }).rateHref).toBeNull();
+  });
+
+  it("toMatchData links no-rate rows only for a viewer who may set rates", () => {
+    const rows = (rates: boolean) => toMatchData(brief(), [athlete({ rates: [] })], { rates }).roster[0];
+    expect(rows(true).rateHref).toBe("/admin/athletes/ath_1/rates?job=SX-02&brief=brf_1");
+    expect(rows(false).rateHref).toBeNull();
   });
 
   it("unscored is null, never zero, and all factors are unassessed", () => {

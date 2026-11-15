@@ -19,12 +19,13 @@
 import { revalidatePath } from "next/cache";
 
 import { apiFetch, fetchActor } from "@/server/api";
-import { BriefRequestInvalid, toBriefBody, type BriefRequest } from "@/lib/brief-request";
-import { requestStatus, type BriefStatus } from "@/lib/brief-status";
+import { BriefRequestInvalid, stateCodesFor, toBriefBody, type BriefRequest } from "@/lib/brief-request";
+import { requestStatus, type BriefStatus, type WaitingOn } from "@/lib/brief-status";
 
 /** P4-FE-09 — `status`: approved automatically, or BTG is reviewing it (the
- *  API's sponsor-safe line; never why a request waits). */
-export type BriefResult = { ok: true; id: string; status?: BriefStatus } | { ok: false; error: string };
+ *  API's sponsor-safe line; never why a request waits). POL-FE-51 —
+ *  `waitingOn`: ATHLETES when it is held only because too few athletes fit. */
+export type BriefResult = { ok: true; id: string; status?: BriefStatus; waitingOn?: WaitingOn } | { ok: false; error: string };
 
 export async function submitBrief(input: Omit<BriefRequest, "sponsorId">): Promise<BriefResult> {
   const who = await fetchActor();
@@ -42,12 +43,33 @@ export async function submitBrief(input: Omit<BriefRequest, "sponsorId">): Promi
 
   const res = await apiFetch("/briefs", { method: "POST", body: JSON.stringify(body) });
   if (res.status === 201) {
-    const out = (await res.json()) as { id: string; state: string; status?: BriefStatus };
+    const out = (await res.json()) as { id: string; state: string; status?: BriefStatus; waitingOn?: WaitingOn };
     /* An approved request is already a campaign — the Campaigns page shows it. */
     revalidatePath("/sponsor/campaigns");
-    return { ok: true, id: out.id, status: requestStatus(out) };
+    return { ok: true, id: out.id, status: requestStatus(out), waitingOn: out.waitingOn ?? null };
   }
   if (res.status === 403) return { ok: false, error: "This account can't file briefs for this sponsor." };
   if (res.status === 400) return { ok: false, error: "Some details weren't accepted — check the dates and budget." };
   return { ok: false, error: "BTG couldn't receive the brief just now — please try again." };
+}
+
+/**
+ * POL-FE-51 — can BTG staff this package for the sport and area the
+ * sponsor picked in the drawer? GET /catalogue/staffing answers a yes / no
+ * per package for the caller's own tenant and sponsor; this picks the one
+ * asked about. null — no answer to show — for a package no athlete staffs,
+ * a signed-out caller, or any failure: the drawer then just says nothing.
+ */
+export async function checkStaffing(input: { packageId: string; sport: string; geo: string }): Promise<boolean | null> {
+  const who = await fetchActor();
+  if (who.status !== "linked") return null;
+  const q = new URLSearchParams();
+  if (input.sport) q.set("sport", input.sport);
+  const states = stateCodesFor(input.geo ?? "");
+  if (states.length) q.set("state", states.join(","));
+  const qs = q.toString();
+  const res = await apiFetch(`/catalogue/staffing${qs ? `?${qs}` : ""}`).catch(() => null);
+  if (!res?.ok) return null;
+  const { packages } = (await res.json()) as { packages: { id: string; staffable: boolean | null }[] };
+  return packages.find((p) => p.id === input.packageId)?.staffable ?? null;
 }

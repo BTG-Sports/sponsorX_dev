@@ -167,3 +167,60 @@ export function autoStaffingReasonProblem(reason: string): string | null {
   if (text.length > 500) return "Keep the reason to 500 characters.";
   return null;
 }
+
+/* --------------------------------------------------------------------------
+   POL-FE-51 — "Launch now". A campaign goes live by itself at 00:00 UTC on
+   its start date (P4-BE-13); BTG may launch it sooner through POST
+   /campaigns/{id}/launch (P5-BE-04), which until now no screen called.
+
+   The API's rules, mirrored here only to decide what to SHOW (the API stays
+   the gate): only APPROVAL may become ACTIVE (campaign-state.ts — STAFFING
+   cannot skip approval), and only BTG launches — tenant-wide
+   `campaign.approve`, i.e. BTG admins and campaign managers, and
+   SUPER_ADMIN (campaign.ts launchCampaign). A sponsor admin's `own` approve
+   is refused by the domain, so it is not offered here either.
+   -------------------------------------------------------------------------- */
+
+export const LAUNCH_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"] as const;
+
+/** May this viewer launch this campaign now? */
+export function mayLaunchNow(state: string, roles: readonly string[]): boolean {
+  return state === "APPROVAL" && roles.some((r) => (LAUNCH_ROLES as readonly string[]).includes(r));
+}
+
+/** POST /campaigns/{id}/launch's answer (domain/campaign.ts launchIn). */
+export type LaunchResult = {
+  id: string;
+  state: string;
+  ordersActivated: number;
+  rewards?: { activated: number; leftInDraft: Array<{ id: string; offerText: string; reason: string }> };
+};
+
+/** What BTG reads after launching: what went live, and any reward left behind. */
+export function launchedLines(r: LaunchResult): string[] {
+  const n = r.ordersActivated;
+  const lines = [
+    `Launched. The campaign is live from today${n ? ` and ${n} signed order${n === 1 ? " is" : "s are"} now live work` : ""}. The sponsor can see results.`,
+  ];
+  const activated = r.rewards?.activated ?? 0;
+  if (activated) lines.push(`${activated} fan reward${activated === 1 ? " is" : "s are"} live too.`);
+  for (const d of r.rewards?.leftInDraft ?? []) {
+    lines.push(`A reward stayed a draft: “${d.offerText}” — ${d.reason}`);
+  }
+  return lines;
+}
+
+/** The API's refusal of a launch, in words. */
+export function launchRefusal(status: number, body: unknown): string {
+  const said = (body as { error?: { message?: string } } | null)?.error?.message ?? "";
+  if (status === 403) return "Only BTG admins and campaign managers can launch a campaign, so it wasn't launched.";
+  if (status === 401) return "Your session has ended. Sign in again, then launch it once more.";
+  if (status === 409 && /cannot go from (\w+) to ACTIVE/.test(said)) {
+    const from = said.match(/cannot go from (\w+) to ACTIVE/)![1];
+    if (from === "ACTIVE") return "It's already live — nothing to launch. Reload the page to see it.";
+    return `It wasn't launched: the campaign is ${from.toLowerCase()} now, and only a campaign waiting for approval can be launched. Reload the page to see where it is.`;
+  }
+  if (status === 409) return "Someone else moved this campaign just now, so it wasn't launched. Reload the page to see where it is.";
+  if (status >= 500) return "Something went wrong on our side, so the campaign wasn't launched. Try again in a minute.";
+  return said ? `It wasn't launched: ${said}` : `It wasn't launched (HTTP ${status}).`;
+}

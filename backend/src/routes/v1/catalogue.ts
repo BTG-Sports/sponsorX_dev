@@ -10,7 +10,7 @@ import { requireActor } from "../../auth/actor";
 import { limit } from "../../lib/rate-limit";
 import { clientIp } from "../../lib/client-ip";
 import { env } from "../../config/env";
-import { listJobs, listPackages, listPublicPackages } from "../../domain/catalogue";
+import { listJobs, listPackages, listPublicPackages, listTargeting, packageStaffing } from "../../domain/catalogue";
 import { readPublicNetworkStats } from "../../domain/public-network-stats";
 import { readHomeFeatured } from "../../domain/home-featured";
 
@@ -59,5 +59,31 @@ const jobs: RequestHandler = async (req, res) => {
   res.json({ jobs: await listJobs(req.actor!) });
 };
 
+/** A query value as a list: "MD,VA" or ?state=MD&state=VA → ["MD", "VA"]. Bounded. */
+const listParam = (v: unknown): string[] =>
+  (Array.isArray(v) ? v : [v])
+    .filter((x): x is string => typeof x === "string")
+    .flatMap((x) => x.split(","))
+    .map((x) => x.trim().slice(0, 60))
+    .filter(Boolean)
+    .slice(0, 60);
+
+/** GET /catalogue/targeting — POL-FE-51: the sports and states live athletes cover; values only. */
+export const targeting: RequestHandler = async (req, res) => {
+  res.json(await listTargeting(req.actor!));
+};
+
+/** GET /catalogue/staffing?sport=&state= — POL-FE-51: could BTG staff each package for this targeting? Yes / no only. */
+export const staffing: RequestHandler = async (req, res) => {
+  res.json({
+    packages: await packageStaffing(req.actor!, {
+      sports: listParam(req.query.sport),
+      stateCodes: listParam(req.query.state).map((s) => s.toUpperCase()),
+    }),
+  });
+};
+
 catalogueRouter.get("/catalogue/packages", requireActor, packages);
 catalogueRouter.get("/catalogue/jobs", requireActor, jobs);
+catalogueRouter.get("/catalogue/targeting", requireActor, targeting);
+catalogueRouter.get("/catalogue/staffing", requireActor, staffing);

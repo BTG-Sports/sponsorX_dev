@@ -6,16 +6,35 @@ import { createPortal } from "react-dom";
 import { Badge } from "@/components/ui";
 import { Monogram, initials } from "@/components/hero";
 import { CloseIcon, Dropdown } from "@/components/filter-kit";
+import { DateRangePicker } from "@/components/date-range-picker";
 import { athleteInv, money } from "@/lib/fixtures";
 import { BRAND_CATEGORIES, categoryLabel } from "@/lib/brand-categories";
-import { AUDIENCE_TIERS, CHANNEL_LABEL, MATCH_CHANNELS, TIER_LABEL, type BriefRequest } from "@/lib/brief-request";
-import { submittedMessage, type BriefStatus } from "@/lib/brief-status";
+import {
+  AUDIENCE_TIERS,
+  CHANNEL_LABEL,
+  MATCH_CHANNELS,
+  TIER_LABEL,
+  defaultStart,
+  earliestStart,
+  startDateProblem,
+  stateCodesFor,
+  targetingOptions,
+  type BriefRequest,
+  type Targeting,
+} from "@/lib/brief-request";
+import { athletesWaitingText, submittedMessage, targetWords, type BriefStatus, type WaitingOn } from "@/lib/brief-status";
 
 /** A live submit (P4-FE-01). Absent in demo mode, where the drawer only
- *  shows its success state — nothing is sent. */
+ *  shows its success state — nothing is sent. POL-FE-51: `waitingOn` is
+ *  the API's one word on who the request now waits on. */
 export type BriefSubmit = (
   r: Omit<BriefRequest, "sponsorId">,
-) => Promise<{ ok: true; id: string; status?: BriefStatus } | { ok: false; error: string }>;
+) => Promise<{ ok: true; id: string; status?: BriefStatus; waitingOn?: WaitingOn } | { ok: false; error: string }>;
+
+/** POL-FE-51 — could BTG staff this package for the sponsor's sport and
+ *  area? The API's yes / no (GET /catalogue/staffing); null when it has no
+ *  answer (a package no athlete staffs, or the read failed). */
+export type StaffingCheck = (t: { packageId: string; sport: string; geo: string }) => Promise<boolean | null>;
 
 const CATEGORY_OPTIONS = BRAND_CATEGORIES.map((c) => ({ value: c, label: categoryLabel(c) }));
 
@@ -51,13 +70,16 @@ export type BriefSeed =
       sellPrice: number;
     };
 
-/* Targeting options derive from the athlete inventory, exactly as the catalog
-   filters do — one source of truth for the sport/geo/tier vocabularies. */
+/* DEMO ONLY (POL-FE-51): the sample deck's targeting options derive from the
+   fixture athlete inventory, exactly as its catalog filters do. A live
+   sponsor's drawer gets `targeting` — the sports and states the tenant's
+   ACTIVE athletes actually cover (GET /catalogue/targeting) — because a
+   fixture sport no live athlete plays was a guaranteed hold. */
 const distinct = (pick: (a: (typeof athleteInv)[number]) => string) =>
   [...new Set(athleteInv.map(pick))].map((v) => ({ value: v, label: v }));
 
-const SPORT_OPTIONS = distinct((a) => a.sport);
-const GEO_OPTIONS = distinct((a) => a.geo);
+const DEMO_SPORT_OPTIONS = distinct((a) => a.sport);
+const DEMO_GEO_OPTIONS = distinct((a) => a.geo);
 /* The tiers and channels are the API's own lists (match-vocabulary.ts), the
    athlete catalog's tier words being a subset of them. */
 const TIER_OPTIONS = AUDIENCE_TIERS.map((t) => ({ value: t, label: TIER_LABEL[t] }));
@@ -164,10 +186,16 @@ export function BriefRequestDrawer({
   seed,
   onClose,
   submit,
+  targeting,
+  checkStaffing,
 }: {
   seed: BriefSeed | null;
   onClose: () => void;
   submit?: BriefSubmit;
+  /** POL-FE-51 — the live Sport and Geography vocabulary; absent in demo. */
+  targeting?: Targeting;
+  /** POL-FE-51 — the live "can BTG staff this?" check; absent in demo. */
+  checkStaffing?: StaffingCheck;
 }) {
   /* `seed` opens the drawer; a local `closing` flag keeps it mounted through
      the slide-out. `onClose` is called once the exit animation lands. */
@@ -238,6 +266,8 @@ export function BriefRequestDrawer({
           closeBtnRef={closeBtnRef}
           onRequestClose={requestClose}
           submit={submit}
+          targeting={targeting}
+          checkStaffing={checkStaffing}
         />
       </div>
     </div>,
@@ -250,19 +280,34 @@ function BriefForm({
   closeBtnRef,
   onRequestClose,
   submit,
+  targeting,
+  checkStaffing,
 }: {
   seed: BriefSeed;
   closeBtnRef: React.RefObject<HTMLButtonElement | null>;
   onRequestClose: () => void;
   submit?: BriefSubmit;
+  targeting?: Targeting;
+  checkStaffing?: StaffingCheck;
 }) {
+  /* POL-FE-51 — live options from the live pool; the fixtures only in demo. */
+  const live = targeting ? targetingOptions(targeting) : null;
+  const sportOptions = live ? live.sports : DEMO_SPORT_OPTIONS;
+  const geoOptions = live ? live.geos : DEMO_GEO_OPTIONS;
   const [objective, setObjective] = useState("");
   const [budget, setBudget] = useState(
     seed.kind === "athlete" ? money(seed.sellPrice) : seed.price,
   );
-  const [start, setStart] = useState("");
+  /* POL-FE-51 — the field always shows the day that will be sent: today + 14
+     (the rule a blank start already followed), never empty and never today.
+     The earliest day the calendar offers is tomorrow. */
+  const [start, setStart] = useState(() => defaultStart());
+  const [minStart] = useState(() => earliestStart());
   const [duration, setDuration] = useState("4");
-  const [sport, setSport] = useState(seed.kind === "athlete" ? seed.sport : "");
+  /* A seeded sport (the demo's athlete cards) only when it is one of the options. */
+  const [sport, setSport] = useState(
+    seed.kind === "athlete" && sportOptions.some((o) => o.value === seed.sport) ? seed.sport : "",
+  );
   const [geo, setGeo] = useState("");
   const [audienceTiers, setAudienceTiers] = useState<string[]>([]);
   const [channels, setChannels] = useState<string[]>([]);
@@ -275,10 +320,34 @@ function BriefForm({
   const [status, setStatus] = useState<BriefStatus | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /* POL-FE-51 — the API's one word on who a sent request now waits on. */
+  const [waitingOn, setWaitingOn] = useState<WaitingOn>(null);
+  /* POL-FE-51 — can BTG staff this package for the sport and area picked? */
+  const [staffable, setStaffable] = useState<boolean | null>(null);
+  const packageId = seed.kind === "package" ? (seed.packageId ?? null) : null;
 
-  const canSubmit = objective.trim() !== "" && budget.trim() !== "" && !sending;
+  useEffect(() => {
+    if (!checkStaffing || !packageId) return;
+    let stale = false;
+    checkStaffing({ packageId, sport, geo })
+      .then((v) => { if (!stale) setStaffable(v); })
+      .catch(() => { if (!stale) setStaffable(null); });
+    return () => {
+      stale = true;
+    };
+  }, [checkStaffing, packageId, sport, geo]);
+
+  const startProblem = startDateProblem(start);
+  const canSubmit = objective.trim() !== "" && budget.trim() !== "" && !startProblem && !sending;
 
   async function send() {
+    /* POL-FE-51 — today or a past day is refused here, in words, before
+       anything is sent: the API would hold it for DATES. */
+    const problem = startDateProblem(start);
+    if (problem) {
+      setError(problem);
+      return;
+    }
     if (!submit) {
       setSubmitted(true); // demo mode: nothing is sent
       return;
@@ -294,14 +363,28 @@ function BriefForm({
     setSending(false);
     if (out.ok) {
       setStatus(out.status ?? null);
+      setWaitingOn(out.waitingOn ?? null);
       setSubmitted(true);
     } else setError(out.error);
   }
 
   if (submitted) {
     /* Live: the API's answer, in its sponsor-safe words. Demo: nothing was
-       sent, so the original copy. */
-    const said = submit ? submittedMessage(status) : null;
+       sent, so the original copy. POL-FE-51 — held because too few athletes
+       fit: say so plainly, with what the sponsor can change. */
+    const sent = submit ? submittedMessage(status) : null;
+    const said =
+      sent && waitingOn === "ATHLETES"
+        ? {
+            ...sent,
+            title: "Request received",
+            body: athletesWaitingText({
+              package: seed.kind === "package" ? { name: seed.name } : null,
+              sports: sport ? [sport] : [],
+              stateCodes: stateCodesFor(geo),
+            }),
+          }
+        : sent;
     return (
       <div className="flex flex-1 flex-col">
         <DrawerHeader seed={seed} closeBtnRef={closeBtnRef} onClose={onRequestClose} />
@@ -372,14 +455,31 @@ function BriefForm({
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Start date" htmlFor="brief-start">
-            <input
-              id="brief-start"
-              type="date"
-              value={start}
-              onChange={(e) => setStart(e.target.value)}
-              className={inputCls}
+          <Field label="Start date">
+            {/* POL-FE-51 — the house picker (P1-ART-23), one day, tomorrow at
+                the earliest; it always holds a day, so it can't be cleared. */}
+            <DateRangePicker
+              single
+              clearable={false}
+              align="left"
+              from={start}
+              to={null}
+              min={minStart}
+              onChange={(day) => {
+                if (day) {
+                  setStart(day);
+                  setError(null);
+                }
+              }}
+              tone="sponsor"
+              label="Start date"
+              allLabel="Pick a start date"
             />
+            {startProblem && (
+              <p role="alert" className="mt-1 text-[10px] text-danger">
+                {startProblem}
+              </p>
+            )}
           </Field>
           <Field label="Duration">
             <Dropdown
@@ -405,7 +505,7 @@ function BriefForm({
                 label="Target sport"
                 allLabel="Any sport"
                 value={sport}
-                options={SPORT_OPTIONS}
+                options={sportOptions}
                 onChange={setSport}
                 tone="sponsor"
                 block
@@ -416,13 +516,23 @@ function BriefForm({
                 label="Target geography"
                 allLabel="Any geography"
                 value={geo}
-                options={GEO_OPTIONS}
+                options={geoOptions}
                 onChange={setGeo}
                 tone="sponsor"
                 block
               />
             </Field>
           </div>
+          {staffable !== null && (
+            <p
+              role="status"
+              className={["text-[11px]", staffable ? "text-accent" : "text-warn"].join(" ")}
+            >
+              {staffable
+                ? "Ready to staff — BTG has enough athletes for this package here."
+                : `Not enough athletes for this package ${sport || geo ? `in ${targetWords(sport ? [sport] : [], stateCodesFor(geo))} ` : ""}yet. Try another sport or area, or send it and BTG will be in touch.`}
+            </p>
+          )}
           <Picks label="Athlete tiers" hint="None picked means any tier." options={TIER_OPTIONS} value={audienceTiers} onChange={setAudienceTiers} />
           <Picks label="Where to be seen" hint="None picked means no preference." options={CHANNEL_OPTIONS} value={channels} onChange={setChannels} />
           <Field label="Minimum audience" htmlFor="brief-min-followers" hint="Followers on the athlete's largest account. Leave blank for no minimum.">

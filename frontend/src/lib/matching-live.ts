@@ -2,6 +2,7 @@ import type { MatchAthlete, MatchData, MatchReason, MatchTier } from "@/lib/matc
 import { categoryLabel, type BrandCategory } from "@/lib/brand-categories";
 import { CHANNEL_LABEL, TIER_LABEL, type AudienceTier, type MatchChannel } from "@/lib/brief-request";
 import { apiListQuery, pageParamsFor, textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
+import { rateEditorHref } from "@/lib/athlete-rates-live";
 
 /* --------------------------------------------------------------------------
    P4-FE-02 / P4-FE-03 — the Matching Studio's live translation.
@@ -26,8 +27,9 @@ import { apiListQuery, pageParamsFor, textParam, type PageInfo, type SearchParam
    — the schema's "integer cents" comment on NilJob is stale); athlete rates
    and invitation offers are CENTS. Catalogue prices are ×100 here, once, so
    cost and sell meet in the same unit before any margin is computed. A missing rate is not
-   zero: the row is kept, marked "No rate on file", and can't be picked —
-   there is no offer to send.
+   zero: the row is kept, marked "Needs a rate", and can't be picked —
+   there is no offer to send. A viewer who may set rates gets a link to the
+   rate card editor on the missing job (POL-FE-51).
 
    NOTHING INVENTED. Unscored → null (a dash); no follower counts → null
    reach; conflicted athletes never arrive (the query excludes them, §26),
@@ -186,6 +188,8 @@ export function toMatchAthlete(
   pkgId: string,
   inviteState: string | null,
   offerHref: string | null = null,
+  /** POL-FE-51 — the viewer may set rates: a no-rate row links to the editor. */
+  rateEditor: { briefId: string } | null = null,
 ): MatchAthlete {
   const rates = a.rates ?? [];
   let noRate: string | null = null;
@@ -224,6 +228,7 @@ export function toMatchAthlete(
     invite: inviteState,
     match: typeof a.matchScore === "number" ? { score: a.matchScore, reasons: a.reasons ?? [] } : null,
     offerHref,
+    rateHref: noRate && rateEditor ? rateEditorHref(a.id, { job: noRate, brief: rateEditor.briefId }) : null,
   };
 }
 
@@ -237,7 +242,7 @@ function inviteStates(b: ApiBrief): Map<string, string> {
 /** `offers`: the viewer may make offers (BTG admin, campaign manager) — the
  *  rows then link to the pre-filled offer form once the brief has a
  *  campaign, for the package's first job (the form can change it). */
-export function toMatchData(b: ApiBrief, eligible: ApiEligibleAthlete[], opts: { offers?: boolean } = {}): MatchData {
+export function toMatchData(b: ApiBrief, eligible: ApiEligibleAthlete[], opts: { offers?: boolean; rates?: boolean } = {}): MatchData {
   const jobs = b.jobs ?? [];
   const pkgId = b.package?.code ?? "NO_PACKAGE";
   const needed = b.package?.athleteCountMax ?? 0;
@@ -245,7 +250,13 @@ export function toMatchData(b: ApiBrief, eligible: ApiEligibleAthlete[], opts: {
   const campaignId = opts.offers ? b.campaign?.id ?? null : null;
   const offerJob = campaignId ? jobs[0]?.jobId ?? null : null;
   const roster = eligible.map((a) =>
-    toMatchAthlete(a, jobs, pkgId, invites.get(a.id) ?? null, campaignId && offerJob ? offerDraftHref(campaignId, a.id, offerJob) : null),
+    toMatchAthlete(
+      a, jobs, pkgId, invites.get(a.id) ?? null,
+      campaignId && offerJob ? offerDraftHref(campaignId, a.id, offerJob) : null,
+      /* POL-FE-51 — `rates`: the viewer may set rates (BTG admin, network
+         manager), so a row with no rate links to the rate card editor. */
+      opts.rates ? { briefId: b.id } : null,
+    ),
   );
 
   const scored = eligible.filter((a) => a.score).map((a) => a.score!);
