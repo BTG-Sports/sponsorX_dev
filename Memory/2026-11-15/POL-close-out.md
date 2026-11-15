@@ -72,3 +72,15 @@ says which clause of "Done when" is theirs.
   launch walk.
 - The `qa7-athlete` link was restored: User `cmugbsfm10000r4vj2u1mc0v9` has
   `seed_ath_adult` again.
+
+## Merge: a red e2e on main_development, fixed here
+
+PR #424 (into `main_development`). Its first CI run failed e2e on
+`loop-p4-matching.spec.ts`, and `main_development` itself (8cea53e4, PR #421)
+was already failing the same test. PR #420 moved the brief drawer's
+Geography to the live targeting list, which is labelled by state name
+("Maryland", value MD), but the spec still clicked the old fixture label
+"Silver Spring, MD". The spec now picks "Maryland". The stored stateCodes
+are still `["MD"]`, so nothing else in the spec changed.
+`admin-sidebar-groups.spec.ts` was flaky in the same run (it passed on
+retry).
