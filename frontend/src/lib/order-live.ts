@@ -52,7 +52,7 @@ export function canonicaliseAgreementBody(body: string): string {
 /** Whether this order can be accepted right now, and if not, why — in the
  *  athlete's words. The API enforces every one of these; this only stops
  *  the button promising something it will refuse. */
-export function acceptBlocker(o: ApiOrder, viewerIsAthlete: boolean): string | null {
+export function acceptBlocker(o: ApiOrder, viewerIsAthlete: boolean, guardianActs = false): string | null {
   if (o.state !== "SENT")
     return o.state === "DRAFT"
       ? "BTG is still drafting this order."
@@ -65,6 +65,8 @@ export function acceptBlocker(o: ApiOrder, viewerIsAthlete: boolean): string | n
     return "You're under 18, so a parent or guardian has to be linked and verified before you can accept.";
   if (o.guardian.status === "unverified")
     return `${o.guardian.name ?? "Your guardian"} is linked but not verified yet. You can accept once BTG verifies them.`;
+  /* POL-FE-68 (app review §3) — a minor's own login: the verified guardian accepts, from theirs (the API refuses the minor). */
+  if (guardianActs) return `${o.guardian.name ?? "Your guardian"} accepts this order for you, from their own login.`;
   return null;
 }
 

@@ -441,6 +441,8 @@ export function explainInventoryRefusal(op: "create" | "update" | "pause", statu
   const said = refusalMessage(body);
   if (status === 409 && op === "create") return "Inventory opens once your profile is approved.";
   if (status === 409) return said ?? "A published listing shows this price and quantity. Pause the listing first, then change them.";
+  /* POL-FE-68 (app review §3) — a minor's login is refused with a coded reason (their guardian acts); say that, not a false one. */
+  if (status === 403 && said) return said;
   if (status === 403 && op === "create") return "This login can't sell inventory — it isn't linked to an athlete profile or a team.";
   if (status === 403) return "This item isn't yours to change.";
   return said ?? `Nothing was saved (HTTP ${status}).`;

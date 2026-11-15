@@ -1,5 +1,6 @@
 import { requirePortalAccess } from "@/server/portal";
 import { PortalShell, type NavItem } from "@/components/portal-shell";
+import { GuardianControlNotice } from "@/components/guardian-control-notice";
 import { roleLabel, viewerName } from "@/server/viewer";
 
 import "../../mobile-nav.css";
@@ -67,14 +68,18 @@ export default async function AthleteLayout({ children }: LayoutProps<"/athlete"
     <PortalShell
       portal="athlete"
       /* Only the current guardian answers a handoff request — the minor never does. */
-      nav={NAV.filter((n) => n.href !== "/athlete/guardian-requests" || actor.roles.includes("GUARDIAN"))}
+      /* POL-FE-68 (app review §3) — a minor reaches their own Guardian requests page too. */
+      nav={NAV.filter((n) => n.href !== "/athlete/guardian-requests" || actor.roles.includes("GUARDIAN") || Boolean(actor.guardianControl))}
       rootHref="/athlete"
       dock={DOCK}
       userName={await viewerName("Athlete")}
-      userRole={isAthlete ? "Content Partner" : `${roleLabel(actor.roles)} · preview`}
+      /* POL-FE-68 — a guardian is a guardian here, not a "preview"; staff previewing still read as previews. */
+      userRole={isAthlete ? "Content Partner" : actor.roles.includes("GUARDIAN") ? "Guardian" : `${roleLabel(actor.roles)} · preview`}
       /* P1-ART-22 — the whole athlete portal on the Arena. */
       stage="arena"
     >
+      {/* POL-FE-68 — who acts, on every page (it was on the dashboard only). */}
+      <GuardianControlNotice actor={actor} />
       {children}
     </PortalShell>
   );
