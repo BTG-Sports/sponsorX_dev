@@ -94,3 +94,29 @@
 - 70: the changes-requested email links to `/join/edit`, where the applicant edits and resubmits.
 - **Checks:** backend 3829 tests, frontend 2113; lint, build and scans all clean.
 - **Remaining:** 71–78.
+
+## Wrap-up 2026-11-15 (rcfworks)
+
+- **Shipped to staging today:**
+  - POL-FE-44 to 49 (walkthrough polish);
+  - P9-BE-24 / P9-FE-12, content review, with emails and a resubmission that keeps the earlier file. Staging is at b42a298f, and the `StudentAssignment` migration was applied there.
+- **App review (`documentation/SponsorX-App-Review-2026-11-15.md`):**
+  - logged as POL-52 to 78 (group I);
+  - items 52 to 70 built, in three stacked PRs to merge in order: #427 (52–59, the blockers), then #428 (60–65), then #429 (66–70). Retarget each to `main_development` once the one below it merges.
+  - Full local CI was green on each.
+- **Tomorrow:**
+  1. Merge #427, #428 and #429, then send main_development to main by PR, and deploy staging.
+  2. Build items 71 to 78:
+     - sponsor portal (71, 72);
+     - Finance and payouts (73);
+     - system health and intelligence (74);
+     - property, closures and email preferences (75);
+     - NEXT applicants (76);
+     - NEXT public pages and the QR (77);
+     - `polish.md` corrections (78).
+  3. Leftovers:
+     - POL-BE-69, a guardian's signature in profile completion;
+     - pending-confirmation links on offers and inventory;
+     - deliverable version links and page names.
+  4. Yesterday's two staging checks: role filtering on the help desk, and a real reply email.
+- **Open decision (programme owner):** no media release or consent agreement exists. Approved student pieces get no usage right, so they can't go to print until a consent text and an accept screen exist.
