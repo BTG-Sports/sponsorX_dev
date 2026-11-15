@@ -1873,7 +1873,14 @@ POL-FE-43. Each front-end task waits for its back-end one.
     the next athlete whose offers don't fit the budget left stops staffing;
     running out of athletes below the minimum stops it too. A stop is only
     shown to the sponsor as "BTG is finding more athletes" (#22).
-  - **The rate card is not a hard gate.** The finding as first reported said
+  - **Correction (same day, walkthrough):** for BTG's *manual* path the rate
+    card **is** a hard gate. The Matching Studio refuses to shortlist an
+    athlete with no rate for a package job (`canShortlist` in
+    `frontend/src/lib/matching.ts`; the row showed a dashed "Hold"), and no
+    screen could write a rate (`POST /athletes/:id/rates` had no caller), so
+    a held brief could not be staffed by hand at all. The paragraph below
+    holds for *automatic* staffing only.
+  - **The rate card is not a hard gate (automatic staffing).** The finding as first reported said
     an athlete needs a rate for every job in the package. The code does not
     require one: with no rate on file the offer's pay is the middle of the
     job's base range (`offer-draft.ts`, "No rate on file for …"), and the
@@ -1957,6 +1964,21 @@ POL-FE-43. Each front-end task waits for its back-end one.
   - **Tell the two kinds of package apart:** a "Magazine ad (NEXT)" label or
     its own tab on Packages, so a sponsor testing athlete campaigns doesn't
     pick an ad package by accident.
+- **Built (2026-11-15, Code review):**
+  - **Sponsor side, PR #420:** the start date opens at today + 14, can't be today
+    or earlier, and today is refused in words; live Sport and Geography lists
+    (`GET /catalogue/targeting`); `waitingOn` and "Waiting for athletes" on
+    the sponsor's requests; "Ready for you" renamed "Approved — finding
+    athletes"; "Ready to staff" / "Not enough athletes yet" on packages;
+    "Magazine ad (NEXT)" label.
+  - **BTG side, PR #421:** a rate card editor at `/admin/athletes/[id]/rates`
+    (tier first, then a rate per NIL job; new read
+    `GET /athletes/:id/rate-editor`, `POL-BE-51`); the Matching Studio's
+    no-rate row reads "Needs a rate" with a **Set a rate** link; **Launch
+    now** on a campaign in APPROVAL.
+  - **Still open:** the Tester Facility seeding a staffable network (other
+    repo); no admin athlete list leads to the rate editor yet (the Studio's
+    link is the only way in).
 - **Done when:** a tester who picks any athlete package from the Tester
   Facility's seeded network gets an approved, staffed request; a package
   that can't be staffed says so before or right after submitting, in plain
