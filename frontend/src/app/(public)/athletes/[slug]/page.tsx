@@ -64,16 +64,18 @@ export default async function AthleteProfilePage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ from?: string; tab?: string; claim?: string | string[] }>;
+  searchParams: Promise<{ from?: string; tab?: string; claim?: string | string[]; campaign?: string }>;
 }) {
   const { slug } = await params;
-  const { from, claim } = await searchParams;
+  const { from, claim, campaign } = await searchParams;
 
   /* An athlete following their old sidebar link (or any stale bookmark of
      it) belongs on the in-portal view, not on the public site. */
   if (from === "athlete-portal") redirect("/athlete/profile");
 
-  const back = resolveBack(from, "mk-athletes");
+  /* POL-FE-67 (app review §2) — "Back to Campaign" goes to the campaign it came from, not a sample one. */
+  const campaignId = typeof campaign === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(campaign) ? campaign : "";
+  const back = from === "campaign" && campaignId ? { href: `/admin/campaigns/${campaignId}`, label: "Back to Campaign" } : resolveBack(from === "campaign" ? undefined : from, "mk-athletes");
 
   const live = await fetchPublicAthlete(slug);
   if (live.kind === "missing") notFound();

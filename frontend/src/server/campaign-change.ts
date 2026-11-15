@@ -8,7 +8,6 @@
 import "server-only";
 
 import {
-  NOT_AVAILABLE_YET,
   type ApiCampaignActionResult,
   type ApiCampaignImpact,
   type ApiCampaignRequest,
@@ -38,7 +37,8 @@ async function call<T>(path: string, init: RequestInit, fallback: string): Promi
   } catch {
     return { ok: false, message: "Can't reach SponsorX right now — check your connection and try again." };
   }
-  if (res.status === 404) return { ok: false, unavailable: true, message: NOT_AVAILABLE_YET };
+  /* POL-FE-67 (app review §2) — the campaign-requests API shipped (P8-BE-12): a 404 is an error now, not "not live yet". */
+  if (res.status === 404) return { ok: false, message: `${fallback} (HTTP 404).` };
   if (!res.ok) return { ok: false, message: await reason(res, `${fallback} (HTTP ${res.status}).`) };
   try {
     return { ok: true, ...((await res.json()) as T) };
