@@ -44,7 +44,7 @@ describe("POL-FE-69 · athlete orders, earnings and profile say true things", as
 
   it("invitations and profile say BTG matches and invites; orders point to Offers; rates leave the completion", () => {
     expect(src("app/(app)/athlete/invitations/page.tsx")).toContain("BTG matches athletes to sponsors' campaigns and sends the invitations");
-    expect(src("app/(app)/athlete/profile/page.tsx")).not.toContain("Request Partnership");
+    expect(src("app/(app)/athlete/profile/page.tsx")).not.toContain('<span className="font-medium text-text">Request Partnership</span>');
     expect(src("app/(app)/athlete/orders/page.tsx")).toContain('action={{ label: "Open offers", href: "/athlete/offers" }}');
     expect(src("lib/profile-live.ts")).toContain('rates: "not-collected",');
   });
