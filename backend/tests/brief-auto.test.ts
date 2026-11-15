@@ -401,7 +401,9 @@ describe.skipIf(!hasDatabase)("P4-BE-11 · sponsor briefs approved automatically
       expect((await call("POST", `/briefs/${h.id}/transition`, A("cm"), { to: "QUALIFIED" })).status).toBe(200);
       expect((await call("POST", `/briefs/${h.id}/transition`, A("cm"), { to: "APPROVED" })).status).toBe(200);
       const r = await row(h.id);
-      expect(r).toMatchObject({ state: "APPROVED", autoApproved: false });
+      /* POL-BE-63 — approving by hand makes the campaign at once, as the automatic path does. */
+      expect(r).toMatchObject({ state: "CAMPAIGN_CREATED", autoApproved: false });
+      expect(await prisma.campaign.count({ where: { briefId: h.id } })).toBe(1);
       /* Kept as the record of why it waited. */
       expect(r.heldReasons).toEqual(["Alcohol is a sensitive category — BTG reviews these"]);
       const pushes = (await outbox(T, "zoho.pushDeal")).filter((j) => j.briefId === h.id);

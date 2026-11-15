@@ -108,11 +108,10 @@ function Body({ rows, page, group, counts, q, sort }: Props) {
 
 function CampaignCard({ c }: { c: AdminCampaign }) {
   const h = c.health;
-  /* P4-FE-09 — a campaign staffing itself opens its detail, where the
-     staffing panel, the stop reason and the switch are. */
-  const href = STAFFING.has(c.state) && !c.autoStaffing
-    ? `/admin/campaigns/match${c.briefId ? `?brief=${encodeURIComponent(c.briefId)}` : ""}`
-    : `/admin/campaigns/${encodeURIComponent(c.id)}`;
+  /* POL-FE-63 (app review §2) — every card opens the campaign page; the Matching Studio is
+     one click from there ("Open in Matching Studio"), on this campaign's brief. Before, a
+     hand-staffed campaign opened the Studio, which had no way back. */
+  const href = `/admin/campaigns/${encodeURIComponent(c.id)}`;
   const pct = c.deliverables.total ? Math.round((100 * c.deliverables.done) / c.deliverables.total) : 0;
   return (
     /* min-w-0: a long campaign name must truncate, not widen the grid track

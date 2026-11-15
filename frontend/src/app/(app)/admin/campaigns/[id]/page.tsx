@@ -87,7 +87,7 @@ const OPS_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "S
    gets "not in your role" — not "this page doesn't exist". */
 /* P4-FE-08 — the campaign read's stage fields (P4-BE-09): what happens next,
    and every stage change with whether the system made it. */
-type LiveStage = Pick<ApiCampaign, "nextStep" | "stageChange" | "stageHistory" | "autoStaffing" | "staffing" | "state" | "startDate" | "endDate" | "name" | "budget">;
+type LiveStage = Pick<ApiCampaign, "nextStep" | "stageChange" | "stageHistory" | "autoStaffing" | "staffing" | "state" | "startDate" | "endDate" | "name" | "budget" | "briefId">;
 
 type LiveBoard = {
   ops: ApiOps;
@@ -264,6 +264,8 @@ function LiveOpsView({
   back: ReturnType<typeof resolveBack>;
   initial: { q: string; show: string };
 }) {
+  /* POL-FE-63 — the Studio on this campaign's own brief. */
+  const studioHref = stage?.briefId ? `/admin/campaigns/match?brief=${encodeURIComponent(stage.briefId)}` : "/admin/campaigns/match";
   const now = new Date();
   const c = ops.campaign;
   const h = ops.health;
@@ -368,6 +370,10 @@ function LiveOpsView({
         </div>
       </HeroBand>
 
+      {/* POL-FE-63 (app review §2) — the Studio, on this campaign's brief, from the campaign page (the list now always opens here). */}
+      {stage && ["DRAFT", "STAFFING", "APPROVAL"].includes(stage.state) && (
+        <p className="text-xs"><Link className="underline text-muted hover:text-text" href={studioHref}>Open in Matching Studio →</Link></p>
+      )}
       {stage && <StagePanel stage={stage} />}
       {stage && <StaffingPanel campaignId={c.id} stage={stage} now={now} canLaunch={canLaunch} moves={moves} />}
 
@@ -380,14 +386,14 @@ function LiveOpsView({
           <RosterOps
             roster={rows}
             initial={initial}
-            live={{ campaignId: c.id, draftOrder: draftAndSendOrder, disputes, openDispute: canRaiseConcern ? openDealDisputeAction : undefined }}
+            live={{ campaignId: c.id, draftOrder: draftAndSendOrder, disputes, openDispute: canRaiseConcern ? openDealDisputeAction : undefined, studioHref }}
           />
         ) : (
           <EmptyState
             mark="inbox"
             title="Nobody on the roster yet"
             hint="Athletes appear here once invitations go out from the Matching Studio."
-            action={{ label: "Open the Matching Studio", href: "/admin/campaigns/match" }}
+            action={{ label: "Open the Matching Studio", href: studioHref }}
           />
         )}
       </section>

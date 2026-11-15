@@ -188,9 +188,13 @@ describe.skipIf(!hasDatabase)("the Zoho sync, on the path a request takes", asyn
       await transitionBrief(actor, "zt_brief", "APPROVED");
       await drain();
       const dealId = String(zoho.all("Deals")[0]!.id);
+      /* POL-BE-63 — approving by hand now makes the campaign in the same move,
+         so the Deal's pushes collapse to the contracted one: Closed Won, and
+         only now its Amount. SponsorX still asserts only its own stages. */
       const approve = zoho.writes.at(-1)!;
       expect(approve).toMatchObject({ op: "update", module: "Deals", id: dealId });
-      expect(approve.record).toEqual({ SponsorX_ID: "brief:zt_brief", Stage: "Proposal/Price Quote" });
+      expect(approve.record).toEqual({ SponsorX_ID: "brief:zt_brief", Stage: "Closed Won", Amount: 2500 });
+      expect(zoho.writes.some((w) => (w.record as { Stage?: string }).Stage === "Proposal/Price Quote" && "Amount" in (w.record as object))).toBe(false);
 
       const campaign = await createCampaignFromBrief(actor, "zt_brief", "Rosa's Fall Push");
       await drain();
