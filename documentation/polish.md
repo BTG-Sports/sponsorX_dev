@@ -1613,6 +1613,25 @@ POL-FE-43. Each front-end task waits for its back-end one.
     fills in the form's Name, Email and Message) passing unchanged: three
     public guardianship cases mention "email".
 
+### 44. Inventory item: after Save, say it's done and where to go
+`POL-FE-44` · *Dead end* · confirmed (found in walkthrough practice, 2026-11-15)
+
+- **Problem:** editing an inventory item and pressing **Save changes**
+  showed "Saved…", but the button stayed bright as if there were still
+  something to save, and nothing pointed onward. The tester thought the
+  save had failed.
+- **Frontend (`POL-FE-44`):** after a successful save the button is
+  disabled and reads **Saved**, and an **All items** button appears beside
+  it, back to the inventory. Changing any field arms **Save changes**
+  again and hides **All items**. Athlete and team manager both use this form.
+- **Done when:** after saving, the button is disabled with **All items**
+  beside it; editing a field re-enables Save; a refused save leaves Save
+  enabled with the red message.
+- **Delivered (`POL-FE-44`, 2026-11-15, infinex1):**
+  `frontend/src/components/inventory-form.tsx` (`saved` state, `doneHref`)
+  and `inventory-item.tsx` (passes the page's "All items" link). Not yet
+  deployed.
+
 ---
 
 ## Checked and fine
