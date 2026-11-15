@@ -509,7 +509,14 @@ describe("the whole matrix is pinned", () => {
       // marks it closed. SUPER_ADMIN any write; BTG_ADMIN own-tenant write;
       // reads unchanged; every other cell still deny (matrix §27). Before
       // this the grid hashed to ccff7a5c36e74972.
-    ).toBe("8fbb5b68f1e14851");
+      // Updated 2026-11-15 (P9-BE-24): new `studentAssignment` resource — a
+      // student's assignment and the advisor's content review. SUPER_ADMIN
+      // any read/write/approve; BTG_ADMIN own-tenant read/write/approve;
+      // ADVISOR own-property read/write/approve (assign and review, one
+      // school); STUDENT own read/write (their own draft), no approve;
+      // GUARDIAN ward read; every other cell deny (matrix §15.2). With its
+      // rows removed the grid hashes to the previous 8fbb5b68f1e14851.
+    ).toBe("f569c36adb53b3fe");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

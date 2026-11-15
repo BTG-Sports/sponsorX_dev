@@ -1878,6 +1878,7 @@ model Edition {
   saleHolds      AdSaleHold[]
   cancelledSales CancelledAdSale[]
   refundsDue     RefundDue[]
+  assignments    StudentAssignment[]
 
   @@index([tenantId, state])
 }
@@ -2089,6 +2090,7 @@ model Student {
   prospects     StudentProspect[]
   consents      AgreementAcceptance[]
   contributions ContentContribution[]
+  assignments   StudentAssignment[]
 
   @@index([tenantId, propertyId, state])
 }
@@ -2293,9 +2295,64 @@ model EditionAsset {
   campaign Campaign?      @relation(fields: [campaignId], references: [id])
   adSlot   AdSlot?        @relation(fields: [adSlotId], references: [id])
   rights   ContentRight[]
+  assignment StudentAssignment?
 
   @@index([tenantId, editionId])
   @@index([tenantId, reviewState])
+}
+
+/// P9-BE-24 — a piece of edition content a student is assigned, writes and
+/// submits, and the school's advisor approves or sends back (spec §7). The
+/// review reuses the deliverable states and their transition table
+/// (deliverable-state.ts) — no state machine of its own — and stops at
+/// APPROVED (a CHECK keeps it to the four below):
+///   NOT_STARTED      assigned, nothing submitted yet
+///   DRAFT_SUBMITTED  a draft is in — waiting for the advisor, or back with
+///                    the student when `revisionNote` is set
+///   BTG_REVIEW       the advisor's review (the deliverable chain's review
+///                    step; on the student's screen "Advisor review")
+///   APPROVED         the advisor approved it; `assetId` is the edition
+///                    content item made from it
+/// Nothing here is decided automatically: nearly every student is a minor,
+/// so a person — the school's advisor — approves every piece.
+model StudentAssignment {
+  id           String           @id @default(cuid())
+  tenantId     String
+  editionId    String
+  studentId    String
+  /// The school — the student's, when assigned. What an advisor's scope reads.
+  propertyId   String
+  /// ARTICLE | INTERVIEW | PHOTO | DESIGN
+  kind         String
+  title        String
+  section      String?
+  brief        String
+  dueAt        DateTime?
+  assignedById String?
+  reviewState  DeliverableState @default(NOT_STARTED)
+  /// The draft's words (an article, interview notes, a caption).
+  draftText    String?
+  /// The draft's file in the PRIVATE bucket (a photo, a layout), if any.
+  r2Key        String?
+  fileType     String?
+  /// Submissions so far — a resubmission after a change request counts up.
+  version      Int              @default(0)
+  submittedAt  DateTime?
+  /// An open change request, until the student's next submission answers
+  /// it. Only ever set in DRAFT_SUBMITTED (CHECK). History is the audit log.
+  revisionNote String?
+  reviewedById String?
+  approvedAt   DateTime?
+  assetId      String?          @unique
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  edition Edition       @relation(fields: [editionId], references: [id])
+  student Student       @relation(fields: [studentId], references: [id])
+  asset   EditionAsset? @relation(fields: [assetId], references: [id])
+
+  @@index([tenantId, propertyId, reviewState])
+  @@index([tenantId, studentId])
 }
 
 /// ONE rights ledger, three population paths (spec §6.1): student consent,

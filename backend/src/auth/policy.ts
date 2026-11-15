@@ -148,6 +148,7 @@ export type Resource =
   | "studentProspect"
   | "editionAsset"
   | "editionArtwork"
+  | "studentAssignment"
   | "contentRight"
   | "rosterEntry"
   | "athleteClaim"
@@ -248,6 +249,7 @@ export const RESOURCES: readonly Resource[] = [
   "studentProspect",
   "editionAsset",
   "editionArtwork",
+  "studentAssignment",
   "contentRight",
   "rosterEntry",
   "athleteClaim",
@@ -828,6 +830,19 @@ export const POLICY: Record<Resource, RolePolicy> = {
     CAMPAIGN_MGR: rwa("own-tenant", "own-tenant"),
     SPONSOR_ADMIN: rwa("own-campaign", "own-campaign", "own-campaign"),
     SPONSOR_ANALYST: rwa("own-campaign"),
+  },
+  /* P9-BE-24 — a student's assignment and the advisor's content review
+     (matrix §15.2, added 2026-11-15). The school's advisor assigns work to
+     their students (`write`) and approves or sends back what they submit
+     (`approve`), one school only; BTG can do either. The student reads
+     their own and submits their own draft (`write`, own) and never reviews
+     it. A guardian reads their child's. */
+  studentAssignment: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    ADVISOR: rwa("own-property", "own-property", "own-property"),
+    STUDENT: rwa("own", "own"),
+    GUARDIAN: rwa("ward"),
   },
   contentRight: {
     SUPER_ADMIN: rwa("any", "any", "any"),

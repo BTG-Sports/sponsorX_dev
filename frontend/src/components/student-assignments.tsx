@@ -5,6 +5,8 @@ import { Badge, Button, Card } from "./ui";
 import { ICONS, type NavIcon } from "./portal-nav";
 import { useDrawerFocus } from "./use-drawer-focus";
 import type { DeliverableState } from "@/lib/fixtures";
+import { stageBadge, type AssignmentStage } from "@/lib/student-assignments-live";
+import { DraftForm } from "./draft-form";
 
 /* --------------------------------------------------------------------------
    Student assignments island (P1-FE-19). Instant filter chips — no Apply
@@ -27,6 +29,17 @@ export type AssignmentRow = {
   state: DeliverableState;
   points: number;
   brief: string;
+  /** P9-FE-12 — a real assignment (GET /student-assignments): where it is,
+   *  the advisor's note, the draft so far, and whether it can be submitted. */
+  live?: {
+    stage: AssignmentStage;
+    edition: string;
+    revisionNote: string | null;
+    draftText: string | null;
+    hasFile: boolean;
+    version: number;
+    canSubmit: boolean;
+  };
 };
 
 const KIND_ICON: Record<AssignmentRow["kind"], NavIcon> = {
@@ -318,10 +331,23 @@ export function StudentAssignments({
               {open.points} pts on approval
             </p>
             <div className="mt-2">
-              <Badge tone={STATE_TONE[open.state]}>
-                {STATE_COPY[open.state]}
-              </Badge>
+              {open.live ? (
+                <Badge tone={stageBadge(open.live.stage).tone}>
+                  {stageBadge(open.live.stage).label}
+                </Badge>
+              ) : (
+                <Badge tone={STATE_TONE[open.state]}>
+                  {STATE_COPY[open.state]}
+                </Badge>
+              )}
             </div>
+
+            {open.live?.revisionNote && (
+              <div role="note" className="mt-4 rounded-lg border border-danger/40 bg-danger/10 p-3.5 text-xs leading-relaxed">
+                <p className="font-medium text-text">Your advisor asked for changes</p>
+                <p className="mt-1 whitespace-pre-line text-muted">{open.live.revisionNote}</p>
+              </div>
+            )}
 
             <p className="mt-4 rounded-lg border border-line-soft bg-surface-2/60 p-3.5 text-xs leading-relaxed text-muted">
               {open.brief}
@@ -368,13 +394,17 @@ export function StudentAssignments({
             </ol>
 
             <div className="mt-auto space-y-2 pt-5">
-              <Button
-                full
-                disabled
-                title="Uploading a draft isn't available yet."
-              >
-                Submit draft
-              </Button>
+              {open.live ? (
+                <DraftForm key={`${open.id}:${open.live.version}`} id={open.id} live={open.live} />
+              ) : (
+                <Button
+                  full
+                  disabled
+                  title="Uploading a draft isn't available yet."
+                >
+                  Submit draft
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 full

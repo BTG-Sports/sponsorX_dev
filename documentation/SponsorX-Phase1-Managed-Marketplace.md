@@ -4191,6 +4191,26 @@ Phase 2 overrides Phase 1's manual rule here (programme owner, 2026-10-03). Edit
 - **Done when:** Each screen shows what the system did and what is left for a person
 - **Reference:** BTG admin review items 23 and 24, 2026-10-03
 
+### ✅ `P9-BE-24` · Student assignments and the advisor's content review
+
+**Order** 209.86 · **BE** · **Where:** Code · **2d** · **Done**
+
+Raised 2026-11-15 by the programme owner: the advisor's Content review and the student's Assignments said "not connected yet". P9-FE-01 and P9-FE-02 (2026-09-28) both noted that the backend had no student-draft model and needed a backend row, but none was ever raised, so the board counted NEXT as finished. The school's advisor, or BTG, gives an active student a piece of an edition (article, interview, photo or design). The student writes it and submits words, a file, or both. The advisor approves it, and it becomes an edition content item (EditionAsset, source STUDENT), or sends it back with a reason the student answers with a new version. It reuses the deliverable states, stopping at APPROVED. No step is automatic: nearly every student is a minor, so a person approves every piece.
+
+- **Depends on:** P9-BE-04, P9-BE-05, P9-BE-10
+- **Done when:** An advisor assigns a piece to their own school's student; the student submits words or a file; the advisor approves it (it becomes an edition content item) or sends it back with a reason the student reads and answers with a new version; another school's advisor, another student and the student themself are refused; nothing moves on its own
+- **Reference:** Spec §7, §8; RBAC matrix §15.2 `studentAssignment`
+
+### ✅ `P9-FE-12` · Wire student Assignments and the advisor's Content review to the API
+
+**Order** 209.87 · **FE** · **Where:** Code · **1d** · **Done**
+
+The screens P9-FE-01 and P9-FE-02 left "not connected". The student's Assignments now lists their real assignments, and the drawer submits a draft (words, and a JPG, PNG or PDF uploaded straight to the private bucket) and shows the advisor's note. The advisor's Content review has three tabs (waiting for you, with the student, approved), opens a piece with its brief, words and file, and approves it or sends it back with a note. "Assign a piece" gives an active student work for an edition that isn't in production yet.
+
+- **Depends on:** P9-BE-24, P1-FE-19, P1-FE-20
+- **Done when:** A signed-in student sees their real assignments, submits a draft and reads the advisor's note; a signed-in advisor reviews their school's pieces by tab, approves or sends one back with a note, and assigns new work; neither screen shows "not connected" or sample data to a signed-in person
+- **Reference:** Spec §7, §8
+
 ### ✅ `P9-QA-01` · E2E: edition sells once, a student code attributes the sale
 
 **Order** 210 · **QA** · **Where:** Code · **3d** · **Done**

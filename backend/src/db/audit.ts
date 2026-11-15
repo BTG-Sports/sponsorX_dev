@@ -227,6 +227,14 @@ export const AUDIT_ACTIONS = {
   /** P9-BE-16 — a sold slot's ad artwork on the approval board: the same
    *  steps as a deliverable's, under their own names so the log says which
    *  kind of subject was decided. */
+  /** P9-BE-24 — a student's assignment and the advisor's content review. */
+  studentAssignment: {
+    create: "studentAssignment.create",
+    submit: "studentAssignment.submit",
+    startReview: "studentAssignment.startReview",
+    approve: "studentAssignment.approve",
+    requestRevision: "studentAssignment.requestRevision",
+  },
   editionArtwork: {
     submit: "editionArtwork.submit",
     btgReview: "editionArtwork.btgReview",
