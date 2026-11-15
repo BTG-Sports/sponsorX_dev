@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Dropdown, type FilterTone } from "@/components/filter-kit";
@@ -51,6 +52,7 @@ export function InventoryForm({
   create,
   update,
   savedHref,
+  doneHref,
   onCancel,
   tone = "athlete",
 }: {
@@ -64,6 +66,8 @@ export function InventoryForm({
   /** Where to go after a create — `{id}` is replaced with the new item's id. */
   savedHref?: string;
   onCancel?: () => void;
+  /** POL-FE-44 — edit mode: where "All items" leads once a save has landed. */
+  doneHref?: string;
   /** The portal's colour for the pickers — the athlete's, or the team manager's. */
   tone?: FilterTone;
 }) {
@@ -73,10 +77,18 @@ export function InventoryForm({
   const [errors, setErrors] = useState<DraftErrors>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  /** POL-FE-44 — true from a successful edit save until the next change, so
+   *  the button never looks as if there is still something to save. */
+  const [saved, setSaved] = useState(false);
 
   const isPackage = d.kind === "PACKAGE";
   const lockedPackage = mode === "edit" && item?.kind === "PACKAGE";
-  const set = <K extends keyof InventoryDraft>(k: K, v: InventoryDraft[K]) => setD((p) => ({ ...p, [k]: v }));
+  /** Every edit goes through here, so changing a field re-arms Save. */
+  const change = (fn: (p: InventoryDraft) => InventoryDraft) => {
+    setSaved(false);
+    setD(fn);
+  };
+  const set = <K extends keyof InventoryDraft>(k: K, v: InventoryDraft[K]) => change((p) => ({ ...p, [k]: v }));
 
   const save = async () => {
     setMessage(null);
@@ -107,6 +119,7 @@ export function InventoryForm({
         if (!r.ok) setMessage({ tone: "error", text: r.message });
         else {
           setMessage({ tone: "ok", text: "Saved. Orders already placed keep the price they were placed at." });
+          setSaved(true);
           router.refresh();
         }
       }
@@ -261,7 +274,7 @@ export function InventoryForm({
                   key={c}
                   type="button"
                   aria-pressed={on}
-                  onClick={() => setD((p) => ({ ...p, ...toggleCategory(p, list, c) }))}
+                  onClick={() => change((p) => ({ ...p, ...toggleCategory(p, list, c) }))}
                   className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
                     on
                       ? list === "restrictedCategories"
@@ -282,7 +295,7 @@ export function InventoryForm({
       {message && (
         <p
           role={message.tone === "error" ? "alert" : "status"}
-          className={`rounded-lg px-3 py-2 text-[11px] leading-relaxed ${message.tone === "error" ? "bg-danger/10 text-danger" : "bg-accent/10 text-accent"}`}
+          className={`rounded-lg px-3 py-2 text-[11px] leading-relaxed ${message.tone === "error" ? "bg-danger/10 text-danger" : "bg-success/10 text-success"}`}
         >
           {message.text}
         </p>
@@ -291,11 +304,19 @@ export function InventoryForm({
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || saved}
           className="rounded-lg bg-primary px-4 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? "Saving…" : mode === "create" ? "Add item" : "Save changes"}
+          {busy ? "Saving…" : mode === "create" ? "Add item" : saved ? "Saved" : "Save changes"}
         </button>
+        {saved && doneHref && (
+          <Link
+            href={doneHref}
+            className="rounded-lg border border-primary/50 px-4 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+          >
+            All items
+          </Link>
+        )}
         {onCancel && (
           <button type="button" onClick={onCancel} className="rounded-lg border border-line px-4 py-2 text-xs text-muted hover:text-text">
             Cancel

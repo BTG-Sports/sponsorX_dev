@@ -2,8 +2,11 @@
 # Since 2026-10-07 (owner's decision) each merge to main that changes tasks is
 # announced as it lands (tracker-notify.yml), so this post is SKIPPED when tasks
 # changed on main in the last 24 hours (--skip-if-announced). When it runs it
-# carries phase progress, Code review and newly blocked. Either way, the day's
-# Stage Progress row is appended to the published Sheet.
+# carries phase progress, Code review and newly blocked.
+# Slack only since 2026-11-15 (user's decision): the Stage Progress row is no
+# longer appended to the Google Sheet (its endpoint answered 404 on every run);
+# it is printed in the run log instead. The SHEET_ENDPOINT_* secrets stay in
+# GitHub; add the two env lines back to switch the Sheet on again.
 # Reads the repo only — never commits.
 name: Tracker digest
 
@@ -28,10 +31,8 @@ jobs:
       - name: Install
         run: pip install openpyxl==3.1.5
 
-      - name: Post the digest (quiet days only) and append the snapshot row
+      - name: Post the digest (quiet days only)
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SHEET_ENDPOINT_URL: ${{ secrets.SHEET_ENDPOINT_URL }}
-          SHEET_ENDPOINT_SECRET: ${{ secrets.SHEET_ENDPOINT_SECRET }}
           TZ: Asia/Manila
         run: python scripts/tracker/tracker_sync.py digest --since "24 hours ago" --skip-if-announced

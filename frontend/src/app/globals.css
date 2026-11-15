@@ -2978,6 +2978,11 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
   transition: opacity 0.4s ease;
   pointer-events: none;
 }
+/* POL-FE-45 — a plate holding a dropdown: its menu has to spill past the
+   plate's edge, so this plate doesn't clip. The spotlight keeps the plate's
+   rounded corners itself instead. Use only on a plate with a menu in it. */
+.sx-arena-plate.sx-arena-plate-open { overflow: visible; }
+.sx-arena-plate.sx-arena-plate-open::after { border-radius: inherit; }
 .sx-arena-plate[data-spot]:hover,
 .sx-arena-plate[data-spot]:focus-within,
 a.sx-arena-plate:hover,

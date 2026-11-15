@@ -10,7 +10,7 @@ import {
 import {
   CHECK_WORD, MAX_DESCRIPTION, descriptionCheck, ownerControls, type ApiAthleteListing, type ListCheck, type TrackStep,
 } from "@/lib/athlete-listings-live";
-import { btgNote, GOES_LIVE_COPY, submitOutcome } from "@/lib/listing-outcome";
+import { btgNote, GOES_LIVE_COPY, liveNow, submitOutcome } from "@/lib/listing-outcome";
 
 /* --------------------------------------------------------------------------
    2S3-FE-02 — "List my item"'s client islands (ListMyItem.dc.html):
@@ -130,6 +130,12 @@ function Outcome({ listing, justSubmitted }: { listing: ApiAthleteListing; justS
         <div className={`rounded-xl px-4 py-3 text-[13px] ${o.tone === "accent" ? "bg-accent/10 text-accent" : "border border-warn/30 bg-warn/8 text-warn"}`}>
           <p className="font-semibold">{o.headline}</p>
           {o.lines.map((l) => <p key={l} className="mt-0.5 text-xs">{l}</p>)}
+          {/* POL-FE-46 — athletes can't open the sponsor Shop, so this opens the sponsor's-eye preview. */}
+          {liveNow(listing) && (
+            <Link href={`/athlete/listings/${encodeURIComponent(listing.id)}/preview`} className={`${secondary} mt-2.5`}>
+              Check in marketplace now
+            </Link>
+          )}
         </div>
       )}
       {note && <p className="rounded-xl border border-danger/30 bg-danger/8 px-4 py-3 text-xs text-danger">{note}</p>}

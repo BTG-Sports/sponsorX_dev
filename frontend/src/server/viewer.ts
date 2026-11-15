@@ -32,6 +32,25 @@ export function roleLabel(roles: readonly string[]): string {
   return roles.map((r) => ROLE_LABELS[r] ?? r).join(" · ") || "No role";
 }
 
+/**
+ * POL-FE-47 — the signed-in person's name and sign-in email, from Clerk, to
+ * fill in checkout's billing contact when the sponsor has none on file. Name
+ * is "" when none is set. Null when nobody is signed in or Clerk can't say.
+ * Read live, never stored: what an order keeps is what the sponsor confirms.
+ */
+export async function viewerContact(): Promise<{ name: string; email: string } | null> {
+  try {
+    const user = await currentUser();
+    if (!user) return null;
+    return {
+      name: [user.firstName, user.lastName].filter(Boolean).join(" "),
+      email: user.primaryEmailAddress?.emailAddress ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** The signed-in person's display name, from Clerk. */
 export async function viewerName(fallback: string): Promise<string> {
   const user = await currentUser();

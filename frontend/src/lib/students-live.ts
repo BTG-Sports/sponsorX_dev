@@ -199,6 +199,23 @@ export const PROSPECT_STATE_COPY: Record<string, string> = {
   REJECTED: "Not accepted",
 };
 
+/** POL-FE-49 — what the student sees straight after logging a business.
+ *  POST /students/:id/prospects decides it at once (P9-BE-21) and answers
+ *  with where it landed; never why it was held, so neither do we. */
+export type ProspectOutcome = { tone: "success" | "danger" | "warn"; message: string };
+export function prospectOutcome(state: string | undefined, businessName: string): ProspectOutcome {
+  if (state === "ACCEPTED") {
+    return { tone: "success", message: `${businessName} is accepted. Go ahead and pitch them, and give them your code.` };
+  }
+  if (state === "REJECTED") {
+    return {
+      tone: "danger",
+      message: `${businessName} can't be accepted: another sponsor already has that kind of business. You keep the credit for bringing it in. If other kinds are still open at your school, your list shows them.`,
+    };
+  }
+  return { tone: "warn", message: `${businessName} is waiting for SponsorX to check it. You'll hear back either way.` };
+}
+
 export const POINT_REASON_COPY: Record<string, string> = {
   ARTICLE: "Article approved",
   PHOTO: "Photo set published",

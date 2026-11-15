@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { btgNote, GOES_LIVE_COPY, restrictedWordsLine, submitOutcome } from "../src/lib/listing-outcome";
+import { btgNote, GOES_LIVE_COPY, liveNow, restrictedWordsLine, submitOutcome } from "../src/lib/listing-outcome";
 
 /* --------------------------------------------------------------------------
    2S3-FE-04 — what a seller is told about going live (2S3-BE-06): "Live ✓",
@@ -22,6 +22,13 @@ describe("before submitting", () => {
 describe("after submitting", () => {
   it("live at once: Live ✓", () => {
     expect(submitOutcome({ state: "PUBLISHED", publishAt: null }, now)).toEqual({ tone: "accent", headline: "Live ✓", lines: ["Sponsors can find it on the marketplace now."] });
+  });
+
+  it("POL-FE-46: live now only when published with no later publish day (the 'Check in marketplace now' button)", () => {
+    expect(liveNow({ state: "PUBLISHED", publishAt: null }, now)).toBe(true);
+    expect(liveNow({ state: "PUBLISHED", publishAt: "2026-10-01T00:00:00.000Z" }, now)).toBe(true);
+    expect(liveNow({ state: "PUBLISHED", publishAt: "2026-10-20T00:00:00.000Z" }, now)).toBe(false);
+    for (const state of ["DRAFT", "PENDING_APPROVAL", "PAUSED", "ARCHIVED"] as const) expect(liveNow({ state, publishAt: null }, now)).toBe(false);
   });
 
   it("a future publish day: the checks passed, and the day it goes live", () => {

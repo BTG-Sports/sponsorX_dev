@@ -1613,6 +1613,194 @@ POL-FE-43. Each front-end task waits for its back-end one.
     fills in the form's Name, Email and Message) passing unchanged: three
     public guardianship cases mention "email".
 
+### 44. Inventory item: after Save, say it's done and where to go
+`POL-FE-44` · *Dead end* · confirmed (found in walkthrough practice, 2026-11-15)
+
+- **Problem:** editing an inventory item and pressing **Save changes**
+  showed "Saved…", but the button stayed bright as if there were still
+  something to save, and nothing pointed onward. The tester thought the
+  save had failed.
+- **Frontend (`POL-FE-44`):** after a successful save the button is
+  disabled and reads **Saved**, and an **All items** button appears beside
+  it, back to the inventory. Changing any field arms **Save changes**
+  again and hides **All items**. Athlete and team manager both use this form.
+  The "Saved" message is now green (was the orange accent colour, which read as a warning).
+- **Done when:** after saving, the button is disabled with **All items**
+  beside it; editing a field re-enables Save; a refused save leaves Save
+  enabled with the red message.
+- **Delivered (`POL-FE-44`, 2026-11-15, infinex1):**
+  `frontend/src/components/inventory-form.tsx` (`saved` state, `doneHref`)
+  and `inventory-item.tsx` (passes the page's "All items" link). Not yet
+  deployed.
+
+### 45. "Categories you won't promote": the category list is cut off
+`POL-FE-45` · *Dead end* · confirmed (found in walkthrough practice, 2026-11-15)
+
+- **Problem:** on the athlete's Inventory page, the "Add a category…" menu in
+  "Categories you won't promote" opens as a thin empty strip just under the
+  button. The rest of the list is hidden by the panel around it, so the athlete
+  can't pick a category and can't add a restriction at all.
+- **Frontend (`POL-FE-45`):** let the menu show past the panel's edge, so the
+  whole list shows and every category can be picked. Nothing else on the page
+  changes.
+- **Done when:** the menu shows all 25 categories (scrolling within itself);
+  picking one and pressing Add adds the restriction; the panel looks as before
+  when the menu is closed.
+- **Delivered (2026-11-15, infinex1):**
+  - The cause: every arena panel (`.sx-arena-plate`) hides whatever spills past
+    its edge, and the menu opens below the button, past the panel's bottom.
+  - `frontend/src/app/globals.css`: a new `.sx-arena-plate-open` modifier lets
+    one panel show what spills past its edge; its pointer spotlight keeps the
+    rounded corners. (A Tailwind `overflow-visible` class would not work: the
+    panel rule sits outside Tailwind's layers, so it wins.)
+  - `frontend/src/app/(app)/athlete/inventory/page.tsx`: the restrictions panel
+    uses it. Other panels and the shared `Dropdown` are unchanged.
+  - The team manager's inventory pages have no restrictions section, so
+    nothing to change there.
+
+### 46. Live listing: a button to see it in the marketplace
+`POL-FE-46` · *Dead end* · confirmed (found in walkthrough practice, 2026-11-15)
+
+- **Problem:** when a listing goes live, the page says "Live ✓ / Sponsors can
+  find it on the marketplace now." but gives the seller no way to see it
+  there. An athlete can't open the sponsor Shop, so they're left wondering what
+  sponsors actually see.
+- **Frontend (`POL-FE-46`):** a **Check in marketplace now** button in the
+  Live banner, opening the listing as a sponsor sees it (the page's existing
+  "Preview as a sponsor sees it" view). Shown only when the listing is live.
+- **Done when:** the button shows in the "Live ✓" banner and opens that
+  listing's preview; it doesn't show for a draft, a held, paused or ended
+  listing, or one that goes live on a later day; build and tests pass.
+- **Delivered (2026-11-15, infinex1):**
+  - `frontend/src/lib/listing-outcome.ts`: `liveNow()` says whether a listing
+    is live now (published, no later publish day); "Live ✓" uses it too.
+  - `frontend/src/components/athlete-listing-form.tsx`: the button in the
+    athlete's Live banner, to `/athlete/listings/<id>/preview`, in the page's
+    secondary button style.
+  - `frontend/src/components/property-listing-form.tsx`: the team manager's
+    listing page shows the same banner, so it gets the button too, to
+    `/property/listings/<id>/preview` (that route exists).
+  - `frontend/tests/listing-outcome.test.ts`: a test for `liveNow()`.
+  - The banner shows right after Submit or Resume, as before, so that is
+    when the button appears.
+
+### 47. Checkout: fill the billing contact from the signed-in user
+`POL-FE-47` · *Friction* · confirmed (found in walkthrough practice, 2026-11-15)
+
+- **Problem:** checkout fills in the billing contact from the sponsor
+  company's primary contact. A sponsor made with the test-account tool has
+  none, so Name and Email start empty and the page says "You have no contact
+  on file, so add one here." The buyer has to type in details the app
+  already knows.
+- **Frontend (`POL-FE-47`):** when the company has no contact, fill in the
+  signed-in person's name and email instead, still editable, with the line
+  "Filled in from your account — change it if someone else handles
+  billing." A company with a primary contact works as before. No name set →
+  Name stays blank, Email is still filled.
+- **Done when:** a sponsor with no contact sees their own name and email in
+  the billing step with the "from your account" line; one with a contact
+  still sees the contact; nothing new is stored; build and tests pass.
+- **Delivered (2026-11-15, infinex1):**
+  - Why the frontend and not the API: the person's name lives only in Clerk.
+    The `User` row in Postgres has an email and no name, so an API fallback
+    could only fill Email, or would have to call Clerk on the request.
+  - `frontend/src/server/viewer.ts`: `viewerContact()` reads the signed-in
+    person's name and sign-in email from Clerk (`currentUser()`), live.
+  - `frontend/src/app/(app)/sponsor/checkout/page.tsx`: reads it only when
+    the hold's checkout has no billing contact, and passes it to the gate.
+  - `frontend/src/lib/checkout-gate.ts`: `billingPrefillSource()` (contact,
+    account or none), `billingDraftFrom()` takes the viewer as a fallback,
+    and `billingPrefillNote()` gives the line under the heading.
+  - `frontend/src/components/shop-checkout.tsx`: uses them.
+  - `frontend/tests/checkout-gate.test.ts`: a test for the fallback.
+  - The API is unchanged: `billingPrefill` in `backend/src/domain/order-terms.ts`
+    still sends the tenant-scoped primary contact, and the order keeps only
+    what the sponsor confirms.
+
+### 48. NEXT student home: a way to the student application
+`POL-FE-48` · *Friction* · confirmed (found in walkthrough practice, 2026-11-15)
+
+- **Problem:** a student signed in to the NEXT portal lands on Home (Closed
+  sales, Points, My code). Nothing there leads to the public student
+  application at `/next/apply`, so the presenter had to type the address.
+- **Frontend (`POL-FE-48`):** a card under the three stat cards, "Know
+  someone who should join?", with "Classmates apply here. Their application
+  goes to your school's faculty advisor." and a button, **Open the student
+  application**, to `/next/apply`.
+- **Done when:** a signed-in student reaches the application from Home with
+  one tap; the page opens signed in; build and tests pass.
+- **Delivered (2026-11-15, infinex1):**
+  - `frontend/src/app/(app)/next/live-views.tsx`: `StudentApplyCard`, shown
+    on the live home (`LiveStudentHome`). Not on the "not linked to a student
+    record" screen.
+  - `frontend/src/app/(app)/next/page.tsx`: the same card on the fixture
+    preview (`?demo=` and BTG previews).
+  - `/next/apply` opens signed in: it sits in the `(public)` group, whose
+    layout checks nothing, and `proxy.ts` only attaches Clerk and protects no
+    route. Nothing to fix.
+  - Public pages: `/next/about` already links to the application three times.
+    A signed-out visitor to `/next` is sent to `/login`, which had no link to
+    it, and neither did the site footer. Added **Student application** to the
+    footer (`frontend/src/components/site-chrome.tsx`), which shows on every
+    public page and on `/login`.
+  - `frontend/tests/student-apply-link.test.ts`: pins the card, where it
+    shows, and the footer link.
+
+### 49. NEXT student: log a business from My sales
+`POL-FE-49` · *Friction* · confirmed (found in walkthrough practice, 2026-11-15)
+
+- **Problem:** the student portal felt view-only. On My sales the button
+  was disabled with "Adding one yourself isn't available yet", although the
+  API has taken a student's prospects since P9-BE-13
+  (`POST /students/:id/prospects`, STUDENT `rwa("own", "own")` on
+  `studentProspect`).
+- **Frontend (`POL-FE-49`):** a **Log a business** form (business name and
+  kind of business, the two fields `ProspectInput` takes). The API decides
+  it straight away, so the form says where it landed:
+  - accepted: "… is accepted. Go ahead and pitch them, and give them your
+    code.";
+  - refused: "… can't be accepted: another sponsor already has that kind of
+    business. You keep the credit for bringing it in.";
+  - held: "… is waiting for SponsorX to check it. You'll hear back either
+    way." (never the internal reasons, which the API does not send).
+  The list refreshes, back to page one with no filter, so the new business
+  shows at the top.
+- **The automatic rules (backend, unchanged — `submitProspect` in
+  `backend/src/domain/student.ts`, `autoDecideProspectIn` in
+  `student-auto.ts`, `prospectVerdict` in `student-auto-rules.ts`):**
+  - refused at once (HTTP 422) for an unknown category or one the student
+    programme never sells; refused (HTTP 409) unless the student is ACTIVE;
+  - **refused** (`CATEGORY_EXCLUSIVE`, with the categories still open) when
+    another sponsor holds that category at the student's school (a
+    presenting ad slot with a campaign in a live edition of the school's
+    publication);
+  - **held** for SALES (or BTG admins when the tenant has no SALES user),
+    with reasons, for a sensitive category, a school restriction, an athlete restriction
+    at the school, the business is already a sponsor (or its name has no
+    letters to match), or another student already has it open;
+  - **accepted** when nothing is in the way. One business name is decided at
+    a time, so two students cannot both be accepted for it.
+- **Done when:** an ACTIVE student logs a business, sees the outcome, and
+  finds it in their list; BTG sees it on Admin → NEXT → Prospects
+  (`/admin/next/prospects`: held ones under "Waiting on you", decided ones
+  under "Decided automatically", all under "All"); build and tests pass.
+- **Delivered (2026-11-15, infinex1):**
+  - `frontend/src/components/student-prospect.tsx`: "Log a business",
+    plainer labels, the outcome in its tone, list reset and refresh.
+  - `frontend/src/app/(app)/next/actions.ts`: reads `{ id, state }` from the
+    API and returns the state with its message. The student id still comes
+    from `/me`, never the form.
+  - `frontend/src/lib/students-live.ts`: `prospectOutcome()`.
+  - `frontend/src/app/(app)/next/sales/page.tsx`: the fixture screen uses
+    the same form in place of the disabled button. A BTG preview is not a
+    student, so sending there says "Only a signed-in student can log a
+    business."
+  - `frontend/src/app/(app)/next/live-views.tsx`: the not-yet-active wording.
+  - `frontend/tests/student-log-business.test.ts`.
+  - No backend change. Nothing on the backend blocks an ACTIVE student. A
+    student who is not ACTIVE still sees the button disabled ("You can log a
+    business once you're on the masthead"), as the API would refuse them.
+
 ---
 
 ## Checked and fine
