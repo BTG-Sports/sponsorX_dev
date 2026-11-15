@@ -20,6 +20,14 @@ Kept in its own file, like POL-FE-44…50. Docs and tracker only, no code.
   `POST /campaigns/:id/launch` exists, and a blank start date is today + 14
   (`lib/brief-request.ts` line 124), so See results never shows in a test; NEXT ad packages
   share the Packages list, unlabelled.
+- **Added later the same day (staging):** the drawer's Start date showed today (11/15/2026)
+  filled in, and an untouched brief was held: "the start date (Nov 15, 2026) isn't in the
+  future" (`brief-readiness-rules.ts` line 92 needs start > now).
+  - Not our code: the field starts empty (native `type="date"`, no `min`, line 263) and an
+    empty value becomes today + 14, on `main` too. The browser drew, autofilled or picked
+    today.
+  - Fix: fill the field with today + 14 or tomorrow, `min` tomorrow, refuse today in the
+    drawer. Preferably use the house `DateRangePicker`: the owner rejects native date inputs.
 - **Suggested fix:** a plain "can't be staffed yet" message; a staffable marker per package;
   live sport/area lists; the Tester Facility seeds a staffable network (its source is not
   in this repo); a BTG Launch now button (or a staging test start date); a NEXT ad label.

@@ -1896,6 +1896,28 @@ POL-FE-43. Each front-end task waits for its back-end one.
     `POST /campaigns/:id/launch` (BTG's manual launch, P5-BE-04) and the
     campaign page even says "BTG can still launch it sooner", but no screen
     calls it. So the sponsor's **See results** never appears during a test.
+  - **The Start date showed today, and today is always held.** On staging
+    (2026-11-15) the drawer's Start date showed **11/15/2026** already
+    filled in, and a brief sent as it stood was held with "Dates: the start
+    date (Nov 15, 2026) isn't in the future". So every untouched request
+    went to BTG.
+    - **Where the date comes from (checked):** not from our code. The field
+      starts empty (`useState("")`, `brief-request-drawer.tsx` line 263) and
+      is the browser's native `<input type="date">` with no `min` and no
+      default. Only an empty value becomes today + 14 days
+      (`brief-request.ts` line 124), and `origin/main` has the same code. So
+      the date on screen came from the browser: some browsers (Safari, iOS)
+      draw today's date in an empty date field, browser autofill can fill
+      it, and a native picker opens on today, so one tap selects it. Once
+      today is the value, it is sent as is.
+    - **Why it is held:** the readiness rule
+      (`backend/src/domain/brief-readiness-rules.ts`, line 92) needs the
+      start strictly after now. Today at 00:00 UTC is already past, so
+      today can never pass. Nothing in the drawer stops it: no `min`, no
+      check before sending, and the sponsor never sees the hold.
+    - **Also:** the owner rejects the native date input in portal UIs
+      (`date-range-picker.tsx`, header comment, P1-ART-23). The brief
+      drawer still uses one.
   - **NEXT magazine ad packages sit in the same Packages list** as the
     athlete campaign packages (`backend/src/domain/sponsor-packages.ts`
     seeds both), with nothing that tells a sponsor which is which. An
@@ -1925,6 +1947,13 @@ POL-FE-43. Each front-end task waits for its back-end one.
   - **A BTG "Launch now" button** on the admin campaign page for a campaign
     in APPROVAL, calling the existing `POST /campaigns/:id/launch`, with an
     "are you sure?". Or, for staging only, a test-mode start date of today.
+  - **A start date that can't be held:** show the date that will be sent.
+    Fill the field with today + 14 days (the rule a blank already follows)
+    or with tomorrow, so it never looks empty and the value matches the
+    screen. Set the earliest pick to tomorrow. Refuse today or a past date
+    in the drawer, in words ("The start date must be after today"), before
+    sending. Preferably use the house date picker (`DateRangePicker` in
+    single-day use, with `min` set to tomorrow) instead of the native field.
   - **Tell the two kinds of package apart:** a "Magazine ad (NEXT)" label or
     its own tab on Packages, so a sponsor testing athlete campaigns doesn't
     pick an ad package by accident.
@@ -1932,7 +1961,9 @@ POL-FE-43. Each front-end task waits for its back-end one.
   Facility's seeded network gets an approved, staffed request; a package
   that can't be staffed says so before or right after submitting, in plain
   words, with no hold text or athlete details shown; Sport and Geography
-  list live values on live; BTG can launch an approved campaign on the spot
+  list live values on live; the Start date shows a date after today when
+  the drawer opens, today and past days can't be picked, and an untouched
+  brief is never held for `DATES`; BTG can launch an approved campaign on the spot
   and the sponsor then sees **See results**; NEXT ad packages are labelled
   apart from athlete packages; build and tests pass.
 
