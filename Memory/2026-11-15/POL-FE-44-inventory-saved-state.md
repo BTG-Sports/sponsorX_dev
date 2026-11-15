@@ -12,5 +12,5 @@ Kept in its own file because today's `tasks-completed.md` is on the open
   field arms Save again. Applies to both the athlete and team manager pages.
 - Logged as polish.md #44 and on the tracker's Polish sheet (row 68, Code review).
   Build passes. **Not deployed yet:** the user will redeploy later.
-- Also noted, not fixed: the success message uses the accent colour (orange), which
-  reads as a warning. Worth a look in the same area.
+- Also fixed: the success message is now green (`success` token, `bg-success/10
+  text-success`) instead of the orange accent colour, which read as a warning.

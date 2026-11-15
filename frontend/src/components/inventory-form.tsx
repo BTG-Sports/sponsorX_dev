@@ -295,7 +295,7 @@ export function InventoryForm({
       {message && (
         <p
           role={message.tone === "error" ? "alert" : "status"}
-          className={`rounded-lg px-3 py-2 text-[11px] leading-relaxed ${message.tone === "error" ? "bg-danger/10 text-danger" : "bg-accent/10 text-accent"}`}
+          className={`rounded-lg px-3 py-2 text-[11px] leading-relaxed ${message.tone === "error" ? "bg-danger/10 text-danger" : "bg-success/10 text-success"}`}
         >
           {message.text}
         </p>

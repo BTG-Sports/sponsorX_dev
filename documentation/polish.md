@@ -1624,6 +1624,7 @@ POL-FE-43. Each front-end task waits for its back-end one.
   disabled and reads **Saved**, and an **All items** button appears beside
   it, back to the inventory. Changing any field arms **Save changes**
   again and hides **All items**. Athlete and team manager both use this form.
+  The "Saved" message is now green (was the orange accent colour, which read as a warning).
 - **Done when:** after saving, the button is disabled with **All items**
   beside it; editing a field re-enables Save; a refused save leaves Save
   enabled with the red message.
