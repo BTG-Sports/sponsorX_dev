@@ -13,12 +13,15 @@ import {
   APPROVAL_CONDITION,
   billingDraftFrom,
   billingIssues,
+  billingPrefillNote,
+  billingPrefillSource,
   gateHint,
   gateStatus,
   termsLabel,
   totalChanged,
   type ApiCheckout,
   type BillingDraft,
+  type BillingViewer,
   type Quote,
 } from "@/lib/checkout-gate";
 import { feeText, usd, type ShopResult } from "@/lib/shop-live";
@@ -98,15 +101,18 @@ export function ShopCheckoutGate({
   reservationId,
   checkout,
   quote,
+  viewer,
   children,
 }: {
   reservationId: string;
   checkout: ApiCheckout;
   quote: Quote;
+  /** POL-FE-47 — the signed-in person, to fill billing from when the sponsor has no contact. */
+  viewer?: BillingViewer | null;
   children: ReactNode;
 }) {
   const router = useRouter();
-  const [billing, setBilling] = useState<BillingDraft>(() => billingDraftFrom(checkout.billingContact));
+  const [billing, setBilling] = useState<BillingDraft>(() => billingDraftFrom(checkout.billingContact, viewer));
   const [touched, setTouched] = useState<Partial<Record<keyof BillingDraft, boolean>>>({});
   const [accepted, setAccepted] = useState(false);
   const { refusal, pending, run } = useShopAction();
@@ -133,7 +139,7 @@ export function ShopCheckoutGate({
             </h2>
             <p className="text-xs text-muted">
               Invoices and receipts for this order go to this contact.{" "}
-              {checkout.billingContact ? "Filled in from your primary contact — change it if someone else handles billing." : "You have no contact on file, so add one here."}
+              {billingPrefillNote(billingPrefillSource(checkout.billingContact, viewer))}
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block text-[11px] font-medium text-muted">

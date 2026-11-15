@@ -19,6 +19,7 @@ import {
 } from "@/lib/shop-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
+import { viewerContact } from "@/server/viewer";
 
 /* --------------------------------------------------------------------------
    Checkout and contract gate — on the Stadium Board (P1-ART-23 Task 14, spec
@@ -31,7 +32,9 @@ import { requirePortalAccess } from "@/server/portal";
                                   a live hold's `checkout` — the tenant's
                                   MARKETPLACE_ORDER terms (body + hash), the
                                   sponsor's name, the primary contact to
-                                  prefill billing with, and the `quote`
+                                  prefill billing with (POL-FE-47: none →
+                                  the signed-in person, Clerk currentUser()),
+                                  and the `quote`
                                   (POL-FE-05: subtotal, fees, total)
           GET /cart               the held lines, their sum and the same
                                   `quote` (a CONVERTED hold carries its orderId)
@@ -134,6 +137,8 @@ export default async function CheckoutPage({
   const gate = hold.state === "HELD" && canWrite && lines && hold.checkout ? hold.checkout : null;
   /* POL-FE-05 — the total charged, from the hold's quote (or the cart's, the same figures). */
   const quote = lines ? quoteFor(hold.checkout?.quote ?? lines.quote, lines.totalCents) : null;
+  /* POL-FE-47 — with no contact on file, billing starts from the signed-in person (Clerk). */
+  const viewer = gate && !gate.billingContact ? await viewerContact() : null;
 
   /* Step 1 — the hold, its countdown and its lines. Wrapped by the gate
      island when the sponsor can place the order; shown alone otherwise. */
@@ -239,7 +244,7 @@ export default async function CheckoutPage({
     <div className="space-y-6">
       {head}
       {gate && lines && quote ? (
-        <ShopCheckoutGate reservationId={hold.id} checkout={gate} quote={quote}>
+        <ShopCheckoutGate reservationId={hold.id} checkout={gate} quote={quote} viewer={viewer}>
           {review}
         </ShopCheckoutGate>
       ) : (

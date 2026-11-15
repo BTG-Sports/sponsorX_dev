@@ -6,6 +6,8 @@ import {
   billingDraftFrom,
   billingIssues,
   billingLines,
+  billingPrefillNote,
+  billingPrefillSource,
   checkoutPaymentWords,
   gateHint,
   gateStatus,
@@ -47,6 +49,24 @@ describe("billing contact", () => {
   it("prefills from the sponsor's primary contact, or starts empty", () => {
     expect(billingDraftFrom({ name: "Morgan Hale", email: "morgan@harbor.example" })).toEqual(good);
     expect(billingDraftFrom(null)).toEqual({ name: "", email: "", reference: "" });
+  });
+
+  it("POL-FE-47 — with no contact on file, fills in the signed-in person, still editable", () => {
+    const me = { name: "Riley Park", email: "riley@harbor.example" };
+    expect(billingDraftFrom(null, me)).toEqual({ name: "Riley Park", email: "riley@harbor.example", reference: "" });
+    expect(billingPrefillSource(null, me)).toBe("account");
+    expect(billingPrefillNote("account")).toBe("Filled in from your account — change it if someone else handles billing.");
+    // The primary contact still wins when there is one.
+    expect(billingDraftFrom({ name: "Morgan Hale", email: "morgan@harbor.example" }, me)).toEqual(good);
+    expect(billingPrefillSource({ name: "Morgan Hale", email: "morgan@harbor.example" }, me)).toBe("contact");
+    expect(billingPrefillNote("contact")).toMatch(/primary contact/);
+    // No name set: Name stays blank, Email is still filled.
+    expect(billingDraftFrom(null, { name: "", email: "riley@harbor.example" })).toEqual({ name: "", email: "riley@harbor.example", reference: "" });
+    // No usable email: nothing to fill in from, as before.
+    expect(billingPrefillSource(null, { name: "Riley Park", email: " " })).toBe("none");
+    expect(billingDraftFrom(null, { name: "Riley Park", email: " " })).toEqual({ name: "", email: "", reference: "" });
+    expect(billingPrefillSource(null, null)).toBe("none");
+    expect(billingPrefillNote("none")).toBe("You have no contact on file, so add one here.");
   });
 
   it("needs a name and a real-looking email; the reference is optional", () => {

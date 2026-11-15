@@ -1684,6 +1684,39 @@ POL-FE-43. Each front-end task waits for its back-end one.
   - The banner shows right after Submit or Resume, as before, so that is
     when the button appears.
 
+### 47. Checkout: fill the billing contact from the signed-in user
+`POL-FE-47` · *Friction* · confirmed (found in walkthrough practice, 2026-11-15)
+
+- **Problem:** checkout fills in the billing contact from the sponsor
+  company's primary contact. A sponsor made with the test-account tool has
+  none, so Name and Email start empty and the page says "You have no contact
+  on file, so add one here." The buyer has to type in details the app
+  already knows.
+- **Frontend (`POL-FE-47`):** when the company has no contact, fill in the
+  signed-in person's name and email instead, still editable, with the line
+  "Filled in from your account — change it if someone else handles
+  billing." A company with a primary contact works as before. No name set →
+  Name stays blank, Email is still filled.
+- **Done when:** a sponsor with no contact sees their own name and email in
+  the billing step with the "from your account" line; one with a contact
+  still sees the contact; nothing new is stored; build and tests pass.
+- **Delivered (2026-11-15, infinex1):**
+  - Why the frontend and not the API: the person's name lives only in Clerk.
+    The `User` row in Postgres has an email and no name, so an API fallback
+    could only fill Email, or would have to call Clerk on the request.
+  - `frontend/src/server/viewer.ts`: `viewerContact()` reads the signed-in
+    person's name and sign-in email from Clerk (`currentUser()`), live.
+  - `frontend/src/app/(app)/sponsor/checkout/page.tsx`: reads it only when
+    the hold's checkout has no billing contact, and passes it to the gate.
+  - `frontend/src/lib/checkout-gate.ts`: `billingPrefillSource()` (contact,
+    account or none), `billingDraftFrom()` takes the viewer as a fallback,
+    and `billingPrefillNote()` gives the line under the heading.
+  - `frontend/src/components/shop-checkout.tsx`: uses them.
+  - `frontend/tests/checkout-gate.test.ts`: a test for the fallback.
+  - The API is unchanged: `billingPrefill` in `backend/src/domain/order-terms.ts`
+    still sends the tenant-scoped primary contact, and the order keeps only
+    what the sponsor confirms.
+
 ---
 
 ## Checked and fine
