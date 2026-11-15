@@ -125,6 +125,11 @@ jobs** — keep them straight or they drift:
 > actually finished it is a teammate idle tomorrow for no reason. Put the task ID
 > (e.g. `2S5-BE-04`) in the branch name and commit message.
 
+> **Pull requests go to `main_development` first, then `main`.** Open every PR with
+> `--base main_development`, never straight against `main`; `main_development` is
+> promoted to `main` afterwards. Railway deploys from `release`, which follows `main`,
+> so this is the gate before anything ships.
+
 > **Also append the day's row to `Stage Progress`.** That sheet in the same
 > workbook answers "how far are we, and which stage is the wall?" — the
 > Dashboard only counts by phase. Its top block is live formulas and needs no
