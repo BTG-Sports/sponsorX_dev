@@ -1717,6 +1717,35 @@ POL-FE-43. Each front-end task waits for its back-end one.
     still sends the tenant-scoped primary contact, and the order keeps only
     what the sponsor confirms.
 
+### 48. NEXT student home: a way to the student application
+`POL-FE-48` · *Friction* · confirmed (found in walkthrough practice, 2026-11-15)
+
+- **Problem:** a student signed in to the NEXT portal lands on Home (Closed
+  sales, Points, My code). Nothing there leads to the public student
+  application at `/next/apply`, so the presenter had to type the address.
+- **Frontend (`POL-FE-48`):** a card under the three stat cards, "Know
+  someone who should join?", with "Classmates apply here. Their application
+  goes to your school's faculty advisor." and a button, **Open the student
+  application**, to `/next/apply`.
+- **Done when:** a signed-in student reaches the application from Home with
+  one tap; the page opens signed in; build and tests pass.
+- **Delivered (2026-11-15, infinex1):**
+  - `frontend/src/app/(app)/next/live-views.tsx`: `StudentApplyCard`, shown
+    on the live home (`LiveStudentHome`). Not on the "not linked to a student
+    record" screen.
+  - `frontend/src/app/(app)/next/page.tsx`: the same card on the fixture
+    preview (`?demo=` and BTG previews).
+  - `/next/apply` opens signed in: it sits in the `(public)` group, whose
+    layout checks nothing, and `proxy.ts` only attaches Clerk and protects no
+    route. Nothing to fix.
+  - Public pages: `/next/about` already links to the application three times.
+    A signed-out visitor to `/next` is sent to `/login`, which had no link to
+    it, and neither did the site footer. Added **Student application** to the
+    footer (`frontend/src/components/site-chrome.tsx`), which shows on every
+    public page and on `/login`.
+  - `frontend/tests/student-apply-link.test.ts`: pins the card, where it
+    shows, and the footer link.
+
 ---
 
 ## Checked and fine

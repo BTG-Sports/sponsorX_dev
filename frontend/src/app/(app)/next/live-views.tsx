@@ -68,6 +68,26 @@ function ActiveOnly({ s }: { s: Student["student"] }) {
   );
 }
 
+/* POL-FE-48 — the way to the public student application from the student's
+   own home. Found in walkthrough practice: nothing in the portal led to
+   /next/apply, so the presenter had to type the address. Shared by the live
+   home and the fixture preview so the two read the same. */
+export function StudentApplyCard() {
+  return (
+    <Card className="flex flex-wrap items-center justify-between gap-3 border-next/30">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">Know someone who should join?</p>
+        <p className="mt-0.5 text-xs text-muted">
+          Classmates apply here. Their application goes to your school&rsquo;s faculty advisor.
+        </p>
+      </div>
+      <Button variant="secondary" href="/next/apply">
+        Open the student application
+      </Button>
+    </Card>
+  );
+}
+
 /* ---------------------------------------------------------------- home */
 export function LiveStudentHome({ live }: { live: Student }) {
   const s = live.student;
@@ -99,6 +119,7 @@ export function LiveStudentHome({ live }: { live: Student }) {
           </Link>
         ))}
       </div>
+      <StudentApplyCard />
       {waiting > 0 && (
         <Card>
           <p className="text-sm font-medium">{waiting} prospect{waiting === 1 ? "" : "s"} with SponsorX</p>

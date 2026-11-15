@@ -7,7 +7,7 @@ import { JourneyStrip, type JourneyStep } from "@/components/journey-strip";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { liveStudent } from "./live";
-import { LiveStudentHome, StudentUnlinked } from "./live-views";
+import { LiveStudentHome, StudentApplyCard, StudentUnlinked } from "./live-views";
 import {
   PROSPECT_COPY,
   STUDENT_ASSIGNMENT_COPY,
@@ -263,6 +263,9 @@ export default async function StudentHomePage({
         </Card>
         </Link>
       </div>
+
+      {/* POL-FE-48 — the way to the student application */}
+      <StudentApplyCard />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         {/* ================================================== the queue */}
