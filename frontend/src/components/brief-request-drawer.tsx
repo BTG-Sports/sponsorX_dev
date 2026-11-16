@@ -192,9 +192,9 @@ function readStudentCode(): string {
   if (typeof window === "undefined") return "";
   try {
     const fromUrl = new URL(window.location.href).searchParams.get("code");
-    if (fromUrl) return fromUrl.toUpperCase();
+    if (fromUrl) return fromUrl.trim(); /* POL-FE-89 — exactly as given: codes are case-sensitive. */
     const kept = JSON.parse(window.localStorage.getItem(STUDENT_CODE_KEY) ?? "null") as { code?: string; at?: number } | null;
-    if (kept?.code && typeof kept.at === "number" && Date.now() - kept.at < 30 * 864e5) return kept.code.toUpperCase();
+    if (kept?.code && typeof kept.at === "number" && Date.now() - kept.at < 30 * 864e5) return kept.code.trim();
   } catch {
     /* no storage, or a malformed entry: no code */
   }
@@ -579,10 +579,13 @@ function BriefForm({
           <input
             id="brief-student-code"
             value={studentCode}
-            onChange={(e) => setStudentCode(e.target.value.toUpperCase())}
+            onChange={(e) => setStudentCode(e.target.value)}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
             maxLength={64}
             autoComplete="off"
-            placeholder="e.g. NX-RILEY-42"
+            placeholder="12 characters, exactly as on the card, e.g. aB3x_9QkT2mZ"
             className={inputCls}
           />
         </Field>
