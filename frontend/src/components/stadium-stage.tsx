@@ -199,10 +199,12 @@ export function StadiumSteps({ steps, now, label }: { steps: string[]; now: numb
   );
 }
 
-export function StadiumRow({ href, lead, title, sub, right, i = 0 }: { href?: string; lead?: ReactNode; title: ReactNode; sub?: ReactNode; right?: ReactNode; i?: number }) {
+/** `plainLead` draws `lead` as given (an icon that brings its own box) instead of in the monogram box. */
+export function StadiumRow({ href, lead, plainLead = false, title, sub, right, i = 0 }: { href?: string; lead?: ReactNode; plainLead?: boolean; title: ReactNode; sub?: ReactNode; right?: ReactNode; i?: number }) {
   const inner = (
     <>
-      {lead && <span className="grid size-9 shrink-0 place-items-center rounded-md border border-sponsor/30 bg-sponsor/10 text-[12px] font-bold text-[color:var(--st-hot)]">{lead}</span>}
+      {lead && plainLead && lead}
+      {lead && !plainLead && <span className="grid size-9 shrink-0 place-items-center rounded-md border border-sponsor/30 bg-sponsor/10 text-[12px] font-bold text-[color:var(--st-hot)]">{lead}</span>}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13px] font-semibold text-text">{title}</span>
         {sub && <span className="mt-0.5 block truncate text-[11.5px] text-muted">{sub}</span>}

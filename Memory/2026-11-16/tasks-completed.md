@@ -251,3 +251,17 @@
 - **POL-BE-87 / POL-FE-87 merged** in #442 and moved to Done.
 - **POL-BE-88 (minors):** a BTG or third-party licence could clear a piece a minor made (the guardian checks ran only for consent grants). `grantRightIn` now refuses a licence when the piece's maker is a minor (`requiresGuardian`), 409 "A minor's piece is cleared by their verified guardian's consent, not a licence." Adult makers and sponsor artwork keep licences. Test in `next-rights.test.ts`, shown to fail without the fix. Until the student media consent text exists, an edition with a minor's piece can't reach production; BTG can take the piece out.
 - **POL-FE-89 (dead end, item 58 not closed):** every real student code was refused on the request form (upper-cased; `_` refused) while the API matches base64url codes exactly, so no sale was credited; `/s/<code>` was a 404 for codes with `_`. The form, `?code=`, the kept copy and `/s/[code]` now take the code as issued, with no phone autocapitalise. Test runs 200 generated codes; shown to fail without the fix.
+
+## Sponsor dashboard redesign (POL-FE-90, `feat/POL-FE-90-sponsor-dashboard-redesign`, HeckerCreatives)
+- **Why:** the programme owner: "big visual redesign for /sponsor … it must be the dashboard itself like in the image provided, make sure its easy to understand … not to remove the current theme". Three dashboard references (KPI cards, area chart, donut, gauge, table).
+- **What:** `/sponsor` is a card grid on the unchanged Stadium Board. Every card has an icon, title and a one-line subtitle; the period is said in words under the title.
+  - Four number cards with change pills and mini charts. Money left the tiles for its own card.
+  - The chart's switch is three clickable totals (`StadiumTrend dash`).
+  - "Your to-do" shows non-zero rows only, requests with BTG as information, and four shortcuts.
+  - Posts delivered (LED ring), Money (paid / still-to-pay donut, total agreed, cost per 1,000), fan journey (LED bars).
+  - Athletes and cities with share bars; the campaign table in a card.
+- **New:** `components/stadium-dash.tsx`; `StadiumRow` `plainLead`. No API change; every figure is still `GET /sponsor/overview`.
+- **ID:** POL-FE-87 was rcfworks' money fix (item 87), so this is item 90. Told the two other sessions on this checkout.
+- **Checked:** frontend 2,239/2,239; tsc, eslint clean; `npm run build` in a detached worktree. Walked live as the QA sponsor at 1440 (30 days, All time) and 390.
+- **Trap again:** the worktree teardown emptied `node_modules/rimraf`; restored 2.7.1 from `npm pack` (see the build-in-worktree memory).
+- **Tracker:** a POL-FE-90 row on the Polish sheet, Code review.

@@ -2559,3 +2559,23 @@ the blockers and today's content review findings.
 - a paused or ended reward;
 - every link sent in emails;
 - sample data, which only shows to visitors or in demo mode, clearly labelled.
+
+### 90. The sponsor dashboard is ten stacked panels with no reading order [§9, screen 3]
+`POL-FE-90` · *Confusing* · confirmed (programme owner, 2026-11-16: "big visual redesign for /sponsor, for the dashboard it must be the dashboard itself like in the image provided, make sure its easy to understand because what you did before is so confusing for a human but make sure not to remove the current theme of the visual redesign"; three references: a crypto wallet dashboard with price cards and a donut, an analytics admin template with KPI cards, a bar chart and a gauge, and a dark data dashboard with ring KPIs, charts and a table)
+- **Problem:** `/sponsor` stacked ten panels of equal weight (five bare tiles, a chart, "Needs you", a funnel, cost per 1,000, posts delivered, athletes, cities, the table). Most explained themselves only behind a "?", a zero to-do still showed as a row, and nothing said which period the numbers covered.
+- **Fix:** a dashboard grid on the same Stadium Board: every card has an icon, a title and a one-line subtitle saying what it shows; the period is said in words under the title.
+- **Done when:**
+  - Each card says what it shows without opening a "?".
+  - The page says which period it shows, and what waits on the sponsor is one card with a count.
+  - The Stadium Board look is unchanged: dark, orange as light, scan-lines, glowing numbers, the ticker.
+  - Every figure is still the overview API's; it works at phone size.
+- **Delivered (2026-11-16, HeckerCreatives):**
+  - **Top:** the ticker; "Dashboard" with the Updated pill, the period switch and + New request; one line such as "Showing the last 30 days, compared with the 30 days before. You have 3 campaigns running out of 4."
+  - **Four number cards:** people reached, likes/comments/shares, link clicks, fans who redeemed. Each has an icon, a subtitle, a change pill (▲ green / ▼ red) and a filled mini chart; reactions get an LED ring with the reaction rate. Money moved out of the tiles into its own card.
+  - **"How your campaigns are doing":** the trend chart (`StadiumTrend dash`). Its switch is three clickable totals for the period, with dates along the bottom.
+  - **"Your to-do":** only rows with something in them; requests with BTG as grey information; "You're all caught up" otherwise; four shortcuts (Packages, Requests, Orders, Billing) with the sidebar's words.
+  - **Three cards:** posts delivered as an LED ring with delivered / late / still to come and the next due date; Money as a paid / still-to-pay donut with the total agreed and cost per 1,000 (or a plain note when the login can't read money); the fan journey as upright LED bars, redeemed lit.
+  - **Then:** top athletes and cities with share bars; the campaign list (unchanged table, filters and pager) in a card.
+  - **No campaign yet:** a three-step "Start your first campaign" card beside the to-do list.
+  - **Kit:** `components/stadium-dash.tsx` (server components, hand-drawn SVG). `StadiumRow` gains `plainLead`.
+  - **Checked:** frontend 2,239/2,239; tsc and eslint clean; `npm run build` in a detached worktree. Walked live as the QA sponsor at 1440 (30 days and All time) and 390.
