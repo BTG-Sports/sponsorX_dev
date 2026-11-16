@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 
 import {
   ArenaChip,
@@ -9,14 +10,18 @@ import {
   ArenaRow,
   ArenaSection,
   ArenaTile,
-  ArenaTiles,
   type ArenaTone,
 } from "@/components/arena-stage";
 import { ArenaCount } from "@/components/arena-fx";
+import { AthleteGamePlan, type GamePlanStep } from "@/components/athlete-game-plan";
+import { EarningsBars, GLANCE_GLYPH, GlanceTile } from "@/components/athlete-glance";
 import { CertifiedRecruitingCard } from "@/components/certified-recruiting-card";
 import {
   DUE_STATES, buildHome, openOffers, payoutStatusTiles, shopTiles, upcomingSales, type ApiSellerSummary, type HomeTile,
 } from "@/lib/athlete-home-live";
+import {
+  PLAN_CLEARED_COOKIE, agreementsStep, answerStep, deliverStep, moneyStep, payoutsStep, planHidden, planKey, profileStep,
+} from "@/lib/athlete-game-plan";
 import { EmptyState } from "@/components/states";
 import { StripeLinkButton } from "@/components/payout-account-panel";
 import { athleteBanner, type ApiMyPayouts, type ApiPayoutAccount } from "@/lib/payouts-live";
@@ -29,10 +34,11 @@ import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 import { athletePayoutLinkAction } from "./payout-actions";
 import { ComingOfAgeReminder } from "@/components/coming-of-age-reminder";
-import { ConfirmationsBanner } from "@/components/confirmations-banner";
 import { comingOfAgeView, type ApiComingOfAge } from "@/lib/account-live";
-import type { ApiMyCollab, ApiMyRules } from "@/lib/confirmations-live";
+import { outstanding, type ApiMyCollab, type ApiMyRules } from "@/lib/confirmations-live";
 import { campaignAfterSponsor } from "@/lib/campaign-title";
+
+import "./home.css";
 
 /* --------------------------------------------------------------------------
    Athlete portal home — P3-FE-06, §9 screen 6. The signed-in athlete's own
@@ -88,6 +94,18 @@ import { campaignAfterSponsor } from "@/lib/campaign-title";
    payouts and earnings as plate rows. Visual only — the reads above and
    their helpers are unchanged; every figure on a plate is still one of
    them.
+
+   POL-FE-81 (2026-11-16) — the owner found that dashboard "so confusing for
+   a human": eleven blocks and no first move. The top is now a step-by-step
+   wizard, the game plan (components/athlete-game-plan.tsx, words and states
+   in lib/athlete-game-plan.ts): the six steps from sign-up to paid —
+   profile, agreements, payouts, answer, deliver, get paid — one at a time,
+   opening on the first that needs the athlete, each with the one thing to
+   do. What the "coming up" plates, the profile lane, the payout banner, the
+   orders-waiting plate and the confirmations banner showed now lives in the
+   step it belongs to. Below it, the numbers in the dashboard references'
+   anatomy: KPI plates with ring gauges, the year's earnings as bars, the
+   payouts, the shop. Same reads; nothing new is fetched or estimated.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -119,21 +137,13 @@ const TILE_TONE: Record<HomeTile["tone"], ArenaTone> = { neutral: "ink", primary
 const STATUS_TONE: Record<"accent" | "primary" | "warn" | "neutral", ArenaTone> = { accent: "win", primary: "blue", warn: "warn", neutral: "ink" };
 
 /** A row of the home's helper tiles (the shop, the payouts), as arena plates. */
-function Tiles({ tiles, label, from }: { tiles: HomeTile[]; label: string; from: number }) {
+function Tiles({ tiles, label, from, cols = 4 }: { tiles: HomeTile[]; label: string; from: number; cols?: 2 | 4 }) {
   return (
-    <dl aria-label={label} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <dl aria-label={label} className={`grid grid-cols-2 gap-3 ${cols === 4 ? "lg:grid-cols-4" : ""}`}>
       {tiles.map((t, i) => (
         <ArenaTile key={t.key} label={t.label} value={t.n} format={t.format} caption={t.sub} tone={TILE_TONE[t.tone]} href={t.href} delay={from + i * 0.06} />
       ))}
     </dl>
-  );
-}
-
-function Mono({ text, tone = "blue" }: { text: string; tone?: "blue" | "flare" }) {
-  return (
-    <span className={`grid size-10 shrink-0 place-items-center rounded-xl border text-[12px] font-bold ${tone === "flare" ? "border-accent/30 bg-accent/10 text-accent" : "border-athlete/25 bg-athlete/10 text-athlete"}`}>
-      {text}
-    </span>
   );
 }
 
@@ -143,37 +153,6 @@ function DayMark({ mon, day, hot = false }: { mon: string; day: string; hot?: bo
       <span className={`text-[9px] font-semibold tracking-[0.18em] ${hot ? "text-warn" : "text-athlete"}`}>{mon}</span>
       <span className="sx-arena-num text-lg leading-none text-text">{day}</span>
     </span>
-  );
-}
-
-/** One "coming up" plate: an eyebrow with the count, the rows or a quiet line. */
-function UpPanel({
-  title, count, extra, href, hrefLabel, empty, children, delay,
-}: {
-  title: string;
-  count: number;
-  /** A note after the count ("2 overdue"). */
-  extra?: string;
-  href: string;
-  hrefLabel: string;
-  empty: { title: string; hint: string };
-  children: React.ReactNode;
-  delay: number;
-}) {
-  return (
-    <section>
-      <ArenaSection title={`${title} · ${count}${extra ? ` · ${extra}` : ""}`} action={<ArenaLink href={href}>{hrefLabel}</ArenaLink>} delay={delay} />
-      {count === 0 ? (
-        <ArenaPanel delay={delay + 0.05}>
-          <p className="text-sm font-semibold">{empty.title}</p>
-          <p className="mt-1 text-xs text-muted">{empty.hint}</p>
-        </ArenaPanel>
-      ) : (
-        <ArenaPanel flush delay={delay + 0.05} className="pl-2">
-          {children}
-        </ArenaPanel>
-      )}
-    </section>
   );
 }
 
@@ -256,185 +235,170 @@ export default async function AthleteHomePage() {
   const eligible = h.earnings.find((e) => e.label === "Eligible");
   const approved = h.earnings.find((e) => e.label === "Approved");
   const owedCents = (eligible?.cents ?? 0) + (approved?.cents ?? 0);
+  const year = now.getUTCFullYear();
+  const paidCents = paid?.cents ?? 0;
+  const confirmItems = outstanding(rules, collab);
+  const viewerIsGuardian = Boolean(actor.actingFor);
 
-  return (
-    <div className="space-y-8">
-      <ArenaHead
-        title="Dashboard"
-        pill={<ArenaUpdated />}
-        lede={
-          <span className="flex flex-wrap items-center gap-2">
-            <span>{h.firstName ? `Hi, ${h.firstName}` : "Hi there"}{h.subtitle ? ` · ${h.subtitle}` : ""}</span>
-            {h.status && <ArenaChip tone={STATUS_TONE[h.status.tone]}>{h.status.label}</ArenaChip>}
+  /* ------------------------------------------------ the game plan's steps */
+  const steps: GamePlanStep[] = [];
+
+  if (h.profile) {
+    steps.push({
+      ...profileStep(h.profile),
+      body: (
+        <div className="sx-gp-card">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <ArenaCount value={h.profile.percent} format="pct" delay={0.3} className={`sx-arena-num block text-[40px] leading-none ${h.profile.percent === 100 ? "text-success" : "text-athlete"}`} />
+            <span className="text-[12px] text-muted">{h.profile.done} of {h.profile.total} sections done</span>
+          </div>
+          <div role="progressbar" aria-label="Profile completion" aria-valuenow={h.profile.percent} aria-valuemin={0} aria-valuemax={100} className="mt-3">
+            <ArenaLane value={h.profile.percent / 100} tone={h.profile.percent === 100 ? "win" : "blue"} delay={0.4} />
+          </div>
+          {h.profile.missing.length > 0 && (
+            <>
+              <p className="sx-gp-label mt-4">Still to add</p>
+              <ul className="mt-2 flex flex-wrap gap-1.5">
+                {h.profile.missing.map((m) => (
+                  <li key={m}><ArenaChip tone="ink">{m}</ArenaChip></li>
+                ))}
+              </ul>
+            </>
+          )}
+          {h.status?.line && <p className="mt-4 text-[12px] leading-relaxed text-muted">{h.status.line}</p>}
+        </div>
+      ),
+    });
+  }
+
+  if (rules || collab) {
+    const row = (name: string, s: { current: boolean; required: boolean; byGuardian: boolean } | null) =>
+      s && (
+        <li className="sx-gp-item">
+          <span className="sx-gp-item-mark" data-on={s.current ? "" : undefined} aria-hidden="true">{s.current ? "✓" : "!"}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-semibold text-text">{name}</span>
+            <span className="block text-[11px] text-muted">
+              {s.current ? "Confirmed — nothing to do" : s.byGuardian && !viewerIsGuardian ? "Your guardian confirms this" : s.required ? "Needed before your next deal" : "Asked, not yet needed"}
+            </span>
           </span>
-        }
-      >
-        {/* The KPI row: what needs the athlete's move, each plate the door to its page. */}
-        <ArenaTiles>
-          <ArenaTile
-            label="Invitations open"
-            value={h.inviteCount}
-            caption={h.inviteCount ? "waiting for your answer · soonest expiry first" : "BTG invites you once your profile is live"}
-            tone={h.inviteCount ? "flare" : "ink"}
-            href="/athlete/invitations"
-            delay={0.1}
-          />
-          {offers && (
-            <ArenaTile
-              label="Offers waiting"
-              value={offers.count}
-              caption={offers.count ? "full terms to accept or decline" : "nothing waiting for you"}
-              tone={offers.count ? "flare" : "ink"}
-              href="/athlete/offers"
-              delay={0.16}
-            />
-          )}
-          <ArenaTile
-            label="Deliverables due"
-            value={h.dueCount}
-            caption={overdueCount ? `${overdueCount} overdue · shown first` : h.dueCount ? "on schedule" : "nothing due"}
-            tone={overdueCount ? "warn" : h.dueCount ? "blue" : "ink"}
-            share={h.dueCount ? overdueCount / h.dueCount : undefined}
-            href="/athlete/deliverables"
-            delay={0.22}
-          />
-          <ArenaTile
-            label={`Paid in ${now.getUTCFullYear()}`}
-            value={paid?.cents ?? 0}
-            format="usd"
-            caption={owedCents > 0 ? `${eligible?.amount ?? "$0"} eligible · ${approved?.amount ?? "$0"} approved` : h.hasEarnings ? "nothing waiting to be paid" : "earnings start with your first Campaign Order"}
-            tone={paid?.cents ? "win" : "ink"}
-            href="/athlete/earnings"
-            delay={0.28}
-          />
-        </ArenaTiles>
-      </ArenaHead>
+          <ArenaChip tone={s.current ? "win" : s.byGuardian && !viewerIsGuardian ? "blue" : "warn"}>{s.current ? "Done" : s.byGuardian && !viewerIsGuardian ? "Guardian" : "To do"}</ArenaChip>
+        </li>
+      );
+    steps.push({
+      ...agreementsStep(confirmItems, viewerIsGuardian),
+      body: (
+        <ul className="sx-gp-list">
+          {row(viewerIsGuardian ? "The athlete's own rules" : "Your own rules", rules)}
+          {row("Content Collaboration Agreement", collab)}
+        </ul>
+      ),
+    });
+  }
 
-      {ageView && coming && <ComingOfAgeReminder view={ageView} seat={coming.seat ?? "athlete"} uploadPath={coming.uploadPath ?? null} />}
-      <ConfirmationsBanner rules={rules} collab={collab} viewerIsGuardian={Boolean(actor.actingFor)} />
-      {/* POL-FE-68 — the guardian notice moved to the layout, on every page. */}
-
-      {(payout?.show || waiting > 0) && (
-        <div className="grid gap-3 lg:grid-cols-2">
-          {payout?.show && (
-            <ArenaPanel tone="flare" delay={0.32} spot>
-              <section aria-label="Payout account" className="flex flex-wrap items-center justify-between gap-4">
-                <div className="min-w-0 max-w-xl">
-                  <p className="text-sm font-semibold">{payout.title}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted">{payout.body}</p>
-                  {payout.minorLine && <p className="mt-1 text-xs leading-relaxed text-muted">{payout.minorLine}</p>}
-                </div>
-                {!payout.guardianOnly && <StripeLinkButton cta={payout.cta} action={athletePayoutLinkAction} testBadge={payout.testBadge} />}
-              </section>
-            </ArenaPanel>
-          )}
-          {waiting > 0 && (
-            <Link href="/athlete/sales" data-spot="" className="sx-arena-plate sx-arena-in group relative block px-5 pb-5 pt-4 pl-7" style={{ "--tone": "var(--sx-warn)", "--sx-reveal-delay": "0.36s" } as React.CSSProperties}>
-              <span aria-hidden="true" className="sx-arena-shine" />
-              <span className="flex flex-wrap items-center justify-between gap-3">
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold">
-                    {waiting === 1 ? "1 order is waiting for your answer" : `${waiting} orders are waiting for your answer`}
-                  </span>
-                  <span className="mt-1 block text-xs text-muted">A sponsor ordered something you asked to approve first. Accept or decline within 48 hours, or the order is cancelled.</span>
-                </span>
-                <span className="text-xs font-semibold text-athlete transition-transform duration-300 group-hover:translate-x-1">Answer →</span>
-              </span>
-            </Link>
+  if (payout) {
+    steps.push({
+      ...payoutsStep(
+        payout.show
+          ? { show: true, guardianOnly: payout.guardianOnly, needsInfo: payout.title.startsWith("Stripe needs"), body: payout.body }
+          : { show: false, readyLine: payout.readyLine },
+      ),
+      body: payout.show ? (
+        <div className="sx-gp-card">
+          <p className="text-sm font-semibold text-text">{payout.title}</p>
+          {payout.minorLine && <p className="mt-1 text-xs leading-relaxed text-muted">{payout.minorLine}</p>}
+          <ol className="sx-gp-howto mt-3">
+            <li>Press the button — Stripe opens in this tab.</li>
+            <li>Add your details and a bank account. Stripe keeps them, not SponsorX.</li>
+            <li>You come back here, and this step turns green.</li>
+          </ol>
+          {!payout.guardianOnly && (
+            <div className="mt-4">
+              <StripeLinkButton cta={payout.cta} action={athletePayoutLinkAction} testBadge={payout.testBadge} />
+            </div>
           )}
         </div>
-      )}
-      {payout && !payout.show && <p className="-mt-4 text-[11px] text-muted">{payout.readyLine}</p>}
+      ) : (
+        <p className="sx-gp-card text-[13px] text-muted">{payout.readyLine}</p>
+      ),
+    });
+  }
 
-      {/* ----------------------------------------------------- coming up */}
-      {/* min-w-0 on the cells: a section's header row (title + link) would
-          otherwise set the phone column's min-content past the viewport */}
-      <div className="grid gap-6 lg:grid-cols-2 [&>section]:min-w-0">
-        {offers && (
-          <UpPanel
-            title="Offers waiting for your answer"
-            count={offers.count}
-            href="/athlete/offers"
-            hrefLabel="All offers"
-            empty={{ title: "No offers waiting", hint: "BTG sends a formal offer with the full terms when a sponsor wants you for a campaign." }}
-            delay={0.4}
-          >
-            {offers.rows.map((o, i) => (
+  steps.push({
+    ...answerStep({ invites: h.inviteCount, offers: offers ? offers.count : null, orders: shop ? waiting : null }),
+    body:
+      h.inviteCount + (offers?.count ?? 0) + waiting === 0 ? (
+        <p className="sx-gp-card text-[13px] text-muted">Nothing to answer. A complete profile gets matched sooner — when a sponsor wants you, it lands here first.</p>
+      ) : (
+        <div className="space-y-4">
+          {waiting > 0 && (
+            <Link href="/athlete/sales" className="sx-gp-alert group">
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-text">
+                  {waiting === 1 ? "1 order is waiting for your answer" : `${waiting} orders are waiting for your answer`}
+                </span>
+                <span className="mt-0.5 block text-xs text-muted">A sponsor ordered something you asked to approve first. Accept or decline within 48 hours, or it&rsquo;s cancelled.</span>
+              </span>
+              <span aria-hidden="true" className="text-athlete transition-transform duration-300 group-hover:translate-x-1">→</span>
+            </Link>
+          )}
+          {offers && offers.count > 0 && (
+            <Group title={`Offers waiting for your answer · ${offers.count}`} href="/athlete/offers" more="All offers">
+              {offers.rows.map((o, i) => (
+                <ArenaRow
+                  key={o.id}
+                  i={i}
+                  href={`/athlete/offers/${encodeURIComponent(o.id)}`}
+                  lead={o.mono}
+                  title={o.sponsor}
+                  sub={campaignAfterSponsor(o.campaign, o.sponsor)}
+                  right={<><span className="sx-arena-num block text-sm text-text">{o.pay}</span><span className="block text-[11px] text-muted">{o.when}</span></>}
+                />
+              ))}
+            </Group>
+          )}
+          {h.inviteCount > 0 && (
+            <Group title={`Open invitations · ${h.inviteCount}`} href="/athlete/invitations" more="All invitations">
+              {h.invites.map((inv, i) => (
+                <ArenaRow
+                  key={inv.id}
+                  i={i}
+                  href="/athlete/invitations"
+                  lead={inv.mono}
+                  title={inv.sponsor}
+                  sub={campaignAfterSponsor(inv.campaign, inv.sponsor)}
+                  right={<><span className="sx-arena-num block text-sm text-text">{inv.offer}</span><span className={`block text-[11px] ${inv.urgent ? "text-warn" : "text-muted"}`}>{inv.expires}</span></>}
+                />
+              ))}
+            </Group>
+          )}
+        </div>
+      ),
+  });
+
+  steps.push({
+    ...deliverStep({ due: h.dueCount, overdue: overdueCount, upcomingSales: shop ? shop.upcoming.total : null }),
+    body: (
+      <div className="space-y-4">
+        <Group title={`Deliverables due · ${h.dueCount}${overdueCount > 0 ? ` · ${overdueCount} overdue` : ""}`} href="/athlete/deliverables" more="All deliverables">
+          {h.dueCount === 0 ? (
+            <p className="px-5 py-4 text-[13px] text-muted">Nothing due. Deliverables show up here after you accept an invitation.</p>
+          ) : (
+            h.deliverables.map((x, i) => (
               <ArenaRow
-                key={o.id}
+                key={x.id}
                 i={i}
-                href={`/athlete/offers/${encodeURIComponent(o.id)}`}
-                lead={<Mono text={o.mono} />}
-                title={o.sponsor}
-                sub={campaignAfterSponsor(o.campaign, o.sponsor)}
-                right={
-                  <>
-                    <span className="sx-arena-num block text-sm text-text">{o.pay}</span>
-                    <span className="block text-[11px] text-muted">{o.when}</span>
-                  </>
-                }
+                href={`/athlete/deliverables/${encodeURIComponent(x.id)}`}
+                lead={<DayMark mon={x.mon} day={x.day} hot={x.overdue} />}
+                title={x.title}
+                sub={<span className={x.overdue ? "text-warn" : undefined}>{x.campaign} · {x.due}</span>}
+                right={<ArenaChip tone={x.review === "Not started" ? "ink" : "blue"}>{x.review}</ArenaChip>}
               />
-            ))}
-          </UpPanel>
-        )}
-
-        <UpPanel
-          title="Open invitations"
-          count={h.inviteCount}
-          href="/athlete/invitations"
-          hrefLabel="All invitations"
-          empty={{ title: "No invitations yet", hint: "BTG invites you to campaigns once your profile is live. A complete profile gets matched sooner." }}
-          delay={0.44}
-        >
-          {h.invites.map((inv, i) => (
-            <ArenaRow
-              key={inv.id}
-              i={i}
-              href="/athlete/invitations"
-              lead={<Mono text={inv.mono} tone="flare" />}
-              title={inv.sponsor}
-              sub={campaignAfterSponsor(inv.campaign, inv.sponsor)}
-              right={
-                <>
-                  <span className="sx-arena-num block text-sm text-text">{inv.offer}</span>
-                  <span className={`block text-[11px] ${inv.urgent ? "text-warn" : "text-muted"}`}>{inv.expires}</span>
-                </>
-              }
-            />
-          ))}
-        </UpPanel>
-
-        <UpPanel
-          title="Deliverables due"
-          count={h.dueCount}
-          extra={overdueCount > 0 ? `${overdueCount} overdue` : undefined}
-          href="/athlete/deliverables"
-          hrefLabel="All deliverables"
-          empty={{ title: "Nothing due", hint: "Deliverables show up here after you accept an invitation." }}
-          delay={0.48}
-        >
-          {h.deliverables.map((d, i) => (
-            <ArenaRow
-              key={d.id}
-              i={i}
-              href={`/athlete/deliverables/${encodeURIComponent(d.id)}`}
-              lead={<DayMark mon={d.mon} day={d.day} hot={d.overdue} />}
-              title={d.title}
-              sub={<span className={d.overdue ? "text-warn" : undefined}>{d.campaign} · {d.due}</span>}
-              right={<ArenaChip tone={d.review === "Not started" ? "ink" : "blue"}>{d.review}</ArenaChip>}
-            />
-          ))}
-        </UpPanel>
-
-        {shop && (
-          <UpPanel
-            title="Marketplace sales coming up"
-            count={shop.upcoming.total}
-            href="/athlete/sales"
-            hrefLabel="All orders"
-            empty={{ title: "No sales coming up", hint: "When a sponsor buys one of your listings, its dates show here until you've delivered it." }}
-            delay={0.52}
-          >
+            ))
+          )}
+        </Group>
+        {shop && shop.upcoming.total > 0 && (
+          <Group title={`Marketplace sales coming up · ${shop.upcoming.total}`} href="/athlete/sales" more="All sales">
             {sales.map((x, i) => (
               <ArenaRow
                 key={x.id}
@@ -446,66 +410,124 @@ export default async function AthleteHomePage() {
                 right={<ArenaChip tone={x.badge === "To deliver" ? "blue" : "ink"}>{x.badge}</ArenaChip>}
               />
             ))}
-          </UpPanel>
+          </Group>
         )}
       </div>
+    ),
+  });
 
-      {/* ------------------------------------------- profile + earnings */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] [&>section]:min-w-0">
-        {h.profile && (
-          <section>
-            <ArenaSection title="Profile" action={<ArenaLink href="/athlete/profile/edit">Finish profile</ArenaLink>} delay={0.56} />
-            <ArenaPanel delay={0.6} spot>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">Completion</p>
-              <ArenaCount value={h.profile.percent} format="pct" delay={0.6} className={`sx-arena-num mt-1.5 block text-[34px] leading-none ${h.profile.percent === 100 ? "text-success" : "text-athlete"}`} />
-              <div
-                role="progressbar"
-                aria-label="Profile completion"
-                aria-valuenow={h.profile.percent}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                className="mt-3"
-              >
-                <ArenaLane value={h.profile.percent / 100} tone={h.profile.percent === 100 ? "win" : "blue"} delay={0.8} />
-              </div>
-              <p className="mt-2.5 text-[11px] text-muted">
-                {h.profile.done} of {h.profile.total} sections done
-              </p>
-              {h.profile.missing.length > 0 && (
-                <ul className="mt-2 flex flex-wrap gap-1.5">
-                  {h.profile.missing.map((m) => (
-                    <li key={m}>
-                      <ArenaChip tone="ink">{m}</ArenaChip>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </ArenaPanel>
-          </section>
+  steps.push({
+    ...moneyStep({ paidCents, owedCents, year, availableCents: money ? money.totals.requestableCents : null, canRequest: Boolean(money?.canRequest) }),
+    body: (
+      <dl className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+        <Figure label={`Paid in ${year}`} cents={paidCents} note="from your Campaign Orders" tone="win" />
+        <Figure label="On the way" cents={owedCents} note={`${eligible?.amount ?? "$0"} eligible · ${approved?.amount ?? "$0"} approved`} tone="blue" />
+        {money ? (
+          <Figure label="Ready to request" cents={money.totals.requestableCents} note={money.canRequest ? "marketplace money, yours to ask for" : "nothing to request yet"} tone="flare" />
+        ) : (
+          <Figure label="Still in progress" cents={h.earnings.find((e) => e.label === "Pending")?.cents ?? 0} note="work not yet verified" tone="ink" />
         )}
+      </dl>
+    ),
+  });
 
+  const clearKey = planKey(profile?.id);
+  const hidePlan = planHidden(steps.map((s) => s.state), (await cookies()).get(PLAN_CLEARED_COOKIE)?.value, clearKey);
+
+  return (
+    <div className="sx-home space-y-8">
+      <ArenaHead
+        title="Dashboard"
+        pill={<ArenaUpdated />}
+        lede={
+          <span className="flex flex-wrap items-center gap-2">
+            <span>{h.firstName ? `Hi, ${h.firstName}` : "Hi there"}{h.subtitle ? ` · ${h.subtitle}` : ""}</span>
+            {h.status && <ArenaChip tone={STATUS_TONE[h.status.tone]}>{h.status.label}</ArenaChip>}
+          </span>
+        }
+      />
+
+      {ageView && coming && <ComingOfAgeReminder view={ageView} seat={coming.seat ?? "athlete"} uploadPath={coming.uploadPath ?? null} />}
+      {/* POL-FE-68 — the guardian notice is in the layout, on every page. */}
+
+      {/* ------------------------------------------- 1 · what to do next */}
+      {/* Owner, 2026-11-16: once everything is squared away and this browser
+          has seen it celebrate, the plan is left out until a step needs the
+          athlete again (lib/athlete-game-plan.ts). */}
+      {!hidePlan && <AthleteGamePlan steps={steps} name={h.firstName || null} clearKey={clearKey} />}
+
+      {/* ------------------------------------------- 2 · the numbers */}
+      <section aria-label="At a glance">
+        <ArenaSection title="At a glance" hint="Tap a card to open its page." delay={0.3} />
+        <dl className={`grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 ${offers ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
+          <GlanceTile
+            id="invites"
+            label="Invitations open"
+            value={h.inviteCount}
+            caption={h.inviteCount ? "waiting for your answer · soonest first" : "sent once your profile is live"}
+            tone={h.inviteCount ? "flare" : "ink"}
+            glyph={GLANCE_GLYPH.inbox}
+            href="/athlete/invitations"
+            delay={0.34}
+          />
+          {offers && (
+            <GlanceTile
+              id="offers"
+              label="Offers waiting"
+              value={offers.count}
+              caption={offers.count ? "full terms to accept or decline" : "nothing waiting for you"}
+              tone={offers.count ? "flare" : "ink"}
+              glyph={GLANCE_GLYPH.mail}
+              href="/athlete/offers"
+              delay={0.38}
+            />
+          )}
+          <GlanceTile
+            id="due"
+            label="Deliverables due"
+            value={h.dueCount}
+            caption={overdueCount ? `${overdueCount} overdue · shown first` : h.dueCount ? "all on schedule" : "nothing due"}
+            tone={overdueCount ? "warn" : h.dueCount ? "blue" : "ink"}
+            share={h.dueCount ? { value: (h.dueCount - overdueCount) / h.dueCount, short: "on time", label: `${h.dueCount - overdueCount} of ${h.dueCount} on time` } : undefined}
+            glyph={GLANCE_GLYPH.calendar}
+            href="/athlete/deliverables"
+            delay={0.42}
+          />
+          <GlanceTile
+            id="paid"
+            label={`Paid in ${year}`}
+            value={paidCents}
+            format="usd"
+            caption={owedCents > 0 ? `${eligible?.amount ?? "$0"} eligible · ${approved?.amount ?? "$0"} approved` : h.hasEarnings ? "nothing waiting to be paid" : "earnings start with your first Campaign Order"}
+            tone={paidCents ? "win" : "ink"}
+            share={paidCents + owedCents > 0 ? { value: paidCents / (paidCents + owedCents), short: "paid", label: `${Math.round((paidCents / (paidCents + owedCents)) * 100)}% of what you've earned is paid` } : undefined}
+            glyph={GLANCE_GLYPH.wallet}
+            href="/athlete/earnings"
+            delay={0.46}
+          />
+        </dl>
+      </section>
+
+      {/* ------------------------------------------- 3 · money */}
+      <div className={`grid gap-6 ${money ? "xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]" : ""} [&>section]:min-w-0`}>
         <section>
           <ArenaSection
             title="Earnings"
-            hint={h.hasEarnings ? "By status, from your Campaign Orders." : "Earnings appear once you accept a Campaign Order."}
+            hint={h.hasEarnings ? `By status, from your Campaign Orders, ${year}.` : "Earnings appear once you accept a Campaign Order."}
             action={<ArenaLink href="/athlete/earnings">Earnings</ArenaLink>}
-            delay={0.58}
+            delay={0.5}
           />
-          <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            {h.earnings.map((e, i) => (
-              <ArenaTile
-                key={e.label}
-                label={e.label}
-                value={e.cents}
-                format="usd"
-                caption={e.hint}
-                tone={e.tone === "accent" ? "win" : e.tone === "primary" ? "blue" : "ink"}
-                href="/athlete/earnings"
-                delay={0.62 + i * 0.06}
-              />
-            ))}
-          </dl>
+          <ArenaPanel delay={0.54} spot>
+            <EarningsBars bars={h.earnings.map((e) => ({ label: e.label, cents: e.cents, hint: e.hint }))} year={year} delay={0.6} />
+          </ArenaPanel>
         </section>
+
+        {money && (
+          <section>
+            <ArenaSection title="Payouts" hint="Your marketplace money, from the ledger." action={<ArenaLink href="/athlete/money">Payouts</ArenaLink>} delay={0.56} />
+            <Tiles tiles={payoutStatusTiles(money)} label="Payouts" from={0.6} cols={2} />
+          </section>
+        )}
       </div>
 
       {shop && (
@@ -520,20 +542,37 @@ export default async function AthleteHomePage() {
         </section>
       )}
 
-      {money && (
-        <section>
-          <ArenaSection
-            title="Payouts"
-            hint="Your marketplace money, from the ledger."
-            action={<ArenaLink href="/athlete/money">Payouts</ArenaLink>}
-            delay={0.8}
-          />
-          <Tiles tiles={payoutStatusTiles(money)} label="Payouts" from={0.84} />
-        </section>
-      )}
-
       {/* 5S1-FE-01 — the Certified Recruiting partner card, below the dashboard's own sections. Fixed content, no read. */}
       <CertifiedRecruitingCard variant="arena" />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ parts */
+
+/** A titled list inside a game-plan step: the heading, the rows, the way to all of them. */
+function Group({ title, href, more, children }: { title: string; href: string; more: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <p className="sx-gp-label">{title}</p>
+        <ArenaLink href={href}>{more}</ArenaLink>
+      </div>
+      <div className="sx-gp-list">{children}</div>
+    </div>
+  );
+}
+
+/** One money figure in the Get paid step. */
+function Figure({ label, cents, note, tone }: { label: string; cents: number; note: string; tone: "win" | "blue" | "flare" | "ink" }) {
+  const text = { win: "text-success", blue: "text-athlete", flare: "text-accent", ink: "text-text" }[tone];
+  return (
+    <div className="sx-gp-card !p-4">
+      <dt className="sx-gp-label">{label}</dt>
+      <dd className="mt-1.5">
+        <ArenaCount value={cents} format="usd" delay={0.3} className={`sx-arena-num block text-[26px] leading-none ${text}`} />
+        <span className="mt-1 block text-[11px] text-faint">{note}</span>
+      </dd>
     </div>
   );
 }

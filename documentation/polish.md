@@ -2336,6 +2336,52 @@ the blockers and today's content review findings.
   said before.
 - **Delivered (2026-11-16, HeckerCreatives):** `components/confirmations-wizard.tsx` replaces `confirmations-form.tsx`; the page decides every word, the wizard walks them. The agreement reads section by section with a reading bar and section chips (`agreementSections`, tested word for word against `COLLAB.v2.txt`). A confirm plays a burst and moves to the next open step; reduced motion gets the still version. Walked live at 1440 and 320 (both steps, no console errors, no sideways scroll).
 
+### 80. The athlete's public profile is nine plates and no path [§3]
+`POL-FE-80` · *Confusing* · confirmed (programme owner, 2026-11-16: "make it a step by step wizard … easy to understand", keep the Arena theme; once the profile is complete, no "Open public page", the public page itself)
+- **Fix:** while the profile is unfinished, `/athlete/profile` is a wizard:
+  one step per section the athlete can answer (who you are, sport, socials,
+  content, brands, what you won't promote, the agreement), each saying who
+  sees it, with a friendly form, a live preview of the public page, and
+  Save & continue. Once every step is done, the page shows the public page
+  itself, owner-framed, with the private sections under it.
+- **Done when:** an athlete can finish their profile from the page without
+  reading instructions; a finished profile shows its public page with no
+  "Open public page" link and no sponsor-side button; nothing private
+  reaches the public frame.
+- **Delivered (2026-11-16, HeckerCreatives):** `components/profile-wizard.tsx` (client island), steps and rules in `lib/profile-wizard.ts`, the public page in `components/profile-showcase.tsx` (built from `publicFace`, which carries only what `GET /public/athletes/:slug` sends; Invitations stands where "Request a proposal" would). Every save is the full editor's own write (`edit/actions.ts`); legal name, date of birth and guardian stay in the full editor. The agreement step opens Confirmations, which comes back here. A save plays a medal and moves on; finishing opens the finale, then the page; a profile finished elsewhere gets a one-time ribbon. The medal, confetti and glyphs moved to `components/wizard-kit.tsx`, shared with #79. Walked live at 1440, 1024, 390 and 320: sport → content → brands → off-limits → Confirmations → back to the public page; one change record per save under a double click, no console errors, no sideways scroll.
+
+### 81. The athlete home is eleven blocks with no first move [§9]
+`POL-FE-81` · *Confusing* · confirmed (programme owner, 2026-11-16: "make it a step by step wizard … easy to understand", with three dashboard references; keep the Arena theme)
+- **Fix:** put a step-by-step wizard at the top of `/athlete`, the "game plan":
+  the six steps from sign-up to paid (profile, agreements, payouts, answer,
+  deliver, get paid), one at a time, each with one sentence and the one thing
+  to do, opening on whatever is late, else the first step that needs the
+  athlete. Below it, the numbers in the references' anatomy (KPI plates with
+  ring gauges, the earnings as bars, payouts, the shop).
+- **Done when:** an athlete landing on the home can tell what to do next
+  without reading the whole page; every figure is still one of the page's own
+  reads; a guardian, a minor's own login and staff preview each see only the
+  steps they have.
+- **Delivered (2026-11-16, HeckerCreatives):** `components/athlete-game-plan.tsx` (client island) with the words and states in `lib/athlete-game-plan.ts`; the step bodies are drawn by the server page and passed as ReactNode. The "coming up" plates, profile lane, payout banner, orders-waiting plate and confirmations banner moved into the step each belongs to. New `components/athlete-glance.tsx` (KPI plates with rings, earnings bars with tooltips and a table for screen readers) and `components/arena-ring.tsx`; styles in `app/(app)/athlete/home.css` (theme tokens, Frost and dark, reduced-motion still look). Same reads; nothing new fetched or estimated. Walked live at 1440, 1280 (Frost) and 390: no console errors from the home, no sideways scroll.
+
+`POL-FE-82` · *Confusing* · confirmed (programme owner, 2026-11-16: "big visual redesign for /athletes/[slug] … based on the images provided … animations + wow factor … easy to understand … showcase what they did inside the platform and the good things about the athlete"; three profile references; keep the theme. Then: "it should see on the /athlete/profile when the step by step wizard is complete")
+- **Fix:** rebuild the public athlete page in the references' anatomy (a cover, an overlapping photo, the name with a verified badge, big numbers, sticker badges, tabs, work cards), reading as three plain questions: Track record, Reach and About. Add what the athlete has done on SponsorX, from real counts. The finished `/athlete/profile` shows this same page, owner-framed.
+- **Done when:**
+  - A sponsor can tell in one screen who the athlete is, what they've done and how to work with them.
+  - Every number is a Postgres count or a social row with its provenance.
+  - Nothing commercial or private is public: no sponsor or campaign names, no money, no rates, no age.
+  - A minor's photo shows only after BTG approves it.
+  - The owner's copy has no sponsor-side button.
+- **Delivered (2026-11-16, HeckerCreatives):**
+  - **API:** `GET /public/athletes/:slug` now adds `photoUrl`, `memberSince` and `track`. `photoUrl` follows the home page's rule: an adult's photo shows; a minor's, or one with no age on file, only after BTG approves it. `memberSince` is the approval month. `track` (`publicTrackRecord` in `backend/src/domain/featured.ts`) has campaigns completed, distinct brands (a count only), live and verified posts, posts on time, fan redemptions, and the latest six posts (platform and month only). All three are null for a featured athlete.
+  - **Shared page:** `components/athlete-public-page/` has a `public` mode and an `owner` mode. The words and badges live in `lib/public-athlete.ts`; every badge is earned from the data, and a newcomer gets an honest "New on SponsorX".
+  - **Motion:** an island (`profile-fx.tsx`) handles scroll reveals, tilt with glare, cover parallax and sticky tabs that follow the scroll. The hero's entrance waits for the boot screen; reduced motion gets a still page.
+  - **Owner view:** `/athlete/profile` reads the same public answer once the wizard is complete. Not live yet, it shows the public sections with no record. Owner mode drops "Request a proposal" for "How sponsors reach you" → Invitations, and adds a "Make your page stand out" card. The name is an h2 under the portal's "Public profile" h1. The private sections stay underneath.
+  - **Checked:**
+    - Backend: `public-track-record.test.ts` (5) and the key set in `next-rights.test.ts`.
+    - Frontend: `public-athlete.test.ts` (14), and `profile-wizard.test.ts` gained a check that a failed public read shows an error page.
+    - Walked live at 1440 and 390 on both routes: no console errors, no sideways scroll.
+
 ---
 
 ## Checked and fine

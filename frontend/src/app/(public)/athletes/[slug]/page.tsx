@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { BackLink } from "@/components/back-link";
 import { resolveBack } from "@/lib/back";
-import { ActiveProfile } from "./active-profile";
+import { AthletePublicPage } from "@/components/athlete-public-page/athlete-public-page";
 import { FeaturedProfile, fetchPublicAthlete } from "./featured-profile";
 
 /* --------------------------------------------------------------------------
@@ -82,6 +82,24 @@ export default async function AthleteProfilePage({
   if (live.kind === "down") throw new Error("This profile can't be loaded right now.");
   const a = live.athlete;
 
+  /* POL-FE-82 — an ACTIVE athlete's page is the redesigned, full-width showcase. */
+  if (!a.featured) {
+    return (
+      <div className="w-full">
+        <div className="mx-auto flex w-full max-w-[76rem] flex-wrap items-center justify-between gap-2 px-4 pt-6 sm:px-6">
+          <BackLink target={back} />
+          <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-faint">Public profile · visible to anyone</span>
+        </div>
+        {claim && (
+          <div className="mx-auto w-full max-w-[76rem] px-4 sm:px-6">
+            <ClaimBanner value={typeof claim === "string" ? claim : undefined} />
+          </div>
+        )}
+        <AthletePublicPage a={a} openedFromPortal={from === "athlete-profile"} />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-8">
       {/* Orientation row: the way back on the left, and — for anyone who
@@ -90,11 +108,11 @@ export default async function AthleteProfilePage({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <BackLink target={back} />
         <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-faint">
-          {a.featured ? "Featured profile · editorial" : "Public profile · visible to anyone"}
+          Featured profile · editorial
         </span>
       </div>
       <ClaimBanner value={typeof claim === "string" ? claim : undefined} />
-      <div className="mt-4">{a.featured ? <FeaturedProfile a={a} /> : <ActiveProfile a={a} />}</div>
+      <div className="mt-4"><FeaturedProfile a={a} /></div>
     </div>
   );
 }

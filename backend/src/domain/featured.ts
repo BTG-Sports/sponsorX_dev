@@ -27,7 +27,9 @@ import { randomBytes } from "node:crypto";
 import { env } from "../config/env";
 import { prisma } from "../db/client";
 import { audit, type AuditActor } from "../db/audit";
-import type { Prisma } from "../generated/prisma/client";
+import type { DeliverableState, Prisma } from "../generated/prisma/client";
+import { athletePhotoUrl } from "./home-featured";
+import { minorForHome } from "./home-featured-rules";
 import { issueClaimEmailToken, readClaimEmailToken, verifyClaimEmailToken } from "../lib/claim-token";
 import { alreadyQueued, send } from "../lib/email";
 import { LinkExpiredError, linkTtlDays } from "../lib/signed-link";
@@ -104,13 +106,85 @@ export async function publicProfile(slug: string) {
       slug: true, displayName: true, sport: true, position: true, school: true, city: true, stateCode: true, level: true,
       achievements: true, contentCapabilities: true, brandInterests: true, state: true,
       socials: { select: { platform: true, handle: true, followers: true, source: true }, orderBy: { platform: "asc" } },
+      /* Read to decide the photo and the track record; none of these is sent. */
+      id: true, tenantId: true, photoKey: true, birthDate: true, ageBand: true, majorityAge: true,
+      homeApprovedAt: true, reviewedAt: true, createdAt: true,
     },
   });
   if (!a) throw new ProfileNotFoundError();
-  const { state, ...profile } = a;
-  /* The one thing a featured page must say: this is editorial, not an
-     endorsement — and "claim this profile" is the only action on it. */
-  return { ...profile, featured: state === "FEATURED", claimable: state === "FEATURED" };
+  const { state, id, tenantId, photoKey, birthDate, ageBand, majorityAge, homeApprovedAt, reviewedAt, createdAt, ...profile } = a;
+  const active = state === "ACTIVE";
+  /* POL-FE-82 — the photo follows the home page's rule (P8-BE-08): an adult's
+     shows; a minor's, or one with no age on file, only once BTG approved it.
+     Safety never gives — minors always reach a person. */
+  const photoShown = !!photoKey && (!minorForHome({ birthDate, ageBand, majorityAge }, new Date()) || !!homeApprovedAt);
+  return {
+    ...profile,
+    photoUrl: photoShown ? athletePhotoUrl(photoKey) : null,
+    /* The month they joined the network — a date about the account, never about the person. */
+    memberSince: active ? (reviewedAt ?? createdAt).toISOString().slice(0, 7) : null,
+    track: active ? await publicTrackRecord(tenantId, id) : null,
+    /* The one thing a featured page must say: this is editorial, not an
+       endorsement — and "claim this profile" is the only action on it. */
+    featured: state === "FEATURED",
+    claimable: state === "FEATURED",
+  };
+}
+
+export type PublicTrackRecord = {
+  /** Campaign Orders completed. */
+  campaignsCompleted: number;
+  /** Distinct sponsors they have accepted work from — a count, never a name. */
+  brands: number;
+  /** Deliverables live on a platform (PUBLISHED or VERIFIED). */
+  postsLive: number;
+  /** Of those, the ones whose post was verified. */
+  postsVerified: number;
+  /** Live posts that went up by their due date, of the live posts with a publish date. */
+  onTime: { onTime: number; of: number };
+  /** Fans who redeemed a reward through one of their codes. */
+  fanRedemptions: number;
+  /** The latest live posts: platform and month only — no title, sponsor or link. */
+  recent: { platform: string | null; month: string; verified: boolean }[];
+};
+
+const LIVE: DeliverableState[] = ["PUBLISHED", "VERIFIED"];
+
+/**
+ * POL-FE-82 — what an ACTIVE athlete has done on SponsorX, for their public
+ * page. Counts only: no sponsor name, campaign name, money or deliverable
+ * title leaves the tenant, so nothing commercial is disclosed by a stranger
+ * reading it. Every figure is a Postgres count the page can label as such.
+ */
+export async function publicTrackRecord(tenantId: string, athleteId: string): Promise<PublicTrackRecord> {
+  /* tenant-scope: the athlete's own tenant, read from their row above. */
+  const [campaignsCompleted, sponsors, live, fanRedemptions] = await Promise.all([
+    prisma.campaignOrder.count({ where: { tenantId, athleteId, state: "COMPLETED" } }),
+    prisma.campaignOrder.findMany({
+      where: { tenantId, athleteId, state: { in: ["ACCEPTED", "ACTIVE", "COMPLETED"] } },
+      select: { campaign: { select: { sponsorId: true } } },
+    }),
+    prisma.deliverable.findMany({
+      where: { tenantId, state: { in: LIVE }, order: { athleteId } },
+      select: { state: true, platform: true, dueDate: true, publishedAt: true },
+      orderBy: { publishedAt: { sort: "desc", nulls: "last" } },
+    }),
+    prisma.rewardEvent.count({ where: { tenantId, type: "REDEEM", token: { athleteId } } }),
+  ]);
+  const dated = live.filter((d) => d.publishedAt);
+  return {
+    campaignsCompleted,
+    brands: new Set(sponsors.map((o) => o.campaign.sponsorId)).size,
+    postsLive: live.length,
+    postsVerified: live.filter((d) => d.state === "VERIFIED").length,
+    onTime: { onTime: dated.filter((d) => d.publishedAt! <= d.dueDate).length, of: dated.length },
+    fanRedemptions,
+    recent: dated.slice(0, 6).map((d) => ({
+      platform: d.platform,
+      month: d.publishedAt!.toISOString().slice(0, 7),
+      verified: d.state === "VERIFIED",
+    })),
+  };
 }
 
 /**

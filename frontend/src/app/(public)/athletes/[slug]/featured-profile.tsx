@@ -14,22 +14,9 @@ import { headers } from "next/headers";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
-export type PublicAthlete = {
-  slug: string;
-  displayName: string;
-  sport: string;
-  position: string | null;
-  school: string | null;
-  city: string | null;
-  stateCode: string | null;
-  level: string | null;
-  achievements: string | null;
-  contentCapabilities: string[];
-  brandInterests: string[];
-  socials: { platform: string; handle: string; followers: number | null; source: string }[];
-  featured: boolean;
-  claimable: boolean;
-};
+/* The answer's shape lives with its words (POL-FE-82), shared with the portal's own view. */
+import type { PublicAthlete } from "@/lib/public-athlete";
+export type { PublicAthlete, PublicTrack } from "@/lib/public-athlete";
 
 export type PublicLookup =
   | { kind: "ok"; athlete: PublicAthlete }

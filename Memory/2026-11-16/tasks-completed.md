@@ -85,3 +85,74 @@
 - **Checked:** `athlete-confirmations.test.ts` 20/20 (page tests moved to the wizard's words; new helper tests, incl. word-for-word against `backend/agreements/COLLAB.v2.txt`); tsc and eslint clean. Walked live on :3000 as the QA athlete at 1440 and 320: rules → confirm → agreement → accept → All set, no console errors, no sideways scroll. `next build` not run: the owner's `next dev` was live (memory: never-build-into-live-next-dev).
 - **Local data:** the walk cleared and re-made the QA athlete's (`seed_ath_adult`) rules confirmation, now dated 2026-11-16; its agreement acceptance was removed again afterwards, as it was before.
 - **Seen once:** the first confirm after swapping the form file hit "This page couldn't load" on refresh. It didn't come back in three later runs, so it looks like a dev recompile race on the action ids. Watch for it on staging.
+
+## Athlete home game plan (POL-FE-81, `feat/athlete-confirmations-wizard`, HeckerCreatives)
+- **Why:** the programme owner asked for a big visual redesign of `/athlete` as a step-by-step wizard, "easy to understand", with animation, keeping the Arena theme; three dashboard references (KPI cards with ring gauges, bar charts). The old home was eleven blocks and no first move.
+- **Built:**
+  - The top of the home is the **game plan** (`components/athlete-game-plan.tsx`, words/states in `lib/athlete-game-plan.ts`): the six steps from sign-up to paid: profile, agreements, payouts, answer, deliver, get paid. A step the login doesn't have is left out (a guardian has no payee; staff preview has no profile).
+  - Left: a score ring ("2 of 6 squared away"), a headline ("4 things need you"), the stepper (a rail at `lg`, dots on a phone). Right: one step: "Step N of 6", a state tag, title, one sentence, the body, and a footer with Previous, Next / Skip for now and the one thing to do.
+  - It opens on a **late** step first (overdue deliverables), else the first that needs the athlete, else the finish line ("You're all caught up", medal; confetti once per browser session via sessionStorage).
+  - Arrow keys walk the stepper; a sideways swipe moves a step on a phone.
+  - What moved into the steps: the "coming up" plates (offers, invitations, deliverables, marketplace sales), the profile lane, the payout banner with the Stripe button, the orders-waiting plate and the confirmations banner (`ConfirmationsBanner` is no longer used on the home).
+  - Below: "At a glance": KPI plates with ring gauges (`components/athlete-glance.tsx`, `components/arena-ring.tsx`). Rings only where a real share exists: deliverables on time, earnings paid. Then the earnings as four bars (one hue, the paid bar lit, values and a hover/focus tooltip, sr-only table), payouts, the shop, the Certified Recruiting card.
+  - Styles: `app/(app)/athlete/home.css` (page-only, theme tokens, Frost + dark, reduced-motion still look).
+  - Same reads as before; nothing new is fetched or estimated.
+- **Checked:**
+  - `athlete-game-plan.test.ts` (new, 8) and `athlete-home-phase2.test.ts` (8, one new for where the wizard opens) pass. tsc and eslint are clean on the changed files.
+  - Walked live on :3000 as the QA athlete at 1440, 1280 (Frost) and 390: no console errors from the home, no sideways scroll.
+- **Parallel session:** another session took POL-FE-80 (the `/athlete/profile` wizard, `wizard-kit.tsx`) in the same checkout. We agreed the IDs over cross-session messages, and each commits by pathspec.
+
+## Profile wizard (POL-FE-80, `feat/athlete-confirmations-wizard`, HeckerCreatives)
+- **Why:** the programme owner found `/athlete/profile` (nine section plates under a KPI row) confusing and asked for a step-by-step wizard with animation in the Arena's theme. Once the profile is complete: no wizard, no "Open public page", the public page itself.
+- **Built:**
+  - `lib/profile-wizard.ts`: the seven steps (the §24 meter's answerable sections; the rate card and payment are BTG's, so never a step), `wizardDone` / `profileComplete` / `nextOpen` / `minutesLeft`, what a step still needs (`stepNeeds`, one plain sentence), `stepChanged`, `changeBody` (the full editor's own bodies, never a legal name, date of birth or guardian), and `publicFace` (only what `GET /public/athletes/:slug` sends).
+  - `components/profile-wizard.tsx` (client island): an intro with a progress ring, a track of numbered stops across the top, the step (who sees it: eye or lock; big fields, segmented level, a card per platform, tap-to-pick chips with a count, "Nothing's off-limits" as an answer), a footer with "Step N of 7", Previous, Skip for now and Save & continue, and a live preview of the public page that lights the part being filled (veiled on a private step). A save plays a medal and moves to the next open step; the last opens the finale, then the page. The agreement step opens Confirmations with `?return=/athlete/profile`.
+  - `components/profile-showcase.tsx` (server): the public page's sections in its order, in a browser frame with the address and Live / Not live yet; a letter-by-letter name and count-ups; Invitations where "Request a proposal" would be (memory: portal-views-stay-in-portal); the private sections under it.
+  - The island stays mounted across `router.refresh()`, so finishing celebrates before the now-complete page shows the showcase (passed in as a node). A profile finished elsewhere gets a one-time ribbon (localStorage flag set while the wizard was seen).
+  - `components/wizard-kit.tsx`: the medal, confetti and glyphs, moved out of `confirmations-wizard.tsx` (now imports them). The page imports `confirmations.css` plus its own `profile.css`.
+  - Header: unfinished → "Open public page" (if ACTIVE) only — the owner dropped "Full editor" (POL-FE-81); finished → "Edit profile" only. The h1 is still "Public profile" (e2e loop-p3 reads it).
+- **Checked:** `profile-wizard.test.ts` (new, 12): helpers plus the page rendered against a stubbed API, unfinished (wizard opens on the first open step) and finished (public frame, no Open public page, no legal name or rates inside the frame). Full frontend suite 189 files / 2,181 tests. tsc and eslint clean. Walked live on :3000 as the QA athlete at 1440, 1024, 390 and 320: sport → content → brands → off-limits → Confirmations → back to the public page with the ribbon. No console errors, no sideways scroll, one `AthleteProfileChange` per save under a double click. `next build` not run: the owner's `next dev` was live.
+- **Local data:** the walk's edits to `seed_ath_adult` (position, level, content, brands, restrictions), its four `AthleteProfileChange` rows and its agreement acceptance were removed again afterwards, as they were before.
+
+## Home → profile wizard (POL-FE-81 follow-up, HeckerCreatives)
+- The owner asked that the home's "Finish profile" open `/athlete/profile`, which is the step-by-step wizard while the profile is unfinished (POL-FE-80), not `/athlete/profile/edit`. They also asked that the full editor be off there while the wizard is on.
+- `profileStep` now links to `/athlete/profile`. The profile header drops the "Full editor" pill while unfinished.
+- Kept on purpose: the identity step's inline links to `/athlete/profile/edit?section=identity`, for changing the legal name and naming a guardian. The wizard can't do either, and a minor with no guardian named would otherwise have no way to name one.
+- `profile-wizard.test.ts` now asserts no "Full editor" and no bare `/athlete/profile/edit` link while unfinished. Agreed with the POL-FE-80 session.
+
+## Game plan tucks away once done (POL-FE-81 follow-up, HeckerCreatives)
+- **Owner:** the first time everything is done, hide the plan on a timer. After that the dashboard shouldn't show it.
+- **The first time all steps are squared away (no guardian step pending):** the finish line celebrates.
+  - Confetti plays every time, then an 8 s countdown runs (`PLAN_HIDE_AFTER_MS`). The countdown pauses while the card is hovered or focused.
+  - "Hide now" hides it at once. "Back to the steps" cancels the auto-hide, since they chose to look.
+  - The plan then shrinks away (grid rows 1fr→0fr) and unmounts, gap included.
+- **Later visits:** the cookie `sx_gp_cleared=<athlete id>` (path `/athlete`, 1 year, not httpOnly, UI only) tells the server page to leave the plan out, so nothing flashes in. `planHidden` / `planCleared` / `planKey` are in `lib/athlete-game-plan.ts`.
+- **When a step needs the athlete again:** the plan renders and the client clears the cookie. The next time they finish it celebrates again.
+- **The cookie is per browser:** a new device celebrates once more.
+- **Checked:**
+  - Tests: 20 (cleared/hidden/key helpers, and the page with and without the cookie).
+  - Walked in Chrome on a throwaway route with every step done (deleted after): cookie set, hover paused 7 s, folded after the remaining time with the gap closed, "Hide now" folded at once, "Back to the steps" kept it. No console errors.
+
+## Public athlete page redesign (POL-FE-82, `feat/athlete-confirmations-wizard`, HeckerCreatives)
+- **Why:** the programme owner asked for a big visual redesign of `/athletes/[slug]`, with animation and wow factor. Three profile references: a cover, an overlapping photo, big stats, sticker badges, tabs and work cards. It had to be easy to understand, keep the theme, and show what the athlete did on the platform. After seeing it they added: show it on `/athlete/profile` once the wizard is complete.
+- **API:** `GET /public/athletes/:slug` adds three fields; all are null for a featured athlete.
+  - `photoUrl` follows the home page's minor rule: a minor's photo, or one with no age on file, shows only after BTG approves it.
+  - `memberSince`: the approval month.
+  - `track` (`publicTrackRecord` in `domain/featured.ts`): counts only. Campaigns completed, distinct brands, live and verified posts, on time, fan redemptions, and the last six posts (platform and month only). No sponsor or campaign name, money or title.
+  - The photo's CDN address carries the storage path. The home panel already publishes the same address.
+- **Page:** `components/athlete-public-page/` (moved out of the route) has a `public` mode and an `owner` mode. Words and badges are in `lib/public-athlete.ts`; the `PublicAthlete` type moved there too, and `featured-profile.tsx` re-exports it.
+  - The page reads as three tabs: Track record, Reach, About.
+  - One action: "Request a proposal" in the hero, plus a three-step card.
+  - The motion island `profile-fx.tsx` does reveals, tilt and glare, cover parallax and the scroll-following tabs.
+  - The hero waits for the boot screen. Reduced motion gets a still page; no-JS shows everything.
+- **Owner view:** once the wizard is complete, `/athlete/profile` reads the same public answer (`apiFetch`). If that read fails, the page errors; it never falls back to a stand-in. A profile that's complete but not live shows the public sections with no record and "Not live yet".
+  - Owner mode drops "Request a proposal" and "Is this you?" for "How sponsors reach you" → Invitations, plus a "Make your page stand out" card.
+  - The name is an h2 under the "Public profile" h1, which e2e loop-p3 reads.
+  - The showcase still passes a node into the wizard island. The private sections stay under it.
+- **Checked:**
+  - Backend: `public-track-record.test.ts` (new, 5) and the `next-rights` key set, 38 together. Run against the Docker DB with the root `.env` loaded.
+  - Frontend: `public-athlete.test.ts` (new, 14) and `profile-wizard.test.ts` (stubbed public read, plus an error on a failed read). The full suite is 190 files and 2,200 tests; tsc and eslint are clean.
+  - Walked live in Chrome at 1440 and 390, on the public page (Elijah, Jordan) and the finished `/athlete/profile` as the QA athlete. No console errors, no sideways scroll, every reveal ended visible.
+  - `next build` was not run: the owner's `next dev` was live.
+- **Local data:** the walk filled `seed_ath_adult`'s profile and added one agreement acceptance (`pol82_walk_acc`). Both were restored to the snapshot afterwards and checked. The dev API (:4000, `src/index.ts`) was restarted to pick up the new fields.
+- **Noticed:** `seed_ath_adult`'s local photo is a picture of a sample driver's licence. That's dev data, but it is now on its public page. Swap it before any screenshot leaves the team.
