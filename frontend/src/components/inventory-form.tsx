@@ -35,7 +35,7 @@ import {
    a live listing) is shown as the API's sentence.
    -------------------------------------------------------------------------- */
 
-type Result = { ok: true; id: string } | { ok: false; message: string };
+type Result = { ok: true; id: string } | { ok: false; message: string; confirmHref?: string };
 
 const INPUT =
   "w-full rounded-lg border border-line bg-surface px-3 py-2 text-xs text-text placeholder:text-faint outline-none transition-colors focus:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-60";
@@ -76,7 +76,7 @@ export function InventoryForm({
   const [d, setD] = useState<InventoryDraft>(initial);
   const [errors, setErrors] = useState<DraftErrors>({});
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string; confirmHref?: string } | null>(null);
   /** POL-FE-44 — true from a successful edit save until the next change, so
    *  the button never looks as if there is still something to save. */
   const [saved, setSaved] = useState(false);
@@ -102,7 +102,7 @@ export function InventoryForm({
     try {
       if (mode === "create" && create) {
         const r = await create(v.body);
-        if (!r.ok) setMessage({ tone: "error", text: r.message });
+        if (!r.ok) setMessage({ tone: "error", text: r.message, confirmHref: r.confirmHref });
         else if (savedHref) router.push(savedHref.replace("{id}", encodeURIComponent(r.id)));
         else {
           setD(EMPTY_DRAFT);
@@ -324,6 +324,12 @@ export function InventoryForm({
           className={`rounded-lg px-3 py-2 text-[11px] leading-relaxed ${message.tone === "error" ? "bg-danger/10 text-danger" : "bg-success/10 text-success"}`}
         >
           {message.text}
+          {/* POL-FE-68 — the confirmation is made on its own page, then back here. */}
+          {message.confirmHref && (
+            <Link href={message.confirmHref} className="mt-2 flex w-fit items-center justify-center rounded-lg bg-primary px-4 py-2 text-xs font-medium text-cta-ink hover:bg-primary-soft">
+              Confirm now
+            </Link>
+          )}
         </p>
       )}
 

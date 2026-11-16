@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { explainInventoryRefusal } from "@/lib/inventory-live";
+import { explainInventoryRefusal, inventoryConfirmHref } from "@/lib/inventory-live";
 import { explainOfferRefusal } from "@/lib/offer-live";
 
 /* App review wave 4 — athletes and guardians. */
@@ -57,5 +57,38 @@ describe("POL-FE-70 · an applicant asked for changes can make them", () => {
     expect(page).toContain("What BTG asked you to change");
     expect(src("app/(public)/join/edit/actions.ts")).toContain('method: "PATCH"');
     expect(src("components/application-edit-form.tsx")).toContain("Send it back to BTG");
+  });
+});
+
+describe("POL-FE-68/69 leftovers · confirmations, versions and page names", () => {
+  const rules = { error: { code: "rules_attestation_required", message: "Confirm your rules first." } };
+  const collab = { error: { code: "collab_agreement_required", message: "Accept the agreement first." } };
+
+  it("an offer refused for a missing confirmation says which, and links to Confirmations", () => {
+    const r = explainOfferRefusal(409, rules, "/athlete/offers/o1");
+    expect(r.reload).toBe(false);
+    expect(r.message).toMatch(/school, league and local rules/);
+    expect(r.confirmHref).toBe("/athlete/confirmations?return=%2Fathlete%2Foffers%2Fo1");
+    expect(explainOfferRefusal(409, collab).message).toMatch(/Content Collaboration Agreement/);
+    expect(src("components/offer-respond.tsx")).toContain("error.confirmHref &&");
+  });
+
+  it("a new item refused for a missing confirmation says so — not 'until your profile is approved'", () => {
+    expect(explainInventoryRefusal("create", 409, rules)).toMatch(/Before you add an item, confirm/);
+    expect(explainInventoryRefusal("create", 409, collab)).toMatch(/Content Collaboration Agreement/);
+    expect(inventoryConfirmHref(409, rules)).toBe("/athlete/confirmations?return=%2Fathlete%2Finventory");
+    expect(inventoryConfirmHref(409, { error: { code: "other" } })).toBeNull();
+    expect(src("components/inventory-form.tsx")).toContain("message.confirmHref &&");
+  });
+
+  it("an athlete can open each version they uploaded", () => {
+    expect(src("app/(app)/athlete/deliverables/[id]/page.tsx")).toContain("<OpenVersionButton id={d.id} version={a.version} link={versionLinkAction} />");
+    expect(src("app/(app)/athlete/deliverables/[id]/actions.ts")).toContain("/assets/${version}/url");
+  });
+
+  it("one name per page, and Confirmations has a permanent link under Account", () => {
+    expect(src("components/seller-orders.tsx")).toContain('<ArenaHead title="Sales"');
+    expect(src("lib/seller-orders-live.ts")).not.toContain("My money");
+    expect(src("app/(app)/athlete/layout.tsx")).toContain('{ href: "/athlete/confirmations", label: "Confirmations"');
   });
 });

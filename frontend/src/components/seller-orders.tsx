@@ -85,7 +85,8 @@ function Heading() {
 export function OrdersHead({ kind, now = new Date(), pill, children }: { kind: SellerKind; now?: Date; pill?: ReactNode; children?: ReactNode }) {
   if (kind !== "athlete") return <Heading />;
   return (
-    <ArenaHead title="Orders" pill={pill ?? <ArenaUpdated at={now} />} lede={LEDE}>
+    /* POL-FE-69 — one name per page: the menu says Sales, so the page does too. */
+    <ArenaHead title="Sales" pill={pill ?? <ArenaUpdated at={now} />} lede={LEDE}>
       {children}
     </ArenaHead>
   );

@@ -13,8 +13,9 @@ import {
 } from "@/lib/deliverables-live";
 import { submittedRoute } from "@/lib/content-trust";
 import { apiFetch, fetchActor } from "@/server/api";
-import { markPublished, presignUpload, registerUpload, submitDraft } from "./actions";
+import { markPublished, presignUpload, registerUpload, submitDraft, versionLinkAction } from "./actions";
 import { campaignWithSponsor } from "@/lib/campaign-title";
+import { OpenVersionButton } from "@/components/open-version-button";
 
 /* --------------------------------------------------------------------------
    One deliverable — where the athlete uploads a draft, answers a revision
@@ -187,7 +188,11 @@ export default async function DeliverablePage({ params }: { params: Promise<{ id
                         {i === 0 && <ArenaChip tone="blue">latest</ArenaChip>}
                       </span>
                     </span>
-                    <span className="text-[11px] text-faint">{fmt(a.uploadedAt)}</span>
+                    <span className="flex items-center gap-3">
+                      <span className="text-[11px] text-faint">{fmt(a.uploadedAt)}</span>
+                      {/* POL-FE-69 — open what you uploaded. */}
+                      <OpenVersionButton id={d.id} version={a.version} link={versionLinkAction} />
+                    </span>
                   </li>
                 ))}
               </ul>

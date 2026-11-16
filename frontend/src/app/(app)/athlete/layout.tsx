@@ -35,11 +35,12 @@ const NAV: NavItem[] = [
   { href: "/athlete/earnings", label: "Earnings", icon: "wallet", group: "Money", groupIcon: "wallet" },
   { href: "/athlete/money", label: "Payouts", icon: "card", group: "Money" },
 
-  /* The athlete's own account. (The group's glyph sits on Public profile:
-     Guardian requests is filtered out for every login but a guardian's.) */
+  /* The athlete's own account. POL-FE-69 — Confirmations first (A–Z), so the
+     group's glyph sits on it: every login sees it, unlike Guardian requests. */
+  { href: "/athlete/confirmations", label: "Confirmations", icon: "shield", group: "Account", groupIcon: "user" },
   /* 2S1-FE-10 — requests to take over as guardian; GUARDIAN only (below). */
   { href: "/athlete/guardian-requests", label: "Guardian requests", icon: "shield", group: "Account" },
-  { href: "/athlete/profile", label: "Public profile", icon: "user", group: "Account", groupIcon: "user" },
+  { href: "/athlete/profile", label: "Public profile", icon: "user", group: "Account" },
   /* 2S1-FE-08 — sign-in, payouts, closing and reactivating the account. */
   { href: "/athlete/settings", label: "Settings", icon: "gear", group: "Account" },
 ];

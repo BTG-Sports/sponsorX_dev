@@ -6,6 +6,7 @@ import { apiFetch } from "@/server/api";
 import {
   BRAND_CATEGORIES,
   explainInventoryRefusal,
+  inventoryConfirmHref,
   refusalMessage,
   type InventoryBody,
 } from "@/lib/inventory-live";
@@ -28,7 +29,7 @@ import {
      DELETE /restrictions/:id   remove one (an offer's exclusivity: 409)
    -------------------------------------------------------------------------- */
 
-export type InventoryActionResult = { ok: true; id: string } | { ok: false; message: string };
+export type InventoryActionResult = { ok: true; id: string } | { ok: false; message: string; /** POL-FE-68 */ confirmHref?: string };
 export type RestrictionActionResult = { ok: true } | { ok: false; message: string };
 
 const UNREACHABLE = "The API is unreachable — nothing was saved. Try again in a minute.";
@@ -59,7 +60,9 @@ export async function createItemAction(body: InventoryBody): Promise<InventoryAc
     refresh();
     return { ok: true, id: item.id };
   }
-  return { ok: false, message: explainInventoryRefusal("create", res.status, await bodyOf(res)) };
+  const refused = await bodyOf(res);
+  const confirmHref = inventoryConfirmHref(res.status, refused);
+  return { ok: false, message: explainInventoryRefusal("create", res.status, refused), ...(confirmHref ? { confirmHref } : {}) };
 }
 
 export async function updateItemAction(id: string, patch: Partial<InventoryBody>): Promise<InventoryActionResult> {
