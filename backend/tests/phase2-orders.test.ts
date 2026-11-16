@@ -578,6 +578,35 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
       expect(placed.status, placed.text).toBe(201);
       expect(placed.json.totalCents).toBe(quote.totalCents);
     });
+
+    /* POL-FE-83 — the hold keeps the units, not the right to buy something no longer on sale. */
+    it("an item switched off, or a listing paused, during the hold is refused at placing, 409 — nothing placed, nothing accepted, the hold kept", async () => {
+      const hold = await held("mo_s1_admin", [{ key: "sticker", quantity: 1, from: 70, to: 71 }]);
+      const checkout = (await call("GET", `/reservations/${hold.id}`, "mo_s1_admin")).json.checkout;
+      const acceptancesBefore = await prisma.agreementAcceptance.count({ where: { tenantId: T } });
+
+      /* The seller switches the item off while the sponsor is at checkout. */
+      expect((await call("PATCH", `/inventory/${I.sticker}`, "mo_mgr", { active: false })).status).toBe(200);
+      const off = await call("POST", "/marketplace-orders", "mo_s1_admin", accepted(hold.id, checkout));
+      expect(off.status, off.text).toBe(409);
+      expect(off.json.error.message).toBe(`"Scoreboard shout-out" is no longer on sale, so the order can't be placed. Remove it from the cart and check out again.`);
+
+      /* Back on, but the listing itself paused: refused the same way. */
+      expect((await call("PATCH", `/inventory/${I.sticker}`, "mo_mgr", { active: true })).status).toBe(200);
+      expect((await call("POST", `/listings/${L.sticker}/transition`, "mo_mgr", { to: "PAUSED" })).json.state).toBe("PAUSED");
+      const paused = await call("POST", "/marketplace-orders", "mo_s1_admin", accepted(hold.id, checkout));
+      expect(paused.status, paused.text).toBe(409);
+      expect(paused.text).toMatch(/no longer on sale/);
+
+      expect(await prisma.marketplaceOrder.count({ where: { reservationId: hold.id } })).toBe(0);
+      expect(await prisma.agreementAcceptance.count({ where: { tenantId: T } })).toBe(acceptancesBefore);
+      expect((await call("GET", `/reservations/${hold.id}`, "mo_s1_admin")).json.state).toBe("HELD");
+
+      /* Live again for the tests after this one; the hold is let go, not placed (no extra order for Zoho's). */
+      expect((await call("POST", `/listings/${L.sticker}/transition`, "mo_mgr", { to: "PUBLISHED" })).json.state).toBe("PUBLISHED");
+      expect((await call("POST", `/reservations/${hold.id}/release`, "mo_s1_admin")).status).toBeLessThan(300);
+      await prisma.cart.updateMany({ where: { tenantId: T, state: "ACTIVE" }, data: { state: "EXPIRED" } });
+    });
   });
 
   /* ── 2S7-INT-01 ────────────────────────────────────────────────────────── */

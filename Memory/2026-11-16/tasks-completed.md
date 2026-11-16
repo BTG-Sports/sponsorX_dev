@@ -156,3 +156,51 @@
   - `next build` was not run: the owner's `next dev` was live.
 - **Local data:** the walk filled `seed_ath_adult`'s profile and added one agreement acceptance (`pol82_walk_acc`). Both were restored to the snapshot afterwards and checked. The dev API (:4000, `src/index.ts`) was restarted to pick up the new fields.
 - **Noticed:** `seed_ath_adult`'s local photo is a picture of a sample driver's licence. That's dev data, but it is now on its public page. Swap it before any screenshot leaves the team.
+
+## Release: the athlete wizards and the public athlete page (HeckerCreatives)
+- `feat/athlete-confirmations-wizard` → `main_development` by #434 (POL-FE-79) and #435 (POL-FE-80, -81, -82; ef591e9c). All four checks were green on each PR.
+- `main_development` → `main` by #436. Besides the screens, it carries one API change from POL-FE-82: `GET /public/athletes/:slug` now also returns `photoUrl` (the home page's photo rule for minors), `memberSince`, and a counts-only `track` record. No migrations, no switches.
+- Tracker: POL-FE-79, -80, -81 and -82 moved to Done (Polish sheet), with each one's PR in the note.
+- Three Claude sessions worked in one checkout today (POL-FE-80, -81, -82). They split the shared records over cross-session messages and committed by pathspec; one session owned each PR and merge.
+
+## Athlete inventory redesign (POL-FE-83, `feat/POL-FE-83-athlete-inventory-redesign`, HeckerCreatives)
+- **Why:** the programme owner asked for a big visual redesign of `/athlete/inventory` with animation and wow, easy to understand, keeping the Arena theme. The references were an inventory table, a product list under a statistics row, and an app store with Activate buttons. While it was built they added:
+  - adding is "a button then a popup";
+  - the list comes first, with an Add button;
+  - the two blocks at the bottom (how selling works, won't-promote categories) had to go;
+  - an item opens as a public-style "View" that sells it to sponsors, with Edit behind a button.
+- **List page:**
+  - The title row carries **Won't promote · n** (the restrictions, as chips in a popup) and **+ Add an item** (kind tiles and the same form, in a popup).
+  - In the add popup, **Add item** creates the item Available and **Save as draft** creates it Paused. `POST /inventory` already took `active`; walked live, the draft landed Paused and "Not on the marketplace yet". The buttons are pinned to the popup's bottom edge.
+  - In the Edit popup, a draft offers **Save & make available** and **Save draft**; an available item offers **Save changes** and **Save & move to draft**. After making it available, an unlisted item is offered **List it on the marketplace →** (`/athlete/listings/new?item=…`). Walked live both ways on "POL-83 draft walk", which was left Paused.
+  - Tabs carry the API's whole-scope counts: All, Available, Paused, Not listed yet (`?unlisted=true`).
+  - Search, then List (the default) or Cards. Each item has an optimistic **Available / Paused** switch and a marketplace badge from its listing (`GET /listings`): "On the marketplace", "Draft listing", "Not listed", and so on.
+  - The first build called the switch "On sale", and the owner caught an "On sale" item under "Not listed yet". The switch only lets an item be sold. The shop shows a listing only while it's published, public and its item is on (`marketplace-search.ts`).
+  - An empty inventory gets a hero with "Add your first item" and idea tiles.
+  - Words per item are in `lib/inventory-shop.ts`. Styles are in `athlete/inventory/inventory.css`.
+- **Item page (`/athlete/inventory/[id]`):** a showcase in the public profile's style (`components/athlete-inventory/item-showcase.tsx`, `lib/inventory-showcase.ts`, `[id]/item.css`).
+  - It shows a kind-coloured stage that tilts, the title, the price, stock and dates, package rules and contents, and good-fit brands.
+  - "Who you're working with" shows reach and track record from `GET /public/athletes/:slug` once the athlete is live.
+  - The marketplace line comes from `GET /listings`: live, under review, or not listed, with "Open the listing" or "List it", or "your team lists it".
+  - One panel is marked "Only you see this".
+  - The owner bar holds the Available switch and **Edit item**, which opens the old edit form in a popup. Cards say **View**.
+  - The marketplace line says when a live listing is hidden because the item is paused.
+  - The property portal's inventory is unchanged.
+- **API fix (the owner asked to close it):** a sponsor's 15-minute cart hold could still be checked out after the seller switched the item off or the listing was paused or ended.
+  - `placeOrder` re-checks each line under the item locks with the new `listingOnSale` (checkListing's live test plus `item.active`, no stock count), and refuses with 409, keeping the hold.
+  - `checkListing` now shares its select and "live" test with it, with unchanged behaviour.
+  - Backend checks:
+    - The new test is in `phase2-orders.test.ts`.
+    - The order, cart, listing, delivery and payout files pass on their own.
+    - The full run had the 4 known Windows-only static failures plus two `spawnSync npx ENOENT` files (db-logins, sql-rules-in-migrations).
+    - Three files failed only in the parallel run (phase2-delivery, phase2-delivery-problems, openapi.coverage) and pass alone.
+- **Shared code touched:**
+  - `InventoryForm` takes an optional `kind` / `onKindChange` (create mode, for the tiles).
+  - `InventoryRestrictions` is redrawn as chips, and its menu now opens downward inside the popup (POL-FE-45's "up" was about the page's bottom bar).
+  - `e2e/marketplace-path.spec.ts` clicks "Add your first item" / "Add an item" before the form.
+- **Checked:**
+  - New tests: `inventory-shop.test.ts` (13) and `inventory-showcase.test.ts` (8). The frontend suite is 2,216 tests; tsc and eslint are clean.
+  - Walked live in Chrome at 1440 and 390 as the QA athlete: list, cards, tabs, both popups, the empty hero (a throwaway route, deleted) and two item pages. No console errors, no sideways scroll.
+  - `next build` was not run: the owner's `next dev` was live.
+- **Local data:** the draft walk created "POL-83 draft walk" (Paused) on `seed_ath_adult`. There's no delete route, so it stays.
+- **Tracker:** a POL-FE-83 row was added to the Polish sheet as Done, and the autofilter, validation and conditional-formatting ranges were extended to row 123. Today's Stage Progress snapshot was appended; Phase 1 is unchanged from 11-15 (320 done, 15.5 days left, Dropped included).
