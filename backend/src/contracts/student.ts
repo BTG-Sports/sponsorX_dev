@@ -113,7 +113,7 @@ export const SchoolEmailDomainInput = z
 /* Control characters, zero-width spaces and bidi overrides — invisible or
    spoofing characters that have no place in a published name. A ZWJ (U+200D)
    is allowed: emoji sequences use it. */
-const HIDDEN_CHARS = /[\p{Cc}​‎‏‪-‮⁠⁦-⁩﻿]/u;
+const HIDDEN_CHARS = /[\p{Cc}\u200B\u200E\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/u;
 
 export const StudentDisplayNameInput = z
   .object({
