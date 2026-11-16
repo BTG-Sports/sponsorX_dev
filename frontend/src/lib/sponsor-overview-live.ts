@@ -35,16 +35,22 @@ export type SponsorOverview = {
   costPer1000Cents: number | null;
   /** POL-BE-71 — requestsInReview: the sponsor's requests BTG is still looking at. */
   needsYou: { postsToReview: number; ordersToPay: number; invoicesUnpaid?: number; requestsInReview?: number };
+  /** POL-BE-72 — false while card payment is closed. Absent on an older API. */
+  paymentsOpen?: boolean;
   campaigns: { total: number; running: number };
 };
 
 export type NeedsYouItem = { key: string; title: string; sub: string; count: number; href: string };
 
 /** The "Needs you" rows: things that can't move until the sponsor acts. */
-export function needsYouItems(n: SponsorOverview["needsYou"]): NeedsYouItem[] {
+export function needsYouItems(n: SponsorOverview["needsYou"], paymentsOpen?: boolean): NeedsYouItem[] {
+  /* POL-FE-72 — while card payment is closed an approved order isn't the sponsor's move. */
+  const orders = paymentsOpen === false
+    ? { key: "orders", title: "Approved orders", sub: "Card payment isn't open yet — BTG tells you when you can pay", count: n.ordersToPay, href: "/sponsor/orders?tab=to_pay" }
+    : { key: "orders", title: "Orders to pay", sub: "Approved and ready for payment", count: n.ordersToPay, href: "/sponsor/orders?tab=to_pay" };
   return [
     { key: "posts", title: "Posts waiting for your OK", sub: "Open a running campaign to look at them", count: n.postsToReview, href: "/sponsor/campaigns?review=1" },
-    { key: "orders", title: "Orders to pay", sub: "Approved and ready for payment", count: n.ordersToPay, href: "/sponsor/orders?tab=to_pay" },
+    orders,
     /* POL-FE-13 — opens the invoices screen, where each one can be paid. */
     ...(n.invoicesUnpaid !== undefined ? [{ key: "invoices", title: "Invoices to pay", sub: "Sent to you by BTG", count: n.invoicesUnpaid, href: "/sponsor/invoices" }] : []),
   ];
@@ -53,8 +59,8 @@ export function needsYouItems(n: SponsorOverview["needsYou"]): NeedsYouItem[] {
 /** POL-FE-71 — a sponsor with no campaign yet can still have a Shop order on
  *  its pay-by clock, or a request with BTG. The empty dashboard shows these
  *  above "No campaigns yet" instead of hiding them. */
-export function emptyDashboardRows(n: SponsorOverview["needsYou"]): NeedsYouItem[] {
-  const rows = needsYouItems(n).filter((i) => i.count > 0);
+export function emptyDashboardRows(n: SponsorOverview["needsYou"], paymentsOpen?: boolean): NeedsYouItem[] {
+  const rows = needsYouItems(n, paymentsOpen).filter((i) => i.count > 0);
   if (n.requestsInReview) {
     rows.push({
       key: "requests",

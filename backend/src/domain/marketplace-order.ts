@@ -354,7 +354,9 @@ export async function marketplaceOrderSummary(actor: Actor) {
       where: { AND: [scope, { state: { in: SPENT_STATES } }] }, _sum: { totalCents: true },
     }),
   ]);
-  return { byTab: Object.fromEntries(tabCounts(byState).map((t) => [t.key, t.count])), spentCents: spent._sum.totalCents ?? 0 };
+  /* POL-BE-72 — paymentsOpen: while card payment is closed, an approved order
+     isn't "ready to pay" — the sponsor's screens say "Approved" instead. */
+  return { byTab: Object.fromEntries(tabCounts(byState).map((t) => [t.key, t.count])), spentCents: spent._sum.totalCents ?? 0, paymentsOpen: await paymentsOpen() };
 }
 
 export async function getMarketplaceOrder(actor: Actor, id: string) {

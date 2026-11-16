@@ -16,6 +16,8 @@ import type { Actor } from "../src/auth/actor";
    -------------------------------------------------------------------------- */
 
 vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://sponsorx.example", PAYOUT_HOLD_DAYS: 7 } }));
+/* POL-BE-72 — the summary says whether card payment is open (the switch is tested in pol-be-36). */
+vi.mock("../src/domain/payment-switch", async (orig) => ({ ...(await orig<typeof import("../src/domain/payment-switch")>()), paymentsOpen: async () => true }));
 
 type Args = Record<string, any>;
 type Call = { model: string; op: string; args: Args };
@@ -110,7 +112,7 @@ describe("GET /marketplace-orders/summary", () => {
     const agg = of("marketplaceOrder", "aggregate")[0]!.args.where;
     expect(agg.AND[0]).toEqual(whereFor(sponsor, "marketplaceOrder", "read"));
     expect(agg.AND[1]).toEqual({ state: { in: ["PAID", "IN_DELIVERY", "FULFILLED", "CLOSED"] } });
-    expect(body.summary).toEqual({ byTab: { all: 4, waiting: 1, to_pay: 0, in_progress: 0, delivered: 3, cancelled: 0 }, spentCents: 52000 });
+    expect(body.summary).toEqual({ byTab: { all: 4, waiting: 1, to_pay: 0, in_progress: 0, delivered: 3, cancelled: 0 }, spentCents: 52000, paymentsOpen: true });
   });
 });
 

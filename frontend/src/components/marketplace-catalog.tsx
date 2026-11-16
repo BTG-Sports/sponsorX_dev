@@ -461,6 +461,22 @@ const PKG_FILTERS: CatalogFilter<Pkg>[] = [
   },
 ];
 
+/* POL-FE-72 — the live catalogue filters on what is true of it: whether the
+   athletes are there to staff a package now (the API's `staffable`). The
+   fixture "Availability" list above only ever described the sample packages. */
+const LIVE_PKG_FILTERS: CatalogFilter<Pkg>[] = [
+  {
+    key: "staffable",
+    label: "Availability",
+    allLabel: "Any availability",
+    options: [
+      { value: "ready", label: "Ready to staff" },
+      { value: "short", label: "Not enough athletes yet" },
+    ],
+    match: (p, v) => (v === "ready" ? p.staffable === true : p.staffable === false),
+  },
+];
+
 const PKG_SORTS = [
   { value: "featured", label: "Featured first" },
   { value: "name", label: "Name · A–Z" },
@@ -512,7 +528,7 @@ export function PackagesCatalog({
       p.name.toLowerCase().includes(n) ||
       p.note.toLowerCase().includes(n) ||
       p.includes.toLowerCase().includes(n),
-    filters: PKG_FILTERS,
+    filters: items ? LIVE_PKG_FILTERS : PKG_FILTERS,
     sorters: PKG_SORTERS,
   });
 
@@ -520,7 +536,7 @@ export function PackagesCatalog({
     <>
     <CatalogShell
       ctl={ctl}
-      filters={PKG_FILTERS}
+      filters={items ? LIVE_PKG_FILTERS : PKG_FILTERS}
       sortOptions={PKG_SORTS}
       searchPlaceholder="Search packages…"
       searchLabel="Search packages by name or contents"

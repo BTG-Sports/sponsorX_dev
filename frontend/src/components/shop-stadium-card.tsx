@@ -18,6 +18,10 @@ import { athleteLine, kindLabel, ruleNotes, sellerLine, usd, type ApiSearchResul
    of UTC they would otherwise shift back a day.
    -------------------------------------------------------------------------- */
 
+
+/** POL-FE-72 — past about three lines on a card, the description gets a "More". */
+export const LONG_DESCRIPTION = 180;
+
 export function ShopStadiumCard({ result: r, action, i = 0 }: { result: ApiSearchResult; action?: ReactNode; i?: number }) {
   const athlete = athleteLine(r.athlete);
   const notes = ruleNotes(r.item.packageRules);
@@ -46,7 +50,18 @@ export function ShopStadiumCard({ result: r, action, i = 0 }: { result: ApiSearc
           <p className="text-[10px] text-faint">each</p>
         </div>
       </div>
-      {r.description && <p className="line-clamp-3 text-xs text-muted">{r.description}</p>}
+      {/* POL-FE-72 — a long description opens in place ("More"), so nothing is cut off for good. */}
+      {r.description && (r.description.length > LONG_DESCRIPTION ? (
+        <details className="group text-xs text-muted">
+          <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <span className="line-clamp-3 group-open:line-clamp-none whitespace-pre-line">{r.description}</span>
+            <span className="mt-0.5 inline-block font-medium text-primary group-open:hidden">More</span>
+            <span className="mt-0.5 hidden font-medium text-primary group-open:inline-block">Less</span>
+          </summary>
+        </details>
+      ) : (
+        <p className="text-xs text-muted whitespace-pre-line">{r.description}</p>
+      ))}
       <div className="flex flex-wrap items-center gap-2 text-[11px]">
         <StadiumChip tone="info">{kindLabel(r.item.kind)}</StadiumChip>
         <span className="text-muted">{dates}</span>

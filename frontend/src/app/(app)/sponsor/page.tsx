@@ -117,13 +117,13 @@ function Dashboard({
       <div className="space-y-6">
         <StadiumHead title="Your sponsorships" pill={pill} actions={newRequest} />
         {/* POL-FE-71 — a Shop order to pay or a request with BTG, before any campaign exists. */}
-        {emptyDashboardRows(o.needsYou).length > 0 && (
-          <StadiumPanel flush delay={0.05} tone={emptyDashboardRows(o.needsYou).some((r) => r.key !== "requests") ? "you" : undefined}>
+        {emptyDashboardRows(o.needsYou, o.paymentsOpen).length > 0 && (
+          <StadiumPanel flush delay={0.05} tone={emptyDashboardRows(o.needsYou, o.paymentsOpen).some((r) => r.key !== "requests") ? "you" : undefined}>
             <div className="px-5 pt-5">
               <Title hint="Things that can't move until you do something, and requests BTG is looking at.">Needs you</Title>
             </div>
             <div className="pb-1">
-              {emptyDashboardRows(o.needsYou).map((it, i) => (
+              {emptyDashboardRows(o.needsYou, o.paymentsOpen).map((it, i) => (
                 <StadiumRow key={it.key} href={it.href} title={it.title} sub={it.sub} right={<StadiumBadge count={it.count} />} i={i} />
               ))}
             </div>
@@ -282,8 +282,8 @@ function Quiet({ children }: { children: ReactNode }) {
 /* ------------------------------------------------------------- needs you */
 
 function NeedsYou({ o }: { o: SponsorOverview }) {
-  const items = needsYouItems(o.needsYou);
-  const waiting = items.some((i) => i.count > 0);
+  const items = needsYouItems(o.needsYou, o.paymentsOpen);
+  const waiting = items.some((i) => i.count > 0 && !(i.key === "orders" && o.paymentsOpen === false));
   return (
     <StadiumPanel flush delay={0.46} tone={waiting ? "you" : undefined} className="min-w-0">
       <div className="px-5 pt-5">

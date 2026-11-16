@@ -82,7 +82,8 @@ async function liveCatalogue(): Promise<LiveCatalogue | NotSponsor | null> {
      `toPkg` builds for the card — a round trip through text that can only
      lose precision. */
   const fromCents = packages.length ? Math.min(...packages.map((pk) => pk.priceLow)) * 100 : 0;
-  return { packages: packages.map(toPkg), jobs: jobs.map(toJob), fromCents, targeting, canRequest: who.actor.roles.includes("SPONSOR_ADMIN") };
+  const jobNames = Object.fromEntries(jobs.map((jb) => [jb.id, jb.name]));
+  return { packages: packages.map((pk) => toPkg(pk, jobNames)), jobs: jobs.map(toJob), fromCents, targeting, canRequest: who.actor.roles.includes("SPONSOR_ADMIN") };
 }
 
 const TABS = [

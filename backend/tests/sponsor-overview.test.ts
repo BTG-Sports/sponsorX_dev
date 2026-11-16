@@ -18,6 +18,8 @@ let rawImpl: (sql: string) => unknown[] = () => [];
    sponsor-report.test.ts already mocks around, for the same reason — the
    pure arithmetic under test here needs neither a database nor its config. */
 vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://sponsorx.example" } }));
+/* POL-BE-72 — the overview says whether card payment is open; the switch itself is tested in pol-be-36. */
+vi.mock("../src/domain/payment-switch", () => ({ paymentsOpen: async () => false }));
 
 const DEFAULTS: Record<string, unknown> = { findMany: [], findFirst: null, count: 0, groupBy: [], aggregate: { _sum: {} } };
 const model = (name: string) =>
@@ -199,6 +201,7 @@ describe("sponsorOverview", () => {
     impl["campaignBrief.count"] = () => 2;
     const o = await sponsorOverview(sponsor, { range: "7d" }, NOW);
     expect(o.needsYou.requestsInReview).toBe(2);
+    expect(o.paymentsOpen).toBe(false); // POL-BE-72
     const [count] = of("campaignBrief", "count");
     expect(count!.args.where.AND[0]).toEqual(whereFor(sponsor, "campaignBrief", "read"));
     expect(count!.args.where.AND[1]).toEqual({ state: { in: ["DRAFT", "QUALIFIED"] } });

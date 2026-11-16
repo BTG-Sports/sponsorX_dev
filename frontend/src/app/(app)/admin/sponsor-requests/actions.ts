@@ -104,3 +104,28 @@ export async function sendBackSponsorDocumentAction(id: string, documentId: stri
   if (!res.ok) return { ok: false, status: res.status, message: sendBackRefusal(res.status, body) };
   return { ok: true };
 }
+
+/** POL-FE-72 — BTG corrects an open sponsor's business type (PUT /sponsors/:id/categories). */
+export async function setSponsorCategoriesAction(
+  sponsorId: string,
+  categories: BrandCategory[],
+): Promise<{ ok: true; categories: string[] } | { ok: false; message: string }> {
+  if (typeof sponsorId !== "string" || !sponsorId) return { ok: false, message: "Unknown sponsor." };
+  if (!Array.isArray(categories) || !categories.length) return { ok: false, message: "Pick at least one business type." };
+  let res: Response;
+  try {
+    res = await apiFetch(`/sponsors/${encodeURIComponent(sponsorId)}/categories`, {
+      method: "PUT",
+      body: JSON.stringify({ categories }),
+    });
+  } catch {
+    return { ok: false, message: "SponsorX couldn't be reached. Nothing changed — try again in a minute." };
+  }
+  const body = (await res.json().catch(() => null)) as { categories?: string[]; error?: { message?: string } } | null;
+  if (!res.ok) {
+    const said = typeof body?.error?.message === "string" ? body.error.message : null;
+    return { ok: false, message: said ?? (res.status === 403 ? "Only BTG staff change a sponsor's business type." : `SponsorX couldn't save that (HTTP ${res.status}). Nothing changed.`) };
+  }
+  revalidatePath("/admin/sponsor-requests");
+  return { ok: true, categories: body?.categories ?? categories };
+}

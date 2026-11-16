@@ -24,6 +24,7 @@ import { canReadField } from "../auth/fields";
 import { ForbiddenError } from "../auth/errors";
 import { mediaValueFor, NOT_LIVE_ORDER_STATES, sponsorSpendFor } from "./sponsor-report";
 import { METRIC_SOURCES, type MetricSource } from "./metric-source";
+import { paymentsOpen } from "./payment-switch";
 import type { DeliverableState } from "./deliverable-state";
 import { DAY, iso, startOfDay, windowFor, type RangeKey, type Window } from "./overview-window";
 
@@ -73,6 +74,8 @@ export type SponsorOverview = {
    *  Marketplace orders are not per-campaign, so it is always 0 when the
    *  overview is read for one campaign (`campaignId`). */
   needsYou: { postsToReview: number; ordersToPay: number; invoicesUnpaid?: number; requestsInReview?: number };
+  /** POL-BE-72 — whether card payment is open; while it's closed, "Orders to pay" reads "Approved orders". */
+  paymentsOpen: boolean;
   campaigns: { total: number; running: number };
 };
 
@@ -321,6 +324,7 @@ export async function sponsorOverview(
       ...(requestsInReview !== undefined ? { requestsInReview } : {}),
       ...(seeInvoices ? { invoicesUnpaid: live.filter((i) => i.status.toLowerCase() !== "paid").reduce((n, i) => n + i._count._all, 0) } : {}),
     },
+    paymentsOpen: await paymentsOpen(),
     campaigns: { total: campaigns.length, running: campaigns.filter((c) => c.state === "ACTIVE").length },
   };
 }
