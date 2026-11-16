@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { Actor } from "../src/auth/actor";
+import { zohoCrmConfigured } from "../src/lib/zoho-jobs";
 
 /* --------------------------------------------------------------------------
    integrationHealth — P8-FE-01. Pinned: BTG-only (tenant-wide); webhook
@@ -36,7 +37,11 @@ vi.mock("../src/db/client", () => ({
       ],
     },
     outboxJob: {
-      groupBy: async () => [{ name: "zoho.syncAccount", _count: { _all: 2 }, _min: { createdAt: new Date("2026-10-03T10:00:00Z") } }],
+      groupBy: async () => [
+        { name: "zoho.syncAccount", _count: { _all: 2 }, _min: { createdAt: new Date("2026-10-03T10:00:00Z") } },
+        /* POL-BE-74 — a CRM job parked for want of credentials. */
+        { name: "zoho.pushDeal", _count: { _all: 3 }, _min: { createdAt: new Date("2026-10-01T10:00:00Z") } },
+      ],
     },
     /* 3S1-QA-01 — no nightly fact check has run yet. */
     factCheckRun: { findFirst: async () => null, findMany: async () => [] },
@@ -88,7 +93,13 @@ describe("integrationHealth", async () => {
     expect(h.queue.recentFailed[0]).toMatchObject({ name: "notify.email", error: "No email provider configured" });
   });
   it("reports the outbox backlog with its oldest item", () => {
-    expect(h.queue.outboxPending).toEqual([{ name: "zoho.syncAccount", count: 2, oldest: "2026-10-03T10:00:00.000Z" }]);
+    expect(h.queue.outboxPending).toEqual([
+      { name: "zoho.syncAccount", count: 2, oldest: "2026-10-03T10:00:00.000Z", parked: false },
+      { name: "zoho.pushDeal", count: 3, oldest: "2026-10-01T10:00:00.000Z", parked: !zohoCrmConfigured() },
+    ]);
+  });
+  it("POL-BE-74 · says whether Zoho CRM is connected, so parked syncs aren't read as a stuck queue", () => {
+    expect(h.zoho).toEqual({ connected: zohoCrmConfigured() });
   });
   it("athletes have no last-sync column — reported as null, not a guess", () => {
     expect(h.sync.find((x) => x.entity.startsWith("Athletes"))!.lastSyncAt).toBeNull();

@@ -35,8 +35,11 @@ import { demoState } from "@/lib/demo";
 import { dayLabel, momentLabel, one, qs } from "@/lib/intel-admin";
 import { ENGINES, confidenceLabel, type AttributionClass } from "@/lib/intelligence";
 import { apiListQuery } from "@/lib/list-query";
-import { fetchActor } from "@/server/api";
+import { apiFetch, fetchActor } from "@/server/api";
 import { readEngineItem, wantsSample } from "@/server/engine";
+import { AttributionPartners } from "@/components/attribution-partners";
+import { mayAddPartner, type ApiPartnerDesk } from "@/lib/attribution-partners-live";
+import { addPartnerAction } from "./actions";
 
 /* --------------------------------------------------------------------------
    3S6-FE-01 · Attribution dashboard (Spec §16 P3-05, acceptance #8).
@@ -120,7 +123,16 @@ export default async function AttributionPage({ searchParams }: { searchParams: 
       </div>
     );
   }
-  return <Desk desk={read.data} tab={tab} cls={cls} campaign={campaign} mayDismiss={mayDismiss} />;
+  /* POL-FE-74 — the partners who send sales; a role that can't read them (403) simply gets no panel. */
+  const pRes = await apiFetch("/intelligence/attribution/partners");
+  const partners = pRes.ok ? ((await pRes.json()) as ApiPartnerDesk) : null;
+  const canAdd = who.status === "linked" && mayAddPartner(who.actor.roles);
+  return (
+    <div className="space-y-5">
+      <Desk desk={read.data} tab={tab} cls={cls} campaign={campaign} mayDismiss={mayDismiss} />
+      {partners && <AttributionPartners desk={partners} canAdd={canAdd} add={addPartnerAction} />}
+    </div>
+  );
 }
 
 function Desk({ desk, tab, cls, campaign, mayDismiss, sample = false }: {

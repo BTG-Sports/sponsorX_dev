@@ -68,9 +68,12 @@ export type ApiIntegrationHealth = {
   sync: { entity: string; linked: number; total: number; lastSyncAt: string | null }[];
   webhooks: { bySource: { source: string; received: number; applied: number; rejected: number; lastAt: string | null }[] };
   queue: {
-    outboxPending: { name: string; count: number; oldest: string }[];
+    /** POL-BE-74 — parked: a Zoho CRM job waiting for credentials, not a stuck queue. */
+    outboxPending: { name: string; count: number; oldest: string; parked?: boolean }[];
     jobs: { name: string; state: string; count: number }[];
   };
+  /** POL-BE-74 — absent on an older API. */
+  zoho?: { connected: boolean };
 };
 
 type Tone = "warn" | "danger" | "primary" | "neutral";
@@ -364,13 +367,17 @@ export function reviewLines(rows: ApiReviewRow[], now: Date, limit = BOARD_REVIE
 /** Outbox work older than this means the worker isn't draining (the Integrations page's rule). */
 export const STALE_MINUTES = 15;
 
-export type HealthRow = { name: string; detail: string; status: "Operational" | "Degraded" | "Down" | "Syncing" };
+export type HealthRow = { name: string; detail: string; status: "Operational" | "Degraded" | "Down" | "Syncing" | "Not connected" };
 
 /** One line per dependency the API actually reports — no row without a source. */
 export function healthRows(h: ApiIntegrationHealth): HealthRow[] {
   const now = Date.parse(h.checkedAt);
-  const pendingTotal = h.queue.outboxPending.reduce((n, p) => n + p.count, 0);
-  const stale = h.queue.outboxPending.some((p) => now - Date.parse(p.oldest) > STALE_MINUTES * 60_000);
+  /* POL-FE-74 — parked Zoho jobs wait for credentials on purpose: they are
+     counted on the Zoho row, never as a stuck worker queue. */
+  const live = h.queue.outboxPending.filter((p) => !p.parked);
+  const parked = h.queue.outboxPending.filter((p) => p.parked).reduce((n, p) => n + p.count, 0);
+  const pendingTotal = live.reduce((n, p) => n + p.count, 0);
+  const stale = live.some((p) => now - Date.parse(p.oldest) > STALE_MINUTES * 60_000);
   const failed = h.queue.jobs.filter((j) => j.state === "failed").reduce((n, j) => n + j.count, 0);
   const zohoPending = h.queue.outboxPending.filter((p) => p.name.startsWith("zoho.")).reduce((n, p) => n + p.count, 0);
   const lastSync = h.sync.map((s) => s.lastSyncAt).filter((x): x is string => Boolean(x)).sort().at(-1) ?? null;
@@ -382,11 +389,17 @@ export function healthRows(h: ApiIntegrationHealth): HealthRow[] {
       detail: `${pendingTotal} waiting · ${failed} failed this week`,
       status: stale ? "Degraded" : failed ? "Degraded" : "Operational",
     },
-    {
-      name: "Zoho CRM + Books",
-      detail: `${lastSync ? `Last sync ${minutesAgo(lastSync, now)}` : "No sync yet"} · ${zohoPending} queued`,
-      status: rejected ? "Degraded" : zohoPending ? "Syncing" : "Operational",
-    },
+    h.zoho?.connected === false
+      ? {
+          name: "Zoho CRM + Books",
+          detail: `Zoho not connected — no CRM credentials are set. ${parked} ${parked === 1 ? "sync waits" : "syncs wait"} and go once they are.`,
+          status: "Not connected",
+        }
+      : {
+          name: "Zoho CRM + Books",
+          detail: `${lastSync ? `Last sync ${minutesAgo(lastSync, now)}` : "No sync yet"} · ${zohoPending} queued`,
+          status: rejected ? "Degraded" : zohoPending ? "Syncing" : "Operational",
+        },
     { name: "Cloudflare R2", detail: "Public CDN + private signed", status: h.dependencies.storage ? "Operational" : "Down" },
     { name: "Redis", detail: "Cache and rate limits only", status: h.dependencies.redis ? "Operational" : "Down" },
   ];
