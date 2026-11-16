@@ -164,6 +164,23 @@ export async function unitsTaken(tx: Prisma.TransactionClient, itemId: string, t
   ];
 }
 
+const LIVE_SELECT = {
+  id: true, tenantId: true, state: true, visibility: true, publishAt: true, inventoryItemId: true,
+  property: { select: { listingAccessAt: true } },
+  sellerAthlete: { select: { state: true, propertyId: true, accountClosedAt: true, signupRejectedAt: true, comingOfAgeTerminatedAt: true } },
+  item: { select: { priceCents: true, active: true, athlete: { select: { accountClosedAt: true, signupRejectedAt: true, comingOfAgeTerminatedAt: true } } } },
+} as const;
+
+type LiveRow = Prisma.ListingGetPayload<{ select: typeof LIVE_SELECT }>;
+
+/* The seller must still be able to sell — a property's listing access, or
+   an independent athlete still approved and still without a team (2S3-BE-05). */
+/* 2S1-BE-13 — and the athlete whose item it is must still have an open account. */
+function isLive(listing: LiveRow, now: Date): boolean {
+  return listing.state === "PUBLISHED" && listing.visibility === "PUBLIC" && sellerProblems({ ...listing, itemAthlete: listing.item.athlete }).length === 0
+    && (!listing.publishAt || listing.publishAt <= now);
+}
+
 /**
  * A listing, bought at its own price: the listing must be live, and then the
  * item check applies. The caller has already found the listing through its
@@ -173,22 +190,31 @@ export async function checkListing(tx: Prisma.TransactionClient, listingId: stri
   const listing = await tx.listing.findFirst({
     /* tenant-scope: the caller resolved this listing through whereFor(listing, read) — a sponsor's catalogue spans the tenants its own operates. */
     where: { id: listingId },
-    select: {
-      id: true, tenantId: true, state: true, visibility: true, publishAt: true, inventoryItemId: true,
-      property: { select: { listingAccessAt: true } },
-      sellerAthlete: { select: { state: true, propertyId: true, accountClosedAt: true, signupRejectedAt: true, comingOfAgeTerminatedAt: true } },
-      item: { select: { priceCents: true, athlete: { select: { accountClosedAt: true, signupRejectedAt: true, comingOfAgeTerminatedAt: true } } } },
-    },
+    select: LIVE_SELECT,
   });
-  /* The seller must still be able to sell — a property's listing access, or
-     an independent athlete still approved and still without a team (2S3-BE-05). */
-  /* 2S1-BE-13 — and the athlete whose item it is must still have an open account. */
-  const live = listing && listing.state === "PUBLISHED" && listing.visibility === "PUBLIC" && sellerProblems({ ...listing, itemAthlete: listing.item.athlete }).length === 0
-    && (!listing.publishAt || listing.publishAt <= new Date());
+  const live = listing && isLive(listing, new Date());
   if (!listing || !live) {
     return { ok: false as const, reasons: [{ code: "NOT_LISTED" as const, message: "the listing is not live" }], unitPriceCents: 0, itemId: null, itemTenantId: null };
   }
   const unitPriceCents = listing.item.priceCents;
   const result = await checkInventoryItem(tx, listing.inventoryItemId, listing.tenantId, { ...r, unitPriceCents });
   return { ok: result.ok, reasons: result.reasons, unitPriceCents, itemId: listing.inventoryItemId, itemTenantId: listing.tenantId };
+}
+
+/**
+ * POL-FE-83 — is this listing still on sale right now? The same "live" test
+ * as checkListing, plus the item still switched on (availabilityReasons'
+ * NOT_LISTED). No stock or date check: an order placed from a reservation
+ * already holds its units, and counting them again would refuse the hold
+ * against itself. Placing an order calls this after locking the items, so a
+ * listing paused or ended, or an item switched off, while the sponsor's
+ * 15-minute hold was open can no longer be bought through that hold.
+ */
+export async function listingOnSale(tx: Prisma.TransactionClient, listingId: string, now = new Date()): Promise<boolean> {
+  const listing = await tx.listing.findFirst({
+    /* tenant-scope: the caller loaded this listing through its own reservation's cart lines. */
+    where: { id: listingId },
+    select: LIVE_SELECT,
+  });
+  return Boolean(listing && isLive(listing, now) && listing.item.active);
 }

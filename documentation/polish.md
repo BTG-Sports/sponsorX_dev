@@ -2416,6 +2416,9 @@ the blockers and today's content review findings.
     - **Private panel:** "Only you see this" holds the categories it won't be sold to, the version and the last change.
     - **Owner bar:** the Available switch and **Edit item** sit on top; Edit item opens the same edit form in a popup. Cards say **View**.
     - **Hidden while paused:** the marketplace line says when a live listing is hidden because the item is paused.
+  - **API — a hold no longer buys what's off sale.** Placing an order converted the sponsor's 15-minute hold (`HOLD_MS`) without checking the listing again. A sponsor could still check out an item the seller had just switched off or whose listing was paused or ended.
+    - `placeOrder` now re-checks every line after locking the items, using `listingOnSale` (`domain/availability.ts`). That is checkListing's "live" test (published, public, the seller can still sell, the publish date passed) plus the item switched on, without the stock count the hold already holds.
+    - A line no longer on sale is refused with 409: "\"<title>\" is no longer on sale, so the order can't be placed. Remove it from the cart and check out again." Nothing is placed, no acceptance is recorded, and the hold is kept. Covered in `tests/phase2-orders.test.ts`.
   - **Unchanged:** the property portal's inventory (`InventoryManager`, `InventoryItemView`).
   - **e2e:** `marketplace-path.spec.ts` now opens the popup ("Add your first item" / "Add an item") before filling the form.
   - **Checked:**

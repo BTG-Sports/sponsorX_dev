@@ -186,6 +186,14 @@
   - The owner bar holds the Available switch and **Edit item**, which opens the old edit form in a popup. Cards say **View**.
   - The marketplace line says when a live listing is hidden because the item is paused.
   - The property portal's inventory is unchanged.
+- **API fix (the owner asked to close it):** a sponsor's 15-minute cart hold could still be checked out after the seller switched the item off or the listing was paused or ended.
+  - `placeOrder` re-checks each line under the item locks with the new `listingOnSale` (checkListing's live test plus `item.active`, no stock count), and refuses with 409, keeping the hold.
+  - `checkListing` now shares its select and "live" test with it, with unchanged behaviour.
+  - Backend checks:
+    - The new test is in `phase2-orders.test.ts`.
+    - The order, cart, listing, delivery and payout files pass on their own.
+    - The full run had the 4 known Windows-only static failures plus two `spawnSync npx ENOENT` files (db-logins, sql-rules-in-migrations).
+    - Three files failed only in the parallel run (phase2-delivery, phase2-delivery-problems, openapi.coverage) and pass alone.
 - **Shared code touched:**
   - `InventoryForm` takes an optional `kind` / `onKindChange` (create mode, for the tiles).
   - `InventoryRestrictions` is redrawn as chips, and its menu now opens downward inside the popup (POL-FE-45's "up" was about the page's bottom bar).
