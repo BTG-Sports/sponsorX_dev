@@ -388,6 +388,9 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
     for (let i = 0; i < 12 && !(await cell.count()); i++) await addForm.getByRole("button", { name: "Next month" }).click();
     await cell.click();
   }
+  // Close the calendar first: a click outside an open popover only dismisses it (filter-kit useOutsideClose).
+  await addForm.getByRole("button", { name: /^Dates it runs:/ }).click();
+  await expect(addForm.locator("[role=dialog][aria-modal=false]")).toHaveCount(0);
   await addForm.getByRole("button", { name: /^Add to cart · / }).click();
   const added = sponsor.getByRole("dialog", { name: "Added to your cart" });
   const refused = addForm.getByRole("alert");

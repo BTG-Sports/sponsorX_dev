@@ -100,6 +100,9 @@ async function buy(sponsor: Page, qty: number, startIn: number): Promise<string>
     for (let i = 0; i < 12 && !(await cell.count()); i++) await addForm.getByRole("button", { name: "Next month" }).click();
     await cell.click();
   }
+  // Close the calendar first: a click outside an open popover only dismisses it (filter-kit useOutsideClose).
+  await addForm.getByRole("button", { name: /^Dates it runs:/ }).click();
+  await expect(addForm.locator("[role=dialog][aria-modal=false]")).toHaveCount(0);
   await addForm.getByRole("button", { name: /^Add to cart · / }).click();
   await expect(sponsor.getByRole("dialog", { name: "Added to your cart" })).toBeVisible({ timeout: 30_000 });
   await sponsor.goto("/sponsor/cart");
