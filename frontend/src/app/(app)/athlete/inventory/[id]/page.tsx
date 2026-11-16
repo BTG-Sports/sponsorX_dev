@@ -1,13 +1,14 @@
 import Link from "next/link";
 
 import { ArenaHead, ArenaPanel } from "@/components/arena-stage";
-import { ItemShowcase, type ShowcaseSeller } from "@/components/athlete-inventory/item-showcase";
+import { ItemShowcase } from "@/components/athlete-inventory/item-showcase";
 import { InventoryEditItem, ItemSaleSwitch } from "@/components/athlete-inventory/inventory-shop";
 import { teamFromListings, type ApiAthleteListing } from "@/lib/athlete-listings-live";
 import type { ApiInventoryItem } from "@/lib/inventory-live";
 import { marketStatus, showcaseOf } from "@/lib/inventory-showcase";
 import type { ApiMyProfile } from "@/lib/profile-live";
-import { reach, type PublicAthlete } from "@/lib/public-athlete";
+import type { PublicAthlete } from "@/lib/public-athlete";
+import { showcaseSeller } from "@/lib/showcase-seller";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 import { setItemActiveAction, updateItemAction } from "../actions";
@@ -57,21 +58,6 @@ async function json<T>(path: string): Promise<T | null> {
   }
 }
 
-function sellerFrom(me: ApiMyProfile | null, pub: PublicAthlete | null): ShowcaseSeller | null {
-  if (!me) return null;
-  const r = pub ? reach(pub.socials) : null;
-  return {
-    name: me.displayName,
-    roleLine: [me.position, me.sport].filter(Boolean).join(" · "),
-    school: me.school,
-    place: [me.city, me.stateCode].filter(Boolean).join(", ") || null,
-    photoUrl: pub?.photoUrl ?? me.photoUrl ?? null,
-    live: me.state === "ACTIVE",
-    reach: r && r.total > 0 ? { total: r.total, verified: r.allVerified } : null,
-    track: pub?.track ? { campaigns: pub.track.campaignsCompleted, postsLive: pub.track.postsLive, brands: pub.track.brands } : null,
-  };
-}
-
 export default async function AthleteInventoryItemPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePortalAccess("athlete");
   const { id } = await params;
@@ -105,17 +91,15 @@ export default async function AthleteInventoryItemPage({ params }: { params: Pro
   const listings = listingsAnswer?.listings ?? [];
   const now = new Date().getTime();
   const market = marketStatus(item.id, listings, teamFromListings(listings).onTeam, item.active);
-  /* after "Save & make available" in the Edit popup: the way onto the marketplace, while it isn't there */
-  const nextStep = market.action?.label === "List it" ? { label: "List it on the marketplace", href: market.action.href } : undefined;
 
   return (
     <ItemShowcase
       id={item.id}
       s={showcaseOf(item, now)}
-      seller={sellerFrom(me, pub)}
+      seller={showcaseSeller(me, pub)}
       market={market}
       sale={<ItemSaleSwitch id={item.id} active={item.active} title={item.title} setActive={setItemActiveAction} />}
-      edit={<InventoryEditItem item={item} update={updateItemAction} nextStep={nextStep} />}
+      edit={<InventoryEditItem item={item} update={updateItemAction} />}
     />
   );
 }

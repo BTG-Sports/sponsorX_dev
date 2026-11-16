@@ -103,3 +103,22 @@ export async function moveAthleteListingAction(id: string, to: (typeof MOVES)[nu
   refresh(id);
   return r;
 }
+
+/** POL-FE-84 — "Save as draft" in the List-an-item popup: create the draft only, nothing submitted. */
+export async function draftListingAction(inventoryItemId: string, title: string, description: string): Promise<AthleteListingResult> {
+  if (typeof inventoryItemId !== "string" || !inventoryItemId) return { ok: false, message: "Choose an item to list.", problems: [] };
+  if (typeof title !== "string" || !title.trim()) return { ok: false, message: "The item needs a title — give it one in Inventory.", problems: [] };
+  const d = validateDescription(typeof description === "string" ? description : "");
+  if (!d.ok) return { ok: false, message: d.message, problems: [] };
+  const created = await call("/listings", "POST", { inventoryItemId, title: title.trim().slice(0, 200), description: d.value || null, visibility: "PUBLIC" }, "The draft was not saved");
+  refresh(created.ok ? created.listing.id : undefined);
+  return created;
+}
+
+/** POL-FE-84 — the list's Live ↔ Paused switch: the same Pause / Resume moves as the listing page.
+ *  A resume runs the checks again; one that BTG takes a look at comes back "In review". */
+export async function setListingLiveAction(id: string, live: boolean): Promise<{ ok: true; id: string } | { ok: false; message: string }> {
+  const r = await moveAthleteListingAction(id, live ? "PUBLISHED" : "PAUSED", null);
+  if (r.ok) return { ok: true, id: r.listing.id };
+  return { ok: false, message: r.problems.length ? `Not ready to go live: ${r.problems.join("; ")}` : r.message };
+}

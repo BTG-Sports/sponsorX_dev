@@ -35,10 +35,10 @@ const secondary =
 const danger =
   "inline-flex min-h-11 items-center justify-center rounded-lg border border-danger/50 px-4 text-[13px] font-semibold text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-40";
 
-type Failure = { message: string; problems: string[]; draftId?: string };
+export type Failure = { message: string; problems: string[]; draftId?: string };
 
 const STATUS_TONE = {
-  ready: { dot: "bg-accent/15 text-accent", pill: "bg-accent/12 text-accent", mark: "✓" },
+  ready: { dot: "bg-success/15 text-success", pill: "bg-success/12 text-success", mark: "✓" },
   fix: { dot: "bg-warn/15 text-warn", pill: "bg-warn/12 text-warn", mark: "!" },
   optional: { dot: "bg-surface-2 text-muted", pill: "bg-surface-2 text-muted", mark: "○" },
 } as const;
@@ -79,7 +79,7 @@ function withDescription(rows: ListCheck[], text: string): ListCheck[] {
   return rows.map((r) => (r.key === "description" ? live : r));
 }
 
-function FailureNote({ f }: { f: Failure }) {
+export function FailureNote({ f }: { f: Failure }) {
   return (
     <div role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] text-danger">
       <p>{f.problems.length ? "Not ready to go live yet:" : f.message}</p>
@@ -98,7 +98,7 @@ function FailureNote({ f }: { f: Failure }) {
   );
 }
 
-function DescriptionField({ value, set, disabled }: { value: string; set: (v: string) => void; disabled: boolean }) {
+export function DescriptionField({ value, set, disabled }: { value: string; set: (v: string) => void; disabled: boolean }) {
   return (
     <section aria-label="What the sponsor gets" className="space-y-2 rounded-xl border border-line bg-surface p-5">
       <label htmlFor="li-gets" className="block text-[13px] font-semibold">What the sponsor gets</label>

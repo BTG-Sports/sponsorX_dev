@@ -2406,6 +2406,9 @@ the blockers and today's content review findings.
     - A draft offers **Save & make available** and **Save draft**. An available item offers **Save changes** and **Save & move to draft**. The switch rides along with the save as `active`.
     - Once made available and still unlisted, the answer offers **List it on the marketplace →**: the submit, through the existing `/athlete/listings/new?item=…`. The answer scrolls into view above the pinned buttons.
     - An empty inventory shows a hero with "Add your first item" and six idea tiles, each opening the popup on its kind.
+  - **Item drafts removed, later the same day** (the owner, while POL-FE-84 was built: "why is there a draft in listing? … remove the draft options in the inventory"). A draft is a listing's; an item is only Available or Paused, by its switch.
+    - The Add popup is back to **Add item** and the Edit popup to **Save changes**.
+    - `InventoryForm` lost `allowDraft`, `nextStep`, the Draft/Available status line and the save intents. Its answer still scrolls into view.
   - **Won't promote:** the restrictions moved into a popup as chips.
     - The category menu opens downward from the top of the popup's body. That reverses POL-FE-45's "up", which was only about the page's bottom bar; the popup sits above that bar.
   - **Item page:** `/athlete/inventory/[id]` opens on a showcase (`components/athlete-inventory/item-showcase.tsx`, `lib/inventory-showcase.ts`).
@@ -2425,6 +2428,95 @@ the blockers and today's content review findings.
     - `inventory-shop.test.ts` (new, 13) and `inventory-showcase.test.ts` (new, 8). The frontend suite is 2,216 tests and tsc and eslint are clean.
     - Walked live in Chrome at 1440 and 390 as the QA athlete: list, cards, tabs, both popups, the empty hero (on a throwaway route, deleted), and two item pages. No console errors, no sideways scroll.
     - `next build` was not run: the owner's `next dev` was live.
+
+
+`POL-FE-84` · *Confusing* · confirmed (programme owner, 2026-11-16: "let's do the listing page /athlete/listings. The visual design is too much confusing, do like what we did in the inventory page /athlete/inventory"; then, seeing a listing draft beside the inventory's item draft: "why is there a draft in listing ? I think i know now, remove the draft options in the inventory")
+- **Fix:** make `/athlete/listings` work like the inventory: listings first, one button to list an item, the listing's state in plain words. Drafts belong to listings only.
+- **Done when:**
+  - The listings come first, under a title with a list button. Listing an item happens in a popup.
+  - Every count is the API's own.
+  - Each listing says where it stands and what to do next, and a draft no longer reads "Not listed yet".
+  - The inventory has no draft buttons.
+- **Delivered (2026-11-16, HeckerCreatives):**
+  - **Gone:** the KPI plates, the two tables (Your listings, Ready to list) and the trip to the separate compose page.
+  - **Title row:** **+ List an item · n**, where n is the items with no listing yet. It opens a popup in three steps:
+    - pick an item (the API's unlisted items, up to 60, with a link to Inventory for the rest; a paused item is marked);
+    - say what the sponsor gets, beside the same "What's checked" list, worked out on the server per item;
+    - **List it** (create, then submit, as before) or **Save as draft** (create only, the new `draftListingAction`). It ends on what happened: "Live ✓", "Goes live on …", BTG taking a look, or "Saved as a draft", with **Open the listing** and **List another item**.
+  - **Tabs:** All, Live, In review, Drafts, Paused and Ended, from the API's `counts.byState`. They are the URL's `state`, the old filter's key, so old links still work. Then search, and List or Cards (the same remembered choice as Inventory). One line says how listing works.
+  - **Each listing:** its kind, price and stock, and a status in plain words: "Live on the marketplace", "Goes live …", "In review by BTG", "Changes asked", "Draft", "Paused", "Paused by BTG", "Hidden while the item is paused", "Ended". Cards add one sentence on what it means.
+    - On the seller's own live or paused listing, a **Live** switch: the old Pause and Resume, optimistic, rolled back with the API's sentence. A resume BTG holds comes back "In review".
+    - Other listings show their next step instead: "Finish & submit", "Make the changes", or "Your team's".
+  - **No listing yet:** a hero with the three steps and the items as tiles, each opening the popup on its own. With an empty inventory, it links to Inventory instead.
+  - **Kept as they were:** the roster panel ("Your team lists your items"), the not-approved notice, and the listing page (`./[id]`). `./new?item=` still works for links from elsewhere.
+  - **Shared code:**
+    - `inventory-shop.tsx` exports its popup, tabs (now generic over their keys), switch (with its words as a prop), view toggle and tilt, for both pages.
+    - The checklist's "Ready" rows are green instead of the accent orange, which read as a warning.
+    - Words are in `lib/athlete-listings-shop.ts`. Styles are the inventory's `inventory.css` plus `athlete/listings/listings.css`.
+  - **Popup focus:** when a step's button disappears, focus moves to the next step, so Escape and Tab keep working. The walk caught this.
+  - **Inventory drafts removed:** see POL-FE-83.
+  - **Checked:**
+    - `athlete-listings-shop.test.ts` is new (11 tests). The frontend suite is 2,232 tests; tsc and eslint are clean.
+    - Walked live in Chrome at 1440 and 390 as the QA athlete: the list, cards, tabs, the popup's pick and write steps, Escape, and the inventory's Add and Edit popups (no draft buttons). No console errors, no sideways scroll.
+    - `next build` was not run: the owner's `next dev` was live.
+
+
+`POL-FE-85` · *Confusing* · confirmed (programme owner, 2026-11-16, on /athlete/listings/[id]: "let's redesign this … more professional look + wow factor + awwwaaaard + easy to understand by human + not too cluttered + not to many informations at once"; then "maybe a step by step wizard too?"; then "after its live/submitted, you will hide the step by step wizard and will show the public page of the item plus a options on how to end this item")
+- **Fix:** a draft listing becomes a short wizard, one question at a time. Once submitted, the page is the item's public page under a small status bar, with the ways off the marketplace under it.
+- **Done when:**
+  - A draft asks one thing per step, and shows the checks only where they decide anything.
+  - A submitted, live, paused or ended listing shows what sponsors see, where it stands in one sentence, and how to pause or end it.
+  - Nothing is lost between steps.
+- **Delivered (2026-11-16, HeckerCreatives):**
+  - **Draft: a three-step wizard.** The steps are 1 the item, 2 what the sponsor gets, 3 go live.
+    - It opens on the first step with something to fix (`wizardStart`).
+    - The stepper's track fills as you move, and each step slides in from the side you're heading. Focus moves to each new step's question.
+    - Beside the steps, a "How sponsors will see it" card follows the typing. A link opens the exact shop card (`./preview`).
+    - **Step 1:** the item and its own three checks, with a link to Inventory.
+    - **Step 2:** a large textarea, a meter toward the 20-character minimum ("8 more characters to go") and three hints (what, when, where). Leaving the step saves the words (PATCH), so nothing typed is lost.
+    - **Step 3:** a readiness ring ("5 of 6 checks pass"), only the rows to fix (each with "Fix it", which jumps to its step), the optional extras folded away, and **Submit & go live**. The button stays off while a required row fails.
+    - BTG's "changes asked" note sits above the wizard. **Discard this draft** is at the foot, with a confirm.
+  - **Submitted, live, paused or ended: the public page.** The wizard is gone, and the page is the item's sponsor-facing showcase: the inventory item page's `ItemShowcase` (POL-FE-83), with the listing's title and words, and without the private panel.
+    - **The bar above it:** back, the status in one sentence, Written → Checked → Live, and the one control the state allows. That is the **Live** switch (live or paused), or **Edit what the sponsor gets** in a popup (paused: save, or save and go live; held for BTG: save and submit again). A **Shop card** link sits beside it.
+    - **After a submit or a resume,** the page opens on what happened (`?done=1`): "Live ✓" with a burst, "Goes live on …", or BTG taking a look.
+  - **The ways off sit in the bar, small** (the owner first saw them as a two-card "Taking it off the marketplace" section under the showcase: "maybe its better to put this at the top and reddesign this so that it won't take much space"):
+    - the **Live** switch pauses (its tooltip says so);
+    - a small red-outlined **End listing** ends it for good, and asks to confirm;
+    - once ended, **List the item again** takes its place;
+    - a team's listing shows no controls.
+  - **Shared code:**
+    - `ItemShowcase` takes an optional `bar`, `after`, `privatePanel` and `fitsEmpty`, and `market` may be null. The inventory item page is unchanged.
+    - The showcase's seller builder moved to `lib/showcase-seller.ts`, for both pages.
+    - Words are in `lib/athlete-listing-desk.ts`; styles in `athlete/listings/[id]/listing.css`.
+  - **Same reads and writes as before** (`../actions.ts`). The page also reads `GET /inventory/:itemId` and the athlete's profile for the showcase, and falls back to the listing's own fields if the item can't be read.
+  - **Checked:**
+    - `athlete-listing-desk.test.ts` is new (7 tests). The frontend suite is 2,239 tests; tsc and eslint are clean.
+    - Walked live in Chrome at 1440 and 390, with no console errors and no sideways scroll:
+      - the owner's draft, "Testing social post", signed in as its owner on local dev, only viewed and not saved or submitted: it opened on step 2, and step 3 showed the one fix;
+      - a live package listing with `?done=1`;
+      - the inventory item page, unchanged.
+    - `next build` was not run: the owner's `next dev` was live.
+
+
+`POL-FE-86` · *Confusing* · confirmed (programme owner, 2026-11-16: "lets redesign this also athlete/listings/…/preview", after POL-FE-85)
+- **Fix:** show the athlete their card where sponsors meet it, and say in one line whether sponsors can see it.
+- **Done when:**
+  - The card is the shop's own, unchanged.
+  - The page says whether sponsors can see it now and, if not, why, in a few words.
+  - It can be checked at phone size.
+- **Delivered (2026-11-16, HeckerCreatives):**
+  - **The shop window:** the shop's own `ShopListingCard`, untouched, with "Add to cart" switched off as before. It sits in a shop window (`components/athlete-listings/preview-window.tsx`):
+    - a browser frame with a "Shop" heading and search;
+    - the card first, lifted and pinned "Your listing";
+    - blank, shimmering placeholder cards beside it, never made-up listings.
+  - **Desktop / Phone:** a switch springs the window between widths. The grid inside follows the window's own width (a container query).
+  - **The bar above it:** back to the listing, then "Sponsors can see this now" (green) or "Sponsors will see this once it's live" (amber). Each reason (`previewNotes`, unchanged) is a short chip, as is any part that couldn't be read.
+  - **Unchanged:** the property's preview keeps `ListingShopPreview`, which lost its athlete-only `arena` branch. The reads are the same, and there are still no writes.
+  - **Checked:**
+    - The frontend suite is 2,239 tests; tsc and eslint are clean.
+    - Walked live in Chrome at 1440 and 390, in both the Desktop and Phone frames, with no console errors and no sideways scroll:
+      - the owner's now-live listing (viewed only);
+      - a QA draft (amber, three reasons).
 
 ---
 

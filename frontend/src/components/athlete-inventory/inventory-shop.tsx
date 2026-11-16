@@ -38,8 +38,8 @@ import { Glyph, type UiGlyph } from "./glyphs";
    a fine pointer without reduced motion.
    -------------------------------------------------------------------------- */
 
-type Result = { ok: true; id: string } | { ok: false; message: string; confirmHref?: string };
-type SetActive = (id: string, active: boolean) => Promise<Result>;
+export type Result = { ok: true; id: string } | { ok: false; message: string; confirmHref?: string };
+export type SetActive = (id: string, active: boolean) => Promise<Result>;
 type Create = (body: InventoryBody) => Promise<Result>;
 
 const d = (s: number, extra?: CSSProperties) => ({ "--d": `${s}s`, ...extra }) as CSSProperties;
@@ -47,7 +47,7 @@ const d = (s: number, extra?: CSSProperties) => ({ "--d": `${s}s`, ...extra }) a
 /* ── view: list (the default — the owner's "lists first") or cards,
       remembered per browser ──────────────────────────────────────────── */
 
-type View = "cards" | "list";
+export type View = "cards" | "list";
 const VIEW_KEY = "sx-iv-view";
 const VIEW_EVENT = "sx-iv-view";
 
@@ -82,7 +82,7 @@ function canTilt() {
   if (tiltOk === null) tiltOk = window.matchMedia("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)").matches;
   return tiltOk;
 }
-function tilt(e: PointerEvent<HTMLElement>) {
+export function tilt(e: PointerEvent<HTMLElement>) {
   if (!canTilt()) return;
   const el = e.currentTarget;
   const r = el.getBoundingClientRect();
@@ -93,7 +93,7 @@ function tilt(e: PointerEvent<HTMLElement>) {
   el.style.setProperty("--gx", `${x * 100}%`);
   el.style.setProperty("--gy", `${y * 100}%`);
 }
-function untilt(e: PointerEvent<HTMLElement>) {
+export function untilt(e: PointerEvent<HTMLElement>) {
   const s = e.currentTarget.style;
   s.removeProperty("--rx");
   s.removeProperty("--ry");
@@ -101,7 +101,7 @@ function untilt(e: PointerEvent<HTMLElement>) {
 
 /* ── the on-sale switch, optimistic ────────────────────────────────────── */
 
-function useSale(id: string, active: boolean, setActive: SetActive) {
+export function useSale(id: string, active: boolean, setActive: SetActive) {
   const router = useRouter();
   const [on, setOn] = useState(active);
   const [seen, setSeen] = useState(active);
@@ -140,13 +140,16 @@ function useSale(id: string, active: boolean, setActive: SetActive) {
   return { on, flip, busy, error, pop };
 }
 
-function SaleSwitch({ on, busy, pop, flip, title }: { on: boolean; busy: boolean; pop: number; flip: () => void; title: string }) {
+/** The switch. `words`: what it says on and off ("Available"/"Paused" by default; a listing's "Live"/"Paused"). */
+export function SaleSwitch({
+  on, busy, pop, flip, title, words = ["Available", "Paused"], meaning = "available to sponsors",
+}: { on: boolean; busy: boolean; pop: number; flip: () => void; title: string; words?: [string, string]; meaning?: string }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={on}
-      aria-label={`${title}: available to sponsors`}
+      aria-label={`${title}: ${meaning}`}
       onClick={flip}
       data-busy={busy ? "" : undefined}
       className="sx-iv-switch"
@@ -154,7 +157,7 @@ function SaleSwitch({ on, busy, pop, flip, title }: { on: boolean; busy: boolean
       <span className="sx-iv-switch-track" aria-hidden="true">
         <span key={pop} className="sx-iv-switch-thumb" data-pop={pop > 0 && on ? "" : undefined} />
       </span>
-      <span className="sx-iv-switch-text">{on ? "Available" : "Paused"}</span>
+      <span className="sx-iv-switch-text">{on ? words[0] : words[1]}</span>
     </button>
   );
 }
@@ -290,7 +293,12 @@ function ItemRow({ card, i, href, setActive }: { card: ShopCard; i: number; href
 
 /* ── the tabs, with a sliding marker ───────────────────────────────────── */
 
-function ShopTabs({ tabs, tab }: { tabs: TabDef[]; tab: ShopTab }) {
+type AnyTab = { key: string; label: string; count: number };
+
+/** The sliding-marker tabs. `patch`: the URL change a tab makes (the inventory's tabs by default). */
+export function ShopTabs<T extends AnyTab = TabDef>({
+  tabs, tab, patch = (t) => tabPatch(t as ShopTab), label = "Show items",
+}: { tabs: T[]; tab: T["key"]; patch?: (key: T["key"]) => Record<string, string | null>; label?: string }) {
   const { set } = useListNav();
   const [current, setCurrent] = useState(tab);
   const [seen, setSeen] = useState(tab);
@@ -315,10 +323,10 @@ function ShopTabs({ tabs, tab }: { tabs: TabDef[]; tab: ShopTab }) {
     return () => window.removeEventListener("resize", place);
   }, [current, tabs]);
 
-  const go = (t: ShopTab) => {
+  const go = (t: T["key"]) => {
     if (t === current) return;
     setCurrent(t);
-    set(tabPatch(t));
+    set(patch(t));
   };
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
@@ -329,7 +337,7 @@ function ShopTabs({ tabs, tab }: { tabs: TabDef[]; tab: ShopTab }) {
   };
 
   return (
-    <div ref={bar} role="tablist" aria-label="Show items" className="sx-iv-tabs" onKeyDown={onKey}>
+    <div ref={bar} role="tablist" aria-label={label} className="sx-iv-tabs" onKeyDown={onKey}>
       <span ref={marker} aria-hidden="true" className="sx-iv-tab-marker" />
       {tabs.map((t) => (
         <button
@@ -350,7 +358,12 @@ function ShopTabs({ tabs, tab }: { tabs: TabDef[]; tab: ShopTab }) {
   );
 }
 
-function ViewSwitch({ view }: { view: View }) {
+/** List or Cards, remembered per browser (shared by Inventory and Listings). */
+export function useShopView(): View {
+  return useSyncExternalStore(subscribeView, readView, () => "list" as View);
+}
+
+export function ViewSwitch({ view }: { view: View }) {
   return (
     <div role="group" aria-label="Show as" className="sx-iv-views">
       {(["list", "cards"] as const).map((v) => (
@@ -386,7 +399,7 @@ export function InventoryShop({
   setActive: SetActive;
   empty: { title: string; hint: string };
 }) {
-  const view = useSyncExternalStore(subscribeView, readView, () => "list" as View);
+  const view = useShopView();
   const href = (id: string) => `${hrefBase}/${encodeURIComponent(id)}`;
 
   return (
@@ -496,14 +509,14 @@ export function NewItemPanel({
       <p className="sx-iv-new-step">
         <span aria-hidden="true">2</span> Name it, price it, say when
       </p>
-      <InventoryForm mode="create" create={create} components={components} savedHref={savedHref} onCancel={onCancel} kind={kind} onKindChange={setKind} allowDraft />
+      <InventoryForm mode="create" create={create} components={components} savedHref={savedHref} onCancel={onCancel} kind={kind} onKindChange={setKind} />
     </div>
   );
 }
 
 /** The popup. `close` plays the exit (the owner unmounts it after); `closing` is that exit under way.
  *  `open`: short content that may spill past the edge (a dropdown inside), so nothing scrolls or clips. */
-function Modal({
+export function Modal({
   close,
   closing,
   title,
@@ -597,7 +610,7 @@ function Modal({
 }
 
 /** A popup's life: closed → open → closing (the exit plays) → closed, focus back on the opener. */
-function usePopup() {
+export function usePopup() {
   const [phase, setPhase] = useState<"closed" | "open" | "closing">("closed");
   const opener = useRef<HTMLButtonElement>(null);
   const timer = useRef<number | undefined>(undefined);
@@ -767,9 +780,8 @@ export function ItemSaleSwitch({ id, active, title, setActive }: { id: string; a
 type Update = (id: string, patch: Partial<InventoryBody>) => Promise<Result>;
 
 /** "Edit item": the same edit form as before, in the popup. A save refreshes the showcase behind it.
- *  A draft (Paused) item gets "Save & make available"; an available one "Save & move to draft".
- *  `nextStep` is offered once it's made available — "List it on the marketplace" while it isn't. */
-export function InventoryEditItem({ item, update, nextStep }: { item: ApiInventoryItem; update: Update; nextStep?: { label: string; href: string } }) {
+ *  No draft here (the owner, 2026-11-16): an item is Available or Paused (the switch); a draft is a listing's. */
+export function InventoryEditItem({ item, update }: { item: ApiInventoryItem; update: Update }) {
   const { phase, opener, show, close } = usePopup();
   return (
     <>
@@ -788,7 +800,7 @@ export function InventoryEditItem({ item, update, nextStep }: { item: ApiInvento
           icon="edit"
           focus="#inv-title"
         >
-          <InventoryForm mode="edit" item={item} update={update} tone="athlete" allowDraft nextStep={nextStep} />
+          <InventoryForm mode="edit" item={item} update={update} tone="athlete" />
         </Modal>
       )}
     </>

@@ -1,12 +1,13 @@
 import Link from "next/link";
 
 import { ArenaHead } from "@/components/arena-stage";
+import { Glyph } from "@/components/athlete-inventory/glyphs";
+import { PreviewWindow } from "@/components/athlete-listings/preview-window";
+import { ShopListingCard } from "@/components/shop-listing-card";
 import { EmptyState } from "@/components/states";
-import { ListingShopPreview } from "@/components/listing-shop-preview";
 import type { ApiAthleteListing } from "@/lib/athlete-listings-live";
 import {
   previewGaps,
-  previewHeadline,
   previewNotes,
   shopResultFrom,
   type PreviewAthlete,
@@ -14,6 +15,9 @@ import {
 } from "@/lib/listing-preview";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
+
+import "../../../inventory/inventory.css";
+import "./preview.css";
 
 /* --------------------------------------------------------------------------
    Listing preview — 2S3-FE-02 (the independent athlete's "List my item"),
@@ -35,6 +39,15 @@ import { requirePortalAccess } from "@/server/portal";
    the title row as an ArenaHead (back link as its action) and the preview
    banner on a plate; the not-found answer sits under the same head. Visual
    only — same reads, still no writes.
+
+   POL-FE-86 (2026-11-16) — redrawn (the programme owner: "lets redesign
+   this also", after the listing page's POL-FE-85). The shop's own card,
+   untouched, now sits in a shop window among blank placeholder cards, with
+   a Desktop ↔ Phone switch (components/athlete-listings/preview-window.tsx).
+   Over it, one bar: back to the listing, whether sponsors can see it now
+   (green) or not yet (amber) in one line, and the reasons as short chips
+   (previewNotes, unchanged). The property's preview keeps
+   ListingShopPreview. Same reads, still no writes.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -84,14 +97,57 @@ export default async function AthleteListingPreviewPage({ params }: { params: Pr
   const { result } = shopResultFrom(listing, src);
   const nowMs = new Date().getTime(); /* request time — the page is force-dynamic */
 
+  const notes = previewNotes(listing, nowMs);
+  const gaps = previewGaps(listing, src, false);
+  const visible = listing.state === "PUBLISHED" && notes.length === 0;
+  const back = `/athlete/listings/${encodeURIComponent(id)}`;
+
   return (
-    <ListingShopPreview
-      result={result}
-      headline={previewHeadline(listing.state)}
-      notes={previewNotes(listing, nowMs)}
-      gaps={previewGaps(listing, src, false)}
-      back={{ href: `/athlete/listings/${encodeURIComponent(id)}`, label: "Back to your listing" }}
-      arena
-    />
+    <div className="sx-iv sx-pv">
+      <div className="sx-pv-bar sx-iv-rise" data-visible={visible ? "" : undefined}>
+        <Link href={back} className="sx-pv-back">
+          <Glyph ui="back" className="size-4" />
+          Your listing
+        </Link>
+        <div className="sx-pv-say">
+          <span className="sx-pv-dot" aria-hidden="true">
+            <Glyph ui={visible ? "eye" : "lock"} className="size-4" />
+          </span>
+          <span className="min-w-0">
+            <strong>{visible ? "Sponsors can see this now" : "Sponsors will see this once it's live"}</strong>
+            <span>This is the shop&rsquo;s own card, drawn from what you&rsquo;ve saved. Its button is switched off here.</span>
+          </span>
+        </div>
+      </div>
+
+      {(notes.length > 0 || gaps.length > 0) && (
+        <ul className="sx-pv-notes sx-iv-rise" style={{ "--d": "0.06s" } as React.CSSProperties} aria-label="Why sponsors don't see it yet">
+          {notes.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+          {gaps.length > 0 && <li data-tone="warn">Couldn&rsquo;t read {gaps.join(" or ")} just now, so that part may differ in the shop.</li>}
+        </ul>
+      )}
+
+      <PreviewWindow>
+        <ShopListingCard
+          result={result}
+          action={
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled
+                title="Preview only — sponsors add it to their cart once it's on sale."
+                className="cursor-not-allowed rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink opacity-40"
+              >
+                Add to cart
+              </button>
+            </div>
+          }
+        />
+      </PreviewWindow>
+
+      <p className="sx-pv-foot">Sponsors in a brand category you&rsquo;ve said you won&rsquo;t promote never see it.</p>
+    </div>
   );
 }
