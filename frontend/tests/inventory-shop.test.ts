@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { ApiInventoryItem } from "@/lib/inventory-live";
-import { blurbOf, shopCard, shopTab, shopTabs, stockOf, tabPatch, tabQuery, whenOf } from "@/lib/inventory-shop";
+import { blurbOf, listingFor, marketBadge, shopCard, shopTab, shopTabs, stockOf, tabPatch, tabQuery, whenOf } from "@/lib/inventory-shop";
+import type { ApiAthleteListing } from "@/lib/athlete-listings-live";
 
 /* POL-FE-83 — the words on the athlete's inventory cards and its tabs. */
 
@@ -77,7 +78,11 @@ describe("shopCard", () => {
       blurb: null,
       bundle: null,
       active: true,
+      listing: null,
     });
+  });
+  it("carries its listing's state for the badge", () => {
+    expect(shopCard(item(), NOW, { state: "DRAFT", visibility: "PUBLIC" }).listing).toEqual({ state: "DRAFT", visibility: "PUBLIC" });
   });
   it("lists what a package holds", () => {
     const pkg = shopCard(
@@ -92,6 +97,31 @@ describe("shopCard", () => {
     );
     expect(pkg.bundle).toEqual({ count: 2, names: ["Post", "Clinic"] });
     expect(pkg.kindLabel).toBe("Package");
+  });
+});
+
+describe("marketBadge", () => {
+  /* The switch is not the shop: an Available item with no listing is "Not listed" (owner, 2026-11-16). */
+  it("says where the item stands on the marketplace", () => {
+    expect(marketBadge(true, null)).toEqual({ label: "Not listed", tone: "none" });
+    expect(marketBadge(false, null)).toEqual({ label: "Not listed", tone: "none" });
+    expect(marketBadge(true, { state: "PUBLISHED", visibility: "PUBLIC" })).toEqual({ label: "On the marketplace", tone: "live" });
+    expect(marketBadge(true, { state: "PUBLISHED", visibility: "PRIVATE" })).toEqual({ label: "Live, private link", tone: "live" });
+    expect(marketBadge(true, { state: "PENDING_APPROVAL", visibility: "PUBLIC" })).toEqual({ label: "Listing in review", tone: "wait" });
+    expect(marketBadge(true, { state: "PAUSED", visibility: "PUBLIC" })).toEqual({ label: "Listing paused", tone: "off" });
+    expect(marketBadge(true, { state: "DRAFT", visibility: "PUBLIC" })).toEqual({ label: "Draft listing", tone: "off" });
+  });
+  it("a live listing hides while its item is paused, as the shop's search does", () => {
+    expect(marketBadge(false, { state: "PUBLISHED", visibility: "PUBLIC" })).toEqual({ label: "Hidden while paused", tone: "off" });
+  });
+  it("finds the item's listing, skipping an ended one", () => {
+    const ls = [
+      { id: "a", inventoryItemId: "pol83_i1", state: "ARCHIVED" },
+      { id: "b", inventoryItemId: "pol83_i1", state: "DRAFT" },
+      { id: "c", inventoryItemId: "other", state: "PUBLISHED" },
+    ] as unknown as ApiAthleteListing[];
+    expect(listingFor("pol83_i1", ls)?.id).toBe("b");
+    expect(listingFor("none", ls)).toBeNull();
   });
 });
 

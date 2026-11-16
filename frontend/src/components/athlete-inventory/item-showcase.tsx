@@ -189,7 +189,7 @@ export function ItemShowcase({
           <dl className="sx-is-facts">
             <Fact icon="calendar" label="Available" value={s.when.label} tone={s.when.tone} />
             <Fact icon="box" label="Stock" value={s.stock.label} tone={s.stock.tone} />
-            <Fact icon="bolt" label="Status" value={s.active ? "On sale" : "Paused"} tone={s.active ? "on" : "off"} />
+            <Fact icon="bolt" label="Status" value={s.active ? "Available" : "Paused"} tone={s.active ? "on" : "off"} />
           </dl>
 
           {s.rules.length > 0 && (

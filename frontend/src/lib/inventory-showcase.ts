@@ -84,13 +84,15 @@ export type MarketStatus = {
  * the legacy whole list — the same read /athlete/listings/new makes): the
  * item's live listing, else whether a team lists for them, else "not yet".
  */
-export function marketStatus(itemId: string, listings: readonly ApiAthleteListing[], onTeam: boolean): MarketStatus {
+export function marketStatus(itemId: string, listings: readonly ApiAthleteListing[], onTeam: boolean, active = true): MarketStatus {
   const l = listings.find((x) => x.inventoryItemId === itemId && x.state !== "ARCHIVED");
   if (l) {
     const team = l.seller.type === "PROPERTY";
     const open = team ? null : { label: "Open the listing", href: `/athlete/listings/${encodeURIComponent(l.id)}` };
     switch (l.state) {
       case "PUBLISHED":
+        /* The shop shows a listing only while its item is switched on (backend marketplace-search). */
+        if (!active) return { tone: "off", label: "Listed, but hidden from sponsors while the item is paused", action: open };
         return { tone: "live", label: team ? `Live on the marketplace, listed by ${l.seller.name}` : "Live on the marketplace", action: open };
       case "PENDING_APPROVAL":
         return { tone: "wait", label: "Listed, and BTG is taking a look", action: open };

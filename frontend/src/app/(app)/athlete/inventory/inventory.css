@@ -13,8 +13,8 @@
    - the tab marker slides (springy) to the tab picked;
    - a card tilts toward the pointer with a glare (fine pointers only), its
      glyph tile floats and a shine crosses it;
-   - the on-sale switch springs, and bursts a ring when switched on; the
-     "On sale" dot pings;
+   - the Available switch springs, and bursts a ring when switched on; a
+     live item's "On the marketplace" dot pings;
    - "+ Add an item" sends a shine across now and then; the popup scales
      up over a blurred scrim (a sheet from the bottom on a phone).
    Every entrance ends on `transform: none` (memory:
@@ -366,6 +366,7 @@
 
 .sx-iv-state {
   display: inline-flex;
+  white-space: nowrap;
   align-items: center;
   gap: 0.4rem;
   border-radius: 9999px;
@@ -378,9 +379,12 @@
   color: var(--sx-text-muted);
   transition: all 0.35s ease;
 }
-.sx-iv-state[data-on] { border-color: color-mix(in srgb, var(--sx-success) 40%, transparent); background: color-mix(in srgb, var(--sx-success) 12%, transparent); color: var(--sx-success); }
+/* the marketplace badge: live (green), in review (amber), off (grey), not listed (orange — the next step) */
+.sx-iv-state[data-tone="live"] { border-color: color-mix(in srgb, var(--sx-success) 40%, transparent); background: color-mix(in srgb, var(--sx-success) 12%, transparent); color: var(--sx-success); }
+.sx-iv-state[data-tone="wait"] { border-color: color-mix(in srgb, var(--sx-warn) 40%, transparent); background: color-mix(in srgb, var(--sx-warn) 12%, transparent); color: var(--sx-warn); }
+.sx-iv-state[data-tone="none"] { border-color: color-mix(in srgb, var(--sx-accent) 40%, transparent); background: color-mix(in srgb, var(--sx-accent) 11%, transparent); color: var(--sx-accent); }
 .sx-iv-state-dot { position: relative; width: 6px; height: 6px; border-radius: 9999px; background: currentColor; }
-.sx-iv-state[data-on] .sx-iv-state-dot::after {
+.sx-iv-state[data-tone="live"] .sx-iv-state-dot::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -583,7 +587,8 @@
 .sx-iv-row-main { display: flex; min-width: 0; flex: 1 1 calc(100% - 3.5rem); flex-direction: column; }
 .sx-iv-row-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 700; color: var(--sx-text); }
 .sx-iv-row:hover .sx-iv-row-title { color: var(--k); }
-.sx-iv-row-sub { font-size: 11px; color: var(--sx-text-muted); }
+.sx-iv-row-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; margin-top: 0.15rem; font-size: 11px; color: var(--sx-text-muted); }
+.sx-iv-row-sub .sx-iv-state { padding: 0.05rem 0.5rem; font-size: 10px; }
 .sx-iv-row-price { margin-left: 3.15rem; }
 .sx-iv-row-price .sx-arena-num { font-size: 16px; color: var(--sx-text); }
 .sx-iv-row:not([data-on]) .sx-iv-row-price .sx-arena-num { color: var(--sx-text-muted); }

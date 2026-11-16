@@ -95,6 +95,9 @@ describe("marketStatus", () => {
     expect(marketStatus("pol83s_i1", ended, false).action).toEqual({ label: "List it", href: "/athlete/listings/new?item=pol83s_i1" });
     expect(marketStatus("pol83s_i1", ended, true)).toEqual({ tone: "team", label: "Not on the marketplace yet. Your team lists your items.", action: null });
   });
+  it("says a live listing is hidden while the item is paused", () => {
+    expect(marketStatus("pol83s_i1", [listing({})], false, false)).toMatchObject({ tone: "off", label: "Listed, but hidden from sponsors while the item is paused" });
+  });
   it("says a listing under review or paused", () => {
     expect(marketStatus("pol83s_i1", [listing({ state: "PENDING_APPROVAL" })], false).tone).toBe("wait");
     expect(marketStatus("pol83s_i1", [listing({ state: "PAUSED" })], false).label).toBe("Listed, but the listing is paused");

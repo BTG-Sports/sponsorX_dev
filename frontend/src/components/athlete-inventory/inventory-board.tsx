@@ -17,13 +17,12 @@ const d = (s: number, extra?: CSSProperties) => ({ "--d": `${s}s`, ...extra }) a
 
 const STEPS: Array<{ icon: UiGlyph; title: string; body: ReactNode }> = [
   { icon: "plus", title: "Add an item", body: "Say what you'll do (a post, a clinic, an appearance) and set your price." },
-  { icon: "bolt", title: "Keep it on sale", body: "Sponsors can buy it while its switch is on. Switch it off to pause it." },
   {
     icon: "megaphone",
     title: "List it",
     body: (
       <>
-        With no team, put it on the marketplace yourself under{" "}
+        Sponsors find it once it&rsquo;s on the marketplace. With no team, list it yourself under{" "}
         <Link href="/athlete/listings" className="sx-iv-inline-link">
           Listings
         </Link>
@@ -31,6 +30,7 @@ const STEPS: Array<{ icon: UiGlyph; title: string; body: ReactNode }> = [
       </>
     ),
   },
+  { icon: "bolt", title: "Keep it available", body: "Sponsors can buy it while its switch says Available. Switch it to Paused to stop sales for a while." },
 ];
 
 export function HowSellingWorks({ delay = 0.18 }: { delay?: number }) {

@@ -12,7 +12,8 @@ import {
   type ApiInventoryList,
   type ApiRestriction,
 } from "@/lib/inventory-live";
-import { shopCard, shopTab, shopTabs, tabQuery } from "@/lib/inventory-shop";
+import type { ApiAthleteListing } from "@/lib/athlete-listings-live";
+import { listingFor, shopCard, shopTab, shopTabs, tabQuery } from "@/lib/inventory-shop";
 import { apiListQuery, textParam, type SearchParams } from "@/lib/list-query";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
@@ -62,6 +63,9 @@ import "./inventory.css";
                                      unlisted } over the whole scope
      GET /inventory?page=1&size=60&active=true   what a new package may bundle
      GET /restrictions                            unchanged
+     GET /listings                    the athlete's listings (the legacy whole
+                                      list, as /athlete/listings/new reads it),
+                                      for each item's marketplace badge
 
    The owner then added a fourth reference: "when you go to the page you
    would see the lists first and there's a button that will say add". So
@@ -70,11 +74,15 @@ import "./inventory.css";
         the athlete won't promote — a setting, so behind a button, like the
         reference's "View settings"; a popup of chips) and "+ Add an item"
         (a popup: kind tiles, then the form);
-     2. the items, and nothing else: tabs that carry the counts (All / On
-        sale / Paused / Not listed yet — the API's whole-scope counts),
+     2. the items, and nothing else: tabs that carry the counts (All /
+        Available / Paused / Not listed yet — the API's whole-scope counts),
         search, List ↔ Cards (List by default), one line on how selling
-        works, and per item an "On sale" switch (Activate/Deactivate in the
-        reference) that flips at once.
+        works, and per item an "Available" switch (Activate/Deactivate in
+        the reference) that flips at once, beside a badge saying where it
+        stands on the marketplace ("Not listed", "On the marketplace" …).
+        The switch is not the shop (the owner caught an "On sale" item
+        under "Not listed yet"): a sponsor finds an item only through a
+        published listing whose item is switched on.
    An empty inventory gets a hero instead of 2: what an item is, the three
    steps, and a big "Add your first item" with idea tiles, each opening the
    same popup on its kind. Words worked out server-side in
@@ -92,10 +100,11 @@ export default async function AthleteInventoryPage({ searchParams }: { searchPar
   const tab = shopTab(sp);
   const filtered = Boolean(q || tab !== "all");
 
-  const [invRes, partsRes, resRes] = await Promise.all([
+  const [invRes, partsRes, resRes, listRes] = await Promise.all([
     apiFetch(`/inventory${apiListQuery(sp, { q, ...tabQuery(tab) })}`),
     apiFetch("/inventory?page=1&size=60&active=true"),
     apiFetch("/restrictions"),
+    apiFetch("/listings"),
   ]);
   if (invRes.status === 403) {
     return (
@@ -112,12 +121,14 @@ export default async function AthleteInventoryPage({ searchParams }: { searchPar
   if (!invRes.ok) throw new Error(`Inventory unavailable (${invRes.status}).`);
   if (!partsRes.ok) throw new Error(`Inventory unavailable (${partsRes.status}).`);
   if (!resRes.ok && resRes.status !== 403) throw new Error(`Restrictions unavailable (${resRes.status}).`);
+  if (!listRes.ok && listRes.status !== 403) throw new Error(`Listings unavailable (${listRes.status}).`);
 
   const list = (await invRes.json()) as ApiInventoryList;
   const { items: parts } = (await partsRes.json()) as { items: ApiInventoryItem[] };
   const restrictions = resRes.ok ? ((await resRes.json()) as { restrictions: ApiRestriction[] }).restrictions : null;
   const now = new Date().getTime();
-  const cards = list.items.map((i) => shopCard(i, now));
+  const listings = listRes.ok ? ((await listRes.json()) as { listings: ApiAthleteListing[] }).listings : [];
+  const cards = list.items.map((i) => shopCard(i, now, listingFor(i.id, listings)));
   const page = pageOrAll(cards, list.page);
   const counts = inventoryCounts(list);
   const firstItem = counts.total === 0 && !filtered;
@@ -160,9 +171,9 @@ export default async function AthleteInventoryPage({ searchParams }: { searchPar
                   q
                     ? { title: "No items match your search", hint: "Try another word, or clear the search to see every item." }
                     : tab === "on"
-                      ? { title: "Nothing is on sale", hint: "Switch an item on from All items and sponsors can buy it again." }
+                      ? { title: "Nothing is available", hint: "Switch an item to Available under All items so sponsors can buy it again." }
                       : tab === "paused"
-                        ? { title: "Nothing is paused", hint: "Every item is on sale. Switch one off under All items when you need a break." }
+                        ? { title: "Nothing is paused", hint: "Every item is available. Switch one to Paused under All items when you need a break." }
                         : tab === "unlisted"
                           ? { title: "Every item is listed", hint: "Each item already has a listing on the marketplace." }
                           : { title: "No items here", hint: "Add an item to start selling." }

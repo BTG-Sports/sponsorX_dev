@@ -26,7 +26,7 @@ import "./item.css";
    athlete page's hand (components/athlete-public-page): a product stage in
    the kind's colour, the title, the athlete selling it, the price, what's
    in it, who it suits. Edit is a button (the same form, in a popup); the
-   "On sale" switch sits beside it. What sponsors never see is one panel at
+   "Available" switch sits beside it. What sponsors never see is one panel at
    the end, marked "Only you see this". Owner-framed, inside the portal
    (memory: portal-views-stay-in-portal): no inert sponsor button — where a
    sponsor buys it is said plainly, with the athlete's next step.
@@ -110,7 +110,7 @@ export default async function AthleteInventoryItemPage({ params }: { params: Pro
       id={item.id}
       s={showcaseOf(item, now)}
       seller={sellerFrom(me, pub)}
-      market={marketStatus(item.id, listings, teamFromListings(listings).onTeam)}
+      market={marketStatus(item.id, listings, teamFromListings(listings).onTeam, item.active)}
       sale={<ItemSaleSwitch id={item.id} active={item.active} title={item.title} setActive={setItemActiveAction} />}
       edit={<InventoryEditItem item={item} update={updateItemAction} />}
     />

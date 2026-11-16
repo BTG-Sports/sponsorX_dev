@@ -2390,9 +2390,12 @@ the blockers and today's content review findings.
   - An item page sells the item, keeps what sponsors never see in one marked panel, and shows no sponsor button that does nothing inside the portal.
 - **Delivered (2026-11-16, HeckerCreatives):**
   - **List:** the title row carries **Won't promote · n** and **+ Add an item**.
-    - The tabs carry the API's whole-scope counts: All, On sale, Paused, and Not listed yet (that one is `?unlisted=true`, which the API already filters on).
+    - The tabs carry the API's whole-scope counts: All, Available, Paused, and Not listed yet (that one is `?unlisted=true`, which the API already filters on).
     - Search, then List (the default) or Cards. One line says how selling works.
-    - Each item has an **On sale** switch, the Activate of the reference. It flips at once and rolls back with the API's sentence if the save is refused.
+    - Each item has an **Available / Paused** switch, the Activate of the reference. It flips at once and rolls back with the API's sentence if the save is refused.
+    - Beside it, a badge says where the item stands on the marketplace, from its listing (`GET /listings`): "On the marketplace", "Listing in review", "Draft listing", "Listing paused", "Hidden while paused" or "Not listed".
+      - The switch is not the shop. The first build labelled it "On sale", and the owner caught an "On sale" item under "Not listed yet".
+      - A sponsor only finds an item through a published, public listing whose item is switched on (backend `marketplace-search.ts`). The badge follows the switch the moment it flips.
     - Words per item are in `lib/inventory-shop.ts`: "Only 2 left", "Sold out", "No limit", "Opens Dec 3", "Ended …".
   - **Add:** a popup (centred, a bottom sheet on a phone) with kind tiles over the same `InventoryForm`. The form takes the picked kind.
     - An empty inventory shows a hero with "Add your first item" and six idea tiles, each opening the popup on its kind.
@@ -2404,11 +2407,12 @@ the blockers and today's content review findings.
     - **The marketplace line** says live, under review, paused, or not listed. It offers "Open the listing" or "List it", or says the team lists it.
     - **More sections:** "A good fit for" (the item's categories), and "Who you're working with": reach and track record from `GET /public/athletes/:slug` once live, left out if that read fails.
     - **Private panel:** "Only you see this" holds the categories it won't be sold to, the version and the last change.
-    - **Owner bar:** "On sale" and **Edit item** sit on top; Edit item opens the same edit form in a popup. Cards say **View**.
+    - **Owner bar:** the Available switch and **Edit item** sit on top; Edit item opens the same edit form in a popup. Cards say **View**.
+    - **Hidden while paused:** the marketplace line says when a live listing is hidden because the item is paused.
   - **Unchanged:** the property portal's inventory (`InventoryManager`, `InventoryItemView`).
   - **e2e:** `marketplace-path.spec.ts` now opens the popup ("Add your first item" / "Add an item") before filling the form.
   - **Checked:**
-    - `inventory-shop.test.ts` (new, 9) and `inventory-showcase.test.ts` (new, 7). The frontend suite is 2,216 tests and tsc and eslint are clean.
+    - `inventory-shop.test.ts` (new, 13) and `inventory-showcase.test.ts` (new, 8). The frontend suite is 2,216 tests and tsc and eslint are clean.
     - Walked live in Chrome at 1440 and 390 as the QA athlete: list, cards, tabs, both popups, the empty hero (on a throwaway route, deleted), and two item pages. No console errors, no sideways scroll.
     - `next build` was not run: the owner's `next dev` was live.
 

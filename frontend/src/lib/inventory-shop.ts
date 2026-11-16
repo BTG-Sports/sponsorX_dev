@@ -1,3 +1,4 @@
+import type { ApiAthleteListing } from "./athlete-listings-live";
 import { fmtDay, kindLabel, usd, type ApiInventoryItem, type InventoryCounts } from "./inventory-live";
 import { textParam, type SearchParams } from "./list-query";
 
@@ -12,7 +13,7 @@ import { textParam, type SearchParams } from "./list-query";
                 days, so the last day still reads "Until", not "Ended")
      · a bundle what a package holds (its items' titles)
 
-   And the tabs over the list: All / On sale / Paused / Not listed yet. Each
+   And the tabs over the list: All / Available / Paused / Not listed yet. Each
    is one URL state the API already filters on (?active, ?unlisted), and the
    counts are the API's whole-scope `counts` — never the page's rows (memory:
    stats-must-be-retrievable). "Not listed yet" only shows while the API
@@ -20,6 +21,7 @@ import { textParam, type SearchParams } from "./list-query";
    -------------------------------------------------------------------------- */
 
 export type StockTone = "ok" | "low" | "out" | "open";
+export type MarketTone = "live" | "wait" | "off" | "none";
 export type WhenTone = "any" | "now" | "soon" | "ended";
 
 export type ShopCard = {
@@ -35,8 +37,15 @@ export type ShopCard = {
   blurb: string | null;
   /** A package's contents; null for a single item. */
   bundle: { count: number; names: string[] } | null;
+  /** The switch: may this item be sold at all (the API's `active`). */
   active: boolean;
+  /** Its listing's state, if any — the badge (marketBadge) is worked out
+   *  from this and the switch, so it follows the switch the moment it flips. */
+  listing: ListingFace | null;
 };
+
+export type ListingFace = Pick<ApiAthleteListing, "state" | "visibility">;
+export type MarketBadge = { label: string; tone: MarketTone };
 
 /** "Only n left" from here down. */
 export const LOW_STOCK = 3;
@@ -63,7 +72,35 @@ export function blurbOf(description: string | null): string | null {
   return text.length > BLURB_MAX ? `${text.slice(0, BLURB_MAX - 1).trimEnd()}…` : text;
 }
 
-export function shopCard(i: ApiInventoryItem, now: number): ShopCard {
+/* ── on the marketplace? ─────────────────────────────────────────────────
+   The switch is not the shop. A sponsor finds an item only through a
+   listing that is PUBLISHED, PUBLIC, and whose item is switched on
+   (backend domain/marketplace-search.ts). So each card says both: the
+   switch (Available / Paused) and this badge. The owner, 2026-11-16: "its on
+   sale but its inside not listed?" — the old "On sale" pill said the first
+   as if it were the second. */
+
+/** The item's listing that counts: any but an ended one (the API allows one per item). */
+export function listingFor(itemId: string, listings: readonly ApiAthleteListing[]): ApiAthleteListing | null {
+  return listings.find((l) => l.inventoryItemId === itemId && l.state !== "ARCHIVED") ?? null;
+}
+
+export function marketBadge(active: boolean, listing: ListingFace | null): MarketBadge {
+  if (!listing) return { label: "Not listed", tone: "none" };
+  switch (listing.state) {
+    case "PUBLISHED":
+      if (!active) return { label: "Hidden while paused", tone: "off" };
+      return listing.visibility === "PRIVATE" ? { label: "Live, private link", tone: "live" } : { label: "On the marketplace", tone: "live" };
+    case "PENDING_APPROVAL":
+      return { label: "Listing in review", tone: "wait" };
+    case "PAUSED":
+      return { label: "Listing paused", tone: "off" };
+    default:
+      return { label: "Draft listing", tone: "off" };
+  }
+}
+
+export function shopCard(i: ApiInventoryItem, now: number, listing: ListingFace | null = null): ShopCard {
   const parts = i.kind === "PACKAGE" ? (i.components ?? []) : [];
   return {
     id: i.id,
@@ -76,6 +113,7 @@ export function shopCard(i: ApiInventoryItem, now: number): ShopCard {
     blurb: blurbOf(i.description),
     bundle: i.kind === "PACKAGE" ? { count: parts.length, names: parts.map((c) => c.component.title) } : null,
     active: i.active,
+    listing: listing ? { state: listing.state, visibility: listing.visibility } : null,
   };
 }
 
@@ -109,7 +147,7 @@ export type TabDef = { key: ShopTab; label: string; count: number };
 export function shopTabs(counts: InventoryCounts): TabDef[] {
   const tabs: TabDef[] = [
     { key: "all", label: "All items", count: counts.total },
-    { key: "on", label: "On sale", count: counts.active },
+    { key: "on", label: "Available", count: counts.active },
     { key: "paused", label: "Paused", count: counts.paused },
   ];
   if (counts.unlisted !== null) tabs.push({ key: "unlisted", label: "Not listed yet", count: counts.unlisted });

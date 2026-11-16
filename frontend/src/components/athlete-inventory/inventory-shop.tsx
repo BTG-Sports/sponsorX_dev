@@ -8,7 +8,7 @@ import { createPortal } from "react-dom";
 import { InventoryForm } from "@/components/inventory-form";
 import { ListSearch, PagerRow, PendingList, useListNav } from "@/components/server-pager";
 import { EMPTY_DRAFT, INVENTORY_KINDS, KIND_LABEL, type ApiInventoryItem, type InventoryBody, type InventoryKind } from "@/lib/inventory-live";
-import { tabPatch, type ShopCard, type ShopTab, type TabDef } from "@/lib/inventory-shop";
+import { marketBadge, tabPatch, type ShopCard, type ShopTab, type TabDef } from "@/lib/inventory-shop";
 import type { PageInfo } from "@/lib/list-query";
 import { InventoryRestrictions } from "@/components/inventory-restrictions";
 import type { RestrictionRow } from "@/lib/inventory-live";
@@ -17,12 +17,14 @@ import { Glyph, type UiGlyph } from "./glyphs";
 /* --------------------------------------------------------------------------
    POL-FE-83 — the athlete's inventory as a shop window. The client half:
 
-   - InventoryShop     the tabs (All / On sale / Paused / Not listed yet), the
+   - InventoryShop     the tabs (All / Available / Paused / Not listed yet), the
                        search, the List ↔ Cards switch (List by default),
                        and the items. Each
-                       item has an "On sale" switch (PATCH {active}, the same
+                       item has an "Available" switch (PATCH {active}, the same
                        action as before) that flips at once and rolls back,
-                       with the API's sentence, if the save is refused.
+                       with the API's sentence, if the save is refused, and
+                       a badge saying where it stands on the marketplace
+                       (its listing, read with the switch — marketBadge).
    - InventoryAddItem  "+ Add an item": a button that opens a popup (the
                        owner: "a button then a popup like any inventory
                        system would do") holding the kind tiles and the same
@@ -144,7 +146,7 @@ function SaleSwitch({ on, busy, pop, flip, title }: { on: boolean; busy: boolean
       type="button"
       role="switch"
       aria-checked={on}
-      aria-label={`${title}: on sale`}
+      aria-label={`${title}: available to sponsors`}
       onClick={flip}
       data-busy={busy ? "" : undefined}
       className="sx-iv-switch"
@@ -152,12 +154,23 @@ function SaleSwitch({ on, busy, pop, flip, title }: { on: boolean; busy: boolean
       <span className="sx-iv-switch-track" aria-hidden="true">
         <span key={pop} className="sx-iv-switch-thumb" data-pop={pop > 0 && on ? "" : undefined} />
       </span>
-      <span className="sx-iv-switch-text">{on ? "On sale" : "Paused"}</span>
+      <span className="sx-iv-switch-text">{on ? "Available" : "Paused"}</span>
     </button>
   );
 }
 
 /* ── one item: a card, or a row of the list ────────────────────────────── */
+
+/** Where the item stands on the marketplace: its listing, read together with the switch. */
+function MarketPill({ card, on }: { card: ShopCard; on: boolean }) {
+  const m = marketBadge(on, card.listing);
+  return (
+    <span className="sx-iv-state" data-tone={m.tone}>
+      <span className="sx-iv-state-dot" aria-hidden="true" />
+      {m.label}
+    </span>
+  );
+}
 
 function ItemCard({ card, i, href, setActive }: { card: ShopCard; i: number; href: string; setActive: SetActive }) {
   const sale = useSale(card.id, card.active, setActive);
@@ -176,10 +189,7 @@ function ItemCard({ card, i, href, setActive }: { card: ShopCard; i: number; hre
           <span className="sx-iv-icon" aria-hidden="true">
             <Glyph kind={card.kind} className="size-6" />
           </span>
-          <span className="sx-iv-state" data-on={sale.on ? "" : undefined}>
-            <span className="sx-iv-state-dot" aria-hidden="true" />
-            {sale.on ? "On sale" : "Paused"}
-          </span>
+          <MarketPill card={card} on={sale.on} />
         </div>
 
         <h3 className="sx-iv-card-title">
@@ -244,8 +254,11 @@ function ItemRow({ card, i, href, setActive }: { card: ShopCard; i: number; href
             {card.title}
           </Link>
           <span className="sx-iv-row-sub">
-            {card.kindLabel}
-            {card.bundle ? ` · ${card.bundle.count} inside` : ""}
+            <span>
+              {card.kindLabel}
+              {card.bundle ? ` · ${card.bundle.count} inside` : ""}
+            </span>
+            <MarketPill card={card} on={sale.on} />
           </span>
         </span>
         <span className="sx-iv-row-cell sx-iv-row-price">
@@ -389,7 +402,7 @@ export function InventoryShop({
       <p className="sx-iv-hint sx-iv-rise" style={d(0.05)}>
         <Glyph ui="bolt" className="size-3.5" />
         <span>
-          Items switched on are for sale. To show one on the marketplace, list it under{" "}
+          Sponsors can buy an item once it&rsquo;s <strong>Available</strong> and <strong>on the marketplace</strong>. Put it there under{" "}
           <Link href="/athlete/listings" className="sx-iv-inline-link">
             Listings
           </Link>{" "}
@@ -416,8 +429,8 @@ export function InventoryShop({
               <span>Item</span>
               <span>Price</span>
               <span>Stock</span>
+              <span>Dates</span>
               <span>Available</span>
-              <span>On sale</span>
             </div>
             <ul aria-label="Your items">
               {cards.map((c, i) => (
@@ -736,7 +749,7 @@ export function InventoryBrandRules({
 
 /* ── the item page's owner bar (POL-FE-83, /athlete/inventory/[id]) ─────── */
 
-/** The same optimistic "On sale" switch as the list, for one item. */
+/** The same optimistic "Available" switch as the list, for one item. */
 export function ItemSaleSwitch({ id, active, title, setActive }: { id: string; active: boolean; title: string; setActive: SetActive }) {
   const sale = useSale(id, active, setActive);
   return (
