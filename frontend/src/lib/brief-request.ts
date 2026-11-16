@@ -95,11 +95,14 @@ export function objectiveProblem(objective: string): string | null {
   return null;
 }
 
-/** POL-FE-58 — a student code as typed → the code the API matches, or "" for none. */
+/** POL-FE-58 — a student code as typed → the code the API matches, or "" for none.
+ *  POL-FE-89 — exactly as typed: real codes are base64url (mixed case, `-` and `_`)
+ *  and the API matches them exactly, so changing the case or refusing `_` refused them all. */
+export const STUDENT_CODE_PATTERN = /^[A-Za-z0-9_-]{3,64}$/;
 export function studentCodeOf(raw: string | null | undefined): string {
-  const t = (raw ?? "").trim().toUpperCase();
+  const t = (raw ?? "").trim();
   if (!t) return "";
-  if (!/^[A-Z0-9-]{3,64}$/.test(t)) throw new BriefRequestInvalid("That student code doesn't look right — check it against the card the student gave you, or leave it blank.");
+  if (!STUDENT_CODE_PATTERN.test(t)) throw new BriefRequestInvalid("That student code doesn't look right — check it against the card the student gave you, or leave it blank.");
   return t;
 }
 

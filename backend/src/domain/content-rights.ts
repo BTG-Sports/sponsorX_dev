@@ -256,6 +256,18 @@ async function grantRightIn(
     if (requiresGuardian(who) && (!acc.guardianId || acc.guardianId !== who.guardianId || !who.guardian?.verifiedAt)) {
       throw new RightsError("A minor's consent is given by their verified guardian.", 409);
     }
+  } else if (asset.studentId || asset.athleteId) {
+    /* POL-BE-88 — a licence is a contract reference, and nothing about it
+       involves a guardian. On a piece a minor made it would clear their work
+       for print and the web with no guardian ever asked, so a minor's piece is
+       cleared by consent only. An adult maker's piece may still carry a
+       licence (a contract signed with them); sponsor artwork has no maker. */
+    const maker = asset.studentId
+      ? await tx.student.findFirst({ where: { tenantId, id: asset.studentId }, select: { birthDate: true, ageBand: true } })
+      : await tx.athlete.findFirst({ where: { tenantId, id: asset.athleteId! }, select: { birthDate: true, ageBand: true, majorityAge: true } });
+    if (!maker || requiresGuardian(maker)) {
+      throw new RightsError("A minor's piece is cleared by their verified guardian's consent, not a licence.", 409);
+    }
   }
 
   const data: Prisma.ContentRightCreateManyInput = {

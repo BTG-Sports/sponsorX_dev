@@ -2531,6 +2531,24 @@ the blockers and today's content review findings.
   - **Backend:** `EarningWorkNotVerifiedError` (409) in `transitionEarning` (`backend/src/domain/earning.ts`) for any move to ELIGIBLE, after the paused-deal check. No schema change, so it also covers earnings held before today. Tests: `backend/tests/earning.test.ts` (POL-BE-87).
   - **Frontend:** `earningMoves` offers "Back to pending" on HELD and "Void" (`needsConfirm`) on PENDING; `EarningRowActions` asks "Void it?" first; the Finance action accepts PENDING and VOIDED. Tests: `frontend/tests/earning-actions.test.ts` (POL-FE-87).
 
+### 88. A licence clears a minor's piece without their guardian [audit 2026-11-16, item 59]
+`POL-BE-88` · *Minors* · confirmed (audit of 52–83, 2026-11-16)
+- **Problem:** BTG's "Record a right" form takes a BTG or third-party licence (a contract reference) on any edition piece. The guardian checks in `grantRightIn` ran only for consent grants, so a licence cleared a piece a minor made for print and the web with no guardian ever asked.
+- **Fix:** a licence on a piece whose maker (student or athlete) is a minor is refused. A minor's piece is cleared by their verified guardian's consent only. An adult maker's piece may still carry a licence (a contract signed with them), and sponsor artwork, which has no maker, is unaffected.
+- **Done when:** a BTG or third-party licence on a minor's piece is refused with the reason, over HTTP too; an adult maker's piece still takes one.
+- **Note:** until the student media consent text exists (the owner's open decision), a minor's piece can't be cleared at all, so an edition carrying one can't go to production. BTG can take the piece out of the edition to move it on.
+- **Delivered (2026-11-16, rcfworks):** `grantRightIn` (`backend/src/domain/content-rights.ts`) reads the maker's birth date and age band (`requiresGuardian`, as the consent path) and refuses with `RightsError` 409, "A minor's piece is cleared by their verified guardian's consent, not a licence." It is the one path every right takes, so the automatic grants are held to it too. Test: `backend/tests/next-rights.test.ts` (POL-BE-88), shown to fail without the fix.
+
+### 89. Every real student code is refused, and some students' `/s/` page is a 404 [audit 2026-11-16, item 58]
+`POL-FE-89` · *Dead end* · confirmed (audit of 52–83, 2026-11-16)
+- **Problem:**
+  - Student codes are made as `randomBytes(9).toString("base64url")`: 12 characters, mixed case, and they can hold `-` and `_`. The API matches a code exactly.
+  - The request form upper-cased the code from `?code=`, from the browser's kept copy and as it was typed, and its pattern refused `_`. So every real code was refused ("That student code is not active") and no sale was ever credited. Its test passed only because it used the made-up `NX-RILEY-42`.
+  - The `/s/<code>` page refused `_`, so about one student in six had a landing page that was a 404.
+- **Fix:** send the code exactly as given (trimmed), accept `_` on the form and on `/s/<code>`, and stop a phone capitalising the first letter.
+- **Done when:** any code the API can issue passes the form and `/s/<code>` unchanged, and the request carries it as issued.
+- **Delivered (2026-11-16, rcfworks):** `studentCodeOf` (`lib/brief-request.ts`) no longer changes case and uses `STUDENT_CODE_PATTERN` (`[A-Za-z0-9_-]{3,64}`); the drawer (`components/brief-request-drawer.tsx`) keeps `?code=`, the kept copy and the typed value as they are, with `autoCapitalize="off"`, `autoCorrect="off"`, `spellCheck={false}` and a placeholder of the real shape; `/s/[code]` accepts `_`. Test: `frontend/tests/student-code-brief.test.ts` runs 200 freshly made codes through both patterns, and was shown to fail without the fix.
+
 ---
 
 ## Checked and fine
