@@ -36,7 +36,7 @@ const { BRAND_CATEGORIES } = await import("../src/domain/brand-categories");
 const { CampaignBriefInput } = await import("../src/contracts/campaign");
 
 const request = {
-  objective: "Drive foot traffic to our Annapolis opening", budget: "$1,500–$2,400", start: "2026-10-05",
+  objective: "Drive foot traffic to our new Annapolis store opening", budget: "$1,500–$2,400", start: "2026-10-05",
   durationWeeks: 4, sport: "Basketball", geo: "DMV", tier: "Creator", category: "RESTAURANT",
   message: "Weekend focus", packageId: null, jobName: "Sponsored Post (SX-02)",
 };

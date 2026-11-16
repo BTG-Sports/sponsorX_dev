@@ -23,10 +23,12 @@ import { propertyCloseAccountAction, propertySettingsLinkAction, propertyWithdra
 export const dynamic = "force-dynamic";
 
 export default async function PropertySettingsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  await requirePortalAccess("property");
+  const actor = await requirePortalAccess("property");
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+  /* POL-FE-75 — a real team manager never sees the sample-screen links; BTG staff previewing the portal do. */
+  const showPreviews = demo !== null || !actor.roles.includes("PROPERTY_MGR");
 
   return (
     <AccountSettings
@@ -36,10 +38,12 @@ export default async function PropertySettingsPage({ searchParams }: { searchPar
       closeAction={propertyCloseAccountAction}
       withdrawAction={propertyWithdrawCloseAction}
       noPayeeLine="There’s no payout account for this login. Ask BTG to link it to your property."
-      previews={[
+      /* POL-FE-75 — the "Sample screens" links are for a preview, not a real
+         manager (as athlete Settings does it). */
+      previews={showPreviews ? [
         { href: "/reactivate?demo=self", label: "reactivate within 30 days" },
         { href: "/reactivate?demo=btg", label: "closed by BTG" },
-      ]}
+      ] : []}
     />
   );
 }

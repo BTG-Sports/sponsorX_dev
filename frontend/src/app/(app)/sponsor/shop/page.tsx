@@ -220,7 +220,7 @@ function Shop({
 
       {!canWrite && !sample && (
         <p className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-[11px] text-muted">
-          You&rsquo;re signed in as a Sponsor Analyst — you can search and read, and a Sponsor Admin adds to the cart and
+          You&rsquo;re signed in as a Sponsor Viewer — you can search and read, and a Sponsor Admin adds to the cart and
           places orders.
         </p>
       )}

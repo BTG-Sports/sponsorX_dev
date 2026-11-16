@@ -33,7 +33,7 @@ export default async function SponsorLayout({ children }: LayoutProps<"/sponsor"
   const role = actor.roles.includes("SPONSOR_ADMIN")
     ? "Sponsor Admin"
     : actor.roles.includes("SPONSOR_ANALYST")
-      ? "Sponsor Analyst"
+      ? "Sponsor Viewer"
       : "BTG preview";
 
   return (

@@ -108,13 +108,13 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         )}
       </StadiumHead>
 
-      <OrderList sp={sp} q={q} tab={tab} filtered={filtered} rows={live.rows} page={live.page} tabs={live.tabs} />
+      <OrderList sp={sp} q={q} tab={tab} filtered={filtered} rows={live.rows} page={live.page} tabs={live.tabs} paymentsOpen={summary?.paymentsOpen} />
     </div>
   );
 }
 
 function OrderList({
-  sp, q, tab, filtered, rows, page, tabs,
+  sp, q, tab, filtered, rows, page, tabs, paymentsOpen,
 }: {
   sp: SearchParams;
   q: string;
@@ -123,6 +123,8 @@ function OrderList({
   rows: ApiOrder[];
   page: PageInfo;
   tabs: OrderTab[];
+  /** POL-FE-72 — false while card payment is closed: "To pay" reads "Approved". */
+  paymentsOpen?: boolean;
 }) {
   const outOfRange = page.page > page.pages;
   const empty: ReactNode = outOfRange ? (
@@ -152,8 +154,8 @@ function OrderList({
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <TabStrip label="Order status">
             {tabs.map((t) => (
-              <TabLink key={t.key} href={tabHref(sp, t.key === "all" ? "" : t.key)} on={t.key === "all" ? !tab : tab === t.key} count={t.count} hot={t.key === "to_pay"}>
-                {t.label}
+              <TabLink key={t.key} href={tabHref(sp, t.key === "all" ? "" : t.key)} on={t.key === "all" ? !tab : tab === t.key} count={t.count} hot={t.key === "to_pay" && paymentsOpen !== false}>
+                {t.key === "to_pay" && paymentsOpen === false ? "Approved" : t.label}
               </TabLink>
             ))}
           </TabStrip>
@@ -172,7 +174,7 @@ function OrderList({
         ) : (
           <PagedTable bare tone="sponsor" page={page} noun="Orders" filtered={filtered} label="Your orders" columns={columns}>
             {rows.map((o, i) => {
-              const word = orderWord(o.state);
+              const word = orderWord(o.state, paymentsOpen);
               return (
                 <Tr key={o.id} i={i}>
                   <Td>

@@ -18,6 +18,7 @@ vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://sponsorx.example"
 let found: Record<string, unknown> | null = null;
 let lastWhere: Record<string, unknown> = {};
 let acceptances = 0;
+let countWhere: Record<string, unknown> | null = null;
 
 vi.mock("../src/db/client", () => ({
   prisma: {
@@ -28,7 +29,7 @@ vi.mock("../src/db/client", () => ({
       },
     },
     agreementAcceptance: {
-      count: () => Promise.resolve(acceptances),
+      count: (args: { where: Record<string, unknown> }) => ((countWhere = args.where), Promise.resolve(acceptances)),
     },
   },
 }));
@@ -107,6 +108,20 @@ describe("GET /athletes/me", () => {
       restrictedCategories: ["ALCOHOL"],
     });
     expect(body()).not.toHaveProperty("_count");
+  });
+
+  it("POL-BE-69 — counts agreements by athlete: their logins, rows naming them, and what their guardian authorised", async () => {
+    found = { ...ROW, guardianId: "g_1" };
+    const { done, body } = call(actorWith({}));
+    await done;
+    expect(countWhere).toEqual({
+      tenantId: "tenant_1",
+      OR: [{ user: { athleteId: "ath_1" } }, { athleteId: "ath_1" }, { guardianId: "g_1" }],
+    });
+    expect(body()).not.toHaveProperty("guardianId");
+    found = { ...ROW, guardianId: null };
+    await call(actorWith({})).done;
+    expect((countWhere as { OR: unknown[] }).OR).toHaveLength(2);
   });
 
   it("answers the profile photo as its public address, never the storage key (P8-FE-10)", async () => {

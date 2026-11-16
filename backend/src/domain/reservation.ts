@@ -25,6 +25,7 @@
  */
 import type { Prisma } from "../generated/prisma/client";
 import { paymentsOpen } from "./payment-switch";
+import { sponsorLimit } from "./spending-limit";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
 import type { Actor } from "../auth/actor";
@@ -125,12 +126,14 @@ export async function getReservation(actor: Actor, id: string) {
      contact to prefill. POL-BE-05 — and the quote: subtotal, fees and the
      total placing it would charge. Nothing else does. */
   if (out.state !== "HELD") return { ...out, checkout: null };
-  const [terms, prefill, lines] = await Promise.all([
+  const [terms, prefill, lines, limit] = await Promise.all([
     currentOrderTerms(prisma, tenantId), billingPrefill(prisma, tenantId, out.sponsorId),
     prisma.cartLine.findMany({ where: { tenantId, cartId: out.cartId }, select: { quantity: true, unitPriceCents: true } }),
+    /* POL-BE-72 — the sponsor's own spending limit, shown beside the total. */
+    sponsorLimit(prisma, tenantId, out.sponsorId),
   ]);
   /* POL-BE-36 — and whether card payment is open right now (the checkout says payments open soon while it isn't). */
-  return { ...out, checkout: { terms, ...prefill, quote: sponsorQuote(lines.reduce((s, l) => s + l.quantity * l.unitPriceCents, 0)), paymentsOpen: await paymentsOpen() } };
+  return { ...out, checkout: { terms, ...prefill, quote: sponsorQuote(lines.reduce((s, l) => s + l.quantity * l.unitPriceCents, 0)), paymentsOpen: await paymentsOpen(), spendingLimitCents: limit.limitCents } };
 }
 
 /** The sponsor lets go of a hold. */

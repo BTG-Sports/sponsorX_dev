@@ -255,7 +255,7 @@ describe.skipIf(!hasDatabase)("payouts approved and retried automatically", { ti
       /* POL-BE-12 — held: Finance and BTG's admins are emailed, once each, with the reason and the link. */
       const held = (await emails()).filter((m) => m.template === "payout.heldForReview" && m.idempotencyKey.includes(p.id));
       expect(held.map((m) => m.to).sort()).toEqual(["pa_admin@pa-test.invalid", "pa_finance@pa-test.invalid"]);
-      expect(held[0]!.data).toMatchObject({ reasons: "Over $2,000", payoutUrl: expect.stringContaining(`/admin/payouts/${p.id}`), amount: expect.stringMatching(/^\$/) });
+      expect(held[0]!.data).toMatchObject({ reasons: "Over $2,000", payoutUrl: expect.stringMatching(new RegExp(`/payouts/${p.id}$`)), amount: expect.stringMatching(/^\$/) });
       /* And counted on BTG's board until decided. */
       const board = async () => (await call("GET", "/operations/board", "pa_admin")).json.queues.payouts;
       expect((await board()).waiting).toBeGreaterThanOrEqual(1);

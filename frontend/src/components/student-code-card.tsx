@@ -10,16 +10,20 @@ import { QrPattern } from "./reward-creator";
    presentation mode — huge code, huge QR, nothing else on the screen.
 
    Copy and the overlay are client-side only; nothing here touches the
-   backend. The QR is the decorative stand-in the reward creator uses — the
-   real one is generated when Stage 9 wires /s/[code] (P9-FE-01).
+   backend. POL-FE-77 — a signed-in student's card gets the real QR of the
+   link (drawn on the server, `qr`); only the sample card keeps the
+   decorative stand-in, and says so.
    -------------------------------------------------------------------------- */
 
 export function StudentCodeCard({
   code,
   link,
+  qr = null,
 }: {
   code: string;
   link: string;
+  /** POL-FE-77 — the real QR as SVG markup (from our own server); null on the sample card. */
+  qr?: string | null;
 }) {
   const [copied, setCopied] = useState(false);
   const [presenting, setPresenting] = useState(false);
@@ -80,7 +84,7 @@ export function StudentCodeCard({
             title="Show full screen"
             className="shrink-0 rounded-lg outline-none transition-transform hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-next"
           >
-            <QrPattern seed={code} className="size-28" />
+            {qr ? <RealQr svg={qr} className="size-28" /> : <QrPattern seed={code} className="size-28" />}
           </button>
           <div className="min-w-0 text-center sm:text-left">
             <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
@@ -128,7 +132,7 @@ export function StudentCodeCard({
             aria-label="Close full-screen code"
             className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-6 px-6"
           >
-            <QrPattern seed={code} className="size-56 sm:size-64" />
+            {qr ? <RealQr svg={qr} className="size-56 sm:size-64" /> : <QrPattern seed={code} className="size-56 sm:size-64" />}
             <span className="bg-[linear-gradient(90deg,var(--sx-next-soft),var(--sx-next))] bg-clip-text text-4xl font-bold tracking-tight text-transparent sm:text-5xl">
               {code}
             </span>
@@ -140,5 +144,17 @@ export function StudentCodeCard({
         </div>
       )}
     </>
+  );
+}
+
+/** POL-FE-77 — the scannable QR. The markup is our own server's output for our own link, never user text. */
+function RealQr({ svg, className }: { svg: string; className: string }) {
+  return (
+    <span
+      role="img"
+      aria-label="QR code for your sales link"
+      className={`block shrink-0 overflow-hidden rounded-lg bg-white [&>svg]:h-full [&>svg]:w-full ${className}`}
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
   );
 }

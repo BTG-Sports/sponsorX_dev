@@ -276,6 +276,17 @@ export type EmailTemplate =
      to the school's advisor(s); changes asked for and approval, to the student. */
   /* POL-BE-57 — a minor's NEXT application: their guardian is told, and that BTG will verify them. */
   | "student.guardianNotice"
+  /* POL-BE-76 — a NEXT applicant is told at each step: received, approved (with how to sign in), changes asked, declined. */
+  | "student.received"
+  | "student.approved"
+  | "student.changesRequested"
+  | "student.declined"
+  /* POL-BE-61 — an athlete marked a post published: BTG's desk verifies the link. */
+  | "deliverable.publishedForBtg"
+  /* POL-BE-64 — an athlete accepted: BTG drafts the order; a Campaign Order was sent: the athlete (or guardian) signs; BTG closed a brief: the sponsor is told why. */
+  | "invitation.acceptedForBtg"
+  | "order.readyToSign"
+  | "brief.closedForSponsor"
   | "studentAssignment.assigned"
   | "studentAssignment.submitted"
   | "studentAssignment.revisionRequested"

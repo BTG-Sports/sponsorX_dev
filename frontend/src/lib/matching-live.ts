@@ -242,7 +242,19 @@ function inviteStates(b: ApiBrief): Map<string, string> {
 /** `offers`: the viewer may make offers (BTG admin, campaign manager) — the
  *  rows then link to the pre-filled offer form once the brief has a
  *  campaign, for the package's first job (the form can change it). */
-export function toMatchData(b: ApiBrief, eligible: ApiEligibleAthlete[], opts: { offers?: boolean; rates?: boolean } = {}): MatchData {
+/** POL-FE-63 (app review §2) — who sends the Studio's invitations (invitation write): not the network manager, who builds the shortlist. */
+export const SEND_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"] as const;
+export const maySendInvites = (roles: readonly string[]) => roles.some((r) => (SEND_ROLES as readonly string[]).includes(r));
+export const NOT_A_SENDER = "Your role builds the shortlist — a campaign manager or BTG admin sends the invitations.";
+
+/** POL-FE-63 — hand-picking a few on a package that staffs itself also starts automatic offers, up to the maximum. */
+export function autoStaffingNoteFor(b: ApiBrief): string | null {
+  const max = b.package?.athleteCountMax ?? 0;
+  if (!max || !(b.jobs?.length)) return null;
+  return `Sending also starts automatic staffing: SponsorX invites more athletes on its own, up to the package's ${max}. To staff only by hand, turn automatic staffing off on the campaign page after sending.`;
+}
+
+export function toMatchData(b: ApiBrief, eligible: ApiEligibleAthlete[], opts: { offers?: boolean; rates?: boolean; send?: boolean } = {}): MatchData {
   const jobs = b.jobs ?? [];
   const pkgId = b.package?.code ?? "NO_PACKAGE";
   const needed = b.package?.athleteCountMax ?? 0;
@@ -294,7 +306,8 @@ export function toMatchData(b: ApiBrief, eligible: ApiEligibleAthlete[], opts: {
     defaultShortlist: [],
     conflicts: {},
     live: true,
-    sendBlocked: sendBlockedFor(b),
+    sendBlocked: opts.send === false ? NOT_A_SENDER : sendBlockedFor(b),
+    autoStaffingNote: autoStaffingNoteFor(b),
     inviteStates: Object.fromEntries(invites),
   };
 }

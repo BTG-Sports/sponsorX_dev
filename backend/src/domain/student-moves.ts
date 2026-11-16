@@ -15,7 +15,9 @@ import { audit, type AuditActor } from "../db/audit";
 import { enqueue } from "../db/outbox";
 import { BRAND_CATEGORIES } from "./brand-categories";
 import { guardianReadiness, requiresGuardian } from "./guardian-rules";
-import { provisionStudentLoginsIn } from "./athlete-login";
+import { provisionStudentLoginsIn, type LoginOutcome } from "./athlete-login";
+import { env } from "../config/env";
+import { send } from "../lib/email";
 import { mayAutoActivate } from "./student-auto-rules";
 import { NOT_FOR_STUDENTS } from "./student-categories";
 import {
@@ -109,11 +111,67 @@ export async function moveStudentIn(
     after: { state: to, ...(opts.automatic ? { automatic: true } : {}), ...(opts.rosterEntryId ? { rosterEntryId: opts.rosterEntryId } : {}) },
   });
   if (to === "APPROVED") {
-    await provisionStudentLoginsIn(tx, actor, student.id);
+    const logins = await provisionStudentLoginsIn(tx, actor, student.id);
+    await tellApplicantIn(tx, student.tenantId, student.id, "APPROVED", { login: logins.student });
     if (await activateIfReadyIn(tx, student.tenantId, student.id, now)) return "ACTIVE";
+  }
+  if (to === "CHANGES_REQUESTED" || to === "REJECTED") {
+    await tellApplicantIn(tx, student.tenantId, student.id, to, { note: opts.reviewerNotes ?? null });
   }
   if (to === "ACTIVE") await issueStudentCodeIn(tx, SYSTEM(student.tenantId), student.tenantId, student.id);
   return to;
+}
+
+const appUrl = (path: string) => `${env.APP_URL.replace(/\/+$/, "")}${path}`;
+
+/**
+ * POL-BE-76 — the applicant is told each decision, in the move's own
+ * transaction, whoever made it (their advisor, BTG, or the roster rule).
+ * An approval says how to sign in when a login was made for their address;
+ * when it couldn't be (no address, or one already used by another login),
+ * it says their advisor will sort out sign-in instead of sending them to a
+ * door that won't open. No address, no email.
+ */
+export async function tellApplicantIn(
+  tx: Tx,
+  tenantId: string,
+  studentId: string,
+  what: "RECEIVED" | "APPROVED" | "CHANGES_REQUESTED" | "REJECTED",
+  opts: { login?: LoginOutcome; note?: string | null; guardianRequired?: boolean } = {},
+): Promise<void> {
+  const s = await tx.student.findFirst({
+    /* tenant-scope: the student just moved, in its own tenant. */
+    where: { tenantId, id: studentId },
+    select: { id: true, email: true, displayName: true, property: { select: { name: true } } },
+  });
+  const to = s?.email?.trim().toLowerCase();
+  if (!s || !to) return;
+  const base = { studentName: s.displayName, schoolName: s.property.name };
+  if (what === "RECEIVED") {
+    await send(tx, tenantId, {
+      template: "student.received", to, idempotencyKey: `student.received:${s.id}`,
+      data: { ...base, guardianLine: opts.guardianRequired ? "You're under 18, so we've also emailed the parent or guardian you named. BTG checks who they are before you can start." : "" },
+    });
+    return;
+  }
+  if (what === "APPROVED") {
+    const canSignIn = opts.login === "created" || opts.login === "already-linked";
+    await send(tx, tenantId, {
+      template: "student.approved", to, idempotencyKey: `student.approved:${s.id}`,
+      data: {
+        ...base, email: to, signInUrl: canSignIn ? appUrl("/login") : "",
+        waitingLine: canSignIn
+          ? ""
+          : "Your sign-in isn't ready yet: this email address is already used by another SponsorX login. Your advisor will sort it out with you.",
+      },
+    });
+    return;
+  }
+  const template = what === "CHANGES_REQUESTED" ? "student.changesRequested" : "student.declined";
+  await send(tx, tenantId, {
+    template, to, idempotencyKey: `${template}:${s.id}:${Date.now()}`,
+    data: { ...base, note: opts.note?.trim() ?? "", applyUrl: appUrl("/next/apply") },
+  });
 }
 
 /**

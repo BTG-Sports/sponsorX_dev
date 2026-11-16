@@ -77,7 +77,8 @@ export type FinanceOverview = {
   settled: { paidCents: number; owedCents: number; rate: number | null };
   earningsByState: Record<EarningStateName, { count: number; amount: number }>;
   needsYou: {
-    payouts: { count: number; cents: number; oldestAt: string | null };
+    /** POL-BE-73 — `requested`: how many of `count` are new requests (the rest are failed ones waiting on BTG), so the tile opens the tab that has them. */
+    payouts: { count: number; cents: number; oldestAt: string | null; requested: number };
     refunds: { count: number; cents: number; oldestAt: string | null };
     disputes: { count: number; cents: number };
     events: { count: number };
@@ -134,6 +135,8 @@ export async function financeOverview(actor: Actor, opts: { range: RangeKey }, n
     rights.seeSell ? campaignSell(actor) : null,
     rights.seeInvoices ? invoiceTotals(actor, now) : null,
   ]);
+  /* POL-BE-73 — new requests among the payouts waiting on BTG. */
+  const requestedPayouts = await prisma.payout.count({ /* tenant-scope: whereFor(payout) first. */ where: { AND: [s.payout, { state: "REQUESTED" }] } });
 
   const ins = [
     ...orders.map((o) => ({ at: o.paidAt!, c: o.totalCents })),
@@ -175,6 +178,7 @@ export async function financeOverview(actor: Actor, opts: { range: RangeKey }, n
         count: waitingPayouts._count._all,
         cents: waitingPayouts._sum.amountCents ?? 0,
         oldestAt: waitingPayouts._min.requestedAt?.toISOString() ?? null,
+        requested: requestedPayouts,
       },
       refunds: { count: openRefunds._count._all, cents: openRefunds._sum.amountCents ?? 0, oldestAt: openRefunds._min.createdAt?.toISOString() ?? null },
       disputes: { count: disputes._count._all, cents: disputes._sum.amountCents ?? 0 },

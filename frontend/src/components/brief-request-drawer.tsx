@@ -60,7 +60,8 @@ const CATEGORY_OPTIONS = BRAND_CATEGORIES.map((c) => ({ value: c, label: categor
    -------------------------------------------------------------------------- */
 
 export type BriefSeed =
-  | { kind: "package"; name: string; price: string; packageId?: string }
+  /** POL-FE-66 — `adOnly`: a package that staffs nobody (a NEXT ad); the drawer asks no athlete questions. */
+  | { kind: "package"; name: string; price: string; packageId?: string; adOnly?: boolean }
   | { kind: "job"; name: string; jobId: string; price: string }
   | {
       kind: "athlete";
@@ -339,6 +340,8 @@ function BriefForm({
   const [submitted, setSubmitted] = useState(false);
   /* P4-FE-09 — the live answer: approved automatically, or BTG reviewing. */
   const [status, setStatus] = useState<BriefStatus | null>(null);
+  /* POL-FE-65 — a held request is followed on Requests, not Campaigns. */
+  const [sentId, setSentId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /* POL-FE-51 — the API's one word on who a sent request now waits on. */
@@ -384,6 +387,7 @@ function BriefForm({
     setSending(false);
     if (out.ok) {
       setStatus(out.status ?? null);
+      setSentId(out.id ?? null);
       setWaitingOn(out.waitingOn ?? null);
       setSubmitted(true);
     } else setError(out.error);
@@ -426,8 +430,8 @@ function BriefForm({
             )}
           </p>
           {said && (
-            <Link href="/sponsor/campaigns" className="mt-3 text-[11px] font-medium text-sponsor hover:underline">
-              Go to Campaigns →
+            <Link href={sent?.approved ? "/sponsor/campaigns" : sentId ? `/sponsor/requests/${encodeURIComponent(sentId)}` : "/sponsor/requests"} className="mt-3 text-[11px] font-medium text-sponsor hover:underline">
+              {sent?.approved ? "Go to Campaigns →" : "Follow your request →"}
             </Link>
           )}
           <button
@@ -516,6 +520,8 @@ function BriefForm({
           </Field>
         </div>
 
+        {/* POL-FE-66 (app review §2) — an ad staffs nobody: no athlete targeting to ask about. */}
+        {!(seed.kind === "package" && seed.adOnly) && (
         <fieldset className="space-y-3 rounded-xl border border-line-soft p-3">
           <legend className="px-1 text-[10px] font-medium uppercase tracking-wide text-faint">
             Who to reach
@@ -567,6 +573,7 @@ function BriefForm({
             />
           </Field>
         </fieldset>
+        )}
 
         <Field label="Student code (optional)" htmlFor="brief-student-code" hint="A SponsorX NEXT student sent you? Their code credits the sale to them.">
           <input
@@ -634,7 +641,7 @@ function BriefForm({
           {sending ? "Sending…" : "Submit brief to BTG"}
         </button>
         <p className="mt-2 text-center text-[10px] text-faint">
-          A request, not a purchase — BTG matches and prices it, then follows up.
+          A request that passes every check is approved at once and becomes your campaign; BTG steps in only when something needs a person, and tells you why.
         </p>
       </div>
     </form>

@@ -7,7 +7,7 @@ import { ShopLineRow, ShopPaymentNote } from "@/components/shop-bits";
 import { CHECKOUT_STEPS, ShopCheckoutGate, ShopReserveButton } from "@/components/shop-checkout";
 import { StadiumHead, StadiumPanel, StadiumSteps } from "@/components/stadium-stage";
 import { StadiumHoldCountdown } from "@/components/stadium-hold-countdown";
-import { quoteFor } from "@/lib/checkout-gate";
+import { limitLine, quoteFor } from "@/lib/checkout-gate";
 import {
   feeText,
   fmtStamp,
@@ -223,6 +223,11 @@ export default async function CheckoutPage({
                   <span className="text-lg font-semibold tabular-nums text-text">{usd(quote.totalCents)}</span>
                 </div>
               </div>
+              {(() => {
+                /* POL-FE-72 — the spending limit beside the total. */
+                const l = limitLine(quote.totalCents, hold.checkout?.spendingLimitCents, usd);
+                return l ? <p className={`mt-2 text-[11px] ${l.over ? "text-warn" : "text-muted"}`}>{l.text}</p> : null;
+              })()}
               {quote.quoted ? (
                 <p className="mt-2 text-[11px] text-faint">The total is what you pay — nothing more is added when the order is placed.</p>
               ) : (

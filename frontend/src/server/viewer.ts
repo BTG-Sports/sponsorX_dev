@@ -18,7 +18,7 @@ const ROLE_LABELS: Record<string, string> = {
   FINANCE: "Finance",
   SALES: "Sales",
   SPONSOR_ADMIN: "Sponsor Admin",
-  SPONSOR_ANALYST: "Sponsor Analyst",
+  SPONSOR_ANALYST: "Sponsor Viewer",
   PROPERTY_MGR: "Property Manager",
   ATHLETE: "Athlete",
   GUARDIAN: "Guardian",

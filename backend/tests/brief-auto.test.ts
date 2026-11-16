@@ -348,6 +348,10 @@ describe.skipIf(!hasDatabase)("P4-BE-11 · sponsor briefs approved automatically
         expect(r.text).not.toContain(REASON);
       }
       expect((await call("GET", `/briefs/${h.id}`, A("sa_good"))).json.status).toEqual({ key: "CLOSED", text: "This request is closed" });
+      /* POL-BE-64 — the sponsor's admin is emailed that it's closed, with the way to ask; never BTG's note. */
+      const closed = (await emails(T, "brief.closedForSponsor")).filter((m) => String((m.data as { reviewUrl?: string }).reviewUrl).endsWith(h.id));
+      expect(closed.map((m) => m.to)).toEqual([`${A("sa_good")}@bau-test.invalid`]);
+      expect(JSON.stringify(closed)).not.toContain(REASON);
       /* BTG keeps reading it. */
       for (const who of ["cm", "sales"]) {
         expect((await call("GET", `/briefs/${h.id}`, A(who))).json.closeReason).toBe(REASON);
@@ -401,7 +405,9 @@ describe.skipIf(!hasDatabase)("P4-BE-11 · sponsor briefs approved automatically
       expect((await call("POST", `/briefs/${h.id}/transition`, A("cm"), { to: "QUALIFIED" })).status).toBe(200);
       expect((await call("POST", `/briefs/${h.id}/transition`, A("cm"), { to: "APPROVED" })).status).toBe(200);
       const r = await row(h.id);
-      expect(r).toMatchObject({ state: "APPROVED", autoApproved: false });
+      /* POL-BE-63 — approving by hand makes the campaign at once, as the automatic path does. */
+      expect(r).toMatchObject({ state: "CAMPAIGN_CREATED", autoApproved: false });
+      expect(await prisma.campaign.count({ where: { briefId: h.id } })).toBe(1);
       /* Kept as the record of why it waited. */
       expect(r.heldReasons).toEqual(["Alcohol is a sensitive category — BTG reviews these"]);
       const pushes = (await outbox(T, "zoho.pushDeal")).filter((j) => j.briefId === h.id);

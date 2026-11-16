@@ -3,7 +3,7 @@
 import { useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { inviteTeammateAction, removeTeammateAction, resendInviteAction, setTeammateRoleAction, type TeamWrite } from "@/app/(app)/sponsor/team/actions";
+import { inviteTeammateAction, removeTeammateAction, resendInviteAction, restoreTeammateAction, setTeammateRoleAction, type TeamWrite } from "@/app/(app)/sponsor/team/actions";
 import { DialogError, OrderDialog, btn } from "@/components/order-dialog";
 import { StadiumChip, StadiumDate, StadiumPanel, StadiumSection } from "@/components/stadium-stage";
 import { Primary, StageTable, Td, Tr, type Column } from "@/components/stage-table";
@@ -42,7 +42,7 @@ const rowBtn =
 const rowDanger =
   "inline-flex min-h-9 items-center rounded-lg border border-danger/50 px-2.5 text-[11px] font-semibold text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-40";
 
-type Busy = { id: string; what: "role" | "resend" | "remove" } | null;
+type Busy = { id: string; what: "role" | "resend" | "remove" | "restore" } | null;
 
 export function SponsorTeam({ members }: { members: ApiTeamMember[] }) {
   const router = useRouter();
@@ -135,6 +135,17 @@ export function SponsorTeam({ members }: { members: ApiTeamMember[] }) {
                             onClick={() => run(m, "role", () => setTeammateRoleAction(m.id, to))}
                           >
                             {mine === "role" ? "Changing…" : `Make ${roleWord(to)}`}
+                          </button>
+                        )}
+                        {acts.includes("restore") && (
+                          <button
+                            type="button"
+                            className={rowBtn}
+                            disabled={mine !== null}
+                            aria-label={`Add ${m.email} back to the team`}
+                            onClick={() => run(m, "restore", () => restoreTeammateAction(m.id))}
+                          >
+                            {mine === "restore" ? "Adding back…" : "Add back"}
                           </button>
                         )}
                         {acts.includes("resend") && (

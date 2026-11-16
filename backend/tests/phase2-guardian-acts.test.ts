@@ -208,6 +208,9 @@ describe.skipIf(!hasDatabase)("2S1-BE-11 / -12 · the guardian acts for the mino
     const ok = await call("POST", `/invitations/${J}_invite/respond`, "ga_guardian", { to: "ACCEPTED" }, J);
     expect(ok.status, ok.text).toBe(200);
     expect(ok.json.state).toBe("ACCEPTED");
+    /* POL-BE-64 — BTG's desk is told, to draft the order. */
+    const told = (await emails()).filter((m) => (m as { template?: string }).template === "invitation.acceptedForBtg");
+    expect(told.map((m) => (m as { to: string }).to)).toContain("ga_admin@ga-test.invalid");
   });
 
   it("accepting a Campaign Order: the minor is refused; the guardian signs, and the acceptance records them", async () => {
@@ -217,6 +220,16 @@ describe.skipIf(!hasDatabase)("2S1-BE-11 / -12 · the guardian acts for the mino
     expect(ok.status, ok.text).toBe(201);
     const acc = await prisma.agreementAcceptance.findUniqueOrThrow({ where: { id: ok.json.acceptanceId }, select: { userId: true, guardianId: true } });
     expect(acc).toEqual({ userId: "ga_guardian", guardianId: "ga_g" });
+  });
+
+  it("POL-BE-64 · a Campaign Order sent emails the athlete's guardian to sign it", async () => {
+    await prisma.nilJob.create({ data: { id: "ga_job3", tenantId: T, name: "Story", baseLow: 5_000, baseHigh: 10_000, sellLow: 10_000, sellHigh: 20_000, sellFloorEmerging: 8_000, sellFloorCreator: 10_000, sellFloorPremium: 15_000 } });
+    await prisma.campaignOrder.create({ data: { id: "ga_order_send", tenantId: T, campaignId: "ga_campaign", athleteId: "ga_jordan", jobId: "ga_job3", compensation: 5_000, sellPrice: 10_000, usageRights: "90 days", dueDate: new Date(Date.now() + 30 * DAY), state: "DRAFT" } });
+    const r = await call("POST", "/orders/ga_order_send/transition", "ga_admin", { to: "SENT" });
+    expect(r.status, r.text).toBe(200);
+    const sent = (await emails()).filter((m) => m.template === "order.readyToSign" && m.idempotencyKey.includes(":ga_order_send:"));
+    expect(sent.find((m) => m.to === "ga_g@ga-test.invalid" || m.data.forGuardian === "yes"), JSON.stringify(sent)).toBeTruthy();
+    expect(sent.every((m) => m.data.reviewUrl.endsWith("/athlete/orders/ga_order_send"))).toBe(true);
   });
 
   it("accepting an agreement or an offer: the minor is refused; the guardian gets past the guard", async () => {

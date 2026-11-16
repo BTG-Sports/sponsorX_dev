@@ -52,7 +52,8 @@ export function SponsorOrderStatus({ card, orderId, amount, canWrite, canPay, un
         )
       )}
       {card.again && (
-        <Link href="/sponsor/marketplace" className="inline-flex min-h-12 items-center justify-center self-start rounded-lg bg-primary px-5 text-sm font-bold text-cta-ink hover:bg-primary-soft">
+        /* POL-FE-72 — a Shop order is ordered again from the Shop, not Packages. */
+        <Link href="/sponsor/shop" className="inline-flex min-h-12 items-center justify-center self-start rounded-lg bg-primary px-5 text-sm font-bold text-cta-ink hover:bg-primary-soft">
           Order again
         </Link>
       )}

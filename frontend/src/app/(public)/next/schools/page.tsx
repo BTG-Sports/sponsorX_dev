@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ShareActions } from "@/components/share-actions";
 import { illustrate } from "@/lib/next-apply";
 
@@ -18,7 +19,7 @@ export const metadata = { title: "SponsorX NEXT for schools · Programme proposa
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 const CONTACT = process.env.NEXT_CONTACT_EMAIL ?? "next@sponsorx.net";
 
-type Edition = { id: string; label: string; school: { name: string; city: string | null; stateCode: string | null } | null };
+type Edition = { id: string; label: string; school: { slug?: string; name: string; city: string | null; stateCode: string | null } | null };
 
 async function published(): Promise<Edition[] | null> {
   try {
@@ -184,7 +185,10 @@ export default async function NextSchoolsPage() {
             <ul className="space-y-1 text-muted">
               {schools.map((e) => (
                 <li key={e.id}>
-                  {e.school?.name ?? "Regional edition"}
+                  {/* POL-FE-77 — each school opens its published edition. */}
+                  <Link href={`/next/${encodeURIComponent(e.school?.slug ?? "regional")}/${encodeURIComponent(e.id)}`} className="text-text underline-offset-2 hover:underline">
+                    {e.school?.name ?? "Regional edition"}
+                  </Link>
                   {e.school ? ` · ${[e.school.city, e.school.stateCode].filter(Boolean).join(", ")}` : ""} · {e.label} digital edition
                 </li>
               ))}

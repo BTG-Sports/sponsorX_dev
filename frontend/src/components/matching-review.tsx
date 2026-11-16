@@ -56,7 +56,7 @@ export function MatchingReview({
   onUndo?: () => void;
   onBack: () => void;
 }) {
-  const { brief: MATCH_BRIEF, jobs, live, sendBlocked } = useMatch();
+  const { brief: MATCH_BRIEF, jobs, live, sendBlocked, autoStaffingNote } = useMatch();
   const s = sendSummary(athletes, MATCH_BRIEF);
   const blended = blendedMargin(athletes);
   /* Live, a pick becomes one invitation per package line. */
@@ -407,6 +407,10 @@ export function MatchingReview({
                       ? "Add at least one athlete to send."
                       : "Invitations go out immediately. Offers are fixed once sent."}
                 </p>
+                {/* POL-FE-63 (app review §2) — hand-picking also starts automatic offers on a package that staffs itself. */}
+                {live && !sendBlocked && autoStaffingNote && (
+                  <p role="note" className="mt-2 rounded-md bg-warn/10 px-2.5 py-2 text-[10px] leading-relaxed text-warn">{autoStaffingNote}</p>
+                )}
               </div>
             </Card>
           )}

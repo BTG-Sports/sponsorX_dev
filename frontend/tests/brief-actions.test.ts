@@ -28,7 +28,7 @@ import { BriefRequestInvalid } from "@/lib/brief-request";
 const brief: ApiSponsorRequestDetail = {
   id: "b1",
   state: "DRAFT",
-  objective: "Spring footwear launch across DMV high schools",
+  objective: "Spring footwear launch across DMV high schools this season",
   budget: 320_000,
   createdAt: "2026-10-30T10:00:00.000Z",
   startDate: "2026-11-15T00:00:00.000Z",

@@ -430,6 +430,11 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
         terms: { id: E.terms, kind: "MARKETPLACE_ORDER", version: ORDER_TERMS_VERSION, bodyHash: ORDER_TERMS_HASH },
       });
       expect(read.checkout.terms.body).toBe(agreementBody("MARKETPLACE_ORDER"));
+      /* POL-BE-72 — the sponsor's spending limit, shown beside the total. */
+      expect(typeof read.checkout.spendingLimitCents).toBe("number");
+      expect(read.checkout.spendingLimitCents).toBeGreaterThan(0);
+      /* POL-BE-72 — the orders summary says whether card payment is open, so "To pay" can read "Approved". */
+      expect(typeof (await call("GET", "/marketplace-orders/summary", "mo_s1_admin")).json.summary.paymentsOpen).toBe("boolean");
       /* The analyst reads the same hold and terms — placing is the admin's (below). */
       expect((await call("GET", `/reservations/${hold.id}`, "mo_s1_analyst")).json.checkout.terms.id).toBe(E.terms);
     });

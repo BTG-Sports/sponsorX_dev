@@ -43,7 +43,8 @@ async function call(path: string, method: string, body: unknown, fallback: strin
   } catch {
     /* no body */
   }
-  if (res.status === 403) return { ok: false, message: "Only you can list your own items — and only the ones you sell yourself.", problems: [] };
+  /* POL-FE-68 — the API's coded reason first (a minor: their guardian lists for them). */
+  if (res.status === 403) return { ok: false, message: (parsed as { error?: { message?: string } } | null)?.error?.message ?? "Only you can list your own items — and only the ones you sell yourself.", problems: [] };
   const e = apiErrorMessage(parsed, res.status, fallback);
   return { ok: false, message: e.message, problems: e.problems };
 }

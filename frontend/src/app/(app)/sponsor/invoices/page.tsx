@@ -82,9 +82,10 @@ export default async function SponsorInvoicesPage({ searchParams }: { searchPara
     "No campaigns on this page. Go back to the first page to see them."
   ) : page.total === 0 ? (
     <>
-      No campaigns yet, so no invoices.{" "}
-      <Link href="/sponsor/marketplace" className="font-medium text-sponsor hover:underline">
-        Browse packages to start one →
+      No campaigns yet, so no campaign invoices. {/* POL-FE-72 — a Shop order is paid by card and its receipt lives on the order. */}
+      A Shop order is paid by card on its own page —{" "}
+      <Link href="/sponsor/orders" className="font-medium text-sponsor hover:underline">
+        see your orders →
       </Link>
     </>
   ) : (
