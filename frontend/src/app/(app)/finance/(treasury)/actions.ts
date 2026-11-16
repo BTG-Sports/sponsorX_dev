@@ -11,7 +11,7 @@ import { adjustmentProblem, dollarsToCents, earningMovedLine, earningRefusal, re
 
 type Result = { ok: boolean; message: string };
 const valid = (id: unknown): id is string => typeof id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(id);
-const MOVES: EarningMove["to"][] = ["APPROVED_FOR_PAYOUT", "PAID", "HELD", "ELIGIBLE"];
+const MOVES: EarningMove["to"][] = ["APPROVED_FOR_PAYOUT", "PAID", "HELD", "ELIGIBLE", "PENDING", "VOIDED"];
 
 async function post(path: string, body: unknown, ok: string): Promise<Result> {
   let res: Response;

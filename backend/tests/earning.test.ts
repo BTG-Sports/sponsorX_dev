@@ -18,6 +18,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let outstanding = 0;
+/* POL-BE-87 — the order's deliverables, for the release check: how many, how many VERIFIED. */
+let deliverables = { total: 0, verified: 0 };
 let earning: Record<string, unknown> | null;
 let updates: Record<string, unknown>[] = [];
 let auditRows: Record<string, unknown>[] = [];
@@ -26,7 +28,13 @@ vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://sponsorx.example"
 
 vi.mock("../src/db/client", () => {
   const tx = {
-    deliverable: { count: () => Promise.resolve(outstanding) },
+    deliverable: {
+      count: ({ where }: { where: { state?: unknown } }) =>
+        Promise.resolve(
+          where.state === "VERIFIED" ? deliverables.verified : where.state === undefined ? deliverables.total : outstanding,
+        ),
+    },
+    dealDispute: { findFirst: () => Promise.resolve(null) },
     earning: {
       findUnique: () => Promise.resolve(earning),
       findFirst: () => Promise.resolve(earning),
@@ -53,13 +61,14 @@ vi.mock("../src/db/client", () => {
 
 const {
   breakdown, clearsFloor, createEarningForOrder, maybeMakeEligible,
-  OrderNotEarningEligibleError,
+  OrderNotEarningEligibleError, transitionEarning, EarningWorkNotVerifiedError,
 } = await import("../src/domain/earning");
 
 const actor = { userId: "u", tenantId: "t1" };
 
 beforeEach(() => {
   outstanding = 0;
+  deliverables = { total: 0, verified: 0 };
   earning = { id: "ern_1", state: "PENDING" };
   updates = [];
   auditRows = [];
@@ -223,5 +232,36 @@ describe("P7-BE-02 · eligibility from completed work", () => {
   it("is silent when the order has no earning", async () => {
     earning = null;
     await expect(maybeMakeEligible(tx() as never, actor, "ord_1")).resolves.toBeNull();
+  });
+});
+
+describe("POL-BE-87 · a hold or a dispute is released to payable only once the work is verified", () => {
+  const finance = { userId: "u_fin", tenantId: "t1", roles: ["FINANCE"] } as never;
+
+  it.each(["HELD", "DISPUTED"])("refuses %s → ELIGIBLE while deliverables are unverified, and says how many", async (state) => {
+    earning = { id: "ern_1", state, orderId: "ord_1" };
+    deliverables = { total: 4, verified: 2 };
+    const out = transitionEarning(finance, "ern_1", "ELIGIBLE");
+    await expect(out).rejects.toThrow(EarningWorkNotVerifiedError);
+    await expect(transitionEarning(finance, "ern_1", "ELIGIBLE")).rejects.toThrow(/2 of 4 deliverables/);
+    expect(updates).toEqual([]);
+    expect(auditRows).toEqual([]);
+  });
+
+  it("allows HELD → ELIGIBLE once every deliverable is verified", async () => {
+    earning = { id: "ern_1", state: "HELD", orderId: "ord_1" };
+    deliverables = { total: 3, verified: 3 };
+    await expect(transitionEarning(finance, "ern_1", "ELIGIBLE")).resolves.toMatchObject({ state: "ELIGIBLE" });
+  });
+
+  it("HELD → PENDING is always open: the way back for unverified work", async () => {
+    earning = { id: "ern_1", state: "HELD", orderId: "ord_1" };
+    deliverables = { total: 4, verified: 0 };
+    await expect(transitionEarning(finance, "ern_1", "PENDING")).resolves.toMatchObject({ state: "PENDING" });
+  });
+
+  it("PENDING → VOIDED stays open, so Finance can close what isn't owed", async () => {
+    earning = { id: "ern_1", state: "PENDING", orderId: "ord_1" };
+    await expect(transitionEarning(finance, "ern_1", "VOIDED")).resolves.toMatchObject({ state: "VOIDED" });
   });
 });

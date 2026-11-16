@@ -33,7 +33,8 @@ async function resolve(code: string): Promise<Resolved | null> {
 
 export default async function StudentCodeLanding({ params }: PageProps<"/s/[code]">) {
   const { code } = await params;
-  if (!/^[A-Za-z0-9-]{1,64}$/.test(code)) notFound();
+  /* POL-FE-89 — base64url codes carry `_` too. */
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(code)) notFound();
   const r = await resolve(code);
   if (!r) notFound();
 

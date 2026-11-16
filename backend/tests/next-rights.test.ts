@@ -225,6 +225,24 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT rights, featured athletes and the D
       const other = await rights.addEditionAsset(staff, id, { kind: "ARTICLE", title: "y", sourceKind: "BTG" });
       await expect(rights.grantRight(staff, other.id, { grantorKind: "STUDENT", grantorRef: "s", mayPublishDigital: true, startsAt: new Date(), acceptanceId: consentId })).rejects.toThrow(/not from the person/);
     });
+
+    it("POL-BE-88 · a minor's piece is never cleared by a licence; an adult maker's still can be", async () => {
+      const id = await edition("nx4_school");
+      const minor = (await prisma.student.create({ data: { tenantId: T, propertyId: "nx4_school", legalName: "Young Writer", displayName: "YW", masthead: ["WRITER"], ageBand: "UNDER_16", state: "ACTIVE" }, select: { id: true } })).id;
+      const byMinor = await rights.addEditionAsset(staff, id, { kind: "ARTICLE", title: "Junior varsity", sourceKind: "STUDENT", studentId: minor });
+      for (const grantorKind of ["BTG", "THIRD_PARTY"] as const) {
+        await expect(
+          rights.grantRight(staff, byMinor.id, { grantorKind, grantorRef: "BTG Sports", mayPublishDigital: true, mayPublishPrint: true, startsAt: new Date(), licenseRef: `L-88-${grantorKind}` }),
+        ).rejects.toMatchObject({ status: 409, message: expect.stringMatching(/minor's piece is cleared by their verified guardian's consent/) });
+      }
+      expect(await prisma.contentRight.count({ where: { tenantId: T, assetId: byMinor.id } })).toBe(0);
+      /* Over HTTP too: BTG's "Record a right" form gets the same refusal. */
+      const http = await call("POST", `/edition-assets/${byMinor.id}/rights`, "nx4_staff", { grantorKind: "BTG", grantorRef: "BTG Sports", mayPublishDigital: true, startsAt: new Date().toISOString(), licenseRef: "L-88-http" });
+      expect([http.status, http.text]).toEqual([409, expect.stringContaining("minor's piece")]);
+      /* An adult maker's piece may carry a licence (a contract signed with them). */
+      const byAdult = await rights.addEditionAsset(staff, id, { kind: "ARTICLE", title: "Senior column", sourceKind: "STUDENT", studentId: student });
+      await expect(rights.grantRight(staff, byAdult.id, { grantorKind: "THIRD_PARTY", grantorRef: "School paper", mayPublishDigital: true, startsAt: new Date(), licenseRef: "L-88-adult" })).resolves.toMatchObject({ id: expect.any(String) });
+    });
   });
 
   /* ── P9-BE-11 ────────────────────────────────────────────────────────── */

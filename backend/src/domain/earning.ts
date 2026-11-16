@@ -47,6 +47,27 @@ export class EarningImmutableError extends Error {
   }
 }
 
+/**
+ * POL-BE-87 — a person may not make an earning payable ahead of its work.
+ * PENDING → ELIGIBLE is the system's move, made only when every deliverable
+ * on the order is VERIFIED (`maybeMakeEligible`). A hold or a dispute could
+ * be released straight to ELIGIBLE, so an earning held while still PENDING
+ * became payable in three clicks with nothing verified. Leaving HELD or
+ * DISPUTED for ELIGIBLE now needs the same verified work; otherwise the way
+ * back is PENDING, where the automatic rule takes it on.
+ */
+export class EarningWorkNotVerifiedError extends Error {
+  readonly status = 409;
+  constructor(verified: number, total: number) {
+    super(
+      `Its work isn't verified yet (${verified} of ${total} deliverable${total === 1 ? "" : "s"}), ` +
+        `so it can't become payable. Move it back to pending instead — it becomes eligible ` +
+        `on its own once the last deliverable is verified.`,
+    );
+    this.name = "EarningWorkNotVerifiedError";
+  }
+}
+
 export class OrderNotEarningEligibleError extends Error {
   readonly status = 409;
   constructor(reason: string) {
@@ -208,6 +229,14 @@ export async function transitionEarning(
     if (!canTransitionEarning(from, to)) throw new IllegalEarningTransitionError(from, to);
     /* P8-BE-03 — a paused deal's earning stays held (or disputed) until BTG decides the dispute. */
     if (to !== "HELD" && to !== "DISPUTED") await assertNotPaused(tx, earning.orderId);
+    /* POL-BE-87 — released to payable only once its work is verified, as the automatic rule. */
+    if (to === "ELIGIBLE") {
+      const [total, verified] = await Promise.all([
+        tx.deliverable.count({ /* tenant-scope: the order of the earning loaded above through whereFor(earning). */ where: { orderId: earning.orderId, tenantId: actor.tenantId } }),
+        tx.deliverable.count({ /* tenant-scope: as above. */ where: { orderId: earning.orderId, tenantId: actor.tenantId, state: "VERIFIED" } }),
+      ]);
+      if (verified < total) throw new EarningWorkNotVerifiedError(verified, total);
+    }
 
     /* tenant-scope: the row loaded above through whereFor(earning). */
     const updated = await tx.earning.update({
