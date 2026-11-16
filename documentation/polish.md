@@ -2322,6 +2322,20 @@ the blockers and today's content review findings.
 - **Done when:** this file matches the code.
 - **Delivered (2026-11-16, rcfworks):** Corrected in place, each marked "POL-78": the Finance line (earnings are marked paid from the Treasury books since POL-53), item 9 (guardians answer the ward's invitations since POL-55), item 38 (the join screen's resend and change-guardian are wired), item 40 (the one exception, staff on Packages, closed by POL-72) and item 51 (launching needs APPROVAL, reachable since POL-52).
 
+### Wave 9 — owner requests
+
+### 79. Confirmations reads as two stacked forms [§4]
+`POL-FE-79` · *Confusing* · confirmed (programme owner, 2026-11-16: "so confusing for a human")
+- **Fix:** turn `/athlete/confirmations` into a step-by-step wizard: a numbered
+  stepper (a rail on a wide screen, dots on a phone), one step per
+  confirmation — read it, tick the box, confirm — a footer with "Step N of M",
+  Previous and the one action, and an "all set" end with the way back.
+- **Done when:** an athlete can finish both from the page without reading
+  instructions; the wording is still shown word for word; a minor's own login,
+  a guardian acting for them and an unavailable read each still say what they
+  said before.
+- **Delivered (2026-11-16, HeckerCreatives):** `components/confirmations-wizard.tsx` replaces `confirmations-form.tsx`; the page decides every word, the wizard walks them. The agreement reads section by section with a reading bar and section chips (`agreementSections`, tested word for word against `COLLAB.v2.txt`). A confirm plays a burst and moves to the next open step; reduced motion gets the still version. Walked live at 1440 and 320 (both steps, no console errors, no sideways scroll).
+
 ---
 
 ## Checked and fine

@@ -36,7 +36,16 @@ vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-real-ip":
 vi.mock("next/cache", () => ({ revalidatePath: (p: string) => vars.revalidated.push(p) }));
 
 import { COLLAB_WORDS, RULES_WORDS, type ApiMyCollab, type ApiMyRules } from "../src/lib/confirmations-live";
-import { cardMode, refusalResult, viewerOf } from "../src/lib/athlete-confirmations";
+import {
+  agreementSections,
+  cardMode,
+  nextStep,
+  readMinutes,
+  refusalResult,
+  sectionChip,
+  stepState,
+  viewerOf,
+} from "../src/lib/athlete-confirmations";
 
 const ADULT = { userId: "u1", tenantId: "t1", roles: ["ATHLETE"], wards: [], actingFor: null, guardianControl: null };
 const MINOR = { ...ADULT, guardianControl: { guardianName: "Maria Lopez", comingOfAge: false, dueAt: null } };
@@ -78,6 +87,18 @@ describe("the confirmations page", async () => {
     expect(html).toContain("Back to where you were");
     /* The cards in order: own rules first. */
     expect(html.indexOf(RULES_WORDS.title)).toBeLessThan(html.indexOf(COLLAB_WORDS.title));
+    /* Already done: the wizard opens on "all set", and back is a named button. */
+    expect(html).toContain("re all set</h2>");
+    expect(html).toContain("Pick up where you left off");
+  });
+
+  it("both outstanding: the overview counts two steps and says how it works", async () => {
+    vars.responses["GET /me/rules-attestation"] = json(rules({ current: false, attestedAt: null }));
+    vars.responses["GET /me/collab-agreement"] = json(collab({ current: false, acceptedAt: null }));
+    const html = await render();
+    expect(html).toContain("Two quick steps before your next deal");
+    expect(html).toContain("Tick the box");
+    expect(html).toContain("Go to your dashboard");
   });
 
   it("rules outstanding: the wording verbatim, the tick line, Confirm and the record note", async () => {
@@ -98,7 +119,9 @@ describe("the confirmations page", async () => {
     const html = await render();
     expect(html).toContain("COLLAB BODY — verbatim text.");
     expect(html).toContain(COLLAB_WORDS.checkbox(3));
-    expect(html).toContain(">Accept<");
+    expect(html).toContain("Accept agreement");
+    /* The wizard opens on the overview: one step left. */
+    expect(html).toContain("One quick step before your next deal");
   });
 
   it("a minor's own login: the guardian confirms, no tick box or button", async () => {
@@ -112,6 +135,7 @@ describe("the confirmations page", async () => {
     expect(html).not.toContain("A new deal waits until you confirm this.");
     expect(html).not.toContain('type="checkbox"');
     expect(html).not.toContain(RULES_WORDS.checkbox("2026-09"));
+    expect(html).toContain("Your guardian handles these");
   });
 
   it("a guardian acting for the minor: the guardian's line, in the ward's name", async () => {
@@ -120,7 +144,8 @@ describe("the confirmations page", async () => {
     const html = await render();
     expect(html).toContain(RULES_WORDS.guardianCheckbox("Ana Lopez", "2026-09"));
     expect(html).toContain('type="checkbox"');
-    expect(html).toContain("What Ana Lopez needs confirmed before a new deal.");
+    expect(html).toContain("One quick step for Ana Lopez");
+    expect(html).toContain("Confirming for Ana Lopez");
   });
 
   it("a guardian with no ward picked: both reads refused, a plain note, nothing thrown", async () => {
@@ -131,7 +156,8 @@ describe("the confirmations page", async () => {
     };
     const html = await render();
     expect(html).toContain("Pick the athlete from your");
-    expect(html).toContain("can’t be loaded right now");
+    /* No wizard to walk: the note is the page. */
+    expect(html).not.toContain("sx-cw");
   });
 });
 
@@ -210,5 +236,43 @@ describe("the pure helpers", () => {
     expect(refusalResult("rules", 500, null, "fallback")).toEqual({ ok: false, message: "fallback" });
     /* The other card's stale code is not this card's reload. */
     expect(refusalResult("rules", 422, { error: { code: "not_collab_agreement" } }, "fallback")).toEqual({ ok: false, message: "fallback" });
+  });
+});
+
+describe("the wizard's helpers", () => {
+  it("maps each card mode to a step state", () => {
+    expect(["confirmed", "ask", "guardianDoes", "unavailable"].map((m) => stepState(m as never))).toEqual(["done", "todo", "guardian", "unavailable"]);
+  });
+
+  it("picks the next step: one to act on first, then any not done, wrapping; -1 when all done", () => {
+    expect(nextStep(["todo", "todo"])).toBe(0);
+    expect(nextStep(["done", "todo"])).toBe(1);
+    expect(nextStep(["done", "todo"], 1)).toBe(1);
+    expect(nextStep(["todo", "done"], 0)).toBe(0);
+    expect(nextStep(["guardian", "todo"])).toBe(1);
+    expect(nextStep(["done", "unavailable"], 0)).toBe(1);
+    expect(nextStep(["done", "done"])).toBe(-1);
+  });
+
+  it("reads at 220 words a minute, never under one", () => {
+    expect(readMinutes("short")).toBe(1);
+    expect(readMinutes(Array(1100).fill("word").join(" "))).toBe(5);
+  });
+
+  it("splits the real agreement into its numbered sections without losing a word", async () => {
+    const { readFileSync } = await import("node:fs");
+    const body = readFileSync(new URL("../../backend/agreements/COLLAB.v2.txt", import.meta.url), "utf8");
+    const sections = agreementSections(body);
+    expect(sections[0].heading).toBeNull();
+    expect(sections.filter((s) => s.heading).map((s) => s.heading!.match(/^\d+/)![0])).toEqual(
+      Array.from({ length: sections.length - 1 }, (_, k) => String(k + 1)),
+    );
+    const shown = sections.flatMap((s) => [s.heading ?? "", ...s.paragraphs]).join(" ");
+    expect(shown.replace(/\s+/g, "")).toBe(body.replace(/\s+/g, ""));
+    expect(sectionChip("3. CAMPAIGN ORDERS")).toBe("Campaign orders");
+  });
+
+  it("a body with no headings is one section, as given", () => {
+    expect(agreementSections("COLLAB BODY — verbatim text.")).toEqual([{ heading: null, paragraphs: ["COLLAB BODY — verbatim text."] }]);
   });
 });
