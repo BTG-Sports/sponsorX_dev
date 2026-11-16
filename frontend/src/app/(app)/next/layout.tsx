@@ -10,6 +10,9 @@ const NAV: NavItem[] = [
   { href: "/next/sales", label: "My sales", icon: "store" },
   { href: "/next/code", label: "My code", icon: "card" },
   { href: "/next/points", label: "Points", icon: "trophy" },
+  /* POL-FE-101 — the student's own details. Not on the phone tab bar (its
+     five tabs are full); phones reach it from the menu. */
+  { href: "/next/profile", label: "Profile", icon: "user" },
 ];
 
 /* The student portal — SponsorX NEXT (P1-FE-19, spec §8, §9; wired P9-FE-01).

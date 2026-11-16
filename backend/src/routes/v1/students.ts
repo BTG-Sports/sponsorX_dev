@@ -19,6 +19,7 @@ import {
   ProspectInput,
   SchoolEmailDomainInput,
   StudentApplicationInput,
+  StudentDisplayNameInput,
   StudentGuardianInput,
   StudentInput,
   StudentTransitionInput,
@@ -51,6 +52,7 @@ import {
 } from "../../domain/student";
 import type { PointReason } from "../../domain/student-points";
 import { readSchoolReviewSettings, setSchoolEmailDomain } from "../../domain/student-auto";
+import { getOwnStudentProfile, updateOwnDisplayName } from "../../domain/student-profile";
 import { allowedList, pageRequest, searchTerm } from "../../lib/paging";
 
 export const studentsRouter = Router();
@@ -76,6 +78,15 @@ export const list: RequestHandler = async (req, res) => {
   const [group] = allowedList(query.group, STUDENT_GROUP_KEYS);
   const auto = query.auto === "true" || query.auto === "1";
   res.json(await listStudentsPage(req.actor!, pr, { group, q: searchTerm(query), auto }));
+};
+/** GET / PATCH /students/me — the signed-in student's own profile; the
+ *  display name is the one field they change (POL-BE-101). The record is
+ *  the caller's own login's, never an id from the request. */
+export const readMe: RequestHandler = async (req, res) => {
+  res.json(await getOwnStudentProfile(req.actor!));
+};
+export const updateMe: RequestHandler = async (req, res) => {
+  res.json(await updateOwnDisplayName(req.actor!, StudentDisplayNameInput.parse(req.body).displayName));
 };
 const read: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await getStudent(req.actor!, req.params.id));
@@ -138,6 +149,9 @@ const assign: RequestHandler<{ id: string }> = async (req, res) => {
 
 studentsRouter.post("/students", requireActor, create);
 studentsRouter.get("/students", requireActor, list);
+/* Before /students/:id, so "me" is never read as an id. */
+studentsRouter.get("/students/me", requireActor, readMe);
+studentsRouter.patch("/students/me", requireActor, updateMe);
 studentsRouter.get("/students/:id", requireActor, read);
 studentsRouter.post("/students/:id/transition", requireActor, transition);
 studentsRouter.post("/students/:id/guardian", requireActor, guardian);

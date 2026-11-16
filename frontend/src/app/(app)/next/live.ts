@@ -1,5 +1,5 @@
 import { apiFetch, fetchActor } from "@/server/api";
-import type { ApiPointsRead, ApiSalesRead, ApiStudent, ProspectSummary } from "@/lib/students-live";
+import type { ApiPointsRead, ApiSalesRead, ApiStudent, ApiStudentProfile, ProspectSummary } from "@/lib/students-live";
 import type { PageInfo } from "@/lib/list-query";
 
 /* --------------------------------------------------------------------------
@@ -75,6 +75,20 @@ export async function liveStudent(parts: Part[] = [], queries: Partial<Record<Li
     points,
     prospects,
   };
+}
+
+/**
+ * POL-FE-101 — the signed-in student's own profile (GET /students/me,
+ * POL-BE-101). Null for anyone who is not a STUDENT (BTG previews keep the
+ * fixture screen); "unlinked" for a STUDENT login with no record, which the
+ * API refuses. An outage throws to the error boundary.
+ */
+export async function liveStudentProfile(): Promise<{ kind: "unlinked" } | { kind: "student"; profile: ApiStudentProfile } | null> {
+  const who = await fetchActor();
+  if (who.status !== "linked" || !who.actor.roles.includes("STUDENT")) return null;
+  if (!who.actor.studentId) return { kind: "unlinked" };
+  const profile = await part<ApiStudentProfile>("/students/me");
+  return profile ? { kind: "student", profile } : { kind: "unlinked" };
 }
 
 /** This deployment's origin, for links a student hands out (/s/[code]). */

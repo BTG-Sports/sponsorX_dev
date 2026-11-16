@@ -104,6 +104,56 @@ export const SchoolEmailDomainInput = z
     description: "The school's email domain (the part after the @), or null to clear it. A public mail provider (gmail.com and the like) is refused (422).",
   });
 
+/* POL-BE-101 — a signed-in student's own profile. The display name is the one
+   field they change themselves; everything else is read-only and corrected by
+   their school's faculty advisor. The record is the caller's own (resolved
+   from the login, never named in the body), so the body is strict: a
+   `studentId`, `legalName`, `gradYear` or any other key is refused (400). */
+
+/* Control characters, zero-width spaces and bidi overrides — invisible or
+   spoofing characters that have no place in a published name. A ZWJ (U+200D)
+   is allowed: emoji sequences use it. */
+const HIDDEN_CHARS = /[\p{Cc}​‎‏‪-‮⁠⁦-⁩﻿]/u;
+
+export const StudentDisplayNameInput = z
+  .object({
+    displayName: z
+      .string()
+      .trim()
+      .min(2, "Your display name needs at least 2 characters.")
+      .max(60, "Keep your display name to 60 characters or fewer.")
+      .refine((s) => !HIDDEN_CHARS.test(s), "Your display name has a hidden or control character in it.")
+      .refine((s) => /[\p{L}\p{N}]/u.test(s), "Your display name needs at least one letter or number."),
+  })
+  .strict()
+  .meta({
+    id: "StudentDisplayNameInput",
+    description: "The student's new display name: trimmed (inner runs of spaces become one), 2–60 characters, at least one letter or number, no hidden characters. No other field is accepted.",
+  });
+
+export const StudentProfile = z
+  .object({
+    id: z.string(),
+    legalName: z.string(),
+    displayName: z.string(),
+    gradYear: z.number().int().nullable(),
+    school: z.object({ name: z.string() }),
+    masthead: z.array(z.enum(MASTHEAD_ROLES)),
+    state: StudentState,
+    leftAt: z.string().nullable(),
+    code: z.string().nullable(),
+    minor: z.boolean(),
+    guardian: z
+      .object({ linked: z.boolean(), verified: z.boolean() })
+      .nullable()
+      .meta({ description: "A minor's guardian STATUS only — never the guardian's name or contact. Null for an adult." }),
+    advisors: z
+      .array(z.object({ email: z.string() }))
+      .meta({ description: "The school's active faculty advisor logins, to ask for a correction. The data model keeps an advisor's email, not their name." }),
+    editable: z.array(z.literal("displayName")),
+  })
+  .meta({ id: "StudentProfile", description: "A student's own profile (POL-BE-101). No date of birth, no email, no guardian details." });
+
 export const AssignStudentInput = z
   .object({ studentId: z.string().min(1).nullable() })
   .meta({ id: "AssignStudentInput", description: "Who works the account now. Changes nothing about who originated a sale." });

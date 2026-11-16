@@ -29,6 +29,7 @@ const ROUTES = [
   { href: "/next/sales", title: 'My Sales & Attribution Ledger', ref: 'NEXT spec §5.1 · §5.6', surface: 'student portal (NEXT)' },
   { href: "/next/code", title: 'My Sales Code', ref: 'NEXT spec §8 /s/[code]', surface: 'student portal (NEXT)' },
   { href: "/next/points", title: 'Points Balance', ref: 'NEXT spec §5.5 · P1-FE-30', surface: 'student portal (NEXT)' },
+  { href: "/next/profile", title: 'My Profile', ref: 'POL-FE-101', surface: 'student portal (NEXT)' },
   { href: "/admin", title: 'BTG Admin Command Center', ref: '§10 · §23', surface: 'admin' },
   { href: "/admin/applications", title: 'Athlete Network Manager Workspace', ref: '§10 · §23', surface: 'admin' },
   { href: "/admin/campaigns", title: 'Campaigns + Builder (Athlete Matching)', ref: '§9 screen 8', surface: 'admin' },

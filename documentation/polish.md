@@ -34,7 +34,7 @@ also has a back-end row waits for it.
 | E · Payments switch | 36 | Turn live payments on when polish is done |
 | F · Clean pass | 37–40 | Production shows outdated wording, developer notes and sample figures |
 | G · Support and help desk | 41–43 | Support messages live only in Gmail, and admins can't see what is wrong with a held request |
-| H · Found in walkthrough practice | 44–51 | Testers getting the feel of the app hit dead ends and silent waits |
+| H · Found in walkthrough practice | 44–51, 101–104 | Testers getting the feel of the app hit dead ends and silent waits |
 | I · Whole-app review | 52–78 | The 2026-11-15 review: 7 blockers, then every major and minor finding, in eight waves |
 
 **Closed 2026-11-15.** Every item, 1 to 51, is Done on the Polish sheet (71
@@ -2874,3 +2874,67 @@ the blockers and today's content review findings.
   - **The form:** topic tiles with an icon and what each covers; the cases behind a "Narrow it down" dropdown (button + listbox: arrows, Home/End, Enter, Esc, click outside; each group's case count and ticks, and "N ticked in other groups"); "Not listed? Something else" pinned under it; name, email, message with a counter, files by click or drop; "Before you send" ticks; Send's plane flies while sending; a ref stops a double click sending twice.
   - **Sent:** the ring and tick draw, sparks burst, what was sent, "Write another message". `?demo=sent` uses the same panel.
   - **Files:** `app/(public)/contact/{page.tsx,contact.css}`, `components/contact-form.tsx`, new `components/contact-stage.tsx` and `components/contact-fx.tsx`. No API change; `lib/helpdesk-live.ts` untouched.
+
+### 101. A NEXT student has no page showing their own details [NEXT spec §8, P9-FE-01]
+`POL-BE-101` · `POL-FE-101` · *Dead end* · confirmed (found in live staging practice, 2026-11-17)
+- **Problem:**
+  - A signed-in NEXT student's portal (`/next`) has Home, Assignments, My sales, My code and Points, and no page showing their own details: their legal name, school, class year, roles, where their account stands, or whether their guardian is confirmed. A wrong detail could only be noticed by chance, and nothing said who corrects it.
+  - The NEXT spec never defined a profile page, and the API had no self-service student endpoint: only `/students/{id}` (and `/code`, `/sales`, `/points`), read by id.
+- **Fix:**
+  - **Backend (`POL-BE-101`):** `GET /students/me` answers the caller's own record; `PATCH /students/me` changes the display name, the one field a student edits. The record is the login's own (`User.studentId`), inside its tenant, never an id from the request; only a STUDENT login reaches either.
+  - **Frontend (`POL-FE-101`):** a **Profile** page at `/next/profile`, in the student portal's menu, with the display name editable and every other field read-only, each saying to ask the faculty advisor, and the advisor's email when the school has one.
+- **Done when:**
+  - A signed-in student sees their legal name, display name, graduation year, school, roles, account state, sales code and, if under 18, whether a parent or guardian is linked and confirmed (status only: never the guardian's name or contact).
+  - They can change their display name: trimmed, 2–60 characters, at least one letter or number, no hidden characters; it takes effect at once and is audited (`student.displayNameUpdate`, before and after). The same name again writes nothing.
+  - Nothing else can be changed: not the legal name, school, roles, graduation year, date of birth or guardian. The API refuses any other key in the body (400).
+  - Another student's record, another tenant's and every non-student role (advisor, guardian, BTG, sponsor) are refused (403). A student who has left (INACTIVE) or was not accepted (REJECTED) can read but not change (409).
+  - Each read-only row says "Wrong? Ask your faculty advisor to correct it", and the page lists the school's active advisor emails as mailto links. No messaging is built.
+  - No date of birth, no email and no guardian detail reaches the response; no tax ID or bank detail exists to show. A minor's data is no more visible to anyone else than before.
+  - Build and tests pass.
+- **Delivered (2026-11-17, infinex1):**
+  - **Backend:** `backend/src/domain/student-profile.ts` (`getOwnStudentProfile`, `updateOwnDisplayName`, `StudentProfileLockedError`); `StudentDisplayNameInput` (strict) and `StudentProfile` in `backend/src/contracts/student.ts`; both routes in `backend/src/routes/v1/students.ts`, registered before `/students/:id`; both rows in `backend/src/contracts/registry.ts`, so OpenAPI stays complete. Tests: `backend/tests/pol-be-101-student-profile.test.ts` (the contract, and the HTTP path over a real database: own read, edit and audit, another student's record, cross-tenant, non-student roles, validation, the locked states) and `backend/tests/pol-be-101-student-profile.unit.test.ts` (the same rules with Prisma stubbed, so they run without a database).
+  - **Frontend:** `frontend/src/app/(app)/next/profile/page.tsx`; `DisplayNameForm` in `frontend/src/components/student-display-name.tsx`; `updateDisplayNameAction` in `frontend/src/app/(app)/next/actions.ts`; `liveStudentProfile` in `frontend/src/app/(app)/next/live.ts`; `ApiStudentProfile`, `displayNameProblem` and `guardianStatusWords` in `frontend/src/lib/students-live.ts`; the menu entry in `frontend/src/app/(app)/next/layout.tsx` (not the phone tab bar, whose five tabs are full; phones reach it from the menu); the route map. Test: `frontend/tests/student-profile.test.ts`. BTG previewing the portal sees the fixture student with the edit switched off.
+  - **The advisor contact:** the data model links an advisor to a school only through their login (`User`, role ADVISOR, `propertyId` = the school), which keeps an email and no name. So the page shows the active advisors' emails (up to five, disabled logins left out), not names. Showing a name needs a name on the advisor's account first.
+  - **Not done:** the display name is not run past BTG's restricted-words list. The application's display name isn't either, and the list's rule is to route a match to review, never to refuse it, which needs a review step this item doesn't build.
+
+### 102. A sponsor can't see or keep their company and their own details current [§8, §26]
+`POL-BE-102` · `POL-FE-102` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · recorded only, not built
+- **Problem:**
+  - The sponsor portal's Account group has only Billing (`/sponsor/invoices`) and Team (`/sponsor/team`). There is no page for the company's details (company name, logo, website, industry and brand categories, address, billing contact) or for the signed-in person's own (name, job title, the email Clerk holds).
+  - The API's `GET` / `PUT /me/notification-preferences` exists, but no sponsor page shows it: only the athlete's and the property's settings pages (`AccountSettings` in `frontend/src/components/account-settings.tsx`) use it. A sponsor can't mute or unmute anything.
+- **Why it matters:** a sponsor whose address, billing contact or logo changed has to write to BTG, and BTG's records (and Zoho's) drift from the truth. The brand categories feed the conflict checks, so they can't simply be self-edited.
+- **Done when:**
+  - A sponsor admin sees the company's details and their own on one Account page reached from the Account group; a sponsor analyst sees them read-only.
+  - Cosmetic and contact fields (logo, website, address, billing contact; the person's name and job title) save at once and are audit-logged.
+  - Edits to the company name and the industry or brand categories go to BTG review before they take effect, because they change conflict checks and the Zoho account; the sponsor sees "waiting for BTG" until decided.
+  - Email, password and MFA stay in Clerk: the page links to Clerk's account screen rather than storing them.
+  - The page shows the sponsor's notification preferences (the existing `/me/notification-preferences`).
+  - Tenant-scoped and own-organisation only, with role tests: another sponsor's organisation, a sponsor analyst's write and every non-sponsor role are refused (§30).
+
+### 103. A school advisor has no page for their own or their school's details [NEXT spec §8, P9-BE-20]
+`POL-BE-103` · `POL-FE-103` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · recorded only, not built
+- **Problem:**
+  - `/advisor` has Applications (its home), Content review and Help. No page shows the advisor's own details (name, email, which school) or the school's (name, the email domain on file, the roster).
+  - The home already carries the school's email-domain setting (`SchoolEmailDomain`) and the roster paste (`RosterPaste`) among the applications, so the settings exist but aren't presented as the school's profile, and nothing shows who the advisor is.
+- **Why it matters:** the email domain decides which adult students are approved automatically from the roster, so a wrong one silently changes who gets in. And #101 sends students to their advisor by email, but the data model keeps no advisor name, so students see an address only.
+- **Done when:**
+  - An advisor opens a Profile page from the menu: their own name, email (from Clerk), title and phone, and their school's name, email domain and roster count, with the roster's last update.
+  - The advisor can set their own name, title and phone (audit-logged); the name then shows to their students on #101's page in place of the bare email.
+  - The email domain and roster stay editable as today, from this page too, with the existing public-provider refusal; changes are audit-logged.
+  - The school's name and kind are BTG's to change; the page says so.
+  - One school only (`own-property`), tenant-scoped, with role tests: another school's advisor, a student and a guardian are refused (§30).
+
+### 104. A school team can't see or keep its own details current (property portal) — partial today [§8, 2S1-BE-03]
+`POL-BE-104` · `POL-FE-104` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · recorded only, not built
+- **What exists:**
+  - `/property/settings`: the manager's sign-in email (from Clerk), the Stripe payout account, notification preferences and Close account.
+  - `/property/branding`: display name, logo, colours and report footer, editable only when the tenant is an operated one; otherwise read-only, "BTG manages branding".
+- **What's missing:** a page that shows the team its own details and lets it keep them current: school, sport, level, city and state, contact person and phone, public description; and the manager's own details (name, title, phone). Today only BTG sees the whole organisation record (`/admin/onboarding/[id]`).
+- **Why it matters:** a team whose contact or description changed has to ask BTG, and the identity fields (school, sport, level, place) drive matching and conflict checks, so stale ones put the wrong athletes and sponsors together.
+- **Done when:**
+  - The property manager sees all of it on one page in the property portal.
+  - Identity fields that matter for matching and conflicts (school, sport, level, city and state) go to BTG review before they take effect; the manager sees "waiting for BTG" until decided.
+  - Cosmetic and contact fields (contact person and phone, public description; the manager's name, title and phone) save at once and are audit-logged.
+  - Email, password and MFA stay in Clerk.
+  - Tenant-scoped and own-property only, with role tests: another property's manager, an athlete, a sponsor and a student are refused (§30).
+- **Reusing the athlete review queue:** `/admin/profile-changes` reviews `AthleteProfileChange` rows, a model keyed to an athlete (`athleteId`) with athlete-only rules (legal-name ID upload, date of birth and the guardian process). It can't take a property's change as it is. Either generalise it (a subject type and id on the change row, with per-subject rules) or add a `PropertyProfileChange` beside it shown on the same admin page; the first keeps one queue for BTG. Decide when this is built.
