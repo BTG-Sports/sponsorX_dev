@@ -14,7 +14,7 @@ const LIVE = ["IN_PRODUCTION", "PUBLISHED_DIGITAL", "PRINTED", "DISTRIBUTED"];
 
 /** The edition a student is working on: the one still taking content that
  *  closes soonest; else the latest one in production or out. */
-export function currentEdition<T extends Pick<ApiEdition, "id" | "state" | "closeDate">>(editions: readonly T[]): T | null {
+export function currentEdition<T extends { id: string; state: string; closeDate: string }>(editions: readonly T[]): T | null {
   const open = editions.filter((e) => OPEN.includes(e.state)).sort((a, b) => a.closeDate.localeCompare(b.closeDate));
   if (open[0]) return open[0];
   const live = editions.filter((e) => LIVE.includes(e.state)).sort((a, b) => b.closeDate.localeCompare(a.closeDate));
@@ -51,7 +51,7 @@ export type ThisEditionView = {
 };
 
 /** The card's lines. Open positions are listed only while ads are on sale. */
-export function thisEditionView(e: Pick<ApiEdition, "label" | "state" | "closeDate" | "inventory">, slots: readonly LedgerSlot[]): ThisEditionView {
+export function thisEditionView(e: Pick<ApiEdition, "label" | "closeDate" | "inventory"> & { state: string }, slots: readonly LedgerSlot[]): ThisEditionView {
   const selling = e.state === "PLANNING" || e.state === "SELLING";
   return {
     label: e.label,

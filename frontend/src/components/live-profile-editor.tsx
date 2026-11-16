@@ -608,7 +608,13 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
                   ? "SponsorX doesn't collect this. Campaign earnings are paid by BTG Finance, who arrange it with you directly; shop and marketplace payouts are set up with Stripe on the Payouts page."
                   : REQUEST_SECTIONS.includes(active) && !editable
                     ? "Your application is still with BTG — until it's approved, changes go through the application itself."
-                    : "This section can't be edited here — BTG sets it with you."}
+                    : active === "agreements"
+                      /* POL-FE-69 — you (or your guardian) accept these yourself, on Confirmations. */
+                      ? "You accept these yourself — a parent or guardian accepts them for an athlete under 18."
+                      : "This section can't be edited here — BTG sets it with you."}
+                {active === "agreements" && (
+                  <Link href="/athlete/confirmations" className="ml-1 font-medium text-athlete hover:underline">Open Confirmations →</Link>
+                )}
               </p>
             </div>
           )}

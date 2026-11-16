@@ -92,3 +92,11 @@ describe("POL-FE-68/69 leftovers · confirmations, versions and page names", () 
     expect(src("app/(app)/athlete/layout.tsx")).toContain('{ href: "/athlete/confirmations", label: "Confirmations"');
   });
 });
+
+describe("POL-FE-69 · Agreements in profile completion", () => {
+  it("the Agreements section says the athlete (or guardian) accepts them, and links to Confirmations", () => {
+    const editor = src("components/live-profile-editor.tsx");
+    expect(editor).toContain("You accept these yourself — a parent or guardian accepts them for an athlete under 18.");
+    expect(editor).toContain('href="/athlete/confirmations"');
+  });
+});
