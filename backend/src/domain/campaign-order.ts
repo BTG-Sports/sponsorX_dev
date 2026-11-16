@@ -31,6 +31,8 @@ import {
   type OrderState,
 } from "./order-state";
 import { guardianReadiness } from "./guardian-rules";
+import { env } from "../config/env";
+import { send } from "../lib/email";
 import { acceptAgreementIn } from "./agreement";
 import { assertBudgetCarriesLine, assertLineClearsFloor } from "./margin-floor";
 import { createDeliverablesFromJob } from "./deliverable";
@@ -305,6 +307,35 @@ export async function applyOrderTransitionIn(
     if (to === "REJECTED" || to === "CANCELLED") await advanceCampaignOfOrder(tx, orderId);
     /* 3S1-BE-02 — the cancellation is a fact, in this transaction. */
     if (to === "CANCELLED") await factOrderCancelled(tx, orderId, new Date());
+
+    /* POL-BE-64 (app review §2) — a Campaign Order sent is the athlete's to
+       sign (a minor's guardian's), and the order page promised they'd be told.
+       The athlete's login and the guardian linked to them are emailed, in this
+       transaction, with the way to the order. */
+    if (to === "SENT") {
+      const o = await tx.campaignOrder.findFirstOrThrow({
+        /* tenant-scope: the order loaded above through whereFor(campaignOrder, write). */
+        where: { id: orderId },
+        select: {
+          tenantId: true,
+          campaign: { select: { name: true } },
+          athlete: { select: { displayName: true, user: { select: { id: true, email: true } }, guardian: { select: { id: true, email: true } } } },
+        },
+      });
+      const people = [o.athlete.user, o.athlete.guardian].filter((x): x is { id: string; email: string } => Boolean(x?.email));
+      for (const p of people) {
+        await send(tx, o.tenantId, {
+          template: "order.readyToSign",
+          to: p.email,
+          idempotencyKey: `order.readyToSign:${orderId}:${p.id}`,
+          data: {
+            athleteName: o.athlete.displayName, campaignName: o.campaign.name,
+            forGuardian: p === o.athlete.guardian ? "yes" : "no",
+            reviewUrl: `${env.APP_URL.replace(/\/+$/, "")}/athlete/orders/${encodeURIComponent(orderId)}`,
+          },
+        });
+      }
+    }
 
     return { id: updated.id, state: updated.state as OrderState };
   }

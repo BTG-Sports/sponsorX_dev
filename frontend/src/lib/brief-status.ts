@@ -148,7 +148,7 @@ export function submittedMessage(status?: BriefStatus | null): { title: string; 
   }
   return {
     title: "Request received",
-    body: `${status?.text ?? REVIEWING_TEXT}. You can follow it on your Campaigns page.`,
+    body: `${status?.text ?? REVIEWING_TEXT}. You can follow it on your Requests page.`,
     approved: false,
   };
 }

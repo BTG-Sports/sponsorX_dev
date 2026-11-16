@@ -22,6 +22,8 @@
 
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
+import { env } from "../config/env";
+import { send } from "../lib/email";
 import { audit } from "../db/audit";
 import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
@@ -247,6 +249,33 @@ export async function transitionInvite(
        campaign was waiting for. (An accepted one still needs its order, so
        it holds the campaign in STAFFING until BTG sends it.) */
     if (to === "DECLINED" || to === "EXPIRED") await advanceCampaign(tx, invite.tenantId, invite.campaignId);
+
+    /* POL-BE-64 (app review §2) — an acceptance is BTG's cue to draft the
+       Campaign Order, and nobody was told. The campaign managers and BTG
+       admins are emailed, in this transaction, with the way to the campaign. */
+    if (to === "ACCEPTED") {
+      const about = await tx.campaignInvite.findFirstOrThrow({
+        /* tenant-scope: the invitation loaded above through whereFor(invitation, write). */
+        where: { id: inviteId, tenantId: invite.tenantId },
+        select: { athlete: { select: { displayName: true } }, campaign: { select: { name: true } } },
+      });
+      const desk = await tx.user.findMany({
+        where: { tenantId: invite.tenantId, disabledAt: null, roles: { hasSome: ["BTG_ADMIN", "CAMPAIGN_MGR"] } },
+        select: { id: true, email: true },
+        take: 50,
+      });
+      for (const u of desk) {
+        await send(tx, invite.tenantId, {
+          template: "invitation.acceptedForBtg",
+          to: u.email,
+          idempotencyKey: `invitation.acceptedForBtg:${inviteId}:${u.id}`,
+          data: {
+            athleteName: about.athlete.displayName, campaignName: about.campaign.name,
+            reviewUrl: `${env.APP_URL.replace(/\/+$/, "")}/admin/campaigns/${encodeURIComponent(invite.campaignId)}`,
+          },
+        });
+      }
+    }
 
     return { id: updated.id, state: updated.state as InviteState };
   });

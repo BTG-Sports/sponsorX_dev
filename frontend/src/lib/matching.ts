@@ -651,6 +651,8 @@ export type MatchData = {
   live: boolean;
   /** Live: why this brief cannot send yet (e.g. not APPROVED), or null. */
   sendBlocked?: string | null;
+  /** POL-FE-63 — live: what sending also starts (automatic staffing up to the package maximum), or null. */
+  autoStaffingNote?: string | null;
   /** Live: the latest invite state per athlete on this campaign — for every
    *  athlete, not only this page's, so a pick held from another page reads
    *  its SENT state after a refresh (2026-09-29). */

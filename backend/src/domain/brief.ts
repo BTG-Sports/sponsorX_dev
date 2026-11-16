@@ -26,6 +26,9 @@ import { applyBriefMove, BRIEF_AUDIT_ACTIONS, lockBrief } from "./brief-moves";
 import { autoApproveOrHold, notifyBriefWithdrawn } from "./brief-auto";
 import { startAutoStaffing } from "./auto-staffing";
 import { startAutoSale } from "./ad-sale-auto";
+import { createCampaignIn } from "./campaign-create";
+import { env } from "../config/env";
+import { send } from "../lib/email";
 
 /** A matching list is a set: a repeat in the body is stored once, in the order first sent (QA 2026-10-15). */
 const uniq = <T>(xs: readonly T[] | undefined): T[] => [...new Set(xs ?? [])];
@@ -308,7 +311,7 @@ export async function transitionBrief(
   briefId: string,
   to: BriefState,
   reason?: string,
-): Promise<{ id: string; state: BriefState }> {
+): Promise<{ id: string; state: BriefState; campaignId?: string }> {
   assertAllowed(actor, "campaignBrief", to === "CLOSED" ? "write" : "approve");
   /* P4-FE-07 — BTG closing a brief says why; the queue shows it back and the
      audit row keeps it. A sponsor withdrawing their own brief owes no reason. */
@@ -332,7 +335,10 @@ export async function transitionBrief(
     const brief = await tx.campaignBrief.findFirstOrThrow({
       /* tenant-scope: the brief found through whereFor(campaignBrief) and locked. */
       where: { id: found.id, tenantId: found.tenantId },
-      select: { objective: true, heldAt: true, sponsor: { select: { name: true } }, package: { select: { name: true } } },
+      select: {
+        objective: true, heldAt: true, sponsorId: true, budget: true, startDate: true, endDate: true,
+        sponsor: { select: { name: true } }, package: { select: { name: true, athleteCountMax: true, lineItems: true } },
+      },
     });
 
     const moved = await applyBriefMove(
@@ -348,7 +354,49 @@ export async function transitionBrief(
         sponsorName: brief.sponsor.name, packageName: brief.package?.name ?? null, note: closeReason,
       });
     }
+    /* POL-BE-64 (app review §2) — BTG closing a request emailed nobody. Their
+       admins are now told it's closed, with the way to their request and to
+       ask BTG. BTG's reason stays internal (it never reaches a sponsor — the
+       close panel says so), so the email carries none. */
+    if (staffClose && closeReason) {
+      const admins = await tx.user.findMany({
+        where: { tenantId: found.tenantId, disabledAt: null, sponsorId: brief.sponsorId, roles: { has: "SPONSOR_ADMIN" } },
+        select: { id: true, email: true },
+        take: 20,
+      });
+      for (const u of admins) {
+        await send(tx, found.tenantId, {
+          template: "brief.closedForSponsor",
+          to: u.email,
+          idempotencyKey: `brief.closedForSponsor:${found.id}:${u.id}`,
+          data: {
+            sponsorName: brief.sponsor.name, packageName: brief.package?.name ?? "your request",
+            contactUrl: `${env.APP_URL.replace(/\/+$/, "")}/contact?topic=campaigns`,
+            reviewUrl: `${env.APP_URL.replace(/\/+$/, "")}/sponsor/requests/${encodeURIComponent(found.id)}`,
+          },
+        });
+      }
+    }
+    /* POL-BE-63 (app review §2) — BTG approving a held brief by hand makes its
+       campaign at once, exactly as the automatic approval does (brief-auto.ts),
+       instead of waiting silently for a Studio invite. Its staffing and edition
+       sale start once this transaction commits (below). */
+    if (to === "APPROVED") {
+      const campaign = await createCampaignIn(
+        tx, actor,
+        { id: found.id, tenantId: found.tenantId, sponsorId: brief.sponsorId, budget: brief.budget, startDate: brief.startDate, endDate: brief.endDate, package: brief.package },
+        `${brief.sponsor.name} · ${brief.package?.name ?? "Custom"}`.slice(0, 160),
+      );
+      return { ...moved, campaignId: campaign.id, autoStaffing: campaign.autoStaffing, tenantId: found.tenantId };
+    }
     return moved;
+  }).then(async (r) => {
+    const out = r as { id: string; state: BriefState; campaignId?: string; autoStaffing?: boolean; tenantId?: string };
+    if (out.campaignId && out.tenantId) {
+      await startAutoSale(out.tenantId, out.campaignId);
+      if (out.autoStaffing) await startAutoStaffing(out.tenantId, out.campaignId);
+    }
+    return { id: out.id, state: out.state, ...(out.campaignId ? { campaignId: out.campaignId } : {}) };
   });
 }
 

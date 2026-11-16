@@ -51,8 +51,9 @@ export const STATE_DETAIL: Record<LiveApplicationState, string> = {
   UNDER_REVIEW: "A network manager is working through the checks.",
   CHANGES_REQUESTED:
     "Sent back with notes — waiting on the athlete to update and resubmit.",
+  /* POL-FE-64 (app review §2) — approved is not yet matchable: an invitation refuses an athlete who isn't ACTIVE. */
   APPROVED:
-    "In the network — approval confirmed this athlete's rate card, so sponsors can now be matched to them.",
+    "Approved, not active yet — they can't be invited to campaigns until they're activated. Activate them once their rate card is set (a minor also needs a verified guardian).",
   ACTIVE: "Live in the network and able to take paid work.",
   REJECTED: "Not a fit right now. The athlete was notified.",
   SUSPENDED: "Paused — no new work until a network manager reinstates them.",
