@@ -1,49 +1,44 @@
 import Link from "next/link";
-import { ArenaChip, ArenaHead, ArenaUpdated, ArenaLink, ArenaPanel, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
+import { ArenaChip, ArenaHead, ArenaUpdated, ArenaTile, ArenaTiles, at } from "@/components/arena-stage";
 import { AthleteProfileView } from "@/components/athlete-profile-view";
-import { Badge, BlockedNotice, SourceLabel } from "@/components/ui";
+import { ProfileShowcase } from "@/components/profile-showcase";
+import { ProfileWizard } from "@/components/profile-wizard";
+import { BlockedNotice } from "@/components/ui";
 import { athlete, athletePublic, profileChecklist } from "@/lib/fixtures";
-import { CHECKLIST_SECTION, SECTIONS, type SectionKey } from "@/lib/profile-sections";
-import {
-  completion,
-  sectionStates,
-  type ApiMyProfile,
-  type ApiRate,
-  type SectionState,
-} from "@/lib/profile-live";
-import { money } from "@/lib/fixtures";
+import { CHECKLIST_SECTION } from "@/lib/profile-sections";
+import { sectionStates, type ApiMyProfile, type ApiRate } from "@/lib/profile-live";
+import { isMinorNow } from "@/lib/profile-changes-live";
+import { profileComplete, publicFace, wizardDone } from "@/lib/profile-wizard";
 import { apiFetch, fetchActor } from "@/server/api";
 import { viewerIsAthlete } from "@/lib/athlete-order-pause";
+
+/* The wizard's stepper, panels, medal and buttons are the confirmations
+   wizard's (POL-FE-79); the profile's own pieces are in profile.css. */
+import "../confirmations/confirmations.css";
+import "./profile.css";
 
 /* --------------------------------------------------------------------------
    Your public profile — inside the Athlete Portal (2026-09-14 UX pass).
 
    The sidebar's "Public profile" used to link straight to /athletes/[slug],
    throwing the athlete out of their portal into the public site. This page
-   keeps them home: the same profile content, framed for its owner — no
-   Follow / Request Partnership aimed at yourself (AthleteProfileView's
-   "owner" variant swaps those for pointers to Invitations), a completion
-   nudge, and the real public URL one labelled new-tab link away. Stale
-   ?from=athlete-portal links to the public page redirect here.
+   keeps them home, framed for its owner (memory: portal-views-stay-in-
+   portal). Stale ?from=athlete-portal links to the public page redirect here.
 
    LIVE vs DEMO (P3-FE-03, the review-queue precedent). A signed-in ATHLETE
-   sees their REAL profile — GET /athletes/me — and a §24 completion meter
-   DERIVED from the data (lib/profile-live.ts), section by §11 section.
-   Anyone else keeps the fixture demo. The public page has been live since
-   P3-FE-08 (GET /public/athletes/:slug), so the live view now carries the
-   "Open public page ↗" link to the athlete's own slug — while the profile
-   is ACTIVE, which is when the public page answers for it. The live editor
-   is one pill away (2S1-FE-09: edits save at once).
+   (or a guardian acting for their minor) sees their REAL profile — GET
+   /athletes/me and their own /rates. Anyone else keeps the fixture demo.
 
-   P1-ART-22 (2026-10-11) — redrawn on the Arena (components/arena-stage.tsx)
-   with the dashboard's anatomy: a small title with the provenance pill and
-   the profile's state, the name · sport · school as the lede, the two owner
-   actions as pills, a KPI row (completion as a lane, sections done, the
-   rate card's size, followers with their §22 provenance), then the nine §11
-   sections as plates in two columns. Every figure is derived from the same
-   GET /athletes/me and /rates reads as before; nothing is invented. The
-   only exit is the public page, in a new tab (memory:
-   portal-views-stay-in-portal).
+   POL-FE-80 (2026-11-16) — redesigned as a wizard. The owner found the
+   nine-plate dashboard (P1-ART-22) "so confusing for a human":
+     · Unfinished profile → a step-by-step wizard, one step per section the
+       athlete can answer (components/profile-wizard.tsx), with a live
+       preview of the public page. Each save is the full editor's own write.
+     · Finished profile → no wizard and no "Open public page" link: the
+       public page itself, owner-framed (components/profile-showcase.tsx),
+       with the private sections under it.
+   "Finished" is the §24 meter at 100% (lib/profile-wizard.ts), derived from
+   the same read; nothing is invented.
    -------------------------------------------------------------------------- */
 
 /** The real profile for a signed-in athlete, or null for the fixture demo. */
@@ -68,27 +63,11 @@ async function liveProfile(): Promise<{ p: ApiMyProfile; rates: ApiRate[] } | nu
   return { p, rates };
 }
 
-const STATE_CHIP: Record<SectionState, { tone: ArenaTone; label: string }> = {
-  done: { tone: "win", label: "Complete" },
-  missing: { tone: "warn", label: "Missing" },
-  "not-collected": { tone: "ink", label: "Not collected by SponsorX" },
-};
-
-/* The two owner actions, as the arena's pills (globals.css skins both). */
+/* The owner actions, as the arena's pills (globals.css skins both). */
 const PILL_PRIMARY =
   "sx-btn-primary inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-cta-ink outline-none focus-visible:ring-2 focus-visible:ring-athlete focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
 const PILL_SECONDARY =
   "sx-btn-secondary inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-2 text-xs font-medium text-text outline-none focus-visible:ring-2 focus-visible:ring-athlete focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
-
-/** §22 — the provenance tokens SourceLabel can name; anything else prints raw. */
-const SOURCES = ["VERIFIED_SYSTEM", "VERIFIED_API", "VERIFIED_MANUAL", "SELF_REPORTED", "ESTIMATED", "ATTRIBUTED"] as const;
-type Source = (typeof SOURCES)[number];
-const asSource = (s: string): Source | null => ((SOURCES as readonly string[]).includes(s) ? (s as Source) : null);
-
-function Provenance({ source }: { source: string }) {
-  const s = asSource(source);
-  return s ? <SourceLabel source={s} /> : <Badge tone="neutral">{words(source)}</Badge>;
-}
 
 /** Humanize a stored enum-ish token: "HIGH_SCHOOL" → "High school". */
 function words(s: string): string {
@@ -111,16 +90,17 @@ function OutIcon() {
   );
 }
 
-function EditPill({ href = "/athlete/profile/edit" }: { href?: string }) {
+function EditPill({ label = "Edit profile", quiet = false }: { label?: string; quiet?: boolean }) {
   return (
-    <Link href={href} className={PILL_PRIMARY}>
+    <Link href="/athlete/profile/edit" className={quiet ? PILL_SECONDARY : PILL_PRIMARY}>
       <PencilIcon />
-      Edit profile
+      {label}
     </Link>
   );
 }
 
-/** The one exit: the real public page, in a new tab. */
+/** The real public page, in a new tab — only while the profile is
+ *  unfinished; a finished profile shows the page itself, here. */
 function PublicPill({ slug }: { slug: string }) {
   return (
     <a href={`/athletes/${encodeURIComponent(slug)}?from=athlete-profile`} target="_blank" rel="noreferrer" className={PILL_SECONDARY}>
@@ -131,182 +111,18 @@ function PublicPill({ slug }: { slug: string }) {
   );
 }
 
-function SectionContent({ p, k, rates }: { p: ApiMyProfile; k: SectionKey; rates: ApiRate[] }) {
-  const dash = <span className="text-faint">—</span>;
-  switch (k) {
-    case "identity":
-      return (
-        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-xs">
-          <dt className="text-muted">Display name</dt>
-          <dd className="font-medium">{p.displayName}</dd>
-          <dt className="text-muted">Legal name</dt>
-          <dd className="font-medium">{p.legalName}</dd>
-          <dt className="text-muted">Location</dt>
-          <dd className="font-medium">
-            {[p.city, p.stateCode].filter(Boolean).join(", ") || dash}
-          </dd>
-          {p.achievements && (
-            <>
-              <dt className="text-muted">Achievements</dt>
-              <dd className="font-medium">{p.achievements}</dd>
-            </>
-          )}
-        </dl>
-      );
-    case "sport":
-      return (
-        <p className="text-xs text-muted">
-          <span className="font-medium text-text">{p.sport}</span>
-          {p.position && <> · {p.position}</>}
-          {p.school && <> · {p.school}</>}
-          {p.level && <> · {words(p.level)}</>}
-          {p.gradYear && <> · Class of {p.gradYear}</>}
-        </p>
-      );
-    case "socials":
-      return p.socials.length === 0 ? (
-        <p className="text-xs text-muted">No accounts on file yet.</p>
-      ) : (
-        <ul className="divide-y divide-line-soft">
-          {p.socials.map((s) => (
-            <li key={`${s.platform}:${s.handle}`} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-1.5 text-xs first:pt-0 last:pb-0">
-              <span className="font-medium">{words(s.platform)}</span>
-              <span className="min-w-0 truncate text-muted">{s.handle}</span>
-              {s.followers !== null && (
-                <span className="sx-arena-num ml-auto text-sm text-text">
-                  {s.followers.toLocaleString("en-US")}
-                  <span className="ml-1 font-sans text-[10px] font-normal not-italic tracking-normal text-muted">followers</span>
-                </span>
-              )}
-              <Provenance source={s.source} />
-            </li>
-          ))}
-        </ul>
-      );
-    case "capabilities":
-    case "interests": {
-      const items = k === "capabilities" ? p.contentCapabilities : p.brandInterests;
-      return items.length === 0 ? (
-        <p className="text-xs text-muted">Nothing selected yet.</p>
-      ) : (
-        <p className="flex flex-wrap gap-1.5">
-          {items.map((c) => (
-            <ArenaChip key={c} tone="blue">{words(c)}</ArenaChip>
-          ))}
-        </p>
-      );
-    }
-    case "restrictions":
-      return p.restrictedCategories.length === 0 && !p.restrictionNotes?.trim() ? (
-        <p className="text-xs text-muted">
-          Not answered yet — even &ldquo;none&rdquo; is worth recording, so the
-          conflict check can trust it.
-        </p>
-      ) : (
-        <div className="space-y-1.5">
-          {p.restrictedCategories.length > 0 && (
-            <p className="flex flex-wrap gap-1.5">
-              {p.restrictedCategories.map((c) => (
-                <ArenaChip key={c} tone="danger">{words(c)}</ArenaChip>
-              ))}
-            </p>
-          )}
-          {p.restrictionNotes?.trim() && (
-            <p className="text-xs text-muted">{p.restrictionNotes}</p>
-          )}
-        </div>
-      );
-    case "rates":
-      /* The athlete's own pay per job — what P3-FE-04 exists to show. These
-         are NOT what sponsors pay (catalogue prices are higher and live on
-         the sponsor side); §7.1 keeps the two apart in both directions. */
-      return rates.length === 0 ? (
-        /* POL-FE-51 — true now that BTG has a screen that writes rates
-           (/admin/athletes/{id}/rates): say who, and that they appear here. */
-        <p className="text-xs text-muted">
-          No rates set yet. Your BTG manager sets them with you, and they show here as soon as they&apos;re saved.
-        </p>
-      ) : (
-        <div>
-          <ul className="divide-y divide-line-soft">
-            {rates.map((r) => (
-              <li key={r.jobId} className="flex items-baseline justify-between gap-3 py-1.5 text-xs first:pt-0 last:pb-0">
-                <span className="min-w-0 truncate font-medium">{r.jobName}</span>
-                <span className="sx-arena-num shrink-0 text-sm text-text">
-                  {money(r.amount)}
-                  {r.version > 1 && <span className="font-sans text-[10px] font-normal not-italic tracking-normal text-faint"> · v{r.version}</span>}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-[10px] leading-relaxed text-faint">
-            Your pay per deliverable{p.tier && <> · {words(p.tier)} tier</>}.
-            Sponsors see catalogue prices, never these.
-          </p>
-        </div>
-      );
-    case "payment":
-      return (
-        <p className="text-xs text-muted">
-          SponsorX never stores bank details or tax IDs. Campaign earnings are
-          paid by BTG Finance outside SponsorX; shop and marketplace payouts
-          are set up with Stripe on the Payouts page. This section
-          doesn&rsquo;t count against your meter.
-        </p>
-      );
-    case "agreements":
-      return (
-        <p className="text-xs text-muted">
-          {p.agreementsSigned > 0 ? (
-            <>
-              <span className="sx-arena-num text-sm text-text">{p.agreementsSigned}</span>{" "}
-              {p.agreementsSigned === 1 ? "agreement" : "agreements"} accepted.
-            </>
-          ) : (
-            <>Nothing signed yet — agreements arrive with your first campaign.</>
-          )}
-        </p>
-      );
-  }
-}
-
-/** The owner pointer that replaces the sponsor-side CTA (memory:
- *  portal-views-stay-in-portal): where a sponsor's request actually lands. */
-function OwnerPointer({ delay }: { delay: number }) {
-  return (
-    <ArenaPanel tone="flare" delay={delay} spot>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="min-w-0 flex-1 text-xs leading-relaxed text-muted">
-          {/* POL-FE-69 (app review §3) — there is no partnership-request button; BTG matches and invites. */}
-          Sponsors find you through BTG: BTG matches you to their campaigns, and every invitation arrives in your Invitations, never here.
-        </p>
-        <ArenaLink href="/athlete/invitations">Invitations</ArenaLink>
-      </div>
-    </ArenaPanel>
-  );
-}
+/** States in which an edit applies (P3-BE-16, 2S1-BE-14). Before approval
+ *  the application itself is what the athlete edits, at /join. */
+const POST_APPROVAL = ["APPROVED", "ACTIVE", "SUSPENDED"];
 
 function LiveProfile({ p, rates }: { p: ApiMyProfile; rates: ApiRate[] }) {
   const states = sectionStates(p);
-  const { percent, missing } = completion(states);
-  const labelOf = (k: SectionKey) => SECTIONS.find((s) => s.key === k)?.label ?? k;
-
-  /* The KPI figures, every one from the same two reads as the plates below. */
-  const answerable = (Object.keys(states) as SectionKey[]).filter((k) => states[k] !== "not-collected");
-  const done = answerable.filter((k) => states[k] === "done").length;
-  const notCollected = SECTIONS.length - answerable.length;
-  const counted = p.socials.filter((s) => s.followers !== null);
-  const followers = counted.reduce((n, s) => n + (s.followers ?? 0), 0);
-  const provenance = new Set(counted.map((s) => s.source));
-  /* One follower figure needs one provenance (§22) — mixed sources would
-     put one label on two kinds of number, so then only the accounts count. */
-  const followerTile = counted.length > 0 && provenance.size === 1 ? [...provenance][0] : null;
-  const cols = 2 + (rates.length > 0 ? 1 : 0) + (p.socials.length > 0 ? 1 : 0);
-  const lede = [p.displayName, p.sport, p.school].filter(Boolean).join(" · ");
+  const complete = profileComplete(states);
   const isActive = p.state === "ACTIVE";
+  const lede = [p.displayName, p.sport, p.school].filter(Boolean).join(" · ");
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <ArenaHead
         title="Public profile"
         pill={<ArenaUpdated />}
@@ -317,99 +133,37 @@ function LiveProfile({ p, rates }: { p: ApiMyProfile; rates: ApiRate[] }) {
           </span>
         }
         actions={
-          <>
-            {isActive ? (
-              <PublicPill slug={p.slug} />
-            ) : (
-              <span className="text-[11px] text-muted">Your public page opens once BTG activates your profile.</span>
-            )}
+          complete ? (
             <EditPill />
-          </>
+          ) : (
+            <>
+              {isActive && <PublicPill slug={p.slug} />}
+              <EditPill label="Full editor" quiet />
+            </>
+          )
         }
+      />
+
+      <ProfileWizard
+        profile={p}
+        done={wizardDone(states)}
+        complete={complete}
+        editable={POST_APPROVAL.includes(p.state)}
+        minor={isMinorNow(p.birthDate, p.ageBand)}
       >
-        <ArenaTiles cols={cols as 2 | 3 | 4}>
-          {/* §24 — the meter, derived from the data on this page and nothing else */}
-          <ArenaTile
-            label="Profile completion"
-            value={percent}
-            format="pct"
-            share={percent / 100}
-            tone={percent === 100 ? "win" : "blue"}
-            caption={missing.length > 0 ? `finish ${missing.map((k) => labelOf(k).toLowerCase()).join(", ")}` : "every section is filled in"}
-            href="/athlete/profile/edit"
-            delay={0.1}
-          />
-          <ArenaTile
-            label="Sections done"
-            value={done}
-            caption={`of ${answerable.length} that count · ${notCollected} not collected by SponsorX`}
-            tone={done === answerable.length ? "win" : "ink"}
-            delay={0.16}
-          />
-          {rates.length > 0 && (
-            <ArenaTile
-              label="Rate card"
-              value={rates.length}
-              caption={p.tier ? `jobs priced · ${words(p.tier)} tier · yours only` : "jobs priced · your pay, never shown to sponsors"}
-              tone="blue"
-              delay={0.22}
-            />
-          )}
-          {followerTile ? (
-            <ArenaTile
-              label="Followers"
-              value={followers}
-              caption={
-                <span className="inline-flex items-center gap-1.5">
-                  {counted.length === 1 ? "1 account" : `${counted.length} accounts`} · <Provenance source={followerTile} />
-                </span>
-              }
-              tone="flare"
-              delay={0.28}
-            />
-          ) : p.socials.length > 0 ? (
-            <ArenaTile
-              label="Social accounts"
-              value={p.socials.length}
-              caption={counted.length === 0 ? "no follower counts on file" : "mixed provenance · see each account below"}
-              tone="ink"
-              delay={0.28}
-            />
-          ) : null}
-        </ArenaTiles>
-      </ArenaHead>
-
-      <OwnerPointer delay={0.3} />
-
-      {/* §11, section by section — public ones feed the sponsor-facing
-          page, private ones stay between the athlete and BTG. */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        {SECTIONS.map((s, i) => {
-          const chip = STATE_CHIP[states[s.key]];
-          return (
-            <ArenaPanel key={s.key} tone={states[s.key] === "missing" ? "warn" : "blue"} delay={0.34 + i * 0.05} spot>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-sm font-semibold tracking-tight">{s.label}</h2>
-                <ArenaChip tone={s.scope === "public" ? "blue" : "ink"}>{s.scope === "public" ? "Public" : "Private"}</ArenaChip>
-                <span className="ml-auto">
-                  <ArenaChip tone={chip.tone}>{chip.label}</ArenaChip>
-                </span>
-              </div>
-              <p className="mt-1 text-[11px] leading-relaxed text-faint">{s.blurb}</p>
-              <div className="mt-3">
-                <SectionContent p={p} k={s.key} rates={rates} />
-              </div>
-            </ArenaPanel>
-          );
-        })}
-      </div>
-
-      <p className="sx-arena-in text-[10px] leading-relaxed text-faint" style={at(0.8)}>
-        To change these details,{" "}
-        <Link href="/athlete/profile/edit" className="text-athlete hover:underline">edit your profile</Link>
-        {" "}— changes save straight away. A legal name, date of birth or guardian
-        also tells BTG and re-runs the checks.
-      </p>
+        <ProfileShowcase
+          face={publicFace(p)}
+          slug={p.slug}
+          live={isActive}
+          priv={{
+            restrictedCategories: p.restrictedCategories,
+            restrictionNotes: p.restrictionNotes,
+            rates,
+            tier: p.tier,
+            agreementsSigned: p.agreementsSigned,
+          }}
+        />
+      </ProfileWizard>
     </div>
   );
 }

@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { acceptCollabAction, confirmRulesAction } from "@/app/(app)/athlete/confirmations/actions";
 import { agreementSections, nextStep, sectionChip, type ConfirmResult, type StepState } from "@/lib/athlete-confirmations";
+import { Arrow, Flag, Medal, Shield, Tick, d } from "@/components/wizard-kit";
 
 /* --------------------------------------------------------------------------
    ConfirmationsWizard — /athlete/confirmations as a step-by-step wizard
@@ -364,8 +365,6 @@ export function ConfirmationsWizard({ steps, words }: { steps: WizardStep[]; wor
 
 /* ------------------------------------------------------------------ parts */
 
-const d = (s: number) => ({ "--d": `${s}s` }) as CSSProperties;
-
 function Label({ n, children }: { n: number | null; children: string }) {
   return (
     <p className="sx-cw-label">
@@ -447,44 +446,6 @@ function Reader({ body }: { body: string }) {
   );
 }
 
-/* Burst particles — fixed, so the server and client draw the same. */
-const COLORS = ["var(--sx-athlete)", "var(--sx-accent)", "var(--sx-success)", "var(--sx-primary-soft)", "var(--sx-warn)"];
-function Burst({ n, reach }: { n: number; reach: number }) {
-  return (
-    <span aria-hidden="true" className="sx-cw-burst">
-      {Array.from({ length: n }, (_, k) => (
-        <i
-          key={k}
-          style={{
-            "--a": `${Math.round((k * 360) / n + ((k * 37) % 17) - 8)}deg`,
-            "--r": `${reach * (0.62 + ((k * 53) % 40) / 100)}px`,
-            "--s": `${((k * 97) % 300) - 150}deg`,
-            "--t": `${0.35 + ((k * 13) % 10) / 100}s`,
-            "--c": COLORS[k % COLORS.length],
-            width: k % 3 === 0 ? 6 : 8,
-            height: k % 3 === 0 ? 6 : 13,
-            borderRadius: k % 3 === 0 ? 9999 : 3,
-          } as CSSProperties}
-        />
-      ))}
-    </span>
-  );
-}
-
-function Medal({ size, burst }: { size: "md" | "lg"; burst: number }) {
-  return (
-    <span className="sx-cw-medal" data-size={size}>
-      {burst > 0 && <Burst n={burst} reach={size === "lg" ? 210 : 120} />}
-      <span aria-hidden="true" className="sx-cw-orbit" />
-      <svg viewBox="0 0 100 100" aria-hidden="true">
-        <circle className="sx-cw-disc" cx="50" cy="50" r="44" />
-        <circle className="sx-cw-ring" cx="50" cy="50" r="44" pathLength={1} />
-        <path className="sx-cw-tick" pathLength={1} d="M31 51.5l12.5 12.5L70 37.5" />
-      </svg>
-    </span>
-  );
-}
-
 function Cheer({ last }: { last: boolean }) {
   return (
     <div className="sx-cw-cheer" role="status">
@@ -495,19 +456,4 @@ function Cheer({ last }: { last: boolean }) {
       </div>
     </div>
   );
-}
-
-/* ------------------------------------------------------------------ glyphs */
-
-function Tick() {
-  return <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>;
-}
-function Arrow() {
-  return <svg viewBox="0 0 24 24" className="sx-cw-arrow size-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>;
-}
-function Flag() {
-  return <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 21V4m0 0h11l-2 4 2 4H5" /></svg>;
-}
-function Shield() {
-  return <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z" /></svg>;
 }

@@ -2336,6 +2336,20 @@ the blockers and today's content review findings.
   said before.
 - **Delivered (2026-11-16, HeckerCreatives):** `components/confirmations-wizard.tsx` replaces `confirmations-form.tsx`; the page decides every word, the wizard walks them. The agreement reads section by section with a reading bar and section chips (`agreementSections`, tested word for word against `COLLAB.v2.txt`). A confirm plays a burst and moves to the next open step; reduced motion gets the still version. Walked live at 1440 and 320 (both steps, no console errors, no sideways scroll).
 
+### 80. The athlete's public profile is nine plates and no path [§3]
+`POL-FE-80` · *Confusing* · confirmed (programme owner, 2026-11-16: "make it a step by step wizard … easy to understand", keep the Arena theme; once the profile is complete, no "Open public page", the public page itself)
+- **Fix:** while the profile is unfinished, `/athlete/profile` is a wizard:
+  one step per section the athlete can answer (who you are, sport, socials,
+  content, brands, what you won't promote, the agreement), each saying who
+  sees it, with a friendly form, a live preview of the public page, and
+  Save & continue. Once every step is done, the page shows the public page
+  itself, owner-framed, with the private sections under it.
+- **Done when:** an athlete can finish their profile from the page without
+  reading instructions; a finished profile shows its public page with no
+  "Open public page" link and no sponsor-side button; nothing private
+  reaches the public frame.
+- **Delivered (2026-11-16, HeckerCreatives):** `components/profile-wizard.tsx` (client island), steps and rules in `lib/profile-wizard.ts`, the public page in `components/profile-showcase.tsx` (built from `publicFace`, which carries only what `GET /public/athletes/:slug` sends; Invitations stands where "Request a proposal" would). Every save is the full editor's own write (`edit/actions.ts`); legal name, date of birth and guardian stay in the full editor. The agreement step opens Confirmations, which comes back here. A save plays a medal and moves on; finishing opens the finale, then the page; a profile finished elsewhere gets a one-time ribbon. The medal, confetti and glyphs moved to `components/wizard-kit.tsx`, shared with #79. Walked live at 1440, 1024, 390 and 320: sport → content → brands → off-limits → Confirmations → back to the public page; one change record per save under a double click, no console errors, no sideways scroll.
+
 ### 81. The athlete home is eleven blocks with no first move [§9]
 `POL-FE-81` · *Confusing* · confirmed (programme owner, 2026-11-16: "make it a step by step wizard … easy to understand", with three dashboard references; keep the Arena theme)
 - **Fix:** put a step-by-step wizard at the top of `/athlete`, the "game plan":
