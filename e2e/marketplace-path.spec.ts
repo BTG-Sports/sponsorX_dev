@@ -324,6 +324,8 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
 
   /* ──────────────────── 4 · the athlete's clinic, listed by the team ── */
   await athlete.goto("/athlete/inventory");
+  /* POL-FE-83: the form opens in a popup from "Add your first item" (an empty inventory) or "Add an item". */
+  await athlete.getByRole("button", { name: /^Add (your first|an) item$/ }).first().click();
   const form = athlete.getByRole("form", { name: "New inventory item" });
   await expect(form).toBeVisible();
   await athlete.locator("#inv-title").fill(CLINIC.title);

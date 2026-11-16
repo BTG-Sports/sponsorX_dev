@@ -20,6 +20,7 @@ import {
   type DraftErrors,
   type InventoryBody,
   type InventoryDraft,
+  type InventoryKind,
 } from "@/lib/inventory-live";
 
 /* --------------------------------------------------------------------------
@@ -55,6 +56,8 @@ export function InventoryForm({
   doneHref,
   onCancel,
   tone = "athlete",
+  kind: pickedKind,
+  onKindChange,
 }: {
   mode: "create" | "edit";
   /** The item being edited (edit mode). */
@@ -70,10 +73,22 @@ export function InventoryForm({
   doneHref?: string;
   /** The portal's colour for the pickers — the athlete's, or the team manager's. */
   tone?: FilterTone;
+  /** POL-FE-83 — create mode: the kind picked outside the form (the
+   *  inventory's kind tiles). A new value sets the draft's kind, keeping
+   *  everything typed so far. */
+  kind?: InventoryKind;
+  /** POL-FE-83 — told when the form's own Kind menu changes, so the tiles follow. */
+  onKindChange?: (kind: InventoryKind) => void;
 }) {
   const router = useRouter();
-  const initial: InventoryDraft = item ? { ...draftFromItem(item), components: [] } : EMPTY_DRAFT;
+  const initial: InventoryDraft = item ? { ...draftFromItem(item), components: [] } : { ...EMPTY_DRAFT, kind: pickedKind ?? EMPTY_DRAFT.kind };
   const [d, setD] = useState<InventoryDraft>(initial);
+  /* A tile picked outside: adjust the draft during render, not in an effect. */
+  const [seenKind, setSeenKind] = useState(pickedKind);
+  if (pickedKind !== seenKind) {
+    setSeenKind(pickedKind);
+    if (pickedKind && mode === "create") setD((p) => ({ ...p, kind: pickedKind }));
+  }
   const [errors, setErrors] = useState<DraftErrors>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string; confirmHref?: string } | null>(null);
@@ -162,7 +177,10 @@ export function InventoryForm({
             disabled={lockedPackage}
             value={d.kind}
             options={kindOptions.map((k) => ({ value: k, label: KIND_LABEL[k] }))}
-            onChange={(v) => set("kind", v as InventoryDraft["kind"])}
+            onChange={(v) => {
+              set("kind", v as InventoryDraft["kind"]);
+              onKindChange?.(v as InventoryKind);
+            }}
             tone={tone}
           />
           <FieldError text={errors.kind} />
