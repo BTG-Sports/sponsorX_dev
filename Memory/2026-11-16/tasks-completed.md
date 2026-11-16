@@ -132,3 +132,27 @@
 - **Checked:**
   - Tests: 20 (cleared/hidden/key helpers, and the page with and without the cookie).
   - Walked in Chrome on a throwaway route with every step done (deleted after): cookie set, hover paused 7 s, folded after the remaining time with the gap closed, "Hide now" folded at once, "Back to the steps" kept it. No console errors.
+
+## Public athlete page redesign (POL-FE-82, `feat/athlete-confirmations-wizard`, HeckerCreatives)
+- **Why:** the programme owner asked for a big visual redesign of `/athletes/[slug]`, with animation and wow factor. Three profile references: a cover, an overlapping photo, big stats, sticker badges, tabs and work cards. It had to be easy to understand, keep the theme, and show what the athlete did on the platform. After seeing it they added: show it on `/athlete/profile` once the wizard is complete.
+- **API:** `GET /public/athletes/:slug` adds three fields; all are null for a featured athlete.
+  - `photoUrl` follows the home page's minor rule: a minor's photo, or one with no age on file, shows only after BTG approves it.
+  - `memberSince`: the approval month.
+  - `track` (`publicTrackRecord` in `domain/featured.ts`): counts only. Campaigns completed, distinct brands, live and verified posts, on time, fan redemptions, and the last six posts (platform and month only). No sponsor or campaign name, money or title.
+  - The photo's CDN address carries the storage path. The home panel already publishes the same address.
+- **Page:** `components/athlete-public-page/` (moved out of the route) has a `public` mode and an `owner` mode. Words and badges are in `lib/public-athlete.ts`; the `PublicAthlete` type moved there too, and `featured-profile.tsx` re-exports it.
+  - The page reads as three tabs: Track record, Reach, About.
+  - One action: "Request a proposal" in the hero, plus a three-step card.
+  - The motion island `profile-fx.tsx` does reveals, tilt and glare, cover parallax and the scroll-following tabs.
+  - The hero waits for the boot screen. Reduced motion gets a still page; no-JS shows everything.
+- **Owner view:** once the wizard is complete, `/athlete/profile` reads the same public answer (`apiFetch`). If that read fails, the page errors; it never falls back to a stand-in. A profile that's complete but not live shows the public sections with no record and "Not live yet".
+  - Owner mode drops "Request a proposal" and "Is this you?" for "How sponsors reach you" → Invitations, plus a "Make your page stand out" card.
+  - The name is an h2 under the "Public profile" h1, which e2e loop-p3 reads.
+  - The showcase still passes a node into the wizard island. The private sections stay under it.
+- **Checked:**
+  - Backend: `public-track-record.test.ts` (new, 5) and the `next-rights` key set, 38 together. Run against the Docker DB with the root `.env` loaded.
+  - Frontend: `public-athlete.test.ts` (new, 14) and `profile-wizard.test.ts` (stubbed public read, plus an error on a failed read). The full suite is 190 files and 2,200 tests; tsc and eslint are clean.
+  - Walked live in Chrome at 1440 and 390, on the public page (Elijah, Jordan) and the finished `/athlete/profile` as the QA athlete. No console errors, no sideways scroll, every reveal ended visible.
+  - `next build` was not run: the owner's `next dev` was live.
+- **Local data:** the walk filled `seed_ath_adult`'s profile and added one agreement acceptance (`pol82_walk_acc`). Both were restored to the snapshot afterwards and checked. The dev API (:4000, `src/index.ts`) was restarted to pick up the new fields.
+- **Noticed:** `seed_ath_adult`'s local photo is a picture of a sample driver's licence. That's dev data, but it is now on its public page. Swap it before any screenshot leaves the team.

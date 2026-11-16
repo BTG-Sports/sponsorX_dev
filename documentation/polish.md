@@ -2364,6 +2364,24 @@ the blockers and today's content review findings.
   steps they have.
 - **Delivered (2026-11-16, HeckerCreatives):** `components/athlete-game-plan.tsx` (client island) with the words and states in `lib/athlete-game-plan.ts`; the step bodies are drawn by the server page and passed as ReactNode. The "coming up" plates, profile lane, payout banner, orders-waiting plate and confirmations banner moved into the step each belongs to. New `components/athlete-glance.tsx` (KPI plates with rings, earnings bars with tooltips and a table for screen readers) and `components/arena-ring.tsx`; styles in `app/(app)/athlete/home.css` (theme tokens, Frost and dark, reduced-motion still look). Same reads; nothing new fetched or estimated. Walked live at 1440, 1280 (Frost) and 390: no console errors from the home, no sideways scroll.
 
+`POL-FE-82` · *Confusing* · confirmed (programme owner, 2026-11-16: "big visual redesign for /athletes/[slug] … based on the images provided … animations + wow factor … easy to understand … showcase what they did inside the platform and the good things about the athlete"; three profile references; keep the theme. Then: "it should see on the /athlete/profile when the step by step wizard is complete")
+- **Fix:** rebuild the public athlete page in the references' anatomy (a cover, an overlapping photo, the name with a verified badge, big numbers, sticker badges, tabs, work cards), reading as three plain questions: Track record, Reach and About. Add what the athlete has done on SponsorX, from real counts. The finished `/athlete/profile` shows this same page, owner-framed.
+- **Done when:**
+  - A sponsor can tell in one screen who the athlete is, what they've done and how to work with them.
+  - Every number is a Postgres count or a social row with its provenance.
+  - Nothing commercial or private is public: no sponsor or campaign names, no money, no rates, no age.
+  - A minor's photo shows only after BTG approves it.
+  - The owner's copy has no sponsor-side button.
+- **Delivered (2026-11-16, HeckerCreatives):**
+  - **API:** `GET /public/athletes/:slug` now adds `photoUrl`, `memberSince` and `track`. `photoUrl` follows the home page's rule: an adult's photo shows; a minor's, or one with no age on file, only after BTG approves it. `memberSince` is the approval month. `track` (`publicTrackRecord` in `backend/src/domain/featured.ts`) has campaigns completed, distinct brands (a count only), live and verified posts, posts on time, fan redemptions, and the latest six posts (platform and month only). All three are null for a featured athlete.
+  - **Shared page:** `components/athlete-public-page/` has a `public` mode and an `owner` mode. The words and badges live in `lib/public-athlete.ts`; every badge is earned from the data, and a newcomer gets an honest "New on SponsorX".
+  - **Motion:** an island (`profile-fx.tsx`) handles scroll reveals, tilt with glare, cover parallax and sticky tabs that follow the scroll. The hero's entrance waits for the boot screen; reduced motion gets a still page.
+  - **Owner view:** `/athlete/profile` reads the same public answer once the wizard is complete. Not live yet, it shows the public sections with no record. Owner mode drops "Request a proposal" for "How sponsors reach you" → Invitations, and adds a "Make your page stand out" card. The name is an h2 under the portal's "Public profile" h1. The private sections stay underneath.
+  - **Checked:**
+    - Backend: `public-track-record.test.ts` (5) and the key set in `next-rights.test.ts`.
+    - Frontend: `public-athlete.test.ts` (14), and `profile-wizard.test.ts` gained a check that a failed public read shows an error page.
+    - Walked live at 1440 and 390 on both routes: no console errors, no sideways scroll.
+
 ---
 
 ## Checked and fine

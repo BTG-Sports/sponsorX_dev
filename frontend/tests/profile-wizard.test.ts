@@ -174,6 +174,14 @@ describe("the profile page", async () => {
     vars.responses = {
       "GET /athletes/me": () => Response.json(p),
       [`GET /athletes/${p.id}/rates`]: () => Response.json({ rates: [{ jobId: "j1", jobName: "Instagram post", amount: 25000, version: 1 }] }),
+      /* POL-FE-82 — a live finished profile shows what the public read sends: the public sections plus the track record. */
+      [`GET /public/athletes/${p.slug}`]: () =>
+        p.state === "ACTIVE"
+          ? Response.json({
+              slug: p.slug, ...publicFace(p), photoUrl: null, memberSince: "2026-09", featured: false, claimable: false,
+              track: { campaignsCompleted: 2, brands: 2, postsLive: 3, postsVerified: 1, onTime: { onTime: 3, of: 3 }, fanRedemptions: 0, recent: [{ platform: "TIKTOK", month: "2026-10", verified: true }] },
+            })
+          : new Response(null, { status: 404 }),
     };
   };
 
@@ -226,6 +234,18 @@ describe("the profile page", async () => {
     const frame = html.slice(html.indexOf('aria-label="Your public page"'), html.indexOf("Only you and BTG see this"));
     expect(frame).not.toContain("Jordan A. Reyes");
     expect(frame).not.toContain("Instagram post");
+    /* POL-FE-82 — the frame is the redesigned public page in owner mode, from the public read. */
+    expect(frame).toContain('data-mode="owner"');
+    expect(frame).toContain("Counted by SponsorX from finished work");
+    expect(frame).toContain("TikTok post");
+    expect(frame).not.toContain('href="/brief"');
+    expect(frame).not.toMatch(/<h1/);
+  });
+
+  it("finished and live, but the public read fails: an error, never a stand-in", async () => {
+    serve(profile());
+    vars.responses[`GET /public/athletes/pw-jordan-reyes`] = () => new Response(null, { status: 503 });
+    await expect(render()).rejects.toThrow(/Public page unavailable \(503\)/);
   });
 
   it("finished but not active yet: the page says it waits for BTG", async () => {

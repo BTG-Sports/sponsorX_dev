@@ -240,8 +240,9 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT rights, featured athletes and the D
       const r = await call("GET", `/public/athletes/${slug}`, null);
       expect(r.status).toBe(200);
       /* P3-FE-08 widened the public shape to the §11 public sections; still no legal name, contact, age or pay. */
-      expect(Object.keys(r.json).sort()).toEqual(["achievements", "brandInterests", "city", "claimable", "contentCapabilities", "displayName", "featured", "level", "position", "school", "slug", "socials", "sport", "stateCode"]);
-      expect(r.json).toMatchObject({ displayName: "Maya T.", school: "Northside High", featured: true, claimable: true });
+      /* POL-FE-82 added the photo (gated for minors), member-since and the track record — all empty for a featured athlete. */
+      expect(Object.keys(r.json).sort()).toEqual(["achievements", "brandInterests", "city", "claimable", "contentCapabilities", "displayName", "featured", "level", "memberSince", "photoUrl", "position", "school", "slug", "socials", "sport", "stateCode", "track"]);
+      expect(r.json).toMatchObject({ displayName: "Maya T.", school: "Northside High", featured: true, claimable: true, photoUrl: null, memberSince: null, track: null });
     });
 
     it("can receive no invitation, holds no rates, and appears in no matching query", async () => {

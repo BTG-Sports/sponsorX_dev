@@ -10,6 +10,7 @@ import { sectionStates, type ApiMyProfile, type ApiRate } from "@/lib/profile-li
 import { isMinorNow } from "@/lib/profile-changes-live";
 import { profileComplete, publicFace, wizardDone } from "@/lib/profile-wizard";
 import { apiFetch, fetchActor } from "@/server/api";
+import type { PublicAthlete } from "@/lib/public-athlete";
 import { viewerIsAthlete } from "@/lib/athlete-order-pause";
 
 /* The wizard's stepper, panels, medal and buttons are the confirmations
@@ -117,7 +118,24 @@ function PublicPill({ slug }: { slug: string }) {
  *  the application itself is what the athlete edits, at /join. */
 const POST_APPROVAL = ["APPROVED", "ACTIVE", "SUSPENDED"];
 
-function LiveProfile({ p, rates }: { p: ApiMyProfile; rates: ApiRate[] }) {
+/**
+ * POL-FE-82 — what the finished profile's page shows. Live (ACTIVE): the
+ * same read a sponsor's browser makes, GET /public/athletes/:slug, so the
+ * owner sees exactly their public page, track record and photo included.
+ * An outage of that read is an error page (the QA pass 4 rule), never a
+ * stand-in. Not live yet: the profile's public sections (`publicFace`) with
+ * no track record, which a profile BTG hasn't activated cannot have.
+ */
+async function publicPageFor(p: ApiMyProfile): Promise<PublicAthlete> {
+  if (p.state === "ACTIVE") {
+    const res = await apiFetch(`/public/athletes/${encodeURIComponent(p.slug)}`);
+    if (!res.ok) throw new Error(`Public page unavailable (${res.status}).`);
+    return (await res.json()) as PublicAthlete;
+  }
+  return { slug: p.slug, ...publicFace(p), photoUrl: p.photoUrl ?? null, memberSince: null, track: null, featured: false, claimable: false };
+}
+
+function LiveProfile({ p, rates, page }: { p: ApiMyProfile; rates: ApiRate[]; page: PublicAthlete | null }) {
   const states = sectionStates(p);
   const complete = profileComplete(states);
   const isActive = p.state === "ACTIVE";
@@ -150,18 +168,20 @@ function LiveProfile({ p, rates }: { p: ApiMyProfile; rates: ApiRate[] }) {
         editable={POST_APPROVAL.includes(p.state)}
         minor={isMinorNow(p.birthDate, p.ageBand)}
       >
-        <ProfileShowcase
-          face={publicFace(p)}
-          slug={p.slug}
-          live={isActive}
-          priv={{
-            restrictedCategories: p.restrictedCategories,
-            restrictionNotes: p.restrictionNotes,
-            rates,
-            tier: p.tier,
-            agreementsSigned: p.agreementsSigned,
-          }}
-        />
+        {page && (
+          <ProfileShowcase
+            page={page}
+            slug={p.slug}
+            live={isActive}
+            priv={{
+              restrictedCategories: p.restrictedCategories,
+              restrictionNotes: p.restrictionNotes,
+              rates,
+              tier: p.tier,
+              agreementsSigned: p.agreementsSigned,
+            }}
+          />
+        )}
       </ProfileWizard>
     </div>
   );
@@ -175,7 +195,11 @@ export default async function ProfilePage({
   const { tab } = await searchParams;
 
   const live = await liveProfile();
-  if (live) return <LiveProfile p={live.p} rates={live.rates} />;
+  if (live) {
+    /* Read only once the wizard is done: until then the wizard's preview is the page. */
+    const page = profileComplete(sectionStates(live.p)) ? await publicPageFor(live.p) : null;
+    return <LiveProfile p={live.p} rates={live.rates} page={page} />;
+  }
 
   const missing = profileChecklist.filter((c) => !c.done);
   const done = profileChecklist.length - missing.length;
