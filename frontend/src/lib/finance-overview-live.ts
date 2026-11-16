@@ -8,7 +8,8 @@ export type RangeKey = (typeof RANGES)[number];
 export type { EarningState };
 type Split = { athletes: number; properties: number; platform: number; management: number; processing: number; referral: number; reserve: number };
 export type NeedsYou = {
-  payouts: { count: number; cents: number; oldestAt: string | null };
+  /** POL-BE-73 — requested: the new requests among them; absent on an older API. */
+  payouts: { count: number; cents: number; oldestAt: string | null; requested?: number };
   refunds: { count: number; cents: number; oldestAt: string | null };
   disputes: { count: number; cents: number };
   events: { count: number };
@@ -77,3 +78,9 @@ export const PAY_STEPS: { state: EarningState; label: string; off?: boolean }[] 
   { state: "HELD", label: EARNING_COPY.HELD, off: true },
   { state: "DISPUTED", label: EARNING_COPY.DISPUTED, off: true },
 ];
+
+/** POL-FE-73 — the Treasury tile opens the payouts tab that has something in
+ *  it: new requests if any, else the failed ones waiting on BTG. */
+export function payoutsTileHref(p: { count: number; requested?: number }): string {
+  return p.count > 0 && p.requested === 0 ? "/finance/payouts?tab=problems" : "/finance/payouts";
+}

@@ -379,7 +379,7 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
         expect((await call("GET", "/public/test-provider/details?token=a.b")).status).toBe(400);
         const waiting = (await call("GET", "/payouts?state=APPROVED", "po_admin")).json.payouts[0];
         expect(await sendPayout(waiting.id)).toEqual({ sent: false });
-        expect((await call("GET", `/payouts/${waiting.id}`, "po_admin")).json).toMatchObject({ state: "APPROVED", provider: "none" });
+        expect((await call("GET", `/payouts/${waiting.id}`, "po_admin")).json).toMatchObject({ state: "APPROVED", provider: "none", waiting: expect.stringMatching(/No payment provider is connected/) });
       } finally {
         (env as { PAYMENT_PROVIDER?: string }).PAYMENT_PROVIDER = was;
       }

@@ -29,6 +29,7 @@ import {
   PAY_STEPS,
   delta,
   needsYouTotal,
+  payoutsTileHref,
   rangeParam,
   splitRows,
   waitedFor,
@@ -245,7 +246,7 @@ function TreasuryView({ t }: { t: Treasury }) {
 
       {/* ③ what waits on BTG, one deposit box per desk */}
       <section aria-label="Needs you" className="mt-4 grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <VaultBox label="Payouts waiting on BTG" count={ov.needsYou.payouts.count} cents={ov.needsYou.payouts.cents} sub={oldest(ov.needsYou.payouts.oldestAt)} href="/finance/payouts" open="Open Payouts" delay={0.28} />
+        <VaultBox label="Payouts waiting on BTG" count={ov.needsYou.payouts.count} cents={ov.needsYou.payouts.cents} sub={oldest(ov.needsYou.payouts.oldestAt)} href={payoutsTileHref(ov.needsYou.payouts)} open="Open Payouts" delay={0.28} />
         <VaultBox label="Refunds to send" count={ov.needsYou.refunds.count} cents={ov.needsYou.refunds.cents} sub={oldest(ov.needsYou.refunds.oldestAt)} href="/finance/refunds" open="Open Refunds" delay={0.32} />
         <VaultBox label="Disputes unresolved" count={ov.needsYou.disputes.count} cents={ov.needsYou.disputes.cents} sub="money frozen" href="/finance/disputes" open="Open Disputes" delay={0.36} />
         <VaultBox label="Payment events held" count={ov.needsYou.events.count} sub="the payment provider sent something we couldn't apply" href="/finance/payment-events" open="Open Payment events" delay={0.4} />

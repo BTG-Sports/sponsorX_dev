@@ -75,7 +75,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
       <div>
         <h1 className="sx-page-title">{TITLE}</h1>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">
-          Money owed back to sponsors, sent by hand for now. Card payments are refunded automatically once payments open.
+          Money owed back to sponsors. {/* POL-FE-73 */}A card payment is refunded to the card automatically while payments are open; anything else (or a card refund while payments are switched off) is sent by Finance and marked sent here.
         </p>
         {list.counts.open > 0 && <p className="mt-2 text-sm font-semibold tabular-nums">{openSummary(list)}</p>}
       </div>

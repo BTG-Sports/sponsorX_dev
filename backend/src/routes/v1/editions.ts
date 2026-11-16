@@ -179,6 +179,17 @@ const listEditions: RequestHandler = async (req, res) => {
       })
     : null;
   const artBySlot = new Map((art ?? []).map((a) => [a.adSlotId, a]));
+  /* POL-BE-73 — Finance reads no slot (matrix §15.3), so its editions said
+     "$0 committed". It gets the committed total only — one sum per edition,
+     never a slot, a buyer or a price. */
+  const committedFor = viaSplits && ids.length
+    ? new Map(
+        (await prisma.adSlot.groupBy({
+          /* tenant-scope: keyed by the edition ids read through whereFor(revenueSplit) above. */
+          by: ["editionId"], where: { editionId: { in: ids }, campaignId: { not: null } }, _sum: { soldCents: true },
+        })).map((g) => [g.editionId, g._sum.soldCents ?? 0]),
+      )
+    : null;
   const now = new Date();
 
   res.json({
@@ -210,7 +221,7 @@ const listEditions: RequestHandler = async (req, res) => {
         inventory: {
           total: mine.length,
           sold: sold.length,
-          committedCents: sold.reduce((n, s) => n + (s.soldCents ?? 0), 0),
+          committedCents: committedFor ? (committedFor.get(e.id) ?? 0) : sold.reduce((n, s) => n + (s.soldCents ?? 0), 0),
           rackCents: mine.reduce((n, s) => n + s.priceCents, 0),
         },
         rightsPending: gaps ? gaps[i]!.length : null,
