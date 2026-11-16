@@ -70,8 +70,10 @@ describe("POL-FE-72 · sponsor portal loose ends", () => {
     expect(src("app/(app)/sponsor/checkout/page.tsx")).toContain("limitLine(quote.totalCents, hold.checkout?.spendingLimitCents");
   });
 
-  it("a long Shop description opens with More; Order again goes to the Shop", () => {
-    expect(src("components/shop-stadium-card.tsx")).toContain(">More<");
+  it("a long Shop description is never cut off for good; Order again goes to the Shop", () => {
+    /* POL-FE-91 — the card shows two lines and opens the item's own page, which shows all of it. */
+    expect(src("components/sponsor-shop/shop-window.tsx")).toContain('<Link href={itemHref(item.id)} className="sx-sh-stretch">');
+    expect(src("lib/shop-showcase.ts")).toContain("description: r.description?.trim() || null");
     expect(src("components/sponsor-order-status.tsx")).toContain('<Link href="/sponsor/shop"');
   });
 

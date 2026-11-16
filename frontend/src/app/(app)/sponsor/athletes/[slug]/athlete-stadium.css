@@ -1,0 +1,7 @@
+/* POL-FE-91 — the athlete page (athlete-public-page.css) inside the sponsor
+   portal: its third glow is the NEXT portal's purple (--sx-next); the
+   Stadium's only light is orange (memory: portal-stage-identities). */
+.sx-stadium .pp-root {
+  --sx-next: #ffb27a;
+  --pp-glow-c: #ffb27a;
+}

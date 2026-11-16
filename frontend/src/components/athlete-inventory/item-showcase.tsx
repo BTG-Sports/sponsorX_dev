@@ -20,6 +20,11 @@ import { Tilt } from "./inventory-shop";
    this is the sponsor's view and holds the owner's controls; the sponsor's
    "buy" is never drawn as a dead button, the marketplace line says where it
    is bought instead. The last panel is the only private one.
+
+   POL-FE-91 — the sponsor shop's item page (/sponsor/shop/[id]) renders this
+   same showcase for the buyer (`viewer="sponsor"`, no private panel, its own
+   bar, "View Athlete Profile" as `profileLink`), so what the athlete reads
+   as "the way sponsors meet it" is exactly what a sponsor meets.
    -------------------------------------------------------------------------- */
 
 export type ShowcaseSeller = {
@@ -85,6 +90,8 @@ export function ItemShowcase({
   after,
   privatePanel = true,
   fitsEmpty = "Any kind of brand. Pick the ones it suits best under Edit item, so the right sponsors notice it.",
+  profileLink = { label: "Your public profile", href: "/athlete/profile" },
+  viewer = "owner",
 }: {
   id: string;
   s: Showcase;
@@ -100,6 +107,10 @@ export function ItemShowcase({
   /** The "Only you see this" panel (the item page's; the listing page leaves it to Inventory). */
   privatePanel?: boolean;
   fitsEmpty?: string;
+  /** "Who you're working with"'s link; null leaves it out (POL-FE-91: a sponsor stays in the portal). */
+  profileLink?: { label: string; href: string } | null;
+  /** Who reads it: the athlete who owns it, or (POL-FE-91, /sponsor/shop/[id]) a sponsor about to buy it. */
+  viewer?: "owner" | "sponsor";
 }) {
   const first = seller ? firstName(seller.name) : null;
   const isPackage = s.kind === "PACKAGE";
@@ -341,15 +352,17 @@ export function ItemShowcase({
               </dl>
             ) : (
               <p className="sx-is-empty">
-                {seller.live
+                {seller.live || viewer === "sponsor"
                   ? `${first}'s reach and track record show here once there are counts to show.`
                   : "Your reach and track record show here once BTG makes your profile live."}
               </p>
             )}
-            <Link href="/athlete/profile" className="sx-is-who-link">
-              Your public profile
-              <Glyph ui="arrow" className="size-3.5" />
-            </Link>
+            {profileLink && (
+              <Link href={profileLink.href} className="sx-is-who-link">
+                {profileLink.label}
+                <Glyph ui="arrow" className="size-3.5" />
+              </Link>
+            )}
           </div>
         </section>
       )}

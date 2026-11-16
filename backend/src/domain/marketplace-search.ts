@@ -209,3 +209,49 @@ export async function searchMarketplacePage(actor: Actor, f: SearchFilters, req:
   );
   return { results: rows.map(toResult), page };
 }
+
+
+/* ── one item, opened from the shop (POL-FE-91) ──────────────────────────── */
+
+const ONE_SELECT = {
+  ...SELECT,
+  item: {
+    select: {
+      ...SELECT.item.select,
+      athlete: { select: { ...SELECT.item.select.athlete.select, slug: true, state: true } },
+      components: { select: { quantity: true, component: { select: { title: true, kind: true } } } },
+    },
+  },
+} as const;
+
+/** Whose public page a sponsor may be pointed to: the states it is published in. */
+const PUBLIC_PAGE_STATES = new Set(["ACTIVE", "FEATURED"]);
+
+/**
+ * POL-FE-91 — one listing of the caller's catalogue, as the shop's item page
+ * shows it: the search row, plus what a package holds and, when the athlete's
+ * public page is up, its slug (the page then reads that public answer for the
+ * photo, school, reach and track record — the same answer every sponsor gets).
+ *
+ * Exactly the shop's visibility: the catalogue scope, the live filter, and
+ * the sponsor's restrictions in force today. Anything the shop wouldn't list
+ * — another marketplace, a paused or private listing, a hidden one — is a
+ * 403 "listing read", the same as no such listing, so an id tells nothing.
+ */
+export async function getCatalogListing(actor: Actor, id: string) {
+  const now = new Date();
+  const { categories, where } = await catalogueScope(actor, now);
+  const hidden = restrictionHiddenWhere(actor, categories, now);
+  const row = await prisma.listing.findFirst({
+    /* tenant-scope: whereFor(actor, "listing", "read") leads `where` (catalogueScope). */
+    where: { AND: [...where, ...(hidden ? [hidden] : []), { id }] },
+    select: ONE_SELECT,
+  });
+  if (!row) throw new ForbiddenError("listing", "read");
+  const athlete = row.item.athlete;
+  return {
+    ...toResult(row),
+    bundle: row.item.components.map((c) => ({ title: c.component.title, kind: c.component.kind, quantity: c.quantity })),
+    athleteSlug: athlete && PUBLIC_PAGE_STATES.has(athlete.state) ? athlete.slug : null,
+  };
+}

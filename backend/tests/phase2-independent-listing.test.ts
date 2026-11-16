@@ -256,6 +256,28 @@ describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their 
       expect((await call("GET", `/listings/${E.listing}`, "ind_x_buyer")).status).toBe(403);
     });
 
+    it("POL-FE-91 — opens it as one item: the search row, its package contents, and a public slug only once the athlete's page is up", async () => {
+      const one = await call("GET", `/marketplace/search/${E.listing}`, "ind_buyer");
+      expect(one.status, one.text).toBe(200);
+      expect(one.json).toMatchObject({
+        id: E.listing, title: clinic.title, property: null, bundle: [],
+        seller: { type: "ATHLETE", id: "ind_ath_jordan", name: "JORDAN.REED" },
+        item: { id: E.item, kind: "CAMP", priceCents: 50_000 },
+        /* Jordan is APPROVED, not ACTIVE: no public page to point to. */
+        athleteSlug: null,
+      });
+      /* A display name only — never the legal name or a contact (the title is the seller's own words). */
+      expect(one.json.athlete).toEqual({ displayName: "JORDAN.REED", sport: "Basketball", position: null });
+      expect(JSON.stringify(one.json)).not.toMatch(/legalName|ind-test\.invalid/);
+      /* Sam is ACTIVE: the page is up, so the slug comes with it. */
+      const sam = (await search("ind_buyer", "Sam"))[0];
+      expect((await call("GET", `/marketplace/search/${sam.id}`, "ind_buyer")).json.athleteSlug).toBe("ind-ath-sam");
+      /* Exactly the shop's visibility: another marketplace, an athlete, or no such id is a 403. */
+      expect((await call("GET", `/marketplace/search/${E.listing}`, "ind_x_buyer")).status).toBe(403);
+      expect((await call("GET", `/marketplace/search/${E.listing}`, "ind_sam")).status).toBe(403);
+      expect((await call("GET", "/marketplace/search/no_such_listing", "ind_buyer")).status).toBe(403);
+    });
+
     it("carts it (the line names Jordan), holds it and orders $1,000 — the line is Jordan's, not a team's", async () => {
       await call("POST", "/cart", "ind_buyer");
       const line = await call("POST", "/cart/lines", "ind_buyer", { listingId: E.listing, quantity: 2, startsOn: at(10), endsOn: at(17) });

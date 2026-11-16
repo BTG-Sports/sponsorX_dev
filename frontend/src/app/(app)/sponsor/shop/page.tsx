@@ -1,68 +1,69 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
 
-import { ShopAddToCart } from "@/components/shop-add-to-cart";
-import { ShopDateFilter } from "@/components/shop-date-filter";
-import { ShopStadiumCard } from "@/components/shop-stadium-card";
-import { ListFilter, ListSearch, PagerRow, PendingList, ServerList } from "@/components/server-pager";
-import { StadiumGhost, StadiumHead, StadiumPanel, StadiumTile, StadiumTiles, StadiumUpdated } from "@/components/stadium-stage";
-import { demoState } from "@/lib/demo";
+import { Glyph } from "@/components/athlete-inventory/glyphs";
 import { RoleCannotSee } from "@/components/not-in-role";
+import { ServerList } from "@/components/server-pager";
+import { ShopWindow, type BuyMode } from "@/components/sponsor-shop/shop-window";
+import { StadiumGhost, StadiumHead, StadiumUpdated, at } from "@/components/stadium-stage";
+import { demoState } from "@/lib/demo";
 import { apiListQuery, pageParams, type PageInfo, type SearchParams } from "@/lib/list-query";
 import {
-  CATEGORY_OPTIONS,
   DEMO_CART,
   DEMO_LISTINGS,
-  KIND_OPTIONS,
-  MIN_PRICE_BANDS,
-  PRICE_BANDS,
-  STATE_OPTIONS,
   demoShopSearch,
   hasFilters,
   shopSearchExtras,
   shownFilters,
+  usd,
   type ApiCart,
   type ApiSearchResult,
-  type ShopFilters,
 } from "@/lib/shop-live";
+import { filterChips, shopItem } from "@/lib/shop-window";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 
+import "./shop.css";
+
 /* --------------------------------------------------------------------------
-   Shop — on the Stadium Board (P1-ART-23 Task 13, spec 2026-10-11 §7.8).
-   Phase 2 self-service buying, statistics first and app-like for a
-   non-technical sponsor: search what properties and athletes have
-   published, filter instantly (no Apply button, no native <select>), and
-   add it to the cart in place.
+   Shop — the sponsor's self-service buying (2S4-FE-01), on the Stadium Board.
 
-   Reads  GET /marketplace/search?page&size&…   server-paged (Task 3);
-                                                 without ?page the old
-                                                 capped read, which this
-                                                 page never uses any more.
-          GET /cart                             "In your cart" / "Cart
-                                                 total" — never summed from
-                                                 the rows on screen; if the
-                                                 read fails the two tiles
-                                                 are left out, never 0 / $0.
-   Writes (ShopAddToCart → ./actions.ts)         POST /cart, POST /cart/lines
+   POL-FE-91 (2026-11-16) — redrawn as a shop window after the owner found the
+   last one confusing ("what you did before is so confusing for a human"):
+   the same shape as the athlete's Inventory and Listings (POL-FE-83/84),
+   in the sponsor's own Stadium look. Top to bottom:
+     1. the title, Orders, and the Cart button carrying its count and total;
+        one strip saying how buying works (look → add → check out, nothing
+        charged until then);
+     2. the window (components/sponsor-shop/shop-window.tsx): a search, a
+        type rail, ONE "Filters" button for the rest (with the filters in use
+        as chips you can remove), Cards ↔ List, the items. Every item opens
+        in full before buying ("Details"), and carries its own "Add to cart",
+        which asks two things (how many, which dates) and says when it's in.
+   Words and figures are worked out here (lib/shop-window.ts).
 
-   LIVE vs DEMO. A signed-in sponsor whose account is linked sees the real
-   catalogue. Anyone else — an account not yet linked to a sponsor
-   organisation, or `?demo=` — gets the fixture deck (lib/shop-live.ts
-   DEMO_LISTINGS) under a "Sample data" pill, filtered and paged the same
-   way, with "Add to cart" drawn disabled (never a fake success: memory
-   QA pass 4 — a demo write must not look like it went through).
+   Reads  GET /marketplace/search?page&size&…   server-paged
+          GET /cart                             the Cart button's count and
+                                                total, and which items are
+                                                already in it — never summed
+                                                from the rows on screen; if
+                                                the read fails the button
+                                                says just "Cart", never 0.
+   Writes POST /cart, POST /cart/lines          (./actions.ts, unchanged)
 
-   Roles. SPONSOR_ADMIN adds to the cart; SPONSOR_ANALYST can search but not
-   write (the cart write is 403 for them), so the add control isn't shown.
+   LIVE vs DEMO. A linked sponsor sees the real catalogue. `?demo=` gets the
+   fixture deck (lib/shop-live.ts DEMO_LISTINGS) under "Sample data", filtered
+   and paged the same way, with "Add to cart" drawn disabled and saying why
+   (memory QA pass 4 — a demo write must not look like it went through).
+   A refused read for a signed-in user is RoleCannotSee (POL-FE-40).
+
+   Roles. SPONSOR_ADMIN adds to the cart; SPONSOR_ANALYST (a Viewer) can look
+   at everything but not write, so the add buttons aren't drawn for them.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
 
-const PATH = "/sponsor/shop";
-
-/** The cart tiles' figures, or null when the cart couldn't be read. */
-type CartFigures = { lines: number; totalCents: number } | null;
+/** The cart as the header and the cards use it, or null when it couldn't be read. */
+type CartFigures = { lines: number; totalCents: number; byListing: Record<string, number> } | null;
 
 async function liveShop(
   sp: SearchParams,
@@ -88,12 +89,17 @@ async function liveShop(
     page = data.page;
   }
 
-  /* No cart yet is a real, empty cart (0 / $0). A failed or refused read is
-     unknown — the tiles are left out rather than claim an empty cart. */
+  /* No cart yet is a real, empty cart. A failed or refused read is unknown —
+     the button says just "Cart" rather than claim an empty one. */
   let cart: CartFigures = null;
   if (cartRes.ok) {
     const body = (await cartRes.json().catch(() => null)) as { cart: ApiCart | null } | null;
-    if (body) cart = body.cart ? { lines: body.cart.lines.length, totalCents: body.cart.totalCents } : { lines: 0, totalCents: 0 };
+    if (body) {
+      const lines = body.cart?.lines ?? [];
+      const byListing: Record<string, number> = {};
+      for (const l of lines) byListing[l.listingId] = (byListing[l.listingId] ?? 0) + l.quantity;
+      cart = { lines: lines.length, totalCents: body.cart?.totalCents ?? 0, byListing };
+    }
   }
   return { results, page, cart, refused };
 }
@@ -109,20 +115,20 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const { filters, extras, ignored } = shopSearchExtras(sp);
   const pr = pageParams(sp);
+  const today = new Date().toISOString().slice(0, 10);
 
   const live = demo === null ? await liveShop(sp, extras) : null;
   if (live) {
     return (
       <Shop
-        filters={filters}
+        sp={sp}
         ignored={ignored}
         refused={live.refused}
         results={live.results}
         page={live.page}
         cart={live.cart}
-        canWrite={canWrite}
-        sample={false}
-        updatedAt={new Date().toISOString()}
+        mode={canWrite ? "buy" : "view"}
+        today={today}
       />
     );
   }
@@ -138,186 +144,128 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
   const deck = empty ? { results: [], page: { page: 1, size: pr.size, total: 0, pages: 1 } } : demoShopSearch(filters, pr);
   return (
     <Shop
-      filters={filters}
+      sp={sp}
       ignored={ignored}
       refused={null}
       results={deck.results}
       page={deck.page}
-      cart={empty ? { lines: 0, totalCents: 0 } : DEMO_CART}
-      canWrite={false}
-      sample
-      updatedAt={new Date().toISOString()}
+      cart={empty ? { lines: 0, totalCents: 0, byListing: {} } : { ...DEMO_CART, byListing: {} }}
+      mode="sample"
+      today={today}
     />
   );
 }
 
 /* ------------------------------------------------------------- the page */
 
+const STEPS = [
+  { n: 1, title: "Look around", text: "Open any item to see everything about it." },
+  { n: 2, title: "Add to cart", text: "Pick how many and which dates." },
+  { n: 3, title: "Check out", text: "Review it all, then place the order." },
+] as const;
+
 function Shop({
-  filters: raw, ignored, refused, results, page, cart, canWrite, sample, updatedAt,
+  sp,
+  ignored,
+  refused,
+  results,
+  page,
+  cart,
+  mode,
+  today,
 }: {
-  filters: ShopFilters;
+  sp: SearchParams;
   ignored: string[];
   refused: string | null;
   results: ApiSearchResult[];
   page: PageInfo;
   cart: CartFigures;
-  canWrite: boolean;
-  sample: boolean;
-  updatedAt: string;
+  mode: BuyMode;
+  today: string;
 }) {
-  const pill = sample ? "Sample data" : <StadiumUpdated iso={updatedAt} />;
-  const filtered = hasFilters(raw);
-  /* The controls show only values they offer — a stale URL value reads as "any". */
+  const { filters: raw } = shopSearchExtras(sp);
   const filters = shownFilters(raw);
-  const today = new Date().toISOString().slice(0, 10);
+  const pill = mode === "sample" ? "Sample data" : <StadiumUpdated iso={new Date().toISOString()} />;
+  const notes = [
+    ...(ignored.length ? [`Not applied (not a valid value): ${ignored.join(", ")}.`] : []),
+    ...(refused ? [refused] : []),
+  ];
 
   const headActions = (
-    <div className="flex items-center gap-2">
-      <Link
-        href="/sponsor/orders"
-        className="rounded-md border border-line px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
-      >
-        Orders →
+    <>
+      <Link href="/sponsor/orders" className="sx-sh-head-link">
+        Your orders
       </Link>
-      <Link href="/sponsor/cart" className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-cta-ink hover:bg-primary-soft">
-        {cart ? `Cart · ${cart.lines}` : "Cart"}
+      <Link href="/sponsor/cart" className="sx-sh-cart" aria-label={cart ? `Cart: ${cart.lines} ${cart.lines === 1 ? "item" : "items"}, ${usd(cart.totalCents)}` : "Cart"}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="size-4">
+          <path d="M3 4h2l2.4 11.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L20 8H6.2M9.5 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm8 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" />
+        </svg>
+        <span>Cart</span>
+        {cart && (
+          <>
+            <span className="sx-stadium-badge" data-zero={cart.lines === 0 ? "" : undefined}>
+              {cart.lines}
+            </span>
+            {cart.lines > 0 && <span className="sx-sh-cart-total">{usd(cart.totalCents)}</span>}
+          </>
+        )}
       </Link>
-    </div>
+    </>
   );
 
   return (
-    <div className="space-y-6">
-      <StadiumHead title="Shop" pill={pill} actions={headActions}>
-        <StadiumTiles cols={cart ? 3 : 2}>
-          <StadiumTile
-            label="Spots for sale"
-            value={page.total}
-            hint="How many items are on sale right now, from every seller you can buy from."
-            delay={0.1}
+    <ServerList>
+      <div className="space-y-6">
+        <StadiumHead title="Shop" pill={pill} actions={headActions}>
+          <p className="sx-sh-lede sx-stadium-in" style={at(0.06)}>
+            Things athletes and teams will do for your brand, at the price they set. Open one to see it all, then add it to your cart.
+          </p>
+          <ol className="sx-sh-how" aria-label="How buying works">
+            {STEPS.map((s, i) => (
+              <li key={s.n} className="sx-stadium-panel sx-stadium-in" style={at(0.08 + i * 0.05)}>
+                <span className="sx-sh-how-n sx-stadium-num" aria-hidden="true">
+                  {s.n}
+                </span>
+                <span className="min-w-0">
+                  <span className="sx-sh-how-title">{s.title}</span>
+                  <span className="sx-sh-how-text">{s.text}</span>
+                </span>
+              </li>
+            ))}
+            <li className="sx-sh-how-safe sx-stadium-in" style={at(0.24)}>
+              <Glyph ui="shield" className="size-4" />
+              Nothing is charged until you check out.
+            </li>
+          </ol>
+        </StadiumHead>
+
+        {mode === "view" && (
+          <p className="sx-sh-viewer">
+            <Glyph ui="eye" className="size-4" />
+            You&rsquo;re a Sponsor Viewer: you can open and compare everything here. A Sponsor Admin on your team adds items to the cart.
+          </p>
+        )}
+
+        <section aria-label="On sale now">
+          <ShopWindow
+            items={results.map((r) => shopItem(r, today))}
+            page={page}
+            filters={filters}
+            filtered={hasFilters(raw)}
+            chips={filterChips(filters)}
+            mode={mode}
+            today={today}
+            inCart={cart?.byListing ?? {}}
+            notes={notes}
           />
-          {cart && (
-            <StadiumTile
-              label="In your cart"
-              value={cart.lines}
-              href="/sponsor/cart"
-              hint="Lines in your cart, before you check out."
-              delay={0.16}
-            />
-          )}
-          {cart && (
-            <StadiumTile
-              label="Cart total"
-              value={cart.totalCents}
-              format="usd"
-              href="/sponsor/cart"
-              hint="What everything in your cart adds up to, before fees."
-              delay={0.22}
-            />
-          )}
-        </StadiumTiles>
-      </StadiumHead>
+        </section>
 
-      {!canWrite && !sample && (
-        <p className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-[11px] text-muted">
-          You&rsquo;re signed in as a Sponsor Viewer — you can search and read, and a Sponsor Admin adds to the cart and
-          places orders.
-        </p>
-      )}
-
-      <section className="min-w-0" aria-labelledby="sx-shop-items">
-        <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 id="sx-shop-items" className="sx-section-title">
-            On sale now
-          </h2>
-        </div>
-        <ServerList>
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <div className="w-full sm:w-64">
-              <ListSearch initial={filters.q} label="Search the shop" placeholder="Title or description…" tone="sponsor" />
-            </div>
-            <ListFilter param="kind" value={filters.kind} label="Type" allLabel="Any type" options={KIND_OPTIONS} tone="sponsor" />
-            <ListFilter
-              param="category"
-              value={filters.category}
-              label="Brand category"
-              allLabel="Any category"
-              options={CATEGORY_OPTIONS}
-              tone="sponsor"
-            />
-            <ListSearch initial={filters.sport} label="Filter by sport" placeholder="Sport" tone="sponsor" param="sport" />
-            <ListFilter param="stateCode" value={filters.stateCode} label="State" allLabel="Any state" options={STATE_OPTIONS} tone="sponsor" />
-            <ListFilter param="minPrice" value={filters.minPrice} label="Price from" allLabel="From any price" options={MIN_PRICE_BANDS} tone="sponsor" />
-            <ListFilter param="maxPrice" value={filters.maxPrice} label="Price up to" allLabel="Up to any price" options={PRICE_BANDS} tone="sponsor" />
-            <ShopDateFilter availableFrom={filters.availableFrom} availableUntil={filters.availableUntil} />
-          </div>
-          {ignored.length > 0 && <p className="mb-2 text-[11px] text-warn">Not applied (not a valid value): {ignored.join(", ")}.</p>}
-          {refused && <p className="mb-2 text-[11px] text-warn">{refused}</p>}
-
-          {/* The pager stays above and below even on zero results (the house
-              pattern), so the page size stays in reach. */}
-          <PagerRow page={page} noun="Items" tone="sponsor" position="top" filtered={filtered && page.total > 0} />
-          {results.length === 0 ? (
-            <PendingList>
-              <StadiumPanel className="text-center">
-                <p className="text-sm font-semibold text-text">{filtered ? "Nothing matches. Try clearing a filter." : "Nothing is on sale yet"}</p>
-                <p className="mx-auto mt-1.5 max-w-md text-sm text-muted">
-                  {filtered
-                    ? "A wider price range, any type, or dropping the sport or state filter usually finds something."
-                    : "BTG curates new athlete inventory weekly — check back soon."}
-                </p>
-                {filtered && (
-                  <Link href={PATH} className="mt-4 inline-block rounded-md border border-line px-4 py-2 text-xs font-semibold text-text hover:bg-surface-2">
-                    Clear filters
-                  </Link>
-                )}
-              </StadiumPanel>
-            </PendingList>
-          ) : (
-            <PendingList>
-              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {results.map((r, i) => (
-                  <ShopStadiumCard key={r.id} result={r} i={i} action={cardAction(r, canWrite, sample, today)} />
-                ))}
-              </ul>
-            </PendingList>
-          )}
-          <PagerRow page={page} noun="Items" tone="sponsor" position="bottom" />
-        </ServerList>
-      </section>
-
-      {sample && (
-        <p className="text-[10px] text-faint">
-          Sample listings — {DEMO_LISTINGS.length} examples, shown the way a linked sponsor&rsquo;s own shop would be.
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** One card's action slot: the real add-to-cart island for a linked, writing
- *  sponsor; a disabled button for an analyst or the sample deck — never a
- *  faked success (memory QA pass 4: a demo write must not look like it went
- *  through). */
-function cardAction(r: ApiSearchResult, canWrite: boolean, sample: boolean, today: string): ReactNode {
-  if (sample) {
-    return (
-      <button
-        type="button"
-        disabled
-        title="This is a sample listing. Add to cart once your account is linked to a sponsor organisation."
-        className="cursor-not-allowed self-start rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink opacity-40"
-      >
-        Add to cart
-      </button>
-    );
-  }
-  if (!canWrite) return null;
-  return (
-    <ShopAddToCart
-      listingId={r.id}
-      item={{ availableFrom: r.item.availableFrom, availableUntil: r.item.availableUntil, packageRules: r.item.packageRules }}
-      today={today}
-    />
+        {mode === "sample" && (
+          <p className="text-[10px] text-faint">
+            Sample items: {DEMO_LISTINGS.length} examples, shown the way a linked sponsor&rsquo;s own shop looks.
+          </p>
+        )}
+      </div>
+    </ServerList>
   );
 }
