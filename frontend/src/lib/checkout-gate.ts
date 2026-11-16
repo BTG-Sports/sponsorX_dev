@@ -30,6 +30,8 @@ export type ApiCheckout = {
   paymentsOpen?: boolean;
   /** POL-FE-05 — the quote for this hold. Absent on an API that doesn't send it yet. */
   quote?: ApiQuote;
+  /** POL-BE-72 — the sponsor's spending limit now, in cents. Absent on an older API. */
+  spendingLimitCents?: number;
 };
 
 /* ------------------------------------------------- the total before placing (POL-FE-05) */
@@ -202,6 +204,14 @@ export function placeOrderPayload(g: { reservationId: string; agreementId: strin
     billing: { name: g.billing.name.trim(), email: g.billing.email.trim(), ...(reference ? { reference } : {}) },
     ...(g.totalCentsShown !== undefined ? { totalCentsShown: g.totalCentsShown } : {}),
   };
+}
+
+/** POL-FE-72 — the spending limit beside the total: within it, approved at
+ *  once; above it, BTG checks first. Null when the API didn't send a limit. */
+export function limitLine(totalCents: number, limitCents: number | undefined, usd: (c: number) => string): { text: string; over: boolean } | null {
+  if (limitCents === undefined || limitCents === null) return null;
+  if (totalCents <= limitCents) return { text: `Your spending limit is ${usd(limitCents)} — this order is within it, so BTG doesn't need to check it first.`, over: false };
+  return { text: `Your spending limit is ${usd(limitCents)} — this order is above it, so BTG checks it before it's approved.`, over: true };
 }
 
 /** The approval condition, in one line, wherever checkout and the order page state it. */

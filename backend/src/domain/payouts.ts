@@ -1029,7 +1029,7 @@ async function requestPayoutIn(tx: Tx, payee: Payee, actor: AuditActor, now: Dat
       const name = await payeeName(tx, payee);
       for (const email of await payoutReviewers(tx, books)) {
         await tell(tx, { tenantId: books, email }, "payout.heldForReview", row.id, {
-          payeeName: name, amount: usd(amountCents), reasons: reasons.join("\n- "), payoutUrl: appUrl(`/admin/payouts/${row.id}`),
+          payeeName: name, amount: usd(amountCents), reasons: reasons.join("\n- "), payoutUrl: appUrl(`/payouts/${row.id}`) /* POL-BE-73 — sends Finance and admins each to their own page */,
         });
       }
     }
@@ -1113,8 +1113,21 @@ export async function getPayout(actor: Actor, id: string, now = new Date()) {
       orders.map((o) => ({ state: o.state, confirmedLines: money.get(o.id)?.confirmedLines ?? 0, holdUntil: money.get(o.id)?.holdUntil ?? null, frozen: money.get(o.id)?.frozen ?? false })),
       account?.status, now,
     ),
-    provider: providerName(),
+    /* POL-BE-73 — the provider money actually moves through now: "none" while
+       BTG's switch is off too, not only when none is configured. The old
+       configured name made an approved payout say "it's being sent" when
+       nothing was. `waiting` says why an approved payout sits still. */
+    provider: await activeProvider(),
+    waiting: await waitingReason(),
   };
+}
+
+/** POL-BE-73 — why an approved payout isn't moving, or null when payment is open. */
+async function waitingReason(): Promise<string | null> {
+  if (await paymentsOpen()) return null;
+  return providerName() === "none"
+    ? "No payment provider is connected yet, so nothing is sent. It goes out once payments open."
+    : "BTG has switched payments off for now, so nothing is sent. It goes out when payments are switched back on.";
 }
 
 async function notifyPayee(
@@ -1430,7 +1443,7 @@ async function payoutFailedIn(tx: Tx, row: PayoutRow, from: "SENDING" | "PAID", 
     for (const email of await payoutReviewers(tx, row.tenantId)) {
       await tell(tx, { tenantId: row.tenantId, email }, "payout.failedForBtg", `${row.id}:${row.sendAttempts}:${from}`, {
         payeeName: name, amount: usd(row.amountCents), reason: [reason, ...plan.reviewReasons].join(" — "),
-        payoutUrl: appUrl(`/admin/payouts/${row.id}`),
+        payoutUrl: appUrl(`/payouts/${row.id}`) /* POL-BE-73 — sends Finance and admins each to their own page */,
       });
     }
   }

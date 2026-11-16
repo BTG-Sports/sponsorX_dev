@@ -30,7 +30,6 @@ import { requirePortalAccess } from "@/server/portal";
 import { athletePayoutLinkAction } from "./payout-actions";
 import { ComingOfAgeReminder } from "@/components/coming-of-age-reminder";
 import { ConfirmationsBanner } from "@/components/confirmations-banner";
-import { GuardianControlNotice } from "@/components/guardian-control-notice";
 import { comingOfAgeView, type ApiComingOfAge } from "@/lib/account-live";
 import type { ApiMyCollab, ApiMyRules } from "@/lib/confirmations-live";
 import { campaignAfterSponsor } from "@/lib/campaign-title";
@@ -313,7 +312,7 @@ export default async function AthleteHomePage() {
 
       {ageView && coming && <ComingOfAgeReminder view={ageView} seat={coming.seat ?? "athlete"} uploadPath={coming.uploadPath ?? null} />}
       <ConfirmationsBanner rules={rules} collab={collab} viewerIsGuardian={Boolean(actor.actingFor)} />
-      <GuardianControlNotice actor={actor} />
+      {/* POL-FE-68 — the guardian notice moved to the layout, on every page. */}
 
       {(payout?.show || waiting > 0) && (
         <div className="grid gap-3 lg:grid-cols-2">

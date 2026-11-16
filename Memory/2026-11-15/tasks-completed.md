@@ -53,3 +53,70 @@
 - All 51 Polish items are Done (71 rows). #45 and #51 were walked live; the walk found and fixed a phone-only dead end in #45 (the menu sat under the bottom bar) and "Running" next to "starts in 10 days" after an early launch (#51). The rate card is now also reached from the athlete's profile.
 - The Tester Facility seeding (#51) is in the facility's own repo and was handed on, not closed here.
 - Details: `POL-close-out.md`. Branch `fix/POL-FE-51-close-polish`.
+
+## Whole-app review → POL-52 to POL-78 logged; wave 1 (POL-52 to 59) built (rcfworks)
+
+- **Logged:** `documentation/SponsorX-App-Review-2026-11-15.md` became group I of `polish.md` (items 52–78, 8 waves), with 43 rows on the Polish sheet, all owned by rcfworks on both sides (the owner's "do all the waves").
+- **Wave 1 (the 7 blockers + the content review findings), Done:**
+  - 52: campaign stage moves on the admin campaign page.
+  - 53: Finance's earning actions (Finance-only).
+  - 54: All orders, for BTG and Finance (the API search was widened).
+  - 55: guardians use `viewerIsAthlete` on Invitations and Profile.
+  - 56: `GET /publications` and `PATCH /editions/:id`, plus a Set up panel.
+  - 57: an email to the student's guardian, and "Verify guardian" for BTG.
+  - 58: a student code on the request form, kept from `/s/<code>`.
+  - 59: approval adds points and records the usage right; the list badge is fixed; BTG gets the live desk.
+- **Decision changed while building (recorded in `polish.md` group I):**
+  - No consent agreement (FEATURE, RELEASE or COMMERCIAL) exists, and no screen records one.
+  - So approval goes ahead, and records the right only when a consent is in force. The production gate still refuses a piece without a right.
+  - **Open:** the media release text and the screen to accept it.
+- **Checks:**
+  - backend: 264 files, 3825 tests;
+  - frontend: 181 files, 2093 tests;
+  - lint, build, security scripts, secret scan and audit all clean.
+
+## App review waves 2–3 (part): POL-60 to POL-65 Done (rcfworks)
+
+- 60: BTG opens a campaign's sponsor report inside the admin portal.
+- 61: a "To verify" tab and dashboard card, and BTG is emailed when a post is marked published.
+- 62: "Record views" and "Create tracking link" in the approvals drawer; "Reach short" waits for figures.
+- 63: approving a held brief creates its campaign; the desk links fixed; the Studio warns about automatic offers; the network manager isn't offered Send.
+- 64: the acceptance, order-ready and brief-closed emails; BTG's close reason stays internal; an "Athletes to activate" card.
+- 65: the request form enforces the 8-word objective and the edit dates; honest wording; held requests are followed on Requests; results show only once live.
+- Remaining: 66–78.
+
+## App review: POL-66 to POL-70 Done (rcfworks)
+
+- 66: a NEXT ad request is never held for athletes, asks no athlete questions, and reads "booked".
+- 67: the sponsor sees their fan reward (QR, staff code) and leads; loose links fixed.
+- 68: a minor's coded refusals are shown as the API words them; the guardian accepts the order; the Guardian seat label; the notice is on every page.
+- 69: the athlete's earnings, invitations, profile and orders say true things; the rate card is out of profile completion.
+- 70: the changes-requested email links to `/join/edit`, where the applicant edits and resubmits.
+- **Checks:** backend 3829 tests, frontend 2113; lint, build and scans all clean.
+- **Remaining:** 71–78.
+
+## Wrap-up 2026-11-15 (rcfworks)
+
+- **Shipped to staging today:**
+  - POL-FE-44 to 49 (walkthrough polish);
+  - P9-BE-24 / P9-FE-12, content review, with emails and a resubmission that keeps the earlier file. Staging is at b42a298f, and the `StudentAssignment` migration was applied there.
+- **App review (`documentation/SponsorX-App-Review-2026-11-15.md`):**
+  - logged as POL-52 to 78 (group I);
+  - items 52 to 70 built, in three stacked PRs to merge in order: #427 (52–59, the blockers), then #428 (60–65), then #429 (66–70). Retarget each to `main_development` once the one below it merges.
+  - Full local CI was green on each.
+- **Tomorrow:**
+  1. Merge #427, #428 and #429, then send main_development to main by PR, and deploy staging.
+  2. Build items 71 to 78:
+     - sponsor portal (71, 72);
+     - Finance and payouts (73);
+     - system health and intelligence (74);
+     - property, closures and email preferences (75);
+     - NEXT applicants (76);
+     - NEXT public pages and the QR (77);
+     - `polish.md` corrections (78).
+  3. Leftovers:
+     - POL-BE-69, a guardian's signature in profile completion;
+     - pending-confirmation links on offers and inventory;
+     - deliverable version links and page names.
+  4. Yesterday's two staging checks: role filtering on the help desk, and a real reply email.
+- **Open decision (programme owner):** no media release or consent agreement exists. Approved student pieces get no usage right, so they can't go to print until a consent text and an accept screen exist.

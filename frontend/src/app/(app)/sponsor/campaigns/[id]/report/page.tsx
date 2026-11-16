@@ -77,19 +77,26 @@ async function safeOverview(range: RangeKey, id: string): Promise<SponsorOvervie
 async function liveReport(
   id: string,
   range: RangeKey,
-): Promise<{ report: ApiSponsorReport; overview: SponsorOverview | null; overviewUnavailable?: "error" } | "missing" | null> {
+): Promise<{ report: ApiSponsorReport; overview: SponsorOverview | null; overviewUnavailable?: "error"; jobNames: Record<string, string> } | "missing" | null> {
   /* No catch — an outage is an error page, never fixtures dressed as the
      sponsor's real results (QA pass 4 rule). */
   const who = await fetchActor();
   if (who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => REPORT_ROLES.includes(r))) return null;
   /* The report and the overview are independent reads — one round trip, not two in series. */
-  const [res, overviewResult] = await Promise.all([apiFetch(`/campaigns/${encodeURIComponent(id)}/report`), safeOverview(range, id)]);
+  const [res, overviewResult, jobsRes] = await Promise.all([
+    apiFetch(`/campaigns/${encodeURIComponent(id)}/report`),
+    safeOverview(range, id),
+    /* POL-FE-72 — job names from the live catalogue; a failed read falls back to the built-in names. */
+    apiFetch("/catalogue/jobs").catch(() => null),
+  ]);
   if (res.status === 403) return "missing";
   if (!res.ok) throw new Error(`Report unavailable (${res.status}).`);
   const report = (await res.json()) as ApiSponsorReport;
   const overview = overviewResult === "error" ? null : overviewResult;
-  return { report, overview, overviewUnavailable: overviewResult === "error" ? "error" : undefined };
+  const jobs = jobsRes?.ok ? ((await jobsRes.json()) as { jobs: { id: string; name: string }[] }).jobs : [];
+  const jobNames: Record<string, string> = Object.fromEntries(jobs.map((j) => [j.id, j.name]));
+  return { report, overview, overviewUnavailable: overviewResult === "error" ? "error" : undefined, jobNames };
 }
 
 const fmtDay = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
@@ -111,7 +118,12 @@ export default async function CampaignResultsPage({
   const sp = await searchParams;
   const range = rangeParam(sp);
   const fromParam = Array.isArray(sp.from) ? sp.from[0] : sp.from;
-  const back = fromParam === "sponsor-campaign" ? { href: `/sponsor/campaigns/${id}`, label: "Back to campaign" } : resolveBack(fromParam, "sponsor");
+  const back = fromParam === "sponsor-campaign"
+    ? { href: `/sponsor/campaigns/${id}`, label: "Back to campaign" }
+    /* POL-FE-60 — BTG reading the report inside the admin portal. */
+    : fromParam === "admin-campaign"
+      ? { href: `/admin/campaigns/${id}`, label: "Back to campaign" }
+      : resolveBack(fromParam, "sponsor");
 
   const live = demo === null ? await liveReport(id, range) : null;
   if (live === "missing") notFound();
@@ -122,6 +134,7 @@ export default async function CampaignResultsPage({
     return (
       <Report
         r={live.report}
+        jobNames={live.jobNames}
         overview={overview}
         overviewUnavailable={live.overviewUnavailable}
         back={back}
@@ -172,9 +185,11 @@ export default async function CampaignResultsPage({
 /* -------------------------------------------------------------- the report */
 
 function Report({
-  r, overview, overviewUnavailable, back, sample, range, sp,
+  r, jobNames, overview, overviewUnavailable, back, sample, range, sp,
 }: {
   r: ApiSponsorReport;
+  /** POL-FE-72 — GET /catalogue/jobs as id → name; absent on the sample report. */
+  jobNames?: Readonly<Record<string, string>>;
   overview: ReportOverview | null;
   overviewUnavailable?: "error";
   back: { href: string; label: string };
@@ -203,7 +218,7 @@ function Report({
             <ExportReport
               payload={{
                 kind: "campaign-results",
-                report: buildCampaignResultsReport(r, overview ? { window: range, athletes: overview.topAthletes } : null, new Date(), { sample }),
+                report: buildCampaignResultsReport(r, overview ? { window: range, athletes: overview.topAthletes } : null, new Date(), { sample, jobNames }),
               }}
             />
           </>
@@ -242,7 +257,7 @@ function Report({
         <BestAthletes overview={overview} />
       </div>
 
-      <Athletes roster={r.roster} />
+      <Athletes roster={r.roster} jobNames={jobNames} />
 
       <ClicksByPost assets={r.deliveredAssets} />
 
@@ -487,7 +502,7 @@ function BestAthletes({ overview }: { overview: ReportOverview | null }) {
  *  so one campaign's long roster can't run the panel off the page. */
 const ATHLETES_SHOWN = 20;
 
-function Athletes({ roster }: { roster: ApiSponsorReport["roster"] }) {
+function Athletes({ roster, jobNames }: { roster: ApiSponsorReport["roster"]; jobNames?: Readonly<Record<string, string>> }) {
   const rows = roster.slice(0, ATHLETES_SHOWN);
   return (
     <StadiumPanel flush delay={0.6} className="min-w-0">
@@ -509,7 +524,7 @@ function Athletes({ roster }: { roster: ApiSponsorReport["roster"] }) {
               i={i}
               lead={monogramOf(a.athleteName)}
               title={a.athleteName}
-              sub={[knownJobName(a.jobId), orderWord(a.orderState).text].filter(Boolean).join(" · ")}
+              sub={[knownJobName(a.jobId, jobNames), orderWord(a.orderState).text].filter(Boolean).join(" · ")}
               right={
                 <span className="block">
                   <span className="block text-[13px] font-bold tabular-nums text-text">

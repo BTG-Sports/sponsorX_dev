@@ -8,6 +8,7 @@ import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { liveStudent } from "./live";
 import { LiveStudentHome, StudentApplyCard, StudentUnlinked } from "./live-views";
+import { loadThisEdition } from "@/server/this-edition";
 import {
   PROSPECT_COPY,
   STUDENT_ASSIGNMENT_COPY,
@@ -58,7 +59,7 @@ export default async function StudentHomePage({
   if (!demo) {
     const live = await liveStudent(["code", "sales", "points", "prospects"]);
     if (live?.kind === "unlinked") return <StudentUnlinked title="Home" />;
-    if (live) return <LiveStudentHome live={live} />;
+    if (live) return <LiveStudentHome live={live} edition={await loadThisEdition()} />;
   }
 
   const heading = (

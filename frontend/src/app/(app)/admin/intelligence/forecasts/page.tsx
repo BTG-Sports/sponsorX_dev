@@ -14,6 +14,7 @@ import {
 import { confidenceLabel, pct } from "@/lib/intelligence";
 import { apiListQuery } from "@/lib/list-query";
 import { readEngine, wantsSample } from "@/server/engine";
+import { FORECAST_EMPTY_HINT, NIGHTLY_RUN_LINE } from "@/lib/nightly-run";
 
 /* --------------------------------------------------------------------------
    Campaign forecasts — 3S4-FE-01 (Spec §16 P3-03). "Dashboard shows pacing
@@ -88,7 +89,10 @@ function Desk({ list, tab, sample }: { list: ForecastList; tab: ForecastTabKey; 
   return (
     <div className="space-y-5">
       {sample && <SampleBanner />}
-      <h1 className="sx-page-title">{TITLE}</h1>
+      <div>
+        <h1 className="sx-page-title">{TITLE}</h1>
+        <p className="mt-1 text-xs text-muted">{NIGHTLY_RUN_LINE}</p>
+      </div>
 
       <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <KpiTile label="Active campaigns" value={counts.active} caption="forecast nightly" tone="blue" delay={0.1} />
@@ -109,7 +113,7 @@ function Desk({ list, tab, sample }: { list: ForecastList; tab: ForecastTabKey; 
         <EmptyState
           mark="inbox"
           title={tab === "all" ? "No active campaigns to forecast" : `No campaigns ${current.label.toLowerCase()}`}
-          hint={tab === "all" ? "A campaign is forecast once it is live and has a guarantee to pace against." : "Campaigns appear here when the nightly forecast puts them in this band."}
+          hint={tab === "all" ? FORECAST_EMPTY_HINT : "Campaigns appear here when the nightly forecast (from 19:00 UTC) puts them in this band."}
         />
       ) : (
         <PagedTable page={page} noun="Campaigns" label={`Forecasts · ${current.label}`} columns={columns} filtered={tab !== "all"}>

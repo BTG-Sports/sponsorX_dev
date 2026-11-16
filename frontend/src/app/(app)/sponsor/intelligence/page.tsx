@@ -64,7 +64,8 @@ import { readEngine, wantsSample } from "@/server/engine";
    -------------------------------------------------------------------------- */
 
 const PATH = "/sponsor/intelligence";
-const TITLE = "Campaign insights";
+/* POL-FE-72 — one name: the sidebar says Intelligence, so the page does too. */
+const TITLE = "Intelligence";
 
 export default async function SponsorIntelligencePage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const demo = await demoState(searchParams);

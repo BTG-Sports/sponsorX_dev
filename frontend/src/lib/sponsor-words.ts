@@ -66,7 +66,10 @@ const DELIVERABLE: Record<string, Word> = {
 
 export const campaignWord = (s: string) => pick(CAMPAIGN, s);
 export const briefWord = (s: string) => pick(BRIEF, s);
-export const orderWord = (s: string) => pick(ORDER, s);
+/** POL-FE-72 — while card payment is closed (paymentsOpen === false) an
+ *  approved order isn't "Ready to pay": it reads "Approved", not the sponsor's move. */
+export const orderWord = (s: string, paymentsOpen?: boolean): Word =>
+  paymentsOpen === false && (s === "APPROVED" || s === "AWAITING_PAYMENT") ? { text: "Approved", tone: "info" } : pick(ORDER, s);
 export const deliverableWord = (s: string) => pick(DELIVERABLE, s);
 
 /** Where a number came from, for the "How sure are we?" panel. */

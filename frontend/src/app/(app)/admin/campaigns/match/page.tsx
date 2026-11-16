@@ -11,6 +11,7 @@ import {
   toMatchData,
   type ApiBrief,
   type ApiEligiblePage,
+  maySendInvites,
 } from "@/lib/matching-live";
 import { textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
 import { apiFetch, fetchActor } from "@/server/api";
@@ -50,7 +51,7 @@ type BriefList = { briefs: ApiBrief[]; page: PageInfo };
 type Live =
   | { kind: "denied" }
   | { kind: "none"; list: BriefList }
-  | { kind: "brief"; list: BriefList; brief: ApiBrief; eligible: ApiEligiblePage; offers: boolean; rates: boolean };
+  | { kind: "brief"; list: BriefList; brief: ApiBrief; eligible: ApiEligiblePage; offers: boolean; rates: boolean; send: boolean };
 
 async function liveDesk(sp: SearchParams): Promise<Live | null> {
   /* No catch — an outage is an error page, never fixtures dressed as a real
@@ -90,7 +91,7 @@ async function liveDesk(sp: SearchParams): Promise<Live | null> {
   const eligible = (await eligibleRes.json()) as ApiEligiblePage;
   /* P4-FE-08 — an offer writer's rows link to the pre-filled offer form. */
   /* POL-FE-51 — a rate setter's no-rate rows link to the rate card editor. */
-  return { kind: "brief", list, brief, eligible, offers: mayWriteOffers(who.actor.roles), rates: mayWriteRates(who.actor.roles) };
+  return { kind: "brief", list, brief, eligible, offers: mayWriteOffers(who.actor.roles), rates: mayWriteRates(who.actor.roles), send: maySendInvites(who.actor.roles) };
 }
 
 export default async function MatchingStudioPage({
@@ -115,7 +116,7 @@ export default async function MatchingStudioPage({
     if (lacking) return <NotInRole path="/admin/campaigns/match" title="Matching Studio" roles={lacking} />;
   }
   const live = str(sp.demo) ? null : await liveDesk(sp);
-  const data = live?.kind === "brief" ? toMatchData(live.brief, live.eligible.athletes, { offers: live.offers, rates: live.rates }) : null;
+  const data = live?.kind === "brief" ? toMatchData(live.brief, live.eligible.athletes, { offers: live.offers, rates: live.rates, send: live.send }) : null;
   const bq = textParam(sp, "bq");
   const campaignName = data ? data.brief.campaign : MATCH_BRIEF.campaign;
 

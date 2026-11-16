@@ -26,6 +26,8 @@
 import { fmtDay, refusalMessage, usd } from "./inventory-live";
 import { apiListQuery, textParam, type PageInfo, type SearchParams } from "./list-query";
 import { campaignWithSponsor } from "./campaign-title";
+import { confirmationsHref, promptFor, type ApiErrorBody } from "@/lib/confirmations-live";
+import { CONFIRM_FIRST_WORDS } from "@/lib/athlete-order-pause";
 
 export { usd, fmtDay };
 
@@ -249,7 +251,7 @@ export function acceptBlocker(o: ApiOffer, now: Date = new Date()): string | nul
 
 export type RespondResult =
   | { ok: true; state: OfferState; orderId: string | null; changeRequest?: ApiOfferChangeRequest | null }
-  | { ok: false; message: string; reload?: boolean };
+  | { ok: false; message: string; reload?: boolean; confirmHref?: string };
 
 /** The API's limit on a change request's note. */
 export const CHANGE_NOTE_MAX = 2000;
@@ -281,7 +283,12 @@ export function fmtWhen(iso: string): string {
  * availability clash are 409s too, but reloading changes nothing, so they
  * say what's wrong and don't offer a reload.
  */
-export function explainOfferRefusal(status: number, body: unknown): { message: string; reload: boolean } {
+export function explainOfferRefusal(status: number, body: unknown, returnTo?: string): { message: string; reload: boolean; confirmHref?: string } {
+  /* POL-FE-68 — an outstanding confirmation (the rules, or the Content
+     Collaboration Agreement) is a 409 that reloading never cures: say which,
+     and link to Confirmations, coming back here after. */
+  const prompt = promptFor(status, body as ApiErrorBody);
+  if (prompt) return { message: CONFIRM_FIRST_WORDS[prompt], reload: false, confirmHref: confirmationsHref(returnTo) };
   const said = refusalMessage(body);
   const e = (body as { error?: { conflicts?: unknown[]; reasons?: unknown[] } } | null)?.error;
   if (status === 409) {
@@ -291,6 +298,7 @@ export function explainOfferRefusal(status: number, body: unknown): { message: s
     if (said && /already has an order/i.test(said)) return { message: said, reload: false };
     return { message: said ?? "This offer changed since you opened it.", reload: true };
   }
-  if (status === 403) return { message: "Only the athlete named on this offer can answer it, from their own login.", reload: false };
+  /* POL-FE-68 (app review §3) — a coded refusal (a minor: "your guardian must act") is said as the API said it. */
+  if (status === 403) return { message: said ?? "Only the athlete named on this offer can answer it, from their own login.", reload: false };
   return { message: said ?? `Your answer was not recorded (HTTP ${status}).`, reload: false };
 }

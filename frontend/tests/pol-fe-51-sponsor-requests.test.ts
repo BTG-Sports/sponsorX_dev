@@ -51,7 +51,7 @@ describe("the start date", () => {
   it("opens on today + 14 — the same day a blank start is sent as", () => {
     expect(defaultStart(noon)).toBe("2026-11-29");
     const body = toBriefBody(
-      { sponsorId: "s", objective: "Grand opening traffic", budget: "1500", start: "", durationWeeks: 2, sport: "", geo: "", tier: "", category: "", message: "" },
+      { sponsorId: "s", objective: "Bring grand opening traffic to our new downtown store", budget: "1500", start: "", durationWeeks: 2, sport: "", geo: "", tier: "", category: "", message: "" },
       noon,
     );
     expect(body.startDate).toBe(defaultStart(noon));
@@ -88,7 +88,7 @@ describe("live Sport and Geography options", () => {
   });
 
   it("an option's value becomes the brief's own targeting, unchanged", () => {
-    const body = toBriefBody({ sponsorId: "s", objective: "Spring push", budget: "1500", start: "", durationWeeks: 2, sport: "Lacrosse", geo: "MD", tier: "", category: "", message: "" });
+    const body = toBriefBody({ sponsorId: "s", objective: "A spring push for our lacrosse gear across Maryland", budget: "1500", start: "", durationWeeks: 2, sport: "Lacrosse", geo: "MD", tier: "", category: "", message: "" });
     expect(body.sports).toEqual(["Lacrosse"]);
     expect(body.stateCodes).toEqual(["MD"]);
   });

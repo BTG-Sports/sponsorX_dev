@@ -49,6 +49,7 @@ import {
   sponsorContentAction,
   sponsorContentLink,
 } from "./actions";
+import { SponsorFanReward } from "@/components/sponsor-fan-reward";
 
 /* --------------------------------------------------------------------------
    Sponsor Campaign detail — on the Stadium Board (P1-ART-23 Task 10, spec
@@ -445,6 +446,9 @@ function LiveDetail({
       <RosterSection rows={rows} viewsLabel="Verified views" delay={0.5} />
 
       <PostsSection posts={detail.posts} page={detail.postsPage} unavailable={detail.postsUnavailable} />
+
+      {/* POL-FE-67 (app review §2) — the fan reward (QR, staff code) and the fans who said the sponsor may contact them. */}
+      <SponsorFanReward campaignId={c.id} />
 
       <p className="text-[10px] leading-relaxed text-faint">
         Delivery, roster and spend are SponsorX&rsquo;s own records; verified views are

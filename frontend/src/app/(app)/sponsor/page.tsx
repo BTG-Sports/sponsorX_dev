@@ -27,7 +27,7 @@ import { formatCount } from "@/lib/format-count";
 import { DEMO_NOW, demoCampaignPage, demoOverview } from "@/lib/fixtures/sponsor-overview";
 import { textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
 import { monogramOf, type ApiCampaign } from "@/lib/sponsor-live";
-import { campaignMoney, rangeParam, tickerFacts, type RangeKey, type SponsorOverview } from "@/lib/sponsor-overview-live";
+import { campaignMoney, emptyDashboardRows, needsYouItems, rangeParam, tickerFacts, type RangeKey, type SponsorOverview } from "@/lib/sponsor-overview-live";
 import { FUNNEL_WORDS, campaignWord, compactNumber, delta } from "@/lib/sponsor-words";
 import { CAMPAIGN_SORTS, CAMPAIGN_STATES } from "@/server/campaigns";
 import { liveSponsorDashboard } from "@/server/sponsor";
@@ -116,6 +116,19 @@ function Dashboard({
     return (
       <div className="space-y-6">
         <StadiumHead title="Your sponsorships" pill={pill} actions={newRequest} />
+        {/* POL-FE-71 — a Shop order to pay or a request with BTG, before any campaign exists. */}
+        {emptyDashboardRows(o.needsYou, o.paymentsOpen).length > 0 && (
+          <StadiumPanel flush delay={0.05} tone={emptyDashboardRows(o.needsYou, o.paymentsOpen).some((r) => r.key !== "requests") ? "you" : undefined}>
+            <div className="px-5 pt-5">
+              <Title hint="Things that can't move until you do something, and requests BTG is looking at.">Needs you</Title>
+            </div>
+            <div className="pb-1">
+              {emptyDashboardRows(o.needsYou, o.paymentsOpen).map((it, i) => (
+                <StadiumRow key={it.key} href={it.href} title={it.title} sub={it.sub} right={<StadiumBadge count={it.count} />} i={i} />
+              ))}
+            </div>
+          </StadiumPanel>
+        )}
         <StadiumPanel delay={0.1} className="text-center">
           <p className="text-base font-semibold text-text">No campaigns yet</p>
           <p className="mx-auto mt-1.5 max-w-md text-sm text-muted">
@@ -269,14 +282,8 @@ function Quiet({ children }: { children: ReactNode }) {
 /* ------------------------------------------------------------- needs you */
 
 function NeedsYou({ o }: { o: SponsorOverview }) {
-  const n = o.needsYou;
-  const items = [
-    { key: "posts", title: "Posts waiting for your OK", sub: "Open a running campaign to look at them", count: n.postsToReview, href: "/sponsor/campaigns?review=1" },
-    { key: "orders", title: "Orders to pay", sub: "Approved and ready for payment", count: n.ordersToPay, href: "/sponsor/orders?tab=to_pay" },
-    /* POL-FE-13 — opens the invoices screen, where each one can be paid. */
-    ...(n.invoicesUnpaid !== undefined ? [{ key: "invoices", title: "Invoices to pay", sub: "Sent to you by BTG", count: n.invoicesUnpaid, href: "/sponsor/invoices" }] : []),
-  ];
-  const waiting = items.some((i) => i.count > 0);
+  const items = needsYouItems(o.needsYou, o.paymentsOpen);
+  const waiting = items.some((i) => i.count > 0 && !(i.key === "orders" && o.paymentsOpen === false));
   return (
     <StadiumPanel flush delay={0.46} tone={waiting ? "you" : undefined} className="min-w-0">
       <div className="px-5 pt-5">

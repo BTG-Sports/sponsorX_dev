@@ -23,6 +23,7 @@ import {
   EditionConditionsInput,
   EditionEventInput,
   EditionInput,
+  EditionPatch,
   EditionTransitionInput,
   PublicationInput,
   RateCardInput,
@@ -49,7 +50,7 @@ import {
   setEditionConditions,
   transitionEdition,
 } from "../../domain/edition";
-import { EditionNotFoundError } from "../../domain/edition";
+import { EditionNotFoundError, listPublications, updateEdition } from "../../domain/edition";
 import { PUBLISHED_STATES } from "../../domain/edition-state";
 
 export const editionsRouter = Router();
@@ -152,7 +153,7 @@ const listEditions: RequestHandler = async (req, res) => {
       id: true, label: true, state: true, closeDate: true, publishTarget: true, printDate: true,
       pageCount: true, thresholdCents: true, contentReady: true, rightsCleared: true, revenueMet: true,
       salesOpenAt: true, splitLockedAt: true,
-      publication: { select: { id: true, name: true, propertyId: true } },
+      publication: { select: { id: true, name: true, propertyId: true, property: { select: { slug: true } } } }, /* POL-BE-77 — the school slug, for the public edition link */
     },
     orderBy: [{ closeDate: "desc" }, { id: "asc" }],
     take: 100,
@@ -178,6 +179,17 @@ const listEditions: RequestHandler = async (req, res) => {
       })
     : null;
   const artBySlot = new Map((art ?? []).map((a) => [a.adSlotId, a]));
+  /* POL-BE-73 — Finance reads no slot (matrix §15.3), so its editions said
+     "$0 committed". It gets the committed total only — one sum per edition,
+     never a slot, a buyer or a price. */
+  const committedFor = viaSplits && ids.length
+    ? new Map(
+        (await prisma.adSlot.groupBy({
+          /* tenant-scope: keyed by the edition ids read through whereFor(revenueSplit) above. */
+          by: ["editionId"], where: { editionId: { in: ids }, campaignId: { not: null } }, _sum: { soldCents: true },
+        })).map((g) => [g.editionId, g._sum.soldCents ?? 0]),
+      )
+    : null;
   const now = new Date();
 
   res.json({
@@ -209,7 +221,7 @@ const listEditions: RequestHandler = async (req, res) => {
         inventory: {
           total: mine.length,
           sold: sold.length,
-          committedCents: sold.reduce((n, s) => n + (s.soldCents ?? 0), 0),
+          committedCents: committedFor ? (committedFor.get(e.id) ?? 0) : sold.reduce((n, s) => n + (s.soldCents ?? 0), 0),
           rackCents: mine.reduce((n, s) => n + s.priceCents, 0),
         },
         rightsPending: gaps ? gaps[i]!.length : null,
@@ -318,6 +330,19 @@ const saleCandidates: RequestHandler<{ id: string }> = async (req, res) => {
   });
 };
 
+/** POL-BE-56 — GET /publications: the mastheads, and (for BTG) the schools a new one may be for. */
+const publications: RequestHandler = async (req, res) => { res.json(await listPublications(req.actor!)); };
+/** POL-BE-56 — PATCH /editions/:id: dates, page count, threshold, while PLANNING or SELLING. */
+const editEdition: RequestHandler<{ id: string }> = async (req, res) => {
+  const b = EditionPatch.parse(req.body ?? {});
+  const d = (v: string | null | undefined) => (v === undefined ? undefined : v === null ? null : new Date(v));
+  res.json(await updateEdition(req.actor!, req.params.id, {
+    label: b.label, closeDate: b.closeDate ? new Date(b.closeDate) : undefined, publishTarget: b.publishTarget ? new Date(b.publishTarget) : undefined,
+    printDate: d(b.printDate), pageCount: b.pageCount, thresholdCents: b.thresholdCents, salesOpenAt: d(b.salesOpenAt),
+  }));
+};
+editionsRouter.get("/publications", requireActor, publications);
+editionsRouter.patch("/editions/:id", requireActor, editEdition);
 editionsRouter.post("/publications", requireActor, newPublication);
 editionsRouter.post("/publications/:id/editions", requireActor, newEdition);
 editionsRouter.get("/editions", requireActor, listEditions);
@@ -400,6 +425,17 @@ const readPublic: RequestHandler<{ school: string; id: string }> = async (req, r
       })
     : [];
   const by = new Map(bylines.map((s) => [s.id, s.displayName]));
+  /* POL-BE-77 — the approved text of each piece a student wrote, so the
+     edition can be read, not only listed. Only an APPROVED assignment's text,
+     and only for content already public above (a digital right in force). */
+  const texts = assets.length
+    ? await prisma.studentAssignment.findMany({
+        /* tenant-scope: the edition's own tenant, keyed by the public assets read above. */
+        where: { tenantId: edition.tenantId, assetId: { in: assets.map((a) => a.id) }, reviewState: "APPROVED", draftText: { not: null } },
+        select: { assetId: true, draftText: true },
+      })
+    : [];
+  const textOf = new Map(texts.map((t) => [t.assetId, t.draftText]));
   const school = edition.publication.property;
   res.json({
     id: edition.id,
@@ -409,7 +445,7 @@ const readPublic: RequestHandler<{ school: string; id: string }> = async (req, r
     printDate: edition.printDate?.toISOString() ?? null,
     publication: edition.publication.name,
     school: school ? { slug: school.slug, name: school.name, city: school.city, stateCode: school.stateCode } : null,
-    contents: assets.map((a) => ({ id: a.id, kind: a.kind, title: a.title, byline: a.studentId ? by.get(a.studentId) ?? null : null })),
+    contents: assets.map((a) => ({ id: a.id, kind: a.kind, title: a.title, byline: a.studentId ? by.get(a.studentId) ?? null : null, text: textOf.get(a.id) ?? null })),
     sponsors: slots.map((s) => ({ id: s.id, slotCode: s.slotCode, kind: s.kind, sponsor: s.campaign?.sponsor.name ?? "A local sponsor" })),
   });
 };

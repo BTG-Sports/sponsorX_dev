@@ -116,9 +116,16 @@ export function SponsorCampaignTable({
                   Approve posts →
                 </Link>
               ) : (
-                <Link href={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report`} aria-label={`See results for ${c.name}`} className="text-xs font-medium text-sponsor hover:underline">
-                  See results →
-                </Link>
+                /* POL-FE-65 (app review §2) — results only once it's live; before, the campaign page. */
+                ["ACTIVE", "REPORTING", "COMPLETED"].includes(c.state) ? (
+                  <Link href={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report`} aria-label={`See results for ${c.name}`} className="text-xs font-medium text-sponsor hover:underline">
+                    See results →
+                  </Link>
+                ) : (
+                  <Link href={`/sponsor/campaigns/${encodeURIComponent(c.id)}`} aria-label={`Open ${c.name}`} className="text-xs font-medium text-sponsor hover:underline">
+                    Open campaign →
+                  </Link>
+                )
               )}
             </Td>
           </Tr>

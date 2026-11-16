@@ -34,6 +34,8 @@ export type LiveOps = {
   openDispute?: OpenAction;
   /** P8-FE-05 — the tenant's deal disputes, joined by order id: a paused row says why. */
   disputes?: ApiDealDispute[];
+  /** POL-FE-63 — the Matching Studio on THIS campaign's brief (?brief=), not the first brief in its list. */
+  studioHref?: string;
 };
 
 const DEAL_DISPUTES = "/admin/deal-disputes";
@@ -660,7 +662,7 @@ function OrderDrawer({
           {/* profile link */}
           <div className="sx-animate sx-delay-4 p-5">
             <a
-              href={`/athletes/${r.slug}?from=campaign`}
+              href={`/athletes/${r.slug}?from=campaign&campaign=${encodeURIComponent(live?.campaignId ?? "")}`}
               target="_blank"
               rel="noopener"
               className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
@@ -854,7 +856,7 @@ function LiveActionBar({ row: r, live }: { row: LiveRosterRow; live: LiveOps }) 
   } else if (r.flag === "Replacement needed") {
     body = (
       <Link
-        href="/admin/campaigns/match"
+        href={live?.studioHref ?? "/admin/campaigns/match"}
         className="inline-flex w-full items-center justify-center rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-2"
       >
         Find a replacement in the Matching Studio →

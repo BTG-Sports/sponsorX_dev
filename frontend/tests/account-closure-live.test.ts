@@ -30,7 +30,7 @@ describe("closing — the preview before confirming (POL-FE-11)", () => {
     expect(dealStateWords("ACTIVE")).toBe("under way");
     expect(dealStateWords("SOMETHING_NEW")).toBe("something new");
     const deal = rileyPreview.liveDeals[0]!;
-    expect(liveDealLine(deal, "ATHLETE")).toEqual({ id: "d1", title: "Signed jersey", sponsor: "Bay Brewing", state: "in delivery", who: null });
+    expect(liveDealLine(deal, "ATHLETE")).toEqual({ id: "d1", title: "Signed jersey", sponsor: "Bay Brewing", state: "in delivery", who: null, href: null }); // POL-FE-75 — no order id in this fixture
     expect(liveDealLine({ ...deal, athleteName: "Mia" }, "GUARDIAN").who).toBe("for Mia");
     expect(liveDealLine({ ...deal, title: "" }, "ATHLETE").title).toBe("Marketplace sale");
   });

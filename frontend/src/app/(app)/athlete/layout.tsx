@@ -1,5 +1,6 @@
 import { requirePortalAccess } from "@/server/portal";
 import { PortalShell, type NavItem } from "@/components/portal-shell";
+import { GuardianControlNotice } from "@/components/guardian-control-notice";
 import { roleLabel, viewerName } from "@/server/viewer";
 
 import "../../mobile-nav.css";
@@ -34,11 +35,12 @@ const NAV: NavItem[] = [
   { href: "/athlete/earnings", label: "Earnings", icon: "wallet", group: "Money", groupIcon: "wallet" },
   { href: "/athlete/money", label: "Payouts", icon: "card", group: "Money" },
 
-  /* The athlete's own account. (The group's glyph sits on Public profile:
-     Guardian requests is filtered out for every login but a guardian's.) */
+  /* The athlete's own account. POL-FE-69 — Confirmations first (A–Z), so the
+     group's glyph sits on it: every login sees it, unlike Guardian requests. */
+  { href: "/athlete/confirmations", label: "Confirmations", icon: "shield", group: "Account", groupIcon: "user" },
   /* 2S1-FE-10 — requests to take over as guardian; GUARDIAN only (below). */
   { href: "/athlete/guardian-requests", label: "Guardian requests", icon: "shield", group: "Account" },
-  { href: "/athlete/profile", label: "Public profile", icon: "user", group: "Account", groupIcon: "user" },
+  { href: "/athlete/profile", label: "Public profile", icon: "user", group: "Account" },
   /* 2S1-FE-08 — sign-in, payouts, closing and reactivating the account. */
   { href: "/athlete/settings", label: "Settings", icon: "gear", group: "Account" },
 ];
@@ -67,14 +69,18 @@ export default async function AthleteLayout({ children }: LayoutProps<"/athlete"
     <PortalShell
       portal="athlete"
       /* Only the current guardian answers a handoff request — the minor never does. */
-      nav={NAV.filter((n) => n.href !== "/athlete/guardian-requests" || actor.roles.includes("GUARDIAN"))}
+      /* POL-FE-68 (app review §3) — a minor reaches their own Guardian requests page too. */
+      nav={NAV.filter((n) => n.href !== "/athlete/guardian-requests" || actor.roles.includes("GUARDIAN") || Boolean(actor.guardianControl))}
       rootHref="/athlete"
       dock={DOCK}
       userName={await viewerName("Athlete")}
-      userRole={isAthlete ? "Content Partner" : `${roleLabel(actor.roles)} · preview`}
+      /* POL-FE-68 — a guardian is a guardian here, not a "preview"; staff previewing still read as previews. */
+      userRole={isAthlete ? "Content Partner" : actor.roles.includes("GUARDIAN") ? "Guardian" : `${roleLabel(actor.roles)} · preview`}
       /* P1-ART-22 — the whole athlete portal on the Arena. */
       stage="arena"
     >
+      {/* POL-FE-68 — who acts, on every page (it was on the dashboard only). */}
+      <GuardianControlNotice actor={actor} />
       {children}
     </PortalShell>
   );

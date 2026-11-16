@@ -233,7 +233,7 @@ async function readPosts(
 export type OrderTab = { key: string; label: string; count: number };
 
 /** GET /marketplace-orders/summary's counts, for the Orders desk's tiles. */
-export type OrderSummary = { byTab: Record<string, number>; spentCents: number };
+export type OrderSummary = { byTab: Record<string, number>; spentCents: number; /** POL-BE-72 */ paymentsOpen?: boolean };
 
 /** The Orders page's tab strip sets `?tab=` to one of the API's own tab
  *  keys (never `all`, which is the default / omitted). */

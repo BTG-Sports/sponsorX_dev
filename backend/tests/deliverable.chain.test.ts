@@ -88,7 +88,8 @@ vi.mock("../src/db/client", () => {
   const tx = {
     deliverable: model,
     /* P5-BE-10 — the sponsor's reviewers, asked before a draft may skip BTG. */
-    user: { findFirst: () => Promise.resolve(null) },
+    /* POL-BE-61 — marking published emails BTG's desk: the desk's users. */
+    user: { findFirst: () => Promise.resolve(null), findMany: () => Promise.resolve([{ id: "u_ops", email: "ops@example.com" }]) },
     /* P5-BE-10 — the athlete's content-trust lock (a row lock in SQL). */
     $queryRaw: () => Promise.resolve([]),
     /* 2S1-BE-11 — the upload asks whether the uploader is a minor whose guardian should hear of it: an adult here. */
@@ -228,6 +229,8 @@ describe("P5-BE-08 · every step of the chain works and is audited", () => {
     expect(updates[0]).toMatchObject({ publishedUrl: "https://instagram.com/p/abc", platform: "INSTAGRAM" });
     expect(updates[0]!.publishedAt).toBeInstanceOf(Date);
     expect(auditRows[0]!.after).toMatchObject({ platform: "INSTAGRAM" });
+    /* POL-BE-61 — BTG's desk is emailed to verify it, in the same transaction. */
+    expect(enqueued).toContain("notify.email");
   });
 
   it("BTG verifies the published work", async () => {

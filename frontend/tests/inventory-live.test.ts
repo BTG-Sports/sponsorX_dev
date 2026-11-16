@@ -108,6 +108,7 @@ describe("validateDraft mirrors InventoryItemInput", () => {
       availableUntil: "2026-10-31T00:00:00.000Z",
       categories: [],
       restrictedCategories: [],
+      packageRules: {}, // POL-FE-75 — no rules set
     });
   });
   it("blank quantity is open quantity", () => {

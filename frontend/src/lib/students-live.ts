@@ -33,7 +33,49 @@ export type ApiStudent = {
    *  student's or guardian's read never carries either. */
   reviewReasons?: string[];
   autoApprovedAt?: string | null;
+  /** POL-BE-57 — reviewers only: the guardian a minor named and whether BTG has verified them. */
+  guardian?: { id: string; legalName: string; email: string; relationship: string; verifiedAt: string | null } | null;
+  /** POL-BE-76 — reviewers only: whether an approved student can sign in (null before approval). */
+  login?: StudentLogin;
 };
+
+export type StudentLogin = "signed-in" | "invited" | "no-email" | "address-in-use" | null;
+
+/** POL-FE-76 — the sign-in line on an approved student's card, or null before approval. */
+export function loginLine(s: Pick<ApiStudent, "login" | "email">): { text: string; ok: boolean } | null {
+  switch (s.login) {
+    case "signed-in": return { text: "Has signed in.", ok: true };
+    case "invited": return { text: `Login ready — they sign in with ${s.email ?? "the address they applied with"}. We emailed them how.`, ok: true };
+    case "no-email": return { text: "No login yet: the application has no email address. Ask BTG to add one so they can sign in.", ok: false };
+    case "address-in-use": return { text: `No login yet: ${s.email ?? "their address"} is already used by another SponsorX login. Ask BTG to sort it out.`, ok: false };
+    default: return null;
+  }
+}
+
+/** POL-FE-76 — what the advisor is told after a decision, instead of "Saved.". */
+export function decisionLine(to: string, s: Pick<ApiStudent, "login" | "email" | "displayName"> | null): string {
+  const told = s?.email ? ` ${s.displayName} has been emailed.` : " They have no email address, so tell them yourself.";
+  if (to === "APPROVED" || to === "ACTIVE") {
+    const l = s ? loginLine(s) : null;
+    return `Approved.${s?.email ? ` ${s.displayName} has been emailed.` : ""}${l ? ` ${l.text}` : ""}`;
+  }
+  if (to === "CHANGES_REQUESTED") return `Sent back with your note.${told}`;
+  if (to === "REJECTED") return `Declined.${told}`;
+  return "Saved.";
+}
+
+/** POL-FE-57 (app review B6) — who verifies a student's guardian: BTG (guardian write, tenant-wide). */
+export const GUARDIAN_VERIFY_ROLES = ["SUPER_ADMIN", "BTG_ADMIN"] as const;
+export const mayVerifyGuardian = (roles: readonly string[]) => roles.some((r) => (GUARDIAN_VERIFY_ROLES as readonly string[]).includes(r));
+
+/** The guardian line on a student's card, or null when there's no guardian. */
+export function guardianLine(s: Pick<ApiStudent, "guardian" | "guardianId">): { text: string; verified: boolean } | null {
+  if (!s.guardian) return s.guardianId ? { text: "Guardian linked", verified: false } : null;
+  const who = `${s.guardian.legalName} (${s.guardian.relationship.toLowerCase().replace(/_/g, " ")}, ${s.guardian.email})`;
+  return s.guardian.verifiedAt
+    ? { text: `Guardian verified: ${who}`, verified: true }
+    : { text: `Guardian not verified yet: ${who}. BTG confirms them before the student can join the masthead.`, verified: false };
+}
 
 export const STUDENT_STATE_COPY: Record<ApiStudentState, string> = {
   DRAFT: "Draft",

@@ -52,9 +52,13 @@ import { TabLink, TabStrip } from "@/components/stage-table";
    -------------------------------------------------------------------------- */
 
 /** Real catalogue for a signed-in sponsor, or null for the fixture demo. */
-type LiveCatalogue = { packages: Pkg[]; jobs: LiveJob[]; fromCents: number; targeting: Targeting };
+type LiveCatalogue = { packages: Pkg[]; jobs: LiveJob[]; fromCents: number; targeting: Targeting; canRequest: boolean };
 
-async function liveCatalogue(): Promise<LiveCatalogue | null> {
+/** POL-FE-72 — a signed-in person who isn't on a sponsor account (BTG staff,
+ *  an athlete) is told so, instead of being shown "Sample data" packages. */
+type NotSponsor = { notSponsor: true };
+
+async function liveCatalogue(): Promise<LiveCatalogue | NotSponsor | null> {
   /* No catch: fetchActor answers anonymous/unprovisioned as VALUES and throws
      only when the API itself is broken. Swallowing that throw dropped a real
      signed-in sponsor into the fixture demo on any API blip — and the demo
@@ -63,7 +67,7 @@ async function liveCatalogue(): Promise<LiveCatalogue | null> {
      below; anonymous visitors never hit the API and still get the demo. */
   const who = await fetchActor();
   if (!who || who.status !== "linked") return null;
-  if (!who.actor.roles.some((r) => r === "SPONSOR_ADMIN" || r === "SPONSOR_ANALYST")) return null;
+  if (!who.actor.roles.some((r) => r === "SPONSOR_ADMIN" || r === "SPONSOR_ANALYST")) return { notSponsor: true };
   /* A signed-in sponsor gets the truth or an error page — never fixtures
      presented as their marketplace. */
   const [p, j, t] = await Promise.all([apiFetch("/catalogue/packages"), apiFetch("/catalogue/jobs"), apiFetch("/catalogue/targeting")]);
@@ -78,7 +82,8 @@ async function liveCatalogue(): Promise<LiveCatalogue | null> {
      `toPkg` builds for the card — a round trip through text that can only
      lose precision. */
   const fromCents = packages.length ? Math.min(...packages.map((pk) => pk.priceLow)) * 100 : 0;
-  return { packages: packages.map(toPkg), jobs: jobs.map(toJob), fromCents, targeting };
+  const jobNames = Object.fromEntries(jobs.map((jb) => [jb.id, jb.name]));
+  return { packages: packages.map((pk) => toPkg(pk, jobNames)), jobs: jobs.map(toJob), fromCents, targeting, canRequest: who.actor.roles.includes("SPONSOR_ADMIN") };
 }
 
 const TABS = [
@@ -140,6 +145,19 @@ export default async function MarketplacePage({
   );
 
   const live = demo === null ? await liveCatalogue() : null;
+  if (live && "notSponsor" in live) {
+    return (
+      <div className="space-y-6">
+        <StadiumHead title="Packages" />
+        <EmptyState
+          mark="users"
+          title="Not in your role"
+          hint="Packages are what a sponsor account requests. You're signed in without a sponsor role, so there is nothing to request here. A sponsor sees this page once they sign in to their own account."
+          action={{ label: "Back to your home", href: "/" }}
+        />
+      </div>
+    );
+  }
   if (live) return <LiveMarketplace live={live} initial={initial} />;
 
   /* A brand-new sponsor can legitimately have an empty catalogue — the empty
@@ -241,15 +259,15 @@ function LiveMarketplace({ live, initial }: { live: LiveCatalogue; initial: Cata
             screen reader (and this page's own e2e) shouldn't hit two
             same-named headings. */}
         <h2 className="sx-section-title">Ready-made packages</h2>
-        <PackagesCatalog items={live.packages} initial={initial} submit={submitBrief} targeting={live.targeting} checkStaffing={checkStaffing} />
+        <PackagesCatalog items={live.packages} initial={initial} submit={submitBrief} targeting={live.targeting} checkStaffing={checkStaffing} canRequest={live.canRequest} />
       </section>
       <section className="space-y-3">
         <h2 className="sx-section-title">Job types</h2>
-        <JobsCatalog jobs={live.jobs} submit={submitBrief} targeting={live.targeting} />
+        <JobsCatalog jobs={live.jobs} submit={submitBrief} targeting={live.targeting} canRequest={live.canRequest} />
       </section>
       <p className="text-[10px] leading-relaxed text-faint">
-        Sponsor prices. A request, not a purchase — BTG matches athletes, checks
-        category conflicts and prices the campaign, then follows up.
+        Sponsor prices. A request that passes every check — budget, dates, category
+        conflicts, athletes to staff it — is approved at once; otherwise BTG reviews it and tells you why.
       </p>
     </div>
   );

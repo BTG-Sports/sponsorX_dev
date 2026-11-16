@@ -46,8 +46,11 @@ import type { ApiSponsorRequestStatus } from "@/lib/sponsor-request-live";
 
 const TIMELINE = [
   { key: "received", title: "Received", tone: "success" as const },
-  { key: "matching", title: "Matching", sub: "BTG staff filter eligible athletes and check for competitor conflicts.", tone: "warn" as const },
-  { key: "proposal", title: "Proposal", sub: "A priced shortlist to react to — no card, no commitment.", tone: "muted" as const },
+  /* POL-FE-71 — says what really happens: these answers go to BTG's sales
+     team, the account opens once the email and proof are in, and matching
+     starts from the first request filed in the portal (not from this form). */
+  { key: "account", title: "Account check", sub: "Confirm your email and upload proof of business. BTG's team reads your answers.", tone: "warn" as const },
+  { key: "request", title: "Your first request", sub: "Your sponsor account opens. Pick a package and send a request — BTG matches athletes from there.", tone: "muted" as const },
 ];
 
 const emptySubscribe = () => () => {};

@@ -458,6 +458,48 @@ ${d.portalUrl ?? ""}
     subject: `Fix before review: your ad artwork for ${d.slotCode ?? "your ad slot"}, ${d.editionLabel ?? "the edition"}`,
     text: `Hi,\n\nVersion ${d.version ?? "1"} of the artwork for ${d.slotCode ?? "your ad slot"} in ${d.editionLabel ?? "the edition"} didn't pass our automatic checks, so it hasn't gone to BTG:\n\n${d.reasons ?? ""}\n\nFix these and upload it again here:\n\n${d.reviewUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* POL-BE-64 — the three hand-offs nobody was told about. */
+  "invitation.acceptedForBtg": (d) => ({
+    subject: `Accepted: ${d.athleteName ?? "an athlete"} — ${d.campaignName ?? "a campaign"}`,
+    text: `${d.athleteName ?? "An athlete"} accepted the invitation to ${d.campaignName ?? "the campaign"}. Draft and send their Campaign Order from the campaign's roster:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "order.readyToSign": (d) => ({
+    subject: `Your Campaign Order is ready to sign — ${d.campaignName ?? "a campaign"}`,
+    text: d.forGuardian === "yes"
+      ? `Hi,\n\nBTG sent ${d.athleteName ?? "the athlete you look after"}'s Campaign Order for ${d.campaignName ?? "the campaign"}. As their guardian, please review it and accept it (or decline it) here:\n\n${d.reviewUrl ?? ""}\n\n— BTG SponsorX`
+      : `Hi ${d.athleteName ?? "there"},\n\nBTG sent your Campaign Order for ${d.campaignName ?? "the campaign"}: what you'll deliver, by when, and what you'll earn. Review it and accept it (or decline it) here:\n\n${d.reviewUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "brief.closedForSponsor": (d) => ({
+    subject: `BTG closed your request — ${d.packageName ?? "your request"}`,
+    text: `Hi,\n\nBTG closed your request for ${d.packageName ?? "a campaign"}, so it won't go ahead as it stands. You can see it, and send a new request, here:\n\n${d.reviewUrl ?? ""}\n\nTo ask BTG why, or what would work instead:\n\n${d.contactUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* POL-BE-61 — a post marked published, for BTG to verify. */
+  "deliverable.publishedForBtg": (d) => ({
+    subject: `Post to verify: ${d.title ?? "a deliverable"} — ${d.campaignName ?? "a campaign"}`,
+    text: `${d.athleteName ?? "An athlete"} marked ${d.title ?? "their deliverable"} for ${d.campaignName ?? "the campaign"} as published. Check the link and verify it — that releases their earning and moves the campaign on:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* POL-BE-57 — a minor applied to a school's NEXT media team; the guardian they named is told. */
+  "student.guardianNotice": (d) => ({
+    subject: `${d.studentName ?? "Your child"} applied to ${d.schoolName ?? "their school"}'s student media team`,
+    text: `Hi ${d.guardianName ?? "there"},\n\n${d.studentName ?? "Your child"} applied to join ${d.schoolName ?? "their school"}'s student media team on SponsorX NEXT and named you as their parent or guardian.\n\nBecause they are under 18, BTG confirms you are their guardian before they can join. BTG will contact you at this address. If you have a question, or you did not expect this, tell us here:\n\n${d.contactUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* POL-BE-76 — a NEXT applicant at each step. Named by display name only. */
+  "student.received": (d) => ({
+    subject: `We got your application to ${d.schoolName ?? "your school"}'s student media team`,
+    text: `Hi ${d.studentName ?? "there"},\n\nThanks for applying to join ${d.schoolName ?? "your school"}'s student media team on SponsorX NEXT. Your school's advisor reviews it, and we'll email you when they decide.${d.guardianLine ? `\n\n${d.guardianLine}` : ""}\n\n— SponsorX NEXT`,
+  }),
+  "student.approved": (d) => ({
+    subject: `You're on ${d.schoolName ?? "your school"}'s student media team`,
+    text: `Hi ${d.studentName ?? "there"},\n\nYour advisor approved your application. To sign in:\n\n1. Go to ${d.signInUrl ?? ""}\n2. Sign in with this email address (${d.email ?? "the one you applied with"}).\n3. You'll land on your NEXT page, with your assignments and your sales code.${d.waitingLine ? `\n\n${d.waitingLine}` : ""}\n\n— SponsorX NEXT`,
+  }),
+  "student.changesRequested": (d) => ({
+    subject: `Your advisor asked for changes to your application`,
+    text: `Hi ${d.studentName ?? "there"},\n\nYour advisor at ${d.schoolName ?? "your school"} looked at your application and asked for changes:\n\n"${d.note ?? ""}"\n\nTalk to your advisor, then apply again here:\n\n${d.applyUrl ?? ""}\n\n— SponsorX NEXT`,
+  }),
+  "student.declined": (d) => ({
+    subject: `About your application to ${d.schoolName ?? "your school"}'s student media team`,
+    text: `Hi ${d.studentName ?? "there"},\n\nYour advisor at ${d.schoolName ?? "your school"} didn't approve your application this time.${d.note ? `\n\nTheir note: "${d.note}"` : ""}\n\nIf you have questions, talk to your advisor.\n\n— SponsorX NEXT`,
+  }),
   /* P9-BE-24 — student assignments. A student is named by display name only. */
   "studentAssignment.assigned": (d) => ({
     subject: `New assignment: ${d.title ?? "a piece"} — ${d.editionLabel ?? "the edition"}`,

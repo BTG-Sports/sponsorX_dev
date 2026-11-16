@@ -10,6 +10,7 @@ import { sectionStates, type ApiMyProfile } from "@/lib/profile-live";
 import { isMinorNow, type ApiProfileChange } from "@/lib/profile-changes-live";
 import type { SectionKey } from "@/lib/profile-sections";
 import { apiFetch, fetchActor } from "@/server/api";
+import { viewerIsAthlete } from "@/lib/athlete-order-pause";
 
 /** States in which an edit applies (P3-BE-16, 2S1-BE-14). Before approval
  *  the application itself is what the athlete edits, at /join. */
@@ -51,7 +52,7 @@ function BackPill({ href, children }: { href: string; children: string }) {
  *  outage is an error page, never a sample profile shown as theirs. */
 async function liveMe(): Promise<ApiMyProfile | "unlinked" | null> {
   const who = await fetchActor();
-  if (who.status !== "linked" || !who.actor.roles.includes("ATHLETE")) return null;
+  if (who.status !== "linked" || !viewerIsAthlete(who.actor) /* POL-FE-55 (app review B4): a guardian acting for a minor too */) return null;
   const res = await apiFetch("/athletes/me");
   /* An ATHLETE role with no athlete record: BTG's fix, not an outage (F-3). */
   if (res.status === 403 || res.status === 404) return "unlinked";

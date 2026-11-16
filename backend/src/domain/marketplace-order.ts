@@ -236,10 +236,15 @@ function waitingOn(row: Row, approvals: Array<{ state: string; dueAt: Date }>) {
 /** The order as the sponsor's and BTG's screens read it: the row, the sellers' answers, and what it is waiting on. */
 async function views(rows: Row[]) {
   const [approvals, sellers, refunds] = await Promise.all([approvalsForOrders(rows.map((r) => r.id)), lineSellers(rows), refundsForOrders(prisma, rows.map((r) => r.id))]);
+  /* POL-BE-54 — the sponsor's name on each row, for BTG's and Finance's All orders. */
+  const sponsors = new Map((await prisma.sponsor.findMany({
+    /* tenant-scope: the sponsors of orders the caller loaded through whereFor(marketplaceOrder). */
+    where: { id: { in: [...new Set(rows.map((r) => r.sponsorId))] } }, select: { id: true, name: true },
+  })).map((x) => [x.id, x.name]));
   return rows.map((r) => {
     const mine = approvals.get(r.id) ?? [];
     /* 2S4-BE-13 — each refund of the order: on its way, or sent on a date. Never how, or any number. */
-    return { ...r, lines: r.lines.map((l) => ({ ...l, seller: sellers(l) })), sellerApprovals: mine, ...waitingOn(r, mine), refunds: refunds.get(r.id) ?? [] };
+    return { ...r, sponsorName: sponsors.get(r.sponsorId) ?? null, lines: r.lines.map((l) => ({ ...l, seller: sellers(l) })), sellerApprovals: mine, ...waitingOn(r, mine), refunds: refunds.get(r.id) ?? [] };
   });
 }
 
@@ -302,8 +307,21 @@ function tabCounts(byState: { state: string; _count: { _all: number } }[]) {
 
 export async function pageMarketplaceOrders(actor: Actor, req: PageRequest, opts: { tab?: string; q?: string }) {
   const scope = whereFor(actor, "marketplaceOrder", "read");
+  /* POL-BE-54 (app review B3) — BTG and Finance find an order by its id, a
+     line, the billing reference / name / email the sponsor gave, or the
+     sponsor's name. The name match only narrows inside the caller's scope. */
+  const sponsorIds = opts.q
+    ? (await prisma.sponsor.findMany({ where: { tenantId: actor.tenantId, name: { contains: opts.q, mode: "insensitive" } }, select: { id: true }, take: 200 })).map((x) => x.id)
+    : [];
   const search: Prisma.MarketplaceOrderWhereInput[] = opts.q
-    ? [{ OR: [{ id: { contains: opts.q, mode: "insensitive" } }, { lines: { some: { title: { contains: opts.q, mode: "insensitive" } } } }] }]
+    ? [{ OR: [
+        { id: { contains: opts.q, mode: "insensitive" } },
+        { lines: { some: { title: { contains: opts.q, mode: "insensitive" } } } },
+        { billingReference: { contains: opts.q, mode: "insensitive" } },
+        { billingName: { contains: opts.q, mode: "insensitive" } },
+        { billingEmail: { contains: opts.q, mode: "insensitive" } },
+        ...(sponsorIds.length ? [{ sponsorId: { in: sponsorIds } }] : []),
+      ] }]
     : [];
   const base: Prisma.MarketplaceOrderWhereInput[] = [scope, ...search];
   const byState = await prisma.marketplaceOrder.groupBy({
@@ -336,7 +354,9 @@ export async function marketplaceOrderSummary(actor: Actor) {
       where: { AND: [scope, { state: { in: SPENT_STATES } }] }, _sum: { totalCents: true },
     }),
   ]);
-  return { byTab: Object.fromEntries(tabCounts(byState).map((t) => [t.key, t.count])), spentCents: spent._sum.totalCents ?? 0 };
+  /* POL-BE-72 — paymentsOpen: while card payment is closed, an approved order
+     isn't "ready to pay" — the sponsor's screens say "Approved" instead. */
+  return { byTab: Object.fromEntries(tabCounts(byState).map((t) => [t.key, t.count])), spentCents: spent._sum.totalCents ?? 0, paymentsOpen: await paymentsOpen() };
 }
 
 export async function getMarketplaceOrder(actor: Actor, id: string) {

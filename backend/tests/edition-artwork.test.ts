@@ -170,6 +170,8 @@ describe.skipIf(!hasDatabase)("P9-BE-16 · edition ad artwork through the approv
     await prisma.user.createMany({ data: [
       { id: STAFF, tenantId: T, clerkId: STAFF, email: "ops@eart.invalid", roles: ["BTG_ADMIN"] },
       { id: CM, tenantId: T, clerkId: CM, email: "cm@eart.invalid", roles: ["CAMPAIGN_MGR"] },
+      /* POL-BE-73 — Finance lists editions through its split read. */
+      { id: "eart_fin", tenantId: T, clerkId: "eart_fin", email: "fin@eart.invalid", roles: ["FINANCE"] },
       { id: ROSA, tenantId: T, clerkId: ROSA, email: "rosa@eart.invalid", roles: ["SPONSOR_ADMIN"], sponsorId: "eart_rosa_sp" },
       { id: ROSA_ANALYST, tenantId: T, clerkId: ROSA_ANALYST, email: "rosa.analyst@eart.invalid", roles: ["SPONSOR_ANALYST"], sponsorId: "eart_rosa_sp" },
       { id: KIM, tenantId: T, clerkId: KIM, email: "kim@eart.invalid", roles: ["SPONSOR_ADMIN"], sponsorId: "eart_kim_sp" },
@@ -347,6 +349,12 @@ describe.skipIf(!hasDatabase)("P9-BE-16 · edition ad artwork through the approv
     /* The edition page carries the same answer before anyone clicks. */
     const listed = ((await call("GET", "/editions", STAFF)).json.editions as Array<{ id: string; artworkPending: number }>).find((e) => e.id === editionId);
     expect(listed?.artworkPending).toBe(1);
+    /* POL-BE-73 — Finance sees the committed total (never a slot): the same figure BTG's desk shows, not $0. */
+    const staffRow = ((await call("GET", "/editions", STAFF)).json.editions as Array<{ id: string; inventory: { committedCents: number } }>).find((e) => e.id === editionId)!;
+    const finRow = ((await call("GET", "/editions", "eart_fin")).json.editions as Array<{ id: string; inventory: { committedCents: number; total: number }; artworkPending: number | null }>).find((e) => e.id === editionId)!;
+    expect(staffRow.inventory.committedCents).toBeGreaterThan(0);
+    expect(finRow.inventory.committedCents).toBe(staffRow.inventory.committedCents);
+    expect(finRow.inventory.total).toBe(0);
     const ledger = (await call("GET", `/editions/${editionId}/ledger`, STAFF)).json.slots as Array<{ slotCode: string; artwork?: { state: string } | null }>;
     expect(ledger.map((s) => [s.slotCode, s.artwork === undefined ? "—" : s.artwork?.state ?? null])).toEqual([
       ["BACK", "APPROVED"], ["P02-HALF", "SPONSOR_REVIEW"], ["P03-QTR", "—"],

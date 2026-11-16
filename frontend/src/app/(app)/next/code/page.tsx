@@ -5,6 +5,7 @@ import { demoState } from "@/lib/demo";
 import { liveStudent, requestOrigin } from "../live";
 import { LiveStudentCode, StudentUnlinked } from "../live-views";
 import { student } from "@/lib/fixtures";
+import { qrSvg } from "@/server/qr";
 
 /* --------------------------------------------------------------------------
    My code (P1-FE-19, spec §5.1, §8). One code per student, forever — the
@@ -42,7 +43,12 @@ export default async function StudentCodePage({
   if (!demo) {
     const live = await liveStudent(["code"]);
     if (live?.kind === "unlinked") return <StudentUnlinked title="My code" />;
-    if (live) return <LiveStudentCode live={live} origin={await requestOrigin()} />;
+    if (live) {
+      const origin = await requestOrigin();
+      /* POL-FE-77 — a real QR of /s/<code>, drawn on the server. */
+      const qr = live.code ? await qrSvg(`${origin}/s/${live.code}`) : null;
+      return <LiveStudentCode live={live} origin={origin} qr={qr} />;
+    }
   }
 
   return (

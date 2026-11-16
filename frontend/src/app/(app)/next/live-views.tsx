@@ -20,6 +20,8 @@ import {
   studentStatusWords,
 } from "@/lib/students-live";
 import type { ApiStudentProspect, LiveStudent } from "./live";
+import { ThisEditionCard } from "@/components/this-edition-card";
+import type { ThisEditionView } from "@/lib/this-edition";
 
 /* --------------------------------------------------------------------------
    P9-FE-01 / -10 — the student portal on the student's own records.
@@ -89,7 +91,7 @@ export function StudentApplyCard() {
 }
 
 /* ---------------------------------------------------------------- home */
-export function LiveStudentHome({ live }: { live: Student }) {
+export function LiveStudentHome({ live, edition = null }: { live: Student; /** POL-FE-77 — the school's current edition, read-only. */ edition?: ThisEditionView | null }) {
   const s = live.student;
   const total = live.sales?.totalCents ?? 0;
   const waiting = live.prospects?.summary.states.SUBMITTED ?? 0;
@@ -119,6 +121,7 @@ export function LiveStudentHome({ live }: { live: Student }) {
           </Link>
         ))}
       </div>
+      {edition && <ThisEditionCard v={edition} />}
       <StudentApplyCard />
       {waiting > 0 && (
         <Card>
@@ -301,7 +304,7 @@ export function LiveStudentSales({ live, pstate = "" }: { live: Student; pstate?
 }
 
 /* ---------------------------------------------------------------- code */
-export function LiveStudentCode({ live, origin }: { live: Student; origin: string }) {
+export function LiveStudentCode({ live, origin, qr }: { live: Student; origin: string; /** POL-FE-77 — the real QR of the link, as SVG. */ qr?: string | null }) {
   const s = live.student;
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -311,7 +314,7 @@ export function LiveStudentCode({ live, origin }: { live: Student; origin: strin
       </div>
       {live.code ? (
         <div className="sx-animate">
-          <StudentCodeCard code={live.code} link={`${origin}/s/${live.code}`} />
+          <StudentCodeCard code={live.code} link={`${origin}/s/${live.code}`} qr={qr ?? null} />
         </div>
       ) : (
         <EmptyState

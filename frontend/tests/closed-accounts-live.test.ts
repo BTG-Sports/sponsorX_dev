@@ -48,7 +48,7 @@ describe("closures waiting for BTG (POL-FE-11)", () => {
   it("shows what is still live now, and when nothing is left", () => {
     const v = nowView(rileyHeld);
     expect(v.title).toBe("Still live now");
-    expect(v.deals).toEqual([{ id: "d1", title: "Signed jersey", sponsor: "Bay Brewing", state: "delivered, not yet confirmed", who: null }]);
+    expect(v.deals).toEqual([{ id: "d1", title: "Signed jersey", sponsor: "Bay Brewing", state: "delivered, not yet confirmed", who: null, href: null /* POL-FE-75: no order id in this fixture */ }]);
     expect(v.lines).toEqual([
       "$125.00 earned, with a payout account ready: it is requested when the account closes.",
       "1 open invitation — declined when it closes.",

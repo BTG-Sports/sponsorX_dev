@@ -4,6 +4,8 @@ import { HeroBand } from "@/components/hero";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { apiFetch, fetchActor } from "@/server/api";
+import { loadThisEdition } from "@/server/this-edition";
+import { mayVerifyGuardian } from "@/lib/students-live";
 import { apiListQuery, textParam } from "@/lib/list-query";
 import { AUTO_KEYS, CLAIM_KEYS, STUDENT_GROUP_KEYS, keyedListQuery, type StudentGroup } from "@/lib/students-live";
 import { LiveAdvisorDesk, type ClaimsPage, type ReviewSettings, type StudentsPage } from "./live-advisor";
@@ -59,13 +61,15 @@ export default async function AdvisorHomePage({
          second list on ?apage / ?asize), and the advisor's own school's
          roster-approval settings. BTG staff have no school of their own. */
       const propertyId = who.actor.propertyId ?? null;
-      const [res, cRes, aRes, sRes] = await Promise.all([
+      const [res, cRes, aRes, sRes, edition] = await Promise.all([
         apiFetch(`/students${apiListQuery(sp, { group, q })}`),
         /* P9-FE-08 — claims on featured profiles at this school; a role
            outside the claim matrix (403) simply has none to show. */
         apiFetch(`/claims${keyedListQuery(sp, CLAIM_KEYS, { state: cstate === "open" ? "SUBMITTED" : "" })}`),
         apiFetch(`/students${keyedListQuery(sp, AUTO_KEYS, { auto: "true" })}`),
         propertyId ? apiFetch(`/properties/${encodeURIComponent(propertyId)}/email-domain`) : Promise.resolve(null),
+        /* POL-FE-77 — the school's current edition, read-only (an advisor's own school). */
+        propertyId ? loadThisEdition() : Promise.resolve(null),
       ]);
       if (!res.ok) throw new Error(`Students unavailable (${res.status}).`);
       if (!cRes.ok && cRes.status !== 403) throw new Error(`Claims unavailable (${cRes.status}).`);
@@ -75,7 +79,7 @@ export default async function AdvisorHomePage({
       const claims = cRes.ok ? ((await cRes.json()) as ClaimsPage) : null;
       const auto = (await aRes.json()) as StudentsPage;
       const settings = sRes?.ok ? ((await sRes.json()) as ReviewSettings) : null;
-      return <LiveAdvisorDesk students={students} claims={claims} auto={auto} settings={settings} group={group} q={q} cstate={cstate} />;
+      return <LiveAdvisorDesk students={students} claims={claims} auto={auto} settings={settings} group={group} q={q} cstate={cstate} canVerify={mayVerifyGuardian(who.actor.roles)} edition={edition} />;
     }
   }
 

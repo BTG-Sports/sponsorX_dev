@@ -47,9 +47,9 @@ describe("roles and statuses in a sponsor's words", () => {
     expect(statusWord("REMOVED")).toEqual({ text: "Removed", tone: "done" });
   });
 
-  it("the Removed row says re-adding isn't built and that BTG can switch the login back on — instead of offering an action", () => {
-    expect(statusHint("REMOVED")).toMatch(/isn't built/);
-    expect(statusHint("REMOVED")).toMatch(/BTG/);
+  it("POL-FE-71 — the Removed row says Add back switches the login on again and emails them", () => {
+    expect(statusHint("REMOVED")).toMatch(/Add back/);
+    expect(statusHint("REMOVED")).toMatch(/emails them/);
     expect(statusHint("INVITED")).toMatch(/hasn't signed in/i);
   });
 });
@@ -62,11 +62,12 @@ describe("which rows take actions", () => {
     expect(canAct(member({ status: "INVITED" }))).toBe(true);
   });
 
-  it("an invited row also gets Resend; you and the removed get nothing", () => {
+  it("an invited row also gets Resend; you get nothing; a removed person can only be added back (POL-FE-71)", () => {
     expect(memberActions(member())).toEqual(["role", "remove"]);
     expect(memberActions(member({ status: "INVITED" }))).toEqual(["role", "resend", "remove"]);
     expect(memberActions(member({ you: true, role: "SPONSOR_ADMIN" }))).toEqual([]);
-    expect(memberActions(member({ status: "REMOVED" }))).toEqual([]);
+    expect(memberActions(member({ status: "REMOVED" }))).toEqual(["restore"]);
+    expect(memberActions(member({ status: "REMOVED", you: true }))).toEqual([]);
   });
 });
 
@@ -111,14 +112,14 @@ describe("refusals", () => {
 });
 
 describe("the dialogs and the lines after a write", () => {
-  it("removing an invite cancels it; removing a member switches the login off and says re-adding isn't built", () => {
+  it("removing an invite cancels it; removing a member switches the login off and says they can be added back", () => {
     const inv = removeDialog(member({ status: "INVITED" }));
     expect(inv.title).toBe("Cancel the invite to pat@brand.com?");
     expect(inv.button).toBe("Cancel the invite");
     const act = removeDialog(member());
     expect(act.title).toBe("Remove pat@brand.com?");
     expect(act.line).toMatch(/switched off/);
-    expect(act.line).toMatch(/isn't built/);
+    expect(act.line).toMatch(/add them back/);
     expect(act.button).toBe("Remove");
   });
 
@@ -126,6 +127,7 @@ describe("the dialogs and the lines after a write", () => {
     expect(doneLine("invite", member({ role: "SPONSOR_ADMIN", status: "INVITED" }))).toBe("Invite sent to pat@brand.com. They're an Admin once they sign in.");
     expect(doneLine("role", member({ role: "SPONSOR_ANALYST" }))).toBe("pat@brand.com is now a Viewer.");
     expect(doneLine("resend", member({ status: "INVITED" }))).toBe("Invite sent again to pat@brand.com.");
+    expect(doneLine("restore", member({ status: "ACTIVE", role: "SPONSOR_ANALYST" }))).toBe("pat@brand.com is back on the team as a Viewer. We emailed them.");
     expect(doneLine("remove", member({ status: "INVITED" }))).toBe("The invite to pat@brand.com is cancelled.");
     expect(doneLine("remove", member())).toMatch(/is removed\. Their login is switched off\./);
   });

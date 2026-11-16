@@ -169,7 +169,7 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
                 const line = p.lines.find((l) => l.orderId === o.orderId);
                 return (
                   <Tr key={o.orderId} i={i}>
-                    <Td><Primary sub={o.title}>{o.orderRef}</Primary></Td>
+                    <Td><Primary sub={o.title}><Link className="underline" href={`/finance/orders/${encodeURIComponent(o.orderId)}`}>{o.orderRef}</Link></Primary></Td>
                     <Td label="Split">
                       <span className="block space-y-1.5">
                         {splits[i]!.map((f) => {
@@ -243,8 +243,8 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
             )}
             {(p.state === "APPROVED" || p.state === "SENDING") && (
               <p className="text-[11px] text-muted">
-                {p.provider === "none"
-                  ? "Approved. It waits here until payments open — nothing is sent before then."
+                {/* POL-FE-73 — the API says why it waits */ p.provider === "none"
+                  ? `Approved. ${p.waiting ?? "It waits here until payments open — nothing is sent before then."}`
                   : "The payment provider is sending it to the payee's payout account. Nothing more to do."}
               </p>
             )}

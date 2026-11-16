@@ -16,6 +16,8 @@
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
+import { env } from "../config/env";
+import { send } from "../lib/email";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { scopeFor } from "../auth/policy";
@@ -34,6 +36,7 @@ import {
   PROSPECT_DECIDE_SELECT,
   STUDENT_MOVE_SELECT,
   StudentNotActiveError,
+  tellApplicantIn,
 } from "./student-moves";
 import { autoDecideProspectIn, autoReviewStudentIn } from "./student-auto";
 
@@ -106,11 +109,45 @@ const STUDENT_SELECT = {
  *  application waits for them, and whether the system approved it. Never a
  *  student's or a guardian's read — they are told "your school is
  *  reviewing", not what the roster said. */
-const REVIEWER_SELECT = { ...STUDENT_SELECT, reviewReasons: true, autoApprovedAt: true } as const;
+const REVIEWER_SELECT = {
+  ...STUDENT_SELECT, reviewReasons: true, autoApprovedAt: true,
+  /* POL-BE-57 (app review B6) — the guardian a minor named, and whether BTG
+     has verified them: what the desk's "Verify guardian" needs. Reviewers only. */
+  guardian: { select: { id: true, legalName: true, email: true, relationship: true, verifiedAt: true } },
+} as const;
 
 /** Those who may decide an application (student.approve) read the review; nobody else does. */
 const isReviewer = (actor: Actor) => !["deny", "deferred"].includes(scopeFor(actor.roles, "student", "approve"));
 const selectFor = (actor: Actor) => (isReviewer(actor) ? REVIEWER_SELECT : STUDENT_SELECT);
+
+/**
+ * POL-BE-76 — whether an approved student can sign in, for the reviewer:
+ *   "signed-in"      their login has been used
+ *   "invited"        a login was made for their address, not used yet
+ *   "no-email"       no address on the application, so no login
+ *   "address-in-use" their address belongs to another SponsorX login
+ *   null             not approved yet
+ * Read from the logins themselves, so it is true whoever approved them.
+ */
+export type StudentLoginStatus = "signed-in" | "invited" | "no-email" | "address-in-use" | null;
+const LOGIN_STATES = new Set(["APPROVED", "ACTIVE", "SUSPENDED"]);
+
+async function withLoginStatus<T extends { id: string; state: string; email: string | null }>(tenantId: string, rows: T[]): Promise<Array<T & { login: StudentLoginStatus }>> {
+  const ids = rows.filter((r) => LOGIN_STATES.has(r.state)).map((r) => r.id);
+  const users = ids.length
+    ? await prisma.user.findMany({
+        /* tenant-scope: the caller's tenant, keyed by students the caller just read. */
+        where: { tenantId, studentId: { in: ids } }, select: { studentId: true, clerkId: true },
+      })
+    : [];
+  const byStudent = new Map(users.map((u) => [u.studentId, u.clerkId]));
+  return rows.map((r) => {
+    if (!LOGIN_STATES.has(r.state)) return { ...r, login: null };
+    const clerk = byStudent.get(r.id);
+    if (clerk) return { ...r, login: clerk.startsWith("invite:") ? "invited" : "signed-in" };
+    return { ...r, login: r.email ? "address-in-use" : "no-email" };
+  });
+}
 
 async function assertSchool(tx: Prisma.TransactionClient, tenantId: string, propertyId: string): Promise<void> {
   const school = await tx.property.findFirst({ where: { tenantId, id: propertyId }, select: { kind: true } });
@@ -164,7 +201,7 @@ export async function applyAsStudent(
     const school = await tx.property.findFirst({
       /* tenant-scope: public application — the school's own tenant is the one the student joins. */
       where: { slug: input.schoolSlug, kind: "SCHOOL" },
-      select: { id: true, tenantId: true },
+      select: { id: true, tenantId: true, name: true },
     });
     if (!school) throw new NotASchoolError();
     const { schoolSlug: _slug, guardian: g, ...fields } = input;
@@ -184,6 +221,23 @@ export async function applyAsStudent(
     await audit(tx, { tenantId: school.tenantId, userId: null }, "student.apply", "Student", student.id, {
       after: { propertyId: school.id, guardianId: guardian?.id ?? null },
     });
+    /* POL-BE-57 (app review B6) — the guardian is told, in the application's
+       own transaction: their child applied, and BTG will verify them before the
+       student can join the masthead. Until now nobody was emailed and nobody
+       could verify, so an under-18 student never became active. */
+    if (guardian && g) {
+      await send(tx, school.tenantId, {
+        template: "student.guardianNotice",
+        to: g.email.toLowerCase(),
+        idempotencyKey: `student.guardianNotice:${student.id}:${guardian.id}`,
+        data: {
+          guardianName: g.legalName, studentName: fields.displayName, schoolName: school.name,
+          contactUrl: `${env.APP_URL.replace(/\/+$/, "")}/contact?topic=guardianship`,
+        },
+      });
+    }
+    /* POL-BE-76 — the applicant hears it arrived (before the roster rule may decide it at once). */
+    await tellApplicantIn(tx, school.tenantId, student.id, "RECEIVED", { guardianRequired: minor });
     await autoReviewStudentIn(tx, school.tenantId, student.id);
     return { id: student.id, state: "SUBMITTED", guardianRequired: minor };
   });
@@ -204,7 +258,8 @@ export async function getStudent(actor: Actor, studentId: string) {
     select: selectFor(actor),
   });
   if (!student) throw new ForbiddenError("student", "read");
-  return student;
+  if (!isReviewer(actor)) return student;
+  return (await withLoginStatus(actor.tenantId, [student]))[0]!;
 }
 
 export async function listStudents(actor: Actor) {
@@ -274,7 +329,9 @@ export async function listStudentsPage(actor: Actor, req: PageRequest, opts: { g
     if (g) groups[g] += c._count._all;
   }
   const all = STUDENT_GROUP_KEYS.reduce((n, g) => n + groups[g], 0);
-  return { students: rows, page, summary: { groups, all, ...(autoApproved !== null ? { autoApproved } : {}) } };
+  /* POL-BE-76 — reviewers see whether each approved student can sign in. */
+  const students = reviewer ? await withLoginStatus(actor.tenantId, rows) : rows;
+  return { students, page, summary: { groups, all, ...(autoApproved !== null ? { autoApproved } : {}) } };
 }
 
 /**

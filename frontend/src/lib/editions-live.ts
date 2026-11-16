@@ -28,7 +28,8 @@ export type ApiEdition = {
   contentReady: boolean;
   rightsCleared: boolean;
   revenueMet: boolean;
-  publication: { id: string; name: string; propertyId: string | null };
+  /** POL-BE-77 — property.slug: the school's address for the public edition link; absent on an older API. */
+  publication: { id: string; name: string; propertyId: string | null; property?: { slug: string } | null };
   inventory: { total: number; sold: number; committedCents: number; rackCents: number };
   /** Assets with no digital right in force at the publish target — null where the caller can't read assets. */
   rightsPending: number | null;
@@ -356,3 +357,11 @@ export function orderSplits(splits: ApiSplit[]): ApiSplit[] {
 
 /** A split resolves when the edition closes; before that there is nothing to show. */
 export const SPLIT_STATES: ApiEditionState[] = ["CLOSED", "IN_PRODUCTION", "PUBLISHED_DIGITAL", "PRINTED", "DISTRIBUTED"];
+
+/** POL-FE-77 — the public digital edition's address once it is published, or null before. */
+export const PUBLIC_EDITION_STATES = ["PUBLISHED_DIGITAL", "PRINTED", "DISTRIBUTED"];
+export function publicEditionHref(e: { id: string; state: string; publication: { property?: { slug: string } | null; propertyId?: string | null } }): string | null {
+  if (!PUBLIC_EDITION_STATES.includes(e.state)) return null;
+  const slug = e.publication.property?.slug ?? (e.publication.propertyId ? null : "regional");
+  return slug ? `/next/${encodeURIComponent(slug)}/${encodeURIComponent(e.id)}` : null;
+}

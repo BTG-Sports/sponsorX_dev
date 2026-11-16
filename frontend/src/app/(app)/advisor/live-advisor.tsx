@@ -1,9 +1,13 @@
 import { Badge, Card, SectionHeading } from "@/components/ui";
 import { HeroBand, MiniChip } from "@/components/hero";
 import { EmptyState } from "@/components/states";
-import { StudentDecision } from "@/components/student-review";
+import { StudentDecision, VerifyGuardianButton } from "@/components/student-review";
 import { ClaimDecision } from "@/components/claim-decision";
 import { SchoolEmailDomain } from "@/components/school-email-domain";
+import { RosterPaste } from "@/components/roster-paste";
+import { ThisEditionCard } from "@/components/this-edition-card";
+import type { ThisEditionView } from "@/lib/this-edition";
+import { addRosterAction } from "./actions";
 import { ListSearch, PagerRow, PendingList, ServerList } from "@/components/server-pager";
 import type { PageInfo } from "@/lib/list-query";
 import {
@@ -16,6 +20,7 @@ import {
   type ApiStudentState,
   type StudentGroup,
   type StudentGroupCounts,
+  guardianLine, loginLine,
 } from "@/lib/students-live";
 import { ClaimTabs, GroupTabs } from "./desk-controls";
 
@@ -42,8 +47,9 @@ const TONE: Partial<Record<ApiStudentState, "warn" | "primary" | "accent" | "neu
 
 const fmt = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
-function StudentCard({ s }: { s: ApiStudent }) {
+function StudentCard({ s, canVerify = false }: { s: ApiStudent; canVerify?: boolean }) {
   const reasons = waitingReasons(s);
+  const g = guardianLine(s);
   return (
     <Card className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0 flex-1 basis-64">
@@ -68,9 +74,12 @@ function StudentCard({ s }: { s: ApiStudent }) {
             ))}
           </ul>
         )}
+        {/* POL-FE-57 (app review B6) — the guardian a minor named, and whether BTG has verified them. */}
+        {g && <p className={`mt-1 text-xs ${g.verified ? "text-accent" : "text-warn"} break-words`}>{g.text}</p>}
+        {/* POL-FE-76 — whether an approved student can sign in. */}
+        {loginLine(s) && <p className={`mt-1 text-xs ${loginLine(s)!.ok ? "text-muted" : "text-warn"} break-words`}>{loginLine(s)!.text}</p>}
         <p className="mt-1 text-[10px] text-faint">
           applied {fmt(s.createdAt)}
-          {s.guardianId ? " · guardian linked" : ""}
           {s.autoApprovedAt ? ` · approved automatically ${fmt(s.autoApprovedAt)}` : ""}
         </p>
       </div>
@@ -78,6 +87,7 @@ function StudentCard({ s }: { s: ApiStudent }) {
         <Badge tone={TONE[s.state] ?? "neutral"}>{STUDENT_STATE_COPY[s.state]}</Badge>
         {s.autoApprovedAt && <Badge tone="accent">Approved automatically</Badge>}
         <StudentDecision studentId={s.id} state={s.state} />
+        {canVerify && s.guardian && !s.guardian.verifiedAt && <VerifyGuardianButton guardianId={s.guardian.id} />}
       </div>
     </Card>
   );
@@ -103,7 +113,7 @@ export type ReviewSettings = { propertyId: string; school: string; emailDomain: 
 /** P9-FE-11 — who the system approved from the roster, newest first, as a
  *  second paged list (?apage / ?asize). The advisor can suspend any of them
  *  from the masthead tab, as before. */
-function AutoApprovedSection({ list }: { list: StudentsPage | null }) {
+function AutoApprovedSection({ list, canVerify = false }: { list: StudentsPage | null; canVerify?: boolean }) {
   if (!list || list.page.total === 0) return null;
   return (
     <section className="sx-animate sx-delay-1 min-w-0 space-y-3">
@@ -114,7 +124,7 @@ function AutoApprovedSection({ list }: { list: StudentsPage | null }) {
       <PagerRow page={list.page} noun="Students" tone="next" position="top" keys={AUTO_KEYS} />
       <PendingList className="space-y-3">
         {list.students.map((s) => (
-          <StudentCard key={s.id} s={s} />
+          <StudentCard key={s.id} s={s} canVerify={canVerify} />
         ))}
       </PendingList>
       <PagerRow page={list.page} noun="Students" tone="next" position="bottom" keys={AUTO_KEYS} />
@@ -179,6 +189,8 @@ export function LiveAdvisorDesk({
   group = "",
   q = "",
   cstate = "",
+  canVerify = false,
+  edition = null,
 }: {
   students: StudentsPage;
   claims?: ClaimsPage | null;
@@ -187,6 +199,10 @@ export function LiveAdvisorDesk({
   group?: StudentGroup | "";
   q?: string;
   cstate?: "" | "open";
+  /** POL-FE-57 — BTG sees "Verify guardian" on a minor whose guardian isn't verified. */
+  canVerify?: boolean;
+  /** POL-FE-77 — the school's current edition, read-only. */
+  edition?: ThisEditionView | null;
 }) {
   const { groups, all } = students.summary;
   const heading = (
@@ -195,12 +211,20 @@ export function LiveAdvisorDesk({
       <p className="mt-1 text-xs text-muted">Your school&rsquo;s applicants and masthead — nobody else&rsquo;s.</p>
     </div>
   );
-  const settingsCard = settings ? <SchoolEmailDomain {...settings} /> : null;
+  /* POL-FE-77 — the school's own settings: the email domain, and the roster box (the advisor's school only). */
+  const settingsCard = settings ? (
+    <>
+      <SchoolEmailDomain {...settings} />
+      <RosterPaste propertyId={settings.propertyId} onFile={settings.rosterEntries} save={addRosterAction} />
+    </>
+  ) : null;
+  const editionCard = edition ? <ThisEditionCard v={edition} /> : null;
   if (all === 0 && !q) {
     return (
       <ServerList>
         <div className="space-y-6">
           {heading}
+          {editionCard}
           <EmptyState mark="chart" title="No applications yet" hint="Students apply from the public Become the Media page; new ones land here." />
           {settingsCard}
           <ClaimsSection claims={claims} cstate={cstate} />
@@ -215,6 +239,7 @@ export function LiveAdvisorDesk({
     <ServerList>
       <div className="space-y-6">
         {heading}
+        {editionCard}
         <HeroBand border="border-next/30" className="sx-animate">
           <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
             <div>
@@ -233,7 +258,7 @@ export function LiveAdvisorDesk({
           </div>
         </HeroBand>
         {settingsCard}
-        <AutoApprovedSection list={auto} />
+        <AutoApprovedSection list={auto} canVerify={canVerify} />
         <ClaimsSection claims={claims} cstate={cstate} />
         <section className="sx-animate sx-delay-1 min-w-0 space-y-3">
           <SectionHeading
@@ -251,7 +276,7 @@ export function LiveAdvisorDesk({
               <PagerRow page={students.page} noun="Students" tone="next" position="top" filtered={filtered} />
               <PendingList className="space-y-3">
                 {students.students.map((s) => (
-                  <StudentCard key={s.id} s={s} />
+                  <StudentCard key={s.id} s={s} canVerify={canVerify} />
                 ))}
               </PendingList>
               <PagerRow page={students.page} noun="Students" tone="next" position="bottom" filtered={filtered} />

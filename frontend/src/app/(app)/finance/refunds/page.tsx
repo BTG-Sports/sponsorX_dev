@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { MarkRefunded } from "@/components/refunds-desk";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
 import { EmptyState } from "@/components/states";
@@ -71,7 +72,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="space-y-5">
-      <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>} actions={<StadiumHint skin="vault" label="About this desk" text="Money owed back to sponsors, sent by hand for now. Card payments are refunded automatically once payments open." />}>
+      <VaultHead title={TITLE} pill={<>Live · <VaultUpdated iso={readAt} /></>} actions={<StadiumHint skin="vault" label="About this desk" text="Money owed back to sponsors. A card payment is refunded to the card automatically while payments are open; anything else (or a card refund while payments are switched off) is sent by Finance and marked sent here." />}>
         <VaultTiles cols={2}>
           <VaultTile label="To send" value={list.counts.open} format="int" caption={list.counts.open > 0 ? openSummary(list) : undefined} tone={list.counts.open ? "you" : undefined} badge={list.counts.open > 0 ? list.counts.open : undefined} delay={0.08} />
           <VaultTile label="Sent" value={list.counts.sent} format="int" delay={0.12} />
@@ -94,7 +95,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
         <PagedTable page={page} noun="Refunds" tone="vault" label={sent ? "Sent refunds" : "Refunds to send"} columns={columns}>
           {rows.map((r, i) => (
             <Tr key={r.id} i={i} tone={sent ? undefined : "warn"}>
-              <Td><Primary>{refundRef(r)}</Primary></Td>
+              <Td><Primary>{r.orderId ? <Link className="underline" href={`/finance/orders/${encodeURIComponent(r.orderId)}`}>{refundRef(r)}</Link> : refundRef(r)}</Primary></Td>
               <Td label="Sponsor">{r.sponsor.name}</Td>
               <Td label="Line" muted>{refundWhat(r)}</Td>
               <Td label="Amount" num className="font-semibold">{money(r.amountCents)}</Td>

@@ -26,7 +26,7 @@ vi.mock("@/server/api", () => ({
 }));
 
 const base = {
-  objective: "Drive foot traffic to our Annapolis opening",
+  objective: "Drive foot traffic to our new Annapolis store opening",
   budget: "$1,500–$2,400", start: "2026-10-05", durationWeeks: 4,
   sport: "Basketball", geo: "DMV", tier: "Creator", category: "RESTAURANT", message: "Weekend focus",
   packageId: "pkg_local_blitz", jobName: null,
@@ -60,7 +60,7 @@ describe("the drawer's fields become the API's brief", () => {
   it("builds the full body — a known tier is a column, not a line in the objective", () => {
     expect(toBriefBody({ ...base, sponsorId: "sp_1" })).toEqual({
       sponsorId: "sp_1",
-      objective: "Drive foot traffic to our Annapolis opening\n\nNote: Weekend focus",
+      objective: "Drive foot traffic to our new Annapolis store opening\n\nNote: Weekend focus",
       budget: 150_000, packageId: "pkg_local_blitz",
       startDate: "2026-10-05", endDate: "2026-11-02",
       sports: ["Basketball"], stateCodes: ["DC", "MD", "VA"], categories: ["RESTAURANT"],

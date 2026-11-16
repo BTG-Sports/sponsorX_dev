@@ -45,6 +45,7 @@ import {
   stateLabel,
   type EffectiveState,
 } from "@/lib/approvals-ui";
+import { MetricsTools } from "./metrics-tools";
 import { passedChecks, waitingWords } from "@/lib/content-checks";
 import { SKIPPED_LABEL } from "@/lib/content-trust";
 import { campaignWithSponsor } from "@/lib/campaign-title";
@@ -84,7 +85,7 @@ const TABS = [
 ] as const;
 /* P5-BE-10 — the live desk adds BTG's spot-check tab: drafts that skipped
    BTG's review and went straight to the sponsor. The fixture desk has none. */
-const LIVE_TABS = [...TABS, { key: "skipped", label: SKIPPED_LABEL }] as const;
+const LIVE_TABS = [TABS[0], { key: "verify", label: "To verify" }, ...TABS.slice(1), { key: "skipped", label: SKIPPED_LABEL }] as const; // POL-FE-61
 type TabKey = (typeof LIVE_TABS)[number]["key"];
 const TAB_KEYS = TABS.map((t) => t.key) as readonly string[];
 
@@ -365,7 +366,7 @@ export function ApprovalsDesk({
   }, [tab, q, camp, kind, sort, safePage, pageSize, demoParam]);
 
   const counts = useMemo(() => {
-    const c = { review: 0, cleared: 0, all: items.length, skipped: 0 };
+    const c = { review: 0, verify: 0, cleared: 0, all: items.length, skipped: 0 };
     for (const it of items) {
       if (inQueue(moves[it.id] ?? baseState(it))) c.review += 1;
       else c.cleared += 1;
@@ -1064,6 +1065,10 @@ function ReviewDrawer({
                 Usage-rights expiry is tracked from publication — if the window
                 closes, this post is flagged for takedown.
               </p>
+            )}
+            {/* POL-FE-62 (app review §2) — BTG records the post's views and makes its tracking link, so the report isn't empty. */}
+            {live && isLiveItem(it) && (s === "PUBLISHED" || s === "VERIFIED") && (
+              <MetricsTools deliverableId={it.id} publishedUrl={it.live.publishedUrl} today={new Date().toISOString().slice(0, 10)} />
             )}
           </div>
 

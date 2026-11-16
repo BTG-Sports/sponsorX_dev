@@ -120,3 +120,34 @@ export async function artworkLink(id: string): Promise<AssetLinkResult> {
   if (!res.ok) return { ok: false, message: await reason(res, `No link (HTTP ${res.status}).`) };
   return { ok: true, url: ((await res.json()) as { url: string }).url };
 }
+
+/* POL-FE-62 (app review §2) — BTG records a day's figures (VERIFIED_MANUAL) and makes a tracking link for a post. */
+export async function recordViewsAction(id: string, day: string, views: number, engagements: number): Promise<{ ok: boolean; message: string }> {
+  if (typeof id !== "string" || !id || !/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isInteger(views) || views < 0 || !Number.isInteger(engagements) || engagements < 0) {
+    return { ok: false, message: "Check the day and the numbers." };
+  }
+  try {
+    const res = await apiFetch(`/deliverables/${encodeURIComponent(id)}/metrics`, { method: "POST", body: JSON.stringify({ day, views, engagements, source: "VERIFIED_MANUAL" }) });
+    if (!res.ok) {
+      const said = ((await res.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message;
+      return { ok: false, message: said ?? `The figures weren't saved (HTTP ${res.status}).` };
+    }
+    revalidatePath("/admin/approvals");
+    revalidatePath("/admin/campaigns");
+    return { ok: true, message: `Recorded ${views.toLocaleString("en-US")} views for ${day}. The report counts them as checked by BTG.` };
+  } catch {
+    return { ok: false, message: "The API is unreachable — try again in a minute." };
+  }
+}
+
+export async function createTrackingLinkAction(id: string, destinationUrl: string): Promise<{ ok: true; code: string } | { ok: false; message: string }> {
+  if (typeof id !== "string" || !id) return { ok: false, message: "No deliverable." };
+  try {
+    const res = await apiFetch(`/deliverables/${encodeURIComponent(id)}/tracking-link`, { method: "POST", body: JSON.stringify({ destinationUrl: destinationUrl.trim() }) });
+    const body = (await res.json().catch(() => null)) as { code?: string; error?: { message?: string } } | null;
+    if (!res.ok || !body?.code) return { ok: false, message: body?.error?.message ?? `The link wasn't made (HTTP ${res.status}).` };
+    return { ok: true, code: body.code };
+  } catch {
+    return { ok: false, message: "The API is unreachable — try again in a minute." };
+  }
+}

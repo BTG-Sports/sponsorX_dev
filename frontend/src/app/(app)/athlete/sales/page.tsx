@@ -50,7 +50,7 @@ export default async function AthleteSalesPage({ searchParams }: { searchParams:
   if (res.status === 403) {
     return (
       <div className="space-y-6">
-        <ArenaHead title="Orders" />
+        <ArenaHead title="Sales" />
         <EmptyState mark="inbox" title="No athlete profile is linked to this login" hint="Your sales show here once your login is linked to your athlete profile." />
       </div>
     );

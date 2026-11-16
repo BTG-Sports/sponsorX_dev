@@ -30,7 +30,9 @@ export type EarningState =
   | "APPROVED_FOR_PAYOUT"
   | "PAID"
   | "HELD"
-  | "DISPUTED";
+  | "DISPUTED"
+  /* POL-FE-73 — the API's seventh state: cancelled, nothing owed. Its chip was blank. */
+  | "VOIDED";
 
 export const athlete = {
   id: "ath_demo",
@@ -1202,6 +1204,7 @@ export const EARNING_COPY: Record<EarningState, string> = {
   PAID: "Paid",
   HELD: "Held",
   DISPUTED: "Disputed",
+  VOIDED: "Voided — nothing owed",
 };
 
 /**

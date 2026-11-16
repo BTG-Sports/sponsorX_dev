@@ -24,8 +24,9 @@ import {
 } from "@/lib/ops-live";
 import { apiFetch, fetchActor } from "@/server/api";
 import { roleLabel } from "@/server/viewer";
-import { adminCancelCampaign, adminCancelImpact, adminChangeCampaign, adminChangeImpact, draftAndSendOrder, launchCampaignNow, setAutoStaffingAction } from "./actions";
+import { adminCancelCampaign, adminCancelImpact, adminChangeCampaign, adminChangeImpact, draftAndSendOrder, launchCampaignNow, moveCampaignStage, setAutoStaffingAction } from "./actions";
 import { LaunchNowButton } from "@/components/launch-now-button";
+import { StageMoveButtons } from "@/components/stage-move-buttons";
 import { campaignButtons } from "@/lib/campaign-change-live";
 import { openDealDisputeAction } from "@/app/(app)/admin/deal-disputes/actions";
 import { mayManageDisputes, type ApiDealDispute } from "@/lib/deal-disputes-live";
@@ -33,6 +34,8 @@ import { readPausingDisputes } from "@/server/deal-disputes-read";
 import {
   launchLine,
   mayLaunchNow,
+  stageMoves,
+  type StageMove,
   nextStepTone,
   nextStepWho,
   rangeWords,
@@ -84,7 +87,7 @@ const OPS_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "S
    gets "not in your role" — not "this page doesn't exist". */
 /* P4-FE-08 — the campaign read's stage fields (P4-BE-09): what happens next,
    and every stage change with whether the system made it. */
-type LiveStage = Pick<ApiCampaign, "nextStep" | "stageChange" | "stageHistory" | "autoStaffing" | "staffing" | "state" | "startDate" | "endDate" | "name" | "budget">;
+type LiveStage = Pick<ApiCampaign, "nextStep" | "stageChange" | "stageHistory" | "autoStaffing" | "staffing" | "state" | "startDate" | "endDate" | "name" | "budget" | "briefId">;
 
 type LiveBoard = {
   ops: ApiOps;
@@ -97,6 +100,8 @@ type LiveBoard = {
   buttons: { change: boolean; cancel: boolean };
   /** POL-FE-51 — "Launch now": a campaign in APPROVAL, for a role that launches (BTG admin, campaign manager). */
   canLaunch: boolean;
+  /** POL-FE-52 — the hand stage moves this viewer is offered (Start staffing, Move to approval, Back to …). */
+  moves: StageMove[];
 };
 
 async function liveOps(id: string): Promise<LiveBoard | "missing" | { lacking: string; roles: string[] } | null> {
@@ -127,6 +132,7 @@ async function liveOps(id: string): Promise<LiveBoard | "missing" | { lacking: s
     canRaiseConcern: mayManageDisputes(who.actor.roles),
     buttons: campaignButtons(stage?.state ?? ops.campaign.state, who.actor.roles),
     canLaunch: mayLaunchNow(stage?.state ?? ops.campaign.state, who.actor.roles),
+    moves: stageMoves(stage?.state ?? ops.campaign.state, who.actor.roles),
   };
 }
 
@@ -162,12 +168,12 @@ function StagePanel({ stage }: { stage: LiveStage }) {
 /** P4-FE-09 — automatic staffing (P4-BE-12) and the launch day (P4-BE-13):
  *  the counts by athlete, why it stopped, who was skipped, the switch with
  *  its reason dialog, and "Launches on …" once the campaign is in APPROVAL. */
-function StaffingPanel({ campaignId, stage, now, canLaunch }: { campaignId: string; stage: LiveStage; now: Date; canLaunch: boolean }) {
+function StaffingPanel({ campaignId, stage, now, canLaunch, moves }: { campaignId: string; stage: LiveStage; now: Date; canLaunch: boolean; moves: StageMove[] }) {
   const s = stage.staffing && "sent" in stage.staffing ? (stage.staffing as CampaignStaffing) : null;
   const launch = stage.state === "APPROVAL" && stage.startDate ? launchLine(stage.startDate, now) : null;
   /* POL-FE-51 — a launcher sees "Launch now" in APPROVAL even with no staffing record. */
   const launchNow = canLaunch && stage.state === "APPROVAL";
-  if (!s && !launch && !launchNow) return null;
+  if (!s && !launch && !launchNow && moves.length === 0) return null;
   const stop = staffingStop(s);
   const editable = s && (stage.state === "DRAFT" || stage.state === "STAFFING");
   return (
@@ -189,6 +195,12 @@ function StaffingPanel({ campaignId, stage, now, canLaunch }: { campaignId: stri
       {launchNow && (
         <div className="mt-3">
           <LaunchNowButton campaignId={campaignId} name={stage.name} launch={launchCampaignNow} />
+        </div>
+      )}
+      {/* POL-FE-52 (app review B1) — BTG moves the stage by hand: automatic staffing never reaches APPROVAL short of the package maximum. */}
+      {moves.length > 0 && (
+        <div className="mt-3">
+          <StageMoveButtons campaignId={campaignId} moves={moves} move={moveCampaignStage} />
         </div>
       )}
       {s && (
@@ -245,12 +257,15 @@ function LiveOpsView({
   canRaiseConcern,
   buttons,
   canLaunch,
+  moves,
   back,
   initial,
 }: LiveBoard & {
   back: ReturnType<typeof resolveBack>;
   initial: { q: string; show: string };
 }) {
+  /* POL-FE-63 — the Studio on this campaign's own brief. */
+  const studioHref = stage?.briefId ? `/admin/campaigns/match?brief=${encodeURIComponent(stage.briefId)}` : "/admin/campaigns/match";
   const now = new Date();
   const c = ops.campaign;
   const h = ops.health;
@@ -286,7 +301,7 @@ function LiveOpsView({
             actions={CHANGE_ACTIONS}
           />
           <Link
-            href={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report?from=campaign`}
+            href={`/admin/campaigns/${encodeURIComponent(c.id)}/report?from=admin-campaign`}
             className="rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
           >
             Sponsor report
@@ -355,8 +370,12 @@ function LiveOpsView({
         </div>
       </HeroBand>
 
+      {/* POL-FE-63 (app review §2) — the Studio, on this campaign's brief, from the campaign page (the list now always opens here). */}
+      {stage && ["DRAFT", "STAFFING", "APPROVAL"].includes(stage.state) && (
+        <p className="text-xs"><Link className="underline text-muted hover:text-text" href={studioHref}>Open in Matching Studio →</Link></p>
+      )}
       {stage && <StagePanel stage={stage} />}
-      {stage && <StaffingPanel campaignId={c.id} stage={stage} now={now} canLaunch={canLaunch} />}
+      {stage && <StaffingPanel campaignId={c.id} stage={stage} now={now} canLaunch={canLaunch} moves={moves} />}
 
       <section className="sx-animate sx-delay-2">
         <SectionHeading
@@ -367,14 +386,14 @@ function LiveOpsView({
           <RosterOps
             roster={rows}
             initial={initial}
-            live={{ campaignId: c.id, draftOrder: draftAndSendOrder, disputes, openDispute: canRaiseConcern ? openDealDisputeAction : undefined }}
+            live={{ campaignId: c.id, draftOrder: draftAndSendOrder, disputes, openDispute: canRaiseConcern ? openDealDisputeAction : undefined, studioHref }}
           />
         ) : (
           <EmptyState
             mark="inbox"
             title="Nobody on the roster yet"
             hint="Athletes appear here once invitations go out from the Matching Studio."
-            action={{ label: "Open the Matching Studio", href: "/admin/campaigns/match" }}
+            action={{ label: "Open the Matching Studio", href: studioHref }}
           />
         )}
       </section>
@@ -485,7 +504,7 @@ export default async function CampaignDashboardPage({
             demo
           />
           <Link
-            href={`/sponsor/campaigns/${id}/report?from=campaign`}
+            href={`/admin/campaigns/${encodeURIComponent(id)}/report?from=admin-campaign`}
             className="rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
           >
             Sponsor report

@@ -72,7 +72,7 @@ export function statusHint(status: MemberStatus): string {
   switch (status) {
     case "INVITED": return "Hasn't signed in yet. The invite email has the link.";
     case "ACTIVE": return "Has signed in.";
-    case "REMOVED": return "Login switched off; what they did stays on record. Re-adding isn't built here yet — ask BTG to switch the login back on.";
+    case "REMOVED": return "Login switched off; what they did stays on record. \u201cAdd back\u201d switches it on again and emails them.";
   }
 }
 
@@ -81,8 +81,9 @@ export function canAct(m: Pick<ApiTeamMember, "you" | "status">): boolean {
   return !m.you && m.status !== "REMOVED";
 }
 
-/** The row's actions, in order — none for you or for a removed person. */
-export function memberActions(m: Pick<ApiTeamMember, "you" | "status" | "role">): ("role" | "resend" | "remove")[] {
+/** The row's actions, in order — none for you; a removed person can only be added back (POL-FE-71). */
+export function memberActions(m: Pick<ApiTeamMember, "you" | "status" | "role">): ("role" | "resend" | "remove" | "restore")[] {
+  if (!m.you && m.status === "REMOVED") return ["restore"];
   if (!canAct(m)) return [];
   return m.status === "INVITED" ? ["role", "resend", "remove"] : ["role", "remove"];
 }
@@ -133,17 +134,18 @@ export function removeDialog(m: Pick<ApiTeamMember, "email" | "status">): { titl
   }
   return {
     title: `Remove ${m.email}?`,
-    line: "Their login is switched off at once and what they did stays on record. Re-adding them isn't built here yet — BTG can switch the login back on.",
+    line: "Their login is switched off at once and what they did stays on record. You can add them back later from their row.",
     button: "Remove",
   };
 }
 
 /** The status line after a write that worked. */
-export function doneLine(what: "invite" | "role" | "resend" | "remove", m: Pick<ApiTeamMember, "email" | "status" | "role">): string {
+export function doneLine(what: "invite" | "role" | "resend" | "remove" | "restore", m: Pick<ApiTeamMember, "email" | "status" | "role">): string {
   switch (what) {
     case "invite": return `Invite sent to ${m.email}. They're ${roleWord(m.role) === "Admin" ? "an Admin" : "a Viewer"} once they sign in.`;
     case "role": return `${m.email} is now ${roleWord(m.role) === "Admin" ? "an Admin" : "a Viewer"}.`;
     case "resend": return `Invite sent again to ${m.email}.`;
+    case "restore": return `${m.email} is back on the team as ${roleWord(m.role) === "Admin" ? "an Admin" : "a Viewer"}. We emailed them.`;
     case "remove": return m.status === "INVITED" ? `The invite to ${m.email} is cancelled.` : `${m.email} is removed. Their login is switched off.`;
   }
 }

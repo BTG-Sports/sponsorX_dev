@@ -1,5 +1,7 @@
 import { Badge } from "@/components/ui";
 import { initials } from "@/components/hero";
+import { EditionPiece } from "@/components/edition-piece";
+import { recordArticleOpenAction } from "./actions";
 
 /* --------------------------------------------------------------------------
    P9-FE-07 — the free digital edition from GET /public/editions/:school/:id.
@@ -8,8 +10,9 @@ import { initials } from "@/components/hero";
    the rights-cleared contents with display-name bylines, and the sponsors
    who bought positions — never a price.
 
-   The ledger stores each piece's title and its file (R2), not article prose,
-   so the reader lists the issue's contents rather than inventing body text.
+   POL-FE-77 — a written piece carries its approved text (the student's
+   approved draft), which opens in place and is counted as a click on the
+   article. A photo or a design has a file, not text, so it is listed only.
    -------------------------------------------------------------------------- */
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
@@ -22,7 +25,8 @@ export type PublicEdition = {
   printDate: string | null;
   publication: string;
   school: { slug: string; name: string; city: string | null; stateCode: string | null } | null;
-  contents: Array<{ id: string; kind: string; title: string; byline: string | null }>;
+  /** POL-BE-77 — text: the approved text of a student's piece, or null (a photo, a design, an older API). */
+  contents: Array<{ id: string; kind: string; title: string; byline: string | null; text?: string | null }>;
   sponsors: Array<{ id: string; slotCode: string; kind: string; sponsor: string }>;
 };
 
@@ -98,6 +102,7 @@ export function LiveReader({ e }: { e: PublicEdition }) {
                     <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-next">{KIND[c.kind] ?? c.kind.toLowerCase()}</span>
                     <span className="mt-1 block text-base font-semibold leading-snug">{c.title}</span>
                     {c.byline && <span className="mt-1 block text-xs text-muted">By {c.byline}</span>}
+                    {c.text && <EditionPiece text={c.text} editionId={e.id} assetId={c.id} record={recordArticleOpenAction} />}
                   </span>
                 </li>
               ))}

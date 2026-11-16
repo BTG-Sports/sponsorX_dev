@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { MarkRefunded } from "@/components/refunds-desk";
 import { StatePill } from "@/components/order-bits";
@@ -74,7 +75,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
       <div>
         <h1 className="sx-page-title">{TITLE}</h1>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">
-          Money owed back to sponsors, sent by hand for now. Card payments are refunded automatically once payments open.
+          Money owed back to sponsors. {/* POL-FE-73 */}A card payment is refunded to the card automatically while payments are open; anything else (or a card refund while payments are switched off) is sent by Finance and marked sent here.
         </p>
         {list.counts.open > 0 && <p className="mt-2 text-sm font-semibold tabular-nums">{openSummary(list)}</p>}
       </div>
@@ -95,7 +96,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
         <PagedTable page={page} noun="Refunds" label={sent ? "Sent refunds" : "Refunds to send"} columns={columns}>
           {rows.map((r, i) => (
             <Tr key={r.id} i={i} tone={sent ? undefined : "warn"}>
-              <Td><Primary>{refundRef(r)}</Primary></Td>
+              <Td><Primary>{r.orderId ? <Link className="underline" href={`/admin/marketplace/orders/${encodeURIComponent(r.orderId)}`}>{refundRef(r)}</Link> : refundRef(r)}</Primary></Td>
               <Td label="Sponsor">{r.sponsor.name}</Td>
               <Td label="Line" muted>{refundWhat(r)}</Td>
               <Td label="Amount" num className="font-semibold">{money(r.amountCents)}</Td>

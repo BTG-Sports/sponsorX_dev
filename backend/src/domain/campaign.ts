@@ -93,11 +93,29 @@ export async function createCampaignFromBrief(
         package: { select: { athleteCountMax: true, lineItems: true } },
       },
     });
+    /* POL-BE-63 — BTG approving a brief by hand now makes its campaign then
+       and there (brief.ts transitionBrief), so the Matching Studio's (and any
+       caller's) "make the campaign" finds it made: that campaign is the
+       answer, named as asked while it is still a DRAFT. Its staffing and sale
+       already started at approval, so nothing starts twice. */
+    if (brief.campaign && brief.state === "CAMPAIGN_CREATED") {
+      const c = await tx.campaign.findFirstOrThrow({
+        /* tenant-scope: the campaign of the brief found through whereFor(campaignBrief) and locked. */
+        where: { id: brief.campaign.id, tenantId: brief.tenantId },
+        select: { id: true, state: true, name: true },
+      });
+      if (name && name !== c.name && c.state === "DRAFT") {
+        await tx.campaign.update({ where: { id: c.id, tenantId: brief.tenantId }, data: { name } });
+        await audit(tx, actor, "campaign.rename", "Campaign", c.id, { before: { name: c.name }, after: { name } });
+      }
+      return { id: c.id, state: c.state as CampaignState, autoStaffing: false, tenantId: brief.tenantId, existing: true };
+    }
     if (brief.campaign) throw new BriefNotApprovedError(brief.state as BriefState);
     if (brief.state !== "APPROVED") throw new BriefNotApprovedError(brief.state as BriefState);
 
-    return { ...(await createCampaignIn(tx, actor, brief, name)), tenantId: brief.tenantId };
+    return { ...(await createCampaignIn(tx, actor, brief, name)), tenantId: brief.tenantId, existing: false };
   });
+  if (created.existing) return { id: created.id, state: created.state };
 
   /* P9-BE-18 — a package that promises edition positions sells them now,
      as the system, while the campaign is still a DRAFT — or holds the sale

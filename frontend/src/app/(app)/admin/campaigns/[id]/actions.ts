@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { apiFetch } from "@/server/api";
-import { autoStaffingReasonProblem, launchedLines, launchRefusal, type LaunchResult } from "@/lib/campaign-stage";
+import { autoStaffingReasonProblem, launchedLines, launchRefusal, stageMovedLine, stageMoveRefusal, type LaunchResult, type StageMove } from "@/lib/campaign-stage";
 import type { DraftOrderInput, DraftOrderResult } from "@/lib/ops-live";
 import { proposalOf, validCampaignId as validId, type ChangeProposal } from "@/lib/campaign-change-live";
 import { postCancel, postChange, readCancelImpact, readChangeImpact, type ActResult, type ImpactRead } from "@/server/campaign-change";
@@ -165,4 +165,20 @@ export async function launchCampaignNow(campaignId: string): Promise<{ ok: true;
   revalidatePath(`/sponsor/campaigns/${campaignId}`);
   revalidatePath("/sponsor/campaigns");
   return { ok: true, lines: body ? launchedLines(body) : ["Launched. The campaign is live from today."] };
+}
+
+/** POL-FE-52 (app review B1) — BTG moves a campaign between DRAFT, STAFFING and APPROVAL (POST /campaigns/{id}/transition). */
+export async function moveCampaignStage(campaignId: string, to: StageMove["to"]): Promise<{ ok: boolean; message: string }> {
+  if (!validId(campaignId)) return { ok: false, message: "No campaign." };
+  if (!["DRAFT", "STAFFING", "APPROVAL"].includes(to)) return { ok: false, message: "That move isn't offered here." };
+  let res: Response;
+  try {
+    res = await apiFetch(`/campaigns/${encodeURIComponent(campaignId)}/transition`, { method: "POST", body: JSON.stringify({ to }) });
+  } catch {
+    return { ok: false, message: "Can't reach SponsorX right now, so the campaign didn't move. Try again in a minute." };
+  }
+  if (!res.ok) return { ok: false, message: stageMoveRefusal(res.status, await res.json().catch(() => null)) };
+  refreshCampaign(campaignId);
+  revalidatePath(`/sponsor/campaigns/${campaignId}`);
+  return { ok: true, message: stageMovedLine(to) };
 }

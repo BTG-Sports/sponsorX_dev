@@ -407,6 +407,7 @@ const EARNING_TONE: Record<EarningState, "neutral" | "primary" | "accent" | "dan
   PAID: "accent",
   HELD: "danger",
   DISPUTED: "danger",
+  VOIDED: "neutral", // POL-FE-73
 };
 
 const INVOICE_TONE: Record<InvoiceStatus, "neutral" | "primary" | "accent" | "danger"> = {

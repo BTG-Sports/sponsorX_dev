@@ -97,7 +97,7 @@ export default async function MyMoneyPage({ searchParams }: { searchParams: Prom
     return (
       <div className="space-y-6">
         <ArenaHead title="Payouts" pill="Ledger · to the cent" />
-        <EmptyState mark="inbox" title="Nothing to show for this login" hint="My money is the athlete's own. A parent or guardian follows it with the athlete." />
+        <EmptyState mark="inbox" title="Nothing to show for this login" hint="Payouts are the athlete's own. A parent or guardian follows it with the athlete." />
       </div>
     );
   }

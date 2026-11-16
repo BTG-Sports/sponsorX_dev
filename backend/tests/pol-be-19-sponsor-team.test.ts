@@ -176,6 +176,32 @@ describe.skipIf(!hasDatabase)("POL-BE-19 · a sponsor admin's team", async () =>
     expect(await prisma.auditLog.count({ where: { tenantId: T, action: "sponsorTeam.remove" } })).toBe(2);
   });
 
+  it("POL-BE-71 — a removed teammate is added back by an admin, emailed, and can sign in again; a login BTG switched off is not", async () => {
+    const vic = (await team()).members.find((m) => m.email === "vic@be19-new.invalid")!;
+    expect(vic.status).toBe("REMOVED");
+    /* Inviting the address again points at "Add back", instead of "already has a login". */
+    const again = await call("POST", "/sponsor/team", admin, { email: "vic@be19-new.invalid", role: "SPONSOR_ANALYST" });
+    expect(again.status).toBe(409);
+    expect(again.text).toContain("Add back");
+    expect((await call("POST", `/sponsor/team/${vic.id}/restore`, p("analyst"))).status).toBe(403);
+    expect((await call("POST", `/sponsor/team/${vic.id}/restore`, p("outsider"))).status).toBe(404);
+
+    const before = (await invites("vic@be19-new.invalid")).length;
+    const back = await call("POST", `/sponsor/team/${vic.id}/restore`, admin);
+    expect(back.status).toBe(200);
+    expect(back.json).toMatchObject({ status: "ACTIVE", role: vic.role });
+    expect((await call("GET", "/briefs", "clerk_vic")).status).toBe(200);
+    expect((await invites("vic@be19-new.invalid")).length).toBe(before + 1);
+    expect(await prisma.auditLog.count({ where: { tenantId: T, action: "sponsorTeam.restore", entityId: vic.id } })).toBe(1);
+    expect((await call("POST", `/sponsor/team/${vic.id}/restore`, admin)).status).toBe(409);
+
+    /* BTG switched it off (any other reason): only BTG switches it back on. */
+    await prisma.user.update({ where: { id: vic.id }, data: { disabledAt: new Date(), disabledReason: "Closed by BTG." } });
+    const refused = await call("POST", `/sponsor/team/${vic.id}/restore`, admin);
+    expect(refused.status).toBe(409);
+    expect(refused.text).toContain("only BTG");
+  });
+
   it("at most 20 invites an hour per sponsor", async () => {
     const sent = (await prisma.auditLog.count({ where: { tenantId: T, action: "sponsorTeam.invite" } }));
     for (let i = sent; i < 20; i++) {

@@ -13,6 +13,7 @@ import {
 } from "@/lib/profile-live";
 import { money } from "@/lib/fixtures";
 import { apiFetch, fetchActor } from "@/server/api";
+import { viewerIsAthlete } from "@/lib/athlete-order-pause";
 
 /* --------------------------------------------------------------------------
    Your public profile — inside the Athlete Portal (2026-09-14 UX pass).
@@ -51,7 +52,7 @@ async function liveProfile(): Promise<{ p: ApiMyProfile; rates: ApiRate[] } | nu
      presented as the athlete's own profile (QA pass 4 rule). */
   const who = await fetchActor();
   if (who.status !== "linked") return null;
-  if (!who.actor.roles.includes("ATHLETE")) return null;
+  if (!viewerIsAthlete(who.actor) /* POL-FE-55 (app review B4): a guardian acting for a minor too */) return null;
 
   const res = await apiFetch("/athletes/me");
   /* A 403 here is an athlete role with no athlete row — a provisioning gap,
@@ -276,7 +277,8 @@ function OwnerPointer({ delay }: { delay: number }) {
     <ArenaPanel tone="flare" delay={delay} spot>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="min-w-0 flex-1 text-xs leading-relaxed text-muted">
-          Sponsors see a <span className="font-medium text-text">Request Partnership</span> button on your public page — every request arrives in your Invitations, never here.
+          {/* POL-FE-69 (app review §3) — there is no partnership-request button; BTG matches and invites. */}
+          Sponsors find you through BTG: BTG matches you to their campaigns, and every invitation arrives in your Invitations, never here.
         </p>
         <ArenaLink href="/athlete/invitations">Invitations</ArenaLink>
       </div>
