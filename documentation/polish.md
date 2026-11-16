@@ -2382,6 +2382,50 @@ the blockers and today's content review findings.
     - Frontend: `public-athlete.test.ts` (14), and `profile-wizard.test.ts` gained a check that a failed public read shows an error page.
     - Walked live at 1440 and 390 on both routes: no console errors, no sideways scroll.
 
+`POL-FE-83` · *Confusing* · confirmed (programme owner, 2026-11-16: "big visual redesign for /athlete/inventory … with animations + wow factor … make sure its easy to understand because what you did before is so confusing for a human … not to remove the current theme"; three references: an inventory table, a product list under a statistics row, an app store of cards with Activate. Then, while it was built: "a button then a popup like any inventory system", "you would see the lists first and there's a button that will say add", the "How selling works" and "Categories you won't promote" blocks at the bottom "look like shit", and "instead of edit, it must be view … like in the public profile … the design must caught the attention of the sponsors")
+- **Fix:** make `/athlete/inventory` read like an inventory system, list first, with one button to add. Opening an item shows it the way sponsors meet it, and editing is a button on that page.
+- **Done when:**
+  - The items come first, under a title with an add button. Adding happens in a popup.
+  - Every count is the API's own.
+  - An item page sells the item, keeps what sponsors never see in one marked panel, and shows no sponsor button that does nothing inside the portal.
+- **Delivered (2026-11-16, HeckerCreatives):**
+  - **List:** the title row carries **Won't promote · n** and **+ Add an item**.
+    - The tabs carry the API's whole-scope counts: All, Available, Paused, and Not listed yet (that one is `?unlisted=true`, which the API already filters on).
+    - Search, then List (the default) or Cards. One line says how selling works.
+    - Each item has an **Available / Paused** switch, the Activate of the reference. It flips at once and rolls back with the API's sentence if the save is refused.
+    - Beside it, a badge says where the item stands on the marketplace, from its listing (`GET /listings`): "On the marketplace", "Listing in review", "Draft listing", "Listing paused", "Hidden while paused" or "Not listed".
+      - The switch is not the shop. The first build labelled it "On sale", and the owner caught an "On sale" item under "Not listed yet".
+      - A sponsor only finds an item through a published, public listing whose item is switched on (backend `marketplace-search.ts`). The badge follows the switch the moment it flips.
+    - Words per item are in `lib/inventory-shop.ts`: "Only 2 left", "Sold out", "No limit", "Opens Dec 3", "Ended …".
+  - **Add:** a popup (centred, a bottom sheet on a phone) with kind tiles over the same `InventoryForm`. The form takes the picked kind.
+    - **Add item** creates the item Available. **Save as draft** (the owner: "when creating an item, where is the draft button?") creates it Paused (`active: false`, which `POST /inventory` already accepts), so no sponsor can buy it until it's switched on.
+    - The buttons are pinned to the popup's bottom edge, so they stay in sight however long the form is.
+    - `allowDraft` is the athlete's only; the team manager's form is unchanged.
+  - **Edit popup** (the owner: "when I tried to edit a draft item, there's no options that I can undraft or submit it"):
+    - A first line says Draft (Paused) or Available.
+    - A draft offers **Save & make available** and **Save draft**. An available item offers **Save changes** and **Save & move to draft**. The switch rides along with the save as `active`.
+    - Once made available and still unlisted, the answer offers **List it on the marketplace →**: the submit, through the existing `/athlete/listings/new?item=…`. The answer scrolls into view above the pinned buttons.
+    - An empty inventory shows a hero with "Add your first item" and six idea tiles, each opening the popup on its kind.
+  - **Won't promote:** the restrictions moved into a popup as chips.
+    - The category menu opens downward from the top of the popup's body. That reverses POL-FE-45's "up", which was only about the page's bottom bar; the popup sits above that bar.
+  - **Item page:** `/athlete/inventory/[id]` opens on a showcase (`components/athlete-inventory/item-showcase.tsx`, `lib/inventory-showcase.ts`).
+    - **The stage:** a product stage in the kind's colour, with a price tag and "Offered by" the athlete.
+    - **The pitch:** the title, the description and price, stock and dates, package rules, and what's in a package.
+    - **The marketplace line** says live, under review, paused, or not listed. It offers "Open the listing" or "List it", or says the team lists it.
+    - **More sections:** "A good fit for" (the item's categories), and "Who you're working with": reach and track record from `GET /public/athletes/:slug` once live, left out if that read fails.
+    - **Private panel:** "Only you see this" holds the categories it won't be sold to, the version and the last change.
+    - **Owner bar:** the Available switch and **Edit item** sit on top; Edit item opens the same edit form in a popup. Cards say **View**.
+    - **Hidden while paused:** the marketplace line says when a live listing is hidden because the item is paused.
+  - **API — a hold no longer buys what's off sale.** Placing an order converted the sponsor's 15-minute hold (`HOLD_MS`) without checking the listing again. A sponsor could still check out an item the seller had just switched off or whose listing was paused or ended.
+    - `placeOrder` now re-checks every line after locking the items, using `listingOnSale` (`domain/availability.ts`). That is checkListing's "live" test (published, public, the seller can still sell, the publish date passed) plus the item switched on, without the stock count the hold already holds.
+    - A line no longer on sale is refused with 409: "\"<title>\" is no longer on sale, so the order can't be placed. Remove it from the cart and check out again." Nothing is placed, no acceptance is recorded, and the hold is kept. Covered in `tests/phase2-orders.test.ts`.
+  - **Unchanged:** the property portal's inventory (`InventoryManager`, `InventoryItemView`).
+  - **e2e:** `marketplace-path.spec.ts` now opens the popup ("Add your first item" / "Add an item") before filling the form.
+  - **Checked:**
+    - `inventory-shop.test.ts` (new, 13) and `inventory-showcase.test.ts` (new, 8). The frontend suite is 2,216 tests and tsc and eslint are clean.
+    - Walked live in Chrome at 1440 and 390 as the QA athlete: list, cards, tabs, both popups, the empty hero (on a throwaway route, deleted), and two item pages. No console errors, no sideways scroll.
+    - `next build` was not run: the owner's `next dev` was live.
+
 ---
 
 ## Checked and fine

@@ -1,21 +1,19 @@
-import { ArenaHead, ArenaUpdated, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles } from "@/components/arena-stage";
-import { InventoryNewItem } from "@/components/inventory-controls";
-import { InventoryManager } from "@/components/inventory-manager";
-import { InventoryRestrictions } from "@/components/inventory-restrictions";
-import { ListFilter, ListSearch, PagerRow, ServerList } from "@/components/server-pager";
+import { ArenaHead, ArenaUpdated } from "@/components/arena-stage";
+import { FirstItemHero } from "@/components/athlete-inventory/inventory-board";
+import { InventoryAddItem, InventoryBrandRules, InventoryShop } from "@/components/athlete-inventory/inventory-shop";
+import { ServerList } from "@/components/server-pager";
 import { EmptyState } from "@/components/states";
 import {
-  ACTIVE_OPTIONS,
-  activeParam,
   componentOptions,
   inventoryCounts,
   pageOrAll,
-  toInventoryRow,
   toRestrictionRow,
   type ApiInventoryItem,
   type ApiInventoryList,
   type ApiRestriction,
 } from "@/lib/inventory-live";
+import type { ApiAthleteListing } from "@/lib/athlete-listings-live";
+import { listingFor, shopCard, shopTab, shopTabs, tabQuery } from "@/lib/inventory-shop";
 import { apiListQuery, textParam, type SearchParams } from "@/lib/list-query";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
@@ -26,12 +24,14 @@ import {
   setItemActiveAction,
 } from "./actions";
 
+import "./inventory.css";
+
 /* --------------------------------------------------------------------------
    My inventory — 2S2-FE-02. Athlete portal.
 
    What the athlete sells, at their price: each item's kind, price, stock,
-   availability window and brand categories, with pause/resume and a form
-   for a new item (a single item or a PACKAGE of their own items).
+   availability window, with an on-sale switch and a form for a new item (a
+   single item or a PACKAGE of their own items).
 
    Live only. Reads GET /inventory (inventoryItem read "own") and GET
    /restrictions (brandRestriction read "own"). Writes through ./actions:
@@ -48,46 +48,63 @@ import {
      · No delete (no route) — pause instead.
      · An athlete with no team lists these themselves on /athlete/listings
        (2S3-BE-05); a roster athlete's team lists them.
-     · packageRules (min/max per order, bundle-only, exclusive, needs
-       approval) aren't editable here yet — the API keeps what it has.
 
-   P1-ART-22 (2026-10-11) — redrawn on the Arena as a dashboard, and
-   SERVER-PAGED (memory: pagination-pattern). Reads
+   P1-ART-22 (2026-10-11) — on the Arena, SERVER-PAGED (memory:
+   pagination-pattern).
 
-     GET /inventory?page&size&q&active=true|false   one page of the athlete's
-                                                     items + counts { total,
-                                                     active, paused, unlisted }
-     GET /inventory?page=1&size=60&active=true       the items a new package
-                                                     may bundle (bounded to
-                                                     the house maximum; a
-                                                     paused item can't be sold
-                                                     in a bundle anyway)
-     GET /restrictions                                unchanged
+   POL-FE-83 (2026-11-16) — redrawn as a shop window after the owner's three
+   references (an inventory table, a product list under a statistics row, an
+   app store of cards with Activate/Deactivate): "easy to understand", keep
+   the Arena theme, animation and wow. Reads
 
-   Title row with the provenance pill and "New item"; four KPI plates from
-   `counts` (never from the rows; "Not yet listed" opens Listings); search
-   and the Active/Paused filter, instant and URL-driven; the pager above and
-   below the plates; the restrictions on a plate of their own. Until the API
-   pages (it's being built alongside), `page` and `counts` are missing from
-   the answer and the page falls back to one page of every row with the
-   counts taken from them — and no "Not yet listed" plate, rather than a
-   made-up figure (memory: stats-must-be-retrievable).
+     GET /inventory?page&size&q&active=true|false&unlisted=true
+                                     one page of the athlete's items +
+                                     counts { total, active, paused,
+                                     unlisted } over the whole scope
+     GET /inventory?page=1&size=60&active=true   what a new package may bundle
+     GET /restrictions                            unchanged
+     GET /listings                    the athlete's listings (the legacy whole
+                                      list, as /athlete/listings/new reads it),
+                                      for each item's marketplace badge
+
+   The owner then added a fourth reference: "when you go to the page you
+   would see the lists first and there's a button that will say add". So
+   the page reads top to bottom:
+     1. the title, then two buttons: "Won't promote · n" (the categories
+        the athlete won't promote — a setting, so behind a button, like the
+        reference's "View settings"; a popup of chips) and "+ Add an item"
+        (a popup: kind tiles, then the form);
+     2. the items, and nothing else: tabs that carry the counts (All /
+        Available / Paused / Not listed yet — the API's whole-scope counts),
+        search, List ↔ Cards (List by default), one line on how selling
+        works, and per item an "Available" switch (Activate/Deactivate in
+        the reference) that flips at once, beside a badge saying where it
+        stands on the marketplace ("Not listed", "On the marketplace" …).
+        The switch is not the shop (the owner caught an "On sale" item
+        under "Not listed yet"): a sponsor finds an item only through a
+        published listing whose item is switched on.
+   An empty inventory gets a hero instead of 2: what an item is, the three
+   steps, and a big "Add your first item" with idea tiles, each opening the
+   same popup on its kind. Words worked out server-side in
+   lib/inventory-shop.ts; styles in ./inventory.css.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
 const TITLE = "Inventory";
+const BASE = "/athlete/inventory";
 
 export default async function AthleteInventoryPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   await requirePortalAccess("athlete");
   const sp = await searchParams;
   const q = textParam(sp, "q");
-  const active = activeParam(sp);
-  const filtered = Boolean(q || active);
+  const tab = shopTab(sp);
+  const filtered = Boolean(q || tab !== "all");
 
-  const [invRes, partsRes, resRes] = await Promise.all([
-    apiFetch(`/inventory${apiListQuery(sp, { q, active })}`),
+  const [invRes, partsRes, resRes, listRes] = await Promise.all([
+    apiFetch(`/inventory${apiListQuery(sp, { q, ...tabQuery(tab) })}`),
     apiFetch("/inventory?page=1&size=60&active=true"),
     apiFetch("/restrictions"),
+    apiFetch("/listings"),
   ]);
   if (invRes.status === 403) {
     return (
@@ -104,97 +121,66 @@ export default async function AthleteInventoryPage({ searchParams }: { searchPar
   if (!invRes.ok) throw new Error(`Inventory unavailable (${invRes.status}).`);
   if (!partsRes.ok) throw new Error(`Inventory unavailable (${partsRes.status}).`);
   if (!resRes.ok && resRes.status !== 403) throw new Error(`Restrictions unavailable (${resRes.status}).`);
+  if (!listRes.ok && listRes.status !== 403) throw new Error(`Listings unavailable (${listRes.status}).`);
 
   const list = (await invRes.json()) as ApiInventoryList;
   const { items: parts } = (await partsRes.json()) as { items: ApiInventoryItem[] };
   const restrictions = resRes.ok ? ((await resRes.json()) as { restrictions: ApiRestriction[] }).restrictions : null;
-  const rows = list.items.map((i) => toInventoryRow(i));
-  const page = pageOrAll(rows, list.page);
+  const now = new Date().getTime();
+  const listings = listRes.ok ? ((await listRes.json()) as { listings: ApiAthleteListing[] }).listings : [];
+  const cards = list.items.map((i) => shopCard(i, now, listingFor(i.id, listings)));
+  const page = pageOrAll(cards, list.page);
   const counts = inventoryCounts(list);
-  const hasAny = counts.total > 0 || filtered;
+  const firstItem = counts.total === 0 && !filtered;
+  const options = componentOptions(parts);
 
   return (
     <ServerList>
-      <div className="space-y-8">
+      <div className="sx-iv space-y-8">
         <ArenaHead
           title={TITLE}
           pill={<ArenaUpdated />}
-          lede="What you sell, at your price. Sponsors buy these; BTG takes its fee on each order."
+          actions={
+            <>
+              {restrictions && <InventoryBrandRules rows={restrictions.map(toRestrictionRow)} add={addRestrictionAction} remove={removeRestrictionAction} />}
+              {!firstItem && <InventoryAddItem create={createItemAction} components={options} savedHref={`${BASE}/{id}`} />}
+            </>
+          }
         >
-          <ArenaTiles cols={counts.unlisted === null ? 3 : 4}>
-            <ArenaTile label="Items" value={counts.total} caption={counts.total ? "in your inventory" : "add what you'd sell"} tone={counts.total ? "blue" : "ink"} delay={0.1} />
-            <ArenaTile
-              label="Active"
-              value={counts.active}
-              caption={counts.active ? "on offer to sponsors" : "nothing on offer"}
-              tone={counts.active ? "win" : "ink"}
-              share={counts.total ? counts.active / counts.total : undefined}
-              delay={0.16}
-            />
-            <ArenaTile label="Paused" value={counts.paused} caption={counts.paused ? "switched off for now" : "nothing paused"} tone={counts.paused ? "warn" : "ink"} delay={0.22} />
-            {counts.unlisted !== null && (
-              <ArenaTile
-                label="Not yet listed"
-                value={counts.unlisted}
-                caption={counts.unlisted ? "ready to put on the marketplace" : "every item has a listing"}
-                tone={counts.unlisted ? "flare" : "ink"}
-                href="/athlete/listings"
-                delay={0.28}
-              />
-            )}
-          </ArenaTiles>
-          {/* The "New item" control: a pill at the end of the KPI row that opens the form in place, full width. */}
-          <div className="sx-arena-in mt-4 flex flex-col items-end" style={{ "--sx-reveal-delay": "0.3s" } as React.CSSProperties}>
-            <InventoryNewItem
-              create={createItemAction}
-              components={componentOptions(parts)}
-              savedHref="/athlete/inventory/{id}"
-              startOpen={counts.total === 0 && !filtered}
-            />
-          </div>
+          <p className="sx-iv-lede sx-iv-rise" style={{ "--d": "0.06s" } as React.CSSProperties}>
+            The things you sell to sponsors, at your price. BTG takes its fee on each order.
+          </p>
         </ArenaHead>
 
-        <InventoryManager
-          stage="arena"
-          title="Your items"
-          intro=""
-          note="With no team, you list these yourself under Listings; on a team, your team lists them."
-          rows={rows}
-          hrefBase="/athlete/inventory"
-          setActive={setItemActiveAction}
-          empty={{
-            title: filtered ? "No items match" : "Nothing listed yet",
-            hint: filtered
-              ? "Clear the search or the filter to see every item."
-              : "Add what you'd sell to a local business: a clinic session, a sponsored post, an appearance. You set the price and who you won't work with.",
-          }}
-          pagerTop={
-            hasAny ? (
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <ListSearch initial={q} label="Search items" placeholder="Search by title" tone="athlete" />
-                  <ListFilter param="active" value={active} label="Filter by state" allLabel="Active and paused" options={[...ACTIVE_OPTIONS]} tone="athlete" />
-                </div>
-                <PagerRow page={page} noun="Items" tone="athlete" position="top" filtered={filtered} />
-              </div>
-            ) : undefined
-          }
-          pagerBottom={hasAny ? <PagerRow page={page} noun="Items" tone="athlete" position="bottom" /> : undefined}
-        >
-          {restrictions && (
-            <section aria-label="Categories you won't promote">
-              <ArenaSection title="Categories you won't promote" hint="Applies to every item and every offer, for the dates shown." delay={0.5} />
-              {/* POL-FE-45 — "open": the category menu must show past the panel's edge. */}
-              <ArenaPanel tone="flare" delay={0.54} spot className="sx-arena-plate-open">
-                <InventoryRestrictions
-                  rows={restrictions.map(toRestrictionRow)}
-                  add={addRestrictionAction}
-                  remove={removeRestrictionAction}
-                />
-              </ArenaPanel>
-            </section>
-          )}
-        </InventoryManager>
+        {firstItem ? (
+          <FirstItemHero>
+            <InventoryAddItem create={createItemAction} components={options} savedHref={`${BASE}/{id}`} hero />
+          </FirstItemHero>
+        ) : (
+          <section aria-label="Your items">
+              <InventoryShop
+                cards={cards}
+                tabs={shopTabs(counts)}
+                tab={tab}
+                q={q}
+                filtered={filtered}
+                page={page}
+                hrefBase={BASE}
+                setActive={setItemActiveAction}
+                empty={
+                  q
+                    ? { title: "No items match your search", hint: "Try another word, or clear the search to see every item." }
+                    : tab === "on"
+                      ? { title: "Nothing is available", hint: "Switch an item to Available under All items so sponsors can buy it again." }
+                      : tab === "paused"
+                        ? { title: "Nothing is paused", hint: "Every item is available. Switch one to Paused under All items when you need a break." }
+                        : tab === "unlisted"
+                          ? { title: "Every item is listed", hint: "Each item already has a listing on the marketplace." }
+                          : { title: "No items here", hint: "Add an item to start selling." }
+                }
+              />
+          </section>
+        )}
       </div>
     </ServerList>
   );

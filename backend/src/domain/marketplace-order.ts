@@ -87,7 +87,7 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { readPage, type PageRequest } from "../lib/paging";
-import { unitsTaken } from "./availability";
+import { listingOnSale, unitsTaken } from "./availability";
 import { convertReservation, lockItems } from "./reservation";
 import { sponsorQuote } from "./cart";
 import { acceptAgreementIn, AgreementTextChangedError } from "./agreement";
@@ -446,6 +446,22 @@ export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now =
       },
     });
     await lockItems(tx, lines.flatMap((l) => [l.listing.inventoryItemId, ...l.listing.item.components.map((c) => c.componentItemId)]));
+
+    /* POL-FE-83 — still on sale? A hold lasts 15 minutes; in that time the seller
+       can switch the item off, or the listing can be paused or ended (by the
+       seller or BTG). The hold kept the units, not the right to buy: a line
+       no longer on sale is refused here, nothing is placed, and the hold stays
+       for the sponsor to change the cart. (The whole transaction rolls back,
+       so the terms acceptance above isn't recorded either.) */
+    const gone: string[] = [];
+    for (const l of lines) if (!(await listingOnSale(tx, l.listingId, now))) gone.push(l.listing.title);
+    if (gone.length) {
+      const names = gone.map((t) => `"${t}"`).join(", ");
+      throw new MarketplaceOrderError(
+        `${names} ${gone.length === 1 ? "is" : "are"} no longer on sale, so the order can't be placed. Remove ${gone.length === 1 ? "it" : "them"} from the cart and check out again.`,
+        409,
+      );
+    }
 
     /* POL-BE-05 — the same quote the cart and checkout showed; a sponsor who
        saw another total hasn't agreed to this one. */
