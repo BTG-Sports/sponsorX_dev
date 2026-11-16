@@ -21,6 +21,7 @@ import {
   type ApiSaleCandidate,
   type ApiSaleHold,
   type ApiSlotKind,
+  publicEditionHref,
 } from "@/lib/editions-live";
 import { noEditionHint, readJson, type LiveEditions } from "../live";
 import { artworkGate, artworkStatus } from "@/lib/edition-artwork-live";
@@ -196,6 +197,12 @@ export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live
               {selling ? `closes ${shortDate(e.closeDate)} · ${days} day${days === 1 ? "" : "s"}` : `ads closed ${shortDate(e.closeDate)}`}
             </Badge>
             <Badge tone="neutral">publish target {shortDate(e.publishTarget)}</Badge>
+            {/* POL-FE-77 — once published, the link everyone can share. */}
+            {publicEditionHref(e) && (
+              <Link href={publicEditionHref(e)!} target="_blank" className="text-xs font-semibold text-next hover:underline">
+                View the public edition →
+              </Link>
+            )}
             {seller && <div className="ml-auto"><EditionAdvance editionId={e.id} state={e.state} /></div>}
           </div>
 
