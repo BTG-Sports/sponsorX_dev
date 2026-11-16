@@ -59,3 +59,28 @@ describe("POL-FE-65 · the sponsor's request form promises and allows only what'
     expect(src("components/sponsor-campaign-table.tsx")).toContain('["ACTIVE", "REPORTING", "COMPLETED"].includes(c.state)');
   });
 });
+
+describe("POL-FE-66 · a NEXT ad request is an ad request", () => {
+  it("the catalog marks an ad package; the drawer asks it no athlete questions", () => {
+    expect(src("components/marketplace-catalog.tsx")).toContain('adOnly: p.athletes === "0"');
+    expect(src("components/brief-request-drawer.tsx")).toContain('{!(seed.kind === "package" && seed.adOnly) && (');
+  });
+});
+
+describe("POL-FE-67 · the sponsor's fan reward and leads; loose links", () => {
+  it("the sponsor's campaign page shows the reward (QR, staff code) and the leads, through the existing reads", () => {
+    const panel = src("components/sponsor-fan-reward.tsx");
+    expect(panel).toContain("/rewards?campaignId=${encodeURIComponent(campaignId)}");
+    expect(panel).toContain("/campaigns/${encodeURIComponent(campaignId)}/leads");
+    expect(panel).toContain("Staff code for the booth");
+    expect(src("app/(app)/sponsor/campaigns/[id]/page.tsx")).toContain("<SponsorFanReward campaignId={c.id} />");
+    expect(src("app/(app)/sponsor/campaigns/[id]/actions.ts")).toContain("/reward-tokens/${encodeURIComponent(tokenId)}/qr-url");
+  });
+
+  it("Back to Campaign uses the real campaign; the dispute form says where to start; a 404 is an error", () => {
+    expect(src("components/roster-ops.tsx")).toContain("?from=campaign&campaign=${encodeURIComponent(live?.campaignId ?? \"\")}");
+    expect(src("app/(public)/athletes/[slug]/page.tsx")).toContain('{ href: `/admin/campaigns/${campaignId}`, label: "Back to Campaign" }');
+    expect(src("components/deal-dispute-desk.tsx")).toContain("Raise a concern&rdquo; on the athlete&apos;s row");
+    expect(src("server/campaign-change.ts")).not.toContain("unavailable: true");
+  });
+});

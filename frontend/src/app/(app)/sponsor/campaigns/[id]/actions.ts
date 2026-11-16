@@ -179,3 +179,16 @@ export async function sponsorArtworkLink(id: string): Promise<{ ok: true; url: s
   if (!res.ok) return { ok: false, message: await reason(res, `No link (HTTP ${res.status}).`) };
   return { ok: true, url: ((await res.json()) as { url: string }).url };
 }
+
+/** POL-FE-67 (app review §2) — a reward token's QR, on a short-lived signed link (GET /reward-tokens/:id/qr-url). */
+export async function rewardQrUrlAction(tokenId: string): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
+  if (typeof tokenId !== "string" || !tokenId) return { ok: false, message: "No code." };
+  try {
+    const res = await apiFetch(`/reward-tokens/${encodeURIComponent(tokenId)}/qr-url`);
+    const body = (await res.json().catch(() => null)) as { url?: string } | null;
+    if (!res.ok || !body?.url) return { ok: false, message: `The QR couldn't be opened (HTTP ${res.status}).` };
+    return { ok: true, url: body.url };
+  } catch {
+    return { ok: false, message: "Can't reach SponsorX right now." };
+  }
+}

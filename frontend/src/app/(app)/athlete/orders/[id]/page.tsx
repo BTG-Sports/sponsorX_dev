@@ -70,7 +70,7 @@ const ORDER_TONE: Record<string, "primary" | "accent" | "neutral" | "danger" | "
 };
 
 type LiveOrder =
-  | { kind: "order"; order: ApiOrder; isAthlete: boolean; dispute: ApiDealDispute | null; viewerIsGuardian: boolean; canUpload: boolean }
+  | { kind: "order"; order: ApiOrder; isAthlete: boolean; dispute: ApiDealDispute | null; viewerIsGuardian: boolean; canUpload: boolean; guardianActs: boolean }
   | { kind: "missing" };
 
 /** The real order for a signed-in athlete or guardian, or null for the demo. */
@@ -93,6 +93,8 @@ async function liveOrder(id: string): Promise<LiveOrder | null> {
     dispute,
     viewerIsGuardian: Boolean(who.actor.actingFor),
     canUpload: mayUploadDisputeDocuments(who.actor),
+    /* POL-FE-68 — a minor's own login: their guardian accepts. */
+    guardianActs: Boolean(who.actor.guardianControl) && !who.actor.actingFor,
   };
 }
 
@@ -113,6 +115,7 @@ function LiveOrderView({
   viewerIsGuardian,
   canUpload,
   back,
+  guardianActs = false,
 }: {
   order: ApiOrder;
   isAthlete: boolean;
@@ -120,8 +123,9 @@ function LiveOrderView({
   viewerIsGuardian: boolean;
   canUpload: boolean;
   back: ReturnType<typeof resolveBack>;
+  guardianActs?: boolean;
 }) {
-  const blocker = acceptBlocker(o, isAthlete);
+  const blocker = acceptBlocker(o, isAthlete, guardianActs);
   const guardianNeeded = o.guardian.status !== "not-required";
   return (
     <div className="space-y-6">
@@ -341,6 +345,7 @@ export default async function CampaignOrderPage({
         viewerIsGuardian={live.viewerIsGuardian}
         canUpload={live.canUpload}
         back={back}
+        guardianActs={live.guardianActs}
       />
     );
   }

@@ -291,6 +291,7 @@ export function explainOfferRefusal(status: number, body: unknown): { message: s
     if (said && /already has an order/i.test(said)) return { message: said, reload: false };
     return { message: said ?? "This offer changed since you opened it.", reload: true };
   }
-  if (status === 403) return { message: "Only the athlete named on this offer can answer it, from their own login.", reload: false };
+  /* POL-FE-68 (app review §3) — a coded refusal (a minor: "your guardian must act") is said as the API said it. */
+  if (status === 403) return { message: said ?? "Only the athlete named on this offer can answer it, from their own login.", reload: false };
   return { message: said ?? `Your answer was not recorded (HTTP ${status}).`, reload: false };
 }

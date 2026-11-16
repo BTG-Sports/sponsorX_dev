@@ -32,7 +32,7 @@ import { send } from "../lib/email";
 
 /** A matching list is a set: a repeat in the body is stored once, in the order first sent (QA 2026-10-15). */
 const uniq = <T>(xs: readonly T[] | undefined): T[] => [...new Set(xs ?? [])];
-import { sponsorBriefStatus, sponsorWaitingOn, type SponsorBriefStatus, type SponsorWaitingOn } from "./brief-auto-rules";
+import { isAdOnlyPackage, sponsorBriefStatus, sponsorWaitingOn, type SponsorBriefStatus, type SponsorWaitingOn } from "./brief-auto-rules";
 
 export type BriefInput = {
   sponsorId: string;
@@ -191,13 +191,13 @@ async function submitted(tx: Prisma.TransactionClient, tenantId: string, id: str
   const b = await tx.campaignBrief.findFirstOrThrow({
     /* tenant-scope: the brief this transaction just wrote, in its own tenant. */
     where: { id, tenantId },
-    select: { id: true, state: true, autoApproved: true, heldKeys: true, campaign: { select: { id: true } } },
+    select: { id: true, state: true, autoApproved: true, heldKeys: true, campaign: { select: { id: true } }, package: { select: { athleteCountMax: true, lineItems: true } } },
   });
   return {
     id: b.id,
     state: b.state as BriefState,
     autoApproved: b.autoApproved,
-    status: sponsorBriefStatus(b.state),
+    status: sponsorBriefStatus(b.state, isAdOnlyPackage(b.package)),
     waitingOn: sponsorWaitingOn(b.state, b.heldKeys),
     campaignId: b.campaign?.id ?? null,
   };

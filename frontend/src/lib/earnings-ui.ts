@@ -1,4 +1,4 @@
-import { athleteCareer, type EarningState } from "@/lib/fixtures";
+import type { EarningState } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
    Shared athlete-earnings UI copy (2026-09-14). Imported by both the server
@@ -31,7 +31,8 @@ export const JOURNEY: {
   {
     state: "PENDING",
     title: "In review",
-    blurb: "We're checking the proof you posted.",
+    /* POL-FE-69 (app review §3) — right after accepting it's the athlete's turn: deliver, then it's verified. */
+    blurb: "Starts once your deliverables are posted and verified.",
     dot: "bg-surface-2 text-muted",
   },
   {
@@ -43,7 +44,7 @@ export const JOURNEY: {
   {
     state: "APPROVED_FOR_PAYOUT",
     title: "Payout approved",
-    blurb: `Lands with the ${athleteCareer.nextPayout} payout run.`,
+    blurb: "Approved — BTG Finance sends it and marks it paid.",
     dot: "bg-primary text-cta-ink",
   },
   {
@@ -75,10 +76,10 @@ export const STAGE_INDEX: Partial<Record<EarningState, number>> = {
 /** The detail view's plain-English "what this means / what happens next". */
 export const STATUS_DETAIL: Record<EarningState, string> = {
   PENDING:
-    "We're checking the proof you posted. Nothing to do on your end — it clears once the post is verified.",
+    "Starts once your deliverables are posted and verified — check your deliverables for what's due.",
   ELIGIBLE:
     "Verified. It's queued for BTG Finance to approve on the next payout run.",
-  APPROVED_FOR_PAYOUT: `Approved — it lands with the ${athleteCareer.nextPayout} payout run.`,
+  APPROVED_FOR_PAYOUT: "Approved — BTG Finance sends it and marks it paid, with a reference you'll see here.",
   PAID: "Paid out. Keep the reference for your records.",
   HELD: "On hold — BTG Finance is re-checking this order before it can move again. They'll reach out if they need anything from you.",
   DISPUTED:

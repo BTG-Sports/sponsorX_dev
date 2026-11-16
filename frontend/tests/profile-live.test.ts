@@ -52,7 +52,8 @@ describe("sectionStates answers §11 from data", () => {
   it("a full profile is done everywhere Phase 1 collects", () => {
     const states = sectionStates(profile());
     for (const s of SECTIONS) {
-      expect(states[s.key], s.key).toBe(s.key === "payment" ? "not-collected" : "done");
+      /* POL-FE-69 — the rate card is BTG's to set, so like payment it isn't the athlete's to answer. */
+      expect(states[s.key], s.key).toBe(s.key === "payment" || s.key === "rates" ? "not-collected" : "done");
     }
   });
 
@@ -78,9 +79,9 @@ describe("sectionStates answers §11 from data", () => {
     ).toBe("missing");
   });
 
-  it("zero confirmed rates and zero agreements read as missing", () => {
+  it("zero agreements read as missing; the rate card never counts (POL-FE-69 — BTG sets it)", () => {
     const states = sectionStates(profile({ ratesConfirmed: 0, agreementsSigned: 0 }));
-    expect(states.rates).toBe("missing");
+    expect(states.rates).toBe("not-collected");
     expect(states.agreements).toBe("missing");
   });
 });
@@ -92,10 +93,10 @@ describe("completion divides by what is answerable", () => {
 
   it("misses reduce the percentage and are named", () => {
     const { percent, missing } = completion(
-      sectionStates(profile({ socials: [], ratesConfirmed: 0 })),
+      sectionStates(profile({ socials: [], agreementsSigned: 0 })),
     );
-    expect(percent).toBe(75); // 6 of 8 answerable
-    expect(missing.sort()).toEqual(["rates", "socials"]);
+    expect(percent).toBe(71); // 5 of 7 answerable (POL-FE-69: rates are BTG's)
+    expect(missing.sort()).toEqual(["agreements", "socials"]);
   });
 
   it("never lists payment as missing — the athlete cannot fix it", () => {

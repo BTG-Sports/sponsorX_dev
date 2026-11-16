@@ -34,7 +34,8 @@ import {
   InvitationResponseInput,
 } from "../../contracts/campaign";
 import { briefActions, createBrief, transitionBrief, updateBrief, type BriefState } from "../../domain/brief";
-import { sponsorBriefStatus, sponsorWaitingOn } from "../../domain/brief-auto-rules";
+import { sponsorBriefStatus,
+  isAdOnlyPackage, sponsorWaitingOn } from "../../domain/brief-auto-rules";
 import { createCampaignFromBrief, launchCampaign, transitionCampaign } from "../../domain/campaign";
 import { stageViews, type StageView } from "../../domain/campaign-stages";
 import { setAutoStaffing, staffingSkips } from "../../domain/auto-staffing";
@@ -147,7 +148,7 @@ function briefOut(b: BriefRow, readiness?: Readiness, holds = false, actor?: Act
     /* P4-BE-11 — approved by the system or not; the sponsor-safe line; and,
        for BTG only, when and why the brief was held. */
     autoApproved: b.autoApproved,
-    status: sponsorBriefStatus(b.state),
+    status: sponsorBriefStatus(b.state, isAdOnlyPackage(b.package)),
     /* POL-FE-51 — who it waits on, in one sponsor-safe word: ATHLETES when it
        is held only because too few athletes fit, BTG otherwise before
        approval, null after. The hold's keys themselves are never sent. */

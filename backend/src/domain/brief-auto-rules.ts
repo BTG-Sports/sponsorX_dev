@@ -38,7 +38,7 @@ export type Hold = { key: HoldKey; text: string };
 export type AutoApprovalInput = Omit<ReadinessInput, "package" | "eligibleCount" | "conflictCount"> & {
   /** priceLow in whole dollars, the catalogue's unit. `active: false` — a
    *  package taken off sale, whose price may be stale: BTG prices it. */
-  package: { name: string; priceLow: number; athleteCountMin: number; active?: boolean } | null;
+  package: { name: string; priceLow: number; athleteCountMin: number; athleteCountMax?: number; active?: boolean; lineItems?: unknown } | null;
   /** ACTIVE athletes in the brief's tenant who fit its targeting, after
    *  conflicts with the brief's and the sponsor's categories. */
   fitCount: number;
@@ -90,7 +90,12 @@ export function autoApprovalHolds(i: AutoApprovalInput): Hold[] {
   if (budget) holds.push({ key: "BUDGET", text: budget.text });
 
   const need = athletesNeeded(i.package);
-  if (i.fitCount < need) {
+  /* POL-BE-66 (app review §2) — a package that staffs nobody (a NEXT ad: no
+     athlete job lines and an athlete maximum of 0) is never held for "No
+     athletes fit". Known only when the caller passes both; otherwise the old
+     rule stands. */
+  const adOnly = isAdOnlyPackage(i.package);
+  if (!adOnly && i.fitCount < need) {
     holds.push({
       key: "ATHLETES",
       text: i.fitCount === 0
@@ -114,7 +119,8 @@ export function autoApprovalHolds(i: AutoApprovalInput): Hold[] {
 
   /* Belt and braces: never approve what readiness itself would not call
      ready. By construction every failing deciding check is a hold above. */
-  if (holds.length === 0 && !isReady("DRAFT", checks)) {
+  /* POL-BE-66 — an ad staffs nobody: "someone eligible" isn't its check. */
+  if (holds.length === 0 && !isReady("DRAFT", adOnly ? checks.map((c) => (c.key === "eligible" ? { ...c, ok: true } : c)) : checks)) {
     holds.push({ key: "ATHLETES", text: "No athletes fit this brief yet" });
   }
   return holds;
@@ -172,8 +178,16 @@ export type SponsorBriefStatus = { key: "REVIEWING" | "APPROVED" | "CLOSED"; tex
  * BTG and one simply not yet taken on: the sponsor is never told why a brief
  * waits — the rule listing holds follow (listing-rules.ts `sellerHold`).
  */
-export function sponsorBriefStatus(state: BriefState | string): SponsorBriefStatus {
-  if (state === "APPROVED" || state === "CAMPAIGN_CREATED") return { key: "APPROVED", text: SPONSOR_APPROVED };
+/** POL-BE-66 — the approved line for a package that staffs nobody (a NEXT ad). */
+export const SPONSOR_AD_APPROVED = "Approved — your ad is booked into the edition";
+
+/** POL-BE-66 — a package that staffs nobody: no athlete job lines and an athlete maximum of 0. */
+export function isAdOnlyPackage(pkg: { athleteCountMax?: number; lineItems?: unknown } | null | undefined): boolean {
+  return pkg != null && pkg.athleteCountMax === 0 && Array.isArray(pkg.lineItems) && pkg.lineItems.length === 0;
+}
+
+export function sponsorBriefStatus(state: BriefState | string, adOnly = false): SponsorBriefStatus {
+  if (state === "APPROVED" || state === "CAMPAIGN_CREATED") return { key: "APPROVED", text: adOnly ? SPONSOR_AD_APPROVED : SPONSOR_APPROVED };
   if (state === "CLOSED") return { key: "CLOSED", text: SPONSOR_CLOSED };
   return { key: "REVIEWING", text: SPONSOR_REVIEWING };
 }

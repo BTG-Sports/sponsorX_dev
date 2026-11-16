@@ -304,7 +304,10 @@ function OpenDialog({ base, orderId, athleteName, open, onClose }: { base: strin
       {!orderId && (
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${key}-order`} className="text-[13px] font-semibold">Order id <span className="font-medium text-warn">(required)</span></label>
-          <p className="-mt-1 text-[11px] text-muted">From the email or the note that brought you here. Only a sent, accepted or live order can be paused.</p>
+          <p className="-mt-1 text-[11px] text-muted">
+            {/* POL-FE-67 (app review §2) — no screen shows an order id, so say where to start instead. */}
+            Easiest from the campaign: open the campaign&apos;s roster and use &ldquo;Raise a concern&rdquo; on the athlete&apos;s row — the order is filled in for you. Here, paste the id from the email that brought you. Only a sent, accepted or live order can be paused.
+          </p>
           <input id={`${key}-order`} data-autofocus value={order} onChange={(e) => setOrder(e.target.value)} className={`${inputCls} font-mono`} autoComplete="off" spellCheck={false} />
         </div>
       )}

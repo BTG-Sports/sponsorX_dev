@@ -662,7 +662,7 @@ function OrderDrawer({
           {/* profile link */}
           <div className="sx-animate sx-delay-4 p-5">
             <a
-              href={`/athletes/${r.slug}?from=campaign`}
+              href={`/athletes/${r.slug}?from=campaign&campaign=${encodeURIComponent(live?.campaignId ?? "")}`}
               target="_blank"
               rel="noopener"
               className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
