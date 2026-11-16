@@ -251,3 +251,176 @@
 - **POL-BE-87 / POL-FE-87 merged** in #442 and moved to Done.
 - **POL-BE-88 (minors):** a BTG or third-party licence could clear a piece a minor made (the guardian checks ran only for consent grants). `grantRightIn` now refuses a licence when the piece's maker is a minor (`requiresGuardian`), 409 "A minor's piece is cleared by their verified guardian's consent, not a licence." Adult makers and sponsor artwork keep licences. Test in `next-rights.test.ts`, shown to fail without the fix. Until the student media consent text exists, an edition with a minor's piece can't reach production; BTG can take the piece out.
 - **POL-FE-89 (dead end, item 58 not closed):** every real student code was refused on the request form (upper-cased; `_` refused) while the API matches base64url codes exactly, so no sale was credited; `/s/<code>` was a 404 for codes with `_`. The form, `?code=`, the kept copy and `/s/[code]` now take the code as issued, with no phone autocapitalise. Test runs 200 generated codes; shown to fail without the fix.
+
+## Sponsor dashboard redesign (POL-FE-90, `feat/POL-FE-90-sponsor-dashboard-redesign`, HeckerCreatives)
+- **Why:** the programme owner: "big visual redesign for /sponsor … it must be the dashboard itself like in the image provided, make sure its easy to understand … not to remove the current theme". Three dashboard references (KPI cards, area chart, donut, gauge, table).
+- **What:** `/sponsor` is a card grid on the unchanged Stadium Board. Every card has an icon, title and a one-line subtitle; the period is said in words under the title.
+  - Four number cards with change pills and mini charts. Money left the tiles for its own card.
+  - The chart's switch is three clickable totals (`StadiumTrend dash`).
+  - "Your to-do" shows non-zero rows only, requests with BTG as information, and four shortcuts.
+  - Posts delivered (LED ring), Money (paid / still-to-pay donut, total agreed, cost per 1,000), fan journey (LED bars).
+  - Athletes and cities with share bars; the campaign table in a card.
+- **New:** `components/stadium-dash.tsx`; `StadiumRow` `plainLead`. No API change; every figure is still `GET /sponsor/overview`.
+- **ID:** POL-FE-87 was rcfworks' money fix (item 87), so this is item 90. Told the two other sessions on this checkout.
+- **Checked:** frontend 2,239/2,239; tsc, eslint clean; `npm run build` in a detached worktree. Walked live as the QA sponsor at 1440 (30 days, All time) and 390.
+- **Trap again:** the worktree teardown emptied `node_modules/rimraf`; restored 2.7.1 from `npm pack` (see the build-in-worktree memory).
+- **Tracker:** a POL-FE-90 row on the Polish sheet, Code review.
+
+## Sponsor shop redesign (POL-FE-91, `feat/POL-FE-91-sponsor-shop-redesign` off POL-FE-90's 4dd5ca60, HeckerCreatives)
+- **Why:** the programme owner: "big visual redesign for /sponsor/shop, let's do the whole thing we did in athlete inventory and listing, the items can be viewed before clicking add to cart … a button on the item itself for add to cart … easy to understand … not to remove the current theme". Mid-build, three more asks:
+  - "the view page must be a new page which shows what the athlete would show, we need to be consistent", with a screenshot of `/athlete/listings/[id]`;
+  - "change Your public profile to View Athlete Profile";
+  - "can we see it inside the dashboard of the logged-in account, not the new tab".
+- **What:**
+  - **`/sponsor/shop`:** a three-step strip and a Cart button with count and total. A search, a type rail, ONE Filters popup (six filters with plain labels, instant) with removable chips, and Cards ↔ List.
+    - Each item has View and Add to cart. Add to cart is a popup: how many (− / +), which dates (the house calendar inside the item's window), a live total, then "It's in your cart".
+    - An item already in the cart says so and offers "Change in cart".
+  - **`/sponsor/shop/[id]`:** the athlete's own `ItemShowcase`, relit orange by re-pointing its tokens (`item-stadium.css`), under a sponsor bar (Shop, On sale now / In your cart, Pick it → Cart → Check out, Add to cart, Cart).
+  - **`/sponsor/athletes/[slug]`:** `AthletePublicPage` in a new `sponsor` mode, inside the portal. "Request a proposal" goes to `/brief?new=1`, "Is this you?" is gone, and "Back to the item" returns to the item.
+  - **API:** `GET /marketplace/search/:id` (`getCatalogListing`): the search's exact visibility (catalogue scope + live + restrictions; otherwise 403), plus `bundle` and `athleteSlug` (ACTIVE/FEATURED only). POL-FE-92's cart reads it per line.
+- **Files:** `components/sponsor-shop/shop-window.tsx`, `lib/shop-window.ts`, `lib/shop-showcase.ts`, `app/(app)/sponsor/shop/{page.tsx,shop.css,[id]/}`, `app/(app)/sponsor/athletes/[slug]/`, `backend/src/domain/marketplace-search.ts`. `ItemShowcase` gains `profileLink` / `viewer`. `shop-stadium-card.tsx` and `shop-add-to-cart.tsx` deleted; `app-review-wave5.test.ts` (POL-FE-72) now checks that the card links to the full page.
+- **Checked:** frontend 2,263/2,263; backend `phase2-independent-listing` + `openapi.coverage` 22/22 on `sponsorx_test`; tsc and eslint clean; `npm run build` in a detached worktree. Walked live at 1440 and 390 as a Sponsor Admin (add to cart end to end, item page, in-portal profile) and as a Sponsor Viewer.
+- **Traps:**
+  - **The only Sponsor Admin in the dev Clerk instance** is `user_3MBbUPao9nD9ssh9rrtIpsVaNy2` (Isaiah Russell). The QA sponsor is now SPONSOR_ANALYST, and the `e2e_u_qa7_*` Clerk users don't exist in this instance. Isaiah's cart holds two of my walk's lines, and POL-FE-92 placed a hold on it.
+  - **The cart holds one line per listing:** a second add is a 409 ("already in the cart — change its line instead"), hence "Change in cart".
+  - **`next dev` missed edits to two shared components** written by a script (the page kept rendering the old `ItemShowcase`, and touching the timestamp didn't help); a real content edit through the editor did. Grep `.next/dev/server/chunks` for the new code before trusting a walk.
+  - **The dev API on :4000 was `src/index.ts`, not watched.** Restarted it with the same command for the new route.
+
+## Sponsor cart redesign (POL-FE-92, built on `feat/POL-FE-91-sponsor-shop-redesign`'s checkout, HeckerCreatives)
+- **Why:** the programme owner, with four shop-cart references: "big visual redesign for /sponsor/cart … add animations + wow factor … make sure its easy to understand because what you did before is so confusing for a human but … not to remove the current theme". POL-FE-91 is the shop window (another session, sponsorx-dev-b8); the cart is item 92.
+- **What:** `/sponsor/cart` is laid out like a plain shop cart, on the Stadium Board (it loads `../shop/shop.css` + its own `cart.css`, `sx-ct-*`).
+  - **Board:** "Your cart total" as big lit figures that count up, items and sellers, one **Check out** (reserve, 15-minute hold), "Nothing is charged until you place the order", and three stops (Review → Check out, held 15 min → Place the order).
+  - **Items:** a table with Item / How many / Total. Each row has an LED picture tile (the item's kind), its title linking to the item, the seller and price each, the dates as one calendar button under the title, a − / + stepper and ×.
+    - **Edits save by themselves.** The old "Save changes" button is gone. Saves are debounced, show "Saving…" then "✓ Saved", and a refusal reverts the row with the API's reasons.
+    - **Remove asks first** (Keep it / Remove), then the row slides out and collapses.
+  - **Order summary** (sticky): subtotal, BTG fee, total, Check out again, what checking out does.
+  - **Held cart:** the cart is locked, a ring counts the time down, and Continue to checkout replaces Check out.
+  - **Phone:** a floating Total + Check out bar. It rises once the board's button scrolls away, sits above the portal dock and drops when the dock hides, and steps aside when the summary is on screen.
+- **Reads added:** `GET /marketplace/search/:id` per line, for the kind glyph, the date window and the quantity cap. 403/404 → "No longer in the shop", and Check out is blocked until it's removed. Other failures → drawn without that information. No API change; the actions in `cart/actions.ts` are unchanged.
+- **`?demo=sample`:** a clickable sample cart. Changes and removals stay on the page and nothing is sent. `?demo=empty` / `loading` show those states.
+- **Files:** `components/sponsor-cart/cart-board.tsx`, `lib/cart-board.ts`, `app/(app)/sponsor/cart/{page.tsx,cart.css}`, `tests/cart-board.test.ts`. `components/shop-cart-line.tsx` was deleted; `tests/shop-seller.test.ts` now renders `CartLineRow`.
+- **Checked:** tsc and eslint clean. Walked live as the QA sponsor at 1440 and 390: + / − roll the line and summary totals, remove, the calendar, the phone bar against the dock; no page errors.
+  - Frontend vitest: 2,262/2,263.
+  - **The one failure isn't from the cart:** `app-review-wave5.test.ts` still reads `components/shop-stadium-card.tsx`, which the uncommitted POL-FE-91 shop work deleted. Fixed by sponsorx-dev-b8 in e6916a3d (2,263/2,263).
+  - Not yet built in a worktree; not committed. Later the same day the three stops became circle-over-words, so the wire runs between circles and never crosses a title.
+- **Note:** the QA sponsor user now shows as "Sponsor Viewer" in the header, so a live walk of the editable cart needs an admin sponsor or `?demo=sample`.
+
+## Sponsor checkout as a step-by-step wizard (POL-FE-93, on `feat/POL-FE-91-sponsor-shop-redesign`, HeckerCreatives)
+- **Why:** the programme owner, with four checkout references (stepper + summary card; before/after of a cluttered payment page): "big visual redesign for /sponsor/checkout?reservation, make it a step by step wizard with animations + wow factor … easy to understand … not to remove the current theme". Mid-build: "make sure the 2 panel must be the same height", and a phone Back / Continue bar that "is ugly" (Back alone on a line, the button as a slab under it).
+- **What:** `/sponsor/checkout` asks one thing at a time: **Items → Invoice → Terms → Confirm.** It uses the cart's look, copied into its own `checkout.css` (`sx-co-*`) on top of `../shop/shop.css`.
+  - **Board:** the total in lit figures, a hold ring that drains (red in the last two minutes), and a four-stop rail with a lit wire. Done stops can be clicked back to.
+  - **Stage:** each step slides in from the side it came from. Continue always works: pressed too early, it says what's missing, focuses the first bad field, or shakes the tick card.
+  - **Step 4:** a recap with Change links, "Total you'll pay", "What happens next" (from the spending limit + paymentsOpen), then Place order behind a "Placing your order…" curtain.
+  - **Summary:** beside the stage, the same height (grid `align-items: stretch`; the stage is a flex column so its nav sits on the bottom edge). Release hold asks first.
+  - **Ended holds, the viewer role, no reservation:** status boards. An expired hold gets "Hold again for 15 minutes".
+  - **`?demo=sample`:** a clickable sample that never holds, releases or places anything.
+- **Contract gate unchanged:** `placeOrderAction` gets the terms body exactly as rendered, the billing contact, the acceptance and `totalCentsShown`. `gateStatus` still decides whether Place order is enabled. `actions.ts` and the API are untouched.
+- **Files:** `components/sponsor-checkout/checkout-wizard.tsx`, `lib/checkout-wizard.ts`, `app/(app)/sponsor/checkout/{page.tsx,checkout.css}`, `tests/checkout-wizard.test.ts`. Removed the old gate (`ShopCheckoutGate`, `CHECKOUT_STEPS`, `ShopReserveButton`) and `components/stadium-hold-countdown.tsx`; `shop-checkout.tsx` keeps only Cancel order.
+  - The e2e specs `marketplace-path` and `qa-phase2` now press the cart's "Check out" (they still said "Reserve & check out", stale since POL-FE-92) and click Continue through the wizard.
+- **Checked:** tsc and eslint clean; frontend vitest 2,273/2,273. Walked live on `?demo=sample` as Isaiah Russell (the dev Sponsor Admin) at 1440 and 390: all four steps, the hint, the rail back, panels equal at every step, no sideways scroll, no page errors. Not built in a worktree; e2e not run; not committed.
+- **Trap:** the rail's step-4 label was "Place order" first. That made `getByRole("button", { name: "Place order" })` (substring match) hit two buttons, so the rail stop is "Confirm". Don't put "Place order" in any other accessible name on this page.
+
+## Sponsor order page as the payment wizard's summary (POL-FE-94, on `feat/POL-FE-91-sponsor-shop-redesign`, HeckerCreatives)
+- **Why:** the programme owner, with two references (a checkout with a summary card; a "Payment Successful" page with a tracker, billing and payment cards and an order summary): "big visual redesign for /sponsor/orders/, make it a summary for the payment wizard … easy to understand … not to remove the current theme". Mid-build: the right panel "must be the same height as the combine 4 panels on the left", and the pay card "is ugly" twice: first two kickers, the board's headline repeated and a floating button; then a half-width ticket with notch dots and an empty column beside it.
+- **What:** `/sponsor/orders/<id>` (where checkout lands with `?placed=1`) now reads:
+  - **Board:** a mark that draws itself (tick and sparks once placed or paid), one headline, the total counting up, and Placed → Approved → Paid → Delivered with dates.
+  - **Next step:** a full-width payment strip (Amount due | Pay by | the one pay button) with the Stripe note under it, or the status in words. Under it, "What happens next" runs left to right.
+  - **Below:** the items, delivery, and Invoice to · Payment · Order terms, with the order summary beside them at the same height.
+  - **`?demo=sample&as=<state>`:** a clickable sample in ten states.
+- **Files:**
+  - `components/sponsor-order/order-summary.tsx`, `lib/order-summary.ts`, `app/(app)/sponsor/orders/[id]/{page.tsx,order.css}`, `tests/order-summary.test.ts`.
+  - `components/sponsor-order-status.tsx` was removed, and `tests/app-review-wave5.test.ts` now reads the new file for Order again.
+  - `OrderPayButton` takes `className` / `sample` and ignores a double click. `Roll` is exported from the checkout wizard.
+- **Kept for e2e:** exactly one "Pay $X by card" button, and the banner titles "Payment received — confirming…" and "Paid ✓ · confirmed by the payment provider".
+- **Checked:**
+  - tsc and eslint clean; frontend vitest 2,285/2,285.
+  - Walked live as Isaiah Russell on all ten sample states at 1440 and 390: equal panel heights at 1440, no sideways scroll, no page errors.
+  - Not built in a worktree; e2e not run; not committed.
+
+## Athlete Sales as a shop list, like Inventory and Listings (POL-FE-95, on `feat/POL-FE-91-sponsor-shop-redesign`, HeckerCreatives)
+- **Why:** the programme owner: "big visual redesign for /athlete/sales/ … just do what we did in the listing and inventory … easy to understand because what you did before is so confusing for a human … not to remove the current theme".
+- **What:** `/athlete/sales` reads top to bottom:
+  - **How a sale moves:** Not paid yet → To deliver → Waiting to confirm → Done, as stations on a flowing rail with the API's tab counts (they count up). A click filters; Problems and Cancelled sit off the road as chips.
+  - **A sponsor wants to book you:** the approvals as cards with the deadline and Answer.
+  - **The sales:** the inventory's tabs, search and List ↔ Cards. Each sale says the next step as a sentence, flags "Your move", shows a Paid → Delivering → Delivered → Confirmed track, and gives the share.
+  - **No sales yet:** a four-step hero.
+- **Files:** `lib/athlete-sales-shop.ts`, `components/athlete-sales/{sales-shop,sales-board}.tsx`, `app/(app)/athlete/sales/{page.tsx,sales.css}` (on top of `../inventory/inventory.css`), `tests/athlete-sales-shop.test.ts`. Five glyphs were added to `athlete-inventory/glyphs.tsx`. `/property/sales` still uses `SellerOrdersList`, unchanged.
+- **Split with sponsorx-dev-71:** that session has `/athlete/sales/[id]` as a wizard (POL-FE-96) on the same checkout. Neither of us touches the other's files.
+- **Checked:**
+  - tsc and eslint clean; frontend vitest 2,320/2,320.
+  - Walked live as the QA athlete at 1440 and 390, List and Cards, plus `?demo=empty`: station, siding and tab clicks filter; no sideways scroll; no page errors.
+  - Not built in a worktree; e2e not run; not committed. The approvals plate wasn't walked (no approval in the dev data).
+- **Trap:** the count-up writes `textContent` through a ref, not state. A `setState` in the effect fails eslint's `react-hooks/set-state-in-effect`. The server renders the real number, so no-JS and reduced motion show it as is.
+  - **Then (owner, 2026-11-16, done by sponsorx-dev-fa):** "same in the /athlete/sales" — "How a sale moves" now opens in a popup from a **How a sale moves** help button beside Payouts (with a count of sales to deliver), like Payouts' road (POL-FE-97). A tapped step still opens its sales and closes the popup; **Got it** closes it. Hidden while nothing is sold yet. `SalesRoadHelp` in `sales-shop.tsx`; `SalesRoad` is now internal; `lib/athlete-sales-shop.ts` unchanged.
+
+## An opened athlete sale as a step-by-step wizard (POL-FE-96, on `feat/POL-FE-91-sponsor-shop-redesign`, HeckerCreatives)
+- **Why:** the programme owner: "big visual redesign for /athlete/sales/, make it a step by step wizard … easy to understand because what you did before is so confusing for a human … don't remove the current theme", then "not the list part but the open page of the item".
+- **What:** `/athlete/sales/<id>` now reads as a ticket, then a four-step wizard. It uses the confirmations wizard's rail, panels, buttons and medal (`confirmations.css`), plus its own `sale.css` (`sx-sl-*`).
+  - **Ticket:** the item, the sponsor, your share counting up, a four-segment lane, and one "whose move" callout.
+  - **Steps:** Sponsor pays → You deliver it → Sponsor checks it → You get paid. The page opens on the current step, and any step can be opened.
+  - **Mark delivered:** done on the page in three blocks (what you did → proof → send), not a pop-up. It plays "Delivered!" and slides to step 3, which has a 24-hour ring that drains.
+  - **Get paid:** a medal with confetti, then the share.
+  - **`?demo=sample&as=<state>`:** ten sample states; nothing is sent.
+- **Files:** `lib/sale-journey.ts`, `components/sale-wizard/{sale-wizard,sale-page,deliver-steps,check-clock}.tsx`, `app/(app)/athlete/sales/[id]/{page.tsx,sale.css}`, `tests/sale-journey.test.ts`.
+  - `SellerOrderDetail` stays, for `/property/sales/<id>`.
+  - `e2e/marketplace-path.spec.ts` step 7 fills the on-page form named "Mark delivered" (`#mk-note`) instead of a dialog.
+- **Split with sponsorx-dev-6e:** that session has the list (POL-FE-95). Neither of us touched the other's files; we took turns on polish.md, this log and the tracker.
+- **Checked:**
+  - tsc and eslint clean; frontend vitest 2,320/2,320.
+  - Walked live as the QA athlete at 1440 and 390: all sample states, the two real dev sales (cancelled, in delivery), an unknown id, and the whole Mark delivered flow. No sideways scroll, no page errors.
+  - Not built in a worktree; e2e not run; not committed.
+- **Traps:**
+  - Playwright won't click a button with `aria-disabled="true"`. The empty-note Mark delivered press (which nudges) needs `{ force: true }` in a walk; the e2e path fills the note first.
+  - In a grid, a `truncate` file name stretches the column on a phone. `.sx-sl-form` needs `grid-template-columns: minmax(0, 1fr)`.
+  - Italic `sx-arena-num` inside a `background-clip: text` shimmer loses the last glyph's overhang. Pad it by `0.18em`.
+
+## Sponsor portal recoloured orange → blue (owner request, on feat/POL-FE-91)
+
+- **What:** the Stadium Board, every sponsor page, the dock and the phone menu, went from orange LED light to blue.
+  - Light `#f97a1f` → `#3d8bff`, hot `#ffb27a` → `#9cc3ff`, ink on the light `#1a0d03` → `#030b1a`.
+  - Warm-brown darks and greys → navy and cool grey.
+  - Red, green and the amber warning colours are unchanged.
+- **Scope:** sponsor-only.
+  - `.sx-stadium` overrides `--sx-sponsor`/`--sx-primary`, so the `text-sponsor`/`bg-sponsor` classes on sponsor pages go blue too.
+  - The global `--sx-sponsor` (admin chips, marketing) is still orange.
+  - In `mobile-nav.css`, only the stadium blocks changed.
+- **Files:** `app/(app)/sponsor/**` (stadium.css, cart/checkout/order/shop/item/athlete css, page.tsx `ORANGE`→`BLUE`, marketplace/[jobId]), `components/{stadium-dash,stadium-stage,stadium-trend}.tsx`, `sponsor-cart/cart-board.tsx`, `sponsor-shop/shop-window.tsx`, `app/mobile-nav.css`, and one comment in `portal-shell.tsx`.
+- **Checked:** tsc clean. Not walked live, not built, not committed.
+
+## Athlete Payouts as a cash-out board, like Inventory, Listings and Sales (POL-FE-97, on `feat/POL-FE-91-sponsor-shop-redesign`, HeckerCreatives)
+- **Why:** the programme owner: "big visual redesign for /athlete/money … just do what we did in the listing and inventory … easy to understand because what you did before is so confusing for a human … not to remove the current theme".
+- **What:** `/athlete/money` reads top to bottom:
+  - **Cash-out board:** the figure you can cash out, counting up, one headline that says what it means or why not, **Request payout · $X** (a popup lists what it covers and what happens next), and the payout account card beside it at the same height.
+  - **What's left:** a ring and ticks, when a check is unmet.
+  - **How your money moves:** Sponsor pays → Unlocking → Ready → On its way → Paid, the API's totals at each stop. In reserve / Frozen / Owed back sit off the road.
+  - **Your share of each sale** (List ↔ Cards): where each sale's money is, as a sentence, with one link (Cash out, Deliver it, Follow it).
+  - **Your payouts:** state tabs, then a timeline with each payout's track and its fix.
+  - **Then (owner, mid-build):** "make this a tab version between the history and the cashout list". The two lists now sit behind one switch, **Money by sale | Payout history**, kept in `?list=payouts`. The history's state tabs carry `list` themselves: `useSearchParams` didn't pick up the `history.replaceState`, so a pager write dropped it.
+  - **And:** "make this inside a popup panel which trigger by a help button". The money road now opens from **How money moves** beside Sales; the popup is widened with `.sx-iv-sheet:has(.sx-my-road)`, so `Modal` itself is unchanged.
+  - **No money yet:** a four-step hero and the account card. `?demo=sample[&as=setup]` is a sample that writes nothing.
+- **Files:** `lib/athlete-money-shop.ts`, `components/athlete-money/*`, `app/(app)/athlete/money/{page.tsx,money.css,actions.ts}`, `tests/athlete-money-shop.test.ts`; small additions to `ShopTabs` (optional `keys`) and `ApiPayoutOrder` (optional `confirmedLines`/`problemLines`); `e2e/payee-money.spec.ts` heading updated.
+- **Split:** sponsorx-dev-6e had POL-FE-95 (sales list), sponsorx-dev-71 POL-FE-96 (sale page), sponsorx-dev-be is taking the `/sponsor/orders` list. Nobody touched another's files.
+- **Checked:** tsc and eslint clean; frontend vitest 2,337/2,337. Walked live as the QA athlete at 1440 and 390 (sample, setup, real data, empty, the popup through to "Requested", Cards, the Paid tab): no sideways scroll, no page errors. Not built in a worktree; e2e not run; not committed.
+- **Traps:**
+  - `usePopup()` must be destructured. Reading `popup.phase` off the object fails eslint's `react-hooks/refs`, because the object holds a ref.
+  - An italic `.sx-arena-num` figure with `background-clip: text` and `overflow: hidden` cuts off its last digit. Give it right padding instead.
+  - The sale page takes the LINE id, not the order id, so a payout order can't link to `/athlete/sales/<orderId>`. Link to the Sales tab instead.
+
+## Sponsor Orders list as an order board, like Inventory, Listings and Sales (POL-FE-98, on `feat/POL-FE-91-sponsor-shop-redesign`, HeckerCreatives)
+
+- **Asked:** a big visual redesign for `/sponsor/orders` (the list), like the athlete Inventory and Listings, with animation and wow, easy to understand, in the Stadium theme.
+- **Built:**
+  - **How an order moves:** a scoreboard (Waiting → To pay → In progress → Delivered) with the summary's counts ticking up, a comet on the wire, and "Spent so far". Each station opens its tab.
+    - **Then (owner, after the first look):** "make this inside a popup panel which trigger by a help button". It now opens from **How orders work** in the head, so the page opens on the orders. Picking a step filters the list and closes the popup.
+    - The popup is portalled to `<body>` with `sx-stadium sx-or` on its wrapper. Without that, the stage colours and the tokens wouldn't reach it.
+  - **Your move:** a strip while anything waits to be paid.
+  - **The orders:** tabs, search, Cards ↔ List. Each order says what was bought from whom, what happens next as a sentence with its deadline, the four stops (as on the order page, POL-FE-94), and the total.
+  - **No orders yet:** a hero with three steps and Browse the shop.
+- **Files:** `lib/orders-board.ts`, `components/sponsor-orders/orders-board.tsx`, `app/(app)/sponsor/orders/{page.tsx,orders.css}`, `tests/orders-board.test.ts`; one line in `tests/app-review-wave5.test.ts` (POL-FE-72's pin moved to the lib). No API change.
+- **Checked:** tsc and eslint clean; frontend vitest 2,351/2,351. Walked live as the Sponsor Admin (Isaiah Russell) at 1440 and 390. The other states were checked on a static render of the real components, because that account has one order. Not built in a worktree; e2e not run; not committed.
+- **Trap:** never name a CSS container `or` (or `and` / `not`). `@container or (min-width: …)` is a parse error, and Turbopack then fails every route on the live dev server with a 500, `/login` included. tsc, eslint and vitest don't parse CSS, so none of them catch it. Renamed it to `sx-orders`.
+
+## Portal nav: the route-map link replaced by Log out (owner request, on `feat/POL-FE-91-sponsor-shop-redesign`, HeckerCreatives)
+- **Asked:** "remove all of dashboard navigation 'Team ← route map'", then "in place, add the logout button there".
+- **Done:** the development-only `← route map` link is gone from the three portal navs: the desktop sidebar foot (`portal-shell.tsx`), the legacy phone drawer, and the LED stage menu (`mobile-nav.tsx`). In its place is a **Log out** button, `LogOutButton` in `user-menu.tsx`. It signs out the same way the top-bar menu does (`clearSessionCookiesAction`, then Clerk `signOut` to `/`), with a ref guard against a double click. `.sx-sheet-map` became `.sx-sheet-logout` in `mobile-nav.css`. `/map` itself and the public header's Route Map link are unchanged.
+- **Checked:** tsc clean on the touched files; `/login` 200 and the portals redirect on the live dev server.

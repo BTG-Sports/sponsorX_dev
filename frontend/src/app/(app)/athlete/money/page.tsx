@@ -1,77 +1,104 @@
 import Link from "next/link";
+import type { CSSProperties, ReactNode } from "react";
 
-import { ArenaChip, ArenaHead, ArenaLane, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
-import { EmptyState } from "@/components/states";
-import { PayoutAccountPanel, StripeLinkButton } from "@/components/payout-account-panel";
-import { PayoutTracker } from "@/components/payout-history";
-import { PayoutRequest } from "@/components/payout-request";
-import { ListFilter, ServerList } from "@/components/server-pager";
-import { PagedTable, Primary, Td, Tr, type Column } from "@/components/stage-table";
+import { ArenaHead, ArenaUpdated } from "@/components/arena-stage";
+import { AccountCard, CashOut, MoneyChecklist, MoneyRoadHelp } from "@/components/athlete-money/money-board";
+import { MoneyGlyph } from "@/components/athlete-money/money-glyphs";
+import { FirstMoneyHero } from "@/components/athlete-money/money-hero";
+import { MoneyTabs } from "@/components/athlete-money/money-lists";
+import { ServerList } from "@/components/server-pager";
+import { EmptyState, ErrorPanel, SkeletonRows } from "@/components/states";
+import { cashBoard, moneySidings, moneyStations, orderMoneyCard, payoutCard, payoutTabs, sampleMoney } from "@/lib/athlete-money-shop";
+import { demoState } from "@/lib/demo";
 import { apiListQuery, apiListQueryFor, pageOrAll, type PageInfo } from "@/lib/list-query";
 import {
-  FROZEN_LINE, HISTORY_KEYS, HISTORY_STATES, HISTORY_STATE_PARAM, PAYOUT_ROUTE_LINE, accountPanel, approvalBadge, historyRows, historyState, moneyTiles, orderAvailable,
-  orderStatusLabel, owedBackNotice, payeeFixPrompt, payoutTracker, requestButton, requestOrders, usd, waitingPayouts,
-  type ApiMyPayoutHistory, type ApiMyPayoutOrders, type ApiMyPayouts, type ApiPayout, type ApiPayoutOrder,
+  HISTORY_KEYS, HISTORY_STATE_PARAM, accountPanel, historyState, owedBackNotice, requestOrders, usd, waitingPayouts,
+  type ApiMyPayoutHistory, type ApiMyPayoutOrders, type ApiMyPayouts, type ApiPayout, type ApiPayoutOrder, type PayoutState,
 } from "@/lib/payouts-live";
 import { apiFetch, fetchActor } from "@/server/api";
-import { moneyAccountLinkAction, moneyRequestAction } from "./actions";
+import { moneyAccountLinkAction, moneyRequestAction, moneySampleLinkAction } from "./actions";
+
+import "../inventory/inventory.css";
+import "./money.css";
 
 /* --------------------------------------------------------------------------
-   My money — 2S5-FE-03, the athlete's side (Claude Design MyMoney.dc.html).
+   My money — 2S5-FE-03, the athlete's side.
 
    Reads  GET /payouts/me     what can be requested now, what is held in
-                              reserve, what has been paid; the four payout
-                              rules; each order's share; every payout.
+                              reserve, what has been paid; the payout rules;
+                              each order's share; every payout.
+          GET /payouts/me/orders?page&size              → { orders, page }
+          GET /payouts/me/history?page&size[&state=]    → { payouts, page, counts }
+                              (P1-ART-22, SERVER-PAGED; the history keeps its
+                              own keys ?hpage / ?hsize / ?hstate. A 404, or an
+                              answer without `page`, falls back to the blob's
+                              own list as one page.)
    Writes POST /payouts/account/link   the payout-account set-up on Stripe ↗
           POST /payouts                request the whole available balance
 
-   Every figure is the API's. Stripe is named only where Riley acts on it
-   (the account); payouts say "confirmed by the payment provider". Nothing
-   here shows a bank detail — SponsorX has none.
+   Every figure is the API's. Stripe is named only where the athlete acts on
+   it (the account); payouts say "confirmed by the payment provider". Nothing
+   here shows a bank detail — SponsorX has none. A minor's own login sees who
+   sets the account up, never the Stripe button (POL-FE-26). A frozen order
+   (2S5-FE-09) says "Frozen" and BTG's one sentence. 403 shows a plain
+   explanation; other failures show the error panel.
 
-   403 (a guardian's login, or an athlete with no marketplace money yet
-   reachable) shows a plain explanation; other failures throw to the error
-   page. Phase 1 campaign earnings stay on /athlete/earnings.
-
-   2S5-FE-09 — an order whose money a dispute froze (`frozen`) carries a
-   "Frozen" badge, its Available cell reads as frozen rather than available
-   (the API already leaves it out of the requestable balance), and one line
-   under the row says BTG is reviewing a problem with the sponsor's payment.
-   The API's `dispute` check renders in the checklist with the others.
-
-   P1-ART-22 (2026-10-11) — "Payouts" on the Arena, as a dashboard: the
-   title row with the ledger pill and the Request control, four KPI plates
-   in cents from GET /payouts/me (moneyTiles — totals + byState), the
-   owed-back notice, the account panel, the checklist as a plate with a lane
-   (done / total), then the two lists SERVER-PAGED (memory:
-   pagination-pattern):
-     GET /payouts/me/orders?page&size                  → { orders, page }
-     GET /payouts/me/history?page&size[&state=]        → { payouts, page, counts }
-   The history keeps its own keys (?hpage / ?hsize / ?hstate). While the
-   backend lands, a 404 on either route — or an answer without `page` —
-   falls back to the blob's own `orders` / `payouts` as one page. GET
-   /payouts/me itself is unchanged.
+   POL-FE-97 (2026-11-16) — redrawn like Inventory, Listings and Sales
+   (POL-FE-83/84/95). The owner: the old page was "so confusing for a human"
+   — four KPI plates, a ledger table led by order refs, a status column in
+   jargon. Top to bottom now:
+     1. the title, with "How money moves" and Sales beside it. The help
+        button opens the road in a popup: Sponsor pays → Unlocking → Ready
+        → On its way → Paid, the API's totals at each stop; in reserve,
+        frozen and owed back off the road (owner: "make this inside a popup
+        panel which trigger by a help button");
+     2. the cash-out board: how much can be cashed out now, counting up to
+        the cent, one sentence on what that means, the one Request button
+        (a popup lists what it covers and what happens next), and beside it
+        where the money goes — the payout account on Stripe;
+     3. what's left before a payout, when anything is (a ring and ticks);
+     4. one switch, Money by sale | Payout history (?list=payouts):
+        "Your share of each sale" (List ↔ Cards), where each sale's money
+        is as a sentence with one way to act on it; or "Your payouts", tabs
+        by state, then each payout on a timeline with its track and, when
+        it waits on the account, the fix.
+   No money yet: a hero with the four steps, then the account card.
+   ?demo=loading|empty|error the branded states; ?demo=sample[&as=setup] a
+   clickable sample that writes nothing. Words: lib/athlete-money-shop.ts.
+   Styles: ../inventory/inventory.css + ./money.css.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
 
-const ORDER_COLUMNS: Column[] = [
-  { key: "order", label: "Order" },
-  { key: "what", label: "Sponsor · what was sold" },
-  { key: "share", label: "Your share", num: true },
-  { key: "available", label: "Available", num: true },
-  { key: "held", label: "Held", num: true },
-  { key: "status", label: "Order status" },
-];
+const TITLE = "Payouts";
+const HOME = "/athlete/money";
+const d = (s: number) => ({ "--d": `${s}s` }) as CSSProperties;
 
-const HISTORY_COLUMNS: Column[] = [
-  { key: "when", label: "Requested" },
-  { key: "orders", label: "Orders" },
-  { key: "amount", label: "Amount", num: true },
-  { key: "status", label: "Status" },
-];
-
-const CHIP_TONE: Record<string, ArenaTone> = { neutral: "ink", primary: "blue", accent: "win", warn: "warn", danger: "danger" };
+/** `help`: "How money moves", the road in a popup — only once there is money to show on it. */
+function Head({ lede = true, help }: { lede?: boolean; help?: ReactNode }) {
+  return (
+    <ArenaHead
+      title={TITLE}
+      pill={<ArenaUpdated />}
+      actions={
+        <span className="sx-my-head-actions">
+          {help}
+          <Link href="/athlete/sales" className="sx-iv-rules sx-my-sales">
+            <MoneyGlyph name="tag" className="size-4" />
+            Sales
+            <MoneyGlyph name="arrow" className="size-3.5" />
+          </Link>
+        </span>
+      }
+    >
+      {lede && (
+        <p className="sx-iv-lede sx-iv-rise" style={d(0.04)}>
+          Your share of every sale, where it is right now, and cashing it out to your bank.
+        </p>
+      )}
+    </ArenaHead>
+  );
+}
 
 /** A list route that may not be live yet: 404 → null (fall back to the blob); any other failure throws. */
 async function pagedOrNull<T>(res: Response, path: string): Promise<T | null> {
@@ -80,229 +107,174 @@ async function pagedOrNull<T>(res: Response, path: string): Promise<T | null> {
   return (await res.json()) as T;
 }
 
+type Read = {
+  me: ApiMyPayouts;
+  orders: ApiPayoutOrder[];
+  ordersPage: PageInfo;
+  payouts: ApiPayout[];
+  historyPage: PageInfo;
+  counts: Partial<Record<PayoutState, number>>;
+  minor: boolean;
+  sample: boolean;
+};
+
 export default async function MyMoneyPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const sp = await searchParams;
-  const state = historyState(sp[HISTORY_STATE_PARAM]);
-  const ordersQuery = apiListQuery(sp, {});
-  const historyQuery = apiListQueryFor(sp, HISTORY_KEYS, { state });
-  const [res, ordRes, histRes, who] = await Promise.all([
-    apiFetch("/payouts/me"),
-    apiFetch(`/payouts/me/orders${ordersQuery}`).catch(() => null),
-    apiFetch(`/payouts/me/history${historyQuery}`).catch(() => null),
-    /* POL-FE-26 — a minor's own login (GET /me `guardianControl`) sees who sets the account up, never the Stripe button. */
-    fetchActor(),
-  ]);
-  const minor = who.status === "linked" && Boolean(who.actor.guardianControl) && !who.actor.actingFor;
-  if (res.status === 403) {
+  const demo = await demoState(searchParams);
+  if (demo === "loading" || demo === "error" || demo === "empty") {
     return (
-      <div className="space-y-6">
-        <ArenaHead title="Payouts" pill="Ledger · to the cent" />
-        <EmptyState mark="inbox" title="Nothing to show for this login" hint="Payouts are the athlete's own. A parent or guardian follows it with the athlete." />
+      <div className="sx-iv sx-my space-y-8">
+        <Head lede={demo !== "error"} />
+        {demo === "loading" ? (
+          <div className="sx-iv-list">
+            <SkeletonRows rows={4} />
+          </div>
+        ) : demo === "error" ? (
+          <ErrorPanel title="Payouts didn’t load" hint="The rest of the portal still works. Try again in a minute." />
+        ) : (
+          <FirstMoneyHero />
+        )}
       </div>
     );
   }
-  if (!res.ok) throw new Error(`Your money is unavailable (${res.status}).`);
-  const me = (await res.json()) as ApiMyPayouts;
-  const ordersList = ordRes ? await pagedOrNull<ApiMyPayoutOrders>(ordRes, "/payouts/me/orders") : null;
-  const historyList = histRes ? await pagedOrNull<ApiMyPayoutHistory>(histRes, "/payouts/me/history") : null;
 
-  /* The lists: the paged routes' pages — or, until they are live, the blob's own lists as one page. */
-  const orders: ApiPayoutOrder[] = ordersList?.orders ?? me.orders;
-  const ordersPage: PageInfo = pageOrAll(orders, ordersList?.page);
-  const payouts: ApiPayout[] = historyList?.payouts ?? (state ? me.payouts.filter((p) => p.state === state) : me.payouts);
-  const historyPage: PageInfo = pageOrAll(payouts, historyList?.page);
-  const historyTotal = historyList?.counts
-    ? Object.values(historyList.counts).reduce((s, n) => s + (n ?? 0), 0)
-    : me.byState
-      ? Object.values(me.byState).reduce((s, x) => s + x.count, 0)
-      : me.payouts.length;
+  const sp = await searchParams;
+  const state = historyState(sp[HISTORY_STATE_PARAM]);
+  let read: Read;
 
-  const request = requestButton(me);
-  const requestable = requestOrders(me.orders);
-  const reserve = me.totals.heldCents > 0 ? `${usd(me.totals.heldCents)} stays in reserve and is paid when the order closes.` : null;
-  const linkAction = moneyAccountLinkAction.bind(null, "/athlete/money");
+  if (sp.demo === "sample") {
+    /* ?demo=sample — a clickable sample: nothing is read for the money, nothing is written. */
+    const me = sampleMoney(new Date(), sp.as === "setup" ? "setup" : "ready");
+    const payouts = state ? me.payouts.filter((p) => p.state === state) : me.payouts;
+    read = {
+      me,
+      orders: me.orders,
+      ordersPage: pageOrAll(me.orders, undefined),
+      payouts,
+      historyPage: pageOrAll(payouts, undefined),
+      counts: Object.fromEntries(Object.entries(me.byState ?? {}).map(([k, v]) => [k, v.count])),
+      minor: false,
+      sample: true,
+    };
+  } else {
+    const ordersQuery = apiListQuery(sp, {});
+    const historyQuery = apiListQueryFor(sp, HISTORY_KEYS, { state });
+    const [res, ordRes, histRes, who] = await Promise.all([
+      apiFetch("/payouts/me"),
+      apiFetch(`/payouts/me/orders${ordersQuery}`).catch(() => null),
+      apiFetch(`/payouts/me/history${historyQuery}`).catch(() => null),
+      /* POL-FE-26 — a minor's own login (GET /me `guardianControl`) sees who sets the account up, never the Stripe button. */
+      fetchActor(),
+    ]);
+    if (res.status === 403) {
+      return (
+        <div className="sx-iv sx-my space-y-6">
+          <ArenaHead title={TITLE} />
+          <EmptyState mark="inbox" title="Nothing to show for this login" hint="Payouts are the athlete's own. A parent or guardian follows it with the athlete." />
+        </div>
+      );
+    }
+    if (!res.ok) {
+      return (
+        <div className="sx-iv sx-my space-y-8">
+          <Head lede={false} />
+          <ErrorPanel title="Payouts didn’t load" hint="The rest of the portal still works. Try again in a minute." />
+        </div>
+      );
+    }
+    const me = (await res.json()) as ApiMyPayouts;
+    const ordersList = ordRes ? await pagedOrNull<ApiMyPayoutOrders>(ordRes, "/payouts/me/orders") : null;
+    const historyList = histRes ? await pagedOrNull<ApiMyPayoutHistory>(histRes, "/payouts/me/history") : null;
+    /* The lists: the paged routes' pages — or, until they are live, the blob's own lists as one page. */
+    const orders = ordersList?.orders ?? me.orders;
+    const payouts = historyList?.payouts ?? (state ? me.payouts.filter((p) => p.state === state) : me.payouts);
+    const counts: Partial<Record<PayoutState, number>> = historyList?.counts
+      ?? (me.byState
+        ? Object.fromEntries(Object.entries(me.byState).map(([k, v]) => [k, v.count]))
+        : me.payouts.reduce<Partial<Record<PayoutState, number>>>((c, p) => ({ ...c, [p.state]: (c[p.state] ?? 0) + 1 }), {}));
+    read = {
+      me,
+      orders,
+      ordersPage: pageOrAll(orders, ordersList?.page),
+      payouts,
+      historyPage: pageOrAll(payouts, historyList?.page),
+      counts,
+      minor: who.status === "linked" && Boolean(who.actor.guardianControl) && !who.actor.actingFor,
+      sample: false,
+    };
+  }
+
+  const { me, orders, ordersPage, payouts, historyPage, counts, minor, sample } = read;
+  const now = new Date();
   /* POL-FE-01 — after a guardian handoff or coming of age the account reads
      NOT_SET_UP while approved payouts wait for the new holder's own account. */
   const panel = accountPanel(me.account, me.payee.name, { minor, waiting: waitingPayouts(me) });
-  const unmet = me.checks.filter((c) => !c.ok);
-  const done = me.checks.length - unmet.length;
+  const linkAction = sample ? moneySampleLinkAction : moneyAccountLinkAction.bind(null, HOME);
+  const tabs = payoutTabs(counts, state);
+  const anyPayout = (tabs[0]?.count ?? 0) > 0 || payouts.length > 0;
   const hasMoney = me.orders.length > 0 || ordersPage.total > 0;
+  const unmet = me.checks.some((c) => !c.ok);
   const owedBack = owedBackNotice(me);
-  const tiles = moneyTiles(me);
-  const rows = historyRows(payouts);
-  const byId = new Map(payouts.map((p) => [p.id, p]));
+  const reserve = me.totals.heldCents > 0 ? `${usd(me.totals.heldCents)} stays in reserve and is paid when each order closes.` : null;
 
   return (
-    <div className="space-y-8">
-      <ArenaHead
-        title="Payouts"
-        pill="Ledger · to the cent"
-        lede={PAYOUT_ROUTE_LINE}
-        actions={<PayoutRequest view={request} amount={usd(me.totals.requestableCents)} orders={requestable} action={moneyRequestAction} note={reserve} />}
-      >
-        <ArenaTiles>
-          {tiles.map((t, i) => (
-            <ArenaTile key={t.key} label={t.label} value={t.cents} format="usd" caption={t.caption} tone={t.tone} delay={0.1 + i * 0.06} />
-          ))}
-        </ArenaTiles>
-      </ArenaHead>
+    <ServerList>
+      <div className="sx-iv sx-my space-y-8">
+        <Head help={hasMoney || anyPayout ? <MoneyRoadHelp stations={moneyStations(me)} sidings={moneySidings(me)} /> : undefined} />
+        {sample && (
+          <p className="sx-my-sample sx-iv-rise" style={d(0.02)}>
+            <MoneyGlyph name="eye" className="size-3.5" />
+            Sample page. The figures are made up and nothing you press is saved.
+          </p>
+        )}
 
-      {owedBack && (
-        <ArenaPanel tone="warn" delay={0.3} spot>
-          <p role="status" className="text-sm font-semibold text-warn">{owedBack}.</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted">A sponsor was refunded after your share was paid out — see the order below.</p>
-        </ArenaPanel>
-      )}
-
-      <div className="sx-arena-in" style={at(0.34)}>
-        <PayoutAccountPanel view={panel} action={linkAction} />
-      </div>
-
-      {hasMoney && unmet.length > 0 && (
-        <section aria-labelledby="before-title">
-          <ArenaPanel tone="flare" delay={0.38} spot>
-            <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-              <div className="min-w-0">
-                <h2 id="before-title" className="text-sm font-semibold tracking-tight">Before you can request a payout</h2>
-                <p className="mt-1 text-xs text-muted">{unmet.length === 1 ? "One thing left." : `${unmet.length} things left.`}</p>
-              </div>
-              <p className="text-right">
-                <span className="sx-arena-num block text-[28px] leading-none text-accent">{done}<span className="text-base text-muted">/{me.checks.length}</span></span>
-                <span className="block text-[11px] text-faint">done</span>
-              </p>
+        {!hasMoney && !anyPayout ? (
+          <>
+            <FirstMoneyHero setUp={panel.actionNeeded && !panel.guardianOnly} />
+            <div className="sx-my-solo">
+              <AccountCard panel={panel} action={linkAction} />
             </div>
-            <div role="progressbar" aria-label="Payout checklist" aria-valuenow={done} aria-valuemin={0} aria-valuemax={me.checks.length} className="mt-3">
-              <ArenaLane value={me.checks.length ? done / me.checks.length : 0} tone="flare" delay={0.6} />
-            </div>
-            <ul className="mt-4 space-y-2">
-              {me.checks.map((c, i) => (
-                <li key={c.key} className={`sx-arena-in flex flex-wrap items-center gap-2 text-xs ${c.ok ? "" : "text-warn"}`} style={at(0.44 + i * 0.05)}>
-                  <span aria-hidden="true" className={`grid size-5 shrink-0 place-items-center rounded-full border text-[10px] ${c.ok ? "border-success/50 bg-success/15 text-success" : "border-warn/50 bg-warn/15 text-warn"}`}>{c.ok ? "✓" : "●"}</span>
-                  <span>
-                    <span className="font-medium">{c.ok ? "Done" : "Not yet"}</span> · {c.label}
-                  </span>
-                  {!c.ok && c.key === "account" && (
-                    <span className="basis-full pl-7">
-                      {panel.guardianOnly ? (
-                        <span className="block text-[11px] text-muted">{panel.guardianLine}</span>
-                      ) : (
-                        <>
-                          <StripeLinkButton cta={panel.cta} action={linkAction} testBadge={panel.testBadge} />
-                          <span className="mt-1 block text-[11px] text-muted">You add bank and tax details on Stripe&rsquo;s secure page, then come back here. SponsorX never sees them.</span>
-                        </>
-                      )}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </ArenaPanel>
-        </section>
-      )}
-
-      <ServerList>
-        <section aria-labelledby="by-order-title">
-          <ArenaSection title="By order" hint="Your share of each order, what's available and what's held." delay={0.46} />
-          <h2 id="by-order-title" className="sr-only">By order</h2>
-          {orders.length === 0 ? (
-            <EmptyState mark="inbox" title="No orders yet" hint="When a sponsor buys one of your items and pays, your share appears here." />
-          ) : (
-            <PagedTable bare page={ordersPage} noun="Orders" label="Your share by order" columns={ORDER_COLUMNS} tone="athlete">
-              {orders.flatMap((o, i) => {
-                /* 2S8-QA-05 — the real figure, negative when a refund came after the payout. */
-                const available = orderAvailable(o);
-                /* 2S5-FE-09 — frozen by a dispute: the figure is held, not available. */
-                const frozen = o.frozen === true;
-                const hot = frozen || Boolean(available.owedBack);
-                const row = (
-                  <Tr key={o.orderId} i={i} tone={hot ? "warn" : undefined}>
-                    <Td><Primary>{o.orderRef}</Primary></Td>
-                    <Td label="Sponsor">
-                      <Primary sub={o.title ?? undefined}>
-                        {o.sponsorName ?? "—"}
-                        {frozen && <span className="ml-2 inline-block align-middle"><ArenaChip tone="warn">Frozen</ArenaChip></span>}
-                      </Primary>
-                    </Td>
-                    <Td label="Your share" num><span className="sx-arena-num text-sm text-text">{usd(o.shareCents)}</span></Td>
-                    <Td label={frozen ? "Frozen" : "Available"} num className={hot ? "text-warn" : undefined}>
-                      <span className="sx-arena-num text-sm">{available.value}</span>
-                      {frozen && <span className="block text-[11px]">frozen, not available</span>}
-                      {available.owedBack && <span className="block text-[11px]">{available.owedBack}</span>}
-                    </Td>
-                    <Td label="Held" num><span className="sx-arena-num text-sm text-text">{usd(o.heldCents)}</span></Td>
-                    <Td label="Order status" muted>{orderStatusLabel(o.state)}</Td>
-                  </Tr>
-                );
-                return frozen
-                  ? [row, (
-                    <Tr key={`${o.orderId}-frozen`} i={i} tone="warn" className="sx-table-detail">
-                      <Td colSpan={ORDER_COLUMNS.length}><p className="text-[11px] text-warn">{FROZEN_LINE}</p></Td>
-                    </Tr>
-                  )]
-                  : [row];
-              })}
-            </PagedTable>
-          )}
-        </section>
-
-        <section aria-labelledby="history-title" className="mt-8">
-          <ArenaSection
-            title={`Payout history · ${historyTotal}`}
-            hint="Follow each payout from request to paid."
-            action={<ListFilter param={HISTORY_STATE_PARAM} value={state} label="Filter payouts by state" allLabel="All states" options={HISTORY_STATES.map((s) => ({ value: s.value, label: s.label }))} tone="athlete" keys={HISTORY_KEYS} />}
-            delay={0.5}
-          />
-          <h2 id="history-title" className="sr-only">Payout history</h2>
-          {rows.length === 0 ? (
-            <EmptyState
-              mark="inbox"
-              title={state ? "No payout in that state" : "No payouts yet"}
-              hint={state ? "Pick another state, or all states, to see the rest." : "When you request one, you can follow it here from request to paid."}
+          </>
+        ) : (
+          <>
+            <CashOut
+              board={cashBoard(me)}
+              orders={requestOrders(me.orders)}
+              note={reserve}
+              action={moneyRequestAction}
+              panel={panel}
+              linkAction={linkAction}
+              sample={sample}
             />
-          ) : (
-            <PagedTable bare page={historyPage} noun="Payouts" filtered={state !== ""} label="Payout history" columns={HISTORY_COLUMNS} tone="athlete" keys={HISTORY_KEYS}>
-              {rows.flatMap((r, i) => {
-                const p = byId.get(r.id)!;
-                const auto = approvalBadge(p);
-                const fix = payeeFixPrompt(p, "/athlete/money#payout-account");
-                const steps = payoutTracker(p);
-                const hot = r.status.tone === "warn" || r.status.tone === "danger" || Boolean(fix);
-                const row = (
-                  <Tr key={r.id} i={i} tone={hot ? "warn" : undefined}>
-                    <Td><Primary>{r.date}</Primary></Td>
-                    <Td label="Orders" muted>
-                      {r.orders.length === 1 ? "Order " : "Orders "}
-                      <span className="tabular-nums">{r.orders.join(", ")}</span>
-                    </Td>
-                    <Td label="Amount" num><span className="sx-arena-num text-sm text-text">{r.amount}</span></Td>
-                    <Td label="Status">
-                      <span className="flex flex-wrap items-center gap-1.5">
-                        <ArenaChip tone={CHIP_TONE[r.status.tone] ?? "ink"}>{r.status.label}</ArenaChip>
-                        {/* The tracker already names the automatic approval while it is on its way; the chip stays once paid. */}
-                        {auto && p.state === "PAID" && <ArenaChip tone="win">✓ {auto}</ArenaChip>}
-                      </span>
-                    </Td>
-                  </Tr>
-                );
-                if (!fix && !steps) return [row];
-                return [row, (
-                  <Tr key={`${r.id}-detail`} i={i} tone={hot ? "warn" : undefined} className="sx-table-detail">
-                    <Td colSpan={HISTORY_COLUMNS.length}>
-                      {fix && (
-                        <div className="rounded-lg border border-warn/40 bg-warn/5 px-3 py-2 text-[11px]">
-                          <Link href={fix.href} className="font-medium text-athlete hover:underline">{fix.label} →</Link>
-                          <span className="mt-0.5 block text-muted">{fix.note}</span>
-                        </div>
-                      )}
-                      {steps && <PayoutTracker steps={steps} />}
-                    </Td>
-                  </Tr>
-                )];
-              })}
-            </PagedTable>
-          )}
-        </section>
-      </ServerList>
-    </div>
+
+            {owedBack && (
+              <p role="status" className="sx-my-owed sx-iv-rise" style={d(0.08)}>
+                <MoneyGlyph name="undo" className="size-4" />
+                <span>
+                  <strong>{owedBack}.</strong> A sponsor was refunded after your share was paid out. It comes off your next payout; the sale is marked below.
+                </span>
+              </p>
+            )}
+
+            {hasMoney && unmet && <MoneyChecklist checks={me.checks} canRequest={me.canRequest} panel={panel} linkAction={linkAction} />}
+
+            <MoneyTabs
+              initial={sp.list === "payouts" || sp[HISTORY_STATE_PARAM] || sp[HISTORY_KEYS.page] || sp[HISTORY_KEYS.size] ? "payouts" : "sales"}
+              salesCount={ordersPage.total}
+              payoutsCount={tabs[0]?.count ?? historyPage.total}
+              ready={me.canRequest && me.totals.requestableCents > 0}
+              orders={{ cards: orders.map((o) => orderMoneyCard(o, now)), page: ordersPage }}
+              payouts={{
+                payouts: payouts.map((p) => payoutCard(p, `${HOME}#payout-account`)),
+                tabs,
+                tab: state || "all",
+                page: historyPage,
+                keys: HISTORY_KEYS,
+                filtered: state !== "",
+              }}
+            />
+          </>
+        )}
+      </div>
+    </ServerList>
   );
 }

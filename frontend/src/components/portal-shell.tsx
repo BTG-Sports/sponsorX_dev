@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ROUTE_MAP_SHOWN } from "@/lib/route-map";
 import type { ReactNode } from "react";
 import { Logo } from "./logo";
 import { MobileDock } from "./mobile-dock";
@@ -11,14 +10,14 @@ import { StadiumGround } from "./stadium-stage";
 import { StagePortals } from "./stage-portals";
 import { VaultGround } from "./vault-stage";
 import { PortalNav, type NavItem } from "./portal-nav";
-import { UserMenu } from "./user-menu";
+import { LogOutButton, UserMenu } from "./user-menu";
 
 /* --------------------------------------------------------------------------
    Portal chrome: left sidebar and top bar, per the mockup's sponsor dashboard
    (screen 3), reworked to the sponsor-redesign language (spec 2026-09-11):
    accent glow atmosphere, gradient hairlines, staggered entrance, editorial
    watermark. Portal accent colours follow the BTG SponsorX logo (Roadmap A0):
-   Athlete = blue, Sponsor = orange, Admin = steel, Property = soft blue,
+   Athlete = blue, Sponsor = blue, Admin = steel, Property = soft blue,
    Finance = gold (the Vault, P1-ART-25).
    -------------------------------------------------------------------------- */
 
@@ -226,30 +225,13 @@ export function PortalShell({
         </div>
 
         <div className="relative border-t border-line/70 px-5 py-4">
-          {/* POL-FE-39: the route map is a development screen; production shows the wordmark alone. */}
-          {ROUTE_MAP_SHOWN ? (
-            <Link
-              href="/map"
-              className="group flex items-center justify-between text-[11px] text-faint transition-colors hover:text-muted"
-            >
-              <span className="flex items-center gap-1.5">
-                <span
-                  aria-hidden="true"
-                  className="transition-transform duration-300 group-hover:-translate-x-0.5"
-                >
-                  ←
-                </span>
-                route map
-              </span>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-faint/70">
-                SponsorX
-              </span>
-            </Link>
-          ) : (
-            <span className="block text-right text-[9px] uppercase tracking-[0.2em] text-faint/70">
+          {/* Log out where the development-only route map link used to sit. */}
+          <div className="flex items-center justify-between">
+            <LogOutButton className="text-[11px] text-faint" />
+            <span className="text-[9px] uppercase tracking-[0.2em] text-faint/70">
               SponsorX
             </span>
-          )}
+          </div>
         </div>
       </aside>
 

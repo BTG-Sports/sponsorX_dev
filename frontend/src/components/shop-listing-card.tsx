@@ -4,10 +4,10 @@ import { Badge } from "@/components/ui";
 import { athleteLine, kindLabel, ruleNotes, sellerLine, usd, windowLabel, type ApiSearchResult } from "@/lib/shop-live";
 
 /* --------------------------------------------------------------------------
-   2S4-FE-01 — one search result in the sponsor shop, as an <li>. Shared by
-   the shop itself (/sponsor/shop, with ShopAddToCart as its action) and the
-   sellers' "Preview as a sponsor sees it" (2S3-FE-01 / -02, with the action
-   disabled), so the preview is the shop's own card, not a copy of it.
+   2S4-FE-01 — one search result as a plain card, for the sellers' "Preview
+   as a sponsor sees it" (2S3-FE-01 / -02, with the action disabled). The
+   sponsor's own shop draws its items in components/sponsor-shop/ since
+   POL-FE-91.
 
    Presentational and hook-free: a server component in both places. Every
    figure is a field of the GET /marketplace/search row (or, in the preview,

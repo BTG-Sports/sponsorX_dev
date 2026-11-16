@@ -25,7 +25,7 @@ import {
 import { createRestriction, deleteRestriction, listRestrictions, setSponsorCategories } from "../../domain/restrictions";
 import { decideSellerApproval, mySellerApproval, mySellerApprovals, mySellerApprovalsPage } from "../../domain/order-approval";
 import { sponsorSpendingLimit } from "../../domain/spending-limit";
-import { searchMarketplace, searchMarketplacePage } from "../../domain/marketplace-search";
+import { getCatalogListing, searchMarketplace, searchMarketplacePage } from "../../domain/marketplace-search";
 import { addLine, currentCart, openCart, removeLine, updateLine } from "../../domain/cart";
 import { createInventoryItem, getInventoryItem, listInventory, listInventoryPage, updateInventoryItem } from "../../domain/inventory";
 import { addRosterAthlete, setTeamShare, teamAthletesPage, teamInventoryPage, teamRoster, withdrawShareChange } from "../../domain/team";
@@ -225,6 +225,8 @@ export const search: RequestHandler = async (req, res) => {
   res.json(pg ? await searchMarketplacePage(req.actor!, f, pg) : { results: await searchMarketplace(req.actor!, f) });
 };
 marketplaceRouter.get("/marketplace/search", requireActor, search);
+/* POL-FE-91 — one listing of the sponsor's catalogue, for the shop's item page. */
+marketplaceRouter.get("/marketplace/search/:id", requireActor, (async (req, res) => { res.json(await getCatalogListing(req.actor!, req.params.id)); }) as RequestHandler<Id>);
 
 const cart: RequestHandler = async (req, res) => { res.json({ cart: await currentCart(req.actor!) }); };
 const open: RequestHandler = async (req, res) => { res.status(201).json(await openCart(req.actor!)); };

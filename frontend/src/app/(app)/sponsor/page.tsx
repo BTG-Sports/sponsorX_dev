@@ -1,11 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { FunnelSteps, HBarList } from "@/components/charts";
-import { ArenaCount } from "@/components/arena-fx";
 import { ListFilter, ListSearch, ServerList } from "@/components/server-pager";
 import { SponsorCampaignTable } from "@/components/sponsor-campaign-table";
-import { StadiumHint } from "@/components/stadium-hint";
+import { ColumnBars, DashCard, DashIcon, KpiCard, LedRing, LegendRow, SplitDonut, type DashIconName } from "@/components/stadium-dash";
 import {
   StadiumBadge,
   StadiumBar,
@@ -16,8 +14,6 @@ import {
   StadiumRange,
   StadiumRow,
   StadiumTicker,
-  StadiumTile,
-  StadiumTiles,
   StadiumUpdated,
   at,
 } from "@/components/stadium-stage";
@@ -27,21 +23,26 @@ import { formatCount } from "@/lib/format-count";
 import { DEMO_NOW, demoCampaignPage, demoOverview } from "@/lib/fixtures/sponsor-overview";
 import { textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
 import { monogramOf, type ApiCampaign } from "@/lib/sponsor-live";
-import { campaignMoney, emptyDashboardRows, needsYouItems, rangeParam, tickerFacts, type RangeKey, type SponsorOverview } from "@/lib/sponsor-overview-live";
+import { campaignMoney, emptyDashboardRows, needsYouItems, rangeParam, tickerFacts, type NeedsYouItem, type RangeKey, type SponsorOverview } from "@/lib/sponsor-overview-live";
 import { FUNNEL_WORDS, campaignWord, compactNumber, delta } from "@/lib/sponsor-words";
 import { CAMPAIGN_SORTS, CAMPAIGN_STATES } from "@/server/campaigns";
 import { liveSponsorDashboard } from "@/server/sponsor";
 
 /* --------------------------------------------------------------------------
-   Sponsor Dashboard — §9 screen 3, on the Stadium Board (P1-ART-23, spec
-   2026-10-11 §7.1). Statistics first, in plain words, for a sponsor who is
-   not technical: ticker → title, "Updated" pill, period switch → five
-   tiles → trend + "Needs you" → fan journey, cost per 1,000, posts
-   delivered → top athletes, cities → the paged campaign list.
+   Sponsor Dashboard — §9 screen 3, on the Stadium Board (P1-ART-23).
+
+   POL-FE-90 (2026-11-16) redraws it as a real dashboard grid, because the
+   owner found the stacked panels hard to read. Every card now has an icon,
+   a title and a one-line subtitle that says what it shows; the LED board
+   look (stadium.css) is unchanged. Top to bottom:
+     ticker → "Dashboard", Updated pill, period switch, the period in words
+     → four number cards (reach, reactions, clicks, fans who redeemed)
+     → the performance chart + "Your to-do"
+     → posts delivered (LED ring) · money (donut) · fan journey (bars)
+     → top athletes · top cities → the paged campaign list.
 
    Every number is the API's (memory: stats-must-be-retrievable):
-     GET /sponsor/overview?range=   every tile, the trend, needs-you, the
-                                    funnel, delivery, athletes, cities
+     GET /sponsor/overview?range=   every card, the chart, the to-do list
      GET /campaigns?page&size&q&state&sort   the table (one server page)
    Nothing is summed from the rows on screen. Money is in cents, and a
    figure the role can't read is absent, never shown as zero.
@@ -53,11 +54,21 @@ import { liveSponsorDashboard } from "@/server/sponsor";
 
 const PATH = "/sponsor";
 const PERIOD: Record<RangeKey, string> = { "7d": "vs the 7 days before", "30d": "vs the 30 days before", "90d": "vs the 90 days before", all: "" };
+const PERIOD_WORDS: Record<RangeKey, ReactNode> = {
+  "7d": <>Showing the <b>last 7 days</b>, compared with the 7 days before.</>,
+  "30d": <>Showing the <b>last 30 days</b>, compared with the 30 days before.</>,
+  "90d": <>Showing the <b>last 90 days</b>, compared with the 90 days before.</>,
+  all: <>Showing <b>everything since your first campaign</b>.</>,
+};
 const SORT_WORDS: Record<(typeof CAMPAIGN_SORTS)[number], string> = { name: "Name A–Z", ending: "Ending soonest" };
+const GREEN = "#3ddc97";
+const BLUE = "#3d8bff";
+const RED = "#ff5a5f";
+const DIM = "#263a5a";
 
 export default async function SponsorDashboardPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const demo = await demoState(searchParams);
-  if (demo === "loading") return <StadiumGhost label="Loading your sponsorships" tiles={5} />;
+  if (demo === "loading") return <StadiumGhost label="Loading your sponsorships" tiles={4} />;
   if (demo === "error") throw new Error("Demo error state");
 
   const sp = await searchParams;
@@ -113,41 +124,44 @@ function Dashboard({
 
   /* A brand-new sponsor: no campaign yet — the next step, not a wall of zeros. */
   if (o && o.campaigns.total === 0) {
+    const waiting = emptyDashboardRows(o.needsYou, o.paymentsOpen);
     return (
-      <div className="space-y-6">
-        <StadiumHead title="Your sponsorships" pill={pill} actions={newRequest} />
-        {/* POL-FE-71 — a Shop order to pay or a request with BTG, before any campaign exists. */}
-        {emptyDashboardRows(o.needsYou, o.paymentsOpen).length > 0 && (
-          <StadiumPanel flush delay={0.05} tone={emptyDashboardRows(o.needsYou, o.paymentsOpen).some((r) => r.key !== "requests") ? "you" : undefined}>
-            <div className="px-5 pt-5">
-              <Title hint="Things that can't move until you do something, and requests BTG is looking at.">Needs you</Title>
-            </div>
-            <div className="pb-1">
-              {emptyDashboardRows(o.needsYou, o.paymentsOpen).map((it, i) => (
-                <StadiumRow key={it.key} href={it.href} title={it.title} sub={it.sub} right={<StadiumBadge count={it.count} />} i={i} />
+      <div className="space-y-5">
+        <StadiumHead title="Dashboard" pill={pill} actions={newRequest} />
+        <div className="grid gap-4 lg:grid-cols-12">
+          <DashCard icon="send" title="Start your first campaign" sub="Your numbers show up here as soon as one starts." className="lg:col-span-7" delay={0.08}>
+            <ol className="space-y-3">
+              {[
+                ["Pick a package", "Browse what athletes offer and choose what fits."],
+                ["Tell us what you're after", "Your goals, budget and timing — in your own words."],
+                ["BTG matches you with athletes", "We check the fit and send you a proposal."],
+              ].map(([t, s], i) => (
+                <li key={t} className="flex gap-3">
+                  <span className="grid size-7 shrink-0 place-items-center rounded-full border border-sponsor/50 bg-sponsor/15 text-[12px] font-bold text-[color:var(--st-hot)]">{i + 1}</span>
+                  <span>
+                    <span className="block text-[13.5px] font-semibold text-text">{t}</span>
+                    <span className="block text-[12px] text-muted">{s}</span>
+                  </span>
+                </li>
               ))}
-            </div>
-          </StadiumPanel>
-        )}
-        <StadiumPanel delay={0.1} className="text-center">
-          <p className="text-base font-semibold text-text">No campaigns yet</p>
-          <p className="mx-auto mt-1.5 max-w-md text-sm text-muted">
-            Pick a package, tell us what you&rsquo;re after, and BTG will match you with athletes. Your numbers show up here as soon as your first campaign starts.
-          </p>
-          <Link href="/sponsor/marketplace" className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-xs font-semibold">
-            Browse packages to start one →
-          </Link>
-        </StadiumPanel>
+            </ol>
+            <Link href="/sponsor/marketplace" className="mt-5 inline-block rounded-md bg-primary px-4 py-2 text-xs font-semibold">
+              Browse packages to start one →
+            </Link>
+          </DashCard>
+          {/* POL-FE-71 — a Shop order to pay or a request with BTG, before any campaign exists. */}
+          <ToDo items={waiting} className="lg:col-span-5" delay={0.14} emptyLine="Anything that needs your OK or a payment will show up here." />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {o && <StadiumTicker facts={tickerFacts(o)} />}
 
       <StadiumHead
-        title="Your sponsorships"
+        title="Dashboard"
         pill={pill}
         actions={
           <>
@@ -155,26 +169,42 @@ function Dashboard({
             {newRequest}
           </>
         }
-      >
-        {o && <Tiles o={o} range={range} />}
-      </StadiumHead>
+      />
+      {o && (
+        <p className="sx-dash-period sx-stadium-in -mt-2" style={at(0.06)}>
+          {PERIOD_WORDS[range]}{" "}
+          {o.campaigns.running > 0 && (
+            <>
+              You have <b>{o.campaigns.running.toLocaleString("en-US")} {o.campaigns.running === 1 ? "campaign" : "campaigns"} running</b> out of {o.campaigns.total.toLocaleString("en-US")}.
+            </>
+          )}
+        </p>
+      )}
 
       {o ? (
         <>
-          <div className="grid gap-4 lg:grid-cols-3">
-            <StadiumPanel delay={0.4} className="min-w-0 lg:col-span-2">
-              <StadiumTrend points={o.daily} bucket={o.range.bucket} />
-            </StadiumPanel>
-            <NeedsYou o={o} />
+          <Kpis o={o} range={range} />
+
+          <div className="grid gap-4 lg:grid-cols-12">
+            <DashCard
+              icon="chart"
+              title="How your campaigns are doing"
+              sub={`${o.range.bucket === "week" ? "Week by week" : "Day by day"} over this period. Pick a number to see it on the chart.`}
+              className="lg:col-span-8"
+              delay={0.3}
+            >
+              <StadiumTrend points={o.daily} bucket={o.range.bucket} dash />
+            </DashCard>
+            <ToDo items={toDoItems(o)} className="lg:col-span-4" delay={0.36} emptyLine="Anything that needs your OK or a payment will show up here." />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <Funnel o={o} />
-            <CostPer1000 o={o} />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Delivered o={o} />
+            <Money o={o} />
+            <FanJourney o={o} />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-12">
             <TopAthletes o={o} />
             <Cities o={o} />
           </div>
@@ -187,209 +217,294 @@ function Dashboard({
         </StadiumPanel>
       )}
 
-      <Campaigns rows={rows} page={page} filters={filters} now={now} total={o?.campaigns.total} />
+      <Campaigns rows={rows} page={page} filters={filters} now={now} total={o?.campaigns.total} running={o?.campaigns.running} />
     </div>
   );
 }
 
-/* ---------------------------------------------------------------- tiles */
+/* ---------------------------------------------------------- number cards */
 
-function Tiles({ o, range }: { o: SponsorOverview; range: RangeKey }) {
-  const last14 = (k: "views" | "clicks" | "redeems") => o.daily.slice(-14).map((d) => d[k]);
+function Kpis({ o, range }: { o: SponsorOverview; range: RangeKey }) {
+  const series = (k: "views" | "clicks" | "redeems") => o.daily.map((d) => d[k]);
   const views = o.reach.verifiedViews;
-  const money = campaignMoney(o.money);
   const per = PERIOD[range];
+  const rate = views > 0 ? o.reach.verifiedEngagements / views : 0;
   return (
-    <StadiumTiles cols={5}>
-      <StadiumTile
+    <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiCard
+        icon="eye"
         label="People reached"
+        sub="Saw your sponsored posts"
         value={views}
         delta={delta(views, o.reach.prev?.verifiedViews)}
         deltaLabel={per}
-        spark={last14("views")}
-        caption={o.reach.otherViews > 0 ? `+${o.reach.otherViews.toLocaleString("en-US")} more reported by athletes` : undefined}
-        hint="People who saw your sponsored posts, counted by the platform or checked by BTG. Numbers the athletes reported themselves are shown separately."
+        spark={series("views")}
+        foot={o.reach.otherViews > 0 ? `+${o.reach.otherViews.toLocaleString("en-US")} more reported by the athletes themselves` : undefined}
+        hint="Counted by the platform or checked by BTG. Numbers the athletes reported themselves are shown separately."
         delay={0.1}
       />
-      <StadiumTile
+      <KpiCard
+        icon="heart"
         label="Likes, comments & shares"
+        sub="How often people reacted"
         value={o.reach.verifiedEngagements}
         delta={delta(o.reach.verifiedEngagements, o.reach.prev?.verifiedEngagements)}
         deltaLabel={per}
-        caption={views > 0 ? `${((o.reach.verifiedEngagements / views) * 100).toFixed(1)}% of people reached` : undefined}
-        hint="How many times people reacted to your posts."
+        side={
+          <LedRing value={rate} size={64} segments={20} label={`${(rate * 100).toFixed(1)}% of people reached reacted`}>
+            <span className="block text-[12px] font-bold tabular-nums text-text">{views > 0 ? `${(rate * 100).toFixed(1)}%` : "—"}</span>
+          </LedRing>
+        }
+        foot={views > 0 ? `${(rate * 100).toFixed(1)}% of the people reached reacted` : "Shows once your posts reach people"}
         delay={0.16}
       />
-      <StadiumTile
+      <KpiCard
+        icon="click"
         label="Link clicks"
+        sub="Taps on your links in the posts"
         value={o.clicks.total}
         delta={delta(o.clicks.total, o.clicks.prev)}
         deltaLabel={per}
-        spark={last14("clicks")}
-        hint="Taps on your tracked links in the athletes' posts."
+        spark={series("clicks")}
         delay={0.22}
       />
-      <StadiumTile
+      <KpiCard
+        icon="qr"
         label="Fans who redeemed"
+        sub="Used your QR code offer"
         value={o.fans.redeem}
         delta={delta(o.fans.redeem, o.fans.prevRedeem)}
         deltaLabel={per}
-        spark={last14("redeems")}
-        hint="Fans who scanned your QR code and used your offer."
+        spark={series("redeems")}
         delay={0.28}
       />
-      {money ? (
-        <StadiumTile
-          label="Money spent"
-          value={money.invoicedCents}
-          format="usd0"
-          share={money.share}
-          caption={money.invoicedCents ? `All time · ${formatCount(money.paidCents, "usd0")} paid · ${formatCount(money.owedCents, "usd0")} still to pay` : "No invoices yet · all time"}
-          hint="What you've been invoiced so far (all time, not just this period), and how much of it is paid."
-          delay={0.34}
-        />
-      ) : (
-        <StadiumTile
-          label="Posts delivered"
-          value={o.delivery.delivered}
-          share={o.delivery.due ? o.delivery.delivered / o.delivery.due : 0}
-          caption={o.delivery.due ? `of ${o.delivery.due.toLocaleString("en-US")} planned` : "None planned yet"}
-          hint="Posts the athletes have put up, out of every post your campaigns include (all time)."
-          tone={o.delivery.late ? "late" : undefined}
-          delay={0.34}
-        />
-      )}
-    </StadiumTiles>
+    </dl>
   );
 }
 
-/* --------------------------------------------------------- panel helpers */
+/* ----------------------------------------------------------------- to-do */
 
-function Title({ children, hint, note }: { children: string; hint?: string; note?: string }) {
-  return (
-    <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1">
-      <h2 className="sx-section-title">{children}</h2>
-      {hint && <StadiumHint label={children} text={hint} />}
-      {note && <span className="ml-auto text-[11px] text-faint">{note}</span>}
-    </div>
-  );
-}
+const TODO_ICON: Record<string, DashIconName> = { posts: "posts", orders: "card", invoices: "money", requests: "inbox" };
 
-function Quiet({ children }: { children: ReactNode }) {
-  return <p className="py-4 text-sm leading-relaxed text-muted">{children}</p>;
-}
-
-/* ------------------------------------------------------------- needs you */
-
-function NeedsYou({ o }: { o: SponsorOverview }) {
+/** The to-do rows: what waits on the sponsor, plus requests with BTG as information. */
+function toDoItems(o: SponsorOverview): NeedsYouItem[] {
   const items = needsYouItems(o.needsYou, o.paymentsOpen);
-  const waiting = items.some((i) => i.count > 0 && !(i.key === "orders" && o.paymentsOpen === false));
+  if (o.needsYou.requestsInReview) {
+    items.push({
+      key: "requests",
+      title: "Requests with BTG",
+      sub: "BTG is reviewing them — nothing to do yet",
+      count: o.needsYou.requestsInReview,
+      href: "/sponsor/requests",
+    });
+  }
+  return items;
+}
+
+function ToDo({ items, className = "", delay, emptyLine }: { items: NeedsYouItem[]; className?: string; delay: number; emptyLine: string }) {
+  /* "orders" while payment is closed and "requests" are information, not the sponsor's move. */
+  const yours = (it: NeedsYouItem) => it.count > 0 && it.key !== "requests" && !(it.key === "orders" && it.sub.startsWith("Card payment isn't open"));
+  const open = items.filter(yours).reduce((n, it) => n + it.count, 0);
+  const shown = items.filter((it) => it.count > 0);
   return (
-    <StadiumPanel flush delay={0.46} tone={waiting ? "you" : undefined} className="min-w-0">
-      <div className="px-5 pt-5">
-        <Title hint="Things that can't move until you do something.">Needs you</Title>
-      </div>
-      {waiting ? (
+    <DashCard
+      icon="todo"
+      title="Your to-do"
+      sub={open > 0 ? `${open.toLocaleString("en-US")} ${open === 1 ? "thing is" : "things are"} waiting on you` : "Nothing is waiting on you"}
+      tone={open > 0 ? "you" : undefined}
+      className={className}
+      delay={delay}
+      flush
+      action={open > 0 ? <StadiumBadge count={open} /> : undefined}
+    >
+      {shown.length > 0 ? (
         <div className="pb-1">
-          {items.map((it, i) => (
-            <StadiumRow key={it.key} href={it.href} title={it.title} sub={it.sub} right={<StadiumBadge count={it.count} />} i={i} />
+          {shown.map((it, i) => (
+            <StadiumRow
+              key={it.key}
+              href={it.href}
+              i={i}
+              plainLead
+              lead={<DashIcon name={TODO_ICON[it.key] ?? "flag"} size={34} tone={yours(it) ? "st" : "dim"} />}
+              title={it.title}
+              sub={it.sub}
+              right={yours(it) ? <StadiumBadge count={it.count} /> : <span className="text-[12px] font-semibold tabular-nums text-muted">{it.count}</span>}
+            />
           ))}
         </div>
-      ) : (
-        <div className="px-5 pb-5">
-          <p className="text-base font-semibold text-success">You&rsquo;re all caught up ✓</p>
-          <p className="mt-1 text-xs text-muted">Anything that needs your OK or a payment will show up here.</p>
+      ) : null}
+      {open === 0 && (
+        <div className="flex items-center gap-3 px-5 pb-4 pt-1">
+          <span className="sx-dash-done" aria-hidden="true">
+            ✓
+          </span>
+          <span>
+            <span className="block text-[13.5px] font-semibold text-success">You&rsquo;re all caught up</span>
+            <span className="block text-[12px] text-muted">{emptyLine}</span>
+          </span>
         </div>
       )}
-    </StadiumPanel>
+      <nav aria-label="Shortcuts" className="mt-auto grid grid-cols-2 gap-2 border-t border-line-soft px-5 pb-5 pt-4">
+        {SHORTCUTS.map((l) => (
+          <Link
+            key={l.href}
+            href={l.href}
+            className="flex items-center gap-2 rounded-md border border-[color:var(--st-line)] bg-[#070b14] px-2.5 py-2 text-[12px] text-muted transition-colors hover:border-sponsor/60 hover:text-text"
+          >
+            <DashIcon name={l.icon} size={24} tone="dim" />
+            {l.label}
+          </Link>
+        ))}
+      </nav>
+    </DashCard>
   );
 }
 
-/* ------------------------------------------------- funnel · cost · posts */
+const SHORTCUTS: { href: string; label: string; icon: DashIconName }[] = [
+  { href: "/sponsor/marketplace", label: "Packages", icon: "star" },
+  { href: "/sponsor/requests", label: "Requests", icon: "inbox" },
+  { href: "/sponsor/orders", label: "Orders", icon: "card" },
+  { href: "/sponsor/invoices", label: "Billing", icon: "money" },
+];
 
-function Funnel({ o }: { o: SponsorOverview }) {
-  const f = o.fans;
-  return (
-    <StadiumPanel delay={0.52} className="min-w-0">
-      <Title hint="Every step a fan takes with your offer: scanning your QR code, opening the offer, claiming it, then using it.">From scan to redeemed</Title>
-      {f.scan + f.landing + f.claim + f.redeem === 0 ? (
-        <Quiet>No QR scans in this period yet. They show here once fans scan your code at an event.</Quiet>
-      ) : (
-        <FunnelSteps
-          stages={[
-            { label: FUNNEL_WORDS.scan, value: f.scan },
-            { label: FUNNEL_WORDS.landing, value: f.landing },
-            { label: FUNNEL_WORDS.claim, value: f.claim },
-            { label: FUNNEL_WORDS.redeem, value: f.redeem },
-          ]}
-        />
-      )}
-    </StadiumPanel>
-  );
-}
+/* --------------------------------------------- delivered · money · fans */
 
-function CostPer1000({ o }: { o: SponsorOverview }) {
-  return (
-    <StadiumPanel delay={0.58} className="min-w-0">
-      <Title
-        hint="What you've agreed to spend, divided by the people your posts have reached, times 1,000. Lower is better value. Counted over all time, not just this period."
-        note="All time"
-      >
-        Cost per 1,000 people reached
-      </Title>
-      {o.costPer1000Cents !== null ? (
-        <>
-          <ArenaCount value={o.costPer1000Cents} format="usd" delay={0.58} className="sx-stadium-num block text-[34px] leading-tight" />
-          <p className="mt-1.5 text-[11.5px] text-faint">Uses everything you&rsquo;ve agreed to spend, not only what&rsquo;s been invoiced so far</p>
-        </>
-      ) : (
-        <Quiet>{o.money ? "Shows once checked reach is in." : "Your login doesn't include spending, so this can't be worked out here."}</Quiet>
-      )}
-    </StadiumPanel>
-  );
+function Quiet({ children }: { children: ReactNode }) {
+  return <p className="py-6 text-center text-sm leading-relaxed text-muted">{children}</p>;
 }
 
 function Delivered({ o }: { o: SponsorOverview }) {
   const d = o.delivery;
-  const next = d.nextDueAt ? (
-    <>
-      next one due <StadiumDate iso={d.nextDueAt} format="weekday" utc />
-    </>
-  ) : (
-    "nothing else due"
-  );
+  const upcoming = Math.max(0, d.due - d.delivered - d.late);
+  const share = d.due ? d.delivered / d.due : 0;
   return (
-    <StadiumPanel delay={0.64} tone={d.late ? "late" : undefined} className="min-w-0">
-      <Title hint="Posts the athletes have put up, out of every post your campaigns include. Late means its due date has passed." note="All time">
-        Posts delivered
-      </Title>
+    <DashCard
+      icon="posts"
+      title="Posts delivered"
+      sub="Posts the athletes have put up, out of all your campaigns include · all time"
+      tone={d.late ? "late" : undefined}
+      delay={0.44}
+    >
       {d.due === 0 ? (
         <Quiet>No posts planned yet. They show here once athletes join your campaigns.</Quiet>
       ) : (
+        <div className="flex flex-wrap items-center gap-5">
+          <LedRing value={share} size={136} label={`${d.delivered} of ${d.due} posts delivered`}>
+            <span className="sx-stadium-num block text-[30px] leading-none">{Math.round(share * 100)}%</span>
+            <span className="mt-1 block text-[11px] text-muted">
+              {d.delivered.toLocaleString("en-US")} of {d.due.toLocaleString("en-US")}
+            </span>
+          </LedRing>
+          <div className="min-w-[9rem] flex-1">
+            <LegendRow color={BLUE} name="Delivered" value={d.delivered.toLocaleString("en-US")} />
+            <LegendRow color={d.late ? RED : DIM} name="Late" value={d.late.toLocaleString("en-US")} />
+            <LegendRow color={DIM} name="Still to come" value={upcoming.toLocaleString("en-US")} />
+            <p className="mt-2 border-t border-line-soft pt-2 text-[11.5px] text-faint">
+              {d.nextDueAt ? (
+                <>
+                  Next one due <StadiumDate iso={d.nextDueAt} format="weekday" utc />
+                </>
+              ) : (
+                "Nothing else due"
+              )}
+            </p>
+          </div>
+        </div>
+      )}
+    </DashCard>
+  );
+}
+
+function Money({ o }: { o: SponsorOverview }) {
+  const money = campaignMoney(o.money);
+  const cpm =
+    o.costPer1000Cents !== null ? (
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-md border border-[color:var(--st-line)] bg-[#070b14] px-3 py-2.5">
+        <span className="min-w-0">
+          <span className="block text-[12px] font-semibold text-text">Cost per 1,000 people reached</span>
+          <span className="block text-[11px] text-faint">What you agreed to spend ÷ people reached · lower is better</span>
+        </span>
+        <span className="sx-stadium-num shrink-0 text-[18px]">{formatCount(o.costPer1000Cents, "usd")}</span>
+      </div>
+    ) : null;
+  return (
+    <DashCard icon="money" title="Money" sub="What BTG has billed you, and how much is paid · all time" delay={0.5}>
+      {!o.money ? (
+        <Quiet>Your login doesn&rsquo;t include spending. Ask the person who runs your account for access.</Quiet>
+      ) : money ? (
         <>
-          <p className="sx-stadium-num text-[34px] leading-tight">
-            {d.delivered.toLocaleString("en-US")} <span className="text-base font-medium text-muted">of {d.due.toLocaleString("en-US")}</span>
-          </p>
-          <span className="mt-3 block">
-            <StadiumBar value={d.delivered / d.due} delay={0.8} />
-          </span>
-          <p className="mt-2 text-[11.5px] text-faint">
-            {d.late ? <span className="text-danger">{d.late} late</span> : "None late"} · {next}
+          <div className="flex flex-wrap items-center gap-5">
+            <SplitDonut
+              label={`${formatCount(money.paidCents, "usd0")} paid and ${formatCount(money.owedCents, "usd0")} still to pay, of ${formatCount(money.invoicedCents, "usd0")} billed`}
+              parts={[
+                { label: "Paid", value: money.paidCents, color: GREEN },
+                { label: "Still to pay", value: money.owedCents, color: BLUE },
+              ]}
+            >
+              <span className="sx-stadium-num block text-[20px] leading-none">{formatCount(money.invoicedCents, "usd0")}</span>
+              <span className="mt-1 block text-[11px] text-muted">billed</span>
+            </SplitDonut>
+            <div className="min-w-[9rem] flex-1">
+              <LegendRow color={GREEN} name="Paid" value={formatCount(money.paidCents, "usd0")} />
+              <LegendRow color={BLUE} name="Still to pay" value={formatCount(money.owedCents, "usd0")} href={money.owedCents > 0 ? "/sponsor/invoices" : undefined} />
+              <LegendRow color={DIM} name="Agreed in total" value={formatCount(o.money.contractedCents, "usd0")} />
+            </div>
+          </div>
+          {cpm}
+        </>
+      ) : (
+        <>
+          <p className="text-[12px] text-muted">Agreed in total</p>
+          <p className="sx-stadium-num text-[30px] leading-tight">{formatCount(o.money.contractedCents, "usd0")}</p>
+          {cpm ?? <p className="mt-3 text-[12px] text-faint">Cost per 1,000 people reached shows once checked reach is in.</p>}
+        </>
+      )}
+    </DashCard>
+  );
+}
+
+function FanJourney({ o }: { o: SponsorOverview }) {
+  const f = o.fans;
+  const none = f.scan + f.landing + f.claim + f.redeem === 0;
+  return (
+    <DashCard
+      icon="funnel"
+      title="Fan journey"
+      sub="What fans did with your QR offer, step by step"
+      hint="Scanned: fans who scanned your QR code. Opened: opened the offer. Claimed: saved it. Redeemed: used it."
+      delay={0.56}
+      className="md:col-span-2 xl:col-span-1"
+    >
+      {none ? (
+        <Quiet>No QR scans in this period yet. They show here once fans scan your code at an event.</Quiet>
+      ) : (
+        <>
+          <ColumnBars
+            label="Fan journey"
+            bars={[
+              { label: FUNNEL_WORDS.scan, value: f.scan },
+              { label: FUNNEL_WORDS.landing, value: f.landing },
+              { label: FUNNEL_WORDS.claim, value: f.claim },
+              { label: FUNNEL_WORDS.redeem, value: f.redeem, lit: true },
+            ]}
+          />
+          <p className="mt-3 text-[11.5px] text-faint">
+            {f.scan > 0 && f.redeem <= f.scan
+              ? `${Math.round((f.redeem / f.scan) * 100)}% of fans who scanned went on to redeem.`
+              : "Some fans redeemed at the booth without scanning first."}
           </p>
         </>
       )}
-    </StadiumPanel>
+    </DashCard>
   );
 }
 
 /* ---------------------------------------------------- athletes · cities */
 
 function TopAthletes({ o }: { o: SponsorOverview }) {
+  const max = Math.max(1, ...o.topAthletes.map((a) => a.views));
   return (
-    <StadiumPanel flush delay={0.7} className="min-w-0">
-      <div className="px-5 pt-5">
-        <Title hint="The athletes whose posts for you reached the most people in this period, counting checked figures only.">Your top athletes</Title>
-      </div>
+    <DashCard icon="star" title="Your top athletes" sub="Whose posts for you reached the most people in this period" className="lg:col-span-7" delay={0.62} flush>
       {o.topAthletes.length === 0 ? (
         <div className="px-5 pb-3">
           <Quiet>No checked reach in this period yet. Athletes show here once their posts for you are counted.</Quiet>
@@ -402,7 +517,14 @@ function TopAthletes({ o }: { o: SponsorOverview }) {
               i={i}
               lead={monogramOf(a.name)}
               title={a.name}
-              sub={[`No. ${i + 1}`, a.sport].filter(Boolean).join(" · ")}
+              sub={
+                <span className="flex items-center gap-2">
+                  <span className="shrink-0">{[`No. ${i + 1}`, a.sport].filter(Boolean).join(" · ")}</span>
+                  <span className="hidden max-w-[10rem] flex-1 sm:block">
+                    <StadiumBar value={a.views / max} delay={0.7 + i * 0.05} />
+                  </span>
+                </span>
+              }
               right={
                 <span className="block">
                   <span className="block text-[13px] font-bold tabular-nums text-text">{compactNumber(a.views)}</span>
@@ -413,40 +535,49 @@ function TopAthletes({ o }: { o: SponsorOverview }) {
           ))}
         </div>
       )}
-    </StadiumPanel>
+    </DashCard>
   );
 }
 
 function Cities({ o }: { o: SponsorOverview }) {
+  const max = Math.max(1, ...o.topCities.map((c) => c.redeems));
   return (
-    <StadiumPanel delay={0.76} className="min-w-0">
-      <Title hint="The cities where the most fans used your offer in this period.">Where fans redeemed</Title>
+    <DashCard icon="pin" title="Where fans redeemed" sub="Cities where the most fans used your offer in this period" className="lg:col-span-5" delay={0.68}>
       {o.topCities.length === 0 ? (
         <Quiet>No redemptions with a city yet. Cities show here once fans use your offer at events.</Quiet>
       ) : (
-        <HBarList
-          rows={o.topCities.map((c) => ({
-            id: `${c.city}|${c.region ?? ""}`,
-            label: c.region ? `${c.city}, ${c.region}` : c.city,
-            value: c.redeems,
-            display: `${c.redeems.toLocaleString("en-US")} redeemed`,
-          }))}
-        />
+        <ol className="space-y-3">
+          {o.topCities.map((c, i) => (
+            <li key={`${c.city}|${c.region ?? ""}`}>
+              <span className="flex items-baseline justify-between gap-3 text-[12.5px]">
+                <span className="truncate text-text">
+                  <span className="mr-2 text-faint">{i + 1}</span>
+                  {c.region ? `${c.city}, ${c.region}` : c.city}
+                </span>
+                <span className="shrink-0 font-bold tabular-nums text-text">{c.redeems.toLocaleString("en-US")}</span>
+              </span>
+              <span className="mt-1.5 block">
+                <StadiumBar value={c.redeems / max} delay={0.75 + i * 0.05} />
+              </span>
+            </li>
+          ))}
+        </ol>
       )}
-    </StadiumPanel>
+    </DashCard>
   );
 }
 
 /* ------------------------------------------------------------ campaigns */
 
 function Campaigns({
-  rows, page, filters, now, total,
+  rows, page, filters, now, total, running,
 }: {
   rows: ApiCampaign[];
   page: PageInfo;
   filters: { q: string; state: string; sort: string };
   now: Date;
   total?: number;
+  running?: number;
 }) {
   const filtered = Boolean(filters.q || filters.state);
   const outOfRange = page.page > page.pages;
@@ -465,11 +596,17 @@ function Campaigns({
     "No campaigns match. Clear the search or filter."
   );
   return (
-    <section className="sx-stadium-in min-w-0" style={at(0.82)} aria-labelledby="sx-your-campaigns">
-      <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h2 id="sx-your-campaigns" className="sx-section-title">Your campaigns</h2>
-        {total !== undefined && <span className="text-xs text-muted">{total.toLocaleString("en-US")} in all</span>}
-      </div>
+    <DashCard
+      id="sx-your-campaigns"
+      icon="list"
+      title="Your campaigns"
+      sub={
+        total !== undefined
+          ? `${total.toLocaleString("en-US")} in all${running ? ` · ${running.toLocaleString("en-US")} running` : ""} · open one to see its results`
+          : "Open one to see its results"
+      }
+      delay={0.74}
+    >
       <ServerList>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <div className="w-full sm:w-64">
@@ -494,6 +631,6 @@ function Campaigns({
         </div>
         <SponsorCampaignTable rows={rows} page={page} now={now} filtered={filtered} empty={empty} />
       </ServerList>
-    </section>
+    </DashCard>
   );
 }

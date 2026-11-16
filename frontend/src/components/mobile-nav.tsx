@@ -7,9 +7,9 @@ import { createPortal } from "react-dom";
 import { ICONS, type NavIcon } from "./icons";
 import { Logo } from "./logo";
 import type { NavItem } from "./portal-nav";
+import { LogOutButton } from "./user-menu";
 import { sheetGroups } from "@/lib/mobile-dock";
 import { groupNav, isActiveHref, type NavGroup } from "@/lib/nav-groups";
-import { ROUTE_MAP_SHOWN } from "@/lib/route-map";
 
 /* --------------------------------------------------------------------------
    Mobile portal navigation: the sidebar is hidden below `md`, so the top-bar
@@ -220,13 +220,7 @@ export function MobileNav({
             className="sx-animate flex items-center justify-between border-t border-line px-6 py-[clamp(0.6rem,1.8vh,1rem)]"
             style={{ animationDelay: `${180 + nav.length * 50}ms` }}
           >
-            {ROUTE_MAP_SHOWN ? (
-              <Link href="/map" className="text-[11px] text-faint hover:text-muted">
-                ← route map
-              </Link>
-            ) : (
-              <span />
-            )}
+            <LogOutButton className="min-h-11 text-[11px] text-faint" />
             <span className="text-[10px] uppercase tracking-[0.2em] text-faint">
               SponsorX
             </span>
@@ -427,11 +421,7 @@ export function StageMenu({
           <span className="sx-sheet-name">{userName}</span>
           <span className="sx-sheet-role">{userRole}</span>
         </span>
-        {ROUTE_MAP_SHOWN && (
-          <Link href="/map" className="sx-sheet-map">
-            route map
-          </Link>
-        )}
+        <LogOutButton className="sx-sheet-logout" />
       </div>
     </div>
   );

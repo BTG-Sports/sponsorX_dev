@@ -58,7 +58,8 @@ describe("POL-FE-72 · sponsor portal loose ends", () => {
     expect(orderWord("PAID", false).text).toBe("In progress");
     const items = needsYouItems({ postsToReview: 0, ordersToPay: 2 }, false);
     expect(items.find((i) => i.key === "orders")!.title).toBe("Approved orders");
-    expect(src("app/(app)/sponsor/orders/page.tsx")).toContain('paymentsOpen === false ? "Approved" : t.label');
+    /* POL-FE-98 — the Orders list's tabs are worded in lib/orders-board.ts now. */
+    expect(src("lib/orders-board.ts")).toContain('paymentsOpen === false ? "Approved" : t.label');
   });
 
   it("the spending limit sits beside the total and says what it means for this order", () => {
@@ -70,9 +71,12 @@ describe("POL-FE-72 · sponsor portal loose ends", () => {
     expect(src("app/(app)/sponsor/checkout/page.tsx")).toContain("limitLine(quote.totalCents, hold.checkout?.spendingLimitCents");
   });
 
-  it("a long Shop description opens with More; Order again goes to the Shop", () => {
-    expect(src("components/shop-stadium-card.tsx")).toContain(">More<");
-    expect(src("components/sponsor-order-status.tsx")).toContain('<Link href="/sponsor/shop"');
+  it("a long Shop description is never cut off for good; Order again goes to the Shop", () => {
+    /* POL-FE-91 — the card shows two lines and opens the item's own page, which shows all of it. */
+    expect(src("components/sponsor-shop/shop-window.tsx")).toContain('<Link href={itemHref(item.id)} className="sx-sh-stretch">');
+    expect(src("lib/shop-showcase.ts")).toContain("description: r.description?.trim() || null");
+    /* POL-FE-94 — the order page's next-step card carries Order again now. */
+    expect(src("components/sponsor-order/order-summary.tsx")).toContain('<Link href="/sponsor/shop" className="sx-od-go sx-od-go-link">');
   });
 
   it("package cards name jobs from GET /catalogue/jobs, and live names win over the built-in ones", () => {

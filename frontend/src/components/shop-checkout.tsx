@@ -1,268 +1,40 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type ChangeEvent, type ReactNode } from "react";
+import { useState, useTransition } from "react";
 
-import { reserveAction } from "@/app/(app)/sponsor/cart/actions";
-import { placeOrderAction, releaseHoldAction } from "@/app/(app)/sponsor/checkout/actions";
 import { cancelOrderAction } from "@/app/(app)/sponsor/orders/[id]/actions";
 import { ShopRefusal } from "@/components/shop-bits";
-import { StadiumSteps } from "@/components/stadium-stage";
-import {
-  acceptLabel,
-  APPROVAL_CONDITION,
-  billingDraftFrom,
-  billingIssues,
-  billingPrefillNote,
-  billingPrefillSource,
-  gateHint,
-  gateStatus,
-  termsLabel,
-  totalChanged,
-  type ApiCheckout,
-  type BillingDraft,
-  type BillingViewer,
-  type Quote,
-} from "@/lib/checkout-gate";
-import { feeText, usd, type ShopResult } from "@/lib/shop-live";
+import type { ShopResult } from "@/lib/shop-live";
 
 /* --------------------------------------------------------------------------
-   2S4-FE-01 / -02 — the buying buttons: Reserve & check out (cart, and "hold
-   again" after a hold ends), the checkout's contract gate — billing
-   contact, order terms, Place order / Release hold — and Cancel order
-   (order detail). Each calls its server action; a success redirects
-   (reserve, place, release) or refreshes (cancel), a refusal is listed with
-   every reason the API gave.
+   2S4-FE-01 / -02 — Cancel order (order detail): calls its server action,
+   refreshes on success, and lists every reason the API gave on a refusal.
 
-   POL-FE-05 — Place order sits next to the full total (subtotal, BTG's buyer
-   fee, total) from the API's quote, and sends that total back as
-   `totalCentsShown`. A 409 `total_changed` is shown in the API's words and
-   the page is refreshed, so the figures the sponsor sees — and the total
-   the next try sends — are the new ones.
+   POL-FE-93 (2026-11-16): checkout's contract gate (billing, terms, Place
+   order, Release hold) and "hold again" moved into the checkout wizard,
+   components/sponsor-checkout/checkout-wizard.tsx; the cart's Check out is
+   in components/sponsor-cart/cart-board.tsx (POL-FE-92).
    -------------------------------------------------------------------------- */
 
 type Refusal = { message: string; reasons: string[] } | null;
-type Refused = Extract<ShopResult, { ok: false }>;
 
 function useShopAction() {
   const [refusal, setRefusal] = useState<Refusal>(null);
   const [pending, begin] = useTransition();
-  const run = (fn: () => Promise<ShopResult>, onOk?: () => void, onRefused?: (r: Refused) => void) => {
+  const run = (fn: () => Promise<ShopResult>, onOk?: () => void) => {
     setRefusal(null);
     begin(async () => {
       const r = await fn();
-      /* A redirecting action (reserve, place, release) navigates away and
-         may resolve with nothing — there is then nothing to show here. */
       if (!r) return;
       if (r.ok) onOk?.();
-      else {
-        setRefusal({ message: r.message, reasons: r.reasons });
-        onRefused?.(r);
-      }
+      else setRefusal({ message: r.message, reasons: r.reasons });
     });
   };
   return { refusal, pending, run };
 }
 
-const primary = "rounded-lg bg-primary px-4 py-2 text-xs font-medium text-cta-ink hover:bg-primary-soft disabled:opacity-40";
 const secondary = "rounded-lg border border-line px-4 py-2 text-xs font-medium text-text hover:bg-surface-2 disabled:opacity-40";
-
-export function ShopReserveButton({ label = "Reserve & check out", disabled }: { label?: string; disabled?: boolean }) {
-  const { refusal, pending, run } = useShopAction();
-  return (
-    <div className="space-y-2">
-      <button type="button" disabled={disabled || pending} onClick={() => run(() => reserveAction())} className={primary}>
-        {pending ? "Holding the items…" : label}
-      </button>
-      {refusal && <ShopRefusal {...refusal} />}
-    </div>
-  );
-}
-
-const fieldCls =
-  "mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-text placeholder:text-faint focus:border-primary/60 focus:outline-none";
-
-/** The four checkout steps on the Stadium Board (spec §7.9); "Hold your
- *  spots" reads as already underway once this gate renders at all. */
-export const CHECKOUT_STEPS = ["Hold your spots", "Billing contact", "Terms", "Place order"];
-const CHECKOUT_STEP_NOW: Record<"billing" | "terms" | "place", number> = { billing: 1, terms: 2, place: 3 };
-
-/**
- * The checkout's contract gate (2S4-FE-02): billing contact → order terms →
- * Place order. Place order stays disabled until the billing contact is
- * complete and the terms are accepted. The terms' body goes back to the
- * server action exactly as rendered here, so the fingerprint the API checks
- * is of the words on this screen. `children` is step 1 (the hold's countdown,
- * lines and summary, rendered by the page), so the step strip above it can
- * follow where the sponsor has got to. `quote` is what placing it charges
- * (POL-FE-05), shown again beside Place order and sent back with it.
- */
-export function ShopCheckoutGate({
-  reservationId,
-  checkout,
-  quote,
-  viewer,
-  children,
-}: {
-  reservationId: string;
-  checkout: ApiCheckout;
-  quote: Quote;
-  /** POL-FE-47 — the signed-in person, to fill billing from when the sponsor has no contact. */
-  viewer?: BillingViewer | null;
-  children: ReactNode;
-}) {
-  const router = useRouter();
-  const [billing, setBilling] = useState<BillingDraft>(() => billingDraftFrom(checkout.billingContact, viewer));
-  const [touched, setTouched] = useState<Partial<Record<keyof BillingDraft, boolean>>>({});
-  const [accepted, setAccepted] = useState(false);
-  const { refusal, pending, run } = useShopAction();
-  const { terms } = checkout;
-  const issues = billingIssues(billing);
-  const billingDone = Object.keys(issues).length === 0;
-  const gate = gateStatus({ terms, billing, accepted });
-  const hint = gateHint(gate.missing);
-  const step = !billingDone ? "billing" : terms && !accepted ? "terms" : "place";
-
-  const set = (k: keyof BillingDraft) => (e: ChangeEvent<HTMLInputElement>) => setBilling((b) => ({ ...b, [k]: e.target.value }));
-  const blur = (k: keyof BillingDraft) => () => setTouched((t) => ({ ...t, [k]: true }));
-  const shown = (k: keyof BillingDraft) => (touched[k] ? issues[k] : undefined);
-
-  return (
-    <div className="space-y-6">
-      <StadiumSteps steps={CHECKOUT_STEPS} now={CHECKOUT_STEP_NOW[step]} label="Where checkout stands" />
-      {children}
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5">
-        <div className="space-y-4">
-          <section aria-labelledby="checkout-billing" className="space-y-3 rounded-xl border border-line bg-surface px-4 py-4">
-            <h2 id="checkout-billing" className="text-sm font-semibold tracking-tight">
-              2 · Billing contact{billingDone && <span className="ml-1.5 text-accent">✓</span>}
-            </h2>
-            <p className="text-xs text-muted">
-              Invoices and receipts for this order go to this contact.{" "}
-              {billingPrefillNote(billingPrefillSource(checkout.billingContact, viewer))}
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block text-[11px] font-medium text-muted">
-                Name
-                <input value={billing.name} onChange={set("name")} onBlur={blur("name")} required maxLength={200} autoComplete="name"
-                  aria-invalid={shown("name") ? true : undefined} aria-describedby={shown("name") ? "billing-name-err" : undefined} className={fieldCls} />
-                {shown("name") && <span id="billing-name-err" className="mt-1 block text-[11px] text-danger">{shown("name")}</span>}
-              </label>
-              <label className="block text-[11px] font-medium text-muted">
-                Email
-                <input type="email" value={billing.email} onChange={set("email")} onBlur={blur("email")} required maxLength={320} autoComplete="email"
-                  aria-invalid={shown("email") ? true : undefined} aria-describedby={shown("email") ? "billing-email-err" : undefined} className={fieldCls} />
-                {shown("email") && <span id="billing-email-err" className="mt-1 block text-[11px] text-danger">{shown("email")}</span>}
-              </label>
-              <label className="block text-[11px] font-medium text-muted sm:col-span-2">
-                PO number or your reference <span className="font-normal text-faint">(optional)</span>
-                <input value={billing.reference} onChange={set("reference")} onBlur={blur("reference")} maxLength={100} autoComplete="off"
-                  aria-invalid={issues.reference ? true : undefined} aria-describedby={issues.reference ? "billing-ref-err" : undefined} className={fieldCls} />
-                {issues.reference && <span id="billing-ref-err" className="mt-1 block text-[11px] text-danger">{issues.reference}</span>}
-              </label>
-            </div>
-            <p className="text-[11px] text-faint">No card or bank details are asked for here. You pay by card on the payment provider&rsquo;s own page.</p>
-          </section>
-
-          <section aria-labelledby="checkout-terms" className="space-y-3 rounded-xl border border-line bg-surface px-4 py-4">
-            <h2 id="checkout-terms" className="text-sm font-semibold tracking-tight">
-              3 · Order terms{terms && accepted && <span className="ml-1.5 text-accent">✓</span>}
-            </h2>
-            {terms ? (
-              <>
-                <div
-                  role="document"
-                  tabIndex={0}
-                  aria-label={termsLabel(terms)}
-                  className="max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-line-soft bg-surface-2 px-3 py-3 text-[11px] leading-relaxed text-text focus:border-primary/60 focus:outline-none"
-                >
-                  {terms.body}
-                </div>
-                <p className="text-[11px] text-faint">
-                  {termsLabel(terms)}. Accepting records the version, the time and a fingerprint of exactly this text, so what you agreed to can always be shown.
-                </p>
-                <label className="flex cursor-pointer items-start gap-2.5">
-                  <input
-                    type="checkbox"
-                    checked={accepted}
-                    onChange={(e) => setAccepted(e.target.checked)}
-                    className="mt-0.5 size-3.5 shrink-0 accent-[var(--sx-primary)]"
-                  />
-                  <span className="text-xs font-medium leading-relaxed text-text">{acceptLabel(checkout.sponsorName)}</span>
-                </label>
-              </>
-            ) : (
-              <p role="status" className="rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-xs text-warn">
-                The order terms aren&rsquo;t available right now, so this order can&rsquo;t be placed yet. Your hold still stands until it runs
-                out — try again shortly, or ask BTG.
-              </p>
-            )}
-          </section>
-
-          <section aria-labelledby="checkout-place" className="space-y-3 rounded-xl border border-line bg-surface px-4 py-4">
-            <h2 id="checkout-place" className="text-sm font-semibold tracking-tight">4 · Place order</h2>
-            {/* POL-FE-05 — the full total, right where the order is committed. */}
-            <dl aria-label="What you will be charged" className="space-y-1 rounded-lg border border-line-soft bg-surface-2 px-3 py-2.5 text-xs">
-              <div className="flex items-baseline justify-between gap-3">
-                <dt className="text-muted">Subtotal</dt>
-                <dd className="font-semibold tabular-nums text-text">{usd(quote.subtotalCents)}</dd>
-              </div>
-              <div className="flex items-baseline justify-between gap-3">
-                <dt className="text-muted">Fees</dt>
-                <dd className={quote.feesCents === null ? "text-faint" : "font-semibold tabular-nums text-text"}>{feeText(quote)}</dd>
-              </div>
-              <div className="flex items-baseline justify-between gap-3 border-t border-line-soft pt-1.5">
-                <dt className="font-semibold text-text">Total</dt>
-                <dd className="text-base font-semibold tabular-nums text-text">{usd(quote.totalCents)}</dd>
-              </div>
-            </dl>
-            <p className="text-xs text-muted">
-              {quote.quoted
-                ? "This total is what you pay — nothing more is added when the order is placed."
-                : "The fee couldn’t be quoted right now; the order page shows the exact total once it’s placed."}{" "}
-              {APPROVAL_CONDITION} Nothing is charged when you place it.
-            </p>
-            {/* POL-FE-04 — card payment is closed: the order is held, no pay-by date runs. */}
-            {checkout.paymentsOpen === false && (
-              <p role="status" className="rounded-lg border border-primary/40 bg-primary/8 px-3 py-2 text-xs text-text">
-                Card payment isn&rsquo;t open yet. Once approved, your order is <strong>held for you</strong> — no pay-by date runs and nothing is cancelled for
-                non-payment. We&rsquo;ll email your pay-by date as soon as card payment opens.
-              </p>
-            )}
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={!gate.ready || pending}
-                aria-describedby={hint ? "checkout-gate-hint" : undefined}
-                onClick={() =>
-                  terms &&
-                  run(
-                    () => placeOrderAction(reservationId, { id: terms.id, body: terms.body }, billing, accepted, quote.quoted ? quote.totalCents : undefined),
-                    undefined,
-                    /* The total moved: re-read the quote so the figures above, and the next try's totalCentsShown, are the new ones. */
-                    (r) => totalChanged(r) && router.refresh(),
-                  )
-                }
-                className={`${primary} disabled:cursor-not-allowed`}
-              >
-                {pending ? "Working…" : "Place order"}
-              </button>
-              <button type="button" disabled={pending} onClick={() => run(() => releaseHoldAction(reservationId))} className={secondary}>
-                Release hold
-              </button>
-            </div>
-            {hint && (
-              <p id="checkout-gate-hint" className="text-[11px] text-muted">
-                {hint}
-              </p>
-            )}
-            {refusal && <ShopRefusal {...refusal} />}
-          </section>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function ShopCancelOrder({ orderId, state }: { orderId: string; state: string }) {
   const router = useRouter();
