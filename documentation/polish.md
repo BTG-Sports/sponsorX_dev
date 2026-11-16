@@ -2646,4 +2646,195 @@ the blockers and today's content review findings.
   - **Empty:** an LED board with Browse the shop and the three stops.
   - **Sample:** `?demo=sample` is a clickable sample cart that saves nothing.
   - **Kit:** `components/sponsor-cart/cart-board.tsx`, `lib/cart-board.ts`, `app/(app)/sponsor/cart/cart.css`. `components/shop-cart-line.tsx` is gone. No API change; the cart actions are unchanged. New read: `GET /marketplace/search/:id` per line.
-  - **Checked:** tsc and eslint clean; frontend 2,262/2,263 (the one failure is in POL-FE-91's uncommitted shop work, see the Memory log). Walked live as the QA sponsor at 1440 and 390.
+  - **Checked:** tsc and eslint clean; frontend 2,262/2,263 at the time (the one failure was POL-FE-91's, fixed in e6916a3d). Walked live as the QA sponsor at 1440 and 390.
+
+### 93. Checkout shows every section at once, so a buyer can't tell what to do next [§7.9, 2S4-FE-02]
+`POL-FE-93` · *Confusing* · confirmed (programme owner, 2026-11-16: "big visual redesign for /sponsor/checkout?reservation, make it a step by step wizard with animations + wow factor + awwwaaaard, make sure its easy to understand because what you did before is so confusing for a human but make sure not to remove the current theme of the visual redesign". Four references: a Checkout → Payment → Order Confirm stepper with an order summary beside the form; a payment page with a summary card; a before/after of a cluttered payment page made simple; a billing form with a Shopping cart → Checkout → Finish bar.)
+- **Problem:** `/sponsor/checkout` opened with the hold, the lines, the summary, the billing contact, the terms and Place order all on one long page. It had a step strip, but every step was already open below it, so nothing said "do this now". Place order sat greyed out at the bottom with a sentence about what was missing.
+- **Fix:** a four-step wizard on the cart's Stadium Board, one question at a time: **Items → Invoice → Terms → Confirm.**
+  - The total and the hold's clock stay on the board above.
+  - The order summary sits beside the step, the same height.
+- **Done when:**
+  - Each screen asks one thing.
+  - Continue says what's missing instead of sitting disabled.
+  - The sponsor can go back to any step.
+  - The time left on the hold is always in sight.
+  - The last step shows everything once more and what happens after placing.
+  - The contract gate is unchanged: the same terms body and fingerprint, billing contact, acceptance and total shown.
+  - It works at phone size.
+  - The Stadium look is unchanged.
+- **Delivered (2026-11-16, HeckerCreatives):**
+  - **Board:** "Secure checkout" and the total in lit figures that count up. A hold ring drains with the minutes left, red and blinking in the last two. A four-stop rail with a lit wire: done stops show ✓ and can be clicked back to, later ones only once the steps before are done.
+  - **Stage:** each step slides in from the side it came from and powers on. Its heading takes focus, and it scrolls into view.
+    - 1 · the items as LED tiles: kind, seller, quantity × price, dates, line total. "Locked while held", with Release hold to change items.
+    - 2 · Name, Email and PO / reference with icons and a green ✓ when valid. A chip says where the values came from (POL-FE-47). Enter continues.
+    - 3 · the terms in a scroll box with a reading bar ("Read to the end ✓"), and one big tick card (`acceptLabel`).
+    - 4 · recap tiles (Items / Invoice to / Terms, each with Change), "Total you'll pay", a three-step "What happens next" from the spending limit and card-payment state (POL-FE-04/72), then **Place order**.
+  - **Continue is never a dead grey button.** Pressed too early, it says what's missing, focuses the first bad field, or shakes the tick card.
+  - **Placing:** a curtain ("Placing your order…") until the order page opens. A refusal comes back in the API's words; a 409 `total_changed` re-reads the quote.
+  - **Summary:** lines, subtotal, BTG fee, total, the spending limit, "nothing charged / no card details", and Release hold (asks first). Side by side, the stage and the summary are always the same height.
+  - **Phone:** board, stage, then summary. Back and Continue sit on one row.
+  - **Ended holds:** expired, released, unavailable, no reservation and "became an order" each get a status board. An expired hold gets Hold again for 15 minutes. A Sponsor Viewer sees the held items read-only.
+  - **Sample:** `?demo=sample` is a clickable sample checkout; nothing is held, released or placed.
+  - **Kit:** `components/sponsor-checkout/checkout-wizard.tsx`, `lib/checkout-wizard.ts`, `app/(app)/sponsor/checkout/{page.tsx,checkout.css}`. The old gate (`ShopCheckoutGate`, `CHECKOUT_STEPS`, `ShopReserveButton`) and `stadium-hold-countdown.tsx` are gone; `shop-checkout.tsx` keeps only Cancel order. `checkout/actions.ts` is unchanged, and so is the API. New read: `GET /marketplace/search/:id` per line, for the item's kind.
+  - **Checked:** tsc and eslint clean; frontend 2,273/2,273. Walked live on `?demo=sample` as the dev Sponsor Admin at 1440 and 390: all four steps, the too-early hint, the rail back, equal panel heights, no sideways scroll, no page errors. `e2e/marketplace-path.spec.ts` and `e2e/qa-phase2.spec.ts` now click through the wizard; they weren't run here.
+
+### 94. The order page after checkout is a stack of boxes, so a buyer can't tell what happened or what to do [§7.9, 2S4-FE-02, 2S5-FE-05]
+`POL-FE-94` · *Confusing* · confirmed (programme owner, 2026-11-16: "big visual redesign for /sponsor/orders/, make it a summary for the payment wizard with animations + wow factor + awwwaaaard, make sure its easy to understand because what you did before is so confusing for a human but make sure not to remove the current theme of the visual redesign". Two references: a checkout with a summary card beside the payment form; a "Payment Successful" page with an order tracker, billing and payment-method cards, and an order summary. Mid-build: "the right panel must be the same height as the combine 4 panels on the left", and the pay card "is ugly", twice.)
+- **Problem:** `/sponsor/orders/<id>`, where checkout lands (`?placed=1`), stacked a head, mini steps, three tiles, an "Order placed ✓" box, a placed note, a status card and a payment banner. Under those came a column of side cards (totals, billing and terms, payment, cancel). Nothing said, in one place, what had happened and what to do next.
+- **Fix:** the checkout wizard's last screen, on the same Stadium Board. It reads top to bottom: what is happening, what to do, then the order.
+- **Done when:**
+  - One headline says where the order stands.
+  - The only action on the page (Pay by card) is in one card, with the amount and the pay-by date.
+  - "What happens next" is always shown while the order is open.
+  - The order summary is beside the order and the same height.
+  - Every existing state, refusal and role rule is unchanged.
+  - It works at phone size.
+  - The Stadium look is unchanged.
+- **Delivered (2026-11-16, HeckerCreatives):**
+  - **Board:** a mark for the state.
+    - Once placed or paid, a tick draws itself inside a ring and throws sparks.
+    - A card breathes while payment is due; a lit arc chases round while the payment is confirming; a cross means it ended.
+    - Beside the mark: the kicker ("Order placed ✓", "Payment due" …), one plain headline and lead, the order reference, the placed date, and the total counting up.
+    - Placed → Approved → Paid → Delivered on a lit wire, with dates. The stop it waits on beats ("Due now", "Seller deciding", "1 of 3"). A cancelled order shows where it stopped.
+  - **Next step:** one kicker and the status tag, then either:
+    - the payment ticket: one strip as wide as the card (Amount due | Pay by, with a "in 3 days" pill | the one **Pay $X by card** button), split by dashed lines, with the Stripe note on a row under it; or
+    - the status in words (sponsorStatus, or the payment's own banner).
+    - Along the bottom, "What happens next": three numbered steps left to right on a lit wire; on a phone, a list with each number beside its words.
+  - **The order:** What you bought, as lit tiles with each item's kind; Delivery (SponsorOrderDelivery, unchanged); and Invoice to · Payment · Order terms as three tiles.
+  - **Summary:** lines, subtotal, BTG fee, total, payment status, refunds and extra payments going back, Cancel order, All orders and Keep shopping. Side by side, it is always as tall as the column beside it, with its foot on the bottom edge.
+  - **Sample:** `?demo=sample&as=placed|seller|btg|due|held|confirming|failed|paid|delivered|cancelled` draws a sample order; nothing is paid or cancelled.
+  - **Kit:**
+    - `components/sponsor-order/order-summary.tsx`, `lib/order-summary.ts`, `app/(app)/sponsor/orders/[id]/{page.tsx,order.css}`.
+    - `components/sponsor-order-status.tsx` is gone. `OrderPayButton` takes a `className` and `sample`, and now ignores a double click (a ref).
+    - Checkout's `Roll` is exported for the counting figures.
+    - No API change. New read: `GET /marketplace/search/:id` per item, for its kind.
+  - **Checked:**
+    - tsc and eslint clean; frontend vitest 2,285/2,285.
+    - Walked live on every sample state as the dev Sponsor Admin at 1440 and 390: one pay button, the summary and the left column the same height at 1440, no sideways scroll, no page errors.
+    - Not built in a worktree; e2e not run.
+
+### 95. The athlete's Sales page doesn't say what to do next on a sale [§7.9, 2S4-FE-03, 2S4-FE-05]
+`POL-FE-95` · *Confusing* · confirmed (programme owner, 2026-11-16: "big visual redesign for /athlete/sales/, which is the the list, just do what we did in the listing and inventory, add with animations + wow factor + awwwaaaard, make sure its easy to understand because what you did before is so confusing for a human but make sure not to remove the current theme of the visual redesign")
+- **Problem:** `/athlete/sales` had four KPI plates with captions, a warn plate of approvals, and then a table led by the order ref. Each status pill said whose turn it was ("Waiting for Harbor Coffee") but not what to do. Nothing showed how a sale moves from bought to paid.
+- **Fix:** the page is drawn like Inventory and Listings (POL-FE-83/84), on the same Arena. Each sale says what to do next in one sentence.
+- **Done when:**
+  - A sale's next step is one sentence ("Deliver it by Oct 17"), flagged "Your move" when it's the athlete's turn.
+  - How a sale moves (not paid → to deliver → waiting to confirm → done) is on the page, with the API's counts, and opens each group.
+  - A sponsor waiting for a yes or no is above the sales, with the deadline.
+  - Tabs, search and List ↔ Cards work like Inventory and Listings.
+  - Every count is the API's. The property portal's Sales is unchanged.
+  - It works at phone size, and the Arena look is unchanged.
+- **Delivered (2026-11-16, HeckerCreatives):**
+  - **Title row:** Sales, the updated pill, and a Payouts button.
+  - **How a sale moves:** four stations on a rail whose dashes flow toward Done. The stations are Not paid yet, To deliver, Waiting to confirm and Done. Each shows its tab's count from `GET /sales` `tabs`, counting up as it arrives. The station with sales to deliver pings. A click opens that tab, and a second click clears it. Problems and Cancelled sit "off the road" as chips, only when there are any.
+  - **A sponsor wants to book you · n:** the approvals (`GET /seller-approvals`, its own `apage`/`asize` pager) as cards with the ask, the "Answer by" deadline (red and blinking in the last 24 hours), and Answer. Amber while one waits.
+  - **The sales:** the inventory's sliding tabs, in the order a sale moves. "Awaiting payment", "Delivered" and "Confirmed" read "Not paid yet", "Waiting to confirm" and "Done". The tabs come with search and List ↔ Cards (the same remembered choice as Inventory and Listings).
+    - A row: what was sold and to whom; What's next (a "Your move" flag or the status, plus the sentence and the line under it); a Paid → Delivering → Delivered → Confirmed track whose fill grows in and whose current step pulses; and your share.
+    - A card: the same, plus the call to action ("Mark delivered", "Answer", "Open"). A your-move card breathes a glow. A cancelled sale is greyed, its track and share struck through.
+  - **No sales yet:** a hero with the four steps a sale takes and "Check your listings".
+  - **Kit:**
+    - `lib/athlete-sales-shop.ts` (the words), `components/athlete-sales/{sales-shop,sales-board}.tsx`, `app/(app)/athlete/sales/{page.tsx,sales.css}`, `tests/athlete-sales-shop.test.ts`.
+    - Five glyphs were added to `athlete-inventory/glyphs.tsx`.
+    - `SellerOrdersList` stays, for `/property/sales`. No API change.
+  - **Checked:**
+    - tsc and eslint clean; frontend vitest 2,320/2,320.
+    - Walked live as the QA athlete at 1440 and 390 (List, Cards, `?demo=empty`): road and siding clicks filter, no sideways scroll, no page errors.
+    - Not built in a worktree; e2e not run; not committed. The approvals plate was not walked, because the dev data has no approval.
+  - **Then (owner, 2026-11-16, done by sponsorx-dev-fa):** "same in the /athlete/sales" — "How a sale moves" now opens in a popup from a **How a sale moves** help button beside Payouts (with a count of sales to deliver), like Payouts' road (POL-FE-97). A tapped step still opens its sales and closes the popup; **Got it** closes it. Hidden while nothing is sold yet. `SalesRoadHelp` in `sales-shop.tsx`; `SalesRoad` is now internal; `lib/athlete-sales-shop.ts` unchanged.
+
+### 96. An opened sale shows everything at once, so an athlete can't tell where it is or what to do [§7.9, 2S4-FE-03, 2S4-FE-04, 2S4-FE-05, 2S4-FE-06]
+`POL-FE-96` · *Confusing* · confirmed (programme owner, 2026-11-16: "big visual redesign for /athlete/sales/, make it a step by step wizard with animations + wow factor + awwwaaaard, make sure its easy to understand because what you did before is so confusing for a human but make sure not to remove the current theme of the visual redesign", then: "not the list part but the open page of the item")
+- **Problem:** `/athlete/sales/<id>` stacked a status pill, a banner, a card with a four-dot track, a Mark delivered button that opened a pop-up, and a sponsor side card. The step the sale was at, whose move it was, and what came next were spread across all of them.
+- **Fix:** the opened sale is a step-by-step wizard in the confirmations wizard's style (POL-FE-79), on the same Arena.
+- **Done when:**
+  - One line at the top says whose move it is, in words.
+  - The sale reads as four steps (the sponsor pays → you deliver it → the sponsor checks it → you get paid), and the page opens on the step the sale is at.
+  - Mark delivered is done on the page, step by step, not in a pop-up.
+  - The writes, refusals and role rules are unchanged, and the property portal's sale page is unchanged.
+  - It works at phone size, and the Arena look is unchanged.
+- **Delivered (2026-11-16, HeckerCreatives):**
+  - **Ticket:** the order ref and date, the item, the sponsor, quantity and dates. Beside them, a stub cut off by a perforation, with your share counting up and a four-segment lane that lights up to the current step.
+    - Under it, one callout says whose move it is: "Your move" (it pings), "Waiting on <sponsor>", "BTG is deciding", "All done" or "Cancelled".
+    - An ended sale shows "Would have been your share", struck through.
+  - **Rail:** the four steps, each with a date or what it waits on ("Paid Nov 14", "On Nov 18 and Nov 25", "24 hours to check"). Any step can be opened, and the current one keeps its ring.
+    - After a sale ends, the steps it never reached are struck through and read "Won't happen".
+    - On a phone, the rail becomes dots across the top.
+  - **Panels:** one at a time. Each slides in, its pieces rise one after another, and a giant outlined step numeral sits behind the heading. The footer says "Step n of 4" and what to do here, with Previous and Next.
+    1. **Pays:** the facts (what, when, how many, your share), the paid date, and the sponsor's contact (only once paid).
+    2. **Deliver:** three numbered blocks: *What did you do?* (required) → *Add proof* (a drop zone for a photo or PDF, or a link) → *Send it* (what happens next, then **Mark delivered**).
+       - Each block's number turns into a green tick when it's filled. Pressed with no note, the button shakes the note box and says why.
+       - The sponsor's request to cancel, a redelivery, and "Can't deliver this line?" are here too.
+    3. **Check:** the sponsor's 24 hours as a ring that drains, with the time left in the middle, plus your delivery note. If a problem is reported, the existing problem answer sits here.
+    4. **Get paid:** a medal with confetti, then your share shimmering once, and **Go to Payouts**.
+  - **Moving on:** after Mark delivered, the stage plays "Delivered!" with confetti, then slides to step 3. It does the same for any refresh that moves the sale forward.
+  - **Sample:** `?demo=sample&as=unpaid|deliver|redeliver|cancel-ask|checking|problem|answered|confirmed|refunded|cancelled`. Its Mark delivered moves the sample on without writing anything.
+  - **Kit:**
+    - `lib/sale-journey.ts` (the steps, whose move, the clock, the sample), `components/sale-wizard/{sale-wizard,sale-page,deliver-steps,check-clock}.tsx`, `app/(app)/athlete/sales/[id]/{page.tsx,sale.css}` (it imports `confirmations.css`), and `tests/sale-journey.test.ts`.
+    - `SellerOrderDetail` stays, for `/property/sales/<id>`. No API change.
+    - In `e2e/marketplace-path.spec.ts`, the athlete now fills the on-page form named "Mark delivered" (`#mk-note` kept) instead of a dialog.
+  - **Checked:**
+    - tsc and eslint clean; frontend vitest 2,320/2,320.
+    - Walked live as the QA athlete at 1440 and 390: all ten sample states, plus the two real sales in the dev data (cancelled, in delivery) and an unknown id. Also the whole Mark delivered flow: the empty-press nudge, the "Delivered!" burst, the slide to step 3 with focus on its heading, and rail navigation. No sideways scroll, no page errors.
+    - Not built in a worktree; e2e not run; not committed.
+
+### 97. The athlete's Payouts page is a ledger, so an athlete can't tell how much they can cash out or why not [§7.9, 2S5-FE-03, 2S5-FE-09]
+`POL-FE-97` · *Confusing* · confirmed (programme owner, 2026-11-16: "big visual redesign for /athlete/money, which is the the list, just do what we did in the listing and inventory, add with animations + wow factor + awwwaaaard, make sure its easy to understand because what you did before is so confusing for a human but make sure not to remove the current theme of the visual redesign")
+- **Problem:** `/athlete/money` opened with four KPI plates (Available, Held in reserve, On its way, Paid out), then the account panel, a checklist, an order table led by order refs (Your share / Available / Held / Order status) and a history table. Nothing said in one sentence how much could be cashed out now, why not, or how money moves from a sale to the bank.
+- **Fix:** drawn like Inventory, Listings and Sales (POL-FE-83/84/95), on the same Arena. It reads top to bottom: how much you can cash out, what's left, how money moves, each sale, each payout.
+- **Done when:**
+  - One figure and one sentence say how much can be cashed out now, or why nothing can.
+  - The Request button sits under that figure, and its popup lists what it covers and what happens next.
+  - The payout account sits beside it, at the same height.
+  - The way money moves from a sale to the bank is drawn, with the API's total at each stop.
+  - Each sale says where its money is, as a sentence, with one way to act on it.
+  - Every figure is the API's. The writes, refusals, minor/guardian rule, frozen and owed-back wording are unchanged.
+  - It works at phone size, and the Arena look is unchanged.
+- **Delivered (2026-11-16, HeckerCreatives):**
+  - **Cash-out board:** "Ready to cash out" and the figure counting up to the cent, under a slow aura that turns green and breathes when it can be cashed out. One headline ("$542.58 is yours to cash out", "$72.40 is on its way in", "You're all paid up"), one line on what it means, and **Request payout · $X**.
+    - Off, the button says why under it ("Waiting on: …") with **See what's left**.
+    - The popup ("Cash out $X?") lists the orders it covers with a "You get" total, the reserve line, and Approved → Sent → In your bank. **Request $X** ignores a double click (a ref). On success the board says "Requested ✓".
+  - **Payout account** beside it (`#payout-account` kept for the fix links): the bank mark with a tick when active, the status chip, the same `accountPanel` words and `StripeLinkButton`, and "Bank and tax details stay with Stripe". A minor's own login sees the guardian line, never the button.
+  - **What's left:** a ring that fills to what's done ("2/4") and each check as a tick or a waiting mark, with the Stripe button on the account step. When money can already be cashed out, it reads "Some of your money is held back".
+  - **How your money moves**, in a popup behind a **How money moves** help button beside Sales in the title row (owner, mid-build: "make this inside a popup panel which trigger by a help button"). It closes with **Got it**, and focus goes back to the button. It isn't shown while there's no money yet:
+    - Sponsor pays → Unlocking → Ready → On its way → Paid. Each stop shows the API's total (`awaitingPaymentCents`, `notYetReleasableCents`, `requestableCents`, `inFlightCents`, `paidOutCents`), counting up. The dashes flow toward Paid, and Ready pings when it has money. The road runs down the page on a phone and across it wider.
+    - Off the road, only when there is any: In reserve, Frozen (BTG's sentence) and Owed back.
+  - **Your share of each sale** (List ↔ Cards, the remembered choice): the item, sponsor, order and its state, then where its money is as a sentence ("$250.00 unlocks Nov 20, 2026", "… unlocks once you deliver", "Frozen for now", "You owe $20.00 back from a refund").
+    - The API's non-zero figures sit under it as labelled amounts (Ready, Unlocking, Awaiting payment, On its way, In reserve).
+    - Each sale has one link where there's something to do: **Cash out**, **Deliver it** / **See your sales** (to the Sales tab), or **Follow it**.
+  - **Your payouts:** tabs from the API's counts (All, then each state that has one; "In review" for Requested), then each payout on a timeline: the amount, the date, the orders, the status in the payee's words (`payoutStatus`), "Approved automatically" once paid, and Requested → Approved → Sent → Paid with dates. The step it's on pulses. A payout waiting on the account carries **Fix your payout account →**.
+  - **One switch for the two lists** (owner, mid-build: "make this a tab version between the history and the cashout list"): **Money by sale | Payout history**, two big segments with counts and a lit plate that springs across. A green dot pings on Money by sale when money is ready. The panel slides in from its tab's side.
+    - `?list=payouts` keeps the choice (written with `history.replaceState`, no round trip). The history's state tabs, its pager and `#your-payouts` all open it, and a sale's **Follow it** flips to it.
+  - **No money yet:** a hero with the four steps money takes, then the account card.
+  - **Sample:** `?demo=sample[&as=setup]` is a clickable sample. The popup plays and the Stripe button says it opened nothing; nothing is requested. `?demo=loading|empty|error` show the branded states.
+  - **Kit:** `lib/athlete-money-shop.ts`, `components/athlete-money/{money-board,money-lists,money-hero,money-glyphs}.tsx`, `app/(app)/athlete/money/{page.tsx,money.css}` (on top of `../inventory/inventory.css`), `tests/athlete-money-shop.test.ts`.
+    - `actions.ts` gains `moneySampleLinkAction` (the sample's Stripe button).
+    - `ShopTabs` takes an optional `keys`, so the payout tabs reset only `?hpage`.
+    - `ApiPayoutOrder` gains the optional `confirmedLines` / `problemLines` the API already sends.
+    - `PayoutRequest` / `PayoutAccountPanel` stay for the property portal. No API change.
+    - `e2e/payee-money.spec.ts` looks for "Your share of each sale" (or the hero) instead of "By order". `marketplace-path` still finds "Request payout…" and "Request $X" in a dialog.
+  - **Checked:**
+    - tsc and eslint clean; frontend vitest 2,337/2,337.
+    - Walked live as the QA athlete at 1440 and 390, on `?demo=sample`, `?demo=sample&as=setup`, the real dev data and `?demo=empty`. Also the popup through to "Requested", Cards view, and the Paid tab. The board and account card are the same height at 1440, no sideways scroll, no page errors.
+    - Not built in a worktree; e2e not run; not committed.
+
+### 98. The sponsor's Orders list is a table of order numbers, so a sponsor can't tell where an order is or what to do [§7.10, §8.2, 2S4-FE-02]
+`POL-FE-98` · *Confusing* · confirmed (programme owner, 2026-11-16: "big visual redesign for /sponsor/orders, which is the the list, just do what we did in the listing and inventory inside the athlete dashboard, add with animations + wow factor + awwwaaaard, make sure its easy to understand because what you did before is so confusing for a human but make sure not to remove the current theme of the visual redesign")
+- **Problem:** `/sponsor/orders` opened on four KPI tiles, then a table led by the order number ("SX-7F3A9C21"), with the items in small grey text under it, a status chip, a date and a total. Nothing said what happens next, whose move it is, or how far along an order is, so an order waiting on the sponsor's payment looked like every other row.
+- **Fix:** the athlete Inventory/Listings/Sales pattern, on the Stadium Board.
+- **Done when:**
+  - Each order leads with what was bought and from whom, not its number.
+  - Each order says what happens next as a sentence, and flags it when it's the sponsor's move (pay).
+  - Each order shows how far it has come: Placed → Approved → Paid → Delivered, the same four stops as its own page (POL-FE-94).
+  - The Stadium look is unchanged (dark, blue as light, LED panels, lit numbers); it moves; it works at phone size.
+  - Every figure is still the API's.
+- **Delivered (2026-11-16, HeckerCreatives):**
+  - **Head:** "Your orders", one line on what the page is, a **How orders work** help button and a Shop button.
+  - **The scoreboard, "How an order moves", in the help popup** (owner, after the first look: "can you make this inside a popup panel which trigger by a help button?"), so the page opens on the orders. The popup rises from the bottom on a phone and powers on centred on a wider screen. Escape and the scrim close it, and focus returns to the button. Picking a step filters the list and closes it. Inside are four lit stations (Waiting → To pay → In progress → Delivered) on a wire a comet of light runs along, each with the summary's count ticking up, and "Spent so far". A station opens its tab. Cancelled sits "off the road" when there is one. While card payment is closed, To pay reads "Approved" (POL-FE-72).
+  - **"Your move":** a strip with a light chasing round its border, only while orders wait to be paid, with "Show them".
+  - **The orders:** tabs with the API's counts (To pay glows while due; Cancelled only when it holds one), search, Cards ↔ List (remembered per browser), the pager above and below.
+    - Each card: a stage icon and pill (or the shining "Your move" flag), the first item and "+n more", the seller with initials, the dates, a "what's next" panel ("Pay $1,240.00 by Nov 18", "Coastal FC is deciding", "BTG is checking your order", "The seller declined this order") with a deadline chip ("Pay in 2 days", red under 24 hours), the four stops, the total lit (struck through once it ended), the order number and date, and a call to action ("Pay now", "Track it", "View order").
+    - The card to pay has a light running round its border; every card powers on in turn and lights under the pointer.
+  - **No orders yet:** a hero ("Your first order starts in the shop") with three steps and Browse the shop.
+  - **Kit:** `lib/orders-board.ts`, `components/sponsor-orders/orders-board.tsx`, `app/(app)/sponsor/orders/{page.tsx,orders.css}`, `tests/orders-board.test.ts`. `tests/app-review-wave5.test.ts` now finds POL-FE-72's "Approved" rule in `lib/orders-board.ts`. No API change.
+  - **Checked:** tsc and eslint clean; frontend vitest 2,352/2,352. Walked live as a Sponsor Admin at 1440 and 390 (cards and list; the help popup opened, closed with Escape with focus back on the button, and a step picked inside filtered the list and closed it): no sideways scroll, no page errors. Every other state (to pay, waiting for the seller, held for BTG, delivered, cancelled) checked on a static render of the real components and CSS at both widths, since the walk account had only an order in progress. Not built in a worktree; e2e not run; not committed.
