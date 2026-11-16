@@ -1,0 +1,1068 @@
+{
+ "sponsor/add-to-cart-1": {
+  "src": "/help/sponsor/add-to-cart-1.webp",
+  "path": "/sponsor/shop",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 27.19,
+   "y": 47.64,
+   "w": 9.67,
+   "h": 4.7
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/add-to-cart-2": {
+  "src": "/help/sponsor/add-to-cart-2.webp",
+  "path": "/sponsor/shop",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 25.7,
+   "y": 43.61,
+   "w": 48.6,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/add-to-cart-3": {
+  "src": "/help/sponsor/add-to-cart-2.webp",
+  "path": "/sponsor/shop",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 25.7,
+   "y": 57.98,
+   "w": 17.57,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/add-to-cart-4": {
+  "src": "/help/sponsor/add-to-cart-2.webp",
+  "path": "/sponsor/shop",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 57.67,
+   "y": 78.84,
+   "w": 16.63,
+   "h": 5.39
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/admin-vs-viewer-1": {
+  "src": "/help/sponsor/your-to-do-3.webp",
+  "path": "/sponsor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 86.25,
+   "y": 4.28,
+   "w": 6.02,
+   "h": 1.56
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/admin-vs-viewer-2": {
+  "src": "/help/sponsor/admin-vs-viewer-2.webp",
+  "path": "/sponsor/shop",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 42.21,
+   "w": 76.25,
+   "h": 4.99
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/approve-athlete-posts-1": {
+  "src": "/help/sponsor/approve-athlete-posts-1.webp",
+  "path": "/sponsor/campaigns",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 87.56,
+   "y": 66.54,
+   "w": 8.19,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/approve-athlete-posts-2": {
+  "src": "/help/sponsor/approve-athlete-posts-2.webp",
+  "path": "/sponsor/campaigns/qa_cmp_live",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 81.08,
+   "w": 13.02,
+   "h": 2.85
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/approve-athlete-posts-3": {
+  "src": "/help/sponsor/approve-athlete-posts-2.webp",
+  "path": "/sponsor/campaigns/qa_cmp_live",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 23.91,
+   "y": 88.05,
+   "w": 69.68,
+   "h": 4.57
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/browse-the-shop-1": {
+  "src": "/help/sponsor/browse-the-shop-1.webp",
+  "path": "/sponsor/shop",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 43.38,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/browse-the-shop-2": {
+  "src": "/help/sponsor/browse-the-shop-1.webp",
+  "path": "/sponsor/shop",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 48.9,
+   "w": 76.25,
+   "h": 9.68
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/browse-the-shop-3": {
+  "src": "/help/sponsor/browse-the-shop-1.webp",
+  "path": "/sponsor/shop",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 76.96,
+   "y": 42.21,
+   "w": 7.47,
+   "h": 5.19
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/browse-the-shop-4": {
+  "src": "/help/sponsor/browse-the-shop-1.webp",
+  "path": "/sponsor/shop",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 85.18,
+   "y": 42.21,
+   "w": 11.7,
+   "h": 5.19
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/campaign-page-1": {
+  "src": "/help/sponsor/campaign-page-1.webp",
+  "path": "/sponsor/campaigns",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.75,
+   "y": 66.54,
+   "w": 15.91,
+   "h": 4.2
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/campaign-page-2": {
+  "src": "/help/sponsor/campaign-page-2.webp",
+  "path": "/sponsor/campaigns/qa_cmp_live",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 48.55,
+   "w": 9.51,
+   "h": 2.85
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/campaign-page-3": {
+  "src": "/help/sponsor/campaign-page-3.webp",
+  "path": "/sponsor/campaigns/qa_cmp_live",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 41.12,
+   "w": 76.25,
+   "h": 17.66
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/campaign-page-4": {
+  "src": "/help/sponsor/campaign-page-4.webp",
+  "path": "/sponsor/campaigns/qa_cmp_live",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 88.16,
+   "y": 18.69,
+   "w": 8.71,
+   "h": 4.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/campaign-report-1": {
+  "src": "/help/sponsor/campaign-page-4.webp",
+  "path": "/sponsor/campaigns/qa_cmp_live",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 88.16,
+   "y": 18.69,
+   "w": 8.71,
+   "h": 4.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/campaign-report-2": {
+  "src": "/help/sponsor/campaign-report-2.webp",
+  "path": "/sponsor/campaigns/qa_cmp_live/report",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 66.6,
+   "y": 18.72,
+   "w": 20.31,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/campaign-report-3": {
+  "src": "/help/sponsor/campaign-report-2.webp",
+  "path": "/sponsor/campaigns/qa_cmp_live/report",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 73.93,
+   "y": 51,
+   "w": 11.71,
+   "h": 2.85
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/campaign-report-4": {
+  "src": "/help/sponsor/campaign-report-2.webp",
+  "path": "/sponsor/campaigns/qa_cmp_live/report",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 87.54,
+   "y": 18.94,
+   "w": 9.34,
+   "h": 3.56
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/cancel-and-refunds-1": {
+  "src": "/help/sponsor/cancel-and-refunds-1.webp",
+  "path": "/sponsor/orders/cmwj8orf9000cbkvjb98e6691",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.14,
+   "y": 79.05,
+   "w": 73.22,
+   "h": 11.39
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/cancel-and-refunds-2": {
+  "src": "/help/sponsor/cancel-and-refunds-2.webp",
+  "path": "/sponsor/orders/cmwj8orf9000cbkvjb98e6691",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 23.91,
+   "y": 48.95,
+   "w": 69.68,
+   "h": 2.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/cancel-and-refunds-3": {
+  "src": "/help/sponsor/cancel-and-refunds-2.webp",
+  "path": "/sponsor/orders/cmwj8orf9000cbkvjb98e6691",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 36.84,
+   "w": 76.25,
+   "h": 35.49
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/cancel-and-refunds-4": {
+  "src": "/help/sponsor/cancel-and-refunds-4.webp",
+  "path": "/sponsor/orders/cmv3r5uw2007dcovjllv8ppje",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 24.14,
+   "y": 78.83,
+   "w": 17.39,
+   "h": 2.13
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/checkout-1": {
+  "src": "/help/sponsor/checkout-1.webp",
+  "path": "/sponsor/cart",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 80.75,
+   "y": 29.95,
+   "w": 13.55,
+   "h": 6.4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/checkout-2": {
+  "src": "/help/sponsor/checkout-2.webp",
+  "path": "/sponsor/checkout",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 23.08,
+   "y": 40.34,
+   "w": 71.34,
+   "h": 9.69
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/checkout-3": {
+  "src": "/help/sponsor/checkout-3.webp",
+  "path": "/sponsor/checkout",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 59.38,
+   "y": 40.96,
+   "w": 35.04,
+   "h": 6
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/checkout-4": {
+  "src": "/help/sponsor/checkout-4.webp",
+  "path": "/sponsor/checkout",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 23.08,
+   "y": 75.62,
+   "w": 71.34,
+   "h": 9.44
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/checkout-5": {
+  "src": "/help/sponsor/checkout-5.webp",
+  "path": "/sponsor/checkout",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 78.55,
+   "y": 89.04,
+   "w": 15.87,
+   "h": 7
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/confirm-delivery-1": {
+  "src": "/help/sponsor/confirm-delivery-1.webp",
+  "path": "/sponsor/orders/cmwj8orf9000cbkvjb98e6691",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 32.21,
+   "w": 76.25,
+   "h": 35.49
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/confirm-delivery-2": {
+  "src": "/help/sponsor/confirm-delivery-2.webp",
+  "path": "/sponsor/orders/cmwj8orf9000cbkvjb98e6691",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 25.08,
+   "y": 48.95,
+   "w": 67.34,
+   "h": 2.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/confirm-delivery-3": {
+  "src": "/help/sponsor/confirm-delivery-3.webp",
+  "path": "/sponsor/orders/cmwj8orf9000cbkvjb98e6691",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 87.01,
+   "y": 48.76,
+   "w": 6.58,
+   "h": 2.56
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/dashboard-tour-1": {
+  "src": "/help/sponsor/dashboard-tour-1.webp",
+  "path": "/sponsor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 11.88,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/dashboard-tour-2": {
+  "src": "/help/sponsor/dashboard-tour-1.webp",
+  "path": "/sponsor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 67.26,
+   "y": 15.92,
+   "w": 20.31,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/dashboard-tour-3": {
+  "src": "/help/sponsor/dashboard-tour-1.webp",
+  "path": "/sponsor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 25.23,
+   "y": 28.45,
+   "w": 12.19,
+   "h": 2.44
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/dashboard-tour-4": {
+  "src": "/help/sponsor/dashboard-tour-1.webp",
+  "path": "/sponsor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 26.02,
+   "y": 60.89,
+   "w": 19.06,
+   "h": 2.47
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/hold-ended-1": {
+  "src": "/help/sponsor/checkout-2.webp",
+  "path": "/sponsor/checkout",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 61.93,
+   "y": 26.12,
+   "w": 32.49,
+   "h": 9.2
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/hold-ended-2": {
+  "src": "/help/sponsor/hold-ended-2.webp",
+  "path": "/sponsor/checkout",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 78.07,
+   "y": 48.63,
+   "w": 15.21,
+   "h": 2.86
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/intelligence-1": {
+  "src": "/help/sponsor/intelligence-1.webp",
+  "path": "/sponsor/intelligence",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 27.63,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/intelligence-2": {
+  "src": "/help/sponsor/intelligence-1.webp",
+  "path": "/sponsor/intelligence",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 43.44,
+   "w": 12.24,
+   "h": 2.85
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/intelligence-3": {
+  "src": "/help/sponsor/intelligence-1.webp",
+  "path": "/sponsor/intelligence",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 73.93,
+   "y": 43.44,
+   "w": 11.6,
+   "h": 2.85
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/invite-teammates-1": {
+  "src": "/help/sponsor/invite-teammates-1.webp",
+  "path": "/sponsor/team",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 38.13,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/invite-teammates-2": {
+  "src": "/help/sponsor/invite-teammates-1.webp",
+  "path": "/sponsor/team",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 47.74,
+   "w": 9.37,
+   "h": 6
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/invite-teammates-3": {
+  "src": "/help/sponsor/invite-teammates-1.webp",
+  "path": "/sponsor/team",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 63.71,
+   "w": 76.25,
+   "h": 13.94
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/invoices-1": {
+  "src": "/help/sponsor/invoices-1.webp",
+  "path": "/sponsor/invoices",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 32.88,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/invoices-2": {
+  "src": "/help/sponsor/invoices-1.webp",
+  "path": "/sponsor/invoices",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 36.41,
+   "w": 9.23,
+   "h": 2.85
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/invoices-3": {
+  "src": "/help/sponsor/invoices-1.webp",
+  "path": "/sponsor/invoices",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 90.8,
+   "y": 59.9,
+   "w": 4.95,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/manage-your-cart-1": {
+  "src": "/help/sponsor/manage-your-cart-1.webp",
+  "path": "/sponsor/cart",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 20.64,
+   "w": 76.25,
+   "h": 36.73
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/manage-your-cart-2": {
+  "src": "/help/sponsor/manage-your-cart-1.webp",
+  "path": "/sponsor/cart",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 69.24,
+   "y": 84.42,
+   "w": 8.59,
+   "h": 4.95
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/manage-your-cart-3": {
+  "src": "/help/sponsor/manage-your-cart-1.webp",
+  "path": "/sponsor/cart",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 29.7,
+   "y": 88.99,
+   "w": 15.24,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/manage-your-cart-4": {
+  "src": "/help/sponsor/manage-your-cart-1.webp",
+  "path": "/sponsor/cart",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 92.61,
+   "y": 84.65,
+   "w": 2.81,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/order-statuses-1": {
+  "src": "/help/sponsor/order-statuses-1.webp",
+  "path": "/sponsor/orders",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 32.88,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/order-statuses-2": {
+  "src": "/help/sponsor/order-statuses-1.webp",
+  "path": "/sponsor/orders",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 24.21,
+   "w": 76.25,
+   "h": 4.86
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/order-statuses-3": {
+  "src": "/help/sponsor/order-statuses-1.webp",
+  "path": "/sponsor/orders",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 77.11,
+   "y": 13.25,
+   "w": 12.51,
+   "h": 4.55
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/order-statuses-4": {
+  "src": "/help/sponsor/order-statuses-4.webp",
+  "path": "/sponsor/orders/cmv3r5u690054covjfaxjil9o",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 23.2,
+   "y": 56.21,
+   "w": 71.09,
+   "h": 12.07
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/packages-vs-shop-1": {
+  "src": "/help/sponsor/browse-the-shop-3.webp",
+  "path": "/sponsor/shop",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 25.67,
+   "w": 76.25,
+   "h": 13.54
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/packages-vs-shop-2": {
+  "src": "/help/sponsor/packages-vs-shop-2.webp",
+  "path": "/sponsor/marketplace",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 34.08,
+   "w": 15.64,
+   "h": 2.85
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/pay-for-an-order-1": {
+  "src": "/help/sponsor/pay-for-an-order-1.webp",
+  "path": "/sponsor/orders",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 35.1,
+   "y": 24.46,
+   "w": 7.43,
+   "h": 4.11
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/pay-for-an-order-2": {
+  "src": "/help/sponsor/pay-for-an-order-2.webp",
+  "path": "/sponsor/orders/cmwj8orf9000cbkvjb98e6691",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 58.34,
+   "y": 90.25,
+   "w": 34.13,
+   "h": 7
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/pay-for-an-order-3": {
+  "src": "/help/sponsor/pay-for-an-order-3.webp",
+  "path": "/sponsor/orders/cmwj8orf9000cbkvjb98e6691",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 23.38,
+   "w": 76.25,
+   "h": 48.02
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/report-a-problem-1": {
+  "src": "/help/sponsor/report-a-problem-1.webp",
+  "path": "/sponsor/orders/cmwj8orf9000cbkvjb98e6691",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 23.91,
+   "y": 48.95,
+   "w": 69.68,
+   "h": 2.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/report-a-problem-2": {
+  "src": "/help/sponsor/confirm-delivery-1.webp",
+  "path": "/sponsor/orders/cmwj8orf9000cbkvjb98e6691",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 32.21,
+   "w": 76.25,
+   "h": 35.49
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/report-a-problem-3": {
+  "src": "/help/sponsor/confirm-delivery-1.webp",
+  "path": "/sponsor/orders/cmwj8orf9000cbkvjb98e6691",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 32.21,
+   "w": 76.25,
+   "h": 35.49
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/request-a-campaign-1": {
+  "src": "/help/sponsor/packages-vs-shop-2.webp",
+  "path": "/sponsor/marketplace",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 38.13,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/request-a-campaign-2": {
+  "src": "/help/sponsor/packages-vs-shop-2.webp",
+  "path": "/sponsor/marketplace",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 73.62,
+   "y": 77.99,
+   "w": 21.93,
+   "h": 4.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/request-a-campaign-3": {
+  "src": "/help/sponsor/request-a-campaign-3.webp",
+  "path": "/sponsor/marketplace",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 66.64,
+   "y": 15.19,
+   "w": 31.8,
+   "h": 8.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/request-a-campaign-4": {
+  "src": "/help/sponsor/request-a-campaign-3.webp",
+  "path": "/sponsor/marketplace",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 66.33,
+   "y": 88.75,
+   "w": 32.42,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/track-your-request-1": {
+  "src": "/help/sponsor/track-your-request-1.webp",
+  "path": "/sponsor/requests",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 32.88,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/track-your-request-2": {
+  "src": "/help/sponsor/track-your-request-1.webp",
+  "path": "/sponsor/requests",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 91.89,
+   "y": 57.37,
+   "w": 3.86,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/track-your-request-3": {
+  "src": "/help/sponsor/track-your-request-3.webp",
+  "path": "/sponsor/requests/qa_brf_qualified",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 59.05,
+   "w": 72.97,
+   "h": 2.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/track-your-request-4": {
+  "src": "/help/sponsor/track-your-request-3.webp",
+  "path": "/sponsor/requests/qa_brf_qualified",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 47.09,
+   "w": 10.73,
+   "h": 2.85
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/view-an-item-1": {
+  "src": "/help/sponsor/view-an-item-1.webp",
+  "path": "/sponsor/shop",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.95,
+   "y": 47.64,
+   "w": 4.67,
+   "h": 4.7
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/view-an-item-2": {
+  "src": "/help/sponsor/view-an-item-2.webp",
+  "path": "/sponsor/shop/cmwiyuxqn000kwovjkfu2le3c",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 59.68,
+   "y": 16.44,
+   "w": 16.99,
+   "h": 2.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/view-an-item-3": {
+  "src": "/help/sponsor/view-an-item-2.webp",
+  "path": "/sponsor/shop/cmwiyuxqn000kwovjkfu2le3c",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 23.2,
+   "w": 76.25,
+   "h": 2.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/view-an-item-4": {
+  "src": "/help/sponsor/view-an-item-2.webp",
+  "path": "/sponsor/shop/cmwiyuxqn000kwovjkfu2le3c",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 78.23,
+   "y": 14.77,
+   "w": 10.74,
+   "h": 5.4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/view-athlete-profile-1": {
+  "src": "/help/sponsor/view-athlete-profile-1.webp",
+  "path": "/sponsor/shop/cmwiyuxqn000kwovjkfu2le3c",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 84.06,
+   "y": 83.72,
+   "w": 11.23,
+   "h": 2.34
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/view-athlete-profile-2": {
+  "src": "/help/sponsor/view-athlete-profile-2.webp",
+  "path": "/sponsor/athletes/skyler-simmons-yumr",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 23.05,
+   "y": 94.94,
+   "w": 10.03,
+   "h": 5.01
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/view-athlete-profile-3": {
+  "src": "/help/sponsor/view-athlete-profile-2.webp",
+  "path": "/sponsor/athletes/skyler-simmons-yumr",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 10,
+   "w": 11.93,
+   "h": 4.39
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/your-to-do-1": {
+  "src": "/help/sponsor/dashboard-tour-1.webp",
+  "path": "/sponsor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 77.68,
+   "y": 60.89,
+   "w": 6.6,
+   "h": 2.47
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/your-to-do-2": {
+  "src": "/help/sponsor/dashboard-tour-1.webp",
+  "path": "/sponsor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 77.53,
+   "y": 68.68,
+   "w": 12.54,
+   "h": 2.44
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "sponsor/your-to-do-3": {
+  "src": "/help/sponsor/your-to-do-3.webp",
+  "path": "/sponsor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 72.37,
+   "y": 83.83,
+   "w": 24.43,
+   "h": 16.13
+  },
+  "capturedAt": "2026-11-16"
+ }
+}

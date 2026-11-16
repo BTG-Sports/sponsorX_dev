@@ -1,11 +1,14 @@
 import Link from "next/link";
 
-import { ContactForm } from "@/components/contact-form";
-import { Badge, BlockedNotice } from "@/components/ui";
+import { ContactForm, ContactSent } from "@/components/contact-form";
+import { ContactHero, ContactPanel, ContactWays, StageNotice } from "@/components/contact-stage";
+import { StageReveal } from "@/components/packages-fx";
 import { whenLabel } from "@/lib/guardian-live";
 import { backHref, helpdeskTopic, topicLabel, type ApiHelpdesk, type HelpdeskTopicView } from "@/lib/helpdesk-live";
 import { helpdeskApi, helpdeskViewer } from "@/server/helpdesk";
 import { supportContact } from "@/server/support";
+
+import "./contact.css";
 
 /* --------------------------------------------------------------------------
    /contact — Contact BTG, 2S1-FE-10 (Claude Design Contact.dc.html, "form"
@@ -30,6 +33,13 @@ import { supportContact } from "@/server/support";
    linked to their account. ?back=/athlete (a portal's page) shows the way
    back. If the cases can't be read the form still works as before: a topic
    and a message.
+
+   POL-FE-100 — THE REDESIGN. The page now stands on the public pages'
+   stage (as /about, /packages, /how-it-works): a hero with the envelope,
+   three ways to reach BTG, then one glass panel with the form as three
+   numbered steps beside what happens after Send (contact-stage.tsx). The
+   form is keyed by the topic, so a link that changes ?topic= (the
+   guardianship card) starts it on that topic.
    -------------------------------------------------------------------------- */
 
 export const metadata = { title: "Contact BTG · SponsorX" };
@@ -57,41 +67,26 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
   const back = backHref(sp.back);
 
   return (
-    <main className="mx-auto w-full max-w-2xl space-y-4 px-4 py-8 sm:px-6 lg:py-12">
-      {preview && <BlockedNotice>Preview of the confirmation — nothing was sent.</BlockedNotice>}
-      {back && <Link href={back} className="text-xs text-muted hover:text-text">← Back to your portal</Link>}
-
-      <div>
-        <h1 className="text-2xl font-bold sm:text-[28px]">Contact BTG</h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted">Pick what it&rsquo;s about and tick what&rsquo;s wrong. A person at BTG reads every message and replies by email.</p>
-      </div>
-
-      <section aria-label="Email address" className="space-y-1.5 rounded-xl border border-line bg-surface p-4 sm:p-5">
-        <p className="text-xs text-muted">Or email us directly</p>
-        <p className="flex flex-wrap items-center gap-2">
-          <span className="select-all text-base font-semibold">{support.email}</span>
-          {!support.ready && <Badge tone="warn">Being set up — not receiving mail yet</Badge>}
-        </p>
-      </section>
-
-      {preview ? (
-        <section role="status" aria-label="Message sent" className="space-y-2 rounded-xl border border-success/40 bg-success/6 p-5">
-          <p className="text-base font-bold text-success">Sent ✓</p>
-          <p className="text-sm leading-relaxed">We&rsquo;ve got your message and will reply by email.</p>
-          <p className="text-xs leading-relaxed text-muted">
-            Topic: {topicLabel([], topic)} · sent {whenLabel("2026-10-01T10:30:00.000Z")} · a copy went to the email you gave (sample)
-          </p>
-        </section>
-      ) : (
-        <>
-          {desk?.expired && (
-            <BlockedNotice>
-              Your sign-in has expired. <Link href="/login" className="underline">Sign in again</Link> to send a message from your account.
-            </BlockedNotice>
-          )}
-          <ContactForm topic={topic} topics={desk?.topics ?? []} signedIn={signedIn} name={viewer?.name ?? ""} email={viewer?.email ?? ""} />
-        </>
-      )}
-    </main>
+    <StageReveal className="sx-stage relative -mt-[72px] w-full overflow-x-clip text-on-media">
+      <ContactHero back={back} email={support.email} ready={support.ready} />
+      <ContactWays email={support.email} ready={support.ready} />
+      <ContactPanel signedIn={signedIn}>
+        {preview ? (
+          <>
+            <StageNotice>Preview of the confirmation — nothing was sent.</StageNotice>
+            <ContactSent topic={topicLabel([], topic)} when={`${whenLabel("2026-10-01T10:30:00.000Z")} (sample)`} copyTo="the email you gave (sample)" againHref="/contact#write" />
+          </>
+        ) : (
+          <>
+            {desk?.expired && (
+              <StageNotice>
+                Your sign-in has expired. <Link href="/login" className="font-semibold text-[#bfe6ff] underline underline-offset-2">Sign in again</Link> to send a message from your account.
+              </StageNotice>
+            )}
+            <ContactForm key={topic} topic={topic} topics={desk?.topics ?? []} signedIn={signedIn} name={viewer?.name ?? ""} email={viewer?.email ?? ""} />
+          </>
+        )}
+      </ContactPanel>
+    </StageReveal>
   );
 }

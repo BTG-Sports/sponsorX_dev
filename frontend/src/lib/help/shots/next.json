@@ -1,0 +1,387 @@
+{
+ "next/find-your-assignments-1": {
+  "src": "/help/next/find-your-assignments-1.webp",
+  "path": "/next/assignments",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 17.38,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/find-your-assignments-2": {
+  "src": "/help/next/find-your-assignments-1.webp",
+  "path": "/next/assignments",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "next/find-your-assignments-3": {
+  "src": "/help/next/find-your-assignments-1.webp",
+  "path": "/next/assignments",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "next/fix-changes-requested-1": {
+  "src": "/help/next/find-your-assignments-1.webp",
+  "path": "/next/assignments",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "next/fix-changes-requested-2": {
+  "src": "/help/next/submit-a-draft-2.webp",
+  "path": "/next/assignments",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "next/fix-changes-requested-3": {
+  "src": "/help/next/submit-a-draft-2.webp",
+  "path": "/next/assignments",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "next/fix-changes-requested-4": {
+  "src": "/help/next/submit-a-draft-2.webp",
+  "path": "/next/assignments",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "next/how-a-sale-is-credited-3": {
+  "src": "/help/next/how-a-sale-is-credited-3.webp",
+  "path": "/next/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 59.69,
+   "y": 37.06,
+   "w": 25.22,
+   "h": 2.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/how-points-work-1": {
+  "src": "/help/next/how-points-work-1.webp",
+  "path": "/next/points",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 33.88,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/how-points-work-2": {
+  "src": "/help/next/how-points-work-1.webp",
+  "path": "/next/points",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 35.85,
+   "y": 24.59,
+   "w": 24.34,
+   "h": 2.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/how-points-work-3": {
+  "src": "/help/next/how-points-work-1.webp",
+  "path": "/next/points",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 19.38,
+   "y": 35.5,
+   "w": 25.54,
+   "h": 2.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/invite-a-classmate-1": {
+  "src": "/help/next/your-home-page-1.webp",
+  "path": "/next",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 51.96,
+   "w": 36.63,
+   "h": 2.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/invite-a-classmate-2": {
+  "src": "/help/next/your-home-page-1.webp",
+  "path": "/next",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 80.28,
+   "y": 52.21,
+   "w": 16.2,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/invite-a-classmate-3": {
+  "src": "/help/next/invite-a-classmate-3.webp",
+  "path": "/next/apply",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 11.88,
+   "y": 25.06,
+   "w": 22.5,
+   "h": 11.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/log-a-business-1": {
+  "src": "/help/next/how-a-sale-is-credited-3.webp",
+  "path": "/next/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 22.88,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/log-a-business-2": {
+  "src": "/help/next/how-a-sale-is-credited-3.webp",
+  "path": "/next/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 88.98,
+   "y": 13.25,
+   "w": 9.14,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/log-a-business-3": {
+  "src": "/help/next/log-a-business-3.webp",
+  "path": "/next/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 77.83,
+   "y": 23.38,
+   "w": 10.5,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/log-a-business-4": {
+  "src": "/help/next/how-a-sale-is-credited-3.webp",
+  "path": "/next/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 19.38,
+   "y": 37.06,
+   "w": 28.32,
+   "h": 2.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/read-your-sales-1": {
+  "src": "/help/next/how-a-sale-is-credited-3.webp",
+  "path": "/next/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 22.88,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/read-your-sales-2": {
+  "src": "/help/next/how-a-sale-is-credited-3.webp",
+  "path": "/next/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 74.14,
+   "y": 22.88,
+   "w": 22.34,
+   "h": 2.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/read-your-sales-3": {
+  "src": "/help/next/how-a-sale-is-credited-3.webp",
+  "path": "/next/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 19.38,
+   "y": 43.31,
+   "w": 10.63,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/share-your-code-1": {
+  "src": "/help/next/share-your-code-1.webp",
+  "path": "/next/code",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 28.38,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/share-your-code-2": {
+  "src": "/help/next/share-your-code-1.webp",
+  "path": "/next/code",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 44.77,
+   "y": 33.75,
+   "w": 6.56,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/share-your-code-3": {
+  "src": "/help/next/share-your-code-1.webp",
+  "path": "/next/code",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 51.95,
+   "y": 33.75,
+   "w": 9.98,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/submit-a-draft-1": {
+  "src": "/help/next/find-your-assignments-1.webp",
+  "path": "/next/assignments",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "next/submit-a-draft-2": {
+  "src": "/help/next/submit-a-draft-2.webp",
+  "path": "/next/assignments",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "next/submit-a-draft-3": {
+  "src": "/help/next/submit-a-draft-2.webp",
+  "path": "/next/assignments",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "next/track-a-piece-1": {
+  "src": "/help/next/find-your-assignments-1.webp",
+  "path": "/next/assignments",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "next/track-a-piece-2": {
+  "src": "/help/next/track-a-piece-2.webp",
+  "path": "/next/assignments",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "next/track-a-piece-3": {
+  "src": "/help/next/track-a-piece-2.webp",
+  "path": "/next/assignments",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "next/why-is-my-page-empty-1": {
+  "src": "/help/next/your-home-page-1.webp",
+  "path": "/next",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "next/why-is-my-page-empty-2": {
+  "src": "/help/next/your-home-page-1.webp",
+  "path": "/next",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "next/your-home-page-1": {
+  "src": "/help/next/your-home-page-1.webp",
+  "path": "/next",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 11.88,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/your-home-page-2": {
+  "src": "/help/next/your-home-page-1.webp",
+  "path": "/next",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 19.38,
+   "y": 20.58,
+   "w": 25.62,
+   "h": 12.44
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "next/your-home-page-3": {
+  "src": "/help/next/your-home-page-1.webp",
+  "path": "/next",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 38.68,
+   "w": 13.81,
+   "h": 2.5
+  },
+  "capturedAt": "2026-11-16"
+ }
+}
