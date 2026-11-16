@@ -128,9 +128,12 @@ describe("the page's links", () => {
     expect(backHref("/admin\\x")).toBeNull();
   });
 
-  it("every portal's header has the ? that opens the help desk with the way back", () => {
+  it("every portal's header has the ? that opens its help center, whose pages reach the help desk with the way back (POL-FE-99)", () => {
     const shell = readFileSync(new URL("../src/components/portal-shell.tsx", import.meta.url), "utf8");
-    expect(shell).toMatch(/href=\{`\/contact\?back=\$\{encodeURIComponent\(rootHref\)\}`\}/);
-    expect(shell).toMatch(/aria-label="Help: contact BTG"/);
+    expect(shell).toContain("href={`${rootHref}/help`}");
+    const contact = readFileSync(new URL("../src/components/help/help-contact.tsx", import.meta.url), "utf8");
+    expect(contact).toContain("href={`/contact?back=${encodeURIComponent(back)}`}");
+    expect(backHref("/sponsor/help")).toBe("/sponsor/help");
+    expect(backHref("/athlete/help/cash-out")).toBe("/athlete/help/cash-out");
   });
 });

@@ -1,0 +1,945 @@
+{
+ "admin/answer-a-support-message-1": {
+  "src": "/help/admin/answer-a-support-message-1.webp",
+  "path": "/admin/support",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 23.25,
+   "w": 76.25,
+   "h": 4.05
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/answer-a-support-message-2": {
+  "src": "/help/admin/answer-a-support-message-1.webp",
+  "path": "/admin/support",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 30.3,
+   "w": 76.25,
+   "h": 7
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/answer-a-support-message-3": {
+  "src": "/help/admin/answer-a-support-message-3.webp",
+  "path": "/admin/support/cmvtevnnb0000zovjv1ikit1r",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 71.02,
+   "y": 32.44,
+   "w": 17.77,
+   "h": 1.96
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/answer-a-support-message-4": {
+  "src": "/help/admin/answer-a-support-message-3.webp",
+  "path": "/admin/support/cmvtevnnb0000zovjv1ikit1r",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 79.89,
+   "w": 7.24,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/approve-a-sponsor-request-1": {
+  "src": "/help/admin/approve-a-sponsor-request-1.webp",
+  "path": "/admin/sponsor-requests",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 23.25,
+   "w": 76.25,
+   "h": 4.05
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/approve-a-sponsor-request-2": {
+  "src": "/help/admin/approve-a-sponsor-request-2.webp",
+  "path": "/admin/sponsor-requests/cmum0j9h90000fgvjyn4sr9aj",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 71.02,
+   "y": 39.44,
+   "w": 24.22,
+   "h": 11.13
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/approve-a-sponsor-request-3": {
+  "src": "/help/admin/approve-a-sponsor-request-3.webp",
+  "path": "/admin/sponsor-requests/cmum0j9h90000fgvjyn4sr9aj",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 67.13,
+   "w": 43.59,
+   "h": 32.88
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/approve-a-sponsor-request-4": {
+  "src": "/help/admin/approve-a-sponsor-request-3.webp",
+  "path": "/admin/sponsor-requests/cmum0j9h90000fgvjyn4sr9aj",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 71.02,
+   "y": 32.31,
+   "w": 24.22,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/check-new-signups-1": {
+  "src": "/help/admin/check-new-signups-1.webp",
+  "path": "/admin/new-signups",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 27.63,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/check-new-signups-2": {
+  "src": "/help/admin/check-new-signups-2.webp",
+  "path": "/admin/new-signups",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 61.59,
+   "y": 38.69,
+   "w": 11.06,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/check-new-signups-3": {
+  "src": "/help/admin/check-new-signups-3.webp",
+  "path": "/admin/new-signups/athletes/cmwixw8vi000i38vjtc13ergm",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 68.38,
+   "w": 47.19,
+   "h": 12.81
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/check-new-signups-4": {
+  "src": "/help/admin/check-new-signups-4.webp",
+  "path": "/admin/new-signups/athletes/cmwixw8vi000i38vjtc13ergm",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 69.38,
+   "y": 23.25,
+   "w": 27.5,
+   "h": 23.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/check-new-signups-5": {
+  "src": "/help/admin/check-new-signups-5.webp",
+  "path": "/admin/new-signups/rules",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.19,
+   "y": 49.78,
+   "w": 3.75,
+   "h": 3.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/confirm-a-guardian-handoff-1": {
+  "src": "/help/admin/confirm-a-guardian-handoff-1.webp",
+  "path": "/admin/guardian-handoffs",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 25.62,
+   "w": 76.25,
+   "h": 8.13
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/confirm-a-guardian-handoff-2": {
+  "src": "/help/admin/confirm-a-guardian-handoff-2.webp",
+  "path": "/admin/guardian-handoffs",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 36.25,
+   "w": 76.25,
+   "h": 4.05
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/create-a-fan-reward-1": {
+  "src": "/help/admin/create-a-fan-reward-1.webp",
+  "path": "/admin/rewards",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 59.62,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/create-a-fan-reward-2": {
+  "src": "/help/admin/create-a-fan-reward-1.webp",
+  "path": "/admin/rewards",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 87.18,
+   "y": 40.28,
+   "w": 9.7,
+   "h": 4.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/create-a-fan-reward-3": {
+  "src": "/help/admin/create-a-fan-reward-1.webp",
+  "path": "/admin/rewards",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "admin/create-a-fan-reward-4": {
+  "src": "/help/admin/create-a-fan-reward-4.webp",
+  "path": "/admin/rewards",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 66.64,
+   "y": 14.5,
+   "w": 31.8,
+   "h": 15.63
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/decide-a-deal-dispute-1": {
+  "src": "/help/admin/decide-a-deal-dispute-1.webp",
+  "path": "/admin/deal-disputes",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 49.13,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/decide-a-deal-dispute-2": {
+  "src": "/help/admin/decide-a-deal-dispute-2.webp",
+  "path": "/admin/deal-disputes/cmvked06u00440wvjquk0q75m",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 47.08,
+   "w": 46.88,
+   "h": 14.45
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/decide-a-deal-dispute-3": {
+  "src": "/help/admin/decide-a-deal-dispute-2.webp",
+  "path": "/admin/deal-disputes/cmvked06u00440wvjquk0q75m",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "admin/decide-a-delivery-issue-1": {
+  "src": "/help/admin/decide-a-delivery-issue-1.webp",
+  "path": "/admin/delivery-issues",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 25.62,
+   "w": 76.25,
+   "h": 4.05
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/decide-a-delivery-issue-2": {
+  "src": "/help/admin/decide-a-delivery-issue-2.webp",
+  "path": "/admin/delivery-issues/cmv3r5tul004ecovjfx7hr9qw",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 32.31,
+   "w": 47.19,
+   "h": 31.56
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/decide-a-delivery-issue-3": {
+  "src": "/help/admin/decide-a-delivery-issue-2.webp",
+  "path": "/admin/delivery-issues/cmv3r5tul004ecovjfx7hr9qw",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 69.38,
+   "y": 32.31,
+   "w": 27.5,
+   "h": 31.56
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/decide-a-delivery-issue-4": {
+  "src": "/help/admin/decide-a-delivery-issue-4.webp",
+  "path": "/admin/delivery-issues",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "admin/handle-a-held-brief-1": {
+  "src": "/help/admin/handle-a-held-brief-1.webp",
+  "path": "/admin/briefs",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 23.25,
+   "w": 76.25,
+   "h": 4.05
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/handle-a-held-brief-2": {
+  "src": "/help/admin/handle-a-held-brief-2.webp",
+  "path": "/admin/briefs",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 68.83,
+   "y": 51.42,
+   "w": 26.41,
+   "h": 27
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/handle-a-held-brief-3": {
+  "src": "/help/admin/handle-a-held-brief-2.webp",
+  "path": "/admin/briefs",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 68.83,
+   "y": 90.17,
+   "w": 5.94,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/handle-a-held-brief-4": {
+  "src": "/help/admin/handle-a-held-brief-2.webp",
+  "path": "/admin/briefs",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 68.83,
+   "y": 95.3,
+   "w": 5.2,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/handle-a-held-brief-5": {
+  "src": "/help/admin/handle-a-held-brief-5.webp",
+  "path": "/admin/briefs",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 68.83,
+   "y": 88.05,
+   "w": 15.03,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/handle-closed-accounts-1": {
+  "src": "/help/admin/handle-closed-accounts-1.webp",
+  "path": "/admin/closed-accounts",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 45.13,
+   "w": 76.25,
+   "h": 8.84
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/handle-marketplace-exceptions-1": {
+  "src": "/help/admin/handle-marketplace-exceptions-1.webp",
+  "path": "/admin/marketplace",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 22.75,
+   "w": 76.25,
+   "h": 11.94
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/handle-marketplace-exceptions-2": {
+  "src": "/help/admin/handle-marketplace-exceptions-2.webp",
+  "path": "/admin/marketplace",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 51.63,
+   "w": 76.25,
+   "h": 24.7
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/handle-marketplace-exceptions-3": {
+  "src": "/help/admin/handle-marketplace-exceptions-3.webp",
+  "path": "/admin/marketplace/orders/cmwj8orf9000cbkvjb98e6691",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "admin/handle-marketplace-exceptions-4": {
+  "src": "/help/admin/handle-marketplace-exceptions-4.webp",
+  "path": "/admin/marketplace/orders",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 31.75,
+   "w": 76.25,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/manage-restricted-words-1": {
+  "src": "/help/admin/manage-restricted-words-1.webp",
+  "path": "/admin/restricted-words",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.7,
+   "y": 30.13,
+   "w": 47.03,
+   "h": 33.75
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/manage-restricted-words-2": {
+  "src": "/help/admin/manage-restricted-words-1.webp",
+  "path": "/admin/restricted-words",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 69.38,
+   "y": 30,
+   "w": 27.5,
+   "h": 33.38
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/manage-restricted-words-3": {
+  "src": "/help/admin/manage-restricted-words-1.webp",
+  "path": "/admin/restricted-words",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 88.42,
+   "y": 13.25,
+   "w": 8.46,
+   "h": 6
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/manage-restricted-words-4": {
+  "src": "/help/admin/manage-restricted-words-4.webp",
+  "path": "/admin/restricted-words",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 81.06,
+   "w": 47.19,
+   "h": 11.88
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/match-athletes-and-send-invitations-1": {
+  "src": "/help/admin/match-athletes-and-send-invitations-1.webp",
+  "path": "/admin/campaigns/match",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 66.55,
+   "y": 78.97,
+   "w": 13.09,
+   "h": 1.88
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/match-athletes-and-send-invitations-2": {
+  "src": "/help/admin/match-athletes-and-send-invitations-2.webp",
+  "path": "/admin/campaigns/match",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 32.99,
+   "y": 49.09,
+   "w": 26.72,
+   "h": 1.88
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/match-athletes-and-send-invitations-3": {
+  "src": "/help/admin/match-athletes-and-send-invitations-3.webp",
+  "path": "/admin/campaigns/match",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 64.33,
+   "y": 48.06,
+   "w": 3.48,
+   "h": 3.81
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/match-athletes-and-send-invitations-4": {
+  "src": "/help/admin/match-athletes-and-send-invitations-4.webp",
+  "path": "/admin/campaigns/match",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 76.02,
+   "y": 93.44,
+   "w": 17.97,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/read-network-figures-1": {
+  "src": "/help/admin/read-network-figures-1.webp",
+  "path": "/admin/network",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 54.37,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/read-network-figures-2": {
+  "src": "/help/admin/read-network-figures-1.webp",
+  "path": "/admin/network",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 25.87,
+   "w": 15.08,
+   "h": 1.88
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/read-network-figures-3": {
+  "src": "/help/admin/read-network-figures-1.webp",
+  "path": "/admin/network",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 18.25,
+   "w": 76.25,
+   "h": 2
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/resolve-a-card-dispute-or-payment-event-1": {
+  "src": "/help/admin/resolve-a-card-dispute-or-payment-event-1.webp",
+  "path": "/admin/payments/disputes",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 43.38,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/resolve-a-card-dispute-or-payment-event-2": {
+  "src": "/help/admin/resolve-a-card-dispute-or-payment-event-2.webp",
+  "path": "/admin/payments/disputes/cmuxutez5010iy0vjoh73bgsv",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "admin/resolve-a-card-dispute-or-payment-event-3": {
+  "src": "/help/admin/resolve-a-card-dispute-or-payment-event-3.webp",
+  "path": "/admin/payments/events",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 89.22,
+   "y": 59.23,
+   "w": 6.53,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/review-an-athlete-application-1": {
+  "src": "/help/admin/review-an-athlete-application-1.webp",
+  "path": "/admin/applications",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 38.69,
+   "w": 76.25,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/review-an-athlete-application-2": {
+  "src": "/help/admin/review-an-athlete-application-2.webp",
+  "path": "/admin/applications",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "admin/review-an-athlete-application-3": {
+  "src": "/help/admin/review-an-athlete-application-2.webp",
+  "path": "/admin/applications",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 65,
+   "y": 26.89,
+   "w": 35,
+   "h": 17.31
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/review-an-athlete-application-4": {
+  "src": "/help/admin/review-an-athlete-application-2.webp",
+  "path": "/admin/applications",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 66.56,
+   "y": 77.28,
+   "w": 31.87,
+   "h": 9.56
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/review-an-athlete-application-5": {
+  "src": "/help/admin/review-an-athlete-application-5.webp",
+  "path": "/admin/applications",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 66.56,
+   "y": 89.47,
+   "w": 31.87,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/review-content-1": {
+  "src": "/help/admin/review-content-1.webp",
+  "path": "/admin/approvals",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 66.28,
+   "w": 42.79,
+   "h": 4.05
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/review-content-2": {
+  "src": "/help/admin/review-content-2.webp",
+  "path": "/admin/approvals",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 66.64,
+   "y": 42.74,
+   "w": 6.86,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/review-content-3": {
+  "src": "/help/admin/review-content-3.webp",
+  "path": "/admin/approvals",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 66.64,
+   "y": 89.84,
+   "w": 14.09,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/review-content-4": {
+  "src": "/help/admin/review-content-3.webp",
+  "path": "/admin/approvals",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 88.33,
+   "y": 89.72,
+   "w": 10.11,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/run-a-campaign-1": {
+  "src": "/help/admin/run-a-campaign-1.webp",
+  "path": "/admin/campaigns",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 35,
+   "w": 76.25,
+   "h": 4.05
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/run-a-campaign-2": {
+  "src": "/help/admin/run-a-campaign-2.webp",
+  "path": "/admin/campaigns/qa_pol51_launch",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 63.72,
+   "w": 72.97,
+   "h": 14.45
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/run-a-campaign-3": {
+  "src": "/help/admin/run-a-campaign-3.webp",
+  "path": "/admin/campaigns/qa_nx_c_spring",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "admin/run-a-campaign-4": {
+  "src": "/help/admin/run-a-campaign-3.webp",
+  "path": "/admin/campaigns/qa_nx_c_spring",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 78.97,
+   "w": 72.97,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/run-a-campaign-5": {
+  "src": "/help/admin/run-a-campaign-5.webp",
+  "path": "/admin/campaigns/qa_cmp_live",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "admin/send-an-offer-1": {
+  "src": "/help/admin/send-an-offer-1.webp",
+  "path": "/admin/offers",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 23.19,
+   "w": 76.25,
+   "h": 4.05
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/send-an-offer-2": {
+  "src": "/help/admin/send-an-offer-2.webp",
+  "path": "/admin/offers/new",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 28.13,
+   "w": 21.17,
+   "h": 5.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/send-an-offer-3": {
+  "src": "/help/admin/send-an-offer-2.webp",
+  "path": "/admin/offers/new",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 70.08,
+   "y": 47.69,
+   "w": 25.47,
+   "h": 6
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/send-an-offer-4": {
+  "src": "/help/admin/send-an-offer-4.webp",
+  "path": "/admin/offers/cmv3r2lnl0043covjtp0apv9i",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "admin/set-commission-rules-1": {
+  "src": "/help/admin/set-commission-rules-1.webp",
+  "path": "/admin/commission",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 38.13,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/set-commission-rules-2": {
+  "src": "/help/admin/set-commission-rules-1.webp",
+  "path": "/admin/commission",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 23.25,
+   "w": 76.25,
+   "h": 14.63
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/set-commission-rules-3": {
+  "src": "/help/admin/set-commission-rules-1.webp",
+  "path": "/admin/commission",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 48.46,
+   "w": 8.22,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/set-commission-rules-4": {
+  "src": "/help/admin/set-commission-rules-1.webp",
+  "path": "/admin/commission",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 84.72,
+   "y": 75.46,
+   "w": 10.83,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/verify-a-property-1": {
+  "src": "/help/admin/verify-a-property-1.webp",
+  "path": "/admin/onboarding",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 32.88,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/verify-a-property-2": {
+  "src": "/help/admin/verify-a-property-1.webp",
+  "path": "/admin/onboarding",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 23.25,
+   "w": 76.25,
+   "h": 8.84
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/verify-a-property-3": {
+  "src": "/help/admin/verify-a-property-3.webp",
+  "path": "/admin/onboarding/seed_onb_baysox",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 26.25,
+   "w": 46.88,
+   "h": 41.19
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "admin/verify-a-property-4": {
+  "src": "/help/admin/verify-a-property-3.webp",
+  "path": "/admin/onboarding/seed_onb_baysox",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 71.02,
+   "y": 36.59,
+   "w": 24.22,
+   "h": 3.75
+  },
+  "capturedAt": "2026-11-16"
+ }
+}

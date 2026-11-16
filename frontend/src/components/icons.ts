@@ -10,6 +10,8 @@
 export const ICONS = {
   grid: "M3 3h7v7H3V3Zm11 0h7v7h-7V3ZM3 14h7v7H3v-7Zm11 0h7v7h-7v-7Z",
   store: "M3 9h18l-1.5-5H4.5L3 9Zm1 0v11h16V9M9 20v-6h6v6",
+  /* POL-FE-99 — the help center's "Cart, checkout & paying" topic. */
+  cart: "M2 3h3l2.6 12.2h11.2L21 7H6.1M9.5 20.5a1 1 0 1 0 0-.01M17.5 20.5a1 1 0 1 0 0-.01",
   megaphone: "M3 11v2l14 5V6L3 11Zm0 0H2v2h1m14-1h4M9 19v2",
   chart: "M4 20V10m5 10V4m5 16v-7m5 7V8",
   gift: "M3 11h18v9H3v-9Zm0-4h18v4H3V7Zm9 0v13M8.5 7a2.5 2.5 0 1 1 3.5-3.2A2.5 2.5 0 1 1 15.5 7",

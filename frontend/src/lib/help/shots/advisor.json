@@ -1,0 +1,287 @@
+{
+ "advisor/approve-a-piece-1": {
+  "src": "/help/advisor/approve-a-piece-1.webp",
+  "path": "/advisor/review",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 17.38,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/approve-a-piece-2": {
+  "src": "/help/advisor/approve-a-piece-1.webp",
+  "path": "/advisor/review",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/approve-a-piece-3": {
+  "src": "/help/advisor/approve-a-piece-3.webp",
+  "path": "/advisor/review",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/approve-a-piece-4": {
+  "src": "/help/advisor/approve-a-piece-3.webp",
+  "path": "/advisor/review",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/assign-a-piece-1": {
+  "src": "/help/advisor/assign-a-piece-1.webp",
+  "path": "/advisor/review",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 59.38,
+   "w": 75.47,
+   "h": 40.56
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/assign-a-piece-2": {
+  "src": "/help/advisor/assign-a-piece-1.webp",
+  "path": "/advisor/review",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 85.63,
+   "w": 75.47,
+   "h": 8.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/assign-a-piece-3": {
+  "src": "/help/advisor/assign-a-piece-1.webp",
+  "path": "/advisor/review",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 95.94,
+   "w": 5.33,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/manage-the-masthead-1": {
+  "src": "/help/advisor/manage-the-masthead-1.webp",
+  "path": "/advisor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 31.49,
+   "y": 55.69,
+   "w": 7.44,
+   "h": 3.75
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/manage-the-masthead-2": {
+  "src": "/help/advisor/manage-the-masthead-1.webp",
+  "path": "/advisor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 84.24,
+   "y": 78.63,
+   "w": 12.24,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/manage-the-masthead-3": {
+  "src": "/help/advisor/manage-the-masthead-3.webp",
+  "path": "/advisor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 90.01,
+   "y": 78.38,
+   "w": 6.48,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/review-a-student-application-1": {
+  "src": "/help/advisor/review-a-student-application-1.webp",
+  "path": "/advisor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 11.88,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/review-a-student-application-2": {
+  "src": "/help/advisor/review-a-student-application-2.webp",
+  "path": "/advisor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 24.21,
+   "y": 48.06,
+   "w": 6.66,
+   "h": 3.75
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/review-a-student-application-3": {
+  "src": "/help/advisor/review-a-student-application-2.webp",
+  "path": "/advisor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 70.69,
+   "w": 50.7,
+   "h": 2
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/review-a-student-application-4": {
+  "src": "/help/advisor/review-a-student-application-2.webp",
+  "path": "/advisor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 89.6,
+   "y": 67.44,
+   "w": 6.89,
+   "h": 2.56
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/review-a-student-application-5": {
+  "src": "/help/advisor/review-a-student-application-2.webp",
+  "path": "/advisor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 72.65,
+   "y": 71,
+   "w": 6.19,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/send-a-piece-back-1": {
+  "src": "/help/advisor/approve-a-piece-1.webp",
+  "path": "/advisor/review",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 19.38,
+   "y": 20.25,
+   "w": 78.75,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/send-a-piece-back-2": {
+  "src": "/help/advisor/approve-a-piece-3.webp",
+  "path": "/advisor/review",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/send-a-piece-back-3": {
+  "src": "/help/advisor/approve-a-piece-3.webp",
+  "path": "/advisor/review",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/set-up-automatic-approval-1": {
+  "src": "/help/advisor/review-a-student-application-1.webp",
+  "path": "/advisor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 52.81,
+   "w": 75.47,
+   "h": 2.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/set-up-automatic-approval-2": {
+  "src": "/help/advisor/review-a-student-application-1.webp",
+  "path": "/advisor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 64.56,
+   "w": 70.65,
+   "h": 3.75
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/set-up-automatic-approval-3": {
+  "src": "/help/advisor/review-a-student-application-1.webp",
+  "path": "/advisor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 85.19,
+   "w": 75.47,
+   "h": 14.75
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/set-up-automatic-approval-4": {
+  "src": "/help/advisor/set-up-automatic-approval-4.webp",
+  "path": "/advisor",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 47.69,
+   "w": 9.82,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/verify-a-profile-claim-1": {
+  "src": "/help/advisor/verify-a-profile-claim-1.webp",
+  "path": "/advisor",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/verify-a-profile-claim-2": {
+  "src": "/help/advisor/verify-a-profile-claim-1.webp",
+  "path": "/advisor",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "advisor/verify-a-profile-claim-3": {
+  "src": "/help/advisor/verify-a-profile-claim-1.webp",
+  "path": "/advisor",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ }
+}

@@ -424,3 +424,42 @@
 - **Asked:** "remove all of dashboard navigation 'Team ← route map'", then "in place, add the logout button there".
 - **Done:** the development-only `← route map` link is gone from the three portal navs: the desktop sidebar foot (`portal-shell.tsx`), the legacy phone drawer, and the LED stage menu (`mobile-nav.tsx`). In its place is a **Log out** button, `LogOutButton` in `user-menu.tsx`. It signs out the same way the top-bar menu does (`clearSessionCookiesAction`, then Clerk `signOut` to `/`), with a ref guard against a double click. `.sx-sheet-map` became `.sx-sheet-logout` in `mobile-nav.css`. `/map` itself and the public header's Route Map link are unchanged.
 - **Checked:** tsc clean on the touched files; `/login` 200 and the portals redirect on the live dev server.
+
+## Help & FAQ center behind every portal's "?" (POL-FE-99, `feat/POL-FE-99-help-center`, HeckerCreatives)
+- **Asked:** the header "?" opened only the contact form. The owner wanted a searchable, navigable Help and FAQ on every user dashboard, covering every flow users need (buying, ordering, paying, cashing out …), with screenshots on every question, and an award-level animated look. The owner chose all seven portals, real auto-captured screenshots and a full page with quick search. Spec: `docs/superpowers/specs/2026-11-16-help-center-design.md`; plan: `docs/superpowers/plans/2026-11-16-help-center.md`.
+- **Built:**
+  - `/<portal>/help` and `/<portal>/help/<slug>` for sponsor, athlete, property, next, advisor, finance and admin, as thin pages over `components/help/*`, inside each portal's own layout and stage.
+  - Content is typed data in `lib/help/<portal>.ts`: 122 questions and 466 steps, researched from the code by one agent per portal with the on-screen labels.
+  - Search is `lib/help/search.ts`, which is pure and runs on every keystroke.
+  - `portal-shell.tsx`'s "?" → `${rootHref}/help` ("Help and FAQ"). The help desk form stays one click on, with `?back=`.
+  - A `cart` glyph was added to `components/icons.ts`.
+- **Screenshots:** `npm run help:shots [-- portal…]` (`frontend/scripts/help-shots/capture.mjs`).
+  - It signs in to each QA account with a Clerk sign-in token and walks every step. A step's `capture` can name the account, actions to run first (open a dialog or a tab), a record to follow and a query.
+  - It writes `public/help/<portal>/*.webp` (1280×800, WebP) and `lib/help/shots/<portal>.json`, holding the ring's box as percentages. The page draws the ring, so a re-run follows a redesign.
+  - Screens that are the same share one picture. Node 22 needs `--experimental-strip-types` to import the .ts content, and the npm script passes it.
+- **Traps:**
+  - The dev Clerk instance was pruned to 13 users. The qa7/walk/e2e identities return 404 on sign_in_tokens, `qa_u_sponsor` is a Sponsor Analyst now, and no guardian or team-manager identity exists.
+  - A record route (`…/[id]`) must not match `…/new`.
+  - A ring box must be clamped to the picture.
+  - Grid items need `minmax(0, 1fr)`, or a nowrap address bar widens the phone page.
+- **Found, not fixed:**
+  - Sponsor Billing "Pay →" only opens an email.
+  - "Request a proposal" in the portal sends a signed-in sponsor to the public `/brief` form.
+  - The student credit line said "when a sponsor pays".
+  - The rate-card wording contradicts itself between Invitations and the profile.
+  - The Team page says "isn't built here yet" next to an "Add back" button.
+
+## Contact BTG as the public stage, with the problem picked from a dropdown (POL-FE-100, on `feat/POL-FE-91-sponsor-shop-redesign`, HeckerCreatives)
+- **Asked:** "big visual redesign for /contact, based on the references that I gave you … add with animations + wow factor + awwwaaaard, make sure its easy to understand because what you did before is so confusing for a human but make sure not to remove the current theme". The references were three contact pages: a split form and illustration, a form beside "chat / call / visit", and three cards over a form panel.
+- **Built:** /contact now stands on the public pages' stage, like /about and /packages:
+  - **Hero:** "Talk to a real person.", **Write to us** and **Copy our email**, beside an animated envelope (the letter rises, the plane orbits, the bubble types) with the mailbox's real state ("Inbox open" / "Inbox being set up", from `GET /public/support`). `?back=` is a "Back to your portal" pill.
+  - **Three cards:** write here, email us (Copy), guardians and minors (`?topic=guardianship#write`; the form is keyed by topic so it starts there).
+  - **The form,** in one glass panel beside "After you send": three numbered steps on a spine that fills; topic tiles with what each covers; "Before you send" ticks instead of a greyed Send; files by click or drop; a ref stops a double send; Sent draws a tick, bursts sparks and offers Write another message. Arriving at `#write` glows the panel twice (`:target`).
+  - **Then (owner, mid-build):** "picking the problem is too freakin long, too much information in one page". The cases now show one group at a time, with "Not listed? Something else" pinned under them; the side panel lost its promise list and the tiles' hints hide on a phone. Then "can you make this dropdown": the group chips became a **Narrow it down** dropdown (button + listbox: arrows, Home/End, Enter, Esc, click outside; each group's count and ticks; "N ticked in other groups"). A signed-in athlete's Account goes from 52 cases on screen to about 8.
+- **Files:** `app/(public)/contact/{page.tsx,contact.css}`, `components/contact-form.tsx`, new `components/contact-stage.tsx` and `components/contact-fx.tsx`. No API change; `lib/helpdesk-live.ts` (and `backHref`, which POL-FE-99's help pages rely on) untouched.
+- **Split:** sponsorx-dev-b0 had POL-FE-99 (help center) and wrote its records first; sponsorx-dev-44 asked that nobody commit on `feat/POL-FE-91` while PR #445 is in CI. Nobody touched another's files.
+- **Checked:** tsc and eslint clean; `tests/helpdesk-live.test.ts` 12/12; frontend vitest 2,371/2,372 (the one failure is POL-FE-99's help-center screenshots, being re-captured). Walked live as a visitor and as the QA athlete at 1440 and 390: no sideways scroll, no page errors, the dropdown opens and picks, a tick, Send enables, and the `?demo=sent` panel shows. No real message sent; e2e not run; not built in a worktree; not committed.
+- **Traps:**
+  - `<ul hidden className="grid …">` stays visible, because the `grid` utility beats the `[hidden]` rule. Swap the class as well.
+  - A `<fieldset>` won't shrink below its content, so a scrolling chip row stretched step 2 past its column. Give it `min-w-0`.
+  - A scratchpad Python script named `inspect.py` shadows the standard library's `inspect`, and openpyxl then fails with a circular import. Name it something else.
