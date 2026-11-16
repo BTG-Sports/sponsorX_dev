@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type Ref } from "react";
 
 import { ArenaRing } from "./arena-ring";
-import { firstOpen, isSettled, needsYou, planHeadline, type PlanIcon, type PlanState, type PlanStepMeta } from "@/lib/athlete-game-plan";
+import {
+  PLAN_CLEARED_COOKIE, PLAN_HIDE_AFTER_MS, firstOpen, isSettled, needsYou, planCleared, planHeadline, type PlanIcon, type PlanState, type PlanStepMeta,
+} from "@/lib/athlete-game-plan";
 
 /* --------------------------------------------------------------------------
    AthleteGamePlan — the top of /athlete as a step-by-step wizard (POL-FE-81,
@@ -18,7 +20,10 @@ import { firstOpen, isSettled, needsYou, planHeadline, type PlanIcon, type PlanS
    sentence, what's in it (the server drew it), and a footer with Previous,
    the one thing to do, and Next / Skip for now. It opens on the first step
    that needs the athlete; when nothing does, on the finish line (a medal,
-   confetti once per browser session).
+   confetti once per browser session). The first time EVERYTHING is squared
+   away, the finish line counts down (paused while hovered or focused; a
+   "Hide now" button) and folds the plan away; the page leaves it out after
+   that until a step needs the athlete again (owner, 2026-11-16).
 
    Steps move with the stepper, Previous/Next, the arrow keys on the stepper
    and a swipe on a phone. Every panel is in the markup and the inactive
@@ -34,12 +39,16 @@ type Phase = number | "finish";
 const rank = (p: Phase) => (p === "finish" ? 999 : p);
 const CHEER_KEY = "sx-gp-cheered";
 
-export function AthleteGamePlan({ steps, name }: { steps: GamePlanStep[]; name: string | null }) {
+export function AthleteGamePlan({ steps, name, clearKey }: { steps: GamePlanStep[]; name: string | null; clearKey: string }) {
   const states = steps.map((s) => s.state);
   const settled = states.filter(isSettled).length;
   const open = states.filter(needsYou).length;
   const canFinish = open === 0;
   const head = planHeadline(states);
+  /* Everything squared away (no guardian step pending): the first time, the
+     finish line celebrates, counts down and tucks the plan away; the server
+     leaves it out after that (lib/athlete-game-plan.ts, PLAN_CLEARED_COOKIE). */
+  const cleared = planCleared(states);
 
   const [phase, setPhase] = useState<Phase>(() => {
     const first = firstOpen(states);
@@ -53,6 +62,43 @@ export function AthleteGamePlan({ steps, name }: { steps: GamePlanStep[]; name: 
   const list = useRef<HTMLOListElement>(null);
   const moved = useRef(false);
   const swipe = useRef<{ x: number; y: number } | null>(null);
+  /* show → folding (the plan shrinks away) → gone (nothing rendered). */
+  const [tuck, setTuck] = useState<"show" | "folding" | "gone">("show");
+  /* The countdown waits while the athlete is pointing at or inside the card. */
+  const [paused, setPaused] = useState(false);
+  /* Went back to look at the steps: they chose to look, so no auto-hide. */
+  const [stay, setStay] = useState(false);
+  const left = useRef(PLAN_HIDE_AFTER_MS);
+  const counting = cleared && phase === "finish" && tuck === "show" && !paused && !stay;
+
+  /* Remember (or forget) that this browser saw the plan cleared. */
+  useEffect(() => {
+    try {
+      if (cleared) document.cookie = `${PLAN_CLEARED_COOKIE}=${clearKey}; path=/athlete; max-age=31536000; samesite=lax`;
+      else if (document.cookie.includes(`${PLAN_CLEARED_COOKIE}=`)) document.cookie = `${PLAN_CLEARED_COOKIE}=; path=/athlete; max-age=0; samesite=lax`;
+    } catch {
+      /* cookies blocked: the plan simply shows again next time */
+    }
+  }, [cleared, clearKey]);
+
+  /* The countdown: what's left of it survives a pause. */
+  useEffect(() => {
+    if (!counting) return;
+    const since = performance.now();
+    const t = window.setTimeout(() => setTuck("folding"), left.current);
+    return () => {
+      clearTimeout(t);
+      left.current = Math.max(0, left.current - (performance.now() - since));
+    };
+  }, [counting]);
+
+  /* Folding → gone once the shrink has played (at once with reduced motion). */
+  useEffect(() => {
+    if (tuck !== "folding") return;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const t = window.setTimeout(() => setTuck("gone"), still ? 0 : 850);
+    return () => clearTimeout(t);
+  }, [tuck]);
 
   /* Confetti on the finish line once per visit, not on every dashboard load. */
   useEffect(() => {
@@ -65,8 +111,8 @@ export function AthleteGamePlan({ steps, name }: { steps: GamePlanStep[]; name: 
       /* storage blocked: cheer anyway */
     }
     /* An attribute, not state: the burst is drawn already and shown by CSS. */
-    if (!seen) medal.current?.setAttribute("data-cheer", "");
-  }, [phase]);
+    if (!seen || cleared) medal.current?.setAttribute("data-cheer", "");
+  }, [phase, cleared]);
 
   /* After a move the new step's title takes focus (a screen reader hears
      where it landed) and the plan scrolls back into view on a phone. */
@@ -96,6 +142,7 @@ export function AthleteGamePlan({ steps, name }: { steps: GamePlanStep[]; name: 
     if (to === "finish" && !canFinish) return;
     if (to === phase) return;
     moved.current = true;
+    if (phase === "finish" && cleared) setStay(true);
     setDir(rank(to) < rank(phase) ? "prev" : "next");
     setPhase(to);
   };
@@ -132,7 +179,10 @@ export function AthleteGamePlan({ steps, name }: { steps: GamePlanStep[]; name: 
     if (Math.abs(dx) > 64 && Math.abs(dx) > Math.abs(e.clientY - s.y) * 1.6) step(dx < 0 ? 1 : -1);
   };
 
+  if (tuck === "gone") return null;
   return (
+    <div className="sx-gp-wrap sx-arena-in" data-tuck={tuck} style={{ "--sx-reveal-delay": "0.08s" } as CSSProperties}>
+    <div className="sx-gp-wrap-inner">
     <section ref={root} className="sx-gp sx-arena-plate" data-dir={dir} aria-labelledby="sx-gp-head">
       <span aria-hidden="true" className="sx-gp-aurora" />
       <span aria-hidden="true" className="sx-gp-grain" />
@@ -253,7 +303,15 @@ export function AthleteGamePlan({ steps, name }: { steps: GamePlanStep[]; name: 
           })}
 
           {/* -------------------------------------------- the finish line */}
-          <section hidden={phase !== "finish"} className="sx-gp-panel sx-gp-finish" aria-labelledby="sx-gp-h-finish">
+          <section
+            hidden={phase !== "finish"}
+            className="sx-gp-panel sx-gp-finish"
+            aria-labelledby="sx-gp-h-finish"
+            onPointerEnter={() => setPaused(true)}
+            onPointerLeave={() => setPaused(false)}
+            onFocus={() => setPaused(true)}
+            onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPaused(false); }}
+          >
             <div className="flex flex-col items-center text-center">
               <Medal ref={medal} />
               <h3 id="sx-gp-h-finish" ref={(el) => { heads.current.finish = el; }} tabIndex={-1} className="sx-gp-rise sx-gp-title sx-gp-shimmer mt-6 outline-none" style={d(0.45)}>
@@ -273,15 +331,35 @@ export function AthleteGamePlan({ steps, name }: { steps: GamePlanStep[]; name: 
               </ul>
             </div>
             <footer className="sx-gp-rise sx-gp-foot" style={d(0.9)}>
-              <p className="text-[13px] font-semibold text-text">Every step checked</p>
-              <button type="button" onClick={() => go(steps.length - 1)} className="sx-gp-ghost">
-                <Arrow back /> Back to the steps
-              </button>
+              {cleared && !stay ? (
+                <div className="sx-gp-tuck min-w-0 flex-1" data-paused={paused ? "" : undefined}>
+                  <p className="text-[13px] font-semibold text-text">Every step checked</p>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+                    {paused ? "Paused while you look." : "This card tucks itself away in a moment. It comes back when something needs you."}
+                  </p>
+                  <span aria-hidden="true" className="sx-gp-tuck-lane" style={{ "--ms": `${PLAN_HIDE_AFTER_MS}ms` } as CSSProperties}><i /></span>
+                </div>
+              ) : (
+                <p className="text-[13px] font-semibold text-text">Every step checked</p>
+              )}
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button type="button" onClick={() => go(steps.length - 1)} className="sx-gp-ghost">
+                  <Arrow back /> Back to the steps
+                </button>
+                {cleared && (
+                  <button type="button" onClick={() => setTuck("folding")} className="sx-gp-go" data-hot="">
+                    <span aria-hidden="true" className="sx-gp-go-shine" />
+                    Hide now
+                  </button>
+                )}
+              </div>
             </footer>
           </section>
         </div>
       </div>
     </section>
+    </div>
+    </div>
   );
 }
 

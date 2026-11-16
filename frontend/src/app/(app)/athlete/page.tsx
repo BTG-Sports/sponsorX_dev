@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 
 import {
   ArenaChip,
@@ -18,7 +19,9 @@ import { CertifiedRecruitingCard } from "@/components/certified-recruiting-card"
 import {
   DUE_STATES, buildHome, openOffers, payoutStatusTiles, shopTiles, upcomingSales, type ApiSellerSummary, type HomeTile,
 } from "@/lib/athlete-home-live";
-import { agreementsStep, answerStep, deliverStep, moneyStep, payoutsStep, profileStep } from "@/lib/athlete-game-plan";
+import {
+  PLAN_CLEARED_COOKIE, agreementsStep, answerStep, deliverStep, moneyStep, payoutsStep, planHidden, planKey, profileStep,
+} from "@/lib/athlete-game-plan";
 import { EmptyState } from "@/components/states";
 import { StripeLinkButton } from "@/components/payout-account-panel";
 import { athleteBanner, type ApiMyPayouts, type ApiPayoutAccount } from "@/lib/payouts-live";
@@ -428,6 +431,9 @@ export default async function AthleteHomePage() {
     ),
   });
 
+  const clearKey = planKey(profile?.id);
+  const hidePlan = planHidden(steps.map((s) => s.state), (await cookies()).get(PLAN_CLEARED_COOKIE)?.value, clearKey);
+
   return (
     <div className="sx-home space-y-8">
       <ArenaHead
@@ -445,9 +451,10 @@ export default async function AthleteHomePage() {
       {/* POL-FE-68 — the guardian notice is in the layout, on every page. */}
 
       {/* ------------------------------------------- 1 · what to do next */}
-      <div className="sx-arena-in" style={{ "--sx-reveal-delay": "0.08s" } as React.CSSProperties}>
-        <AthleteGamePlan steps={steps} name={h.firstName || null} />
-      </div>
+      {/* Owner, 2026-11-16: once everything is squared away and this browser
+          has seen it celebrate, the plan is left out until a step needs the
+          athlete again (lib/athlete-game-plan.ts). */}
+      {!hidePlan && <AthleteGamePlan steps={steps} name={h.firstName || null} clearKey={clearKey} />}
 
       {/* ------------------------------------------- 2 · the numbers */}
       <section aria-label="At a glance">

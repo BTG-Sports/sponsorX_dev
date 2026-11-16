@@ -119,3 +119,16 @@
 - `profileStep` now links to `/athlete/profile`. The profile header drops the "Full editor" pill while unfinished.
 - Kept on purpose: the identity step's inline links to `/athlete/profile/edit?section=identity`, for changing the legal name and naming a guardian. The wizard can't do either, and a minor with no guardian named would otherwise have no way to name one.
 - `profile-wizard.test.ts` now asserts no "Full editor" and no bare `/athlete/profile/edit` link while unfinished. Agreed with the POL-FE-80 session.
+
+## Game plan tucks away once done (POL-FE-81 follow-up, HeckerCreatives)
+- **Owner:** the first time everything is done, hide the plan on a timer. After that the dashboard shouldn't show it.
+- **The first time all steps are squared away (no guardian step pending):** the finish line celebrates.
+  - Confetti plays every time, then an 8 s countdown runs (`PLAN_HIDE_AFTER_MS`). The countdown pauses while the card is hovered or focused.
+  - "Hide now" hides it at once. "Back to the steps" cancels the auto-hide, since they chose to look.
+  - The plan then shrinks away (grid rows 1fr→0fr) and unmounts, gap included.
+- **Later visits:** the cookie `sx_gp_cleared=<athlete id>` (path `/athlete`, 1 year, not httpOnly, UI only) tells the server page to leave the plan out, so nothing flashes in. `planHidden` / `planCleared` / `planKey` are in `lib/athlete-game-plan.ts`.
+- **When a step needs the athlete again:** the plan renders and the client clears the cookie. The next time they finish it celebrates again.
+- **The cookie is per browser:** a new device celebrates once more.
+- **Checked:**
+  - Tests: 20 (cleared/hidden/key helpers, and the page with and without the cookie).
+  - Walked in Chrome on a throwaway route with every step done (deleted after): cookie set, hover paused 7 s, folded after the remaining time with the gap closed, "Hide now" folded at once, "Back to the steps" kept it. No console errors.

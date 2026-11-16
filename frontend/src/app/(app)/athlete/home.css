@@ -626,6 +626,38 @@
 }
 .sx-gp-record[data-state="guardian"] .sx-gp-record-icon { color: var(--sx-athlete); background: color-mix(in srgb, var(--sx-athlete) 14%, transparent); }
 
+/* tucking the plan away once it's all done -------------------------------
+   The countdown lane empties over PLAN_HIDE_AFTER_MS and waits while the
+   card is hovered or focused; then the plan shrinks to nothing (rows 1fr →
+   0fr), fades and takes its gap with it, and the component unmounts. */
+.sx-gp-wrap {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.8s var(--ar-ease), opacity 0.5s ease, margin 0.8s var(--ar-ease), transform 0.8s var(--ar-ease);
+}
+.sx-gp-wrap-inner { min-height: 0; }
+.sx-gp-wrap[data-tuck="folding"] { grid-template-rows: 0fr; opacity: 0; margin-block: 0; transform: scale(0.98); }
+.sx-gp-wrap[data-tuck="folding"] > .sx-gp-wrap-inner { overflow: hidden; }
+.sx-gp-tuck-lane {
+  display: block;
+  margin-top: 0.6rem;
+  max-width: 16rem;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--sx-line);
+}
+.sx-gp-tuck-lane i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--sx-success), var(--sx-athlete));
+  transform-origin: left;
+  animation: sx-gp-tuck var(--ms, 8s) linear both;
+}
+.sx-gp-tuck[data-paused] .sx-gp-tuck-lane i { animation-play-state: paused; }
+@keyframes sx-gp-tuck { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
 /* the ring gauge (arena-ring.tsx) ---------------------------------------- */
 .sx-ring { position: relative; display: inline-grid; flex: none; place-items: center; }
 .sx-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
@@ -760,7 +792,7 @@
 /* reduced motion: the still look ----------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   .sx-gp *, .sx-gp *::before, .sx-gp *::after,
-  .sx-gp-aurora, .sx-ring-fill, .sx-gl-bar, .sx-gl-bubble {
+  .sx-gp-aurora, .sx-ring-fill, .sx-gl-bar, .sx-gl-bubble, .sx-gp-wrap {
     animation: none !important;
     transition: none !important;
   }

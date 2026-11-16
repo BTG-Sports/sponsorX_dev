@@ -53,6 +53,33 @@ export type PlanStepMeta = {
 export const isSettled = (s: PlanState) => s === "done" || s === "clear";
 export const needsYou = (s: PlanState) => s === "todo" || s === "warn";
 
+/* ------------------------------------------------- the plan when it's done
+   Owner, 2026-11-16: the first time everything is squared away, the plan
+   celebrates, counts down and tucks itself away; after that the dashboard
+   doesn't show it. A cookie (per browser, not httpOnly: UI only) remembers
+   that this athlete's cleared plan was seen, so the server leaves the plan out
+   and nothing flashes in. It is cleared again as soon as a step needs the
+   athlete, so finishing the next round celebrates again. A step waiting on
+   a guardian never counts as cleared: a minor still needs to see it. */
+export const PLAN_CLEARED_COOKIE = "sx_gp_cleared";
+/** How long the finish line stays up before it tucks away. */
+export const PLAN_HIDE_AFTER_MS = 8000;
+
+/** Every step done or with nothing waiting — the plan has nothing left to show. */
+export function planCleared(states: PlanState[]): boolean {
+  return states.length > 0 && states.every(isSettled);
+}
+
+/** Whose plan the cookie is about: a guardian with several wards sees each one's. */
+export function planKey(athleteId: string | null | undefined): string {
+  return (athleteId ?? "self").replace(/[^A-Za-z0-9_-]/g, "");
+}
+
+/** Leave the plan out: it's cleared AND this browser already saw it cleared. */
+export function planHidden(states: PlanState[], cookie: string | undefined, key: string): boolean {
+  return planCleared(states) && cookie === key;
+}
+
 /** The step the wizard opens on: something late first, else the first that
  *  needs the athlete, else -1 (the finish). */
 export function firstOpen(states: PlanState[]): number {

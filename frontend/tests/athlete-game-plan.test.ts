@@ -80,3 +80,28 @@ describe("where the wizard opens, and what it says on top", () => {
     expect(planHeadline(["done", "guardian"]).title).toBe("Your guardian has the next move");
   });
 });
+
+describe("once everything is done, the plan tucks away (owner, 2026-11-16)", async () => {
+  const { planCleared, planHidden, planKey } = await import("../src/lib/athlete-game-plan");
+
+  it("cleared only when every step is done or has nothing waiting — a guardian's step keeps it up", () => {
+    expect(planCleared(["done", "clear", "done"])).toBe(true);
+    expect(planCleared(["done", "todo"])).toBe(false);
+    expect(planCleared(["done", "guardian"])).toBe(false);
+    expect(planCleared([])).toBe(false);
+  });
+
+  it("hidden only when cleared AND this browser saw it for this athlete", () => {
+    const key = planKey("ath_1");
+    expect(planHidden(["done", "clear"], key, key)).toBe(true);
+    expect(planHidden(["done", "clear"], undefined, key)).toBe(false);
+    expect(planHidden(["done", "clear"], planKey("ath_2"), key)).toBe(false);
+    /* Something needs them again: the plan is back, cookie or not. */
+    expect(planHidden(["done", "todo"], key, key)).toBe(false);
+  });
+
+  it("the key is cookie-safe", () => {
+    expect(planKey("cm;x=1 y")).toBe("cmx1y");
+    expect(planKey(null)).toBe("self");
+  });
+});

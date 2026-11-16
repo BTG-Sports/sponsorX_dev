@@ -16,6 +16,7 @@ const vars = vi.hoisted(() => ({
   actor: null as unknown,
   calls: [] as string[],
   responses: {} as Record<string, { status: number; body: unknown }>,
+  cookies: {} as Record<string, string>,
 }));
 vi.mock("@/server/api", () => ({
   apiFetch: async (path: string) => {
@@ -28,6 +29,8 @@ vi.mock("@/server/api", () => ({
   },
 }));
 vi.mock("@/server/portal", () => ({ requirePortalAccess: async () => vars.actor }));
+/* POL-FE-81 — the home reads the "plan cleared and seen" cookie. */
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: (n: string) => (vars.cookies[n] === undefined ? undefined : { value: vars.cookies[n] }) }) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }), redirect: () => {} }));
 vi.mock("@/app/(app)/athlete/payout-actions", () => ({ athletePayoutLinkAction: async () => ({ ok: true }) }));
 vi.mock("@/app/(app)/athlete/ward-actions", () => ({ chooseWardAction: async () => ({ ok: true }) }));
@@ -134,6 +137,7 @@ describe("the page renders the signed-in athlete's own figures", async () => {
   beforeEach(() => {
     vars.actor = athlete;
     vars.calls = [];
+    vars.cookies = {};
     vars.responses = {
       "/athletes/me": { status: 200, body: profile },
       "/invitations": { status: 200, body: { invitations: [] } },
@@ -202,6 +206,30 @@ describe("the page renders the signed-in athlete's own figures", async () => {
     expect(html).toContain("Get paid");
     /* The payout account is READY in this fixture: that step reads done. */
     expect(html).toMatch(/data-state="done"[^>]*aria-labelledby="sx-gp-h-payouts"/);
+  });
+
+  it("POL-FE-81 — a cleared plan this browser already saw is left out; one with work in it never is", async () => {
+    /* This fixture has work (overdue deliverables): the cookie changes nothing. */
+    vars.cookies.sx_gp_cleared = "a1";
+    expect(await render()).toContain("game plan");
+    /* Everything squared away. */
+    vars.responses["/athletes/me"] = { status: 200, body: { ...profile, sport: "Basketball", position: "Guard", school: "X", level: "COLLEGE", gradYear: 2027, achievements: "x", contentCapabilities: ["VIDEO"], brandInterests: ["FOOD"], restrictionNotes: "None", socials: [{ platform: "INSTAGRAM", handle: "j", followers: 1 }], ratesConfirmed: 1, agreementsSigned: 1 } };
+    vars.responses["/me/rules-attestation"] = { status: 200, body: { current: true, required: true, byGuardian: false } };
+    vars.responses["/me/collab-agreement"] = { status: 200, body: { current: true, required: true, byGuardian: false } };
+    vars.responses["/offers"] = { status: 200, body: { offers: [] } };
+    vars.responses["/sales/summary"] = { status: 200, body: summary({ approvalsWaiting: 0, upcoming: { total: 0, lines: [] } }) };
+    vars.responses["/payouts/me"] = { status: 200, body: payouts({ canRequest: false }) };
+    vars.responses["/deliverables"] = { status: 200, body: { deliverables: [], page: { total: 0 } } };
+    vars.responses["/deliverables#overdue"] = { status: 200, body: { deliverables: [], page: { total: 0 } } };
+    vars.cookies = {};
+    const first = await render();
+    expect(first).toContain("You&#x27;re all caught up");
+    expect(first).toContain("tucks itself away");
+    vars.cookies.sx_gp_cleared = "a1";
+    const again = await render();
+    expect(again).not.toContain("game plan");
+    /* The rest of the dashboard is all still there. */
+    expect(again).toContain("At a glance");
   });
 
   it("an outage on a marketplace read is an error, not a quiet empty block", async () => {
