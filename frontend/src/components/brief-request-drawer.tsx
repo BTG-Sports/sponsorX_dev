@@ -182,6 +182,24 @@ function Picks({
   );
 }
 
+/** POL-FE-58 — where /s/<code> keeps the code for this browser (the drawer reads it back for 30 days). */
+export const STUDENT_CODE_KEY = "sx.studentCode";
+
+/** POL-FE-58 — the code to prefill: the URL's ?code=, else the one /s/<code> kept in this browser
+ *  (30 days). The drawer mounts only after a click, so this runs in the browser; "" on the server. */
+function readStudentCode(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const fromUrl = new URL(window.location.href).searchParams.get("code");
+    if (fromUrl) return fromUrl.toUpperCase();
+    const kept = JSON.parse(window.localStorage.getItem(STUDENT_CODE_KEY) ?? "null") as { code?: string; at?: number } | null;
+    if (kept?.code && typeof kept.at === "number" && Date.now() - kept.at < 30 * 864e5) return kept.code.toUpperCase();
+  } catch {
+    /* no storage, or a malformed entry: no code */
+  }
+  return "";
+}
+
 export function BriefRequestDrawer({
   seed,
   onClose,
@@ -312,6 +330,9 @@ function BriefForm({
   const [audienceTiers, setAudienceTiers] = useState<string[]>([]);
   const [channels, setChannels] = useState<string[]>([]);
   const [minFollowers, setMinFollowers] = useState("");
+  /* POL-FE-58 (app review B7) — a NEXT student's code, from /s/<code>: the URL's ?code=, or the one
+     the business opened last (kept in this browser), so the sale is credited to the student. */
+  const [studentCode, setStudentCode] = useState(readStudentCode);
   const [category, setCategory] = useState("");
   const [excludedCategories, setExcludedCategories] = useState<string[]>([]);
   const [message, setMessage] = useState("");
@@ -356,7 +377,7 @@ function BriefForm({
     setError(null);
     const out = await submit({
       objective, budget, start, durationWeeks: Number(duration), sport, geo, tier: "",
-      audienceTiers, channels, minFollowers, category, excludedCategories, message,
+      audienceTiers, channels, minFollowers, category, excludedCategories, message, studentCode,
       packageId: seed.kind === "package" ? (seed.packageId ?? null) : null,
       jobName: seed.kind === "job" ? `${seed.name} (${seed.jobId})` : seed.kind === "athlete" ? seed.jobName : null,
     }).catch(() => ({ ok: false as const, error: "Couldn't reach BTG — please try again." }));
@@ -546,6 +567,18 @@ function BriefForm({
             />
           </Field>
         </fieldset>
+
+        <Field label="Student code (optional)" htmlFor="brief-student-code" hint="A SponsorX NEXT student sent you? Their code credits the sale to them.">
+          <input
+            id="brief-student-code"
+            value={studentCode}
+            onChange={(e) => setStudentCode(e.target.value.toUpperCase())}
+            maxLength={64}
+            autoComplete="off"
+            placeholder="e.g. NX-RILEY-42"
+            className={inputCls}
+          />
+        </Field>
 
         <Field
           label="Your category"

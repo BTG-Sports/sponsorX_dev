@@ -21,7 +21,7 @@ describe("P1-ART-25 · the Finance portal's nav", () => {
     expect(top.map((i) => [i.label, i.href])).toEqual([["Treasury", "/finance"]]);
     expect(groups.map((g) => [g.label, g.items.map((i) => i.label)])).toEqual([
       /* POL-FE-36 — "Payments" (the switch) sits between Payment events and Payouts. */
-      ["Money", ["Deal disputes", "Disputes", "Payment events", "Payments", "Payouts", "Refunds to send"]],
+      ["Money", ["All orders", "Deal disputes", "Disputes", "Payment events", "Payments", "Payouts", "Refunds to send"]], // POL-FE-54 added All orders
       ["NEXT", ["Splits"]],
     ]);
     expect(groups.every((g) => g.icon)).toBe(true);

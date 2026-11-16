@@ -65,6 +65,8 @@ export default async function DeliveryIssuePage({ params }: { params: Promise<{ 
         <StatePill p={pill} />
       </div>
       <p className="-mt-2 text-xs leading-relaxed text-muted">{lineSummary(p)}</p>
+      {/* POL-FE-54 (app review B3) — the way to the whole order. */}
+      <Link href={`/admin/marketplace/orders/${encodeURIComponent(p.orderId)}`} className="inline-block text-xs underline text-muted hover:text-text">Open the order →</Link>
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <section aria-label="What happened" className={`${section} min-w-0`}>

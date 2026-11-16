@@ -50,6 +50,11 @@ export async function submitBrief(input: Omit<BriefRequest, "sponsorId">): Promi
   }
   if (res.status === 403) return { ok: false, error: "This account can't file briefs for this sponsor." };
   if (res.status === 400) return { ok: false, error: "Some details weren't accepted — check the dates and budget." };
+  /* POL-FE-58 — e.g. a student code that isn't valid: the API's own words. */
+  if (res.status === 422) {
+    const said = ((await res.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message;
+    return { ok: false, error: said || "Some details weren't accepted — check the request and try again." };
+  }
   return { ok: false, error: "BTG couldn't receive the brief just now — please try again." };
 }
 

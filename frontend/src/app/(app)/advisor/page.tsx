@@ -4,6 +4,7 @@ import { HeroBand } from "@/components/hero";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { apiFetch, fetchActor } from "@/server/api";
+import { mayVerifyGuardian } from "@/lib/students-live";
 import { apiListQuery, textParam } from "@/lib/list-query";
 import { AUTO_KEYS, CLAIM_KEYS, STUDENT_GROUP_KEYS, keyedListQuery, type StudentGroup } from "@/lib/students-live";
 import { LiveAdvisorDesk, type ClaimsPage, type ReviewSettings, type StudentsPage } from "./live-advisor";
@@ -75,7 +76,7 @@ export default async function AdvisorHomePage({
       const claims = cRes.ok ? ((await cRes.json()) as ClaimsPage) : null;
       const auto = (await aRes.json()) as StudentsPage;
       const settings = sRes?.ok ? ((await sRes.json()) as ReviewSettings) : null;
-      return <LiveAdvisorDesk students={students} claims={claims} auto={auto} settings={settings} group={group} q={q} cstate={cstate} />;
+      return <LiveAdvisorDesk students={students} claims={claims} auto={auto} settings={settings} group={group} q={q} cstate={cstate} canVerify={mayVerifyGuardian(who.actor.roles)} />;
     }
   }
 

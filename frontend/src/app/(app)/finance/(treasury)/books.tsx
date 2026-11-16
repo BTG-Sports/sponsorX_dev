@@ -1,4 +1,5 @@
 import { PausedLink } from "@/components/deal-dispute-desk";
+import { EarningRowActions } from "@/components/earning-row-actions";
 import { ListFilter, ListSearch } from "@/components/server-pager";
 import { PagedTable, Primary, Td, Tr, type Column } from "@/components/stage-table";
 import { VaultChip, type VaultTone } from "@/components/vault-stage";
@@ -89,6 +90,9 @@ const EARNING_COLUMNS: readonly Column[] = [
   { key: "commission", label: "Commission", num: true },
 ];
 
+/** POL-FE-53 — Finance's actions column, for the roles that approve and pay. */
+const EARNING_COLUMNS_ACT: readonly Column[] = [...EARNING_COLUMNS, { key: "act", label: "Action" }];
+
 const RECON_COLUMNS: readonly Column[] = [
   { key: "campaign", label: "Campaign" },
   { key: "contracted", label: "Contracted", num: true },
@@ -124,8 +128,10 @@ function EarningsFoot() {
   );
 }
 
-export function EarningsTab({ data, q, state, sample, disputes = [] }: {
+export function EarningsTab({ data, q, state, sample, disputes = [], canAct = false }: {
   data: EarningsPage;
+  /** POL-FE-53 — Finance and SUPER_ADMIN: Approve, Hold / Release, Mark paid, Adjust on each row. */
+  canAct?: boolean;
   q: string;
   state: string;
   sample?: boolean;
@@ -148,10 +154,10 @@ export function EarningsTab({ data, q, state, sample, disputes = [] }: {
           />
         </div>
       )}
-      <PagedTable bare page={data.page} noun="Earnings" tone="vault" filtered={filtered} label="Athlete earnings" columns={EARNING_COLUMNS} foot={<EarningsFoot />}>
+      <PagedTable bare page={data.page} noun="Earnings" tone="vault" filtered={filtered} label="Athlete earnings" columns={canAct && !sample ? EARNING_COLUMNS_ACT : EARNING_COLUMNS} foot={<EarningsFoot />}>
         {data.earnings.length === 0 ? (
           <Tr>
-            <Td colSpan={7} className="py-6 text-center text-xs text-[color:var(--vault-muted)]">
+            <Td colSpan={canAct && !sample ? 8 : 7} className="py-6 text-center text-xs text-[color:var(--vault-muted)]">
               {filtered ? "No earning matches this search or status." : "No earnings raised yet."}
             </Td>
           </Tr>
@@ -188,6 +194,11 @@ export function EarningsTab({ data, q, state, sample, disputes = [] }: {
                 <Td label="Commission" num>
                   {typeof e.commission === "number" ? usd(e.commission) : "—"}
                 </Td>
+                {canAct && !sample && (
+                  <Td label="Action">
+                    <EarningRowActions id={e.id} state={e.state} />
+                  </Td>
+                )}
               </Tr>
             );
           })

@@ -168,6 +168,96 @@ export async function createEdition(
   });
 }
 
+/* ── POL-BE-56 (app review B5) — BTG sets NEXT up from the screens ───────── */
+
+/** 422 — an edition's dates or state don't allow the change. */
+export class EditionEditError extends Error {
+  readonly status: number;
+  constructor(message: string, status = 422) {
+    super(message);
+    this.status = status;
+    this.name = "EditionEditError";
+  }
+}
+
+/** Editions still being planned or sold: their dates and threshold may change. */
+const EDITABLE_EDITION_STATES: readonly EditionState[] = ["PLANNING", "SELLING"];
+
+/**
+ * The publications the actor reads, each with its school's name, and — for
+ * those who may create one — the schools in the tenant. Before this no route
+ * listed publications, so BTG's screens couldn't offer "New edition" for a
+ * masthead that had none yet.
+ */
+export async function listPublications(actor: Actor) {
+  assertAllowed(actor, "publication", "read");
+  const pubs = await prisma.publication.findMany({
+    where: { ...whereFor(actor, "publication", "read") },
+    select: { id: true, name: true, propertyId: true, createdAt: true },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    take: 200,
+  });
+  const mayWrite = (() => { try { assertAllowed(actor, "publication", "write"); return true; } catch { return false; } })();
+  const schools = await prisma.property.findMany({
+    where: { tenantId: actor.tenantId, kind: "SCHOOL", ...(mayWrite ? {} : { id: { in: pubs.map((p) => p.propertyId).filter((x): x is string => Boolean(x)) } }) },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+    take: 500,
+  });
+  const schoolName = new Map(schools.map((x) => [x.id, x.name]));
+  return {
+    publications: pubs.map((p) => ({ ...p, schoolName: p.propertyId ? schoolName.get(p.propertyId) ?? null : null })),
+    schools: mayWrite ? schools : [],
+  };
+}
+
+/**
+ * Change an edition's label, dates, page count or threshold while it is
+ * PLANNING or SELLING. Once sales close the numbers are the split's, so
+ * they're fixed. Close comes before publish, and print (if set) between.
+ */
+export async function updateEdition(
+  actor: Actor,
+  editionId: string,
+  patch: {
+    label?: string; closeDate?: Date; publishTarget?: Date; printDate?: Date | null;
+    pageCount?: number | null; thresholdCents?: number; salesOpenAt?: Date | null;
+  },
+) {
+  assertAllowed(actor, "edition", "write");
+  return prisma.$transaction(async (tx) => {
+    const e = await tx.edition.findFirst({
+      where: { ...whereFor(actor, "edition", "write"), id: editionId },
+      select: { id: true, tenantId: true, state: true, label: true, closeDate: true, publishTarget: true, printDate: true, pageCount: true, thresholdCents: true, salesOpenAt: true },
+    });
+    if (!e) throw new ForbiddenError("edition", "write");
+    if (!EDITABLE_EDITION_STATES.includes(e.state as EditionState)) {
+      throw new EditionEditError(`${e.label} is ${e.state.toLowerCase().replace(/_/g, " ")} — its dates and threshold are fixed now.`, 409);
+    }
+    const next = {
+      label: patch.label ?? e.label,
+      closeDate: patch.closeDate ?? e.closeDate,
+      publishTarget: patch.publishTarget ?? e.publishTarget,
+      printDate: patch.printDate === undefined ? e.printDate : patch.printDate,
+      pageCount: patch.pageCount === undefined ? e.pageCount : patch.pageCount,
+      thresholdCents: patch.thresholdCents ?? e.thresholdCents,
+      salesOpenAt: patch.salesOpenAt === undefined ? e.salesOpenAt : patch.salesOpenAt,
+    };
+    if (next.publishTarget < next.closeDate) throw new EditionEditError("Publishing comes after sales close — pick a later publish date.");
+    if (next.printDate && (next.printDate < next.closeDate || next.printDate > next.publishTarget)) {
+      throw new EditionEditError("The print date falls between sales closing and publishing.");
+    }
+    if (next.salesOpenAt && next.salesOpenAt > next.closeDate) throw new EditionEditError("Sales open before they close — pick an earlier opening date.");
+    await tx.edition.update({ where: { id: e.id, tenantId: e.tenantId }, data: next });
+    const iso = (d: Date | null) => d?.toISOString() ?? null;
+    await audit(tx, actor, "edition.update", "Edition", e.id, {
+      before: { label: e.label, closeDate: iso(e.closeDate), publishTarget: iso(e.publishTarget), printDate: iso(e.printDate), pageCount: e.pageCount, thresholdCents: e.thresholdCents, salesOpenAt: iso(e.salesOpenAt) },
+      after: { label: next.label, closeDate: iso(next.closeDate), publishTarget: iso(next.publishTarget), printDate: iso(next.printDate), pageCount: next.pageCount, thresholdCents: next.thresholdCents, salesOpenAt: iso(next.salesOpenAt) },
+    });
+    return { id: e.id, state: e.state as EditionState, ...next };
+  });
+}
+
 export async function getEdition(actor: Actor, editionId: string) {
   const edition = await prisma.edition.findFirst({
     where: { ...whereFor(actor, "edition", "read"), id: editionId },

@@ -153,6 +153,30 @@ describe("the advisor's desk", () => {
   });
 });
 
+describe("POL-FE-59 · the app review's content review findings", () => {
+  it("the list badge says Changes requested for a piece sent back, and counts it under To do", async () => {
+    const { StudentAssignments } = await import("@/components/student-assignments");
+    const back = toAssignmentRow(api({ stage: "CHANGES_REQUESTED", state: "DRAFT_SUBMITTED", revisionNote: "Shorter.", version: 1 }));
+    const html = renderToStaticMarkup(createElement(StudentAssignments, { rows: [back] }));
+    expect(html).toContain("Changes requested");
+    expect(html).not.toContain(">Draft submitted<");
+    expect(html).toMatch(/To do[\s\S]{0,80}1/);
+  });
+
+  it("an approved piece says whether it can go to print", async () => {
+    const { approvedLine } = await import("@/lib/student-assignments-live");
+    expect(approvedLine({ usageRight: false })).toMatchObject({ ok: false });
+    expect(approvedLine({ usageRight: false }).text).toMatch(/can't go to print yet/);
+    expect(approvedLine({ usageRight: true }).ok).toBe(true);
+  });
+
+  it("BTG staff get the live desk, never the sample", () => {
+    const review = readFileSync(new URL("../src/app/(app)/advisor/review/page.tsx", import.meta.url), "utf8");
+    expect(review).toContain('const LIVE_REVIEW_ROLES = ["ADVISOR", "BTG_ADMIN", "SUPER_ADMIN"];');
+    expect(review).toMatch(/roles\.some\(\(r\) => LIVE_REVIEW_ROLES\.includes\(r\)\)/);
+  });
+});
+
 describe("no signed-in person sees 'not connected' any more", () => {
   it("both pages read the API for a signed-in student or advisor", () => {
     const review = readFileSync(new URL("../src/app/(app)/advisor/review/page.tsx", import.meta.url), "utf8");

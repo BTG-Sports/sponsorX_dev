@@ -33,7 +33,22 @@ export type ApiStudent = {
    *  student's or guardian's read never carries either. */
   reviewReasons?: string[];
   autoApprovedAt?: string | null;
+  /** POL-BE-57 — reviewers only: the guardian a minor named and whether BTG has verified them. */
+  guardian?: { id: string; legalName: string; email: string; relationship: string; verifiedAt: string | null } | null;
 };
+
+/** POL-FE-57 (app review B6) — who verifies a student's guardian: BTG (guardian write, tenant-wide). */
+export const GUARDIAN_VERIFY_ROLES = ["SUPER_ADMIN", "BTG_ADMIN"] as const;
+export const mayVerifyGuardian = (roles: readonly string[]) => roles.some((r) => (GUARDIAN_VERIFY_ROLES as readonly string[]).includes(r));
+
+/** The guardian line on a student's card, or null when there's no guardian. */
+export function guardianLine(s: Pick<ApiStudent, "guardian" | "guardianId">): { text: string; verified: boolean } | null {
+  if (!s.guardian) return s.guardianId ? { text: "Guardian linked", verified: false } : null;
+  const who = `${s.guardian.legalName} (${s.guardian.relationship.toLowerCase().replace(/_/g, " ")}, ${s.guardian.email})`;
+  return s.guardian.verifiedAt
+    ? { text: `Guardian verified: ${who}`, verified: true }
+    : { text: `Guardian not verified yet: ${who}. BTG confirms them before the student can join the masthead.`, verified: false };
+}
 
 export const STUDENT_STATE_COPY: Record<ApiStudentState, string> = {
   DRAFT: "Draft",

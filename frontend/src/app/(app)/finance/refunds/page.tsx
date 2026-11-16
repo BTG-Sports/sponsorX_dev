@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { MarkRefunded } from "@/components/refunds-desk";
 import { PagedTable, Primary, TabLink, TabStrip, Td, Tr, type Column } from "@/components/stage-table";
 import { EmptyState } from "@/components/states";
@@ -94,7 +95,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
         <PagedTable page={page} noun="Refunds" tone="vault" label={sent ? "Sent refunds" : "Refunds to send"} columns={columns}>
           {rows.map((r, i) => (
             <Tr key={r.id} i={i} tone={sent ? undefined : "warn"}>
-              <Td><Primary>{refundRef(r)}</Primary></Td>
+              <Td><Primary>{r.orderId ? <Link className="underline" href={`/finance/orders/${encodeURIComponent(r.orderId)}`}>{refundRef(r)}</Link> : refundRef(r)}</Primary></Td>
               <Td label="Sponsor">{r.sponsor.name}</Td>
               <Td label="Line" muted>{refundWhat(r)}</Td>
               <Td label="Amount" num className="font-semibold">{money(r.amountCents)}</Td>

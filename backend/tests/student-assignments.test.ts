@@ -94,7 +94,7 @@ describe.skipIf(!hasDatabase)("P9-BE-24 · on the path a request takes", async (
   };
 
   async function clean() {
-    for (const t of ["StudentAssignment", "EditionAsset", "OutboxJob", "AuditLog", "Edition", "Publication", "User", "Student", "Guardian", "Property"]) {
+    for (const t of ["ContentRight", "AgreementAcceptance", "Agreement", "StudentPointAccrual", "StudentAssignment", "EditionAsset", "OutboxJob", "AuditLog", "Edition", "Publication", "User", "Student", "Guardian", "Property"]) {
       await prisma.$executeRawUnsafe(`DELETE FROM "${t}" WHERE "tenantId" = $1`, T);
     }
     await prisma.tenant.deleteMany({ where: { id: T } });
@@ -237,13 +237,17 @@ describe.skipIf(!hasDatabase)("P9-BE-24 · on the path a request takes", async (
     const asset = await prisma.editionAsset.findUniqueOrThrow({ where: { id: r.json.assetId }, select: { editionId: true, kind: true, title: true, sourceKind: true, studentId: true, r2Key: true } });
     expect(asset).toMatchObject({ editionId, kind: "ARTICLE", title: piece.title, sourceKind: "STUDENT", studentId: "sa_jordan" });
     expect(asset.r2Key).toMatch(new RegExp(`^student-drafts/${T}/${id}/`));
+    /* POL-BE-59 — approval accrues the article's points, as the system; no consent on file, so no usage right yet. */
+    const pts = await prisma.studentPointAccrual.findMany({ where: { tenantId: T, studentId: "sa_jordan" }, select: { reason: true, points: true, editionId: true } });
+    expect(pts).toEqual([{ reason: "ARTICLE", points: 50, editionId }]);
+    expect(r.json.usageRight).toBe(false);
     /* Final. */
     expect((await call("POST", `/student-assignments/${id}/approve`, "sa_advisor")).status).toBe(409);
     expect((await call("POST", `/student-assignments/${id}/submit`, "sa_jordan_u", { text: "after" })).status).toBe(409);
   });
 
   it("every step is audited, as the person who took it", async () => {
-    const rows = await prisma.auditLog.findMany({ where: { tenantId: T, entity: "StudentAssignment", entityId: id, action: { startsWith: "studentAssignment." } }, select: { action: true, actorId: true }, orderBy: { at: "asc" } });
+    const rows = await prisma.auditLog.findMany({ where: { tenantId: T, entity: "StudentAssignment", entityId: id, action: { startsWith: "studentAssignment." } }, select: { action: true, actorId: true }, orderBy: [{ at: "asc" }, { id: "asc" }] });
     expect(rows.map((r) => [r.action, r.actorId])).toEqual([
       ["studentAssignment.create", "sa_advisor"],
       ["studentAssignment.submit", "sa_jordan_u"],
@@ -296,6 +300,20 @@ describe.skipIf(!hasDatabase)("P9-BE-24 · on the path a request takes", async (
     expect(dropped.json).toMatchObject({ version: 3, hasFile: false });
     /* Nothing at all to send is still refused. */
     expect((await call("POST", `/student-assignments/${a.id}/submit`, "sa_jordan_u", { keepFile: true })).status).toBe(422);
+  });
+
+  it("POL-BE-59 · with an adult student's media release on file, approval records the usage right, so the piece doesn't block production", async () => {
+    const HASH = "f".repeat(64);
+    await prisma.agreement.create({ data: { id: "sa_ag_release", tenantId: T, kind: "RELEASE", version: 1, bodyHash: HASH, effectiveAt: new Date("2026-01-01") } });
+    await prisma.agreementAcceptance.create({ data: { tenantId: T, agreementId: "sa_ag_release", studentId: "sa_jordan", bodyHash: HASH, ip: "t", userAgent: "t" } });
+    const a = (await call("POST", `/editions/${editionId}/assignments`, "sa_advisor", { studentId: "sa_jordan", kind: "INTERVIEW", title: "Coach Q&A, part 2", brief: "Five questions." })).json;
+    await call("POST", `/student-assignments/${a.id}/submit`, "sa_jordan_u", { text: "Q1. What changed this year?" });
+    const r = await call("POST", `/student-assignments/${a.id}/approve`, "sa_advisor");
+    expect(r.status, r.text).toBe(200);
+    expect(r.json.usageRight).toBe(true);
+    const rights = await prisma.contentRight.findMany({ where: { tenantId: T, assetId: r.json.assetId }, select: { grantorKind: true, mayPublishDigital: true, mayPublishPrint: true } });
+    expect(rights).toEqual([{ grantorKind: "STUDENT", mayPublishDigital: true, mayPublishPrint: true }]);
+    expect(await prisma.studentPointAccrual.count({ where: { tenantId: T, studentId: "sa_jordan", reason: "INTERVIEW", points: 25 } })).toBe(1);
   });
 
   it("the database holds the rules too: four states, a note only while back with the student, approved only with its content item", async () => {

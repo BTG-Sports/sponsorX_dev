@@ -44,7 +44,8 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, scopeOf, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { canTransitionDeliverable, type DeliverableState } from "./deliverable-state";
-import { POINT_VALUES } from "./student-points";
+import { POINT_VALUES, type PointReason } from "./student-points";
+import { recordConsentRightsIn } from "./content-rights";
 import { readPage, type PageRequest } from "../lib/paging";
 
 type Tx = Prisma.TransactionClient;
@@ -71,6 +72,11 @@ const POINTS_BY_KIND: Record<AssignmentKind, number> = {
   INTERVIEW: POINT_VALUES.INTERVIEW,
   PHOTO: POINT_VALUES.PHOTO,
   DESIGN: 0,
+};
+
+/** POL-BE-59 — the points reason an approved piece accrues (P9-BE-15's ledger); a design accrues none. */
+const POINT_REASON: Partial<Record<AssignmentKind, Exclude<PointReason, "VIEWS_BONUS" | "SALES_500">>> = {
+  ARTICLE: "ARTICLE", INTERVIEW: "INTERVIEW", PHOTO: "PHOTO",
 };
 
 /** Editions still taking content: before production. */
@@ -158,6 +164,8 @@ const SELECT = {
   /* A student is named by display name only — never the legal name (P9-SEC-01). */
   student: { select: { id: true, displayName: true, state: true } },
   edition: { select: { id: true, label: true, state: true, closeDate: true } },
+  /* POL-BE-59 — whether the approved piece has a usage right yet (production refuses it without one). */
+  asset: { select: { id: true, rights: { select: { id: true }, take: 1 } } },
 } as const;
 
 type Row = Prisma.StudentAssignmentGetPayload<{ select: typeof SELECT }>;
@@ -191,6 +199,8 @@ export function assignmentOut(r: Row) {
     revisionNote: r.revisionNote,
     approvedAt: r.approvedAt,
     assetId: r.assetId,
+    /* POL-BE-59 — an approved piece with no usage right can't go to print yet (no consent on file). */
+    usageRight: r.asset ? r.asset.rights.length > 0 : null,
     points: POINTS_BY_KIND[r.kind as AssignmentKind] ?? 0,
     createdAt: r.createdAt,
   };
@@ -528,8 +538,20 @@ export async function approveAssignment(actor: Actor, id: string): Promise<Assig
         before: { state: "DRAFT_SUBMITTED" }, after: { state: "BTG_REVIEW", version: row.version },
       });
     }
+    /* POL-BE-59 (app review §6) — approval does what the piece promised:
+       its points, as the system (the ledger is never written by the person
+       it credits), and its usage right from the student's consent in force
+       (P9-BE-23's rule: a minor's consent is their verified guardian's). No
+       consent on file: no right, and the edition's production gate keeps
+       refusing the piece until one is recorded — approval publishes nothing. */
+    const reason = POINT_REASON[row.kind as AssignmentKind];
+    const points = reason ? POINT_VALUES[reason] : 0;
+    if (reason) {
+      await tx.studentPointAccrual.create({ data: { tenantId: row.tenantId, studentId: row.studentId, reason, points, editionId: row.editionId } });
+    }
+    const rights = await recordConsentRightsIn(tx, row.tenantId, { assetIds: [asset.id] });
     await audit(tx, actor, AUDIT_ACTIONS.studentAssignment.approve, "StudentAssignment", row.id, {
-      before: { state: "BTG_REVIEW" }, after: { state: "APPROVED", version: row.version, assetId: asset.id },
+      before: { state: "BTG_REVIEW" }, after: { state: "APPROVED", version: row.version, assetId: asset.id, points, rightsRecorded: rights.length },
     });
     await tell(tx, row, "STUDENT", "studentAssignment.approved", `v${row.version}`);
     return assignmentOut(await tx.studentAssignment.findFirstOrThrow({ where: { id: row.id, tenantId: row.tenantId }, select: SELECT }));

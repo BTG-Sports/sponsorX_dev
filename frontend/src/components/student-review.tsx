@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "./ui";
-import { reviewStudentAction } from "@/app/(app)/advisor/actions";
+import { reviewStudentAction, verifyGuardianAction } from "@/app/(app)/advisor/actions";
 import { reviewMoves, type ApiStudentState } from "@/lib/students-live";
 
 /* P9-FE-02 — one application's decision bar. A move that needs a reason
@@ -81,6 +81,30 @@ export function StudentDecision({ studentId, state }: { studentId: string; state
           {msg.message}
         </p>
       )}
+    </div>
+  );
+}
+
+/** POL-FE-57 (app review B6) — BTG's "Verify guardian" on a minor's card. */
+export function VerifyGuardianButton({ guardianId }: { guardianId: string }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; message: string } | null>(null);
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <Button
+        disabled={pending}
+        onClick={() =>
+          start(async () => {
+            const r = await verifyGuardianAction(guardianId);
+            setMsg(r);
+            if (r.ok) router.refresh();
+          })
+        }
+      >
+        Verify guardian
+      </Button>
+      {msg && <p role={msg.ok ? "status" : "alert"} className={msg.ok ? "text-[11px] text-accent" : "text-[11px] text-danger"}>{msg.message}</p>}
     </div>
   );
 }

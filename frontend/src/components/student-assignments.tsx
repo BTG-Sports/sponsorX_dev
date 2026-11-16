@@ -105,6 +105,11 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
   { key: "done", label: "Done" },
 ];
 
+/* POL-FE-59 (app review §6) — a live piece buckets by where it really is: one sent back is the
+   student's to do, not "in review" (its state is DRAFT_SUBMITTED either way). */
+const rowBucket = (r: AssignmentRow): Exclude<Filter, "all"> =>
+  r.live?.stage === "CHANGES_REQUESTED" ? "todo" : r.live?.stage === "WAITING_FOR_ADVISOR" || r.live?.stage === "IN_REVIEW" ? "review" : bucket(r.state);
+
 const bucket = (s: DeliverableState): Exclude<Filter, "all"> =>
   s === "NOT_STARTED"
     ? "todo"
@@ -169,13 +174,13 @@ export function StudentAssignments({
   const { panelRef, onKeyDown } = useDrawerFocus<HTMLElement>(Boolean(open));
 
   const shown = useMemo(
-    () => (filter === "all" ? rows : rows.filter((r) => bucket(r.state) === filter)),
+    () => (filter === "all" ? rows : rows.filter((r) => rowBucket(r) === filter)),
     [rows, filter],
   );
 
   const counts = useMemo(() => {
     const c = { all: rows.length, todo: 0, review: 0, done: 0 };
-    for (const r of rows) c[bucket(r.state)] += 1;
+    for (const r of rows) c[rowBucket(r)] += 1;
     return c;
   }, [rows]);
 
@@ -272,7 +277,12 @@ export function StudentAssignments({
                 </span>
               </span>
               <span className="flex shrink-0 flex-col items-end gap-1">
-                <Badge tone={STATE_TONE[a.state]}>{STATE_COPY[a.state]}</Badge>
+                {/* POL-FE-59 — the list says what the drawer says: "Changes requested" for a piece sent back. */}
+                {a.live ? (
+                  <Badge tone={stageBadge(a.live.stage).tone}>{stageBadge(a.live.stage).label}</Badge>
+                ) : (
+                  <Badge tone={STATE_TONE[a.state]}>{STATE_COPY[a.state]}</Badge>
+                )}
                 <span className="text-[11px] font-medium tabular-nums text-next">
                   +{a.points} pts
                 </span>

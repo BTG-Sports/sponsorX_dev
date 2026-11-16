@@ -354,6 +354,7 @@ const BODY: Record<string, unknown> = {
   "POST /ad-slots/{id}/artwork/uploads": { contentType: "image/png", bytes: 48_213 },
   "POST /ad-slots/{id}/artwork": { r2Key: "t/ti_tenant_a/ad-slot/ti_slot_sold_a/x" },
   "POST /edition-artwork/{id}/revision": { reason: "Isolation sweep" },
+  "PATCH /editions/{id}": { label: "Isolation sweep" },
   "POST /editions/{id}/assignments": { studentId: A.student, kind: "ARTICLE", title: "Isolation sweep", brief: "Isolation sweep" },
   "POST /student-assignments/{id}/uploads": { contentType: "image/png", bytes: 48_213 },
   "POST /student-assignments/{id}/submit": { text: "Isolation sweep" },
