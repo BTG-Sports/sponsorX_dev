@@ -19,8 +19,9 @@ describe("the moves on an earning", () => {
     expect(earningMoves("APPROVED_FOR_PAYOUT")).toEqual([
       { to: "PAID", label: "Mark paid", needsReference: true, primary: true }, { to: "HELD", label: "Hold" },
     ]);
-    expect(earningMoves("HELD").map((m) => [m.to, m.label])).toEqual([["ELIGIBLE", "Release"]]);
-    expect(earningMoves("PENDING").map((m) => m.to)).toEqual(["HELD"]);
+    /* POL-FE-87 — a hold goes back to pending (the API releases to payable only verified work), and pending can be voided. */
+    expect(earningMoves("HELD").map((m) => [m.to, m.label])).toEqual([["ELIGIBLE", "Release"], ["PENDING", "Back to pending"]]);
+    expect(earningMoves("PENDING").map((m) => [m.to, m.label, Boolean(m.needsConfirm)])).toEqual([["HELD", "Hold", false], ["VOIDED", "Void", true]]);
     expect(earningMoves("PAID")).toEqual([]);
     expect(earningMoves("VOIDED")).toEqual([]);
   });
@@ -62,5 +63,18 @@ describe("in Finance's books", () => {
     const actions = readFileSync(new URL("../src/app/(app)/finance/(treasury)/actions.ts", import.meta.url), "utf8");
     expect(actions).toMatch(/\/earnings\/\$\{encodeURIComponent\(id\)\}\/transition/);
     expect(actions).toMatch(/\/earnings\/\$\{encodeURIComponent\(id\)\}\/adjustment/);
+  });
+});
+
+describe("POL-FE-87 · Back to pending and Void", () => {
+  it("say what happened, and Void asks first", async () => {
+    const { earningMovedLine } = await import("@/lib/earning-actions");
+    expect(earningMovedLine("PENDING")).toMatch(/^Back to pending/);
+    expect(earningMovedLine("VOIDED")).toBe("Voided — nothing is owed on it.");
+    const row = readFileSync(new URL("../src/components/earning-row-actions.tsx", import.meta.url), "utf8");
+    expect(row).toContain('m.needsConfirm ? setForm(form === "void" ? null : "void")');
+    expect(row).toContain('moveEarningAction(id, "VOIDED")');
+    const actions = readFileSync(new URL("../src/app/(app)/finance/(treasury)/actions.ts", import.meta.url), "utf8");
+    expect(actions).toContain('"PENDING", "VOIDED"]');
   });
 });

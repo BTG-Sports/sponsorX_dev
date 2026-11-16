@@ -14,19 +14,22 @@ export function mayActOnEarnings(roles: readonly string[]): boolean {
   return roles.some((r) => (EARNING_ACTION_ROLES as readonly string[]).includes(r));
 }
 
-export type EarningMove = { to: "APPROVED_FOR_PAYOUT" | "PAID" | "HELD" | "ELIGIBLE"; label: string; needsReference?: boolean; primary?: boolean };
+/* POL-FE-87 — PENDING (back from a hold) and VOIDED (nothing owed) join the moves; Void asks first. */
+export type EarningMove = { to: "APPROVED_FOR_PAYOUT" | "PAID" | "HELD" | "ELIGIBLE" | "PENDING" | "VOIDED"; label: string; needsReference?: boolean; needsConfirm?: boolean; primary?: boolean };
 
 /** The moves offered from a state. PAID needs a transfer reference. */
 export function earningMoves(state: string): EarningMove[] {
   switch (state) {
     case "PENDING":
-      return [{ to: "HELD", label: "Hold" }];
+      return [{ to: "HELD", label: "Hold" }, { to: "VOIDED", label: "Void", needsConfirm: true }];
     case "ELIGIBLE":
       return [{ to: "APPROVED_FOR_PAYOUT", label: "Approve", primary: true }, { to: "HELD", label: "Hold" }];
     case "APPROVED_FOR_PAYOUT":
       return [{ to: "PAID", label: "Mark paid", needsReference: true, primary: true }, { to: "HELD", label: "Hold" }];
+    /* POL-BE-87 — Release makes it payable, which the API allows only once its work is verified;
+       Back to pending is the way out otherwise (and the step before Void). */
     case "HELD":
-      return [{ to: "ELIGIBLE", label: "Release", primary: true }];
+      return [{ to: "ELIGIBLE", label: "Release", primary: true }, { to: "PENDING", label: "Back to pending" }];
     case "DISPUTED":
       return [{ to: "ELIGIBLE", label: "Resolve — back to eligible" }, { to: "HELD", label: "Hold" }];
     default:
@@ -66,6 +69,8 @@ export function earningMovedLine(to: EarningMove["to"]): string {
   if (to === "APPROVED_FOR_PAYOUT") return "Approved for payout.";
   if (to === "PAID") return "Marked paid.";
   if (to === "HELD") return "Held.";
+  if (to === "PENDING") return "Back to pending — it becomes eligible on its own once its work is verified.";
+  if (to === "VOIDED") return "Voided — nothing is owed on it.";
   return "Released — back to eligible.";
 }
 
