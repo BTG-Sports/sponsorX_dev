@@ -247,7 +247,7 @@ describe.skipIf(!hasDatabase)("P9-BE-24 · on the path a request takes", async (
   });
 
   it("every step is audited, as the person who took it", async () => {
-    const rows = await prisma.auditLog.findMany({ where: { tenantId: T, entity: "StudentAssignment", entityId: id, action: { startsWith: "studentAssignment." } }, select: { action: true, actorId: true }, orderBy: { at: "asc" } });
+    const rows = await prisma.auditLog.findMany({ where: { tenantId: T, entity: "StudentAssignment", entityId: id, action: { startsWith: "studentAssignment." } }, select: { action: true, actorId: true }, orderBy: [{ at: "asc" }, { id: "asc" }] });
     expect(rows.map((r) => [r.action, r.actorId])).toEqual([
       ["studentAssignment.create", "sa_advisor"],
       ["studentAssignment.submit", "sa_jordan_u"],
