@@ -35,7 +35,7 @@ import {
    a live listing) is shown as the API's sentence.
    -------------------------------------------------------------------------- */
 
-type Result = { ok: true; id: string } | { ok: false; message: string };
+type Result = { ok: true; id: string } | { ok: false; message: string; confirmHref?: string };
 
 const INPUT =
   "w-full rounded-lg border border-line bg-surface px-3 py-2 text-xs text-text placeholder:text-faint outline-none transition-colors focus:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-60";
@@ -76,7 +76,7 @@ export function InventoryForm({
   const [d, setD] = useState<InventoryDraft>(initial);
   const [errors, setErrors] = useState<DraftErrors>({});
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string; confirmHref?: string } | null>(null);
   /** POL-FE-44 — true from a successful edit save until the next change, so
    *  the button never looks as if there is still something to save. */
   const [saved, setSaved] = useState(false);
@@ -102,7 +102,7 @@ export function InventoryForm({
     try {
       if (mode === "create" && create) {
         const r = await create(v.body);
-        if (!r.ok) setMessage({ tone: "error", text: r.message });
+        if (!r.ok) setMessage({ tone: "error", text: r.message, confirmHref: r.confirmHref });
         else if (savedHref) router.push(savedHref.replace("{id}", encodeURIComponent(r.id)));
         else {
           setD(EMPTY_DRAFT);
@@ -191,6 +191,32 @@ export function InventoryForm({
           <FieldError text={errors.availableUntil} />
         </div>
       </div>
+
+      {/* POL-FE-75 — the package rules the API enforces: how much one order may buy, one sponsor per period, and whether you approve each order. ("bundleOnly" is stored but nothing enforces it yet, so it isn't offered; an existing value is kept.) */}
+      <fieldset className="rounded-lg border border-line-soft p-3">
+        <legend className="px-1 text-[11px] font-medium text-muted">Package rules</legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className={LABEL} htmlFor="inv-min">Minimum per order</label>
+            <input id="inv-min" inputMode="numeric" className={INPUT} value={d.rules.min} placeholder="No minimum" onChange={(e) => set("rules", { ...d.rules, min: e.target.value })} />
+          </div>
+          <div>
+            <label className={LABEL} htmlFor="inv-max">Maximum per order</label>
+            <input id="inv-max" inputMode="numeric" className={INPUT} value={d.rules.max} placeholder="No maximum" onChange={(e) => set("rules", { ...d.rules, max: e.target.value })} />
+          </div>
+        </div>
+        <div className="mt-3 space-y-1.5 text-xs text-text">
+          <label className="flex items-start gap-2">
+            <input type="checkbox" checked={d.rules.requiresApproval} onChange={(e) => set("rules", { ...d.rules, requiresApproval: e.target.checked })} />
+            <span>I approve each order <span className="text-muted">— an order waits for you to accept it before it&apos;s approved.</span></span>
+          </label>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" checked={d.rules.exclusive} onChange={(e) => set("rules", { ...d.rules, exclusive: e.target.checked })} />
+            <span>Exclusive <span className="text-muted">— one sponsor for any given dates; an overlapping order is refused.</span></span>
+          </label>
+        </div>
+        <FieldError text={errors.rules} />
+      </fieldset>
 
       {isPackage && mode === "create" && (
         <fieldset className="rounded-lg border border-line-soft p-3">
@@ -298,6 +324,12 @@ export function InventoryForm({
           className={`rounded-lg px-3 py-2 text-[11px] leading-relaxed ${message.tone === "error" ? "bg-danger/10 text-danger" : "bg-success/10 text-success"}`}
         >
           {message.text}
+          {/* POL-FE-68 — the confirmation is made on its own page, then back here. */}
+          {message.confirmHref && (
+            <Link href={message.confirmHref} className="mt-2 flex w-fit items-center justify-center rounded-lg bg-primary px-4 py-2 text-xs font-medium text-cta-ink hover:bg-primary-soft">
+              Confirm now
+            </Link>
+          )}
         </p>
       )}
 

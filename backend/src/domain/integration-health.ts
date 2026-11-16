@@ -30,6 +30,7 @@ import { redisReachable } from "../lib/redis";
 import { storageReachable } from "../lib/storage";
 import { env } from "../config/env";
 import { factCheckStatus, type FactCheckStatus } from "./fact-nightly";
+import { NEEDS_ZOHO_CRM, zohoCrmConfigured } from "../lib/zoho-jobs";
 
 const WEEK = 7 * 86_400_000;
 
@@ -42,10 +43,12 @@ export type IntegrationHealth = {
     recentFailures: { source: string; status: string; error: string | null; signatureOk: boolean; receivedAt: string }[];
   };
   queue: {
-    outboxPending: { name: string; count: number; oldest: string }[];
+    outboxPending: { name: string; count: number; oldest: string; parked: boolean }[];
     jobs: { name: string; state: string; count: number }[];
     recentFailed: { name: string; failedAt: string | null; error: string | null }[];
   };
+  /** POL-BE-74 — whether this API holds Zoho CRM credentials. */
+  zoho: { connected: boolean };
   facts: FactCheckStatus;
   /** 4S3-INT-02 (§5.5) — the INFINEX game builds: heartbeat age, and which are missing (the alert). */
   infinex: Awaited<ReturnType<typeof clientHealth>>;
@@ -112,6 +115,7 @@ export async function integrationHealth(actor: Actor, now = new Date()): Promise
     .slice(0, 10)
     .map((d) => ({ source: d.source, status: d.status, error: d.error, signatureOk: d.signatureOk, receivedAt: d.receivedAt.toISOString() }));
 
+  const zohoConnected = zohoCrmConfigured();
   const pending = await prisma.outboxJob.groupBy({
     by: ["name"],
     where: { tenantId, dispatchedAt: null },
@@ -150,10 +154,18 @@ export async function integrationHealth(actor: Actor, now = new Date()): Promise
     sync,
     webhooks: { bySource: [...bySourceMap.values()], recentFailures },
     queue: {
-      outboxPending: pending.map((p) => ({ name: p.name, count: p._count._all, oldest: (p._min.createdAt ?? now).toISOString() })),
+      /* POL-BE-74 — `parked`: a Zoho CRM job left in the outbox on purpose
+         because no CRM credentials are set. It waits for them; it isn't a
+         stuck queue, so the board leaves it out of the queue's health. */
+      outboxPending: pending.map((p) => ({
+        name: p.name, count: p._count._all, oldest: (p._min.createdAt ?? now).toISOString(),
+        parked: !zohoConnected && NEEDS_ZOHO_CRM.has(p.name),
+      })),
       jobs,
       recentFailed,
     },
+    /* POL-BE-74 — whether this API holds Zoho CRM credentials (names only, never a call). */
+    zoho: { connected: zohoConnected },
     facts: await factCheckStatus(prisma, tenantId, Boolean(env.FACT_CHECK_EMAILS)),
     infinex: await clientHealth(prisma, tenantId, now),
   };

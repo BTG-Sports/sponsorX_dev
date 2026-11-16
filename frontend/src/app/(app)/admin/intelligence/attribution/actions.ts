@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { dismissError } from "@/lib/attribution-live";
 import { writeEngine } from "@/server/engine";
+import type { AddedPartner } from "@/lib/attribution-partners-live";
 
 /* --------------------------------------------------------------------------
    3S6-FE-01 — the attribution desk's one write: a BTG admin dismisses a
@@ -36,4 +37,16 @@ export async function dismissUnmatchedAction(saleId: string, reason: string): Pr
   } catch {
     return { ok: false, message: "The API is unreachable — try again in a minute." };
   }
+}
+
+/** POL-FE-74 — add a commerce partner; the token comes back once (POST /intelligence/attribution/partners). */
+export async function addPartnerAction(
+  name: string,
+  adapter: string,
+): Promise<{ ok: true; added: AddedPartner } | { ok: false; message: string }> {
+  if (typeof name !== "string" || typeof adapter !== "string") return { ok: false, message: "Name the partner and pick how they send sales." };
+  const r = await writeEngine("attribution", "/intelligence/attribution/partners", { name: name.trim(), adapter });
+  if (!r.ok) return { ok: false, message: r.error };
+  revalidatePath(PATH);
+  return { ok: true, added: r.data as AddedPartner };
 }

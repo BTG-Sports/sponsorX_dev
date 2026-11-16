@@ -57,7 +57,7 @@ async function respond(id: string, body: Record<string, unknown>, signer: boolea
   } catch {
     /* keep the status-line message */
   }
-  return { ok: false, ...explainOfferRefusal(res.status, parsed) };
+  return { ok: false, ...explainOfferRefusal(res.status, parsed, `/athlete/offers/${encodeURIComponent(id)}`) };
 }
 
 export async function acceptOfferAction(

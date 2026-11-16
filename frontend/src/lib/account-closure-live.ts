@@ -31,6 +31,9 @@ export type ClosingAccount = "ATHLETE" | "GUARDIAN" | "PROPERTY";
 export type ApiLiveDeal = {
   kind: "CAMPAIGN_ORDER" | "MARKETPLACE_SALE";
   id: string;
+  /** POL-BE-75 — where BTG settles it; absent on an older API. */
+  campaignId?: string | null;
+  orderId?: string | null;
   title: string;
   /** A campaign order: SENT · ACCEPTED · ACTIVE. A marketplace sale: UNPAID · IN_DELIVERY · DELIVERED · PROBLEM. */
   state: string;
@@ -102,7 +105,7 @@ export function dealStateWords(state: string): string {
   return DEAL_STATE[state] ?? state.toLowerCase().replace(/_/g, " ");
 }
 
-export type LiveDealLine = { id: string; title: string; sponsor: string; state: string; /** "for Mia" — a guardian's minor's deal, or an organisation's athlete's. */ who: string | null };
+export type LiveDealLine = { id: string; title: string; sponsor: string; state: string; /** POL-FE-75 — BTG's page to settle it, or null. */ href?: string | null; /** "for Mia" — a guardian's minor's deal, or an organisation's athlete's. */ who: string | null };
 
 /** One deal as a row: the title, the sponsor, its state, and whose when it isn't the closer's own. */
 export function liveDealLine(d: ApiLiveDeal, account: ClosingAccount): LiveDealLine {
@@ -112,7 +115,15 @@ export function liveDealLine(d: ApiLiveDeal, account: ClosingAccount): LiveDealL
     sponsor: d.sponsorName || "a sponsor",
     state: dealStateWords(d.state),
     who: account !== "ATHLETE" && d.athleteName ? `for ${d.athleteName}` : null,
+    href: dealHref(d),
   };
+}
+
+/** POL-FE-75 — BTG's page for a held deal: the campaign, or the marketplace order. */
+export function dealHref(d: Pick<ApiLiveDeal, "kind" | "campaignId" | "orderId">): string | null {
+  if (d.kind === "CAMPAIGN_ORDER" && d.campaignId) return `/admin/campaigns/${encodeURIComponent(d.campaignId)}`;
+  if (d.kind === "MARKETPLACE_SALE" && d.orderId) return `/admin/marketplace/orders/${encodeURIComponent(d.orderId)}`;
+  return null;
 }
 
 /** "2 open invitations are declined" — what closing does to the offers it can no longer answer. */

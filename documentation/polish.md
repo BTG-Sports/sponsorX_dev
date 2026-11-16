@@ -2217,7 +2217,7 @@ the blockers and today's content review findings.
   Confirmations.
 - **Done when:** a minor's login shows no always-failing button; a guardian's
   seat is labelled plainly.
-- **Delivered (2026-11-15, rcfworks):** A minor's coded refusals are shown as the API words them (offers, inventory, listings); a minor's own login sees that the guardian accepts the order; the guardian's seat reads "Guardian"; the guardian notice is in the layout; a minor reaches Guardian requests. (Pending-confirmation links on offers and inventory not changed.)
+- **Delivered (2026-11-15, rcfworks):** A minor's coded refusals are shown as the API words them (offers, inventory, listings); a minor's own login sees that the guardian accepts the order; the guardian's seat reads "Guardian"; the guardian notice is in the layout; a minor reaches Guardian requests. **2026-11-16:** a missing confirmation on an offer or a new item says which one (school rules, or the Content Collaboration Agreement) and links to Confirmations, coming back afterwards.
 
 ### 69. Athlete orders, earnings and profile say untrue things [§3]
 `POL-BE-69` · `POL-FE-69` · *Money* · confirmed
@@ -2229,7 +2229,7 @@ the blockers and today's content review findings.
   Confirmations and counts a guardian's signature; deliverable versions open;
   one name per page and a Confirmations link.
 - **Done when:** each screen reads true.
-- **Delivered (2026-11-15, rcfworks):** Earnings say campaign pay is BTG Finance's and Stripe is for shop sales; after accepting, earnings say they start once deliverables are verified; the drawer drops the sample hold reason and the fixed year; Invitations and Profile say BTG matches and invites; Campaign orders points to Offers for offer-born orders; the rate card no longer counts in profile completion. (Deliverable version links and page names not changed.)
+- **Delivered (2026-11-15, rcfworks):** Earnings say campaign pay is BTG Finance's and Stripe is for shop sales; after accepting, earnings say they start once deliverables are verified; the drawer drops the sample hold reason and the fixed year; Invitations and Profile say BTG matches and invites; Campaign orders points to Offers for offer-born orders; the rate card no longer counts in profile completion. **2026-11-16:** an athlete opens each version they uploaded (a signed link); the menu and pages use one name each (Sales, Payouts); Confirmations has a permanent place under Account.
 
 ### 70. An applicant asked for changes can't make them [§3]
 `POL-BE-70` · `POL-FE-70` · *Dead end* · likely
@@ -2246,6 +2246,7 @@ the blockers and today's content review findings.
   request buttons hidden for non-admins and one role name; a sponsor admin can
   re-invite a removed teammate.
 - **Done when:** each holds on screen; a removed teammate is re-invited.
+- **Delivered (2026-11-16, rcfworks):** The empty sponsor dashboard shows a Shop order to pay and requests with BTG above "No campaigns yet" (the overview now counts requests in review). `/brief` describes what really happens: an account check, then the first request in the portal. A Viewer sees the catalogue without "Request this". The role reads "Sponsor Viewer" everywhere. A sponsor admin adds back a removed teammate (`POST /sponsor/team/:id/restore`); a login BTG switched off stays off.
 
 ### 72. Sponsor portal loose ends [§4]
 `POL-BE-72` · `POL-FE-72` · *Friction* · confirmed
@@ -2255,6 +2256,7 @@ the blockers and today's content review findings.
   Billing points Shop-only sponsors to Orders; "Not in your role" for staff on
   `/sponsor/marketplace`; categories editable on the sponsor record.
 - **Done when:** each holds on screen.
+- **Delivered (2026-11-16, rcfworks):** While card payment is closed, approved orders read "Approved" on Orders and the dashboard (the API sends `paymentsOpen`). Checkout shows the spending limit beside the total, and whether this order is within it. Long Shop descriptions open with "More". "Order again" goes to the Shop. Package cards name jobs from `GET /catalogue/jobs`, the Availability filter is "Ready to staff", and the campaign report uses live job names. The page is called Intelligence. Billing points a Shop-only sponsor to Orders. Signed-in staff on Packages see "Not in your role". BTG changes a sponsor's business type on the approved request page.
 
 ### Wave 6 — BTG admin, Finance, property
 
@@ -2265,6 +2267,7 @@ the blockers and today's content review findings.
   with something in it; a "Sent back" tab; VOIDED reads "nothing owed"; refunds
   wording; Finance sees committed revenue on editions.
 - **Done when:** each holds.
+- **Delivered (2026-11-16, rcfworks):** Payout emails link to `/payouts/<id>`, which opens Admin or Finance's own payout page. An approved payout says why it waits (no provider yet, or payments switched off), and the API's provider is the active one. The Treasury tile opens the Failed tab when no new request waits. Payouts has a "Sent back" tab. VOIDED reads "Voided — nothing owed". The refund wording says when a card refund is automatic. Finance sees committed revenue on editions (a total only; still no slot read).
 
 ### 74. System health, intelligence and staff accounts [§5]
 `POL-BE-74` · `POL-FE-74` · *Friction* · confirmed
@@ -2272,6 +2275,7 @@ the blockers and today's content review findings.
   connected"); Pricing and Forecasts say when they update; an attribution
   Partners panel; staff test accounts noted for the Tester Facility.
 - **Done when:** each holds.
+- **Delivered (2026-11-16, rcfworks):** Parked Zoho CRM jobs are marked `parked` and left out of the worker queue's health; the Zoho row says "Zoho not connected". Pricing and Forecasts say they update nightly from 19:00 UTC. Attribution has a Partners panel, and a BTG admin adds a partner (the token is shown once). `documentation/SponsorX-Testing-on-Staging.md` covers staff accounts (from the Tester Facility) and how to fill Disputes, Payment events and Failed payouts on staging.
 
 ### 75. Property, closures and email preferences [§5]
 `POL-FE-75` · *Friction* · confirmed
@@ -2279,6 +2283,7 @@ the blockers and today's content review findings.
   rules" block on the item form; closure deals linked; a Notifications section
   in Settings.
 - **Done when:** each holds.
+- **Delivered (2026-11-16, rcfworks):** A team manager's empty dashboard offers "Add athlete →" and "Add an item →", and Settings shows no sample links to a real manager. The item form has a Package rules block: minimum and maximum per order, exclusive, and "I approve each order" (bundle-only is stored but not enforced, so it isn't offered). Each deal holding an account closure links to its campaign or marketplace order. Every portal's Settings has a Notifications section to turn each kind of email on or off.
 
 ### Wave 7 — NEXT
 

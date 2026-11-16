@@ -60,7 +60,7 @@ export function OfferRespond({
   const [read, setRead] = useState(false);
   const [confirmDecline, setConfirmDecline] = useState(false);
   const [busy, setBusy] = useState<"accept" | "decline" | null>(null);
-  const [error, setError] = useState<{ message: string; reload?: boolean } | null>(null);
+  const [error, setError] = useState<{ message: string; reload?: boolean; confirmHref?: string } | null>(null);
   const [done, setDone] = useState<{ state: string; orderId: string | null } | null>(null);
   const [asking, setAsking] = useState(false);
   /* The request just sent, until the refreshed page carries it. */
@@ -75,7 +75,7 @@ export function OfferRespond({
       if (r.ok) {
         setDone({ state: r.state, orderId: r.orderId });
         router.refresh();
-      } else setError({ message: r.message, reload: r.reload });
+      } else setError({ message: r.message, reload: r.reload, confirmHref: r.confirmHref });
     } finally {
       setBusy(null);
     }
@@ -218,6 +218,15 @@ export function OfferRespond({
             >
               Reload the current offer
             </button>
+          )}
+          {/* POL-FE-68 — what's outstanding is confirmed on its own page, and the athlete comes back here. */}
+          {error.confirmHref && (
+            <Link
+              href={error.confirmHref}
+              className="mt-2 flex w-fit items-center justify-center rounded-lg bg-primary px-4 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
+            >
+              Confirm now
+            </Link>
           )}
         </div>
       )}

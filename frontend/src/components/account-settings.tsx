@@ -12,6 +12,9 @@ import { closurePreview } from "@/server/account";
 import { apiFetch } from "@/server/api";
 import { viewerName } from "@/server/viewer";
 import { supportContact } from "@/server/support";
+import { NotificationPrefs } from "@/components/notification-prefs";
+import type { ApiPreference } from "@/lib/notification-prefs-live";
+import { saveNotificationPrefAction } from "@/server/notification-prefs-actions";
 
 /* --------------------------------------------------------------------------
    Account settings — 2S1-FE-08 (design Account.dc.html, settings + close),
@@ -76,11 +79,14 @@ export async function AccountSettings({
   /** POL-FE-11 — a guardian acting for a minor: the row that closes the minor's account. */
   ward?: { name: string; closeAction: CloseAction; withdrawAction: WithdrawAction };
 }) {
-  const [user, acctRes, name, support, closing, wardClosing] = await Promise.all([
+  const [user, acctRes, name, support, closing, wardClosing, prefsRes] = await Promise.all([
     currentUser(), apiFetch("/payouts/account"), viewerName("You"), supportContact(),
     closurePreview(seat, guardianName),
     ward ? closurePreview("athlete") : Promise.resolve(null),
+    /* POL-FE-75 — email preferences; a role without them (403) gets no section. */
+    apiFetch("/me/notification-preferences").catch(() => null),
   ]);
+  const prefs = prefsRes?.ok ? ((await prefsRes.json()) as { preferences: ApiPreference[] }).preferences : null;
   /* The island resets its "held just now" state when the server's answer changes. */
   const panelKey = (p: typeof closing) => `${p.kind}:${p.kind === "held" ? p.request.id : ""}`;
   const arena = stage === "arena";
@@ -136,6 +142,12 @@ export async function AccountSettings({
         </span>
         {panel && !panel.guardianOnly && <StripeLinkButton cta={panel.cta} action={linkAction} testBadge={panel.testBadge} />}
       </section>
+
+      {prefs && (
+        <div data-spot={arena ? "" : undefined} style={plate(0.25).style} className={plate(0.25).className}>
+          <NotificationPrefs initial={prefs} save={saveNotificationPrefAction} />
+        </div>
+      )}
 
       {ward && wardClosing && (
         <CloseAccount key={`ward:${panelKey(wardClosing)}`} whose={ward.name} panel={wardClosing}

@@ -123,3 +123,19 @@ export async function markPublished(deliverableId: string, publishedUrl: string)
     "Couldn't record the published link",
   );
 }
+
+/** POL-FE-69 — a signed, short-lived link to one version the athlete uploaded. */
+export async function versionLinkAction(id: string, version: number): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
+  if (typeof id !== "string" || !id || !Number.isInteger(version) || version < 1) return { ok: false, message: "No such version." };
+  let res: Response;
+  try {
+    res = await apiFetch(`/deliverables/${encodeURIComponent(id)}/assets/${version}/url`);
+  } catch {
+    return { ok: false, message: "SponsorX couldn't be reached. Try again in a minute." };
+  }
+  if (!res.ok) {
+    const said = ((await res.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message;
+    return { ok: false, message: said ?? `That version couldn't be opened (HTTP ${res.status}).` };
+  }
+  return { ok: true, url: ((await res.json()) as { url: string }).url };
+}

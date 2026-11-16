@@ -596,12 +596,14 @@ export function payoutTracker(p: Pick<ApiPayout, "state" | "requestedAt" | "deci
 
 /* ================================================ BTG's queue (2S5-FE-04) */
 
-export type ApprovalTab = "waiting" | "sending" | "paid" | "problems";
+export type ApprovalTab = "waiting" | "sending" | "paid" | "problems" | "sent-back";
 export const APPROVAL_TABS: ReadonlyArray<{ key: ApprovalTab; label: string; states: PayoutState[] }> = [
   { key: "waiting", label: "Waiting for approval", states: ["REQUESTED"] },
   { key: "sending", label: "Sending", states: ["APPROVED", "SENDING"] },
   { key: "paid", label: "Paid", states: ["PAID"] },
   { key: "problems", label: "Failed", states: ["FAILED"] },
+  /* POL-FE-73 — a payout BTG sent back was in no tab at all. */
+  { key: "sent-back", label: "Sent back", states: ["REJECTED"] },
 ];
 export const approvalTab = (v: unknown): ApprovalTab =>
   APPROVAL_TABS.some((t) => t.key === v) ? (v as ApprovalTab) : "waiting";
@@ -669,6 +671,8 @@ export type ApiPayoutDetail = ApiAdminPayout & {
   orders: Array<{ orderId: string; orderRef: string; state: string; fulfilledAt: string | null; totalCents: number; title: string }>;
   checks: PayoutCheck[];
   provider: string;
+  /** POL-BE-73 — why an approved payout sits still (payments closed), or null. Absent on an older API. */
+  waiting?: string | null;
 };
 
 /** The payee's part of an order's frozen split — an athlete's share (their

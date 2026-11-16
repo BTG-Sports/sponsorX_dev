@@ -24,10 +24,12 @@ export type ApiJob = { id: string; name: string; sellLow: number; sellHigh: numb
 const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 
 /** The API's package, in the shape the catalogue renders. Whole dollars. */
-export function toPkg(p: ApiPackage): Pkg {
+/** POL-FE-72 — `jobNames` is GET /catalogue/jobs as id → name, so a card
+ *  reads "Athlete Reel × 1 per athlete", not a raw "SX-03". */
+export function toPkg(p: ApiPackage, jobNames: Readonly<Record<string, string>> = {}): Pkg {
   const range = (lo: number, hi: number, f: (n: number) => string) => (lo === hi ? f(lo) : `${f(lo)}–${f(hi)}`);
   const parts = [
-    ...p.lineItems.map((l) => `${l.jobCode} × ${l.quantityPerAthlete} per athlete`),
+    ...p.lineItems.map((l) => `${jobNames[l.jobCode] ?? l.jobCode} × ${l.quantityPerAthlete} per athlete`),
     ...p.includes.map((i) => i.code.replace(/_/g, " ").toLowerCase()),
   ];
   return {

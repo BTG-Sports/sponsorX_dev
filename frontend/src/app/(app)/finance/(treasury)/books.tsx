@@ -68,6 +68,7 @@ const EARNING_TONE: Record<EarningState, VaultTone> = {
   PAID: "good",
   HELD: "late",
   DISPUTED: "late",
+  VOIDED: "done", // POL-FE-73
 };
 
 const INVOICE_TONE: Record<string, VaultTone> = {

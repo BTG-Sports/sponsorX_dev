@@ -17,6 +17,7 @@ export const EARNING_TONE: Record<
   PAID: "accent",
   HELD: "danger",
   DISPUTED: "danger",
+  VOIDED: "neutral", // POL-FE-73
 };
 
 /* The §21 pipeline, athlete-first: money reads left → right, intensity rises
@@ -84,6 +85,8 @@ export const STATUS_DETAIL: Record<EarningState, string> = {
   HELD: "On hold — BTG Finance is re-checking this order before it can move again. They'll reach out if they need anything from you.",
   DISPUTED:
     "Disputed — BTG Finance is resolving it with the sponsor. Your earning is safe while that happens.",
+  /* POL-FE-73 */
+  VOIDED: "Voided — the work was cancelled, so nothing is owed and nothing will be paid.",
 };
 
 /** Fixture dates are "May 16" strings — month-name + day sort key. */

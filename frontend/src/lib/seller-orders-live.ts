@@ -277,7 +277,7 @@ export function orderBanner(o: ApiSellerOrder, now: Date = new Date()): SellerBa
       tone: "accent",
       title,
       /* Payable after the payout hold, not at once; the order closes 30 days after its LAST line is confirmed. */
-      text: `Your share becomes payable once the payout hold ends — My money shows when. The order closes ${CLOSE_DAYS} days after its last line is confirmed.`,
+      text: `Your share becomes payable once the payout hold ends — Payouts shows when. The order closes ${CLOSE_DAYS} days after its last line is confirmed.`,
       quote: o.resolution?.note ? `BTG: “${o.resolution.note}”` : undefined,
       money: true,
     };
@@ -361,7 +361,7 @@ export function apiRefusal(status: number, body: unknown, fallback: string): str
 
 /** The seller the pages speak for: where their orders, money and nav live. */
 export const SELLER = {
-  athlete: { basePath: "/athlete/sales", moneyHref: "/athlete/money", moneyLabel: "Go to My money" },
+  athlete: { basePath: "/athlete/sales", moneyHref: "/athlete/money", moneyLabel: "Go to Payouts" },
   team: { basePath: "/property/sales", moneyHref: "/property/earnings", moneyLabel: "Go to Earnings" },
 } as const;
 

@@ -54,7 +54,7 @@ describe.skipIf(!hasDatabase)("POL-BE-11 · closing an account leaves no live de
     const preview = await w.call("GET", "/me/close/preview", id("riley"));
     expect(preview.status, preview.text).toBe(200);
     expect(preview.json).toMatchObject({ account: "ATHLETE", wouldHold: true, heldRequest: null });
-    expect(preview.json.liveDeals).toEqual([expect.objectContaining({ kind: "MARKETPLACE_SALE", sponsorId: E.sponsor })]);
+    expect(preview.json.liveDeals).toEqual([expect.objectContaining({ kind: "MARKETPLACE_SALE", sponsorId: E.sponsor, orderId /* POL-BE-75 — BTG links to the order */ })]);
 
     const held = await w.call("POST", "/me/close", id("riley"), { confirm: true, reason: "Moving abroad" });
     expect(held.status, held.text).toBe(202);

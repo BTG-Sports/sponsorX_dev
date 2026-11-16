@@ -309,7 +309,7 @@ describe.skipIf(!hasDatabase)("GET /finance/overview — the Treasury (P1-ART-25
     expect(o.paidOut.cents).toBe(PAID_OUT);
     expect(o.owed.cents).toBe(OWED);
     expect(o.kept.cents).toBe(KEPT);
-    expect(o.needsYou.payouts).toEqual({ count: 2, cents: 2_500, oldestAt: ago(2).toISOString() });
+    expect(o.needsYou.payouts).toEqual({ count: 2, cents: 2_500, oldestAt: ago(2).toISOString(), requested: 1 }); // POL-BE-73 — one new request, one failed
     expect(o.needsYou.refunds).toEqual({ count: 1, cents: 700, oldestAt: ago(1).toISOString() });
     expect(o.needsYou.disputes).toEqual({ count: 1, cents: 900 });
     expect(o.needsYou.events).toEqual({ count: 1 });

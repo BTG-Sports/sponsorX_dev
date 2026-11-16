@@ -58,7 +58,7 @@ describe("P1-ART-21 · sidebar groups", () => {
       href: m[1]!, label: m[2]!, group: m[3], groupIcon: m[4],
     }));
     /* 14 since POL-FE-24 added Campaign orders to the Campaigns group. */
-    expect(items.length).toBe(14);
+    expect(items.length).toBe(15); // POL-FE-69 — Confirmations under Account
     const { top, groups } = groupNav(items);
     expect(groups.find((g) => g.label === "Campaigns")?.items.map((i) => i.label)).toEqual(["Campaign orders", "Deliverables", "Invitations", "Offers"]);
     /* "Orders" in Marketplace meant marketplace sales — it is named so now. */

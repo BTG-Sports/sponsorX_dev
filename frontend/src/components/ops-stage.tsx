@@ -508,6 +508,8 @@ const LED: Record<HealthRow["status"], { dot: string; text: string }> = {
   Syncing: { dot: "bg-[#2e9bf5] shadow-[0_0_12px_#2e9bf5]", text: "text-[#93c5fd]" },
   Degraded: { dot: "bg-[#f59e0b] shadow-[0_0_12px_#f59e0b]", text: "text-[#fcd34d]" },
   Down: { dot: "bg-[#ef4444] shadow-[0_0_14px_#ef4444]", text: "text-[#fca5a5]" },
+  /* POL-FE-74 — a vendor not set up yet: quiet, not an alarm. */
+  "Not connected": { dot: "bg-[#94a3b8]", text: "text-[#cbd5e1]" },
 };
 
 export function SystemsPanel({ rows }: { rows: HealthRow[] }) {

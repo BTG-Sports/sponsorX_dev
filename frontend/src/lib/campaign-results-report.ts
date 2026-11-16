@@ -82,7 +82,7 @@ export function buildCampaignResultsReport(
   r: ApiSponsorReport,
   best: { window: RangeKey; athletes: { name: string; sport?: string | null; views: number }[] } | null,
   asOf: Date = new Date(),
-  opts: { sample?: boolean } = {},
+  opts: { sample?: boolean; jobNames?: Readonly<Record<string, string>> } = {},
 ): CampaignResultsReport {
   const reached = r.performance.verifiedViews;
   const engagements = r.performance.verifiedEngagements;
@@ -133,7 +133,7 @@ export function buildCampaignResultsReport(
       : null,
     athletes: r.roster.map((a) => ({
       name: a.athleteName,
-      job: jobName(a.jobId),
+      job: jobName(a.jobId, opts.jobNames),
       order: orderWord(a.orderState).text,
       checked: a.deliverablesVerified,
       total: a.deliverablesTotal,

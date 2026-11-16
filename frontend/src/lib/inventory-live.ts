@@ -29,6 +29,7 @@
 
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "./brand-categories";
 import { textParam, type PageInfo, type SearchParams } from "./list-query";
+import { confirmationsHref, promptFor, type ApiErrorBody } from "@/lib/confirmations-live";
 
 export { BRAND_CATEGORIES, categoryLabel, type BrandCategory };
 
@@ -265,7 +266,19 @@ export type InventoryDraft = {
   categories: string[];
   restrictedCategories: string[];
   components: Array<{ itemId: string; quantity: number }>;
+  /** POL-FE-75 — the item's package rules; min/max as typed, blank = none. */
+  rules: RulesDraft;
 };
+
+export type RulesDraft = { min: string; max: string; bundleOnly: boolean; exclusive: boolean; requiresApproval: boolean };
+export const EMPTY_RULES: RulesDraft = { min: "", max: "", bundleOnly: false, exclusive: false, requiresApproval: false };
+export type PackageRulesBody = { minQuantity?: number; maxQuantity?: number; bundleOnly?: boolean; exclusive?: boolean; requiresApproval?: boolean };
+
+/** The API's stored rules as the form's draft. */
+export function rulesDraft(r: Record<string, unknown> | null | undefined): RulesDraft {
+  const n = (v: unknown) => (typeof v === "number" && Number.isInteger(v) ? String(v) : "");
+  return { min: n(r?.minQuantity), max: n(r?.maxQuantity), bundleOnly: r?.bundleOnly === true, exclusive: r?.exclusive === true, requiresApproval: r?.requiresApproval === true };
+}
 
 export const EMPTY_DRAFT: InventoryDraft = {
   title: "",
@@ -278,6 +291,7 @@ export const EMPTY_DRAFT: InventoryDraft = {
   categories: [],
   restrictedCategories: [],
   components: [],
+  rules: EMPTY_RULES,
 };
 
 export function draftFromItem(i: ApiInventoryItem): InventoryDraft {
@@ -292,10 +306,11 @@ export function draftFromItem(i: ApiInventoryItem): InventoryDraft {
     categories: [...i.categories],
     restrictedCategories: [...i.restrictedCategories],
     components: i.components.map((c) => ({ itemId: c.component.id, quantity: c.quantity })),
+    rules: rulesDraft(i.packageRules),
   };
 }
 
-export type DraftField = "title" | "description" | "kind" | "price" | "quantity" | "availableUntil" | "availableFrom" | "categories" | "components";
+export type DraftField = "title" | "description" | "kind" | "price" | "quantity" | "availableUntil" | "availableFrom" | "categories" | "components" | "rules";
 export type DraftErrors = Partial<Record<DraftField, string>>;
 
 /** InventoryItemInput's fields — what POST /inventory takes. */
@@ -310,6 +325,7 @@ export type InventoryBody = {
   categories: string[];
   restrictedCategories: string[];
   components?: Array<{ itemId: string; quantity: number }>;
+  packageRules: PackageRulesBody;
 };
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(BRAND_CATEGORIES);
@@ -363,6 +379,22 @@ export function validateDraft(
     else if (parts.some((p) => !Number.isInteger(p.quantity) || p.quantity < 1 || p.quantity > 100)) errors.components = "Each item takes 1 to 100 units.";
   }
 
+  /* POL-FE-75 — the package rules, checked as the API checks them (inventory.ts). */
+  const r = d.rules ?? EMPTY_RULES;
+  const whole = (t: string) => (/^\d+$/.test(t.trim()) && Number(t.trim()) >= 1 ? Number(t.trim()) : null);
+  const minQ = r.min.trim() ? whole(r.min) : undefined;
+  const maxQ = r.max.trim() ? whole(r.max) : undefined;
+  if (minQ === null || maxQ === null) errors.rules = "Minimum and maximum are whole numbers, 1 or more — or leave them blank.";
+  else if (minQ !== undefined && maxQ !== undefined && maxQ < minQ) errors.rules = "The maximum is below the minimum.";
+  else if (maxQ !== undefined && quantity !== null && maxQ > quantity) errors.rules = `The maximum is more than the ${quantity} you have.`;
+  const packageRules: PackageRulesBody = {
+    ...(typeof minQ === "number" ? { minQuantity: minQ } : {}),
+    ...(typeof maxQ === "number" ? { maxQuantity: maxQ } : {}),
+    ...(r.bundleOnly ? { bundleOnly: true } : {}),
+    ...(r.exclusive ? { exclusive: true } : {}),
+    ...(r.requiresApproval ? { requiresApproval: true } : {}),
+  };
+
   if (Object.keys(errors).length) return { ok: false, errors };
   const body: InventoryBody = {
     title,
@@ -374,6 +406,7 @@ export function validateDraft(
     availableUntil,
     categories: [...new Set(d.categories)],
     restrictedCategories: [...new Set(d.restrictedCategories)],
+    packageRules,
   };
   if (mode === "create" && isPackage) body.components = d.components.map((p) => ({ itemId: p.itemId, quantity: p.quantity }));
   return { ok: true, body };
@@ -437,7 +470,17 @@ export function refusalMessage(body: unknown): string | null {
 }
 
 /** What a create/edit refusal says to the person who made it. */
+/** POL-FE-68 — a new item waits on the athlete's (or guardian's) confirmations
+ *  where BTG has switched them on: where to confirm, coming back to inventory. */
+export function inventoryConfirmHref(status: number, body: unknown, returnTo = "/athlete/inventory"): string | null {
+  return promptFor(status, body as ApiErrorBody) ? confirmationsHref(returnTo) : null;
+}
+
 export function explainInventoryRefusal(op: "create" | "update" | "pause", status: number, body: unknown): string {
+  /* POL-FE-68 — an outstanding confirmation, not "until your profile is approved". */
+  const prompt = promptFor(status, body as ApiErrorBody);
+  if (prompt === "rules") return "Before you add an item, confirm that you follow your own school, league and local rules.";
+  if (prompt === "collab") return "Before you add an item, accept the current Content Collaboration Agreement.";
   const said = refusalMessage(body);
   if (status === 409 && op === "create") return "Inventory opens once your profile is approved.";
   if (status === 409) return said ?? "A published listing shows this price and quantity. Pause the listing first, then change them.";

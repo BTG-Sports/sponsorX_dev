@@ -13,6 +13,7 @@ import { cpm } from "@/lib/intelligence";
 import { apiListQuery, textParam } from "@/lib/list-query";
 import { PRICING_VIEWS, deltaOf, kindLabel, pricingView, samplePricingDesk, type PricingDesk } from "@/lib/pricing-live";
 import { readEngine, wantsSample } from "@/server/engine";
+import { NIGHTLY_RUN_LINE, PRICING_EMPTY_HINT } from "@/lib/nightly-run";
 
 /* --------------------------------------------------------------------------
    Pricing intelligence — 3S2-FE-01 (Spec §16 P3-01). Every priced inventory
@@ -55,7 +56,7 @@ export default async function PricingPage({ searchParams }: { searchParams: SP }
     return (
       <div className="space-y-5">
         <h1 className="sx-page-title">{TITLE}</h1>
-        <EmptyState mark="inbox" title="Nothing priced yet" hint="Recommendations appear for inventory once the CPM engine has sold lines to learn from." />
+        <EmptyState mark="inbox" title="Nothing priced yet" hint={PRICING_EMPTY_HINT} />
       </div>
     );
   }
@@ -85,7 +86,10 @@ export default async function PricingPage({ searchParams }: { searchParams: SP }
   }
   return (
     <div className="space-y-5">
-      <h1 className="sx-page-title">{TITLE}</h1>
+      <div>
+        <h1 className="sx-page-title">{TITLE}</h1>
+        <p className="mt-1 text-xs text-muted">{NIGHTLY_RUN_LINE}</p>
+      </div>
       <PricingDeskView desk={read.data} q={q} view={view} />
     </div>
   );
@@ -132,7 +136,7 @@ function PricingDeskView({ desk, q, view, sample = false }: { desk: PricingDesk;
             <EmptyState
               mark="inbox"
               title={filtered ? "No priced item matches" : "Nothing priced yet"}
-              hint={filtered ? "Try another search or recommendation filter." : "Recommendations appear for inventory once the CPM engine has sold lines to learn from."}
+              hint={filtered ? "Try another search or recommendation filter." : PRICING_EMPTY_HINT}
             />
           ) : (
             <PagedTable bare page={page} noun="Items" filtered={filtered} label="Priced inventory" columns={columns}>

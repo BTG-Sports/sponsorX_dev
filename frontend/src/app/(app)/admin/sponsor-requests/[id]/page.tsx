@@ -3,6 +3,7 @@ import Link from "next/link";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { Badge, Card } from "@/components/ui";
 import { PayoutTracker } from "@/components/payout-history";
+import { SponsorCategoriesEditor } from "@/components/sponsor-categories-editor";
 import { WhatsWrongPanel } from "@/components/problem-tags";
 import { SponsorAccountDecision, SponsorDocumentOpen, SponsorRequestReview } from "@/components/sponsor-request-review";
 import { categoryLabel, type BrandCategory } from "@/lib/brand-categories";
@@ -11,7 +12,7 @@ import {
 } from "@/lib/sponsor-requests-live";
 import { DOCUMENTS_ANCHOR, docAnchor } from "@/lib/support-inbox-live";
 import { apiFetch } from "@/server/api";
-import { decideSponsorRequestAction, sendBackSponsorDocumentAction, viewSponsorDocumentAction } from "../actions";
+import { decideSponsorRequestAction, sendBackSponsorDocumentAction, setSponsorCategoriesAction, viewSponsorDocumentAction } from "../actions";
 
 /* --------------------------------------------------------------------------
    One sponsor request — 2S1-FE-03 (Claude Design SponsorRequests.dc.html,
@@ -159,6 +160,10 @@ function Decided({ r, decide }: { r: ApiSponsorRequestDetail; decide: Parameters
               {r.progress?.categories.length ? <> Business type: {r.progress.categories.map((c) => categoryLabel(c as BrandCategory)).join(", ")}.</> : null}
             </p>
           </div>
+          {/* POL-FE-72 — the business type can be corrected after the account is open. */}
+          {r.sponsorId && (
+            <SponsorCategoriesEditor sponsorId={r.sponsorId} initial={(r.progress?.categories ?? []) as BrandCategory[]} save={setSponsorCategoriesAction} />
+          )}
           {steps && <PayoutTracker steps={steps} vertical />}
           <p className="text-[11px] text-muted">{first} signs in with {r.email} and lands in the sponsor portal.</p>
         </div>
