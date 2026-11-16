@@ -14,7 +14,8 @@ describe("each step's state, status and one thing to do", () => {
   it("profile: done at 100%, else the sections left and the edit page", () => {
     expect(profileStep({ percent: 100, done: 6, total: 6 })).toMatchObject({ state: "done", status: "Complete", cta: { href: "/athlete/profile" } });
     const p = profileStep({ percent: 67, done: 4, total: 6 });
-    expect(p).toMatchObject({ state: "todo", status: "67% done", cta: { label: "Finish profile", href: "/athlete/profile/edit" } });
+    /* The profile page is the wizard; the full editor is never the way in. */
+    expect(p).toMatchObject({ state: "todo", status: "67% done", cta: { label: "Finish profile", href: "/athlete/profile" } });
     expect(p.lede).toContain("2 sections left");
   });
 

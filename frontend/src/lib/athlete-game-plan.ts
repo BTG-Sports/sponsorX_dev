@@ -99,7 +99,9 @@ export function profileStep(p: { percent: number; done: number; total: number })
     lede: done
       ? "Your profile is complete. Sponsors see the whole you."
       : `${plural(left, "section")} left to fill in. A complete profile gets matched to sponsors sooner.`,
-    cta: done ? { label: "View your profile", href: "/athlete/profile" } : { label: "Finish profile", href: "/athlete/profile/edit" },
+    /* The profile page is itself a step-by-step wizard while it's unfinished
+       (POL-FE-80), so "Finish profile" opens it, never the full editor. */
+    cta: done ? { label: "View your profile", href: "/athlete/profile" } : { label: "Finish profile", href: "/athlete/profile" },
   };
 }
 

@@ -195,7 +195,12 @@ describe("the profile page", async () => {
     expect(html).toContain('href="/athlete/confirmations?return=/athlete/profile"');
     /* While unfinished, the public page is still one link away. */
     expect(html).toContain("Open public page");
-    expect(html).toContain("Full editor");
+    /* POL-FE-81 — while the wizard is on there's no "Full editor" button; the
+       only way into the editor left is the identity step's link (legal name,
+       naming a guardian), which the wizard can't do itself. */
+    expect(html).not.toContain("Full editor");
+    expect(html).not.toContain('href="/athlete/profile/edit"');
+    expect(html).toContain('href="/athlete/profile/edit?section=identity"');
   });
 
   it("finished: the public page itself — no wizard, no Open public page, no sponsor-side button", async () => {

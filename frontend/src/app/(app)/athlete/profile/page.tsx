@@ -34,6 +34,8 @@ import "./profile.css";
      · Unfinished profile → a step-by-step wizard, one step per section the
        athlete can answer (components/profile-wizard.tsx), with a live
        preview of the public page. Each save is the full editor's own write.
+       While it's on there is no "Full editor" button (owner, POL-FE-81), and
+       the home's "Finish profile" opens this page, not the editor.
      · Finished profile → no wizard and no "Open public page" link: the
        public page itself, owner-framed (components/profile-showcase.tsx),
        with the private sections under it.
@@ -133,14 +135,11 @@ function LiveProfile({ p, rates }: { p: ApiMyProfile; rates: ApiRate[] }) {
           </span>
         }
         actions={
-          complete ? (
-            <EditPill />
-          ) : (
-            <>
-              {isActive && <PublicPill slug={p.slug} />}
-              <EditPill label="Full editor" quiet />
-            </>
-          )
+          /* POL-FE-81 (owner, 2026-11-16): while the wizard is on, it is the
+             one way to fill the profile in, so no "Full editor" beside it.
+             Only the identity step still links to the editor, for the
+             legal name and naming a guardian, which the wizard can't do. */
+          complete ? <EditPill /> : isActive ? <PublicPill slug={p.slug} /> : null
         }
       />
 
