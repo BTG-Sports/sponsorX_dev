@@ -111,7 +111,7 @@ export function agreementsStep(items: Outstanding[], viewerIsGuardian: boolean):
     key: "agreements",
     icon: "shield",
     title: "Confirm your agreements",
-    short: "Agree",
+    short: "Agreements",
     state,
     status: state === "done" ? "Confirmed" : state === "guardian" ? "Your guardian" : `${items.length} to confirm`,
     lede: words ? words.text : "Nothing left to confirm. You can read what you confirmed at any time.",

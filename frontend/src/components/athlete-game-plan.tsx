@@ -50,6 +50,7 @@ export function AthleteGamePlan({ steps, name }: { steps: GamePlanStep[]; name: 
   const root = useRef<HTMLElement>(null);
   const heads = useRef<Record<string, HTMLHeadingElement | null>>({});
   const stops = useRef<(HTMLButtonElement | null)[]>([]);
+  const list = useRef<HTMLOListElement>(null);
   const moved = useRef(false);
   const swipe = useRef<{ x: number; y: number } | null>(null);
 
@@ -78,6 +79,18 @@ export function AthleteGamePlan({ steps, name }: { steps: GamePlanStep[]; name: 
       window.scrollBy({ top: top - 88, behavior: still ? "auto" : "smooth" });
     }
   }, [phase]);
+
+  /* Below lg the stepper is a row of chips that scrolls sideways: keep the
+     current chip in the middle of it (on arrival too). The page itself never
+     scrolls for this: it moves the row only. A wide screen's rail doesn't
+     overflow, so this does nothing there. */
+  useEffect(() => {
+    const row = list.current;
+    const chip = stops.current[phase === "finish" ? steps.length : phase]?.parentElement;
+    if (!row || !chip || row.scrollWidth <= row.clientWidth + 1) return;
+    const still = !moved.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    row.scrollTo({ left: chip.offsetLeft - (row.clientWidth - chip.offsetWidth) / 2, behavior: still ? "auto" : "smooth" });
+  }, [phase, steps.length]);
 
   const go = (to: Phase) => {
     if (to === "finish" && !canFinish) return;
@@ -142,7 +155,7 @@ export function AthleteGamePlan({ steps, name }: { steps: GamePlanStep[]; name: 
           </div>
           <p className="sx-gp-explain">{head.sub}</p>
 
-          <ol className="sx-gp-steps" aria-label="Game plan steps">
+          <ol ref={list} className="sx-gp-steps" aria-label="Game plan steps">
             {steps.map((s, i) => {
               const here = phase === i;
               return (

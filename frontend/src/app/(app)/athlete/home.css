@@ -262,6 +262,78 @@
   @keyframes sx-gp-here-in { from { opacity: 0; transform: translate3d(-6px, 0, 0) scale(0.8); } }
 }
 
+/* below lg: a row of chips you swipe -------------------------------------
+   Seven circles with a word under each were too tight on a phone (owner,
+   2026-11-16: "too compacted"). Each step is a pill with its number or
+   tick, its name and its status beside it. The row scrolls sideways, fades
+   at the edges to show there's more, and keeps the current chip centred
+   (athlete-game-plan.tsx). The finish flag takes no space until it can be
+   reached. */
+@media (max-width: 63.99rem) {
+  .sx-gp-steps {
+    position: relative;
+    gap: 0.5rem;
+    margin: 1.1rem -1.25rem 0;
+    padding: 0.3rem 1.25rem 0.5rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 1.25rem;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 1.1rem, #000 calc(100% - 2.25rem), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 1.1rem, #000 calc(100% - 2.25rem), transparent);
+  }
+  .sx-gp-steps::-webkit-scrollbar { display: none; }
+  .sx-gp-stop { flex: none; scroll-snap-align: center; }
+  .sx-gp-stop:not(:last-child)::before { display: none; }
+  .sx-gp-stop[data-state="locked"] { display: none; }
+  .sx-gp-stop-btn {
+    flex-direction: row;
+    gap: 0.6rem;
+    min-height: 48px;
+    border: 1px solid var(--ar-line);
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--sx-surface-2) 60%, transparent);
+    padding: 0.35rem 1rem 0.35rem 0.4rem;
+    text-align: left;
+    transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+  }
+  .sx-gp-stop[data-here] .sx-gp-stop-btn {
+    border-color: color-mix(in srgb, var(--sx-primary) 65%, transparent);
+    background: color-mix(in srgb, var(--sx-primary) 14%, var(--sx-surface-2));
+    box-shadow: 0 6px 18px -8px var(--ar-glow);
+  }
+  .sx-gp-stop[data-here][data-state="warn"] .sx-gp-stop-btn {
+    border-color: color-mix(in srgb, var(--sx-warn) 65%, transparent);
+    background: color-mix(in srgb, var(--sx-warn) 12%, var(--sx-surface-2));
+    box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--sx-warn) 55%, transparent);
+  }
+  .sx-gp-stop[data-here]:is([data-state="done"], [data-state="clear"]) .sx-gp-stop-btn {
+    border-color: color-mix(in srgb, var(--gp-win) 60%, transparent);
+    background: color-mix(in srgb, var(--gp-win) 12%, var(--sx-surface-2));
+    box-shadow: none;
+  }
+  .sx-gp-node { width: 30px; height: 30px; font-size: 12.5px; }
+  /* the chip carries the "you're here" glow; a halo would be clipped by the row */
+  .sx-gp-stop[data-here] .sx-gp-node { box-shadow: none; }
+  .sx-gp-stop[data-here] .sx-gp-node::after { display: none; }
+  .sx-gp-stop-title { font-size: 13px; white-space: nowrap; color: var(--sx-text); }
+  .sx-gp-stop[data-here] .sx-gp-stop-title { color: var(--sx-text); }
+  .sx-gp-stop-status { display: block; margin-top: 0.05rem; font-size: 11px; white-space: nowrap; color: var(--sx-text-muted); }
+  .sx-gp-stop[data-state="warn"] .sx-gp-stop-status { color: var(--sx-warn); font-weight: 600; }
+  .sx-gp-stop:is([data-state="done"], [data-state="clear"]) .sx-gp-stop-status { color: var(--gp-win); }
+  .sx-gp-stop[data-finish] .sx-gp-stop-title[data-short] { display: none; }
+  .sx-gp-stop[data-finish] .sx-gp-stop-title[data-long] { display: block; }
+}
+@media (max-width: 39.99rem) {
+  .sx-gp-steps { margin-inline: -1.25rem; }
+}
+/* a wrapped button row keeps the one thing to do at the right */
+.sx-gp-foot > div { margin-left: auto; justify-content: flex-end; }
+@media (min-width: 40rem) and (max-width: 63.99rem) {
+  .sx-gp-steps { margin-inline: -1.75rem; padding-inline: 1.75rem; scroll-padding-inline: 1.75rem; }
+}
+
 /* one step ---------------------------------------------------------------- */
 .sx-gp-stage { position: relative; display: flex; flex-direction: column; }
 .sx-gp-panel { position: relative; display: flex; flex: 1 1 auto; flex-direction: column; }
