@@ -4,6 +4,10 @@ import { EmptyState } from "@/components/states";
 import { StudentDecision, VerifyGuardianButton } from "@/components/student-review";
 import { ClaimDecision } from "@/components/claim-decision";
 import { SchoolEmailDomain } from "@/components/school-email-domain";
+import { RosterPaste } from "@/components/roster-paste";
+import { ThisEditionCard } from "@/components/this-edition-card";
+import type { ThisEditionView } from "@/lib/this-edition";
+import { addRosterAction } from "./actions";
 import { ListSearch, PagerRow, PendingList, ServerList } from "@/components/server-pager";
 import type { PageInfo } from "@/lib/list-query";
 import {
@@ -16,7 +20,7 @@ import {
   type ApiStudentState,
   type StudentGroup,
   type StudentGroupCounts,
-  guardianLine,
+  guardianLine, loginLine,
 } from "@/lib/students-live";
 import { ClaimTabs, GroupTabs } from "./desk-controls";
 
@@ -72,6 +76,8 @@ function StudentCard({ s, canVerify = false }: { s: ApiStudent; canVerify?: bool
         )}
         {/* POL-FE-57 (app review B6) — the guardian a minor named, and whether BTG has verified them. */}
         {g && <p className={`mt-1 text-xs ${g.verified ? "text-accent" : "text-warn"} break-words`}>{g.text}</p>}
+        {/* POL-FE-76 — whether an approved student can sign in. */}
+        {loginLine(s) && <p className={`mt-1 text-xs ${loginLine(s)!.ok ? "text-muted" : "text-warn"} break-words`}>{loginLine(s)!.text}</p>}
         <p className="mt-1 text-[10px] text-faint">
           applied {fmt(s.createdAt)}
           {s.autoApprovedAt ? ` · approved automatically ${fmt(s.autoApprovedAt)}` : ""}
@@ -184,6 +190,7 @@ export function LiveAdvisorDesk({
   q = "",
   cstate = "",
   canVerify = false,
+  edition = null,
 }: {
   students: StudentsPage;
   claims?: ClaimsPage | null;
@@ -194,6 +201,8 @@ export function LiveAdvisorDesk({
   cstate?: "" | "open";
   /** POL-FE-57 — BTG sees "Verify guardian" on a minor whose guardian isn't verified. */
   canVerify?: boolean;
+  /** POL-FE-77 — the school's current edition, read-only. */
+  edition?: ThisEditionView | null;
 }) {
   const { groups, all } = students.summary;
   const heading = (
@@ -202,12 +211,20 @@ export function LiveAdvisorDesk({
       <p className="mt-1 text-xs text-muted">Your school&rsquo;s applicants and masthead — nobody else&rsquo;s.</p>
     </div>
   );
-  const settingsCard = settings ? <SchoolEmailDomain {...settings} /> : null;
+  /* POL-FE-77 — the school's own settings: the email domain, and the roster box (the advisor's school only). */
+  const settingsCard = settings ? (
+    <>
+      <SchoolEmailDomain {...settings} />
+      <RosterPaste propertyId={settings.propertyId} onFile={settings.rosterEntries} save={addRosterAction} />
+    </>
+  ) : null;
+  const editionCard = edition ? <ThisEditionCard v={edition} /> : null;
   if (all === 0 && !q) {
     return (
       <ServerList>
         <div className="space-y-6">
           {heading}
+          {editionCard}
           <EmptyState mark="chart" title="No applications yet" hint="Students apply from the public Become the Media page; new ones land here." />
           {settingsCard}
           <ClaimsSection claims={claims} cstate={cstate} />
@@ -222,6 +239,7 @@ export function LiveAdvisorDesk({
     <ServerList>
       <div className="space-y-6">
         {heading}
+        {editionCard}
         <HeroBand border="border-next/30" className="sx-animate">
           <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
             <div>

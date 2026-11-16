@@ -36,6 +36,7 @@ import {
   PROSPECT_DECIDE_SELECT,
   STUDENT_MOVE_SELECT,
   StudentNotActiveError,
+  tellApplicantIn,
 } from "./student-moves";
 import { autoDecideProspectIn, autoReviewStudentIn } from "./student-auto";
 
@@ -118,6 +119,35 @@ const REVIEWER_SELECT = {
 /** Those who may decide an application (student.approve) read the review; nobody else does. */
 const isReviewer = (actor: Actor) => !["deny", "deferred"].includes(scopeFor(actor.roles, "student", "approve"));
 const selectFor = (actor: Actor) => (isReviewer(actor) ? REVIEWER_SELECT : STUDENT_SELECT);
+
+/**
+ * POL-BE-76 — whether an approved student can sign in, for the reviewer:
+ *   "signed-in"      their login has been used
+ *   "invited"        a login was made for their address, not used yet
+ *   "no-email"       no address on the application, so no login
+ *   "address-in-use" their address belongs to another SponsorX login
+ *   null             not approved yet
+ * Read from the logins themselves, so it is true whoever approved them.
+ */
+export type StudentLoginStatus = "signed-in" | "invited" | "no-email" | "address-in-use" | null;
+const LOGIN_STATES = new Set(["APPROVED", "ACTIVE", "SUSPENDED"]);
+
+async function withLoginStatus<T extends { id: string; state: string; email: string | null }>(tenantId: string, rows: T[]): Promise<Array<T & { login: StudentLoginStatus }>> {
+  const ids = rows.filter((r) => LOGIN_STATES.has(r.state)).map((r) => r.id);
+  const users = ids.length
+    ? await prisma.user.findMany({
+        /* tenant-scope: the caller's tenant, keyed by students the caller just read. */
+        where: { tenantId, studentId: { in: ids } }, select: { studentId: true, clerkId: true },
+      })
+    : [];
+  const byStudent = new Map(users.map((u) => [u.studentId, u.clerkId]));
+  return rows.map((r) => {
+    if (!LOGIN_STATES.has(r.state)) return { ...r, login: null };
+    const clerk = byStudent.get(r.id);
+    if (clerk) return { ...r, login: clerk.startsWith("invite:") ? "invited" : "signed-in" };
+    return { ...r, login: r.email ? "address-in-use" : "no-email" };
+  });
+}
 
 async function assertSchool(tx: Prisma.TransactionClient, tenantId: string, propertyId: string): Promise<void> {
   const school = await tx.property.findFirst({ where: { tenantId, id: propertyId }, select: { kind: true } });
@@ -206,6 +236,8 @@ export async function applyAsStudent(
         },
       });
     }
+    /* POL-BE-76 — the applicant hears it arrived (before the roster rule may decide it at once). */
+    await tellApplicantIn(tx, school.tenantId, student.id, "RECEIVED", { guardianRequired: minor });
     await autoReviewStudentIn(tx, school.tenantId, student.id);
     return { id: student.id, state: "SUBMITTED", guardianRequired: minor };
   });
@@ -226,7 +258,8 @@ export async function getStudent(actor: Actor, studentId: string) {
     select: selectFor(actor),
   });
   if (!student) throw new ForbiddenError("student", "read");
-  return student;
+  if (!isReviewer(actor)) return student;
+  return (await withLoginStatus(actor.tenantId, [student]))[0]!;
 }
 
 export async function listStudents(actor: Actor) {
@@ -296,7 +329,9 @@ export async function listStudentsPage(actor: Actor, req: PageRequest, opts: { g
     if (g) groups[g] += c._count._all;
   }
   const all = STUDENT_GROUP_KEYS.reduce((n, g) => n + groups[g], 0);
-  return { students: rows, page, summary: { groups, all, ...(autoApproved !== null ? { autoApproved } : {}) } };
+  /* POL-BE-76 — reviewers see whether each approved student can sign in. */
+  const students = reviewer ? await withLoginStatus(actor.tenantId, rows) : rows;
+  return { students, page, summary: { groups, all, ...(autoApproved !== null ? { autoApproved } : {}) } };
 }
 
 /**

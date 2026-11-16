@@ -153,7 +153,7 @@ const listEditions: RequestHandler = async (req, res) => {
       id: true, label: true, state: true, closeDate: true, publishTarget: true, printDate: true,
       pageCount: true, thresholdCents: true, contentReady: true, rightsCleared: true, revenueMet: true,
       salesOpenAt: true, splitLockedAt: true,
-      publication: { select: { id: true, name: true, propertyId: true } },
+      publication: { select: { id: true, name: true, propertyId: true, property: { select: { slug: true } } } }, /* POL-BE-77 — the school slug, for the public edition link */
     },
     orderBy: [{ closeDate: "desc" }, { id: "asc" }],
     take: 100,
@@ -425,6 +425,17 @@ const readPublic: RequestHandler<{ school: string; id: string }> = async (req, r
       })
     : [];
   const by = new Map(bylines.map((s) => [s.id, s.displayName]));
+  /* POL-BE-77 — the approved text of each piece a student wrote, so the
+     edition can be read, not only listed. Only an APPROVED assignment's text,
+     and only for content already public above (a digital right in force). */
+  const texts = assets.length
+    ? await prisma.studentAssignment.findMany({
+        /* tenant-scope: the edition's own tenant, keyed by the public assets read above. */
+        where: { tenantId: edition.tenantId, assetId: { in: assets.map((a) => a.id) }, reviewState: "APPROVED", draftText: { not: null } },
+        select: { assetId: true, draftText: true },
+      })
+    : [];
+  const textOf = new Map(texts.map((t) => [t.assetId, t.draftText]));
   const school = edition.publication.property;
   res.json({
     id: edition.id,
@@ -434,7 +445,7 @@ const readPublic: RequestHandler<{ school: string; id: string }> = async (req, r
     printDate: edition.printDate?.toISOString() ?? null,
     publication: edition.publication.name,
     school: school ? { slug: school.slug, name: school.name, city: school.city, stateCode: school.stateCode } : null,
-    contents: assets.map((a) => ({ id: a.id, kind: a.kind, title: a.title, byline: a.studentId ? by.get(a.studentId) ?? null : null })),
+    contents: assets.map((a) => ({ id: a.id, kind: a.kind, title: a.title, byline: a.studentId ? by.get(a.studentId) ?? null : null, text: textOf.get(a.id) ?? null })),
     sponsors: slots.map((s) => ({ id: s.id, slotCode: s.slotCode, kind: s.kind, sponsor: s.campaign?.sponsor.name ?? "A local sponsor" })),
   });
 };

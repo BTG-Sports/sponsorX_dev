@@ -27,6 +27,8 @@ vi.mock("../src/db/client", () => ({
       findMany: async () => [{ id: "s1", slotCode: "BACK", kind: "BACK_COVER", soldCents: 100000, priceCents: 100000, campaign: { sponsor: { name: "Bowie Auto" } } }],
     },
     student: { findMany: async () => [{ id: "st1", displayName: "Jordan R." }] },
+    /* POL-BE-77 — the approved text of the student's piece. */
+    studentAssignment: { findMany: async () => [{ assetId: "as1", draftText: "The lights came on at seven." }] },
   },
 }));
 
@@ -69,8 +71,8 @@ describe("GET /public/editions/:school/:id", () => {
     const b = await call("northside");
     expect(JSON.stringify(assetWhere[0])).toContain("mayPublishDigital");
     expect(b.contents).toEqual([
-      { id: "as1", kind: "ARTICLE", title: "Friday lights", byline: "Jordan R." },
-      { id: "as2", kind: "PHOTO", title: "Aerial", byline: null },
+      { id: "as1", kind: "ARTICLE", title: "Friday lights", byline: "Jordan R.", text: "The lights came on at seven." },
+      { id: "as2", kind: "PHOTO", title: "Aerial", byline: null, text: null },
     ]);
   });
   it("sponsors are named, never priced", async () => {

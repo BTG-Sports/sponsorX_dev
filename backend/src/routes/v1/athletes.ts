@@ -75,15 +75,33 @@ export const getMyProfile: RequestHandler = async (req, res) => {
       /* P8-FE-10 — the profile photo (P8-BE-08), so the editor can show,
          change and remove it. A public-bucket object: its CDN address, never the key. */
       photoKey: true,
+      /* POL-BE-69 — whose authorisations count as the athlete's; not returned. */
+      guardianId: true,
     },
   });
   if (!row) throw new ForbiddenError("athlete", "read");
 
+  /* POL-BE-69 — counted by athlete, not by who is signed in: what the
+     athlete's own logins accepted, what was recorded for the athlete
+     (a featured or applicant acceptance), and what their guardian authorised
+     for them. A minor whose guardian signed no longer reads 0 — and a
+     guardian viewing the ward sees the ward's count, not their own login's.
+     (A guardian with two wards authorises from one login, so their
+     authorisations count for each ward: the meter may read done a little
+     early for a second ward, never stuck at 0.) */
   const agreementsSigned = await prisma.agreementAcceptance.count({
-    where: { tenantId: actor.tenantId, userId: actor.userId },
+    where: {
+      tenantId: actor.tenantId,
+      OR: [
+        { user: { athleteId: row.id } },
+        { athleteId: row.id },
+        ...(row.guardianId ? [{ guardianId: row.guardianId }] : []),
+      ],
+    },
   });
 
-  const { _count, photoKey, ...profile } = row;
+  const { _count, photoKey, guardianId: _guardianId, ...profile } = row;
+  void _guardianId;
   res.json({
     ...profile,
     photoUrl: athletePhotoUrl(photoKey),
