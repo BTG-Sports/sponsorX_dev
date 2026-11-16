@@ -2579,3 +2579,71 @@ the blockers and today's content review findings.
   - **No campaign yet:** a three-step "Start your first campaign" card beside the to-do list.
   - **Kit:** `components/stadium-dash.tsx` (server components, hand-drawn SVG). `StadiumRow` gains `plainLead`.
   - **Checked:** frontend 2,239/2,239; tsc and eslint clean; `npm run build` in a detached worktree. Walked live as the QA sponsor at 1440 (30 days and All time) and 390.
+
+### 91. The sponsor shop is a wall of filters, and an item can't be looked at before buying [§7.8, 2S4-FE-01]
+`POL-FE-91` · *Confusing* · confirmed (programme owner, 2026-11-16: "big visual redesign for /sponsor/shop, let's do the whole thing we did in athlete inventory and listing, the items can be viewed before clicking add to cart and we can have a button on the item itself for add to cart, make sure its easy to understand because what you did before is so confusing for a human but make sure not to remove the current theme of the visual redesign"; then "the view page must be a new page which shows what the athlete would show, we need to be consistent", with a screenshot of `/athlete/listings/[id]`; then "change Your public profile to View Athlete Profile" and "can we see it inside the dashboard of the logged-in account, not a new tab")
+- **Problem:** `/sponsor/shop` opened on three KPI tiles, then a row of eight filter controls of equal weight. Each card's "Add to cart" unfolded raw number and date inputs inside the card. There was no page for an item, so a sponsor could only judge it from a small card, and the athlete's showcase ("the way sponsors meet it") was never what a sponsor actually met.
+- **Fix:** the athlete Inventory/Listings pattern, on the Stadium Board.
+  - The shop is a window: one search, a type rail, one Filters popup, Cards or List.
+  - Every item has its own page and its own "Add to cart" button.
+  - The item page is the athlete's own showcase.
+- **Done when:**
+  - A sponsor can open any item and see everything about it before buying.
+  - Each item carries "Add to cart"; what's already in the cart says so.
+  - The item page shows the same sections as the athlete's item page.
+  - The athlete's profile opens inside the sponsor portal.
+  - The Stadium look is unchanged (dark, orange as light, LED panels, lit numbers).
+  - Every figure is still the API's; it works at phone size.
+- **Delivered (2026-11-16, HeckerCreatives):**
+  - **Shop (`/sponsor/shop`):**
+    - The title, "Your orders", and a Cart button carrying its count and total.
+    - A three-step strip (Look around → Add to cart → Check out) and "Nothing is charged until you check out".
+    - **Toolbar:** a search; a type rail (Everything + one chip per kind); one Filters popup for the other six filters, each with a plain label, applied instantly ("Show n items" closes it); the filters in use as chips you can remove; Cards ↔ List (remembered per browser).
+    - **Cards and rows:** the kind, title, athlete, a two-line blurb, dates ("Ends in 5 days", "Starts Dec 1", "Last day today"), stock ("Sold out" in red), the price lit, then View and Add to cart.
+    - **Add to cart:** a popup that asks two numbered questions (how many, with − / +; which dates, on the house calendar inside the item's window) and shows the live total. Then "It's in your cart" with Keep shopping / Go to cart, and the cart count updates.
+    - An item already in the cart says "In your cart" and offers "Change in cart": the API holds one line per listing.
+  - **Item page (`/sponsor/shop/[id]`):** the athlete's `ItemShowcase` itself.
+    - The same sections as the athlete's item page: the stage with its price tag and "Offered by", title, pitch, price and stock, Available / Stock / Status, what a package holds, "A good fit for", and "Who you're working with" with reach and track record.
+    - Lit orange through the showcase's own tokens (`item-stadium.css`).
+    - The sponsor's own bar on top: Shop, "On sale now" or "In your cart", Pick it → Cart → Check out, Add to cart or Change in cart, and the cart.
+    - "View Athlete Profile" in place of the athlete's "Your public profile".
+  - **Athlete profile (`/sponsor/athletes/[slug]`):** the public athlete page (`AthletePublicPage`, new `sponsor` mode) inside the sponsor portal.
+    - "Request a proposal" starts a new brief; "Is this you?" is gone.
+    - "Back to the item" returns to the item it came from.
+  - **API:** `GET /marketplace/search/:id`, one listing of the sponsor's catalogue.
+    - Exactly the search's visibility: anything the shop wouldn't list is a 403.
+    - Adds what a package holds, and the athlete's public slug once their page is up.
+    - In the OpenAPI registry, and tested in `phase2-independent-listing.test.ts`.
+  - **Kit:** `components/sponsor-shop/shop-window.tsx`, `lib/shop-window.ts`, `lib/shop-showcase.ts`, `app/(app)/sponsor/shop/shop.css`. `ItemShowcase` gains `profileLink` and `viewer`. `shop-stadium-card.tsx` and `shop-add-to-cart.tsx` are gone.
+  - **Checked:** frontend 2,263/2,263; backend `phase2-independent-listing` and `openapi.coverage` 22/22; tsc and eslint clean; `npm run build` in a detached worktree. Walked live as a Sponsor Admin at 1440 and 390 (add to cart end to end, item page, in-portal profile) and as a Sponsor Viewer (no add buttons, one line saying who adds).
+
+### 92. The sponsor cart reads as a form, not a cart [§7.9, 2S4-FE-01]
+`POL-FE-92` · *Confusing* · confirmed (programme owner, 2026-11-16: "big visual redesign for/sponsor/cart, the reference is the images that I sent, add animations + wow factor + awwwaaaard, make sure its easy to understand because what you did before is so confusing for a human but make sure not to remove the current theme of the visual redesign". Four references: a furniture cart with "Your cart total is $X" and Check out above the lines; a cart table with − / + steppers and an order summary; a cart with a progress bar and a Products / Price / Quantity / Total table; a slide-in cart drawer kit with mobile views.)
+- **Problem:** every line on `/sponsor/cart` was three raw inputs (a number box and two date boxes) with a "Save changes" button that was easy to forget. The total sat in a small side panel. "Reserve & check out" was explained only in small print, and nothing said where the sponsor was in buying.
+- **Fix:** a plain shop cart on the same Stadium Board.
+  - The total is big at the top with one Check out.
+  - Three stops say what happens next.
+  - Each line has a picture, a − / + stepper and its dates as one button, and changes save by themselves.
+  - An order summary sits beside the lines.
+- **Done when:**
+  - The total and the next step can be read at a glance.
+  - A change can't be lost by forgetting to save.
+  - Removing asks first.
+  - A held cart says it's held and for how long.
+  - It works at phone size beside the portal dock.
+  - The Stadium look is unchanged.
+  - Every figure is still the cart's own quote.
+- **Delivered (2026-11-16, HeckerCreatives):**
+  - **Board:** "Your cart total" in lit figures that count up and roll, items and sellers, one Check out (the 15-minute hold), "Nothing is charged until you place the order".
+  - **Three stops:** Review your cart (You're here) → Check out, held 15 minutes → Place the order, nothing charged until here.
+  - **Items:** Item / How many / Total. Each row has an LED tile with the item's kind, a title linking to the item, the seller and price each, a date button under the title (the shared calendar, inside the item's window), a − / + stepper capped at what the item has, and the line total.
+    - Saving says "Saving…" then "✓ Saved"; a refusal reverts the row with the API's reasons.
+    - × asks "Keep it / Remove", then the row slides out.
+    - An item the shop no longer lists says so, and Check out waits until it's removed.
+  - **Order summary** (sticky): subtotal, BTG fee, total, Check out, and three lines on what checking out does.
+  - **Held:** locked rows, a countdown ring, Continue to checkout.
+  - **Phone:** a floating Total + Check out bar that follows the portal dock and steps aside at the summary.
+  - **Empty:** an LED board with Browse the shop and the three stops.
+  - **Sample:** `?demo=sample` is a clickable sample cart that saves nothing.
+  - **Kit:** `components/sponsor-cart/cart-board.tsx`, `lib/cart-board.ts`, `app/(app)/sponsor/cart/cart.css`. `components/shop-cart-line.tsx` is gone. No API change; the cart actions are unchanged. New read: `GET /marketplace/search/:id` per line.
+  - **Checked:** tsc and eslint clean; frontend 2,262/2,263 (the one failure is in POL-FE-91's uncommitted shop work, see the Memory log). Walked live as the QA sponsor at 1440 and 390.

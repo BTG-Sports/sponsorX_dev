@@ -265,3 +265,42 @@
 - **Checked:** frontend 2,239/2,239; tsc, eslint clean; `npm run build` in a detached worktree. Walked live as the QA sponsor at 1440 (30 days, All time) and 390.
 - **Trap again:** the worktree teardown emptied `node_modules/rimraf`; restored 2.7.1 from `npm pack` (see the build-in-worktree memory).
 - **Tracker:** a POL-FE-90 row on the Polish sheet, Code review.
+
+## Sponsor shop redesign (POL-FE-91, `feat/POL-FE-91-sponsor-shop-redesign` off POL-FE-90's 4dd5ca60, HeckerCreatives)
+- **Why:** the programme owner: "big visual redesign for /sponsor/shop, let's do the whole thing we did in athlete inventory and listing, the items can be viewed before clicking add to cart … a button on the item itself for add to cart … easy to understand … not to remove the current theme". Mid-build, three more asks:
+  - "the view page must be a new page which shows what the athlete would show, we need to be consistent", with a screenshot of `/athlete/listings/[id]`;
+  - "change Your public profile to View Athlete Profile";
+  - "can we see it inside the dashboard of the logged-in account, not the new tab".
+- **What:**
+  - **`/sponsor/shop`:** a three-step strip and a Cart button with count and total. A search, a type rail, ONE Filters popup (six filters with plain labels, instant) with removable chips, and Cards ↔ List.
+    - Each item has View and Add to cart. Add to cart is a popup: how many (− / +), which dates (the house calendar inside the item's window), a live total, then "It's in your cart".
+    - An item already in the cart says so and offers "Change in cart".
+  - **`/sponsor/shop/[id]`:** the athlete's own `ItemShowcase`, relit orange by re-pointing its tokens (`item-stadium.css`), under a sponsor bar (Shop, On sale now / In your cart, Pick it → Cart → Check out, Add to cart, Cart).
+  - **`/sponsor/athletes/[slug]`:** `AthletePublicPage` in a new `sponsor` mode, inside the portal. "Request a proposal" goes to `/brief?new=1`, "Is this you?" is gone, and "Back to the item" returns to the item.
+  - **API:** `GET /marketplace/search/:id` (`getCatalogListing`): the search's exact visibility (catalogue scope + live + restrictions; otherwise 403), plus `bundle` and `athleteSlug` (ACTIVE/FEATURED only). POL-FE-92's cart reads it per line.
+- **Files:** `components/sponsor-shop/shop-window.tsx`, `lib/shop-window.ts`, `lib/shop-showcase.ts`, `app/(app)/sponsor/shop/{page.tsx,shop.css,[id]/}`, `app/(app)/sponsor/athletes/[slug]/`, `backend/src/domain/marketplace-search.ts`. `ItemShowcase` gains `profileLink` / `viewer`. `shop-stadium-card.tsx` and `shop-add-to-cart.tsx` deleted; `app-review-wave5.test.ts` (POL-FE-72) now checks that the card links to the full page.
+- **Checked:** frontend 2,263/2,263; backend `phase2-independent-listing` + `openapi.coverage` 22/22 on `sponsorx_test`; tsc and eslint clean; `npm run build` in a detached worktree. Walked live at 1440 and 390 as a Sponsor Admin (add to cart end to end, item page, in-portal profile) and as a Sponsor Viewer.
+- **Traps:**
+  - **The only Sponsor Admin in the dev Clerk instance** is `user_3MBbUPao9nD9ssh9rrtIpsVaNy2` (Isaiah Russell). The QA sponsor is now SPONSOR_ANALYST, and the `e2e_u_qa7_*` Clerk users don't exist in this instance. Isaiah's cart holds two of my walk's lines, and POL-FE-92 placed a hold on it.
+  - **The cart holds one line per listing:** a second add is a 409 ("already in the cart — change its line instead"), hence "Change in cart".
+  - **`next dev` missed edits to two shared components** written by a script (the page kept rendering the old `ItemShowcase`, and touching the timestamp didn't help); a real content edit through the editor did. Grep `.next/dev/server/chunks` for the new code before trusting a walk.
+  - **The dev API on :4000 was `src/index.ts`, not watched.** Restarted it with the same command for the new route.
+
+## Sponsor cart redesign (POL-FE-92, built on `feat/POL-FE-91-sponsor-shop-redesign`'s checkout, HeckerCreatives)
+- **Why:** the programme owner, with four shop-cart references: "big visual redesign for /sponsor/cart … add animations + wow factor … make sure its easy to understand because what you did before is so confusing for a human but … not to remove the current theme". POL-FE-91 is the shop window (another session, sponsorx-dev-b8); the cart is item 92.
+- **What:** `/sponsor/cart` is laid out like a plain shop cart, on the Stadium Board (it loads `../shop/shop.css` + its own `cart.css`, `sx-ct-*`).
+  - **Board:** "Your cart total" as big lit figures that count up, items and sellers, one **Check out** (reserve, 15-minute hold), "Nothing is charged until you place the order", and three stops (Review → Check out, held 15 min → Place the order).
+  - **Items:** a table with Item / How many / Total. Each row has an LED picture tile (the item's kind), its title linking to the item, the seller and price each, the dates as one calendar button under the title, a − / + stepper and ×.
+    - **Edits save by themselves.** The old "Save changes" button is gone. Saves are debounced, show "Saving…" then "✓ Saved", and a refusal reverts the row with the API's reasons.
+    - **Remove asks first** (Keep it / Remove), then the row slides out and collapses.
+  - **Order summary** (sticky): subtotal, BTG fee, total, Check out again, what checking out does.
+  - **Held cart:** the cart is locked, a ring counts the time down, and Continue to checkout replaces Check out.
+  - **Phone:** a floating Total + Check out bar. It rises once the board's button scrolls away, sits above the portal dock and drops when the dock hides, and steps aside when the summary is on screen.
+- **Reads added:** `GET /marketplace/search/:id` per line, for the kind glyph, the date window and the quantity cap. 403/404 → "No longer in the shop", and Check out is blocked until it's removed. Other failures → drawn without that information. No API change; the actions in `cart/actions.ts` are unchanged.
+- **`?demo=sample`:** a clickable sample cart. Changes and removals stay on the page and nothing is sent. `?demo=empty` / `loading` show those states.
+- **Files:** `components/sponsor-cart/cart-board.tsx`, `lib/cart-board.ts`, `app/(app)/sponsor/cart/{page.tsx,cart.css}`, `tests/cart-board.test.ts`. `components/shop-cart-line.tsx` was deleted; `tests/shop-seller.test.ts` now renders `CartLineRow`.
+- **Checked:** tsc and eslint clean. Walked live as the QA sponsor at 1440 and 390: + / − roll the line and summary totals, remove, the calendar, the phone bar against the dock; no page errors.
+  - Frontend vitest: 2,262/2,263.
+  - **The one failure isn't from the cart:** `app-review-wave5.test.ts` still reads `components/shop-stadium-card.tsx`, which the uncommitted POL-FE-91 shop work deleted. It needs updating with that work.
+  - Not yet built in a worktree; not committed.
+- **Note:** the QA sponsor user now shows as "Sponsor Viewer" in the header, so a live walk of the editable cart needs an admin sponsor or `?demo=sample`.
