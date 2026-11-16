@@ -2336,6 +2336,20 @@ the blockers and today's content review findings.
   said before.
 - **Delivered (2026-11-16, HeckerCreatives):** `components/confirmations-wizard.tsx` replaces `confirmations-form.tsx`; the page decides every word, the wizard walks them. The agreement reads section by section with a reading bar and section chips (`agreementSections`, tested word for word against `COLLAB.v2.txt`). A confirm plays a burst and moves to the next open step; reduced motion gets the still version. Walked live at 1440 and 320 (both steps, no console errors, no sideways scroll).
 
+### 81. The athlete home is eleven blocks with no first move [§9]
+`POL-FE-81` · *Confusing* · confirmed (programme owner, 2026-11-16: "make it a step by step wizard … easy to understand", with three dashboard references; keep the Arena theme)
+- **Fix:** put a step-by-step wizard at the top of `/athlete`, the "game plan":
+  the six steps from sign-up to paid (profile, agreements, payouts, answer,
+  deliver, get paid), one at a time, each with one sentence and the one thing
+  to do, opening on whatever is late, else the first step that needs the
+  athlete. Below it, the numbers in the references' anatomy (KPI plates with
+  ring gauges, the earnings as bars, payouts, the shop).
+- **Done when:** an athlete landing on the home can tell what to do next
+  without reading the whole page; every figure is still one of the page's own
+  reads; a guardian, a minor's own login and staff preview each see only the
+  steps they have.
+- **Delivered (2026-11-16, HeckerCreatives):** `components/athlete-game-plan.tsx` (client island) with the words and states in `lib/athlete-game-plan.ts`; the step bodies are drawn by the server page and passed as ReactNode. The "coming up" plates, profile lane, payout banner, orders-waiting plate and confirmations banner moved into the step each belongs to. New `components/athlete-glance.tsx` (KPI plates with rings, earnings bars with tooltips and a table for screen readers) and `components/arena-ring.tsx`; styles in `app/(app)/athlete/home.css` (theme tokens, Frost and dark, reduced-motion still look). Same reads; nothing new fetched or estimated. Walked live at 1440, 1280 (Frost) and 390: no console errors from the home, no sideways scroll.
+
 ---
 
 ## Checked and fine

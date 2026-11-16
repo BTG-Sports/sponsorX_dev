@@ -85,3 +85,19 @@
 - **Checked:** `athlete-confirmations.test.ts` 20/20 (page tests moved to the wizard's words; new helper tests, incl. word-for-word against `backend/agreements/COLLAB.v2.txt`); tsc and eslint clean. Walked live on :3000 as the QA athlete at 1440 and 320: rules → confirm → agreement → accept → All set, no console errors, no sideways scroll. `next build` not run: the owner's `next dev` was live (memory: never-build-into-live-next-dev).
 - **Local data:** the walk cleared and re-made the QA athlete's (`seed_ath_adult`) rules confirmation, now dated 2026-11-16; its agreement acceptance was removed again afterwards, as it was before.
 - **Seen once:** the first confirm after swapping the form file hit "This page couldn't load" on refresh. It didn't come back in three later runs, so it looks like a dev recompile race on the action ids. Watch for it on staging.
+
+## Athlete home game plan (POL-FE-81, `feat/athlete-confirmations-wizard`, HeckerCreatives)
+- **Why:** the programme owner asked for a big visual redesign of `/athlete` as a step-by-step wizard, "easy to understand", with animation, keeping the Arena theme; three dashboard references (KPI cards with ring gauges, bar charts). The old home was eleven blocks and no first move.
+- **Built:**
+  - The top of the home is the **game plan** (`components/athlete-game-plan.tsx`, words/states in `lib/athlete-game-plan.ts`): the six steps from sign-up to paid: profile, agreements, payouts, answer, deliver, get paid. A step the login doesn't have is left out (a guardian has no payee; staff preview has no profile).
+  - Left: a score ring ("2 of 6 squared away"), a headline ("4 things need you"), the stepper (a rail at `lg`, dots on a phone). Right: one step: "Step N of 6", a state tag, title, one sentence, the body, and a footer with Previous, Next / Skip for now and the one thing to do.
+  - It opens on a **late** step first (overdue deliverables), else the first that needs the athlete, else the finish line ("You're all caught up", medal; confetti once per browser session via sessionStorage).
+  - Arrow keys walk the stepper; a sideways swipe moves a step on a phone.
+  - What moved into the steps: the "coming up" plates (offers, invitations, deliverables, marketplace sales), the profile lane, the payout banner with the Stripe button, the orders-waiting plate and the confirmations banner (`ConfirmationsBanner` is no longer used on the home).
+  - Below: "At a glance": KPI plates with ring gauges (`components/athlete-glance.tsx`, `components/arena-ring.tsx`). Rings only where a real share exists: deliverables on time, earnings paid. Then the earnings as four bars (one hue, the paid bar lit, values and a hover/focus tooltip, sr-only table), payouts, the shop, the Certified Recruiting card.
+  - Styles: `app/(app)/athlete/home.css` (page-only, theme tokens, Frost + dark, reduced-motion still look).
+  - Same reads as before; nothing new is fetched or estimated.
+- **Checked:**
+  - `athlete-game-plan.test.ts` (new, 8) and `athlete-home-phase2.test.ts` (8, one new for where the wizard opens) pass. tsc and eslint are clean on the changed files.
+  - Walked live on :3000 as the QA athlete at 1440, 1280 (Frost) and 390: no console errors from the home, no sideways scroll.
+- **Parallel session:** another session took POL-FE-80 (the `/athlete/profile` wizard, `wizard-kit.tsx`) in the same checkout. We agreed the IDs over cross-session messages, and each commits by pathspec.

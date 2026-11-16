@@ -191,6 +191,19 @@ describe("the page renders the signed-in athlete's own figures", async () => {
     expect(html).not.toContain("overdue");
   });
 
+  it("POL-FE-81 — the game plan opens on the late step first; the rest are hidden, not missing", async () => {
+    const html = await render();
+    /* 2 deliverables overdue here, so step 5 (Deliver) is open, ahead of the unfinished profile. */
+    expect(html).toMatch(/<section class="sx-gp-panel" data-state="warn" aria-labelledby="sx-gp-h-deliver">/);
+    expect(html).toMatch(/<section hidden="" class="sx-gp-panel" data-state="todo" aria-labelledby="sx-gp-h-profile">/);
+    expect(html).toContain("Step 1 of 6");
+    expect(html).toContain("Step 5 of 6");
+    expect(html).toContain("Finish your profile");
+    expect(html).toContain("Get paid");
+    /* The payout account is READY in this fixture: that step reads done. */
+    expect(html).toMatch(/data-state="done"[^>]*aria-labelledby="sx-gp-h-payouts"/);
+  });
+
   it("an outage on a marketplace read is an error, not a quiet empty block", async () => {
     vars.responses["/sales/summary"] = { status: 500, body: {} };
     await expect(AthleteHomePage()).rejects.toThrow("/sales/summary unavailable (500).");
