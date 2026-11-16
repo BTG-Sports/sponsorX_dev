@@ -9,7 +9,7 @@ import { InventoryForm } from "@/components/inventory-form";
 import { ListSearch, PagerRow, PendingList, useListNav } from "@/components/server-pager";
 import { EMPTY_DRAFT, INVENTORY_KINDS, KIND_LABEL, type ApiInventoryItem, type InventoryBody, type InventoryKind } from "@/lib/inventory-live";
 import { marketBadge, tabPatch, type ShopCard, type ShopTab, type TabDef } from "@/lib/inventory-shop";
-import type { PageInfo } from "@/lib/list-query";
+import type { ListKeys, PageInfo } from "@/lib/list-query";
 import { InventoryRestrictions } from "@/components/inventory-restrictions";
 import type { RestrictionRow } from "@/lib/inventory-live";
 import { Glyph, type UiGlyph } from "./glyphs";
@@ -297,8 +297,15 @@ type AnyTab = { key: string; label: string; count: number };
 
 /** The sliding-marker tabs. `patch`: the URL change a tab makes (the inventory's tabs by default). */
 export function ShopTabs<T extends AnyTab = TabDef>({
-  tabs, tab, patch = (t) => tabPatch(t as ShopTab), label = "Show items",
-}: { tabs: T[]; tab: T["key"]; patch?: (key: T["key"]) => Record<string, string | null>; label?: string }) {
+  tabs, tab, patch = (t) => tabPatch(t as ShopTab), label = "Show items", keys,
+}: {
+  tabs: T[];
+  tab: T["key"];
+  patch?: (key: T["key"]) => Record<string, string | null>;
+  label?: string;
+  /** A second list's own page/size keys (POL-FE-97's payout history), so a tab resets only that list's page. */
+  keys?: ListKeys;
+}) {
   const { set } = useListNav();
   const [current, setCurrent] = useState(tab);
   const [seen, setSeen] = useState(tab);
@@ -326,7 +333,7 @@ export function ShopTabs<T extends AnyTab = TabDef>({
   const go = (t: T["key"]) => {
     if (t === current) return;
     setCurrent(t);
-    set(patch(t));
+    set(patch(t), keys);
   };
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;

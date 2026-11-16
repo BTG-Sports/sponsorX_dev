@@ -19,7 +19,12 @@ export async function moneyAccountLinkAction(returnPath: string): Promise<Payout
   return openPayoutAccountLink(returnPath, HOME);
 }
 
-export async function moneyRequestAction(): Promise<{ ok: true; count: number } | PayoutWriteFailure> {
+/** POL-FE-97 — ?demo=sample's Stripe button: opens nothing, says so. */
+export async function moneySampleLinkAction(): Promise<PayoutWriteFailure> {
+  return { ok: false, status: 0, message: "Sample page: Stripe isn't opened, and nothing changed.", reasons: [] };
+}
+
+export async function moneyRequestAction():Promise<{ ok: true; count: number } | PayoutWriteFailure> {
   const r = await payoutWrite<{ payouts?: ApiPayout[] }>("/payouts");
   revalidatePath(HOME);
   return r.ok ? { ok: true, count: r.data?.payouts?.length ?? 0 } : r;

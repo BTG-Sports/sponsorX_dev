@@ -21,19 +21,30 @@ import { PAYMENTS_OPEN_SOON } from "@/lib/payment-switch-live";
                     stops after a few minutes rather than polling forever.
    -------------------------------------------------------------------------- */
 
+const PAY_CLASS =
+  "inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-cta-ink transition-colors hover:bg-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-not-allowed disabled:opacity-40";
+
 export function OrderPayButton({
   orderId,
   label,
   ariaLabel,
   disabled,
+  className = PAY_CLASS,
+  sample = false,
 }: {
   orderId: string;
   label: string;
   ariaLabel: string;
   disabled?: boolean;
+  /** POL-FE-94 — the Stadium order page draws its own lit button. */
+  className?: string;
+  /** `?demo=sample` — pressing it only says so; nothing is paid. */
+  sample?: boolean;
 }) {
   const [pending, begin] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  /* memory: double-submit-needs-a-ref — a busy flag alone lets a double click open two payments */
+  const lock = useRef(false);
   return (
     <div className="space-y-2">
       <button
@@ -41,14 +52,24 @@ export function OrderPayButton({
         aria-label={disabled ? PAYMENTS_OPEN_SOON : ariaLabel}
         disabled={disabled || pending}
         onClick={() => {
+          if (sample) {
+            setMessage("This is a sample order — nothing is paid.");
+            return;
+          }
+          if (lock.current) return;
+          lock.current = true;
           setMessage(null);
           begin(async () => {
-            const r = await payOrderAction(orderId);
-            /* A success redirects to the provider and resolves with nothing. */
-            if (r && !r.ok) setMessage(r.message);
+            try {
+              const r = await payOrderAction(orderId);
+              /* A success redirects to the provider and resolves with nothing. */
+              if (r && !r.ok) setMessage(r.message);
+            } finally {
+              lock.current = false;
+            }
           });
         }}
-        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-cta-ink transition-colors hover:bg-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-not-allowed disabled:opacity-40"
+        className={className}
       >
         {pending ? "Opening Stripe…" : disabled ? PAYMENTS_OPEN_SOON : label}
         {!pending && !disabled && <span aria-hidden="true">↗</span>}

@@ -3,7 +3,7 @@
 /* --------------------------------------------------------------------------
    The big chart (P1-ART-23): reach, clicks or redemptions over the chosen
    window, from the overview's zero-filled `daily` series. A glowing line
-   over an orange wash; hover, touch or ←/→ move a crosshair with the day's
+   over an blue wash; hover, touch or ←/→ move a crosshair with the day's
    figure in words. Hand-drawn SVG like charts.tsx — no chart library.
    -------------------------------------------------------------------------- */
 
@@ -44,12 +44,15 @@ const fmtDay = (iso: string, week: boolean) => {
   return week ? `Week of ${s}` : s;
 };
 
-export function StadiumTrend({ points, bucket }: { points: TrendPoint[]; bucket: "day" | "week" }) {
+/** `dash` (POL-FE-90, the sponsor dashboard): no title row — the card has
+ *  one — and the metric switch is three big totals for the period, so the
+ *  buttons themselves say what was counted and how many. */
+export function StadiumTrend({ points, bucket, dash = false }: { points: TrendPoint[]; bucket: "day" | "week"; dash?: boolean }) {
   const [metric, setMetric] = useState<Metric>("views");
   const [at, setAt] = useState<number | null>(null);
   const gid = useId();
   const W = 600;
-  const H = 190;
+  const H = dash ? 230 : 190;
   const values = useMemo(() => points.map((p) => p[metric]), [points, metric]);
   const { line, area, max, x, y } = trendPath(values, W, H, 18);
   const m = METRICS.find((k) => k.key === metric)!;
@@ -72,8 +75,30 @@ export function StadiumTrend({ points, bucket }: { points: TrendPoint[]; bucket:
   const p = at !== null ? points[at] : null;
   const announce = p && at !== null ? `${fmtDay(p.day, bucket === "week")}: ${values[at]!.toLocaleString("en-US")} ${m.unit}` : "";
 
+  const sums = useMemo(() => Object.fromEntries(METRICS.map((k) => [k.key, points.reduce((n, p) => n + p[k.key], 0)])) as Record<Metric, number>, [points]);
+
   return (
     <div>
+      {dash ? (
+        <div role="group" aria-label="Show on the chart" className="grid grid-cols-3 gap-2">
+          {METRICS.map((k) => (
+            <button
+              key={k.key}
+              type="button"
+              aria-pressed={metric === k.key}
+              onClick={() => setMetric(k.key)}
+              className={`min-w-0 rounded-md border px-3 py-2 text-left transition-colors ${
+                metric === k.key
+                  ? "border-[color:var(--st)] bg-sponsor/15 shadow-[0_0_18px_-6px_var(--st-glow)]"
+                  : "border-[color:var(--st-line)] hover:border-sponsor/60"
+              }`}
+            >
+              <span className="block text-[11.5px] leading-tight text-muted">{k.label}</span>
+              <span className="sx-stadium-num block text-[20px] leading-tight">{sums[k.key].toLocaleString("en-US")}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="sx-section-title">Over time</h2>
         <div role="group" aria-label="Show" className="flex overflow-hidden rounded-md border border-[color:var(--st-line)] text-[12px]">
@@ -90,9 +115,12 @@ export function StadiumTrend({ points, bucket }: { points: TrendPoint[]; bucket:
           ))}
         </div>
       </div>
+      )}
 
       {max === 0 ? (
-        <p className="grid h-[190px] place-items-center text-sm text-muted">Nothing recorded in this period yet.</p>
+        <p className="grid place-items-center text-center text-sm text-muted" style={{ height: H }}>
+          {dash ? `No ${m.label.toLowerCase()} in this period yet. The line fills in as your posts go out.` : "Nothing recorded in this period yet."}
+        </p>
       ) : (
         <div
           tabIndex={0}
@@ -102,19 +130,19 @@ export function StadiumTrend({ points, bucket }: { points: TrendPoint[]; bucket:
           onBlur={() => setAt(null)}
           className="relative mt-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--st)]"
         >
-          <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-[190px] w-full touch-none" onPointerMove={move} onPointerLeave={() => setAt(null)}>
+          <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full touch-none" style={{ height: H }} onPointerMove={move} onPointerLeave={() => setAt(null)}>
             <defs>
               <linearGradient id={gid} x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0" stopColor="#f97a1f" stopOpacity="0.42" />
-                <stop offset="1" stopColor="#f97a1f" stopOpacity="0" />
+                <stop offset="0" stopColor="#3d8bff" stopOpacity="0.42" />
+                <stop offset="1" stopColor="#3d8bff" stopOpacity="0" />
               </linearGradient>
             </defs>
             {[0.25, 0.5, 0.75].map((f) => (
               <line key={f} x1="0" x2={W} y1={H * f} y2={H * f} stroke="rgba(255,255,255,.06)" />
             ))}
             {area && <path d={area} fill={`url(#${gid})`} />}
-            <path d={line} fill="none" stroke="#f97a1f" strokeWidth="2.4" vectorEffect="non-scaling-stroke" className="sx-stadium-trend-line" />
-            {p && at !== null && <line x1={x(at)} x2={x(at)} y1="0" y2={H} stroke="rgba(255,178,122,.45)" vectorEffect="non-scaling-stroke" />}
+            <path d={line} fill="none" stroke="#3d8bff" strokeWidth="2.4" vectorEffect="non-scaling-stroke" className="sx-stadium-trend-line" />
+            {p && at !== null && <line x1={x(at)} x2={x(at)} y1="0" y2={H} stroke="rgba(156, 195, 255,.45)" vectorEffect="non-scaling-stroke" />}
           </svg>
           {/* the dot: an HTML element, not an SVG circle — the chart's
               `preserveAspectRatio="none"` stretches the SVG to fill the box,
@@ -122,13 +150,13 @@ export function StadiumTrend({ points, bucket }: { points: TrendPoint[]; bucket:
           {p && at !== null && (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute block size-[10px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#f97a1f] bg-white shadow-[0_0_6px_#f97a1f]"
+              className="pointer-events-none absolute block size-[10px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#3d8bff] bg-white shadow-[0_0_6px_#3d8bff]"
               style={{ left: `${(x(at) / W) * 100}%`, top: `${(y(values[at]!) / H) * 100}%` }}
             />
           )}
           {p && at !== null && (
             <div
-              className="pointer-events-none absolute top-1 w-[130px] rounded-md border border-[color:var(--st-line)] bg-[#1c1511] px-2.5 py-1.5 text-[11px] shadow-lg"
+              className="pointer-events-none absolute top-1 w-[130px] rounded-md border border-[color:var(--st-line)] bg-[#131926] px-2.5 py-1.5 text-[11px] shadow-lg"
               style={{ left: `clamp(0px, calc(${(x(at) / W) * 100}% - 60px), calc(100% - 130px))` }}
             >
               <span className="block text-muted">{fmtDay(p.day, bucket === "week")}</span>
@@ -137,6 +165,13 @@ export function StadiumTrend({ points, bucket }: { points: TrendPoint[]; bucket:
               </span>
             </div>
           )}
+        </div>
+      )}
+      {dash && max > 0 && points.length > 1 && (
+        <div aria-hidden="true" className="mt-1.5 flex justify-between text-[11px] text-faint">
+          {[0, Math.floor((points.length - 1) / 2), points.length - 1].map((i) => (
+            <span key={i}>{fmtDay(points[i]!.day, false)}</span>
+          ))}
         </div>
       )}
       {/* always mounted (not just while a point is selected) so a screen

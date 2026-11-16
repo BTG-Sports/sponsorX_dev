@@ -72,7 +72,7 @@ function Spark({ values }: { values: number[] }) {
   const d = values.map((v, i) => `${i ? "L" : "M"}${Math.round((i / (values.length - 1)) * 100)},${Math.round(24 - (v / max) * 20)}`).join(" ");
   return (
     <svg aria-hidden="true" viewBox="0 0 100 26" preserveAspectRatio="none" className="mt-2 h-6 w-full">
-      <path d={d} fill="none" stroke="#f97a1f" strokeWidth="1.6" vectorEffect="non-scaling-stroke" style={{ filter: "drop-shadow(0 0 3px #f97a1f)" }} />
+      <path d={d} fill="none" stroke="#3d8bff" strokeWidth="1.6" vectorEffect="non-scaling-stroke" style={{ filter: "drop-shadow(0 0 3px #3d8bff)" }} />
     </svg>
   );
 }
@@ -155,7 +155,7 @@ export function StadiumSection({ title, hint, action }: { title: string; hint?: 
 
 const CHIP: Record<WordTone, string> = {
   live: "border-success/35 bg-success/12 text-success",
-  you: "border-sponsor bg-sponsor text-[#1a0d03] font-semibold",
+  you: "border-sponsor bg-sponsor text-[#030b1a] font-semibold",
   late: "border-danger/40 bg-danger/12 text-danger",
   done: "border-line bg-surface-2 text-muted",
   info: "border-sponsor/35 bg-sponsor/10 text-[color:var(--st-hot)]",
@@ -199,10 +199,12 @@ export function StadiumSteps({ steps, now, label }: { steps: string[]; now: numb
   );
 }
 
-export function StadiumRow({ href, lead, title, sub, right, i = 0 }: { href?: string; lead?: ReactNode; title: ReactNode; sub?: ReactNode; right?: ReactNode; i?: number }) {
+/** `plainLead` draws `lead` as given (an icon that brings its own box) instead of in the monogram box. */
+export function StadiumRow({ href, lead, plainLead = false, title, sub, right, i = 0 }: { href?: string; lead?: ReactNode; plainLead?: boolean; title: ReactNode; sub?: ReactNode; right?: ReactNode; i?: number }) {
   const inner = (
     <>
-      {lead && <span className="grid size-9 shrink-0 place-items-center rounded-md border border-sponsor/30 bg-sponsor/10 text-[12px] font-bold text-[color:var(--st-hot)]">{lead}</span>}
+      {lead && plainLead && lead}
+      {lead && !plainLead && <span className="grid size-9 shrink-0 place-items-center rounded-md border border-sponsor/30 bg-sponsor/10 text-[12px] font-bold text-[color:var(--st-hot)]">{lead}</span>}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13px] font-semibold text-text">{title}</span>
         {sub && <span className="mt-0.5 block truncate text-[11.5px] text-muted">{sub}</span>}

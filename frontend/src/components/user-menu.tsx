@@ -12,6 +12,46 @@ import { clearSessionCookiesAction } from "@/server/sign-out-actions";
    which sent a still-signed-in visitor straight back into the portal).
    -------------------------------------------------------------------------- */
 
+const LOG_OUT_PATH = "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9";
+
+/* The nav's own Log out — the sidebar foot and the phone menus, where the
+   development-only route map link used to sit. Same sign-out as the menu
+   above; a ref (not state) stops a double click signing out twice. */
+export function LogOutButton({ className = "" }: { className?: string }) {
+  const { signOut } = useClerk();
+  const busy = useRef(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        if (busy.current) return;
+        busy.current = true;
+        try {
+          await clearSessionCookiesAction().catch(() => {});
+          await signOut({ redirectUrl: "/" });
+        } finally {
+          busy.current = false;
+        }
+      }}
+      className={`group inline-flex items-center gap-1.5 transition-colors hover:text-danger ${className}`}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        className="size-3.5 transition-transform duration-300 group-hover:translate-x-0.5"
+      >
+        <path d={LOG_OUT_PATH} />
+      </svg>
+      Log out
+    </button>
+  );
+}
+
 export function UserMenu({
   userName,
   userRole,

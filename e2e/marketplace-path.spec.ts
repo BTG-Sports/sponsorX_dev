@@ -379,27 +379,43 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
     .filter({ has: sponsor.getByRole("button", { name: "Add to cart" }) })
     .last();
   await card.getByRole("button", { name: "Add to cart" }).click();
-  const addForm = sponsor.locator("form").filter({ has: sponsor.getByLabel("Quantity") });
-  await addForm.getByLabel("Quantity").fill("2");
-  await addForm.getByLabel("Starts").fill(day(12));
-  await addForm.getByLabel("Ends").fill(day(19));
-  await addForm.getByRole("button", { name: "Add to cart" }).click();
-  const added = sponsor.getByRole("status").filter({ hasText: "Added." });
+  // POL-FE-91 — "Add to cart" opens the item's popup: how many, then which dates on a calendar.
+  const addForm = sponsor.getByRole("dialog", { name: "Add to cart", exact: true });
+  await addForm.getByRole("textbox", { name: "Quantity" }).fill("2");
+  await addForm.getByRole("button", { name: /^Dates it runs:/ }).click();
+  for (const d of [day(12), day(19)]) {
+    const cell = addForm.locator(`[data-day="${d}"]`);
+    for (let i = 0; i < 12 && !(await cell.count()); i++) await addForm.getByRole("button", { name: "Next month" }).click();
+    await cell.click();
+  }
+  // Close the calendar first: a click outside an open popover only dismisses it (filter-kit useOutsideClose).
+  await addForm.getByRole("button", { name: /^Dates it runs:/ }).click();
+  await expect(addForm.locator("[role=dialog][aria-modal=false]")).toHaveCount(0);
+  await addForm.getByRole("button", { name: /^Add to cart · / }).click();
+  const added = sponsor.getByRole("dialog", { name: "Added to your cart" });
   const refused = addForm.getByRole("alert");
   await expect(added.or(refused).first()).toBeVisible({ timeout: 30_000 });
   expect(await refused.count() ? await refused.first().innerText() : "", "the line was refused").toBe("");
   await expect(added).toBeVisible();
 
   await sponsor.goto("/sponsor/cart");
-  await sponsor.getByRole("button", { name: "Reserve & check out" }).click();
+  await sponsor.getByRole("button", { name: "Check out", exact: true }).first().click();
   await sponsor.waitForURL(/\/sponsor\/checkout\?reservation=/, { timeout: 30_000 });
+  // POL-FE-93 — checkout is a wizard: Items → Invoice → Terms → Place order.
+  const onward = sponsor.getByRole("button", { name: /^Continue/ });
+  await onward.click();
   const billing = sponsor.locator("section[aria-labelledby=checkout-billing]");
   await billing.getByLabel("Name").fill("Dana Brooks");
   await billing.getByLabel("Email").fill(`dana.${run}@example.invalid`);
   await billing.getByLabel(/PO number or your reference/).fill(`Clinic ${run}`);
+  await onward.click();
+  const terms = sponsor.locator("section[aria-labelledby=checkout-terms]");
+  await onward.click();
+  await expect(sponsor.getByRole("alert").filter({ hasText: "Tick the box" }), "not past the terms before they're accepted").toBeVisible();
+  await expect(terms).toBeVisible();
+  await terms.getByRole("checkbox").check();
+  await onward.click();
   const place = sponsor.getByRole("button", { name: "Place order" });
-  await expect(place, "not before the order terms are accepted").toBeDisabled();
-  await sponsor.locator("section[aria-labelledby=checkout-terms]").getByRole("checkbox").check();
   await place.click();
   await sponsor.waitForURL(/\/sponsor\/orders\/[^/?]+/, { timeout: 30_000 });
   const orderId = new URL(sponsor.url()).pathname.split("/").pop()!;
@@ -443,8 +459,9 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
   /* ──────────────────── 7 · delivered by the seller, confirmed by the sponsor ── */
   await athlete.goto("/athlete/sales");
   await athlete.goto((await athlete.locator(`a[href*="/athlete/sales/"]`).first().getAttribute("href"))!);
-  await athlete.getByRole("button", { name: "Mark delivered" }).first().click();
-  const mark = athlete.getByRole("dialog");
+  /* POL-FE-96 — the sale page is a step-by-step wizard that opens on "You deliver it";
+     Mark delivered is a form on the page (note → proof → send), not a dialog. */
+  const mark = athlete.getByRole("form", { name: "Mark delivered" });
   await mark.locator("#mk-note").fill("Both clinics held at the team's gym — 18 kids each, the sponsor's banner up both days.");
   await mark.getByRole("button", { name: "Mark delivered" }).click();
   await expect(mark).toBeHidden({ timeout: 30_000 });

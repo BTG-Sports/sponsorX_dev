@@ -1,0 +1,37 @@
+/* --------------------------------------------------------------------------
+   POL-FE-91 — the athlete's item showcase (item.css, listing.css), lit as
+   the Stadium Board for /sponsor/shop/[id]. Same markup, same layout, same
+   motion as /athlete/listings/[id] (the owner: "we need to be consistent");
+   only the light changes: every showcase colour is a token, so the sponsor
+   portal re-points the tokens to its blue instead of copying any rule
+   (memory: portal-stage-identities — no Arena blue in the sponsor portal).
+   Scoped to `.sx-stadium`, so the athlete's own pages never see it.
+   -------------------------------------------------------------------------- */
+
+.sx-stadium .sx-iv,
+.sx-stadium .sx-iv-modal {
+  --sx-athlete: #3d8bff;
+  --iv-line: color-mix(in srgb, #3d8bff 24%, #1d2a40);
+  --iv-plate: linear-gradient(150deg, #0f1522, #0a0d14);
+}
+
+/* one light for every kind of item: blue is the Stadium's only colour */
+.sx-stadium .sx-iv[data-kind],
+.sx-stadium .sx-iv [data-kind] { --k: #3d8bff; }
+
+/* lit, upright numerals — the Stadium's, not the Arena's italic */
+.sx-stadium .sx-iv .sx-arena-num {
+  font-style: normal;
+  letter-spacing: -0.02em;
+  color: #eef5ff;
+  text-shadow: 0 0 14px color-mix(in srgb, #3d8bff 55%, transparent), 0 0 2px color-mix(in srgb, #3d8bff 40%, transparent);
+}
+
+/* the bar's tag on the stage reads as a lit LED plate */
+.sx-stadium .sx-is-tag { color: #030b1a; }
+.sx-stadium .sx-is-tag .sx-arena-num { color: #030b1a; text-shadow: none; }
+
+/* the bar keeps the LED panel's corners */
+.sx-stadium .sx-ld-bar { border-radius: 8px; }
+.sx-stadium .sx-ld-bar-actions .sx-sh-incart { align-self: center; }
+.sx-sh-bar-note { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 12px; color: var(--sx-text-muted); }

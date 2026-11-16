@@ -12,9 +12,9 @@
               tiles SLIDE IN from the left. The dock is a glass pill, its
               puck a blue lane.
    - stadium  the Stadium Board (sponsor): fixed dark, 6px LED panels with
-              scan-lines, the lit one glowing orange, a dot-matrix band;
+              scan-lines, the lit one glowing blue, a dot-matrix band;
               tiles POWER ON row by row. The dock is a dark LED strip with
-              an orange top hairline, its puck a glowing orange plate.
+              an blue top hairline, its puck a glowing blue plate.
    Never mixed: no chamfer/bracket off ops, no speed bar off the arena, no
    scan-lines on the arena.
 
@@ -50,16 +50,16 @@
 }
 .sx-dock[data-stage="stadium"],
 .sx-sheet[data-stage="stadium"] {
-  --mn-accent: #f97a1f;
-  --mn-hot: #ffb27a;
-  --mn-ink: #f7f2ed;
-  --mn-muted: #b3aaa1;
-  --mn-faint: #8c847b;
-  --mn-line: color-mix(in srgb, #f97a1f 24%, #33251b);
-  --mn-bg: #0b0a09;
-  --mn-plate: linear-gradient(180deg, #18120d, #0f0c0a);
-  --mn-glow: color-mix(in srgb, #f97a1f 55%, transparent);
-  --mn-wash: color-mix(in srgb, #f97a1f 10%, transparent);
+  --mn-accent: #3d8bff;
+  --mn-hot: #9cc3ff;
+  --mn-ink: #eef2f7;
+  --mn-muted: #a3abb6;
+  --mn-faint: #7d8590;
+  --mn-line: color-mix(in srgb, #3d8bff 24%, #1d2a40);
+  --mn-bg: #090b10;
+  --mn-plate: linear-gradient(180deg, #0f1522, #0a0d14);
+  --mn-glow: color-mix(in srgb, #3d8bff 55%, transparent);
+  --mn-wash: color-mix(in srgb, #3d8bff 10%, transparent);
 }
 .sx-dock[data-stage="arena"],
 .sx-sheet[data-stage="arena"] {
@@ -244,13 +244,13 @@ body:has([data-sx-bottombar]) .sx-dock { bottom: calc(max(12px, env(safe-area-in
 }
 .sx-dock[data-stage="arena"] .sx-dock-item[aria-current="page"] .sx-dock-glyph { color: var(--sx-athlete); }
 
-/* -- stadium: the dark LED strip, a glowing orange plate ------------------ */
+/* -- stadium: the dark LED strip, a glowing blue plate ------------------ */
 .sx-dock[data-stage="stadium"] .sx-dock-bar {
   border-radius: 8px;
   border: 1px solid var(--mn-line);
   background:
     repeating-linear-gradient(0deg, color-mix(in srgb, #fff 2.5%, transparent) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, #19120c, #0b0806);
+    linear-gradient(180deg, #0c1220, #06080d);
   box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(0, 0, 0, 0.55);
 }
 .sx-dock[data-stage="stadium"] .sx-dock-bar::before {
@@ -260,20 +260,20 @@ body:has([data-sx-bottombar]) .sx-dock { bottom: calc(max(12px, env(safe-area-in
   right: 8%;
   top: -1px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, #f97a1f 30%, #ffb27a 50%, #f97a1f 70%, transparent);
-  box-shadow: 0 0 12px #f97a1f;
+  background: linear-gradient(90deg, transparent, #3d8bff 30%, #9cc3ff 50%, #3d8bff 70%, transparent);
+  box-shadow: 0 0 12px #3d8bff;
 }
 .sx-dock[data-stage="stadium"] .sx-dock-item { border-radius: 5px; }
 .sx-dock[data-stage="stadium"] .sx-dock-puck {
   border-radius: 5px;
   background:
-    radial-gradient(circle, color-mix(in srgb, #ffb27a 22%, transparent) 0.8px, transparent 1.2px) 0 0 / 5px 5px,
-    linear-gradient(180deg, color-mix(in srgb, #f97a1f 30%, transparent), color-mix(in srgb, #f97a1f 12%, transparent));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #f97a1f 62%, transparent), 0 0 20px -2px var(--mn-glow);
+    radial-gradient(circle, color-mix(in srgb, #9cc3ff 22%, transparent) 0.8px, transparent 1.2px) 0 0 / 5px 5px,
+    linear-gradient(180deg, color-mix(in srgb, #3d8bff 30%, transparent), color-mix(in srgb, #3d8bff 12%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #3d8bff 62%, transparent), 0 0 20px -2px var(--mn-glow);
 }
-.sx-dock[data-stage="stadium"] .sx-dock-item[aria-current="page"] { color: #fff4ea; text-shadow: 0 0 8px color-mix(in srgb, #f97a1f 85%, transparent); }
-.sx-dock[data-stage="stadium"] .sx-dock-item[aria-current="page"] .sx-dock-glyph { filter: drop-shadow(0 0 5px #f97a1f); }
-.sx-dock[data-stage="stadium"] .sx-dock-item:focus-visible { outline-color: #f97a1f; }
+.sx-dock[data-stage="stadium"] .sx-dock-item[aria-current="page"] { color: #eef5ff; text-shadow: 0 0 8px color-mix(in srgb, #3d8bff 85%, transparent); }
+.sx-dock[data-stage="stadium"] .sx-dock-item[aria-current="page"] .sx-dock-glyph { filter: drop-shadow(0 0 5px #3d8bff); }
+.sx-dock[data-stage="stadium"] .sx-dock-item:focus-visible { outline-color: #3d8bff; }
 
 /* ======================================================================= */
 /* the LED menu                                                            */
@@ -485,19 +485,8 @@ body:has([data-sx-bottombar]) .sx-dock { bottom: calc(max(12px, env(safe-area-in
 }
 .sx-sheet-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
 .sx-sheet-role { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--mn-muted); }
-.sx-sheet-map {
-  display: inline-flex;
-  min-height: 44px;
-  flex: none;
-  align-items: center;
-  padding: 0 8px;
-  font-size: 11px;
-  color: var(--mn-faint);
-  transition: color 0.2s ease;
-}
-.sx-sheet-map:hover { color: var(--mn-muted); }
-.sx-sheet-map:focus-visible { outline: 2px solid var(--mn-hot); outline-offset: -2px; color: var(--mn-ink); }
-
+.sx-sheet-logout { min-height: 44px; flex: none; padding: 0 8px; font-size: 11px; color: var(--mn-faint); }
+.sx-sheet-logout:focus-visible { outline: 2px solid var(--mn-hot); outline-offset: -2px; color: var(--mn-ink); }
 /* -- ops: Mission Control ------------------------------------------------- */
 .sx-sheet[data-stage="ops"] .sx-sheet-fx {
   background:
@@ -657,8 +646,8 @@ body:has([data-sx-bottombar]) .sx-dock { bottom: calc(max(12px, env(safe-area-in
 /* -- stadium: the Stadium Board ------------------------------------------- */
 .sx-sheet[data-stage="stadium"] .sx-sheet-fx {
   background:
-    radial-gradient(70% 36% at 10% 0%, color-mix(in srgb, #f97a1f 20%, transparent), transparent 64%),
-    radial-gradient(50% 30% at 100% 100%, color-mix(in srgb, #f97a1f 9%, transparent), transparent 62%);
+    radial-gradient(70% 36% at 10% 0%, color-mix(in srgb, #3d8bff 20%, transparent), transparent 64%),
+    radial-gradient(50% 30% at 100% 100%, color-mix(in srgb, #3d8bff 9%, transparent), transparent 62%);
 }
 /* the dot-matrix band behind the tiles */
 .sx-sheet[data-stage="stadium"] .sx-sheet-fx-a {
@@ -666,7 +655,7 @@ body:has([data-sx-bottombar]) .sx-dock { bottom: calc(max(12px, env(safe-area-in
   right: 0;
   top: 96px;
   height: 46%;
-  background: radial-gradient(circle, color-mix(in srgb, #f97a1f 34%, transparent) 1.1px, transparent 1.6px) 0 0 / 9px 9px;
+  background: radial-gradient(circle, color-mix(in srgb, #3d8bff 34%, transparent) 1.1px, transparent 1.6px) 0 0 / 9px 9px;
   -webkit-mask-image: linear-gradient(180deg, transparent, #000 30%, #000 60%, transparent);
   mask-image: linear-gradient(180deg, transparent, #000 30%, #000 60%, transparent);
   opacity: 0.22;
@@ -677,8 +666,8 @@ body:has([data-sx-bottombar]) .sx-dock { bottom: calc(max(12px, env(safe-area-in
   right: 0;
   top: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, #f97a1f, transparent);
-  box-shadow: 0 0 18px #f97a1f;
+  background: linear-gradient(90deg, transparent, #3d8bff, transparent);
+  box-shadow: 0 0 18px #3d8bff;
   opacity: 0.7;
 }
 .sx-sheet[data-stage="stadium"] .sx-sheet-close,
@@ -686,7 +675,7 @@ body:has([data-sx-bottombar]) .sx-dock { bottom: calc(max(12px, env(safe-area-in
 .sx-sheet[data-stage="stadium"] .sx-tile { border-radius: 6px; }
 .sx-sheet[data-stage="stadium"] .sx-sheet-avatar,
 .sx-sheet[data-stage="stadium"] .sx-tile-glyph { border-radius: 4px; }
-.sx-sheet[data-stage="stadium"] .sx-sheet-group-head::before { content: ""; width: 6px; height: 6px; flex: none; border-radius: 1px; background: #f97a1f; box-shadow: 0 0 10px #f97a1f; }
+.sx-sheet[data-stage="stadium"] .sx-sheet-group-head::before { content: ""; width: 6px; height: 6px; flex: none; border-radius: 1px; background: #3d8bff; box-shadow: 0 0 10px #3d8bff; }
 .sx-sheet[data-stage="stadium"] .sx-tile {
   border: 1px solid var(--mn-line);
   box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 4%, transparent), 0 14px 30px -22px rgba(0, 0, 0, 0.8);
@@ -703,13 +692,13 @@ body:has([data-sx-bottombar]) .sx-dock { bottom: calc(max(12px, env(safe-area-in
   background: repeating-linear-gradient(0deg, color-mix(in srgb, #fff 2.5%, transparent) 0 1px, transparent 1px 3px);
 }
 .sx-sheet[data-stage="stadium"] .sx-tile[aria-current="page"] {
-  border-color: color-mix(in srgb, #f97a1f 65%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, #f97a1f 18%, #18120d), #0f0c0a);
-  box-shadow: 0 0 0 1px color-mix(in srgb, #f97a1f 30%, transparent), 0 0 28px -6px var(--mn-glow);
+  border-color: color-mix(in srgb, #3d8bff 65%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, #3d8bff 18%, #0f1522), #0a0d14);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #3d8bff 30%, transparent), 0 0 28px -6px var(--mn-glow);
 }
-.sx-sheet[data-stage="stadium"] .sx-tile[aria-current="page"] .sx-tile-label { color: #fff4ea; text-shadow: 0 0 10px color-mix(in srgb, #f97a1f 70%, transparent); }
-.sx-sheet[data-stage="stadium"] .sx-tile[aria-current="page"] .sx-tile-glyph { filter: drop-shadow(0 0 5px #f97a1f); }
-.sx-sheet[data-stage="stadium"] .sx-tile:focus-visible { outline: 2px solid #f97a1f; outline-offset: 2px; }
+.sx-sheet[data-stage="stadium"] .sx-tile[aria-current="page"] .sx-tile-label { color: #eef5ff; text-shadow: 0 0 10px color-mix(in srgb, #3d8bff 70%, transparent); }
+.sx-sheet[data-stage="stadium"] .sx-tile[aria-current="page"] .sx-tile-glyph { filter: drop-shadow(0 0 5px #3d8bff); }
+.sx-sheet[data-stage="stadium"] .sx-tile:focus-visible { outline: 2px solid #3d8bff; outline-offset: 2px; }
 .sx-sheet[data-stage="stadium"] .sx-tile-soon { border-radius: 3px; }
 @keyframes sx-mn-power {
   0% { opacity: 0; filter: brightness(0.4); transform: translate3d(0, 6px, 0); }

@@ -147,16 +147,16 @@ test.describe("2S5-FE-09/10 · the payee's money and BTG's payout detail", () =>
     watch(athlete);
     await athlete.goto("/athlete/money");
     await expect(athlete.getByRole("heading", { name: "Payouts", level: 1 })).toBeVisible();
-    /* A fresh athlete has no marketplace order: the By-order section's empty state. */
-    const empty = athlete.getByText("No orders yet");
-    const byOrder = athlete.getByRole("heading", { name: "By order" });
+    /* A fresh athlete has no marketplace order: the first-run hero (POL-FE-97), or the share-by-sale list. */
+    const empty = athlete.getByRole("heading", { name: /^No money yet/ });
+    const byOrder = athlete.getByRole("heading", { name: "Your share of each sale" });
     await expect(empty.or(byOrder).first()).toBeVisible();
     /* The frozen sentence never appears on an order that isn't frozen. */
     const frozenRows = athlete.locator("li", { hasText: "BTG is reviewing a problem with the sponsor's payment" });
     for (const row of await frozenRows.all()) await expect(row.getByText("Frozen", { exact: true })).toBeVisible();
     /* The By-order section is this stream's; the payout-account panel above it is shared (and its
        "Test payment provider" badge is known to run past 390 — recorded, not this stream's to fix). */
-    await atBothWidths(athlete, "athlete-money", "By order");
+    await atBothWidths(athlete, "athlete-money", "Your share of each sale");
     await athlete.context().close();
   });
 

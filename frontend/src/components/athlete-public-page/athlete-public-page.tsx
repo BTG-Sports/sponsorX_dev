@@ -41,6 +41,12 @@ import "./athlete-public-page.css";
    stay-in-portal). "Request a proposal" becomes where a sponsor's interest
    lands for the athlete, Invitations; "Is this you?" goes; the name is an
    h2 under the portal's own "Public profile" h1.
+
+   POL-FE-91 — a third mode, `sponsor`: the same page inside the sponsor
+   portal (/sponsor/athletes/[slug], from a shop item's "View Athlete
+   Profile"), so a signed-in sponsor never leaves their dashboard. Its
+   sponsor's own action stays ("Request a proposal", as a new brief); the
+   athlete-facing "Is this you?" card goes.
    -------------------------------------------------------------------------- */
 
 const ROOT_ID = "pp-root";
@@ -49,13 +55,15 @@ export function AthletePublicPage({
   a, mode = "public", openedFromPortal = false, live = true,
 }: {
   a: PublicAthlete;
-  mode?: "public" | "owner";
+  mode?: "public" | "owner" | "sponsor";
   /** Public mode, arrived from the portal's link: say this is what others see. */
   openedFromPortal?: boolean;
   /** Owner mode: false while the profile waits for BTG to activate it. */
   live?: boolean;
 }) {
   const owner = mode === "owner";
+  /* A signed-in sponsor starts a new brief from the portal (as sponsor-request-standing does). */
+  const briefHref = mode === "sponsor" ? "/brief?new=1" : "/brief";
   const Name = owner ? "h2" : "h1";
   const publicPath = `/athletes/${encodeURIComponent(a.slug)}`;
   const first = firstName(a.displayName);
@@ -140,7 +148,7 @@ export function AthletePublicPage({
                   <Glyph name="arrow" />
                 </Link>
               ) : (
-                <Link href="/brief" className="pp-btn pp-btn-primary">
+                <Link href={briefHref} className="pp-btn pp-btn-primary">
                   <span>Request a proposal</span>
                   <Glyph name="arrow" />
                 </Link>
@@ -379,17 +387,19 @@ export function AthletePublicPage({
               <li><span>2</span><p><strong className="pp-strong">BTG does the checks.</strong> Matching, conflicts and pricing, done for you.</p></li>
               <li><span>3</span><p><strong className="pp-strong">Approve the proposal.</strong> No card and no checkout until you say yes.</p></li>
             </ol>
-            <Link href="/brief" className="pp-btn pp-btn-primary pp-btn-block">
+            <Link href={briefHref} className="pp-btn pp-btn-primary pp-btn-block">
               <span>Request a proposal</span>
               <Glyph name="arrow" />
             </Link>
             <p className="pp-fine">Rates are agreed between the athlete and BTG and never appear on a public page.</p>
           </div>
-          <div className="pp-card pp-claim">
-            <p className="pp-strong">Is this you?</p>
-            <p className="pp-muted">Sign in to update these sections. Your changes appear here straight away.</p>
-            <Link href="/athlete/profile" className="pp-link">Open your portal <Glyph name="arrow" /></Link>
-          </div>
+          {mode !== "sponsor" && (
+            <div className="pp-card pp-claim">
+              <p className="pp-strong">Is this you?</p>
+              <p className="pp-muted">Sign in to update these sections. Your changes appear here straight away.</p>
+              <Link href="/athlete/profile" className="pp-link">Open your portal <Glyph name="arrow" /></Link>
+            </div>
+          )}
         </aside>
         )}
       </div>
