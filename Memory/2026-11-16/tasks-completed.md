@@ -171,6 +171,7 @@
   - an item opens as a public-style "View" that sells it to sponsors, with Edit behind a button.
 - **List page:**
   - The title row carries **Won't promote · n** (the restrictions, as chips in a popup) and **+ Add an item** (kind tiles and the same form, in a popup).
+  - In the add popup, **Add item** creates the item Available and **Save as draft** creates it Paused. `POST /inventory` already took `active`; walked live, the draft landed Paused and "Not on the marketplace yet". The buttons are pinned to the popup's bottom edge.
   - Tabs carry the API's whole-scope counts: All, Available, Paused, Not listed yet (`?unlisted=true`).
   - Search, then List (the default) or Cards. Each item has an optimistic **Available / Paused** switch and a marketplace badge from its listing (`GET /listings`): "On the marketplace", "Draft listing", "Not listed", and so on.
   - The first build called the switch "On sale", and the owner caught an "On sale" item under "Not listed yet". The switch only lets an item be sold. The shop shows a listing only while it's published, public and its item is on (`marketplace-search.ts`).
@@ -192,4 +193,5 @@
   - New tests: `inventory-shop.test.ts` (13) and `inventory-showcase.test.ts` (8). The frontend suite is 2,216 tests; tsc and eslint are clean.
   - Walked live in Chrome at 1440 and 390 as the QA athlete: list, cards, tabs, both popups, the empty hero (a throwaway route, deleted) and two item pages. No console errors, no sideways scroll.
   - `next build` was not run: the owner's `next dev` was live.
+- **Local data:** the draft walk created "POL-83 draft walk" (Paused) on `seed_ath_adult`. There's no delete route, so it stays.
 - **Tracker:** a POL-FE-83 row was added to the Polish sheet as Done, and the autofilter, validation and conditional-formatting ranges were extended to row 123. Today's Stage Progress snapshot was appended; Phase 1 is unchanged from 11-15 (320 done, 15.5 days left, Dropped included).

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -58,6 +58,7 @@ export function InventoryForm({
   tone = "athlete",
   kind: pickedKind,
   onKindChange,
+  allowDraft = false,
 }: {
   mode: "create" | "edit";
   /** The item being edited (edit mode). */
@@ -79,6 +80,10 @@ export function InventoryForm({
   kind?: InventoryKind;
   /** POL-FE-83 — told when the form's own Kind menu changes, so the tiles follow. */
   onKindChange?: (kind: InventoryKind) => void;
+  /** POL-FE-83 — create mode: a "Save as draft" button beside "Add item",
+   *  which creates the item Paused (`active: false`) so no sponsor can buy it
+   *  until it's switched to Available. The athlete's inventory only. */
+  allowDraft?: boolean;
 }) {
   const router = useRouter();
   const initial: InventoryDraft = item ? { ...draftFromItem(item), components: [] } : { ...EMPTY_DRAFT, kind: pickedKind ?? EMPTY_DRAFT.kind };
@@ -105,7 +110,12 @@ export function InventoryForm({
   };
   const set = <K extends keyof InventoryDraft>(k: K, v: InventoryDraft[K]) => change((p) => ({ ...p, [k]: v }));
 
-  const save = async () => {
+  /* memory: double-submit-needs-a-ref — two buttons now; a state flag lets a double click through. */
+  const lock = useRef(false);
+  const [draftBusy, setDraftBusy] = useState(false);
+
+  const save = async (asDraft = false) => {
+    if (lock.current) return;
     setMessage(null);
     const v = validateDraft(d, mode);
     if (!v.ok) {
@@ -113,10 +123,12 @@ export function InventoryForm({
       return;
     }
     setErrors({});
+    lock.current = true;
     setBusy(true);
+    setDraftBusy(asDraft);
     try {
       if (mode === "create" && create) {
-        const r = await create(v.body);
+        const r = await create(asDraft ? { ...v.body, active: false } : v.body);
         if (!r.ok) setMessage({ tone: "error", text: r.message, confirmHref: r.confirmHref });
         else if (savedHref) router.push(savedHref.replace("{id}", encodeURIComponent(r.id)));
         else {
@@ -139,7 +151,9 @@ export function InventoryForm({
         }
       }
     } finally {
+      lock.current = false;
       setBusy(false);
+      setDraftBusy(false);
     }
   };
 
@@ -351,14 +365,32 @@ export function InventoryForm({
         </p>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      {mode === "create" && allowDraft && (
+        <p className="text-[11px] leading-relaxed text-muted">
+          <strong className="font-semibold text-text">Add item</strong> makes it Available.{" "}
+          <strong className="font-semibold text-text">Save as draft</strong> keeps it Paused, so no sponsor can buy it until you switch it to Available.
+        </p>
+      )}
+
+      {/* POL-FE-83 — `inv-actions`: the athlete's popup pins this row to its bottom edge (inventory.css). */}
+      <div className="inv-actions flex flex-wrap items-center gap-2">
         <button
           type="submit"
           disabled={busy || saved}
           className="rounded-lg bg-primary px-4 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? "Saving…" : mode === "create" ? "Add item" : saved ? "Saved" : "Save changes"}
+          {busy && !draftBusy ? "Saving…" : mode === "create" ? "Add item" : saved ? "Saved" : "Save changes"}
         </button>
+        {mode === "create" && allowDraft && (
+          <button
+            type="button"
+            onClick={() => void save(true)}
+            disabled={busy}
+            className="rounded-lg border border-primary/50 px-4 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {draftBusy ? "Saving…" : "Save as draft"}
+          </button>
+        )}
         {saved && doneHref && (
           <Link
             href={doneHref}

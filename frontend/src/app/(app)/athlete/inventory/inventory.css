@@ -911,6 +911,22 @@
 .sx-iv-close:hover { transform: rotate(90deg); color: var(--sx-text); background: var(--sx-surface-2); }
 .sx-iv-close:focus-visible { outline: 2px solid var(--sx-athlete); outline-offset: 2px; }
 
+/* the form's buttons stay in sight at the popup's bottom edge, however long the form */
+.sx-iv-sheet-body .inv-actions {
+  position: sticky;
+  bottom: -1.5rem;
+  z-index: 5;
+  margin: 0 -1.2rem -1.5rem;
+  border-top: 1px solid var(--iv-line);
+  background: color-mix(in srgb, var(--sx-surface) 94%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  padding: 0.85rem 1.2rem 1rem;
+}
+@media (min-width: 40rem) {
+  .sx-iv-sheet-body .inv-actions { bottom: -1.6rem; margin: 0 -1.5rem -1.6rem; padding: 0.9rem 1.5rem 1.1rem; }
+}
+
 /* categories you won't promote ---------------------------------------------- */
 .sx-iv-ban { display: grid; gap: 0.9rem; }
 .sx-iv-ban-intro { display: flex; align-items: center; gap: 0.75rem; font-size: 12.5px; line-height: 1.55; color: var(--sx-text-muted); }

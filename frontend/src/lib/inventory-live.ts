@@ -326,6 +326,8 @@ export type InventoryBody = {
   restrictedCategories: string[];
   components?: Array<{ itemId: string; quantity: number }>;
   packageRules: PackageRulesBody;
+  /** POL-FE-83 — create only: false saves the new item as a draft (Paused). Omitted, the API makes it Available. */
+  active?: boolean;
 };
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(BRAND_CATEGORIES);

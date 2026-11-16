@@ -2398,6 +2398,9 @@ the blockers and today's content review findings.
       - A sponsor only finds an item through a published, public listing whose item is switched on (backend `marketplace-search.ts`). The badge follows the switch the moment it flips.
     - Words per item are in `lib/inventory-shop.ts`: "Only 2 left", "Sold out", "No limit", "Opens Dec 3", "Ended …".
   - **Add:** a popup (centred, a bottom sheet on a phone) with kind tiles over the same `InventoryForm`. The form takes the picked kind.
+    - **Add item** creates the item Available. **Save as draft** (the owner: "when creating an item, where is the draft button?") creates it Paused (`active: false`, which `POST /inventory` already accepts), so no sponsor can buy it until it's switched on.
+    - The buttons are pinned to the popup's bottom edge, so they stay in sight however long the form is.
+    - `allowDraft` is the athlete's only; the team manager's form is unchanged.
     - An empty inventory shows a hero with "Add your first item" and six idea tiles, each opening the popup on its kind.
   - **Won't promote:** the restrictions moved into a popup as chips.
     - The category menu opens downward from the top of the popup's body. That reverses POL-FE-45's "up", which was only about the page's bottom bar; the popup sits above that bar.

@@ -496,7 +496,7 @@ export function NewItemPanel({
       <p className="sx-iv-new-step">
         <span aria-hidden="true">2</span> Name it, price it, say when
       </p>
-      <InventoryForm mode="create" create={create} components={components} savedHref={savedHref} onCancel={onCancel} kind={kind} onKindChange={setKind} />
+      <InventoryForm mode="create" create={create} components={components} savedHref={savedHref} onCancel={onCancel} kind={kind} onKindChange={setKind} allowDraft />
     </div>
   );
 }
