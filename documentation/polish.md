@@ -2518,6 +2518,19 @@ the blockers and today's content review findings.
       - the owner's now-live listing (viewed only);
       - a QA draft (amber, three reasons).
 
+### 87. Releasing a held earning skips verification; a held earning can't be voided [audit 2026-11-16, item 53]
+`POL-BE-87` · `POL-FE-87` · *Money* · confirmed (audit of 52–83, 2026-11-16)
+- **Problem:**
+  - A PENDING earning (its work not yet verified) offers Hold, and a held earning's only move was Release, straight to ELIGIBLE. Approve and Mark paid then paid for work nobody had verified. The API allowed HELD → ELIGIBLE (and DISPUTED → ELIGIBLE) whatever the work's state.
+  - An earning held by a campaign cancellation (`campaign-change.ts`, "Finance settles what was done") could not be voided from the screen when nothing was owed. The API allowed HELD → PENDING → VOIDED, but the screen didn't offer it.
+- **Fix:**
+  - The API makes an earning payable by hand only once every deliverable on its order is VERIFIED, the same test as the automatic rule (`maybeMakeEligible`). Otherwise it refuses with the count and points to pending.
+  - Finance gets "Back to pending" on a held earning and "Void" (with a confirm) on a pending one.
+- **Done when:** a held or disputed earning with unverified work can't be released to eligible, and the refusal says why; with all work verified it can; Finance can take a held earning back to pending and void a pending one.
+- **Delivered (2026-11-16, rcfworks):**
+  - **Backend:** `EarningWorkNotVerifiedError` (409) in `transitionEarning` (`backend/src/domain/earning.ts`) for any move to ELIGIBLE, after the paused-deal check. No schema change, so it also covers earnings held before today. Tests: `backend/tests/earning.test.ts` (POL-BE-87).
+  - **Frontend:** `earningMoves` offers "Back to pending" on HELD and "Void" (`needsConfirm`) on PENDING; `EarningRowActions` asks "Void it?" first; the Finance action accepts PENDING and VOIDED. Tests: `frontend/tests/earning-actions.test.ts` (POL-FE-87).
+
 ---
 
 ## Checked and fine

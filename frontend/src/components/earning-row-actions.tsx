@@ -19,7 +19,7 @@ const input = "min-h-8 w-full rounded-md border border-[color:var(--vault-line,#
 export function EarningRowActions({ id, state }: { id: string; state: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [form, setForm] = useState<null | "paid" | "adjust">(null);
+  const [form, setForm] = useState<null | "paid" | "adjust" | "void">(null);
   const [ref, setRef] = useState("");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
@@ -38,7 +38,8 @@ export function EarningRowActions({ id, state }: { id: string; state: string }) 
         router.refresh();
       }
     });
-  const click = (m: EarningMove) => (m.needsReference ? setForm("paid") : run(() => moveEarningAction(id, m.to)));
+  const click = (m: EarningMove) =>
+    m.needsReference ? setForm("paid") : m.needsConfirm ? setForm(form === "void" ? null : "void") : run(() => moveEarningAction(id, m.to));
 
   return (
     <div className="flex min-w-[10rem] flex-col items-start gap-1.5">
@@ -68,6 +69,16 @@ export function EarningRowActions({ id, state }: { id: string; state: string }) 
           <input aria-label="Transfer reference" className={input} placeholder="Transfer reference (Zoho or bank)" value={ref} maxLength={200} onChange={(e) => setRef(e.target.value)} />
           <button type="submit" disabled={pending} className={primary}>Mark paid</button>
         </form>
+      )}
+      {/* POL-FE-87 — voiding is final: say so, then do it. */}
+      {form === "void" && (
+        <div role="group" aria-label="Void the earning" className="flex w-full flex-col gap-1.5">
+          <p className="text-[11px] text-[color:var(--vault-faint)]">Void it? Nothing will be owed on this earning, and it can&apos;t be undone.</p>
+          <div className="flex gap-1.5">
+            <button type="button" disabled={pending} className={btn} onClick={() => run(() => moveEarningAction(id, "VOIDED"))}>Void it</button>
+            <button type="button" disabled={pending} className={btn} onClick={() => setForm(null)}>Keep it</button>
+          </div>
+        </div>
       )}
       {form === "adjust" && (
         <form
