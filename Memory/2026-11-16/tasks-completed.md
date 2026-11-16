@@ -156,3 +156,9 @@
   - `next build` was not run: the owner's `next dev` was live.
 - **Local data:** the walk filled `seed_ath_adult`'s profile and added one agreement acceptance (`pol82_walk_acc`). Both were restored to the snapshot afterwards and checked. The dev API (:4000, `src/index.ts`) was restarted to pick up the new fields.
 - **Noticed:** `seed_ath_adult`'s local photo is a picture of a sample driver's licence. That's dev data, but it is now on its public page. Swap it before any screenshot leaves the team.
+
+## Release: the athlete wizards and the public athlete page (HeckerCreatives)
+- `feat/athlete-confirmations-wizard` → `main_development` by #434 (POL-FE-79) and #435 (POL-FE-80, -81, -82; ef591e9c). All four checks were green on each PR.
+- `main_development` → `main` by #436. Besides the screens, it carries one API change from POL-FE-82: `GET /public/athletes/:slug` now also returns `photoUrl` (the home page's photo rule for minors), `memberSince`, and a counts-only `track` record. No migrations, no switches.
+- Tracker: POL-FE-79, -80, -81 and -82 moved to Done (Polish sheet), with each one's PR in the note.
+- Three Claude sessions worked in one checkout today (POL-FE-80, -81, -82). They split the shared records over cross-session messages and committed by pathspec; one session owned each PR and merge.
