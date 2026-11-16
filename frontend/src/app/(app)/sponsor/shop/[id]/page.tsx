@@ -29,7 +29,7 @@ import "./item-stadium.css";
    track record). What the athlete reads as "the way sponsors meet it" is
    now exactly what a sponsor meets. Only the bar on top is the sponsor's:
    back to the shop, where it stands, Add to cart and the cart. It is drawn
-   in the Stadium's orange (./item-stadium.css re-points the showcase's
+   in the Stadium's blue (./item-stadium.css re-points the showcase's
    tokens), never the Arena's blue (memory: portal-stage-identities).
 
    "View Athlete Profile" (the owner, 2026-11-16) opens the athlete's page

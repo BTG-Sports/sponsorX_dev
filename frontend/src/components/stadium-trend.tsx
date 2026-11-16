@@ -3,7 +3,7 @@
 /* --------------------------------------------------------------------------
    The big chart (P1-ART-23): reach, clicks or redemptions over the chosen
    window, from the overview's zero-filled `daily` series. A glowing line
-   over an orange wash; hover, touch or ←/→ move a crosshair with the day's
+   over an blue wash; hover, touch or ←/→ move a crosshair with the day's
    figure in words. Hand-drawn SVG like charts.tsx — no chart library.
    -------------------------------------------------------------------------- */
 
@@ -133,16 +133,16 @@ export function StadiumTrend({ points, bucket, dash = false }: { points: TrendPo
           <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full touch-none" style={{ height: H }} onPointerMove={move} onPointerLeave={() => setAt(null)}>
             <defs>
               <linearGradient id={gid} x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0" stopColor="#f97a1f" stopOpacity="0.42" />
-                <stop offset="1" stopColor="#f97a1f" stopOpacity="0" />
+                <stop offset="0" stopColor="#3d8bff" stopOpacity="0.42" />
+                <stop offset="1" stopColor="#3d8bff" stopOpacity="0" />
               </linearGradient>
             </defs>
             {[0.25, 0.5, 0.75].map((f) => (
               <line key={f} x1="0" x2={W} y1={H * f} y2={H * f} stroke="rgba(255,255,255,.06)" />
             ))}
             {area && <path d={area} fill={`url(#${gid})`} />}
-            <path d={line} fill="none" stroke="#f97a1f" strokeWidth="2.4" vectorEffect="non-scaling-stroke" className="sx-stadium-trend-line" />
-            {p && at !== null && <line x1={x(at)} x2={x(at)} y1="0" y2={H} stroke="rgba(255,178,122,.45)" vectorEffect="non-scaling-stroke" />}
+            <path d={line} fill="none" stroke="#3d8bff" strokeWidth="2.4" vectorEffect="non-scaling-stroke" className="sx-stadium-trend-line" />
+            {p && at !== null && <line x1={x(at)} x2={x(at)} y1="0" y2={H} stroke="rgba(156, 195, 255,.45)" vectorEffect="non-scaling-stroke" />}
           </svg>
           {/* the dot: an HTML element, not an SVG circle — the chart's
               `preserveAspectRatio="none"` stretches the SVG to fill the box,
@@ -150,13 +150,13 @@ export function StadiumTrend({ points, bucket, dash = false }: { points: TrendPo
           {p && at !== null && (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute block size-[10px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#f97a1f] bg-white shadow-[0_0_6px_#f97a1f]"
+              className="pointer-events-none absolute block size-[10px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#3d8bff] bg-white shadow-[0_0_6px_#3d8bff]"
               style={{ left: `${(x(at) / W) * 100}%`, top: `${(y(values[at]!) / H) * 100}%` }}
             />
           )}
           {p && at !== null && (
             <div
-              className="pointer-events-none absolute top-1 w-[130px] rounded-md border border-[color:var(--st-line)] bg-[#1c1511] px-2.5 py-1.5 text-[11px] shadow-lg"
+              className="pointer-events-none absolute top-1 w-[130px] rounded-md border border-[color:var(--st-line)] bg-[#131926] px-2.5 py-1.5 text-[11px] shadow-lg"
               style={{ left: `clamp(0px, calc(${(x(at) / W) * 100}% - 60px), calc(100% - 130px))` }}
             >
               <span className="block text-muted">{fmtDay(p.day, bucket === "week")}</span>

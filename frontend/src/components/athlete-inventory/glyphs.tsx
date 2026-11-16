@@ -42,6 +42,12 @@ export const UI_GLYPH = {
   school: "M2 9l10-5 10 5-10 5L2 9Zm4 2.2V16c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.8",
   pin: "M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21Zm0-9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z",
   shield: "M12 3 4 6v6c0 4.4 3.4 8.3 8 9 4.6-.7 8-4.6 8-9V6l-8-3Zm-3 9 2 2 4-4",
+  /* POL-FE-95 — the athlete's Sales: one per stage a sale passes. */
+  clock: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 4.5V12l3 2",
+  hourglass: "M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9",
+  alert: "M12 3.5 2.5 20h19L12 3.5ZM12 10v4.5m0 2.5h.01",
+  coin: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm3 5.5c-.6-.9-1.7-1.3-3-1.3-1.7 0-3 .9-3 2.2 0 3.1 6 1.7 6 4.8 0 1.3-1.3 2.3-3 2.3-1.4 0-2.6-.5-3.2-1.5M12 5.5v13",
+  undo: "M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11",
 } as const;
 
 export type UiGlyph = keyof typeof UI_GLYPH;

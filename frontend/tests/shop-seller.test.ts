@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }));
-vi.mock("@/app/(app)/sponsor/cart/actions", () => ({ removeLineAction: async () => ({ ok: true }), updateLineAction: async () => ({ ok: true }) }));
+vi.mock("@/app/(app)/sponsor/cart/actions", () => ({ removeLineAction: async () => ({ ok: true }), updateLineAction: async () => ({ ok: true }), reserveAction: async () => ({ ok: true }) }));
 vi.mock("@/app/(app)/admin/marketplace/actions", () => ({ btgListingAction: async () => ({ ok: true }), decideListingAction: async () => ({ ok: true }) }));
 
 import { lineSeller, lineSummary, type ApiCartLine, type ApiSearchResult, type ShopLine } from "../src/lib/shop-live";
@@ -66,8 +66,8 @@ describe("each screen renders an athlete-sold line with no property", async () =
   });
 
   it("the cart line", async () => {
-    const { ShopCartLine } = await import("../src/components/shop-cart-line");
-    const html = renderToStaticMarkup(createElement(ShopCartLine, { line: cartLine(), editable: true }));
+    const { CartLineRow } = await import("../src/components/sponsor-cart/cart-board");
+    const html = renderToStaticMarkup(createElement(CartLineRow, { line: { ...cartLine(), info: null }, mode: "edit", today: "2026-10-20" }));
     expect(html).toContain("JORDAN.REED · $300.00 each");
     expect(html).not.toMatch(/>\s*·/);
   });

@@ -98,13 +98,18 @@ async function buy(sponsor: Page, qty: number, startIn: number): Promise<string>
   await addForm.getByRole("button", { name: "Add to cart" }).click();
   await expect(sponsor.getByRole("status").filter({ hasText: "Added." }).first()).toBeVisible({ timeout: 30_000 });
   await sponsor.goto("/sponsor/cart");
-  await sponsor.getByRole("button", { name: "Reserve & check out" }).click();
+  await sponsor.getByRole("button", { name: "Check out", exact: true }).first().click();
   await sponsor.waitForURL(/\/sponsor\/checkout\?reservation=/, { timeout: 30_000 });
+  // POL-FE-93 — checkout is a wizard: Items → Invoice → Terms → Place order.
+  const onward = sponsor.getByRole("button", { name: /^Continue/ });
+  await onward.click();
   const billing = sponsor.locator("section[aria-labelledby=checkout-billing]");
   await billing.getByLabel("Name").fill("QA Buyer");
   await billing.getByLabel("Email").fill("qa.buyer@example.invalid");
   await billing.getByLabel(/PO number or your reference/).fill(`QA ${Date.now().toString(36)}`);
+  await onward.click();
   await sponsor.locator("section[aria-labelledby=checkout-terms]").getByRole("checkbox").check();
+  await onward.click();
   await sponsor.getByRole("button", { name: "Place order" }).click();
   await sponsor.waitForURL(/\/sponsor\/orders\/[^/?]+/, { timeout: 30_000 });
   return new URL(sponsor.url()).pathname.split("/").pop()!;

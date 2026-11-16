@@ -72,7 +72,7 @@ function Spark({ values }: { values: number[] }) {
   const d = values.map((v, i) => `${i ? "L" : "M"}${Math.round((i / (values.length - 1)) * 100)},${Math.round(24 - (v / max) * 20)}`).join(" ");
   return (
     <svg aria-hidden="true" viewBox="0 0 100 26" preserveAspectRatio="none" className="mt-2 h-6 w-full">
-      <path d={d} fill="none" stroke="#f97a1f" strokeWidth="1.6" vectorEffect="non-scaling-stroke" style={{ filter: "drop-shadow(0 0 3px #f97a1f)" }} />
+      <path d={d} fill="none" stroke="#3d8bff" strokeWidth="1.6" vectorEffect="non-scaling-stroke" style={{ filter: "drop-shadow(0 0 3px #3d8bff)" }} />
     </svg>
   );
 }
@@ -155,7 +155,7 @@ export function StadiumSection({ title, hint, action }: { title: string; hint?: 
 
 const CHIP: Record<WordTone, string> = {
   live: "border-success/35 bg-success/12 text-success",
-  you: "border-sponsor bg-sponsor text-[#1a0d03] font-semibold",
+  you: "border-sponsor bg-sponsor text-[#030b1a] font-semibold",
   late: "border-danger/40 bg-danger/12 text-danger",
   done: "border-line bg-surface-2 text-muted",
   info: "border-sponsor/35 bg-sponsor/10 text-[color:var(--st-hot)]",

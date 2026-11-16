@@ -79,6 +79,9 @@ export type ApiPayoutOrder = {
    *  BTG is checking) on the sponsor's payment. `requestableCents` already
    *  leaves it out. Optional: older reads. */
   frozen?: boolean;
+  /** 2S4-BE-07 — the payee's lines on this order confirmed, and held by a reported problem. Optional: older reads. */
+  confirmedLines?: number;
+  problemLines?: number;
 };
 
 export type PayoutCheck = { key: "payment" | "delivered" | "account" | "hold" | "problem" | "dispute" | string; label: string; ok: boolean };

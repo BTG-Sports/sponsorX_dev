@@ -19,7 +19,7 @@ import "./athlete-stadium.css";
    /athletes/[slug] draws (AthletePublicPage), in its `sponsor` mode: the
    sponsor's action ("Request a proposal") stays, the athlete-facing
    "Is this you?" goes. Its colours are the portal's tokens, so it is lit in
-   the Stadium's orange here.
+   the Stadium's blue here.
 
    Reads GET /public/athletes/:slug — the one answer every sponsor gets (no
    legal name, contact, age or rates; a minor's photo only once BTG approved

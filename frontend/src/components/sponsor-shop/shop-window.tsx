@@ -42,7 +42,7 @@ import { KIND_RAIL, MORE_FILTER_KEYS, type FilterChipDef, type ShopItem } from "
    draws it disabled with the reason, the Viewer gets the sentence instead
    (memory QA pass 4: a demo write must not look like it went through).
    Stadium look only (memory: portal-stage-identities): LED panels, lit
-   numerals, the power-on entrance, orange light. No tilt, no Arena plates.
+   numerals, the power-on entrance, blue light. No tilt, no Arena plates.
    -------------------------------------------------------------------------- */
 
 export type BuyMode = "buy" | "view" | "sample";

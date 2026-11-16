@@ -2,7 +2,7 @@
    The Stadium Board's dashboard kit (POL-FE-90, 2026-11-16). The sponsor
    home is drawn as a dashboard grid: every card has an icon, a plain title
    and a one-line subtitle saying what it shows, so nobody has to open a "?"
-   to read it. Same LED board as stadium.css — fixed dark, orange as light,
+   to read it. Same LED board as stadium.css — fixed dark, blue as light,
    6px panels with scan-lines, glowing numerals. Hand-drawn SVG, server
    components only (no chart library, no client bundle).
 
@@ -168,12 +168,12 @@ export function AreaSpark({ values, label }: { values: number[]; label: string }
     <svg role="img" aria-label={label} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="mt-3 h-10 w-full">
       <defs>
         <linearGradient id="sx-dash-spark" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#f97a1f" stopOpacity="0.38" />
-          <stop offset="1" stopColor="#f97a1f" stopOpacity="0" />
+          <stop offset="0" stopColor="#3d8bff" stopOpacity="0.38" />
+          <stop offset="1" stopColor="#3d8bff" stopOpacity="0" />
         </linearGradient>
       </defs>
       <path d={area} fill="url(#sx-dash-spark)" />
-      <path d={line} fill="none" stroke="#f97a1f" strokeWidth="1.8" vectorEffect="non-scaling-stroke" className="sx-stadium-trend-line" />
+      <path d={line} fill="none" stroke="#3d8bff" strokeWidth="1.8" vectorEffect="non-scaling-stroke" className="sx-stadium-trend-line" />
     </svg>
   );
 }
@@ -193,7 +193,7 @@ export function LedRing({
   label: string;
 }) {
   const share = Math.max(0, Math.min(1, value));
-  const color = tone === "live" ? "#3ddc97" : tone === "late" ? "#ff5a5f" : "#f97a1f";
+  const color = tone === "live" ? "#3ddc97" : tone === "late" ? "#ff5a5f" : "#3d8bff";
   const lit = share > 0 ? Math.max(1, Math.round(share * segments)) : 0;
   const R = 50;
   const step = (2 * Math.PI) / segments;
@@ -208,7 +208,7 @@ export function LedRing({
             d={d}
             fill="none"
             strokeWidth="9"
-            stroke={i < lit ? color : "#2a1a0e"}
+            stroke={i < lit ? color : "#0e1a2e"}
             className={i < lit ? "sx-dash-seg" : undefined}
             style={i < lit ? at(0.2 + i * 0.018, { filter: `drop-shadow(0 0 3px ${color})` }) : undefined}
           />
@@ -235,7 +235,7 @@ export function SplitDonut({
   return (
     <div role="img" aria-label={label} className="relative grid shrink-0 place-items-center" style={{ width: size, height: size }}>
       <svg viewBox="0 0 120 120" width={size} height={size} className="absolute inset-0 -rotate-90" aria-hidden="true">
-        <circle cx="60" cy="60" r={R} fill="none" stroke="#2a1a0e" strokeWidth="12" />
+        <circle cx="60" cy="60" r={R} fill="none" stroke="#0e1a2e" strokeWidth="12" />
         {total > 0 &&
           parts.map((p) => {
             const len = (p.value / total) * C;

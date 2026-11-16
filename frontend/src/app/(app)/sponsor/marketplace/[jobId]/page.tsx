@@ -140,7 +140,7 @@ export default async function InventoryDetailPage({
         <div className="space-y-4">
           {/* Artwork placeholder — real creative lives in the R2 public bucket. */}
           <div className="sx-stadium-in relative aspect-4/3 overflow-hidden rounded-[6px] border border-line" style={at(0.3)}>
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1c1511] via-[#15110e] to-[#0b0a09]" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#131926] via-[#0e121a] to-[#090b10]" />
             <div
               aria-hidden="true"
               className="absolute -right-8 top-1/3 size-56 rounded-full bg-sponsor/25 blur-[70px]"

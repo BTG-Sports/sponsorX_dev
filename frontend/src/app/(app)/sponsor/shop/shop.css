@@ -2,7 +2,7 @@
    POL-FE-91 — the sponsor shop as a shop window, on the Stadium Board.
 
    The Stadium's own hand (stadium.css; memory: portal-stage-identities):
-   LED panels with a hairline and scan-lines, orange as LIGHT, lit upright
+   LED panels with a hairline and scan-lines, blue as LIGHT, lit upright
    numerals, the power-on entrance, a filled pulsing badge. Never the
    Arena's tilt, plates or speed bars. Kept beside the page, out of
    stadium.css, so the dashboard's own work there stays untouched.
@@ -30,8 +30,8 @@
   height: 2.1rem;
   place-items: center;
   border-radius: 6px;
-  border: 1px solid color-mix(in srgb, #f97a1f 45%, transparent);
-  background: radial-gradient(circle, color-mix(in srgb, #f97a1f 22%, transparent) 1px, transparent 1.5px) 0 0 / 5px 5px, #120c07;
+  border: 1px solid color-mix(in srgb, #3d8bff 45%, transparent);
+  background: radial-gradient(circle, color-mix(in srgb, #3d8bff 22%, transparent) 1px, transparent 1.5px) 0 0 / 5px 5px, #070b14;
   font-size: 1.1rem;
 }
 .sx-sh-how-title { display: block; font-size: 13px; font-weight: 700; color: var(--sx-text); }
@@ -65,14 +65,14 @@
   padding: 0.45rem 0.6rem 0.45rem 0.85rem;
   font-size: 12.5px;
   font-weight: 800;
-  color: #1a0d03;
+  color: #030b1a;
   box-shadow: 0 0 18px -2px var(--st-glow);
   transition: box-shadow 0.25s ease, transform 0.25s var(--st-ease), filter 0.25s ease;
 }
 .sx-sh-cart:hover, .sx-sh-cart:focus-visible { box-shadow: 0 0 28px var(--st-glow); transform: translate3d(0, -1px, 0); filter: brightness(1.06); outline: none; }
-.sx-sh-cart .sx-stadium-badge { background: #1a0d03; color: var(--st-hot); box-shadow: none; animation: none; }
-.sx-sh-cart .sx-stadium-badge[data-zero] { background: color-mix(in srgb, #1a0d03 25%, transparent); color: #1a0d03; }
-.sx-sh-cart-total { border-left: 1px solid color-mix(in srgb, #1a0d03 30%, transparent); padding-left: 0.5rem; font-variant-numeric: tabular-nums; }
+.sx-sh-cart .sx-stadium-badge { background: #030b1a; color: var(--st-hot); box-shadow: none; animation: none; }
+.sx-sh-cart .sx-stadium-badge[data-zero] { background: color-mix(in srgb, #030b1a 25%, transparent); color: #030b1a; }
+.sx-sh-cart-total { border-left: 1px solid color-mix(in srgb, #030b1a 30%, transparent); padding-left: 0.5rem; font-variant-numeric: tabular-nums; }
 
 .sx-sh-viewer {
   display: flex;
@@ -107,10 +107,10 @@
   color: var(--sx-text);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-.sx-sh-filters-btn:hover, .sx-sh-filters-btn:focus-visible { border-color: color-mix(in srgb, #f97a1f 60%, transparent); box-shadow: 0 0 20px -6px var(--st-glow); outline: none; }
-.sx-sh-filters-btn[data-on] { border-color: color-mix(in srgb, #f97a1f 55%, transparent); }
+.sx-sh-filters-btn:hover, .sx-sh-filters-btn:focus-visible { border-color: color-mix(in srgb, #3d8bff 60%, transparent); box-shadow: 0 0 20px -6px var(--st-glow); outline: none; }
+.sx-sh-filters-btn[data-on] { border-color: color-mix(in srgb, #3d8bff 55%, transparent); }
 
-.sx-sh-views { display: inline-flex; border-radius: 6px; border: 1px solid var(--st-line); background: #120c07; padding: 3px; }
+.sx-sh-views { display: inline-flex; border-radius: 6px; border: 1px solid var(--st-line); background: #070b14; padding: 3px; }
 .sx-sh-view {
   display: inline-flex;
   align-items: center;
@@ -125,7 +125,7 @@
 }
 .sx-sh-view:hover { color: var(--sx-text); }
 .sx-sh-view:focus-visible { outline: 2px solid var(--st); outline-offset: 1px; }
-.sx-sh-view[aria-pressed="true"] { background: color-mix(in srgb, #f97a1f 20%, transparent); color: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, #f97a1f 45%, transparent); }
+.sx-sh-view[aria-pressed="true"] { background: color-mix(in srgb, #3d8bff 20%, transparent); color: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, #3d8bff 45%, transparent); }
 
 /* the type rail: one lit chip per kind, scrolls sideways on a phone */
 .sx-sh-rail {
@@ -144,7 +144,7 @@
   gap: 0.4rem;
   border-radius: 9999px;
   border: 1px solid var(--sx-line);
-  background: #120c07;
+  background: #070b14;
   padding: 0.4rem 0.8rem;
   font-size: 12.5px;
   font-weight: 600;
@@ -156,7 +156,7 @@
 .sx-sh-rail-chip[aria-pressed="true"] {
   border-color: var(--st);
   background: var(--st);
-  color: #1a0d03;
+  color: #030b1a;
   box-shadow: 0 0 16px -3px var(--st-glow);
 }
 
@@ -166,14 +166,14 @@
   align-items: center;
   gap: 0.4rem;
   border-radius: 9999px;
-  border: 1px solid color-mix(in srgb, #f97a1f 45%, transparent);
-  background: color-mix(in srgb, #f97a1f 12%, transparent);
+  border: 1px solid color-mix(in srgb, #3d8bff 45%, transparent);
+  background: color-mix(in srgb, #3d8bff 12%, transparent);
   padding: 0.25rem 0.6rem 0.25rem 0.75rem;
   font-size: 12px;
   color: var(--st-hot);
   transition: background-color 0.2s ease;
 }
-.sx-sh-chip:hover, .sx-sh-chip:focus-visible { background: color-mix(in srgb, #f97a1f 22%, transparent); outline: none; }
+.sx-sh-chip:hover, .sx-sh-chip:focus-visible { background: color-mix(in srgb, #3d8bff 22%, transparent); outline: none; }
 .sx-sh-chip-clear { padding: 0.25rem 0.4rem; font-size: 12px; font-weight: 600; color: var(--sx-text-muted); text-decoration: underline; text-underline-offset: 3px; }
 .sx-sh-chip-clear:hover { color: var(--sx-text); }
 .sx-sh-warn { font-size: 12px; color: var(--sx-warn); }
@@ -186,8 +186,8 @@
   height: 2.5rem;
   place-items: center;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, #f97a1f 38%, transparent);
-  background: radial-gradient(circle at 30% 20%, color-mix(in srgb, #f97a1f 30%, transparent), color-mix(in srgb, #f97a1f 8%, transparent) 70%);
+  border: 1px solid color-mix(in srgb, #3d8bff 38%, transparent);
+  background: radial-gradient(circle at 30% 20%, color-mix(in srgb, #3d8bff 30%, transparent), color-mix(in srgb, #3d8bff 8%, transparent) 70%);
   color: var(--st-hot);
   box-shadow: 0 0 14px -4px var(--st-glow), inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
 }
@@ -224,7 +224,7 @@
   place-items: center;
   border-radius: 9999px;
   border: 1px solid var(--st-line);
-  background: #1c1511;
+  background: #131926;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -255,7 +255,7 @@
   padding: 0 0.95rem;
   font-size: 12.5px;
   font-weight: 800;
-  color: #1a0d03;
+  color: #030b1a;
   white-space: nowrap;
   box-shadow: 0 0 18px -2px var(--st-glow);
   transition: box-shadow 0.25s ease, transform 0.25s var(--st-ease), filter 0.25s ease;
@@ -295,8 +295,8 @@
 .sx-sh-card { display: flex; flex: 1; flex-direction: column; gap: 0.75rem; padding: 1rem 1rem 0.9rem; }
 .sx-sh-card:has(.sx-sh-stretch:hover),
 .sx-sh-card:has(.sx-sh-stretch:focus-visible) {
-  border-color: color-mix(in srgb, #f97a1f 60%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, #f97a1f 30%, transparent), 0 0 28px -6px var(--st-glow);
+  border-color: color-mix(in srgb, #3d8bff 60%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #3d8bff 30%, transparent), 0 0 28px -6px var(--st-glow);
   transform: translate3d(0, -2px, 0);
 }
 .sx-sh-card[data-incart] { border-color: color-mix(in srgb, #3ddc97 35%, var(--st-line)); }
@@ -342,7 +342,7 @@
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   padding: 0.7rem 1rem;
 }
-.sx-sh-list-head { display: none; border-bottom: 1px solid color-mix(in srgb, #f97a1f 28%, transparent); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sx-text-muted); }
+.sx-sh-list-head { display: none; border-bottom: 1px solid color-mix(in srgb, #3d8bff 28%, transparent); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sx-text-muted); }
 @media (min-width: 64rem) {
   .sx-sh-list-head,
   .sx-sh-row { grid-template-columns: 2.1rem minmax(0, 1fr) 8rem 12rem 7rem 8.5rem; }
@@ -374,7 +374,7 @@
 .sx-sh-scrim {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, #0b0a09 70%, transparent);
+  background: color-mix(in srgb, #090b10 70%, transparent);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   animation: sx-sh-fade 0.3s ease both;
@@ -392,9 +392,9 @@
   border: 1px solid var(--st-line);
   border-bottom: 0;
   background:
-    radial-gradient(60% 35% at 100% 0%, color-mix(in srgb, #f97a1f 14%, transparent), transparent 70%),
+    radial-gradient(60% 35% at 100% 0%, color-mix(in srgb, #3d8bff 14%, transparent), transparent 70%),
     var(--st-plate);
-  box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.8), 0 0 60px color-mix(in srgb, #f97a1f 12%, transparent);
+  box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.8), 0 0 60px color-mix(in srgb, #3d8bff 12%, transparent);
   color: var(--sx-text);
   animation: sx-sh-up 0.45s var(--st-ease) both;
 }
@@ -465,14 +465,14 @@
   justify-content: flex-end;
   gap: 0.6rem;
   border-top: 1px solid var(--sx-line-soft);
-  background: color-mix(in srgb, #0b0a09 55%, transparent);
+  background: color-mix(in srgb, #090b10 55%, transparent);
   padding: 0.85rem 1.2rem calc(0.85rem + env(safe-area-inset-bottom));
 }
 @media (min-width: 40rem) { .sx-sh-sheet-foot { padding: 0.9rem 1.5rem; border-radius: 0 0 8px 8px; } }
 
 /* ── add to cart ─────────────────────────────────────────────────────────── */
 .sx-sh-addform { display: flex; flex-direction: column; gap: 1.1rem; }
-.sx-sh-mini { display: flex; align-items: center; gap: 0.7rem; border-radius: 6px; border: 1px solid var(--sx-line); background: #120d0a; padding: 0.6rem 0.75rem; }
+.sx-sh-mini { display: flex; align-items: center; gap: 0.7rem; border-radius: 6px; border: 1px solid var(--sx-line); background: #0a0e16; padding: 0.6rem 0.75rem; }
 .sx-sh-mini-title { display: block; overflow: hidden; font-size: 13.5px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; color: var(--sx-text); }
 .sx-sh-mini-sub { display: block; font-size: 12px; color: var(--sx-text-muted); }
 .sx-sh-back { display: inline-flex; align-items: center; gap: 0.35rem; align-self: flex-start; margin-top: -0.5rem; font-size: 12px; font-weight: 600; color: var(--st-hot); }
@@ -489,7 +489,7 @@
   background: var(--st);
   font-size: 12px;
   font-weight: 800;
-  color: #1a0d03;
+  color: #030b1a;
   box-shadow: 0 0 12px var(--st-glow);
 }
 .sx-sh-step-hint { font-size: 12px; line-height: 1.45; color: var(--sx-text-muted); }
@@ -501,7 +501,7 @@
   place-items: center;
   border-radius: 6px;
   border: 1px solid var(--st-line);
-  background: #120c07;
+  background: #070b14;
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--sx-text);
@@ -514,12 +514,12 @@
   width: 4.5rem;
   height: 2.5rem;
   border-radius: 6px;
-  border: 1px solid color-mix(in srgb, #f97a1f 45%, transparent);
-  background: #0f0a06;
+  border: 1px solid color-mix(in srgb, #3d8bff 45%, transparent);
+  background: #060a12;
   text-align: center;
   font-size: 1.15rem;
 }
-.sx-sh-qty-input:focus { outline: none; border-color: var(--st); box-shadow: 0 0 0 3px color-mix(in srgb, #f97a1f 22%, transparent); }
+.sx-sh-qty-input:focus { outline: none; border-color: var(--st); box-shadow: 0 0 0 3px color-mix(in srgb, #3d8bff 22%, transparent); }
 .sx-sh-qty-note { margin-left: 0.4rem; font-size: 12px; color: var(--sx-text-faint); }
 .sx-sh-total {
   display: flex;
@@ -527,7 +527,7 @@
   justify-content: space-between;
   gap: 1rem;
   border-radius: 6px;
-  border: 1px solid color-mix(in srgb, #f97a1f 35%, transparent);
+  border: 1px solid color-mix(in srgb, #3d8bff 35%, transparent);
   background: var(--st-wash);
   padding: 0.7rem 0.9rem;
   font-size: 13px;
@@ -560,10 +560,10 @@
 .sx-sh-added-sum .sx-stadium-num { font-size: 1.7rem; }
 .sx-sh-next { display: flex; width: 100%; max-width: 24rem; gap: 0.35rem; margin-top: 0.6rem; }
 .sx-sh-next > li { flex: 1; min-width: 0; font-size: 11.5px; color: var(--sx-text-faint); }
-.sx-sh-next > li::before { content: ""; display: block; height: 5px; margin-bottom: 0.4rem; border-radius: 3px; background: #2a1a0e; }
+.sx-sh-next > li::before { content: ""; display: block; height: 5px; margin-bottom: 0.4rem; border-radius: 3px; background: #0e1a2e; }
 .sx-sh-next > li[data-done]::before { background: var(--st); box-shadow: 0 0 8px var(--st); }
 .sx-sh-next > li[data-now] { color: #fff; font-weight: 600; }
-.sx-sh-next > li[data-now]::before { background: linear-gradient(90deg, var(--st), #ffc98f); box-shadow: 0 0 12px var(--st); animation: sx-stadium-blink 2.4s ease-in-out infinite; }
+.sx-sh-next > li[data-now]::before { background: linear-gradient(90deg, var(--st), #b3d1ff); box-shadow: 0 0 12px var(--st); animation: sx-stadium-blink 2.4s ease-in-out infinite; }
 
 /* ── filters ─────────────────────────────────────────────────────────────── */
 .sx-sh-filters { display: flex; flex-direction: column; gap: 1rem; }

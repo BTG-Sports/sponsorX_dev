@@ -62,9 +62,9 @@ const PERIOD_WORDS: Record<RangeKey, ReactNode> = {
 };
 const SORT_WORDS: Record<(typeof CAMPAIGN_SORTS)[number], string> = { name: "Name A–Z", ending: "Ending soonest" };
 const GREEN = "#3ddc97";
-const ORANGE = "#f97a1f";
+const BLUE = "#3d8bff";
 const RED = "#ff5a5f";
-const DIM = "#4a3626";
+const DIM = "#263a5a";
 
 export default async function SponsorDashboardPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const demo = await demoState(searchParams);
@@ -349,7 +349,7 @@ function ToDo({ items, className = "", delay, emptyLine }: { items: NeedsYouItem
           <Link
             key={l.href}
             href={l.href}
-            className="flex items-center gap-2 rounded-md border border-[color:var(--st-line)] bg-[#120c07] px-2.5 py-2 text-[12px] text-muted transition-colors hover:border-sponsor/60 hover:text-text"
+            className="flex items-center gap-2 rounded-md border border-[color:var(--st-line)] bg-[#070b14] px-2.5 py-2 text-[12px] text-muted transition-colors hover:border-sponsor/60 hover:text-text"
           >
             <DashIcon name={l.icon} size={24} tone="dim" />
             {l.label}
@@ -396,7 +396,7 @@ function Delivered({ o }: { o: SponsorOverview }) {
             </span>
           </LedRing>
           <div className="min-w-[9rem] flex-1">
-            <LegendRow color={ORANGE} name="Delivered" value={d.delivered.toLocaleString("en-US")} />
+            <LegendRow color={BLUE} name="Delivered" value={d.delivered.toLocaleString("en-US")} />
             <LegendRow color={d.late ? RED : DIM} name="Late" value={d.late.toLocaleString("en-US")} />
             <LegendRow color={DIM} name="Still to come" value={upcoming.toLocaleString("en-US")} />
             <p className="mt-2 border-t border-line-soft pt-2 text-[11.5px] text-faint">
@@ -419,7 +419,7 @@ function Money({ o }: { o: SponsorOverview }) {
   const money = campaignMoney(o.money);
   const cpm =
     o.costPer1000Cents !== null ? (
-      <div className="mt-4 flex items-center justify-between gap-3 rounded-md border border-[color:var(--st-line)] bg-[#120c07] px-3 py-2.5">
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-md border border-[color:var(--st-line)] bg-[#070b14] px-3 py-2.5">
         <span className="min-w-0">
           <span className="block text-[12px] font-semibold text-text">Cost per 1,000 people reached</span>
           <span className="block text-[11px] text-faint">What you agreed to spend ÷ people reached · lower is better</span>
@@ -438,7 +438,7 @@ function Money({ o }: { o: SponsorOverview }) {
               label={`${formatCount(money.paidCents, "usd0")} paid and ${formatCount(money.owedCents, "usd0")} still to pay, of ${formatCount(money.invoicedCents, "usd0")} billed`}
               parts={[
                 { label: "Paid", value: money.paidCents, color: GREEN },
-                { label: "Still to pay", value: money.owedCents, color: ORANGE },
+                { label: "Still to pay", value: money.owedCents, color: BLUE },
               ]}
             >
               <span className="sx-stadium-num block text-[20px] leading-none">{formatCount(money.invoicedCents, "usd0")}</span>
@@ -446,7 +446,7 @@ function Money({ o }: { o: SponsorOverview }) {
             </SplitDonut>
             <div className="min-w-[9rem] flex-1">
               <LegendRow color={GREEN} name="Paid" value={formatCount(money.paidCents, "usd0")} />
-              <LegendRow color={ORANGE} name="Still to pay" value={formatCount(money.owedCents, "usd0")} href={money.owedCents > 0 ? "/sponsor/invoices" : undefined} />
+              <LegendRow color={BLUE} name="Still to pay" value={formatCount(money.owedCents, "usd0")} href={money.owedCents > 0 ? "/sponsor/invoices" : undefined} />
               <LegendRow color={DIM} name="Agreed in total" value={formatCount(o.money.contractedCents, "usd0")} />
             </div>
           </div>
