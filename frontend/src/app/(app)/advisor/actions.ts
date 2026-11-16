@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { apiFetch } from "@/server/api";
 import type { ApiStudentState } from "@/lib/students-live";
+import { decisionLine, type ApiStudent } from "@/lib/students-live";
 
 /* --------------------------------------------------------------------------
    P9-FE-02 — the advisor's one write: move a student application on
@@ -41,7 +42,15 @@ export async function reviewStudentAction(
       return { ok: false, message };
     }
     revalidatePath("/advisor");
-    return { ok: true, message: "Saved." };
+    /* POL-FE-76 — say what happened: who was emailed, and whether they can sign in. */
+    let after: ApiStudent | null = null;
+    try {
+      const r = await apiFetch(`/students/${encodeURIComponent(studentId)}`);
+      if (r.ok) after = (await r.json()) as ApiStudent;
+    } catch {
+      /* the decision is saved; the line falls back to plain words */
+    }
+    return { ok: true, message: decisionLine(after?.state ?? to, after) };
   } catch {
     return { ok: false, message: "The API is unreachable — try again in a minute." };
   }

@@ -483,6 +483,23 @@ ${d.portalUrl ?? ""}
     subject: `${d.studentName ?? "Your child"} applied to ${d.schoolName ?? "their school"}'s student media team`,
     text: `Hi ${d.guardianName ?? "there"},\n\n${d.studentName ?? "Your child"} applied to join ${d.schoolName ?? "their school"}'s student media team on SponsorX NEXT and named you as their parent or guardian.\n\nBecause they are under 18, BTG confirms you are their guardian before they can join. BTG will contact you at this address. If you have a question, or you did not expect this, tell us here:\n\n${d.contactUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* POL-BE-76 — a NEXT applicant at each step. Named by display name only. */
+  "student.received": (d) => ({
+    subject: `We got your application to ${d.schoolName ?? "your school"}'s student media team`,
+    text: `Hi ${d.studentName ?? "there"},\n\nThanks for applying to join ${d.schoolName ?? "your school"}'s student media team on SponsorX NEXT. Your school's advisor reviews it, and we'll email you when they decide.${d.guardianLine ? `\n\n${d.guardianLine}` : ""}\n\n— SponsorX NEXT`,
+  }),
+  "student.approved": (d) => ({
+    subject: `You're on ${d.schoolName ?? "your school"}'s student media team`,
+    text: `Hi ${d.studentName ?? "there"},\n\nYour advisor approved your application. To sign in:\n\n1. Go to ${d.signInUrl ?? ""}\n2. Sign in with this email address (${d.email ?? "the one you applied with"}).\n3. You'll land on your NEXT page, with your assignments and your sales code.${d.waitingLine ? `\n\n${d.waitingLine}` : ""}\n\n— SponsorX NEXT`,
+  }),
+  "student.changesRequested": (d) => ({
+    subject: `Your advisor asked for changes to your application`,
+    text: `Hi ${d.studentName ?? "there"},\n\nYour advisor at ${d.schoolName ?? "your school"} looked at your application and asked for changes:\n\n"${d.note ?? ""}"\n\nTalk to your advisor, then apply again here:\n\n${d.applyUrl ?? ""}\n\n— SponsorX NEXT`,
+  }),
+  "student.declined": (d) => ({
+    subject: `About your application to ${d.schoolName ?? "your school"}'s student media team`,
+    text: `Hi ${d.studentName ?? "there"},\n\nYour advisor at ${d.schoolName ?? "your school"} didn't approve your application this time.${d.note ? `\n\nTheir note: "${d.note}"` : ""}\n\nIf you have questions, talk to your advisor.\n\n— SponsorX NEXT`,
+  }),
   /* P9-BE-24 — student assignments. A student is named by display name only. */
   "studentAssignment.assigned": (d) => ({
     subject: `New assignment: ${d.title ?? "a piece"} — ${d.editionLabel ?? "the edition"}`,

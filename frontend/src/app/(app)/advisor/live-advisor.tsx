@@ -16,7 +16,7 @@ import {
   type ApiStudentState,
   type StudentGroup,
   type StudentGroupCounts,
-  guardianLine,
+  guardianLine, loginLine,
 } from "@/lib/students-live";
 import { ClaimTabs, GroupTabs } from "./desk-controls";
 
@@ -72,6 +72,8 @@ function StudentCard({ s, canVerify = false }: { s: ApiStudent; canVerify?: bool
         )}
         {/* POL-FE-57 (app review B6) — the guardian a minor named, and whether BTG has verified them. */}
         {g && <p className={`mt-1 text-xs ${g.verified ? "text-accent" : "text-warn"} break-words`}>{g.text}</p>}
+        {/* POL-FE-76 — whether an approved student can sign in. */}
+        {loginLine(s) && <p className={`mt-1 text-xs ${loginLine(s)!.ok ? "text-muted" : "text-warn"} break-words`}>{loginLine(s)!.text}</p>}
         <p className="mt-1 text-[10px] text-faint">
           applied {fmt(s.createdAt)}
           {s.autoApprovedAt ? ` · approved automatically ${fmt(s.autoApprovedAt)}` : ""}
