@@ -2531,6 +2531,14 @@ the blockers and today's content review findings.
   - **Backend:** `EarningWorkNotVerifiedError` (409) in `transitionEarning` (`backend/src/domain/earning.ts`) for any move to ELIGIBLE, after the paused-deal check. No schema change, so it also covers earnings held before today. Tests: `backend/tests/earning.test.ts` (POL-BE-87).
   - **Frontend:** `earningMoves` offers "Back to pending" on HELD and "Void" (`needsConfirm`) on PENDING; `EarningRowActions` asks "Void it?" first; the Finance action accepts PENDING and VOIDED. Tests: `frontend/tests/earning-actions.test.ts` (POL-FE-87).
 
+### 88. A licence clears a minor's piece without their guardian [audit 2026-11-16, item 59]
+`POL-BE-88` · *Minors* · confirmed (audit of 52–83, 2026-11-16)
+- **Problem:** BTG's "Record a right" form takes a BTG or third-party licence (a contract reference) on any edition piece. The guardian checks in `grantRightIn` ran only for consent grants, so a licence cleared a piece a minor made for print and the web with no guardian ever asked.
+- **Fix:** a licence on a piece whose maker (student or athlete) is a minor is refused. A minor's piece is cleared by their verified guardian's consent only. An adult maker's piece may still carry a licence (a contract signed with them), and sponsor artwork, which has no maker, is unaffected.
+- **Done when:** a BTG or third-party licence on a minor's piece is refused with the reason, over HTTP too; an adult maker's piece still takes one.
+- **Note:** until the student media consent text exists (the owner's open decision), a minor's piece can't be cleared at all, so an edition carrying one can't go to production. BTG can take the piece out of the edition to move it on.
+- **Delivered (2026-11-16, rcfworks):** `grantRightIn` (`backend/src/domain/content-rights.ts`) reads the maker's birth date and age band (`requiresGuardian`, as the consent path) and refuses with `RightsError` 409, "A minor's piece is cleared by their verified guardian's consent, not a licence." It is the one path every right takes, so the automatic grants are held to it too. Test: `backend/tests/next-rights.test.ts` (POL-BE-88), shown to fail without the fix.
+
 ---
 
 ## Checked and fine
