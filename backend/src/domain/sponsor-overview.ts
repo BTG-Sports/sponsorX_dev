@@ -65,10 +65,14 @@ export type SponsorOverview = {
   topCities: { city: string; region: string | null; redeems: number }[];
   money?: { contractedCents: number; invoicedCents?: number; paidCents?: number };
   costPer1000Cents: number | null;
-  /** `ordersToPay` counts the sponsor's marketplace orders waiting on payment.
+  /** POL-BE-71 — `requestsInReview` counts the sponsor's own requests BTG is
+   *  still looking at (DRAFT or QUALIFIED briefs), so a brand-new sponsor's
+   *  empty dashboard says one is moving. Absent for a one-campaign read and for
+   *  a role that can't read briefs.
+   *  `ordersToPay` counts the sponsor's marketplace orders waiting on payment.
    *  Marketplace orders are not per-campaign, so it is always 0 when the
    *  overview is read for one campaign (`campaignId`). */
-  needsYou: { postsToReview: number; ordersToPay: number; invoicesUnpaid?: number };
+  needsYou: { postsToReview: number; ordersToPay: number; invoicesUnpaid?: number; requestsInReview?: number };
   campaigns: { total: number; running: number };
 };
 
@@ -205,6 +209,12 @@ export async function sponsorOverview(
         : Promise.resolve(0),
     ]);
 
+  /* POL-BE-71 — requests still with BTG; whereFor scopes it to this sponsor. */
+  const requestsInReview =
+    can(actor, "campaignBrief", "read") && !opts.campaignId
+      ? await prisma.campaignBrief.count({ where: { AND: [whereFor(actor, "campaignBrief", "read"), { state: { in: ["DRAFT", "QUALIFIED"] } }] } })
+      : undefined;
+
   /* reach — by source, verified kept apart */
   const bySource = Object.fromEntries(METRIC_SOURCES.map((s) => [s, 0])) as Record<MetricSource, number>;
   let verifiedViews = 0;
@@ -308,6 +318,7 @@ export async function sponsorOverview(
     needsYou: {
       postsToReview: toReview,
       ordersToPay: toPay,
+      ...(requestsInReview !== undefined ? { requestsInReview } : {}),
       ...(seeInvoices ? { invoicesUnpaid: live.filter((i) => i.status.toLowerCase() !== "paid").reduce((n, i) => n + i._count._all, 0) } : {}),
     },
     campaigns: { total: campaigns.length, running: campaigns.filter((c) => c.state === "ACTIVE").length },

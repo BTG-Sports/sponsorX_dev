@@ -194,6 +194,19 @@ describe("sponsorOverview", () => {
     expect(count!.args.where.AND[1]).toEqual({ state: { in: ["APPROVED", "AWAITING_PAYMENT"] } });
   });
 
+  it("POL-BE-71 — needsYou.requestsInReview counts the sponsor's own DRAFT and QUALIFIED briefs, even with no campaign yet", async () => {
+    impl["campaign.findMany"] = () => [];
+    impl["campaignBrief.count"] = () => 2;
+    const o = await sponsorOverview(sponsor, { range: "7d" }, NOW);
+    expect(o.needsYou.requestsInReview).toBe(2);
+    const [count] = of("campaignBrief", "count");
+    expect(count!.args.where.AND[0]).toEqual(whereFor(sponsor, "campaignBrief", "read"));
+    expect(count!.args.where.AND[1]).toEqual({ state: { in: ["DRAFT", "QUALIFIED"] } });
+    /* one campaign's read leaves it out — requests are not per-campaign */
+    const one = await sponsorOverview(sponsor, { range: "7d", campaignId: "c_spo1" }, NOW).catch(() => null);
+    if (one) expect(one.needsYou.requestsInReview).toBeUndefined();
+  });
+
   it("needsYou.ordersToPay is 0 for one campaign — marketplace orders are not per-campaign", async () => {
     impl["campaign.findMany"] = () => [{ id: "c_spo1", state: "ACTIVE", startDate: new Date("2026-09-01") }];
     impl["marketplaceOrder.count"] = () => 4;

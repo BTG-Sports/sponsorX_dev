@@ -86,3 +86,9 @@ export async function removeTeammateAction(id: string): Promise<TeamWrite> {
   if (typeof id !== "string" || !id) return { ok: false, message: "Unknown person." };
   return finish(await call(`/sponsor/team/${encodeURIComponent(id)}/remove`, "POST"));
 }
+
+/** POL-FE-71 — a removed teammate back on the team, with the role they had. */
+export async function restoreTeammateAction(id: string): Promise<TeamWrite> {
+  if (typeof id !== "string" || !id) return { ok: false, message: "Unknown person." };
+  return finish(await call(`/sponsor/team/${encodeURIComponent(id)}/restore`, "POST"));
+}

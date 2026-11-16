@@ -47,7 +47,7 @@ async function liveTeam(): Promise<Live> {
 }
 
 function NotInRole({ roles }: { roles: readonly string[] }) {
-  const who = roles.includes("SPONSOR_ANALYST") ? "a Sponsor Analyst (read only)" : "a BTG preview";
+  const who = roles.includes("SPONSOR_ANALYST") ? "a Sponsor Viewer (read only)" : "a BTG preview";
   return (
     <EmptyState
       mark="users"

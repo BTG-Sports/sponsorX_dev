@@ -150,8 +150,12 @@ export async function inviteTeammate(actor: Actor, input: { email: string; role:
   const taken = await prisma.user.findFirst({
     /* tenant-scope: sign-in finds a login by address across every tenant (auth/actor.ts), so the check must too. Only existence is read. */
     where: { email },
-    select: { id: true },
+    select: { id: true, tenantId: true, sponsorId: true, disabledAt: true },
   });
+  /* POL-BE-71 — a removed teammate of this same team is added back from their row, not invited twice. */
+  if (taken && taken.tenantId === team.tenantId && taken.sponsorId === team.sponsorId && taken.disabledAt) {
+    throw new SponsorTeamError("That person was removed from your team. Use \u201cAdd back\u201d on their row under Removed.");
+  }
   if (taken) throw new SponsorTeamError("That address already has a SponsorX login. Invite a different address.");
   await underHourlyCap(team, "sponsorTeam.invite", null, INVITES_PER_HOUR, now);
   const from = await inviterEmail(team);
@@ -205,6 +209,48 @@ export async function resendTeamInvite(actor: Actor, id: string, now = new Date(
     await sendInvite(tx, team, m, role, from, `sponsor.teamInvite:${m.id}:${now.getTime()}`);
   });
   return { sent: true, email: m.email };
+}
+
+/** POL-BE-71 — the reason removeTeammate writes; only a login switched off
+ *  this way is the sponsor admin's to switch back on. */
+function removedByTeam(reason: string | null, sponsorName: string): boolean {
+  return reason === `Removed from ${sponsorName}'s team by an admin.`;
+}
+
+/**
+ * POST /sponsor/team/:id/restore — POL-BE-71. A teammate removed from this
+ * team is switched back on, with the role they had (or the one sent), and is
+ * emailed the invite again so they know they can sign in. A login switched
+ * off by BTG (any other reason) stays off: that is BTG's to undo.
+ */
+export async function restoreTeammate(actor: Actor, id: string, role?: SponsorTeamRole, now = new Date()) {
+  const team = await teamOf(actor);
+  const m = await memberOf(team, id);
+  notYourself(team, m);
+  if (statusOf(m) !== "REMOVED") throw new SponsorTeamError("This person is already on your team.");
+  const found = await prisma.user.findFirst({
+    /* tenant-scope: memberOf found it within this sponsor and tenant. */
+    where: { id: m.id, tenantId: team.tenantId },
+    select: { disabledReason: true },
+  });
+  if (!removedByTeam(found?.disabledReason ?? null, team.sponsorName)) {
+    throw new SponsorTeamError("BTG switched this login off, so only BTG can switch it back on. Ask BTG support.");
+  }
+  await underHourlyCap(team, "sponsorTeam.restore", m.id, RESENDS_PER_HOUR, now);
+  const from = await inviterEmail(team);
+  const nextRole = role ?? view(m, team.userId).role;
+  const row = await prisma.$transaction(async (tx) => {
+    const updated = await tx.user.update({
+      /* tenant-scope: memberOf found it within this sponsor and tenant. */
+      where: { id: m.id },
+      data: { disabledAt: null, disabledReason: null, roles: [nextRole] },
+      select: MEMBER,
+    });
+    await audit(tx, actor, "sponsorTeam.restore", "User", m.id, { before: { status: "REMOVED" }, after: { sponsorId: team.sponsorId, status: statusOf(updated), role: nextRole } });
+    await sendInvite(tx, team, updated, nextRole, from, `sponsor.teamInvite:${m.id}:restored:${now.getTime()}`);
+    return updated;
+  });
+  return view(row, team.userId);
 }
 
 /**

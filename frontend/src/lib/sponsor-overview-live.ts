@@ -33,9 +33,39 @@ export type SponsorOverview = {
   /** Absent when the role can't read campaign value; invoiced / paid absent when it can't read invoices. */
   money?: { contractedCents: number; invoicedCents?: number; paidCents?: number };
   costPer1000Cents: number | null;
-  needsYou: { postsToReview: number; ordersToPay: number; invoicesUnpaid?: number };
+  /** POL-BE-71 — requestsInReview: the sponsor's requests BTG is still looking at. */
+  needsYou: { postsToReview: number; ordersToPay: number; invoicesUnpaid?: number; requestsInReview?: number };
   campaigns: { total: number; running: number };
 };
+
+export type NeedsYouItem = { key: string; title: string; sub: string; count: number; href: string };
+
+/** The "Needs you" rows: things that can't move until the sponsor acts. */
+export function needsYouItems(n: SponsorOverview["needsYou"]): NeedsYouItem[] {
+  return [
+    { key: "posts", title: "Posts waiting for your OK", sub: "Open a running campaign to look at them", count: n.postsToReview, href: "/sponsor/campaigns?review=1" },
+    { key: "orders", title: "Orders to pay", sub: "Approved and ready for payment", count: n.ordersToPay, href: "/sponsor/orders?tab=to_pay" },
+    /* POL-FE-13 — opens the invoices screen, where each one can be paid. */
+    ...(n.invoicesUnpaid !== undefined ? [{ key: "invoices", title: "Invoices to pay", sub: "Sent to you by BTG", count: n.invoicesUnpaid, href: "/sponsor/invoices" }] : []),
+  ];
+}
+
+/** POL-FE-71 — a sponsor with no campaign yet can still have a Shop order on
+ *  its pay-by clock, or a request with BTG. The empty dashboard shows these
+ *  above "No campaigns yet" instead of hiding them. */
+export function emptyDashboardRows(n: SponsorOverview["needsYou"]): NeedsYouItem[] {
+  const rows = needsYouItems(n).filter((i) => i.count > 0);
+  if (n.requestsInReview) {
+    rows.push({
+      key: "requests",
+      title: n.requestsInReview === 1 ? "1 request with BTG" : `${n.requestsInReview} requests with BTG`,
+      sub: "BTG is reviewing it — nothing to do yet. Open it to see where it is.",
+      count: n.requestsInReview,
+      href: "/sponsor/requests",
+    });
+  }
+  return rows;
+}
 
 /** ?range — one of the four windows; anything else is the default 30 days. */
 export function rangeParam(sp: SearchParams): RangeKey {

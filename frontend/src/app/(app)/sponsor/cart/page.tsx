@@ -107,7 +107,7 @@ export default async function CartPage() {
       )}
       {!canWrite && (
         <p className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-[11px] text-muted">
-          You&rsquo;re signed in as a Sponsor Analyst — you can read the cart; a Sponsor Admin changes it and checks out.
+          You&rsquo;re signed in as a Sponsor Viewer — you can read the cart; a Sponsor Admin changes it and checks out.
         </p>
       )}
 

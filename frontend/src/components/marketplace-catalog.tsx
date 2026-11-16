@@ -477,6 +477,9 @@ const PKG_SORTERS: Record<string, (a: Pkg, b: Pkg) => number> = {
   priceDesc: (a, b) => parseAmount(b.price) - parseAmount(a.price),
 };
 
+/** POL-FE-71 — what a Viewer sees where "Request this" would be. */
+export const VIEWER_REQUEST_NOTE = "You're a Viewer on this account — a Sponsor Admin sends requests.";
+
 export function PackagesCatalog({
   initial,
   demoParam,
@@ -484,6 +487,7 @@ export function PackagesCatalog({
   submit,
   targeting,
   checkStaffing,
+  canRequest = true,
 }: {
   initial?: CatalogInitial;
   demoParam?: string;
@@ -495,6 +499,8 @@ export function PackagesCatalog({
   targeting?: Targeting;
   /** POL-FE-51 — the drawer's live staffing check; absent in demo. */
   checkStaffing?: StaffingCheck;
+  /** POL-FE-71 — false for a Viewer: they read the catalogue, an Admin requests. */
+  canRequest?: boolean;
 }) {
   const [seed, setSeed] = useState<BriefSeed | null>(null);
   const ctl = useCatalog<Pkg>({
@@ -583,15 +589,19 @@ export function PackagesCatalog({
                   ) : typeof p.staffable === "boolean" ? (
                     <StaffableLine staffable={p.staffable} />
                   ) : null}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSeed({ kind: "package", name: p.name, price: p.price, packageId: p.id, adOnly: p.athletes === "0" })
-                    }
-                    className="mt-3 w-full rounded-lg bg-primary py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
-                  >
-                    Request this
-                  </button>
+                  {canRequest ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSeed({ kind: "package", name: p.name, price: p.price, packageId: p.id, adOnly: p.athletes === "0" })
+                      }
+                      className="mt-3 w-full rounded-lg bg-primary py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
+                    >
+                      Request this
+                    </button>
+                  ) : (
+                    <p className="mt-3 text-[11px] text-faint">{VIEWER_REQUEST_NOTE}</p>
+                  )}
                 </div>
               </IdentityCard>,
               p.id,
@@ -1016,7 +1026,7 @@ function JobsPageBar({
   );
 }
 
-export function JobsCatalog({ jobs, submit, targeting }: { jobs: LiveJob[]; submit?: BriefSubmit; targeting?: Targeting }) {
+export function JobsCatalog({ jobs, submit, targeting, canRequest = true }: { jobs: LiveJob[]; submit?: BriefSubmit; targeting?: Targeting; canRequest?: boolean }) {
   const [seed, setSeed] = useState<BriefSeed | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -1041,13 +1051,17 @@ export function JobsCatalog({ jobs, submit, targeting }: { jobs: LiveJob[]; subm
           <li key={j.id} data-spot="" className="sx-stadium-panel p-4">
             <p className="text-sm font-semibold tracking-tight">{j.name}</p>
             <p className="mt-1 text-xs tabular-nums text-accent">{j.price} per athlete</p>
-            <button
-              type="button"
-              onClick={() => setSeed({ kind: "job", name: j.name, jobId: j.id, price: j.price })}
-              className="mt-3 w-full rounded-lg bg-primary py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
-            >
-              Request this
-            </button>
+            {canRequest ? (
+              <button
+                type="button"
+                onClick={() => setSeed({ kind: "job", name: j.name, jobId: j.id, price: j.price })}
+                className="mt-3 w-full rounded-lg bg-primary py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
+              >
+                Request this
+              </button>
+            ) : (
+              <p className="mt-3 text-[11px] text-faint">{VIEWER_REQUEST_NOTE}</p>
+            )}
           </li>
         ))}
       </ul>
