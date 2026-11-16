@@ -71,3 +71,17 @@
 ## Next
 - Merge order: #427, then #428, #429, #430, and PR B.
 - Then `main_development` → `main` by PR, deploy staging, and run yesterday's two staging checks.
+
+## Confirmations wizard (POL-FE-79, `feat/athlete-confirmations-wizard`, HeckerCreatives)
+- **Why:** the programme owner found `/athlete/confirmations` (two stacked cards) "so confusing for a human" and asked for a step-by-step wizard with animation. Then gave a reference: numbered circles joined by a line, "Step 1", title, paragraph, content, footer with "Step 1 of 3" and Previous / Next.
+- **Built:**
+  - `components/confirmations-wizard.tsx` (client island) replaces `components/confirmations-form.tsx`. The page stays the server read and decides every word; no function props cross.
+  - Stepper: a vertical rail at `lg`, dots across on a phone; the line fills green when a step is done. Steps: read it, tick the box (a selectable card), confirm. Footer: "Step N of M", Previous, the one action; on a phone they stack full width.
+  - The agreement reads section by section with a reading bar and chips (`agreementSections` / `sectionChip` / `readMinutes` / `nextStep` / `stepState` in `lib/athlete-confirmations.ts`).
+  - A confirm plays a medal + confetti and moves to the next open step; "All set" lists both records and the way back (`?return=`).
+  - Every panel is rendered and the inactive ones `hidden`, so the wording is in the markup without JS and each entrance replays.
+  - Styles in `app/(app)/athlete/confirmations/confirmations.css` (page-only, theme tokens, reduced-motion still look).
+  - Kept: the double-submit ref, `autoComplete="off"`, the seats (minor's own login, guardian acting, unavailable).
+- **Checked:** `athlete-confirmations.test.ts` 20/20 (page tests moved to the wizard's words; new helper tests, incl. word-for-word against `backend/agreements/COLLAB.v2.txt`); tsc and eslint clean. Walked live on :3000 as the QA athlete at 1440 and 320: rules → confirm → agreement → accept → All set, no console errors, no sideways scroll. `next build` not run: the owner's `next dev` was live (memory: never-build-into-live-next-dev).
+- **Local data:** the walk cleared and re-made the QA athlete's (`seed_ath_adult`) rules confirmation, now dated 2026-11-16; its agreement acceptance was removed again afterwards, as it was before.
+- **Seen once:** the first confirm after swapping the form file hit "This page couldn't load" on refresh. It didn't come back in three later runs, so it looks like a dev recompile race on the action ids. Watch for it on staging.
