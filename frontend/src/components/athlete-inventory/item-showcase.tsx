@@ -81,13 +81,25 @@ export function ItemShowcase({
   market,
   sale,
   edit,
+  bar,
+  after,
+  privatePanel = true,
+  fitsEmpty = "Any kind of brand. Pick the ones it suits best under Edit item, so the right sponsors notice it.",
 }: {
   id: string;
   s: Showcase;
   seller: ShowcaseSeller | null;
-  market: MarketStatus;
-  sale: ReactNode;
-  edit: ReactNode;
+  /** The marketplace line; null leaves it out (the listing page says it in its own bar). */
+  market: MarketStatus | null;
+  sale?: ReactNode;
+  edit?: ReactNode;
+  /** POL-FE-85 — the listing page's own bar, in place of the item's (back, the switch, Edit). */
+  bar?: ReactNode;
+  /** POL-FE-85 — what follows the showcase (the listing's ways off the marketplace). */
+  after?: ReactNode;
+  /** The "Only you see this" panel (the item page's; the listing page leaves it to Inventory). */
+  privatePanel?: boolean;
+  fitsEmpty?: string;
 }) {
   const first = seller ? firstName(seller.name) : null;
   const isPackage = s.kind === "PACKAGE";
@@ -95,6 +107,7 @@ export function ItemShowcase({
   return (
     <div className="sx-iv sx-is" data-kind={s.kind} data-on={s.active ? "" : undefined} data-item={id}>
       {/* ── the owner's bar: back, what this is, the switch, Edit ── */}
+      {bar ?? (
       <div className="sx-is-bar sx-iv-rise" style={d(0)}>
         <Link href="/athlete/inventory" className="sx-is-back">
           <Glyph ui="back" className="size-4" />
@@ -111,6 +124,7 @@ export function ItemShowcase({
           {edit}
         </div>
       </div>
+      )}
 
       {/* ── the hero: the stage and the pitch ── */}
       <section className="sx-is-hero" aria-labelledby="sx-is-title">
@@ -203,6 +217,7 @@ export function ItemShowcase({
             </ul>
           )}
 
+          {market && (
           <div className="sx-is-market sx-iv-rise" data-tone={market.tone} style={d(0.46)}>
             <span className="sx-is-market-dot" aria-hidden="true" />
             <p>
@@ -216,6 +231,7 @@ export function ItemShowcase({
               </Link>
             )}
           </div>
+          )}
         </div>
       </section>
 
@@ -256,7 +272,7 @@ export function ItemShowcase({
             ))}
           </ul>
         ) : (
-          <p className="sx-is-empty">Any kind of brand. Pick the ones it suits best under Edit item, so the right sponsors notice it.</p>
+          <p className="sx-is-empty">{fitsEmpty}</p>
         )}
       </section>
 
@@ -339,6 +355,7 @@ export function ItemShowcase({
       )}
 
       {/* ── the one private panel ── */}
+      {privatePanel && (
       <section className="sx-is-section sx-is-private" aria-labelledby="sx-is-private">
         <h2 id="sx-is-private" className="sx-is-h2">
           <Glyph ui="lock" className="size-3.5" />
@@ -357,6 +374,9 @@ export function ItemShowcase({
           </div>
         </dl>
       </section>
+      )}
+
+      {after}
     </div>
   );
 }

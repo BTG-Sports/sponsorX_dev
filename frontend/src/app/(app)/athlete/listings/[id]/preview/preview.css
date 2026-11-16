@@ -1,0 +1,192 @@
+/* --------------------------------------------------------------------------
+   POL-FE-86 — the athlete's "see it as a sponsor": the shop's own card in a
+   shop window. Over the inventory's inventory.css (`.sx-iv`, `.sx-iv-rise`).
+   THEME-AWARE: tokens and color-mix only.
+
+   Motion: the window rises in and springs between Desktop and Phone widths
+   (the grid inside follows the window — a container query); your card
+   floats in first with a glow and a "Your listing" pin, the placeholder
+   cards shimmer behind it. Reduced motion: the inventory's block stills
+   `.sx-iv`.
+   -------------------------------------------------------------------------- */
+
+.sx-pv { display: grid; gap: 1rem; }
+
+/* the bar ----------------------------------------------------------------- */
+.sx-pv-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--t) 35%, var(--iv-line));
+  background: linear-gradient(100deg, color-mix(in srgb, var(--t) 12%, transparent), transparent 55%), var(--iv-plate);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  padding: 0.7rem 1rem 0.7rem 0.8rem;
+  --t: var(--sx-warn);
+}
+.sx-pv-bar[data-visible] { --t: var(--sx-success); }
+.sx-pv-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 10px;
+  padding: 0.35rem 0.5rem;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--sx-text-muted);
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+.sx-pv-back svg { transition: transform 0.35s var(--iv-spring); }
+.sx-pv-back:hover { color: var(--sx-text); background: color-mix(in srgb, var(--sx-text) 6%, transparent); }
+.sx-pv-back:hover svg { transform: translate3d(-3px, 0, 0); }
+.sx-pv-back:focus-visible { outline: 2px solid var(--sx-athlete); outline-offset: 2px; }
+.sx-pv-say { display: flex; flex: 1 1 18rem; align-items: center; gap: 0.7rem; min-width: 0; }
+.sx-pv-say strong { display: block; font-size: 14px; font-weight: 800; color: var(--sx-text); }
+.sx-pv-say span > span { display: block; font-size: 12px; line-height: 1.45; color: var(--sx-text-muted); }
+.sx-pv-dot { position: relative; display: grid; width: 2.35rem; height: 2.35rem; flex: none; place-items: center; border-radius: 12px; background: color-mix(in srgb, var(--t) 18%, transparent); color: var(--t); }
+.sx-pv-bar[data-visible] .sx-pv-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--t);
+  animation: sx-pv-pulse 2.2s var(--iv-ease) infinite;
+}
+@keyframes sx-pv-pulse { from { transform: scale(1); opacity: 0.8; } to { transform: scale(1.6); opacity: 0; } }
+
+/* why sponsors don't see it yet: short chips */
+.sx-pv-notes { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.sx-pv-notes li {
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--sx-warn) 35%, var(--sx-line));
+  background: color-mix(in srgb, var(--sx-warn) 8%, transparent);
+  padding: 0.3rem 0.8rem;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--sx-text);
+}
+
+/* the device switch ----------------------------------------------------- */
+.sx-pv-stage { display: grid; justify-items: center; gap: 0.9rem; margin-top: 0.5rem; }
+.sx-pv-devices { display: inline-flex; border-radius: 9999px; border: 1px solid var(--iv-line); background: var(--iv-plate); padding: 3px; }
+.sx-pv-device {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 9999px;
+  padding: 0.4rem 0.95rem;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sx-text-muted);
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+.sx-pv-device:hover { color: var(--sx-text); }
+.sx-pv-device[aria-pressed="true"] { background: linear-gradient(135deg, var(--sx-primary), var(--sx-primary-soft)); color: var(--sx-cta-ink); }
+.sx-pv-device:focus-visible { outline: 2px solid var(--sx-athlete); outline-offset: 2px; }
+
+/* the window -------------------------------------------------------------- */
+.sx-pv-window {
+  width: 100%;
+  max-width: 64rem;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid var(--iv-line);
+  background: var(--sx-bg);
+  box-shadow: 0 50px 100px -50px color-mix(in srgb, var(--sx-athlete) 70%, transparent), 0 0 0 1px color-mix(in srgb, var(--sx-text) 4%, transparent);
+  container-type: inline-size;
+  transition: max-width 0.7s var(--iv-spring), border-radius 0.5s ease;
+}
+.sx-pv-window[data-device="phone"] { max-width: 24rem; border-radius: 36px; }
+.sx-pv-chrome { display: flex; align-items: center; gap: 0.75rem; border-bottom: 1px solid var(--sx-line-soft); background: var(--sx-surface); padding: 0.6rem 0.9rem; }
+.sx-pv-lights { display: inline-flex; gap: 0.35rem; }
+.sx-pv-lights span { width: 9px; height: 9px; border-radius: 9999px; background: color-mix(in srgb, var(--sx-text) 18%, transparent); }
+.sx-pv-lights span:nth-child(1) { background: color-mix(in srgb, var(--sx-danger) 70%, transparent); }
+.sx-pv-lights span:nth-child(2) { background: color-mix(in srgb, var(--sx-warn) 70%, transparent); }
+.sx-pv-lights span:nth-child(3) { background: color-mix(in srgb, var(--sx-success) 70%, transparent); }
+.sx-pv-window[data-device="phone"] .sx-pv-lights { display: none; }
+.sx-pv-address {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--sx-text) 6%, transparent);
+  padding: 0.25rem 0.75rem;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sx-text-muted);
+}
+
+.sx-pv-shop { display: grid; gap: 1rem; padding: 1.25rem; }
+.sx-pv-shop-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.sx-pv-shop-title { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; color: var(--sx-text); }
+.sx-pv-search {
+  display: inline-flex;
+  flex: 0 1 18rem;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 12px;
+  border: 1px solid var(--sx-line);
+  padding: 0.45rem 0.75rem;
+  font-size: 12px;
+  color: var(--sx-text-faint);
+}
+
+.sx-pv-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.9rem; }
+@container (min-width: 40rem) { .sx-pv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* your card: first, lifted, pinned */
+.sx-pv-grid > li:first-child {
+  position: relative;
+  z-index: 1;
+  border-color: color-mix(in srgb, var(--sx-athlete) 55%, var(--sx-line));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--sx-athlete) 14%, transparent), 0 26px 50px -28px color-mix(in srgb, var(--sx-athlete) 90%, transparent);
+  animation: sx-pv-arrive 0.8s var(--iv-spring) 0.35s backwards;
+}
+.sx-pv-grid > li:first-child::before {
+  content: "Your listing";
+  position: absolute;
+  top: -0.7rem;
+  left: 1rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, var(--sx-primary), var(--sx-primary-soft));
+  padding: 0.15rem 0.6rem;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sx-cta-ink);
+}
+@keyframes sx-pv-arrive { from { opacity: 0; transform: translate3d(0, 24px, 0) scale(0.96); } }
+
+/* the neighbours: blank, shimmering — never invented listings */
+.sx-pv-ghost {
+  display: grid;
+  align-content: start;
+  gap: 0.6rem;
+  border-radius: 12px;
+  border: 1px dashed var(--sx-line);
+  padding: 1rem;
+  opacity: 0.55;
+}
+.sx-pv-ghost span {
+  height: 0.7rem;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--sx-text) 7%, transparent), color-mix(in srgb, var(--sx-text) 14%, transparent), color-mix(in srgb, var(--sx-text) 7%, transparent));
+  background-size: 200% 100%;
+  animation: sx-pv-shimmer 1.8s ease-in-out infinite;
+}
+.sx-pv-ghost span:nth-child(1) { width: 60%; height: 0.9rem; }
+.sx-pv-ghost span:nth-child(2) { width: 85%; }
+.sx-pv-ghost span:nth-child(3) { width: 40%; height: 1.8rem; margin-top: 0.4rem; border-radius: 8px; }
+@keyframes sx-pv-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@container (max-width: 39.99rem) { .sx-pv-ghost:last-child { display: none; } }
+
+.sx-pv-foot { text-align: center; font-size: 11.5px; color: var(--sx-text-faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-pv-window { transition: none; }
+}

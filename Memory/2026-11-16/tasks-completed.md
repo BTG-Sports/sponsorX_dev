@@ -204,3 +204,34 @@
   - `next build` was not run: the owner's `next dev` was live.
 - **Local data:** the draft walk created "POL-83 draft walk" (Paused) on `seed_ath_adult`. There's no delete route, so it stays.
 - **Tracker:** a POL-FE-83 row was added to the Polish sheet as Done, and the autofilter, validation and conditional-formatting ranges were extended to row 123. Today's Stage Progress snapshot was appended; Phase 1 is unchanged from 11-15 (320 done, 15.5 days left, Dropped included).
+
+## Athlete listings redesign (POL-FE-84, `feat/POL-FE-84-athlete-listings-redesign`, HeckerCreatives)
+- **Why:** the programme owner: "the listing page /athlete/listings … is too much confusing, do like what we did in the inventory page". Then, seeing a draft on both sides: "remove the draft options in the inventory". A draft is a listing's; an item is only Available or Paused.
+- **Listings page:**
+  - Title with **+ List an item · n**: a popup that picks an item, takes what the sponsor gets beside "What's checked", then List it or Save as draft (new `draftListingAction`), and ends on Live ✓, BTG taking a look, or saved.
+  - Tabs from `counts.byState` (All, Live, In review, Drafts, Paused, Ended) on the old `?state=` key; search; List or Cards.
+  - Per listing, a plain status ("Draft" no longer reads "Not listed yet") and, on the seller's own live or paused listing, a Live switch (new `setListingLiveAction`, the same Pause and Resume moves).
+  - No listing yet: a hero with the items as tiles.
+- **Inventory:** the item-draft buttons, the status line and `allowDraft`/`nextStep` came out of `InventoryForm`, and the popups pass nothing for them.
+- **Shared:** `inventory-shop.tsx` exports its Modal, usePopup, ShopTabs (generic), SaleSwitch (words as a prop), ViewSwitch/useShopView and tilt. The checklist's Ready rows are green.
+- **Checked:** new `athlete-listings-shop.test.ts` (11); frontend 2,232/2,232; tsc and eslint clean. Walked live at 1440 and 390, Escape included. No console errors, no sideways scroll. No `next build` (the owner's `next dev` was live).
+- **Release:** POL-FE-83 reached `main` through PR #439 (into main_development) and PR #438 (main_development → main) after CI passed on each. POL-FE-84 is built and checked, not yet committed.
+- **Tracker:** a POL-FE-84 row on the Polish sheet, Code review, ranges extended to row 124. POL-FE-83's note records the drafts' removal.
+
+## One listing's page redesign (POL-FE-85, same branch, HeckerCreatives)
+- **Why:** the programme owner wanted `/athlete/listings/[id]` "more professional … wow … easy to understand … not too cluttered", then "a step by step wizard", then "after its live/submitted, hide the wizard and show the public page of the item plus options on how to end this item".
+- **Draft:** a three-step wizard (the item → what the sponsor gets → go live) beside a sponsor card that follows the typing. It opens on the first step with a fix, saves the words on leaving step 2, and shows only the rows to fix on step 3. **Discard this draft** is at the foot.
+- **After submitting:** the item's public showcase (`ItemShowcase`, now with `bar` / `after` slots) under a status bar holding the Live switch or "Edit what the sponsor gets". The ways off sit in that bar, small: the owner had the two-card section under the showcase moved up. The Live switch pauses, a small **End listing** confirms and ends it, and once ended, **List the item again**. `?done=1` shows what happened.
+- **Shared:** the seller builder moved to `lib/showcase-seller.ts`; the inventory item page is unchanged.
+- **Checked:** new `athlete-listing-desk.test.ts` (7); frontend 2,239/2,239; tsc and eslint clean.
+  - Walked at 1440 and 390: the owner's own draft, signed in as its owner on local dev, view only, nothing saved; a live listing; the inventory item page.
+- **Tracker:** a POL-FE-85 row, Code review, ranges extended to row 125.
+
+## Listing preview redesign (POL-FE-86, same branch, HeckerCreatives)
+- **Why:** the programme owner asked to redesign `/athlete/listings/[id]/preview` too.
+- **What:**
+  - The shop's own card (unchanged) sits in a shop window among blank placeholder cards, with a Desktop / Phone switch.
+  - One bar says whether sponsors can see it now, with the reasons as short chips.
+  - The property preview is unchanged; `ListingShopPreview` lost its `arena` branch.
+- **Checked:** frontend 2,239/2,239; tsc and eslint clean. Walked at 1440 and 390, both frames, on a live and a draft listing.
+- **Tracker:** a POL-FE-86 row, Code review, ranges extended to row 126.

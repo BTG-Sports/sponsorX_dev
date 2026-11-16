@@ -1,0 +1,154 @@
+/* --------------------------------------------------------------------------
+   POL-FE-84 — the athlete's listings, drawn like their inventory. The page
+   imports the inventory's inventory.css (the plates, tabs, rows, cards,
+   switch and popup, `.sx-iv-*`); this adds only what a listing has that an
+   item doesn't: more status tones, the row's next step, the popup's pick /
+   write / done steps, and the "yours / your team's" pills. Theme-aware
+   (tokens and color-mix only); reduced motion is the inventory's block,
+   which covers `.sx-iv` and `.sx-iv-modal`.
+   -------------------------------------------------------------------------- */
+
+/* status tones a listing adds: goes live soon (blue), changes asked (red), ended (faint) */
+.sx-iv-state[data-tone="soon"] { border-color: color-mix(in srgb, var(--sx-athlete) 40%, transparent); background: color-mix(in srgb, var(--sx-athlete) 12%, transparent); color: var(--sx-athlete); }
+.sx-iv-state[data-tone="fix"] { border-color: color-mix(in srgb, var(--sx-danger) 40%, transparent); background: color-mix(in srgb, var(--sx-danger) 11%, transparent); color: var(--sx-danger); }
+.sx-iv-state[data-tone="ended"] { border-style: dashed; background: transparent; color: var(--sx-text-faint); }
+.sx-iv-state[data-tone="fix"] .sx-iv-state-dot,
+.sx-iv-state[data-tone="wait"] .sx-iv-state-dot { animation: sx-ls-blink 1.6s ease-in-out infinite; }
+@keyframes sx-ls-blink { 50% { opacity: 0.25; } }
+
+/* the row's control: the Live switch, or the next step in words */
+.sx-ls-switch { position: relative; z-index: 2; display: inline-grid; gap: 0.3rem; }
+.sx-ls-switch .sx-iv-error { position: absolute; top: calc(100% + 0.35rem); right: 0; z-index: 3; width: min(16rem, 70vw); box-shadow: 0 14px 30px -18px color-mix(in srgb, var(--sx-text) 60%, transparent); }
+.sx-ls-cta {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  border-radius: 9999px;
+  border: 1px solid var(--iv-line);
+  padding: 0.3rem 0.7rem;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--sx-text-muted);
+  transition: transform 0.35s var(--iv-spring);
+}
+.sx-ls-cta[data-tone="none"],
+.sx-ls-cta[data-tone="fix"] {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--sx-primary), var(--sx-primary-soft));
+  color: var(--sx-cta-ink);
+  box-shadow: 0 8px 20px -12px var(--sx-primary);
+}
+.sx-iv-row:hover .sx-ls-cta[data-tone="none"],
+.sx-iv-row:hover .sx-ls-cta[data-tone="fix"],
+.sx-iv-card:hover .sx-ls-cta[data-tone="none"],
+.sx-iv-card:hover .sx-ls-cta[data-tone="fix"] { transform: translate3d(0, -1px, 0); }
+
+/* "List an item · n" */
+.sx-ls-count {
+  display: grid;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--sx-cta-ink) 18%, transparent);
+  padding: 0 0.35rem;
+  font-size: 11px;
+}
+
+/* yours / your team's (only when both have listings) */
+.sx-ls-scope { display: inline-flex; gap: 0.35rem; }
+.sx-ls-scope a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 9999px;
+  border: 1px solid var(--iv-line);
+  padding: 0.3rem 0.8rem;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sx-text-muted);
+}
+.sx-ls-scope a[aria-current] { border-color: var(--sx-athlete); background: color-mix(in srgb, var(--sx-athlete) 14%, transparent); color: var(--sx-text); }
+.sx-ls-scope span { font-size: 10.5px; color: var(--sx-text-faint); }
+
+/* ── the popup ─────────────────────────────────────────────────────────── */
+
+/* 1 — pick an item */
+.sx-ls-picks { display: grid; gap: 0.5rem; }
+@media (min-width: 40rem) { .sx-ls-picks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.sx-ls-pick:hover .sx-iv-idea-go { transform: translate3d(3px, 0, 0); }
+
+/* 2 — what the sponsor gets, beside the checklist */
+.sx-ls-picked {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--k) 45%, var(--sx-line));
+  background: color-mix(in srgb, var(--k) 9%, transparent);
+  padding: 0.65rem 0.75rem;
+  animation: sx-iv-rise 0.5s var(--iv-ease) backwards;
+}
+.sx-ls-change {
+  flex: none;
+  border-radius: 9999px;
+  border: 1px solid var(--iv-line);
+  padding: 0.3rem 0.75rem;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--sx-text-muted);
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.sx-ls-change:hover { border-color: var(--sx-athlete); color: var(--sx-text); }
+.sx-ls-change:focus-visible { outline: 2px solid var(--sx-athlete); outline-offset: 2px; }
+.sx-ls-warn {
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--sx-warn) 40%, var(--sx-line));
+  background: color-mix(in srgb, var(--sx-warn) 9%, transparent);
+  padding: 0.6rem 0.8rem;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sx-text);
+}
+.sx-ls-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.sx-ls-actions-center { justify-content: center; margin-top: 0.5rem; }
+.sx-ls-actions .sx-iv-add:disabled,
+.sx-ls-ghost:disabled { cursor: not-allowed; opacity: 0.5; }
+.sx-ls-ghost {
+  border-radius: 9999px;
+  border: 1px solid var(--iv-line);
+  padding: 0.55rem 1rem;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--sx-text);
+  transition: background-color 0.2s ease, transform 0.35s var(--iv-spring);
+}
+.sx-ls-ghost:hover:not(:disabled) { background: var(--sx-surface-2); transform: translate3d(0, -1px, 0); }
+.sx-ls-ghost:focus-visible { outline: 2px solid var(--sx-athlete); outline-offset: 2px; }
+
+/* 3 — what happened */
+.sx-ls-done { display: grid; justify-items: center; gap: 0.4rem; padding: 1.5rem 0.5rem 0.5rem; text-align: center; --t: var(--sx-success); }
+.sx-ls-done[data-tone="wait"] { --t: var(--sx-warn); }
+.sx-ls-done[data-tone="draft"] { --t: var(--sx-athlete); }
+.sx-ls-done-badge {
+  position: relative;
+  display: grid;
+  width: 4.5rem;
+  height: 4.5rem;
+  place-items: center;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--t) 16%, transparent);
+  color: var(--t);
+  animation: sx-ls-pop 0.6s var(--iv-spring) backwards;
+}
+.sx-ls-done-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--t);
+  animation: sx-ls-ring 1.1s var(--iv-ease) 0.2s both;
+}
+@keyframes sx-ls-pop { from { transform: scale(0.3); opacity: 0; } }
+@keyframes sx-ls-ring { from { transform: scale(0.8); opacity: 1; } to { transform: scale(1.9); opacity: 0; } }
+.sx-ls-done-title { margin-top: 0.5rem; font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; color: var(--sx-text); }
