@@ -766,8 +766,10 @@ export function ItemSaleSwitch({ id, active, title, setActive }: { id: string; a
 
 type Update = (id: string, patch: Partial<InventoryBody>) => Promise<Result>;
 
-/** "Edit item": the same edit form as before, in the popup. A save refreshes the showcase behind it. */
-export function InventoryEditItem({ item, update }: { item: ApiInventoryItem; update: Update }) {
+/** "Edit item": the same edit form as before, in the popup. A save refreshes the showcase behind it.
+ *  A draft (Paused) item gets "Save & make available"; an available one "Save & move to draft".
+ *  `nextStep` is offered once it's made available — "List it on the marketplace" while it isn't. */
+export function InventoryEditItem({ item, update, nextStep }: { item: ApiInventoryItem; update: Update; nextStep?: { label: string; href: string } }) {
   const { phase, opener, show, close } = usePopup();
   return (
     <>
@@ -786,7 +788,7 @@ export function InventoryEditItem({ item, update }: { item: ApiInventoryItem; up
           icon="edit"
           focus="#inv-title"
         >
-          <InventoryForm mode="edit" item={item} update={update} tone="athlete" />
+          <InventoryForm mode="edit" item={item} update={update} tone="athlete" allowDraft nextStep={nextStep} />
         </Modal>
       )}
     </>

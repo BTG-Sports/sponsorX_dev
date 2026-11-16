@@ -911,6 +911,24 @@
 .sx-iv-close:hover { transform: rotate(90deg); color: var(--sx-text); background: var(--sx-surface-2); }
 .sx-iv-close:focus-visible { outline: 2px solid var(--sx-athlete); outline-offset: 2px; }
 
+/* the edit form's first line: is this item a draft (Paused) or Available? */
+.inv-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--sx-success) 35%, var(--sx-line));
+  background: color-mix(in srgb, var(--sx-success) 9%, transparent);
+  padding: 0.6rem 0.8rem;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sx-text-muted);
+}
+.inv-status strong { color: var(--sx-text); font-weight: 700; }
+.inv-status-dot { width: 8px; height: 8px; flex: none; margin-top: 0.35rem; border-radius: 9999px; background: var(--sx-success); }
+.inv-status[data-draft] { border-color: color-mix(in srgb, var(--sx-warn) 40%, var(--sx-line)); background: color-mix(in srgb, var(--sx-warn) 9%, transparent); }
+.inv-status[data-draft] .inv-status-dot { background: var(--sx-warn); }
+
 /* the form's buttons stay in sight at the popup's bottom edge, however long the form */
 .sx-iv-sheet-body .inv-actions {
   position: sticky;

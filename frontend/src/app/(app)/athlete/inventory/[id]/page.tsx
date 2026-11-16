@@ -104,15 +104,18 @@ export default async function AthleteInventoryItemPage({ params }: { params: Pro
   const pub = me?.state === "ACTIVE" ? await json<PublicAthlete>(`/public/athletes/${encodeURIComponent(me.slug)}`) : null;
   const listings = listingsAnswer?.listings ?? [];
   const now = new Date().getTime();
+  const market = marketStatus(item.id, listings, teamFromListings(listings).onTeam, item.active);
+  /* after "Save & make available" in the Edit popup: the way onto the marketplace, while it isn't there */
+  const nextStep = market.action?.label === "List it" ? { label: "List it on the marketplace", href: market.action.href } : undefined;
 
   return (
     <ItemShowcase
       id={item.id}
       s={showcaseOf(item, now)}
       seller={sellerFrom(me, pub)}
-      market={marketStatus(item.id, listings, teamFromListings(listings).onTeam, item.active)}
+      market={market}
       sale={<ItemSaleSwitch id={item.id} active={item.active} title={item.title} setActive={setItemActiveAction} />}
-      edit={<InventoryEditItem item={item} update={updateItemAction} />}
+      edit={<InventoryEditItem item={item} update={updateItemAction} nextStep={nextStep} />}
     />
   );
 }

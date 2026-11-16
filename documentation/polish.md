@@ -2401,6 +2401,10 @@ the blockers and today's content review findings.
     - **Add item** creates the item Available. **Save as draft** (the owner: "when creating an item, where is the draft button?") creates it Paused (`active: false`, which `POST /inventory` already accepts), so no sponsor can buy it until it's switched on.
     - The buttons are pinned to the popup's bottom edge, so they stay in sight however long the form is.
     - `allowDraft` is the athlete's only; the team manager's form is unchanged.
+  - **Edit popup** (the owner: "when I tried to edit a draft item, there's no options that I can undraft or submit it"):
+    - A first line says Draft (Paused) or Available.
+    - A draft offers **Save & make available** and **Save draft**. An available item offers **Save changes** and **Save & move to draft**. The switch rides along with the save as `active`.
+    - Once made available and still unlisted, the answer offers **List it on the marketplace →**: the submit, through the existing `/athlete/listings/new?item=…`. The answer scrolls into view above the pinned buttons.
     - An empty inventory shows a hero with "Add your first item" and six idea tiles, each opening the popup on its kind.
   - **Won't promote:** the restrictions moved into a popup as chips.
     - The category menu opens downward from the top of the popup's body. That reverses POL-FE-45's "up", which was only about the page's bottom bar; the popup sits above that bar.

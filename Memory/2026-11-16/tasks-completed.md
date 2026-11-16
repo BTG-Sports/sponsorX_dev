@@ -172,6 +172,7 @@
 - **List page:**
   - The title row carries **Won't promote · n** (the restrictions, as chips in a popup) and **+ Add an item** (kind tiles and the same form, in a popup).
   - In the add popup, **Add item** creates the item Available and **Save as draft** creates it Paused. `POST /inventory` already took `active`; walked live, the draft landed Paused and "Not on the marketplace yet". The buttons are pinned to the popup's bottom edge.
+  - In the Edit popup, a draft offers **Save & make available** and **Save draft**; an available item offers **Save changes** and **Save & move to draft**. After making it available, an unlisted item is offered **List it on the marketplace →** (`/athlete/listings/new?item=…`). Walked live both ways on "POL-83 draft walk", which was left Paused.
   - Tabs carry the API's whole-scope counts: All, Available, Paused, Not listed yet (`?unlisted=true`).
   - Search, then List (the default) or Cards. Each item has an optimistic **Available / Paused** switch and a marketplace badge from its listing (`GET /listings`): "On the marketplace", "Draft listing", "Not listed", and so on.
   - The first build called the switch "On sale", and the owner caught an "On sale" item under "Not listed yet". The switch only lets an item be sold. The shop shows a listing only while it's published, public and its item is on (`marketplace-search.ts`).

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -37,6 +37,8 @@ import {
    -------------------------------------------------------------------------- */
 
 type Result = { ok: true; id: string } | { ok: false; message: string; confirmHref?: string };
+/** POL-FE-83 — what a save also does to the switch: nothing, keep/make it a draft (Paused), or make it Available. */
+type Intent = "plain" | "draft" | "publish";
 
 const INPUT =
   "w-full rounded-lg border border-line bg-surface px-3 py-2 text-xs text-text placeholder:text-faint outline-none transition-colors focus:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-60";
@@ -59,6 +61,7 @@ export function InventoryForm({
   kind: pickedKind,
   onKindChange,
   allowDraft = false,
+  nextStep,
 }: {
   mode: "create" | "edit";
   /** The item being edited (edit mode). */
@@ -84,6 +87,9 @@ export function InventoryForm({
    *  which creates the item Paused (`active: false`) so no sponsor can buy it
    *  until it's switched to Available. The athlete's inventory only. */
   allowDraft?: boolean;
+  /** POL-FE-83 — edit mode: where to go once the item is Available (e.g. "List it
+   *  on the marketplace"), offered after "Save & make available". */
+  nextStep?: { label: string; href: string };
 }) {
   const router = useRouter();
   const initial: InventoryDraft = item ? { ...draftFromItem(item), components: [] } : { ...EMPTY_DRAFT, kind: pickedKind ?? EMPTY_DRAFT.kind };
@@ -96,7 +102,7 @@ export function InventoryForm({
   }
   const [errors, setErrors] = useState<DraftErrors>({});
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string; confirmHref?: string } | null>(null);
+  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string; confirmHref?: string; next?: { label: string; href: string } } | null>(null);
   /** POL-FE-44 — true from a successful edit save until the next change, so
    *  the button never looks as if there is still something to save. */
   const [saved, setSaved] = useState(false);
@@ -112,9 +118,14 @@ export function InventoryForm({
 
   /* memory: double-submit-needs-a-ref — two buttons now; a state flag lets a double click through. */
   const lock = useRef(false);
-  const [draftBusy, setDraftBusy] = useState(false);
+  const [busyIntent, setBusyIntent] = useState<Intent | null>(null);
+  /* POL-FE-83 — a long form in a popup: bring the answer (and any next step) into view when it arrives. */
+  const messageRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (message) messageRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [message]);
 
-  const save = async (asDraft = false) => {
+  const save = async (intent: Intent = "plain") => {
     if (lock.current) return;
     setMessage(null);
     const v = validateDraft(d, mode);
@@ -125,10 +136,10 @@ export function InventoryForm({
     setErrors({});
     lock.current = true;
     setBusy(true);
-    setDraftBusy(asDraft);
+    setBusyIntent(intent);
     try {
       if (mode === "create" && create) {
-        const r = await create(asDraft ? { ...v.body, active: false } : v.body);
+        const r = await create(intent === "draft" ? { ...v.body, active: false } : v.body);
         if (!r.ok) setMessage({ tone: "error", text: r.message, confirmHref: r.confirmHref });
         else if (savedHref) router.push(savedHref.replace("{id}", encodeURIComponent(r.id)));
         else {
@@ -138,6 +149,9 @@ export function InventoryForm({
         }
       } else if (mode === "edit" && update && item) {
         const patch = patchFrom(item, v.body);
+        /* the switch rides along with the save: a draft made Available, or an item moved back to draft */
+        if (intent === "publish" && !item.active) patch.active = true;
+        if (intent === "draft" && item.active) patch.active = false;
         if (Object.keys(patch).length === 0) {
           setMessage({ tone: "ok", text: "Nothing changed." });
           return;
@@ -145,7 +159,13 @@ export function InventoryForm({
         const r = await update(item.id, patch);
         if (!r.ok) setMessage({ tone: "error", text: r.message });
         else {
-          setMessage({ tone: "ok", text: "Saved. Orders already placed keep the price they were placed at." });
+          setMessage(
+            patch.active === true
+              ? { tone: "ok", text: "Saved, and it's Available now. Sponsors can buy it once it's on the marketplace.", next: nextStep }
+              : patch.active === false
+                ? { tone: "ok", text: "Saved as a draft. It's Paused, so no sponsor can buy it until you make it available." }
+                : { tone: "ok", text: "Saved. Orders already placed keep the price they were placed at." },
+          );
           setSaved(true);
           router.refresh();
         }
@@ -153,7 +173,7 @@ export function InventoryForm({
     } finally {
       lock.current = false;
       setBusy(false);
-      setDraftBusy(false);
+      setBusyIntent(null);
     }
   };
 
@@ -168,6 +188,21 @@ export function InventoryForm({
         void save();
       }}
     >
+      {mode === "edit" && allowDraft && item && (
+        <p className="inv-status" data-draft={item.active ? undefined : ""}>
+          <span aria-hidden="true" className="inv-status-dot" />
+          {item.active ? (
+            <span>
+              <strong>Available.</strong> Sponsors can buy it while it&rsquo;s on the marketplace.
+            </span>
+          ) : (
+            <span>
+              <strong>Draft.</strong> It&rsquo;s Paused, so no sponsor can buy it. Make it available when it&rsquo;s ready.
+            </span>
+          )}
+        </p>
+      )}
+
       <div>
         <label className={LABEL} htmlFor="inv-title">Title</label>
         <input id="inv-title" className={INPUT} value={d.title} maxLength={200} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Basketball clinic" />
@@ -352,6 +387,7 @@ export function InventoryForm({
 
       {message && (
         <p
+          ref={messageRef}
           role={message.tone === "error" ? "alert" : "status"}
           className={`rounded-lg px-3 py-2 text-[11px] leading-relaxed ${message.tone === "error" ? "bg-danger/10 text-danger" : "bg-success/10 text-success"}`}
         >
@@ -360,6 +396,11 @@ export function InventoryForm({
           {message.confirmHref && (
             <Link href={message.confirmHref} className="mt-2 flex w-fit items-center justify-center rounded-lg bg-primary px-4 py-2 text-xs font-medium text-cta-ink hover:bg-primary-soft">
               Confirm now
+            </Link>
+          )}
+          {message.next && (
+            <Link href={message.next.href} className="mt-2 flex w-fit items-center justify-center gap-1 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-cta-ink hover:bg-primary-soft">
+              {message.next.label} →
             </Link>
           )}
         </p>
@@ -374,22 +415,45 @@ export function InventoryForm({
 
       {/* POL-FE-83 — `inv-actions`: the athlete's popup pins this row to its bottom edge (inventory.css). */}
       <div className="inv-actions flex flex-wrap items-center gap-2">
-        <button
-          type="submit"
-          disabled={busy || saved}
-          className="rounded-lg bg-primary px-4 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {busy && !draftBusy ? "Saving…" : mode === "create" ? "Add item" : saved ? "Saved" : "Save changes"}
-        </button>
-        {mode === "create" && allowDraft && (
-          <button
-            type="button"
-            onClick={() => void save(true)}
-            disabled={busy}
-            className="rounded-lg border border-primary/50 px-4 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {draftBusy ? "Saving…" : "Save as draft"}
-          </button>
+        {mode === "edit" && allowDraft && item && !item.active ? (
+          /* a draft: the main step is to make it available; "Save draft" keeps it Paused */
+          <>
+            <button
+              type="button"
+              onClick={() => void save("publish")}
+              disabled={busy}
+              className="rounded-lg bg-primary px-4 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {busyIntent === "publish" ? "Saving…" : "Save & make available"}
+            </button>
+            <button
+              type="submit"
+              disabled={busy || saved}
+              className="rounded-lg border border-primary/50 px-4 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {busyIntent === "plain" ? "Saving…" : saved ? "Saved" : "Save draft"}
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="submit"
+              disabled={busy || saved}
+              className="rounded-lg bg-primary px-4 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {busyIntent === "plain" ? "Saving…" : mode === "create" ? "Add item" : saved ? "Saved" : "Save changes"}
+            </button>
+            {allowDraft && (
+              <button
+                type="button"
+                onClick={() => void save("draft")}
+                disabled={busy}
+                className="rounded-lg border border-primary/50 px-4 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {busyIntent === "draft" ? "Saving…" : mode === "create" ? "Save as draft" : "Save & move to draft"}
+              </button>
+            )}
+          </>
         )}
         {saved && doneHref && (
           <Link
