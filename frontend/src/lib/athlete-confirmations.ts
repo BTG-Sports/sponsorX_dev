@@ -104,6 +104,59 @@ export function requiredLine(standing: Pick<ApiMyRules | ApiMyCollab, "required"
   return viewer.actingForWard ? "A new deal for them waits until this is confirmed." : "A new deal waits until you confirm this.";
 }
 
+/* --------------------------------------------------------------- wizard */
+
+/* The page is a wizard (2026-11-16 redesign): an intro, one step per
+   confirmation, then "all set". Each step is in one of four states. */
+export type StepState = "done" | "todo" | "guardian" | "unavailable";
+
+export function stepState(mode: CardMode): StepState {
+  return mode === "confirmed" ? "done" : mode === "ask" ? "todo" : mode === "guardianDoes" ? "guardian" : "unavailable";
+}
+
+/** The step to go to after `after` (-1 = from the start): the next one the
+ *  viewer can act on, else the next one not done (a guardian's or an
+ *  unavailable one, so they read why), wrapping round. -1 when all are done. */
+export function nextStep(states: StepState[], after = -1): number {
+  const order = states.map((_, k) => (after + 1 + k) % states.length);
+  const todo = order.find((i) => states[i] === "todo");
+  if (todo !== undefined) return todo;
+  const open = order.find((i) => states[i] !== "done");
+  return open ?? -1;
+}
+
+/** Minutes to read `text` at an easy 220 words a minute, never under one. */
+export function readMinutes(text: string): number {
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 220));
+}
+
+export type AgreementSection = { heading: string | null; paragraphs: string[] };
+
+/* A numbered heading on a line of its own: "3. CAMPAIGN ORDERS". */
+const SECTION_HEADING = /^\d{1,2}\.\s+[^a-z\n]+$/;
+
+/** The agreement split into its numbered sections, for the reader. Only the
+ *  blank lines between paragraphs are dropped — every word stays, in order
+ *  (the accepted hash is of the server's text; this is how it's shown). The
+ *  part before the first heading is a section with no heading. */
+export function agreementSections(body: string): AgreementSection[] {
+  const blocks = body.replace(/\r\n?/g, "\n").split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean);
+  const out: AgreementSection[] = [];
+  for (const b of blocks) {
+    if (SECTION_HEADING.test(b)) out.push({ heading: b, paragraphs: [] });
+    else if (out.length === 0) out.push({ heading: null, paragraphs: [b] });
+    else out[out.length - 1].paragraphs.push(b);
+  }
+  return out;
+}
+
+/** "3. CAMPAIGN ORDERS" → "Campaign orders", for the reader's section chips. */
+export function sectionChip(heading: string): string {
+  const words = heading.replace(/^\d{1,2}\.\s+/, "").toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 /* -------------------------------------------------------------- results */
 
 /** What a confirmation action hands back to the form. On `ok` the page
