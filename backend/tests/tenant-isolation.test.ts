@@ -170,6 +170,8 @@ const PARAM_FOR: Record<string, string> = {
   students: A.student, prospects: A.prospect, sponsors: A.sponsor,
   "edition-assets": A.asset, claims: A.claim, properties: A.school, onboarding: A.onboarding,
   inventory: A.item, listings: A.listing, offers: A.offer, roster: A.athlete,
+  /* POL-FE-91 — GET /marketplace/search/{id}: tenant A's published athlete listing, the one the search would show. */
+  search: A.athleteListing,
   /* POL-BE-19 — /sponsor/team/{id}: tenant A's sponsor admin. */
   team: "ti_a_sponsor",
   /* P8-BE-12 — /campaign-requests/{id}/decision: tenant A's held cancel. */
@@ -1002,6 +1004,13 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     "TI Secret Athlete", "secret@a.invalid", "ti-secret-billing@a.invalid",
   ].map((v) => JSON.stringify(v));
 
+  /**
+   * Reads aimed at the published athlete listing, which every sponsor of the
+   * tenant may open from the shop (POL-FE-91): a 200 is the point, so only
+   * the leak check applies to them.
+   */
+  const CATALOGUE_OPEN = new Set(["GET /marketplace/search/{id}"]);
+
   it("2S8-QA-07 · positive control: tenant A's first sponsor and first athlete reach their own records", async () => {
     const own: Array<[string, string]> = [
       ["ti_a_sponsor", `/briefs/${A.brief}`],
@@ -1029,7 +1038,7 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
         if (!aimed && r.method !== "GET") continue;
         const key = `${r.method} ${r.path}`;
         const { status, text } = await hit(r.method, r.path, actor.id);
-        if (aimed && status < 400) failures.push(`${actor.id} ${key} → ${status}: ${text.slice(0, 160)}`);
+        if (aimed && status < 400 && !CATALOGUE_OPEN.has(key)) failures.push(`${actor.id} ${key} → ${status}: ${text.slice(0, 160)}`);
         if (aimed && status === 400) failures.push(`${actor.id} ${key} → 400 (stopped at validation; needs a valid BODY): ${text.slice(0, 200)}`);
         if (status >= 500) failures.push(`${actor.id} ${key} → ${status} (crashed, not refused)`);
         const leaked = ACCOUNT_PRIVATE.filter((v) => text.includes(v));
