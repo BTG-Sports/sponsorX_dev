@@ -91,12 +91,17 @@ async function buy(sponsor: Page, qty: number, startIn: number): Promise<string>
   await sponsor.goto("/sponsor/shop");
   const card = sponsor.locator("li, article, div.rounded-xl").filter({ hasText: seed!.listingTitle }).filter({ has: sponsor.getByRole("button", { name: "Add to cart" }) }).last();
   await card.getByRole("button", { name: "Add to cart" }).click();
-  const addForm = sponsor.locator("form").filter({ has: sponsor.getByLabel("Quantity") });
-  await addForm.getByLabel("Quantity").fill(String(qty));
-  await addForm.getByLabel("Starts").fill(day(startIn));
-  await addForm.getByLabel("Ends").fill(day(startIn + 7));
-  await addForm.getByRole("button", { name: "Add to cart" }).click();
-  await expect(sponsor.getByRole("status").filter({ hasText: "Added." }).first()).toBeVisible({ timeout: 30_000 });
+  // POL-FE-91 — "Add to cart" opens the item's popup: how many, then which dates on a calendar.
+  const addForm = sponsor.getByRole("dialog", { name: "Add to cart", exact: true });
+  await addForm.getByRole("textbox", { name: "Quantity" }).fill(String(qty));
+  await addForm.getByRole("button", { name: /^Dates it runs:/ }).click();
+  for (const d of [day(startIn), day(startIn + 7)]) {
+    const cell = addForm.locator(`[data-day="${d}"]`);
+    for (let i = 0; i < 12 && !(await cell.count()); i++) await addForm.getByRole("button", { name: "Next month" }).click();
+    await cell.click();
+  }
+  await addForm.getByRole("button", { name: /^Add to cart · / }).click();
+  await expect(sponsor.getByRole("dialog", { name: "Added to your cart" })).toBeVisible({ timeout: 30_000 });
   await sponsor.goto("/sponsor/cart");
   await sponsor.getByRole("button", { name: "Check out", exact: true }).first().click();
   await sponsor.waitForURL(/\/sponsor\/checkout\?reservation=/, { timeout: 30_000 });

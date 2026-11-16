@@ -379,12 +379,17 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
     .filter({ has: sponsor.getByRole("button", { name: "Add to cart" }) })
     .last();
   await card.getByRole("button", { name: "Add to cart" }).click();
-  const addForm = sponsor.locator("form").filter({ has: sponsor.getByLabel("Quantity") });
-  await addForm.getByLabel("Quantity").fill("2");
-  await addForm.getByLabel("Starts").fill(day(12));
-  await addForm.getByLabel("Ends").fill(day(19));
-  await addForm.getByRole("button", { name: "Add to cart" }).click();
-  const added = sponsor.getByRole("status").filter({ hasText: "Added." });
+  // POL-FE-91 — "Add to cart" opens the item's popup: how many, then which dates on a calendar.
+  const addForm = sponsor.getByRole("dialog", { name: "Add to cart", exact: true });
+  await addForm.getByRole("textbox", { name: "Quantity" }).fill("2");
+  await addForm.getByRole("button", { name: /^Dates it runs:/ }).click();
+  for (const d of [day(12), day(19)]) {
+    const cell = addForm.locator(`[data-day="${d}"]`);
+    for (let i = 0; i < 12 && !(await cell.count()); i++) await addForm.getByRole("button", { name: "Next month" }).click();
+    await cell.click();
+  }
+  await addForm.getByRole("button", { name: /^Add to cart · / }).click();
+  const added = sponsor.getByRole("dialog", { name: "Added to your cart" });
   const refused = addForm.getByRole("alert");
   await expect(added.or(refused).first()).toBeVisible({ timeout: 30_000 });
   expect(await refused.count() ? await refused.first().innerText() : "", "the line was refused").toBe("");
