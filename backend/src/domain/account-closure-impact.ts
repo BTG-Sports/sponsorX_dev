@@ -42,6 +42,9 @@ export type LiveDeal = {
   sponsorName: string;
   /** Whose deal: the athlete (for a guardian, which of their minors). */
   athleteName: string | null;
+  /** POL-BE-75 — where BTG settles it: the campaign (a campaign order) or the marketplace order (a sale). */
+  campaignId?: string | null;
+  orderId?: string | null;
 };
 
 const usd = (cents: number) => `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -53,7 +56,7 @@ async function athleteDeals(db: Db, tenantId: string, athleteIds: string[], name
     db.campaignOrder.findMany({
       /* tenant-scope: the closing account's own (or its wards') campaign orders, named by the athletes' globally unique ids — the campaign's books may be BTG's. */
       where: { athleteId: { in: athleteIds }, state: { in: [...LIVE_CAMPAIGN_ORDER_STATES] } },
-      select: { id: true, state: true, athleteId: true, campaign: { select: { name: true, sponsor: { select: { id: true, name: true } } } }, job: { select: { name: true } } },
+      select: { id: true, state: true, athleteId: true, campaign: { select: { id: true, name: true, sponsor: { select: { id: true, name: true } } } }, job: { select: { name: true } } },
     }),
     db.orderLineDelivery.findMany({
       /* tenant-scope: sales of the closing athlete's items, named by the athlete's own tenant (the books may be the operator's). */
@@ -66,6 +69,7 @@ async function athleteDeals(db: Db, tenantId: string, athleteIds: string[], name
       kind: "CAMPAIGN_ORDER" as const, id: o.id, state: o.state,
       title: [o.campaign.name, o.job?.name].filter(Boolean).join(" · "),
       sponsorId: o.campaign.sponsor.id, sponsorName: o.campaign.sponsor.name, athleteName: names.get(o.athleteId) ?? null,
+      campaignId: o.campaign.id,
     })),
     ...(await describeSales(db, sales, names)),
   ];
@@ -76,7 +80,7 @@ async function describeSales(db: Db, sales: Array<{ id: string; lineId: string; 
   const [lines, sponsors] = await Promise.all([
     db.marketplaceOrderLine.findMany({
       /* tenant-scope: the lines of the sales read above, by their own ids. */
-      where: { id: { in: sales.map((s) => s.lineId) } }, select: { id: true, title: true },
+      where: { id: { in: sales.map((s) => s.lineId) } }, select: { id: true, title: true, orderId: true },
     }),
     db.sponsor.findMany({
       /* tenant-scope: the sponsors of the sales read above. */
@@ -84,10 +88,12 @@ async function describeSales(db: Db, sales: Array<{ id: string; lineId: string; 
     }),
   ]);
   const title = new Map(lines.map((l) => [l.id, l.title]));
+  const orderOf = new Map(lines.map((l) => [l.id, l.orderId]));
   const sponsor = new Map(sponsors.map((x) => [x.id, x.name]));
   return sales.map((s) => ({
     kind: "MARKETPLACE_SALE" as const, id: s.id, state: s.state, title: title.get(s.lineId) ?? "",
     sponsorId: s.sponsorId, sponsorName: sponsor.get(s.sponsorId) ?? "", athleteName: s.athleteId ? names.get(s.athleteId) ?? null : null,
+    orderId: orderOf.get(s.lineId) ?? null,
   }));
 }
 

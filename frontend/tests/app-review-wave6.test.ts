@@ -14,6 +14,9 @@ import { STATUS_DETAIL } from "@/lib/earnings-ui";
 import { healthRows, type ApiIntegrationHealth } from "@/lib/ops-board-live";
 import { FORECAST_EMPTY_HINT, NIGHTLY_RUN_LINE, PRICING_EMPTY_HINT } from "@/lib/nightly-run";
 import { mayAddPartner, partnerLine, partnerProblem, type ApiPartner } from "@/lib/attribution-partners-live";
+import { EMPTY_DRAFT, rulesDraft, validateDraft } from "@/lib/inventory-live";
+import { dealHref } from "@/lib/account-closure-live";
+import { emailRows, eventWords } from "@/lib/notification-prefs-live";
 
 /* App review wave 6 — BTG admin, Finance and the property portal (POL-FE-73…75). */
 const src = (f: string) => readFileSync(new URL(`../src/${f}`, import.meta.url), "utf8");
@@ -105,5 +108,49 @@ describe("POL-FE-74 · system health, intelligence and staff accounts", () => {
     const doc = readFileSync(new URL("../../documentation/SponsorX-Testing-on-Staging.md", import.meta.url), "utf8");
     expect(doc).toMatch(/Tester Facility/);
     expect(doc).toMatch(/payment-events\/test-provider/);
+  });
+});
+
+describe("POL-FE-75 · property, closures and email preferences", () => {
+  it("a team manager's empty dashboard has its next steps, and no false 'once approved'", () => {
+    const home = src("app/(app)/property/page.tsx");
+    expect(home).toContain("Add athlete →");
+    expect(home).toContain("Add an item →");
+    expect(home).not.toContain("Listing opens once your onboarding is approved");
+  });
+
+  it("a real team manager's Settings has no sample-screen links", () => {
+    const settings = src("app/(app)/property/settings/page.tsx");
+    expect(settings).toContain('const showPreviews = demo !== null || !actor.roles.includes("PROPERTY_MGR")');
+    expect(settings).toContain("previews={showPreviews ? [");
+  });
+
+  it("the item form sends the package rules the API enforces", () => {
+    const base = { ...EMPTY_DRAFT, title: "Banner", price: "250", quantity: "5" };
+    const ok = validateDraft({ ...base, rules: { min: "1", max: "3", bundleOnly: false, exclusive: true, requiresApproval: true } }, "create");
+    expect(ok.ok && ok.body.packageRules).toEqual({ minQuantity: 1, maxQuantity: 3, exclusive: true, requiresApproval: true });
+    const none = validateDraft(base, "create");
+    expect(none.ok && none.body.packageRules).toEqual({});
+    const backwards = validateDraft({ ...base, rules: { ...base.rules, min: "4", max: "2" } }, "create");
+    expect(!backwards.ok && backwards.errors.rules).toMatch(/below the minimum/);
+    const tooMany = validateDraft({ ...base, rules: { ...base.rules, max: "9" } }, "create");
+    expect(!tooMany.ok && tooMany.errors.rules).toMatch(/more than the 5 you have/);
+    expect(rulesDraft({ minQuantity: 2, requiresApproval: true })).toEqual({ min: "2", max: "", bundleOnly: false, exclusive: false, requiresApproval: true });
+    expect(src("components/inventory-form.tsx")).toContain("I approve each order");
+  });
+
+  it("each deal holding a closure links to where it's settled", () => {
+    expect(dealHref({ kind: "CAMPAIGN_ORDER", campaignId: "c1" })).toBe("/admin/campaigns/c1");
+    expect(dealHref({ kind: "MARKETPLACE_SALE", orderId: "o1" })).toBe("/admin/marketplace/orders/o1");
+    expect(dealHref({ kind: "MARKETPLACE_SALE" })).toBeNull();
+    expect(src("app/(app)/admin/closed-accounts/requests/[id]/page.tsx")).not.toContain("Settle each deal with the usual tools");
+  });
+
+  it("Settings has a Notifications section in plain words", () => {
+    expect(eventWords("invitation.sent").label).toBe("New campaign invitations");
+    expect(eventWords("something.new").label).toBe("something.new");
+    expect(emailRows([{ event: "deliverable.approved", channel: "EMAIL", muted: true }, { event: "x", channel: "SMS", muted: false }]))
+      .toEqual([{ event: "deliverable.approved", channel: "EMAIL", muted: true, label: "Posts approved", hint: "When a post you sent is approved." }]);
+    expect(src("components/account-settings.tsx")).toContain("<NotificationPrefs initial={prefs}");
   });
 });

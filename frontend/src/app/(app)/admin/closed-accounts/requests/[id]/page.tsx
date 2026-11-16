@@ -64,7 +64,12 @@ export default async function ClosureRequestPage({ params }: { params: Promise<{
                 <ul className="mt-2 divide-y divide-line-soft">
                   {now.deals.map((d) => (
                     <li key={d.id} className="flex flex-col gap-0.5 py-2 text-[13px] sm:flex-row sm:items-baseline sm:gap-3">
-                      <span className="min-w-0 font-medium">{d.title}</span>
+                      {/* POL-FE-75 — each deal links to where it is settled. */}
+                      {d.href ? (
+                        <Link href={d.href} className="min-w-0 font-medium text-admin hover:underline">{d.title} →</Link>
+                      ) : (
+                        <span className="min-w-0 font-medium">{d.title}</span>
+                      )}
                       <span className="text-xs text-muted">{d.sponsor} · {d.state}{d.who ? ` · ${d.who}` : ""}</span>
                     </li>
                   ))}
@@ -76,7 +81,7 @@ export default async function ClosureRequestPage({ params }: { params: Promise<{
                 </ul>
               )}
               {!now.canClose && (
-                <p className="mt-2 text-xs leading-relaxed text-muted">Settle each deal with the usual tools (the order, the sale, the payout account, the guardian handoff). This list is read again every time the page opens.</p>
+                <p className="mt-2 text-xs leading-relaxed text-muted">Open each deal above and settle it there — finish or cancel the campaign order, deliver or refund the sale. This list is read again every time the page opens.</p>
               )}
             </section>
           )}

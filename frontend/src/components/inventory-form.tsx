@@ -192,6 +192,32 @@ export function InventoryForm({
         </div>
       </div>
 
+      {/* POL-FE-75 — the package rules the API enforces: how much one order may buy, one sponsor per period, and whether you approve each order. ("bundleOnly" is stored but nothing enforces it yet, so it isn't offered; an existing value is kept.) */}
+      <fieldset className="rounded-lg border border-line-soft p-3">
+        <legend className="px-1 text-[11px] font-medium text-muted">Package rules</legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className={LABEL} htmlFor="inv-min">Minimum per order</label>
+            <input id="inv-min" inputMode="numeric" className={INPUT} value={d.rules.min} placeholder="No minimum" onChange={(e) => set("rules", { ...d.rules, min: e.target.value })} />
+          </div>
+          <div>
+            <label className={LABEL} htmlFor="inv-max">Maximum per order</label>
+            <input id="inv-max" inputMode="numeric" className={INPUT} value={d.rules.max} placeholder="No maximum" onChange={(e) => set("rules", { ...d.rules, max: e.target.value })} />
+          </div>
+        </div>
+        <div className="mt-3 space-y-1.5 text-xs text-text">
+          <label className="flex items-start gap-2">
+            <input type="checkbox" checked={d.rules.requiresApproval} onChange={(e) => set("rules", { ...d.rules, requiresApproval: e.target.checked })} />
+            <span>I approve each order <span className="text-muted">— an order waits for you to accept it before it&apos;s approved.</span></span>
+          </label>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" checked={d.rules.exclusive} onChange={(e) => set("rules", { ...d.rules, exclusive: e.target.checked })} />
+            <span>Exclusive <span className="text-muted">— one sponsor for any given dates; an overlapping order is refused.</span></span>
+          </label>
+        </div>
+        <FieldError text={errors.rules} />
+      </fieldset>
+
       {isPackage && mode === "create" && (
         <fieldset className="rounded-lg border border-line-soft p-3">
           <legend className="px-1 text-[11px] font-medium text-muted">What the package bundles</legend>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge, Card, SectionHeading } from "@/components/ui";
 import { Monogram } from "@/components/hero";
 import { EmptyState } from "@/components/states";
@@ -99,6 +100,10 @@ export default async function PropertyHomePage({
             <Card>
               <p className="text-sm font-semibold">No athletes on your roster yet</p>
               <p className="mt-1 text-xs text-muted">Athletes appear here once they join {p.name}: approved with you as their team or school, or by accepting your invitation.</p>
+              {/* POL-FE-75 — the next step, not a dead end. */}
+              <Link href="/property/roster" className="mt-3 inline-block rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-cta-ink hover:bg-primary-soft">
+                Add athlete →
+              </Link>
             </Card>
           ) : (
             <ServerList>
@@ -133,7 +138,11 @@ export default async function PropertyHomePage({
           {itemTotal === 0 ? (
             <Card>
               <p className="text-sm font-semibold">No inventory yet</p>
-              <p className="mt-1 text-xs text-muted">Listing opens once your onboarding is approved. Signage, tickets and appearances all go here.</p>
+              {/* POL-FE-75 — a manager who can sign in is already approved; the old "once your onboarding is approved" was never true here. */}
+              <p className="mt-1 text-xs text-muted">Signage, tickets and appearances all go here. Add one and sponsors can find it in the Shop.</p>
+              <Link href="/property/inventory" className="mt-3 inline-block rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-cta-ink hover:bg-primary-soft">
+                Add an item →
+              </Link>
             </Card>
           ) : (
             <ServerList>
