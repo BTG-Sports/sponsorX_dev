@@ -1,0 +1,800 @@
+{
+ "property/add-an-athlete-1": {
+  "src": "/help/property/add-an-athlete-1.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 17.38,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/add-an-athlete-2": {
+  "src": "/help/property/add-an-athlete-1.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 19.38,
+   "y": 35.13,
+   "w": 7.7,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/add-an-athlete-3": {
+  "src": "/help/property/add-an-athlete-3.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 49.06,
+   "w": 37.27,
+   "h": 4.75
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/add-an-athlete-4": {
+  "src": "/help/property/add-an-athlete-3.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 95.38,
+   "w": 8.29,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/add-an-athlete-5": {
+  "src": "/help/property/add-an-athlete-3.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 37.75,
+   "w": 75.47,
+   "h": 2.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/add-an-inventory-item-1": {
+  "src": "/help/property/add-an-inventory-item-1.webp",
+  "path": "/property/inventory",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 22.88,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/add-an-inventory-item-2": {
+  "src": "/help/property/add-an-inventory-item-1.webp",
+  "path": "/property/inventory",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 25.44,
+   "w": 75.47,
+   "h": 2.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/add-an-inventory-item-3": {
+  "src": "/help/property/add-an-inventory-item-1.webp",
+  "path": "/property/inventory",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 32,
+   "w": 75.47,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/add-an-inventory-item-4": {
+  "src": "/help/property/add-an-inventory-item-1.webp",
+  "path": "/property/inventory",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 23.67,
+   "y": 79.44,
+   "w": 36.77,
+   "h": 2
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/add-an-inventory-item-5": {
+  "src": "/help/property/add-an-inventory-item-5.webp",
+  "path": "/property/inventory",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.03,
+   "y": 91.38,
+   "w": 73.44,
+   "h": 2.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/add-an-inventory-item-6": {
+  "src": "/help/property/add-an-inventory-item-6.webp",
+  "path": "/property/inventory",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 62.44,
+   "w": 6.82,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/approve-an-order-1": {
+  "src": "/help/property/approve-an-order-1.webp",
+  "path": "/property/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/approve-an-order-2": {
+  "src": "/help/property/approve-an-order-1.webp",
+  "path": "/property/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/create-a-listing-1": {
+  "src": "/help/property/create-a-listing-1.webp",
+  "path": "/property/listings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 90.83,
+   "y": 11.25,
+   "w": 7.3,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/create-a-listing-2": {
+  "src": "/help/property/create-a-listing-2.webp",
+  "path": "/property/listings/new",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/create-a-listing-3": {
+  "src": "/help/property/create-a-listing-3.webp",
+  "path": "/property/listings/new",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 19.38,
+   "y": 18.75,
+   "w": 78.75,
+   "h": 2
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/create-a-listing-4": {
+  "src": "/help/property/create-a-listing-3.webp",
+  "path": "/property/listings/new",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/deliver-an-order-1": {
+  "src": "/help/property/approve-an-order-1.webp",
+  "path": "/property/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 33.88,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/deliver-an-order-2": {
+  "src": "/help/property/approve-an-order-1.webp",
+  "path": "/property/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/deliver-an-order-3": {
+  "src": "/help/property/approve-an-order-1.webp",
+  "path": "/property/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/edit-or-pause-an-item-1": {
+  "src": "/help/property/add-an-inventory-item-6.webp",
+  "path": "/property/inventory",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/get-paid-1": {
+  "src": "/help/property/get-paid-1.webp",
+  "path": "/property/earnings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 39.38,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/get-paid-2": {
+  "src": "/help/property/get-paid-1.webp",
+  "path": "/property/earnings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 19.38,
+   "y": 20.81,
+   "w": 78.75,
+   "h": 22.69
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/get-paid-3": {
+  "src": "/help/property/get-paid-1.webp",
+  "path": "/property/earnings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 19.38,
+   "y": 46.5,
+   "w": 78.75,
+   "h": 14.69
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/get-paid-4": {
+  "src": "/help/property/get-paid-1.webp",
+  "path": "/property/earnings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 85.12,
+   "y": 11.25,
+   "w": 13,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/get-paid-5": {
+  "src": "/help/property/get-paid-1.webp",
+  "path": "/property/earnings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 59.69,
+   "y": 64.19,
+   "w": 24.98,
+   "h": 2.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/invite-an-existing-athlete-1": {
+  "src": "/help/property/add-an-athlete-1.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 17.38,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/invite-an-existing-athlete-2": {
+  "src": "/help/property/add-an-athlete-1.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/invite-an-existing-athlete-3": {
+  "src": "/help/property/add-an-athlete-1.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/invite-an-existing-athlete-4": {
+  "src": "/help/property/add-an-athlete-1.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/invite-an-existing-athlete-5": {
+  "src": "/help/property/add-an-athlete-1.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/manage-your-account-1": {
+  "src": "/help/property/manage-your-account-1.webp",
+  "path": "/property/settings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 66.88,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/manage-your-account-2": {
+  "src": "/help/property/manage-your-account-2.webp",
+  "path": "/property/settings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 87.13,
+   "y": 85.17,
+   "w": 9.51,
+   "h": 5.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/pause-resume-or-archive-a-listing-1": {
+  "src": "/help/property/create-a-listing-1.webp",
+  "path": "/property/listings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 28.38,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/pause-resume-or-archive-a-listing-2": {
+  "src": "/help/property/create-a-listing-2.webp",
+  "path": "/property/listings/new",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/pause-resume-or-archive-a-listing-3": {
+  "src": "/help/property/create-a-listing-2.webp",
+  "path": "/property/listings/new",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/pause-resume-or-archive-a-listing-4": {
+  "src": "/help/property/create-a-listing-2.webp",
+  "path": "/property/listings/new",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/preview-a-listing-1": {
+  "src": "/help/property/create-a-listing-1.webp",
+  "path": "/property/listings",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/preview-a-listing-2": {
+  "src": "/help/property/create-a-listing-2.webp",
+  "path": "/property/listings/new",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/read-your-analytics-1": {
+  "src": "/help/property/read-your-analytics-1.webp",
+  "path": "/property/analytics",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 44.88,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/read-your-analytics-2": {
+  "src": "/help/property/read-your-analytics-1.webp",
+  "path": "/property/analytics",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 19.38,
+   "y": 20.25,
+   "w": 18.98,
+   "h": 16.75
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/read-your-analytics-3": {
+  "src": "/help/property/read-your-analytics-1.webp",
+  "path": "/property/analytics",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 59.69,
+   "y": 40,
+   "w": 36.98,
+   "h": 2.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/read-your-analytics-4": {
+  "src": "/help/property/read-your-analytics-1.webp",
+  "path": "/property/analytics",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 19.38,
+   "y": 56.5,
+   "w": 59.01,
+   "h": 2.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/remove-an-athlete-1": {
+  "src": "/help/property/set-the-team-share-1.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 17.38,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/remove-an-athlete-2": {
+  "src": "/help/property/set-the-team-share-1.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 25.08,
+   "y": 71.96,
+   "w": 3.51,
+   "h": 1.83
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/remove-an-athlete-3": {
+  "src": "/help/property/remove-an-athlete-3.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 52.98,
+   "y": 56.53,
+   "w": 12.88,
+   "h": 5.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/set-the-team-share-1": {
+  "src": "/help/property/set-the-team-share-1.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 19.38,
+   "y": 48.38,
+   "w": 69.11,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/set-the-team-share-2": {
+  "src": "/help/property/set-the-team-share-1.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 91.03,
+   "y": 69.67,
+   "w": 4.2,
+   "h": 2.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/set-the-team-share-3": {
+  "src": "/help/property/set-the-team-share-3.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 81.05,
+   "y": 68,
+   "w": 5,
+   "h": 3.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/set-the-team-share-4": {
+  "src": "/help/property/set-the-team-share-1.webp",
+  "path": "/property/roster",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 91.03,
+   "y": 69.67,
+   "w": 4.2,
+   "h": 2.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/submit-a-listing-1": {
+  "src": "/help/property/create-a-listing-1.webp",
+  "path": "/property/listings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 19.38,
+   "y": 20.25,
+   "w": 32.55,
+   "h": 4.75
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/submit-a-listing-2": {
+  "src": "/help/property/submit-a-listing-2.webp",
+  "path": "/property/listings/new",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/submit-a-listing-3": {
+  "src": "/help/property/submit-a-listing-2.webp",
+  "path": "/property/listings/new",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/submit-a-listing-4": {
+  "src": "/help/property/submit-a-listing-2.webp",
+  "path": "/property/listings/new",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/submit-a-listing-5": {
+  "src": "/help/property/submit-a-listing-2.webp",
+  "path": "/property/listings/new",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/update-branding-1": {
+  "src": "/help/property/update-branding-1.webp",
+  "path": "/property/branding",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 55.88,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/update-branding-2": {
+  "src": "/help/property/update-branding-1.webp",
+  "path": "/property/branding",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 29.13,
+   "w": 3.75,
+   "h": 6
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/update-branding-3": {
+  "src": "/help/property/update-branding-1.webp",
+  "path": "/property/branding",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 21.02,
+   "y": 38.13,
+   "w": 6.44,
+   "h": 2
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/update-branding-4": {
+  "src": "/help/property/update-branding-1.webp",
+  "path": "/property/branding",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 19.38,
+   "y": 20.25,
+   "w": 52.5,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/upload-a-document-1": {
+  "src": "/help/property/upload-a-document-1.webp",
+  "path": "/property/documents",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 61.38,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/upload-a-document-2": {
+  "src": "/help/property/upload-a-document-1.webp",
+  "path": "/property/documents",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/upload-a-document-3": {
+  "src": "/help/property/upload-a-document-1.webp",
+  "path": "/property/documents",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/use-intelligence-1": {
+  "src": "/help/property/use-intelligence-1.webp",
+  "path": "/property/intelligence",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 50.38,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/use-intelligence-2": {
+  "src": "/help/property/use-intelligence-1.webp",
+  "path": "/property/intelligence",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/use-intelligence-3": {
+  "src": "/help/property/use-intelligence-1.webp",
+  "path": "/property/intelligence",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/use-intelligence-4": {
+  "src": "/help/property/use-intelligence-1.webp",
+  "path": "/property/intelligence",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 54.79,
+   "y": 39.38,
+   "w": 7.91,
+   "h": 2
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/use-intelligence-5": {
+  "src": "/help/property/use-intelligence-1.webp",
+  "path": "/property/intelligence",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "property/your-dashboard-1": {
+  "src": "/help/property/your-dashboard-1.webp",
+  "path": "/property",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 11.88,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/your-dashboard-2": {
+  "src": "/help/property/your-dashboard-1.webp",
+  "path": "/property",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 37.34,
+   "y": 23.56,
+   "w": 17.03,
+   "h": 11.88
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/your-dashboard-3": {
+  "src": "/help/property/your-dashboard-1.webp",
+  "path": "/property",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 51.66,
+   "y": 59.31,
+   "w": 3.26,
+   "h": 2
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "property/your-dashboard-4": {
+  "src": "/help/property/your-dashboard-1.webp",
+  "path": "/property",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 61.33,
+   "y": 55.81,
+   "w": 8.99,
+   "h": 3.5
+  },
+  "capturedAt": "2026-11-16"
+ }
+}

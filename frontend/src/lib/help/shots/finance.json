@@ -1,0 +1,474 @@
+{
+ "finance/approve-and-pay-an-earning-1": {
+  "src": "/help/finance/approve-and-pay-an-earning-1.webp",
+  "path": "/finance",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 47.86,
+   "w": 63.44,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/approve-and-pay-an-earning-2": {
+  "src": "/help/finance/approve-and-pay-an-earning-1.webp",
+  "path": "/finance",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 84.75,
+   "y": 77.3,
+   "w": 5.28,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/approve-and-pay-an-earning-3": {
+  "src": "/help/finance/approve-and-pay-an-earning-3.webp",
+  "path": "/finance",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 82.72,
+   "y": 52.27,
+   "w": 12.5,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/approve-or-send-back-a-payout-1": {
+  "src": "/help/finance/approve-or-send-back-a-payout-1.webp",
+  "path": "/finance/payouts",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 48.63,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/approve-or-send-back-a-payout-2": {
+  "src": "/help/finance/approve-or-send-back-a-payout-2.webp",
+  "path": "/finance/payouts",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "finance/hold-release-or-adjust-an-earning-1": {
+  "src": "/help/finance/approve-and-pay-an-earning-1.webp",
+  "path": "/finance",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 86.33,
+   "y": 47.86,
+   "w": 8.9,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/hold-release-or-adjust-an-earning-2": {
+  "src": "/help/finance/hold-release-or-adjust-an-earning-2.webp",
+  "path": "/finance",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 84.75,
+   "y": 47.95,
+   "w": 5,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/hold-release-or-adjust-an-earning-3": {
+  "src": "/help/finance/hold-release-or-adjust-an-earning-3.webp",
+  "path": "/finance",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 82.72,
+   "y": 57.48,
+   "w": 12.5,
+   "h": 10.52
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/hold-release-or-adjust-an-earning-4": {
+  "src": "/help/finance/hold-release-or-adjust-an-earning-4.webp",
+  "path": "/finance",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 82.72,
+   "y": 52.73,
+   "w": 12.5,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/lock-a-revenue-split-1": {
+  "src": "/help/finance/lock-a-revenue-split-1.webp",
+  "path": "/finance/splits",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 27.63,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/lock-a-revenue-split-2": {
+  "src": "/help/finance/lock-a-revenue-split-1.webp",
+  "path": "/finance/splits",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 22.25,
+   "w": 76.25,
+   "h": 4.32
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/lock-a-revenue-split-3": {
+  "src": "/help/finance/lock-a-revenue-split-3.webp",
+  "path": "/finance/splits",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 88.65,
+   "y": 32.2,
+   "w": 6.58,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/payment-events-1": {
+  "src": "/help/finance/payment-events-1.webp",
+  "path": "/finance/payment-events",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 38.13,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/payment-events-2": {
+  "src": "/help/finance/payment-events-2.webp",
+  "path": "/finance/payment-events",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 38.54,
+   "w": 9.29,
+   "h": 4.2
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/payment-events-3": {
+  "src": "/help/finance/payment-events-2.webp",
+  "path": "/finance/payment-events",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 45.36,
+   "w": 76.25,
+   "h": 2
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/read-a-deal-dispute-1": {
+  "src": "/help/finance/read-a-deal-dispute-1.webp",
+  "path": "/finance/deal-disputes",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 27.63,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/read-a-deal-dispute-2": {
+  "src": "/help/finance/read-a-deal-dispute-1.webp",
+  "path": "/finance/deal-disputes",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 36.25,
+   "w": 76.25,
+   "h": 4.32
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/read-a-deal-dispute-3": {
+  "src": "/help/finance/read-a-deal-dispute-3.webp",
+  "path": "/finance/deal-disputes/cmvked06u00440wvjquk0q75m",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 50.95,
+   "w": 43.59,
+   "h": 2.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/record-a-bank-transfer-1": {
+  "src": "/help/finance/record-a-bank-transfer-1.webp",
+  "path": "/finance/orders",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 22.38,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/record-a-bank-transfer-2": {
+  "src": "/help/finance/record-a-bank-transfer-2.webp",
+  "path": "/finance/orders",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 39.97,
+   "y": 22.25,
+   "w": 6.71,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/record-a-bank-transfer-3": {
+  "src": "/help/finance/record-a-bank-transfer-3.webp",
+  "path": "/finance/orders/cmwj8orf9000cbkvjb98e6691",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 69.38,
+   "y": 26.25,
+   "w": 27.5,
+   "h": 34.62
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/record-a-bank-transfer-4": {
+  "src": "/help/finance/record-a-bank-transfer-3.webp",
+  "path": "/finance/orders/cmwj8orf9000cbkvjb98e6691",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "finance/retry-a-failed-payout-1": {
+  "src": "/help/finance/retry-a-failed-payout-1.webp",
+  "path": "/finance/payouts",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 49.14,
+   "y": 36.75,
+   "w": 7.11,
+   "h": 4.2
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/retry-a-failed-payout-2": {
+  "src": "/help/finance/retry-a-failed-payout-1.webp",
+  "path": "/finance/payouts",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 44.07,
+   "w": 76.25,
+   "h": 3.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/retry-a-failed-payout-3": {
+  "src": "/help/finance/retry-a-failed-payout-1.webp",
+  "path": "/finance/payouts",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "finance/send-a-refund-1": {
+  "src": "/help/finance/send-a-refund-1.webp",
+  "path": "/finance/refunds",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 53.87,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/send-a-refund-2": {
+  "src": "/help/finance/send-a-refund-2.webp",
+  "path": "/finance/refunds",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 33.59,
+   "w": 7.98,
+   "h": 4.2
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/send-a-refund-3": {
+  "src": "/help/finance/send-a-refund-2.webp",
+  "path": "/finance/refunds",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "finance/send-a-refund-4": {
+  "src": "/help/finance/send-a-refund-2.webp",
+  "path": "/finance/refunds",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "finance/take-a-card-dispute-for-review-1": {
+  "src": "/help/finance/take-a-card-dispute-for-review-1.webp",
+  "path": "/finance/disputes",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 32.88,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/take-a-card-dispute-for-review-2": {
+  "src": "/help/finance/take-a-card-dispute-for-review-2.webp",
+  "path": "/finance/disputes",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "finance/take-a-card-dispute-for-review-3": {
+  "src": "/help/finance/take-a-card-dispute-for-review-3.webp",
+  "path": "/finance/disputes/cmuxutez5010iy0vjoh73bgsv",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "finance/treasury-overview-1": {
+  "src": "/help/finance/treasury-overview-1.webp",
+  "path": "/finance",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 0.94,
+   "y": 11.88,
+   "w": 15.55,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/treasury-overview-2": {
+  "src": "/help/finance/treasury-overview-1.webp",
+  "path": "/finance",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 76.27,
+   "y": 13.5,
+   "w": 20.61,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/treasury-overview-3": {
+  "src": "/help/finance/treasury-overview-1.webp",
+  "path": "/finance",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 44.88,
+   "w": 76.25,
+   "h": 17.88
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/treasury-overview-4": {
+  "src": "/help/finance/treasury-overview-4.webp",
+  "path": "/finance",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 47.78,
+   "w": 12.06,
+   "h": 4.32
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/turn-payments-on-or-off-1": {
+  "src": "/help/finance/turn-payments-on-or-off-1.webp",
+  "path": "/finance/payments",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 2.89,
+   "y": 43.38,
+   "w": 13.59,
+   "h": 5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/turn-payments-on-or-off-2": {
+  "src": "/help/finance/turn-payments-on-or-off-1.webp",
+  "path": "/finance/payments",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 88.95,
+   "y": 23.38,
+   "w": 6.28,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "finance/turn-payments-on-or-off-3": {
+  "src": "/help/finance/turn-payments-on-or-off-3.webp",
+  "path": "/finance/payments",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 40.3,
+   "w": 72.97,
+   "h": 30.56
+  },
+  "capturedAt": "2026-11-16"
+ }
+}

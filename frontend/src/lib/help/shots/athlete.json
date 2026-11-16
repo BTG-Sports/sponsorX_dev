@@ -1,0 +1,1258 @@
+{
+ "athlete/add-inventory-item-1": {
+  "src": "/help/athlete/add-inventory-item-1.webp",
+  "path": "/athlete/inventory",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 85.47,
+   "y": 13.25,
+   "w": 11.41,
+   "h": 5.9
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/add-inventory-item-2": {
+  "src": "/help/athlete/add-inventory-item-2.webp",
+  "path": "/athlete/inventory",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 24.45,
+   "y": 21.19,
+   "w": 51.1,
+   "h": 20.63
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/add-inventory-item-3": {
+  "src": "/help/athlete/add-inventory-item-2.webp",
+  "path": "/athlete/inventory",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 24.45,
+   "y": 50.08,
+   "w": 51.1,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/add-inventory-item-4": {
+  "src": "/help/athlete/add-inventory-item-2.webp",
+  "path": "/athlete/inventory",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 24.45,
+   "y": 90.55,
+   "w": 6.82,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/add-inventory-item-5": {
+  "src": "/help/athlete/add-inventory-item-1.webp",
+  "path": "/athlete/inventory",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 71.11,
+   "y": 13.74,
+   "w": 13.73,
+   "h": 4.91
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/apply-and-approval-1": {
+  "src": "/help/athlete/apply-and-approval-1.webp",
+  "path": "/join",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 60.64,
+   "y": 46.78,
+   "w": 30.78,
+   "h": 6.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/apply-and-approval-2": {
+  "src": "/help/athlete/apply-and-approval-1.webp",
+  "path": "/join",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/apply-and-approval-3": {
+  "src": "/help/athlete/apply-and-approval-1.webp",
+  "path": "/join",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/approve-order-1": {
+  "src": "/help/athlete/sales-overview-1.webp",
+  "path": "/athlete/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/campaign-orders-1": {
+  "src": "/help/athlete/campaign-orders-1.webp",
+  "path": "/athlete/orders",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 85.15,
+   "y": 64.09,
+   "w": 9.06,
+   "h": 3.43
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/campaign-orders-2": {
+  "src": "/help/athlete/campaign-orders-2.webp",
+  "path": "/athlete/orders/qa_ord_ath",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.27,
+   "y": 26.38,
+   "w": 46.09,
+   "h": 64
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/campaign-orders-3": {
+  "src": "/help/athlete/campaign-orders-3.webp",
+  "path": "/athlete/orders/qa_ord_ath",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 73.52,
+   "y": 47.74,
+   "w": 21.71,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/campaign-orders-4": {
+  "src": "/help/athlete/campaign-orders-4.webp",
+  "path": "/athlete/orders/qa_ord_ath",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 73.52,
+   "y": 47.84,
+   "w": 21.71,
+   "h": 4.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/cash-out-1": {
+  "src": "/help/athlete/set-up-payouts-4.webp",
+  "path": "/athlete/money",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 33.37,
+   "w": 76.25,
+   "h": 38.89
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/cash-out-2": {
+  "src": "/help/athlete/set-up-payouts-4.webp",
+  "path": "/athlete/money",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 23.33,
+   "y": 61.34,
+   "w": 21.33,
+   "h": 7.59
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/cash-out-3": {
+  "src": "/help/athlete/cash-out-3.webp",
+  "path": "/athlete/money",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 61.8,
+   "y": 74.02,
+   "w": 13.75,
+   "h": 5.89
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/cash-out-4": {
+  "src": "/help/athlete/cash-out-4.webp",
+  "path": "/athlete/money",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 48.36,
+   "y": 56.23,
+   "w": 27.27,
+   "h": 6.35
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/close-account-1": {
+  "src": "/help/athlete/close-account-1.webp",
+  "path": "/athlete/settings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 19.5,
+   "w": 76.25,
+   "h": 10
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/close-account-2": {
+  "src": "/help/athlete/close-account-2.webp",
+  "path": "/athlete/settings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 22.89,
+   "y": 43.13,
+   "w": 72.34,
+   "h": 56.85
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/close-account-3": {
+  "src": "/help/athlete/close-account-3.webp",
+  "path": "/athlete/settings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 85.72,
+   "y": 81.23,
+   "w": 9.51,
+   "h": 5.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/close-account-4": {
+  "src": "/help/athlete/close-account-3.webp",
+  "path": "/athlete/settings",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/close-account-5": {
+  "src": "/help/athlete/close-account-5.webp",
+  "path": "/athlete/settings/reactivate",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 37.73,
+   "y": 51.16,
+   "w": 16.23,
+   "h": 6
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/coming-of-age-1": {
+  "src": "/help/athlete/coming-of-age-1.webp",
+  "path": "/athlete/settings/coming-of-age",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 27.44,
+   "w": 76.25,
+   "h": 10.09
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/coming-of-age-2": {
+  "src": "/help/athlete/coming-of-age-1.webp",
+  "path": "/athlete/settings/coming-of-age",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/coming-of-age-3": {
+  "src": "/help/athlete/coming-of-age-3.webp",
+  "path": "/athlete/settings/coming-of-age",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/confirmations-1": {
+  "src": "/help/athlete/confirmations-1.webp",
+  "path": "/athlete/confirmations",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 20.75,
+   "w": 19.37,
+   "h": 52.23
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/confirmations-2": {
+  "src": "/help/athlete/confirmations-1.webp",
+  "path": "/athlete/confirmations",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 44.79,
+   "w": 19.37,
+   "h": 6.75
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/confirmations-3": {
+  "src": "/help/athlete/confirmations-3.webp",
+  "path": "/athlete/confirmations",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 77.82,
+   "y": 83.61,
+   "w": 15.85,
+   "h": 5.75
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/confirmations-4": {
+  "src": "/help/athlete/confirmations-3.webp",
+  "path": "/athlete/confirmations",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 59.73,
+   "w": 19.37,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/dashboard-game-plan-1": {
+  "src": "/help/athlete/dashboard-game-plan-1.webp",
+  "path": "/athlete",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 32.08,
+   "y": 28.5,
+   "w": 12.92,
+   "h": 5.97
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/dashboard-game-plan-2": {
+  "src": "/help/athlete/dashboard-game-plan-2.webp",
+  "path": "/athlete",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 23.52,
+   "y": 45.13,
+   "w": 21.48,
+   "h": 54.82
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/dashboard-game-plan-3": {
+  "src": "/help/athlete/dashboard-game-plan-2.webp",
+  "path": "/athlete",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 51.02,
+   "y": 18.63,
+   "w": 43.28,
+   "h": 81.32
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/dashboard-game-plan-4": {
+  "src": "/help/athlete/dashboard-game-plan-4.webp",
+  "path": "/athlete",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 39.95,
+   "w": 76.25,
+   "h": 20.19
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/deliverables-1": {
+  "src": "/help/athlete/deliverables-1.webp",
+  "path": "/athlete/deliverables",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 47.19,
+   "y": 56.85,
+   "w": 49.69,
+   "h": 9.12
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/deliverables-2": {
+  "src": "/help/athlete/deliverables-2.webp",
+  "path": "/athlete/deliverables/cmvkeallt003j0wvjk9c0035r",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 20.25,
+   "w": 76.25,
+   "h": 12.94
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/deliverables-3": {
+  "src": "/help/athlete/deliverables-2.webp",
+  "path": "/athlete/deliverables/cmvkeallt003j0wvjk9c0035r",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 71.64,
+   "y": 74.22,
+   "w": 23.59,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/deliverables-4": {
+  "src": "/help/athlete/deliverables-4.webp",
+  "path": "/athlete/deliverables/qa_dv_rev",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 71.64,
+   "y": 69.97,
+   "w": 23.59,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/deliverables-5": {
+  "src": "/help/athlete/deliverables-5.webp",
+  "path": "/athlete/deliverables/qa_dv_overdue",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/earnings-vs-payouts-1": {
+  "src": "/help/athlete/earnings-vs-payouts-1.webp",
+  "path": "/athlete/earnings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 20.25,
+   "w": 76.25,
+   "h": 12.94
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/earnings-vs-payouts-2": {
+  "src": "/help/athlete/earnings-vs-payouts-1.webp",
+  "path": "/athlete/earnings",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/earnings-vs-payouts-3": {
+  "src": "/help/athlete/earnings-vs-payouts-3.webp",
+  "path": "/athlete/money",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 25.56,
+   "w": 76.25,
+   "h": 44.94
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/edit-profile-1": {
+  "src": "/help/athlete/finish-profile-4.webp",
+  "path": "/athlete/profile",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/edit-profile-2": {
+  "src": "/help/athlete/edit-profile-2.webp",
+  "path": "/athlete/profile/edit",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 48.88,
+   "w": 17.5,
+   "h": 46.25
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/edit-profile-3": {
+  "src": "/help/athlete/edit-profile-3.webp",
+  "path": "/athlete/profile/edit",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 41.95,
+   "y": 95.92,
+   "w": 4.66,
+   "h": 4.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/edit-profile-4": {
+  "src": "/help/athlete/edit-profile-4.webp",
+  "path": "/athlete/profile/edit",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 41.95,
+   "y": 88.48,
+   "w": 53.28,
+   "h": 1.88
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/finish-profile-1": {
+  "src": "/help/athlete/finish-profile-1.webp",
+  "path": "/athlete/profile",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 40.9,
+   "w": 76.25,
+   "h": 8.8
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/finish-profile-2": {
+  "src": "/help/athlete/finish-profile-1.webp",
+  "path": "/athlete/profile",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 40.9,
+   "w": 76.25,
+   "h": 8.8
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/finish-profile-3": {
+  "src": "/help/athlete/finish-profile-1.webp",
+  "path": "/athlete/profile",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 71.88,
+   "y": 52.2,
+   "w": 25,
+   "h": 43.91
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/finish-profile-4": {
+  "src": "/help/athlete/finish-profile-4.webp",
+  "path": "/athlete/profile",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 42.23,
+   "y": 83.68,
+   "w": 14.43,
+   "h": 5.75
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/finish-profile-5": {
+  "src": "/help/athlete/finish-profile-4.webp",
+  "path": "/athlete/profile",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/guardian-acting-1": {
+  "src": "/help/athlete/dashboard-game-plan-1.webp",
+  "path": "/athlete",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/guardian-acting-2": {
+  "src": "/help/athlete/confirmations-1.webp",
+  "path": "/athlete/confirmations",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 20.75,
+   "w": 19.37,
+   "h": 52.23
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/guardian-acting-3": {
+  "src": "/help/athlete/offers-1.webp",
+  "path": "/athlete/offers",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 89.55,
+   "y": 54.66,
+   "w": 6.2,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/guardian-acting-4": {
+  "src": "/help/athlete/earnings-vs-payouts-3.webp",
+  "path": "/athlete/money",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 66.21,
+   "y": 25.56,
+   "w": 30.67,
+   "h": 44.94
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/guardian-requests-1": {
+  "src": "/help/athlete/guardian-requests-1.webp",
+  "path": "/athlete/guardian-requests",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/guardian-requests-2": {
+  "src": "/help/athlete/guardian-requests-1.webp",
+  "path": "/athlete/guardian-requests",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/guardian-requests-3": {
+  "src": "/help/athlete/guardian-requests-1.webp",
+  "path": "/athlete/guardian-requests",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/guardian-requests-4": {
+  "src": "/help/athlete/guardian-requests-1.webp",
+  "path": "/athlete/guardian-requests",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/invitations-1": {
+  "src": "/help/athlete/invitations-1.webp",
+  "path": "/athlete/invitations",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 25.55,
+   "y": 39.69,
+   "w": 10.89,
+   "h": 3.85
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/invitations-2": {
+  "src": "/help/athlete/invitations-1.webp",
+  "path": "/athlete/invitations",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/invitations-3": {
+  "src": "/help/athlete/invitations-1.webp",
+  "path": "/athlete/invitations",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/invitations-4": {
+  "src": "/help/athlete/invitations-1.webp",
+  "path": "/athlete/invitations",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/invitations-5": {
+  "src": "/help/athlete/invitations-1.webp",
+  "path": "/athlete/invitations",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 48.72,
+   "y": 81.97,
+   "w": 20.99,
+   "h": 4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/list-item-1": {
+  "src": "/help/athlete/list-item-1.webp",
+  "path": "/athlete/listings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 83.46,
+   "y": 13,
+   "w": 13.42,
+   "h": 5.9
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/list-item-2": {
+  "src": "/help/athlete/list-item-2.webp",
+  "path": "/athlete/listings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 24.45,
+   "y": 39.94,
+   "w": 51.1,
+   "h": 34.98
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/list-item-3": {
+  "src": "/help/athlete/list-item-3.webp",
+  "path": "/athlete/listings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 26.09,
+   "y": 47.61,
+   "w": 47.82,
+   "h": 13.31
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/list-item-4": {
+  "src": "/help/athlete/list-item-4.webp",
+  "path": "/athlete/listings",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 26.09,
+   "y": 81.88,
+   "w": 7.76,
+   "h": 5.89
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/list-item-5": {
+  "src": "/help/athlete/list-item-5.webp",
+  "path": "/athlete/listings/cmv3r2h3w002ecovjye5hivwy",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 49.69,
+   "y": 64.26,
+   "w": 14.65,
+   "h": 6.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/manage-listing-1": {
+  "src": "/help/athlete/manage-listing-1.webp",
+  "path": "/athlete/listings/qa_pol83_l_reel",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 78.87,
+   "y": 16.14,
+   "w": 16.93,
+   "h": 2.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/manage-listing-2": {
+  "src": "/help/athlete/manage-listing-1.webp",
+  "path": "/athlete/listings/qa_pol83_l_reel",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 79.26,
+   "y": 21.91,
+   "w": 6.75,
+   "h": 2.34
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/manage-listing-3": {
+  "src": "/help/athlete/manage-listing-1.webp",
+  "path": "/athlete/listings/qa_pol83_l_reel",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 71.84,
+   "y": 21.38,
+   "w": 6.29,
+   "h": 3.4
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/manage-listing-4": {
+  "src": "/help/athlete/manage-listing-1.webp",
+  "path": "/athlete/listings/qa_pol83_l_reel",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/manage-listing-5": {
+  "src": "/help/athlete/manage-listing-1.webp",
+  "path": "/athlete/listings/qa_pol83_l_reel",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 87.13,
+   "y": 21.07,
+   "w": 8.67,
+   "h": 4.02
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/mark-delivered-1": {
+  "src": "/help/athlete/mark-delivered-1.webp",
+  "path": "/athlete/sales/cmv3r5u6c0055covj46hysjjc",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 36.55,
+   "w": 19.37,
+   "h": 63.45
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/mark-delivered-2": {
+  "src": "/help/athlete/mark-delivered-2.webp",
+  "path": "/athlete/sales/cmv3r5u6c0055covj46hysjjc",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 48.41,
+   "y": 44.31,
+   "w": 43.5,
+   "h": 11.47
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/mark-delivered-3": {
+  "src": "/help/athlete/mark-delivered-3.webp",
+  "path": "/athlete/sales/cmv3r5u6c0055covj46hysjjc",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 48.41,
+   "y": 45.24,
+   "w": 43.5,
+   "h": 9.55
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/mark-delivered-4": {
+  "src": "/help/athlete/mark-delivered-4.webp",
+  "path": "/athlete/sales/cmv3r5u6c0055covj46hysjjc",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 48.41,
+   "y": 52.93,
+   "w": 14.96,
+   "h": 6.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/mark-delivered-5": {
+  "src": "/help/athlete/mark-delivered-5.webp",
+  "path": "/athlete/sales/cmv3r5u6c0055covj46hysjjc",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 80.62,
+   "y": 83.59,
+   "w": 13.05,
+   "h": 5.75
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/minor-what-you-can-do-1": {
+  "src": "/help/athlete/dashboard-game-plan-1.webp",
+  "path": "/athlete",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/minor-what-you-can-do-2": {
+  "src": "/help/athlete/dashboard-game-plan-2.webp",
+  "path": "/athlete",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 23.52,
+   "y": 45.13,
+   "w": 21.48,
+   "h": 54.82
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/minor-what-you-can-do-3": {
+  "src": "/help/athlete/deliverables-1.webp",
+  "path": "/athlete/deliverables",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 47.19,
+   "y": 56.85,
+   "w": 49.69,
+   "h": 9.12
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/minor-what-you-can-do-4": {
+  "src": "/help/athlete/earnings-vs-payouts-3.webp",
+  "path": "/athlete/money",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 66.21,
+   "y": 25.56,
+   "w": 30.67,
+   "h": 44.94
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/money-held-1": {
+  "src": "/help/athlete/earnings-vs-payouts-3.webp",
+  "path": "/athlete/money",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 25.56,
+   "w": 76.25,
+   "h": 44.94
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/money-held-2": {
+  "src": "/help/athlete/money-held-2.webp",
+  "path": "/athlete/money",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 10,
+   "w": 76.25,
+   "h": 35.61
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/money-held-3": {
+  "src": "/help/athlete/earnings-vs-payouts-3.webp",
+  "path": "/athlete/money",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 74.59,
+   "y": 13.25,
+   "w": 13.37,
+   "h": 4.79
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/money-held-4": {
+  "src": "/help/athlete/money-held-4.webp",
+  "path": "/athlete/money",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 46.86,
+   "w": 27.26,
+   "h": 6.35
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/offers-1": {
+  "src": "/help/athlete/offers-1.webp",
+  "path": "/athlete/offers",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 89.55,
+   "y": 54.66,
+   "w": 6.2,
+   "h": 4.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/offers-2": {
+  "src": "/help/athlete/offers-2.webp",
+  "path": "/athlete/offers/cmv3r2lkf003zcovjjgvnvlsd",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 41.94,
+   "w": 7.44,
+   "h": 2.06
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/offers-3": {
+  "src": "/help/athlete/offers-2.webp",
+  "path": "/athlete/offers/cmv3r2lkf003zcovjjgvnvlsd",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/offers-4": {
+  "src": "/help/athlete/offers-2.webp",
+  "path": "/athlete/offers/cmv3r2lkf003zcovjjgvnvlsd",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/offers-5": {
+  "src": "/help/athlete/offers-2.webp",
+  "path": "/athlete/offers/cmv3r2lkf003zcovjjgvnvlsd",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/sale-problems-1": {
+  "src": "/help/athlete/sales-overview-1.webp",
+  "path": "/athlete/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 25.96,
+   "w": 25.82,
+   "h": 4.2
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/sale-problems-2": {
+  "src": "/help/athlete/sale-problems-2.webp",
+  "path": "/athlete/sales/cmv3r5u6c0055covj46hysjjc",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 46.64,
+   "y": 46.67,
+   "w": 47.03,
+   "h": 53.28
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/sale-problems-3": {
+  "src": "/help/athlete/sale-problems-3.webp",
+  "path": "/athlete/sales/cmv3r5u6c0055covj46hysjjc",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 47.97,
+   "y": 69.14,
+   "w": 11.89,
+   "h": 6
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/sale-problems-4": {
+  "src": "/help/athlete/mark-delivered-4.webp",
+  "path": "/athlete/sales/cmv3r5u6c0055covj46hysjjc",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 57.47,
+   "y": 64.55,
+   "w": 11.37,
+   "h": 5.5
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/sales-overview-1": {
+  "src": "/help/athlete/sales-overview-1.webp",
+  "path": "/athlete/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.7,
+   "y": 46.88,
+   "w": 76.1,
+   "h": 48.46
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/sales-overview-2": {
+  "src": "/help/athlete/sales-overview-1.webp",
+  "path": "/athlete/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 71.44,
+   "y": 13.25,
+   "w": 15.16,
+   "h": 4.79
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/sales-overview-3": {
+  "src": "/help/athlete/sales-overview-1.webp",
+  "path": "/athlete/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 20.63,
+   "y": 25.96,
+   "w": 25.82,
+   "h": 4.2
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/sales-overview-4": {
+  "src": "/help/athlete/sales-overview-1.webp",
+  "path": "/athlete/sales",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 26.08,
+   "y": 48.49,
+   "w": 19.64,
+   "h": 2.53
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/set-up-payouts-1": {
+  "src": "/help/athlete/earnings-vs-payouts-3.webp",
+  "path": "/athlete/money",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 66.21,
+   "y": 25.56,
+   "w": 30.67,
+   "h": 44.94
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/set-up-payouts-2": {
+  "src": "/help/athlete/earnings-vs-payouts-3.webp",
+  "path": "/athlete/money",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 68.16,
+   "y": 54.21,
+   "w": 16.74,
+   "h": 4.28
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/set-up-payouts-3": {
+  "src": "/help/athlete/earnings-vs-payouts-3.webp",
+  "path": "/athlete/money",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 66.21,
+   "y": 25.56,
+   "w": 30.67,
+   "h": 44.94
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/set-up-payouts-4": {
+  "src": "/help/athlete/set-up-payouts-4.webp",
+  "path": "/athlete/money",
+  "w": 1280,
+  "h": 800,
+  "spot": {
+   "x": 68.16,
+   "y": 59.72,
+   "w": 17.01,
+   "h": 4.53
+  },
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/team-1": {
+  "src": "/help/athlete/team-1.webp",
+  "path": "/athlete/team",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/team-2": {
+  "src": "/help/athlete/team-1.webp",
+  "path": "/athlete/team",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/team-3": {
+  "src": "/help/athlete/team-1.webp",
+  "path": "/athlete/team",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ },
+ "athlete/team-4": {
+  "src": "/help/athlete/team-1.webp",
+  "path": "/athlete/team",
+  "w": 1280,
+  "h": 800,
+  "spot": null,
+  "capturedAt": "2026-11-16"
+ }
+}
