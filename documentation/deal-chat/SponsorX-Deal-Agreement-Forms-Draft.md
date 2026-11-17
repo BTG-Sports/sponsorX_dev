@@ -1,12 +1,12 @@
-# Deal Chat — the agreement forms and question cards (DRAFT v1, for approval)
+# Deal Chat — the agreement forms and question cards (v1, approved)
 
 **Task:** `2S4-BE-14` · **Feature:** [SponsorX-Deal-Chat-Feature.md](../SponsorX-Deal-Chat-Feature.md) §5
-**Status:** draft by rcfworks, 2026-11-17, waiting for the programme owner's approval.
+**Status:** drafted by rcfworks and approved by the programme owner, 2026-11-17. Issued as `backend/agreements/DEAL.v1.txt`.
 
-Nothing here is in force. Once approved, each form becomes a file
-`backend/agreements/DEAL_<FORM>.v1.txt`, and adding that file is what issues it
-(`current-agreement.ts`). After that the wording only changes as a v2 file,
-which everyone signs again. So please change anything now.
+The three forms are issued as one file, `backend/agreements/DEAL.v1.txt`: the
+shared wording once, and each form's own section (D7) marked so a package can
+carry several. Adding the file is what issued it (`current-agreement.ts`).
+From now on the wording only changes as a v2 file, which everyone signs again.
 
 Like the approved v2 agreements, these leave out governing law, venue and
 disputes, which BTG hasn't chosen yet (CLAUDE.md, open decisions).
@@ -82,9 +82,9 @@ The Seller confirms that:
   this deal. Those rules are the Seller's responsibility.
 
 The Sponsor confirms that:
-- if its product or service is alcohol, tobacco or vaping, cannabis or
-  gambling, BTG has approved this deal, and it will not be promoted to anyone
-  too young to buy it;
+- if its product or service is alcohol, tobacco or vaping, cannabis,
+  gambling, firearms or adult content, BTG has approved this deal, and it will
+  not be promoted to anyone too young to buy it;
 - it has authority to make this agreement for the business named above.
 
 Where the Seller is under 18, their parent or guardian confirms that they
@@ -206,7 +206,21 @@ will be there.
 
 ---
 
-## 5. Questions for the owner
+## 5. The owner's answers (2026-11-17)
+
+1. **2 working days** to approve content and to ask for changes: yes. The
+   system also nudges by email: in the chat, whoever's turn it is gets a
+   reminder after every 2 working days without a reply, until the agreement
+   is signed (`2S4-BE-15`).
+2. **Posts stay up at least 30 days** unless agreed otherwise: yes.
+3. **Firearms and adult content** join the restricted list: yes. A deal in any
+   of the six goes to a BTG person.
+4. **No further cards**: the cards stay as listed in §3.
+5. **The agreement is downloadable at any time by both sides**, and the
+   download is on the sponsor's order card and the athlete's or team's item
+   card (`2S4-BE-14` serves it; `2S4-FE-07` / `-08` show it).
+
+## The questions as asked
 
 1. **The two working-day windows** for approving content and asking for changes
    (§4): are these right, or do you want a different number?

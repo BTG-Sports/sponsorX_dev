@@ -1,0 +1,65 @@
+SPONSORX DEAL AGREEMENT — {{formName}} — VERSION 1
+
+Order {{orderRef}} · {{date}}
+
+D1. Who this agreement is between
+
+This agreement is between {{sponsor}} ("the Sponsor") and {{seller}} ("the Seller"). BTG Sports Group LLC ("BTG") runs SponsorX, where it was made. BTG is not a party to this agreement and does not enforce the terms the Sponsor and the Seller agreed between themselves. The order itself — paying, cancelling, delivery, problems and refunds — stays under the SponsorX Marketplace Order Terms the Sponsor accepted when placing it. If anything here conflicts with those terms, those terms apply.
+
+D2. What is being delivered
+
+{{items}}
+
+D3. What you agreed in the chat
+
+{{answers}}
+
+D4. Special terms agreed between you
+
+{{specialTerms}}
+
+These are the exact messages both of you accepted in the chat. They bind the Sponsor and the Seller only.
+
+D5. The amount
+
+{{amount}}
+
+This is the amount the Sponsor pays for this order through SponsorX. Neither side may ask for or accept payment for this deal outside SponsorX.
+
+D6. What each side confirms
+
+The Seller confirms that:
+- every post or appearance made under this agreement will clearly show it is sponsored (for example #ad or "Paid partnership"), and will tag or name the Sponsor;
+- they have checked that their school, league, team and local rules allow this deal. Those rules are the Seller's responsibility.
+
+The Sponsor confirms that:
+- if its product or service is alcohol, tobacco or vaping, cannabis, gambling, firearms or adult content, BTG has approved this deal, and it will not be promoted to anyone too young to buy it;
+- it has authority to make this agreement for the business named above.
+
+Where the Seller is under 18, their parent or guardian confirms that they consent to this deal on the minor's behalf.
+
+[[FORM CONTENT]]
+D7{{part}}. The content
+
+The Seller makes and posts the content listed in D2 on the dates shown there. The Seller owns what they make. The Sponsor may use it only as D3 and D4 allow, and only for the period agreed in D3; after that the Sponsor stops new uses. A post stays up for at least 30 days unless D3 or D4 says otherwise. Neither side may change the other's words or images without their agreement.
+[[/FORM]]
+
+[[FORM IN_PERSON]]
+D7{{part}}. The appearance
+
+The Seller attends on the date and at the place listed in D2, for the length agreed in D3. Travel is covered as D3 says. If the Seller cannot attend because of illness, injury or something outside their control, they tell the Sponsor in the chat as soon as they can; it is then handled as a problem or a cancellation under the SponsorX Marketplace Order Terms. Filming or photographing the appearance is allowed only as D3 says.
+[[/FORM]]
+
+[[FORM PLACEMENT]]
+D7{{part}}. The placement
+
+The Seller places or provides what D2 lists, for the period shown there. Artwork or materials are supplied as D3 says; anything the Sponsor supplies must reach the Seller in time to be used, and the Seller is not responsible for a delay caused by late materials. The Sponsor's materials stay the Sponsor's.
+[[/FORM]]
+
+D8. Changing your mind
+
+Until the order is paid, either side may call the deal off in the chat, giving a reason. The order is then cancelled and nobody is charged. Once it is paid, cancelling and refunds follow the SponsorX Marketplace Order Terms.
+
+D9. Signing
+
+Each side signs by pressing Sign in SponsorX. That has the same effect as a handwritten signature. Where the Seller is under 18, their parent or guardian signs for them. SponsorX records who signed, the time, and a fingerprint of the exact text shown.

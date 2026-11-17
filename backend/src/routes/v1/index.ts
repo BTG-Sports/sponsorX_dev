@@ -15,6 +15,7 @@ import { campaignsRouter } from "./campaigns";
 import { deliverablesRouter } from "./deliverables";
 import { earningsRouter } from "./earnings";
 import { guardiansRouter } from "./guardians";
+import { dealAgreementsRouter } from "./deal-agreements";
 import { metricsRouter } from "./metrics";
 import { intelligenceRouter } from "./intelligence";
 import { zohoWebhooksRouter } from "./zoho-webhooks";
@@ -65,6 +66,8 @@ v1Router.use("/me", meRouter);
    sign-ups desk and sign-up rules. Full paths; mounted before
    /applications so its intake paths are matched here first. */
 v1Router.use("/", signupsRouter);
+/* 2S4-BE-14 — Deal Chat agreements: read, sign, download. */
+v1Router.use("/", dealAgreementsRouter);
 
 /* B1 — athlete onboarding. The review queue and the three admin decisions
    (P3-BE-07). */
