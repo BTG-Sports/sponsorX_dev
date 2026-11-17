@@ -125,7 +125,7 @@
   - `backend/tests/pol-be-107-brief-country.test.ts`, real database through the API; removing the filter fails five of them.
   - The full backend suite was green after one fix: test servers must listen on 127.0.0.1 and wait for "listening".
 - **Local DB:** a Postgres from an earlier session was already on 5433, so I migrated `sponsorx_test` there (the scratchpad download couldn't bind the port). In zsh, `export A=x B=$A` leaves B empty: set both URLs explicitly, or the DB suites skip silently.
-- **Status:** Code review on the Polish sheet. `POL-FE-107` can now use `countryCodes` from targeting and send `countryCode` on `POST /briefs`.
+- **Status:** Done (merged #455, CI green). `POL-FE-107` can now use `countryCodes` from targeting and send `countryCode` on `POST /briefs`.
 
 ## 2S4-BE-14 built: Deal Chat's agreement (rcfworks)
 - **Approved by the owner today:**
@@ -149,4 +149,4 @@
   - **Firearms and adult content: yes, everywhere.** Both are added to `SENSITIVE_CATEGORIES`. Brief holds, minors never matched, NEXT ad sales and artwork review now cover them. The offer disclosure is per category through the new `SENSITIVE_CATEGORY_AGE`: 21+, adult content 18+.
   - **Signing limit: "I don't know".** I set 10 working days, as a setting: room for four reminders, plus a last warning 2 working days before cancelling. Written into `2S4-BE-15` and the feature spec.
 - **Checked:** full backend suite 3,910 / 3,910 locally.
-- **Status:** Code review (#458).
+- **Status:** Done (merged #458, CI green).
