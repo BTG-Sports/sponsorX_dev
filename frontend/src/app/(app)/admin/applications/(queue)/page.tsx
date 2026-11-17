@@ -1,7 +1,6 @@
 import { ApplicationsDesk } from "@/components/applications-desk";
 import { ScoutHeader } from "@/components/scout-stage";
 import { demoState } from "@/lib/demo";
-import { AGING_HOURS, waitHours } from "@/lib/applications-ui";
 import {
   deskApiExtras,
   deskQuery,
@@ -17,6 +16,8 @@ import { applications } from "@/lib/fixtures";
 import { reviewAction } from "../actions";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 
+import "./applications.css";
+
 /* --------------------------------------------------------------------------
    Athlete Network Manager Workspace — application review, §10 · §23 · §14.
    Redesigned 2026-09-14 (UX feedback: the old page was a flat card dump —
@@ -27,6 +28,9 @@ import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
    edges, with the queue as a grid of glass player cards. Visual only — the
    reads, the paging and the review actions below are unchanged. The page
    sits in the (queue) route group only for its own dark loading screen.
+   POL-FE-106 (2026-11-17) redrew it like the athlete's Inventory: status
+   cards for tabs, a "How it works" strip, the list first (Cards the other
+   view) and a tracker in the drawer — still visual only (./applications.css).
 
    The queue itself is the ApplicationsDesk client island — tabs, instant
    search and filters, a score ring per card, and a slide-over review drawer
@@ -136,7 +140,7 @@ export default async function AdminApplicationsPage({
   if (demo === "loading") {
     return (
       <Stage>
-        <ScoutHeader figures={{ waiting: 0, overdue: 0, total: 0, decided: 0 }} readAt={null} />
+        <ScoutHeader readAt={null} />
         <EmptyQueue title="Loading the queue…" />
       </Stage>
     );
@@ -147,7 +151,7 @@ export default async function AdminApplicationsPage({
        page — a filtered-to-nothing page keeps the desk and its "Clear all". */
     return (
       <Stage>
-        <ScoutHeader figures={{ waiting: 0, overdue: 0, total: 0, decided: 0 }} readAt={live ? readAt : null} />
+        <ScoutHeader readAt={live ? readAt : null} />
         <EmptyQueue title={live ? "No applications yet" : "No applications in the queue"} />
       </Stage>
     );
@@ -160,10 +164,9 @@ export default async function AdminApplicationsPage({
 
   /* ------------------------------------------------------------- live mode */
   if (live) {
-    const { waiting, overdue, decided, total } = live.summary;
     return (
       <Stage>
-        <ScoutHeader figures={{ waiting, overdue, total, decided }} readAt={readAt} />
+        <ScoutHeader readAt={readAt} />
         <section aria-label="The queue" className="mt-8">
           <ApplicationsDesk
             items={live.rows}
@@ -182,15 +185,8 @@ export default async function AdminApplicationsPage({
     );
   }
 
-  /* ------------------------------------------------------------- demo mode */
-  const waitingApps = applications.filter((a) => a.state === "SUBMITTED" || a.state === "UNDER_REVIEW");
-  const figures = {
-    waiting: waitingApps.length,
-    overdue: waitingApps.filter((a) => waitHours(a.submittedAt) > AGING_HOURS).length,
-    total: applications.length,
-    decided: applications.filter((a) => a.state === "APPROVED" || a.state === "REJECTED").length,
-  };
-
+  /* ------------------------------------------------------------- demo mode
+     (the desk counts its own status cards from the fixtures) */
   return (
     <Stage>
       {/* Without ?demo= this sample reaches only signed-out visitors: a staff
@@ -202,7 +198,7 @@ export default async function AdminApplicationsPage({
           Sample figures — sign in as a BTG admin or network manager to see the real queue.
         </p>
       )}
-      <ScoutHeader figures={figures} readAt={null} />
+      <ScoutHeader readAt={null} />
       <section aria-label="The queue" className="mt-8">
         <ApplicationsDesk
           items={applications}
