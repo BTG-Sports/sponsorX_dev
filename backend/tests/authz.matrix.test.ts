@@ -516,7 +516,15 @@ describe("the whole matrix is pinned", () => {
       // school); STUDENT own read/write (their own draft), no approve;
       // GUARDIAN ward read; every other cell deny (matrix §15.2). With its
       // rows removed the grid hashes to the previous 8fbb5b68f1e14851.
-    ).toBe("f569c36adb53b3fe");
+      // Updated 2026-11-17 (2S4-BE-14): new `dealAgreement` resource — Deal
+      // Chat's agreement between an order's sponsor and one seller.
+      // SUPER_ADMIN any read; BTG_ADMIN, FINANCE own-tenant read (the order's
+      // books); PROPERTY_MGR own-property read/write (sign); ATHLETE own
+      // read/write (sign; a guardian acting for a minor holds this cell);
+      // SPONSOR_ADMIN own-sponsor read/write (sign); SPONSOR_ANALYST
+      // own-sponsor read; every other cell deny (matrix §24.1). With its rows
+      // removed the grid hashes to the previous f569c36adb53b3fe.
+    ).toBe("1d647cf81190cf29");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

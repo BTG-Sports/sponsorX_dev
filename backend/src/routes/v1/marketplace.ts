@@ -3,6 +3,8 @@
  * team roster (2S2-BE-04), listings (2S3-BE-01), formal offers (2S2-BE-03)
  * and tenant branding (2S7-BE-01). No business rule lives here.
  */
+import type { Actor } from "../../auth/actor";
+import { dealAgreementsForOrders, type DealAgreementSummary } from "../../domain/deal-agreement";
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
@@ -252,14 +254,20 @@ export const orders: RequestHandler = async (req, res) => {
   const q = req.query as Record<string, unknown>;
   const pg = pageRequest(q);
   if (pg) {
-    res.json(await pageMarketplaceOrders(req.actor!, pg, { tab: typeof q.tab === "string" ? q.tab : undefined, q: searchTerm(q) }));
+    const out = await pageMarketplaceOrders(req.actor!, pg, { tab: typeof q.tab === "string" ? q.tab : undefined, q: searchTerm(q) });
+    res.json({ ...out, orders: await withDealAgreements(req.actor!, out.orders) });
     return;
   }
   const state = typeof req.query.state === "string" ? (req.query.state as Parameters<typeof listMarketplaceOrders>[1]) : undefined;
-  res.json({ orders: await listMarketplaceOrders(req.actor!, state) });
+  res.json({ orders: await withDealAgreements(req.actor!, await listMarketplaceOrders(req.actor!, state)) });
 };
+/** 2S4-BE-14 — each order card carries its live Deal Chat agreements (and their download), where the caller may read them. */
+async function withDealAgreements<T extends { id: string }>(actor: Actor, orders: T[]): Promise<Array<T & { dealAgreements: DealAgreementSummary[] }>> {
+  const deals = await dealAgreementsForOrders(actor, orders.map((o) => o.id));
+  return orders.map((o) => ({ ...o, dealAgreements: deals.get(o.id) ?? [] }));
+}
 export const ordersSummary: RequestHandler = async (req, res) => { res.json({ summary: await marketplaceOrderSummary(req.actor!) }); };
-const order: RequestHandler<Id> = async (req, res) => { res.json(await getMarketplaceOrder(req.actor!, req.params.id)); };
+const order: RequestHandler<Id> = async (req, res) => { res.json((await withDealAgreements(req.actor!, [await getMarketplaceOrder(req.actor!, req.params.id)]))[0]); };
 const place: RequestHandler = async (req, res) => {
   /* 2S4-FE-02 — the acceptance's evidence comes through the web server's forward, like every acceptance. */
   res.status(201).json(await placeOrder(req.actor!, { ...PlaceOrderInput.parse(req.body), ip: clientIp(req) ?? "", userAgent: clientUserAgent(req) ?? "" }));

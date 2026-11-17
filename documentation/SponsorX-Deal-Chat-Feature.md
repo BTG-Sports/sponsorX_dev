@@ -179,14 +179,19 @@ When both sides have signed:
 
 The checklist and agreement are locked. The chat stays open for delivery:
 times, places, drafts. It becomes read-only when the order closes or is
-cancelled. The signed agreement is downloadable by both sides and by BTG.
+cancelled.
+
+**The agreement is downloadable at any time by both sides** (and by BTG), as a
+PDF: the form as posted while it waits for signatures, and the signed copy
+after. The download sits on the sponsor's order card and on the athlete's or
+team's item card (owner, 2026-11-17).
 
 ## 4. Time limits and reminders
 
 | What | Rule |
 |---|---|
-| Signing | The agreement must be signed by both **within 5 days** of the order being placed, or the order is cancelled and both sides are emailed. 5 days is a setting. |
-| Reminders | Whoever's turn it is gets an email after **1 day** of silence and again at **4 days**. |
+| Signing | The agreement must be signed by both **within 10 working days** of the order being placed, or the order is cancelled and both sides are emailed. A setting; rcfworks' recommendation, which the owner left to us (2026-11-17). Both sides get a last warning 2 working days before. |
+| Reminders | Whoever's turn it is gets an email after every **2 working days** without a reply, until the agreement is signed (owner, 2026-11-17). |
 | Unread messages | Emailed after 15 minutes, collected into one email, not one per message. |
 | Payment | Unchanged: 3 days from both signing, reminders at 1 and 2 days (`2S4-BE-10`). |
 
@@ -217,8 +222,9 @@ Each must be ticked before that side can sign:
 - The athlete will tag the sponsor and label every post as an ad.
 - The athlete has checked their school, league and local rules allow this deal
   (`P0-LEG-06`: the athlete's responsibility).
-- The sponsor's product is not in a restricted category (alcohol, gambling,
-  tobacco, cannabis, adult). Sensitive categories still reach a BTG person.
+- The sponsor's product is not in a restricted category (alcohol, tobacco or
+  vaping, cannabis, gambling, firearms, adult content) unless BTG approved the
+  deal. A deal in one of them goes to a BTG person.
 - For a minor: the guardian consents to this deal.
 
 ### 5.2 Question cards (first draft, for the owner's approval)
@@ -315,13 +321,21 @@ easy to test. They can be upgraded later.
 7. **SponsorX provides the agreement forms**; rcfworks drafts the wording, and
    the owner approves it.
 8. Deal Chat is a **feature**, not a polish item.
+9. **The wording is approved** as drafted (2026-11-17,
+   [deal-chat/SponsorX-Deal-Agreement-Forms-Draft.md](deal-chat/SponsorX-Deal-Agreement-Forms-Draft.md)):
+   2 working days to approve content or ask for changes, posts up 30 days,
+   firearms and adult content restricted, no further cards.
+10. **Reminders every 2 working days** of silence, to whoever's turn it is,
+    until the agreement is signed.
+11. **The agreement is downloadable at any time by both sides**, from the
+    order card and the item card.
 
 ## 11. Tasks
 
 | ID | Side | Task | Weight |
 |---|---|---|---|
 | `2S4-BE-14` | BE | The agreement forms and question cards: three forms' wording (draft for approval), the card catalogue per item kind, the filled-in form and the signatures | 3d |
-| `2S4-BE-15` | BE | The order flow: the chat stage state, calling off, the final amount, the payment gate, the 5-day limit and reminders | 5d |
+| `2S4-BE-15` | BE | The order flow: the chat stage state, calling off, the final amount, the payment gate, the 10-working-day limit and reminders | 5d |
 | `2S4-BE-16` | BE | The chat: messages, cards, offers with Reply / Accept / Decline, deal status, the money nudge, held messages, reporting, BTG's read access, unread email | 5d |
 | `2S4-BE-17` | BE | Tests (tenant, role, minor, concurrency) and the `DEAL_CHAT` switch | 3d |
 | `2S4-FE-07` | FE | The sponsor's side: the chat on the order page, the form, the final amount, signing, the Pay button opening | 5d |

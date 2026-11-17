@@ -98,6 +98,7 @@ const A = {
   mktLine: "ti_mkt_line_a", delivery: "ti_delivery_a", teamInvite: "ti_team_invite_a", shareChange: "ti_share_change_a",
   /* 2S4-BE-09 — tenant A's school asked to accept that order (its listing asks), unanswered. */
   sellerApproval: "ti_seller_approval_a",
+  dealAgreement: "ti_deal_agreement_a",
   /* 2S1-BE-13 — a rejected tenant-A account asking to come back; 2S1-BE-15 — a request to become its guardian, waiting. */
   closure: "ti_closure_a", handoff: "ti_handoff_a", closureRequest: "ti_closure_request_a",
   /* P9-BE-16 — a slot sold to tenant A's campaign, and its artwork on the approval board. */
@@ -223,6 +224,8 @@ const PARAM_FOR: Record<string, string> = {
   "share-changes": A.shareChange,
   /* 2S4-BE-09 — a seller's answer to an order. */
   "seller-approvals": A.sellerApproval,
+  /* 2S4-BE-14 — Deal Chat's agreement on tenant A's order. */
+  "deal-agreements": A.dealAgreement,
   /* P3-BE-16 — no tenant-A change is seeded: an unknown id must answer
      exactly as another tenant's would, so a made-up one is the right probe. */
   "profile-changes": "pc_not_yours",
@@ -441,6 +444,8 @@ const BODY: Record<string, unknown> = {
   "POST /me/team/share-changes/{id}/respond": { decision: "ACCEPT" },
   /* 2S4-BE-09 — a seller answering tenant A's order. */
   "POST /seller-approvals/{id}/decision": { decision: "ACCEPT" },
+  /* 2S4-BE-14 — signing tenant A's deal agreement, with its real fingerprint. */
+  "POST /deal-agreements/{id}/sign": { bodyHashShown: "sha256:ti-secret-deal-hash" },
   /* 3S2-BE-03 — overriding tenant A's suggested price. */
   "POST /intelligence/pricing/recommendations/{recommendationId}/overrides": { cpmCents: 999999, reason: "Sweep override reason" },
   /* 3S3-BE-02 — saving tenant A's brief's shortlist. */
@@ -733,6 +738,12 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       id: A.sellerApproval, tenantId: t, orderId: A.mktOrder, sponsorId: A.sponsor, propertyId: A.school, propertyTenantId: t,
       lineIds: [A.mktLine], dueAt: new Date(Date.now() + 3650 * 864e5),
     } });
+    /* 2S4-BE-14 — an open Deal Chat agreement on that order, with the team (the school) as seller. */
+    const dealTerms = await prisma.agreement.create({ data: { tenantId: t, kind: "DEAL", version: 1, bodyHash: "sha256:ti-template", effectiveAt: new Date() }, select: { id: true } });
+    await prisma.dealAgreement.create({ data: {
+      id: A.dealAgreement, tenantId: t, orderId: A.mktOrder, sponsorId: A.sponsor, propertyId: A.school, propertyTenantId: t, lineIds: [A.mktLine],
+      agreementId: dealTerms.id, forms: ["PLACEMENT"], body: "TI Secret deal body", bodyHash: "sha256:ti-secret-deal-hash", amountCents: 9000, originalAmountCents: 9000,
+    }, select: { id: true } });
     await prisma.teamInvitation.create({ data: { id: A.teamInvite, tenantId: t, propertyId: A.school, athleteId: A.athlete, athleteTenantId: t, teamShareBps: 1500 } });
     await prisma.teamShareChange.create({ data: { id: A.shareChange, tenantId: t, propertyId: A.school, athleteId: A.athlete, toBps: 2000 } });
     await prisma.refundDue.create({ data: {

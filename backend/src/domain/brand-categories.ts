@@ -48,8 +48,13 @@ export type BrandCategory = (typeof BRAND_CATEGORIES)[number];
  * carries the 21+ disclosure (offer-draft.ts `CATEGORY_DISCLOSURES`). These
  * are the age-gated categories; widening the list holds more briefs for BTG
  * and adds the disclosure to more offers, which is why it is one list.
+ *
+ * FIREARMS and ADULT added 2026-11-17 by the programme owner (with the Deal
+ * Chat agreement's restricted list, 2S4-BE-14): everywhere this list is read
+ * — brief holds, never matching a minor, the offer's age disclosure, NEXT ad
+ * sales and artwork review — they now behave as the other four.
  */
-export const SENSITIVE_CATEGORIES = ["ALCOHOL", "TOBACCO_VAPE", "CANNABIS", "GAMBLING"] as const satisfies readonly BrandCategory[];
+export const SENSITIVE_CATEGORIES = ["ALCOHOL", "TOBACCO_VAPE", "CANNABIS", "GAMBLING", "FIREARMS", "ADULT"] as const satisfies readonly BrandCategory[];
 export type SensitiveCategory = (typeof SENSITIVE_CATEGORIES)[number];
 
 /** How a sensitive category reads in a sentence ("Alcohol is a sensitive category"). */
@@ -58,6 +63,18 @@ export const SENSITIVE_CATEGORY_WORDS: Readonly<Record<SensitiveCategory, string
   TOBACCO_VAPE: "Tobacco and vaping",
   CANNABIS: "Cannabis",
   GAMBLING: "Gambling",
+  FIREARMS: "Firearms",
+  ADULT: "Adult content",
+};
+
+/** The age a sensitive category's offers and rewards disclose: 21+, except adult content (18+). */
+export const SENSITIVE_CATEGORY_AGE: Readonly<Record<SensitiveCategory, "18+" | "21+">> = {
+  ALCOHOL: "21+",
+  TOBACCO_VAPE: "21+",
+  CANNABIS: "21+",
+  GAMBLING: "21+",
+  FIREARMS: "21+",
+  ADULT: "18+",
 };
 
 export function isSensitiveCategory(c: string): c is SensitiveCategory {

@@ -87,6 +87,7 @@
  * `lockOrder`) and is made by a state-guarded update, so two clicks — or a
  * click racing the sweep — refund once.
  */
+import { dealAgreementsForLines } from "./deal-agreement";
 import { randomUUID } from "node:crypto";
 
 import type { Prisma } from "../generated/prisma/client";
@@ -899,8 +900,8 @@ export async function mySales(actor: Actor, now = new Date()) {
   const rows = await prisma.orderLineDelivery.findMany({
     where: whereFor(actor, "orderDelivery", "read"), select: SALE_SELECT, orderBy: { createdAt: "desc" }, take: 200,
   });
-  const [names, shares, counts, refundOf] = await Promise.all([namesFor(rows), sharesFor(actor, rows.map((r) => r.lineId)), cancellationCounts(rows, now), refundBases(rows)]);
-  return { sales: rows.map((r) => saleView(r, names, shares.get(r.lineId) ?? 0, now, counts(r), refundOf(r))) };
+  const [names, shares, counts, refundOf, deals] = await Promise.all([namesFor(rows), sharesFor(actor, rows.map((r) => r.lineId)), cancellationCounts(rows, now), refundBases(rows), dealAgreementsForLines(actor, rows.map((r) => r.lineId))]);
+  return { sales: rows.map((r) => ({ ...saleView(r, names, shares.get(r.lineId) ?? 0, now, counts(r), refundOf(r)), dealAgreement: deals.get(r.lineId) ?? null })) };
 }
 
 /**
@@ -959,11 +960,12 @@ export async function mySalesPage(actor: Actor, req: PageRequest, f: { tab?: Sal
     prisma.orderLineDelivery.groupBy({ /* tenant-scope: `where`/`scope` are whereFor(actor, orderDelivery, "read") above; only filters are added. */ by: ["state"], where: scope, _count: { _all: true } }),
   ]);
   const rows = paged.rows;
-  const [names, shares, counts, refundOf] = await Promise.all([namesFor(rows), sharesFor(actor, rows.map((r) => r.lineId)), cancellationCounts(rows, now), refundBases(rows)]);
+  const [names, shares, counts, refundOf, deals] = await Promise.all([namesFor(rows), sharesFor(actor, rows.map((r) => r.lineId)), cancellationCounts(rows, now), refundBases(rows), dealAgreementsForLines(actor, rows.map((r) => r.lineId))]);
   const n = (sts: readonly string[]) => byState.filter((s) => sts.includes(s.state)).reduce((sum, s) => sum + s._count._all, 0);
   const all = byState.reduce((sum, s) => sum + s._count._all, 0);
   return {
-    sales: rows.map((r) => saleView(r, names, shares.get(r.lineId) ?? 0, now, counts(r), refundOf(r))),
+    /* 2S4-BE-14 — each item card carries its live Deal Chat agreement (and its download). */
+    sales: rows.map((r) => ({ ...saleView(r, names, shares.get(r.lineId) ?? 0, now, counts(r), refundOf(r)), dealAgreement: deals.get(r.lineId) ?? null })),
     page: paged.page,
     tabs: SALE_TABS.map((key) => ({ key, label: SALE_TAB_LABELS[key], count: key === "all" ? all : n(SALE_TAB_STATES[key]) })),
   };
@@ -973,8 +975,8 @@ export async function mySale(actor: Actor, lineId: string, now = new Date()) {
   sellerScope(actor, "read");
   const row = await prisma.orderLineDelivery.findFirst({ where: { ...whereFor(actor, "orderDelivery", "read"), lineId }, select: SALE_SELECT });
   if (!row) throw new ForbiddenError("orderDelivery", "read");
-  const [names, shares, counts, refundOf] = await Promise.all([namesFor([row]), sharesFor(actor, [row.lineId]), cancellationCounts([row], now), refundBases([row])]);
-  return { ...saleView(row, names, shares.get(row.lineId) ?? 0, now, counts(row), refundOf(row)), timeline: timelineOf(row, whoOf(row, names)) };
+  const [names, shares, counts, refundOf, deals] = await Promise.all([namesFor([row]), sharesFor(actor, [row.lineId]), cancellationCounts([row], now), refundBases([row]), dealAgreementsForLines(actor, [row.lineId])]);
+  return { ...saleView(row, names, shares.get(row.lineId) ?? 0, now, counts(row), refundOf(row)), dealAgreement: deals.get(row.lineId) ?? null, timeline: timelineOf(row, whoOf(row, names)) };
 }
 
 /** The key a line's proof is uploaded under — built here, never taken from the caller. */
