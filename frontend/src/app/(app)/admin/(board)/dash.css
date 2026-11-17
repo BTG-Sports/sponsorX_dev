@@ -1,0 +1,153 @@
+/* --------------------------------------------------------------------------
+   POL-FE-105 — the admin dashboard's pieces on the Mission Control stage
+   (components/ops-dash.tsx). Same language as the ops kit in globals.css:
+   chamfers, steel and cyan, a glow on what's lit. Imported by the board
+   page only.
+   -------------------------------------------------------------------------- */
+
+/* the icon tile: a small chamfered plate */
+.sx-opsd-icon {
+  --c: #9be0ff;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 12%, #0b1422);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 34%, transparent), 0 0 14px -4px color-mix(in srgb, var(--c) 60%, transparent);
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+}
+.sx-opsd-icon[data-tone="orange"] { --c: #fb923c; }
+.sx-opsd-icon[data-tone="green"] { --c: #4ade80; }
+.sx-opsd-icon[data-tone="red"] { --c: #f87171; }
+
+/* ▲ / ▼ change pill */
+.sx-opsd-delta {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sx-opsd-delta[data-tone="up"] { color: #4ade80; background: rgba(34, 197, 94, 0.14); }
+.sx-opsd-delta[data-tone="down"] { color: #fca5a5; background: rgba(239, 68, 68, 0.15); }
+.sx-opsd-delta[data-tone="flat"] { color: #cbd5e1; background: rgba(255, 255, 255, 0.07); }
+
+/* bars rise from the baseline; rounded data end on top only */
+.sx-opsd-col {
+  display: block;
+  border-radius: 4px 4px 0 0;
+  transform-origin: bottom;
+  animation: sx-opsd-rise 0.9s var(--sx-ease) var(--sx-reveal-delay, 0s) backwards;
+}
+@keyframes sx-opsd-rise { from { transform: scaleY(0); } }
+
+/* a gauge's lit segments switch on in turn */
+.sx-opsd-seg { animation: sx-opsd-on 0.35s ease var(--sx-reveal-delay, 0s) backwards; }
+@keyframes sx-opsd-on { from { opacity: 0; } }
+
+/* the period switch */
+.sx-opsd-period {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid rgba(99, 180, 248, 0.28);
+  background: rgba(4, 8, 15, 0.45);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  font-size: 12px;
+}
+.sx-opsd-period a {
+  padding: 6px 12px;
+  color: #8a96a3;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+.sx-opsd-period a + a { border-left: 1px solid rgba(99, 180, 248, 0.18); }
+.sx-opsd-period a:hover { color: #fff; }
+.sx-opsd-period a[aria-current="true"] {
+  color: #fff;
+  background: rgba(46, 155, 245, 0.22);
+  box-shadow: inset 0 -2px 0 #9be0ff;
+}
+
+/* a to-do row's count badge */
+.sx-opsd-count {
+  display: inline-grid;
+  min-width: 2rem;
+  place-items: center;
+  padding: 2px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: color-mix(in srgb, var(--tone, #2e9bf5) 22%, #0b1422);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone, #2e9bf5) 50%, transparent);
+  clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
+}
+
+/* ---- long lists scroll inside their card (owner, 2026-11-17: on a phone the
+   to-do list, posts to review and live campaigns ran "too long"). Below lg a
+   `.sx-opsd-scroll` box stops at --scroll-h and scrolls; the to-do list also
+   scrolls on wide screens (absolutely filled, level with the chart).
+   `.sx-opsd-fade` is the box's last child: sticky to its bottom edge, it
+   veils the rows still below while there are some, and at the end sits in
+   its own space under the last row, so nothing stays faded. */
+@media (max-width: 63.99rem) {
+  .sx-opsd-scroll {
+    max-height: var(--scroll-h, 20rem);
+    overflow-y: auto;
+    /* the same gutter on the table's column row (below) keeps the two in
+       line where a scrollbar takes width (a narrow desktop window) */
+    scrollbar-gutter: stable;
+  }
+  .sx-opsd-colhead {
+    overflow-y: hidden;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin; /* the same gutter width as the box's thin bar */
+  }
+}
+.sx-opsd-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 180, 248, 0.45) transparent;
+}
+/* Shown only where its box scrolls: below lg, or always with [data-wide].
+   (This file is unlayered, so a Tailwind `lg:hidden` would lose to it.) */
+.sx-opsd-fade { display: none; }
+.sx-opsd-fade[data-wide] { display: block; }
+@media (max-width: 63.99rem) { .sx-opsd-fade { display: block; } }
+.sx-opsd-fade {
+  position: sticky;
+  bottom: 0;
+  height: 2.25rem;
+  pointer-events: none;
+  background: linear-gradient(to top, #08101b 15%, rgba(8, 16, 27, 0));
+}
+
+/* ---- while a period change fetches (components/ops-pending.tsx): the
+   skeletons (ops-skeleton.tsx) stand in for the figures, and a thin bar
+   runs across the top of the dashboard */
+.sx-opsd-loadbar {
+  position: absolute;
+  inset: -12px 0 auto;
+  z-index: 5;
+  height: 2px;
+  overflow: hidden;
+  background: rgba(99, 180, 248, 0.15);
+}
+.sx-opsd-loadbar::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 35%;
+  background: linear-gradient(90deg, transparent, #9be0ff, transparent);
+  box-shadow: 0 0 12px #63b4f8;
+  animation: sx-opsd-run 1.1s ease-in-out infinite;
+}
+@keyframes sx-opsd-run { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-opsd-col,
+  .sx-opsd-seg { animation: none; }
+  /* a loader still says it is working — slower, never removed */
+  .sx-opsd-loadbar::after { animation-duration: 2.4s; }
+}
