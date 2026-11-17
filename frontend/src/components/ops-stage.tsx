@@ -206,7 +206,7 @@ const GAP = 4;
 /** `compact`: the header tile's small ring. `waiting`: how many queues have
  *  work — the figure in the middle; the arcs are one equal segment per such
  *  queue, so the ring states no sum (POL-FE-15). */
-export function ActionRing({ cards, waiting, compact = false }: { cards: QueueCard[]; waiting: number; compact?: boolean }) {
+export function ActionRing({ cards, waiting, compact = false, bare = false }: { cards: QueueCard[]; waiting: number; compact?: boolean; /** No figure in the middle — the card beside it already says it (POL-FE-105). */ bare?: boolean }) {
   const segs = ringSegments(cards, C, GAP);
   const live = cards.filter((c) => c.count > 0);
   const label =
@@ -245,7 +245,7 @@ export function ActionRing({ cards, waiting, compact = false }: { cards: QueueCa
         ))}
       </svg>
       <div aria-hidden="true" className="absolute inset-0 grid place-content-center text-center">
-        {waiting === 0 ? (
+        {bare && waiting > 0 ? null : waiting === 0 ? (
           <>
             <span className={`font-bold leading-none text-[#86efac] ${compact ? "text-2xl" : "text-[44px]"}`}>✓</span>
             {!compact && <span className="mt-2 text-[10px] uppercase tracking-[0.3em] text-[#9aa4b2]">All clear</span>}
