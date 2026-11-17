@@ -99,3 +99,15 @@
   - The same seven rows on the tracker's Phase 2 sheet (rows 145–151, Order 36.91–36.94 and 38.7–38.9), with the Dashboard formulas, filter, formatting and Status list extended to row 151.
 - **Also:** merged `main_development` into `feat/POL-101-student-profile`. polish.md and this log kept both sides. On the tracker, POL-FE-105/106 were kept and POL-BE/FE-101…104 re-applied after them at Order 132–139.
 - **Next:** `2S4-BE-14` first: draft the three forms' wording and the card list for the owner's approval.
+
+## POL-107 recorded: "+ New request" leads to pre-made packages (rcfworks)
+- **Found:** the owner, on staging, said creating a campaign is a dead end: "+ New request" opens pre-made packages instead of letting a sponsor create their own. Confirmed in code and live: all three buttons (Dashboard, Campaigns, Requests) and the Campaigns empty state go to `/sponsor/marketplace`.
+- **Already there:** `POST /briefs` already takes no package, and automatic approval handles that.
+- **The gap:** a brief has no country. The owner added a Country field to the form.
+- **Recorded:**
+  - polish.md #107.
+  - Tracker rows on the Polish sheet:
+    - `POL-BE-107` (the country on the brief, matching by athlete `countryCode`; ours, Ready);
+    - `POL-FE-107` (the Create a campaign page at `/sponsor/campaigns/new`; HeckerCreatives, Ready, with the Country field waiting on POL-BE-107).
+  - Index row H now reads 44–51, 101–104, 107.
+- **Not built.**
