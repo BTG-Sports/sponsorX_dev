@@ -34,7 +34,7 @@ also has a back-end row waits for it.
 | E · Payments switch | 36 | Turn live payments on when polish is done |
 | F · Clean pass | 37–40 | Production shows outdated wording, developer notes and sample figures |
 | G · Support and help desk | 41–43 | Support messages live only in Gmail, and admins can't see what is wrong with a held request |
-| H · Found in walkthrough practice | 44–51, 101–104 | Testers getting the feel of the app hit dead ends and silent waits |
+| H · Found in walkthrough practice | 44–51, 101–104, 107 | Testers getting the feel of the app hit dead ends and silent waits |
 | I · Whole-app review | 52–78 | The 2026-11-15 review: 7 blockers, then every major and minor finding, in eight waves |
 
 **Closed 2026-11-15.** Every item, 1 to 51, is Done on the Polish sheet (71
@@ -2991,3 +2991,36 @@ the blockers and today's content review findings.
     - Same server action, transitions and refusals. The e2e strings are unchanged ("Start review", "Approve" exactly, "Activate athlete", the guardian sentences, "<name> approved", "<name> is active").
   - **Files:** `components/applications-desk.tsx`, `components/scout-stage.tsx`, `lib/applications-ui.ts` (`waitShort`, `STATE_NEXT`, `trackSteps`, `nextMove`, tested in `tests/applications-board.test.ts`), `app/(app)/admin/applications/(queue)/{page.tsx,loading.tsx,applications.css}`. No API change.
   - **Checked:** 2,392 / 2,392 frontend tests; tsc and eslint clean. Walked live as the QA BTG admin at 1440 and 390 (All and Needs review, the drawer for an active and an info-requested application, List ↔ Cards, the How it works panel opened and closed by Escape and Got it, the review panel for an under-review and an active athlete with Go to it and each choice tried, nothing submitted): no sideways scroll, no console errors. `npm run build` not run (the owner's `next dev` is live).
+
+### 107. "+ New request" sends a sponsor to pre-made packages, so they can't create a campaign of their own [§9 screen 4, §13, P4-FE-01]
+`POL-BE-107` · `POL-FE-107` · *Dead end* · confirmed (programme owner on staging, 2026-11-17: "creating a campaign leads to a dead end. it brings me to pre made campaigns. do not do that. create a campaign lets the user create a new campaign, not use a current pre-laid out campaign"; then: "on the campaign forms, add 1 more field... Country") · recorded only, not built
+- **Problem:**
+  - All three "+ New request" buttons in the sponsor portal go to `/sponsor/marketplace` (Packages): the Dashboard (`app/(app)/sponsor/page.tsx`), Campaigns (`sponsor/campaigns/page.tsx`) and Requests (`sponsor/requests/page.tsx`). So does the Campaigns empty state ("Browse packages to start one").
+  - Packages only offers pre-made packages and job types. A signed-in sponsor has no way to describe a campaign of their own.
+  - Checked live on staging as a test sponsor: the button opens Packages (12 packages, 7 job types), and every way forward there is "Request this" on a pre-made item.
+- **What already exists:** `POST /briefs` (`CampaignBriefInput`) treats `packageId` as optional. It takes the goal, budget, dates, sports, states, the sponsor's category and categories to avoid, channels, audience tiers and a minimum audience. Automatic brief approval (P4-BE-11) already handles a brief without a package: the budget is checked against the lowest NIL job floor.
+- **What's missing:** a country. The brief has `stateCodes` (US states) and no country. Athletes have `countryCode` (default `US`).
+- **Fix:**
+  - **Backend (`POL-BE-107`):** a country on the brief.
+    - `countryCode` on `CampaignBrief`, ISO 3166-1 alpha-2, default `US`. It is in `CampaignBriefInput` and the brief edit input, and it is returned on reads, in OpenAPI.
+    - States are only accepted with `US`. Outside the US the brief targets the whole country.
+    - Matching, the staffing check and automatic approval count only athletes whose `countryCode` matches.
+  - **Frontend (`POL-FE-107`):** a **Create a campaign** page at `/sponsor/campaigns/new`, a step-by-step form that submits `POST /briefs` with no package:
+    1. **Goal:** what the campaign should achieve.
+    2. **Budget and dates:** budget, start date and end date.
+    3. **Who to reach:**
+       - **Country** (default United States). States are shown only for the United States.
+       - Sports.
+       - Audience size (tiers, and a minimum number of followers).
+       - Channels.
+    4. **Brand safety:** the sponsor's own category, and categories to avoid.
+    5. **Review and submit.**
+  - **Buttons:** the three "+ New request" buttons become **"+ Create a campaign"** and open `/sponsor/campaigns/new`. The Campaigns empty state's main button does the same, with "or start from a ready-made package" as a secondary link to Packages.
+  - **Packages stays** in the Marketplace menu, for sponsors who want a ready-made bundle. It is no longer where "create" leads.
+- **Done when:**
+  - From the Dashboard, Campaigns and Requests, "+ Create a campaign" opens a blank campaign form, never the package list.
+  - A sponsor admin can fill in goal, budget, dates, country, states (United States only), sports, audience, channels and categories, and submit.
+  - The brief is saved with no package and with the country, and appears under Requests. It is approved automatically or held for BTG with the reason, as a package request is.
+  - Only athletes in the chosen country are matched, staffed or counted towards approval. States outside the United States are refused (400).
+  - A sponsor analyst sees the form read-only, or is told they can't create one. Another sponsor's and non-sponsor roles are refused (§30).
+  - Works at phone width. Build and tests pass.
