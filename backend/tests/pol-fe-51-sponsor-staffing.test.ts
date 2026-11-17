@@ -115,13 +115,14 @@ describe("the pure rules", () => {
 describe("listTargeting — the drawer's sports and states", () => {
   it("answers distinct, sorted values of the caller's tenant's ACTIVE athletes — nothing else", async () => {
     athleteRows = [
-      { sport: "Soccer", stateCode: "VA" },
-      { sport: "Basketball", stateCode: "MD" },
-      { sport: "Basketball", stateCode: null },
+      { sport: "Soccer", stateCode: "VA", countryCode: "US" },
+      { sport: "Basketball", stateCode: "MD", countryCode: "US" },
+      { sport: "Basketball", stateCode: null, countryCode: "ca" },
     ];
     const out = await listTargeting(sponsor);
-    expect(out).toEqual({ sports: ["Basketball", "Soccer"], stateCodes: ["MD", "VA"] });
-    expect(Object.keys(out).sort()).toEqual(["sports", "stateCodes"]);
+    /* POL-BE-107 — the countries too, upper-cased. */
+    expect(out).toEqual({ sports: ["Basketball", "Soccer"], countryCodes: ["CA", "US"], stateCodes: ["MD", "VA"] });
+    expect(Object.keys(out).sort()).toEqual(["countryCodes", "sports", "stateCodes"]);
     for (const a of calls.athleteFindMany) {
       expect(a.where).toMatchObject({ tenantId: "t_1", state: "ACTIVE" });
       /* One column, one value per row: no id, name or count can come back. */
@@ -133,7 +134,7 @@ describe("listTargeting — the drawer's sports and states", () => {
   it("is open to a read-only sponsor and closed to a role that can't browse packages", async () => {
     await expect(listTargeting(analyst)).resolves.toBeDefined();
     await expect(listTargeting(athlete)).rejects.toThrow();
-    expect(calls.athleteFindMany.length).toBe(2); // the analyst's two reads only
+    expect(calls.athleteFindMany.length).toBe(3); // the analyst's three reads only (sports, countries — POL-BE-107 — and states)
   });
 });
 

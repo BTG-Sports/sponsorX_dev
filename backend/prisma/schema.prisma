@@ -887,7 +887,11 @@ model CampaignBrief {
   startDate            DateTime
   endDate              DateTime
   sports               String[]
-  /// US state codes targeted by the brief.
+  /// POL-BE-107 — the country the campaign targets, ISO 3166-1 alpha-2.
+  /// Only athletes with this `countryCode` are matched, staffed or counted
+  /// for automatic approval. States below are allowed only with US.
+  countryCode          String     @default("US")
+  /// US state codes targeted by the brief (only when countryCode is US).
   stateCodes           String[]
   /// Conflict-check input — §26.
   categories           String[]
@@ -1536,6 +1540,8 @@ model Agreement {
   effectiveAt DateTime
 
   acceptances AgreementAcceptance[]
+  /// 2S4-BE-14 — Deal Chat agreements filled in from this version (kind DEAL).
+  deals       DealAgreement[]
 
   @@unique([tenantId, kind, version])
 }
@@ -1567,6 +1573,9 @@ model AgreementAcceptance {
   order            CampaignOrder?
   /// 2S4-FE-02 — the sponsor's acceptance of a marketplace order's terms.
   marketplaceOrder MarketplaceOrder?
+  /// 2S4-BE-14 — a Deal Chat agreement this acceptance signed, as the sponsor or as the seller.
+  dealAsSponsor    DealAgreement?    @relation("DealSponsorAcceptance")
+  dealAsSeller     DealAgreement?    @relation("DealSellerAcceptance")
   rights           ContentRight[]
 
   @@index([tenantId, agreementId])
@@ -2291,10 +2300,10 @@ model EditionAsset {
   btgPassedAt         DateTime?
   btgRevisionAt       DateTime?
 
-  edition  Edition        @relation(fields: [editionId], references: [id])
-  campaign Campaign?      @relation(fields: [campaignId], references: [id])
-  adSlot   AdSlot?        @relation(fields: [adSlotId], references: [id])
-  rights   ContentRight[]
+  edition    Edition            @relation(fields: [editionId], references: [id])
+  campaign   Campaign?          @relation(fields: [campaignId], references: [id])
+  adSlot     AdSlot?            @relation(fields: [adSlotId], references: [id])
+  rights     ContentRight[]
   assignment StudentAssignment?
 
   @@index([tenantId, editionId])
@@ -3125,6 +3134,8 @@ model MarketplaceOrder {
   updatedAt            DateTime              @default(now()) @updatedAt
 
   reservation     Reservation               @relation(fields: [reservationId], references: [id])
+  /// 2S4-BE-14 — the Deal Chat agreement with each seller on the order.
+  dealAgreements  DealAgreement[]
   acceptance      AgreementAcceptance?      @relation(fields: [acceptanceId], references: [id], onDelete: Restrict)
   lines           MarketplaceOrderLine[]
   sellerApprovals OrderSellerApproval[]
@@ -5141,4 +5152,53 @@ model CampaignChangeRequest {
 
   @@index([tenantId, state, createdAt])
   @@index([campaignId])
+}
+
+/// 2S4-BE-14 — a Deal Chat agreement: the approved DEAL template filled in
+/// from the order and the chat, between the order's sponsor and ONE seller
+/// (the athlete, the guardian signing for a minor, or the team). Addressed
+/// like an OrderSellerApproval: it lives in the order's books (tenantId,
+/// sponsorId) and the seller reaches it in their own tenant (athleteTenantId
+/// + athleteId, or propertyTenantId + propertyId). `body` is the exact text
+/// shown and signed; `bodyHash` its fingerprint, copied into each signature.
+/// A newer form for the same seller withdraws the open one; a signed one is
+/// never changed.
+model DealAgreement {
+  id                  String    @id @default(cuid())
+  tenantId            String
+  orderId             String
+  sponsorId           String
+  athleteId           String?
+  athleteTenantId     String?
+  propertyId          String?
+  propertyTenantId    String?
+  /// The order lines this seller delivers.
+  lineIds             String[]
+  /// The DEAL template version it was filled in from.
+  agreementId         String
+  /// CONTENT | IN_PERSON | PLACEMENT — the D7 sections it carries.
+  forms               String[]
+  body                String
+  bodyHash            String
+  /// The final amount both sides typed, and the order's amount for these lines before it.
+  amountCents         Int
+  originalAmountCents Int
+  /// OPEN (waiting for signatures) | SIGNED | WITHDRAWN
+  state               String    @default("OPEN")
+  sponsorAcceptanceId String?   @unique
+  sellerAcceptanceId  String?   @unique
+  signedAt            DateTime?
+  withdrawnAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
+
+  order             MarketplaceOrder     @relation(fields: [orderId], references: [id])
+  agreement         Agreement            @relation(fields: [agreementId], references: [id])
+  sponsorAcceptance AgreementAcceptance? @relation("DealSponsorAcceptance", fields: [sponsorAcceptanceId], references: [id], onDelete: Restrict)
+  sellerAcceptance  AgreementAcceptance? @relation("DealSellerAcceptance", fields: [sellerAcceptanceId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, state])
+  @@index([orderId])
+  @@index([athleteTenantId, athleteId])
+  @@index([propertyTenantId, propertyId])
 }

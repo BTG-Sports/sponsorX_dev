@@ -172,6 +172,7 @@ export type Resource =
   | "restrictedWord"
   | "orderDelivery"
   | "orderSellerApproval"
+  | "dealAgreement"
   | "refundDue"
   | "teamInvitation"
   | "accountClosure"
@@ -273,6 +274,7 @@ export const RESOURCES: readonly Resource[] = [
   "restrictedWord",
   "orderDelivery",
   "orderSellerApproval",
+  "dealAgreement",
   "refundDue",
   "teamInvitation",
   "accountClosure",
@@ -1047,6 +1049,21 @@ export const POLICY: Record<Resource, RolePolicy> = {
     PROPERTY_MGR: rwa("own-property", "own-property"),
     ATHLETE: rwa("own", "own"),
     SPONSOR_ADMIN: rwa("own-sponsor"),
+    SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
+  /* 2S4-BE-14 (matrix §24.1) — a Deal Chat agreement between an order's
+     sponsor and one seller. The two parties read it (and download it, at any
+     time) and sign it: the sponsor's admin, and the seller — the team's
+     manager, or the athlete (a guardian acting for a minor holds this cell).
+     The sponsor's analyst reads. BTG reads it in the order's books; nobody at
+     BTG signs for either side. */
+  dealAgreement: {
+    SUPER_ADMIN: rwa("any"),
+    BTG_ADMIN: rwa("own-tenant"),
+    FINANCE: rwa("own-tenant"),
+    PROPERTY_MGR: rwa("own-property", "own-property"),
+    ATHLETE: rwa("own", "own"),
+    SPONSOR_ADMIN: rwa("own-sponsor", "own-sponsor"),
     SPONSOR_ANALYST: rwa("own-sponsor"),
   },
   /* 2S4-BE-13 (matrix §25) — refunds to send. Money owed back to a sponsor,

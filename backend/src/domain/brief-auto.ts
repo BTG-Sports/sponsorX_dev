@@ -56,7 +56,7 @@ export type AutoOutcome =
 
 const BRIEF = {
   id: true, tenantId: true, sponsorId: true, state: true, objective: true, budget: true,
-  startDate: true, endDate: true, sports: true, stateCodes: true, categories: true,
+  startDate: true, endDate: true, sports: true, countryCode: true, stateCodes: true, categories: true,
   autoApproved: true, heldAt: true, heldKeys: true, heldReasons: true,
   package: { select: { name: true, priceLow: true, athleteCountMin: true, athleteCountMax: true, lineItems: true, active: true } },
   sponsor: { select: { name: true, categories: true } },
@@ -85,7 +85,7 @@ async function gather(tx: Tx, b: BriefRow) {
     }),
     tx.athlete.count({
       /* tenant-scope: pinned to the brief's own tenant; athleteFit is the matching rule. */
-      where: { tenantId: b.tenantId, ...athleteFit(b.sports.filter(Boolean), b.stateCodes.filter(Boolean), categories) },
+      where: { tenantId: b.tenantId, ...athleteFit(b.sports.filter(Boolean), b.stateCodes.filter(Boolean), categories, b.countryCode) },
     }),
   ]);
   return {

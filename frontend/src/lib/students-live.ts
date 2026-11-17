@@ -275,3 +275,47 @@ export function salesMilestone(totalCents: number) {
   const into = totalCents % step;
   return { toNextCents: step - into, pct: Math.round((into / step) * 100) };
 }
+
+/* --------------------------------------------------------------------------
+   POL-FE-101 — the student's own profile, as GET /students/me answers it
+   (POL-BE-101). The display name is the one field a student changes; every
+   other field is the school's to correct, so the page names the faculty
+   advisor to ask. A minor sees their guardian as a status only.
+   -------------------------------------------------------------------------- */
+
+export type ApiStudentProfile = {
+  id: string;
+  legalName: string;
+  displayName: string;
+  gradYear: number | null;
+  school: { name: string };
+  masthead: string[];
+  state: ApiStudentState;
+  leftAt: string | null;
+  code: string | null;
+  minor: boolean;
+  guardian: { linked: boolean; verified: boolean } | null;
+  /** The school's active advisor logins. The data model keeps an email, not a name. */
+  advisors: Array<{ email: string }>;
+  editable: string[];
+};
+
+/** The API's rule, checked first so the form can say what's wrong before sending.
+ *  Null when the name is fine. Mirrors StudentDisplayNameInput (backend). */
+export function displayNameProblem(raw: string): string | null {
+  const name = raw.replace(/\s+/g, " ").trim();
+  if (!name) return "Type the name you'd like to be shown.";
+  if (/[\p{Cc}\u200B\u200E\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/u.test(raw.trim())) return "That name has a hidden character in it. Type it again.";
+  if (name.length < 2) return "Use at least 2 characters.";
+  if (name.length > 60) return "Keep it to 60 characters or fewer.";
+  if (!/[\p{L}\p{N}]/u.test(name)) return "Use at least one letter or number.";
+  return null;
+}
+
+/** A minor's guardian, in the student's words — never the guardian's name or contact. */
+export function guardianStatusWords(g: ApiStudentProfile["guardian"]): { label: string; tone: "success" | "warn" } | null {
+  if (!g) return null;
+  if (!g.linked) return { label: "No parent or guardian linked yet", tone: "warn" };
+  if (!g.verified) return { label: "Parent or guardian linked, waiting for SponsorX to confirm them", tone: "warn" };
+  return { label: "Parent or guardian linked and confirmed", tone: "success" };
+}

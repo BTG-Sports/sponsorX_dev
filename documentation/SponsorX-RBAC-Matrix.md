@@ -1546,6 +1546,29 @@ A seller's answer to an order a listing of theirs asks to approve.
 
 ## 25 · Phase 2 · refunds to send *(added 2026-10-02)*
 
+### `dealAgreement` (2S4-BE-14) — §24.1, added 2026-11-17
+Deal Chat's agreement between an order's sponsor and one seller: the approved
+DEAL wording filled in from the order and the chat, and each side's signature.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | — | — |
+| `BTG_ADMIN`, `FINANCE` | own-tenant (the order's books) | — | — |
+| `PROPERTY_MGR` | own-property (the team's) | own-property (signs) | — |
+| `ATHLETE` | own (the independent athlete's; a guardian acting for a minor holds this cell) | own (signs) | — |
+| `SPONSOR_ADMIN` | own-sponsor (its orders') | own-sponsor (signs) | — |
+| `SPONSOR_ANALYST` | own-sponsor (its orders') | — | — |
+
+- **Only the two sides sign.** The sponsor's admin, and the seller: the team's
+  manager or the athlete (a minor's guardian signing for them, the signature
+  naming the guardian). BTG reads every agreement in its books and signs for
+  neither side.
+- **Read means download.** Whoever reads it may download it as a PDF at any
+  time: the form as posted while it waits, the signed copy after (owner,
+  2026-11-17). The order read and the seller's sales read carry a summary with
+  the download path, filtered by this same cell.
+- **Addressed like `orderSellerApproval`.** It lives in the order's books; the
+  seller reaches it in their own tenant and never reads the order through it.
+
 ### `refundDue` (2S4-BE-13)
 Money owed back to a sponsor: one row per refund of a paid order, in the
 order's books.

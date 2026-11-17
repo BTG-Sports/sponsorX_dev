@@ -1,4 +1,44 @@
-# 2026-11-17 — HeckerCreatives
+# 2026-11-17 · tasks completed
+
+## Staging kept level with main (rcfworks)
+
+- **#446 deployed** (`fb8f0ea`, late on 2026-11-16): Jan's POL-FE-90…98 — sponsor shop, cart,
+  checkout and orders; athlete sales, sale and payouts redesigns; Log out in the portal nav.
+- **#448 deployed** (`486eefd`): Jan's POL-FE-99 Help & FAQ center (one per portal, under
+  `/<portal>/help` — there is no top-level `/help`) and the POL-FE-100 `/contact` redesign.
+- Both via `npm run deploy staging` after main's CI was green; api and web reported success.
+  Smoke: `/`, `/next/schools`, `/contact`, `/login`, `/s/<code>` → 200; portal pages and
+  `/<portal>/help` → 307 to `/login` when signed out. (`/sign-in` is a 404 — the app's sign-in
+  page is `/login`.)
+- `main_development` and `main` carry the same code; no other PRs were open.
+
+## #449 (POL-101) — the lint failure fixed (rcfworks)
+
+- **Cause:** CI's "typecheck · lint · unit · authz matrix" job failed at lint —
+  `backend/src/contracts/student.ts:116`, `HIDDEN_CHARS`, held the invisible characters
+  themselves (zero-width space, LRM/RLM, bidi embeddings/overrides/isolates, BOM), which
+  `no-irregular-whitespace` rejects. Typecheck and unit tests never ran.
+- **Fix (`7e7cbe71`):** the same class written as `\u` escapes. Checked the old and new
+  pattern against U+200B, 200E, 200F, 202A–202E, 2060, 2066–2069, FEFF and a control
+  character (all match), and `A` and the emoji joiner U+200D (neither matches).
+- **Checked locally:** security scripts, secret scan, dependency audit, lint, both builds;
+  backend 269 files / 3,874 tests, frontend 204 files / 2,380 tests. CI on `7e7cbe71`: all
+  four checks green, e2e included. Ready to merge.
+
+## Tracker
+
+- No change needed from rcfworks: POL-BE-88 and POL-FE-89 were already moved to Done (and the
+  2026-11-16 Stage Progress row appended) in Jan's tracker copy carried by #447 / #449.
+
+## Next (rcfworks)
+
+- Audit fix queue, item 5: the advisor desk (`/advisor`, `/advisor/review`) has no link in
+  the admin menu (`frontend/src/lib/admin-nav.ts`). Plan first.
+- Raise Jan's athlete-portal rows from the 2026-11-16 audit (guardian deliverable upload,
+  a minor's always-failing buttons, the wizard's held message, offer → order back link and
+  Stripe wording, "List it"). New polish numbers start at 105.
+
+## HeckerCreatives
 
 ## POL-FE-105 · the admin dashboard redrawn as a card grid (polish.md item 105)
 - **Asked:** the owner wanted `/admin` to be "the dashboard itself like in the image provided", easy to understand, keeping the Mission Control theme. They sent three dashboard screenshots: ring KPI cards, a line chart, bar and donut cards, a gauge and a table.
@@ -45,3 +85,68 @@
   - Walked live as the QA BTG admin at 1440 and 390: All and Needs review, drawers for an active and an info-requested application, List ↔ Cards. No sideways scroll, no console errors.
   - Not built in a worktree, e2e not run.
 - **Status:** Code review on the Polish sheet (row 143). Not committed.
+
+## Deal Chat written down as a Phase 2 feature (rcfworks)
+- **Asked:** the owner, reviewing the sponsor order page on staging, wants an agreement between the sponsor and the seller before the Stripe step, reached through a chat. After several rounds, the owner said it is a feature, not a polish item.
+- **Decided (owner, 2026-11-17):**
+  - The chat comes first, with ready-made question cards and selectable answers. This stage makes or breaks the deal: calling it off cancels the order.
+  - When the picks differ, the offer is free text with no other field, answered Reply / Accept / Decline. Once both accept, the exchange goes into the agreement word for word.
+  - At the end, both sides type the final amount, pre-filled with the original, and the two must match.
+  - SponsorX provides the forms, and rcfworks drafts the wording.
+- **Written:**
+  - `documentation/SponsorX-Deal-Chat-Feature.md` (the design and the decisions).
+  - Seven tasks in Phase 2 Sprint 4: `2S4-BE-14`…`17` (Ready) and `2S4-FE-07`…`09` (Blocked on the API).
+  - The same seven rows on the tracker's Phase 2 sheet (rows 145–151, Order 36.91–36.94 and 38.7–38.9), with the Dashboard formulas, filter, formatting and Status list extended to row 151.
+- **Also:** merged `main_development` into `feat/POL-101-student-profile`. polish.md and this log kept both sides. On the tracker, POL-FE-105/106 were kept and POL-BE/FE-101…104 re-applied after them at Order 132–139.
+- **Next:** `2S4-BE-14` first: draft the three forms' wording and the card list for the owner's approval.
+
+## POL-107 recorded: "+ New request" leads to pre-made packages (rcfworks)
+- **Found:** the owner, on staging, said creating a campaign is a dead end: "+ New request" opens pre-made packages instead of letting a sponsor create their own. Confirmed in code and live: all three buttons (Dashboard, Campaigns, Requests) and the Campaigns empty state go to `/sponsor/marketplace`.
+- **Already there:** `POST /briefs` already takes no package, and automatic approval handles that.
+- **The gap:** a brief has no country. The owner added a Country field to the form.
+- **Recorded:**
+  - polish.md #107.
+  - Tracker rows on the Polish sheet:
+    - `POL-BE-107` (the country on the brief, matching by athlete `countryCode`; ours, Ready);
+    - `POL-FE-107` (the Create a campaign page at `/sponsor/campaigns/new`; HeckerCreatives, Ready, with the Country field waiting on POL-BE-107).
+  - Index row H now reads 44–51, 101–104, 107.
+- **Not built.**
+
+## POL-BE-107 built: a campaign request's country (rcfworks)
+- **The brief:** `CampaignBrief.countryCode` (default US, migration `20261117180000_brief_country`). It is in the create and edit contracts and on brief reads. Unknown codes are refused, and states are allowed only with US (400).
+- **Matching by country:**
+  - matching (`athleteFit` / `eligibilityWhere`): the shortlist, automatic approval and readiness;
+  - the match engine: athletes abroad and their items are left out;
+  - make-good.
+- **Catalogue:**
+  - `/catalogue/staffing` takes `?country=`.
+  - `/catalogue/targeting` returns `countryCodes`, and its states are US-only.
+- **Tests:**
+  - `backend/tests/pol-be-107-brief-country.test.ts`, real database through the API; removing the filter fails five of them.
+  - The full backend suite was green after one fix: test servers must listen on 127.0.0.1 and wait for "listening".
+- **Local DB:** a Postgres from an earlier session was already on 5433, so I migrated `sponsorx_test` there (the scratchpad download couldn't bind the port). In zsh, `export A=x B=$A` leaves B empty: set both URLs explicitly, or the DB suites skip silently.
+- **Status:** Done (merged #455, CI green). `POL-FE-107` can now use `countryCodes` from targeting and send `countryCode` on `POST /briefs`.
+
+## 2S4-BE-14 built: Deal Chat's agreement (rcfworks)
+- **Approved by the owner today:**
+  - 2 working days to approve content or ask for changes;
+  - an email nudge to whoever's turn it is after every 2 working days without a reply, until signed (folded into `2S4-BE-15`);
+  - posts stay up 30 days;
+  - firearms and adult content restricted;
+  - no more cards;
+  - the agreement downloadable at any time by both sides, from the order card and the item card. Backend only; the frontend is HeckerCreatives'.
+- **Built:**
+  - `backend/agreements/DEAL.v1.txt` issued: the three forms in one file, with D7 sections a package letters.
+  - `deal-cards.ts`: the cards and their approved sentences, checked word for word against the approved draft by a test.
+  - `deal-agreement-render.ts`: chat text can't reach into the template.
+  - `DealAgreement` model (migration `20261117200000_deal_agreements`).
+  - `deal-agreement.ts`: open, sign and read, plus the PDF through `renderPdf`.
+  - Routes: `GET /deal-agreements/{id}`, `/sign` and `/download`.
+  - `dealAgreements` on the sponsor's order reads and `dealAgreement` on the seller's sales reads.
+  - The `dealAgreement` resource: RBAC matrix §24.1, the grid digest updated, and the tenant-isolation sweep covering the three routes.
+- **Tests:** `backend/tests/deal-agreement.test.ts`, 18 tests.
+- **Owner, later the same day:**
+  - **Firearms and adult content: yes, everywhere.** Both are added to `SENSITIVE_CATEGORIES`. Brief holds, minors never matched, NEXT ad sales and artwork review now cover them. The offer disclosure is per category through the new `SENSITIVE_CATEGORY_AGE`: 21+, adult content 18+.
+  - **Signing limit: "I don't know".** I set 10 working days, as a setting: room for four reminders, plus a last warning 2 working days before cancelling. Written into `2S4-BE-15` and the feature spec.
+- **Checked:** full backend suite 3,910 / 3,910 locally.
+- **Status:** Done (merged #458, CI green).

@@ -55,7 +55,7 @@ import { lineFloor } from "./margin-floor";
 import { athleteFloor, offerParty, PARTY_SELECT } from "./offer-desk";
 import { OfferError } from "./offer";
 import { restrictionConflicts } from "./restrictions";
-import { SENSITIVE_CATEGORIES } from "./brand-categories";
+import { SENSITIVE_CATEGORIES, SENSITIVE_CATEGORY_AGE } from "./brand-categories";
 
 export const OFFER_DRAFT_DEFAULTS = {
   usageRights: "Organic posts on the sponsor's own social channels during the campaign and for 90 days after it ends.",
@@ -72,7 +72,7 @@ export const DELIVERABLE_LEAD_DAYS = 7;
  *  sensitive categories (brand-categories.ts), which also holds a brief in
  *  one of them for BTG. */
 export const CATEGORY_DISCLOSURES: Readonly<Record<string, string>> = Object.fromEntries(
-  SENSITIVE_CATEGORIES.map((c) => [c, "21+"]),
+  SENSITIVE_CATEGORIES.map((c) => [c, SENSITIVE_CATEGORY_AGE[c]]),
 );
 
 export class OfferDraftNotFoundError extends Error {

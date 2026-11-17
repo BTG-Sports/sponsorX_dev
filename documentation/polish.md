@@ -34,7 +34,7 @@ also has a back-end row waits for it.
 | E · Payments switch | 36 | Turn live payments on when polish is done |
 | F · Clean pass | 37–40 | Production shows outdated wording, developer notes and sample figures |
 | G · Support and help desk | 41–43 | Support messages live only in Gmail, and admins can't see what is wrong with a held request |
-| H · Found in walkthrough practice | 44–51 | Testers getting the feel of the app hit dead ends and silent waits |
+| H · Found in walkthrough practice | 44–51, 101–104, 107 | Testers getting the feel of the app hit dead ends and silent waits |
 | I · Whole-app review | 52–78 | The 2026-11-15 review: 7 blockers, then every major and minor finding, in eight waves |
 
 **Closed 2026-11-15.** Every item, 1 to 51, is Done on the Polish sheet (71
@@ -2875,6 +2875,70 @@ the blockers and today's content review findings.
   - **Sent:** the ring and tick draw, sparks burst, what was sent, "Write another message". `?demo=sent` uses the same panel.
   - **Files:** `app/(public)/contact/{page.tsx,contact.css}`, `components/contact-form.tsx`, new `components/contact-stage.tsx` and `components/contact-fx.tsx`. No API change; `lib/helpdesk-live.ts` untouched.
 
+### 101. A NEXT student has no page showing their own details [NEXT spec §8, P9-FE-01]
+`POL-BE-101` · `POL-FE-101` · *Dead end* · confirmed (found in live staging practice, 2026-11-17)
+- **Problem:**
+  - A signed-in NEXT student's portal (`/next`) has Home, Assignments, My sales, My code and Points, and no page showing their own details: their legal name, school, class year, roles, where their account stands, or whether their guardian is confirmed. A wrong detail could only be noticed by chance, and nothing said who corrects it.
+  - The NEXT spec never defined a profile page, and the API had no self-service student endpoint: only `/students/{id}` (and `/code`, `/sales`, `/points`), read by id.
+- **Fix:**
+  - **Backend (`POL-BE-101`):** `GET /students/me` answers the caller's own record; `PATCH /students/me` changes the display name, the one field a student edits. The record is the login's own (`User.studentId`), inside its tenant, never an id from the request; only a STUDENT login reaches either.
+  - **Frontend (`POL-FE-101`):** a **Profile** page at `/next/profile`, in the student portal's menu, with the display name editable and every other field read-only, each saying to ask the faculty advisor, and the advisor's email when the school has one.
+- **Done when:**
+  - A signed-in student sees their legal name, display name, graduation year, school, roles, account state, sales code and, if under 18, whether a parent or guardian is linked and confirmed (status only: never the guardian's name or contact).
+  - They can change their display name: trimmed, 2–60 characters, at least one letter or number, no hidden characters; it takes effect at once and is audited (`student.displayNameUpdate`, before and after). The same name again writes nothing.
+  - Nothing else can be changed: not the legal name, school, roles, graduation year, date of birth or guardian. The API refuses any other key in the body (400).
+  - Another student's record, another tenant's and every non-student role (advisor, guardian, BTG, sponsor) are refused (403). A student who has left (INACTIVE) or was not accepted (REJECTED) can read but not change (409).
+  - Each read-only row says "Wrong? Ask your faculty advisor to correct it", and the page lists the school's active advisor emails as mailto links. No messaging is built.
+  - No date of birth, no email and no guardian detail reaches the response; no tax ID or bank detail exists to show. A minor's data is no more visible to anyone else than before.
+  - Build and tests pass.
+- **Delivered (2026-11-17, infinex1):**
+  - **Backend:** `backend/src/domain/student-profile.ts` (`getOwnStudentProfile`, `updateOwnDisplayName`, `StudentProfileLockedError`); `StudentDisplayNameInput` (strict) and `StudentProfile` in `backend/src/contracts/student.ts`; both routes in `backend/src/routes/v1/students.ts`, registered before `/students/:id`; both rows in `backend/src/contracts/registry.ts`, so OpenAPI stays complete. Tests: `backend/tests/pol-be-101-student-profile.test.ts` (the contract, and the HTTP path over a real database: own read, edit and audit, another student's record, cross-tenant, non-student roles, validation, the locked states) and `backend/tests/pol-be-101-student-profile.unit.test.ts` (the same rules with Prisma stubbed, so they run without a database).
+  - **Frontend:** `frontend/src/app/(app)/next/profile/page.tsx`; `DisplayNameForm` in `frontend/src/components/student-display-name.tsx`; `updateDisplayNameAction` in `frontend/src/app/(app)/next/actions.ts`; `liveStudentProfile` in `frontend/src/app/(app)/next/live.ts`; `ApiStudentProfile`, `displayNameProblem` and `guardianStatusWords` in `frontend/src/lib/students-live.ts`; the menu entry in `frontend/src/app/(app)/next/layout.tsx` (not the phone tab bar, whose five tabs are full; phones reach it from the menu); the route map. Test: `frontend/tests/student-profile.test.ts`. BTG previewing the portal sees the fixture student with the edit switched off.
+  - **The advisor contact:** the data model links an advisor to a school only through their login (`User`, role ADVISOR, `propertyId` = the school), which keeps an email and no name. So the page shows the active advisors' emails (up to five, disabled logins left out), not names. Showing a name needs a name on the advisor's account first.
+  - **Not done:** the display name is not run past BTG's restricted-words list. The application's display name isn't either, and the list's rule is to route a match to review, never to refuse it, which needs a review step this item doesn't build.
+
+### 102. A sponsor can't see or keep their company and their own details current [§8, §26]
+`POL-BE-102` · `POL-FE-102` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · recorded only, not built
+- **Problem:**
+  - The sponsor portal's Account group has only Billing (`/sponsor/invoices`) and Team (`/sponsor/team`). There is no page for the company's details (company name, logo, website, industry and brand categories, address, billing contact) or for the signed-in person's own (name, job title, the email Clerk holds).
+  - The API's `GET` / `PUT /me/notification-preferences` exists, but no sponsor page shows it: only the athlete's and the property's settings pages (`AccountSettings` in `frontend/src/components/account-settings.tsx`) use it. A sponsor can't mute or unmute anything.
+- **Why it matters:** a sponsor whose address, billing contact or logo changed has to write to BTG, and BTG's records (and Zoho's) drift from the truth. The brand categories feed the conflict checks, so they can't simply be self-edited.
+- **Done when:**
+  - A sponsor admin sees the company's details and their own on one Account page reached from the Account group; a sponsor analyst sees them read-only.
+  - Cosmetic and contact fields (logo, website, address, billing contact; the person's name and job title) save at once and are audit-logged.
+  - Edits to the company name and the industry or brand categories go to BTG review before they take effect, because they change conflict checks and the Zoho account; the sponsor sees "waiting for BTG" until decided.
+  - Email, password and MFA stay in Clerk: the page links to Clerk's account screen rather than storing them.
+  - The page shows the sponsor's notification preferences (the existing `/me/notification-preferences`).
+  - Tenant-scoped and own-organisation only, with role tests: another sponsor's organisation, a sponsor analyst's write and every non-sponsor role are refused (§30).
+
+### 103. A school advisor has no page for their own or their school's details [NEXT spec §8, P9-BE-20]
+`POL-BE-103` · `POL-FE-103` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · recorded only, not built
+- **Problem:**
+  - `/advisor` has Applications (its home), Content review and Help. No page shows the advisor's own details (name, email, which school) or the school's (name, the email domain on file, the roster).
+  - The home already carries the school's email-domain setting (`SchoolEmailDomain`) and the roster paste (`RosterPaste`) among the applications, so the settings exist but aren't presented as the school's profile, and nothing shows who the advisor is.
+- **Why it matters:** the email domain decides which adult students are approved automatically from the roster, so a wrong one silently changes who gets in. And #101 sends students to their advisor by email, but the data model keeps no advisor name, so students see an address only.
+- **Done when:**
+  - An advisor opens a Profile page from the menu: their own name, email (from Clerk), title and phone, and their school's name, email domain and roster count, with the roster's last update.
+  - The advisor can set their own name, title and phone (audit-logged); the name then shows to their students on #101's page in place of the bare email.
+  - The email domain and roster stay editable as today, from this page too, with the existing public-provider refusal; changes are audit-logged.
+  - The school's name and kind are BTG's to change; the page says so.
+  - One school only (`own-property`), tenant-scoped, with role tests: another school's advisor, a student and a guardian are refused (§30).
+
+### 104. A school team can't see or keep its own details current (property portal) — partial today [§8, 2S1-BE-03]
+`POL-BE-104` · `POL-FE-104` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · recorded only, not built
+- **What exists:**
+  - `/property/settings`: the manager's sign-in email (from Clerk), the Stripe payout account, notification preferences and Close account.
+  - `/property/branding`: display name, logo, colours and report footer, editable only when the tenant is an operated one; otherwise read-only, "BTG manages branding".
+- **What's missing:** a page that shows the team its own details and lets it keep them current: school, sport, level, city and state, contact person and phone, public description; and the manager's own details (name, title, phone). Today only BTG sees the whole organisation record (`/admin/onboarding/[id]`).
+- **Why it matters:** a team whose contact or description changed has to ask BTG, and the identity fields (school, sport, level, place) drive matching and conflict checks, so stale ones put the wrong athletes and sponsors together.
+- **Done when:**
+  - The property manager sees all of it on one page in the property portal.
+  - Identity fields that matter for matching and conflicts (school, sport, level, city and state) go to BTG review before they take effect; the manager sees "waiting for BTG" until decided.
+  - Cosmetic and contact fields (contact person and phone, public description; the manager's name, title and phone) save at once and are audit-logged.
+  - Email, password and MFA stay in Clerk.
+  - Tenant-scoped and own-property only, with role tests: another property's manager, an athlete, a sponsor and a student are refused (§30).
+- **Reusing the athlete review queue:** `/admin/profile-changes` reviews `AthleteProfileChange` rows, a model keyed to an athlete (`athleteId`) with athlete-only rules (legal-name ID upload, date of birth and the guardian process). It can't take a property's change as it is. Either generalise it (a subject type and id on the change row, with per-subject rules) or add a `PropertyProfileChange` beside it shown on the same admin page; the first keeps one queue for BTG. Decide when this is built.
+
 ### 105. The admin home is a hero ring over twenty-two equal cards, so staff can't tell what needs them or how things are going [§10, §23, P7-FE-06]
 `POL-FE-105` · *Confusing* · confirmed (programme owner, 2026-11-17: "big visual redesign for /admin, for the dashboard it must be the dashboard itself like in the image provided, make sure its easy to understand because what you did before is so confusing for a human but make sure not to remove the current theme of the visual redesign"; three references: a dark analytics dashboard with ring KPI cards, bar and line charts and a data table, an admin template with a revenue card, an area chart, earnings bars and a segmented "completed" gauge, and a wallet dashboard with price cards, a line chart and donut cards)
 - **Problem:** `/admin` opened on four header tiles (a queue ring, campaigns, systems, a legend), then up to 22 queue cards of equal weight, then three lists. There was no chart, no sense of how things were going, and the cards neither said what period they covered nor which needed attention first.
@@ -2927,3 +2991,56 @@ the blockers and today's content review findings.
     - Same server action, transitions and refusals. The e2e strings are unchanged ("Start review", "Approve" exactly, "Activate athlete", the guardian sentences, "<name> approved", "<name> is active").
   - **Files:** `components/applications-desk.tsx`, `components/scout-stage.tsx`, `lib/applications-ui.ts` (`waitShort`, `STATE_NEXT`, `trackSteps`, `nextMove`, tested in `tests/applications-board.test.ts`), `app/(app)/admin/applications/(queue)/{page.tsx,loading.tsx,applications.css}`. No API change.
   - **Checked:** 2,392 / 2,392 frontend tests; tsc and eslint clean. Walked live as the QA BTG admin at 1440 and 390 (All and Needs review, the drawer for an active and an info-requested application, List ↔ Cards, the How it works panel opened and closed by Escape and Got it, the review panel for an under-review and an active athlete with Go to it and each choice tried, nothing submitted): no sideways scroll, no console errors. `npm run build` not run (the owner's `next dev` is live).
+
+### 107. "+ New request" sends a sponsor to pre-made packages, so they can't create a campaign of their own [§9 screen 4, §13, P4-FE-01]
+`POL-BE-107` · `POL-FE-107` · *Dead end* · confirmed (programme owner on staging, 2026-11-17: "creating a campaign leads to a dead end. it brings me to pre made campaigns. do not do that. create a campaign lets the user create a new campaign, not use a current pre-laid out campaign"; then: "on the campaign forms, add 1 more field... Country") · recorded only, not built
+- **Problem:**
+  - All three "+ New request" buttons in the sponsor portal go to `/sponsor/marketplace` (Packages): the Dashboard (`app/(app)/sponsor/page.tsx`), Campaigns (`sponsor/campaigns/page.tsx`) and Requests (`sponsor/requests/page.tsx`). So does the Campaigns empty state ("Browse packages to start one").
+  - Packages only offers pre-made packages and job types. A signed-in sponsor has no way to describe a campaign of their own.
+  - Checked live on staging as a test sponsor: the button opens Packages (12 packages, 7 job types), and every way forward there is "Request this" on a pre-made item.
+- **What already exists:** `POST /briefs` (`CampaignBriefInput`) treats `packageId` as optional. It takes the goal, budget, dates, sports, states, the sponsor's category and categories to avoid, channels, audience tiers and a minimum audience. Automatic brief approval (P4-BE-11) already handles a brief without a package: the budget is checked against the lowest NIL job floor.
+- **What's missing:** a country. The brief has `stateCodes` (US states) and no country. Athletes have `countryCode` (default `US`).
+- **Fix:**
+  - **Backend (`POL-BE-107`):** a country on the brief.
+    - `countryCode` on `CampaignBrief`, ISO 3166-1 alpha-2, default `US`. It is in `CampaignBriefInput` and the brief edit input, and it is returned on reads, in OpenAPI.
+    - States are only accepted with `US`. Outside the US the brief targets the whole country.
+    - Matching, the staffing check and automatic approval count only athletes whose `countryCode` matches.
+  - **Frontend (`POL-FE-107`):** a **Create a campaign** page at `/sponsor/campaigns/new`, a step-by-step form that submits `POST /briefs` with no package:
+    1. **Goal:** what the campaign should achieve.
+    2. **Budget and dates:** budget, start date and end date.
+    3. **Who to reach:**
+       - **Country** (default United States). States are shown only for the United States.
+       - Sports.
+       - Audience size (tiers, and a minimum number of followers).
+       - Channels.
+    4. **Brand safety:** the sponsor's own category, and categories to avoid.
+    5. **Review and submit.**
+  - **Buttons:** the three "+ New request" buttons become **"+ Create a campaign"** and open `/sponsor/campaigns/new`. The Campaigns empty state's main button does the same, with "or start from a ready-made package" as a secondary link to Packages.
+  - **Packages stays** in the Marketplace menu, for sponsors who want a ready-made bundle. It is no longer where "create" leads.
+- **Done when:**
+  - From the Dashboard, Campaigns and Requests, "+ Create a campaign" opens a blank campaign form, never the package list.
+  - A sponsor admin can fill in goal, budget, dates, country, states (United States only), sports, audience, channels and categories, and submit.
+  - The brief is saved with no package and with the country, and appears under Requests. It is approved automatically or held for BTG with the reason, as a package request is.
+  - Only athletes in the chosen country are matched, staffed or counted towards approval. States outside the United States are refused (400).
+  - A sponsor analyst sees the form read-only, or is told they can't create one. Another sponsor's and non-sponsor roles are refused (§30).
+  - Works at phone width. Build and tests pass.
+- **Delivered, backend (`POL-BE-107`, 2026-11-17, rcfworks):**
+  - **The brief:**
+    - `CampaignBrief.countryCode` (migration `20261117180000_brief_country`, default `US`, so every existing brief reads as US and no match changes).
+    - The country is in `CampaignBriefInput` (default `US`), `CampaignBriefPatch` and the brief read (`GET /briefs`, `/briefs/{id}`), with `CountryCode` in OpenAPI.
+  - **The rules:** in `backend/src/domain/brief-country.ts`.
+    - The code is upper-cased.
+    - An unassigned code is refused (400), as are ZZ and the groupings EU and UN.
+    - States are refused unless the country is US (400): on create, and on an edit judged by the country and states as they will stand after it, so moving a brief abroad needs its states cleared in the same edit.
+  - **Matching by country:**
+    - `athleteFit` and `eligibilityWhere` take the country, so the shortlist (both reads), automatic approval and the readiness counts see only that country's athletes.
+    - The match engine (`gatherCandidates`) leaves out athletes abroad and the items they own, and the make-good engine passes the brief's country through.
+  - **The catalogue:**
+    - `GET /catalogue/targeting` now also returns `countryCodes` (the countries of ACTIVE athletes), and its `stateCodes` are US athletes' only.
+    - `GET /catalogue/staffing` takes `?country=`.
+  - **For `POL-FE-107`:**
+    - The Country list is `GET /catalogue/targeting` → `countryCodes`; show states only for `US`.
+    - Send `countryCode` in `POST /briefs` with no `packageId`.
+    - A 400 says why (states outside the US, or an unknown country).
+  - **Tests:** `backend/tests/pol-be-107-brief-country.test.ts`, the pure rules plus a real database through the API: no package and no country is US; "ca" is stored as CA; states abroad, ZZ and USA are refused with nothing written; five US athletes approve a US brief, while three in Canada hold a Canadian one for athletes, the other tenant's six not counting; the shortlist; the edit rules; the analyst and another tenant refused; targeting and staffing; the match engine. Removing the country filter fails five of them. `pol-fe-51-sponsor-staffing.test.ts` gains `countryCodes`.
+  - **Checked:** backend suite 3,886 / 3,887 against a local Postgres. The one failure was this test's server binding, fixed and re-run green. Backend and frontend build, and lint, are clean.
