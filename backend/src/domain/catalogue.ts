@@ -107,7 +107,12 @@ export async function listPackages(actor: Actor): Promise<SponsorCataloguePackag
 }
 
 /** A sponsor's targeting, as the brief will carry it. */
-export type StaffingTarget = { sports: readonly string[]; stateCodes: readonly string[] };
+export type StaffingTarget = {
+  sports: readonly string[];
+  stateCodes: readonly string[];
+  /** POL-BE-107 — only athletes in this country; absent means any. */
+  countryCode?: string | null;
+};
 
 /**
  * POL-FE-51 — the categories an athlete must not be restricted for: the
@@ -140,7 +145,7 @@ async function staffableWith(
        matching rule. Counted for the yes / no below and never returned. */
     where: {
       tenantId: actor.tenantId,
-      ...athleteFit(target.sports.filter(Boolean), target.stateCodes.filter(Boolean), await sponsorCategories(actor)),
+      ...athleteFit(target.sports.filter(Boolean), target.stateCodes.filter(Boolean), await sponsorCategories(actor), target.countryCode),
     },
   });
   for (const p of packages) out.set(p.id, packageStaffable(p, fitCount));
@@ -166,12 +171,14 @@ export async function packageStaffing(actor: Actor, target: StaffingTarget): Pro
  * GET /catalogue/targeting — POL-FE-51: the sports and US state codes a brief
  * can target, read from the tenant's ACTIVE athletes (the only ones
  * `athleteFit` counts), so the drawer offers nothing no athlete could fit.
+ * POL-BE-107 adds the countries they are in; the states are those of US
+ * athletes only, since a brief names states only when its country is US.
  * Distinct VALUES only, sorted — no names, no ids, no counts. Gated on the
  * package catalogue: whoever may browse packages may ask what they target.
  */
-export async function listTargeting(actor: Actor): Promise<{ sports: string[]; stateCodes: string[] }> {
+export async function listTargeting(actor: Actor): Promise<{ sports: string[]; countryCodes: string[]; stateCodes: string[] }> {
   assertAllowed(actor, "sponsorPackage", "read");
-  const [sports, states] = await Promise.all([
+  const [sports, countries, states] = await Promise.all([
     prisma.athlete.findMany({
       /* tenant-scope: pinned to the caller's own tenant; values only. */
       where: { tenantId: actor.tenantId, state: "ACTIVE" },
@@ -180,13 +187,23 @@ export async function listTargeting(actor: Actor): Promise<{ sports: string[]; s
     }),
     prisma.athlete.findMany({
       /* tenant-scope: pinned to the caller's own tenant; values only. */
-      where: { tenantId: actor.tenantId, state: "ACTIVE", stateCode: { not: null } },
+      where: { tenantId: actor.tenantId, state: "ACTIVE" },
+      select: { countryCode: true },
+      distinct: ["countryCode"],
+    }),
+    prisma.athlete.findMany({
+      /* tenant-scope: pinned to the caller's own tenant; values only. */
+      where: { tenantId: actor.tenantId, state: "ACTIVE", countryCode: "US", stateCode: { not: null } },
       select: { stateCode: true },
       distinct: ["stateCode"],
     }),
   ]);
   const values = (xs: (string | null)[]) => [...new Set(xs.map((x) => (x ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  return { sports: values(sports.map((s) => s.sport)), stateCodes: values(states.map((s) => s.stateCode)) };
+  return {
+    sports: values(sports.map((s) => s.sport)),
+    countryCodes: values(countries.map((c) => (c.countryCode ?? "").toUpperCase())),
+    stateCodes: values(states.map((s) => s.stateCode)),
+  };
 }
 
 /**

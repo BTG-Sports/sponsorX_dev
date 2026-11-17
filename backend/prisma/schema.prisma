@@ -887,7 +887,11 @@ model CampaignBrief {
   startDate            DateTime
   endDate              DateTime
   sports               String[]
-  /// US state codes targeted by the brief.
+  /// POL-BE-107 — the country the campaign targets, ISO 3166-1 alpha-2.
+  /// Only athletes with this `countryCode` are matched, staffed or counted
+  /// for automatic approval. States below are allowed only with US.
+  countryCode          String   @default("US")
+  /// US state codes targeted by the brief (only when countryCode is US).
   stateCodes           String[]
   /// Conflict-check input — §26.
   categories           String[]

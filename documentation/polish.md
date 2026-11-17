@@ -3024,3 +3024,23 @@ the blockers and today's content review findings.
   - Only athletes in the chosen country are matched, staffed or counted towards approval. States outside the United States are refused (400).
   - A sponsor analyst sees the form read-only, or is told they can't create one. Another sponsor's and non-sponsor roles are refused (§30).
   - Works at phone width. Build and tests pass.
+- **Delivered, backend (`POL-BE-107`, 2026-11-17, rcfworks):**
+  - **The brief:**
+    - `CampaignBrief.countryCode` (migration `20261117180000_brief_country`, default `US`, so every existing brief reads as US and no match changes).
+    - The country is in `CampaignBriefInput` (default `US`), `CampaignBriefPatch` and the brief read (`GET /briefs`, `/briefs/{id}`), with `CountryCode` in OpenAPI.
+  - **The rules:** in `backend/src/domain/brief-country.ts`.
+    - The code is upper-cased.
+    - An unassigned code is refused (400), as are ZZ and the groupings EU and UN.
+    - States are refused unless the country is US (400): on create, and on an edit judged by the country and states as they will stand after it, so moving a brief abroad needs its states cleared in the same edit.
+  - **Matching by country:**
+    - `athleteFit` and `eligibilityWhere` take the country, so the shortlist (both reads), automatic approval and the readiness counts see only that country's athletes.
+    - The match engine (`gatherCandidates`) leaves out athletes abroad and the items they own, and the make-good engine passes the brief's country through.
+  - **The catalogue:**
+    - `GET /catalogue/targeting` now also returns `countryCodes` (the countries of ACTIVE athletes), and its `stateCodes` are US athletes' only.
+    - `GET /catalogue/staffing` takes `?country=`.
+  - **For `POL-FE-107`:**
+    - The Country list is `GET /catalogue/targeting` → `countryCodes`; show states only for `US`.
+    - Send `countryCode` in `POST /briefs` with no `packageId`.
+    - A 400 says why (states outside the US, or an unknown country).
+  - **Tests:** `backend/tests/pol-be-107-brief-country.test.ts`, the pure rules plus a real database through the API: no package and no country is US; "ca" is stored as CA; states abroad, ZZ and USA are refused with nothing written; five US athletes approve a US brief, while three in Canada hold a Canadian one for athletes, the other tenant's six not counting; the shortlist; the edit rules; the analyst and another tenant refused; targeting and staffing; the match engine. Removing the country filter fails five of them. `pol-fe-51-sponsor-staffing.test.ts` gains `countryCodes`.
+  - **Checked:** backend suite 3,886 / 3,887 against a local Postgres. The one failure was this test's server binding, fixed and re-run green. Backend and frontend build, and lint, are clean.

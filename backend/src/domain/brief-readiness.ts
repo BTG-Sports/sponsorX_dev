@@ -42,6 +42,8 @@ export type BriefForReadiness = {
   startDate: Date;
   endDate: Date;
   sports: string[];
+  /** POL-BE-107 — absent on an older fixture, which counts any country. */
+  countryCode?: string;
   stateCodes: string[];
   categories: string[];
   package: { name: string; priceLow: number } | null;
@@ -56,7 +58,7 @@ export function canSeeReadiness(actor: Actor): boolean {
 /** The fields a brief read must select for its readiness. */
 export const READINESS_SELECT = {
   id: true, tenantId: true, sponsorId: true, state: true, objective: true, budget: true,
-  startDate: true, endDate: true, sports: true, stateCodes: true, categories: true,
+  startDate: true, endDate: true, sports: true, countryCode: true, stateCodes: true, categories: true,
   package: { select: { name: true, priceLow: true } },
 } as const;
 
@@ -110,14 +112,15 @@ export async function readinessFor(
     const sports = b.sports.filter(Boolean);
     const stateCodes = b.stateCodes.filter(Boolean);
     const categories = b.categories.filter(Boolean);
-    const key = JSON.stringify([b.tenantId, [...sports].sort(), [...stateCodes].sort(), [...categories].sort()]);
+    const country = b.countryCode ?? null;
+    const key = JSON.stringify([b.tenantId, country, [...sports].sort(), [...stateCodes].sort(), [...categories].sort()]);
     let p = counts.get(key);
     if (!p) {
       const pinned = (where: object) => ({ AND: [where, { tenantId: b.tenantId }] });
       p = Promise.all([
-        prisma.athlete.count({ where: pinned(eligibilityWhere(actor, sports, stateCodes, categories)) /* tenant-scope: eligibilityWhere spreads whereFor(athlete), pinned to the brief's tenant */ }),
+        prisma.athlete.count({ where: pinned(eligibilityWhere(actor, sports, stateCodes, categories, country)) /* tenant-scope: eligibilityWhere spreads whereFor(athlete), pinned to the brief's tenant */ }),
         categories.length
-          ? prisma.athlete.count({ where: pinned(eligibilityWhere(actor, sports, stateCodes, [])) /* tenant-scope: eligibilityWhere spreads whereFor(athlete), pinned to the brief's tenant */ })
+          ? prisma.athlete.count({ where: pinned(eligibilityWhere(actor, sports, stateCodes, [], country)) /* tenant-scope: eligibilityWhere spreads whereFor(athlete), pinned to the brief's tenant */ })
           : Promise.resolve(null),
       ]).then(([eligible, withoutConflicts]) => ({
         eligible,

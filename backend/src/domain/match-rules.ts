@@ -54,6 +54,9 @@ export const EXCLUDED_LOOKBACK_DAYS = 365;
 export type BriefForMatch = {
   sponsorId: string;
   sports: readonly string[];
+  /** POL-BE-107 — only athletes (and their items) in this country are
+   *  candidates (match-engine.ts gatherCandidates). Absent: any country. */
+  countryCode?: string | null;
   stateCodes: readonly string[];
   categories: readonly string[];
   excludedCategories: readonly string[];

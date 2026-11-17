@@ -111,3 +111,18 @@
     - `POL-FE-107` (the Create a campaign page at `/sponsor/campaigns/new`; HeckerCreatives, Ready, with the Country field waiting on POL-BE-107).
   - Index row H now reads 44–51, 101–104, 107.
 - **Not built.**
+
+## POL-BE-107 built: a campaign request's country (rcfworks)
+- **The brief:** `CampaignBrief.countryCode` (default US, migration `20261117180000_brief_country`). It is in the create and edit contracts and on brief reads. Unknown codes are refused, and states are allowed only with US (400).
+- **Matching by country:**
+  - matching (`athleteFit` / `eligibilityWhere`): the shortlist, automatic approval and readiness;
+  - the match engine: athletes abroad and their items are left out;
+  - make-good.
+- **Catalogue:**
+  - `/catalogue/staffing` takes `?country=`.
+  - `/catalogue/targeting` returns `countryCodes`, and its states are US-only.
+- **Tests:**
+  - `backend/tests/pol-be-107-brief-country.test.ts`, real database through the API; removing the filter fails five of them.
+  - The full backend suite was green after one fix: test servers must listen on 127.0.0.1 and wait for "listening".
+- **Local DB:** a Postgres from an earlier session was already on 5433, so I migrated `sponsorx_test` there (the scratchpad download couldn't bind the port). In zsh, `export A=x B=$A` leaves B empty: set both URLs explicitly, or the DB suites skip silently.
+- **Status:** Code review on the Polish sheet. `POL-FE-107` can now use `countryCodes` from targeting and send `countryCode` on `POST /briefs`.
