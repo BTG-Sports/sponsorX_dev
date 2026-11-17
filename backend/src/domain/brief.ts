@@ -33,6 +33,7 @@ import { send } from "../lib/email";
 /** A matching list is a set: a repeat in the body is stored once, in the order first sent (QA 2026-10-15). */
 const uniq = <T>(xs: readonly T[] | undefined): T[] => [...new Set(xs ?? [])];
 import { isAdOnlyPackage, sponsorBriefStatus, sponsorWaitingOn, type SponsorBriefStatus, type SponsorWaitingOn } from "./brief-auto-rules";
+import { assertCountryStates, briefCountry } from "./brief-country";
 
 export type BriefInput = {
   sponsorId: string;
@@ -47,6 +48,8 @@ export type BriefInput = {
   startDate: Date;
   endDate: Date;
   sports: readonly string[];
+  /** POL-BE-107 — ISO 3166-1 alpha-2; absent means US. */
+  countryCode?: string | null;
   stateCodes: readonly string[];
   categories: readonly BrandCategory[];
   /** 3S3-BE-01 — the matching inputs: categories the sponsor will not be associated with, channels, and the audience wanted. */
@@ -128,6 +131,9 @@ export async function createBrief(
 ): Promise<BriefSubmitted> {
   assertAllowed(actor, "campaignBrief", "write");
   if (input.endDate <= input.startDate) throw new InvalidBriefWindowError();
+  /* POL-BE-107 — checked before anything is written: a real country, and US states only on a US brief. */
+  const countryCode = briefCountry(input.countryCode);
+  assertCountryStates(countryCode, input.stateCodes);
 
   return staffIfApproved(await prisma.$transaction(async (tx) => {
     /* The sponsor must be one this actor may reach. A SPONSOR_ADMIN filing a
@@ -164,6 +170,7 @@ export async function createBrief(
         startDate: input.startDate,
         endDate: input.endDate,
         sports: [...input.sports],
+        countryCode,
         stateCodes: [...input.stateCodes],
         categories: [...input.categories],
         excludedCategories: uniq(input.excludedCategories),
@@ -175,7 +182,7 @@ export async function createBrief(
     });
 
     await audit(tx, actor, "brief.create", "CampaignBrief", brief.id, {
-      after: { state: "DRAFT", sponsorId: input.sponsorId, budget: input.budget },
+      after: { state: "DRAFT", sponsorId: input.sponsorId, budget: input.budget, countryCode },
     });
 
     /* P4-BE-11 — the sponsor's own brief is evaluated at once. */
@@ -233,7 +240,7 @@ export async function updateBrief(
       /* tenant-scope: the brief found through whereFor(campaignBrief, write) and locked. */
       where: { id: found.id, tenantId: found.tenantId },
       select: {
-        objective: true, budget: true, packageId: true, startDate: true, endDate: true, sports: true, stateCodes: true, categories: true,
+        objective: true, budget: true, packageId: true, startDate: true, endDate: true, sports: true, countryCode: true, stateCodes: true, categories: true,
         excludedCategories: true, channels: true, audienceTiers: true, audienceMinFollowers: true,
         sponsorId: true, heldAt: true,
       },
@@ -242,6 +249,10 @@ export async function updateBrief(
     const endDate = patch.endDate ?? before.endDate;
     if (endDate <= startDate) throw new InvalidBriefWindowError();
     if (patch.packageId !== undefined) await assertOwnPackage(tx, found.tenantId, patch.packageId);
+    /* POL-BE-107 — the country and states as they will stand after the edit:
+       moving a brief abroad needs its states cleared in the same edit. */
+    const countryCode = patch.countryCode !== undefined ? briefCountry(patch.countryCode) : before.countryCode;
+    assertCountryStates(countryCode, patch.stateCodes ?? before.stateCodes);
 
     const data = {
       ...(patch.objective !== undefined ? { objective: patch.objective } : {}),
@@ -250,6 +261,7 @@ export async function updateBrief(
       ...(patch.startDate !== undefined ? { startDate: patch.startDate } : {}),
       ...(patch.endDate !== undefined ? { endDate: patch.endDate } : {}),
       ...(patch.sports !== undefined ? { sports: [...patch.sports] } : {}),
+      ...(patch.countryCode !== undefined ? { countryCode } : {}),
       ...(patch.stateCodes !== undefined ? { stateCodes: [...patch.stateCodes] } : {}),
       ...(patch.categories !== undefined ? { categories: [...patch.categories] } : {}),
       ...(patch.excludedCategories !== undefined ? { excludedCategories: uniq(patch.excludedCategories) } : {}),

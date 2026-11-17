@@ -24,6 +24,13 @@ export const BrandCategory = z.enum(BRAND_CATEGORIES).meta({
 });
 
 export const BriefState = z.enum(BRIEF_STATES).meta({ id: "BriefState" });
+
+/** POL-BE-107 — a country as ISO 3166-1 alpha-2 (US, CA, GB…), either case;
+ *  the domain upper-cases it and refuses an unassigned code (brief-country.ts). */
+export const CountryCode = z
+  .string()
+  .regex(/^[A-Za-z]{2}$/)
+  .meta({ id: "CountryCode", description: "A country, ISO 3166-1 alpha-2 (e.g. US, CA, GB). Default US." });
 export const CampaignState = z.enum(CAMPAIGN_STATES).meta({ id: "CampaignState" });
 export const InviteState = z.enum(INVITE_STATES).meta({ id: "InviteState" });
 
@@ -42,7 +49,9 @@ export const CampaignBriefInput = z
     startDate: z.iso.date(),
     endDate: z.iso.date(),
     sports: z.array(z.string().min(1).max(60)).max(20).default([]),
-    stateCodes: z.array(z.string().length(2)).max(60).default([]),
+    /** POL-BE-107 — the country targeted; only athletes there are matched. */
+    countryCode: CountryCode.default("US"),
+    stateCodes: z.array(z.string().length(2)).max(60).default([]).describe("US state codes; only with countryCode US (400 otherwise)."),
     /** Targeting AND the conflict input. An athlete restricting any of these
      *  is excluded from matching and refused at the invitation. */
     categories: z.array(BrandCategory).max(25).default([]),
@@ -64,7 +73,8 @@ export const CampaignBriefPatch = z
     startDate: z.iso.date().optional(),
     endDate: z.iso.date().optional(),
     sports: z.array(z.string().min(1).max(60)).max(20).optional(),
-    stateCodes: z.array(z.string().length(2)).max(60).optional(),
+    countryCode: CountryCode.optional(),
+    stateCodes: z.array(z.string().length(2)).max(60).optional().describe("US state codes; only when the brief's country is US (400 otherwise)."),
     categories: z.array(BrandCategory).max(25).optional(),
     excludedCategories: z.array(BrandCategory).max(25).optional(),
     channels: z.array(z.enum(MATCH_CHANNELS)).max(MATCH_CHANNELS.length).optional(),

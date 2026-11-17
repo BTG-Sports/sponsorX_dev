@@ -68,6 +68,10 @@ const listParam = (v: unknown): string[] =>
     .filter(Boolean)
     .slice(0, 60);
 
+/** One two-letter country from the query, upper-cased; anything else is no filter. */
+const countryParam = (v: unknown): string | null =>
+  typeof v === "string" && /^[A-Za-z]{2}$/.test(v.trim()) ? v.trim().toUpperCase() : null;
+
 /** GET /catalogue/targeting — POL-FE-51: the sports and states live athletes cover; values only. */
 export const targeting: RequestHandler = async (req, res) => {
   res.json(await listTargeting(req.actor!));
@@ -79,6 +83,8 @@ export const staffing: RequestHandler = async (req, res) => {
     packages: await packageStaffing(req.actor!, {
       sports: listParam(req.query.sport),
       stateCodes: listParam(req.query.state).map((s) => s.toUpperCase()),
+      /* POL-BE-107 — ?country=CA; absent or malformed counts any country. */
+      countryCode: countryParam(req.query.country),
     }),
   });
 };

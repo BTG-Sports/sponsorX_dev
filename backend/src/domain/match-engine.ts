@@ -78,13 +78,13 @@ async function loadBrief(tenantId: string, briefId: string) {
     where: { id: briefId, tenantId },
     select: {
       id: true, sponsorId: true, budget: true, startDate: true, endDate: true, updatedAt: true,
-      sports: true, stateCodes: true, categories: true, excludedCategories: true, channels: true, audienceTiers: true, audienceMinFollowers: true,
+      sports: true, countryCode: true, stateCodes: true, categories: true, excludedCategories: true, channels: true, audienceTiers: true, audienceMinFollowers: true,
       package: { select: { lineItems: true, athleteCountMax: true } },
     },
   });
   if (!b) throw new BriefNotFoundError();
   const brief: BriefForMatch = {
-    sponsorId: b.sponsorId, sports: b.sports, stateCodes: b.stateCodes.map((s) => s.toUpperCase()), categories: b.categories,
+    sponsorId: b.sponsorId, sports: b.sports, countryCode: b.countryCode, stateCodes: b.stateCodes.map((s) => s.toUpperCase()), categories: b.categories,
     excludedCategories: b.excludedCategories, channels: b.channels, audienceTiers: b.audienceTiers, audienceMinFollowers: b.audienceMinFollowers,
     budget: b.budget, slots: Math.max(1, b.package?.athleteCountMax ?? 1), startDate: b.startDate, endDate: b.endDate,
   };
@@ -104,7 +104,7 @@ export async function gatherCandidates(tenantId: string, brief: BriefForMatch, l
       /* tenant-scope: explicit — this tenant's network. */
       where: { tenantId, state: { in: [...NETWORK_STATES] } },
       select: {
-        id: true, displayName: true, sport: true, stateCode: true, tier: true, state: true, ageBand: true, propertyId: true, restrictedCategories: true,
+        id: true, displayName: true, sport: true, stateCode: true, countryCode: true, tier: true, state: true, ageBand: true, propertyId: true, restrictedCategories: true,
         socials: { select: { platform: true, followers: true, source: true } },
         rates: { select: { jobId: true, amount: true, version: true } },
       },
@@ -225,8 +225,15 @@ export async function gatherCandidates(tenantId: string, brief: BriefForMatch, l
     };
   };
 
+  /* POL-BE-107 — an athlete outside the brief's country is no candidate, and
+     neither is an item they own: it can only be delivered by them. Read in
+     full above (not filtered in the query) so their items are recognised as
+     theirs rather than falling through as an owner outside the network. */
+  const country = brief.countryCode?.toUpperCase();
+  const abroad = new Set(country ? athletes.filter((a) => a.countryCode.toUpperCase() !== country).map((a) => a.id) : []);
   const out: Candidate[] = [];
   for (const a of athletes) {
+    if (abroad.has(a.id)) continue;
     const x = athleteFacts(a);
     out.push({
       kind: "athlete", refId: a.id, name: a.displayName, sub: `${a.sport} · ${upper(a.stateCode) ?? "no state"}`,
@@ -271,6 +278,7 @@ export async function gatherCandidates(tenantId: string, brief: BriefForMatch, l
   }
 
   for (const i of items) {
+    if (i.athleteId && abroad.has(i.athleteId)) continue;
     const a = i.athleteId ? athleteById.get(i.athleteId) : undefined;
     const p = i.propertyId ? propertyById.get(i.propertyId) : undefined;
     if (!a && !p) continue; // an owner outside the network: not a candidate

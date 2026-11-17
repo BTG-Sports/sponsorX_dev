@@ -141,7 +141,7 @@ async function sponsorSide(tenantId: string, f: Pick<ForecastRow, "sponsorId" | 
     prisma.sponsor.findFirst({ where: { tenantId, id: f.sponsorId }, select: { categories: true } }),
     f.briefId ? prisma.campaignBrief.findFirst({
       where: { tenantId, id: f.briefId },
-      select: { sports: true, stateCodes: true, categories: true, excludedCategories: true, channels: true, audienceTiers: true, audienceMinFollowers: true },
+      select: { sports: true, countryCode: true, stateCodes: true, categories: true, excludedCategories: true, channels: true, audienceTiers: true, audienceMinFollowers: true },
     }) : Promise.resolve(null),
   ]);
   const categories = [...new Set([...(sponsor?.categories ?? []), ...(brief?.categories ?? [])])];
@@ -150,7 +150,7 @@ async function sponsorSide(tenantId: string, f: Pick<ForecastRow, "sponsorId" | 
     audienceTiers: brief?.audienceTiers ?? [], audienceMinFollowers: brief?.audienceMinFollowers ?? null,
   };
   const forMatch: BriefForMatch = {
-    sponsorId: f.sponsorId, sports: target.sports, stateCodes: target.stateCodes, categories, excludedCategories: brief?.excludedCategories ?? [],
+    sponsorId: f.sponsorId, sports: target.sports, countryCode: brief?.countryCode ?? null, stateCodes: target.stateCodes, categories, excludedCategories: brief?.excludedCategories ?? [],
     channels: target.channels, audienceTiers: target.audienceTiers, audienceMinFollowers: target.audienceMinFollowers,
     budget: 0, slots: 1, startDate: window.startsOn, endDate: window.endsOn,
   };

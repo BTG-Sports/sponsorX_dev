@@ -78,6 +78,8 @@ export type EligibleAthlete = {
 
 export type EligibilityCriteria = {
   sports?: readonly string[];
+  /** POL-BE-107 — only athletes in this country; absent means any. */
+  countryCode?: string | null;
   stateCodes?: readonly string[];
   /** The brief's categories. An athlete restricting any of them is excluded. */
   categories?: readonly BrandCategory[];
@@ -115,6 +117,7 @@ export async function eligibleAthletes(
       ...whereFor(actor, "athlete", "read"),
       state: "ACTIVE",
       ...(sports.length ? { sport: { in: [...sports] } } : {}),
+      ...(criteria.countryCode ? { countryCode: criteria.countryCode.toUpperCase() } : {}),
       ...(stateCodes.length ? { stateCode: { in: [...stateCodes] } } : {}),
       ...(categories.length
         ? { NOT: { restrictedCategories: { hasSome: [...categories] } } }
@@ -196,13 +199,13 @@ function currentRates(
 /* --- the brief, and what ranking reads ----------------------------------- */
 
 const BRIEF_SELECT = {
-  sports: true, stateCodes: true, categories: true, budget: true,
+  sports: true, countryCode: true, stateCodes: true, categories: true, budget: true,
   package: { select: { lineItems: true, athleteCountMax: true } },
   campaign: { select: { id: true } },
 } as const;
 
 type BriefRow = {
-  sports: string[]; stateCodes: string[]; categories: string[]; budget: number;
+  sports: string[]; countryCode: string; stateCodes: string[]; categories: string[]; budget: number;
   package: { lineItems: unknown; athleteCountMax: number } | null;
   campaign: { id: string } | null;
 };
@@ -337,7 +340,7 @@ export async function eligibleForBrief(
   const sight = sightOf(actor);
   const sports = brief.sports.filter(Boolean);
   const stateCodes = brief.stateCodes.filter(Boolean);
-  const where = eligibilityWhere(actor, sports, stateCodes, (brief.categories as BrandCategory[]).filter(Boolean));
+  const where = eligibilityWhere(actor, sports, stateCodes, (brief.categories as BrandCategory[]).filter(Boolean), brief.countryCode);
 
   const thin = (await prisma.athlete.findMany({
     where /* tenant-scope: eligibilityWhere spreads whereFor(athlete) */,
@@ -450,14 +453,18 @@ const TIER_WORDS: Record<(typeof TIERS)[number], string> = {
 
 /**
  * The matching rule itself, with no reader attached: ACTIVE, the brief's
- * sports and states, and no restriction on any of its categories (§26).
+ * sports, country (POL-BE-107) and states, and no restriction on any of its
+ * categories (§26). No country (a catalogue browse) means any country.
  * P4-BE-11 — the automatic brief approval counts athletes with this, pinned
  * to the brief's own tenant, so the desk and the system apply one rule.
  */
-export function athleteFit(sports: readonly string[], stateCodes: readonly string[], categories: readonly string[]) {
+export function athleteFit(sports: readonly string[], stateCodes: readonly string[], categories: readonly string[], countryCode?: string | null) {
   return {
     state: "ACTIVE" as const,
     ...(sports.length ? { sport: { in: [...sports] } } : {}),
+    /* Upper case on both sides: briefCountry upper-cases the brief's, and the
+       Athlete_countryCode_check constraint holds the athlete's to [A-Z]{2}. */
+    ...(countryCode ? { countryCode: countryCode.toUpperCase() } : {}),
     ...(stateCodes.length ? { stateCode: { in: [...stateCodes] } } : {}),
     ...(categories.length
       ? { NOT: { restrictedCategories: { hasSome: [...categories] } } }
@@ -465,10 +472,10 @@ export function athleteFit(sports: readonly string[], stateCodes: readonly strin
   };
 }
 
-export function eligibilityWhere(actor: Actor, sports: string[], stateCodes: string[], categories: string[]) {
+export function eligibilityWhere(actor: Actor, sports: string[], stateCodes: string[], categories: string[], countryCode?: string | null) {
   return {
     ...whereFor(actor, "athlete", "read"),
-    ...athleteFit(sports, stateCodes, categories),
+    ...athleteFit(sports, stateCodes, categories, countryCode),
   };
 }
 
@@ -488,7 +495,7 @@ export async function eligiblePageForBrief(
   const sight = sightOf(actor);
   const seeScore = sight.score;
 
-  const base = eligibilityWhere(actor, sports, stateCodes, categories);
+  const base = eligibilityWhere(actor, sports, stateCodes, categories, brief.countryCode);
   const q = filters.q?.trim();
   const needle = q?.toLowerCase() ?? "";
   const tierHits = needle ? TIERS.filter((t) => TIER_WORDS[t].includes(needle)) : [];
