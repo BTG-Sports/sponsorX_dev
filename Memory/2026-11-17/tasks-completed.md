@@ -25,3 +25,23 @@
   - **Header bug the owner found:** a campaign row showed above the table's pinned header on a phone, because a sticky `<th>` in a collapsed table mis-paints in some browsers. The column names are now a plain row above the scroll box, and the real `<thead>` is zero-height and screen-reader-only. A matching `scrollbar-gutter: stable` plus `scrollbar-width: thin` keeps the columns aligned at 390, 800 and 1440.
   - **Checked:** 2,381 / 2,381 frontend tests; tsc and eslint clean. Walked live with the data request held (skeleton swap, then cleared) and at 390 (both scroll boxes scroll, the fade clears at the end).
 - **Status:** Code review on the Polish sheet (row 142). The change is not committed yet.
+
+## POL-FE-106 · /admin/applications redrawn like the athlete Inventory (polish.md item 106)
+- **Asked:** the owner wanted `/admin/applications` done "like listing and inventory inside the athlete's dashboard", with animation and wow, easy to understand, keeping the Mission Control theme. The player-card board was "so confusing for a human".
+- **Before:** four KPI tiles, then four pill tabs counting the same applications again, then a grid of player cards. No word on the steps, and the drawer's next move sat at the bottom.
+- **Now:**
+  - The header is the title, a Live · Postgres pill and one line on what the page is for. The KPI tiles are gone.
+  - **Four status cards are the tabs** (Needs review / Approved / Rejected / All): icon, count ticking up, one line of what each holds. Needs review turns orange with "n waited over 2 days".
+  - **How it works** is a header button (owner follow-up) opening a panel: the four steps on a rail with a running light, then a key to the list (pulsing dot, orange, fit score). The demo shows two steps.
+  - **List by default:** athlete · fit score · waiting (48-hour bar) · status pill + next step · Review →. Cards (the old player cards) are the other view, remembered in `localStorage` `sx-ap-view`. A row folds on a phone.
+  - **Skeletons** on arrival (`(queue)/loading.tsx`) and on every tab, filter or page change (the list swaps to skeleton rows under a running bar).
+  - **Review panel (owner follow-up: "too ugly ... too confusing"):** header with status avatar and pill, then the tracker, then "Your next step" with Go to it (scrolls to the decision and glows), four At-a-glance tiles (fit score, guardian, conflicts, audience), the score's parts, then the decision as a numbered step. Under review that step is three choice cards (Approve / Ask for more info / Reject), a note box asking only what that choice needs, and one button named for the action, which says why when it is disabled. No pinned bar, no reject arm. Then, on the owner's "instead of slide", it became a centred 46rem popup (`.sx-rv-modal` / `.sx-rv`, scale in and out), with the facts in one row and the choices side by side on a desktop. Styles `.sx-rv-*` in applications.css.
+- **Trap 3:** `scrollIntoView` inside a popup also scrolls any `overflow: hidden` ancestor, the frame included: the header slid out and a blank strip appeared. Scroll the body with `scrollTo`, and give the frame `overflow: clip`.
+- **Trap 2:** a `clip-path` hides a translated `::before` but doesn't stop it widening the page. The row's hover scan made 1,100px of sideways scroll whenever the mouse sat on a row. Give anything with a sliding pseudo-element `overflow: hidden`, and measure `scrollWidth` with the mouse over the content, not at 0,0.
+- **Trap:** `globals.css` styles every `.sx-ops [role="tab"]` as a rounded pill (padding, radius, background). The status cards are `role="tab"`, so their rules are scoped `.sx-ops .sx-ap-stats .sx-ap-stat` to win. Any other card-shaped tab on the admin stage needs the same.
+- **Files:** `components/applications-desk.tsx` (list, cards, status cards, flow, tracker, skeleton), `components/scout-stage.tsx` (header only now), `lib/applications-ui.ts` (`waitShort`, `STATE_NEXT`, `trackSteps`, `nextMove`), `app/(app)/admin/applications/(queue)/{page.tsx,loading.tsx,applications.css}`, `tests/applications-board.test.ts`. No API change. The e2e loop's selectors (a button named for the athlete, the drawer's dialog name and texts) are unchanged.
+- **Checked:**
+  - 2,392 / 2,392 frontend tests; tsc and eslint clean.
+  - Walked live as the QA BTG admin at 1440 and 390: All and Needs review, drawers for an active and an info-requested application, List ↔ Cards. No sideways scroll, no console errors.
+  - Not built in a worktree, e2e not run.
+- **Status:** Code review on the Polish sheet (row 143). Not committed.

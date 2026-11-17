@@ -135,6 +135,85 @@ export function waitHours(submittedAt: string): number {
 
 /* ------------------------------------------------------ the Scouting Board */
 
+/* ------------------------------------------- POL-FE-106 · plain words */
+
+/** How long an application has waited, short: "Just in", "5 hours", "3 days". */
+export function waitShort(hours: number): string {
+  if (hours <= 0) return "Just in";
+  if (hours < 24) return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  const days = Math.round(hours / 24);
+  return `${days} ${days === 1 ? "day" : "days"}`;
+}
+
+export type StageTone = "blue" | "cyan" | "amber" | "green" | "red" | "muted";
+
+/** A state's colour and what happens next, in a few words — the list's status
+ *  pill. `act`: the desk itself is the next mover (the pill's dot pulses). */
+export const STATE_NEXT: Record<LiveApplicationState, { tone: StageTone; next: string; act: boolean }> = {
+  DRAFT: { tone: "muted", next: "Not sent yet", act: false },
+  SUBMITTED: { tone: "blue", next: "Start the review", act: true },
+  UNDER_REVIEW: { tone: "cyan", next: "Make a decision", act: true },
+  CHANGES_REQUESTED: { tone: "amber", next: "Waiting on the athlete", act: false },
+  APPROVED: { tone: "green", next: "Activate them next", act: true },
+  ACTIVE: { tone: "green", next: "Live, nothing to do", act: false },
+  REJECTED: { tone: "red", next: "Closed", act: false },
+  SUSPENDED: { tone: "red", next: "Paused", act: false },
+};
+
+export type TrackStep = { label: string; status: "done" | "now" | "todo" | "stop" };
+
+/** The review drawer's tracker: Applied → In review → Approved → Active, and
+ *  where this application stands on it. A rejection ends the track at its
+ *  third step; info requested holds it at the second. */
+export function trackSteps(s: LiveApplicationState): TrackStep[] {
+  const step = (label: string, status: TrackStep["status"]): TrackStep => ({ label, status });
+  switch (s) {
+    case "DRAFT":
+      return [step("Applying", "now"), step("In review", "todo"), step("Approved", "todo"), step("Active", "todo")];
+    case "SUBMITTED":
+      return [step("Applied", "done"), step("Review", "now"), step("Approved", "todo"), step("Active", "todo")];
+    case "UNDER_REVIEW":
+      return [step("Applied", "done"), step("In review", "now"), step("Approved", "todo"), step("Active", "todo")];
+    case "CHANGES_REQUESTED":
+      return [step("Applied", "done"), step("Info requested", "now"), step("Approved", "todo"), step("Active", "todo")];
+    case "APPROVED":
+      return [step("Applied", "done"), step("Reviewed", "done"), step("Approved", "done"), step("Activate", "now")];
+    case "ACTIVE":
+      return [step("Applied", "done"), step("Reviewed", "done"), step("Approved", "done"), step("Active", "done")];
+    case "REJECTED":
+      return [step("Applied", "done"), step("Reviewed", "done"), step("Rejected", "stop")];
+    case "SUSPENDED":
+      return [step("Applied", "done"), step("Reviewed", "done"), step("Approved", "done"), step("Suspended", "stop")];
+  }
+}
+
+/** The one sentence at the top of the drawer: what the reviewer does now.
+ *  `live`: the real desk, where a new application is claimed first. */
+export function nextMove(s: LiveApplicationState, live: boolean): string {
+  switch (s) {
+    case "DRAFT":
+      return "Nothing yet. The athlete hasn't sent it.";
+    case "SUBMITTED":
+      return live
+        ? "Press Start review below. It claims this application, so nobody else decides it at the same time."
+        : "Check the facts below, then pick Approve, Ask for more info or Reject under Your decision.";
+    case "UNDER_REVIEW":
+      return "Check the facts below, then pick Approve, Ask for more info or Reject under Your decision.";
+    case "CHANGES_REQUESTED":
+      return "Nothing for now. The athlete has your notes and will send it back.";
+    case "APPROVED":
+      return live
+        ? "Press Activate athlete below when they're ready to take paid work."
+        : "Nothing for now. They're approved.";
+    case "ACTIVE":
+      return "Nothing. They're live and can take paid work.";
+    case "REJECTED":
+      return "Nothing. This application is closed.";
+    case "SUSPENDED":
+      return "Nothing here. A network manager reinstates them from the roster.";
+  }
+}
+
 /** P1-ART-16 — a card's 48-hour bar: how full, whether overdue, and its words. */
 export function waitMeter(hours: number): { pct: number; overdue: boolean; label: string } {
   if (hours <= 0) return { pct: 0, overdue: false, label: "Just in" };
