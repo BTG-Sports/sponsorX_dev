@@ -104,8 +104,15 @@ describe("2S4-BE-14 · the forms and the cards", () => {
     expect(() => answerSentence(paid, "MAYBE")).toThrow();
   });
 
-  it("the D6 restricted list in force names all six categories", () => {
+  it("the D6 restricted list in force names all six categories, and all six are SponsorX's sensitive categories", async () => {
     expect(TEMPLATE).toContain("alcohol, tobacco or vaping, cannabis, gambling, firearms or adult content");
+    /* The owner's yes, 2026-11-17: firearms and adult content are sensitive everywhere, not only in the agreement. */
+    const { SENSITIVE_CATEGORIES, SENSITIVE_CATEGORY_AGE, isSensitiveCategory } = await import("../src/domain/brand-categories");
+    const { CATEGORY_DISCLOSURES } = await import("../src/domain/offer-draft");
+    expect([...SENSITIVE_CATEGORIES].sort()).toEqual(["ADULT", "ALCOHOL", "CANNABIS", "FIREARMS", "GAMBLING", "TOBACCO_VAPE"]);
+    expect(isSensitiveCategory("FIREARMS") && isSensitiveCategory("ADULT")).toBe(true);
+    expect(SENSITIVE_CATEGORY_AGE).toMatchObject({ FIREARMS: "21+", ADULT: "18+", ALCOHOL: "21+" });
+    expect(CATEGORY_DISCLOSURES).toMatchObject({ FIREARMS: "21+", ADULT: "18+" });
   });
 });
 

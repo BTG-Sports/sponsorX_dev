@@ -1138,7 +1138,7 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
   - **Order and item cards:** the sponsor's `GET /marketplace-orders` and `/{id}` carry `dealAgreements`; the seller's `/sales` and `/sales/{id}` carry `dealAgreement`.
   - **Permissions:** new `dealAgreement` resource (RBAC matrix §24.1).
   - **Tests:** `backend/tests/deal-agreement.test.ts`. The tenant-isolation sweep now covers the three routes.
-  - **Firearms and adult content** are restricted in the agreement's wording (D6). Making them sensitive everywhere else (brief holds, matching minors, reward age limits, NEXT ad sales, artwork checks) is a separate change that waits on the owner.
+  - **Firearms and adult content** are restricted in the agreement (D6) and, on the owner's yes the same day, sensitive everywhere (`SENSITIVE_CATEGORIES`): a brief in them waits for BTG, they are never matched with a minor, offers disclose 21+ (adult content 18+), NEXT ad sales and artwork reviews treat them as the other four.
 
 ### ⏸ `2S4-BE-15` · Deal Chat: the order flow, the final amount and the payment gate
 
@@ -1151,10 +1151,10 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
 - **Safety checks.** A final amount below the listed price is held for BTG, as is one above the sponsor's spending limit.
 - **Both signed.** The spending-limit check runs, then the order moves to awaiting payment and the 3-day window starts (2S4-BE-10).
 - **The payment gate.** The server refuses to start a payment until both have signed.
-- **Time limit.** Signed by both within 5 days (a setting), or the order is cancelled and both sides are emailed. Reminders go to whoever's turn it is after every 2 working days without a reply, until the agreement is signed (owner, 2026-11-17).
+- **Time limit.** Signed by both within **10 working days** of the order being placed (a setting), or the order is cancelled, its stock released and both sides emailed. Reminders go to whoever's turn it is after every 2 working days without a reply, until the agreement is signed (owner, 2026-11-17), and both sides get a last warning 2 working days before the cancellation. The 10 days are rcfworks' recommendation, which the owner left to us on 2026-11-17 ("I don't know"): long enough for four reminders, short enough that a reserved order doesn't hold an athlete's stock for weeks.
 
 - **Depends on:** 2S4-BE-09, 2S4-BE-10, 2S4-BE-14
-- **Done when:** With the switch on, a placed order is in the chat stage and cannot be paid; either side calling off cancels it with the reason and releases the stock; the form appears only when every card is agreed and is withdrawn on a changed answer; signing needs matching amounts, and the matched amount becomes the order's price and fees with lines kept in proportion; below the listed price or above the limit holds for BTG with the reason; both signatures open payment and start the 3-day window; unsigned at 5 days cancels, with reminders at 1 and 4 days; orders placed before the switch keep today's flow
+- **Done when:** With the switch on, a placed order is in the chat stage and cannot be paid; either side calling off cancels it with the reason and releases the stock; the form appears only when every card is agreed and is withdrawn on a changed answer; signing needs matching amounts, and the matched amount becomes the order's price and fees with lines kept in proportion; below the listed price or above the limit holds for BTG with the reason; both signatures open payment and start the 3-day window; unsigned at 10 working days cancels, with a reminder after every 2 working days of silence and a last warning 2 working days before; orders placed before the switch keep today's flow
 - **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §3.5–§3.8, §4, §7, §8
 
 ### ⏸ `2S4-BE-16` · Deal Chat: the chat, the cards and the offers

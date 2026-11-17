@@ -145,7 +145,8 @@
   - `dealAgreements` on the sponsor's order reads and `dealAgreement` on the seller's sales reads.
   - The `dealAgreement` resource: RBAC matrix §24.1, the grid digest updated, and the tenant-isolation sweep covering the three routes.
 - **Tests:** `backend/tests/deal-agreement.test.ts`, 18 tests.
-- **Open with the owner:**
-  - Making firearms and adult content sensitive everywhere would also change brief holds, matching with minors, reward age limits, NEXT ad sales and artwork checks. Asked separately.
-  - The 5-day signing limit vs reminders "until they arrive at the agreement".
-- **Status:** Code review.
+- **Owner, later the same day:**
+  - **Firearms and adult content: yes, everywhere.** Both are added to `SENSITIVE_CATEGORIES`. Brief holds, minors never matched, NEXT ad sales and artwork review now cover them. The offer disclosure is per category through the new `SENSITIVE_CATEGORY_AGE`: 21+, adult content 18+.
+  - **Signing limit: "I don't know".** I set 10 working days, as a setting: room for four reminders, plus a last warning 2 working days before cancelling. Written into `2S4-BE-15` and the feature spec.
+- **Checked:** full backend suite 3,910 / 3,910 locally.
+- **Status:** Code review (#458).

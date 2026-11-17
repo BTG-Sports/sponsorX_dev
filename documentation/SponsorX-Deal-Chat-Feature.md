@@ -190,7 +190,7 @@ team's item card (owner, 2026-11-17).
 
 | What | Rule |
 |---|---|
-| Signing | The agreement must be signed by both **within 5 days** of the order being placed, or the order is cancelled and both sides are emailed. 5 days is a setting. |
+| Signing | The agreement must be signed by both **within 10 working days** of the order being placed, or the order is cancelled and both sides are emailed. A setting; rcfworks' recommendation, which the owner left to us (2026-11-17). Both sides get a last warning 2 working days before. |
 | Reminders | Whoever's turn it is gets an email after every **2 working days** without a reply, until the agreement is signed (owner, 2026-11-17). |
 | Unread messages | Emailed after 15 minutes, collected into one email, not one per message. |
 | Payment | Unchanged: 3 days from both signing, reminders at 1 and 2 days (`2S4-BE-10`). |
@@ -335,7 +335,7 @@ easy to test. They can be upgraded later.
 | ID | Side | Task | Weight |
 |---|---|---|---|
 | `2S4-BE-14` | BE | The agreement forms and question cards: three forms' wording (draft for approval), the card catalogue per item kind, the filled-in form and the signatures | 3d |
-| `2S4-BE-15` | BE | The order flow: the chat stage state, calling off, the final amount, the payment gate, the 5-day limit and reminders | 5d |
+| `2S4-BE-15` | BE | The order flow: the chat stage state, calling off, the final amount, the payment gate, the 10-working-day limit and reminders | 5d |
 | `2S4-BE-16` | BE | The chat: messages, cards, offers with Reply / Accept / Decline, deal status, the money nudge, held messages, reporting, BTG's read access, unread email | 5d |
 | `2S4-BE-17` | BE | Tests (tenant, role, minor, concurrency) and the `DEAL_CHAT` switch | 3d |
 | `2S4-FE-07` | FE | The sponsor's side: the chat on the order page, the form, the final amount, signing, the Pay button opening | 5d |
