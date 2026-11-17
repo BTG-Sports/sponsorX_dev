@@ -85,3 +85,17 @@
   - Walked live as the QA BTG admin at 1440 and 390: All and Needs review, drawers for an active and an info-requested application, List ↔ Cards. No sideways scroll, no console errors.
   - Not built in a worktree, e2e not run.
 - **Status:** Code review on the Polish sheet (row 143). Not committed.
+
+## Deal Chat written down as a Phase 2 feature (rcfworks)
+- **Asked:** the owner, reviewing the sponsor order page on staging, wants an agreement between the sponsor and the seller before the Stripe step, reached through a chat. After several rounds, the owner said it is a feature, not a polish item.
+- **Decided (owner, 2026-11-17):**
+  - The chat comes first, with ready-made question cards and selectable answers. This stage makes or breaks the deal: calling it off cancels the order.
+  - When the picks differ, the offer is free text with no other field, answered Reply / Accept / Decline. Once both accept, the exchange goes into the agreement word for word.
+  - At the end, both sides type the final amount, pre-filled with the original, and the two must match.
+  - SponsorX provides the forms, and rcfworks drafts the wording.
+- **Written:**
+  - `documentation/SponsorX-Deal-Chat-Feature.md` (the design and the decisions).
+  - Seven tasks in Phase 2 Sprint 4: `2S4-BE-14`…`17` (Ready) and `2S4-FE-07`…`09` (Blocked on the API).
+  - The same seven rows on the tracker's Phase 2 sheet (rows 145–151, Order 36.91–36.94 and 38.7–38.9), with the Dashboard formulas, filter, formatting and Status list extended to row 151.
+- **Also:** merged `main_development` into `feat/POL-101-student-profile`. polish.md and this log kept both sides. On the tracker, POL-FE-105/106 were kept and POL-BE/FE-101…104 re-applied after them at Order 132–139.
+- **Next:** `2S4-BE-14` first: draft the three forms' wording and the card list for the owner's approval.
