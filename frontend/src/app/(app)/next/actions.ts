@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { apiFetch, fetchActor } from "@/server/api";
-import { STUDENT_CATEGORIES, prospectOutcome, type ProspectOutcome } from "@/lib/students-live";
+import { STUDENT_CATEGORIES, displayNameProblem, prospectOutcome, type ProspectOutcome } from "@/lib/students-live";
 
 /* --------------------------------------------------------------------------
    P9-FE-01 — the student's one write: log a prospect for SponsorX's
@@ -52,6 +52,45 @@ export async function submitProspectAction(input: { businessName: string; catego
     revalidatePath("/next/sales");
     revalidatePath("/next");
     return { ok: true, state, ...prospectOutcome(state, businessName) };
+  } catch {
+    return { ok: false, message: "The API is unreachable — try again in a minute." };
+  }
+}
+
+/* --------------------------------------------------------------------------
+   POL-FE-101 — the student changes their display name (PATCH /students/me,
+   POL-BE-101). The one field a student edits on their profile. The API
+   resolves the record from the sign-in — nothing here names a student — and
+   sends `displayName` alone; the API refuses any other key.
+   -------------------------------------------------------------------------- */
+
+export type DisplayNameResult = { ok: true; displayName: string } | { ok: false; message: string };
+
+export async function updateDisplayNameAction(input: { displayName: string }): Promise<DisplayNameResult> {
+  const raw = typeof input?.displayName === "string" ? input.displayName : "";
+  const problem = displayNameProblem(raw);
+  if (problem) return { ok: false, message: problem };
+  const displayName = raw.replace(/\s+/g, " ").trim();
+  try {
+    const who = await fetchActor();
+    if (who.status !== "linked" || !who.actor.roles.includes("STUDENT") || !who.actor.studentId) {
+      return { ok: false, message: "Only a signed-in student can change their display name." };
+    }
+    const res = await apiFetch("/students/me", { method: "PATCH", body: JSON.stringify({ displayName }) });
+    if (!res.ok) {
+      let message = `Not saved (HTTP ${res.status}).`;
+      try {
+        const e = (await res.json()) as { error?: { message?: string; issues?: Array<{ message?: string }> } };
+        message = e.error?.issues?.[0]?.message ?? e.error?.message ?? message;
+      } catch {
+        /* keep the status line */
+      }
+      return { ok: false, message };
+    }
+    const body = (await res.json().catch(() => null)) as { displayName?: string } | null;
+    /* The name shows in the portal header and on every NEXT page. */
+    revalidatePath("/next", "layout");
+    return { ok: true, displayName: body?.displayName ?? displayName };
   } catch {
     return { ok: false, message: "The API is unreachable — try again in a minute." };
   }

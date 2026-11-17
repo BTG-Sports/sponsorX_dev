@@ -1,4 +1,44 @@
-# 2026-11-17 — HeckerCreatives
+# 2026-11-17 · tasks completed
+
+## Staging kept level with main (rcfworks)
+
+- **#446 deployed** (`fb8f0ea`, late on 2026-11-16): Jan's POL-FE-90…98 — sponsor shop, cart,
+  checkout and orders; athlete sales, sale and payouts redesigns; Log out in the portal nav.
+- **#448 deployed** (`486eefd`): Jan's POL-FE-99 Help & FAQ center (one per portal, under
+  `/<portal>/help` — there is no top-level `/help`) and the POL-FE-100 `/contact` redesign.
+- Both via `npm run deploy staging` after main's CI was green; api and web reported success.
+  Smoke: `/`, `/next/schools`, `/contact`, `/login`, `/s/<code>` → 200; portal pages and
+  `/<portal>/help` → 307 to `/login` when signed out. (`/sign-in` is a 404 — the app's sign-in
+  page is `/login`.)
+- `main_development` and `main` carry the same code; no other PRs were open.
+
+## #449 (POL-101) — the lint failure fixed (rcfworks)
+
+- **Cause:** CI's "typecheck · lint · unit · authz matrix" job failed at lint —
+  `backend/src/contracts/student.ts:116`, `HIDDEN_CHARS`, held the invisible characters
+  themselves (zero-width space, LRM/RLM, bidi embeddings/overrides/isolates, BOM), which
+  `no-irregular-whitespace` rejects. Typecheck and unit tests never ran.
+- **Fix (`7e7cbe71`):** the same class written as `\u` escapes. Checked the old and new
+  pattern against U+200B, 200E, 200F, 202A–202E, 2060, 2066–2069, FEFF and a control
+  character (all match), and `A` and the emoji joiner U+200D (neither matches).
+- **Checked locally:** security scripts, secret scan, dependency audit, lint, both builds;
+  backend 269 files / 3,874 tests, frontend 204 files / 2,380 tests. CI on `7e7cbe71`: all
+  four checks green, e2e included. Ready to merge.
+
+## Tracker
+
+- No change needed from rcfworks: POL-BE-88 and POL-FE-89 were already moved to Done (and the
+  2026-11-16 Stage Progress row appended) in Jan's tracker copy carried by #447 / #449.
+
+## Next (rcfworks)
+
+- Audit fix queue, item 5: the advisor desk (`/advisor`, `/advisor/review`) has no link in
+  the admin menu (`frontend/src/lib/admin-nav.ts`). Plan first.
+- Raise Jan's athlete-portal rows from the 2026-11-16 audit (guardian deliverable upload,
+  a minor's always-failing buttons, the wizard's held message, offer → order back link and
+  Stripe wording, "List it"). New polish numbers start at 105.
+
+## HeckerCreatives
 
 ## POL-FE-105 · the admin dashboard redrawn as a card grid (polish.md item 105)
 - **Asked:** the owner wanted `/admin` to be "the dashboard itself like in the image provided", easy to understand, keeping the Mission Control theme. They sent three dashboard screenshots: ring KPI cards, a line chart, bar and donut cards, a gauge and a table.
@@ -45,3 +85,17 @@
   - Walked live as the QA BTG admin at 1440 and 390: All and Needs review, drawers for an active and an info-requested application, List ↔ Cards. No sideways scroll, no console errors.
   - Not built in a worktree, e2e not run.
 - **Status:** Code review on the Polish sheet (row 143). Not committed.
+
+## Deal Chat written down as a Phase 2 feature (rcfworks)
+- **Asked:** the owner, reviewing the sponsor order page on staging, wants an agreement between the sponsor and the seller before the Stripe step, reached through a chat. After several rounds, the owner said it is a feature, not a polish item.
+- **Decided (owner, 2026-11-17):**
+  - The chat comes first, with ready-made question cards and selectable answers. This stage makes or breaks the deal: calling it off cancels the order.
+  - When the picks differ, the offer is free text with no other field, answered Reply / Accept / Decline. Once both accept, the exchange goes into the agreement word for word.
+  - At the end, both sides type the final amount, pre-filled with the original, and the two must match.
+  - SponsorX provides the forms, and rcfworks drafts the wording.
+- **Written:**
+  - `documentation/SponsorX-Deal-Chat-Feature.md` (the design and the decisions).
+  - Seven tasks in Phase 2 Sprint 4: `2S4-BE-14`…`17` (Ready) and `2S4-FE-07`…`09` (Blocked on the API).
+  - The same seven rows on the tracker's Phase 2 sheet (rows 145–151, Order 36.91–36.94 and 38.7–38.9), with the Dashboard formulas, filter, formatting and Status list extended to row 151.
+- **Also:** merged `main_development` into `feat/POL-101-student-profile`. polish.md and this log kept both sides. On the tracker, POL-FE-105/106 were kept and POL-BE/FE-101…104 re-applied after them at Order 132–139.
+- **Next:** `2S4-BE-14` first: draft the three forms' wording and the card list for the owner's approval.

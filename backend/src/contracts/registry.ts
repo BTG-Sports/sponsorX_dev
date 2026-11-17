@@ -102,8 +102,10 @@ import {
   ProspectInput,
   SchoolEmailDomainInput,
   StudentApplicationInput,
+  StudentDisplayNameInput,
   StudentGuardianInput,
   StudentInput,
+  StudentProfile,
   StudentTransitionInput,
 } from "./student";
 import {
@@ -530,6 +532,8 @@ const PATHS: Row[] = [
   // SponsorX NEXT — students (Stage 9 Batch B)
   { method: "post", path: "/students", tag: "Students", summary: "Add a student to a school (staff, or that school's advisor). Lands DRAFT (P9-BE-04).", body: StudentInput, status: 201 },
   { method: "get", path: "/students", tag: "Students", summary: "Students the caller may see — an advisor sees their school's only. Unpaged without ?page. SERVER-PAGED with ?page ?size (default 12, max 100) ?group=waiting|approved|with|roster|closed ?q (display/legal name) → `page: { page, size, total, pages }` and `summary: { groups, all }` (groupBy; honours ?q, not ?group) (2026-09-29). P9-BE-20: reviewers (student.approve — the advisor, BTG) also read each row's `reviewReasons` (why it waits for them) and `autoApprovedAt`, `summary.autoApproved`, and ?auto=true narrows to the students the system approved from the roster (newest approval first). A student or guardian never sees either.", query: z.object({ page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional(), group: z.enum(["waiting", "approved", "with", "roster", "closed"]).optional(), q: z.string().optional(), auto: z.enum(["true", "1"]).optional() }) },
+  { method: "get", path: "/students/me", tag: "Students", summary: "The signed-in student's own profile (POL-BE-101): legal and display name, graduation year, school, masthead roles, state, sales code, whether they are a minor and — status only — whether a guardian is linked and verified, and the school's active advisor logins' email addresses to ask for a correction (the data model keeps no advisor name). A STUDENT login only, and only the record that login is linked to, in its own tenant; every other role is refused (403). No date of birth, email or guardian details.", response: StudentProfile },
+  { method: "patch", path: "/students/me", tag: "Students", summary: "The signed-in student changes their display name, the one field they edit themselves (POL-BE-101). Their own record only, resolved from the login; the body takes `displayName` and nothing else (400 for any other key). Effective at once and audited `student.displayNameUpdate` with the before and after; the same name again writes nothing. 409 `student_profile_locked` once INACTIVE or REJECTED. Every other role is refused (403). Answers the profile.", body: StudentDisplayNameInput, response: StudentProfile },
   { method: "get", path: "/students/{id}", tag: "Students", summary: "One student." },
   { method: "post", path: "/students/{id}/transition", tag: "Students", summary: "Submit (the student) or review (the advisor). A minor reaches ACTIVE only with a verified guardian (P9-BE-04). P9-BE-20: the system carries on in the same transaction — a submission is picked up and decided from the school roster, an approval goes ACTIVE at once when the guardian gate is met, ACTIVE issues the sales code — and `state` is where the student ended up.", body: StudentTransitionInput },
   { method: "post", path: "/students/{id}/guardian", tag: "Students", summary: "Link a guardian to a minor student — the Guardian model, reused, unverified until BTG verifies.", body: StudentGuardianInput, status: 201 },

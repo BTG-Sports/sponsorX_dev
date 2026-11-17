@@ -1109,6 +1109,119 @@ Built from the Claude Design file OrderCancellations.
 - **Done when:** Each party sees its next step and deadline: the sponsor can cancel or ask, the seller can cancel or answer, BTG decides only escalated requests, and Finance can mark a refund sent with a reference
 - **Reference:** BTG admin review item 13, 2026-10-02
 
+### Deal Chat — the sponsor and the seller agree before Stripe
+
+Raised by the programme owner on 2026-11-17. Between placing an order and paying for it, the sponsor and the seller (the athlete, the guardian for a minor, or the team manager) talk in a chat. They settle the details with ready-made question cards and free-text offers, then sign one agreement the chat fills in, with a final amount both type. Only then does the Pay button appear. Either side can call the deal off before payment, which cancels the order. The full design and the owner's decisions: [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md).
+
+### ⏸ `2S4-BE-14` · Deal Chat: the agreement forms and question cards
+
+**Order** 36.91 · **BE** · **Where:** Code · **3d** · **Ready**
+
+- **The forms.** SponsorX provides three agreement forms: Content (social post, video), In person (appearance, autograph session, camp or clinic) and Placement (signage, tickets, other). A package gets the sections for the items in it. Each form is versioned wording under `backend/agreements/`, accepted through `AgreementAcceptance` with the hash of the exact text shown, a minor's by the guardian.
+- **The wording** is drafted by rcfworks and approved by the owner before it is issued. It says the special terms are agreed between the sponsor and the seller, and that BTG runs the platform but does not enforce them.
+- **The question cards.** The catalogue per item kind: each card's question and its selectable answers (feature spec §5.2).
+- **The filled-in form.** Built from the chat: the order, the agreed card answers, every agreed offer exchange word for word as a special term, the required confirmations (§5.1) and the final amount.
+
+- **Depends on:** 2S4-BE-03, P8-BE-07
+- **Done when:** The three forms' wording is approved by the owner and issued as v1 files; the card catalogue serves each item kind's cards, and a package's are the union of its items'; the form for a given chat renders the agreed answers, the agreed exchanges verbatim, the confirmations and the final amount, and its hash is what each side's acceptance records; a minor's acceptance carries the guardian
+- **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §3.6, §5; owner decisions 2026-11-17
+
+### ⏸ `2S4-BE-15` · Deal Chat: the order flow, the final amount and the payment gate
+
+**Order** 36.92 · **BE** · **Where:** Code · **5d** · **Ready**
+
+- **The chat stage.** A new order state between placing and approval. Every order enters it when the `DEAL_CHAT` switch is on. It replaces the seller's accept / decline step (2S4-BE-09) for every order, not only listings that ask.
+- **Calling off.** Either side can call the deal off before payment, with a reason the other side reads. The order is cancelled, stock is released and nothing is charged. With two sellers, one calling off cancels the whole order.
+- **The form appears** only when every card is agreed. It is withdrawn if anyone changes an answer after it is out.
+- **The final amount.** Pre-filled with the original amount. Each side confirms it or types over it, and neither can sign until the two match. The matched amount becomes the order's price, spread across one seller's lines in proportion to their original prices, and any buyer fee is worked out again.
+- **Safety checks.** A final amount below the listed price is held for BTG, as is one above the sponsor's spending limit.
+- **Both signed.** The spending-limit check runs, then the order moves to awaiting payment and the 3-day window starts (2S4-BE-10).
+- **The payment gate.** The server refuses to start a payment until both have signed.
+- **Time limit.** Signed by both within 5 days (a setting), or the order is cancelled and both sides are emailed. Reminders go to whoever's turn it is at 1 and 4 days.
+
+- **Depends on:** 2S4-BE-09, 2S4-BE-10, 2S4-BE-14
+- **Done when:** With the switch on, a placed order is in the chat stage and cannot be paid; either side calling off cancels it with the reason and releases the stock; the form appears only when every card is agreed and is withdrawn on a changed answer; signing needs matching amounts, and the matched amount becomes the order's price and fees with lines kept in proportion; below the listed price or above the limit holds for BTG with the reason; both signatures open payment and start the 3-day window; unsigned at 5 days cancels, with reminders at 1 and 4 days; orders placed before the switch keep today's flow
+- **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §3.5–§3.8, §4, §7, §8
+
+### ⏸ `2S4-BE-16` · Deal Chat: the chat, the cards and the offers
+
+**Order** 36.93 · **BE** · **Where:** Code · **5d** · **Ready**
+
+- **One chat per seller on an order.** It is readable and writable only by the sponsor's users and the seller's (the athlete, the guardian for a minor, the team manager), and BTG admins can read it.
+- **Messages:** text only. A message is never edited or deleted after it is sent, and unread markers are kept.
+- **Question cards.** Either side picks an answer. A card is agreed when both picks match, and a pick can change until the form is out.
+- **Offers.** Free text with no other field. The other side can Reply (which continues the exchange), Accept or Decline. An exchange is agreed when both have accepted its latest message, and a new reply clears both accepts.
+- **Deal status.** Which cards are agreed, which offers are open, whose turn it is.
+- **Monitoring.**
+  - A message or offer with contact details (phone, email, social handle, outside payment link) or a restricted word (2S1-BE-18) is held for BTG before the other side sees it.
+  - A dollar figure in an agreed exchange raises a nudge at the final amount when the original is confirmed unchanged.
+  - Either side can report a message to BTG.
+  - BTG releases a held message to the other side, or keeps it back with a reason the sender sees.
+- **Email.** A new chat, reminders, and unread messages collected after 15 minutes.
+- **Minors.** For a minor, only the guardian accepts offers, signs, confirms the amount or calls the deal off.
+
+- **Depends on:** 2S4-BE-14
+- **Done when:** Only the order's parties read and write its chat, and BTG reads it; cards agree on matching picks; offers run Reply / Accept / Decline and agree on two accepts of the latest message, a new reply clearing them; held messages reach BTG and not the other side until BTG releases them; the money nudge appears when an agreed exchange names a figure and the amount is unchanged; reports reach BTG; unread email is collected; a minor's commitments come only from the guardian; every action is audited
+- **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §3.1–§3.4, §6, §7
+
+### ⏸ `2S4-BE-17` · Deal Chat: tests and the switch
+
+**Order** 36.94 · **BE** · **Where:** Code · **3d** · **Ready**
+
+- **Tests.** Tenant and role tests over a real database:
+  - another sponsor's users, another seller's and a non-party role are refused (§30);
+  - a minor's commitments come only from the guardian;
+  - two accepts and two signatures arriving at once settle once;
+  - payment is refused before both signatures.
+- **The switch.** `DEAL_CHAT` is added and recorded in [SponsorX-Switches.md](SponsorX-Switches.md) in the same PR.
+- **The contracts** go into OpenAPI.
+
+- **Depends on:** 2S4-BE-15, 2S4-BE-16
+- **Done when:** The cross-tenant, role, minor, concurrency and payment-gate tests pass in CI; the switch is documented and off means today's flow; OpenAPI lists every Deal Chat route
+- **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §7, §8
+
+### ⏸ `2S4-FE-07` · Deal Chat on screen: the sponsor's side
+
+**Order** 38.7 · **FE** · **Where:** Code · **5d** · **Blocked**
+
+On the sponsor's order page:
+- the chat, with the deal checklist on top;
+- question cards and offers with Reply / Accept / Decline;
+- Call the deal off;
+- the agreement form, with the final amount pre-filled to type over, the mismatch and money nudges, and Sign;
+- a Pay button that opens only once both have signed and says what it is waiting for until then.
+
+- **Depends on:** 2S4-BE-15, 2S4-BE-16
+- **Done when:** A sponsor can talk, pick, offer and negotiate, call the deal off, confirm the amount and sign; Pay shows only after both signatures and says what it waits for before that; works at phone width
+- **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §3
+
+### ⏸ `2S4-FE-08` · Deal Chat on screen: the seller's side
+
+**Order** 38.8 · **FE** · **Where:** Code · **4d** · **Blocked**
+
+The same chat and form from the seller's Orders page, for:
+- an athlete;
+- a guardian acting for a minor (who alone sees the commit buttons);
+- a team manager.
+
+After both sign, the seller sees "Signed by both: waiting for the sponsor's payment".
+
+- **Depends on:** 2S4-BE-15, 2S4-BE-16
+- **Done when:** An athlete, a guardian and a team manager can each talk, pick, offer, call off, confirm the amount and sign; a minor without the guardian sees the chat but no commit buttons; works at phone width
+- **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §2, §3, §7
+
+### ⏸ `2S4-FE-09` · Deal Chat on screen: BTG's view
+
+**Order** 38.9 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+For BTG admins:
+- read any order's chat;
+- a desk of held messages and reports, where each one is released or kept back.
+
+- **Depends on:** 2S4-BE-16
+- **Done when:** A BTG admin can open any order's chat read-only and clear the held and reported queue; no other role reaches it
+- **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §6, §7
+
 ## Sprint 5 · Payments, ledger & payouts
 
 *The financial core. Money in, money apportioned, money out.*
