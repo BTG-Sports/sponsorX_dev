@@ -1121,10 +1121,24 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
 - **The wording** is drafted by rcfworks and approved by the owner before it is issued. It says the special terms are agreed between the sponsor and the seller, and that BTG runs the platform but does not enforce them.
 - **The question cards.** The catalogue per item kind: each card's question and its selectable answers (feature spec §5.2).
 - **The filled-in form.** Built from the chat: the order, the agreed card answers, every agreed offer exchange word for word as a special term, the required confirmations (§5.1) and the final amount.
+- **Signing and the download.** Each side signs (the sponsor's admin; the athlete, the guardian for a minor, or the team manager). The agreement downloads as a PDF at any time, by both sides and BTG. The sponsor's order read and the seller's sales read carry the agreement, so the order card and the item card can offer it (owner, 2026-11-17).
 
 - **Depends on:** 2S4-BE-03, P8-BE-07
-- **Done when:** The three forms' wording is approved by the owner and issued as v1 files; the card catalogue serves each item kind's cards, and a package's are the union of its items'; the form for a given chat renders the agreed answers, the agreed exchanges verbatim, the confirmations and the final amount, and its hash is what each side's acceptance records; a minor's acceptance carries the guardian
+- **Done when:** The three forms' wording is approved by the owner and issued; the card catalogue serves each item kind's cards, and a package's are the union of its items'; the form renders the agreed answers, the agreed exchanges verbatim, the confirmations and the final amount, and its hash is what each side's acceptance records; a minor's acceptance carries the guardian; both sides and BTG can download it as a PDF at any time, and no one else can; the order and sales reads carry it
 - **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §3.6, §5; owner decisions 2026-11-17
+- **Delivered (2026-11-17, rcfworks), Code review:**
+  - **Wording:** approved by the owner and issued as one file, `backend/agreements/DEAL.v1.txt`. It holds the shared sections D1–D9, and each form's D7 is marked so a package carries several, lettered D7a, D7b…
+  - **Cards and forms:** `backend/src/domain/deal-cards.ts`. Each item kind maps to a form, with the cards per form and the approved D3 sentence for every answer; a test checks each sentence word for word against the approved draft.
+  - **The filled-in text:** `deal-agreement-render.ts`. Text typed in the chat is copied as written and can never reach into the template.
+  - **Storage:** `DealAgreement` (migration `20261117200000_deal_agreements`).
+  - **Opening, signing, reading:** `deal-agreement.ts`.
+    - `openDealAgreement` is called from the chat (`2S4-BE-15/-16`). A newer form withdraws the open one; a signed one is never replaced.
+    - `signDealAgreement` takes the sponsor's admin, or the seller: the athlete, a guardian for a minor, or the team's manager. Each signature is an `AgreementAcceptance` carrying the filled-in text's hash; a stale hash is refused.
+  - **Routes:** `GET /deal-agreements/{id}`, `POST …/sign`, and `GET …/download` (a PDF, at any time).
+  - **Order and item cards:** the sponsor's `GET /marketplace-orders` and `/{id}` carry `dealAgreements`; the seller's `/sales` and `/sales/{id}` carry `dealAgreement`.
+  - **Permissions:** new `dealAgreement` resource (RBAC matrix §24.1).
+  - **Tests:** `backend/tests/deal-agreement.test.ts`. The tenant-isolation sweep now covers the three routes.
+  - **Firearms and adult content** are restricted in the agreement (D6) and, on the owner's yes the same day, sensitive everywhere (`SENSITIVE_CATEGORIES`): a brief in them waits for BTG, they are never matched with a minor, offers disclose 21+ (adult content 18+), NEXT ad sales and artwork reviews treat them as the other four.
 
 ### ⏸ `2S4-BE-15` · Deal Chat: the order flow, the final amount and the payment gate
 
@@ -1137,10 +1151,10 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
 - **Safety checks.** A final amount below the listed price is held for BTG, as is one above the sponsor's spending limit.
 - **Both signed.** The spending-limit check runs, then the order moves to awaiting payment and the 3-day window starts (2S4-BE-10).
 - **The payment gate.** The server refuses to start a payment until both have signed.
-- **Time limit.** Signed by both within 5 days (a setting), or the order is cancelled and both sides are emailed. Reminders go to whoever's turn it is at 1 and 4 days.
+- **Time limit.** Signed by both within **10 working days** of the order being placed (a setting), or the order is cancelled, its stock released and both sides emailed. Reminders go to whoever's turn it is after every 2 working days without a reply, until the agreement is signed (owner, 2026-11-17), and both sides get a last warning 2 working days before the cancellation. The 10 days are rcfworks' recommendation, which the owner left to us on 2026-11-17 ("I don't know"): long enough for four reminders, short enough that a reserved order doesn't hold an athlete's stock for weeks.
 
 - **Depends on:** 2S4-BE-09, 2S4-BE-10, 2S4-BE-14
-- **Done when:** With the switch on, a placed order is in the chat stage and cannot be paid; either side calling off cancels it with the reason and releases the stock; the form appears only when every card is agreed and is withdrawn on a changed answer; signing needs matching amounts, and the matched amount becomes the order's price and fees with lines kept in proportion; below the listed price or above the limit holds for BTG with the reason; both signatures open payment and start the 3-day window; unsigned at 5 days cancels, with reminders at 1 and 4 days; orders placed before the switch keep today's flow
+- **Done when:** With the switch on, a placed order is in the chat stage and cannot be paid; either side calling off cancels it with the reason and releases the stock; the form appears only when every card is agreed and is withdrawn on a changed answer; signing needs matching amounts, and the matched amount becomes the order's price and fees with lines kept in proportion; below the listed price or above the limit holds for BTG with the reason; both signatures open payment and start the 3-day window; unsigned at 10 working days cancels, with a reminder after every 2 working days of silence and a last warning 2 working days before; orders placed before the switch keep today's flow
 - **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §3.5–§3.8, §4, §7, §8
 
 ### ⏸ `2S4-BE-16` · Deal Chat: the chat, the cards and the offers
@@ -1189,7 +1203,8 @@ On the sponsor's order page:
 - question cards and offers with Reply / Accept / Decline;
 - Call the deal off;
 - the agreement form, with the final amount pre-filled to type over, the mismatch and money nudges, and Sign;
-- a Pay button that opens only once both have signed and says what it is waiting for until then.
+- a Pay button that opens only once both have signed and says what it is waiting for until then;
+- **Download agreement** on the order card, at any time (owner, 2026-11-17).
 
 - **Depends on:** 2S4-BE-15, 2S4-BE-16
 - **Done when:** A sponsor can talk, pick, offer and negotiate, call the deal off, confirm the amount and sign; Pay shows only after both signatures and says what it waits for before that; works at phone width
@@ -1204,7 +1219,7 @@ The same chat and form from the seller's Orders page, for:
 - a guardian acting for a minor (who alone sees the commit buttons);
 - a team manager.
 
-After both sign, the seller sees "Signed by both: waiting for the sponsor's payment".
+After both sign, the seller sees "Signed by both: waiting for the sponsor's payment". **Download agreement** is on the item card, at any time (owner, 2026-11-17).
 
 - **Depends on:** 2S4-BE-15, 2S4-BE-16
 - **Done when:** An athlete, a guardian and a team manager can each talk, pick, offer, call off, confirm the amount and sign; a minor without the guardian sees the chat but no commit buttons; works at phone width

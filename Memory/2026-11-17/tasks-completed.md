@@ -126,3 +126,27 @@
   - The full backend suite was green after one fix: test servers must listen on 127.0.0.1 and wait for "listening".
 - **Local DB:** a Postgres from an earlier session was already on 5433, so I migrated `sponsorx_test` there (the scratchpad download couldn't bind the port). In zsh, `export A=x B=$A` leaves B empty: set both URLs explicitly, or the DB suites skip silently.
 - **Status:** Code review on the Polish sheet. `POL-FE-107` can now use `countryCodes` from targeting and send `countryCode` on `POST /briefs`.
+
+## 2S4-BE-14 built: Deal Chat's agreement (rcfworks)
+- **Approved by the owner today:**
+  - 2 working days to approve content or ask for changes;
+  - an email nudge to whoever's turn it is after every 2 working days without a reply, until signed (folded into `2S4-BE-15`);
+  - posts stay up 30 days;
+  - firearms and adult content restricted;
+  - no more cards;
+  - the agreement downloadable at any time by both sides, from the order card and the item card. Backend only; the frontend is HeckerCreatives'.
+- **Built:**
+  - `backend/agreements/DEAL.v1.txt` issued: the three forms in one file, with D7 sections a package letters.
+  - `deal-cards.ts`: the cards and their approved sentences, checked word for word against the approved draft by a test.
+  - `deal-agreement-render.ts`: chat text can't reach into the template.
+  - `DealAgreement` model (migration `20261117200000_deal_agreements`).
+  - `deal-agreement.ts`: open, sign and read, plus the PDF through `renderPdf`.
+  - Routes: `GET /deal-agreements/{id}`, `/sign` and `/download`.
+  - `dealAgreements` on the sponsor's order reads and `dealAgreement` on the seller's sales reads.
+  - The `dealAgreement` resource: RBAC matrix §24.1, the grid digest updated, and the tenant-isolation sweep covering the three routes.
+- **Tests:** `backend/tests/deal-agreement.test.ts`, 18 tests.
+- **Owner, later the same day:**
+  - **Firearms and adult content: yes, everywhere.** Both are added to `SENSITIVE_CATEGORIES`. Brief holds, minors never matched, NEXT ad sales and artwork review now cover them. The offer disclosure is per category through the new `SENSITIVE_CATEGORY_AGE`: 21+, adult content 18+.
+  - **Signing limit: "I don't know".** I set 10 working days, as a setting: room for four reminders, plus a last warning 2 working days before cancelling. Written into `2S4-BE-15` and the feature spec.
+- **Checked:** full backend suite 3,910 / 3,910 locally.
+- **Status:** Code review (#458).
