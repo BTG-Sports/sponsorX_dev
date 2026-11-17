@@ -125,4 +125,4 @@
   - `backend/tests/pol-be-107-brief-country.test.ts`, real database through the API; removing the filter fails five of them.
   - The full backend suite was green after one fix: test servers must listen on 127.0.0.1 and wait for "listening".
 - **Local DB:** a Postgres from an earlier session was already on 5433, so I migrated `sponsorx_test` there (the scratchpad download couldn't bind the port). In zsh, `export A=x B=$A` leaves B empty: set both URLs explicitly, or the DB suites skip silently.
-- **Status:** Code review on the Polish sheet. `POL-FE-107` can now use `countryCodes` from targeting and send `countryCode` on `POST /briefs`.
+- **Status:** Done (merged #455, CI green). `POL-FE-107` can now use `countryCodes` from targeting and send `countryCode` on `POST /briefs`.
