@@ -41,3 +41,11 @@ system should double check before the signature if all is green. as simple as th
   and npm's only "fix" is a major vitest downgrade. The production audit is clean.
 - Allowlisted as dev-only, review by 2027-01-05 (`scripts/audit-allowlist.json` and the
   security review's Dependency scan table). Without this, every PR's CI would have failed.
+
+## 2S4-BE-16 to Done (rcfworks)
+
+- PR #459 merged into main_development. Every Done-when clause is covered by
+  `backend/tests/deal-chat.test.ts` and the authz and tenant-isolation sweeps, so the row is Done
+  in the tracker. The phase plan shows 2S4-BE-14 and 2S4-BE-16 as ✅ Done.
+- The Done PR goes to both main_development and main. The main PR also syncs main_development
+  into main; the daily deploy follows once main is green.
