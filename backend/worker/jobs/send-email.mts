@@ -190,6 +190,18 @@ ${d.portalUrl ?? ""}
     subject: `BTG kept back your message — order ${d.orderRef ?? ""}`,
     text: `Hi there,\n\nBTG kept back a message you sent in the Deal Chat for order ${d.orderRef ?? ""}, so the other side won't see it:\n\n"${d.reason ?? ""}"\n\nPlease keep contact details and payment on SponsorX.\n\n${d.chatUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  "dealChat.calledOff": (d) => ({
+    subject: `The deal for order ${d.orderRef ?? ""} was called off`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.byName ?? "The other side"} called off the deal for order ${d.orderRef ?? ""}. The order is cancelled and nothing is charged.\n\nTheir reason:\n\n"${d.reason ?? ""}"\n\n${d.chatUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "dealChat.lastWarning": (d) => ({
+    subject: `Last reminder: sign the deal for order ${d.orderRef ?? ""} by ${d.deadline ?? ""}`,
+    text: `Hi ${d.firstName ?? "there"},\n\nThe deal with ${d.otherName ?? "the other side"} (order ${d.orderRef ?? ""}) must be signed by both sides by ${d.deadline ?? ""}, or the order is cancelled.\n\nStill to do: ${d.waitingFor ?? ""}.\n\n${d.chatUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "dealChat.expired": (d) => ({
+    subject: `Order ${d.orderRef ?? ""} was cancelled: the deal wasn't signed in time`,
+    text: `Hi ${d.firstName ?? "there"},\n\nThe deal with ${d.otherName ?? "the other side"} (order ${d.orderRef ?? ""}) wasn't signed by both sides within ${d.days ?? "10"} working days, so the order is cancelled. Nothing is charged and the stock is back on sale.\n\n${d.chatUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
   "order.approved": (d) => d.payBy
     ? {
       subject: `Your order ${d.orderRef ?? ""} is approved — please pay by ${d.payBy}`,

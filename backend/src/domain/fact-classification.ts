@@ -84,6 +84,7 @@ export const EDITION_STATE_FACTS: Readonly<Record<EditionState, Classified>> = {
 };
 
 export const MARKETPLACE_ORDER_STATE_FACTS: Readonly<Record<MarketplaceOrderState, Classified>> = {
+  IN_CHAT: none("Not contracted; nothing is booked."),
   PENDING_SELLER: none("Not contracted; nothing is booked."),
   PENDING_APPROVAL: none("Not contracted; nothing is booked."),
   APPROVED: leads(["MARKETPLACE_LINE_CONTRACTED"], "Contracted: each line's gross and net, from its frozen financials (bookOrder)."),

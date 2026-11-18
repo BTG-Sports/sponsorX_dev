@@ -73,6 +73,18 @@
  *     state the move will be made from. Lock order: the order row first,
  *     then its attempts, approvals and lines.
  *
+ * THE DEAL CHAT (2S4-BE-15, behind DEAL_CHAT). With the switch on, every
+ * order is placed IN_CHAT instead of asking its seller: a chat per seller
+ * (deal-chat.ts) where the two sides agree the deal, confirm the final amount
+ * and sign the agreement. Signing is the seller's acceptance; calling the deal
+ * off is the decline. When the last agreement is signed (`afterDealsSigned`)
+ * each seller's agreed amount is spread across their lines in proportion, the
+ * buyer fee worked out again, and then: below the listed price, or above the
+ * sponsor's spending limit, held for BTG with the reason; otherwise approved
+ * by policy and on to payment. Not signed by both within the limit, the order
+ * is cancelled (deal-chat.ts sweep). Orders placed before the switch keep the
+ * flow above.
+ *
  * THE LINES (2S4-BE-06 / -07). Contracting opens a delivery row per line and
  * tells each seller of the sale (delivery.ts `openDeliveries`); every move
  * then takes the lines with it (`followOrder`) — paid opens delivery,
@@ -97,6 +109,8 @@ import { followOrder, openDeliveries } from "./delivery";
 import { sponsorLimit } from "./spending-limit";
 import { approvalsForOrders, openSellerApprovals } from "./order-approval";
 import { openDealChats } from "./deal-chat";
+import { assertDealsSigned } from "./deal-chat-check";
+import { signingDeadline } from "./deal-chat-rules";
 import { env } from "../config/env";
 import { tellBtgHeld, tellSponsorApproved, tellSponsorPaid } from "./order-mail";
 import { orderRefundCause, recordRefund, refundsForOrders, type RefundContext } from "./refunds";
@@ -226,6 +240,8 @@ const systemIn = (tenantId: string): AuditActor & { tenantId: string } => ({ use
  * cancelled. Nothing once it is paid or has ended.
  */
 function waitingOn(row: Row, approvals: Array<{ state: string; dueAt: Date }>) {
+  /* 2S4-BE-15 — in the Deal Chat: signed by both by the deadline, or it is cancelled. */
+  if (row.state === "IN_CHAT") return { waitingOn: "DEAL_CHAT" as const, deadlineAt: signingDeadline(row.createdAt, env.DEAL_CHAT_SIGNING_WORKING_DAYS).deadline };
   if (row.state === "PENDING_SELLER") {
     const open = approvals.filter((a) => a.state === "PENDING").map((a) => a.dueAt.getTime());
     return { waitingOn: "SELLER" as const, deadlineAt: open.length ? new Date(Math.min(...open)) : null };
@@ -291,7 +307,7 @@ export async function listMarketplaceOrders(actor: Actor, state?: MarketplaceOrd
    states. `all` first; the counts are over the caller's scope under ?q. */
 export const ORDER_TABS = [
   { key: "all", label: "All", states: null },
-  { key: "waiting", label: "Waiting for approval", states: ["PENDING_SELLER", "PENDING_APPROVAL"] },
+  { key: "waiting", label: "Waiting for approval", states: ["IN_CHAT", "PENDING_SELLER", "PENDING_APPROVAL"] },
   { key: "to_pay", label: "To pay", states: ["APPROVED", "AWAITING_PAYMENT"] },
   { key: "in_progress", label: "In progress", states: ["PAID", "IN_DELIVERY"] },
   { key: "delivered", label: "Delivered", states: ["FULFILLED", "CLOSED"] },
@@ -476,10 +492,12 @@ export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now =
     /* A listing that asks for approval asks its seller (2S4-BE-09). */
     const asking = new Set(lines.filter((l) => (l.listing.item.packageRules as { requiresApproval?: boolean } | null)?.requiresApproval).map((l) => l.listingId));
 
+    /* 2S4-BE-15 — with DEAL_CHAT on, every order goes to the Deal Chat first (it replaces the seller's step). */
+    const dealChat = env.DEAL_CHAT;
     const order = await tx.marketplaceOrder.create({
       data: {
         tenantId: actor.tenantId, sponsorId: actor.sponsorId!, reservationId: reservation.id, currency: "USD",
-        state: asking.size ? "PENDING_SELLER" : "PENDING_APPROVAL",
+        state: dealChat ? "IN_CHAT" : asking.size ? "PENDING_SELLER" : "PENDING_APPROVAL",
         subtotalCents, feesCents, totalCents, requiresApproval: reasons.length > 0, approvalReasons: reasons, createdBy: actor.userId,
         spendingLimitCents: limit.limitCents,
         acceptanceId: acceptance.acceptanceId,
@@ -510,7 +528,8 @@ export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now =
       after: {
         reservationId: reservation.id, totalCents, requiresApproval: reasons.length > 0, reasons, state: order.state,
         /* 2S4-BE-09 — the limit it was checked against, and which listings ask their seller. */
-        spendingLimitCents: limit.limitCents, sellerAsks: lines.filter((l) => asking.has(l.listingId)).map((l) => l.listing.title),
+        spendingLimitCents: limit.limitCents, sellerAsks: dealChat ? [] : lines.filter((l) => asking.has(l.listingId)).map((l) => l.listing.title),
+        dealChat,
         /* 2S4-FE-02 — which terms, accepted when, under which acceptance. The
            signer is this entry's actor; the billing contact is on the order
            row itself, fixed (marketplace_order_immutable.sql). */
@@ -519,8 +538,11 @@ export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now =
       },
     });
 
-    /* 2S4-BE-16 — behind DEAL_CHAT: a chat per seller, each side emailed. 2S4-BE-15 moves the order into the chat stage. */
-    if (env.DEAL_CHAT) await openDealChats(tx, order.id, now, actor);
+    /* 2S4-BE-15/-16 — behind DEAL_CHAT: a chat per seller, each side emailed; the limit and BTG come after both sign. */
+    if (dealChat) {
+      await openDealChats(tx, order.id, now, actor);
+      return order;
+    }
 
     /* The seller first (2S4-BE-09): each seller asked has 48 hours. */
     if (asking.size) {
@@ -568,6 +590,123 @@ export async function cancelOrderAsSystem(tx: Prisma.TransactionClient, orderId:
   return moveIn(tx, systemIn(order.tenantId), order, "CANCELLED", now, { cancelReason: reason });
 }
 
+/**
+ * 2S4-BE-15 — the last Deal Chat agreement on the order was signed (inside
+ * that signature's transaction, deal-agreement.ts). Each seller's agreed
+ * amount becomes the price of their lines — spread in proportion to the
+ * original prices — and the buyer fee is worked out again. Then the safety
+ * checks: an amount below the listed price, or a total above the sponsor's
+ * spending limit, is held for BTG with the reason; otherwise policy approves
+ * it and the payment window opens. Locked on the order first, so two
+ * signatures landing at once settle it once.
+ */
+export async function afterDealsSigned(tx: Prisma.TransactionClient, orderId: string, now = new Date()) {
+  await lockOrder(tx, orderId);
+  const order = await tx.marketplaceOrder.findUniqueOrThrow({
+    /* tenant-scope: the order of the agreement just signed, which the signer loaded through whereFor(dealAgreement, write). */
+    where: { id: orderId }, select: SELECT,
+  });
+  if (order.state !== "IN_CHAT") return order;
+  const chats = await tx.dealChat.findMany({
+    /* tenant-scope: this order's own chats, in its books. */
+    where: { tenantId: order.tenantId, orderId: order.id }, select: { dealAgreementId: true },
+  });
+  const ids = chats.map((c) => c.dealAgreementId).filter((x): x is string => !!x);
+  if (!chats.length || ids.length < chats.length) return order;
+  const deals = await tx.dealAgreement.findMany({
+    /* tenant-scope: the agreements this order's chats posted, in its books. */
+    where: { tenantId: order.tenantId, id: { in: ids } },
+    select: { id: true, state: true, lineIds: true, amountCents: true, originalAmountCents: true, athleteId: true, propertyId: true },
+  });
+  if (deals.length < chats.length || deals.some((d) => d.state !== "SIGNED")) return order;
+
+  /* Each seller's amount across their lines, in proportion; the last line takes the cents left over. */
+  const before = { subtotalCents: order.subtotalCents, feesCents: order.feesCents, totalCents: order.totalCents };
+  const priceOf = new Map(order.lines.map((l) => [l.id, l.lineTotalCents]));
+  const held: string[] = [];
+  for (const d of deals) {
+    const lines = order.lines.filter((l) => d.lineIds.includes(l.id));
+    const original = lines.reduce((s, l) => s + l.lineTotalCents, 0);
+    if (d.amountCents < d.originalAmountCents) {
+      const who = await sellerName(tx, d);
+      held.push(`${usd(d.amountCents)} agreed with ${who} is below the listed price of ${usd(d.originalAmountCents)}`);
+    }
+    if (d.amountCents === original) continue;
+    let left = d.amountCents;
+    lines.forEach((l, i) => {
+      const share = i === lines.length - 1 ? left : original > 0 ? Math.round((d.amountCents * l.lineTotalCents) / original) : Math.floor(d.amountCents / lines.length);
+      left -= share;
+      priceOf.set(l.id, share);
+    });
+  }
+  for (const l of order.lines) {
+    const total = priceOf.get(l.id)!;
+    if (total === l.lineTotalCents) continue;
+    await tx.marketplaceOrderLine.update({
+      /* tenant-scope: a line of the order locked above, by its id (marketplace_order_line_immutable allows the price while IN_CHAT). */
+      where: { id: l.id }, data: { lineTotalCents: total, unitPriceCents: Math.round(total / Math.max(1, l.quantity)) },
+    });
+  }
+  const { subtotalCents, feesCents, totalCents } = sponsorQuote([...priceOf.values()].reduce((s, c) => s + c, 0));
+  const sponsor = await tx.sponsor.findFirst({ where: { tenantId: order.tenantId, id: order.sponsorId }, select: { name: true } });
+  const limit = await sponsorLimit(tx, order.tenantId, order.sponsorId);
+  const reasons = [...held, ...approvalReasons({ totalCents, limitCents: limit.limitCents, sponsorName: sponsor?.name ?? "the sponsor" })];
+  await tx.marketplaceOrder.updateMany({
+    /* tenant-scope: the order locked above, by its id; only while it is still IN_CHAT. */
+    where: { id: order.id, state: "IN_CHAT" },
+    data: { subtotalCents, feesCents, totalCents, requiresApproval: reasons.length > 0, approvalReasons: reasons, spendingLimitCents: limit.limitCents },
+  });
+  await audit(tx, systemIn(order.tenantId), "marketplaceOrder.dealSigned", "MarketplaceOrder", order.id, {
+    before, after: { subtotalCents, feesCents, totalCents, spendingLimitCents: limit.limitCents, reasons, dealAgreementIds: ids },
+  });
+  const repriced = await tx.marketplaceOrder.findUniqueOrThrow({
+    /* tenant-scope: the order locked above, re-read after its figures changed. */
+    where: { id: order.id }, select: SELECT,
+  });
+  if (reasons.length) {
+    const waiting = await moveIn(tx, systemIn(order.tenantId), repriced, "PENDING_APPROVAL", now, {});
+    await tellBtgHeld(tx, waiting);
+    return waiting;
+  }
+  return contract(tx, repriced, SYSTEM, now, "Approved automatically: both sides signed the deal agreement, and it is within the sponsor's spending limit.", systemIn(order.tenantId));
+}
+
+async function sellerName(tx: Prisma.TransactionClient, d: { athleteId: string | null; propertyId: string | null }) {
+  if (d.propertyId) {
+    const p = await tx.property.findFirst({ /* tenant-scope: the team an agreement of this order names. */ where: { id: d.propertyId }, select: { name: true } });
+    return p?.name ?? "the team";
+  }
+  const a = await tx.athlete.findFirst({ /* tenant-scope: the athlete an agreement of this order names. */ where: { id: d.athleteId ?? undefined }, select: { displayName: true } });
+  return a?.displayName ?? "the athlete";
+}
+
+/** States an order can be called off in from the Deal Chat: before it is paid. */
+const CALL_OFF_STATES: ReadonlySet<string> = new Set(["IN_CHAT", "PENDING_APPROVAL", "APPROVED", "AWAITING_PAYMENT"]);
+
+/**
+ * 2S4-BE-15 — a side calls the deal off in the Deal Chat, before payment: the
+ * whole order is cancelled (with two sellers, one calling off ends it for
+ * both), its stock released, nothing charged. Refused while a card payment is
+ * being confirmed. The caller checked who may (deal-chat.ts).
+ */
+export async function callOffOrderIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenantId: string }, orderId: string, now = new Date()) {
+  await lockOrder(tx, orderId);
+  const order = await tx.marketplaceOrder.findUniqueOrThrow({
+    /* tenant-scope: the order of the chat the caller reached through whereFor(dealChat, write). */
+    where: { id: orderId }, select: SELECT,
+  });
+  if (!CALL_OFF_STATES.has(order.state)) {
+    throw new MarketplaceOrderError(order.state === "CANCELLED" || order.state === "REFUNDED" ? "This order has already ended." : "This order is paid, so the deal can't be called off here. Use the order's cancellation instead.");
+  }
+  const confirming = await tx.paymentAttempt.findFirst({
+    /* tenant-scope: this order's own attempts, named by its id. */
+    where: { orderId: order.id, state: "PROCESSING" }, select: { id: true },
+  });
+  if (confirming) throw new MarketplaceOrderError("A card payment for this order is being confirmed by the payment provider — wait for it before calling the deal off.");
+  /* Its books are this order's tenant's, wherever the caller sits (a seller's tenant is another). */
+  return moveIn(tx, { userId: actor.userId, tenantId: order.tenantId }, order, "CANCELLED", now, { cancelReason: "CALLED_OFF" });
+}
+
 /** BTG's decision on an order policy held for approval. */
 export async function decideMarketplaceOrder(actor: Actor, id: string, decision: "APPROVE" | "REJECT", notes?: string | null, now = new Date()) {
   const scope = assertAllowed(actor, "marketplaceOrder", "approve");
@@ -611,6 +750,10 @@ export async function transitionMarketplaceOrder(actor: Actor, id: string, to: M
     /* Locked first: the card check below and the move are made on the same state. */
     const order = await lockedOrder(tx, { ...whereFor(actor, "marketplaceOrder", "write"), id });
     if (!order) throw new ForbiddenError("marketplaceOrder", "write");
+    /* 2S4-BE-15 — in the Deal Chat the sponsor calls the deal off there, with a reason the seller reads. */
+    if (to === "CANCELLED" && scope === "own-sponsor" && order.state === "IN_CHAT") {
+      throw new MarketplaceOrderError("This order is in the Deal Chat. Call the deal off in the chat, with a reason the seller reads.");
+    }
     if (to === "PAID" || to === "CANCELLED") {
       /* A card payment the provider is confirming may already have taken the
          money: neither a second payment nor a cancel until it answers (the
@@ -663,6 +806,8 @@ export async function payOrderIn(tx: Prisma.TransactionClient, actor: AuditActor
     /* tenant-scope: the order the caller loaded through its own scope (or named by the provider's, or Zoho's, record of it). */
     where: { id: orderId }, select: SELECT,
   });
+  /* 2S4-BE-15 — the payment gate: never before every Deal Chat agreement on it is signed by both. */
+  await assertDealsSigned(tx, order);
   /* An order approved before 2S4-BE-10 may still be APPROVED: the window opens on the way. */
   if (order.state === "APPROVED") order = await moveIn(tx, actor, order, "AWAITING_PAYMENT", now, {});
   const paid = await moveIn(tx, actor, order, "PAID", now, {

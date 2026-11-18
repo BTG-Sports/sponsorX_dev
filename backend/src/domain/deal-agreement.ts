@@ -16,6 +16,8 @@
  * AgreementAcceptance of the DEAL version carrying the filled-in text's hash;
  * a stale hash is refused, so nobody signs words they did not see. Both
  * signatures make it SIGNED. BTG reads it; nobody at BTG signs for a side.
+ * When the last agreement on an order is signed, the order takes the agreed
+ * amounts and moves on (2S4-BE-15, marketplace-order.ts `afterDealsSigned`).
  *
  * DOWNLOAD. Both sides (and BTG) download it as a PDF at any time: the form
  * as posted while it waits, the signed copy after (owner, 2026-11-17). The
@@ -38,6 +40,7 @@ import { assertDealChatGreen } from "./deal-chat-check";
 import { formsFor, type AnswerValue, type DealForm } from "./deal-cards";
 import { renderDealAgreement, usdOf, type DealExchangeMessage, type DealSeller } from "./deal-agreement-render";
 import { orderRef } from "./order-mail";
+import { afterDealsSigned, lockOrder } from "./marketplace-order";
 
 type Tx = Prisma.TransactionClient;
 
@@ -284,8 +287,11 @@ export type SignInput = { bodyHashShown: string; ip: string; userAgent: string }
 export async function signDealAgreement(actor: Actor, id: string, input: SignInput, now = new Date()): Promise<DealAgreementView> {
   assertAllowed(actor, "dealAgreement", "write");
   await prisma.$transaction(async (tx) => {
-    const found = await tx.dealAgreement.findFirst({ where: { ...whereFor(actor, "dealAgreement", "write"), id }, select: { id: true } });
+    const found = await tx.dealAgreement.findFirst({ where: { ...whereFor(actor, "dealAgreement", "write"), id }, select: { id: true, orderId: true } });
     if (!found) throw new ForbiddenError("dealAgreement", "write");
+    /* The order row first (the lock order every order path keeps), then the agreement: two
+       signatures on one order — the same form, or two sellers' — settle one after the other. */
+    await lockOrder(tx, found.orderId);
     await tx.$queryRaw`SELECT id FROM "DealAgreement" WHERE id = ${found.id} FOR UPDATE`;
     const r = await tx.dealAgreement.findFirstOrThrow({
       /* tenant-scope: the agreement found through whereFor(dealAgreement, write) and locked. */
@@ -323,6 +329,8 @@ export async function signDealAgreement(actor: Actor, id: string, input: SignInp
       before: { state: "OPEN" },
       after: { side, state: other ? "SIGNED" : "OPEN", bodyHash: r.bodyHash, ...(actor.actingFor ? { actingForAthleteId: actor.actingFor.athleteId } : {}) },
     });
+    /* 2S4-BE-15 — signed by both: if it was the order's last, the order takes the agreed amounts and moves on. */
+    if (other) await afterDealsSigned(tx, r.orderId, now);
   });
   return readDealAgreement(actor, id);
 }

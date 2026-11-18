@@ -31,6 +31,14 @@ export const DealChatReasonInput = z
   .object({ reason: z.string().max(2000).optional() })
   .meta({ id: "DealChatReasonInput", description: "Why: the report's reason (optional), or the reason BTG keeps a message back (required; the sender reads it)." });
 
+export const DealChatAmountInput = z
+  .object({ amountCents: z.int().min(1).max(100_000_000) })
+  .meta({ id: "DealChatAmountInput", description: "2S4-BE-15 — the final amount the caller's side confirms (the original, pre-filled) or types over, in cents. Agreed when both sides' match, and then locked; for a minor only the guardian confirms it." });
+
+export const DealChatCallOffInput = z
+  .object({ reason: z.string().min(1).max(2000) })
+  .meta({ id: "DealChatCallOffInput", description: "2S4-BE-15 — why the deal is called off: the other side reads it." });
+
 const Status = z.object({
   cards: z.array(z.object({
     key: z.string(), question: z.string(), multi: z.boolean(),
@@ -38,6 +46,9 @@ const Status = z.object({
     sponsor: z.array(z.string()).nullable(), seller: z.array(z.string()).nullable(), agreed: z.boolean(),
   })),
   agreedCount: z.int(), cardCount: z.int(),
+  amount: z.object({
+    originalCents: z.int(), sponsorCents: z.int().nullable(), sellerCents: z.int().nullable(), agreed: z.boolean(), agreedCents: z.int().nullable(),
+  }),
   openExchanges: z.array(z.object({ id: z.string(), cardKey: z.string().nullable(), waitingOn: z.enum(["SPONSOR", "SELLER", "BTG"]).nullable() })),
   heldForBtg: z.int(),
   allGreen: z.boolean(),
@@ -53,6 +64,8 @@ export const DealChat = z
     yourSide: Side.nullable(), mayAccept: z.boolean(), unread: z.int(),
     status: Status, moneyNudge: z.string().nullable(),
     agreement: z.object({ id: z.string(), downloadPath: z.string() }).nullable(),
+    orderState: z.string(), signingDeadline: z.string().nullable(),
+    calledOff: z.object({ side: Side, reason: z.string(), at: z.string() }).nullable(),
     exchanges: z.array(z.object({
       id: z.string(), cardKey: z.string().nullable(), state: z.enum(["OPEN", "AGREED", "DECLINED"]), startedBy: Side,
       latestMessageId: z.string().nullable(), sponsorAccepted: z.boolean(), sellerAccepted: z.boolean(),
@@ -66,7 +79,7 @@ export const DealChat = z
   })
   .meta({
     id: "DealChat",
-    description: "A Deal Chat between an order's sponsor and one seller: the checklist (`status`: which cards are agreed, which offers are open, whose turn it is, whether everything is green), the offers and the messages the caller may see, and the agreement once it is posted.",
+    description: "A Deal Chat between an order's sponsor and one seller: the checklist (`status`: which cards are agreed, the final amount (`status.amount`), which offers are open, whose turn it is, whether everything is green), the offers and the messages the caller may see, the agreement once it is posted, the order's stage with its signing deadline while IN_CHAT, and who called the deal off and why.",
   });
 
 export const DealChatSummary = z

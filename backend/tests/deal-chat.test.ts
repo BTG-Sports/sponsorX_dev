@@ -65,12 +65,22 @@ describe("2S4-BE-16 · the plain rules", () => {
   });
 
   it("where the deal stands: whose turn, what's open, all green", () => {
-    const base = { forms: ["PLACEMENT"] as const, exchanges: [], heldCount: 0, agreement: null };
+    const agreedAmount = { originalCents: 50_000, sponsorCents: 50_000, sellerCents: 50_000 };
+    const base = { forms: ["PLACEMENT"] as const, exchanges: [], heldCount: 0, agreement: null, amount: agreedAmount };
     const keys = ["APPROVAL_FIRST", "EXCLUSIVITY", "MATERIALS", "PERIOD_AS_LISTED"];
     const both = (v: string) => keys.flatMap((k) => (["SPONSOR", "SELLER"] as const).map((side) => ({ cardKey: k, side, value: [v] })));
 
-    const fresh = dealStatus({ ...base, picks: [] });
+    const fresh = dealStatus({ ...base, picks: [], amount: { originalCents: 50_000, sponsorCents: null, sellerCents: null } });
     expect(fresh).toMatchObject({ agreedCount: 0, cardCount: 4, allGreen: false, turn: ["SPONSOR", "SELLER"] });
+    expect(fresh.notYet).toContain("the final amount isn't confirmed by both sides yet");
+
+    /* 2S4-BE-15 — the final amount: agreed only when both sides' match. */
+    const cardsDone = { ...base, picks: both("YES") };
+    expect(dealStatus({ ...cardsDone, amount: { originalCents: 50_000, sponsorCents: 50_000, sellerCents: null } })).toMatchObject({ allGreen: false, turn: ["SELLER"] });
+    const apart = dealStatus({ ...cardsDone, amount: { originalCents: 50_000, sponsorCents: 50_000, sellerCents: 60_000 } });
+    expect(apart).toMatchObject({ allGreen: false, notYet: ["your amounts don't match"], turn: ["SPONSOR", "SELLER"] });
+    expect(apart.amount).toMatchObject({ agreed: false, agreedCents: null });
+    expect(dealStatus({ ...cardsDone, amount: { originalCents: 50_000, sponsorCents: 60_000, sellerCents: 60_000 } }).amount).toMatchObject({ agreed: true, agreedCents: 60_000 });
 
     const sponsorDone = dealStatus({ ...base, picks: both("YES").filter((p) => p.side === "SPONSOR") });
     expect(sponsorDone.turn).toEqual(["SELLER"]);
@@ -148,7 +158,7 @@ describe.skipIf(!hasDatabase)("2S4-BE-16 · Deal Chat, end to end", async () => 
     const id = p(`ord${orderSeq++}`);
     await prisma.reservation.create({ data: { id: `${id}_res`, tenantId: T, sponsorId: p("sponsor"), cartId: `${id}_cart`, expiresAt: inDays(1) } });
     await prisma.marketplaceOrder.create({ data: {
-      id, tenantId: T, sponsorId: p("sponsor"), reservationId: `${id}_res`, state: "PENDING_APPROVAL", createdBy: p("sa"),
+      id, tenantId: T, sponsorId: p("sponsor"), reservationId: `${id}_res`, state: "IN_CHAT", createdBy: p("sa"),
       subtotalCents: 0, feesCents: 0, totalCents: 0, requiresApproval: false, approvalReasons: [],
       lines: { create: lines.map((l, i) => ({
         id: `${id}_l${i}`, tenantId: T, listingId: `${id}_lst${i}`, inventoryItemId: p(l.item), itemTenantId: T,
@@ -182,6 +192,11 @@ describe.skipIf(!hasDatabase)("2S4-BE-16 · Deal Chat, end to end", async () => 
   };
   const pickAll = async (who: Actor, id: string, picks: Record<string, string | string[]>) => {
     for (const [k, v] of Object.entries(picks)) await chat.pickDealCard(who, id, k, { value: v });
+  };
+  /** 2S4-BE-15 — both sides confirm the same final amount. */
+  const agreeAmount = async (id: string, seller: Actor, cents: number) => {
+    await chat.confirmDealAmount(sponsor, id, { amountCents: cents });
+    return chat.confirmDealAmount(seller, id, { amountCents: cents });
   };
   const emails = async (template: string) =>
     (await prisma.outboxJob.findMany({ where: { tenantId: T, name: "notify.email" }, select: { payload: true } }))
@@ -279,7 +294,15 @@ describe.skipIf(!hasDatabase)("2S4-BE-16 · Deal Chat, end to end", async () => 
     expect(v.agreement).toBeNull();
 
     for (const k of PLACEMENT.slice(1)) v = await chat.pickDealCard(manager, id, k, { value: "YES" });
-    expect(v.status).toMatchObject({ allGreen: true, agreedCount: 4, turn: ["SPONSOR", "SELLER"] });
+    /* 2S4-BE-15 — every card agreed, but the final amount isn't yet. */
+    expect(v.status).toMatchObject({ allGreen: false, agreedCount: 4, amount: { originalCents: 80_000, agreed: false } });
+    expect(v.agreement).toBeNull();
+    await chat.confirmDealAmount(sponsor, id, { amountCents: 80_000 });
+    v = await chat.confirmDealAmount(manager, id, { amountCents: 90_000 });
+    expect(v.status.notYet).toEqual(["your amounts don't match"]);
+    v = await chat.confirmDealAmount(manager, id, { amountCents: 80_000 });
+    expect(v.status).toMatchObject({ allGreen: true, agreedCount: 4, turn: ["SPONSOR", "SELLER"], amount: { agreed: true, agreedCents: 80_000 } });
+    await expect(chat.confirmDealAmount(sponsor, id, { amountCents: 70_000 })).rejects.toThrow(/agreed the amount/);
     expect(v.agreement).not.toBeNull();
     const form = await prisma.dealAgreement.findUniqueOrThrow({ where: { id: v.agreement!.id }, select: { state: true, body: true, bodyHash: true, amountCents: true } });
     expect(form).toMatchObject({ state: "OPEN", amountCents: 80_000 });
@@ -306,7 +329,7 @@ describe.skipIf(!hasDatabase)("2S4-BE-16 · Deal Chat, end to end", async () => 
     await pickAll(riley, id, { ...CONTENT_PICKS, PAID_ADS: "YES" });
     let v = await chat.makeDealOffer(riley, id, { text: "Yes to paid ads, but only Instagram, and $200 more.", cardKey: "PAID_ADS" });
     const x = v.exchanges[0]!;
-    expect(v.status.turn).toEqual(["SPONSOR"]);
+    expect(v.status.openExchanges[0]!.waitingOn).toBe("SPONSOR");
     v = await chat.replyToDealOffer(sponsor, id, x.id, { text: "Instagram only is fine. Can we do $150?" });
     const afterReply = v.exchanges[0]!.latestMessageId!;
     v = await chat.acceptDealOffer(riley, id, x.id, { messageId: afterReply });
@@ -325,6 +348,8 @@ describe.skipIf(!hasDatabase)("2S4-BE-16 · Deal Chat, end to end", async () => 
     expect(v.status.allGreen).toBe(false);
     expect(v.agreement).toBeNull();
     v = await chat.pickDealCard(sponsor, id, "PAID_ADS", { value: "YES" });
+    expect(v.status.allGreen).toBe(false);
+    v = await agreeAmount(id, riley, 50_000);
     expect(v.status.allGreen).toBe(true);
     expect(v.moneyNudge).toBe("Your agreed terms mention $200, $150. Is $500.00 still right?");
     const body = (await prisma.dealAgreement.findUniqueOrThrow({ where: { id: v.agreement!.id }, select: { body: true } })).body;
