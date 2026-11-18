@@ -1,16 +1,16 @@
 /**
  * /api/v1/deal-chats — Deal Chat between an order's sponsor and one seller
- * (2S4-BE-16), and BTG's desk of held and reported messages. The rules live
+ * (2S4-BE-16; the final amount and calling off, 2S4-BE-15), and BTG's desk of held and reported messages. The rules live
  * in domain/deal-chat.ts.
  */
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
 import {
-  DealChatAcceptInput, DealChatListQuery, DealChatOfferInput, DealChatPickInput, DealChatReasonInput, DealChatTextInput,
+  DealChatAcceptInput, DealChatAmountInput, DealChatCallOffInput, DealChatListQuery, DealChatOfferInput, DealChatPickInput, DealChatReasonInput, DealChatTextInput,
 } from "../../contracts/deal-chat";
 import {
-  acceptDealOffer, declineDealOffer, keepBackDealChatMessage, listDealChatReviews, listDealChats, makeDealOffer,
+  acceptDealOffer, callOffDeal, confirmDealAmount, declineDealOffer, keepBackDealChatMessage, listDealChatReviews, listDealChats, makeDealOffer,
   markDealChatRead, pickDealCard, postDealChatMessage, readDealChat, releaseDealChatMessage, replyToDealOffer, reportDealChatMessage,
 } from "../../domain/deal-chat";
 
@@ -46,6 +46,12 @@ const accept: RequestHandler<Ex> = async (req, res) => {
 const decline: RequestHandler<Ex> = async (req, res) => {
   res.json(await declineDealOffer(req.actor!, req.params.id, req.params.exchangeId));
 };
+const amount: RequestHandler<Id> = async (req, res) => {
+  res.json(await confirmDealAmount(req.actor!, req.params.id, DealChatAmountInput.parse(req.body ?? {})));
+};
+const callOff: RequestHandler<Id> = async (req, res) => {
+  res.json(await callOffDeal(req.actor!, req.params.id, DealChatCallOffInput.parse(req.body ?? {})));
+};
 const report: RequestHandler<Id> = async (req, res) => {
   res.json(await reportDealChatMessage(req.actor!, req.params.id, DealChatReasonInput.parse(req.body ?? {})));
 };
@@ -68,6 +74,8 @@ dealChatsRouter.post("/deal-chats/:id/offers", requireActor, offer);
 dealChatsRouter.post("/deal-chats/:id/exchanges/:exchangeId/reply", requireActor, reply);
 dealChatsRouter.post("/deal-chats/:id/exchanges/:exchangeId/accept", requireActor, accept);
 dealChatsRouter.post("/deal-chats/:id/exchanges/:exchangeId/decline", requireActor, decline);
+dealChatsRouter.put("/deal-chats/:id/amount", requireActor, amount);
+dealChatsRouter.post("/deal-chats/:id/call-off", requireActor, callOff);
 dealChatsRouter.post("/deal-chat-messages/:id/report", requireActor, report);
 dealChatsRouter.get("/deal-chat-reviews", requireActor, reviews);
 dealChatsRouter.post("/deal-chat-messages/:id/release", requireActor, release);

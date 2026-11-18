@@ -1156,6 +1156,19 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
 - **Depends on:** 2S4-BE-09, 2S4-BE-10, 2S4-BE-14
 - **Done when:** With the switch on, a placed order is in the chat stage and cannot be paid; either side calling off cancels it with the reason and releases the stock; the form appears only when everything is green and each signature re-checks it; signing needs matching amounts, and the matched amount becomes the order's price and fees with lines kept in proportion; below the listed price or above the limit holds for BTG with the reason; both signatures open payment and start the 3-day window; unsigned at 10 working days cancels, with a reminder after every 2 working days of silence and a last warning 2 working days before; orders placed before the switch keep today's flow
 - **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §3.5–§3.8, §4, §7, §8
+- **Delivered (2026-11-18, rcfworks), Code review:**
+  - **The chat stage:** a new order state `IN_CHAT` (migrations `20261118200000_order_in_chat_state`, `20261118200100_deal_chat_order_flow`). With `DEAL_CHAT` on, `placeOrder` puts every order there, opens a chat per seller and skips the seller's accept / decline step. The order reads `waitingOn: DEAL_CHAT` with the signing deadline. Orders placed before keep today's flow.
+  - **The final amount** (`PUT /deal-chats/{id}/amount`) is agreed like a question card. It is pre-filled with the original; each side confirms it or types over it; once the two match it is locked. The form is posted only after that, so the form never changes once it is out (feature spec decision 14).
+  - **Both signed** (`afterDealsSigned`, run inside the last signature's transaction, with the order locked first):
+    - each seller's amount becomes the price of their lines, in proportion, and the buyer fee is worked out again;
+    - an amount below the listed price, or a total above the spending limit, waits for BTG with the reason;
+    - otherwise the order is approved by policy and the 3-day payment window starts.
+  - **Changing an order's figures:** the database still refuses it from approval on. While the order is `IN_CHAT` it allows the figures and the line prices to change, and nothing else on a line.
+  - **Calling off** (`POST /deal-chats/{id}/call-off`, a reason is required): either side, until the order is paid. The whole order is cancelled (`CALLED_OFF`) and its stock released. Every chat on the order closes, and everyone else on the order is emailed the reason, one email per person. The sponsor's plain cancel is refused while the order is `IN_CHAT`.
+  - **The payment gate** (`assertDealsSigned`): card payment and BTG's "mark paid" are refused until every agreement on the order is signed by both.
+  - **The signing limit:** `DEAL_CHAT_SIGNING_WORKING_DAYS` (default 10). The worker's sweep warns both sides 2 working days before. At the limit it cancels the order (`NOT_SIGNED`), releases the stock and emails both sides.
+  - **Minors:** only the guardian confirms the amount, signs or calls the deal off.
+  - **Email:** `dealChat.calledOff`, `dealChat.lastWarning`, `dealChat.expired`.
 
 ### ✅ `2S4-BE-16` · Deal Chat: the chat, the cards and the offers
 
@@ -1205,6 +1218,19 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
 - **Depends on:** 2S4-BE-15, 2S4-BE-16
 - **Done when:** The cross-tenant, role, minor, concurrency and payment-gate tests pass in CI; the switch is documented and off means today's flow; OpenAPI lists every Deal Chat route
 - **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §7, §8
+- **Delivered (2026-11-18, rcfworks), Code review:**
+  - **Tests:** `backend/tests/deal-chat-order.test.ts` (9), over the real API and database:
+    - the switch on and off;
+    - the payment gate (card, and BTG's mark-paid);
+    - the amount spread across lines in proportion, with the fee worked out again;
+    - the BTG holds (below the listed price, above the limit);
+    - two sellers, and calling off;
+    - a minor's guardian;
+    - another sponsor, another seller, Finance and Sales refused, BTG and the analyst read-only;
+    - two accepts, two amount confirmations, two signatures and two sellers' last signatures arriving at once, each settling once;
+    - the last warning and the cancellation at the limit.
+  - **Also:** `deal-chat.test.ts` covers the amount step, and the tenant-isolation sweep covers the two new routes.
+  - **The switch:** `DEAL_CHAT` and `DEAL_CHAT_SIGNING_WORKING_DAYS` are recorded in `SponsorX-Switches.md`. Every Deal Chat route is in OpenAPI.
 
 ### ⏸ `2S4-FE-07` · Deal Chat on screen: the sponsor's side
 

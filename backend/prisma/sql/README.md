@@ -22,7 +22,7 @@ migration and update the copy here.
 | `marketplace_checks.sql` | An inventory item has one owner, a price and a sane window; one live listing per item; a listing and its order lines have exactly one seller — a property or an independent athlete (2S2-BE-01, 2S3-BE-01, 2S3-BE-05) |
 | `offer_terms_immutable.sql` | A sent offer's terms, and an accepted offer's snapshot, never change (2S2-BE-03) |
 | `restrictions_carts_checks.sql` | A restriction has one owner and a sane window; one ACTIVE cart per sponsor (2S2-BE-02, 2S4-BE-01) |
-| `marketplace_order_immutable.sql` | A package part is never the package; one HELD reservation per cart; an order's figures are fixed from APPROVED (2S3-BE-02, 2S4-BE-02/-03) |
+| `marketplace_order_immutable.sql` | A package part is never the package; one HELD reservation per cart; an order's figures are fixed from APPROVED; while IN_CHAT the agreed amount may reprice its lines, nothing else (2S3-BE-02, 2S4-BE-02/-03, 2S4-BE-15) |
 | `reward_cap_check.sql` | A reward's redemption count never passes its cap (P6-BE-08) |
 | `ledger_immutable.sql` | Commission rules are versioned, never rewritten; a frozen breakdown and a ledger entry never change (status only forward); **the audit log is append-only** (2S5-BE-01/-02, 2S4-BE-04, 2S5-SEC-01) |
 

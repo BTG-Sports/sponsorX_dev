@@ -11,13 +11,20 @@
  * - A card is agreed when both picks match; then it is locked.
  * - An offer runs Reply / Accept / Decline; agreed on two accepts of its
  *   latest message, a new reply clearing both.
- * - When everything is green (every card agreed, no offer open, nothing
- *   waiting for BTG) the chat posts the agreement form (deal-agreement.ts);
- *   signing checks it again (deal-chat-check.ts).
+ * - The final amount (2S4-BE-15): pre-filled with the original, each side
+ *   confirms or types over it; agreed when they match, and then locked.
+ * - When everything is green (every card and the amount agreed, no offer
+ *   open, nothing waiting for BTG) the chat posts the agreement form
+ *   (deal-agreement.ts); signing checks it again (deal-chat-check.ts).
+ * - Either side calls the deal off before payment, with a reason the other
+ *   side reads: the whole order is cancelled (2S4-BE-15).
+ * - Signed by both within 10 working days of the order, or it is cancelled;
+ *   a last warning 2 working days before (2S4-BE-15, the sweep).
  * - Contact details, outside payment and BTG's restricted words hold a
  *   message for BTG before the other side sees it. BTG releases it, or keeps
  *   it back with a reason the sender reads. Either side can report a message.
- * - For a minor only the guardian accepts an offer (guardian-acts.ts).
+ * - For a minor only the guardian accepts an offer, confirms the amount,
+ *   signs or calls the deal off (guardian-acts.ts).
  * - Nothing is edited or deleted; every action is audited.
  *
  * Addressed like a DealAgreement (scope.ts `dealChat`): the order's books for
@@ -31,11 +38,13 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { cardByKey, cardsFor, isValidAnswer, type DealForm } from "./deal-cards";
 import {
-  addWorkingDays, cardAgreed, contactReasons, otherSide,
-  DEAL_CHAT_REMINDER_WORKING_DAYS, DEAL_CHAT_TEXT_MAX, DEAL_CHAT_UNREAD_DELAY_MS,
+  addWorkingDays, amountAgreed, cardAgreed, contactReasons, otherSide, signingDeadline,
+  DEAL_CHAT_AMOUNT_MAX_CENTS, DEAL_CHAT_REMINDER_WORKING_DAYS, DEAL_CHAT_TEXT_MAX, DEAL_CHAT_UNREAD_DELAY_MS,
   type DealStatus, type Side,
 } from "./deal-chat-rules";
 import { loadDealStatus } from "./deal-chat-check";
+import { callOffOrderIn, cancelOrderAsSystem, lockOrder } from "./marketplace-order";
+import { env } from "../config/env";
 import { dealFormsOf, openDealAgreement } from "./deal-agreement";
 import { usdOf } from "./deal-agreement-render";
 import { assertMayCommit } from "./guardian-acts";
@@ -64,7 +73,8 @@ const CHAT = {
   lineIds: true, forms: true, state: true, dealAgreementId: true,
   sponsorReadAt: true, sellerReadAt: true, sponsorEmailedAt: true, sellerEmailedAt: true,
   lastActionAt: true, lastRemindedAt: true, createdAt: true,
-  order: { select: { state: true, tenantId: true, createdBy: true, billingEmail: true, billingName: true } },
+  sponsorAmountCents: true, sellerAmountCents: true, calledOffBy: true, calledOffReason: true, calledOffAt: true, lastWarnedAt: true,
+  order: { select: { state: true, tenantId: true, createdBy: true, billingEmail: true, billingName: true, createdAt: true } },
 } as const;
 type ChatRow = Prisma.DealChatGetPayload<{ select: typeof CHAT }>;
 const EXCHANGE = {
@@ -246,18 +256,15 @@ export type DealChatView = {
   /** "Your agreed terms mention $150. Is $1,000.00 still right?" — never changes the amount. */
   moneyNudge: string | null;
   agreement: { id: string; downloadPath: string } | null;
+  /** 2S4-BE-15 — the order's stage, and while it is IN_CHAT the date it must be signed by both. */
+  orderState: string;
+  signingDeadline: string | null;
+  /** 2S4-BE-15 — the deal called off: by which side, the reason, when. */
+  calledOff: { side: Side; reason: string; at: string } | null;
   exchanges: DealChatExchangeView[];
   messages: DealChatMessageView[];
   createdAt: string; lastActionAt: string;
 };
-
-async function originalAmount(db: Tx | typeof prisma, c: { tenantId: string; orderId: string; lineIds: readonly string[] }) {
-  const lines = await db.marketplaceOrderLine.findMany({
-    /* tenant-scope: the chat's own lines, in the order's books. */
-    where: { tenantId: c.tenantId, orderId: c.orderId, id: { in: [...c.lineIds] } }, select: { lineTotalCents: true },
-  });
-  return lines.reduce((s, l) => s + l.lineTotalCents, 0);
-}
 
 /** GET /deal-chats/:id — the chat as the caller may see it. */
 export async function readDealChat(actor: Actor, id: string): Promise<DealChatView> {
@@ -265,7 +272,7 @@ export async function readDealChat(actor: Actor, id: string): Promise<DealChatVi
   const side = sideOf(actor, c);
   const btg = !side;
   return prisma.$transaction(async (tx) => {
-    const [status, n, rows, exchanges, amount, agreement] = await Promise.all([
+    const [status, n, rows, exchanges, agreement] = await Promise.all([
       loadDealStatus(tx, c),
       names(tx, c),
       tx.dealChatMessage.findMany({
@@ -278,7 +285,6 @@ export async function readDealChat(actor: Actor, id: string): Promise<DealChatVi
         },
       }),
       tx.dealChatExchange.findMany({ where: { tenantId: c.tenantId, chatId: c.id }, orderBy: { createdAt: "asc" }, select: EXCHANGE }),
-      originalAmount(tx, c),
       c.dealAgreementId ? tx.dealAgreement.findFirst({ where: { tenantId: c.tenantId, id: c.dealAgreementId }, select: { id: true, amountCents: true } }) : null,
     ]);
     const readAt = side === "SPONSOR" ? c.sponsorReadAt : side === "SELLER" ? c.sellerReadAt : null;
@@ -289,14 +295,18 @@ export async function readDealChat(actor: Actor, id: string): Promise<DealChatVi
         try { await assertMayCommit(tx, actor, "accept"); } catch { mayAccept = false; }
       }
     }
-    const amountNow = agreement?.amountCents ?? amount;
+    /* §3.7 — the nudge shows while the amount on the table is still the original. */
+    const amountNow = agreement?.amountCents ?? status.amount.agreedCents ?? status.amount.originalCents;
     return {
       id: c.id, orderId: c.orderId, orderRef: orderRef(c.orderId), state: c.state, forms: c.forms, lineIds: c.lineIds,
       sponsorName: n.sponsor, sellerName: n.seller, yourSide: side, mayAccept,
       unread: side ? rows.filter((m) => m.side !== side && m.state === "VISIBLE" && (!readAt || m.createdAt > readAt)).length : 0,
       status,
-      moneyNudge: status.moneyFigures.length ? `Your agreed terms mention ${status.moneyFigures.join(", ")}. Is ${usdOf(amountNow)} still right?` : null,
+      moneyNudge: status.moneyFigures.length && amountNow === status.amount.originalCents ? `Your agreed terms mention ${status.moneyFigures.join(", ")}. Is ${usdOf(amountNow)} still right?` : null,
       agreement: agreement ? { id: agreement.id, downloadPath: `/api/v1/deal-agreements/${agreement.id}/download` } : null,
+      orderState: c.order.state,
+      signingDeadline: c.order.state === "IN_CHAT" ? signingDeadline(c.order.createdAt, env.DEAL_CHAT_SIGNING_WORKING_DAYS).deadline.toISOString() : null,
+      calledOff: c.calledOffAt && c.calledOffBy ? { side: c.calledOffBy as Side, reason: c.calledOffReason ?? "", at: c.calledOffAt.toISOString() } : null,
       exchanges: exchanges.map((x) => ({
         id: x.id, cardKey: x.cardKey, state: x.state, startedBy: x.startedBy as Side, latestMessageId: x.latestMessageId,
         sponsorAccepted: !!x.latestMessageId && x.sponsorAcceptedMessageId === x.latestMessageId,
@@ -372,8 +382,8 @@ async function settle(tx: Tx, chatId: string, now: Date, by: AuditActor) {
     messages: messages.filter((m) => m.exchangeId === x.id).map((m) => ({ by: m.side === "SPONSOR" ? ("Sponsor" as const) : ("Seller" as const), at: m.createdAt, text: m.body })),
   }));
   const seller = c.propertyId ? { propertyId: c.propertyId } : { athleteId: c.athleteId! };
-  /* The final amount is confirmed by both sides with 2S4-BE-15; until then the form carries the original. */
-  const form = await openDealAgreement(tx, { orderId: c.orderId, seller, answers, specialTerms, amountCents: await originalAmount(tx, c) }, now, by);
+  /* 2S4-BE-15 — the final amount both sides confirmed (all green means it is agreed). */
+  const form = await openDealAgreement(tx, { orderId: c.orderId, seller, answers, specialTerms, amountCents: status.amount.agreedCents! }, now, by);
   await tx.dealChat.update({ /* tenant-scope: the chat locked by the action that called settle. */ where: { id: c.id }, data: { dealAgreementId: form.id, lastActionAt: now } });
   await audit(tx, by, "dealChat.formPosted", "DealChat", c.id, { after: { dealAgreementId: form.id, bodyHash: form.bodyHash } });
 }
@@ -529,6 +539,88 @@ export async function declineDealOffer(actor: Actor, id: string, exchangeId: str
   return readDealChat(actor, id);
 }
 
+/**
+ * PUT /deal-chats/:id/amount — the caller's side confirms the final amount (the
+ * original, pre-filled) or types over it (§3.7). Agreed when both sides' match,
+ * and then locked. For a minor only the guardian confirms it.
+ */
+export async function confirmDealAmount(actor: Actor, id: string, input: { amountCents: unknown }, now = new Date()): Promise<DealChatView> {
+  const cents = input.amountCents;
+  if (typeof cents !== "number" || !Number.isInteger(cents) || cents < 1 || cents > DEAL_CHAT_AMOUNT_MAX_CENTS) {
+    throw new DealChatError(`The amount must be a whole number of cents, from 1 to ${DEAL_CHAT_AMOUNT_MAX_CENTS}.`, 422);
+  }
+  await prisma.$transaction(async (tx) => {
+    const { chat, side } = await writableChat(tx, actor, id);
+    if (chat.order.state !== "IN_CHAT") throw new DealChatError("The amount can only change while the deal is being agreed.");
+    if (amountAgreed(chat.sponsorAmountCents, chat.sellerAmountCents)) throw new DealChatError("Both sides agreed the amount, so it can't be changed.");
+    if (side === "SELLER" && chat.athleteId) await assertMayCommit(tx, actor, "accept");
+    const mine = side === "SPONSOR" ? chat.sponsorAmountCents : chat.sellerAmountCents;
+    const theirs = side === "SPONSOR" ? chat.sellerAmountCents : chat.sponsorAmountCents;
+    await tx.dealChat.update({
+      /* tenant-scope: the chat found through whereFor(dealChat, write) and locked. */
+      where: { id: chat.id }, data: { [side === "SPONSOR" ? "sponsorAmountCents" : "sellerAmountCents"]: cents, lastActionAt: now },
+    });
+    await audit(tx, actor, "dealChat.amount", "DealChat", chat.id, {
+      before: { side, amountCents: mine },
+      after: { side, amountCents: cents, agreed: amountAgreed(cents, theirs), ...(actor.actingFor ? { actingForAthleteId: actor.actingFor.athleteId } : {}) },
+    });
+    await settle(tx, chat.id, now, actor);
+  });
+  return readDealChat(actor, id);
+}
+
+/**
+ * POST /deal-chats/:id/call-off — either side calls the deal off before
+ * payment, with a reason the other side reads (§3.5). The whole order is
+ * cancelled, its stock released and nothing charged; with two sellers it ends
+ * for both. Everyone else on the order is emailed the reason. For a minor only
+ * the guardian calls it off.
+ */
+export async function callOffDeal(actor: Actor, id: string, input: { reason?: unknown }, now = new Date()): Promise<DealChatView> {
+  const reason = typeof input.reason === "string" ? input.reason.trim() : "";
+  if (!reason) throw new DealChatError("Give the reason the other side will read.", 422);
+  if (reason.length > REASON_MAX) throw new DealChatError(`Keep the reason under ${REASON_MAX} characters.`, 422);
+  assertAllowed(actor, "dealChat", "write");
+  await prisma.$transaction(async (tx) => {
+    const found = await tx.dealChat.findFirst({ where: { ...whereFor(actor, "dealChat", "write"), id }, select: { orderId: true } });
+    if (!found) throw new ForbiddenError("dealChat", "write");
+    /* The order row first, then the chat — the lock order the sweep and signing keep. */
+    await lockOrder(tx, found.orderId);
+    const { chat, side } = await writableChat(tx, actor, id);
+    if (side === "SELLER" && chat.athleteId) await assertMayCommit(tx, actor, "accept");
+    await callOffOrderIn(tx, actor, chat.orderId, now);
+    await tx.dealChat.update({
+      /* tenant-scope: the chat found through whereFor(dealChat, write) and locked. */
+      where: { id: chat.id }, data: { calledOffBy: side, calledOffReason: reason, calledOffAt: now, lastActionAt: now },
+    });
+    await audit(tx, actor, "dealChat.callOff", "DealChat", chat.id, {
+      after: { orderId: chat.orderId, side, reason, ...(actor.actingFor ? { actingForAthleteId: actor.actingFor.athleteId } : {}) },
+    });
+    /* Every chat on the order closes; everyone but the caller's own side is told why. */
+    const all = await tx.dealChat.findMany({
+      /* tenant-scope: the chats of the order just cancelled, in its books. */
+      where: { tenantId: chat.tenantId, orderId: chat.orderId }, select: CHAT,
+    });
+    const caller = await names(tx, chat);
+    const byName = side === "SPONSOR" ? caller.sponsor : caller.seller;
+    const told = new Set((await recipientsOf(tx, chat, side)).map((r) => r.email.toLowerCase()));
+    for (const c of all) {
+      await tx.dealChat.update({ /* tenant-scope: a chat of the order cancelled above, by its id. */ where: { id: c.id }, data: { state: "CLOSED" } });
+      for (const s of ["SPONSOR", "SELLER"] as const) {
+        for (const r of await recipientsOf(tx, c, s)) {
+          /* One email per person: the sponsor is on every chat of the order; the caller's own side isn't told. */
+          if (told.has(r.email.toLowerCase())) continue;
+          told.add(r.email.toLowerCase());
+          await tell(tx, r, "dealChat.calledOff", `${chat.id}:${c.id}:${s}`, {
+            firstName: r.firstName, orderRef: orderRef(chat.orderId), byName, reason, chatUrl: chatUrl(c, s, r.portal),
+          });
+        }
+      }
+    }
+  });
+  return readDealChat(actor, id);
+}
+
 /** POST /deal-chat-messages/:id/report — either side (the sponsor's analyst included) reports a message it can see to BTG. */
 export async function reportDealChatMessage(actor: Actor, messageId: string, input: { reason?: unknown }, now = new Date()): Promise<{ ok: true }> {
   const reason = typeof input.reason === "string" ? input.reason.trim().slice(0, REASON_MAX) : "";
@@ -649,6 +741,70 @@ export async function keepBackDealChatMessage(actor: Actor, messageId: string, i
 
 /* ── the worker's sweep: unread email, reminders, ended orders ─────────── */
 
+/**
+ * 2S4-BE-15 — the signing limit. An order still IN_CHAT 10 working days
+ * (the setting) after it was placed is cancelled, its stock released and both
+ * sides of every chat emailed; 2 working days before, both sides get a last
+ * warning. Each order is locked first, then its chats.
+ */
+async function sweepDealDeadlines(now: Date, opts: { tenantIds?: string[] }): Promise<{ warned: number; expired: number }> {
+  const out = { warned: 0, expired: 0 };
+  const days = env.DEAL_CHAT_SIGNING_WORKING_DAYS;
+  const orders = await prisma.marketplaceOrder.findMany({
+    /* tenant-scope: the system's sweep over every tenant's orders in the chat (narrowed in tests). */
+    where: { state: "IN_CHAT", ...(opts.tenantIds ? { tenantId: { in: opts.tenantIds } } : {}) },
+    select: { id: true, createdAt: true }, orderBy: { createdAt: "asc" }, take: 1000,
+  });
+  for (const o of orders) {
+    const { deadline, warnAt } = signingDeadline(o.createdAt, days);
+    if (now < warnAt) continue;
+    await prisma.$transaction(async (tx) => {
+      if ((await lockOrder(tx, o.id)) !== "IN_CHAT") return;
+      const chats = await tx.dealChat.findMany({
+        /* tenant-scope: the chats of the order locked above. */
+        where: { orderId: o.id }, select: CHAT,
+      });
+      const ref = orderRef(o.id);
+      const until = deadline.toISOString().slice(0, 10);
+      if (now >= deadline) {
+        const system = { userId: null, tenantId: chats[0]?.tenantId ?? "" };
+        await cancelOrderAsSystem(tx, o.id, "NOT_SIGNED", now);
+        for (const c of chats) {
+          await tx.dealChat.update({ /* tenant-scope: a chat of the order locked above, by its id. */ where: { id: c.id }, data: { state: "CLOSED" } });
+          await audit(tx, { ...system, tenantId: c.tenantId }, "dealChat.expired", "DealChat", c.id, { after: { orderId: o.id, deadline: deadline.toISOString(), workingDays: days } });
+          const n = await names(tx, c);
+          for (const side of ["SPONSOR", "SELLER"] as const) {
+            for (const r of await recipientsOf(tx, c, side)) {
+              await tell(tx, r, "dealChat.expired", `${c.id}:${side}`, {
+                firstName: r.firstName, orderRef: ref, otherName: side === "SPONSOR" ? n.seller : n.sponsor, days: String(days), chatUrl: chatUrl(c, side, r.portal),
+              });
+            }
+          }
+        }
+        out.expired++;
+        return;
+      }
+      for (const c of chats) {
+        if (c.lastWarnedAt) continue;
+        const status = await loadDealStatus(tx, c);
+        const n = await names(tx, c);
+        for (const side of ["SPONSOR", "SELLER"] as const) {
+          for (const r of await recipientsOf(tx, c, side)) {
+            await tell(tx, r, "dealChat.lastWarning", `${c.id}:${side}`, {
+              firstName: r.firstName, orderRef: ref, otherName: side === "SPONSOR" ? n.seller : n.sponsor, deadline: until,
+              waitingFor: status.notYet.join("; ") || "both signatures on the agreement", chatUrl: chatUrl(c, side, r.portal),
+            });
+          }
+        }
+        await tx.dealChat.update({ /* tenant-scope: a chat of the order locked above, by its id. */ where: { id: c.id }, data: { lastWarnedAt: now } });
+        await audit(tx, { userId: null, tenantId: c.tenantId }, "dealChat.lastWarning", "DealChat", c.id, { after: { orderId: o.id, deadline: deadline.toISOString() } });
+        out.warned++;
+      }
+    });
+  }
+  return out;
+}
+
 
 /**
  * Every few minutes: close the chats of ended orders; email each side its
@@ -656,8 +812,8 @@ export async function keepBackDealChatMessage(actor: Actor, messageId: string, i
  * message); remind whoever's turn it is after every 2 working days without a
  * move, until the agreement is signed.
  */
-export async function sweepDealChats(now = new Date(), opts: { tenantIds?: string[] } = {}): Promise<{ closed: number; unread: number; reminders: number }> {
-  const out = { closed: 0, unread: 0, reminders: 0 };
+export async function sweepDealChats(now = new Date(), opts: { tenantIds?: string[] } = {}): Promise<{ closed: number; unread: number; reminders: number; warned: number; expired: number }> {
+  const out = { closed: 0, unread: 0, reminders: 0, ...(await sweepDealDeadlines(now, opts)) };
   const chats = await prisma.dealChat.findMany({
     /* tenant-scope: the system's sweep over every tenant's open chats (narrowed in tests). */
     where: { state: "OPEN", ...(opts.tenantIds ? { tenantId: { in: opts.tenantIds } } : {}) },

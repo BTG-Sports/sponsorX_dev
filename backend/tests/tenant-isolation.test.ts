@@ -456,6 +456,8 @@ const BODY: Record<string, unknown> = {
   "POST /deal-chats/{id}/offers": { text: "Isolation sweep offer" },
   "POST /deal-chats/{id}/exchanges/{exchangeId}/reply": { text: "Isolation sweep reply" },
   "POST /deal-chats/{id}/exchanges/{exchangeId}/accept": { messageId: A.dealChatMessage },
+  "PUT /deal-chats/{id}/amount": { amountCents: 100_000 },
+  "POST /deal-chats/{id}/call-off": { reason: "Isolation sweep call-off" },
   "POST /deal-chat-messages/{id}/report": { reason: "Isolation sweep report" },
   "POST /deal-chat-messages/{id}/keep-back": { reason: "Isolation sweep keep-back" },
   /* 3S2-BE-03 — overriding tenant A's suggested price. */

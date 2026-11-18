@@ -259,6 +259,10 @@ export type EmailTemplate =
   | "dealChat.reminder"
   | "dealChat.forReview"
   | "dealChat.keptBack"
+  /* 2S4-BE-15 — the deal called off (with the reason), the last warning before the signing limit, and the order cancelled at it. */
+  | "dealChat.calledOff"
+  | "dealChat.lastWarning"
+  | "dealChat.expired"
   | "order.paymentReminder"
   | "order.cancelledUnpaid"
   /* POL-BE-04 — card payment opened: an order held meanwhile now has its pay-by date. */
