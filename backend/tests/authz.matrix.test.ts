@@ -524,7 +524,17 @@ describe("the whole matrix is pinned", () => {
       // SPONSOR_ADMIN own-sponsor read/write (sign); SPONSOR_ANALYST
       // own-sponsor read; every other cell deny (matrix §24.1). With its rows
       // removed the grid hashes to the previous f569c36adb53b3fe.
-    ).toBe("1d647cf81190cf29");
+      // Updated 2026-11-18 (2S4-BE-16): new `dealChat` resource — the Deal
+      // Chat between an order's sponsor and one seller. SUPER_ADMIN any read;
+      // BTG_ADMIN own-tenant read (moderation is dealChatReview);
+      // PROPERTY_MGR own-property read/write; ATHLETE own read/write (a
+      // guardian acting for a minor holds this cell); SPONSOR_ADMIN
+      // own-sponsor read/write; SPONSOR_ANALYST own-sponsor read. And new
+      // `dealChatReview` — BTG's desk of held and reported messages:
+      // SUPER_ADMIN any read/write; BTG_ADMIN own-tenant read/write. Every
+      // other cell deny (matrix §24.2). With their rows removed the grid
+      // hashes to the previous 1d647cf81190cf29.
+    ).toBe("c9b3108754a1eb22");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

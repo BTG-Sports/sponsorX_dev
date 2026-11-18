@@ -99,6 +99,8 @@ const A = {
   /* 2S4-BE-09 — tenant A's school asked to accept that order (its listing asks), unanswered. */
   sellerApproval: "ti_seller_approval_a",
   dealAgreement: "ti_deal_agreement_a",
+  /* 2S4-BE-16 — the Deal Chat on that order with the school, an open offer in it, and its message. */
+  dealChat: "ti_deal_chat_a", dealChatExchange: "ti_deal_chat_exchange_a", dealChatMessage: "ti_deal_chat_message_a",
   /* 2S1-BE-13 — a rejected tenant-A account asking to come back; 2S1-BE-15 — a request to become its guardian, waiting. */
   closure: "ti_closure_a", handoff: "ti_handoff_a", closureRequest: "ti_closure_request_a",
   /* P9-BE-16 — a slot sold to tenant A's campaign, and its artwork on the approval board. */
@@ -226,6 +228,8 @@ const PARAM_FOR: Record<string, string> = {
   "seller-approvals": A.sellerApproval,
   /* 2S4-BE-14 — Deal Chat's agreement on tenant A's order. */
   "deal-agreements": A.dealAgreement,
+  /* 2S4-BE-16 — tenant A's Deal Chat, its offer, its message, and a card it asks. */
+  "deal-chats": A.dealChat, exchanges: A.dealChatExchange, "deal-chat-messages": A.dealChatMessage, picks: "APPROVAL_FIRST",
   /* P3-BE-16 — no tenant-A change is seeded: an unknown id must answer
      exactly as another tenant's would, so a made-up one is the right probe. */
   "profile-changes": "pc_not_yours",
@@ -446,6 +450,14 @@ const BODY: Record<string, unknown> = {
   "POST /seller-approvals/{id}/decision": { decision: "ACCEPT" },
   /* 2S4-BE-14 — signing tenant A's deal agreement, with its real fingerprint. */
   "POST /deal-agreements/{id}/sign": { bodyHashShown: "sha256:ti-secret-deal-hash" },
+  /* 2S4-BE-16 — writing in, picking, offering, answering, reporting and reviewing in tenant A's Deal Chat. */
+  "POST /deal-chats/{id}/messages": { text: "Isolation sweep message" },
+  "PUT /deal-chats/{id}/picks/{cardKey}": { value: "YES" },
+  "POST /deal-chats/{id}/offers": { text: "Isolation sweep offer" },
+  "POST /deal-chats/{id}/exchanges/{exchangeId}/reply": { text: "Isolation sweep reply" },
+  "POST /deal-chats/{id}/exchanges/{exchangeId}/accept": { messageId: A.dealChatMessage },
+  "POST /deal-chat-messages/{id}/report": { reason: "Isolation sweep report" },
+  "POST /deal-chat-messages/{id}/keep-back": { reason: "Isolation sweep keep-back" },
   /* 3S2-BE-03 — overriding tenant A's suggested price. */
   "POST /intelligence/pricing/recommendations/{recommendationId}/overrides": { cpmCents: 999999, reason: "Sweep override reason" },
   /* 3S3-BE-02 — saving tenant A's brief's shortlist. */
@@ -743,6 +755,16 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     await prisma.dealAgreement.create({ data: {
       id: A.dealAgreement, tenantId: t, orderId: A.mktOrder, sponsorId: A.sponsor, propertyId: A.school, propertyTenantId: t, lineIds: [A.mktLine],
       agreementId: dealTerms.id, forms: ["PLACEMENT"], body: "TI Secret deal body", bodyHash: "sha256:ti-secret-deal-hash", amountCents: 9000, originalAmountCents: 9000,
+    }, select: { id: true } });
+    /* 2S4-BE-16 — the Deal Chat on that order with the school, an open offer, and a held message in it. */
+    await prisma.dealChat.create({ data: {
+      id: A.dealChat, tenantId: t, orderId: A.mktOrder, sponsorId: A.sponsor, sellerKey: `property:${A.school}`, propertyId: A.school, propertyTenantId: t,
+      lineIds: [A.mktLine], forms: ["PLACEMENT"],
+    }, select: { id: true } });
+    await prisma.dealChatExchange.create({ data: { id: A.dealChatExchange, tenantId: t, chatId: A.dealChat, startedBy: "SELLER", latestMessageId: A.dealChatMessage }, select: { id: true } });
+    await prisma.dealChatMessage.create({ data: {
+      id: A.dealChatMessage, tenantId: t, chatId: A.dealChat, exchangeId: A.dealChatExchange, kind: "OFFER", side: "SELLER", userId: "ti_a_seller",
+      body: "TI Secret chat offer", state: "HELD", heldReasons: ["A phone number"],
     }, select: { id: true } });
     await prisma.teamInvitation.create({ data: { id: A.teamInvite, tenantId: t, propertyId: A.school, athleteId: A.athlete, athleteTenantId: t, teamShareBps: 1500 } });
     await prisma.teamShareChange.create({ data: { id: A.shareChange, tenantId: t, propertyId: A.school, athleteId: A.athlete, toBps: 2000 } });

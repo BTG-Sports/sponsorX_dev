@@ -265,6 +265,10 @@ const schema = z.object({
      every fan who scans it can claim, up to the reward's limit. "off" until the fan page sends the fan on
      to their own code (POL-FE-08): one claim per code, as before. Every switch: documentation/SponsorX-Switches.md. */
   REWARD_FAN_CODES: z.enum(["on", "off"]).default("off").transform((v) => v === "on"),
+  /* 2S4-BE-16 — Deal Chat: "on" opens a chat per seller when an order is placed, where the sponsor and
+     the seller agree the deal and the agreement form is posted. "off" (today's flow) until 2S4-BE-15
+     puts the chat stage into the order flow. Every switch: documentation/SponsorX-Switches.md. */
+  DEAL_CHAT: z.enum(["on", "off"]).default("off").transform((v) => v === "on"),
 });
 
 /* A development default that reached production would make every continuation

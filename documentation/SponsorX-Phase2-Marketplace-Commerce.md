@@ -1146,7 +1146,7 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
 
 - **The chat stage.** A new order state between placing and approval. Every order enters it when the `DEAL_CHAT` switch is on. It replaces the seller's accept / decline step (2S4-BE-09) for every order, not only listings that ask.
 - **Calling off.** Either side can call the deal off before payment, with a reason the other side reads. The order is cancelled, stock is released and nothing is charged. With two sellers, one calling off cancels the whole order.
-- **The form appears** only when every card is agreed. It is withdrawn if anyone changes an answer after it is out.
+- **The form appears** only when everything in the chat is green (built in 2S4-BE-16). Agreed answers are locked, so nothing withdraws it; right before each signature the server checks again that everything is green (owner, 2026-11-18).
 - **The final amount.** Pre-filled with the original amount. Each side confirms it or types over it, and neither can sign until the two match. The matched amount becomes the order's price, spread across one seller's lines in proportion to their original prices, and any buyer fee is worked out again.
 - **Safety checks.** A final amount below the listed price is held for BTG, as is one above the sponsor's spending limit.
 - **Both signed.** The spending-limit check runs, then the order moves to awaiting payment and the 3-day window starts (2S4-BE-10).
@@ -1154,7 +1154,7 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
 - **Time limit.** Signed by both within **10 working days** of the order being placed (a setting), or the order is cancelled, its stock released and both sides emailed. Reminders go to whoever's turn it is after every 2 working days without a reply, until the agreement is signed (owner, 2026-11-17), and both sides get a last warning 2 working days before the cancellation. The 10 days are rcfworks' recommendation, which the owner left to us on 2026-11-17 ("I don't know"): long enough for four reminders, short enough that a reserved order doesn't hold an athlete's stock for weeks.
 
 - **Depends on:** 2S4-BE-09, 2S4-BE-10, 2S4-BE-14
-- **Done when:** With the switch on, a placed order is in the chat stage and cannot be paid; either side calling off cancels it with the reason and releases the stock; the form appears only when every card is agreed and is withdrawn on a changed answer; signing needs matching amounts, and the matched amount becomes the order's price and fees with lines kept in proportion; below the listed price or above the limit holds for BTG with the reason; both signatures open payment and start the 3-day window; unsigned at 10 working days cancels, with a reminder after every 2 working days of silence and a last warning 2 working days before; orders placed before the switch keep today's flow
+- **Done when:** With the switch on, a placed order is in the chat stage and cannot be paid; either side calling off cancels it with the reason and releases the stock; the form appears only when everything is green and each signature re-checks it; signing needs matching amounts, and the matched amount becomes the order's price and fees with lines kept in proportion; below the listed price or above the limit holds for BTG with the reason; both signatures open payment and start the 3-day window; unsigned at 10 working days cancels, with a reminder after every 2 working days of silence and a last warning 2 working days before; orders placed before the switch keep today's flow
 - **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §3.5–§3.8, §4, §7, §8
 
 ### ⏸ `2S4-BE-16` · Deal Chat: the chat, the cards and the offers
@@ -1177,6 +1177,18 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
 - **Depends on:** 2S4-BE-14
 - **Done when:** Only the order's parties read and write its chat, and BTG reads it; cards agree on matching picks; offers run Reply / Accept / Decline and agree on two accepts of the latest message, a new reply clearing them; held messages reach BTG and not the other side until BTG releases them; the money nudge appears when an agreed exchange names a figure and the amount is unchanged; reports reach BTG; unread email is collected; a minor's commitments come only from the guardian; every action is audited
 - **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §3.1–§3.4, §6, §7
+- **Owner, 2026-11-18:** "an answer cannot be changed once both parties approved. also the system should double check before the signature if all is green. as simple as that." So a card agreed by matching picks is locked, and nothing is withdrawn; every signature re-checks the chat.
+- **Delivered (2026-11-18, rcfworks), Code review:**
+  - **Storage:** `DealChat` (one per seller per order), `DealChatPick`, `DealChatExchange`, `DealChatMessage` (migration `20261118120000_deal_chats`). A trigger refuses any change to a message's words, author or time.
+  - **The rules** (`deal-chat-rules.ts`, pure): a card is agreed on matching picks and then locked; an offer is agreed on two accepts of its latest message, a reply clearing them; the deal status (cards agreed, offers open, whose turn, all green, what is not yet agreed); what holds a message (email, phone, social handle, outside link, outside payment); dollar figures; working days.
+  - **The chat** (`deal-chat.ts`): opened per seller when an order is placed (behind `DEAL_CHAT`, off), both sides emailed; messages, picks, offers with Reply / Accept / Decline; the form posted automatically once all green, with the original amount until 2S4-BE-15 adds the final amount; held messages to BTG's desk, released or kept back with a reason the sender is emailed; reports; for a minor only the guardian accepts.
+  - **An agreed offer** goes into the agreement word for word (D4). The card it is about is still agreed by matching picks, so every D3 line stays the approved wording.
+  - **The check before signing** (`deal-chat-check.ts`): `signDealAgreement` refuses unless the chat is all green and posted that very form.
+  - **Email:** chat opened; unread messages collected after 15 minutes; a reminder to whoever's turn it is after every 2 working days; BTG told of a held or reported message; the sender told of a kept-back one. The worker sweeps every 5 minutes and closes the chats of ended orders.
+  - **Routes:** `GET /deal-chats`, `GET /deal-chats/{id}`, `POST …/read`, `POST …/messages`, `PUT …/picks/{cardKey}`, `POST …/offers`, `POST …/exchanges/{exchangeId}/reply|accept|decline`, `POST /deal-chat-messages/{id}/report`, BTG's `GET /deal-chat-reviews`, `POST /deal-chat-messages/{id}/release|keep-back`. All in OpenAPI.
+  - **Permissions:** new `dealChat` and `dealChatReview` resources (RBAC matrix §24.2); the tenant-isolation sweep covers every route.
+  - **Tests:** `backend/tests/deal-chat.test.ts` (17).
+  - **Left to 2S4-BE-15:** calling the deal off, the final amount, the payment gate, the 10-working-day cancellation and its last warning. The switch stays off until then.
 
 ### ⏸ `2S4-BE-17` · Deal Chat: tests and the switch
 

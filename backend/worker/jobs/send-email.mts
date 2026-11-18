@@ -169,6 +169,27 @@ ${d.portalUrl ?? ""}
   }),
   /* 2S4-BE-10 — the payment window. */
   /* POL-BE-04 — no pay-by date means card payment isn't open yet: the order is held, and nothing is cancelled meanwhile. */
+  /* 2S4-BE-16 — Deal Chat. */
+  "dealChat.opened": (d) => ({
+    subject: `Order ${d.orderRef ?? ""}: agree the details with ${d.otherName ?? "the other side"} in Deal Chat`,
+    text: `Hi ${d.firstName ?? "there"},\n\nA Deal Chat is open for order ${d.orderRef ?? ""} with ${d.otherName ?? "the other side"}. Answer the questions, talk through anything that differs, and the agreement is ready to sign once you both agree. Nothing is paid until both of you have signed.\n\n${d.chatUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "dealChat.unread": (d) => ({
+    subject: `${d.count ?? "New"} new message(s) from ${d.otherName ?? "the other side"} — order ${d.orderRef ?? ""}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.otherName ?? "The other side"} sent you ${d.count ?? "new"} message(s) in the Deal Chat for order ${d.orderRef ?? ""}.\n\n${d.chatUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "dealChat.reminder": (d) => ({
+    subject: `Your turn in the Deal Chat for order ${d.orderRef ?? ""}`,
+    text: `Hi ${d.firstName ?? "there"},\n\nThe deal with ${d.otherName ?? "the other side"} (order ${d.orderRef ?? ""}) is waiting for you: ${d.waitingFor ?? ""}.\n\n${d.chatUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "dealChat.forReview": (d) => ({
+    subject: `Deal Chat message to check: order ${d.orderRef ?? ""}`,
+    text: `A message in the Deal Chat between ${d.sponsorName ?? "a sponsor"} and ${d.sellerName ?? "a seller"} (order ${d.orderRef ?? ""}) is waiting for you.\n\n${d.why ?? ""}\n\nRelease it or keep it back:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "dealChat.keptBack": (d) => ({
+    subject: `BTG kept back your message — order ${d.orderRef ?? ""}`,
+    text: `Hi there,\n\nBTG kept back a message you sent in the Deal Chat for order ${d.orderRef ?? ""}, so the other side won't see it:\n\n"${d.reason ?? ""}"\n\nPlease keep contact details and payment on SponsorX.\n\n${d.chatUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
   "order.approved": (d) => d.payBy
     ? {
       subject: `Your order ${d.orderRef ?? ""} is approved — please pay by ${d.payBy}`,
