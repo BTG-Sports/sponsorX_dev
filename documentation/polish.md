@@ -2974,7 +2974,7 @@ the blockers and today's content review findings.
   - **Tests:** `backend/tests/pol-be-103-advisor-profile.test.ts` (6). The POL-BE-101 tests now expect the advisor's name. The tenant sweep covers the new route.
   - **Left to `POL-FE-103`:** the Profile page in `/advisor`'s menu.
 ### 104. A school team can't see or keep its own details current (property portal) — partial today [§8, 2S1-BE-03]
-`POL-BE-104` · `POL-FE-104` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · backend built 2026-11-18
+`POL-BE-104` · `POL-FE-104` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · backend Done 2026-11-18 (`POL-FE-104` open)
 - **What exists:**
   - `/property/settings`: the manager's sign-in email (from Clerk), the Stripe payout account, notification preferences and Close account.
   - `/property/branding`: display name, logo, colours and report footer, editable only when the tenant is an operated one; otherwise read-only, "BTG manages branding".
