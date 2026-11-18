@@ -3136,6 +3136,7 @@ model MarketplaceOrder {
   reservation     Reservation               @relation(fields: [reservationId], references: [id])
   /// 2S4-BE-14 — the Deal Chat agreement with each seller on the order.
   dealAgreements  DealAgreement[]
+  dealChats       DealChat[]
   acceptance      AgreementAcceptance?      @relation(fields: [acceptanceId], references: [id], onDelete: Restrict)
   lines           MarketplaceOrderLine[]
   sellerApprovals OrderSellerApproval[]
@@ -5201,4 +5202,131 @@ model DealAgreement {
   @@index([orderId])
   @@index([athleteTenantId, athleteId])
   @@index([propertyTenantId, propertyId])
+}
+
+/// 2S4-BE-16 — Deal Chat: one chat per seller on a marketplace order, where
+/// the order's sponsor and that seller agree the deal before payment
+/// (documentation/SponsorX-Deal-Chat-Feature.md §3.1–§3.4, §6). In the
+/// order's books; the seller reaches it in their own tenant, as a
+/// DealAgreement. Nothing typed in it is ever edited or deleted.
+model DealChat {
+  id               String    @id @default(cuid())
+  tenantId         String
+  orderId          String
+  sponsorId        String
+  /// "athlete:<id>" or "property:<id>" — one chat per seller per order.
+  sellerKey        String
+  athleteId        String?
+  athleteTenantId  String?
+  propertyId       String?
+  propertyTenantId String?
+  /// The seller's lines on the order, and the agreement forms they take (deal-cards.ts).
+  lineIds          String[]
+  forms            String[]
+  /// OPEN | CLOSED (read-only: the order was cancelled or closed)
+  state            String    @default("OPEN")
+  /// The agreement the chat posted once everything was agreed (DealAgreement).
+  dealAgreementId  String?
+  /// Unread markers, per side: when each side last read the chat, and the
+  /// newest message already covered by an unread-messages email.
+  sponsorReadAt    DateTime?
+  sellerReadAt     DateTime?
+  sponsorEmailedAt DateTime?
+  sellerEmailedAt  DateTime?
+  /// The last thing either side did; reminders count 2 working days from it.
+  lastActionAt     DateTime  @default(now())
+  lastRemindedAt   DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now()) @updatedAt
+
+  order     MarketplaceOrder   @relation(fields: [orderId], references: [id])
+  picks     DealChatPick[]
+  exchanges DealChatExchange[]
+  messages  DealChatMessage[]
+
+  @@unique([orderId, sellerKey])
+  @@index([tenantId, state])
+  @@index([athleteTenantId, athleteId])
+  @@index([propertyTenantId, propertyId])
+}
+
+/// 2S4-BE-16 — one side's answer to one question card. A card is agreed
+/// when both sides' answers match, and from then on neither can change it.
+model DealChatPick {
+  id         String   @id @default(cuid())
+  tenantId   String
+  chatId     String
+  cardKey    String
+  /// SPONSOR | SELLER
+  side       String
+  /// The answer's values (one, or several for a tick-all card).
+  value      String[]
+  userId     String
+  guardianId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  chat DealChat @relation(fields: [chatId], references: [id])
+
+  @@unique([chatId, cardKey, side])
+}
+
+/// 2S4-BE-16 — an offer and its replies. Agreed when both sides have
+/// accepted its latest message; a new reply clears both accepts.
+model DealChatExchange {
+  id                       String    @id @default(cuid())
+  tenantId                 String
+  chatId                   String
+  /// The card it is about, if any.
+  cardKey                  String?
+  /// OPEN | AGREED | DECLINED
+  state                    String    @default("OPEN")
+  startedBy                String
+  latestMessageId          String?
+  /// The message each side accepted (must be the latest to count).
+  sponsorAcceptedMessageId String?
+  sellerAcceptedMessageId  String?
+  closedAt                 DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @default(now()) @updatedAt
+
+  chat DealChat @relation(fields: [chatId], references: [id])
+
+  @@index([chatId, state])
+}
+
+/// 2S4-BE-16 — a message, an offer or a reply. Its words, author and time
+/// never change (trigger DealChatMessage_immutable); only BTG's check and a
+/// report are recorded on it.
+model DealChatMessage {
+  id              String    @id @default(cuid())
+  tenantId        String
+  chatId          String
+  exchangeId      String?
+  /// TEXT | OFFER | REPLY
+  kind            String
+  /// SPONSOR | SELLER
+  side            String
+  userId          String
+  /// A guardian writing for a minor.
+  guardianId      String?
+  body            String
+  /// VISIBLE | HELD (waiting for BTG; the other side doesn't see it) | KEPT_BACK
+  state           String    @default("VISIBLE")
+  heldReasons     String[]  @default([])
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  /// Why BTG kept it back — the sender reads it.
+  keptBackReason  String?
+  reportedAt      DateTime?
+  reportedBy      String?
+  reportReason    String?
+  reportClearedAt DateTime?
+  createdAt       DateTime  @default(now())
+
+  chat DealChat @relation(fields: [chatId], references: [id])
+
+  @@index([chatId, createdAt])
+  @@index([tenantId, state])
+  @@index([tenantId, reportedAt])
 }

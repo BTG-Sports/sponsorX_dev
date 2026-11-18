@@ -250,6 +250,15 @@ export type EmailTemplate =
      one and two, cancelled unpaid on day three (and each seller told); the
      receipt, however it was paid. */
   | "order.approved"
+  /* 2S4-BE-16 — Deal Chat: each side told the chat is open; unread messages
+     collected after 15 minutes; a reminder to whoever's turn it is after 2
+     working days; BTG told of a held or reported message; the sender told
+     BTG kept theirs back, with the reason. */
+  | "dealChat.opened"
+  | "dealChat.unread"
+  | "dealChat.reminder"
+  | "dealChat.forReview"
+  | "dealChat.keptBack"
   | "order.paymentReminder"
   | "order.cancelledUnpaid"
   /* POL-BE-04 — card payment opened: an order held meanwhile now has its pay-by date. */

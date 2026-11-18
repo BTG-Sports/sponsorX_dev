@@ -369,6 +369,7 @@ Every number below comes from running `npm audit --json` on the root lockfile. T
 | Advisory | Package | Path | Why it is not exploitable here |
 |---|---|---|---|
 | GHSA-vfj7-8cjw-p6xm (high, stack-exhaustion DoS) | `braces@3.0.3` | `eslint-config-next@16.3.8 > @next/eslint-plugin-next > fast-glob > micromatch > braces` (frontend **devDependency**) | No patched `braces` exists, because every version is in range. npm's only "fix" is downgrading `eslint-config-next` to 14.2, two majors behind Next 16. `braces` runs only inside ESLint, on glob patterns from our own lint config, on a developer machine or CI runner. It is not in the production install (`--omit=dev` reports 0), and it never sees user input. |
+| GHSA-fc5q-39xc-vjpf (high, ReDoS) — added 2026-11-18 | `picomatch@4.0.7`, `picomatch@2.3.2` | `vite` / `vitest` (backend **devDependencies**), `eslint-config-next > … > micromatch` (frontend **devDependency**) | No patched `picomatch` exists: every version up to the latest, 4.0.7, is in range. npm's only "fix" is a major downgrade of `vitest`. `picomatch` runs only inside the test runner, Vite and ESLint, on glob patterns from our own config. It is not in the production install (`--omit=dev` reports 0), and it never sees user input. |
 
 This one advisory accounts for all five remaining "high" rows, which are the chain `braces → micromatch → fast-glob → @next/eslint-plugin-next → eslint-config-next`.
 

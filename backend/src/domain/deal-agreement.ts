@@ -34,6 +34,7 @@ import { ForbiddenError } from "../auth/errors";
 import { bodyHashMatches, hashAgreementBody } from "./agreement-hash";
 import { currentAgreementOf } from "./current-agreement";
 import { assertMayCommit } from "./guardian-acts";
+import { assertDealChatGreen } from "./deal-chat-check";
 import { formsFor, type AnswerValue, type DealForm } from "./deal-cards";
 import { renderDealAgreement, usdOf, type DealExchangeMessage, type DealSeller } from "./deal-agreement-render";
 import { orderRef } from "./order-mail";
@@ -68,6 +69,12 @@ export type OpenDealInput = {
 const downloadPath = (id: string) => `/api/v1/deal-agreements/${id}/download`;
 
 /* ── opening (called inside the chat's transaction, 2S4-BE-15/-16) ─────── */
+
+/** The forms a seller's lines take (deal-cards.ts), a package's items included. */
+export async function dealFormsOf(tx: Tx, lines: readonly { inventoryItemId: string; itemTenantId: string }[]): Promise<DealForm[]> {
+  const forms = formsFor(await kindsOf(tx, lines));
+  return forms.length ? forms : ["PLACEMENT"];
+}
 
 /** The kinds of what was bought: an item's own kind, or a package's items' kinds. */
 async function kindsOf(tx: Tx, lines: readonly { inventoryItemId: string; itemTenantId: string }[]): Promise<string[]> {
@@ -283,7 +290,7 @@ export async function signDealAgreement(actor: Actor, id: string, input: SignInp
     const r = await tx.dealAgreement.findFirstOrThrow({
       /* tenant-scope: the agreement found through whereFor(dealAgreement, write) and locked. */
       where: { id: found.id },
-      select: { id: true, tenantId: true, sponsorId: true, athleteId: true, propertyId: true, agreementId: true, bodyHash: true, state: true, sponsorAcceptanceId: true, sellerAcceptanceId: true },
+      select: { id: true, tenantId: true, orderId: true, sponsorId: true, athleteId: true, propertyId: true, agreementId: true, bodyHash: true, state: true, sponsorAcceptanceId: true, sellerAcceptanceId: true },
     });
     if (r.state === "WITHDRAWN") throw new DealAgreementError("This form was replaced by a newer one in the chat. Open the latest form to sign.");
     if (r.state === "SIGNED") throw new DealAgreementError("Both sides have already signed this agreement.");
@@ -294,6 +301,8 @@ export async function signDealAgreement(actor: Actor, id: string, input: SignInp
     if (side === "SELLER" && r.athleteId) await assertMayCommit(tx, actor, "accept");
     const field = side === "SPONSOR" ? "sponsorAcceptanceId" : "sellerAcceptanceId";
     if (r[field]) throw new DealAgreementError("You have already signed this agreement.");
+    /* 2S4-BE-16 — checked again right before the signature: the chat is all green and posted this form (owner, 2026-11-18). */
+    await assertDealChatGreen(tx, r);
 
     const acceptance = await tx.agreementAcceptance.create({
       data: {

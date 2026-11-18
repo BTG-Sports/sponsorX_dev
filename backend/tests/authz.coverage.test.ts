@@ -91,6 +91,11 @@ const GOVERNED_BY: Record<string, Resource> = {
   OrderSellerApproval: "orderSellerApproval",
   /* 2S4-BE-14 — a Deal Chat agreement between an order's sponsor and one seller, and its signatures. */
   DealAgreement: "dealAgreement",
+  /* 2S4-BE-16 — a Deal Chat, its card answers, its offers and its messages: all reached through the chat. */
+  DealChat: "dealChat",
+  DealChatPick: "dealChat",
+  DealChatExchange: "dealChat",
+  DealChatMessage: "dealChat",
   /* 2S4-BE-10 — a Zoho Books invoice for a marketplace order is the order's (as a card attempt is). */
   MarketplaceOrderInvoice: "marketplaceOrder",
   /* 2S4-BE-13 — money owed back to a sponsor: Finance's "Refunds to send". */
