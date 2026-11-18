@@ -77,7 +77,8 @@ was bought. Each row shows whether it is agreed, open, or waiting on someone:
 Each checklist row is a **question card** in the chat, with answers to pick.
 
 - **A card is agreed when both sides pick the same answer.**
-- Either side can change their pick until the agreement form is sent.
+- Until then either side can change their pick. **Once both picks match, the
+  answer is locked** and neither side can change it (owner, 2026-11-18).
 
 The cards depend on the kind of item bought (see §5).
 
@@ -99,8 +100,9 @@ The other side answers with one of three buttons:
 message.** A new reply after one side accepted clears both accepts.
 
 Once agreed, **the whole exchange (the offer and every reply) is copied word
-for word into the written agreement** as a special term, and its card is
-marked agreed.
+for word into the written agreement** as a special term. Both sides then pick
+the card's matching answer, so the card's line in the agreement stays the
+approved wording.
 
 ```
  Athlete ▸ OFFER  "Yes to paid ads, but only Instagram, and $200 more."
@@ -135,8 +137,10 @@ posted into the chat already filled in from the chat:
 
 Each side signs. A minor's form is signed by the guardian.
 
-**If anyone changes an answer after the form is out, the form is withdrawn**,
-and a new one is posted once every card is agreed again.
+**Nothing on the form can change after it is out**: agreed answers are locked
+(§3.3). **Right before each signature the server checks again that everything
+is green**: every card agreed, no offer open, nothing waiting for BTG (owner,
+2026-11-18).
 
 ### 3.7 The final amount
 
@@ -329,6 +333,9 @@ easy to test. They can be upgraded later.
     until the agreement is signed.
 11. **The agreement is downloadable at any time by both sides**, from the
     order card and the item card.
+12. **An answer cannot be changed once both sides agreed it** (2026-11-18).
+13. **The server checks that everything is green right before each
+    signature** (2026-11-18). "As simple as that."
 
 ## 11. Tasks
 

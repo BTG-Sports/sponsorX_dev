@@ -18,6 +18,15 @@
       "path": "minimatch@3.1.5 (backend devDependency eslint@9.39.5 and frontend devDependency eslint-config-next@16.4.2 plugins), minimatch@10.2.6 (@typescript-eslint/typescript-estree, dev), minimatch@5.1.9 (frontend dependency exceljs@4.4.0 > archiver@5.3.2 > readdir-glob, production)",
       "reason": "DoS through glob-pattern amplification: it needs an attacker to supply the pattern. Fixed only in minimatch 11.0.1, whose API drops the default export eslint and its plugins call, and npm's only 'fix' is a downgrade of eslint. In dev, minimatch matches the glob patterns in our own lint config. In production it ships inside exceljs > archiver > readdir-glob, but readdir-glob runs only from archiver.glob()/directory(), which exceljs never calls (it appends buffers to the zip); no request ever reaches a glob pattern.",
       "reviewBy": "2027-01-05"
+    },
+    {
+      "id": "GHSA-fc5q-39xc-vjpf",
+      "package": "picomatch",
+      "severity": "high",
+      "devOnly": true,
+      "path": "backend devDependencies vite@7.3.7 / vitest@5.0.5 > picomatch@4.0.7 (and fdir, tinyglobby); frontend devDependency eslint-config-next@16.4.6 > @next/eslint-plugin-next > fast-glob > micromatch > picomatch@2.3.2",
+      "reason": "ReDoS through single-branch repeated extglobs in a glob pattern. Published 2026-11; no patched picomatch exists (every version up to 4.0.7, the latest, is in range), and npm's only 'fix' is a major downgrade of vitest. picomatch runs only inside the test runner, Vite and ESLint, on glob patterns written in our own config, on a developer machine or CI runner; it is not in the production install (--omit=dev reports 0) and never sees user input. Added 2026-11-18 (2S4-BE-16's CI run).",
+      "reviewBy": "2027-01-05"
     }
   ]
 }

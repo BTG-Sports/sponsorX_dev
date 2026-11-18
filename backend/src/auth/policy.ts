@@ -173,6 +173,8 @@ export type Resource =
   | "orderDelivery"
   | "orderSellerApproval"
   | "dealAgreement"
+  | "dealChat"
+  | "dealChatReview"
   | "refundDue"
   | "teamInvitation"
   | "accountClosure"
@@ -275,6 +277,8 @@ export const RESOURCES: readonly Resource[] = [
   "orderDelivery",
   "orderSellerApproval",
   "dealAgreement",
+  "dealChat",
+  "dealChatReview",
   "refundDue",
   "teamInvitation",
   "accountClosure",
@@ -1065,6 +1069,28 @@ export const POLICY: Record<Resource, RolePolicy> = {
     ATHLETE: rwa("own", "own"),
     SPONSOR_ADMIN: rwa("own-sponsor", "own-sponsor"),
     SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
+  /* 2S4-BE-16 (matrix §24.2) — a Deal Chat between an order's sponsor and
+     one seller: its messages, card answers and offers. The two parties read
+     and write it: the sponsor's admin, and the seller — the team's manager,
+     or the athlete (a guardian acting for a minor holds this cell; only the
+     guardian accepts an offer). The sponsor's analyst reads (and may report
+     a message). BTG reads every chat in the order's books and writes in
+     none: its moderation is dealChatReview. */
+  dealChat: {
+    SUPER_ADMIN: rwa("any"),
+    BTG_ADMIN: rwa("own-tenant"),
+    PROPERTY_MGR: rwa("own-property", "own-property"),
+    ATHLETE: rwa("own", "own"),
+    SPONSOR_ADMIN: rwa("own-sponsor", "own-sponsor"),
+    SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
+  /* 2S4-BE-16 (matrix §24.2) — BTG's desk of Deal Chat messages held before
+     delivery (contact details, outside payment, restricted words) or
+     reported: BTG admins read it and release or keep back each one. */
+  dealChatReview: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
   },
   /* 2S4-BE-13 (matrix §25) — refunds to send. Money owed back to a sponsor,
      one row per refund of a paid order, in the order's books. BTG admin and

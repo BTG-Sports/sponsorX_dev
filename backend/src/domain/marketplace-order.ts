@@ -96,6 +96,8 @@ import { bookOrder, markOrderPaid, releaseReserve, reverseOrder } from "./ledger
 import { followOrder, openDeliveries } from "./delivery";
 import { sponsorLimit } from "./spending-limit";
 import { approvalsForOrders, openSellerApprovals } from "./order-approval";
+import { openDealChats } from "./deal-chat";
+import { env } from "../config/env";
 import { tellBtgHeld, tellSponsorApproved, tellSponsorPaid } from "./order-mail";
 import { orderRefundCause, recordRefund, refundsForOrders, type RefundContext } from "./refunds";
 import { claimsMoney } from "./payout-auto";
@@ -516,6 +518,9 @@ export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now =
         terms: { kind: terms.kind, version: terms.version, bodyHash: terms.bodyHash },
       },
     });
+
+    /* 2S4-BE-16 — behind DEAL_CHAT: a chat per seller, each side emailed. 2S4-BE-15 moves the order into the chat stage. */
+    if (env.DEAL_CHAT) await openDealChats(tx, order.id, now, actor);
 
     /* The seller first (2S4-BE-09): each seller asked has 48 hours. */
     if (asking.size) {

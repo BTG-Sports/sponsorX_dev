@@ -1569,6 +1569,30 @@ DEAL wording filled in from the order and the chat, and each side's signature.
 - **Addressed like `orderSellerApproval`.** It lives in the order's books; the
   seller reaches it in their own tenant and never reads the order through it.
 
+### `dealChat` and `dealChatReview` (2S4-BE-16) — §24.2, added 2026-11-18
+Deal Chat between an order's sponsor and one seller: its messages, question-card
+answers and offers (`dealChat`); and BTG's desk of messages held before delivery
+or reported (`dealChatReview`).
+| Role | `dealChat` Read | `dealChat` Write | `dealChatReview` Read | `dealChatReview` Write |
+|---|---|---|---|---|
+| `SUPER_ADMIN` | any | — | any | any |
+| `BTG_ADMIN` | own-tenant (the order's books) | — | own-tenant | own-tenant (release, keep back) |
+| `PROPERTY_MGR` | own-property (the team's) | own-property | — | — |
+| `ATHLETE` | own (a guardian acting for a minor holds this cell) | own | — | — |
+| `SPONSOR_ADMIN` | own-sponsor (its orders') | own-sponsor | — | — |
+| `SPONSOR_ANALYST` | own-sponsor (its orders'; may report a message) | — | — | — |
+
+- **Only the two sides write.** The sponsor's admin, and the seller: the team's
+  manager or the athlete. For a minor only the guardian accepts an offer (and
+  signs the agreement); the minor may talk, pick answers and make offers.
+- **BTG reads every chat and writes in none.** It sees held messages, their
+  reasons and reports; on its desk it releases a message to the other side or
+  keeps it back with a reason the sender reads.
+- **A party sees its own messages in any state** and the other side's once
+  visible. Nothing is edited or deleted after it is sent.
+- **Addressed like `dealAgreement`.** It lives in the order's books; the seller
+  reaches it in their own tenant and never reads the order through it.
+
 ### `refundDue` (2S4-BE-13)
 Money owed back to a sponsor: one row per refund of a paid order, in the
 order's books.

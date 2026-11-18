@@ -127,6 +127,7 @@ import { sweepGuardianHandoffs } from "../src/domain/guardian-handoff.ts";
 import { LISTING_DIGEST_HOUR_UTC, sendListingDigests } from "../src/domain/listing.ts";
 import { ORDER_DIGEST_HOUR_UTC, sendOrderApprovalDigests, sweepSellerApprovals } from "../src/domain/order-approval.ts";
 import { sweepUnpaidOrders } from "../src/domain/order-payment.ts";
+import { sweepDealChats } from "../src/domain/deal-chat.ts";
 import type { RenderReportJob } from "../src/domain/report-files.ts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
@@ -350,6 +351,10 @@ let listingDigestTimer: ReturnType<typeof setInterval> | undefined;
    reminders on days one and two, the unpaid cancellation on day three.
    Every ten minutes, like deliveries; each pass is idempotent. */
 let orderTimer: ReturnType<typeof setInterval> | undefined;
+/* 2S4-BE-16 — the Deal Chat sweep: unread messages collected after 15
+   minutes, reminders after 2 working days, chats of ended orders closed. */
+let dealChatTimer: ReturnType<typeof setInterval> | undefined;
+const DEAL_CHAT_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 /* 2S5-BE-07 — the payout retry sweep: a payout the provider couldn't send
    for a temporary reason goes back to it about 1, 6 and 24 hours later. */
 let payoutRetryTimer: ReturnType<typeof setInterval> | undefined;
@@ -860,6 +865,13 @@ async function main(): Promise<void> {
       })
       .catch((error: unknown) => logError("[worker] order sweep failed, will retry:", error));
   orderTimer = setInterval(orderSweep, ORDER_SWEEP_INTERVAL_MS);
+
+  /* 2S4-BE-16 — Deal Chat: unread email, reminders, ended orders. */
+  const dealChatSweep = () =>
+    void sweepDealChats()
+      .then((r) => { if (r.closed || r.unread || r.reminders) log(`[worker] deal chats ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => logError("[worker] deal chat sweep failed, will retry:", error));
+  dealChatTimer = setInterval(dealChatSweep, DEAL_CHAT_SWEEP_INTERVAL_MS);
   setTimeout(orderSweep, 45_000).unref();
 
   /* 2S5-BE-07 — automatic payout retries. A sweep, like the delivery one: a
@@ -1095,6 +1107,7 @@ export async function stopWorker(): Promise<void> {
   if (comingOfAgeTimer) clearInterval(comingOfAgeTimer);
   if (listingDigestTimer) clearInterval(listingDigestTimer);
   if (orderTimer) clearInterval(orderTimer);
+  if (dealChatTimer) clearInterval(dealChatTimer);
   if (payoutRetryTimer) clearInterval(payoutRetryTimer);
   if (paymentEventTimer) clearInterval(paymentEventTimer);
   if (orderDigestTimer) clearInterval(orderDigestTimer);
