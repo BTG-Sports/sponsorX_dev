@@ -113,3 +113,11 @@ system should double check before the signature if all is green. as simple as th
 - Migration `20261118210000_sponsor_account`. Tests: `pol-be-102-sponsor-account.test.ts` (9), a
   rename test in `zoho-sync.test.ts`, and the tenant sweep. Full backend suite green locally.
 - Tracker: POL-BE-102 at Code review. POL-FE-102 (the page) is HeckerCreatives'.
+
+## POL-BE-102 to Done (rcfworks)
+
+- PR #465 merged into main_development with CI green, e2e included. Every Done-when clause is
+  covered by `backend/tests/pol-be-102-sponsor-account.test.ts`, except the page itself and its
+  Clerk link, which are POL-FE-102. Tracker row Done. The Done PR goes to main_development and main.
+- New standing rule: test folders (the local Postgres, its download, the venv and backups) are
+  deleted once a task's tests pass. Today's left-overs (about 850 MB) were cleared.

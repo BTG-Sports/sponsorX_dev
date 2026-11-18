@@ -2898,7 +2898,7 @@ the blockers and today's content review findings.
   - **Not done:** the display name is not run past BTG's restricted-words list. The application's display name isn't either, and the list's rule is to route a match to review, never to refuse it, which needs a review step this item doesn't build.
 
 ### 102. A sponsor can't see or keep their company and their own details current [§8, §26]
-`POL-BE-102` · `POL-FE-102` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · backend built 2026-11-18
+`POL-BE-102` · `POL-FE-102` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · backend Done 2026-11-18 (`POL-FE-102` open)
 - **Problem:**
   - The sponsor portal's Account group has only Billing (`/sponsor/invoices`) and Team (`/sponsor/team`). There is no page for the company's details (company name, logo, website, industry and brand categories, address, billing contact) or for the signed-in person's own (name, job title, the email Clerk holds).
   - The API's `GET` / `PUT /me/notification-preferences` exists, but no sponsor page shows it: only the athlete's and the property's settings pages (`AccountSettings` in `frontend/src/components/account-settings.tsx`) use it. A sponsor can't mute or unmute anything.
