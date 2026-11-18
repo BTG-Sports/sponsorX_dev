@@ -173,3 +173,10 @@ system should double check before the signature if all is green. as simple as th
   `pol-be-102-sponsor-account` rewritten (11), the Zoho rename, and the tenant sweep. Full backend
   suite 276 files / 3,970 tests green locally. The test database and toolkit were deleted after use.
 - Tracker: POL-BE-104 at Code review; POL-BE-102's note records the automation.
+
+## POL-BE-104 to Done (rcfworks)
+
+- PR #471 merged into main_development with CI green, e2e included. Every Done-when clause is
+  covered by `pol-be-104-property-profile.test.ts` (BTG review now automated, per the owner),
+  except the page itself, which is POL-FE-104. Tracker row Done. The Done PR goes to
+  main_development and main; the deploy follows once main is green.
