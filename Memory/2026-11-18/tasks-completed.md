@@ -82,3 +82,10 @@ system should double check before the signature if all is green. as simple as th
 - **Tracker:** 2S4-BE-15 and 2S4-BE-17 at Code review. POL-BE-101 (infinex1's, merged and
   deployed) to Done; it reaches main with the next Done PR.
 - `DEAL_CHAT` stays off until HeckerCreatives' screens (2S4-FE-07/08/09) are live; staging first.
+
+## 2S4-BE-15 and 2S4-BE-17 to Done (rcfworks)
+
+- PR #462 merged into main_development with CI green, e2e included. Every Done-when clause is
+  covered by `backend/tests/deal-chat-order.test.ts`. Both rows are Done in the tracker and ✅ in
+  the phase plan. The Done PR goes to main_development and main; on main it also carries
+  POL-BE-101's Done row. `DEAL_CHAT` stays off.

@@ -1140,9 +1140,9 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
   - **Tests:** `backend/tests/deal-agreement.test.ts`. The tenant-isolation sweep now covers the three routes.
   - **Firearms and adult content** are restricted in the agreement (D6) and, on the owner's yes the same day, sensitive everywhere (`SENSITIVE_CATEGORIES`): a brief in them waits for BTG, they are never matched with a minor, offers disclose 21+ (adult content 18+), NEXT ad sales and artwork reviews treat them as the other four.
 
-### ⏸ `2S4-BE-15` · Deal Chat: the order flow, the final amount and the payment gate
+### ✅ `2S4-BE-15` · Deal Chat: the order flow, the final amount and the payment gate
 
-**Order** 36.92 · **BE** · **Where:** Code · **5d** · **Ready**
+**Order** 36.92 · **BE** · **Where:** Code · **5d** · **Done**
 
 - **The chat stage.** A new order state between placing and approval. Every order enters it when the `DEAL_CHAT` switch is on. It replaces the seller's accept / decline step (2S4-BE-09) for every order, not only listings that ask.
 - **Calling off.** Either side can call the deal off before payment, with a reason the other side reads. The order is cancelled, stock is released and nothing is charged. With two sellers, one calling off cancels the whole order.
@@ -1156,7 +1156,7 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
 - **Depends on:** 2S4-BE-09, 2S4-BE-10, 2S4-BE-14
 - **Done when:** With the switch on, a placed order is in the chat stage and cannot be paid; either side calling off cancels it with the reason and releases the stock; the form appears only when everything is green and each signature re-checks it; signing needs matching amounts, and the matched amount becomes the order's price and fees with lines kept in proportion; below the listed price or above the limit holds for BTG with the reason; both signatures open payment and start the 3-day window; unsigned at 10 working days cancels, with a reminder after every 2 working days of silence and a last warning 2 working days before; orders placed before the switch keep today's flow
 - **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §3.5–§3.8, §4, §7, §8
-- **Delivered (2026-11-18, rcfworks), Code review:**
+- **Delivered (2026-11-18, rcfworks), Done:**
   - **The chat stage:** a new order state `IN_CHAT` (migrations `20261118200000_order_in_chat_state`, `20261118200100_deal_chat_order_flow`). With `DEAL_CHAT` on, `placeOrder` puts every order there, opens a chat per seller and skips the seller's accept / decline step. The order reads `waitingOn: DEAL_CHAT` with the signing deadline. Orders placed before keep today's flow.
   - **The final amount** (`PUT /deal-chats/{id}/amount`) is agreed like a question card. It is pre-filled with the original; each side confirms it or types over it; once the two match it is locked. The form is posted only after that, so the form never changes once it is out (feature spec decision 14).
   - **Both signed** (`afterDealsSigned`, run inside the last signature's transaction, with the order locked first):
@@ -1203,9 +1203,9 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
   - **Tests:** `backend/tests/deal-chat.test.ts` (17).
   - **Left to 2S4-BE-15:** calling the deal off, the final amount, the payment gate, the 10-working-day cancellation and its last warning. The switch stays off until then.
 
-### ⏸ `2S4-BE-17` · Deal Chat: tests and the switch
+### ✅ `2S4-BE-17` · Deal Chat: tests and the switch
 
-**Order** 36.94 · **BE** · **Where:** Code · **3d** · **Ready**
+**Order** 36.94 · **BE** · **Where:** Code · **3d** · **Done**
 
 - **Tests.** Tenant and role tests over a real database:
   - another sponsor's users, another seller's and a non-party role are refused (§30);
@@ -1218,7 +1218,7 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
 - **Depends on:** 2S4-BE-15, 2S4-BE-16
 - **Done when:** The cross-tenant, role, minor, concurrency and payment-gate tests pass in CI; the switch is documented and off means today's flow; OpenAPI lists every Deal Chat route
 - **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §7, §8
-- **Delivered (2026-11-18, rcfworks), Code review:**
+- **Delivered (2026-11-18, rcfworks), Done:**
   - **Tests:** `backend/tests/deal-chat-order.test.ts` (9), over the real API and database:
     - the switch on and off;
     - the payment gate (card, and BTG's mark-paid);
