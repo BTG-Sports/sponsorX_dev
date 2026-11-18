@@ -112,6 +112,18 @@ never self-service** — no role may widen its own permissions.
 `SERVICE` writes because §18 makes Sponsor ↔ Accounts bi-directional — inbound
 Zoho changes land as writes.
 
+**A sponsor's Account page (POL-BE-102, 2026-11-18).** The same rows govern it,
+and `SponsorAccountChange` (a name or category change waiting for BTG) is
+governed by `sponsor`:
+
+- `SPONSOR_ADMIN` (`own`) reads the page and saves the logo, website, address,
+  billing contact and their own name and job title. It asks for a new name or
+  categories, which wait for BTG.
+- `SPONSOR_ANALYST` (`own`, read) reads the page and changes nothing.
+- BTG staff with `own-tenant` read see the desk of waiting changes; those with
+  `own-tenant` write (`BTG_ADMIN`, `SALES`) approve or reject them. A BTG role
+  never reads a sponsor's Account page itself: it isn't their own sponsor.
+
 ### `sponsorContact`
 | Role | Read | Write | Approve |
 |---|---|---|---|

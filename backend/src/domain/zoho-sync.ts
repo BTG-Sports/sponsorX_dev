@@ -127,8 +127,13 @@ function changedLocally(row: { updatedAt: Date; lastSyncAt: Date | null }): bool
 
 /* ═══════════════════════════ OUTBOUND ═══════════════════════════════════ */
 
-/** Sponsor → Accounts (§7.1). */
-export async function pushAccount(ctx: SyncCtx, tenantId: string, sponsorId: string): Promise<PushOutcome> {
+/**
+ * Sponsor → Accounts (§7.1). `rename` is POL-BE-102's one exception to
+ * Account_Name being Zoho's: a new company name the sponsor asked for and BTG
+ * approved is written to the account once. Its hash is then ours, so Zoho's
+ * notification of that write is an echo.
+ */
+export async function pushAccount(ctx: SyncCtx, tenantId: string, sponsorId: string, opts: { rename?: boolean } = {}): Promise<PushOutcome> {
   const s = await ctx.db.sponsor.findFirst({
     where: { id: sponsorId, tenantId },
     select: { id: true, name: true, zohoAccountId: true, lastSyncOrigin: true, lastSyncHash: true, lastSyncAt: true },
@@ -138,6 +143,11 @@ export async function pushAccount(ctx: SyncCtx, tenantId: string, sponsorId: str
 
   if (s.zohoAccountId) {
     const decision = outboundDecision(s, hash);
+    if (opts.rename && decision === "push") {
+      const r = await ctx.zoho.update("Accounts", s.zohoAccountId, accountShared(s.name));
+      await ctx.db.sponsor.update({ where: { id: s.id }, data: markers("SPONSORX", hash, now(ctx)) });
+      return { status: "pushed", zohoId: r.id, action: r.action };
+    }
     if (s.lastSyncAt) {
       /* Zoho has the account and our key; Account_Name is Zoho's (§7.1), so
          there is nothing further SponsorX may write. */
@@ -171,8 +181,8 @@ async function ensureAccount(ctx: SyncCtx, tenantId: string, sponsorId: string):
  * and its primary Contact, so sales converting the old lead finds this
  * account instead of creating a twin.
  */
-export async function pushSponsor(ctx: SyncCtx, tenantId: string, sponsorId: string): Promise<PushOutcome> {
-  const account = await pushAccount(ctx, tenantId, sponsorId);
+export async function pushSponsor(ctx: SyncCtx, tenantId: string, sponsorId: string, opts: { rename?: boolean } = {}): Promise<PushOutcome> {
+  const account = await pushAccount(ctx, tenantId, sponsorId, opts);
   if (account.status === "skipped") return account;
   await ensurePrimaryContact(ctx, tenantId, sponsorId);
   return account;

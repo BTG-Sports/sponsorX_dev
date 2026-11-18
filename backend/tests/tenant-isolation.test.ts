@@ -179,6 +179,8 @@ const PARAM_FOR: Record<string, string> = {
   team: "ti_a_sponsor",
   /* P8-BE-12 — /campaign-requests/{id}/decision: tenant A's held cancel. */
   "campaign-requests": "ti_ccr_a",
+  /* POL-BE-102 — /sponsor-account-changes/{id}/…: tenant A's waiting name change. */
+  "sponsor-account-changes": "ti_sac_a",
   /* GET /intelligence/pricing/{inventoryId} (3S2-BE-02). */
   pricing: A.item,
   /* POST /intelligence/pricing/recommendations/{recommendationId}/overrides (3S2-BE-03). */
@@ -403,6 +405,11 @@ const BODY: Record<string, unknown> = {
   "POST /restrictions": { athleteId: A.athlete, category: "CRYPTO", type: "PROHIBITED" },
   "PUT /sponsors/{id}/categories": { categories: ["APPAREL"] },
   "PATCH /sponsor/team/{id}": { role: "SPONSOR_ANALYST" },
+  "PATCH /sponsor/account/company": { website: "https://sweep.example" },
+  "PATCH /sponsor/account/me": { name: "Sweep" },
+  "POST /sponsor/account/logo": { contentType: "image/png", bytes: 10 },
+  "POST /sponsor/account/change": { name: "TI Sweep Rename" },
+  "POST /sponsor-account-changes/{id}/reject": { reason: "TI reject attempt" },
   "POST /campaigns/{id}/cancel": { reason: "TI cancel attempt" },
   "POST /campaigns/{id}/change": { name: "TI renamed" },
   "POST /campaigns/{id}/change-impact": { name: "TI renamed" },
@@ -596,6 +603,8 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     await prisma.campaign.create({ data: { id: A.campaign, tenantId: t, sponsorId: A.sponsor, name: "TI Secret Campaign", budget: 500000, startDate: new Date("2026-10-01"), endDate: new Date("2026-11-30"), state: "STAFFING" } });
     /* P8-BE-12 — a cancel held for BTG, for /campaign-requests/{id}/decision. */
     await prisma.campaignChangeRequest.create({ data: { id: "ti_ccr_a", tenantId: t, campaignId: A.campaign, kind: "CANCEL", reason: "TI Secret reason", impact: {}, requestedById: "ti_a_sponsor" } });
+    /* POL-BE-102 — a name change waiting for BTG, for /sponsor-account-changes/{id}/…. */
+    await prisma.sponsorAccountChange.create({ data: { id: "ti_sac_a", tenantId: t, sponsorId: A.sponsor, name: "TI Secret New Name", requestedById: "ti_a_sponsor" } });
     await prisma.campaignInvite.create({ data: { id: A.invite, tenantId: t, campaignId: A.campaign, athleteId: A.athlete, jobId: A.job, offered: 20000, expiresAt: new Date(Date.now() + 7 * 864e5) } });
     await prisma.campaignOrder.create({ data: { id: A.order, tenantId: t, campaignId: A.campaign, athleteId: A.athlete, jobId: A.job, compensation: 20000, sellPrice: 40000, usageRights: "90 days", dueDate: new Date("2026-11-15") } });
     await prisma.deliverable.create({ data: { id: A.deliverable, tenantId: t, orderId: A.order, title: "TI secret post", dueDate: new Date("2026-11-15") } });

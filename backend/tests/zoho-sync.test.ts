@@ -260,6 +260,26 @@ describe.skipIf(!hasDatabase)("the Zoho sync, on the path a request takes", asyn
       expect(zoho.writes.length).toBe(writes);
     });
 
+    it("POL-BE-102 · a rename BTG approved is written to the account once, and Zoho's notice of it is an echo", async () => {
+      await transitionBrief(actor, "zt_brief", "QUALIFIED");
+      await drain();
+      await deliverNotifications();
+      const accountId = String(zoho.all("Accounts")[0]!.id);
+
+      /* Without the rename flag, Account_Name stays Zoho's. */
+      await prisma.sponsor.update({ where: { id: "zt_sponsor" }, data: { name: "Rosa's Cantina" } });
+      expect(await sync.pushAccount(ctx(), T, "zt_sponsor")).toMatchObject({ status: "unchanged" });
+      expect(zoho.all("Accounts")[0]!.Account_Name).not.toBe("Rosa's Cantina");
+
+      expect(await jobs.handlePushSponsor(deps(), { tenantId: T, sponsorId: "zt_sponsor", rename: true })).toMatchObject({ status: "pushed", zohoId: accountId });
+      expect(zoho.all("Accounts")[0]!.Account_Name).toBe("Rosa's Cantina");
+      const writes = zoho.writes.length;
+      expect((await deliverNotifications())[0]).toMatchObject({ status: "echo" });
+      /* Sent once: a retried job finds nothing new to send. */
+      await jobs.handlePushSponsor(deps(), { tenantId: T, sponsorId: "zt_sponsor", rename: true });
+      expect(zoho.writes.length).toBe(writes);
+    });
+
     it("left to run, push → notify → apply settles instead of ping-ponging", async () => {
       await transitionBrief(actor, "zt_brief", "QUALIFIED");
       await drain();
