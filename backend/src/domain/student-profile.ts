@@ -60,7 +60,7 @@ export type StudentProfile = {
   code: string | null;
   minor: boolean;
   guardian: { linked: boolean; verified: boolean } | null;
-  advisors: Array<{ email: string }>;
+  advisors: Array<{ email: string; name: string | null }>;
   editable: ["displayName"];
 };
 
@@ -91,7 +91,7 @@ export async function getOwnStudentProfile(actor: Actor): Promise<StudentProfile
   const advisors = await prisma.user.findMany({
     /* The student's own school, in the student's own tenant (the row above). */
     where: { tenantId: row.tenantId, propertyId: row.propertyId, roles: { has: "ADVISOR" }, disabledAt: null },
-    select: { email: true },
+    select: { email: true, fullName: true },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     take: MAX_ADVISORS,
   });
@@ -111,7 +111,8 @@ export async function getOwnStudentProfile(actor: Actor): Promise<StudentProfile
     guardian: minor
       ? { linked: row.guardian !== null, verified: Boolean(row.guardian?.verifiedAt && !row.guardian.rejectedAt) }
       : null,
-    advisors: advisors.map((a) => ({ email: a.email })),
+    /* POL-BE-103 — the name an advisor set on their own profile, beside the email. */
+    advisors: advisors.map((a) => ({ email: a.email, name: a.fullName })),
     editable: ["displayName"],
   };
 }

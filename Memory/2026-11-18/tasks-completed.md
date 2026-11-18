@@ -121,3 +121,18 @@ system should double check before the signature if all is green. as simple as th
   Clerk link, which are POL-FE-102. Tracker row Done. The Done PR goes to main_development and main.
 - New standing rule: test folders (the local Postgres, its download, the venv and backups) are
   deleted once a task's tests pass. Today's left-overs (about 850 MB) were cleared.
+
+## POL-BE-103 — a school advisor's Profile page, backend (rcfworks)
+
+- `GET /advisor/profile` returns the advisor's own name, job title, phone and email (Clerk's), and
+  the school's name and kind (`managedBy: "BTG"`), email domain, and roster count and last update.
+- `PATCH /advisor/profile` saves the name, job title and phone at once. It is audited
+  (`advisor.profileUpdate`), and the same values again write nothing.
+- `GET /students/me` now lists each advisor as `{ email, name }`.
+- The email domain and roster keep their existing routes. Only an ADVISOR's own login reaches
+  the page; students, guardians, team managers and BTG get 403.
+- Migration `20261118220000_advisor_phone` (`User.phone`). Tests: `pol-be-103-advisor-profile`
+  (6), the POL-BE-101 tests updated, and the tenant sweep. Full backend suite 275 files / 3,959
+  tests green locally.
+- The test database and toolkit were deleted after testing.
+- Tracker: POL-BE-103 at Code review. POL-FE-103 (the page) is HeckerCreatives'.

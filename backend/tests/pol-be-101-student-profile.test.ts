@@ -133,7 +133,7 @@ describe.skipIf(!hasDatabase)("POL-BE-101 · GET and PATCH /students/me, on the 
       school: { name: "Northside High" }, masthead: ["WRITER", "SALES"], state: "APPROVED", leftAt: null,
       code: null, minor: true, guardian: { linked: true, verified: false },
       /* the school's active advisor only — not the disabled one, not another school's */
-      advisors: [{ email: "advisor@sp.invalid" }],
+      advisors: [{ email: "advisor@sp.invalid", name: null }],
       editable: ["displayName"],
     });
     /* nothing about the guardian but the status; no DOB, email or reviewer's notes */
