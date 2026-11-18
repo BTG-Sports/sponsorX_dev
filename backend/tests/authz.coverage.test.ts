@@ -205,6 +205,10 @@ const GOVERNED_BY: Record<string, Resource> = {
      sponsor's admin asks (sponsor write own), BTG decides (sponsor write
      own-tenant). */
   SponsorAccountChange: "sponsor",
+  /* POL-BE-104 — a team's name, place or type-detail change: the manager
+     makes it (property write own); BTG decides a held one (property write
+     own-tenant). */
+  PropertyProfileChange: "property",
 };
 
 /** Models no API path reads or writes, and why. */

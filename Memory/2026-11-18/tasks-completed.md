@@ -143,3 +143,40 @@ system should double check before the signature if all is green. as simple as th
 - PR #468 (POL-BE-103) merged into main_development with CI green, e2e included. Every Done-when
   clause is covered by `pol-be-103-advisor-profile.test.ts`, except the page itself, which is
   POL-FE-103. Tracker row Done. The Done PR goes to main_development and main.
+
+## POL-BE-104 — a team's own details page, backend, automated; POL-BE-102 automated too (rcfworks)
+
+- Owner, 2026-11-18: "as always we target automation". Identity changes go through at once when
+  every safety check passes, and are held for BTG with the reasons when one fails.
+- `GET /property/profile`: the team's name, type (BTG's), city, state, the type's details,
+  description, main contact, the manager's own details, the held change and the last decision.
+- Saved at once and audited:
+  - the description and the main contact's name and phone (`PATCH /property/profile`);
+  - the manager's name, title and phone (`PATCH /property/profile/me`).
+- `POST /property/profile/change` covers name, city, state and type details. It is held when:
+  - the name is taken;
+  - a restricted word is in the name or details;
+  - there's an open order or an offer out on the team's inventory;
+  - the legal entity name or registration number changes;
+  - the new state's business registration is missing;
+  - the organisation is not in good standing.
+  A published listing alone isn't a hold.
+- BTG's desk is `/property-profile-changes` (approve and reject: BTG_ADMIN). A new name goes to
+  the team's Zoho account once (new job `zoho.renameProperty`).
+- POL-BE-102 brought in line. Sponsor name and category changes are now automatic, held when:
+  - another sponsor has the name;
+  - the name contains a restricted word;
+  - a sensitive category is added;
+  - an exclusive deal is running in a category being dropped.
+  A new change is refused while one is held.
+- Migration `20261118230000_property_profile`. Tests: `pol-be-104-property-profile` (7),
+  `pol-be-102-sponsor-account` rewritten (11), the Zoho rename, and the tenant sweep. Full backend
+  suite 276 files / 3,970 tests green locally. The test database and toolkit were deleted after use.
+- Tracker: POL-BE-104 at Code review; POL-BE-102's note records the automation.
+
+## POL-BE-104 to Done (rcfworks)
+
+- PR #471 merged into main_development with CI green, e2e included. Every Done-when clause is
+  covered by `pol-be-104-property-profile.test.ts` (BTG review now automated, per the owner),
+  except the page itself, which is POL-FE-104. Tracker row Done. The Done PR goes to
+  main_development and main; the deploy follows once main is green.

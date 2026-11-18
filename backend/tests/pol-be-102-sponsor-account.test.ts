@@ -9,6 +9,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
    save at once and are audit-logged. Edits to the company name and the
    brand categories go to BTG review before they take effect; the sponsor
    sees 'waiting for BTG' until decided."
+
+   Phase 2 automation (owner, 2026-11-18): a name or category change takes
+   effect at once when every safety check passes, and waits for BTG with the
+   reasons only when one fails.
    -------------------------------------------------------------------------- */
 
 process.env.CLERK_SECRET_KEY ??= "sk_test_x";
@@ -156,24 +160,35 @@ describe.skipIf(!hasDatabase)("POL-BE-102 · a sponsor's Account page", async ()
     expect((await prisma.sponsor.findUniqueOrThrow({ where: { id: p("north") }, select: { website: true } })).website).toBe("https://northwind.example");
   });
 
-  it("a name and category change waits for BTG, one at a time, and nothing changes until approved", async () => {
+  it("a name and category change that passes every check takes effect at once, and the new name goes to Zoho once", async () => {
     expect((await call("POST", "/sponsor/account/change", admin, { name: "Northwind Drinks" })).status).toBe(422);
     expect((await call("POST", "/sponsor/account/change", admin, { categories: ["NOT_A_CATEGORY"] })).status).toBe(400);
 
-    const asked = await call("POST", "/sponsor/account/change", admin, { name: "Northwind Beverages Inc.", categories: ["RESTAURANT", "ENERGY_DRINK"] });
-    expect(asked.status, asked.text).toBe(201);
-    expect(asked.json.company.name).toBe("Northwind Drinks");
-    expect(asked.json.pendingChange).toMatchObject({ status: "PENDING", name: "Northwind Beverages Inc.", categories: ["RESTAURANT", "ENERGY_DRINK"] });
-    expect((await call("POST", "/sponsor/account/change", admin, { name: "Another Name" })).status).toBe(409);
+    const r = await call("POST", "/sponsor/account/change", admin, { name: "Northwind Beverages Inc.", categories: ["RESTAURANT", "ENERGY_DRINK"] });
+    expect(r.status, r.text).toBe(201);
+    expect(r.json.company).toMatchObject({ name: "Northwind Beverages Inc.", categories: ["RESTAURANT", "ENERGY_DRINK"] });
+    expect(r.json.pendingChange).toBeNull();
+    expect(r.json.lastDecision).toMatchObject({ status: "APPROVED", autoApproved: true, holdReasons: [], name: "Northwind Beverages Inc." });
+    const jobs = await prisma.outboxJob.findMany({ where: { tenantId: T, name: "zoho.pushSponsor" }, select: { payload: true } });
+    expect(jobs.map((j) => j.payload)).toEqual([expect.objectContaining({ sponsorId: p("north"), rename: true })]);
+    expect(await prisma.auditLog.count({ where: { tenantId: T, action: "sponsorAccount.changeApplied" } })).toBe(1);
+    /* Nothing reached BTG's desk. */
+    expect((await call("GET", "/sponsor-account-changes", btg)).json.changes).toHaveLength(0);
+  });
 
-    /* The analyst sees it waiting too. */
+  it("a sensitive category is held for BTG with the reason, one at a time; BTG's approval makes it real", async () => {
+    const asked = await call("POST", "/sponsor/account/change", admin, { categories: ["RESTAURANT", "ENERGY_DRINK", "ALCOHOL"] });
+    expect(asked.status, asked.text).toBe(201);
+    expect(asked.json.company.categories).toEqual(["RESTAURANT", "ENERGY_DRINK"]);
+    expect(asked.json.pendingChange).toMatchObject({ status: "PENDING", categories: ["RESTAURANT", "ENERGY_DRINK", "ALCOHOL"] });
+    expect(asked.json.pendingChange.holdReasons).toEqual([expect.stringContaining("sensitive category")]);
+    expect((await call("POST", "/sponsor/account/change", admin, { name: "Another Name" })).status).toBe(409);
     expect((await call("GET", "/sponsor/account", p("analyst"))).json.pendingChange.status).toBe("PENDING");
 
-    /* BTG's desk lists it; staff who only read may look but not decide. */
     const desk = await call("GET", "/sponsor-account-changes", btg);
     expect(desk.status).toBe(200);
     expect(desk.json.changes).toHaveLength(1);
-    expect(desk.json.changes[0]).toMatchObject({ sponsor: { id: p("north"), name: "Northwind Drinks" }, requestedBy: { name: "Dana Reyes" } });
+    expect(desk.json.changes[0]).toMatchObject({ sponsor: { id: p("north") }, requestedBy: { name: "Dana Reyes" } });
     expect((await call("GET", "/sponsor-account-changes", p("finance"))).status).toBe(200);
     const id = desk.json.changes[0].id as string;
     expect((await call("POST", `/sponsor-account-changes/${id}/approve`, p("finance"))).status).toBe(403);
@@ -181,39 +196,47 @@ describe.skipIf(!hasDatabase)("POL-BE-102 · a sponsor's Account page", async ()
       expect((await call("GET", "/sponsor-account-changes", who)).status, who).toBe(403);
       expect((await call("POST", `/sponsor-account-changes/${id}/approve`, who)).status, who).toBe(403);
     }
-
     const ok = await call("POST", `/sponsor-account-changes/${id}/approve`, btg);
     expect(ok.status, ok.text).toBe(200);
-    const s = await prisma.sponsor.findUniqueOrThrow({ where: { id: p("north") }, select: { name: true, categories: true } });
-    expect(s).toEqual({ name: "Northwind Beverages Inc.", categories: ["RESTAURANT", "ENERGY_DRINK"] });
-    /* The new name goes to Zoho once, through the worker. */
-    const jobs = await prisma.outboxJob.findMany({ where: { tenantId: T, name: "zoho.pushSponsor" }, select: { payload: true } });
-    expect(jobs.map((j) => j.payload)).toEqual([expect.objectContaining({ sponsorId: p("north"), rename: true })]);
+    expect((await prisma.sponsor.findUniqueOrThrow({ where: { id: p("north") }, select: { categories: true } })).categories)
+      .toEqual(["RESTAURANT", "ENERGY_DRINK", "ALCOHOL"]);
     expect((await call("POST", `/sponsor-account-changes/${id}/approve`, btg)).status).toBe(409);
-
-    const page = (await call("GET", "/sponsor/account", admin)).json;
-    expect(page.pendingChange).toBeNull();
-    expect(page.lastDecision).toMatchObject({ status: "APPROVED", name: "Northwind Beverages Inc." });
+    expect((await call("GET", "/sponsor/account", admin)).json).toMatchObject({ pendingChange: null, lastDecision: { status: "APPROVED", autoApproved: false } });
   });
 
-  it("a rejected change leaves everything as it was, and the sponsor reads why", async () => {
-    const asked = await call("POST", "/sponsor/account/change", admin, { categories: ["APPAREL"] });
+  it("a name another sponsor has is held; rejected, nothing changes and the sponsor reads why", async () => {
+    const asked = await call("POST", "/sponsor/account/change", admin, { name: "OTHER CO." });
     expect(asked.status, asked.text).toBe(201);
+    expect(asked.json.pendingChange.holdReasons).toEqual(['Another sponsor already has the name "Other Co".']);
     const id = asked.json.pendingChange.id as string;
     expect((await call("POST", `/sponsor-account-changes/${id}/reject`, p("sales"), { reason: "  " })).status).toBe(400);
-    const no = await call("POST", `/sponsor-account-changes/${id}/reject`, p("sales"), { reason: "Apparel needs a separate brand account — write to BTG." });
+    const no = await call("POST", `/sponsor-account-changes/${id}/reject`, p("sales"), { reason: "That's another company's name — write to BTG." });
     expect(no.status, no.text).toBe(200);
-    expect((await prisma.sponsor.findUniqueOrThrow({ where: { id: p("north") }, select: { categories: true } })).categories)
-      .toEqual(["RESTAURANT", "ENERGY_DRINK"]);
+    expect((await prisma.sponsor.findUniqueOrThrow({ where: { id: p("north") }, select: { name: true } })).name).toBe("Northwind Beverages Inc.");
     const page = (await call("GET", "/sponsor/account", admin)).json;
     expect(page.pendingChange).toBeNull();
-    expect(page.lastDecision).toMatchObject({ status: "REJECTED", categories: ["APPAREL"], reason: "Apparel needs a separate brand account — write to BTG." });
+    expect(page.lastDecision).toMatchObject({ status: "REJECTED", name: "OTHER CO.", reason: "That's another company's name — write to BTG." });
     expect(await prisma.auditLog.count({ where: { tenantId: T, action: "sponsorAccount.changeRejected" } })).toBe(1);
+  });
+
+  it("dropping a category while an exclusive deal in it still runs is held", async () => {
+    await prisma.athlete.create({ data: { id: p("ath"), tenantId: T, slug: "be102-ath", legalName: "Ath Lete", displayName: "Ath", email: "ath@be102.invalid", sport: "Soccer", stateCode: "MD", ageBand: "18_PLUS", state: "ACTIVE" } });
+    await prisma.nilJob.create({ data: { id: p("job"), tenantId: T, name: "Post", baseLow: 1, baseHigh: 2, sellLow: 2, sellHigh: 4, sellFloorEmerging: 1, sellFloorCreator: 2, sellFloorPremium: 3 } });
+    await prisma.campaign.create({ data: { id: p("camp"), tenantId: T, sponsorId: p("north"), name: "Camp", budget: 1000, startDate: new Date("2026-11-01"), endDate: new Date("2027-01-31"), state: "STAFFING" } });
+    await prisma.offer.create({ data: {
+      id: p("offer"), tenantId: T, campaignId: p("camp"), athleteId: p("ath"), jobId: p("job"), brief: "b", compensation: 100, sellPrice: 200,
+      deliverables: [], usageRights: "90 days", exclusivityDays: 90, expiresAt: new Date("2026-12-31"), state: "ACCEPTED",
+    } });
+    await prisma.brandRestriction.create({ data: { tenantId: T, athleteId: p("ath"), category: "ENERGY_DRINK", type: "EXCLUSIVITY", startsOn: new Date("2026-11-01"), endsOn: new Date("2027-02-01"), sourceOfferId: p("offer") } });
+    const asked = await call("POST", "/sponsor/account/change", admin, { categories: ["RESTAURANT", "ALCOHOL"] });
+    expect(asked.status, asked.text).toBe(201);
+    expect(asked.json.pendingChange.holdReasons).toEqual(["An exclusive deal is still running in a category being dropped: ENERGY_DRINK."]);
+    expect((await call("POST", `/sponsor-account-changes/${asked.json.pendingChange.id}/reject`, btg, { reason: "Wait for the deal to end." })).status).toBe(200);
   });
 
   it("the API service account can't decide a change — a person at BTG does", async () => {
     const { approveAccountChange, rejectAccountChange } = await import("../src/domain/sponsor-account");
-    const asked = await call("POST", "/sponsor/account/change", admin, { name: "Northwind Machine" });
+    const asked = await call("POST", "/sponsor/account/change", admin, { name: "Northwind Gambling Co", categories: ["RESTAURANT", "ENERGY_DRINK", "ALCOHOL", "GAMBLING"] });
     const id = asked.json.pendingChange.id as string;
     const service = { userId: null, tenantId: T, roles: ["SERVICE" as const], sponsorId: null, athleteId: null, guardianId: null, propertyId: null };
     await expect(approveAccountChange(service as never, id)).rejects.toMatchObject({ status: 403 });
@@ -221,8 +244,8 @@ describe.skipIf(!hasDatabase)("POL-BE-102 · a sponsor's Account page", async ()
     expect((await call("POST", `/sponsor-account-changes/${id}/reject`, btg, { reason: "Tidying up." })).status).toBe(200);
   });
 
-  it("two BTG answers to the same change settle once", async () => {
-    const asked = await call("POST", "/sponsor/account/change", admin, { name: "Northwind Racing" });
+  it("two BTG answers to the same held change settle once", async () => {
+    const asked = await call("POST", "/sponsor/account/change", admin, { name: "Northwind Racing", categories: ["RESTAURANT", "ENERGY_DRINK", "ALCOHOL", "FIREARMS"] });
     const id = asked.json.pendingChange.id as string;
     const [a, b] = await Promise.all([
       call("POST", `/sponsor-account-changes/${id}/approve`, btg),
