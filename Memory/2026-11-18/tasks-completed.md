@@ -173,3 +173,21 @@ system should double check before the signature if all is green. as simple as th
   `pol-be-102-sponsor-account` rewritten (11), the Zoho rename, and the tenant sweep. Full backend
   suite 276 files / 3,970 tests green locally. The test database and toolkit were deleted after use.
 - Tracker: POL-BE-104 at Code review; POL-BE-102's note records the automation.
+
+## End of day (rcfworks)
+
+- **Deployed today:** 2S4-BE-15/17, POL-BE-102 and POL-BE-103 (release = main = 1d8c34d8).
+  `DEAL_CHAT` is still off.
+- **Waiting to merge:** PR #471 (POL-BE-104, plus POL-BE-102 automation), CI green. After it
+  merges, POL-BE-104 goes to Done with Done PRs to main_development and main, then the deploy.
+- **Backend board:** after #471, no backend task can start. Each of these waits on something
+  outside the code:
+  - P8-OPS-03: a live Stripe event once payments are switched on;
+  - P2-INT-02: Clerk Pro for production;
+  - Wallet passes: parked;
+  - P9-DATA-01: a real sale;
+  - Phase 6: the game, parked.
+- **Stage Progress:** row appended for 2026-11-18. Phase 1 is unchanged at 320 Done, 15.5 days
+  left, because today's work was Phase 2 and Polish.
+- **New standing rule (user):** delete the test database, toolkit and backups once a task's tests
+  pass. Today's 850 MB of left-overs were cleared.
