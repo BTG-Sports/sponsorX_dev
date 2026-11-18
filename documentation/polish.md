@@ -2898,7 +2898,7 @@ the blockers and today's content review findings.
   - **Not done:** the display name is not run past BTG's restricted-words list. The application's display name isn't either, and the list's rule is to route a match to review, never to refuse it, which needs a review step this item doesn't build.
 
 ### 102. A sponsor can't see or keep their company and their own details current [§8, §26]
-`POL-BE-102` · `POL-FE-102` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · recorded only, not built
+`POL-BE-102` · `POL-FE-102` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · backend Done 2026-11-18 (`POL-FE-102` open)
 - **Problem:**
   - The sponsor portal's Account group has only Billing (`/sponsor/invoices`) and Team (`/sponsor/team`). There is no page for the company's details (company name, logo, website, industry and brand categories, address, billing contact) or for the signed-in person's own (name, job title, the email Clerk holds).
   - The API's `GET` / `PUT /me/notification-preferences` exists, but no sponsor page shows it: only the athlete's and the property's settings pages (`AccountSettings` in `frontend/src/components/account-settings.tsx`) use it. A sponsor can't mute or unmute anything.
@@ -2910,6 +2910,37 @@ the blockers and today's content review findings.
   - Email, password and MFA stay in Clerk: the page links to Clerk's account screen rather than storing them.
   - The page shows the sponsor's notification preferences (the existing `/me/notification-preferences`).
   - Tenant-scoped and own-organisation only, with role tests: another sponsor's organisation, a sponsor analyst's write and every non-sponsor role are refused (§30).
+- **Delivered, backend (`POL-BE-102`, 2026-11-18, rcfworks):**
+  - **Storage** (migration `20261118210000_sponsor_account`):
+    - `Sponsor` gains `logoKey`, `website`, `address`, `billingContactName`, `billingContactEmail` and `billingContactPhone`.
+    - `User` gains `fullName` and `jobTitle`.
+    - New `SponsorAccountChange` holds a name or category change waiting for BTG. A partial unique index keeps it to one waiting change per sponsor.
+  - **The page** (`backend/src/domain/sponsor-account.ts`), in one read, `GET /sponsor/account`:
+    - the company's details;
+    - the person's own name, job title and email (the email is Clerk's: `signIn: "CLERK"`);
+    - `canEdit`;
+    - the change waiting for BTG, and BTG's last answer with its reason;
+    - the notification settings (changed through the existing `PUT /me/notification-preferences`).
+  - **Saved at once, audited:**
+    - `PATCH /sponsor/account/company` saves the logo, website (http or https only), address and billing contact (`sponsorAccount.company`, before and after).
+    - `PATCH /sponsor/account/me` saves the name and job title (`sponsorAccount.me`).
+    - The logo is uploaded straight to the public bucket under `sponsors/<tenant>/<sponsor>/` (`POST /sponsor/account/logo`, PNG or JPEG up to 1 MB); a key outside that prefix is refused.
+  - **Waits for BTG:**
+    - `POST /sponsor/account/change` sends a new name and/or categories. It is refused (409) while another change is waiting, and refused (422) when it matches what's on file.
+    - BTG's desk is `GET /sponsor-account-changes` (BTG staff read; BTG_ADMIN and SALES decide).
+    - Approving (`…/{id}/approve`) makes the change take effect. A new name is sent to the Zoho account once, through the worker (`zoho.pushSponsor` with `rename`), the one exception to Zoho owning `Account_Name`, recorded in the field mapping §7.1.
+    - Rejecting (`…/{id}/reject`) needs a reason, which the sponsor reads on the page.
+    - Two answers at once settle once (409 for the second).
+  - **Industry:** the brand categories are the industry. There is no separate industry field, because the conflict checks read the categories.
+  - **Who:** only the caller's own sponsor.
+    - A SPONSOR_ANALYST reads the page, and every change is refused (403).
+    - Every non-sponsor role is refused the page (403).
+    - Sponsor admins can't reach BTG's desk.
+  - **Tests:**
+    - `backend/tests/pol-be-102-sponsor-account.test.ts` (8, real API and database).
+    - A rename test in `backend/tests/zoho-sync.test.ts`.
+    - The tenant-isolation sweep covers every new route.
+  - **Left to `POL-FE-102`:** the page itself, in the sponsor portal's Account group, with the link to Clerk's account screen.
 
 ### 103. A school advisor has no page for their own or their school's details [NEXT spec §8, P9-BE-20]
 `POL-BE-103` · `POL-FE-103` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · recorded only, not built

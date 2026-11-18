@@ -275,6 +275,10 @@ model User {
   /// disabled login is refused at sign-in; Reinstate clears both.
   disabledAt     DateTime?
   disabledReason String?
+  /// POL-BE-102 — the person's own name and job title (a sponsor's Account
+  /// page). The email stays Clerk's; this row only mirrors it.
+  fullName       String?
+  jobTitle       String?
   createdAt      DateTime  @default(now())
 
   athlete         Athlete?              @relation(fields: [athleteId], references: [id])
@@ -826,11 +830,54 @@ model Sponsor {
   zohoIntelHash     String?
   zohoIntelPushedAt DateTime?
 
-  briefs    CampaignBrief[]
-  campaigns Campaign[]
-  contacts  SponsorContact[]
+  /// POL-BE-102 — the sponsor's own Account page. Saved at once by a sponsor
+  /// admin and audited. The logo is a public-bucket key under
+  /// `sponsors/<tenantId>/<sponsorId>/`; never read through to Zoho
+  /// (field-mapping §7.1: these are SponsorX's own columns, not mirrored).
+  logoKey             String?
+  website             String?
+  address             String?
+  billingContactName  String?
+  billingContactEmail String?
+  billingContactPhone String?
+
+  briefs         CampaignBrief[]
+  campaigns      Campaign[]
+  contacts       SponsorContact[]
+  accountChanges SponsorAccountChange[]
 
   @@index([tenantId])
+}
+
+/// POL-BE-102 — a sponsor's change to its company name or brand categories,
+/// waiting for BTG. Those two feed the conflict checks (every restriction and
+/// exclusivity asks against the categories) and the Zoho account (whose name
+/// Zoho holds, field-mapping §7.1), so they don't take effect on their own.
+/// One waits at a time per sponsor (partial unique index). BTG approves it
+/// (it takes effect; a new name is sent to Zoho once) or rejects it with a
+/// reason the sponsor reads.
+model SponsorAccountChange {
+  id                String    @id @default(cuid())
+  tenantId          String
+  sponsorId         String
+  /// The new company name; null when the name isn't changing.
+  name              String?
+  /// The new brand categories, when `categoriesChanged`.
+  categories        String[]
+  categoriesChanged Boolean   @default(false)
+  /// PENDING | APPROVED | REJECTED
+  status            String    @default("PENDING")
+  /// Why BTG rejected it — the sponsor reads this.
+  reason            String?
+  requestedById     String
+  decidedById       String?
+  decidedAt         DateTime?
+  createdAt         DateTime  @default(now())
+
+  sponsor Sponsor @relation(fields: [sponsorId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([sponsorId])
 }
 
 /// The people at a sponsor — P4-BE-01, §18, §20.

@@ -429,10 +429,10 @@ explicitly rather than leaving it ambiguous.
 | SponsorX | Zoho (`Accounts`) | Type (len) | Dir | SoR | Notes |
 |---|---|---|---|---|---|
 | `Sponsor.id` | `SponsorX_ID` | Single Line (50) | `→` | SponsorX | Upsert key. Written once, never updated. |
-| `Sponsor.name` | `Account_Name` | text (200) **req** | `↔` | **Zoho** | Truncate at 200. Zoho wins: sales corrects the legal entity name, and the invoice has to match it. |
+| `Sponsor.name` | `Account_Name` | text (200) **req** | `↔` | **Zoho** | Truncate at 200. Zoho wins: sales corrects the legal entity name, and the invoice has to match it. **One exception (POL-BE-102, 2026-11-18):** a new name the sponsor asked for on their Account page and BTG approved is written to the account once (`zoho.pushSponsor` with `rename`); Zoho's notice of that write is an echo. |
 | `Sponsor.zohoAccountId` | `id` | bigint | `←` | Zoho | Zoho's record id, stored after the first successful upsert. |
 | — | `Account_Type` | picklist | `→` on create only | SponsorX → then Zoho | Set to `Customer` at creation. Never written again. |
-| — | `Phone`, `Website`, `Billing_*`, `Shipping_*`, `Industry`, `Ownership`, `Employees`, `Annual_Revenue`, `Rating`, `Description`, `Owner`, `Parent_Account`, `Account_Number`, `Ticker_Symbol`, `SIC_Code`, `Fax`, `Account_Site`, `Record_Image`, `Tag` | — | `—` | Zoho | **Zoho-only, not mirrored.** SponsorX has no column for any of these and must not invent one. If a sponsor-facing screen ever needs a sponsor's address, it is a new field in Postgres with a named retrieval path, not a read-through to Zoho — Zoho never touches a request path. |
+| — | `Phone`, `Website`, `Billing_*`, `Shipping_*`, `Industry`, `Ownership`, `Employees`, `Annual_Revenue`, `Rating`, `Description`, `Owner`, `Parent_Account`, `Account_Number`, `Ticker_Symbol`, `SIC_Code`, `Fax`, `Account_Site`, `Record_Image`, `Tag` | — | `—` | Zoho | **Zoho-only, not mirrored.** SponsorX has no column for any of these and must not invent one. If a sponsor-facing screen ever needs a sponsor's address, it is a new field in Postgres with a named retrieval path, not a read-through to Zoho — Zoho never touches a request path. POL-BE-102 did exactly that: `Sponsor.logoKey`, `website`, `address` and the billing contact are SponsorX's own columns, sent nowhere. |
 | `Sponsor.lastSyncOrigin`, `.lastSyncHash` | — | — | — | SponsorX | Local bookkeeping. Never sent. |
 | `Sponsor.tenantId` | — | — | — | SponsorX | Never sent. Multi-tenancy is ours; Phase 1 runs one BTG tenant and the CRM has no concept of it. |
 

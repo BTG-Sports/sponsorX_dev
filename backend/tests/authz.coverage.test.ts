@@ -201,6 +201,10 @@ const GOVERNED_BY: Record<string, Resource> = {
   SupportAttachment: "supportMessage",
   /* POL-BE-41 — BTG's reply, written and read through its message. */
   SupportReply: "supportMessage",
+  /* POL-BE-102 — a sponsor's name or category change waiting for BTG: the
+     sponsor's admin asks (sponsor write own), BTG decides (sponsor write
+     own-tenant). */
+  SponsorAccountChange: "sponsor",
 };
 
 /** Models no API path reads or writes, and why. */

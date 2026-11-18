@@ -89,3 +89,35 @@ system should double check before the signature if all is green. as simple as th
   covered by `backend/tests/deal-chat-order.test.ts`. Both rows are Done in the tracker and ✅ in
   the phase plan. The Done PR goes to main_development and main; on main it also carries
   POL-BE-101's Done row. `DEAL_CHAT` stays off.
+
+## Deploy after #463/#464 (rcfworks)
+
+- Main's CI passed on 70d8cc96, then `deploy-daily.yml` ran and succeeded; release = main = 70d8cc96.
+  2S4-BE-15/17 are on staging (`DEAL_CHAT` still off).
+
+## POL-BE-102 — a sponsor's Account page, backend (rcfworks)
+
+- `GET /sponsor/account`: one read with the company's details, the person's own name, title and
+  email (Clerk's), `canEdit`, the change waiting for BTG, BTG's last answer and the notification
+  settings. Analysts read only; every non-sponsor role 403.
+- Saved at once and audited:
+  - the logo (public bucket under `sponsors/<tenant>/<sponsor>/`), website, address and billing
+    contact (`PATCH /sponsor/account/company`);
+  - the name and job title (`PATCH /sponsor/account/me`).
+- The company name and categories wait for BTG (owner approved the plan as written):
+  - `POST /sponsor/account/change`, one at a time;
+  - the desk is `GET /sponsor-account-changes`, with approve and reject (with a reason) by
+    BTG_ADMIN, SALES or SUPER_ADMIN, never the service account.
+- An approved new name goes to Zoho once, through `zoho.pushSponsor` with `rename`, the one
+  exception to Zoho owning `Account_Name` (field mapping §7.1 updated).
+- Migration `20261118210000_sponsor_account`. Tests: `pol-be-102-sponsor-account.test.ts` (9), a
+  rename test in `zoho-sync.test.ts`, and the tenant sweep. Full backend suite green locally.
+- Tracker: POL-BE-102 at Code review. POL-FE-102 (the page) is HeckerCreatives'.
+
+## POL-BE-102 to Done (rcfworks)
+
+- PR #465 merged into main_development with CI green, e2e included. Every Done-when clause is
+  covered by `backend/tests/pol-be-102-sponsor-account.test.ts`, except the page itself and its
+  Clerk link, which are POL-FE-102. Tracker row Done. The Done PR goes to main_development and main.
+- New standing rule: test folders (the local Postgres, its download, the venv and backups) are
+  deleted once a task's tests pass. Today's left-overs (about 850 MB) were cleared.
