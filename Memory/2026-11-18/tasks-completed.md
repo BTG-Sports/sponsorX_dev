@@ -49,3 +49,43 @@ system should double check before the signature if all is green. as simple as th
   in the tracker. The phase plan shows 2S4-BE-14 and 2S4-BE-16 as ✅ Done.
 - The Done PR goes to both main_development and main. The main PR also syncs main_development
   into main; the daily deploy follows once main is green.
+
+## Daily deploy (rcfworks)
+
+- #461 merged; main's CI green on 80ee77e8; `deploy-daily.yml` ran and `release` = main
+  (80ee77e8). Deal Chat (2S4-BE-16) is live with `DEAL_CHAT` off.
+
+## 2S4-BE-15 and 2S4-BE-17 — Deal Chat in the order flow, and its tests (rcfworks)
+
+- **The chat stage:** new order state `IN_CHAT`. With `DEAL_CHAT` on, every placed order goes
+  there instead of asking its seller.
+- **The final amount** is agreed like a card and locked when both match, so the form never
+  changes once it is out (feature spec decision 14). One step simpler than the spec's
+  "amount on the form", in line with the owner's lock-then-check rule.
+- **Both signed** (`afterDealsSigned`):
+  - each seller's amount is spread across their lines in proportion, and the fee worked out again;
+  - below the listed price or above the limit → BTG with the reason;
+  - otherwise approved and the 3-day window starts.
+- **The database lock on an order's figures** now also opens while the order is `IN_CHAT`,
+  for the figures and the line prices only. A cancel-reason check in the same migration now
+  also allows `CALLED_OFF` and `NOT_SIGNED`.
+- **Call-off:** with a reason, by either side, before payment; it cancels the whole order.
+  One email per person.
+- **Payment gate:** `assertDealsSigned`, on card start and on any pay.
+- **Signing limit:** `DEAL_CHAT_SIGNING_WORKING_DAYS` (10), with a last warning 2 working days before.
+- **Lock order:** order row, then the chat or agreement. Signing now locks the order first, so
+  two sellers' last signatures settle once.
+- **Fixed on the way:** the money nudge listed figures in random order (no `orderBy`).
+- **Tests:** `tests/deal-chat-order.test.ts` (9); `deal-chat.test.ts` updated for the amount
+  step; the tenant sweep covers the two new routes. Full suite 273 files / 3,942 tests;
+  frontend build and 2,400 tests; lint, audit and secret scan clean.
+- **Tracker:** 2S4-BE-15 and 2S4-BE-17 at Code review. POL-BE-101 (infinex1's, merged and
+  deployed) to Done; it reaches main with the next Done PR.
+- `DEAL_CHAT` stays off until HeckerCreatives' screens (2S4-FE-07/08/09) are live; staging first.
+
+## 2S4-BE-15 and 2S4-BE-17 to Done (rcfworks)
+
+- PR #462 merged into main_development with CI green, e2e included. Every Done-when clause is
+  covered by `backend/tests/deal-chat-order.test.ts`. Both rows are Done in the tracker and ✅ in
+  the phase plan. The Done PR goes to main_development and main; on main it also carries
+  POL-BE-101's Done row. `DEAL_CHAT` stays off.

@@ -3047,6 +3047,9 @@ model Reservation {
 }
 
 enum MarketplaceOrderState {
+  /// 2S4-BE-15 — Deal Chat: the sponsor and each seller agree the deal and sign it
+  /// (behind DEAL_CHAT). Replaces PENDING_SELLER for orders placed with the switch on.
+  IN_CHAT
   /// 2S4-BE-09 — a listing on it asks its seller; the seller has 48 hours.
   PENDING_SELLER
   PENDING_APPROVAL
@@ -3103,7 +3106,8 @@ model MarketplaceOrder {
   /// spending-limit.ts). Above it, the order waits for BTG.
   spendingLimitCents   Int?
   /// Why it was cancelled: SPONSOR | BTG | BTG_REJECTED | SELLER_DECLINED |
-  /// SELLER_NO_ANSWER | UNPAID. Null on orders cancelled before 2S4-BE-09.
+  /// SELLER_NO_ANSWER | UNPAID | CALLED_OFF | NOT_SIGNED (2S4-BE-15, the Deal
+  /// Chat). Null on orders cancelled before 2S4-BE-09.
   cancelReason         String?
   /// 2S4-BE-10 — the payment window. Set when it reaches AWAITING_PAYMENT
   /// (at approval); reminders after 1 and 2 days, cancelled at paymentDueAt.
@@ -5236,6 +5240,16 @@ model DealChat {
   /// The last thing either side did; reminders count 2 working days from it.
   lastActionAt     DateTime  @default(now())
   lastRemindedAt   DateTime?
+  /// 2S4-BE-15 — the final amount each side confirmed or typed (cents). Pre-filled
+  /// with the original; agreed, and then locked, when the two match.
+  sponsorAmountCents Int?
+  sellerAmountCents  Int?
+  /// 2S4-BE-15 — the deal called off before payment: by which side, why (the other side reads it), when.
+  calledOffBy      String?
+  calledOffReason  String?
+  calledOffAt      DateTime?
+  /// 2S4-BE-15 — when the last warning before the signing limit was sent.
+  lastWarnedAt     DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @default(now()) @updatedAt
 

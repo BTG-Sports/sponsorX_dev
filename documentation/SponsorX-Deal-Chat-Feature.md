@@ -156,7 +156,8 @@ separately, by both sides, on the form:
 ```
 
 - **The box is pre-filled with the original amount** and each side confirms or
-  types over it.
+  types over it. It is agreed in the chat, before the form is posted, and is
+  locked once the two match (decision 14).
 - **Neither can sign until the two amounts match.** If they differ, both see
   "Your amounts don't match" and settle it in the chat.
 - **The matched amount becomes the order's price.** Any buyer fee is worked out
@@ -336,6 +337,11 @@ easy to test. They can be upgraded later.
 12. **An answer cannot be changed once both sides agreed it** (2026-11-18).
 13. **The server checks that everything is green right before each
     signature** (2026-11-18). "As simple as that."
+14. **The final amount is agreed like a question card** (rcfworks, 2026-11-18,
+    following decisions 12 and 13). It is pre-filled with the original amount,
+    and each side confirms it or types over it. Once the two match it is
+    locked, and the form is posted only after that, so the form never changes
+    once it is out. The amount still appears on the form (§3.6).
 
 ## 11. Tasks
 

@@ -160,7 +160,7 @@ import {
 } from "./signups";
 import { DocumentSendBackInput, LegalNameDecisionInput } from "./documents";
 import { DealAgreement, DealAgreementSignInput } from "./deal-agreement";
-import { DealChat, DealChatAcceptInput, DealChatListQuery, DealChatOfferInput, DealChatPickInput, DealChatReasonInput, DealChatReviewItem, DealChatSummary, DealChatTextInput } from "./deal-chat";
+import { DealChat, DealChatAcceptInput, DealChatAmountInput, DealChatCallOffInput, DealChatListQuery, DealChatOfferInput, DealChatPickInput, DealChatReasonInput, DealChatReviewItem, DealChatSummary, DealChatTextInput } from "./deal-chat";
 import {
   AgreementAcceptanceInput,
   GuardianInput,
@@ -750,6 +750,8 @@ const PATHS: Row[] = [
   { method: "post", path: "/deal-chats/{id}/exchanges/{exchangeId}/reply", tag: "Marketplace", summary: "2S4-BE-16 — reply to an offer: the exchange continues and both accepts are cleared. 409 while its latest message waits for BTG.", body: DealChatTextInput, response: DealChat },
   { method: "post", path: "/deal-chats/{id}/exchanges/{exchangeId}/accept", tag: "Marketplace", summary: "2S4-BE-16 — accept the exchange as it stands (`messageId`: the latest message read; 409 when stale). Agreed when both sides accepted the latest message; it then goes into the agreement word for word. For a minor only the guardian accepts.", body: DealChatAcceptInput, response: DealChat },
   { method: "post", path: "/deal-chats/{id}/exchanges/{exchangeId}/decline", tag: "Marketplace", summary: "2S4-BE-16 — decline an offer: it ends, and its card is open again.", response: DealChat },
+  { method: "put", path: "/deal-chats/{id}/amount", tag: "Marketplace", summary: "2S4-BE-15 — the caller's side confirms the final amount (pre-filled with the original, `status.amount.originalCents`) or types over it. Agreed when both sides' match, and then locked (409 on a change); the agreement form is posted only once it is. Only while the order is IN_CHAT. For a minor only the guardian confirms it.", body: DealChatAmountInput, response: DealChat },
+  { method: "post", path: "/deal-chats/{id}/call-off", tag: "Marketplace", summary: "2S4-BE-15 — either side calls the deal off before payment, with a reason the other side reads. The whole order is cancelled (cancelReason CALLED_OFF; with two sellers it ends for both), its stock released, nothing charged; every chat on the order closes and everyone else on it is emailed the reason. 409 once paid or while a card payment is being confirmed. For a minor only the guardian calls it off.", body: DealChatCallOffInput, response: DealChat },
   { method: "post", path: "/deal-chat-messages/{id}/report", tag: "Marketplace", summary: "2S4-BE-16 — either side reports a message it can see; it goes to BTG's desk and BTG's admins are emailed.", body: DealChatReasonInput, response: z.object({ ok: z.literal(true) }) },
   { method: "get", path: "/deal-chat-reviews", tag: "Marketplace", summary: "2S4-BE-16 — BTG's desk: every Deal Chat message held before delivery or reported, oldest first. BTG admins only.", response: z.array(DealChatReviewItem) },
   { method: "post", path: "/deal-chat-messages/{id}/release", tag: "Marketplace", summary: "2S4-BE-16 — BTG lets a held message through to the other side, or clears a report. BTG admins only.", response: z.object({ ok: z.literal(true) }) },

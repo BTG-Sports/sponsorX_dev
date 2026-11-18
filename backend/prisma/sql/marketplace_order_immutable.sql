@@ -16,16 +16,15 @@ ALTER TABLE "MarketplaceOrder" DROP CONSTRAINT IF EXISTS "MarketplaceOrder_total
 ALTER TABLE "MarketplaceOrder" ADD CONSTRAINT "MarketplaceOrder_totals"
   CHECK ("subtotalCents" >= 0 AND "feesCents" >= 0 AND "totalCents" = "subtotalCents" + "feesCents");
 
+-- 2S4-BE-15 (migration 20261118200100): also open while the order is IN_CHAT.
 CREATE OR REPLACE FUNCTION marketplace_order_immutable() RETURNS trigger AS $$
 BEGIN
-  IF OLD."state" <> 'PENDING_APPROVAL' AND (
+  IF OLD."state"::text NOT IN ('PENDING_APPROVAL', 'IN_CHAT') AND (
        NEW."subtotalCents" IS DISTINCT FROM OLD."subtotalCents" OR NEW."feesCents" IS DISTINCT FROM OLD."feesCents"
     OR NEW."totalCents" IS DISTINCT FROM OLD."totalCents" OR NEW."currency" IS DISTINCT FROM OLD."currency"
     OR NEW."sponsorId" IS DISTINCT FROM OLD."sponsorId" OR NEW."reservationId" IS DISTINCT FROM OLD."reservationId") THEN
     RAISE EXCEPTION 'marketplace_order_immutable: order % figures are fixed once approved', OLD.id USING ERRCODE = 'check_violation';
   END IF;
-  -- 2S4-FE-02 — what the sponsor accepted and who they named to bill are
-  -- the record of the contract gate: fixed from the moment it is placed.
   IF NEW."acceptanceId" IS DISTINCT FROM OLD."acceptanceId" OR NEW."billingName" IS DISTINCT FROM OLD."billingName"
     OR NEW."billingEmail" IS DISTINCT FROM OLD."billingEmail" OR NEW."billingReference" IS DISTINCT FROM OLD."billingReference" THEN
     RAISE EXCEPTION 'marketplace_order_immutable: order % acceptance and billing contact are fixed when it is placed', OLD.id USING ERRCODE = 'check_violation';
@@ -37,8 +36,18 @@ DROP TRIGGER IF EXISTS marketplace_order_immutable ON "MarketplaceOrder";
 CREATE TRIGGER marketplace_order_immutable BEFORE UPDATE ON "MarketplaceOrder"
   FOR EACH ROW EXECUTE FUNCTION marketplace_order_immutable();
 
+-- 2S4-BE-15 (migration 20261118200100): also open while the order is IN_CHAT.
 CREATE OR REPLACE FUNCTION marketplace_order_line_immutable() RETURNS trigger AS $$
 BEGIN
+  IF (SELECT o."state"::text FROM "MarketplaceOrder" o WHERE o.id = OLD."orderId") = 'IN_CHAT'
+     AND ROW(NEW."id", NEW."tenantId", NEW."orderId", NEW."listingId", NEW."inventoryItemId", NEW."itemTenantId", NEW."propertyId",
+             NEW."sellerAthleteId", NEW."title", NEW."quantity", NEW."startsOn", NEW."endsOn")
+         IS NOT DISTINCT FROM
+         ROW(OLD."id", OLD."tenantId", OLD."orderId", OLD."listingId", OLD."inventoryItemId", OLD."itemTenantId", OLD."propertyId",
+             OLD."sellerAthleteId", OLD."title", OLD."quantity", OLD."startsOn", OLD."endsOn")
+     AND NEW."lineTotalCents" >= 0 AND NEW."unitPriceCents" >= 0 THEN
+    RETURN NEW;
+  END IF;
   RAISE EXCEPTION 'marketplace_order_line_immutable: order line % is never rewritten', OLD.id USING ERRCODE = 'check_violation';
 END;
 $$ LANGUAGE plpgsql;

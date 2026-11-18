@@ -1592,6 +1592,11 @@ or reported (`dealChatReview`).
   visible. Nothing is edited or deleted after it is sent.
 - **Addressed like `dealAgreement`.** It lives in the order's books; the seller
   reaches it in their own tenant and never reads the order through it.
+- **The final amount and calling off (2S4-BE-15)** are `dealChat` writes, by the
+  same two sides: `PUT /deal-chats/{id}/amount` and `POST /deal-chats/{id}/call-off`.
+  For a minor only the guardian confirms the amount or calls the deal off. The
+  analyst and BTG do neither. Calling off cancels the order in its own books, so
+  a seller needs no `marketplaceOrder` write to do it.
 
 ### `refundDue` (2S4-BE-13)
 Money owed back to a sponsor: one row per refund of a paid order, in the

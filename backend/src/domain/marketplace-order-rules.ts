@@ -16,12 +16,14 @@
  * prisma/sql/marketplace_order_immutable.sql).
  */
 export type MarketplaceOrderState =
-  | "PENDING_SELLER" | "PENDING_APPROVAL" | "APPROVED" | "AWAITING_PAYMENT" | "PAID" | "IN_DELIVERY" | "FULFILLED" | "CLOSED" | "CANCELLED" | "REFUNDED";
+  | "IN_CHAT" | "PENDING_SELLER" | "PENDING_APPROVAL" | "APPROVED" | "AWAITING_PAYMENT" | "PAID" | "IN_DELIVERY" | "FULFILLED" | "CLOSED" | "CANCELLED" | "REFUNDED";
 export const MARKETPLACE_ORDER_STATES: readonly MarketplaceOrderState[] = [
-  "PENDING_SELLER", "PENDING_APPROVAL", "APPROVED", "AWAITING_PAYMENT", "PAID", "IN_DELIVERY", "FULFILLED", "CLOSED", "CANCELLED", "REFUNDED",
+  "IN_CHAT", "PENDING_SELLER", "PENDING_APPROVAL", "APPROVED", "AWAITING_PAYMENT", "PAID", "IN_DELIVERY", "FULFILLED", "CLOSED", "CANCELLED", "REFUNDED",
 ];
 
 const TRANSITIONS: Readonly<Record<MarketplaceOrderState, readonly MarketplaceOrderState[]>> = {
+  /* 2S4-BE-15 — the Deal Chat: both signed → approved (or held for BTG); called off or not signed in time → cancelled. */
+  IN_CHAT: ["PENDING_APPROVAL", "APPROVED", "CANCELLED"],
   PENDING_SELLER: ["PENDING_APPROVAL", "APPROVED", "CANCELLED"],
   PENDING_APPROVAL: ["APPROVED", "CANCELLED"],
   APPROVED: ["AWAITING_PAYMENT", "CANCELLED"],
@@ -52,7 +54,9 @@ export const CONTRACTED: ReadonlySet<MarketplaceOrderState> = new Set(["APPROVED
 export const RELEASES: ReadonlySet<MarketplaceOrderState> = new Set(["CANCELLED", "REFUNDED"]);
 
 /** Why an order was cancelled — recorded on the order (cancelReason). */
-export type CancelReason = "SPONSOR" | "BTG" | "BTG_REJECTED" | "SELLER_DECLINED" | "SELLER_NO_ANSWER" | "UNPAID";
+export type CancelReason = "SPONSOR" | "BTG" | "BTG_REJECTED" | "SELLER_DECLINED" | "SELLER_NO_ANSWER" | "UNPAID"
+  /* 2S4-BE-15 — a side called the deal off in the Deal Chat; or it was not signed by both within the limit. */
+  | "CALLED_OFF" | "NOT_SIGNED";
 
 /* ── the timers — 2S4-BE-09 / 2S4-BE-10 ─────────────────────────────────── */
 

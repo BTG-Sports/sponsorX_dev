@@ -40,6 +40,7 @@
 
 /** A transaction that calls the provider waits for it, at most PAYMENT_PROVIDER_TIMEOUT_MS (and its own work besides). */
 const providerTx = () => ({ timeout: env.PAYMENT_PROVIDER_TIMEOUT_MS * 2 + 10_000, maxWait: 10_000 });
+import { assertDealsSigned } from "./deal-chat-check";
 import { randomUUID } from "node:crypto";
 
 import type { Prisma } from "../generated/prisma/client";
@@ -370,6 +371,7 @@ export async function startCardPayment(actor: Actor, orderId: string, now = new 
       throw new PayoutError(
         order.state === "PENDING_APPROVAL" ? "BTG hasn't approved this order yet — you can pay once it has."
         : order.state === "PENDING_SELLER" ? "The seller hasn't accepted this order yet — you can pay once they have."
+        : order.state === "IN_CHAT" ? "The deal agreement isn't signed by both sides yet — you can pay once it is."
         : "This order isn't waiting for payment.",
       );
     }
@@ -378,6 +380,8 @@ export async function startCardPayment(actor: Actor, orderId: string, now = new 
       where: { orderId: order.id, state: "PROCESSING" }, select: { id: true },
     });
     if (confirming) throw new PayoutError("A payment for this order is already being confirmed — please don't pay again.");
+    /* 2S4-BE-15 — the payment gate: every Deal Chat agreement on the order signed by both. */
+    await assertDealsSigned(tx, order);
     if (order.state === "APPROVED") await moveOrderAsSystem(tx, order.id, "AWAITING_PAYMENT", now);
     const created = await tx.paymentAttempt.create({
       data: { tenantId: order.tenantId, orderId: order.id, sponsorId: order.sponsorId, amountCents: order.totalCents, provider, createdBy: actor.userId },
