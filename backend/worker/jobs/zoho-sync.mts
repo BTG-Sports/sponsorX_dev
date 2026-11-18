@@ -74,10 +74,11 @@ export const handlePushLead = (deps: Deps, job: LeadJob) =>
       ? pushFanLead(ctxFor(deps), job.tenantId, job.fanEventId)
       : pushLead(ctxFor(deps), job.tenantId, job.inquiryId));
 
-/** 2S1-BE-05 — a sponsor BTG just approved: its Account and primary Contact. */
-export type SponsorJob = Tenanted & { sponsorId: string };
+/** 2S1-BE-05 — a sponsor BTG just approved: its Account and primary Contact.
+ *  POL-BE-102 — `rename`: a new company name BTG approved, written to the Account once. */
+export type SponsorJob = Tenanted & { sponsorId: string; rename?: boolean };
 export const handlePushSponsor = (deps: Deps, job: SponsorJob) =>
-  tolerateRecordErrors("zoho.pushSponsor", () => pushSponsor(ctxFor(deps), job.tenantId, job.sponsorId));
+  tolerateRecordErrors("zoho.pushSponsor", () => pushSponsor(ctxFor(deps), job.tenantId, job.sponsorId, { rename: job.rename === true }));
 
 /** 2S7-INT-01 — a contracted marketplace order, its sponsor and its properties. */
 export type MarketplaceOrderJob = Tenanted & { orderId: string };

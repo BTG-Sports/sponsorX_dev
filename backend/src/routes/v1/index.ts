@@ -27,6 +27,7 @@ import { inquiriesRouter } from "./inquiries";
 import { catalogueRouter } from "./catalogue";
 import { sponsorOverviewRouter } from "./sponsor-overview";
 import { sponsorTeamRouter } from "./sponsor-team";
+import { sponsorAccountRouter } from "./sponsor-account";
 import { campaignChangeRouter } from "./campaign-change";
 import { financeOverviewRouter } from "./finance-overview";
 import { rewardsRouter } from "./rewards";
@@ -144,6 +145,8 @@ v1Router.use("/", catalogueRouter);
 v1Router.use("/", sponsorOverviewRouter);
 /* POL-BE-19 — a sponsor admin's team. */
 v1Router.use("/", sponsorTeamRouter);
+/* POL-BE-102 — a sponsor's Account page, and BTG's desk for its name and category changes. */
+v1Router.use("/", sponsorAccountRouter);
 /* P8-BE-12 — cancel and change a campaign. */
 v1Router.use("/", campaignChangeRouter);
 
