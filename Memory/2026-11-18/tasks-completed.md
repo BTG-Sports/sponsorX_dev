@@ -137,6 +137,13 @@ system should double check before the signature if all is green. as simple as th
 - The test database and toolkit were deleted after testing.
 - Tracker: POL-BE-103 at Code review. POL-FE-103 (the page) is HeckerCreatives'.
 
+## POL-BE-102 deployed; POL-BE-103 to Done (rcfworks)
+
+- After #466/#467, main's CI passed and `deploy-daily.yml` succeeded: release = main = c8e25144.
+- PR #468 (POL-BE-103) merged into main_development with CI green, e2e included. Every Done-when
+  clause is covered by `pol-be-103-advisor-profile.test.ts`, except the page itself, which is
+  POL-FE-103. Tracker row Done. The Done PR goes to main_development and main.
+
 ## POL-BE-104 — a team's own details page, backend, automated; POL-BE-102 automated too (rcfworks)
 
 - Owner, 2026-11-18: "as always we target automation". Identity changes go through at once when

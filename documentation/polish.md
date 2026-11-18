@@ -2948,7 +2948,7 @@ the blockers and today's content review findings.
   - **Left to `POL-FE-102`:** the page itself, in the sponsor portal's Account group, with the link to Clerk's account screen.
 
 ### 103. A school advisor has no page for their own or their school's details [NEXT spec §8, P9-BE-20]
-`POL-BE-103` · `POL-FE-103` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · backend built 2026-11-18
+`POL-BE-103` · `POL-FE-103` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · backend Done 2026-11-18 (`POL-FE-103` open)
 - **Problem:**
   - `/advisor` has Applications (its home), Content review and Help. No page shows the advisor's own details (name, email, which school) or the school's (name, the email domain on file, the roster).
   - The home already carries the school's email-domain setting (`SchoolEmailDomain`) and the roster paste (`RosterPaste`) among the applications, so the settings exist but aren't presented as the school's profile, and nothing shows who the advisor is.
