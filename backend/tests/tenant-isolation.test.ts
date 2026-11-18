@@ -181,6 +181,8 @@ const PARAM_FOR: Record<string, string> = {
   "campaign-requests": "ti_ccr_a",
   /* POL-BE-102 — /sponsor-account-changes/{id}/…: tenant A's waiting name change. */
   "sponsor-account-changes": "ti_sac_a",
+  /* POL-BE-104 — /property-profile-changes/{id}/…: tenant A's held team change. */
+  "property-profile-changes": "ti_ppc_a",
   /* GET /intelligence/pricing/{inventoryId} (3S2-BE-02). */
   pricing: A.item,
   /* POST /intelligence/pricing/recommendations/{recommendationId}/overrides (3S2-BE-03). */
@@ -408,6 +410,10 @@ const BODY: Record<string, unknown> = {
   "PATCH /sponsor/account/company": { website: "https://sweep.example" },
   "PATCH /sponsor/account/me": { name: "Sweep" },
   "PATCH /advisor/profile": { name: "Sweep" },
+  "PATCH /property/profile": { description: "Sweep" },
+  "PATCH /property/profile/me": { name: "Sweep" },
+  "POST /property/profile/change": { city: "Sweepville" },
+  "POST /property-profile-changes/{id}/reject": { reason: "TI reject attempt" },
   "POST /sponsor/account/logo": { contentType: "image/png", bytes: 10 },
   "POST /sponsor/account/change": { name: "TI Sweep Rename" },
   "POST /sponsor-account-changes/{id}/reject": { reason: "TI reject attempt" },
@@ -662,6 +668,8 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       r2Key: `t/${t}/ad-slot/${A.soldSlot}/secret`, adSlotId: A.soldSlot, reviewState: "SPONSOR_REVIEW", artworkVersion: 1, submittedAt: new Date(),
     } });
     await prisma.propertyOnboarding.create({ data: { id: A.onboarding, tenantId: t, orgType: "TEAM", orgName: "TI Secret Org", state: "PENDING_REVIEW" } });
+    /* POL-BE-104 — a team change held for BTG, for /property-profile-changes/{id}/…. */
+    await prisma.propertyProfileChange.create({ data: { id: "ti_ppc_a", tenantId: t, propertyId: A.school, changes: { name: "TI Secret Team Name" }, before: {}, holdReasons: ["TI"], requestedById: "ti_a_admin" } });
     await prisma.inventoryItem.createMany({ data: [
       { id: A.item, tenantId: t, athleteId: A.athlete, title: "TI Secret Item", kind: "OTHER", priceCents: 5000 },
       { id: A.schoolItem, tenantId: t, propertyId: A.school, title: "TI Secret Banner", kind: "SIGNAGE", priceCents: 9000 },

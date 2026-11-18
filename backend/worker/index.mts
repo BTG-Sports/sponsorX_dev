@@ -66,6 +66,7 @@ const HANDLED_JOBS = new Set<string>([
   "zoho.pushLead",
   "zoho.pushRenewal",
   "zoho.pushSponsor",
+  "zoho.renameProperty",
   "zoho.ingestCrm",
   "zoho.backfill",
   /* 2S7-INT-01 — marketplace orders, their sponsors and properties. */
@@ -140,9 +141,9 @@ import { redis } from "../src/lib/redis.ts";
 import { zohoConfigFromEnv, zohoFromEnv } from "../src/lib/zoho.ts";
 import { zohoCrmConfigured } from "../src/lib/zoho-jobs.ts";
 import {
-  handleBackfill, handleIngestCrm, handlePushDeal, handlePushLead, handlePushMarketplaceOrder, handlePushRenewal, handlePushSponsor, handlePushIntelligence,
+  handleBackfill, handleIngestCrm, handlePushDeal, handlePushLead, handlePushMarketplaceOrder, handlePushRenewal, handlePushSponsor, handleRenameProperty, handlePushIntelligence,
   handlePushTask, renewWatch, runReconciliation, dispatchableJobs,
-  type BackfillJob, type DealJob, type IngestCrmJob, type LeadJob, type MarketplaceOrderJob, type RenewalJob, type SponsorJob, type TaskJob, type IntelligenceJob,
+  type BackfillJob, type DealJob, type IngestCrmJob, type LeadJob, type MarketplaceOrderJob, type RenewalJob, type SponsorJob, type PropertyRenameJob, type TaskJob, type IntelligenceJob,
 } from "./jobs/zoho-sync.mts";
 import { logError, maskEmail, redactEmails } from "../src/lib/redact.ts";
 
@@ -619,6 +620,9 @@ async function main(): Promise<void> {
   await ensureQueue("zoho.pushSponsor");
   await boss.work<SponsorJob>("zoho.pushSponsor", async ([job]) =>
     zohoLog("zoho.pushSponsor", await handlePushSponsor(zohoDeps, job.data)));
+  await ensureQueue("zoho.renameProperty");
+  await boss.work<PropertyRenameJob>("zoho.renameProperty", async ([job]) =>
+    zohoLog("zoho.renameProperty", await handleRenameProperty(zohoDeps, job.data)));
   await ensureQueue("zoho.pushMarketplaceOrder");
   await boss.work<MarketplaceOrderJob>("zoho.pushMarketplaceOrder", async ([job]) =>
     zohoLog("zoho.pushMarketplaceOrder", await handlePushMarketplaceOrder(zohoDeps, job.data)));

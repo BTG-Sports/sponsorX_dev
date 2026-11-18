@@ -238,6 +238,18 @@ minor's parent is.
 | `PROPERTY_MGR` | own | own | — |
 | all others | — | — | — |
 
+**A team's own details page (POL-BE-104, 2026-11-18).** The same rows govern
+it, and `PropertyProfileChange` (a name, place or type-detail change) is
+governed by `property`:
+
+- `PROPERTY_MGR` (`own`) reads the page. It saves the description, the main
+  contact's name and phone, and its own name, job title and phone. It changes
+  the name, city, state or type details: at once when every safety check
+  passes, held for BTG when one fails.
+- BTG staff with `own-tenant` read see the desk of held changes. `BTG_ADMIN`
+  (`own-tenant` write) approves or rejects them. No BTG role reads a team's
+  page itself, because it isn't their own property.
+
 ---
 
 ## 6 · Catalog and rates

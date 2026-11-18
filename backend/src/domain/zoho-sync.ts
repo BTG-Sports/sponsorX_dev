@@ -400,6 +400,20 @@ export async function pushMarketplaceOrder(ctx: SyncCtx, tenantId: string, order
   return { status: "pushed", zohoId: r.id, action: r.action };
 }
 
+/**
+ * POL-BE-104 — a team renamed itself (automatically, or BTG approved it):
+ * its Account's name is written once. An Account not made yet is made later
+ * with the current name, so there is nothing to send.
+ */
+export async function renamePropertyAccount(ctx: SyncCtx, tenantId: string, propertyId: string): Promise<PushOutcome> {
+  const p = await ctx.db.property.findFirst({ where: { id: propertyId, tenantId }, select: { id: true, name: true, zohoId: true } });
+  if (!p) return { status: "skipped", reason: "property not found" };
+  if (!p.zohoId) return { status: "skipped", reason: "no Zoho account yet" };
+  const r = await ctx.zoho.update("Accounts", p.zohoId, accountShared(p.name));
+  await ctx.db.property.update({ where: { id: p.id }, data: { lastSyncOrigin: "SPONSORX" } });
+  return { status: "pushed", zohoId: r.id, action: r.action };
+}
+
 /** The outside property's Account, and its manager's Contact under it — pushed once. */
 async function ensurePropertyAccount(ctx: SyncCtx, propertyId: string): Promise<{ name: string; zohoId: string | null }> {
   const p = await ctx.db.property.findFirst({

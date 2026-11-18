@@ -2940,6 +2940,11 @@ the blockers and today's content review findings.
     - `backend/tests/pol-be-102-sponsor-account.test.ts` (8, real API and database).
     - A rename test in `backend/tests/zoho-sync.test.ts`.
     - The tenant-isolation sweep covers every new route.
+  - **Automated since POL-BE-104 (owner, 2026-11-18: "as always we target automation"):** a name or category change takes effect at once when every safety check passes. It waits for BTG, with the reasons, if any of these is true:
+    - another sponsor has the name;
+    - the name contains a restricted word;
+    - a sensitive category is added (always a person);
+    - an exclusive deal is still running in a category being dropped.
   - **Left to `POL-FE-102`:** the page itself, in the sponsor portal's Account group, with the link to Clerk's account screen.
 
 ### 103. A school advisor has no page for their own or their school's details [NEXT spec §8, P9-BE-20]
@@ -2969,7 +2974,7 @@ the blockers and today's content review findings.
   - **Tests:** `backend/tests/pol-be-103-advisor-profile.test.ts` (6). The POL-BE-101 tests now expect the advisor's name. The tenant sweep covers the new route.
   - **Left to `POL-FE-103`:** the Profile page in `/advisor`'s menu.
 ### 104. A school team can't see or keep its own details current (property portal) — partial today [§8, 2S1-BE-03]
-`POL-BE-104` · `POL-FE-104` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · recorded only, not built
+`POL-BE-104` · `POL-FE-104` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · backend built 2026-11-18
 - **What exists:**
   - `/property/settings`: the manager's sign-in email (from Clerk), the Stripe payout account, notification preferences and Close account.
   - `/property/branding`: display name, logo, colours and report footer, editable only when the tenant is an operated one; otherwise read-only, "BTG manages branding".
@@ -2983,6 +2988,38 @@ the blockers and today's content review findings.
   - Tenant-scoped and own-property only, with role tests: another property's manager, an athlete, a sponsor and a student are refused (§30).
 - **Reusing the athlete review queue:** `/admin/profile-changes` reviews `AthleteProfileChange` rows, a model keyed to an athlete (`athleteId`) with athlete-only rules (legal-name ID upload, date of birth and the guardian process). It can't take a property's change as it is. Either generalise it (a subject type and id on the change row, with per-subject rules) or add a `PropertyProfileChange` beside it shown on the same admin page; the first keeps one queue for BTG. Decide when this is built.
 
+- **Decided (owner, 2026-11-18): automation.** "As always we target automation." An identity change takes effect at once when every safety check passes, and waits for BTG, with the reasons, when one fails. The open question on reusing the athlete review queue is settled the simple way: a `PropertyProfileChange` beside it, with BTG's own list of held changes. The admin page can show both lists.
+- **Delivered, backend (`POL-BE-104`, 2026-11-18, rcfworks):**
+  - **The page** (`backend/src/domain/property-profile.ts`), `GET /property/profile`:
+    - the name, the type (`kindManagedBy: "BTG"`), city, state and the type's details (a team's legal entity name, league and sport; a school's district and sports…);
+    - the description, and the main contact (name, email, phone);
+    - the manager's own name, job title, phone and email (Clerk's);
+    - the held change and the last decision;
+    - the notification settings.
+  - **Saved at once, audited:**
+    - `PATCH /property/profile` saves the description and the main contact's name and phone (`property.profileUpdate`). The contact's email isn't changed here.
+    - `PATCH /property/profile/me` saves the manager's own details (`property.managerUpdate`).
+  - **Name, city, state and type details** (`POST /property/profile/change`, validated as at sign-up):
+    - Held for BTG, with the reason, if any of these is true:
+      - another organisation holds the name (the sign-up name rule);
+      - a restricted word is in the name or details;
+      - there's an open marketplace order or an offer out on the team's inventory;
+      - the legal entity name or state registration number changes;
+      - the business registration for the new state isn't on file;
+      - the organisation is not in good standing (not approved, flagged, or payouts held).
+    - Otherwise the change takes effect at once, on the property and its sign-up record (name key included).
+    - A new name is written to the team's Zoho account once (`zoho.renameProperty`).
+    - One change waits at a time (409).
+    - The type stays BTG's.
+  - **BTG's desk:**
+    - `GET /property-profile-changes` lists held changes with their reasons (BTG staff read).
+    - `…/{id}/approve` and `…/{id}/reject` (with a reason the team reads) are BTG_ADMIN's.
+    - Two answers at once settle once.
+  - **Live listings are not a hold.** A published listing alone doesn't stop a change, or every active team would wait on BTG. Only an order or an offer, where a sponsor is buying the team as it was described, holds it.
+  - **Storage** (migration `20261118230000_property_profile`): `Property.description` and `PropertyProfileChange`.
+  - **Who:** only the PROPERTY_MGR of that property. An athlete, a sponsor, an advisor, BTG staff and another team's manager are refused the page (403).
+  - **Tests:** `backend/tests/pol-be-104-property-profile.test.ts` (7, each hold reason included), the Zoho rename in `zoho-sync.test.ts`, and the tenant sweep.
+  - **Left to `POL-FE-104`:** the page in the property portal.
 ### 105. The admin home is a hero ring over twenty-two equal cards, so staff can't tell what needs them or how things are going [§10, §23, P7-FE-06]
 `POL-FE-105` · *Confusing* · confirmed (programme owner, 2026-11-17: "big visual redesign for /admin, for the dashboard it must be the dashboard itself like in the image provided, make sure its easy to understand because what you did before is so confusing for a human but make sure not to remove the current theme of the visual redesign"; three references: a dark analytics dashboard with ring KPI cards, bar and line charts and a data table, an admin template with a revenue card, an area chart, earnings bars and a segmented "completed" gauge, and a wallet dashboard with price cards, a line chart and donut cards)
 - **Problem:** `/admin` opened on four header tiles (a queue ring, campaigns, systems, a legend), then up to 22 queue cards of equal weight, then three lists. There was no chart, no sense of how things were going, and the cards neither said what period they covered nor which needed attention first.

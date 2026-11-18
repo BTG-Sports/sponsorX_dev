@@ -280,6 +280,19 @@ describe.skipIf(!hasDatabase)("the Zoho sync, on the path a request takes", asyn
       expect(zoho.writes.length).toBe(writes);
     });
 
+    it("POL-BE-104 · a team's new name is written to its Zoho account once; no account yet, nothing to send", async () => {
+      const accountId = zoho.seed("Accounts", { Account_Name: "Bowie Hawks" });
+      await prisma.property.create({ data: { id: "zt_team", tenantId: T, slug: "zt-team", name: "Bowie Hawks Elite", kind: "TEAM", zohoId: accountId } });
+      await prisma.property.create({ data: { id: "zt_team2", tenantId: T, slug: "zt-team2", name: "Unsynced Team", kind: "TEAM" } });
+      try {
+        expect(await jobs.handleRenameProperty(deps(), { tenantId: T, propertyId: "zt_team" })).toMatchObject({ status: "pushed", zohoId: accountId });
+        expect((await zoho.get("Accounts", accountId))!.Account_Name).toBe("Bowie Hawks Elite");
+        expect(await jobs.handleRenameProperty(deps(), { tenantId: T, propertyId: "zt_team2" })).toMatchObject({ status: "skipped" });
+      } finally {
+        await prisma.property.deleteMany({ where: { id: { in: ["zt_team", "zt_team2"] } } });
+      }
+    });
+
     it("left to run, push → notify → apply settles instead of ping-ponging", async () => {
       await transitionBrief(actor, "zt_brief", "QUALIFIED");
       await drain();

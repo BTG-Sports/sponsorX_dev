@@ -339,8 +339,45 @@ model Property {
   /// an application email on it; with none on file, adults go to the advisor.
   /// Lower case, no "@" (CHECK in migration 20261004800000).
   emailDomain     String?
+  /// POL-BE-104 — the public description a team writes about itself, saved at
+  /// once from its own details page.
+  description     String?
+  profileChanges  PropertyProfileChange[]
 
   @@index([tenantId])
+}
+
+/// POL-BE-104 — a team's change to the details that drive matching and
+/// conflict checks (name, city, state, and its type's details: a team's
+/// league and sport, a school's district and sports…). Phase 2 automation:
+/// it takes effect at once when every safety check passes (APPROVED,
+/// `autoApproved`), and waits for BTG with `holdReasons` when one fails. One
+/// waits at a time per property (partial unique index). BTG approves a held
+/// one (it takes effect) or rejects it with a reason the manager reads.
+model PropertyProfileChange {
+  id            String    @id @default(cuid())
+  tenantId      String
+  propertyId    String
+  /// What changes: { name?, city?, stateCode?, details? } — only the keys sent.
+  changes       Json
+  /// The same keys as they stood when asked, for BTG to compare.
+  before        Json
+  /// PENDING | APPROVED | REJECTED
+  status        String    @default("PENDING")
+  /// Why it waits for BTG — empty when it went through on its own.
+  holdReasons   String[]  @default([])
+  autoApproved  Boolean   @default(false)
+  /// Why BTG rejected it — the manager reads this.
+  reason        String?
+  requestedById String
+  decidedById   String?
+  decidedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  property Property @relation(fields: [propertyId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([propertyId])
 }
 
 model Guardian {
@@ -851,13 +888,14 @@ model Sponsor {
   @@index([tenantId])
 }
 
-/// POL-BE-102 — a sponsor's change to its company name or brand categories,
-/// waiting for BTG. Those two feed the conflict checks (every restriction and
-/// exclusivity asks against the categories) and the Zoho account (whose name
-/// Zoho holds, field-mapping §7.1), so they don't take effect on their own.
-/// One waits at a time per sponsor (partial unique index). BTG approves it
-/// (it takes effect; a new name is sent to Zoho once) or rejects it with a
-/// reason the sponsor reads.
+/// POL-BE-102 — a sponsor's change to its company name or brand categories.
+/// Since POL-BE-104 (Phase 2 automation) it takes effect at once when every
+/// safety check passes, and waits for BTG only when one fails. Those two feed
+/// the conflict checks (every restriction and exclusivity asks against the
+/// categories) and the Zoho account (whose name Zoho holds, field-mapping
+/// §7.1). One waits at a time per sponsor (partial unique index). BTG
+/// approves a held one (it takes effect) or rejects it with a reason the
+/// sponsor reads. A new name is sent to Zoho once, however it took effect.
 model SponsorAccountChange {
   id                String    @id @default(cuid())
   tenantId          String
@@ -869,6 +907,10 @@ model SponsorAccountChange {
   categoriesChanged Boolean   @default(false)
   /// PENDING | APPROVED | REJECTED
   status            String    @default("PENDING")
+  /// POL-BE-104 follow-up (Phase 2 automation): why it waits for BTG — empty
+  /// when every check passed and it took effect at once (`autoApproved`).
+  holdReasons       String[]  @default([])
+  autoApproved      Boolean   @default(false)
   /// Why BTG rejected it — the sponsor reads this.
   reason            String?
   requestedById     String

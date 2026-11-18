@@ -11,11 +11,15 @@
  * PNG or JPEG, as tenant branding's is), website, address and billing
  * contact; the person's name and job title.
  *
- * WAITS FOR BTG: the company name and the brand categories. The categories
- * feed every restriction and exclusivity check, and the name is the Zoho
- * account's (field-mapping §7.1). One change waits at a time; the page shows
- * it as waiting for BTG. BTG approves it — it takes effect, and a new name is
- * sent to Zoho once — or rejects it with a reason the sponsor reads.
+ * NAME AND CATEGORIES — Phase 2 automation (owner, 2026-11-18). The
+ * categories feed every restriction and exclusivity check, and the name is
+ * the Zoho account's (field-mapping §7.1). A change takes effect at once when
+ * every safety check passes, and waits for BTG with the reasons when one
+ * fails: the name already another sponsor's, a restricted word in it, a
+ * sensitive category added (always a person), or an exclusive deal still
+ * running in a category being dropped. One change waits at a time; the page
+ * shows it as waiting for BTG. BTG approves a held one or rejects it with a
+ * reason the sponsor reads. A new name is sent to Zoho once.
  *
  * Email, password and two-step sign-in stay in Clerk; the page links there.
  * Notification settings are the existing /me/notification-preferences.
@@ -30,7 +34,9 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { presignPublicUpload, publicObjectUrl } from "../lib/storage";
-import { BRAND_CATEGORIES } from "./brand-categories";
+import { BRAND_CATEGORIES, SENSITIVE_CATEGORIES } from "./brand-categories";
+import { normalizeBusinessName } from "./business-name-rules";
+import { checkRestricted } from "./restricted-words";
 import { LOGO_TYPES, MAX_LOGO_BYTES } from "./branding";
 import { listPreferences } from "./notification-preferences";
 
@@ -60,11 +66,11 @@ const COMPANY = {
 } as const;
 const CHANGE = {
   id: true, name: true, categories: true, categoriesChanged: true, status: true, reason: true,
-  createdAt: true, decidedAt: true,
+  holdReasons: true, autoApproved: true, createdAt: true, decidedAt: true,
 } as const;
 type ChangeRow = {
   id: string; name: string | null; categories: string[]; categoriesChanged: boolean; status: string;
-  reason: string | null; createdAt: Date; decidedAt: Date | null;
+  reason: string | null; holdReasons: string[]; autoApproved: boolean; createdAt: Date; decidedAt: Date | null;
 };
 
 function changeView(c: ChangeRow) {
@@ -73,6 +79,9 @@ function changeView(c: ChangeRow) {
     status: c.status as "PENDING" | "APPROVED" | "REJECTED",
     name: c.name,
     categories: c.categoriesChanged ? c.categories : null,
+    /** Why it waits for BTG; empty when it went through on its own. */
+    holdReasons: c.holdReasons,
+    autoApproved: c.autoApproved,
     reason: c.reason,
     requestedAt: c.createdAt.toISOString(),
     decidedAt: c.decidedAt?.toISOString() ?? null,
@@ -186,8 +195,63 @@ function isUniqueViolation(e: unknown): boolean {
 
 const ALREADY_WAITING = "A change is already waiting for BTG. You can ask for another once BTG has answered.";
 
-/** POST /sponsor/account/change — a new company name and/or categories, for BTG to decide. */
-export async function requestAccountChange(actor: Actor, input: { name?: string; categories?: string[] }) {
+/**
+ * Every safety check on a name or category change; an empty list means it
+ * goes through at once (Phase 2 automation, owner 2026-11-18). Sensitive
+ * categories always reach a person.
+ */
+async function holdReasonsFor(
+  tx: Prisma.TransactionClient,
+  own: Own,
+  company: { id: string; name: string; categories: string[] },
+  newName: string | null,
+  newCategories: string[] | null,
+  now: Date,
+): Promise<string[]> {
+  const reasons: string[] = [];
+  if (newName) {
+    const key = normalizeBusinessName(newName);
+    const others = await tx.sponsor.findMany({ where: { tenantId: own.tenantId, id: { not: company.id } }, select: { name: true } });
+    const holder = others.find((o) => normalizeBusinessName(o.name) === key);
+    if (holder) reasons.push(`Another sponsor already has the name "${holder.name}".`);
+    const restricted = await checkRestricted(tx, own.tenantId, newName);
+    if (restricted.length) reasons.push(`The name contains a restricted word: ${[...new Set(restricted.map((m) => m.word))].join(", ")}.`);
+  }
+  if (newCategories) {
+    const added = newCategories.filter((c) => !company.categories.includes(c));
+    const sensitive = added.filter((c) => (SENSITIVE_CATEGORIES as readonly string[]).includes(c));
+    if (sensitive.length) reasons.push(`Adds a sensitive category, which a person at BTG always checks: ${sensitive.join(", ")}.`);
+    const dropped = company.categories.filter((c) => !newCategories.includes(c));
+    if (dropped.length) {
+      const offers = await tx.offer.findMany({ where: { tenantId: own.tenantId, campaign: { is: { sponsorId: company.id } } }, select: { id: true } });
+      const exclusive = offers.length === 0 ? [] : await tx.brandRestriction.findMany({
+        where: { tenantId: own.tenantId, type: "EXCLUSIVITY", category: { in: dropped }, sourceOfferId: { in: offers.map((o) => o.id) }, OR: [{ endsOn: null }, { endsOn: { gt: now } }] },
+        select: { category: true },
+      });
+      if (exclusive.length) reasons.push(`An exclusive deal is still running in a category being dropped: ${[...new Set(exclusive.map((e) => e.category))].join(", ")}.`);
+    }
+  }
+  return reasons;
+}
+
+/** Make the change real; a new name goes to Zoho once, through the worker. */
+async function applyChange(tx: Prisma.TransactionClient, tenantId: string, sponsorId: string, change: { name: string | null; categories: string[] | null }) {
+  const data = {
+    ...(change.name ? { name: change.name } : {}),
+    ...(change.categories ? { categories: knownCategories(change.categories) } : {}),
+  };
+  /* tenant-scope: a sponsor loaded by id and tenant by the caller. */
+  await tx.sponsor.update({ where: { id: sponsorId }, data, select: { id: true } });
+  if (change.name) await enqueue(tx, tenantId, "zoho.pushSponsor", { sponsorId, rename: true });
+  return data;
+}
+
+/**
+ * POST /sponsor/account/change — a new company name and/or categories. Takes
+ * effect at once when every safety check passes; waits for BTG, with the
+ * reasons, when one fails.
+ */
+export async function requestAccountChange(actor: Actor, input: { name?: string; categories?: string[] }, now = new Date()) {
   const own = ownSponsor(actor, "write");
   const company = await prisma.sponsor.findFirst({ where: { id: own.sponsorId, tenantId: own.tenantId }, select: { id: true, name: true, categories: true } });
   if (!company) throw new ForbiddenError("sponsor", "write");
@@ -196,19 +260,27 @@ export async function requestAccountChange(actor: Actor, input: { name?: string;
   const categories = input.categories ? knownCategories(input.categories) : null;
   const newCategories = categories && !sameSet(categories, company.categories) ? categories : null;
   if (categories && categories.length === 0) throw new SponsorAccountError("Keep at least one category.");
-  if (!newName && !newCategories) throw new SponsorAccountError("That's what's on file already — nothing to send to BTG.");
+  if (!newName && !newCategories) throw new SponsorAccountError("That's what's on file already — nothing to change.");
   try {
     await prisma.$transaction(async (tx) => {
+      /* Even a change that would pass every check waits its turn behind a held one. */
+      const waiting = await tx.sponsorAccountChange.findFirst({ where: { sponsorId: company.id, tenantId: own.tenantId, status: "PENDING" }, select: { id: true } });
+      if (waiting) throw new SponsorAccountError(ALREADY_WAITING, 409);
+      const reasons = await holdReasonsFor(tx, own, company, newName, newCategories, now);
+      const auto = reasons.length === 0;
       const c = await tx.sponsorAccountChange.create({
         data: {
           tenantId: own.tenantId, sponsorId: company.id, requestedById: own.userId,
           name: newName, categories: newCategories ?? [], categoriesChanged: newCategories !== null,
+          status: auto ? "APPROVED" : "PENDING", holdReasons: reasons, autoApproved: auto, decidedAt: auto ? now : null,
         },
         select: { id: true },
       });
-      await audit(tx, actor, "sponsorAccount.changeRequested", "SponsorAccountChange", c.id, {
+      const after = { ...(newName ? { name: newName } : {}), ...(newCategories ? { categories: newCategories } : {}) };
+      if (auto) await applyChange(tx, own.tenantId, company.id, { name: newName, categories: newCategories });
+      await audit(tx, actor, auto ? "sponsorAccount.changeApplied" : "sponsorAccount.changeHeld", "SponsorAccountChange", c.id, {
         before: { name: company.name, categories: company.categories },
-        after: { ...(newName ? { name: newName } : {}), ...(newCategories ? { categories: newCategories } : {}) },
+        after: auto ? after : { ...after, holdReasons: reasons },
       });
     });
   } catch (e) {
@@ -270,18 +342,10 @@ export async function approveAccountChange(actor: Actor, id: string, now = new D
   assertBtgDecides(actor);
   return prisma.$transaction(async (tx) => {
     const c = await claim(tx, actor, id, "APPROVED", null, now);
-    const data = {
-      ...(c.name ? { name: c.name } : {}),
-      ...(c.categoriesChanged ? { categories: knownCategories(c.categories) } : {}),
-    };
-    /* tenant-scope: the sponsor of a change loaded above by id and tenant. */
-    await tx.sponsor.update({ where: { id: c.sponsor.id }, data, select: { id: true } });
+    const data = await applyChange(tx, actor.tenantId, c.sponsor.id, { name: c.name, categories: c.categoriesChanged ? c.categories : null });
     await audit(tx, actor, "sponsorAccount.changeApproved", "Sponsor", c.sponsor.id, {
       before: { name: c.sponsor.name, categories: c.sponsor.categories, changeId: c.id }, after: data,
     });
-    /* Zoho holds the account name (field-mapping §7.1): this one rename, which
-       BTG just approved, is sent to it once, through the worker. */
-    if (c.name) await enqueue(tx, actor.tenantId, "zoho.pushSponsor", { sponsorId: c.sponsor.id, rename: true });
     return { ...changeView({ ...c, status: "APPROVED", decidedAt: now }) };
   });
 }

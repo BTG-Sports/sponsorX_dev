@@ -23,6 +23,7 @@ import {
   pushLead,
   pushFanLead,
   pushSponsor,
+  renamePropertyAccount,
   pushRenewal,
   pushTask,
   reconcile,
@@ -79,6 +80,11 @@ export const handlePushLead = (deps: Deps, job: LeadJob) =>
 export type SponsorJob = Tenanted & { sponsorId: string; rename?: boolean };
 export const handlePushSponsor = (deps: Deps, job: SponsorJob) =>
   tolerateRecordErrors("zoho.pushSponsor", () => pushSponsor(ctxFor(deps), job.tenantId, job.sponsorId, { rename: job.rename === true }));
+
+/** POL-BE-104 — a team's new name, written to its Zoho Account once. */
+export type PropertyRenameJob = Tenanted & { propertyId: string };
+export const handleRenameProperty = (deps: Deps, job: PropertyRenameJob) =>
+  tolerateRecordErrors("zoho.renameProperty", () => renamePropertyAccount(ctxFor(deps), job.tenantId, job.propertyId));
 
 /** 2S7-INT-01 — a contracted marketplace order, its sponsor and its properties. */
 export type MarketplaceOrderJob = Tenanted & { orderId: string };

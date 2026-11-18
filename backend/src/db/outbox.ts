@@ -43,6 +43,8 @@ export type JobName =
   /* 2S1-BE-05 — a sponsor BTG just approved: its Account and primary
      Contact, pushed at once so converting the lead matches it. */
   | "zoho.pushSponsor"
+  /* POL-BE-104 — a team's new name, written to its Zoho Account once. */
+  | "zoho.renameProperty"
   /* 2S7-INT-01 — a contracted marketplace order, its sponsor, and the
      outside properties it buys from. */
   | "zoho.pushMarketplaceOrder"
