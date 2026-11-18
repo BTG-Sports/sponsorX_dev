@@ -279,6 +279,8 @@ model User {
   /// page). The email stays Clerk's; this row only mirrors it.
   fullName       String?
   jobTitle       String?
+  /// POL-BE-103 — a school advisor's own phone (their Profile page).
+  phone          String?
   createdAt      DateTime  @default(now())
 
   athlete         Athlete?              @relation(fields: [athleteId], references: [id])

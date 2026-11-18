@@ -2943,7 +2943,7 @@ the blockers and today's content review findings.
   - **Left to `POL-FE-102`:** the page itself, in the sponsor portal's Account group, with the link to Clerk's account screen.
 
 ### 103. A school advisor has no page for their own or their school's details [NEXT spec §8, P9-BE-20]
-`POL-BE-103` · `POL-FE-103` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · recorded only, not built
+`POL-BE-103` · `POL-FE-103` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · backend Done 2026-11-18 (`POL-FE-103` open)
 - **Problem:**
   - `/advisor` has Applications (its home), Content review and Help. No page shows the advisor's own details (name, email, which school) or the school's (name, the email domain on file, the roster).
   - The home already carries the school's email-domain setting (`SchoolEmailDomain`) and the roster paste (`RosterPaste`) among the applications, so the settings exist but aren't presented as the school's profile, and nothing shows who the advisor is.
@@ -2955,6 +2955,19 @@ the blockers and today's content review findings.
   - The school's name and kind are BTG's to change; the page says so.
   - One school only (`own-property`), tenant-scoped, with role tests: another school's advisor, a student and a guardian are refused (§30).
 
+- **Delivered, backend (`POL-BE-103`, 2026-11-18, rcfworks):**
+  - **The page** (`backend/src/domain/advisor-profile.ts`), `GET /advisor/profile`:
+    - the advisor's own name, job title, phone and email (the email is Clerk's: `signIn: "CLERK"`);
+    - the school's name and kind, marked `managedBy: "BTG"`;
+    - the school's email domain;
+    - the roster's count and the time of its newest entry (`roster.lastUpdatedAt`).
+  - **Saved at once, audited:** `PATCH /advisor/profile` saves the name, job title and phone. Null clears one, and the same values again write nothing (`advisor.profileUpdate`, before and after). Any other key is refused (400).
+  - **Storage:** `User.phone` is new (migration `20261118220000_advisor_phone`). `User.fullName` and `jobTitle` came with POL-BE-102.
+  - **Students see the name:** `GET /students/me` now lists each advisor as `{ email, name }`, where `name` is null until the advisor sets one.
+  - **Unchanged:** the email domain and roster are still changed through `PUT /properties/{id}/email-domain` and `POST /properties/{id}/roster`, with the free-mail refusal; the page uses those routes.
+  - **Who:** only an ADVISOR's own login, for the school it is linked to. A student, a guardian, a team manager and BTG staff are refused (403), and another school's advisor only ever sees their own.
+  - **Tests:** `backend/tests/pol-be-103-advisor-profile.test.ts` (6). The POL-BE-101 tests now expect the advisor's name. The tenant sweep covers the new route.
+  - **Left to `POL-FE-103`:** the Profile page in `/advisor`'s menu.
 ### 104. A school team can't see or keep its own details current (property portal) — partial today [§8, 2S1-BE-03]
 `POL-BE-104` · `POL-FE-104` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · recorded only, not built
 - **What exists:**

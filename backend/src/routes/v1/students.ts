@@ -12,7 +12,9 @@ import { Router, type RequestHandler } from "express";
 import { requireActor } from "../../auth/actor";
 import { limit } from "../../lib/rate-limit";
 import { clientIp } from "../../lib/client-ip";
+import { advisorProfile, updateAdvisorProfile } from "../../domain/advisor-profile";
 import {
+  AdvisorProfileInput,
   AssignStudentInput,
   PointsInput,
   ProspectDecisionInput,
@@ -164,6 +166,11 @@ studentsRouter.post("/students/:id/prospects", requireActor, newProspect);
 studentsRouter.get("/students/:id/prospects", requireActor, prospects);
 studentsRouter.get("/prospects", requireActor, prospectDesk);
 studentsRouter.post("/prospects/:id/decision", requireActor, decide);
+/* POL-BE-103 — a school advisor's own Profile page. */
+studentsRouter.get("/advisor/profile", requireActor, (async (req, res) => { res.json(await advisorProfile(req.actor!)); }) as RequestHandler);
+studentsRouter.patch("/advisor/profile", requireActor, (async (req, res) => {
+  res.json(await updateAdvisorProfile(req.actor!, AdvisorProfileInput.parse(req.body ?? {})));
+}) as RequestHandler);
 studentsRouter.get("/properties/:id/email-domain", requireActor, reviewSettings);
 studentsRouter.put("/properties/:id/email-domain", requireActor, setEmailDomain);
 studentsRouter.post("/sponsors/:id/assigned-student", requireActor, assign);

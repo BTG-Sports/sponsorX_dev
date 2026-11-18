@@ -16,7 +16,7 @@ process.env.CLERK_PUBLISHABLE_KEY ??= "pk_test_x";
 
 const db = vi.hoisted(() => ({
   studentRow: null as Record<string, unknown> | null,
-  advisors: [] as Array<{ email: string }>,
+  advisors: [] as Array<{ email: string; fullName: string | null }>,
   reads: [] as unknown[],
   updates: [] as unknown[],
   audits: [] as unknown[][],
@@ -61,7 +61,7 @@ const json = (v: unknown) => JSON.stringify(v);
 
 beforeEach(() => {
   db.studentRow = row();
-  db.advisors = [{ email: "advisor@school.invalid" }];
+  db.advisors = [{ email: "advisor@school.invalid", fullName: null }];
   db.reads = [];
   db.updates = [];
   db.audits = [];
@@ -107,7 +107,7 @@ describe("POL-BE-101 · what the student reads", () => {
     expect(p).toEqual({
       id: "s1", legalName: "Riley Legal", displayName: "Riley", gradYear: 2028, school: { name: "Northside High" },
       masthead: ["WRITER"], state: "ACTIVE", leftAt: null, code: "abcDEF_123", minor: true,
-      guardian: { linked: true, verified: false }, advisors: [{ email: "advisor@school.invalid" }], editable: ["displayName"],
+      guardian: { linked: true, verified: false }, advisors: [{ email: "advisor@school.invalid", name: null }], editable: ["displayName"],
     });
     expect(json(p)).not.toMatch(/birthDate|ageBand|2011|propertyId|tenantId/);
   });

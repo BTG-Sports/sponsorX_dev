@@ -148,8 +148,8 @@ export const StudentProfile = z
       .nullable()
       .meta({ description: "A minor's guardian STATUS only — never the guardian's name or contact. Null for an adult." }),
     advisors: z
-      .array(z.object({ email: z.string() }))
-      .meta({ description: "The school's active faculty advisor logins, to ask for a correction. The data model keeps an advisor's email, not their name." }),
+      .array(z.object({ email: z.string(), name: z.string().nullable() }))
+      .meta({ description: "The school's active faculty advisor logins, to ask for a correction: the email, and the name the advisor set on their own profile (POL-BE-103), or null." }),
     editable: z.array(z.literal("displayName")),
   })
   .meta({ id: "StudentProfile", description: "A student's own profile (POL-BE-101). No date of birth, no email, no guardian details." });
@@ -157,3 +157,10 @@ export const StudentProfile = z
 export const AssignStudentInput = z
   .object({ studentId: z.string().min(1).nullable() })
   .meta({ id: "AssignStudentInput", description: "Who works the account now. Changes nothing about who originated a sale." });
+
+/** POL-BE-103 — a school advisor's own name, job title and phone (null clears one). */
+const advisorText = (max: number) => z.string().trim().min(1).max(max).nullable().optional();
+export const AdvisorProfileInput = z
+  .object({ name: advisorText(120), jobTitle: advisorText(120), phone: advisorText(40) })
+  .strict()
+  .meta({ id: "AdvisorProfileInput", description: "A school advisor's own name, job title and phone (null clears one). The school's name and kind are BTG's." });
