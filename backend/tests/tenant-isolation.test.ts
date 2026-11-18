@@ -407,6 +407,7 @@ const BODY: Record<string, unknown> = {
   "PATCH /sponsor/team/{id}": { role: "SPONSOR_ANALYST" },
   "PATCH /sponsor/account/company": { website: "https://sweep.example" },
   "PATCH /sponsor/account/me": { name: "Sweep" },
+  "PATCH /advisor/profile": { name: "Sweep" },
   "POST /sponsor/account/logo": { contentType: "image/png", bytes: 10 },
   "POST /sponsor/account/change": { name: "TI Sweep Rename" },
   "POST /sponsor-account-changes/{id}/reject": { reason: "TI reject attempt" },

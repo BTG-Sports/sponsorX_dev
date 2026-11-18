@@ -106,8 +106,7 @@ import {
   StudentGuardianInput,
   StudentInput,
   StudentProfile,
-  StudentTransitionInput,
-} from "./student";
+  StudentTransitionInput, AdvisorProfileInput } from "./student";
 import {
   AssetCampaignInput,
   ClaimConfirmInput,
@@ -558,6 +557,8 @@ const PATHS: Row[] = [
   { method: "get", path: "/prospects", tag: "Students", summary: "SALES and BTG's prospect desk across the tenant (P9-BE-21, P9-FE-11). ?view=held (default — undecided, with `reviewReasons`) | auto (decided by the system, `decidedAutomatically`) | all; ?page ?size → one page, `page`, and `summary: { held, auto, all }`. Each row names the student (display name) and school.", query: z.object({ view: z.enum(["held", "auto", "all"]).optional(), page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional() }) },
   { method: "post", path: "/prospects/{id}/decision", tag: "Students", summary: "Sponsor Acceptance Check — a rejection carries a reason, notifies the student (and a minor's guardian), costs no credit (P9-BE-13). Unchanged for a prospect the system held (P9-BE-21).", body: ProspectDecisionInput },
   { method: "post", path: "/sponsors/{id}/assigned-student", tag: "Students", summary: "Hand an account to another student. Touches assignedStudentId only (P9-BE-13).", body: AssignStudentInput },
+  { method: "get", path: "/advisor/profile", tag: "Students", summary: "POL-BE-103 — a school advisor's own Profile page (an ADVISOR's own login only, for the school it is linked to; every other role 403). `{ me: { name, jobTitle, phone, email, signIn: \"CLERK\" }, school: { id, name, kind, managedBy: \"BTG\", emailDomain, roster: { count, lastUpdatedAt } }, editable }`. The school's name and kind are BTG's; the email domain and roster change through PUT /properties/{id}/email-domain and POST /properties/{id}/roster." },
+  { method: "patch", path: "/advisor/profile", tag: "Students", summary: "POL-BE-103 — a school advisor's own Profile page (an ADVISOR's own login only, for the school it is linked to; every other role 403). Saves the advisor's own name, job title and phone at once (null clears one); the same values again write nothing. Audited `advisor.profileUpdate`. The name then shows to their students on GET /students/me beside the email.", body: AdvisorProfileInput },
   { method: "get", path: "/properties/{id}/email-domain", tag: "Students", summary: "A school's review settings for roster approval (P9-BE-20): `{ propertyId, school, emailDomain, rosterEntries }`. The school's advisor or BTG (the roster's own reach)." },
   { method: "put", path: "/properties/{id}/email-domain", tag: "Students", summary: "Set or clear (null) the school's email domain (P9-BE-20). An adult student is approved from the roster only with an application email on it; a public mail provider is refused (422). The school's advisor or BTG.", body: SchoolEmailDomainInput },
   { method: "post", path: "/public/students/applications", tag: "Public", summary: "The public student application. P9-BE-20: picked up (UNDER_REVIEW) and decided from the school roster in the same request — but the answer is the receipt, always `state: SUBMITTED`: an anonymous caller is never told what the roster said.", auth: false, body: StudentApplicationInput, status: 201 },
