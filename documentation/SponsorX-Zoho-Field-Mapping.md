@@ -429,7 +429,7 @@ explicitly rather than leaving it ambiguous.
 | SponsorX | Zoho (`Accounts`) | Type (len) | Dir | SoR | Notes |
 |---|---|---|---|---|---|
 | `Sponsor.id` | `SponsorX_ID` | Single Line (50) | `→` | SponsorX | Upsert key. Written once, never updated. |
-| `Sponsor.name` | `Account_Name` | text (200) **req** | `↔` | **Zoho** | Truncate at 200. Zoho wins: sales corrects the legal entity name, and the invoice has to match it. **One exception (POL-BE-102, 2026-11-18):** a new name the sponsor asked for on their Account page and BTG approved is written to the account once (`zoho.pushSponsor` with `rename`); Zoho's notice of that write is an echo. |
+| `Sponsor.name` | `Account_Name` | text (200) **req** | `↔` | **Zoho** | Truncate at 200. Zoho wins: sales corrects the legal entity name, and the invoice has to match it. **One exception (POL-BE-102, 2026-11-18):** a new name the sponsor set on their Account page, once it takes effect (at once when every safety check passes, or when BTG approves a held one — POL-BE-104), is written to the account once (`zoho.pushSponsor` with `rename`); Zoho's notice of that write is an echo. |
 | `Sponsor.zohoAccountId` | `id` | bigint | `←` | Zoho | Zoho's record id, stored after the first successful upsert. |
 | — | `Account_Type` | picklist | `→` on create only | SponsorX → then Zoho | Set to `Customer` at creation. Never written again. |
 | — | `Phone`, `Website`, `Billing_*`, `Shipping_*`, `Industry`, `Ownership`, `Employees`, `Annual_Revenue`, `Rating`, `Description`, `Owner`, `Parent_Account`, `Account_Number`, `Ticker_Symbol`, `SIC_Code`, `Fax`, `Account_Site`, `Record_Image`, `Tag` | — | `—` | Zoho | **Zoho-only, not mirrored.** SponsorX has no column for any of these and must not invent one. If a sponsor-facing screen ever needs a sponsor's address, it is a new field in Postgres with a named retrieval path, not a read-through to Zoho — Zoho never touches a request path. POL-BE-102 did exactly that: `Sponsor.logoKey`, `website`, `address` and the billing contact are SponsorX's own columns, sent nowhere. |
@@ -839,7 +839,7 @@ Account of its own.
 
 | SponsorX | Zoho | Direction | Notes |
 |---|---|---|---|
-| `Property` (outside tenant) | **Accounts**, `SponsorX_ID = property:<id>`, `Account_Type = Partner` | SponsorX → Zoho, once | `Account_Name` = the property's name, `Billing_State` = its state. The id is stored in `Property.zohoId`. |
+| `Property` (outside tenant) | **Accounts**, `SponsorX_ID = property:<id>`, `Account_Type = Partner` | SponsorX → Zoho, once | `Account_Name` = the property's name, `Billing_State` = its state. The id is stored in `Property.zohoId`. **POL-BE-104 (2026-11-18):** when a team renames itself (automatically, or BTG approved it), `zoho.renameProperty` writes the new `Account_Name` once. |
 | The property's `PROPERTY_MGR` | **Contacts**, `SponsorX_ID = user:<userId>`, under that Account | SponsorX → Zoho, once | Name, phone and role come from the onboarding's contact record, and email from the account. The id is stored in `Property.zohoContactId`. |
 | `MarketplaceOrder` (contracted) | **Deals**, `SponsorX_ID = mkt-order:<id>` | SponsorX → Zoho | Linked to the sponsor's Account and primary Contact (§7.1, §7.2). The property Accounts it buys from are named, with their ids, in `Description`. `Amount` is the order total. `Stage` is Closed Won from approval on, and Closed Lost on cancel or refund. `Type` is New or Existing Business. After the first push only `Stage` is sent. |
 
