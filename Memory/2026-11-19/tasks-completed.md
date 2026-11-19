@@ -255,3 +255,9 @@
   lists every piece with what it still needs in words.
   - It asks the gate's own questions (`rightsGap`, `artworkGap`), and a test proves the two agree.
   - Full suite 283 files, 4,021 tests.
+- **POL-BE-110/111, Code review:**
+  - A logo or profile photo is saved only once its file has arrived as the right type and size. A
+    wrong file is deleted from the public bucket.
+  - Every upload now has a real-file test: dispute documents, the two logos and the photo were
+    added, and a completeness check fails if a new upload has none.
+  - Full suite 285 files, 4,026 tests.

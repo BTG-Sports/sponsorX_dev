@@ -33,7 +33,7 @@ import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
-import { presignPublicUpload, publicObjectUrl } from "../lib/storage";
+import { checkPublicUpload, presignPublicUpload, publicObjectUrl, uploadRefusal } from "../lib/storage";
 import { BRAND_CATEGORIES, SENSITIVE_CATEGORIES } from "./brand-categories";
 import { normalizeBusinessName } from "./business-name-rules";
 import { checkRestricted } from "./restricted-words";
@@ -135,6 +135,15 @@ export async function updateCompany(actor: Actor, input: CompanyInput) {
   }
   const data = Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) as CompanyInput;
   if (Object.keys(data).length === 0) throw new SponsorAccountError("Nothing to change.");
+  /* POL-BE-110 — a new logo is saved only once its file has arrived as a PNG
+     or JPEG of at most 1 MB; otherwise nothing is saved and the old logo stays. */
+  if (input.logoKey != null) {
+    const current = await prisma.sponsor.findFirst({ where: { id: own.sponsorId, tenantId: own.tenantId }, select: { logoKey: true } });
+    if (current?.logoKey !== input.logoKey) {
+      const arrived = await checkPublicUpload(input.logoKey, { types: Object.keys(LOGO_TYPES), maxBytes: MAX_LOGO_BYTES });
+      if (!arrived.ok) throw new SponsorAccountError(uploadRefusal(arrived.problem, "That logo"), arrived.problem === "missing" ? 409 : 422);
+    }
+  }
   await prisma.$transaction(async (tx) => {
     const before = await tx.sponsor.findFirst({ where: { id: own.sponsorId, tenantId: own.tenantId }, select: COMPANY });
     if (!before) throw new ForbiddenError("sponsor", "write");

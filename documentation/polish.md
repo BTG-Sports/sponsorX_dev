@@ -3217,6 +3217,11 @@ the blockers and today's content review findings.
   - A logo is saved only once its file has arrived, is the declared type (PNG or JPEG) and fits 1 MB.
   - Otherwise the save is refused with "upload it again", and the old logo stays.
   - The real-upload test covers both logos.
+- **Delivered (2026-11-19, rcfworks, Code review):**
+  - **The check:** `checkPublicUpload` in `backend/src/lib/storage.ts`. Before a record points at a public file, the file must exist, be one of the types asked for, and fit the size. A wrong file is deleted at once, because the public bucket serves it to anyone.
+  - **Where it runs:** `updateBranding` (team or school logo), `updateCompany` (sponsor logo) and `setAthletePhoto` (profile photo). The photo used to check only that its file existed.
+  - **What a person sees:** a missing file is refused (409, "hasn't arrived yet"). A wrong type or size is refused (422, "so it was removed"). The old logo or photo stays.
+  - Saving the same key again isn't re-checked.
 
 ### 111. Five uploads are never tested with a real file [§30, upload audit §4]
 `POL-BE-111` · *Silent* · confirmed (upload audit, 2026-11-19)
@@ -3231,6 +3236,16 @@ the blockers and today's content review findings.
 - **Done when:**
   - All five run through the real-upload test: a wrong type or size refused, the right file accepted.
   - The completeness check fails when any upload in `backend/src` is missing from the test, public uploads included.
+- **Delivered (2026-11-19, rcfworks, Code review):**
+  - **Private:** `backend/tests/private-upload-pins.test.ts` gains dispute documents. Student drafts were added by P9-BE-25, along with edition content.
+  - **Public:** new `backend/tests/public-upload-pins.test.ts` covers the team or school logo, the sponsor logo and the profile photo, each run as a browser runs it against a store that checks signatures:
+    - the URL is signed for one type and size, and the bucket refuses anything else;
+    - a missing file is refused, and nothing is saved;
+    - a wrong type or size that got in anyway is refused on save and deleted;
+    - the right file is saved.
+  - **Completeness:** new `backend/tests/upload-coverage.static.test.ts` fails if any `backend/src/domain` file that presigns an upload, private or public, isn't driven by a real-store test. It currently counts 18 files.
+  - **Older tests:** three tests that saved logos without a bucket (home-featured, pol-be-102, phase2-marketplace) now stand in the arrival check. The real check is driven above.
+  - **Checked:** full backend suite 285 files, 4,026 tests; lint clean.
 
 ### 112. CI's browser tests never really upload a file [§30, upload audit §4]
 `POL-BE-112` · *Silent* · confirmed (upload audit, 2026-11-19)
