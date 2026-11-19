@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_backend_prisma_sql_outbox_pending_sql", "label": "outbox_pending.sql", "file_type": "code", "source_file": "backend/prisma/sql/outbox_pending.sql", "source_location": null}], "edges": []}

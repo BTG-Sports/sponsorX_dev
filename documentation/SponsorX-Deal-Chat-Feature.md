@@ -301,12 +301,30 @@ easy to test. They can be upgraded later.
   [SponsorX-Switches.md](SponsorX-Switches.md) when built). Off: today's flow.
 - **Orders already placed** when it ships keep today's flow.
 
+## 8a. Live updates (owner, 2026-11-19)
+
+The first version had no sockets: the chat asked for news every few seconds. The owner asked for a socket on
+all of the messages functionality, then decided where it lives: **its own Railway service, `socketservice`**,
+shared with the INFINEX game later, at `socketservice.sponsorx.net` (`2S4-BE-18`). The design, the pass and
+every event are in [SponsorX-Socket-Service.md](SponsorX-Socket-Service.md). In short:
+
+- **What is live:** messages, answers, offers and their Reply / Accept / Decline, the final amount, the form,
+  each signature, the order's moves, calling off and the chat closing, held and released messages, the unread
+  markers, and BTG's desk.
+- **What travels:** ids and states only, never a message, an answer, an amount or a name. Whoever hears it reads
+  the chat again through the API, where every rule in §7 applies. A held message's notice goes only to the
+  sender's side and BTG.
+- **Who connects, and when:** only when a chat (or the Messages list) is open or visible, with a 60-second,
+  single-use pass for that one channel. The API issues the pass after checking, then and there, that the person
+  may read the chat and that it has begun and not ended. A connection renews every 15 minutes.
+- **Not a requirement:** with the service off or down, every screen keeps asking on its own beat, as before.
+- **The first version** (socket.io inside the API at `/api/v1/socket`, `DEAL_CHAT_SOCKET`) is removed.
+
 ## 9. Not in this feature
 
 - Attachments in the chat (text only first).
 - Price or option fields inside an offer: by the owner's decision the offer is
   text only.
-- Real-time sockets: the chat refreshes every few seconds.
 - AI reading of the chat.
 - Changing an order's items or dates through the chat: that is a new order.
 
@@ -342,6 +360,10 @@ easy to test. They can be upgraded later.
     and each side confirms it or types over it. Once the two match it is
     locked, and the form is posted only after that, so the form never changes
     once it is out. The amount still appears on the form (§3.6).
+
+15. **The chat is live over a socket** (owner, 2026-11-19: "add socket on all of the messages functionality").
+    It replaces the first version's "refreshes every few seconds", which stays only as the fallback. The socket
+    is its own Railway service, `socketservice`, with per-connection passes (option B). See §8a.
 
 ## 11. Tasks
 

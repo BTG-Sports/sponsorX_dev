@@ -566,3 +566,63 @@ The rule in C3a stands in a stronger form: live decisions read the app, and so d
   - their `WAREHOUSE_DATABASE_URL` / `WAREHOUSE_SOURCE_DATABASE_URL` settings on the worker services, which nothing reads now;
   - the `warehouse_reader` login on each product database.
 - **They are kept, not forgotten.** Deleting them needs the owner's OK and is not planned.
+
+# Addendum E — A live socket for Deal Chat (2026-11-19) — superseded the same day by Addendum F
+
+> **Superseded.** The owner moved the socket out of the API into its own service the same day (Addendum F).
+> E1–E3 below describe the first version, which is removed.
+
+## (first version, removed)
+
+Decided by the owner on 2026-11-19 ("add socket on all of the messages functionality"), built by HeckerCreatives.
+
+## E1. What changed
+
+- **The API serves a socket** (socket.io, WebSocket only) on `/api/v1/socket`, on the same server and port as the routes. Behind `DEAL_CHAT_SOCKET`.
+- **A browser now talks to the API directly, for this socket and nothing else.** Until now only the web server called the API (Addendum B). Every read and write still goes that way; the socket carries one signal, "this chat changed", and no content.
+- **The web service needs the API's public address** (`API_PUBLIC_URL`). `API_URL`, the private one, is still never given to a browser.
+
+## E2. What did not change
+
+- **No new vendor and no new service.** It is a library in the API process.
+- **Redis stays cache and rate-limit only** (A3/B4). API instances tell each other about a change through Postgres `LISTEN` / `NOTIFY`, not Redis, so nothing about the socket lives in Redis and two instances need no sticky sessions.
+- **Authorization is still ours and still in one place.** A socket's rooms are the caller's own `whereFor(dealChat, read)`.
+- **Host-portable.** A plain Node HTTP server with a WebSocket upgrade; nothing Railway-specific.
+
+## E3. Revisit when
+
+- another feature wants live updates: reuse this socket and its rooms rather than adding a second one;
+- the API runs many instances and the per-change lookup (one small query per instance) shows up in load: put the room keys in the notice instead;
+- a host is chosen that does not pass WebSocket upgrades: the chat falls back to asking every few seconds by itself, so this is a slowdown, not an outage.
+
+# Addendum F — The live socket service (2026-11-19)
+
+Decided by the owner on 2026-11-19. Built by rcfworks (`2S4-BE-18`). Spec:
+[documentation/SponsorX-Socket-Service.md](../documentation/SponsorX-Socket-Service.md).
+
+## F1. What changed
+
+- **A third service, `socketservice`.** One replica, at `socketservice.sponsorx.net` (staging
+  `socketservice-staging.sponsorx.net`). It is a plain Node HTTP server with socket.io, WebSocket only, and it
+  serves Deal Chat now and the INFINEX game later ("a solid socket environment").
+- **It knows nothing.** It has no database, no Clerk, no business rules and no data. It checks passes and
+  forwards notices.
+- **Passes, not login tokens (option B).** The API issues a 60-second, single-use pass for one channel, signed
+  with an Ed25519 private key only the API holds. The service checks passes with the public key, so even a
+  break-in there can forge nothing.
+- **Events come from the database.** Triggers `NOTIFY sx_live` inside the writing transaction. The API relays
+  the notices to the service over Railway's private network, behind a shared secret.
+
+## F2. What did not change
+
+- **Redis stays cache and rate-limit only.** Single-use passes are remembered in memory, which is right for one
+  replica. A second replica would need a shared store first: the owner's decision at that point.
+- **Authorization is still the API's alone.** A pass is issued only after the same `whereFor` check as a read.
+- **Every read and write still goes browser → web server → API.** The socket carries ids and states only.
+- **Host-portable.** Nothing is Railway-specific beyond the private hostname setting.
+
+## F3. Revisit when
+
+- the game needs more than one socket replica: add a shared pass ledger and a socket.io adapter (Redis or
+  Postgres), with the owner's decision on Redis;
+- game traffic needs high tick rates: a binary parser (msgpack), or uWebSockets.js under socket.io.

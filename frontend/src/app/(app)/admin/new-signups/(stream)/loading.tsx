@@ -1,34 +1,41 @@
-/* New sign-ups' loading screen (P1-ART-15): the stage's dark ground with
-   ghost blocks where the title, the four tiles, the filter bar and the stream's rows land, so
-   arriving here never flashes the light portal skeleton. Lives in the
-   (stream) route group so a sign-up's own page (athletes/[id], guardians/[id])
-   and the rules keep admin/loading.tsx. */
+import { SignupSkeleton } from "@/components/signups-desk";
+
+import "../../applications/(queue)/applications.css";
+import "./signups.css";
+
+/* New sign-ups' loading screen (P1-ART-15; redrawn POL-FE-109): the stage's
+   dark ground with a skeleton in the page's own shape — the title with its
+   pill and two buttons, its line, the four status cards, the toolbar and the
+   first rows of the list — so arriving here never flashes the light portal
+   skeleton. Lives in the (stream) route group so a sign-up's own page
+   (athletes/[id], guardians/[id]) and the rules keep admin/loading.tsx. */
 export default function Loading() {
   return (
-    <div
-      role="status"
-      aria-label="Loading New sign-ups"
-    >
+    <div role="status" aria-label="Loading New sign-ups">
       <div aria-hidden="true">
-        <div className="flex items-center justify-between gap-3">
-          <div className="sx-ops-ghost h-7 w-56 rounded-md" />
-          <div className="sx-ops-ghost h-9 w-32" />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="sx-ops-ghost h-7 w-48 max-w-full rounded-md" />
+          <div className="flex items-center gap-2">
+            <div className="sx-ops-ghost hidden h-6 w-44 rounded-full sm:block" />
+            <div className="sx-ops-ghost h-[34px] w-32 rounded-md" />
+            <div className="sx-ops-ghost h-[34px] w-32 rounded-md" />
+          </div>
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => <div key={i} className="sx-ops-panel sx-ops-ghost relative h-[6.5rem]" />)}
-        </div>
-        <div className="mt-8 flex flex-wrap gap-2">
-          {[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="sx-ops-ghost h-9 w-28 rounded-full" />)}
-        </div>
-        <div className="sx-ops-panel relative mt-6">
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex items-center gap-4 border-b border-white/5 px-5 py-4">
-              <div className="sx-ops-ghost size-10" />
-              <div className="sx-ops-ghost h-4 flex-1 rounded-full" />
-              <div className="sx-ops-ghost hidden h-4 w-40 rounded-full md:block" />
-            </div>
+        <div className="sx-ops-ghost mt-3 h-3.5 w-[30rem] max-w-full rounded" />
+        <div className="sx-ap-stats mt-6">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="sx-ops-panel sx-ops-ghost relative h-[7.75rem]" />
           ))}
         </div>
+        <div className="mb-2.5 mt-6 flex flex-wrap items-center justify-between gap-2">
+          <div className="sx-ops-ghost h-10 w-64 max-w-full rounded-md" />
+          <div className="sx-ops-ghost h-9 w-40 rounded-md" />
+        </div>
+        <div className="mb-3 flex flex-wrap gap-2">
+          <div className="sx-ops-ghost h-9 w-64 max-w-full rounded-md" />
+          <div className="sx-ops-ghost hidden h-9 w-32 rounded-md sm:block" />
+        </div>
+        <SignupSkeleton />
       </div>
     </div>
   );

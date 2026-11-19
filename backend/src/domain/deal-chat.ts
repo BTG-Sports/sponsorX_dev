@@ -64,7 +64,7 @@ export class DealChatError extends Error {
 }
 
 /** Orders in these states have ended: their chats are read-only. */
-const ENDED_ORDER_STATES: ReadonlySet<string> = new Set(["CANCELLED", "CLOSED", "REFUNDED"]);
+export const ENDED_ORDER_STATES: ReadonlySet<string> = new Set(["CANCELLED", "CLOSED", "REFUNDED"]);
 const REASON_MAX = 2000;
 
 const CHAT = {
@@ -84,7 +84,7 @@ const EXCHANGE = {
 /* ── who is who ────────────────────────────────────────────────────────── */
 
 /** The side this caller is on, or null (BTG, anyone else). The sponsor's analyst reads as the sponsor. */
-function sideOf(actor: Actor, c: { tenantId: string; sponsorId: string; athleteId: string | null; propertyId: string | null }): Side | null {
+export function sideOf(actor: Actor, c: { tenantId: string; sponsorId: string; athleteId: string | null; propertyId: string | null }): Side | null {
   if (actor.sponsorId === c.sponsorId && actor.tenantId === c.tenantId && (actor.roles.includes("SPONSOR_ADMIN") || actor.roles.includes("SPONSOR_ANALYST"))) return "SPONSOR";
   if (c.athleteId && actor.athleteId === c.athleteId && actor.roles.includes("ATHLETE")) return "SELLER";
   if (c.propertyId && actor.propertyId === c.propertyId && actor.roles.includes("PROPERTY_MGR")) return "SELLER";

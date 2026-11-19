@@ -96,6 +96,8 @@ export type ApiSellerOrder = {
      and how the line was cancelled. Optional: older reads and fixtures. */
   canAnswerCancellation?: boolean;
   cancellation?: SellerCancellation | null;
+  /* 2S4-BE-14 — the live Deal Chat agreement covering the line, or null. Optional: older reads and fixtures. */
+  dealAgreement?: { id: string; state: "OPEN" | "SIGNED" | "WITHDRAWN"; amountCents: number; signedAt: string | null; sponsorSigned: boolean; sellerSigned: boolean; downloadPath: string } | null;
 };
 
 /** The line's total — what a refund of the whole line gives back. */

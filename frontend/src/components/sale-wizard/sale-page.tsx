@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
+import { agreementHref } from "@/lib/deal-chat";
 import { ArenaCount } from "@/components/arena-fx";
 import { OrdersHead } from "@/components/seller-orders";
 import { SellerProblemAnswer } from "@/components/seller-problem-answer";
@@ -369,6 +370,17 @@ function Facts({ o, units, delay }: { o: ApiSellerOrder; units: string; delay: n
           <dd className={i === 3 ? (ended ? "sx-arena-num text-muted line-through" : "sx-arena-num text-athlete") : undefined}>{v}</dd>
         </div>
       ))}
+      {/* 2S4-FE-08 — the deal agreement, downloadable at any time (owner, 2026-11-17). */}
+      {o.dealAgreement && (
+        <div className="sx-cw-rise" style={d(delay + rows.length * 0.05)}>
+          <dt>Agreement</dt>
+          <dd>
+            <a href={agreementHref(o.dealAgreement.id)} className="font-semibold text-athlete underline-offset-2 hover:underline">
+              {o.dealAgreement.state === "SIGNED" ? "Download the signed agreement" : "Download the agreement"}
+            </a>
+          </dd>
+        </div>
+      )}
     </dl>
   );
 }

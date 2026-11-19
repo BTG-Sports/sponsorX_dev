@@ -1,8 +1,8 @@
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
-import { IntakeHeader, StreamNote, StreamRows } from "@/components/intake-stage";
-import { KindChips, ReviewToggle } from "@/components/intake-fx";
-import { ListSearch, PagerRow, PendingList, ServerList } from "@/components/server-pager";
 import { SensitiveEdits } from "@/components/sensitive-edits-section";
+import { ServerList } from "@/components/server-pager";
+import { SignupStats, SignupsHeader, StreamNote } from "@/components/signup-stage";
+import { SignupsDesk } from "@/components/signups-desk";
 import { demoState } from "@/lib/demo";
 import type { PageInfo } from "@/lib/list-query";
 import {
@@ -10,21 +10,39 @@ import {
 } from "@/lib/new-signups-live";
 import { apiFetch } from "@/server/api";
 
+import "../../applications/(queue)/applications.css";
+import "./signups.css";
+
 /* --------------------------------------------------------------------------
-   New sign-ups — 2S1-FE-07, redrawn as the "Intake Stream" (P1-ART-15,
-   2026-10-05; spec docs/superpowers/specs/2026-10-05-new-signups-intake-
-   stream-design.md). Everything SponsorX approved by itself; BTG steps in
-   only for what is held under Needs review, and can reject (with an emailed
-   reason) and reinstate on each sign-up's own page. Every automatic-approval
-   email links here.
+   New sign-ups — 2S1-FE-07. Everything SponsorX approved by itself; BTG steps
+   in only for what is held under Needs review, and can reject (with an
+   emailed reason) and reinstate on each sign-up's own page. Every
+   automatic-approval email links here.
 
    One SERVER-PAGED stream of every kind (organisations, athletes, guardians,
-   sponsors), newest first, on the admin board's Mission Control stage —
-   the four separate sections it replaced each read their whole table. The
-   URL holds `kind`, `review=1`, `q` and the house `page` / `size`; the old
-   tabs' `?tab=` links still land on the same view (lib/new-signups-live.ts
-   streamParams). Sensitive profile edits keep their own paged panel
-   (`epage` / `esize`).
+   sponsors), newest first, on the admin shell's Mission Control stage
+   (P1-ART-15, 2026-10-05, the "Intake Stream").
+
+   POL-FE-109 (2026-11-17) — redrawn like the athlete's Inventory and
+   Listings, as /admin/applications was that morning (POL-FE-106). The owner:
+   "do what we did in listing and inventory … easy to understand … don't
+   remove the current theme … add loaders and how it works". Top to bottom:
+     1. the title, a live pill, "How it works" (the five steps in a panel)
+        and "Sign-up rules"; one line on what the page is for;
+     2. four status cards, numbers only: Needs review, Approved
+        automatically, All sign-ups, Who signed up (a bar per kind);
+     3. the list, and nothing else: two tabs (All sign-ups / Needs review),
+        List ↔ Cards, search, the kind as a dropdown; per sign-up who, kind,
+        day, a status pill with why, and Review (held) or Open;
+     4. sensitive profile edits (2S1-FE-09), as before, in their own paged
+        list (`epage` / `esize`).
+   Visual only: the reads, the URL (`kind`, `review=1`, `q`, `page`, `size`;
+   the old `?tab=` links still land on the same view — lib/new-signups-live.ts
+   streamParams) and every link are unchanged.
+
+   Loaders: ./loading.tsx on arrival; inside the page each list swaps to its
+   skeleton while its own re-fetch runs (the stream and the edits each sit in
+   their own <ServerList>, so paging one never blanks the other).
 
    Reads  GET /signups/stream?page&size&kind&review&q   one page of the stream
           GET /signups/stream/summary                   every figure on the page
@@ -59,67 +77,50 @@ export default async function NewSignupsPage({ searchParams }: { searchParams: P
     : { kinds: {}, all: { total: 0, held: 0, auto: 0 } };
   const stream = streamRes?.ok ? ((await streamRes.json()) as { rows: ApiStreamRow[]; page: PageInfo }) : null;
 
-  const readAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  const chips = STREAM_CHIPS.filter((c) => c.kind === "" || summary.kinds[c.kind as StreamKind]).map((c) => ({
-    kind: c.kind,
-    label: c.label,
-    count: c.kind ? summary.kinds[c.kind as StreamKind]!.total : summary.all.total,
-  }));
-  const heldHere = filter.kind ? summary.kinds[filter.kind]?.held ?? 0 : summary.all.held;
-  const filtered = Boolean(filter.kind || filter.review || filter.q);
+  const readAt = streamRes ? new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : null;
+  /* The dropdown offers the kinds this role reads (the summary's), in the desk's order. */
+  const kinds = STREAM_CHIPS.filter((c) => c.kind !== "" && summary.kinds[c.kind as StreamKind]).map((c) => ({ value: c.kind, label: c.label }));
   const showEdits = !refused && (filter.kind === "" || filter.kind === "ATHLETE" || filter.review);
 
   return (
     <>
-      <div>
-        <IntakeHeader summary={summary} readAt={readAt} />
+      <SignupsHeader readAt={readAt} />
 
-        <ServerList>
-          <section aria-label="Every sign-up" className="mt-8">
-
-            {refused ? (
-              <StreamNote>Your role doesn&rsquo;t read sign-ups, so none are shown here.</StreamNote>
-            ) : (
-              <>
-                <div className="sx-ops-in mb-4 flex flex-col gap-3 xl:flex-row xl:items-center" style={{ "--sx-reveal-delay": "0.5s" } as React.CSSProperties}>
-                  <KindChips chips={chips} value={filter.kind} />
-                  <ReviewToggle on={filter.review} count={heldHere} />
-                  <div className="xl:ml-auto xl:w-72">
-                    <ListSearch initial={filter.q} label="Search sign-ups" placeholder="Search name, team, email…" tone="admin" />
-                  </div>
-                </div>
-
-                {demo === "loading" ? (
-                  <StreamNote>Loading the stream…</StreamNote>
-                ) : !stream || stream.rows.length === 0 ? (
-                  <StreamNote>
-                    {filter.q
-                      ? `No sign-ups match “${filter.q}”.`
-                      : filter.review
-                        ? "Nothing to review — every sign-up passed its checks."
-                        : "No sign-ups yet. Organizations, athletes, guardians and sponsors appear here once their checks have run."}
-                  </StreamNote>
-                ) : (
-                  <div className="space-y-3">
-                    <PagerRow page={stream.page} noun="Sign-ups" tone="admin" position="top" filtered={filtered} />
-                    <PendingList>
-                      <StreamRows rows={stream.rows.map(streamRowView)} label="Sign-ups, newest first" />
-                    </PendingList>
-                    <PagerRow page={stream.page} noun="Sign-ups" tone="admin" position="bottom" />
-                  </div>
-                )}
-              </>
-            )}
-          </section>
-
-          {/* 2S1-FE-09 — sensitive profile edits (legal name, date of birth, guardian, a move across an age line). */}
-          {showEdits && demo !== "loading" && demo !== "empty" && (
-            <div className="mt-12">
-              <SensitiveEdits searchParams={sp} />
+      {refused ? (
+        <StreamNote>Your role doesn&rsquo;t read sign-ups, so none are shown here.</StreamNote>
+      ) : (
+        <>
+          {demo === "loading" ? (
+            <div aria-hidden="true" className="sx-ap-stats mt-6">
+              {[0, 1, 2, 3].map((i) => <div key={i} className="sx-ops-panel sx-ops-ghost relative h-[7.75rem]" />)}
             </div>
+          ) : (
+            <SignupStats summary={summary} />
           )}
+
+          <ServerList>
+            <section aria-label="Every sign-up">
+              <SignupsDesk
+                rows={(stream?.rows ?? []).map(streamRowView)}
+                page={stream?.page ?? null}
+                filter={filter}
+                kinds={kinds}
+                held={summary.all.held}
+                forceLoading={demo === "loading"}
+              />
+            </section>
+          </ServerList>
+        </>
+      )}
+
+      {/* 2S1-FE-09 — sensitive profile edits (legal name, date of birth, guardian, a move across an age line). */}
+      {showEdits && demo !== "loading" && demo !== "empty" && (
+        <ServerList>
+          <div className="mt-12">
+            <SensitiveEdits searchParams={sp} />
+          </div>
         </ServerList>
-      </div>
+      )}
     </>
   );
 }

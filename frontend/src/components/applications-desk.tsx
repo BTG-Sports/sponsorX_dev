@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Badge } from "@/components/ui";
 import { MiniChip, initials } from "@/components/hero";
@@ -21,6 +21,18 @@ import { Glyph, type UiGlyph } from "@/components/athlete-inventory/glyphs";
 import { OpsCount } from "@/components/ops-fx";
 import { HomeFeatureLoader } from "@/components/home-feature-loader";
 import {
+  HowItWorks,
+  ListLoading,
+  PagerGhost,
+  SegTabs,
+  StatusPill,
+  ViewToggle,
+  useDeskView,
+  useLoaderShown,
+  type DeskLayout,
+  type FlowStep,
+} from "@/components/desk-kit";
+import {
   LIVE_FLAGS,
   LIVE_SORTS,
   activationBlock,
@@ -39,6 +51,7 @@ import {
   STATE_COPY,
   STATE_DETAIL,
   STATE_NEXT,
+  stateLook,
   nextMove,
   stateBucket,
   scoreBand,
@@ -78,14 +91,20 @@ import { NoScoreRing, RING_TEXT, ScoreRing } from "@/components/score-ring";
 
    POL-FE-106 (2026-11-17) — redrawn like the athlete's Inventory and
    Listings, on the same Mission Control stage, because the player-card board
-   was hard to read: the four tabs are now four status cards that carry the
-   counts and say what each holds; a "How it works" button in the header opens the flow in a panel
+   was hard to read: four status cards carry the counts and say what each
+   holds (numbers only — the owner: "don't make this a filter"), and the
+   status filter is a tab bar in the toolbar; a "How it works" button in the
+   header opens the flow in a panel
    (open → start review → decide → activate); the queue is a LIST by default
    (athlete · fit score · waiting · status and next step), with Cards as the
    other view, remembered per browser; a paged re-fetch shows a skeleton of
    the list. The drawer opens on a tracker (Applied → In review → Approved →
    Active) and one "Your next step" sentence. Reads, paging and the review
    actions are unchanged. Styles: admin/applications/(queue)/applications.css.
+
+   POL-FE-109 — the pieces New sign-ups reuses (the tab bar, List ↔ Cards,
+   the status pill, the loaders and the "How it works" panel) moved to
+   desk-kit.tsx, unchanged.
    -------------------------------------------------------------------------- */
 
 type App = DeskApp;
@@ -351,7 +370,10 @@ function Desk({
   };
 
   const sel = openId ? items.find((a) => a.id === openId) : undefined;
-  const layout = useDeskView();
+  const layout = useDeskView(VIEW_KEY);
+  /* Paged: a tab, filter, search or page change is a server round trip;
+     show the loader for it (held a moment so it never just flickers). */
+  const loading = useLoaderShown(Boolean(paged?.nav.pending));
   /* What "Needs review" warns about: the API's count when paged, the demo's own. */
   const overdue = paged
     ? paged.summary.overdue
@@ -359,87 +381,110 @@ function Desk({
 
   return (
     <div className="sx-ap">
-      {/* POL-FE-106 — the four tabs ARE the numbers: one card each, with what
-          it holds in words. Replaces the KPI tiles + pill tabs that said the
-          same counts twice. */}
-      <StatusCards
-        counts={tabCounts}
-        tab={view.tab as TabKey}
-        overdue={overdue}
-        onPick={chooseTab}
-      />
+      {/* POL-FE-106 — the numbers, one card per status with what it holds in
+          words. Display only; the status filter is the tab bar below. */}
+      <StatusCards counts={tabCounts} overdue={overdue} />
 
-      {/* --------------------------------------------------------- toolbar */}
-      <div className="sx-ap-toolbar sx-ap-rise" style={d(0.34)}>
+      {/* --------------------------------------------------------- toolbar
+          One grid, two layouts (applications.css `.sx-ap-bar`). Wide: the
+          tabs and List ↔ Cards on top, search and filters under. Phone
+          (owner: the stacked rows were "ugly"): tabs full width; search with
+          an icon-only List ↔ Cards beside it; the three filters on one row. */}
+      <div className="sx-ap-bar sx-ap-rise" style={d(0.3)}>
+        <div className="sx-ap-bar-tabs">
+          <SegTabs tabs={TABS} tab={view.tab as TabKey} onPick={chooseTab} busy={loading} label="Show applications" />
+        </div>
+        <div className="sx-ap-bar-views">
+          <ViewToggle view={layout} storageKey={VIEW_KEY} />
+        </div>
         {paged ? (
-          <div className="sx-ap-filters">
-            <ListSearch
-              initial={paged.query.q}
-              placeholder="Search name, sport or region…"
-              label="Search applications"
-              tone="admin"
-            />
-            <ListFilter
-              param="sport"
-              label="Filter by sport"
-              allLabel="All sports"
-              value={paged.query.sport}
-              options={sportOptions.map((s) => ({ value: s, label: s }))}
-              tone="admin"
-            />
-            <ListFilter
-              param="flag"
-              label="Filter by attention"
-              allLabel="Anything"
-              value={paged.query.flag}
-              options={LIVE_ATTENTION_OPTIONS}
-              tone="admin"
-            />
-            <ListFilter
-              param="sort"
-              label="Sort queue"
-              allLabel="Waiting longest"
-              value={paged.query.sort}
-              options={LIVE_SORT_OPTIONS}
-              tone="admin"
-            />
-          </div>
+          <>
+            <div className="sx-ap-bar-search">
+              <ListSearch
+                initial={paged.query.q}
+                placeholder="Search name, sport or region…"
+                label="Search applications"
+                tone="admin"
+              />
+            </div>
+            <div className="sx-ap-bar-filters">
+              <div className="sx-ap-f">
+                <ListFilter
+                  param="sport"
+                  label="Filter by sport"
+                  allLabel="All sports"
+                  value={paged.query.sport}
+                  options={sportOptions.map((s) => ({ value: s, label: s }))}
+                  tone="admin"
+                />
+              </div>
+              <div className="sx-ap-f">
+                <ListFilter
+                  param="flag"
+                  label="Filter by attention"
+                  allLabel="Anything"
+                  value={paged.query.flag}
+                  options={LIVE_ATTENTION_OPTIONS}
+                  tone="admin"
+                />
+              </div>
+              <div className="sx-ap-f">
+                <ListFilter
+                  param="sort"
+                  label="Sort queue"
+                  allLabel="Waiting longest"
+                  value={paged.query.sort}
+                  options={LIVE_SORT_OPTIONS}
+                  tone="admin"
+                />
+              </div>
+            </div>
+          </>
         ) : (
-          <div className="sx-ap-filters">
-            <SearchInput
-              value={q}
-              onChange={setQ}
-              placeholder="Search name, sport or region…"
-              label="Search applications"
-              tone="admin"
-            />
-            <Dropdown
-              label="Filter by sport"
-              allLabel="All sports"
-              value={sport}
-              onChange={setSport}
-              options={sportOptions.map((s) => ({ value: s, label: s }))}
-              tone="admin"
-            />
-            <Dropdown
-              label="Filter by attention"
-              allLabel="Anything"
-              value={flag}
-              onChange={setFlag}
-              options={ATTENTION_OPTIONS}
-              tone="admin"
-            />
-            <Dropdown
-              label="Sort queue"
-              allLabel="Waiting longest"
-              value={sort}
-              onChange={setSort}
-              options={SORT_OPTIONS}
-              tone="admin"
-            />
-          </div>
+          <>
+            <div className="sx-ap-bar-search">
+              <SearchInput
+                value={q}
+                onChange={setQ}
+                placeholder="Search name, sport or region…"
+                label="Search applications"
+                tone="admin"
+              />
+            </div>
+            <div className="sx-ap-bar-filters">
+              <div className="sx-ap-f">
+                <Dropdown
+                  label="Filter by sport"
+                  allLabel="All sports"
+                  value={sport}
+                  onChange={setSport}
+                  options={sportOptions.map((s) => ({ value: s, label: s }))}
+                  tone="admin"
+                />
+              </div>
+              <div className="sx-ap-f">
+                <Dropdown
+                  label="Filter by attention"
+                  allLabel="Anything"
+                  value={flag}
+                  onChange={setFlag}
+                  options={ATTENTION_OPTIONS}
+                  tone="admin"
+                />
+              </div>
+              <div className="sx-ap-f">
+                <Dropdown
+                  label="Sort queue"
+                  allLabel="Waiting longest"
+                  value={sort}
+                  onChange={setSort}
+                  options={SORT_OPTIONS}
+                  tone="admin"
+                />
+              </div>
+            </div>
+          </>
         )}
-        <ViewToggle view={layout} />
       </div>
 
       {/* Active filters as dismissible chips — the row reads as what's
@@ -480,19 +525,24 @@ function Desk({
 
       {paged && (
         <div className="mb-3 sx-ap-rise" style={d(0.38)}>
-          <PagerRow
-            page={paged.page}
-            noun="Applications"
-            tone="admin"
-            position="top"
-            filtered={isFiltered}
-          />
+          {loading ? (
+            <PagerGhost />
+          ) : (
+            <PagerRow
+              page={paged.page}
+              noun="Applications"
+              tone="admin"
+              position="top"
+              filtered={isFiltered}
+            />
+          )}
         </div>
       )}
 
       {/* ------------------------------------------------------------ list */}
-      <Body paged={paged !== null} layout={layout}>
-        {shown.length === 0 ? (
+      {loading ? (
+        <ListLoading label="Loading applications…"><SkeletonRows layout={layout} /></ListLoading>
+      ) : shown.length === 0 ? (
           <div className="sx-ap-none sx-ap-rise" style={d(0.4)}>
             <span className="sx-ap-none-mark" aria-hidden="true">
               <Glyph ui={isFiltered ? "eye" : "check"} className="size-7" />
@@ -502,7 +552,7 @@ function Desk({
             </p>
             <p className="mt-1 text-xs text-[#9aa4b2]">
               {isFiltered
-                ? "Try a name, a sport like “Soccer”, or another card above."
+                ? "Try a name, a sport like “Soccer”, or another tab."
                 : "New applications land here from the public join page."}
             </p>
             {isFiltered && (
@@ -553,9 +603,8 @@ function Desk({
             ))}
           </ul>
         )}
-      </Body>
 
-      {paged && (
+      {paged && !loading && (
         <div className="mt-3">
           <PagerRow
             page={paged.page}
@@ -612,56 +661,9 @@ function Desk({
 const d = (s: number, extra?: React.CSSProperties) =>
   ({ "--d": `${s}s`, ...extra }) as React.CSSProperties;
 
-/* List (the default — "lists first", the inventory's rule) or Cards,
-   remembered per browser. */
-type Layout = "list" | "cards";
+/* List (the default) or Cards, remembered per browser — desk-kit's store. */
+type Layout = DeskLayout;
 const VIEW_KEY = "sx-ap-view";
-const viewSubs = new Set<() => void>();
-function readView(): Layout {
-  try {
-    return window.localStorage.getItem(VIEW_KEY) === "cards" ? "cards" : "list";
-  } catch {
-    return "list";
-  }
-}
-function writeView(v: Layout) {
-  try {
-    window.localStorage.setItem(VIEW_KEY, v);
-  } catch {
-    /* private window: the choice lasts until the page reloads */
-  }
-  viewSubs.forEach((f) => f());
-}
-function subscribeView(cb: () => void) {
-  viewSubs.add(cb);
-  window.addEventListener("storage", cb);
-  return () => {
-    viewSubs.delete(cb);
-    window.removeEventListener("storage", cb);
-  };
-}
-function useDeskView(): Layout {
-  return useSyncExternalStore(subscribeView, readView, () => "list" as Layout);
-}
-
-function ViewToggle({ view }: { view: Layout }) {
-  return (
-    <div role="group" aria-label="Show as" className="sx-ap-views">
-      {(["list", "cards"] as const).map((v) => (
-        <button
-          key={v}
-          type="button"
-          aria-pressed={view === v}
-          onClick={() => writeView(v)}
-          className="sx-ap-view"
-        >
-          <Glyph ui={v === "cards" ? "grid" : "rows"} className="size-4" />
-          <span>{v === "cards" ? "Cards" : "List"}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
 
 const STATUS_CARDS: Array<{ key: TabKey; icon: UiGlyph; tone: string; sub: string }> = [
   { key: "review", icon: "hourglass", tone: "#63b4f8", sub: "Waiting for a decision" },
@@ -670,77 +672,52 @@ const STATUS_CARDS: Array<{ key: TabKey; icon: UiGlyph; tone: string; sub: strin
   { key: "all", icon: "users", tone: "#cbd5e1", sub: "Every application on file" },
 ];
 
-/** The tabs as four status cards: icon, name, the count, one line of what it
- *  holds. Arrow keys move between them, like any tab list. */
+/** Four status cards: icon, name, the count, one line of what it holds.
+ *  Numbers only — not a filter (owner, 2026-11-17: "don't make this a
+ *  filter"); the queue's status filter is the tab bar (desk-kit's SegTabs) in the toolbar. */
 function StatusCards({
   counts,
-  tab,
   overdue,
-  onPick,
 }: {
   counts: Record<TabKey, number>;
-  tab: TabKey;
   overdue: number;
-  onPick: (key: TabKey) => void;
 }) {
-  const bar = useRef<HTMLDivElement>(null);
-  const onKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-    const i = STATUS_CARDS.findIndex((c) => c.key === tab);
-    const next = STATUS_CARDS[(i + (e.key === "ArrowRight" ? 1 : STATUS_CARDS.length - 1)) % STATUS_CARDS.length];
-    onPick(next.key);
-    bar.current?.querySelector<HTMLElement>(`[data-tab="${next.key}"]`)?.focus();
-  };
   return (
-    <div
-      ref={bar}
-      role="tablist"
-      aria-label="Application queue"
-      className="sx-ap-stats"
-      onKeyDown={onKey}
-    >
+    <dl aria-label="Applications by status" className="sx-ap-stats">
       {STATUS_CARDS.map((c, i) => {
-        const on = c.key === tab;
         const late = c.key === "review" && overdue > 0;
         const label = TABS.find((t) => t.key === c.key)?.label ?? c.key;
         return (
-          <button
+          <div
             key={c.key}
-            type="button"
-            role="tab"
-            data-tab={c.key}
-            aria-selected={on}
-            tabIndex={on ? 0 : -1}
-            onClick={() => onPick(c.key)}
             data-spot=""
             className="sx-ap-stat sx-ap-rise"
             style={d(0.08 + i * 0.06, { "--c": late ? "#fb923c" : c.tone } as React.CSSProperties)}
           >
             <span aria-hidden="true" className="sx-ap-stat-beam" />
-            <span className="sx-ap-stat-top">
+            <dt className="sx-ap-stat-top">
               <span className="sx-ap-stat-icon" aria-hidden="true">
                 <Glyph ui={late ? "alert" : c.icon} className="size-[18px]" />
               </span>
               <span className="sx-ap-stat-name">{label}</span>
-            </span>
-            <span className="sx-ap-stat-num">
+            </dt>
+            <dd className="sx-ap-stat-num">
               <OpsCount value={counts[c.key]} delay={0.2 + i * 0.08} />
-            </span>
-            <span className="sx-ap-stat-sub" data-late={late ? "" : undefined}>
-              {late
-                ? `${overdue} waited over 2 days`
-                : c.sub}
-            </span>
-          </button>
+            </dd>
+            <dd className="sx-ap-stat-sub" data-late={late ? "" : undefined}>
+              {late ? `${overdue} waited over 2 days` : c.sub}
+            </dd>
+          </div>
         );
       })}
-    </div>
+    </dl>
   );
 }
 
+
 /** The desk's flow, for the "How it works" panel. The demo has no claim or
  *  activation step, so it shows two. */
-function flowSteps(live: boolean): Array<{ icon: UiGlyph; title: string; text: string }> {
+function flowSteps(live: boolean): FlowStep[] {
   return [
     { icon: "eye", title: "Open one", text: "Click any application to see the athlete, their score and the safety checks." },
     ...(live
@@ -753,164 +730,33 @@ function flowSteps(live: boolean): Array<{ icon: UiGlyph; title: string; text: s
   ];
 }
 
-/** "How it works": a header button that opens the flow in a panel (the
- *  owner, 2026-11-17: "make a button for how this works and put this on the
- *  panel"), plus a key to reading the list. Escape, the scrim, Close and
- *  "Got it" close it, focus stays inside while open and returns to the
- *  button after. Portaled to <body> so no entrance transform traps it. */
+/** "How it works" for this desk: the flow, then a key to reading the list
+ *  (the panel itself is desk-kit's HowItWorks). */
 export function HowItWorksButton({ live }: { live: boolean }) {
-  const [phase, setPhase] = useState<"closed" | "open" | "closing">("closed");
-  const opener = useRef<HTMLButtonElement>(null);
-  const sheet = useRef<HTMLElement>(null);
-  const timer = useRef<number | undefined>(undefined);
-  const titleId = useId();
-  useEffect(() => () => window.clearTimeout(timer.current), []);
-
-  const shut = () => {
-    setPhase("closed");
-    opener.current?.focus();
-  };
-  const close = () => {
-    if (phase !== "open") return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) shut();
-    else {
-      setPhase("closing");
-      timer.current = window.setTimeout(shut, 260);
-    }
-  };
-
-  useEffect(() => {
-    if (phase !== "open") return;
-    const root = document.documentElement;
-    const was = root.style.overflow;
-    root.style.overflow = "hidden";
-    const t = window.setTimeout(() => sheet.current?.querySelector<HTMLElement>(".sx-ap-close")?.focus(), 60);
-    return () => {
-      root.style.overflow = was;
-      window.clearTimeout(t);
-    };
-  }, [phase]);
-
-  const onKey = (e: React.KeyboardEvent<HTMLElement>) => {
-    if (e.key === "Escape") {
-      e.stopPropagation();
-      close();
-      return;
-    }
-    if (e.key !== "Tab" || !sheet.current) return;
-    const f = sheet.current.querySelectorAll<HTMLElement>("button:not([disabled]), [href]");
-    if (f.length === 0) return;
-    const first = f[0];
-    const last = f[f.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
-
-  const steps = flowSteps(live);
   return (
-    <>
-      <button
-        ref={opener}
-        type="button"
-        onClick={() => setPhase("open")}
-        aria-haspopup="dialog"
-        className="sx-ap-help"
-      >
-        <span className="sx-ap-help-q" aria-hidden="true">?</span>
-        How it works
-      </button>
-      {phase !== "closed" &&
-        createPortal(
-          <div className="sx-ops sx-ap-modal" data-closing={phase === "closing" ? "" : undefined}>
-            <div className="sx-ap-scrim" onClick={close} aria-hidden="true" />
-            <section
-              ref={sheet}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={titleId}
-              className="sx-ap-sheet"
-              onKeyDown={onKey}
-            >
-              <i aria-hidden="true" className="sx-ops-br sx-ops-br-a" />
-              <i aria-hidden="true" className="sx-ops-br sx-ops-br-b" />
-              <span aria-hidden="true" className="sx-ap-sheet-scan" />
-              <div className="sx-ap-sheet-head">
-                <span className="sx-ap-sheet-badge" aria-hidden="true">
-                  <Glyph ui="bolt" className="size-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <h2 id={titleId} className="sx-ap-sheet-title">How it works</h2>
-                  <p className="sx-ap-sheet-lede">
-                    From a new application to an athlete who can take paid work.
-                  </p>
-                </div>
-                <button type="button" onClick={close} className="sx-ap-close" aria-label="Close">
-                  <Glyph ui="close" className="size-4" />
-                </button>
-              </div>
-
-              <div className="sx-ap-sheet-body">
-                <ol className="sx-ap-flow-steps">
-                  <span aria-hidden="true" className="sx-ap-flow-rail" />
-                  {steps.map((s, i) => (
-                    <li key={s.title} className="sx-ap-flow-step" style={d(0.12 + i * 0.09)}>
-                      <span className="sx-ap-flow-dot" aria-hidden="true">
-                        <Glyph ui={s.icon} className="size-4" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="sx-ap-flow-title">
-                          <span className="sx-ap-flow-n">{i + 1}</span>
-                          {s.title}
-                        </span>
-                        <span className="sx-ap-flow-text">{s.text}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-
-                <div className="sx-ap-key" style={d(0.12 + steps.length * 0.09)}>
-                  <p className="sx-ap-key-k">Reading the list</p>
-                  <ul>
-                    <li>
-                      <span className="sx-ap-key-mark">
-                        <StatusPill tone="blue" act>Submitted</StatusPill>
-                      </span>
-                      <span>A pulsing dot means it&rsquo;s your move.</span>
-                    </li>
-                    <li>
-                      <span className="sx-ap-key-mark">
-                        <span className="sx-ap-key-late" aria-hidden="true" />
-                      </span>
-                      <span>Orange means it has waited more than 2 days. Those come first.</span>
-                    </li>
-                    <li>
-                      <span className="sx-ap-key-mark">
-                        <ScoreRing value={72} size={32} strokeWidth={3} textCls="text-[10px]" />
-                      </span>
-                      <span>
-                        The fit score: how well they match what sponsors buy, worked out by fixed rules.
-                        &ldquo;Not scored yet&rdquo; is not a zero.
-                      </span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="sx-ap-sheet-foot">
-                <button type="button" onClick={close} className="sx-ap-got">
-                  Got it
-                </button>
-              </div>
-            </section>
-          </div>,
-          document.body,
-        )}
-    </>
+    <HowItWorks lede="From a new application to an athlete who can take paid work." steps={flowSteps(live)}>
+      <li>
+        <span className="sx-ap-key-mark">
+          <StatusPill tone="blue" act>Submitted</StatusPill>
+        </span>
+        <span>A pulsing dot means it&rsquo;s your move.</span>
+      </li>
+      <li>
+        <span className="sx-ap-key-mark">
+          <span className="sx-ap-key-late" aria-hidden="true" />
+        </span>
+        <span>Orange means it has waited more than 2 days. Those come first.</span>
+      </li>
+      <li>
+        <span className="sx-ap-key-mark">
+          <ScoreRing value={72} size={32} strokeWidth={3} textCls="text-[10px]" />
+        </span>
+        <span>
+          The fit score: how well they match what sponsors buy, worked out by fixed rules.
+          &ldquo;Not scored yet&rdquo; is not a zero.
+        </span>
+      </li>
+    </HowItWorks>
   );
 }
 
@@ -928,20 +774,12 @@ function useRowWords({ a, s, w, info }: Pick<ItemProps, "a" | "s" | "w" | "info"
   const reviewing = inReview(s);
   const meter = waitMeter(w);
   const late = reviewing && meter.overdue;
-  const next = info ? STATE_NEXT.CHANGES_REQUESTED : STATE_NEXT[s];
-  const status = info ? STATE_COPY.CHANGES_REQUESTED : STATE_COPY[s];
+  const next = info ? STATE_NEXT.CHANGES_REQUESTED : stateLook(s);
+  const status = info ? STATE_COPY.CHANGES_REQUESTED : (STATE_COPY[s] ?? s);
   const band = a.score ? scoreBand(a.score.total) : null;
   return { reviewing, meter, late, next, status, band };
 }
 
-function StatusPill({ tone, act, children }: { tone: string; act: boolean; children: React.ReactNode }) {
-  return (
-    <span className="sx-ap-pill" data-tone={tone} data-act={act ? "" : undefined}>
-      <span className="sx-ap-dot" aria-hidden="true" />
-      {children}
-    </span>
-  );
-}
 
 function MinorTags({ a, reviewing }: { a: App; reviewing: boolean }) {
   if (!a.isMinor && !(a.flags.length > 0 && reviewing)) return null;
@@ -1014,7 +852,7 @@ function AppRow({ a, s, i, w, info, onOpen }: ItemProps) {
           ) : (
             <>
               <span className="sx-ap-wait-num">{a.submittedAt}</span>
-              <span className="sx-ap-wait-cap">applied</span>
+              <span className="sx-ap-wait-cap">{s === "FEATURED" ? "added" : "applied"}</span>
             </>
           )}
         </span>
@@ -1101,31 +939,6 @@ function AppCard({ a, s, i, w, info, onOpen }: ItemProps) {
   );
 }
 
-/** The list's body. Paged: while the next page loads, a skeleton in the
- *  list's own shape stands in for it (the dashboard's loader rule) — the
- *  demo filters in the browser and never waits. */
-function Body({
-  paged,
-  layout,
-  children,
-}: {
-  paged: boolean;
-  layout: Layout;
-  children: React.ReactNode;
-}) {
-  return paged ? <PagedBody layout={layout}>{children}</PagedBody> : <>{children}</>;
-}
-
-function PagedBody({ layout, children }: { layout: Layout; children: React.ReactNode }) {
-  const { pending } = useListNav();
-  if (!pending) return <>{children}</>;
-  return (
-    <div role="status" aria-busy="true" aria-label="Loading applications" className="sx-ap-wait-load">
-      <span className="sx-ap-loadbar" aria-hidden="true" />
-      <SkeletonRows layout={layout} />
-    </div>
-  );
-}
 
 export function SkeletonRows({ layout = "list", n = 6 }: { layout?: Layout; n?: number }) {
   if (layout === "cards") {
@@ -1292,7 +1105,7 @@ function ReviewDrawer({
     .filter((f) => !/guardian/i.test(f))
     .map((f) => f.replace(/\s*\(§\d+\)/g, ""));
   const shownState: LiveApplicationState = decision === "INFO" ? "CHANGES_REQUESTED" : s;
-  const look = STATE_NEXT[shownState];
+  const look = stateLook(shownState);
   const hours = waitHours(a.submittedAt);
   const late = inReview(s) && hours > AGING_HOURS;
 
@@ -1442,12 +1255,12 @@ function ReviewDrawer({
             <p className="sx-rv-name">{a.name}</p>
             <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <StatusPill tone={look.tone} act={look.act}>
-                {STATE_COPY[shownState]}
+                {STATE_COPY[shownState] ?? shownState}
               </StatusPill>
               {a.isMinor && <Badge tone="warn">Minor</Badge>}
             </p>
             <p className="sx-rv-meta">
-              {a.sport} · {a.region} · applied {a.submittedAt}
+              {a.sport} · {a.region} · {s === "FEATURED" ? "added" : "applied"} {a.submittedAt}
               {late && <span className="sx-rv-late"> · waiting over 2 days</span>}
             </p>
             {a.legalName && a.legalName !== a.name && (
@@ -1488,7 +1301,7 @@ function ReviewDrawer({
                 </li>
               ))}
             </ol>
-            <p className="sx-rv-detail">{STATE_DETAIL[shownState]}</p>
+            <p className="sx-rv-detail">{STATE_DETAIL[shownState] ?? ""}</p>
           </section>
 
           {/* ------------------------------------------- 2 · what to do */}
@@ -1692,7 +1505,7 @@ function ReviewDrawer({
                     This claims the application for you, so nobody else decides it at the same time. The decision buttons appear next.
                   </p>
                   <button type="button" disabled={busy !== null} onClick={() => decide("begin")} className="sx-rv-go">
-                    <Glyph ui="play" className="size-4" />
+                    {busy === "begin" ? <span className="sx-ap-spin" aria-hidden="true" /> : <Glyph ui="play" className="size-4" />}
                     {busy === "begin" ? "Starting review…" : "Start review"}
                   </button>
                 </>
@@ -1766,7 +1579,11 @@ function ReviewDrawer({
                     className="sx-rv-go"
                     data-tone={choice === "reject" ? "danger" : choice === "changes" ? "amber" : undefined}
                   >
-                    <Glyph ui={CHOICES.find((c) => c.key === choice)!.icon} className="size-4" />
+                    {busy === choice ? (
+                      <span className="sx-ap-spin" aria-hidden="true" />
+                    ) : (
+                      <Glyph ui={CHOICES.find((c) => c.key === choice)!.icon} className="size-4" />
+                    )}
                     {live ? actionLabel : choice === "approve" ? "Approve" : choice === "changes" ? "Send back for more info" : "Reject application"}
                   </button>
                   {live && needsNote && (
@@ -1799,7 +1616,7 @@ function ReviewDrawer({
                         onClick={() => decide("activate")}
                         className="sx-rv-go"
                       >
-                        <Glyph ui="bolt" className="size-4" />
+                        {busy === "activate" ? <span className="sx-ap-spin" aria-hidden="true" /> : <Glyph ui="bolt" className="size-4" />}
                         {busy === "activate" ? "Activating…" : "Activate athlete"}
                       </button>
                     </>

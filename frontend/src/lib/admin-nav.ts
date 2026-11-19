@@ -42,6 +42,8 @@ export const ADMIN_NAV: NavItem[] = [
   /* 2S4-FE-04 — lines a sponsor reported, or a seller is late marking delivered. */
   /* POL-FE-54 (app review B3) — every marketplace order, searchable. First A → Z, so it carries the group's glyph. */
   { href: "/admin/marketplace/orders", label: "All orders", icon: "store", group: "Marketplace", groupIcon: "store" },
+  /* 2S4-FE-09 — Deal Chat: every chat to read, and the held and reported messages to check. */
+  { href: "/admin/deal-chats", label: "Deal chats", icon: "chat", group: "Marketplace" },
   { href: "/admin/delivery-issues", label: "Delivery issues", icon: "flag", group: "Marketplace" },
   { href: "/admin/marketplace", label: "Marketplace", icon: "store", group: "Marketplace" },
   /* 2S1-FE-11 — the restricted-words list. */

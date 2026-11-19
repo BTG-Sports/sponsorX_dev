@@ -9,6 +9,7 @@
  */
 import { createApp } from "./app";
 import { env } from "./config/env";
+import { startLiveRelay } from "./realtime/relay";
 
 const app = createApp();
 
@@ -16,8 +17,12 @@ const server = app.listen(env.PORT, () => {
   console.log(`SponsorX API listening on :${env.PORT} (${env.NODE_ENV})`);
 });
 
+/* 2S4-BE-18 — database notices to the live socket service (when it is configured). */
+const relay = startLiveRelay();
+if (relay) console.log("Relaying live events to the socket service");
+
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
-    server.close(() => process.exit(0));
+    void (relay?.stop() ?? Promise.resolve()).finally(() => server.close(() => process.exit(0)));
   });
 }

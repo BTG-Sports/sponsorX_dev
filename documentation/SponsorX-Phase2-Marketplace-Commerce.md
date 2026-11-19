@@ -1232,9 +1232,62 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
   - **Also:** `deal-chat.test.ts` covers the amount step, and the tenant-isolation sweep covers the two new routes.
   - **The switch:** `DEAL_CHAT` and `DEAL_CHAT_SIGNING_WORKING_DAYS` are recorded in `SponsorX-Switches.md`. Every Deal Chat route is in OpenAPI.
 
+### 🔎 `2S4-BE-18` · The live socket service
+
+**Order** 36.95 · **BE** · **Where:** Code + console · **3d** · **Code review**
+
+The owner decided this on 2026-11-19: the socket gets its own Railway service, shared by Deal Chat and the INFINEX game, at `socketservice.sponsorx.net` (`socketservice-staging.sponsorx.net` on staging), with its own connection pipeline.
+
+- **The service:** no database, no Clerk and no business rules. It checks passes and forwards notices. One replica.
+- **The pass (option B):**
+  - The browser asks only when a chat, or the Messages list, is open or visible.
+  - The API checks, then and there, that the person may read it and that the chat has begun and not ended.
+  - It signs a 60-second, single-use pass for that one channel with an Ed25519 key only it holds.
+  - A connection renews every 15 minutes.
+- **The events:** raised by database triggers inside the writing transaction and relayed by the API, so every change is covered, the worker's sweep and payments included. They carry ids and states only. A held message reaches only the sender's side and BTG.
+- **The first version** (socket.io inside the API at `/api/v1/socket`) is removed.
+
+- **Depends on:** 2S4-BE-16, 2S4-BE-17
+- **Done when:**
+  - the service runs on staging and production at its two addresses;
+  - a pass is issued only to someone who may read a chat in progress, and for its one channel;
+  - the service refuses a forged, expired, reused or foreign-origin pass;
+  - every event in the spec reaches the right channels and no other;
+  - a login switched off loses its connections at once;
+  - one socket server per environment.
+- **Reference:** [SponsorX-Socket-Service.md](SponsorX-Socket-Service.md)
+- **Delivered, code (2026-11-19, rcfworks):**
+  - **The service:** `socketservice/`, a standalone package with its own lockfile and `railway.json`. Tests: `socketservice/tests/socketservice.test.ts` (10, over real sockets).
+  - **The API:**
+    - `POST /live-passes`: `backend/src/domain/live-pass.ts`, `backend/src/realtime/pass.ts`;
+    - the relay: `backend/src/realtime/relay.ts`;
+    - the triggers: migration `20261119120000_live_events`.
+    - Tests: `backend/tests/live-events.test.ts` (9, real database).
+  - **CI:** installs, audits, builds and tests the socket service.
+  - **Left:** the Railway service, keys, settings and DNS on staging, then production (spec §8). The web app's side is `2S4-FE-10`.
+
+### ⏸ `2S4-FE-10` · Deal Chat on the socket service
+
+**Order** 38.95 · **FE** · **Where:** Code · **1d** · **Ready**
+
+The web app's side of `2S4-BE-18`. It replaces the first version's connection (`deal-socket.ts`, which used a Clerk token and `API_PUBLIC_URL`).
+
+- **When to connect:** fetch a pass from `POST /api/v1/live-passes` only when a chat is open or visible (`{ kind: "chat", chatId }`) or the Messages list is (`{ kind: "inbox" }`).
+- **How:** connect to the pass's `url` and `path` with `auth: { pass }`. Add further chats on the same connection with `join { pass }`, and `leave` them when they close or go out of view.
+- **The events:**
+  - On `chat:changed`, `chat:form`, `chat:signed`, `chat:order`, `chat:opened` and `chat:closed`, re-read the chat (or the list) through the API.
+  - On `session:renew`, fetch a fresh pass and reconnect.
+  - On `access:ended`, stop.
+- **Fallback:** the few-second refresh stays.
+- **Clean-up:** remove `API_PUBLIC_URL` from the web service's settings and `frontend/.env.example`.
+
+- **Depends on:** 2S4-BE-18
+- **Done when:** a message shows on the other side within a second on staging; nothing connects unless a chat or the list is open or visible; a hidden tab disconnects; the fallback still works with the service off
+- **Reference:** [SponsorX-Socket-Service.md](SponsorX-Socket-Service.md) §4, §5, §8
+
 ### ⏸ `2S4-FE-07` · Deal Chat on screen: the sponsor's side
 
-**Order** 38.7 · **FE** · **Where:** Code · **5d** · **Blocked**
+**Order** 38.7 · **FE** · **Where:** Code · **5d** · **Code review**
 
 On the sponsor's order page:
 - the chat, with the deal checklist on top;
@@ -1250,7 +1303,7 @@ On the sponsor's order page:
 
 ### ⏸ `2S4-FE-08` · Deal Chat on screen: the seller's side
 
-**Order** 38.8 · **FE** · **Where:** Code · **4d** · **Blocked**
+**Order** 38.8 · **FE** · **Where:** Code · **4d** · **Code review**
 
 The same chat and form from the seller's Orders page, for:
 - an athlete;
@@ -1265,7 +1318,7 @@ After both sign, the seller sees "Signed by both: waiting for the sponsor's paym
 
 ### ⏸ `2S4-FE-09` · Deal Chat on screen: BTG's view
 
-**Order** 38.9 · **FE** · **Where:** Code · **3d** · **Blocked**
+**Order** 38.9 · **FE** · **Where:** Code · **3d** · **Code review**
 
 For BTG admins:
 - read any order's chat;

@@ -40,6 +40,8 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   "/admin/new-signups": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   /* 2S4-FE-04 — delivery problems and refunds. */
   "/admin/delivery-issues": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  /* 2S4-FE-09 — Deal Chat (2S4-BE-16): dealChat read and dealChatReview read and write are BTG admin (own tenant) and SUPER_ADMIN. */
+  "/admin/deal-chats": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   /* Closed accounts, Guardian handoffs, Offers (2026-10-01): accountClosure and
      guardianHandoff approve are BTG_ADMIN own-tenant and SUPER_ADMIN only. */
   /* 2S2-FE-03 — offer write is BTG admin and campaign managers; Sales reads. */

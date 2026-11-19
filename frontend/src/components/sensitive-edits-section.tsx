@@ -1,10 +1,12 @@
 import Link from "next/link";
 
 import { viewEditIdAction } from "@/app/(app)/admin/new-signups/sensitive-edit-actions";
+import { Glyph } from "@/components/athlete-inventory/glyphs";
+import { LoadSwap, PagerGhost } from "@/components/desk-kit";
 import { DocumentCheck } from "@/components/document-check";
 import { SensitiveEditDecision } from "@/components/legal-name-decision";
-import { PagerRow, PendingList } from "@/components/server-pager";
-import { StageHeading } from "@/components/ops-stage";
+import { PagerRow } from "@/components/server-pager";
+import { EditsSkeleton } from "@/components/signup-stage";
 import { Badge } from "@/components/ui";
 import { dayOf } from "@/lib/account-live";
 import { pageParamsFor, type ListKeys, type PageInfo, type SearchParams } from "@/lib/list-query";
@@ -27,10 +29,17 @@ import { apiFetch } from "@/server/api";
    minor's date of birth or move that would make them an adult, held with
    no ID at all (POL-BE-02).
 
-   P1-ART-15: a glass panel on the Intake Stream's stage, SERVER-PAGED by the
-   house rule (12 / 24 / 60) on its own URL keys — `epage` / `esize` — so it
-   keeps its place while the stream above pages, and vice versa. It must sit
-   inside the page's <ServerList>.
+   P1-ART-15: on the New sign-ups stage, SERVER-PAGED by the house rule
+   (12 / 24 / 60) on its own URL keys — `epage` / `esize` — so it keeps its
+   place while the stream above pages, and vice versa.
+
+   POL-FE-109: one glass card per edit (an orange edge on the ones waiting
+   for Apply / Decline), a heading in plain words, and a loader — the list
+   swaps to its skeleton while its next page is fetched. It must sit inside
+   a <ServerList> of its own (the page gives it one), so only its own paging
+   shows that loader and a note being typed in a decision is never unmounted
+   by the stream above re-fetching. Styles: `.sx-su-*` in
+   admin/new-signups/(stream)/signups.css.
 
    Reads  GET /profile-changes?page=&size=   sensitive edits only (BTG admins)
           GET /profile-changes/:id/id-document → a 5-minute link (sensitive-edit-actions.ts)
@@ -44,25 +53,38 @@ export async function SensitiveEdits({ searchParams }: { searchParams: SearchPar
   let body: React.ReactNode;
   if (!res.ok) {
     body = (
-      <p className="sx-ops-panel relative px-6 py-5 text-xs text-[#9aa4b2]">
+      <p className="sx-su-note">
         {res.status === 403 ? "Your role doesn’t read profile edits, so they aren’t shown here." : `Sensitive edits couldn’t be read just now (${res.status}).`}
       </p>
     );
   } else {
     const { edits, page: info } = (await res.json()) as { edits: ApiSensitiveEdit[]; page: PageInfo };
     body = edits.length === 0 ? (
-      <p className="sx-ops-panel relative px-6 py-5 text-xs text-[#9aa4b2]">
+      <p className="sx-su-note">
         No sensitive edits yet. A legal name, date of birth or guardian change appears here as it happens.
       </p>
     ) : (
-      <div className="space-y-3">
-        <PagerRow page={info} keys={EDIT_KEYS} noun="Edits" tone="admin" position="top" />
-        <PendingList>
-          <ul className="sx-ops-panel relative">
-            {edits.map((e) => (
-              <li key={e.id} className="space-y-2 border-b border-white/5 px-5 py-4 text-xs last:border-0">
+      <LoadSwap
+        label="Loading edits…"
+        skeleton={
+          <div className="space-y-3">
+            <PagerGhost />
+            <EditsSkeleton />
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <PagerRow page={info} keys={EDIT_KEYS} noun="Edits" tone="admin" position="top" />
+          <ul className="sx-su-edits">
+            {edits.map((e, i) => (
+              <li
+                key={e.id}
+                data-waiting={awaitingBtg(e) ? "" : undefined}
+                className="sx-su-edit sx-ap-rise"
+                style={{ "--d": `${Math.min(i, 8) * 0.04}s` } as React.CSSProperties}
+              >
                 <div className="flex flex-wrap items-center gap-2">
-                  <strong className="text-sm font-semibold">{e.athlete.displayName || e.athlete.legalName}</strong>
+                  <strong className="text-sm font-semibold text-white">{e.athlete.displayName || e.athlete.legalName}</strong>
                   <Badge tone={STATE_COPY[e.state].tone}>{editStatusLabel(e)}</Badge>
                   <span className="text-[#8a96a3]">{dayOf(e.createdAt)}</span>
                 </div>
@@ -97,19 +119,26 @@ export async function SensitiveEdits({ searchParams }: { searchParams: SearchPar
               </li>
             ))}
           </ul>
-        </PendingList>
-        <PagerRow page={info} keys={EDIT_KEYS} noun="Edits" tone="admin" position="bottom" />
-      </div>
+          <PagerRow page={info} keys={EDIT_KEYS} noun="Edits" tone="admin" position="bottom" />
+        </div>
+      </LoadSwap>
     );
   }
 
   return (
     <section id="sensitive-edits" aria-label="Sensitive profile edits">
-      <StageHeading
-        title="Sensitive profile edits"
-        hint="Edits publish at once; you’re told only about legal name, date of birth and guardian changes. A change that would make a minor an adult waits here for you. Reject is on the athlete."
-        delay={0.7}
-      />
+      <div className="sx-su-sec sx-ap-rise" style={{ "--d": "0.5s" } as React.CSSProperties}>
+        <span className="sx-su-sec-icon" aria-hidden="true">
+          <Glyph ui="edit" className="size-[18px]" />
+        </span>
+        <div className="min-w-0">
+          <h2>Sensitive profile edits</h2>
+          <p>
+            Profile edits go live at once. You&rsquo;re only told about a legal name, date of birth or guardian change. One
+            that would make a minor an adult waits here for you to apply or decline. To reject the athlete, open them.
+          </p>
+        </div>
+      </div>
       {body}
     </section>
   );

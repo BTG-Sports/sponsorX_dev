@@ -68,7 +68,7 @@ export const content: HelpContent = {
       category: "intake",
       top: true,
       question: "The system approves sign-ups by itself. What do I need to check?",
-      summary: "\"New sign-ups\" lists every organisation, athlete, guardian and sponsor the system approved, newest first. Turn on \"Needs review\" to see only the ones held for you, each with its reasons.",
+      summary: "\"New sign-ups\" lists every organisation, athlete, guardian and sponsor the system approved, newest first. Open the \"Needs review\" tab to see only the ones held for you, each with its reasons.",
       keywords: ["new sign-ups","needs review","held","approved automatically","reject","reinstate","guardian","sign-up rules","minors"],
       steps: [
         {
@@ -80,24 +80,24 @@ export const content: HelpContent = {
         },
         {
           title: "Show only what is held",
-          body: "Click \"Needs review\". Use the kind chips (\"All\", \"Organizations\", \"Athletes\", \"Guardians\", \"Sponsors\") or \"Search sign-ups\" to narrow the list.",
+          body: "Click the \"Needs review\" tab. An orange dot on it means something is held. Use the \"All kinds\" menu (\"Organizations\", \"Athletes\", \"Guardians\", \"Sponsors\") or \"Search sign-ups\" to narrow the list.",
           route: "/admin/new-signups?review=1",
           shot: "admin/check-new-signups-2",
-          capture: {"highlight":"getByRole('button', { name: /Needs review/ })","needs":"At least one sign-up held for review."},
+          capture: {"highlight":"getByRole('tab', { name: 'Needs review' })","needs":"At least one sign-up held for review."},
         },
         {
           title: "Open a sign-up",
-          body: "Open a row. \"Why it needs review\" lists the reasons. Under \"Documents\", \"View\" opens each file through a 5-minute link, and every view is recorded.",
+          body: "Click a row (a held one has an orange edge and a \"Review\" button). The pill beside the name says where it stands, and \"Why it needs review\" on the \"Overview\" tab lists the reasons. On the \"Documents\" tab, \"View\" opens each file through a 5-minute link, and every view is recorded.",
           route: "/admin/new-signups/athletes/[id]",
           shot: "admin/check-new-signups-3",
-          capture: {"highlight":"getByRole('region', { name: 'Documents' })","needs":"A held athlete sign-up (guardians open at /admin/new-signups/guardians/[id])."},
+          capture: {"actions":[{"click":"getByRole('tab', { name: /^Documents/ })","wait":900}],"highlight":"getByRole('region', { name: 'Documents' })","needs":"A held athlete sign-up (guardians open at /admin/new-signups/guardians/[id])."},
         },
         {
           title: "Approve, reject or reinstate",
-          body: "Click \"Approve …\" for a held sign-up. Click \"Reject …\" and give a reason, which is emailed exactly as written, then click \"Reject and email reason\". To bring back a rejected account, click \"Reinstate\".",
+          body: "Click the button beside the name: \"Make a decision\" on a held sign-up, \"Reject …\" on an approved one, \"Reinstate …\" on a rejected one. The popup shows only the choices that apply and says what each does. To reject, write the reason, which is emailed exactly as written, then click \"Reject and email reason\". Nothing is saved before the last button.",
           route: "/admin/new-signups/athletes/[id]",
           shot: "admin/check-new-signups-4",
-          capture: {"highlight":"getByRole('complementary', { name: 'Actions' })","needs":"A held athlete sign-up."},
+          capture: {"actions":[{"click":"locator('.sx-rec-open')","wait":1200}],"highlight":"getByRole('radiogroup', { name: 'Decision' })","needs":"A held athlete sign-up. The QA one is approved, so the popup opens on Reject."},
         },
         {
           title: "Set the rules for minors",
@@ -107,7 +107,7 @@ export const content: HelpContent = {
           capture: {"highlight":"getByRole('switch', { name: 'BTG staff confirm minors before approval' })","needs":"A BTG admin account. Network managers can read the rules but not change them."},
         },
       ],
-      notes: ["\"Approve …\" stays disabled while the applicant still owes a step. The page lists what is missing.","Rejecting a guardian also rejects the athletes they look after.","Sensitive profile edits (legal name, date of birth, guardian, crossing an age line) are listed under the stream.","A place that isn't in the age table counts as 18, and it is flagged."],
+      notes: ["\"Approve …\" stays disabled while the applicant still owes a step. The page lists what is missing.","Rejecting a guardian also rejects the athletes they look after.","Sensitive profile edits (legal name, date of birth, guardian, crossing an age line) are listed under the list. \"How it works\" at the top of the desk shows the steps.","A place that isn't in the age table counts as 18, and it is flagged."],
       related: ["review-an-athlete-application","verify-a-property","confirm-a-guardian-handoff"],
     },
     {
@@ -115,7 +115,7 @@ export const content: HelpContent = {
       category: "intake",
       top: true,
       question: "How do I verify a team, school or venue that applied?",
-      summary: "\"Onboarding\" opens the \"Property verification\" desk. Open an application from \"Pending review\", check its documents, then pick a decision and click \"Record: …\".",
+      summary: "\"Onboarding\" opens the \"Property verification\" desk. Open an application from \"Pending review\", check its documents, then click \"Make a decision\" and pick one.",
       keywords: ["onboarding","property","organization","school","team","verify","approve","suspend","flagged"],
       steps: [
         {
@@ -134,17 +134,17 @@ export const content: HelpContent = {
         },
         {
           title: "Open the application",
-          body: "Click the row's open link. Read \"Why it is waiting\", the checklist, the contacts and \"Documents\".",
+          body: "Click the row's open link. The pill beside the name says where it stands. The rest is behind tabs, one topic at a time: \"Overview\" (why it is waiting and the checks), \"Organization\", \"People\" (contacts and logins), \"Documents\" and \"History\".",
           route: "/admin/onboarding/[id]",
           shot: "admin/verify-a-property-3",
-          capture: {"from":"/admin/onboarding","follow":"main a[href^=\"/admin/onboarding/\"]","highlight":"getByRole('region', { name: 'Checklist' })","needs":"An organisation in Pending review. \"Why it is waiting\" shows only when it was held with reasons; the QA one has none, so the checklist is ringed."},
+          capture: {"from":"/admin/onboarding","follow":"main a[href^=\"/admin/onboarding/\"]","highlight":"getByRole('region', { name: 'Checks' })","needs":"An organisation in Pending review. \"Why it is waiting\" shows only when it was held with reasons; the QA one has none, so the checks are ringed."},
         },
         {
           title: "Record the decision",
-          body: "Under \"Decision\", pick \"Approve\", \"Request changes\" or \"Reject\". Write the note (required for changes, reject and suspend), then click \"Record: …\".",
+          body: "Click \"Make a decision\" beside the name. In the popup, pick \"Approve\", \"Request changes\" or \"Reject\"; each says what it does. Write the note (required for changes, reject and suspend), then click the button named for your choice. Nothing is saved before that.",
           route: "/admin/onboarding/[id]",
           shot: "admin/verify-a-property-4",
-          capture: {"from":"/admin/onboarding","follow":"main a[href^=\"/admin/onboarding/\"]","highlight":"getByRole('radiogroup', { name: 'Decision' })","needs":"An organisation in Pending review."},
+          capture: {"from":"/admin/onboarding","follow":"main a[href^=\"/admin/onboarding/\"]","actions":[{"click":"getByRole('button', { name: 'Make a decision' })","wait":1200}],"highlight":"getByRole('radiogroup', { name: 'Decision' })","needs":"An organisation in Pending review."},
         },
       ],
       notes: ["The first approval creates the property and a manager login for the primary contact, and grants listing access.","Rejecting an approved organisation switches off its sign-in, ends its listings and holds its payouts. \"Reinstate\" brings it back.","The sidebar calls this desk \"Onboarding\", but the page title says \"Property verification\"."],

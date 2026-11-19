@@ -18,7 +18,11 @@ export type LiveApplicationState =
   | "DRAFT"
   | "CHANGES_REQUESTED"
   | "ACTIVE"
-  | "SUSPENDED";
+  | "SUSPENDED"
+  /* P9-BE-11 — a profile BTG's editorial team created; nobody applied. It
+     reaches review only when the athlete claims it and their school verifies
+     them (FEATURED → UNDER_REVIEW). All tab only, like DRAFT. */
+  | "FEATURED";
 
 export const STATE_TONE: Record<
   LiveApplicationState,
@@ -33,6 +37,7 @@ export const STATE_TONE: Record<
   ACTIVE: "accent",
   REJECTED: "danger",
   SUSPENDED: "danger",
+  FEATURED: "neutral",
 };
 
 /** Badge copy for every state the live queue can answer with. */
@@ -42,6 +47,7 @@ export const STATE_COPY: Record<LiveApplicationState, string> = {
   CHANGES_REQUESTED: "Info requested",
   ACTIVE: "Active",
   SUSPENDED: "Suspended",
+  FEATURED: "Featured",
 };
 
 /** One plain-English line per state, shown in the review drawer. */
@@ -57,11 +63,13 @@ export const STATE_DETAIL: Record<LiveApplicationState, string> = {
   ACTIVE: "Live in the network and able to take paid work.",
   REJECTED: "Not a fit right now. The athlete was notified.",
   SUSPENDED: "Paused — no new work until a network manager reinstates them.",
+  FEATURED:
+    "Featured by BTG's editorial team — a public profile only. They haven't applied: no rates, no invitations, no paid work.",
 };
 
 /** Which tab a state belongs to. CHANGES_REQUESTED stays visible in the
- *  review tab (it is the desk's own decision, still in flight); DRAFT and
- *  SUSPENDED are not review work and appear under All only. */
+ *  review tab (it is the desk's own decision, still in flight); DRAFT,
+ *  SUSPENDED and FEATURED are not review work and appear under All only. */
 export function stateBucket(
   s: LiveApplicationState,
 ): "review" | "approved" | "rejected" | "other" {
@@ -158,7 +166,14 @@ export const STATE_NEXT: Record<LiveApplicationState, { tone: StageTone; next: s
   ACTIVE: { tone: "green", next: "Live, nothing to do", act: false },
   REJECTED: { tone: "red", next: "Closed", act: false },
   SUSPENDED: { tone: "red", next: "Paused", act: false },
+  FEATURED: { tone: "muted", next: "Waiting for them to claim it", act: false },
 };
+
+/** STATE_NEXT with a fallback, so a state this page doesn't know yet (the API
+ *  added FEATURED once and the desk crashed on it) shows plainly instead. */
+export function stateLook(s: LiveApplicationState): { tone: StageTone; next: string; act: boolean } {
+  return STATE_NEXT[s] ?? { tone: "muted", next: "Open it for details", act: false };
+}
 
 export type TrackStep = { label: string; status: "done" | "now" | "todo" | "stop" };
 
@@ -184,6 +199,10 @@ export function trackSteps(s: LiveApplicationState): TrackStep[] {
       return [step("Applied", "done"), step("Reviewed", "done"), step("Rejected", "stop")];
     case "SUSPENDED":
       return [step("Applied", "done"), step("Reviewed", "done"), step("Approved", "done"), step("Suspended", "stop")];
+    case "FEATURED":
+      return [step("Featured", "now"), step("Claimed", "todo"), step("In review", "todo"), step("Active", "todo")];
+    default:
+      return [step(String(s), "now")];
   }
 }
 
@@ -211,6 +230,10 @@ export function nextMove(s: LiveApplicationState, live: boolean): string {
       return "Nothing. This application is closed.";
     case "SUSPENDED":
       return "Nothing here. A network manager reinstates them from the roster.";
+    case "FEATURED":
+      return "Nothing yet. It comes here for review once the athlete claims the profile and their school verifies them.";
+    default:
+      return "Nothing here yet.";
   }
 }
 

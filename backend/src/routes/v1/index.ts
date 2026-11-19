@@ -29,6 +29,7 @@ import { sponsorOverviewRouter } from "./sponsor-overview";
 import { sponsorTeamRouter } from "./sponsor-team";
 import { sponsorAccountRouter } from "./sponsor-account";
 import { propertyProfileRouter } from "./property-profile";
+import { livePassesRouter } from "./live-passes";
 import { campaignChangeRouter } from "./campaign-change";
 import { financeOverviewRouter } from "./finance-overview";
 import { rewardsRouter } from "./rewards";
@@ -150,6 +151,8 @@ v1Router.use("/", sponsorTeamRouter);
 v1Router.use("/", sponsorAccountRouter);
 /* POL-BE-104 — a team's own details page, and BTG's desk for the changes held for it. */
 v1Router.use("/", propertyProfileRouter);
+/* 2S4-BE-18 — passes to the live socket service. */
+v1Router.use("/", livePassesRouter);
 /* P8-BE-12 — cancel and change a campaign. */
 v1Router.use("/", campaignChangeRouter);
 

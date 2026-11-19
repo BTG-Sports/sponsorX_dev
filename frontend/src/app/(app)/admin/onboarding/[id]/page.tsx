@@ -1,16 +1,17 @@
 import Link from "next/link";
 
+import { Glyph } from "@/components/athlete-inventory/glyphs";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { OnboardingDecisionPanel } from "@/components/onboarding-decision";
 import { OrgDocumentOpen } from "@/components/org-document-open";
 import { WhatsWrongPanel } from "@/components/problem-tags";
+import { RecordTabs, type RecordTab } from "@/components/record-kit";
+import { CheckRows, FactRows, FactTiles, ReasonRows, RecordHeader, RecordSection, Timeline, notGiven } from "@/components/record-stage";
 import { EmptyState } from "@/components/states";
-import { Badge, Card, SectionHeading } from "@/components/ui";
 import { waitLabel } from "@/lib/marketplace-ops-live";
 import {
   BUSINESS_FIELDS,
   ORG_TYPE_COPY,
-  STATE_COPY,
   businessFormFrom,
   contactsFrom,
   dateLabel,
@@ -19,9 +20,13 @@ import {
   stepsFor,
   type ApiOnboarding,
 } from "@/lib/onboarding-live";
-import { checklistHeading, momentOf, profileDocumentLine, profileStanding, type ApiOrgProfile } from "@/lib/org-profile-live";
+import { checklistHeading, momentOf, profileDocumentLine, type ApiOrgProfile } from "@/lib/org-profile-live";
+import { orgFacts, orgNextStep, orgPill } from "@/lib/record-ui";
 import { DOCUMENTS_ANCHOR, docAnchor } from "@/lib/support-inbox-live";
 import { apiFetch } from "@/server/api";
+
+import "../../applications/(queue)/applications.css";
+import "../../record.css";
 
 /* --------------------------------------------------------------------------
    One organization — 2S1-FE-02 (the application) and, since 2S1-FE-05, the
@@ -31,13 +36,35 @@ import { apiFetch } from "@/server/api";
    ${APP_URL}/admin/onboarding/<id>, and the application, its documents and
    BTG's decisions already live here.
 
-   What it shows: how the organization stands (approved automatically, held
+   What it holds: how the organization stands (approved automatically, held
    with its reasons, flagged after a document change, rejected); the
    checklist as it was when the system approved it (or the live one while
    it waits); every answer; every document with its history, each opened
    through a five-minute audited link only when BTG clicks View; its
    activity; its logins; and the decisions open now — Reject (a reason,
    emailed) and Reinstate included.
+
+   POL-FE-108 (2026-11-17) — redrawn. The owner: "the pages are too
+   confusing for a human … having many information at once can haywire a
+   human's brain". It was nine panels down the page and four more beside
+   them, two status badges, the same facts in three places ("Organisation",
+   "At a glance", the business details) and "Passed" in the brand's orange.
+   Now, top to bottom:
+     1. the name with ONE status pill, one line of context and ONE button
+        ("Make a decision" / "Suspend or reject" / "Reinstate"). The
+        button opens the decision in a popup (record-decide.tsx): where it
+        stands, the choices and what each does, the note. Nothing about
+        deciding is on the page itself. A "Your next step" card beside the
+        page was tried twice and the owner turned it down both times
+        ("showing this immediately is ugly", then "you're still showing
+        this?");
+     2. four tiles: checks passed, required documents, primary contact,
+        listing access;
+     3. tabs, one topic at a time: Overview (what's wrong, what's missing,
+        the checks) · Organization · People (contacts, logins) · Documents ·
+        History. A tab with something to look at carries a dot.
+   Nothing was removed but the repeats; reads, writes and links (the
+   "#documents" and per-document anchors included) are unchanged.
 
    Reads  GET /onboarding/:id            the application and what is missing
           GET /onboarding/:id/profile    standing, checklist, documents + history, activity, logins
@@ -52,15 +79,6 @@ export const dynamic = "force-dynamic";
 
 const PATH = "/admin/onboarding";
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid gap-1 py-2 sm:grid-cols-[12rem_minmax(0,1fr)]">
-      <dt className="text-[11px] font-medium uppercase tracking-wide text-faint">{label}</dt>
-      <dd className="min-w-0 break-words text-sm">{children}</dd>
-    </div>
-  );
-}
-
 export default async function OnboardingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const lacking = await staffWithoutAccess(PATH);
   if (lacking) return <NotInRole path={PATH} title="Property verification" roles={lacking} />;
@@ -72,9 +90,10 @@ export default async function OnboardingDetailPage({ params }: { params: Promise
   ]);
   if (res.status === 403 || res.status === 404) {
     return (
-      <div className="space-y-5">
-        <Link href={PATH} className="text-xs text-muted hover:text-text">
-          ← Property verification
+      <div className="sx-rec space-y-5">
+        <Link href={PATH} className="sx-rec-back">
+          <Glyph ui="back" className="size-3.5" />
+          Property verification
         </Link>
         <EmptyState mark="inbox" title="No application matches this link" hint="It may belong to another tenant, or the address is incomplete." action={{ label: "Back to the queue", href: PATH }} />
       </div>
@@ -84,277 +103,248 @@ export default async function OnboardingDetailPage({ params }: { params: Promise
   if (!profileRes.ok) throw new Error(`The organization's profile didn't load (${profileRes.status}).`);
   const o = (await res.json()) as ApiOnboarding;
   const p = (await profileRes.json()) as ApiOrgProfile;
-  const problems = o.state === "PENDING_REVIEW" ? o.problems ?? [] : [];
-  const standing = profileStanding(p);
-  const section = "rounded-xl border border-line bg-surface p-4 sm:px-5";
 
-  const state = STATE_COPY[o.state];
+  const waiting = o.state === "PENDING_REVIEW";
+  const problems = waiting ? o.problems ?? [] : [];
   const contacts = contactsFrom(o.contacts);
+  const primary = contacts.find((c) => c.primary) ?? contacts[0] ?? null;
   const business = businessFormFrom(o.orgType, o.details);
   const missing = missingByStep(o.missing, o.orgType);
   const steps = stepsFor(o.orgType);
-  const wait = o.state === "PENDING_REVIEW" ? waitLabel(o.submittedAt, new Date().getTime()) : null;
+  const wait = waiting ? waitLabel(o.submittedAt, new Date().getTime()) : null;
+  const typeWord = ORG_TYPE_COPY[o.orgType]?.label ?? o.orgType;
+  const audit = `/admin/audit?entity=PropertyOnboarding&entityId=${encodeURIComponent(o.id)}`;
 
-  return (
-    <div className="space-y-6">
-      <Link href={o.state === "PENDING_REVIEW" ? PATH : `${PATH}?state=${o.state}`} className="text-xs text-muted hover:text-text">
-        ← Property verification
-      </Link>
+  const currentDocs = p.documents.filter((d) => d.current);
+  const hasReasons = p.reasons.length > 0 || Boolean(p.nameTakenBy);
+  const checksFailing = p.checks.some((c) => !c.ok);
+  const docsMissing = p.requirements.some((r) => !r.done);
+  /* Waiting on BTG, or flagged since: only then is a gap something to act on. */
+  const attention = waiting || (o.state === "APPROVED" && p.flagged);
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="sx-page-title">{o.orgName}</h1>
-          <p className="mt-1 text-xs text-muted">
-            {ORG_TYPE_COPY[o.orgType]?.label ?? o.orgType}
-            {o.stateCode ? ` · ${o.stateCode}` : ""} · started {dateLabel(o.createdAt)}
-            {o.submittedAt ? ` · submitted ${dateLabel(o.submittedAt)}` : ""}
-            {wait ? ` · waiting ${wait}` : ""}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Badge tone={state.tone}>{state.label}</Badge>
-          <Badge tone={standing.tone}>
-            <span aria-hidden="true" className="mr-1">{standing.mark}</span>
-            {standing.label}
-          </Badge>
-        </div>
-      </div>
 
-      {/* POL-FE-42 — a waiting application's problems, as tags; they replace the plain list below, which stays for an approved one's flags. */}
+  /* ------------------------------------------------------------- overview */
+  const overview = (
+    <>
+      {/* POL-FE-42 — a waiting application's problems, as tags; a plain list for an approved one's flags. */}
       {problems.length > 0 ? (
-        <WhatsWrongPanel problems={problems} documents={p.documents.filter((d) => d.current).map((d) => ({ id: d.id, name: d.label }))}>
+        <WhatsWrongPanel problems={problems} documents={currentDocs.map((d) => ({ id: d.id, name: d.label }))}>
           {p.nameTakenBy && <>The name is already held by &ldquo;{p.nameTakenBy}&rdquo;.</>}
         </WhatsWrongPanel>
-      ) : (p.reasons.length > 0 || p.nameTakenBy) && (
-        <section aria-label="Why it needs review" className={`${section} border-warn/40`}>
-          <h2 className="text-sm font-semibold">{p.onboardingState === "PENDING_REVIEW" ? "Why it is waiting" : "Flagged for you"}</h2>
-          <ul className="mt-2">
-            {p.reasons.map((r) => (
-              <li key={r} className="flex items-center gap-2.5 border-t border-line-soft py-2.5 text-[13px]">
-                <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full bg-warn/15 text-[10px] font-bold text-warn">!</span>
-                <span className="min-w-0 flex-1">{r}</span>
-              </li>
-            ))}
-            {p.nameTakenBy && (
-              <li className="border-t border-line-soft py-2.5 text-[13px] text-muted">The name is already held by &ldquo;{p.nameTakenBy}&rdquo;.</li>
-            )}
-          </ul>
-        </section>
+      ) : hasReasons && (
+        <RecordSection title={waiting ? "Why it is waiting" : "Flagged for you"} icon="alert" tone="amber">
+          <ReasonRows items={p.reasons}>
+            {p.nameTakenBy && <li className="sx-rec-row sx-rec-row-quiet">The name is already held by &ldquo;{p.nameTakenBy}&rdquo;.</li>}
+          </ReasonRows>
+        </RecordSection>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="space-y-6">
-          <section aria-label="Checklist" className={section}>
-            <h2 className="text-sm font-semibold">{checklistHeading(p)}</h2>
-            <ul className="mt-2">
-              {p.checks.map((c) => (
-                <li key={c.key} className="flex items-center gap-2.5 border-t border-line-soft py-2.5 text-[13px]">
-                  <span
-                    aria-hidden="true"
-                    className={`grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-bold ${c.ok ? "bg-accent/15 text-accent" : "bg-warn/15 text-warn"}`}
-                  >
-                    {c.ok ? "✓" : "!"}
+      {o.missing.length > 0 && (
+        <RecordSection title="Still missing from the application" hint="The applicant has to add these before it can be submitted." icon="hourglass" tone="amber">
+          <FactRows
+            rows={steps.filter((s) => missing[s.key]?.length).map((s) => ({ label: s.label, value: missing[s.key]!.join(", ") }))}
+          />
+        </RecordSection>
+      )}
+
+      <RecordSection title="Checks" hint={checklistHeading(p)} icon="shield">
+        <CheckRows items={p.checks} />
+      </RecordSection>
+    </>
+  );
+
+  /* --------------------------------------------------------- organization */
+  const organization = (
+    <>
+      <RecordSection title={steps[2]!.label} icon="school">
+        <FactRows
+          rows={[
+            { label: "Type", value: typeWord },
+            { label: "State", value: o.stateCode ?? notGiven },
+            ...BUSINESS_FIELDS[o.orgType].map((f) => ({
+              label: f.label,
+              value: business[f.key] ? (
+                f.kind === "url" ? (
+                  <a href={business[f.key]} target="_blank" rel="noopener noreferrer" className="sx-rec-link">
+                    {business[f.key]}
+                  </a>
+                ) : (
+                  business[f.key]
+                )
+              ) : notGiven,
+            })),
+          ]}
+        />
+      </RecordSection>
+
+      <RecordSection title="Payout and terms" icon="coin">
+        <FactRows
+          rows={[
+            {
+              label: "Payout acknowledgement",
+              value: o.payoutAcknowledgedAt ? `Accepted ${dateLabel(o.payoutAcknowledgedAt)}` : <span className="sx-rec-none">Not yet</span>,
+              note: "Bank and tax details go to the payment provider, never to SponsorX.",
+            },
+            {
+              label: "Property terms",
+              value: o.termsAcceptedAt ? `Accepted ${dateLabel(o.termsAcceptedAt)}` : <span className="sx-rec-none">Not accepted</span>,
+              note: o.termsAgreementId ? `Agreement ${o.termsAgreementId}` : undefined,
+            },
+            { label: "Listing access", value: o.listingAccess ? "Granted" : "None" },
+          ]}
+        />
+      </RecordSection>
+    </>
+  );
+
+  /* --------------------------------------------------------------- people */
+  const people = (
+    <>
+      <RecordSection title="Contacts" hint="The primary contact becomes the property manager’s login on first approval." icon="users">
+        {contacts.length === 0 ? (
+          <p className="sx-rec-empty">No contacts saved.</p>
+        ) : (
+          <ul className="sx-rec-rows">
+            {contacts.map((c, i) => (
+              <li key={`${c.email}-${i}`} className="sx-rec-row sx-rec-person">
+                <span className="min-w-0 flex-1">
+                  <span className="sx-rec-person-name">
+                    {c.name} <span>· {c.role}</span>
                   </span>
-                  <span className="min-w-0 flex-1 break-words">{c.label}</span>
-                  <Badge tone={c.ok ? "accent" : "warn"}>{c.ok ? "Passed" : "Not yet"}</Badge>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {o.missing.length > 0 && (
-            <Card className="border-warn/30">
-              <SectionHeading title="Still missing" hint="What the API says this application lacks before it can be submitted." />
-              <ul className="space-y-1 text-sm">
-                {steps
-                  .filter((s) => missing[s.key]?.length)
-                  .map((s) => (
-                    <li key={s.key}>
-                      <span className="font-medium">{s.label}:</span> <span className="text-muted">{missing[s.key]!.join(", ")}</span>
-                    </li>
-                  ))}
-              </ul>
-            </Card>
-          )}
-
-          <Card>
-            <SectionHeading title="Organisation" />
-            <dl className="divide-y divide-line-soft">
-              <Row label="Name">{o.orgName}</Row>
-              <Row label="Type">{ORG_TYPE_COPY[o.orgType]?.label ?? o.orgType}</Row>
-              <Row label="State">{o.stateCode ?? <span className="text-faint">Not given</span>}</Row>
-            </dl>
-          </Card>
-
-          <Card>
-            <SectionHeading title="Contacts" hint="The primary contact becomes the property manager's login on first approval." />
-            {contacts.length === 0 ? (
-              <p className="text-xs text-faint">No contacts saved.</p>
-            ) : (
-              <ul className="divide-y divide-line-soft">
-                {contacts.map((c, i) => (
-                  <li key={`${c.email}-${i}`} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">
-                        {c.name} <span className="font-normal text-muted">· {c.role}</span>
-                      </p>
-                      <p className="break-all text-[11px] text-muted">
-                        {c.email}
-                        {c.phone ? ` · ${c.phone}` : ""}
-                      </p>
-                    </div>
-                    {c.primary && <Badge tone="primary">Primary</Badge>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          <Card>
-            <SectionHeading title={steps[2]!.label} />
-            <dl className="divide-y divide-line-soft">
-              {BUSINESS_FIELDS[o.orgType].map((f) => (
-                <Row key={f.key} label={f.label}>
-                  {business[f.key] ? (
-                    f.kind === "url" ? (
-                      <a href={business[f.key]} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                        {business[f.key]}
-                      </a>
-                    ) : (
-                      business[f.key]
-                    )
-                  ) : (
-                    <span className="text-faint">Not given</span>
-                  )}
-                </Row>
-              ))}
-            </dl>
-          </Card>
-
-          <Card>
-            <span id={DOCUMENTS_ANCHOR} aria-hidden="true" className="block scroll-mt-24" />
-            <SectionHeading
-              title="Documents"
-              hint="View opens the file for five minutes and is recorded in the audit log against you. Earlier files stay listed after a replacement or removal."
-            />
-            {p.requirements.length > 0 && (
-              <ul aria-label="Required documents" className="mb-3 flex flex-wrap gap-1.5">
-                {p.requirements.map((r) => (
-                  <li key={r.key}>
-                    <Badge tone={r.done ? "accent" : "warn"}>
-                      <span aria-hidden="true" className="mr-1">{r.done ? "✓" : "!"}</span>
-                      {r.label}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {p.documents.length === 0 ? (
-              <p className="text-xs text-faint">No documents have arrived yet.</p>
-            ) : (
-              <ul className="divide-y divide-line-soft">
-                {p.documents.map((d) => (
-                  <li key={d.id} id={docAnchor(d.id)} className={`flex scroll-mt-24 flex-wrap items-start justify-between gap-2 py-2 target:bg-warn/10 ${d.current ? "" : "opacity-70"}`}>
-                    <div className="min-w-0">
-                      <p className="break-words text-sm font-medium">
-                        {d.filename}
-                        {!d.current && <span className="ml-1.5 text-[11px] font-normal text-faint">{d.returned ? "sent back" : "earlier file"}</span>}
-                      </p>
-                      <p className="text-[11px] text-muted">
-                        {profileDocumentLine(d)} · {fileSize(d.bytes)}
-                      </p>
-                    </div>
-                    {/* P8-FE-11 — what reading it found, Send back, and no View once its file is gone. */}
-                    <OrgDocumentOpen
-                      onboardingId={o.id} documentId={d.id} filename={d.filename}
-                      check={d.check ?? null} returned={d.returned ?? null} who={o.orgName} canSendBack={d.current}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          <section aria-label="Activity" className={section}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold">Activity</h2>
-              <Link href={`/admin/audit?entity=PropertyOnboarding&entityId=${encodeURIComponent(o.id)}`} className="text-[11px] text-primary hover:underline">
-                Full history →
-              </Link>
-            </div>
-            <ol className="mt-2 text-xs">
-              {p.activity.map((a, i) => (
-                <li key={i} className="flex flex-col gap-0.5 border-t border-line-soft py-2 sm:flex-row sm:gap-3">
-                  <span className="shrink-0 text-muted sm:w-32">{momentOf(a.at)}</span>
-                  <span className="min-w-0 break-words">
-                    {a.text}
-                    {a.byBtg && <span className="text-faint"> · BTG</span>}
+                  <span className="sx-rec-person-sub">
+                    {c.email}
+                    {c.phone ? ` · ${c.phone}` : ""}
                   </span>
-                </li>
-              ))}
-            </ol>
-          </section>
+                </span>
+                {c.primary && <span className="sx-rec-chip" data-tone="blue">Primary</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </RecordSection>
 
-          <Card>
-            <SectionHeading title="Payout and terms" />
-            <dl className="divide-y divide-line-soft">
-              <Row label="Payout acknowledgement">
-                {o.payoutAcknowledgedAt ? `Accepted ${dateLabel(o.payoutAcknowledgedAt)}` : <span className="text-faint">Not yet</span>}
-                <span className="mt-0.5 block text-[11px] text-faint">Bank and tax details go to the payment provider, never to SponsorX.</span>
-              </Row>
-              <Row label="Property terms">
-                {o.termsAcceptedAt ? `Accepted ${dateLabel(o.termsAcceptedAt)}` : <span className="text-faint">Not accepted</span>}
-                {o.termsAgreementId && <span className="mt-0.5 block text-[11px] text-faint">Agreement {o.termsAgreementId}</span>}
-              </Row>
-              <Row label="Listing access">{o.listingAccess ? "Granted" : "None"}</Row>
-            </dl>
-          </Card>
-        </div>
+      {p.logins.length > 0 && (
+        <RecordSection title="Logins" hint="Who can sign in for this organization." icon="lock">
+          <ul className="sx-rec-rows">
+            {p.logins.map((l) => (
+              <li key={l.email} className="sx-rec-row sx-rec-person">
+                <span className="min-w-0 flex-1 break-all">{l.email}</span>
+                <span className="sx-rec-chip" data-tone={l.switchedOff ? "red" : l.signedIn ? "green" : "muted"}>
+                  {l.switchedOff ? "Switched off" : l.signedIn ? "Signed in" : "Not signed in yet"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </RecordSection>
+      )}
+    </>
+  );
 
-        <div className="space-y-6">
-          <Card>
-            <SectionHeading title="Decision" hint="Recorded against your account, with the note, in the audit log." />
-            <OnboardingDecisionPanel key={o.state} id={o.id} state={o.state} hadProperty={Boolean(o.propertyId)} />
-          </Card>
-          <section aria-label="Details" className={section}>
-            <h2 className="text-sm font-semibold">At a glance</h2>
-            <dl className="mt-2 grid grid-cols-[7.5rem_minmax(0,1fr)] text-[13px]">
-              {p.details.map((d) => (
-                <div key={d.label} className="contents">
-                  <dt className="border-t border-line-soft py-2 pr-3 text-muted">{d.label}</dt>
-                  <dd className="min-w-0 break-words border-t border-line-soft py-2">{d.value}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-          {p.logins.length > 0 && (
-            <section aria-label="Logins" className={section}>
-              <h2 className="text-sm font-semibold">Logins</h2>
-              <ul className="mt-2 text-xs">
-                {p.logins.map((l) => (
-                  <li key={l.email} className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft py-2">
-                    <span className="min-w-0 break-all">{l.email}</span>
-                    <Badge tone={l.switchedOff ? "danger" : "accent"}>{l.switchedOff ? "Switched off" : l.signedIn ? "Signed in" : "Not signed in yet"}</Badge>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-          {(o.reviewNotes || o.decidedAt) && (
-            <Card>
-              <SectionHeading
-                title="Last decision"
-                action={
-                  <Link href={`/admin/audit?entity=PropertyOnboarding&entityId=${encodeURIComponent(o.id)}`} className="text-[11px] text-primary hover:underline">
-                    Full history →
-                  </Link>
-                }
+  /* ------------------------------------------------------------ documents */
+  const documents = (
+    <RecordSection
+      id={DOCUMENTS_ANCHOR}
+      title="Documents"
+      hint="View opens the file for five minutes and is recorded in the audit log against you. Earlier files stay listed after a replacement or removal."
+      icon="stack"
+    >
+      {p.requirements.length > 0 && (
+        <ul aria-label="Required documents" className="sx-rec-reqs">
+          {p.requirements.map((r) => (
+            <li key={r.key} className="sx-rec-chip" data-tone={r.done ? "green" : "amber"}>
+              <Glyph ui={r.done ? "check" : "alert"} className="size-3" />
+              {r.label}
+              <span className="sr-only">{r.done ? " (in)" : " (missing)"}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {p.documents.length === 0 ? (
+        <p className="sx-rec-empty">No documents have arrived yet.</p>
+      ) : (
+        <ul className="sx-rec-rows">
+          {p.documents.map((d) => (
+            <li key={d.id} id={docAnchor(d.id)} className="sx-rec-row sx-rec-doc" data-old={d.current ? undefined : ""}>
+              <span className="min-w-0 flex-1">
+                <span className="sx-rec-person-name">
+                  {d.filename}
+                  {!d.current && <span> · {d.returned ? "sent back" : "earlier file"}</span>}
+                </span>
+                <span className="sx-rec-person-sub">
+                  {profileDocumentLine(d)} · {fileSize(d.bytes)}
+                </span>
+              </span>
+              {/* P8-FE-11 — what reading it found, Send back, and no View once its file is gone. */}
+              <OrgDocumentOpen
+                onboardingId={o.id} documentId={d.id} filename={d.filename}
+                check={d.check ?? null} returned={d.returned ?? null} who={o.orgName} canSendBack={d.current}
               />
-              <p className="text-xs text-muted">{dateLabel(o.decidedAt)}</p>
-              {o.reviewNotes && <p className="mt-2 whitespace-pre-wrap text-sm">&ldquo;{o.reviewNotes}&rdquo;</p>}
-            </Card>
-          )}
-        </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </RecordSection>
+  );
+
+  /* -------------------------------------------------------------- history */
+  const history = (
+    <>
+      {(o.reviewNotes || o.decidedAt) && (
+        <RecordSection title="Last decision" hint={dateLabel(o.decidedAt)} icon="edit">
+          {o.reviewNotes ? <blockquote className="sx-rec-quote">&ldquo;{o.reviewNotes}&rdquo;</blockquote> : <p className="sx-rec-empty">No note was written.</p>}
+        </RecordSection>
+      )}
+      <RecordSection
+        title="Activity"
+        icon="clock"
+        action={
+          <Link href={audit} className="sx-rec-link sx-rec-link-sm">
+            Full history →
+          </Link>
+        }
+      >
+        <Timeline
+          items={p.activity.map((a) => ({
+            at: momentOf(a.at),
+            text: (
+              <>
+                {a.text}
+                {a.byBtg && <span className="sx-rec-none"> · BTG</span>}
+              </>
+            ),
+          }))}
+        />
+      </RecordSection>
+    </>
+  );
+
+  const next = orgNextStep(p);
+
+  /* A tab with something to look at carries a dot; People and Documents say how many they hold. */
+  const tabs: RecordTab[] = [
+    { key: "overview", label: "Overview", panel: overview, dot: problems.length > 0 || hasReasons || o.missing.length > 0 || (waiting && checksFailing) },
+    { key: "organization", label: "Organization", panel: organization },
+    { key: "people", label: "People", panel: people, count: contacts.length },
+    { key: "documents", label: "Documents", panel: documents, count: currentDocs.length, dot: attention && docsMissing },
+    { key: "history", label: "History", panel: history },
+  ];
+
+  return (
+    <div className="sx-rec">
+      <RecordHeader
+        back={{ href: waiting ? PATH : `${PATH}?state=${o.state}`, label: "Property verification" }}
+        icon="school"
+        kind="ORGANIZATION"
+        title={o.orgName}
+        meta={[typeWord, o.stateCode, o.submittedAt ? `submitted ${dateLabel(o.submittedAt)}` : `started ${dateLabel(o.createdAt)}`, wait && `waiting ${wait}`]}
+        pill={orgPill(p)}
+        /* the one button; where it stands and the choices are in its popup */
+        action={<OnboardingDecisionPanel key={o.state} id={o.id} name={o.orgName} state={o.state} lede={`${next.title}. ${next.text}`} hadProperty={Boolean(o.propertyId)} />}
+      />
+
+      <div className="sx-rec-main">
+        <FactTiles facts={orgFacts(p, { listingAccess: o.listingAccess, contact: primary ? { name: primary.name, role: primary.role } : null, attention })} />
+        <RecordTabs tabs={tabs} label={`About ${o.orgName}`} />
       </div>
     </div>
   );

@@ -114,7 +114,7 @@
    "w": 13.59,
    "h": 5
   },
-  "capturedAt": "2026-11-16"
+  "capturedAt": "2026-11-17"
  },
  "admin/check-new-signups-2": {
   "src": "/help/admin/check-new-signups-2.webp",
@@ -122,12 +122,12 @@
   "w": 1280,
   "h": 800,
   "spot": {
-   "x": 61.59,
-   "y": 38.69,
-   "w": 11.06,
-   "h": 4.5
+   "x": 29.59,
+   "y": 50.44,
+   "w": 10.22,
+   "h": 4.25
   },
-  "capturedAt": "2026-11-16"
+  "capturedAt": "2026-11-17"
  },
  "admin/check-new-signups-3": {
   "src": "/help/admin/check-new-signups-3.webp",
@@ -136,11 +136,11 @@
   "h": 800,
   "spot": {
    "x": 20.63,
-   "y": 68.38,
-   "w": 47.19,
-   "h": 12.81
+   "y": 48.33,
+   "w": 76.25,
+   "h": 13.65
   },
-  "capturedAt": "2026-11-16"
+  "capturedAt": "2026-11-17"
  },
  "admin/check-new-signups-4": {
   "src": "/help/admin/check-new-signups-4.webp",
@@ -148,12 +148,12 @@
   "w": 1280,
   "h": 800,
   "spot": {
-   "x": 69.38,
-   "y": 23.25,
-   "w": 27.5,
-   "h": 23.06
+   "x": 29.69,
+   "y": 32.08,
+   "w": 40.62,
+   "h": 16.59
   },
-  "capturedAt": "2026-11-16"
+  "capturedAt": "2026-11-17"
  },
  "admin/check-new-signups-5": {
   "src": "/help/admin/check-new-signups-5.webp",
@@ -166,7 +166,7 @@
    "w": 3.75,
    "h": 3.5
   },
-  "capturedAt": "2026-11-16"
+  "capturedAt": "2026-11-17"
  },
  "admin/confirm-a-guardian-handoff-1": {
   "src": "/help/admin/confirm-a-guardian-handoff-1.webp",
@@ -901,7 +901,7 @@
    "w": 13.59,
    "h": 5
   },
-  "capturedAt": "2026-11-16"
+  "capturedAt": "2026-11-17"
  },
  "admin/verify-a-property-2": {
   "src": "/help/admin/verify-a-property-1.webp",
@@ -914,7 +914,7 @@
    "w": 76.25,
    "h": 8.84
   },
-  "capturedAt": "2026-11-16"
+  "capturedAt": "2026-11-17"
  },
  "admin/verify-a-property-3": {
   "src": "/help/admin/verify-a-property-3.webp",
@@ -923,23 +923,23 @@
   "h": 800,
   "spot": {
    "x": 20.63,
-   "y": 26.25,
-   "w": 46.88,
-   "h": 41.19
+   "y": 50.27,
+   "w": 76.25,
+   "h": 43.46
   },
-  "capturedAt": "2026-11-16"
+  "capturedAt": "2026-11-17"
  },
  "admin/verify-a-property-4": {
-  "src": "/help/admin/verify-a-property-3.webp",
+  "src": "/help/admin/verify-a-property-4.webp",
   "path": "/admin/onboarding/seed_onb_baysox",
   "w": 1280,
   "h": 800,
   "spot": {
-   "x": 71.02,
-   "y": 36.59,
-   "w": 24.22,
-   "h": 3.75
+   "x": 23.44,
+   "y": 41.56,
+   "w": 53.12,
+   "h": 21.1
   },
-  "capturedAt": "2026-11-16"
+  "capturedAt": "2026-11-17"
  }
 }

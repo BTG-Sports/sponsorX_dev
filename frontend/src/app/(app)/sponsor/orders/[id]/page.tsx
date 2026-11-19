@@ -1,5 +1,10 @@
 import Link from "next/link";
 
+import { ChatDock } from "@/components/deal-chat/chat-dock";
+import { OrderDealChats } from "@/components/deal-chat/order-deal-chats";
+import { chatRow } from "@/lib/deal-chat";
+import { sampleChats } from "@/lib/deal-chat-sample";
+import { dealChatRows } from "@/server/deal-chat";
 import { EmptyState } from "@/components/states";
 import { StatePill } from "@/components/order-bits";
 import { SponsorOrderDelivery } from "@/components/sponsor-order-delivery";
@@ -165,6 +170,11 @@ export default async function OrderPage({
     kinds = Object.fromEntries(o.lines.map((l) => [l.id, byListing.get(l.listingId) ?? { kind: null, kindLabel: null }]));
   }
 
+  /* 2S4-FE-07 — Deal Chat: a chat per seller on this order (none on a sample, or with the switch off). A failed read hides the card, never the page. */
+  /* `?demo=sample&as=chat` shows the stage with a sample chat and the round Messages button. */
+  const sampleDeal = sample && sampleAs(sp.as) === "chat" ? sampleChats(now.getTime(), "SPONSOR") : null;
+  const dealChats = sampleDeal ? sampleDeal.slice(0, 1).map(chatRow) : sample ? [] : await dealChatRows(undefined, o.id).catch(() => []);
+
   const pay = paymentView(o.state, payment, { supportEmail });
   const status = sponsorStatus(o, pay.kind, now);
   const badge = sponsorBadge(o, pay.kind, now);
@@ -200,6 +210,10 @@ export default async function OrderPage({
         />
 
         <OrderNextCard order={o} status={status} pay={pay} payment={payment} steps={whatNext(o, pay.kind)} canWrite={canWrite} sample={sample} />
+
+        {/* 2S4-FE-07 — the order's deal chats, one per seller: where each stands, and the way in. */}
+        {dealChats.length > 0 && <OrderDealChats rows={dealChats} portal="sponsor" />}
+        {sampleDeal && <ChatDock viewer={{ portal: "sponsor", guardian: false }} unread={0} sample={sampleDeal} />}
 
         {sellerCancels.map((b) => (
           <div key={b.id} role="status" className="sx-od-alert sx-stadium-in" data-tone="warn">

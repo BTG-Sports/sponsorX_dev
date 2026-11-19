@@ -71,10 +71,10 @@
 - **Before:** four KPI tiles, then four pill tabs counting the same applications again, then a grid of player cards. No word on the steps, and the drawer's next move sat at the bottom.
 - **Now:**
   - The header is the title, a Live · Postgres pill and one line on what the page is for. The KPI tiles are gone.
-  - **Four status cards are the tabs** (Needs review / Approved / Rejected / All): icon, count ticking up, one line of what each holds. Needs review turns orange with "n waited over 2 days".
+  - **Four status cards, numbers only** (Needs review / Approved / Rejected / All): icon, count ticking up, one line of what each holds; Needs review turns orange with "n waited over 2 days". They were the tabs at first; after the owner's "don't make this a filter", the status filter is a separate tab bar in the toolbar (sliding marker, ←/→, `?tab=` unchanged). The toolbar is one grid (`.sx-ap-bar`). On a phone, after the owner's "ugly": tabs; search plus icon-only List/Cards; the three filters on one row.
   - **How it works** is a header button (owner follow-up) opening a panel: the four steps on a rail with a running light, then a key to the list (pulsing dot, orange, fit score). The demo shows two steps.
   - **List by default:** athlete · fit score · waiting (48-hour bar) · status pill + next step · Review →. Cards (the old player cards) are the other view, remembered in `localStorage` `sx-ap-view`. A row folds on a phone.
-  - **Skeletons** on arrival (`(queue)/loading.tsx`) and on every tab, filter or page change (the list swaps to skeleton rows under a running bar).
+  - **Loaders:** a skeleton of the page on arrival (`(queue)/loading.tsx`). On every tab, filter, search or page change (owner: "add a loader too"): a spinner on the selected tab, a pager placeholder, a running bar, "Loading applications…" and skeleton rows, held at least 500 ms (`useLoaderShown`) so a fast answer doesn't flicker. The review popup's action buttons spin while saving. Checked with the RSC request held for 3 s and unthrottled: shown for about 0.7–1.4 s.
   - **Review panel (owner follow-up: "too ugly ... too confusing"):** header with status avatar and pill, then the tracker, then "Your next step" with Go to it (scrolls to the decision and glows), four At-a-glance tiles (fit score, guardian, conflicts, audience), the score's parts, then the decision as a numbered step. Under review that step is three choice cards (Approve / Ask for more info / Reject), a note box asking only what that choice needs, and one button named for the action, which says why when it is disabled. No pinned bar, no reject arm. Then, on the owner's "instead of slide", it became a centred 46rem popup (`.sx-rv-modal` / `.sx-rv`, scale in and out), with the facts in one row and the choices side by side on a desktop. Styles `.sx-rv-*` in applications.css.
 - **Trap 3:** `scrollIntoView` inside a popup also scrolls any `overflow: hidden` ancestor, the frame included: the header slid out and a blank strip appeared. Scroll the body with `scrollTo`, and give the frame `overflow: clip`.
 - **Trap 2:** a `clip-path` hides a translated `::before` but doesn't stop it widening the page. The row's hover scan made 1,100px of sideways scroll whenever the mouse sat on a row. Give anything with a sliding pseudo-element `overflow: hidden`, and measure `scrollWidth` with the mouse over the content, not at 0,0.
@@ -84,7 +84,55 @@
   - 2,392 / 2,392 frontend tests; tsc and eslint clean.
   - Walked live as the QA BTG admin at 1440 and 390: All and Needs review, drawers for an active and an info-requested application, List ↔ Cards. No sideways scroll, no console errors.
   - Not built in a worktree, e2e not run.
-- **Status:** Code review on the Polish sheet (row 143). Not committed.
+- **Status:** Done (Polish row 143). Merged 2026-11-17: PR #452 into main_development (d671aca0), then PR #453 into main (6b67bd86). CI typecheck/lint/unit/authz and e2e were green. The dependency audit was red on a moderate Next.js advisory (GHSA-mfr8-8qww-v76h) that main_development already had; the secret scan was clean.
+- **Hotfix after the merge (owner's error report):** the Cards view crashed with "Cannot read properties of undefined (reading 'tone')". The API's AthleteState has a ninth value, `FEATURED` (P9-BE-11: an editorial profile nobody applied for, All tab only), which the frontend's `LiveApplicationState` never listed. The old badge rendered blank for it, but the new `STATE_NEXT[s].tone` threw. `FEATURED` is now in every map ("Featured", a "Featured → Claimed → In review → Active" tracker, "Nothing yet…", "added" not "applied"), and `stateLook()` plus `default:` branches fall back for any future state. Tests: 2,394 / 2,394. Walked All at size 60 in List and Cards (23 items, 6 featured) and the featured popup: no errors. Then the cards stopped being a filter (see above). Both changes are local and still need to be shipped.
+
+## POL-FE-109 · /admin/new-signups redrawn like the athlete Inventory (polish.md item 109)
+- **Asked:** the owner wanted `/admin/new-signups` done "like listing and inventory inside the athlete's dashboard", with animation and wow, easy to understand, keeping the Mission Control theme, plus "loaders and how it works". Same brief as `/admin/applications` this morning (POL-FE-106), so it follows where that one ended up.
+- **Before:** four KPI tiles, five kind chips with the same counts again, a "Needs review" toggle with a third copy of the held count, and one table with a two-letter code for the kind. A filter change only dimmed the table. Nothing said that sign-ups are approved without staff.
+- **Now:**
+  - Header: title, Live · Postgres pill, **How it works**, **Sign-up rules →**, and one line: everyone is approved automatically, you only step in for Needs review.
+  - **Four status cards, numbers only:** Needs review (orange when anything is held, a green tick when not), Approved automatically (with its share as a bar and a percent), All sign-ups, and Who signed up (a bar per kind, "· n to review" beside a kind with held ones).
+  - **Toolbar:** two tabs (All sign-ups / Needs review, with a pulsing orange dot when something is held), List ↔ Cards, search, and the kind as an "All kinds" menu. The URL is unchanged and old `?tab=` links still work.
+  - **List:** who (icon mark per kind) · kind in words · signed up · status pill and why · Review (orange, held) or Open. The whole row is the link. Cards are the other view.
+  - **How it works:** five steps on a rail, then a key to the list.
+  - **Loaders:** a skeleton of the page on arrival; on every tab, kind, search or page change a spinner on the tab, a running bar, "Loading sign-ups…" and skeleton rows, held 0.5 s. The sensitive-edits list has its own.
+  - **Sensitive profile edits:** one glass card per edit, orange edge on the ones waiting for Apply / Decline, in its own `<ServerList>`.
+- **Shared kit:** `components/desk-kit.tsx` now holds the tab bar (`SegTabs`), `ViewToggle` / `useDeskView(key)`, `StatusPill`, `useLoaderShown`, `ListLoading`, `LoadSwap`, `PagerGhost` and the `HowItWorks` panel. `applications-desk.tsx` imports them (about 290 lines shorter, behaviour unchanged). A third admin desk should start from the kit and import `applications.css` plus its own sheet, as this page does.
+- **Trap:** a link stretched over its row (`a::after { position: absolute; inset: 0 }`) stops covering the row if the link itself has a `clip-path` (it clips the pseudo-element) or a `filter` (it becomes the containing block). Keep the link bare and style a span inside it. Playwright then refuses `locator.click()` on anything under the link ("intercepts pointer events"); click by coordinates in a walk.
+- **Trap 2:** `<ServerList>` has one pending flag. Two lists in one `<ServerList>` would both show a loader when either pages, and swapping a list for its skeleton unmounts client state inside it (a decline note being typed). Give each list its own.
+- **Help center:** the `check-new-signups` article's words and capture selector follow the new controls, and its five pictures were re-captured with `HELP_ONLY=check-new-signups npm run help:shots -- admin` (only those five manifest entries changed).
+- **Files:** new `components/{desk-kit,signups-desk,signup-stage}.tsx`, `app/(app)/admin/new-signups/(stream)/signups.css`. Changed `(stream)/{page.tsx,loading.tsx}`, `components/{sensitive-edits-section,applications-desk}.tsx`, `applications/(queue)/applications.css`, `lib/new-signups-live.ts`, `lib/help/admin.ts`, `tests/new-signups-live.test.ts`. Removed `components/{intake-stage,intake-fx}.tsx`. No API change.
+- **Checked:**
+  - 2,402 / 2,402 frontend tests; tsc and eslint clean.
+  - Walked live as the QA BTG admin at 1440, 768 and 390 (both tabs with the response held, kind menu, search, Clear all, Cards, How it works, `?tab=review`, `?demo=loading`, `?demo=empty`, a row click). No sideways scroll.
+  - `/admin/applications` walked again on the shared kit.
+  - Not built in a worktree, e2e not run.
+- **Seen, not fixed:** the athlete sign-up's own page logs a React list-key warning (`LiveSignupReview`, a child from `LiveSignupProfile`). It predates this change.
+- **Status:** Code review on the Polish sheet (row 155). Today's Stage Progress snapshot is appended (row 51; Phase 1 is unchanged from 2026-11-16, so the numbers are the same). Not committed.
+- **Renumbered 2026-11-19:** this was logged as POL-FE-107 / item 107. The pull of main_development showed rcfworks had taken 107 for "+ New request" the same day, so it is POL-FE-109 / item 109 in polish.md, the tracker (Polish row 155) and the code comments.
+
+## POL-FE-108 · one organization's page and one sign-up's page, redrawn (polish.md item 108)
+- **Asked:** the owner named `/admin/onboarding/seed_onb_hawks` and `/admin/new-signups/guardians/seed_grd_1`: "too confusing for a human … having many information at once can haywire a human's brain". The guardian page shares `LiveSignupProfile` with the athlete page, so all three changed.
+- **Before:** nine stacked panels plus a side column on the organization page, the same facts up to three times, two status badges, "Passed" in the brand's orange, a decision form sitting open, and on sign-ups Reject and Reinstate always drawn with one greyed out.
+- **Now (all three pages, one shape):**
+  - Header: a kind mark, the name with ONE status pill, one line of context, and ONE button.
+  - **Deciding is only behind that button.** It opens a centred popup: where the record stands, the choices side by side with what each does, what to know first and the note once one is picked, then Cancel and a button named for the action. A locked choice is greyed and says why.
+  - Four tiles (checks, documents, contact or who they look after, listing access or signed up).
+  - Tabs, one topic at a time; a dot on a tab with something to look at; a link into a tab opens it.
+- **Two owner corrections on the way, both about the decision:**
+  - First cut: a "Your next step" card beside the page with the form open in it. "Showing this immediately is ugly, what is your proposal?" I answered by building a popup but kept the card with a sentence and a button.
+  - "You're still showing this?" The card itself was the problem. It is gone: the button moved beside the name and the sentence became the popup's first line.
+  - My reading for next time: on a record page the owner wants nothing about the action on screen until asked for. A button, then a popup.
+- **Trap:** `animation-fill-mode: both` (or `forwards`) on an entrance that animates `transform` keeps the element a containing block for `position: fixed` after it ends. A dialog rendered inside a tab panel opened 768px wide inside the panel. Use `backwards`. Found by appending a `position: fixed; inset: 0` probe inside the panel and reading its rect, since the QA data has no document to open Send back from.
+- **Trap 2:** a `clip-path` on a block clips fixed dialogs rendered inside it. The sections' chamfer is a `::before` layer now, with the children `position: relative` and no z-index (a z-index would make each a stacking context and put the shell header above the dialog).
+- **Trap 3:** Tailwind's `accent` token is the brand orange here, so `Badge tone="accent"` ("Passed", "Clear", "Approved") reads as a warning on a review page. `.sx-rec` overrides `--color-accent` to green for the subtree. It must be `--color-accent`, not `--sx-accent`: the former is resolved at `:root`.
+- **Files:** new `components/{record-stage,record-kit,record-decide}.tsx`, `lib/record-ui.ts`, `tests/record-ui.test.ts`, `app/(app)/admin/record.css`, three `loading.tsx`. Rewritten `admin/onboarding/[id]/page.tsx`, `components/{live-signup-profile,live-signup-review,onboarding-decision}.tsx`. `desk-kit.tsx` tabs can carry a count. Help articles `check-new-signups` and `verify-a-property` reworded and re-captured. No API change.
+- **Checked:**
+  - 2,422 / 2,422 frontend tests; tsc and eslint clean.
+  - Walked live as the QA BTG admin at 1440, 768 and 390 (approved and waiting organization, guardian, athlete, every tab, the popup, `#documents`). No sideways scroll, no console errors. Nothing was submitted.
+  - Not built in a worktree; e2e not run (no spec touches these pages).
+- **Status:** Code review on the Polish sheet (row 154). Not committed.
 
 ## Deal Chat written down as a Phase 2 feature (rcfworks)
 - **Asked:** the owner, reviewing the sponsor order page on staging, wants an agreement between the sponsor and the seller before the Stripe step, reached through a chat. After several rounds, the owner said it is a feature, not a polish item.
