@@ -130,3 +130,6 @@
   `DEAL_CHAT_SOCKET`, `/api/v1/socket` are all gone). Only past-tense mentions remain in the docs.
 - **Frontend:** affected, not broken. Nothing is live until `2S4-FE-10`. The task is rewritten
   with the exact files, events and clean-up for HeckerCreatives, and the tracker row matches.
+- **Fix tasks for HeckerCreatives:** 2S4-FE-07, 2S4-FE-08 and 2S4-FE-09 (all at Code review) were
+  built on the removed in-API socket. Each now has a Fix note in the phase plan and the tracker, and
+  depends on `2S4-FE-10`, which must land before they're Done.
