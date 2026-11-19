@@ -3290,6 +3290,24 @@ the blockers and today's content review findings.
   - Any step failing turns the deploy check red and tells BTG what failed.
   - The health check covers the private storage too.
   - The check leaves nothing behind in storage.
+- **Delivered (2026-11-19, rcfworks, Code review):**
+  - **The check** (`probeBucket` in `backend/src/lib/storage.ts`, `runStorageCheck` in `backend/src/domain/storage-check.ts`) runs on both storage areas:
+    - a preflight as the website (the origin of `APP_URL`, which is `https://web-staging-904a.up.railway.app` on staging and `https://sponsorx.net` on production, each matching its upload rule);
+    - a signed upload as the website;
+    - the server reading it back;
+    - a delete, then a check it's gone. A failure part-way still deletes the test file.
+  - **When it runs:** the worker runs it when it starts (so after every deploy) and every 24 hours. Each result is recorded in `StorageCheck` (migration `20261119220000_storage_check`), with 30 days kept.
+  - **Health:**
+    - `/health/full` gains `checks.storageUploads` (`{ ok, checkedAt, problem }`).
+    - On Railway, a failure, a check older than 26 hours or no check at all is degraded. Off Railway nothing is required.
+    - `storageReachable` now checks the private bucket too.
+  - **Alerts:** the 15-minute uptime monitor alerts BTG on Slack, and `scripts/health/monitor.py` names the failure in words, for example "storage uploads (public storage (photos, logos): a browser on the website can't upload …)".
+  - **The deploy check:** `deploy-daily.yml` waits, after moving `release`, for a storage check newer than the deploy on staging and production (up to 30 minutes). It goes red if either failed or never came.
+  - **Tests:**
+    - `backend/tests/pol-be-113-storage-check.test.ts` (6): the test store now answers preflights by an upload rule. It covers a pass with nothing left behind, a refused origin failing at the preflight, a refused upload, and the health verdicts;
+    - a new `test_storage_upload_failure_says_what_cannot_upload` in the monitor's tests;
+    - the health-full, tenant-scope and authz-coverage tests are updated.
+  - **Checked:** full backend suite 286 files, 4,033 tests; monitor tests 23; lint and build clean.
 
 ### 114. The sponsor brief is a small card beside a marketing panel, with unrelated questions on each step, so a sponsor can't tell what is being asked or what happens next [§9, §13, P1-FE-10, P2-FE-01, 2S1-FE-11]
 `POL-FE-114` · *Confusing* · confirmed (programme owner, 2026-11-19: "big visual redesign for /brief, don't make it look like a ordinary landing page, make this a step by step process wizard that had its own page add an animation + wow factor + awwwaaaard, the current design right now is full of confusing parts, we don't need it, it must be understandable by a human")

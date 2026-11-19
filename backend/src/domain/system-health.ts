@@ -43,6 +43,7 @@ import { prisma } from "../db/client";
 import { redisReachable } from "../lib/redis";
 import { errorRate, type ErrorRate } from "../lib/request-stats";
 import { storageReachable } from "../lib/storage";
+import { evaluateStorageUploads, readStorageCheck, type StorageCheckReading } from "./storage-check";
 import { NEEDS_ZOHO_CRM, zohoCrmConfigured } from "../lib/zoho-jobs";
 
 /** The owner's RPO (Backup Runbook, "Recovery targets"): ≤ 1 hour. */
@@ -171,11 +172,15 @@ export function evaluatePipeline(r: PipelineReading | null, railway: boolean, no
 
 export type FullHealth = {
   status: "ok" | "degraded";
-  checks: { db: boolean; redis: boolean; storage: boolean; backups: BackupCheck; queue: QueueCheck; pipeline: PipelineCheck };
+  checks: {
+    db: boolean; redis: boolean; storage: boolean; backups: BackupCheck; queue: QueueCheck; pipeline: PipelineCheck;
+    /** POL-BE-113 — can a browser on the website upload to each storage area (the worker's check, at start and daily)? */
+    storageUploads: { ok: boolean; checkedAt: string | null; problem: string | null };
+  };
   /** API responses in the last 15 minutes and how many were 5xx — the error rate, reported, never a failure. */
   traffic: ErrorRate;
   /** Present only when degraded: the names of the checks that failed. */
-  failed?: Array<"db" | "redis" | "storage" | "backups" | "queue" | "pipeline">;
+  failed?: Array<"db" | "redis" | "storage" | "backups" | "queue" | "pipeline" | "storageUploads">;
 };
 
 /**
@@ -341,23 +346,29 @@ export function onRailway(environmentName = env.RAILWAY_ENVIRONMENT_NAME): boole
 
 /** Every dependency `/health/ready` checks, plus the backups and the queue. Never throws. */
 export async function fullHealth(railway = onRailway()): Promise<FullHealth> {
-  const [db, redis, storage, archiver, queueReading, pipelineReading] = await Promise.all([
+  const [db, redis, storage, archiver, queueReading, pipelineReading, storageCheck] = await Promise.all([
     within(prisma.$queryRaw`SELECT 1`.then(() => true), PROBE_TIMEOUT_MS, false),
     within(redisReachable(), PROBE_TIMEOUT_MS, false),
     within(storageReachable(), PROBE_TIMEOUT_MS, false),
     within(readArchiver(), PROBE_TIMEOUT_MS, null),
     within<QueueReading | null>(readQueue(), PROBE_TIMEOUT_MS, null),
     within<PipelineReading | null>(readPipeline(), PROBE_TIMEOUT_MS, null),
+    within<StorageCheckReading | "unread">(readStorageCheck(prisma), PROBE_TIMEOUT_MS, "unread"),
   ]);
   const backups = evaluateBackups(archiver, railway);
   const queue = evaluateQueue(queueReading, railway);
   const pipeline = evaluatePipeline(pipelineReading, railway, new Date());
 
-  const checks = { db, redis, storage, backups, queue, pipeline };
+  /* POL-BE-113 — an unreadable record isn't a storage failure; the db check already says the database is down. */
+  const storageUploads = storageCheck === "unread"
+    ? { ok: true, checkedAt: null, problem: null }
+    : evaluateStorageUploads(storageCheck, railway, new Date());
+  const checks = { db, redis, storage, backups, queue, pipeline, storageUploads };
   const failed = (["db", "redis", "storage"] as const).filter((k) => !checks[k]) as NonNullable<FullHealth["failed"]>;
   if (!backups.ok) failed.push("backups");
   if (!queue.ok) failed.push("queue");
   if (!pipeline.ok) failed.push("pipeline");
+  if (!storageUploads.ok) failed.push("storageUploads");
 
   const traffic = errorRate();
   return failed.length ? { status: "degraded", checks, traffic, failed } : { status: "ok", checks, traffic };

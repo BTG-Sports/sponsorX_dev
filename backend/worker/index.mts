@@ -107,6 +107,7 @@ import { sweepCampaignLaunches } from "../src/domain/campaign-launch.ts";
 import { STUDENT_DIGEST_HOUR_UTC, sendStudentApprovalDigests, sweepStudentAutomation } from "../src/domain/student-auto.ts";
 import { sweepEditionStages } from "../src/domain/edition-automation.ts";
 import { sweepEditionPictures, syncEditionPictures } from "../src/domain/edition-pictures.ts";
+import { runStorageCheck } from "../src/domain/storage-check.ts";
 import { sweepHeldSales } from "../src/domain/ad-sale-auto.ts";
 import { payOutClosedAccounts, purgeExpiredClosures } from "../src/domain/account-closure.ts";
 import { runNightlyFactCheck, FACT_CHECK_HOUR_UTC } from "../src/domain/fact-nightly.ts";
@@ -396,6 +397,8 @@ let studentDigestTimer: ReturnType<typeof setInterval> | undefined;
    edition are tried again. Every ten minutes; each edition and each hold is
    taken under its lock in its own transaction, so overlapping passes agree. */
 let editionTimer: ReturnType<typeof setInterval> | undefined;
+/* POL-BE-113 */
+let storageCheckTimer: ReturnType<typeof setInterval> | undefined;
 const EDITION_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 /* 3S1-QA-01 — the nightly fact check (hourly tick; runs once a day at or after 19:00 UTC). */
 let factCheckTimer: ReturnType<typeof setInterval> | undefined;
@@ -733,6 +736,16 @@ async function main(): Promise<void> {
         : `[worker] image.derive skipped: ${outcome.reason}`,
     );
   });
+
+  /* POL-BE-113 — the live storage check: when the worker starts (so after
+     every deploy) and every 24 hours. /health/full reads the result, so the
+     uptime monitor alerts on a failure and the daily deploy waits for a pass. */
+  const storageCheck = () =>
+    void runStorageCheck(prisma)
+      .then((r) => (r.ok ? log(`[worker] storage check ok (uploads from ${r.origin})`) : logError("[worker] storage check FAILED:", r.problem)))
+      .catch((error: unknown) => logError("[worker] storage check could not run:", error));
+  storageCheckTimer = setInterval(storageCheck, 24 * 60 * 60 * 1000);
+  setTimeout(storageCheck, 30_000).unref();
 
   /* P9-BE-26 — an edition published or cancelled: its public copies now,
      rather than at the next sweep. The sweep repairs anything this misses. */
@@ -1136,6 +1149,7 @@ export async function stopWorker(): Promise<void> {
   if (studentSweepTimer) clearInterval(studentSweepTimer);
   if (studentDigestTimer) clearInterval(studentDigestTimer);
   if (editionTimer) clearInterval(editionTimer);
+  if (storageCheckTimer) clearInterval(storageCheckTimer);
   if (factCheckTimer) clearInterval(factCheckTimer);
   timer = undefined;
   expiryTimer = undefined;

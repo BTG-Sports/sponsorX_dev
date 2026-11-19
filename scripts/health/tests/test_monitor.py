@@ -62,6 +62,14 @@ class Checks(unittest.TestCase):
         self.assertTrue(rs[1].ok)
         self.assertEqual(rs[1].detail, "200 ok — queue 3 waiting, oldest 1 min, 7 failed jobs in 24 h · API 5xx 2 of 120 in 15 min")
 
+    def test_storage_upload_failure_says_what_cannot_upload(self):
+        body = json.dumps({"status": "degraded", "failed": ["storageUploads"], "checks": {"storageUploads": {
+            "ok": False, "checkedAt": "2026-11-19T10:00:00.000Z",
+            "problem": "public storage (photos, logos): a browser on the website can't upload — preflight 403"}}})
+        ok, seen = m.describe_health(200, body)
+        self.assertFalse(ok)
+        self.assertIn("storage uploads (public storage (photos, logos): a browser on the website can't upload", seen)
+
     def test_queue_failure_says_the_worker_is_not_draining(self):
         body = json.dumps({"status": "degraded", "failed": ["queue"],
                            "checks": {"queue": {"ok": False, "depth": 4, "oldestWaitMinutes": 22, "failedLast24h": 0}},
