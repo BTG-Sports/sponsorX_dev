@@ -364,6 +364,11 @@ const BODY: Record<string, unknown> = {
   /* P9-BE-25 */
   "POST /editions/{id}/assets/uploads": { contentType: "video/mp4", bytes: 12_345 },
   "PUT /edition-assets/{id}/file": { r2Key: "edition-content/ti_tenant_a/x/y" },
+  /* P9-BE-27 */
+  "POST /editions/{id}/cover/uploads": { contentType: "image/png", bytes: 1_234 },
+  "PUT /editions/{id}/cover": { r2Key: "edition-files/ti_tenant_a/x/cover/y" },
+  "POST /editions/{id}/press-pdf/uploads": { contentType: "application/pdf", bytes: 1_234 },
+  "PUT /editions/{id}/press-pdf": { r2Key: "edition-files/ti_tenant_a/x/press-pdf/y" },
   "POST /edition-assets/{id}/rights": { grantorKind: "BTG", grantorRef: "x", licenseRef: "L-1", startsAt: "2026-01-01T00:00:00.000Z" },
   "POST /edition-assets/{id}/campaign": { campaignId: A.campaign },
   /* P9-BE-16 */

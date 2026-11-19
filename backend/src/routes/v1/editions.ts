@@ -11,7 +11,7 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { publicPictures } from "../../domain/edition-pictures";
+import { coverUrlOf, publicPictures } from "../../domain/edition-pictures";
 import { assertAllowed, can, whereFor } from "../../auth/scope";
 import { prisma } from "../../db/client";
 import { rightsGap } from "../../domain/content-rights";
@@ -33,6 +33,7 @@ import {
   SplitLockInput,
   SplitUnlockInput,
 } from "../../contracts/edition";
+import { EditionFileInput, EditionFileUploadInput } from "../../contracts/edition";
 import { editionAutomationView, setSalesOpen } from "../../domain/edition-automation";
 import { editionNextStep } from "../../domain/edition-automation-rules";
 import { lockSplit, splitLockOf, unlockSplit } from "../../domain/edition-split-lock";
@@ -53,6 +54,7 @@ import {
 } from "../../domain/edition";
 import { EditionNotFoundError, listPublications, updateEdition } from "../../domain/edition";
 import { PUBLISHED_STATES } from "../../domain/edition-state";
+import { editionCoverUrl, editionPressPdfUrl, presignEditionFileUpload, recordEditionFile, type EditionFile } from "../../domain/edition-files";
 
 export const editionsRouter = Router();
 
@@ -77,8 +79,31 @@ const newEdition: RequestHandler<{ id: string }> = async (req, res) => {
  *  why, its stage history with the automatic moves marked, and (P9-BE-19)
  *  the split lock. */
 const readEdition: RequestHandler<{ id: string }> = async (req, res) => {
-  const { splitLockedAt: _a, splitLockedBy: _b, splitLockNote: _c, tenantId: _t, ...edition } = await getEdition(req.actor!, req.params.id);
-  res.json({ ...edition, ...(await editionAutomationView(req.actor!, req.params.id)) });
+  const {
+    splitLockedAt: _a, splitLockedBy: _b, splitLockNote: _c, tenantId: _t,
+    coverType, coverBytes, coverUploadedAt, pressPdfName, pressPdfBytes, pressPdfUploadedAt, ...edition
+  } = await getEdition(req.actor!, req.params.id);
+  res.json({
+    ...edition,
+    /* P9-BE-27 */
+    cover: coverType ? { type: coverType, bytes: coverBytes, uploadedAt: coverUploadedAt } : null,
+    pressPdf: pressPdfBytes ? { fileName: pressPdfName, bytes: pressPdfBytes, uploadedAt: pressPdfUploadedAt } : null,
+    ...(await editionAutomationView(req.actor!, req.params.id)),
+  });
+};
+
+/* P9-BE-27 — the cover and the press PDF: grant, record, read. */
+const fileUpload = (which: EditionFile): RequestHandler<{ id: string }> => async (req, res) => {
+  res.status(201).json(await presignEditionFileUpload(req.actor!, req.params.id, which, EditionFileUploadInput.parse(req.body)));
+};
+const fileRecord = (which: EditionFile): RequestHandler<{ id: string }> => async (req, res) => {
+  res.json(await recordEditionFile(req.actor!, req.params.id, which, EditionFileInput.parse(req.body)));
+};
+const coverRead: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await editionCoverUrl(req.actor!, req.params.id));
+};
+const pressPdfRead: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await editionPressPdfUrl(req.actor!, req.params.id));
 };
 
 const salesOpen: RequestHandler<{ id: string }> = async (req, res) => {
@@ -348,6 +373,12 @@ editionsRouter.post("/publications", requireActor, newPublication);
 editionsRouter.post("/publications/:id/editions", requireActor, newEdition);
 editionsRouter.get("/editions", requireActor, listEditions);
 editionsRouter.get("/editions/:id", requireActor, readEdition);
+editionsRouter.post("/editions/:id/cover/uploads", requireActor, fileUpload("cover"));
+editionsRouter.put("/editions/:id/cover", requireActor, fileRecord("cover"));
+editionsRouter.get("/editions/:id/cover", requireActor, coverRead);
+editionsRouter.post("/editions/:id/press-pdf/uploads", requireActor, fileUpload("press-pdf"));
+editionsRouter.put("/editions/:id/press-pdf", requireActor, fileRecord("press-pdf"));
+editionsRouter.get("/editions/:id/press-pdf", requireActor, pressPdfRead);
 editionsRouter.get("/editions/:id/ledger", requireActor, ledger);
 editionsRouter.get("/editions/:id/sale-candidates", requireActor, saleCandidates);
 editionsRouter.post("/editions/:id/conditions", requireActor, conditions);
@@ -454,6 +485,8 @@ const readPublic: RequestHandler<{ school: string; id: string }> = async (req, r
       id: a.id, kind: a.kind, title: a.title, byline: a.studentId ? by.get(a.studentId) ?? null : null, text: textOf.get(a.id) ?? null,
       picture: pictures.pieces.get(a.id) ?? null,
     })),
+    /* P9-BE-27 — the cover, once its public copy is made. */
+    cover: pictures.cover,
     sponsors: slots.map((s) => ({
       id: s.id, slotCode: s.slotCode, kind: s.kind, sponsor: s.campaign?.sponsor.name ?? "A local sponsor",
       ad: pictures.ads.get(s.id) ?? null,
@@ -488,7 +521,7 @@ editionsRouter.get("/public/next/editions", async (req, res) => {
     /* tenant-scope: public route — only published editions answer, exactly as the public edition reader. */
     where: { state: { in: [...PUBLISHED_STATES] } },
     select: {
-      id: true, label: true, publishTarget: true,
+      id: true, label: true, publishTarget: true, state: true, coverKey: true, coverWebKey: true, coverWebFrom: true,
       publication: { select: { name: true, property: { select: { slug: true, name: true, city: true, stateCode: true } } } },
     },
     orderBy: { publishTarget: "desc" },
@@ -500,6 +533,8 @@ editionsRouter.get("/public/next/editions", async (req, res) => {
       label: e.label,
       publication: e.publication.name,
       publishedAt: e.publishTarget.toISOString(),
+      /* P9-BE-27 */
+      cover: coverUrlOf(e.state, e),
       school: e.publication.property
         ? { slug: e.publication.property.slug, name: e.publication.property.name, city: e.publication.property.city, stateCode: e.publication.property.stateCode }
         : null,

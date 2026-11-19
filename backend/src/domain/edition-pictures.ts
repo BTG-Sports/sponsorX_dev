@@ -123,8 +123,12 @@ export type PictureSync = { made: number; removed: number; problems: number };
 export async function syncEditionPictures(editionId: string, deps: PictureDeps = pictureDeps, now = new Date()): Promise<PictureSync> {
   const out: PictureSync = { made: 0, removed: 0, problems: 0 };
   /* tenant-scope: a worker job keyed by a globally unique edition id; every write below is keyed by its tenant. */
-  const edition = await prisma.edition.findFirst({ where: { id: editionId }, select: { id: true, tenantId: true, state: true } });
+  const edition = await prisma.edition.findFirst({
+    where: { id: editionId },
+    select: { id: true, tenantId: true, state: true, coverKey: true, coverWebKey: true, coverWebFrom: true },
+  });
   if (!edition) return out;
+  await syncCover(edition, deps, now, out);
   for (const { row, piece } of await pieces(edition.tenantId, edition.id)) {
     const show = mayShow(piece, edition.state, now);
     if (!show) {
@@ -178,11 +182,43 @@ export async function syncEditionPictures(editionId: string, deps: PictureDeps =
   return out;
 }
 
+/**
+ * P9-BE-27 — the cover's public copy: made once the edition is published,
+ * retaken when the cover is replaced, taken down when it's cancelled.
+ */
+async function syncCover(
+  e: { id: string; tenantId: string; state: string; coverKey: string | null; coverWebKey: string | null; coverWebFrom: string | null },
+  deps: PictureDeps,
+  now: Date,
+  out: PictureSync,
+): Promise<void> {
+  const wanted = (PUBLISHED_STATES as readonly string[]).includes(e.state) && !!e.coverKey;
+  let current = e.coverWebKey;
+  if (current && (!wanted || e.coverWebFrom !== e.coverKey)) {
+    await deps.deletePublic(current);
+    const { count } = await prisma.edition.updateMany({ where: { id: e.id, tenantId: e.tenantId, coverWebKey: current }, data: { coverWebKey: null, coverWebFrom: null } });
+    if (count) {
+      out.removed++;
+      await prisma.$transaction((tx) => audit(tx, SYSTEM(e.tenantId), "edition.coverWebCopyRemoved", "Edition", e.id, { before: { webKey: current } }));
+    }
+    current = null;
+  }
+  if (!wanted || current) return;
+  const copy = await webCopyOfPhoto(await deps.getPrivate(e.coverKey!)).catch((): WebCopyProblem => ({ problem: "unreadable" }));
+  if ("problem" in copy) { out.problems++; return; }
+  const webKey = `editions/${e.id}/cover-${randomUUID()}.${copy.ext}`;
+  await deps.putPublic(webKey, copy.body, copy.type, WEB_CACHE_CONTROL);
+  const { count } = await prisma.edition.updateMany({ where: { id: e.id, tenantId: e.tenantId, coverWebKey: null, coverKey: e.coverKey }, data: { coverWebKey: webKey, coverWebFrom: e.coverKey } });
+  if (!count) { await deps.deletePublic(webKey); return; }
+  out.made++;
+  await prisma.$transaction((tx) => audit(tx, SYSTEM(e.tenantId), "edition.coverWebCopy", "Edition", e.id, { after: { webKey, from: e.coverKey } }));
+}
+
 /** Every edition that is published or still has a public copy — the edition sweep's pass. */
 export async function sweepEditionPictures(deps: PictureDeps = pictureDeps, now = new Date()): Promise<PictureSync & { editions: number; failed: number }> {
   const editions = await prisma.edition.findMany({
     /* tenant-scope: a system sweep over every tenant; each edition is synced within its own tenant. */
-    where: { OR: [{ state: { in: [...PUBLISHED_STATES] as never } }, { assets: { some: { webKey: { not: null } } } }] },
+    where: { OR: [{ state: { in: [...PUBLISHED_STATES] as never } }, { coverWebKey: { not: null } }, { assets: { some: { webKey: { not: null } } } }] },
     select: { id: true },
   });
   const total = { made: 0, removed: 0, problems: 0, editions: editions.length, failed: 0 };
@@ -205,7 +241,7 @@ export async function sweepEditionPictures(deps: PictureDeps = pictureDeps, now 
 export async function publicPictures(
   edition: { id: string; tenantId: string; state: string },
   now = new Date(),
-): Promise<{ pieces: Map<string, { url: string; kind: "image" | "video" }>; ads: Map<string, { url: string }> }> {
+): Promise<{ pieces: Map<string, { url: string; kind: "image" | "video" }>; ads: Map<string, { url: string }>; cover: { url: string } | null }> {
   const piecesOut = new Map<string, { url: string; kind: "image" | "video" }>();
   const ads = new Map<string, { url: string }>();
   for (const { row, piece } of await pieces(edition.tenantId, edition.id)) {
@@ -214,5 +250,14 @@ export async function publicPictures(
     if (row.adSlotId) ads.set(row.adSlotId, { url });
     else if (isPicture(row.webType)) piecesOut.set(row.id, { url, kind: row.webType.startsWith("video/") ? "video" : "image" });
   }
-  return { pieces: piecesOut, ads };
+  /* tenant-scope: the published edition the caller loaded, by id. */
+  const e = await prisma.edition.findFirst({ where: { id: edition.id, tenantId: edition.tenantId }, select: { coverKey: true, coverWebKey: true, coverWebFrom: true } });
+  return { pieces: piecesOut, ads, cover: coverUrlOf(edition.state, e) };
+}
+
+/** The cover's public address — only for a published edition, and only a copy of the current cover. */
+export function coverUrlOf(state: string, e: { coverKey: string | null; coverWebKey: string | null; coverWebFrom: string | null } | null): { url: string } | null {
+  if (!e?.coverWebKey || !e.coverKey || e.coverWebFrom !== e.coverKey) return null;
+  if (!(PUBLISHED_STATES as readonly string[]).includes(state)) return null;
+  return { url: publicObjectUrl(e.coverWebKey) };
 }

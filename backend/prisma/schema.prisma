@@ -1956,6 +1956,23 @@ model Edition {
   revenueMet     Boolean      @default(false)
   /// cents — the minimum viable edition threshold
   thresholdCents Int
+  /// P9-BE-27 — the cover image (private original; JPEG, PNG or WebP) and
+  /// the press PDF the printer receives (private; read by BTG on a short
+  /// signed link). Each upload is checked on arrival; a new one replaces the
+  /// old (the audit log keeps the history, and the old files are kept).
+  coverKey           String?
+  coverType          String?
+  coverBytes         Int?
+  coverUploadedAt    DateTime?
+  /// The cover's public copy for the reader and the edition list, made once
+  /// published (edition-pictures.ts), and which original it was made from —
+  /// a replaced cover's copy is retaken.
+  coverWebKey        String?   @unique
+  coverWebFrom       String?
+  pressPdfKey        String?
+  pressPdfBytes      Int?
+  pressPdfName       String?
+  pressPdfUploadedAt DateTime?
   state          EditionState @default(PLANNING)
   /// P9-BE-17 — the day sales open by themselves (PLANNING → SELLING, the
   /// edition sweep). Null: BTG opens sales by hand.
