@@ -74,3 +74,33 @@
 - **Left in the local database:** two QA orders from the walk (`SX-…7B9MJ4OM` called off, the other awaiting payment) and one held message on BTG's desk from the first run.
 - **Checked before the push:** `npm run lint` clean in both workspaces; frontend `tsc` clean, 2,481 / 2,481 tests, and `next build` passes; backend `tsc` clean; the secret scan and the dependency audit clean. The whole backend suite on the test database (`sponsorx_test`, never the dev one): 3,959 pass; the 6 that fail are on files this work does not touch and are this Windows machine's (backslash paths, CRLF documents, no `psql`). Two failures the first run found in the new code were fixed: the start-up log line moved to the entry files (the only ones allowed to log plainly), and the test's servers use the house `listen(0, "127.0.0.1")` form.
 - **Pushed** straight to `main_development` at the owner's word ("don't do PR"), together with the earlier admin redraw (POL-FE-108, POL-FE-109) that Deal Chat's desk builds on.
+
+## 2S4-BE-18 — the live socket service (rcfworks)
+
+- **Owner's decisions, 2026-11-19:**
+  - the socket is its own Railway service, shared by Deal Chat and the INFINEX game;
+  - its addresses are `socketservice.sponsorx.net` and `socketservice-staging.sponsorx.net`, with no
+    "chat" in the name;
+  - it has its own connection pipeline with option B passes: no login token for the socket.
+- **Built:**
+  - **The service:** `socketservice/`, a standalone package with its own lockfile and
+    `railway.json`. It has no database and no Clerk. It checks passes with the public key and
+    forwards notices.
+  - **The API:**
+    - `POST /live-passes`: the access check, plus a 60-second single-use pass for one channel,
+      signed with Ed25519;
+    - the relay: database `sx_live` notices to the service over the private network.
+  - **The triggers** (migration `20261119120000_live_events`) raise every event inside the writing
+    transaction: messages, holds, releases, picks, offers, amounts, read markers, the warning, the
+    form, signatures, every order move, closing, and logins switched off.
+- **Removed:** HeckerCreatives' in-API socket (`backend/src/realtime/deal-chat-*`,
+  `DEAL_CHAT_SOCKET`, the `/api/v1/socket` path and their route announce lines). This also fixes the
+  gaps found in the audit: the worker sweep, order decisions, payment and the second signature.
+- **Tests:** socketservice (10, real sockets) and `backend/tests/live-events.test.ts` (9, real
+  database). The full backend suite is 277 files / 3,979 tests.
+- **Spec:** `documentation/SponsorX-Socket-Service.md`.
+- **Also updated:** Switches, stack decision (Addendum F; E superseded), Deal Chat feature §8a and
+  the phase plan.
+- **Tracker:** `2S4-BE-18` at Code review. `2S4-FE-10` (HeckerCreatives) at Ready, for the web app's
+  side.
+- **Left:** the Railway service, keys, settings and Cloudflare DNS, on staging first.

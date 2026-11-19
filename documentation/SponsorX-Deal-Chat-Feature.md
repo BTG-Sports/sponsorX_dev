@@ -304,22 +304,21 @@ easy to test. They can be upgraded later.
 ## 8a. Live updates (owner, 2026-11-19)
 
 The first version had no sockets: the chat asked for news every few seconds. The owner asked for a socket on
-all of the messages functionality, so the chat is live:
+all of the messages functionality, then decided where it lives: **its own Railway service, `socketservice`**,
+shared with the INFINEX game later, at `socketservice.sponsorx.net` (`2S4-BE-18`). The design, the pass and
+every event are in [SponsorX-Socket-Service.md](SponsorX-Socket-Service.md). In short:
 
-- **What is live:** new messages, answers, offers and their Reply / Accept / Decline, the final amount, the
-  agreement and each signature, calling off, held and released messages, the unread counts, the sponsor's order
-  page, and BTG's desk.
-- **What travels on the socket:** only "this chat changed" (the chat's id and its order's id). Never a message,
-  an answer, an amount or a name. Whoever hears it reads the chat again through the API, where every rule in §7
-  is applied as on any read. The socket adds speed, not access.
-- **Who hears it:** exactly who could read the chat. The socket's rooms are built from the same filter every
-  read goes through (`whereFor(dealChat, read)`), so the two cannot drift.
-- **Not a requirement:** with the socket off, down, or with no public address for it, every screen keeps asking
-  on its own beat, as before.
-- **Behind a switch:** `DEAL_CHAT_SOCKET`, with `API_PUBLIC_URL` on the web service
-  ([SponsorX-Switches.md](SponsorX-Switches.md)).
-- **Built in:** `backend/src/realtime/` (the socket and its rooms) and
-  `frontend/src/components/deal-chat/deal-socket.ts`.
+- **What is live:** messages, answers, offers and their Reply / Accept / Decline, the final amount, the form,
+  each signature, the order's moves, calling off and the chat closing, held and released messages, the unread
+  markers, and BTG's desk.
+- **What travels:** ids and states only, never a message, an answer, an amount or a name. Whoever hears it reads
+  the chat again through the API, where every rule in §7 applies. A held message's notice goes only to the
+  sender's side and BTG.
+- **Who connects, and when:** only when a chat (or the Messages list) is open or visible, with a 60-second,
+  single-use pass for that one channel. The API issues the pass after checking, then and there, that the person
+  may read the chat and that it has begun and not ended. A connection renews every 15 minutes.
+- **Not a requirement:** with the service off or down, every screen keeps asking on its own beat, as before.
+- **The first version** (socket.io inside the API at `/api/v1/socket`, `DEAL_CHAT_SOCKET`) is removed.
 
 ## 9. Not in this feature
 
@@ -363,7 +362,8 @@ all of the messages functionality, so the chat is live:
     once it is out. The amount still appears on the form (§3.6).
 
 15. **The chat is live over a socket** (owner, 2026-11-19: "add socket on all of the messages functionality").
-    It replaces the first version's "refreshes every few seconds", which stays only as the fallback. See §8a.
+    It replaces the first version's "refreshes every few seconds", which stays only as the fallback. The socket
+    is its own Railway service, `socketservice`, with per-connection passes (option B). See §8a.
 
 ## 11. Tasks
 

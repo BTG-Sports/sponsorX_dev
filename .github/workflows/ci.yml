@@ -251,6 +251,20 @@ jobs:
       - name: Test the web app
         run: npm run test -w @sponsorx/frontend
 
+      # 2S4-BE-18 — the live socket service is its own package (own lockfile,
+      # own Railway service), so it installs, type-checks and tests on its own.
+      - name: Install the socket service
+        run: npm ci --prefix socketservice
+
+      - name: Audit the socket service's dependencies
+        run: npm audit --prefix socketservice --audit-level=high
+
+      - name: Build the socket service
+        run: npm --prefix socketservice run build
+
+      - name: Test the socket service
+        run: npm --prefix socketservice test
+
   # ---------------------------------------------------------------------
   # E2E — P2-QA-01.
   #

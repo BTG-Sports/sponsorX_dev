@@ -56,7 +56,6 @@ import { sellerSummary } from "../../domain/seller-summary";
 import {
   inviteAthlete, invitableAthletes, leaveTeam, myTeam, removeFromRoster, respondToInvitation, respondToShareChange, teamInvitations, withdrawInvitation,
 } from "../../domain/team-invitations";
-import { announceDealChat } from "../../realtime/deal-chat-socket";
 const ATHLETE_STATES = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "CHANGES_REQUESTED", "REJECTED", "ACTIVE", "SUSPENDED", "FEATURED"] as const;
 
 export const marketplaceRouter = Router();
@@ -271,10 +270,7 @@ export const ordersSummary: RequestHandler = async (req, res) => { res.json({ su
 const order: RequestHandler<Id> = async (req, res) => { res.json((await withDealAgreements(req.actor!, [await getMarketplaceOrder(req.actor!, req.params.id)]))[0]); };
 const place: RequestHandler = async (req, res) => {
   /* 2S4-FE-02 — the acceptance's evidence comes through the web server's forward, like every acceptance. */
-  const order = await placeOrder(req.actor!, { ...PlaceOrderInput.parse(req.body), ip: clientIp(req) ?? "", userAgent: clientUserAgent(req) ?? "" });
-  res.status(201).json(order);
-  /* 2S4-FE-08 — with DEAL_CHAT on a chat opened for each seller: their Messages hears of it at once. */
-  announceDealChat({ orderId: (order as { id: string }).id });
+  res.status(201).json(await placeOrder(req.actor!, { ...PlaceOrderInput.parse(req.body), ip: clientIp(req) ?? "", userAgent: clientUserAgent(req) ?? "" }));
 };
 const decideOrder: RequestHandler<Id> = async (req, res) => {
   const b = MarketplaceOrderDecisionInput.parse(req.body);
