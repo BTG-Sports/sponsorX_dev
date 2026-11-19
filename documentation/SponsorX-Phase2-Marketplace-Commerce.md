@@ -1268,22 +1268,55 @@ The owner decided this on 2026-11-19: the socket gets its own Railway service, s
 
 ### ⏸ `2S4-FE-10` · Deal Chat on the socket service
 
-**Order** 38.95 · **FE** · **Where:** Code · **1d** · **Ready**
+**Order** 38.95 · **FE** · **Where:** Code · **1.5d** · **Ready** · **HeckerCreatives**
 
-The web app's side of `2S4-BE-18`. It replaces the first version's connection (`deal-socket.ts`, which used a Clerk token and `API_PUBLIC_URL`).
+The web app's side of `2S4-BE-18`. The backend moved the live socket out of the API into its own Railway service. `/api/v1/socket` no longer exists, and the API no longer accepts a Clerk token for a socket.
 
-- **When to connect:** fetch a pass from `POST /api/v1/live-passes` only when a chat is open or visible (`{ kind: "chat", chatId }`) or the Messages list is (`{ kind: "inbox" }`).
-- **How:** connect to the pass's `url` and `path` with `auth: { pass }`. Add further chats on the same connection with `join { pass }`, and `leave` them when they close or go out of view.
-- **The events:**
-  - On `chat:changed`, `chat:form`, `chat:signed`, `chat:order`, `chat:opened` and `chat:closed`, re-read the chat (or the list) through the API.
-  - On `session:renew`, fetch a fresh pass and reconnect.
-  - On `access:ended`, stop.
-- **Fallback:** the few-second refresh stays.
-- **Clean-up:** remove `API_PUBLIC_URL` from the web service's settings and `frontend/.env.example`.
+**Today's effect on the screens:**
+- staging and production: none, because `API_PUBLIC_URL` is unset, so the old connection never starts and every chat surface refreshes every few seconds;
+- a local run: the old connection tries `localhost:4000/api/v1/socket`, fails 6 times and falls back.
 
-- **Depends on:** 2S4-BE-18
-- **Done when:** a message shows on the other side within a second on staging; nothing connects unless a chat or the list is open or visible; a hidden tab disconnects; the fallback still works with the service off
-- **Reference:** [SponsorX-Socket-Service.md](SponsorX-Socket-Service.md) §4, §5, §8
+Nothing is broken, but nothing is live until this task is done.
+
+**What changes:**
+
+1. **`frontend/src/server/deal-chat.ts` and `frontend/src/server/deal-chat-actions.ts`:** replace `dealSocketTicket()` / `dealSocketTicketAction()`, which used a Clerk session token, `API_PUBLIC_URL` and the path `/api/v1/socket`.
+   - The replacement is a server action that calls `POST /api/v1/live-passes` with `{ kind: "chat", chatId }` or `{ kind: "inbox" }` and returns `{ url, path, channel, pass, expiresAt }`.
+   - The API returns the socket service's address, so the web service needs no new setting.
+   - `409` (the chat isn't live: not begun, or ended) and `503` (live updates off) mean "don't connect; keep refreshing".
+2. **`frontend/src/components/deal-chat/deal-socket.ts`:**
+   - **Connecting:** one connection per tab to `pass.url`, with `path: pass.path` (`/ws`), `transports: ["websocket"]` and `auth: { pass }`.
+   - **Opening and closing:** open it only when a chat, or the Messages list, is **open or visible** (page visible and the chat on screen). Close it when the tab is hidden; on returning, fetch fresh passes and reconnect.
+   - **One pass per channel:** each further chat on screen gets its own pass, via `socket.emit("join", { pass }, ack)`. Send `leave { channel }` when the chat closes or leaves the screen.
+   - **The events.** All carry `chatId` and `orderId`; the old single event `deal-chat:changed` is gone. On each of these, re-read that chat (or the list) the ordinary way:
+     - `chat:opened`;
+     - `chat:changed` (with `what`);
+     - `chat:form`;
+     - `chat:signed`;
+     - `chat:order`;
+     - `chat:closed`.
+   - **Control events:**
+     - `session:renew` (every 15 minutes): fetch a fresh pass and reconnect;
+     - `access:ended`: stop, without reconnecting;
+     - `chat:closed`: the server has already taken this tab off the chat, so don't re-join it.
+   - **On (re)connect:** re-read every open chat, as today (`EVERYTHING`).
+3. **Every place that uses the connection:** `use-deal-chat.ts`, `chat-dock.tsx` (the Messages button, which uses the inbox pass), `deal-chats-desk.tsx` (BTG's desk, inbox pass `inbox:btg:*`), `order-live.tsx` and `messenger.tsx` (the "Live" mark). Each must pass which chat it is showing, so the right pass is fetched. The few-second fallback stays.
+4. **Clean-up:**
+   - remove `dealSocketUrl` from `frontend/src/lib/deal-chat.ts`;
+   - remove its tests in `frontend/tests/deal-chat.test.ts` (lines ~476–500), and update the source checks on `deal-socket.ts` / `use-deal-chat.ts`;
+   - remove `API_PUBLIC_URL` from `frontend/.env.example`;
+   - `socket.io-client` stays (same library, version 4.8.4).
+5. **The origin:** the socket service only accepts our own web origins. Staging is `https://web-staging-904a.up.railway.app`; production is `https://sponsorx.net` and `https://www.sponsorx.net`. A new web address must be added to `SOCKETSERVICE_ALLOWED_ORIGINS` (rcfworks).
+
+- **Depends on:** 2S4-BE-18 (the staging service is up at `socketservice-staging.sponsorx.net`)
+- **Done when:**
+  - On staging, a message shows on the other side within a second.
+  - A held message appears for BTG and not for the other side.
+  - Nothing connects unless a chat or the Messages list is open or visible, and a hidden tab disconnects.
+  - `session:renew` reconnects by itself.
+  - With live updates off, the screens still refresh every few seconds.
+  - No reference to `/api/v1/socket`, `API_PUBLIC_URL` or `deal-chat:changed` is left.
+- **Reference:** [SponsorX-Socket-Service.md](SponsorX-Socket-Service.md) §3, §4, §5
 
 ### ⏸ `2S4-FE-07` · Deal Chat on screen: the sponsor's side
 
@@ -1300,6 +1333,7 @@ On the sponsor's order page:
 - **Depends on:** 2S4-BE-15, 2S4-BE-16
 - **Done when:** A sponsor can talk, pick, offer and negotiate, call the deal off, confirm the amount and sign; Pay shows only after both signatures and says what it waits for before that; works at phone width
 - **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §3
+- **Fix (2026-11-19, from 2S4-BE-18):** these screens were built on the first version's live socket (inside the API at `/api/v1/socket`), which is removed. The live socket is now its own service. The screens still work on their few-second refresh, but they aren't live until **`2S4-FE-10`** lands, and this task isn't Done before it.
 
 ### ⏸ `2S4-FE-08` · Deal Chat on screen: the seller's side
 
@@ -1315,6 +1349,7 @@ After both sign, the seller sees "Signed by both: waiting for the sponsor's paym
 - **Depends on:** 2S4-BE-15, 2S4-BE-16
 - **Done when:** An athlete, a guardian and a team manager can each talk, pick, offer, call off, confirm the amount and sign; a minor without the guardian sees the chat but no commit buttons; works at phone width
 - **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §2, §3, §7
+- **Fix (2026-11-19, from 2S4-BE-18):** these screens were built on the first version's live socket (inside the API at `/api/v1/socket`), which is removed. The live socket is now its own service. The screens still work on their few-second refresh, but they aren't live until **`2S4-FE-10`** lands, and this task isn't Done before it.
 
 ### ⏸ `2S4-FE-09` · Deal Chat on screen: BTG's view
 
@@ -1327,6 +1362,7 @@ For BTG admins:
 - **Depends on:** 2S4-BE-16
 - **Done when:** A BTG admin can open any order's chat read-only and clear the held and reported queue; no other role reaches it
 - **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §6, §7
+- **Fix (2026-11-19, from 2S4-BE-18):** these screens were built on the first version's live socket (inside the API at `/api/v1/socket`), which is removed. The live socket is now its own service. The screens still work on their few-second refresh, but they aren't live until **`2S4-FE-10`** lands, and this task isn't Done before it.
 
 ## Sprint 5 · Payments, ledger & payouts
 
