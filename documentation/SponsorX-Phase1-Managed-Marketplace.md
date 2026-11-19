@@ -4360,7 +4360,7 @@ The spec says layout stays in InDesign or Canva, and the platform holds "approve
 
 ### ▶ `P9-BE-28` · Production board data
 
-**Order** 209.91 · **BE** · **Where:** Code · **1d** · **Ready**
+**Order** 209.91 · **BE** · **Where:** Code · **1d** · **Code review**
 
 The spec's `/admin/next/production` page was never built and had no task.
 
@@ -4371,6 +4371,22 @@ The spec's `/admin/next/production` page was never built and had no task.
   - the read answers the same as the publishing gate, because it asks the same questions;
   - it's BTG only, in their own tenant.
 - **Reference:** Spec §8; upload audit §2
+- **Delivered (2026-11-19, rcfworks):**
+  - **Route:** `GET /editions/{id}/production`, BTG only (edition write, own tenant), in `backend/src/domain/edition-production.ts`. It returns:
+    - the edition;
+    - its gates: content ready, rights cleared, artwork approved, revenue met;
+    - every piece with `needs` in words, empty when it's ready;
+    - counts of all pieces, ready pieces and waiting pieces.
+  - **Pieces and what each can need:**
+    - **ASSIGNMENT**, a student piece not yet approved: the student's draft, the student's changes, or the advisor's approval;
+    - **CONTENT**: its file (unless it's a student's approved words), a digital right, or a print right (only once a print date is set). Why it isn't on the web yet appears as a note, never a blocker;
+    - **ARTWORK**, each sold slot: the sponsor's artwork, BTG's review, the sponsor's sign-off, or a digital or print right;
+    - **COVER**: a cover;
+    - **PRESS_PDF**: the press PDF, only when a print date is set.
+  - **Links:** each piece carries `ref` (assignment, asset, slot or edition) for the page to link to where it's fixed.
+  - **Same questions as the gate:** it calls `rightsGap` and `artworkGap` on the gate's own dates, in one transaction. A test checks that "A digital right" is exactly the gate's digital gap.
+  - **Tests:** `backend/tests/p9-be-28-production-board.test.ts` (4).
+  - **Checked:** full backend suite 283 files, 4,021 tests; lint and build clean.
 
 ### ▶ `P9-FE-13` · A file picker on the rights page's "add content" form
 
@@ -4425,6 +4441,9 @@ The spec's `/admin/next/production` page was never built and had no task.
 **Order** 209.95 · **FE** · **Where:** Code · **2d** · **Ready** · HeckerCreatives
 
 - **Depends on:** P9-BE-28
+- **API (P9-BE-28):** `GET /editions/{id}/production` returns `{ edition, gates, pieces[], counts }`.
+  - Each piece has `source` (ASSIGNMENT, CONTENT, ARTWORK, COVER or PRESS_PDF), `title`, `kind`, `who`, `needs[]` in words, `note` and `ref`.
+  - A piece is ready when `needs` is empty.
 - **Done when:**
   - `/admin/next/production` shows one edition's pieces with what each still needs, using `approvals-desk` as the spec says;
   - a piece links to where it's fixed (assignment, artwork, rights, cover);

@@ -303,3 +303,7 @@
   - Once published, the cover's public copy has no metadata. A replaced cover's copy is retaken.
   - The cover appears in the reader and the public edition list.
   - Full suite 282 files, 4,017 tests.
+- **P9-BE-28, Code review:** the production board's data. `GET /editions/{id}/production`, BTG only,
+  lists every piece with what it still needs in words.
+  - It asks the gate's own questions (`rightsGap`, `artworkGap`), and a test proves the two agree.
+  - Full suite 283 files, 4,021 tests.
