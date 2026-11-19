@@ -36,6 +36,7 @@ also has a back-end row waits for it.
 | G · Support and help desk | 41–43 | Support messages live only in Gmail, and admins can't see what is wrong with a held request |
 | H · Found in walkthrough practice | 44–51, 101–104, 107 | Testers getting the feel of the app hit dead ends and silent waits |
 | I · Whole-app review | 52–78 | The 2026-11-15 review: 7 blockers, then every major and minor finding, in eight waves |
+| K · Upload audit | 110–113 | The 2026-11-19 audit: uploads that can break with nothing noticing, and no test that a real file gets through |
 
 **Closed 2026-11-15.** Every item, 1 to 51, is Done on the Polish sheet (71
 rows). The last two, #45 and #51, were walked live and closed on
@@ -3208,3 +3209,42 @@ the blockers and today's content review findings.
   - **Help:** the "check-new-signups" article says "tab" and "All kinds" where it said toggle and chips, and its five pictures were re-captured (`HELP_ONLY=check-new-signups npm run help:shots -- admin`).
   - **Files:** new `components/desk-kit.tsx`, `components/signups-desk.tsx` (client island), `components/signup-stage.tsx` (header, cards), `app/(app)/admin/new-signups/(stream)/signups.css`. Changed `(stream)/{page.tsx,loading.tsx}`, `components/sensitive-edits-section.tsx`, `components/applications-desk.tsx`, `applications/(queue)/applications.css` (the tab's dot), `lib/new-signups-live.ts` (`streamStats`, `kindBars`, `streamPatch`, `streamEmpty`, the row's `pill`; tested in `tests/new-signups-live.test.ts`), `lib/help/admin.ts`. Removed `components/intake-stage.tsx` and `intake-fx.tsx`. No API change.
   - **Checked:** 2,402 / 2,402 frontend tests; tsc and eslint clean. Walked live as the QA BTG admin at 1440, 768 and 390: both tabs with the response held (loader, then the list), the kind menu, search, Clear all, List ↔ Cards, How it works opened and closed by Escape with focus back on the button, `?tab=review`, `?demo=loading` and `?demo=empty`, a click on a row's name opening that sign-up. No sideways scroll at any width, also with the mouse on a row. `/admin/applications` walked again on the shared kit (tabs, Cards, How it works). The only console message was a React list-key warning on the athlete sign-up's own page, which this change does not touch. `npm run build` not run (the owner's `next dev` is live).
+
+### 110. A team, school or sponsor logo is saved even when its file never arrived [§8, upload audit §3]
+`POL-BE-110` · *Silent* · confirmed (upload audit, 2026-11-19)
+- **Problem:** the property's branding form (`POST /branding/logo`, then save) and the sponsor's Account page (`POST /sponsor/account/logo`, then `PATCH /sponsor/account/company`) save the logo's key after checking only that it sits in their own folder. If the upload failed, the record still points at nothing, and every page and report shows a broken image. The athlete's profile photo already checks that its file exists.
+- **Done when:**
+  - A logo is saved only once its file has arrived, is the declared type (PNG or JPEG) and fits 1 MB.
+  - Otherwise the save is refused with "upload it again", and the old logo stays.
+  - The real-upload test covers both logos.
+
+### 111. Five uploads are never tested with a real file [§30, upload audit §4]
+`POL-BE-111` · *Silent* · confirmed (upload audit, 2026-11-19)
+- **Problem:** `backend/tests/private-upload-pins.test.ts` puts a real file into a test storage for 11 flows. Five are tested only against fake storage:
+  - dispute documents;
+  - student drafts;
+  - the athlete's profile photo;
+  - the team or school logo;
+  - the sponsor logo.
+
+  Its completeness check only asks that every private upload is signed for one type and size, so a new upload can be added without a real test.
+- **Done when:**
+  - All five run through the real-upload test: a wrong type or size refused, the right file accepted.
+  - The completeness check fails when any upload in `backend/src` is missing from the test, public uploads included.
+
+### 112. CI's browser tests never really upload a file [§30, upload audit §4]
+`POL-BE-112` · *Silent* · confirmed (upload audit, 2026-11-19)
+- **Problem:** four flows have a browser test that uploads a file: the athlete's content, a sign-up ID, onboarding documents and a support attachment. CI's browser job has no storage, so the test itself answers the step where the browser sends the file (`e2e/support/object-store.ts`). A broken browser upload passes CI.
+- **Done when:**
+  - CI's browser job runs a real test storage, with the same upload rule as staging.
+  - The four tests upload for real in CI, and fail if the storage refuses.
+  - The stand-in stays only for a laptop with no storage running.
+
+### 113. Nothing checks that the live storage accepts uploads [§26, upload audit §4]
+`POL-BE-113` · *Silent* · confirmed (upload audit, 2026-11-19; it already broke once, 2026-11-16)
+- **Problem:** on 2026-11-16, the public storage on both staging and production had no rule letting the website upload to it. Every profile photo and logo upload failed, and nobody knew until someone tried. The health check only asks whether the public storage exists. It doesn't check the private storage, and it never tries an upload from the website's address.
+- **Done when:**
+  - Every day, and after every deploy, staging and production each check both storage areas: ask permission to upload as the website would, put a small test file through a signed link, read it back, and delete it.
+  - Any step failing turns the deploy check red and tells BTG what failed.
+  - The health check covers the private storage too.
+  - The check leaves nothing behind in storage.

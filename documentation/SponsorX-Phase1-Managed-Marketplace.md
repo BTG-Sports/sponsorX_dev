@@ -4211,6 +4211,122 @@ The screens P9-FE-01 and P9-FE-02 left "not connected". The student's Assignment
 - **Done when:** A signed-in student sees their real assignments, submits a draft and reads the advisor's note; a signed-in advisor reviews their school's pieces by tab, approves or sends one back with a note, and assigns new work; neither screen shows "not connected" or sample data to a signed-in person
 - **Reference:** Spec §7, §8
 
+### ▶ `P9-BE-25` · Uploads for edition content, in any format
+
+**Order** 209.88 · **BE** · **Where:** Code · **2d** · **In progress**
+
+Raised 2026-11-19 by the programme owner's upload audit ([SponsorX-Upload-Audit.md](SponsorX-Upload-Audit.md) §2). Today BTG can add a piece of edition content only as a title: the form has no file, and there's no way to upload one. The API also stores any file reference it's sent, unchecked. The owner decided on 2026-11-19 that the magazine takes **any format**: photos, video, PDFs and design files such as InDesign or Photoshop.
+
+- **What it builds:**
+  - BTG (and the people it names: an athlete, an outside photographer) gets a direct upload for a piece of edition content.
+  - The API accepts only a file that came through its own upload, and checks that the file arrived, is the type it was signed for and is the size declared.
+  - The student's draft takes any format too, video included.
+  - A file a browser shouldn't open in place (anything other than an image, a video, audio or a PDF) is always downloaded, never shown.
+  - It also fixes an approved design piece becoming content of a kind that doesn't exist.
+- **Depends on:** P9-BE-10, P9-BE-24
+- **Done when:**
+  - BTG uploads a file of any format to a piece of edition content, and an upload of up to 2 GB fits;
+  - a file reference that didn't come from the API's own upload is refused;
+  - a wrong type or size is refused, deleted and recorded;
+  - a student can submit a draft in any format, video included;
+  - a file that isn't an image, video, audio or PDF opens as a download;
+  - an approved design piece becomes content of a real kind;
+  - another tenant and roles without the right are refused;
+  - the real-upload test covers the new upload.
+- **Reference:** Spec §5.3, §9; upload audit §2
+
+### ▶ `P9-BE-26` · Photos, video and ads in the public reader
+
+**Order** 209.89 · **BE** · **Where:** Code · **2d** · **Ready**
+
+Today the free digital edition returns titles and article text only. Approved photos stay in private storage, and the reader lists each sponsor's name but never shows the ad they paid for.
+
+- **What it builds:**
+  - When an edition is published, each image or video it carries gets a public web copy: student and BTG content with a digital right in force, and the approved ad artwork of every sold slot.
+  - The public edition returns those links.
+  - When a right ends, the web copy comes down.
+  - Files a browser can't show (design files and the like) stay private.
+- **Depends on:** P9-BE-25, P9-BE-16
+- **Done when:**
+  - a published edition's reader data carries an image or video link for each piece and ad that may be shown;
+  - nothing is public before publication, or without a digital right in force;
+  - a right that ends takes its web copy down;
+  - a minor's photo is shown only where a guardian's consent covers it;
+  - each ad appears with its sponsor.
+- **Reference:** Spec principle 10, §5.3; upload audit §2
+
+### ▶ `P9-BE-27` · An edition's cover image and press PDF
+
+**Order** 209.90 · **BE** · **Where:** Code · **1.5d** · **Ready**
+
+The spec says layout stays in InDesign or Canva, and the platform holds "approved artwork and the press PDF" (§9). Nothing holds either today.
+
+- **Depends on:** P9-BE-25
+- **Done when:**
+  - BTG uploads a cover image and a press PDF to an edition, each checked when it arrives;
+  - the cover shows in the reader and the edition list once the edition is published;
+  - the press PDF stays private, read by BTG on a short signed link, every read recorded;
+  - a new upload replaces the old one, and the change is recorded.
+- **Reference:** Spec §9; upload audit §2
+
+### ▶ `P9-BE-28` · Production board data
+
+**Order** 209.91 · **BE** · **Where:** Code · **1d** · **Ready**
+
+The spec's `/admin/next/production` page was never built and had no task.
+
+- **Depends on:** P9-BE-25, P9-BE-27
+- **Done when:**
+  - one read per edition lists every piece: student work in progress, approved content, ad artwork, the cover and the press PDF;
+  - each piece says what it still needs before publishing (a file, an approval, a right);
+  - the read answers the same as the publishing gate, because it asks the same questions;
+  - it's BTG only, in their own tenant.
+- **Reference:** Spec §8; upload audit §2
+
+### ▶ `P9-FE-13` · A file picker on the rights page's "add content" form
+
+**Order** 209.92 · **FE** · **Where:** Code · **1d** · **Ready** · HeckerCreatives
+
+- **Depends on:** P9-BE-25
+- **Done when:**
+  - adding content on `/admin/next/rights` takes a file of any format, uploaded straight to storage, with progress shown;
+  - a refused file says why;
+  - an added piece's file opens from the list.
+- **Reference:** upload audit §2
+
+### ▶ `P9-FE-14` · Photos, video, ads and the cover in the public reader
+
+**Order** 209.93 · **FE** · **Where:** Code · **1.5d** · **Ready** · HeckerCreatives
+
+- **Depends on:** P9-BE-26, P9-BE-27
+- **Done when:**
+  - `/next/[school]/[edition]` shows the cover, each piece's photo or video with its article, and each sponsor's ad in its position;
+  - it works at phone width;
+  - a piece with no picture still reads well.
+- **Reference:** Spec principle 10, §9
+
+### ▶ `P9-FE-15` · Cover and press PDF upload on the editions page
+
+**Order** 209.94 · **FE** · **Where:** Code · **1d** · **Ready** · HeckerCreatives
+
+- **Depends on:** P9-BE-27
+- **Done when:**
+  - `/admin/next/editions` uploads and replaces an edition's cover and press PDF;
+  - the press PDF opens on a signed link;
+  - a refused file says why.
+- **Reference:** Spec §9
+
+### ▶ `P9-FE-16` · The production board page
+
+**Order** 209.95 · **FE** · **Where:** Code · **2d** · **Ready** · HeckerCreatives
+
+- **Depends on:** P9-BE-28
+- **Done when:**
+  - `/admin/next/production` shows one edition's pieces with what each still needs, using `approvals-desk` as the spec says;
+  - a piece links to where it's fixed (assignment, artwork, rights, cover);
+  - it works at desk and phone width.
+- **Reference:** Spec §8
+
 ### ✅ `P9-QA-01` · E2E: edition sells once, a student code attributes the sale
 
 **Order** 210 · **QA** · **Where:** Code · **3d** · **Done**
