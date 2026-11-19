@@ -273,11 +273,16 @@ const schema = z.object({
   /* 2S4-BE-15 — the Deal Chat's signing limit: signed by both within this many working days of the order
      being placed, or it is cancelled (a last warning 2 working days before). rcfworks' recommendation. */
   DEAL_CHAT_SIGNING_WORKING_DAYS: z.coerce.number().int().min(3).max(60).default(10),
-  /* 2S4-FE-07 (owner, 2026-11-19) — Deal Chat's live updates: "on" opens a socket on /api/v1/socket that
-     tells a signed-in browser "this chat changed" (a chat id, never its content), so the chat is read again
-     at once instead of on the next few-second ask. "off": no socket; the web app keeps asking, as before.
-     The web service needs API_PUBLIC_URL to reach it. Every switch: documentation/SponsorX-Switches.md. */
-  DEAL_CHAT_SOCKET: z.enum(["on", "off"]).default("off").transform((v) => v === "on"),
+  /* 2S4-BE-18 (owner, 2026-11-19) — the live socket service, its own Railway service
+     (documentation/SponsorX-Socket-Service.md). All four unset: no live updates; the web app keeps
+     asking every few seconds. PRIVATE_KEY signs connection passes (Ed25519, PEM or one-line base64 PEM;
+     the socket service holds only the public half). PUBLIC_URL is the address a browser connects to,
+     handed out with each pass. INTERNAL_URL is where the API relays notices, over Railway's private
+     network, with PUBLISH_SECRET. Every switch: documentation/SponsorX-Switches.md. */
+  SOCKETSERVICE_PASS_PRIVATE_KEY: z.string().min(1).optional(),
+  SOCKETSERVICE_PUBLIC_URL: z.string().url().optional(),
+  SOCKETSERVICE_INTERNAL_URL: z.string().url().optional(),
+  SOCKETSERVICE_PUBLISH_SECRET: z.string().min(32).optional(),
 });
 
 /* A development default that reached production would make every continuation
