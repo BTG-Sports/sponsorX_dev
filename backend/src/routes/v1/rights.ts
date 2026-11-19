@@ -24,14 +24,19 @@ import {
   ClaimInput,
   ContentRightInput,
   ContributionInput,
+  EditionAssetFileInput,
   EditionAssetInput,
+  EditionContentUploadInput,
   FeaturedAthleteInput,
   RosterInput,
   SubjectConsentInput,
 } from "../../contracts/rights";
 import {
   addEditionAsset,
+  attachEditionAssetFile,
+  editionAssetFileUrl,
   grantRight,
+  presignEditionContentUpload,
   listAssets,
   rightsGap,
   recordSubjectConsent,
@@ -60,6 +65,16 @@ const toDate = (d: string | null | undefined) => (d ? new Date(d) : null);
 
 const newAsset: RequestHandler<{ id: string }> = async (req, res) => {
   res.status(201).json(await addEditionAsset(req.actor!, req.params.id, EditionAssetInput.parse(req.body)));
+};
+/** P9-BE-25 — any format, straight to the private bucket; the save checks it. */
+const contentUpload: RequestHandler<{ id: string }> = async (req, res) => {
+  res.status(201).json(await presignEditionContentUpload(req.actor!, req.params.id, EditionContentUploadInput.parse(req.body)));
+};
+const attachFile: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await attachEditionAssetFile(req.actor!, req.params.id, EditionAssetFileInput.parse(req.body)));
+};
+const fileUrl: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await editionAssetFileUrl(req.actor!, req.params.id));
 };
 const assets: RequestHandler<{ id: string }> = async (req, res) => {
   res.json({ assets: await listAssets(req.actor!, req.params.id) });
@@ -185,7 +200,10 @@ const pools: RequestHandler<{ id: string }> = async (req, res) => {
   res.json({ pools: await schoolPools(req.actor!, req.params.id) });
 };
 
+rightsRouter.post("/editions/:id/assets/uploads", requireActor, contentUpload);
 rightsRouter.post("/editions/:id/assets", requireActor, newAsset);
+rightsRouter.put("/edition-assets/:id/file", requireActor, attachFile);
+rightsRouter.get("/edition-assets/:id/file", requireActor, fileUrl);
 rightsRouter.get("/editions/:id/assets", requireActor, assets);
 rightsRouter.get("/editions/:id/rights-ledger", requireActor, rightsLedger);
 rightsRouter.post("/edition-assets/:id/rights", requireActor, grant);

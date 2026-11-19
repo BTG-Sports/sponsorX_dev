@@ -71,6 +71,8 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
   const { requestProofUpload, markDelivered } = await import("../src/domain/delivery");
   const { presignCreativeUpload, registerCreativeAsset } = await import("../src/domain/deliverable");
   const { presignArtworkUpload, registerArtwork } = await import("../src/domain/edition-artwork");
+  const { presignEditionContentUpload, addEditionAsset } = await import("../src/domain/content-rights");
+  const { createAssignment, presignDraftUpload, submitDraft } = await import("../src/domain/student-assignment");
   const { issueOnboardingToken } = await import("../src/lib/onboarding-token");
   const { issueSponsorRequestToken } = await import("../src/lib/sponsor-request-token");
   const { issuePurposeToken } = await import("../src/lib/purpose-token");
@@ -80,6 +82,9 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
   const athlete = { userId: `pu_athlete_user_${R}`, tenantId: T, roles: ["ATHLETE" as const], sponsorId: null, athleteId: `pu_athlete_${R}`, guardianId: null, propertyId: null };
   const manager = { userId: `pu_pm_user_${R}`, tenantId: T, roles: ["PROPERTY_MGR" as const], sponsorId: null, athleteId: null, guardianId: null, propertyId: `pu_prop_${R}` };
   const sponsorAdmin = { userId: `pu_sp_user_${R}`, tenantId: T, roles: ["SPONSOR_ADMIN" as const], sponsorId: `pu_sponsor_${R}`, athleteId: null, guardianId: null, propertyId: null };
+  const btgAdmin = { userId: `pu_btg_user_${R}`, tenantId: T, roles: ["BTG_ADMIN" as const], sponsorId: null, athleteId: null, guardianId: null, propertyId: null };
+  const advisor = { userId: `pu_adv_user_${R}`, tenantId: T, roles: ["ADVISOR" as const], sponsorId: null, athleteId: null, guardianId: null, propertyId: `pu_prop_${R}` };
+  const student = { userId: `pu_stu_user_${R}`, tenantId: T, roles: ["STUDENT" as const], sponsorId: null, athleteId: null, guardianId: null, propertyId: `pu_prop_${R}`, studentId: `pu_student_${R}` };
 
   async function wipe() {
     const tables = await prisma.$queryRawUnsafe<{ table_name: string }[]>(
@@ -115,7 +120,12 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
       { id: athlete.userId, tenantId: T, clerkId: athlete.userId, email: `pu-athlete-${R}@pu.invalid`, roles: ["ATHLETE"], athleteId: `pu_athlete_${R}` },
       { id: manager.userId, tenantId: T, clerkId: manager.userId, email: `pu-pm-${R}@pu.invalid`, roles: ["PROPERTY_MGR"], propertyId: `pu_prop_${R}` },
       { id: sponsorAdmin.userId, tenantId: T, clerkId: sponsorAdmin.userId, email: `pu-sp-${R}@pu.invalid`, roles: ["SPONSOR_ADMIN"], sponsorId: `pu_sponsor_${R}` },
+      { id: btgAdmin.userId, tenantId: T, clerkId: btgAdmin.userId, email: `pu-btg-${R}@pu.invalid`, roles: ["BTG_ADMIN"] },
+      { id: advisor.userId, tenantId: T, clerkId: advisor.userId, email: `pu-adv-${R}@pu.invalid`, roles: ["ADVISOR"], propertyId: `pu_prop_${R}` },
     ] });
+    /* P9-BE-25 — a student of the school, for a draft in any format. */
+    await prisma.student.create({ data: { id: `pu_student_${R}`, tenantId: T, propertyId: `pu_prop_${R}`, legalName: "PU Student", displayName: "PU S.", ageBand: "18_PLUS", state: "ACTIVE", masthead: ["VIDEO"] } });
+    await prisma.user.create({ data: { id: student.userId, tenantId: T, clerkId: student.userId, email: `pu-stu-${R}@pu.invalid`, roles: ["STUDENT"], propertyId: `pu_prop_${R}`, studentId: `pu_student_${R}` } });
     await prisma.propertyOnboarding.createMany({ data: [
       { id: `pu_onb_draft_${R}`, tenantId: T, orgType: "TEAM", orgName: "PU Applicant", state: "DRAFT" },
       { id: `pu_onb_org_${R}`, tenantId: T, orgType: "SCHOOL", orgName: "PU School", state: "APPROVED", propertyId: `pu_prop_${R}` },
@@ -152,7 +162,7 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
       usageRights: "90 days", dueDate: new Date("2026-12-15"), state: "ACTIVE",
     } });
     await prisma.deliverable.create({ data: { id: `pu_deliverable_${R}`, tenantId: T, orderId: `pu_corder_${R}`, title: "PU post", dueDate: new Date("2026-12-15") } });
-    await prisma.publication.create({ data: { id: `pu_pub_${R}`, tenantId: T, name: "PU Masthead" } });
+    await prisma.publication.create({ data: { id: `pu_pub_${R}`, tenantId: T, name: "PU Masthead", propertyId: `pu_prop_${R}` } });
     await prisma.edition.create({ data: {
       id: `pu_edition_${R}`, tenantId: T, publicationId: `pu_pub_${R}`, label: "PU Edition", closeDate: far, publishTarget: far, thresholdCents: 100000, state: "SELLING",
     } });
@@ -292,6 +302,28 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
       },
       confirm: () => registerArtwork(sponsorAdmin, `pu_slot_${R}`, { r2Key: ctx.artwork! }),
       confirmed: async () => (await prisma.editionAsset.count({ where: { tenantId: T, adSlotId: `pu_slot_${R}`, r2Key: ctx.artwork! } })) === 1,
+    },
+    {
+      name: "edition content, any format (P9-BE-25: saving the piece is its confirm)", type: "video/mp4", bytes: 34_567,
+      grant: async () => {
+        const g = await presignEditionContentUpload(btgAdmin, `pu_edition_${R}`, { contentType: "video/mp4", bytes: 34_567 });
+        ctx.content = g.key;
+        return g.url;
+      },
+      confirm: () => addEditionAsset(btgAdmin, `pu_edition_${R}`, { kind: "VIDEO", title: "PU highlights", sourceKind: "BTG", r2Key: ctx.content! }),
+      confirmed: async () => (await prisma.editionAsset.count({ where: { tenantId: T, r2Key: ctx.content!, fileType: "video/mp4" } })) === 1,
+    },
+    {
+      name: "student draft, any format (P9-BE-24/25: submitting is its confirm)", type: "video/quicktime", bytes: 45_678,
+      grant: async () => {
+        const a = await createAssignment(advisor, `pu_edition_${R}`, { studentId: `pu_student_${R}`, kind: "PHOTO", title: "PU clip", brief: "Film the warm-up." });
+        ctx.assignment = a.id;
+        const g = await presignDraftUpload(student, a.id, "video/quicktime", 45_678);
+        ctx.draft = g.key;
+        return g.url;
+      },
+      confirm: () => submitDraft(student, ctx.assignment!, { r2Key: ctx.draft! }),
+      confirmed: async () => (await prisma.studentAssignment.findUniqueOrThrow({ where: { id: ctx.assignment! }, select: { r2Key: true } })).r2Key === ctx.draft,
     },
   ];
 

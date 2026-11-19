@@ -180,3 +180,21 @@ system should double check before the signature if all is green. as simple as th
   covered by `pol-be-104-property-profile.test.ts` (BTG review now automated, per the owner),
   except the page itself, which is POL-FE-104. Tracker row Done. The Done PR goes to
   main_development and main; the deploy follows once main is green.
+
+## End of day (rcfworks)
+
+- **Deployed today:** 2S4-BE-15/17, POL-BE-102 and POL-BE-103 (release = main = 1d8c34d8).
+  `DEAL_CHAT` is still off.
+- **Waiting to merge:** PR #471 (POL-BE-104, plus POL-BE-102 automation), CI green. After it
+  merges, POL-BE-104 goes to Done with Done PRs to main_development and main, then the deploy.
+- **Backend board:** after #471, no backend task can start. Each of these waits on something
+  outside the code:
+  - P8-OPS-03: a live Stripe event once payments are switched on;
+  - P2-INT-02: Clerk Pro for production;
+  - Wallet passes: parked;
+  - P9-DATA-01: a real sale;
+  - Phase 6: the game, parked.
+- **Stage Progress:** row appended for 2026-11-18. Phase 1 is unchanged at 320 Done, 15.5 days
+  left, because today's work was Phase 2 and Polish.
+- **New standing rule (user):** delete the test database, toolkit and backups once a task's tests
+  pass. Today's 850 MB of left-overs were cleared.
