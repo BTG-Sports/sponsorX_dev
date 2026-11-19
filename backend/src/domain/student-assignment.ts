@@ -40,6 +40,7 @@ import { audit, AUDIT_ACTIONS } from "../db/audit";
 import { env } from "../config/env";
 import { send, type EmailTemplate } from "../lib/email";
 import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, uploadRefusal } from "../lib/storage";
+import { ANY_FILE_MAX_BYTES, anyFileType, downloadDisposition } from "../lib/file-formats";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, scopeOf, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
@@ -82,9 +83,9 @@ const POINT_REASON: Partial<Record<AssignmentKind, Exclude<PointReason, "VIEWS_B
 /** Editions still taking content: before production. */
 const OPEN_EDITION_STATES = ["PLANNING", "SELLING", "CLOSED"];
 
-/** A draft's file: a photo, a layout or a document. */
-export const DRAFT_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"] as const;
-export const DRAFT_MAX_BYTES = 20 * 1024 * 1024;
+/** A draft's file: any format (P9-BE-25, owner 2026-11-19) — a photo, a video,
+ *  a PDF, a design file — up to 2 GB. */
+export const DRAFT_MAX_BYTES = ANY_FILE_MAX_BYTES;
 export const MAX_DRAFT_TEXT = 20_000;
 export const MAX_REVISION_NOTE = 2_000;
 
@@ -363,17 +364,19 @@ function turnRefusal(r: { reviewState: string }): string {
  * assignment's prefix that this grant handed out. Type and size are signed
  * into the PUT.
  */
-export async function presignDraftUpload(actor: Actor, id: string, contentType: string, bytes: number): Promise<{ url: string; key: string }> {
+export async function presignDraftUpload(actor: Actor, id: string, declaredType: string, bytes: number): Promise<{ url: string; key: string; contentType: string }> {
   const row = await ownForWrite(prisma, actor, id);
   if (!canSubmit(row)) throw new AssignmentTurnError(turnRefusal(row));
-  if (!(DRAFT_FILE_TYPES as readonly string[]).includes(contentType)) throw new AssignmentInputError("Upload a JPG, a PNG or a PDF.");
-  if (!Number.isInteger(bytes) || bytes <= 0 || bytes > DRAFT_MAX_BYTES) throw new AssignmentInputError("Keep the file under 20 MB.");
+  const contentType = anyFileType(declaredType);
+  if (!contentType) throw new AssignmentInputError("That file's type can't be read — choose the file again.");
+  if (!Number.isInteger(bytes) || bytes <= 0 || bytes > DRAFT_MAX_BYTES) throw new AssignmentInputError("Keep the file under 2 GB.");
   const key = `${keyPrefix(row.tenantId, row.id)}${randomUUID()}`;
   const url = await presignPrivateUpload(actor, key, contentType, { entity: "StudentAssignment", entityId: row.id }, {
     contentLength: bytes,
     signContentType: true,
   });
-  return { url, key };
+  /* The type to send with the PUT — normalised, so it matches what was signed. */
+  return { url, key, contentType };
 }
 
 /**
@@ -524,6 +527,8 @@ export async function approveAssignment(actor: Actor, id: string): Promise<Assig
       data: {
         tenantId: row.tenantId, editionId: row.editionId, kind: row.kind, title: row.title,
         sourceKind: "STUDENT", studentId: row.studentId, r2Key: row.r2Key,
+        /* P9-BE-25 — the draft's type travels with its file (a photo, a video, a design file). */
+        fileType: row.r2Key ? row.fileType : null,
       },
       select: { id: true },
     });
@@ -596,9 +601,10 @@ export async function assignmentFileUrl(actor: Actor, id: string): Promise<{ url
   assertAllowed(actor, "studentAssignment", "read");
   const row = await prisma.studentAssignment.findFirst({
     where: { AND: [{ id }, whereFor(actor, "studentAssignment", "read")] },
-    select: { id: true, r2Key: true },
+    select: { id: true, r2Key: true, fileType: true },
   });
   if (!row) throw new ForbiddenError("studentAssignment", "read");
   if (!row.r2Key) throw new AssignmentInputError("This piece has no file.");
-  return { url: await presignPrivateDownload(actor, row.r2Key, { entity: "StudentAssignment", entityId: row.id }) };
+  /* P9-BE-25 — any format: one a browser mustn't open in place downloads. */
+  return { url: await presignPrivateDownload(actor, row.r2Key, { entity: "StudentAssignment", entityId: row.id }, undefined, downloadDisposition(row.fileType)) };
 }

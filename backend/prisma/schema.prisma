@@ -2351,6 +2351,13 @@ model EditionAsset {
   athleteId  String?
   /// Private bucket key, when a file exists.
   r2Key      String?
+  /// P9-BE-25 — the file as its upload grant pinned it: any format (owner,
+  /// 2026-11-19), its type, exact size and the name it was uploaded with.
+  /// Null with no file, and on ad artwork (artworkContentType / artworkBytes).
+  /// A student piece carries its draft's type; its size and name stay null.
+  fileType   String?
+  fileBytes  Int?
+  fileName   String?
   /// Set when a sponsor's campaign uses this asset — refused without a
   /// ContentRight granting commercial reuse.
   campaignId String?
