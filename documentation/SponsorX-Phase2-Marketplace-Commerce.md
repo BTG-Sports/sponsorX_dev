@@ -1333,6 +1333,7 @@ On the sponsor's order page:
 - **Depends on:** 2S4-BE-15, 2S4-BE-16
 - **Done when:** A sponsor can talk, pick, offer and negotiate, call the deal off, confirm the amount and sign; Pay shows only after both signatures and says what it waits for before that; works at phone width
 - **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §3
+- **Fix (2026-11-19, from 2S4-BE-18):** these screens were built on the first version's live socket (inside the API at `/api/v1/socket`), which is removed. The live socket is now its own service. The screens still work on their few-second refresh, but they aren't live until **`2S4-FE-10`** lands, and this task isn't Done before it.
 
 ### ⏸ `2S4-FE-08` · Deal Chat on screen: the seller's side
 
@@ -1348,6 +1349,7 @@ After both sign, the seller sees "Signed by both: waiting for the sponsor's paym
 - **Depends on:** 2S4-BE-15, 2S4-BE-16
 - **Done when:** An athlete, a guardian and a team manager can each talk, pick, offer, call off, confirm the amount and sign; a minor without the guardian sees the chat but no commit buttons; works at phone width
 - **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §2, §3, §7
+- **Fix (2026-11-19, from 2S4-BE-18):** these screens were built on the first version's live socket (inside the API at `/api/v1/socket`), which is removed. The live socket is now its own service. The screens still work on their few-second refresh, but they aren't live until **`2S4-FE-10`** lands, and this task isn't Done before it.
 
 ### ⏸ `2S4-FE-09` · Deal Chat on screen: BTG's view
 
@@ -1360,6 +1362,7 @@ For BTG admins:
 - **Depends on:** 2S4-BE-16
 - **Done when:** A BTG admin can open any order's chat read-only and clear the held and reported queue; no other role reaches it
 - **Reference:** [SponsorX-Deal-Chat-Feature.md](SponsorX-Deal-Chat-Feature.md) §6, §7
+- **Fix (2026-11-19, from 2S4-BE-18):** these screens were built on the first version's live socket (inside the API at `/api/v1/socket`), which is removed. The live socket is now its own service. The screens still work on their few-second refresh, but they aren't live until **`2S4-FE-10`** lands, and this task isn't Done before it.
 
 ## Sprint 5 · Payments, ledger & payouts
 
