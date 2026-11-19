@@ -1,59 +1,30 @@
-import { JoinWizard } from "@/components/join-wizard";
+import { redirect } from "next/navigation";
+
+import { JoinStart } from "@/components/join-start";
 import { JoinClose, JoinHero, JoinPath, JoinPromises } from "@/components/join-stage";
 import { StageReveal } from "@/components/packages-fx";
 import { InsideBand } from "@/components/packages-stage";
-import type { ApiRulesWording } from "@/lib/confirmations-live";
 import { rates } from "@/lib/fixtures";
-import type { CollabAgreement } from "@/lib/join-flow";
-
-import { publicApi } from "../onboarding/public-api";
 
 /* --------------------------------------------------------------------------
-   Athlete Application — §11, and §39's front door. P1-ART-07 built in-app:
-   the phone-first progressive wizard (one section per screen, the §4 guardian
-   branch, localStorage drafts, the click-wrap, after-submit state).
+   Athlete Application — §11, and §39's front door: the landing.
 
    Redesigned 2026-09-30 to the landing's and /packages' visual language
-   (join-stage.tsx): the fixed-dark stage, a sticky HUD panel beside the
-   wizard from lg (a compact hero above it on a phone, intro only), the
-   wizard in a chamfered glass panel, then the §5 job types band, the path
-   after submitting, the three promises and the closing panel. The form
-   column never widens — long input rows hurt completion.
+   (join-stage.tsx): the fixed-dark stage, a sticky HUD panel beside a
+   chamfered glass panel from lg (a compact hero above it on a phone), then
+   the §5 job types band, the path after submitting, the three promises and
+   the closing panel.
 
-   Wired (P3-FE-01): submit POSTs the real application through the server
-   action in ./actions.ts. Demo modes stay simulation — ?demo=minor lands on
-   section 1 with an under-18 DOB, ?demo=submitted on the after-submit state
-   with the guardian card, and neither ever reaches the API.
+   POL-FE-115 (2026-11-19): the application itself moved to its own page,
+   /join/apply (app/join/apply, join-wizard.tsx). The glass panel now holds
+   the "start" panel (join-start.tsx): the ten sections, and a button at the
+   top that goes to the application ("Start application", or "Resume —
+   section N of M" when this device has a draft). The closing panel's button
+   goes there too.
 
-   P8-FE-07 — the click-wrap shows the Content Collaboration Agreement in
-   force, read here from GET /public/agreements/collab (v2, approved
-   2026-10-22). Unreachable, the step says so and the application waits.
-
-   P8-FE-03 — the same step shows the rules wording from
-   GET /public/rules-attestation as a second tick box for an adult; its
-   version travels with the application. A minor is told their guardian
-   confirms it instead. Unreachable, the box says so and the application
-   waits, like the agreement. When the API refuses because either wording
-   moved on, the wizard calls router.refresh() and this page re-reads both.
+   The demo links moved with the wizard: ?demo=minor and ?demo=submitted are
+   sent on to /join/apply, so an old link still lands on the same screen.
    -------------------------------------------------------------------------- */
-
-async function collabAgreement(): Promise<CollabAgreement | null> {
-  try {
-    const res = await publicApi("/public/agreements/collab");
-    return res.ok ? ((await res.json()) as CollabAgreement) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function rulesWording(): Promise<ApiRulesWording | null> {
-  try {
-    const res = await publicApi("/public/rules-attestation");
-    return res.ok ? ((await res.json()) as ApiRulesWording) : null;
-  } catch {
-    return null;
-  }
-}
 
 export default async function JoinPage({
   searchParams,
@@ -61,13 +32,12 @@ export default async function JoinPage({
   searchParams: Promise<{ demo?: string }>;
 }) {
   const { demo } = await searchParams;
-  const d = demo === "submitted" ? "submitted" : demo === "minor" ? "minor" : null;
-  const [agreement, rules] = await Promise.all([collabAgreement(), rulesWording()]);
+  if (demo === "submitted" || demo === "minor") redirect(`/join/apply?demo=${demo}`);
 
   return (
     <StageReveal className="sx-stage sx-join relative -mt-[72px] w-full overflow-x-clip text-on-media">
       <JoinHero>
-        <JoinWizard demo={d} agreement={agreement} rules={rules} />
+        <JoinStart />
       </JoinHero>
       <InsideBand label="Jobs on the network" items={rates.map((r) => r.name)} />
       <JoinPath />

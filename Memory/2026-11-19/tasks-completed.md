@@ -225,3 +225,55 @@
 - **Test database:** run on the portable Postgres, then stopped and deleted. Disk was down to 252 MB.
   The zonky archive unpacks three 55 MB copies of `libicudata`, so link two of them to the third
   next time.
+## POL-FE-102 · the sponsor's Account page (HeckerCreatives) — Code review
+
+- **What:** `/sponsor/account`, "Account details" under the sponsor's Account group: the company's details and the signed-in person's own, on one page (polish.md §102; backend `POL-BE-102`).
+- **Layout:** the company on top (logo, name, categories, "Change name or categories", and one notice when a change waits for BTG or was decided); four equal cards with their Edit in a pop-up (Company details, Billing contact, Your details, Sign-in); Notifications.
+- **Saved at once:** logo, website, address, billing contact, the person's name and job title. **Checked first:** the company name and categories (in effect at once when the API's checks pass, else "Waiting for BTG" with the reasons).
+- **Sign-in is Clerk's:** "Manage sign-in" opens Clerk's own account screen.
+- **A Sponsor Viewer** reads the same page with no Edit button.
+- **Decision made here: Notifications lists nothing for a sponsor.** Every email kind that can be muted today is an athlete's or a student's, so the section says there is nothing to turn off instead of showing seven switches for emails a sponsor never gets. For rcfworks: if sponsors should be able to mute something (order reminders, say), it needs a mutable event on the backend; `SPONSOR_EMAIL_EVENTS` is the list on the frontend.
+- **Checked:** `tsc` and eslint clean; 2,501 / 2,501 frontend tests (20 new). Walked live as a Sponsor Admin, a Sponsor Viewer and BTG; the QA sponsor (`Bluefin Tutoring`) was put back, though its change history keeps the walk's rows (two that took effect, one rejected), so its page shows "BTG didn't approve your change".
+- **Seen once, not reproduced:** a React hydration warning in the console on one reload during the walk. Plain loads, reloads with the pointer over the page and opening Clerk's screen were all clean afterwards.
+- **Also seen:** the API dev server (`--watch`) restarted several times on its own during two earlier walk attempts, which failed for that reason; it did not recur and no backend file had changed. Cause not found.
+- **Tracker:** Polish row `POL-FE-102`, Ready to Code review, HeckerCreatives, started 2026-11-19. Branch `feat/POL-FE-102-sponsor-account`, not committed.
+
+## POL-FE-114 · the sponsor brief as a full-screen wizard (HeckerCreatives) — Code review
+
+- **Why:** owner, 2026-11-19: "big visual redesign for /brief, don't make it look like a ordinary landing page, make this a step by step process wizard that had its own page add an animation + wow factor + awwwaaaard, the current design right now is full of confusing parts, we don't need it, it must be understandable by a human". Logged as polish item 114 (`documentation/polish.md`), which has the full description.
+- **What:** `/brief` is its own page now. It moved out of the `(public)` route group to `app/brief`, like `/login`, so the site's header and footer are not on it. The address and its `?package=`, `?new=1` and `?demo=submitted` are unchanged.
+- **Six screens, one question each:** Goal, Business, Budget, Where, Contact, Review and send. Each has one thing that must be answered and at most one optional follow-up that opens once it is. The review shows the whole brief on one card with Edit on every part; Send to BTG is only there.
+- **Removed as confusing:** the marketing panel, the business-type dropdown (now choices, everyday kinds first), the "Starting package" dropdown (a package picked on the packages page shows as one line with Remove), "Required" as an error, and the timeline on the sent screen that repeated the to-dos.
+- **Motion:** in `app/brief/brief.css` and `components/brief-fx.tsx`. Lights that travel per step, a rolling step number, word-by-word headings, choices that light toward the pointer, a review card that leans, confetti on sending. Reduced motion shows it still.
+- **Not changed:** the answers, the draft's shape and storage key, the body sent to `POST /public/inquiries`, the proof upload and the status page. No backend change.
+- **Decisions made here:**
+  - No design round first. The owner's message named the direction, so it was built and walked; the polish entry lists what was chosen.
+  - The optional answers were kept (a good result, when to start, who to reach, phone), each as a follow-up marked Optional, not dropped.
+  - "When do you want to start?" is four choices now, not free text. A draft holding older free text keeps it and shows it on the review.
+  - An email needs a dot after the @.
+- **Checked:** 2,513 / 2,513 frontend tests, eslint clean. Walked on the running dev server at 1440, 1180 and 390 wide and with reduced motion: no console errors, no sideways scroll.
+- **Not checked:** a real send (the walk stopped at the review so no inquiry or Zoho Lead was made), and `npm run build` (the owner's `next dev` is live). `tsc` shows two errors in the generated `.next/types/validator.ts`, which still names the old route path; a build regenerates it.
+- **Found, not fixed (for rcfworks and the owner):** the packages page links to `/brief?package=<the live catalogue's key>` (`TEST_DRIVE`, `COMMUNITY_CAMPAIGN`, `NEXT-AD-FULL` …), but the brief only knows the fixture ids `pk1`…`pk6`. A package picked there has been dropped since the catalogue went live, and BTG's copy says "Package: Not sure yet". Fixing it means resolving the key against `GET /public/catalogue/packages` and keeping the name in the draft, which changes what is sent.
+- **Tracker:** Polish row `POL-FE-114`, new, Code review, HeckerCreatives, started 2026-11-19. On branch `feat/POL-FE-102-sponsor-account` with that task's work, not committed.
+- **Renumbered the same day:** this was logged as item 110 / `POL-FE-110`. A fetch then showed rcfworks had taken 110 to 113 for the upload audit (#481, #483), so it is 114 in `polish.md`, the tracker, this log and the code comments. Nothing had been pushed under the old number.
+
+## POL-FE-115 · the athlete application on its own page (HeckerCreatives) — Code review
+
+- **Why:** owner, 2026-11-19, after the new `/brief`: "same redesign for /join atheletes the landing page part is good but maybe add a button wherein it would go to the next page for the sign up". Polish item 115 has the full description.
+- **What:**
+  - **`/join` keeps its landing.** The glass panel beside the hero used to hold the whole form. It now holds a start panel: the list of the ten sections, with one button at the top, **Start application** (or **Resume — section N of M** with **Start over**, or **See your application** once sent). The closing panel's button goes to the same place.
+  - **`/join/apply` is the application,** on its own page outside the site's header and footer. One section per screen, the steps down the left from 1024px, **Save and finish later** at the top right. Same sections, fields, guardian step, ticks and submit as before.
+- **One frame for both wizards:** `components/focus-wizard.tsx` holds the page around the questions (the ground, top bar, progress line, list of steps, the typed-answer line). `/brief` was moved onto it and walked again. `app/brief/brief.css` takes its colour from one variable: orange for the brief, blue with `data-tone="athlete"`.
+- **Also changed:**
+  - Answers are kept as they are typed, not only on "Save and continue".
+  - Messages name the missing answer ("Add date of birth") in place of "Required".
+  - An email needs a dot after the @, for the athlete and the guardian.
+  - `/join?demo=minor` and `/join?demo=submitted` are sent on to `/join/apply`.
+  - A skeleton in the page's shape while `/join/apply` reads the agreement and the rules wording.
+- **Help:** "How do I apply" (`lib/help/athlete.ts`) follows the move, and its pictures were re-captured.
+- **Found and fixed on the way:** `scripts/help-shots/capture.mjs` photographed public pages while the boot screen was still up, so that article's one picture had been the loading screen since 2026-11-16. The script now waits for the boot screen to go. Only this article has pictures of public pages.
+- **Checked:** 2,524 / 2,524 frontend tests (11 new in `tests/join-apply.test.ts`), tsc and eslint clean. Walked on the running dev server at 1440, 1180 and 390 wide and with reduced motion, both `/join` and `/brief`: no console errors, no sideways scroll.
+- **Not checked:** a real submission (the walk stopped with Submit armed, so nothing was filed), and `npm run build` (the owner's `next dev` is live).
+- **Tracker:** Polish row `POL-FE-115`, new, Code review, HeckerCreatives, started 2026-11-19. Not committed; on branch `feat/POL-FE-102-sponsor-account` with POL-FE-102 and POL-FE-114.
+- **A real submit, before the pull request:** one brief and one application were sent through the new screens against the local API (no Zoho or email keys are set locally, so only the local database was written). Both reached their sent screens; the application showed its reference and the live checklist, and the brief's status page answered. Each button was clicked twice in the same instant and exactly one row was filed (`Inquiry` "QA Walk Cafe mwnbifjg", `Athlete` qa.walk+join-mwnbifjg@example.com; both left in the local database).
+- **Merged with upstream for the pull request:** `origin/main_development` was 9 commits ahead and had changed `documentation/polish.md` (items 110 to 113), this log and the tracker. All three were merged by hand: rcfworks' entries first, then these. The tracker is rcfworks' copy with rows `POL-FE-102` (status), `POL-FE-114` and `POL-FE-115` (new) put back.
