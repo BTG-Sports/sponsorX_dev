@@ -30,6 +30,8 @@ vi.mock("../src/lib/storage", async (original) => ({
   ...(await original<typeof import("../src/lib/storage")>()),
   presignPublicUpload: async (key: string) => `https://upload.invalid/${key}`,
   publicObjectHead: async (key: string) => (key.includes("missing") ? null : { bytes: 1000, contentType: "image/jpeg" }),
+  /* POL-BE-110 — the real check is driven in public-upload-pins.test.ts; here a key arrives unless it says "missing". */
+  checkPublicUpload: async (key: string) => (key.includes("missing") ? { ok: false, problem: "missing" } : { ok: true, bytes: 1000, contentType: "image/png" }),
 }));
 
 const rules = await import("../src/domain/home-featured-rules");

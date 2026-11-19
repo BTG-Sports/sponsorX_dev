@@ -492,3 +492,30 @@ export async function deletePublicObject(key: string): Promise<void> {
   assertSafeKey(key);
   await s3.send(new DeleteObjectCommand({ Bucket: BUCKETS.public, Key: key }));
 }
+
+/**
+ * POL-BE-110 — the confirm step of a PUBLIC upload (a logo, a profile
+ * photo): before a record points the world at a file, it must have arrived,
+ * be one of the types asked for, and fit the size. The PUT was signed for
+ * one type and size, so a bucket that checks signatures stores nothing else;
+ * this is the second half, for whatever got there anyway. A wrong file is
+ * DELETED at once — the public bucket serves it to anyone who has the key.
+ * Nothing is handed to anyone, so nothing is audited; the caller refuses.
+ */
+export async function checkPublicUpload(
+  key: string,
+  expected: { types: readonly string[]; maxBytes: number },
+): Promise<{ ok: true; bytes: number; contentType: string } | { ok: false; problem: "missing" | "type" | "size" }> {
+  const head = await publicObjectHead(key);
+  if (!head) return { ok: false, problem: "missing" };
+  const type = mediaType(head.contentType);
+  if (!expected.types.map(mediaType).includes(type)) {
+    await deletePublicObject(key);
+    return { ok: false, problem: "type" };
+  }
+  if (head.bytes < 1 || head.bytes > expected.maxBytes) {
+    await deletePublicObject(key);
+    return { ok: false, problem: "size" };
+  }
+  return { ok: true, bytes: head.bytes, contentType: type };
+}
