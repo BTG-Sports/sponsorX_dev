@@ -71,27 +71,32 @@
   "h": 800,
   "spot": {
    "x": 60.64,
-   "y": 46.78,
+   "y": 38.38,
    "w": 30.78,
    "h": 6.5
   },
-  "capturedAt": "2026-11-16"
+  "capturedAt": "2026-11-19"
  },
  "athlete/apply-and-approval-2": {
-  "src": "/help/athlete/apply-and-approval-1.webp",
-  "path": "/join",
+  "src": "/help/athlete/apply-and-approval-2.webp",
+  "path": "/join/apply",
   "w": 1280,
   "h": 800,
-  "spot": null,
-  "capturedAt": "2026-11-16"
+  "spot": {
+   "x": 30.47,
+   "y": 85.75,
+   "w": 19.53,
+   "h": 6.5
+  },
+  "capturedAt": "2026-11-19"
  },
  "athlete/apply-and-approval-3": {
-  "src": "/help/athlete/apply-and-approval-1.webp",
-  "path": "/join",
+  "src": "/help/athlete/apply-and-approval-2.webp",
+  "path": "/join/apply",
   "w": 1280,
   "h": 800,
   "spot": null,
-  "capturedAt": "2026-11-16"
+  "capturedAt": "2026-11-19"
  },
  "athlete/approve-order-1": {
   "src": "/help/athlete/sales-overview-1.webp",
