@@ -1,12 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
 import { COLLAB_WORDS, RULES_WORDS, wordingMoved, type ApiRulesWording } from "@/lib/confirmations-live";
 import {
   DRAFT_KEY,
   NEVER_ASKED,
-  SECTIONS,
   draftToApplication,
   emptyDraft,
   isMinor,
@@ -15,43 +14,62 @@ import {
   validateSection,
   visibleSections,
   type CollabAgreement,
-  type FieldDef,
   type JoinDraft,
 } from "@/lib/join-flow";
 import { submitJoinApplication } from "@/app/(public)/join/actions";
+import { Confetti, Words, reducedMotion } from "@/components/brief-fx";
+import { FocusRail, FocusShell, LineField, delay } from "@/components/focus-wizard";
 import { JoinAgreementStep } from "./join-agreement-step";
 import { JoinRestrictionsStep } from "./join-restrictions-step";
 import { JoinSubmitted } from "./join-submitted";
 
 /* --------------------------------------------------------------------------
-   The /join wizard island (P1-ART-07, wired by P3-FE-01). intro → steps →
-   submitted, one §11 section per screen, the §4 guardian branch inserted live
-   by the DOB on section 1, drafts in localStorage after every commit ("saved
-   after every section" — actually true). Submit POSTs the real application
-   through the server action in app/(public)/join/actions.ts; only where the
-   answers go changed, exactly as this header always promised.
+   The athlete application — the whole /join/apply page (P1-ART-07, wired by
+   P3-FE-01; POL-FE-115, 2026-11-19).
 
-   Motion rides the sx-join-* system in globals.css; direction is a CSS var;
-   focus moves to the step heading on every transition so screen readers
-   track the step change.
+   It used to sit inside the /join landing, in a 460px panel beside the hero.
+   The landing keeps its hero and now has a button that comes here
+   (join-start.tsx); this page is nothing but the application, drawn on the
+   same full-screen frame as the sponsor brief (focus-wizard.tsx, athlete
+   blue): one §11 section per screen, the steps down the left from lg, a
+   progress line and "Step 3 of 9" below it.
+
+   The sections, their fields, the §4 guardian branch (inserted live by the
+   date of birth on step 1) and what is sent are unchanged (join-flow.ts).
+   Every edit is kept on this device as it is made, so "Save and finish
+   later" is simply the way out. Submit POSTs the real application through
+   the server action in app/(public)/join/actions.ts; the draft survives
+   every failure.
+
+   A finished step can be opened from the list. Going forward that way
+   checks the step being left first, the same as "Save and continue".
 
    P8-FE-03 / P8-FE-07 — the last step carries two wordings read by the page
    (the agreement and, for an adult, the rules). Each tick counts only for
    the version on screen. When the API refuses because a wording moved on
    (confirmations-live.ts: wordingMoved), the tick is cleared, the page is
    refreshed so the new wording comes down, and the step asks again.
+
+   Demo modes never reach the API: ?demo=minor lands on step 1 with an
+   under-18 date of birth, ?demo=submitted on the after-submit state.
    -------------------------------------------------------------------------- */
 
 type Demo = "submitted" | "minor" | null;
 
-/* The stage's primary button (join-stage.tsx / packages-stage.tsx): the
-   brand gradient with its glow. Keeps the dark CTA ink — white on #2e9bf5
-   is 2.95:1 (P1-QA-02), and this is the button the whole form hangs on. */
-const CTA =
-  "sx-join-sheen min-h-12 w-full rounded-xl bg-gradient-to-r from-[#63b4f8] to-[#2e9bf5] px-5 py-3.5 text-base font-semibold text-cta-ink shadow-[0_0_24px_-2px_rgba(46,155,245,.55)] transition-[box-shadow,transform,opacity] hover:-translate-y-0.5 hover:shadow-[0_0_34px_rgba(46,155,245,.75)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none disabled:hover:translate-y-0";
+const STEP_MS = 200;
 
-/* Two-digit HUD numerals: 01, 02 … */
-const pad = (n: number) => String(n).padStart(2, "0");
+/* What a browser may fill in by itself. The guardian's fields are never
+   filled: the browser would offer the athlete's own name and email. */
+const AUTOCOMPLETE: Record<string, string> = {
+  firstName: "given-name",
+  lastName: "family-name",
+  dob: "bday",
+  email: "email",
+  phone: "tel",
+  city: "address-level2",
+  region: "address-level1",
+  country: "country-name",
+};
 
 function seed(demo: Demo): JoinDraft {
   const d = emptyDraft();
@@ -101,652 +119,504 @@ export function JoinWizard({
     () => null,
   );
   const [touched, setTouched] = useState<JoinDraft | null>(null);
-  const draft: JoinDraft =
-    touched ?? (demo ? seed(demo) : (parseDraft(storedRaw) ?? emptyDraft()));
-  const [dir, setDir] = useState<1 | -1>(1);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [save, setSave] = useState<"idle" | "saving" | "saved">("idle");
-  const [reviewing, setReviewing] = useState(false);
-  const [editingRestrictions, setEditingRestrictions] = useState(false);
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  const stepRef = useRef<HTMLDivElement>(null);
-
-  const setDraft = (next: JoinDraft) => setTouched(next);
-
-  /* Persist + saved-indicator theatre. */
-  const persist = (next: JoinDraft) => {
-    setDraft(next);
-    if (!demo) {
-      try {
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(next));
-      } catch {
-        /* private mode — the in-memory draft still works this session */
-      }
-    }
-    setSave("saving");
-    window.setTimeout(() => setSave("saved"), 350);
-  };
+  const draft: JoinDraft = touched ?? (demo ? seed(demo) : (parseDraft(storedRaw) ?? emptyDraft()));
+  const sent = draft.phase === "submitted";
 
   const minor = isMinor(draft.answers.dob ?? "");
   const sections = visibleSections(minor);
-  const section = sections[Math.min(draft.step, sections.length - 1)];
-  const restrictionsIdx = sections.findIndex((s) => s.id === "restrictions");
-  const pastEnforced = draft.step > restrictionsIdx;
+  const step = Math.max(0, Math.min(Number.isInteger(draft.step) ? draft.step : 0, sections.length - 1));
+  const section = sections[step];
+  const n = step + 1;
+  const total = sections.length;
 
-  /* The page stage shows its phone hero on the intro only (globals.css,
-     .sx-join[data-phase]) — DOM state React never owns, like the glow. Declared first:
-     effects run in order, and the scroll below must measure the page
-     without the hero. */
-  useEffect(() => {
-    document.querySelector<HTMLElement>(".sx-join")?.setAttribute("data-phase", draft.phase);
-  }, [draft.phase]);
-
-  /* Focus the heading on step / phase changes. The intro is a long list, so
-     "Start application" sits a screen below the panel's top: bring the
-     panel back up when a change leaves its top above the viewport or under
-     the 72px header (a no-op on first render, where it never is). */
-  useEffect(() => {
-    if (draft.phase === "steps") headingRef.current?.focus({ preventScroll: true });
-    const panel = document.getElementById("apply");
-    if (panel && panel.getBoundingClientRect().top < 72) {
-      const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      panel.scrollIntoView({ block: "start", behavior: still ? "auto" : "smooth" });
-    }
-  }, [draft.step, draft.phase]);
-
-  /* Glow crossfade: the ::before lives on the page-level .sx-join-stage
-     ancestor, so write the var there directly (reveal.tsx precedent). */
-  useEffect(() => {
-    document
-      .querySelector<HTMLElement>(".sx-join-stage")
-      ?.style.setProperty(
-        "--sx-join-glow-b",
-        draft.phase === "steps" && pastEnforced ? "1" : "0",
-      );
-  }, [draft.phase, pastEnforced]);
-
-  const setAnswer = (key: string, value: string) =>
-    setDraft({ ...draft, answers: { ...draft.answers, [key]: value } });
-
-  /* P3-FE-01 — the real submission. The action runs on the server (API_URL
-     never reaches the browser); success carries the reference and intake
-     token into the draft, failure lands field messages on the inputs they
-     mean and jumps back to the earliest offending step. The draft survives
-     every failure — nothing typed is ever lost to a network blip. */
+  const [dir, setDir] = useState<1 | -1>(1);
+  const [leaving, setLeaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  /* The furthest step opened in this visit; the list lets you back to any of them. */
+  const [furthest, setFurthest] = useState(0);
+  const reached = Math.max(furthest, step);
+  const [reviewing, setReviewing] = useState(false);
+  const [editingRestrictions, setEditingRestrictions] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitMsgs, setSubmitMsgs] = useState<string[]>([]);
+  /* A wording moved on under the applicant: not an error of theirs, a note
+     above the step asking them to read and tick the new text. */
+  const [notice, setNotice] = useState<string | null>(null);
+  /* Only an application sent in this visit gets the burst. */
+  const [celebrate, setCelebrate] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const stepRef = useRef<HTMLDivElement>(null);
+  /* A step change or a submit in flight. Refs, not state: a second click in
+     the same tick must see the first (a state flag is still false there). */
+  const moving = useRef(false);
+  const posting = useRef(false);
+  const landed = useRef(false);
+
+  /* Every edit is kept on this device as it is made. Being on this page is
+     being in the steps, so a draft that had not started yet now has. */
+  const write = (next: JoinDraft) => {
+    const out: JoinDraft = next.phase === "intro" ? { ...next, phase: "steps" } : next;
+    setTouched(out);
+    if (demo) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(out));
+    } catch {
+      /* private mode — the in-memory draft still works this session */
+    }
+  };
+  const setAnswer = (key: string, value: string) => {
+    if (errors[key]) setErrors(Object.fromEntries(Object.entries(errors).filter(([k]) => k !== key)));
+    write({ ...draft, answers: { ...draft.answers, [key]: value } });
+  };
+
   /* The tick counts only for the agreement on screen; a demo never reaches the API. */
   const acceptedCurrent = draft.accepted && (demo !== null || (agreement !== null && draft.acceptedAgreementId === agreement.agreementId));
   /* P8-FE-03 — likewise the rules tick, for the wording on screen. A minor
      has no box: their guardian confirms on the set-up page. */
   const rulesCurrent = Boolean(draft.rulesAccepted) && (demo !== null || rulesTickCounts(draft, rules));
-  const [submitMsgs, setSubmitMsgs] = useState<string[]>([]);
-  /* A wording moved on under the applicant: not an error of theirs, a note
-     above the step asking them to read and tick the new text. */
-  const [notice, setNotice] = useState<string | null>(null);
-
-  const submit = async () => {
-    /* Demo renders never reach the API — a shared ?demo=minor link walked to
-       the end would otherwise file a genuine application full of fixture
-       names. Simulate the success path locally instead. */
-    if (demo) {
-      persist({ ...draft, phase: "submitted", submittedAt: new Date().toISOString() });
-      return;
-    }
-    setSubmitting(true);
-    setSubmitMsgs([]);
-    setNotice(null);
-    /* P8-FE-07 — the agreement ticked travels with the application, so the
-       acceptance is recorded with the text's fingerprint (P8-BE-04).
-       P8-FE-03 — and, for an adult, the rules wording version they confirmed
-       (draftToApplication adds it; never for a minor). */
-    const result = await submitJoinApplication({
-      ...draftToApplication(draft, rules),
-      ...(agreement && acceptedCurrent ? { agreement: { agreementId: agreement.agreementId, bodyHashShown: agreement.bodyHash } } : {}),
-    });
-    setSubmitting(false);
-    if (result.ok) {
-      persist({
-        ...draft,
-        phase: "submitted",
-        submittedAt: new Date().toISOString(),
-        refId: result.id,
-        intakeToken: result.token,
-      });
-      return;
-    }
-    /* A wording moved on since the page loaded: clear that tick, pull the
-       current text down (the page re-reads both on refresh), and ask again
-       on the agreement step. Nothing typed is lost — the draft stays. */
-    const moved = result.status !== undefined ? wordingMoved(result.status, { error: { code: result.code, message: result.messages.join(" ") } }) : null;
-    if (moved) {
-      const agreementStep = sections.findIndex((s) => s.kind === "agreement");
-      persist(
-        moved === "rules"
-          ? { ...draft, rulesAccepted: false, rulesVersion: undefined, step: agreementStep }
-          : { ...draft, accepted: false, acceptedAgreementId: undefined, step: agreementStep },
-      );
-      setNotice(moved === "rules" ? RULES_WORDS.stale : COLLAB_WORDS.changed);
-      router.refresh();
-      return;
-    }
-    setSubmitMsgs(result.messages);
-    if (Object.keys(result.fields).length > 0) {
-      setErrors(result.fields);
-      const idx = sections.findIndex((s) =>
-        s.fields.some((f) => result.fields[f.key]),
-      );
-      if (idx >= 0 && idx !== draft.step) {
-        setDir(-1);
-        persist({ ...draft, step: idx });
-      }
-    }
-  };
+  /* An adult's application confirms their own rules too; a minor's needs
+     only the agreement tick (the guardian's page asks about the rules). */
+  const ticked = acceptedCurrent && (minor || rulesCurrent);
+  const armed = section.kind !== "agreement" || ticked;
 
   /* Replace only this section's marks; API-reported errors on sections the
      user hasn't revisited yet must survive navigation, or a failed submit's
      guidance evaporates one step at a time. */
   const mergeErrors = (errs: Record<string, string>) =>
     setErrors((prev) => ({
-      ...Object.fromEntries(
-        Object.entries(prev).filter(
-          ([key]) => !section.fields.some((f) => f.key === key),
-        ),
-      ),
+      ...Object.fromEntries(Object.entries(prev).filter(([key]) => !section.fields.some((f) => f.key === key))),
       ...errs,
     }));
 
-  const goNext = () => {
+  /* Checks the step on screen, marks what is missing and goes to the first gap. */
+  const passes = () => {
     const errs = validateSection(section, draft.answers);
     mergeErrors(errs);
-    if (Object.keys(errs).length > 0) {
-      const first = section.fields.find((f) => errs[f.key]);
-      if (first)
-        stepRef.current
-          ?.querySelector<HTMLInputElement>(`[name="${first.key}"]`)
-          ?.focus();
+    const first = section.fields.find((f) => errs[f.key]);
+    if (first) stepRef.current?.querySelector<HTMLElement>(`[data-field="${first.key}"]`)?.focus();
+    return Object.keys(errs).length === 0;
+  };
+
+  /* The step leaves, then the next one arrives. While it leaves it is inert,
+     so nothing typed in those 200ms is lost to the step change. */
+  const go = (to: number) => {
+    if (moving.current || to === step) return;
+    moving.current = true;
+    setDir(to > step ? 1 : -1);
+    setLeaving(true);
+    window.setTimeout(
+      () => {
+        write({ ...draft, step: to });
+        setFurthest((f) => Math.max(f, to, step));
+        setLeaving(false);
+        moving.current = false;
+      },
+      reducedMotion() ? 0 : STEP_MS,
+    );
+  };
+
+  /* P3-FE-01 — the real submission. The action runs on the server (API_URL
+     never reaches the browser); success carries the reference and intake
+     token into the draft, failure lands field messages on the inputs they
+     mean and jumps back to the earliest offending step. The draft survives
+     every failure — nothing typed is ever lost to a network blip. */
+  const submit = async () => {
+    if (posting.current) return;
+    /* Demo renders never reach the API — a shared ?demo=minor link walked to
+       the end would otherwise file a genuine application full of fixture
+       names. Simulate the success path locally instead. */
+    if (demo) {
+      write({ ...draft, phase: "submitted", submittedAt: new Date().toISOString() });
       return;
     }
-    setDir(1);
-    if (section.kind === "agreement") {
-      void submit();
-    } else {
-      persist({ ...draft, step: draft.step + 1 });
+    posting.current = true;
+    setSubmitting(true);
+    setSubmitMsgs([]);
+    setNotice(null);
+    try {
+      /* P8-FE-07 — the agreement ticked travels with the application, so the
+         acceptance is recorded with the text's fingerprint (P8-BE-04).
+         P8-FE-03 — and, for an adult, the rules wording version they confirmed
+         (draftToApplication adds it; never for a minor). */
+      const result = await submitJoinApplication({
+        ...draftToApplication(draft, rules),
+        ...(agreement && acceptedCurrent ? { agreement: { agreementId: agreement.agreementId, bodyHashShown: agreement.bodyHash } } : {}),
+      });
+      if (result.ok) {
+        setCelebrate(true);
+        write({ ...draft, phase: "submitted", submittedAt: new Date().toISOString(), refId: result.id, intakeToken: result.token });
+        window.scrollTo({ top: 0 });
+        return;
+      }
+      /* A wording moved on since the page loaded: clear that tick, pull the
+         current text down (the page re-reads both on refresh), and ask again
+         on the agreement step. Nothing typed is lost — the draft stays. */
+      const moved = result.status !== undefined ? wordingMoved(result.status, { error: { code: result.code, message: result.messages.join(" ") } }) : null;
+      if (moved) {
+        const agreementStep = sections.findIndex((s) => s.kind === "agreement");
+        write(
+          moved === "rules"
+            ? { ...draft, rulesAccepted: false, rulesVersion: undefined, step: agreementStep }
+            : { ...draft, accepted: false, acceptedAgreementId: undefined, step: agreementStep },
+        );
+        setNotice(moved === "rules" ? RULES_WORDS.stale : COLLAB_WORDS.changed);
+        router.refresh();
+        return;
+      }
+      setSubmitMsgs(result.messages);
+      if (Object.keys(result.fields).length > 0) {
+        setErrors(result.fields);
+        const idx = sections.findIndex((s) => s.fields.some((f) => result.fields[f.key]));
+        if (idx >= 0 && idx !== step) {
+          setDir(-1);
+          write({ ...draft, step: idx });
+        }
+      }
+    } catch {
+      setSubmitMsgs(["Something went wrong and the application was not sent. Your answers are saved. Try again."]);
+    } finally {
+      posting.current = false;
+      setSubmitting(false);
     }
   };
 
-  const goBack = () => {
-    mergeErrors({});
-    setDir(-1);
-    if (draft.step === 0) persist({ ...draft, phase: "intro" });
-    else persist({ ...draft, step: draft.step - 1 });
+  const goNext = () => {
+    if (moving.current || !passes()) return;
+    if (section.kind === "agreement") {
+      if (armed) void submit();
+      return;
+    }
+    go(step + 1);
   };
 
-  /* Leaving the steps clears the marks — otherwise a failed submit's red
-     errors and banner survive "finish later"/"start over" and decorate a
-     pristine section 1. */
-  const finishLater = () => {
-    setErrors({});
-    setSubmitMsgs([]);
-    setNotice(null);
-    persist({ ...draft, phase: "intro" });
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    goNext();
   };
 
-  const startOrResume = () => {
-    setDir(1);
-    persist({ ...draft, phase: "steps" });
-  };
-
-  const startOver = () => {
-    setDir(1);
-    setErrors({});
-    setSubmitMsgs([]);
-    setNotice(null);
-    persist({ ...emptyDraft(), phase: "steps" });
-  };
+  /* A new step takes the focus on its heading, so a screen reader reads it.
+     Not on arrival: the page's first focus is the visitor's. */
+  useEffect(() => {
+    if (!landed.current) {
+      landed.current = true;
+      return;
+    }
+    if (!sent) headingRef.current?.focus({ preventScroll: true });
+    window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
+  }, [step, sent]);
 
   /* ------------------------------------------------------------ submitted */
-  if (draft.phase === "submitted") {
-    /* Restrictions edit in place — deliberately NOT re-entering the step flow.
-       That path used to end at "Submit application", which POSTed a second,
-       duplicate application (restrictions aren't even part of the intake
-       payload). Edits persist with the local draft; BTG confirms restrictions
-       during review either way. */
-    if (editingRestrictions) {
-      return (
-        <div className="px-6 py-10">
-          <button
-            type="button"
-            onClick={() => setEditingRestrictions(false)}
-            className="flex min-h-11 items-center gap-1.5 text-sm text-muted transition-colors hover:text-text"
-          >
-            <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 3.5L5.5 8l4.5 4.5" />
-            </svg>
-            Back
-          </button>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight">
-            Restrictions &amp; conflicts
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            Changes save with your application on this device — nothing is
-            re-submitted. BTG confirms restrictions during review.
-          </p>
-          <div className="mt-6">
-            <JoinRestrictionsStep
-              deals={draft.deals}
-              excluded={draft.excluded}
-              onDealsChange={(deals) => persist({ ...draft, deals })}
-              onExcludedChange={(excluded) => persist({ ...draft, excluded })}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => setEditingRestrictions(false)}
-            className={`mt-8 ${CTA}`}
-          >
-            Done — back to your application
-          </button>
-        </div>
-      );
-    }
-    if (reviewing) {
-      return (
-        <div className="px-6 py-10">
-          <button
-            type="button"
-            onClick={() => setReviewing(false)}
-            className="flex min-h-11 items-center gap-1.5 text-sm text-muted transition-colors hover:text-text"
-          >
-            <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 3.5L5.5 8l4.5 4.5" />
-            </svg>
-            Back
-          </button>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight">Your answers</h1>
-          <p className="mt-1 text-sm text-muted">Read-only — the application is with BTG.</p>
-          <div className="mt-6 space-y-6">
-            {sections
-              .filter((s) => s.fields.length > 0)
-              .map((s) => (
-                <div key={s.id} className="rounded-xl border border-line bg-surface-2 p-4">
-                  <h2 className="text-sm font-semibold">{s.title}</h2>
-                  <dl className="mt-3 space-y-2">
-                    {s.fields.map((f) => (
-                      <div key={f.key} className="flex justify-between gap-4 text-sm">
-                        <dt className="text-muted">{f.label}</dt>
-                        <dd className="text-right text-text">
-                          {(draft.answers[f.key] ?? "").trim() || "—"}
-                        </dd>
-                      </div>
+  if (sent) {
+    return (
+      <FocusShell
+        tone="athlete"
+        step={step}
+        count={total}
+        done
+        progress={1}
+        progressLabel="Application progress"
+        progressText="Application submitted"
+        exit={{ href: "/", label: "Back to site" }}
+      >
+        <main className="relative mx-auto w-full max-w-2xl flex-1 px-5 pb-16 pt-8 sm:px-8 lg:pt-12">
+          {celebrate && <Confetti />}
+          {/* Restrictions edit in place — deliberately NOT re-entering the step flow.
+              That path used to end at "Submit application", which POSTed a second,
+              duplicate application (restrictions aren't even part of the intake
+              payload). Edits persist with the local draft; BTG confirms restrictions
+              during review either way. */}
+          {editingRestrictions ? (
+            <>
+              <BackLink onClick={() => setEditingRestrictions(false)} />
+              <h1 className="mt-4 text-3xl font-semibold tracking-tight">Restrictions &amp; conflicts</h1>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                Changes save with your application on this device. Nothing is sent again. BTG confirms restrictions during review.
+              </p>
+              <div className="mt-6">
+                <JoinRestrictionsStep
+                  deals={draft.deals}
+                  excluded={draft.excluded}
+                  onDealsChange={(deals) => write({ ...draft, deals })}
+                  onExcludedChange={(excluded) => write({ ...draft, excluded })}
+                />
+              </div>
+              <button type="button" onClick={() => setEditingRestrictions(false)} className="bx-cta sx-join-sheen mt-8 inline-flex items-center justify-center px-7 text-base">
+                Done, back to your application
+              </button>
+            </>
+          ) : reviewing ? (
+            <>
+              <BackLink onClick={() => setReviewing(false)} />
+              <h1 className="mt-4 text-3xl font-semibold tracking-tight">Your answers</h1>
+              <p className="mt-2 text-sm text-muted">This is what you sent. It can&rsquo;t be changed here because it&rsquo;s with BTG now.</p>
+              <div className="mt-6 space-y-4">
+                {sections
+                  .filter((s) => s.fields.length > 0)
+                  .map((s) => (
+                    <div key={s.id} className="bx-panel p-5">
+                      <h2 className="text-sm font-semibold">{s.title}</h2>
+                      <dl className="mt-3 space-y-2">
+                        {s.fields.map((f) => (
+                          <div key={f.key} className="flex justify-between gap-4 text-sm">
+                            <dt className="text-muted">{f.label}</dt>
+                            <dd className="min-w-0 break-words text-right text-text">{(draft.answers[f.key] ?? "").trim() || "—"}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  ))}
+                {(draft.deals.length > 0 || draft.excluded.length > 0) && (
+                  <div className="bx-panel p-5">
+                    <h2 className="text-sm font-semibold">Restrictions &amp; conflicts</h2>
+                    {draft.deals.map((deal, i) => (
+                      <p key={`${deal.name}-${i}`} className="mt-2 text-sm text-muted">
+                        {deal.name} — {deal.category} · {deal.terms}
+                      </p>
                     ))}
-                  </dl>
-                </div>
-              ))}
-            {(draft.deals.length > 0 || draft.excluded.length > 0) && (
-              <div className="rounded-xl border border-line bg-surface-2 p-4">
-                <h2 className="text-sm font-semibold">Restrictions &amp; conflicts</h2>
-                {draft.deals.map((deal, i) => (
-                  <p key={`${deal.name}-${i}`} className="mt-2 text-sm text-muted">
-                    {deal.name} — {deal.category} · {deal.terms}
-                  </p>
-                ))}
-                {draft.excluded.length > 0 && (
-                  <p className="mt-2 text-sm text-muted">
-                    Will not promote: {draft.excluded.join(", ")}
-                  </p>
+                    {draft.excluded.length > 0 && <p className="mt-2 text-sm text-muted">Will not promote: {draft.excluded.join(", ")}</p>}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-    return (
-      <JoinSubmitted
-        minor={minor}
-        guardianName={draft.answers.guardianName ?? ""}
-        submittedAt={draft.submittedAt ?? ""}
-        refId={draft.refId}
-        intakeToken={draft.intakeToken}
-        onReviewAnswers={() => setReviewing(true)}
-        onUpdateRestrictions={() => setEditingRestrictions(true)}
-      />
-    );
-  }
-
-  /* ---------------------------------------------------------------- intro */
-  if (draft.phase === "intro") {
-    const hasDraft =
-      Object.values(draft.answers).some((v) => v.trim()) || draft.step > 0;
-    return (
-      <div className="px-6 py-9 sm:px-8">
-        <p className="sx-join-rise flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-[#7fc4ff]">
-          <span aria-hidden className="h-px w-8 bg-[#7fc4ff]/80" />
-          Athlete application
-          <span aria-hidden className="sx-hud-dashes ml-1" />
-        </p>
-        <div className="sx-join-rise mt-3 flex items-end justify-between gap-4" style={{ "--sx-d": "0.05s" } as React.CSSProperties}>
-          <h1 className="text-3xl font-semibold tracking-tight">Ten sections</h1>
-          <span className="mb-1 shrink-0 rounded border border-[#9cc7ff]/30 px-2 py-0.5 font-mono text-[11px] tracking-wider text-on-media/75">
-            ~8 MIN
-          </span>
-        </div>
-        <p className="sx-join-rise mt-2 text-sm leading-relaxed text-muted" style={{ "--sx-d": "0.1s" } as React.CSSProperties}>
-          About 8 minutes. Progress is saved after every section — leave and
-          come back.
-        </p>
-
-        <div className="relative mt-8">
-          <span
-            aria-hidden
-            className="sx-join-rail absolute bottom-4 left-[15px] top-4 w-[2px] rounded-full bg-gradient-to-b from-[#7fd0ff]/60 via-[#2e9bf5]/50 to-[#fb923c]/60 shadow-[0_0_10px_rgba(46,155,245,.45)]"
-          />
-          <ol className="space-y-1">
-            {SECTIONS.map((s, i) => {
-              const enforced = s.id === "restrictions";
-              const conditional = s.minorOnly === true;
-              return (
-                <li
-                  key={s.id}
-                  className="sx-join-rise relative flex items-start gap-4 py-2.5"
-                  style={{ "--sx-d": `${0.15 + i * 0.045}s` } as React.CSSProperties}
-                >
-                  <span
-                    className={`relative z-10 grid size-8 shrink-0 place-items-center rounded-full font-mono text-[11px] font-bold ${
-                      enforced
-                        ? "border border-accent bg-[#140b05] text-accent shadow-[0_0_12px_rgba(249,122,31,.55)]"
-                        : conditional
-                          ? "border border-dashed border-accent/70 bg-[#140b05] text-accent"
-                          : i === 0
-                            ? "sx-ping border border-primary bg-[#06101f] text-primary-soft shadow-[0_0_14px_rgba(46,155,245,.7)]"
-                            : "border border-[#9cc7ff]/20 bg-[#06101f] text-muted"
-                    }`}
-                    style={i === 0 ? ({ "--ping": "#4fb0ff", "--ping-cycle": "3.2s" } as React.CSSProperties) : undefined}
-                  >
-                    {pad(i + 1)}
-                  </span>
-                  {conditional ? (
-                    <div className="flex-1 rounded-xl border border-dashed border-accent/45 bg-accent/[0.06] p-3.5 shadow-[inset_0_0_24px_-10px_rgba(249,122,31,.45)]">
-                      <p className="text-base font-medium text-text">{s.title}</p>
-                      <p className="mt-1 text-sm leading-relaxed text-accent">
-                        The one branch. Appears only if the date of birth on
-                        section 1 is under 18. Nothing else changes.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="pt-1">
-                      <p className="text-base font-medium text-text">{s.title}</p>
-                      {s.railNote && (
-                        <p className={`mt-0.5 text-sm ${enforced ? "text-accent" : "text-muted"}`}>
-                          {s.railNote}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-            <li className="sx-join-rise relative flex items-center gap-4 py-2.5" style={{ "--sx-d": `${0.15 + SECTIONS.length * 0.045}s` } as React.CSSProperties}>
-              <span className="relative z-10 grid size-8 shrink-0 place-items-center rounded-full border border-success/50 bg-[#06151a] shadow-[0_0_12px_rgba(34,201,141,.4)]">
-                <svg viewBox="0 0 12 12" className="size-3.5" fill="none" stroke="var(--sx-success)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M2.5 6.5l2.5 2.5 4.5-5.5" pathLength={1} className="sx-join-draw" style={{ "--sx-d": "0.9s" } as React.CSSProperties} />
-                </svg>
-              </span>
-              <p className="text-base text-muted">Submitted — reviewed by hand</p>
-            </li>
-          </ol>
-        </div>
-
-        <div className="sx-join-rise mt-8" style={{ "--sx-d": "0.75s" } as React.CSSProperties}>
-          <button
-            type="button"
-            onClick={startOrResume}
-            className={CTA}
-          >
-            {hasDraft ? `Resume — section ${draft.step + 1} of ${sections.length}` : "Start application"}
-          </button>
-          {hasDraft && (
-            <button
-              type="button"
-              onClick={startOver}
-              className="mt-3 min-h-11 w-full rounded-xl px-5 py-2.5 text-sm text-muted transition-colors hover:text-text"
-            >
-              Start over
-            </button>
+            </>
+          ) : (
+            <JoinSubmitted
+              minor={minor}
+              guardianName={draft.answers.guardianName ?? ""}
+              submittedAt={draft.submittedAt ?? ""}
+              refId={draft.refId}
+              intakeToken={draft.intakeToken}
+              onReviewAnswers={() => setReviewing(true)}
+              onUpdateRestrictions={() => setEditingRestrictions(true)}
+            />
           )}
-        </div>
-      </div>
+        </main>
+      </FocusShell>
     );
   }
 
   /* ---------------------------------------------------------------- steps */
-  const n = draft.step + 1;
-  const total = sections.length;
-  /* An adult's application confirms their own rules too; a minor's needs
-     only the agreement tick (the guardian's page asks about the rules). */
-  const ticked = acceptedCurrent && (minor || rulesCurrent);
-  const armed = section.kind !== "agreement" || ticked;
+  const guardianStep = visibleSections(true).findIndex((s) => s.id === "guardian") + 1;
+  const tall = section.kind !== "fields";
 
   return (
-    <div className="flex min-h-[calc(100dvh-8rem)] flex-col">
-      {/* chrome */}
-      <div className="border-b border-[#9cc7ff]/15 bg-gradient-to-b from-[#0b1b35]/50 to-transparent px-6 pb-4 pt-5 sm:px-8">
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={goBack}
-            aria-label="Back"
-            disabled={submitting}
-            className="grid size-11 -ml-2.5 place-items-center rounded-lg text-muted transition-colors hover:bg-[#2e9bf5]/12 hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
+    <FocusShell
+      tone="athlete"
+      step={step}
+      count={total}
+      progress={(step + 0.35) / total}
+      progressLabel="Application progress"
+      progressText={`Step ${n} of ${total}: ${section.title}`}
+      exit={{ href: "/join", label: "Save and finish later" }}
+    >
+      <div className="relative mx-auto grid w-full max-w-[1240px] flex-1 grid-cols-1 lg:grid-cols-[250px_minmax(0,1fr)] lg:gap-14 lg:px-10 xl:gap-20">
+        <FocusRail
+          compact
+          title="Your application"
+          label="Application steps"
+          steps={sections.map((s, i) => ({
+            id: s.id,
+            label: s.title,
+            state: i === step ? "now" : i <= reached ? "done" : "next",
+            open: i !== step && i <= reached && !submitting,
+          }))}
+          onOpen={(i) => {
+            /* Forward is "Save and continue" by another door: the same check. */
+            if (i > step && !passes()) return;
+            go(i);
+          }}
+          note="Your answers are saved on this device as you go."
+        />
+
+        <form onSubmit={onSubmit} noValidate className="flex min-w-0 flex-col">
+          <div
+            key={section.id}
+            ref={stepRef}
+            inert={leaving}
+            data-leaving={leaving ? "" : undefined}
+            className="bx-step flex flex-1 flex-col px-5 pb-6 pt-7 sm:px-8 lg:justify-center lg:px-0 lg:pt-4"
+            style={{ "--bx-dir": dir } as CSSProperties}
           >
-            <svg viewBox="0 0 16 16" className="size-4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 3.5L5.5 8l4.5 4.5" />
-            </svg>
-          </button>
-          <p aria-live="polite" className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted">
-            <span className="sr-only">
-              Section {n} of {total}
-            </span>
-            <span aria-hidden>
-              Section <span className="font-mono text-[13px] font-bold tracking-normal text-text">{pad(n)}</span>
-              <span className="mx-1 text-faint">/</span>
-              <span className="font-mono tracking-normal">{pad(total)}</span>
-            </span>
-          </p>
-          <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-success">
-            <span className={`size-1.5 rounded-full bg-success shadow-[0_0_8px_var(--sx-success)] ${save === "saving" ? "sx-pop" : ""}`} />
-            {save === "saving" ? "Saving…" : "Saved"}
-          </p>
-        </div>
-        <div className="sx-join-segs mt-3.5 flex gap-1.5">
-          {sections.map((s, i) => (
-            <span
-              key={s.id}
-              className={`sx-join-seg h-1 flex-1 rounded-full ${
-                i < draft.step
-                  ? `sx-join-seg--fill ${s.id === "restrictions" ? "text-accent" : "text-primary"} bg-surface-2`
-                  : i === draft.step
-                    ? `sx-join-seg--active ${s.id === "restrictions" ? "text-accent" : "text-primary"} bg-surface-2`
-                    : "bg-surface-2"
+            <p className="bx-rise flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-primary-soft">
+              <span>
+                Step {n} of {total}
+                <span className="text-muted"> · {section.title}</span>
+              </span>
+              {section.kind === "restrictions" && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-accent/60 bg-accent/12 px-2.5 py-1 tracking-[0.14em] text-accent">
+                  <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden>
+                    <path d="M8 1.5l5 2v4c0 3.2-2.1 5.6-5 7-2.9-1.4-5-3.8-5-7v-4l5-2z" />
+                  </svg>
+                  Enforced
+                </span>
+              )}
+            </p>
+            <h1
+              ref={headingRef}
+              tabIndex={-1}
+              className={`mt-4 font-semibold leading-[1.04] tracking-tight outline-none ${
+                /* The agreement and the restrictions fill the screen; their heading steps back. */
+                tall ? "text-[clamp(1.8rem,3.4vw,2.6rem)]" : "max-w-[20ch] text-[clamp(2rem,5.2vw,3.7rem)]"
               }`}
-            />
-          ))}
-        </div>
-      </div>
+            >
+              <Words text={section.heading} />
+            </h1>
+            <p className="bx-rise mt-4 max-w-xl text-base leading-relaxed text-muted" style={delay(0.22)}>
+              {section.kind === "agreement" && agreement ? `${section.sub} · version ${agreement.version}` : section.sub}
+            </p>
 
-      {/* body */}
-      <div
-        key={`${section.id}-${dir}`}
-        ref={stepRef}
-        className="sx-join-step relative flex-1 px-6 py-7 sm:px-8"
-        style={{ "--sx-from": dir === 1 ? "24px" : "-24px" } as React.CSSProperties}
-      >
-        {/* the section's number, outlined behind the heading (the /packages
-            cards' tier numeral) */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute right-4 top-1 select-none font-mono text-[104px] font-bold leading-none tracking-tighter text-transparent [-webkit-text-stroke:1px_rgba(158,208,255,.13)]"
-        >
-          {pad(n)}
-        </span>
-        {section.kind === "restrictions" && (
-          <span className="mb-3 inline-flex items-center gap-1.5 rounded-lg border border-accent/60 bg-accent/12 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
-            <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
-              <path d="M8 1.5l5 2v4c0 3.2-2.1 5.6-5 7-2.9-1.4-5-3.8-5-7v-4l5-2z" />
-            </svg>
-            Enforced
-          </span>
-        )}
-        <h1 ref={headingRef} tabIndex={-1} className="relative text-3xl font-semibold tracking-tight outline-none">
-          {section.heading}
-        </h1>
-        <p className="relative mt-2 text-sm leading-relaxed text-muted">
-          {section.kind === "agreement" && agreement ? `${section.sub} · version ${agreement.version}` : section.sub}
-        </p>
-
-        <div className="relative mt-6">
-          {section.kind === "fields" && (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-5">
-              {section.fields.map((f, i) => (
-                <Field
-                  key={f.key}
-                  def={f}
-                  index={i}
-                  value={draft.answers[f.key] ?? ""}
-                  error={errors[f.key]}
-                  onChange={(v) => setAnswer(f.key, v)}
-                />
-              ))}
-              {section.id === "identity" && (
-                <div className="sx-expand col-span-2" data-open={minor}>
-                  <div>
-                    <div className="rounded-xl border border-accent/50 border-l-2 border-l-accent bg-surface-2 p-4">
-                      <p className="flex items-center gap-2.5 text-sm font-semibold text-text">
-                        <svg viewBox="0 0 16 16" className="size-4 shrink-0" fill="none" stroke="var(--sx-accent)" strokeWidth="1.5" strokeLinecap="round">
-                          <circle cx="8" cy="8" r="6.5" />
-                          <path d="M8 5v3.5M8 11h.01" />
-                        </svg>
-                        One extra section is added
-                      </p>
-                      <p className="mt-1.5 pl-[26px] text-sm leading-relaxed text-accent">
-                        Because you&apos;re under 18, section 8 asks for a parent,
-                        guardian or authorized representative. Everything else in
-                        the application is the same.
-                      </p>
+            <div className="mt-8 max-w-[760px]">
+              {section.kind === "fields" && (
+                <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:gap-x-10">
+                  {section.fields.map((f, i) => (
+                    <LineField
+                      key={f.key}
+                      prefix="join"
+                      def={f}
+                      hint={f.hint}
+                      /* "At least one handle": the three are not each optional. */
+                      optional={!f.required && !(section.id === "social" && f.key !== "followers")}
+                      autoComplete={AUTOCOMPLETE[f.key] ?? "off"}
+                      className={`bx-rise ${f.half ? "col-span-1" : "col-span-2"}`}
+                      style={delay(0.3 + i * 0.06)}
+                      value={draft.answers[f.key] ?? ""}
+                      error={errors[f.key]}
+                      onChange={(v) => setAnswer(f.key, v)}
+                    />
+                  ))}
+                  {section.id === "identity" && (
+                    <div className="sx-expand col-span-2" data-open={minor}>
+                      <div>
+                        <div className="rounded-xl border border-accent/50 border-l-2 border-l-accent bg-surface-2 p-4">
+                          <p className="flex items-center gap-2.5 text-sm font-semibold text-text">
+                            <svg viewBox="0 0 16 16" className="size-4 shrink-0" fill="none" stroke="var(--sx-accent)" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
+                              <circle cx="8" cy="8" r="6.5" />
+                              <path d="M8 5v3.5M8 11h.01" />
+                            </svg>
+                            One extra step is added
+                          </p>
+                          <p className="mt-1.5 pl-[26px] text-sm leading-relaxed text-accent">
+                            Because you&apos;re under 18, step {guardianStep} asks for a parent, guardian or authorized representative. Everything else in the
+                            application is the same.
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
+                  {section.id === "payment" && (
+                    <p className="bx-rise bx-panel col-span-2 p-4 text-sm leading-relaxed text-muted" style={delay(0.42)}>
+                      {NEVER_ASKED}
+                    </p>
+                  )}
                 </div>
               )}
-              {section.id === "payment" && (
-                <p className="col-span-2 rounded-xl border border-line bg-surface-2 p-4 text-sm leading-relaxed text-muted">
-                  {NEVER_ASKED}
-                </p>
+              {section.kind === "restrictions" && (
+                /* Its own small form (add a deal) has no <form> of its own: keep
+                   Enter in one of its boxes from submitting this step. */
+                <div
+                  className="bx-rise"
+                  style={delay(0.3)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") e.preventDefault();
+                  }}
+                >
+                  <JoinRestrictionsStep
+                    deals={draft.deals}
+                    excluded={draft.excluded}
+                    onDealsChange={(deals) => write({ ...draft, deals })}
+                    onExcludedChange={(excluded) => write({ ...draft, excluded })}
+                  />
+                </div>
+              )}
+              {section.kind === "agreement" && (
+                <div className="bx-rise" style={delay(0.3)}>
+                  {notice && (
+                    <p role="status" className="mb-5 rounded-xl border border-accent/50 border-l-2 border-l-accent bg-surface-2 p-4 text-sm leading-relaxed text-accent">
+                      {notice}
+                    </p>
+                  )}
+                  <JoinAgreementStep
+                    agreement={agreement}
+                    accepted={acceptedCurrent}
+                    onAcceptedChange={(accepted) => write({ ...draft, accepted, acceptedAgreementId: accepted ? agreement?.agreementId : undefined })}
+                    rules={rules}
+                    minor={minor}
+                    rulesAccepted={rulesCurrent}
+                    onRulesAcceptedChange={(rulesAccepted) => write({ ...draft, rulesAccepted, rulesVersion: rulesAccepted ? rules?.version : undefined })}
+                  />
+                </div>
               )}
             </div>
-          )}
-          {section.kind === "restrictions" && (
-            <JoinRestrictionsStep
-              deals={draft.deals}
-              excluded={draft.excluded}
-              onDealsChange={(deals) => setDraft({ ...draft, deals })}
-              onExcludedChange={(excluded) => setDraft({ ...draft, excluded })}
-            />
-          )}
-          {section.kind === "agreement" && (
-            <>
-              {notice && (
-                <p role="status" className="mb-5 rounded-xl border border-accent/50 border-l-2 border-l-accent bg-surface-2 p-4 text-sm leading-relaxed text-accent">
-                  {notice}
-                </p>
-              )}
-              <JoinAgreementStep
-                agreement={agreement}
-                accepted={acceptedCurrent}
-                onAcceptedChange={(accepted) => setDraft({ ...draft, accepted, acceptedAgreementId: accepted ? agreement?.agreementId : undefined })}
-                rules={rules}
-                minor={minor}
-                rulesAccepted={rulesCurrent}
-                onRulesAcceptedChange={(rulesAccepted) => setDraft({ ...draft, rulesAccepted, rulesVersion: rulesAccepted ? rules?.version : undefined })}
-              />
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* action bar — pinned, except on a short screen (a phone in landscape,
-          ~390px tall), where it covered most of the section */}
-      <div className="sticky bottom-0 [@media(max-height:500px)]:static border-t border-[#9cc7ff]/20 bg-[#040a16]/85 px-6 py-4 shadow-[0_-1px_0_rgba(127,208,255,.12),0_-18px_40px_-20px_rgba(46,155,245,.35)] backdrop-blur-xl sm:px-8">
-        {submitMsgs.length > 0 && (
-          <div
-            role="alert"
-            className="mb-3 rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 text-xs leading-relaxed text-danger"
-          >
-            {submitMsgs.map((m) => (
-              <p key={m}>{m}</p>
-            ))}
           </div>
-        )}
-        <button
-          type="button"
-          onClick={goNext}
-          disabled={!armed || submitting}
-          data-armed={section.kind === "agreement" && ticked}
-          className={CTA}
-        >
-          {section.kind === "agreement"
-            ? submitting
-              ? "Submitting…"
-              : "Submit application"
-            : "Save and continue"}
-        </button>
-        {section.kind !== "agreement" && (
-          <button
-            type="button"
-            onClick={finishLater}
-            className="mt-1 min-h-11 w-full rounded-xl px-5 py-2 text-sm text-muted transition-colors hover:text-text"
-          >
-            Save and finish later
-          </button>
-        )}
+
+          {/* action bar — pinned, except on a short screen (a phone in
+              landscape, ~390px tall), where it covered most of the step */}
+          <div className="bx-actions bx-chrome sticky bottom-0 z-10 px-5 pb-5 pt-8 sm:px-8 lg:px-0 lg:pb-8 [@media(max-height:500px)]:static">
+            {submitMsgs.length > 0 && (
+              <div role="alert" className="mb-3 max-w-[760px] rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm leading-relaxed text-danger">
+                {submitMsgs.map((m) => (
+                  <p key={m}>{m}</p>
+                ))}
+              </div>
+            )}
+            <div className="flex max-w-[760px] items-center gap-3">
+              {step > 0 && (
+                <button type="button" onClick={() => go(step - 1)} disabled={submitting} className="bx-ghost inline-flex items-center gap-2 px-4 sm:px-5">
+                  <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M10 3.5L5.5 8l4.5 4.5" />
+                  </svg>
+                  Back
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={!armed || submitting}
+                aria-busy={submitting}
+                data-armed={section.kind === "agreement" && ticked}
+                className="bx-cta sx-join-sheen inline-flex flex-1 items-center justify-center gap-2.5 px-6 text-base sm:flex-none sm:px-9"
+              >
+                {section.kind === "agreement" ? (
+                  submitting ? (
+                    <>
+                      <span className="bx-spin" aria-hidden />
+                      Submitting…
+                    </>
+                  ) : (
+                    "Submit application"
+                  )
+                ) : (
+                  "Save and continue"
+                )}
+                {!submitting && (
+                  <svg viewBox="0 0 16 16" className="bx-arrow size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M3 8h10M9 4l4 4-4 4" />
+                  </svg>
+                )}
+              </button>
+              {section.kind === "fields" && <p className="bx-keys ml-2 text-[13px] text-faint">or press Enter</p>}
+            </div>
+            <p className="mt-3 text-[12px] text-faint">
+              {section.kind === "agreement"
+                ? armed
+                  ? "This sends your application to BTG."
+                  : minor
+                    ? "Tick the box above to submit."
+                    : "Tick both boxes above to submit."
+                : "Nothing is sent until you submit on the last step."}
+            </p>
+          </div>
+        </form>
       </div>
-    </div>
+    </FocusShell>
   );
 }
 
-function Field({
-  def,
-  index,
-  value,
-  error,
-  onChange,
-}: {
-  def: FieldDef;
-  index: number;
-  value: string;
-  error?: string;
-  onChange: (value: string) => void;
-}) {
+function BackLink({ onClick }: { onClick: () => void }) {
   return (
-    <label
-      className={`sx-join-rise block ${def.half ? "col-span-1" : "col-span-2"}`}
-      style={{ "--sx-d": `${index * 0.035}s` } as React.CSSProperties}
-    >
-      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{def.label}</span>
-      <input
-        type={def.type}
-        name={def.key}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={def.placeholder}
-        aria-invalid={!!error}
-        className={`mt-1.5 min-h-11 w-full rounded-xl border bg-[#07132a]/70 px-3.5 py-3 text-base text-text shadow-[inset_0_1px_0_rgba(158,208,255,.06)] placeholder:text-faint transition-[border-color,box-shadow] focus:outline-none ${
-          error
-            ? "border-danger shadow-[0_0_0_3px_rgba(255,77,79,.14)]"
-            : "border-[#9cc7ff]/20 hover:border-[#9cc7ff]/35 focus:border-[#7fd0ff] focus:shadow-[0_0_0_3px_rgba(46,155,245,.18),0_0_20px_-4px_rgba(46,155,245,.6)]"
-        }`}
-      />
-      {def.hint && !error && <span className="mt-1 block text-[11px] text-faint">{def.hint}</span>}
-      {error && <span className="mt-1 block text-[11px] text-danger">{error}</span>}
-    </label>
+    <button type="button" onClick={onClick} className="flex min-h-11 items-center gap-1.5 text-sm text-muted transition-colors hover:text-text">
+      <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M10 3.5L5.5 8l4.5 4.5" />
+      </svg>
+      Back
+    </button>
   );
 }

@@ -2899,7 +2899,7 @@ the blockers and today's content review findings.
   - **Not done:** the display name is not run past BTG's restricted-words list. The application's display name isn't either, and the list's rule is to route a match to review, never to refuse it, which needs a review step this item doesn't build.
 
 ### 102. A sponsor can't see or keep their company and their own details current [§8, §26]
-`POL-BE-102` · `POL-FE-102` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · backend Done 2026-11-18 (`POL-FE-102` open)
+`POL-BE-102` · `POL-FE-102` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · backend Done 2026-11-18 · frontend in Code review 2026-11-19
 - **Problem:**
   - The sponsor portal's Account group has only Billing (`/sponsor/invoices`) and Team (`/sponsor/team`). There is no page for the company's details (company name, logo, website, industry and brand categories, address, billing contact) or for the signed-in person's own (name, job title, the email Clerk holds).
   - The API's `GET` / `PUT /me/notification-preferences` exists, but no sponsor page shows it: only the athlete's and the property's settings pages (`AccountSettings` in `frontend/src/components/account-settings.tsx`) use it. A sponsor can't mute or unmute anything.
@@ -2946,7 +2946,21 @@ the blockers and today's content review findings.
     - the name contains a restricted word;
     - a sensitive category is added (always a person);
     - an exclusive deal is still running in a category being dropped.
-  - **Left to `POL-FE-102`:** the page itself, in the sponsor portal's Account group, with the link to Clerk's account screen.
+- **Delivered, frontend (`POL-FE-102`, 2026-11-19, HeckerCreatives):**
+  - **Where:** `/sponsor/account`, "Account details", first in the sponsor's Account group. A Sponsor Viewer sees the link and the page too.
+  - **The page**, top to bottom:
+    - the company as BTG knows it: logo (or two letters), name, brand categories, and one button, "Change name or categories";
+    - one notice under it when there is something to say: a change waiting for BTG with why it waits, BTG's "no" with its reason, or (for two weeks) a change that took effect;
+    - four cards of equal height, each with its own Edit in a pop-up: Company details (logo, website, address), Billing contact, Your details (name, job title, role), Sign-in;
+    - Notifications.
+  - **Saved at once:** website, address, billing contact, the logo (PNG or JPEG up to 1 MB, sent straight to storage), the person's name and job title. A website typed without `https://` gets it.
+  - **Name and categories:** the pop-up says most changes take effect at once and when BTG checks first. Asking for exactly what is on file is caught before the API is asked. While a change waits, the button is hidden.
+  - **Sign-in:** the page shows Clerk's email and whether it is confirmed, and "Manage sign-in" opens Clerk's own account screen. Nothing of it is stored or sent anywhere.
+  - **A Sponsor Viewer** sees the whole page with no Edit button and a line saying it is read-only. The API refuses a viewer's write (403) as well.
+  - **Notifications: nothing to turn off, said plainly.** `GET /me/notification-preferences` lists every kind anyone can mute, and all seven are an athlete's or a student's (invitations, posts due, a prospect's "no"). A sponsor is sent none of them, so the page does not list switches for emails that never arrive. `SPONSOR_EMAIL_EVENTS` in `frontend/src/lib/sponsor-account-live.ts` is the list to add to when the API starts sending sponsors an optional kind.
+  - **Files:** `frontend/src/lib/sponsor-account-live.ts`, `frontend/src/app/(app)/sponsor/account/` (page, loader, actions), `frontend/src/components/sponsor-account.tsx`, `frontend/tests/sponsor-account-live.test.ts` (20 tests; every input a form lets through is parsed by the backend's own contract).
+  - **Walked** on the local servers as a Sponsor Admin, a Sponsor Viewer and BTG (who rejected a change through the API): every field saved and shown, a logo uploaded and displayed, an ordinary category in effect at once, a sensitive one held with its reason, BTG's rejection and reason shown, Clerk's screen opening, the viewer's page with no Edit and a 403 on its write, and the page on a phone with no sideways scroll. The QA sponsor was put back as it was.
+  - **Not built:** BTG's desk for these changes (`GET /sponsor-account-changes`; no task covers its screen), and a help-center article.
 
 ### 103. A school advisor has no page for their own or their school's details [NEXT spec §8, P9-BE-20]
 `POL-BE-103` · `POL-FE-103` · *Dead end* · confirmed (found in live staging practice, 2026-11-17) · backend Done 2026-11-18 (`POL-FE-103` open)
@@ -3269,6 +3283,80 @@ the blockers and today's content review findings.
   - Any step failing turns the deploy check red and tells BTG what failed.
   - The health check covers the private storage too.
   - The check leaves nothing behind in storage.
+
+### 114. The sponsor brief is a small card beside a marketing panel, with unrelated questions on each step, so a sponsor can't tell what is being asked or what happens next [§9, §13, P1-FE-10, P2-FE-01, 2S1-FE-11]
+`POL-FE-114` · *Confusing* · confirmed (programme owner, 2026-11-19: "big visual redesign for /brief, don't make it look like a ordinary landing page, make this a step by step process wizard that had its own page add an animation + wow factor + awwwaaaard, the current design right now is full of confusing parts, we don't need it, it must be understandable by a human")
+- **Renumbered 2026-11-19:** logged that morning as item 110 / `POL-FE-110`, before a fetch showed rcfworks had taken 110 to 113 for the upload audit. It is item 114 / `POL-FE-114` everywhere now.
+- **Problem:** `/brief` was a 430px card next to a headline and three trust bullets, under the site's header and above its footer, so it read as one more landing page. Each of its four steps asked two or three unrelated things: the goal with a 26-item business-type dropdown and "what success looks like"; the budget with a "Starting package" dropdown and timing. The words were ours, not a sponsor's ("Bands, not invoices", "One goal per brief keeps the match sharp"). A missing answer said only "Required". After sending, the same two to-dos appeared twice, once as a list and once as a timeline.
+- **Fix:** the brief is its own full-screen page, outside the site's header and footer, that asks one thing at a time and shows the whole brief before it is sent.
+- **Done when:**
+  - Nothing is on the page but the wizard. The address stays `/brief`, with `?package=`, `?new=1` and `?demo=submitted` working as before.
+  - Each screen has one question that must be answered, in plain words, and at most one optional follow-up.
+  - The sponsor can always see which step they are on, how many there are, and what they have answered.
+  - Before anything is sent, the sponsor sees every answer on one screen and can change any of them.
+  - A missing answer says what to do, and the form goes to it.
+  - The sent screen says each remaining to-do once.
+  - What is collected and what is sent to BTG does not change.
+  - It moves: the step change, the choices, the progress, the sent moment. Reduced motion shows it still. Works at phone size and by keyboard alone.
+- **Delivered (2026-11-19, HeckerCreatives):**
+  - **Its own page:** the route moved from `app/(public)/brief` to `app/brief`, like `/login`, so the site's header and footer are gone. The top bar has the logo (home) and **Save and exit** (back to the packages; the answers stay on the device). The boot screen and the page transition ("Your Brief") still play.
+  - **Six screens, one question each:**
+    1. **Goal**: "What should this campaign do for you?" Four cards, each with an icon and one plain line ("More people come through your door."). Once one is picked, "What would a good result look like?" opens under it, marked Optional.
+    2. **Business**: "Tell us about your business." The name, then the kind as choices: nine everyday kinds first (Restaurant, Local retail, Fitness and so on), the other sixteen behind **More types**, and **Something else**, which opens a line to say it in words.
+    3. **Budget**: "How much do you want to spend?" Five cards with a small meter. Then "When do you want to start?", Optional. A package picked on the packages page shows here as "Package you picked", with Remove. The "Starting package" dropdown is gone.
+    4. **Where**: "Where are your customers?" The city or region, then "Who do you want to reach?", Optional.
+    5. **Contact**: "Who should we reply to?" Name, work email, phone (Optional).
+    6. **Review and send**: the brief on one card with **Edit** on every part. An Edit goes to that screen, and its button reads **Back to review**. Beside the card, "After you send it" lists the three things that follow. **Send to BTG** is only here.
+  - **Always in view:** from 1024px the steps run down the left, each with its answer under its name; a finished step can be clicked to change it. Below that, a progress line and "Step 2 of 6 · Business".
+  - **Messages say what to do:** "Pick a goal", "Add business name", "Enter a valid email, like you@company.com". The form moves to the first gap. An email now needs a dot after the @ (`jordan@cafe` was accepted before).
+  - **Opening a saved brief:** it opens where it was left, but never past a screen with something missing. A brief saved by the four-step form lands on its first gap.
+  - **Sent:** "Brief sent.", then the two things left as two cards (confirm the email; upload proof of business, the same upload as before), then the third as a plain line, "Then: your first request". The buttons are See where your request stands, Read what you sent, Back to packages. The duplicate timeline is gone.
+  - **Motion:**
+    - two slow lights that move to a new place on every step, a light under the pointer, and the step's number, outlined and very large, rolling to the next like a counter;
+    - a step leaves upward and the next rises in, its heading a word at a time;
+    - a choice's border lights toward the pointer, neighbours included, and rings once when picked;
+    - a typed answer sits on a line that fills when focused;
+    - the review card leans a little toward the pointer;
+    - on sending, the tick draws itself inside two halos and one burst of confetti in the brand colours plays (only for a brief sent in that visit).
+    - Reduced motion: all of it is still.
+  - **Keyboard:** 1 to 5 picks a choice, arrows move between choices, Enter continues. A new screen puts the focus on its question.
+  - **Not changed:** the answers and their keys, the saved draft's shape and key, what `POST /public/inquiries` receives, the proof upload and the status page.
+  - **Files:** `app/brief/{page.tsx,actions.ts,brief.css}` (moved and new), `components/brief-wizard.tsx` (rewritten), new `components/brief-fx.tsx`, `lib/brief-flow.ts` (six steps, `GOAL_HINTS`, `TIMINGS`, `COMMON_BUSINESS_TYPES` / `MORE_BUSINESS_TYPES`, `firstOpenStep`, `resumeStep`, `stepAnswer`), `tests/brief-flow.test.ts`. The 2026-09-21 spec in `docs/superpowers/specs` describes the old card.
+  - **Shared frame (later the same day, item 115):** the page around the questions (the ground, the top bar, the progress line, the list of steps, the typed-answer line) moved out of `brief-wizard.tsx` into `components/focus-wizard.tsx`, which the athlete application also uses. `brief.css` takes the wizard's colour from one variable, so the same stylesheet is orange here and blue there. The brief was walked again afterwards at all four sizes with the same results.
+  - **Checked:** 2,513 / 2,513 frontend tests (22 in `brief-flow.test.ts`); eslint clean. Walked on the running dev server at 1440×900, 1180×720 and 390×844, and at 1440 with reduced motion: every screen, every message, More types, Something else, a number key and Enter, Edit and Back to review, a reload (resumes on the review with the answers kept), `?package=pk4`, arriving from the packages page by a link, Save and exit, and the sample sent screen with Read what you sent. No console errors and no sideways scroll at any size.
+  - **Not checked:** a real send. The walk stopped at the review so no inquiry or Zoho Lead was created; the send path's logic is the one that was there, plus a guard against a double click. `npm run build` not run (the owner's `next dev` is live), so `tsc` still shows two errors in the generated `.next/types/validator.ts`, which names the old route's path; nothing in `src` has an error.
+  - **Found, not fixed:** the packages page links here with the live catalogue's keys (`TEST_DRIVE`, `COMMUNITY_CAMPAIGN`, `NEXT-AD-FULL` …), but the brief only knows the fixture ids `pk1`…`pk6`. So a package picked there has been dropped since the catalogue went live: the brief BTG receives says "Package: Not sure yet", and the new "Package you picked" line never shows for a real visitor. The fix is for `/brief` to resolve the key against `GET /public/catalogue/packages` and keep the name in the draft; it changes what is sent, so it is left for a decision.
+
+### 115. The athlete application runs inside a narrow panel on the /join landing, so the form and the sales page fight for the same screen [§9, §11, P1-ART-07, P3-FE-01]
+`POL-FE-115` · *Confusing* · confirmed (programme owner, 2026-11-19, after seeing the new `/brief`: "same redesign for /join atheletes the landing page part is good but maybe add a button wherein it would go to the next page for the sign up")
+- **Problem:** `/join` was a landing page with the whole ten-section application inside a 460px glass panel beside the hero. The form sat under the site's header, with the job-types band, the path, the promises and the footer below it. Its start button was a screen down, under the list of sections. A missing answer said only "Required". An email without a dot after the @ (`maya@school`) was accepted on step 1 and refused by the API on the last step.
+- **Fix:** keep the landing as it is and give it a button; move the application to its own full-screen page drawn like the new sponsor brief (item 114), in athlete blue.
+- **Done when:**
+  - The landing looks as it did, and has one clear button at the top of its panel that opens the application.
+  - The application is on its own page with nothing else on it, and works by keyboard and at phone size.
+  - The athlete can see which step they are on and how many there are, and can go back to a finished step.
+  - Leaving and coming back, on either page, keeps every answer.
+  - A missing answer says what to do.
+  - The sections, their fields, the under-18 guardian step, the agreement and rules ticks and what is sent do not change.
+- **Delivered (2026-11-19, HeckerCreatives):**
+  - **The landing, `/join`:** unchanged but for the glass panel, which now holds a start panel instead of the form: the same heading and list of the ten sections ("What it asks"), with the button moved to the top. The button reads **Start application**, or **Resume — section 4 of 9** with **Start over** under it when this device has a draft, or **See your application** once one was sent from it. The closing panel's button ("Start the application") goes to the same place; it used to jump up the page.
+  - **The application, `/join/apply`:** its own page outside the site's header and footer, like `/brief`. One section per screen, as before:
+    - the top bar has the logo and **Save and finish later**, which goes back to the landing;
+    - from 1024px the steps run down the left with a tick on the finished ones; any finished step can be opened from there, and going forward that way checks the step being left first;
+    - below 1024px, a progress line and "Step 3 of 9 · Location";
+    - answers are typed on a line; the buttons are **Back** and **Save and continue**, then **Submit application** on the agreement, which stays off until the box (both boxes, for an adult) is ticked, with a line saying so;
+    - the restrictions step and the agreement step are the same components as before, on the wider page.
+  - **Answers are kept as they are typed,** not only on "Save and continue", so leaving by any door loses nothing.
+  - **Messages say what to do:** "Add legal first name", "Add date of birth", "Enter a valid email, like you@example.com". The form moves to the first gap. An email now needs a dot after the @, on the athlete's step and the guardian's.
+  - **Submitted:** the tick draws itself inside two halos, "Application submitted." rises a word at a time, and one burst of confetti plays for an application sent in that visit. The checklist (confirm your email, upload your ID), "Review your answers" and "Update restrictions" are the same as before.
+  - **While it loads** (the page reads the agreement and the rules wording first): a skeleton in the page's own shape.
+  - **Old links:** `/join?demo=minor` and `/join?demo=submitted` are sent on to `/join/apply` with the same `demo`.
+  - **Motion:** the brief's (item 114): the lights that move per step, the rolling step number, word-by-word headings, the answer line that fills. Reduced motion shows it still.
+  - **Help:** the "How do I apply" article says where the button is and that the form opens on its own page; its steps 2 and 3 point at `/join/apply`. Its pictures were re-captured. The capture script had been photographing the boot screen on public pages, so the article's one picture had been the loading screen since 2026-11-16; the script now waits for the boot screen to go (`scripts/help-shots/capture.mjs`).
+  - **Not changed:** the ten sections and their fields, the guardian branch, the saved draft's shape and key, the agreement and rules ticks and their versions, what the submit action sends, the confirm and edit pages.
+  - **Files:** new `app/join/apply/{layout.tsx,page.tsx,loading.tsx}`, `components/join-start.tsx`, `components/focus-wizard.tsx`, `tests/join-apply.test.ts`. Rewritten `components/join-wizard.tsx`. Changed `app/(public)/join/page.tsx`, `components/join-stage.tsx` (the closing button), `components/join-submitted.tsx` (the heading), `lib/join-flow.ts` (the messages, the email check), `components/brief-wizard.tsx` and `app/brief/brief.css` (the shared frame and its colour), `lib/help/athlete.ts`, `scripts/help-shots/capture.mjs`.
+  - **Checked:** 2,524 / 2,524 frontend tests (11 new in `join-apply.test.ts`); tsc and eslint clean. Walked on the running dev server at 1440×900, 1180×720 and 390×844, and at 1440 with reduced motion: the landing and its button, every section with an empty Continue and then filled, a bad email, a state that is not two letters, no social handle, Enter inside the "add a deal" box (stays on the step), both ticks arming Submit, back and forward from the list of steps (forward refused while the step had a gap), Save and finish later, Resume from the landing, the under-18 sample (10 steps) and the submitted sample with Review your answers. No console errors and no sideways scroll at any size. `/brief` walked again at the same four sizes.
+  - **Not checked:** a real submission. The walk stopped with Submit armed, so no application was filed; the submit path is the one that was there, plus a guard against a double click. `npm run build` not run (the owner's `next dev` is live).
 - **Delivered (2026-11-19, rcfworks, Code review):**
   - **The check** (`probeBucket` in `backend/src/lib/storage.ts`, `runStorageCheck` in `backend/src/domain/storage-check.ts`) runs on both storage areas:
     - a preflight as the website (the origin of `APP_URL`, which is `https://web-staging-904a.up.railway.app` on staging and `https://sponsorx.net` on production, each matching its upload rule);
