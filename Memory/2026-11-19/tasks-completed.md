@@ -156,3 +156,28 @@
     staging origin.
 - **Tracker:** `2S4-BE-18` Done. `2S4-FE-10` (HeckerCreatives) is what makes the chat actually live in
   browsers. The fix notes are on 2S4-FE-07/08/09.
+
+## End of day (rcfworks)
+
+- **The socket, start to finish:**
+  - **Why:** the owner asked why sockets weren't built. I had left them out of the Deal Chat spec
+    without asking, which is now a standing rule against doing that (memory
+    `never-cut-scope-without-asking`).
+  - **Audit:** I audited HeckerCreatives' in-API version.
+  - **Decisions (owner):** its own Railway service, `socketservice.sponsorx.net`, option B passes.
+  - **Built and live:** 2S4-BE-18 (#474) is live on staging and production, and Done (#479/#480).
+- **Deployed:** release = main = 1ce818ca on both environments. That includes the socket service
+  code, the database triggers, and HeckerCreatives' Deal Chat screens and POL-FE-108/109.
+- **For HeckerCreatives:** `2S4-FE-10` (1.5 days) makes the chat live in browsers. The fix notes
+  on 2S4-FE-07/08/09 make them depend on it.
+- **Backend board:** no backend task can start. P8-OPS-03 waits on Stripe go-live and P2-INT-02 on
+  Clerk Pro; the wallet passes, P9-DATA-01 and Phase 6 are parked.
+- **Stage Progress:** rows for 2026-11-18 and 2026-11-19, both Phase 1 unchanged at 320 Done, 15.5
+  days left.
+- **Restored:** yesterday's Stage Progress row and end-of-day entry never reached main_development.
+  The commit landed on the POL-BE-104 branch a minute after #471 merged, so both were added back
+  today.
+- **Lesson:** don't push to a branch whose pull request may already be merged. Check
+  `gh pr view <n> --json state` first, or put end-of-day changes on their own branch.
+- **Clean-up:** the test database, toolkits and key files were deleted after use, and no secret is
+  on disk.
