@@ -40,6 +40,8 @@ import { factOrderBooked, factOrderCancelled } from "./fact-writers";
 import { createEarningForOrder } from "./earning";
 import { projectLine } from "./pricing-learning";
 import { advanceCampaign, advanceCampaignOfOrder, lockCampaignForStaffing } from "./campaign-stages";
+import { nextOrderNumberIn, storedOrderDetails } from "./campaign-order-details";
+import { detailsForJob, exclusivityWords } from "./order-details-rules";
 
 export class TermsFrozenError extends Error {
   readonly status = 409;
@@ -114,9 +116,12 @@ export async function createOrder(
   return prisma.$transaction(async (tx) => {
     const campaign = await tx.campaign.findFirst({
       where: { ...whereFor(actor, "campaign", "write"), id: input.campaignId },
-      select: { id: true, budget: true },
+      select: { id: true, budget: true, orderDetails: true },
     });
     if (!campaign) throw new ForbiddenError("campaignOrder", "write");
+    /* POL-BE-116 — the campaign's order details for this job, fixed on the order. */
+    const campaignDetails = storedOrderDetails(campaign.orderDetails);
+    const details = campaignDetails ? detailsForJob(campaignDetails, input.jobId) : null;
     /* P4-BE-09 — the campaign lock first, so this cannot interleave with an
        automatic STAFFING → APPROVAL move (and the budget below is read with
        no other line landing beside it). */
@@ -171,8 +176,11 @@ export async function createOrder(
         compensation: input.compensation,
         sellPrice: input.sellPrice,
         usageRights: input.usageRights,
-        exclusivity: input.exclusivity ?? null,
+        exclusivity: input.exclusivity ?? (details ? exclusivityWords(details) : null),
         dueDate: input.dueDate,
+        /* POL-BE-116 — numbered, and carrying the template's details. */
+        orderNumber: await nextOrderNumberIn(tx, actor.tenantId, input.campaignId),
+        ...(details ? { orderDetails: details as Prisma.InputJsonValue } : {}),
         projectedImpressions: projection.projectedImpressions,
         impliedCpm: projection.impliedCpm,
         projectionSource: projection.projectionSource as Prisma.CampaignOrderCreateInput["projectionSource"],

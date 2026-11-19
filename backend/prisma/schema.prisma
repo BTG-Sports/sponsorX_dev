@@ -996,6 +996,12 @@ model CampaignBrief {
   audienceTiers        String[]   @default([])
   /// 3S3-BE-01 — the smallest audience wanted: followers on the athlete's largest account. Null: no minimum.
   audienceMinFollowers Int?
+  /// POL-BE-116 — the athlete order details the sponsor builds with the
+  /// brief (order-details-rules.ts): the template's fields and each job's
+  /// medium. Copied to the campaign it becomes. Null: BTG's standard terms.
+  orderDetails         Json?
+  /// The three letters its orders are numbered with (SX-<code>-<year>-<n>).
+  orderCode            String?
   state                BriefState @default(DRAFT)
   /// P4-FE-07 — why BTG closed it; null unless CLOSED.
   closeReason          String?
@@ -1039,6 +1045,13 @@ model Campaign {
   budget          Int
   startDate       DateTime
   endDate         DateTime
+  /// POL-BE-116 — every athlete order's details (order-details-rules.ts),
+  /// copied onto each offer and order for its job, fixed when sent.
+  orderDetails       Json?
+  /// The three letters its orders are numbered with, unique in the tenant
+  /// for the year it was set (`orderCodeYear`).
+  orderCode          String?
+  orderCodeYear      Int?
   /// 3S4-BE-01 — what the campaign is promised to reach by its end date, set
   /// by BTG: impressions | engagements | redemptions | deliverables, and how
   /// many. Unset: every deliverable booked, published and verified (user,
@@ -1098,6 +1111,7 @@ model Campaign {
   staffingSkips    CampaignStaffingSkip[]
 
   @@index([tenantId, state])
+  @@unique([tenantId, orderCode, orderCodeYear])
 }
 
 /// P4-BE-12 — an athlete automatic staffing passed over on a campaign,
@@ -1167,6 +1181,10 @@ model CampaignOrder {
   usageRights  String
   exclusivity  String?
   dueDate      DateTime
+  /// POL-BE-116 — SX-<campaign code>-<year>-<sequence>, unique in the tenant.
+  orderNumber  String?
+  /// POL-BE-116 — the order's details, as the athlete accepted them.
+  orderDetails Json?
 
   /// What we expected this line to reach, FROZEN AT CREATION — P7-DATA-03.
   ///
@@ -1204,6 +1222,7 @@ model CampaignOrder {
   /// P8-BE-03 — a complaint pauses the order while one is open.
   disputes     DealDispute[]
 
+  @@unique([tenantId, orderNumber])
   @@unique([campaignId, athleteId, jobId])
   @@index([tenantId, state])
 }
@@ -1599,6 +1618,9 @@ model Earning {
   taxYear               Int
   paidAt                DateTime?
   reference             String?
+  /// POL-BE-116 — the day BTG pays by: when it became ELIGIBLE plus the
+  /// order's payment timing (30 days where the order has none).
+  payBy                 DateTime?
   /// 2S5-BE-08 — moved to APPROVED_FOR_PAYOUT by the rule as it became
   /// ELIGIBLE (false once Finance approves it by hand). `autoApprovedAt` is
   /// never cleared: the athlete's 7-day automatic total counts it.
@@ -2932,6 +2954,8 @@ model Offer {
   exclusivityDays Int?
   /// The disclosures the content must carry, e.g. "#ad", "Paid partnership".
   disclosures     String[]
+  /// POL-BE-116 — the order details for this job, fixed (and hashed) when sent.
+  orderDetails    Json?
   expiresAt       DateTime
   state           OfferState @default(DRAFT)
   sentAt          DateTime?
@@ -4829,6 +4853,17 @@ model PipelineRun {
   finishedAt DateTime
 
   @@unique([day, step])
+}
+
+/// POL-BE-116 — the last order number used per campaign code and year
+/// (SX-<code>-<year>-<sequence>), counted up in the order's transaction.
+model OrderNumberCounter {
+  tenantId String
+  code     String
+  year     Int
+  last     Int    @default(0)
+
+  @@id([tenantId, code, year])
 }
 
 /// POL-BE-113 — the live storage check: whether a browser on the website

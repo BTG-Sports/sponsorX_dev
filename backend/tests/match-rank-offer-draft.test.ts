@@ -287,7 +287,7 @@ describe.skipIf(!hasDatabase)("P4-BE-08 · ranked shortlist and pre-filled offer
       expect(offer.brief).toBe("Mrk: weekday foot traffic in Maryland");
       expect(sources.brief).toBe("From the sponsor's brief");
       expect(offer).toMatchObject({ campaignId: `${T}_campaign`, athleteId: "mrk_avery", jobId: `${T}_post`, inventoryItemId: null });
-      expect(Object.keys(sources).sort()).toEqual(["brief", "compensation", "deliverables", "disclosures", "exclusivityDays", "expiresAt", "sellPrice", "usageRights"]);
+      expect(Object.keys(sources).sort()).toEqual(["brief", "compensation", "deliverables", "disclosures", "exclusivityDays", "expiresAt", "orderDetails", "sellPrice", "usageRights"]);
     });
 
     it("never prices below the margin floor: a rate above the tier's band raises the sell price to 1.4 × pay", async () => {
