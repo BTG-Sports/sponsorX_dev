@@ -1,0 +1,635 @@
+/* --------------------------------------------------------------------------
+   /brief — the sponsor brief wizard on its own page (POL-FE-114, 2026-11-19).
+   brief-wizard.tsx draws it, brief-fx.tsx moves it.
+
+   A fixed-dark stage in both themes, like /login: `.sx-stage` (globals.css)
+   is the ground, and `.sx-brief` re-pins the themed tokens the wizard reads.
+
+   - `.bx-ground`   two slow lights that travel to a new place on every step,
+                    a light under a fine pointer, the stage's floor grid, and
+                    the step's number, outlined and very large, rolling to
+                    the next one like a counter.
+   - `.bx-bar`      the progress line under the top bar.
+   - `.bx-rail`     (lg+) the steps down the left, each with its answer.
+   - `.bx-step`     one question: it leaves upward, the next rises in, its
+                    heading a word at a time (`.bx-word`), the rest in turn
+                    (`.bx-rise`, staggered by `--d`).
+   - `.bx-card`     a choice. Its border lights toward the pointer
+                    (`--mx` / `--my`, SpotGroup); picking it rings once.
+   - `.bx-chip`     a small choice. `.bx-field` / `.bx-input`: a typed answer
+                    on a line that fills when focused.
+   - `.bx-ticket`   the review: the whole brief on one card that leans a
+                    little toward the pointer.
+   - `.bx-check`    the sent mark and its two halos.
+
+   The first screen is held until the boot screen or the page transition
+   sets `html[data-sx-loaded]` (BriefStage arms it; `data-go` releases it on
+   a timer regardless). Reduced motion: everything is simply there.
+   -------------------------------------------------------------------------- */
+
+.sx-brief {
+  --sx-bg: #0a0c10;
+  --sx-surface: #12151d;
+  --sx-surface-2: #0b1628;
+  --sx-line: #1f2d44;
+  --sx-line-soft: #16223a;
+  --sx-text: #f4f5f7;
+  --sx-text-muted: #8f9ab0;
+  --sx-text-faint: #7e88a0;
+  --sx-cta-ink: #0a0c10;
+  --sx-primary: #2e9bf5;
+  --sx-primary-soft: #63b4f8;
+  --sx-accent: #f97a1f;
+  --sx-accent-soft: #fb923c;
+  --sx-danger: #ff4d4f;
+  --sx-warn: #facc15;
+  --sx-success: #22c98d;
+  --bx-edge: rgba(158, 208, 255, 0.16);
+  /* The wizard's own colour: what is picked, where you are, the main button.
+     Sponsor orange here; `data-tone="athlete"` turns the same page blue for
+     the athlete application (/join/apply, POL-FE-115). */
+  --bx-a: #f97a1f;
+  --bx-a-soft: #fb923c;
+  --bx-a-rgb: 249, 122, 31;
+  --bx-from: #2e9bf5;
+  color-scheme: dark;
+  color: var(--sx-text);
+}
+.sx-brief[data-tone="athlete"] {
+  --bx-a: #2e9bf5;
+  --bx-a-soft: #63b4f8;
+  --bx-a-rgb: 46, 155, 245;
+  --bx-from: #7fd0ff;
+}
+.sx-stage.sx-brief { background-color: #04070e; }
+
+/* the first screen waits for the boot screen */
+html:not([data-sx-loaded]) .sx-brief[data-armed]:not([data-go]) :is(.bx-rise, .bx-word, .bx-step, .bx-chrome) {
+  animation-play-state: paused;
+}
+
+/* ------------------------------------------------------------------ ground */
+
+.bx-ground {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.bx-orb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 64vmax;
+  height: 64vmax;
+  margin: -32vmax 0 0 -32vmax;
+  transition: transform 1.8s var(--sx-ease), opacity 1.2s ease;
+  will-change: transform;
+}
+.bx-orb > i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  animation: bx-drift 16s ease-in-out infinite alternate;
+}
+.bx-orb-a > i { background: radial-gradient(circle, rgba(46, 155, 245, 0.3), rgba(46, 155, 245, 0.08) 40%, transparent 68%); }
+.bx-orb-b > i {
+  background: radial-gradient(circle, rgba(249, 122, 31, 0.24), rgba(249, 122, 31, 0.06) 40%, transparent 68%);
+  animation-duration: 21s;
+  animation-direction: alternate-reverse;
+}
+@keyframes bx-drift {
+  from { transform: translate3d(-3%, -2%, 0) scale(1); }
+  to { transform: translate3d(4%, 3%, 0) scale(1.12); }
+}
+
+.bx-light {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  background: radial-gradient(480px circle at var(--px, 50%) var(--py, 40%), rgba(46, 155, 245, 0.13), rgba(46, 155, 245, 0.04) 45%, transparent 70%);
+}
+[data-lit] .bx-light { opacity: 1; }
+
+.bx-floor { opacity: 0.55; }
+
+.bx-num {
+  position: absolute;
+  right: 1vw;
+  top: 84px;
+  height: 1em;
+  overflow: hidden;
+  font-size: 11rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgba(158, 208, 255, 0.1);
+  -webkit-mask-image: linear-gradient(180deg, #000 30%, transparent 105%);
+  mask-image: linear-gradient(180deg, #000 30%, transparent 105%);
+  transform: translate3d(calc(var(--tx, 0) * -14px), calc(var(--ty, 0) * -10px), 0);
+  transition: transform 0.6s ease-out, opacity 0.6s ease;
+  user-select: none;
+}
+.bx-num[data-off] { opacity: 0; }
+.bx-num-strip {
+  display: flex;
+  flex-direction: column;
+  transform: translate3d(0, calc(var(--n, 0) * -1em), 0);
+  transition: transform 1.1s var(--sx-ease);
+}
+.bx-num-strip > span { display: block; height: 1em; text-align: right; }
+@media (min-width: 64rem) {
+  .bx-num { top: auto; right: -1vw; bottom: 9vh; font-size: clamp(16rem, 30vw, 28rem); }
+}
+
+/* ------------------------------------------------------------------ chrome */
+
+@keyframes bx-fade { from { opacity: 0; } to { opacity: 1; } }
+.bx-chrome { animation: bx-fade 0.9s ease both; }
+
+.bx-bar { position: relative; height: 2px; background: rgba(158, 208, 255, 0.12); }
+.bx-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--p, 0) * 100%);
+  background: linear-gradient(90deg, var(--bx-from), var(--bx-a));
+  transition: width 0.9s var(--sx-ease);
+}
+.bx-bar-fill::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  background: var(--bx-a-soft);
+  box-shadow: 0 0 12px 3px rgba(var(--bx-a-rgb), 0.75);
+}
+
+/* -------------------------------------------------------------------- rail */
+
+.bx-rail li { position: relative; }
+.bx-node {
+  position: relative;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--sx-line);
+  border-radius: 50%;
+  background: #060c18;
+  color: var(--sx-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease, box-shadow 0.5s ease;
+}
+.bx-rail li[data-state="done"] .bx-node {
+  border-color: color-mix(in srgb, var(--bx-a) 60%, transparent);
+  color: var(--bx-a);
+}
+.bx-rail li[data-state="now"] .bx-node {
+  border-color: var(--bx-a);
+  background: var(--bx-a);
+  color: #0a0c10;
+  box-shadow: 0 0 0 5px rgba(var(--bx-a-rgb), 0.16), 0 0 24px rgba(var(--bx-a-rgb), 0.5);
+}
+.bx-rail li[data-state="now"] .bx-node::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--bx-a);
+  border-radius: 50%;
+  animation: bx-halo 2.4s ease-out infinite;
+}
+.bx-link {
+  position: absolute;
+  left: 13.5px;
+  top: 34px;
+  bottom: -2px;
+  width: 1px;
+  overflow: hidden;
+  background: var(--sx-line);
+}
+.bx-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--bx-a), rgba(var(--bx-a-rgb), 0.35));
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.7s var(--sx-ease);
+}
+.bx-rail li[data-state="done"] .bx-link::after { transform: scaleY(1); }
+
+/* -------------------------------------------------------------------- step */
+
+@keyframes bx-step-in {
+  from { opacity: 0; transform: translate3d(0, calc(var(--bx-dir, 1) * 26px), 0); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes bx-step-out {
+  to { opacity: 0; transform: translate3d(0, calc(var(--bx-dir, 1) * -22px), 0); filter: blur(4px); }
+}
+.bx-step { animation: bx-step-in 0.5s var(--sx-ease) both; }
+.bx-step[data-leaving] { animation: bx-step-out 0.2s ease-in both; pointer-events: none; }
+
+@keyframes bx-word {
+  from { opacity: 0; transform: translate3d(0, 0.5em, 0) rotate(2deg); filter: blur(10px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.bx-word {
+  display: inline-block;
+  animation: bx-word 0.7s var(--sx-ease) both;
+  animation-delay: calc(60ms + var(--i, 0) * 42ms);
+}
+
+@keyframes bx-rise {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to { opacity: 1; transform: none; }
+}
+.bx-rise { animation: bx-rise 0.6s var(--sx-ease) both; animation-delay: var(--d, 0s); }
+
+/* ------------------------------------------------------------------- cards */
+
+.bx-card {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid var(--bx-edge);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(14, 26, 48, 0.78), rgba(8, 16, 32, 0.78));
+  color: var(--sx-text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.35s var(--sx-ease), border-color 0.25s ease, background 0.25s ease, box-shadow 0.35s ease, opacity 0.3s ease;
+}
+/* the border, lit toward the pointer */
+.bx-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  padding: 1px;
+  border-radius: inherit;
+  background: radial-gradient(240px circle at var(--mx, -999px) var(--my, -999px), rgba(var(--bx-a-rgb), 0.95), rgba(46, 155, 245, 0.4) 42%, transparent 70%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: var(--spot, 0);
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+/* and a little of that light on its face */
+.bx-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(320px circle at var(--mx, -999px) var(--my, -999px), rgba(var(--bx-a-rgb), 0.1), transparent 62%);
+  opacity: var(--spot, 0);
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .bx-card:hover { transform: translate3d(0, -3px, 0); border-color: rgba(158, 208, 255, 0.32); }
+}
+.bx-card:focus-visible { outline: 2px solid var(--sx-primary); outline-offset: 3px; }
+.bx-card[aria-checked="true"] {
+  border-color: var(--bx-a);
+  background: linear-gradient(180deg, rgba(var(--bx-a-rgb), 0.17), rgba(var(--bx-a-rgb), 0.05));
+  box-shadow: 0 0 0 1px var(--bx-a), 0 22px 60px -24px rgba(var(--bx-a-rgb), 0.65);
+}
+.bx-group[data-picked] .bx-card:not([aria-checked="true"]):not(:hover):not(:focus-visible) { opacity: 0.62; }
+
+.bx-ring {
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--bx-a);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+@keyframes bx-ping {
+  from { opacity: 0.9; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.07); }
+}
+.bx-card[aria-checked="true"] .bx-ring { animation: bx-ping 0.7s ease-out both; }
+
+.bx-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--bx-edge);
+  border-radius: 12px;
+  color: var(--sx-primary-soft);
+  transition: color 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;
+}
+.bx-card[aria-checked="true"] .bx-icon {
+  border-color: rgba(var(--bx-a-rgb), 0.6);
+  background: rgba(var(--bx-a-rgb), 0.14);
+  color: var(--bx-a-soft);
+}
+
+.bx-tick {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgba(158, 208, 255, 0.28);
+  border-radius: 50%;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+.bx-card[aria-checked="true"] .bx-tick { border-color: var(--bx-a); background: var(--bx-a); }
+.bx-tick path { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 0.35s var(--sx-ease) 0.05s; }
+.bx-card[aria-checked="true"] .bx-tick path { stroke-dashoffset: 0; }
+
+/* the budget meter: five bars, lit up to the band */
+.bx-meter { display: flex; align-items: flex-end; gap: 3px; height: 26px; }
+.bx-meter > i {
+  display: block;
+  width: 5px;
+  border-radius: 2px;
+  background: rgba(158, 208, 255, 0.18);
+  transition: background-color 0.3s ease;
+}
+.bx-meter > i[data-on] { background: var(--sx-primary-soft); }
+.bx-card[aria-checked="true"] .bx-meter > i[data-on] { background: var(--bx-a-soft); }
+
+/* number-key hints: only where there is a keyboard to press them on */
+.bx-key {
+  display: none;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid rgba(158, 208, 255, 0.22);
+  border-radius: 6px;
+  color: var(--sx-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+.bx-keys { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .bx-key { display: grid; }
+  .bx-keys { display: block; }
+}
+
+/* ------------------------------------------------------------------- chips */
+
+@keyframes bx-pop {
+  0% { transform: scale(0.94); }
+  60% { transform: scale(1.04); }
+  100% { transform: none; }
+}
+.bx-chip {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--bx-edge);
+  border-radius: 999px;
+  background: rgba(11, 22, 40, 0.6);
+  color: var(--sx-text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+@media (hover: hover) {
+  .bx-chip:hover { border-color: rgba(158, 208, 255, 0.38); }
+}
+.bx-chip:focus-visible { outline: 2px solid var(--sx-primary); outline-offset: 2px; }
+.bx-chip[aria-checked="true"],
+.bx-chip[aria-pressed="true"] {
+  border-color: var(--bx-a);
+  background: rgba(var(--bx-a-rgb), 0.15);
+  animation: bx-pop 0.28s var(--sx-ease);
+}
+.bx-chip[data-quiet] { border-style: dashed; color: var(--sx-text-muted); }
+
+/* ------------------------------------------------------------------ fields */
+
+.bx-field { position: relative; }
+.bx-field::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--bx-a), var(--bx-from));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.5s var(--sx-ease);
+  pointer-events: none;
+}
+.bx-field:focus-within::after { transform: scaleX(1); }
+.bx-field[data-error]::after { background: var(--sx-danger); transform: scaleX(1); }
+.bx-input {
+  display: block;
+  width: 100%;
+  padding: 8px 0 12px;
+  border: 0;
+  border-bottom: 1px solid rgba(158, 208, 255, 0.24);
+  border-radius: 0;
+  background: transparent;
+  color: var(--sx-text);
+  font-size: clamp(1.15rem, 2.1vw, 1.55rem);
+  font-weight: 500;
+  outline: none;
+}
+.bx-input::placeholder { color: rgba(143, 154, 176, 0.55); }
+/* a browser's autofill paints its own light box; hold ours */
+.bx-input:-webkit-autofill,
+.bx-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f4f5f7;
+  caret-color: #f4f5f7;
+  transition: background-color 99999s ease-out 0s;
+}
+
+/* ----------------------------------------------------------------- actions */
+
+/* The bar's ground runs the full width of the screen, not just the column's,
+   and is solid under the buttons: a step scrolling beneath must not show
+   through the words. */
+.bx-actions { isolation: isolate; }
+.bx-actions::before {
+  content: "";
+  position: absolute;
+  inset: 0 -100vw;
+  z-index: -1;
+  background: linear-gradient(180deg, transparent, rgba(4, 7, 14, 0.94) 30%, #04070e 62%);
+  pointer-events: none;
+}
+/* not pinned on a very short screen (brief-wizard.tsx), so no ground either */
+@media (max-height: 500px) {
+  .bx-actions::before { display: none; }
+}
+.bx-cta {
+  position: relative;
+  overflow: hidden;
+  min-height: 52px;
+  border-radius: 14px;
+  background: var(--bx-a);
+  color: #0a0c10;
+  font-weight: 600;
+  box-shadow: 0 14px 40px -16px rgba(var(--bx-a-rgb), 0.85);
+  cursor: pointer;
+  transition: transform 0.25s var(--sx-ease), background-color 0.2s ease, box-shadow 0.3s ease, opacity 0.2s ease;
+}
+@media (hover: hover) {
+  .bx-cta:hover { background: var(--bx-a-soft); transform: translate3d(0, -1px, 0); box-shadow: 0 18px 46px -14px rgba(var(--bx-a-rgb), 0.95); }
+  .bx-cta:hover .bx-arrow { transform: translate3d(4px, 0, 0); }
+}
+.bx-cta:active { transform: scale(0.98); }
+.bx-cta:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+/* not ready yet (the agreement is unticked) … */
+.bx-cta:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; transform: none; }
+/* … or busy sending */
+.bx-cta[aria-busy="true"]:disabled { opacity: 0.75; cursor: progress; }
+.bx-arrow { transition: transform 0.3s var(--sx-ease); }
+.bx-ghost {
+  min-height: 52px;
+  border: 1px solid var(--bx-edge);
+  border-radius: 14px;
+  color: var(--sx-text);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+@media (hover: hover) {
+  .bx-ghost:hover { border-color: rgba(158, 208, 255, 0.4); background: rgba(158, 208, 255, 0.06); }
+}
+.bx-ghost:focus-visible { outline: 2px solid var(--sx-primary); outline-offset: 3px; }
+
+@keyframes bx-spin { to { transform: rotate(360deg); } }
+.bx-spin {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(10, 12, 16, 0.3);
+  border-top-color: #0a0c10;
+  border-radius: 50%;
+  animation: bx-spin 0.7s linear infinite;
+}
+
+/* ------------------------------------------------------------------ ticket */
+
+.bx-ticket {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(158, 208, 255, 0.2);
+  border-radius: 22px;
+  background: linear-gradient(160deg, rgba(16, 30, 56, 0.92), rgba(7, 14, 28, 0.94));
+  box-shadow: 0 40px 100px -40px rgba(0, 0, 0, 0.8), 0 0 80px -30px rgba(46, 155, 245, 0.4);
+  transform: perspective(1400px) rotateY(calc(var(--tx, 0) * 2.2deg)) rotateX(calc(var(--ty, 0) * -1.6deg));
+  transition: transform 0.5s ease-out;
+}
+.bx-ticket::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(158, 208, 255, 0.6), rgba(var(--bx-a-rgb), 0.7), transparent);
+}
+/* the tear line, with a notch bitten out of each edge */
+.bx-perf { position: relative; border-top: 1px dashed rgba(158, 208, 255, 0.24); }
+.bx-perf::before,
+.bx-perf::after {
+  content: "";
+  position: absolute;
+  top: -11px;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(158, 208, 255, 0.2);
+  border-radius: 50%;
+  background: #04070e;
+}
+.bx-perf::before { left: -12px; }
+.bx-perf::after { right: -12px; }
+
+/* -------------------------------------------------------------------- sent */
+
+@keyframes bx-halo {
+  from { opacity: 0.8; transform: scale(1); }
+  to { opacity: 0; transform: scale(2.2); }
+}
+@keyframes bx-check-in {
+  from { opacity: 0; transform: scale(0.4) rotate(-20deg); }
+  to { opacity: 1; transform: none; }
+}
+.bx-check {
+  position: relative;
+  display: grid;
+  width: 84px;
+  height: 84px;
+  place-items: center;
+  border: 2px solid rgba(34, 201, 141, 0.6);
+  border-radius: 50%;
+  background: rgba(34, 201, 141, 0.08);
+  animation: bx-check-in 0.7s var(--sx-ease) both;
+}
+.bx-check::before,
+.bx-check::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(34, 201, 141, 0.55);
+  border-radius: 50%;
+  opacity: 0;
+  animation: bx-halo 1.8s ease-out 0.25s both;
+}
+.bx-check::after { animation-delay: 0.6s; }
+
+.bx-panel {
+  border: 1px solid var(--bx-edge);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(14, 26, 48, 0.78), rgba(8, 16, 32, 0.78));
+}
+
+/* The optional follow-ups open with the house `.sx-expand`, whose inner box
+   clips. A little room at the sides keeps a chip's focus ring whole. */
+.sx-brief .sx-expand > * { margin-inline: -4px; padding-inline: 4px; }
+
+/* ---------------------------------------------------------- reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .bx-rise,
+  .bx-word,
+  .bx-step,
+  .bx-step[data-leaving],
+  .bx-chrome,
+  .bx-check,
+  .bx-chip[aria-checked="true"],
+  .bx-chip[aria-pressed="true"] { animation: none; opacity: 1; transform: none; filter: none; }
+  .bx-check::before,
+  .bx-check::after,
+  .bx-ring,
+  .bx-rail li[data-state="now"] .bx-node::after { display: none; }
+  .bx-orb,
+  .bx-num,
+  .bx-num-strip,
+  .bx-bar-fill,
+  .bx-link::after,
+  .bx-card,
+  .bx-cta,
+  .bx-arrow,
+  .bx-field::after,
+  .bx-tick path { transition: none; }
+  .bx-orb > i,
+  .bx-floor { animation: none; }
+  .bx-num,
+  .bx-ticket { transform: none; }
+  .bx-card:hover,
+  .bx-cta:hover { transform: none; }
+  .bx-spin { animation-duration: 1.6s; }
+}
