@@ -18,9 +18,12 @@
  * journalism inside a sponsor's campaign — and nothing enters a campaign
  * without a right that says so explicitly.
  */
+import { randomUUID } from "node:crypto";
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
-import { audit, type AuditActor } from "../db/audit";
+import { AUDIT_ACTIONS, audit, type AuditActor } from "../db/audit";
+import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, uploadRefusal } from "../lib/storage";
+import { ANY_FILE_MAX_BYTES, anyFileType, downloadDisposition, safeFileName } from "../lib/file-formats";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
@@ -32,7 +35,8 @@ type Tx = Prisma.TransactionClient;
 /** The system, for what it records on its own (P9-BE-22, -23). */
 const SYSTEM = (tenantId: string): AuditActor => ({ userId: null, tenantId });
 
-export const ASSET_KINDS = ["ARTICLE", "PHOTO", "PHOTO_PACKAGE", "INTERVIEW", "VIDEO", "AD_CREATIVE"] as const;
+/** P9-BE-25 — DESIGN (a page or a graphic a student designed) is what an approved design assignment becomes. */
+export const ASSET_KINDS = ["ARTICLE", "PHOTO", "PHOTO_PACKAGE", "INTERVIEW", "VIDEO", "AD_CREATIVE", "DESIGN"] as const;
 export const SOURCE_KINDS = ["STUDENT", "ATHLETE", "BTG", "THIRD_PARTY"] as const;
 export const GRANTOR_KINDS = ["STUDENT", "ATHLETE", "GUARDIAN", "BTG", "THIRD_PARTY"] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
@@ -61,38 +65,182 @@ export class CommercialGrantRequiredError extends Error {
 
 /* ── edition content ────────────────────────────────────────────────────── */
 
+/* P9-BE-25 — a piece's file, in any format (owner, 2026-11-19). Uploaded
+   straight to the private bucket on a grant signed for its exact type and
+   size, then checked when the piece is saved: the key must be one this
+   edition's grant handed out, and what arrived must be what was signed for. */
+
+const contentKeyPrefix = (tenantId: string, editionId: string) => `edition-content/${tenantId}/${editionId}/`;
+
+/** Published or cancelled: a piece's file can no longer be added. */
+const CONTENT_FINAL_STATES = ["PUBLISHED_DIGITAL", "PRINTED", "DISTRIBUTED", "CANCELLED"];
+
+/** POST /editions/{id}/assets/uploads — a grant to upload one file for this edition's content. */
+export async function presignEditionContentUpload(
+  actor: Actor,
+  editionId: string,
+  input: { contentType: string; bytes: number },
+): Promise<{ url: string; key: string; contentType: string; maxBytes: number }> {
+  assertAllowed(actor, "editionAsset", "write");
+  const contentType = anyFileType(input.contentType);
+  if (!contentType) throw new RightsError("That file's type can't be read — choose the file again.");
+  if (!Number.isInteger(input.bytes) || input.bytes <= 0 || input.bytes > ANY_FILE_MAX_BYTES) throw new RightsError("Keep the file under 2 GB.");
+  const edition = await prisma.edition.findFirst({
+    where: { ...whereFor(actor, "edition", "read"), id: editionId }, select: { id: true, tenantId: true, state: true },
+  });
+  if (!edition) throw new ForbiddenError("editionAsset", "write");
+  if (edition.state === "CANCELLED") throw new RightsError("This edition was cancelled, so it takes no content.", 409);
+  const key = `${contentKeyPrefix(edition.tenantId, edition.id)}${randomUUID()}`;
+  const url = await presignPrivateUpload(actor, key, contentType, { entity: "Edition", entityId: edition.id }, {
+    contentLength: input.bytes,
+    signContentType: true,
+  });
+  return { url, key, contentType, maxBytes: ANY_FILE_MAX_BYTES };
+}
+
+/**
+ * The confirm step: the key is under this edition's prefix, a grant for this
+ * edition handed it out, no other piece already uses it, and what arrived is
+ * the type and exact size that grant signed for — or it is refused (and a
+ * wrong file deleted and recorded, lib/storage `checkPrivateUpload`).
+ */
+async function checkContentFile(
+  tx: Tx,
+  actor: Actor,
+  edition: { id: string; tenantId: string },
+  r2Key: string,
+): Promise<{ fileType: string; fileBytes: number }> {
+  const notOurs = () => new RightsError("That file wasn't uploaded for this edition — upload it again.");
+  if (!r2Key.startsWith(contentKeyPrefix(edition.tenantId, edition.id)) || r2Key.includes("..")) throw notOurs();
+  const grant = await tx.auditLog.findFirst({
+    /* tenant-scope: the grant was audited under the presigning actor's
+       tenant — the edition's own (reached through whereFor(edition)), or
+       this actor's; keyed by this edition and this key. */
+    where: {
+      tenantId: { in: [...new Set([edition.tenantId, actor.tenantId])] },
+      entity: "Edition", entityId: edition.id,
+      action: AUDIT_ACTIONS.storage.privateUploadGrant,
+      after: { path: ["key"], equals: r2Key },
+    },
+    select: { after: true },
+    orderBy: { at: "desc" },
+  });
+  const granted = (grant?.after ?? null) as { contentType?: unknown; bytes?: unknown } | null;
+  if (typeof granted?.contentType !== "string" || typeof granted.bytes !== "number") throw notOurs();
+  if (await tx.editionAsset.count({ where: { tenantId: edition.tenantId, r2Key } })) {
+    throw new RightsError("That file is already another piece's — upload it again for this one.", 409);
+  }
+  const arrived = await checkPrivateUpload(actor, r2Key,
+    { contentType: granted.contentType, bytes: granted.bytes, maxBytes: ANY_FILE_MAX_BYTES },
+    { entity: "Edition", entityId: edition.id });
+  if (!arrived.ok && arrived.problem === "missing") throw new RightsError(uploadRefusal("missing", "That file"), 409);
+  if (!arrived.ok) throw new RightsError(uploadRefusal(arrived, "That file"));
+  return { fileType: granted.contentType, fileBytes: arrived.bytes };
+}
+
 export async function addEditionAsset(
   actor: Actor,
   editionId: string,
-  input: { kind: AssetKind; title: string; sourceKind: SourceKind; studentId?: string | null; athleteId?: string | null; r2Key?: string | null },
+  input: { kind: AssetKind; title: string; sourceKind: SourceKind; studentId?: string | null; athleteId?: string | null; r2Key?: string | null; fileName?: string | null },
 ): Promise<{ id: string }> {
   assertAllowed(actor, "editionAsset", "write");
   if (input.sourceKind === "STUDENT" && !input.studentId) throw new RightsError("A student's asset names the student.");
   if (input.sourceKind === "ATHLETE" && !input.athleteId) throw new RightsError("An athlete's asset names the athlete.");
   return prisma.$transaction(async (tx) => {
     const edition = await tx.edition.findFirst({
-      where: { ...whereFor(actor, "edition", "read"), id: editionId }, select: { id: true },
+      where: { ...whereFor(actor, "edition", "read"), id: editionId }, select: { id: true, tenantId: true, state: true },
     });
     if (!edition) throw new ForbiddenError("editionAsset", "write");
+    if (input.r2Key && CONTENT_FINAL_STATES.includes(edition.state)) {
+      throw new RightsError("This edition is published or cancelled, so its content can't take new files.", 409);
+    }
     if (input.studentId && !(await tx.student.count({ where: { tenantId: actor.tenantId, id: input.studentId } }))) {
       throw new ForbiddenError("student", "read");
     }
     if (input.athleteId && !(await tx.athlete.count({ where: { tenantId: actor.tenantId, id: input.athleteId } }))) {
       throw new ForbiddenError("athlete", "read");
     }
+    const file = input.r2Key ? await checkContentFile(tx, actor, edition, input.r2Key) : null;
+    const fileName = file ? safeFileName(input.fileName) : null;
     const asset = await tx.editionAsset.create({
       data: {
         tenantId: actor.tenantId, editionId, kind: input.kind, title: input.title, sourceKind: input.sourceKind,
-        studentId: input.studentId ?? null, athleteId: input.athleteId ?? null, r2Key: input.r2Key ?? null,
+        studentId: input.studentId ?? null, athleteId: input.athleteId ?? null, r2Key: file ? input.r2Key! : null,
+        fileType: file?.fileType ?? null, fileBytes: file?.fileBytes ?? null, fileName,
       },
       select: { id: true },
     });
-    await audit(tx, actor, "editionAsset.create", "EditionAsset", asset.id, { after: { editionId, kind: input.kind, sourceKind: input.sourceKind } });
+    await audit(tx, actor, "editionAsset.create", "EditionAsset", asset.id, {
+      after: { editionId, kind: input.kind, sourceKind: input.sourceKind, ...(file ? { file: { key: input.r2Key, type: file.fileType, bytes: file.fileBytes, name: fileName } } : {}) },
+    });
     /* P9-BE-23 — a maker whose consent is already on file: the right is
        recorded now, in this transaction, by the system. */
     await recordConsentRightsIn(tx, actor.tenantId, { assetIds: [asset.id] });
     return asset;
   });
+}
+
+/**
+ * PUT /edition-assets/{id}/file — P9-BE-25. A file for a piece that has none
+ * (content added by title before files could be uploaded). Ad artwork is the
+ * sponsor's upload on its slot, and a student's piece carries its draft's
+ * file, so neither takes one here. A file once attached isn't swapped: the
+ * piece's rights were granted for what it is.
+ */
+export async function attachEditionAssetFile(
+  actor: Actor,
+  assetId: string,
+  input: { r2Key: string; fileName?: string | null },
+): Promise<{ id: string; fileType: string; fileBytes: number; fileName: string | null }> {
+  assertAllowed(actor, "editionAsset", "write");
+  return prisma.$transaction(async (tx) => {
+    const asset = await tx.editionAsset.findFirst({
+      where: { ...whereFor(actor, "editionAsset", "write"), id: assetId },
+      select: { id: true, tenantId: true, editionId: true, r2Key: true, adSlotId: true, assignment: { select: { id: true } }, edition: { select: { state: true } } },
+    });
+    if (!asset) throw new ForbiddenError("editionAsset", "write");
+    if (asset.adSlotId) throw new RightsError("Ad artwork is uploaded by its sponsor, on the slot.", 409);
+    if (asset.assignment) throw new RightsError("A student's piece carries the file from their draft.", 409);
+    if (asset.r2Key) throw new RightsError("This piece already has its file.", 409);
+    if (CONTENT_FINAL_STATES.includes(asset.edition.state)) {
+      throw new RightsError("This edition is published or cancelled, so its content can't take new files.", 409);
+    }
+    const file = await checkContentFile(tx, actor, { id: asset.editionId, tenantId: asset.tenantId }, input.r2Key);
+    const fileName = safeFileName(input.fileName);
+    /* Conditional on it still having no file: two attaches racing record one. */
+    const { count } = await tx.editionAsset.updateMany({
+      where: { id: asset.id, tenantId: asset.tenantId, r2Key: null },
+      data: { r2Key: input.r2Key, fileType: file.fileType, fileBytes: file.fileBytes, fileName },
+    });
+    if (!count) throw new RightsError("This piece already has its file.", 409);
+    await audit(tx, actor, "editionAsset.file", "EditionAsset", asset.id, {
+      after: { key: input.r2Key, type: file.fileType, bytes: file.fileBytes, name: fileName },
+    });
+    return { id: asset.id, ...file, fileName };
+  });
+}
+
+/**
+ * GET /edition-assets/{id}/file — P9-BE-25. A short-lived, audited signed
+ * read of a piece's file, for whoever reads the piece. A file a browser
+ * mustn't open in place (a design file, an HTML page, an SVG) comes back as
+ * a download, signed into the link (lib/file-formats.ts).
+ */
+export async function editionAssetFileUrl(
+  actor: Actor,
+  assetId: string,
+): Promise<{ url: string; fileType: string | null; fileName: string | null; download: boolean }> {
+  assertAllowed(actor, "editionAsset", "read");
+  const asset = await prisma.editionAsset.findFirst({
+    where: { ...whereFor(actor, "editionAsset", "read"), id: assetId },
+    select: { id: true, r2Key: true, fileType: true, fileName: true, artworkContentType: true },
+  });
+  if (!asset) throw new ForbiddenError("editionAsset", "read");
+  if (!asset.r2Key) throw new RightsError("This piece has no file.", 404);
+  const fileType = asset.fileType ?? asset.artworkContentType ?? null;
+  const disposition = downloadDisposition(fileType, asset.fileName);
+  const url = await presignPrivateDownload(actor, asset.r2Key, { entity: "EditionAsset", entityId: asset.id }, undefined, disposition);
+  return { url, fileType, fileName: asset.fileName, download: disposition !== null };
 }
 
 /* ── consent for a subject with no login (P9-BE-11, §6.2) ───────────────── */
@@ -473,14 +621,19 @@ export async function listAssets(actor: Actor, editionId: string) {
   assertAllowed(actor, "editionAsset", "read");
   const edition = await prisma.edition.findFirst({ where: { ...whereFor(actor, "edition", "read"), id: editionId }, select: { id: true } });
   if (!edition) throw new ForbiddenError("edition", "read");
-  return prisma.editionAsset.findMany({
+  const rows = await prisma.editionAsset.findMany({
     where: { ...whereFor(actor, "editionAsset", "read"), editionId },
     select: {
       id: true, kind: true, title: true, sourceKind: true, studentId: true, campaignId: true,
+      /* P9-BE-25 — whether it has a file, and what; the key itself stays server-side. */
+      r2Key: true, fileType: true, fileBytes: true, fileName: true, artworkContentType: true,
       rights: { select: { id: true, grantorKind: true, mayPublishDigital: true, mayPublishPrint: true, mayPromote: true, mayReuseCommercially: true, startsAt: true, endsAt: true, autoBasis: true } },
     },
     orderBy: { createdAt: "asc" },
   });
+  return rows.map(({ r2Key, artworkContentType, fileType, ...r }) => ({
+    ...r, hasFile: r2Key !== null, fileType: r2Key ? fileType ?? artworkContentType : null,
+  }));
 }
 
 /** A right that is in force on `on`. */

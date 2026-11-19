@@ -68,7 +68,9 @@ async function presignedGetValid(client: S3Client, req: IncomingMessage, bucket:
   const expires = Number(q.get("X-Amz-Expires"));
   if (!sig || !date || !expires) return false;
   if (Date.now() > amzDate(date).getTime() + expires * 1000) return false;
-  const url = await getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: expires, signingDate: amzDate(date) });
+  /* P9-BE-25 — a disposition is signed into the link, as R2 checks it. */
+  const disposition = q.get("response-content-disposition");
+  const url = await getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key, ...(disposition ? { ResponseContentDisposition: disposition } : {}) }), { expiresIn: expires, signingDate: amzDate(date) });
   return new URL(url).searchParams.get("X-Amz-Signature") === sig;
 }
 
@@ -118,7 +120,8 @@ export async function startObjectStore(): Promise<ObjectStore> {
           res.end(`<?xml version="1.0" encoding="UTF-8"?><Error><Code>${ok ? "NoSuchKey" : "AccessDenied"}</Code></Error>`);
           return;
         }
-        res.writeHead(200, { "Content-Type": o.type, "Content-Length": o.body.length });
+        const disposition = new URL(req.url ?? "/", "http://x").searchParams.get("response-content-disposition");
+        res.writeHead(200, { "Content-Type": o.type, "Content-Length": o.body.length, ...(disposition ? { "Content-Disposition": disposition } : {}) });
         res.end(o.body);
       }, (error: unknown) => {
         res.writeHead(500);

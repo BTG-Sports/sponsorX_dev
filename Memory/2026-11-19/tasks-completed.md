@@ -172,8 +172,8 @@
   on 2S4-FE-07/08/09 make them depend on it.
 - **Backend board:** no backend task can start. P8-OPS-03 waits on Stripe go-live and P2-INT-02 on
   Clerk Pro; the wallet passes, P9-DATA-01 and Phase 6 are parked.
-- **Stage Progress:** rows for 2026-11-18 and 2026-11-19, both Phase 1 unchanged at 320 Done, 15.5
-  days left.
+- **Stage Progress:** rows for 2026-11-18 and 2026-11-19, both at 320 Done. Days left: 15.5 on
+  11-18, and 27.5 on 11-19, because the upload audit's 8 NEXT tasks (12 days) joined Phase 1 that day.
 - **Restored:** yesterday's Stage Progress row and end-of-day entry never reached main_development.
   The commit landed on the POL-BE-104 branch a minute after #471 merged, so both were added back
   today.

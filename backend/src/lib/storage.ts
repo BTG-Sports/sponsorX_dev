@@ -101,9 +101,10 @@ function presignUpload(bucket: string, key: string, contentType: string, pins: U
 export const SENSITIVE_DOCUMENT_TTL_SECONDS = 5 * 60;
 
 /** Presigned GET. Private-bucket callers must go through the audited wrapper. */
-function presignDownload(bucket: string, key: string, ttlSeconds = PRESIGN_TTL_SECONDS, signingDate?: Date) {
-  /* A caller may ask for shorter, never longer. */
-  return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), {
+function presignDownload(bucket: string, key: string, ttlSeconds = PRESIGN_TTL_SECONDS, signingDate?: Date, disposition?: string | null) {
+  /* A caller may ask for shorter, never longer. P9-BE-25 — a disposition is
+     signed into the link, so storage sends it and the holder can't drop it. */
+  return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key, ...(disposition ? { ResponseContentDisposition: disposition } : {}) }), {
     expiresIn: Math.min(ttlSeconds, PRESIGN_TTL_SECONDS),
     ...(signingDate ? { signingDate } : {}),
   });
@@ -177,6 +178,8 @@ export async function presignPrivateDownload(
   key: string,
   context: GrantContext,
   ttlSeconds: number = PRESIGN_TTL_SECONDS,
+  /** P9-BE-25 — `attachment…` for a file a browser mustn't open in place (lib/file-formats.ts). */
+  disposition: string | null = null,
 ): Promise<string> {
   assertSafeKey(key);
 
@@ -187,11 +190,11 @@ export async function presignPrivateDownload(
       AUDIT_ACTIONS.storage.privateDownloadGrant,
       context.entity,
       context.entityId,
-      { after: { bucket: BUCKETS.private, key, ttlSeconds: Math.min(ttlSeconds, PRESIGN_TTL_SECONDS) } },
+      { after: { bucket: BUCKETS.private, key, ttlSeconds: Math.min(ttlSeconds, PRESIGN_TTL_SECONDS), ...(disposition ? { disposition } : {}) } },
     ),
   );
 
-  return presignDownload(BUCKETS.private, key, ttlSeconds);
+  return presignDownload(BUCKETS.private, key, ttlSeconds, undefined, disposition);
 }
 
 /**
