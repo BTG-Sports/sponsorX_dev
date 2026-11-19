@@ -324,3 +324,22 @@
     pass.
   - Railway's APP_URL matches each environment's upload rule (staging web URL, sponsorx.net).
   - Full suite 286 files, 4,033 tests.
+
+## Upload audit backend: live on staging and production (rcfworks)
+- **Merged:** #486, #488, #489, #490, #492 and #493.
+  - #484 was closed; its change came in through #486. #485 (main) is still open.
+  - #492's first e2e run failed: MinIO's server image is no longer published. CI now uses the e2e
+    store in strict mode (staging's upload rule and R2's signed-link checks). It passed.
+- **Promoted:** #494, main_development to main. The tracker conflict was resolved by keeping
+  main_development's copy, a checked superset.
+- **Deployed** (release 1ed6e196). The new after-deploy step passed on both environments: staging
+  checked 11:43:43Z, production 11:43:49Z, both ok.
+- **Done:** P9-BE-26, 27 and 28, and POL-BE-110, 111, 112 and 113.
+- **Reviewed for the owner:** the athlete campaign order template (`documentation/AthleteCampaignReference/`,
+  added 19:27) against the build.
+  - The legal terms (CAMPAIGN_ORDER.v2) match.
+  - Missing order details: order number, prompt (invited orders), deliverable format and length,
+    publish window, structured usage rights, paid media, structured exclusivity, disclosure
+    (invited orders), sponsor approval yes/no, non-cash consideration.
+  - Waiting on the owner: per-campaign payment timing, and a BTG countersignature. No tasks
+    raised yet.
