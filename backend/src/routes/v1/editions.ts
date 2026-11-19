@@ -54,6 +54,7 @@ import {
 } from "../../domain/edition";
 import { EditionNotFoundError, listPublications, updateEdition } from "../../domain/edition";
 import { PUBLISHED_STATES } from "../../domain/edition-state";
+import { productionBoard } from "../../domain/edition-production";
 import { editionCoverUrl, editionPressPdfUrl, presignEditionFileUpload, recordEditionFile, type EditionFile } from "../../domain/edition-files";
 
 export const editionsRouter = Router();
@@ -379,6 +380,11 @@ editionsRouter.get("/editions/:id/cover", requireActor, coverRead);
 editionsRouter.post("/editions/:id/press-pdf/uploads", requireActor, fileUpload("press-pdf"));
 editionsRouter.put("/editions/:id/press-pdf", requireActor, fileRecord("press-pdf"));
 editionsRouter.get("/editions/:id/press-pdf", requireActor, pressPdfRead);
+/* P9-BE-28 — the production board: every piece and what it still needs, asked as the gate asks. */
+const board: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await productionBoard(req.actor!, req.params.id));
+};
+editionsRouter.get("/editions/:id/production", requireActor, board);
 editionsRouter.get("/editions/:id/ledger", requireActor, ledger);
 editionsRouter.get("/editions/:id/sale-candidates", requireActor, saleCandidates);
 editionsRouter.post("/editions/:id/conditions", requireActor, conditions);
