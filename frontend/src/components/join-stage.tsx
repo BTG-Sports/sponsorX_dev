@@ -30,7 +30,12 @@
 
    Every figure is derived: section and branch counts from SECTIONS, the
    minutes and review days from the constants below, which the copy on this
-   page and the wizard's intro both state.
+   page and the start panel both state.
+
+   POL-FE-115 (2026-11-19): the wizard left this page for its own,
+   /join/apply. The glass panel beside the hero now holds the start panel
+   (join-start.tsx) and its "Start application" button, and the closing
+   panel's button goes to the same place.
    -------------------------------------------------------------------------- */
 
 import Link from "next/link";
@@ -255,10 +260,9 @@ function HeroEyebrow({ centred = false }: { centred?: boolean }) {
   );
 }
 
-/** The wizard's frame: chamfered glass from sm, full-bleed on a phone. The
- *  content box is clipped to the plate so the sticky action bar can never
- *  paint past the cut corner. `.sx-join-stage` is the glow the wizard
- *  crossfades as the athlete passes the enforced section. */
+/** The start panel's frame: chamfered glass from sm, full-bleed on a phone.
+ *  The content box is clipped to the plate. `.sx-join-stage` is the glow
+ *  behind it. */
 function WizardPanel({ children }: { children: ReactNode }) {
   return (
     <div id="apply" className="sx-join-stage sx-stage-in relative mx-auto w-full max-w-[460px] scroll-mt-24 lg:mx-0" style={reveal(0.3)}>
@@ -512,13 +516,13 @@ export function JoinClose() {
           <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
             <Magnetic>
               <span className="sx-cta-pulse relative block w-full rounded-xl">
-                <a
-                  href="#apply"
+                <Link
+                  href="/join/apply"
                   className="sx-sheen group relative inline-flex h-[52px] w-full items-center justify-center gap-3 overflow-hidden whitespace-nowrap rounded-xl bg-gradient-to-r from-[#4fb0ff] to-[#2b8fe9] px-5 text-[15px] font-medium text-white shadow-[0_0_30px_rgba(46,155,245,.55)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_0_40px_rgba(46,155,245,.7)] sm:px-9"
                 >
-                  Go to the application
-                  <ArrowRightIcon className="size-[18px] -rotate-90 transition-transform group-hover:-translate-y-0.5" />
-                </a>
+                  Start the application
+                  <ArrowRightIcon className="size-[18px] transition-transform group-hover:translate-x-0.5" />
+                </Link>
               </span>
             </Magnetic>
             <Magnetic>

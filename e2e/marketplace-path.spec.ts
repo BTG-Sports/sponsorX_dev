@@ -261,8 +261,8 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
   /* ───────────────────────────────────────── 2 · the athlete applies ── */
   const applicant = await (await browser.newContext({ ...testInfo.project.use, baseURL: testInfo.project.use.baseURL, reducedMotion: "reduce" })).newPage();
   await useObjectStore(applicant);
-  await applicant.goto("/join");
-  await applicant.getByRole("button", { name: "Start application" }).click();
+  /* POL-FE-115 — the application is its own page; /join is the landing with a button to it. */
+  await applicant.goto("/join/apply");
   const save = applicant.getByRole("button", { name: "Save and continue" });
   const section = async (heading: string, fields: Array<[string, string]>) => {
     await expect(applicant.getByRole("heading", { level: 1, name: heading })).toBeVisible();

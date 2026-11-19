@@ -78,17 +78,21 @@ type Applicant = { first: string; last: string; dob: string; email: string; guar
 
 /** The public wizard, section by section, as a phone-first applicant sees it. */
 async function apply(page: Page, a: Applicant): Promise<string> {
+  /* POL-FE-115 — the landing keeps a button; the application is its own
+     page, /join/apply. The button is a link now, and the move plays the
+     site's page transition, so the first heading gets longer to arrive. */
   await page.goto("/join");
-  await page.getByRole("button", { name: "Start application" }).click();
+  await page.getByRole("link", { name: "Start application" }).click();
+  await page.waitForURL(/\/join\/apply/);
   const next = page.getByRole("button", { name: "Save and continue" });
   const heading = (name: string) => expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
 
-  await heading("Who you are");
+  await expect(page.getByRole("heading", { level: 1, name: "Who you are" })).toBeVisible({ timeout: 20_000 });
   await page.getByLabel("Legal first name").fill(a.first);
   await page.getByLabel("Legal last name").fill(a.last);
   await page.getByLabel("Date of birth").fill(a.dob);
   await page.getByLabel("Email", { exact: true }).fill(a.email);
-  if (a.guardian) await expect(page.getByText("One extra section is added")).toBeVisible();
+  if (a.guardian) await expect(page.getByText("One extra step is added")).toBeVisible();
   await next.click();
 
   await heading("Your sport");
