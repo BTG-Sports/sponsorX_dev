@@ -366,3 +366,11 @@
   existing test expected an approved alcohol campaign to staff automatically.
 - **Checked:** full suite 288 files, 4,052 tests.
 - **Frontend:** POL-FE-116 (HeckerCreatives) builds the builder page and the athlete's order view.
+
+## POL-BE-116: the campaign order details, live on staging and production (rcfworks)
+- **Merged:** #497 (CI green), into main_development.
+- **Promoted:** #498, main_development to main; main's merge commits merged in first, no conflicts.
+- **Deployed** (release 1dddc57b). Both environments healthy afterwards, the storage upload check
+  passing at 14:10Z on each.
+- **Done:** POL-BE-116. POL-FE-116 (the builder page, the order page, BTG's held reasons) is
+  HeckerCreatives'; the routes are in polish.md item 116.
