@@ -3,6 +3,10 @@ import { currentUser } from "@clerk/nextjs/server";
 import { requirePortalAccess } from "@/server/portal";
 import { PortalShell } from "@/components/portal-shell";
 import { sponsorNavFor } from "@/lib/sponsor-nav";
+import { withMessages } from "@/lib/deal-chat-nav";
+import { unreadTotal } from "@/lib/deal-chat";
+import { dealViewer, portalChats } from "@/server/deal-chat";
+import { ChatDock } from "@/components/deal-chat/chat-dock";
 import { welcomeWord } from "@/lib/sponsor-words";
 
 import "./stadium.css";
@@ -36,11 +40,18 @@ export default async function SponsorLayout({ children }: LayoutProps<"/sponsor"
       ? "Sponsor Viewer"
       : "BTG preview";
 
+  /* 2S4-FE-07 — Deal Chat: the Messages link is always in the sidebar (owner,
+     2026-11-19), with the unread count; the round button only once the
+     sponsor has a chat (none while the DEAL_CHAT switch is off). */
+  const chats = await portalChats("sponsor", actor);
+  const unread = unreadTotal(chats);
+
   return (
     <PortalShell
       portal="sponsor"
       /* POL-FE-19 — Team only for a Sponsor Admin; the array itself is unchanged. */
-      nav={sponsorNavFor(actor.roles)}
+      nav={withMessages(sponsorNavFor(actor.roles), "sponsor")}
+      counts={{ "/sponsor/messages": unread }}
       rootHref="/sponsor"
       dock={DOCK}
       userName={clerkName || user?.primaryEmailAddress?.emailAddress || "Sponsor"}
@@ -53,6 +64,7 @@ export default async function SponsorLayout({ children }: LayoutProps<"/sponsor"
       stage="stadium"
     >
       {children}
+      {chats.length > 0 && <ChatDock viewer={dealViewer("sponsor", actor)} unread={unread} />}
     </PortalShell>
   );
 }

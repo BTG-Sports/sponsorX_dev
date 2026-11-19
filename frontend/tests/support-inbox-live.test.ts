@@ -66,7 +66,8 @@ describe("the menu's Support entry and its count", () => {
     const { readFileSync } = await import("node:fs");
     const layout = readFileSync(new URL("../src/app/(app)/admin/layout.tsx", import.meta.url), "utf8");
     expect(layout).toMatch(/nav=\{navFor\(actor\.roles\)\}/);
-    expect(layout).toMatch(/counts=\{\{ "\/admin\/support": await newSupportCount\(actor\.roles\) \}\}/);
+    /* 2S4-FE-09 added Deal chats' count beside it; the Support entry's own count is unchanged. */
+    expect(layout).toMatch(/counts=\{\{ "\/admin\/support": await newSupportCount\(actor\.roles\)[,} ]/);
     const { createElement } = await import("react");
     const { renderToStaticMarkup } = await import("react-dom/server");
     const { NavCount } = await import("@/components/portal-nav");

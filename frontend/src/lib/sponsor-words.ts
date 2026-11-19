@@ -41,6 +41,8 @@ const BRIEF: Record<string, Word> = {
   CLOSED: { text: "Closed", tone: "done" },
 };
 const ORDER: Record<string, Word> = {
+  /* 2S4-FE-07 — in the Deal Chat: the sponsor answers, agrees and signs. */
+  IN_CHAT: { text: "Agreeing the deal", tone: "you" },
   PENDING_SELLER: { text: "Waiting for approval", tone: "info" },
   PENDING_APPROVAL: { text: "Waiting for approval", tone: "info" },
   APPROVED: { text: "Ready to pay", tone: "you" },

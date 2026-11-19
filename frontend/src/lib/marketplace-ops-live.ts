@@ -16,13 +16,16 @@
 import type { SponsorRefund } from "@/lib/refunds-live";
 
 export type MarketplaceOrderState =
+  /* 2S4-BE-15 — behind DEAL_CHAT: placed, and being agreed in the Deal Chat. */
+  | "IN_CHAT"
   | "PENDING_SELLER" | "PENDING_APPROVAL" | "APPROVED" | "AWAITING_PAYMENT" | "PAID" | "IN_DELIVERY" | "FULFILLED" | "CLOSED" | "CANCELLED" | "REFUNDED";
 
 export const ORDER_STATES: readonly MarketplaceOrderState[] = [
-  "PENDING_SELLER", "PENDING_APPROVAL", "APPROVED", "AWAITING_PAYMENT", "PAID", "IN_DELIVERY", "FULFILLED", "CLOSED", "CANCELLED", "REFUNDED",
+  "IN_CHAT", "PENDING_SELLER", "PENDING_APPROVAL", "APPROVED", "AWAITING_PAYMENT", "PAID", "IN_DELIVERY", "FULFILLED", "CLOSED", "CANCELLED", "REFUNDED",
 ];
 
 const ORDER_TRANSITIONS: Readonly<Record<MarketplaceOrderState, readonly MarketplaceOrderState[]>> = {
+  IN_CHAT: ["PENDING_APPROVAL", "APPROVED", "CANCELLED"],
   PENDING_SELLER: ["PENDING_APPROVAL", "APPROVED", "CANCELLED"],
   PENDING_APPROVAL: ["APPROVED", "CANCELLED"],
   APPROVED: ["AWAITING_PAYMENT", "CANCELLED"],
@@ -184,6 +187,7 @@ export function sellerLabel(l: Pick<ApiListing, "seller" | "propertyName">): str
 }
 
 export const ORDER_STATE_COPY: Record<MarketplaceOrderState, { label: string; tone: "neutral" | "primary" | "accent" | "danger" | "warn" }> = {
+  IN_CHAT: { label: "In the deal chat", tone: "primary" },
   PENDING_SELLER: { label: "Waiting for the seller", tone: "warn" },
   PENDING_APPROVAL: { label: "Awaiting approval", tone: "warn" },
   APPROVED: { label: "Approved", tone: "accent" },
@@ -199,6 +203,7 @@ export const ORDER_STATE_COPY: Record<MarketplaceOrderState, { label: string; to
 /** The button for each staff move — payment states are marked by hand
  *  today (there is no payment provider yet), and the words say so. */
 export const MOVE_COPY: Record<MarketplaceOrderState, { label: string; hint: string; confirm?: boolean }> = {
+  IN_CHAT: { label: "—", hint: "" },
   PENDING_SELLER: { label: "—", hint: "" },
   PENDING_APPROVAL: { label: "—", hint: "" },
   APPROVED: { label: "—", hint: "" },

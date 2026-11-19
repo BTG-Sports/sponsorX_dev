@@ -9,6 +9,7 @@
  */
 import { createApp } from "./app";
 import { env } from "./config/env";
+import { startDealChatSocket } from "./realtime/deal-chat-socket";
 
 const app = createApp();
 
@@ -16,8 +17,13 @@ const server = app.listen(env.PORT, () => {
   console.log(`SponsorX API listening on :${env.PORT} (${env.NODE_ENV})`);
 });
 
+/* Deal Chat's live updates (behind DEAL_CHAT_SOCKET): a socket on the same server and port as the routes. */
+const dealChatSocket = startDealChatSocket(server);
+if (dealChatSocket) console.log("Deal Chat socket on /api/v1/socket");
+
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
-    server.close(() => process.exit(0));
+    /* The sockets first: an open one would keep server.close() waiting. */
+    void (dealChatSocket?.close() ?? Promise.resolve()).finally(() => server.close(() => process.exit(0)));
   });
 }

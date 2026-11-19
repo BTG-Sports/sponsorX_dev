@@ -301,12 +301,31 @@ easy to test. They can be upgraded later.
   [SponsorX-Switches.md](SponsorX-Switches.md) when built). Off: today's flow.
 - **Orders already placed** when it ships keep today's flow.
 
+## 8a. Live updates (owner, 2026-11-19)
+
+The first version had no sockets: the chat asked for news every few seconds. The owner asked for a socket on
+all of the messages functionality, so the chat is live:
+
+- **What is live:** new messages, answers, offers and their Reply / Accept / Decline, the final amount, the
+  agreement and each signature, calling off, held and released messages, the unread counts, the sponsor's order
+  page, and BTG's desk.
+- **What travels on the socket:** only "this chat changed" (the chat's id and its order's id). Never a message,
+  an answer, an amount or a name. Whoever hears it reads the chat again through the API, where every rule in §7
+  is applied as on any read. The socket adds speed, not access.
+- **Who hears it:** exactly who could read the chat. The socket's rooms are built from the same filter every
+  read goes through (`whereFor(dealChat, read)`), so the two cannot drift.
+- **Not a requirement:** with the socket off, down, or with no public address for it, every screen keeps asking
+  on its own beat, as before.
+- **Behind a switch:** `DEAL_CHAT_SOCKET`, with `API_PUBLIC_URL` on the web service
+  ([SponsorX-Switches.md](SponsorX-Switches.md)).
+- **Built in:** `backend/src/realtime/` (the socket and its rooms) and
+  `frontend/src/components/deal-chat/deal-socket.ts`.
+
 ## 9. Not in this feature
 
 - Attachments in the chat (text only first).
 - Price or option fields inside an offer: by the owner's decision the offer is
   text only.
-- Real-time sockets: the chat refreshes every few seconds.
 - AI reading of the chat.
 - Changing an order's items or dates through the chat: that is a new order.
 
@@ -342,6 +361,9 @@ easy to test. They can be upgraded later.
     and each side confirms it or types over it. Once the two match it is
     locked, and the form is posted only after that, so the form never changes
     once it is out. The amount still appears on the form (§3.6).
+
+15. **The chat is live over a socket** (owner, 2026-11-19: "add socket on all of the messages functionality").
+    It replaces the first version's "refreshes every few seconds", which stays only as the fallback. See §8a.
 
 ## 11. Tasks
 

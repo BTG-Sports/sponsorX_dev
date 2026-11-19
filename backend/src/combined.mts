@@ -41,12 +41,17 @@ import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { startWorker, stopWorker } from "../worker/index.mts";
 import { logError } from "./lib/redact.js";
+import { startDealChatSocket } from "./realtime/deal-chat-socket.js";
 
 const app = createApp();
 
 const server = app.listen(env.PORT, () => {
   console.log(`SponsorX API listening on :${env.PORT} (${env.NODE_ENV})`);
 });
+
+/* Deal Chat's live updates (behind DEAL_CHAT_SOCKET): a socket on the same server and port as the routes. */
+const dealChatSocket = startDealChatSocket(server);
+if (dealChatSocket) console.log("Deal Chat socket on /api/v1/socket");
 
 /* The worker starts after the server is listening, so a slow pg-boss
    migration cannot delay the health check Railway uses to decide the deploy
@@ -65,6 +70,8 @@ startWorker().catch((error) => {
  */
 async function shutdown(signal: string): Promise<void> {
   console.log(`[combined] ${signal} received — shutting down API and worker.`);
+  /* The sockets first: an open one would keep server.close() waiting. */
+  await dealChatSocket?.close();
   await new Promise<void>((resolve) => server.close(() => resolve()));
   await stopWorker();
   process.exit(0);

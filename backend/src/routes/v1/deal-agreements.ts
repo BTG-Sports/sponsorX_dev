@@ -9,6 +9,7 @@ import { requireActor } from "../../auth/actor";
 import { clientIp, clientUserAgent } from "../../lib/client-ip";
 import { DealAgreementSignInput } from "../../contracts/deal-agreement";
 import { dealAgreementPdf, readDealAgreement, signDealAgreement } from "../../domain/deal-agreement";
+import { announceDealChat } from "../../realtime/deal-chat-socket";
 
 export const dealAgreementsRouter = Router();
 
@@ -28,6 +29,8 @@ const sign: RequestHandler<{ id: string }> = async (req, res) => {
       userAgent: clientUserAgent(req) ?? "",
     }),
   );
+  /* A signature moves the deal on for both sides (and, with the second, the order): tell the chat's listeners. */
+  announceDealChat({ agreementId: req.params.id });
 };
 
 /** GET /deal-agreements/:id/download — the PDF, at any time (owner, 2026-11-17). */

@@ -2,6 +2,10 @@ import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 import { PortalShell, type NavItem } from "@/components/portal-shell";
 import { roleLabel, viewerName } from "@/server/viewer";
+import { withMessages } from "@/lib/deal-chat-nav";
+import { unreadTotal } from "@/lib/deal-chat";
+import { dealViewer, portalChats } from "@/server/deal-chat";
+import { ChatDock } from "@/components/deal-chat/chat-dock";
 
 /* Property surface — §8 PROPERTY_MGR. A property manager sees only their own
    property's athletes, inventory and campaigns (scoped in guide §09). The
@@ -47,11 +51,15 @@ async function branding(): Promise<Branding | null> {
 export default async function PropertyLayout({ children }: LayoutProps<"/property">) {
   const actor = await requirePortalAccess("property");
   const brand = await branding();
+  /* 2S4-FE-08 — Deal Chat: the Messages link is always in the sidebar (owner, 2026-11-19); the round button only once the team has a chat. */
+  const chats = await portalChats("property", actor);
+  const unread = unreadTotal(chats);
 
   return (
     <PortalShell
       portal="property"
-      nav={NAV}
+      nav={withMessages(NAV, "property")}
+      counts={{ "/property/messages": unread }}
       rootHref="/property"
       orgName={brand?.displayName ?? undefined}
       orgBrand={brand ? { logoUrl: brand.logoUrl, primaryColor: brand.primaryColor } : undefined}
@@ -61,6 +69,7 @@ export default async function PropertyLayout({ children }: LayoutProps<"/propert
       userRole={roleLabel(actor.roles)}
     >
       {children}
+      {chats.length > 0 && <ChatDock viewer={dealViewer("property", actor)} unread={unread} />}
     </PortalShell>
   );
 }

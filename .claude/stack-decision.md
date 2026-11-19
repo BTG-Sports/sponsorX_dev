@@ -566,3 +566,26 @@ The rule in C3a stands in a stronger form: live decisions read the app, and so d
   - their `WAREHOUSE_DATABASE_URL` / `WAREHOUSE_SOURCE_DATABASE_URL` settings on the worker services, which nothing reads now;
   - the `warehouse_reader` login on each product database.
 - **They are kept, not forgotten.** Deleting them needs the owner's OK and is not planned.
+
+# Addendum E — A live socket for Deal Chat (2026-11-19)
+
+Decided by the owner on 2026-11-19 ("add socket on all of the messages functionality"), built by HeckerCreatives.
+
+## E1. What changed
+
+- **The API serves a socket** (socket.io, WebSocket only) on `/api/v1/socket`, on the same server and port as the routes. Behind `DEAL_CHAT_SOCKET`.
+- **A browser now talks to the API directly, for this socket and nothing else.** Until now only the web server called the API (Addendum B). Every read and write still goes that way; the socket carries one signal, "this chat changed", and no content.
+- **The web service needs the API's public address** (`API_PUBLIC_URL`). `API_URL`, the private one, is still never given to a browser.
+
+## E2. What did not change
+
+- **No new vendor and no new service.** It is a library in the API process.
+- **Redis stays cache and rate-limit only** (A3/B4). API instances tell each other about a change through Postgres `LISTEN` / `NOTIFY`, not Redis, so nothing about the socket lives in Redis and two instances need no sticky sessions.
+- **Authorization is still ours and still in one place.** A socket's rooms are the caller's own `whereFor(dealChat, read)`.
+- **Host-portable.** A plain Node HTTP server with a WebSocket upgrade; nothing Railway-specific.
+
+## E3. Revisit when
+
+- another feature wants live updates: reuse this socket and its rooms rather than adding a second one;
+- the API runs many instances and the per-change lookup (one small query per instance) shows up in load: put the room keys in the notice instead;
+- a host is chosen that does not pass WebSocket upgrades: the chat falls back to asking every few seconds by itself, so this is a slowdown, not an outage.

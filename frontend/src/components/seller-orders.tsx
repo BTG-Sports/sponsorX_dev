@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { ArenaChip, ArenaHead, ArenaUpdated, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, at, type ArenaTone } from "@/components/arena-stage";
+import { agreementHref } from "@/lib/deal-chat";
 import { Badge, Card } from "@/components/ui";
 import { EmptyState, ErrorPanel, SkeletonRows } from "@/components/states";
 import { SellerMarkDelivered } from "@/components/seller-mark-delivered";
@@ -458,6 +459,14 @@ export function SellerOrderDetail({ kind, order: o, now = new Date() }: { kind: 
               ) : (
                 <p className="rounded-lg border border-line bg-bg px-3.5 py-3 text-xs leading-relaxed text-text/85">
                   Contact details appear once {o.sponsor.name} has paid.
+                </p>
+              )}
+              {/* 2S4-FE-08 — the deal agreement, downloadable at any time (owner, 2026-11-17). */}
+              {o.dealAgreement && (
+                <p className="border-t border-line pt-2.5 text-[13px]">
+                  <a href={agreementHref(o.dealAgreement.id)} className="font-semibold text-primary underline-offset-2 hover:underline">
+                    {o.dealAgreement.state === "SIGNED" ? "Download the signed agreement" : "Download the agreement"}
+                  </a>
                 </p>
               )}
               <p className="text-[11px] text-faint">Ordered {dayOf(o.placedAt)}{o.paidAt ? ` · paid ${dayOf(o.paidAt)}` : ""}</p>

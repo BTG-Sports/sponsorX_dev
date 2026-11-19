@@ -367,10 +367,10 @@ export type OrderAutomation = {
   decisionNotes: string | null;
   approvalReasons?: string[];
   spendingLimitCents?: number | null;
-  cancelReason?: "SPONSOR" | "BTG" | "BTG_REJECTED" | "SELLER_DECLINED" | "SELLER_NO_ANSWER" | "UNPAID" | null;
+  cancelReason?: "SPONSOR" | "BTG" | "BTG_REJECTED" | "SELLER_DECLINED" | "SELLER_NO_ANSWER" | "UNPAID" | "CALLED_OFF" | "NOT_SIGNED" | null;
   paymentDueAt?: string | null;
   deadlineAt?: string | null;
-  waitingOn?: "SELLER" | "BTG" | "PAYMENT" | null;
+  waitingOn?: "SELLER" | "BTG" | "PAYMENT" | "DEAL_CHAT" | null;
   sellerApprovals?: ApprovalRow[];
   lines: { startsOn: string; endsOn: string }[];
 };
@@ -438,6 +438,16 @@ export function sponsorStatus(o: OrderAutomation, payKind: string, now: Date): S
       deadline: due ? deadline("Pay by", due, now) : undefined,
     };
   }
+  /* 2S4-FE-07 — the Deal Chat stage: the details and one agreement, before anything is paid. */
+  if (o.state === "IN_CHAT") {
+    const by = o.deadlineAt ?? null;
+    return {
+      tag: "Agreeing the deal", tone: "primary", pay: false, again: false,
+      title: by ? `Settle the deal in the chat and sign the agreement by ${stamp(by)}.` : "Settle the deal in the chat and sign the agreement.",
+      text: "Answer the questions with the seller and agree the final amount. Nothing is charged until both of you have signed.",
+      deadline: by ? deadline("Sign by", by, now, "primary") : undefined,
+    };
+  }
   if (o.state === "PENDING_SELLER") {
     const waiting = approvals.filter((a) => a.state === "PENDING").map((a) => a.seller.name);
     const names = joinNames(waiting);
@@ -486,6 +496,10 @@ export function sponsorStatus(o: OrderAutomation, payKind: string, now: Date): S
           title: "BTG didn’t approve this order. Nothing was charged.",
           quote: o.decisionNotes ? `BTG: “${o.decisionNotes}”` : undefined,
         };
+      case "CALLED_OFF":
+        return { tag: "Deal called off", tone: "neutral", pay: false, again: true, title: "The deal was called off in the chat, so the order was cancelled. Nothing was charged.", text: "The reason is in the deal chat. The dates were released." };
+      case "NOT_SIGNED":
+        return { tag: "Not signed in time", tone: "neutral", pay: false, again: true, title: "The agreement wasn’t signed by both sides in time, so the order was cancelled. Nothing was charged.", text: "The dates were released. Order again any time." };
       case "SPONSOR":
         return { tag: "Cancelled", tone: "neutral", pay: false, again: true, title: "You cancelled this order. Nothing was charged." };
       case "BTG":
@@ -507,6 +521,10 @@ export function sponsorBadge(o: OrderAutomation, payKind: string, now: Date): Pi
     if (due && hoursLeft(due, now) < 24) return { label: "Last day to pay", tone: "danger", mark: "!" };
     return { label: "Confirmed · payment due", tone: "warn", mark: "!" };
   }
+  /* 2S4-FE-07 — the Deal Chat stage, and its two endings. */
+  if (o.state === "IN_CHAT") return { label: "Agreeing the deal", tone: "primary", mark: "●" };
+  if (o.state === "CANCELLED" && o.cancelReason === "CALLED_OFF") return { label: "Deal called off", tone: "neutral", mark: "✕" };
+  if (o.state === "CANCELLED" && o.cancelReason === "NOT_SIGNED") return { label: "Not signed in time", tone: "neutral", mark: "✕" };
   if (o.state === "PENDING_SELLER") return { label: "Waiting for the seller", tone: "primary", mark: "●" };
   if (o.state === "PENDING_APPROVAL") return { label: "Held for BTG", tone: "warn", mark: "!" };
   if (o.state === "CANCELLED") {

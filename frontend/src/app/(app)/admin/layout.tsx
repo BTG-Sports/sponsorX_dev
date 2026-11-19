@@ -3,6 +3,7 @@ import { PortalShell } from "@/components/portal-shell";
 import { roleLabel, viewerName } from "@/server/viewer";
 import { ADMIN_DOCK, navFor } from "@/lib/admin-nav";
 import { newSupportCount } from "@/server/support-inbox";
+import { dealChatReviewCount } from "@/server/deal-chat";
 
 import "../../mobile-nav.css";
 
@@ -28,7 +29,8 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
          commission stays BTG-admin only as before. */
       nav={navFor(actor.roles)}
       /* POL-FE-41 — new support messages, on the Support entry. */
-      counts={{ "/admin/support": await newSupportCount(actor.roles) }}
+      /* 2S4-FE-09 — Deal Chat messages held or reported, on the Deal chats entry. */
+      counts={{ "/admin/support": await newSupportCount(actor.roles), "/admin/deal-chats": await dealChatReviewCount(actor.roles) }}
       rootHref="/admin"
       dock={ADMIN_DOCK}
       orgName="BTG Sports Group"

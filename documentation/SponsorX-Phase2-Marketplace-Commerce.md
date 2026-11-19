@@ -1234,7 +1234,7 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
 
 ### ⏸ `2S4-FE-07` · Deal Chat on screen: the sponsor's side
 
-**Order** 38.7 · **FE** · **Where:** Code · **5d** · **Blocked**
+**Order** 38.7 · **FE** · **Where:** Code · **5d** · **Code review**
 
 On the sponsor's order page:
 - the chat, with the deal checklist on top;
@@ -1250,7 +1250,7 @@ On the sponsor's order page:
 
 ### ⏸ `2S4-FE-08` · Deal Chat on screen: the seller's side
 
-**Order** 38.8 · **FE** · **Where:** Code · **4d** · **Blocked**
+**Order** 38.8 · **FE** · **Where:** Code · **4d** · **Code review**
 
 The same chat and form from the seller's Orders page, for:
 - an athlete;
@@ -1265,7 +1265,7 @@ After both sign, the seller sees "Signed by both: waiting for the sponsor's paym
 
 ### ⏸ `2S4-FE-09` · Deal Chat on screen: BTG's view
 
-**Order** 38.9 · **FE** · **Where:** Code · **3d** · **Blocked**
+**Order** 38.9 · **FE** · **Where:** Code · **3d** · **Code review**
 
 For BTG admins:
 - read any order's chat;

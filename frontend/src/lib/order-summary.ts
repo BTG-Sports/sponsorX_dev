@@ -38,6 +38,12 @@ const PAID_STATES = new Set(["PAID", "IN_DELIVERY"]);
 /** The page's headline. `placed` is checkout's redirect (?placed=1): the order was just placed. */
 export function orderHero(o: Pick<ApiOrder, "state">, payKind: PaymentKind, placed: boolean): OrderHero {
   const s = o.state;
+  /* 2S4-FE-07 — the Deal Chat stage (behind DEAL_CHAT): placed, then agreed with the seller before anything is paid. */
+  if (s === "IN_CHAT") {
+    return placed
+      ? { mood: "placed", kicker: "Order placed ✓", title: "Your order is placed", text: "A deal chat is open with the seller. Settle the details there and sign one agreement. Nothing was charged: you pay by card after both of you sign." }
+      : { mood: "wait", kicker: "Agreeing the deal", title: "Settle the deal in the chat", text: "Answer the questions with the seller, agree the final amount and sign the agreement. Nothing is charged until both of you have signed." };
+  }
   if (placed && (s === "PENDING_SELLER" || s === "PENDING_APPROVAL" || DUE_STATES.has(s))) {
     return {
       mood: "placed",
@@ -99,6 +105,7 @@ export function orderJourney(o: JourneyOrder, payKind: PaymentKind, delivered: {
   /* How many stops are behind the order; for one that ended, how far it got before it did. */
   let behind: number;
   switch (o.state) {
+    case "IN_CHAT":
     case "PENDING_SELLER":
     case "PENDING_APPROVAL":
       behind = 1;
@@ -119,7 +126,7 @@ export function orderJourney(o: JourneyOrder, payKind: PaymentKind, delivered: {
       behind = o.paidAt ? 3 : o.decidedAt || o.awaitingPaymentAt ? 2 : 1;
   }
   const nowWord: Record<number, string> = {
-    1: o.state === "PENDING_APPROVAL" ? "BTG checking" : "Seller deciding",
+    1: o.state === "PENDING_APPROVAL" ? "BTG checking" : o.state === "IN_CHAT" ? "In the deal chat" : "Seller deciding",
     2: payKind === "processing" ? "Confirming…" : payKind === "failed" ? "Try again" : payKind === "held" ? "Opens soon" : "Due now",
     3: delivered && delivered.total > 0 ? `${delivered.done} of ${delivered.total}` : "Under way",
   };
@@ -146,6 +153,8 @@ const CLOSE: NextStep = { title: "The order closes", text: "Once every item is d
 /** Up to three numbered steps, the first being the one the order is on now; none once it has ended. */
 export function whatNext(o: Pick<ApiOrder, "state">, payKind: PaymentKind): NextStep[] {
   switch (o.state) {
+    case "IN_CHAT":
+      return [{ title: "You and the seller agree the deal", text: "In the deal chat: answer the questions, agree the amount, sign one agreement." }, { ...PAY, text: "Within 3 days of both signing, on Stripe's secure page. SponsorX never sees your card." }, DELIVER];
     case "PENDING_SELLER":
       return [{ title: "The seller accepts", text: "They have 48 hours. You're emailed either way." }, PAY, DELIVER];
     case "PENDING_APPROVAL":
@@ -165,7 +174,8 @@ export function whatNext(o: Pick<ApiOrder, "state">, payKind: PaymentKind): Next
 
 /* ------------------------------------------------------------ the sample */
 
-export const SAMPLE_AS = ["placed", "seller", "btg", "due", "held", "confirming", "failed", "paid", "delivered", "cancelled"] as const;
+/* "chat" (2S4-FE-07): the order in the Deal Chat stage, with a sample chat and the round Messages button. */
+export const SAMPLE_AS = ["placed", "chat", "seller", "btg", "due", "held", "confirming", "failed", "paid", "delivered", "cancelled"] as const;
 export type SampleAs = (typeof SAMPLE_AS)[number];
 
 export function sampleAs(v: unknown): SampleAs {
@@ -207,7 +217,8 @@ export function sampleOrder(as: SampleAs, now: number): { order: ApiOrder; payme
   const sub = lines.reduce((s, l) => s + l.lineTotalCents, 0);
   const fee = Math.round(sub * 0.05);
   const state: ApiOrder["state"] =
-    as === "seller" ? "PENDING_SELLER"
+    as === "chat" ? "IN_CHAT"
+    : as === "seller" ? "PENDING_SELLER"
     : as === "btg" ? "PENDING_APPROVAL"
     : as === "paid" ? "IN_DELIVERY"
     : as === "delivered" ? "FULFILLED"
@@ -243,8 +254,8 @@ export function sampleOrder(as: SampleAs, now: number): { order: ApiOrder; payme
     paymentDueAt: state === "AWAITING_PAYMENT" && as !== "held" ? at(3, -1) : null,
     paidAt: paid ? at(0, -0.5) : null,
     paidVia: paid ? "CARD" : null,
-    waitingOn: as === "seller" ? "SELLER" : as === "btg" ? "BTG" : state === "AWAITING_PAYMENT" ? "PAYMENT" : null,
-    deadlineAt: as === "seller" ? at(2, -1) : state === "AWAITING_PAYMENT" && as !== "held" ? at(3, -1) : null,
+    waitingOn: as === "chat" ? "DEAL_CHAT" : as === "seller" ? "SELLER" : as === "btg" ? "BTG" : state === "AWAITING_PAYMENT" ? "PAYMENT" : null,
+    deadlineAt: as === "chat" ? at(8) : as === "seller" ? at(2, -1) : state === "AWAITING_PAYMENT" && as !== "held" ? at(3, -1) : null,
     sellerApprovals:
       as === "seller" && lines[0]?.seller
         ? [{ id: "demo-approval", seller: { type: "PROPERTY", id: lines[0].seller.id, name: lines[0].seller.name }, lineIds: [lines[0].id], state: "PENDING", dueAt: at(2, -1), decidedAt: null, reason: null }]

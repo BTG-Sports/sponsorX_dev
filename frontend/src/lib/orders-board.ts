@@ -77,6 +77,7 @@ function spanOf(lines: ApiOrder["lines"]): string {
 /** How many stops are behind the order (as order-summary's journey counts them). */
 function behindOf(o: Pick<ApiOrder, "state" | "paidAt" | "decidedAt" | "awaitingPaymentAt">): number {
   switch (o.state) {
+    case "IN_CHAT":
     case "PENDING_SELLER":
     case "PENDING_APPROVAL":
       return 1;
@@ -113,6 +114,9 @@ const CANCELLED_BY: Record<string, string> = {
   SELLER_DECLINED: "The seller declined this order",
   SELLER_NO_ANSWER: "The seller didn’t answer in time",
   UNPAID: "It wasn’t paid in time",
+  /* 2S4-FE-07 — the Deal Chat's two endings before payment. */
+  CALLED_OFF: "The deal was called off in the chat",
+  NOT_SIGNED: "The agreement wasn’t signed in time",
 };
 
 /**
@@ -136,6 +140,20 @@ export function orderCard(o: ApiOrder, now: Date = new Date(), paymentsOpen?: bo
   let due: OrderCard["due"] = null;
 
   switch (o.state) {
+    /* 2S4-FE-07 — in the Deal Chat: the sponsor has something to do (answer, agree, sign), so the card says so. */
+    case "IN_CHAT": {
+      stage = "wait";
+      move = true;
+      label = "Agreeing the deal";
+      cta = "Open order";
+      const left = o.deadlineAt ? inWords(o.deadlineAt, now) : null;
+      next = {
+        title: one ? `Settle the deal with ${one}` : "Settle the deal in the chat",
+        hint: o.deadlineAt ? `Answer the questions and sign the agreement by ${dayOf(o.deadlineAt)}. Nothing is charged yet.` : "Answer the questions and sign the agreement. Nothing is charged yet.",
+      };
+      if (left && o.deadlineAt) due = { text: `Sign ${left}`, urgent: hoursLeft(o.deadlineAt, now) < 48 };
+      break;
+    }
     case "PENDING_SELLER": {
       stage = "wait";
       label = "Waiting for the seller";

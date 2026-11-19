@@ -15,6 +15,7 @@ import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "@/lib/brand
 import type { ApiCheckout, ApiOrderAcceptance, ApiQuote, Quote } from "@/lib/checkout-gate";
 import type { SponsorRefund } from "@/lib/refunds-live";
 import { US_STATES, isUsState } from "@/lib/onboarding-live";
+import type { ApiDealAgreementSummary } from "@/lib/deal-chat";
 
 /* ------------------------------------------------------------------ shapes */
 
@@ -113,6 +114,8 @@ export type ApiReservation = {
 };
 
 export type OrderState =
+  /* 2S4-BE-15 — behind DEAL_CHAT: placed, and being agreed in the Deal Chat (it replaces the seller's step). */
+  | "IN_CHAT"
   | "PENDING_SELLER"
   | "PENDING_APPROVAL"
   | "APPROVED"
@@ -168,18 +171,20 @@ export type ApiOrder = {
      payment window, how it was paid, what it waits on, and the sellers'
      answers (optional: older reads and fixtures). */
   spendingLimitCents?: number | null;
-  cancelReason?: "SPONSOR" | "BTG" | "BTG_REJECTED" | "SELLER_DECLINED" | "SELLER_NO_ANSWER" | "UNPAID" | null;
+  cancelReason?: "SPONSOR" | "BTG" | "BTG_REJECTED" | "SELLER_DECLINED" | "SELLER_NO_ANSWER" | "UNPAID" | "CALLED_OFF" | "NOT_SIGNED" | null;
   awaitingPaymentAt?: string | null;
   paymentDueAt?: string | null;
   paidAt?: string | null;
   paidVia?: string | null;
-  waitingOn?: "SELLER" | "BTG" | "PAYMENT" | null;
+  waitingOn?: "SELLER" | "BTG" | "PAYMENT" | "DEAL_CHAT" | null;
   deadlineAt?: string | null;
   sellerApprovals?: { id: string; seller: { type: string; id: string; name: string }; lineIds: string[]; state: string; dueAt: string; decidedAt: string | null; reason: string | null }[];
   /* 2S4-BE-13 — each refund of the order, on its way or sent on a date (never how,
      nor any reference), and why a whole-order refund happened. */
   refunds?: SponsorRefund[];
   refundCause?: "CANCELLATION" | "PROBLEM" | "BTG" | null;
+  /* 2S4-BE-14 — the order's live Deal Chat agreements, one per seller, each with its PDF's path. */
+  dealAgreements?: ApiDealAgreementSummary[];
 };
 
 /** What a server action hands back to its island. `reasons` is every
@@ -639,6 +644,8 @@ export const RESERVATION_COPY: Record<ReservationState, { label: string; tone: T
 };
 
 export const ORDER_COPY: Record<OrderState, { label: string; tone: Tone; hint: string }> = {
+  /* 2S4-FE-07 — the Deal Chat stage: the details are settled and one agreement signed before anything is paid. */
+  IN_CHAT: { label: "Agreeing the deal", tone: "primary", hint: "You and the seller settle the details in the deal chat and sign one agreement. Payment opens after both of you sign." },
   /* 2S4-BE-09 — a listing on it asks its seller first; they have 48 hours. */
   PENDING_SELLER: { label: "Waiting for the seller", tone: "warn", hint: "The seller has 48 hours to accept. The items stay yours while they decide." },
   PENDING_APPROVAL: { label: "Held for BTG", tone: "warn", hint: "The order is above your spending limit, so BTG checks it before it is confirmed. The items stay yours while they do." },
@@ -670,6 +677,7 @@ export function canCancel(state: string): boolean {
 /** The order states the orders list may filter by — the API does not
  *  validate `?state=`, so only these are ever sent. */
 export const ORDER_STATES: OrderState[] = [
+  "IN_CHAT",
   "PENDING_SELLER",
   "PENDING_APPROVAL",
   "APPROVED",

@@ -167,6 +167,19 @@ export function paymentView(orderState: string, payment: ApiOrderPayment | null,
     };
   }
 
+  /* 2S4-FE-07 — the payment gate: both sides sign the deal agreement first (the API refuses payment until then). */
+  if (orderState === "IN_CHAT") {
+    return {
+      kind: "not-open",
+      status: "Not due yet",
+      tone: "neutral",
+      banner: null,
+      cta: null,
+      note: "You can pay by card once you and the seller have both signed the agreement in the deal chat. Nothing is charged until then.",
+      poll: false,
+    };
+  }
+
   if (orderState === "PENDING_SELLER") {
     return {
       kind: "not-open",

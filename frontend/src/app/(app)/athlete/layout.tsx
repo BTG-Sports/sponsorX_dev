@@ -2,6 +2,10 @@ import { requirePortalAccess } from "@/server/portal";
 import { PortalShell, type NavItem } from "@/components/portal-shell";
 import { GuardianControlNotice } from "@/components/guardian-control-notice";
 import { roleLabel, viewerName } from "@/server/viewer";
+import { withMessages } from "@/lib/deal-chat-nav";
+import { unreadTotal } from "@/lib/deal-chat";
+import { dealViewer, portalChats } from "@/server/deal-chat";
+import { ChatDock } from "@/components/deal-chat/chat-dock";
 
 import "../../mobile-nav.css";
 
@@ -65,12 +69,20 @@ export default async function AthleteLayout({ children }: LayoutProps<"/athlete"
      themselves, with their own roles. */
   const isAthlete = actor.roles.includes("ATHLETE");
 
+  /* 2S4-FE-08 — Deal Chat: the Messages link is always in the sidebar (owner,
+     2026-11-19), with the unread count; the round button only once the seller
+     has a chat (a guardian sees the chats of the minor they act for). */
+  const chats = await portalChats("athlete", actor);
+  const unread = unreadTotal(chats);
+  const nav = NAV.filter((n) => n.href !== "/athlete/guardian-requests" || actor.roles.includes("GUARDIAN") || Boolean(actor.guardianControl));
+
   return (
     <PortalShell
       portal="athlete"
       /* Only the current guardian answers a handoff request — the minor never does. */
       /* POL-FE-68 (app review §3) — a minor reaches their own Guardian requests page too. */
-      nav={NAV.filter((n) => n.href !== "/athlete/guardian-requests" || actor.roles.includes("GUARDIAN") || Boolean(actor.guardianControl))}
+      nav={withMessages(nav, "athlete")}
+      counts={{ "/athlete/messages": unread }}
       rootHref="/athlete"
       dock={DOCK}
       userName={await viewerName("Athlete")}
@@ -82,6 +94,7 @@ export default async function AthleteLayout({ children }: LayoutProps<"/athlete"
       {/* POL-FE-68 — who acts, on every page (it was on the dashboard only). */}
       <GuardianControlNotice actor={actor} />
       {children}
+      {chats.length > 0 && <ChatDock viewer={dealViewer("athlete", actor)} unread={unread} />}
     </PortalShell>
   );
 }
