@@ -203,3 +203,25 @@
   - backend `P9-BE-25`…`28` and `POL-BE-108`…`111`;
   - frontend `P9-FE-13`…`16` (HeckerCreatives);
   - open question for the owner: video in the magazine.
+
+## The upload audit's 12 tasks, and P9-BE-25 built (rcfworks)
+- **Owner, 2026-11-19:** "1. yes, 2. any format". So the 12 tasks are on the board, and the magazine
+  takes any file format.
+  - **Phase 1 plan:** `P9-BE-25`…`28`, plus `P9-FE-13`…`16` (HeckerCreatives).
+  - **polish.md:** `POL-BE-110`…`113`, in a new group K. Items 108 and 109 were taken, so the audit's
+    proposed `POL-BE-108`…`111` became `POL-BE-110`…`113`.
+  - **Tracker:** 8 rows on Phase 1 (Order 209.88–209.95) and 4 on Polish (Order 144–147). The
+    autofilter, Status list and highlighting ranges are extended. The Dashboard ranges (400 and 200)
+    already cover the new rows.
+- **`P9-BE-25`, Code review ([#483](https://github.com/BTG-Sports/sponsorX_dev/pull/483)):** any-format uploads for edition content. Up to 2 GB, signed for the
+  exact type and size, and checked on save.
+  - A piece added by title can be given its file once.
+  - Files a browser shouldn't open in place are signed as downloads.
+  - Student drafts take any format too. "DESIGN" is now a real content kind.
+- **Checks:** full backend suite 279 files, 3,995 tests; lint and backend build clean. Frontend build
+  not run: no frontend file changed.
+- **For HeckerCreatives:** the student's file picker still allows only JPG, PNG and PDF up to 20 MB.
+  Opening it is part of `P9-FE-13`.
+- **Test database:** run on the portable Postgres, then stopped and deleted. Disk was down to 252 MB.
+  The zonky archive unpacks three 55 MB copies of `libicudata`, so link two of them to the third
+  next time.
