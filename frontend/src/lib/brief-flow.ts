@@ -7,7 +7,12 @@
    contract, which is why there is no agreement step. The B3 API wiring
    replaces only where the request goes on submit.
 
-   Spec: docs/superpowers/specs/2026-09-21-brief-wizard-design.md
+   POL-FE-114 (2026-11-19): one question per screen. Five short steps and a
+   review, each with one thing that must be answered and at most one
+   optional follow-up. The answers, their keys and what is sent
+   (brief-inquiry.ts) are unchanged; only the order and the words moved.
+   The 2026-09-21 spec (docs/superpowers/specs) describes the four-step card
+   this replaced.
    -------------------------------------------------------------------------- */
 
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "./brand-categories";
@@ -20,6 +25,14 @@ export const GOALS = [
   "Event push",
 ] as const;
 
+/** What each goal means, in one plain line under its name. */
+export const GOAL_HINTS: Record<(typeof GOALS)[number], string> = {
+  Awareness: "More people know your name.",
+  "Foot traffic": "More people come through your door.",
+  "Product launch": "People hear about something new you sell.",
+  "Event push": "More people come to your event.",
+};
+
 /** Bands, not invoices — they bracket §7's package price points. */
 export const BUDGET_BANDS = [
   "Under $1k",
@@ -27,6 +40,14 @@ export const BUDGET_BANDS = [
   "$3–8k",
   "$8–20k",
   "$20k+",
+] as const;
+
+/** Optional: when the sponsor wants to start. Sent as words in the message. */
+export const TIMINGS = [
+  "As soon as possible",
+  "Within a month",
+  "In 2–3 months",
+  "Not sure yet",
 ] as const;
 
 export type BriefFieldDef = {
@@ -37,49 +58,71 @@ export type BriefFieldDef = {
   type?: "text" | "email" | "tel";
 };
 
+export type BriefStepId = "goal" | "business" | "budget" | "market" | "contact" | "review";
+
 export type BriefStepDef = {
-  id: "goal" | "budget" | "market" | "contact";
+  id: BriefStepId;
+  /** The step's short name: the list of steps and "Step 2 of 6 · Business". */
+  label: string;
   heading: string;
   sub: string;
+  /** The step's typed answers. Choices (goal, business type, budget) are checked by name. */
   fields: BriefFieldDef[];
 };
 
 export const BRIEF_STEPS: BriefStepDef[] = [
   {
     id: "goal",
-    heading: "What are you trying to do?",
-    sub: "One goal per brief keeps the match sharp — you can always brief again.",
-    /* The business type is a select above these (2S1-FE-11), not a field. */
+    label: "Goal",
+    heading: "What should this campaign do for you?",
+    sub: "Pick the one that matters most. You can send another brief later for a different goal.",
     fields: [
-      { key: "success", label: "What success looks like", placeholder: "Optional — e.g. 500 reward redemptions in March", required: false },
+      { key: "success", label: "What would a good result look like?", placeholder: "e.g. 500 reward redemptions in March", required: false },
+    ],
+  },
+  {
+    id: "business",
+    label: "Business",
+    heading: "Tell us about your business.",
+    sub: "We use this to find athletes who are a good fit for you.",
+    /* The business type is a set of choices under this (2S1-FE-11), not a field. */
+    fields: [
+      { key: "company", label: "Business name", placeholder: "Midwest Running Co.", required: true },
     ],
   },
   {
     id: "budget",
-    heading: "Budget and starting point",
-    sub: "Bands, not invoices — BTG prices the final proposal against real rates.",
-    fields: [
-      { key: "timing", label: "Timing", placeholder: "Optional — e.g. March, flexible", required: false },
-    ],
+    label: "Budget",
+    heading: "How much do you want to spend?",
+    sub: "A rough range is enough. There is no card and no payment on this form.",
+    fields: [],
   },
   {
     id: "market",
-    heading: "Where should it land?",
-    sub: "Campaigns are matched to athletes in your market. Today the network is strongest in the DMV, with a hub in Kigali.",
+    label: "Where",
+    heading: "Where are your customers?",
+    sub: "We match you with athletes near them. Today the network is strongest around Washington, DC, Maryland and Virginia, with a hub in Kigali.",
     fields: [
-      { key: "market", label: "City / region", placeholder: "Silver Spring, MD", required: true },
+      { key: "market", label: "City or region", placeholder: "Silver Spring, MD", required: true },
     ],
   },
   {
     id: "contact",
-    heading: "Where does the proposal go?",
-    sub: "A person at BTG replies, usually within 2 business days — this is not a mailing list.",
+    label: "Contact",
+    heading: "Who should we reply to?",
+    sub: "A person at BTG reads your brief and replies, usually within 2 business days. This is not a mailing list.",
     fields: [
-      { key: "company", label: "Company", placeholder: "Midwest Running Co.", required: true },
       { key: "name", label: "Your name", placeholder: "Jordan Avery", required: true },
       { key: "email", label: "Work email", placeholder: "you@company.com", required: true, type: "email" },
       { key: "phone", label: "Phone", placeholder: "Optional", required: false, type: "tel" },
     ],
+  },
+  {
+    id: "review",
+    label: "Review and send",
+    heading: "Check your brief, then send it.",
+    sub: "Change anything that looks wrong. Nothing is sent until you press Send.",
+    fields: [],
   },
 ];
 
@@ -107,6 +150,26 @@ export function businessTypeText(d: Pick<BriefDraft, "businessType" | "businessT
   if (!isBusinessType(d.businessType)) return "";
   return d.businessType === OTHER_BUSINESS_TYPE ? (d.businessTypeOther ?? "").trim() : categoryLabel(d.businessType as BrandCategory);
 }
+
+/** The types shown first: the everyday local businesses most sponsors are.
+    Display order only. The rest of BUSINESS_TYPES sits behind "More types",
+    and OTHER ("Something else") is always shown. */
+export const COMMON_BUSINESS_TYPES: readonly BusinessType[] = [
+  "RESTAURANT",
+  "LOCAL_RETAIL",
+  "FITNESS",
+  "APPAREL",
+  "HEALTHCARE",
+  "EDUCATION",
+  "AUTOMOTIVE",
+  "FINANCIAL",
+  "NONPROFIT",
+];
+
+/** Every other type on the list, in the list's order. */
+export const MORE_BUSINESS_TYPES: readonly BusinessType[] = BUSINESS_TYPES.filter(
+  (t) => t !== OTHER_BUSINESS_TYPE && !COMMON_BUSINESS_TYPES.includes(t),
+);
 
 /* -------------------------------------------------------------- audiences */
 
@@ -141,6 +204,8 @@ export function packageOption(id: string | undefined): PackageOption {
 
 /* ------------------------------------------------------------- validation */
 
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function validateBriefStep(
   step: number,
   draft: BriefDraft,
@@ -149,22 +214,58 @@ export function validateBriefStep(
   const def = BRIEF_STEPS[step];
   if (!def) return errs;
   for (const f of def.fields) {
-    if (f.required && !(draft.answers[f.key] ?? "").trim()) errs[f.key] = "Required";
+    if (f.required && !(draft.answers[f.key] ?? "").trim()) errs[f.key] = `Add ${f.label.toLowerCase()}`;
   }
   if (def.id === "goal" && !draft.goal) errs.goal = "Pick a goal";
-  if (def.id === "goal") {
+  if (def.id === "business") {
     /* The contract's limits: OTHER needs its own words, 2–200 characters. */
     const other = (draft.businessTypeOther ?? "").trim();
-    if (!isBusinessType(draft.businessType)) errs.businessType = "Pick what your business is";
+    if (!isBusinessType(draft.businessType)) errs.businessType = "Pick what kind of business it is";
     else if (draft.businessType === OTHER_BUSINESS_TYPE && other.length < 2) errs.businessTypeOther = "Say what your business does";
     else if (draft.businessType === OTHER_BUSINESS_TYPE && other.length > 200) errs.businessTypeOther = "Keep it under 200 characters";
   }
-  if (def.id === "budget" && !draft.budget) errs.budget = "Pick a band";
+  if (def.id === "budget" && !draft.budget) errs.budget = "Pick a range";
   if (def.id === "contact") {
     const email = (draft.answers.email ?? "").trim();
-    if (email && !email.includes("@")) errs.email = "Enter a valid email";
+    if (email && !EMAIL.test(email)) errs.email = "Enter a valid email, like you@company.com";
   }
   return errs;
+}
+
+/** The first step with something still missing; the review when nothing is. */
+export function firstOpenStep(draft: BriefDraft): number {
+  const review = BRIEF_STEPS.length - 1;
+  for (let i = 0; i < review; i++) {
+    if (Object.keys(validateBriefStep(i, draft)).length > 0) return i;
+  }
+  return review;
+}
+
+/** Where a draft opens: the step it was left on, but never past a step that
+    is still missing an answer. A draft saved by the four-step form, or one
+    edited by hand, lands on the first gap instead of skipping it. */
+export function resumeStep(draft: BriefDraft): number {
+  const at = Number.isInteger(draft.step) ? Math.max(0, Math.min(draft.step, BRIEF_STEPS.length - 1)) : 0;
+  return Math.min(at, firstOpenStep(draft));
+}
+
+/** A step's answer in a few words, for the list of steps. "" when unanswered. */
+export function stepAnswer(id: BriefStepId, d: BriefDraft): string {
+  const a = (k: string) => (d.answers[k] ?? "").trim();
+  switch (id) {
+    case "goal":
+      return d.goal;
+    case "business":
+      return a("company") || businessTypeText(d);
+    case "budget":
+      return d.budget;
+    case "market":
+      return a("market");
+    case "contact":
+      return a("name") || a("email");
+    default:
+      return "";
+  }
 }
 
 /* ------------------------------------------------------------------ draft */
