@@ -2358,6 +2358,16 @@ model EditionAsset {
   fileType   String?
   fileBytes  Int?
   fileName   String?
+  /// P9-BE-26 — the public copy the reader shows, once the edition is
+  /// published and the piece may be shown: its key in the PUBLIC bucket,
+  /// its type, and when it was made. Location data removed (photos re-saved,
+  /// videos remuxed, a PDF ad drawn as a picture). Null when there is none;
+  /// taken down when the piece stops qualifying (edition-pictures.ts).
+  webKey      String?   @unique
+  webType     String?
+  webCopiedAt DateTime?
+  /// Why a piece that may be shown has no public copy, in words.
+  webProblem  String?
   /// Set when a sponsor's campaign uses this asset — refused without a
   /// ContentRight granting commercial reuse.
   campaignId String?

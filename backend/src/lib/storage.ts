@@ -451,3 +451,44 @@ export async function getPublicObject(key: string): Promise<Buffer | null> {
     return null;
   }
 }
+
+/**
+ * P9-BE-26 — write a PUBLISHED copy into the public bucket: a picture or
+ * video of a published edition, made by the worker (never a request path)
+ * from a private original, with its location data removed. `cacheControl`
+ * keeps how long a CDN may serve it after it is taken down.
+ *
+ * A file body is streamed from disk, so a 2 GB video never sits in memory.
+ * No audit row here: nothing is handed to anyone; the caller audits the copy.
+ */
+export async function putPublicObject(
+  key: string,
+  body: Buffer | { file: string; bytes: number },
+  contentType: string,
+  cacheControl: string,
+): Promise<void> {
+  assertSafeKey(key);
+  if (Buffer.isBuffer(body)) {
+    await s3.send(new PutObjectCommand({ Bucket: BUCKETS.public, Key: key, ContentType: contentType, CacheControl: cacheControl, Body: body }));
+    return;
+  }
+  /* A file: streamed through a signed PUT (signed for this type and exact
+     length, like a browser's upload), so nothing buffers it and the request
+     is a plain body whatever checksum mode the SDK defaults to. */
+  const { createReadStream } = await import("node:fs");
+  const { Readable } = await import("node:stream");
+  const url = await presignUpload(BUCKETS.public, key, contentType, { contentLength: body.bytes, signContentType: true });
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": contentType, "Content-Length": String(body.bytes), "Cache-Control": cacheControl },
+    body: Readable.toWeb(createReadStream(body.file)) as unknown as ReadableStream,
+    duplex: "half",
+  } as RequestInit & { duplex: "half" });
+  if (!res.ok) throw new Error(`Public upload of ${key} failed: HTTP ${res.status}`);
+}
+
+/** P9-BE-26 — take a published copy down. Deleting a key already gone succeeds. */
+export async function deletePublicObject(key: string): Promise<void> {
+  assertSafeKey(key);
+  await s3.send(new DeleteObjectCommand({ Bucket: BUCKETS.public, Key: key }));
+}

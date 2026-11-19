@@ -17,6 +17,7 @@
  */
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
+import { enqueue } from "../db/outbox";
 import { audit, type AuditActor } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
@@ -422,6 +423,11 @@ export async function transitionEditionIn(
     data: { state: to as Prisma.EditionUpdateInput["state"], revenueMet, rightsCleared },
     select: { id: true, state: true },
   });
+  /* P9-BE-26 — published or cancelled: its public copies are made or taken
+     down by the worker, queued in this transaction (the sweep repairs a miss). */
+  if ((PUBLISHED_STATES as readonly string[]).includes(to) || to === "CANCELLED") {
+    await enqueue(tx, tenantId, "edition.pictures", { editionId });
+  }
   await audit(tx, by, "edition.transition", "Edition", editionId, {
     before: { state: from },
     after: {

@@ -68,6 +68,9 @@ export type JobName =
   /* P5-BE-07. Enqueued when a creative asset is registered; the worker
      resizes it to 320/640/1280 webp. */
   | "image.derive"
+  /* P9-BE-26 — an edition published or cancelled: make or take down the
+     public copies of its photos, videos and ads (edition-pictures.ts). */
+  | "edition.pictures"
   /* P7-BE-04 — inbound. §18 makes Zoho bi-directional, and the inbound half
      lands in the queue exactly as the outbound half does. */
   | "zoho.ingestInvoice"

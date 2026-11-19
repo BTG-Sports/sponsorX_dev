@@ -225,3 +225,22 @@
 - **Test database:** run on the portable Postgres, then stopped and deleted. Disk was down to 252 MB.
   The zonky archive unpacks three 55 MB copies of `libicudata`, so link two of them to the third
   next time.
+
+## P9-BE-25 Done and deployed; P9-BE-26 built (rcfworks)
+- **P9-BE-25:**
+  - Merged in #483, reached main through #482, and deployed (release 94214a77).
+  - The Done PRs are #484 (main_development) and #485 (main).
+  - The end-of-day #481 conflict was the tracker. I took main_development's copy and re-added the
+    Stage Progress rows. 11-19 is 27.5 days left, because the 8 new NEXT tasks joined that day.
+- **Disk:** freed for the owner: the npm cache (1.3 GB), the `frontend/.next` build cache and
+  `dev` output (1.5 GB), and five old `.claude/worktrees` that held only installed packages (0.8 GB).
+  Free space went from 1.4 GB to 4.9 GB. The Playwright browsers (1 GB) were left.
+- **P9-BE-26, Code review:** photos, video and ads in the public reader.
+  - The owner chose: remove location data from photos and videos (ffmpeg added to the image), draw
+    PDF ads as pictures, and no "who's pictured" field.
+  - One rule decides both the worker's copies and the reader's links. A minor's piece needs their
+    guardian's right.
+  - Copies are queued on publish or cancel, and the 10-minute sweep makes missing ones and takes
+    down lapsed ones.
+  - No signed read is handed out while ffmpeg is missing.
+  - Full suite 281 files, 4,011 tests.

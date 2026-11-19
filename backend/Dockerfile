@@ -21,6 +21,10 @@ RUN apk add --no-cache openssl
 # musl; playwright-core drives it through CHROMIUM_PATH. The fonts are what
 # the report's text is set in — without them every glyph prints as a box.
 RUN apk add --no-cache chromium nss freetype harfbuzz ttf-freefont font-noto
+# P9-BE-26 — ffmpeg remuxes a published edition's videos without their
+# metadata (a phone's location), so a public copy never reveals where a
+# minor filmed it. Without it the worker publishes no video at all.
+RUN apk add --no-cache ffmpeg
 ENV CHROMIUM_PATH=/usr/bin/chromium
 ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules

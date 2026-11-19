@@ -11,6 +11,7 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
+import { publicPictures } from "../../domain/edition-pictures";
 import { assertAllowed, can, whereFor } from "../../auth/scope";
 import { prisma } from "../../db/client";
 import { rightsGap } from "../../domain/content-rights";
@@ -436,6 +437,10 @@ const readPublic: RequestHandler<{ school: string; id: string }> = async (req, r
       })
     : [];
   const textOf = new Map(texts.map((t) => [t.assetId, t.draftText]));
+  /* P9-BE-26 — each piece's photo or video, and each sponsor's ad: the public
+     copies the worker made, returned only while the same rule still lets the
+     reader show them (a right in force; a minor's by their guardian). */
+  const pictures = await publicPictures(edition, now);
   const school = edition.publication.property;
   res.json({
     id: edition.id,
@@ -445,8 +450,14 @@ const readPublic: RequestHandler<{ school: string; id: string }> = async (req, r
     printDate: edition.printDate?.toISOString() ?? null,
     publication: edition.publication.name,
     school: school ? { slug: school.slug, name: school.name, city: school.city, stateCode: school.stateCode } : null,
-    contents: assets.map((a) => ({ id: a.id, kind: a.kind, title: a.title, byline: a.studentId ? by.get(a.studentId) ?? null : null, text: textOf.get(a.id) ?? null })),
-    sponsors: slots.map((s) => ({ id: s.id, slotCode: s.slotCode, kind: s.kind, sponsor: s.campaign?.sponsor.name ?? "A local sponsor" })),
+    contents: assets.map((a) => ({
+      id: a.id, kind: a.kind, title: a.title, byline: a.studentId ? by.get(a.studentId) ?? null : null, text: textOf.get(a.id) ?? null,
+      picture: pictures.pieces.get(a.id) ?? null,
+    })),
+    sponsors: slots.map((s) => ({
+      id: s.id, slotCode: s.slotCode, kind: s.kind, sponsor: s.campaign?.sponsor.name ?? "A local sponsor",
+      ad: pictures.ads.get(s.id) ?? null,
+    })),
   });
 };
 

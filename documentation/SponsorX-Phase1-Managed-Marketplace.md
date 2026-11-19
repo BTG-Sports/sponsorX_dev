@@ -4270,7 +4270,7 @@ Raised 2026-11-19 by the programme owner's upload audit ([SponsorX-Upload-Audit.
 
 ### ▶ `P9-BE-26` · Photos, video and ads in the public reader
 
-**Order** 209.89 · **BE** · **Where:** Code · **2d** · **Ready**
+**Order** 209.89 · **BE** · **Where:** Code · **2d** · **Code review**
 
 Today the free digital edition returns titles and article text only. Approved photos stay in private storage, and the reader lists each sponsor's name but never shows the ad they paid for.
 
@@ -4287,6 +4287,39 @@ Today the free digital edition returns titles and article text only. Approved ph
   - a minor's photo is shown only where a guardian's consent covers it;
   - each ad appears with its sponsor.
 - **Reference:** Spec principle 10, §5.3; upload audit §2
+- **Owner's decisions (2026-11-19, "ok lets do all backend stuff"):**
+  - location data is removed from photos and videos, with ffmpeg added to the server image;
+  - a PDF ad is shown as a picture of its first page;
+  - there is no "who's pictured" field for now, so a BTG or outside photo rests on its licence.
+- **Delivered (2026-11-19, rcfworks):**
+  - **One rule** (`backend/src/domain/edition-pictures-rules.ts`, `mayShow`) decides both whether a piece gets a public copy and whether the reader returns its link. A piece may be shown when all of these hold:
+    - the edition is published, printed or distributed;
+    - it has a file the reader can show: an image (not SVG) or a video, or a PDF for an ad;
+    - an ad is its slot's APPROVED artwork, and the slot is still sold;
+    - a digital right is in force today;
+    - when its maker is a minor, that right is their guardian's (an unknown maker is treated as a minor).
+  - **Copies** (`backend/src/domain/edition-pictures.ts`, `backend/src/lib/web-copy.ts`), made by the worker and never on a request:
+    - **Photos** are saved again by sharp with no EXIF, GPS or XMP, turned the right way up. JPEG, PNG and GIF keep their kind; anything else becomes WebP. Photos over 50 MB aren't copied.
+    - **Videos** are remuxed by ffmpeg with no re-encode, keeping only video and audio and no metadata. MP4 and MOV become MP4, WebM stays WebM, and other formats aren't copied.
+    - **PDF ads** are drawn as a picture of their first page.
+    - Each copy has an unguessable key, `editions/<edition>/<uuid>.<ext>`, and `Cache-Control: public, max-age=600`.
+    - The worker reads a video through a short signed link, and each one is recorded. No link is handed out while ffmpeg is missing.
+  - **When copies are made and taken down:**
+    - A transition to published or cancelled queues `edition.pictures` in the same transaction.
+    - The 10-minute edition sweep (`sweepEditionPictures`) makes missing copies and takes down any that stop qualifying. A takedown is complete within about 20 minutes, including the cache.
+    - The reader drops a link at once.
+  - **Problems in words** (`webProblem`): for example, the photo is over 50 MB, the video format won't play, or the video tool is missing. Only a missing video tool is retried.
+  - **Public read:** `GET /public/editions/{school}/{id}` gives each piece `picture` (`{ url, kind: image|video }`) and each sponsor `ad` (`{ url }`), or null.
+  - **Storage:**
+    - `EditionAsset` gains `webKey` (unique), `webType`, `webCopiedAt` and `webProblem` (migration `20261119200000_edition_web_copies`, with a shape check).
+    - `putPublicObject` streams a file through a signed PUT, and `deletePublicObject` takes a copy down.
+    - `drawFirstPdfPage` is in `backend/src/lib/document-inspect.ts`.
+  - **Server image:** `apk add ffmpeg` in `backend/Dockerfile`. `FFMPEG_PATH` can point elsewhere.
+  - **Tests:**
+    - `backend/tests/edition-pictures.unit.test.ts` (9): the rules, EXIF really gone, PDF drawing, ffmpeg arguments;
+    - `backend/tests/p9-be-26-edition-pictures.test.ts` (7): a real database and store, covering publication, a minor with and without their guardian, design files, a lapsed right, digital-only rights, ads (PNG and PDF), a missing video tool and then a present one, the public read, a right ending, cancellation, and the queued job;
+    - the public-read, public-bucket and listen-address tests are updated.
+  - **Checked:** full backend suite 281 files, 4,011 tests; lint and build clean.
 
 ### ▶ `P9-BE-27` · An edition's cover image and press PDF
 
@@ -4341,6 +4374,7 @@ The spec's `/admin/next/production` page was never built and had no task.
 **Order** 209.93 · **FE** · **Where:** Code · **1.5d** · **Ready** · HeckerCreatives
 
 - **Depends on:** P9-BE-26, P9-BE-27
+- **API (P9-BE-26):** in `GET /public/editions/{school}/{id}`, each item in `contents` has `picture` (`{ url, kind: "image" | "video" }`, or null), and each item in `sponsors` has `ad` (`{ url }`, or null). A PDF ad is already a picture. Show a `video` with `<video controls playsinline>`.
 - **Done when:**
   - `/next/[school]/[edition]` shows the cover, each piece's photo or video with its article, and each sponsor's ad in its position;
   - it works at phone width;

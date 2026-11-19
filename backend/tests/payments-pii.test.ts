@@ -178,9 +178,12 @@ describe("3 · verification documents stay private (static)", () => {
 
   /* P8-BE-08 added the athlete's profile photo: an image the athlete publishes
      on purpose, for the home page, pinned to an image type and size like the logo. */
-  it("the public bucket is reached from three places only: the branding logo, a sponsor's logo (POL-BE-102) and the athlete's profile photo", () => {
-    const users = src.filter((f) => /presignPublicUpload\(|publicObjectUrl\(|BUCKETS\.public\b/.test(read(f))).map(rel).sort();
-    expect(users).toEqual(["src/domain/branding.ts", "src/domain/home-featured.ts", "src/domain/sponsor-account.ts", "src/lib/storage.ts"]);
+  /* P9-BE-26 added a published edition's photos, videos and ads: copies the
+     worker makes only once a digital right is in force (a minor's by their
+     guardian), with location data removed, taken down when it ends. */
+  it("the public bucket is reached from four places only: the branding logo, a sponsor's logo (POL-BE-102), the athlete's profile photo and a published edition's pictures (P9-BE-26)", () => {
+    const users = src.filter((f) => /presignPublicUpload\(|publicObjectUrl\(|putPublicObject\(|BUCKETS\.public\b/.test(read(f))).map(rel).sort();
+    expect(users).toEqual(["src/domain/branding.ts", "src/domain/edition-pictures.ts", "src/domain/home-featured.ts", "src/domain/sponsor-account.ts", "src/lib/storage.ts"]);
   });
 
   it("every identity, guardianship, organisation and proof document is read through a five-minute signed link", () => {
