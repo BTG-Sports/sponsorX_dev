@@ -12,6 +12,7 @@
    has no token, keeps the static timeline and guardian card.
    -------------------------------------------------------------------------- */
 
+import { Words } from "./brief-fx";
 import { JoinChecklist } from "./join-checklist";
 
 const TIMELINE = [
@@ -45,17 +46,20 @@ export function JoinSubmitted({
     : when.toLocaleString("en-US", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
   return (
-    <div className="px-6 py-10">
-      <div className="sx-join-rise grid size-16 place-items-center rounded-full border-2 border-success/50">
-        <svg viewBox="0 0 24 24" className="size-8" fill="none" stroke="var(--sx-success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 12.5l4 4 8-9" pathLength={1} className="sx-join-draw" style={{ "--sx-d": "0.15s" } as React.CSSProperties} />
+    <div>
+      {/* POL-FE-115 — the sent mark of the full-screen wizards (brief.css):
+          the tick draws itself inside two halos, the heading rises a word at
+          a time. The page (join-wizard.tsx) gives this its width. */}
+      <div className="bx-check">
+        <svg viewBox="0 0 24 24" className="size-10" fill="none" stroke="var(--sx-success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M6 12.5l4 4 8-9" pathLength={1} className="sx-join-draw" style={{ "--sx-d": "0.35s" } as React.CSSProperties} />
         </svg>
       </div>
 
-      <h1 className="sx-join-rise mt-6 text-3xl font-semibold tracking-tight" style={{ "--sx-d": "0.1s" } as React.CSSProperties}>
-        Application submitted
+      <h1 className="mt-7 text-[clamp(2.1rem,6vw,3.4rem)] font-semibold leading-[1.04] tracking-tight">
+        <Words text="Application submitted." />
       </h1>
-      <p className="sx-join-rise mt-3 text-sm leading-relaxed text-muted" style={{ "--sx-d": "0.18s" } as React.CSSProperties}>
+      <p className="sx-join-rise mt-4 max-w-xl text-base leading-relaxed text-muted" style={{ "--sx-d": "0.18s" } as React.CSSProperties}>
         {intakeToken
           ? "Confirm your email and upload your ID — most applications are approved straight away after that."
           : "Submitting isn't approval. A person at BTG reads every application — usually within 3 business days."}

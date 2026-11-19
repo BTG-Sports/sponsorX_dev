@@ -1,64 +1,103 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import {
   AUDIENCES,
   BRIEF_DRAFT_KEY,
   BRIEF_STEPS,
   BUDGET_BANDS,
-  BUSINESS_TYPES,
+  COMMON_BUSINESS_TYPES,
   GOALS,
+  GOAL_HINTS,
+  MORE_BUSINESS_TYPES,
   OTHER_BUSINESS_TYPE,
-  PACKAGE_OPTIONS,
-  businessTypeLabel,
+  TIMINGS,
   businessTypeText,
   emptyBriefDraft,
   packageOption,
   parseBriefDraft,
+  resumeStep,
+  stepAnswer,
   validateBriefStep,
   type BriefDraft,
-  type BriefFieldDef,
+  type BriefStepId,
+  type BusinessType,
 } from "@/lib/brief-flow";
-import { submitBriefRequest } from "@/app/(public)/brief/actions";
+import { categoryLabel, type BrandCategory } from "@/lib/brand-categories";
+import { submitBriefRequest } from "@/app/brief/actions";
+import { Confetti, SpotGroup, Words, reducedMotion } from "@/components/brief-fx";
+import { FocusRail, FocusShell, LineField, Problem, delay } from "@/components/focus-wizard";
 import { SponsorProofUpload } from "@/components/sponsor-proof-upload";
 import { SponsorRequestStanding } from "@/components/sponsor-request-standing";
 import type { ApiSponsorRequestStatus } from "@/lib/sponsor-request-live";
 
 /* --------------------------------------------------------------------------
-   The /brief island — sponsor twin of join-wizard.tsx, led by sponsor
-   orange (--sx-accent). Four steps, no intro (the /packages catalog IS the
-   intro) and no agreement (nothing is signed — it's a request). Motion
-   rides the same sx-join-* system; drafts and hydration follow the same
-   useSyncExternalStore discipline. Submit sends the brief to BTG through
-   POST /public/inquiries (brief/actions.ts, P2-FE-01) and only then shows
-   "received"; a failure keeps the draft and says what happened. The
-   ?demo=submitted state never posts.
+   The /brief wizard — the whole page (POL-FE-114, 2026-11-19).
 
-   2S1-FE-11: step one asks what the business is from the brand-category
-   list, or "Other" in its own words — the free-text "Brand category" field
-   it replaces is gone (the message still carries the answer in words, see
-   brief-inquiry.ts). The API's requestToken is kept in the draft, so the
-   submitted screen can take the proof of business (sponsor-proof-upload.tsx,
-   straight to the private bucket) and link to /sponsor-request/<token>,
-   where the applicant can come back to see what's left.
+   It was a 430px card beside a marketing panel, inside the site's header and
+   footer, with two or three unrelated questions on each of four steps. It is
+   now its own full-screen page that asks one thing at a time:
+
+     goal → business → budget → where → contact → review and send
+
+   Each screen has one question that must be answered and at most one
+   optional follow-up, which appears once the question is answered. From lg
+   the steps run down the left with each answer under its name, so the brief
+   is always in view; below lg a line and "Step 2 of 6" stand in. The last
+   screen is the brief on one card, every part with an Edit that comes
+   straight back. Then "Brief sent" and the two things that open the sponsor
+   account.
+
+   What is collected and what is sent did not change (brief-flow.ts,
+   brief-inquiry.ts): submit goes to BTG through POST /public/inquiries
+   (brief/actions.ts, P2-FE-01) and only then shows "sent"; a failure keeps
+   the draft and says what happened. Every edit is kept on this device as it
+   is made. ?demo=submitted never posts.
+
+   2S1-FE-11: the API's requestToken is kept in the draft, so the sent screen
+   can take the proof of business (sponsor-proof-upload.tsx, straight to the
+   private bucket) and link to /sponsor-request/<token>.
+
+   Motion lives in app/brief/brief.css and brief-fx.tsx.
    -------------------------------------------------------------------------- */
 
-const TIMELINE = [
-  { key: "received", title: "Received", tone: "success" as const },
-  /* POL-FE-71 — says what really happens: these answers go to BTG's sales
-     team, the account opens once the email and proof are in, and matching
-     starts from the first request filed in the portal (not from this form). */
-  { key: "account", title: "Account check", sub: "Confirm your email and upload proof of business. BTG's team reads your answers.", tone: "warn" as const },
-  { key: "request", title: "Your first request", sub: "Your sponsor account opens. Pick a package and send a request — BTG matches athletes from there.", tone: "muted" as const },
-];
+/* What happens after the brief is sent, in order. POL-FE-71: the account
+   opens once the email and the proof are in, and matching starts from the
+   first request filed in the portal, not from this form. */
+const AFTER = [
+  { title: "Confirm your email", sub: "We email you a link. Open it to show the address is yours." },
+  { title: "Upload proof of business", sub: "A registration, permit or license in the business's name." },
+  { title: "Your first request", sub: "Your sponsor account opens. Pick a package and send a request, and BTG matches athletes from there." },
+] as const;
 
+const AUTOCOMPLETE: Record<string, string> = {
+  company: "organization",
+  market: "address-level2",
+  name: "name",
+  email: "email",
+  phone: "tel",
+};
+
+const STEP_MS = 200;
+const REVIEW = BRIEF_STEPS.length - 1;
 const emptySubscribe = () => () => {};
+
+/** A type's name on its choice: the category, or "Something else" for OTHER. */
+function typeName(t: BusinessType): string {
+  return t === OTHER_BUSINESS_TYPE ? "Something else" : categoryLabel(t as BrandCategory);
+}
 
 /* The WAI-ARIA radio-group keyboard pattern (QA pass 8, F-13): one tab stop
    per group, arrow keys move AND select, Home/End jump. The options are
-   buttons, so a click still selects. */
+   buttons, so a click still selects. Enter on the chosen one continues. */
 function onRadioKeys(e: React.KeyboardEvent<HTMLDivElement>) {
+  const target = e.target as HTMLElement;
+  if (e.key === "Enter" && target.getAttribute("aria-checked") === "true") {
+    e.preventDefault();
+    target.closest("form")?.requestSubmit();
+    return;
+  }
   const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
   if (step === undefined && e.key !== "Home" && e.key !== "End") return;
   const radios = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
@@ -115,696 +154,886 @@ export function BriefWizard({
     return parseBriefDraft(storedRaw) ?? emptyBriefDraft();
   };
   const draft = touched ?? seeded();
+  const sent = draft.phase === "submitted";
+  const step = resumeStep(draft);
+  const def = BRIEF_STEPS[step];
+
   const [dir, setDir] = useState<1 | -1>(1);
+  const [leaving, setLeaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [save, setSave] = useState<"idle" | "saving" | "saved">("idle");
+  /* Set by an Edit on the review: Continue then goes straight back to it. */
+  const [toReview, setToReview] = useState(false);
+  const [moreTypes, setMoreTypes] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  /* Only a brief sent in this visit gets the burst, not one found already sent. */
+  const [celebrate, setCelebrate] = useState(false);
   /* Where the request stands after this session's upload — the API's answer to the confirm. */
   const [proofStatus, setProofStatus] = useState<ApiSponsorRequestStatus | null>(null);
-  /* Lifted so the ancestor chain can out-stack the later-DOM siblings while
-     a listbox is open — the sx-join-* fill animations keep every sibling a
-     stacking context, so a panel's own z-index can't win from inside. One
-     key for all selects; opening one closes any other. */
-  const [openSelect, setOpenSelect] = useState<"businessType" | "package" | "audience" | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const stepRef = useRef<HTMLDivElement>(null);
+  /* A step change or a send in flight. Refs, not state: a second click in the
+     same tick must see the first (a state flag is still false there). */
+  const moving = useRef(false);
+  const posting = useRef(false);
+  const landed = useRef(false);
 
-  const persist = (next: BriefDraft) => {
+  /* Every edit is kept on this device as it's made, not only on Continue
+     (QA pass 7, F-2: a failed send used to lose the contact step on reload). */
+  const write = (next: BriefDraft) => {
     setTouched(next);
-    if (!demo) {
-      try {
-        localStorage.setItem(BRIEF_DRAFT_KEY, JSON.stringify(next));
-      } catch {
-        /* private mode — in-memory still works this session */
-      }
-    }
-    setSave("saving");
-    window.setTimeout(() => setSave("saved"), 350);
-  };
-
-  const step = Math.min(draft.step, BRIEF_STEPS.length - 1);
-  const def = BRIEF_STEPS[step];
-
-  useEffect(() => {
-    if (draft.phase === "steps") headingRef.current?.focus({ preventScroll: true });
-  }, [draft.step, draft.phase]);
-
-  /* Every edit is kept on this device as it's made, not only on Continue —
-     "Progress saved" and the send-failure copy both promise it (QA pass 7,
-     F-2: a failed send used to lose the contact step on reload). No save
-     flash here: that belongs to step changes, not keystrokes. */
-  const edit = (next: BriefDraft) => {
-    setTouched(next);
-    if (!demo) {
-      try {
-        localStorage.setItem(BRIEF_DRAFT_KEY, JSON.stringify(next));
-      } catch {
-        /* private mode — in-memory still works this session */
-      }
+    if (demo) return;
+    try {
+      localStorage.setItem(BRIEF_DRAFT_KEY, JSON.stringify(next));
+    } catch {
+      /* private mode — in-memory still works this session */
     }
   };
-  const setAnswer = (key: string, value: string) =>
-    edit({ ...draft, answers: { ...draft.answers, [key]: value } });
+  const setAnswer = (key: string, value: string) => write({ ...draft, answers: { ...draft.answers, [key]: value } });
+  const clearError = (...keys: string[]) => {
+    if (keys.some((k) => errors[k])) setErrors(Object.fromEntries(Object.entries(errors).filter(([k]) => !keys.includes(k))));
+  };
 
-  const goNext = () => {
-    const errs = validateBriefStep(step, draft);
-    setErrors(errs);
-    if (Object.keys(errs).length > 0) {
-      /* In the order they're on screen: the business type sits above the fields. */
-      const first = ["businessType", "businessTypeOther", ...def.fields.map((f) => f.key)].find((k) => errs[k]);
-      if (first)
-        stepRef.current?.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
+  /* The step leaves, then the next one arrives. While it leaves it is inert,
+     so nothing typed in those 200ms is lost to the step change. */
+  const go = (to: number) => {
+    if (moving.current || to === step) return;
+    moving.current = true;
+    setErrors({});
+    setSendError(null);
+    setDir(to > step ? 1 : -1);
+    setLeaving(true);
+    window.setTimeout(
+      () => {
+        write({ ...draft, step: to });
+        setLeaving(false);
+        moving.current = false;
+      },
+      reducedMotion() ? 0 : STEP_MS,
+    );
+  };
+
+  const send = () => {
+    if (posting.current) return;
+    if (demo) {
+      write({ ...draft, phase: "submitted", submittedAt: new Date().toISOString() });
       return;
     }
-    setDir(1);
-    if (step === BRIEF_STEPS.length - 1) {
-      if (demo) {
-        persist({ ...draft, phase: "submitted", submittedAt: new Date().toISOString() });
-        return;
-      }
-      if (sending) return;
-      setSending(true);
-      setSendError(null);
-      void submitBriefRequest(draft)
-        .then((r) => {
-          if (r.ok) persist({ ...draft, phase: "submitted", submittedAt: new Date().toISOString(), requestToken: r.requestToken });
-          else setSendError(r.message);
-        })
-        .catch(() => setSendError("Something went wrong — nothing was sent. Your answers are saved; try again."))
-        .finally(() => setSending(false));
-    } else {
-      persist({ ...draft, step: step + 1 });
-    }
+    posting.current = true;
+    setSending(true);
+    setSendError(null);
+    void submitBriefRequest(draft)
+      .then((r) => {
+        if (r.ok) {
+          setCelebrate(true);
+          write({ ...draft, phase: "submitted", submittedAt: new Date().toISOString(), requestToken: r.requestToken });
+          window.scrollTo({ top: 0 });
+        } else setSendError(r.message);
+      })
+      .catch(() => setSendError("Something went wrong and nothing was sent. Your answers are saved. Try again."))
+      .finally(() => {
+        posting.current = false;
+        setSending(false);
+      });
   };
 
-  const goBack = () => {
-    if (step === 0) return;
-    setErrors({});
-    setDir(-1);
-    persist({ ...draft, step: step - 1 });
+  const goNext = () => {
+    if (moving.current) return;
+    if (step === REVIEW) return send();
+    const errs = validateBriefStep(step, draft);
+    setErrors(errs);
+    const first = Object.keys(errs)[0];
+    if (first) {
+      /* The first gap, in the order the step is drawn. */
+      const order = ["goal", "company", "businessType", "businessTypeOther", "budget", ...def.fields.map((f) => f.key)];
+      const key = order.find((k) => errs[k]) ?? first;
+      const at = stepRef.current?.querySelector<HTMLElement>(`[data-field="${key}"]`);
+      (at?.matches("input, button") ? at : at?.querySelector<HTMLElement>('[tabindex="0"], button'))?.focus();
+      return;
+    }
+    const to = toReview ? REVIEW : step + 1;
+    setToReview(false);
+    go(to);
   };
 
-  /* ------------------------------------------------------------ submitted */
-  if (draft.phase === "submitted") {
-    const when = new Date(draft.submittedAt ?? "");
-    const stamp = Number.isNaN(when.getTime())
-      ? ""
-      : when.toLocaleString("en-US", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-    const chosen = packageOption(draft.package);
+  const edit = (id: BriefStepId) => {
+    setToReview(true);
+    go(BRIEF_STEPS.findIndex((s) => s.id === id));
+  };
 
-    if (reviewing) {
-      return (
-        <div className="px-6 py-10">
-          <button
-            type="button"
-            onClick={() => setReviewing(false)}
-            className="flex min-h-11 items-center gap-1.5 text-sm text-muted transition-colors hover:text-text"
-          >
-            <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 3.5L5.5 8l4.5 4.5" />
-            </svg>
-            Back
-          </button>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight">Your request</h1>
-          <p className="mt-1 text-sm text-muted">Read-only — it&apos;s with BTG now.</p>
-          <div className="mt-6 rounded-xl border border-line bg-surface-2 p-4">
-            <dl className="space-y-2 text-sm">
-              {[
-                ["Goal", draft.goal],
-                ["Business type", businessTypeText(draft) || draft.answers.category],
-                ["Budget", draft.budget],
-                ["Package", chosen.name],
-                ["Timing", draft.answers.timing],
-                ["Market", draft.answers.market],
-                ["Audience", draft.answers.audience],
-                ["Company", draft.answers.company],
-                ["Contact", draft.answers.name],
-                ["Email", draft.answers.email],
-              ].map(([label, value]) => (
-                <div key={label} className="flex justify-between gap-4">
-                  <dt className="text-muted">{label}</dt>
-                  <dd className="text-right text-text">{(value ?? "").trim() || "—"}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        </div>
-      );
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    goNext();
+  };
+
+  /* A new step takes the focus on its heading, so a screen reader reads the
+     question. Not on arrival: the page's first focus is the visitor's. */
+  useEffect(() => {
+    if (!landed.current) {
+      landed.current = true;
+      return;
     }
+    if (!sent) headingRef.current?.focus({ preventScroll: true });
+    window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
+  }, [step, sent]);
 
-    return (
-      <div className="px-6 py-10">
-        <div className="sx-join-rise grid size-16 place-items-center rounded-full border-2 border-success/50">
-          <svg viewBox="0 0 24 24" className="size-8" fill="none" stroke="var(--sx-success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M6 12.5l4 4 8-9" pathLength={1} className="sx-join-draw" style={{ "--sx-d": "0.15s" } as React.CSSProperties} />
-          </svg>
-        </div>
-        <h1 className="sx-join-rise mt-6 text-3xl font-semibold tracking-tight" style={{ "--sx-d": "0.1s" } as React.CSSProperties}>
-          Brief received
-        </h1>
-        <p className="sx-join-rise mt-3 text-sm leading-relaxed text-muted" style={{ "--sx-d": "0.18s" } as React.CSSProperties}>
-          Confirm your email and upload proof of business below — your sponsor
-          account then opens automatically. No card, no checkout, no commitment.
-        </p>
+  /* 1–5 picks a choice on the two steps that are a choice. */
+  const pickable = !sent && (def.id === "goal" || def.id === "budget");
+  useEffect(() => {
+    if (!pickable) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (e.metaKey || e.ctrlKey || e.altKey || t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      if (!/^[1-9]$/.test(e.key)) return;
+      const choice = stepRef.current?.querySelectorAll<HTMLButtonElement>("[data-choice]")[Number(e.key) - 1];
+      if (!choice) return;
+      choice.focus();
+      choice.click();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pickable, step]);
 
-        {/* 2S1-FE-11 — the two things that open the sponsor account. */}
-        <section
-          aria-labelledby="brief-next-steps"
-          className="sx-join-rise mt-8 rounded-xl border border-line bg-surface-2 p-4"
-          style={{ "--sx-d": "0.24s" } as React.CSSProperties}
-        >
-          <h2 id="brief-next-steps" className="text-base font-semibold text-text">
-            Next steps
-          </h2>
-          <p className="mt-1 text-sm text-muted">Your sponsor account opens once both are done.</p>
-          <ol className="mt-4 space-y-5">
-            <li className="flex gap-3">
-              <span aria-hidden className="grid size-6 shrink-0 place-items-center rounded-full border border-accent/50 text-xs font-semibold text-accent">
-                1
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-text">Check your email to confirm it</p>
-                <p className="mt-0.5 break-words text-sm text-muted">
-                  We sent a link to {(draft.answers.email ?? "").trim() || "your email"}. Open it to show the address is yours.
+  const chosen = packageOption(draft.package);
+  const progress = sent ? 1 : (step + (step === REVIEW ? 0.6 : 0.35)) / BRIEF_STEPS.length;
+
+  return (
+    <FocusShell
+      step={step}
+      count={BRIEF_STEPS.length}
+      done={sent}
+      progress={progress}
+      progressLabel="Brief progress"
+      progressText={sent ? "Brief sent" : `Step ${step + 1} of ${BRIEF_STEPS.length}: ${def.label}`}
+      exit={sent ? { href: "/", label: "Back to site" } : { href: "/packages", label: "Save and exit" }}
+    >
+      {sent ? (
+        <Sent
+          draft={draft}
+          demo={!!demo}
+          celebrate={celebrate}
+          reviewing={reviewing}
+          setReviewing={setReviewing}
+          proofStatus={proofStatus}
+          onProof={(s) => {
+            setProofStatus(s);
+            if (s.proofUploaded) write({ ...draft, proofUploaded: true });
+          }}
+        />
+      ) : (
+        <div className="relative mx-auto grid w-full max-w-[1240px] flex-1 grid-cols-1 lg:grid-cols-[250px_minmax(0,1fr)] lg:gap-14 lg:px-10 xl:gap-20">
+          {/* ------------------------------------------------- steps (lg+) */}
+          <FocusRail
+            title="Your brief"
+            label="Brief steps"
+            steps={BRIEF_STEPS.map((s, i) => ({
+              id: s.id,
+              label: s.label,
+              state: i < step ? "done" : i === step ? "now" : "next",
+              answer: stepAnswer(s.id, draft),
+              open: i < step,
+            }))}
+            onOpen={(i) => {
+              /* From the review, a change comes straight back to it. */
+              if (step === REVIEW) setToReview(true);
+              go(i);
+            }}
+            note="Your answers are saved on this device as you go."
+          />
+
+          {/* ------------------------------------------------------ the step */}
+          <form onSubmit={onSubmit} noValidate className="flex min-w-0 flex-col">
+            <div
+              key={def.id}
+              ref={stepRef}
+              inert={leaving}
+              data-leaving={leaving ? "" : undefined}
+              className="bx-step flex flex-1 flex-col px-5 pb-6 pt-7 sm:px-8 lg:justify-center lg:px-0 lg:pt-4"
+              style={{ "--bx-dir": dir } as CSSProperties}
+            >
+              <p className="bx-rise text-[11px] font-semibold uppercase tracking-[0.22em] text-accent-soft">
+                Step {step + 1} of {BRIEF_STEPS.length}
+                <span className="text-muted"> · {def.label}</span>
+              </p>
+              <h1
+                ref={headingRef}
+                tabIndex={-1}
+                className={`mt-4 font-semibold leading-[1.04] tracking-tight outline-none ${
+                  /* The review's card is the screen; its heading steps back to leave it room. */
+                  def.id === "review" ? "text-[clamp(1.8rem,3.4vw,2.6rem)]" : "max-w-[20ch] text-[clamp(2rem,5.2vw,3.7rem)]"
+                }`}
+              >
+                <Words text={def.heading} />
+              </h1>
+              <p className="bx-rise mt-4 max-w-xl text-base leading-relaxed text-muted" style={delay(0.22)}>
+                {def.sub}
+              </p>
+
+              <div className="mt-8 max-w-[760px]">
+                {/* ------------------------------------------------- goal */}
+                {def.id === "goal" && (
+                  <>
+                    <SpotGroup
+                      role="radiogroup"
+                      aria-label="Campaign goal"
+                      data-field="goal"
+                      data-picked={draft.goal ? "" : undefined}
+                      onKeyDown={onRadioKeys}
+                      className="bx-group grid grid-cols-1 gap-3 sm:grid-cols-2"
+                    >
+                      {GOALS.map((g, i) => {
+                        const on = draft.goal === g;
+                        return (
+                          <button
+                            key={g}
+                            type="button"
+                            role="radio"
+                            aria-checked={on}
+                            tabIndex={on || (!draft.goal && i === 0) ? 0 : -1}
+                            data-choice=""
+                            data-spot=""
+                            onClick={() => {
+                              clearError("goal");
+                              write({ ...draft, goal: g });
+                            }}
+                            className="bx-card bx-rise flex items-center gap-4 p-4 sm:p-5"
+                            style={delay(0.3 + i * 0.06)}
+                          >
+                            <span className="bx-ring" aria-hidden />
+                            <span className="bx-icon" aria-hidden>
+                              <GoalIcon goal={g} />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-lg font-semibold leading-tight">{g}</span>
+                              <span className="mt-1 block text-sm leading-snug text-muted">{GOAL_HINTS[g]}</span>
+                            </span>
+                            <span className="bx-key" aria-hidden>
+                              {i + 1}
+                            </span>
+                            <Tick />
+                          </button>
+                        );
+                      })}
+                    </SpotGroup>
+                    <Problem id="err-goal" text={errors.goal} />
+                    <div className="sx-expand" data-open={!!draft.goal}>
+                      <div inert={!draft.goal}>
+                        <Field
+                          def={def.fields[0]}
+                          optional
+                          className="pt-8"
+                          value={draft.answers.success ?? ""}
+                          onChange={(v) => setAnswer("success", v)}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* --------------------------------------------- business */}
+                {def.id === "business" && (
+                  <div className="space-y-8">
+                    <Field
+                      def={def.fields[0]}
+                      className="bx-rise"
+                      style={delay(0.3)}
+                      value={draft.answers.company ?? ""}
+                      error={errors.company}
+                      onChange={(v) => {
+                        clearError("company");
+                        setAnswer("company", v);
+                      }}
+                    />
+                    <div className="bx-rise" style={delay(0.38)}>
+                      <p id="kind-label" className="text-sm font-medium text-muted">
+                        What kind of business is it?
+                      </p>
+                      <div
+                        role="radiogroup"
+                        aria-labelledby="kind-label"
+                        aria-describedby={errors.businessType ? "err-businessType" : undefined}
+                        data-field="businessType"
+                        onKeyDown={onRadioKeys}
+                        className="mt-3 flex flex-wrap gap-2.5"
+                      >
+                        {(() => {
+                          const inMore = MORE_BUSINESS_TYPES.includes(draft.businessType as BusinessType);
+                          const open = moreTypes || inMore;
+                          const shown: BusinessType[] = [...COMMON_BUSINESS_TYPES, ...(open ? MORE_BUSINESS_TYPES : []), OTHER_BUSINESS_TYPE];
+                          return (
+                            <>
+                              {shown.map((t, i) => {
+                                const on = draft.businessType === t;
+                                return (
+                                  <button
+                                    key={t}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={on}
+                                    tabIndex={on || (!draft.businessType && i === 0) ? 0 : -1}
+                                    onClick={() => {
+                                      clearError("businessType", "businessTypeOther");
+                                      write({ ...draft, businessType: t });
+                                    }}
+                                    className="bx-chip"
+                                  >
+                                    {typeName(t)}
+                                  </button>
+                                );
+                              })}
+                              {!inMore && (
+                                <button
+                                  type="button"
+                                  aria-expanded={open}
+                                  onClick={() => setMoreTypes(!moreTypes)}
+                                  className="bx-chip"
+                                  data-quiet=""
+                                >
+                                  {open ? "Fewer types" : `More types (${MORE_BUSINESS_TYPES.length})`}
+                                </button>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <Problem id="err-businessType" text={errors.businessType} />
+                    </div>
+                    <div className="sx-expand" data-open={draft.businessType === OTHER_BUSINESS_TYPE}>
+                      <div inert={draft.businessType !== OTHER_BUSINESS_TYPE}>
+                        <Field
+                          def={{ key: "businessTypeOther", label: "What does your business do?", placeholder: "e.g. Family-run bike repair shop", required: true }}
+                          maxLength={200}
+                          value={draft.businessTypeOther ?? ""}
+                          error={errors.businessTypeOther}
+                          onChange={(v) => {
+                            clearError("businessTypeOther");
+                            write({ ...draft, businessTypeOther: v });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ----------------------------------------------- budget */}
+                {def.id === "budget" && (
+                  <>
+                    <SpotGroup
+                      role="radiogroup"
+                      aria-label="Budget range"
+                      data-field="budget"
+                      data-picked={draft.budget ? "" : undefined}
+                      onKeyDown={onRadioKeys}
+                      className="bx-group grid grid-cols-1 gap-3 sm:grid-cols-5"
+                    >
+                      {BUDGET_BANDS.map((b, i) => {
+                        const on = draft.budget === b;
+                        return (
+                          <button
+                            key={b}
+                            type="button"
+                            role="radio"
+                            aria-checked={on}
+                            tabIndex={on || (!draft.budget && i === 0) ? 0 : -1}
+                            data-choice=""
+                            data-spot=""
+                            onClick={() => {
+                              clearError("budget");
+                              write({ ...draft, budget: b });
+                            }}
+                            className="bx-card bx-rise flex items-center gap-4 p-4 sm:flex-col sm:items-start sm:gap-5 sm:p-5"
+                            style={delay(0.3 + i * 0.05)}
+                          >
+                            <span className="bx-ring" aria-hidden />
+                            <span className="flex items-center justify-between gap-3 sm:w-full">
+                              <span className="bx-meter" aria-hidden>
+                                {BUDGET_BANDS.map((x, j) => (
+                                  <i key={x} data-on={j <= i ? "" : undefined} style={{ height: `${36 + j * 16}%` }} />
+                                ))}
+                              </span>
+                              <span className="hidden sm:block">
+                                <Tick />
+                              </span>
+                            </span>
+                            <span className="flex-1 whitespace-nowrap text-lg font-semibold leading-tight sm:flex-none sm:text-xl">{b}</span>
+                            <span className="sm:hidden" aria-hidden>
+                              <span className="bx-key">{i + 1}</span>
+                            </span>
+                            <span className="sm:hidden">
+                              <Tick />
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </SpotGroup>
+                    <Problem id="err-budget" text={errors.budget} />
+                    {chosen.id !== "unsure" && (
+                      <p className="bx-rise mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted" style={delay(0.55)}>
+                        <span>
+                          Package you picked: <span className="font-semibold text-text">{chosen.name}</span>
+                          {chosen.price ? ` (${chosen.price})` : ""}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => write({ ...draft, package: "unsure" })}
+                          className="min-h-11 rounded text-accent-soft underline-offset-4 hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </p>
+                    )}
+                    <div className="sx-expand" data-open={!!draft.budget}>
+                      <div inert={!draft.budget}>
+                        <Chips
+                          label="When do you want to start?"
+                          options={TIMINGS}
+                          value={draft.answers.timing ?? ""}
+                          onChange={(v) => setAnswer("timing", v)}
+                          className="pt-8"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* ----------------------------------------------- market */}
+                {def.id === "market" && (
+                  <>
+                    <Field
+                      def={def.fields[0]}
+                      className="bx-rise"
+                      style={delay(0.3)}
+                      value={draft.answers.market ?? ""}
+                      error={errors.market}
+                      onChange={(v) => {
+                        clearError("market");
+                        setAnswer("market", v);
+                      }}
+                    />
+                    <div className="sx-expand" data-open={!!(draft.answers.market ?? "").trim()}>
+                      <div inert={!(draft.answers.market ?? "").trim()}>
+                        <Chips
+                          label="Who do you want to reach?"
+                          options={AUDIENCES}
+                          value={draft.answers.audience ?? ""}
+                          onChange={(v) => setAnswer("audience", v)}
+                          className="pt-8"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* ---------------------------------------------- contact */}
+                {def.id === "contact" && (
+                  <div className="grid gap-8 sm:grid-cols-2">
+                    {def.fields.map((f, i) => (
+                      <Field
+                        key={f.key}
+                        def={f}
+                        optional={!f.required}
+                        className={`bx-rise ${f.key === "name" ? "sm:col-span-2" : ""}`}
+                        style={delay(0.3 + i * 0.07)}
+                        value={draft.answers[f.key] ?? ""}
+                        error={errors[f.key]}
+                        onChange={(v) => {
+                          clearError(f.key);
+                          setAnswer(f.key, v);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* ----------------------------------------------- review */}
+                {def.id === "review" && (
+                  <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_240px] xl:items-start">
+                    <div className="bx-rise" style={delay(0.3)}>
+                      <Ticket draft={draft} onEdit={edit} />
+                    </div>
+                    <div className="bx-rise" style={delay(0.42)}>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">After you send it</p>
+                      <ol className="mt-4 space-y-4">
+                        {AFTER.map((a, i) => (
+                          <li key={a.title} className="flex gap-3">
+                            <span aria-hidden className="grid size-6 shrink-0 place-items-center rounded-full border border-accent/50 text-xs font-semibold text-accent-soft">
+                              {i + 1}
+                            </span>
+                            <span>
+                              <span className="block text-sm font-semibold text-text">{a.title}</span>
+                              <span className="mt-0.5 block text-[13px] leading-relaxed text-muted">{a.sub}</span>
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* action bar — pinned, except on a short screen (a phone in
+                landscape, ~390px tall), where it covered most of the step */}
+            <div className="bx-actions bx-chrome sticky bottom-0 z-10 px-5 pb-5 pt-8 sm:px-8 lg:px-0 lg:pb-8 [@media(max-height:500px)]:static">
+              {sendError && step === REVIEW && (
+                <p role="alert" className="mb-3 max-w-[760px] rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
+                  {sendError}
+                </p>
+              )}
+              <div className="flex max-w-[760px] items-center gap-3">
+                {step > 0 && (
+                  <button type="button" onClick={() => go(step - 1)} disabled={sending} className="bx-ghost inline-flex items-center gap-2 px-4 sm:px-5">
+                    <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M10 3.5L5.5 8l4.5 4.5" />
+                    </svg>
+                    Back
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={sending}
+                  aria-busy={sending}
+                  className="bx-cta sx-join-sheen inline-flex flex-1 items-center justify-center gap-2.5 px-6 text-base sm:flex-none sm:px-9"
+                >
+                  {step === REVIEW ? (
+                    sending ? (
+                      <>
+                        <span className="bx-spin" aria-hidden />
+                        Sending…
+                      </>
+                    ) : (
+                      "Send to BTG"
+                    )
+                  ) : toReview ? (
+                    "Back to review"
+                  ) : (
+                    "Continue"
+                  )}
+                  {!sending && (
+                    <svg viewBox="0 0 16 16" className="bx-arrow size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M3 8h10M9 4l4 4-4 4" />
+                    </svg>
+                  )}
+                </button>
+                <p className="bx-keys ml-2 text-[13px] text-faint">
+                  {pickable ? `Press 1 to ${def.id === "goal" ? GOALS.length : BUDGET_BANDS.length} to pick, Enter to continue` : "or press Enter"}
                 </p>
               </div>
-            </li>
-            <li className="flex gap-3">
-              <span aria-hidden className="grid size-6 shrink-0 place-items-center rounded-full border border-accent/50 text-xs font-semibold text-accent">
-                2
-              </span>
-              <div className="min-w-0 flex-1 space-y-3">
-                <div>
-                  <p className="text-sm font-semibold text-text">Upload your proof of business</p>
-                  <p className="mt-0.5 text-sm text-muted">
-                    Your business registration, permit or license in the business&rsquo;s name — required of every sponsor.
-                  </p>
-                </div>
-                {proofStatus ? (
-                  <>
-                    <p className="text-sm font-medium text-success">Proof of business received.</p>
-                    <SponsorRequestStanding status={proofStatus} email={(draft.answers.email ?? "").trim() || undefined} heading="h3" />
-                  </>
-                ) : draft.proofUploaded ? (
-                  <p className="text-sm font-medium text-success">Proof of business received.</p>
-                ) : draft.requestToken ? (
-                  <SponsorProofUpload
-                    token={draft.requestToken}
-                    after="show"
-                    email={(draft.answers.email ?? "").trim() || undefined}
-                    disabledReason={demo ? "Sample screen — nothing is uploaded from the demo." : undefined}
-                    onStatus={(s) => {
-                      setProofStatus(s);
-                      if (s.proofUploaded) persist({ ...draft, proofUploaded: true });
-                    }}
-                  />
-                ) : (
-                  <p className="text-sm text-muted">
-                    This device doesn&rsquo;t have the upload link for this brief.{" "}
-                    <Link href="/brief?new=1" className="text-accent hover:underline">
-                      Send the form again
-                    </Link>{" "}
-                    to upload it.
-                  </p>
-                )}
-              </div>
-            </li>
-          </ol>
-          {draft.requestToken && !demo && (
-            <p className="mt-5 border-t border-line pt-4 text-sm">
-              <Link href={`/sponsor-request/${encodeURIComponent(draft.requestToken)}`} className="text-accent hover:underline">
-                See where your request stands →
-              </Link>
-              <span className="mt-1 block text-[11px] text-faint">Bookmark it to come back later — it works without signing in.</span>
-            </p>
-          )}
-        </section>
-
-        <div className="mt-8 border-t border-line pt-8">
-          <ol className="space-y-7">
-            {TIMELINE.map((t, i) => (
-              <li key={t.key} className="sx-join-rise relative flex gap-5 pl-1" style={{ "--sx-d": `${0.3 + i * 0.12}s` } as React.CSSProperties}>
-                {i < TIMELINE.length - 1 && (
-                  <span aria-hidden className="absolute left-[11px] top-6 h-[calc(100%+8px)] w-px bg-line" />
-                )}
-                <span
-                  aria-hidden
-                  className={`relative z-10 mt-1 size-[21px] shrink-0 rounded-full ${
-                    t.tone === "success" ? "bg-success" : t.tone === "warn" ? "border-2 border-warn bg-bg" : "border-2 border-line bg-bg"
-                  }`}
-                />
-                <div>
-                  <p className={`text-base font-semibold ${t.tone === "warn" ? "text-warn" : t.tone === "muted" ? "text-muted" : "text-text"}`}>
-                    {t.title}
-                  </p>
-                  <p className="mt-0.5 text-sm text-muted">{t.key === "received" ? stamp : t.sub}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
+              <p className="mt-3 text-[12px] text-faint">No card and no payment. Nothing is signed.</p>
+            </div>
+          </form>
         </div>
+      )}
+    </FocusShell>
+  );
+}
 
-        <div className="mt-10 space-y-3">
-          <button
-            type="button"
-            onClick={() => setReviewing(true)}
-            className="sx-join-rise flex min-h-11 w-full items-center justify-between rounded-xl border border-line bg-surface-2 px-4 py-4 text-left text-sm font-medium text-text transition-colors hover:bg-surface"
-            style={{ "--sx-d": "0.7s" } as React.CSSProperties}
-          >
-            Review your request
-            <svg viewBox="0 0 16 16" className="size-4 text-muted" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 3.5L10.5 8 6 12.5" />
-            </svg>
-          </button>
-          <Link
-            href="/packages"
-            className="sx-join-rise flex min-h-11 w-full items-center justify-between rounded-xl border border-line bg-surface-2 px-4 py-4 text-left text-sm font-medium text-text transition-colors hover:bg-surface"
-            style={{ "--sx-d": "0.78s" } as React.CSSProperties}
-          >
-            Back to packages
-            <svg viewBox="0 0 16 16" className="size-4 text-muted" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 3.5L10.5 8 6 12.5" />
-            </svg>
-          </Link>
+/* ---------------------------------------------------------------- the sent screen */
+
+function Sent({
+  draft,
+  demo,
+  celebrate,
+  reviewing,
+  setReviewing,
+  proofStatus,
+  onProof,
+}: {
+  draft: BriefDraft;
+  demo: boolean;
+  celebrate: boolean;
+  reviewing: boolean;
+  setReviewing: (v: boolean) => void;
+  proofStatus: ApiSponsorRequestStatus | null;
+  onProof: (s: ApiSponsorRequestStatus) => void;
+}) {
+  const email = (draft.answers.email ?? "").trim();
+  const when = new Date(draft.submittedAt ?? "");
+  const stamp = Number.isNaN(when.getTime())
+    ? ""
+    : when.toLocaleString("en-US", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+
+  if (reviewing) {
+    return (
+      <main className="relative mx-auto w-full max-w-2xl flex-1 px-5 pb-16 pt-8 sm:px-8">
+        <button
+          type="button"
+          onClick={() => setReviewing(false)}
+          className="flex min-h-11 items-center gap-1.5 text-sm text-muted transition-colors hover:text-text"
+        >
+          <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M10 3.5L5.5 8l4.5 4.5" />
+          </svg>
+          Back
+        </button>
+        <h1 className="mt-4 text-3xl font-semibold tracking-tight">Your brief</h1>
+        <p className="mt-2 text-sm text-muted">This is what you sent. It can&rsquo;t be changed here because it&rsquo;s with BTG now.</p>
+        <div className="bx-rise mt-6">
+          <Ticket draft={draft} />
         </div>
-      </div>
+      </main>
     );
   }
 
-  /* ---------------------------------------------------------------- steps */
-  const chosen = packageOption(draft.package);
+  return (
+    <main className="relative mx-auto w-full max-w-2xl flex-1 px-5 pb-16 pt-10 sm:px-8 lg:pt-14">
+      {celebrate && <Confetti />}
+      <div className="bx-check">
+        <svg viewBox="0 0 24 24" className="size-10" fill="none" stroke="var(--sx-success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M6 12.5l4 4 8-9" pathLength={1} className="sx-join-draw" style={{ "--sx-d": "0.35s" } as CSSProperties} />
+        </svg>
+      </div>
+      <h1 className="mt-7 text-[clamp(2.2rem,6vw,3.6rem)] font-semibold leading-[1.04] tracking-tight">
+        <Words text="Brief sent." />
+      </h1>
+      <p className="bx-rise mt-4 max-w-xl text-base leading-relaxed text-muted" style={delay(0.2)}>
+        BTG has it{stamp ? ` (${stamp})` : ""}. Two things are left, and then your sponsor account opens. No card, no payment, nothing signed.
+      </p>
+
+      {/* 2S1-FE-11 — the two things that open the sponsor account. */}
+      <ol className="mt-9 space-y-4" aria-label="What is left to do">
+        <li className="bx-panel bx-rise flex gap-4 p-5" style={delay(0.3)}>
+          <StepBadge n={1} />
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-text">Check your email and confirm it</h2>
+            <p className="mt-1 break-words text-sm leading-relaxed text-muted">
+              We sent a link to {email || "your email"}. Open it to show the address is yours.
+            </p>
+          </div>
+        </li>
+        <li className="bx-panel bx-rise flex gap-4 p-5" style={delay(0.38)}>
+          <StepBadge n={2} done={!!proofStatus || !!draft.proofUploaded} />
+          <div className="min-w-0 flex-1 space-y-3">
+            <div>
+              <h2 className="text-base font-semibold text-text">Upload your proof of business</h2>
+              <p className="mt-1 text-sm leading-relaxed text-muted">
+                Your business registration, permit or license in the business&rsquo;s name. Every sponsor is asked for it.
+              </p>
+            </div>
+            {proofStatus ? (
+              <>
+                <p className="text-sm font-medium text-success">Proof of business received.</p>
+                <SponsorRequestStanding status={proofStatus} email={email || undefined} heading="h3" />
+              </>
+            ) : draft.proofUploaded ? (
+              <p className="text-sm font-medium text-success">Proof of business received.</p>
+            ) : draft.requestToken ? (
+              <SponsorProofUpload
+                token={draft.requestToken}
+                after="show"
+                email={email || undefined}
+                disabledReason={demo ? "Sample screen — nothing is uploaded from the demo." : undefined}
+                onStatus={onProof}
+              />
+            ) : (
+              <p className="text-sm text-muted">
+                This device doesn&rsquo;t have the upload link for this brief.{" "}
+                <Link href="/brief?new=1" className="text-accent hover:underline">
+                  Send the form again
+                </Link>{" "}
+                to upload it.
+              </p>
+            )}
+          </div>
+        </li>
+        <li className="bx-rise flex gap-4 px-5 pt-2" style={delay(0.46)}>
+          <StepBadge n={3} quiet />
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-muted">Then: {AFTER[2].title.toLowerCase()}</h2>
+            <p className="mt-1 text-sm leading-relaxed text-muted">{AFTER[2].sub}</p>
+          </div>
+        </li>
+      </ol>
+
+      <div className="bx-rise mt-10 flex flex-wrap items-center gap-3" style={delay(0.56)}>
+        {draft.requestToken && !demo && (
+          <Link
+            href={`/sponsor-request/${encodeURIComponent(draft.requestToken)}`}
+            className="bx-cta sx-join-sheen inline-flex items-center justify-center gap-2.5 px-6 text-sm"
+          >
+            See where your request stands
+            <svg viewBox="0 0 16 16" className="bx-arrow size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M3 8h10M9 4l4 4-4 4" />
+            </svg>
+          </Link>
+        )}
+        <button type="button" onClick={() => setReviewing(true)} className="bx-ghost px-5 text-sm">
+          Read what you sent
+        </button>
+        <Link href="/packages" className="bx-ghost inline-flex items-center px-5 text-sm">
+          Back to packages
+        </Link>
+      </div>
+      {draft.requestToken && !demo && (
+        <p className="bx-rise mt-3 text-[12px] text-faint" style={delay(0.6)}>
+          Bookmark that page to come back later. It works without signing in.
+        </p>
+      )}
+    </main>
+  );
+}
+
+function StepBadge({ n, done = false, quiet = false }: { n: number; done?: boolean; quiet?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`grid size-8 shrink-0 place-items-center rounded-full border text-sm font-semibold ${
+        done ? "border-success/60 bg-success/15 text-success" : quiet ? "border-line text-muted" : "border-accent/60 bg-accent/12 text-accent-soft"
+      }`}
+    >
+      {done ? (
+        <svg viewBox="0 0 12 12" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2.5 6.5l2.5 2.5 4.5-5.5" />
+        </svg>
+      ) : (
+        n
+      )}
+    </span>
+  );
+}
+
+/* ---------------------------------------------------------------- the brief on one card */
+
+function Ticket({ draft, onEdit }: { draft: BriefDraft; onEdit?: (id: BriefStepId) => void }) {
+  const a = (k: string) => (draft.answers[k] ?? "").trim();
+  const pack = packageOption(draft.package);
+  const rows: { id: BriefStepId; label: string; value: string; more: string[] }[] = [
+    { id: "goal", label: "Goal", value: draft.goal, more: [a("success")] },
+    { id: "business", label: "Business", value: a("company"), more: [businessTypeText(draft) || a("category")] },
+    { id: "budget", label: "Budget", value: draft.budget, more: [a("timing"), pack.id === "unsure" ? "" : `Package: ${pack.name}`] },
+    { id: "market", label: "Where", value: a("market"), more: [a("audience")] },
+    { id: "contact", label: "Contact", value: a("name"), more: [a("email"), a("phone")] },
+  ];
 
   return (
-    <div className="flex flex-col">
-      {/* chrome */}
-      <div className="border-b border-line px-6 pb-4 pt-5">
-        <div className="flex items-center justify-between">
-          {step > 0 ? (
-            <button
-              type="button"
-              onClick={goBack}
-              aria-label="Back"
-              className="grid size-11 -ml-2.5 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-text"
-            >
-              <svg viewBox="0 0 16 16" className="size-4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10 3.5L5.5 8l4.5 4.5" />
-              </svg>
-            </button>
-          ) : (
-            <Link
-              href="/packages"
-              aria-label="Back to packages"
-              className="grid size-11 -ml-2.5 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-text"
-            >
-              <svg viewBox="0 0 16 16" className="size-4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10 3.5L5.5 8l4.5 4.5" />
-              </svg>
-            </Link>
-          )}
-          <p aria-live="polite" className="text-sm text-muted">
-            Step {step + 1} of {BRIEF_STEPS.length}
-          </p>
-          <p className="flex items-center gap-1.5 text-sm text-success">
-            <span className={`size-1.5 rounded-full bg-success ${save === "saving" ? "sx-pop" : ""}`} />
-            {save === "saving" ? "Saving…" : "Progress saved"}
-          </p>
+    <div className="bx-ticket">
+      <div className="flex items-end justify-between gap-4 px-5 pb-4 pt-5 sm:px-7">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent-soft">Sponsor brief</p>
+          <p className="mt-1.5 truncate text-2xl font-semibold tracking-tight">{a("company") || "Your business"}</p>
         </div>
-        <div className="mt-3.5 flex gap-1.5">
-          {BRIEF_STEPS.map((s, i) => (
-            <span
-              key={s.id}
-              className={`sx-join-seg h-1 flex-1 rounded-full text-accent ${
-                i < step ? "sx-join-seg--fill bg-surface-2" : i === step ? "sx-join-seg--active bg-surface-2" : "bg-surface-2"
-              }`}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* body */}
-      <div
-        key={`${def.id}-${dir}`}
-        ref={stepRef}
-        className={`sx-join-step flex-1 px-6 py-7 ${openSelect ? "relative z-20" : ""}`}
-        style={{ "--sx-from": dir === 1 ? "24px" : "-24px" } as React.CSSProperties}
-      >
-        <h1 ref={headingRef} tabIndex={-1} className="text-3xl font-semibold tracking-tight outline-none">
-          {def.heading}
-        </h1>
-        <p className="mt-2 text-sm leading-relaxed text-muted">{def.sub}</p>
-
-        <div className="mt-6 space-y-5">
-          {def.id === "goal" && (
-            <div className="sx-join-rise">
-              <p className="text-[11px] font-medium text-muted">Campaign goal</p>
-              <div className="mt-2 grid grid-cols-2 gap-3" role="radiogroup" aria-label="Campaign goal" onKeyDown={onRadioKeys}>
-                {GOALS.map((g, i) => {
-                  const on = draft.goal === g;
-                  const stop = on || (!draft.goal && i === 0);
-                  return (
-                    <button
-                      key={g}
-                      type="button"
-                      role="radio"
-                      aria-checked={on}
-                      tabIndex={stop ? 0 : -1}
-                      onClick={() => edit({ ...draft, goal: g })}
-                      className={`min-h-11 rounded-xl border px-3.5 py-3 text-sm font-medium transition-colors ${
-                        on
-                          ? "sx-pop border-accent/60 bg-accent/12 text-text"
-                          : "border-line bg-surface-2 text-text hover:bg-surface"
-                      }`}
-                    >
-                      {g}
-                    </button>
-                  );
-                })}
-              </div>
-              {errors.goal && <p className="mt-1.5 text-[11px] text-danger">{errors.goal}</p>}
-            </div>
-          )}
-
-          {def.id === "budget" && (
-            <>
-              <div className="sx-join-rise">
-                <p className="text-[11px] font-medium text-muted">Budget band</p>
-                <div className="mt-2 flex flex-wrap gap-2.5" role="radiogroup" aria-label="Budget band" onKeyDown={onRadioKeys}>
-                  {BUDGET_BANDS.map((b, i) => {
-                    const on = draft.budget === b;
-                    const stop = on || (!draft.budget && i === 0);
-                    return (
-                      <button
-                        key={b}
-                        type="button"
-                        role="radio"
-                        aria-checked={on}
-                        tabIndex={stop ? 0 : -1}
-                        onClick={() => edit({ ...draft, budget: b })}
-                        className={`min-h-11 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ${
-                          on
-                            ? "sx-pop border-accent/60 bg-accent/12 text-text"
-                            : "border-line bg-surface-2 text-text hover:bg-surface"
-                        }`}
-                      >
-                        {b}
-                      </button>
-                    );
-                  })}
-                </div>
-                {errors.budget && <p className="mt-1.5 text-[11px] text-danger">{errors.budget}</p>}
-              </div>
-              <div
-                className={`sx-join-rise ${openSelect === "package" ? "relative z-30" : ""}`}
-                style={{ "--sx-d": "0.05s" } as React.CSSProperties}
-              >
-                <WizardSelect
-                  label="Starting package"
-                  placeholder="Pick a package"
-                  options={PACKAGE_OPTIONS.map((p) => ({ id: p.id, name: p.name, meta: p.price }))}
-                  value={chosen.id}
-                  onChange={(id) => edit({ ...draft, package: id })}
-                  open={openSelect === "package"}
-                  onOpenChange={(o) => setOpenSelect(o ? "package" : null)}
-                />
-                <p className="mt-1 text-[11px] text-faint">
-                  A starting point, not a commitment — BTG shapes the final scope.
-                </p>
-              </div>
-            </>
-          )}
-
-          {def.id === "goal" && (
-            <>
-              <div
-                className={`sx-join-rise ${openSelect === "businessType" ? "relative z-30" : ""}`}
-                style={{ "--sx-d": "0.05s" } as React.CSSProperties}
-              >
-                <WizardSelect
-                  label="What is your business?"
-                  name="businessType"
-                  placeholder="Pick the closest fit"
-                  options={BUSINESS_TYPES.map((t) => ({ id: t, name: businessTypeLabel(t) }))}
-                  value={draft.businessType ?? ""}
-                  error={errors.businessType}
-                  onChange={(id) => edit({ ...draft, businessType: id })}
-                  open={openSelect === "businessType"}
-                  onOpenChange={(o) => setOpenSelect(o ? "businessType" : null)}
-                />
-                {errors.businessType && <p className="mt-1 text-[11px] text-danger">{errors.businessType}</p>}
-              </div>
-              {draft.businessType === OTHER_BUSINESS_TYPE && (
-                <BriefField
-                  def={{ key: "businessTypeOther", label: "What does your business do?", placeholder: "e.g. Family-run bike repair shop", required: true }}
-                  index={0}
-                  value={draft.businessTypeOther ?? ""}
-                  error={errors.businessTypeOther}
-                  maxLength={200}
-                  onChange={(v) => edit({ ...draft, businessTypeOther: v })}
-                />
-              )}
-            </>
-          )}
-
-          {def.fields.map((f, i) => (
-            <BriefField
-              key={f.key}
-              def={f}
-              index={i}
-              value={draft.answers[f.key] ?? ""}
-              error={errors[f.key]}
-              onChange={(v) => setAnswer(f.key, v)}
-            />
-          ))}
-
-          {def.id === "market" && (
-            <div
-              className={`sx-join-rise ${openSelect === "audience" ? "relative z-30" : ""}`}
-              style={{ "--sx-d": "0.05s" } as React.CSSProperties}
-            >
-              <WizardSelect
-                label="Audience"
-                placeholder="Optional — pick the closest fit"
-                options={AUDIENCES.map((a) => ({ id: a, name: a }))}
-                value={draft.answers.audience ?? ""}
-                onChange={(id) => setAnswer("audience", id)}
-                open={openSelect === "audience"}
-                onOpenChange={(o) => setOpenSelect(o ? "audience" : null)}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* action bar — pinned, except on a short screen (a phone in landscape,
-          ~390px tall), where it covered all but one line of the step */}
-      <div className="sticky bottom-0 z-10 [@media(max-height:500px)]:static border-t border-line bg-bg/95 px-6 py-4 backdrop-blur lg:rounded-b-2xl">
-        {sendError && step === BRIEF_STEPS.length - 1 && (
-          <p role="alert" className="mb-3 rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 text-xs text-danger">
-            {sendError}
-          </p>
-        )}
-        <button
-          type="button"
-          onClick={goNext}
-          disabled={sending}
-          aria-busy={sending}
-          className="sx-join-sheen min-h-12 w-full rounded-xl bg-accent px-5 py-3.5 text-base font-semibold text-cta-ink transition-colors hover:bg-accent-soft disabled:opacity-70"
-        >
-          {step === BRIEF_STEPS.length - 1 ? (sending ? "Sending…" : "Send to BTG") : "Continue"}
-        </button>
-        <p className="mt-2.5 text-center text-[11px] text-faint">
-          No card, no checkout — BTG replies with a proposal.
+        <p className="shrink-0 text-right text-[11px] font-medium uppercase tracking-[0.18em] text-muted">
+          To
+          <span className="mt-0.5 block text-sm font-semibold tracking-normal text-text">BTG SponsorX</span>
         </p>
       </div>
+      <div className="bx-perf" aria-hidden />
+      <dl className="divide-y divide-line-soft px-5 sm:px-7">
+        {rows.map((r) => (
+          <div key={r.id} className="flex items-start gap-4 py-3">
+            <dt className="w-[76px] shrink-0 pt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{r.label}</dt>
+            <dd className="min-w-0 flex-1">
+              <span className="block break-words text-base font-semibold text-text">{r.value || "—"}</span>
+              {r.more.filter(Boolean).map((m) => (
+                <span key={m} className="mt-0.5 block break-words text-sm text-muted">
+                  {m}
+                </span>
+              ))}
+            </dd>
+            {onEdit && (
+              <button
+                type="button"
+                onClick={() => onEdit(r.id)}
+                className="-mr-2 min-h-11 shrink-0 rounded-lg px-2 text-sm font-medium text-accent-soft underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-primary"
+              >
+                Edit<span className="sr-only"> {r.label.toLowerCase()}</span>
+              </button>
+            )}
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
 
-/* Custom listbox — the native <select> popup is OS-rendered and unstylable
-   (export-report.tsx dropdown precedent for the outside-click/Escape
-   discipline). Real buttons take focus, so Enter/Tab behave natively;
-   arrows rove between options. Open state is controlled by the wizard so
-   ancestors can raise their z-index while a panel is out. */
-type SelectOption = { id: string; name: string; meta?: string };
+/* ---------------------------------------------------------------- small parts */
 
-function WizardSelect({
+function Tick() {
+  return (
+    <span className="bx-tick" aria-hidden>
+      <svg viewBox="0 0 12 12" className="size-3" fill="none" stroke="#0a0c10" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2.5 6.5l2.5 2.5 4.5-5.5" pathLength={1} />
+      </svg>
+    </span>
+  );
+}
+
+/** The shared field, with this form's ids and the browser's autofill hints. */
+function Field(props: Omit<Parameters<typeof LineField>[0], "prefix" | "autoComplete">) {
+  return <LineField prefix="brief" autoComplete={AUTOCOMPLETE[props.def.key] ?? "off"} {...props} />;
+}
+
+/** An optional pick: one of a few, and picking it again clears it. */
+function Chips({
   label,
-  name,
-  placeholder,
   options,
   value,
-  error,
+  className = "",
   onChange,
-  open,
-  onOpenChange,
 }: {
   label: string;
-  /** Set on the trigger, so a failed Continue can focus it. */
-  name?: string;
-  placeholder: string;
-  options: SelectOption[];
+  options: readonly string[];
   value: string;
-  error?: string;
-  onChange: (id: string) => void;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const setOpen = onOpenChange;
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const chosen = options.find((o) => o.id === value);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-        triggerRef.current?.focus();
-      }
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-        const items = Array.from(
-          rootRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? [],
-        );
-        if (items.length === 0) return;
-        const at = items.indexOf(document.activeElement as HTMLButtonElement);
-        const next =
-          e.key === "ArrowDown"
-            ? items[Math.min(at + 1, items.length - 1)]
-            : items[Math.max(at - 1, 0)];
-        next?.focus();
-      }
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, setOpen]);
-
+  className?: string;
+  onChange: (value: string) => void;
+}): ReactNode {
   return (
-    <div ref={rootRef} className="relative">
-      <span className="text-[11px] font-medium text-muted">{label}</span>
-      <button
-        ref={triggerRef}
-        type="button"
-        name={name}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-        className={`mt-1.5 flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-surface-2 px-3.5 py-3 text-left text-base transition-colors focus:outline-none ${
-          error
-            ? "border-danger text-text"
-            : open
-              ? "border-accent/60 text-text"
-              : "border-line text-text hover:border-line/80 focus:border-accent/60"
-        }`}
-      >
-        <span className={`truncate ${chosen ? "" : "text-faint"}`}>
-          {chosen ? chosen.name : placeholder}
-        </span>
-        <span className="flex shrink-0 items-center gap-2.5">
-          {chosen?.meta && <span className="text-sm text-faint">{chosen.meta}</span>}
-          <svg
-            viewBox="0 0 16 16"
-            className={`size-4 text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M3.5 6L8 10.5 12.5 6" />
-          </svg>
-        </span>
-      </button>
-
-      {open && (
-        <div
-          role="listbox"
-          aria-label={label}
-          className="sx-pop absolute z-20 mt-2 max-h-80 w-full origin-top overflow-y-auto rounded-xl border border-line bg-surface shadow-[0_16px_48px_-16px_rgba(0,0,0,0.6)]"
-        >
-          {options.map((p, i) => {
-            const on = p.id === value;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                role="option"
-                aria-selected={on}
-                onClick={() => {
-                  onChange(p.id);
-                  setOpen(false);
-                  triggerRef.current?.focus();
-                }}
-                className={`sx-join-rise flex min-h-11 w-full items-center justify-between gap-3 px-3.5 py-3 text-left text-sm transition-colors ${
-                  on ? "bg-accent/10 text-text" : "text-text hover:bg-surface-2"
-                }`}
-                style={{ "--sx-d": `${i * 0.025}s` } as React.CSSProperties}
-              >
-                <span className="flex min-w-0 items-center gap-2.5">
-                  <span
-                    className={`grid size-4 shrink-0 place-items-center ${on ? "" : "invisible"}`}
-                    aria-hidden
-                  >
-                    <svg viewBox="0 0 12 12" className="size-3.5" fill="none" stroke="var(--sx-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M2.5 6.5l2.5 2.5 4.5-5.5" pathLength={1} className="sx-join-draw" style={{ "--sx-d": "0s" } as React.CSSProperties} />
-                    </svg>
-                  </span>
-                  <span className={`truncate ${on ? "font-semibold" : "font-medium"}`}>{p.name}</span>
-                </span>
-                {p.meta && <span className="shrink-0 text-xs text-faint">{p.meta}</span>}
-              </button>
-            );
-          })}
-        </div>
-      )}
+    <div className={className} role="group" aria-label={label}>
+      <p className="flex items-baseline gap-2 text-sm font-medium text-muted">
+        {label}
+        <span className="text-[12px] font-normal text-faint">Optional</span>
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2.5">
+        {options.map((o) => {
+          const on = value === o;
+          return (
+            <button key={o} type="button" aria-pressed={on} onClick={() => onChange(on ? "" : o)} className="bx-chip">
+              {o}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function BriefField({
-  def,
-  index,
-  value,
-  error,
-  maxLength,
-  onChange,
-}: {
-  def: BriefFieldDef;
-  index: number;
-  value: string;
-  error?: string;
-  maxLength?: number;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label
-      className="sx-join-rise block"
-      style={{ "--sx-d": `${0.1 + index * 0.035}s` } as React.CSSProperties}
-    >
-      <span className="text-[11px] font-medium text-muted">{def.label}</span>
-      <input
-        type={def.type ?? "text"}
-        name={def.key}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={def.placeholder}
-        maxLength={maxLength}
-        aria-invalid={!!error}
-        className={`mt-1.5 min-h-11 w-full rounded-xl border bg-surface-2 px-3.5 py-3 text-base text-text placeholder:text-faint transition-colors focus:outline-none ${
-          error ? "border-danger" : "border-line focus:border-accent/60"
-        }`}
-      />
-      {error && <span className="mt-1 block text-[11px] text-danger">{error}</span>}
-    </label>
-  );
+function GoalIcon({ goal }: { goal: (typeof GOALS)[number] }) {
+  const common = { viewBox: "0 0 24 24", className: "size-[22px]", fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+  switch (goal) {
+    case "Awareness":
+      /* a megaphone */
+      return (
+        <svg {...common}>
+          <path d="M4 10v4a1 1 0 001 1h2l7 4V5L7 9H5a1 1 0 00-1 1z" />
+          <path d="M17.5 9.5a3.5 3.5 0 010 5M19.8 7a7 7 0 010 10" />
+        </svg>
+      );
+    case "Foot traffic":
+      /* a shop front */
+      return (
+        <svg {...common}>
+          <path d="M4 10l1.5-5h13L20 10M4 10a2.7 2.7 0 005.3 0 2.7 2.7 0 005.4 0A2.7 2.7 0 0020 10M5.5 12.5V19h13v-6.5" />
+          <path d="M10 19v-4h4v4" />
+        </svg>
+      );
+    case "Product launch":
+      /* a rocket */
+      return (
+        <svg {...common}>
+          <path d="M8 12c1-4 4-7.5 11-8-.5 7-4 10-8 11z" />
+          <path d="M8.5 11.5H5l2.5-3.5 2.6.6M12.5 15.5V19l3.5-2.5-.6-2.6" />
+          <path d="M6.5 15.5c-1.2.8-2 4-2 4s3.2-.8 4-2" />
+          <circle cx="14.5" cy="9.5" r="1.3" />
+        </svg>
+      );
+    default:
+      /* a calendar with a day marked */
+      return (
+        <svg {...common}>
+          <rect x="4" y="5.5" width="16" height="14.5" rx="2" />
+          <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4M9.5 15l2 2 3.5-4" />
+        </svg>
+      );
+  }
 }
