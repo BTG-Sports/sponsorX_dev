@@ -47,6 +47,7 @@ jobs:
           fetch-depth: 0
 
       - name: Move release to main if main is new and green
+        id: move
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -86,3 +87,41 @@ jobs:
 
           git push --force origin "$SHA:refs/heads/release"
           echo "release → ${SHA:0:7}. Railway is deploying staging and production."
+          echo "deployed=true" >> "$GITHUB_OUTPUT"
+          echo "since=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> "$GITHUB_OUTPUT"
+
+      # POL-BE-113 — after a deploy, prove a browser can still upload. The
+      # worker runs the live storage check when it starts (both storage areas:
+      # a preflight as the website, a signed upload, a read back, a delete);
+      # /api/v1/public/health carries its result. Wait for a check newer than
+      # this deploy on each environment, up to 30 minutes, and go red if it
+      # failed or never came. The uptime monitor alerts BTG on Slack as well.
+      - name: After the deploy, check uploads work on staging and production
+        if: steps.move.outputs.deployed == 'true'
+        env:
+          SINCE: ${{ steps.move.outputs.since }}
+        run: |
+          set -uo pipefail
+          bad=0
+          for base in https://web-staging-904a.up.railway.app https://sponsorx.net; do
+            verdict=""
+            for i in $(seq 1 60); do
+              body=$(curl -s --max-time 20 "$base/api/v1/public/health" || true)
+              at=$(echo "$body" | jq -r '.checks.storageUploads.checkedAt // empty' 2>/dev/null || true)
+              if [ -n "$at" ] && [[ "$at" > "$SINCE" ]]; then
+                ok=$(echo "$body" | jq -r '.checks.storageUploads.ok')
+                problem=$(echo "$body" | jq -r '.checks.storageUploads.problem // ""')
+                if [ "$ok" = "true" ]; then verdict="ok"; else verdict="failed: $problem"; fi
+                break
+              fi
+              sleep 30
+            done
+            if [ "$verdict" = "ok" ]; then
+              echo "$base — uploads work (checked $at)"
+            elif [ -n "$verdict" ]; then
+              echo "::error::$base — the storage check $verdict"; bad=1
+            else
+              echo "::error::$base — no storage check newer than the deploy within 30 minutes (is the worker running?)"; bad=1
+            fi
+          done
+          exit $bad

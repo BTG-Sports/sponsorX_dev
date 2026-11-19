@@ -265,3 +265,10 @@
   - A MinIO runs in the e2e job, with staging's upload rule (the test site only). The job checks
     the rule, and the e2e helper refuses to fake the upload in CI.
   - Not runnable on this Mac (no Docker), so CI on the PR is the test.
+- **POL-BE-113, Code review:** the live storage check.
+  - The worker runs it at start (so after every deploy) and every 24 hours, on both buckets: a
+    preflight as the website, a signed upload, a read back, a delete.
+  - `/health/full` reports it, so the monitor alerts on Slack. The daily deploy waits for a fresh
+    pass.
+  - Railway's APP_URL matches each environment's upload rule (staging web URL, sponsorx.net).
+  - Full suite 286 files, 4,033 tests.

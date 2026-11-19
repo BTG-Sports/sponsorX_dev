@@ -28,6 +28,8 @@ export type StoredObject = { body: Buffer; type: string; cacheControl?: string }
 export type ObjectStore = {
   endpoint: string;
   objects: Map<string, StoredObject>;
+  /** POL-BE-113 — the bucket's upload rule (CORS): the browser origins whose preflight is allowed. Empty: none. */
+  allowOrigins: Set<string>;
   /** Hand the store the API's S3 client once it is importable (it reads S3_ENDPOINT at import). */
   verifyWith: (client: S3Client) => void;
   close: () => Promise<void>;
@@ -76,6 +78,7 @@ async function presignedGetValid(client: S3Client, req: IncomingMessage, bucket:
 
 export async function startObjectStore(): Promise<ObjectStore> {
   const objects = new Map<string, StoredObject>();
+  const allowOrigins = new Set<string>();
   let client: S3Client | null = null;
 
   const server = createServer((req, res) => {
@@ -83,6 +86,16 @@ export async function startObjectStore(): Promise<ObjectStore> {
     const [bucket = "", ...rest] = path.split("/");
     const key = rest.join("/");
     const id = `${bucket}/${key}`;
+    /* POL-BE-113 — a browser's preflight, answered by the upload rule as R2 does:
+       allowed origins get their allow-origin header, anyone else gets none. */
+    if (req.method === "OPTIONS") {
+      const origin = req.headers.origin ?? "";
+      res.writeHead(allowOrigins.has(origin) ? 204 : 403, allowOrigins.has(origin)
+        ? { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "PUT, GET", "Access-Control-Allow-Headers": "content-type" }
+        : {});
+      res.end();
+      return;
+    }
     if (req.method === "PUT") {
       const chunks: Buffer[] = [];
       req.on("data", (c: Buffer) => chunks.push(c));
@@ -151,6 +164,7 @@ export async function startObjectStore(): Promise<ObjectStore> {
   return {
     endpoint: `http://127.0.0.1:${port}`,
     objects,
+    allowOrigins,
     verifyWith: (c) => {
       client = c;
     },

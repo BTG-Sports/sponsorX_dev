@@ -4831,6 +4831,28 @@ model PipelineRun {
   @@unique([day, step])
 }
 
+/// POL-BE-113 — the live storage check: whether a browser on the website
+/// can upload to each storage area. The worker runs it when it starts (so
+/// after every deploy) and every 24 hours: a preflight as the website, a
+/// signed upload, a read back and a delete, on both buckets, leaving nothing
+/// behind. `/health/full` reads the latest (system-health.ts), so the uptime
+/// monitor alerts when it fails or goes stale, and the daily deploy waits
+/// for a fresh pass. Platform-wide, like PipelineRun; 30 days are kept.
+model StorageCheck {
+  id         String   @id @default(cuid())
+  /// The website address the check uploaded as (its Origin).
+  origin     String
+  ok         Boolean
+  /// Per bucket: { bucket, ok, step?, detail? } — step is where it failed.
+  results    Json
+  /// The first failure, in words; null when ok.
+  problem    String?
+  startedAt  DateTime
+  finishedAt DateTime
+
+  @@index([finishedAt])
+}
+
 /// 3S6-BE-01 — an attribution partner: a store or platform that sends its
 /// sales, through one adapter (documentation/SponsorX-Attribution-Framework.md).
 /// Its token is shown once and kept only as a SHA-256.

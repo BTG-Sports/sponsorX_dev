@@ -125,6 +125,11 @@ def failure_name(name: object, doc: object) -> str:
         queue = doc.get("checks", {}).get("queue") if isinstance(doc, dict) else None
         wait = queue.get("oldestWaitMinutes") if isinstance(queue, dict) else None
         return f"queue (worker not draining: oldest job waiting {wait} min)" if isinstance(wait, int) else "queue (unreadable)"
+    if name == "storageUploads":
+        # POL-BE-113 — the worker's live storage check: can a browser on the website upload?
+        check = doc.get("checks", {}).get("storageUploads") if isinstance(doc, dict) else None
+        problem = check.get("problem") if isinstance(check, dict) else None
+        return f"storage uploads ({problem})" if isinstance(problem, str) and problem else "storage uploads (unreadable)"
     return str(name)
 
 
