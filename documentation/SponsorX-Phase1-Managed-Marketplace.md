@@ -4323,7 +4323,7 @@ Today the free digital edition returns titles and article text only. Approved ph
 
 ### ▶ `P9-BE-27` · An edition's cover image and press PDF
 
-**Order** 209.90 · **BE** · **Where:** Code · **1.5d** · **Ready**
+**Order** 209.90 · **BE** · **Where:** Code · **1.5d** · **Code review**
 
 The spec says layout stays in InDesign or Canva, and the platform holds "approved artwork and the press PDF" (§9). Nothing holds either today.
 
@@ -4334,6 +4334,29 @@ The spec says layout stays in InDesign or Canva, and the platform holds "approve
   - the press PDF stays private, read by BTG on a short signed link, every read recorded;
   - a new upload replaces the old one, and the change is recorded.
 - **Reference:** Spec §9; upload audit §2
+- **Delivered (2026-11-19, rcfworks):**
+  - **Routes**, all BTG (edition write) unless noted:
+    - `POST /editions/{id}/cover/uploads`: JPG, PNG or WebP, up to 50 MB;
+    - `POST /editions/{id}/press-pdf/uploads`: PDF, up to 2 GB;
+    - `PUT /editions/{id}/cover` and `PUT /editions/{id}/press-pdf`: record the upload, replacing any before it;
+    - `GET /editions/{id}/cover`: a signed read for anyone who reads the edition, the advisor included;
+    - `GET /editions/{id}/press-pdf`: BTG only, a signed and recorded read, always a download by its name.
+  - **Checks:**
+    - the key is under `edition-files/<tenant>/<edition>/<cover|press-pdf>/`;
+    - this edition's grant handed it out;
+    - what arrived is the type and size signed for (a wrong file is deleted and recorded);
+    - a cover must also open as a picture, or it is deleted.
+  - **Replacing:** a new file replaces the old one, recorded as `edition.cover` or `edition.pressPdf` with before and after. Old files are kept as the record of what was printed.
+  - **The public cover:** once published, the worker makes a public copy without metadata, using `P9-BE-26`'s sync.
+    - A replaced cover queues `edition.pictures`, and its copy is retaken. The old copy comes down, and the reader never shows a stale cover.
+    - Cancelling takes the copy down at the sweep.
+    - `GET /public/editions/{school}/{id}` gives `cover`, and `GET /public/next/editions` gives each edition's `cover`.
+  - **The edition read:** `GET /editions/{id}` gives `cover` (type, size, uploaded) and `pressPdf` (name, size, uploaded), never the keys.
+  - **Storage:** `Edition` gains `cover*` and `pressPdf*` columns, plus `coverWebKey` and `coverWebFrom` (migration `20261119210000_edition_cover_press_pdf`, with shape checks).
+  - **Tests:**
+    - `backend/tests/p9-be-27-cover-press-pdf.test.ts` (6): a real database and store;
+    - the isolation sweep covers the new routes.
+  - **Checked:** full backend suite 282 files, 4,017 tests; lint and build clean.
 
 ### ▶ `P9-BE-28` · Production board data
 
@@ -4386,6 +4409,11 @@ The spec's `/admin/next/production` page was never built and had no task.
 **Order** 209.94 · **FE** · **Where:** Code · **1d** · **Ready** · HeckerCreatives
 
 - **Depends on:** P9-BE-27
+- **API (P9-BE-27):**
+  - `POST /editions/{id}/cover/uploads` or `/press-pdf/uploads` with `{ contentType, bytes }`, then a PUT to `url` with the answered `contentType`, then `PUT /editions/{id}/cover` or `/press-pdf` with `{ r2Key, fileName }`;
+  - `GET /editions/{id}/cover` to preview;
+  - `GET /editions/{id}/press-pdf` to download;
+  - `GET /editions/{id}` carries `cover` and `pressPdf`.
 - **Done when:**
   - `/admin/next/editions` uploads and replaces an edition's cover and press PDF;
   - the press PDF opens on a signed link;

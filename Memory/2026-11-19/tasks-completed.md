@@ -244,3 +244,10 @@
     down lapsed ones.
   - No signed read is handed out while ffmpeg is missing.
   - Full suite 281 files, 4,011 tests.
+- **P9-BE-27, Code review:** each edition's cover image and press PDF.
+  - Both upload to private storage and are checked when recorded. A cover must also open as a
+    picture.
+  - The press PDF is BTG-only, a recorded read, always a download.
+  - Once published, the cover's public copy has no metadata. A replaced cover's copy is retaken.
+  - The cover appears in the reader and the public edition list.
+  - Full suite 282 files, 4,017 tests.

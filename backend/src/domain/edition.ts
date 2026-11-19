@@ -267,6 +267,9 @@ export async function getEdition(actor: Actor, editionId: string) {
       printDate: true, pageCount: true, contentReady: true, rightsCleared: true,
       revenueMet: true, thresholdCents: true, state: true, salesOpenAt: true,
       splitLockedAt: true, splitLockedBy: true, splitLockNote: true,
+      /* P9-BE-27 — whether the cover and press PDF are in, never their keys. */
+      coverType: true, coverBytes: true, coverUploadedAt: true,
+      pressPdfName: true, pressPdfBytes: true, pressPdfUploadedAt: true,
     },
   });
   if (!edition) throw new ForbiddenError("edition", "read");
