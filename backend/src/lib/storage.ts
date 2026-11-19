@@ -252,10 +252,10 @@ export async function presignPublicUpload(
   return presignUpload(BUCKETS.public, key, contentType, pins);
 }
 
-/** Used by the health endpoint to prove the storage credentials work. */
+/** Used by the health endpoint to prove the storage credentials work — on both buckets (POL-BE-113). */
 export async function storageReachable(): Promise<boolean> {
   try {
-    await s3.send(new HeadBucketCommand({ Bucket: BUCKETS.public }));
+    await Promise.all([BUCKETS.public, BUCKETS.private].map((Bucket) => s3.send(new HeadBucketCommand({ Bucket }))));
     return true;
   } catch {
     return false;
@@ -449,5 +449,121 @@ export async function getPublicObject(key: string): Promise<Buffer | null> {
     return body?.transformToByteArray ? Buffer.from(await body.transformToByteArray()) : null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * P9-BE-26 — write a PUBLISHED copy into the public bucket: a picture or
+ * video of a published edition, made by the worker (never a request path)
+ * from a private original, with its location data removed. `cacheControl`
+ * keeps how long a CDN may serve it after it is taken down.
+ *
+ * A file body is streamed from disk, so a 2 GB video never sits in memory.
+ * No audit row here: nothing is handed to anyone; the caller audits the copy.
+ */
+export async function putPublicObject(
+  key: string,
+  body: Buffer | { file: string; bytes: number },
+  contentType: string,
+  cacheControl: string,
+): Promise<void> {
+  assertSafeKey(key);
+  if (Buffer.isBuffer(body)) {
+    await s3.send(new PutObjectCommand({ Bucket: BUCKETS.public, Key: key, ContentType: contentType, CacheControl: cacheControl, Body: body }));
+    return;
+  }
+  /* A file: streamed through a signed PUT (signed for this type and exact
+     length, like a browser's upload), so nothing buffers it and the request
+     is a plain body whatever checksum mode the SDK defaults to. */
+  const { createReadStream } = await import("node:fs");
+  const { Readable } = await import("node:stream");
+  const url = await presignUpload(BUCKETS.public, key, contentType, { contentLength: body.bytes, signContentType: true });
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": contentType, "Content-Length": String(body.bytes), "Cache-Control": cacheControl },
+    body: Readable.toWeb(createReadStream(body.file)) as unknown as ReadableStream,
+    duplex: "half",
+  } as RequestInit & { duplex: "half" });
+  if (!res.ok) throw new Error(`Public upload of ${key} failed: HTTP ${res.status}`);
+}
+
+/** P9-BE-26 — take a published copy down. Deleting a key already gone succeeds. */
+export async function deletePublicObject(key: string): Promise<void> {
+  assertSafeKey(key);
+  await s3.send(new DeleteObjectCommand({ Bucket: BUCKETS.public, Key: key }));
+}
+
+/**
+ * POL-BE-110 — the confirm step of a PUBLIC upload (a logo, a profile
+ * photo): before a record points the world at a file, it must have arrived,
+ * be one of the types asked for, and fit the size. The PUT was signed for
+ * one type and size, so a bucket that checks signatures stores nothing else;
+ * this is the second half, for whatever got there anyway. A wrong file is
+ * DELETED at once — the public bucket serves it to anyone who has the key.
+ * Nothing is handed to anyone, so nothing is audited; the caller refuses.
+ */
+export async function checkPublicUpload(
+  key: string,
+  expected: { types: readonly string[]; maxBytes: number },
+): Promise<{ ok: true; bytes: number; contentType: string } | { ok: false; problem: "missing" | "type" | "size" }> {
+  const head = await publicObjectHead(key);
+  if (!head) return { ok: false, problem: "missing" };
+  const type = mediaType(head.contentType);
+  if (!expected.types.map(mediaType).includes(type)) {
+    await deletePublicObject(key);
+    return { ok: false, problem: "type" };
+  }
+  if (head.bytes < 1 || head.bytes > expected.maxBytes) {
+    await deletePublicObject(key);
+    return { ok: false, problem: "size" };
+  }
+  return { ok: true, bytes: head.bytes, contentType: type };
+}
+
+export type ProbeStep = "preflight" | "upload" | "readBack" | "delete";
+export type ProbeResult = { bucket: "public" | "private"; ok: boolean; step?: ProbeStep; detail?: string };
+
+/**
+ * POL-BE-113 — can a browser on `origin` upload to this bucket? Exactly what
+ * a person's upload does, on a throwaway object under `_storage-check/`:
+ *   1. preflight: OPTIONS to the signed URL as the website — the bucket's
+ *      upload rule (CORS) must allow this origin (2026-11-16: it didn't, and
+ *      every photo and logo upload failed unnoticed);
+ *   2. upload: the signed PUT, signed for its type and size, as the website;
+ *   3. read back: the server reads the object and it is what was sent;
+ *   4. delete: and it's gone afterwards — the check leaves nothing behind.
+ *
+ * The signed URLs here never leave this process (no person holds them), so
+ * they are minted directly rather than through the audited grants above.
+ */
+export async function probeBucket(which: "public" | "private", origin: string): Promise<ProbeResult> {
+  const bucket = BUCKETS[which];
+  const key = `_storage-check/${Date.now()}-${Math.random().toString(36).slice(2)}.txt`;
+  const body = Buffer.from(`SponsorX storage check ${new Date().toISOString()}`);
+  const fail = (step: ProbeStep, detail: string): ProbeResult => ({ bucket: which, ok: false, step, detail });
+  let stored = false;
+  try {
+    const url = await presignUpload(bucket, key, "text/plain", { contentLength: body.length, signContentType: true });
+    const pre = await fetch(url, {
+      method: "OPTIONS",
+      headers: { Origin: origin, "Access-Control-Request-Method": "PUT", "Access-Control-Request-Headers": "content-type" },
+      signal: AbortSignal.timeout(10_000),
+    });
+    const allowed = pre.headers.get("access-control-allow-origin");
+    if (allowed !== origin && allowed !== "*") return fail("preflight", `a browser on ${origin} is refused (preflight ${pre.status}, allow-origin ${allowed ?? "none"})`);
+    const put = await fetch(url, { method: "PUT", headers: { Origin: origin, "Content-Type": "text/plain" }, body, signal: AbortSignal.timeout(10_000) });
+    if (!put.ok) return fail("upload", `the signed upload answered ${put.status}`);
+    stored = true;
+    const got = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    const back = Buffer.from((await (got.Body as { transformToByteArray(): Promise<Uint8Array> }).transformToByteArray()));
+    if (!back.equals(body)) return fail("readBack", "what was read back isn't what was uploaded");
+    await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    stored = false;
+    if (await objectHead(bucket, key)) return fail("delete", "the test file is still there after deleting it");
+    return { bucket: which, ok: true };
+  } catch (error) {
+    return fail(stored ? "readBack" : "upload", (error as Error).message.slice(0, 200));
+  } finally {
+    if (stored) await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key })).catch(() => {});
   }
 }

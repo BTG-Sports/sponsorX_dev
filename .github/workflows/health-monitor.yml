@@ -8,7 +8,9 @@
 #                               server forwards it to the API's /health/full:
 #                               Postgres, Redis, storage, and backups (the WAL
 #                               archiver's last success no more than 60 minutes
-#                               ago — the RPO — and no failure since)
+#                               ago — the RPO — and no failure since), and
+#                               (POL-BE-113) the live storage check: a browser
+#                               on the website can upload to both storage areas
 #
 # curl gives each check a 10 s connect / 20 s total timeout and 2 retries, so a
 # check fails only when all three attempts do. Results go to the job summary.

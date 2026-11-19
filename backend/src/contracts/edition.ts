@@ -135,3 +135,20 @@ export const ArtworkRevisionInput = z
     reason: z.string().min(1).max(2000),
   })
   .meta({ id: "ArtworkRevisionInput" });
+
+/** P9-BE-27 — presign the cover (JPG, PNG or WebP, up to 50 MB) or the press PDF (up to 2 GB). */
+export const EditionFileUploadInput = z
+  .object({
+    contentType: z.string().max(255),
+    bytes: z.number().int().positive().max(2_000_000_000),
+  })
+  .meta({ id: "EditionFileUploadInput", description: "Presign a PUT of the edition's cover (JPG, PNG or WebP, up to 50 MB) or press PDF (up to 2 GB) to the private bucket. The server picks the key." });
+
+/** P9-BE-27 — record the uploaded cover or press PDF, replacing any before it. */
+export const EditionFileInput = z
+  .object({
+    r2Key: z.string().min(1).max(500),
+    /** The press PDF's name, kept for its download. */
+    fileName: z.string().max(255).nullable().optional(),
+  })
+  .meta({ id: "EditionFileInput" });

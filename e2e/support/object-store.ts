@@ -1,5 +1,8 @@
 /**
- * The upload step's one external dependency — P5-QA-01.
+ * The upload step's one external dependency — P5-QA-01. In CI it is the
+ * strict stand-in (object-store-standin.mjs, E2E_STORE_STRICT): staging's
+ * upload rule and R2's signature checks (POL-BE-112). On a laptop without a
+ * store, the signed PUT can be answered by the test, as below.
  *
  * A deliverable upload is presign (API) → PUT straight from the browser to
  * the object store → record (API) → submit (API). Locally the PUT lands in
@@ -24,7 +27,14 @@ export async function objectStoreReachable(): Promise<boolean> {
 
 /** Returns true when the PUT is stubbed, so a spec can annotate the run. */
 export async function useObjectStore(page: Page): Promise<boolean> {
-  /* E2E_STUB_OBJECT_STORE=1 forces the CI path on a machine that has MinIO. */
+  /* POL-BE-112 — CI runs a real object store, so the browser's upload is
+     really tested there: never answered by the test, and no store is a
+     failure, not a skipped step. The stand-in below is for a laptop. */
+  if (process.env.CI) {
+    if (!(await objectStoreReachable())) throw new Error(`No object store at ${ENDPOINT}: CI must upload for real (POL-BE-112).`);
+    return false;
+  }
+  /* E2E_STUB_OBJECT_STORE=1 forces the stand-in on a machine that has MinIO. */
   if (!process.env.E2E_STUB_OBJECT_STORE && (await objectStoreReachable())) return false;
   await page.route(
     (url) => url.searchParams.has("X-Amz-Signature"),

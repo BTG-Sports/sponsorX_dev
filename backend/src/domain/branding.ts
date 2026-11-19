@@ -21,7 +21,7 @@ import { audit } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
-import { presignPublicUpload, publicObjectUrl } from "../lib/storage";
+import { checkPublicUpload, presignPublicUpload, publicObjectUrl, uploadRefusal } from "../lib/storage";
 
 export const LOGO_TYPES = { "image/png": "png", "image/jpeg": "jpg" } as const;
 export const MAX_LOGO_BYTES = 1024 * 1024;
@@ -102,6 +102,15 @@ export async function updateBranding(actor: Actor, input: BrandingInput): Promis
   }
   if (input.logoKey != null && (!input.logoKey.startsWith(logoPrefix(actor.tenantId)) || input.logoKey.includes(".."))) {
     throw new BrandingError("logoKey: not this tenant's upload — request one with POST /branding/logo.");
+  }
+  /* POL-BE-110 — a new logo is saved only once its file has arrived as a PNG
+     or JPEG of at most 1 MB; otherwise the old logo stays. */
+  if (input.logoKey != null) {
+    const current = await prisma.tenantBranding.findUnique({ where: { tenantId: actor.tenantId }, select: { logoKey: true } });
+    if (current?.logoKey !== input.logoKey) {
+      const arrived = await checkPublicUpload(input.logoKey, { types: Object.keys(LOGO_TYPES), maxBytes: MAX_LOGO_BYTES });
+      if (!arrived.ok) throw new BrandingError(uploadRefusal(arrived.problem, "That logo"), arrived.problem === "missing" ? 409 : 422);
+    }
   }
   const domain = input.customDomain?.trim().toLowerCase() || null;
   if (input.customDomain !== undefined && domain && !HOST.test(domain)) throw new BrandingError("customDomain: a host name such as partners.example.com.");

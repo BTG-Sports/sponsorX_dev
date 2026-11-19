@@ -277,3 +277,50 @@
 - **Tracker:** Polish row `POL-FE-115`, new, Code review, HeckerCreatives, started 2026-11-19. Not committed; on branch `feat/POL-FE-102-sponsor-account` with POL-FE-102 and POL-FE-114.
 - **A real submit, before the pull request:** one brief and one application were sent through the new screens against the local API (no Zoho or email keys are set locally, so only the local database was written). Both reached their sent screens; the application showed its reference and the live checklist, and the brief's status page answered. Each button was clicked twice in the same instant and exactly one row was filed (`Inquiry` "QA Walk Cafe mwnbifjg", `Athlete` qa.walk+join-mwnbifjg@example.com; both left in the local database).
 - **Merged with upstream for the pull request:** `origin/main_development` was 9 commits ahead and had changed `documentation/polish.md` (items 110 to 113), this log and the tracker. All three were merged by hand: rcfworks' entries first, then these. The tracker is rcfworks' copy with rows `POL-FE-102` (status), `POL-FE-114` and `POL-FE-115` (new) put back.
+
+## P9-BE-25 Done and deployed; P9-BE-26 built (rcfworks)
+- **P9-BE-25:**
+  - Merged in #483, reached main through #482, and deployed (release 94214a77).
+  - The Done PRs are #484 (main_development) and #485 (main).
+  - The end-of-day #481 conflict was the tracker. I took main_development's copy and re-added the
+    Stage Progress rows. 11-19 is 27.5 days left, because the 8 new NEXT tasks joined that day.
+- **Disk:** freed for the owner: the npm cache (1.3 GB), the `frontend/.next` build cache and
+  `dev` output (1.5 GB), and five old `.claude/worktrees` that held only installed packages (0.8 GB).
+  Free space went from 1.4 GB to 4.9 GB. The Playwright browsers (1 GB) were left.
+- **P9-BE-26, Code review:** photos, video and ads in the public reader.
+  - The owner chose: remove location data from photos and videos (ffmpeg added to the image), draw
+    PDF ads as pictures, and no "who's pictured" field.
+  - One rule decides both the worker's copies and the reader's links. A minor's piece needs their
+    guardian's right.
+  - Copies are queued on publish or cancel, and the 10-minute sweep makes missing ones and takes
+    down lapsed ones.
+  - No signed read is handed out while ffmpeg is missing.
+  - Full suite 281 files, 4,011 tests.
+- **P9-BE-27, Code review:** each edition's cover image and press PDF.
+  - Both upload to private storage and are checked when recorded. A cover must also open as a
+    picture.
+  - The press PDF is BTG-only, a recorded read, always a download.
+  - Once published, the cover's public copy has no metadata. A replaced cover's copy is retaken.
+  - The cover appears in the reader and the public edition list.
+  - Full suite 282 files, 4,017 tests.
+- **P9-BE-28, Code review:** the production board's data. `GET /editions/{id}/production`, BTG only,
+  lists every piece with what it still needs in words.
+  - It asks the gate's own questions (`rightsGap`, `artworkGap`), and a test proves the two agree.
+  - Full suite 283 files, 4,021 tests.
+- **POL-BE-110/111, Code review:**
+  - A logo or profile photo is saved only once its file has arrived as the right type and size. A
+    wrong file is deleted from the public bucket.
+  - Every upload now has a real-file test: dispute documents, the two logos and the photo were
+    added, and a completeness check fails if a new upload has none.
+  - Full suite 285 files, 4,026 tests.
+- **POL-BE-112, Code review:** CI's browser tests now upload for real.
+  - A MinIO runs in the e2e job, with staging's upload rule (the test site only). The job checks
+    the rule, and the e2e helper refuses to fake the upload in CI.
+  - Not runnable on this Mac (no Docker), so CI on the PR is the test.
+- **POL-BE-113, Code review:** the live storage check.
+  - The worker runs it at start (so after every deploy) and every 24 hours, on both buckets: a
+    preflight as the website, a signed upload, a read back, a delete.
+  - `/health/full` reports it, so the monitor alerts on Slack. The daily deploy waits for a fresh
+    pass.
+  - Railway's APP_URL matches each environment's upload rule (staging web URL, sponsorx.net).
+  - Full suite 286 files, 4,033 tests.

@@ -71,13 +71,14 @@ describe("GET /public/editions/:school/:id", () => {
     const b = await call("northside");
     expect(JSON.stringify(assetWhere[0])).toContain("mayPublishDigital");
     expect(b.contents).toEqual([
-      { id: "as1", kind: "ARTICLE", title: "Friday lights", byline: "Jordan R.", text: "The lights came on at seven." },
-      { id: "as2", kind: "PHOTO", title: "Aerial", byline: null, text: null },
+      /* P9-BE-26 — `picture` is null until a public copy exists (edition-pictures tests cover it). */
+      { id: "as1", kind: "ARTICLE", title: "Friday lights", byline: "Jordan R.", text: "The lights came on at seven.", picture: null },
+      { id: "as2", kind: "PHOTO", title: "Aerial", byline: null, text: null, picture: null },
     ]);
   });
   it("sponsors are named, never priced", async () => {
     const b = await call("northside");
-    expect(b.sponsors).toEqual([{ id: "s1", slotCode: "BACK", kind: "BACK_COVER", sponsor: "Bowie Auto" }]);
+    expect(b.sponsors).toEqual([{ id: "s1", slotCode: "BACK", kind: "BACK_COVER", sponsor: "Bowie Auto", ad: null }]);
     expect(JSON.stringify(b)).not.toMatch(/Cents|price|legalName|email/);
   });
 });

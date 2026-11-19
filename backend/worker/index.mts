@@ -54,6 +54,7 @@ const HANDLED_JOBS = new Set<string>([
   "notify.campaignLive",
   "reward.generateQr",
   "image.derive",
+  "edition.pictures",
   "tracking.resolveGeo",
   "zoho.ingestInvoice",
   "athlete.importCohort",
@@ -105,6 +106,8 @@ import { sweepAutoStaffing, sweepStalledStaffing } from "../src/domain/auto-staf
 import { sweepCampaignLaunches } from "../src/domain/campaign-launch.ts";
 import { STUDENT_DIGEST_HOUR_UTC, sendStudentApprovalDigests, sweepStudentAutomation } from "../src/domain/student-auto.ts";
 import { sweepEditionStages } from "../src/domain/edition-automation.ts";
+import { sweepEditionPictures, syncEditionPictures } from "../src/domain/edition-pictures.ts";
+import { runStorageCheck } from "../src/domain/storage-check.ts";
 import { sweepHeldSales } from "../src/domain/ad-sale-auto.ts";
 import { payOutClosedAccounts, purgeExpiredClosures } from "../src/domain/account-closure.ts";
 import { runNightlyFactCheck, FACT_CHECK_HOUR_UTC } from "../src/domain/fact-nightly.ts";
@@ -394,6 +397,8 @@ let studentDigestTimer: ReturnType<typeof setInterval> | undefined;
    edition are tried again. Every ten minutes; each edition and each hold is
    taken under its lock in its own transaction, so overlapping passes agree. */
 let editionTimer: ReturnType<typeof setInterval> | undefined;
+/* POL-BE-113 */
+let storageCheckTimer: ReturnType<typeof setInterval> | undefined;
 const EDITION_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 /* 3S1-QA-01 — the nightly fact check (hourly tick; runs once a day at or after 19:00 UTC). */
 let factCheckTimer: ReturnType<typeof setInterval> | undefined;
@@ -732,6 +737,24 @@ async function main(): Promise<void> {
     );
   });
 
+  /* POL-BE-113 — the live storage check: when the worker starts (so after
+     every deploy) and every 24 hours. /health/full reads the result, so the
+     uptime monitor alerts on a failure and the daily deploy waits for a pass. */
+  const storageCheck = () =>
+    void runStorageCheck(prisma)
+      .then((r) => (r.ok ? log(`[worker] storage check ok (uploads from ${r.origin})`) : logError("[worker] storage check FAILED:", r.problem)))
+      .catch((error: unknown) => logError("[worker] storage check could not run:", error));
+  storageCheckTimer = setInterval(storageCheck, 24 * 60 * 60 * 1000);
+  setTimeout(storageCheck, 30_000).unref();
+
+  /* P9-BE-26 — an edition published or cancelled: its public copies now,
+     rather than at the next sweep. The sweep repairs anything this misses. */
+  await ensureQueue("edition.pictures");
+  await boss.work<{ editionId: string }>("edition.pictures", async ([job]) => {
+    const r = await syncEditionPictures(job.data.editionId);
+    log(`[worker] edition.pictures ${job.data.editionId} ${JSON.stringify(r)}`);
+  });
+
   /* P7-DATA-02 — a SWEEP ON A TIMER, not a queued job per subject.
   
      Nothing enqueues this: totals are derived from MetricDaily, so there is
@@ -959,6 +982,10 @@ async function main(): Promise<void> {
         if (stages.moved || stages.failed || sales.sold || sales.failed) {
           log(`[worker] editions ${JSON.stringify(stages)} held sales ${JSON.stringify(sales)}`);
         }
+        /* P9-BE-26 — then every published edition's public copies: made when
+           missing, taken down when a piece stops qualifying (a right ended). */
+        const pictures = await sweepEditionPictures();
+        if (pictures.made || pictures.removed || pictures.failed) log(`[worker] edition pictures ${JSON.stringify(pictures)}`);
       })
       .catch((error: unknown) => logError("[worker] edition sweep failed, will retry:", error));
   editionTimer = setInterval(editionSweep, EDITION_SWEEP_INTERVAL_MS);
@@ -1122,6 +1149,7 @@ export async function stopWorker(): Promise<void> {
   if (studentSweepTimer) clearInterval(studentSweepTimer);
   if (studentDigestTimer) clearInterval(studentDigestTimer);
   if (editionTimer) clearInterval(editionTimer);
+  if (storageCheckTimer) clearInterval(storageCheckTimer);
   if (factCheckTimer) clearInterval(factCheckTimer);
   timer = undefined;
   expiryTimer = undefined;

@@ -1956,6 +1956,23 @@ model Edition {
   revenueMet     Boolean      @default(false)
   /// cents — the minimum viable edition threshold
   thresholdCents Int
+  /// P9-BE-27 — the cover image (private original; JPEG, PNG or WebP) and
+  /// the press PDF the printer receives (private; read by BTG on a short
+  /// signed link). Each upload is checked on arrival; a new one replaces the
+  /// old (the audit log keeps the history, and the old files are kept).
+  coverKey           String?
+  coverType          String?
+  coverBytes         Int?
+  coverUploadedAt    DateTime?
+  /// The cover's public copy for the reader and the edition list, made once
+  /// published (edition-pictures.ts), and which original it was made from —
+  /// a replaced cover's copy is retaken.
+  coverWebKey        String?   @unique
+  coverWebFrom       String?
+  pressPdfKey        String?
+  pressPdfBytes      Int?
+  pressPdfName       String?
+  pressPdfUploadedAt DateTime?
   state          EditionState @default(PLANNING)
   /// P9-BE-17 — the day sales open by themselves (PLANNING → SELLING, the
   /// edition sweep). Null: BTG opens sales by hand.
@@ -2358,6 +2375,16 @@ model EditionAsset {
   fileType   String?
   fileBytes  Int?
   fileName   String?
+  /// P9-BE-26 — the public copy the reader shows, once the edition is
+  /// published and the piece may be shown: its key in the PUBLIC bucket,
+  /// its type, and when it was made. Location data removed (photos re-saved,
+  /// videos remuxed, a PDF ad drawn as a picture). Null when there is none;
+  /// taken down when the piece stops qualifying (edition-pictures.ts).
+  webKey      String?   @unique
+  webType     String?
+  webCopiedAt DateTime?
+  /// Why a piece that may be shown has no public copy, in words.
+  webProblem  String?
   /// Set when a sponsor's campaign uses this asset — refused without a
   /// ContentRight granting commercial reuse.
   campaignId String?
@@ -4802,6 +4829,28 @@ model PipelineRun {
   finishedAt DateTime
 
   @@unique([day, step])
+}
+
+/// POL-BE-113 — the live storage check: whether a browser on the website
+/// can upload to each storage area. The worker runs it when it starts (so
+/// after every deploy) and every 24 hours: a preflight as the website, a
+/// signed upload, a read back and a delete, on both buckets, leaving nothing
+/// behind. `/health/full` reads the latest (system-health.ts), so the uptime
+/// monitor alerts when it fails or goes stale, and the daily deploy waits
+/// for a fresh pass. Platform-wide, like PipelineRun; 30 days are kept.
+model StorageCheck {
+  id         String   @id @default(cuid())
+  /// The website address the check uploaded as (its Origin).
+  origin     String
+  ok         Boolean
+  /// Per bucket: { bucket, ok, step?, detail? } — step is where it failed.
+  results    Json
+  /// The first failure, in words; null when ok.
+  problem    String?
+  startedAt  DateTime
+  finishedAt DateTime
+
+  @@index([finishedAt])
 }
 
 /// 3S6-BE-01 — an attribution partner: a store or platform that sends its

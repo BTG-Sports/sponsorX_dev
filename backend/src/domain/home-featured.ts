@@ -39,7 +39,7 @@ import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertTenantWide, whereFor } from "../auth/scope";
-import { presignPublicUpload, publicObjectHead, publicObjectUrl } from "../lib/storage";
+import { checkPublicUpload, presignPublicUpload, publicObjectUrl, uploadRefusal } from "../lib/storage";
 import {
   followerFigure, HOME_FEATURED_MAX, homeVerdict, MAX_PHOTO_BYTES, minorForHome, PHOTO_TYPES, rankForHome,
   type HomeAction, type HomeBlock, type HomeCandidate, type HomeMissing,
@@ -244,7 +244,13 @@ export async function setAthletePhoto(
     if (!photoKey.startsWith(photoPrefix(a.tenantId, a.id)) || photoKey.includes("..")) {
       throw new HomeFeatureError("photoKey: not this athlete's upload — request one with POST /athletes/{id}/photo.", 422);
     }
-    if (!(await publicObjectHead(photoKey))) throw new HomeFeatureError("That photo hasn't arrived yet — upload it, then confirm.");
+    /* POL-BE-110/111 — arrived, a JPEG, PNG or WebP, at most 5 MB; a wrong file is deleted. */
+    if (photoKey !== a.photoKey) {
+      const arrived = await checkPublicUpload(photoKey, { types: Object.keys(PHOTO_TYPES), maxBytes: MAX_PHOTO_BYTES });
+      if (!arrived.ok) {
+        throw new HomeFeatureError(arrived.problem === "missing" ? "That photo hasn't arrived yet — upload it, then confirm." : uploadRefusal(arrived.problem, "That photo"), arrived.problem === "missing" ? 409 : 422);
+      }
+    }
   }
   /* A minor's approval was for the photo a person saw; a new one goes back to them. */
   const resetApproval = photoKey !== a.photoKey && minorForHome(a, now) && !!a.homeApprovedAt;

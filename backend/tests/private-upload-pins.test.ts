@@ -73,6 +73,7 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
   const { presignArtworkUpload, registerArtwork } = await import("../src/domain/edition-artwork");
   const { presignEditionContentUpload, addEditionAsset } = await import("../src/domain/content-rights");
   const { createAssignment, presignDraftUpload, submitDraft } = await import("../src/domain/student-assignment");
+  const { startDealDisputeDocument, finishDealDisputeDocument } = await import("../src/domain/deal-disputes");
   const { issueOnboardingToken } = await import("../src/lib/onboarding-token");
   const { issueSponsorRequestToken } = await import("../src/lib/sponsor-request-token");
   const { issuePurposeToken } = await import("../src/lib/purpose-token");
@@ -162,6 +163,11 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
       usageRights: "90 days", dueDate: new Date("2026-12-15"), state: "ACTIVE",
     } });
     await prisma.deliverable.create({ data: { id: `pu_deliverable_${R}`, tenantId: T, orderId: `pu_corder_${R}`, title: "PU post", dueDate: new Date("2026-12-15") } });
+    /* POL-BE-111 — a deal paused for documents, for the athlete's dispute document. */
+    await prisma.dealDispute.create({ data: {
+      id: `pu_dispute_${R}`, tenantId: T, orderId: `pu_corder_${R}`, athleteId: `pu_athlete_${R}`, source: "SCHOOL",
+      reason: "School rule", documentsRequested: "The school's policy", openedBy: `pu_athlete_user_${R}`, state: "OPEN",
+    } });
     await prisma.publication.create({ data: { id: `pu_pub_${R}`, tenantId: T, name: "PU Masthead", propertyId: `pu_prop_${R}` } });
     await prisma.edition.create({ data: {
       id: `pu_edition_${R}`, tenantId: T, publicationId: `pu_pub_${R}`, label: "PU Edition", closeDate: far, publishTarget: far, thresholdCents: 100000, state: "SELLING",
@@ -302,6 +308,16 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
       },
       confirm: () => registerArtwork(sponsorAdmin, `pu_slot_${R}`, { r2Key: ctx.artwork! }),
       confirmed: async () => (await prisma.editionAsset.count({ where: { tenantId: T, adSlotId: `pu_slot_${R}`, r2Key: ctx.artwork! } })) === 1,
+    },
+    {
+      name: "deal dispute document (POL-BE-111)", type: "application/pdf", bytes: ID_PDF.length, body: ID_PDF, document: true,
+      grant: async () => {
+        const g = await startDealDisputeDocument(athlete, `pu_dispute_${R}`, { filename: "policy.pdf", contentType: "application/pdf", bytes: ID_PDF.length });
+        ctx.dispute = g.document.id;
+        return g.uploadUrl;
+      },
+      confirm: () => finishDealDisputeDocument(athlete, `pu_dispute_${R}`, ctx.dispute!),
+      confirmed: async () => (await prisma.dealDisputeDocument.findUniqueOrThrow({ where: { id: ctx.dispute! }, select: { uploadedAt: true } })).uploadedAt !== null,
     },
     {
       name: "edition content, any format (P9-BE-25: saving the piece is its confirm)", type: "video/mp4", bytes: 34_567,

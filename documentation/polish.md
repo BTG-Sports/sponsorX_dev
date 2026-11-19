@@ -3231,6 +3231,11 @@ the blockers and today's content review findings.
   - A logo is saved only once its file has arrived, is the declared type (PNG or JPEG) and fits 1 MB.
   - Otherwise the save is refused with "upload it again", and the old logo stays.
   - The real-upload test covers both logos.
+- **Delivered (2026-11-19, rcfworks, Code review):**
+  - **The check:** `checkPublicUpload` in `backend/src/lib/storage.ts`. Before a record points at a public file, the file must exist, be one of the types asked for, and fit the size. A wrong file is deleted at once, because the public bucket serves it to anyone.
+  - **Where it runs:** `updateBranding` (team or school logo), `updateCompany` (sponsor logo) and `setAthletePhoto` (profile photo). The photo used to check only that its file existed.
+  - **What a person sees:** a missing file is refused (409, "hasn't arrived yet"). A wrong type or size is refused (422, "so it was removed"). The old logo or photo stays.
+  - Saving the same key again isn't re-checked.
 
 ### 111. Five uploads are never tested with a real file [§30, upload audit §4]
 `POL-BE-111` · *Silent* · confirmed (upload audit, 2026-11-19)
@@ -3245,6 +3250,16 @@ the blockers and today's content review findings.
 - **Done when:**
   - All five run through the real-upload test: a wrong type or size refused, the right file accepted.
   - The completeness check fails when any upload in `backend/src` is missing from the test, public uploads included.
+- **Delivered (2026-11-19, rcfworks, Code review):**
+  - **Private:** `backend/tests/private-upload-pins.test.ts` gains dispute documents. Student drafts were added by P9-BE-25, along with edition content.
+  - **Public:** new `backend/tests/public-upload-pins.test.ts` covers the team or school logo, the sponsor logo and the profile photo, each run as a browser runs it against a store that checks signatures:
+    - the URL is signed for one type and size, and the bucket refuses anything else;
+    - a missing file is refused, and nothing is saved;
+    - a wrong type or size that got in anyway is refused on save and deleted;
+    - the right file is saved.
+  - **Completeness:** new `backend/tests/upload-coverage.static.test.ts` fails if any `backend/src/domain` file that presigns an upload, private or public, isn't driven by a real-store test. It currently counts 18 files.
+  - **Older tests:** three tests that saved logos without a bucket (home-featured, pol-be-102, phase2-marketplace) now stand in the arrival check. The real check is driven above.
+  - **Checked:** full backend suite 285 files, 4,026 tests; lint clean.
 
 ### 112. CI's browser tests never really upload a file [§30, upload audit §4]
 `POL-BE-112` · *Silent* · confirmed (upload audit, 2026-11-19)
@@ -3253,6 +3268,19 @@ the blockers and today's content review findings.
   - CI's browser job runs a real test storage, with the same upload rule as staging.
   - The four tests upload for real in CI, and fail if the storage refuses.
   - The stand-in stays only for a laptop with no storage running.
+- **Delivered (2026-11-19, rcfworks, Code review):**
+  - **First attempt:** real MinIO in CI. It failed because MinIO's server image is no longer published (`pull access denied for minio/minio`).
+  - **What CI uses instead:** the e2e object store (`e2e/support/object-store-standin.mjs`) in a new **strict** mode (`E2E_STORE_STRICT=1`), held to what R2 enforces:
+    - **The upload rule:** only `E2E_STORE_ALLOW_ORIGIN` (the test site, `http://127.0.0.1:3100`, as staging allows only its web origin) gets a preflight and an allow-origin. Another site's browser upload fails, as it did on 2026-11-16.
+    - **Signed links:** every signed PUT and GET is re-signed with the API's keys and compared, so a wrong type, length, key, download setting or an expired link is refused.
+    - Requests the API makes itself, signed in a header, pass as they do on R2.
+  - **The check before the suite:** CI's e2e job confirms the store allows the test site, refuses another site, and refuses a forged signed upload. It stops if not.
+  - **No faking in CI:** under `CI`, `e2e/support/object-store.ts` never answers the browser's PUT itself, and no store is a failure. Laptops keep the relaxed mode.
+  - **Checked here:**
+    - the strict store, run locally: test site preflight 204, another site 403, signed PUT 200, wrong type 403, tampered 403, signed GET 200 with its download setting, forged GET 403;
+    - the CI check step, run locally;
+    - the workflow parses.
+  - The e2e suite's run on the pull request is the end-to-end test.
 
 ### 113. Nothing checks that the live storage accepts uploads [§26, upload audit §4]
 `POL-BE-113` · *Silent* · confirmed (upload audit, 2026-11-19; it already broke once, 2026-11-16)
@@ -3262,6 +3290,24 @@ the blockers and today's content review findings.
   - Any step failing turns the deploy check red and tells BTG what failed.
   - The health check covers the private storage too.
   - The check leaves nothing behind in storage.
+- **Delivered (2026-11-19, rcfworks, Code review):**
+  - **The check** (`probeBucket` in `backend/src/lib/storage.ts`, `runStorageCheck` in `backend/src/domain/storage-check.ts`) runs on both storage areas:
+    - a preflight as the website (the origin of `APP_URL`, which is `https://web-staging-904a.up.railway.app` on staging and `https://sponsorx.net` on production, each matching its upload rule);
+    - a signed upload as the website;
+    - the server reading it back;
+    - a delete, then a check it's gone. A failure part-way still deletes the test file.
+  - **When it runs:** the worker runs it when it starts (so after every deploy) and every 24 hours. Each result is recorded in `StorageCheck` (migration `20261119220000_storage_check`), with 30 days kept.
+  - **Health:**
+    - `/health/full` gains `checks.storageUploads` (`{ ok, checkedAt, problem }`).
+    - On Railway, a failure, a check older than 26 hours or no check at all is degraded. Off Railway nothing is required.
+    - `storageReachable` now checks the private bucket too.
+  - **Alerts:** the 15-minute uptime monitor alerts BTG on Slack, and `scripts/health/monitor.py` names the failure in words, for example "storage uploads (public storage (photos, logos): a browser on the website can't upload …)".
+  - **The deploy check:** `deploy-daily.yml` waits, after moving `release`, for a storage check newer than the deploy on staging and production (up to 30 minutes). It goes red if either failed or never came.
+  - **Tests:**
+    - `backend/tests/pol-be-113-storage-check.test.ts` (6): the test store now answers preflights by an upload rule. It covers a pass with nothing left behind, a refused origin failing at the preflight, a refused upload, and the health verdicts;
+    - a new `test_storage_upload_failure_says_what_cannot_upload` in the monitor's tests;
+    - the health-full, tenant-scope and authz-coverage tests are updated.
+  - **Checked:** full backend suite 286 files, 4,033 tests; monitor tests 23; lint and build clean.
 
 ### 114. The sponsor brief is a small card beside a marketing panel, with unrelated questions on each step, so a sponsor can't tell what is being asked or what happens next [§9, §13, P1-FE-10, P2-FE-01, 2S1-FE-11]
 `POL-FE-114` · *Confusing* · confirmed (programme owner, 2026-11-19: "big visual redesign for /brief, don't make it look like a ordinary landing page, make this a step by step process wizard that had its own page add an animation + wow factor + awwwaaaard, the current design right now is full of confusing parts, we don't need it, it must be understandable by a human")

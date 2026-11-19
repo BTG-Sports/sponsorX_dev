@@ -4270,7 +4270,7 @@ Raised 2026-11-19 by the programme owner's upload audit ([SponsorX-Upload-Audit.
 
 ### ▶ `P9-BE-26` · Photos, video and ads in the public reader
 
-**Order** 209.89 · **BE** · **Where:** Code · **2d** · **Ready**
+**Order** 209.89 · **BE** · **Where:** Code · **2d** · **Code review**
 
 Today the free digital edition returns titles and article text only. Approved photos stay in private storage, and the reader lists each sponsor's name but never shows the ad they paid for.
 
@@ -4287,10 +4287,43 @@ Today the free digital edition returns titles and article text only. Approved ph
   - a minor's photo is shown only where a guardian's consent covers it;
   - each ad appears with its sponsor.
 - **Reference:** Spec principle 10, §5.3; upload audit §2
+- **Owner's decisions (2026-11-19, "ok lets do all backend stuff"):**
+  - location data is removed from photos and videos, with ffmpeg added to the server image;
+  - a PDF ad is shown as a picture of its first page;
+  - there is no "who's pictured" field for now, so a BTG or outside photo rests on its licence.
+- **Delivered (2026-11-19, rcfworks):**
+  - **One rule** (`backend/src/domain/edition-pictures-rules.ts`, `mayShow`) decides both whether a piece gets a public copy and whether the reader returns its link. A piece may be shown when all of these hold:
+    - the edition is published, printed or distributed;
+    - it has a file the reader can show: an image (not SVG) or a video, or a PDF for an ad;
+    - an ad is its slot's APPROVED artwork, and the slot is still sold;
+    - a digital right is in force today;
+    - when its maker is a minor, that right is their guardian's (an unknown maker is treated as a minor).
+  - **Copies** (`backend/src/domain/edition-pictures.ts`, `backend/src/lib/web-copy.ts`), made by the worker and never on a request:
+    - **Photos** are saved again by sharp with no EXIF, GPS or XMP, turned the right way up. JPEG, PNG and GIF keep their kind; anything else becomes WebP. Photos over 50 MB aren't copied.
+    - **Videos** are remuxed by ffmpeg with no re-encode, keeping only video and audio and no metadata. MP4 and MOV become MP4, WebM stays WebM, and other formats aren't copied.
+    - **PDF ads** are drawn as a picture of their first page.
+    - Each copy has an unguessable key, `editions/<edition>/<uuid>.<ext>`, and `Cache-Control: public, max-age=600`.
+    - The worker reads a video through a short signed link, and each one is recorded. No link is handed out while ffmpeg is missing.
+  - **When copies are made and taken down:**
+    - A transition to published or cancelled queues `edition.pictures` in the same transaction.
+    - The 10-minute edition sweep (`sweepEditionPictures`) makes missing copies and takes down any that stop qualifying. A takedown is complete within about 20 minutes, including the cache.
+    - The reader drops a link at once.
+  - **Problems in words** (`webProblem`): for example, the photo is over 50 MB, the video format won't play, or the video tool is missing. Only a missing video tool is retried.
+  - **Public read:** `GET /public/editions/{school}/{id}` gives each piece `picture` (`{ url, kind: image|video }`) and each sponsor `ad` (`{ url }`), or null.
+  - **Storage:**
+    - `EditionAsset` gains `webKey` (unique), `webType`, `webCopiedAt` and `webProblem` (migration `20261119200000_edition_web_copies`, with a shape check).
+    - `putPublicObject` streams a file through a signed PUT, and `deletePublicObject` takes a copy down.
+    - `drawFirstPdfPage` is in `backend/src/lib/document-inspect.ts`.
+  - **Server image:** `apk add ffmpeg` in `backend/Dockerfile`. `FFMPEG_PATH` can point elsewhere.
+  - **Tests:**
+    - `backend/tests/edition-pictures.unit.test.ts` (9): the rules, EXIF really gone, PDF drawing, ffmpeg arguments;
+    - `backend/tests/p9-be-26-edition-pictures.test.ts` (7): a real database and store, covering publication, a minor with and without their guardian, design files, a lapsed right, digital-only rights, ads (PNG and PDF), a missing video tool and then a present one, the public read, a right ending, cancellation, and the queued job;
+    - the public-read, public-bucket and listen-address tests are updated.
+  - **Checked:** full backend suite 281 files, 4,011 tests; lint and build clean.
 
 ### ▶ `P9-BE-27` · An edition's cover image and press PDF
 
-**Order** 209.90 · **BE** · **Where:** Code · **1.5d** · **Ready**
+**Order** 209.90 · **BE** · **Where:** Code · **1.5d** · **Code review**
 
 The spec says layout stays in InDesign or Canva, and the platform holds "approved artwork and the press PDF" (§9). Nothing holds either today.
 
@@ -4301,10 +4334,33 @@ The spec says layout stays in InDesign or Canva, and the platform holds "approve
   - the press PDF stays private, read by BTG on a short signed link, every read recorded;
   - a new upload replaces the old one, and the change is recorded.
 - **Reference:** Spec §9; upload audit §2
+- **Delivered (2026-11-19, rcfworks):**
+  - **Routes**, all BTG (edition write) unless noted:
+    - `POST /editions/{id}/cover/uploads`: JPG, PNG or WebP, up to 50 MB;
+    - `POST /editions/{id}/press-pdf/uploads`: PDF, up to 2 GB;
+    - `PUT /editions/{id}/cover` and `PUT /editions/{id}/press-pdf`: record the upload, replacing any before it;
+    - `GET /editions/{id}/cover`: a signed read for anyone who reads the edition, the advisor included;
+    - `GET /editions/{id}/press-pdf`: BTG only, a signed and recorded read, always a download by its name.
+  - **Checks:**
+    - the key is under `edition-files/<tenant>/<edition>/<cover|press-pdf>/`;
+    - this edition's grant handed it out;
+    - what arrived is the type and size signed for (a wrong file is deleted and recorded);
+    - a cover must also open as a picture, or it is deleted.
+  - **Replacing:** a new file replaces the old one, recorded as `edition.cover` or `edition.pressPdf` with before and after. Old files are kept as the record of what was printed.
+  - **The public cover:** once published, the worker makes a public copy without metadata, using `P9-BE-26`'s sync.
+    - A replaced cover queues `edition.pictures`, and its copy is retaken. The old copy comes down, and the reader never shows a stale cover.
+    - Cancelling takes the copy down at the sweep.
+    - `GET /public/editions/{school}/{id}` gives `cover`, and `GET /public/next/editions` gives each edition's `cover`.
+  - **The edition read:** `GET /editions/{id}` gives `cover` (type, size, uploaded) and `pressPdf` (name, size, uploaded), never the keys.
+  - **Storage:** `Edition` gains `cover*` and `pressPdf*` columns, plus `coverWebKey` and `coverWebFrom` (migration `20261119210000_edition_cover_press_pdf`, with shape checks).
+  - **Tests:**
+    - `backend/tests/p9-be-27-cover-press-pdf.test.ts` (6): a real database and store;
+    - the isolation sweep covers the new routes.
+  - **Checked:** full backend suite 282 files, 4,017 tests; lint and build clean.
 
 ### ▶ `P9-BE-28` · Production board data
 
-**Order** 209.91 · **BE** · **Where:** Code · **1d** · **Ready**
+**Order** 209.91 · **BE** · **Where:** Code · **1d** · **Code review**
 
 The spec's `/admin/next/production` page was never built and had no task.
 
@@ -4315,6 +4371,22 @@ The spec's `/admin/next/production` page was never built and had no task.
   - the read answers the same as the publishing gate, because it asks the same questions;
   - it's BTG only, in their own tenant.
 - **Reference:** Spec §8; upload audit §2
+- **Delivered (2026-11-19, rcfworks):**
+  - **Route:** `GET /editions/{id}/production`, BTG only (edition write, own tenant), in `backend/src/domain/edition-production.ts`. It returns:
+    - the edition;
+    - its gates: content ready, rights cleared, artwork approved, revenue met;
+    - every piece with `needs` in words, empty when it's ready;
+    - counts of all pieces, ready pieces and waiting pieces.
+  - **Pieces and what each can need:**
+    - **ASSIGNMENT**, a student piece not yet approved: the student's draft, the student's changes, or the advisor's approval;
+    - **CONTENT**: its file (unless it's a student's approved words), a digital right, or a print right (only once a print date is set). Why it isn't on the web yet appears as a note, never a blocker;
+    - **ARTWORK**, each sold slot: the sponsor's artwork, BTG's review, the sponsor's sign-off, or a digital or print right;
+    - **COVER**: a cover;
+    - **PRESS_PDF**: the press PDF, only when a print date is set.
+  - **Links:** each piece carries `ref` (assignment, asset, slot or edition) for the page to link to where it's fixed.
+  - **Same questions as the gate:** it calls `rightsGap` and `artworkGap` on the gate's own dates, in one transaction. A test checks that "A digital right" is exactly the gate's digital gap.
+  - **Tests:** `backend/tests/p9-be-28-production-board.test.ts` (4).
+  - **Checked:** full backend suite 283 files, 4,021 tests; lint and build clean.
 
 ### ▶ `P9-FE-13` · A file picker on the rights page's "add content" form
 
@@ -4341,6 +4413,7 @@ The spec's `/admin/next/production` page was never built and had no task.
 **Order** 209.93 · **FE** · **Where:** Code · **1.5d** · **Ready** · HeckerCreatives
 
 - **Depends on:** P9-BE-26, P9-BE-27
+- **API (P9-BE-26):** in `GET /public/editions/{school}/{id}`, each item in `contents` has `picture` (`{ url, kind: "image" | "video" }`, or null), and each item in `sponsors` has `ad` (`{ url }`, or null). A PDF ad is already a picture. Show a `video` with `<video controls playsinline>`.
 - **Done when:**
   - `/next/[school]/[edition]` shows the cover, each piece's photo or video with its article, and each sponsor's ad in its position;
   - it works at phone width;
@@ -4352,6 +4425,11 @@ The spec's `/admin/next/production` page was never built and had no task.
 **Order** 209.94 · **FE** · **Where:** Code · **1d** · **Ready** · HeckerCreatives
 
 - **Depends on:** P9-BE-27
+- **API (P9-BE-27):**
+  - `POST /editions/{id}/cover/uploads` or `/press-pdf/uploads` with `{ contentType, bytes }`, then a PUT to `url` with the answered `contentType`, then `PUT /editions/{id}/cover` or `/press-pdf` with `{ r2Key, fileName }`;
+  - `GET /editions/{id}/cover` to preview;
+  - `GET /editions/{id}/press-pdf` to download;
+  - `GET /editions/{id}` carries `cover` and `pressPdf`.
 - **Done when:**
   - `/admin/next/editions` uploads and replaces an edition's cover and press PDF;
   - the press PDF opens on a signed link;
@@ -4363,6 +4441,9 @@ The spec's `/admin/next/production` page was never built and had no task.
 **Order** 209.95 · **FE** · **Where:** Code · **2d** · **Ready** · HeckerCreatives
 
 - **Depends on:** P9-BE-28
+- **API (P9-BE-28):** `GET /editions/{id}/production` returns `{ edition, gates, pieces[], counts }`.
+  - Each piece has `source` (ASSIGNMENT, CONTENT, ARTWORK, COVER or PRESS_PDF), `title`, `kind`, `who`, `needs[]` in words, `note` and `ref`.
+  - A piece is ready when `needs` is empty.
 - **Done when:**
   - `/admin/next/production` shows one edition's pieces with what each still needs, using `approvals-desk` as the spec says;
   - a piece links to where it's fixed (assignment, artwork, rights, cover);

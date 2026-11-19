@@ -92,6 +92,8 @@ import {
   SplitLockInput,
   SplitUnlockInput,
   PublicationInput,
+  EditionFileInput,
+  EditionFileUploadInput,
 } from "./edition";
 import { ArtworkUploadInput } from "./edition-artwork";
 import { AssignmentInput, AssignmentRevisionInput, DraftSubmitInput, DraftUploadInput } from "./student-assignment";
@@ -533,6 +535,13 @@ const PATHS: Row[] = [
   { method: "get", path: "/publications", tag: "Editions", summary: "The mastheads in the caller's scope, each with `schoolName`; for those who may create one, `schools` — the tenant's schools a new publication may be for (POL-BE-56)." },
   { method: "patch", path: "/editions/{id}", tag: "Editions", summary: "Change an edition's label, close / publish / print dates, page count, threshold or sales-open day while PLANNING or SELLING (409 after); close before print before publish (422 otherwise). Audited (POL-BE-56).", body: EditionPatch },
   { method: "get", path: "/editions", tag: "Editions", summary: "Editions in the caller's scope, with inventory counts, committed revenue, the digital rights gap and — for artwork readers — `artworkPending`, the sold slots whose artwork is not yet approved (P9-FE-03, P9-BE-16)." },
+  { method: "post", path: "/editions/{id}/cover/uploads", tag: "Editions", summary: "Presign the edition's cover — JPG, PNG or WebP, up to 50 MB — to the private bucket (P9-BE-27). BTG.", body: EditionFileUploadInput, status: 201 },
+  { method: "put", path: "/editions/{id}/cover", tag: "Editions", summary: "Record the uploaded cover, replacing any before it (P9-BE-27). Checked on arrival: this edition's grant, the type and size signed for, and it opens as a picture. Shown publicly once the edition is published.", body: EditionFileInput },
+  { method: "get", path: "/editions/{id}/cover", tag: "Editions", summary: "A signed, recorded read of the cover for whoever reads the edition (P9-BE-27)." },
+  { method: "post", path: "/editions/{id}/press-pdf/uploads", tag: "Editions", summary: "Presign the edition's press PDF, up to 2 GB, to the private bucket (P9-BE-27). BTG.", body: EditionFileUploadInput, status: 201 },
+  { method: "put", path: "/editions/{id}/press-pdf", tag: "Editions", summary: "Record the uploaded press PDF, replacing any before it (P9-BE-27). It never goes public.", body: EditionFileInput },
+  { method: "get", path: "/editions/{id}/press-pdf", tag: "Editions", summary: "BTG's signed, recorded read of the press PDF, as a download by its name (P9-BE-27)." },
+  { method: "get", path: "/editions/{id}/production", tag: "Editions", summary: "The production board (P9-BE-28): every piece of the edition — student work in progress, content, each sold slot's artwork, the cover and the press PDF — with what each still needs, in words. Asks the publishing gate's own questions (rightsGap, artworkGap) on its dates, so the two never disagree. BTG only." },
   { method: "get", path: "/editions/{id}", tag: "Editions", summary: "An edition, with its production conditions and state; `salesOpenAt`; `nextStep: { who: SYSTEM|BTG|NONE, text }` — what happens next and, when a gate fails, why (\"Waiting for content ready\", \"2 sold ads have no approved artwork\") (P9-BE-17); `stageHistory: [{ from, to, at, movedAutomatically, reason }]`, newest first; and `splitLocked: { at, by: { userId, email }, note } | null` (P9-BE-19)." },
   { method: "get", path: "/editions/{id}/ledger", tag: "Editions", summary: "The inventory ledger: each slot's page, state, value, — for campaign readers — buyer, and — for artwork readers — each sold slot's artwork on the approval board (P9-FE-04, P9-BE-16)." },
   { method: "get", path: "/editions/{id}/sale-candidates", tag: "Editions", summary: "DRAFT campaigns whose package promises positions, and whether this edition can still honour each (P9-FE-03). The sale re-checks." },
@@ -549,7 +558,7 @@ const PATHS: Row[] = [
   { method: "post", path: "/editions/{id}/splits/lock", tag: "Editions", summary: "Finance locks the edition's split with a note — only once it is computed (at close); 409 when locked already. Locked, the split and resolved school pools are never recomputed: a recompute is refused and audited, and Postgres refuses the write. Any future payout from a split must require the lock (P9-BE-19).", body: SplitLockInput },
   { method: "post", path: "/editions/{id}/splits/unlock", tag: "Editions", summary: "BTG admin unlocks the split, with a reason (audited); 409 when it isn't locked (P9-BE-19).", body: SplitUnlockInput },
   { method: "get", path: "/ad-sale-holds", tag: "Editions", summary: "SALES and BTG, tenant-wide: the ad sales the system held for a person — `{ holds: [{ id, campaignId, campaign, campaignState, sponsor, package, edition, reasons: [{ key, text }], retriesItself, heldAt, checkedAt, resolution, resolvedAt }] }`. Keys: NOT_FOR_STUDENTS, SENSITIVE, UNKNOWN_CATEGORY, CLASH, NO_CATEGORIES, NO_EDITION, EDITION_CHOICE, NO_SLOT, CAMPAIGN_STATE. Open only unless `all=true`; `editionId` narrows (P9-BE-18).", query: SaleHoldsQuery },
-  { method: "get", path: "/public/editions/{school}/{id}", tag: "Public", summary: "The free digital edition — published editions only; masthead, rights-cleared contents with display-name bylines, and the sponsors who bought positions. Never a price (P9-FE-07).", auth: false },
+  { method: "get", path: "/public/editions/{school}/{id}", tag: "Public", summary: "P9-BE-26: each piece carries `picture` ({ url, kind: image|video }) and each sponsor `ad` ({ url }) — public copies with location data removed, only while a digital right is in force (a minor's by their guardian); null otherwise. The free digital edition — published editions only; masthead, rights-cleared contents with display-name bylines, and the sponsors who bought positions. Never a price (P9-FE-07).", auth: false },
   { method: "post", path: "/public/editions/{id}/events", tag: "Public", summary: "A reader scanned (print) or tapped (digital) in a published edition (P9-BE-12).", auth: false, body: EditionEventInput, status: 201 },
   // SponsorX NEXT — students (Stage 9 Batch B)
   { method: "post", path: "/students", tag: "Students", summary: "Add a student to a school (staff, or that school's advisor). Lands DRAFT (P9-BE-04).", body: StudentInput, status: 201 },

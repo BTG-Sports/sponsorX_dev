@@ -153,6 +153,8 @@ describe("GET /health/full", () => {
         queue: { ok: true, configured: true, depth: 0, oldestWaitMinutes: 0, failedLast24h: 0 },
         /* Before the first night nothing has run: not a failure. */
         pipeline: { ok: true, configured: true, lastRunAt: null, failedSteps: [], hoursSinceSuccess: null, forecastsFresh: true, drift: [] },
+        /* POL-BE-113 — an unreadable record is no storage failure (the db check speaks for the database). */
+        storageUploads: { ok: true, checkedAt: null, problem: null },
       },
       traffic: { windowMinutes: 15, requests: 0, status5xx: 0, rate: null },
     });

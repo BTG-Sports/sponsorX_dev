@@ -17,6 +17,7 @@
  */
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
+import { enqueue } from "../db/outbox";
 import { audit, type AuditActor } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
@@ -266,6 +267,9 @@ export async function getEdition(actor: Actor, editionId: string) {
       printDate: true, pageCount: true, contentReady: true, rightsCleared: true,
       revenueMet: true, thresholdCents: true, state: true, salesOpenAt: true,
       splitLockedAt: true, splitLockedBy: true, splitLockNote: true,
+      /* P9-BE-27 — whether the cover and press PDF are in, never their keys. */
+      coverType: true, coverBytes: true, coverUploadedAt: true,
+      pressPdfName: true, pressPdfBytes: true, pressPdfUploadedAt: true,
     },
   });
   if (!edition) throw new ForbiddenError("edition", "read");
@@ -422,6 +426,11 @@ export async function transitionEditionIn(
     data: { state: to as Prisma.EditionUpdateInput["state"], revenueMet, rightsCleared },
     select: { id: true, state: true },
   });
+  /* P9-BE-26 — published or cancelled: its public copies are made or taken
+     down by the worker, queued in this transaction (the sweep repairs a miss). */
+  if ((PUBLISHED_STATES as readonly string[]).includes(to) || to === "CANCELLED") {
+    await enqueue(tx, tenantId, "edition.pictures", { editionId });
+  }
   await audit(tx, by, "edition.transition", "Edition", editionId, {
     before: { state: from },
     after: {

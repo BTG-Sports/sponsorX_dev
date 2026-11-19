@@ -22,6 +22,12 @@ vi.mock("../src/lib/rate-limit", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../src/lib/rate-limit")>()),
   limit: async () => {},
 }));
+/* POL-BE-110 — no bucket here; a saved logo's arrival check is stood in (the real one is driven in public-upload-pins.test.ts). */
+vi.mock("../src/lib/storage", async (original) => ({
+  ...(await original<typeof import("../src/lib/storage")>()),
+  /* POL-BE-110 — the real check is driven in public-upload-pins.test.ts; here a key arrives unless it says "missing". */
+  checkPublicUpload: async (key: string) => (key.includes("missing") ? { ok: false, problem: "missing" } : { ok: true, bytes: 1000, contentType: "image/png" }),
+}));
 vi.mock("../src/auth/clerk", () => ({
   authenticateClerkRequest: async (req: { get: (h: string) => string | undefined }) => {
     const id = req.get("x-test-clerk");
