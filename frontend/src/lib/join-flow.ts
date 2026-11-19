@@ -11,6 +11,11 @@
    and — for an adult — the rules confirmation (P8-FE-03): the wording from
    GET /public/rules-attestation, whose version travels with the application.
    A minor's guardian confirms the rules on their own page instead.
+
+   POL-FE-115 (2026-11-19): the wizard moved to its own page, /join/apply,
+   and /join keeps the landing with a button to it. The sections, their
+   fields and what is sent are unchanged; a draft's "intro" phase now only
+   means "not started on the steps yet".
    -------------------------------------------------------------------------- */
 
 import type { ApiRulesWording } from "@/lib/confirmations-live";
@@ -209,6 +214,10 @@ export function visibleSections(minor: boolean): SectionDef[] {
   return SECTIONS.filter((s) => !s.minorOnly || minor);
 }
 
+/* A dot after the @: "maya@school" reached the API and came back as an
+   error on the last step, nine sections later. */
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /** Per-field error messages; empty object = section passes. */
 export function validateSection(
   section: SectionDef,
@@ -217,7 +226,8 @@ export function validateSection(
   const errs: Record<string, string> = {};
   for (const f of section.fields) {
     const v = (answers[f.key] ?? "").trim();
-    if (f.required && !v) errs[f.key] = "Required";
+    /* Says what to do (POL-FE-115): "Add date of birth", never a bare "Required". */
+    if (f.required && !v) errs[f.key] = `Add ${f.label.toLowerCase()}`;
   }
   if (section.id === "identity") {
     const dob = (answers.dob ?? "").trim();
@@ -231,11 +241,11 @@ export function validateSection(
         errs.dob = "Enter a real date of birth";
     }
     const email = (answers.email ?? "").trim();
-    if (email && !email.includes("@")) errs.email = "Enter a valid email";
+    if (email && !EMAIL.test(email)) errs.email = "Enter a valid email, like you@example.com";
   }
   if (section.id === "guardian") {
     const email = (answers.guardianEmail ?? "").trim();
-    if (email && !email.includes("@")) errs.guardianEmail = "Enter a valid email";
+    if (email && !EMAIL.test(email)) errs.guardianEmail = "Enter a valid email, like guardian@example.com";
   }
   if (section.id === "location") {
     /* The API's stateCode is a strict two-letter US code (NIL is US law);
