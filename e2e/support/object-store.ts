@@ -1,7 +1,8 @@
 /**
- * The upload step's one external dependency — P5-QA-01. In CI it is a real
- * MinIO with staging's upload rule (POL-BE-112); on a laptop without one,
- * the signed PUT can be answered by the test, as below.
+ * The upload step's one external dependency — P5-QA-01. In CI it is the
+ * strict stand-in (object-store-standin.mjs, E2E_STORE_STRICT): staging's
+ * upload rule and R2's signature checks (POL-BE-112). On a laptop without a
+ * store, the signed PUT can be answered by the test, as below.
  *
  * A deliverable upload is presign (API) → PUT straight from the browser to
  * the object store → record (API) → submit (API). Locally the PUT lands in
