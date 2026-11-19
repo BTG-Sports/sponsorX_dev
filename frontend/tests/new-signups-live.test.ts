@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  SIGNUP_BACKEND, SIGNUP_TABS, firstName, inTab, orgHref, orgState, signupBadge, signupTab, sponsorRows, streamApiQuery, streamParams, streamRowView, tabCount, tabShows,
-  type ApiSponsorSignup, type ApiStreamRow, type Signup,
+  SIGNUP_BACKEND, SIGNUP_TABS, firstName, inTab, orgHref, orgState, signupBadge, signupTab, sponsorRows, kindBars, streamApiQuery, streamEmpty, streamParams, streamPatch, streamRowView, streamStats, tabCount, tabShows,
+  type ApiSponsorSignup, type ApiStreamRow, type ApiStreamSummary, type KindFigures, type Signup, type StreamFilter,
 } from "../src/lib/new-signups-live";
 
 /* --------------------------------------------------------------------------
@@ -122,5 +122,88 @@ describe("a stream row", () => {
     expect(streamRowView(row({ kind: "ORGANIZATION", state: "APPROVED" })).reason).toBe("Reviewed and approved by BTG");
     /* held with no reason given (an organisation waiting on BTG) never reads "All checks passed" */
     expect(streamRowView(row({ kind: "ORGANIZATION", state: "NEEDS_REVIEW" })).reason).toBe("Waiting for BTG’s review");
+  });
+});
+
+/* --------------------------------------------------------------------------
+   POL-FE-109 — the desk redrawn like the Inventory: the pill, the status
+   cards' words, the kind bars, the URL patches and the empty list.
+   -------------------------------------------------------------------------- */
+
+describe("the status pill", () => {
+  const row = (over: Partial<ApiStreamRow>): ApiStreamRow => ({
+    kind: "ATHLETE", id: "a1", name: "Riley Carter", sub: "Basketball", signedUpAt: "2026-09-30T10:00:00.000Z",
+    state: "AUTO_APPROVED", reasons: [], flags: [], ...over,
+  });
+  it("pulses only when it is BTG's move", () => {
+    expect(streamRowView(row({})).pill).toEqual({ label: "Approved automatically", tone: "green", act: false });
+    expect(streamRowView(row({ state: "APPROVED" })).pill).toEqual({ label: "Approved by BTG", tone: "green", act: false });
+    expect(streamRowView(row({ state: "NEEDS_REVIEW" })).pill).toEqual({ label: "Needs review", tone: "amber", act: true });
+    expect(streamRowView(row({ flags: ["Place not in the age table"] })).pill).toEqual({ label: "Approved · flagged", tone: "amber", act: true });
+    expect(streamRowView(row({ state: "REJECTED" })).pill).toEqual({ label: "Rejected", tone: "red", act: false });
+  });
+});
+
+describe("the status cards", () => {
+  const summary = (all: KindFigures, kinds: ApiStreamSummary["kinds"] = {}): ApiStreamSummary => ({ all, kinds });
+
+  it("turns Needs review orange only when something is held", () => {
+    const [held] = streamStats(summary({ total: 40, held: 3, auto: 30 }));
+    expect(held).toMatchObject({ key: "review", value: 3, alert: true, sub: "Held for you. Open each one to decide." });
+    const [clear] = streamStats(summary({ total: 40, held: 0, auto: 40 }));
+    expect(clear).toMatchObject({ value: 0, alert: false, sub: "Nothing is waiting on you." });
+  });
+
+  it("never rounds the automatic share up to all, or down to none", () => {
+    const auto = (a: KindFigures) => streamStats(summary(a))[1]!;
+    expect(auto({ total: 1000, held: 1, auto: 999 }).sub).toBe("99% passed every check on their own");
+    expect(auto({ total: 1000, held: 0, auto: 1 }).sub).toBe("1% passed every check on their own");
+    expect(auto({ total: 8, held: 0, auto: 8 }).sub).toBe("100% passed every check on their own");
+    expect(auto({ total: 8, held: 0, auto: 6 })).toMatchObject({ value: 6, share: 0.75 });
+    expect(auto({ total: 0, held: 0, auto: 0 })).toMatchObject({ share: null, sub: "Nothing has signed up yet" });
+  });
+
+  it("counts everything under All sign-ups", () => {
+    expect(streamStats(summary({ total: 40, held: 3, auto: 30 }))[2]).toMatchObject({ key: "all", label: "All sign-ups", value: 40 });
+  });
+
+  it("measures each kind the role reads against the largest, in the desk's order", () => {
+    const bars = kindBars(summary({ total: 50, held: 2, auto: 40 }, {
+      SPONSOR: { total: 10, held: 2, auto: 8 },
+      ATHLETE: { total: 40, held: 0, auto: 32 },
+      GUARDIAN: { total: 0, held: 0, auto: 0 },
+    }));
+    expect(bars.map((b) => b.kind)).toEqual(["ATHLETE", "GUARDIAN", "SPONSOR"]);
+    expect(bars.map((b) => b.share)).toEqual([1, 0, 0.25]);
+    expect(bars[2]).toMatchObject({ label: "Sponsors", total: 10, held: 2 });
+    expect(kindBars(summary({ total: 0, held: 0, auto: 0 }))).toEqual([]);
+  });
+});
+
+describe("the desk's URL patches", () => {
+  it("keeps the other filter and always drops a legacy tab", () => {
+    expect(streamPatch({ kind: "ATHLETE", review: false }, { review: true })).toEqual({ kind: "ATHLETE", review: "1", tab: null });
+    expect(streamPatch({ kind: "ATHLETE", review: true }, { kind: "" })).toEqual({ kind: null, review: "1", tab: null });
+    expect(streamPatch({ kind: "", review: true }, { review: false })).toEqual({ kind: null, review: null, tab: null });
+    expect(streamPatch({ kind: "", review: false }, { kind: "SPONSOR" })).toEqual({ kind: "SPONSOR", review: null, tab: null });
+  });
+
+  it("turns an old ?tab= link into the explicit filter on the first change", () => {
+    /* `?tab=review` (the emails' link) reads as review; picking a kind must keep it. */
+    const f = streamParams({ tab: "review" });
+    expect(streamPatch(f, { kind: "GUARDIAN" })).toEqual({ kind: "GUARDIAN", review: "1", tab: null });
+    /* `?tab=ath` reads as Athletes; "All kinds" must really clear it. */
+    expect(streamPatch(streamParams({ tab: "ath" }), { kind: "" })).toEqual({ kind: null, review: null, tab: null });
+  });
+});
+
+describe("an empty list", () => {
+  const f = (over: Partial<StreamFilter>): StreamFilter => ({ kind: "", review: false, q: "", ...over });
+  it("says why, most specific first", () => {
+    expect(streamEmpty(f({ q: "zed", review: true, kind: "ATHLETE" }))).toMatchObject({ title: "No sign-ups match “zed”", filtered: true });
+    expect(streamEmpty(f({ review: true }))).toMatchObject({ title: "Nothing needs review", filtered: false });
+    expect(streamEmpty(f({ review: true, kind: "SPONSOR" })).title).toBe("No sponsors need review");
+    expect(streamEmpty(f({ kind: "GUARDIAN" }))).toMatchObject({ title: "No guardians have signed up yet", filtered: true });
+    expect(streamEmpty(f({}))).toMatchObject({ title: "No sign-ups yet", filtered: false });
   });
 });

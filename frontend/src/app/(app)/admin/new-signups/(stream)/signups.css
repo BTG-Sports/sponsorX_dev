@@ -1,0 +1,345 @@
+/* --------------------------------------------------------------------------
+   POL-FE-109 — /admin/new-signups redrawn like the athlete's Inventory and
+   Listings, in the Mission Control language (globals.css `.sx-ops-*`). The
+   page imports the applications desk's sheet first (`.sx-ap-*`: the entrance,
+   status cards, toolbar, tabs, row base, pill, loaders, the "How it works"
+   panel) and this one for what is the sign-ups' own.
+
+   - `.sx-su-rules`   the "Sign-up rules" link in the header.
+   - `.sx-su-meter`   the share bar in "Approved automatically".
+   - `.sx-su-kinds`   "Who signed up": one bar per kind, one hue.
+   - `.sx-su-cols`    the list's columns; `.sx-su-row` one sign-up (a div
+                      whose one link covers it); `[data-held]` its orange edge.
+   - `.sx-su-avatar`  the kind's mark; `.sx-su-kind` the kind in words.
+   - `.sx-su-go`      Review (orange, held) / Open.
+   - `.sx-su-card`    the same sign-up in the Cards view.
+   - `.sx-su-sec`, `.sx-su-edit*`   the sensitive-edits section under the list.
+   Reduced motion: no growing bars, no hover travel.
+   -------------------------------------------------------------------------- */
+
+/* ── header ───────────────────────────────────────────────────────────── */
+
+.sx-su-rules {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #cfe9ff;
+  background: rgba(10, 18, 30, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(99, 180, 248, 0.4);
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+  transition: color 0.25s ease, box-shadow 0.25s ease, transform 0.25s var(--sx-ease);
+}
+.sx-su-rules svg { transition: transform 0.3s var(--sx-ease); }
+.sx-su-rules:hover { color: #fff; box-shadow: inset 0 0 0 1px #9be0ff; transform: translate3d(0, -1px, 0); }
+.sx-su-rules:hover svg { transform: translateX(3px); }
+.sx-su-rules:focus-visible { outline: 2px solid #9be0ff; outline-offset: 2px; }
+
+/* ── status cards ─────────────────────────────────────────────────────── */
+
+/* the share of all sign-ups, under the number */
+.sx-su-meter {
+  position: relative;
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.07);
+}
+.sx-su-meter > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--c) 45%, transparent), var(--c));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--c) 70%, transparent);
+  transform-origin: left;
+  animation: sx-ops-grow 1.1s var(--sx-ease) var(--d, 0s) backwards;
+}
+
+/* who signed up: a bar per kind, measured against the largest */
+.sx-su-kinds { display: grid; gap: 7px; margin-top: 2px; }
+.sx-su-kinds li {
+  display: grid;
+  grid-template-columns: minmax(0, 6.2rem) minmax(1.5rem, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  line-height: 1.2;
+}
+.sx-su-kinds-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #9aa4b2; }
+.sx-su-kinds-bar {
+  position: relative;
+  display: block;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.07);
+}
+.sx-su-kinds-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #2e9bf5, #9be0ff);
+  box-shadow: 0 0 10px rgba(46, 155, 245, 0.7);
+  transform-origin: left;
+  animation: sx-ops-grow 1s var(--sx-ease) var(--d, 0s) backwards;
+}
+.sx-su-kinds-n { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: #fff; white-space: nowrap; }
+.sx-su-kinds-held { font-size: 10.5px; font-weight: 600; color: #fdba74; }
+@media (max-width: 1023px) {
+  /* below four-across (two columns): what needs you gets the wide card, the
+     other two numbers share a row, and the kinds take a full row, two by
+     two — no card left alone beside a gap */
+  .sx-ops .sx-su-stats > :first-child,
+  .sx-ops .sx-ap-stats .sx-su-stat-kinds { grid-column: 1 / -1; }
+  .sx-su-kinds { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
+}
+@media (max-width: 479px) {
+  .sx-su-kinds { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── toolbar ──────────────────────────────────────────────────────────── */
+
+/* one filter here: it keeps its own width and its label on one line (beside
+   a sidebar the search gives way first) */
+.sx-su .sx-ap-f { flex: none; }
+.sx-su .sx-ap-f button[aria-haspopup="listbox"] { white-space: nowrap; }
+@media (max-width: 639px) {
+  .sx-su .sx-ap-f { flex: 1 1 auto; }
+}
+
+/* ── the list ─────────────────────────────────────────────────────────── */
+
+.sx-ap-head.sx-su-cols,
+.sx-ap-row.sx-su-cols {
+  grid-template-columns: minmax(0, 2fr) 8.5rem 5.5rem minmax(0, 2fr) 6.75rem;
+}
+.sx-su-row[data-held] {
+  --c: #fb923c;
+  box-shadow: inset 0 0 0 1px rgba(251, 146, 60, 0.22), inset 3px 0 0 #f97a1f;
+  background: linear-gradient(100deg, rgba(48, 30, 18, 0.5), rgba(8, 14, 24, 0.55) 45%);
+}
+/* the row is a div; its link (`.sx-su-go`) covers it — so the row answers to
+   the pointer and to the link's focus the way a button row does */
+.sx-su-row:hover,
+.sx-su-row:focus-within {
+  transform: translate3d(4px, 0, 0);
+  background: linear-gradient(100deg, rgba(24, 42, 68, 0.85), rgba(10, 18, 30, 0.7));
+}
+.sx-su-row[data-held]:hover,
+.sx-su-row[data-held]:focus-within {
+  background: linear-gradient(100deg, rgba(64, 38, 20, 0.62), rgba(10, 18, 30, 0.7) 50%);
+}
+.sx-su-row:hover::before,
+.sx-su-row:focus-within::before { transform: translateX(100%); }
+.sx-su-row:hover::after,
+.sx-su-row:focus-within::after { opacity: 1; }
+
+/* the kind's mark: a chamfered plate, tinted per kind (the word is beside it) */
+.sx-su-avatar {
+  --t: #63b4f8;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  color: color-mix(in srgb, var(--t) 75%, #fff);
+  background:
+    radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--t) 30%, transparent), transparent 70%),
+    #0c1828;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--t) 55%, transparent);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  transition: box-shadow 0.3s ease;
+}
+.sx-su-avatar[data-kind="ORGANIZATION"],
+.sx-su-kind[data-kind="ORGANIZATION"] { --t: #a78bfa; }
+.sx-su-avatar[data-kind="ATHLETE"],
+.sx-su-kind[data-kind="ATHLETE"] { --t: #63b4f8; }
+.sx-su-avatar[data-kind="GUARDIAN"],
+.sx-su-kind[data-kind="GUARDIAN"] { --t: #5eead4; }
+.sx-su-avatar[data-kind="SPONSOR"],
+.sx-su-kind[data-kind="SPONSOR"] { --t: #f0abfc; }
+.sx-su-avatar.sx-ops-ghost { box-shadow: none; }
+
+.sx-su-kindcell { min-width: 0; }
+.sx-su-kind {
+  --t: #63b4f8;
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: #cbd5e1;
+}
+.sx-su-kind-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  background: var(--t);
+  box-shadow: 0 0 8px -1px var(--t);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.sx-su-state { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 5px; }
+.sx-su-why {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 11.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  color: #9aa4b2;
+}
+/* the tags keep their hover (the reason) above the row's covering link */
+.sx-su-why ul { position: relative; z-index: 2; }
+
+/* Review / Open — the row's one link, stretched over the whole row. The
+   link itself stays bare: a clip-path or a filter on it would clip, or
+   re-anchor, the `::after` that covers the row. The button is the span in it. */
+.sx-su-go { display: inline-flex; justify-self: end; outline: none; }
+.sx-su-go::after { content: ""; position: absolute; inset: 0; z-index: 1; }
+.sx-su-go-btn {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #cfe9ff;
+  background: rgba(10, 18, 30, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(99, 180, 248, 0.3);
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+  transition: color 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
+}
+.sx-su-go-btn svg { transition: transform 0.3s var(--sx-ease); }
+.sx-su-go[data-held] .sx-su-go-btn {
+  color: #0a0c10;
+  background: linear-gradient(90deg, #fb923c, #f97a1f);
+  box-shadow: none;
+  filter: drop-shadow(0 0 9px rgba(249, 122, 31, 0.45));
+}
+:is(.sx-su-row, .sx-su-card):hover .sx-su-go-btn { color: #fff; box-shadow: inset 0 0 0 1px #9be0ff; }
+:is(.sx-su-row, .sx-su-card):hover .sx-su-go[data-held] .sx-su-go-btn {
+  color: #0a0c10;
+  box-shadow: none;
+  filter: drop-shadow(0 0 14px rgba(249, 122, 31, 0.8));
+}
+:is(.sx-su-row, .sx-su-card):hover .sx-su-go-btn svg,
+.sx-su-go:focus-visible .sx-su-go-btn svg { transform: translateX(4px); }
+/* keyboard: a ring inside the button (an outline would be clipped away) */
+.sx-su-go:focus-visible .sx-su-go-btn { color: #fff; box-shadow: inset 0 0 0 2px #9be0ff; }
+.sx-su-go[data-held]:focus-visible .sx-su-go-btn { color: #0a0c10; box-shadow: inset 0 0 0 2px #fff; }
+.sx-su-go-ghost { display: block; justify-self: end; width: 5.25rem; height: 34px; }
+
+/* wide: the column's heading already says "Signed up" */
+@media (min-width: 900px) {
+  .sx-su-row .sx-su-when .sx-ap-wait-cap { display: none; }
+}
+
+/* phones and narrow screens: the row folds — who and the button on top,
+   then the kind and the day, then the status and why */
+@media (max-width: 899px) {
+  .sx-ap-row.sx-su-cols {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "who who go" "kind when when" "state state state";
+    gap: 10px 12px;
+    padding: 14px 16px;
+  }
+  .sx-su-row .sx-ap-who { grid-area: who; padding-right: 0; }
+  .sx-su-kindcell { grid-area: kind; }
+  .sx-su-row .sx-su-when { grid-area: when; flex-direction: row; align-items: baseline; gap: 6px; }
+  .sx-su-row .sx-su-state { grid-area: state; flex-direction: column; }
+  .sx-su-row .sx-su-go { grid-area: go; align-self: start; }
+  /* nothing to decide: the arrow alone; held keeps its word */
+  .sx-su-row .sx-su-go:not([data-held]) .sx-su-go-btn { padding: 0 9px; }
+  .sx-su-row .sx-su-go:not([data-held]) .sx-su-go-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .sx-su-go-ghost { grid-area: go; width: 2.25rem; }
+}
+
+/* ── the cards view ───────────────────────────────────────────────────── */
+
+.sx-su-card {
+  position: relative;
+  display: flex;
+  height: 100%;
+  min-height: 12.5rem;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px 20px;
+}
+.sx-su-card[data-held] { box-shadow: inset 0 3px 0 #f97a1f; }
+.sx-su-card:focus-within { --spot: 1; transform: translate3d(0, -4px, 0); }
+.sx-su-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 11.5px; color: #8a96a3; }
+.sx-su-card-foot { display: flex; justify-content: flex-end; margin-top: auto; }
+
+/* ── sensitive profile edits, under the list ──────────────────────────── */
+
+.sx-su-sec { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+.sx-su-sec-icon,
+.sx-su-key-edit {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #9be0ff;
+  background: rgba(46, 155, 245, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(99, 180, 248, 0.4);
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+}
+.sx-su-key-edit { width: 28px; height: 28px; }
+.sx-su-sec h2 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: #fff; }
+.sx-su-sec p { margin-top: 2px; max-width: 46rem; font-size: 12.5px; line-height: 1.5; color: #9aa4b2; }
+
+.sx-su-edits { display: grid; gap: 8px; }
+.sx-su-edit {
+  position: relative;
+  padding: 16px 18px;
+  font-size: 12px;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background: linear-gradient(100deg, rgba(18, 30, 48, 0.7), rgba(8, 14, 24, 0.55));
+  box-shadow: inset 0 0 0 1px rgba(99, 180, 248, 0.14);
+}
+.sx-su-edit[data-waiting] { box-shadow: inset 0 0 0 1px rgba(251, 146, 60, 0.22), inset 3px 0 0 #f97a1f; }
+.sx-su-edit > * + * { margin-top: 8px; }
+.sx-su-note {
+  padding: 18px 20px;
+  font-size: 12.5px;
+  color: #9aa4b2;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  background: linear-gradient(100deg, rgba(18, 30, 48, 0.6), rgba(8, 14, 24, 0.5));
+  box-shadow: inset 0 0 0 1px rgba(99, 180, 248, 0.14);
+}
+
+/* ── reduced motion ───────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-su-meter > span,
+  .sx-su-kinds-bar > span { animation: none; }
+  .sx-su-rules,
+  .sx-su-rules svg,
+  .sx-su-go-btn svg { transition: none; }
+  .sx-su-rules:hover,
+  .sx-su-row:hover,
+  .sx-su-row:focus-within,
+  .sx-su-card:focus-within { transform: none; }
+}

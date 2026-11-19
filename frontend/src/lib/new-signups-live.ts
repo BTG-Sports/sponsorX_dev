@@ -239,6 +239,8 @@ export type StreamRowView = {
   sub: string;
   when: string;
   badge: { label: string; tone: "accent" | "warn" | "neutral"; mark: string };
+  /** POL-FE-109 — the same status as the list's pill: its colour, and whether it is BTG's move (the dot pulses). */
+  pill: { label: string; tone: "amber" | "green" | "red"; act: boolean };
   reason: string;
   /** POL-FE-42 — the held row's problems as tags; when there are any they stand in for `reason`. */
   problems: ApiProblem[];
@@ -271,6 +273,84 @@ export function streamRowView(r: ApiStreamRow): StreamRowView {
     : "All checks passed";
   return {
     key: `${r.kind}-${r.id}`, kind: r.kind, mono: MONO[r.kind], kindWord: KIND_WORD[r.kind], name: r.name, sub: r.sub,
-    when: dayOf(r.signedUpAt), badge, reason, problems: r.state === "NEEDS_REVIEW" ? r.problems ?? [] : [], href: streamHref(r.kind, r.id), held,
+    when: dayOf(r.signedUpAt), badge, reason,
+    pill: { label: badge.label, tone: held ? "amber" : r.state === "REJECTED" ? "red" : "green", act: held },
+    problems: r.state === "NEEDS_REVIEW" ? r.problems ?? [] : [], href: streamHref(r.kind, r.id), held,
   };
+}
+
+/* --------------------------------------------------------------------------
+   POL-FE-109 — the desk redrawn like the athlete's Inventory: status cards
+   that carry every number, a two-tab bar (All sign-ups / Needs review), the
+   kind as a dropdown, and plain words for an empty list. Pure.
+   -------------------------------------------------------------------------- */
+
+export type StreamFilter = { kind: StreamKind | ""; review: boolean; q: string };
+
+export type StreamStat = {
+  key: "review" | "auto" | "all";
+  label: string;
+  value: number;
+  /** One line saying what the number holds. */
+  sub: string;
+  /** Something here waits on BTG: the card turns orange. */
+  alert: boolean;
+  /** 0..1 of every sign-up, for the card's meter; null when it has none. */
+  share: number | null;
+};
+
+/** A share as a whole percent that never rounds a part up to "all" or down to "none". */
+function percent(part: number, whole: number): number {
+  if (whole <= 0 || part <= 0) return 0;
+  if (part >= whole) return 100;
+  return Math.min(99, Math.max(1, Math.round((part / whole) * 100)));
+}
+
+/** The three number cards, from the summary (never from the page of rows). */
+export function streamStats(s: ApiStreamSummary): StreamStat[] {
+  const { total, held, auto } = s.all;
+  return [
+    {
+      key: "review", label: "Needs review", value: held, alert: held > 0, share: null,
+      sub: held ? "Held for you. Open each one to decide." : "Nothing is waiting on you.",
+    },
+    {
+      key: "auto", label: "Approved automatically", value: auto, alert: false, share: total ? Math.min(1, auto / total) : null,
+      sub: total ? `${percent(auto, total)}% passed every check on their own` : "Nothing has signed up yet",
+    },
+    { key: "all", label: "All sign-ups", value: total, alert: false, share: null, sub: "Everyone who has signed up, every kind" },
+  ];
+}
+
+export type KindBar = { kind: StreamKind; label: string; total: number; held: number; /** 0..1 of the largest kind — the bar's length. */ share: number };
+
+/** The kinds this role reads, in the desk's order, each measured against the largest. */
+export function kindBars(s: ApiStreamSummary): KindBar[] {
+  const kinds = STREAM_CHIPS.filter((c): c is { kind: StreamKind; label: string } => c.kind !== "" && s.kinds[c.kind] !== undefined);
+  const max = Math.max(1, ...kinds.map((c) => s.kinds[c.kind]!.total));
+  return kinds.map((c) => {
+    const f = s.kinds[c.kind]!;
+    return { kind: c.kind, label: c.label, total: f.total, held: f.held, share: f.total / max };
+  });
+}
+
+/** The URL patch for a tab or kind change. Always explicit, and it drops a
+ *  legacy `?tab=` (the old tabs' links), so that can never fight the filter. */
+export function streamPatch(f: Pick<StreamFilter, "kind" | "review">, change: { kind?: string; review?: boolean }): Record<string, string | null> {
+  const kind = change.kind !== undefined ? change.kind : f.kind;
+  const review = change.review !== undefined ? change.review : f.review;
+  return { kind: kind || null, review: review ? "1" : null, tab: null };
+}
+
+/** What an empty list says, most specific reason first. */
+export function streamEmpty(f: StreamFilter): { title: string; hint: string; filtered: boolean } {
+  const kind = STREAM_CHIPS.find((c) => c.kind === f.kind && c.kind !== "")?.label.toLowerCase();
+  if (f.q) return { title: `No sign-ups match “${f.q}”`, hint: "Try another name, team or email, or clear the search.", filtered: true };
+  if (f.review) {
+    return kind
+      ? { title: `No ${kind} need review`, hint: "Every one of them passed its checks. A held one shows here with the reason.", filtered: true }
+      : { title: "Nothing needs review", hint: "Every sign-up passed its checks. A held one shows here with the reason.", filtered: false };
+  }
+  if (kind) return { title: `No ${kind} have signed up yet`, hint: "They appear here as soon as their checks have run.", filtered: true };
+  return { title: "No sign-ups yet", hint: "Organizations, athletes, guardians and sponsors appear here once their checks have run.", filtered: false };
 }

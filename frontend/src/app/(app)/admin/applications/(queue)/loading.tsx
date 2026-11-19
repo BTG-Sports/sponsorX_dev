@@ -24,14 +24,15 @@ export default function Loading() {
             <div key={i} className="sx-ops-panel sx-ops-ghost relative h-[7.25rem]" />
           ))}
         </div>
-        <div className="mb-3 mt-6 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-2">
-            <div className="sx-ops-ghost h-9 w-64 max-w-full rounded-md" />
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="sx-ops-ghost hidden h-9 w-32 rounded-md sm:block" />
-            ))}
-          </div>
+        <div className="mb-2.5 mt-6 flex flex-wrap items-center justify-between gap-2">
+          <div className="sx-ops-ghost h-10 w-[25rem] max-w-full rounded-md" />
           <div className="sx-ops-ghost h-9 w-40 rounded-md" />
+        </div>
+        <div className="mb-3 flex flex-wrap gap-2">
+          <div className="sx-ops-ghost h-9 w-64 max-w-full rounded-md" />
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="sx-ops-ghost hidden h-9 w-32 rounded-md sm:block" />
+          ))}
         </div>
         <SkeletonRows />
       </div>

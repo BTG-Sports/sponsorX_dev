@@ -4,6 +4,8 @@ import {
   STATE_COPY,
   STATE_NEXT,
   nextMove,
+  stateBucket,
+  stateLook,
   trackSteps,
   waitShort,
   type LiveApplicationState,
@@ -21,6 +23,7 @@ const ALL: LiveApplicationState[] = [
   "ACTIVE",
   "REJECTED",
   "SUSPENDED",
+  "FEATURED",
 ];
 
 describe("waitShort", () => {
@@ -82,5 +85,25 @@ describe("nextMove", () => {
     for (const s of ["CHANGES_REQUESTED", "ACTIVE", "REJECTED"] as const) {
       expect(nextMove(s, true)).toMatch(/^Nothing/);
     }
+  });
+});
+
+/* The API's AthleteState has a ninth value, FEATURED (P9-BE-11): an
+   editorial profile nobody applied for. The desk crashed on it once
+   (reading .tone of undefined), so every helper covers it, and an unknown
+   state falls back instead of throwing. */
+describe("FEATURED and unknown states", () => {
+  it("covers FEATURED in every helper, under All only", () => {
+    expect(STATE_COPY.FEATURED).toBe("Featured");
+    expect(stateLook("FEATURED")).toEqual({ tone: "muted", next: "Waiting for them to claim it", act: false });
+    expect(trackSteps("FEATURED")[0]).toEqual({ label: "Featured", status: "now" });
+    expect(nextMove("FEATURED", true)).toMatch(/^Nothing yet/);
+    expect(stateBucket("FEATURED")).toBe("other");
+  });
+  it("never throws on a state the page doesn't know", () => {
+    const odd = "SOMETHING_NEW" as LiveApplicationState;
+    expect(stateLook(odd)).toEqual({ tone: "muted", next: "Open it for details", act: false });
+    expect(trackSteps(odd)).toHaveLength(1);
+    expect(nextMove(odd, true)).toBe("Nothing here yet.");
   });
 });

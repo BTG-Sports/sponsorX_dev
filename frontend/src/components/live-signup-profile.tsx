@@ -1,15 +1,21 @@
 import Link from "next/link";
 
+import { Glyph } from "@/components/athlete-inventory/glyphs";
+import { StatusPill } from "@/components/desk-kit";
 import { HomeFeaturePanel } from "@/components/home-feature-panel";
-import { LiveSignupReview } from "@/components/live-signup-review";
+import { LiveSignupReview, SignupDecision } from "@/components/live-signup-review";
 import { WhatsWrongPanel } from "@/components/problem-tags";
-import { Badge } from "@/components/ui";
+import { CheckRows, FactRows, FactTiles, ReasonRows, RecordHeader, RecordSection, Timeline } from "@/components/record-stage";
 import { momentOf } from "@/lib/new-signups-live";
 import { trustHint, trustLine } from "@/lib/content-trust";
 import type { HomeFeatureStatus } from "@/lib/home-feature";
-import { LIVE_KIND_WORDS, comingOfAgeHold, liveBadge, signupHref, type ApiSignupDetail } from "@/lib/signups-live";
+import { signupFacts, signupNextStep, signupPill } from "@/lib/record-ui";
+import { LIVE_KIND_WORDS, comingOfAgeHold, signupHref, type ApiSignupDetail } from "@/lib/signups-live";
 import { profileRateCardHref } from "@/lib/athlete-rates-live";
 import { apiFetch, fetchActor } from "@/server/api";
+
+import "@/app/(app)/admin/applications/(queue)/applications.css";
+import "@/app/(app)/admin/record.css";
 
 /* --------------------------------------------------------------------------
    One athlete's or guardian's sign-up, live — 2S1-FE-07 (design
@@ -27,10 +33,26 @@ import { apiFetch, fetchActor } from "@/server/api";
    the Featured athletes panel and why not, and pin / remove / approve. The
    API answers BTG admin and the Network Manager only; for anyone else the
    read fails and the section isn't drawn.
+
+   POL-FE-108 (2026-11-17) — redrawn. The owner: "the pages are too
+   confusing for a human … having many information at once can haywire a
+   human's brain". It was up to nine panels in a column beside a box of
+   buttons, two of them usually greyed out. Now, top to bottom:
+     1. the name with a kind mark, one line, ONE status pill and ONE button
+        ("Make a decision", or the one action that applies: "Reject Dana",
+        "Reinstate Dana"). The button opens the decision in a popup
+        (record-decide.tsx via SignupDecision). Nothing about deciding is
+        on the page itself: the owner turned down a "Your next step" card;
+     2. four tiles: who they look after (or their guardian), checks,
+        documents, when they signed up;
+     3. tabs, one topic at a time: Overview (what's wrong, anything flagged,
+        who they look after, the checks) · Details · Documents · Content &
+        rates (an approved athlete only) · History.
+   Reads, actions and links (the "#documents" and per-document anchors
+   included) are unchanged. Words: lib/record-ui.ts. Styles: admin/record.css.
    -------------------------------------------------------------------------- */
 
 const PATH = "/admin/new-signups";
-const section = "rounded-xl border border-line bg-surface p-4 sm:px-5";
 
 /** BTG's home-page status for this athlete, or null (another role, or no read) — then no controls. */
 async function homeStatus(id: string): Promise<HomeFeatureStatus | null> {
@@ -42,6 +64,8 @@ async function homeStatus(id: string): Promise<HomeFeatureStatus | null> {
   }
 }
 
+const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+
 export async function LiveSignupProfile({ owner, id }: { owner: "athletes" | "guardians"; id: string }) {
   const [res, home, who] = await Promise.all([
     apiFetch(`/signups/${owner}/${encodeURIComponent(id)}`),
@@ -50,166 +74,141 @@ export async function LiveSignupProfile({ owner, id }: { owner: "athletes" | "gu
   ]);
   if (res.status === 403 || res.status === 404) {
     return (
-      <div className="space-y-4">
-        <Link href={PATH} className="text-xs text-muted hover:text-text">← New sign-ups</Link>
-        <p className="text-sm">No sign-up matches this link — or your role can&rsquo;t open it.</p>
+      <div className="sx-rec space-y-4">
+        <Link href={PATH} className="sx-rec-back">
+          <Glyph ui="back" className="size-3.5" />
+          New sign-ups
+        </Link>
+        <p className="sx-rec-empty">No sign-up matches this link, or your role can&rsquo;t open it.</p>
       </div>
     );
   }
   if (!res.ok) throw new Error(`This sign-up couldn't be read (${res.status}).`);
   const s = (await res.json()) as ApiSignupDetail;
-  const badge = liveBadge(s, s.approvedAt);
   const hold = comingOfAgeHold(s);
+  const held = s.state === "NEEDS_REVIEW";
   /* POL-FE-42 — a held sign-up's problems, as tags at the top; they replace the plain "Why it needs review" list. */
-  const problems = s.state === "NEEDS_REVIEW" ? s.problems ?? [] : [];
+  const problems = held ? s.problems ?? [] : [];
   /* POL-FE-51 close-out — the rate card, for an approved athlete and a role that sets rates. */
   const rateCard = profileRateCardHref(s, who.status === "linked" ? who.actor.roles : []);
+  const kindWord = LIVE_KIND_WORDS[s.kind];
 
-  const before = (
+  /* ------------------------------------------------------------- overview */
+  const showChecks = !held && s.checks.length > 0;
+  const overviewEmpty = problems.length === 0 && !hold && !(held && s.reasons.length) && s.flags.length === 0 && s.guardianOf.length === 0 && !showChecks;
+  const overview = (
     <>
       <WhatsWrongPanel problems={problems} documents={s.documents} />
-      {/* POL-FE-02 / POL-BE-02 — a coming-of-age takeover the ID check held: why, and what Confirm takeover (the Actions panel) or Send back does. */}
+      {/* POL-FE-02 / POL-BE-02 — a coming-of-age takeover the ID check held: why, and what Confirm takeover or Send back does. */}
       {hold && (
-        <section aria-label="Coming of age held" className="rounded-xl border border-warn/45 bg-warn/8 p-4 sm:px-5">
-          <h2 className="text-sm font-semibold text-warn">{hold.title}</h2>
-          <ul className="mt-2">
-            {hold.reasons.map((r) => (
-              <li key={r} className="flex items-center gap-2.5 border-t border-warn/20 py-2.5 text-[13px]">
-                <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full bg-warn/15 text-[10px] font-bold text-warn">!</span>
-                <span className="min-w-0 flex-1">{r}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-xs leading-relaxed text-muted">{hold.confirm} {hold.refuse}</p>
-        </section>
+        <RecordSection title={hold.title} icon="alert" tone="amber" hint={`${hold.confirm} ${hold.refuse}`}>
+          <ReasonRows items={hold.reasons} />
+        </RecordSection>
       )}
-      <section aria-label="Details" className={section}>
-        <h2 className="text-sm font-semibold">Details</h2>
-        <dl className="mt-2 grid grid-cols-[7.5rem_minmax(0,1fr)] text-[13px] sm:grid-cols-[10rem_minmax(0,1fr)]">
-          {s.details.map((d) => (
-            <div key={d.label} className="contents">
-              <dt className="border-t border-line-soft py-2 pr-3 text-muted">{d.label}</dt>
-              <dd className="min-w-0 break-words border-t border-line-soft py-2">
-                {d.label === "Guardian" && s.guardian ? <Link href={signupHref("GUARDIAN", s.guardian.id)} className="hover:underline">{d.value}</Link> : d.value}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-      {/* P5-BE-10 — whether this athlete's drafts skip BTG's content review. */}
-      {s.kind === "ATHLETE" && s.contentTrust && (
-        <section aria-label="Content review" className={section}>
-          <h2 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-            Content review
-            <Badge tone={s.contentTrust.trusted ? "accent" : "neutral"}>{trustLine(s.contentTrust)}</Badge>
-          </h2>
-          <p className="mt-2 text-xs leading-relaxed text-muted">{trustHint(s.contentTrust)}</p>
-        </section>
+      {held && problems.length === 0 && s.reasons.length > 0 && (
+        <RecordSection title="Why it needs review" icon="alert" tone="amber">
+          <ReasonRows items={s.reasons} />
+        </RecordSection>
       )}
-      {s.kind === "ATHLETE" && home && <HomeFeaturePanel initial={home} name={s.name} />}
-      {rateCard && (
-        <section aria-label="Rate card" className={section}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold">Rate card</h2>
-              <p className="mt-1 text-xs leading-relaxed text-muted">
-                What {s.name} is paid for each NIL job. The Matching Studio can&rsquo;t shortlist an athlete for a job
-                with no rate on it.
-              </p>
-            </div>
-            <Link
-              href={rateCard}
-              className="inline-flex min-h-9 shrink-0 items-center rounded-lg border border-primary/40 px-3 text-xs font-semibold text-primary hover:bg-primary/10"
-            >
-              Open the rate card
-            </Link>
-          </div>
-        </section>
+      {s.flags.length > 0 && (
+        <RecordSection title="Flagged for BTG" hint="A flag never holds a sign-up. It is something to read." icon="alert" tone="amber">
+          <ReasonRows items={s.flags} />
+        </RecordSection>
       )}
       {s.guardianOf.length > 0 && (
-        <section aria-label="Athletes" className={section}>
-          <h2 className="text-sm font-semibold">Guardian of</h2>
-          <ul className="mt-2">
+        <RecordSection title="Looks after" hint="The athletes this guardian answers for. Rejecting the guardian rejects them too." icon="users">
+          <ul className="sx-rec-rows">
             {s.guardianOf.map((k) => {
-              const b = liveBadge(k);
+              const p = signupPill(k);
               return (
-                <li key={k.id} className="flex items-center gap-2.5 border-t border-line-soft py-2.5 text-[13px]">
+                <li key={k.id} className="sx-rec-row sx-rec-person">
                   <span className="min-w-0 flex-1">
-                    <Link href={signupHref("ATHLETE", k.id)} className="font-semibold hover:underline">{k.name}</Link>
-                    <span className="block text-[11px] text-muted">{k.sub}</span>
+                    <Link href={signupHref("ATHLETE", k.id)} className="sx-rec-person-name sx-rec-link-plain">{k.name}</Link>
+                    <span className="sx-rec-person-sub">{k.sub}</span>
                   </span>
-                  <Badge tone={b.tone}><span aria-hidden="true" className="mr-1">{b.mark}</span>{k.state === "AUTO_APPROVED" || k.state === "APPROVED" ? "Approved" : b.label}</Badge>
+                  <StatusPill tone={p.tone} act={p.act}>{k.state === "AUTO_APPROVED" || k.state === "APPROVED" ? "Approved" : p.label}</StatusPill>
                 </li>
               );
             })}
           </ul>
-        </section>
+        </RecordSection>
       )}
-      {s.state === "NEEDS_REVIEW" ? (
-        problems.length ? null : <ReasonList title="Why it needs review" items={s.reasons} />
-      ) : s.checks.length > 0 ? (
-        <section aria-label="Checklist when approved" className={section}>
-          <h2 className="text-sm font-semibold">Checklist when approved{s.approvedAt ? ` · ${momentOf(s.approvedAt)}` : ""}</h2>
-          <ul className="mt-2">
-            {s.checks.map((c) => (
-              <li key={c} className="flex items-center gap-2.5 border-t border-line-soft py-2.5 text-[13px]">
-                <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full bg-accent/15 text-[10px] font-bold text-accent">✓</span>
-                <span className="min-w-0 flex-1">{c}</span>
-                <Badge tone="accent">Passed</Badge>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-      {s.flags.length > 0 && <ReasonList title="Flagged for BTG" items={s.flags} />}
+      {showChecks && (
+        <RecordSection title="Checks" hint={`What it passed when it was approved${s.approvedAt ? ` · ${momentOf(s.approvedAt)}` : ""}`} icon="shield">
+          <CheckRows items={s.checks.map((c) => ({ key: c, label: c, ok: true }))} />
+        </RecordSection>
+      )}
+      {overviewEmpty && <p className="sx-rec-empty">Nothing was flagged, and no checks were recorded for this sign-up.</p>}
     </>
   );
 
-  const after = (
-    <section aria-label="Activity" className={section}>
-      <h2 className="text-sm font-semibold">Activity</h2>
-      {s.activity.length === 0 ? (
-        <p className="mt-2 text-xs text-muted">Nothing recorded yet.</p>
-      ) : (
-        <ol className="mt-2 text-xs">
-          {s.activity.map((a, i) => (
-            <li key={i} className="flex flex-col gap-0.5 border-t border-line-soft py-2 sm:flex-row sm:gap-3">
-              <span className="shrink-0 text-muted sm:w-32">{momentOf(a.at)}</span>
-              <span className="min-w-0 break-words">{a.text}</span>
-            </li>
-          ))}
-        </ol>
+  /* -------------------------------------------------------------- details */
+  const details = (
+    <RecordSection title="Details" hint={`What ${s.name.split(/\s+/)[0] ?? s.name} gave when signing up.`} icon="rows">
+      <FactRows
+        rows={s.details.map((d) => ({
+          label: d.label,
+          value: d.label === "Guardian" && s.guardian ? <Link href={signupHref("GUARDIAN", s.guardian.id)} className="sx-rec-link">{d.value}</Link> : d.value,
+        }))}
+      />
+    </RecordSection>
+  );
+
+  /* -------------------------------------------- content & rates (athlete) */
+  const hasExtras = s.kind === "ATHLETE" && Boolean(s.contentTrust || home || rateCard);
+  const extras = hasExtras ? (
+    <>
+      {/* P5-BE-10 — whether this athlete's drafts skip BTG's content review. */}
+      {s.contentTrust && (
+        <RecordSection title="Content review" icon="eye" hint={trustHint(s.contentTrust)}>
+          <span className="sx-rec-chip" data-tone={s.contentTrust.trusted ? "green" : "muted"}>{trustLine(s.contentTrust)}</span>
+        </RecordSection>
       )}
-    </section>
+      {home && <HomeFeaturePanel initial={home} name={s.name} />}
+      {rateCard && (
+        <RecordSection
+          title="Rate card"
+          icon="coin"
+          hint={`What ${s.name} is paid for each NIL job. The Matching Studio can’t shortlist an athlete for a job with no rate on it.`}
+          action={<Link href={rateCard} className="sx-rec-btn sx-rec-btn-sm" data-kind="quiet">Open the rate card</Link>}
+        >
+          {null}
+        </RecordSection>
+      )}
+    </>
+  ) : undefined;
+
+  /* -------------------------------------------------------------- history */
+  const history = (
+    <RecordSection title="Activity" icon="clock">
+      <Timeline items={s.activity.map((a) => ({ at: momentOf(a.at), text: a.text }))} />
+    </RecordSection>
   );
 
+  const next = signupNextStep(s);
+
   return (
-    <div className="space-y-5">
-      <div>
-        <Link href={s.state === "NEEDS_REVIEW" ? `${PATH}?tab=review` : PATH} className="text-xs text-muted hover:text-text">← New sign-ups</Link>
-        <div className="mt-2 flex flex-wrap items-center gap-2.5">
-          <h1 className="text-xl font-semibold tracking-tight">{s.name}</h1>
-          <Badge><span aria-hidden="true" className="mr-1">○</span>{LIVE_KIND_WORDS[s.kind]}</Badge>
-          <Badge tone={badge.tone}><span aria-hidden="true" className="mr-1">{badge.mark}</span>{badge.label}</Badge>
-        </div>
-      </div>
-      <LiveSignupReview signup={s} before={before} after={after} />
+    <div className="sx-rec">
+      <RecordHeader
+        back={{ href: held ? `${PATH}?tab=review` : PATH, label: "New sign-ups" }}
+        icon={s.kind === "ATHLETE" ? "trophy" : "shield"}
+        kind={s.kind}
+        title={s.name}
+        /* the detail read may leave `sub` out (the list's row carries it) */
+        meta={[!(s.sub ?? "").startsWith(kindWord) && kindWord, s.sub, `signed up ${day(s.signedUpAt)}`]}
+        pill={signupPill(s)}
+        /* the one button; where it stands and the choices are in its popup */
+        action={<SignupDecision signup={s} lede={`${next.title}. ${next.text}`} />}
+      />
+      <LiveSignupReview
+        signup={s}
+        tiles={<FactTiles facts={signupFacts(s)} />}
+        overview={overview}
+        details={details}
+        extras={extras}
+        history={history}
+        overviewDot={held || s.flags.length > 0 || Boolean(hold)}
+      />
     </div>
-  );
-}
-
-function ReasonList({ title, items }: { title: string; items: string[] }) {
-  return (
-    <section aria-label={title} className={section}>
-      <h2 className="text-sm font-semibold">{title}</h2>
-      <ul className="mt-2">
-        {items.map((r) => (
-          <li key={r} className="flex items-center gap-2.5 border-t border-line-soft py-2.5 text-[13px]">
-            <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full bg-warn/15 text-[10px] font-bold text-warn">!</span>
-            <span className="min-w-0 flex-1">{r}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }
