@@ -156,3 +156,72 @@
     staging origin.
 - **Tracker:** `2S4-BE-18` Done. `2S4-FE-10` (HeckerCreatives) is what makes the chat actually live in
   browsers. The fix notes are on 2S4-FE-07/08/09.
+
+## End of day (rcfworks)
+
+- **The socket, start to finish:**
+  - **Why:** the owner asked why sockets weren't built. I had left them out of the Deal Chat spec
+    without asking, which is now a standing rule against doing that (memory
+    `never-cut-scope-without-asking`).
+  - **Audit:** I audited HeckerCreatives' in-API version.
+  - **Decisions (owner):** its own Railway service, `socketservice.sponsorx.net`, option B passes.
+  - **Built and live:** 2S4-BE-18 (#474) is live on staging and production, and Done (#479/#480).
+- **Deployed:** release = main = 1ce818ca on both environments. That includes the socket service
+  code, the database triggers, and HeckerCreatives' Deal Chat screens and POL-FE-108/109.
+- **For HeckerCreatives:** `2S4-FE-10` (1.5 days) makes the chat live in browsers. The fix notes
+  on 2S4-FE-07/08/09 make them depend on it.
+- **Backend board:** no backend task can start. P8-OPS-03 waits on Stripe go-live and P2-INT-02 on
+  Clerk Pro; the wallet passes, P9-DATA-01 and Phase 6 are parked.
+- **Stage Progress:** rows for 2026-11-18 and 2026-11-19, both at 320 Done. Days left: 15.5 on
+  11-18, and 27.5 on 11-19, because the upload audit's 8 NEXT tasks (12 days) joined Phase 1 that day.
+- **Restored:** yesterday's Stage Progress row and end-of-day entry never reached main_development.
+  The commit landed on the POL-BE-104 branch a minute after #471 merged, so both were added back
+  today.
+- **Lesson:** don't push to a branch whose pull request may already be merged. Check
+  `gh pr view <n> --json state` first, or put end-of-day changes on their own branch.
+- **Clean-up:** the test database, toolkits and key files were deleted after use, and no secret is
+  on disk.
+
+## Upload audit: SponsorX NEXT and every upload (rcfworks, read-only)
+- **Asked by the owner:** NEXT is a magazine, but there's no page to upload photos. Also, check that
+  every upload works (photo, video, and so on), since nothing audits that.
+- **Written up:** [documentation/SponsorX-Upload-Audit.md](../../documentation/SponsorX-Upload-Audit.md),
+  listing all 16 uploads with their screens, file types, size limits, checks and tests.
+- **NEXT:**
+  - students can upload a JPG, PNG or PDF draft, and sponsors their ad artwork;
+  - readers never see a photo or an ad (the public edition is text only);
+  - BTG can't upload anything;
+  - no cover, no press PDF, no production board, no video;
+  - an approved "DESIGN" piece gets a kind that doesn't exist.
+- **Elsewhere:**
+  - team, school and sponsor logos are saved without checking the file arrived;
+  - five uploads are never tested with a real file;
+  - CI's browser tests fake the upload step;
+  - nothing checks the live storage settings. That gap is what broke every photo and logo upload on
+    2026-11-16.
+- **Proposed, not on the board yet:**
+  - backend `P9-BE-25`…`28` and `POL-BE-108`…`111`;
+  - frontend `P9-FE-13`…`16` (HeckerCreatives);
+  - open question for the owner: video in the magazine.
+
+## The upload audit's 12 tasks, and P9-BE-25 built (rcfworks)
+- **Owner, 2026-11-19:** "1. yes, 2. any format". So the 12 tasks are on the board, and the magazine
+  takes any file format.
+  - **Phase 1 plan:** `P9-BE-25`…`28`, plus `P9-FE-13`…`16` (HeckerCreatives).
+  - **polish.md:** `POL-BE-110`…`113`, in a new group K. Items 108 and 109 were taken, so the audit's
+    proposed `POL-BE-108`…`111` became `POL-BE-110`…`113`.
+  - **Tracker:** 8 rows on Phase 1 (Order 209.88–209.95) and 4 on Polish (Order 144–147). The
+    autofilter, Status list and highlighting ranges are extended. The Dashboard ranges (400 and 200)
+    already cover the new rows.
+- **`P9-BE-25`, Code review ([#483](https://github.com/BTG-Sports/sponsorX_dev/pull/483)):** any-format uploads for edition content. Up to 2 GB, signed for the
+  exact type and size, and checked on save.
+  - A piece added by title can be given its file once.
+  - Files a browser shouldn't open in place are signed as downloads.
+  - Student drafts take any format too. "DESIGN" is now a real content kind.
+- **Checks:** full backend suite 279 files, 3,995 tests; lint and backend build clean. Frontend build
+  not run: no frontend file changed.
+- **For HeckerCreatives:** the student's file picker still allows only JPG, PNG and PDF up to 20 MB.
+  Opening it is part of `P9-FE-13`.
+- **Test database:** run on the portable Postgres, then stopped and deleted. Disk was down to 252 MB.
+  The zonky archive unpacks three 55 MB copies of `libicudata`, so link two of them to the third
+  next time.
