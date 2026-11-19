@@ -3269,11 +3269,18 @@ the blockers and today's content review findings.
   - The four tests upload for real in CI, and fail if the storage refuses.
   - The stand-in stays only for a laptop with no storage running.
 - **Delivered (2026-11-19, rcfworks, Code review):**
-  - **CI's browser job** (`.github/workflows/ci.yml`, e2e) starts a real MinIO and makes the two buckets, with the public one readable by anyone, as on R2.
-  - **The upload rule:** `MINIO_API_CORS_ALLOW_ORIGIN` is the test site only (`http://127.0.0.1:3100`), like staging's rule for its web origin. The job checks that the test site's preflight is allowed and another site's is not, and stops if not.
-  - **Settings:** `S3_ENDPOINT` points at MinIO, and the in-memory stand-in is no longer used in CI.
-  - **`e2e/support/object-store.ts`:** under `CI`, the browser's signed PUT is never answered by the test. No store at all is a failure, not a skipped step. On a laptop, the stand-in remains.
-  - **Checked:** the workflow parses. Docker isn't available on this Mac, so the job's first run on the pull request is its test.
+  - **First attempt:** real MinIO in CI. It failed because MinIO's server image is no longer published (`pull access denied for minio/minio`).
+  - **What CI uses instead:** the e2e object store (`e2e/support/object-store-standin.mjs`) in a new **strict** mode (`E2E_STORE_STRICT=1`), held to what R2 enforces:
+    - **The upload rule:** only `E2E_STORE_ALLOW_ORIGIN` (the test site, `http://127.0.0.1:3100`, as staging allows only its web origin) gets a preflight and an allow-origin. Another site's browser upload fails, as it did on 2026-11-16.
+    - **Signed links:** every signed PUT and GET is re-signed with the API's keys and compared, so a wrong type, length, key, download setting or an expired link is refused.
+    - Requests the API makes itself, signed in a header, pass as they do on R2.
+  - **The check before the suite:** CI's e2e job confirms the store allows the test site, refuses another site, and refuses a forged signed upload. It stops if not.
+  - **No faking in CI:** under `CI`, `e2e/support/object-store.ts` never answers the browser's PUT itself, and no store is a failure. Laptops keep the relaxed mode.
+  - **Checked here:**
+    - the strict store, run locally: test site preflight 204, another site 403, signed PUT 200, wrong type 403, tampered 403, signed GET 200 with its download setting, forged GET 403;
+    - the CI check step, run locally;
+    - the workflow parses.
+  - The e2e suite's run on the pull request is the end-to-end test.
 
 ### 113. Nothing checks that the live storage accepts uploads [§26, upload audit §4]
 `POL-BE-113` · *Silent* · confirmed (upload audit, 2026-11-19; it already broke once, 2026-11-16)
