@@ -23,7 +23,7 @@ import type { AddressInfo } from "node:net";
 import { GetObjectCommand, PutObjectCommand, type S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-export type StoredObject = { body: Buffer; type: string };
+export type StoredObject = { body: Buffer; type: string; cacheControl?: string };
 
 export type ObjectStore = {
   endpoint: string;
@@ -96,7 +96,8 @@ export async function startObjectStore(): Promise<ObjectStore> {
             res.end('<?xml version="1.0" encoding="UTF-8"?><Error><Code>SignatureDoesNotMatch</Code></Error>');
             return;
           }
-          objects.set(id, { body, type: req.headers["content-type"] ?? "application/octet-stream" });
+          const cacheControl = req.headers["cache-control"];
+          objects.set(id, { body, type: req.headers["content-type"] ?? "application/octet-stream", ...(cacheControl ? { cacheControl } : {}) });
           res.writeHead(200, { ETag: '"x"' });
           res.end();
         }, (error: unknown) => {

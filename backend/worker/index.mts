@@ -54,6 +54,7 @@ const HANDLED_JOBS = new Set<string>([
   "notify.campaignLive",
   "reward.generateQr",
   "image.derive",
+  "edition.pictures",
   "tracking.resolveGeo",
   "zoho.ingestInvoice",
   "athlete.importCohort",
@@ -105,6 +106,7 @@ import { sweepAutoStaffing, sweepStalledStaffing } from "../src/domain/auto-staf
 import { sweepCampaignLaunches } from "../src/domain/campaign-launch.ts";
 import { STUDENT_DIGEST_HOUR_UTC, sendStudentApprovalDigests, sweepStudentAutomation } from "../src/domain/student-auto.ts";
 import { sweepEditionStages } from "../src/domain/edition-automation.ts";
+import { sweepEditionPictures, syncEditionPictures } from "../src/domain/edition-pictures.ts";
 import { sweepHeldSales } from "../src/domain/ad-sale-auto.ts";
 import { payOutClosedAccounts, purgeExpiredClosures } from "../src/domain/account-closure.ts";
 import { runNightlyFactCheck, FACT_CHECK_HOUR_UTC } from "../src/domain/fact-nightly.ts";
@@ -732,6 +734,14 @@ async function main(): Promise<void> {
     );
   });
 
+  /* P9-BE-26 — an edition published or cancelled: its public copies now,
+     rather than at the next sweep. The sweep repairs anything this misses. */
+  await ensureQueue("edition.pictures");
+  await boss.work<{ editionId: string }>("edition.pictures", async ([job]) => {
+    const r = await syncEditionPictures(job.data.editionId);
+    log(`[worker] edition.pictures ${job.data.editionId} ${JSON.stringify(r)}`);
+  });
+
   /* P7-DATA-02 — a SWEEP ON A TIMER, not a queued job per subject.
   
      Nothing enqueues this: totals are derived from MetricDaily, so there is
@@ -959,6 +969,10 @@ async function main(): Promise<void> {
         if (stages.moved || stages.failed || sales.sold || sales.failed) {
           log(`[worker] editions ${JSON.stringify(stages)} held sales ${JSON.stringify(sales)}`);
         }
+        /* P9-BE-26 — then every published edition's public copies: made when
+           missing, taken down when a piece stops qualifying (a right ended). */
+        const pictures = await sweepEditionPictures();
+        if (pictures.made || pictures.removed || pictures.failed) log(`[worker] edition pictures ${JSON.stringify(pictures)}`);
       })
       .catch((error: unknown) => logError("[worker] edition sweep failed, will retry:", error));
   editionTimer = setInterval(editionSweep, EDITION_SWEEP_INTERVAL_MS);

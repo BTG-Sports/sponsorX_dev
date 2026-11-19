@@ -172,3 +172,34 @@ export async function inspectDocument(bytes: Buffer, declaredType: string): Prom
     clearTimeout(timer);
   }
 }
+
+/**
+ * P9-BE-26 — a PDF's first page, drawn as a PNG no larger than `maxSide`
+ * pixels on its long side: how a sponsor's PDF ad appears in the public
+ * reader. Same safeguards as the check above (no fonts loaded, a time
+ * limit). Null when the file isn't a PDF that opens and draws.
+ */
+export async function drawFirstPdfPage(bytes: Buffer, maxSide = 2000): Promise<Buffer | null> {
+  if (sniffType(bytes.subarray(0, 1024)) !== "application/pdf") return null;
+  const lib = await loadPdfJs();
+  const task = lib.getDocument({ data: new Uint8Array(bytes), disableFontFace: true, useSystemFonts: false, stopAtErrors: false, verbosity: 0 });
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), INSPECT_TIMEOUT_MS); });
+  const draw = async (): Promise<Buffer | null> => {
+    const pdf = await task.promise;
+    if (pdf.numPages < 1) return null;
+    const page = await pdf.getPage(1);
+    const base = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: Math.min(4, maxSide / Math.max(base.width, base.height)) });
+    const factory = pdf.canvasFactory as { create(width: number, height: number): { canvas: { toBuffer(type: "image/png"): Buffer }; context: unknown } };
+    const { canvas, context } = factory.create(Math.ceil(viewport.width), Math.ceil(viewport.height));
+    await page.render({ canvasContext: context, canvas, viewport } as unknown as Parameters<typeof page.render>[0]).promise;
+    return canvas.toBuffer("image/png");
+  };
+  try {
+    return await Promise.race([draw().catch(() => null), timeout]);
+  } finally {
+    clearTimeout(timer);
+    await task.destroy().catch(() => {});
+  }
+}
