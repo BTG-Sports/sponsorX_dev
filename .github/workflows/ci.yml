@@ -323,11 +323,13 @@ jobs:
       # stop a scripted attacker stop the suite instead. Scaled up here, for
       # this job only (rate-limit.ts, limitMultiplier); never set in production.
       RATE_LIMIT_MULTIPLIER: "100"
-      # No MinIO here: Playwright starts an in-memory object store
-      # (e2e/support/object-store-standin.mjs) and the API presigns against
-      # it, so an upload's PUT lands and the API's check that it landed finds it.
-      E2E_OBJECT_STORE_STANDIN: "1"
-      S3_ENDPOINT: http://127.0.0.1:9100
+      # POL-BE-112 — a REAL object store (MinIO, started below) with staging's
+      # upload rule: only the test website's address may upload to it from a
+      # browser. The browser's signed PUT is what's tested, so a broken upload
+      # — a bad signature, a missing CORS rule — fails CI. The in-memory
+      # stand-in (e2e/support/object-store-standin.mjs) is for laptops only.
+      S3_ENDPOINT: http://127.0.0.1:9000
+      R2_PUBLIC_BASE_URL: http://127.0.0.1:9000/sponsorx-public
       # The API validates both Clerk keys at boot; the fan routes never call
       # Clerk, so the test instance's keys are enough.
       CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY_TEST }}
@@ -379,6 +381,28 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "ALTER DATABASE sponsorx_e2e SET sponsorx.audit_purge = 'on'"
           # 2S8-OPS-02 — UTC by construction, as the unit job's database.
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "ALTER DATABASE sponsorx_e2e SET timezone TO 'UTC'"
+
+      # POL-BE-112 — MinIO as staging's R2: the two buckets (the public one
+      # world-readable), and a browser upload rule for the test site only
+      # (staging's sponsorx-public / sponsorx-private rule: its web origin).
+      - name: Start the object store
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=sponsorx -e MINIO_ROOT_PASSWORD=sponsorx-dev-secret \
+            -e MINIO_API_CORS_ALLOW_ORIGIN=http://127.0.0.1:3100 \
+            minio/minio:latest server /data
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:9000/minio/health/live && break; sleep 1; done
+          docker run --rm --network host --entrypoint sh minio/mc:latest -c "\
+            mc alias set local http://127.0.0.1:9000 sponsorx sponsorx-dev-secret && \
+            mc mb local/sponsorx-public && mc mb local/sponsorx-private && \
+            mc anonymous set download local/sponsorx-public"
+          # The rule is real: the test site's preflight is allowed, another site's is not.
+          allow() { curl -s -D - -o /dev/null -X OPTIONS http://127.0.0.1:9000/sponsorx-private/x \
+            -H "Origin: $1" -H 'Access-Control-Request-Method: PUT' -H 'Access-Control-Request-Headers: content-type' \
+            | tr -d '\r' | awk 'tolower($1)=="access-control-allow-origin:"{print $2}'; }
+          test "$(allow http://127.0.0.1:3100)" = "http://127.0.0.1:3100"
+          test -z "$(allow https://elsewhere.invalid)"
+          echo "upload rule: the test site only"
 
       - name: Run the E2E suite
         run: npm run e2e

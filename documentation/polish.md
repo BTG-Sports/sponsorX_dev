@@ -3254,6 +3254,12 @@ the blockers and today's content review findings.
   - CI's browser job runs a real test storage, with the same upload rule as staging.
   - The four tests upload for real in CI, and fail if the storage refuses.
   - The stand-in stays only for a laptop with no storage running.
+- **Delivered (2026-11-19, rcfworks, Code review):**
+  - **CI's browser job** (`.github/workflows/ci.yml`, e2e) starts a real MinIO and makes the two buckets, with the public one readable by anyone, as on R2.
+  - **The upload rule:** `MINIO_API_CORS_ALLOW_ORIGIN` is the test site only (`http://127.0.0.1:3100`), like staging's rule for its web origin. The job checks that the test site's preflight is allowed and another site's is not, and stops if not.
+  - **Settings:** `S3_ENDPOINT` points at MinIO, and the in-memory stand-in is no longer used in CI.
+  - **`e2e/support/object-store.ts`:** under `CI`, the browser's signed PUT is never answered by the test. No store at all is a failure, not a skipped step. On a laptop, the stand-in remains.
+  - **Checked:** the workflow parses. Docker isn't available on this Mac, so the job's first run on the pull request is its test.
 
 ### 113. Nothing checks that the live storage accepts uploads [§26, upload audit §4]
 `POL-BE-113` · *Silent* · confirmed (upload audit, 2026-11-19; it already broke once, 2026-11-16)

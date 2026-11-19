@@ -261,3 +261,7 @@
   - Every upload now has a real-file test: dispute documents, the two logos and the photo were
     added, and a completeness check fails if a new upload has none.
   - Full suite 285 files, 4,026 tests.
+- **POL-BE-112, Code review:** CI's browser tests now upload for real.
+  - A MinIO runs in the e2e job, with staging's upload rule (the test site only). The job checks
+    the rule, and the e2e helper refuses to fake the upload in CI.
+  - Not runnable on this Mac (no Docker), so CI on the PR is the test.
