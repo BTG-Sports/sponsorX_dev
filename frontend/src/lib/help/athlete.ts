@@ -28,22 +28,22 @@ export const content: HelpContent = {
       steps: [
         {
           title: "Start your application",
-          body: "Open the Join page and press \"Start application\". If you started before on this device, the button says \"Resume — section N of M\" instead.",
+          body: "Open the Join page and press \"Start application\" at the top of the panel. The application opens on its own page. If you started before on this device, the button says \"Resume — section N of M\" instead.",
           route: "/join",
           shot: "athlete/apply-and-approval-1",
-          capture: {"highlight":"getByRole('button', { name: /Start application|Resume — section/ })"},
+          capture: {"highlight":"getByRole('link', { name: /Start application|Resume — section/ })"},
         },
         {
           title: "Work through each section",
-          body: "One section per screen: Identity, Sport & team, Location, Social accounts, Content capabilities, Brand interests, Restrictions & conflicts, Payment recipient and Agreement. Press \"Save and continue\" after each, or \"Save and finish later\" to come back.",
-          route: "/join",
+          body: "One section per screen: Identity, Sport & team, Location, Social accounts, Content capabilities, Brand interests, Restrictions & conflicts, Payment recipient and Agreement. Press \"Save and continue\" after each. The list on the left shows where you are, and you can go back to a finished section from it. To stop, press \"Save and finish later\" at the top right: your answers stay on this device.",
+          route: "/join/apply",
           shot: "athlete/apply-and-approval-2",
-          capture: {"highlight":"getByRole('button', { name: 'Save and continue' })","needs":"An application in progress (past the start screen)."},
+          capture: {"highlight":"getByRole('button', { name: 'Save and continue' })"},
         },
         {
           title: "Accept and submit",
           body: "On the Agreement section, read the Content Collaboration Agreement, tick the box (adults also tick the rules box), then press \"Submit application\". If you're under 18 you also name your guardian here.",
-          route: "/join",
+          route: "/join/apply",
           shot: "athlete/apply-and-approval-3",
           capture: {"highlight":"getByRole('button', { name: 'Submit application' })","needs":"All earlier sections filled in."},
         },

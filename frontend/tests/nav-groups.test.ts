@@ -82,7 +82,8 @@ describe("P1-ART-21 · sidebar groups", () => {
         ["Campaigns", ["Campaigns", "Intelligence", "Requests"]],
         ["Marketplace", ["Cart", "Orders", "Packages", "Shop"]],
         /* POL-FE-19: Team joins Billing; the inert Messages and Settings are gone. */
-        ["Account", ["Billing", "Team"]],
+        /* POL-FE-102: Account details joins them, first A to Z. */
+        ["Account", ["Account details", "Billing", "Team"]],
       ]);
       expect(SPONSOR_NAV.every((i) => i.href !== "#" && !i.pending)).toBe(true);
     });

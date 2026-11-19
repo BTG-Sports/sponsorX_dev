@@ -25,7 +25,10 @@ export const SPONSOR_NAV: NavItem[] = [
      Team is the admin's people (POL-FE-19). The inert "Messages" and
      "Settings" entries went with POL-FE-19 — nothing is behind them, and
      polish.md §19 says hide what isn't built. */
-  { href: "/sponsor/invoices", label: "Billing", icon: "card", group: "Account", groupIcon: "gear" },
+  /* POL-FE-102 — the company's details and the person's own, on one page. First A to Z, so it carries the group's glyph.
+     A Sponsor Viewer sees it too (read only). */
+  { href: "/sponsor/account", label: "Account details", icon: "user", group: "Account", groupIcon: "gear" },
+  { href: "/sponsor/invoices", label: "Billing", icon: "card", group: "Account" },
   { href: "/sponsor/team", label: "Team", icon: "users", group: "Account" },
 ];
 

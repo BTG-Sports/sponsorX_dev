@@ -122,6 +122,11 @@ const RUDE = String.raw`\b(f+u+c*k+\w*|fu+c+k*\w*|sh[i1]t+\w*|b[i1]tch\w*|a+ss+h
 
 async function settle(page) {
   await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+  /* A public page (/join, /join/apply, /brief) opens under the boot screen
+     (landing-loader.tsx), which stays up a moment after the network is quiet.
+     Wait for it to take itself away, or the picture is of the loader — which
+     is what the /join step showed until 2026-11-19. Portal pages have none. */
+  await page.waitForFunction(() => !document.querySelector('[data-testid="landing-loader"]'), null, { timeout: 12000 }).catch(() => {});
   await page.addStyleTag({ content: CALM }).catch(() => {});
   await page.evaluate(() => document.querySelectorAll("nextjs-portal").forEach((n) => n.remove())).catch(() => {});
   await page
