@@ -4211,9 +4211,9 @@ The screens P9-FE-01 and P9-FE-02 left "not connected". The student's Assignment
 - **Done when:** A signed-in student sees their real assignments, submits a draft and reads the advisor's note; a signed-in advisor reviews their school's pieces by tab, approves or sends one back with a note, and assigns new work; neither screen shows "not connected" or sample data to a signed-in person
 - **Reference:** Spec §7, §8
 
-### ▶ `P9-BE-25` · Uploads for edition content, in any format
+### ✅ `P9-BE-25` · Uploads for edition content, in any format
 
-**Order** 209.88 · **BE** · **Where:** Code · **2d** · **Code review**
+**Order** 209.88 · **BE** · **Where:** Code · **2d** · **Done**
 
 Raised 2026-11-19 by the programme owner's upload audit ([SponsorX-Upload-Audit.md](SponsorX-Upload-Audit.md) §2). Today BTG can add a piece of edition content only as a title: the form has no file, and there's no way to upload one. The API also stores any file reference it's sent, unchecked. The owner decided on 2026-11-19 that the magazine takes **any format**: photos, video, PDFs and design files such as InDesign or Photoshop.
 
@@ -4266,7 +4266,7 @@ Raised 2026-11-19 by the programme owner's upload audit ([SponsorX-Upload-Audit.
     - two new flows in `backend/tests/private-upload-pins.test.ts`: edition content (a video) and a student's draft (a video);
     - the isolation sweep covers the new routes;
     - `student-assignments.test.ts` was updated to the any-format rule.
-  - **Checked:** the full backend suite passed (279 files, 3,995 tests), with lint and build clean.
+  - **Checked:** the full backend suite passed (279 files, 3,995 tests), with lint and build clean. CI passed on #483. It reached main through #482 and was deployed to production on 2026-11-19 (release 94214a77).
 
 ### ▶ `P9-BE-26` · Photos, video and ads in the public reader
 
