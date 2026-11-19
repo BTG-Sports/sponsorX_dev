@@ -133,3 +133,26 @@
 - **Fix tasks for HeckerCreatives:** 2S4-FE-07, 2S4-FE-08 and 2S4-FE-09 (all at Code review) were
   built on the removed in-API socket. Each now has a Fix note in the phase plan and the tracker, and
   depends on `2S4-FE-10`, which must land before they're Done.
+
+## 2S4-BE-18 live on staging and production; Done (rcfworks)
+
+- **Deploy:** #478 merged, main's CI green, `deploy-daily` → release = main = 1ce818ca, on both
+  environments.
+- **Staging:** `socketservice` was connected to `release`, then deployed. The staging api was
+  redeployed so its relay picks up the socket service's private address.
+- **Production** (owner: "go ahead with production"):
+  - **The service:** `socketservice-production`. Railway won't add a staging-only service to
+    production, so it's a separate service, like `Postgres-production`.
+  - **Settings and DNS:** its own Ed25519 pair and secret, origins `https://sponsorx.net,https://www.sponsorx.net`,
+    and the domain `socketservice.sponsorx.net` (`CNAME → p2zs841y.up.railway.app`, DNS only, plus the
+    verification TXT).
+  - **Then:** connected to `release`, deployed, and the production api redeployed.
+- **Checked on both:**
+  - `/health` 200, the domain verified with a valid certificate;
+  - the api's private address resolves and the relay is running;
+  - a test notice through the database is delivered;
+  - the public publish door answers 404;
+  - no pass, a forged pass, and foreign origins are refused, and production also refuses the
+    staging origin.
+- **Tracker:** `2S4-BE-18` Done. `2S4-FE-10` (HeckerCreatives) is what makes the chat actually live in
+  browsers. The fix notes are on 2S4-FE-07/08/09.

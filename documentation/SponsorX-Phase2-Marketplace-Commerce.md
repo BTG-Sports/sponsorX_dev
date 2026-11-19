@@ -1232,9 +1232,9 @@ Raised by the programme owner on 2026-11-17. Between placing an order and paying
   - **Also:** `deal-chat.test.ts` covers the amount step, and the tenant-isolation sweep covers the two new routes.
   - **The switch:** `DEAL_CHAT` and `DEAL_CHAT_SIGNING_WORKING_DAYS` are recorded in `SponsorX-Switches.md`. Every Deal Chat route is in OpenAPI.
 
-### 🔎 `2S4-BE-18` · The live socket service
+### ✅ `2S4-BE-18` · The live socket service
 
-**Order** 36.95 · **BE** · **Where:** Code + console · **3d** · **Code review**
+**Order** 36.95 · **BE** · **Where:** Code + console · **3d** · **Done**
 
 The owner decided this on 2026-11-19: the socket gets its own Railway service, shared by Deal Chat and the INFINEX game, at `socketservice.sponsorx.net` (`socketservice-staging.sponsorx.net` on staging), with its own connection pipeline.
 
@@ -1264,7 +1264,12 @@ The owner decided this on 2026-11-19: the socket gets its own Railway service, s
     - the triggers: migration `20261119120000_live_events`.
     - Tests: `backend/tests/live-events.test.ts` (9, real database).
   - **CI:** installs, audits, builds and tests the socket service.
-  - **Left:** the Railway service, keys, settings and DNS on staging, then production (spec §8). The web app's side is `2S4-FE-10`.
+  - **Live, 2026-11-19, Done:**
+    - **Staging:** `socketservice` at `socketservice-staging.sponsorx.net`.
+    - **Production:** `socketservice-production` at `socketservice.sponsorx.net`.
+    - **Each environment:** its own key pair and secret, Cloudflare DNS, one replica, deployed from `release`.
+    - **Checked on both:** health, certificate, the relay over the private network, the private publish door, and the refusals (spec §8).
+  - **The web app's side** is `2S4-FE-10` (HeckerCreatives), and the screens' fix notes are on 2S4-FE-07/08/09.
 
 ### ⏸ `2S4-FE-10` · Deal Chat on the socket service
 
