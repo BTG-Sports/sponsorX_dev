@@ -181,3 +181,25 @@
   `gh pr view <n> --json state` first, or put end-of-day changes on their own branch.
 - **Clean-up:** the test database, toolkits and key files were deleted after use, and no secret is
   on disk.
+
+## Upload audit: SponsorX NEXT and every upload (rcfworks, read-only)
+- **Asked by the owner:** NEXT is a magazine, but there's no page to upload photos. Also, check that
+  every upload works (photo, video, and so on), since nothing audits that.
+- **Written up:** [documentation/SponsorX-Upload-Audit.md](../../documentation/SponsorX-Upload-Audit.md),
+  listing all 16 uploads with their screens, file types, size limits, checks and tests.
+- **NEXT:**
+  - students can upload a JPG, PNG or PDF draft, and sponsors their ad artwork;
+  - readers never see a photo or an ad (the public edition is text only);
+  - BTG can't upload anything;
+  - no cover, no press PDF, no production board, no video;
+  - an approved "DESIGN" piece gets a kind that doesn't exist.
+- **Elsewhere:**
+  - team, school and sponsor logos are saved without checking the file arrived;
+  - five uploads are never tested with a real file;
+  - CI's browser tests fake the upload step;
+  - nothing checks the live storage settings. That gap is what broke every photo and logo upload on
+    2026-11-16.
+- **Proposed, not on the board yet:**
+  - backend `P9-BE-25`…`28` and `POL-BE-108`…`111`;
+  - frontend `P9-FE-13`…`16` (HeckerCreatives);
+  - open question for the owner: video in the magazine.
