@@ -15,9 +15,30 @@ export const EditionAssetInput = z
     sourceKind: z.enum(SOURCE_KINDS),
     studentId: z.string().min(1).nullable().optional(),
     athleteId: z.string().min(1).nullable().optional(),
+    /** P9-BE-25 — a file uploaded through POST /editions/{id}/assets/uploads; any other key is refused. */
     r2Key: z.string().min(1).max(500).nullable().optional(),
+    /** The name the file was chosen with — kept for its download. */
+    fileName: z.string().max(255).nullable().optional(),
   })
-  .meta({ id: "EditionAssetInput" });
+  .meta({ id: "EditionAssetInput", description: "A piece of edition content. With `r2Key`, its file: uploaded first through POST /editions/{id}/assets/uploads, then checked here (arrived, the type and size signed for)." });
+
+/** P9-BE-25 — presign an upload of a piece of edition content's file, in any format. */
+export const EditionContentUploadInput = z
+  .object({
+    /** The file's type as the browser names it; empty for a file it can't name. Any format. */
+    contentType: z.string().max(255),
+    /** The file's size in bytes, exactly — signed into the PUT. Up to 2 GB. */
+    bytes: z.number().int().positive().max(2_000_000_000),
+  })
+  .meta({ id: "EditionContentUploadInput", description: "Presign a PUT of a piece of edition content's file to the private bucket — any format, up to 2 GB. The server chooses the key and answers the type to send with the PUT." });
+
+/** P9-BE-25 — attach an uploaded file to a piece of edition content that has none. */
+export const EditionAssetFileInput = z
+  .object({
+    r2Key: z.string().min(1).max(500),
+    fileName: z.string().max(255).nullable().optional(),
+  })
+  .meta({ id: "EditionAssetFileInput" });
 
 export const ContentRightInput = z
   .object({

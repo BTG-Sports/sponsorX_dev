@@ -361,6 +361,9 @@ const BODY: Record<string, unknown> = {
   "POST /prospects/{id}/decision": { decision: "REJECT", reasonCode: "OTHER" },
   "POST /sponsors/{id}/assigned-student": { studentId: null },
   "POST /editions/{id}/assets": { kind: "ARTICLE", title: "Stolen", sourceKind: "BTG" },
+  /* P9-BE-25 */
+  "POST /editions/{id}/assets/uploads": { contentType: "video/mp4", bytes: 12_345 },
+  "PUT /edition-assets/{id}/file": { r2Key: "edition-content/ti_tenant_a/x/y" },
   "POST /edition-assets/{id}/rights": { grantorKind: "BTG", grantorRef: "x", licenseRef: "L-1", startsAt: "2026-01-01T00:00:00.000Z" },
   "POST /edition-assets/{id}/campaign": { campaignId: A.campaign },
   /* P9-BE-16 */
