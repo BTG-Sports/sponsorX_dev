@@ -374,3 +374,11 @@
   passing at 14:10Z on each.
 - **Done:** POL-BE-116. POL-FE-116 (the builder page, the order page, BTG's held reasons) is
   HeckerCreatives'; the routes are in polish.md item 116.
+
+## End of day (rcfworks)
+- **Done today, backend:** P9-BE-25, 26, 27 and 28 (SponsorX NEXT uploads), POL-BE-110 to 113
+  (upload checks), POL-BE-116 (campaign order details). All live on staging and production.
+- **Stage Progress:** today's row updated to the close of day, Phase 1 at 324 Done (S9 44), 21 days left.
+- **Open:** #499 and #500 (POL-BE-116 Done, tracker and log), CI green, waiting to be merged.
+- **For HeckerCreatives:** POL-FE-116 (campaign builder page, the athlete's order page, BTG's held
+  reasons) and P9-FE-13 to 16 (NEXT upload screens).
