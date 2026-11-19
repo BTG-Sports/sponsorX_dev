@@ -104,3 +104,29 @@
 - **Tracker:** `2S4-BE-18` at Code review. `2S4-FE-10` (HeckerCreatives) at Ready, for the web app's
   side.
 - **Left:** the Railway service, keys, settings and Cloudflare DNS, on staging first.
+
+## 2S4-BE-18 rollout, staging (rcfworks)
+
+- **Merged:** #474 into main_development, then the sync #475 into main. The daily deploy follows
+  once main's CI is green.
+- **Railway staging:**
+  - **The service:** `socketservice` created. It's set to the `/socketservice` folder, `npm start`,
+    a `/health` check, restart on failure, and one replica in US East. It's created in staging only;
+    production has no instance yet.
+  - **Settings:** a fresh Ed25519 key pair (private half on api, public half on socketservice), the
+    publish secret on both, the allowed origin (the staging web app), and port 4100. The key pair
+    and secret were checked to match, without printing them.
+  - **The custom domain:** `socketservice-staging.sponsorx.net`.
+  - **Lesson:** this Mac's `openssl` (LibreSSL) can't make Ed25519 keys and failed silently, which
+    left the first values empty. Generate keys with Node's crypto, and set secrets through the
+    Railway API (`variableCollectionUpsert`) from a mode-600 file, then verify lengths.
+  - **Lesson:** Railway rejects `railwayConfigFile` now ("Config as Code is deprecated"). The
+    service settings are set directly on the instance; `socketservice/railway.json` is kept only as
+    a record.
+- **Cloudflare (owner approved):**
+  - `CNAME socketservice-staging → etrp7ht7.up.railway.app`, DNS only;
+  - `TXT _railway-verify.socketservice-staging`.
+- **Backend check:** no old socket code is left (`socket.io` inside the API, `deal-chat-socket`,
+  `DEAL_CHAT_SOCKET`, `/api/v1/socket` are all gone). Only past-tense mentions remain in the docs.
+- **Frontend:** affected, not broken. Nothing is live until `2S4-FE-10`. The task is rewritten
+  with the exact files, events and clean-up for HeckerCreatives, and the tracker row matches.
