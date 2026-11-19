@@ -4268,9 +4268,9 @@ Raised 2026-11-19 by the programme owner's upload audit ([SponsorX-Upload-Audit.
     - `student-assignments.test.ts` was updated to the any-format rule.
   - **Checked:** the full backend suite passed (279 files, 3,995 tests), with lint and build clean. CI passed on #483. It reached main through #482 and was deployed to production on 2026-11-19 (release 94214a77).
 
-### ▶ `P9-BE-26` · Photos, video and ads in the public reader
+### ✅ `P9-BE-26` · Photos, video and ads in the public reader
 
-**Order** 209.89 · **BE** · **Where:** Code · **2d** · **Code review**
+**Order** 209.89 · **BE** · **Where:** Code · **2d** · **Done**
 
 Today the free digital edition returns titles and article text only. Approved photos stay in private storage, and the reader lists each sponsor's name but never shows the ad they paid for.
 
@@ -4321,9 +4321,9 @@ Today the free digital edition returns titles and article text only. Approved ph
     - the public-read, public-bucket and listen-address tests are updated.
   - **Checked:** full backend suite 281 files, 4,011 tests; lint and build clean.
 
-### ▶ `P9-BE-27` · An edition's cover image and press PDF
+### ✅ `P9-BE-27` · An edition's cover image and press PDF
 
-**Order** 209.90 · **BE** · **Where:** Code · **1.5d** · **Code review**
+**Order** 209.90 · **BE** · **Where:** Code · **1.5d** · **Done**
 
 The spec says layout stays in InDesign or Canva, and the platform holds "approved artwork and the press PDF" (§9). Nothing holds either today.
 
@@ -4358,9 +4358,9 @@ The spec says layout stays in InDesign or Canva, and the platform holds "approve
     - the isolation sweep covers the new routes.
   - **Checked:** full backend suite 282 files, 4,017 tests; lint and build clean.
 
-### ▶ `P9-BE-28` · Production board data
+### ✅ `P9-BE-28` · Production board data
 
-**Order** 209.91 · **BE** · **Where:** Code · **1d** · **Code review**
+**Order** 209.91 · **BE** · **Where:** Code · **1d** · **Done**
 
 The spec's `/admin/next/production` page was never built and had no task.
 

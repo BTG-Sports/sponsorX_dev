@@ -37,6 +37,7 @@ also has a back-end row waits for it.
 | H · Found in walkthrough practice | 44–51, 101–104, 107 | Testers getting the feel of the app hit dead ends and silent waits |
 | I · Whole-app review | 52–78 | The 2026-11-15 review: 7 blockers, then every major and minor finding, in eight waves |
 | K · Upload audit | 110–113 | The 2026-11-19 audit: uploads that can break with nothing noticing, and no test that a real file gets through |
+| L · Campaign builder | 116 | The owner's athlete campaign order template (2026-11-19): creating a campaign must build every athlete's order |
 
 **Closed 2026-11-15.** Every item, 1 to 51, is Done on the Polish sheet (71
 rows). The last two, #45 and #51, were walked live and closed on
@@ -3225,20 +3226,20 @@ the blockers and today's content review findings.
   - **Checked:** 2,402 / 2,402 frontend tests; tsc and eslint clean. Walked live as the QA BTG admin at 1440, 768 and 390: both tabs with the response held (loader, then the list), the kind menu, search, Clear all, List ↔ Cards, How it works opened and closed by Escape with focus back on the button, `?tab=review`, `?demo=loading` and `?demo=empty`, a click on a row's name opening that sign-up. No sideways scroll at any width, also with the mouse on a row. `/admin/applications` walked again on the shared kit (tabs, Cards, How it works). The only console message was a React list-key warning on the athlete sign-up's own page, which this change does not touch. `npm run build` not run (the owner's `next dev` is live).
 
 ### 110. A team, school or sponsor logo is saved even when its file never arrived [§8, upload audit §3]
-`POL-BE-110` · *Silent* · confirmed (upload audit, 2026-11-19)
+`POL-BE-110` · *Silent* · confirmed · **Done 2026-11-19** (#490) (upload audit, 2026-11-19)
 - **Problem:** the property's branding form (`POST /branding/logo`, then save) and the sponsor's Account page (`POST /sponsor/account/logo`, then `PATCH /sponsor/account/company`) save the logo's key after checking only that it sits in their own folder. If the upload failed, the record still points at nothing, and every page and report shows a broken image. The athlete's profile photo already checks that its file exists.
 - **Done when:**
   - A logo is saved only once its file has arrived, is the declared type (PNG or JPEG) and fits 1 MB.
   - Otherwise the save is refused with "upload it again", and the old logo stays.
   - The real-upload test covers both logos.
-- **Delivered (2026-11-19, rcfworks, Code review):**
+- **Delivered (2026-11-19, rcfworks; Done, deployed to staging and production the same day):**
   - **The check:** `checkPublicUpload` in `backend/src/lib/storage.ts`. Before a record points at a public file, the file must exist, be one of the types asked for, and fit the size. A wrong file is deleted at once, because the public bucket serves it to anyone.
   - **Where it runs:** `updateBranding` (team or school logo), `updateCompany` (sponsor logo) and `setAthletePhoto` (profile photo). The photo used to check only that its file existed.
   - **What a person sees:** a missing file is refused (409, "hasn't arrived yet"). A wrong type or size is refused (422, "so it was removed"). The old logo or photo stays.
   - Saving the same key again isn't re-checked.
 
 ### 111. Five uploads are never tested with a real file [§30, upload audit §4]
-`POL-BE-111` · *Silent* · confirmed (upload audit, 2026-11-19)
+`POL-BE-111` · *Silent* · confirmed · **Done 2026-11-19** (#490) (upload audit, 2026-11-19)
 - **Problem:** `backend/tests/private-upload-pins.test.ts` puts a real file into a test storage for 11 flows. Five are tested only against fake storage:
   - dispute documents;
   - student drafts;
@@ -3250,7 +3251,7 @@ the blockers and today's content review findings.
 - **Done when:**
   - All five run through the real-upload test: a wrong type or size refused, the right file accepted.
   - The completeness check fails when any upload in `backend/src` is missing from the test, public uploads included.
-- **Delivered (2026-11-19, rcfworks, Code review):**
+- **Delivered (2026-11-19, rcfworks; Done, deployed to staging and production the same day):**
   - **Private:** `backend/tests/private-upload-pins.test.ts` gains dispute documents. Student drafts were added by P9-BE-25, along with edition content.
   - **Public:** new `backend/tests/public-upload-pins.test.ts` covers the team or school logo, the sponsor logo and the profile photo, each run as a browser runs it against a store that checks signatures:
     - the URL is signed for one type and size, and the bucket refuses anything else;
@@ -3262,13 +3263,13 @@ the blockers and today's content review findings.
   - **Checked:** full backend suite 285 files, 4,026 tests; lint clean.
 
 ### 112. CI's browser tests never really upload a file [§30, upload audit §4]
-`POL-BE-112` · *Silent* · confirmed (upload audit, 2026-11-19)
+`POL-BE-112` · *Silent* · confirmed · **Done 2026-11-19** (#492) (upload audit, 2026-11-19)
 - **Problem:** four flows have a browser test that uploads a file: the athlete's content, a sign-up ID, onboarding documents and a support attachment. CI's browser job has no storage, so the test itself answers the step where the browser sends the file (`e2e/support/object-store.ts`). A broken browser upload passes CI.
 - **Done when:**
   - CI's browser job runs a real test storage, with the same upload rule as staging.
   - The four tests upload for real in CI, and fail if the storage refuses.
   - The stand-in stays only for a laptop with no storage running.
-- **Delivered (2026-11-19, rcfworks, Code review):**
+- **Delivered (2026-11-19, rcfworks; Done, deployed to staging and production the same day):**
   - **First attempt:** real MinIO in CI. It failed because MinIO's server image is no longer published (`pull access denied for minio/minio`).
   - **What CI uses instead:** the e2e object store (`e2e/support/object-store-standin.mjs`) in a new **strict** mode (`E2E_STORE_STRICT=1`), held to what R2 enforces:
     - **The upload rule:** only `E2E_STORE_ALLOW_ORIGIN` (the test site, `http://127.0.0.1:3100`, as staging allows only its web origin) gets a preflight and an allow-origin. Another site's browser upload fails, as it did on 2026-11-16.
@@ -3283,14 +3284,14 @@ the blockers and today's content review findings.
   - The e2e suite's run on the pull request is the end-to-end test.
 
 ### 113. Nothing checks that the live storage accepts uploads [§26, upload audit §4]
-`POL-BE-113` · *Silent* · confirmed (upload audit, 2026-11-19; it already broke once, 2026-11-16)
+`POL-BE-113` · *Silent* · confirmed · **Done 2026-11-19** (#493) (upload audit, 2026-11-19; it already broke once, 2026-11-16)
 - **Problem:** on 2026-11-16, the public storage on both staging and production had no rule letting the website upload to it. Every profile photo and logo upload failed, and nobody knew until someone tried. The health check only asks whether the public storage exists. It doesn't check the private storage, and it never tries an upload from the website's address.
 - **Done when:**
   - Every day, and after every deploy, staging and production each check both storage areas: ask permission to upload as the website would, put a small test file through a signed link, read it back, and delete it.
   - Any step failing turns the deploy check red and tells BTG what failed.
   - The health check covers the private storage too.
   - The check leaves nothing behind in storage.
-- **Delivered (2026-11-19, rcfworks, Code review):**
+- **Delivered (2026-11-19, rcfworks; Done, deployed to staging and production the same day):**
   - **The check** (`probeBucket` in `backend/src/lib/storage.ts`, `runStorageCheck` in `backend/src/domain/storage-check.ts`) runs on both storage areas:
     - a preflight as the website (the origin of `APP_URL`, which is `https://web-staging-904a.up.railway.app` on staging and `https://sponsorx.net` on production, each matching its upload rule);
     - a signed upload as the website;
@@ -3382,3 +3383,58 @@ the blockers and today's content review findings.
   - **Files:** new `app/join/apply/{layout.tsx,page.tsx,loading.tsx}`, `components/join-start.tsx`, `components/focus-wizard.tsx`, `tests/join-apply.test.ts`. Rewritten `components/join-wizard.tsx`. Changed `app/(public)/join/page.tsx`, `components/join-stage.tsx` (the closing button), `components/join-submitted.tsx` (the heading), `lib/join-flow.ts` (the messages, the email check), `components/brief-wizard.tsx` and `app/brief/brief.css` (the shared frame and its colour), `lib/help/athlete.ts`, `scripts/help-shots/capture.mjs`.
   - **Checked:** 2,524 / 2,524 frontend tests (11 new in `join-apply.test.ts`); tsc and eslint clean. Walked on the running dev server at 1440×900, 1180×720 and 390×844, and at 1440 with reduced motion: the landing and its button, every section with an empty Continue and then filled, a bad email, a state that is not two letters, no social handle, Enter inside the "add a deal" box (stays on the step), both ticks arming Submit, back and forward from the list of steps (forward refused while the step had a gap), Save and finish later, Resume from the landing, the under-18 sample (10 steps) and the submitted sample with Review your answers. No console errors and no sideways scroll at any size. `/brief` walked again at the same four sizes.
   - **Not checked:** a real submission. The walk stopped with Submit armed, so no application was filed; the submit path is the one that was there, plus a guard against a double click. `npm run build` not run (the owner's `next dev` is live).
+
+### 116. Creating a campaign doesn't build the athlete's order, so most of the order template has nowhere to go [§13, §21, Athlete Campaign Order template]
+`POL-BE-116` · `POL-FE-116` · *Dead end* · confirmed (programme owner, 2026-11-19)
+- **The owner's words:**
+  - "Make sure it follows this": `documentation/AthleteCampaignReference/BTG_SponsorX_Athlete_Campaign_Order.docx`.
+  - "That form is only for a video campaign. Use that form as a base when the campaign is on other media."
+  - "Whenever a create campaign is called, we have a page to build it right, include the details of that form as well."
+  - Payment timing is set per campaign ("yes"). There is no countersignature by a person: "we focus on automation rules".
+- **Problem:** the review of 2026-11-19 found that the legal terms (`CAMPAIGN_ORDER.v2`) match the template, but most of an order's details are never stored:
+  - an order number (`SX-…-2026-…`);
+  - the prompt, on orders sent from an invitation;
+  - the deliverable's format and length;
+  - the publish window;
+  - usage rights split into channels, period, territory and restrictions (today one line of text);
+  - paid media (platforms, duration, territory, extra pay);
+  - exclusivity split into category, period and area;
+  - disclosure, on orders sent from an invitation;
+  - sponsor approval as a yes or no;
+  - payment timing, set per campaign;
+  - product or non-cash consideration.
+
+  Automatic staffing fills offers with defaults: one standard usage-rights sentence, "#ad", and the package's exclusivity.
+- **The shape:** the template is the base for every order.
+  - **The same on every order:** the order fields, the terms and the acceptance.
+  - **What changes:** the deliverable section, by the job's medium:
+    - SX-03 Athlete Reel (the template): videos, length, vertical format, platform;
+    - SX-01 Story Drop: frames, platform, link or sticker, how long it stays up;
+    - SX-02 Sponsored Post: photo or carousel and how many images, caption, platform, how long it stays up;
+    - SX-04 Product Experience: the product, the content format, whether the product is kept;
+    - SX-05 Local Appearance: event, date and time, place, hours on site, activities, who films;
+    - SX-06 Content Day: shoot date and place, hours, how many finished pieces, who films, whether raw footage is included;
+    - SX-07 Monthly Ambassador: months, and the monthly mix of the jobs above.
+- **Backend (`POL-BE-116`, rcfworks):**
+  - **Storage:** the campaign keeps its order details, filled in when it's created: the prompt, each job with its media details, the publish window, usage, paid media, exclusivity, disclosures, sponsor approval, payment timing and non-cash consideration. A campaign made from a brief carries the brief's.
+  - **Carried through:** each offer and Campaign Order copies them, fixed when sent, whether made by automatic staffing or sent from an invitation. Each order gets a number, `SX-<campaign code>-<year>-<sequence>`.
+  - **The builder's API:** the job catalogue with each job's media details and defaults, checks on every field, and the campaign's order details in one save.
+  - **Automation rules:** an order is issued automatically when every check passes. It is held for BTG, with the reason, when:
+    - paid media or exclusivity applies to a minor;
+    - the category is sensitive;
+    - paid media has no extra pay;
+    - exclusivity has no category;
+    - a usage period runs past what the athlete's tier allows.
+  - **Payment timing:** sets when the athlete's earning is due.
+  - **Wording:** new `CAMPAIGN_ORDER.v3` text points to the order's own payment timing, paid media and exclusivity area. New wording is a new file; v2 stays for orders already accepted.
+  - **Tests:** every new route and rule, the isolation sweep, and both ways an order is made.
+- **Frontend (`POL-FE-116`, HeckerCreatives, waits for `POL-BE-116`):**
+  - **The builder:** "Create a campaign" opens a page that builds the whole campaign, step by step. The deliverable section changes with each chosen job's medium, and a summary of every detail appears before saving.
+  - **The athlete's order:** shows every detail, laid out like the template, before the athlete or their guardian accepts.
+  - **BTG's desk:** shows a held order's reasons.
+- **Done when:**
+  - Every field in the template, and each medium's own details, is set when a campaign is created and reaches each athlete's order unchanged.
+  - Each order has a number.
+  - An order is issued automatically, or held with a reason in words.
+  - The earning follows the campaign's payment timing.
+  - The athlete sees the whole order before accepting.
