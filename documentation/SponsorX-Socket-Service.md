@@ -162,17 +162,34 @@ All are recorded in [SponsorX-Switches.md](SponsorX-Switches.md).
 
 Retired with this change: `DEAL_CHAT_SOCKET` and `API_PUBLIC_URL`.
 
-## 8. Rollout (staging first)
+## 8. Rollout — done 2026-11-19
 
-1. Create the `socketservice` Railway service from this repo. Set the root directory to
-   `socketservice/`; it uses `socketservice/railway.json`. One replica.
-2. Generate a key pair and a publish secret, and set the settings in §7 on api and socketservice.
-3. Add the custom domain `socketservice-staging.sponsorx.net` in Railway, and the CNAME Railway gives
-   in Cloudflare DNS.
-4. Deploy. Check that `/health` answers 200.
-5. Walk through it: open one chat as sponsor and athlete in two browsers. A message shows on the other
-   side within a second, and a held message reaches BTG and not the other side.
-6. Repeat for production with `socketservice.sponsorx.net`.
+| | Staging | Production |
+|---|---|---|
+| Railway service | `socketservice` (staging only) | `socketservice-production` (production only; Railway service names are project-wide) |
+| Address | `https://socketservice-staging.sponsorx.net` | `https://socketservice.sponsorx.net` |
+| Cloudflare | `CNAME socketservice-staging → etrp7ht7.up.railway.app` (DNS only), `TXT _railway-verify.socketservice-staging` | `CNAME socketservice → p2zs841y.up.railway.app` (DNS only), `TXT _railway-verify.socketservice` |
+| Instance | root `/socketservice`, `npm start`, `/health`, restart on failure, 1 replica in US East, deploys from `release` | the same |
+| Keys | its own Ed25519 pair and publish secret | its own pair and secret |
+
+**Checked on both:**
+- `/health` answers 200;
+- the domain is verified, with a valid certificate;
+- the api resolves the private address, and its relay is running;
+- a test notice through the database is delivered;
+- the publish door answers 404 on the public address;
+- a connection with no pass, a forged pass, or another website's origin is refused, and production
+  also refuses the staging web origin.
+
+**How to set up an environment again.** Railway rejects the config-file setting now ("Config as Code
+is deprecated"), so the instance settings are set directly; `socketservice/railway.json` is kept
+only as a record of them. Two lessons from the setup:
+- generate keys with Node's crypto, because this Mac's `openssl` (LibreSSL) can't make Ed25519 keys
+  and fails silently;
+- set secrets through the Railway API from a file, then check their lengths.
+
+**Not testable without the web app:** a real chat in two browsers. That needs `2S4-FE-10` and
+`DEAL_CHAT` on.
 
 The web app's side of the connection is `2S4-FE-10` (HeckerCreatives):
 - fetch a pass from `POST /live-passes` when a chat or the Messages list is open or visible;
