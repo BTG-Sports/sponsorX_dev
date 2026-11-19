@@ -9,8 +9,7 @@ Two questions from the programme owner:
    check that."
 
 Part 1 lists every upload SponsorX has today. Parts 2 and 3 cover what's missing. Part 4 covers what
-nothing checks. Part 5 is the proposed work, which is **not yet on the board**: it waits for the
-owner's go-ahead.
+nothing checks. Part 5 is the work, which the owner approved on 2026-11-19 and is now on the board.
 
 ## 1. Every upload today
 
@@ -98,24 +97,24 @@ SponsorX NEXT does, though the magazine has a "video" content kind.
    - The health check only asks whether the public storage exists. It doesn't check the private
      storage, and it never tries an upload from the website's address.
 
-## 5. Proposed work — not yet on the board
+## 5. The work — on the board since 2026-11-19
 
 **Backend (rcfworks):**
 
-| Proposed ID | Task |
+| ID | Task |
 |---|---|
-| `P9-BE-25` | **Uploads for edition content.** BTG, athletes and outside photographers can attach a file to a piece of edition content. The API accepts only files that came through its own upload, and checks each one. Fixes the "DESIGN" bug. |
+| `P9-BE-25` | **Uploads for edition content, in any format.** BTG, athletes and outside photographers can attach a file to a piece of edition content. The API accepts only files that came through its own upload, and checks each one. Fixes the "DESIGN" bug. |
 | `P9-BE-26` | **Photos and ads in the reader.** When an edition is published, each photo and approved ad that has a digital right in force gets a public web copy. The public edition returns the image links. If the right ends, the web copy comes down. |
 | `P9-BE-27` | **Cover image and press PDF for each edition.** Both are uploaded and checked. The cover shows in the reader and the edition list. The press PDF stays private, for BTG and the printer. |
 | `P9-BE-28` | **Production board data.** One list per edition: every piece (student work in progress, approved content, ad artwork) with what each still needs before publishing. |
-| `POL-BE-108` | **Logos checked on save.** A team, school or sponsor logo is saved only once its file has arrived, is the declared type, and fits the size limit. Otherwise the person is told to upload it again. |
-| `POL-BE-109` | **Every upload tested with a real file.** Add #10, #12, #14, #15 and #16 to the real-upload test. Its completeness check then fails if any upload in the code, public or private, is missing from it. |
-| `POL-BE-110` | **Real storage in CI's browser tests.** CI's browser job gets a real test storage, so the browser's upload step is actually tested. |
-| `POL-BE-111` | **A live storage check.** Every day and after every deploy, on staging and production, check that each storage area accepts an upload from the website's address: ask permission as a browser would, put a small test file, read it back, delete it. If any step fails, the deploy check goes red and BTG hears about it. The health check also covers the private storage. |
+| `POL-BE-110` | **Logos checked on save.** A team, school or sponsor logo is saved only once its file has arrived, is the declared type, and fits the size limit. Otherwise the person is told to upload it again. |
+| `POL-BE-111` | **Every upload tested with a real file.** Add #10, #12, #14, #15 and #16 to the real-upload test. Its completeness check then fails if any upload in the code, public or private, is missing from it. |
+| `POL-BE-112` | **Real storage in CI's browser tests.** CI's browser job gets a real test storage, so the browser's upload step is actually tested. |
+| `POL-BE-113` | **A live storage check.** Every day and after every deploy, on staging and production, check that each storage area accepts an upload from the website's address: ask permission as a browser would, put a small test file, read it back, delete it. If any step fails, the deploy check goes red and BTG hears about it. The health check also covers the private storage. |
 
 **Frontend (HeckerCreatives):**
 
-| Proposed ID | Task |
+| ID | Task |
 |---|---|
 | `P9-FE-13` | A file picker on the rights page's "add content" form. |
 | `P9-FE-14` | Photos, ads and the cover in the public reader. |
@@ -123,6 +122,9 @@ SponsorX NEXT does, though the magazine has a "video" content kind.
 | `P9-FE-16` | The production board page, `/admin/next/production`. |
 | `POL-FE-102` | Already open: the sponsor Account page, with the logo upload. |
 
-**Open question for the owner:** should the magazine take video (MP4 or MOV), both from students and
-for BTG's own content? Today nothing in NEXT can upload one. It is not in the tasks above until the
-owner decides.
+**Decided by the owner, 2026-11-19: the magazine takes any format.**
+- Photos, video, PDFs and design files such as InDesign or Photoshop, from students and from BTG.
+- `P9-BE-25` carries it.
+- A file a browser shouldn't open in place is always downloaded, never shown.
+- Only images and video a browser can show get a public web copy for the reader (`P9-BE-26`). Design
+  files stay private, as source files for BTG.
