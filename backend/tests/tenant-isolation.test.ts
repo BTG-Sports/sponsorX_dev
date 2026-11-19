@@ -364,6 +364,8 @@ const BODY: Record<string, unknown> = {
   /* P9-BE-25 */
   "POST /editions/{id}/assets/uploads": { contentType: "video/mp4", bytes: 12_345 },
   "PUT /edition-assets/{id}/file": { r2Key: "edition-content/ti_tenant_a/x/y" },
+  /* POL-BE-116 */
+  "PUT /campaigns/{id}/order-details": { orderDetails: { version: 1, prompt: "Stolen", publishWindow: { start: "2026-12-01", end: "2026-12-20" }, jobs: [{ jobId: "SX-02", media: { format: "SINGLE_IMAGE", images: 1, platform: "INSTAGRAM", caption: null, daysLive: 30 } }], usage: { channels: ["INSTAGRAM"], periodDays: 30, territory: "US", restrictions: null }, paidMedia: { included: false }, exclusivity: { included: false }, disclosures: ["#ad"], sponsorApproval: false, paymentTiming: { daysAfterVerified: 30 }, nonCash: null } },
   /* P9-BE-27 */
   "POST /editions/{id}/cover/uploads": { contentType: "image/png", bytes: 1_234 },
   "PUT /editions/{id}/cover": { r2Key: "edition-files/ti_tenant_a/x/cover/y" },

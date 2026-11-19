@@ -34,6 +34,8 @@ import { payoutHoldReason } from "./payout-holds";
 import { refuseCardNumber } from "./marketplace-order-rules";
 import { autoApprovalReasons, autoApproveSettings, autoApprovedByTenant, autoWindowFor, lockPayee, SYSTEM, windowStart } from "./payout-auto";
 import { factEarningPaid } from "./fact-writers";
+import { storedOrderDetails } from "./campaign-order-details";
+import { DEFAULT_PAYMENT_DAYS } from "./order-details-rules";
 
 export class EarningImmutableError extends Error {
   readonly status = 409;
@@ -319,13 +321,13 @@ export async function adjustEarning(
 export async function readEarning(
   actor: Actor,
   earningId: string,
-): Promise<EarningBreakdown & { id: string; state: EarningState; clearsFloor: boolean }> {
+): Promise<EarningBreakdown & { id: string; state: EarningState; clearsFloor: boolean; payBy: string | null }> {
   assertAllowed(actor, "earning", "read");
 
   const earning = await prisma.earning.findFirst({
     where: { ...whereFor(actor, "earning", "read"), id: earningId },
     select: {
-      id: true, state: true, gross: true, adjustment: true,
+      id: true, state: true, gross: true, adjustment: true, payBy: true,
       order: { select: { sellPrice: true } },
     },
   });
@@ -337,7 +339,8 @@ export async function readEarning(
     adjustment: earning.adjustment,
   });
 
-  return { id: earning.id, state: earning.state as EarningState, ...b, clearsFloor: clearsFloor(b) };
+  /* POL-BE-116 — the day BTG pays by, once it is due (the order's payment timing). */
+  return { id: earning.id, state: earning.state as EarningState, ...b, clearsFloor: clearsFloor(b), payBy: earning.payBy?.toISOString() ?? null };
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -388,16 +391,25 @@ export async function maybeMakeEligible(
      landing — that decision is Finance's to reverse, not this function's. */
   if (from !== "PENDING") return null;
 
+  /* POL-BE-116 — the day BTG pays by: now, plus the order's own payment
+     timing (the campaign's, as the athlete accepted it); 30 days without one. */
+  const order = await tx.campaignOrder.findFirst({
+    /* tenant-scope: the order of the earning above, in the caller's tenant. */
+    where: { id: orderId, tenantId: actor.tenantId }, select: { orderDetails: true },
+  });
+  const days = storedOrderDetails(order?.orderDetails)?.paymentTiming.daysAfterVerified ?? DEFAULT_PAYMENT_DAYS;
+  const payBy = new Date(Date.now() + days * 86_400_000);
+
   /* tenant-scope: the order's earning found above; orderId is unique and comes from a deliverable the caller loaded through whereFor. */
   const updated = await tx.earning.update({
     where: { id: earning.id },
-    data: { state: "ELIGIBLE" },
+    data: { state: "ELIGIBLE", payBy },
     select: { id: true, state: true },
   });
 
   await audit(tx, actor, AUDIT_ACTIONS.payout.markEligible, "Earning", earning.id, {
     before: { state: from },
-    after: { state: "ELIGIBLE", reason: "all deliverables verified", orderId },
+    after: { state: "ELIGIBLE", reason: "all deliverables verified", orderId, payBy: payBy.toISOString(), paymentDays: days },
   });
 
   /* 2S5-BE-08 — and on to APPROVED_FOR_PAYOUT, by the rule, in this same transaction. */

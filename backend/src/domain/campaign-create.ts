@@ -15,6 +15,7 @@ import { enqueue } from "../db/outbox";
 import type { CampaignState } from "./campaign-state";
 import { BriefStateConflictError } from "./brief-moves";
 import { staffsAthletes } from "./auto-staffing-rules";
+import { prepareCampaignDetailsIn } from "./campaign-order-details";
 
 export type BriefForCampaign = {
   id: string;
@@ -44,8 +45,14 @@ export async function createCampaignIn(
   /* P4-BE-12 — a package that staffs athletes staffs itself; staffing starts
      after this transaction commits (startAutoStaffing), or the sweep's. */
   const autoStaffing = staffsAthletes(brief.package);
+  /* POL-BE-116 — every athlete order's details, from the brief the sponsor
+     built (or BTG's standard terms), and the code its orders are numbered with. */
+  const details = await prepareCampaignDetailsIn(tx, brief, name);
   const campaign = await tx.campaign.create({
     data: {
+      orderDetails: details.orderDetails as Prisma.InputJsonValue,
+      orderCode: details.orderCode,
+      orderCodeYear: details.orderCodeYear,
       autoStaffing,
       tenantId: brief.tenantId,
       sponsorId: brief.sponsorId,
@@ -59,7 +66,7 @@ export async function createCampaignIn(
   });
 
   await audit(tx, by, "campaign.create", "Campaign", campaign.id, {
-    after: { state: "DRAFT", briefId: brief.id, sponsorId: brief.sponsorId, autoStaffing, ...(opts.automatic ? { automatic: true } : {}) },
+    after: { state: "DRAFT", briefId: brief.id, sponsorId: brief.sponsorId, autoStaffing, orderCode: details.orderCode, ...(opts.automatic ? { automatic: true } : {}) },
   });
 
   /* The brief's Deal is now won (§7.4: CAMPAIGN_CREATED → Closed Won), and

@@ -55,6 +55,9 @@ import {
   AthleteRateInput, AthleteTierInput, CampaignOrderInput,
   OrderAcceptanceInput, OrderTransitionInput,
 } from "../../contracts/campaign";
+import { builderCatalogue, readCampaignOrderDetails, setCampaignOrderDetails, storedOrderDetails } from "../../domain/campaign-order-details";
+import { suggestOrderCode } from "../../domain/order-details-rules";
+import { CampaignOrderDetailsInput, OrderCodeQuery } from "../../contracts/campaign";
 
 export const campaignsRouter = Router();
 
@@ -1204,6 +1207,33 @@ const campaignOps: RequestHandler<{ id: string }> = async (req, res) => {
   });
 };
 
+/** POL-BE-116 — whoever builds a campaign (a sponsor's brief, or BTG) reads the catalogue. */
+const builderCatalogueRoute: RequestHandler = async (req, res) => {
+  const actor = req.actor!;
+  if (!can(actor, "campaignBrief", "write") && !can(actor, "campaign", "write")) throw new ForbiddenError("campaignBrief", "write");
+  res.json(builderCatalogue());
+};
+const orderCodeRoute: RequestHandler = async (req, res) => {
+  const actor = req.actor!;
+  if (!can(actor, "campaignBrief", "write") && !can(actor, "campaign", "write")) throw new ForbiddenError("campaignBrief", "write");
+  const name = OrderCodeQuery.parse(req.query).name;
+  res.json({ name, orderCode: suggestOrderCode(name) });
+};
+const readOrderDetailsRoute: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await readCampaignOrderDetails(req.actor!, req.params.id));
+};
+const setOrderDetailsRoute: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await setCampaignOrderDetails(req.actor!, req.params.id, CampaignOrderDetailsInput.parse(req.body ?? {})));
+};
+
+/** POL-BE-116 — an order's details for this reader: paid media's extra pay is the athlete's pay, so it rides only where compensation does. */
+function orderDetailsFor(actor: Actor, value: unknown) {
+  const d = storedOrderDetails(value);
+  if (!d || canReadField(actor.roles, "campaignOrder.compensation") || !d.paidMedia.included) return d;
+  const { extraCompensationCents: _hidden, ...paid } = d.paidMedia;
+  return { ...d, paidMedia: paid };
+}
+
 /**
  * GET /orders/:id — one Campaign Order, as the person who signs it reads it
  * (P5-FE-01, §24, §12).
@@ -1222,6 +1252,7 @@ const readOrder: RequestHandler<{ id: string }> = async (req, res) => {
     select: {
       id: true, state: true, compensation: true, sellPrice: true, usageRights: true,
       exclusivity: true, dueDate: true, acceptedAt: true, jobId: true, tenantId: true,
+      orderNumber: true, orderDetails: true,
       job: { select: { name: true } },
       campaign: { select: { id: true, name: true, startDate: true, endDate: true, sponsor: { select: { name: true } } } },
       athlete: {
@@ -1264,6 +1295,9 @@ const readOrder: RequestHandler<{ id: string }> = async (req, res) => {
       endDate: order.campaign.endDate.toISOString(),
     },
     athlete: { id: order.athlete.id, displayName: order.athlete.displayName },
+    /* POL-BE-116 — the order as the template lays it out: its number and every detail. */
+    orderNumber: order.orderNumber,
+    orderDetails: orderDetailsFor(actor, order.orderDetails),
     usageRights: order.usageRights,
     exclusivity: order.exclusivity,
     dueDate: order.dueDate.toISOString(),
@@ -1391,6 +1425,11 @@ campaignsRouter.get("/campaigns/summary", requireActor, campaignSummary);
 campaignsRouter.get("/campaigns/:id", requireActor, readCampaign);
 campaignsRouter.get("/campaigns/:id/ops", requireActor, campaignOps);
 campaignsRouter.get("/orders/:id", requireActor, readOrder);
+/* POL-BE-116 — the campaign builder: its catalogue, a code for a name, and a campaign's order details. */
+campaignsRouter.get("/campaign-builder/catalogue", requireActor, builderCatalogueRoute);
+campaignsRouter.get("/campaign-builder/order-code", requireActor, orderCodeRoute);
+campaignsRouter.get("/campaigns/:id/order-details", requireActor, readOrderDetailsRoute);
+campaignsRouter.put("/campaigns/:id/order-details", requireActor, setOrderDetailsRoute);
 campaignsRouter.get("/briefs/:id", requireActor, readBrief);
 campaignsRouter.patch("/briefs/:id", requireActor, editBrief);
 campaignsRouter.post("/briefs/:id/transition", requireActor, moveBrief);

@@ -86,6 +86,8 @@ import {
   tallyStaffing,
 } from "./auto-staffing-rules";
 import { logError } from "../lib/redact";
+import { storedOrderDetails } from "./campaign-order-details";
+import { athleteHolds, campaignHolds, type OrderDetails } from "./order-details-rules";
 
 type Tx = Prisma.TransactionClient;
 
@@ -176,8 +178,9 @@ export async function autoStaffIn(
     /* tenant-scope: explicit — the campaign locked above, in its own tenant. */
     where: { id: campaignId, tenantId },
     select: {
-      ...CAMPAIGN_FOR_MOVE, autoStaffing: true, staffingStoppedAt: true, budget: true,
-      brief: { select: { id: true, package: { select: { athleteCountMin: true, athleteCountMax: true, lineItems: true } } } },
+      ...CAMPAIGN_FOR_MOVE, autoStaffing: true, staffingStoppedAt: true, budget: true, orderDetails: true,
+      sponsor: { select: { name: true, categories: true } },
+      brief: { select: { id: true, categories: true, package: { select: { athleteCountMin: true, athleteCountMax: true, lineItems: true } } } },
       _count: { select: { orders: true, adSlots: true, placementWindows: { where: { state: "BOOKED" } } } },
     },
   });
@@ -185,6 +188,15 @@ export async function autoStaffIn(
   const pkg = c.brief.package;
   const lines = packageLines(pkg.lineItems);
   if (!lines.length || pkg.athleteCountMax <= 0) return NOTHING(state);
+
+  /* POL-BE-116 — automation rules on the order details: a reason that holds
+     every athlete's order (a sensitive category, paid media with no extra pay)
+     stops automatic staffing and hands the campaign to BTG with it. */
+  const details = storedOrderDetails(c.orderDetails);
+  const held = details ? campaignHolds(details, [...new Set([...c.sponsor.categories, ...(c.brief.categories ?? [])])]) : [];
+  if (held.length) {
+    return { state, sent: [], skipped: [], stopped: await stopStaffing(tx, c, `Held for BTG by the order rules: ${held.join(" ")}`, now) };
+  }
 
   if (state === "DRAFT") {
     await applyStageMove(tx, SYSTEM(tenantId), c, "DRAFT", "STAFFING", {
@@ -218,7 +230,7 @@ export async function autoStaffIn(
     const point = `auto_staff_${++savepoints}`;
     await tx.$executeRawUnsafe(`SAVEPOINT ${point}`);
     try {
-      await assertStillOfferable(tx, tenantId, athlete.id);
+      await assertStillOfferable(tx, tenantId, athlete.id, details);
       const drafts = [];
       for (const line of lines) {
         drafts.push(await draftOfferIn(tx, system, campaignId, { athleteId: athlete.id, jobId: line.jobId }, {
@@ -266,7 +278,7 @@ export async function autoStaffIn(
 }
 
 /** Asked again at send time: the shortlist was read a moment ago, outside the lock. */
-async function assertStillOfferable(tx: Tx, tenantId: string, athleteId: string) {
+async function assertStillOfferable(tx: Tx, tenantId: string, athleteId: string, details: OrderDetails | null = null) {
   const a = await tx.athlete.findFirst({
     /* tenant-scope: explicit — the campaign's tenant. */
     where: { tenantId, id: athleteId },
@@ -279,6 +291,19 @@ async function assertStillOfferable(tx: Tx, tenantId: string, athleteId: string)
     guardianId: a.guardianId, guardianVerifiedAt: a.guardian?.verifiedAt ?? null,
   });
   if (readiness.status === "missing" || readiness.status === "unverified") throw new GuardianNotVerifiedError();
+  /* POL-BE-116 — a reason about this athlete (a minor, with paid media or
+     exclusivity) skips them with it; BTG can still make the offer by hand. */
+  const holds = details ? athleteHolds(details, a) : [];
+  if (holds.length) throw new OrderHeldError(holds);
+}
+
+/** POL-BE-116 — an athlete the order rules hand to BTG: skipped with the reasons. */
+class OrderHeldError extends Error {
+  readonly status = 409;
+  constructor(reasons: string[]) {
+    super(`Held for BTG by the order rules: ${reasons.join(" ")}`);
+    this.name = "OrderHeldError";
+  }
 }
 
 /** The pre-filled draft, as createOffer takes it. */
@@ -289,6 +314,8 @@ function draftInput(o: Awaited<ReturnType<typeof draftOfferIn>>["offer"]): Draft
     deliverables: o.deliverables.map((d) => ({ title: d.title, dueDate: new Date(d.dueDate) })),
     usageRights: o.usageRights, exclusivityDays: o.exclusivityDays, disclosures: o.disclosures,
     expiresAt: new Date(o.expiresAt),
+    /* POL-BE-116 — the campaign's order details for this job, sent with the offer. */
+    orderDetails: o.orderDetails,
   };
 }
 

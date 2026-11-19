@@ -6,6 +6,14 @@ import { CAMPAIGN_STATES } from "../domain/campaign-state";
 import { INVITE_STATES } from "../domain/invite-state";
 import { ORDER_STATES } from "../domain/order-state";
 import { AUDIENCE_TIERS, MATCH_CHANNELS } from "../domain/match-vocabulary";
+import { OrderDetailsSchema } from "../domain/order-details-rules";
+
+/** POL-BE-116 — every athlete order's details, as the Athlete Campaign Order template lays them out; the deliverable section by each job's medium. */
+export const OrderDetailsInput = OrderDetailsSchema.meta({
+  id: "OrderDetails",
+  description: "The Athlete Campaign Order template's details (POL-BE-116): prompt, publish window, each job with its medium's details, usage (channels, period, territory, restrictions), paid media, exclusivity (category, days, area), disclosures, sponsor approval, payment timing and non-cash consideration.",
+});
+const OrderCode = z.string().regex(/^[A-Z]{3}$/).describe("Three capital letters: orders are numbered SX-<code>-<year>-<n>.");
 
 /* --------------------------------------------------------------------------
    Briefs, campaigns and invitations on the wire — P4-BE-02…06, §21, §26.
@@ -60,6 +68,9 @@ export const CampaignBriefInput = z
     channels: z.array(z.enum(MATCH_CHANNELS)).max(MATCH_CHANNELS.length).default([]).describe("Where the sponsor wants to be seen; empty is no preference."),
     audienceTiers: z.array(z.enum(AUDIENCE_TIERS)).max(AUDIENCE_TIERS.length).default([]).describe("The athlete tiers wanted; empty is any."),
     audienceMinFollowers: z.int().min(0).max(INT4_MAX).nullable().optional().describe("The smallest audience wanted: followers on the athlete's largest account. Null: no minimum."),
+    /** POL-BE-116 — the builder's order details; null: BTG's standard terms. The publish window sits inside the dates. */
+    orderDetails: OrderDetailsInput.nullable().optional(),
+    orderCode: OrderCode.nullable().optional(),
   })
   .meta({ id: "CampaignBriefInput", description: "What a sponsor asks for, before BTG turns it into a campaign." });
 
@@ -80,6 +91,8 @@ export const CampaignBriefPatch = z
     channels: z.array(z.enum(MATCH_CHANNELS)).max(MATCH_CHANNELS.length).optional(),
     audienceTiers: z.array(z.enum(AUDIENCE_TIERS)).max(AUDIENCE_TIERS.length).optional(),
     audienceMinFollowers: z.int().min(0).max(INT4_MAX).nullable().optional(),
+    orderDetails: OrderDetailsInput.nullable().optional(),
+    orderCode: OrderCode.nullable().optional(),
   })
   .meta({
     id: "CampaignBriefPatch",
@@ -300,3 +313,11 @@ export const CampaignLaunchResult = z
     }),
   })
   .meta({ id: "CampaignLaunchResult" });
+
+/** POL-BE-116 — BTG sets a campaign's order details (and its code) until the first offer goes out. */
+export const CampaignOrderDetailsInput = z
+  .object({ orderDetails: OrderDetailsInput, orderCode: OrderCode.nullable().optional() })
+  .strict()
+  .meta({ id: "CampaignOrderDetailsInput" });
+
+export const OrderCodeQuery = z.object({ name: z.string().trim().min(1).max(160) }).meta({ id: "OrderCodeQuery" });

@@ -3438,3 +3438,37 @@ the blockers and today's content review findings.
   - An order is issued automatically, or held with a reason in words.
   - The earning follows the campaign's payment timing.
   - The athlete sees the whole order before accepting.
+- **Delivered, backend (`POL-BE-116`, 2026-11-19, rcfworks, Code review):**
+  - **The details** (`backend/src/domain/order-details-rules.ts`) follow the template, checked in full and refused in words:
+    - prompt, publish window, usage (channels, period, territory, restrictions), paid media (kinds, platforms, duration, territory, extra pay), exclusivity (category, days, area), disclosures, sponsor approval, payment timing (days after verified) and non-cash consideration;
+    - each job's medium, keyed by the NIL job, SX-01 to SX-07.
+  - **On the brief:** `POST /briefs` and `PATCH /briefs/{id}` take `orderDetails` and `orderCode`. The publish window must sit inside the campaign's dates.
+  - **On the campaign:** created from the brief (`prepareCampaignDetailsIn`, for all three ways a campaign is made), or BTG's standard terms over the campaign's dates.
+    - The code is three letters from the name, the next free one if taken, unique in the tenant for the year.
+    - `GET /campaigns/{id}/order-details` gives the details, the code, whether they are the standard terms, and whether they are locked.
+    - `PUT /campaigns/{id}/order-details` is BTG's, until the first offer or order goes out (409 after).
+  - **The builder:**
+    - `GET /campaign-builder/catalogue` lists each job's medium fields, limits and defaults; the channels, platforms and paid-media kinds; and the defaults.
+    - `GET /campaign-builder/order-code?name=` suggests a code.
+  - **Every order:**
+    - The offer draft fills the prompt, deliverables, usage, exclusivity and disclosures from the details. A reel owes one deliverable per video, and each title says what it asks for.
+    - An offer carries the details for its job, in its hash only when present, so older offers hash as before.
+    - The accepted order and an order sent from an invitation both get `orderNumber` (`SX-<code>-<year>-<n>`, counted in the order's own transaction) and `orderDetails`.
+    - `GET /orders/{id}` shows both. Paid media's extra pay rides only where the athlete's compensation does.
+  - **Automation rules:**
+    - Paid media with no extra pay stops the campaign's automatic staffing, with the reason.
+    - A minor, with paid media or exclusivity, is skipped with the reason, and BTG can still offer by hand.
+    - A sensitive category is not held again: its brief already waited for a person.
+  - **Approval:**
+    - "Sponsor approval: yes" stops BTG approving a draft alone; it goes to the sponsor.
+    - "No" means BTG's review is the only one and is never skipped.
+    - An invited order's drafts are now checked for its disclosures.
+  - **Payment timing:** sets `Earning.payBy` when the earning becomes eligible. `readEarning` shows it.
+  - **Wording:** `backend/agreements/CAMPAIGN_ORDER.v3.txt`, effective 2026-11-19. It covers the details above, the athlete keeping ownership, paid media's kinds and extra pay, exclusivity's area, and the order's own payment timing (30 days where none is stated). v2 stays for orders already accepted.
+  - **Storage:** migration `20261119230000_campaign_order_details`: the new columns, `OrderNumberCounter`, and the checks.
+  - **Tests:**
+    - `backend/tests/order-details.unit.test.ts` (9);
+    - `backend/tests/pol-be-116-campaign-order-details.test.ts` (9, the real API and database);
+    - the isolation sweep, and five older tests updated for the new calls and fields.
+  - **Checked:** full backend suite 288 files, 4,052 tests; lint and build clean.
+  - **Left to `POL-FE-116`:** the builder page, the athlete's order page laid out like the template, and BTG's held reasons. The routes are above.

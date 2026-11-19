@@ -104,6 +104,8 @@ vi.mock("../src/db/client", () => {
         return Promise.resolve({ id: "ast_1", version: data.version });
       },
     },
+    /* POL-BE-116 — the order's payment timing, read as its earning becomes ELIGIBLE. */
+    campaignOrder: { findFirst: () => Promise.resolve({ orderDetails: null }) },
     /* P7-BE-02 — releasing the order's earning to ELIGIBLE. */
     earning: {
       findUnique: () => Promise.resolve(earningRow),
