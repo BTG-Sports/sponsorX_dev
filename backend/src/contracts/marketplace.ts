@@ -1,6 +1,7 @@
 import { z } from "./zod";
 
 import { BRAND_CATEGORIES } from "../domain/brand-categories";
+import { OrderDetailsSchema } from "../domain/order-details-rules";
 import { INVENTORY_KINDS } from "../domain/inventory";
 import { LISTING_STATES } from "../domain/listing-rules";
 import { ORG_TYPES } from "../domain/onboarding-rules";
@@ -106,6 +107,8 @@ export const OfferInput = z
     exclusivityDays: z.number().int().min(0).max(730).nullable().optional(),
     disclosures: z.array(z.string().trim().min(1).max(100)).max(10),
     expiresAt: when,
+    /** POL-BE-116 — the order details for this job; absent: the campaign's, for this job. */
+    orderDetails: OrderDetailsSchema.nullable().optional(),
   })
   .strict()
   .meta({ id: "OfferInput", description: "A formal offer: brief, pay, deliverables, usage rights, exclusivity, disclosures (2S2-BE-03)." });

@@ -12,7 +12,9 @@
  * comparison guesswork.
  */
 
-import type { Prisma } from "../generated/prisma/client";
+import { Prisma } from "../generated/prisma/client";
+import { OrderDetailsError, requireOrderDetails } from "./campaign-order-details";
+import { ORDER_CODE, type OrderDetails } from "./order-details-rules";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
 import type { Actor } from "../auth/actor";
@@ -56,6 +58,10 @@ export type BriefInput = {
   excludedCategories?: readonly BrandCategory[];
   channels?: readonly MatchChannel[];
   audienceTiers?: readonly AudienceTier[];
+  /** POL-BE-116 — the athlete order details the builder sets (order-details-rules.ts); null: BTG's standard terms. */
+  orderDetails?: unknown;
+  /** POL-BE-116 — the three letters its orders are numbered with; null: suggested from the campaign's name. */
+  orderCode?: string | null;
   audienceMinFollowers?: number | null;
 };
 
@@ -131,6 +137,9 @@ export async function createBrief(
 ): Promise<BriefSubmitted> {
   assertAllowed(actor, "campaignBrief", "write");
   if (input.endDate <= input.startDate) throw new InvalidBriefWindowError();
+  /* POL-BE-116 — the order details, checked in full before anything is written. */
+  const orderDetails = checkBriefOrderDetails(input.orderDetails, input.startDate, input.endDate);
+  const orderCode = checkOrderCode(input.orderCode);
   /* POL-BE-107 — checked before anything is written: a real country, and US states only on a US brief. */
   const countryCode = briefCountry(input.countryCode);
   assertCountryStates(countryCode, input.stateCodes);
@@ -177,12 +186,14 @@ export async function createBrief(
         channels: uniq(input.channels),
         audienceTiers: uniq(input.audienceTiers),
         audienceMinFollowers: input.audienceMinFollowers ?? null,
+        ...(orderDetails ? { orderDetails: orderDetails as Prisma.InputJsonValue } : {}),
+        orderCode,
       },
       select: { id: true, state: true },
     });
 
     await audit(tx, actor, "brief.create", "CampaignBrief", brief.id, {
-      after: { state: "DRAFT", sponsorId: input.sponsorId, budget: input.budget, countryCode },
+      after: { state: "DRAFT", sponsorId: input.sponsorId, budget: input.budget, countryCode, orderDetails: orderDetails !== null, orderCode },
     });
 
     /* P4-BE-11 — the sponsor's own brief is evaluated at once. */
@@ -270,6 +281,12 @@ export async function updateBrief(
       ...(patch.audienceMinFollowers !== undefined ? { audienceMinFollowers: patch.audienceMinFollowers } : {}),
     };
     assertNoWantedExcluded(patch.categories ?? before.categories, patch.excludedCategories ?? before.excludedCategories);
+    /* POL-BE-116 — the order details, checked against the window as it will stand. */
+    if (patch.orderDetails !== undefined) {
+      const checked = checkBriefOrderDetails(patch.orderDetails, startDate, endDate);
+      (data as Record<string, unknown>).orderDetails = checked ?? Prisma.DbNull;
+    }
+    if (patch.orderCode !== undefined) (data as Record<string, unknown>).orderCode = checkOrderCode(patch.orderCode);
     await tx.campaignBrief.update({
       /* tenant-scope: the brief found through whereFor(campaignBrief, write) and locked. */
       where: { id: found.id },
@@ -422,4 +439,22 @@ export class BriefCloseReasonRequiredError extends Error {
     super("Say why this brief is being closed — the reason is kept with it.");
     this.name = "BriefCloseReasonRequiredError";
   }
+}
+
+/** POL-BE-116 — the brief's order details: complete, and published inside the campaign's dates. Null: none given. */
+function checkBriefOrderDetails(value: unknown, start: Date, end: Date): OrderDetails | null {
+  if (value === undefined || value === null) return null;
+  const d = requireOrderDetails(value);
+  const s = start.toISOString().slice(0, 10);
+  const e = end.toISOString().slice(0, 10);
+  if (d.publishWindow.start < s || d.publishWindow.end > e) {
+    throw new OrderDetailsError(`The publish window (${d.publishWindow.start} to ${d.publishWindow.end}) has to sit inside the campaign's dates (${s} to ${e}).`);
+  }
+  return d;
+}
+
+function checkOrderCode(value: string | null | undefined): string | null {
+  if (value === undefined || value === null || value === "") return null;
+  if (!ORDER_CODE.test(value)) throw new OrderDetailsError("The order code is three capital letters.");
+  return value;
 }

@@ -343,3 +343,26 @@
     (invited orders), sponsor approval yes/no, non-cash consideration.
   - Waiting on the owner: per-campaign payment timing, and a BTG countersignature. No tasks
     raised yet.
+
+## POL-BE-116: every athlete order follows the order template (rcfworks, Code review)
+- **The owner's decisions (2026-11-19):**
+  - "whenever a create campaign is called, we have a page to build it right, include the details of
+    that form";
+  - the video form is the base for other media;
+  - payment timing is set per campaign;
+  - automation rules, no countersignature.
+- **Built:**
+  - order details on the brief and the campaign: the template's fields and each job's medium;
+  - copied onto offers and orders for each job, fixed when sent;
+  - order numbers `SX-<code>-<year>-<n>`;
+  - the builder's catalogue and code routes;
+  - BTG's PUT, locked after the first offer;
+  - automation holds: paid media with no pay stops staffing; a minor with paid media or exclusivity
+    is skipped;
+  - sponsor approval yes/no now decides review routing;
+  - the earning's pay-by follows the payment timing;
+  - `CAMPAIGN_ORDER.v3` wording.
+- **Dropped on reflection:** a sensitive-category hold. Its brief already waits for a person, and an
+  existing test expected an approved alcohol campaign to staff automatically.
+- **Checked:** full suite 288 files, 4,052 tests.
+- **Frontend:** POL-FE-116 (HeckerCreatives) builds the builder page and the athlete's order view.

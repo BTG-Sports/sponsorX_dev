@@ -51,6 +51,7 @@ import {
 import { maybeMakeEligible } from "./earning";
 import { advanceCampaignOfOrder } from "./campaign-stages";
 import { decideSkip, isBtgReviewer, lockAthleteContent, SKIP_ATHLETE_SELECT } from "./content-trust";
+import { storedOrderDetails } from "./campaign-order-details";
 import { platformOf } from "./deliverable-platform";
 import { factDeliverablePublished, factDeliverableVerified, factRevisionRequested } from "./fact-writers";
 
@@ -146,6 +147,15 @@ export const CREATIVE_MAX_BYTES = 2 * 1024 ** 3;
 export const creativeKeyPrefix = (tenantId: string, deliverableId: string) => `t/${tenantId}/deliverable/${deliverableId}/`;
 
 /** P5-BE-10 — a sponsor approves once BTG has sent the draft to them. */
+/** POL-BE-116 — the order's details say the sponsor approves: BTG passes it to them, never approves it alone. */
+export class SponsorApprovalRequiredError extends Error {
+  readonly status = 409;
+  constructor() {
+    super("This order needs the sponsor's approval: send the draft to the sponsor instead of approving it.");
+    this.name = "SponsorApprovalRequiredError";
+  }
+}
+
 export class BtgReviewFirstError extends Error {
   readonly status = 409;
   constructor() {
@@ -275,7 +285,7 @@ async function move(
     };
     /** P5-BE-09 — refuse the move for a reason the state table cannot see
      *  (a draft that failed its checks). Runs inside the transaction. */
-    guard?: (found: { checksPassed: boolean | null; state: string }) => void;
+    guard?: (found: { checksPassed: boolean | null; state: string; sponsorApproval: boolean | null }) => void;
     /** P5-BE-10 — runs after the guard and before the write, in the
      *  transaction: a BTG revision takes the athlete's content-trust lock
      *  here, before it stamps the deliverable. */
@@ -299,6 +309,8 @@ async function move(
         order: {
           select: {
             athleteId: true,
+            /* POL-BE-116 — whether the sponsor approves, from the order's details. */
+            orderDetails: true,
             campaign: { select: { name: true } },
             athlete: { select: { displayName: true, user: { select: { email: true } } } },
           },
@@ -313,7 +325,7 @@ async function move(
     }
     /* P8-BE-03 — nothing on a deal moves while a dispute pauses it. */
     await assertNotPaused(tx, found.orderId);
-    opts.guard?.(found);
+    opts.guard?.({ ...found, sponsorApproval: storedOrderDetails(found.order.orderDetails)?.sponsorApproval ?? null });
     if (opts.beforeWrite) await opts.beforeWrite(tx, { tenantId: found.tenantId, athleteId: found.order.athleteId });
 
     /* P5-BE-10 — written only while it is still in the state it was read in:
@@ -483,6 +495,8 @@ export async function submitDraft(
             },
             /* The accepted offer, when the order came from one: its disclosures. */
             offer: { select: { disclosures: true } },
+            /* POL-BE-116 — the order's details: its disclosures and whether the sponsor approves. */
+            orderDetails: true,
           },
         },
       },
@@ -523,15 +537,21 @@ export async function submitDraft(
       throw new IllegalDeliverableTransitionError(from, "DRAFT_SUBMITTED");
     }
 
+    const orderDetails = storedOrderDetails(found.order.orderDetails);
     const checks = contentChecks({
       latest: latest ? { version: latest.version, contentType: latest.contentType } : null,
       caption,
-      requiredDisclosures: found.order.offer?.disclosures ?? [],
+      /* POL-BE-116 — an order sent from an invitation carries its disclosures in its details. */
+      requiredDisclosures: found.order.offer?.disclosures ?? orderDetails?.disclosures ?? [],
     });
     const passed = allPassed(checks);
     const now = new Date();
     /* P5-BE-10 — only a passing draft is considered; read before any write. */
-    const route = passed ? await decideSkip(tx, found) : null;
+    let route = passed ? await decideSkip(tx, found) : null;
+    /* POL-BE-116 — "Sponsor approval: no": BTG's review is the only one, so it is never skipped. */
+    if (route?.skip && orderDetails?.sponsorApproval === false) {
+      route = { ...route, skip: false, reason: "This order has no sponsor approval, so BTG's review is the only one and is not skipped." };
+    }
 
     const written = await tx.deliverable.updateMany({
       /* tenant-scope: the row loaded above through whereFor, only while unchanged. */
@@ -713,6 +733,8 @@ export function approveDeliverable(actor: Actor, deliverableId: string): Promise
     auditAction: AUDIT_ACTIONS.deliverable.approve,
     guard: (d) => {
       if (d.state === "BTG_REVIEW" && !btg) throw new BtgReviewFirstError();
+      /* POL-BE-116 — "Sponsor approval: yes" on the order: it goes to the sponsor. */
+      if (d.state === "BTG_REVIEW" && d.sponsorApproval === true) throw new SponsorApprovalRequiredError();
     },
     /* P5-BE-10 — BTG approving it outright from its own review is a clean
        pass too. BTG approving from SPONSOR_REVIEW is not counted: it is not
