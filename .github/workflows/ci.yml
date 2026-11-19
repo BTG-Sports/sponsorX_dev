@@ -323,10 +323,16 @@ jobs:
       # stop a scripted attacker stop the suite instead. Scaled up here, for
       # this job only (rate-limit.ts, limitMultiplier); never set in production.
       RATE_LIMIT_MULTIPLIER: "100"
-      # No MinIO here: Playwright starts an in-memory object store
-      # (e2e/support/object-store-standin.mjs) and the API presigns against
-      # it, so an upload's PUT lands and the API's check that it landed finds it.
+      # POL-BE-112 — the browser's uploads land in an object store held to what
+      # R2 enforces (MinIO's server image is no longer published, so it is the
+      # stand-in, STRICT): only the test site may upload from a browser
+      # (staging's upload rule), and every signed link's signature, type,
+      # length and expiry are checked. A broken upload — a bad signature, a
+      # missing upload rule — fails CI. Playwright starts it
+      # (e2e/support/object-store-standin.mjs); the API presigns against it.
       E2E_OBJECT_STORE_STANDIN: "1"
+      E2E_STORE_STRICT: "1"
+      E2E_STORE_ALLOW_ORIGIN: http://127.0.0.1:3100
       S3_ENDPOINT: http://127.0.0.1:9100
       # The API validates both Clerk keys at boot; the fan routes never call
       # Clerk, so the test instance's keys are enough.
@@ -379,6 +385,25 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "ALTER DATABASE sponsorx_e2e SET sponsorx.audit_purge = 'on'"
           # 2S8-OPS-02 — UTC by construction, as the unit job's database.
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "ALTER DATABASE sponsorx_e2e SET timezone TO 'UTC'"
+
+      # POL-BE-112 — prove the store is strict before the suite leans on it:
+      # the test site's preflight is allowed, another site's isn't, and a
+      # forged signed upload is refused.
+      - name: Check the object store holds uploads to R2's rules
+        run: |
+          E2E_STORE_PORT=9199 S3_ENDPOINT=http://127.0.0.1:9199 node e2e/support/object-store-standin.mjs &
+          STORE=$!
+          for i in $(seq 1 20); do curl -sf http://127.0.0.1:9199/minio/health/live >/dev/null && break; sleep 0.5; done
+          allow() { curl -s -D - -o /dev/null -X OPTIONS http://127.0.0.1:9199/sponsorx-private/x \
+            -H "Origin: $1" -H 'Access-Control-Request-Method: PUT' -H 'Access-Control-Request-Headers: content-type' \
+            | tr -d '\r' | awk 'tolower($1)=="access-control-allow-origin:"{print $2}'; }
+          test "$(allow http://127.0.0.1:3100)" = "http://127.0.0.1:3100"
+          test -z "$(allow https://elsewhere.invalid)"
+          forged=$(curl -s -o /dev/null -w '%{http_code}' -X PUT -H 'Content-Type: text/plain' --data 'x' \
+            "http://127.0.0.1:9199/sponsorx-private/x?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20991231T000000Z&X-Amz-Expires=900&X-Amz-SignedHeaders=host&X-Amz-Signature=deadbeef")
+          test "$forged" = "403"
+          kill $STORE
+          echo "object store: the test site only, and signatures checked"
 
       - name: Run the E2E suite
         run: npm run e2e
