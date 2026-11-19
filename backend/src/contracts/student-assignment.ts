@@ -20,11 +20,12 @@ export const AssignmentInput = z
 
 export const DraftUploadInput = z
   .object({
-    contentType: z.string().min(1).max(255),
+    /** As the browser names it; empty for a file it can't name. Any format. */
+    contentType: z.string().max(255),
     /** The file's size in bytes, exactly — signed into the PUT. */
-    bytes: z.number().int().positive().max(2 * 1024 ** 3),
+    bytes: z.number().int().positive().max(2_000_000_000),
   })
-  .meta({ id: "DraftUploadInput", description: "Presign a PUT of the draft's file (JPG, PNG or PDF, up to 20 MB) to the private bucket. The server chooses the key." });
+  .meta({ id: "DraftUploadInput", description: "Presign a PUT of the draft's file — any format (P9-BE-25: photo, video, PDF, a design file), up to 2 GB — to the private bucket. The server chooses the key and answers the type to send with the PUT." });
 
 export const DraftSubmitInput = z
   .object({

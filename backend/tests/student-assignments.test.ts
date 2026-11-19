@@ -209,8 +209,12 @@ describe.skipIf(!hasDatabase)("P9-BE-24 · on the path a request takes", async (
   });
 
   it("the student answers with a new version, a file attached; the key must be one granted for this piece", async () => {
-    expect((await call("POST", `/student-assignments/${id}/uploads`, "sa_jordan_u", { contentType: "application/zip", bytes: 2048 })).status).toBe(422);
-    expect((await call("POST", `/student-assignments/${id}/uploads`, "sa_jordan_u", { contentType: "image/jpeg", bytes: 30 * 1024 * 1024 })).status).toBe(422);
+    /* P9-BE-25 — any format (owner, 2026-11-19), up to 2 GB: only a declaration that isn't a media type, or a bigger file, is refused. */
+    expect((await call("POST", `/student-assignments/${id}/uploads`, "sa_jordan_u", { contentType: "not a type", bytes: 2048 })).status).toBe(422);
+    expect((await call("POST", `/student-assignments/${id}/uploads`, "sa_jordan_u", { contentType: "image/jpeg", bytes: 2_000_000_001 })).status).toBe(400);
+    const zip = (await call("POST", `/student-assignments/${id}/uploads`, "sa_jordan_u", { contentType: "application/zip", bytes: 2048 }));
+    expect(zip.status).toBe(201);
+    expect(zip.json).toMatchObject({ contentType: "application/zip" });
     expect((await call("POST", `/student-assignments/${id}/uploads`, "sa_casey_u", { contentType: "image/jpeg", bytes: 2048 })).status).toBe(403);
     const up = await call("POST", `/student-assignments/${id}/uploads`, "sa_jordan_u", { contentType: "image/jpeg", bytes: 2048 });
     expect(up.status, up.text).toBe(201);

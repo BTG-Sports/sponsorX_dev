@@ -4211,6 +4211,164 @@ The screens P9-FE-01 and P9-FE-02 left "not connected". The student's Assignment
 - **Done when:** A signed-in student sees their real assignments, submits a draft and reads the advisor's note; a signed-in advisor reviews their school's pieces by tab, approves or sends one back with a note, and assigns new work; neither screen shows "not connected" or sample data to a signed-in person
 - **Reference:** Spec §7, §8
 
+### ▶ `P9-BE-25` · Uploads for edition content, in any format
+
+**Order** 209.88 · **BE** · **Where:** Code · **2d** · **Code review**
+
+Raised 2026-11-19 by the programme owner's upload audit ([SponsorX-Upload-Audit.md](SponsorX-Upload-Audit.md) §2). Today BTG can add a piece of edition content only as a title: the form has no file, and there's no way to upload one. The API also stores any file reference it's sent, unchecked. The owner decided on 2026-11-19 that the magazine takes **any format**: photos, video, PDFs and design files such as InDesign or Photoshop.
+
+- **What it builds:**
+  - BTG gets a direct upload for a piece of edition content, whoever made it: BTG, an athlete or an outside photographer.
+  - The API accepts only a file that came through its own upload, and checks that the file arrived, is the type it was signed for and is the size declared.
+  - The student's draft takes any format too, video included.
+  - A file a browser shouldn't open in place (anything other than an image, a video, audio or a PDF) is always downloaded, never shown.
+  - It also fixes an approved design piece becoming content of a kind that doesn't exist.
+- **Depends on:** P9-BE-10, P9-BE-24
+- **Done when:**
+  - BTG uploads a file of any format to a piece of edition content, and an upload of up to 2 GB fits;
+  - a file reference that didn't come from the API's own upload is refused;
+  - a wrong type or size is refused, deleted and recorded;
+  - a student can submit a draft in any format, video included;
+  - a file that isn't an image, video, audio or PDF opens as a download;
+  - an approved design piece becomes content of a real kind;
+  - another tenant and roles without the right are refused;
+  - the real-upload test covers the new upload.
+- **Reference:** Spec §5.3, §9; upload audit §2
+- **Delivered (2026-11-19, rcfworks):**
+  - **Upload:** `POST /editions/{id}/assets/uploads` takes `{ contentType, bytes }`, any format up to 2 GB, and answers `{ url, key, contentType, maxBytes }`.
+    - The key is built by the server, under `edition-content/<tenant>/<edition>/`.
+    - The type is normalised: lowercased, with no parameters. An empty type becomes `application/octet-stream`.
+    - The browser sends the answered `contentType` with its PUT, which is signed for that type and the exact size.
+  - **Save:** `POST /editions/{id}/assets` with `r2Key` (and optionally `fileName`) checks four things:
+    - the key is under this edition's prefix;
+    - this edition's grant handed it out;
+    - no other piece already uses it;
+    - what arrived is the type and size signed for.
+
+    A file that never arrived is refused (409). A wrong file is refused, deleted and recorded (422).
+  - **A file for a piece added by title:** `PUT /edition-assets/{id}/file`, once. It is refused for:
+    - ad artwork (the sponsor's upload);
+    - a student's piece (its draft's file);
+    - a published or cancelled edition.
+
+    A file is never swapped, because the piece's rights were granted for what it is.
+  - **Read:** `GET /edition-assets/{id}/file` gives a short signed link, and each one is recorded.
+    - A file other than an image (not SVG), a video, audio or a PDF comes back as a download, by its name.
+    - The download setting is signed into the link, so it can't be dropped.
+  - **Student drafts:** any format, up to 2 GB. `POST /student-assignments/{id}/uploads` answers the type to send. The advisor's read downloads the same files.
+  - **Approved pieces:** a piece carries its draft's file type, and DESIGN is now a content kind.
+  - **Storage:** `EditionAsset` gains `fileType`, `fileBytes` and `fileName` (migration `20261119180000_edition_content_files`, with two checks). Earlier student pieces got their type back.
+  - **The list:** `GET /editions/{id}/assets` shows `hasFile` and the file's type, size and name. The key stays on the server.
+  - **Rules:** in `backend/src/lib/file-formats.ts`. `presignPrivateDownload` takes the download setting.
+  - **Tests:**
+    - `backend/tests/p9-be-25-edition-content-uploads.test.ts` (8): real database and a signature-checking store, every Done-when clause;
+    - `backend/tests/file-formats.unit.test.ts` (6);
+    - two new flows in `backend/tests/private-upload-pins.test.ts`: edition content (a video) and a student's draft (a video);
+    - the isolation sweep covers the new routes;
+    - `student-assignments.test.ts` was updated to the any-format rule.
+  - **Checked:** the full backend suite passed (279 files, 3,995 tests), with lint and build clean.
+
+### ▶ `P9-BE-26` · Photos, video and ads in the public reader
+
+**Order** 209.89 · **BE** · **Where:** Code · **2d** · **Ready**
+
+Today the free digital edition returns titles and article text only. Approved photos stay in private storage, and the reader lists each sponsor's name but never shows the ad they paid for.
+
+- **What it builds:**
+  - When an edition is published, each image or video it carries gets a public web copy: student and BTG content with a digital right in force, and the approved ad artwork of every sold slot.
+  - The public edition returns those links.
+  - When a right ends, the web copy comes down.
+  - Files a browser can't show (design files and the like) stay private.
+- **Depends on:** P9-BE-25, P9-BE-16
+- **Done when:**
+  - a published edition's reader data carries an image or video link for each piece and ad that may be shown;
+  - nothing is public before publication, or without a digital right in force;
+  - a right that ends takes its web copy down;
+  - a minor's photo is shown only where a guardian's consent covers it;
+  - each ad appears with its sponsor.
+- **Reference:** Spec principle 10, §5.3; upload audit §2
+
+### ▶ `P9-BE-27` · An edition's cover image and press PDF
+
+**Order** 209.90 · **BE** · **Where:** Code · **1.5d** · **Ready**
+
+The spec says layout stays in InDesign or Canva, and the platform holds "approved artwork and the press PDF" (§9). Nothing holds either today.
+
+- **Depends on:** P9-BE-25
+- **Done when:**
+  - BTG uploads a cover image and a press PDF to an edition, each checked when it arrives;
+  - the cover shows in the reader and the edition list once the edition is published;
+  - the press PDF stays private, read by BTG on a short signed link, every read recorded;
+  - a new upload replaces the old one, and the change is recorded.
+- **Reference:** Spec §9; upload audit §2
+
+### ▶ `P9-BE-28` · Production board data
+
+**Order** 209.91 · **BE** · **Where:** Code · **1d** · **Ready**
+
+The spec's `/admin/next/production` page was never built and had no task.
+
+- **Depends on:** P9-BE-25, P9-BE-27
+- **Done when:**
+  - one read per edition lists every piece: student work in progress, approved content, ad artwork, the cover and the press PDF;
+  - each piece says what it still needs before publishing (a file, an approval, a right);
+  - the read answers the same as the publishing gate, because it asks the same questions;
+  - it's BTG only, in their own tenant.
+- **Reference:** Spec §8; upload audit §2
+
+### ▶ `P9-FE-13` · A file picker on the rights page's "add content" form
+
+**Order** 209.92 · **FE** · **Where:** Code · **1d** · **Ready** · HeckerCreatives
+
+- **Depends on:** P9-BE-25
+- **Done when:**
+  - adding content on `/admin/next/rights` takes a file of any format, uploaded straight to storage, with progress shown;
+  - a piece added by title can be given its file;
+  - a refused file says why;
+  - an added piece's file opens from the list.
+  - **Student Assignments:** the draft's file picker takes any format, up to 2 GB.
+    - Today `DRAFT_FILE_TYPES` in `frontend/src/lib/student-assignments-live.ts` limits it to JPG, PNG and PDF, and caps it at 20 MB.
+    - Every upload sends the `contentType` the presign answered as its PUT's Content-Type, which matters for a file the browser can't name.
+- **API (P9-BE-25):**
+  - `POST /editions/{id}/assets/uploads` → PUT → `POST /editions/{id}/assets` with `r2Key` and `fileName`;
+  - `PUT /edition-assets/{id}/file` for a piece added by title;
+  - `GET /edition-assets/{id}/file` to open one;
+  - the list's `hasFile`, `fileType`, `fileBytes` and `fileName`.
+- **Reference:** upload audit §2
+
+### ▶ `P9-FE-14` · Photos, video, ads and the cover in the public reader
+
+**Order** 209.93 · **FE** · **Where:** Code · **1.5d** · **Ready** · HeckerCreatives
+
+- **Depends on:** P9-BE-26, P9-BE-27
+- **Done when:**
+  - `/next/[school]/[edition]` shows the cover, each piece's photo or video with its article, and each sponsor's ad in its position;
+  - it works at phone width;
+  - a piece with no picture still reads well.
+- **Reference:** Spec principle 10, §9
+
+### ▶ `P9-FE-15` · Cover and press PDF upload on the editions page
+
+**Order** 209.94 · **FE** · **Where:** Code · **1d** · **Ready** · HeckerCreatives
+
+- **Depends on:** P9-BE-27
+- **Done when:**
+  - `/admin/next/editions` uploads and replaces an edition's cover and press PDF;
+  - the press PDF opens on a signed link;
+  - a refused file says why.
+- **Reference:** Spec §9
+
+### ▶ `P9-FE-16` · The production board page
+
+**Order** 209.95 · **FE** · **Where:** Code · **2d** · **Ready** · HeckerCreatives
+
+- **Depends on:** P9-BE-28
+- **Done when:**
+  - `/admin/next/production` shows one edition's pieces with what each still needs, using `approvals-desk` as the spec says;
+  - a piece links to where it's fixed (assignment, artwork, rights, cover);
+  - it works at desk and phone width.
+- **Reference:** Spec §8
+
 ### ✅ `P9-QA-01` · E2E: edition sells once, a student code attributes the sale
 
 **Order** 210 · **QA** · **Where:** Code · **3d** · **Done**
