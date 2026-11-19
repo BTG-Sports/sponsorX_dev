@@ -3385,7 +3385,7 @@ the blockers and today's content review findings.
   - **Not checked:** a real submission. The walk stopped with Submit armed, so no application was filed; the submit path is the one that was there, plus a guard against a double click. `npm run build` not run (the owner's `next dev` is live).
 
 ### 116. Creating a campaign doesn't build the athlete's order, so most of the order template has nowhere to go [§13, §21, Athlete Campaign Order template]
-`POL-BE-116` · `POL-FE-116` · *Dead end* · confirmed (programme owner, 2026-11-19)
+`POL-BE-116` · `POL-FE-116` · *Dead end* · confirmed · **`POL-BE-116` Done 2026-11-19** (#497) (programme owner, 2026-11-19)
 - **The owner's words:**
   - "Make sure it follows this": `documentation/AthleteCampaignReference/BTG_SponsorX_Athlete_Campaign_Order.docx`.
   - "That form is only for a video campaign. Use that form as a base when the campaign is on other media."
@@ -3438,7 +3438,7 @@ the blockers and today's content review findings.
   - An order is issued automatically, or held with a reason in words.
   - The earning follows the campaign's payment timing.
   - The athlete sees the whole order before accepting.
-- **Delivered, backend (`POL-BE-116`, 2026-11-19, rcfworks, Code review):**
+- **Delivered, backend (`POL-BE-116`, 2026-11-19, rcfworks; Done, deployed to staging and production the same day):**
   - **The details** (`backend/src/domain/order-details-rules.ts`) follow the template, checked in full and refused in words:
     - prompt, publish window, usage (channels, period, territory, restrictions), paid media (kinds, platforms, duration, territory, extra pay), exclusivity (category, days, area), disclosures, sponsor approval, payment timing (days after verified) and non-cash consideration;
     - each job's medium, keyed by the NIL job, SX-01 to SX-07.
