@@ -56,3 +56,11 @@
 
 ### POL-FE-117, follow-up · /brief's Where step picked too
 - Owner: "the /brief page still in free text". `components/brief-wizard.tsx` Where step uses `PlacePicker`; `lib/brief-flow.ts` keeps `marketCountry` / `marketRegion` / `marketCity` and writes `market` from them (`withMarket`), so `POST /public/inquiries` is unchanged; a region from the list is required. Tests: `brief-flow` updated (+2). tsc, eslint clean; walked at 1280/390 (Uganda → Central → Kampala, Continue to Contact), nothing sent.
+
+## POL-BE-118 + POL-FE-118 · signing in after sending a brief: no bounce, and the page speaks about the request (HeckerCreatives) — Done
+
+- **Reported by the owner:** after the brief, the first sign-in landed on the landing page; the second showed "Your account isn't set up yet … apply on Get started".
+- **Causes:** the login widget set no redirect for a sign-UP (Google with a new address is one), so Clerk used `/`; and `/portal` knew nothing of pending applications. The owner's own request (local DB) was `NEW`, email unconfirmed, no login — as designed, but nothing said so.
+- **Fix:** `signUpForceRedirectUrl` + provider fallbacks → `/portal`; `resolveActor` asks `pendingApplicationFor` — signing in with the request's address confirms its email and runs the automatic checks (a complete request opens and is claimed in the same sign-in), otherwise the 403 carries `pending` and `/portal` says what's left with the request page.
+- **Checked:** backend tsc; frontend tsc + eslint; new tests (4 backend, 5 frontend) plus the sponsor auto-approval and sign-in suites; full frontend suite green; walked with a throwaway Clerk user (deleted after, with its brief and jobs).
+- **For the owner:** your own request (`Local retail`, sent 07:20) will have its email confirmed the next time you sign in with that Google account; the page then asks for the proof of business, and the account opens once it is uploaded.
