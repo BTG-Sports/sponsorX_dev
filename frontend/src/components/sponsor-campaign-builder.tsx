@@ -879,7 +879,7 @@ export function SponsorCampaignBuilder({
                             label="Who to reach"
                             onEdit={() => edit("reach")}
                             value={[
-                              countryName(draft.country) + (asksStates(draft.country) ? (draft.states.length ? `: ${draft.states.join(", ")}` : ": any state") : ": the whole country"),
+                              countryName(draft.country) + (asksStates(draft.country) ? (draft.states.length ? `: ${draft.states.map((c) => states.find((s) => s.value === c)?.label ?? c).join(", ")}` : ": any state") : ": the whole country"),
                               draft.sports.length ? draft.sports.join(", ") : "Any sport",
                               draft.tiers.length ? draft.tiers.map((t) => TIER_LABEL[t as keyof typeof TIER_LABEL] ?? t).join(", ") : "Any audience size",
                               draft.minFollowers.trim() ? `At least ${draft.minFollowers.trim()} followers` : "",
