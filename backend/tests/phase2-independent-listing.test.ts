@@ -256,6 +256,28 @@ describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their 
       expect((await call("GET", `/listings/${E.listing}`, "ind_x_buyer")).status).toBe(403);
     });
 
+    it("POL-FE-117 — the shop's Where filter: country, then region, then city, all the athlete's", async () => {
+      const ids = async (qs: string) => {
+        const r = await call("GET", `/marketplace/search?q=clinic&${qs}`, "ind_buyer");
+        expect(r.status, r.text).toBe(200);
+        return r.json.results.map((x: { id: string }) => x.id);
+      };
+      expect(await ids("countryCode=US")).toContain(E.listing);
+      expect(await ids("countryCode=TZ")).not.toContain(E.listing);
+      expect(await ids("countryCode=us&stateCode=va")).toContain(E.listing);
+      expect(await ids("countryCode=US&stateCode=VA&city=Richmond")).not.toContain(E.listing);
+      await prisma.athlete.update({ where: { id: "ind_ath_jordan" }, data: { city: "Richmond" } });
+      try {
+        expect(await ids("countryCode=US&stateCode=VA&city=richmond")).toContain(E.listing);
+        /* The athlete moves to Arusha: the US no longer finds the listing, Tanzania does. */
+        await prisma.athlete.update({ where: { id: "ind_ath_jordan" }, data: { countryCode: "TZ", stateCode: "01", city: "Arusha" } });
+        expect(await ids("countryCode=US")).not.toContain(E.listing);
+        expect(await ids("countryCode=TZ&stateCode=01&city=Arusha")).toContain(E.listing);
+      } finally {
+        await prisma.athlete.update({ where: { id: "ind_ath_jordan" }, data: { countryCode: "US", stateCode: "VA", city: null } });
+      }
+    });
+
     it("POL-FE-91 — opens it as one item: the search row, its package contents, and a public slug only once the athlete's page is up", async () => {
       const one = await call("GET", `/marketplace/search/${E.listing}`, "ind_buyer");
       expect(one.status, one.text).toBe(200);

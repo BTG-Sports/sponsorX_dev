@@ -48,6 +48,7 @@ export function PlacePicker({
   hints = {},
   field = defaultField,
   disabled = false,
+  filter = false,
 }: {
   value: Place;
   onChange: (next: Place) => void;
@@ -61,13 +62,20 @@ export function PlacePicker({
   hints?: Partial<Record<"country" | "region" | "city", string>>;
   field?: PlaceField;
   disabled?: boolean;
+  /** A search filter, not a form (the sponsor shop): each list opens with
+   *  "Any country / Any state / Any city", and picking it widens the search. */
+  filter?: boolean;
 }) {
-  const countries = useMemo(() => countryChoices(only), [only]);
-  const showCountry = countries.length > 1;
-  const country = value.countryCode || (countries.length === 1 ? countries[0]!.value : "");
+  const choices = useMemo(() => countryChoices(only), [only]);
+  const showCountry = choices.length > 1;
+  const countries = useMemo(() => (filter ? [{ value: "", label: "Any country" }, ...choices] : choices), [filter, choices]);
+  const country = value.countryCode || (choices.length === 1 ? choices[0]!.value : "");
   const known = placeCountry(country) !== null;
-  const regions = useMemo(() => regionChoices(country), [country]);
   const label = regionLabel(country);
+  const regions = useMemo(() => {
+    const list = regionChoices(country);
+    return filter && list.length ? [{ value: "", label: `Any ${label.toLowerCase()}` }, ...list] : list;
+  }, [country, filter, label]);
   const region = placeRegion(country, value.regionCode);
 
   /* The region's cities, fetched once it's picked. */
@@ -92,9 +100,10 @@ export function PlacePicker({
     const list: SearchOption[] = (here?.list ?? []).map((c) => ({ value: c, label: c }));
     const onFile = value.city.trim();
     if (onFile && here?.status === "ready" && !here.list.includes(onFile)) list.unshift({ value: onFile, label: onFile, hint: "not on the list" });
-    if (cityOptional && (onFile || list.length)) list.unshift({ value: "", label: `No city — just the ${label.toLowerCase()}` });
+    if (filter && list.length) list.unshift({ value: "", label: `Any city in ${region?.name ?? `the ${label.toLowerCase()}`}` });
+    else if (cityOptional && (onFile || list.length)) list.unshift({ value: "", label: `No city — just the ${label.toLowerCase()}` });
     return list;
-  }, [here, value.city, cityOptional, label]);
+  }, [here, value.city, cityOptional, label, filter, region?.name]);
 
   const cityHint = hints.city ?? (here?.status === "ready" ? `${here.list.length.toLocaleString("en-US")} places in ${region?.name}.${cityOptional ? " Optional." : ""}` : cityOptional ? "Optional." : undefined);
 

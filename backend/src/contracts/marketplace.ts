@@ -200,7 +200,10 @@ const num = z.coerce.number().int().min(0);
 export const SearchQuery = z
   .object({
     q: z.string().max(200).optional(), kind: z.enum(INVENTORY_KINDS).optional(), category: category.optional(),
-    sport: z.string().max(60).optional(), stateCode: z.string().length(2).optional(),
+    sport: z.string().max(60).optional(),
+    /* POL-FE-117 — where: a catalogue country, its region (a US state, a Kenyan county — some codes are one letter) and a city. */
+    countryCode: z.string().length(2).toUpperCase().optional(), stateCode: z.string().min(1).max(3).toUpperCase().optional(),
+    city: z.string().trim().min(1).max(120).optional(),
     minPrice: num.optional(), maxPrice: num.optional(),
     availableFrom: when.optional(), availableUntil: when.optional(), limit: z.coerce.number().int().min(1).max(100).optional(),
   })

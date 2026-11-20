@@ -572,6 +572,9 @@
 .sx-sh-field-label { font-size: 12.5px; font-weight: 700; color: var(--sx-text); }
 .sx-sh-field-pair { display: grid; gap: 0.5rem; grid-template-columns: 1fr; }
 @media (min-width: 30rem) { .sx-sh-field-pair { grid-template-columns: 1fr 1fr; } }
+/* POL-FE-117 — Country · State · City: stacked on a phone, three across once the sheet is a dialog. */
+.sx-sh-field-pair.sx-sh-field-place { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 40rem) { .sx-sh-field-pair.sx-sh-field-place { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
 @media (prefers-reduced-motion: reduce) {
   .sx-sh-sheet, .sx-sh-scrim, .sx-sh-sheet-body, .sx-sh-added-mark, .sx-sh-next > li[data-now]::before { animation: none; }

@@ -30,7 +30,7 @@ import { sellerCanSell } from "./listing-rules";
 import { readPage, type PageRequest } from "../lib/paging";
 
 export type SearchFilters = {
-  q?: string; kind?: string; category?: string; sport?: string; stateCode?: string;
+  q?: string; kind?: string; category?: string; sport?: string; countryCode?: string; stateCode?: string; city?: string;
   minPrice?: number; maxPrice?: number; availableFrom?: Date; availableUntil?: Date; limit?: number;
 };
 
@@ -55,6 +55,23 @@ function live(now: Date): Prisma.ListingWhereInput {
   };
 }
 
+/**
+ * POL-FE-117 — the shop's Where filter: Country → region → city. A team's
+ * listing is where the team is (teams are US-only); an independent athlete's
+ * has no property, so it is where the athlete lives (2S3-BE-05). A region or
+ * city sent without a country is a US one — what the filter meant before
+ * East Africa joined the catalogue.
+ */
+function placeWhere(f: SearchFilters): Prisma.ListingWhereInput | null {
+  const country = f.countryCode ?? (f.stateCode || f.city ? "US" : undefined);
+  if (!country) return null;
+  const region = f.stateCode ? { stateCode: f.stateCode } : {};
+  const city = f.city ? { city: { equals: f.city, mode: "insensitive" as const } } : {};
+  const solo: Prisma.ListingWhereInput = { propertyId: null, item: { athlete: { countryCode: country, ...region, ...city } } };
+  if (country !== "US") return solo;
+  return { OR: [{ propertyId: { not: null }, property: { ...region, ...city } }, solo] };
+}
+
 function filtersWhere(f: SearchFilters): Prisma.ListingWhereInput[] {
   const and: Prisma.ListingWhereInput[] = [];
   if (f.q?.trim()) {
@@ -64,8 +81,8 @@ function filtersWhere(f: SearchFilters): Prisma.ListingWhereInput[] {
   if (f.kind) and.push({ item: { kind: f.kind } });
   if (f.category) and.push({ item: { categories: { has: f.category } } });
   if (f.sport) and.push({ item: { athlete: { sport: { equals: f.sport, mode: "insensitive" } } } });
-  /* An independent athlete's listing has no property: its state is the athlete's (2S3-BE-05). */
-  if (f.stateCode) and.push({ OR: [{ property: { stateCode: f.stateCode } }, { propertyId: null, item: { athlete: { stateCode: f.stateCode } } }] });
+  const where = placeWhere(f);
+  if (where) and.push(where);
   if (f.minPrice != null) and.push({ item: { priceCents: { gte: f.minPrice } } });
   if (f.maxPrice != null) and.push({ item: { priceCents: { lte: f.maxPrice } } });
   if (f.availableFrom) and.push({ item: { OR: [{ availableUntil: null }, { availableUntil: { gte: f.availableFrom } }] } });
