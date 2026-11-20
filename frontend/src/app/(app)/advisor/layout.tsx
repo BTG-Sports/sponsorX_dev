@@ -5,6 +5,8 @@ import { roleLabel, viewerName } from "@/server/viewer";
 const NAV: NavItem[] = [
   { href: "/advisor", label: "Applications", icon: "users" },
   { href: "/advisor/review", label: "Content review", icon: "inbox" },
+  /* POL-FE-103 — the advisor's own details and their school's. */
+  { href: "/advisor/profile", label: "Profile", icon: "user" },
 ];
 
 /* The advisor desk — SponsorX NEXT (P1-FE-20, spec §3, §7, §8). One school's
