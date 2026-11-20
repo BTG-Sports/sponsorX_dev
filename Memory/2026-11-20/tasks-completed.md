@@ -112,3 +112,5 @@
 - Backend: `setAgeRow` refuses a *new* row off the catalogue (422, in words); existing rows can still be changed or removed. `phase2-athlete-signup` BE-12 updated (ZZ and TZ-MD refused, TZ-01 added and removed).
 - Checked: frontend tsc + eslint clean, full vitest 220 files / 2,742 pass (`age-table.test.ts` rewritten for the catalogue, 20 cases); backend tsc clean, `phase2-athlete-signup` passes. `tenant-isolation`'s last case fails locally because the running Docker worker dispatches tenant A's outbox email mid-test (`OutboxJob.dispatchedAt`), environmental, not this change. Walked live as the QA admin (US, Tanzania, the Dodoma add dialog, the off-list rows, the country dropdown) and as the QA sponsor (the Where filter on `?countryCode=US&stateCode=MD`): no page errors.
 - Not done: the East African ages themselves. Every one of the nine countries shows "No age set" (athletes count as 18 and are flagged) until BTG sets them; a South Sudan › Abyei row at 18 was added by a BTG admin account during the session.
+- `5S1-FE-02` (certified-recruiting.com's footer, GoDaddy editor): Owner set to HeckerCreatives on
+  the user's decision. Still Ready.
