@@ -22,6 +22,7 @@ import { audit, type AuditActor } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
+import { catalogueRegion, isCatalogueCountry } from "./places";
 import {
   DEFAULT_AGE_TABLE, MAX_MAJORITY_AGE, MIN_MAJORITY_AGE, majorityFor, type AgeRow, type Majority,
 } from "./age-of-majority-rules";
@@ -136,6 +137,12 @@ export async function setAgeRow(actor: Actor, input: { countryCode: string; regi
     const existing = await tx.ageOfMajority.findFirst({
       where: { ...whereFor(actor, "signupRules", "write"), countryCode, regionCode }, select: { id: true, age: true },
     });
+    /* POL-FE-117 — a new place is one athletes can pick: a catalogue country, or a
+       region of it. Rows from before the catalogue can still be changed or removed. */
+    if (!existing) {
+      if (!isCatalogueCountry(countryCode)) throw new AgeTableError(`${countryCode} isn't on the place list (the United States and East Africa), so no athlete can live there.`);
+      if (regionCode && !catalogueRegion(countryCode, regionCode)) throw new AgeTableError(`${regionCode} isn't one of ${countryCode}'s regions on the place list.`);
+    }
     const row = existing
       ? await tx.ageOfMajority.update({
           /* tenant-scope: loaded above through whereFor(signupRules, write). */

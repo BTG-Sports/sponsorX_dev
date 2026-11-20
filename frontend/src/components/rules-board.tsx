@@ -38,8 +38,8 @@ import { SearchInput } from "@/components/filter-kit";
 import { Pagination } from "@/components/pagination";
 import { PlaceDialog, type DialogMode } from "@/components/place-dialog";
 import {
-  ageBand, changedWords, countryDetail, countryIndex, placeLabel, placeList, placePage, regionName, searchPlaces, statusWords,
-  type AgeBand, type AgeRow, type CountryDetail, type CountryEntry, type PlaceFilter, type SearchHit,
+  OFF_LIST, ageBand, changedWords, countryDetail, countryIndex, countryName, onPlaceList, placeLabel, placeList, placeName, placePage, regionName, searchPlaces, statusWords,
+  type AgeBand, type AgeRow, type CountryDetail, type CountryEntry, type PlaceFilter, type PlaceRow, type SearchHit,
 } from "@/lib/age-table";
 
 const CHAMFER = "[clip-path:polygon(0_0,calc(100%-8px)_0,100%_8px,100%_100%,8px_100%,0_calc(100%-8px))]";
@@ -64,13 +64,18 @@ export function RulesBoard({ rows }: { rows: AgeRow[] }) {
   const detail = useMemo(() => (country ? countryDetail(rows, country) : null), [rows, country]);
   const editingId = dialog?.kind === "edit" ? dialog.row.id : null;
 
-  const load = (row: AgeRow) => {
-    setPicked(row.countryCode);
-    setDialog({ kind: "edit", row });
+  /* POL-FE-117 — a region with no row of its own opens "Add" with the place already chosen, at the age it follows now. */
+  const countryAge = (c: string) => rows.find((r) => r.countryCode === c && !r.regionCode)?.age;
+  const add = (countryCode: string, regionCode = "") => setDialog({ kind: "add", countryCode, regionCode, age: (regionCode ? countryAge(countryCode) : undefined) ?? 18 });
+  const load = (row: AgeRow | PlaceRow) => {
+    setPicked(onPlaceList(row) ? row.countryCode : OFF_LIST);
+    if ("virtual" in row && row.virtual) add(row.countryCode, row.regionCode);
+    else setDialog({ kind: "edit", row });
   };
   const pick = (hit: SearchHit) => {
     setPicked(hit.country);
     if (hit.row) load(hit.row);
+    else if (hit.regionCode) add(hit.country, hit.regionCode);
   };
 
   return (
@@ -97,12 +102,12 @@ export function RulesBoard({ rows }: { rows: AgeRow[] }) {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
         <CountryRail index={index} selected={country} onSelect={setPicked} />
-        {detail && <CountryPanel key={detail.country} detail={detail} editingId={editingId} onLoad={load} />}
+        {detail && <CountryPanel key={detail.country} detail={detail} editingId={editingId} onLoad={load} onAddCountry={() => add(detail.country)} />}
       </div>
 
       {dialog && (
         <PlaceDialog
-          key={dialog.kind === "edit" ? dialog.row.id : "add"}
+          key={dialog.kind === "edit" ? dialog.row.id : `add-${dialog.countryCode ?? ""}-${dialog.regionCode ?? ""}`}
           mode={dialog}
           rows={rows}
           onClose={() => setDialog(null)}
@@ -144,18 +149,18 @@ function GlobalSearch({ rows, onPick }: { rows: AgeRow[]; onPick: (h: SearchHit)
         value={q}
         onChange={(v) => { setQ(v); setOpen(true); setActive(0); }}
         label="Search every country"
-        placeholder="Search any place — AL, Alberta, Mexico…"
+        placeholder="Search any place — Maryland, Arusha, Kenya…"
         tone="admin"
         className="w-full"
       />
       {open && q.trim() && (
         <div role="listbox" aria-label="Places found" className="sx-pop absolute inset-x-0 top-full z-30 mt-1.5 overflow-hidden rounded-xl border border-[#63b4f8]/35 bg-[#060b14]/95 p-1.5 shadow-[0_18px_40px_rgba(0,0,0,.6)] backdrop-blur-md">
           {hits.length === 0 ? (
-            <p className="px-3 py-2.5 text-xs text-[#8a96a3]">Nothing matches “{q.trim()}”. Add it with the form above.</p>
+            <p className="px-3 py-2.5 text-xs text-[#8a96a3]">Nothing on the place list matches “{q.trim()}”.</p>
           ) : (
             hits.map((h, i) => (
               <button
-                key={`${h.country}-${h.row?.id ?? "country"}`}
+                key={`${h.country}-${h.regionCode ?? ""}-${h.row?.id ?? ""}`}
                 type="button"
                 role="option"
                 aria-selected={i === active}
@@ -164,7 +169,7 @@ function GlobalSearch({ rows, onPick }: { rows: AgeRow[]; onPick: (h: SearchHit)
                 className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-xs ${i === active ? "bg-[#2e9bf5]/20" : ""}`}
               >
                 <span className="min-w-0 truncate">
-                  <span className="mr-2 font-mono font-semibold text-[#9be0ff]">{h.row?.regionCode || h.country}</span>
+                  <span className="mr-2 font-mono font-semibold text-[#9be0ff]">{h.regionCode ?? h.row?.countryCode ?? h.country}</span>
                   <span className="text-white">{h.title}</span>
                 </span>
                 <span className={`shrink-0 text-[11px] ${h.exception ? "font-semibold text-[#fdba74]" : "text-[#7e88a0]"}`}>{h.detail}</span>
@@ -203,32 +208,38 @@ function CountryRail({ index, selected, onSelect }: { index: CountryEntry[]; sel
       </div>
       <ul className="mt-2.5 min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-1 [scrollbar-color:rgba(99,180,248,.35)_transparent] [scrollbar-width:thin]">
         {shown.length === 0 && <li className="px-2 py-3 text-xs text-[#8a96a3]">No country matches.</li>}
-        {shown.map((x) => {
+        {shown.map((x, i) => {
           const on = x.country === selected;
+          /* POL-FE-117 — the pickers' groups: United States · East Africa, then the older rows. */
+          const heading = x.group !== shown[i - 1]?.group ? x.group : null;
           return (
             <li key={x.country}>
+              {heading && <p className={`px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6b7785] ${i > 0 ? "pt-3" : "pt-1"}`}>{heading}</p>}
               <button
                 type="button"
                 aria-current={on ? "true" : undefined}
                 onClick={() => onSelect(x.country)}
                 className={`grid w-full grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${on ? "bg-[#2e9bf5]/20 shadow-[inset_3px_0_0_#9be0ff]" : "hover:bg-white/[0.04]"}`}
               >
-                <span className="font-mono text-[11px] font-semibold text-[#9be0ff]">{x.country}</span>
+                <span className="font-mono text-[11px] font-semibold text-[#9be0ff]">{x.country === OFF_LIST ? "—" : x.country}</span>
                 <span className="min-w-0">
                   <span className="block truncate text-[13px] font-medium text-white">{x.name}</span>
                   <span className="block truncate text-[10px] text-[#7e88a0]">
-                    {x.places === 1 && x.defaultAge !== null ? "whole country" : plural(x.places, "place", "places")}
-                    {x.defaultAge !== null && x.places > 1 ? ` · default ${x.defaultAge}` : ""}
+                    {x.country === OFF_LIST
+                      ? `${plural(x.places, "row", "rows")} · older sign-ups only`
+                      : `${plural(x.places, x.regionWord.toLowerCase(), `${x.regionWord.toLowerCase()}s`.replace(/ys$/, "ies"))}${x.defaultAge !== null ? ` · default ${x.defaultAge}` : x.unset ? " · counts as 18" : ""}`}
                   </span>
                 </span>
-                {x.exceptions > 0 ? (
+                {x.unset ? (
+                  <span className="rounded-full border border-[#f97a1f]/40 px-2 py-0.5 text-[10px] font-semibold text-[#fdba74]">No age set</span>
+                ) : x.exceptions > 0 ? (
                   <span className="rounded-full border border-[#f97a1f]/40 bg-[#f97a1f]/15 px-2 py-0.5 text-[10px] font-semibold text-[#fdba74]">
                     {plural(x.exceptions, "exception", "exceptions")}
                   </span>
                 ) : x.defaultAge !== null ? (
                   <span className={`font-mono text-sm font-bold ${BAND[ageBand(x.defaultAge)].age}`}>{x.defaultAge}</span>
                 ) : (
-                  <span className="text-[10px] text-[#7e88a0]">by state</span>
+                  <span className="text-[10px] text-[#7e88a0]">{x.country === OFF_LIST ? "" : `by ${x.regionWord.toLowerCase()}`}</span>
                 )}
               </button>
             </li>
@@ -248,7 +259,9 @@ const TABS: { key: PlaceFilter; label: string }[] = [
   { key: "following", label: "Follow the default" },
 ];
 
-function CountryPanel({ detail, editingId, onLoad }: { detail: CountryDetail; editingId: string | null; onLoad: (row: AgeRow) => void }) {
+function CountryPanel({ detail, editingId, onLoad, onAddCountry }: { detail: CountryDetail; editingId: string | null; onLoad: (row: AgeRow | PlaceRow) => void; onAddCountry: () => void }) {
+  const offList = detail.country === OFF_LIST;
+  const word = detail.regionWord.toLowerCase();
   const { defaultRow, exceptions, following } = detail;
   /* With no whole-country row there is no default to follow: one list, no tabs. */
   const tabbed = defaultRow !== null && exceptions.length + following.length > 0;
@@ -263,7 +276,7 @@ function CountryPanel({ detail, editingId, onLoad }: { detail: CountryDetail; ed
   };
   const list = placeList(detail, tabbed ? tab : "all");
   const view = placePage(list, page);
-  const total = exceptions.length + following.length + (defaultRow ? 1 : 0);
+  const total = exceptions.length + following.length;
   const count = (k: PlaceFilter) => (k === "all" ? exceptions.length + following.length : k === "exceptions" ? exceptions.length : following.length);
   const choose = (k: PlaceFilter) => {
     setTab(k);
@@ -287,7 +300,7 @@ function CountryPanel({ detail, editingId, onLoad }: { detail: CountryDetail; ed
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="text-lg font-semibold text-white">{detail.name}</h3>
         <span className="text-xs text-[#8a96a3]">
-          {plural(total, "place", "places")}
+          {offList ? plural(total, "row", "rows") : plural(total, word, `${word}s`.replace(/ys$/, "ies"))}
           {defaultRow ? ` · ${plural(exceptions.length, "exception", "exceptions")}` : ""}
         </span>
       </div>
@@ -302,10 +315,21 @@ function CountryPanel({ detail, editingId, onLoad }: { detail: CountryDetail; ed
         >
           <span className="text-[11px] text-[#9aa4b2]">Default for {detail.name}</span>
           <span className={`text-xl font-bold tabular-nums ${BAND[ageBand(defaultRow.age)].age}`}>{defaultRow.age}</span>
-          <span className="text-[11px] text-[#7e88a0]">{exceptions.length + following.length ? "· every place not listed as an exception" : "· the whole country"}</span>
+          <span className="text-[11px] text-[#7e88a0]">{exceptions.length + following.length ? `· every ${word} not listed as an exception` : "· the whole country"}</span>
         </button>
+      ) : offList ? (
+        <p className="mt-3 max-w-2xl text-[11px] leading-relaxed text-[#7e88a0]">
+          Ages for places that aren&rsquo;t on the place list, set before it existed. Athletes can&rsquo;t choose these places any more, so a row here only reaches someone who signed up there earlier. Change one, or remove it once nobody lives there.
+        </p>
       ) : (
-        <p className="mt-3 text-[11px] text-[#7e88a0]">No whole-country age — each place below has its own. A place not listed counts as 18.</p>
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-[#f97a1f]/35 bg-[#f97a1f]/10 px-3.5 py-2.5">
+          <p className="text-[11px] text-[#fdba74]">
+            No age set for {detail.name}. Every {word} without its own age counts as 18, and its athletes are flagged for BTG.
+          </p>
+          <button type="button" onClick={onAddCountry} className="ml-auto rounded-md border border-[#fdba74]/60 px-2.5 py-1 text-[11px] font-semibold text-[#ffd1a6] transition-colors hover:bg-[#f97a1f]/20">
+            Set {detail.name}&rsquo;s age
+          </button>
+        </div>
       )}
 
       {(list.length > 0 || tabbed) && (
@@ -357,19 +381,21 @@ function CountryPanel({ detail, editingId, onLoad }: { detail: CountryDetail; ed
 
 /** One place, large: its code and name, its age, how it stands against the
  *  default, and who set it when. Clicking loads it into the form. */
-function PlaceCard({ row, detail, lit, onLoad, delay }: { row: AgeRow; detail: CountryDetail; lit: boolean; onLoad: () => void; delay: number }) {
+function PlaceCard({ row, detail, lit, onLoad, delay }: { row: PlaceRow; detail: CountryDetail; lit: boolean; onLoad: () => void; delay: number }) {
   const band = BAND[ageBand(row.age)];
   const status = statusWords(row, detail);
-  const nm = regionName(row.countryCode, row.regionCode);
+  /* Off the list, name the country too: "Ontario, Canada", "Puerto Rico". */
+  const nm = detail.country === OFF_LIST ? placeName(row) : regionName(row.countryCode, row.regionCode) ?? (row.regionCode || countryName(row.countryCode));
+  const label = row.virtual ? `Set an age for ${nm} — follows ${row.age} now` : `Change ${placeLabel(row)} — adult at ${row.age}`;
   return (
     <li className="sx-ops-in" style={at(delay)}>
       <button
         type="button"
         onClick={onLoad}
         aria-pressed={lit}
-        aria-label={`Change ${placeLabel(row)} — adult at ${row.age}`}
+        aria-label={label}
         className={`group flex h-full w-full items-stretch gap-3 border px-3.5 py-3 text-left transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-0.5 hover:border-[#9be0ff] hover:shadow-[0_0_18px_rgba(46,155,245,.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#63b4f8]/70 ${
-          status.exception ? band.tile : "border-[#63b4f8]/20 bg-[#0a121e]/60"
+          status.exception ? band.tile : row.virtual ? "border-dashed border-[#63b4f8]/20 bg-[#0a121e]/30" : "border-[#63b4f8]/20 bg-[#0a121e]/60"
         } ${lit ? "!border-[#9be0ff] shadow-[0_0_22px_rgba(46,155,245,.55)] ring-1 ring-[#9be0ff]/70" : ""} ${CHAMFER}`}
       >
         <span className={`grid size-12 shrink-0 place-items-center border font-mono text-sm font-bold tracking-[0.06em] ${band.tile} ${band.age} [clip-path:polygon(0_0,calc(100%-6px)_0,100%_6px,100%_100%,6px_100%,0_calc(100%-6px))]`}>
@@ -377,10 +403,10 @@ function PlaceCard({ row, detail, lit, onLoad, delay }: { row: AgeRow; detail: C
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-2">
-            <span className="truncate text-sm font-semibold text-white">{nm ?? (row.regionCode || detail.name)}</span>
-            <span className={`shrink-0 text-2xl font-bold leading-none tabular-nums ${band.age}`}>{row.age}</span>
+            <span className="truncate text-sm font-semibold text-white">{nm}</span>
+            <span className={`shrink-0 text-2xl font-bold leading-none tabular-nums ${row.virtual ? "opacity-60" : ""} ${band.age}`}>{row.age}</span>
           </span>
-          <span className={`mt-1 block truncate text-[11px] ${status.exception ? "font-semibold text-[#fdba74]" : "text-[#9aa4b2]"}`}>{status.text}</span>
+          <span className={`mt-1 block truncate text-[11px] ${status.exception || status.unset ? "font-semibold text-[#fdba74]" : "text-[#9aa4b2]"}`}>{status.text}</span>
           <span className="mt-0.5 block truncate text-[10px] text-[#6b7785]">{changedWords(row)}</span>
         </span>
       </button>
