@@ -135,18 +135,36 @@ describe("the request (POST /briefs)", () => {
 });
 
 describe("country and states (§107)", () => {
-  it("lists the United States first, then where athletes are, by name", () => {
-    expect(countryOptions(["PH", "ca", "US", "CA", "nope"])).toEqual([
-      { value: "US", label: "United States" },
-      { value: "CA", label: "Canada" },
-      { value: "PH", label: "Philippines" },
+  it("lists the United States, then East Africa (POL-FE-117), then where else athletes are, by name", () => {
+    const o = countryOptions(["PH", "ca", "US", "CA", "TZ", "nope"]);
+    expect(o[0]).toEqual({ value: "US", label: "United States", group: "United States" });
+    const ea = o.filter((c) => c.group === "East Africa");
+    expect(ea.map((c) => c.value).sort()).toEqual(["BI", "CD", "ET", "KE", "RW", "SO", "SS", "TZ", "UG"]);
+    /* Every East African country is offered; those with no athletes yet say so. */
+    expect(ea.find((c) => c.value === "TZ")!.hint).toBeUndefined();
+    expect(ea.find((c) => c.value === "UG")!.hint).toBe("no athletes yet");
+    expect(o.slice(-2)).toEqual([
+      { value: "CA", label: "Canada", group: "Other countries" },
+      { value: "PH", label: "Philippines", group: "Other countries" },
     ]);
-    expect(countryOptions([])).toEqual([{ value: "US", label: "United States" }]);
+    expect(countryOptions([]).map((c) => c.value)).toEqual(["US", ...ea.map((c) => c.value)]);
     expect(countryName("zz1")).toBe("zz1");
   });
-  it("asks for states only in the United States", () => {
+  it("asks for regions in the United States and East Africa only", () => {
     expect(asksStates("US")).toBe(true);
+    expect(asksStates("TZ")).toBe(true);
     expect(asksStates("CA")).toBe(false);
+  });
+  it("POL-FE-117 · an East African campaign narrows to that country's own regions, and moving country clears them", () => {
+    const regions = stateOptions([], "UG");
+    expect(regions.length).toBeGreaterThan(0);
+    const d = withCountry(ready({ states: ["MD"] }), "UG");
+    expect(d.states).toEqual([]);
+    const picked = { ...d, states: [regions[0]!.value, "MD"] };
+    expect(stepProblems("reach", picked, CTX)).toEqual({});
+    /* A stray code from another country is never sent. */
+    expect(body(picked).stateCodes).toEqual([regions[0]!.value]);
+    expect(body(picked).countryCode).toBe("UG");
   });
   it("drops the states when the campaign moves abroad, and the territories follow the country", () => {
     const d = withCountry(ready({ states: ["MD", "VA"] }), "CA");

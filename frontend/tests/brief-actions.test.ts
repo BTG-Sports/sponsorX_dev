@@ -75,7 +75,7 @@ describe("the edit form", () => {
     expect(f.startDate).toBe("2026-11-15");
     expect(f.endDate).toBe("2026-12-13");
     expect(f.sports).toBe("Basketball");
-    expect(f.stateCodes).toBe("DC, MD, VA");
+    expect(f.stateCodes).toEqual(["DC", "MD", "VA"]); // POL-FE-117 — picked, not typed
     expect(f.minFollowers).toBe("10000");
     expect(f.categories).toEqual(["FOOTWEAR"]);
     expect(f.channels).toEqual(["INSTAGRAM", "TIKTOK"]);
@@ -100,7 +100,7 @@ describe("the edit form", () => {
   });
 
   it("clearing a list or the minimum sends the empty value, not nothing", () => {
-    const f = { ...editFormFrom(brief), stateCodes: "", minFollowers: "", excludedCategories: [] };
+    const f = { ...editFormFrom(brief), stateCodes: [], minFollowers: "", excludedCategories: [] };
     expect(requestPatch(f, brief)).toEqual({ stateCodes: [], excludedCategories: [], audienceMinFollowers: null });
   });
 

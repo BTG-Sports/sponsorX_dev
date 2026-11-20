@@ -113,8 +113,8 @@ describe("what a step needs, and what a save sends", () => {
   });
 
   it("each step says, in a sentence, what's still missing", () => {
-    expect(stepNeeds("identity", { ...f, displayName: " ", stateCode: "" }, rows)).toBe("Add your display name and your state to continue.");
-    expect(stepNeeds("identity", { ...f, stateCode: "Texas" }, rows)).toBe("Add your state as two letters, like TX.");
+    expect(stepNeeds("identity", { ...f, displayName: " ", stateCode: "" }, rows)).toBe("Add your display name and choose your state to continue.");
+    expect(stepNeeds("identity", { ...f, stateCode: "Texas" }, rows)).toBe("Choose your state from the list."); // POL-FE-117 — picked, not typed
     /* §24: sport alone doesn't finish the section — one more detail does. */
     expect(stepNeeds("sport", { ...f, position: "", school: "", level: "" }, rows)).toBe("Add at least one more: your position, school or level.");
     expect(stepNeeds("sport", { ...f, gradYear: "27" }, rows)).toBe("Class of needs a four-digit year, like 2027.");
@@ -128,7 +128,7 @@ describe("what a step needs, and what a save sends", () => {
   });
 
   it("a save sends the full editor's own bodies — never a legal name, date of birth or guardian", () => {
-    expect(changeBody("identity", { ...f, stateCode: "tx ", city: " " })).toEqual({ identity: { displayName: "Jordan Reyes", city: null, stateCode: "TX" } });
+    expect(changeBody("identity", { ...f, stateCode: "tx ", city: " " })).toEqual({ identity: { displayName: "Jordan Reyes", city: null, stateCode: "TX", countryCode: "US" } });
     expect(changeBody("sport", { ...f, position: "" })).toEqual({
       sport: { sport: "Basketball", position: null, school: "Lincoln High", level: "HIGH_SCHOOL", gradYear: 2027, achievements: "All-State first team" },
     });
