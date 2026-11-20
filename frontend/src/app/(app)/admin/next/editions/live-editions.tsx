@@ -28,6 +28,9 @@ import { artworkGate, artworkStatus } from "@/lib/edition-artwork-live";
 import { EditionSwitcher, NextHeading } from "@/components/next-heading";
 import { CancelEditionButton, EditEditionForm, NewEditionForm, NewPublicationForm } from "@/components/next-setup";
 import { maySetUpNext, type ApiPublications } from "@/lib/next-setup-live";
+import { EditionFiles } from "@/components/edition-files";
+import { coverLine, pressPdfLine, pressPdfNeed, takesEditionFiles } from "@/lib/edition-files-live";
+import { apiFetch } from "@/server/api";
 
 /* P1-ART-25 restructure — the heading and the edition switcher moved to
    components/next-heading.tsx (the Finance portal's Splits uses them too);
@@ -48,7 +51,25 @@ export { EditionSwitcher, NextHeading };
    sponsor on the approval board. The ledger carries each sold slot's artwork
    for BTG's desk, so the gate names the slots holding production up — the
    same answer the transition gives — and the "Ad artwork" card lists each.
+
+   P9-FE-15 (P9-BE-27) — "Cover and press PDF": what is on file (GET
+   /editions/:id carries `cover` and `pressPdf`), the cover's preview on a
+   signed link, and BTG's upload / replace / open (components/edition-files).
    -------------------------------------------------------------------------- */
+
+/** The cover's preview: a short signed link, or null when it can't be read
+ *  (no cover, a role outside the edition, storage away). Never an outage —
+ *  the page says "Preview unavailable" and the rest of it still draws. */
+async function coverPreview(editionId: string): Promise<string | null> {
+  try {
+    const res = await apiFetch(`/editions/${encodeURIComponent(editionId)}/cover`);
+    if (!res.ok) return null;
+    const { url } = (await res.json()) as { url?: string };
+    return typeof url === "string" && /^https?:\/\//.test(url) ? url : null;
+  } catch {
+    return null;
+  }
+}
 
 const SELLERS = ["SUPER_ADMIN", "BTG_ADMIN"];
 
@@ -125,6 +146,10 @@ export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live
     /* P9-BE-18 — every sale the system held for SALES, this edition's and those it couldn't place. */
     seller ? readJson<{ holds: ApiSaleHold[] }>("/ad-sale-holds") : null,
   ]);
+  /* P9-FE-15 — the files on file, and the cover's preview when there is one. */
+  const cover = detail.body?.cover ?? null;
+  const pressPdf = detail.body?.pressPdf ?? null;
+  const preview = cover ? await coverPreview(e.id) : null;
   const step = detail.body?.nextStep ?? e.nextStep ?? null;
   const history = detail.body?.stageHistory ?? [];
   const holds = (held?.body?.holds ?? []).filter((h) => !h.edition || h.edition.id === e.id);
@@ -301,6 +326,23 @@ export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live
             <section className="sx-animate sx-delay-2">
               <SectionHeading title="Sell" />
               <BookCampaign editionId={e.id} candidates={sale.body.candidates} selling={selling} />
+            </section>
+          )}
+
+          {/* P9-FE-15 — the cover and the press PDF: on file, upload, replace, open. */}
+          {detail.body && (
+            <section id="files" className="sx-animate sx-delay-2 scroll-mt-24">
+              <SectionHeading title="Cover and press PDF" hint={cover ? undefined : "The reader shows the cover once the edition is published"} />
+              <Card className="p-0">
+                <EditionFiles
+                  editionId={e.id}
+                  cover={cover ? { line: coverLine(cover) ?? "On file", previewUrl: preview } : null}
+                  pressPdf={pressPdf ? { line: pressPdfLine(pressPdf) ?? "On file" } : null}
+                  canWrite={seller}
+                  takesFiles={takesEditionFiles(e.state)}
+                  pressNeed={pressPdfNeed(e.printDate, Boolean(pressPdf))}
+                />
+              </Card>
             </section>
           )}
 

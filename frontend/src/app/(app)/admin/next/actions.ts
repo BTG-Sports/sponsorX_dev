@@ -6,6 +6,7 @@ import { apiFetch } from "@/server/api";
 import { editionBody, editionFormProblem, type EditionForm } from "@/lib/next-setup-live";
 import { contentReadyNote, type ApiEditionState, type ApiSlotKind } from "@/lib/editions-live";
 import { CONSENT_GRANTORS, type AssetKind, type GrantorKind, type SourceKind } from "@/lib/rights-live";
+import type { EditionFileKind } from "@/lib/edition-files-live";
 
 /* --------------------------------------------------------------------------
    P9-FE-03 / -04 — the NEXT inventory writes, as server actions.
@@ -191,7 +192,6 @@ export async function assetFileAction(assetId: string): Promise<FileLinkResult> 
   }
 }
 
-export type EditionFileKind = "cover" | "press-pdf";
 const EDITION_FILES: EditionFileKind[] = ["cover", "press-pdf"];
 
 /** P9-FE-15 — a grant to upload the edition's cover (JPG, PNG or WebP, up to
