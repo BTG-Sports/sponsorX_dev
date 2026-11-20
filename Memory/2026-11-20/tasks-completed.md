@@ -114,3 +114,21 @@
 - Not done: the East African ages themselves. Every one of the nine countries shows "No age set" (athletes count as 18 and are flagged) until BTG sets them; a South Sudan › Abyei row at 18 was added by a BTG admin account during the session.
 - `5S1-FE-02` (certified-recruiting.com's footer, GoDaddy editor): Owner set to HeckerCreatives on
   the user's decision. Still Ready.
+
+## End of day (rcfworks)
+- **Backend board:** nothing to build. P8-OPS-03 waits on Stripe go-live and P2-INT-02 on Clerk Pro;
+  the wallet passes, P9-DATA-01 and Phase 6 are parked. No POL-BE row is open.
+- **Fixed:** the dependency audit (`effect` 3.22.5 override, #503), promoted to main (#504) and
+  deployed: `gh workflow run deploy-daily.yml --ref main`, release = main = e9bf9102 on both
+  environments.
+- **Restored:** the 2026-11-19 close of day (#501; #502 closed as superseded by #504).
+- **Tracker:** POL-FE-103, POL-FE-104 and 5S1-FE-02 assigned to HeckerCreatives (#505, #507/#508;
+  #506 closed after the other developer's promotion made it redundant).
+- **Stage Progress:** the 2026-11-20 row already reads 324 Done (S9 44), 21 days left; checked
+  against the live formulas, no change.
+- **Frontend, for HeckerCreatives:** 2S4-FE-10 (Deal Chat on the socket service), POL-FE-116,
+  POL-FE-107, POL-FE-103, POL-FE-104 and 5S1-FE-02 are Ready; P9-FE-13 to 16 reached Code review today.
+- **Lesson, again:** check a PR's state right before pushing to its branch, and expect the other
+  developer to promote main_development to main mid-session; a branch for main can go stale within
+  the hour. When main and main_development hold the same files, one branch can serve both PRs.
+- **Clean-up:** the test database, toolkits and tracker copies were deleted after use.
