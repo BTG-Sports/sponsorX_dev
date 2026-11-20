@@ -1,4 +1,5 @@
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
+import { PropertyChanges } from "@/components/property-changes-section";
 import { SensitiveEdits } from "@/components/sensitive-edits-section";
 import { ServerList } from "@/components/server-pager";
 import { SignupStats, SignupsHeader, StreamNote } from "@/components/signup-stage";
@@ -36,6 +37,9 @@ import "./signups.css";
         day, a status pill with why, and Review (held) or Open;
      4. sensitive profile edits (2S1-FE-09), as before, in their own paged
         list (`epage` / `esize`).
+   POL-FE-104 (2026-11-20) adds, between 3 and 4 and only when one waits, an
+   organisation's name, place or details change that a safety check held
+   for BTG (property-changes-section.tsx), with Approve / Reject.
    Visual only: the reads, the URL (`kind`, `review=1`, `q`, `page`, `size`;
    the old `?tab=` links still land on the same view — lib/new-signups-live.ts
    streamParams) and every link are unchanged.
@@ -47,6 +51,7 @@ import "./signups.css";
    Reads  GET /signups/stream?page&size&kind&review&q   one page of the stream
           GET /signups/stream/summary                   every figure on the page
           GET /profile-changes?page&size                sensitive edits (sensitive-edits-section.tsx)
+          GET /property-profile-changes                 held organisation changes (property-changes-section.tsx)
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -111,6 +116,13 @@ export default async function NewSignupsPage({ searchParams }: { searchParams: P
             </section>
           </ServerList>
         </>
+      )}
+
+      {/* POL-FE-104 — an organisation's name, place or details change that a safety check held for BTG; drawn only when one waits. */}
+      {!refused && demo === null && (
+        <div className="mt-12 empty:hidden">
+          <PropertyChanges />
+        </div>
       )}
 
       {/* 2S1-FE-09 — sensitive profile edits (legal name, date of birth, guardian, a move across an age line). */}
