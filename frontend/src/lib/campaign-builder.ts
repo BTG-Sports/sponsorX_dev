@@ -38,6 +38,7 @@ import {
   type MatchChannel,
 } from "./brief-request";
 import { addDays, parseDay } from "./day-range";
+import { countryChoices, isPlaceCountry, placeRegion, regionChoices, regionLabel } from "./places";
 import { JOB_IDS, JOB_NAME, isJobId, type JobId, type OrderDetails, type OrderJob } from "./order-details";
 
 /* ── the catalogue (GET /campaign-builder/catalogue) ─────────────────────── */
@@ -91,24 +92,46 @@ export function countryName(code: string): string {
   }
 }
 
-/** The Country list: the United States first, then the other countries athletes are in, A to Z. */
-export function countryOptions(codes: readonly string[]): { value: string; label: string }[] {
-  const rest = [...new Set(codes.map((c) => c.trim().toUpperCase()))]
-    .filter((c) => /^[A-Z]{2}$/.test(c) && c !== HOME_COUNTRY)
-    .map((c) => ({ value: c, label: countryName(c) }))
+/** The Country list (POL-FE-117): the place catalogue first — the United States,
+    then East Africa — grouped, each country there whether or not an athlete is
+    yet; then any other country athletes are in, A to Z. `hint` marks a country
+    with no athletes yet, so a sponsor knows BTG will be recruiting there. */
+export function countryOptions(codes: readonly string[]): { value: string; label: string; group?: string; hint?: string }[] {
+  const live = new Set(codes.map((c) => c.trim().toUpperCase()).filter((c) => /^[A-Z]{2}$/.test(c)));
+  const listed = countryChoices().map((o) => ({ ...o, ...(o.value !== HOME_COUNTRY && !live.has(o.value) ? { hint: "no athletes yet" } : {}) }));
+  const rest = [...live]
+    .filter((c) => !isPlaceCountry(c))
+    .map((c) => ({ value: c, label: countryName(c), group: "Other countries" }))
     .sort((a, b) => a.label.localeCompare(b.label));
-  return [{ value: HOME_COUNTRY, label: countryName(HOME_COUNTRY) }, ...rest];
+  return [...listed, ...rest];
 }
 
-/** States are a United States question only (the API refuses them anywhere else, 400). */
-export const asksStates = (country: string) => country === HOME_COUNTRY;
+/** Regions narrow a campaign in the United States and East Africa (the place
+    catalogue); anywhere else the API refuses them (400) and the campaign covers
+    the whole country. */
+export const asksStates = (country: string) => country === HOME_COUNTRY || isPlaceCountry(country);
 
-export function stateOptions(codes: readonly string[]): { value: string; label: string }[] {
+/** What the country calls one region: "State", "County", "Region". */
+export const regionWord = (country: string) => (country === HOME_COUNTRY ? "State" : regionLabel(country));
+
+/** …and several: "States", "Counties", "Regions". */
+export const regionsWord = (country: string) => {
+  const w = regionWord(country);
+  return w.endsWith("y") ? `${w.slice(0, -1)}ies` : `${w}s`;
+};
+
+/** The region chips: US states where athletes are (all fifty when none yet), or
+    an East African country's regions from the catalogue. */
+export function stateOptions(codes: readonly string[], country: string = HOME_COUNTRY): { value: string; label: string }[] {
+  if (country !== HOME_COUNTRY) return regionChoices(country);
   const known = [...new Set(codes)].filter((c) => c in STATE_NAMES);
   return (known.length ? known : Object.keys(STATE_NAMES))
     .map((c) => ({ value: c, label: STATE_NAMES[c] }))
     .sort((a, b) => a.label.localeCompare(b.label));
 }
+
+/** Is this a region of that country, as the API checks it? */
+const isRegionOf = (country: string, code: string) => (country === HOME_COUNTRY ? code in STATE_NAMES : placeRegion(country, code) !== null);
 
 export const CATEGORY_CHOICES: { value: BrandCategory; label: string }[] = BRAND_CATEGORIES.map((c) => ({ value: c, label: categoryLabel(c) })).sort((a, b) =>
   a.label.localeCompare(b.label),
@@ -265,7 +288,8 @@ export function withCountry(d: BuilderDraft, country: string): BuilderDraft {
   return {
     ...d,
     country,
-    states: asksStates(country) ? d.states : [],
+    /* A region belongs to one country: a new country starts with none (POL-FE-117). */
+    states: country === d.country ? d.states : [],
     territory: follow(d.territory),
     paidTerritory: follow(d.paidTerritory),
     exclScope: follow(d.exclScope),
@@ -559,7 +583,7 @@ export function stepProblems(id: BuilderStepId, d: BuilderDraft, ctx: BuilderCon
     case "reach": {
       if (!/^[A-Z]{2}$/.test(d.country)) p.country = "Pick a country.";
       else if (!countryOptions(ctx.countries).some((o) => o.value === d.country)) p.country = "No athlete is in that country yet. Pick another.";
-      if (d.states.length && !asksStates(d.country)) p.states = "States are only for the United States.";
+      if (d.states.length && !asksStates(d.country)) p.states = "Regions are only for the United States and East Africa.";
       try {
         followersCount(d.minFollowers);
       } catch (e) {
@@ -724,8 +748,8 @@ export function buildCampaign(d: BuilderDraft, sponsorId: string, ctx: BuilderCo
       endDate: d.end,
       sports: tidy(d.sports).slice(0, 20),
       countryCode: d.country,
-      /* States only with the United States (POL-BE-107 refuses them anywhere else). */
-      stateCodes: asksStates(d.country) ? tidy(d.states).filter((s) => s in STATE_NAMES) : [],
+      /* Regions only in the US and East Africa (POL-BE-107/117 refuse them anywhere else). */
+      stateCodes: asksStates(d.country) ? tidy(d.states).filter((s) => isRegionOf(d.country, s)) : [],
       categories: inList(BRAND_CATEGORIES, d.category ? [d.category] : []),
       excludedCategories: inList(BRAND_CATEGORIES, d.avoid),
       channels: inList(MATCH_CHANNELS, d.channels),

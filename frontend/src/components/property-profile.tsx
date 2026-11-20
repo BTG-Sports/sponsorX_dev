@@ -9,7 +9,7 @@ import {
 } from "@/app/(app)/property/profile/actions";
 import { btn, DialogError, OrderDialog } from "@/components/order-dialog";
 import { Badge, Card } from "@/components/ui";
-import { US_STATES } from "@/lib/onboarding-live";
+import { PlacePicker } from "@/components/place-picker";
 import {
   DESCRIPTION_MAX, changeNotice, detailFields, detailRows, identityDraftFrom, kindNoun, kindWord, orgInitials, placeLine, stateName,
   type ApiPropertyProfile, type ContactDraft, type IdentityDraft, type ManagerDraft,
@@ -39,6 +39,9 @@ type Dialog = null | "identity" | "contact" | "description" | "me";
 const FIELD = "w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-[13px] leading-normal text-text placeholder:text-faint focus:border-primary/60 focus:outline-none";
 const NONE = "Not added yet";
 const OFFLINE = "We couldn’t reach SponsorX, so nothing was saved. Try again in a minute.";
+
+/** A team's place is in the United States (onboarding and its documents are US law). */
+const US_ONLY = ["US"] as const;
 
 function Field({ id, label, hint, error, children }: { id: string; label: string; hint?: string; error?: string; children: ReactNode }) {
   return (
@@ -275,16 +278,18 @@ export function PropertyProfile({ initial, signIn, now }: {
           <Field id="sx-pp-name" label="Name" error={errors.name}>
             <input id="sx-pp-name" data-autofocus className={FIELD} maxLength={200} autoComplete="organization" value={identity.name} onChange={(e) => setIdentity({ ...identity, name: e.target.value })} />
           </Field>
+          {/* POL-FE-117 — State then City, both picked and searchable. US only: a team
+              abroad needs BTG to decide what documents it files first. */}
           <div className="grid gap-3.5 sm:grid-cols-2">
-            <Field id="sx-pp-city" label="City" error={errors.city}>
-              <input id="sx-pp-city" className={FIELD} maxLength={120} autoComplete="address-level2" value={identity.city} onChange={(e) => setIdentity({ ...identity, city: e.target.value })} />
-            </Field>
-            <Field id="sx-pp-state" label="State" error={errors.stateCode}>
-              <select id="sx-pp-state" className={FIELD} autoComplete="address-level1" value={identity.stateCode} onChange={(e) => setIdentity({ ...identity, stateCode: e.target.value })}>
-                {!p.stateCode && <option value="">Not on file</option>}
-                {US_STATES.map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}
-              </select>
-            </Field>
+            <PlacePicker
+              idPrefix="sx-pp"
+              only={US_ONLY}
+              tone="property"
+              value={{ countryCode: "US", regionCode: identity.stateCode, city: identity.city }}
+              onChange={(pl) => setIdentity({ ...identity, stateCode: pl.regionCode, city: pl.city })}
+              errors={{ region: errors.stateCode, city: errors.city }}
+              field={({ key, id, label, hint, error, children }) => <Field key={key} id={id} label={label} hint={hint} error={error}>{children}</Field>}
+            />
           </div>
           {fields.map((f) => {
             const id = `sx-pp-d-${f.key}`;

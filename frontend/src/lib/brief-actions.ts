@@ -27,7 +27,9 @@ import {
   type MatchChannel,
   objectiveProblem,
   MIN_CAMPAIGN_DAYS,
+  STATE_NAMES,
 } from "./brief-request";
+import { placeCountry, regionChoices, regionLabel } from "./places";
 import type { ApiSponsorRequest } from "./brief-status";
 
 /** GET /briefs/:id, as a sponsor reads it. BTG-only fields (heldReasons,
@@ -37,6 +39,8 @@ export type ApiSponsorRequestDetail = ApiSponsorRequest & {
   endDate: string;
   sports: string[];
   stateCodes: string[];
+  /** POL-BE-107 — the country the request targets; US when absent. Its regions are what may be picked (POL-FE-117). */
+  countryCode?: string;
   categories: string[];
   excludedCategories: string[];
   channels: string[];
@@ -74,8 +78,8 @@ export type RequestEditForm = {
   endDate: string;
   /** Comma-separated as typed — "Basketball, Soccer". */
   sports: string;
-  /** Comma-separated codes as typed — "DC, MD, VA". */
-  stateCodes: string;
+  /** POL-FE-117 — region codes as picked from the list (US states, or an East African country's regions). */
+  stateCodes: string[];
   categories: string[];
   excludedCategories: string[];
   channels: string[];
@@ -122,7 +126,7 @@ export function editFormFrom(b: ApiSponsorRequestDetail): RequestEditForm {
     startDate: isoDay(b.startDate),
     endDate: isoDay(b.endDate),
     sports: b.sports.join(", "),
-    stateCodes: b.stateCodes.join(", "),
+    stateCodes: [...b.stateCodes],
     categories: [...b.categories],
     excludedCategories: [...b.excludedCategories],
     channels: [...b.channels],
@@ -168,6 +172,22 @@ export function stateCodeList(text: string): string[] {
   return out;
 }
 
+/** POL-FE-117 — the regions picked for a request, checked against its country: a
+    US state, or one of an East African country's regions; none anywhere else. */
+export function pickedRegions(codes: readonly string[], country: string): string[] {
+  const out = [...new Set(codes.map((c) => c.trim().toUpperCase()).filter(Boolean))];
+  if (out.length > 60) throw new BriefRequestInvalid("Pick up to 60 states.");
+  const wrong = out.find((c) => !requestRegions(country).some((r) => r.value === c));
+  if (wrong) throw new BriefRequestInvalid(`${wrong} isn't a ${country === "US" ? "state" : regionLabel(country).toLowerCase()} of ${placeCountry(country)?.name ?? country}. Pick from the list.`);
+  return out;
+}
+
+/** The regions a request in this country can narrow to, by name (none outside the US and East Africa). */
+export function requestRegions(country: string): { value: string; label: string }[] {
+  if (country === "US") return Object.entries(STATE_NAMES).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+  return regionChoices(country);
+}
+
 /**
  * The PATCH body: the form parsed by the create drawer's rules, with only
  * the fields that differ from the original. Throws BriefRequestInvalid, in
@@ -193,7 +213,7 @@ export function requestPatch(form: RequestEditForm, original: ApiSponsorRequestD
     throw new BriefRequestInvalid(`A campaign runs at least ${MIN_CAMPAIGN_DAYS} days — move the end date later.`);
   }
   const sports = sportsList(form.sports);
-  const stateCodes = stateCodeList(form.stateCodes);
+  const stateCodes = pickedRegions(form.stateCodes, original.countryCode ?? "US");
   const categories = inVocabulary(BRAND_CATEGORIES, form.categories);
   const excludedCategories = inVocabulary(BRAND_CATEGORIES, form.excludedCategories);
   if (excludedCategories.some((c) => categories.includes(c))) {
@@ -308,7 +328,10 @@ export function askedLines(b: ApiSponsorRequestDetail): AskedLine[] {
   const cats = (xs: string[]) => xs.map((c) => ((BRAND_CATEGORIES as readonly string[]).includes(c) ? categoryLabel(c as BrandCategory) : humanize(c)));
   return [
     { label: "Sports", value: listOr(b.sports, "Any sport") },
-    { label: "States", value: listOr(b.stateCodes, "Anywhere in the US") },
+    /* POL-FE-117 — an East African request names its regions, in that country's word for them. */
+    (b.countryCode ?? "US") === "US"
+      ? { label: "States", value: listOr(b.stateCodes, "Anywhere in the US") }
+      : { label: `${regionLabel(b.countryCode!)}s`, value: listOr(b.stateCodes.map((c) => regionChoices(b.countryCode!).find((r) => r.value === c)?.label ?? c), `Anywhere in ${placeCountry(b.countryCode!)?.name ?? b.countryCode}`) },
     { label: "Your category", value: listOr(cats(b.categories), "Not given") },
     { label: "Categories to avoid", value: listOr(cats(b.excludedCategories), "None") },
     { label: "Where to be seen", value: listOr(b.channels.map((c) => labelOf(CHANNEL_LABEL, c)), "No preference") },

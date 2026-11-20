@@ -7,6 +7,7 @@ import { createCampaign, orderCodeFor, type CreateCampaignResult } from "@/app/(
 import { Confetti, Words, reducedMotion } from "@/components/brief-fx";
 import { FocusRail, FocusShell, LineField, Problem, delay } from "@/components/focus-wizard";
 import { OrderSheet, type OrderSheetBlock } from "@/components/order-sheet";
+import { SearchSelect, type SearchOption } from "@/components/filter-kit";
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "@/lib/brand-categories";
 import { AUDIENCE_TIERS, CHANNEL_LABEL, MATCH_CHANNELS, OBJECTIVE_MIN_WORDS, TIER_LABEL, wordCount } from "@/lib/brief-request";
 import { athletesWaitingText, submittedMessage } from "@/lib/brief-status";
@@ -26,6 +27,8 @@ import {
   jobName,
   mixJobs,
   orderDetailsOf,
+  regionWord,
+  regionsWord,
   parseStoredDraft,
   stateOptions,
   stepAnswer,
@@ -152,7 +155,7 @@ export function SponsorCampaignBuilder({
   const landed = useRef(false);
 
   const countries = useMemo(() => countryOptions(targeting.countryCodes), [targeting.countryCodes]);
-  const states = useMemo(() => stateOptions(targeting.stateCodes), [targeting.stateCodes]);
+  const states = useMemo(() => stateOptions(targeting.stateCodes, draft.country), [targeting.stateCodes, draft.country]);
   const ctx = { catalogue, countries: targeting.countryCodes };
 
   const write = (next: BuilderDraft, at = step) => {
@@ -440,9 +443,10 @@ export function SponsorCampaignBuilder({
                 {/* ----------------------------------------------- reach */}
                 {def.id === "reach" && (
                   <div className="space-y-8">
-                    <Pick
+                    <SearchPick
                       field="country"
                       label="Country"
+                      searchLabel="Search countries"
                       className="bx-rise max-w-sm"
                       style={delay(0.3)}
                       value={draft.country}
@@ -454,14 +458,14 @@ export function SponsorCampaignBuilder({
                         write(withCountry(draft, v));
                       }}
                     />
-                    {/* States are a United States question only (§107). */}
+                    {/* Regions: US states, or an East African country's own (POL-FE-117); elsewhere the whole country (§107). */}
                     <div className="sx-expand" data-open={asksStates(draft.country)}>
                       <div inert={!asksStates(draft.country)}>
                         <ChipSet
                           field="states"
-                          label="States"
+                          label={regionsWord(draft.country)}
                           optional
-                          hint="Leave them all off for anywhere in the United States."
+                          hint={`Leave them all off for anywhere in ${countryName(draft.country)}.`}
                           options={states}
                           values={draft.states}
                           error={errors.states}
@@ -470,7 +474,7 @@ export function SponsorCampaignBuilder({
                       </div>
                     </div>
                     {!asksStates(draft.country) && (
-                      <p className="text-sm text-muted">Outside the United States a campaign covers the whole country: {countryName(draft.country)}.</p>
+                      <p className="text-sm text-muted">Outside the United States and East Africa a campaign covers the whole country: {countryName(draft.country)}.</p>
                     )}
                     {targeting.sports.length > 0 && (
                       <ChipSet
@@ -879,7 +883,7 @@ export function SponsorCampaignBuilder({
                             label="Who to reach"
                             onEdit={() => edit("reach")}
                             value={[
-                              countryName(draft.country) + (asksStates(draft.country) ? (draft.states.length ? `: ${draft.states.map((c) => states.find((s) => s.value === c)?.label ?? c).join(", ")}` : ": any state") : ": the whole country"),
+                              countryName(draft.country) + (asksStates(draft.country) ? (draft.states.length ? `: ${draft.states.map((c) => states.find((s) => s.value === c)?.label ?? c).join(", ")}` : `: any ${regionWord(draft.country).toLowerCase()}`) : ": the whole country"),
                               draft.sports.length ? draft.sports.join(", ") : "Any sport",
                               draft.tiers.length ? draft.tiers.map((t) => TIER_LABEL[t as keyof typeof TIER_LABEL] ?? t).join(", ") : "Any audience size",
                               draft.minFollowers.trim() ? `At least ${draft.minFollowers.trim()} followers` : "",
@@ -1282,6 +1286,20 @@ function Pick({ field, label, hint, error, optional, className = "", style, valu
           </option>
         ))}
       </select>
+      <Below field={field} hint={hint} error={error} />
+    </div>
+  );
+}
+
+/** POL-FE-117 — one of many, searchable (the Country: United States · East Africa · others). */
+function SearchPick({ field, label, hint, error, optional, className = "", style, value, options, onChange, searchLabel }: Common & { value: string; options: SearchOption[]; onChange: (value: string) => void; searchLabel: string }) {
+  const id = idOf(field);
+  return (
+    <div className={className} style={style} data-field={field}>
+      <FieldLabel htmlFor={id} label={label} optional={optional} />
+      <div className="mt-2">
+        <SearchSelect id={id} value={value} options={options} onChange={onChange} placeholder="Pick one" searchLabel={searchLabel} tone="sponsor" invalid={!!error} describedBy={describedBy(field, hint, error)} />
+      </div>
       <Below field={field} hint={hint} error={error} />
     </div>
   );
