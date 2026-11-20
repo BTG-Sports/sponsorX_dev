@@ -191,7 +191,7 @@ describe.skipIf(!hasDatabase)("POL-BE-117 · an athlete's place, through the API
     const r = await call("POST", "/athletes/pl117_neema/profile-changes", "pl117_neema", { identity: { countryCode: "tz", stateCode: dar().code, city: "dar es salaam" } });
     expect(r.status, r.text).toBe(201);
     expect(await place("pl117_neema")).toMatchObject({ countryCode: "TZ", stateCode: dar().code, city: "Dar es Salaam" });
-    const table = await prisma.ageOfMajority.findFirst({ where: { tenantId: T, countryCode: "TZ" } });
+    const table = await prisma.ageOfMajority.findFirst({ where: { tenantId: T, countryCode: "TZ" }, select: { id: true } });
     expect((await place("pl117_neema")).majorityKnown).toBe(table !== null);
     const me = await call("GET", "/athletes/me", "pl117_neema");
     expect(me.json).toMatchObject({ countryCode: "TZ", stateCode: dar().code, city: "Dar es Salaam" });
