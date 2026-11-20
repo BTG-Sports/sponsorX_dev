@@ -1,5 +1,6 @@
-import { agreementHref, type ChatRow, type DealViewer } from "@/lib/deal-chat";
+import { type ChatRow, type DealViewer } from "@/lib/deal-chat";
 
+import { AgreementDownload } from "./agreement-download";
 import { ChatAvatar, Glyph, StagePill } from "./chat-bits";
 import { OpenChatButton } from "./chat-dock";
 import { OrderLive } from "./order-live";
@@ -39,9 +40,9 @@ export function OrderDealChats({ rows, portal }: { rows: ChatRow[]; portal: Deal
               <Glyph name="chat" size={15} />Open chat
             </OpenChatButton>
             {r.agreementId && (
-              <a className="sx-dc-btn" href={agreementHref(r.agreementId)}>
+              <AgreementDownload id={r.agreementId} className="sx-dc-btn">
                 <Glyph name="download" size={15} />Agreement
-              </a>
+              </AgreementDownload>
             )}
           </div>
         </div>

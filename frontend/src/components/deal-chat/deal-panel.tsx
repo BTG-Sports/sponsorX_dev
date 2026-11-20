@@ -3,11 +3,12 @@
 import { useRef, useState } from "react";
 
 import {
-  agreementHref, amountOpen, amountView, canWrite, cardRows, centsFromInput, chatTitle, dealStage, dealUsd, deadlineWords, inputFromCents, isEnded,
+  amountOpen, amountView, canWrite, cardRows, centsFromInput, chatTitle, dealStage, dealUsd, deadlineWords, inputFromCents, isEnded,
   orderHref, otherSide, sideName,
   type ApiDealChat, type CardRow, type DealViewer,
 } from "@/lib/deal-chat";
 
+import { AgreementDownload } from "./agreement-download";
 import { ChatAvatar, Glyph, PanelSection, StagePill } from "./chat-bits";
 
 /* --------------------------------------------------------------------------
@@ -243,7 +244,7 @@ export function DealPanel({ chat, viewer, handlers, now, onClose }: {
         <div className="sx-dc-deal-quick">
           {order && <a className="sx-dc-quick" href={order}><span><Glyph name="order" /></span>Order</a>}
           <button type="button" className="sx-dc-quick" onClick={handlers.openAgreement} disabled={!chat.agreement}><span><Glyph name="file" /></span>Agreement</button>
-          {chat.agreement && <a className="sx-dc-quick" href={agreementHref(chat.agreement.id)}><span><Glyph name="download" /></span>PDF</a>}
+          {chat.agreement && <AgreementDownload id={chat.agreement.id} className="sx-dc-quick" variant="quick"><span><Glyph name="download" /></span>PDF</AgreementDownload>}
         </div>
       </div>
 
@@ -283,7 +284,7 @@ export function DealPanel({ chat, viewer, handlers, now, onClose }: {
               <button type="button" className="sx-dc-btn" data-kind={you && chat.status.turn.includes(you) && chat.mayAccept ? "primary" : undefined} onClick={handlers.openAgreement}>
                 {you && chat.status.turn.includes(you) && chat.orderState === "IN_CHAT" ? "Read and sign" : "Read the agreement"}
               </button>
-              <a className="sx-dc-btn" href={agreementHref(chat.agreement.id)}><Glyph name="download" size={15} />PDF</a>
+              <AgreementDownload id={chat.agreement.id} className="sx-dc-btn"><Glyph name="download" size={15} />PDF</AgreementDownload>
             </div>
           </div>
         ) : (

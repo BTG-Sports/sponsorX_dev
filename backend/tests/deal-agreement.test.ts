@@ -181,6 +181,30 @@ describe("2S4-BE-14 · the filled-in agreement", () => {
     expect(html).toContain("Signed by the Seller&#39;s parent or guardian".replace("&#39;", "'"));
     expect(html).toContain("f".repeat(64));
   });
+
+  it("the designed PDF page drops no word of the signed text, and runs no script", () => {
+    const body = renderDealAgreement(TEMPLATE, facts({
+      specialTerms: [{ cardKey: null, messages: [
+        { by: "Sponsor", at: new Date("2026-11-17T09:00:00Z"), text: "Boost it for <30> days?\nBudget $500." },
+        { by: "Seller", at: new Date("2026-11-17T09:30:00Z"), text: "Yes." },
+      ] }],
+    }));
+    const html = dealAgreementHtml({
+      id: "d1", orderId: "o1", orderRef: "SX-1", state: "OPEN", version: 1, forms: ["CONTENT"], lineIds: [],
+      amountCents: 1000, originalAmountCents: 1000, sponsorSignedAt: null, sellerSignedAt: null,
+      signedByGuardian: false, signedAt: null, body, bodyHash: "a".repeat(64), downloadPath: "/x", createdAt: "2026-11-17T09:00:00.000Z",
+    });
+    expect(html).not.toMatch(/<script|\son[a-z]+=|javascript:/i);
+    const unescape = (s: string) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+    const text = unescape(html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ");
+    /* Every line of the signed text, less only its list dash and heading full stop, is on the page. */
+    for (const raw of body.split("\n")) {
+      const line = raw.trim().replace(/^- /, "").replace(/^(D\d+[a-z]?)\. /, "$1 ").replace(/^\[([^\]]+)\] /, "$1 ");
+      for (const part of line.split(" · ")) if (part.trim()) expect(text).toContain(part.replace(/\s+/g, " ").trim().replace(/^(D\d+[a-z]?) /, ""));
+    }
+    expect(text).toContain("Waiting for signatures");
+    expect(text).toContain("Not yet signed by the Sponsor");
+  });
 });
 
 const seededDb = await import("./support/seeded-db");
