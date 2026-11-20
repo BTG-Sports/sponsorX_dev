@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  assignmentRefusal, assignProblem, draftProblem, reviewTab, revisionProblem, stageBadge, toAssignmentRow, type ApiAssignment,
+  assignmentRefusal, assignProblem, DRAFT_FILE_WORDS, DRAFT_MAX_BYTES, draftProblem, reviewTab, revisionProblem, stageBadge, toAssignmentRow, type ApiAssignment,
 } from "@/lib/student-assignments-live";
 
 /* The server actions are "use server" modules that read Next's request; the islands only need their names. */
@@ -102,12 +102,29 @@ describe("the student's list", () => {
     expect(html).toContain("Uploading a draft isn&#x27;t available yet.");
   });
 
-  it("Submit needs words or a file, a JPG, PNG or PDF under 20 MB", () => {
+  /* P9-FE-13 (P9-BE-25) — the magazine takes any format, up to 2 GB. */
+  it("Submit needs words or a file — a file of any format, up to 2 GB", () => {
     expect(draftProblem({ text: " ", file: null })).toBe("Write your piece or attach its file first.");
     expect(draftProblem({ text: "Words.", file: null })).toBeNull();
     expect(draftProblem({ text: "", file: { type: "image/jpeg", size: 1000 } })).toBeNull();
-    expect(draftProblem({ text: "", file: { type: "application/zip", size: 1000 } })).toBe("Attach a JPG, a PNG or a PDF.");
-    expect(draftProblem({ text: "", file: { type: "image/png", size: 21 * 1024 * 1024 } })).toBe("Keep the file under 20 MB.");
+    /* formats the old picker refused: an archive, a video, a design file the browser can't name */
+    expect(draftProblem({ text: "", file: { type: "application/zip", size: 1000 } })).toBeNull();
+    expect(draftProblem({ text: "", file: { type: "video/mp4", size: 900_000_000 } })).toBeNull();
+    expect(draftProblem({ text: "", file: { type: "", size: 48_000_000 } })).toBeNull();
+    expect(draftProblem({ text: "", file: { type: "image/png", size: 21 * 1024 * 1024 } })).toBeNull();
+    expect(draftProblem({ text: "", file: { type: "video/mp4", size: DRAFT_MAX_BYTES } })).toBeNull();
+    expect(draftProblem({ text: "", file: { type: "video/mp4", size: DRAFT_MAX_BYTES + 1 } })).toBe("Keep the file under 2 GB.");
+    expect(draftProblem({ text: "", file: { type: "image/png", size: 0 } })).toBe("That file is empty — attach another.");
+    expect(DRAFT_MAX_BYTES).toBe(2_000_000_000);
+  });
+
+  it("the draft picker narrows no type, and its PUT carries the type the grant answered", () => {
+    const form = readFileSync(new URL("../src/components/draft-form.tsx", import.meta.url), "utf8");
+    expect(form).not.toContain("accept=");
+    expect(form).toContain("putFile(g.url, file, g.contentType");
+    expect(form).not.toContain('"Content-Type": file.type');
+    expect(form).toContain("File ({DRAFT_FILE_WORDS}) — optional");
+    expect(DRAFT_FILE_WORDS).toBe("any format, up to 2 GB");
   });
 });
 

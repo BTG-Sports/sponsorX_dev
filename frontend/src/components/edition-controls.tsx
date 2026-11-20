@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "./ui";
 import {
-  addAssetAction,
   grantRightAction,
   setContentReadyAction,
   setRateCardAction,
@@ -26,14 +25,13 @@ import {
   CONSENT_GRANTORS,
   NEXT_STATE,
   STATE_VERB,
-  type AssetKind,
   type GrantorKind,
   type SourceKind,
 } from "@/lib/rights-live";
 
 /* --------------------------------------------------------------------------
    P9-FE-03 / -09 — the edition's own writes: move it on, mark content
-   ready, add an asset, record a right. Each is a server action over the
+   ready, record a right. Each is a server action over the
    API; the state machine, the production gate and the rights rules decide
    and their refusals are shown verbatim ("No digital right covers: …").
    -------------------------------------------------------------------------- */
@@ -123,53 +121,8 @@ const field =
   "rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-admin";
 const label = "flex flex-col gap-1 text-[10px] font-medium uppercase tracking-wide text-muted";
 
-const ASSET_KINDS: Array<[AssetKind, string]> = [
-  ["ARTICLE", "Article"], ["PHOTO", "Photo"], ["PHOTO_PACKAGE", "Photo package"],
-  ["INTERVIEW", "Interview"], ["VIDEO", "Video"], ["AD_CREATIVE", "Ad creative"],
-];
-const SOURCES: Array<[SourceKind, string]> = [
-  ["STUDENT", "Student"], ["ATHLETE", "Athlete"], ["BTG", "SponsorX"], ["THIRD_PARTY", "Third party"],
-];
-
-export function AddAsset({ editionId }: { editionId: string }) {
-  const { pending, note, run } = useAction();
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [kind, setKind] = useState<AssetKind>("ARTICLE");
-  const [source, setSource] = useState<SourceKind>("BTG");
-  if (!open) return <Button variant="secondary" onClick={() => setOpen(true)}>Add an asset</Button>;
-  return (
-    <form
-      className="flex w-full flex-wrap items-end gap-2 rounded-xl border border-line bg-surface p-3"
-      onSubmit={(e) => {
-        e.preventDefault();
-        run(() => addAssetAction(editionId, { title, kind, sourceKind: source }), () => setTitle(""));
-      }}
-    >
-      <label className={`${label} min-w-0 flex-1 basis-48`}>
-        Title
-        <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={300} required className={`${field} normal-case`} />
-      </label>
-      <label className={label}>
-        Kind
-        <select value={kind} onChange={(e) => setKind(e.target.value as AssetKind)} className={`${field} normal-case`}>
-          {ASSET_KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-        </select>
-      </label>
-      <label className={label}>
-        Source
-        <select value={source} onChange={(e) => setSource(e.target.value as SourceKind)} className={`${field} normal-case`}>
-          {SOURCES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-        </select>
-      </label>
-      <button type="submit" disabled={pending} className="rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink hover:bg-primary-soft disabled:opacity-40">
-        {pending ? "Adding…" : "Add"}
-      </button>
-      <button type="button" onClick={() => setOpen(false)} className="px-2 py-2 text-xs text-muted hover:text-text">Done</button>
-      <div className="basis-full"><NoteLine note={note} /></div>
-    </form>
-  );
-}
+/* P9-FE-13 — "Add content" (a title, a kind, a source and now its file) moved
+   to components/edition-content.tsx, with the upload it needs. */
 
 const GRANTORS: Array<[GrantorKind, string]> = [
   ["STUDENT", "Student"], ["ATHLETE", "Athlete"], ["GUARDIAN", "Guardian"], ["BTG", "SponsorX"], ["THIRD_PARTY", "Third party"],
