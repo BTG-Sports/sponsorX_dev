@@ -1,52 +1,52 @@
 # Graph Report - sponsorX_dev  (2026-11-20)
 
 ## Corpus Check
-- 2476 files · ~5,369,196 words
+- 2700 files · ~5,395,939 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 23900 nodes · 62457 edges · 936 communities (757 shown, 94 thin omitted)
+- 23979 nodes · 62681 edges · 935 communities (754 shown, 96 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 888 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `7a35b437`
+- Built from commit: `62e2a181`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- restrictions.ts
+- sponsor-lists.paged.test.ts
 - (treasury)/page.tsx
 - sponsor-campaign-builder.tsx
-- storage.ts
+- domain/support.ts
 - domain/reward.ts
-- domain/property-profile.ts
-- marketplace-catalog.tsx
-- forecast-engine.ts
+- notification-rules.ts
+- document-checks-live.ts
+- forecast-rules.ts
 - about-stage.tsx
 - earnings.paged.test.ts
 - domain/guardian-handoff.ts
 - deal-dispute-desk.tsx
 - domain/edition.ts
 - sponsor/campaigns/[id]/page.tsx
-- link-renewal.ts
-- campaign-stages.ts
+- signed-link.ts
+- db/audit.ts
 - signups-desk.tsx
 - domain/delivery.ts
 - fixtures.ts
 - onboarding-live.ts
 - document-check-rules.ts
-- api.ts
+- apiFetch
 - brief-request-drawer.tsx
-- brief-moves.ts
+- v1/marketplace.ts
 - admin/next/actions.ts
 - whereFor
 - pricing-engine.ts
 - content-checks-live.test.ts
-- student-assignments.tsx
+- student-assignments-live.ts
 - admin-offers-live.ts
 - zoho-sync.ts
-- apiFetch
+- briefs-live.ts
 - listing.ts
 - venue-utils.ts
 - domain/student-assignment.ts
@@ -56,7 +56,7 @@
 - makegood-engine.ts
 - rewards-desk.tsx
 - index.mts
-- signups-desk.ts
+- send
 - account-closure.ts
 - domain/onboarding.ts
 - athlete/listings/[id]/page.tsx
@@ -65,26 +65,26 @@
 - match-engine.ts
 - monitor.py
 - profile-wizard.tsx
-- [campaignId]/page.tsx
-- v1/index.ts
-- useDialogFocus
-- domain/matching.ts
+- forecast-live.ts
+- v1/campaigns.ts
+- guardian-handoffs-desk-live.ts
+- match-score.ts
 - payouts-live.ts
-- scenario-planner.tsx
-- anomaly-engine.ts
+- scenarios-live.ts
+- anomaly-rules.ts
 - publicApi
-- orders-board.tsx
-- attribution-matching.ts
+- textParam
+- attribution-intake.ts
 - models-live.ts
 - C · Confusing or extra work
 - shop-live.ts
-- domain/edition-artwork.ts
-- audit
+- artwork-auto-rights.test.ts
+- v1/infinex.ts
 - I · Whole-app review (2026-11-15)
 - city-scene.tsx
 - BTG_SponsorX_Phases_2_4_Detailed_Developer_Specifications_978a9117.md
-- account-settings.tsx
-- domain/payouts.ts
+- athlete/settings/actions.ts
+- domain/home-featured.ts
 - property-p2-live.ts
 - contact-stage.tsx
 - SponsorX-Phase1-Managed-Marketplace.md
@@ -97,7 +97,7 @@
 - next-apply-wizard.tsx
 - property-profile-live.ts
 - layout.ts
-- forecast-live.ts
+- production-live.ts
 - attribution-live.ts
 - packages-stage.tsx
 - uat-phase2.mjs
@@ -106,7 +106,7 @@
 - sponsor-request/actions.ts
 - system-health.ts
 - sponsor-requests-live.ts
-- sale-page.tsx
+- virtual-creative.ts
 - order-payment-live.ts
 - reward-create-resume.test.ts
 - site-chrome.tsx
@@ -115,29 +115,29 @@
 - fact-history.ts
 - confirmations-live.ts
 - BTG_SponsorX_Master_Development_Blueprint_Integrated_Athlete_Network_f5776aa7.md
-- v1/rights.ts
+- actor.ts
 - SponsorX ↔ Zoho — Module and Field Mapping
 - domain/sponsor-requests.ts
 - athlete/team/page.tsx
 - athlete-rates-live.ts
-- sponsor/intelligence/page.tsx
+- campaign-builder.tsx
 - auth.ts
 - checkout-wizard.tsx
 - athlete-game-plan.tsx
 - rcfworks — tracker, decisions and diagrams
 - loop-db.ts
-- domain/payment-events.ts
+- contracts/payment-events.ts
 - portal-shell.tsx
 - join-stage.tsx
-- city-backdrop.tsx
-- clientIp
+- loading.ts
+- zoho-webhooks.ts
 - Stage 3 · Athlete Network
 - home-feature-panel.tsx
 - closed-accounts-live.ts
-- lib/matching.ts
+- matching-studio.tsx
 - Part 3 · The core workspaces
 - guardian-live.ts
-- org-documents.tsx
+- useDialogFocus
 - brief-wizard.tsx
 - SponsorX-Phase3-Intelligence-Attribution.md
 - how-it-works-stage.tsx
@@ -147,16 +147,16 @@
 - v1/intelligence.ts
 - flight.ts
 - payments-pii.test.ts
-- seller-orders.tsx
+- athlete/page.tsx
 - live-profile-editor.tsx
 - facts.ts
 - domain/sponsor-account.ts
 - 2026-09-30 — tasks completed
-- matching-studio.tsx
+- virtual-registry.ts
 - join-wizard.tsx
 - Master Development Blueprint v2.0
 - 2026-11-16 — rcfworks
-- order-automation-live.ts
+- react
 - compile.ts
 - scripts
 - Stage 9 · SponsorX NEXT
@@ -164,29 +164,29 @@
 - login-stage.tsx
 - ZohoClient
 - Stage 1 · UI Scaffold on Fixtures
-- restricted-words/page.tsx
+- restricted-words-live.ts
 - deal-live.test.ts
 - applications-live.ts
 - city/types.ts
 - Sprint 1 · External property onboarding
 - live-reader.tsx
 - 2026-10-15
-- students-live.ts
+- live-prospects.tsx
 - report-render.ts
 - "DealDispute"
 - Stage 0 · Foundation & Decisions
 - onboarding/[id]/page.tsx
 - 2026-10-01 — tasks completed
-- inventory-shop.tsx
-- react
+- admin/campaigns/[id]/actions.ts
+- advisor-profile.tsx
 - offer-live.ts
-- assertAllowed
+- v1/virtual.ts
 - domain/deliverable.ts
 - domain/sponsor-team.ts
 - backend/package.json
 - help-home.tsx
-- pricing-live.ts
-- order-details-rules.ts
+- deal-chats.ts
+- join/actions.ts
 - 7. Pages
 - page-transition.tsx
 - scripts
@@ -198,32 +198,32 @@
 - payment-provider.ts
 - seed-personas.mts
 - fan-consent.ts
-- textParam
+- frontend/tests/match-rank-offer-draft.test.ts
 - sponsor/orders/[id]/page.tsx
 - AdminAnalyticsReport Model
 - Stage 2 · Platform Foundations
 - BTG_SponsorX_Sponsor_Campaign_Agreement_and_Brief_4e631412.md
 - SponsorX-NEXT-Integration-Spec_4368ca7b.md
-- brief-auto.ts
+- brief-auto-rules.ts
 - SponsorX Payments and Personal Data Review — October 2026
 - SponsorX — INFINEX API and Event Specification
 - SponsorX NEXT — Integration Specification
-- signups-stream.ts
+- deal-agreement-render.ts
 - finance/payouts/page.tsx
 - Findings by OWASP category
 - 2026-10-19
 - account-closure-live.ts
 - support-inbox-live.ts
 - react-dom
-- server-pager.tsx
+- match-explorer-live.ts
 - tracker_sync.py
 - roster/actions.ts
 - worker.images.test.ts
-- tests/support/object-store.ts
+- build-places.mjs
 - marketplace-ops-live.ts
-- server/deal-chat.ts
+- deal-chat-actions.ts
 - SponsorX ↔ Zoho — API credentials and sandbox
-- send
+- audit
 - capture.mjs
 - property-listing-form.tsx
 - athlete-listings-live.ts
@@ -235,7 +235,7 @@
 - applications-desk.tsx
 - SponsorX_Youth_Content_Media_Academy_BRANDED_Workbook_76628cab.md
 - fact-coverage.static.test.ts
-- marketplace-path.spec.ts
+- contracts/reward.ts
 - 2026-10-13
 - "Edition"
 - Finance "Vault" (P1-ART-25) Implementation Plan
@@ -246,21 +246,21 @@
 - report-pdf-kit.ts
 - edgeHeaders
 - Stage 7 · Money & Reporting
-- date-range-picker.tsx
-- export-report.tsx
+- filter-kit.tsx
+- report-xlsx.ts
 - rcfworks — pricing
 - reward-state.ts
 - backend/tests/desk-lists.paged.test.ts
 - Stage 6 · Measurement & Reward
-- devDependencies
+- send-email.mts
 - domain/student.ts
-- ops-board-live.ts
+- (board)/page.tsx
 - SPONSORX ATHLETE CONTENT COLLABORATION AGREEMENT
-- cancellations-live.ts
+- model-registry.tsx
 - SponsorX-Phase2-Acceptance-Signoff.md
 - athlete-public-page.tsx
 - feature-snapshots.ts
-- seller-orders-live.ts
+- commission.ts
 - 2 · The 12 criteria
 - 2026-09-21 — tasks completed
 - dependencies
@@ -318,7 +318,7 @@
 - Design brief — Athlete onboarding flow (`P1-ART-07`)
 - 11 · Money, reporting and system
 - SponsorX — Stage 1 QA Verification Report & Checklist
-- listing-desk.tsx
+- listings-shop.tsx
 - SponsorX Phase 2 · Acceptance sign-off record
 - HeckerCreatives — P1-ART-25: Finance on "the Vault" (Code review)
 - 2026-10-16
@@ -328,16 +328,16 @@
 - Sprint 4 · Cart, reservations & orders
 - 15.3 · Publication domain
 - "Property"
-- margin-floor.ts
-- sponsor-order-delivery.tsx
+- campaign-order.ts
+- link-renewal.ts
 - order-details.ts
-- dayOf
+- refunds-live.ts
 - SponsorX · Production go/no-go review
 - P8-BE-08 · Home page Featured athletes from real data (Done); P8-FE-10 raised
 - SponsorX Virtual Registry
 - Stage 5 · Campaign Execution
 - Stage 1 close-out batch: `P1-QA-01` · `P1-QA-03` · `P1-QA-02` · `P1-PMO-01`
-- cancelLine
+- helpdesk-cases.ts
 - run.mjs
 - 2026-10-20
 - qa-phase2.spec.ts
@@ -348,9 +348,9 @@
 - next.config.ts
 - SponsorX Event Taxonomy Audit — Phases 1 and 2
 - SponsorX — Stripe integration (2S5-INT-01, 2S5-INT-03)
-- deal-chat-actions.ts
+- brief-readiness.ts
 - new-signups-live.ts
-- offer-draft.ts
+- deliverable-template.ts
 - registry.ts
 - `/join` Athlete Onboarding Wizard Implementation Plan
 - Sponsor brief-request drawer — design (2026-09-15)
@@ -359,7 +359,7 @@
 - Zoho API Access for SponsorX
 - deliverable.chain.test.ts
 - fan-db.ts
-- delivery-issues-live.ts
+- virtual-bookings.ts
 - `P0-PMO-13` raised and closed — the margin floor rule
 - 2026-09-23/tasks-completed.md
 - hero-fx.tsx
@@ -369,16 +369,16 @@
 - The Margin Floor Rule and Tier-Derived Sell Floors
 - SponsorX P7-QA-02 — Metric provenance honesty review
 - SponsorX — Phase 1 Payment Policy
-- property-home-live.ts
+- document-flows.test.ts
 - SponsorX Phase 2 — the state machines (2S0-PMO-01)
 - Reward Event Taxonomy — SCAN, LANDING, CLAIM, REDEEM
 - branding/actions.ts
-- applied
+- account-settings.tsx
 - edition-content.tsx
 - 2026-09-22 — tasks completed
 - HeckerCreatives — P1-ART-23: the sponsor portal on "the Stadium Board" (Code review)
 - 2026-10-12
-- (board)/page.tsx
+- campaign-change-rules.ts
 - P1-FE-04 Edge-State Fixtures Implementation Plan
 - `/next/about` Flipbook Implementation Plan
 - Athlete Dashboard Redesign — easier learning curve
@@ -389,7 +389,7 @@
 - SponsorX Deployment Runbook
 - approvals-live.ts
 - SponsorX — Phase 1 · Managed Marketplace
-- age-of-majority.ts
+- stripe.ts
 - shop-window.tsx
 - scenario-engine.ts
 - next-setup.tsx
@@ -398,7 +398,7 @@
 - AppsScriptSheet
 - Clerk Scoped to Identity Only
 - client.ts
-- applications.ts
+- cohort-import.ts
 - P8-FE-09 · The tester-guide dry run's screen findings (HeckerCreatives, Code review)
 - 2026-10-29
 - analytics-story.tsx
@@ -414,7 +414,7 @@
 - NIL Job Catalogue Economics — SX-01 to SX-07
 - My View_be097e72.md
 - Does the PDF Worker Have a Real Requirement?
-- get-started-stage.tsx
+- virtual-rules.ts
 - BTG admin review items 9 to 11: order approval, payment and delivery, automated (2S4-BE-09, -10, -11 and 2S4-FE-05, all Done)
 - Sprint 8 · QA, security & rollout
 - Dev Clerk-quota fallback — design
@@ -422,9 +422,9 @@
 - SponsorX Attribution Claims
 - SponsorX — Public surface security review (P8-SEC-03)
 - payee-money.spec.ts
-- money-lists.tsx
+- athlete-money-shop.ts
 - anomalies/page.tsx
-- auto-staffing.ts
+- campaign-launch.ts
 - 2026-10-07
 - FakeZoho
 - stripe-sandbox-smoke.mts
@@ -442,15 +442,15 @@
 - 7 · Field maps
 - SponsorX NEXT — rate card and revenue split (P9-PMO-01)
 - 4 · Sponsor domain
-- athlete-home-live.ts
+- athlete-home-phase2.test.ts
 - The tasks
-- live-rights.tsx
+- messages-page.tsx
 - 5 · Athlete network
-- object-store-standin.mjs
+- tests/support/object-store.ts
 - 6 · Athlete / Content Partner — custom module build specification
 - Phase 1 close-out run (HeckerCreatives) — 10 rows → Code review
-- Railway
-- seller-problem-answer.tsx
+- SponsorX Zoho Field Mapping Document (P0-PMO-08)
+- student-assignments.tsx
 - Sprint 8 · Virtual inventory screens, controls and launch
 - Sprint 1 · Warehouse & benchmarks
 - Legal decoupled from the build — new `Legal` worksheet
@@ -461,14 +461,14 @@
 - QA pass 4 — the merged tree, including the lead's new surfaces (2026-09-25)
 - SheetEndpointRetry
 - Sheet
-- server/payouts.ts
+- v1/campaign-change.ts
 - Admin Operations Board — "Mission Control" stage (P1-ART-14)
 - team-leave.tsx
 - P1-QA-01 — §39 loop walk on fixtures: pass/fail for all 11 steps
 - P1-QA-02 — Accessibility audit: AA contrast both themes, keyboard, no-JS redeem
 - P1-QA-03 — Responsive audit: 360px, no horizontal scroll, phone nav
 - BTG SponsorX — logo files (flat redraw, P1-ART-06)
-- insight-banner.tsx
+- charts.tsx
 - Applications — "Scouting Board" redesign (P1-ART-16)
 - The admin desks' lists as server-paged tables (P1-FE-31)
 - The admin sidebar's collapsible groups (P1-ART-21)
@@ -511,7 +511,7 @@
 - Sprint 0 · Architecture & design
 - Sprint 6 · Wallet rewards & notifications
 - SponsorX — Phase 3 · Intelligence & Attribution
-- 2026-10-28 — tasks completed
+- inventory/actions.ts
 - compilerOptions
 - POL-BE-42: "What's wrong" tags, backend (rcfworks)
 - Five more — the whole B3 backend spine (`P4-BE-02`…`P4-BE-06`)
@@ -526,7 +526,7 @@
 - 2026-10-02 — tasks completed
 - SheetOnlyNotify
 - help/index.ts
-- cart/actions.ts
+- document-inspect.ts
 - rewards.read.test.ts
 - payment-policy-compliance.test.ts
 - BTG_SponsorX_Master_Development_Blueprint_609a437c.md
@@ -541,7 +541,7 @@
 - city-kit — the landing-page city asset pipeline (P1-ART-09)
 - My View_05a7ce54.md
 - 20260928190000_phase2_ledger/migration.sql
-- offer.ts
+- prisma
 - Task — Complete the sponsor campaigns path (List → Detail → Report)
 - Task — Complete `/athlete/invitations` frontend functionality (sort, filter, search, pagination)
 - The commission desk (P1-ART-19)
@@ -558,7 +558,7 @@
 - SponsorX Security Review — October 2026
 - rewards/new/page.tsx
 - G · Support and help desk (added 2026-11-12)
-- campaigns/new/page.tsx
+- offers/actions.ts
 - EverySheetIsWatched
 - commission/page.tsx
 - smoke-receipt.mjs
@@ -581,10 +581,10 @@
 - Motion Wow Layer (Reveal fade-rise, CountUp, funnel stagger, insight shimmer; reduced-motion disabled)
 - AGENTS.md
 - postcss.config.mjs
-- brief.ts
+- domain/places.ts
 - ops-skeleton.tsx
-- loop-p3-application.spec.ts
-- fact-nightly.ts
+- brief-auto.ts
+- restricted-words-rules.ts
 - Task — Wire the sponsor "Request a brief" / "Add to brief" flow (frontend)
 - Task — `P1-FE-10` · Campaign ROI report "Export report" — client-side PDF + XLSX
 - Three closed in one run — `P3-BE-04`, `P3-BE-08`, `P3-BE-11`
@@ -617,14 +617,14 @@
 - 2026-10-13
 - SponsorX — Polish (fix before launch)
 - Help & FAQ Center Implementation Plan (POL-FE-99)
-- orderDeliveries
+- SponsorX Fact Ledger
 - 2026-10-09/tasks-completed.md
-- ops-dash.tsx
+- createDealLive
 - pol-fe-51-sponsor-staffing.test.ts
 - SponsorX — Phase 2 · Marketplace & Athlete Commerce
 - 4. Core 12-Screen Product Specification
 - application-edit-form.tsx
-- athlete/listings/[id]/preview/page.tsx
+- ocr.ts
 - 2026-11-11 — tasks completed
 - 9. The 12 Core Phase 1 Screens
 - BTG_SponsorX_Systems_Architecture_d593563b.md
@@ -635,8 +635,8 @@
 - 2026-10-21
 - 2026-10-22
 - F · Clean pass: outdated wording and developer notes (added 2026-11-11)
-- journey-strip.tsx
-- money-board.tsx
+- server/campaign-change.ts
+- athlete-listing-desk.ts
 - landing-sponsors.tsx
 - inventory-live.ts
 - fact-classification.ts
@@ -654,24 +654,24 @@
 - 13. Sponsor ROI Dashboard
 - combined.mts
 - SponsorX Phase 2 — the financial ledger (2S0-PMO-02)
-- content-check-rules.ts
+- sponsor-overview.test.ts
 - 2026-10-29 — tasks completed
-- loop-p5-delivery.spec.ts
+- campaign-requests-desk.tsx
 - 22. The strategic structure I'd use
 - Under Armour × BTG
 - 4. Seven Standard SponsorX NIL Jobs
 - SponsorX-Full-Programme-Task-Board_caf1eea8.md
 - BTG_SponsorX_Athlete_Campaign_Order_c630d187.md
-- DeliveryError
+- v1/deal-disputes.ts
 - all-orders.tsx
 - 13. Appendices: Checklists, Forms and Templates
 - matching-compare.tsx
 - `P2-BE-02` — the full Prisma schema and initial migration
 - 2026-11-12
-- redeemToken
+- export-report.tsx
 - 6. Sponsor Packages
 - claimOnCode
-- property-intelligence.ts
+- campaigns.list.test.ts
 - user-menu.tsx
 - The spine was built in the wrong environment, and rebuilt in staging
 - domain/csp-report.ts
@@ -687,7 +687,7 @@
 - 20260924160000_zoho_sync/migration.sql
 - earning.test.ts
 - fan-pii.test.ts
-- domain/earning.ts
+- payout-auto.test.ts
 - 8. QR Reward & Fan Commerce Engine
 - 10. Measurement, Reporting and Quality Control
 - 15. Infrastructure, Environments & Deployment
@@ -726,17 +726,17 @@
 - deploy
 - DAYS 16–30 — REACH 25
 - SponsorX-Provisioning-Sequence_e42d819e.md
-- athlete-lists.paged.test.ts
+- earnings.list.test.ts
 - 2026-10-30 — tasks completed
 - SponsorX — Phase 3 screen contracts
-- secret-scan.mjs
+- phase2-purchase.test.ts
 - 20260930090000_payouts/migration.sql
 - pmo02-clerk-parties.test.ts
-- @playwright/test
+- proxy.ts
 - SponsorX INFINEX World Contract
 - earning-state.ts
 - Testing SponsorX on staging
-- notify-invitation.mts
+- pg
 - 2026-11-17 · tasks completed
 - 20261013120000_fact_ledger/migration.sql
 - 20261014150000_pricing_records/migration.sql
@@ -784,31 +784,31 @@
 - POL-FE-48-student-apply-link.md
 - POL-FE-49-student-log-business.md
 - POL-FE-50-content-ready-note.md
-- account-closure-impact.ts
+- rights-ledger.read.test.ts
 - audit.list.test.ts
 - scripts
-- sweepDeliveries
+- SponsorX Make-Goods
 - server.ts
-- attribution-partners-live.ts
+- app-review-wave6.test.ts
 - briefs.read.test.ts
 - Sprint 7 · Intelligence dashboards
 - [code]/page.tsx
-- env.ts
+- hashAgreementBody
 - resolve-geo.mts
 - Deal Chat — the agreement forms and question cards (v1, approved)
 - SENSITIVE_CATEGORIES
-- deliverable-state.ts
-- completeStandinCheckout
+- describedBy
+- campaign.ops.test.ts
 - The tasks
 - reward.funnel.test.ts
 - SponsorX Model Governance Policy
 - Sprint 6 · Attribution framework
 - src/pass.ts
-- edition-public.read.test.ts
+- editions.read.test.ts
 - Sprint 8 · Anomaly detection & model admin
 - SponsorX — the live socket service
-- u/[token]/route.ts
-- mySale
+- certified-recruiting-card.tsx
+- infinex-standin.mts
 - Sprint 2 · Dynamic CPM engine
 - Sprint 3 · Sponsor matching
 - lib/deal-chat.ts
@@ -818,34 +818,34 @@
 - resolve.mjs
 - admin/campaigns/[id]/page.tsx
 - help-tour.tsx
-- 4 · Dimensions
+- public-network-stats.ts
 - deliverables.read.test.ts
 - main_development pulled; every startable frontend task built (HeckerCreatives) — Code review
 - socketservice.test.ts
-- backend/eslint.config.mjs
+- pmo02-link-lifetimes.test.ts
 - zoho-backfill.mts
-- resolveIssue
-- backend/tests/content-trust.test.ts
-- Sprint 7 · Game reporting and operations
+- sponsor-field-authz.test.ts
+- team.paged.test.ts
+- SponsorX Forecasting and Pacing
 - 8 · Audit of the current labels
 - 20261119120000_live_events/migration.sql
 - 3 · BTG admin workspaces
 - ops-activity-chart.tsx
-- AdminRewardsPage
+- 1 · Sponsor portal
 - sponsor-fan-reward.tsx
-- webhook-retention.ts
+- home-featured.route.test.ts
 - 2 · The five labels
 - payout-eligibility.test.ts
 - BTG_SponsorX_Athlete_Campaign_Order_94ddc321.md
-- brief-auto.test.ts
-- sql-rules-in-migrations.test.ts
-- The tasks
-- Sprint 5 · Viewability, metrics and pricing
-- Sprint 6 · In-world activations and rewards
+- public-network-stats.route.test.ts
+- undoRedeem
+- openapi.coverage.test.ts
+- 4 · Derived and aggregated values — the rules that were missing
+- qs
 - "OrderLineDelivery"
-- 4 · Business and operational events
-- Sprint 1 · Game connector
-- Sprint 4 · Telemetry at scale
+- momentLabel
+- InsightCarousel
+- conflict-enforcement.test.ts
 - 25 · Phase 2 · refunds to send *(added 2026-10-02)*
 - 2026-11-19 · tasks completed
 - 4 · Property portal, SponsorX NEXT and public pages
@@ -854,15 +854,14 @@
 - 34 · Phase 3 · anomaly flags *(added 2026-10-15)*
 - POL-101-student-profile.md
 - scripts
-- 5 · `fact_campaign_daily`
+- admin-network.test.ts
 - admin-access.ts
 - PassLedger
-- setup-test-db.mjs
-- campaign-live-mail.ts
-- financial-audit-coverage.test.ts
+- campaigns-paging.test.ts
+- property.public.test.ts
+- rate-limit-expiry.test.ts
 - scout-stage.tsx
-- content-ready-note.test.ts
-- phase2-team-share.test.ts
+- qr-link-button.tsx
 - upload-coverage.static.test.ts
 - 20261119220000_storage_check/migration.sql
 - 20261119230000_campaign_order_details/migration.sql
@@ -872,7 +871,7 @@
 2. `audit()` - 485 edges
 3. `whereFor()` - 475 edges
 4. `ForbiddenError` - 408 edges
-5. `react` - 347 edges
+5. `react` - 348 edges
 6. `assertAllowed()` - 287 edges
 7. `assertTenantWide()` - 196 edges
 8. `Actor` - 195 edges
@@ -886,10 +885,10 @@
   Memory/Initial Memory/04-key-decisions-and-findings.md → CLAUDE.md
 - `SponsorX Project CLAUDE.md` --cites--> `Master Development Blueprint v2.0`  [EXTRACTED]
   CLAUDE.md → documentation/SponsorX-Implementation-Guide.pdf
+- `SponsorX Zoho Field Mapping Document (P0-PMO-08)` --cites--> `Master Development Blueprint v2.0`  [EXTRACTED]
+  Memory/2026-09-11/tasks-completed.md → documentation/SponsorX-Implementation-Guide.pdf
 - `A-Gates · Resolve the Open Decisions` --semantically_similar_to--> `Phase 1 Open Decisions`  [INFERRED] [semantically similar]
   documentation/SponsorX-Phase1-Build-Roadmap.md → CLAUDE.md
-- `Zoho Boundary` --conceptually_related_to--> `Zoho Sync Loop Prevention`  [INFERRED]
-  .claude/stack-decision.md → documentation/SponsorX-Implementation-Guide.pdf
 
 ## Import Cycles
 - 3-file cycle: `backend/src/domain/marketplace-order.ts -> backend/src/domain/payment-exceptions.ts -> backend/src/domain/payouts.ts -> backend/src/domain/marketplace-order.ts`
@@ -909,147 +908,147 @@
 - **Server-safe shared copy/data modules preventing drift** — memory_2026_09_14_tasks_completed_earnings_ui, memory_2026_09_14_tasks_completed_applications_ui, memory_2026_09_14_tasks_completed_profile_sections [INFERRED 0.85]
 - **Zoho Sync Pipeline (Queued, Worker-Mediated, Loop-Safe)** — documentation_sponsorx_implementation_guide_transactional_outbox, documentation_sponsorx_implementation_guide_zoho_loop_prevention, _claude_stack_decision_zoho_boundary, documentation_sponsorx_stack_summary_railway_worker [INFERRED 0.85]
 
-## Communities (936 total, 94 thin omitted)
+## Communities (935 total, 96 thin omitted)
 
-### Community 0 - "restrictions.ts"
-Cohesion: 0.03
-Nodes (100): AvailabilityCode, AvailabilityReason, availabilityReasons(), AvailabilityRequest, checkInventoryItem(), checkListing(), Commitment, day() (+92 more)
+### Community 0 - "sponsor-lists.paged.test.ts"
+Cohesion: 0.17
+Nodes (8): Args, base, Call, calls, DEFAULTS, impl, PAGE, sponsor
 
 ### Community 1 - "(treasury)/page.tsx"
-Cohesion: 0.03
-Nodes (112): EARNING_TONE, FINANCE_ROLES, INVOICE_KEYS, INVOICE_TONE, LIVE_INVOICE_TONE, LiveBooks, LiveFinance(), readJson() (+104 more)
+Cohesion: 0.02
+Nodes (147): EARNING_TONE, FINANCE_ROLES, INVOICE_KEYS, INVOICE_TONE, LIVE_INVOICE_TONE, LiveBooks, LiveFinance(), readJson() (+139 more)
 
 ### Community 2 - "sponsor-campaign-builder.tsx"
-Cohesion: 0.05
-Nodes (90): OrderPanel(), createCampaign(), CreateCampaignResult, said(), AFTER, Area(), Below(), BLOCK_STEP (+82 more)
+Cohesion: 0.04
+Nodes (92): CampaignBriefInput, FILMED_BY, PAID_MEDIA_KINDS, OrderPanel(), CreateCampaignResult, dynamic, metadata, NewCampaignPage() (+84 more)
 
-### Community 3 - "storage.ts"
-Cohesion: 0.02
-Nodes (219): authenticateClerkRequest(), clerk, ClerkIdentity, EmailSource, isMachineToken(), DocumentSendBackInput, LegalNameDecisionInput, AthletePhotoInput (+211 more)
+### Community 3 - "domain/support.ts"
+Cohesion: 0.07
+Nodes (49): ABANDONED_SUPPORT_DRAFT_DAYS, HELPDESK_CASE_ID, HelpdeskCasesQuery, MAX_HELPDESK_CASES, MAX_SUPPORT_ATTACHMENT_BYTES, MAX_SUPPORT_ATTACHMENTS, SUPPORT_ATTACHMENT_RETENTION_DAYS, SUPPORT_ATTACHMENT_TYPES (+41 more)
 
 ### Community 4 - "domain/reward.ts"
 Cohesion: 0.08
-Nodes (27): rewardNotice(), sponsorContactText(), AthleteNotOnCampaignError, checkStaffCode(), isBusy(), isUniqueViolation(), newStaffCode(), NothingToUndoError (+19 more)
+Nodes (30): AthleteNotOnCampaignError, checkStaffCode(), ClaimFirstError, countRefusedRedeem(), isBusy(), isUniqueViolation(), prismaCode(), recordClaim() (+22 more)
 
-### Community 5 - "domain/property-profile.ts"
-Cohesion: 0.04
-Nodes (80): NotificationPreferenceInput, PropertyChangeRejectInput, PropertyContactInput, PropertyIdentityInput, PropertyManagerInput, actForWard(), cleared(), ComingOfAgePausedError (+72 more)
+### Community 5 - "notification-rules.ts"
+Cohesion: 0.33
+Nodes (5): NotificationPreferenceInput, Channel, CHANNELS, MUTABLE_EVENTS, MutableEvent
 
-### Community 6 - "marketplace-catalog.tsx"
-Cohesion: 0.05
-Nodes (46): checkStaffing(), submitBrief(), LiveCatalogue, MarketplacePage(), NotSponsor, TabKey, TABS, SponsorCard() (+38 more)
-
-### Community 7 - "forecast-engine.ts"
+### Community 6 - "document-checks-live.ts"
 Cohesion: 0.06
-Nodes (58): alertFor(), BOOKED_ORDER_STATES, CampaignRow, day(), factsFor(), forecastDetail(), forecastList(), ForecastNotFoundError (+50 more)
+Nodes (62): body(), confirmComingOfAgeAction(), DocumentLinkResult, Owner, OWNERS, SignupActionResult, signupDecisionAction(), signupDocumentAction() (+54 more)
+
+### Community 7 - "forecast-rules.ts"
+Cohesion: 0.08
+Nodes (45): alertFor(), day(), factsFor(), GuaranteeError, runForecasts(), setGuarantee(), Action, ActionKind (+37 more)
 
 ### Community 8 - "about-stage.tsx"
 Cohesion: 0.07
 Nodes (28): metadata, AboutClose(), AboutHero(), CARD, CARD_RING, CARD_SWEEP, DeskNode(), Desks (+20 more)
 
 ### Community 9 - "earnings.paged.test.ts"
-Cohesion: 0.05
-Nodes (27): call(), runStandin(), signedPost(), StandinOptions, StandinResult, TelemetrySummary, admin, athlete (+19 more)
+Cohesion: 0.10
+Nodes (14): admin, Args, athlete, base, calls, campaignMgr, campaignRows, earningRows (+6 more)
 
 ### Community 10 - "domain/guardian-handoff.ts"
-Cohesion: 0.06
-Nodes (75): ARENA_HANDOFF_GROUPS, GUARDIANSHIP_PROOF_KINDS, HANDOFF_DOCUMENT_KINDS, HANDOFF_GROUPS, HANDOFF_RELATIONSHIPS, HandoffDecisionInput, HandoffDocumentInput, HandoffEmailConfirmInput (+67 more)
+Cohesion: 0.02
+Nodes (247): requireActor(), can(), ARENA_HANDOFF_GROUPS, GUARDIANSHIP_PROOF_KINDS, HANDOFF_DOCUMENT_KINDS, HANDOFF_GROUPS, HANDOFF_RELATIONSHIPS, HandoffDecisionInput (+239 more)
 
 ### Community 11 - "deal-dispute-desk.tsx"
-Cohesion: 0.02
-Nodes (172): LiveOpsView(), call(), DeskWrite, DocumentLink, getDealDisputeDocumentAction(), openDealDisputeAction(), OpenResult, resolveDealDisputeAction() (+164 more)
+Cohesion: 0.03
+Nodes (125): call(), DeskWrite, DocumentLink, getDealDisputeDocumentAction(), openDealDisputeAction(), OpenResult, resolveDealDisputeAction(), revalidateJoins() (+117 more)
 
 ### Community 12 - "domain/edition.ts"
-Cohesion: 0.02
-Nodes (160): AdSaleInput, AdSlotInput, AdSlotKind, EditionConditionsInput, EditionEventInput, EditionFileInput, EditionFileUploadInput, EditionInput (+152 more)
+Cohesion: 0.01
+Nodes (237): AdSaleInput, AdSlotInput, AdSlotKind, ArtworkInput, ArtworkRevisionInput, EditionConditionsInput, EditionEventInput, EditionFileInput (+229 more)
 
 ### Community 13 - "sponsor/campaigns/[id]/page.tsx"
-Cohesion: 0.02
-Nodes (224): dynamic, dynamic, SponsorAthletePage(), CAMPAIGN_STEPS, campaignStepNow(), DEMO_ORDER_TONE, DemoRichData, LIVE_ORDER_COPY (+216 more)
+Cohesion: 0.01
+Nodes (296): dynamic, dynamic, SponsorAthletePage(), post(), presignArtwork(), reason(), sponsorArtworkLink(), sponsorCancelImpact() (+288 more)
 
-### Community 14 - "link-renewal.ts"
-Cohesion: 0.06
-Nodes (70): LinkRenewInput, LinkRenewReceipt, appUrl(), athleteApplication(), comingOfAge(), firstWord(), Fresh, guardianSetup() (+62 more)
+### Community 14 - "signed-link.ts"
+Cohesion: 0.10
+Nodes (35): LinkRenewInput, LinkRenewReceipt, CLAIM_EMAIL_LINK, issueClaimEmailToken(), readClaimEmailToken(), verifyClaimEmailToken(), DEFAULT_LEGACY_LINKS_ACCEPTED_UNTIL, DEFAULT_LINK_TTL_DAYS (+27 more)
 
-### Community 15 - "campaign-stages.ts"
-Cohesion: 0.02
-Nodes (141): enqueue(), JobName, ATHLETE_STATES_FOR_TEST, sponsorStaffingLine(), StaffingView, stalledSince(), BRIEF_STATES, applyChangeIn() (+133 more)
+### Community 15 - "db/audit.ts"
+Cohesion: 0.01
+Nodes (261): AuditActor, Change, enqueue(), JobName, startAutoSale(), appUrl(), assertStillOfferable(), AUTO_STAFFING_AUDIT (+253 more)
 
 ### Community 16 - "signups-desk.tsx"
-Cohesion: 0.05
-Nodes (68): BOARD_ROLES, dynamic, ProductionBoardPage(), Stat(), DeskLayout, FlowStep, HowItWorks(), ListLoading() (+60 more)
+Cohesion: 0.07
+Nodes (35): Stat(), DeskLayout, FlowStep, HowItWorks(), ListLoading(), PagerGhost(), readView(), rise() (+27 more)
 
 ### Community 17 - "domain/delivery.ts"
 Cohesion: 0.04
-Nodes (52): ANSWER_WINDOW_HOURS, AUTO_CLOSE_DAYS, CANCEL_ANSWER_HOURS, cancelCutoff(), CANCELLATION_REASONS, cancellationTerms, CancelledBy, CONFIRM_WINDOW_HOURS (+44 more)
+Nodes (141): dealAgreementsForLines(), announceEscalation(), ANSWER_WINDOW_HOURS, answerCancellation(), answerProblem(), answerReply(), answerWords(), appUrl() (+133 more)
 
 ### Community 18 - "fixtures.ts"
 Cohesion: 0.01
-Nodes (296): approvalAction(), assetLink(), AdminApprovalsPage(), DESK_ROLES, liveDesk(), PIPELINE_HINTS, readPost(), JobEcon (+288 more)
+Nodes (352): coverPreview(), KIND_SHORT, LiveEditionPlanning(), SELLERS, STATE_TONE, EditionPlanningPage(), GATES, LAYOUT_ROLES (+344 more)
 
 ### Community 19 - "onboarding-live.ts"
 Cohesion: 0.04
-Nodes (95): OnboardingDetailPage(), acceptTermsAction(), call(), confirmDocumentAction(), DocumentResult, readOnboardingAction(), Refusal, requestDocumentAction() (+87 more)
+Nodes (95): acceptTermsAction(), call(), confirmDocumentAction(), DocumentResult, readOnboardingAction(), Refusal, requestDocumentAction(), resendConfirmationAction() (+87 more)
 
 ### Community 20 - "document-check-rules.ts"
-Cohesion: 0.05
-Nodes (76): BUSINESS_FILLER, dateOf(), datesIn(), DocumentType, expiryIn(), FileProblem, fileProblemWords(), Finding (+68 more)
+Cohesion: 0.11
+Nodes (27): BUSINESS_FILLER, dateOf(), datesIn(), DocumentType, ExpectedName, expiryIn(), FileProblem, FindingCode (+19 more)
 
-### Community 21 - "api.ts"
-Cohesion: 0.03
-Nodes (210): AdminAnalyticsPage(), DENIED, DESK_ROLES, liveStory(), reviewAction(), AdminApplicationsPage(), LiveQueue, dynamic (+202 more)
+### Community 21 - "apiFetch"
+Cohesion: 0.02
+Nodes (290): AdminAnalyticsPage(), DENIED, DESK_ROLES, liveStory(), reviewAction(), AdminApplicationsPage(), LiveQueue, approvalAction() (+282 more)
 
 ### Community 22 - "brief-request-drawer.tsx"
-Cohesion: 0.06
-Nodes (56): BriefResult, BriefForm(), BriefRequestDrawer(), BriefSeed, BriefSubmit, CATEGORY_OPTIONS, CHANNEL_OPTIONS, DEMO_GEO_OPTIONS (+48 more)
+Cohesion: 0.07
+Nodes (51): BriefForm(), BriefRequestDrawer(), BriefSeed, BriefSubmit, CHANNEL_OPTIONS, DEMO_GEO_OPTIONS, DEMO_SPORT_OPTIONS, DURATION_OPTIONS (+43 more)
 
-### Community 23 - "brief-moves.ts"
-Cohesion: 0.13
-Nodes (17): staffsAthletes(), applyBriefMove(), BRIEF_AUDIT_ACTIONS, BriefForMove, BriefStateConflictError, Tx, briefActions(), BriefState (+9 more)
+### Community 23 - "v1/marketplace.ts"
+Cohesion: 0.04
+Nodes (65): CancellationAnswerInput, DeliveryCancelInput, DeliveryProblemInput, DeliveryProofQuery, DeliveryResolutionInput, InvitableAthletesQuery, MarkDeliveredInput, note (+57 more)
 
 ### Community 24 - "admin/next/actions.ts"
-Cohesion: 0.09
-Nodes (42): addAssetAction(), addSlotAction(), ASSET_KINDS, attachAssetFileAction(), bookCampaignAction(), EDITION_FILES, EditionActionResult, fileNameOf() (+34 more)
+Cohesion: 0.08
+Nodes (48): addAssetAction(), addSlotAction(), ASSET_KINDS, assetFileAction(), attachAssetFileAction(), bookCampaignAction(), cancelEditionAction(), createPublicationAction() (+40 more)
 
 ### Community 25 - "whereFor"
 Cohesion: 0.02
-Nodes (192): args, at, ForbiddenError, can(), whereFor(), env, LivePass, LivePassInput (+184 more)
+Nodes (229): ForbiddenError, assertAllowed(), whereFor(), advisorProfile(), AdvisorProfileError, ownAdvisor(), updateAdvisorProfile(), isSelfScoped() (+221 more)
 
 ### Community 26 - "pricing-engine.ts"
 Cohesion: 0.06
-Nodes (43): args, at, chooseBase(), clamp(), confidence(), DIMENSION_WORDS, direction(), EngineInput (+35 more)
+Nodes (44): chooseBase(), clamp(), confidence(), DIMENSION_WORDS, direction(), EngineInput, Factor, fromStored() (+36 more)
 
 ### Community 27 - "content-checks-live.test.ts"
 Cohesion: 0.08
-Nodes (31): DeliverableUpload(), Fail, fmtBytes(), noSubscribe(), Ok, pendingKey(), PublishProof(), readPending() (+23 more)
+Nodes (32): DeliverableUpload(), Fail, fmtBytes(), noSubscribe(), Ok, pendingKey(), PublishProof(), readPending() (+24 more)
 
-### Community 28 - "student-assignments.tsx"
-Cohesion: 0.07
-Nodes (48): approveAssignmentAction(), createAssignmentAction(), Result, reviseAssignmentAction(), send(), unreachable, valid(), draftFileAction() (+40 more)
+### Community 28 - "student-assignments-live.ts"
+Cohesion: 0.10
+Nodes (31): approveAssignmentAction(), createAssignmentAction(), Result, reviseAssignmentAction(), send(), unreachable, valid(), draftFileAction() (+23 more)
 
 ### Community 29 - "admin-offers-live.ts"
-Cohesion: 0.05
-Nodes (93): athleteItemsAction(), call(), createOfferAction(), DeskWrite, ItemOption, keepOfferAction(), offerChecksAction(), okId() (+85 more)
+Cohesion: 0.06
+Nodes (69): ItemOption, dynamic, OfferPage(), KeepDialog(), OfferDeskActions(), Open, Outcome, CampaignOption (+61 more)
 
 ### Community 30 - "zoho-sync.ts"
-Cohesion: 0.08
-Nodes (72): accountShared(), assertedStage(), calendarDate(), centsToZoho(), changedOnBothSides(), ContactFields, contactShared(), dealKey (+64 more)
+Cohesion: 0.07
+Nodes (78): BriefState, accountShared(), assertedStage(), calendarDate(), centsToZoho(), changedOnBothSides(), ContactFields, contactShared() (+70 more)
 
-### Community 31 - "apiFetch"
-Cohesion: 0.03
-Nodes (126): message(), BriefMoveResult, moveBriefAction(), MOVES, APPROVERS, BriefsPage(), CLOSERS, dynamic (+118 more)
+### Community 31 - "briefs-live.ts"
+Cohesion: 0.07
+Nodes (41): message(), BriefMoveResult, moveBriefAction(), MOVES, send(), Desk(), APPROVED_TEXT, openRequests() (+33 more)
 
 ### Community 32 - "listing.ts"
 Cohesion: 0.04
-Nodes (91): LISTINGS_LIVE_PAGE_SIZE, recheck(), app(), assertBtg(), assertGoverned(), autoPublishedListings(), btgActOnListing(), btgAdmins() (+83 more)
+Nodes (89): LISTINGS_LIVE_PAGE_SIZE, app(), assertBtg(), assertGoverned(), autoPublishedListings(), btgActOnListing(), btgAdmins(), btgRow() (+81 more)
 
 ### Community 33 - "venue-utils.ts"
-Cohesion: 0.06
-Nodes (74): BaseballField(), basesGeometry(), build(), Built, ON_DECK, paintField(), BasketballCourt(), build() (+66 more)
+Cohesion: 0.07
+Nodes (72): BaseballField(), basesGeometry(), build(), Built, ON_DECK, paintField(), BasketballCourt(), build() (+64 more)
 
 ### Community 34 - "domain/student-assignment.ts"
-Cohesion: 0.07
-Nodes (56): canRequestRevision(), canTransitionDeliverable(), approveAssignment(), appUrl(), assertOpen(), ASSIGNMENT_KINDS, ASSIGNMENT_VIEWS, assignmentFileUrl() (+48 more)
+Cohesion: 0.04
+Nodes (90): consentGrant, addEditionAsset(), assertRightShape(), AssetKind, attachEditionAssetFile(), AutoBasis, checkContentFile(), CommercialGrantRequiredError (+82 more)
 
 ### Community 35 - "sponsor-account-live.ts"
 Cohesion: 0.07
@@ -1065,43 +1064,43 @@ Nodes (75): boot(), bundledBlob(), cdnScriptFor(), collectProps(), compileAttr()
 
 ### Community 38 - "makegood-engine.ts"
 Cohesion: 0.05
-Nodes (68): args, at, approveMakeGood(), buildShortfall(), campaignMakeGoods(), day(), ForecastRow, KIND_WORDS (+60 more)
+Nodes (69): args, at, checkInventoryItem(), GuaranteeMetric, approveInTx(), approveMakeGood(), buildShortfall(), campaignMakeGoods() (+61 more)
 
 ### Community 39 - "rewards-desk.tsx"
 Cohesion: 0.09
 Nodes (29): CreatedReward, EXPIRATIONS, OFFER_IDEAS, qrCells(), QrPattern(), RewardAthlete, RewardCreator(), RewardDraftIn (+21 more)
 
 ### Community 40 - "index.mts"
-Cohesion: 0.04
-Nodes (100): payOutClosedAccounts(), runAnomalies(), rematchQueue(), sweepAutoStaffing(), sweepCampaignLaunches(), expireCarts(), waitedWords(), sweepEditionStages() (+92 more)
+Cohesion: 0.05
+Nodes (83): payOutClosedAccounts(), sweepAutoStaffing(), recheckHeldBriefs(), sweepCampaignStages(), expireCarts(), sweepEditionStages(), purgeFanEmails(), takeFeatureSnapshots() (+75 more)
 
-### Community 41 - "signups-desk.ts"
-Cohesion: 0.04
-Nodes (161): missingApplicationFields(), AgeRowInput, AthleteDocumentInput, file, GuardianAgreementInput, GuardianDetailsInput, GuardianDocumentInput, IdDocumentInput (+153 more)
+### Community 41 - "send"
+Cohesion: 0.01
+Nodes (352): AthleteApplicationInput, AthleteApplicationPatch, missingApplicationFields(), DocumentSendBackInput, LegalNameDecisionInput, AgreementAcceptanceInput, GuardianInput, GuardianRelationship (+344 more)
 
 ### Community 42 - "account-closure.ts"
-Cohesion: 0.05
-Nodes (85): CloseAccountInput, ClosureAccountQuery, ClosureListQuery, ClosureRequestDeclineInput, ClosureRequestListQuery, ReactivationActionInput, ReactivationDecisionInput, ReactivationLinkInput (+77 more)
+Cohesion: 0.04
+Nodes (100): CloseAccountInput, ClosureAccountQuery, ClosureListQuery, ClosureRequestDeclineInput, ClosureRequestListQuery, ReactivationActionInput, ReactivationDecisionInput, ReactivationLinkInput (+92 more)
 
 ### Community 43 - "domain/onboarding.ts"
 Cohesion: 0.03
-Nodes (150): documentFields, OnboardingConfirmEmailInput, OnboardingDecisionInput, OnboardingDocumentInput, OnboardingList, OnboardingStartInput, OnboardingState, OnboardingStepInput (+142 more)
+Nodes (191): documentFields, OnboardingConfirmEmailInput, OnboardingDecisionInput, OnboardingDocumentInput, OnboardingList, OnboardingStartInput, OnboardingState, OnboardingStepInput (+183 more)
 
 ### Community 44 - "athlete/listings/[id]/page.tsx"
 Cohesion: 0.10
-Nodes (47): AthleteInventoryPage(), dynamic, AthleteListingPage(), dynamic, json(), showcaseFor(), journey(), later() (+39 more)
+Nodes (45): AthleteListingPage(), dynamic, json(), showcaseFor(), MarketPill(), deskControls, journey(), ApiAthleteListing (+37 more)
 
 ### Community 45 - "payments/actions.ts"
-Cohesion: 0.12
-Nodes (34): cleanNote(), DeskWrite, post(), resolveDisputeAction(), resolveEventAction(), reviewDisputeAction(), send(), setPaymentSwitchAction() (+26 more)
+Cohesion: 0.13
+Nodes (33): cleanNote(), DeskWrite, post(), resolveDisputeAction(), resolveEventAction(), reviewDisputeAction(), send(), setPaymentSwitchAction() (+25 more)
 
 ### Community 46 - "deliverables-live.ts"
 Cohesion: 0.11
-Nodes (45): DeliverablePage(), Ask, DeliverablesPage(), fixtureView(), liveView(), View, Calendar(), DeliverableCalendar() (+37 more)
+Nodes (46): DeliverablePage(), fmt(), Ask, DeliverablesPage(), fixtureView(), liveView(), View, Calendar() (+38 more)
 
 ### Community 47 - "match-engine.ts"
 Cohesion: 0.06
-Nodes (48): BOOKABLE_STATES, BriefNotFoundError, Candidate, currentRuns(), gatherCandidates(), IN_PERSON_KINDS, loadBrief(), NETWORK_STATES (+40 more)
+Nodes (53): BOOKABLE_STATES, BriefNotFoundError, Candidate, currentRuns(), gatherCandidates(), IN_PERSON_KINDS, loadBrief(), matchPage() (+45 more)
 
 ### Community 48 - "monitor.py"
 Cohesion: 0.05
@@ -1109,51 +1108,51 @@ Nodes (42): Fetch, Gh, Post, alert_text(), check_environment(), curl_fetch(), de
 
 ### Community 49 - "profile-wizard.tsx"
 Cohesion: 0.05
-Nodes (58): liveProfile(), POST_APPROVAL, ProfilePage(), publicPageFor(), words(), initials(), LEVEL_LABEL, LEVELS (+50 more)
+Nodes (72): RegionPicks(), CityState, PlaceField, PlacePicker(), initials(), LEVEL_LABEL, LEVELS, Phase (+64 more)
 
-### Community 50 - "[campaignId]/page.tsx"
-Cohesion: 0.08
-Nodes (65): dynamic, Forecast(), MakeGoodsCard(), Missing(), SP, Desk(), approveMakeGoodAction(), ApproveResult (+57 more)
-
-### Community 51 - "v1/index.ts"
+### Community 50 - "forecast-live.ts"
 Cohesion: 0.02
-Nodes (122): EarningTransitionInput, buildOpenApiDocument(), adjustEarning(), ByState, campaignCommission(), campaignSell(), EARNING_STATES, EarningStateName (+114 more)
+Nodes (219): GuaranteeResult, setGuaranteeAction(), dynamic, Forecast(), MakeGoodsCard(), Missing(), SP, Desk() (+211 more)
 
-### Community 52 - "useDialogFocus"
-Cohesion: 0.08
-Nodes (56): call(), DeskWrite, DocumentLink, handoffDocumentAction(), handoffSendBackAction(), staffDecisionAction(), dynamic, GuardianHandoffPage() (+48 more)
+### Community 51 - "v1/campaigns.ts"
+Cohesion: 0.02
+Nodes (220): scopeOf(), readRateCard(), readRateEditor(), setAthleteTier(), staffingSkips(), StageView, assessDelivery(), HEALTH_SELECT (+212 more)
 
-### Community 53 - "domain/matching.ts"
-Cohesion: 0.06
-Nodes (51): byMatch(), KEY_ORDER, MATCH_WEIGHTS, MatchBrief, MatchRank, MatchReason, MatchReasonKey, MatchSignals (+43 more)
+### Community 52 - "guardian-handoffs-desk-live.ts"
+Cohesion: 0.11
+Nodes (44): call(), DeskWrite, DocumentLink, handoffDocumentAction(), handoffSendBackAction(), staffDecisionAction(), dynamic, GuardianHandoffPage() (+36 more)
+
+### Community 53 - "match-score.ts"
+Cohesion: 0.10
+Nodes (21): KEY_ORDER, MATCH_WEIGHTS, MatchBrief, MatchRank, MatchReason, MatchReasonKey, MatchSignals, RATE_ZERO_AT (+13 more)
 
 ### Community 54 - "payouts-live.ts"
 Cohesion: 0.06
-Nodes (69): d(), dynamic, Head(), MyMoneyPage(), Read, dynamic, PropertyEarningsPage(), PayoutHistory() (+61 more)
+Nodes (61): moneyRequestAction(), moneySampleLinkAction(), d(), dynamic, Head(), MyMoneyPage(), Read, dynamic (+53 more)
 
-### Community 55 - "scenario-planner.tsx"
+### Community 55 - "scenarios-live.ts"
+Cohesion: 0.07
+Nodes (52): CalculateResult, calculateScenarioAction(), saveScenarioAction(), SaveScenarioResult, sampleCalc(), SaveRow(), ScenarioColumn(), ScenarioPlanner() (+44 more)
+
+### Community 56 - "anomaly-rules.ts"
 Cohesion: 0.08
-Nodes (59): CalculateResult, calculateScenarioAction(), saveScenarioAction(), SaveScenarioResult, Calc, ResultCard(), sampleCalc(), SavedScenarios() (+51 more)
-
-### Community 56 - "anomaly-engine.ts"
-Cohesion: 0.05
-Nodes (55): args, at, ANOMALY_KINDS, AnomalyDecidedError, anomalyDesk(), AnomalyNoteError, AnomalyNotFoundError, AnomalyReport (+47 more)
+Nodes (35): detect(), ANOMALY_RULES_VERSION, AnomalyKind, BOT_CLICKS, BOT_HIGH_CLICKS, BOT_WINDOW_S, botFlags(), BURST_REDEEMS (+27 more)
 
 ### Community 57 - "publicApi"
-Cohesion: 0.05
-Nodes (54): decideHandoffAction(), DecisionResult, collabAgreement(), JoinApplyPage(), rulesWording(), ClaimConfirmOutcome, confirmClaimAction(), ClaimConfirmCard() (+46 more)
-
-### Community 58 - "orders-board.tsx"
 Cohesion: 0.07
-Nodes (43): at(), dynamic, FirstOrderHero(), OrdersPage(), STEPS, d(), OrderRow(), OrdersHelp() (+35 more)
+Nodes (38): ClaimConfirmOutcome, confirmClaimAction(), ClaimConfirmCard(), dynamic, metadata, ComingOfAgeTokenPage(), GuardianHandoffPage(), dynamic (+30 more)
 
-### Community 59 - "attribution-matching.ts"
-Cohesion: 0.05
+### Community 58 - "textParam"
+Cohesion: 0.02
+Nodes (196): Body(), ApiError, reason(), sendInvitations(), SendPick, Body(), BriefPicker(), BriefList (+188 more)
+
+### Community 59 - "attribution-intake.ts"
+Cohesion: 0.06
 Nodes (48): AdapterError, adapterFor(), adapters(), AttributionAdapter, AttributionMethod, describeAdapter(), GENERIC_WEBHOOK, GenericDelivery (+40 more)
 
 ### Community 60 - "models-live.ts"
 Cohesion: 0.05
-Nodes (81): activateVersionAction(), Result, rollbackAction(), run(), saveThresholdsAction(), seg(), setFlagAction(), validateVersionAction() (+73 more)
+Nodes (53): BenchmarksView(), FlagsView(), ModelPanel(), VersionCompare(), Backtest, Benchmark, BENCHMARK_STATUS, BenchmarkCheck (+45 more)
 
 ### Community 61 - "C · Confusing or extra work"
 Cohesion: 0.12
@@ -1161,63 +1160,63 @@ Nodes (16): 16. A mistyped guardian email can't be fixed at /join, 17. A sponsor
 
 ### Community 62 - "shop-live.ts"
 Cohesion: 0.04
-Nodes (79): CheckoutPage(), dynamic, sampleCheckout(), withKind(), dynamic, json(), ShopItemPage(), Shop() (+71 more)
+Nodes (78): AthleteListingPreviewPage(), dynamic, json(), dynamic, json(), PropertyListingPreviewPage(), PreviewWindow(), ListingShopPreview() (+70 more)
 
-### Community 63 - "domain/edition-artwork.ts"
-Cohesion: 0.03
-Nodes (90): ArtworkInput, ArtworkRevisionInput, AuditAction, ALLOWED_ARTWORK_TYPES, ALLOWED_ARTWORK_WORDS, ARTWORK_MAX_BYTES, ArtworkCheck, ArtworkCheckInput (+82 more)
+### Community 63 - "artwork-auto-rights.test.ts"
+Cohesion: 0.08
+Nodes (31): ALLOWED_ARTWORK_TYPES, ALLOWED_ARTWORK_WORDS, ARTWORK_MAX_BYTES, ArtworkCheck, ArtworkCheckInput, ArtworkCheckKey, artworkChecks(), artworkSkipDecision (+23 more)
 
-### Community 64 - "audit"
-Cohesion: 0.03
-Nodes (140): requireActor(), UnauthenticatedError, Db, issueToken(), KEY_ID_HEADER, MachineSignatureError, newSecret(), requireClientSignature() (+132 more)
+### Community 64 - "v1/infinex.ts"
+Cohesion: 0.05
+Nodes (67): ClientConfigInput, ClientInput, ClientRevoke, CredentialInput, CredentialRevoke, Heartbeat, rate, TelemetryBatch (+59 more)
 
 ### Community 65 - "I · Whole-app review (2026-11-15)"
 Cohesion: 0.05
 Nodes (43): 52. A campaign can't leave Staffing short of the package maximum [B1], 53. Campaign earnings can't be approved or paid [B2], 54. BTG and Finance can't find an ordinary marketplace order [B3], 55. A minor's invitation can't be answered; a guardian sees sample pages [B4, §3], 56. NEXT: BTG can't create or change a publication or an edition [B5], 57. NEXT: an under-18 student can never join the masthead [B6], 58. NEXT: no sale is ever credited to a student [B7], 59. Content review: points, rights, the list badge, BTG's view [§6] (+35 more)
 
 ### Community 66 - "city-scene.tsx"
-Cohesion: 0.06
-Nodes (42): AssetErrorBoundary, BoundaryProps, BoundaryState, devWarnOnce(), logged, probe, Status, useAssetAvailable() (+34 more)
+Cohesion: 0.05
+Nodes (55): AssetErrorBoundary, BoundaryProps, BoundaryState, devWarnOnce(), logged, probe, Status, useAssetAvailable() (+47 more)
 
 ### Community 67 - "BTG_SponsorX_Phases_2_4_Detailed_Developer_Specifications_978a9117.md"
 Cohesion: 0.05
 Nodes (40): 10. Phase 2 Integrations, 11. Phase 2 Sprint Plan, 12. Phase 2 Acceptance Criteria, 13. Phase 2 Staffing, Timeline & Budget, 14. Phase 3 Business Goal, 15. Phase 3 Feature Modules, 16. Phase 3 New Screens, 18. Phase 3 API Additions (+32 more)
 
-### Community 68 - "account-settings.tsx"
-Cohesion: 0.08
-Nodes (43): actingForWard(), athleteCloseAccountAction(), athleteSettingsLinkAction(), athleteWithdrawCloseAction(), ownAccount(), wardCloseAccountAction(), wardWithdrawCloseAction(), AthleteSettingsPage() (+35 more)
+### Community 68 - "athlete/settings/actions.ts"
+Cohesion: 0.10
+Nodes (35): decidePayoutAction(), moneyAccountLinkAction(), athletePayoutLinkAction(), actingForWard(), athleteCloseAccountAction(), athleteSettingsLinkAction(), athleteWithdrawCloseAction(), ownAccount() (+27 more)
 
-### Community 69 - "domain/payouts.ts"
-Cohesion: 0.06
-Nodes (68): PayoutAccountLinkInput, PayoutDecisionInput, PayoutListQuery, StandinAccountInput, StandinCheckoutInput, moneyHoldsOn(), activeProvider(), waitingOnOf() (+60 more)
+### Community 69 - "domain/home-featured.ts"
+Cohesion: 0.09
+Nodes (42): AthletePhotoInput, AthletePhotoUploadInput, HomeFeatureStatus, HomePageActionInput, PublicFeaturedAthlete, PublicFeaturedAthletes, CANDIDATE, editable() (+34 more)
 
 ### Community 70 - "property-p2-live.ts"
-Cohesion: 0.07
-Nodes (45): ListingEditorPage(), ColourField(), Fields(), ApiAnalytics, ApiAthletesPage, ApiErrorBody, ApiLedger, ApiPage (+37 more)
+Cohesion: 0.08
+Nodes (39): ColourField(), ApiAnalytics, ApiAthletesPage, ApiErrorBody, ApiLedger, ApiPage, ApiTeamAthlete, ApiTeamInventoryPage (+31 more)
 
 ### Community 71 - "contact-stage.tsx"
 Cohesion: 0.08
 Nodes (17): CopyEmail(), LOOK, AFTER, CARD, CARD_RING, ContactArt(), ContactHero(), LINE (+9 more)
 
 ### Community 72 - "SponsorX-Phase1-Managed-Marketplace.md"
-Cohesion: 0.04
-Nodes (49): §39 Protected Core Loop, SponsorX Phase 1 — Managed Marketplace, §20 coverage — read this before writing the schema in `P2-BE-02`, §21 coverage, Regenerating, SponsorX Phase 1 — diagrams, SponsorX Implementation Guide V2, Repo Layout — One Repo, Two Deployables (+41 more)
+Cohesion: 0.07
+Nodes (28): §20 coverage — read this before writing the schema in `P2-BE-02`, §21 coverage, Regenerating, SponsorX Phase 1 — diagrams, SponsorX Implementation Guide V2, Repo Layout — One Repo, Two Deployables, SponsorX Phase 1 Build Roadmap, ✅ `5S1-FE-01` · Certified Recruiting card on SponsorX (+20 more)
 
 ### Community 73 - "help-article.tsx"
 Cohesion: 0.10
-Nodes (21): generateMetadata(), Props, generateMetadata(), Props, generateMetadata(), Props, generateMetadata(), Props (+13 more)
+Nodes (20): generateMetadata(), Props, generateMetadata(), Props, generateMetadata(), Props, generateMetadata(), Props (+12 more)
 
 ### Community 74 - "approvals-desk.tsx"
 Cohesion: 0.08
-Nodes (33): ApprovalsDesk(), ApprovalsDeskServer(), baseState(), ChecksAndCaption(), decidedLine(), DeskBody(), Item, KIND_OPTIONS (+25 more)
+Nodes (32): ApprovalsDesk(), ApprovalsDeskServer(), baseState(), ChecksAndCaption(), decidedLine(), DeskBody(), Item, KIND_OPTIONS (+24 more)
 
 ### Community 75 - "commission-rule-dialog.tsx"
-Cohesion: 0.09
-Nodes (49): Result, RuleDraft, Actions, COLUMNS, CommissionEditor(), KindPanel(), Result, SplitStrip() (+41 more)
+Cohesion: 0.10
+Nodes (42): Actions, COLUMNS, CommissionEditor(), KindPanel(), Result, SplitStrip(), btnPrimary, btnQuiet (+34 more)
 
 ### Community 76 - "campaign-change-live.ts"
-Cohesion: 0.07
-Nodes (56): decideCampaignRequestAction(), validId(), ActResult, CampaignChangeActions, ChangeFormDialog(), Fail, ImpactDialog(), ImpactRead (+48 more)
+Cohesion: 0.09
+Nodes (39): ActResult, CampaignChangeActions, CampaignChangeControls(), ChangeFormDialog(), Fail, ImpactDialog(), ImpactRead, Step (+31 more)
 
 ### Community 77 - "cart-board.tsx"
 Cohesion: 0.09
@@ -1225,31 +1224,31 @@ Nodes (40): removeLineAction(), reserveAction(), at(), Board, BoardCtx, CartBoar
 
 ### Community 78 - "next-about-stage.tsx"
 Cohesion: 0.08
-Nodes (41): dynamic, editions(), metadata, NextLandingPage(), MagBook(), BackCover(), CTAs(), MagazineBook() (+33 more)
+Nodes (39): dynamic, editions(), metadata, NextLandingPage(), MagBook(), BackCover(), CTAs(), MagazineBook() (+31 more)
 
 ### Community 79 - "next-apply-wizard.tsx"
 Cohesion: 0.06
-Nodes (44): addDays(), utc(), ApplyResult, submitNextApplication(), dynamic, metadata, NextApplyPage(), RAIL (+36 more)
+Nodes (45): addDays(), utc(), ApplyResult, submitNextApplication(), dynamic, metadata, NextApplyPage(), RAIL (+37 more)
 
 ### Community 80 - "property-profile-live.ts"
-Cohesion: 0.07
-Nodes (66): DETAILS_SCHEMA, approvePropertyChangeAction(), post(), PropertyChangeWrite, rejectPropertyChangeAction(), ProfileWrite, requestIdentityChangeAction(), saveContactAction() (+58 more)
+Cohesion: 0.05
+Nodes (76): PropertyChangeRejectInput, PropertyContactInput, PropertyIdentityInput, PropertyManagerInput, approve(), change(), contact(), desk() (+68 more)
 
 ### Community 81 - "layout.ts"
 Cohesion: 0.12
-Nodes (40): intersects(), APT_ROOF, atPivot(), authoredPlacements(), BASEBALL, baseballLot(), BASKETBALL, basketballLot() (+32 more)
+Nodes (39): APT_ROOF, atPivot(), authoredPlacements(), BASEBALL, baseballLot(), BASKETBALL, basketballLot(), blockB() (+31 more)
 
-### Community 82 - "forecast-live.ts"
-Cohesion: 0.05
-Nodes (65): GuaranteeResult, setGuaranteeAction(), dynamic, SP, FIGURE_TONE, PacingBar(), RiskBadge(), STATUS (+57 more)
+### Community 82 - "production-live.ts"
+Cohesion: 0.10
+Nodes (36): BOARD_ROLES, dynamic, ProductionBoardPage(), ProductionDesk(), ProductionHowItWorks(), at(), BoardNote(), ProductionHeader() (+28 more)
 
 ### Community 83 - "attribution-live.ts"
 Cohesion: 0.06
-Nodes (52): addPartnerAction(), DismissResult, dismissUnmatchedAction(), AttributionPage(), Desk(), ClassBadge(), ClassTiles(), GLYPH_TONE (+44 more)
+Nodes (51): addPartnerAction(), DismissResult, dismissUnmatchedAction(), AttributionPage(), Desk(), ClassBadge(), ClassTiles(), GLYPH_TONE (+43 more)
 
 ### Community 84 - "packages-stage.tsx"
 Cohesion: 0.07
-Nodes (42): athleteRange(), fromFixture(), fromLive(), JOB_NAME, jobLine(), LivePackage, livePackages(), PackagesPage() (+34 more)
+Nodes (44): athleteRange(), fromFixture(), fromLive(), JOB_NAME, jobLine(), LivePackage, livePackages(), PackagesPage() (+36 more)
 
 ### Community 85 - "uat-phase2.mjs"
 Cohesion: 0.12
@@ -1257,123 +1256,123 @@ Nodes (34): API, apiOk(), at(), ATHLETE, begin(), check(), clerk(), clerkUser() 
 
 ### Community 86 - "edition-artwork.tsx"
 Cohesion: 0.12
-Nodes (32): ARTWORK_TABS, ArtworkQueue(), CheckList(), Fail, LinkResult, Result, SPONSOR_LABEL, SponsorArtwork() (+24 more)
+Nodes (33): ARTWORK_TABS, ArtworkQueue(), CheckList(), Fail, LinkResult, Result, SPONSOR_LABEL, SponsorArtwork() (+25 more)
 
 ### Community 87 - "live-rewards-desk.tsx"
 Cohesion: 0.08
-Nodes (53): searchCampaignsAction(), CheckIcon(), ChevronDown(), triggerCls(), useOutsideClose(), Actions, CampaignPicker(), Creator() (+45 more)
+Nodes (53): campaignAthletesAction(), createRewardAction(), moveRewardAction(), newStaffCodeAction(), qrLinkAction(), reason(), rewardDetailAction(), searchCampaignsAction() (+45 more)
 
 ### Community 88 - "sponsor-request/actions.ts"
-Cohesion: 0.12
-Nodes (34): call(), changeRequestEmailAction(), confirmProofUploadAction(), emailRefusal(), EmailSentResult, ProofGrant, requestProofUploadAction(), resendConfirmationAction() (+26 more)
+Cohesion: 0.09
+Nodes (39): call(), changeRequestEmailAction(), confirmProofUploadAction(), emailRefusal(), EmailSentResult, ProofGrant, Refusal, requestProofUploadAction() (+31 more)
 
 ### Community 89 - "system-health.ts"
 Cohesion: 0.05
-Nodes (44): createApp(), evaluateStorageUploads(), probeProblem(), readStorageCheck(), runStorageCheck(), STORAGE_CHECK_KEEP_DAYS, STORAGE_CHECK_STALE_HOURS, StorageCheckOutcome (+36 more)
+Nodes (43): evaluateStorageUploads(), probeProblem(), readStorageCheck(), runStorageCheck(), STORAGE_CHECK_KEEP_DAYS, STORAGE_CHECK_STALE_HOURS, StorageCheckOutcome, StorageCheckReading (+35 more)
 
 ### Community 90 - "sponsor-requests-live.ts"
-Cohesion: 0.05
-Nodes (86): decideSensitiveEditAction(), LegalNameWrite, post(), refusal(), sendBackLegalNameIdAction(), sendBackOrgDocumentAction(), viewOrgDocumentAction(), decideSponsorRequestAction() (+78 more)
-
-### Community 91 - "sale-page.tsx"
 Cohesion: 0.08
-Nodes (43): Picks(), CheckClock(), subscribe(), tick(), AthleteSale(), Builder, Contact(), Ctx (+35 more)
+Nodes (55): decideSponsorRequestAction(), DecisionInput, setSponsorCategoriesAction(), ViewDocumentResult, viewSponsorDocumentAction(), Decided(), dynamic, SponsorRequestPage() (+47 more)
+
+### Community 91 - "virtual-creative.ts"
+Cohesion: 0.14
+Nodes (33): ALL_MIMES, approveDeployment(), ASSET, bumpManifest(), createDeployment(), DEPLOYMENT, deploymentFor(), endDeployment() (+25 more)
 
 ### Community 92 - "order-payment-live.ts"
-Cohesion: 0.06
-Nodes (48): payOrderAction(), PayResult, dynamic, metadata, StandinAccountPage(), ACCOUNT_OUTCOMES, answer(), CHECKOUT_OUTCOMES (+40 more)
+Cohesion: 0.07
+Nodes (47): payOrderAction(), PayResult, dynamic, metadata, StandinAccountPage(), ACCOUNT_OUTCOMES, answer(), CHECKOUT_OUTCOMES (+39 more)
 
 ### Community 93 - "reward-create-resume.test.ts"
 Cohesion: 0.50
 Nodes (3): Call, input, vars
 
 ### Community 94 - "site-chrome.tsx"
-Cohesion: 0.08
-Nodes (21): ROUTES, HeaderBar(), Logo(), asked, DashboardCta(), useMyDashboard(), FOOTER_COLUMNS, SiteFooter() (+13 more)
+Cohesion: 0.06
+Nodes (30): bebas, metadata, poppins, sourceSerif, dynamic, metadata, PortalPage(), ROUTES (+22 more)
 
 ### Community 95 - "rules-board.tsx"
 Cohesion: 0.13
-Nodes (38): AGE_TEXT, DialogMode, PlaceDialog(), at(), BAND, CountryPanel(), CountryRail(), GlobalSearch() (+30 more)
+Nodes (38): AGE_TEXT, ComboBox(), DialogMode, PlaceDialog(), at(), BAND, CountryPanel(), CountryRail() (+30 more)
 
 ### Community 96 - "metric-source.ts"
 Cohesion: 0.13
-Nodes (22): assertMetricSource(), blendedTotalRequiringDisclosure(), displayLabel(), emptyTotals(), METRIC_SOURCES, MetricSource, SourcedTotals, UnknownMetricSourceError (+14 more)
+Nodes (21): assertMetricSource(), blendedTotalRequiringDisclosure(), displayLabel(), emptyTotals(), METRIC_SOURCES, SourcedTotals, UnknownMetricSourceError, VERIFIED_SOURCES (+13 more)
 
 ### Community 97 - "fact-history.ts"
 Cohesion: 0.10
-Nodes (51): args, at, PARTS, auditAt(), Db, factCount(), fillCancelledSale(), fillEach() (+43 more)
+Nodes (52): args, at, PARTS, auditAt(), Db, factCount(), fillCancelledSale(), fillEach() (+44 more)
 
 ### Community 98 - "confirmations-live.ts"
 Cohesion: 0.06
-Nodes (57): acceptCollabAction(), confirmRulesAction(), errorBody(), post(), reread(), ConfirmationsPage(), COUNT, dynamic (+49 more)
+Nodes (60): acceptCollabAction(), confirmRulesAction(), errorBody(), post(), reread(), ConfirmationsPage(), COUNT, dynamic (+52 more)
 
 ### Community 99 - "BTG_SponsorX_Master_Development_Blueprint_Integrated_Athlete_Network_f5776aa7.md"
 Cohesion: 0.05
 Nodes (38): 10. Administrative Portals Beyond the 12 Screens, 11. Athlete Onboarding Form / Data Capture, 12. Content Collaboration Agreement Workflow, 13. Phase 1 Managed Campaign Workflow, 14. Athlete Content Value Score, 15. CPM & Sponsorship Pricing Algorithm, 16. QR / Reward Workflow, 17. Sponsor Marketplace Behavior by Phase (+30 more)
 
-### Community 100 - "v1/rights.ts"
-Cohesion: 0.03
-Nodes (113): AssetCampaignInput, ClaimConfirmInput, ClaimInput, ContentRightInput, ContributionInput, EditionAssetFileInput, EditionAssetInput, EditionContentUploadInput (+105 more)
+### Community 100 - "actor.ts"
+Cohesion: 0.01
+Nodes (227): args, at, Actor, express-serve-static-core, knownRoles(), Request, resolveActor(), ROLE_SET (+219 more)
 
 ### Community 101 - "SponsorX ↔ Zoho — Module and Field Mapping"
 Cohesion: 0.09
 Nodes (22): 10 · Open decisions, 11 · Schema and configuration changes this document requires, 12.1 · As built — B8, 2026-09-24, 12.2 · Phase 2 — marketplace orders (2S7-INT-01, 2026-09-28), 12.3 · Phase 3 — intelligence on the sponsor's Account (3S7-INT-01, 2026-10-15), 12 · Acceptance, 13 · Revision history, 1 · Purpose and the boundary it enforces (+14 more)
 
 ### Community 102 - "domain/sponsor-requests.ts"
-Cohesion: 0.08
-Nodes (62): SponsorDocumentInput, SponsorEmailChangeInput, SponsorEmailConfirmInput, SponsorRequestDecisionInput, SponsorRequestListQuery, recordClosureIn(), BrandCategory, ApprovalFacts (+54 more)
+Cohesion: 0.06
+Nodes (72): athletesWithoutConflict(), ProfileInput, setAthleteProfile(), BRAND_CATEGORIES, BrandCategory, ContentCapability, SensitiveCategory, readDocument() (+64 more)
 
 ### Community 103 - "athlete/team/page.tsx"
 Cohesion: 0.17
 Nodes (24): Crest(), dynamic, Invitation(), Joined(), SentInvitations(), ApiMyTeam, ApiShareChange, ApiTeamInvitation (+16 more)
 
 ### Community 104 - "athlete-rates-live.ts"
-Cohesion: 0.14
-Nodes (34): RateSaveResult, refresh(), saveAthleteRate(), saveAthleteTier(), AthleteRatesPage(), RateCardActions, RateCardEditor(), RateForm() (+26 more)
+Cohesion: 0.12
+Nodes (36): RateSaveResult, refresh(), saveAthleteRate(), saveAthleteTier(), AthleteRatesPage(), RateCardActions, RateCardEditor(), RateForm() (+28 more)
 
-### Community 105 - "sponsor/intelligence/page.tsx"
-Cohesion: 0.05
-Nodes (75): BAND_TONE, Confidence(), dynamic, Hub(), Rates(), SP, Audience(), Formats() (+67 more)
+### Community 105 - "campaign-builder.tsx"
+Cohesion: 0.08
+Nodes (22): Athlete, AthleteCard(), CampaignBuilder(), compact, dollars(), Draft, EXPIRATIONS, fmtCompact() (+14 more)
 
 ### Community 106 - "auth.ts"
-Cohesion: 0.11
-Nodes (26): ADMIN, ADMIN, DESKS, ADMIN, ADMIN, DESKS, FINANCE, go() (+18 more)
+Cohesion: 0.06
+Nodes (40): ADMIN, ADMIN, DESKS, ADMIN, ADMIN, DESKS, FINANCE, go() (+32 more)
 
 ### Community 107 - "checkout-wizard.tsx"
 Cohesion: 0.08
-Nodes (52): placeOrderAction(), releaseHoldAction(), OrderGateRecordCard(), at(), CheckoutState(), CheckoutSummary(), CheckoutWizard(), clientSecond() (+44 more)
+Nodes (58): placeOrderAction(), releaseHoldAction(), CheckoutPage(), dynamic, sampleCheckout(), withKind(), at(), CheckoutLine (+50 more)
 
 ### Community 108 - "athlete-game-plan.tsx"
-Cohesion: 0.09
-Nodes (33): AthleteHomePage(), optional(), read(), tolerant(), ArenaRing(), AthleteGamePlan(), COLORS, d() (+25 more)
+Cohesion: 0.10
+Nodes (25): ArenaRing(), AthleteGamePlan(), COLORS, d(), GamePlanStep, Phase, rank(), svg (+17 more)
 
 ### Community 109 - "rcfworks — tracker, decisions and diagrams"
 Cohesion: 0.18
 Nodes (11): A finding of mine was wrong, and the check is the lesson, `P0-ART-03` — paginated process flowchart (new task, raised today), `P1-ART-05` — fan reward landing design, reviewed and accepted, rcfworks — tracker, decisions and diagrams, The finding worth keeping, The layout lesson, The two gaps that are real, Tracker (+3 more)
 
 ### Community 110 - "loop-db.ts"
-Cohesion: 0.11
-Nodes (25): ADMIN, ATHLETE_IDS, ATHLETES, OfferRow, offers(), ROLES, ADMIN, ATHLETE (+17 more)
+Cohesion: 0.06
+Nodes (45): CAMPAIGN(), ADMIN, ADULT_EMAIL, Applicant, applicantIds(), clean(), MINOR_EMAIL, run (+37 more)
 
-### Community 111 - "domain/payment-events.ts"
-Cohesion: 0.04
-Nodes (73): DisputeResolveInput, DisputeReviewInput, DisputesQuery, PaymentEventResolveInput, PaymentEventsQuery, CardNumberInTextError, refuseCardNumber(), AcceptedWebhook (+65 more)
+### Community 111 - "contracts/payment-events.ts"
+Cohesion: 0.09
+Nodes (21): cents, DisputeResolveInput, DisputeReviewInput, DisputesQuery, payment, PAYMENT_EVENT_DATA, PAYMENT_EVENT_STATUSES, PAYMENT_EVENT_TYPES (+13 more)
 
 ### Community 112 - "portal-shell.tsx"
-Cohesion: 0.09
-Nodes (37): AdminLayout(), AdvisorLayout(), NAV, AthleteLayout(), DOCK, NAV, FinanceLayout(), Branding (+29 more)
+Cohesion: 0.11
+Nodes (33): AdvisorLayout(), NAV, AthleteLayout(), DOCK, NAV, FinanceLayout(), Branding, NAV (+25 more)
 
 ### Community 113 - "join-stage.tsx"
-Cohesion: 0.08
-Nodes (23): ApplicationCard(), CARD, CARD_RING, FIGURES, Headline(), JoinClose(), JoinHero(), JoinPath() (+15 more)
-
-### Community 114 - "city-backdrop.tsx"
 Cohesion: 0.09
-Nodes (37): metadata, CityBackdrop(), CityScene, Mount, Watchdog, CityPoster(), fileCacheKey(), preloadCityFiles() (+29 more)
+Nodes (20): ApplicationCard(), CARD, CARD_RING, FIGURES, Headline(), JoinClose(), JoinHero(), JoinPath() (+12 more)
 
-### Community 115 - "clientIp"
-Cohesion: 0.05
-Nodes (83): InquiryInput, ZOHO_CRM_MODULES, ZohoCrmNotification, BUSINESS_TYPES, categoryText(), resolveCode(), UnknownTrackingCodeError, clientIp() (+75 more)
+### Community 114 - "loading.ts"
+Cohesion: 0.11
+Nodes (28): metadata, fileCacheKey(), preloadCityFiles(), booted(), DUST, LandingLoader(), Phase, SLICE_Z (+20 more)
+
+### Community 115 - "zoho-webhooks.ts"
+Cohesion: 0.14
+Nodes (21): intakeHmacMatches(), verifyProviderWebhook(), sign(), TokenPurpose, acceptedSecrets(), hmac(), hmacMatchesAny(), matchesAny() (+13 more)
 
 ### Community 116 - "Stage 3 · Athlete Network"
 Cohesion: 0.07
@@ -1387,101 +1386,101 @@ Nodes (28): AthletePhotoEditor(), HomeFeatureLoader(), HomeFeaturePanel(), PHOTO
 Cohesion: 0.08
 Nodes (59): closeHeldRequestAction(), declineHeldRequestAction(), declineReturnAction(), DeskWrite, requestWrite(), ClosedAccountPage(), dynamic, ClosedAccountsPage() (+51 more)
 
-### Community 119 - "lib/matching.ts"
-Cohesion: 0.10
-Nodes (32): AthleteRow(), EmptyState(), activeFilterCount(), canShortlist(), compactFmt, CONFLICT_DETAILS, ConflictFact, DEFAULT_FILTERS (+24 more)
+### Community 119 - "matching-studio.tsx"
+Cohesion: 0.06
+Nodes (66): MatchingCompare(), MatchContext, useMatch(), AthleteRow(), BriefBand(), clampScore(), EmptyState(), FilterControls() (+58 more)
 
 ### Community 120 - "Part 3 · The core workspaces"
 Cohesion: 0.05
 Nodes (40): 1.1 · What the admin portal is for, 1.2 · Signing in, 1.3 · Words used in this guide, 1.4 · Who can do what, 1.5 · Real data or sample data?, 1.6 · What happens in the background, 1.7 · Common screen patterns, 3.1 · Applications — approving athletes into the network (+32 more)
 
 ### Community 121 - "guardian-live.ts"
-Cohesion: 0.05
-Nodes (82): PastRequest(), call(), confirmDocAction(), Fail, Lookup, lookupAction(), path(), refusal() (+74 more)
+Cohesion: 0.06
+Nodes (69): PastRequest(), call(), confirmDocAction(), Fail, Lookup, lookupAction(), path(), refusal() (+61 more)
 
-### Community 122 - "org-documents.tsx"
-Cohesion: 0.11
-Nodes (37): confirmOrgUploadAction(), DocsFailure, failure(), GrantResult, isId(), ListResult, removeOrgDocumentAction(), requestOrgUploadAction() (+29 more)
+### Community 122 - "useDialogFocus"
+Cohesion: 0.09
+Nodes (45): confirmOrgUploadAction(), DocsFailure, failure(), GrantResult, isId(), ListResult, removeOrgDocumentAction(), requestOrgUploadAction() (+37 more)
 
 ### Community 123 - "brief-wizard.tsx"
-Cohesion: 0.08
-Nodes (45): BriefResult, submitBriefRequest(), BriefPage(), metadata, AFTER, AUTOCOMPLETE, BriefWizard(), emptySubscribe() (+37 more)
+Cohesion: 0.07
+Nodes (56): BriefResult, submitBriefRequest(), BriefPage(), metadata, BriefStage(), BURST, Confetti(), finePointer() (+48 more)
 
 ### Community 124 - "SponsorX-Phase3-Intelligence-Attribution.md"
-Cohesion: 0.03
-Nodes (65): 1 · The rules, 2 · Deciding a flag, 3 · Endpoints and who, 4 · Where it lives, SponsorX Anomaly Detection, 1 · An adapter declares, 2 · The first adapter: `generic-webhook-v1`, 3 · Partners and deliveries (+57 more)
+Cohesion: 0.05
+Nodes (35): 1 · The rules, 2 · Deciding a flag, 3 · Endpoints and who, 4 · Where it lives, SponsorX Anomaly Detection, 1 · An adapter declares, 2 · The first adapter: `generic-webhook-v1`, 3 · Partners and deliveries (+27 more)
 
 ### Community 125 - "how-it-works-stage.tsx"
-Cohesion: 0.06
-Nodes (31): metadata, CARD, CARD_RING, CARD_SWEEP, CHEVRONS, HowClose(), HowHero(), LINE (+23 more)
+Cohesion: 0.04
+Nodes (55): metadata, metadata, CARD, CARD_RING, CARD_SWEEP, LINE, MegaphoneIcon(), PANEL (+47 more)
 
 ### Community 126 - "Updated_BTG_SponsorX_Master_Development_Blueprint_Integrated_Athlete_Network_487b6b12.md"
 Cohesion: 0.05
 Nodes (38): 10. Administrative Portals Beyond the 12 Screens, 11. Athlete Onboarding Form / Data Capture, 12. Content Collaboration Agreement Workflow, 13. Phase 1 Managed Campaign Workflow, 14. Athlete Content Value Score, 15. CPM & Sponsorship Pricing Algorithm, 16. QR / Reward Workflow, 17. Sponsor Marketplace Behavior by Phase (+30 more)
 
 ### Community 127 - "landing-hero.tsx"
-Cohesion: 0.05
-Nodes (35): HomePage(), reveal(), ClosingCopy(), ClosingPanel(), FEATURES, LINE, NUM_RING, NUMBER_ICONS (+27 more)
+Cohesion: 0.04
+Nodes (42): HomePage(), reveal(), LoginPage(), GetStartedPage(), ForAthletes(), JobsBand(), ClosingCopy(), ClosingPanel() (+34 more)
 
 ### Community 128 - "sponsor-team.tsx"
-Cohesion: 0.16
-Nodes (34): call(), finish(), inviteTeammateAction(), isRole(), memberOf(), removeTeammateAction(), resendInviteAction(), restoreTeammateAction() (+26 more)
+Cohesion: 0.10
+Nodes (48): SponsorInvoicesPage(), call(), finish(), inviteTeammateAction(), isRole(), memberOf(), removeTeammateAction(), resendInviteAction() (+40 more)
 
 ### Community 129 - "v1/intelligence.ts"
-Cohesion: 0.05
-Nodes (57): AnomaliesQuery, AnomalyDispositionInput, ATTRIBUTION_CLASS_KEYS, AttributionDeskQuery, AttributionDismissInput, FlagInput, ForecastsQuery, GuaranteeInput (+49 more)
+Cohesion: 0.06
+Nodes (44): AnomaliesQuery, AnomalyDispositionInput, ATTRIBUTION_CLASS_KEYS, AttributionDeskQuery, AttributionDismissInput, FlagInput, ForecastsQuery, GuaranteeInput (+36 more)
 
 ### Community 130 - "flight.ts"
 Cohesion: 0.09
-Nodes (32): FlightRig(), UP, FlightStop(), FlightStopProps, stopProgress(), ScrollTrack(), clamp01(), FlightPose (+24 more)
+Nodes (33): FlightRig(), UP, FlightStop(), FlightStopProps, stopProgress(), ScrollTrack(), clamp01(), FlightPose (+25 more)
 
 ### Community 131 - "payments-pii.test.ts"
 Cohesion: 0.10
 Nodes (20): cardDetails, checkoutCompleted(), customerDetails, leaks(), PII_STRINGS, repo, root, SPONSOR (+12 more)
 
-### Community 132 - "seller-orders.tsx"
+### Community 132 - "athlete/page.tsx"
 Cohesion: 0.02
-Nodes (134): fmt(), TONE, AthleteEarningsPage(), MONTH_LABELS, STAGE_SHORT, STAGE_TONE, dynamic, GuardianRequestsPage() (+126 more)
+Nodes (190): ErrorBody, Fail, markPublished(), orderIdOf(), post(), presignUpload(), registerUpload(), submitDraft() (+182 more)
 
 ### Community 133 - "live-profile-editor.tsx"
-Cohesion: 0.07
-Nodes (48): apiError(), ChangeBody, ChangeResult, confirmLegalNameIdAction(), SaveResult, saveSocials(), SimpleResult, SocialInput (+40 more)
+Cohesion: 0.06
+Nodes (62): apiError(), ChangeBody, ChangeResult, confirmLegalNameIdAction(), SaveResult, saveSocials(), SimpleResult, SocialInput (+54 more)
 
 ### Community 134 - "facts.ts"
-Cohesion: 0.11
-Nodes (21): FACT_CHANNELS, FACT_KINDS, FACT_MEASURES, FactChannel, FactKind, FactMeasure, INVENTORY_KINDS, inventoryKey() (+13 more)
+Cohesion: 0.07
+Nodes (44): args, at, appFigures(), checkFactsAgainstApp(), COMPARED_MEASURES, Db, FactAppDifference, NOT_COMPARED (+36 more)
 
 ### Community 135 - "domain/sponsor-account.ts"
-Cohesion: 0.05
-Nodes (67): RestrictedTextInput, RestrictedWordInput, SponsorAccountChangeInput, SponsorAccountRejectInput, SponsorCompanyInput, SponsorMeInput, activeEntries(), addRestrictedWord() (+59 more)
+Cohesion: 0.07
+Nodes (55): SponsorAccountChangeInput, SponsorAccountRejectInput, SponsorCompanyInput, SponsorMeInput, assertMayWrite(), Branding, BrandingError, BrandingInput (+47 more)
 
 ### Community 136 - "2026-09-30 — tasks completed"
 Cohesion: 0.05
 Nodes (38): 2026-09-30 — tasks completed, 2S1-BE-05 — BTG approves a new sponsor and opens the account (Code review), 2S1-FE-03 — BTG's sponsor-request review screen (Code review), 2S3-BE-05 — independent athletes list their own items (Code review), Also today, Athlete marketplace "wow" pass — effects only, Athletes-stop jobs band — spacing + edge fixed (owner: "the fade is ugly, the spacing is ugly"), Built: card payment and payouts, with a staging stand-in provider (rcfworks, via Claude) (+30 more)
 
-### Community 137 - "matching-studio.tsx"
-Cohesion: 0.09
-Nodes (32): ApiError, reason(), sendInvitations(), SendPick, MatchContext, LiveMatchingStudio(), Studio(), clampScore() (+24 more)
+### Community 137 - "virtual-registry.ts"
+Cohesion: 0.12
+Nodes (33): futureBookings(), createPlacement(), createWorld(), getPlacement(), getWorld(), iso(), isUniqueViolation(), itemFields() (+25 more)
 
 ### Community 138 - "join-wizard.tsx"
-Cohesion: 0.09
-Nodes (41): JoinAgreementStep(), JoinRestrictionsStep(), d(), emptySubscribe(), JoinStart(), pad(), JoinSubmitted(), TIMELINE (+33 more)
+Cohesion: 0.08
+Nodes (45): collabAgreement(), JoinApplyPage(), rulesWording(), Words(), JoinAgreementStep(), JoinRestrictionsStep(), d(), emptySubscribe() (+37 more)
 
 ### Community 139 - "Master Development Blueprint v2.0"
-Cohesion: 0.07
-Nodes (47): Addendum A — Reconciliation with Blueprint v2.0, SponsorX Stack Decision — Phase 1, No Tax ID Storage in Phase 1, SponsorX Stack Summary PDF (Hosting Section Superseded), Transactional Email Vendor (Undecided), Zoho (CRM + Books), Zoho Bi-directional Sync (Four Objects), Zoho Boundary (+39 more)
+Cohesion: 0.08
+Nodes (42): Addendum A — Reconciliation with Blueprint v2.0, SponsorX Stack Decision — Phase 1, No Tax ID Storage in Phase 1, SponsorX Stack Summary PDF (Hosting Section Superseded), Transactional Email Vendor (Undecided), Zoho (CRM + Books), Zoho Bi-directional Sync (Four Objects), Zoho Boundary (+34 more)
 
 ### Community 140 - "2026-11-16 — rcfworks"
 Cohesion: 0.06
 Nodes (31): 2026-11-16 — rcfworks, An opened athlete sale as a step-by-step wizard (POL-FE-96, on `feat/POL-FE-91-sponsor-shop-redesign`, HeckerCreatives), App review wave 5–6 (PR A, `fix/POL-71-75-app-review-waves-5-6`, stacked on #429), App review waves 7–8 (PR B, `fix/POL-76-78-app-review-waves-7-8`, stacked on PR A), Athlete home game plan (POL-FE-81, `feat/athlete-confirmations-wizard`, HeckerCreatives), Athlete inventory redesign (POL-FE-83, `feat/POL-FE-83-athlete-inventory-redesign`, HeckerCreatives), Athlete listings redesign (POL-FE-84, `feat/POL-FE-84-athlete-listings-redesign`, HeckerCreatives), Athlete Payouts as a cash-out board, like Inventory, Listings and Sales (POL-FE-97, on `feat/POL-FE-91-sponsor-shop-redesign`, HeckerCreatives) (+23 more)
 
-### Community 141 - "order-automation-live.ts"
-Cohesion: 0.06
-Nodes (60): SpendingLimitCard(), BOX, CHIP, DeliveryTrack(), PILL, StatusBox(), STEP_TONE, AcceptDialog() (+52 more)
+### Community 141 - "react"
+Cohesion: 0.02
+Nodes (330): call(), DeskWrite, proofLinkAction(), remindSellerAction(), resolveIssueAction(), DeliveryIssuePage(), DOT, dynamic (+322 more)
 
 ### Community 142 - "compile.ts"
 Cohesion: 0.10
-Nodes (29): LoadedEnvironment(), Warmup(), collectPassMaterials(), collectSceneTextures(), CompileOptions, CompileRenderer, compileWithProgress(), ComposerLike (+21 more)
+Nodes (28): Warmup(), collectPassMaterials(), collectSceneTextures(), CompileOptions, CompileRenderer, compileWithProgress(), EnvironmentWarmUp, get() (+20 more)
 
 ### Community 143 - "scripts"
 Cohesion: 0.05
@@ -1493,27 +1492,27 @@ Nodes (53): Added by NEXT spec v2.0 *(2026-09-22)*, ⏸ `P9-BE-01` · Seed the N
 
 ### Community 145 - "contact-form.tsx"
 Cohesion: 0.06
-Nodes (47): call(), ContactInput, ContactSubmitted, dropAttachmentAction(), Fail, finishContactAction(), refusal(), submitContactAction() (+39 more)
+Nodes (45): call(), ContactInput, ContactSubmitted, dropAttachmentAction(), Fail, finishContactAction(), refusal(), submitContactAction() (+37 more)
 
 ### Community 146 - "login-stage.tsx"
 Cohesion: 0.08
-Nodes (27): metadata, JOIN_MINUTES, ArrowRightIcon(), AfterHydration(), finePointer(), LINE, LoginStage(), noSubscribe() (+19 more)
+Nodes (26): metadata, JOIN_MINUTES, ArrowRightIcon(), AfterHydration(), finePointer(), LINE, LoginStage(), noSubscribe() (+18 more)
 
 ### Community 147 - "ZohoClient"
-Cohesion: 0.12
-Nodes (11): FetchLike, UPSERT_UNSUPPORTED, ZohoClient, ZohoConfig, zohoFromEnv(), ZohoNotConfiguredError, ZohoRecordError, ZohoRetryableError (+3 more)
+Cohesion: 0.11
+Nodes (12): FetchLike, UPSERT_UNSUPPORTED, ZohoClient, ZohoConfig, zohoConfigFromEnv(), zohoFromEnv(), ZohoNotConfiguredError, ZohoRecordError (+4 more)
 
 ### Community 148 - "Stage 1 · UI Scaffold on Fixtures"
 Cohesion: 0.04
 Nodes (49): Added by NEXT spec v2.0 *(2026-09-22)*, ✅ `P1-ART-01` · Brand retheme — mockup v1.0 purple/teal → BTG logo blue/orange, ✅ `P1-ART-02` · Wire official logo assets, ✅ `P1-ART-03` · Sponsor portal redesign — Command Deck + Executive Bento + radial ROI gauge, ✅ `P1-ART-04` · Design the sponsor ROI report layout for print/PDF, ⏸ `P1-ART-05` · Design the QR / reward fan-facing landing treatment, ▶ `P1-ART-06` · Produce the marketing site visual assets, ✅ `P1-ART-07` · Design the athlete onboarding flow visuals (§11 ten sections) (+41 more)
 
-### Community 149 - "restricted-words/page.tsx"
-Cohesion: 0.11
-Nodes (33): addRestrictedWordAction(), removeRestrictedWordAction(), send(), testRestrictedTextAction(), UNREACHABLE, dynamic, RestrictedWordsPage(), Actions (+25 more)
+### Community 149 - "restricted-words-live.ts"
+Cohesion: 0.12
+Nodes (24): Actions, AddWord(), RestrictedWordsDesk(), Result, TestBox(), ApiRestrictedChange, ApiRestrictedHistory, ApiRestrictedKind (+16 more)
 
 ### Community 150 - "deal-live.test.ts"
 Cohesion: 0.06
-Nodes (45): connected(), dealLive(), dealSocketLive(), useDealSocketLive(), watch(), Messenger(), createDealLive(), again() (+37 more)
+Nodes (43): DealChatsDesk(), connected(), dealLive(), dealSocketLive(), onDealChat(), onDealInbox(), useDealSocketLive(), watch() (+35 more)
 
 ### Community 151 - "applications-live.ts"
 Cohesion: 0.11
@@ -1521,7 +1520,7 @@ Nodes (24): PATHS, activationBlock(), ApiApplication, ApiErrorBody, ApiScoreBrea
 
 ### Community 152 - "city/types.ts"
 Cohesion: 0.07
-Nodes (52): contains(), EPSILON, exempt(), findOverlaps(), localBounds(), outsideSite(), Overlap, overlapDepth() (+44 more)
+Nodes (51): contains(), EPSILON, exempt(), findOverlaps(), intersects(), localBounds(), outsideSite(), Overlap (+43 more)
 
 ### Community 153 - "Sprint 1 · External property onboarding"
 Cohesion: 0.06
@@ -1535,117 +1534,117 @@ Nodes (16): day(), LiveReader(), EditionPiece(), coverUrl(), issueLine(), mediaU
 Cohesion: 0.06
 Nodes (30): 2026-10-15, HeckerCreatives — 3S2-FE-01, 3S3-FE-01, 3S4-FE-01: wired to the engines that landed 2026-10-14, walked live, HeckerCreatives — P1-ART-22's QA fixes committed; P1-ART-22…25 Done (owner's call), HeckerCreatives — QA pass on the Phase 3 engines (API + screens) and the brief's new fields, HeckerCreatives — QA round four: production build and the benchmark-driven pricing path, HeckerCreatives — QA round three (after round two's fixes), HeckerCreatives — QA round two (after the fixes), HeckerCreatives — round two's findings, fixed (+22 more)
 
-### Community 156 - "students-live.ts"
-Cohesion: 0.03
-Nodes (100): CODES, decideProspectAction(), CATEGORY, fmt(), label(), LiveProspectDesk(), ProspectRow(), REASON (+92 more)
+### Community 156 - "live-prospects.tsx"
+Cohesion: 0.16
+Nodes (21): CODES, decideProspectAction(), CATEGORY, fmt(), label(), LiveProspectDesk(), ProspectRow(), REASON (+13 more)
 
 ### Community 157 - "report-render.ts"
-Cohesion: 0.13
-Nodes (21): RenderReportJob, chip(), dataUri(), day(), esc(), hex(), n(), rate() (+13 more)
+Cohesion: 0.10
+Nodes (25): RenderReportJob, chip(), dataUri(), day(), esc(), hex(), n(), rate() (+17 more)
 
 ### Community 159 - "Stage 0 · Foundation & Decisions"
 Cohesion: 0.06
 Nodes (33): ⏸ `P0-ART-01` · Produce the ERD as a distributable diagram (§38 deliverable), ▶ `P0-ART-02` · Produce the state-machine diagrams (§38 deliverable), ▶ `P0-DATA-01` · Define the metric provenance taxonomy, ⏸ `P0-DATA-02` · Define the reward event taxonomy (§38 deliverable), ▶ `P0-DATA-03` · Define Content Value Score v1 factors and weights, ✅ `P0-LEG-01` · Commission Content Collaboration Agreement from counsel, ✅ `P0-LEG-02` · Commission Campaign Order template from counsel, ✅ `P0-LEG-03` · Resolve guardian authorisation method for minors (G-03) (+25 more)
 
 ### Community 160 - "onboarding/[id]/page.tsx"
-Cohesion: 0.04
-Nodes (95): body(), confirmComingOfAgeAction(), DocumentLinkResult, Owner, OWNERS, SignupActionResult, signupDecisionAction(), signupDocumentAction() (+87 more)
+Cohesion: 0.07
+Nodes (53): dynamic, OnboardingDetailPage(), StatusPill(), day(), homeStatus(), LiveSignupProfile(), WhatsWrongPanel(), at() (+45 more)
 
 ### Community 161 - "2026-10-01 — tasks completed"
 Cohesion: 0.06
 Nodes (32): 2026-10-01 — tasks completed, Accounts (08ad1a1, 95df581), Athletes and guardians (0569cc8; integrated in 0cd8320, 9f0eb78, d4bc22a), Before or with the deploy (staging, then production), BTG admin review: athletes and guardians approved automatically (8 tasks; Phase 2 is now 95 tasks, 362 days), BTG admin review: organizations approved automatically (5 tasks; Phase 2 is now 87 tasks, 331 days), BTG answers an offer change request (backend for the Offers desk, 3c953ff), Built: 2S1-BE-18 and 2S1-BE-17 (both at Code review, rcfworks) (+24 more)
 
-### Community 162 - "inventory-shop.tsx"
-Cohesion: 0.05
-Nodes (58): AnyTab, canTilt(), Create, d(), IDEAS, InventoryAddItem(), InventoryBrandRules(), InventoryEditItem() (+50 more)
+### Community 162 - "admin/campaigns/[id]/actions.ts"
+Cohesion: 0.12
+Nodes (31): adminCancelCampaign(), adminCancelImpact(), adminChangeCampaign(), adminChangeImpact(), launchCampaignNow(), moveCampaignStage(), refreshCampaign(), Fail (+23 more)
 
-### Community 163 - "react"
-Cohesion: 0.07
-Nodes (42): AdvisorWrite, saveAdvisorMeAction(), AdvisorProfilePage(), dynamic, Live, liveProfile(), AdvisorProfile(), DealChatsDesk() (+34 more)
+### Community 163 - "advisor-profile.tsx"
+Cohesion: 0.10
+Nodes (28): AdvisorWrite, saveAdvisorMeAction(), AdvisorProfilePage(), dynamic, Live, liveProfile(), AdvisorProfile(), RosterPaste() (+20 more)
 
 ### Community 164 - "offer-live.ts"
-Cohesion: 0.08
-Nodes (44): acceptOfferAction(), declineOfferAction(), requestOfferChangeAction(), respond(), AthleteOfferPage(), dynamic, TONE, AthleteOffersPage() (+36 more)
+Cohesion: 0.09
+Nodes (45): acceptOfferAction(), declineOfferAction(), requestOfferChangeAction(), respond(), AthleteOfferPage(), dynamic, TONE, AthleteOffersPage() (+37 more)
 
-### Community 165 - "assertAllowed"
-Cohesion: 0.03
-Nodes (147): assertAllowed(), assertTenantWide(), CreativeRegisterInput, CreativeUploadInput, DeploymentEnd, DeploymentInput, DeploymentPause, externalId (+139 more)
+### Community 165 - "v1/virtual.ts"
+Cohesion: 0.09
+Nodes (33): CreativeRegisterInput, CreativeUploadInput, DeploymentEnd, DeploymentInput, DeploymentPause, externalId, MIMES, PlacementInput (+25 more)
 
 ### Community 166 - "domain/deliverable.ts"
 Cohesion: 0.06
-Nodes (41): storedOrderDetails(), cleanCount(), contentTrustOf(), Db, decideSkip(), isBtgReviewer(), lockAthleteContent(), SKIP_ATHLETE_SELECT (+33 more)
+Nodes (39): ALLOWED_CREATIVE_TYPES, ALLOWED_TYPES_WORDS, allPassed(), captionHas(), ContentCheck, ContentCheckInput, ContentCheckKey, contentChecks() (+31 more)
 
 ### Community 167 - "domain/sponsor-team.ts"
 Cohesion: 0.13
 Nodes (34): appUrl(), inviterEmail(), INVITES_PER_HOUR, inviteTeammate(), MEMBER, memberOf(), MemberRow, MemberStatus (+26 more)
 
 ### Community 168 - "backend/package.json"
-Cohesion: 0.07
-Nodes (27): allowScripts, prisma@7.10.0, @prisma/engines@7.10.0, eslint, qrcode, sharp, tsx, @types/node (+19 more)
+Cohesion: 0.05
+Nodes (43): allowScripts, prisma@7.10.0, @prisma/engines@7.10.0, devDependencies, eslint, @eslint/js, prisma, @types/express (+35 more)
 
 ### Community 169 - "help-home.tsx"
-Cohesion: 0.10
-Nodes (13): metadata, metadata, metadata, metadata, metadata, metadata, metadata, HelpContact() (+5 more)
-
-### Community 170 - "pricing-live.ts"
 Cohesion: 0.09
-Nodes (46): overridePriceAction(), OverrideResult, dynamic, Panel(), SP, PricingDeskView(), PricingOverrideForm(), BAND_CLS (+38 more)
+Nodes (15): metadata, metadata, metadata, metadata, metadata, metadata, metadata, HelpContact() (+7 more)
 
-### Community 171 - "order-details-rules.ts"
-Cohesion: 0.07
-Nodes (45): builderCatalogue(), freeOrderCode(), MEDIA_FIELDS, nextOrderNumberIn(), Tx, AthleteReel, CHANNEL_WORDS, channelList() (+37 more)
+### Community 170 - "deal-chats.ts"
+Cohesion: 0.08
+Nodes (31): DealChat, DealChatAcceptInput, DealChatAmountInput, DealChatCallOffInput, DealChatListQuery, DealChatOfferInput, DealChatPickInput, DealChatReasonInput (+23 more)
+
+### Community 171 - "join/actions.ts"
+Cohesion: 0.16
+Nodes (28): BAD, confirmIdAction(), Expired, FIELD_MAP, fieldFor(), IntakeResult, JoinAnswer, joinCall() (+20 more)
 
 ### Community 172 - "7. Pages"
 Cohesion: 0.07
 Nodes (28): 10. Out of scope, 11. Bookkeeping, 1. Identity: admin = Mission Control, athlete = the Arena, sponsor = the Stadium Board, 2. Friendly for non-technical users (applies to every page), 3. Page anatomy (as on admin and athlete — memory `admin-desks-are-dashboards`), 4. Pagination (memory `pagination-pattern`, verbatim), 5. Shared kit (new; mirrors the arena kit's API so pages read the same), 6. Sidebar (`lib/sponsor-nav.ts` `SPONSOR_NAV`, grouped by `lib/nav-groups.ts`, pinned in `tests/nav-groups.test.ts`) (+20 more)
 
 ### Community 173 - "page-transition.tsx"
-Cohesion: 0.11
-Nodes (33): bebas, metadata, poppins, sourceSerif, GLYPH, PageTransition(), Phase, prefersReducedMotion() (+25 more)
+Cohesion: 0.15
+Nodes (28): GLYPH, PageTransition(), Phase, prefersReducedMotion(), prepareArrival(), prepareHome(), Run, TIMINGS (+20 more)
 
 ### Community 174 - "scripts"
 Cohesion: 0.06
 Nodes (31): scripts, agreement:register, anomalies:refresh, benchmarks:refresh, benchmarks:validate, build, cohort:import, db:logins (+23 more)
 
 ### Community 175 - "backtest-engine.ts"
-Cohesion: 0.12
-Nodes (23): args, at, BacktestReport, byVersion(), day(), Db, forecastHistory(), pricingHistory() (+15 more)
+Cohesion: 0.13
+Nodes (22): args, at, BacktestReport, byVersion(), day(), Db, forecastHistory(), pricingHistory() (+14 more)
 
 ### Community 176 - "search.ts"
-Cohesion: 0.13
-Nodes (16): HelpSearch(), useTypewriter(), ArticleCard, HelpTopics(), HELP_PORTALS, fieldMatch(), HelpHit, normalise() (+8 more)
+Cohesion: 0.22
+Nodes (13): HelpSearch(), useTypewriter(), ArticleCard, fieldMatch(), HelpHit, normalise(), Searchable, searchHelp() (+5 more)
 
 ### Community 177 - "fan-page.ts"
 Cohesion: 0.10
-Nodes (39): GET(), back(), claimRefusal(), POST(), GET(), HTML, Params, readView() (+31 more)
+Nodes (40): GET(), GET(), HTML, Params, readView(), etDay(), fmtEt(), fmtEtTime() (+32 more)
 
 ### Community 178 - "edgeHeadersFrom"
-Cohesion: 0.07
-Nodes (58): claimProfileAction(), ClaimResult, BAD, base(), confirmComingOfAgeIdAction(), okToken(), requestComingOfAgeIdAction(), AcceptAnswer (+50 more)
+Cohesion: 0.10
+Nodes (34): claimProfileAction(), ClaimResult, ApiComingOfAgePage, BAD, base(), confirmComingOfAgeIdAction(), okToken(), requestComingOfAgeIdAction() (+26 more)
 
 ### Community 179 - "frontend/package.json"
 Cohesion: 0.08
 Nodes (24): eslint, qrcode, sharp, socket.io-client, @types/node, @types/qrcode, typescript, vite (+16 more)
 
 ### Community 180 - "payment-provider.ts"
-Cohesion: 0.05
-Nodes (67): cents, NeutralPaymentEvent, payment, PAYMENT_EVENT_DATA, PAYMENT_EVENT_STATUSES, PAYMENT_EVENT_TYPES, PaymentData, PaymentEventData (+59 more)
+Cohesion: 0.11
+Nodes (33): appUrl(), b64(), CardRefund, CheckoutRequest, createPayoutAccount(), isSponsorXPayoutAccount(), mac(), openCheckout() (+25 more)
 
 ### Community 181 - "seed-personas.mts"
 Cohesion: 0.08
 Nodes (27): maskEmail(), DEMO_ATHLETES, PILOT_ROSTER, PILOT_SCHOOL, PROPERTY_TERMS_PLACEHOLDER, seedEnvironment(), SeedOutcome, seedPilotSchool() (+19 more)
 
 ### Community 182 - "fan-consent.ts"
-Cohesion: 0.10
-Nodes (20): CONSENT_PURPOSES, CONSENT_TEXT, consentFor(), ConsentPurpose, ConsentRequiredError, CURRENT_CONSENT_VERSION, CURRENT_SPONSOR_CONTACT_VERSION, ELIGIBILITY_CHECK_NOTE (+12 more)
+Cohesion: 0.11
+Nodes (22): CONSENT_PURPOSES, CONSENT_TEXT, consentFor(), ConsentPurpose, ConsentRequiredError, CURRENT_SPONSOR_CONTACT_VERSION, ELIGIBILITY_CHECK_NOTE, FanConsent (+14 more)
 
-### Community 183 - "textParam"
-Cohesion: 0.03
-Nodes (112): Body(), CampaignsBoard(), Props, SORT_OPTIONS, STAFFING, TAB_ORDER, Body(), BriefPicker() (+104 more)
+### Community 183 - "frontend/tests/match-rank-offer-draft.test.ts"
+Cohesion: 0.25
+Nodes (5): ApiOfferDraft, MatchAthlete, BRIEF, DRAFT, REASONS
 
 ### Community 184 - "sponsor/orders/[id]/page.tsx"
-Cohesion: 0.10
-Nodes (45): dynamic, kindOf(), OrderPage(), HoldClock(), at(), CELEBRATE, MARK, OrderBoard() (+37 more)
+Cohesion: 0.09
+Nodes (46): dynamic, kindOf(), OrderPage(), HoldClock(), at(), CELEBRATE, MARK, OrderBoard() (+38 more)
 
 ### Community 185 - "AdminAnalyticsReport Model"
 Cohesion: 0.11
@@ -1663,9 +1662,9 @@ Nodes (27): 10. Performance & Reporting, 11. No Sales Guarantee, 12. Rewards / O
 Cohesion: 0.07
 Nodes (27): 0 · What version 1.0 got wrong, 10 · The economics V1 rests on, 11 · Sequencing, 12 · Roadmap slot, 13 · What this costs the existing system, 14 · Open gates, 1 · The thirteen principles this is built on, 2 · The verdict (+19 more)
 
-### Community 189 - "brief-auto.ts"
-Cohesion: 0.07
-Nodes (53): app(), approveAutomatically(), AutoOutcome, BRIEF, BriefRow, briefStaff(), campaignName(), gather() (+45 more)
+### Community 189 - "brief-auto-rules.ts"
+Cohesion: 0.14
+Nodes (23): SENSITIVE_CATEGORY_WORDS, athletesNeeded(), autoApprovalHolds(), AutoApprovalInput, autoReadiness(), heldOnlyForAthletes(), Hold, HOLD_KEYS (+15 more)
 
 ### Community 190 - "SponsorX Payments and Personal Data Review — October 2026"
 Cohesion: 0.08
@@ -1679,13 +1678,13 @@ Nodes (28): 10 · Contradictions noted while writing this, 1 · What INFINEX is 
 Cohesion: 0.07
 Nodes (28): 0 · What version 1.0 got wrong, 10 · The economics V1 rests on, 11 · Sequencing, 12 · Roadmap slot, 13 · What this costs the existing system, 14 · Open gates, 1 · The thirteen principles this is built on, 2 · The verdict (+20 more)
 
-### Community 193 - "signups-stream.ts"
-Cohesion: 0.07
-Nodes (43): documentFinding(), Match, Problem, PROBLEM_CODES, PROBLEM_TYPE_LABELS, PROBLEM_TYPES, ProblemCode, problemOf() (+35 more)
+### Community 193 - "deal-agreement-render.ts"
+Cohesion: 0.11
+Nodes (27): amountWords(), answerLines(), day(), DealAgreementFacts, DealAgreementIncompleteError, DealExchangeMessage, DealSeller, keepForms() (+19 more)
 
 ### Community 194 - "finance/payouts/page.tsx"
-Cohesion: 0.12
-Nodes (42): decidePayoutAction(), retryPayoutAction(), dynamic, PayoutDetailPage(), dynamic, PayoutApprovalsPage(), retryPayoutAction(), chipTone() (+34 more)
+Cohesion: 0.11
+Nodes (47): retryPayoutAction(), dynamic, PayoutDetailPage(), dynamic, PayoutApprovalsPage(), retryPayoutAction(), chipTone(), dynamic (+39 more)
 
 ### Community 195 - "Findings by OWASP category"
 Cohesion: 0.15
@@ -1696,64 +1695,64 @@ Cohesion: 0.09
 Nodes (21): 2026-10-19, HeckerCreatives — QA pass on the seven screens and their engines (API + screens), and the findings fixed, HeckerCreatives — QA round four (the production build, shared-code regression, the repo's own suites), no product finding, HeckerCreatives — QA round three (concurrency, cross-screen, other tenant, hostile input, idempotency, paging, timing, a11y), three findings fixed, HeckerCreatives — QA round two (what round one did not touch), one finding fixed, HeckerCreatives — the seven remaining Phase 3 screens reconciled with their engines and walked live (3S5-FE-01, 3S6-FE-01, 3S7-FE-01/02/03, 3S8-FE-01/02), rcfworks — #255 merged; P8-BE-01, 4S2-BE-04, 4S7-BE-01 to Done; sync #256, rcfworks — #259 merged; 4S2-BE-05 and 4S0-SEC-01 to Done; sync #260 (+13 more)
 
 ### Community 197 - "account-closure-live.ts"
-Cohesion: 0.09
-Nodes (40): AthleteReactivatePreview(), dynamic, back(), post(), reactivateAction(), requestReviewAction(), sendLinkAction(), dynamic (+32 more)
+Cohesion: 0.06
+Nodes (56): AthleteReactivatePreview(), dynamic, back(), post(), reactivateAction(), requestReviewAction(), sendLinkAction(), dynamic (+48 more)
 
 ### Community 198 - "support-inbox-live.ts"
-Cohesion: 0.07
-Nodes (52): AttachmentLink, openAttachmentAction(), dynamic, SupportMessagePage(), closeSupportAction(), okId(), replyToSupportAction(), SupportWriteResult (+44 more)
+Cohesion: 0.09
+Nodes (38): closeSupportAction(), okId(), replyToSupportAction(), SupportWriteResult, write(), SupportInboxPage(), SupportReply(), ApiProblem (+30 more)
 
 ### Community 199 - "react-dom"
 Cohesion: 0.08
-Nodes (41): NavIcon, MobileDock(), Glyph(), GroupedLinks(), MobileNav(), Phase, SheetTile(), StageKind (+33 more)
+Nodes (43): AdminLayout(), NavIcon, MobileDock(), Glyph(), GroupedLinks(), MobileNav(), Phase, SheetTile() (+35 more)
 
-### Community 200 - "server-pager.tsx"
-Cohesion: 0.03
-Nodes (123): saveShortlistAction(), SaveShortlistResult, dynamic, Explorer(), MatchExplorerPage(), SP, pct(), ReachList() (+115 more)
+### Community 200 - "match-explorer-live.ts"
+Cohesion: 0.07
+Nodes (53): saveShortlistAction(), SaveShortlistResult, Explorer(), BAND_FILL, BAND_TEXT, Explorer(), FactorDrawer(), MatchExplorer() (+45 more)
 
 ### Community 201 - "tracker_sync.py"
 Cohesion: 0.16
 Nodes (28): bar(), board_at(), Change, cmd_digest(), cmd_notify(), cmd_sync_all(), diff(), load_board() (+20 more)
 
 ### Community 202 - "roster/actions.ts"
-Cohesion: 0.18
-Nodes (23): addRosterAthleteAction(), refusal(), RosterResult, setTeamShareAction(), ShareReply, ShareResult, withdrawShareChangeAction(), PropertyRosterAdd() (+15 more)
+Cohesion: 0.19
+Nodes (22): addRosterAthleteAction(), refusal(), RosterResult, setTeamShareAction(), ShareReply, ShareResult, withdrawShareChangeAction(), PropertyRosterAdd() (+14 more)
 
 ### Community 203 - "worker.images.test.ts"
 Cohesion: 0.13
 Nodes (18): queries, rows, stored, DERIVATIVE_WIDTHS, derivativeKeyFor(), DeriveImageJob, DeriveOutcome, deriveWidths() (+10 more)
 
-### Community 204 - "tests/support/object-store.ts"
-Cohesion: 0.20
-Nodes (10): R, amzDate(), ObjectStore, presignedGetValid(), presignedPutValid(), startObjectStore(), StoredObject, signerFor() (+2 more)
+### Community 204 - "build-places.mjs"
+Cohesion: 0.08
+Nodes (29): f(), byName(), cleanName(), collator, countries, ea, eastAfrica(), eastAfricaCodes (+21 more)
 
 ### Community 205 - "marketplace-ops-live.ts"
 Cohesion: 0.05
-Nodes (80): btgListingAction(), decideListingAction(), decideOrderAction(), LISTING_DECISIONS, moveOrderAction(), OpsResult, post(), counts() (+72 more)
+Nodes (91): btgListingAction(), decideListingAction(), decideOrderAction(), LISTING_DECISIONS, moveOrderAction(), OpsResult, post(), counts() (+83 more)
 
-### Community 206 - "server/deal-chat.ts"
-Cohesion: 0.07
-Nodes (34): DealChatsPage(), dynamic, AthleteMessagesPage(), dynamic, dynamic, PropertyMessagesPage(), dynamic, SponsorMessagesPage() (+26 more)
+### Community 206 - "deal-chat-actions.ts"
+Cohesion: 0.09
+Nodes (38): DealChatsPage(), dynamic, STEPS, Tab, VIEWER, ApiDealAgreement, ApiDealCard, ApiDealChat (+30 more)
 
 ### Community 207 - "SponsorX ↔ Zoho — API credentials and sandbox"
 Cohesion: 0.10
 Nodes (20): 1 · What this task is actually for, 2.1 · Request exactly these, 2.1a · The same list, paste-ready, 2.2 · What each one is for, 2.3 · Deliberately not requested, 2.4 · Added 2026-10-21 for the production key — what the built sync calls, 2 · The OAuth scopes — and why not `ZohoCRM.modules.ALL`, 3.1 · Token handling rules for whoever writes the client (+12 more)
 
-### Community 208 - "send"
+### Community 208 - "audit"
 Cohesion: 0.01
-Nodes (378): DealChat, DealChatAcceptInput, DealChatAmountInput, DealChatCallOffInput, DealChatListQuery, DealChatOfferInput, DealChatPickInput, DealChatReasonInput (+370 more)
+Nodes (521): assertTenantWide(), audit(), acceptAgreementIn(), AgreementTextChangedError, AlreadyAcceptedError, bodyHashMatches(), recordGuardianAcceptanceIn(), sponsorQuote() (+513 more)
 
 ### Community 209 - "capture.mjs"
 Cohesion: 0.12
 Nodes (23): accountId(), ACCOUNTS, act(), ALL, BASE, { chromium }, collectHrefs(), FRONTEND (+15 more)
 
 ### Community 210 - "property-listing-form.tsx"
-Cohesion: 0.22
-Nodes (17): call(), createListingAction(), ListingResult, moveListingAction(), MOVES, refresh(), saveListingAction(), submitListingAction() (+9 more)
+Cohesion: 0.18
+Nodes (21): call(), createListingAction(), ListingResult, moveListingAction(), MOVES, refresh(), saveListingAction(), submitListingAction() (+13 more)
 
 ### Community 211 - "athlete-listings-live.ts"
-Cohesion: 0.07
-Nodes (53): json(), sellerContext, dynamic, NewAthleteListingPage(), AthleteListingsPage(), dynamic, readListings(), ListingItemCard() (+45 more)
+Cohesion: 0.09
+Nodes (46): json(), sellerContext, dynamic, NewAthleteListingPage(), AthleteListingsPage(), dynamic, readListings(), ListingItemCard() (+38 more)
 
 ### Community 212 - "Stage 8 · Integration, Hardening & Launch"
 Cohesion: 0.04
@@ -1777,7 +1776,7 @@ Nodes (20): File map, Ground rules for every task, Sponsor Portal "Stadium Board
 
 ### Community 217 - "applications-desk.tsx"
 Cohesion: 0.06
-Nodes (54): App, AppCard(), ApplicationsDesk(), AppRow(), ATTENTION_OPTIONS, Choice, CHOICES, d() (+46 more)
+Nodes (49): App, AppCard(), ApplicationsDesk(), AppRow(), ATTENTION_OPTIONS, Choice, CHOICES, d() (+41 more)
 
 ### Community 218 - "SponsorX_Youth_Content_Media_Academy_BRANDED_Workbook_76628cab.md"
 Cohesion: 0.08
@@ -1787,9 +1786,9 @@ Nodes (25): 30-Second Reel Planner, B-Roll Shot List, Career Pathways, Difficult
 Cohesion: 0.13
 Nodes (18): callerOf(), coverageProblems(), Decision, DECISIONS, root, SOURCES, VOCABULARIES, ALWAYS (+10 more)
 
-### Community 220 - "marketplace-path.spec.ts"
-Cohesion: 0.10
-Nodes (14): ADMIN, ATHLETE, CLINIC, COMMISSION, KEY, retirePreviousRun(), run, SPONSOR (+6 more)
+### Community 220 - "contracts/reward.ts"
+Cohesion: 0.07
+Nodes (23): required(), ProfileChangeInput, ProfileChangeState, text(), requiredCopy(), RewardClaimInput, RewardEligibility, RewardEventType (+15 more)
 
 ### Community 221 - "2026-10-13"
 Cohesion: 0.10
@@ -1808,8 +1807,8 @@ Cohesion: 0.08
 Nodes (24): 2026-09-28 — frontend wiring run (HeckerCreatives), End of day — 2026-09-28 (HeckerCreatives), First-pass test sweep (HeckerCreatives), Frontend UI audit (HeckerCreatives), P1-FE-28 · P9-FE-08 — FEATURED profile + Claim this profile → Code review, `P4-FE-02` + `P4-FE-03` — Matching Studio on a real brief, and sending → Code review, `P4-FE-04` — the athlete invitation inbox, wired → Code review, `P4-FE-05` — sponsor dashboard on real campaigns → Code review (+16 more)
 
 ### Community 225 - "2 · The fourteen criteria"
-Cohesion: 0.11
-Nodes (18): 10 · Sponsor dashboard and final report show campaign and per-athlete performance — **Demonstrated**, 11 · Athlete portal shows pending, eligible and paid earnings status — **Demonstrated**, 12 · Zoho Account, Contact and Deal links are created or synchronized using external IDs — **Demonstrated**, 13 · Admin audit log records critical changes — **Demonstrated**, 14 · Cross-tenant and role authorization tests pass — **Demonstrated**, 1 · Athlete can apply, upload or enter the required onboarding information, and reach APPROVED through the admin workflow — **Demonstrated**, 1 · How it was demonstrated, 2 · Admin can configure SX jobs and individual athlete rates — **Demonstrated** (+10 more)
+Cohesion: 0.08
+Nodes (24): 10 · Sponsor dashboard and final report show campaign and per-athlete performance — **Demonstrated**, 11 · Athlete portal shows pending, eligible and paid earnings status — **Demonstrated**, 12 · Zoho Account, Contact and Deal links are created or synchronized using external IDs — **Demonstrated**, 13 · Admin audit log records critical changes — **Demonstrated**, 14 · Cross-tenant and role authorization tests pass — **Demonstrated**, 1 · Athlete can apply, upload or enter the required onboarding information, and reach APPROVED through the admin workflow — **Demonstrated**, 1 · How it was demonstrated, 2 · Admin can configure SX jobs and individual athlete rates — **Demonstrated** (+16 more)
 
 ### Community 226 - "SponsorX Pre-Launch Campaign Series"
 Cohesion: 0.08
@@ -1824,20 +1823,20 @@ Cohesion: 0.28
 Nodes (23): generateAnalyticsReportPdf(), generateCampaignResultsPdf(), generateEarningsReportPdf(), generateReportPdf(), footers(), headerBand(), heading(), INK (+15 more)
 
 ### Community 229 - "edgeHeaders"
-Cohesion: 0.13
-Nodes (19): GET(), PIXEL, back(), POST(), redeemRefusal(), back(), POST(), undoRefusal() (+11 more)
+Cohesion: 0.11
+Nodes (23): back(), claimRefusal(), POST(), GET(), PIXEL, back(), POST(), redeemRefusal() (+15 more)
 
 ### Community 230 - "Stage 7 · Money & Reporting"
 Cohesion: 0.09
 Nodes (22): ⏸ `P7-BE-01` · Earnings model and state machine, ⏸ `P7-BE-02` · Earnings eligibility from deliverable completion, ⏸ `P7-BE-03` · Commission and management fee calculation, ▶ `P7-BE-04` · Invoice / payment reference ingestion from Zoho, ⏸ `P7-BE-05` · Sponsor ROI report data assembly, ✕ `P7-BE-06` · Report render worker job — **MOVED TO PHASE 2 as `2S7-BE-02`**, ⏸ `P7-DATA-01` · Metric entry with provenance labels, ⏸ `P7-DATA-02` · Metric rollup worker job (+14 more)
 
-### Community 231 - "date-range-picker.tsx"
-Cohesion: 0.20
-Nodes (25): DateRangePicker(), DAY_TONE, DOW, DOW_LONG, PANEL_CLS, ShopDateFilter(), fmtDay(), addDays() (+17 more)
+### Community 231 - "filter-kit.tsx"
+Cohesion: 0.12
+Nodes (36): DateRangePicker(), DAY_TONE, DOW, DOW_LONG, CalendarIcon(), CheckIcon(), ChevronDown(), Dropdown() (+28 more)
 
-### Community 232 - "export-report.tsx"
-Cohesion: 0.19
-Nodes (24): ExportPayload, Format, FORMATS, generate(), generateAnalyticsReportXlsx(), CampaignResultsReport, generateCampaignResultsXlsx(), AthleteEarningsReport (+16 more)
+### Community 232 - "report-xlsx.ts"
+Cohesion: 0.34
+Nodes (16): generate(), generateAnalyticsReportXlsx(), generateCampaignResultsXlsx(), generateEarningsReportXlsx(), generateReportXlsx(), BRAND, FMT_INT, FMT_MONEY (+8 more)
 
 ### Community 233 - "rcfworks — pricing"
 Cohesion: 0.05
@@ -1845,7 +1844,7 @@ Nodes (39): A constraint that was too strong, All four Code review rows closed t
 
 ### Community 234 - "reward-state.ts"
 Cohesion: 0.12
-Nodes (16): RewardNotLiveError, canTransitionReward(), IllegalRewardTransitionError, legalRewardTransitions(), LIVE_REWARD_STATES, redemptionsLeft(), RESERVE_MINUTES, REWARD_ELIGIBILITIES (+8 more)
+Nodes (16): RewardNotLiveError, cleanCopy(), IllegalRewardTransitionError, legalRewardTransitions(), LIVE_REWARD_STATES, redemptionsLeft(), RESERVE_MINUTES, REWARD_ELIGIBILITIES (+8 more)
 
 ### Community 235 - "backend/tests/desk-lists.paged.test.ts"
 Cohesion: 0.10
@@ -1855,41 +1854,41 @@ Nodes (13): admin, Args, athlete, base, BRIEF, BRIEF_CRIT, Call, calls (+5 more)
 Cohesion: 0.09
 Nodes (22): ⏸ `P6-ART-01` · Produce the printable QR asset formats, ⏸ `P6-BE-01` · Tracking link model and t/[code] redirect route, ▶ `P6-BE-02` · Reward, reward token and reward event models, ⏸ `P6-BE-03` · Four-event separation across the fan journey, ⏸ `P6-BE-04` · Race-safe single-use redemption, ⏸ `P6-BE-05` · Geo resolution worker job, ⏸ `P6-BE-06` · QR code generation into R2, ⏸ `P6-BE-07` · Unique per-athlete tracking codes (+14 more)
 
-### Community 237 - "devDependencies"
-Cohesion: 0.17
-Nodes (12): devDependencies, eslint, @eslint/js, prisma, @types/express, @types/node, @types/pg, @types/qrcode (+4 more)
+### Community 237 - "send-email.mts"
+Cohesion: 0.08
+Nodes (15): EmailMessage, Mail, { attempts }, message, Mail, EmailJob, FAN_TEMPLATES, handleSendEmail() (+7 more)
 
 ### Community 238 - "domain/student.ts"
 Cohesion: 0.02
-Nodes (189): SocialAccount, AdvisorProfileInput, AssignStudentInput, PointsInput, ProspectDecisionInput, ProspectInput, SchoolEmailDomainInput, StudentApplicationInput (+181 more)
+Nodes (145): reverseSaleAttributions(), SALES_500_REVERSED, Tx, guardianReadiness, isMinorBand(), norm(), sameName(), restrictionConflicts() (+137 more)
 
-### Community 239 - "ops-board-live.ts"
-Cohesion: 0.08
-Nodes (32): filterBriefs(), sportOptions(), tabCounts(), waitingSummary(), ApiIntegrationHealth, ApiQueues, ApiReviewRow, ApiWaitingQueue (+24 more)
+### Community 239 - "(board)/page.tsx"
+Cohesion: 0.05
+Nodes (67): AdminDashboardPage(), Analytics, at(), dynamic, LED, read(), at(), EDGE (+59 more)
 
 ### Community 240 - "SPONSORX ATHLETE CONTENT COLLABORATION AGREEMENT"
 Cohesion: 0.08
 Nodes (23): 10. CONTENT REVIEW & APPROVAL, 11. CAMPAIGN PERFORMANCE INFORMATION, 12. INDEPENDENT CONTRACTOR, 13. TERM & TERMINATION, 14. NO GUARANTEE OF OPPORTUNITIES, 15. GOVERNING LAW & DISPUTES, 16. ENTIRE AGREEMENT, 1. PURPOSE (+15 more)
 
-### Community 241 - "cancellations-live.ts"
-Cohesion: 0.08
-Nodes (43): endedBox(), AnswerDialog(), CantDialog(), SellerOrderDetail(), CancelDialog(), SponsorCancelControls(), afterTermsChanged(), answerByIfAsked() (+35 more)
+### Community 241 - "model-registry.tsx"
+Cohesion: 0.16
+Nodes (25): activateVersionAction(), Result, rollbackAction(), run(), saveThresholdsAction(), seg(), setFlagAction(), validateVersionAction() (+17 more)
 
 ### Community 242 - "SponsorX-Phase2-Acceptance-Signoff.md"
 Cohesion: 0.11
 Nodes (10): Ids, Phase 2 UAT on staging · run 2610090617, Reviewer notes, 2026-10-07, HeckerCreatives — P1-ART-18: the whole admin portal on the stage (Code review), HeckerCreatives — P1-ART-19: the commission desk (Code review), HeckerCreatives — P1-ART-20: the marketplace desk (Code review), HeckerCreatives — P1-ART-21: the admin sidebar in collapsible groups, sorted (Code review) (+2 more)
 
 ### Community 243 - "athlete-public-page.tsx"
-Cohesion: 0.07
-Nodes (40): AthleteInventoryItemPage(), dynamic, json(), d(), ItemShowcase(), KIND_PITCH, Photo(), ShowcaseSeller (+32 more)
+Cohesion: 0.09
+Nodes (29): ShowcaseSeller, AthletePublicPage(), BigStat(), GlyphName, GLYPHS, OwnerAside(), pageBoosts(), SEAL_POINTS (+21 more)
 
 ### Community 244 - "feature-snapshots.ts"
 Cohesion: 0.05
-Nodes (47): args, at, args, at, args, at, BenchmarkCheck, BenchmarkStatus (+39 more)
+Nodes (46): args, at, args, at, args, at, BenchmarkCheck, BenchmarkStatus (+38 more)
 
-### Community 245 - "seller-orders-live.ts"
-Cohesion: 0.07
-Nodes (42): StatusPill(), approvalCard, plural(), saleCard, salesShopTabs(), salesSidings(), salesStations(), salesTabPatch() (+34 more)
+### Community 245 - "commission.ts"
+Cohesion: 0.12
+Nodes (24): assertShape(), CommissionRuleError, createRule(), draftMatches(), DraftRule, PreviewLine, previewSplit(), RateContext (+16 more)
 
 ### Community 246 - "2 · The 12 criteria"
 Cohesion: 0.12
@@ -1908,16 +1907,16 @@ Cohesion: 0.12
 Nodes (16): 2026-10-14, HeckerCreatives — 3S1-FE-01: figures check on the integrations screen (Done), HeckerCreatives — P1-ART-26: one theme, the day/night toggle removed (Done), HeckerCreatives — P1-ART-27: signed-in visitors get "<Role> Dashboard" on the public site (Done), rcfworks — 3S1-DATA-03 · benchmark pipeline (Code review), rcfworks — 3S1-OPS-02 on hold (user), rcfworks — 3S1-OPS-03 applied in staging and production (Code review), rcfworks — 3S1-OPS-03 · only the app writes to the live database (In progress) (+8 more)
 
 ### Community 250 - "brief-actions.ts"
-Cohesion: 0.08
-Nodes (49): editRequestAction(), refresh(), RequestWrite, send(), unreachable, withdrawRequestAction(), CHANNEL_OPTIONS, EditForm() (+41 more)
+Cohesion: 0.09
+Nodes (47): editRequestAction(), refresh(), RequestWrite, send(), unreachable, withdrawRequestAction(), CHANNEL_OPTIONS, EditForm() (+39 more)
 
 ### Community 251 - "dependencies"
 Cohesion: 0.10
 Nodes (21): dependencies, @clerk/nextjs, exceljs, @hookform/resolvers, jspdf, jspdf-autotable, lenis, next (+13 more)
 
 ### Community 252 - "zoho-intelligence.ts"
-Cohesion: 0.09
-Nodes (26): again, args, create, have, isProduction, list, made, missing (+18 more)
+Cohesion: 0.10
+Nodes (24): again, args, create, have, isProduction, list, made, missing (+16 more)
 
 ### Community 253 - "compilerOptions"
 Cohesion: 0.11
@@ -1980,8 +1979,8 @@ Cohesion: 0.28
 Nodes (17): adjustEarningAction(), moveEarningAction(), MOVES, post(), Result, valid(), EarningRowActions(), adjustmentProblem() (+9 more)
 
 ### Community 268 - "deliverables.ts"
-Cohesion: 0.08
-Nodes (40): CreativeAssetInput, CreativeUploadInput, DeliverableState, MarkPublishedInput, RevisionRequestInput, SubmitDraftInput, CAPTION_MAX, readChecks() (+32 more)
+Cohesion: 0.05
+Nodes (51): CreativeAssetInput, CreativeUploadInput, DeliverableState, MarkPublishedInput, RevisionRequestInput, SubmitDraftInput, CAPTION_MAX, isBtgReviewer() (+43 more)
 
 ### Community 269 - "QA pass 5 — the 2026-09-28 close-out features (HeckerCreatives)"
 Cohesion: 0.12
@@ -2028,7 +2027,7 @@ Cohesion: 0.14
 Nodes (15): blocks, body, D, doc, firstSection, front, frontBlocks, fs (+7 more)
 
 ### Community 280 - "rules/page.tsx"
-Cohesion: 0.11
+Cohesion: 0.10
 Nodes (25): removeAgeRowAction(), RuleResult, SAID, send(), setAgeRowAction(), setSignupFlagAction(), setStaffConfirmAction(), updated() (+17 more)
 
 ### Community 281 - "Every secret"
@@ -2036,8 +2035,8 @@ Cohesion: 0.09
 Nodes (22): 10 · `STANDIN_PROVIDER_SECRET` (+ `_PREVIOUS`): staging only, 10a · Stripe: `STRIPE_SECRET_KEY`, and the webhook signing secrets (+ `_PREVIOUS`), 11 · `SPONSORX_EDGE_KEY` (+ `_PREVIOUS`), 11a · `INFINEX_SIGNING_SECRET` (+ `_PREVIOUS`), 12 · GitHub Actions secrets, 13 · The Railway account itself, 1 · `CLERK_SECRET_KEY` (and the publishable key), 2 · `DATABASE_URL` (the Postgres password) (+14 more)
 
 ### Community 282 - "unsubscribe-token.ts"
-Cohesion: 0.24
-Nodes (8): issueUnsubscribeToken(), sign(), unsubscribeUrl(), audits, Row, rows, T1, T2
+Cohesion: 0.22
+Nodes (9): issueUnsubscribeToken(), readUnsubscribeToken(), sign(), unsubscribeUrl(), audits, Row, rows, T1 (+1 more)
 
 ### Community 283 - ""MarketplaceOrder""
 Cohesion: 0.11
@@ -2056,12 +2055,12 @@ Cohesion: 0.08
 Nodes (25): ⏸ `2S5-BE-01` · Commission rule engine, ⏸ `2S5-BE-02` · Financial subledger, ✅ `2S5-BE-03` · Refunds and disputes, ✅ `2S5-BE-04` · Payout eligibility and request flow, ✅ `2S5-BE-05` · Payout approval and execution jobs, ⏸ `2S5-BE-06` · Payouts approved automatically, ⏸ `2S5-BE-07` · Failed payouts retried automatically, ⏸ `2S5-BE-08` · Phase 1 earnings approved for payout automatically (+17 more)
 
 ### Community 287 - "landing-athletes.tsx"
-Cohesion: 0.09
-Nodes (19): AthleteRow(), FeaturedAthletes(), FEATURES, ForAthletes(), JOBS, JobsBand(), LINE, RING2 (+11 more)
+Cohesion: 0.10
+Nodes (17): AthleteRow(), FeaturedAthletes(), FEATURES, JOBS, LINE, RING2, ROW_FIT, FEATURED_MAX (+9 more)
 
 ### Community 288 - "approvals/actions.ts"
-Cohesion: 0.21
-Nodes (15): ARTWORK_PATH, artworkAction(), artworkLink(), createTrackingLinkAction(), PATH, reason(), recordViewsAction(), MetricsTools() (+7 more)
+Cohesion: 0.19
+Nodes (16): ARTWORK_PATH, artworkAction(), artworkLink(), createTrackingLinkAction(), PATH, reason(), recordViewsAction(), MetricsTools() (+8 more)
 
 ### Community 289 - "Evidence, criterion by criterion"
 Cohesion: 0.13
@@ -2080,20 +2079,20 @@ Cohesion: 0.13
 Nodes (14): 2026-09-25 — QA third pass, and the merge that followed it (HeckerCreatives), fix(tests) 60b29ff — his new static scans break on Windows (360743a class), Merge: origin/main_development (507c041), nothing lost, P6-QA-01 · P6-QA-02 — fan redeem page E2E and performance budget → Code review, P8-OPS-02 — fan QR page load test (rcfworks) → Code review, P9-PMO-01 · P9-BE-01 — NEXT rate card (simulated) and NEXT packages → Code review, P9-PMO-02 → Code review · P9-OPS-01 → In progress (backend done), QA pass 3 — new lenses on the NEXT screens (commit 51661ef) (+6 more)
 
 ### Community 293 - "SponsorX Warehouse Schema and Semantic Layer"
-Cohesion: 0.13
-Nodes (15): 10 · Review, 11 · Spec §19's product tables: who builds each, and what already exists, 1 · Decisions, 2 · Architecture, 3 · Conventions, 6 · The semantic layer (`sem` views), 7 · Companion facts and snapshots, 8 · Reconciliation (for `3S1-QA-01`) (+7 more)
+Cohesion: 0.07
+Nodes (30): 10 · Review, 11 · Spec §19's product tables: who builds each, and what already exists, 1 · Decisions, 2 · Architecture, 3 · Conventions, 4 · Dimensions, 5 · `fact_campaign_daily`, 6 · The semantic layer (`sem` views) (+22 more)
 
 ### Community 294 - "SponsorX Phase 4 · Acceptance sign-off record (as built)"
 Cohesion: 0.14
 Nodes (13): 1 · Register worlds, zones and placements, and sell them, 2 · The manifest shows only what is approved and in date, 3 · Pause and roll back without a game release, 4 · Telemetry is idempotent and refuses what it should, Also built in Phase 4 (Done, not a criterion of their own), Evidence, criterion by criterion, How to read this, Not part of this sign-off (+5 more)
 
 ### Community 295 - "domain/catalogue.ts"
-Cohesion: 0.06
-Nodes (37): CatalogueJob, CataloguePackage, listJobs(), listPackages(), listPublicPackages(), listTargeting(), NEXT_INVENTORY, PACKAGE_SELECT (+29 more)
+Cohesion: 0.13
+Nodes (24): packageStaffable(), CatalogueJob, CataloguePackage, listJobs(), listPackages(), listPublicPackages(), listTargeting(), NEXT_INVENTORY (+16 more)
 
 ### Community 296 - "renewal-advice.ts"
-Cohesion: 0.18
-Nodes (13): AT_RISK_BELOW, WATCH_BELOW, buildRenewals(), Db, n(), RENEWAL_AHEAD_DAYS, RENEWAL_BEHIND_DAYS, RENEWAL_VERSION (+5 more)
+Cohesion: 0.17
+Nodes (14): AT_RISK_BELOW, WATCH_BELOW, buildRenewals(), Db, n(), RENEWAL_AHEAD_DAYS, RENEWAL_BEHIND_DAYS, RENEWAL_VERSION (+6 more)
 
 ### Community 297 - "rewards.list.paged.test.ts"
 Cohesion: 0.14
@@ -2119,9 +2118,9 @@ Nodes (14): 11 · Money, reporting and system, `accountClosure` *(added 2026-10-
 Cohesion: 0.14
 Nodes (13): 1 · Scope, 2 · Environment & tooling, 3 · Test execution summary — final consolidated run, 4.1 · P1-QA-01 — §39 loop walk (group A), 4.2 · P1-QA-03 — responsive, 360px (group B), 4.3 · P1-QA-02 — accessibility (group C), 4 · Test cases and results, 5 · Defect log — product defects found and fixed (+5 more)
 
-### Community 303 - "listing-desk.tsx"
-Cohesion: 0.07
-Nodes (57): AthleteListingResult, call(), draftListingAction(), listItemAction(), moveAthleteListingAction(), MOVES, refresh(), saveListingDescriptionAction() (+49 more)
+### Community 303 - "listings-shop.tsx"
+Cohesion: 0.06
+Nodes (61): AthleteListingResult, call(), draftListingAction(), listItemAction(), moveAthleteListingAction(), MOVES, refresh(), saveListingDescriptionAction() (+53 more)
 
 ### Community 304 - "SponsorX Phase 2 · Acceptance sign-off record"
 Cohesion: 0.15
@@ -2159,21 +2158,21 @@ Nodes (15): 15.1 · Two new roles, 15.2 · Student domain, 15.3 · Publication d
 Cohesion: 0.13
 Nodes (16): "Property", "Tenant", "RosterEntry", "PropertyOnboarding", "OnboardingDocument", "InventoryItem", "Listing", offer_terms_immutable() (+8 more)
 
-### Community 313 - "margin-floor.ts"
-Cohesion: 0.10
-Nodes (29): assertBudgetCarriesLine(), assertClearsFloor(), assertLineClearsFloor(), CampaignBudgetFloorError, floorFor(), lineFloor(), LineFloorError, MarginFloorError (+21 more)
+### Community 313 - "campaign-order.ts"
+Cohesion: 0.04
+Nodes (71): ConcurrentRateEditError, FeaturedAthleteError, isUniqueViolation(), setAthleteRate(), TierRequiredError, UnknownJobError, AcceptanceNeedsEvidenceError, acceptOrder() (+63 more)
 
-### Community 314 - "sponsor-order-delivery.tsx"
-Cohesion: 0.11
-Nodes (33): AnswerResult, answerSellerReplyAction(), call(), cancelLineAction(), CancelResult, confirmDeliveryAction(), deliveryProofAction(), reportProblemAction() (+25 more)
+### Community 314 - "link-renewal.ts"
+Cohesion: 0.16
+Nodes (24): appUrl(), athleteApplication(), comingOfAge(), firstWord(), Fresh, guardianSetup(), handoff(), onboarding() (+16 more)
 
 ### Community 315 - "order-details.ts"
-Cohesion: 0.11
-Nodes (34): OrderSheetBlock, approvalWords(), centsWords(), CHANNEL_WORD, channelInline(), channelWord(), CHOICE_WORD, choiceWord() (+26 more)
+Cohesion: 0.09
+Nodes (36): OrderSheetBlock, approvalWords(), centsWords(), CHANNEL_WORD, channelInline(), channelWord(), CHOICE_WORD, dayWords() (+28 more)
 
-### Community 316 - "dayOf"
-Cohesion: 0.11
-Nodes (38): markRefundSentAction(), RefundWrite, RefundsPage(), dynamic, markRefundSentAction(), RefundWrite, RefundsPage(), MarketplaceOrderDetail() (+30 more)
+### Community 316 - "refunds-live.ts"
+Cohesion: 0.14
+Nodes (33): markRefundSentAction(), RefundWrite, RefundsPage(), markRefundSentAction(), RefundWrite, RefundsPage(), MarkDialog(), MarkRefunded() (+25 more)
 
 ### Community 317 - "SponsorX · Production go/no-go review"
 Cohesion: 0.15
@@ -2189,15 +2188,15 @@ Nodes (13): 10 · Endpoints, 11 · Where it lives, 1 · Worlds and zones (`4S1-B
 
 ### Community 320 - "Stage 5 · Campaign Execution"
 Cohesion: 0.10
-Nodes (20): ✅ `P5-ART-01` · Design the deliverable and approval states, ⏸ `P5-BE-01` · Campaign Order acceptance with body-hash capture, ⏸ `P5-BE-02` · Campaign Order model and state machine, ⏸ `P5-BE-03` · Auto-create deliverables from the job/package template, ⏸ `P5-BE-04` · launchCampaign transactional domain function, ⏸ `P5-BE-05` · Deliverable state machine, ⏸ `P5-BE-06` · Creative asset model + direct R2 upload, ⏸ `P5-BE-07` · Image derivative worker job (+12 more)
+Nodes (21): ✅ `P5-ART-01` · Design the deliverable and approval states, ⏸ `P5-BE-01` · Campaign Order acceptance with body-hash capture, ⏸ `P5-BE-02` · Campaign Order model and state machine, ⏸ `P5-BE-03` · Auto-create deliverables from the job/package template, ⏸ `P5-BE-04` · launchCampaign transactional domain function, ⏸ `P5-BE-05` · Deliverable state machine, ⏸ `P5-BE-06` · Creative asset model + direct R2 upload, ⏸ `P5-BE-07` · Image derivative worker job (+13 more)
 
 ### Community 321 - "Stage 1 close-out batch: `P1-QA-01` · `P1-QA-03` · `P1-QA-02` · `P1-PMO-01`"
 Cohesion: 0.15
 Nodes (12): Formal QA report (user request, post-batch), Iteration 2 — sparkline regression + funnel readability (user screenshots), Iteration 3 — compact funnel → labeled stage rows (user chose from 4 options), Iteration 4 — engagements sparkline → BarStrip (user chose from 4 options), `P1-FE-06` — chart entrance + idle motion, all dashboards (newly raised), `P1-PMO-01` — §38 design record (commit `f174249`), `P1-QA-01` — §39 loop walk (commit `b07267d`), `P1-QA-02` — accessibility audit (commit `76df208`, 26 files) (+4 more)
 
-### Community 322 - "cancelLine"
-Cohesion: 0.36
-Nodes (16): announceEscalation(), appUrl(), btgAdmins(), cancelLine(), followOrder(), notifySellers(), orderRef(), remindIn() (+8 more)
+### Community 322 - "helpdesk-cases.ts"
+Cohesion: 0.11
+Nodes (23): HELPDESK_TOPICS, Audience, audiencesOf(), BY_ID, canSeeCase(), HELPDESK_CASES, HELPDESK_SECTIONS, HELPDESK_TOPIC_LABELS (+15 more)
 
 ### Community 323 - "run.mjs"
 Cohesion: 0.12
@@ -2208,8 +2207,8 @@ Cohesion: 0.15
 Nodes (12): 2026-10-20, 2S0-LEG-02 (tax) and the legal drafts' final shape, Fix (3S9-OPS-01): staging health alert "pipeline", a false stale-forecast alarm, Legal drafts for counsel, items 1–5 (Google Drive, "SponsorX Legal" folder), Legal item 6 (P0-LEG-03): guardian sign-off draft for counsel, P0-LEG-05 redefined (rewards), P0-LEG-06 redefined; P8-BE-02 and P8-BE-03 built (Code review), rcfworks — 4S9-PMO-03 · Phase 4 acceptance record, as built (Done, signed off) (+4 more)
 
 ### Community 325 - "qa-phase2.spec.ts"
-Cohesion: 0.19
-Nodes (13): ADMIN, buy(), day(), FINANCE, OUT(), paymentApplied(), payOrder(), raise() (+5 more)
+Cohesion: 0.12
+Nodes (20): ADMIN, buy(), day(), FINANCE, OUT(), paymentApplied(), payOrder(), raise() (+12 more)
 
 ### Community 326 - "next-lists.paged.test.ts"
 Cohesion: 0.18
@@ -2232,28 +2231,28 @@ Cohesion: 0.18
 Nodes (12): buildReportOnlyCsp(), buildSecurityHeaders(), CLAIM_CONFIRM_PATH, clerkFrontendApi(), CSP_REPORT_PATH, Env, LIVE_SOCKET_ORIGINS, nextConfig (+4 more)
 
 ### Community 331 - "SponsorX Event Taxonomy Audit — Phases 1 and 2"
-Cohesion: 0.17
-Nodes (12): 1 · How this was counted, 2 · The event families at a glance, 3 · Behavioural events, 5 · Known gaps, 6 · What `3S0-DATA-02` should take from this, A · Fan reward funnel — `RewardEvent`, Appendix A · Audit actions by family, B · Tracking-link clicks — `LinkEvent` (+4 more)
+Cohesion: 0.11
+Nodes (18): 1 · How this was counted, 2 · The event families at a glance, 3 · Behavioural events, 4 · Business and operational events, 5 · Known gaps, 6 · What `3S0-DATA-02` should take from this, A · Fan reward funnel — `RewardEvent`, Appendix A · Audit actions by family (+10 more)
 
 ### Community 332 - "SponsorX — Stripe integration (2S5-INT-01, 2S5-INT-03)"
 Cohesion: 0.20
 Nodes (9): 1 · The money flow, 2 · Idempotency keys and metadata, 3 · Webhooks — the endpoint, the check, the secrets, 4 · The event mapping (`lib/stripe.ts` `mapStripeEvent`), 5 · Configuration and the key guard, 6 · Going live, 7 · Testing, `enabled_events` — what the lead registers after deploy (+1 more)
 
-### Community 333 - "deal-chat-actions.ts"
-Cohesion: 0.25
-Nodes (25): ReviewCard(), dealRefusal(), acceptDealOfferAction(), call(), callOffDealAction(), chatPath(), ChatResult, chatWrite() (+17 more)
+### Community 333 - "brief-readiness.ts"
+Cohesion: 0.15
+Nodes (24): gather(), BriefForReadiness, canSeeReadiness(), Readiness, READINESS_SELECT, readinessFor(), readyBriefIds(), briefReadiness() (+16 more)
 
 ### Community 334 - "new-signups-live.ts"
 Cohesion: 0.07
-Nodes (48): at(), EditsSkeleton(), SignupsHeader(), SignupStats(), STAT_LOOK, StreamNote(), SignupsDesk(), SignupsHowItWorks() (+40 more)
+Nodes (45): at(), EditsSkeleton(), SignupsHeader(), SignupStats(), STAT_LOOK, StreamNote(), SignupsHowItWorks(), ApiOrgSignup (+37 more)
 
-### Community 335 - "offer-draft.ts"
-Cohesion: 0.09
-Nodes (26): SENSITIVE_CATEGORY_AGE, DELIVERABLE_TEMPLATES, deliverablesForOrder(), DeliverableTemplateItem, NoDeliverableTemplateError, templateForJob(), CategoryConflictError, DEFAULT_INVITE_WINDOW_DAYS (+18 more)
+### Community 335 - "deliverable-template.ts"
+Cohesion: 0.39
+Nodes (6): DELIVERABLE_TEMPLATES, deliverablesForOrder(), DeliverableTemplateItem, NoDeliverableTemplateError, templateForJob(), DUE
 
 ### Community 336 - "registry.ts"
-Cohesion: 0.01
-Nodes (364): scopeOf(), ApplicantView, APPLICATION_REQUIRED_FIELDS, ApplicationDecisionNotes, ApplicationReviewDecision, ApplicationSubmissionReceipt, ApproveApplicationInput, AthleteApplicationFields (+356 more)
+Cohesion: 0.02
+Nodes (195): AGE_FIELD, ApplicantView, APPLICATION_REQUIRED_FIELDS, ApplicationDecisionNotes, ApplicationReviewDecision, ApplicationSubmissionReceipt, ApproveApplicationInput, AthleteApplicationFields (+187 more)
 
 ### Community 337 - "`/join` Athlete Onboarding Wizard Implementation Plan"
 Cohesion: 0.18
@@ -2280,12 +2279,12 @@ Cohesion: 0.24
 Nodes (9): actor(), athlete(), auditRows, btg(), committedWrites, enqueued, presignCalls, sponsor() (+1 more)
 
 ### Community 343 - "fan-db.ts"
-Cohesion: 0.35
-Nodes (9): BUDGET, waitForEvents(), cleanup(), eventCounts(), hasDatabase, pool(), seeded, seedToken() (+1 more)
+Cohesion: 0.20
+Nodes (11): PAGES, Watch, BUDGET, waitForEvents(), cleanup(), eventCounts(), hasDatabase, pool() (+3 more)
 
-### Community 344 - "delivery-issues-live.ts"
-Cohesion: 0.12
-Nodes (32): call(), DeskWrite, proofLinkAction(), remindSellerAction(), resolveIssueAction(), Decision(), DeliveryIssueDecision(), DeliveryProofButton() (+24 more)
+### Community 344 - "virtual-bookings.ts"
+Cohesion: 0.16
+Nodes (21): factPlacementWindowBooked(), bookPlacement(), isOverlap(), placementWindows(), readablePlacement(), releaseCampaignWindows(), releaseInside(), releaseWindow() (+13 more)
 
 ### Community 345 - "`P0-PMO-13` raised and closed — the margin floor rule"
 Cohesion: 0.25
@@ -2316,16 +2315,16 @@ Cohesion: 0.11
 Nodes (15): 1 · The two faults, in one line each, 2 · Decision one — the floor rule, 3 · Decision two — sell floors are derived, not negotiated, 4 · Decision three — SX-07's band is corrected, 5 · Decision four — package line items, 6 · What enforces this, 7 · What this does not decide, The Margin Floor Rule and Tier-Derived Sell Floors (+7 more)
 
 ### Community 352 - "SponsorX P7-QA-02 — Metric provenance honesty review"
-Cohesion: 0.12
-Nodes (17): 1.1 `/sponsor` — dashboard (live), 1.2 `/sponsor/campaigns/[id]/report` — ROI report (live), 1.3 `/sponsor/campaigns` — list (fixture only), 1.4 `/sponsor/campaigns/[id]` — campaign page (fixture only), 1.5 `/sponsor/marketplace` (live) and `/sponsor/marketplace/[jobId]` (fixture only), 1.6 Sponsor portal chrome, 1 · Sponsor portal, 2.1 `/athlete` — dashboard (fixture only) (+9 more)
+Cohesion: 0.20
+Nodes (10): 2.1 `/athlete` — dashboard (fixture only), 2.2 `/athlete/earnings` (live for ATHLETE and GUARDIAN), 2.3 Other athlete pages, 2 · Athlete portal, 5 · Backend fixes made in this review, 6 · Findings, 7 · Verification, Fixed in this review (label logic has tests) (+2 more)
 
 ### Community 353 - "SponsorX — Phase 1 Payment Policy"
 Cohesion: 0.20
 Nodes (9): 1 · The decision, 2 · What SponsorX stores, 3 · What SponsorX does not store, 4 · Why, 5 · What this means in practice, 6 · The one thing still to confirm, 7 · When this policy must be replaced, Signature (+1 more)
 
-### Community 354 - "property-home-live.ts"
-Cohesion: 0.31
-Nodes (8): ApiItem, ApiMyProperty, ApiRoster, buildPropertyHome(), KIND, kindLabel(), mono(), shareLabel()
+### Community 354 - "document-flows.test.ts"
+Cohesion: 0.15
+Nodes (18): NOW, Applied, Asked, blurredPhoto(), darkPhoto(), Expected, h, Mail (+10 more)
 
 ### Community 355 - "SponsorX Phase 2 — the state machines (2S0-PMO-01)"
 Cohesion: 0.13
@@ -2339,13 +2338,13 @@ Nodes (9): 1 · SCAN, 2 · LANDING, 3 · CLAIM, 4 · REDEEM, Confirmation, Rewar
 Cohesion: 0.26
 Nodes (15): BrandingResult, LogoGrant, put(), refusal(), removeLogoAction(), requestLogoUploadAction(), saveBrandingAction(), saveLogoAction() (+7 more)
 
-### Community 358 - "applied"
-Cohesion: 0.13
-Nodes (33): applied(), attemptNow(), deferred(), findAttempt(), held(), ignored(), onFailed(), onNotice() (+25 more)
+### Community 358 - "account-settings.tsx"
+Cohesion: 0.15
+Nodes (20): AccountSettings(), CloseAction, LinkAction, WithdrawAction, AgeView, ALLOWANCE_DAYS, CLOSE_DIALOG, closeLine() (+12 more)
 
 ### Community 359 - "edition-content.tsx"
-Cohesion: 0.11
-Nodes (26): assetFileAction(), presignContentUploadAction(), AddContent(), FileNote, KINDS, openFileLink(), PieceFile(), SOURCES (+18 more)
+Cohesion: 0.07
+Nodes (40): DraftForm(), AddContent(), FileNote, KINDS, SOURCES, Step, useFileSend(), ANY_FILE_MAX_BYTES (+32 more)
 
 ### Community 360 - "2026-09-22 — tasks completed"
 Cohesion: 0.20
@@ -2359,9 +2358,9 @@ Nodes (10): 2026-10-12 (work started 2026-10-11), API, Gotchas for whoever picks
 Cohesion: 0.18
 Nodes (10): 2026-10-12, rcfworks — 3S0-BE-01…05: five gaps from the event audit, fixed (Code review), rcfworks — 3S0-DATA-01 and 3S0-BE-01…05 → Done, rcfworks — 3S0-DATA-01: event taxonomy audit (Code review), rcfworks — 3S0-DATA-02 signed off → Done, rcfworks — 3S0-DATA-02: warehouse schema and semantic layer (Code review), rcfworks — 3S0-OPS-01 and 3S1-DATA-01 → Done; the warehouse runs in staging and production, rcfworks — 3S0-OPS-01: warehouse selected, staging provisioned (In progress) (+2 more)
 
-### Community 363 - "(board)/page.tsx"
-Cohesion: 0.13
-Nodes (28): AdminDashboardPage(), Analytics, at(), dynamic, LED, read(), Ctx, OpsFanSlot() (+20 more)
+### Community 363 - "campaign-change-rules.ts"
+Cohesion: 0.16
+Nodes (17): CampaignFacts, CampaignImpact, cancelImpact(), changeImpact(), ChangeProposal, day(), DELIVERED, ENDED (+9 more)
 
 ### Community 364 - "P1-FE-04 Edge-State Fixtures Implementation Plan"
 Cohesion: 0.22
@@ -2396,28 +2395,28 @@ Cohesion: 0.20
 Nodes (10): 0 · What is deployed, 1 · Deploy, 2 · Rollback, 3 · Migration failure, 4 · Restore, 5 · What has actually been tested, 6 · Database logins — only the app writes, Deploying by hand — `npm run deploy` (added 2026-09-29) (+2 more)
 
 ### Community 372 - "approvals-live.ts"
-Cohesion: 0.06
-Nodes (42): LiveDecisionBar(), ago(), CLEARED_STATES, DESK_KINDS, DESK_SORTS, DESK_STATES, DESK_TABS, DESK_TIME_ZONE (+34 more)
+Cohesion: 0.07
+Nodes (40): LiveDecisionBar(), ago(), CLEARED_STATES, DESK_KINDS, DESK_SORTS, DESK_STATES, DESK_TABS, DESK_TIME_ZONE (+32 more)
 
 ### Community 373 - "SponsorX — Phase 1 · Managed Marketplace"
 Cohesion: 0.22
 Nodes (9): Categories, Decision gates, ⚙️ How this project is tracked — read this first, Reading a task, SponsorX — Phase 1 · Managed Marketplace, 🔁 The daily rule, The protected loop (§39), The six phase documents (+1 more)
 
-### Community 374 - "age-of-majority.ts"
-Cohesion: 0.10
-Nodes (26): ageTable(), AgeTableError, Db, ensureSeeded(), listAgeTable(), majorityOf(), placeOf(), refreshMajorityIn() (+18 more)
+### Community 374 - "stripe.ts"
+Cohesion: 0.15
+Nodes (18): NeutralPaymentEvent, accountReadiness, classifyStripeError(), clean(), idOf(), mapStripeEvent(), mapThinEvent(), meta() (+10 more)
 
 ### Community 375 - "shop-window.tsx"
-Cohesion: 0.10
-Nodes (25): Added, AddedPanel(), d(), DAY_FMT, FiltersSheet(), fmt(), ItemCard(), itemHref() (+17 more)
+Cohesion: 0.07
+Nodes (41): updateLineAction(), cancelOrderAction(), addToCartAction(), shopWrite(), WriteResult, ShopRefusal(), Refusal, ShopCancelOrder() (+33 more)
 
 ### Community 376 - "scenario-engine.ts"
-Cohesion: 0.11
-Nodes (29): normalCdf(), answer(), BOOKABLE, BOOKED, calculateScenario(), median(), prices(), saveScenario() (+21 more)
+Cohesion: 0.09
+Nodes (36): forecastDetail(), forecastList(), ForecastNotFoundError, latest(), row(), assertFeature(), FeatureOffError, answer() (+28 more)
 
 ### Community 377 - "next-setup.tsx"
-Cohesion: 0.14
-Nodes (25): cancelEditionAction(), createEditionAction(), createPublicationAction(), send(), updateEditionAction(), SetupPanel(), CancelEditionButton(), CurrentEdition (+17 more)
+Cohesion: 0.16
+Nodes (22): createEditionAction(), updateEditionAction(), SetupPanel(), CancelEditionButton(), CurrentEdition, EditEditionForm(), NewEditionForm(), NewPublicationForm() (+14 more)
 
 ### Community 378 - "`P3-BE-07` — application review, audited and notified in one transaction"
 Cohesion: 0.40
@@ -2433,23 +2432,23 @@ Nodes (8): Clerk, Clerk Scoped to Identity Only, Authorization Is Ours, Authoriz
 
 ### Community 382 - "client.ts"
 Cohesion: 0.01
-Nodes (219): args, at, db, sql, API_SECURITY_HEADERS, Actor, express-serve-static-core, knownRoles() (+211 more)
+Nodes (184): args, at, API_SECURITY_HEADERS, env, parsed, schema, stripeProblem, AUDIT_ACTIONS (+176 more)
 
-### Community 383 - "applications.ts"
-Cohesion: 0.02
-Nodes (112): AGE_FIELD, REJECT_TAKES_LOGINS, ApplicationClosedError, ApplicationNotFoundError, asSystem(), createApplicantIn(), createWithFreeSlug(), EDITABLE (+104 more)
+### Community 383 - "cohort-import.ts"
+Cohesion: 0.10
+Nodes (23): assertImportAllowed(), COHORT_IMPORT_MAX_ROWS, CohortFileInvalidError, cohortFingerprint(), CohortImportJob, CohortImportOutcome, CohortRow, CohortRowError (+15 more)
 
 ### Community 384 - "P8-FE-09 · The tester-guide dry run's screen findings (HeckerCreatives, Code review)"
 Cohesion: 0.15
 Nodes (12): 2026-10-26, /get-started redesigned (2026-10-27, the user's request: "stale and simple"), Get Started skips the sign-in page (2026-10-27, the user's request), P8-FE-09 follow-up: the QA findings fixed (same day), P8-FE-09 QA pass 2 (same day), P8-FE-09 QA pass 3 (same day), P8-FE-09 QA pass 4 (2026-10-27, after midnight), P8-FE-09 QA (same day) (+4 more)
 
 ### Community 385 - "2026-10-29"
-Cohesion: 0.07
-Nodes (26): 2026-10-28, 2026-10-29, How each task was run, `POL-BE-01` — the payout account follows whoever is responsible, `POL-BE-02` — a minor can't make themselves an adult, `POL-BE-03` — a team's share goes up only with the athlete's yes, `POL-BE-04` — orders held, not cancelled, while payment is off, `POL-BE-05` — the sponsor sees the total, fees included, before placing (+18 more)
+Cohesion: 0.05
+Nodes (35): 2026-10-28, 2026-10-29, How each task was run, `POL-BE-01` — the payout account follows whoever is responsible, `POL-BE-02` — a minor can't make themselves an adult, `POL-BE-03` — a team's share goes up only with the athlete's yes, `POL-BE-04` — orders held, not cancelled, while payment is off, `POL-BE-05` — the sponsor sees the total, fees included, before placing (+27 more)
 
 ### Community 386 - "analytics-story.tsx"
-Cohesion: 0.11
-Nodes (32): AnalyticsStory(), ChapterId, CHAPTERS, RANGES, ChartLegend(), athleteInsight(), funnelInsight(), headlineInsight() (+24 more)
+Cohesion: 0.12
+Nodes (30): AnalyticsStory(), ChapterId, CHAPTERS, RANGES, athleteInsight(), funnelInsight(), headlineInsight(), locationInsight() (+22 more)
 
 ### Community 387 - "tenant-scope.static.test.ts"
 Cohesion: 0.36
@@ -2484,8 +2483,8 @@ Cohesion: 0.25
 Nodes (7): But it does not have to be a rendered PDF in Phase 1, Confirmation, Consequence for the architecture, Decision G-07 — Sponsor Report Deliverable Format, Recommendation, The question, What must be true for Option A to hold
 
 ### Community 395 - "edition-files-live.ts"
-Cohesion: 0.12
-Nodes (24): FileLinkResult, pressPdfAction(), FileNoteLine(), UploadProgress(), EditionFiles(), Picker(), ApiEditionCover, ApiEditionPressPdf (+16 more)
+Cohesion: 0.11
+Nodes (26): FileLinkResult, FileNoteLine(), openFileLink(), UploadProgress(), EditionFiles(), Picker(), ApiEditionCover, ApiEditionPressPdf (+18 more)
 
 ### Community 396 - "NIL Job Catalogue Economics — SX-01 to SX-07"
 Cohesion: 0.25
@@ -2499,9 +2498,9 @@ Nodes (19): 10. Campaign Workflow, 11. Campaign Brief, 12. Make Each Athlete Tra
 Cohesion: 0.25
 Nodes (7): Confirmation, Does the PDF Worker Have a Real Requirement?, Finding, Recommendation, The correction worth recording, What would bring it back, Why this is being asked at all
 
-### Community 399 - "get-started-stage.tsx"
-Cohesion: 0.09
-Nodes (25): LoginPage(), GetStartedPage(), metadata, CARD, CARD_RING, CARD_SWEEP, LINE, MegaphoneIcon() (+17 more)
+### Community 399 - "virtual-rules.ts"
+Cohesion: 0.10
+Nodes (20): ALLOWED_PARENTS, between(), BOOKING_DAYS, CREATIVE_MIMES, CREATIVE_TYPES, CreativeType, DEFAULT_RULE, Environment (+12 more)
 
 ### Community 400 - "BTG admin review items 9 to 11: order approval, payment and delivery, automated (2S4-BE-09, -10, -11 and 2S4-FE-05, all Done)"
 Cohesion: 0.22
@@ -2531,24 +2530,24 @@ Nodes (7): Accepted, recorded, Configuration to finish the fix, Findings — fix
 Cohesion: 0.32
 Nodes (7): ADMIN, atBothWidths(), ATHLETE, ATHLETE_GRANT, culprits(), ListedPayout, overflow()
 
-### Community 407 - "money-lists.tsx"
-Cohesion: 0.10
-Nodes (23): UI_GLYPH, MONEY_GLYPH, MoneyGlyph(), MoneyGlyphName, d(), FirstMoneyHero(), STEPS, d() (+15 more)
+### Community 407 - "athlete-money-shop.ts"
+Cohesion: 0.05
+Nodes (55): UI_GLYPH, readView(), subscribeView(), useShopView(), AccountCard(), CashOut(), d(), LinkAction (+47 more)
 
 ### Community 408 - "anomalies/page.tsx"
-Cohesion: 0.10
-Nodes (43): recordDispositionAction(), AnomaliesPage(), Console(), dynamic, SP, ReconciliationCard(), AnomalyReview(), KindChips() (+35 more)
+Cohesion: 0.12
+Nodes (37): recordDispositionAction(), AnomaliesPage(), Console(), dynamic, SP, AnomalyReview(), KindChips(), ReviewDrawer() (+29 more)
 
-### Community 409 - "auto-staffing.ts"
-Cohesion: 0.06
-Nodes (52): appUrl(), assertStillOfferable(), AUTO_STAFFING_AUDIT, AUTO_STAFFING_TX, autoStaffCampaign(), autoStaffIn(), AutoStaffingReasonError, AutoStaffingUnavailableError (+44 more)
+### Community 409 - "campaign-launch.ts"
+Cohesion: 0.54
+Nodes (7): dueBefore(), launchDay(), launchDue(), launchLine(), launchIfDue(), sweepCampaignLaunches(), SYSTEM()
 
 ### Community 410 - "2026-10-07"
 Cohesion: 0.22
 Nodes (9): 2026-10-07, HeckerCreatives — merge of `main_development` (rcfworks' Sprint 8 close-out) into the admin-portal stack, HeckerCreatives — P1-ART-18: the whole admin portal on the stage (Code review), HeckerCreatives — P1-ART-19: the commission desk (Code review), HeckerCreatives — P1-ART-20: the marketplace desk (Code review), HeckerCreatives — P1-ART-21: the admin sidebar in collapsible groups, sorted (Code review), HeckerCreatives — P1-FE-31: the admin desks' lists as server-paged tables (Code review), HeckerCreatives — Phase 2: the nine remaining frontend screens (Code review) (+1 more)
 
 ### Community 411 - "FakeZoho"
-Cohesion: 0.15
+Cohesion: 0.20
 Nodes (5): ZohoApi, ZohoRecord, ZohoUser, FakeZoho, Write
 
 ### Community 412 - "stripe-sandbox-smoke.mts"
@@ -2607,25 +2606,25 @@ Nodes (6): Rate card — per edition, per school, Revenue split — of each edit
 Cohesion: 0.67
 Nodes (3): 4 · Sponsor domain, `sponsor`, `sponsorContact`
 
-### Community 427 - "athlete-home-live.ts"
-Cohesion: 0.10
-Nodes (24): ApiSellerSummary, AthleteHome, buildHome(), DUE_STATES, HomeDeliverable, HomeInvite, HomeOffer, HomeSale (+16 more)
+### Community 427 - "athlete-home-phase2.test.ts"
+Cohesion: 0.12
+Nodes (9): NOW, vars, zero, LATER, SOON, vars, base, fresh (+1 more)
 
 ### Community 428 - "The tasks"
 Cohesion: 0.07
 Nodes (28): ✅ `4S0-PMO-01` · Define the world contract: runtime, environments and identity, ✅ `4S0-PMO-02` · Agree the world and placement taxonomy, ✅ `4S0-SEC-01` · Trusted client authentication design, ✅ `4S1-BE-01` · World and zone registry, ✅ `4S1-BE-02` · Virtual placement model, ✅ `4S1-BE-03` · Map placements to sellable inventory, ✅ `4S1-BE-04` · Placement availability windows, ✅ `4S2-BE-01` · Creative deployment model (+20 more)
 
-### Community 429 - "live-rights.tsx"
-Cohesion: 0.14
-Nodes (23): GRANTOR_COPY, LiveRights(), PERMS, SOURCE_COPY, WRITERS, ApiContentPiece, ApiRight, ApiRightsAsset (+15 more)
+### Community 429 - "messages-page.tsx"
+Cohesion: 0.13
+Nodes (10): AthleteMessagesPage(), dynamic, dynamic, PropertyMessagesPage(), dynamic, SponsorMessagesPage(), ChatPaneGhost(), MessagesGhost() (+2 more)
 
 ### Community 430 - "5 · Athlete network"
 Cohesion: 0.29
 Nodes (7): 5 · Athlete network, `athlete`, `athleteApplication`, `athleteProfileChange`, `athleteSocialAccount` · `athleteScore`, `guardian`, `property`
 
-### Community 431 - "object-store-standin.mjs"
-Cohesion: 0.14
-Nodes (7): ALLOW, amzDate(), endpoint, LAX_CORS, linkValid(), objects, port
+### Community 431 - "tests/support/object-store.ts"
+Cohesion: 0.10
+Nodes (16): amzDate(), ObjectStore, presignedGetValid(), presignedPutValid(), startObjectStore(), StoredObject, ALLOW, amzDate() (+8 more)
 
 ### Community 432 - "6 · Athlete / Content Partner — custom module build specification"
 Cohesion: 0.29
@@ -2635,17 +2634,17 @@ Nodes (7): 6.1 · Module, 6.2.1 · Built and verified — 2026-09-11 (`P0-OPS-05
 Cohesion: 0.29
 Nodes (7): Gaps these runs surfaced (not coded around), `P3/P4/P5/P7-QA-01` — the loop E2E suite → Code review, `P6-BE-08` + `P6-FE-01` — reward eligibility, cap, landing copy → Code review, `P7-QA-02` — metric provenance honesty review → Code review, `P8-PMO-02/03/04` — §38 documents → Code review, Phase 1 close-out run (HeckerCreatives) — 10 rows → Code review, Verified
 
-### Community 434 - "Railway"
-Cohesion: 0.18
-Nodes (11): Cloudflare R2, Data Residency — US East (Decided), One Thing to Operate, PDF Worker (Unconfirmed Requirement), Portability Rules, Postgres Job Queue (Redis Deferred), R2 Two Access Patterns, Railway (+3 more)
+### Community 434 - "SponsorX Zoho Field Mapping Document (P0-PMO-08)"
+Cohesion: 0.07
+Nodes (30): Cloudflare R2, Data Residency — US East (Decided), One Thing to Operate, PDF Worker (Unconfirmed Requirement), Portability Rules, Postgres Job Queue (Redis Deferred), R2 Two Access Patterns, Railway (+22 more)
 
-### Community 435 - "seller-problem-answer.tsx"
-Cohesion: 0.19
-Nodes (22): answerCancellationAction(), answerProblemAction(), decideSellerApprovalAction(), markDeliveredAction(), post(), ProblemAnswer, ProofGrant, requestProofUploadAction() (+14 more)
+### Community 435 - "student-assignments.tsx"
+Cohesion: 0.15
+Nodes (15): bucket(), Filter, FILTERS, KIND_ICON, KIND_LABEL, MILESTONES, ORDER, rowBucket() (+7 more)
 
 ### Community 436 - "Sprint 8 · Virtual inventory screens, controls and launch"
-Cohesion: 0.20
-Nodes (10): ⏸ `6S8-ART-01` · Design the virtual admin and sponsor screens, ⏸ `6S8-BE-01` · Emergency pause and kill switch, ⏸ `6S8-BE-02` · Deployment incident log, ⏸ `6S8-FE-01` · Build the world registry screen, ⏸ `6S8-FE-02` · Build the placement manager, ⏸ `6S8-FE-03` · Build placement preview metadata, ⏸ `6S8-FE-04` · Build the creative deployment console, ⏸ `6S8-OPS-01` · Production rollout and incident readiness (+2 more)
+Cohesion: 0.04
+Nodes (45): ⏸ `6S1-INT-01` · INFINEX client manifest consumption, ⏸ `6S1-INT-02` · Game heartbeat, ⏸ `6S1-INT-03` · Game reads its configuration, ⏸ `6S1-QA-01` · Staging world placement test, ⏸ `6S2-PMO-01` · Calibrate virtual pricing against real traffic, ⏸ `6S2-PMO-02` · Pilot sponsor UAT, ⏸ `6S2-QA-01` · Telemetry validation against the pilot world, ⏸ `6S4-BE-01` · Idempotent de-duplication (+37 more)
 
 ### Community 437 - "Sprint 1 · Warehouse & benchmarks"
 Cohesion: 0.12
@@ -2675,9 +2674,9 @@ Nodes (6): Backend: `GET /athletes/me` (new router, routes/v1/athletes.ts), `P3-
 Cohesion: 0.29
 Nodes (6): My own commits audited (fourth-order review), QA pass 4 — the merged tree, including the lead's new surfaces (2026-09-25), rcfworks — found in 6ede48c and fixed here (review these, Bob), State, Sweep + walks on the merged tree, The strongest proof of the day
 
-### Community 446 - "server/payouts.ts"
-Cohesion: 0.13
-Nodes (21): moneyAccountLinkAction(), moneyRequestAction(), moneySampleLinkAction(), athletePayoutLinkAction(), decidePayoutAction(), payoutAccountLinkAction(), requestPayoutAction(), propertySettingsLinkAction() (+13 more)
+### Community 446 - "v1/campaign-change.ts"
+Cohesion: 0.17
+Nodes (15): CampaignCancelInput, CampaignChangeInput, CampaignChangeProposal, CampaignRequestDecisionInput, day, readCancelImpact(), campaignChangeRouter, cancel() (+7 more)
 
 ### Community 447 - "Admin Operations Board — "Mission Control" stage (P1-ART-14)"
 Cohesion: 0.25
@@ -2703,9 +2702,9 @@ Nodes (5): Failures found → fixed (4), Method, Note for future layouts, P1-QA-
 Cohesion: 0.33
 Nodes (5): Before production use, BTG SponsorX — logo files (flat redraw, P1-ART-06), Carried over from the raster lockup, Colors, Dropped
 
-### Community 453 - "insight-banner.tsx"
-Cohesion: 0.32
-Nodes (4): HOT_TONE, InsightBanner(), Reveal(), Insight
+### Community 453 - "charts.tsx"
+Cohesion: 0.15
+Nodes (16): AreaChart(), BarStrip(), ChartLegend(), Donut(), FunnelSteps(), niceMax(), RadialGauge(), SeriesPoint (+8 more)
 
 ### Community 454 - "Applications — "Scouting Board" redesign (P1-ART-16)"
 Cohesion: 0.25
@@ -2809,7 +2808,7 @@ Nodes (6): Findings, ranked, Fix pass — passes 7 and 8 (same day), QA pass 8 �
 
 ### Community 479 - "Checked and fine"
 Cohesion: 0.07
-Nodes (28): 100. The Contact page is a plain form with every case listed at once, so a person can't tell where to start or find their problem [§16, 2S1-FE-10, POL-FE-43], 101. A NEXT student has no page showing their own details [NEXT spec §8, P9-FE-01], 102. A sponsor can't see or keep their company and their own details current [§8, §26], 103. A school advisor has no page for their own or their school's details [NEXT spec §8, P9-BE-20], 104. A school team can't see or keep its own details current (property portal) — partial today [§8, 2S1-BE-03], 105. The admin home is a hero ring over twenty-two equal cards, so staff can't tell what needs them or how things are going [§10, §23, P7-FE-06], 106. The applications desk is a wall of player cards under four tiles and pill tabs that repeat the same counts, so a reviewer can't tell what to do first [§10, §23, P3-FE-02, P1-ART-16], 107. "+ New request" sends a sponsor to pre-made packages, so they can't create a campaign of their own [§9 screen 4, §13, P4-FE-01] (+20 more)
+Nodes (29): 100. The Contact page is a plain form with every case listed at once, so a person can't tell where to start or find their problem [§16, 2S1-FE-10, POL-FE-43], 101. A NEXT student has no page showing their own details [NEXT spec §8, P9-FE-01], 102. A sponsor can't see or keep their company and their own details current [§8, §26], 103. A school advisor has no page for their own or their school's details [NEXT spec §8, P9-BE-20], 104. A school team can't see or keep its own details current (property portal) — partial today [§8, 2S1-BE-03], 105. The admin home is a hero ring over twenty-two equal cards, so staff can't tell what needs them or how things are going [§10, §23, P7-FE-06], 106. The applications desk is a wall of player cards under four tiles and pill tabs that repeat the same counts, so a reviewer can't tell what to do first [§10, §23, P3-FE-02, P1-ART-16], 107. "+ New request" sends a sponsor to pre-made packages, so they can't create a campaign of their own [§9 screen 4, §13, P4-FE-01] (+21 more)
 
 ### Community 480 - "Task Board — Three Artefacts, Three Jobs"
 Cohesion: 0.50
@@ -2875,9 +2874,9 @@ Nodes (9): ⏸ `2S6-BE-01` · Wallet pass lifecycle and device registrations —
 Cohesion: 0.29
 Nodes (7): Categories, ⚙️ How this project is tracked — read this first, Reading a task, SponsorX — Phase 3 · Intelligence & Attribution, 🔁 The daily rule, The six phase documents, Where the work happens
 
-### Community 497 - "2026-10-28 — tasks completed"
-Cohesion: 0.22
-Nodes (9): 2026-10-28 — tasks completed, `P8-BE-09`, `P8-BE-10` and `P8-BE-11` Done (rcfworks), on `feature/P8-BE-09-document-checks`, POL-BE-01 — the payout account follows whoever is responsible for the athlete (2026-10-28), POL-BE-02 — a minor can no longer make themselves an adult (2026-10-28), POL-BE-04 — orders are held, not cancelled, while card payment is closed (2026-10-28), Polish list — UX review of every user's flow (2026-10-28), Six tasks raised (rcfworks), on `docs/P8-FE-12-campaign-cancel-change`, Stripe live account — checked with a read-only key (2026-10-28) (+1 more)
+### Community 497 - "inventory/actions.ts"
+Cohesion: 0.27
+Nodes (14): addRestrictionAction(), bodyOf(), createItemAction(), InventoryActionResult, refresh(), removeRestrictionAction(), RestrictionActionResult, setItemActiveAction() (+6 more)
 
 ### Community 498 - "compilerOptions"
 Cohesion: 0.13
@@ -2928,16 +2927,16 @@ Cohesion: 0.13
 Nodes (14): 2026-10-02 — tasks completed, 2S3-FE-03 and 2S2-FE-01, 2S8-QA-03, 2S8-QA-04 and QA-02, Afternoon batch: P9-BE-16, 2S3-FE-03, 2S2-FE-01, 2S8-QA-03, 2S8-QA-04 and QA-02 (all Done after independent review), BTG admin review item 7: approving new sponsors, BTG admin review item 8: listings publish automatically (2S3-BE-06, 2S3-FE-04, both Done), Checks, FOR JAN: `next-edition-e2e.test.ts`, P9-QA-01 clause 4 (+6 more)
 
 ### Community 511 - "help/index.ts"
-Cohesion: 0.18
-Nodes (14): content, content, content, content, CONTENT, shots, content, content (+6 more)
+Cohesion: 0.15
+Nodes (17): content, content, content, content, articleFor(), CONTENT, HELP_PORTALS, shots (+9 more)
 
-### Community 512 - "cart/actions.ts"
-Cohesion: 0.16
-Nodes (19): updateLineAction(), cancelOrderAction(), addToCartAction(), shopWrite(), WriteResult, ShopLineRow(), ShopPaymentNote(), ShopRefusal() (+11 more)
+### Community 512 - "document-inspect.ts"
+Cohesion: 0.25
+Nodes (14): fileProblemWords(), mediaTypeOf(), pictureProblem, sniffType(), drawFirstPdfPage(), inspectDocument(), Inspection, inspectPdf() (+6 more)
 
 ### Community 513 - "rewards.read.test.ts"
-Cohesion: 0.17
-Nodes (10): admin, athlete, base, fanTotals, grants, groupArgs, groups, REWARD (+2 more)
+Cohesion: 0.12
+Nodes (11): CURRENT_CONSENT_VERSION, admin, athlete, base, fanTotals, grants, groupArgs, groups (+3 more)
 
 ### Community 515 - "BTG_SponsorX_Master_Development_Blueprint_609a437c.md"
 Cohesion: 0.12
@@ -2987,9 +2986,9 @@ Nodes (15): 10. Fan Wallet, 12. Sponsor Intelligence, 14. INFINEX World integrat
 Cohesion: 0.17
 Nodes (11): audit_log_append_only(), commission_rule_immutable(), "CommissionRule", ledger_entry_immutable(), "LedgerEntry", order_line_financials_immutable, "OrderLineFinancials", audit_log_append_only (+3 more)
 
-### Community 527 - "offer.ts"
-Cohesion: 0.03
-Nodes (126): [tenantId, kind, versionArg], version, assertCanReadField(), ATHLETE_SIDE, canReadField(), FIELD_DENIALS, FieldForbiddenError, MACHINE (+118 more)
+### Community 527 - "prisma"
+Cohesion: 0.02
+Nodes (183): [tenantId, kind, versionArg], version, args, at, assertCanReadField(), ATHLETE_SIDE, canReadField(), FIELD_DENIALS (+175 more)
 
 ### Community 528 - "Task — Complete the sponsor campaigns path (List → Detail → Report)"
 Cohesion: 0.29
@@ -3024,7 +3023,7 @@ Cohesion: 0.15
 Nodes (11): admin, Body, bySport, byState, call(), countArgs, findArgs, found (+3 more)
 
 ### Community 540 - "Who Can See What in SponsorX"
-Cohesion: 0.17
+Cohesion: 0.15
 Nodes (12): 1 · What this is, 2 · Why it matters more than it sounds, 3 · What was actually decided, 4 · The five decisions, 5 · Where this leaves the task, 6 · One thing found along the way, worth fixing separately, D1 · Can a parent accept a Campaign Order for their child, or only view it?, D2 · Can an athlete see the price the sponsor paid for their job? (+4 more)
 
 ### Community 541 - "22 · Phase 2 · sellers' orders, delivery, team invitations *(added 2026-10-01)*"
@@ -3039,13 +3038,13 @@ Nodes (9): Decisions for the owner, Dependency scan, Follow-ups not done here (e
 Cohesion: 0.17
 Nodes (12): 41. Support inbox, 42. "What's wrong" at a glance, 43. Help desk form (tick a case), 44. Inventory item: after Save, say it's done and where to go, 45. "Categories you won't promote": the category list is cut off, 46. Live listing: a button to see it in the marketplace, 47. Checkout: fill the billing contact from the signed-in user, 48. NEXT student home: a way to the student application (+4 more)
 
-### Community 545 - "campaigns/new/page.tsx"
-Cohesion: 0.11
-Nodes (21): dynamic, metadata, NewCampaignPage(), read(), strings(), BriefStage(), BURST, Confetti() (+13 more)
+### Community 545 - "offers/actions.ts"
+Cohesion: 0.39
+Nodes (15): athleteItemsAction(), call(), createOfferAction(), DeskWrite, keepOfferAction(), offerChecksAction(), okId(), reviseOfferAction() (+7 more)
 
 ### Community 547 - "commission/page.tsx"
-Cohesion: 0.39
-Nodes (8): createRuleAction(), previewAction(), reason(), reviseRuleAction(), send(), CommissionPage(), dynamic, isCommissionAdmin()
+Cohesion: 0.23
+Nodes (14): createRuleAction(), previewAction(), reason(), Result, reviseRuleAction(), RuleDraft, send(), CommissionPage() (+6 more)
 
 ### Community 548 - "smoke-receipt.mjs"
 Cohesion: 0.29
@@ -3087,21 +3086,21 @@ Nodes (3): CPM Pricing Formula, NIL Jobs SX-01 – SX-07, Sponsor Packages
 Cohesion: 0.40
 Nodes (5): 38 · Phase 4 · INFINEX machines *(added 2026-10-19)*, `infinexClient` — game clients registered for a world, `infinexCredential` — machine credentials for world servers, `virtualEvent` — raw INFINEX telemetry *(added 2026-10-19, 4S4-BE-01)*, `virtualWorld` — two rows added to §37
 
-### Community 568 - "brief.ts"
-Cohesion: 0.08
-Nodes (38): startAutoSale(), startAutoStaffing(), assertOwnPackage(), autoApproveOrHold(), recheckHeldBriefs(), BriefCloseReasonRequiredError, BriefInput, BriefNotEditableError (+30 more)
+### Community 568 - "domain/places.ts"
+Cohesion: 0.13
+Nodes (20): assertCountryStates(), briefCountry(), BriefCountryError, DEFAULT_BRIEF_COUNTRY, isCountryCode(), NOT_COUNTRIES, regionNames, catalogueCity() (+12 more)
 
 ### Community 569 - "ops-skeleton.tsx"
 Cohesion: 0.25
 Nodes (10): Bone(), SkBars(), SkCard(), SkChart(), SkDonut(), SkGauge(), SkKpi(), SkPeriodLine() (+2 more)
 
-### Community 571 - "loop-p3-application.spec.ts"
-Cohesion: 0.14
-Nodes (16): CAMPAIGN(), ADMIN, ADULT_EMAIL, Applicant, applicantIds(), apply(), clean(), MINOR_EMAIL (+8 more)
+### Community 571 - "brief-auto.ts"
+Cohesion: 0.25
+Nodes (14): app(), approveAutomatically(), autoApproveOrHold(), AutoOutcome, BRIEF, BriefRow, briefStaff(), campaignName() (+6 more)
 
-### Community 575 - "fact-nightly.ts"
-Cohesion: 0.19
-Nodes (17): appFigures(), checkFactsAgainstApp(), summaryFigures(), amount(), campaignNames(), dayOf(), Db, FACT_CHECK_HOUR_UTC (+9 more)
+### Community 575 - "restricted-words-rules.ts"
+Cohesion: 0.22
+Nodes (12): findRestricted(), KIND_LABELS, normalizeEntry(), plural(), RestrictedEntry, RestrictedKind, RestrictedMatch, STARTER_WORDS (+4 more)
 
 ### Community 576 - "Task — Wire the sponsor "Request a brief" / "Add to brief" flow (frontend)"
 Cohesion: 0.40
@@ -3144,8 +3143,8 @@ Cohesion: 0.50
 Nodes (3): 2026-10-13, HeckerCreatives — Phase 3 frontend: 3S0-FE-01 (Code review) and the ten Phase 3 screens (In progress), HeckerCreatives — QA pass and close-out: all eleven Phase 3 FE tasks Done
 
 ### Community 604 - "chat-dock.tsx"
-Cohesion: 0.15
-Nodes (20): StagePill(), ChatDock(), OpenChatButton(), onDealChat(), onDealInbox(), OrderDealChats(), OrderLive(), announceChange() (+12 more)
+Cohesion: 0.12
+Nodes (24): ChatAvatar(), ChatGlyph, Glyph(), IconButton(), PanelSection(), PATHS, StagePill(), OpenChatButton() (+16 more)
 
 ### Community 605 - "26 · Phase 2 · the payment provider's word *(added 2026-10-05)*"
 Cohesion: 0.40
@@ -3167,13 +3166,13 @@ Nodes (12): 10. A guardian handoff can wait forever, 11. Closing an account igno
 Cohesion: 0.22
 Nodes (8): File map, Help & FAQ Center Implementation Plan (POL-FE-99), Task 1: Types, search, content index — TDD, Task 2: Content per portal, Task 3: Shared components + CSS, Task 4: Routes + the "?" button, Task 5: Capture script + screenshots, Task 6: Verify + close out
 
-### Community 611 - "orderDeliveries"
-Cohesion: 0.16
-Nodes (24): answerWords(), canAnswer(), confirmedByWord(), currentIssue(), day(), deliveryExchange(), isOverdue(), issueSummary() (+16 more)
+### Community 611 - "SponsorX Fact Ledger"
+Cohesion: 0.13
+Nodes (14): 10 · Only the app writes, 11 · Benchmarks, 12 · Feature snapshots, 13 · Suggested prices (the CPM engine, v1), 1 · The idea, in one paragraph, 2 · The parts, 3 · The rules, 4 · Facts by kind (+6 more)
 
-### Community 613 - "ops-dash.tsx"
-Cohesion: 0.12
-Nodes (18): at(), EDGE, GLYPHS, OpsCard(), OpsColumns(), OpsDonut(), OpsGauge(), OpsIconName (+10 more)
+### Community 613 - "createDealLive"
+Cohesion: 0.35
+Nodes (13): createDealLive(), again(), close(), drop(), follow(), join(), onVisibility(), open() (+5 more)
 
 ### Community 614 - "pol-fe-51-sponsor-staffing.test.ts"
 Cohesion: 0.10
@@ -3191,9 +3190,9 @@ Nodes (14): 10. QR / Reward Creator, 11. Fan / Reward Analytics, 12. Sponsor ROI
 Cohesion: 0.33
 Nodes (5): ApplicationEdit, resubmitApplicationAction(), dynamic, Own, ApplicationEditForm()
 
-### Community 618 - "athlete/listings/[id]/preview/page.tsx"
-Cohesion: 0.20
-Nodes (18): AthleteListingPreviewPage(), dynamic, json(), dynamic, json(), PropertyListingPreviewPage(), PreviewAthlete, previewGaps() (+10 more)
+### Community 618 - "ocr.ts"
+Cohesion: 0.21
+Nodes (13): MIN_READ_CHARACTERS, characters(), dropReader(), LANG_PATH, queue, reader(), Reading, readOnce() (+5 more)
 
 ### Community 619 - "2026-11-11 — tasks completed"
 Cohesion: 0.22
@@ -3235,25 +3234,25 @@ Nodes (7): 2026-10-22, Legal wording approved, and issued in the app as v2 (P8-B
 Cohesion: 0.40
 Nodes (5): 37. Money and operations screens, 38. Athlete, campaign and agreement wording, 39. Public pages, menus and the route map, 40. Admin desks, sponsor and NEXT screens, F · Clean pass: outdated wording and developer notes (added 2026-11-11)
 
-### Community 629 - "journey-strip.tsx"
-Cohesion: 0.43
-Nodes (6): JourneyStep, JourneyStrip(), listeners, notify(), readDismissed(), subscribe()
+### Community 629 - "server/campaign-change.ts"
+Cohesion: 0.22
+Nodes (11): decideCampaignRequestAction(), validId(), ApiCampaignActionResult, ApiCampaignRequest, declineNoteProblem(), call(), decideCampaignRequest(), DecisionResult (+3 more)
 
-### Community 630 - "money-board.tsx"
-Cohesion: 0.12
-Nodes (20): AccountCard(), CashOut(), d(), LinkAction, MoneyChecklist(), MoneyRoad(), Order, RequestAction (+12 more)
+### Community 630 - "athlete-listing-desk.ts"
+Cohesion: 0.19
+Nodes (10): checkSummary, ITEM_KEYS, itemChecks(), JourneyStop, lastChange(), StopState, wizardStart(), WizardStep (+2 more)
 
 ### Community 631 - "landing-sponsors.tsx"
 Cohesion: 0.12
 Nodes (10): CARD_RING, cardRing(), FEATURES, Glass(), GLYPH, PACKAGES, ring(), SWEEP_RING (+2 more)
 
 ### Community 632 - "inventory-live.ts"
-Cohesion: 0.06
-Nodes (61): addRestrictionAction(), bodyOf(), createItemAction(), InventoryActionResult, refresh(), removeRestrictionAction(), RestrictionActionResult, setItemActiveAction() (+53 more)
+Cohesion: 0.07
+Nodes (43): CATEGORY_OPTIONS, CATEGORY_OPTIONS, InventoryForm(), Result, InventoryRestrictions(), Result, StepForm(), categoryLabel() (+35 more)
 
 ### Community 633 - "fact-classification.ts"
-Cohesion: 0.07
-Nodes (25): DELIVERABLE_PLATFORMS, DeliverablePlatform, HOSTS, platformOf(), Classified, DELIVERABLE_STATE_FACTS, DISPUTE_STATE_FACTS, EARNING_STATE_FACTS (+17 more)
+Cohesion: 0.08
+Nodes (24): DELIVERABLE_PLATFORMS, DeliverablePlatform, HOSTS, platformOf(), Classified, DELIVERABLE_STATE_FACTS, DISPUTE_STATE_FACTS, EARNING_STATE_FACTS (+16 more)
 
 ### Community 634 - ""Student""
 Cohesion: 0.24
@@ -3276,12 +3275,12 @@ Cohesion: 0.25
 Nodes (5): invoiceRows, payload(), upserts, download(), exportAs()
 
 ### Community 639 - "SponsorX Metric Provenance Taxonomy"
-Cohesion: 0.14
-Nodes (12): 1 · Why this document exists, 3 · The strength ladder, 4.1 · A derived value takes the weakest of its inputs, 4.2 · A rollup shows its mix, and falls back to its weakest part, 4.3 · `ATTRIBUTED` propagates upward, 4.4 · The practical consequence, 4 · Derived and aggregated values — the rules that were missing, 5 · Curated constants (+4 more)
+Cohesion: 0.22
+Nodes (7): 1 · Why this document exists, 3 · The strength ladder, 5 · Curated constants, 6 · Provenance and retrieval path are two different fields, 7 · Open decisions, 9 · What happens next, SponsorX Metric Provenance Taxonomy
 
 ### Community 640 - "ops-stage.tsx"
-Cohesion: 0.14
-Nodes (17): ActionRing(), at(), CampaignPanel(), CHIP, LED, MOTES, OpsHeader(), OutsideRole() (+9 more)
+Cohesion: 0.12
+Nodes (22): finePointer(), fmt(), OpsCount(), OpsStage(), reducedMotion(), ActionRing(), at(), CampaignPanel() (+14 more)
 
 ### Community 641 - "4. Service-by-Service Execution Playbooks"
 Cohesion: 0.20
@@ -3304,24 +3303,24 @@ Cohesion: 0.25
 Nodes (8): 13. Sponsor ROI Dashboard, Campaign investment, Engagement, Leads, Media delivered, QR scans, Redemptions, Tracked revenue
 
 ### Community 646 - "combined.mts"
-Cohesion: 0.13
-Nodes (15): app, relay, server, shutdown(), app, relay, server, LIVE_CHANNEL (+7 more)
+Cohesion: 0.10
+Nodes (20): createApp(), app, relay, server, shutdown(), app, relay, server (+12 more)
 
 ### Community 647 - "SponsorX Phase 2 — the financial ledger (2S0-PMO-02)"
-Cohesion: 0.17
+Cohesion: 0.22
 Nodes (9): 1 · The one rule, 2 · The sequential order, 3 · Which rule applies, 4 · The ledger, 5 · Worked example (SIMULATED rates), 5a · Refunds and disputes, as built (2S5-BE-03, 2026-10-05), 5b · Where Stripe's money meets the books (2S5-INT-01, 2026-10-06), 6 · Not in this design (named) (+1 more)
 
-### Community 648 - "content-check-rules.ts"
-Cohesion: 0.18
-Nodes (15): ALLOWED_CREATIVE_TYPES, ALLOWED_TYPES_WORDS, allPassed(), captionHas(), ContentCheck, ContentCheckInput, ContentCheckKey, contentChecks() (+7 more)
+### Community 648 - "sponsor-overview.test.ts"
+Cohesion: 0.15
+Nodes (9): Args, base, Call, calls, DEFAULTS, impl, NOW, raws (+1 more)
 
 ### Community 649 - "2026-10-29 — tasks completed"
 Cohesion: 0.06
 Nodes (33): 2026-10-29 — tasks completed, Batch 2 — the eight items rcfworks unblocked today, plus the Certified Recruiting card (HeckerCreatives), on `feature/POL-FE-batch-2`, Gaps found for the backend (rcfworks) — each noted in `documentation/polish.md`, `POL-BE-03` Code review (rcfworks), on `feature/POL-BE-03-share-raise-needs-consent`, `POL-BE-03` Done (rcfworks): PR #322 merged into `main_development`, `POL-BE-05` and `POL-BE-06` Done (rcfworks): PRs #324 and #325 merged into `main_development`, `POL-BE-05` Code review (rcfworks), on `feature/POL-BE-05-total-before-placing`, `POL-BE-06` (rcfworks): a sponsor who pays twice is refunded (+25 more)
 
-### Community 650 - "loop-p5-delivery.spec.ts"
-Cohesion: 0.18
-Nodes (8): ADMIN, AGREEMENT, AGREEMENT_VERSION, AGREEMENTS_DIR, ATHLETE, Deliverable, objectStoreReachable(), useObjectStore()
+### Community 650 - "campaign-requests-desk.tsx"
+Cohesion: 0.26
+Nodes (12): ago(), CampaignRequestsDesk(), Decide, DecisionResult, DeclineDialog(), Fail, RequestCard(), dayWords() (+4 more)
 
 ### Community 651 - "22. The strategic structure I'd use"
 Cohesion: 0.25
@@ -3343,21 +3342,21 @@ Nodes (7): Sheet: Dashboard, Sheet: Legend, Sheet: Phase 1, Sheet: Phase 2, Shee
 Cohesion: 0.29
 Nodes (6): 1. Athlete Deliverable Requirements, 2. Content & Usage Rights, 3. Paid Media, 4. Exclusivity / Conflicts, 5. Compensation & Payment, 6. Athlete Acceptance
 
-### Community 656 - "DeliveryError"
-Cohesion: 0.24
-Nodes (18): answerCancellation(), answerProblem(), cancelAndRefund(), checkProof(), DeliveryError, lockedLine(), markDelivered(), markerName() (+10 more)
+### Community 656 - "v1/deal-disputes.ts"
+Cohesion: 0.25
+Nodes (9): DEAL_DISPUTE_SOURCES, DealDisputeDocumentInput, DealDisputeListQuery, DealDisputeOpenInput, DealDisputeResolveInput, RulesAttestationInput, dealDisputesRouter, Doc (+1 more)
 
 ### Community 657 - "all-orders.tsx"
-Cohesion: 0.27
-Nodes (13): AllOrdersPage(), dynamic, dynamic, FinanceOrdersPage(), AllOrders(), ApiOrderList, ORDER_LIST_TABS, orderListQuery() (+5 more)
+Cohesion: 0.32
+Nodes (11): AllOrdersPage(), dynamic, dynamic, FinanceOrdersPage(), AllOrders(), ApiOrderList, ORDER_LIST_TABS, orderListQuery() (+3 more)
 
 ### Community 658 - "13. Appendices: Checklists, Forms and Templates"
 Cohesion: 0.29
 Nodes (7): 13. Appendices: Checklists, Forms and Templates, Appendix A — Kickoff Agenda, Appendix B — Athlete Intake Fields, Appendix C — Campaign Brief Fields, Appendix D — Monthly Status Report, Appendix E — Change Control, Appendix F — Closeout Checklist
 
 ### Community 659 - "matching-compare.tsx"
-Cohesion: 0.09
-Nodes (44): CloseIcon(), cx(), FactorBar(), MARGIN_TEXT, MarginValue(), ProvenanceMark(), ScoreCell(), STATUS_DOT (+36 more)
+Cohesion: 0.10
+Nodes (36): CloseIcon(), cx(), FactorBar(), MARGIN_TEXT, MarginValue(), ProvenanceMark(), ScoreCell(), STATUS_DOT (+28 more)
 
 ### Community 660 - "`P2-BE-02` — the full Prisma schema and initial migration"
 Cohesion: 0.40
@@ -3367,9 +3366,9 @@ Nodes (5): A bug in the guide, Added beyond §03, from decisions taken since it 
 Cohesion: 0.25
 Nodes (7): 2026-11-12, Landing page, looked at by hand after the second walk (HeckerCreatives), Live QA walk of every frontend page (HeckerCreatives), POL-FE-39 and POL-FE-40 (HeckerCreatives), on `fix/POL-FE-39-40-clean-pass`, Second QA walk: every page plus everything that opens on it (HeckerCreatives), Tester support message, and the support and help desk plan (rcfworks), Wrap-up
 
-### Community 662 - "redeemToken"
-Cohesion: 0.15
-Nodes (12): ClaimFirstError, countRefusedRedeem(), recordClaim(), redeemToken(), refusal(), reserveUnit(), RewardExhaustedError, RewardExpiredError (+4 more)
+### Community 662 - "export-report.tsx"
+Cohesion: 0.20
+Nodes (9): ExportPayload, Format, FORMATS, AdminAnalyticsReport, CampaignResultsReport, AthleteEarningsReport, ReportFunnel, ReportKpi (+1 more)
 
 ### Community 663 - "6. Sponsor Packages"
 Cohesion: 0.33
@@ -3379,9 +3378,9 @@ Nodes (6): 6. Sponsor Packages, GROWTH — $2,500, IMPACT — $5,000, PREMIER �
 Cohesion: 0.20
 Nodes (14): mayContact(), AlreadyRedeemedError, assertUsable(), claimInTx(), claimOnCode(), claimThroughShared(), contextFor(), failFast() (+6 more)
 
-### Community 665 - "property-intelligence.ts"
-Cohesion: 0.17
-Nodes (14): categoryFit(), Factor, FIT_BASE, FIT_FULL_SALES, FIT_LISTED, FIT_SOLD, PAST_PAYMENT, pct() (+6 more)
+### Community 665 - "campaigns.list.test.ts"
+Cohesion: 0.20
+Nodes (6): args, athlete, base, ROW, rows, sponsor
 
 ### Community 666 - "user-menu.tsx"
 Cohesion: 0.19
@@ -3392,8 +3391,8 @@ Cohesion: 0.50
 Nodes (4): Promotion, when it comes, The spine was built in the wrong environment, and rebuilt in staging, Two Railway facts worth carrying forward, Where the spine lives now
 
 ### Community 668 - "domain/csp-report.ts"
-Cohesion: 0.20
-Nodes (11): CspViolation, directiveOf(), lineOf(), parseCspReports(), recordCspReports(), redactReportUrl(), cspReportRouter, reportBody (+3 more)
+Cohesion: 0.25
+Nodes (9): CspViolation, directiveOf(), lineOf(), parseCspReports(), recordCspReports(), redactReportUrl(), limits, REPORT_TO (+1 more)
 
 ### Community 669 - "7. Sponsor Outreach and Campaign Activation"
 Cohesion: 0.40
@@ -3442,10 +3441,6 @@ Nodes (4): actor, auditRows, deliverables, updates
 ### Community 680 - "fan-pii.test.ts"
 Cohesion: 0.40
 Nodes (5): files, LEAD_READERS, read(), repoRoot, rewardEventCalls()
-
-### Community 681 - "domain/earning.ts"
-Cohesion: 0.06
-Nodes (40): autoApproveEarning(), EARNING_AUDIT_ACTIONS, EarningBreakdown, EarningWorkNotVerifiedError, OrderNotEarningEligibleError, HolderChange, Tx, wasDetached() (+32 more)
 
 ### Community 682 - "8. QR Reward & Fan Commerce Engine"
 Cohesion: 0.50
@@ -3567,9 +3562,9 @@ Nodes (15): 2026-11-18 · tasks completed, 2S4-BE-15 and 2S4-BE-17 — Deal Chat
 Cohesion: 0.18
 Nodes (10): build, builder, watchPatterns, deploy, healthcheckPath, healthcheckTimeout, restartPolicyMaxRetries, restartPolicyType (+2 more)
 
-### Community 723 - "athlete-lists.paged.test.ts"
-Cohesion: 0.15
-Nodes (9): Args, athlete, base, Call, calls, DEFAULTS, guardian, impl (+1 more)
+### Community 723 - "earnings.list.test.ts"
+Cohesion: 0.20
+Nodes (7): admin, athlete, base, campaignMgr, finance, invoices, rows
 
 ### Community 724 - "2026-10-30 — tasks completed"
 Cohesion: 0.14
@@ -3579,9 +3574,9 @@ Nodes (13): 2026-10-30 — tasks completed, Batch 2 of the polish frontend lande
 Cohesion: 0.18
 Nodes (11): 3S2-FE-01 · Pricing intelligence panel — `/admin/intelligence/pricing`, 3S3-FE-01 · Sponsor match explorer — `/admin/intelligence/matching`, 3S4-FE-01 · Campaign forecast dashboard — `/admin/intelligence/forecasts`, 3S5-FE-01 · Make-good recommendation centre — `/admin/intelligence/make-goods`, 3S6-FE-01 · Attribution dashboard — `/admin/intelligence/attribution`, 3S7-FE-01 · Sponsor intelligence hub — `/sponsor/intelligence`, 3S7-FE-02 · Property intelligence hub — `/property/intelligence`, 3S7-FE-03 · Scenario planner — `/admin/intelligence/scenarios` (+3 more)
 
-### Community 726 - "secret-scan.mjs"
-Cohesion: 0.07
-Nodes (24): config, LOCAL_WEB_ORIGINS, originOf(), proxy, skew, webAuthorizedParties(), APP, advisories() (+16 more)
+### Community 726 - "phase2-purchase.test.ts"
+Cohesion: 0.06
+Nodes (21): MONEY_MODULES, READ_ONLY, clean(), tenantsInPlay(), advisories(), audit(), evaluate(), main() (+13 more)
 
 ### Community 727 - "20260930090000_payouts/migration.sql"
 Cohesion: 0.50
@@ -3591,25 +3586,25 @@ Nodes (4): "PaymentAttempt", "Payout", "PayoutAccount", "PayoutLine"
 Cohesion: 0.16
 Nodes (9): authorizedPartiesFrom(), LOCAL_WEB_ORIGINS, toOrigin(), b64(), BASE_ENV, PEM, { privateKey, publicKey }, request() (+1 more)
 
-### Community 729 - "@playwright/test"
-Cohesion: 0.18
-Nodes (5): PAGES, Watch, API_PORT, PORT, @playwright/test
+### Community 729 - "proxy.ts"
+Cohesion: 0.24
+Nodes (7): config, LOCAL_WEB_ORIGINS, originOf(), proxy, skew, webAuthorizedParties(), APP
 
 ### Community 730 - "SponsorX INFINEX World Contract"
 Cohesion: 0.22
 Nodes (9): 1 · Any engine, 2 · Environments, 3 · Stable IDs, 4 · Players and sessions: anonymous only, 5 · Who may call SponsorX, 6 · What SponsorX promises a world, 7 · What Phase 6 adds, 8 · Approval (+1 more)
 
 ### Community 731 - "earning-state.ts"
-Cohesion: 0.22
-Nodes (10): EarningImmutableError, canTransitionEarning(), EARNING_STATES, EarningState, IllegalEarningTransitionError, isEarningMutable(), legalEarningTransitions(), MUTABLE_EARNING_STATES (+2 more)
+Cohesion: 0.24
+Nodes (9): canTransitionEarning(), EARNING_STATES, EarningState, IllegalEarningTransitionError, isEarningMutable(), legalEarningTransitions(), MUTABLE_EARNING_STATES, TRANSITIONS (+1 more)
 
 ### Community 732 - "Testing SponsorX on staging"
 Cohesion: 0.40
 Nodes (4): Desks that stay empty unless you fill them, Staff accounts come from the Tester Facility, Testing SponsorX on staging, Things that are true on staging but not in production
 
-### Community 733 - "notify-invitation.mts"
-Cohesion: 0.24
-Nodes (11): expireInvitations(), ExpiryOutcome, buildInvitationEmail(), firstOf(), handleInvitationSent(), InvitationJob, InvitationNotifyOutcome, invitationRecipients() (+3 more)
+### Community 733 - "pg"
+Cohesion: 0.07
+Nodes (26): db, sql, backend, fromMigrations, Snapshot, withSqlApplied, remindDueDeliverables(), REMINDER_WINDOWS (+18 more)
 
 ### Community 734 - "2026-11-17 · tasks completed"
 Cohesion: 0.13
@@ -3655,9 +3650,9 @@ Nodes (4): Format, and why, `P0-ART-01` and `P0-ART-02` — the two §38 diagram
 Cohesion: 0.67
 Nodes (3): 3 · Identity and tenancy, `tenant`, `user` · `role assignment`
 
-### Community 843 - "account-closure-impact.ts"
-Cohesion: 0.26
-Nodes (11): athleteDeals(), ClosingKind, closureImpact(), Db, describeSales(), first(), LIVE_CAMPAIGN_ORDER_STATES, LIVE_SALE_STATES (+3 more)
+### Community 843 - "rights-ledger.read.test.ts"
+Cohesion: 0.22
+Nodes (7): admin, assetFind, base, finance, gapCalls, PRINT, PUBLISH
 
 ### Community 844 - "audit.list.test.ts"
 Cohesion: 0.22
@@ -3667,17 +3662,17 @@ Nodes (6): admin, base, finance, lastArgs, lastWhere, rows
 Cohesion: 0.25
 Nodes (8): scripts, build, city:kit, dev, help:shots, lint, start, test
 
-### Community 846 - "sweepDeliveries"
-Cohesion: 0.24
-Nodes (12): answerReply(), confirmDelivery(), dueBy(), escalate(), escalateOverdue(), escalationWords(), lastDateOf(), lockedSponsorLine() (+4 more)
+### Community 846 - "SponsorX Make-Goods"
+Cohesion: 0.22
+Nodes (9): 1 · The shortfall, 2 · The substitutes (`3S5-BE-01`), 3 · Estimate, equivalency and cost, 4 · What is shown, 5 · Approval by a person (`3S5-BE-02`), 6 · Automatic approval, 7 · When, reads and who, 8 · Where it lives (+1 more)
 
 ### Community 847 - "server.ts"
 Cohesion: 0.25
 Nodes (8): createSocketService(), MAX_CHANNELS, Notice, readBody(), sameSecret(), send(), ServiceConfig, validNotice()
 
-### Community 848 - "attribution-partners-live.ts"
-Cohesion: 0.26
-Nodes (10): AttributionPartners(), Result, AddedPartner, ApiAdapter, ApiPartner, ApiPartnerDesk, mayAddPartner(), PARTNER_ADD_ROLES (+2 more)
+### Community 848 - "app-review-wave6.test.ts"
+Cohesion: 0.14
+Nodes (17): PayoutLinkPage(), AttributionPartners(), Result, AddedPartner, ApiAdapter, ApiPartner, ApiPartnerDesk, mayAddPartner() (+9 more)
 
 ### Community 849 - "briefs.read.test.ts"
 Cohesion: 0.18
@@ -3691,9 +3686,9 @@ Nodes (7): ✅ `3S7-BE-01` · Scenario planning service, ✅ `3S7-BE-02` · Serv
 Cohesion: 0.38
 Nodes (5): resolve(), Resolved, StudentCodeLanding(), STUDENT_CODE_KEY, KeepStudentCode()
 
-### Community 852 - "env.ts"
-Cohesion: 0.02
-Nodes (81): parsed, schema, stripeProblem, env, KINDS, Res, agree(), agreeCards() (+73 more)
+### Community 852 - "hashAgreementBody"
+Cohesion: 0.07
+Nodes (21): canonicaliseAgreementBody(), hashAgreementBody(), env, KINDS, Res, athlete, base, REAL_HASH (+13 more)
 
 ### Community 853 - "resolve-geo.mts"
 Cohesion: 0.27
@@ -3707,13 +3702,13 @@ Nodes (11): 1. The shared wording (all three forms), 2. The section each form ad
 Cohesion: 0.38
 Nodes (8): SENSITIVE_CATEGORIES, catWords(), contentTrust, sensitiveIn(), skipDecision, SkipInput, TRUSTED_DRAFT_COUNT, trusted
 
-### Community 856 - "deliverable-state.ts"
-Cohesion: 0.31
-Nodes (6): DELIVERABLE_STATES, DeliverableState, legalDeliverableTransitions(), REVIEW_STATES, TRANSITIONS, LEGAL
-
-### Community 857 - "completeStandinCheckout"
+### Community 856 - "describedBy"
 Cohesion: 0.33
-Nodes (9): nextChangedAt(), assertStandin(), autoRetry(), completeStandinAccount(), completeStandinCheckout(), recordAccountStatus(), standinDetails(), readStandinToken() (+1 more)
+Nodes (9): Area(), Below(), Box(), ChipOne(), ChipSet(), describedBy(), idOf(), Pick() (+1 more)
+
+### Community 857 - "campaign.ops.test.ts"
+Cohesion: 0.25
+Nodes (6): A, admin, B, C, FUTURE, PAST
 
 ### Community 858 - "The tasks"
 Cohesion: 0.33
@@ -3735,6 +3730,10 @@ Nodes (6): ✅ `3S6-BE-01` · Attribution adapter framework, ✅ `3S6-BE-02` · 
 Cohesion: 0.22
 Nodes (7): port, service, CHANNEL, Pass, PASS_AUDIENCE, PASS_MAX_SECONDS, publicKeyFrom()
 
+### Community 863 - "editions.read.test.ts"
+Cohesion: 0.16
+Nodes (7): assetWhere, editionWhere, admin, base, campaignFind, slots, student
+
 ### Community 864 - "Sprint 8 · Anomaly detection & model admin"
 Cohesion: 0.33
 Nodes (6): ✅ `3S8-BE-01` · Model registry and activation, ✅ `3S8-DATA-01` · Anomaly detection rules, ✅ `3S8-FE-01` · Build the data quality and anomaly console, ✅ `3S8-FE-02` · Build the model and rule administration screen, ✅ `3S8-OPS-01` · Per-tenant feature flags for intelligence, Sprint 8 · Anomaly detection & model admin
@@ -3743,13 +3742,13 @@ Nodes (6): ✅ `3S8-BE-01` · Model registry and activation, ✅ `3S8-DATA-01` �
 Cohesion: 0.20
 Nodes (10): 1. Decisions (owner, 2026-11-19), 2. How it fits together, 3. The pass (option B), 4. Connecting, 5. Every event, 6. One instance, 7. Settings, 8. Rollout — done 2026-11-19 (+2 more)
 
-### Community 866 - "u/[token]/route.ts"
-Cohesion: 0.36
-Nodes (6): escape(), GET(), page(), Params, POST(), supportAddress()
+### Community 866 - "certified-recruiting-card.tsx"
+Cohesion: 0.39
+Nodes (3): CertifiedRecruitingCard(), CERTIFIED_RECRUITING, PARTNER_LINK
 
-### Community 867 - "mySale"
-Cohesion: 0.47
-Nodes (9): cancellationCounts(), mySale(), mySales(), mySalesPage(), namesFor(), refundBases(), refundOf(), sharesFor() (+1 more)
+### Community 867 - "infinex-standin.mts"
+Cohesion: 0.38
+Nodes (6): call(), runStandin(), signedPost(), StandinOptions, StandinResult, TelemetrySummary
 
 ### Community 868 - "Sprint 2 · Dynamic CPM engine"
 Cohesion: 0.40
@@ -3761,7 +3760,7 @@ Nodes (5): ✅ `3S3-BE-01` · Sponsor brief model, ✅ `3S3-BE-02` · Match scor
 
 ### Community 870 - "lib/deal-chat.ts"
 Cohesion: 0.06
-Nodes (87): ChatAvatar(), ChatGlyph, Glyph(), IconButton(), PanelSection(), PATHS, ChatList(), ChatListGhost() (+79 more)
+Nodes (90): ChatPane(), Dialog, done(), Mode, useNow(), ReviewCard(), AgreementDialog(), CallOffDialog() (+82 more)
 
 ### Community 871 - "Sprint 4 · Forecasting & pacing"
 Cohesion: 0.40
@@ -3780,44 +3779,48 @@ Cohesion: 0.42
 Nodes (8): rel(), writeJson(), parseShaderGraph(), preferByToken(), resolve(), roleFromDisplay(), roleFromSuffix(), tokenOf()
 
 ### Community 875 - "admin/campaigns/[id]/page.tsx"
-Cohesion: 0.04
-Nodes (108): CampaignCard(), adminCancelCampaign(), adminCancelImpact(), adminChangeCampaign(), adminChangeImpact(), draftAndSendOrder(), launchCampaignNow(), moveCampaignStage() (+100 more)
+Cohesion: 0.02
+Nodes (156): approved(), CampaignCard(), CampaignsBoard(), Props, SORT_OPTIONS, STAFFING, TAB_ORDER, draftAndSendOrder() (+148 more)
 
 ### Community 876 - "help-tour.tsx"
-Cohesion: 0.33
-Nodes (7): HelpShot(), labelSegments(), Body(), HelpTour(), reduced(), TourStep, ShotEntry
+Cohesion: 0.36
+Nodes (6): HelpShot(), labelSegments(), Body(), HelpTour(), reduced(), TourStep
 
-### Community 877 - "4 · Dimensions"
-Cohesion: 0.22
-Nodes (9): 4 · Dimensions, `dim_athlete` — type 2, `dim_campaign` — type 1, `dim_channel` — type 1, static, `dim_date` — type 1, static, `dim_inventory` — type 1 with version, `dim_market` — type 1, `dim_property` — type 2 (+1 more)
+### Community 877 - "public-network-stats.ts"
+Cohesion: 0.29
+Nodes (4): BOOKABLE_ATHLETE_STATES, PublicNetworkStats, readPublicNetworkStats(), calls
 
 ### Community 878 - "deliverables.read.test.ts"
 Cohesion: 0.25
 Nodes (5): athlete, audits, grants, listArgs, rows
 
 ### Community 879 - "main_development pulled; every startable frontend task built (HeckerCreatives) — Code review"
-Cohesion: 0.22
-Nodes (8): 2026-11-20 · tasks completed, 2S4-FE-10 · Deal Chat on the socket service, For rcfworks / the owner, main_development pulled; every startable frontend task built (HeckerCreatives) — Code review, P9-FE-13 · file picker on the rights page's "Add content", P9-FE-14 · pictures, video, ads and the cover in the public reader, P9-FE-15 · cover and press PDF on the editions page, P9-FE-16 · the production board
+Cohesion: 0.18
+Nodes (10): 2026-11-20 · tasks completed, 2S4-FE-10 · Deal Chat on the socket service, For rcfworks / the owner, For rcfworks / the owner, main_development pulled; every startable frontend task built (HeckerCreatives) — Code review, P9-FE-13 · file picker on the rights page's "Add content", P9-FE-14 · pictures, video, ads and the cover in the public reader, P9-FE-15 · cover and press PDF on the editions page (+2 more)
 
 ### Community 881 - "socketservice.test.ts"
 Cohesion: 0.28
 Nodes (7): checkPass(), PassError, admit(), SOCKET_PATH, other, { privateKey, publicKey }, SECRET
 
-### Community 882 - "backend/eslint.config.mjs"
-Cohesion: 0.32
-Nodes (5): prismaSelectFor(), prismaSelectRule, eslintConfig, @eslint/js, typescript-eslint
+### Community 882 - "pmo02-link-lifetimes.test.ts"
+Cohesion: 0.29
+Nodes (4): EXPIRED, limits, T0, VALID
 
 ### Community 883 - "zoho-backfill.mts"
 Cohesion: 0.29
 Nodes (6): allowed, args, modules, BackfillModule, BackfillNeedsConfirmationError, requestBackfill()
 
-### Community 884 - "resolveIssue"
-Cohesion: 0.36
-Nodes (8): assertDesk(), deliveryIssue(), deliveryIssues(), deliveryIssuesPage(), holdFor(), remindSeller(), resolveIssue(), settledWords()
-
-### Community 886 - "Sprint 7 · Game reporting and operations"
+### Community 884 - "sponsor-field-authz.test.ts"
 Cohesion: 0.29
-Nodes (7): ⏸ `6S7-DATA-01` · Cross-channel aggregation without double counting, ⏸ `6S7-DATA-02` · Virtual fraud and anomaly checks, ⏸ `6S7-FE-01` · Build the cross-channel campaign dashboard, ⏸ `6S7-FE-02` · Build the sponsor activation report, ⏸ `6S7-FE-03` · Build the world heatmap and zone insights, ⏸ `6S7-FE-04` · Build the INFINEX operations console, Sprint 7 · Game reporting and operations
+Nodes (4): ID, PARAM_FOR, PAY, SPONSORS
+
+### Community 885 - "team.paged.test.ts"
+Cohesion: 0.29
+Nodes (5): athletes, calls, items, pm, req
+
+### Community 886 - "SponsorX Forecasting and Pacing"
+Cohesion: 0.29
+Nodes (7): 1 · The guarantee, 2 · Pacing (`3S4-DATA-01`), 3 · The forecast (`3S4-BE-01`), 4 · Risk, reasons and actions (`3S4-BE-02`), 5 · When, reads and who, 6 · Where it lives, SponsorX Forecasting and Pacing
 
 ### Community 887 - "8 · Audit of the current labels"
 Cohesion: 0.25
@@ -3833,19 +3836,19 @@ Nodes (8): 3.1 `/admin` — Operations Board (fixture only), 3.2 `/admin/analyti
 
 ### Community 890 - "ops-activity-chart.tsx"
 Cohesion: 0.12
-Nodes (21): H(), fmtDay(), Legend(), n(), OpsActivityChart(), Point, TipRow(), fmtDay() (+13 more)
+Nodes (21): fmtDay(), Legend(), n(), OpsActivityChart(), Point, TipRow(), fmtDay(), Metric (+13 more)
 
-### Community 891 - "AdminRewardsPage"
-Cohesion: 0.43
-Nodes (8): campaignAthletesAction(), createRewardAction(), moveRewardAction(), newStaffCodeAction(), qrLinkAction(), reason(), rewardDetailAction(), AdminRewardsPage()
+### Community 891 - "1 · Sponsor portal"
+Cohesion: 0.29
+Nodes (7): 1.1 `/sponsor` — dashboard (live), 1.2 `/sponsor/campaigns/[id]/report` — ROI report (live), 1.3 `/sponsor/campaigns` — list (fixture only), 1.4 `/sponsor/campaigns/[id]` — campaign page (fixture only), 1.5 `/sponsor/marketplace` (live) and `/sponsor/marketplace/[jobId]` (fixture only), 1.6 Sponsor portal chrome, 1 · Sponsor portal
 
 ### Community 892 - "sponsor-fan-reward.tsx"
-Cohesion: 0.39
-Nodes (6): rewardQrUrlAction(), QrLinkButton(), day(), read(), SponsorFanReward(), ApiReward
+Cohesion: 0.60
+Nodes (4): day(), read(), SponsorFanReward(), ApiReward
 
-### Community 893 - "webhook-retention.ts"
-Cohesion: 0.38
-Nodes (6): FINISHED, idsOnly(), scalar(), trimZohoWebhookBodies(), ZOHO_SOURCES, ZOHO_WEBHOOK_BODY_RETENTION_DAYS
+### Community 893 - "home-featured.route.test.ts"
+Cohesion: 0.40
+Nodes (5): call(), Layer, limit, read, route()
 
 ### Community 894 - "2 · The five labels"
 Cohesion: 0.29
@@ -3859,41 +3862,37 @@ Nodes (3): drain(), Money, settle()
 Cohesion: 0.29
 Nodes (6): 1. Athlete Deliverable Requirements, 2. Content & Usage Rights, 3. Paid Media, 4. Exclusivity / Conflicts, 5. Compensation & Payment, 6. Athlete Acceptance
 
-### Community 897 - "brief-auto.test.ts"
+### Community 897 - "public-network-stats.route.test.ts"
 Cohesion: 0.40
-Nodes (4): Actor, athlete(), seed(), Submitted
+Nodes (5): call(), Layer, limit, read, route()
 
-### Community 898 - "sql-rules-in-migrations.test.ts"
-Cohesion: 0.33
-Nodes (4): backend, fromMigrations, Snapshot, withSqlApplied
+### Community 898 - "undoRedeem"
+Cohesion: 0.40
+Nodes (3): NothingToUndoError, undoRedeem(), UndoWindowClosedError
 
-### Community 899 - "The tasks"
-Cohesion: 0.33
-Nodes (6): ⏸ `6S2-PMO-01` · Calibrate virtual pricing against real traffic, ⏸ `6S2-PMO-02` · Pilot sponsor UAT, ⏸ `6S2-QA-01` · Telemetry validation against the pilot world, Phase acceptance criteria, Sprint 2 · Pilot world, The tasks
+### Community 899 - "openapi.coverage.test.ts"
+Cohesion: 0.40
+Nodes (4): documented, Layer, mounted, RouterLike
 
-### Community 900 - "Sprint 5 · Viewability, metrics and pricing"
-Cohesion: 0.33
-Nodes (6): ⏸ `6S5-BE-01` · Viewability rule engine, ⏸ `6S5-BE-02` · Virtual pricing model, ⏸ `6S5-DATA-01` · Virtual metric aggregation job, ⏸ `6S5-DATA-02` · World traffic benchmarks, ⏸ `6S5-FE-01` · Build the virtual metrics dashboard, Sprint 5 · Viewability, metrics and pricing
+### Community 900 - "4 · Derived and aggregated values — the rules that were missing"
+Cohesion: 0.40
+Nodes (5): 4.1 · A derived value takes the weakest of its inputs, 4.2 · A rollup shows its mix, and falls back to its weakest part, 4.3 · `ATTRIBUTED` propagates upward, 4.4 · The practical consequence, 4 · Derived and aggregated values — the rules that were missing
 
-### Community 901 - "Sprint 6 · In-world activations and rewards"
-Cohesion: 0.33
-Nodes (6): ⏸ `6S6-BE-01` · Activation definition model, ⏸ `6S6-BE-02` · Activation start and complete flow, ⏸ `6S6-BE-03` · Reward trigger with exactly-once guarantee, ⏸ `6S6-FE-01` · Build the activation builder, ⏸ `6S6-INT-01` · Wire in-world rewards to the wallet service, Sprint 6 · In-world activations and rewards
+### Community 901 - "qs"
+Cohesion: 0.40
+Nodes (5): ModelsView(), Registry(), qs(), pickModel(), registryKpis()
 
 ### Community 902 - ""OrderLineDelivery""
 Cohesion: 0.40
 Nodes (3): "OrderLineDelivery", "TeamInvitation", "DeliveryIssue"
 
-### Community 903 - "4 · Business and operational events"
-Cohesion: 0.33
-Nodes (6): 4 · Business and operational events, E · Domain changes — `AuditLog`, F · Money movements, G · Inbound provider events, H · Background work — `OutboxJob`, pg-boss and sweeps, I · Transactional email — `EmailSendLog`
+### Community 903 - "momentLabel"
+Cohesion: 0.50
+Nodes (4): ReconciliationCard(), IntelDeskHeader(), KpiTile(), momentLabel()
 
-### Community 904 - "Sprint 1 · Game connector"
-Cohesion: 0.40
-Nodes (5): ⏸ `6S1-INT-01` · INFINEX client manifest consumption, ⏸ `6S1-INT-02` · Game heartbeat, ⏸ `6S1-INT-03` · Game reads its configuration, ⏸ `6S1-QA-01` · Staging world placement test, Sprint 1 · Game connector
-
-### Community 905 - "Sprint 4 · Telemetry at scale"
-Cohesion: 0.40
-Nodes (5): ⏸ `6S4-BE-01` · Idempotent de-duplication, ⏸ `6S4-OPS-01` · Event streaming and buffering, ⏸ `6S4-OPS-02` · Load test event ingestion and dashboards, ⏸ `6S4-PMO-01` · Estimate telemetry volume and cost, Sprint 4 · Telemetry at scale
+### Community 904 - "InsightCarousel"
+Cohesion: 0.80
+Nodes (5): InsightCarousel(), nudge(), onScroll(), slideTo(), stepSize()
 
 ### Community 906 - "25 · Phase 2 · refunds to send *(added 2026-10-02)*"
 Cohesion: 0.50
@@ -3915,53 +3914,41 @@ Nodes (5): devDependencies, socket.io-client, @types/node, typescript, vitest
 Cohesion: 0.40
 Nodes (5): scripts, build, dev, start, test
 
-### Community 921 - "5 · `fact_campaign_daily`"
-Cohesion: 0.33
-Nodes (6): 5 · `fact_campaign_daily`, Activity dating, in one sentence, Keys, Measures — delivery and performance, Measures — fan funnel, Measures — money (cents)
+### Community 921 - "admin-network.test.ts"
+Cohesion: 0.50
+Nodes (3): HEALTH_EMPTY, NETWORK, vars
 
 ### Community 922 - "admin-access.ts"
-Cohesion: 0.53
-Nodes (4): accessFor(), ADMIN_ACCESS, ADMIN_PORTAL_ROLES, mayUse()
-
-### Community 924 - "setup-test-db.mjs"
-Cohesion: 0.33
-Nodes (4): files, ROOT, sqlDir, TEST_URL
-
-### Community 925 - "campaign-live-mail.ts"
-Cohesion: 0.50
-Nodes (4): CampaignLiveOutcome, firstOf(), notifyCampaignLive(), Recipient
+Cohesion: 0.18
+Nodes (15): AttachmentLink, openAttachmentAction(), OpenAttachment(), accessFor(), ADMIN_ACCESS, ADMIN_PORTAL_ROLES, mayUse(), ApiSupportAttachment (+7 more)
 
 ### Community 927 - "scout-stage.tsx"
 Cohesion: 0.50
 Nodes (4): flowSteps(), HowItWorksButton(), at(), ScoutHeader()
-
-### Community 928 - "content-ready-note.test.ts"
-Cohesion: 0.40
-Nodes (3): CONTENT_READY_NOTE_MS, actions, controls
 
 ## Ambiguous Edges - Review These
 - `SponsorX Plain English Explainer (HTML)` → `BTG SponsorX System Overview Plain English (docx)`  [AMBIGUOUS]
   documentation/SponsorX-Plain-English-Explainer.html · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **8129 isolated node(s):** `name`, `version`, `private`, `type`, `dev` (+8124 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 9930 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **94 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **8162 isolated node(s):** `name`, `version`, `private`, `type`, `dev` (+8157 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 9966 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **96 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **What is the exact relationship between `SponsorX Plain English Explainer (HTML)` and `BTG SponsorX System Overview Plain English (docx)`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
-- **Why does `react` connect `react` to `cart/actions.ts`, `(treasury)/page.tsx`, `sponsor-campaign-builder.tsx`, `marketplace-catalog.tsx`, `about-stage.tsx`, `deal-dispute-desk.tsx`, `sponsor/campaigns/[id]/page.tsx`, `signups-desk.tsx`, `fixtures.ts`, `onboarding-live.ts`, `api.ts`, `brief-request-drawer.tsx`, `admin/next/actions.ts`, `content-checks-live.test.ts`, `student-assignments.tsx`, `admin-offers-live.ts`, `apiFetch`, `campaigns/new/page.tsx`, `venue-utils.ts`, `sponsor-account-live.ts`, `rewards-desk.tsx`, `payments/actions.ts`, `deliverables-live.ts`, `profile-wizard.tsx`, `[campaignId]/page.tsx`, `useDialogFocus`, `payouts-live.ts`, `scenario-planner.tsx`, `publicApi`, `orders-board.tsx`, `ops-skeleton.tsx`, `models-live.ts`, `shop-live.ts`, `city-scene.tsx`, `account-settings.tsx`, `contact-stage.tsx`, `approvals-desk.tsx`, `commission-rule-dialog.tsx`, `campaign-change-live.ts`, `cart-board.tsx`, `next-about-stage.tsx`, `next-apply-wizard.tsx`, `property-profile-live.ts`, `forecast-live.ts`, `attribution-live.ts`, `packages-stage.tsx`, `edition-artwork.tsx`, `live-rewards-desk.tsx`, `sponsor-request/actions.ts`, `sponsor-requests-live.ts`, `sale-page.tsx`, `order-payment-live.ts`, `chat-dock.tsx`, `site-chrome.tsx`, `rules-board.tsx`, `confirmations-live.ts`, `ops-dash.tsx`, `athlete-rates-live.ts`, `sponsor/intelligence/page.tsx`, `application-edit-form.tsx`, `checkout-wizard.tsx`, `athlete-game-plan.tsx`, `portal-shell.tsx`, `join-stage.tsx`, `city-backdrop.tsx`, `home-feature-panel.tsx`, `money-board.tsx`, `closed-accounts-live.ts`, `inventory-live.ts`, `guardian-live.ts`, `journey-strip.tsx`, `brief-wizard.tsx`, `landing-sponsors.tsx`, `how-it-works-stage.tsx`, `org-documents.tsx`, `landing-hero.tsx`, `ops-stage.tsx`, `sponsor-team.tsx`, `flight.ts`, `seller-orders.tsx`, `live-profile-editor.tsx`, `matching-studio.tsx`, `join-wizard.tsx`, `order-automation-live.ts`, `contact-form.tsx`, `login-stage.tsx`, `matching-compare.tsx`, `all-orders.tsx`, `restricted-words/page.tsx`, `deal-live.test.ts`, `live-reader.tsx`, `user-menu.tsx`, `students-live.ts`, `onboarding/[id]/page.tsx`, `inventory-shop.tsx`, `offer-live.ts`, `pricing-live.ts`, `page-transition.tsx`, `search.ts`, `edgeHeadersFrom`, `frontend/package.json`, `textParam`, `sponsor/orders/[id]/page.tsx`, `finance/payouts/page.tsx`, `team-invite-panel.tsx`, `support-inbox-live.ts`, `react-dom`, `server-pager.tsx`, `roster/actions.ts`, `marketplace-ops-live.ts`, `property-listing-form.tsx`, `applications-desk.tsx`, `date-range-picker.tsx`, `export-report.tsx`, `athlete-public-page.tsx`, `brief-actions.ts`, `(treasury)/actions.ts`, `rules/page.tsx`, `landing-athletes.tsx`, `approvals/actions.ts`, `listing-desk.tsx`, `sponsor-order-delivery.tsx`, `order-details.ts`, `dayOf`, `new-signups-live.ts`, `attribution-partners-live.ts`, `[code]/page.tsx`, `delivery-issues-live.ts`, `hero-fx.tsx`, `branding/actions.ts`, `lib/deal-chat.ts`, `edition-content.tsx`, `(board)/page.tsx`, `admin/campaigns/[id]/page.tsx`, `help-tour.tsx`, `shop-window.tsx`, `next-setup.tsx`, `ops-activity-chart.tsx`, `sponsor-fan-reward.tsx`, `analytics-story.tsx`, `edition-files-live.ts`, `get-started-stage.tsx`, `money-lists.tsx`, `anomalies/page.tsx`, `scout-stage.tsx`, `seller-problem-answer.tsx`, `server/payouts.ts`, `team-leave.tsx`, `insight-banner.tsx`?**
-  _High betweenness centrality (0.116) - this node is a cross-community bridge._
-- **Why does `apiFetch()` connect `apiFetch` to `cart/actions.ts`, `(treasury)/page.tsx`, `sponsor-campaign-builder.tsx`, `marketplace-catalog.tsx`, `deal-dispute-desk.tsx`, `sponsor/campaigns/[id]/page.tsx`, `fixtures.ts`, `onboarding-live.ts`, `api.ts`, `brief-request-drawer.tsx`, `admin/next/actions.ts`, `student-assignments.tsx`, `admin-offers-live.ts`, `campaigns/new/page.tsx`, `commission/page.tsx`, `sponsor-account-live.ts`, `athlete/listings/[id]/page.tsx`, `payments/actions.ts`, `deliverables-live.ts`, `profile-wizard.tsx`, `useDialogFocus`, `payouts-live.ts`, `publicApi`, `shop-live.ts`, `account-settings.tsx`, `property-p2-live.ts`, `commission-rule-dialog.tsx`, `property-profile-live.ts`, `attribution-live.ts`, `live-rewards-desk.tsx`, `sponsor-requests-live.ts`, `confirmations-live.ts`, `athlete/team/page.tsx`, `athlete-rates-live.ts`, `sponsor/intelligence/page.tsx`, `athlete/listings/[id]/preview/page.tsx`, `athlete-game-plan.tsx`, `portal-shell.tsx`, `home-feature-panel.tsx`, `closed-accounts-live.ts`, `inventory-live.ts`, `org-documents.tsx`, `sponsor-team.tsx`, `seller-orders.tsx`, `live-profile-editor.tsx`, `matching-studio.tsx`, `all-orders.tsx`, `restricted-words/page.tsx`, `applications-live.ts`, `students-live.ts`, `onboarding/[id]/page.tsx`, `react`, `offer-live.ts`, `textParam`, `sponsor/orders/[id]/page.tsx`, `finance/payouts/page.tsx`, `team-invite-panel.tsx`, `support-inbox-live.ts`, `server-pager.tsx`, `roster/actions.ts`, `marketplace-ops-live.ts`, `server/deal-chat.ts`, `property-listing-form.tsx`, `athlete-listings-live.ts`, `integrations/page.tsx`, `athlete-public-page.tsx`, `brief-actions.ts`, `reward/page.tsx`, `(treasury)/actions.ts`, `rules/page.tsx`, `approvals/actions.ts`, `listing-desk.tsx`, `sponsor-order-delivery.tsx`, `dayOf`, `deal-chat-actions.ts`, `delivery-issues-live.ts`, `branding/actions.ts`, `edition-content.tsx`, `(board)/page.tsx`, `admin/campaigns/[id]/page.tsx`, `next-setup.tsx`, `AdminRewardsPage`, `sponsor-fan-reward.tsx`, `edition-files-live.ts`, `seller-problem-answer.tsx`, `server/payouts.ts`, `team-leave.tsx`?**
-  _High betweenness centrality (0.047) - this node is a cross-community bridge._
-- **Why does `Actor` connect `client.ts` to `restrictions.ts`, `v1/intelligence.ts`, `rewards.read.test.ts`, `storage.ts`, `domain/reward.ts`, `domain/property-profile.ts`, `forecast-engine.ts`, `domain/sponsor-account.ts`, `deliverables.paged.test.ts`, `domain/guardian-handoff.ts`, `earnings.paged.test.ts`, `domain/edition.ts`, `offer.ts`, `campaign-stages.ts`, `domain/delivery.ts`, `auto-staffing.ts`, `whereFor`, `pricing-engine.ts`, `property-intelligence.ts`, `applications.paged.test.ts`, `listing.ts`, `domain/student-assignment.ts`, `model-admin.ts`, `assertAllowed`, `domain/deliverable.ts`, `domain/catalogue.ts`, `makegood-engine.ts`, `signups-desk.ts`, `account-closure.ts`, `order-details-rules.ts`, `domain/earning.ts`, `domain/onboarding.ts`, `domain/sponsor-team.ts`, `match-engine.ts`, `rewards.list.paged.test.ts`, `v1/index.ts`, `domain/matching.ts`, `brief.ts`, `anomaly-engine.ts`, `margin-floor.ts`, `domain/edition-artwork.ts`, `audit`, `signups-stream.ts`, `domain/payouts.ts`, `next-lists.paged.test.ts`, `audit.list.test.ts`, `offer-draft.ts`, `registry.ts`, `send`, `briefs.read.test.ts`, `athlete-lists.paged.test.ts`, `env.ts`, `deliverable.chain.test.ts`, `system-health.ts`, `v1/rights.ts`, `domain/sponsor-requests.ts`, `pol-fe-51-sponsor-staffing.test.ts`, `backend/tests/desk-lists.paged.test.ts`, `domain/student.ts`, `domain/payment-events.ts`, `deliverables.read.test.ts`, `feature-snapshots.ts`, `age-of-majority.ts`, `scenario-engine.ts`, `applications.ts`?**
+- **Why does `react` connect `react` to `(treasury)/page.tsx`, `sponsor-campaign-builder.tsx`, `document-checks-live.ts`, `about-stage.tsx`, `deal-dispute-desk.tsx`, `sponsor/campaigns/[id]/page.tsx`, `signups-desk.tsx`, `fixtures.ts`, `onboarding-live.ts`, `apiFetch`, `brief-request-drawer.tsx`, `admin/next/actions.ts`, `content-checks-live.test.ts`, `student-assignments-live.ts`, `admin-offers-live.ts`, `venue-utils.ts`, `sponsor-account-live.ts`, `rewards-desk.tsx`, `payments/actions.ts`, `deliverables-live.ts`, `profile-wizard.tsx`, `forecast-live.ts`, `guardian-handoffs-desk-live.ts`, `payouts-live.ts`, `publicApi`, `textParam`, `ops-skeleton.tsx`, `shop-live.ts`, `city-scene.tsx`, `contact-stage.tsx`, `approvals-desk.tsx`, `commission-rule-dialog.tsx`, `campaign-change-live.ts`, `cart-board.tsx`, `next-about-stage.tsx`, `next-apply-wizard.tsx`, `property-profile-live.ts`, `production-live.ts`, `attribution-live.ts`, `packages-stage.tsx`, `edition-artwork.tsx`, `live-rewards-desk.tsx`, `sponsor-request/actions.ts`, `sponsor-requests-live.ts`, `order-payment-live.ts`, `chat-dock.tsx`, `site-chrome.tsx`, `rules-board.tsx`, `confirmations-live.ts`, `athlete-rates-live.ts`, `application-edit-form.tsx`, `campaign-builder.tsx`, `checkout-wizard.tsx`, `athlete-game-plan.tsx`, `portal-shell.tsx`, `join-stage.tsx`, `loading.ts`, `home-feature-panel.tsx`, `closed-accounts-live.ts`, `landing-sponsors.tsx`, `inventory-live.ts`, `guardian-live.ts`, `useDialogFocus`, `brief-wizard.tsx`, `matching-studio.tsx`, `how-it-works-stage.tsx`, `landing-hero.tsx`, `ops-stage.tsx`, `sponsor-team.tsx`, `flight.ts`, `athlete/page.tsx`, `live-profile-editor.tsx`, `campaign-requests-desk.tsx`, `join-wizard.tsx`, `contact-form.tsx`, `login-stage.tsx`, `matching-compare.tsx`, `all-orders.tsx`, `restricted-words-live.ts`, `deal-live.test.ts`, `export-report.tsx`, `live-reader.tsx`, `user-menu.tsx`, `live-prospects.tsx`, `onboarding/[id]/page.tsx`, `advisor-profile.tsx`, `offer-live.ts`, `help-home.tsx`, `join/actions.ts`, `page-transition.tsx`, `search.ts`, `edgeHeadersFrom`, `frontend/package.json`, `sponsor/orders/[id]/page.tsx`, `finance/payouts/page.tsx`, `account-closure-live.ts`, `support-inbox-live.ts`, `react-dom`, `match-explorer-live.ts`, `team-invite-panel.tsx`, `roster/actions.ts`, `marketplace-ops-live.ts`, `deal-chat-actions.ts`, `property-listing-form.tsx`, `applications-desk.tsx`, `filter-kit.tsx`, `(board)/page.tsx`, `model-registry.tsx`, `athlete-public-page.tsx`, `brief-actions.ts`, `(treasury)/actions.ts`, `rules/page.tsx`, `landing-athletes.tsx`, `approvals/actions.ts`, `listings-shop.tsx`, `order-details.ts`, `refunds-live.ts`, `new-signups-live.ts`, `app-review-wave6.test.ts`, `[code]/page.tsx`, `hero-fx.tsx`, `branding/actions.ts`, `account-settings.tsx`, `lib/deal-chat.ts`, `edition-content.tsx`, `admin/campaigns/[id]/page.tsx`, `help-tour.tsx`, `shop-window.tsx`, `next-setup.tsx`, `ops-activity-chart.tsx`, `analytics-story.tsx`, `momentLabel`, `edition-files-live.ts`, `athlete-money-shop.ts`, `anomalies/page.tsx`, `admin-access.ts`, `scout-stage.tsx`, `qr-link-button.tsx`, `athlete-home-phase2.test.ts`, `student-assignments.tsx`, `team-leave.tsx`, `charts.tsx`?**
+  _High betweenness centrality (0.133) - this node is a cross-community bridge._
+- **Why does `apiFetch()` connect `apiFetch` to `sponsor-team.tsx`, `(treasury)/page.tsx`, `sponsor-campaign-builder.tsx`, `athlete/page.tsx`, `live-profile-editor.tsx`, `document-checks-live.ts`, `reward/page.tsx`, `deal-dispute-desk.tsx`, `(treasury)/actions.ts`, `react`, `sponsor/campaigns/[id]/page.tsx`, `all-orders.tsx`, `fixtures.ts`, `applications-live.ts`, `rules/page.tsx`, `admin/next/actions.ts`, `admin-access.ts`, `live-prospects.tsx`, `admin-offers-live.ts`, `student-assignments-live.ts`, `briefs-live.ts`, `approvals/actions.ts`, `offers/actions.ts`, `admin/campaigns/[id]/actions.ts`, `commission/page.tsx`, `onboarding/[id]/page.tsx`, `advisor-profile.tsx`, `offer-live.ts`, `sponsor-account-live.ts`, `qr-link-button.tsx`, `athlete/listings/[id]/page.tsx`, `payments/actions.ts`, `deliverables-live.ts`, `listings-shop.tsx`, `forecast-live.ts`, `guardian-handoffs-desk-live.ts`, `payouts-live.ts`, `sponsor/orders/[id]/page.tsx`, `textParam`, `refunds-live.ts`, `shop-live.ts`, `team-leave.tsx`, `finance/payouts/page.tsx`, `athlete/settings/actions.ts`, `team-invite-panel.tsx`, `support-inbox-live.ts`, `react-dom`, `roster/actions.ts`, `marketplace-ops-live.ts`, `deal-chat-actions.ts`, `property-profile-live.ts`, `property-listing-form.tsx`, `attribution-live.ts`, `athlete-listings-live.ts`, `live-rewards-desk.tsx`, `sponsor-requests-live.ts`, `confirmations-live.ts`, `branding/actions.ts`, `integrations/page.tsx`, `athlete/team/page.tsx`, `athlete-rates-live.ts`, `account-settings.tsx`, `brief-actions.ts`, `admin/campaigns/[id]/page.tsx`, `checkout-wizard.tsx`, `lib/deal-chat.ts`, `(board)/page.tsx`, `portal-shell.tsx`, `inventory/actions.ts`, `home-feature-panel.tsx`, `closed-accounts-live.ts`, `shop-window.tsx`, `server/campaign-change.ts`, `useDialogFocus`, `sponsor-fan-reward.tsx`?**
+  _High betweenness centrality (0.030) - this node is a cross-community bridge._
+- **Why does `audit()` connect `audit` to `undoRedeem`, `domain/support.ts`, `domain/reward.ts`, `domain/sponsor-account.ts`, `forecast-rules.ts`, `virtual-registry.ts`, `domain/guardian-handoff.ts`, `domain/edition.ts`, `deliverables.ts`, `db/audit.ts`, `prisma`, `domain/delivery.ts`, `whereFor`, `pricing-engine.ts`, `zoho-sync.ts`, `listing.ts`, `domain/student-assignment.ts`, `model-admin.ts`, `domain/deliverable.ts`, `makegood-engine.ts`, `index.mts`, `send`, `account-closure.ts`, `domain/onboarding.ts`, `domain/sponsor-team.ts`, `match-engine.ts`, `v1/campaigns.ts`, `edition-pictures.ts`, `campaign-order.ts`, `link-renewal.ts`, `attribution-intake.ts`, `brief-auto.ts`, `v1/infinex.ts`, `domain/home-featured.ts`, `virtual-bookings.ts`, `virtual-creative.ts`, `actor.ts`, `domain/sponsor-requests.ts`, `domain/student.ts`, `commission.ts`, `client.ts`, `cohort-import.ts`?**
   _High betweenness centrality (0.013) - this node is a cross-community bridge._
 - **What connects `name`, `version`, `private` to the rest of the system?**
-  _8129 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `restrictions.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.028925619834710745 - nodes in this community are weakly interconnected._
+  _8162 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `(treasury)/page.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.029354207436399216 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.023153942428035045 - nodes in this community are weakly interconnected._
+- **Should `sponsor-campaign-builder.tsx` be split into smaller, more focused modules?**
+  _Cohesion score 0.043406593406593405 - nodes in this community are weakly interconnected._

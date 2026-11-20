@@ -1260,9 +1260,9 @@
     "semantic_hash": ""
   },
   "backend/src/contracts/campaign.ts": {
-    "mtime": 1795133641.748006,
-    "seen": 1795136715.7822413,
-    "ast_hash": "7eea63dc273bbe1c2b0b0266022f9133",
+    "mtime": 1795152540.1379695,
+    "seen": 1795154638.772273,
+    "ast_hash": "5b9066b0721237eb6bc888af7813584c",
     "semantic_hash": ""
   },
   "backend/src/contracts/common.ts": {
@@ -2202,9 +2202,9 @@
     "semantic_hash": ""
   },
   "frontend/src/app/(app)/athlete/profile/edit/page.tsx": {
-    "mtime": 1794808483.399728,
-    "seen": 1794898799.128219,
-    "ast_hash": "96de44b58ff25a612fd48cc7996f0751",
+    "mtime": 1795152946.2293513,
+    "seen": 1795154638.7732732,
+    "ast_hash": "e3992c9471acdc91642486891f9b783e",
     "semantic_hash": ""
   },
   "frontend/src/app/(app)/athlete/profile/page.tsx": {
@@ -2490,9 +2490,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/filter-kit.tsx": {
-    "mtime": 1792057149.721468,
-    "seen": 1793685906.9076867,
-    "ast_hash": "3355ccb89df03e713a50d67fd331cc4d",
+    "mtime": 1795153444.8949833,
+    "seen": 1795154638.7747765,
+    "ast_hash": "bbef66b75fee0ad7f89322603bc8b3d8",
     "semantic_hash": ""
   },
   "frontend/src/components/hero.tsx": {
@@ -2616,9 +2616,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/profile-editor.tsx": {
-    "mtime": 1794808483.5517492,
-    "seen": 1794898799.1297278,
-    "ast_hash": "cc369252d8d3349d06aa47fd6ffa7465",
+    "mtime": 1795152972.9662957,
+    "seen": 1795154638.7747765,
+    "ast_hash": "707a550760d1d874559cadf1b5e46485",
     "semantic_hash": ""
   },
   "frontend/src/components/progress-ring.tsx": {
@@ -3774,9 +3774,9 @@
     "semantic_hash": ""
   },
   "backend/src/contracts/profile-change.ts": {
-    "mtime": 1790916916.6996272,
-    "seen": 1793685906.9046016,
-    "ast_hash": "cbe8687cfffc6508a5c53187fafeb720",
+    "mtime": 1795152425.8739614,
+    "seen": 1795154638.772273,
+    "ast_hash": "548995ebf6298c1f4459c8dc3782eae2",
     "semantic_hash": ""
   },
   "backend/src/contracts/rights.ts": {
@@ -3804,9 +3804,9 @@
     "semantic_hash": ""
   },
   "backend/src/domain/athlete-profile-change.ts": {
-    "mtime": 1794808483.145779,
-    "seen": 1794898799.1262124,
-    "ast_hash": "0ce54c83dc62a910fd71826a8ba0fcad",
+    "mtime": 1795152589.0305543,
+    "seen": 1795154638.772273,
+    "ast_hash": "cfcdc7131503ac2c7015a9de4f6915bc",
     "semantic_hash": ""
   },
   "backend/src/domain/availability.ts": {
@@ -4056,9 +4056,9 @@
     "semantic_hash": "f0bade886d35e09108ac7ef9ffaad134"
   },
   "backend/src/routes/v1/athletes.ts": {
-    "mtime": 1794808483.2131493,
-    "seen": 1794898799.12722,
-    "ast_hash": "f66dc97850cb6a9594865e377815e24d",
+    "mtime": 1795152492.272545,
+    "seen": 1795154638.7732732,
+    "ast_hash": "fc09c0b33b38f42557ef31d1de23a0e1",
     "semantic_hash": ""
   },
   "backend/src/routes/v1/audit.ts": {
@@ -4908,9 +4908,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/live-profile-editor.tsx": {
-    "mtime": 1794808483.5265477,
-    "seen": 1794898799.1297278,
-    "ast_hash": "fd31c276323e1e59621186855b56fdad",
+    "mtime": 1795152936.881259,
+    "seen": 1795154638.7747765,
+    "ast_hash": "222ea04406bc058fd2ae419f0af4cb93",
     "semantic_hash": ""
   },
   "frontend/src/components/live-rewards-desk.tsx": {
@@ -5130,9 +5130,9 @@
     "semantic_hash": ""
   },
   "frontend/src/lib/profile-live.ts": {
-    "mtime": 1794808483.655429,
-    "seen": 1794898799.130285,
-    "ast_hash": "3e4ae8bdc38193d87ca14763765e8034",
+    "mtime": 1795152912.9530208,
+    "seen": 1795154638.7757838,
+    "ast_hash": "acad531898c1c41f72d563b33b30faa3",
     "semantic_hash": ""
   },
   "frontend/src/lib/property-home-live.ts": {
@@ -6936,9 +6936,9 @@
     "semantic_hash": ""
   },
   "backend/tests/phase2-profile-edits.test.ts": {
-    "mtime": 1794808483.273596,
-    "seen": 1794898799.12722,
-    "ast_hash": "75879950f63e13b623f870113bd14daa",
+    "mtime": 1795152650.841138,
+    "seen": 1795154638.7732732,
+    "ast_hash": "072c19d96cc192ed6b37ce3464858932",
     "semantic_hash": ""
   },
   "backend/tests/phase2-restricted-words.test.ts": {
@@ -12870,9 +12870,9 @@
     "semantic_hash": ""
   },
   "documentation/polish.md": {
-    "mtime": 1795136443.1507149,
-    "seen": 1795136715.7862701,
-    "ast_hash": "70337a659eebaf178acac62d1566e981",
+    "mtime": 1795154227.9888742,
+    "seen": 1795154638.7767818,
+    "ast_hash": "91a4e19ee87442ab7258abbb8e216d65",
     "semantic_hash": ""
   },
   "backend/src/domain/account-closure-impact.ts": {
@@ -13122,9 +13122,9 @@
     "semantic_hash": ""
   },
   "frontend/src/app/(app)/sponsor/requests/[id]/request-controls.tsx": {
-    "mtime": 1794808483.4399476,
-    "seen": 1794898799.128219,
-    "ast_hash": "1a0e7602c9c4d384020048afb8ab5900",
+    "mtime": 1795153219.9796717,
+    "seen": 1795154638.7747765,
+    "ast_hash": "10d1ff3e041027b28eb53a14a6643fd7",
     "semantic_hash": ""
   },
   "frontend/src/app/(app)/sponsor/team/actions.ts": {
@@ -13158,9 +13158,9 @@
     "semantic_hash": ""
   },
   "frontend/src/lib/brief-actions.ts": {
-    "mtime": 1794808483.6147048,
-    "seen": 1794898799.1297278,
-    "ast_hash": "9f9f484b8d85593565f498108d6c4982",
+    "mtime": 1795153204.448954,
+    "seen": 1795154638.7747765,
+    "ast_hash": "f9ad4bfddfb71d7a9a67be97f35ef7be",
     "semantic_hash": ""
   },
   "frontend/src/lib/payment-switch-live.ts": {
@@ -13176,9 +13176,9 @@
     "semantic_hash": ""
   },
   "frontend/tests/brief-actions.test.ts": {
-    "mtime": 1794808483.694742,
-    "seen": 1794898799.130285,
-    "ast_hash": "6312af85ec2c7a72d0801bbf50770a04",
+    "mtime": 1795153263.4826207,
+    "seen": 1795154638.7757838,
+    "ast_hash": "64cd5f11e3551db744c412f797cdfd56",
     "semantic_hash": ""
   },
   "frontend/tests/ops-board-queues.test.ts": {
@@ -13290,9 +13290,9 @@
     "semantic_hash": ""
   },
   "graphify-out/converted/SponsorX-Full-Programme-Task-Board_45c6ec3d.md": {
-    "mtime": 1795136569.663081,
-    "seen": 1795136715.7862701,
-    "ast_hash": "2632696caa70b4dad4717d046dcf1335",
+    "mtime": 1795154490.2007227,
+    "seen": 1795154638.7767818,
+    "ast_hash": "2f914a54915198d7a703bbc5d5d54d16",
     "semantic_hash": ""
   },
   "graphify-out/converted/SponsorX-Full-Programme-Task-Board_caf1eea8.md": {
@@ -14106,9 +14106,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/profile-wizard.tsx": {
-    "mtime": 1794808485.8296976,
-    "seen": 1794898799.1297278,
-    "ast_hash": "5bc4f1872f24eab99321163f07ac6140",
+    "mtime": 1795152894.181268,
+    "seen": 1795154638.7747765,
+    "ast_hash": "7ffe58cfc657f6ec1e3a625121dc7122",
     "semantic_hash": ""
   },
   "frontend/src/components/qr-link-button.tsx": {
@@ -14466,9 +14466,9 @@
     "semantic_hash": ""
   },
   "frontend/src/lib/profile-wizard.ts": {
-    "mtime": 1794808485.8332267,
-    "seen": 1794898799.130285,
-    "ast_hash": "33f16eb3fc43ace22742722eeb143f2c",
+    "mtime": 1795152912.9530208,
+    "seen": 1795154638.7757838,
+    "ast_hash": "c11a28aff60498611bbbe04ca522a785",
     "semantic_hash": ""
   },
   "frontend/src/lib/public-athlete.ts": {
@@ -14748,9 +14748,9 @@
     "semantic_hash": ""
   },
   "frontend/tests/profile-wizard.test.ts": {
-    "mtime": 1794808485.8383124,
-    "seen": 1794898799.130285,
-    "ast_hash": "0322c546a8818abe68710b735e692678",
+    "mtime": 1795153395.6235466,
+    "seen": 1795154638.7757838,
+    "ast_hash": "e1d94db0b4245006bec8835f09b22bde",
     "semantic_hash": ""
   },
   "frontend/tests/public-athlete.test.ts": {
@@ -16386,9 +16386,9 @@
     "semantic_hash": ""
   },
   "backend/src/domain/brief-country.ts": {
-    "mtime": 1795047063.2519052,
-    "seen": 1795051030.9855938,
-    "ast_hash": "36b9b88cdd36894a174773c45d8bd037",
+    "mtime": 1795152518.0121467,
+    "seen": 1795154638.772273,
+    "ast_hash": "8b08bf547b133488e52559b37aa26c9e",
     "semantic_hash": ""
   },
   "backend/src/domain/deal-agreement-render.ts": {
@@ -16428,9 +16428,9 @@
     "semantic_hash": ""
   },
   "backend/src/domain/property-profile.ts": {
-    "mtime": 1795047063.2666538,
-    "seen": 1795051030.9855938,
-    "ast_hash": "a4af248a0c96c1b786216684f3fe3575",
+    "mtime": 1795152554.056412,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a703a51d88de814673268f52eadc6e19",
     "semantic_hash": ""
   },
   "backend/src/domain/sponsor-account.ts": {
@@ -16512,9 +16512,9 @@
     "semantic_hash": ""
   },
   "backend/tests/pol-be-104-property-profile.test.ts": {
-    "mtime": 1795047063.2826364,
-    "seen": 1795051030.9865932,
-    "ast_hash": "2876d0a7a403a2a59647e8e030b21949",
+    "mtime": 1795153924.0732617,
+    "seen": 1795154638.7732732,
+    "ast_hash": "74c0eb4b86b054f70d97622d05587128",
     "semantic_hash": ""
   },
   "backend/tests/pol-be-107-brief-country.test.ts": {
@@ -17232,15 +17232,15 @@
     "semantic_hash": ""
   },
   "frontend/src/components/property-profile.tsx": {
-    "mtime": 1795134438.4463656,
-    "seen": 1795136715.7852635,
-    "ast_hash": "e06137e83a718fb4d2adec0888a765d9",
+    "mtime": 1795153002.552088,
+    "seen": 1795154638.7747765,
+    "ast_hash": "6547806173df23c380d2bbee3e9a2792",
     "semantic_hash": ""
   },
   "frontend/src/components/sponsor-campaign-builder.tsx": {
-    "mtime": 1795135974.3834388,
-    "seen": 1795136715.7852635,
-    "ast_hash": "d8c012689a4226383b948ebedd657876",
+    "mtime": 1795153080.5349605,
+    "seen": 1795154638.7747765,
+    "ast_hash": "8c5676b7ad71053e7810396d2f7eeb0e",
     "semantic_hash": ""
   },
   "frontend/src/lib/advisor-profile-live.ts": {
@@ -17250,9 +17250,9 @@
     "semantic_hash": ""
   },
   "frontend/src/lib/campaign-builder.ts": {
-    "mtime": 1795134480.3735054,
-    "seen": 1795136715.7852635,
-    "ast_hash": "6caf0dea5889650cc131d71a8067e773",
+    "mtime": 1795153263.4816194,
+    "seen": 1795154638.7747765,
+    "ast_hash": "ec6740e01798104bb7d69e53754e4c0c",
     "semantic_hash": ""
   },
   "frontend/src/lib/deal-live.ts": {
@@ -17304,9 +17304,9 @@
     "semantic_hash": ""
   },
   "frontend/tests/campaign-builder.test.ts": {
-    "mtime": 1795135654.9637935,
-    "seen": 1795136715.7852635,
-    "ast_hash": "756911d36226ea27356bbbb8ca8643b0",
+    "mtime": 1795153278.5741525,
+    "seen": 1795154638.7757838,
+    "ast_hash": "76c2d461120ac295cd03e7ba0174e57a",
     "semantic_hash": ""
   },
   "frontend/tests/deal-live.test.ts": {
@@ -17346,9 +17346,9 @@
     "semantic_hash": ""
   },
   "Memory/2026-11-20/tasks-completed.md": {
-    "mtime": 1795136530.0141006,
-    "seen": 1795136715.7862701,
-    "ast_hash": "33a9cbdc53062477c422f588b1b98499",
+    "mtime": 1795154452.5571854,
+    "seen": 1795154638.7757838,
+    "ast_hash": "f32fc3b1454924511ce3c9490b50f9ea",
     "semantic_hash": ""
   },
   "backend/agreements/CAMPAIGN_ORDER.v3.txt": {
@@ -17367,6 +17367,1350 @@
     "mtime": 1795136572.671162,
     "seen": 1795136715.7862701,
     "ast_hash": "fda73221a79d2c799bacd795015afbe6",
+    "semantic_hash": ""
+  },
+  "backend/places/places.json": {
+    "mtime": 1795153347.446422,
+    "seen": 1795154638.772273,
+    "ast_hash": "cb1ff4f9f7fad128f1dc18e323607d7d",
+    "semantic_hash": ""
+  },
+  "backend/src/domain/places.ts": {
+    "mtime": 1795152398.2002132,
+    "seen": 1795154638.7732732,
+    "ast_hash": "ebb0f915a5fb193c1b3ecd7b03357415",
+    "semantic_hash": ""
+  },
+  "backend/tests/pol-be-117-places.test.ts": {
+    "mtime": 1795153380.908365,
+    "seen": 1795154638.7732732,
+    "ast_hash": "cc326dc020c9b8a5750782bdd6c75d57",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/BI-BG.json": {
+    "mtime": 1795153347.5071216,
+    "seen": 1795154638.7732732,
+    "ast_hash": "39aa03cc201bb09718d1484788bf67f3",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/BI-BH.json": {
+    "mtime": 1795153347.5071216,
+    "seen": 1795154638.7732732,
+    "ast_hash": "373c1443d0bb1d33acce76c99b08813e",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/BI-BT.json": {
+    "mtime": 1795153347.5071216,
+    "seen": 1795154638.7732732,
+    "ast_hash": "46ee6ffd1842e3a32e34331eb1089e95",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/BI-BU.json": {
+    "mtime": 1795153347.5071216,
+    "seen": 1795154638.7732732,
+    "ast_hash": "064e43001ef0ac898efbc870f2e9b50f",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/BI-GT.json": {
+    "mtime": 1795153347.5081215,
+    "seen": 1795154638.7732732,
+    "ast_hash": "32f9c7b658ac31cde2d166009bbba88f",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-BC.json": {
+    "mtime": 1795153347.5412655,
+    "seen": 1795154638.7732732,
+    "ast_hash": "d31961ac7640484e8142473a07974a60",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-BU.json": {
+    "mtime": 1795153347.5347383,
+    "seen": 1795154638.7732732,
+    "ast_hash": "6205bea12d05fc31c72f9924025f6887",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-EQ.json": {
+    "mtime": 1795153347.5347383,
+    "seen": 1795154638.7732732,
+    "ast_hash": "5a70c090db7c51fbb48ebda39b027414",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-HK.json": {
+    "mtime": 1795153347.5357468,
+    "seen": 1795154638.7732732,
+    "ast_hash": "4d2d9476455c4185889a1757fb0c080a",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-HL.json": {
+    "mtime": 1795153347.5372534,
+    "seen": 1795154638.7732732,
+    "ast_hash": "8c24ab808802e368421fcb6d1910a494",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-HU.json": {
+    "mtime": 1795153347.5372534,
+    "seen": 1795154638.7732732,
+    "ast_hash": "baa9670774c7dcf0b2c6fa76e73772bb",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-IT.json": {
+    "mtime": 1795153347.538261,
+    "seen": 1795154638.7732732,
+    "ast_hash": "2e237fb0afae55cfe3092cc97175ceb7",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-KC.json": {
+    "mtime": 1795153347.53926,
+    "seen": 1795154638.7732732,
+    "ast_hash": "6be86675119690a870bcbab08b535bb1",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-KE.json": {
+    "mtime": 1795153347.5402658,
+    "seen": 1795154638.7732732,
+    "ast_hash": "b09469233d56921b38ce939701744eef",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-KG.json": {
+    "mtime": 1795153347.5422657,
+    "seen": 1795154638.7732732,
+    "ast_hash": "cbaa0a701a5cd3ad080d7936797431ee",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-KL.json": {
+    "mtime": 1795153347.5422657,
+    "seen": 1795154638.7732732,
+    "ast_hash": "6810237c8eaeee40e2db9ab3f93bf87a",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-KN.json": {
+    "mtime": 1795153347.5412655,
+    "seen": 1795154638.7732732,
+    "ast_hash": "b1c52114aab00aef51911bffcb5b5949",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-KS.json": {
+    "mtime": 1795153347.538261,
+    "seen": 1795154638.7732732,
+    "ast_hash": "4d094541a35407d9e9633f3855848160",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-LO.json": {
+    "mtime": 1795153347.5422657,
+    "seen": 1795154638.7732732,
+    "ast_hash": "7ced223da1650406f099595511132dc6",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-LU.json": {
+    "mtime": 1795153347.5432673,
+    "seen": 1795154638.7732732,
+    "ast_hash": "80e1bb63cf25597502771cfdef09970e",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-MA.json": {
+    "mtime": 1795153347.5462685,
+    "seen": 1795154638.7732732,
+    "ast_hash": "0847b1efeda9064c5a612a30a962cd8b",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-MN.json": {
+    "mtime": 1795153347.5452657,
+    "seen": 1795154638.7732732,
+    "ast_hash": "dd871235e81b41de5bbfe9293ba56e7e",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-MO.json": {
+    "mtime": 1795153347.5462685,
+    "seen": 1795154638.7732732,
+    "ast_hash": "24ba7900737ed49a350ce943396cc96c",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-NK.json": {
+    "mtime": 1795153347.547269,
+    "seen": 1795154638.7732732,
+    "ast_hash": "8c7af1d46893f232d89865b950cad4e5",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-NU.json": {
+    "mtime": 1795153347.547269,
+    "seen": 1795154638.7732732,
+    "ast_hash": "7b2a972ab31b06d0e0c8ba227eeb5aeb",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-SA.json": {
+    "mtime": 1795153347.547269,
+    "seen": 1795154638.7732732,
+    "ast_hash": "04fd6992d2f21ed00aaddea57bd68c24",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-SK.json": {
+    "mtime": 1795153347.5482676,
+    "seen": 1795154638.7732732,
+    "ast_hash": "ca7c7991118ced7e15d4962f866412a0",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-SU.json": {
+    "mtime": 1795153347.5482676,
+    "seen": 1795154638.7732732,
+    "ast_hash": "d20f2de42a26a4ddf7ec2260804a418f",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-TA.json": {
+    "mtime": 1795153347.5492673,
+    "seen": 1795154638.7732732,
+    "ast_hash": "22be3c611ff58f9ad3fe7b8a2f41a7fd",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-TO.json": {
+    "mtime": 1795153347.5492673,
+    "seen": 1795154638.7732732,
+    "ast_hash": "7771f7d7318462ca96fc4f58705fbeda",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/CD-TU.json": {
+    "mtime": 1795153347.5502696,
+    "seen": 1795154638.7732732,
+    "ast_hash": "461adedc1eb43928c0b85b6ef4c86702",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/ET-AA.json": {
+    "mtime": 1795153347.5131276,
+    "seen": 1795154638.7732732,
+    "ast_hash": "6b7ba182917d993e8bdb5b67cc600eed",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/ET-AF.json": {
+    "mtime": 1795153347.5131276,
+    "seen": 1795154638.7732732,
+    "ast_hash": "0bd88b28e52e99ebb3a2cc5e4d289428",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/ET-AM.json": {
+    "mtime": 1795153347.5131276,
+    "seen": 1795154638.7732732,
+    "ast_hash": "eeeea39337c1b3f7754a54f57e927016",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/ET-BE.json": {
+    "mtime": 1795153347.5141275,
+    "seen": 1795154638.7732732,
+    "ast_hash": "b2d7979a70f9f391f925b5006e331b77",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/ET-CE.json": {
+    "mtime": 1795153347.5141275,
+    "seen": 1795154638.7732732,
+    "ast_hash": "80faef385e119d79cc2ea385cc51a81b",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/ET-DD.json": {
+    "mtime": 1795153347.5151281,
+    "seen": 1795154638.7732732,
+    "ast_hash": "38193b670da2055f8952bd2f1262b311",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/ET-GA.json": {
+    "mtime": 1795153347.515635,
+    "seen": 1795154638.7732732,
+    "ast_hash": "68587b1628a1fd9567be1eb475f5b57b",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/ET-HA.json": {
+    "mtime": 1795153347.5161414,
+    "seen": 1795154638.7732732,
+    "ast_hash": "bca82686850fc413c8a2a497ff3b3c5a",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/ET-OR.json": {
+    "mtime": 1795153347.5161414,
+    "seen": 1795154638.7732732,
+    "ast_hash": "ed4bf7eb02f9d3d85f64ef303c3b6c91",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/ET-SE.json": {
+    "mtime": 1795153347.52015,
+    "seen": 1795154638.7732732,
+    "ast_hash": "fd817996162d248710de23b63f85827b",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/ET-SI.json": {
+    "mtime": 1795153347.5191495,
+    "seen": 1795154638.7732732,
+    "ast_hash": "dce47c62dc5f1c16c21c1ff2bf87c4e3",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/ET-SO.json": {
+    "mtime": 1795153347.52015,
+    "seen": 1795154638.7732732,
+    "ast_hash": "c626c434dc4ccb69178cfb3b748c2c74",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/ET-SW.json": {
+    "mtime": 1795153347.5211487,
+    "seen": 1795154638.7732732,
+    "ast_hash": "60ae94b4668accd4ba972a95f94fa956",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/ET-TI.json": {
+    "mtime": 1795153347.5211487,
+    "seen": 1795154638.7732732,
+    "ast_hash": "88ca0820c7c09066d381b09588a8a2ea",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-01.json": {
+    "mtime": 1795153347.4870343,
+    "seen": 1795154638.7732732,
+    "ast_hash": "8cc230a0366da1145cf7c08e408fd0d8",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-02.json": {
+    "mtime": 1795153347.4870343,
+    "seen": 1795154638.7732732,
+    "ast_hash": "787457e7a4167d66eb00d6f7528faefd",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-03.json": {
+    "mtime": 1795153347.4880364,
+    "seen": 1795154638.7732732,
+    "ast_hash": "4de4207098af4f703678286064b9b98a",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-04.json": {
+    "mtime": 1795153347.4880364,
+    "seen": 1795154638.7732732,
+    "ast_hash": "b779b1eb5bfa04ce0749bf91989b803a",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-05.json": {
+    "mtime": 1795153347.4880364,
+    "seen": 1795154638.7732732,
+    "ast_hash": "f4669dc2842834e96f38761cd237ffd0",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-06.json": {
+    "mtime": 1795153347.4890351,
+    "seen": 1795154638.7732732,
+    "ast_hash": "487a60d72411116102665442cb8e9d01",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-07.json": {
+    "mtime": 1795153347.4890351,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a79e339c558fa10b3a1d7f703e4bc149",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-08.json": {
+    "mtime": 1795153347.4890351,
+    "seen": 1795154638.7732732,
+    "ast_hash": "35e69c073f40738adad484b10e8b1156",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-09.json": {
+    "mtime": 1795153347.4900358,
+    "seen": 1795154638.7732732,
+    "ast_hash": "b9ce6826405742cf13b0d8282110a595",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-10.json": {
+    "mtime": 1795153347.4900358,
+    "seen": 1795154638.7732732,
+    "ast_hash": "f8da84074fe8e9005f2ecaf465b532f8",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-11.json": {
+    "mtime": 1795153347.4900358,
+    "seen": 1795154638.7732732,
+    "ast_hash": "4f7a99c567f9bd7aa32e1e19db727745",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-12.json": {
+    "mtime": 1795153347.4910355,
+    "seen": 1795154638.7732732,
+    "ast_hash": "be2767c524cfe9661d6730cb85a5c7bb",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-13.json": {
+    "mtime": 1795153347.4910355,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a8bcea083ad7e5dd3ce96c84cb777fb7",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-14.json": {
+    "mtime": 1795153347.4915414,
+    "seen": 1795154638.7732732,
+    "ast_hash": "177e81e324628f6c201b736f1da698a9",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-15.json": {
+    "mtime": 1795153347.4915414,
+    "seen": 1795154638.7732732,
+    "ast_hash": "3897e171fccacc96671255f062b826db",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-16.json": {
+    "mtime": 1795153347.4915414,
+    "seen": 1795154638.7732732,
+    "ast_hash": "f5501996149d73c0bf6f407476461610",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-17.json": {
+    "mtime": 1795153347.4925492,
+    "seen": 1795154638.7732732,
+    "ast_hash": "1c5c7a1a7cf46222aa7ea476fb891c55",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-18.json": {
+    "mtime": 1795153347.4925492,
+    "seen": 1795154638.7732732,
+    "ast_hash": "2462ad1f76d5e2a44d9c44578f5e5464",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-19.json": {
+    "mtime": 1795153347.4925492,
+    "seen": 1795154638.7732732,
+    "ast_hash": "4d1758abac6dd7e0383d0989ea048497",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-20.json": {
+    "mtime": 1795153347.4935493,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a8d544171b2a1d7f072c7ece48b212a4",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-21.json": {
+    "mtime": 1795153347.4935493,
+    "seen": 1795154638.7732732,
+    "ast_hash": "e5e47f78b6762f10d8e9418793ef6a9c",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-22.json": {
+    "mtime": 1795153347.4940586,
+    "seen": 1795154638.7732732,
+    "ast_hash": "01b6737e5a7846c53ee22ea4d42c42a6",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-23.json": {
+    "mtime": 1795153347.4940586,
+    "seen": 1795154638.7732732,
+    "ast_hash": "e4f8968603346d5c85a3049f29faec52",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-24.json": {
+    "mtime": 1795153347.49507,
+    "seen": 1795154638.7732732,
+    "ast_hash": "81028ff798292e3cca93135c05b50fc7",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-25.json": {
+    "mtime": 1795153347.49507,
+    "seen": 1795154638.7732732,
+    "ast_hash": "5ebef7f93d2ff34ec210a3d3ab036a7a",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-26.json": {
+    "mtime": 1795153347.49507,
+    "seen": 1795154638.7732732,
+    "ast_hash": "605143d8e82f7dc46870099f589dec6e",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-27.json": {
+    "mtime": 1795153347.49507,
+    "seen": 1795154638.7732732,
+    "ast_hash": "8caaa22abc1128be5e97debe51a479d0",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-28.json": {
+    "mtime": 1795153347.4970653,
+    "seen": 1795154638.7732732,
+    "ast_hash": "bec90d9adaa17dc6269dcc58f9c956b0",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-29.json": {
+    "mtime": 1795153347.4970653,
+    "seen": 1795154638.7732732,
+    "ast_hash": "822ef3fb9b7e56e3fe2496877fba362d",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-30.json": {
+    "mtime": 1795153347.4970653,
+    "seen": 1795154638.7732732,
+    "ast_hash": "e9f75175c2d1e64c8cefd7cd8b512706",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-31.json": {
+    "mtime": 1795153347.4985714,
+    "seen": 1795154638.7732732,
+    "ast_hash": "558b308bee0b31e57761581826ee670c",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-32.json": {
+    "mtime": 1795153347.4990454,
+    "seen": 1795154638.7732732,
+    "ast_hash": "7fa78f090934d16f96e68fcbe53913ed",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-33.json": {
+    "mtime": 1795153347.4995508,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a67760ecd3b92cc47c7d646f529ebb00",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-34.json": {
+    "mtime": 1795153347.5000708,
+    "seen": 1795154638.7732732,
+    "ast_hash": "12245fa022c85453790bbf5c0dc8c69e",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-35.json": {
+    "mtime": 1795153347.5000708,
+    "seen": 1795154638.7732732,
+    "ast_hash": "713e39d2baa648fe8f84ec752bef4415",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-36.json": {
+    "mtime": 1795153347.5000708,
+    "seen": 1795154638.7732732,
+    "ast_hash": "eb533e7eef8969f43d9fa7f859f50ccf",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-37.json": {
+    "mtime": 1795153347.5000708,
+    "seen": 1795154638.7732732,
+    "ast_hash": "5f4e25189b85389431a6e16f3a50f39d",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-38.json": {
+    "mtime": 1795153347.5015967,
+    "seen": 1795154638.7732732,
+    "ast_hash": "75f8571e3051a8e7133c740b28f5db79",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-39.json": {
+    "mtime": 1795153347.5015967,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a7c0e4c7767333688bfe93877bf1fc3d",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-40.json": {
+    "mtime": 1795153347.5026045,
+    "seen": 1795154638.7732732,
+    "ast_hash": "8bce367ac717e7a23c1d2c86d2fedc31",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-41.json": {
+    "mtime": 1795153347.5026045,
+    "seen": 1795154638.7732732,
+    "ast_hash": "fd101c40ab56f622b30374981e49e672",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-42.json": {
+    "mtime": 1795153347.5026045,
+    "seen": 1795154638.7732732,
+    "ast_hash": "2dac9ea3284b77764782749235af6b83",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-43.json": {
+    "mtime": 1795153347.5036056,
+    "seen": 1795154638.7732732,
+    "ast_hash": "70e616eab847d950ef32293701a4a654",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-44.json": {
+    "mtime": 1795153347.5041132,
+    "seen": 1795154638.7732732,
+    "ast_hash": "bb38e48f16215464dfbfcd0a69c50a1c",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-45.json": {
+    "mtime": 1795153347.5041132,
+    "seen": 1795154638.7732732,
+    "ast_hash": "99c7b7a907a7284fce4e3ee1b0b8dd4c",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-46.json": {
+    "mtime": 1795153347.5041132,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a5409fb15e211d8136892f380318efd7",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/KE-47.json": {
+    "mtime": 1795153347.5051222,
+    "seen": 1795154638.7732732,
+    "ast_hash": "b741ea7f5bd81beaacce0af03e0c1ae6",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/RW-01.json": {
+    "mtime": 1795153347.5051222,
+    "seen": 1795154638.7732732,
+    "ast_hash": "60fcb7cfb3bde1dcffafe321d308d332",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/RW-02.json": {
+    "mtime": 1795153347.5051222,
+    "seen": 1795154638.7732732,
+    "ast_hash": "209df29bb7a0a3577c36c442a8f73a0c",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/RW-03.json": {
+    "mtime": 1795153347.5061214,
+    "seen": 1795154638.7732732,
+    "ast_hash": "fd6055abe5c1b746fd72a65acbe29392",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/RW-04.json": {
+    "mtime": 1795153347.5061214,
+    "seen": 1795154638.7732732,
+    "ast_hash": "09bbf30c729cb2a8ba87670c3f2a3aae",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/RW-05.json": {
+    "mtime": 1795153347.5061214,
+    "seen": 1795154638.7732732,
+    "ast_hash": "8c179e87bbe6050f275e5a08b6c7716f",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-AW.json": {
+    "mtime": 1795153347.5211487,
+    "seen": 1795154638.7732732,
+    "ast_hash": "15623572b5dfc95bb3f91357270256c1",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-BK.json": {
+    "mtime": 1795153347.5221486,
+    "seen": 1795154638.7732732,
+    "ast_hash": "6982981afcf10bd9165ccc7e49ed7eb6",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-BN.json": {
+    "mtime": 1795153347.5221486,
+    "seen": 1795154638.7732732,
+    "ast_hash": "1c3f13a3627d47a94ba56fed32d786ba",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-BR.json": {
+    "mtime": 1795153347.5221486,
+    "seen": 1795154638.7732732,
+    "ast_hash": "3e88c3484f7b397c30b26c1ed583986e",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-BY.json": {
+    "mtime": 1795153347.524182,
+    "seen": 1795154638.7732732,
+    "ast_hash": "0332a32360cfc591e3f846d85d314eb5",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-GA.json": {
+    "mtime": 1795153347.524182,
+    "seen": 1795154638.7732732,
+    "ast_hash": "0d44dd6c18a65ad2bfbefda5b4070a73",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-GE.json": {
+    "mtime": 1795153347.524182,
+    "seen": 1795154638.7732732,
+    "ast_hash": "09ea29e645ebad349a8d57ac3a4ff7df",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-HI.json": {
+    "mtime": 1795153347.5251904,
+    "seen": 1795154638.7732732,
+    "ast_hash": "17f5a5feb93d07564537dd427963ebf3",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-JD.json": {
+    "mtime": 1795153347.5271907,
+    "seen": 1795154638.7732732,
+    "ast_hash": "1a8a39d5bb5b7eee3786001ceaabc554",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-JH.json": {
+    "mtime": 1795153347.5251904,
+    "seen": 1795154638.7732732,
+    "ast_hash": "aaf0f95df17a82dba7d74df0b697355b",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-MU.json": {
+    "mtime": 1795153347.5281904,
+    "seen": 1795154638.7732732,
+    "ast_hash": "361366de218ffa3b62686571a0563dd2",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-NU.json": {
+    "mtime": 1795153347.5281904,
+    "seen": 1795154638.7732732,
+    "ast_hash": "23cfdc412b15e16601defd4ebe67b8e6",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-SA.json": {
+    "mtime": 1795153347.5312133,
+    "seen": 1795154638.7732732,
+    "ast_hash": "150ed66abe29c8ef78a0f231336b8df6",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-SD.json": {
+    "mtime": 1795153347.5281904,
+    "seen": 1795154638.7732732,
+    "ast_hash": "2c52f5c9f810557473466a478c8014b4",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-SH.json": {
+    "mtime": 1795153347.5261903,
+    "seen": 1795154638.7732732,
+    "ast_hash": "780947afd974a67e2ca36113ada0f99b",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-SO.json": {
+    "mtime": 1795153347.5322208,
+    "seen": 1795154638.7732732,
+    "ast_hash": "773007f539bb7bc850b379a120b66bc3",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-TO.json": {
+    "mtime": 1795153347.5322208,
+    "seen": 1795154638.7732732,
+    "ast_hash": "942418adc2c0161f412525303191c16a",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SO-WO.json": {
+    "mtime": 1795153347.5337298,
+    "seen": 1795154638.7732732,
+    "ast_hash": "842cb66acbfa7e5075768d34b6007608",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SS-AB.json": {
+    "mtime": 1795153347.5081215,
+    "seen": 1795154638.7732732,
+    "ast_hash": "3d6242b884874931b538037a533152a5",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SS-BN.json": {
+    "mtime": 1795153347.5101285,
+    "seen": 1795154638.7732732,
+    "ast_hash": "5f93fb0ecb0f7032804343ea8d4461a2",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SS-BW.json": {
+    "mtime": 1795153347.512128,
+    "seen": 1795154638.7732732,
+    "ast_hash": "36a62e3a3af5df0ab260a7ed6a75f8d3",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SS-EC.json": {
+    "mtime": 1795153347.5091288,
+    "seen": 1795154638.7732732,
+    "ast_hash": "4142a4d18fe0c57011e432ddfc1f87a3",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SS-EE.json": {
+    "mtime": 1795153347.5091288,
+    "seen": 1795154638.7732732,
+    "ast_hash": "35e35e3a50920a81af281126e3b83b5a",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SS-EW.json": {
+    "mtime": 1795153347.512128,
+    "seen": 1795154638.7732732,
+    "ast_hash": "13dde2138cc22e7e97e499293f40e11c",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SS-JG.json": {
+    "mtime": 1795153347.5101285,
+    "seen": 1795154638.7732732,
+    "ast_hash": "eed3f67175e8a754f96cdc8aaae79077",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SS-LK.json": {
+    "mtime": 1795153347.5101285,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a9dff825e08cc2b20b1d8a3faf557bf0",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SS-NU.json": {
+    "mtime": 1795153347.512128,
+    "seen": 1795154638.7732732,
+    "ast_hash": "0bea588472b9ecd8e22124f708c7d48a",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SS-PB.json": {
+    "mtime": 1795153347.5091288,
+    "seen": 1795154638.7732732,
+    "ast_hash": "01d068416ff59a227579ef1c633664d8",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SS-RU.json": {
+    "mtime": 1795153347.5111308,
+    "seen": 1795154638.7732732,
+    "ast_hash": "b3f4795a7166c229dc2d15d574bd59e6",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SS-UY.json": {
+    "mtime": 1795153347.5111308,
+    "seen": 1795154638.7732732,
+    "ast_hash": "1f082f94fa5dd0b2777e6990f2f7f170",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/SS-WR.json": {
+    "mtime": 1795153347.512128,
+    "seen": 1795154638.7732732,
+    "ast_hash": "7b617034461ef7af5b5d9faeea5c90fc",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-01.json": {
+    "mtime": 1795153347.4765174,
+    "seen": 1795154638.7732732,
+    "ast_hash": "d9775357f12cc6d9c3f5eb1aeae2422f",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-02.json": {
+    "mtime": 1795153347.4765174,
+    "seen": 1795154638.7732732,
+    "ast_hash": "5139db45e79c75933365befc624bc5ae",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-03.json": {
+    "mtime": 1795153347.4765174,
+    "seen": 1795154638.7732732,
+    "ast_hash": "688396c6e8fc2414f2024aab5af291ff",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-04.json": {
+    "mtime": 1795153347.4775195,
+    "seen": 1795154638.7732732,
+    "ast_hash": "4744dd7524ab76e0590c21003e7b5204",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-05.json": {
+    "mtime": 1795153347.4775195,
+    "seen": 1795154638.7732732,
+    "ast_hash": "5a2ac969abbb07335a1e05762bc31fd2",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-06.json": {
+    "mtime": 1795153347.4820356,
+    "seen": 1795154638.7732732,
+    "ast_hash": "7b788406795cfa44459701fe28518d43",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-07.json": {
+    "mtime": 1795153347.4860342,
+    "seen": 1795154638.7732732,
+    "ast_hash": "4549736584f662c43a89021cc40b3ee5",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-08.json": {
+    "mtime": 1795153347.4790285,
+    "seen": 1795154638.7732732,
+    "ast_hash": "12b9dc9c8681c5fd6d0f284eaec089ba",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-09.json": {
+    "mtime": 1795153347.4790285,
+    "seen": 1795154638.7732732,
+    "ast_hash": "ffe342b30943cabcfea753a4fa4b4b5b",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-10.json": {
+    "mtime": 1795153347.4830372,
+    "seen": 1795154638.7732732,
+    "ast_hash": "dd3fdd99f359fc68534e732dd4d22652",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-11.json": {
+    "mtime": 1795153347.4860342,
+    "seen": 1795154638.7732732,
+    "ast_hash": "ea0702ee3649b9bafcf3475734ee1893",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-12.json": {
+    "mtime": 1795153347.4790285,
+    "seen": 1795154638.7732732,
+    "ast_hash": "ca50381a9c7bb95d7ff958e52f30a4ea",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-13.json": {
+    "mtime": 1795153347.4800353,
+    "seen": 1795154638.7732732,
+    "ast_hash": "60b0b4d132ae59743593145cc11290a3",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-14.json": {
+    "mtime": 1795153347.4800353,
+    "seen": 1795154638.7732732,
+    "ast_hash": "021e08f41f851b93550ee0bcc275b12b",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-15.json": {
+    "mtime": 1795153347.481042,
+    "seen": 1795154638.7732732,
+    "ast_hash": "5c25cfc6752210d4d2209e812da5e2a0",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-16.json": {
+    "mtime": 1795153347.481042,
+    "seen": 1795154638.7732732,
+    "ast_hash": "401543da1ef92fab907c7b6fe3b388bf",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-17.json": {
+    "mtime": 1795153347.481042,
+    "seen": 1795154638.7732732,
+    "ast_hash": "f4cbb6fb67eb2f9303c07633d0fb1c8d",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-18.json": {
+    "mtime": 1795153347.4820356,
+    "seen": 1795154638.7732732,
+    "ast_hash": "b0ae8b256059417409ec29a58d310f42",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-19.json": {
+    "mtime": 1795153347.4830372,
+    "seen": 1795154638.7732732,
+    "ast_hash": "cd2b98a4c945c1bc9f3533a37f6c75d9",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-20.json": {
+    "mtime": 1795153347.4830372,
+    "seen": 1795154638.7732732,
+    "ast_hash": "1bcc68063b05b06a624dcc35b3a4ee54",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-21.json": {
+    "mtime": 1795153347.4830372,
+    "seen": 1795154638.7732732,
+    "ast_hash": "e9a3a8063a178a1622e2367f1ea93e23",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-22.json": {
+    "mtime": 1795153347.4840353,
+    "seen": 1795154638.7732732,
+    "ast_hash": "2f5e4c1cb8792e88fefbac4d7842a7e4",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-23.json": {
+    "mtime": 1795153347.4840353,
+    "seen": 1795154638.7732732,
+    "ast_hash": "bfd51ec52617810d453965b536918fe8",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-24.json": {
+    "mtime": 1795153347.485037,
+    "seen": 1795154638.7732732,
+    "ast_hash": "7b24a2c9f04ebea58ece5b7f7d39ee83",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-25.json": {
+    "mtime": 1795153347.485037,
+    "seen": 1795154638.7732732,
+    "ast_hash": "6e87d367d0de4d337187b2f729c04470",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-26.json": {
+    "mtime": 1795153347.4800353,
+    "seen": 1795154638.7732732,
+    "ast_hash": "30be21e7d010e0a94132f87dbaaf8fb2",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-27.json": {
+    "mtime": 1795153347.4765174,
+    "seen": 1795154638.7732732,
+    "ast_hash": "cd7a8746edda065f6b98923b891c9280",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-28.json": {
+    "mtime": 1795153347.4775195,
+    "seen": 1795154638.7732732,
+    "ast_hash": "de57b908fe676bff63b1c29d72a3185d",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-29.json": {
+    "mtime": 1795153347.4820356,
+    "seen": 1795154638.7732732,
+    "ast_hash": "e93ec787ecadbd3a732fc2a5b1526e50",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-30.json": {
+    "mtime": 1795153347.4840353,
+    "seen": 1795154638.7732732,
+    "ast_hash": "e44964bb1068b462069a57fcc9781936",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/TZ-31.json": {
+    "mtime": 1795153347.485037,
+    "seen": 1795154638.7732732,
+    "ast_hash": "8c7cffd8b2530138b93bf2395bb60beb",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/UG-C.json": {
+    "mtime": 1795153347.4860342,
+    "seen": 1795154638.7732732,
+    "ast_hash": "8ee204cfb277eeed87170e969fc5d282",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/UG-E.json": {
+    "mtime": 1795153347.4860342,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a1d2a313f5eaff547433866456a3fa6d",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/UG-N.json": {
+    "mtime": 1795153347.4870343,
+    "seen": 1795154638.7732732,
+    "ast_hash": "ebf4c5af988606d83eb16864515403da",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/UG-W.json": {
+    "mtime": 1795153347.4870343,
+    "seen": 1795154638.7732732,
+    "ast_hash": "7996311ae618ebf632b81edba09fd5ac",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-AK.json": {
+    "mtime": 1795153347.4584222,
+    "seen": 1795154638.7732732,
+    "ast_hash": "cc68a38a827fe67514c140fd37239d25",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-AL.json": {
+    "mtime": 1795153347.4584222,
+    "seen": 1795154638.7732732,
+    "ast_hash": "de8edbae24fa438d31c446b0fff0f14c",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-AR.json": {
+    "mtime": 1795153347.459421,
+    "seen": 1795154638.7732732,
+    "ast_hash": "194192179a444fb0ab2ef9fb470b280e",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-AZ.json": {
+    "mtime": 1795153347.4584222,
+    "seen": 1795154638.7732732,
+    "ast_hash": "281c180f4125a1c59f67c827faee7b34",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-CA.json": {
+    "mtime": 1795153347.459421,
+    "seen": 1795154638.7732732,
+    "ast_hash": "6515a18092527a6e1fd984000b25a9af",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-CO.json": {
+    "mtime": 1795153347.4604206,
+    "seen": 1795154638.7732732,
+    "ast_hash": "c3bedb2ffdbe500aac8933bb87aaa29b",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-CT.json": {
+    "mtime": 1795153347.4604206,
+    "seen": 1795154638.7732732,
+    "ast_hash": "3138c5f2bfddaad997b971aa8888aa45",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-DC.json": {
+    "mtime": 1795153347.4614236,
+    "seen": 1795154638.7732732,
+    "ast_hash": "e58428fe7f896ac09af5bb152c057f62",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-DE.json": {
+    "mtime": 1795153347.4604206,
+    "seen": 1795154638.7732732,
+    "ast_hash": "1f482ba566ed75ea1d9de2826b8e3a66",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-FL.json": {
+    "mtime": 1795153347.4614236,
+    "seen": 1795154638.7732732,
+    "ast_hash": "7c39cf67ad0a169b2b3f286d6b2e82d2",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-GA.json": {
+    "mtime": 1795153347.4614236,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a803fe814ccea68a2456dd74e6ea7c70",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-HI.json": {
+    "mtime": 1795153347.4624202,
+    "seen": 1795154638.7732732,
+    "ast_hash": "e90c90681eda91c55eb2ff2195b5830c",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-IA.json": {
+    "mtime": 1795153347.46393,
+    "seen": 1795154638.7732732,
+    "ast_hash": "012fe691e2d2054d0d8a6593fc621fb4",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-ID.json": {
+    "mtime": 1795153347.4624202,
+    "seen": 1795154638.7732732,
+    "ast_hash": "1fc9427c91594c0535d08a03166e4d5e",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-IL.json": {
+    "mtime": 1795153347.4634223,
+    "seen": 1795154638.7732732,
+    "ast_hash": "16f4583b27b0cdc319cd5b68623f20b4",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-IN.json": {
+    "mtime": 1795153347.4634223,
+    "seen": 1795154638.7732732,
+    "ast_hash": "6c4443988993f2fa86dbd5b6bc8b30f3",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-KS.json": {
+    "mtime": 1795153347.46393,
+    "seen": 1795154638.7732732,
+    "ast_hash": "6a0ad9d93b5f0017277cde5333110fb8",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-KY.json": {
+    "mtime": 1795153347.46393,
+    "seen": 1795154638.7732732,
+    "ast_hash": "3223116154eb007e8bee8d4379f72af5",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-LA.json": {
+    "mtime": 1795153347.464939,
+    "seen": 1795154638.7732732,
+    "ast_hash": "1e1cf02e2143a8377de20f1379508c22",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-MA.json": {
+    "mtime": 1795153347.464939,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a61b84431d1426095a67601888ee1d12",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-MD.json": {
+    "mtime": 1795153347.464939,
+    "seen": 1795154638.7732732,
+    "ast_hash": "e566429f52d2c787eb3e6a54bd9e60cc",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-ME.json": {
+    "mtime": 1795153347.464939,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a09a7031d3a441ea8f868cf122dff77b",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-MI.json": {
+    "mtime": 1795153347.464939,
+    "seen": 1795154638.7732732,
+    "ast_hash": "e1e1fe8ab2efea2e1e13ac6c1b2000d2",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-MN.json": {
+    "mtime": 1795153347.466447,
+    "seen": 1795154638.7732732,
+    "ast_hash": "5107295e2ea4452299010b3a22cf9e13",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-MO.json": {
+    "mtime": 1795153347.4674563,
+    "seen": 1795154638.7732732,
+    "ast_hash": "b1adf1a2bede9d4474d3826f464ecb09",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-MS.json": {
+    "mtime": 1795153347.466447,
+    "seen": 1795154638.7732732,
+    "ast_hash": "d69f4998c695e1a37d1f08e0223b24de",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-MT.json": {
+    "mtime": 1795153347.4674563,
+    "seen": 1795154638.7732732,
+    "ast_hash": "564ea90b46f9a3bdf04c038b9d2d6fdf",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-NC.json": {
+    "mtime": 1795153347.4705088,
+    "seen": 1795154638.7732732,
+    "ast_hash": "d9ae31935213bd45265441756cd191d5",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-ND.json": {
+    "mtime": 1795153347.4705088,
+    "seen": 1795154638.7732732,
+    "ast_hash": "94f9d52776314720b59bdb0e455663dc",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-NE.json": {
+    "mtime": 1795153347.4679635,
+    "seen": 1795154638.7732732,
+    "ast_hash": "80651f916321da42dc0504860ba5579e",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-NH.json": {
+    "mtime": 1795153347.4684706,
+    "seen": 1795154638.7732732,
+    "ast_hash": "0a6f82d92f0edff20d1d92367960b894",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-NJ.json": {
+    "mtime": 1795153347.4684706,
+    "seen": 1795154638.7732732,
+    "ast_hash": "4d2688b350367ec0ecc4dca67b87fbfa",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-NM.json": {
+    "mtime": 1795153347.4694803,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a8d5ba05d1aa23e3d548a0cec26b6c96",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-NV.json": {
+    "mtime": 1795153347.4679635,
+    "seen": 1795154638.7732732,
+    "ast_hash": "3a0acaf5e48f1aa197d3aca2666fba52",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-NY.json": {
+    "mtime": 1795153347.4699893,
+    "seen": 1795154638.7732732,
+    "ast_hash": "ad02bc7cc931e09e38b19d825e7206d6",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-OH.json": {
+    "mtime": 1795153347.4705088,
+    "seen": 1795154638.7732732,
+    "ast_hash": "e1d89a05a3e5db59b324d10d1d986faa",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-OK.json": {
+    "mtime": 1795153347.4715161,
+    "seen": 1795154638.7732732,
+    "ast_hash": "885de2fca43e8e770c3ff2bdf3b96c44",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-OR.json": {
+    "mtime": 1795153347.4715161,
+    "seen": 1795154638.7732732,
+    "ast_hash": "0fbd7249c7ca72cd5572014a7ec27f73",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-PA.json": {
+    "mtime": 1795153347.4715161,
+    "seen": 1795154638.7732732,
+    "ast_hash": "afb573cfdfe95293e38d14973936ada9",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-RI.json": {
+    "mtime": 1795153347.4725182,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a573502749d78a19b4e328895197b22c",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-SC.json": {
+    "mtime": 1795153347.4725182,
+    "seen": 1795154638.7732732,
+    "ast_hash": "3dcc48feee88f09a1b15cffe098fc6f1",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-SD.json": {
+    "mtime": 1795153347.4725182,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a1f5154ec8524a31853da795dab4d195",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-TN.json": {
+    "mtime": 1795153347.4735186,
+    "seen": 1795154638.7732732,
+    "ast_hash": "6eca18a903bffec4726ee91214ca8db3",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-TX.json": {
+    "mtime": 1795153347.4735186,
+    "seen": 1795154638.7732732,
+    "ast_hash": "59fce2ec6da8eb5231b6b6d35bfadced",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-UT.json": {
+    "mtime": 1795153347.4735186,
+    "seen": 1795154638.7732732,
+    "ast_hash": "a44cd25404432c1a2e3cf7a79bc33a02",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-VA.json": {
+    "mtime": 1795153347.474519,
+    "seen": 1795154638.7732732,
+    "ast_hash": "0ad78127fe748b080ed141a434aacbd8",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-VT.json": {
+    "mtime": 1795153347.474519,
+    "seen": 1795154638.7732732,
+    "ast_hash": "4b7591af4dc935742f8ed9c161d31957",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-WA.json": {
+    "mtime": 1795153347.474519,
+    "seen": 1795154638.7732732,
+    "ast_hash": "e77982874d07b4476593537bf7694186",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-WI.json": {
+    "mtime": 1795153347.475516,
+    "seen": 1795154638.7732732,
+    "ast_hash": "03c22fea3198fc6ad2079c923110a4c2",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-WV.json": {
+    "mtime": 1795153347.475516,
+    "seen": 1795154638.7732732,
+    "ast_hash": "0b443dac136ae9c1ced0d8844d2f801f",
+    "semantic_hash": ""
+  },
+  "frontend/public/places/US-WY.json": {
+    "mtime": 1795153347.475516,
+    "seen": 1795154638.7732732,
+    "ast_hash": "54f7cda79f840e9edcb65082a71587c9",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/place-picker.tsx": {
+    "mtime": 1795153456.7335992,
+    "seen": 1795154638.7747765,
+    "ast_hash": "4836fc2a20eba80de4791540ec34e0ef",
+    "semantic_hash": ""
+  },
+  "frontend/src/lib/choice-filter.ts": {
+    "mtime": 1795152834.639851,
+    "seen": 1795154638.7747765,
+    "ast_hash": "69c28b29fd54bc79904b74df617a7cac",
+    "semantic_hash": ""
+  },
+  "frontend/src/lib/places-data.json": {
+    "mtime": 1795153347.44751,
+    "seen": 1795154638.7757838,
+    "ast_hash": "456c949afe0a02fcc9eb5afb3e0d8baa",
+    "semantic_hash": ""
+  },
+  "frontend/src/lib/places.ts": {
+    "mtime": 1795152839.2464516,
+    "seen": 1795154638.7757838,
+    "ast_hash": "ba5fc89f4279f3c14d4fce3c8036cc1e",
+    "semantic_hash": ""
+  },
+  "frontend/tests/pol-fe-117-places.test.ts": {
+    "mtime": 1795153395.6240542,
+    "seen": 1795154638.7757838,
+    "ast_hash": "98c38043af7e0ccb825c848e7b775775",
+    "semantic_hash": ""
+  },
+  "scripts/places/build-places.mjs": {
+    "mtime": 1795153355.8863082,
+    "seen": 1795154638.7757838,
+    "ast_hash": "6c169b97651aaab48c10c8fabada49e8",
+    "semantic_hash": ""
+  },
+  "scripts/places/east-africa.json": {
+    "mtime": 1795153347.2595584,
+    "seen": 1795154638.7757838,
+    "ast_hash": "d8e7255aefcf78f595decb215be9307e",
     "semantic_hash": ""
   }
 }
