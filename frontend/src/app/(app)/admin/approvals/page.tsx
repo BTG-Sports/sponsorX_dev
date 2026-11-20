@@ -340,7 +340,7 @@ export default async function AdminApprovalsPage({
 
       {/* --------------------------------------------- edition ad artwork */}
       {live && live.artwork.length > 0 && (
-        <section className="sx-animate sx-delay-2">
+        <section id="edition-artwork" className="sx-animate sx-delay-2 scroll-mt-24">
           <SectionHeading
             title="Edition ad artwork"
             hint={`${live.artwork.filter((a) => a.state !== "APPROVED").length} waiting · ${live.artwork.filter((a) => a.btgReviewSkipped).length} skipped BTG review · SponsorX NEXT ads — checked on upload, BTG reviews, the sponsor signs off`}

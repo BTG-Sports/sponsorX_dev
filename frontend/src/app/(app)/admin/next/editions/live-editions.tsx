@@ -397,7 +397,7 @@ export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live
           )}
 
           {art && art.sold > 0 && (
-            <section className="sx-animate sx-delay-2">
+            <section id="ad-artwork" className="sx-animate sx-delay-2 scroll-mt-24">
               <SectionHeading title="Ad artwork" hint="BTG reviews, the sponsor signs off" />
               <Card className="p-0">
                 <ul className="divide-y divide-line-soft">

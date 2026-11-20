@@ -140,7 +140,7 @@ export async function LiveRights({ live, today }: { live: LiveEditions; today: s
         )}
       </HeroBand>
 
-      <section className="sx-animate sx-delay-1">
+      <section id="clearance" className="sx-animate sx-delay-1 scroll-mt-24">
         <SectionHeading title={`Clearance queue · ${queue.length}`} hint="What the gate is waiting on, and who can grant it" />
         {queue.length === 0 ? (
           <p className="rounded-xl border border-line bg-surface px-5 py-6 text-center text-xs text-muted">

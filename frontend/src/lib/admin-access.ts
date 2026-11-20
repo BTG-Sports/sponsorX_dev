@@ -79,6 +79,8 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   "/admin/next/editions": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   "/admin/next/inventory": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   "/admin/next/rights": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  /* P9-FE-16 — GET /editions/:id/production asks edition write: BTG admins only. */
+  "/admin/next/production": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   /* GET /editions/:id/splits: revenueSplit read is BTG admin, Finance and SUPER_ADMIN; Finance locks the split. */
   "/admin/next/splits": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
   /* GET /briefs: campaignBrief read is BTG admin, campaign managers and Sales (own tenant) and SUPER_ADMIN. */
