@@ -53,3 +53,6 @@
 - **Unincorporated US communities** (Silver Spring, Bethesda, Columbia MD, Arlington VA) aren't on the list; adding the Census-designated places (~12,500) is a one-line generator change if wanted.
 - **Still typed elsewhere:** the /join application's state, a reward's venue, the NEXT apply flow.
 - **Tracker:** `POL-BE-117` and `POL-FE-117` added to Polish (rows 164–165, Done, HeckerCreatives, 2026-11-20); autofilter, Status list and conditional formats extended to row 165; summary line 157 tasks / 113 flaws. Stage Progress 2026-11-20 row appended: 324 done, 21.0 days left (the +4 / −6.5 since 11-19 is `P9-BE-25…28`, set Done after yesterday's row).
+
+### POL-FE-117, follow-up · /brief's Where step picked too
+- Owner: "the /brief page still in free text". `components/brief-wizard.tsx` Where step uses `PlacePicker`; `lib/brief-flow.ts` keeps `marketCountry` / `marketRegion` / `marketCity` and writes `market` from them (`withMarket`), so `POST /public/inquiries` is unchanged; a region from the list is required. Tests: `brief-flow` updated (+2). tsc, eslint clean; walked at 1280/390 (Uganda → Central → Kampala, Continue to Contact), nothing sent.
