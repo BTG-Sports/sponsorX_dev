@@ -19,3 +19,12 @@
   validate`, `prisma migrate deploy` (portable Postgres 17), both builds, lint, backend 288 files /
   4,052 tests, frontend 210 files / 2,524 tests. e2e not run locally.
 - Recorded in `documentation/SponsorX-Security-Review-2026-10.md` (Dependency scan table).
+
+## POL-FE-103 and POL-FE-104 assigned to HeckerCreatives (rcfworks)
+- When POL-BE-103 and POL-BE-104 closed on 2026-11-18, the log named their screens as
+  HeckerCreatives', but the tracker's Owner was left blank, so the two Polish rows sat unassigned.
+- Polish sheet rows 149 (`POL-FE-103`, the school advisor's Profile page in `/advisor`) and 151
+  (`POL-FE-104`, the school team's page in the property portal): Owner set to HeckerCreatives,
+  still Ready. Their backend is Done and live.
+- `5S1-FE-02` (certified-recruiting.com's footer) stays unowned for now: it's a GoDaddy editor
+  change, not code in this repo, and needs whoever holds that login.
