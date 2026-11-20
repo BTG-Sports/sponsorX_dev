@@ -1,13 +1,11 @@
 import "server-only";
 
-import { auth } from "@clerk/nextjs/server";
-import { cookies } from "next/headers";
-
-import { apiFetch, WARD_COOKIE, type Actor } from "@/server/api";
+import { apiFetch, type Actor } from "@/server/api";
 import {
-  chatRow, dealSocketUrl, summaryRow,
+  chatRow, summaryRow,
   type ApiDealChat, type ApiDealChatSummary, type ApiDealReviewItem, type ChatRow, type DealViewer,
 } from "@/lib/deal-chat";
+import { livePassResult, type LivePassResult, type LiveWant } from "@/lib/deal-live";
 
 /* --------------------------------------------------------------------------
    Deal Chat's reads — 2S4-FE-07 / -08 / -09.
@@ -104,22 +102,32 @@ export async function dealChatReviewCount(roles: readonly string[]): Promise<num
   }
 }
 
-/** What a browser needs to open Deal Chat's socket: where it is, and who is asking. */
-export type DealSocketTicket = { url: string; path: string; token: string; ward: string | null };
-
 /**
- * A ticket for the socket: the signed-in person's own short-lived session
- * token (the one every API call here already forwards), and the minor a
- * guardian is acting for. Null when there is no address for it or nobody is
- * signed in — the chat then simply keeps asking on its own beat.
+ * A pass to the live socket service for one channel — 2S4-FE-10, POST
+ * /live-passes (2S4-BE-18). The API checks, right then, that the caller may
+ * follow that chat (or has a chat in progress, for the Messages list), picks
+ * the channel, and answers with the service's address and a pass good for 60
+ * seconds, once. Like every call here it carries the caller's own session
+ * (and the minor a guardian is acting for) and adds no authority.
+ *
+ * No pass is an ordinary answer, never a throw: live updates off (503), the
+ * chat ended or none begun (409), not theirs (403), the API unreachable. The
+ * chat then simply keeps asking on its own beat (lib/deal-live.ts).
  */
-export async function dealSocketTicket(): Promise<DealSocketTicket | null> {
-  const url = dealSocketUrl(process.env);
-  if (!url) return null;
-  const token = await (await auth()).getToken();
-  if (!token) return null;
-  const ward = (await cookies()).get(WARD_COOKIE)?.value;
-  return { url, path: "/api/v1/socket", token, ward: ward && /^[A-Za-z0-9_-]{1,64}$/.test(ward) ? ward : null };
+export async function dealLivePass(want: LiveWant): Promise<LivePassResult> {
+  let res: Response;
+  try {
+    res = await apiFetch("/live-passes", { method: "POST", body: JSON.stringify(want) });
+  } catch {
+    return livePassResult(0, null);
+  }
+  let body: unknown = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* no body */
+  }
+  return livePassResult(res.status, body);
 }
 
 /** Who is looking, for the words on the screen (a guardian's confirmations, a team's). */

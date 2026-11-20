@@ -166,27 +166,12 @@ export const DEAL_TEXT_MAX = 4000;
 export const DEAL_POLL_MS = 4000;
 /** How often the list of chats asks for news while nothing is open. */
 export const DEAL_LIST_POLL_MS = 20000;
-/** With the live socket up the open chat is told when to read again, so its own asking drops to a safety net. */
+/** While the open chat is followed live it is told when to read again, so its own asking drops to a safety net. */
 export const DEAL_LIVE_POLL_MS = 30000;
 
-/** How long the open chat waits before asking again: seconds without the socket, a long beat with it. */
+/** How long the open chat waits before asking again: seconds when it isn't followed live, a long beat when it is (lib/deal-live.ts). */
 export function chatPollDelay(socketLive: boolean): number {
   return socketLive ? DEAL_LIVE_POLL_MS : DEAL_POLL_MS;
-}
-
-/**
- * The address a BROWSER reaches the API's live socket at. API_URL is the
- * private address the web server uses and is never handed out; the public one
- * is API_PUBLIC_URL, set on the web service (documentation/SponsorX-Switches.md).
- * Unset, only a local run has one: there API_URL is this machine's own.
- * Null: no socket for the browser to open, and the chat keeps asking on its beat.
- */
-export function dealSocketUrl(env: Record<string, string | undefined>): string | null {
-  const trim = (u: string) => u.replace(/\/+$/, "");
-  const pub = env.API_PUBLIC_URL?.trim();
-  if (pub) return /^https?:\/\/[^\s/]+/.test(pub) ? trim(pub) : null;
-  const local = env.API_URL ?? "http://localhost:4000";
-  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/.test(local) ? trim(local) : null;
 }
 
 /* ------------------------------------------------------------------ words */
