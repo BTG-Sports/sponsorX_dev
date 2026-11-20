@@ -9,6 +9,8 @@
  * abroad has a US state).
  */
 
+import { catalogueRegion, isCatalogueCountry } from "./places";
+
 export const DEFAULT_BRIEF_COUNTRY = "US";
 
 export class BriefCountryError extends Error {
@@ -38,9 +40,16 @@ export function briefCountry(input: string | null | undefined): string {
   return code;
 }
 
-/** States are US states: allowed only on a US brief. */
+/** States are US states on a US brief. POL-BE-117 — a country in the place
+ *  catalogue (East Africa) is narrowed by its own regions, each one checked
+ *  against that country's list; anywhere else the brief covers the whole
+ *  country and regions are refused rather than silently matching nobody. */
 export function assertCountryStates(countryCode: string, stateCodes: readonly string[]): void {
-  if (countryCode !== DEFAULT_BRIEF_COUNTRY && stateCodes.some((s) => s.trim() !== "")) {
-    throw new BriefCountryError("States can only be chosen for the United States. Outside the US a campaign covers the whole country.");
+  const named = stateCodes.map((s) => s.trim()).filter(Boolean);
+  if (countryCode === DEFAULT_BRIEF_COUNTRY || named.length === 0) return;
+  if (!isCatalogueCountry(countryCode)) {
+    throw new BriefCountryError("Regions can only be chosen for the United States and East Africa. Elsewhere a campaign covers the whole country.");
   }
+  const unknown = named.filter((s) => !catalogueRegion(countryCode, s));
+  if (unknown.length) throw new BriefCountryError(`Not a region of ${regionNames.of(countryCode) ?? countryCode}: ${unknown.join(", ")}. Choose regions from the list.`);
 }

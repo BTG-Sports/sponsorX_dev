@@ -39,6 +39,9 @@ export const CountryCode = z
   .string()
   .regex(/^[A-Za-z]{2}$/)
   .meta({ id: "CountryCode", description: "A country, ISO 3166-1 alpha-2 (e.g. US, CA, GB). Default US." });
+/** POL-BE-117 — a region of the brief's country: a US state (TX) or an East
+ *  African region code from the place catalogue (e.g. 02, C). The domain checks the list. */
+export const RegionCode = z.string().regex(/^[A-Za-z0-9]{1,3}$/).meta({ id: "RegionCode", description: "A region within the country — a US state code, or a catalogue region code." });
 export const CampaignState = z.enum(CAMPAIGN_STATES).meta({ id: "CampaignState" });
 export const InviteState = z.enum(INVITE_STATES).meta({ id: "InviteState" });
 
@@ -59,7 +62,7 @@ export const CampaignBriefInput = z
     sports: z.array(z.string().min(1).max(60)).max(20).default([]),
     /** POL-BE-107 — the country targeted; only athletes there are matched. */
     countryCode: CountryCode.default("US"),
-    stateCodes: z.array(z.string().length(2)).max(60).default([]).describe("US state codes; only with countryCode US (400 otherwise)."),
+    stateCodes: z.array(RegionCode).max(60).default([]).describe("Regions of the country: US state codes, or (POL-BE-117) an East African country's regions from the place catalogue; refused (400) for any other country."),
     /** Targeting AND the conflict input. An athlete restricting any of these
      *  is excluded from matching and refused at the invitation. */
     categories: z.array(BrandCategory).max(25).default([]),
@@ -85,7 +88,7 @@ export const CampaignBriefPatch = z
     endDate: z.iso.date().optional(),
     sports: z.array(z.string().min(1).max(60)).max(20).optional(),
     countryCode: CountryCode.optional(),
-    stateCodes: z.array(z.string().length(2)).max(60).optional().describe("US state codes; only when the brief's country is US (400 otherwise)."),
+    stateCodes: z.array(RegionCode).max(60).optional().describe("Regions of the brief's country: US state codes, or (POL-BE-117) an East African country's regions from the place catalogue; refused (400) for any other country."),
     categories: z.array(BrandCategory).max(25).optional(),
     excludedCategories: z.array(BrandCategory).max(25).optional(),
     channels: z.array(z.enum(MATCH_CHANNELS)).max(MATCH_CHANNELS.length).optional(),
