@@ -6,7 +6,7 @@ import { ADMIN_NAV, navFor } from "../src/lib/admin-nav";
 import { mayUse } from "../src/lib/admin-access";
 import {
   DEAL_LIVE_POLL_MS, DEAL_POLL_MS, agoShort, amountOpen, amountView, canWrite, cardRows, centsFromInput, chatPollDelay, chatRow, chatTitle, confirmationsFor, dayLabel,
-  deadlineWords, dealInitials, dealSocketUrl,
+  deadlineWords, dealInitials,
   dealRefusal, dealStage, dealUsd, filterRows, inputFromCents, isReadOnly, messagesHref, nextMove, nextQuestion, offerButtons, orderHref, reviewRows,
   summaryRow, threadOf, unreadTotal, yourTurn,
   type ApiDealCard, type ApiDealChat, type ApiDealMessage, type ApiDealReviewItem, type ThreadMessage,
@@ -471,33 +471,58 @@ describe("the sample (?demo=sample)", () => {
   });
 });
 
-describe("the live socket (owner, 2026-11-19)", () => {
-  it("hands a browser the API's public address, a local run its own machine's, and never the private one", () => {
-    expect(dealSocketUrl({ API_PUBLIC_URL: "https://api.sponsorx.example/" })).toBe("https://api.sponsorx.example");
-    expect(dealSocketUrl({ API_PUBLIC_URL: "https://api.sponsorx.example", API_URL: "http://api.railway.internal:4000" })).toBe("https://api.sponsorx.example");
-    expect(dealSocketUrl({ API_URL: "http://localhost:4000" })).toBe("http://localhost:4000");
-    expect(dealSocketUrl({})).toBe("http://localhost:4000");
-    /* The private address the web server uses is never given to a browser. */
-    expect(dealSocketUrl({ API_URL: "http://api.railway.internal:4000" })).toBeNull();
-    expect(dealSocketUrl({ API_URL: "http://localhost.evil.example:4000" })).toBeNull();
-    expect(dealSocketUrl({ API_PUBLIC_URL: "not a url" })).toBeNull();
-  });
-  it("is a speed-up, not a requirement: without it the open chat asks every few seconds, with it only as a safety net", () => {
+/* The connection itself (passes, joining, leaving, a hidden tab) is tests/deal-live.test.ts — 2S4-FE-10. */
+describe("the live connection on the chat screens (owner, 2026-11-19; the socket service, 2S4-FE-10)", () => {
+  it("is a speed-up, not a requirement: a chat that isn't followed live asks every few seconds, one that is only as a safety net", () => {
     expect(chatPollDelay(false)).toBe(DEAL_POLL_MS);
     expect(chatPollDelay(true)).toBe(DEAL_LIVE_POLL_MS);
     expect(DEAL_LIVE_POLL_MS).toBeGreaterThan(DEAL_POLL_MS);
     const hook = src("components/deal-chat/use-deal-chat.ts");
-    expect(hook).toContain("chatPollDelay(dealSocketLive())");
-    /* The socket only says which chat moved; the chat itself is read again through the ordinary action. */
-    expect(hook).toMatch(/onDealSocket\(\(e\) => \{\n\s+if \(touches\(e, id\)\) void loop\(\);/);
+    /* Its own channel, not just any connection: a chat this tab couldn't join keeps its few-second beat. */
+    expect(hook.match(/chatPollDelay\(dealSocketLive\(id\)\)/g)).toHaveLength(2);
+    /* The connection only says which chat moved; the chat itself is read again through the ordinary action. */
+    expect(hook).toMatch(/onDealChat\(id, \(e\) => \{\r?\n\s+if \(touches\(e, id\)\) void loop\(\);/);
     const socket = src("components/deal-chat/deal-socket.ts");
     expect(socket).not.toMatch(/setChat|loadDealChatAction|sendDealMessageAction/);
     expect([...socket.matchAll(/from "@\/server\/[^"]+"/g)]).toHaveLength(1);
+    expect(socket).toContain('from "@/server/deal-chat-actions"');
+  });
+  it("each screen says what it is showing, so the right pass is fetched", () => {
+    const hook = src("components/deal-chat/use-deal-chat.ts");
+    /* The open chat: that chat. The list: the person's inbox. */
+    expect(hook.slice(hook.indexOf("export function useDealChat"))).toContain("onDealChat(id,");
+    expect(hook.slice(hook.indexOf("export function useChatRows"), hook.indexOf("export function useDealChat"))).toContain("onDealInbox(");
+    /* The Messages button and BTG's desk: the inbox. The order's card: the chats on it that are still going. */
+    expect(src("components/deal-chat/chat-dock.tsx")).toContain("onDealInbox(changed)");
+    expect(src("components/deal-chat/deal-chats-desk.tsx")).toContain("onDealInbox(");
+    expect(src("components/deal-chat/order-live.tsx")).toContain("mine.map((id) => onDealChat(id, changed))");
+    const card = src("components/deal-chat/order-deal-chats.tsx");
+    expect(card).toContain('rows.filter((r) => !r.ended && !r.id.startsWith("sample-")).map((r) => r.id)');
+    expect(card).toContain("followed.length > 0 && <OrderLive orderId={rows[0]!.orderId} chatIds={followed} />");
   });
   it("a sample never opens it", () => {
     const hook = src("components/deal-chat/use-deal-chat.ts");
     const effect = hook.slice(hook.indexOf("export function useDealChat"));
-    expect(effect.indexOf("if (sample) return;")).toBeLessThan(effect.indexOf("onDealSocket("));
+    expect(effect.indexOf("if (sample) return;")).toBeLessThan(effect.indexOf("onDealChat("));
     expect(src("components/deal-chat/messenger.tsx")).toContain("useChatRows(sample ? sample.map(chatRow) : initialRows, !sample)");
+    expect(src("components/deal-chat/chat-dock.tsx")).toMatch(/if \(onMessages \|\| sample\) return;/);
+    expect(src("components/deal-chat/deal-chats-desk.tsx")).toMatch(/if \(sample\) return;\r?\n\s+let soon/);
+  });
+  it("nothing of the first version is left: no socket inside the API, no address setting, no single catch-all event", () => {
+    const files = [
+      "components/deal-chat/deal-socket.ts", "components/deal-chat/use-deal-chat.ts", "components/deal-chat/chat-dock.tsx",
+      "components/deal-chat/deal-chats-desk.tsx", "components/deal-chat/order-live.tsx", "components/deal-chat/messenger.tsx",
+      "lib/deal-chat.ts", "lib/deal-live.ts", "server/deal-chat.ts", "server/deal-chat-actions.ts",
+    ];
+    /* Spelt in pieces, so a search of the web app for the old names finds nothing — not even this check. */
+    const gone = new RegExp(["api/v1/" + "socket", "API_PUBLIC" + "_URL", "deal-chat" + ":changed", "dealSocket" + "Ticket", "dealSocket" + "Url"].join("|"));
+    for (const f of files) expect(src(f), f).not.toMatch(gone);
+    expect(readFileSync(new URL("../.env.example", import.meta.url), "utf8")).not.toMatch(gone);
+    /* A pass is asked for through the one server action, which only forwards the caller's own session. */
+    const actions = src("server/deal-chat-actions.ts");
+    expect(actions).toContain("export async function dealLivePassAction(want: LiveWant): Promise<LivePassResult>");
+    expect(src("server/deal-chat.ts")).toContain('apiFetch("/live-passes", { method: "POST", body: JSON.stringify(want) })');
+    /* A "use server" file exports only async functions, or every action in it fails at run time. */
+    expect(actions.match(/^export (?!async function )/gm)).toBeNull();
   });
 });

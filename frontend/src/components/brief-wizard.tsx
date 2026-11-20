@@ -15,11 +15,13 @@ import {
   TIMINGS,
   businessTypeText,
   emptyBriefDraft,
+  marketPlace,
   packageOption,
   parseBriefDraft,
   resumeStep,
   stepAnswer,
   validateBriefStep,
+  withMarket,
   type BriefDraft,
   type BriefStepId,
   type BusinessType,
@@ -28,6 +30,7 @@ import { categoryLabel, type BrandCategory } from "@/lib/brand-categories";
 import { submitBriefRequest } from "@/app/brief/actions";
 import { Confetti, SpotGroup, Words, reducedMotion } from "@/components/brief-fx";
 import { FocusRail, FocusShell, LineField, Problem, delay } from "@/components/focus-wizard";
+import { PlacePicker } from "@/components/place-picker";
 import { SponsorProofUpload } from "@/components/sponsor-proof-upload";
 import { SponsorRequestStanding } from "@/components/sponsor-request-standing";
 import type { ApiSponsorRequestStatus } from "@/lib/sponsor-request-live";
@@ -600,17 +603,32 @@ export function BriefWizard({
                 {/* ----------------------------------------------- market */}
                 {def.id === "market" && (
                   <>
-                    <Field
-                      def={def.fields[0]}
-                      className="bx-rise"
-                      style={delay(0.3)}
-                      value={draft.answers.market ?? ""}
-                      error={errors.market}
-                      onChange={(v) => {
-                        clearError("market");
-                        setAnswer("market", v);
-                      }}
-                    />
+                    {/* POL-FE-117 — picked from the list, each dropdown searchable; never typed. */}
+                    <div className="bx-rise" style={delay(0.3)} data-field="market">
+                      <div className="grid gap-6 sm:grid-cols-3">
+                        <PlacePicker
+                          idPrefix="brief-market"
+                          tone="sponsor"
+                          value={marketPlace(draft)}
+                          onChange={(pl) => {
+                            clearError("market");
+                            write({ ...draft, answers: withMarket(draft.answers, pl) });
+                          }}
+                          hints={{ region: "We match you with athletes there." }}
+                          field={({ key, id, label, hint, children }) => (
+                            <div key={key} className="min-w-0">
+                              <label htmlFor={id} className="flex items-baseline gap-2 text-sm font-medium text-muted">
+                                {label}
+                                {key === "city" && <span className="text-[12px] font-normal text-faint">Optional</span>}
+                              </label>
+                              <div className="mt-2">{children}</div>
+                              {hint && key !== "city" && <p className="mt-2 text-[12px] text-faint">{hint}</p>}
+                            </div>
+                          )}
+                        />
+                      </div>
+                      <Problem id="err-market" text={errors.market} />
+                    </div>
                     <div className="sx-expand" data-open={!!(draft.answers.market ?? "").trim()}>
                       <div inert={!(draft.answers.market ?? "").trim()}>
                         <Chips

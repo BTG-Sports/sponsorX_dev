@@ -66,6 +66,9 @@ export type ApiOffer = {
   agreement?: ApiOfferAgreement | null;
   /** Oldest first. Absent from an API older than 2S2-FE-03's. */
   changeRequests?: ApiOfferChangeRequest[];
+  /** POL-BE-116 — the order's details for this job, fixed when sent; null on an
+   *  offer made before them. Read it with readOrderDetails (lib/order-details). */
+  orderDetails?: unknown;
 };
 
 export type OfferStatus = "draft" | "open" | "expired" | "accepted" | "declined" | "withdrawn";

@@ -6,13 +6,14 @@ import { loadDealChatAction, loadDealChatRowsAction, markDealChatReadAction } fr
 import { DEAL_LIST_POLL_MS, chatPollDelay, chatRow, type ApiDealChat, type ChatRow } from "@/lib/deal-chat";
 import { SAMPLE_NOTE } from "@/lib/deal-chat-sample";
 
-import { dealSocketLive, onDealSocket, touches } from "./deal-socket";
+import { dealSocketLive, onDealChat, onDealInbox, touches } from "./deal-socket";
 
 /* --------------------------------------------------------------------------
-   One open chat: its latest read, read again the moment the live socket says
-   it changed (deal-socket.ts) and, as the safety net, on a beat of its own
-   while the tab is in front — every few seconds without the socket, every
-   half minute with it. And the one door every write goes through.
+   One open chat: its latest read, read again the moment the live connection
+   says it changed (deal-socket.ts: the chat is followed while it is open
+   here) and, as the safety net, on a beat of its own while the tab is in
+   front — every few seconds when it isn't followed live, every half minute
+   when it is. And the one door every write goes through.
 
    Mount it with `key={chatId}` — a different chat is a different hook, so
    nothing of the last one is ever shown under the new title.
@@ -21,9 +22,9 @@ import { dealSocketLive, onDealSocket, touches } from "./deal-socket";
 export type ChatWrite = { ok: true; chat: ApiDealChat } | { ok: false; message: string };
 
 /** Tell the other chat surfaces on the page (the list, the round button, the order's card) that something moved. */
-export const DEAL_CHANGED = "sx-deal-chat:changed";
+export const DEAL_CHANGED = "sx-deal:changed";
 /** Ask the round button to open a chat: `detail.chatId`. */
-export const DEAL_OPEN = "sx-deal-chat:open";
+export const DEAL_OPEN = "sx-deal:open";
 
 export function announceChange(chat?: ApiDealChat) {
   window.dispatchEvent(new CustomEvent(DEAL_CHANGED, { detail: chat ? { chat } : undefined }));
@@ -79,8 +80,8 @@ export function useChatRows(initial: ChatRow[] | null, active: boolean): { rows:
       soon = setTimeout(reload, 600);
     };
     window.addEventListener(DEAL_CHANGED, changed);
-    /* Live: any chat of the reader's changed (a new message elsewhere, a new chat), so the list reads again. */
-    const off = onDealSocket(() => {
+    /* Live, while the list is on screen (the inbox pass): any chat of the reader's changed (a new message, a new chat), so the list reads again. */
+    const off = onDealInbox(() => {
       clearTimeout(soon);
       soon = setTimeout(reload, 400);
     });
@@ -124,23 +125,23 @@ export function useDealChat(id: string, initial: ApiDealChat | null, sample = fa
         setProblem(r ? r.message : "We couldn't reach SponsorX. Check your connection.");
       }
     };
-    /* One beat at a time: a read asked for early (the tab came to the front, the socket spoke) replaces the waiting one. */
+    /* One beat at a time: a read asked for early (the tab came to the front, the live connection spoke) replaces the waiting one. */
     let turn = 0;
     const loop = async () => {
       const mine = ++turn;
       clearTimeout(timer);
       await read();
-      if (live && mine === turn) timer = setTimeout(loop, chatPollDelay(dealSocketLive()));
+      if (live && mine === turn) timer = setTimeout(loop, chatPollDelay(dealSocketLive(id)));
     };
     /* A chat handed in by the server is fresh: wait one beat before asking again. */
-    if (loaded.current) timer = setTimeout(loop, chatPollDelay(dealSocketLive()));
+    if (loaded.current) timer = setTimeout(loop, chatPollDelay(dealSocketLive(id)));
     else void loop();
     const front = () => {
       if (document.visibilityState === "visible") void loop();
     };
     document.addEventListener("visibilitychange", front);
-    /* Live: this chat changed (or the socket just came back and may have missed it). */
-    const off = onDealSocket((e) => {
+    /* Live, while this chat is open here (its own pass): it changed, or the connection just came back and may have missed it. */
+    const off = onDealChat(id, (e) => {
       if (touches(e, id)) void loop();
     });
     return () => {

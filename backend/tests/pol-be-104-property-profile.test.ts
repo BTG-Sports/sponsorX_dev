@@ -167,7 +167,8 @@ describe.skipIf(!hasDatabase)("POL-BE-104 · a team's own details page", async (
     await held({ name: "Laurel Ospreys" }, 'Another organisation already holds the name "Laurel Ospreys"');
     await held({ name: "Bowie Hawks Escort Service" }, "restricted word");
     await held({ details: { ...details, league: "AAU 16U", legalEntityName: "Hawks Holdings LLC" } }, "legal entity name");
-    await held({ stateCode: "CA" }, "Missing for the new state: Business registration (CA)");
+    /* POL-BE-117 — a move names its new city too (a Maryland city can't follow the team to California). */
+    await held({ stateCode: "CA", city: "Oakland" }, "Missing for the new state: Business registration (CA)");
     expect(await property()).toMatchObject({ name: "Bowie Hawks Elite", stateCode: "MD" });
 
     /* An offer out on the team's inventory: a sponsor is buying it as described. */
@@ -188,10 +189,10 @@ describe.skipIf(!hasDatabase)("POL-BE-104 · a team's own details page", async (
   });
 
   it("a held change waits one at a time; BTG's approval makes it real, and the manager reads a rejection", async () => {
-    const asked = await call("POST", "/property/profile/change", mgr, { stateCode: "CA" });
+    const asked = await call("POST", "/property/profile/change", mgr, { stateCode: "CA", city: "Oakland" });
     const id = asked.json.pendingChange.id as string;
     expect((await call("GET", "/property/profile", mgr)).json.pendingChange).toMatchObject({ status: "PENDING", changes: { stateCode: "CA" }, before: { stateCode: "MD" } });
-    expect((await call("POST", "/property/profile/change", mgr, { city: "Somewhere" })).status).toBe(409);
+    expect((await call("POST", "/property/profile/change", mgr, { city: "Annapolis" })).status).toBe(409); // a real city: an unlisted one is refused first (POL-BE-117)
 
     expect((await call("GET", "/property-profile-changes", p("network"))).status).toBe(200);
     expect((await call("POST", `/property-profile-changes/${id}/approve`, p("network"))).status).toBe(403);
@@ -208,7 +209,7 @@ describe.skipIf(!hasDatabase)("POL-BE-104 · a team's own details page", async (
   });
 
   it("two BTG answers to the same change settle once", async () => {
-    const asked = await call("POST", "/property/profile/change", mgr, { stateCode: "NY" });
+    const asked = await call("POST", "/property/profile/change", mgr, { stateCode: "NY", city: "Buffalo" });
     const id = asked.json.pendingChange.id as string;
     const [a, b] = await Promise.all([
       call("POST", `/property-profile-changes/${id}/approve`, btg),

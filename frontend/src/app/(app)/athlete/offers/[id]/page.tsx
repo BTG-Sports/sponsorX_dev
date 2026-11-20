@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { ArenaChip, ArenaHead, ArenaUpdated, ArenaLink, ArenaPanel, ArenaSection, ArenaTile, ArenaTiles, type ArenaTone } from "@/components/arena-stage";
 import { OfferRespond } from "@/components/offer-respond";
+import { OrderSheet } from "@/components/order-sheet";
+import { readOrderDetails } from "@/lib/order-details";
 import {
   STATUS_COPY,
   acceptBlocker,
@@ -104,6 +106,8 @@ export default async function AthleteOfferPage({ params }: { params: Promise<{ i
   const change = latestChangeRequest(o);
   const rows = deliverableRows(o);
   const daysToAnswer = Math.max(0, Math.ceil((new Date(o.expiresAt).getTime() - now.getTime()) / DAY));
+  /* POL-FE-116 — an offer sent since POL-BE-116 carries the whole order; an older one keeps its short terms. */
+  const details = readOrderDetails(o.orderDetails);
 
   return (
     <div className="space-y-6">
@@ -183,6 +187,19 @@ export default async function AthleteOfferPage({ params }: { params: Promise<{ i
             </ArenaPanel>
           </section>
 
+          {details ? (
+            /* POL-FE-116 — every detail of the Athlete Campaign Order template,
+               as the athlete (or their guardian) reads it before accepting. */
+            <section>
+              <ArenaSection title="The order" hint="Every detail you agree to — fixed when BTG sent the offer" delay={0.42} />
+              <ArenaPanel delay={0.46}>
+                <OrderSheet
+                  heading=""
+                  input={{ details, sponsor: o.sponsorName, campaign: o.campaignName, compensation: usd(o.compensation) }}
+                />
+              </ArenaPanel>
+            </section>
+          ) : (
           <section>
             <ArenaSection title="Terms" hint="Fixed when BTG sent the offer — they don't change" delay={0.42} />
             <ArenaPanel delay={0.46}>
@@ -212,6 +229,7 @@ export default async function AthleteOfferPage({ params }: { params: Promise<{ i
               </dl>
             </ArenaPanel>
           </section>
+          )}
 
           {status === "open" && (
             <section>

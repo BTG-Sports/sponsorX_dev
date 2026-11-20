@@ -5,6 +5,7 @@ import { Badge, Card, SectionHeading } from "@/components/ui";
 import { MiniChip } from "@/components/hero";
 import { SkeletonPage } from "@/components/states";
 import { DisplayNameForm } from "@/components/student-display-name";
+import { advisorNameOf } from "@/lib/advisor-profile-live";
 import { demoState } from "@/lib/demo";
 import { student } from "@/lib/fixtures";
 import {
@@ -27,8 +28,9 @@ import { StudentUnlinked } from "../live-views";
    confirmed, as a status only. The display name is the one thing they
    change (PATCH /students/me). Everything else is the school's record, so
    every other row says to ask the faculty advisor, and the page lists the
-   advisor's email when the school has one. No messaging here: the address
-   is a mailto.
+   advisor's email when the school has one — with the advisor's name beside
+   it once they have set one on their own Profile page (POL-FE-103). No
+   messaging here: the address is a mailto.
 
    BTG previewing the portal is not a student, so it sees the fixture
    student with the edit switched off.
@@ -171,7 +173,9 @@ function ProfileView({ p, editDisabled, advisorName }: { p: ApiStudentProfile; e
               </p>
               <ul className="mt-2 space-y-1">
                 {p.advisors.map((a) => (
-                  <li key={a.email} className="text-xs">
+                  <li key={a.email} className="break-words text-xs">
+                    {/* POL-FE-103 — the name the advisor set on their own Profile page, when they have. */}
+                    {advisorNameOf(a) && <span className="font-medium text-text">{advisorNameOf(a)} · </span>}
                     <a href={`mailto:${a.email}`} className="font-medium text-next hover:underline">{a.email}</a>
                   </li>
                 ))}

@@ -123,7 +123,7 @@ export const content: HelpContent = {
         },
         {
           title: "Write or attach your piece",
-          body: "Type into “Your draft”, or use “File (JPG, PNG or PDF, up to 20 MB) — optional” to attach it. You can do both.",
+          body: "Type into “Your draft”, or use “File (any format, up to 2 GB) — optional” to attach it: a photo, a video, a PDF or a design file. You can do both.",
           route: "/next/assignments?open=[assignmentId]",
           shot: "next/submit-a-draft-2",
           capture: {"highlight":"getByRole('form', { name: 'Your draft' })","needs":"The id of an assignment you can still submit."},

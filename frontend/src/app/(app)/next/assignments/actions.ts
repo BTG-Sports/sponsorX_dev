@@ -22,13 +22,20 @@ async function refusal(res: Response): Promise<{ ok: false; message: string }> {
   return { ok: false, message: assignmentRefusal(res.status, body) };
 }
 
-export async function presignDraftAction(id: string, contentType: string, bytes: number): Promise<Result<{ url: string; key: string }>> {
+/** P9-FE-13 — any format: `contentType` is the browser's name for the file,
+ *  empty when it has none. The answer carries the type to send with the PUT —
+ *  the one the grant was signed for — which the upload must use as it is. */
+export async function presignDraftAction(id: string, contentType: string, bytes: number): Promise<Result<{ url: string; key: string; contentType: string }>> {
   if (typeof id !== "string" || !id) return { ok: false, message: "That assignment isn't offered here." };
   try {
-    const res = await apiFetch(`/student-assignments/${encodeURIComponent(id)}/uploads`, { method: "POST", body: JSON.stringify({ contentType, bytes }) });
+    const res = await apiFetch(`/student-assignments/${encodeURIComponent(id)}/uploads`, {
+      method: "POST",
+      body: JSON.stringify({ contentType: typeof contentType === "string" ? contentType.slice(0, 255) : "", bytes }),
+    });
     if (!res.ok) return refusal(res);
-    const g = (await res.json()) as { url: string; key: string };
-    return { ok: true, url: g.url, key: g.key };
+    const g = (await res.json()) as { url: string; key: string; contentType?: string };
+    /* An API before P9-BE-25 answered no type: fall back to the declared one. */
+    return { ok: true, url: g.url, key: g.key, contentType: g.contentType || contentType || "application/octet-stream" };
   } catch {
     return unreachable;
   }

@@ -295,8 +295,9 @@ export type ApiStudentProfile = {
   code: string | null;
   minor: boolean;
   guardian: { linked: boolean; verified: boolean } | null;
-  /** The school's active advisor logins. The data model keeps an email, not a name. */
-  advisors: Array<{ email: string }>;
+  /** The school's active advisor logins: the email, and the name the advisor set on
+   *  their own Profile page (POL-FE-103), null until they set one. */
+  advisors: Array<{ email: string; name?: string | null }>;
   editable: string[];
 };
 

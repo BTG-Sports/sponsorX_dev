@@ -61,6 +61,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       /* Our own sign-in screen, not Clerk's hosted account portal. Matches the
          signInUrl in src/proxy.ts so client-side and proxy redirects agree. */
       signInUrl="/login"
+      /* POL-FE-118 — wherever a sign-in or sign-up finishes without its own
+         redirect, it lands on /portal (which routes by role), never on "/". */
+      signInFallbackRedirectUrl="/portal"
+      signUpFallbackRedirectUrl="/portal"
       /* Match the BTG palette rather than shipping Clerk's default purple.
          Set through `variables` instead of the @clerk/themes package, because
          B0 forbids adding a dependency for something a few tokens can do. */

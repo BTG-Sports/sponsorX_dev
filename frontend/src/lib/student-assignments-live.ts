@@ -113,8 +113,11 @@ export function toAssignmentRow(a: ApiAssignment): AssignmentRow {
   };
 }
 
-export const DRAFT_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"] as const;
-export const DRAFT_MAX_BYTES = 20 * 1024 * 1024;
+/** P9-FE-13 (P9-BE-25) — a draft's file is any format, up to 2 GB (decimal,
+ *  the API's own cap): a photo, a video, a PDF, a design file. The picker no
+ *  longer narrows the type — a file the browser can't name is still a file. */
+export const DRAFT_MAX_BYTES = 2_000_000_000;
+export const DRAFT_FILE_WORDS = "any format, up to 2 GB";
 export const MAX_DRAFT_TEXT = 20_000;
 
 /** Why the student's Submit can't go yet, or null. */
@@ -122,8 +125,8 @@ export function draftProblem(f: { text: string; file: { type: string; size: numb
   const text = f.text.trim();
   if (!text && !f.file && !f.keepFile) return "Write your piece or attach its file first.";
   if (text.length > MAX_DRAFT_TEXT) return `Keep the text under ${MAX_DRAFT_TEXT.toLocaleString("en-US")} characters (it is ${text.length.toLocaleString("en-US")}).`;
-  if (f.file && !(DRAFT_FILE_TYPES as readonly string[]).includes(f.file.type)) return "Attach a JPG, a PNG or a PDF.";
-  if (f.file && f.file.size > DRAFT_MAX_BYTES) return "Keep the file under 20 MB.";
+  if (f.file && !f.file.size) return "That file is empty — attach another.";
+  if (f.file && f.file.size > DRAFT_MAX_BYTES) return "Keep the file under 2 GB.";
   return null;
 }
 

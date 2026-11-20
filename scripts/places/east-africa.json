@@ -1,0 +1,299 @@
+{
+  "asOf": "2026-11",
+  "countries": {
+    "TZ": {
+      "name": "Tanzania",
+      "regionLabel": "Region",
+      "sources": [
+        "https://en.wikipedia.org/wiki/ISO_3166-2:TZ",
+        "https://en.wikipedia.org/wiki/Districts_of_Tanzania",
+        "https://en.wikipedia.org/wiki/List_of_cities_in_Tanzania",
+        "https://www.tanzania.go.tz/topics/regional-administration",
+        "https://www.tanzania.go.tz/directories/local-government",
+        "https://ippmedia.co.tz/the-guardian/news/local-news/read/kibaha-to-get-higher-administrative-status-2025-01-27-214906",
+        "Official council websites (<name>cc / <name>mc / <name>tc .go.tz) checked by DNS for each urban council"
+      ],
+      "notes": "31 regions (26 mainland + 5 Zanzibar), unchanged since Songwe (2016); no new region found through Nov 2026. Mainland cities are the urban local government authorities: 6 city councils (Arusha, Dar es Salaam, Dodoma, Mbeya, Mwanza, Tanga), municipal councils and town councils. The government portal (TAMISEMI) gives 6 city / 22 municipal / 21 town councils; I could confirm 6 + 22 (Kibaha's upgrade from town to municipal council was approved Jan 2025 and kibahamc.go.tz is live) but only 19 of the 21 town councils by name, so up to two town councils may be missing. Kahama, Geita and Mpanda appear as municipal councils (their mc domains are live). Kigoma-Ujiji is listed as Kigoma and Ujiji. Vwawa (Songwe regional HQ) is included although it is not an urban council, so that region is not just Tunduma. Zanzibar has no published list I could verify: I used each Zanzibar region's capital plus the Pemba towns (Wete, Chake Chake, Mkoani) that older profiles name as town councils. Region names use the English forms Wikipedia uses (Pemba North = Kaskazini Pemba, Unguja North = Kaskazini Unguja, Pemba South = Kusini Pemba, Unguja South = Kusini Unguja, Pwani = Coast).",
+      "regions": [
+        { "code": "01", "name": "Arusha", "iso": true, "cities": ["Arusha"] },
+        { "code": "02", "name": "Dar es Salaam", "iso": true, "cities": ["Dar es Salaam", "Kigamboni", "Kinondoni", "Temeke", "Ubungo"] },
+        { "code": "03", "name": "Dodoma", "iso": true, "cities": ["Dodoma", "Kondoa"] },
+        { "code": "27", "name": "Geita", "iso": true, "cities": ["Geita"] },
+        { "code": "04", "name": "Iringa", "iso": true, "cities": ["Iringa", "Mafinga"] },
+        { "code": "05", "name": "Kagera", "iso": true, "cities": ["Bukoba"] },
+        { "code": "28", "name": "Katavi", "iso": true, "cities": ["Mpanda"] },
+        { "code": "08", "name": "Kigoma", "iso": true, "cities": ["Kasulu", "Kigoma", "Ujiji"] },
+        { "code": "09", "name": "Kilimanjaro", "iso": true, "cities": ["Moshi"] },
+        { "code": "12", "name": "Lindi", "iso": true, "cities": ["Lindi"] },
+        { "code": "26", "name": "Manyara", "iso": true, "cities": ["Babati", "Mbulu"] },
+        { "code": "13", "name": "Mara", "iso": true, "cities": ["Bunda", "Musoma", "Tarime"] },
+        { "code": "14", "name": "Mbeya", "iso": true, "cities": ["Mbeya"] },
+        { "code": "15", "name": "Mjini Magharibi", "iso": true, "cities": ["Zanzibar City"] },
+        { "code": "16", "name": "Morogoro", "iso": true, "cities": ["Ifakara", "Morogoro"] },
+        { "code": "17", "name": "Mtwara", "iso": true, "cities": ["Masasi", "Mtwara", "Nanyamba", "Newala"] },
+        { "code": "18", "name": "Mwanza", "iso": true, "cities": ["Ilemela", "Mwanza"] },
+        { "code": "29", "name": "Njombe", "iso": true, "cities": ["Makambako", "Njombe"] },
+        { "code": "06", "name": "Pemba North", "iso": true, "cities": ["Wete"] },
+        { "code": "10", "name": "Pemba South", "iso": true, "cities": ["Chake Chake", "Mkoani"] },
+        { "code": "19", "name": "Pwani", "iso": true, "cities": ["Kibaha"] },
+        { "code": "20", "name": "Rukwa", "iso": true, "cities": ["Sumbawanga"] },
+        { "code": "21", "name": "Ruvuma", "iso": true, "cities": ["Mbinga", "Songea"] },
+        { "code": "22", "name": "Shinyanga", "iso": true, "cities": ["Kahama", "Shinyanga"] },
+        { "code": "30", "name": "Simiyu", "iso": true, "cities": ["Bariadi"] },
+        { "code": "23", "name": "Singida", "iso": true, "cities": ["Singida"] },
+        { "code": "31", "name": "Songwe", "iso": true, "cities": ["Tunduma", "Vwawa"] },
+        { "code": "24", "name": "Tabora", "iso": true, "cities": ["Nzega", "Tabora"] },
+        { "code": "25", "name": "Tanga", "iso": true, "cities": ["Handeni", "Korogwe", "Tanga"] },
+        { "code": "07", "name": "Unguja North", "iso": true, "cities": ["Mkokotoni"] },
+        { "code": "11", "name": "Unguja South", "iso": true, "cities": ["Koani"] }
+      ]
+    },
+    "UG": {
+      "name": "Uganda",
+      "regionLabel": "Region",
+      "sources": [
+        "https://en.wikipedia.org/wiki/ISO_3166-2:UG",
+        "https://www.citypopulation.de/en/uganda/cities/",
+        "https://www.citypopulation.de/en/uganda/central/admin/",
+        "https://www.citypopulation.de/en/uganda/eastern/admin/",
+        "https://www.citypopulation.de/en/uganda/northern/admin/",
+        "https://www.citypopulation.de/en/uganda/western/admin/",
+        "https://sunrise.ug/politics/202507/uganda-approves-nine-new-town-councils-ahead-of-2026-elections-ending-five-year-freeze-on-creation-of-administrative-units.html",
+        "https://nilepost.co.ug/news/235360/five-new-regional-cities-wont-be-operationalised-this-year-minister-magyezi-reveals",
+        "https://www.monitor.co.ug/uganda/news/national/uganda-s-cities-were-created-prematurely-mps-say-5148486"
+      ],
+      "notes": "Region level is the 4 statistical regions (UG-C/E/N/W). Cities: Kampala plus the 10 operational regional cities (Arua, Gulu, Jinja, Fort Portal, Mbarara, Mbale, Masaka in July 2020; Lira, Soroti, Hoima in July 2022). Entebbe, Wakiso, Nakasongola, Kabale and Moroto were approved but are not operational: the minister said in Jan 2025 none would open in FY2025/26, and a Nov 2026 parliamentary motion still calls them yet to function. So Entebbe, Kabale and Moroto are listed as municipalities, and Wakiso and Nakasongola as town councils. The 31 municipalities and 580 town councils come from the 2024 census administrative frame on citypopulation.de. On top of that come the 9 town councils made operational on 1 July 2025 (Awach, Kagoma, Mbale (the new Mbale District town council, which is the same name as Mbale city and so appears once), Busoro, Kyanamukaaka, Kitoba, Ogur, Katine, Vurra). Names are as the census frame spells them, with hyphenated twin-town names kept (e.g. Bushenyi-Ishaka, Mpondwe-Lhubiriha). Same-named town councils in one region (two Kibale, two Mayuge, two Kakindo) are listed once. A municipality or town council created after the census frame other than the 2025 nine may be missing.",
+      "regions": [
+        { "code": "C", "name": "Central", "iso": true, "cities": ["Bbanda","Bombo","Buikwe","Bukomansimbi","Bukomero","Bukuya","Busaana","Busiika","Busunju","Butemba","Butenga","Buvuma","Buwama","Dyango","Entebbe","Gombe","Kagologolo","Kajjansi","Kakiri","Kakooge","Kalamba","Kalangala","Kaliiro","Kalisizo","Kalungu","Kamira","Kampala","Kangulumira","Kanoni","Kasaali","Kasambya","Kasangati","Kasanje","Kasawo","Kasensero","Kassanda","Katabi","Katosi","Katovu","Katuugo","Kayabwe","Kayunga","Kazwama","Kibaale","Kibibi","Kiboga","Kiganda","Kigangazzi","Kikyusa","Kinoni","Kira","Kitimbwa","Kiwoko","Kiyindi","Kiziba","Kyamulibwa","Kyanamukaaka","Kyankwanzi","Kyazanga","Kyenda","Kyengera","Kyotera","Lubya","Lugazi","Lukaya","Luweero","Lwamaggwa","Lwamata","Lwampanga","Lwengo","Lwentulege","Lyabaana","Lyantonde","Maddu","Makindye-Ssabagabo","Masaka","Masodde-Kalagi","Masuliita","Mateete","Mayirikiti","Migeera","Mityana","Mpigi","Mubende","Mukono","Mutukula","Mweruka","Nabingoola","Nakaseke","Nakaseke Butalangu","Nakasongola","Nakifuma-Naggalama","Namataba","Namayumba","Nansana","Nazigo","Ndejje","Ngoma","Njeru","Nkokonjeru","Ntantamuki","Ntenjeru-Kisoga","Ntunda","Ntuusi","Ntwetwe","Rakai","Semuto","Ssekanyonyi","Ssembabule","Wakiso","Wattuba","Wobulenzi","Zigoti","Zirobwe"] },
+        { "code": "E", "name": "Eastern", "iso": true, "cities": ["Acowa","Agule","Akore","Amuria","Apokor","Asamuk","Balawoli","Banda","Binyiny","Bubutu","Budadiri","Budaka","Bududa","Bufujja-Kachonga","Bugadde","Bugiri","Bugobero","Bugobi","Bugusege","Bukedea","Bukigai","Bukiiti","Bukoova","Bukungu","Bukwhaweka","Bukwo","Bulambuli","Bulanga","Bulangira","Bulegeni","Bulumba","Bumbo","Busaba","Busalamu","Busembatia","Busesa","Busia","Busiu","Busolwe","Busowa","Butaleja","Butandiga","Butebo","Buteza","Butiru","Buwangani","Buwaya","Buwenge","Buweri","Buwuni","Buyaga","Buyende","Buyengo","Buyinza","Bwondha","Chepsukunya","Gombe Gasawa","Idudi","Iganga","Iki-Iki","Irundu","Ivukula","Iyolwa","Jewa","Jinja","Kaberamaido","Kabwangasi","Kachomo","Kadama","Kadungulu","Kagoma","Kagwara","Kakira","Kakoro","Kalaki","Kaliro","Kama","Kamonkoli","Kamuge","Kamuli","Kanginima","Kanyum","Kapchorwa","Kapelebyong","Kapnandi","Kapnarkut","Kaproron","Kasambira","Kasasira","Kasilo","Katakwi","Katine","Kibale","Kibuku","Kidera","Kidetok","Kikholo","Kisozi","Kongunga","Kumi","Kuushu","Kwapa","Kyanvuma","Kyere","Lumino-Majanji","Luuka","Luwa","Lwakhakha","Lyama","Magale","Magamaga","Magodes","Magoro","Malaba","Manafwa","Masafu","Masaka","Mayuge","Mbale","Mbulamuti","Merikit","Mukongoro","Mukura","Mutelele","Mutufu","Mutumba","Muwayo","Nabiganda","Naboa","Nabukalu","Nabumali","Nabuyoga","Nagongera","Namagera","Namayemba","Namayingo","Namisindwa","Namungalwe","Namungodi","Namutumba","Namwendwa","Namwiwa","Nangako","Nangonde","Nankoma","Nawaikoke","Nawanyago","Ngora","Nsinze","Nyero","Obalanga","Ocaapa","Ochero","Ongino","Opot","Orungo","Osukuru","Otuboi","Pajwenda","Pallisa","Petete","Riwo","Serere","Sipi","Sironko","Soroti","Suam","Tiira","Tirinyi","Toroma","Tororo","Tubur","Usuk","Wera"] },
+        { "code": "N", "name": "Northern", "iso": true, "cities": ["Abim","Aboke","Abuk","Acet","Acholibur","Adilang","Adjumani","Aduku","Adwari","Agago","Agaii","Agwata","Agweng","Akalo","Akokoro","Alebtong","Alerek","Alito","Aloi","Amach","Amolatar","Amudat","Amugu","Amuru","Anaka","Apac","Apala","Arua","Atanga","Atiak","Awach","Ayabi","Bala","Barakala","Barjobi","Bata","Dokolo","Elegu","Etam","Gulu","Ibuje","Iceme","Inde","Inomo","Kaabong","Kacheri","Kalapata","Kalongo","Kamdini","Kangai","Kangole","Kapedo","Karenga","Karita","Kathile","Keri","Kidepo","Kiru","Kitgum","Kitgum Matidi","Koboko","Koch Goma","Kole","Kotido","Kulikulinga","Kuru","Lai-Mutto","Lamwo","Laropi","Lefori","Leju","Lira","Lira-Palwo","Lobe","Lodonga","Lokiteded","Lokitelaebu","Loro","Madi-Opei","Maracha","Matany","Midigo","Minakulu","Moroto","Morulem","Moyo","Nabilatuk","Nadunget","Nakapiripirit","Namasale","Namokora","Napak","Nebbi","Nyaravur-Angal","Obongi","Ogur","Okokoro","Okollo","Okwang","Okwongo","Oleba","Olilim","Omoro","Oraba","Orwamuge","Otuke","Ovujo","Oyam","Pabbo","Padea","Pader","Padibe","Paidha","Pajule","Pakele","Pakwach","Palabek Kal","Palenga","Panyimur","Parombo","Patongo","Puranga","Purongo","Rhino Camp","Vurra","Warr","Wol","Yumbe","Zombo"] },
+        { "code": "W", "name": "Western", "iso": true, "cities": ["Bigodi","Biguli","Biiso","Bikurungu","Bitooma","Bubaare","Bugango","Buganikere","Bugogo","Bugongi","Buheesi","Buhimba","Buhoma","Bukiiro","Bukurungo","Buliisa","Bulima","Bulindi","Bunagana","Bundibugyo","Buremba","Bushenyi-Ishaka","Busoro","Busunga","Butama-Mitunda","Butare-Katojo","Buteraniro-Nyeihanga","Butiaba","Butiiti","Butogota","Butunduzi","Buyanja","Bweyale","Bwizibwera-Rutooma","Chahafi","Cyanika","Endiinzi","Fort Portal","Habuhutu","Hamuhambo","Hamurwa","Hapuuyo","Hima","Hoima","Ibanda","Ibanda-Kyanya","Igayaza","Igorora","Ishongororo","Isingiro","Kabale","Kabango","Kabatunda-Kirabaho","Kaberebere","Kabira","Kabuga","Kabujogera","Kabura","Kabuyanda","Kacerere","Kafunjo-Mirama","Kagadi","Kagarama","Kaghema","Kahunge","Kakabara","Kakindo","Kakinga","Kakukuru-Rwenanura","Kakumiro","Kambuga","Kamubeizi","Kamwenge","Kanara","Kanungu","Kanyantorogo","Kanyarugiri","Karugutu","Karuma","Kasenda","Kasese","Kashasha","Kashenshero","Kashenyi-Kajani","Katerera","Katooke","Katuna","Katwe-Kabatoro","Kazinga","Kazo","Kebisoni","Kibaale","Kibasi","Kibiito","Kibuuku","Kifuka","Kigorobya","Kigumba","Kihiihi","Kijunjubwa","Kijura","Kikagate","Kiko","Kikuube","Kinoni","Kinyameseke","Kiruhura","Kiryandongo","Kisiita","Kisinga","Kisojo","Kisoro","Kitagata","Kitagwenda","Kithoma-Kanyatsi","Kitoba","Kitswamba","Kitwe","Kizinda","Kyabugimbi","Kyakatwire","Kyamuhunga","Kyamukube","Kyamutunzi","Kyarumba","Kyarusozi","Kyaterekera","Kyatiri","Kyegegwa","Kyenjojo","Kyenzige","Lyakahungu","Mabaale","Mabira","Mahyoro","Maliba","Masheruka","Masindi","Mbale","Mbarara","Mitooma","Mpara","Mparo","Mpasaana","Mpeefu ya Sande","Mpondwe-Lhubiriha","Mubuku","Mugusu","Muhanga","Muhokya","Muhorro","Mupaka","Mutara","Nkoma-Katalyeba","Nkooko","Nkuringo","Nshanjare","Nsiika","Ntandi","Ntungamo","Nyabisirira","Nyahuka","Nyakabungo","Nyakashaka","Nyakaziba","Nyakigumba","Nyakyera","Nyamarunda","Nyamirama","Nyamukana","Nyamunuka","Nyanamo","Nyarweyo","Pachwa","Rubaare","Rubanda","Rubindi-Ruhumba","Rubirizi","Rubona","Rubuguri","Rugaaga","Rugashari","Rugendabara-Kikongo","Rugombe","Ruhiira","Ruhija","Rukundo","Rukungiri","Rukunyu","Rushango","Rushere","Rutenga","Rutete","Rutookye","Rwamabondo","Rwanyamahembe","Rwashameire","Rwebisengo","Rweibogo-Kibingo","Rwenkobwa","Rwentobo-Rwahi","Rwentuha","Rwerere","Rwimi","Rwoho","Ryakarimira","Sanga","Sheema","Shuuku","Wanseko"] }
+      ]
+    },
+    "KE": {
+      "name": "Kenya",
+      "regionLabel": "County",
+      "sources": [
+        "https://en.wikipedia.org/wiki/ISO_3166-2:KE",
+        "https://en.wikipedia.org/wiki/Counties_of_Kenya",
+        "https://www.citypopulation.de/en/kenya/cities/",
+        "https://standardmedia.co.ke/business/amp/national/article/2001501009/eldoret-becomes-kenyas-fifth-city",
+        "https://www.standardmedia.co.ke/politics/article/2001553095/senate-approves-conferment-of-city-status-to-thika-municipality",
+        "https://www.kenyanews.go.ke/kehancha-town-gains-municipality-status/",
+        "https://www.standardmedia.co.ke/business/amp/eastern/article/2001538771/meru-county-assembly-adopts-plan-to-upgrade-nkubu-to-municipality"
+      ],
+      "notes": "47 counties, ISO KE-01..47 (alphabetical; not the same as the KNBS county numbers). Each list is the county capital (from Counties of Kenya) plus the 2019-census urban centres on citypopulation.de and other well-known municipal and market towns. Cities with a charter: Nairobi, Mombasa, Kisumu, Nakuru, Eldoret (Aug 2024). The Senate approved city status for Thika in July 2026, but I found no charter signed by Nov 2026, so Thika is listed as a town only. I could not find one official, complete list of chartered municipalities under the Urban Areas and Cities Act. The non-capital towns therefore come from census urban-centre data plus my own knowledge, and are not an exhaustive municipal register. Urban centres that straddle a county line are put in one county: Thika in Kiambu, Nyahururu in Laikipia, Keroka in Nyamira, Mariakani in Kilifi, Garissa town in Garissa. Laikipia's capital is Rumuruti, though Nanyuki is larger. Taita-Taveta's is Mwatate. Tharaka-Nithi's is Kathwana, though Chuka is larger.",
+      "regions": [
+        { "code": "01", "name": "Baringo", "iso": true, "cities": ["Eldama Ravine", "Kabarnet", "Marigat", "Mogotio"] },
+        { "code": "02", "name": "Bomet", "iso": true, "cities": ["Bomet", "Mulot", "Sotik"] },
+        { "code": "03", "name": "Bungoma", "iso": true, "cities": ["Bungoma", "Chwele", "Kimilili", "Webuye"] },
+        { "code": "04", "name": "Busia", "iso": true, "cities": ["Busia", "Malaba", "Nambale", "Port Victoria"] },
+        { "code": "05", "name": "Elgeyo-Marakwet", "iso": true, "cities": ["Iten", "Kapsowar", "Tambach"] },
+        { "code": "06", "name": "Embu", "iso": true, "cities": ["Embu", "Runyenjes", "Siakago"] },
+        { "code": "07", "name": "Garissa", "iso": true, "cities": ["Dadaab", "Garissa", "Masalani"] },
+        { "code": "08", "name": "Homa Bay", "iso": true, "cities": ["Homa Bay", "Kendu Bay", "Mbita", "Ndhiwa", "Oyugis"] },
+        { "code": "09", "name": "Isiolo", "iso": true, "cities": ["Garbatulla", "Isiolo", "Kinna", "Merti"] },
+        { "code": "10", "name": "Kajiado", "iso": true, "cities": ["Isinya", "Kajiado", "Kiserian", "Kitengela", "Loitokitok", "Namanga", "Ngong", "Ongata Rongai"] },
+        { "code": "11", "name": "Kakamega", "iso": true, "cities": ["Butere", "Kakamega", "Malava", "Mumias"] },
+        { "code": "12", "name": "Kericho", "iso": true, "cities": ["Kericho", "Kipkelion", "Litein", "Londiani"] },
+        { "code": "13", "name": "Kiambu", "iso": true, "cities": ["Gatundu", "Githunguri", "Juja", "Karuri", "Kiambu", "Kikuyu", "Limuru", "Ruiru", "Thika"] },
+        { "code": "14", "name": "Kilifi", "iso": true, "cities": ["Kaloleni", "Kilifi", "Malindi", "Mariakani", "Mtwapa", "Watamu"] },
+        { "code": "15", "name": "Kirinyaga", "iso": true, "cities": ["Kagio", "Kerugoya", "Kianyaga", "Kutus", "Sagana", "Wang'uru"] },
+        { "code": "16", "name": "Kisii", "iso": true, "cities": ["Kisii", "Ogembo", "Suneka"] },
+        { "code": "17", "name": "Kisumu", "iso": true, "cities": ["Ahero", "Kisumu", "Kombewa", "Maseno", "Muhoroni"] },
+        { "code": "18", "name": "Kitui", "iso": true, "cities": ["Kitui", "Mutomo", "Mwingi"] },
+        { "code": "19", "name": "Kwale", "iso": true, "cities": ["Kinango", "Kwale", "Lunga Lunga", "Msambweni", "Ukunda"] },
+        { "code": "20", "name": "Laikipia", "iso": true, "cities": ["Nanyuki", "Nyahururu", "Rumuruti"] },
+        { "code": "21", "name": "Lamu", "iso": true, "cities": ["Lamu", "Mokowe", "Mpeketoni", "Witu"] },
+        { "code": "22", "name": "Machakos", "iso": true, "cities": ["Athi River", "Kangundo", "Machakos", "Matuu", "Mlolongo", "Tala"] },
+        { "code": "23", "name": "Makueni", "iso": true, "cities": ["Emali", "Kibwezi", "Makindu", "Mtito Andei", "Sultan Hamud", "Wote"] },
+        { "code": "24", "name": "Mandera", "iso": true, "cities": ["Banissa", "Elwak", "Lafey", "Mandera", "Rhamu", "Takaba"] },
+        { "code": "25", "name": "Marsabit", "iso": true, "cities": ["Laisamis", "Loiyangalani", "Marsabit", "Moyale", "North Horr", "Sololo"] },
+        { "code": "26", "name": "Meru", "iso": true, "cities": ["Laare", "Maua", "Meru", "Nkubu", "Timau"] },
+        { "code": "27", "name": "Migori", "iso": true, "cities": ["Awendo", "Isebania", "Kehancha", "Migori", "Rongo", "Uriri"] },
+        { "code": "28", "name": "Mombasa", "iso": true, "cities": ["Mombasa"] },
+        { "code": "29", "name": "Murang'a", "iso": true, "cities": ["Kandara", "Kangari", "Kangema", "Kenol", "Kiriaini", "Maragua", "Murang'a"] },
+        { "code": "30", "name": "Nairobi", "iso": true, "cities": ["Nairobi"] },
+        { "code": "31", "name": "Nakuru", "iso": true, "cities": ["Elburgon", "Gilgil", "Mai Mahiu", "Molo", "Naivasha", "Nakuru", "Njoro"] },
+        { "code": "32", "name": "Nandi", "iso": true, "cities": ["Kabiyet", "Kapsabet", "Mosoriot", "Nandi Hills"] },
+        { "code": "33", "name": "Narok", "iso": true, "cities": ["Kilgoris", "Narok"] },
+        { "code": "34", "name": "Nyamira", "iso": true, "cities": ["Ekerenyo", "Keroka", "Nyamira", "Nyansiongo"] },
+        { "code": "35", "name": "Nyandarua", "iso": true, "cities": ["Engineer", "Mairo Inya", "Njabini", "Ol Joro Orok", "Ol Kalou"] },
+        { "code": "36", "name": "Nyeri", "iso": true, "cities": ["Chaka", "Karatina", "Mukurweini", "Naro Moru", "Nyeri", "Othaya"] },
+        { "code": "37", "name": "Samburu", "iso": true, "cities": ["Archers Post", "Baragoi", "Maralal", "Wamba"] },
+        { "code": "38", "name": "Siaya", "iso": true, "cities": ["Bondo", "Siaya", "Ugunja", "Ukwala", "Usenge", "Yala"] },
+        { "code": "39", "name": "Taita-Taveta", "iso": true, "cities": ["Mwatate", "Taveta", "Voi", "Wundanyi"] },
+        { "code": "40", "name": "Tana River", "iso": true, "cities": ["Bura", "Garsen", "Hola", "Madogo"] },
+        { "code": "41", "name": "Tharaka-Nithi", "iso": true, "cities": ["Chogoria", "Chuka", "Kathwana", "Marimanti"] },
+        { "code": "42", "name": "Trans Nzoia", "iso": true, "cities": ["Endebess", "Kiminini", "Kitale"] },
+        { "code": "43", "name": "Turkana", "iso": true, "cities": ["Kakuma", "Kalokol", "Lodwar", "Lokichar", "Lokichogio"] },
+        { "code": "44", "name": "Uasin Gishu", "iso": true, "cities": ["Burnt Forest", "Eldoret", "Moi's Bridge", "Turbo", "Ziwa"] },
+        { "code": "45", "name": "Vihiga", "iso": true, "cities": ["Chavakali", "Hamisi", "Luanda", "Majengo", "Mbale"] },
+        { "code": "46", "name": "Wajir", "iso": true, "cities": ["Bute", "Eldas", "Griftu", "Habaswein", "Wajir"] },
+        { "code": "47", "name": "West Pokot", "iso": true, "cities": ["Chepareria", "Kapenguria", "Makutano", "Ortum"] }
+      ]
+    },
+    "RW": {
+      "name": "Rwanda",
+      "regionLabel": "Province",
+      "sources": [
+        "https://en.wikipedia.org/wiki/ISO_3166-2:RW",
+        "https://en.wikipedia.org/wiki/Districts_of_Rwanda",
+        "https://allafrica.com/stories/202507240071.html"
+      ],
+      "notes": "5 provinces (Kigali City + 4) and 30 districts, unchanged since 2006; no merger found for 2025-2026 (only cell-level staffing reforms). Cities = Kigali, the six secondary cities (Huye, Muhanga, Musanze, Nyagatare, Rubavu, Rusizi), and the seat town of every other district. Towns use their current official names, not colonial or prefecture ones: Huye (Butare), Muhanga (Gitarama), Musanze (Ruhengeri), Rubavu (Gisenyi), Rusizi (Kamembe/Cyangugu), Karongi (Kibuye), Nyamagabe (Gikongoro), Kibungo (Ngoma district). Kigali's three districts (Gasabo, Kicukiro, Nyarugenge) are parts of the city and are not listed separately. Several district seats are listed under the district name (Gakenke, Ngororero, Nyabihu, Nyamasheke, Rutsiro, Gisagara, Kamonyi, Ruhango, Kayonza) because their sector names are not used as town names; treat those as best-effort.",
+      "regions": [
+        { "code": "02", "name": "Eastern", "iso": true, "cities": ["Kabarore", "Kayonza", "Kibungo", "Nyagatare", "Nyakarambi", "Nyamata", "Rwamagana"] },
+        { "code": "01", "name": "Kigali City", "iso": true, "cities": ["Kigali"] },
+        { "code": "03", "name": "Northern", "iso": true, "cities": ["Base", "Burera", "Byumba", "Gakenke", "Musanze"] },
+        { "code": "05", "name": "Southern", "iso": true, "cities": ["Gisagara", "Huye", "Kamonyi", "Kibeho", "Muhanga", "Nyamagabe", "Nyanza", "Ruhango"] },
+        { "code": "04", "name": "Western", "iso": true, "cities": ["Karongi", "Ngororero", "Nyabihu", "Nyamasheke", "Rubavu", "Rusizi", "Rutsiro"] }
+      ]
+    },
+    "BI": {
+      "name": "Burundi",
+      "regionLabel": "Province",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Provinces_of_Burundi",
+        "https://en.wikipedia.org/wiki/Bujumbura_Province",
+        "https://en.wikipedia.org/wiki/Buhumuza",
+        "https://en.wikipedia.org/wiki/Burunga",
+        "https://en.wikipedia.org/wiki/Butanyerera",
+        "https://en.wikipedia.org/wiki/Muramvya_Province",
+        "https://en.wikipedia.org/wiki/ISO_3166-2:BI",
+        "https://www.geo-ref.net/en/bdi.htm"
+      ],
+      "notes": "The 2023 law (signed 16 Mar 2023) took effect with the 2025 elections: 18 provinces became 5, and 119 communes became 42. Governors were sworn in on 4 July 2025. Capitals: Bujumbura (Bujumbura), Cankuzo (Buhumuza), Makamba (Burunga), Ngozi (Butanyerera), Gitega (Gitega). ISO 3166-2:BI still lists the 18 old provinces, so all five codes here are invented (iso:false). They avoid every current and former BI code, including BI-GI, which ISO still uses for the old, much smaller Gitega province. Towns are the former provincial capitals and other main towns, placed by Wikipedia's province-to-province correspondence. Rumonge town goes to Burunga (Rumonge commune joined Burunga). Muramvya town goes to Gitega (Wikipedia: Muramvya Province merged into Gitega; Bujumbura and Butanyerera took only some of its collines). Isale was the seat of the former Bujumbura Rural province.",
+      "regions": [
+        { "code": "BH", "name": "Buhumuza", "iso": false, "cities": ["Cankuzo", "Gisuru", "Muyinga", "Ruyigi"] },
+        { "code": "BU", "name": "Bujumbura", "iso": false, "cities": ["Bubanza", "Bujumbura", "Cibitoke", "Gatumba", "Gihanga", "Isale", "Mpanda", "Rugombo"] },
+        { "code": "BG", "name": "Burunga", "iso": false, "cities": ["Bururi", "Makamba", "Matana", "Musongati", "Nyanza-Lac", "Rumonge", "Rutana"] },
+        { "code": "BT", "name": "Butanyerera", "iso": false, "cities": ["Busoni", "Kayanza", "Kiremba", "Kirundo", "Ngozi"] },
+        { "code": "GT", "name": "Gitega", "iso": false, "cities": ["Gitega", "Karuzi", "Muramvya", "Mwaro"] }
+      ]
+    },
+    "SS": {
+      "name": "South Sudan",
+      "regionLabel": "State",
+      "sources": [
+        "https://en.wikipedia.org/wiki/ISO_3166-2:SS",
+        "https://en.wikipedia.org/wiki/States_of_South_Sudan",
+        "https://www.radiotamazuj.org/en/news/article/south-sudans-electoral-body-sets-102-constituencies-for-2026-vote"
+      ],
+      "notes": "10 states (ISO SS-xx) plus 3 administrative areas, the structure in place since the February 2020 return to 10 states. The electoral commission's 2026 constituency map still uses 10 states + 3 administrative areas. Abyei is formally a 'special administrative status' area claimed by both Sudan and South Sudan. ISO has no codes for the 3 administrative areas, so AB, PB and RU are invented (iso:false). Unverified: one outlet (Rio Times) reported that the state governments and administrative-area administrations were dissolved by order on 22 Sep 2026. That concerns who governs, not the boundaries, and I found no report of the states themselves being redrawn. Town lists (state capital + county towns) come from general knowledge of the 2020 structure, not one official register. Pochalla is left out because I could not confirm whether it belongs to Jonglei or Greater Pibor.",
+      "regions": [
+        { "code": "AB", "name": "Abyei Administrative Area", "iso": false, "cities": ["Abyei", "Agok"] },
+        { "code": "EC", "name": "Central Equatoria", "iso": true, "cities": ["Juba", "Kajo Keji", "Lainya", "Morobo", "Terekeka", "Yei"] },
+        { "code": "EE", "name": "Eastern Equatoria", "iso": true, "cities": ["Ikotos", "Kapoeta", "Magwi", "Nimule", "Torit"] },
+        { "code": "PB", "name": "Greater Pibor Administrative Area", "iso": false, "cities": ["Boma", "Gumuruk", "Pibor"] },
+        { "code": "JG", "name": "Jonglei", "iso": true, "cities": ["Akobo", "Ayod", "Bor", "Lankien", "New Fangak", "Panyagor", "Waat"] },
+        { "code": "LK", "name": "Lakes", "iso": true, "cities": ["Awerial", "Cueibet", "Rumbek", "Yirol"] },
+        { "code": "BN", "name": "Northern Bahr el Ghazal", "iso": true, "cities": ["Aweil", "Gok Machar", "Nyamlel"] },
+        { "code": "RU", "name": "Ruweng Administrative Area", "iso": false, "cities": ["Abiemnom", "Pariang"] },
+        { "code": "UY", "name": "Unity", "iso": true, "cities": ["Bentiu", "Koch", "Leer", "Mayom", "Rubkona"] },
+        { "code": "NU", "name": "Upper Nile", "iso": true, "cities": ["Bunj", "Kodok", "Malakal", "Melut", "Nasir", "Renk", "Ulang"] },
+        { "code": "WR", "name": "Warrap", "iso": true, "cities": ["Gogrial", "Kuajok", "Tonj", "Turalei", "Warrap"] },
+        { "code": "BW", "name": "Western Bahr el Ghazal", "iso": true, "cities": ["Deim Zubeir", "Raja", "Wau"] },
+        { "code": "EW", "name": "Western Equatoria", "iso": true, "cities": ["Ezo", "Ibba", "Maridi", "Mundri", "Mvolo", "Nzara", "Tambura", "Yambio"] }
+      ]
+    },
+    "ET": {
+      "name": "Ethiopia",
+      "regionLabel": "Region",
+      "sources": [
+        "https://en.wikipedia.org/wiki/ISO_3166-2:ET",
+        "https://en.wikipedia.org/wiki/Regions_of_Ethiopia",
+        "https://en.wikipedia.org/wiki/South_Ethiopia_Regional_State",
+        "https://en.wikipedia.org/wiki/Central_Ethiopia_Regional_State",
+        "https://en.wikipedia.org/wiki/South_West_Ethiopia_Peoples%27_Region",
+        "https://en.wikipedia.org/wiki/List_of_cities_and_towns_in_Ethiopia",
+        "https://addisstandard.com/news-ethiopia-house-of-federation-officiates-creation-of-new-state-in-southern-ethiopia/",
+        "https://assets.publishing.service.gov.uk/media/6981e0cae8900d4c455f3759/Ethiopia_Toponymic_Factfile.pdf",
+        "https://build.fhir.org/ig/MoH-Ethiopia/ETBase/CodeSystem-Ethiopian-state.html"
+      ],
+      "notes": "12 regional states + 2 chartered cities (Addis Ababa, Dire Dawa). Sidama (ISO ET-SI, 2020) and South West Ethiopia Peoples' (ET-SW, 2021) have ISO codes. South Ethiopia and Central Ethiopia (19 Aug 2023, replacing SNNPR) have none: the latest ISO change I found is 2022-11-29, and the UK toponymic factfile says they are not yet allocated. CE and SE follow the Ethiopian Ministry of Health's code system (iso:false). ISO still lists ET-SN (SNNPR); it is left out as defunct. No region created after 2023 found through Nov 2026. Towns are each region's capital plus its main cities, with SNNPR towns reassigned by zone. In Oromia, Sebeta, Burayu and Sululta were merged into the new Sheger City in 2023 but are kept as familiar names alongside Sheger. Humera is listed under Tigray (constitutional boundary), but Western Tigray has been under Amhara administration since 2020 and is disputed. Moyale (split Oromia/Somali) is listed under Oromia.",
+      "regions": [
+        { "code": "AA", "name": "Addis Ababa", "iso": true, "cities": ["Addis Ababa"] },
+        { "code": "AF", "name": "Afar", "iso": true, "cities": ["Abala", "Asaita", "Awash", "Dubti", "Gewane", "Logiya", "Mille", "Semera"] },
+        { "code": "AM", "name": "Amhara", "iso": true, "cities": ["Bahir Dar", "Bati", "Dangila", "Debark", "Debre Birhan", "Debre Markos", "Debre Tabor", "Dessie", "Finote Selam", "Gondar", "Injibara", "Kemise", "Kobo", "Kombolcha", "Lalibela", "Metemma", "Mota", "Sekota", "Shewa Robit", "Weldiya", "Woreta"] },
+        { "code": "BE", "name": "Benishangul-Gumuz", "iso": true, "cities": ["Assosa", "Bambasi", "Gilgel Beles", "Kamashi"] },
+        { "code": "CE", "name": "Central Ethiopia", "iso": false, "cities": ["Butajira", "Durame", "Emdibir", "Halaba Kulito", "Hosaena", "Shinshicho", "Welkite", "Worabe"] },
+        { "code": "DD", "name": "Dire Dawa", "iso": true, "cities": ["Dire Dawa"] },
+        { "code": "GA", "name": "Gambela", "iso": true, "cities": ["Abobo", "Gambela", "Itang"] },
+        { "code": "HA", "name": "Harari", "iso": true, "cities": ["Harar"] },
+        { "code": "OR", "name": "Oromia", "iso": true, "cities": ["Adama", "Agaro", "Ambo", "Arsi Negele", "Asella", "Batu", "Bishoftu", "Bule Hora", "Burayu", "Chiro", "Dembi Dolo", "Fiche", "Gimbi", "Goba", "Haramaya", "Holeta", "Jimma", "Meki", "Metu", "Modjo", "Moyale", "Negele Borana", "Nekemte", "Robe", "Sebeta", "Shashamane", "Sheger", "Sululta", "Waliso"] },
+        { "code": "SI", "name": "Sidama", "iso": true, "cities": ["Aleta Wendo", "Daye", "Hawassa", "Leku", "Wondo Genet", "Yirgalem"] },
+        { "code": "SO", "name": "Somali", "iso": true, "cities": ["Degehabur", "Dolo Odo", "Gode", "Jijiga", "Kebri Beyah", "Kebri Dahar", "Tog Wajaale", "Werder"] },
+        { "code": "SE", "name": "South Ethiopia", "iso": false, "cities": ["Arba Minch", "Areka", "Bedessa", "Boditi", "Dilla", "Jinka", "Karat", "Sawla", "Wolaita Sodo", "Yirgachefe"] },
+        { "code": "SW", "name": "South West Ethiopia Peoples'", "iso": true, "cities": ["Ameya", "Bonga", "Masha", "Mizan Teferi", "Tarcha", "Tepi"] },
+        { "code": "TI", "name": "Tigray", "iso": true, "cities": ["Abiy Addi", "Adigrat", "Adwa", "Aksum", "Alamata", "Humera", "Korem", "Maychew", "Mekelle", "Shire", "Wukro"] }
+      ]
+    },
+    "SO": {
+      "name": "Somalia",
+      "regionLabel": "Region",
+      "sources": [
+        "https://en.wikipedia.org/wiki/ISO_3166-2:SO",
+        "https://en.wikipedia.org/wiki/Administrative_divisions_of_Somalia"
+      ],
+      "notes": "The 18 pre-1991 regions (gobolka) that ISO 3166-2:SO uses; capitals checked against Wikipedia's regions-and-districts table, which calls Woqooyi Galbeed 'Maroodi Jeex'. The federal member states and Somaliland's own regional scheme are not shown. Under ISO's scheme Berbera is in Woqooyi Galbeed (Somaliland puts it in its Sahil region) and Las Anod is in Sool (now seat of the SSC-Khatumo administration). Region names are the common English forms of the ISO Somali names (Middle Juba = Jubbada Dhexe, Lower Juba = Jubbada Hoose, Middle Shabelle = Shabeellaha Dhexe, Lower Shabelle = Shabeellaha Hoose, Hiiraan = Hiran). Town lists (regional capital + district towns) come from general knowledge, not one official register. Spellings follow common English usage (e.g. Merca, Barawa, Bosaso, Galkayo, Beledweyne) and vary widely between sources.",
+      "regions": [
+        { "code": "AW", "name": "Awdal", "iso": true, "cities": ["Baki", "Borama", "Lughaya", "Zeila"] },
+        { "code": "BK", "name": "Bakool", "iso": true, "cities": ["El Barde", "Hudur", "Rabdhure", "Tiyeglow", "Wajid"] },
+        { "code": "BN", "name": "Banaadir", "iso": true, "cities": ["Mogadishu"] },
+        { "code": "BR", "name": "Bari", "iso": true, "cities": ["Bandarbeyla", "Bosaso", "Caluula", "Iskushuban", "Qandala", "Qardho"] },
+        { "code": "BY", "name": "Bay", "iso": true, "cities": ["Baidoa", "Burhakaba", "Dinsoor", "Qansax Dheere"] },
+        { "code": "GA", "name": "Galguduud", "iso": true, "cities": ["Abudwak", "Adado", "Dhusamareb", "El Buur", "El Dher", "Guriel"] },
+        { "code": "GE", "name": "Gedo", "iso": true, "cities": ["Bardera", "Beled Hawo", "Burdhubo", "Dolow", "El Wak", "Garbaharey", "Luuq"] },
+        { "code": "HI", "name": "Hiiraan", "iso": true, "cities": ["Beledweyne", "Bulo Burte", "Jalalaqsi", "Mataban"] },
+        { "code": "JH", "name": "Lower Juba", "iso": true, "cities": ["Afmadow", "Badhadhe", "Dhobley", "Jamame", "Kismayo"] },
+        { "code": "SH", "name": "Lower Shabelle", "iso": true, "cities": ["Afgooye", "Barawa", "Kurtunwarey", "Merca", "Qoryooley", "Sablale", "Wanlaweyn"] },
+        { "code": "JD", "name": "Middle Juba", "iso": true, "cities": ["Bu'ale", "Jilib", "Sakow"] },
+        { "code": "SD", "name": "Middle Shabelle", "iso": true, "cities": ["Adale", "Adan Yabal", "Balad", "Jowhar", "Mahaday"] },
+        { "code": "MU", "name": "Mudug", "iso": true, "cities": ["Galdogob", "Galkayo", "Harardhere", "Hobyo", "Jariban"] },
+        { "code": "NU", "name": "Nugaal", "iso": true, "cities": ["Burtinle", "Dangorayo", "Eyl", "Garowe"] },
+        { "code": "SA", "name": "Sanaag", "iso": true, "cities": ["Badhan", "Dhahar", "El Afweyn", "Erigavo", "Las Qorey"] },
+        { "code": "SO", "name": "Sool", "iso": true, "cities": ["Ainabo", "Hudun", "Las Anod", "Taleh"] },
+        { "code": "TO", "name": "Togdheer", "iso": true, "cities": ["Buhoodle", "Burao", "Oodweyne", "Sheikh"] },
+        { "code": "WO", "name": "Woqooyi Galbeed", "iso": true, "cities": ["Baligubadle", "Berbera", "Gabiley", "Hargeisa"] }
+      ]
+    },
+    "CD": {
+      "name": "DR Congo",
+      "regionLabel": "Province",
+      "sources": [
+        "https://en.wikipedia.org/wiki/ISO_3166-2:CD",
+        "https://en.wikipedia.org/wiki/Provinces_of_the_Democratic_Republic_of_the_Congo"
+      ],
+      "notes": "26 provinces (25 + Kinshasa city-province), the 2015 découpage that ISO adopted on 2016-11-15. No change to the provinces found for 2025-2026. Province names use the English Wikipedia forms (North Kivu = Nord-Kivu, South Kivu = Sud-Kivu, Kongo Central keeps ISO code CD-BC from Bas-Congo). Each list is the provincial capital plus other cities and major territory towns. A 2013 decree raised many towns to 'ville' status but implementation is patchy, so these lists come from general knowledge rather than an official register of villes. Kwilu's capital is Bandundu (Kikwit is larger). Goma and Bukavu have been held by the AFC/M23 since early 2025, which does not change the provinces.",
+      "regions": [
+        { "code": "BU", "name": "Bas-Uele", "iso": true, "cities": ["Aketi", "Bondo", "Buta"] },
+        { "code": "EQ", "name": "Équateur", "iso": true, "cities": ["Basankusu", "Bikoro", "Ingende", "Lukolela", "Mbandaka"] },
+        { "code": "HK", "name": "Haut-Katanga", "iso": true, "cities": ["Kambove", "Kasenga", "Kasumbalesa", "Kipushi", "Likasi", "Lubumbashi", "Pweto", "Sakania"] },
+        { "code": "HL", "name": "Haut-Lomami", "iso": true, "cities": ["Bukama", "Kabongo", "Kamina", "Kaniama", "Malemba-Nkulu"] },
+        { "code": "HU", "name": "Haut-Uele", "iso": true, "cities": ["Dungu", "Durba", "Isiro", "Niangara", "Rungu", "Wamba", "Watsa"] },
+        { "code": "IT", "name": "Ituri", "iso": true, "cities": ["Aru", "Bunia", "Komanda", "Mahagi", "Mambasa", "Mongbwalu"] },
+        { "code": "KS", "name": "Kasaï", "iso": true, "cities": ["Ilebo", "Luebo", "Mweka", "Tshikapa"] },
+        { "code": "KC", "name": "Kasaï-Central", "iso": true, "cities": ["Demba", "Kananga", "Luiza", "Tshimbulu"] },
+        { "code": "KE", "name": "Kasaï-Oriental", "iso": true, "cities": ["Mbuji-Mayi", "Miabi", "Tshilenge"] },
+        { "code": "KN", "name": "Kinshasa", "iso": true, "cities": ["Kinshasa"] },
+        { "code": "BC", "name": "Kongo Central", "iso": true, "cities": ["Boma", "Inga", "Kasangulu", "Kimpese", "Lukala", "Matadi", "Mbanza-Ngungu", "Muanda", "Tshela"] },
+        { "code": "KG", "name": "Kwango", "iso": true, "cities": ["Feshi", "Kahemba", "Kasongo-Lunda", "Kenge", "Popokabaka"] },
+        { "code": "KL", "name": "Kwilu", "iso": true, "cities": ["Bagata", "Bandundu", "Bulungu", "Gungu", "Idiofa", "Kikwit", "Masi-Manimba"] },
+        { "code": "LO", "name": "Lomami", "iso": true, "cities": ["Kabinda", "Lubao", "Mwene-Ditu", "Ngandajika"] },
+        { "code": "LU", "name": "Lualaba", "iso": true, "cities": ["Dilolo", "Fungurume", "Kapanga", "Kasaji", "Kolwezi", "Lubudi", "Mutshatsha", "Sandoa"] },
+        { "code": "MN", "name": "Mai-Ndombe", "iso": true, "cities": ["Bolobo", "Inongo", "Kutu", "Mushie", "Nioki", "Oshwe"] },
+        { "code": "MA", "name": "Maniema", "iso": true, "cities": ["Kabambare", "Kalima", "Kasongo", "Kibombo", "Kindu", "Lubutu", "Punia"] },
+        { "code": "MO", "name": "Mongala", "iso": true, "cities": ["Binga", "Bongandanga", "Bumba", "Lisala"] },
+        { "code": "NU", "name": "Nord-Ubangi", "iso": true, "cities": ["Bosobolo", "Businga", "Gbadolite", "Mobayi-Mbongo", "Yakoma"] },
+        { "code": "NK", "name": "North Kivu", "iso": true, "cities": ["Beni", "Butembo", "Goma", "Kiwanja", "Lubero", "Masisi", "Oicha", "Rutshuru", "Sake", "Walikale"] },
+        { "code": "SA", "name": "Sankuru", "iso": true, "cities": ["Katako-Kombe", "Kole", "Lodja", "Lomela", "Lubefu", "Lusambo"] },
+        { "code": "SK", "name": "South Kivu", "iso": true, "cities": ["Baraka", "Bukavu", "Fizi", "Kalehe", "Kamituga", "Kavumu", "Mwenga", "Shabunda", "Uvira", "Walungu"] },
+        { "code": "SU", "name": "Sud-Ubangi", "iso": true, "cities": ["Budjala", "Gemena", "Kungu", "Libenge", "Zongo"] },
+        { "code": "TA", "name": "Tanganyika", "iso": true, "cities": ["Kabalo", "Kalemie", "Kongolo", "Manono", "Moba", "Nyunzu"] },
+        { "code": "TO", "name": "Tshopo", "iso": true, "cities": ["Bafwasende", "Banalia", "Basoko", "Isangi", "Kisangani", "Opala", "Ubundu", "Yahuma", "Yangambi"] },
+        { "code": "TU", "name": "Tshuapa", "iso": true, "cities": ["Befale", "Boende", "Bokungu", "Djolu", "Ikela", "Monkoto"] }
+      ]
+    }
+  }
+}

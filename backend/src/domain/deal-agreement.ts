@@ -38,7 +38,7 @@ import { currentAgreementOf } from "./current-agreement";
 import { assertMayCommit } from "./guardian-acts";
 import { assertDealChatGreen } from "./deal-chat-check";
 import { formsFor, type AnswerValue, type DealForm } from "./deal-cards";
-import { renderDealAgreement, usdOf, type DealExchangeMessage, type DealSeller } from "./deal-agreement-render";
+import { renderDealAgreement, type DealExchangeMessage, type DealSeller } from "./deal-agreement-render";
 import { orderRef } from "./order-mail";
 import { afterDealsSigned, lockOrder } from "./marketplace-order";
 
@@ -345,34 +345,14 @@ function sideOf(actor: Actor, r: { tenantId: string; sponsorId: string; athleteI
 
 /* ── the download ──────────────────────────────────────────────────────── */
 
-const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const STATE_WORDS: Record<DealState, string> = {
-  OPEN: "Waiting for signatures",
-  SIGNED: "Signed by both sides",
-  WITHDRAWN: "Replaced by a newer form — not in force",
-};
-
-/** The PDF's page: the exact signed text, then who signed and when, and its fingerprint. Pure. */
-export function dealAgreementHtml(v: DealAgreementView): string {
-  const when = (iso: string | null) => (iso ? `${iso.slice(0, 16).replace("T", " ")} UTC` : null);
-  const sponsor = when(v.sponsorSignedAt);
-  const seller = when(v.sellerSignedAt);
-  const lines = [
-    `Status: ${STATE_WORDS[v.state]}`,
-    sponsor ? `Signed for the Sponsor on ${sponsor}` : "Not yet signed by the Sponsor",
-    seller ? `Signed ${v.signedByGuardian ? "by the Seller's parent or guardian" : "by the Seller"} on ${seller}` : "Not yet signed by the Seller",
-    `Amount: ${usdOf(v.amountCents)}`,
-    `Fingerprint (SHA-256 of the text above): ${v.bodyHash}`,
-  ];
-  return `<!doctype html><html><head><meta charset="utf-8"><title>SponsorX deal agreement ${escapeHtml(v.orderRef)}</title>
-<style>body{font:11pt/1.5 Georgia,serif;color:#111;margin:0}pre{white-space:pre-wrap;font:inherit;margin:0 0 24pt}
-.sig{border-top:1px solid #999;padding-top:10pt;font:9.5pt/1.6 Helvetica,Arial,sans-serif;color:#333}.sig p{margin:0}</style></head>
-<body><pre>${escapeHtml(v.body)}</pre><div class="sig">${lines.map((l) => `<p>${escapeHtml(l)}</p>`).join("")}</div></body></html>`;
-}
+/* The page itself — the exact signed text laid out as a designed document — is deal-agreement-page.ts. */
+export { dealAgreementHtml } from "./deal-agreement-page";
 
 /** GET /deal-agreements/:id/download — the PDF, to its two sides and BTG, at any time. */
 export async function dealAgreementPdf(actor: Actor, id: string): Promise<{ filename: string; pdf: Buffer }> {
   const v = await readDealAgreement(actor, id);
   const { renderPdf } = await import("./report-render");
-  return { filename: `SponsorX-deal-agreement-${v.orderRef}.pdf`, pdf: await renderPdf(dealAgreementHtml(v)) };
+  const { dealAgreementHtml, dealAgreementFooter, DEAL_PDF_MARGIN } = await import("./deal-agreement-page");
+  const pdf = await renderPdf(dealAgreementHtml(v), { footerTemplate: dealAgreementFooter(v), margin: DEAL_PDF_MARGIN });
+  return { filename: `SponsorX-deal-agreement-${v.orderRef}.pdf`, pdf };
 }

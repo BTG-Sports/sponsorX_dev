@@ -1,0 +1,67 @@
+/* --------------------------------------------------------------------------
+   The campaign builder's own parts — POL-FE-107, POL-FE-116.
+
+   The page is the full-screen wizard (app/brief/brief.css: `.sx-brief`,
+   `.bx-*`). The builder asks far more than the brief does, so beside the
+   brief's big line fields it has compact boxed fields for the dense steps
+   (each job's details, usage, paid media, the last terms). Everything is
+   scoped under `.sx-brief`, where the wizard's colours are set.
+   -------------------------------------------------------------------------- */
+
+.sx-brief .cb-input {
+  display: block;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 14px;
+  border: 1px solid var(--bx-edge);
+  border-radius: 12px;
+  background: rgba(11, 22, 40, 0.6);
+  color: var(--sx-text);
+  /* 16px: smaller makes iOS zoom the page on focus. */
+  font-size: 16px;
+  outline: none;
+  color-scheme: dark;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.sx-brief .cb-input::placeholder { color: rgba(143, 154, 176, 0.55); }
+@media (hover: hover) {
+  .sx-brief .cb-input:hover { border-color: rgba(158, 208, 255, 0.38); }
+}
+.sx-brief .cb-input:focus-visible {
+  border-color: var(--sx-primary);
+  box-shadow: 0 0 0 3px rgba(46, 155, 245, 0.25);
+}
+.sx-brief .cb-input[aria-invalid="true"] { border-color: var(--sx-danger); }
+.sx-brief textarea.cb-input {
+  min-height: 104px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.sx-brief select.cb-input {
+  appearance: none;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238f9ab0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+}
+.sx-brief select.cb-input option { background: #12151d; color: #f4f5f7; }
+
+/* A number with its unit after it: "30 [days]". */
+.sx-brief .cb-unit { display: flex; align-items: center; gap: 10px; }
+.sx-brief .cb-unit > .cb-input { width: 7.5rem; flex: none; }
+.sx-brief .cb-unit > span { font-size: 14px; color: var(--sx-text-muted); }
+
+/* A fieldset must be allowed to shrink, or a wide row stretches the step. */
+.sx-brief fieldset { min-width: 0; }
+
+/* The summary before sending: the order on its own sheet. */
+.sx-brief .cb-sheet {
+  border: 1px solid rgba(158, 208, 255, 0.2);
+  border-radius: 22px;
+  background: linear-gradient(160deg, rgba(16, 30, 56, 0.92), rgba(7, 14, 28, 0.94));
+  box-shadow: 0 40px 100px -40px rgba(0, 0, 0, 0.8);
+}
+
+/* A job that is picked, on the jobs step: a checkbox, drawn as the brief's card. */
+.sx-brief .bx-card[role="checkbox"] { text-align: left; }

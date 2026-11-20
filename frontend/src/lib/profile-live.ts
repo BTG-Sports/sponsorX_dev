@@ -33,6 +33,8 @@ export type ApiMyProfile = {
   legalName: string;
   city: string | null;
   stateCode: string | null;
+  /** POL-BE-117 — the country (ISO); absent from an older API, which means US. */
+  countryCode?: string;
   sport: string;
   position: string | null;
   school: string | null;

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { CreateCampaignButton, CreateCampaignInline, CreateCampaignStart } from "@/components/create-campaign-link";
 import { ListSearch, ListFilter, ServerList } from "@/components/server-pager";
 import { SponsorCampaignTable } from "@/components/sponsor-campaign-table";
 import {
@@ -136,11 +137,8 @@ function Campaigns({
   sample: boolean;
 }) {
   const pill = sample ? "Sample data" : <StadiumUpdated iso={updatedAt} />;
-  const newRequest = (
-    <Link href="/sponsor/marketplace" className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold">
-      + New request
-    </Link>
-  );
+  /* POL-FE-107 — "create" opens the campaign builder, never the package list. */
+  const newRequest = <CreateCampaignButton />;
 
   /* A brand-new sponsor: no campaign yet — the next step, not a wall of zeros. */
   if (summary.total === 0) {
@@ -150,7 +148,7 @@ function Campaigns({
         <StadiumPanel delay={0.1} className="text-center">
           <p className="text-base font-semibold text-text">No campaigns yet</p>
           <p className="mx-auto mt-1.5 max-w-md text-sm text-muted">
-            Pick a package, tell us what you&rsquo;re after, and BTG will match you with athletes. Your campaigns show up here as soon as the first one is staffed.
+            Create a campaign of your own: your goal, budget and dates, who to reach and what each athlete does. BTG matches you with athletes, and your campaigns show up here as soon as the first one is staffed.
           </p>
           {requestsOpen ? (
             <p className="mt-3 text-sm">
@@ -159,9 +157,7 @@ function Campaigns({
               </Link>
             </p>
           ) : null}
-          <Link href="/sponsor/marketplace" className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-xs font-semibold">
-            Browse packages to start one →
-          </Link>
+          <CreateCampaignStart />
         </StadiumPanel>
       </div>
     );
@@ -282,10 +278,7 @@ function CampaignList({
     "No campaigns match. Clear the search or try another tab."
   ) : (
     <>
-      No campaigns yet.{" "}
-      <Link href="/sponsor/marketplace" className="font-medium text-sponsor hover:underline">
-        Browse packages to start one →
-      </Link>
+      No campaigns yet. <CreateCampaignInline />
     </>
   );
 

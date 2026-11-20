@@ -12,6 +12,8 @@ import {
   type InviteState,
 } from "@/lib/fixtures";
 import { DealPauseBanner } from "@/components/deal-pause-banner";
+import { OrderSheet } from "@/components/order-sheet";
+import { readOrderDetails } from "@/lib/order-details";
 import { OrderAccept } from "@/components/order-accept";
 import { OrderDecline } from "@/components/order-decline";
 import { declineOrderAction } from "../actions";
@@ -127,6 +129,9 @@ function LiveOrderView({
 }) {
   const blocker = acceptBlocker(o, isAthlete, guardianActs);
   const guardianNeeded = o.guardian.status !== "not-required";
+  /* POL-FE-116 — an order made since POL-BE-116 carries every detail of the
+     Athlete Campaign Order template; one made before keeps the short list. */
+  const details = readOrderDetails(o.orderDetails);
   return (
     <div className="space-y-6">
       <BackLink target={back} />
@@ -142,6 +147,7 @@ function LiveOrderView({
           </div>
           <p className="mt-1 text-xs text-muted">
             Presented by {o.campaign.sponsorName} · {o.jobName}
+            {o.orderNumber ? <> · Order <span className="font-mono">{o.orderNumber}</span></> : null}
           </p>
         </div>
         {typeof o.compensation === "number" && (
@@ -167,6 +173,27 @@ function LiveOrderView({
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
         <div className="min-w-0 space-y-6">
+          {details ? (
+            <section>
+              <SectionHeading
+                title="Your order"
+                hint={o.state === "SENT" ? "Every detail of what you're agreeing to — read it before you accept" : "Fixed on the order when it was sent — it doesn't change"}
+              />
+              <Card>
+                <OrderSheet
+                  heading=""
+                  input={{
+                    details,
+                    orderNumber: o.orderNumber ?? null,
+                    athlete: o.athlete.displayName,
+                    sponsor: o.campaign.sponsorName,
+                    campaign: o.campaign.name,
+                    compensation: typeof o.compensation === "number" ? money(o.compensation) : null,
+                  }}
+                />
+              </Card>
+            </section>
+          ) : (
           <section>
             <SectionHeading
               title="Order details"
@@ -190,6 +217,7 @@ function LiveOrderView({
               </dl>
             </Card>
           </section>
+          )}
 
           <section>
             <SectionHeading

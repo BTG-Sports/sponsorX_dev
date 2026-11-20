@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { filterChoices } from "@/lib/choice-filter";
 
 /* --------------------------------------------------------------------------
    Shared toolbar primitives for client-island explorers (2026-09-14).
@@ -362,6 +364,190 @@ export function Dropdown({
               </button>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------- SearchSelect */
+
+export type SearchOption = { value: string; label: string; group?: string; hint?: string };
+
+/**
+ * POL-FE-117 — a form dropdown with a search box (owner, 2026-11-20: "its
+ * better if its dropdown that can be selected instead of free text … also add
+ * a search on the dropdowns"). Nothing can be typed that isn't a choice: the
+ * box only narrows the list. Built for long lists — a US state's places run
+ * past a thousand — so it shows the first `limit` matches and says so.
+ * Options may carry a `group` heading (Country: United States · East Africa),
+ * shown while nothing is typed. ↑ ↓ Home End move, Enter picks, Esc closes
+ * the list (not a dialog around it), Tab leaves.
+ */
+export function SearchSelect({
+  id,
+  value,
+  options,
+  onChange,
+  placeholder,
+  searchLabel,
+  tone = "athlete",
+  disabled = false,
+  loading = false,
+  invalid = false,
+  describedBy,
+  emptyText = "Nothing matches.",
+  limit = 200,
+}: {
+  /** The trigger's id — a <label htmlFor> names it. */
+  id: string;
+  value: string;
+  options: readonly SearchOption[];
+  onChange: (v: string) => void;
+  /** Shown on the trigger while nothing is chosen. */
+  placeholder: string;
+  /** The search box's label and placeholder, e.g. "Search cities". */
+  searchLabel: string;
+  tone?: FilterTone;
+  disabled?: boolean;
+  /** The options are still on their way (a region's cities). */
+  loading?: boolean;
+  invalid?: boolean;
+  describedBy?: string;
+  emptyText?: string;
+  limit?: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [active, setActive] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+
+  const close = (refocus = false) => {
+    setOpen(false);
+    setQ("");
+    if (refocus) trigger.current?.focus();
+  };
+  useOutsideClose(ref, () => close(), open);
+
+  const matches = useMemo(() => filterChoices(options, q), [options, q]);
+  const shown = matches.slice(0, limit);
+  const current = options.find((o) => o.value === value) ?? null;
+  const grouped = !q && shown.some((o) => o.group);
+  const listId = `${id}-list`;
+
+  const choose = (o: SearchOption) => {
+    onChange(o.value);
+    close(true);
+  };
+  const go = (n: number) => {
+    const i = Math.max(0, Math.min(shown.length - 1, n));
+    setActive(i);
+    list.current?.querySelector(`[data-i="${i}"]`)?.scrollIntoView({ block: "nearest" });
+  };
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(true); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); go(active + 1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); go(active - 1); }
+    else if (e.key === "Home") { e.preventDefault(); go(0); }
+    else if (e.key === "End") { e.preventDefault(); go(shown.length - 1); }
+    else if (e.key === "Enter") { e.preventDefault(); if (shown[active]) choose(shown[active]); }
+    else if (e.key === "Tab") close();
+  };
+  const openList = () => {
+    if (disabled || loading) return;
+    setOpen(true);
+    setActive(Math.max(0, shown.findIndex((o) => o.value === value)));
+  };
+
+  return (
+    <div ref={ref} className="relative w-full">
+      <button
+        ref={trigger}
+        id={id}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-describedby={describedBy}
+        disabled={disabled}
+        onClick={() => (open ? close() : openList())}
+        onKeyDown={(e) => {
+          if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) { e.preventDefault(); openList(); }
+        }}
+        className={[
+          triggerCls(Boolean(current), open, tone),
+          "min-h-10 w-full justify-between text-left text-sm",
+          invalid ? "border-danger/60" : "",
+          disabled ? "cursor-not-allowed opacity-50" : "",
+        ].join(" ")}
+      >
+        <span className={`min-w-0 truncate ${current ? "text-text" : "text-faint"}`}>
+          {loading ? "Loading…" : current?.label ?? (value ? value : placeholder)}
+        </span>
+        <ChevronDown open={open} />
+      </button>
+
+      {open && (
+        <div className="sx-pop absolute inset-x-0 top-full z-30 mt-1.5 overflow-hidden rounded-xl border border-line bg-surface shadow-xl" onKeyDown={onKey}>
+          <div className="border-b border-line p-2">
+            <div className="relative">
+              <span className="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-faint"><SearchIcon /></span>
+              <input
+                autoFocus
+                type="search"
+                value={q}
+                onChange={(e) => { setQ(e.target.value); setActive(0); list.current?.scrollTo({ top: 0 }); }}
+                role="combobox"
+                aria-label={searchLabel}
+                aria-expanded="true"
+                aria-controls={listId}
+                aria-autocomplete="list"
+                aria-activedescendant={shown[active] ? `${id}-o${active}` : undefined}
+                placeholder={`${searchLabel}…`}
+                autoComplete="off"
+                className={`w-full rounded-lg border border-line bg-surface py-1.5 pl-8 pr-2.5 text-xs text-text placeholder:text-faint outline-none focus-visible:ring-2 ${TONE[tone].search}`}
+              />
+            </div>
+          </div>
+          <ul ref={list} id={listId} role="listbox" aria-label={searchLabel.replace(/^Search /, "")} className="max-h-64 overflow-y-auto overscroll-contain py-1">
+            {shown.length === 0 && <li className="px-3 py-2 text-xs text-muted">{emptyText}</li>}
+            {shown.map((o, i) => {
+              const heading = grouped && o.group && o.group !== shown[i - 1]?.group ? o.group : null;
+              const selected = o.value === value;
+              return (
+                <li key={o.value} role="presentation">
+                  {heading && (
+                    <p role="presentation" className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">{heading}</p>
+                  )}
+                  <div
+                    id={`${id}-o${i}`}
+                    data-i={i}
+                    role="option"
+                    aria-selected={selected}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseEnter={() => setActive(i)}
+                    onClick={() => choose(o)}
+                    className={[
+                      "flex cursor-pointer items-center gap-2 px-3 py-2 text-xs transition-colors",
+                      i === active ? "bg-surface-2" : "",
+                      selected ? `font-medium ${OPTION_TONE[tone].text}` : "text-muted",
+                    ].join(" ")}
+                  >
+                    <CheckIcon visible={selected} className={OPTION_TONE[tone].check} />
+                    <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                    {(o.hint || (q && o.group)) && <span className="shrink-0 text-[10px] text-faint">{o.hint ?? o.group}</span>}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          {matches.length > shown.length && (
+            <p className="border-t border-line px-3 py-1.5 text-[10px] text-faint">
+              Showing {shown.length.toLocaleString("en-US")} of {matches.length.toLocaleString("en-US")} — type to narrow.
+            </p>
+          )}
         </div>
       )}
     </div>

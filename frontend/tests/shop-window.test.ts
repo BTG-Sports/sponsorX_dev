@@ -77,6 +77,13 @@ describe("filterChips", () => {
     expect(chips.map((c) => c.label)).toEqual(["For fitness brands", "In Maryland", "Price under $1,000", "Free on Dec 1, 2026"]);
     expect(chips.find((c) => c.key === "dates")?.clear).toEqual({ availableFrom: null, availableUntil: null });
   });
+  it("POL-FE-117: one chip for where, in words, clearing country, region and city together", () => {
+    const where = (f: Record<string, string>) => filterChips(shopFilters(f)).find((c) => c.key === "place");
+    expect(where({ countryCode: "US", stateCode: "MD", city: "Takoma Park" })?.label).toBe("In Takoma Park, MD");
+    expect(where({ countryCode: "TZ" })?.label).toBe("In Tanzania");
+    expect(where({ countryCode: "US", stateCode: "MD" })?.clear).toEqual({ countryCode: null, stateCode: null, city: null });
+    expect(where({ countryCode: "FR" })).toBeUndefined();
+  });
   it("shows no chip for a value the page didn't apply", () => {
     expect(filterChips(shopFilters({ category: "NOPE", availableFrom: "not-a-day" }))).toEqual([]);
   });

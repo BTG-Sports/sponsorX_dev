@@ -1,9 +1,14 @@
 import { Badge, Card, Meter, SectionHeading } from "@/components/ui";
 import { HeroBand, MiniChip } from "@/components/hero";
 import { EmptyState } from "@/components/states";
-import { AddAsset, EditionAdvance, GrantRight } from "@/components/edition-controls";
+import { EditionAdvance, GrantRight } from "@/components/edition-controls";
+import { AddContent, PieceFile } from "@/components/edition-content";
+import { fileSizeWords } from "@/lib/direct-upload";
 import { shortDate } from "@/lib/editions-live";
-import { autoRecorded, clearanceQueue, coverage, ledgerRows, type ApiRightsLedger, type GrantorKind } from "@/lib/rights-live";
+import {
+  ASSET_KIND_WORDS, CONTENT_FINAL_STATES, autoRecorded, clearanceQueue, contentPieces, coverage, ledgerRows, mayAttachFile, pieceFileLine,
+  type ApiContentPiece, type ApiRightsLedger, type GrantorKind,
+} from "@/lib/rights-live";
 import { noEditionHint, readJson, type LiveEditions } from "../live";
 import { EditionSwitcher, NextHeading } from "../editions/live-editions";
 
@@ -13,7 +18,14 @@ import { EditionSwitcher, NextHeading } from "../editions/live-editions";
    production gate would refuse; recording a right clears it the moment the
    ledger says so. "Send to production" / "Publish digital" run the real
    transition, so an uncleared item refuses publication with its title.
+
+   P9-FE-13 — "Content": every piece of the edition with its file (GET
+   /editions/:id/assets). "Add content" takes a file of any format, uploaded
+   straight to storage with a progress bar; a piece added by title can be
+   given its file; a piece's file opens from the list on a short signed link.
    -------------------------------------------------------------------------- */
+
+const SOURCE_COPY: Record<string, string> = { STUDENT: "a student", ATHLETE: "an athlete", BTG: "SponsorX", THIRD_PARTY: "a third party" };
 
 const WRITERS = ["SUPER_ADMIN", "BTG_ADMIN"];
 
@@ -54,7 +66,11 @@ export async function LiveRights({ live, today }: { live: LiveEditions; today: s
       </div>
     );
   }
-  const { status, body } = await readJson<ApiRightsLedger>(`/editions/${encodeURIComponent(e.id)}/rights-ledger`);
+  const [{ status, body }, content] = await Promise.all([
+    readJson<ApiRightsLedger>(`/editions/${encodeURIComponent(e.id)}/rights-ledger`),
+    /* P9-FE-13 — the same pieces with their files (hasFile, fileType, fileBytes, fileName). */
+    readJson<{ assets: ApiContentPiece[] }>(`/editions/${encodeURIComponent(e.id)}/assets`),
+  ]);
   const switcher = <EditionSwitcher editions={live.editions} current={e} base="/admin/next/rights" />;
   if (status === 403 || !body) {
     return (
@@ -71,6 +87,10 @@ export async function LiveRights({ live, today }: { live: LiveEditions; today: s
   const rows = ledgerRows(body.assets);
   const grantsVisible = body.assets.every((a) => a.rights !== undefined);
   const gateState = e.state === "CLOSED" || e.state === "IN_PRODUCTION";
+  const pieces = contentPieces(content.body?.assets ?? []);
+  const withFile = pieces.filter((p) => p.hasFile).length;
+  /* A cancelled edition takes no content at all; a published one takes no new file. */
+  const takesFiles = !CONTENT_FINAL_STATES.includes(e.state);
 
   return (
     <div className="space-y-6">
@@ -120,11 +140,8 @@ export async function LiveRights({ live, today }: { live: LiveEditions; today: s
         )}
       </HeroBand>
 
-      <section className="sx-animate sx-delay-1">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <SectionHeading title={`Clearance queue · ${queue.length}`} hint="What the gate is waiting on, and who can grant it" />
-          {writer && <AddAsset editionId={e.id} />}
-        </div>
+      <section id="clearance" className="sx-animate sx-delay-1 scroll-mt-24">
+        <SectionHeading title={`Clearance queue · ${queue.length}`} hint="What the gate is waiting on, and who can grant it" />
         {queue.length === 0 ? (
           <p className="rounded-xl border border-line bg-surface px-5 py-6 text-center text-xs text-muted">
             {cov.total ? "Every asset is covered for digital and print." : "Nothing waiting."}
@@ -149,6 +166,44 @@ export async function LiveRights({ live, today }: { live: LiveEditions; today: s
             ))}
           </div>
         )}
+      </section>
+
+      {/* P9-FE-13 — every piece and its file. */}
+      <section id="content" className="sx-animate sx-delay-2 scroll-mt-24">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <SectionHeading
+            title={`Content · ${pieces.length}`}
+            hint={pieces.length ? `${withFile} of ${pieces.length} with a file — open one, or add what's missing` : "Every piece of the edition, and its file"}
+          />
+          {writer && e.state !== "CANCELLED" && <AddContent editionId={e.id} takesFiles={takesFiles} />}
+        </div>
+        {content.status === 403 ? (
+          <p className="rounded-xl border border-line bg-surface px-5 py-6 text-center text-xs text-muted">The edition&rsquo;s files are outside your role&rsquo;s scope.</p>
+        ) : pieces.length === 0 ? (
+          <p className="rounded-xl border border-line bg-surface px-5 py-6 text-center text-xs text-muted">
+            No content yet. Add a piece with its file — a photo, a video, a PDF or a design file, in any format.
+          </p>
+        ) : (
+          <ul className="max-h-[32rem] divide-y divide-line-soft overflow-y-auto rounded-xl border border-line bg-surface" aria-label="Edition content">
+            {pieces.map((p) => (
+              <li key={p.id} id={`piece-${p.id}`} className="flex scroll-mt-24 flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium [overflow-wrap:anywhere]">{p.title}</p>
+                  <p className="mt-0.5 text-[11px] text-muted">
+                    {ASSET_KIND_WORDS[p.kind] ?? p.kind.replace("_", " ").toLowerCase()} · from {SOURCE_COPY[p.sourceKind] ?? p.sourceKind.toLowerCase()}
+                  </p>
+                  <p className={`mt-1 text-[11px] [overflow-wrap:anywhere] ${p.hasFile ? "text-faint" : "font-medium text-warn"}`}>
+                    {pieceFileLine(p, fileSizeWords)}
+                  </p>
+                </div>
+                <PieceFile editionId={e.id} assetId={p.id} title={p.title} hasFile={p.hasFile} mayAttach={writer && mayAttachFile(p, e.state)} />
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-2 text-[10px] leading-relaxed text-faint">
+          Files are private: each one opens on a short signed link, and every open is recorded. A file that a browser can&rsquo;t show safely (a design file, a web page) downloads instead.
+        </p>
       </section>
 
       <section className="sx-animate sx-delay-2">

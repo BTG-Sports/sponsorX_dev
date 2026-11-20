@@ -134,6 +134,9 @@ const originOf = (url: string | undefined): string | null => {
  *     the R2 public URL (img-src). R2_PUBLIC_BASE_URL / S3_ENDPOINT add a
  *     custom domain when the web service has them; MinIO and the e2e object
  *     store stand-in are allowed in development.
+ *   - The live socket service (Deal Chat): a WebSocket to
+ *     socketservice.sponsorx.net, or socketservice-staging on staging
+ *     (connect-src).
  *   - Inline styles: the <style> on /u (a route handler) and on several
  *     pages, and React `style` attributes — `style-src 'unsafe-inline'`.
  *   - Fonts: next/font self-hosts Google Fonts at build, so 'self' only.
@@ -141,6 +144,14 @@ const originOf = (url: string | undefined): string | null => {
  *     native form POST that redirects there is checked against form-action
  *     by Chrome, so Checkout and Connect onboarding are listed there.
  */
+/**
+ * 2S4-FE-10 — the live socket service a browser connects to for Deal Chat
+ * (documentation/SponsorX-Socket-Service.md §1: its own address, WebSocket
+ * only). Both environments' addresses, named exactly; a local run's is
+ * covered by development's `ws:`.
+ */
+export const LIVE_SOCKET_ORIGINS = ["wss://socketservice.sponsorx.net", "wss://socketservice-staging.sponsorx.net"];
+
 export function buildReportOnlyCsp(env: Env): string {
   const dev = env.NODE_ENV !== "production";
   const key = env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
@@ -167,7 +178,7 @@ export function buildReportOnlyCsp(env: Env): string {
     /* 5S1-FE-01 — the Certified Recruiting partner card links the partner's own logo. */
     ["img-src", ["'self'", "data:", "blob:", "https://img.clerk.com", "https://www.certified-recruiting.com", ...storage]],
     ["font-src", ["'self'", "data:"]],
-    ["connect-src", ["'self'", ...clerk, turnstile, ...storage, ...(devInstance ? ["https://clerk-telemetry.com"] : []), ...(dev ? ["ws:"] : [])]],
+    ["connect-src", ["'self'", ...clerk, turnstile, ...storage, ...LIVE_SOCKET_ORIGINS, ...(devInstance ? ["https://clerk-telemetry.com"] : []), ...(dev ? ["ws:"] : [])]],
     ["frame-src", ["'self'", turnstile, ...storage]],
     ["media-src", ["'self'", "blob:", ...storage]],
     ["worker-src", ["'self'", "blob:"]],

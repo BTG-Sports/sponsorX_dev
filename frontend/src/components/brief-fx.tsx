@@ -35,15 +35,21 @@ const RELEASE_MS = 4_000;
 export function BriefStage({
   children,
   className = "",
+  boot = true,
   ...rest
-}: { children: ReactNode; className?: string } & HTMLAttributes<HTMLDivElement>) {
+}: {
+  children: ReactNode;
+  className?: string;
+  /** False on a page with no boot screen (a portal page, POL-FE-116): the entrance plays at once instead of waiting for one. */
+  boot?: boolean;
+} & HTMLAttributes<HTMLDivElement>) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const root = ref.current;
     if (!root) return;
     const html = document.documentElement;
-    root.dataset.armed = "";
+    if (boot) root.dataset.armed = "";
     const release = window.setTimeout(() => {
       root.dataset.go = "";
     }, RELEASE_MS);
@@ -79,7 +85,7 @@ export function BriefStage({
       window.removeEventListener("pointermove", onMove);
       html.removeEventListener("pointerleave", onLeave);
     };
-  }, []);
+  }, [boot]);
 
   return (
     <div ref={ref} data-sx-stage="" className={className} {...rest}>

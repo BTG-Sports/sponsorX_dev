@@ -19,6 +19,8 @@
    that, never on the message.
    -------------------------------------------------------------------------- */
 
+import type { PendingApplication } from "../domain/pending-application";
+
 export class UnauthenticatedError extends Error {
   readonly status = 401;
   readonly code = "unauthenticated";
@@ -32,10 +34,14 @@ export class UnprovisionedError extends Error {
   readonly status = 403;
   readonly code = "unprovisioned";
   readonly email: string | null;
-  constructor(email: string | null) {
+  /** POL-BE-118 — what this address applied for and where it stands, so the
+   *  sign-in page can say "your request is waiting for …" instead of "apply". */
+  readonly details: { pending: PendingApplication } | undefined;
+  constructor(email: string | null, pending: PendingApplication | null = null) {
     super("Signed in, but no SponsorX account exists for this identity.");
     this.name = "UnprovisionedError";
     this.email = email;
+    this.details = pending ? { pending } : undefined;
   }
 }
 

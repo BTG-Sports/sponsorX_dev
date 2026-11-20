@@ -4390,7 +4390,7 @@ The spec's `/admin/next/production` page was never built and had no task.
 
 ### ▶ `P9-FE-13` · A file picker on the rights page's "add content" form
 
-**Order** 209.92 · **FE** · **Where:** Code · **1d** · **Ready** · HeckerCreatives
+**Order** 209.92 · **FE** · **Where:** Code · **1d** · **Code review** · HeckerCreatives
 
 - **Depends on:** P9-BE-25
 - **Done when:**
@@ -4410,7 +4410,7 @@ The spec's `/admin/next/production` page was never built and had no task.
 
 ### ▶ `P9-FE-14` · Photos, video, ads and the cover in the public reader
 
-**Order** 209.93 · **FE** · **Where:** Code · **1.5d** · **Ready** · HeckerCreatives
+**Order** 209.93 · **FE** · **Where:** Code · **1.5d** · **Code review** · HeckerCreatives
 
 - **Depends on:** P9-BE-26, P9-BE-27
 - **API (P9-BE-26):** in `GET /public/editions/{school}/{id}`, each item in `contents` has `picture` (`{ url, kind: "image" | "video" }`, or null), and each item in `sponsors` has `ad` (`{ url }`, or null). A PDF ad is already a picture. Show a `video` with `<video controls playsinline>`.
@@ -4422,7 +4422,7 @@ The spec's `/admin/next/production` page was never built and had no task.
 
 ### ▶ `P9-FE-15` · Cover and press PDF upload on the editions page
 
-**Order** 209.94 · **FE** · **Where:** Code · **1d** · **Ready** · HeckerCreatives
+**Order** 209.94 · **FE** · **Where:** Code · **1d** · **Code review** · HeckerCreatives
 
 - **Depends on:** P9-BE-27
 - **API (P9-BE-27):**
@@ -4438,7 +4438,7 @@ The spec's `/admin/next/production` page was never built and had no task.
 
 ### ▶ `P9-FE-16` · The production board page
 
-**Order** 209.95 · **FE** · **Where:** Code · **2d** · **Ready** · HeckerCreatives
+**Order** 209.95 · **FE** · **Where:** Code · **2d** · **Code review** · HeckerCreatives
 
 - **Depends on:** P9-BE-28
 - **API (P9-BE-28):** `GET /editions/{id}/production` returns `{ edition, gates, pieces[], counts }`.

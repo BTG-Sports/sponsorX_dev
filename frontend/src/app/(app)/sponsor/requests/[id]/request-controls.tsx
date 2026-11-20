@@ -4,6 +4,8 @@ import { useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { CampaignDialog, dialogBtn, fieldCls } from "@/components/campaign-impact";
+import { FilterChip, SearchSelect } from "@/components/filter-kit";
+import { placeCountry, regionLabel } from "@/lib/places";
 import { BRAND_CATEGORIES, categoryLabel } from "@/lib/brand-categories";
 import {
   WITHDRAW_NOTE_MAX,
@@ -12,6 +14,7 @@ import {
   patchIsEmpty,
   requestActions,
   requestPatch,
+  requestRegions,
   type ApiSponsorRequestDetail,
   type BriefPatch,
   type RequestEditForm,
@@ -149,6 +152,44 @@ function Field({ label, hint, htmlFor, children }: { label: string; hint?: strin
 
 /** A row of toggle chips, as the request drawer's — a disabled one is used
  *  elsewhere on the form (your own category can't be one to avoid). */
+/** POL-FE-117 — the regions a request narrows to, picked from the list (searchable),
+    never typed: US states, or an East African country's regions. Each pick is a
+    chip that comes off with its ✕. Elsewhere the request covers the whole country. */
+function RegionPicks({ country, value, onChange }: { country: string; value: string[]; onChange: (v: string[]) => void }) {
+  const all = requestRegions(country);
+  const word = country === "US" ? "state" : regionLabel(country).toLowerCase();
+  const where = placeCountry(country)?.name ?? country;
+  if (all.length === 0) {
+    return <p className="self-end text-[11px] text-muted">A request in {where} covers the whole country.</p>;
+  }
+  const name = (c: string) => all.find((r) => r.value === c)?.label ?? c;
+  return (
+    <div className="min-w-0">
+      <label htmlFor="req-states" className="mb-1 block text-[11px] font-medium text-muted">{word === "county" ? "Counties" : `${word.charAt(0).toUpperCase()}${word.slice(1)}s`}</label>
+      <SearchSelect
+        id="req-states"
+        value=""
+        options={all.filter((r) => !value.includes(r.value))}
+        onChange={(c) => c && onChange([...value, c])}
+        placeholder={value.length ? `Add another ${word}` : `Anywhere in ${where} — or add a ${word}`}
+        searchLabel={`Search ${word === "county" ? "counties" : `${word}s`}`}
+        tone="sponsor"
+        disabled={value.length >= 60}
+      />
+      {value.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={`Chosen ${word}s`}>
+          {value.map((c) => (
+            <li key={c}>
+              <FilterChip label={`Remove ${name(c)}`} tone="sponsor" onClear={() => onChange(value.filter((v) => v !== c))}>{name(c)}</FilterChip>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-1 text-[11px] text-faint">{value.length ? "Only athletes there are matched." : `None picked means anywhere in ${where}.`}</p>
+    </div>
+  );
+}
+
 function Picks({ label, hint, options, value, onChange, disabledValues = [] }: {
   label: string;
   hint?: string;
@@ -242,9 +283,7 @@ function EditForm({ request, pending, onCancel, onSave }: {
           <Field label="Sports" htmlFor="req-sports" hint="Comma-separated. Leave blank for any sport.">
             <input id="req-sports" value={form.sports} onChange={(e) => set("sports", e.target.value)} placeholder="e.g. Basketball, Soccer" className={fieldCls} />
           </Field>
-          <Field label="States" htmlFor="req-states" hint="Two-letter US state codes, comma-separated. Leave blank for anywhere.">
-            <input id="req-states" value={form.stateCodes} onChange={(e) => set("stateCodes", e.target.value)} placeholder="e.g. DC, MD, VA" className={fieldCls} />
-          </Field>
+          <RegionPicks country={request.countryCode ?? "US"} value={form.stateCodes} onChange={(v) => set("stateCodes", v)} />
         </div>
         <Picks label="Athlete tiers" hint="None picked means any tier." options={TIER_OPTIONS} value={form.audienceTiers} onChange={(v) => set("audienceTiers", v)} />
         <Picks label="Where to be seen" hint="None picked means no preference." options={CHANNEL_OPTIONS} value={form.channels} onChange={(v) => set("channels", v)} />

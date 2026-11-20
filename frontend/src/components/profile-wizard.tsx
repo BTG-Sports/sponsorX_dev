@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } f
 
 import { saveSocials, submitProfileChange } from "@/app/(app)/athlete/profile/edit/actions";
 import { AthletePhotoEditor } from "@/components/athlete-photo-editor";
+import { PlacePicker } from "@/components/place-picker";
 import { Arrow, Eye, Flag, Lock, Medal, Shield, Tick, d } from "@/components/wizard-kit";
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "@/lib/brand-categories";
 import { CONTENT_CAPABILITIES, capabilityLabel } from "@/lib/content-capabilities";
@@ -455,19 +456,24 @@ function StepForm({
             <Field label="Display name" hint="The name on your public page." wide>
               <input className="sx-pw-input" value={form.displayName} onChange={(e) => set("displayName", e.target.value)} maxLength={120} placeholder="e.g. Jordan Reyes" autoComplete="off" />
             </Field>
-            <Field label="City" hint="Optional.">
-              <input className="sx-pw-input" value={form.city} onChange={(e) => set("city", e.target.value)} maxLength={80} placeholder="e.g. Austin" autoComplete="off" />
-            </Field>
-            <Field label="State" hint="Two letters, like TX.">
-              <input
-                className="sx-pw-input uppercase"
-                value={form.stateCode}
-                onChange={(e) => set("stateCode", e.target.value.replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase())}
-                maxLength={2}
-                placeholder="TX"
-                autoComplete="off"
-              />
-            </Field>
+            {/* POL-FE-117 — where they're from is picked: Country → Region → City, each searchable. */}
+            <PlacePicker
+              idPrefix="sx-pw-place"
+              value={{ countryCode: form.countryCode, regionCode: form.stateCode, city: form.city }}
+              onChange={(p) => {
+                set("countryCode", p.countryCode);
+                set("stateCode", p.regionCode);
+                set("city", p.city);
+              }}
+              hints={{ country: "Where you live and compete." }}
+              field={({ key, id, label, hint, error, children }) => (
+                <div key={key} className="sx-pw-field">
+                  <label htmlFor={id} className="sx-pw-field-label">{label}</label>
+                  {children}
+                  {(error || hint) && <span className="sx-pw-field-hint">{error ?? hint}</span>}
+                </div>
+              )}
+            />
           </div>
           <div className="sx-pw-aside">
             <Lock />
@@ -717,7 +723,7 @@ const initials = (name: string) =>
 
 function Preview({ form, rows, focus, where }: { form: WizardForm; rows: SocialRow[]; focus: WizardKey | null; where: "public" | "private" }) {
   const meta = metaLine({ sport: form.sport.trim(), position: form.position.trim() || null, level: form.level || null });
-  const place = placeLine({ school: form.school.trim() || null, city: form.city.trim() || null, stateCode: form.stateCode.trim() || null });
+  const place = placeLine({ school: form.school.trim() || null, city: form.city.trim() || null, stateCode: form.stateCode.trim() || null, countryCode: form.countryCode });
   const name = form.displayName.trim();
   const reach = rows.reduce((n, r) => n + (r.followers ? Number(r.followers) : 0), 0);
   return (

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { CreateCampaignButton, CreateCampaignInline, CreateCampaignStart } from "@/components/create-campaign-link";
 import { ListFilter, ListSearch, ServerList } from "@/components/server-pager";
 import { SponsorCampaignTable } from "@/components/sponsor-campaign-table";
 import { ColumnBars, DashCard, DashIcon, KpiCard, LedRing, LegendRow, SplitDonut, type DashIconName } from "@/components/stadium-dash";
@@ -116,11 +117,8 @@ function Dashboard({
   sample: boolean;
 }) {
   const pill = sample ? "Sample data" : o ? <StadiumUpdated iso={o.readAt} /> : undefined;
-  const newRequest = (
-    <Link href="/sponsor/marketplace" className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold">
-      + New request
-    </Link>
-  );
+  /* POL-FE-107 — "create" opens the campaign builder, never the package list. */
+  const newRequest = <CreateCampaignButton />;
 
   /* A brand-new sponsor: no campaign yet — the next step, not a wall of zeros. */
   if (o && o.campaigns.total === 0) {
@@ -132,9 +130,9 @@ function Dashboard({
           <DashCard icon="send" title="Start your first campaign" sub="Your numbers show up here as soon as one starts." className="lg:col-span-7" delay={0.08}>
             <ol className="space-y-3">
               {[
-                ["Pick a package", "Browse what athletes offer and choose what fits."],
-                ["Tell us what you're after", "Your goals, budget and timing — in your own words."],
-                ["BTG matches you with athletes", "We check the fit and send you a proposal."],
+                ["Create a campaign", "Your goal, budget and dates, and who you want to reach."],
+                ["Say what each athlete does", "The jobs, what they deliver and how you may use it."],
+                ["BTG matches you with athletes", "Athletes who fit read the order and accept it."],
               ].map(([t, s], i) => (
                 <li key={t} className="flex gap-3">
                   <span className="grid size-7 shrink-0 place-items-center rounded-full border border-sponsor/50 bg-sponsor/15 text-[12px] font-bold text-[color:var(--st-hot)]">{i + 1}</span>
@@ -145,9 +143,7 @@ function Dashboard({
                 </li>
               ))}
             </ol>
-            <Link href="/sponsor/marketplace" className="mt-5 inline-block rounded-md bg-primary px-4 py-2 text-xs font-semibold">
-              Browse packages to start one →
-            </Link>
+            <CreateCampaignStart className="mt-5 !justify-start" />
           </DashCard>
           {/* POL-FE-71 — a Shop order to pay or a request with BTG, before any campaign exists. */}
           <ToDo items={waiting} className="lg:col-span-5" delay={0.14} emptyLine="Anything that needs your OK or a payment will show up here." />
@@ -587,10 +583,7 @@ function Campaigns({
     "No campaigns match. Clear the search or filter."
   ) : total === 0 ? (
     <>
-      No campaigns yet.{" "}
-      <Link href="/sponsor/marketplace" className="font-medium text-sponsor hover:underline">
-        Browse packages to start one →
-      </Link>
+      No campaigns yet. <CreateCampaignInline />
     </>
   ) : (
     "No campaigns match. Clear the search or filter."

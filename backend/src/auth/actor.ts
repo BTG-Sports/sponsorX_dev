@@ -30,6 +30,7 @@ import { AccountDisabledError, UnauthenticatedError, UnprovisionedError } from "
 import { isMachineToken, resolveMachineActor } from "./machine";
 import { ROLES, type Role } from "./policy";
 import { actForWard, WARD_HEADER } from "../domain/guardian-acts";
+import { pendingApplicationFor } from "../domain/pending-application";
 
 export type Actor = {
   /** Postgres `User.id`, not the Clerk id. Audit entries reference this. */
@@ -155,12 +156,21 @@ export async function resolveActor(
   const email = typeof emailSource === "function" ? await emailSource() : emailSource;
   if (!email) throw new UnprovisionedError(null);
 
-  const provisioned = await prisma.user.findFirst({
+  const findProvisioned = () => prisma.user.findFirst({
     /* tenant-scope: identity resolution — there is no actor, and so no tenant, until this finds one. */
     where: { email: email.toLowerCase() },
     select: { id: true, disabledAt: true, disabledReason: true, roles: true },
   });
-  if (!provisioned) throw new UnprovisionedError(email);
+  let provisioned = await findProvisioned();
+  if (!provisioned) {
+    /* POL-BE-118 — no login yet: what did this address apply for? Signing in
+       confirms a sponsor request's email, which may open the account right
+       now; then this sign-in claims it like any other. Otherwise the refusal
+       says where the application stands. */
+    const { pending, opened } = await pendingApplicationFor(email);
+    if (opened) provisioned = await findProvisioned();
+    if (!provisioned) throw new UnprovisionedError(email, pending);
+  }
   /* 4S0-SEC-01 — a machine's user is reached only through its credential, never claimed by a person's sign-in. */
   if (provisioned.roles.some((r) => r === "INFINEX_SERVICE" || r === "INFINEX_CLIENT")) throw new UnprovisionedError(email);
   if (provisioned.disabledAt) throw new AccountDisabledError(provisioned.disabledReason);

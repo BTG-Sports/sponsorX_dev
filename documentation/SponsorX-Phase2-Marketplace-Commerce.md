@@ -1273,7 +1273,7 @@ The owner decided this on 2026-11-19: the socket gets its own Railway service, s
 
 ### ⏸ `2S4-FE-10` · Deal Chat on the socket service
 
-**Order** 38.95 · **FE** · **Where:** Code · **1.5d** · **Ready** · **HeckerCreatives**
+**Order** 38.95 · **FE** · **Where:** Code · **1.5d** · **Code review** · **HeckerCreatives**
 
 The web app's side of `2S4-BE-18`. The backend moved the live socket out of the API into its own Railway service. `/api/v1/socket` no longer exists, and the API no longer accepts a Clerk token for a socket.
 
