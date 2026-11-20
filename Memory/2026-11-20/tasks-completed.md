@@ -28,3 +28,5 @@
   still Ready. Their backend is Done and live.
 - `5S1-FE-02` (certified-recruiting.com's footer) stays unowned for now: it's a GoDaddy editor
   change, not code in this repo, and needs whoever holds that login.
+- `5S1-FE-02` (certified-recruiting.com's footer, GoDaddy editor): Owner set to HeckerCreatives on
+  the user's decision. Still Ready.
