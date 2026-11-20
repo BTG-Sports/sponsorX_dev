@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { CreateCampaignStart } from "@/components/create-campaign-link";
 import { EnginePending, SampleBanner } from "@/components/engine-pending";
 import { StadiumHint } from "@/components/stadium-hint";
 import {
@@ -111,9 +112,7 @@ function NoCampaigns({ pill }: { pill?: ReactNode }) {
         <p className="mx-auto mt-1.5 max-w-md text-sm text-muted">
           Insights show up here once your first campaigns have run: what worked, which athletes did best, and what&rsquo;s worth renewing.
         </p>
-        <Link href="/sponsor/marketplace" className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-xs font-semibold">
-          Browse packages to start one →
-        </Link>
+        <CreateCampaignStart />
       </StadiumPanel>
     </div>
   );

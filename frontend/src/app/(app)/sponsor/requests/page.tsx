@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { CreateCampaignButton, CreateCampaignStart } from "@/components/create-campaign-link";
 import { ListSearch, PendingList, ServerList } from "@/components/server-pager";
 import {
   StadiumChip,
@@ -95,15 +96,13 @@ function Requests({
   if (counts.all === 0) {
     return (
       <div className="space-y-6">
-        <StadiumHead title="Your requests" pill={pill} />
+        <StadiumHead title="Your requests" pill={pill} actions={<CreateCampaignButton />} />
         <StadiumPanel delay={0.1} className="text-center">
           <p className="text-base font-semibold text-text">No requests yet</p>
           <p className="mx-auto mt-1.5 max-w-md text-sm text-muted">
-            Pick a package and tell us what you&rsquo;re after. Every request you send shows up here while BTG matches, prices and turns it into a campaign.
+            Create a campaign and tell us what you&rsquo;re after. Every campaign you send shows up here while BTG matches it with athletes and turns it into a campaign.
           </p>
-          <Link href="/sponsor/marketplace" className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-xs font-semibold">
-            Browse packages to start one →
-          </Link>
+          <CreateCampaignStart />
         </StadiumPanel>
       </div>
     );
@@ -128,11 +127,7 @@ function Requests({
 
   return (
     <div className="space-y-6">
-      <StadiumHead title="Your requests" pill={pill} actions={
-        <Link href="/sponsor/marketplace" className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold">
-          + New request
-        </Link>
-      }>
+      <StadiumHead title="Your requests" pill={pill} actions={<CreateCampaignButton />}>
         <StadiumTiles cols={3}>
           <StadiumTile
             label="Being matched by BTG"
