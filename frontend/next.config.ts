@@ -14,6 +14,14 @@ const nextConfig: NextConfig = {
   // Railway/Render.
   ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
 
+  // POL-FE-123 — `next build` type-checks the APP only (tsconfig.build.json
+  // leaves out tests/). Some frontend tests import backend contracts whose
+  // imports reach the backend's generated Prisma client, which exists only
+  // after `prisma generate`. Railway's web build never runs that, so from
+  // 2026-11-20 every web deploy failed on 693 backend type errors. CI still
+  // type-checks the tests: see "Type-check the frontend tests" in ci.yml.
+  typescript: { tsconfigPath: "tsconfig.build.json" },
+
   // The dev-tools badge defaults to bottom-left, where it sits on top of the
   // student portal's bottom tab bar (P1-FE-19) at phone widths. Dev-only.
   devIndicators: { position: "top-right" },
