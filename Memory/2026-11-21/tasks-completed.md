@@ -29,3 +29,10 @@
 - **Deployed:** release = main = a85b4935 on staging and production. Main's CI and the deploy run passed.
 - **Switch:** `FEE_STATEMENT_REQUIRED=on` on staging (rcfworks). Production is the owner's to set; I'm not permitted to read production's variables, so it's unconfirmed here. From this deploy, wherever it's on, every acceptance waits for POL-FE-119's screens.
 - **Tracker:** Polish rows POL-BE-119 and POL-BE-120 Done 2026-11-21. Stage Progress row for 2026-11-21: 324 Done (S9 44), 21 days left, unchanged.
+
+## Switch back off — staging matches production (POL-BE-119)
+
+- **Why:** with the switch on, every acceptance is refused until POL-FE-119's screens send the fee statement. The owner wants staging to behave like production.
+- **Done:** `FEE_STATEMENT_REQUIRED=off` on staging's api service (rcfworks, confirmed by reading the variable back). Production stays the owner's to set; it should be `off` too.
+- **Effect:** the app works as before; every acceptance still records the fee statement it would have shown, marked not shown, and a hash that is sent is still checked.
+- **Next:** turn it on in staging and production together once POL-FE-119 is live. SponsorX-Switches.md updated to match.
