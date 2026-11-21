@@ -300,3 +300,21 @@ export function metaLine(f: Pick<PublicFace, "sport" | "position" | "level">): s
 export function placeLine(f: Pick<PublicFace, "school" | "city" | "stateCode"> & { countryCode?: string | null }): string {
   return [f.school, placeWords(f)].filter(Boolean).join(" · ");
 }
+
+/**
+ * "Select everything", as a toggle — POL-FE-122.
+ *
+ * When every `everyday` item is already picked, pressing it again clears every
+ * pick. Otherwise it adds all of `everyday` and keeps anything else already
+ * picked (an age-restricted kind tapped by hand stays). The result keeps
+ * `items`' order.
+ */
+export function selectEverything(items: readonly string[], everyday: readonly string[], picked: readonly string[]): string[] {
+  if (everyday.length > 0 && everyday.every((c) => picked.includes(c))) return [];
+  return items.filter((c) => everyday.includes(c) || picked.includes(c));
+}
+
+/** Whether "Select everything" shows as on: every `everyday` item is picked. */
+export function everythingSelected(everyday: readonly string[], picked: readonly string[]): boolean {
+  return everyday.length > 0 && everyday.every((c) => picked.includes(c));
+}
