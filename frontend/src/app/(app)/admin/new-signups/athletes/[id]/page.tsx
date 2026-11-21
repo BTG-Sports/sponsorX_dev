@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 const PATH = "/admin/new-signups";
 
 export default async function AthleteSignupPage({ params }: { params: Promise<{ id: string }> }) {
-  const lacking = await staffWithoutAccess(PATH);
-  if (lacking) return <NotInRole path={PATH} title="New sign-ups" roles={lacking} />;
+  const lacking = await staffWithoutAccess(`${PATH}/athletes`);
+  if (lacking) return <NotInRole path={`${PATH}/athletes`} title="New accounts" roles={lacking} />;
   return <LiveSignupProfile owner="athletes" id={(await params).id} />;
 }

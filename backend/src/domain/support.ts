@@ -331,11 +331,11 @@ async function senderRecords(tenantId: string, email: string): Promise<SenderRec
   const out: Omit<SenderRecord, "problems">[] = athletes.map((a) => athlete(a, "SELF"));
   for (const r of requests) {
     const held = r.state === "NEW" && r.reviewReasons.length > 0;
-    out.push({ kind: "SPONSOR_REQUEST", relation: "SELF", id: r.id, label: r.companyName || [r.firstName, r.lastName].filter(Boolean).join(" "), state: r.state, held, reasons: held ? r.reviewReasons : [], emailConfirmed: r.emailConfirmedAt !== null, adminPath: `/admin/sponsor-requests/${r.id}`, createdAt: r.createdAt });
+    out.push({ kind: "SPONSOR_REQUEST", relation: "SELF", id: r.id, label: r.companyName || [r.firstName, r.lastName].filter(Boolean).join(" "), state: r.state, held, reasons: held ? r.reviewReasons : [], emailConfirmed: r.emailConfirmedAt !== null, adminPath: `/admin/new-signups/sponsors/${r.id}`, createdAt: r.createdAt });
   }
   for (const o of orgs) {
     const held = o.state === "PENDING_REVIEW" && o.reviewReasons.length > 0;
-    out.push({ kind: "ORGANISATION", relation: "SELF", id: o.id, label: o.orgName, state: o.state, held, reasons: held ? o.reviewReasons : [], emailConfirmed: o.emailConfirmedAt !== null, adminPath: `/admin/onboarding/${o.id}`, createdAt: o.createdAt });
+    out.push({ kind: "ORGANISATION", relation: "SELF", id: o.id, label: o.orgName, state: o.state, held, reasons: held ? o.reviewReasons : [], emailConfirmed: o.emailConfirmedAt !== null, adminPath: `/admin/new-signups/organizations/${o.id}`, createdAt: o.createdAt });
   }
   const seen = new Set(out.map((r) => r.id));
   for (const g of guardians) {

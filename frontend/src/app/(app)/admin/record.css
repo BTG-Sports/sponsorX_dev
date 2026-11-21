@@ -67,6 +67,7 @@
 .sx-rec-mark[data-kind="ORGANIZATION"] { --t: #a78bfa; }
 .sx-rec-mark[data-kind="ATHLETE"] { --t: #63b4f8; }
 .sx-rec-mark[data-kind="GUARDIAN"] { --t: #5eead4; }
+.sx-rec-mark[data-kind="SPONSOR"] { --t: #f0abfc; }
 .sx-rec-name { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 .sx-rec-title {
   overflow-wrap: anywhere;
@@ -236,6 +237,68 @@
   line-height: 1.45;
   color: #fca5a5;
 }
+/* a choice's own controls (a sponsor's Approve: the business type, a
+   same-named sponsor) and what it does, in order */
+.sx-rec-field { min-width: 0; }
+.sx-rec-field > legend { padding: 0; }
+.sx-rec-field > * + * { margin-top: 8px; }
+.sx-rec-picks { display: flex; flex-wrap: wrap; gap: 6px; }
+.sx-rec-pick {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 6px;
+  border-radius: 9999px;
+  padding: 0 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #b8c3d4;
+  background: rgba(8, 14, 24, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(99, 180, 248, 0.25);
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+.sx-rec-pick:hover { color: #fff; box-shadow: inset 0 0 0 1px rgba(99, 180, 248, 0.55); }
+.sx-rec-pick:has(:focus-visible),
+.sx-rec-pick:focus-visible { outline: 2px solid #9be0ff; outline-offset: 2px; }
+.sx-rec-pick[data-on] { color: #04070e; font-weight: 600; background: #4ade80; box-shadow: none; }
+.sx-rec-pick-tag { font-size: 10.5px; font-weight: 600; opacity: 0.7; }
+.sx-rec-pick-more { color: #63b4f8; background: transparent; box-shadow: inset 0 0 0 1px rgba(99, 180, 248, 0.2); }
+.sx-rec-opts { display: grid; gap: 8px; }
+.sx-rec-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #9aa4b2;
+  background: rgba(8, 14, 24, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(99, 180, 248, 0.25);
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, background 0.2s ease;
+}
+.sx-rec-opt input { margin-top: 3px; accent-color: #4ade80; }
+.sx-rec-opt strong { display: block; font-size: 13px; font-weight: 600; color: #fff; }
+.sx-rec-opt:has(:checked) { background: rgba(74, 222, 128, 0.08); box-shadow: inset 0 0 0 1.5px #4ade80; }
+.sx-rec-opt[data-off] { cursor: not-allowed; opacity: 0.55; }
+.sx-rec-steps { padding: 12px 14px; background: rgba(99, 180, 248, 0.06); box-shadow: inset 0 0 0 1px rgba(99, 180, 248, 0.2); }
+.sx-rec-steps-k { font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em; color: #8f9ab0; }
+.sx-rec-steps ol { display: grid; gap: 7px; margin-top: 8px; }
+.sx-rec-steps li { display: flex; align-items: flex-start; gap: 9px; font-size: 12.5px; line-height: 1.45; color: #e6f3ff; }
+.sx-rec-steps li > span {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #9be0ff;
+  background: rgba(46, 155, 245, 0.16);
+}
+
 .sx-rec-sheet-foot { align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid rgba(99, 180, 248, 0.14); padding-top: 14px; }
 .sx-rec-sheet-foot .sx-rec-why { flex: 1 1 12rem; }
 @media (max-width: 479px) {
@@ -273,7 +336,7 @@
   font-variant-numeric: tabular-nums;
   color: #fff;
 }
-.sx-rec-fact-n { font-size: 11.5px; line-height: 1.35; color: #8f9ab0; }
+.sx-rec-fact-n { overflow-wrap: anywhere; font-size: 11.5px; line-height: 1.35; color: #8f9ab0; }
 .sx-rec-fact[data-tone="amber"] .sx-rec-fact-n { font-weight: 600; color: #fdba74; }
 .sx-rec-fact[data-tone="muted"] { box-shadow: inset 0 0 0 1px rgba(99, 180, 248, 0.16), inset 0 2px 0 rgba(148, 163, 184, 0.45); }
 
@@ -304,6 +367,8 @@
   background: linear-gradient(160deg, rgba(18, 30, 48, 0.72), rgba(8, 14, 24, 0.6));
   box-shadow: inset 0 0 0 1px rgba(99, 180, 248, 0.15);
 }
+.sx-rec-sec[data-tone="green"]::before { box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.22), inset 3px 0 0 #4ade80; }
+.sx-rec-sec[data-tone="green"] .sx-rec-sec-icon { color: #86efac; background: rgba(74, 222, 128, 0.12); box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.45); }
 .sx-rec-sec[data-tone="amber"]::before { box-shadow: inset 0 0 0 1px rgba(251, 146, 60, 0.26), inset 3px 0 0 #f97a1f; }
 .sx-rec-sec > * { position: relative; }
 .sx-rec-sec-head { display: flex; align-items: flex-start; gap: 11px; }
@@ -325,7 +390,7 @@
   box-shadow: inset 0 0 0 1px rgba(251, 146, 60, 0.45);
 }
 .sx-rec-sec-title { padding-top: 4px; font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; color: #fff; }
-.sx-rec-sec-hint { margin-top: 2px; font-size: 12px; line-height: 1.5; color: #8f9ab0; }
+.sx-rec-sec-hint { overflow-wrap: anywhere; margin-top: 2px; font-size: 12px; line-height: 1.5; color: #8f9ab0; }
 
 /* rows inside a block */
 .sx-rec-rows { display: grid; }
@@ -353,6 +418,8 @@
 .sx-rec-row[data-ok] .sx-rec-tick { color: #86efac; background: rgba(74, 222, 128, 0.14); }
 .sx-rec-row-word { flex: none; font-size: 11.5px; font-weight: 600; color: #fdba74; }
 .sx-rec-row[data-ok] .sx-rec-row-word { color: #86efac; }
+/* a step still to come that is not BTG's move (a sponsor's sign-in): blue, not orange */
+.sx-rec-row[data-wait] .sx-rec-tick { color: #9be0ff; background: rgba(99, 180, 248, 0.14); }
 
 .sx-rec-person { align-items: flex-start; }
 .sx-rec-person-name { display: block; overflow-wrap: anywhere; font-size: 13.5px; font-weight: 600; color: #fff; }

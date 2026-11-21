@@ -3642,3 +3642,34 @@ the blockers and today's content review findings.
   - The tests are still type-checked: `npm run typecheck -w @sponsorx/frontend` (the full `tsconfig.json`), a new CI step after the web build.
   - The stand-in for `domain/student` in `advisor-profile-live.test.ts` is gone; the test uses the real contract.
 - **Checked:** with `backend/src/generated` hidden, as on Railway, the old code fails with Railway's exact errors and the fixed code builds. Every CI step passes locally. A type error put in a test is caught by the new step.
+
+### 124. The sign-up rules page shows five tiles, two switch panels and an age board at the same weight, so staff can't tell what the rules do [§10, §23, 2S1-FE-07, P1-ART-15]
+`POL-FE-124` · *Polish* · confirmed · **Done 2026-11-21** (HeckerCreatives)
+- **Problem:** owner: "too much information at once … not easily understandable by humans; add a wow factor + animations". `/admin/new-signups/rules` opened on five summary tiles, then two switch panels each with an Off / On box pair, then the age board.
+- **Built:** the page asks two questions, in order.
+  - **01 Who waits for a person?** One rule card per switch (`RuleCard` in `components/signup-rules-editor.tsx`), each with a three-step path: start, the gate this rule controls, the end. With the rule on, a runner stops at the lit gate ("Waits here"); off, the gate is crossed out and the runner passes. Under it, "What happens now" in one sentence and "Switch it on/off:". Badge: Automatic / A person decides / Enforced. Flipping a switch animates the knob, a ring and a sweep (reduced motion respected).
+  - **02 Who counts as a minor?** The search bar and the place board (`components/rules-board.tsx`). The country default reads as a sentence ("In United States, an athlete is an adult at 18 — except in 3 states"); the unknown-place alert shows only above zero. The age summary box above the board was removed at the owner's request ("it generates confusion"); the board's "Not 18" filter covers it.
+  - The country rail and the country panel share one fixed height (`PANEL_H`: 32 / 34 / 38 / 42rem by breakpoint); their lists scroll inside.
+  - Header: Live pill, a "How it works" panel and one line counting how many of the three rules make someone wait. `rules/loading.tsx` is a skeleton of the new shape; styles in `rules/rules.css`.
+- **Checked:** vitest, eslint and tsc clean; walked live as the QA admin at 390, 820, 1280, 1440 and 1920 wide with no console errors or horizontal scroll; a switch flipped on and back off.
+
+### 125. A sponsor request's page shows six cards and the whole decision at once, so a reviewer can't find what matters or what to do [§10, §23, 2S1-FE-05, POL-FE-108]
+`POL-FE-125` · *Polish* · confirmed · **Done 2026-11-21** (HeckerCreatives)
+- **Problem:** owner: "too many information at once, and super cluttered". The record had six cards down the left and a side card with the checks, the same-name choice, Approve and Decline all open on arrival.
+- **Built:** the POL-FE-108 record shape. The business's name, ONE pill and ONE button ("Make a decision" / "Reject the account" / "Reinstate"; none once declined), four tiles, and three tabs: Overview · Business · Proof of business.
+  - The decision is in the shared popup (`components/record-decide.tsx`). Approve carries its own controls there: the business type (suggested first, "Show all 25 types"), the same-named sponsor choice and "What happens when you approve". `DecideChoice` gains `extra` (a choice's own controls) and `blocked` (why the final button is off). Decline and Reject need a note.
+  - `SponsorDecision` replaces `SponsorRequestReview` + `SponsorAccountDecision`; `lib/sponsor-requests-live.ts` adds `requestPill`, `requestStanding`, `requestFacts` (+5 tests). The server action, payloads and refusals are unchanged.
+- **Checked:** tsc and eslint clean; walked live at 1440 and 390 on an approved and a waiting request. No declined or rejected request existed locally, so those two states were not seen live.
+
+### 126. Onboarding, Sponsor requests and New sign-ups are three desks for one job, so staff bounce between them [§10, §23, 2S1-FE-02, 2S1-FE-05, 2S1-FE-07]
+`POL-BE-126` · `POL-FE-126` · *Polish* · confirmed · **Done 2026-11-21** (HeckerCreatives; backend part in rcfworks' area)
+- **Problem:** owner: "too many moving navigations why not just one navigation … just remove the onboarding page and the sponsor requests since we already have a new sign-ups page, just change the name". A sponsor row in New sign-ups opened the Sponsor requests desk.
+- **Owner decisions:** the page is called **New accounts**; **Sales sees sponsors only**.
+- **Frontend (POL-FE-126):**
+  - Menu: Intake is Applications · New accounts. The URL stays `/admin/new-signups`.
+  - Records open inside it: `/admin/new-signups/organizations/:id` (`components/org-record.tsx`) and `/admin/new-signups/sponsors/:id` (`components/sponsor-request-record.tsx`).
+  - Old addresses forward: `/admin/onboarding` → `?kind=ORGANIZATION`, `/admin/sponsor-requests` → `?kind=SPONSOR`, and each `/:id` to its new record. The two desks' `actions.ts` stay; revalidation points at the new paths.
+  - Sales: `admin-access.ts` makes `/admin/new-signups/{athletes,guardians,organizations,rules}` BTG-admin only; the stream hides the rules link and sensitive edits from Sales; dashboard intake cards carry their own `access` path (`cardAccess` in `ops-board-live.ts`).
+  - Ops board, marketplace links and help articles repointed (recorded help screenshots show the old desks until `npm run help:shots` is re-run). e2e: `admin-lists-paged.spec.ts` checks the forwards; `admin-sidebar-groups.spec.ts` follows the menu rename.
+- **Backend (POL-BE-126, `signups-stream.ts`):** the stream holds every state, so nothing the old desks showed is lost: sponsors `DECLINED`, rejected and `WAITING` (still finishing); organisations asked for changes or still drafts (`WAITING`). "Needs review" still means BTG's move only. Each kind is included only for a role that reads it tenant-wide, so Sales gets sponsors instead of a 403. Every link the backend builds (org profile emails, sponsor review email, Closed accounts, support inbox) points at the new records.
+- **Checked:** frontend tsc, eslint and vitest clean (bar the known Windows-only `deal-chat` regex); backend tsc and lint clean, full suite green bar the known Windows-only set. Walked live as the QA admin: nav, the three forwards, an organisation and a sponsor opening inside New accounts. A Sales login was not walked.

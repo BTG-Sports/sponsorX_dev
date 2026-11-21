@@ -62,7 +62,7 @@ export const KIND_WORDS: Record<SignupKind, string> = { ORGANIZATION: "Organizat
 
 /** Where an organisation's row opens: Group A's profile, with Reject / Reinstate and the document links. */
 export function orgHref(id: string): string {
-  return `/admin/onboarding/${encodeURIComponent(id)}`;
+  return `/admin/new-signups/organizations/${encodeURIComponent(id)}`;
 }
 
 /** An organisation's desk state: an approved one BTG approved by hand reads "Approved by BTG". */
@@ -180,7 +180,11 @@ export type ApiStreamRow = {
   name: string;
   sub: string;
   signedUpAt: string;
-  state: SignupState;
+  /** WAITING — on them, not BTG (a sponsor yet to send their proof, an
+   *  organization asked for changes or still a draft); DECLINED — a sponsor
+   *  BTG turned down. Both arrived when Onboarding and Sponsor requests were
+   *  folded into this page (2026-11-21). */
+  state: SignupState | "WAITING" | "DECLINED";
   reasons: string[];
   flags: string[];
   /** POL-BE-42 — a held row's reasons as typed tags ([] when not held). */
@@ -240,7 +244,7 @@ export type StreamRowView = {
   when: string;
   badge: { label: string; tone: "accent" | "warn" | "neutral"; mark: string };
   /** POL-FE-109 — the same status as the list's pill: its colour, and whether it is BTG's move (the dot pulses). */
-  pill: { label: string; tone: "amber" | "green" | "red"; act: boolean };
+  pill: { label: string; tone: "amber" | "green" | "red" | "cyan" | "muted"; act: boolean };
   reason: string;
   /** POL-FE-42 — the held row's problems as tags; when there are any they stand in for `reason`. */
   problems: ApiProblem[];
@@ -252,7 +256,7 @@ export type StreamRowView = {
 function streamHref(kind: StreamKind, id: string): string {
   const e = encodeURIComponent(id);
   if (kind === "ORGANIZATION") return orgHref(id);
-  if (kind === "SPONSOR") return `/admin/sponsor-requests/${e}`;
+  if (kind === "SPONSOR") return `/admin/new-signups/sponsors/${e}`;
   return `/admin/new-signups/${kind === "ATHLETE" ? "athletes" : "guardians"}/${e}`;
 }
 
@@ -261,6 +265,8 @@ export function streamRowView(r: ApiStreamRow): StreamRowView {
   const held = r.state === "NEEDS_REVIEW" || r.flags.length > 0;
   const badge =
     r.state === "NEEDS_REVIEW" ? { label: "Needs review", tone: "warn" as const, mark: "!" }
+    : r.state === "WAITING" ? { label: "Waiting on them", tone: "neutral" as const, mark: "…" }
+    : r.state === "DECLINED" ? { label: "Declined", tone: "neutral" as const, mark: "✕" }
     : r.state === "REJECTED" ? { label: "Rejected", tone: "neutral" as const, mark: "✕" }
     : r.flags.length ? { label: "Approved · flagged", tone: "warn" as const, mark: "!" }
     : r.state === "APPROVED" ? { label: "Approved by BTG", tone: "accent" as const, mark: "✓" }
@@ -268,13 +274,19 @@ export function streamRowView(r: ApiStreamRow): StreamRowView {
   const reason = r.reasons.length ? r.reasons.join(" · ")
     : r.flags.length ? r.flags.join(" · ")
     : r.state === "NEEDS_REVIEW" ? "Waiting for BTG’s review"
+    : r.state === "WAITING" ? "Nothing for BTG yet"
+    : r.state === "DECLINED" ? "Declined by BTG"
     : r.state === "REJECTED" ? "Rejected by BTG"
     : r.state === "APPROVED" ? "Reviewed and approved by BTG"
     : "All checks passed";
   return {
     key: `${r.kind}-${r.id}`, kind: r.kind, mono: MONO[r.kind], kindWord: KIND_WORD[r.kind], name: r.name, sub: r.sub,
     when: dayOf(r.signedUpAt), badge, reason,
-    pill: { label: badge.label, tone: held ? "amber" : r.state === "REJECTED" ? "red" : "green", act: held },
+    pill: {
+      label: badge.label,
+      tone: held ? "amber" : r.state === "REJECTED" ? "red" : r.state === "WAITING" ? "cyan" : r.state === "DECLINED" ? "muted" : "green",
+      act: held,
+    },
     problems: r.state === "NEEDS_REVIEW" ? r.problems ?? [] : [], href: streamHref(r.kind, r.id), held,
   };
 }

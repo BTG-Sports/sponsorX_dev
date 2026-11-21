@@ -220,7 +220,7 @@ function ApplicationsPanel({ q, now }: { q: Queue<ApiOnboarding>; now: number })
   ];
   return (
     <section aria-label="Property applications">
-      <PanelHead title="Property applications" hint="Submitted and waiting for BTG, oldest first. Decide on the application's own page." action={more("/admin/onboarding", "All applications →")} />
+      <PanelHead title="Property applications" hint="Submitted and waiting for BTG, oldest first. Decide on the application's own page." action={more("/admin/new-signups?review=1&kind=ORGANIZATION", "All applications →")} />
       {"forbidden" in q ? <Forbidden /> : q.rows.length === 0 ? (
         <Clear>New applications arrive here when an organization submits the wizard.</Clear>
       ) : (
@@ -229,18 +229,18 @@ function ApplicationsPanel({ q, now }: { q: Queue<ApiOnboarding>; now: number })
             const over = isOverdue(o.submittedAt, now);
             return (
               <Tr key={o.id} i={i} tone={over ? "danger" : "warn"}>
-                <Td><Primary sub={o.stateCode ?? undefined}><Link href={`/admin/onboarding/${o.id}`} className="hover:underline">{o.orgName}</Link></Primary></Td>
+                <Td><Primary sub={o.stateCode ?? undefined}><Link href={`/admin/new-signups/organizations/${o.id}`} className="hover:underline">{o.orgName}</Link></Primary></Td>
                 <Td label="Type" muted>{ORG_TYPE_COPY[o.orgType]?.label ?? o.orgType}</Td>
                 <Td label="Submitted" muted>{o.submittedAt ? agoLabel(o.submittedAt, now) : "—"}</Td>
                 <Td label="Waiting"><span className={`tabular-nums ${over ? "font-semibold text-warn" : "text-muted"}`}>{waitLabel(o.submittedAt, now) ?? "—"}</span></Td>
-                <Td act><Link href={`/admin/onboarding/${o.id}`} className="font-medium text-primary hover:underline">Review →</Link></Td>
+                <Td act><Link href={`/admin/new-signups/organizations/${o.id}`} className="font-medium text-primary hover:underline">Review →</Link></Td>
               </Tr>
             );
           })}
         </StageTable>
       )}
       {"rows" in q && q.total > q.rows.length && (
-        <p className="mt-2 text-[11px] text-muted">Showing the oldest {q.rows.length} of {q.total}. {more("/admin/onboarding", "The whole queue →")}</p>
+        <p className="mt-2 text-[11px] text-muted">Showing the oldest {q.rows.length} of {q.total}. {more("/admin/new-signups?review=1&kind=ORGANIZATION", "The whole queue →")}</p>
       )}
     </section>
   );

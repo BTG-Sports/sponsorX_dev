@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { accessFor, mayUse } from "@/lib/admin-access";
 import {
   accountTracker, approveBlock, askedAgo, categoryOptions, decisionChecks, documentLine, emptyTitle, rejectSteps, reinstateSteps,
-  requestRefusal, requestTab, reviewLine, stateBadge, tabFor, tabLabel, whatHappens, type ApiSponsorRequestDetail,
+  requestFacts, requestPill, requestRefusal, requestStanding, requestTab, reviewLine, stateBadge, tabFor, tabLabel, whatHappens, type ApiSponsorRequestDetail,
 } from "@/lib/sponsor-requests-live";
 
 /* 2S1-FE-03 — BTG's sponsor-request screens: what they derive from the API. */
@@ -119,6 +119,58 @@ describe("the decision", () => {
   it("a refusal is the API's own words", () => {
     expect(requestRefusal(409, { error: { message: "This request was already approved." } }).message).toBe("This request was already approved.");
     expect(requestRefusal(403, null).message).toMatch(/can’t decide/);
+  });
+});
+
+describe("the record page: one pill, the popup's first sentence, four tiles", () => {
+  const now = new Date("2026-09-30T12:00:00.000Z");
+  const doc = { id: "d1", kind: "PROOF_OF_BUSINESS", filename: "licence.pdf", contentType: "application/pdf", bytes: 1024, uploadedAt: "2026-09-28T10:00:00.000Z" };
+
+  it("one pill per state; only a waiting request pulses", () => {
+    expect(requestPill(base)).toEqual({ label: "Waiting for BTG", tone: "amber", act: true });
+    expect(requestPill({ state: "APPROVED" })).toEqual({ label: "Account open", tone: "green", act: false });
+    expect(requestPill({ state: "DECLINED" }).tone).toBe("muted");
+    expect(requestPill({ state: "REJECTED" })).toEqual({ label: "Rejected · logins off", tone: "red", act: false });
+  });
+
+  it("the popup opens on where it stands; an email in use says it can't be approved", () => {
+    expect(requestStanding(base)).toMatch(/^Approve to open their account/);
+    expect(requestStanding({ ...base, checks: { ...base.checks, emailInUse: true } })).toMatch(/already has a SponsorX login/);
+    expect(requestStanding({ ...base, state: "REJECTED" })).toMatch(/^Their logins are off/);
+  });
+
+  it("a waiting request: a failing check and a missing proof are orange; the last tile is how long it has waited", () => {
+    const f = requestFacts(twin, now);
+    expect(f.map((x) => x.key)).toEqual(["checks", "proof", "contact", "when"]);
+    expect(f[0]).toMatchObject({ value: "2 of 3 passed", tone: "amber", note: "A sponsor named “Harbor Coffee” already exists (from Zoho)" });
+    expect(f[1]).toMatchObject({ value: "Missing", tone: "amber" });
+    expect(f[2]).toMatchObject({ value: "Dana Brooks", note: "dana@harborcoffee.example" });
+    expect(f[3]).toMatchObject({ label: "Asked", note: "Waiting since 2 days ago", tone: "amber" });
+    const clean = requestFacts({ ...base, documents: [doc] }, now);
+    expect(clean[0]).toMatchObject({ value: "3 of 3 passed", tone: "green" });
+    expect(clean[1]).toMatchObject({ value: "Uploaded", note: "licence.pdf", tone: "blue" });
+  });
+
+  it("a sent-back proof doesn't count; a flagged one is said", () => {
+    expect(requestFacts({ ...base, documents: [{ ...doc, returned: { at: "2026-09-29T10:00:00.000Z", reason: "blurry" } }] }, now)[1]!.value).toBe("Missing");
+    expect(requestFacts({ ...base, documents: [{ ...doc, check: { state: "FLAGGED", findings: [], checkedAt: null } }] }, now)[1]).toMatchObject({ note: "Reading it flagged something", tone: "amber" });
+  });
+
+  it("an open account's last tile is whether they signed in, as recorded", () => {
+    const open: ApiSponsorRequestDetail = {
+      ...base, state: "APPROVED", decidedAt: "2026-09-30T10:05:00.000Z", documents: [doc],
+      progress: { categories: ["RESTAURANT"], decidedBy: null, emailSentAt: null, signedIn: false },
+    };
+    expect(requestFacts(open, now)[3]).toMatchObject({ label: "Signed in", value: "Not yet", note: "Sign-in email is queued" });
+    expect(requestFacts({ ...open, progress: { ...open.progress!, emailSentAt: "2026-09-30T10:06:00.000Z" } }, now)[3]!.note).toBe("Sign-in email sent Sep 30");
+    expect(requestFacts({ ...open, progress: { ...open.progress!, signedIn: true } }, now)[3])
+      .toMatchObject({ value: "Yes", tone: "green", note: "They’re using the sponsor portal" });
+    /* once decided, the approval checks give way to the business type: "already has a login" would be the account's own */
+    const used = { ...open, checks: { ...open.checks, emailInUse: true } };
+    expect(requestFacts(used, now)[0]).toMatchObject({ key: "type", label: "Business type", value: "Restaurant", tone: "blue" });
+    expect(requestFacts({ ...used, progress: { ...open.progress!, categories: [] } }, now)[0]).toMatchObject({ value: "None recorded", tone: "muted" });
+    /* decided: a gap is a fact, not BTG's move */
+    expect(requestFacts({ ...base, state: "DECLINED", decidedAt: "2026-09-30T10:05:00.000Z" }, now)[1]!.tone).toBe("muted");
   });
 });
 

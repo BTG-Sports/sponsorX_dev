@@ -66,7 +66,7 @@ describe("the admin nav per viewer", () => {
      (lib/admin-access), so nothing listed says "outside your role". */
   it("keeps every desk the other staff roles can use, and only those", () => {
     expect(navFor(["SALES"]).map((n) => n.href)).toEqual([
-      "/admin", "/admin/sponsor-requests", "/admin/briefs", "/admin/campaigns", "/admin/offers", "/admin/next/prospects",
+      "/admin", "/admin/new-signups", "/admin/briefs", "/admin/campaigns", "/admin/offers", "/admin/next/prospects",
       "/admin/intelligence/attribution", "/admin/intelligence/forecasts", "/admin/intelligence/matching", "/admin/intelligence/pricing", "/admin/intelligence/scenarios",
     ]);
     expect(navFor(["CAMPAIGN_MGR"]).map((n) => n.href)).toEqual([

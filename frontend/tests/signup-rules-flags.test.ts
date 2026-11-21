@@ -59,9 +59,11 @@ describe("the sign-up rules screen's three switches", async () => {
     expect(html).toContain("Athletes accept the current Content Collaboration Agreement");
     expect(html).toContain("Accepting a deal or listing an item waits until a confirmation that counts is on file — for a minor, the guardian&#x27;s.");
     expect(html).toContain("Accepting a deal or listing an item waits until the current agreement is accepted — for a minor, by the guardian.");
-    /* The tile sums the two "before a deal" switches. */
-    expect(html).toContain("Own rules wait");
-    expect(html).toContain("1 of 2 enforced");
+    /* 2026-11-21 redraw: the header sums the three switches in one line, and
+       each card says what happens now and what the other way would do. */
+    expect(html).toContain("1 of 3 rules");
+    expect(html).toContain("Enforced");
+    expect(html).toContain("Switch it off:");
   });
 
   it("an older API without the two flags reads them as off", async () => {
@@ -71,6 +73,13 @@ describe("the sign-up rules screen's three switches", async () => {
     expect(sw(html, "requireRulesAttestation")).toContain('aria-checked="false"');
     expect(sw(html, "requireCollabAcceptance")).toContain('aria-checked="false"');
     expect(html).toContain("Asked, not enforced");
+    expect(html).toContain("A person decides");
+  });
+
+  it("with every switch off, the header says nothing waits for a person", async () => {
+    vars.responses["/signup-rules/settings"] = () => Response.json({ staffConfirmMinors: false, requireRulesAttestation: false, requireCollabAcceptance: false });
+    const html = renderToStaticMarkup(await Page());
+    expect(html).toContain("Nobody waits for a person.");
   });
 });
 

@@ -296,7 +296,7 @@ async function tellBtg(tx: Tx, row: Pick<Row, "id" | "tenantId" | "orgName" | "o
         orgName: row.orgName, orgType: row.orgType.toLowerCase(),
         outcome: outcome === "approved" ? "was approved automatically" : "is waiting for your review",
         reasons: reasons.map((r) => `• ${r}`).join("\n"),
-        profileUrl: `${appUrl()}/admin/onboarding/${row.id}`,
+        profileUrl: `${appUrl()}/admin/new-signups/organizations/${row.id}`,
       },
     });
   }

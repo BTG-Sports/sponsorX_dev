@@ -77,7 +77,7 @@ export async function LiveSignupProfile({ owner, id }: { owner: "athletes" | "gu
       <div className="sx-rec space-y-4">
         <Link href={PATH} className="sx-rec-back">
           <Glyph ui="back" className="size-3.5" />
-          New sign-ups
+          New accounts
         </Link>
         <p className="sx-rec-empty">No sign-up matches this link, or your role can&rsquo;t open it.</p>
       </div>
@@ -190,7 +190,7 @@ export async function LiveSignupProfile({ owner, id }: { owner: "athletes" | "gu
   return (
     <div className="sx-rec">
       <RecordHeader
-        back={{ href: held ? `${PATH}?tab=review` : PATH, label: "New sign-ups" }}
+        back={{ href: held ? `${PATH}?tab=review` : PATH, label: "New accounts" }}
         icon={s.kind === "ATHLETE" ? "trophy" : "shield"}
         kind={s.kind}
         title={s.name}

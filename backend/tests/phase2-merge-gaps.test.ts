@@ -199,7 +199,7 @@ describe.skipIf(!hasDatabase)("merge gaps · closures, closed sellers, the hando
       expect((await call("POST", `/public/account/reactivation/${token}`, undefined, { action: "REACTIVATE" })).status).toBe(403);
       const ask = await call("POST", `/public/account/reactivation/${token}`, undefined, { action: "REQUEST", note: "We fixed the registration." });
       expect(ask.status, ask.text).toBe(200);
-      expect((await emails("account.reactivationRequested")).at(-1)).toMatchObject({ to: "mg_admin@mg-test.invalid", data: { reviewUrl: expect.stringMatching(/\/admin\/onboarding\/mg_onb$/) } });
+      expect((await emails("account.reactivationRequested")).at(-1)).toMatchObject({ to: "mg_admin@mg-test.invalid", data: { reviewUrl: expect.stringMatching(/\/admin\/new-signups\/organizations\/mg_onb$/) } });
 
       const back = await call("POST", "/onboarding/mg_onb/decision", "mg_admin", { decision: "REINSTATE" });
       expect(back.status, back.text).toBe(200);

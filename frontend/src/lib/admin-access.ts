@@ -36,8 +36,17 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   "/admin/sponsor-requests": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES"], who: "BTG admins and Sales" },
   /* 2S1-FE-11 — the API's restrictedWord policy is BTG_ADMIN own-tenant and SUPER_ADMIN only. */
   "/admin/restricted-words": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
-  /* 2S1-FE-07 — new sign-ups hold athletes', minors' and guardians' IDs; sponsors reach Sales through Sponsor requests. */
-  "/admin/new-signups": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  /* 2S1-FE-07 — New accounts. Sales opens the list but sees sponsors only
+     (the API's stream holds only the kinds a role reads tenant-wide) and
+     opens only a sponsor's record; athletes', minors' and guardians' IDs and
+     organizations stay with BTG admins (2026-11-21, when Sponsor requests
+     was folded in). */
+  "/admin/new-signups": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES"], who: "BTG admins and Sales" },
+  "/admin/new-signups/sponsors": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES"], who: "BTG admins and Sales" },
+  "/admin/new-signups/athletes": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  "/admin/new-signups/guardians": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  "/admin/new-signups/organizations": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  "/admin/new-signups/rules": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   /* 2S4-FE-04 — delivery problems and refunds. */
   "/admin/delivery-issues": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   /* 2S4-FE-09 — Deal Chat (2S4-BE-16): dealChat read and dealChatReview read and write are BTG admin (own tenant) and SUPER_ADMIN. */

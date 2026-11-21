@@ -11,7 +11,7 @@ import "./signups.css";
    (athletes/[id], guardians/[id]) and the rules keep admin/loading.tsx. */
 export default function Loading() {
   return (
-    <div role="status" aria-label="Loading New sign-ups">
+    <div role="status" aria-label="Loading New accounts">
       <div aria-hidden="true">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="sx-ops-ghost h-7 w-48 max-w-full rounded-md" />
