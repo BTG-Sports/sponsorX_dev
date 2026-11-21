@@ -202,6 +202,12 @@ jobs:
       - name: Build the web app
         run: npm run build -w @sponsorx/frontend
 
+      # POL-FE-123 — `next build` type-checks the app only (tsconfig.build.json),
+      # so the web build never needs the backend's generated client. The tests
+      # are type-checked here instead, with the client generated above.
+      - name: Type-check the frontend tests
+        run: npx tsc --noEmit -p frontend/tsconfig.json
+
       - name: Lint
         run: npm run lint
 

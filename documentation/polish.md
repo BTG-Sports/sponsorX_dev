@@ -3629,3 +3629,9 @@ the blockers and today's content review findings.
   - **"Clear"** clears every pick; disabled when nothing is picked.
   - A note under the buttons says what Select everything leaves out.
   - `SENSITIVE_CATEGORIES` and `EVERYDAY_CATEGORIES` in `frontend/src/lib/brand-categories.ts`; `backend/tests/brief-contract.test.ts` fails if the age-restricted list drifts from the backend's.
+
+### 123. Every web deploy since 20 November fails, so staging and production still serve the 20 November web app [§30, Addendum B]
+`POL-FE-123` · *Release* · confirmed · **Code review** (infinex1, 2026-11-21)
+- **Problem:** `next build` type-checks every `.ts` file under `frontend/`, tests included. Since 2026-11-20, `frontend/tests/campaign-builder.test.ts` imports `backend/src/contracts/campaign.ts`, which reaches `domain/student.ts` and then `db/client.ts`, the backend's generated Prisma client. Railway's web build runs only `npm run build -w @sponsorx/frontend`, never `prisma generate`, so it fails on 693 backend type errors. CI generates the client first, so it stayed green. The last web build that succeeded was `e9bf9102` (2026-11-20 04:38) on both environments; `53eb0356` and `a85b4935` failed on both, and so did `a3a8d825` on staging.
+- **Fix:** `frontend/tsconfig.build.json` is `tsconfig.json` without `tests/`, and `next.config.ts` points `typescript.tsconfigPath` at it, so the web build checks the app only. CI gains "Type-check the frontend tests" (`tsc -p frontend/tsconfig.json`), so the tests are still type-checked with the client generated.
+- **Checked:** the web app builds with `backend/src/generated` removed (it failed with 693 errors before the fix); `tsc -p frontend/tsconfig.json` passes with it present.
