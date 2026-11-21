@@ -277,7 +277,8 @@
   border-radius: 14px;
   border: 1px solid var(--ar-line);
   background: color-mix(in srgb, var(--sx-surface-2) 60%, transparent);
-  padding: 1.15rem 1.25rem 1.15rem 2.9rem;
+  /* the bottom padding is the closing mark's room, below the last line */
+  padding: 1.15rem 1.25rem 2.1rem 2.9rem;
   font-size: clamp(15px, 0.85rem + 0.35vw, 17.5px);
   font-weight: 500;
   line-height: 1.7;
@@ -290,6 +291,18 @@
   position: absolute;
   left: 0.8rem;
   top: 0.2rem;
+  font-size: 3.2rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--sx-athlete);
+  opacity: 0.4;
+}
+/* The closing mark, so the quote reads as finished rather than cut off. */
+.sx-cw-quote::after {
+  content: "\201D";
+  position: absolute;
+  right: 0.8rem;
+  bottom: -1.35rem;
   font-size: 3.2rem;
   font-weight: 900;
   line-height: 1;
