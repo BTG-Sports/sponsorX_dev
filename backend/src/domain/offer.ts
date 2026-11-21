@@ -67,6 +67,8 @@ import { factOrderBooked } from "./fact-writers";
 import { readPage, type PageRequest } from "../lib/paging";
 import { nextOrderNumberIn, requireOrderDetails, storedOrderDetails } from "./campaign-order-details";
 import { detailsForJob, exclusivityWords, type OrderDetails } from "./order-details-rules";
+import { presentStatement, requireFeeStatement } from "./fee-statement";
+import { athleteStatement, type FeeStatementRecord } from "./fee-statement-rules";
 
 export type OfferState = "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
 export type OfferDeliverable = { title: string; dueDate: Date };
@@ -327,7 +329,11 @@ export async function getOffer(actor: Actor, id: string) {
     const body = a ? await loadAgreementBody(a) : null;
     if (a && body !== null) agreement = { id: a.id, version: a.version, bodyHash: a.bodyHash, body };
   }
-  return { ...view(actor, row), agreement };
+  /* POL-BE-119 — the fee statement accepting it accepts (SENT), or accepted (ACCEPTED). */
+  const kept = (row.termsSnapshot as { feeStatement?: FeeStatementRecord } | null)?.feeStatement;
+  const fees = kept?.statement ? { feeStatement: kept.statement, feeStatementHash: kept.hash }
+    : row.state === "SENT" ? presentStatement(athleteStatement(row.compensation)) : { feeStatement: null, feeStatementHash: null };
+  return { ...view(actor, row), agreement, ...fees };
 }
 
 export type DraftInput = OfferTerms &{ campaignId: string; athleteId: string; jobId: string };
@@ -693,7 +699,7 @@ async function tellAthlete(
 export async function respondToOffer(
   actor: Actor,
   id: string,
-  response: { decision: "ACCEPT" | "DECLINE" | "REQUEST_CHANGE"; termsHashShown?: string; note?: string } & Partial<AcceptanceRequest>,
+  response: { decision: "ACCEPT" | "DECLINE" | "REQUEST_CHANGE"; termsHashShown?: string; note?: string; feeStatementHash?: string | null } & Partial<AcceptanceRequest>,
 ) {
   const scope = assertAllowed(actor, "offer", "write");
   if (scope !== "own") throw new ForbiddenError("offer", "write"); // it is the athlete's to answer
@@ -733,6 +739,8 @@ export async function respondToOffer(
     if (!response.agreementId || !response.bodyHashShown || !response.ip || !response.userAgent) {
       throw new OfferError("Acceptance needs the agreement shown and the signer's evidence.");
     }
+    /* POL-BE-119 — and the fee statement shown: no fee deducted, the sponsor pays it, no processing. */
+    const fee = requireFeeStatement(athleteStatement(row.compensation), response.feeStatementHash);
     /* Re-asked at the moment of commitment: a restriction or a sale since the
        offer was sent stops it here. */
     const campaign = await tx.campaign.findFirstOrThrow({
@@ -762,6 +770,7 @@ export async function respondToOffer(
           /* POL-BE-116 — numbered, and the details exactly as accepted. */
           orderNumber: await nextOrderNumberIn(tx, actor.tenantId, row.campaignId, now),
           ...(details ? { orderDetails: details as Prisma.InputJsonValue } : {}),
+          feeStatement: fee as unknown as Prisma.InputJsonValue,
         },
         select: { id: true },
       });
@@ -791,6 +800,7 @@ export async function respondToOffer(
     const snapshot = {
       terms: canonicalTerms({ ...row, deliverables: lines }), termsHash: row.termsHash,
       line: { sellPrice: row.sellPrice }, acceptedAt: now.toISOString(), acceptanceId: acceptance.acceptanceId, orderId: order.id,
+      feeStatement: fee,
     };
     const updated = await tx.offer.update({
       /* tenant-scope: the row loaded above through whereFor(offer, write). */

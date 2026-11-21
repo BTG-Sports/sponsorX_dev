@@ -52,6 +52,8 @@ const HANDLED_JOBS = new Set<string>([
   "notify.invitationSent",
   /* 3S0-BE-02 — the campaign-live email a launch queues. */
   "notify.campaignLive",
+  /* POL-BE-119 — a commission rule changed: sellers whose listing fees it changes are emailed. */
+  "notify.feeRatesChanged",
   "reward.generateQr",
   "image.derive",
   "edition.pictures",
@@ -104,6 +106,7 @@ import { sweepCampaignStages } from "../src/domain/campaign-stages.ts";
 import { recheckHeldBriefs } from "../src/domain/brief-auto.ts";
 import { sweepAutoStaffing, sweepStalledStaffing } from "../src/domain/auto-staffing.ts";
 import { sweepCampaignLaunches } from "../src/domain/campaign-launch.ts";
+import { notifyFeeRatesChanged } from "../src/domain/listing.ts";
 import { STUDENT_DIGEST_HOUR_UTC, sendStudentApprovalDigests, sweepStudentAutomation } from "../src/domain/student-auto.ts";
 import { sweepEditionStages } from "../src/domain/edition-automation.ts";
 import { sweepEditionPictures, syncEditionPictures } from "../src/domain/edition-pictures.ts";
@@ -344,6 +347,8 @@ const DELIVERY_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 /* P5-BE-09 — the 48-hour review reminders, every ten minutes. Each is
    claimed on its row before it is sent, so overlapping passes send once. */
 let reviewReminderTimer: ReturnType<typeof setInterval> | undefined;
+/* POL-BE-119 — the daily fee rates sweep. */
+let feeRatesTimer: ReturnType<typeof setInterval> | undefined;
 const REVIEW_REMINDER_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 let zohoTimer: ReturnType<typeof setInterval> | undefined;
 /* 2S1-BE-13 — the retention sweep: closed accounts' files go after 30 days. */
@@ -528,6 +533,14 @@ async function main(): Promise<void> {
     log("queued" in outcome
       ? `[worker] notify.campaignLive queued ${outcome.queued} email(s)`
       : `[worker] notify.campaignLive skipped: ${outcome.skipped}`);
+  });
+
+  /* POL-BE-119 — a commission rule was created or revised: price every live listing in that
+     marketplace at the moment it takes effect, and email each seller whose accepted fees differ. */
+  await ensureQueue("notify.feeRatesChanged");
+  await boss.work<{ operatorTenantId: string; effectiveFrom?: string }>("notify.feeRatesChanged", async ([job]) => {
+    const r = await notifyFeeRatesChanged({ operatorTenantId: job.data.operatorTenantId, at: job.data.effectiveFrom ? new Date(job.data.effectiveFrom) : undefined });
+    log("skipped" in r ? `[worker] notify.feeRatesChanged skipped: ${r.skipped}` : `[worker] notify.feeRatesChanged: ${r.listings} listing(s), ${r.emailed} seller(s) emailed`);
   });
 
   /* P7-BE-04 — the inbound half of §18. The webhook route recorded the
@@ -950,6 +963,15 @@ async function main(): Promise<void> {
   autoStaffingTimer = setInterval(autoStaffingSweep, AUTO_CAMPAIGN_SWEEP_INTERVAL_MS);
   setTimeout(autoStaffingSweep, 60_000).unref();
 
+  /* POL-BE-119 — daily: sellers with live listings whose accepted fees don't match today's rates
+     (never accepted, or a rule took effect since) are emailed once per set of listings and rates. */
+  const feeRatesSweep = () =>
+    void notifyFeeRatesChanged()
+      .then((r) => { if ("emailed" in r && r.emailed) log(`[worker] fee rates sweep ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => logError("[worker] fee rates sweep failed, will retry:", error));
+  feeRatesTimer = setInterval(feeRatesSweep, 24 * 60 * 60 * 1000);
+  setTimeout(feeRatesSweep, 90_000).unref();
+
   /* P4-BE-13 — APPROVAL campaigns whose start day has come launch, as the system. */
   const campaignLaunchSweep = () =>
     void sweepCampaignLaunches()
@@ -1134,6 +1156,7 @@ export async function stopWorker(): Promise<void> {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   if (deliveryTimer) clearInterval(deliveryTimer);
   if (reviewReminderTimer) clearInterval(reviewReminderTimer);
+  if (feeRatesTimer) clearInterval(feeRatesTimer);
   if (zohoTimer) clearInterval(zohoTimer);
   if (comingOfAgeTimer) clearInterval(comingOfAgeTimer);
   if (listingDigestTimer) clearInterval(listingDigestTimer);

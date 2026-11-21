@@ -58,6 +58,10 @@ import {
 import { builderCatalogue, readCampaignOrderDetails, setCampaignOrderDetails, storedOrderDetails } from "../../domain/campaign-order-details";
 import { suggestOrderCode } from "../../domain/order-details-rules";
 import { CampaignOrderDetailsInput, OrderCodeQuery } from "../../contracts/campaign";
+import { presentStatement } from "../../domain/fee-statement";
+import { athleteStatement, type FeeStatementRecord } from "../../domain/fee-statement-rules";
+import { confirmCampaignPrice, getCampaignPrice } from "../../domain/campaign-price";
+import { CampaignPriceConfirmInput } from "../../contracts/campaign";
 
 export const campaignsRouter = Router();
 
@@ -1252,7 +1256,7 @@ const readOrder: RequestHandler<{ id: string }> = async (req, res) => {
     select: {
       id: true, state: true, compensation: true, sellPrice: true, usageRights: true,
       exclusivity: true, dueDate: true, acceptedAt: true, jobId: true, tenantId: true,
-      orderNumber: true, orderDetails: true,
+      orderNumber: true, orderDetails: true, feeStatement: true,
       job: { select: { name: true } },
       campaign: { select: { id: true, name: true, startDate: true, endDate: true, sponsor: { select: { name: true } } } },
       athlete: {
@@ -1304,6 +1308,13 @@ const readOrder: RequestHandler<{ id: string }> = async (req, res) => {
     acceptedAt: order.acceptedAt?.toISOString() ?? null,
     ...(canReadField(actor.roles, "campaignOrder.compensation") ? { compensation: order.compensation } : {}),
     ...(canReadField(actor.roles, "campaignOrder.sellPrice") ? { sellPrice: order.sellPrice } : {}),
+    /* POL-BE-119 — the fee statement accepting it accepts (or accepted): the transaction fee, who pays
+       it and the processing cost, in figures and words. It names the compensation, so it rides where that does. */
+    ...(canReadField(actor.roles, "campaignOrder.compensation")
+      ? (order.feeStatement as FeeStatementRecord | null)?.statement
+        ? { feeStatement: (order.feeStatement as FeeStatementRecord).statement, feeStatementHash: (order.feeStatement as FeeStatementRecord).hash }
+        : presentStatement(athleteStatement(order.compensation))
+      : {}),
     guardian: {
       status: readiness.status,
       /* The guardian's name is shown to the athlete and to BTG — it's their
@@ -1402,6 +1413,7 @@ const accept: RequestHandler<{ id: string }> = async (req, res) => {
     await acceptOrder(req.actor!, req.params.id, {
       agreementId: body.agreementId,
       bodyHashShown: body.bodyHashShown,
+      feeStatementHash: body.feeStatementHash,
       /* The signer's, forwarded by the web server — not the web server's. */
       ip: clientIp(req) ?? "",
       userAgent: clientUserAgent(req) ?? "",
@@ -1437,6 +1449,12 @@ campaignsRouter.get("/briefs/:id/eligible-athletes", requireActor, shortlist);
 campaignsRouter.post("/briefs/:id/campaign", requireActor, createCampaign);
 campaignsRouter.post("/campaigns/:id/transition", requireActor, moveCampaign);
 campaignsRouter.post("/campaigns/:id/launch", requireActor, launch);
+/* POL-BE-119 — the sponsor confirms a fully staffed campaign's price, with its fee statement, before launch. */
+campaignsRouter.get("/campaigns/:id/price", requireActor, (async (req, res) => { res.json(await getCampaignPrice(req.actor!, req.params.id)); }) as RequestHandler<{ id: string }>);
+campaignsRouter.post("/campaigns/:id/price/confirm", requireActor, (async (req, res) => {
+  const b = CampaignPriceConfirmInput.parse(req.body ?? {});
+  res.json(await confirmCampaignPrice(req.actor!, req.params.id, { feeStatementHash: b.feeStatementHash, ip: clientIp(req) ?? "", userAgent: clientUserAgent(req) ?? "" }));
+}) as RequestHandler<{ id: string }>);
 campaignsRouter.post("/campaigns/:id/auto-staffing", requireActor, autoStaffing);
 campaignsRouter.post("/campaigns/:id/invitations", requireActor, invite);
 campaignsRouter.post("/invitations/:id/respond", requireActor, respond);

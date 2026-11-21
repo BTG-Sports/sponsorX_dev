@@ -22,6 +22,17 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 process.env.CLERK_SECRET_KEY ??= "sk_test_x";
 process.env.CLERK_PUBLISHABLE_KEY ??= "pk_test_x";
 
+/* POL-BE-119 — a BTG-sent Campaign Order is accepted here too; the NIL job ids are global primary keys
+   ("SX-01"…), so this file's own job is given a real template. */
+vi.mock("../src/domain/deliverable-template", async (actual) => {
+  const real = await actual<typeof import("../src/domain/deliverable-template")>();
+  const mine = (jobId: string) => (jobId.startsWith("asl_t8") ? "SX-01" : jobId);
+  return {
+    ...real,
+    templateForJob: (jobId: string) => real.templateForJob(mine(jobId)),
+    deliverablesForOrder: (input: { jobId: string; dueDate: Date }) => real.deliverablesForOrder({ ...input, jobId: mine(input.jobId) }),
+  };
+});
 vi.mock("../src/lib/rate-limit", () => ({ limit: async () => {} }));
 vi.mock("../src/auth/clerk", () => ({
   authenticateClerkRequest: async (req: { get: (h: string) => string | undefined }) => {
@@ -113,7 +124,7 @@ describe.skipIf(!hasDatabase)("P4-BE-12 / P4-BE-13 · on a real database", { tim
   const { createApp } = await import("../src/app");
   type Actor = import("../src/auth/actor").Actor;
 
-  const TENANTS = ["asl_t1", "asl_t2", "asl_t3", "asl_t4", "asl_t5", "asl_t6", "asl_t7"];
+  const TENANTS = ["asl_t1", "asl_t2", "asl_t3", "asl_t4", "asl_t5", "asl_t6", "asl_t7", "asl_t8"];
   const DAY = 864e5;
   const inDays = (n: number) => new Date(Date.now() + n * DAY);
   const HASH = "asl-order-terms-hash";
@@ -346,6 +357,103 @@ describe.skipIf(!hasDatabase)("P4-BE-12 / P4-BE-13 · on a real database", { tim
       const launches = await prisma.auditLog.findMany({ where: { tenantId: T, entity: "Campaign", entityId: campaignId, action: "campaign.launch" }, select: { actorId: true, after: true } });
       expect(launches).toHaveLength(1);
       expect(launches[0]).toMatchObject({ actorId: null, after: { state: "ACTIVE", ordersActivated: 2, automatic: true } });
+    });
+  });
+
+  /* POL-BE-119 — the partnership agreement: before campaign acceptance, the transaction fee, who pays it and
+     the processing cost, in writing. The athlete accepts the statement with the offer or order; the sponsor
+     confirms the campaign's price and its statement before it launches. With FEE_STATEMENT_REQUIRED on. */
+  describe("POL-BE-119 · fee statements before acceptance, and the sponsor's price before launch", async () => {
+    const T = "asl_t8";
+    let campaignId = "";
+    const startDay = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 3));
+    let env: { FEE_STATEMENT_REQUIRED: boolean };
+    const { getOffer } = await import("../src/domain/offer");
+    const { createOrder, transitionOrder, acceptOrder } = await import("../src/domain/campaign-order");
+
+    beforeAll(async () => {
+      env = (await import("../src/config/env")).env as unknown as { FEE_STATEMENT_REQUIRED: boolean };
+      env.FEE_STATEMENT_REQUIRED = true;
+      await world(T, { min: 1, max: 2, athletes: [{ key: "asl8_a", name: "Asl8 Avery" }, { key: "asl8_b", name: "Asl8 Blake" }] });
+      await brief(T, { start: new Date(startDay.getTime() + 15 * 3600_000) });
+    });
+    afterAll(() => { env.FEE_STATEMENT_REQUIRED = false; });
+
+    it("the athlete's offer carries the statement; accepting without it, or with another, is refused", async () => {
+      campaignId = (await createCampaignFromBrief(mgr(T), `${T}_brief`, "ASL8 Campaign")).id;
+      const offers = await offersOf(campaignId);
+      const offerA = offers.find((o) => o.athleteId === "asl8_a")!;
+      const read = await getOffer(athleteActor(T, "asl8_a"), offerA.id) as unknown as { feeStatement: { audience: string; text: string[]; fees: unknown[] }; feeStatementHash: string; compensation: number };
+      expect(read.feeStatement).toMatchObject({ audience: "ATHLETE", fees: [] });
+      expect(read.feeStatement.text).toContain("Transaction fee: none is deducted from you.");
+      expect(read.feeStatement.text).toContain("Fee payer: the sponsor. BTG's fee is included in the sponsor's price.");
+      expect(read.feeStatement.text).toContain("Processing cost: none to you.");
+      await expect(accept(T, "asl8_a", offerA)).rejects.toMatchObject({ status: 409, code: "fee_statement_required" });
+      await expect(respondToOffer(athleteActor(T, "asl8_a"), offerA.id, {
+        decision: "ACCEPT", termsHashShown: offerA.termsHash!, agreementId: `${T}_agr`, bodyHashShown: HASH, ip: "127.0.0.1", userAgent: "vitest", feeStatementHash: `sha256:${"0".repeat(64)}`,
+      })).rejects.toMatchObject({ status: 409, code: "fee_statement_changed", details: { feeStatementHash: read.feeStatementHash } });
+      await respondToOffer(athleteActor(T, "asl8_a"), offerA.id, {
+        decision: "ACCEPT", termsHashShown: offerA.termsHash!, agreementId: `${T}_agr`, bodyHashShown: HASH, ip: "127.0.0.1", userAgent: "vitest", feeStatementHash: read.feeStatementHash,
+      });
+      const order = await prisma.campaignOrder.findFirstOrThrow({ where: { campaignId, athleteId: "asl8_a" }, select: { feeStatement: true } });
+      expect(order.feeStatement).toMatchObject({ hash: read.feeStatementHash, shown: true, statement: { audience: "ATHLETE" } });
+      const offer = await prisma.offer.findUniqueOrThrow({ where: { id: offerA.id }, select: { termsSnapshot: true } });
+      expect(offer.termsSnapshot).toMatchObject({ feeStatement: { hash: read.feeStatementHash, shown: true } });
+    });
+
+    it("a Campaign Order sent by BTG: the same statement, accepted over the API by its hash", async () => {
+      const offerB = (await offersOf(campaignId)).find((o) => o.athleteId === "asl8_b")!;
+      await decline(T, "asl8_b", offerB.id);
+      const sent = await createOrder(mgr(T), { campaignId, athleteId: "asl8_b", jobId: `${T}_post`, compensation: 7_500, sellPrice: 14_000, usageRights: "Organic social, 90 days", dueDate: inDays(20) } as never);
+      await transitionOrder(mgr(T), sent.id, "SENT");
+      const read = await call("GET", `/orders/${sent.id}`, "asl8_b_user");
+      expect(read.status).toBe(200);
+      expect(read.json.feeStatement).toMatchObject({ audience: "ATHLETE", youReceiveCents: 7_500 });
+      const evidence = { agreementId: `${T}_agr`, bodyHashShown: HASH, ip: "127.0.0.1", userAgent: "vitest" };
+      await expect(acceptOrder(athleteActor(T, "asl8_b"), sent.id, evidence)).rejects.toMatchObject({ code: "fee_statement_required" });
+      const ok = await call("POST", `/orders/${sent.id}/accept`, "asl8_b_user", { agreementId: `${T}_agr`, bodyHashShown: HASH, feeStatementHash: read.json.feeStatementHash });
+      expect(ok.status).toBe(201);
+      expect((await prisma.campaignOrder.findUniqueOrThrow({ where: { id: sent.id }, select: { feeStatement: true } })).feeStatement).toMatchObject({ shown: true });
+      /* Two signed: the package's maximum — APPROVAL, and the sponsor is asked to confirm the price. */
+      expect((await campaignOf(campaignId)).state).toBe("APPROVAL");
+      const asked = await emails(T, "campaign.confirmPrice");
+      expect(asked.map((e) => e.to)).toEqual([`${T}_sp@asl-test.invalid`]);
+    });
+
+    it("unconfirmed, it does not launch on its start date, and BTG's launch is refused with the reason", async () => {
+      const r = await sweepCampaignLaunches(startDay, { tenantIds: [T] });
+      expect(r.launched).toBe(0);
+      expect((await campaignOf(campaignId)).state).toBe("APPROVAL");
+      await expect(launchCampaign(person(`${T}_admin`, T, ["BTG_ADMIN"]), campaignId)).rejects.toMatchObject({ status: 409, code: "price_not_confirmed" });
+    });
+
+    it("the sponsor reads the price and its statement, and confirms it by the hash; nobody else can", async () => {
+      const price = await call("GET", `/campaigns/${campaignId}/price`, `${T}_sp`);
+      expect(price.status).toBe(200);
+      const signed = await prisma.campaignOrder.findMany({ where: { campaignId, state: "ACCEPTED" }, select: { sellPrice: true } });
+      const total = signed.reduce((s, o) => s + o.sellPrice, 0);
+      expect(price.json).toMatchObject({ priceCents: total, athletes: 2, canConfirm: true, confirmed: null, requiredToLaunch: true, feeStatement: { audience: "SPONSOR", context: "CAMPAIGN_PRICE", fees: [] } });
+      expect(price.json.feeStatement.text).toContain("Transaction fee: none is added. BTG's fee is included in this price.");
+      const wrong = await call("POST", `/campaigns/${campaignId}/price/confirm`, `${T}_sp`, { feeStatementHash: `sha256:${"1".repeat(64)}` });
+      expect(wrong.status).toBe(409);
+      expect(wrong.json.error).toMatchObject({ code: "fee_statement_changed", feeStatementHash: price.json.feeStatementHash });
+      expect((await call("POST", `/campaigns/${campaignId}/price/confirm`, "asl8_a_user", { feeStatementHash: price.json.feeStatementHash })).status).toBe(403);
+      expect((await call("POST", `/campaigns/${campaignId}/price/confirm`, `${T}_mgr`, { feeStatementHash: price.json.feeStatementHash })).status).toBe(403);
+      const ok = await call("POST", `/campaigns/${campaignId}/price/confirm`, `${T}_sp`, { feeStatementHash: price.json.feeStatementHash });
+      expect(ok.status).toBe(200);
+      expect(ok.json.confirmed).toMatchObject({ priceCents: total, current: true });
+      expect(await prisma.auditLog.count({ where: { tenantId: T, action: "campaign.priceConfirm", entityId: campaignId } })).toBe(1);
+    });
+
+    it("a price changed after confirming waits for a new confirmation; confirmed again, it launches", async () => {
+      const one = await prisma.campaignOrder.findFirstOrThrow({ where: { campaignId, athleteId: "asl8_b" }, select: { id: true, sellPrice: true } });
+      await prisma.campaignOrder.update({ where: { id: one.id }, data: { sellPrice: one.sellPrice + 1_000 } });
+      const stale = await call("GET", `/campaigns/${campaignId}/price`, `${T}_sp`);
+      expect(stale.json.confirmed.current).toBe(false);
+      expect((await sweepCampaignLaunches(startDay, { tenantIds: [T] })).launched).toBe(0);
+      expect((await call("POST", `/campaigns/${campaignId}/price/confirm`, `${T}_sp`, { feeStatementHash: stale.json.feeStatementHash })).status).toBe(200);
+      expect((await sweepCampaignLaunches(startDay, { tenantIds: [T] })).launched).toBe(1);
+      expect((await campaignOf(campaignId)).state).toBe("ACTIVE");
     });
   });
 

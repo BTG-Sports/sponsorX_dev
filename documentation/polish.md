@@ -3553,3 +3553,62 @@ the blockers and today's content review findings.
 - **Tests:** `backend/tests/pol-be-118-sign-in-before-approval.test.ts` (a brief without proof: sign-in confirms the email and the refusal says what's left; its status link takes the proof and the next sign-in is the sponsor; a complete brief opens and is claimed by the sign-in itself; an athlete applicant; an address with nothing) and `frontend/tests/pol-fe-118-pending-words.test.ts`.
 - **Walked** on the local servers with a throwaway Clerk user: brief sent through the API, first sign-in → `/portal` "Your sponsor request is almost ready" with the upload button, which opens the request page; phone width without overflow. The Google sign-up path can't be scripted; the redirect is set for it. The walk's Clerk user, brief and queued jobs were deleted.
 - **Not built:** a login BTG switched off (`account_disabled`) still shows the generic page on `/portal`; its API message is right, the page doesn't read it yet.
+
+### 119. Nobody is told the transaction fee, who pays it or the processing cost before accepting a campaign or order [§13, §19, §21, partnership agreement "Platform access and service orders"]
+`POL-BE-119` · `POL-BE-120` · `POL-FE-119` · *Trust* · confirmed · **`POL-BE-119`, `POL-BE-120` Code review 2026-11-21** (programme owner, 2026-11-21)
+- **The agreement (Rodney, raised by the programme owner 2026-11-21):** "SponsorX onboarding and Partnership access carry no upfront or monthly access fee. Before campaign acceptance, disclose the applicable transaction fee, fee payer and processing costs in writing. If a fee applies, identify it in the signed campaign order. Any change requires written acceptance before it applies to that order." The owner's emphasis: "BEFORE CAMPAIGN ACCEPTANCE, DISCLOSE THE APPLICABLE TRANSACTION FEE, FEE PAYER AND PROCESSING COST IN WRITING."
+- **Problem:**
+  - **Athletes** (Campaign Order, Offer) read only "your compensation is not reduced by BTG's fee": no fee, payer or processing named.
+  - **Sellers** (marketplace order, Deal Chat) are told nothing on the order; the property terms they signed at sign-up fix 15% / 5% / 2.9% + 30¢ / 2% / 10%, while the app charges whatever the Commission page says.
+  - **Sponsors** see a buyer fee when placing a marketplace order, not processing or who pays it. On a managed campaign they never accept a price inside SponsorX at all.
+  - **Rates move after acceptance:** a marketplace order's rates are looked up when BTG approves it, after the seller accepted, so a rate changed in between reaches the seller unseen.
+- **Owner decisions (2026-11-21):**
+  - The athlete's statement on a managed campaign reads: transaction fee none deducted from you; fee payer the sponsor, included in the sponsor's price; processing none to you.
+  - The sponsor gets a step to confirm a managed campaign's price, with its fee statement, before launch: once it is fully staffed (APPROVAL) and the price is known. At creation only the brief's budget exists.
+- **Backend (`POL-BE-119`), built:**
+  - **The statement** (`domain/fee-statement-rules.ts`, pure; `domain/fee-statement.ts`): each fee's name, rate, fixed amount, amount and payer; processing's rate, fixed amount, amount and payer; for a seller, the reserve held and what they receive; for a sponsor, what they pay; and the same in plain sentences (`text`). Fees that come to nothing are left out, and the words say no other applies. Its hash is `sha256:` over the statement with sorted keys.
+  - **Rates frozen at placement:** the commission rates an order carries are resolved when the sponsor places it and kept on `MarketplaceOrder.feeTerms` (write-once, `marketplace_order_immutable.sql`). Every statement about the order and the ledger's booking use them. An order placed before this has its rates frozen the first time a statement is shown (audited `marketplaceOrder.feeTermsFrozen`).
+  - **The six acceptances:**
+    - The athlete's **Campaign Order** (`POST /orders/{id}/accept`) and **Offer** (`POST /offers/{id}/respond`, ACCEPT): no fee deducted, the sponsor pays it in the sponsor's price, no processing. Kept on `CampaignOrder.feeStatement` and the offer's terms snapshot.
+    - The seller **submitting or resuming a listing** (`POST /listings/{id}/submit`, `/transition` to PUBLISHED), or **accepting a live listing's fees** without pausing it (`POST /listings/{id}/accept-fees`, for a listing submitted before statements or whose rates changed): an order of one at the listing's price, at today's rates. Kept on `Listing.feeAcceptance` with the rates.
+    - The seller **accepting an order** (`POST /seller-approvals/{id}/decision`): their lines under the order's frozen rates. Kept on `OrderSellerApproval.feeStatement`.
+    - The sponsor **placing a marketplace order** (`POST /marketplace-orders`): the buyer fee is theirs; the other fees and processing are the seller's, out of the sale. Kept in `feeTerms.sponsor`.
+    - The **Deal Chat agreement**: both sides' statements on the agreed amount, written into the text (DEAL v2 `{{fees}}`), so the existing body hash covers them. Kept on `DealAgreement.feeStatements`. The buyer fee after signing uses the frozen rate, not today's setting.
+    - The sponsor **confirming a managed campaign's price** (`GET /campaigns/{id}/price`, `POST /campaigns/{id}/price/confirm`): the signed orders' sell prices; no fee added (BTG's fee is in the price); no processing; BTG invoices it. Sponsor admins only, in APPROVAL. Kept on `Campaign.priceConfirmation`, audited `campaign.priceConfirm`.
+  - **A change needs written acceptance:** an order whose frozen rates differ from those its seller accepted for the listing (a rule changed since, a rule for this sponsor, a listing submitted before statements) asks that seller to accept it with its own statement first. A campaign whose price changed after the sponsor confirmed it waits for a new confirmation.
+  - **Sellers told when rates change** (owner, 2026-11-21):
+    - **When:** each time a commission rule is created or revised (`notify.feeRatesChanged`), and daily from the worker.
+    - **What:** every live listing is priced at the moment the change takes effect and compared with the rates its seller accepted.
+    - **Who:** each seller with listings that differ gets one `listing.feeRatesChanged` email naming them, and is never emailed twice for the same set.
+    - **Why it matters:** until the seller accepts again (`POST /listings/{id}/accept-fees`), each order on those listings asks them first.
+  - **The switch `FEE_STATEMENT_REQUIRED`** (documentation/SponsorX-Switches.md), off until the screens show the statement. On: every acceptance must echo the hash (409 `fee_statement_required`). An out-of-date one is always refused (409 `fee_statement_changed`, with the current `feeStatement` and `feeStatementHash` in the error). A managed campaign can't launch until its price is confirmed: the automatic launch waits, and BTG's is refused (409 `price_not_confirmed`). The sponsor's admins are emailed when the campaign reaches APPROVAL (`campaign.confirmPrice`). Off: acceptances record the statement with `shown: false`; the confirm step itself always requires the hash.
+- **Existing sellers accept the new seller terms (`POL-BE-120`; owner, 2026-11-21: "yes, ask them"):**
+  - Seller terms were only ever accepted at onboarding, so `PROPERTY_TERMS.v3` would never have reached a team already selling.
+  - `GET /seller-terms` gives a team's manager the version in force, with its text and hash, and whether the team has accepted it.
+  - `POST /seller-terms/accept` records the acceptance on the team's onboarding, with the IP and browser, and audits it.
+  - With the switch on, a team on an older version can't list, resume, accept a listing's fees, accept an order or sign a Deal agreement as the seller (409 `seller_terms_required`).
+  - An athlete selling their own items signs no seller terms today.
+- **Agreements (`POL-BE-120`), built:** `CAMPAIGN_ORDER.v4`, `DEAL.v2`, `MARKETPLACE_ORDER.v3`, `PROPERTY_TERMS.v3` in `backend/agreements/`. Each says access is free (no upfront or monthly access fee), makes the fee statement shown before acceptance part of the order, and requires written acceptance for any change to a fee, its payer or the processing cost. `PROPERTY_TERMS.v3` drops the fixed 15% / 5% / 2.9% + 30¢ / 2% / 10% and the rate change on 30 days' notice; the fees are those disclosed on each order. Orders already accepted keep their version.
+- **Tests:**
+  - `backend/tests/pol-be-119-fee-statement.test.ts`: the words and figures for each side; the seller's sums equal what the ledger books; the hash; the check.
+  - `backend/tests/pol-be-119-fee-disclosure.test.ts`, over the API and database:
+    - checkout's statement; placing with another hash, or none once required, is refused;
+    - a rule revised after placement never reaches the order: the seller is shown, accepts, and is booked at 15%, not 20%;
+    - the frozen terms can't be rewritten;
+    - a listing submitted with its statement isn't asked again.
+  - `backend/tests/auto-staffing-launch.test.ts` (POL-BE-119 block):
+    - the athlete's Offer and a BTG-sent Campaign Order, each accepted by its hash;
+    - the unconfirmed campaign holds on its start date, and BTG's launch is refused;
+    - the sponsor confirms, and nobody else can;
+    - a price changed after confirming waits for a new confirmation, then launches.
+  - `deal-agreement.test.ts`: DEAL v2 and its fee section.
+  - `tenant-isolation.test.ts`: the confirm route, for every other tenant and role.
+- **Frontend (`POL-FE-119`, HeckerCreatives):**
+  - **Where:** a fee box above Accept or Sign on every acceptance screen, from the read the screen already makes: `GET /orders/{id}`, `GET /offers/{id}`, `GET /listings/{id}` (the seller), `GET /seller-approvals/{id}`, `GET /reservations/{id}` → `checkout`, and the Deal Chat agreement's text.
+  - **What to show:** `feeStatement.text`, one line each, or the figures in `fees` / `processing`.
+  - **Accepting:** send back `feeStatementHash` with the accept. On 409 `fee_statement_changed`, show the `feeStatement` in the error and ask again.
+  - **The sponsor's confirm screen** on their campaign page, while `GET /campaigns/{id}/price` says `canConfirm`. If `confirmed.current` is false, the price changed: confirm again.
+  - **A team's "new seller terms" screen:** when `GET /seller-terms` says `upToDate: false`, show the text with a tick box, then `POST /seller-terms/accept` with `agreement.id` and `agreement.bodyHash`. Show it again on 409 `seller_terms_required`.
+  - **A seller's live listing:** an "Accept the fees" action (`POST /listings/{id}/accept-fees`) when `GET /listings/{id}` shows `feeAccepted` empty, or its hash differs from `feeStatementHash` (the rates changed). Without it, each order on that listing asks the seller first.
+  - **The PDF:** the same box in the signed order's PDF.
+  - **Then:** turn `FEE_STATEMENT_REQUIRED` on, staging first.

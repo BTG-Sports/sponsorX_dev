@@ -273,6 +273,13 @@ const schema = z.object({
   /* 2S4-BE-15 — the Deal Chat's signing limit: signed by both within this many working days of the order
      being placed, or it is cancelled (a last warning 2 working days before). rcfworks' recommendation. */
   DEAL_CHAT_SIGNING_WORKING_DAYS: z.coerce.number().int().min(3).max(60).default(10),
+  /* POL-BE-119 — the partnership agreement: "before campaign acceptance, disclose the applicable
+     transaction fee, fee payer and processing costs in writing". "on": every acceptance (Campaign Order,
+     Offer, seller accept, placing a marketplace order) must echo the hash of the fee statement it showed,
+     and a managed campaign cannot launch until its sponsor has confirmed the price. "off" until the
+     screens show the statement (POL-FE-119): acceptances still record it (shown: false), and a hash that
+     is sent is still checked. Every switch: documentation/SponsorX-Switches.md. */
+  FEE_STATEMENT_REQUIRED: z.enum(["on", "off"]).default("off").transform((v) => v === "on"),
   /* 2S4-BE-18 (owner, 2026-11-19) — the live socket service, its own Railway service
      (documentation/SponsorX-Socket-Service.md). All four unset: no live updates; the web app keeps
      asking every few seconds. PRIVATE_KEY signs connection passes (Ed25519, PEM or one-line base64 PEM;

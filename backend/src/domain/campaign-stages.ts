@@ -51,6 +51,7 @@ import { notReadyToGoLive, type RewardState } from "./reward-state";
 import { raiseSyncTask } from "./sync-tasks";
 import { logError } from "../lib/redact";
 import { releaseCampaignWindows } from "./virtual-bookings";
+import { askSponsorToConfirm } from "./campaign-price";
 
 type Tx = Prisma.TransactionClient;
 
@@ -339,6 +340,8 @@ export async function applyStageMove(
   if (to === "APPROVAL") {
     await raiseSyncTask(tx, actor, { kind: "APPROVAL", campaignId: campaign.id, subject: `Approve campaign: ${campaign.name}` });
     await tellManagersReady(tx, campaign, actor.userId);
+    /* POL-BE-119 — the price is known now: the sponsor confirms it, with its fees, before launch. */
+    await askSponsorToConfirm(tx, campaign);
   }
   if (to === "CANCELLED") {
     /* A cancelled campaign's Deal is Closed Lost — SponsorX asserts it. */

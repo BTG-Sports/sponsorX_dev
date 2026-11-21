@@ -334,6 +334,14 @@ ${d.portalUrl ?? ""}
     subject: `Your request to ${d.kind ?? "change"} ${d.campaignName ?? "the campaign"}`,
     text: `Hi,\n\nBTG ${d.decision ?? "decided"} your request to ${d.kind ?? "change"} ${d.campaignName ?? "the campaign"}.${d.note ? `\n\nTheir note:\n\n${d.note}` : ""}\n\nThe campaign:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  "listing.feeRatesChanged": (d) => ({
+    subject: "SponsorX fees on your listings have changed",
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG has changed the fees on SponsorX${d.from ?? ""}. They apply to ${d.count === "1" ? "this listing" : `these ${d.count ?? ""} listings`}:\n\n${d.listings ?? ""}\n\nOpen each one to read the new fees, who pays them and the processing cost, and accept them. Until you do, every new order on it waits for you to accept that order's fees first.\n\n${d.listingsUrl ?? ""}\n\nJoining and using SponsorX stays free: there is no upfront or monthly fee.\n\n— BTG SponsorX`,
+  }),
+  "campaign.confirmPrice": (d) => ({
+    subject: `Confirm the price for ${d.campaignName ?? "your campaign"}`,
+    text: `Hi${d.sponsorName ? ` ${d.sponsorName}` : ""},\n\n${d.campaignName ?? "Your campaign"} is fully staffed. ${d.price ?? ""}\n\nBefore it goes live, read the price and its fees — no fee is added, BTG's fee is included in the price, and there is no processing cost to you — and confirm them here:\n\n${d.campaignUrl ?? ""}\n\nThe campaign launches on its start date once you've confirmed.\n\n— BTG SponsorX`,
+  }),
   "campaign.finalReportReady": (d) => ({
     subject: `Your final report for ${d.campaignName ?? "your campaign"} is ready`,
     text: `Hi${d.sponsorName ? ` ${d.sponsorName}` : ""},\n\nEvery piece of content on ${d.campaignName ?? "your campaign"} has been checked, and your final report is ready:\n\n${d.reportUrl ?? ""}\n\nThe campaign is now complete. Thank you for working with our athletes.\n\n— BTG SponsorX`,

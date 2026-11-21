@@ -43,6 +43,8 @@ export type DealAgreementFacts = {
   specialTerms: readonly { cardKey?: string | null; messages: readonly DealExchangeMessage[] }[];
   amountCents: number;
   originalAmountCents: number;
+  /** POL-BE-119 — both sides' fee statements in words (fee-statement.ts dealFeesWords). */
+  fees?: string;
 };
 
 const day = (d: Date) => d.toISOString().slice(0, 10);
@@ -109,6 +111,8 @@ export function renderDealAgreement(template: string, f: DealAgreementFacts): st
     answers: answerLines(f.forms, f.answers),
     specialTerms: specialTermLines(f.specialTerms),
     amount: amountWords(f.amountCents, f.originalAmountCents),
+    /* POL-BE-119 — the fees, who pays them and the processing cost (DEAL v2's {{fees}}). */
+    fees: f.fees ?? "",
   };
   /* Blank-line runs left by dropped blocks are tidied in the TEMPLATE, before any value goes in. */
   const kept = keepForms(template, f.forms).replace(/\n{3,}/g, "\n\n");
