@@ -8,19 +8,21 @@ import { saveSocials, submitProfileChange } from "@/app/(app)/athlete/profile/ed
 import { AthletePhotoEditor } from "@/components/athlete-photo-editor";
 import { PlacePicker } from "@/components/place-picker";
 import { Arrow, Eye, Flag, Lock, Medal, Shield, Tick, d } from "@/components/wizard-kit";
-import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "@/lib/brand-categories";
+import { BRAND_CATEGORIES, EVERYDAY_CATEGORIES, categoryLabel, type BrandCategory } from "@/lib/brand-categories";
 import { CONTENT_CAPABILITIES, capabilityLabel } from "@/lib/content-capabilities";
 import type { ApiMyProfile } from "@/lib/profile-live";
 import {
   NO_RESTRICTIONS_NOTE,
   WIZARD_STEPS,
   changeBody,
+  everythingSelected,
   formFrom,
   metaLine,
   minutesLeft,
   nextOpen,
   placeLine,
   rowsFrom,
+  selectEverything,
   stepChanged,
   stepNeeds,
   type SocialRow,
@@ -583,6 +585,11 @@ function StepForm({
           picked={form.brandInterests}
           onToggle={(v) => toggle("brandInterests", v)}
           tone="blue"
+          bulk={{
+            everyday: EVERYDAY_CATEGORIES,
+            onSet: (v) => set("brandInterests", v),
+            note: "“Select everything” leaves out the age-restricted kinds (alcohol, tobacco and vape, cannabis, gambling, firearms, adult). Tap any of those yourself if you want them.",
+          }}
         />
       );
     case "restrictions": {
@@ -660,7 +667,7 @@ function Field({ label, hint, wide, children }: { label: string; hint?: string; 
 }
 
 function Picks({
-  label, items, name, picked, onToggle, tone,
+  label, items, name, picked, onToggle, tone, bulk,
 }: {
   label: string;
   items: readonly string[];
@@ -668,13 +675,32 @@ function Picks({
   picked: string[];
   onToggle: (v: string) => void;
   tone: "blue" | "danger";
+  /**
+   * POL-FE-122 — "Select everything" and "Clear". "Select everything" is a
+   * toggle: on, it adds every `everyday` item (keeping anything else already
+   * picked); pressed again, it clears every pick. "Clear" clears every pick.
+   */
+  bulk?: { everyday: readonly string[]; onSet: (v: string[]) => void; note?: string };
 }) {
+  const allEveryday = !!bulk && everythingSelected(bulk.everyday, picked);
   return (
     <div>
       <p className="sx-cw-label">
         {label}
         <span className="sx-pw-count" data-on={picked.length > 0 ? "" : undefined}>{picked.length} picked</span>
       </p>
+      {bulk && (
+        <div className="sx-pw-bulk">
+          <button type="button" className="sx-pw-bulk-btn" aria-pressed={allEveryday} data-on={allEveryday ? "" : undefined} onClick={() => bulk.onSet(selectEverything(items, bulk.everyday, picked))}>
+            <span className="sx-pw-pick-dot" aria-hidden="true"><Tick /></span>
+            Select everything
+          </button>
+          <button type="button" className="sx-pw-bulk-btn" disabled={picked.length === 0} onClick={() => bulk.onSet([])}>
+            Clear
+          </button>
+          {bulk.note && <p className="sx-pw-bulk-note">{bulk.note}</p>}
+        </div>
+      )}
       <div className="sx-pw-picks" role="group" aria-label={label}>
         {items.map((c, k) => {
           const on = picked.includes(c);

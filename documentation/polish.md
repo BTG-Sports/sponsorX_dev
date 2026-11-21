@@ -3612,3 +3612,20 @@ the blockers and today's content review findings.
   - **A seller's live listing:** an "Accept the fees" action (`POST /listings/{id}/accept-fees`) when `GET /listings/{id}` shows `feeAccepted` empty, or its hash differs from `feeStatementHash` (the rates changed). Without it, each order on that listing asks the seller first.
   - **The PDF:** the same box in the signed order's PDF.
   - **Then:** turn `FEE_STATEMENT_REQUIRED` on, staging first.
+
+### 121. The rules wording on Confirmations opens a quotation and never closes it, so it reads as cut off and testers try to scroll it [§9, P8-BE-02]
+`POL-FE-121` · *Polish* · confirmed · **Code review** (infinex1, 2026-11-21, #518)
+- **Problem:** step 1 of `/athlete/confirmations` ("Your own rules") shows a large opening quotation mark and no closing one. On a PC the box looks unfinished, and testers took it for a box that should scroll. It doesn't scroll: it grows to fit the whole statement.
+- **Fix:** a matching closing mark bottom-right (`.sx-cw-quote::after`), with wider bottom padding so it sits under the last line on a phone.
+- **Checked:** step 2's agreement reader already scrolls, capped at `min(28rem, 55vh)`; a wheel on PC and a swipe on a phone both scroll it.
+- **Note:** first committed as `POL-FE-116`, a number taken the same day by item 116; renumbered.
+
+### 122. The Brands step has no "Select everything" or "Clear", so an athlete open to most brands taps 19 chips [§11, POL-FE-80]
+`POL-FE-122` · *Polish* · confirmed · **Code review** (infinex1, 2026-11-21)
+- **Problem:** "Brands you'd love" on `/athlete/profile` lists 25 kinds of brand, picked one at a time.
+- **Owner decision (2026-11-21):** "Select everything" leaves out the six age-restricted kinds (alcohol, tobacco and vape, cannabis, gambling, firearms, adult) for everyone. The step shows on the public page, a minor's included, so each of those stays a deliberate tap. Matching already never sends a minor an age-restricted brand.
+- **Built:**
+  - **"Select everything"**, a toggle: on, it adds the 19 everyday kinds and keeps anything else already picked; pressed again, it clears every pick. It shows as on while all 19 are picked.
+  - **"Clear"** clears every pick; disabled when nothing is picked.
+  - A note under the buttons says what Select everything leaves out.
+  - `SENSITIVE_CATEGORIES` and `EVERYDAY_CATEGORIES` in `frontend/src/lib/brand-categories.ts`; `backend/tests/brief-contract.test.ts` fails if the age-restricted list drifts from the backend's.

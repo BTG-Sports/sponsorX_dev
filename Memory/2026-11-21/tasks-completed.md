@@ -36,3 +36,11 @@
 - **Done:** `FEE_STATEMENT_REQUIRED=off` on staging's api service (rcfworks, confirmed by reading the variable back). Production stays the owner's to set; it should be `off` too.
 - **Effect:** the app works as before; every acceptance still records the fee statement it would have shown, marked not shown, and a hash that is sent is still checked.
 - **Next:** turn it on in staging and production together once POL-FE-119 is live. SponsorX-Switches.md updated to match.
+
+## POL-FE-122 · "Select everything" and "Clear" on the Brands step (infinex1) — Code review
+- **What:** `/athlete/profile`, step 5 "Brands you'd love". "Select everything" is a toggle: on, it adds the 19 everyday kinds and keeps anything else picked; pressed again, it clears every pick. "Clear" clears every pick.
+- **Owner decision:** Select everything leaves out the six age-restricted kinds for everyone, since the step shows on the public page, a minor's included. A note under the buttons says so.
+- **Also:** `tests/deal-chat.test.ts` normalises line endings, so it passes on a Windows checkout (`core.autocrlf`). Deal Chat itself was never failing; CI on Linux was green.
+- **Checked:** frontend 220 files / 2,747 tests pass; the backend alignment checks pass; lint clean; `npm run build` passes after `prisma generate` (the client was stale after today's pull).
+- **Tracker:** Polish rows `POL-FE-121` (row 171) and `POL-FE-122` (row 172) at Code review, infinex1; autofilter, conditional formatting and the Status list extended to row 172. Items 121 and 122 added to polish.md.
+- **Renumbered:** the quote fix (#518) was committed as `POL-FE-116`, a number already taken that day; it is `POL-FE-121`.
