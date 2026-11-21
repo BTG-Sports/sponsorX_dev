@@ -56,7 +56,7 @@ import "./signups.css";
 
 export const dynamic = "force-dynamic";
 const PATH = "/admin/new-signups";
-const TITLE = "New sign-ups";
+const TITLE = "New accounts";
 
 export default async function NewSignupsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
@@ -65,6 +65,9 @@ export default async function NewSignupsPage({ searchParams }: { searchParams: P
 
   const lacking = await staffWithoutAccess(PATH);
   if (lacking) return <NotInRole path={PATH} title={TITLE} roles={lacking} />;
+  /* Sales opens this page for sponsors only (the API's stream holds just the kinds a role reads);
+     the athletes' sensitive edits, organisation changes and the rules stay with BTG admins. */
+  const btg = (await staffWithoutAccess(`${PATH}/athletes`)) === null;
 
   const filter = streamParams(sp);
   const [streamRes, summaryRes] = demo === "loading" || demo === "empty"
@@ -74,7 +77,7 @@ export default async function NewSignupsPage({ searchParams }: { searchParams: P
   /* An outage is the error page's (never a stale or sample stream); a role
      the API refuses gets the one line that says so. */
   for (const res of [streamRes, summaryRes]) {
-    if (res && !res.ok && res.status !== 403) throw new Error(`New sign-ups unavailable (${res.status}).`);
+    if (res && !res.ok && res.status !== 403) throw new Error(`New accounts unavailable (${res.status}).`);
   }
   const refused = streamRes?.status === 403 || summaryRes?.status === 403;
   const summary: ApiStreamSummary = summaryRes?.ok
@@ -85,11 +88,11 @@ export default async function NewSignupsPage({ searchParams }: { searchParams: P
   const readAt = streamRes ? new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : null;
   /* The dropdown offers the kinds this role reads (the summary's), in the desk's order. */
   const kinds = STREAM_CHIPS.filter((c) => c.kind !== "" && summary.kinds[c.kind as StreamKind]).map((c) => ({ value: c.kind, label: c.label }));
-  const showEdits = !refused && (filter.kind === "" || filter.kind === "ATHLETE" || filter.review);
+  const showEdits = btg && !refused && (filter.kind === "" || filter.kind === "ATHLETE" || filter.review);
 
   return (
     <>
-      <SignupsHeader readAt={readAt} />
+      <SignupsHeader readAt={readAt} rules={btg} />
 
       {refused ? (
         <StreamNote>Your role doesn&rsquo;t read sign-ups, so none are shown here.</StreamNote>
@@ -119,7 +122,7 @@ export default async function NewSignupsPage({ searchParams }: { searchParams: P
       )}
 
       {/* POL-FE-104 — an organisation's name, place or details change that a safety check held for BTG; drawn only when one waits. */}
-      {!refused && demo === null && (
+      {btg && !refused && demo === null && (
         <div className="mt-12 empty:hidden">
           <PropertyChanges />
         </div>

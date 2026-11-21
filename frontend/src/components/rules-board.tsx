@@ -50,6 +50,10 @@ const BAND: Record<AgeBand, { tile: string; age: string }> = {
   older: { tile: "border-[#fb923c]/60 bg-[#f97a1f]/[0.12]", age: "text-[#fdba74]" },
 };
 const at = (s: number) => ({ "--sx-reveal-delay": `${s}s` }) as CSSProperties;
+/* The rail and the country panel: one fixed height per width, the same for
+   both, so the pair never grows with a long list (owner, 2026-11-21). Kept in
+   step by hand with admin/new-signups/rules/loading.tsx. */
+const PANEL_H = "h-[32rem] sm:h-[34rem] lg:h-[38rem] xl:h-[42rem]";
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export function RulesBoard({ rows }: { rows: AgeRow[] }) {
@@ -80,8 +84,8 @@ export function RulesBoard({ rows }: { rows: AgeRow[] }) {
 
   return (
     <section aria-label="Age of majority by place" className="space-y-4">
-      <div className="sx-ops-in flex flex-col gap-3 lg:flex-row lg:items-center" style={at(0.45)}>
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#cfe9ff] lg:mr-auto">Age of majority by place</h2>
+      <div className="sx-ops-in flex flex-col gap-3 lg:flex-row lg:items-center" style={at(0.6)}>
+        <p className="text-[12.5px] text-[#8f9ab0] lg:mr-auto">Pick a country to see its places, or find one by name.</p>
         <GlobalSearch rows={rows} onPick={pick} />
         <button
           type="button"
@@ -191,12 +195,10 @@ function CountryRail({ index, selected, onSelect }: { index: CountryEntry[]; sel
   const shown = index.filter((x) => (!only || x.not18) && (!needle || x.country.toLowerCase().includes(needle) || x.name.toLowerCase().includes(needle)));
   const not18 = index.filter((x) => x.not18).length;
   return (
-    /* Same height as the country panel beside it (owner, 2026-10-05): from lg
-       the rail is pinned to its grid cell (absolute, inset 0), so its long
-       list never sets the row's height — the panel does, with a shared floor
-       — and the list scrolls inside. Below lg it stacks with its own cap. */
-    <div className="relative lg:min-h-[34rem]">
-    <nav aria-label="Countries" className="sx-ops-panel sx-ops-in relative flex max-h-[22rem] flex-col p-3 lg:absolute lg:inset-0 lg:max-h-none" style={at(0.5)}>
+    /* The rail and the country panel share one fixed height at every width
+       (owner, 2026-11-21: "same fixed height for mobile, tablet, laptop and
+       desktop"); the list scrolls inside. */
+    <nav aria-label="Countries" className={`sx-ops-panel sx-ops-in relative flex flex-col p-3 ${PANEL_H}`} style={at(0.66)}>
       <SearchInput value={q} onChange={setQ} label="Filter countries" placeholder="Filter countries…" tone="admin" className="w-full" />
       <div role="radiogroup" aria-label="Which countries" className="mt-2.5 flex gap-1.5">
         {[{ v: false, label: `All · ${index.length}` }, { v: true, label: `Not 18 · ${not18}` }].map((o) => (
@@ -247,7 +249,6 @@ function CountryRail({ index, selected, onSelect }: { index: CountryEntry[]; sel
         })}
       </ul>
     </nav>
-    </div>
   );
 }
 
@@ -267,12 +268,12 @@ function CountryPanel({ detail, editingId, onLoad, onAddCountry }: { detail: Cou
   const tabbed = defaultRow !== null && exceptions.length + following.length > 0;
   const [tab, setTab] = useState<PlaceFilter>("all");
   const [page, setPage] = useState(1);
-  const topRef = useRef<HTMLDivElement>(null);
-  /* From the bottom pager, a new page starts at the top of the list — not
-     twenty cards below where the eye is. */
+  const scrollRef = useRef<HTMLDivElement>(null);
+  /* The cards scroll inside the panel: a new page starts at the top of the
+     list, from either pager. */
   const turn = (where: "top" | "bottom") => (n: number) => {
     setPage(n);
-    if (where === "bottom") topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    scrollRef.current?.scrollTo({ top: 0, behavior: where === "bottom" ? "smooth" : "auto" });
   };
   const list = placeList(detail, tabbed ? tab : "all");
   const view = placePage(list, page);
@@ -296,12 +297,13 @@ function CountryPanel({ detail, editingId, onLoad, onAddCountry }: { detail: Cou
     );
 
   return (
-    <div className="sx-ops-panel sx-ops-in relative px-5 pb-5 pt-4 lg:min-h-[34rem]" style={at(0.55)}>
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+    /* Fixed height, the rail's (PANEL_H): the heading, the default and the
+       tabs stay put; only the cards scroll. */
+    <div className={`sx-ops-panel sx-ops-in relative flex flex-col px-5 pb-5 pt-4 ${PANEL_H}`} style={at(0.72)}>
+      <div className="flex shrink-0 flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="text-lg font-semibold text-white">{detail.name}</h3>
         <span className="text-xs text-[#8a96a3]">
           {offList ? plural(total, "row", "rows") : plural(total, word, `${word}s`.replace(/ys$/, "ies"))}
-          {defaultRow ? ` · ${plural(exceptions.length, "exception", "exceptions")}` : ""}
         </span>
       </div>
 
@@ -311,18 +313,22 @@ function CountryPanel({ detail, editingId, onLoad, onAddCountry }: { detail: Cou
           onClick={() => onLoad(defaultRow)}
           aria-pressed={editingId === defaultRow.id}
           aria-label={`Change ${placeLabel(defaultRow)} — adult at ${defaultRow.age}`}
-          className={`mt-3 inline-flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3.5 py-2 text-left transition-[border-color,box-shadow] hover:border-[#9be0ff] ${editingId === defaultRow.id ? "border-[#9be0ff] shadow-[0_0_18px_rgba(46,155,245,.5)]" : "border-[#63b4f8]/30 bg-[#2e9bf5]/10"}`}
+          className={`group mt-3 inline-flex shrink-0 flex-wrap self-start items-center gap-x-3 gap-y-1 rounded-lg border px-4 py-2.5 text-left transition-[border-color,box-shadow] hover:border-[#9be0ff] ${editingId === defaultRow.id ? "border-[#9be0ff] shadow-[0_0_18px_rgba(46,155,245,.5)]" : "border-[#63b4f8]/30 bg-[#2e9bf5]/10"}`}
         >
-          <span className="text-[11px] text-[#9aa4b2]">Default for {detail.name}</span>
-          <span className={`text-xl font-bold tabular-nums ${BAND[ageBand(defaultRow.age)].age}`}>{defaultRow.age}</span>
-          <span className="text-[11px] text-[#7e88a0]">{exceptions.length + following.length ? `· every ${word} not listed as an exception` : "· the whole country"}</span>
+          {/* Said as a sentence: "In United States, an athlete is an adult at 18 — except in 3 states." */}
+          <span className="text-[13px] text-[#cfe9ff]">In {detail.name}, an athlete is an adult at</span>
+          <span className={`text-2xl font-bold leading-none tabular-nums ${BAND[ageBand(defaultRow.age)].age}`}>{defaultRow.age}</span>
+          <span className="text-[12px] text-[#8f9ab0]">
+            {exceptions.length > 0 ? `— except in ${plural(exceptions.length, word, `${word}s`.replace(/ys$/, "ies"))}` : following.length > 0 ? `— in every ${word}` : ""}
+          </span>
+          <span aria-hidden="true" className="text-[11px] font-semibold text-[#63b4f8] opacity-0 transition-opacity group-hover:opacity-100">Change</span>
         </button>
       ) : offList ? (
-        <p className="mt-3 max-w-2xl text-[11px] leading-relaxed text-[#7e88a0]">
+        <p className="mt-3 max-w-2xl shrink-0 text-[11px] leading-relaxed text-[#7e88a0]">
           Ages for places that aren&rsquo;t on the place list, set before it existed. Athletes can&rsquo;t choose these places any more, so a row here only reaches someone who signed up there earlier. Change one, or remove it once nobody lives there.
         </p>
       ) : (
-        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-[#f97a1f]/35 bg-[#f97a1f]/10 px-3.5 py-2.5">
+        <div className="mt-3 flex shrink-0 flex-wrap items-center gap-3 rounded-lg border border-[#f97a1f]/35 bg-[#f97a1f]/10 px-3.5 py-2.5">
           <p className="text-[11px] text-[#fdba74]">
             No age set for {detail.name}. Every {word} without its own age counts as 18, and its athletes are flagged for BTG.
           </p>
@@ -333,9 +339,9 @@ function CountryPanel({ detail, editingId, onLoad, onAddCountry }: { detail: Cou
       )}
 
       {(list.length > 0 || tabbed) && (
-        <div ref={topRef} className="mt-5 scroll-mt-24 space-y-3">
+        <div className="mt-5 flex min-h-0 flex-1 flex-col gap-3">
           {tabbed && (
-            <div role="tablist" aria-label={`Places in ${detail.name}`} className="flex flex-wrap gap-1.5">
+            <div role="tablist" aria-label={`Places in ${detail.name}`} className="flex shrink-0 flex-wrap gap-1.5">
               {TABS.map((t) => {
                 const on = t.key === tab;
                 return (
@@ -360,19 +366,25 @@ function CountryPanel({ detail, editingId, onLoad, onAddCountry }: { detail: Cou
               })}
             </div>
           )}
-          {pager("top")}
-          {view.rows.length === 0 ? (
-            <p className="rounded-lg border border-white/10 px-4 py-5 text-sm text-[#9aa4b2]">
-              {tab === "exceptions" ? `Every place in ${detail.name} follows its default.` : "Nothing here."}
-            </p>
-          ) : (
-            <ul className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {view.rows.map((p, i) => (
-                <PlaceCard key={p.id} row={p} detail={detail} lit={editingId === p.id} onLoad={() => onLoad(p)} delay={0.05 + i * 0.025} />
-              ))}
-            </ul>
-          )}
-          {view.pages > 1 && pager("bottom")}
+          <div className="shrink-0">{pager("top")}</div>
+          {/* The cards' own scroller; -m-1 p-1 so a card's hover lift and glow aren't clipped. */}
+          <div
+            ref={scrollRef}
+            className="-m-1 min-h-0 flex-1 overflow-y-auto p-1 pr-2 [scrollbar-color:rgba(99,180,248,.35)_transparent] [scrollbar-width:thin]"
+          >
+            {view.rows.length === 0 ? (
+              <p className="rounded-lg border border-white/10 px-4 py-5 text-sm text-[#9aa4b2]">
+                {tab === "exceptions" ? `Every place in ${detail.name} follows its default.` : "Nothing here."}
+              </p>
+            ) : (
+              <ul className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                {view.rows.map((p, i) => (
+                  <PlaceCard key={p.id} row={p} detail={detail} lit={editingId === p.id} onLoad={() => onLoad(p)} delay={0.05 + i * 0.025} />
+                ))}
+              </ul>
+            )}
+            {view.pages > 1 && pager("bottom")}
+          </div>
         </div>
       )}
     </div>

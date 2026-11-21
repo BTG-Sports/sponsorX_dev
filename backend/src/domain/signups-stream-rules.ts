@@ -6,7 +6,12 @@
 export const STREAM_KINDS = ["ORGANIZATION", "ATHLETE", "GUARDIAN", "SPONSOR"] as const;
 export type StreamKind = (typeof STREAM_KINDS)[number];
 
-export type SourceKey = "athlete" | "guardianVerified" | "guardianRejected" | "sponsorApproved" | "sponsorHeld" | "organization";
+export type SourceKey =
+  | "athlete" | "guardianVerified" | "guardianRejected"
+  /* sponsorApproved: every decided request (approved, declined, rejected); sponsorWaiting: NEW and not yet complete (theirs to finish) */
+  | "sponsorApproved" | "sponsorHeld" | "sponsorWaiting"
+  /* organizationDraft: never submitted, dated by when it was started */
+  | "organization" | "organizationDraft";
 
 /** One row's place in the stream, before its full row is loaded. */
 export type StreamKey = { source: SourceKey; kind: StreamKind; id: string; at: Date };

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { mayUse } from "../src/lib/admin-access";
 import {
   boardHeadline,
+  cardAccess,
   deskPath,
   QUEUE_TONE,
   queueCards,
@@ -27,9 +28,9 @@ const WAITING: Record<WaitingQueueKey, { label: string; href: string }> = {
   toActivate: { label: "Athletes to activate", href: "/admin/applications?tab=approved" },
   payouts: { label: "Payouts to review", href: "/admin/payouts" },
   makeGoods: { label: "Make-goods to decide", href: "/admin/intelligence/make-goods" },
-  signups: { label: "New sign-ups to review", href: "/admin/new-signups?review=1" },
-  organisations: { label: "Organisations to review", href: "/admin/onboarding" },
-  sponsorRequests: { label: "Sponsor requests", href: "/admin/sponsor-requests" },
+  signups: { label: "New accounts to review", href: "/admin/new-signups?review=1" },
+  organisations: { label: "Organisations to review", href: "/admin/new-signups?review=1&kind=ORGANIZATION" },
+  sponsorRequests: { label: "Sponsor requests", href: "/admin/new-signups?review=1&kind=SPONSOR" },
   guardianHandoffs: { label: "Guardian handoffs", href: "/admin/guardian-handoffs?tab=waiting" },
   heldListings: { label: "Listings to approve", href: "/admin/marketplace?queue=listings" },
   heldOrders: { label: "Orders to approve", href: "/admin/marketplace?queue=orders" },
@@ -168,14 +169,22 @@ describe("POL-FE-15 · one card per queue that waits on BTG", () => {
     expect(deskPath("/admin/offers")).toBe("/admin/offers");
     /* The map matches on the exact path or a "prefix/": the whole href would
        pass as an unmapped route and open a desk the role can't use. */
-    expect(mayUse("/admin/new-signups?review=1", ["SALES"])).toBe(true);
-    expect(mayUse(deskPath("/admin/new-signups?review=1"), ["SALES"])).toBe(false);
+    expect(mayUse("/admin/guardian-handoffs?tab=waiting", ["SALES"])).toBe(true);
+    expect(mayUse(deskPath("/admin/guardian-handoffs?tab=waiting"), ["SALES"])).toBe(false);
     expect(mayUse(deskPath("/admin/new-signups#sensitive-edits"), ["BTG_ADMIN"])).toBe(true);
     /* Every card's desk is in the access map, so no tab link slips through unmapped. */
     for (const c of queueCards(all(1))) {
       /* POL-FE-64 — "Athletes to activate" opens the applications desk too. */
-      expect(mayUse(deskPath(c.href), ["NETWORK_MGR"]), c.key).toBe(c.key === "applications" || c.key === "toActivate");
+      expect(mayUse(cardAccess(c), ["NETWORK_MGR"]), c.key).toBe(c.key === "applications" || c.key === "toActivate");
     }
+  });
+
+  it("New accounts opens to Sales, but of its cards Sales gets only the sponsors' (2026-11-21)", () => {
+    const sales = queueCards(all(1)).filter((c) => mayUse(cardAccess(c), ["SALES"])).map((c) => c.key);
+    expect(sales).toContain("sponsorRequests");
+    for (const key of ["signups", "organisations", "profileChanges"]) expect(sales, key).not.toContain(key);
+    expect(queueCards(all(1)).filter((c) => mayUse(cardAccess(c), ["BTG_ADMIN"])).map((c) => c.key))
+      .toEqual(expect.arrayContaining(["signups", "organisations", "sponsorRequests", "profileChanges"]));
   });
 
   it("every queue has a ring colour of its own", () => {

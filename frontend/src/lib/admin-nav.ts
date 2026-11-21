@@ -19,11 +19,11 @@ export const ADMIN_NAV: NavItem[] = [
 
   /* People and organisations coming in. */
   { href: "/admin/applications", label: "Applications", icon: "users", group: "Intake", groupIcon: "inbox" },
-  /* 2S1-FE-07 — everything SponsorX approved by itself; BTG steps in only on a problem. */
-  { href: "/admin/new-signups", label: "New sign-ups", icon: "user", group: "Intake" },
-  { href: "/admin/onboarding", label: "Onboarding", icon: "users", group: "Intake" },
-  /* 2S1-FE-03 — businesses asking to sponsor; approving opens the account. */
-  { href: "/admin/sponsor-requests", label: "Sponsor requests", icon: "inbox", group: "Intake" },
+  /* 2S1-FE-07 — every new account in one place: athletes, guardians,
+     organizations and sponsors. The Onboarding and Sponsor requests desks
+     were folded in on 2026-11-21 (the owner: one page, not three); their old
+     addresses forward here. */
+  { href: "/admin/new-signups", label: "New accounts", icon: "user", group: "Intake" },
 
   /* From a brief to a running campaign. */
   { href: "/admin/approvals", label: "Approvals", icon: "inbox", group: "Campaigns", groupIcon: "megaphone" },

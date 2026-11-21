@@ -154,7 +154,7 @@ describe.skipIf(!hasDatabase)("POL-BE-41 · BTG's support inbox", { timeout: 90_
     expect(records.map((x) => x.id).sort()).toEqual(["sib_ath_held", "sib_req_done", "sib_req_held"]);
     expect(records.slice(0, 2).every((x) => x.held)).toBe(true);
     expect(records.find((x) => x.id === "sib_ath_held")).toMatchObject({ kind: "ATHLETE", held: true, reasons: ["The ID doesn't read as a government ID"], adminPath: "/admin/new-signups/athletes/sib_ath_held" });
-    expect(records.find((x) => x.id === "sib_req_held")).toMatchObject({ kind: "SPONSOR_REQUEST", label: "Midwest Running Co", held: true, reasons: ["The proof of business doesn't name the business"], adminPath: "/admin/sponsor-requests/sib_req_held" });
+    expect(records.find((x) => x.id === "sib_req_held")).toMatchObject({ kind: "SPONSOR_REQUEST", label: "Midwest Running Co", held: true, reasons: ["The proof of business doesn't name the business"], adminPath: "/admin/new-signups/sponsors/sib_req_held" });
     /* Not held: no reasons shown, even stale ones. */
     expect(records.find((x) => x.id === "sib_req_done")).toMatchObject({ held: false, reasons: [] });
     expect(r.text).not.toContain("tenantId");

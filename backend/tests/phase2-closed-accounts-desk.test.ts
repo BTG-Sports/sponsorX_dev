@@ -175,12 +175,12 @@ describe.skipIf(!hasDatabase)("2S1-FE-08 · BTG's Closed accounts desk", { timeo
     const bay = await call("GET", "/account-closures/cad_c_bay", "cad_admin");
     expect(bay.status, bay.text).toBe(200);
     expect(bay.json).toMatchObject({
-      name: "Bay Brewing", subjectHref: "/admin/sponsor-requests/cad_inq_bay", reinstatable: true, canDecline: true,
+      name: "Bay Brewing", subjectHref: "/admin/new-signups/sponsors/cad_inq_bay", reinstatable: true, canDecline: true,
       closedByEmail: "staff@cad-test.invalid", contactEmail: "cad_c_bay@cad-test.invalid", decision: null,
     });
-    expect((await call("GET", "/account-closures/cad_c_laurel", "cad_admin")).json).toMatchObject({ subjectHref: "/admin/onboarding/cad_onb_laurel", reinstatable: true });
+    expect((await call("GET", "/account-closures/cad_c_laurel", "cad_admin")).json).toMatchObject({ subjectHref: "/admin/new-signups/organizations/cad_onb_laurel", reinstatable: true });
     expect((await call("GET", "/account-closures/cad_c_app", "cad_admin")).json).toMatchObject({
-      subjectHref: "/admin/sponsor-requests/cad_inq_app", application: true, reinstatable: false, canDecline: true,
+      subjectHref: "/admin/new-signups/sponsors/cad_inq_app", application: true, reinstatable: false, canDecline: true,
     });
     expect((await call("GET", "/account-closures/cad_c_guard", "cad_admin")).json).toMatchObject({
       subjectHref: "/admin/new-signups/guardians/cad_guard", reinstatable: true, canDecline: false,

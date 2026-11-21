@@ -290,7 +290,7 @@ describe.skipIf(!hasDatabase)("review fixes · per-child proof, every Reject clo
       expect((await call("GET", `/public/account/reactivation/${encodeURIComponent(t)}`)).json).toMatchObject({ standing: "CLOSED_BY_BTG", kind: "ONBOARDING", greeting: "RF Rejected Rovers" });
       expect((await call("POST", `/public/account/reactivation/${encodeURIComponent(t)}`, undefined, { action: "REACTIVATE" })).status).toBe(403);
       expect((await call("POST", `/public/account/reactivation/${encodeURIComponent(t)}`, undefined, { action: "REQUEST" })).status).toBe(200);
-      expect((await emails("account.reactivationRequested")).at(-1)!.data.reviewUrl).toMatch(/\/admin\/onboarding\/rf_onb$/);
+      expect((await emails("account.reactivationRequested")).at(-1)!.data.reviewUrl).toMatch(/\/admin\/new-signups\/organizations\/rf_onb$/);
     });
 
     it("a sponsor request declined before an account opened: closed too", async () => {

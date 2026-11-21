@@ -5,7 +5,7 @@ import { desktopOnly, hasLoopStack, LOOP_SKIP_REASON, pageAs } from "./support/a
 /**
  * P1-FE-31 — the admin desks that list records are server-paged tables.
  *
- * Walks the ten desks as BTG_ADMIN and checks, on each, that the page is on
+ * Walks the eight desks as BTG_ADMIN and checks, on each, that the page is on
  * the stage, that it renders either the stage table (or the briefs' rows)
  * with the house pager above it — "… per page" and the page list — or an
  * honest empty state, with no console error and no horizontal overflow.
@@ -19,9 +19,9 @@ test.skip(!hasLoopStack, LOOP_SKIP_REASON);
 
 const ADMIN = { key: "p7.admin", roles: ["BTG_ADMIN" as const] };
 
+/* Sponsor requests and Onboarding were folded into New accounts (2026-11-21);
+   their addresses forward there — checked at the end of this file. */
 const DESKS = [
-  { path: "/admin/sponsor-requests", noun: "Requests" },
-  { path: "/admin/onboarding", noun: "Applications" },
   { path: "/admin/payouts", noun: "Payouts" },
   { path: "/admin/refunds", noun: "Refunds" },
   { path: "/admin/delivery-issues", noun: "Issues" },
@@ -87,6 +87,14 @@ test.describe("P1-FE-31 · paged admin tables", () => {
     await admin.goto("/admin/refunds?tab=sent&page=3");
     await admin.getByRole("link", { name: /^To send/ }).first().click();
     await admin.waitForURL((u) => !u.searchParams.has("page"));
+  });
+
+  test("the folded-in desks forward to New accounts", async () => {
+    await admin.goto("/admin/sponsor-requests");
+    await admin.waitForURL(/\/admin\/new-signups\?kind=SPONSOR$/);
+    await admin.goto("/admin/onboarding");
+    await admin.waitForURL(/\/admin\/new-signups\?kind=ORGANIZATION$/);
+    await expect(admin.getByRole("heading", { name: "New accounts" })).toBeVisible();
   });
 
   test("no console errors across the desks", () => {

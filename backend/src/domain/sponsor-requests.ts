@@ -314,7 +314,7 @@ async function tellBtg(tx: Tx, row: Row, outcome: "approved" | "review", reasons
       data: {
         businessName: sponsorNameFor(row), outcome: outcome === "approved" ? "was approved automatically" : "needs your review",
         reasons: reasons.length ? reasons.map((r) => `• ${r}`).join("\n") : "",
-        reviewUrl: `${appUrl()}/admin/sponsor-requests/${row.id}`,
+        reviewUrl: `${appUrl()}/admin/new-signups/sponsors/${row.id}`,
       },
     });
   }

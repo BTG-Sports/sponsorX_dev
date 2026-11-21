@@ -39,13 +39,13 @@ test("P1-ART-21 · the sidebar groups", async ({ browser }, testInfo) => {
 
   /* a header toggles, and the choice is remembered across a reload */
   await header("Intake").click();
-  await expect(aside.getByRole("link", { name: "Sponsor requests" })).toBeVisible();
+  await expect(aside.getByRole("link", { name: "New accounts" })).toBeVisible();
   await admin.waitForTimeout(500);
   await admin.screenshot({ path: `${OUT}/sidebar-open.png` });
   await admin.reload();
   await expect(header("Intake")).toHaveAttribute("aria-expanded", "true");
   await header("Intake").click();
-  await expect(aside.getByRole("link", { name: "Sponsor requests" })).toBeHidden();
+  await expect(aside.getByRole("link", { name: "New accounts" })).toBeHidden();
 
   /* the LAST group's desks show at once when it opens — their entrance is timed from
      the group's own first row, not the top of the nav (owner: "showing takes to long") */

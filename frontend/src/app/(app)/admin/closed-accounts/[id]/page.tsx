@@ -82,7 +82,7 @@ export default async function ClosedAccountPage({ params }: { params: Promise<{ 
               <ul className="mt-1.5 list-disc space-y-1 pl-4 text-[13px] leading-relaxed">
                 <li>Their logins are switched back on.</li>
                 <li>Listings that were paused when it closed come back.</li>
-                <li>The checks run again — anything missing goes to New sign-ups.</li>
+                <li>The checks run again — anything missing goes to New accounts.</li>
               </ul>
             </section>
           )}

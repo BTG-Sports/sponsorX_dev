@@ -1,36 +1,46 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
+import { Glyph } from "@/components/athlete-inventory/glyphs";
+import { HowItWorks, type FlowStep } from "@/components/desk-kit";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
-import { KpiTile } from "@/components/ops-stage";
 import { RulesBoard } from "@/components/rules-board";
-import { COLLAB_REQUIRED_WORDS, FlagSwitch, RULES_REQUIRED_WORDS, StaffConfirmSwitch } from "@/components/signup-rules-editor";
+import { COLLAB_REQUIRED_WORDS, RULES_REQUIRED_WORDS, RuleCard, STAFF_CONFIRM_WORDS } from "@/components/signup-rules-editor";
 import type { AgeRow } from "@/lib/age-table";
 import { apiFetch } from "@/server/api";
 
+import "../../applications/(queue)/applications.css";
+import "./rules.css";
+
 /* --------------------------------------------------------------------------
-   Sign-up rules — 2S1-FE-07, beside the New sign-ups desk. The two rules
-   automatic approval reads, kept by BTG admins (2S1-BE-10 / -12):
+   Sign-up rules — 2S1-FE-07, beside the New sign-ups desk. The rules
+   automatic approval reads, kept by BTG admins (2S1-BE-10 / -12, P8-BE-02 /
+   -04):
 
    - "BTG staff confirm minors before approval" — off by default, so the
-     system approves; on, for the open guardian e-signature question;
+     system approves; on, a complete minor waits for a person;
+   - "Athletes confirm their own rules" and "Athletes accept the current
+     Content Collaboration Agreement" (P8-FE-04 / P8-FE-07) — off, asked on
+     sign-up and in the portal; on, a new deal or listing waits on them (for
+     a minor, the guardian's);
    - the age of majority by place: a country, or a state within it. Most US
      states are 18, Alabama and Nebraska 19, Mississippi 21. A place not in
      the table counts as 18 and is flagged on the desk.
 
-   P1-ART-17 (2026-10-05, spec docs/superpowers/specs/2026-10-05-signup-
-   rules-control-panel-design.md): the "Control Panel" — the admin stage,
-   full bleed and fixed-dark, as a DASHBOARD (memory: admin-desks-are-
-   dashboards): back link, a compact title, four tiles, then the work — the
-   minors switch, then the place board (rules-board.tsx: search, country
-   rail, the country's places; adding and changing in a dialog).
+   Redrawn 2026-11-21 (owner: "too much information at once … not easily
+   understandable by humans … wow factor + animations"). Five summary tiles,
+   two switch panels with Off / On box pairs and the board all spoke at once.
+   Now the page asks two questions, in order:
 
-   P8-FE-04 / P8-FE-07 — two more switches on the same settings, under
-   "Before a deal": "Athletes confirm their own rules"
-   (requireRulesAttestation) and "Athletes accept the current Content
-   Collaboration Agreement" (requireCollabAcceptance). Off, each is asked on
-   sign-up and in the portal; on, a new deal or listing waits on it — for a
-   minor, the guardian's.
+     01 Who waits for a person?  three RuleCards (signup-rules-editor.tsx),
+                                 each a switch and a path picture
+     02 Who counts as a minor?   the place board (rules-board.tsx). An age
+                                 summary above it was tried and removed the
+                                 same day (owner: "not helpful at all, it
+                                 generates confusion").
+
+   and the flow behind them sits behind "How it works" (desk-kit). Every
+   number appears once, where it is about.
 
    Reads  GET /signup-rules/settings · GET /signup-rules/age-table
    Writes PUT /signup-rules/settings · PUT / DELETE /signup-rules/age-table   (./actions.ts)
@@ -45,28 +55,48 @@ type AgeTable = { rows: AgeRow[]; unknownPlaceAthletes: number };
 /** GET /signup-rules/settings — the three switches (2S1-BE-10, P8-BE-02, P8-BE-04). */
 type SignupSettings = { staffConfirmMinors: boolean; requireRulesAttestation?: boolean; requireCollabAcceptance?: boolean };
 
-const at = (seconds: number) => ({ "--sx-reveal-delay": `${seconds}s` }) as CSSProperties;
+const at = (seconds: number) => ({ "--d": `${seconds}s` }) as CSSProperties;
 
-/** Since P1-ART-18 the stage is the admin shell's; a page is content on it. */
+const STEPS: readonly FlowStep[] = [
+  { icon: "bolt", title: "Someone signs up", text: "Their checks run straight away. Most people are approved without anyone at BTG touching them." },
+  { icon: "pin", title: "Their place sets the age", text: "The age table says when someone in that place becomes an adult. Under that age they're a minor and need a guardian. A place that isn't in the table counts as 18 and is flagged." },
+  { icon: "users", title: "Minors: the checks, or a person", text: "With the first switch off, a minor is approved once every check passes. On, they wait under Needs review until someone at BTG looks." },
+  { icon: "shield", title: "Before a deal", text: "The other two switches decide whether a new deal or listing waits until the athlete has confirmed their own rules and accepted the current agreement (a guardian does it for a minor)." },
+  { icon: "clock", title: "Every change is recorded", text: "Only a BTG admin can change a rule. Changing a place works out the age again for everyone who lives there." },
+];
+
 function Stage({ children }: { children: ReactNode }) {
   return (
     <div>
-      <Link href={PATH} className="sx-ops-in inline-flex items-center gap-1.5 text-xs text-[#63b4f8] transition-colors hover:text-[#9be0ff]" style={at(0)}>
-        <span aria-hidden="true">←</span> New sign-ups
+      <Link href={PATH} className="sx-ap-rise inline-flex items-center gap-1.5 text-xs text-[#63b4f8] transition-colors hover:text-[#9be0ff]" style={at(0)}>
+        <span aria-hidden="true">←</span> New accounts
       </Link>
       {children}
     </div>
   );
 }
 
+function Chapter({ n, id, title, sub, delay }: { n: string; id: string; title: string; sub: string; delay: number }) {
+  return (
+    <div className="sx-sr-chapter sx-ap-rise" style={at(delay)}>
+      <span className="sx-sr-chapter-n" aria-hidden="true">{n}</span>
+      <div className="min-w-0">
+        <h2 id={id} className="sx-sr-chapter-title">{title}</h2>
+        <p className="sx-sr-chapter-sub">{sub}</p>
+      </div>
+      <span aria-hidden="true" className="sx-sr-chapter-line hidden sm:block" style={at(delay)} />
+    </div>
+  );
+}
+
 export default async function SignupRulesPage() {
-  const lacking = await staffWithoutAccess(PATH);
-  if (lacking) return <NotInRole path={PATH} title="Sign-up rules" roles={lacking} />;
+  const lacking = await staffWithoutAccess(`${PATH}/rules`);
+  if (lacking) return <NotInRole path={`${PATH}/rules`} title="Sign-up rules" roles={lacking} />;
   const [settingsRes, tableRes] = await Promise.all([apiFetch("/signup-rules/settings"), apiFetch("/signup-rules/age-table")]);
   if (settingsRes.status === 403 || tableRes.status === 403) {
     return (
       <Stage>
-        <p className="sx-ops-panel sx-ops-in relative mt-6 px-6 py-6 text-sm text-[#9aa4b2]" style={at(0.1)}>
+        <p className="sx-ops-panel sx-ap-rise relative mt-6 px-6 py-6 text-sm text-[#9aa4b2]" style={at(0.1)}>
           Your role doesn&rsquo;t read the sign-up rules.
         </p>
       </Stage>
@@ -75,75 +105,98 @@ export default async function SignupRulesPage() {
   if (!settingsRes.ok || !tableRes.ok) throw new Error(`The sign-up rules couldn't be read (${settingsRes.ok ? tableRes.status : settingsRes.status}).`);
   const settings = (await settingsRes.json()) as SignupSettings;
   const table = (await tableRes.json()) as AgeTable;
-  const countries = new Set(table.rows.map((r) => r.countryCode)).size;
-  const not18 = table.rows.filter((r) => r.age !== 18).length;
   const readAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  const on = settings.staffConfirmMinors;
-  /* The two "before a deal" switches, read as false when an older API leaves them out. */
+  /* The two "before a deal" switches read as false when an older API leaves them out. */
+  const minorsOn = settings.staffConfirmMinors;
   const rulesOn = settings.requireRulesAttestation === true;
   const collabOn = settings.requireCollabAcceptance === true;
-  const enforced = [rulesOn, collabOn].filter(Boolean).length;
+  const waiting = [minorsOn, rulesOn, collabOn].filter(Boolean).length;
 
   return (
     <Stage>
       <header className="mt-3">
-        <div className="sx-ops-in flex flex-wrap items-center gap-3" style={at(0.05)}>
+        <div className="sx-ap-rise flex flex-wrap items-center justify-between gap-3" style={at(0.02)}>
           <h1 className="sx-page-title">Sign-up rules</h1>
-          <span className="rounded-full border border-[#9be0ff]/30 bg-[#04080f]/40 px-2.5 py-1 text-[9px] font-medium uppercase tracking-[0.2em] text-[#cfe9ff]">
-            Postgres · read {readAt}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="sx-ap-live">
+              <span className="sx-ap-live-dot" aria-hidden="true" />
+              Live · Postgres · read {readAt}
+            </span>
+            <HowItWorks lede="What happens between someone signing up and their first deal, and where these rules step in." steps={STEPS} keyTitle="Reading the page">
+              {/* The key's own layout (applications.css): a mark, then one span of words. */}
+              <li>
+                <span className="sx-ap-key-mark">
+                  <span className="sx-sr-badge" style={{ "--c": "#fb923c" } as CSSProperties}><i />Waits</span>
+                </span>
+                <span>Orange: a person, or a confirmation, is waited for.</span>
+              </li>
+              <li>
+                <span className="sx-ap-key-mark">
+                  <span className="sx-sr-badge" style={{ "--c": "#4ade80" } as CSSProperties}><i />Automatic</span>
+                </span>
+                <span>Green: it happens on its own.</span>
+              </li>
+              <li>
+                <span className="sx-ap-key-mark">
+                  <Glyph ui="eye" className="size-5 text-[#fb923c]" />
+                </span>
+                <span>On each rule, the path shows where things stop. A lit middle step means &ldquo;waits here&rdquo;; a crossed-out one is skipped.</span>
+              </li>
+              <li>
+                <span className="sx-ap-key-mark">
+                  <b className="text-2xl font-extrabold leading-none tabular-nums text-[#fb923c]">21</b>
+                </span>
+                <span>In the country list, &ldquo;Not 18&rdquo; shows only the countries with a different age. Click any place to change it.</span>
+              </li>
+            </HowItWorks>
+          </div>
         </div>
-        <dl className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <KpiTile label="Places in the table" value={table.rows.length} caption={`across ${countries} ${countries === 1 ? "country" : "countries"}`} tone="blue" delay={0.1} />
-          <KpiTile
-            label="Unknown place"
-            value={table.unknownPlaceAthletes}
-            caption={table.unknownPlaceAthletes ? "athletes counted as adults at 18 · flagged" : "every athlete's place is in the table"}
-            tone={table.unknownPlaceAthletes ? "orange" : "green"}
-            delay={0.16}
-          />
-          <KpiTile label="Not 18" value={not18} caption="places with another age" tone="cyan" delay={0.22} />
-          {/* The rules' states in words — a figure tile would read "0 / 1". */}
-          <div className="sx-ops-panel sx-ops-in relative px-4 pb-4 pt-3.5" style={at(0.28)}>
-            <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px]" style={{ background: on ? "#f97a1f" : "#22c55e", boxShadow: `0 0 10px ${on ? "#f97a1f" : "#22c55e"}` }} />
-            <dt className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#8a96a3]">Minors</dt>
-            <dd className={`mt-2 text-lg font-bold leading-tight ${on ? "text-[#fdba74]" : "text-[#86efac]"}`}>
-              {on ? "Wait for a person" : "Approved by their checks"}
-              <span className="mt-1.5 block text-[11px] font-normal text-[#7e88a0]">staff confirmation {on ? "on" : "off"}</span>
-            </dd>
-          </div>
-          <div className="sx-ops-panel sx-ops-in relative px-4 pb-4 pt-3.5" style={at(0.34)}>
-            <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px]" style={{ background: enforced ? "#f97a1f" : "#22c55e", boxShadow: `0 0 10px ${enforced ? "#f97a1f" : "#22c55e"}` }} />
-            <dt className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#8a96a3]">Before a deal</dt>
-            <dd className={`mt-2 text-lg font-bold leading-tight ${enforced ? "text-[#fdba74]" : "text-[#86efac]"}`}>
-              {enforced === 2 ? "Both confirmations wait" : enforced === 1 ? (rulesOn ? "Own rules wait" : "Agreement waits") : "Asked, not enforced"}
-              <span className="mt-1.5 block text-[11px] font-normal text-[#7e88a0]">{enforced} of 2 enforced</span>
-            </dd>
-          </div>
-        </dl>
+        <p className="sx-ap-rise mt-2 max-w-2xl text-sm leading-relaxed text-[#9aa4b2]" style={at(0.06)}>
+          {waiting === 0 ? (
+            <>Everything runs on its own right now. Nobody waits for a person.</>
+          ) : (
+            <>
+              <strong className="font-semibold text-[#fdba74]">
+                {waiting} of 3 rules
+              </strong>{" "}
+              make someone wait for a person or a confirmation. The rest run on their own.
+            </>
+          )}
+        </p>
       </header>
 
-      <section aria-labelledby="sr-minors" className="sx-ops-panel sx-ops-in relative mt-8 px-5 pb-5 pt-4" style={at(0.32)}>
-        <h2 id="sr-minors" className="mb-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-[#cfe9ff]">Minors</h2>
-        <StaffConfirmSwitch on={on} />
-      </section>
-
-      {/* P8-FE-04 / P8-FE-07 — what an athlete confirms before a new deal, and whether it waits on them. */}
-      <section aria-labelledby="sr-deal" className="sx-ops-panel sx-ops-in relative mt-6 px-5 pb-5 pt-4" style={at(0.38)}>
-        <h2 id="sr-deal" className="mb-1 text-[11px] font-semibold uppercase tracking-[0.3em] text-[#cfe9ff]">Before a deal</h2>
-        <p className="mb-5 text-xs text-[#8a96a3]">Both are asked on sign-up and in the portal either way. On, a new deal or listing waits until it is on file — for a minor, from the guardian.</p>
-        <div className="space-y-6">
-          <FlagSwitch flag="requireRulesAttestation" on={rulesOn} words={RULES_REQUIRED_WORDS} />
-          <FlagSwitch flag="requireCollabAcceptance" on={collabOn} words={COLLAB_REQUIRED_WORDS} />
+      <section aria-labelledby="sr-wait">
+        <Chapter n="01" id="sr-wait" title="Who waits for a person?" sub="Three switches. Each one decides whether a step is checked, or skipped." delay={0.1} />
+        <div className="sx-sr-rules">
+          <RuleCard flag="staffConfirmMinors" on={minorsOn} words={STAFF_CONFIRM_WORDS} delay={0.16} />
+          <RuleCard flag="requireRulesAttestation" on={rulesOn} words={RULES_REQUIRED_WORDS} delay={0.24} />
+          <RuleCard flag="requireCollabAcceptance" on={collabOn} words={COLLAB_REQUIRED_WORDS} delay={0.32} />
         </div>
       </section>
 
-      <div className="mt-8">
-        <RulesBoard rows={table.rows} />
-      </div>
+      <section aria-labelledby="sr-age">
+        <Chapter n="02" id="sr-age" title="Who counts as a minor?" sub="The age someone becomes an adult, by where they live." delay={0.4} />
+        {table.unknownPlaceAthletes > 0 && (
+          <p role="status" className="sx-sr-alert sx-ap-rise" style={at(0.44)}>
+            <span className="sx-sr-alert-icon" aria-hidden="true">
+              <Glyph ui="alert" className="size-4" />
+            </span>
+            <span>
+              <b>
+                {table.unknownPlaceAthletes.toLocaleString("en-US")} athlete{table.unknownPlaceAthletes === 1 ? " lives" : "s live"}
+              </b>{" "}
+              in a place that isn&rsquo;t in the table. They count as adults at 18 and are flagged on the desk. Add their place below.
+            </span>
+          </p>
+        )}
+        <div className="mt-5">
+          <RulesBoard rows={table.rows} />
+        </div>
+      </section>
 
-      <p className="sx-ops-in mt-8 text-[11px] text-[#7e88a0]" style={at(0.8)}>
-        Every change is recorded. Changing a place works out the age again for the athletes who live there.
+      <p className="sx-ap-rise mt-8 flex items-center gap-2 text-[11px] text-[#7e88a0]" style={at(0.8)}>
+        <Glyph ui="lock" className="size-3.5" />
+        Only a BTG admin can change these. Every change is recorded, and changing a place works out the age again for the athletes who live there.
       </p>
     </Stage>
   );

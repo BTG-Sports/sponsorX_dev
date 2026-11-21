@@ -100,7 +100,7 @@ describe("POL-FE-72 · sponsor portal loose ends", () => {
   });
 
   it("BTG can change a sponsor's business type on the account's page", () => {
-    expect(src("app/(app)/admin/sponsor-requests/[id]/page.tsx")).toContain("<SponsorCategoriesEditor sponsorId={r.sponsorId}");
+    expect(src("components/sponsor-request-record.tsx")).toContain("<SponsorCategoriesEditor sponsorId={r.sponsorId}");
     expect(src("app/(app)/admin/sponsor-requests/actions.ts")).toContain("/categories`");
   });
 });

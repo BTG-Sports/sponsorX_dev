@@ -39,10 +39,9 @@ export async function decideOnboardingAction(id: string, from: OnboardingState, 
   }
   if (res.ok) {
     const d = (await res.json()) as { state: OnboardingState };
-    revalidatePath("/admin/onboarding");
-    revalidatePath(`/admin/onboarding/${id}`);
-    revalidatePath("/admin/marketplace");
     revalidatePath("/admin/new-signups");
+    revalidatePath(`/admin/new-signups/organizations/${id}`);
+    revalidatePath("/admin/marketplace");
     return { ok: true, state: d.state };
   }
   let body: unknown = null;
@@ -110,7 +109,7 @@ export async function sendBackOrgDocumentAction(id: string, documentId: string, 
   } catch {
     /* no body */
   }
-  revalidatePath("/admin/onboarding");
-  revalidatePath(`/admin/onboarding/${id}`);
+  revalidatePath("/admin/new-signups");
+  revalidatePath(`/admin/new-signups/organizations/${id}`);
   return res.ok ? { ok: true } : { ok: false, message: sendBackRefusal(res.status, body) };
 }

@@ -177,7 +177,7 @@ async function recheck(tx: Tx, actor: Actor, onboardingId: string, change: "adde
       data: {
         orgName: o.orgName, change: change === "removed" ? "removed a document" : change === "replaced" ? "replaced a document" : "added a document",
         document: `${label} — ${doc.filename}`, flagged: flags.map((f) => `• ${f}`).join("\n"),
-        profileUrl: `${app}/admin/onboarding/${o.id}`,
+        profileUrl: `${app}/admin/new-signups/organizations/${o.id}`,
       },
     });
   }
