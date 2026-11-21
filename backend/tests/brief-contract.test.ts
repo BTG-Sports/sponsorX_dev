@@ -31,8 +31,8 @@ vi.mock("../src/auth/clerk", () => ({
 }));
 
 const { toBriefBody } = await import("../../frontend/src/lib/brief-request");
-const { BRAND_CATEGORIES: FE_CATEGORIES } = await import("../../frontend/src/lib/brand-categories");
-const { BRAND_CATEGORIES } = await import("../src/domain/brand-categories");
+const { BRAND_CATEGORIES: FE_CATEGORIES, SENSITIVE_CATEGORIES: FE_SENSITIVE } = await import("../../frontend/src/lib/brand-categories");
+const { BRAND_CATEGORIES, SENSITIVE_CATEGORIES } = await import("../src/domain/brand-categories");
 const { CampaignBriefInput } = await import("../src/contracts/campaign");
 
 const request = {
@@ -44,6 +44,10 @@ const request = {
 describe("the frontend and backend agree", () => {
   it("on the brand-category vocabulary", () => {
     expect([...FE_CATEGORIES]).toEqual([...BRAND_CATEGORIES]);
+  });
+
+  it("on which categories are age-restricted (POL-FE-122 leaves them out of Select everything)", () => {
+    expect([...FE_SENSITIVE].sort()).toEqual([...SENSITIVE_CATEGORIES].sort());
   });
 
   it("the frontend's brief body parses with the real CampaignBriefInput", () => {

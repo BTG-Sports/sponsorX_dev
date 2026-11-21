@@ -23,7 +23,9 @@ import { SPONSOR_NAV } from "../src/lib/sponsor-nav";
 /* 2S4-FE-07 / -08 / -09 — Deal Chat's words and decisions (lib/deal-chat.ts),
    against the shapes the API answers with (backend/src/contracts/deal-chat.ts). */
 
-const src = (f: string) => readFileSync(new URL(`../src/${f}`, import.meta.url), "utf8");
+/* Line endings normalised: a Windows checkout (core.autocrlf) has CRLF, and the
+   patterns below are written with "\n". */
+const src = (f: string) => readFileSync(new URL(`../src/${f}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const NOW = new Date("2026-11-19T15:00:00.000Z");
 
 const YES_NO = [{ value: "YES", label: "Yes" }, { value: "NO", label: "No" }];

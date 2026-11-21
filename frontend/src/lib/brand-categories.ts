@@ -37,6 +37,21 @@ export const BRAND_CATEGORIES = [
 
 export type BrandCategory = (typeof BRAND_CATEGORIES)[number];
 
+/**
+ * The age-restricted categories — a COPY of the backend's SENSITIVE_CATEGORIES
+ * (P4-BE-11); the same alignment suite checks the two match.
+ *
+ * POL-FE-122: "Select everything" on the athlete's Brands step leaves these
+ * out. That step shows on the public page, including a minor's, so each of
+ * these stays a deliberate tap (owner, 2026-11-21).
+ */
+export const SENSITIVE_CATEGORIES = ["ALCOHOL", "TOBACCO_VAPE", "CANNABIS", "GAMBLING", "FIREARMS", "ADULT"] as const satisfies readonly BrandCategory[];
+
+/** Every category that is not age-restricted, in the vocabulary's order. */
+export const EVERYDAY_CATEGORIES: readonly BrandCategory[] = BRAND_CATEGORIES.filter(
+  (c) => !(SENSITIVE_CATEGORIES as readonly string[]).includes(c),
+);
+
 /** "LOCAL_RETAIL" → "Local retail". */
 export function categoryLabel(c: BrandCategory): string {
   const s = c.replace(/_/g, " ").toLowerCase();
