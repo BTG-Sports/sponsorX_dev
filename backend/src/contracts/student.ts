@@ -1,7 +1,7 @@
 import { z } from "./zod";
 
 import { STUDENT_STATES } from "../domain/student-state";
-import { MASTHEAD_ROLES, PROSPECT_REJECTION_REASONS } from "../domain/student";
+import { MASTHEAD_ROLES, PROSPECT_REJECTION_REASONS } from "../domain/student-vocabulary";
 import { POINT_REASONS } from "../domain/student-points";
 import { BrandCategory } from "./campaign";
 

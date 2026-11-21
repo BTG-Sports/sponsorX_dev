@@ -52,3 +52,12 @@
 - **Checked:** frontend 220 files / 2,747 tests pass; the backend alignment checks pass; lint clean; `npm run build` passes after `prisma generate` (the client was stale after today's pull).
 - **Tracker:** Polish row `POL-FE-121` (row 171) Done 2026-11-21; `POL-FE-122` (row 172) at Code review, infinex1; autofilter, conditional formatting and the Status list extended to row 172. Items 121 and 122 added to polish.md.
 - **Renumbered:** the quote fix (#518) was committed as `POL-FE-116`, a number already taken that day; it is `POL-FE-121`.
+
+## POL-BE-123 / POL-FE-123: the website deploys again (rcfworks)
+
+- **Found while deploying staging:** every web deploy since 53eb0356 (2026-11-20 19:47 UTC) failed on staging and production; both sites served e9bf9102. The api deployed each time. Earlier today a85b4935 was reported as deployed on both; that was read from `release`, and only the api had actually deployed.
+- **Cause:** `frontend/tests/advisor-profile-live.test.ts` (POL-FE-103) imports `backend/src/contracts/student.ts`, which took two lists from `domain/student.ts`, which loads the database client. `next build` type-checks the tests; Railway's web build has no generated Prisma client. CI generates it first, so CI passed.
+- **Backend (POL-BE-123):** the lists moved to `domain/student-vocabulary.ts` (no imports), re-exported from `domain/student.ts`. Guard test `backend/tests/frontend-imports-pure.static.test.ts`.
+- **Frontend (POL-FE-123), at the owner's request:** `frontend/tsconfig.build.json` via `typescript.tsconfigPath`, so `next build` checks the app only; new CI step `npm run typecheck -w @sponsorx/frontend` still checks the tests; the test's stand-in mock removed.
+- **Checked:** with `backend/src/generated` hidden, the old code fails with Railway's errors and the fix builds. All CI steps pass locally (backend 293 files / 4,103 tests, frontend 220 / 2,747).
+- **Lesson:** after a deploy, check each service's deployment status in Railway, not just the `release` branch.

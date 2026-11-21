@@ -3629,3 +3629,16 @@ the blockers and today's content review findings.
   - **"Clear"** clears every pick; disabled when nothing is picked.
   - A note under the buttons says what Select everything leaves out.
   - `SENSITIVE_CATEGORIES` and `EVERYDAY_CATEGORIES` in `frontend/src/lib/brand-categories.ts`; `backend/tests/brief-contract.test.ts` fails if the age-restricted list drifts from the backend's.
+
+### 123. The website hasn't deployed since 2026-11-20: its build fails on Railway, while CI passes [§30, P2-OPS-07]
+`POL-BE-123` · `POL-FE-123` · *Polish* · confirmed · **Code review** (rcfworks, 2026-11-21; both at the owner's request)
+- **Problem:** every web deploy since 53eb0356 (2026-11-20 19:47 UTC) failed on staging and production; both sites still serve e9bf9102. The api deployed each time, so the backend is current and the website isn't. Missed for a day because a deploy was read from the `release` branch, not from each service's build.
+- **Cause:** `frontend/tests/advisor-profile-live.test.ts` (POL-FE-103) imports `backend/src/contracts/student.ts`, which took two word lists from `domain/student.ts`, which loads the database client. `next build` type-checks the tests too (`tsconfig.json` includes `**/*.ts`). Railway's web build has no generated Prisma client, so it fails; CI generates it before building, so CI passes.
+- **Fix, backend (POL-BE-123):**
+  - `MASTHEAD_ROLES` and `PROSPECT_REJECTION_REASONS` move to `backend/src/domain/student-vocabulary.ts`, which imports nothing; `domain/student.ts` re-exports both.
+  - `backend/tests/frontend-imports-pure.static.test.ts`: every backend file the frontend imports (from `src` or `tests`) must not reach `backend/src/db/` or `backend/src/generated/`, type-only imports included. It names the chain when it fails.
+- **Fix, frontend (POL-FE-123):**
+  - `frontend/tsconfig.build.json` (the full config minus `tests/`), used by `next build` through `typescript.tsconfigPath` in `next.config.ts`. The website's build checks the app, not the tests.
+  - The tests are still type-checked: `npm run typecheck -w @sponsorx/frontend` (the full `tsconfig.json`), a new CI step after the web build.
+  - The stand-in for `domain/student` in `advisor-profile-live.test.ts` is gone; the test uses the real contract.
+- **Checked:** with `backend/src/generated` hidden, as on Railway, the old code fails with Railway's exact errors and the fixed code builds. Every CI step passes locally. A type error put in a test is caught by the new step.
