@@ -11,7 +11,7 @@ import { requireActor } from "../../auth/actor";
 import { clientIp, clientUserAgent } from "../../lib/client-ip";
 import {
   BrandingInput, InventoryItemInput, InventoryItemPatch, ListingBtgActionInput, ListingDecisionInput, ListingInput, ListingPatch, ListingState, LiveListingsQuery,
-  ListingTransitionInput, LogoUploadInput, OfferAthletesQuery, OfferChecksQuery, OfferDraftQuery, OfferInput, OfferKeepInput, OfferPatch, OfferResponseInput,
+  ListingTransitionInput, ListingSubmitInput, ListingFeesInput, SellerTermsAcceptInput, LogoUploadInput, OfferAthletesQuery, OfferChecksQuery, OfferDraftQuery, OfferInput, OfferKeepInput, OfferPatch, OfferResponseInput,
   RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SearchQuery, SponsorCategoriesInput,
   MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput, SellerApprovalDecisionInput,
@@ -32,7 +32,7 @@ import { addLine, currentCart, openCart, removeLine, updateLine } from "../../do
 import { createInventoryItem, getInventoryItem, listInventory, listInventoryPage, updateInventoryItem } from "../../domain/inventory";
 import { addRosterAthlete, setTeamShare, teamAthletesPage, teamInventoryPage, teamRoster, withdrawShareChange } from "../../domain/team";
 import {
-  autoPublishedListings, btgActOnListing, liveListings, createListing, decideListing, getListing, LISTING_SCOPES, listListings, listListingsPage, submitListing, transitionListing, updateListing,
+  autoPublishedListings, btgActOnListing, liveListings, createListing, decideListing, getListing, LISTING_SCOPES, listListings, listListingsPage, submitListing, acceptListingFeesNow, transitionListing, updateListing,
 } from "../../domain/listing";
 import {
   createOffer, getOffer, keepOffer, listOffers, listOffersPage, OFFER_TABS, respondToOffer, reviseOffer, sendOffer, updateOffer, withdrawOffer,
@@ -53,6 +53,7 @@ import {
 } from "../../domain/delivery";
 import { listRefunds, markRefundSent } from "../../domain/refunds";
 import { sellerSummary } from "../../domain/seller-summary";
+import { acceptSellerTerms, sellerTermsOf } from "../../domain/seller-terms";
 import {
   inviteAthlete, invitableAthletes, leaveTeam, myTeam, removeFromRoster, respondToInvitation, respondToShareChange, teamInvitations, withdrawInvitation,
 } from "../../domain/team-invitations";
@@ -125,8 +126,8 @@ export const listings: RequestHandler = async (req, res) => {
 const listing: RequestHandler<Id> = async (req, res) => { res.json(await getListing(req.actor!, req.params.id)); };
 const newListing: RequestHandler = async (req, res) => { res.status(201).json(await createListing(req.actor!, ListingInput.parse(req.body))); };
 const editListing: RequestHandler<Id> = async (req, res) => { res.json(await updateListing(req.actor!, req.params.id, ListingPatch.parse(req.body))); };
-const submit: RequestHandler<Id> = async (req, res) => { res.json(await submitListing(req.actor!, req.params.id)); };
-const moveListing: RequestHandler<Id> = async (req, res) => { res.json(await transitionListing(req.actor!, req.params.id, ListingTransitionInput.parse(req.body).to)); };
+const submit: RequestHandler<Id> = async (req, res) => { res.json(await submitListing(req.actor!, req.params.id, ListingSubmitInput.parse(req.body ?? {}).feeStatementHash)); };
+const moveListing: RequestHandler<Id> = async (req, res) => { const b = ListingTransitionInput.parse(req.body); res.json(await transitionListing(req.actor!, req.params.id, b.to, b.feeStatementHash)); };
 const decide: RequestHandler<Id> = async (req, res) => {
   const b = ListingDecisionInput.parse(req.body);
   res.json(await decideListing(req.actor!, req.params.id, b.decision, b.notes));
@@ -146,6 +147,14 @@ marketplaceRouter.get("/listings/live", requireActor, live);
 marketplaceRouter.get("/listings/:id", requireActor, listing);
 marketplaceRouter.patch("/listings/:id", requireActor, editListing);
 marketplaceRouter.post("/listings/:id/submit", requireActor, submit);
+/* POL-BE-120 — a team reads and accepts the seller terms in force. */
+marketplaceRouter.get("/seller-terms", requireActor, (async (req, res) => { res.json(await sellerTermsOf(req.actor!)); }) as RequestHandler);
+marketplaceRouter.post("/seller-terms/accept", requireActor, (async (req, res) => {
+  const b = SellerTermsAcceptInput.parse(req.body);
+  res.json(await acceptSellerTerms(req.actor!, { ...b, ip: clientIp(req) ?? "", userAgent: clientUserAgent(req) ?? "" }));
+}) as RequestHandler);
+/* POL-BE-119 — accept a live listing's fees at today's rates without pausing it. */
+marketplaceRouter.post("/listings/:id/accept-fees", requireActor, (async (req, res) => { res.json(await acceptListingFeesNow(req.actor!, req.params.id, ListingFeesInput.parse(req.body).feeStatementHash)); }) as RequestHandler<Id>);
 marketplaceRouter.post("/listings/:id/transition", requireActor, moveListing);
 marketplaceRouter.post("/listings/:id/decision", requireActor, decide);
 marketplaceRouter.post("/listings/:id/btg-action", requireActor, btgAct);
@@ -299,7 +308,7 @@ marketplaceRouter.get("/seller-approvals", requireActor, sellerApprovals);
 marketplaceRouter.get("/seller-approvals/:id", requireActor, (async (req, res) => { res.json(await mySellerApproval(req.actor!, req.params.id)); }) as RequestHandler<Id>);
 marketplaceRouter.post("/seller-approvals/:id/decision", requireActor, (async (req, res) => {
   const b = SellerApprovalDecisionInput.parse(req.body);
-  res.json(await decideSellerApproval(req.actor!, req.params.id, b.decision, b.reason));
+  res.json(await decideSellerApproval(req.actor!, req.params.id, b.decision, b.reason, new Date(), b.feeStatementHash));
 }) as RequestHandler<Id>);
 marketplaceRouter.get("/sponsors/:id/spending-limit", requireActor, (async (req, res) => { res.json(await sponsorSpendingLimit(req.actor!, req.params.id)); }) as RequestHandler<Id>);
 

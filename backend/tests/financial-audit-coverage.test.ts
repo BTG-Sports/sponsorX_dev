@@ -57,6 +57,9 @@ const MONEY_MODULES = [
  * because a prefix rule would let `readAndApplyCorrection` slip through.
  */
 const READ_ONLY = new Set([
+  /* POL-BE-119 — the rates an order or listing would carry, resolved and returned; the caller freezes (and audits) them. */
+  "resolveFeeTerms",
+  "orderFeeTerms",
   /* P8-BE-03 — reads and a pure function in deal-disputes.ts (BTG's document link is audited as a grant by storage.ts). */
   "listDealDisputes",
   "getDealDispute",

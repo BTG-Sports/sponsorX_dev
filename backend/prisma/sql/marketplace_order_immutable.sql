@@ -29,6 +29,10 @@ BEGIN
     OR NEW."billingEmail" IS DISTINCT FROM OLD."billingEmail" OR NEW."billingReference" IS DISTINCT FROM OLD."billingReference" THEN
     RAISE EXCEPTION 'marketplace_order_immutable: order % acceptance and billing contact are fixed when it is placed', OLD.id USING ERRCODE = 'check_violation';
   END IF;
+  -- POL-BE-119 (migration 20261121100000): the fee terms are written once, then fixed.
+  IF OLD."feeTerms" IS NOT NULL AND NEW."feeTerms" IS DISTINCT FROM OLD."feeTerms" THEN
+    RAISE EXCEPTION 'marketplace_order_immutable: order % fee terms are fixed once disclosed', OLD.id USING ERRCODE = 'check_violation';
+  END IF;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

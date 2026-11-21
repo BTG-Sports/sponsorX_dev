@@ -49,6 +49,10 @@ import { SELLER_APPROVAL_HOURS, usd } from "./marketplace-order-rules";
 import { appUrl, btgAdmins, orderRef, sellerRecipients, sponsorRecipient, tell, utc, type SellerParty } from "./order-mail";
 import { logError } from "../lib/redact";
 import { readSegments, type PageRequest } from "../lib/paging";
+import { ensureFeeTerms } from "./ledger";
+import { FEE_LINE_ORDER, presentStatement, requireFeeStatement, sellerStatementFor } from "./fee-statement";
+import type { FeeStatementRecord } from "./fee-statement-rules";
+import { assertSellerTermsCurrent } from "./seller-terms";
 
 type Tx = Prisma.TransactionClient;
 const HOUR = 3_600_000;
@@ -132,6 +136,7 @@ export async function openSellerApprovals(tx: Tx, order: PlacedOrder, askingList
 const SELECT = {
   id: true, tenantId: true, orderId: true, sponsorId: true, propertyId: true, propertyTenantId: true, athleteId: true, athleteTenantId: true,
   lineIds: true, state: true, dueAt: true, decidedAt: true, decidedBy: true, reason: true, createdAt: true,
+  feeStatement: true,
   order: { select: { state: true } },
 } as const;
 type Row = Prisma.OrderSellerApprovalGetPayload<{ select: typeof SELECT }>;
@@ -196,10 +201,20 @@ async function sellerViews(rows: Row[], now: Date) {
     : [];
   const byId = new Map(lines.map((l) => [l.id, l]));
   const names = await namesFor(rows);
+  /* POL-BE-119 — the fee statement: worked out while the seller can still answer, read back once they have. */
+  const fees = new Map<string, ReturnType<typeof presentStatement>>();
+  for (const r of rows) {
+    const kept = r.feeStatement as FeeStatementRecord | null;
+    if (kept?.statement) fees.set(r.id, { feeStatement: kept.statement, feeStatementHash: kept.hash });
+    else if (r.state === "PENDING" && r.order.state === "PENDING_SELLER" && now < r.dueAt) {
+      fees.set(r.id, presentStatement(await prisma.$transaction((tx) => sellerFees(tx, r.orderId, r.lineIds, now))));
+    }
+  }
   return rows.map((r) => {
     const mine = r.lineIds.map((id) => byId.get(id)).filter((l): l is NonNullable<typeof l> => Boolean(l));
     const open = r.state === "PENDING" && r.order.state === "PENDING_SELLER" && now < r.dueAt;
     return {
+      ...(fees.get(r.id) ?? { feeStatement: null, feeStatementHash: null }),
       id: r.id,
       orderRef: orderRef(r.orderId),
       state: r.state as SellerApprovalState,
@@ -281,7 +296,19 @@ export async function mySellerApproval(actor: Actor, id: string, now = new Date(
  * waits on its sellers. A minor's answer comes from their guardian
  * (guardian-acts.ts `assertMayCommit`); the audit names who answered.
  */
-export async function decideSellerApproval(actor: Actor, id: string, decision: "ACCEPT" | "DECLINE", reason?: string | null, now = new Date()) {
+/** POL-BE-119 — this seller's statement for the order, under the order's frozen rates. */
+async function sellerFees(tx: Prisma.TransactionClient, orderId: string, lineIds: readonly string[], now: Date) {
+  const terms = await ensureFeeTerms(tx, orderId, now);
+  const lines = await tx.marketplaceOrderLine.findMany({
+    /* tenant-scope: every line of the order the seller's own approval row names (loaded through whereFor(orderSellerApproval)) — summed into figures, never shown line by line. */
+    where: { orderId }, orderBy: FEE_LINE_ORDER, select: { id: true, lineTotalCents: true },
+  });
+  return sellerStatementFor("MARKETPLACE_ORDER", terms, lines, lineIds);
+}
+
+export async function decideSellerApproval(
+  actor: Actor, id: string, decision: "ACCEPT" | "DECLINE", reason?: string | null, now = new Date(), feeStatementHash?: string | null,
+) {
   sellerScope(actor, "write");
   const why = reason?.trim() ?? "";
   if (decision === "DECLINE" && !why) throw new SellerApprovalError("Declining needs a reason — the sponsor reads it.", 422);
@@ -304,13 +331,17 @@ export async function decideSellerApproval(actor: Actor, id: string, decision: "
     if (row.order.state !== "PENDING_SELLER") throw new SellerApprovalError("This order is no longer waiting for your answer.");
     if (now >= row.dueAt) throw new SellerApprovalError("The 48 hours to answer are over, so the order is cancelled.");
     const next = decision === "ACCEPT" ? "ACCEPTED" : "DECLINED";
+    /* POL-BE-119 — accepting is accepting the fee statement shown: checked, and kept with the answer. */
+    if (decision === "ACCEPT") await assertSellerTermsCurrent(tx, actor); // POL-BE-120 — on the seller terms in force
+    const fee = decision === "ACCEPT" ? requireFeeStatement(await sellerFees(tx, row.orderId, row.lineIds, now), feeStatementHash) : null;
     const claimed = await tx.orderSellerApproval.updateMany({
       /* tenant-scope: the row just loaded through whereFor(orderSellerApproval, write); conditional, so a second answer finds nothing. */
-      where: { id: row.id, state: "PENDING" }, data: { state: next, decidedAt: now, decidedBy: actor.userId, reason: decision === "DECLINE" ? why : null },
+      where: { id: row.id, state: "PENDING" },
+      data: { state: next, decidedAt: now, decidedBy: actor.userId, reason: decision === "DECLINE" ? why : null, ...(fee ? { feeStatement: fee as unknown as Prisma.InputJsonValue } : {}) },
     });
     if (claimed.count === 0) throw new SellerApprovalError("You have already answered this order.");
     await audit(tx, actor, decision === "ACCEPT" ? "orderSellerApproval.accept" : "orderSellerApproval.decline", "OrderSellerApproval", row.id, {
-      before: { state: "PENDING" }, after: { state: next, orderId: row.orderId, ...(decision === "DECLINE" ? { reason: why } : {}), ...(actor.actingFor ? { actingForAthleteId: actor.actingFor.athleteId } : {}) },
+      before: { state: "PENDING" }, after: { state: next, orderId: row.orderId, ...(decision === "DECLINE" ? { reason: why } : {}), ...(fee ? { feeStatement: { hash: fee.hash, shown: fee.shown } } : {}), ...(actor.actingFor ? { actingForAthleteId: actor.actingFor.athleteId } : {}) },
     });
     const names = await namesFor([row]);
     const seller = sellerOf(row, names);

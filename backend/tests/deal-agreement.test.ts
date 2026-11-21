@@ -321,9 +321,18 @@ describe.skipIf(!hasDatabase)("2S4-BE-14 · deal agreements, end to end", async 
     const d = await open(o, { athleteId: p("riley") }, ["CONTENT"], 120_000);
     const row = await prisma.dealAgreement.findUniqueOrThrow({ where: { id: d.id }, select: { id: true, forms: true, lineIds: true, amountCents: true, originalAmountCents: true, state: true, athleteTenantId: true, body: true, agreementId: true, agreement: { select: { kind: true, version: true } } } });
     expect(row).toMatchObject({ forms: ["CONTENT"], lineIds: [`${o}_l0`, `${o}_l1`], amountCents: 120_000, originalAmountCents: 100_000, state: "OPEN", athleteTenantId: T });
-    expect(row.agreement).toMatchObject({ kind: "DEAL", version: 1 });
+    /* POL-BE-120 — DEAL v2: the fees, who pays them and the processing cost are in the text both sign. */
+    expect(row.agreement).toMatchObject({ kind: "DEAL", version: 2 });
     expect(row.body).toContain("Riley Park (\"the Seller\")");
     expect(row.body).toContain("$1,200.00, agreed by both sides (the order's original amount was $1,000.00).");
+    expect(row.body).toContain("The fees, who pays them, and the processing cost:");
+    expect(row.body).toContain("What the Sponsor pays:\n- Price: $1,200.00.\n- Transaction fee: none is added to your price.");
+    expect(row.body).toContain("What the Seller pays:\n- Your sale: $1,200.00.\n- Transaction fee: none applies to this sale.");
+    expect(row.body).toContain("Joining SponsorX carries no upfront or monthly access fee.");
+    expect(row.body).not.toContain("{{fees}}");
+    const kept = (await prisma.dealAgreement.findUniqueOrThrow({ where: { id: d.id }, select: { feeStatements: true } })).feeStatements as { sponsor: { feeStatement: { audience: string } }; seller: { feeStatement: { audience: string; amountCents: number } } };
+    expect(kept.sponsor.feeStatement.audience).toBe("SPONSOR");
+    expect(kept.seller.feeStatement).toMatchObject({ audience: "SELLER", amountCents: 120_000 });
     /* The team's form, from a banner: placement only. */
     const t = await open(o, { propertyId: p("hawks") }, ["PLACEMENT"]);
     expect((await prisma.dealAgreement.findUniqueOrThrow({ where: { id: t.id }, select: { forms: true } })).forms).toEqual(["PLACEMENT"]);

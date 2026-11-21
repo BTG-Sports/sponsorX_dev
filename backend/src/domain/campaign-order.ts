@@ -42,6 +42,8 @@ import { projectLine } from "./pricing-learning";
 import { advanceCampaign, advanceCampaignOfOrder, lockCampaignForStaffing } from "./campaign-stages";
 import { nextOrderNumberIn, storedOrderDetails } from "./campaign-order-details";
 import { detailsForJob, exclusivityWords } from "./order-details-rules";
+import { requireFeeStatement } from "./fee-statement";
+import { athleteStatement } from "./fee-statement-rules";
 
 export class TermsFrozenError extends Error {
   readonly status = 409;
@@ -364,7 +366,7 @@ export async function applyOrderTransitionIn(
 export async function acceptOrder(
   actor: Actor,
   orderId: string,
-  evidence: { agreementId: string; bodyHashShown: string; ip: string; userAgent: string },
+  evidence: { agreementId: string; bodyHashShown: string; ip: string; userAgent: string; feeStatementHash?: string | null },
 ): Promise<{ id: string; state: OrderState; acceptanceId: string }> {
   assertAllowed(actor, "campaignOrder", "write");
 
@@ -417,7 +419,11 @@ export async function acceptOrder(
     /* One acceptance per ORDER, not per signer — see acceptAgreementIn's
        `oncePerSigner`. The `from !== "SENT"` guard above is the double-accept
        protection, and it runs inside this transaction. */
-    const acceptance = await acceptAgreementIn(tx, actor, evidence, { oncePerSigner: false });
+    /* POL-BE-119 — "before campaign acceptance, disclose the applicable transaction fee, fee payer
+       and processing costs in writing": the athlete accepts the statement they were shown. */
+    const fee = requireFeeStatement(athleteStatement(order.compensation), evidence.feeStatementHash);
+    const { feeStatementHash: _shown, ...agreementEvidence } = evidence;
+    const acceptance = await acceptAgreementIn(tx, actor, agreementEvidence, { oncePerSigner: false });
 
     /* tenant-scope: the row loaded above through whereFor(campaignOrder, write). */
     const updated = await tx.campaignOrder.update({
@@ -426,6 +432,7 @@ export async function acceptOrder(
         state: "ACCEPTED",
         acceptedAt: new Date(),
         acceptanceId: acceptance.acceptanceId,
+        feeStatement: fee as unknown as Prisma.InputJsonValue,
       },
       select: { id: true, state: true },
     });

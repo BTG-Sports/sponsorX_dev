@@ -28,6 +28,7 @@ import type { Actor } from "../auth/actor";
 import { assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { breakdownOrder, NO_RULE, RULE_KINDS, type AppliedRule, type RuleKind } from "./ledger-math";
+import { enqueue } from "../db/outbox";
 
 export const RULE_SCOPES = ["GLOBAL", "PROPERTY_KIND", "PROPERTY", "SPONSOR"] as const;
 export type RuleScope = (typeof RULE_SCOPES)[number];
@@ -110,6 +111,8 @@ export async function reviseRule(actor: Actor, id: string, change: Partial<Pick<
       before: { ruleKey: current.ruleKey, version: current.version, bps: current.bps, fixedCents: current.fixedCents, priority: current.priority },
       after: { ruleKey: row.ruleKey, version: row.version, bps: row.bps, fixedCents: row.fixedCents, priority: row.priority },
     });
+    /* POL-BE-119 — sellers whose accepted listing fees this changes are told. */
+    await enqueue(tx, current.tenantId, "notify.feeRatesChanged", { operatorTenantId: current.tenantId, effectiveFrom: row.effectiveFrom.toISOString() });
     return row;
   });
 }
