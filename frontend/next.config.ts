@@ -28,6 +28,12 @@ const nextConfig: NextConfig = {
 
   // 2S8-SEC-02 (OWASP A05) — no "X-Powered-By: Next.js" advertising the stack.
   poweredByHeader: false,
+  // POL-FE-123: the website's build type-checks the app, not the tests.
+  // Tests import backend files to check the screens against the API's own
+  // contracts; Railway's web build has no generated Prisma client, so a test
+  // that reached it failed every deploy from 2026-11-20. The tests are still
+  // type-checked in CI by `npm run typecheck` (the full tsconfig.json).
+  typescript: { tsconfigPath: "tsconfig.build.json" },
 
   // 2S8-SEC-02 — baseline security headers on every response, ENFORCED. What
   // is enforced cannot break a page: no framing of ours anywhere (the admin
