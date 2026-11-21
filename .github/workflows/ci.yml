@@ -202,6 +202,14 @@ jobs:
       - name: Build the web app
         run: npm run build -w @sponsorx/frontend
 
+      # POL-FE-123: the web build type-checks the app only
+      # (frontend/tsconfig.build.json leaves the tests out), as Railway's web
+      # build has no generated Prisma client. This checks everything,
+      # tests included, against the full tsconfig.json. It runs after the
+      # build, which generates the route types (.next/types) it reads.
+      - name: Type-check the web app and its tests
+        run: npm run typecheck -w @sponsorx/frontend
+
       - name: Lint
         run: npm run lint
 

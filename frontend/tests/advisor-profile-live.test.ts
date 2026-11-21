@@ -1,11 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it, vi } from "vitest";
-
-/* The contract file also carries the student contracts, whose two word lists
-   come from a domain module that reads the server's environment and opens the
-   database on import. Neither list is part of the advisor's contract, so that
-   one module is stood in for; AdvisorProfileInput itself is the real one. */
-vi.mock("../../backend/src/domain/student", () => ({ MASTHEAD_ROLES: ["WRITER"], PROSPECT_REJECTION_REASONS: ["OTHER"] }));
+import { describe, expect, it } from "vitest";
 
 import { AdvisorProfileInput } from "../../backend/src/contracts/student";
 import {
